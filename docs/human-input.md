@@ -2625,3 +2625,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_572 — 2026-11-16 — directive
 > yes run the prototype
 (asks for the throated wheel prototype: sections worked out from the worm, a loft through 3, 5 and 9 of them, and the overlap with the worm measured at several turns)
+
+## in_573 — 2026-11-17 — directive
+> Yes, build the worm and the loft wheel
+(approves q_worm_gears as proposed: a worm gear kind made of its core and thread step, a throated wheel as a loft through 5 sections worked out from the worm, a check against the worm by the kernel's intersection; single start first, 90 degree shafts, one hand first)

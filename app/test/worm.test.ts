@@ -1,0 +1,171 @@
+// Worm gears (`dec_worm_gears`, `in_573`): the worm, the throated wheel as a loft through sections, and how they fit.
+import test from "node:test";
+import assert from "node:assert/strict";
+import { gearOutline } from "../src/operation/gear.ts";
+import type { GearSpec } from "../src/operation/gear.ts";
+import { wormGeometry, wheelOf } from "../src/operation/worm.ts";
+import type { WormGeometry } from "../src/operation/worm.ts";
+import { wheelSections, SECTIONS } from "../src/operation/wheelsections.ts";
+import type { Section } from "../src/operation/wheelsections.ts";
+import { meshWith } from "../src/operation/mesh.ts";
+import type { GearRecord } from "../src/operation/gearscene.ts";
+import { gearOfPart } from "../src/operation/gearscene.ts";
+import { kernel } from "../src/compiler/kernel/index.ts";
+import { worldRef } from "../src/shared/ref.ts";
+import { createSession, run, scene } from "../src/interaction/session.ts";
+import type { Session } from "../src/interaction/session.ts";
+import type { Vec3 } from "../src/math/vec.ts";
+
+await kernel.init();
+const worm: GearSpec = { teeth: 1, module: 2, worm: { diameter: 24, length: 30 } };
+const bodies = (s: Session) => Object.values(scene(s).parts).filter((p) => p.kind === "body") as { ref: string; volume: number }[];
+const err = (s: GearSpec) => { const r = gearOutline(s); return r.ok ? "" : r.error; };
+
+test("the numbers of a worm: the lead is the starts times pi times the module; the thread stands out a module and goes 1.25 modules below the pitch circle; refusals say why", () => {
+  const g = wormGeometry(2, 2, 20, 24);
+  assert.ok(g.ok);
+  const w = (g as { value: WormGeometry }).value;
+  assert.ok(Math.abs(w.lead - 2 * Math.PI * 2) < 1e-12 && Math.abs(w.px - 2 * Math.PI) < 1e-12);
+  assert.ok(Math.abs(w.rTip - 14) < 1e-12 && Math.abs(w.rRoot - 9.5) < 1e-12);
+  assert.ok(Math.abs(w.half(w.rp) - w.px / 4) < 1e-12, "the thread is half the pitch thick at the pitch circle (half of that either side)");
+  assert.match(err({ teeth: 5, module: 2, worm: { diameter: 24, length: 30 } }), /1 to 4 starts/);
+  assert.match(err({ teeth: 1, module: 2, worm: { diameter: 8, length: 30 } }), /too thin/);
+  assert.match(err({ teeth: 1, module: 2, worm: { diameter: 24, length: 10 } }), /at least two leads/);
+  assert.match(err({ teeth: 1, module: 2, pressure: 40, worm: { diameter: 24, length: 30 } }), /10 to 30 degrees/);
+  assert.match(err({ ...worm, bore: 30 }), /bore must be smaller/);
+  assert.match(err({ ...worm, flat: 1, bore: 5 }), /round bore only/);
+  assert.equal(err(worm), "");
+});
+
+test("the gear command makes a worm: a core and a thread joined into one body, as a step of the gear; its volume is the core's and the thread's, less where they overlap", () => {
+  const s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: worm });
+  assert.ok(!s.message, s.message ?? "");
+  assert.deepEqual(scene(s).steps.map((x) => x.type), ["revolve", "revolve"]);
+  assert.ok(scene(s).steps.every((x) => x.params.gear === "g_001"));
+  assert.deepEqual(s.outcome.errors, {});
+  const b = bodies(s);
+  assert.equal(b.length, 1, "one body: the thread is joined to the core");
+  const core = Math.PI * 9.5 ** 2 * 30;
+  assert.ok(b[0]!.volume > core + 3000 && b[0]!.volume < core + 5500, `${b[0]!.volume}`);
+  assert.equal(gearOfPart(scene(s), b[0]!.ref as never)?.id, "g_001", "its body selects the gear");
+});
+
+test("a worm with two starts has two threads; a bore is a hole through the core", () => {
+  const two = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: { ...worm, teeth: 2, worm: { diameter: 24, length: 40 }, bore: 6 } });
+  assert.ok(!two.message, two.message ?? "");
+  assert.equal(scene(two).steps.length, 3);
+  assert.equal(bodies(two).length, 1);
+  const none = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: { ...worm, teeth: 2, worm: { diameter: 24, length: 40 } } });
+  assert.ok(Math.abs(bodies(none)[0]!.volume - bodies(two)[0]!.volume - Math.PI * 9 * 40) < 0.01 * bodies(none)[0]!.volume, "the bore takes its cylinder out");
+});
+
+const wheelSpec: GearSpec = { teeth: 20, module: 2, wheel: { starts: 1, diameter: 24, width: 12 } };
+test("the sections of a worm wheel: five outlines of 20 teeth, 19 sides to a tooth, the tips on an arc about the worm's axis (the throat) and the teeth turning across the width", () => {
+  const t0 = Date.now();
+  const r = wheelSections(wheelSpec);
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  const secs = (r as { value: Section[] }).value;
+  assert.equal(secs.length, SECTIONS);
+  assert.ok(Date.now() - t0 < 8000, `${Date.now() - t0} ms`);
+  const w = wheelOf(wheelSpec);
+  assert.ok(w.ok);
+  for (const s of secs) {
+    assert.equal(s.points.length, 20 * 19);
+    const rs = s.points.map((p) => Math.hypot(p[0], p[1]));
+    const tip = (w as { value: { tipAt: (h: number) => number } }).value.tipAt(s.h);
+    assert.ok(Math.abs(Math.max(...rs) - tip) < 1e-3, `h ${s.h}: tip ${Math.max(...rs)} against ${tip}`);
+  }
+  assert.ok(secs[SECTIONS - 1]!.points[0]![0] !== secs[0]!.points[0]![0], "the teeth turn across the width");
+  assert.match((wheelSections({ ...wheelSpec, wheel: { ...wheelSpec.wheel!, width: 40 } }) as { error: string }).error, /width of the wheel/);
+});
+
+/** the worm and its wheel in one scene, the wheel placed by the meshing helper; `closer` mm nearer than the centre distance */
+function pair(side: number, offset: number, closer = 0): Session {
+  const base = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: worm });
+  const src: GearRecord = { id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: worm };
+  const r = meshWith(src, [1, 0, 0], [0, 1, 0], { teeth: 20, offset }, side > 0 ? Math.PI / 2 : -Math.PI / 2);
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  const p = (r as { value: { at: Vec3; turn: number; spec: GearSpec } }).value;
+  const at: Vec3 = [p.at[0], p.at[1] - side * closer, p.at[2]];
+  const s = run(base, { type: "gear", id: "g_002", plane: worldRef("XY"), at, spec: p.spec, turn: p.turn });
+  assert.ok(!s.message, s.message ?? "");
+  return s;
+}
+function overlap(s: Session): number {
+  const b = bodies(s);
+  assert.equal(b.length, 2, "the worm and the wheel stand side by side");
+  const done = run(s, { type: "addStep", step: { id: "s_900", type: "combine", parts: b.map((x) => x.ref) as never, params: { mode: "intersect", keep: 1 } } });
+  if (Object.values(done.outcome.errors).some((e) => /nothing in common/.test(e))) return 0;
+  assert.deepEqual(done.outcome.errors, {});
+  const rest = bodies(done).map((x) => x.volume).sort((x, y) => y - x);
+  return rest.slice(1).reduce((t, v) => t + v, 0); // (the bodies that stay are the wheel and the worm's; what is left over is the overlap)
+}
+
+test("the meshed wheel fits the worm: placed by the helper on either side of the worm and along it, the two overlap by under a cubic millimetre; a wheel 0.4 mm too near overlaps by a good deal more", () => {
+  for (const [side, off] of [[1, 0], [-1, 0], [1, 3]] as const) {
+    const o = overlap(pair(side, off));
+    assert.ok(o < 1, `side ${side}, offset ${off}: overlap ${o} mm3`);
+  }
+  const near = overlap(pair(1, 0, 0.4));
+  assert.ok(near > 5, `0.4 mm too near: overlap ${near} mm3`);
+});
+
+test("editing a worm wheel (Edit gear): another tooth count makes the body again; a worm that is no longer a worm loses its steps; deleting a wheel takes its steps", () => {
+  let s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: wheelSpec });
+  assert.ok(!s.message, s.message ?? "");
+  assert.equal(scene(s).steps.length, 1);
+  assert.equal(scene(s).steps[0]!.type, "loft");
+  const v1 = bodies(s)[0]!.volume;
+  s = run(s, { type: "setGear", id: "g_001", spec: { ...wheelSpec, teeth: 24 } });
+  assert.ok(!s.message, s.message ?? "");
+  assert.equal(scene(s).steps.length, 1);
+  assert.ok(bodies(s)[0]!.volume > v1, "more teeth, a bigger wheel");
+  assert.equal(gearOfPart(scene(s), bodies(s)[0]!.ref as never)?.id, "g_001");
+  const gone = run(s, { type: "deleteGear", id: "g_001" });
+  assert.equal(scene(gone).steps.length, 0);
+});
+
+import { createState, reduce } from "../src/interaction/controller.ts";
+import type { AppState } from "../src/interaction/controller.ts";
+import { projector, lookStraight, homeCamera } from "../src/interaction/camera.ts";
+import { entryOf, previewFor } from "../src/interaction/entry.ts";
+import { selection } from "../src/interaction/session.ts";
+
+const env = { w: 800, h: 600 } as never;
+const top = (): AppState => ({ ...createState(createSession(kernel)), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [10, 10, 0] } });
+const px = (st: AppState, p: Vec3) => projector(st.cam, 800, 600).project(p);
+const click = (st: AppState, p: Vec3) => reduce(st, { type: "click", x: px(st, p)[0], y: px(st, p)[1], count: 1, shift: false }, env);
+const key = (st: AppState, k: string) => reduce(st, { type: "typed", key: k, shift: false }, env);
+const typeText = (st: AppState, text: string) => [...text].reduce((t, c) => key(t, c), st);
+const C: Vec3 = [10, 10, 0];
+const open = (id: string): AppState => { let st = reduce(top(), { type: "begin", name: "gear" }, env); st = reduce(st, { type: "runAction", id }, env); return click({ ...st, tool: { ...st.tool!, plane: worldRef("XY") } }, C); };
+
+test("the Worm and Worm wheel tools: in the Worm submenu of the Gear submenu; a worm's box is Starts, Module, Pressure, Diameter, Length, Bore; typing a number of starts and Enter makes it, its body at once and nothing left selected", () => {
+  const ids = (reduce(top(), { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap(function walk(i: any): string[] { return [i.id, ...(i.children ?? []).flatMap(walk)]; });
+  assert.ok(ids.includes("tool:worm") && ids.includes("tool:wormwheel"));
+  let st = open("tool:worm");
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Starts", "Module", "Pressure", "Diameter", "Length", "Bore"]);
+  assert.ok(previewFor(scene(st.session), st.tool)!.segments.length >= 6, "the box of its length is drawn");
+  st = typeText(st, "2"); st = key(st, "Enter");
+  const rec = scene(st.session).gears![0]!;
+  assert.deepEqual([rec.spec.teeth, rec.spec.module, rec.spec.worm!.diameter], [2, 2, 20]);
+  assert.equal(scene(st.session).steps.length, 3);
+  assert.equal(selection(st.session).length, 0);
+  assert.deepEqual(st.session.outcome.errors, {});
+  // too many starts says so
+  let bad = open("tool:worm"); bad = typeText(bad, "9"); bad = key(bad, "Enter");
+  assert.match(bad.session.message ?? "", /1 to 4 starts/);
+  const w = open("tool:wormwheel");
+  assert.deepEqual(entryOf(scene(w.session), w.tool, w.op)!.fields.map((f) => f.label), ["Teeth", "Starts", "Module", "Pressure", "Worm diameter", "Width", "Bore"]);
+});
+
+test("Mesh gear on a worm makes its wheel: Teeth, Offset, Width and Bore are its fields; the pointer says which side of the worm; one undo takes the wheel away", () => {
+  let st = open("tool:worm");
+  st = typeText(st, "1"); st = key(st, "Tab"); st = typeText(st, "2"); st = key(st, "Enter"); // (a worm of module 2, 20 mm across)
+  assert.ok(!st.session.message, st.session.message ?? "");
+  const body = bodies(st.session)[0]!;
+  let m: AppState = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [body.ref] as never } } } as AppState;
+  m = reduce(m, { type: "runAction", id: "gear:mesh" }, env);
+  assert.ok(m.tool?.gear?.mesh, "the mesh tool is open");
+  assert.deepEqual(entryOf(scene(m.session), m.tool, m.op)!.fields.map((f) => f.label), ["Teeth", "Offset", "Width", "Bore"]);
+});

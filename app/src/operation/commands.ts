@@ -15,7 +15,7 @@ import { bumpCounter, figureRefs, usesFigures } from "./scene.ts";
 import { addGroup, removeGroup, withoutParts } from "./groups.ts";
 import { stretchScene } from "./stretch.ts";
 import { addPattern, setPattern, breakPattern, patternsWithout } from "./repeat.ts";
-import { addGear, setGear, deleteGear, helicalStep } from "./gearscene.ts";
+import { addGear, setGear, deleteGear, ownedSteps } from "./gearscene.ts";
 import type { GearSpec } from "./gear.ts";
 
 export type Command =
@@ -237,8 +237,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       const r = addGear(s, rec);
       if (!r.ok) return r;
       const made = bumpCounter(r.value, c.id);
-      const body = helicalStep(made, rec); // (a helical gear comes with the twist that makes its body, `in_566`)
-      return ok(body ? bumpCounter({ ...made, steps: [...made.steps, body] }, body.id) : made);
+      return ok(ownedSteps(made, rec).scene); // (a gear that has a body made with it comes with the steps that make it, `in_566`, `in_573`)
     }
     case "setGear": return setGear(s, c.id, c.spec, c.at, c.turn);
     case "deleteGear": return deleteGear(s, c.id);

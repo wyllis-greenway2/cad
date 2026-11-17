@@ -11,6 +11,8 @@ import { sprocketOutline } from "./sprocket.ts";
 import { cycloidalOutline } from "./cycloidal.ts";
 import { boreProblem } from "./bore.ts";
 import { gearRoot } from "./gearroot.ts";
+import { wormOf, wheelOf } from "./worm.ts";
+import type { WormSpec, WheelSpec } from "./worm.ts";
 
 /** the belts there are timing pulleys for (`pulley.ts`) */
 export type PulleyKind = "2GT" | "3GT" | "HTD5M" | "HTD8M";
@@ -35,6 +37,10 @@ export interface GearSpec {
    * the backlash and the clearance are the *normal* ones, measured square to the teeth; the outline is the transverse section (module / cos of the helix angle) that the body is then twisted from (`helixTwist`) */
   helix?: number;
   width?: number;
+  /** a worm (`in_573`): `teeth` is its starts, `module` its axial module, `pressure` its axial pressure angle; the diameter and the length of its core are here */
+  worm?: WormSpec;
+  /** a worm wheel (`in_573`): the throated wheel for a worm of this diameter and this many starts, as wide as this */
+  wheel?: WheelSpec;
   /** arcs to each side of a tooth's flank (2 to 8; 4 by default): fewer is a rougher involute and a body with fewer faces, which is quicker to make (`dec_speed_rules`) */
   detail?: number;
   /** the corner radius of the rack cutter, in modules: the root is then shaped as that cutter makes it (a fillet, and the undercut when there are few teeth: `gearroot.ts`); none or 0: the root is the circle between the flanks */
@@ -118,6 +124,25 @@ export function helixTwist(spec: GearSpec): number | null {
   return ((spec.width! * Math.tan(b)) / rp) * (180 / Math.PI);
 }
 
+/** A worm's outline is the figure of its thread (the tooth of the axial section: its axial place and radius as x and y), the one thing the generic code draws; the worm itself is made by `worm.ts`' steps. */
+function wormOutline(spec: GearSpec): Result<GearOutline> {
+  const g = wormOf(spec);
+  if (!g.ok) return g;
+  const { rRoot, rTip, rp, half } = g.value;
+  const hb = half(rRoot - 0.5 * spec.module);
+  const points: [number, number][] = [[hb, rRoot - 0.5 * spec.module], [half(rTip), rTip], [-half(rTip), rTip], [-hb, rRoot - 0.5 * spec.module]];
+  return ok({ points, bulges: points.map(() => 0), pitchRadius: rp, baseRadius: 0, tipRadius: rTip, rootRadius: rRoot, warnings: [] });
+}
+/** A worm wheel's outline as this code can give it at once: the circle of its pitch (the real sections, worked out from the worm, take seconds: `wheelsections.ts`); what is checked is the numbers. */
+function wheelOutline(spec: GearSpec): Result<GearOutline> {
+  const w = wheelOf(spec);
+  if (!w.ok) return w;
+  const { rw, rootAt, tipAt } = w.value;
+  const n = 48;
+  const points: [number, number][] = Array.from({ length: n }, (_, i) => [rw * Math.cos((2 * Math.PI * i) / n), rw * Math.sin((2 * Math.PI * i) / n)]);
+  return ok({ points, bulges: points.map(() => 0), pitchRadius: rw, baseRadius: 0, tipRadius: tipAt(0), rootRadius: rootAt(0), warnings: [] });
+}
+
 /** The outline of a gear, or why there is none (and why its bore has no such flat or keyway). */
 export function gearOutline(spec: GearSpec): Result<GearOutline> {
   const r = outlineOf(spec);
@@ -127,6 +152,8 @@ export function gearOutline(spec: GearSpec): Result<GearOutline> {
 }
 function outlineOf(spec: GearSpec): Result<GearOutline> {
   if (!spec.pulley && !spec.sprocket && !spec.cycloidal && spec.clearance !== undefined && !(spec.clearance >= 0 && spec.clearance <= 1)) return err("the clearance is from 0 to 1 module");
+  if (spec.worm) return wormOutline(spec);
+  if (spec.wheel) return wheelOutline(spec);
   if (spec.cycloidal) return cycloidalOutline(spec);
   if (spec.rack) return rackOutline(spec);
   if (spec.pulley) return pulleyOutline(spec);
