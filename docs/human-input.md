@@ -3115,3 +3115,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_693 — 2026-11-17 — directive
 > yes figure out why the loft gets rejected
 (asks to find out why the kernel's validity check rejects the smooth worm wheel loft)
+
+## in_694 — 2026-11-17 — directive
+> yes land those three changes with tests
+(approves landing the three worm wheel speed changes in the app: the quick box for naming a loft's faces, the faster wheel sections, and the same-parameter repair of a smooth loft, with tests)

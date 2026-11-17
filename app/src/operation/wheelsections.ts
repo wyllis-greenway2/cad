@@ -13,6 +13,10 @@ import type { P } from "./arcs.ts";
 export interface Section { h: number; points: P[]; bulges: number[] }
 export const SECTIONS = 5;
 const NGAP = 18;
+/** Bisection steps that put a crossing of the grid exactly: the cells are about 0.05 mm, so 10 steps give 0.0001 mm (the sections lie on the exact surface to 0.002 mm). */
+const ITER = 10;
+/** Every COARSE-th node of the grid is tested first, and only the cells next to the contour are tested fully (the wheel's gap is one curve across the grid, so most nodes are far from it). */
+const COARSE = 4;
 
 const cache = new Map<string, Result<Section[]>>();
 /** The SECTIONS sections of the wheel the spec makes, lowest first. Cached by the numbers (it takes a fraction of a second to a second). */
@@ -39,7 +43,8 @@ function make(spec: GearSpec): Result<Section[]> {
     u -= g.px * Math.round(u / g.px);
     return rho <= rhoS(u);
   };
-  const STEP = 0.03;
+  // the scan over the worm's turns steps 0.2 mm along its thread (at most 0.1 radian, at least 0.02), so a worm of a long lead is scanned as finely as a short one; 0.03 radian was 800 steps a test and cost seconds. The sections move by at most 0.003 mm (`test/wheelspeed.test.ts`)
+  const STEP = Math.min(0.1, Math.max(0.02, 0.2 / ((g.lead * (1 + k / z)) / (2 * Math.PI))));
   /** whether the point (X, Y, h) of the wheel is material: inside the blank and never inside the worm */
   const material = (X0: number, Y0: number, h: number): boolean => {
     const r = Math.hypot(X0, Y0);
@@ -72,15 +77,30 @@ function make(spec: GearSpec): Result<Section[]> {
     const [dpsi, dr] = [span / nPsi, (top - rLo) / nR];
     const node = (i: number, j: number): P => [psi0 + i * dpsi, rLo + j * dr];
     const xy = ([ps, r]: P): P => [r * Math.cos(ps), r * Math.sin(ps)];
-    const mat: boolean[][] = Array.from({ length: nPsi + 1 }, (_, i) => Array.from({ length: nR + 1 }, (_, j) => { const [X, Y] = xy(node(i, j)); return material(X, Y, h); }));
+    const known: (boolean | undefined)[][] = Array.from({ length: nPsi + 1 }, () => new Array<boolean | undefined>(nR + 1).fill(undefined));
+    const matAt = (i: number, j: number): boolean => { let v = known[i]![j]; if (v === undefined) { const [X, Y] = xy(node(i, j)); v = material(X, Y, h); known[i]![j] = v; } return v; };
+    const cells: [number, number][] = []; // (the cells to march over: those within one coarse cell of a place where the coarse nodes differ)
+    {
+      const [ci, cj] = [Math.ceil(nPsi / COARSE), Math.ceil(nR / COARSE)];
+      const mixed = Array.from({ length: ci }, () => new Array<boolean>(cj).fill(false));
+      for (let a = 0; a < ci; a++) for (let b = 0; b < cj; b++) {
+        const c = [[a, b], [a + 1, b], [a + 1, b + 1], [a, b + 1]].map(([x, y]) => matAt(Math.min(x! * COARSE, nPsi), Math.min(y! * COARSE, nR)));
+        mixed[a]![b] = c.some((v) => v !== c[0]);
+      }
+      for (let a = 0; a < ci; a++) for (let b = 0; b < cj; b++) {
+        let near = false;
+        for (let da = -1; da <= 1 && !near; da++) for (let db = -1; db <= 1; db++) if (mixed[a + da]?.[b + db]) { near = true; break; }
+        if (near) for (let i = a * COARSE; i < Math.min((a + 1) * COARSE, nPsi); i++) for (let j = b * COARSE; j < Math.min((b + 1) * COARSE, nR); j++) cells.push([i, j]);
+      }
+    }
     const crossing = new Map<string, P>();
     const cross = (i0: number, j0: number, i1: number, j1: number): P => {
       const key = `${i0},${j0},${i1},${j1}`;
       const kept = crossing.get(key);
       if (kept) return kept;
-      const [a, b, m0] = [node(i0, j0), node(i1, j1), mat[i0]![j0]!];
+      const [a, b, m0] = [node(i0, j0), node(i1, j1), matAt(i0, j0)];
       let [lo, hi] = [0, 1];
-      for (let q = 0; q < 24; q++) { const t = (lo + hi) / 2; const [X, Y] = xy([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]); if (material(X, Y, h) === m0) lo = t; else hi = t; }
+      for (let q = 0; q < ITER; q++) { const t = (lo + hi) / 2; const [X, Y] = xy([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]); if (material(X, Y, h) === m0) lo = t; else hi = t; }
       const t = (lo + hi) / 2;
       const pt: P = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
       crossing.set(key, pt);
@@ -88,8 +108,8 @@ function make(spec: GearSpec): Result<Section[]> {
     };
     interface E { key: string; pt: () => P }
     const segs: [E, E][] = [];
-    for (let i = 0; i < nPsi; i++) for (let j = 0; j < nR; j++) {
-      const c: [number, number][] = [[i, j], [i + 1, j], [i + 1, j + 1], [i, j + 1]], v = c.map(([a, b]) => mat[a]![b]!);
+    for (const [i, j] of cells) {
+      const c: [number, number][] = [[i, j], [i + 1, j], [i + 1, j + 1], [i, j + 1]], v = c.map(([a, b]) => matAt(a, b));
       const edges: E[] = [];
       for (let e = 0; e < 4; e++) {
         const [p, q] = [c[e]!, c[(e + 1) % 4]!];
@@ -112,6 +132,11 @@ function make(spec: GearSpec): Result<Section[]> {
         const other = next[0].key === end.key ? next[1] : next[0];
         if (dir) chain.push(other); else chain.unshift(other);
       }
+      // a chain that cannot pass the filter below (too short, or its ends or points not where a whole gap's are, judged by the cells' corners, one cell of margin) is not worked out exactly
+      const cell = (e: E): P => { const [a, b] = e.key.split("|")[0]!.split(",").map(Number); return node(a!, b!); };
+      const [first, last] = [cell(chain[0]!), cell(chain[chain.length - 1]!)];
+      const near = (q: P) => Math.abs(q[1] - top) < dr * 1.6;
+      if (chain.length <= 8 || !near(first) || !near(last) || chain.some((e) => { const q = cell(e); return !(q[0] > psi0 + 2 * dpsi && q[0] < psi0 + span - 2 * dpsi); })) continue;
       chains.push(chain.map((e) => e.pt()));
     }
     const onTop = (pt: P) => Math.abs(pt[1] - top) < dr * 0.51;

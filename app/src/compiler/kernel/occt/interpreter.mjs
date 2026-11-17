@@ -618,7 +618,11 @@ const OPS = {
     const through = (ids, key) => {
       const sk = ids.map(sketchOf);
       if (ctx.roleFigs) { try { ctx.roleFigs.set(key, loftRoles(ids.map((id, k) => ({ ends: edgeEnds(sk[k]), sides: ctx.get(id, "sketch").sides })), key === "main", !!op.smooth)); } catch { ctx.roleFigs.set(key, []); } } // (the roles of its faces by the sketches' own edges, read before they are used up: `dec_stable_reference_mechanism`)
-      return sk[0].loftWith(sk.slice(1), { ruled: !op.smooth });
+      const made = sk[0].loftWith(sk.slice(1), { ruled: !op.smooth });
+      // a smooth loft through many sections can leave an edge whose 3D curve and whose curves on its two faces do not run at the same pace; the validity check refuses the whole solid for that (a wheel of 24 teeth was refused, one of 40 was not), though the
+      // solid is whole and has the same volume to every digit. Making the edges run at the same pace again (`BRepLib.SameParameter`) is what the check asks for.
+      if (op.smooth) getOC().BRepLib.SameParameter(made.wrapped, 1e-5, false);
+      return made;
     };
     let solid = through(op.sections.map((s) => s.profile), "main");
     if (!isValidSolid(solid)) throw new Error("the loft could not be made through those sketches (try turning an outline round with its start point, or reverse one)");

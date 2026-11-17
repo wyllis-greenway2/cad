@@ -3,7 +3,7 @@ id: dec_gear_speed
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_689
+human_input: in_689, in_694
 date: 2026-11-17
 depends_on:
   - dec_speed_rules: the kernel-side rules this extends (checks, rough first, one sweep); a change to them changes which of the costs below are still there
@@ -25,7 +25,11 @@ depends_on:
 
 For the 40 tooth wheel the whole is 14 s; the page is blocked for the first 3 s of it, and the kernel's job limit is 60 s (`kernel-async.ts`).
 
-## Causes, and the fix that goes with each (not built; for the human to choose from)
+## Landed (`in_694`: "yes land those three changes with tests")
+
+Three changes, from `prototypes/wheel-fast` (the numbers are in its README): **the quick box for naming the freeform faces of a shape that has more than 64 of them** (`facenames.mjs` `quickBounds`, `QUICK_FROM`: 4.2 s to 8 ms of the 10.3 s kernel time of a 40 tooth wheel, same volume; a loft's own sides are named by comparing the exact box of each face with the box of the sketch's corners, so a body with few freeform faces keeps the exact box, found by the suite); **the faster wheel sections** (`wheelsections.ts`: 10 bisections, a coarse grid first, exact crossings only for chains that can pass, a scan step of 0.2 mm along the thread; 5 to 7 times quicker, within 0.003 mm); **`BRepLib.SameParameter` after a smooth loft** (`interpreter.mjs`: the wheel is no longer refused for 24, 28, 30, 32, 44, 48, 60 teeth). Tests: `test/wheelspeed.test.ts` (the sections against the old scan's numbers; the time; the counts that used to be refused, with their volumes; a bored wheel; the quick box). Of the five proposals below, 1 and 2 are done; 3, 4 and 5 are not built.
+
+## Causes, and the fix that goes with each (the first two are landed; the rest are for the human to choose from)
 
 1. **The wheel's sections and loft** (`in_692`, measured in `prototypes/wheel-fast`): the sections were already one gap turned z times, so that was not the cost; the cost is the scan over the worm's turns at every grid node and every bisection. A faster scan makes them 5 to 7 times quicker (40 teeth 3.4 s to 0.5 s) within 0.003 mm. **Naming the loft's faces took 4.3 s of the kernel's 10.3 s** only for the exact box of each freeform face; the quick box takes 8 ms and gives the same volume. **The smooth loft was refused by the kernel's validity check for about half the tooth counts** (30, 60, 24, 28, 32, 44, 48 failed at module 2 with a 24 mm worm). **Cause (`in_693`):** the loft's edges did not have the same parameter on the 3D curve and on the faces; the solid was whole (same volume to every digit). **Cure:** `BRepLib.SameParameter` on a smooth loft, three lines in the loft op; every count from 12 to 60 then builds, a bore cuts exactly. Together with the quick box and the faster sections a 40 tooth wheel takes 7.0 s in all against 13.7 s, and 24 and 60 teeth now build. One tooth lofted and joined is not tried: the loft is now reliable, and what is left is the loft's own time and the mesh.
 2. **The sections are worked out in the page.** After the faster scan they take about half a second at 40 teeth, which is short enough to leave there; moving them to the worker is dropped unless 200 teeth is still long.
