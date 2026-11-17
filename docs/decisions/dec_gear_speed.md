@@ -3,7 +3,7 @@ id: dec_gear_speed
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_689, in_694
+human_input: in_689, in_694, in_698
 date: 2026-11-17
 depends_on:
   - dec_speed_rules: the kernel-side rules this extends (checks, rough first, one sweep); a change to them changes which of the costs below are still there
@@ -28,6 +28,10 @@ For the 40 tooth wheel the whole is 14 s; the page is blocked for the first 3 s 
 ## Landed (`in_694`: "yes land those three changes with tests")
 
 Three changes, from `prototypes/wheel-fast` (the numbers are in its README): **the quick box for naming the freeform faces of a shape that has more than 64 of them** (`facenames.mjs` `quickBounds`, `QUICK_FROM`: 4.2 s to 8 ms of the 10.3 s kernel time of a 40 tooth wheel, same volume; a loft's own sides are named by comparing the exact box of each face with the box of the sketch's corners, so a body with few freeform faces keeps the exact box, found by the suite); **the faster wheel sections** (`wheelsections.ts`: 10 bisections, a coarse grid first, exact crossings only for chains that can pass, a scan step of 0.2 mm along the thread; 5 to 7 times quicker, within 0.003 mm); **`BRepLib.SameParameter` after a smooth loft** (`interpreter.mjs`: the wheel is no longer refused for 24, 28, 30, 32, 44, 48, 60 teeth). Tests: `test/wheelspeed.test.ts` (the sections against the old scan's numbers; the time; the counts that used to be refused, with their volumes; a bored wheel; the quick box). Of the five proposals below, 1 and 2 are done, 5 is built as `dec_gear_standin` (a plain disc while the body is made, `in_695`), and 3 as `dec_gear_feature` (a gear's body has a few parts, `in_696`); 4 (per-body checks) is not built.
+
+## The gear's sketch parts (`in_698`): measured first, and what was found instead
+
+Asked: cut down the sides and corners of a gear's outline that stay in the scene after its body is made (about 20 a tooth: 2000 of the 2019 parts of a 100 tooth gear). Measured before touching them, in the real app (a 100 tooth gear with a bore, extruded, headless Chromium) and in Node: **the parts themselves are cheap**: a scan of all of them is some tens of microseconds, picking skips what an extrude used up, the highlight no longer builds them. What was dear was what is **derived from every arc of the outline for each frame**: `avoidOf` (the places a bubble keeps off) turned each of the 400 arcs into 64 points on every frame, 5.6 of the frame's 8.2 ms in Node. And a second cost not tied to parts at all: each axis label asked the whole scene (every segment of every line, every triangle of the body) whether the body hides it, every frame, and threw the lines' answers away. Fixed: `avoidOf` and `centreDots` are worked out once for a scene (`WeakMap`); the label rays go to the meshes only and are not repeated while the camera, the size and the drawn model are the same (`world.ts`, `view.ts`). The 100 tooth gear: frame 12.2 to 9.7 ms orbiting, 11.7 to 6.0 ms hovering (after the gear as one feature had taken 17.5 to 10.9); `frameOf` 8.2 to 2.6 ms in Node; the screen is the same pixel for pixel in three views. **The parts are not removed**: the steps and constraints name them (`d/g_001.s17`), the gear's record would have to make them on demand for the compiler and the solver, and what they cost is now small; that is left unless a number shows they matter (an edit's compile is 15 to 30 ms at 100 teeth: `compileTimings`).
 
 ## Causes, and the fix that goes with each (the first two are landed; the rest are for the human to choose from)
 

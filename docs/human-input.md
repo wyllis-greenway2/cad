@@ -3131,3 +3131,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_697 — 2026-11-17 — directive
 > yes do the highlight batching next
 (approves doing the pinned highlight batching next: what is selected drawn in a few batches, kept while it does not change)
+
+## in_698 — 2026-11-17 — directive
+> yes do the gear sketch parts next
+(approves doing the gear's own sketch parts next: the sides and corners of a gear's outline that remain in the scene as parts after its body is made, about 20 a tooth)

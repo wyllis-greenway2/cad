@@ -24,21 +24,26 @@ export function createWorld(scene3: THREE.Scene, host: HTMLElement) {
   let off = false; // the axes and the panes put away with the orb at their junction (`in_463`)
   const ray = new THREE.Raycaster();
   /** Is anything of the model between the eye and this point? (The axes themselves are drawn with depth, the labels are text and need this check.) */
-  function hidden(cam: Camera, point: Vec3, occluders: THREE.Object3D): boolean {
+  function hidden(cam: Camera, point: Vec3, occluders: readonly THREE.Object3D[]): boolean {
     const fwd = basis(cam).forward;
     const eye = cam.straight ? ([point[0] - fwd[0] * 1e4, point[1] - fwd[1] * 1e4, point[2] - fwd[2] * 1e4] as Vec3) : position(cam);
     const d = [point[0] - eye[0], point[1] - eye[1], point[2] - eye[2]];
     const len = Math.hypot(d[0]!, d[1]!, d[2]!);
     ray.set(new THREE.Vector3(...eye), new THREE.Vector3(d[0]! / len, d[1]! / len, d[2]! / len));
     ray.far = len - 0.05;
-    return ray.intersectObject(occluders, true).some((h) => (h.object as THREE.Mesh).isMesh);
+    return ray.intersectObjects(occluders as THREE.Object3D[], false).length > 0; // (only the meshes are asked: a ray through every segment of every drawn line, to throw the answer away, was most of a gear's frame)
   }
   /** Place the axes at their real size in the world (so they grow and shrink as you zoom), and their labels (hidden when the model is in front of them). */
-  function update(cam: Camera, size: { w: number; h: number }, occluders: THREE.Object3D) {
+  let placedFor = "";
+  /** `key`: what the labels' places and their being hidden depend on besides the camera and the size (the model as drawn): while it is the same the labels are where they were and are not worked out again. */
+  function update(cam: Camera, size: { w: number; h: number }, occluders: readonly THREE.Object3D[], key = "") {
+    const now = `${cam.target.join(",")}|${cam.distance}|${cam.azimuth}|${cam.elevation}|${cam.straight}|${cam.mix}|${size.w}x${size.h}|${off}|${key}`;
     const k = settings.world.axisLengthMm / AXIS_LEN;
     axes.group.scale.setScalar(k);
     axes.group.visible = !off;
     for (const l of axes.lines) l.resolution.set(size.w, size.h);
+    if (now === placedFor) return;
+    placedFor = now;
     const pr = projector(cam, size.w, size.h);
     const fwd = basis(cam).forward;
     const facing = AXES.map((a) => Math.abs(a.dir[0] * fwd[0] + a.dir[1] * fwd[1] + a.dir[2] * fwd[2]) > 0.98); // seen end-on: no arrowhead, no label

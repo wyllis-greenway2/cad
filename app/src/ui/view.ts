@@ -49,6 +49,8 @@ export function createView(host: HTMLElement) {
   const pen = createPen();
   const envMap = new THREE.PMREMGenerator(renderer).fromScene(studio(), 0.04).texture; // a soft studio, only reflected in the body
   let lastScene: Scene | null = null;
+  let occluders: THREE.Object3D[] | null = null; // (the meshes of what is drawn, which the axis labels are hidden behind: found again when it is built again)
+  const collectMeshes = (g: THREE.Object3D): THREE.Object3D[] => { const out: THREE.Object3D[] = []; g.traverse((o) => { if ((o as THREE.Mesh).isMesh) out.push(o); }); return out; };
   let sceneStamp = 0; // (counts the times what is drawn was built again: the highlight is built from it)
   let highlightWas: string | null = null; // (what the highlight on the screen was built from, or null if it moves)
   /** What is drawn is built again at the next frame (a look setting changed, `in_459`). */
@@ -61,6 +63,7 @@ export function createView(host: HTMLElement) {
     if (s === lastScene) return;
     lastScene = s;
     sceneStamp++;
+    occluders = null;
     lastMesh = mesh;
     const built = buildContent(content, s, mesh, pen, envMap);
     bodyMat = built ? built.material : null;
@@ -321,7 +324,8 @@ export function createView(host: HTMLElement) {
   /** Draw the frame. */
   function render(cam: Camera, grid: Grid | null) {
     world.setGrid(grid);
-    world.update(cam, size, content);
+    occluders ??= content.children.length ? collectMeshes(content) : [];
+    world.update(cam, size, occluders, `${sceneStamp}|${bodyMatrix?.join(",") ?? ""}|${hiddenNow ? 1 : 0}|${sectionKey}`);
     const b = basis(cam);
     const eye = position(cam);
     const m = mixOf(cam);
