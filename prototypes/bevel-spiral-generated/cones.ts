@@ -52,6 +52,8 @@ export function gearBody(s: Session, pr: Pair, which: "pinion" | "ring", turn: n
   for (const dx of [Number(process.env.CONE_DX ?? -0.7)]) { // (one try: a failed boolean can leave the kernel unable to go on; -0.7 mm is where the cut of the 20 / 30 ring gear, which failed with the cones at 0 to +3, worked)
     const bl = blankFor(g, RM - b / 2, RM + b / 2, m, dx);
     if (typeof bl === "string") throw new Error(`${which}: ${bl}`);
+    if (process.env.VARIANT === "heel") bl.polygon = [bl.polygon[0]!, bl.polygon[1]!, bl.polygon[2]!, [bl.polygon[2]![0], 0]];
+    if (process.env.VARIANT === "toe") bl.polygon = [[bl.polygon[1]![0] + 1000, 0], [bl.polygon[1]![0] + 1000, bl.polygon[3]![1] + 1000], bl.polygon[3]!, bl.polygon[4]!, bl.polygon[5]!];
     s = prism;
     const bp = drawnRef(nextId(scene(s), "p"));
     s = run(s, { type: "addPart", part: { ref: bp, kind: "plane", origin: "drawn", plane: null, movable: true, at: [0, 0, 0], u, v: g.axis } } as never);
