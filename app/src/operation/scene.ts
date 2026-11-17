@@ -9,6 +9,7 @@ import type { Group } from "./groups.ts";
 import type { PatternRecord } from "./repeat.ts";
 import { withPatterns } from "./repeat.ts";
 import type { GearRecord } from "./gearscene.ts";
+import type { PlanetaryRecord } from "./planetary.ts";
 import { withGears, madeByAGear } from "./gearscene.ts";
 
 /** A relation between parts. `parts` are listed mover first, then the references (held in place): the part selected FIRST moves and the ones selected before it stay (`in_196`, which reversed `in_90`). `kind` is a row id of the actions table. */
@@ -87,6 +88,8 @@ export interface Scene {
   patterns?: readonly PatternRecord[];
   /** gears that keep their numbers: their parts are made from these (`gearscene.ts`) */
   gears?: readonly GearRecord[];
+  /** planetary sets that keep their numbers: each ties a sun, planets and a ring (gear records of their own) and a carrier together (`planetary.ts`) */
+  planetaries?: readonly PlanetaryRecord[];
   /** the plane whose hidden sketch (what extrusions used up) is shown and snapped to while sketching in it (not part of the model, only of how it is looked at, `in_211`) */
   reveal?: Ref;
   /** A figure moved on a plane of its own keeps that plane under its own name; the name the command gave to a new plane is kept here as another name for it, so a history made when a move made a new plane (more parts were left on the old plane then) still replays (`in_372`) */
@@ -150,6 +153,7 @@ export interface SceneJson {
   groups?: Group[];
   patterns?: PatternRecord[];
   gears?: GearRecord[];
+  planetaries?: PlanetaryRecord[];
   hard?: string[];
   materials?: Record<string, string>;
   manufacturing?: { definitions?: Record<string, unknown>; plans?: unknown[]; marks?: Record<string, Record<string, string>> };
@@ -167,6 +171,7 @@ export function toJSON(s: Scene): SceneJson {
     ...(s.groups?.length ? { groups: s.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}),
     ...(s.patterns?.length ? { patterns: s.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}),
     ...(s.gears?.length ? { gears: s.gears.map((g) => ({ ...g, at: [...g.at] as unknown as Vec3, spec: { ...g.spec } })) } : {}),
+    ...(s.planetaries?.length ? { planetaries: s.planetaries.map((p) => ({ ...p, at: [...p.at] as unknown as Vec3, spec: { ...p.spec }, planetIds: [...p.planetIds] })) } : {}),
     ...(s.hard?.length ? { hard: [...s.hard] } : {}),
     ...(s.materials && Object.keys(s.materials).length ? { materials: { ...s.materials } } : {}),
     ...(s.manufacturing && (Object.keys(s.manufacturing.definitions ?? {}).length || s.manufacturing.plans?.length || Object.keys(s.manufacturing.marks ?? {}).length) ? { manufacturing: { ...(s.manufacturing.definitions ? { definitions: { ...s.manufacturing.definitions } } : {}), ...(s.manufacturing.plans ? { plans: [...s.manufacturing.plans] } : {}), ...(s.manufacturing.marks && Object.keys(s.manufacturing.marks).length ? { marks: Object.fromEntries(Object.entries(s.manufacturing.marks).map(([k, v]) => [k, { ...v }])) } : {}) } } : {}),
@@ -180,7 +185,7 @@ export function fromJSON(j: SceneJson): Scene {
   const s = emptyScene();
   const parts: Record<string, Part> = { ...s.parts };
   for (const p of j.parts) parts[p.ref] = p;
-  return { parts, relations: [...j.relations], steps: [...j.steps], counter: j.counter, ...(j.hard?.length ? { hard: [...j.hard] } : {}), ...(j.materials && Object.keys(j.materials).length ? { materials: { ...j.materials } } : {}), ...(j.manufacturing ? { manufacturing: { ...(j.manufacturing.definitions ? { definitions: { ...j.manufacturing.definitions } } : {}), ...(j.manufacturing.plans ? { plans: [...j.manufacturing.plans] } : {}), ...(j.manufacturing.marks ? { marks: Object.fromEntries(Object.entries(j.manufacturing.marks).map(([k, v]) => [k, { ...v }])) } : {}) } } : {}), ...(j.clearance ? { clearance: j.clearance } : {}), ...(j.groups?.length ? { groups: j.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}), ...(j.patterns?.length ? { patterns: j.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}), ...(j.gears?.length ? { gears: j.gears.map((g) => ({ ...g, at: [...g.at] as unknown as Vec3, spec: { ...g.spec } })) } : {}), ...(j.hiddenBodies?.length ? { hiddenBodies: [...j.hiddenBodies] } : {}), ...(j.parameters && Object.keys(j.parameters).length ? { parameters: { ...j.parameters } } : {}) };
+  return { parts, relations: [...j.relations], steps: [...j.steps], counter: j.counter, ...(j.hard?.length ? { hard: [...j.hard] } : {}), ...(j.materials && Object.keys(j.materials).length ? { materials: { ...j.materials } } : {}), ...(j.manufacturing ? { manufacturing: { ...(j.manufacturing.definitions ? { definitions: { ...j.manufacturing.definitions } } : {}), ...(j.manufacturing.plans ? { plans: [...j.manufacturing.plans] } : {}), ...(j.manufacturing.marks ? { marks: Object.fromEntries(Object.entries(j.manufacturing.marks).map(([k, v]) => [k, { ...v }])) } : {}) } } : {}), ...(j.clearance ? { clearance: j.clearance } : {}), ...(j.groups?.length ? { groups: j.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}), ...(j.patterns?.length ? { patterns: j.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}), ...(j.planetaries?.length ? { planetaries: j.planetaries.map((p) => ({ ...p, at: [...p.at] as unknown as Vec3, spec: { ...p.spec }, planetIds: [...p.planetIds] })) } : {}), ...(j.gears?.length ? { gears: j.gears.map((g) => ({ ...g, at: [...g.at] as unknown as Vec3, spec: { ...g.spec } })) } : {}), ...(j.hiddenBodies?.length ? { hiddenBodies: [...j.hiddenBodies] } : {}), ...(j.parameters && Object.keys(j.parameters).length ? { parameters: { ...j.parameters } } : {}) };
 }
 
 /** The scene with its body parts replaced by these (derived from the kernel result; never saved). */

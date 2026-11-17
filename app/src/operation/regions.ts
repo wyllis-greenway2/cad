@@ -96,7 +96,7 @@ export function curvesOn(s: Scene, plRef: Ref, spent: ReadonlySet<Ref> = new Set
     if (p.kind === "circle") {
       const c = pos(p.center);
       if (c && p.radius > TOL) curves.push({ k: "circle", ref: p.ref, centre: p.center, c, r: p.radius });
-    } else if (p.kind === "line" && !p.derived && !p.bulge) {
+    } else if (p.kind === "line" && !p.derived && !p.bulge && !p.spline) { // (a spline does not cut the shapes it crosses, yet: `dec_spline_and_cams`)
       const [a, b] = [pos(p.a), pos(p.b)];
       if (!a || !b || p.a === p.b) continue;
       if (!p.center) { curves.push({ k: "seg", ref: p.ref, a: p.a, b: p.b, p: a, q: b }); continue; }

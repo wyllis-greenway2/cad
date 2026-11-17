@@ -12,7 +12,12 @@ import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import { live } from "../operation/ownership.ts";
 import type { Command } from "../operation/commands.ts";
-import { drawSquaredRectangle, drawCircle, drawChain, drawArc, joinedAtCorners } from "../operation/build.ts";
+import { drawSquaredRectangle, drawCircle, drawChain, drawArc, drawSpline, joinedAtCorners } from "../operation/build.ts";
+import { distinctPoints, splinePoints } from "../operation/spline.ts";
+import { drawClosedSpline } from "../operation/splinering.ts";
+import type { CamKind, CamLaw, CamSpec } from "../operation/cams.ts";
+import { camShapes } from "../operation/cams.ts";
+import { drawCam } from "../operation/camdraw.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
 import { candidatesAt, visibleFrom } from "./picking.ts";
 import { anchorCorners, anchorLines, anchorCutCorners } from "../operation/anchors.ts";
@@ -20,7 +25,7 @@ import { settings } from "../shared/settings.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Hint } from "./hints.ts";
 import { gearOutline, moduleForOutside, helixTwist, hasBody } from "../operation/gear.ts";
-import { bevelOf } from "../operation/bevel.ts";
+import { bevelOf, bevelFrame } from "../operation/bevel.ts";
 import { wormOf, wheelOf, wormLayout } from "../operation/worm.ts";
 import type { GearSpec, PulleyKind } from "../operation/gear.ts";
 import { standardKey, boreLoop, boreProblem } from "../operation/bore.ts";
@@ -31,7 +36,7 @@ import { chainOf } from "../operation/chains.ts";
 import type { GearRecord } from "../operation/gearscene.ts";
 import { meshWith } from "../operation/mesh.ts";
 
-export type ToolKind = "rect" | "circle" | "line" | "arc" | "trim" | "gear";
+export type ToolKind = "rect" | "circle" | "line" | "arc" | "spline" | "cam" | "trim" | "gear";
 export interface Tool {
   kind: ToolKind;
   /** null while armed (waiting for the first click on a surface) */
@@ -63,6 +68,25 @@ export interface Tool {
   sized?: true;
   /** a gear (`dec_gear_tool`): a ring or an outside gear, the numbers typed, the field being typed in, and, when its numbers are being changed, which gear and how it is now */
   gear?: GearState;
+  /** a cam (`dec_spline_and_cams`): which, and the numbers typed (diameter, lift or offset, the shaft's hole) and the one being typed in */
+  cam?: CamState;
+}
+export interface CamState { kind: CamKind; typed: string[]; field: number; /** a disc cam: the law of its follower's motion */ law?: CamLaw }
+/** the numbers of each cam, in the order the box shows them (the rise, dwell and return are degrees) */
+export const CAM_FIELDS: Record<CamKind, string[]> = { eccentric: ["Diameter", "Offset", "Hole"], snail: ["Diameter", "Lift", "Hole"], disc: ["Diameter", "Lift", "Rise", "Dwell", "Return", "Hole", "Roller"] };
+/** A tool armed to draw a cam: the first click is the shaft, the pointer's distance from it sets the diameter, and numbers can be typed for the rest. */
+export const armCam = (kind: CamKind, law?: CamLaw): Tool => ({ ...armTool("cam"), cam: { kind, typed: CAM_FIELDS[kind].map(() => ""), field: 0, ...(law ? { law } : {}) } });
+export function camTyped(t: Tool, field: number, text: string): Tool { const c = t.cam!; return { ...t, cam: { ...c, field, typed: c.typed.map((x, i) => (i === field ? text : x)) } }; }
+/** The cam being drawn: each number as typed, else the diameter from the pointer's distance from the shaft, the lift or offset a quarter of the radius (an eighth for an offset: the follower moves twice it), the hole a fifth of the diameter. */
+export function camSpecOf(t: Tool): CamSpec | null {
+  const c = t.cam;
+  const at = t.points[0];
+  if (!c || !at) return null;
+  const typed = (i: number) => typedLength(c.typed[i] ?? "");
+  const degrees = (i: number): number | null => { const x = c.typed[i] ?? ""; const n = x === "" || x === "-" ? NaN : Number(x); return Number.isFinite(n) ? n : null; }; // (an angle is not a length: it is not changed by the number system)
+  const diameter = typed(0) ?? (t.cursor ? 2 * dist(at, t.cursor) : 0);
+  if (c.kind === "disc") return { kind: "disc", law: c.law ?? "cycloidal", diameter, lift: typed(1) ?? diameter / 8, rise: degrees(2) ?? 120, dwell: degrees(3) ?? 30, ret: degrees(4) ?? 120, hole: typed(5) ?? diameter / 5, roller: typed(6) ?? 0 };
+  return { kind: c.kind, diameter, lift: typed(1) ?? diameter / (c.kind === "eccentric" ? 16 : 8), hole: typed(2) ?? diameter / 5 };
 }
 export interface GearState {
   internal: boolean; typed: string[]; field: number; editing?: string; base?: GearSpec;
@@ -111,7 +135,7 @@ export const meshGearTool = (src: GearRecord, rack: boolean, ring = false): Tool
 /** The tool opened on a gear that is already made, to change its numbers (`focus`: the number the box starts at, as the helix item does, `in_693`): its plane and centre, and its numbers as they are. */
 export const editGearTool = (rec: { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }, focus?: GearKey): Tool => ({ ...armTool("gear", variantOf(rec.spec)), plane: rec.plane, points: [rec.at], cursor: rec.at, gear: { internal: !!rec.spec.internal, ...(rec.spec.bevel ? { bevel: true as const } : {}), ...(rec.spec.worm ? { worm: true as const } : {}), ...(rec.spec.wheel ? { wheel: true as const } : {}), ...(rec.spec.rack ? { rack: true } : {}), ...(rec.spec.pulley ? { pulley: rec.spec.pulley } : {}), ...(rec.spec.sprocket ? { sprocket: true as const } : {}), ...(rec.spec.sprocket?.iso ? { iso: true as const } : {}), ...(rec.spec.cycloidal ? { cycloidal: true as const } : {}), typed: ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], field: Math.max(0, gearFields({ internal: !!rec.spec.internal, ...(rec.spec.bevel ? { bevel: true as const } : {}), ...(rec.spec.worm ? { worm: true as const } : {}), ...(rec.spec.wheel ? { wheel: true as const } : {}), ...(rec.spec.rack ? { rack: true } : {}), ...(rec.spec.pulley ? { pulley: rec.spec.pulley } : {}), ...(rec.spec.sprocket ? { sprocket: true as const } : {}), ...(rec.spec.sprocket?.iso ? { iso: true as const } : {}), ...(rec.spec.cycloidal ? { cycloidal: true as const } : {}) }).findIndex((f) => f.key === focus)), editing: rec.id, base: rec.spec, ...(rec.turn ? { turn: rec.turn } : {}) } });
 
-export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"], trim: [], gear: ["Teeth", "Module"] };
+export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"], spline: [], cam: [], trim: [], gear: ["Teeth", "Module"] };
 
 // ---- points on a plane ----
 export function pointOnPlane(pv: PointerView, pl: Plane): Vec3 | null {
@@ -185,6 +209,11 @@ export function typeKey(t: Tool, key: string): Tool {
     if (key === "Tab") return { ...t, gear: { ...g, field: (g.field + 1) % gearFields(g).length } };
     const typed = typeInto(g.typed[g.field] ?? "", key);
     return typed === null ? t : { ...t, gear: { ...g, typed: Array.from({ length: 16 }, (_, i) => (i === g.field ? typed : g.typed[i] ?? "")) } };
+  }
+  if (t.kind === "cam" && t.cam) {
+    if (key === "Tab") return { ...t, cam: { ...t.cam, field: (t.cam.field + 1) % t.cam.typed.length } };
+    const typed = typeInto(t.cam.typed[t.cam.field] ?? "", key);
+    return typed === null ? t : camTyped(t, t.cam.field, typed);
   }
   const n = FIELDS[t.kind].length;
   if (key === "Tab") return { ...t, field: n > 1 ? ((t.field === 0 ? 1 : 0) as 0 | 1) : 0 };
@@ -260,7 +289,7 @@ function gearSpecOf(t: Tool): GearSpec | null {
     const [pressure, backlash] = [typed("pressure") ?? b?.pressure, typed("backlash") ?? b?.backlash];
     const [mate, shaft, face] = [Math.round(typed("mate") ?? b?.bevel?.mate ?? teeth), typed("shaft") ?? b?.bevel?.shaft, typed("face") ?? b?.bevel?.face];
     const bore = typed("bore") ?? b?.bore ?? (b ? undefined : defaultBore(teeth, module) || undefined);
-    return { teeth, module, ...(pressure !== undefined ? { pressure } : {}), ...(backlash !== undefined ? { backlash } : {}), bevel: { mate, ...(shaft !== undefined && shaft !== 90 ? { shaft } : {}), ...(face !== undefined ? { face } : {}) }, ...(bore ? { bore, ...shapeOf(typed, b, fields[g.field]?.key) } : {}) };
+    return { teeth, module, ...(pressure !== undefined ? { pressure } : {}), ...(backlash !== undefined ? { backlash } : {}), bevel: { mate, ...(shaft !== undefined && shaft !== 90 ? { shaft } : {}), ...(face !== undefined ? { face } : {}), ...(b?.bevel?.frame ? { frame: b.bevel.frame } : {}) }, ...(bore ? { bore, ...shapeOf(typed, b, fields[g.field]?.key) } : {}) };
   }
   if (g.worm || g.wheel) { // a worm or a worm wheel (`in_608`): the module is 2 unless another is typed, the worm's pitch diameter ten modules, its length 15 (or 2.5 leads, if more)
     const module = typed("module") ?? b?.module ?? 2;
@@ -371,6 +400,8 @@ function gearTarget(scene: Scene, t: Tool): GearTarget | null {
   return r && r.ok ? r.value : null;
 }
 /** Why the gear the tool stands at makes none (what Enter or a click says), or null. */
+/** Why a cam that is not made is not (`cams.ts`), for the message line. */
+export function camProblemOf(t: Tool): string | null { const spec = camSpecOf(t); const shapes = spec ? camShapes(spec) : null; return shapes && !shapes.ok ? shapes.error : null; }
 export function gearProblem(scene: Scene, t: Tool): string | null {
   const r = gearMade(scene, t);
   return r && !r.ok ? r.error : null;
@@ -593,6 +624,21 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
       }
       return { segments, circle: { center: target.at, radius: o.value.pitchRadius, normal: n }, cursor: t.cursor };
     }
+    if (target.spec.bevel) { // a straight bevel gear (`in_735`): the outline of its big end and of its small end (the big end's scaled toward the apex, further along the axis) and a line from every tooth to it, in the gear's own frame (a partner stands across its mate's, `in_755`)
+      const bg = bevelOf(target.spec);
+      if (bg.ok) {
+        const f = bevelFrame(pl.u, pl.v, target.spec, target.turn);
+        const { k, big, small } = bg.value;
+        const place = (q: readonly [number, number], sc: number, h: number): Vec3 => [target.at[0] + f.X[0] * q[0] * sc + f.Y[0] * q[1] * sc + f.n[0] * h, target.at[1] + f.X[1] * q[0] * sc + f.Y[1] * q[1] * sc + f.n[1] * h, target.at[2] + f.X[2] * q[0] * sc + f.Y[2] * q[1] * sc + f.n[2] * h];
+        const pts = o.value.points;
+        pts.forEach((p0, i) => { const p1 = pts[(i + 1) % pts.length]!; segments.push([place(p0, 1, 0), place(p1, 1, 0)], [place(p0, k, big - small), place(p1, k, big - small)]); });
+        const per = Math.max(1, Math.round(pts.length / Math.max(1, Math.round(target.spec.teeth))));
+        for (let i = 0; i < pts.length; i += per) segments.push([place(pts[i]!, 1, 0), place(pts[i]!, k, big - small)]);
+        const b0 = (target.spec.bore ?? 0) / 2;
+        if (b0 > 0) for (const [sc, h] of [[1, 0], [k, big - small]] as const) { let prev: Vec3 | null = null; for (let j = 0; j <= 24; j++) { const a2 = (2 * Math.PI * j) / 24; const q = place([b0 * Math.cos(a2), b0 * Math.sin(a2)], 1, h); void sc; if (prev) segments.push([prev, q]); prev = q; } }
+      }
+      return { segments, circle: null, cursor: t.cursor, ...(red ? { red: true as const } : {}) };
+    }
     o.value.points.forEach((a, i) => { // (each side as two short lines through its middle: close enough to see the teeth)
       const b = o.value.points[(i + 1) % o.value.points.length]!;
       const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
@@ -600,17 +646,6 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
       const m: [number, number] = [(a[0] + b[0]) / 2 - dy * k, (a[1] + b[1]) / 2 + dx * k];
       segments.push([at(a), at(m)], [at(m), at(b)]);
     });
-    if (target.spec.bevel) { // a straight bevel gear (`in_735`): the small end's outline (the big end's scaled toward the apex, further along the normal) and a line from each tooth's root to it
-      const bg = bevelOf(target.spec);
-      if (bg.ok) {
-        const { k, big, small } = bg.value;
-        const lift = (q: readonly [number, number]): Vec3 => { const p = at([q[0] * k, q[1] * k]); const h = big - small; return [p[0] + n[0] * h, p[1] + n[1] * h, p[2] + n[2] * h]; };
-        const pts = o.value.points;
-        pts.forEach((p0, i) => { const p1 = pts[(i + 1) % pts.length]!; segments.push([lift(p0), lift(p1)]); });
-        const per = Math.max(1, Math.round(pts.length / Math.max(1, Math.round(target.spec.teeth))));
-        for (let i = 0; i < pts.length; i += per) segments.push([at(pts[i]!), lift(pts[i]!)]);
-      }
-    }
     const twist = helixTwist(target.spec) ?? ((target.spec.width ?? 0) > 0 ? 0 : null); // (a helix turns the outline along its thickness, a thickness alone carries it straight)
     if (twist !== null) { // a helical gear (`in_598`): the outline again at the far end, turned by the twist, and one edge of each tooth carried between the two, as a screw motion (worked out here, the kernel is not asked)
       const turned = (q: readonly [number, number], f: number): Vec3 => { const a = (twist * Math.PI) / 180 * f; const [c, s] = [Math.cos(a), Math.sin(a)]; const p = at([q[0] * c - q[1] * s, q[0] * s + q[1] * c]); return [p[0] + n[0] * target.spec.width! * f, p[1] + n[1] * target.spec.width! * f, p[2] + n[2] * target.spec.width! * f]; };
@@ -640,6 +675,24 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
     if (arc) { const pts = arcPoints(arc.a, arc.mid, arc.b); return { segments: pts.slice(1).map((p, i): [Vec3, Vec3] => [pts[i]!, p]), circle: null, cursor: t.cursor }; }
     const [a, b] = [t.points[0]!, t.points[1] ?? t.cursor];
     return { segments: b ? [[a, b]] : [], circle: null, cursor: t.cursor };
+  }
+  if (t.kind === "cam") { // a cam (`dec_spline_and_cams`): what it is made of, in the plane, round the shaft the first click placed
+    const spec = camSpecOf(t);
+    const shapes = spec ? camShapes(spec) : null;
+    if (!spec || !shapes || !shapes.ok) return { segments: [], circle: t.cursor && t.points[0] ? { center: t.points[0], radius: dist(t.points[0], t.cursor), normal: n } : null, cursor: t.cursor };
+    const [ox, oy] = localOf(pl, t.points[0]!);
+    const at = (q: readonly [number, number]): Vec3 => liftOf(pl, [ox + q[0], oy + q[1]]);
+    const segments: [Vec3, Vec3][] = [];
+    const line = (pts: Vec3[]) => pts.slice(1).forEach((p, i) => segments.push([pts[i]!, p]));
+    for (const c of shapes.value.circles) line(Array.from({ length: 49 }, (_, i) => at([c.c[0] + c.r * Math.cos((i / 48) * 2 * Math.PI), c.c[1] + c.r * Math.sin((i / 48) * 2 * Math.PI)])));
+    if (shapes.value.spiral) { const sp = splinePoints(shapes.value.spiral.map(at)); line([...sp, sp[0]!]); }
+    if (shapes.value.closed) { const ring = shapes.value.closed.map(at); const n = ring.length; line(splinePoints([...ring, ring[0]!], 8, { before: ring[n - 1]!, after: ring[1]! })); }
+    return { segments, circle: null, cursor: t.cursor };
+  }
+  if (t.kind === "spline") { // a spline: the curve through the points placed and the pointer (`dec_spline_and_cams`); its points are the corners to hold it by
+    const through = distinctPoints(t.cursor ? [...t.points, t.cursor] : t.points);
+    const pts = through.length >= 3 ? splinePoints(through) : through;
+    return { segments: pts.slice(1).map((p, i): [Vec3, Vec3] => [pts[i]!, p]), circle: null, cursor: t.cursor };
   }
   const pts = [...t.points];
   const nx = lineNext(t);
@@ -697,6 +750,21 @@ export function finish(scene: Scene, t: Tool): Finished | null {
     const arc = arcOf(pl, t);
     if (!arc) return null;
     const d = drawArc(scene, pl.ref, arc.a, arc.mid, arc.b, normalOfPlane(pl));
+    return d ? { command: joinedAtCorners(scene, pl.ref, d.command), select: [d.line] } : null;
+  }
+  if (t.kind === "cam") {
+    const spec = camSpecOf(t);
+    const d = spec ? drawCam(scene, pl, t.points[0]!, spec) : null;
+    return d && d.ok ? { command: d.value.command, select: d.value.select } : null;
+  }
+  if (t.kind === "spline") {
+    const through = distinctPoints(t.points);
+    if (t.points.length > 3 && dist(t.points[0]!, t.points[t.points.length - 1]!) < 1e-6) { // the last point is the first again: a closed curve (`dec_spline_and_cams`)
+      const closed = drawClosedSpline(scene, pl.ref, through, normalOfPlane(pl));
+      return closed.ok ? { command: joinedAtCorners(scene, pl.ref, closed.value.command), select: closed.value.select } : null;
+    }
+    if (through.length < 3 || dist(through[0]!, through[through.length - 1]!) < 1e-6) return null; // (two points are a line)
+    const d = drawSpline(scene, pl.ref, through, normalOfPlane(pl));
     return d ? { command: joinedAtCorners(scene, pl.ref, d.command), select: [d.line] } : null;
   }
   const pts = [...t.points];

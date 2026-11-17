@@ -2,7 +2,8 @@
 import type { Ref } from "../shared/ref.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Part, Plane, Line } from "../operation/part.ts";
-import { pointOf, localOf, curveMid } from "../operation/part.ts";
+import { pointOf, localOf, curveMid, splineWorld, splineEnds } from "../operation/part.ts";
+import { splinePieces } from "../operation/spline.ts";
 import { bodyOutline, bodyOutlines } from "./offsetbody.ts";
 import { svgText, dxfText, boundsOf } from "../compiler/flatfile.ts";
 import type { Piece, V2 } from "../compiler/flatfile.ts";
@@ -28,7 +29,22 @@ function circleThrough(a: V2, m: V2, b: V2): { c: V2; r: number } | null {
 }
 
 /** What is drawn of one line or circle of a sketch, in its plane's own coordinates (an arc by its centre or by its bulge); null when it has no size. */
-function pieceOf(scene: Scene, pl: Plane, part: Part): Piece | null {
+/** A spline is several arcs and lines (`dec_spline_and_cams`): what is drawn of one part, as the pieces it is made of. */
+function piecesOf(scene: Scene, pl: Plane, part: Part): Piece[] {
+  if (part.kind === "line" && part.spline) {
+    const w = splineWorld((r: Ref) => scene.parts[r], part);
+    if (!w) return [];
+    return splinePieces(w, undefined, splineEnds((r: Ref) => scene.parts[r], part)).flatMap((pc): Piece[] => {
+      const [p, q] = [localOf(pl, pc.a), localOf(pl, pc.b)];
+      const m = pc.mid ? localOf(pl, pc.mid) : null;
+      const circ = m ? circleThrough(p, m, q) : null;
+      return m && circ ? [{ k: "arc", c: circ.c, r: circ.r, p, q, ccw: (m[0] - p[0]) * (q[1] - m[1]) - (m[1] - p[1]) * (q[0] - m[0]) > 0 }] : [{ k: "seg", p, q }];
+    });
+  }
+  const one = pieceOne(scene, pl, part);
+  return one ? [one] : [];
+}
+function pieceOne(scene: Scene, pl: Plane, part: Part): Piece | null {
   const get = (r: Ref) => scene.parts[r];
   const at = (r: Ref): V2 | null => { const p = pointOf(get, r); return p ? localOf(pl, p) : null; };
   if (part.kind === "circle") { const c = at(part.center); return c && part.radius > 1e-9 ? { k: "circle", c, r: part.radius } : null; }
@@ -83,7 +99,7 @@ export function sketchPieces(scene: Scene, selection: readonly Ref[]): Pieces {
   if (planes.size > 1 || planes.has(null)) return { ok: false, error: `the drawing is on ${planes.size} planes: select the sketch to export (a figure, its lines, or its plane)` };
   const pl = scene.parts[[...planes][0]!];
   if (!pl || pl.kind !== "plane") return { ok: false, error: FLAT_NOTHING };
-  const pieces = [...drawn].flatMap((r) => { const q = pieceOf(scene, pl, scene.parts[r]!); return q ? [{ ...q, ref: r } as Piece] : []; }); // (each piece knows the line it is of, so a route's marks can name it, `in_603`)
+  const pieces = [...drawn].flatMap((r) => piecesOf(scene, pl, scene.parts[r]!).map((q) => ({ ...q, ref: r }) as Piece)); // (each piece knows the line it is of, so a route's marks can name it, `in_603`)
   return pieces.length ? { ok: true, pieces, what: (sel.length ? "the selected sketch" : "the drawing"), plane: pl } : { ok: false, error: FLAT_NOTHING };
 }
 

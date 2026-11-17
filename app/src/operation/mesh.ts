@@ -10,6 +10,7 @@ import { ok, err } from "../shared/result.ts";
 import type { GearRecord } from "./gearscene.ts";
 import type { GearSpec } from "./gear.ts";
 import { wormOf, wheelOf, wormLayout } from "./worm.ts";
+import { bevelOf, bevelFrame } from "./bevel.ts";
 
 export interface Placement { at: Vec3; turn: number; spec: GearSpec }
 const TAU = 2 * Math.PI;
@@ -23,6 +24,7 @@ const norm = (a: number): number => { const t = ((a % TAU) + TAU) % TAU; return 
  */
 export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; offset?: number; width?: number; /** a ring that goes round the gear (`in_686`) */ ring?: boolean }, where: number): Result<Placement> {
   const s = src.spec;
+  if (s.bevel) return meshBevel(src, u, v, partner, where);
   if (s.worm) return meshWormWheel(src, u, v, partner, where);
   if (s.wheel) return meshWheelWorm(src, u, v, partner, where);
   const z2 = Math.round(partner.teeth);
@@ -143,4 +145,42 @@ function meshWheelWorm(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: numb
   const [qx, qy] = [cx * off - sx * side * w.value.cd, sx * off + cx * side * w.value.cd];
   const at: Vec3 = [src.at[0] - (u[0] * qx + v[0] * qy), src.at[1] - (u[1] * qx + v[1] * qy), src.at[2] - (u[2] * qx + v[2] * qy)];
   return ok({ at, turn: t, spec });
+}
+
+const [dot3, cross3, norm3] = [(a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], (a: Vec3): Vec3 => { const l = Math.hypot(...a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; }];
+/**
+ * The straight bevel gear that meshes with a bevel gear `src` (`dec_bevel_gears`, `in_755`; an approximation of the standard tooth): its pitch cone has the same apex and touches the source's along the line at the direction `where`
+ * (radians, from the plane's first direction, taken across the source's axis) so its axis stands at the shaft angle to the source's, and it is turned to put a tooth where the source has a gap. The source's axis is its plane's normal
+ * (or its frame's, if it stands across itself) and its apex lies along it at the cone distance times cos delta. Worked in 3D: the partner's frame (`BevelSpec.frame`) is the one whose first direction is the tangent of the contact, tooth 0 along it.
+ */
+function meshBevel(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; ring?: boolean }, where: number): Result<Placement> {
+  const s = src.spec, z2 = Math.round(partner.teeth);
+  if (partner.rack || partner.ring) return err("a bevel gear meshes with a bevel gear: not with a rack or a ring");
+  if (!Number.isFinite(z2) || z2 < 1) return err("the partner needs teeth");
+  const g1 = bevelOf(s);
+  if (!g1.ok) return g1;
+  const shaft = s.bevel!.shaft ?? 90, sig = (shaft * Math.PI) / 180;
+  const spec: GearSpec = { teeth: z2, module: s.module, ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), ...(s.backlash !== undefined ? { backlash: s.backlash } : {}), bevel: { mate: s.teeth, ...(shaft !== 90 ? { shaft } : {}), ...(s.bevel!.face !== undefined ? { face: s.bevel!.face } : {}) } };
+  const g2 = bevelOf(spec);
+  if (!g2.ok) return g2;
+  const f1 = bevelFrame(u, v, s, src.turn ?? 0), f0 = bevelFrame(u, v, s, 0);
+  const ns = f1.n;
+  // the direction across the source's axis towards the partner: the asked direction taken off the axis (the asked one if the plane is across it)
+  const asked: Vec3 = [Math.cos(where) * f0.X[0] + Math.sin(where) * f0.Y[0], Math.cos(where) * f0.X[1] + Math.sin(where) * f0.Y[1], Math.cos(where) * f0.X[2] + Math.sin(where) * f0.Y[2]];
+  const off = dot3(asked, ns);
+  const e = norm3([asked[0] - ns[0] * off, asked[1] - ns[1] * off, asked[2] - ns[2] * off]);
+  const apex: Vec3 = [src.at[0] + ns[0] * g1.value.big, src.at[1] + ns[1] * g1.value.big, src.at[2] + ns[2] * g1.value.big];
+  const u2: Vec3 = [-Math.cos(sig) * ns[0] + Math.sin(sig) * e[0], -Math.cos(sig) * ns[1] + Math.sin(sig) * e[1], -Math.cos(sig) * ns[2] + Math.sin(sig) * e[2]]; // (the partner's axis out from the apex)
+  const n2: Vec3 = [-u2[0], -u2[1], -u2[2]];
+  const at2: Vec3 = [apex[0] + u2[0] * g2.value.big, apex[1] + u2[1] * g2.value.big, apex[2] + u2[2] * g2.value.big];
+  const X2 = norm3(cross3(ns, e)), Y2 = norm3(cross3(n2, X2));
+  // the source's tooth nearest the contact line stands phi1 (radians of its turn) from it; along the contact's tangent (the source turns the way that carries a point along X2) that is r1 phi1; the partner's teeth must stand half a pitch further along,
+  // and the partner turns the other way about its own axis (its tangent there is the opposite), so its offset from the contact is the opposite of that arc over its pitch radius
+  const [r1, r2, pitch1] = [g1.value.pitchRadius, g2.value.pitchRadius, TAU / Math.round(s.teeth)];
+  const asnap = (x: number, period: number) => ((x % period) + period) % period;
+  const phi1 = asnap((src.turn ?? 0) - Math.atan2(dot3(e, f0.Y), dot3(e, f0.X)), pitch1);
+  const psi = asnap(-(r1 * phi1 + (Math.PI * s.module) / 2) / r2, TAU / z2);
+  const e2: Vec3 = [(-ns[0] + Math.cos(sig) * n2[0]) / Math.sin(sig), (-ns[1] + Math.cos(sig) * n2[1]) / Math.sin(sig), (-ns[2] + Math.cos(sig) * n2[2]) / Math.sin(sig)]; // (the direction across the partner's axis towards the source)
+  const a2 = Math.atan2(dot3(e2, Y2), dot3(e2, X2));
+  return ok({ at: at2, turn: norm(a2 + psi), spec: { ...spec, bevel: { ...spec.bevel!, frame: [X2, Y2] } } });
 }

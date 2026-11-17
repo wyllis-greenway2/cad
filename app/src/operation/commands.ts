@@ -17,6 +17,8 @@ import { addGroup, removeGroup, withoutParts } from "./groups.ts";
 import { stretchScene } from "./stretch.ts";
 import { addPattern, setPattern, breakPattern, patternsWithout } from "./repeat.ts";
 import { addGear, setGear, deleteGear, ownedSteps } from "./gearscene.ts";
+import { addPlanetary, setPlanetary, deletePlanetary } from "./planetary.ts";
+import type { PlanetarySpec } from "./planetary.ts";
 import type { GearSpec } from "./gear.ts";
 
 export type Command =
@@ -25,6 +27,7 @@ export type Command =
   /** a plane put somewhere else (the cross section plane moved, turned or flipped, `in_396`) */
   | { type: "placePlane"; ref: Ref; at: Vec3; u: Vec3; v: Vec3; /** switches the cut on or off (left as it is when absent) */ cut?: boolean; /** the side cut away is the other one (left as it is when absent) */ flip?: boolean; /** the invisible mode (left as it is when absent) */ hidden?: boolean }
   | { type: "setRadius"; ref: Ref; radius: number }
+  | { type: "setSpline"; ref: Ref; /** the points between the ends, as along the chord and out from it (`Line.spline`) */ spline: [number, number][]; /** a half of a closed spline: the points of the closed curve either side (`Line.around`); absent leaves it as it is, null takes it away */ around?: { before: [number, number]; after: [number, number] } | null }
   | { type: "deletePart"; ref: Ref }
   | { type: "deleteParts"; refs: Ref[] }
   | { type: "addRelation"; relation: Relation }
@@ -71,6 +74,10 @@ export type Command =
   | { type: "gear"; id: string; plane: Ref; at: Vec3; spec: GearSpec; /** radians */ turn?: number }
   | { type: "setGear"; id: string; spec: GearSpec; at?: Vec3; /** the gear turned about its centre in its plane, radians (0 puts it back) */ turn?: number }
   | { type: "deleteGear"; id: string }
+  /** a planetary set that keeps its numbers (`planetary.ts`, `dec_planetary_gears`): a sun, planets and a ring (gear records of their own) and an optional carrier; `setPlanetary` gives it new numbers (and a new centre or turn), `deletePlanetary` takes it all away */
+  | { type: "planetary"; id: string; plane: Ref; at: Vec3; spec: PlanetarySpec; /** radians */ turn?: number }
+  | { type: "setPlanetary"; id: string; spec: PlanetarySpec; at?: Vec3; turn?: number }
+  | { type: "deletePlanetary"; id: string }
   /** the whole model stretched by a factor along each world axis about a point (`dec_scale_axes`): the drawing and the distances of the steps, so the extrusions stay exact */
   | { type: "stretch"; factors: Vec3; pivot: Vec3; /** only this body of several (its name), or only these drawn parts (`in_390`) */ body?: string; parts?: Ref[] }
   | { type: "batch"; commands: Command[] };
@@ -160,6 +167,15 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       const p = s.parts[c.ref];
       if (p?.kind !== "plane" || !p.section) return err(`${c.ref} is not a cross section plane`);
       return ok({ ...s, parts: { ...s.parts, [c.ref]: { ...p, at: c.at, u: c.u, v: c.v, ...(c.cut === undefined ? {} : { cut: c.cut }), ...(c.flip === undefined ? {} : { flip: c.flip }), ...(c.hidden === undefined ? {} : { hidden: c.hidden }) } } });
+    }
+    case "setSpline": {
+      const p = s.parts[c.ref];
+      if (!p || p.kind !== "line" || !p.spline) return err(`${c.ref} is not a spline`);
+      if (!p.movable) return err(`${c.ref} is a reference and cannot change`);
+      const closedHalf = c.around === undefined ? !!p.around : !!c.around;
+      if ((c.spline.length < 1 && !closedHalf) || c.spline.some((q) => !Number.isFinite(q[0]) || !Number.isFinite(q[1]))) return err("a spline needs at least one point between its ends");
+      const { around: _gone, ...rest } = p;
+      return ok({ ...s, parts: { ...s.parts, [c.ref]: { ...(c.around === null ? rest : p), spline: c.spline, ...(c.around ? { around: c.around } : {}) } } });
     }
     case "setRadius": {
       const p = s.parts[c.ref];
@@ -305,6 +321,9 @@ export function apply(s: Scene, c: Command): Result<Scene> {
     }
     case "setGear": return setGear(s, c.id, c.spec, c.at, c.turn);
     case "deleteGear": return deleteGear(s, c.id);
+    case "planetary": return addPlanetary(s, { id: c.id, plane: c.plane, at: c.at, spec: c.spec, ...(c.turn ? { turn: c.turn } : {}) });
+    case "setPlanetary": return setPlanetary(s, c.id, c.spec, c.at, c.turn);
+    case "deletePlanetary": return deletePlanetary(s, c.id);
     case "batch": {
       let cur = s;
       // a run of addPart commands adds to one private copy of the parts, made once: copying every part for each one added was quadratic (a drawing of 4,000 parts took 6 seconds to import)

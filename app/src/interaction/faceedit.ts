@@ -164,7 +164,7 @@ function sideOfSketch(scene: Scene, face: Plane): FaceEdit | null {
     if (st.type !== "extrude") continue;
     for (const ref of figureRefs(st)) {
       const l = scene.parts[ref];
-      if (l?.kind !== "line" || l.center || l.bulge) continue;
+      if (l?.kind !== "line" || l.center || l.bulge || l.spline) continue;
       const [a, b] = [scene.parts[l.a], scene.parts[l.b]];
       if (a?.kind !== "corner" || b?.kind !== "corner" || !a.movable || !b.movable) continue;
       const pl = l.plane ? scene.parts[l.plane] : undefined;
@@ -228,7 +228,7 @@ export function editCommand(scene: Scene, edit: FaceEdit, v: number): Command | 
       // the side keeps the sides next to it and they are extended or cut to meet it (a hexagon stays a hexagon, only bigger): the new corner is where the next side's line meets the moved side. If there is no single straight
       // side to go along (an arc, a corner of three lines) the corner just moves along the face's normal
       const others = Object.values(scene.parts).filter((p): p is Extract<typeof p, { kind: "line" }> => p.kind === "line" && p.origin === "drawn" && (p.a === ref || p.b === ref) && !(moved.has(p.a) && moved.has(p.b)));
-      const o = others.length === 1 && !others[0]!.center && !others[0]!.bulge ? others[0]! : null;
+      const o = others.length === 1 && !others[0]!.center && !others[0]!.bulge && !others[0]!.spline ? others[0]! : null;
       const far = o ? scene.parts[o.a === ref ? o.b : o.a] : null;
       if (o && far?.kind === "corner") {
         const dir: Vec3 = [far.at[0] - c.at[0], far.at[1] - c.at[1], far.at[2] - c.at[2]];
@@ -353,7 +353,7 @@ function arcCommand(scene: Scene, arc: Ref, radius: number): Command | null {
     const end = scene.parts[endRef];
     const rel = scene.relations.find((r) => r.kind === "onLine" && r.parts[0] === endRef);
     // the line the end slides along: the one it is put on, or a straight side of the sketch that ends there
-    const line = rel ? scene.parts[rel.parts[1]!] : Object.values(scene.parts).find((q) => q.kind === "line" && q.origin === "drawn" && !q.center && !q.bulge && (q.a === endRef || q.b === endRef));
+    const line = rel ? scene.parts[rel.parts[1]!] : Object.values(scene.parts).find((q) => q.kind === "line" && q.origin === "drawn" && !q.center && !q.bulge && !q.spline && (q.a === endRef || q.b === endRef));
     const [p, q] = line?.kind === "line" ? [scene.parts[line.a], scene.parts[line.b]] : [];
     if (end?.kind !== "corner" || p?.kind !== "corner" || q?.kind !== "corner") return null;
     const d = sub(q.at, p.at);

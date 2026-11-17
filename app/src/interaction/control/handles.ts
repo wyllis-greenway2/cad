@@ -32,7 +32,8 @@ import type { Gizmo } from "../gizmo.ts";
 import { candidatesAt } from "../picking.ts";
 import { projector, basis, viewAxes, nearTolMm } from "../camera.ts";
 import { lookup } from "../../operation/scene.ts";
-import { pointOf } from "../../operation/part.ts";
+import { splineSetCommand } from "../../operation/splinering.ts";
+import { pointOf, splineWorld, splineStored, normalOfPlane } from "../../operation/part.ts";
 import { doOrbit } from "./viewing.ts";
 import { finishBox } from "./box.ts";
 import type { AppState, Env } from "./state.ts";
@@ -167,6 +168,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     return { ...s, drag: { ...s.drag, joint: { ...jd, amount: driven.amount, hit: driven.hit } } };
   }
   if ("corner" in s.drag!) return moveCorner(s, i, env);
+  if ("knot" in s.drag!) return moveKnot(s, i, env);
   if ("line" in s.drag!) return moveLine(s, i, env);
   if ("rim" in s.drag!) return moveRim(s, i, env);
   if ("body" in s.drag!) return moveBody(s, i, env);
@@ -263,6 +265,8 @@ function orbitOrCorner(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: 
       }
     }
     if (c) return { ...s, drag: { corner: c.ref, base: s.session }, hoverPoint: null };
+    const knot = !s.op ? knotAt(sc, selectionOf(s.session), (q) => pr.project(q), i.x - i.dx, i.y - i.dy) : null; // (a point of the selected spline: it is moved, the curve follows, `dec_spline_and_cams`)
+    if (knot) return { ...s, drag: { knot, base: s.session }, hoverPoint: null };
     if (s.op) return doOrbit({ ...s, drag: { camera: true } }, i);
     // a straight line of the drawing is dragged whole, the edge of a circle changes its size (`in_290`)
     const hit = candidatesAt(sc, pv, pickOpts(s)).find((k) => { const p = sc.parts[k.ref]; return p?.origin === "drawn" && !!p.plane && ((p.kind === "line" && !p.derived) || p.kind === "circle"); });
@@ -274,6 +278,35 @@ function orbitOrCorner(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: 
   }
   return doOrbit({ ...s, drag: { camera: true } }, i);
 }
+/** The point of a selected spline under the pointer (the pixel position given), if any: which line and which of its points between the ends. */
+function knotAt(sc: Scene, sel: readonly Ref[], project: (p: Vec3) => [number, number], x: number, y: number): { line: Ref; index: number } | null {
+  const get = lookup(sc);
+  const found: { line: Ref; index: number; d: number }[] = [];
+  for (const r of sel) {
+    const p = sc.parts[r];
+    const w = p?.kind === "line" && p.spline ? splineWorld(get, p) : null;
+    if (!w) continue;
+    w.slice(1, -1).forEach((q, k) => { const [px, py] = project(q); const d = Math.hypot(px - x, py - y); if (d <= settings.pick.pointPx) found.push({ line: r, index: k, d }); });
+  }
+  const best = found.sort((a, b) => a.d - b.d)[0];
+  return best ? { line: best.line, index: best.index } : null;
+}
+/** A point of a spline follows the pointer on the spline's plane: every move is made again from where the drag began, so the whole drag is one step. */
+function moveKnot(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env): AppState {
+  const d = s.drag as { knot: { line: Ref; index: number }; base: Session };
+  const sc = sceneOf(d.base);
+  const line = sc.parts[d.knot.line];
+  const pl = line?.kind === "line" && line.plane ? sc.parts[line.plane] : undefined;
+  if (line?.kind !== "line" || pl?.kind !== "plane") return s;
+  const w = splineWorld(lookup(sc), line);
+  const at = snapOnPlane(sc, projector(s.cam, env.w, env.h).view(i.x, i.y), pl);
+  if (!w || !at) return s;
+  const stored = splineStored(w.map((q, k) => (k === d.knot.index + 1 ? at : q)), normalOfPlane(pl));
+  if (!stored) return s;
+  const next = run(d.base, splineSetCommand(sc, d.knot.line, stored));
+  return next.message ? s : { ...s, session: { ...next, click: d.base.click } };
+}
+
 /** The corner follows the pointer on its plane: every move is made again from where the drag began, so the whole drag is one step. */
 function moveCorner(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env): AppState {
   const d = s.drag as { corner: Ref; base: Session };

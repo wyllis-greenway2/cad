@@ -54,7 +54,7 @@ test("a partner made with nothing typed is one that meshes: a gear in a ring has
   assert.equal(gearLive(sc, at(meshGearTool(gear, false)))![0], 20);
 });
 
-import { finish as finishTool } from "../src/interaction/tools.ts";
+import { finish as finishTool, finish } from "../src/interaction/tools.ts";
 test("the bevel gear tool: its numbers, its title that says it is an approximation, and the gear it makes with nothing typed (a pair-ready 20 tooth gear, module 2, a bore)", () => {
   const sc = scene(createSession(kernel));
   const t = { ...armTool("gear", "bevel"), plane: worldRef("XY"), points: [[0, 0, 0] as [number, number, number]], cursor: [10, 0, 0] as [number, number, number] };
@@ -67,4 +67,17 @@ test("the bevel gear tool: its numbers, its title that says it is an approximati
   assert.equal(spec.module, 2);
   assert.equal(spec.bevel?.mate, 20, "its mate has as many teeth unless typed");
   assert.ok((spec.bore ?? 0) > 0, "a bore, as any new gear has");
+});
+
+test("Mesh gear on a bevel gear makes its partner: the same module, the source's tooth count, standing across at the shaft angle with its own frame (`in_755`)", () => {
+  const sc = scene(createSession(kernel));
+  const rec = { id: "g_001", plane: worldRef("XY"), at: [0, 0, 0] as [number, number, number], spec: { teeth: 20, module: 2, bevel: { mate: 30 } } as GearRecord["spec"] };
+  const t = meshGearTool(rec, false);
+  const cmd = finish(sc, { ...t, cursor: [30, 0, 0] })?.command as { type: string; spec: { teeth: number; module: number; bevel?: { mate: number; frame?: unknown } }; at: number[] } | undefined;
+  assert.ok(cmd && cmd.type === "gear", "makes a gear");
+  assert.equal(cmd.spec.teeth, 20, "as many teeth as the source unless typed");
+  assert.equal(cmd.spec.bevel?.mate, 20);
+  assert.ok(cmd.spec.bevel?.frame, "it stands across: its own frame");
+  assert.ok(Math.abs(cmd.at[0]! - 25.98) < 0.1 || cmd.at[0]! > 5, "its centre is out along the direction asked");
+  assert.equal(gearProblem(sc, { ...meshGearTool(rec, true), cursor: [30, 0, 0] }), "a bevel gear meshes with a bevel gear: not with a rack or a ring");
 });

@@ -3290,13 +3290,113 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (approves building the straight bevel gear as an approximation, and asks for a to-do list item to verify the bevel data later)
 
 ## in_736 — 2026-11-17 — directive
+> merge the latest changes into the preview and let me test
+(asks me to merge the latest work into the preview branch so they can test it)
+
+## in_737 — 2026-11-17 — directive
+> Go with your recommendation, draft the decision entry
+(asks for a decision entry drafted for the proposal just made: a spline tool, curves turned to arcs only when the kernel needs them, and a cam helper that draws onto it; a draft, not an approval of the design)
+
+## in_738 — 2026-11-17 — approval
+> Go with your recommendation on spline storage
+(approves the recommendation on `q_spline_storage`: a spline stores its control points and is made into arcs only when the kernel needs them)
+
+## in_739 — 2026-11-17 — directive
+> Go with your recommendation, start on the spline tool
+(asks for the spline tool to be started, the first step of `dec_spline_and_cams`)
+
+## in_740 — 2026-11-17 — directive
+> Go with your recommendation, start on editing spline points
+(asks for editing the points of a spline after it is drawn to be started, the next step after the spline tool)
+
+## in_741 — 2026-11-17 — directive
+> Go with your recommendation, add and remove spline points
+(asks for adding and taking away points of a spline to be built, the next step after moving them)
+
+## in_742 — 2026-11-17 — directive
+> Go with your recommendation, start on the eccentric and snail cams
+(asks for the eccentric cam and the snail (drop) cam to be started, the first cams of `dec_spline_and_cams`)
+
+## in_743 — 2026-11-17 — directive
+> Go with your recommendation, build the closed spline
+(asks for the closed spline to be built: a smooth curve that comes back to its start, the next step toward the cam helper)
+
+## in_744 — 2026-11-17 — approval
+> Yes, read the sources
+(asks for the candidate sources of the fastener pilot data to be read in full)
+
+## in_745 — 2026-11-17 — approval
+> Yes, build those two families
+(approves building the hex nut family (ISO 4032) and the countersunk screw family (ISO 10642, the 1997 edition's figures) of the fastener pilot)
+
+## in_746 — 2026-11-17 — approval
+> Yes, build the receivers into bodies
+(asks for the receivers of the fastener pilot (the clearance hole, the countersink, the hole to tap, the nut pocket) to be cut into bodies)
+
+## in_747 — 2026-11-17 — approval
+> Yes, build the washer and socket head screw
+(asks for the flat washer (ISO 7089) and the socket head cap screw (ISO 4762) families to be built)
+
+## in_748 — 2026-11-17 — approval
+> Yes, the counterbore rule is fine, use the 5.68 head
+(approves the counterbore rule (the head's largest width plus 0.5 mm, as deep as the head is high) and the larger 5.68 mm ISO 4762 head for M3, the head diameters of the CDE and omdl tables)
+
+## in_749 — 2026-11-17 — approval
+> Yes, look for the 2019 edition
+(asks for the 2019 edition of ISO 10642 to be looked for)
+
+## in_750 — 2026-11-17 — approval
+> Yes, look for those catalogs
+(asks for current maker or supplier catalogs that state their standard and edition to be looked for, for the ISO 4762 head, ISO 10642 and the clearance hole table)
+
+## in_751 — 2026-11-17 — approval
+> Yes, add the smooth head option
+(asks for the smooth head option of the socket head cap screw, the smooth-head largest diameters of ISO 4762 as an alternative to the knurled head)
+
+## in_752 — 2026-11-17 — directive
 > okay now lets keep working
 (asks to keep working, without saying on what)
 
-## in_737 — 2026-11-17 — directive
+## in_753 — 2026-11-17 — directive
+> okay can you start a new branch to work on this?
+(asks for a new branch; the session's branch claude/stoic-newton-0fj4ve was already new and clean, so it was kept)
+
+## in_754 — 2026-11-17 — directive
+> okay so, can you look up how all the gear stuff works? I want you to help me build a planetary gear maker
+(asks for research on how planetary gears work and for help building a planetary gear maker; no build approved yet)
+
+## in_755 — 2026-11-17 — directive
+> build the mesh bevel gear partner
+(asks me to build the partner that meshes with a bevel gear: placed at the shaft angle, with its phase)
+
+## in_756 — 2026-11-17 — directive
+> merge the latest changes into the preview and let me test
+(asks me again to merge the latest work into the preview branch so they can test it)
+
+## in_757 — 2026-11-17 — directive
+> Go with your recommendation, start on the cam helper
+(asks for the cam helper to be started: a cam profile drawn from a rise, dwell and return with a choice of motion law, the last step of `dec_spline_and_cams`)
+
+## in_758 — 2026-11-17 — approval
+> Yes, build the tapped-hole engagement setting
+(asks for the hole to tap to have a thread engagement setting, in place of the single tap drill size)
+
+## in_759 — 2026-11-17 — directive
+> okay now lets keep working
+(asks to keep working, without saying on what)
+
+## in_760 — 2026-11-17 — directive
 > Lets pick up where we left off. I believe some of the items were "Speed work, roughly by payoff ... Face and edge naming that still grows with model size ... Revolve, loft and sweep steps, and the worm wheel's loft ... An extrude pushed into or joined to a body ... Smaller per-edit and per-frame costs ... Worm wheels ... A label on the stand-in disc, and discs for other heavy bodies ... Memory in the kernel worker."
 (asks to pick up the list of remaining speed work, in that order, starting with the face and edge naming; the list is the one given in the assistant's answer to in_704, quoted by the human)
 
-## in_738 — 2026-11-17 — directive
+## in_761 — 2026-11-17 — directive
+> 1 can we make it so that you can set either? you input the ratio and it figures out the teeth, or you input the teeth and it figures out the ratio? 2 Can we have the carrier plate optional? the tool could include it or not. 3 I think it should be a feature where if you go into edit, then you can edit the whole assembly basically the same as when you originally created it. 4 lets do spur and helical. 5 sure.
+(answers the five questions of q_planetary_gears: 1 either inputs: ratio gives teeth, or teeth give ratio; 2 the carrier plate optional; 3 a feature that keeps its numbers, Edit gear edits the whole assembly as when made; 4 spur and helical; 5 yes, show the ratio for each held part)
+
+## in_762 — 2026-11-17 — approval
+> Yes to all three, go ahead and build it
+(approves the AI's three proposals in the chat after in_761: the carrier as a plate with a pin at each planet position with thickness, pin diameter and clearance set by the person; each planet its own body; for helical sets the sun and ring the same hand and the planets the opposite hand; and tells it to build the planetary feature)
+
+## in_763 — 2026-11-17 — directive
 > yes do the revolve, loft and sweep solids next
 (approves doing the revolve, loft and sweep steps' own solids next: kept under a key that does not include the steps before them, as the extrude's is)

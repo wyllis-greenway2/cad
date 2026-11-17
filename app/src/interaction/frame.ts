@@ -179,7 +179,7 @@ export interface Frame {
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
   modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate" | "linear" | "circular" | "invert"; label: string } | null;
   /** the sketching tool that is on, for the pill at the top (`in_193`) */
-  tool: { kind: "rect" | "circle" | "line" | "arc" | "trim" | "gear"; label: string; /** figures made while it has been on (the chip flashes at each) */ made: number; /** a figure is half drawn (the chip's cross then cancels it) */ drawing: boolean; /** something is made and nothing is half drawn: the chip shows a check that puts the tool away, in place of the cross (`in_283`) */ done: boolean } | null;
+  tool: { kind: "rect" | "circle" | "line" | "arc" | "spline" | "cam" | "trim" | "gear"; label: string; /** figures made while it has been on (the chip flashes at each) */ made: number; /** a figure is half drawn (the chip's cross then cancels it) */ drawing: boolean; /** something is made and nothing is half drawn: the chip shows a check that puts the tool away, in place of the cross (`in_283`) */ done: boolean } | null;
   /** a repeat or an operation that is open: the tick (Enter, a right click) and the cross (Esc) are shown for it (`in_244`) */
   confirm: { kind: string; label: string; /** words shown in the bubble beside the buttons */ text?: string } | null;
   /** a cut of bodies being set up: the parts they make, with where the control of each stands and whether it is kept; and whether what is kept is joined (`in_294`) */
@@ -438,7 +438,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     suggest: busy ? null : suggestionsFor(sc, sel, nearTolMm(s.cam), seenIn(s.cam, sc, size)),
     cut: s.cut ? { parts: cutParts(sceneOf(s.session), s.cut), join: s.cut.join } : null, // (the bodies as they are, not as the preview of the cut shows them)
     confirm: s.picking && !s.op && !s.tool && !s.repeat ? { kind: s.picking.kind, label: OPEN_LABELS[s.picking.kind] ?? s.picking.kind, text: "Click what it needs" } : s.moverSphere && moverOp(s) && !s.tool ? { kind: "orient", label: "Orient the mover", text: "Orient the mover" } : s.cut ? { kind: "subtract", label: "Cut" } : s.tool ? null : s.repeat && !s.op ? { kind: s.repeat.op.kind, label: OPEN_LABELS[s.repeat.op.kind] ?? s.repeat.op.kind } : s.op && s.op.kind !== "dimension" ? { kind: s.op.kind, label: OPEN_LABELS[s.op.kind] ?? s.op.kind } : !s.op && !s.picking && !s.repeat && !s.cut && similarOf(s) ? { kind: "similar", label: "Select similar", text: `${similarOf(s)!.count} similar ${similarOf(s)!.noun}${similarOf(s)!.count === 1 ? "" : "s"}` } : null,
-    tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve", trim: "Trim", gear: "Gear" } as const)[s.tool.kind], made: s.tool.made ?? 0, drawing: s.tool.points.length > 0, done: (s.tool.made ?? 0) > 0 && s.tool.points.length === 0 } : null,
+    tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve", spline: "Spline", cam: "Cam", trim: "Trim", gear: "Gear" } as const)[s.tool.kind], made: s.tool.made ?? 0, drawing: s.tool.points.length > 0, done: (s.tool.made ?? 0) > 0 && s.tool.points.length === 0 } : null,
     wireframe: s.wireframe || (s.moverSphere && !!moverOp(s)) || s.op?.kind === "revolve" || s.op?.kind === "mirror" || s.op?.kind === "sweep" || s.op?.kind === "loft" || ((s.picking?.kind === "sweep" || s.picking?.kind === "loft") && !!pickingOp(s)) /* (what a sweep would make is drawn as wireframe, not as a made body, `in_529`, `in_530`) */ || /* the object goes wireframe while the mover itself is oriented, `in_421` */ (s.op?.kind === "hollow" && !!s.drag && "handle" in s.drag), // (the body fades to wireframe while the wall is pulled, so the wall can be seen, `in_394`)
     sections: cutsNow(s).map((c) => ({ at: c.centre, n: c.n, corners: sectionQuad(c.centre, c.n, c.extent) })),
     sectionPlanes: [...Object.values(sc.parts).filter((p) => p.kind === "plane" && !!p.section && p.extent !== undefined).map((p) => { const pl = p as Extract<typeof p, { kind: "plane" }>; return { ref: pl.ref, selected: sectionNow(s)?.ref === pl.ref, cutting: !!pl.cut, mode: modeOf(pl), hidden: !!pl.hidden, move: sheetMoveOf(s, pl.ref), corners: s.sectionLive && s.sectionLive.ref === pl.ref ? sectionQuad(s.sectionLive.centre, s.sectionLive.n, pl.extent!) : [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, k]) => add(add(pl.at, scale(pl.u, a! * pl.extent!)), scale(pl.v, k! * pl.extent!)) as Vec3) }; }), ...mirrorGuide(s)],
@@ -699,11 +699,12 @@ function gearChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
   const at: Vec3 = [rec.at[0] + pl.v[0] * r, rec.at[1] + pl.v[1] * r, rec.at[2] + pl.v[2] * r];
   const plain = canHelix(rec.spec);
   const worm = !!rec.spec.worm || !!rec.spec.wheel;
+  const bevel = !!rec.spec.bevel;
   return { at, items: [
     { id: "gear:edit", label: "Edit gear", icon: "gear", enabled: true, why: null },
     { id: "gear:helix", label: "Helix", icon: "helical", enabled: plain, why: plain ? null : "a helix goes on a plain gear (not yet a rack, pulley, sprocket, clock gear or worm)" },
     { id: "gear:mesh", label: "Mesh gear", icon: "meshgear", enabled: true, why: null },
-    { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack", enabled: !worm, why: worm ? "a rack does not mesh with a worm or its wheel" : null },
-    { id: "gear:meshring", label: "Mesh ring", icon: "meshring", enabled: !worm, why: worm ? "a ring does not mesh with a worm or its wheel" : null },
+    { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack", enabled: !worm && !bevel, why: worm ? "a rack does not mesh with a worm or its wheel" : bevel ? "a bevel gear meshes with a bevel gear" : null },
+    { id: "gear:meshring", label: "Mesh ring", icon: "meshring", enabled: !worm && !bevel, why: worm ? "a ring does not mesh with a worm or its wheel" : bevel ? "a bevel gear meshes with a bevel gear" : null },
   ] };
 }

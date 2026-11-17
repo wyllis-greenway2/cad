@@ -4,6 +4,8 @@
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { length, add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
+import type { Ends } from "./spline.ts";
+import { splinePoints, splinePieces, reversedEnds } from "./spline.ts";
 
 export type Kind = "corner" | "line" | "circle" | "face" | "plane" | "axis" | "body";
 export type Origin = "drawn" | "body" | "world";
@@ -22,6 +24,8 @@ export interface Corner extends Base { kind: "corner"; at: Vec3; /** a place whe
 export interface Line extends Base { kind: "line"; a: Ref; b: Ref; /** the name of an edge of the body between two flat faces that lasts through the steps (`dec_stable_reference_mechanism`) */ stable?: string; /** a point halfway along a curved edge (body edges only; straight lines omit it) */ mid?: Vec3;
   /** the curve itself, for a body edge that is neither a straight line nor part of a circle (an ellipse, a curve where two round faces cross): the points along it, from `a` to `b`. A circle through the ends and the middle is not the curve for these (`in_372`) */ path?: Vec3[];
   /** a drawn arc: how far its middle is out from the chord, as a fraction of the chord's length (positive towards the plane's normal crossed with the chord's direction); a straight line omits it */ bulge?: number;
+  /** a drawn spline (`dec_spline_and_cams`): the points it passes through between its two ends, each as how far along the chord from `a` to `b` (0 to 1) and how far out from it to the left, both as a fraction of the chord's length, so the curve goes with its ends when they are moved, turned or stretched */ spline?: [number, number][];
+  /** a spline that is half of a closed one (`dec_spline_and_cams`): the points of the closed curve just before its start and just after its end, in the same terms as `spline`, so the two halves meet smoothly */ around?: { before: [number, number]; after: [number, number] };
   /** a drawn arc about a centre point (a corner, so it can be positioned with constraints): the arc runs from `a` to `b` round `center`, counter-clockwise (seen from the plane's normal) or not; its radius is the distance from the centre to `a` */
   center?: Ref; ccw?: boolean;
   /** an arc of a circle that lines drawn across it cut into pieces (made when the faces are, never saved, not picked) */ derived?: boolean;
@@ -205,6 +209,40 @@ export function arcPoints(a: Vec3, m: Vec3, b: Vec3, steps = 40): Vec3[] {
   }
   return out;
 }
+/** The points a drawn spline passes through, in the world, from `a` to `b` (its stored points are along the chord and out from it, `Line.spline`); null when it has no chord or is not a spline. */
+export function splineWorld(get: Lookup, part: Line): Vec3[] | null {
+  if (!part.spline) return null;
+  const f = chordFrame(get, part);
+  return f ? [f.a, ...part.spline.map(f.at), f.b] : null;
+}
+/** The points just outside the ends of a spline that is half of a closed one, in the world (`Line.around`); null for any other. */
+export function splineEnds(get: Lookup, part: Line): Ends | undefined {
+  if (!part.around) return undefined;
+  const f = chordFrame(get, part);
+  return f ? { before: f.at(part.around.before), after: f.at(part.around.after) } : undefined;
+}
+/** The frame of a spline's chord: its two ends, and how a point stored along and out from the chord is in the world. */
+function chordFrame(get: Lookup, part: Line): { a: Vec3; b: Vec3; at: (q: readonly [number, number]) => Vec3 } | null {
+  const s = segmentOf(get, part.ref);
+  const pl = part.plane ? get(part.plane) : undefined;
+  if (!s || !pl || pl.kind !== "plane") return null;
+  const chord = sub(s[1], s[0]);
+  const len = length(chord);
+  if (len < 1e-9) return null;
+  const along = scale(chord, 1 / len);
+  const perp = cross(normalOfPlane(pl), along);
+  return { a: s[0], b: s[1], at: ([t, h]) => add(s[0], add(scale(along, t * len), scale(perp, h * len))) };
+}
+/** The stored form of a spline through these points (the first and the last are its ends): `Line.spline`. Null when the ends are one point. */
+export function splineStored(pts: readonly Vec3[], normal: Vec3): [number, number][] | null {
+  if (pts.length < 2) return null;
+  const chord = sub(pts[pts.length - 1]!, pts[0]!);
+  const len = length(chord);
+  if (len < 1e-9) return null;
+  const along = scale(chord, 1 / len);
+  const perp = cross(normal, along);
+  return pts.slice(1, -1).map((q): [number, number] => { const d = sub(q, pts[0]!); return [dot(d, along) / len, dot(d, perp) / len]; });
+}
 /**
  * The curve of a line, as points along it, for drawing it and picking it: the kernel's own curve for a body edge that is not a circle (`Line.path`), the ring (or the arc of it) for a circle, and an arc through its ends and
  * middle for a drawn curve. Null for a straight line. One place for the geometry of a curved line (`in_375`): nothing else makes a circle from an edge's three points.
@@ -217,6 +255,7 @@ export function curvePoints(get: Lookup, part: Line): Vec3[] | null {
     const [a, b] = [pointOf(get, part.a), pointOf(get, part.b)];
     return part.circle && a && b ? arcPoints(a, part.mid, b) : [a, part.mid, b].filter((x): x is Vec3 => !!x); // (a circle's arc is the circle through its ends and middle: exact; a curve with no path is the chords)
   }
+  if (part.spline) { const w = splineWorld(get, part); return w ? splinePoints(w, 16, splineEnds(get, part)) : null; }
   const s = segmentOf(get, part.ref);
   const cm = curveMid(get, part);
   return s && cm ? arcPoints(s[0], cm, s[1]) : null;
@@ -272,11 +311,11 @@ function keptFor<T>(kind: string, loop: readonly Ref[], corners: readonly Ref[],
 }
 
 /** The corners of a closed drawn shape in order, each with the middle point of the arc that runs from it to the next corner (null for a straight side). */
-export function loopSteps(get: Lookup, loop: readonly Ref[], corners: readonly Ref[]): { at: Vec3; mid: Vec3 | null; /** the line that runs from this corner to the next */ line?: Ref }[] {
+export function loopSteps(get: Lookup, loop: readonly Ref[], corners: readonly Ref[]): { at: Vec3; mid: Vec3 | null; /** the line that runs from this corner to the next */ line?: Ref; /** a spline side is several arcs: which one of them this is (not the first) */ piece?: number }[] {
   return keptFor("steps", loop, corners, get, (g) => stepsOf(g, loop, corners));
 }
-function stepsOf(get: Lookup, loop: readonly Ref[], corners: readonly Ref[]): { at: Vec3; mid: Vec3 | null; line?: Ref }[] {
-  const out: { at: Vec3; mid: Vec3 | null; line?: Ref }[] = [];
+function stepsOf(get: Lookup, loop: readonly Ref[], corners: readonly Ref[]): { at: Vec3; mid: Vec3 | null; line?: Ref; piece?: number }[] {
+  const out: { at: Vec3; mid: Vec3 | null; line?: Ref; piece?: number }[] = [];
   const lines = loop.map((r) => get(r)).filter((p): p is Line => p?.kind === "line");
   // the lines that join each two corners, in their order (a side is found by its ends, not by looking through all the lines for each corner)
   const between = new Map<string, Line[]>();
@@ -288,6 +327,13 @@ function stepsOf(get: Lookup, loop: readonly Ref[], corners: readonly Ref[]): { 
     const next = corners[(i + 1) % corners.length]!;
     const line = between.get(c < next ? `${c}|${next}` : `${next}|${c}`)?.find((l) => !used.has(l.ref));
     if (line) used.add(line.ref);
+    const sw = line?.spline ? splineWorld(get, line) : null;
+    if (line && sw) { // a spline side: the arcs that stand for it, in the way the loop goes (`dec_spline_and_cams`)
+      const ends = splineEnds(get, line);
+      const pieces = line.a === c ? splinePieces(sw, undefined, ends) : splinePieces([...sw].reverse(), undefined, reversedEnds(ends));
+      pieces.forEach((pc, k) => out.push({ at: k ? pc.a : here, mid: pc.mid, line: line.ref, ...(k ? { piece: k } : {}) }));
+      return;
+    }
     out.push({ at: here, mid: line ? curveMid(get, line) : null, ...(line ? { line: line.ref } : {}) });
   });
   return out;

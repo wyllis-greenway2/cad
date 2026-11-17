@@ -8,7 +8,7 @@ import type { Scene, Step, Figure } from "./scene.ts";
 import { figureParams } from "./scene.ts";
 import type { Part } from "./part.ts";
 import type { GearRecord } from "./gearscene.ts";
-import { bevelPoints } from "./bevel.ts";
+import { bevelPoints, bevelFrame } from "./bevel.ts";
 import { boreLoop } from "./bore.ts";
 
 const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -25,10 +25,9 @@ export function bevelParts(s: Scene, rec: GearRecord): Part[] {
   const pl = s.parts[rec.plane], b = bevelPoints(rec.spec);
   if (!pl || pl.kind !== "plane" || !b.ok) return [];
   const { points, geometry: g } = b.value;
-  const [c, sn] = [Math.cos(rec.turn ?? 0), Math.sin(rec.turn ?? 0)];
-  const [u, v] = [pl.u, pl.v];
-  const nn = cross(u, v), len = Math.hypot(...nn) || 1, n: Vec3 = [nn[0] / len, nn[1] / len, nn[2] / len];
-  const at = (x: number, y: number, h: number): Vec3 => { const px = x * c - y * sn, py = x * sn + y * c; return [rec.at[0] + u[0] * px + v[0] * py + n[0] * h, rec.at[1] + u[1] * px + v[1] * py + n[1] * h, rec.at[2] + u[2] * px + v[2] * py + n[2] * h]; };
+  const f = bevelFrame(pl.u, pl.v, rec.spec, rec.turn ?? 0);
+  const [u, v] = rec.spec.bevel?.frame ?? [pl.u, pl.v]; // (the planes of its sections lie as it does)
+  const at = (x: number, y: number, h: number): Vec3 => [rec.at[0] + f.X[0] * x + f.Y[0] * y + f.n[0] * h, rec.at[1] + f.X[1] * x + f.Y[1] * y + f.n[1] * h, rec.at[2] + f.X[2] * x + f.Y[2] * y + f.n[2] * h];
   const loop = (rec.spec.bore ?? 0) > 0 ? boreLoop(rec.spec) : null;
   const out: Part[] = [];
   [0, g.big - g.small].forEach((h, q) => {

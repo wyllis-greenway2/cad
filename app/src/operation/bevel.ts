@@ -6,9 +6,14 @@
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import type { GearSpec } from "./gear.ts";
+import type { Vec3 } from "../math/vec.ts";
 
 /** a bevel gear: the teeth of the gear it meshes with, the angle between the shafts (degrees, 90 if none) and the face width as a fraction of the cone distance (a third if none) */
-export interface BevelSpec { mate: number; shaft?: number; face?: number }
+export interface BevelSpec {
+  mate: number; shaft?: number; face?: number;
+  /** a partner that stands across its mate's axis (`meshBevel`): its own first and second directions (unit vectors, the plane of the big end, its normal their cross product, along the axis towards the apex) in place of the plane's; none for a gear on its plane */
+  frame?: [Vec3, Vec3];
+}
 export interface BevelGeometry {
   /** the pitch cone's half angle, radians */ delta: number;
   /** the cone distance, mm */ R: number;
@@ -93,4 +98,15 @@ export function bevelPoints(spec: GearSpec): Result<{ points: [number, number][]
   const p = bevelPolar(spec);
   if (!p.ok) return p;
   return ok({ points: p.value.map(([r, th]): [number, number] => [r * Math.cos(th), r * Math.sin(th)]), geometry: g.value });
+}
+
+/** The frame of a bevel gear turned by `turn` (radians) about its axis: X and Y in the plane of its big end (tooth 0 along X) and n along the axis towards the apex, on the plane with directions `u` and `v` unless the gear stands across (`BevelSpec.frame`). */
+export function bevelFrame(u: Vec3, v: Vec3, spec: GearSpec, turn: number): { X: Vec3; Y: Vec3; n: Vec3 } {
+  const [b0, b1] = spec.bevel?.frame ?? [u, v];
+  const [c, s] = [Math.cos(turn), Math.sin(turn)];
+  const X: Vec3 = [b0[0] * c + b1[0] * s, b0[1] * c + b1[1] * s, b0[2] * c + b1[2] * s];
+  const Y: Vec3 = [-b0[0] * s + b1[0] * c, -b0[1] * s + b1[1] * c, -b0[2] * s + b1[2] * c];
+  const n: Vec3 = [b0[1] * b1[2] - b0[2] * b1[1], b0[2] * b1[0] - b0[0] * b1[2], b0[0] * b1[1] - b0[1] * b1[0]];
+  const len = Math.hypot(...n) || 1;
+  return { X, Y, n: [n[0] / len, n[1] / len, n[2] / len] };
 }
