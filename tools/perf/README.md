@@ -7,6 +7,7 @@ Scripts used to find what is slow or grows, kept so they can be run again. They 
 | --- | --- |
 | `hunt.cjs <fixture>` | orbit, pan, zoom, hover, a body selected, and every operation open (Move to Copy), each with the frame times and the three functions the time went in. |
 | `hunt3.cjs <fixture> [unextrude]` | real mouse drags: a sketch corner (with `unextrude`, the extrusion is taken out so the sketch shows), or the arrow of a face. |
+| `select.cjs` | (`in_688`; edit the paths at the top for the file) the same project with nothing, a face, and every line and corner selected: orbit and hover, frame times and the top self times. |
 | `browsermem.cjs <fixture> [ms]` | sixty edits of the first extrusion's depth, and the whole browser's memory after every ten. |
 | `cpuprofile_summary.py [dir]` | the self and inclusive times in a `node --cpu-prof` profile (run a test or script with `node --cpu-prof --cpu-prof-dir=. x.test.ts`). |
 

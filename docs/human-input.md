@@ -3091,3 +3091,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_687 — 2026-11-17 — directive
 > merge hopeful-cannon-3qzdtg next
 (asks for claude/hopeful-cannon-3qzdtg to be merged into this branch, after the others)
+
+## in_688 — 2026-11-17 — directive
+> okay the next thing I want you to help me work on is how to speed up the app. Things can get really slow. And sometimes for non obvious reasons. for example, the same gear sketch is fast when not selected, and very slow when selected, but isn't it the same line, same rendering, same everything? So why so slow when sselected?
+(asks to work on the app's speed, starting with why a gear sketch is fast unselected and very slow selected; attached a project and a state snapshot of it, `fast_when_not_selected`)
