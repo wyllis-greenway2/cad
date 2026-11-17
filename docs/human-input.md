@@ -3364,3 +3364,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_754 — 2026-11-17 — directive
 > okay so, can you look up how all the gear stuff works? I want you to help me build a planetary gear maker
 (asks for research on how planetary gears work and for help building a planetary gear maker; no build approved yet)
+
+## in_755 — 2026-11-17 — directive
+> build the mesh bevel gear partner
+(asks me to build the partner that meshes with a bevel gear: placed at the shaft angle, with its phase)

@@ -699,11 +699,12 @@ function gearChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
   const at: Vec3 = [rec.at[0] + pl.v[0] * r, rec.at[1] + pl.v[1] * r, rec.at[2] + pl.v[2] * r];
   const plain = canHelix(rec.spec);
   const worm = !!rec.spec.worm || !!rec.spec.wheel;
+  const bevel = !!rec.spec.bevel;
   return { at, items: [
     { id: "gear:edit", label: "Edit gear", icon: "gear", enabled: true, why: null },
     { id: "gear:helix", label: "Helix", icon: "helical", enabled: plain, why: plain ? null : "a helix goes on a plain gear (not yet a rack, pulley, sprocket, clock gear or worm)" },
     { id: "gear:mesh", label: "Mesh gear", icon: "meshgear", enabled: true, why: null },
-    { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack", enabled: !worm, why: worm ? "a rack does not mesh with a worm or its wheel" : null },
-    { id: "gear:meshring", label: "Mesh ring", icon: "meshring", enabled: !worm, why: worm ? "a ring does not mesh with a worm or its wheel" : null },
+    { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack", enabled: !worm && !bevel, why: worm ? "a rack does not mesh with a worm or its wheel" : bevel ? "a bevel gear meshes with a bevel gear" : null },
+    { id: "gear:meshring", label: "Mesh ring", icon: "meshring", enabled: !worm && !bevel, why: worm ? "a ring does not mesh with a worm or its wheel" : bevel ? "a bevel gear meshes with a bevel gear" : null },
   ] };
 }
