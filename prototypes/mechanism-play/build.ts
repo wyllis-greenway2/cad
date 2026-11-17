@@ -1,5 +1,5 @@
 // Builds model.json: the Geneva drive as a 3D model (three bodies, `layout: "model"`), its triangles split by body, and the numbers the motion needs.
-// Run from app/: node ../prototypes/mechanism-play/build.ts   (a prototype: `in_821`; nothing in the app imports it)
+// Run from app/: node ../prototypes/mechanism-play/build.ts   (a prototype: `in_822`; nothing in the app imports it)
 import { writeFileSync } from "node:fs";
 import { kernel } from "../../app/src/compiler/kernel/index.ts";
 import { worldRef } from "../../app/src/shared/ref.ts";

@@ -1,4 +1,4 @@
-// A spike (`in_821`): bodies moved on screen by a matrix each, with no kernel and no history, driven by a timer. Parameters in the address: ?copies=K&mode=matrix|rebuild&seconds=S
+// A spike (`in_822`): bodies moved on screen by a matrix each, with no kernel and no history, driven by a timer. Parameters in the address: ?copies=K&mode=matrix|rebuild&seconds=S
 import * as THREE from "three";
 const q = new URLSearchParams(location.search);
 const copies = Number(q.get("copies") ?? 1), mode = q.get("mode") ?? "matrix", seconds = Number(q.get("seconds") ?? 4);

@@ -1,6 +1,6 @@
-# Mechanism play (a prototype, `in_821`)
+# Mechanism play (a prototype, `in_822`)
 
-**What it was meant to learn:** what it costs, on the page, to move bodies on screen with a matrix each (no kernel, no history), driven by a timer: whether that is cheap enough to build play and gear-driving-gear motion on, and where the cost is (`in_820`).
+**What it was meant to learn:** what it costs, on the page, to move bodies on screen with a matrix each (no kernel, no history), driven by a timer: whether that is cheap enough to build play and gear-driving-gear motion on, and where the cost is (`in_821`).
 
 **What it is:** `build.ts` makes the Geneva drive as a 3D model through the app's own modules (`layout: "model"`, three bodies) and writes `model.json` with each body's triangles split out (from the kernel's face ranges, as the app's `bodySplitOf` does). `index.html` and `play.js` draw it in Three.js, one mesh per body with its own matrix (`matrixAutoUpdate = false`), the crank and the locking disc turning together about the second shaft and the wheel stepping (the formulas of `dec_geneva`: the wheel's turn while the pin is in the slot), and time each frame. `run.cjs` serves the repository and runs it in headless Chromium with 1, 10 and 50 copies of the drive, and with a naive mode that makes new geometry from the arrays every frame. Run: `cd app && node ../prototypes/mechanism-play/build.ts && node ../prototypes/mechanism-play/run.cjs`. Nothing in the app imports this.
 

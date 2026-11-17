@@ -228,7 +228,7 @@ test("the tool's picture uses the quick shapes: a number typed makes a picture w
   assert.ok(Math.max(...rs) - Math.min(...rs) > 1, "the real disc is the notched one, not a circle");
 });
 
-// ---- the notch's edge is smooth (`in_818`)
+// ---- the notch's edge is smooth (`in_819`)
 test("smoothing the radii never makes one bigger, and takes the scallops out of a notch's edge", () => {
   // a rim of radius 10 with a notch cut to a scalloped edge: radii that dip in a regular wiggle
   const raw = Array.from({ length: 720 }, (_, i) => (i > 200 && i < 320 ? 4 + 0.6 * Math.abs(Math.sin(i / 3)) : 10));
@@ -251,7 +251,7 @@ test("the real locking disc's outline has no ridges: the second difference of it
   assert.ok(worst < 0.2, `worst second difference ${worst.toFixed(3)} mm`);
 });
 
-// ---- the three layouts (`in_819`)
+// ---- the three layouts (`in_820`)
 import { createState, reduce } from "../src/interaction/controller.ts";
 import { homeCamera } from "../src/interaction/camera.ts";
 import { editCamTool } from "../src/interaction/tools.ts";

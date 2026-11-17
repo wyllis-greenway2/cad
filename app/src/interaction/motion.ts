@@ -1,4 +1,4 @@
-// A joint played and scrubbed (`dec_mechanism_motion`, stage 1; `in_823`): the body of a pivot or a slider is drawn turned or slid by an amount that changes with time (play) or is set (the scrubber). The amount is counted from where the
+// A joint played and scrubbed (`dec_mechanism_motion`, stage 1; `in_824`): the body of a pivot or a slider is drawn turned or slid by an amount that changes with time (play) or is set (the scrubber). The amount is counted from where the
 // joint stands in the history (its rest), and nothing is written: the picture is moved by a matrix on the graphics card (the way a joint's handle is dragged, `in_323`); stopping puts it back; keeping the pose writes the ordinary drive
 // step (`mate.ts` `driveCommand`). Pure: a scene and a time in; a matrix out. The axis of the joint is worked out once, when the motion starts, not for every frame.
 import type { Ref } from "../shared/ref.ts";
