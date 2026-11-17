@@ -6,7 +6,7 @@ import { dist, dot, sub, cross, normalize } from "../../math/vec.ts";
 import type { Plane } from "../../operation/part.ts";
 import { normalOfPlane, segmentOf, circleOf } from "../../operation/part.ts";
 import { lookup, nextId } from "../../operation/scene.ts";
-import { gearOfPart } from "../../operation/gearscene.ts";
+import { gearOfPart, gearOfSelection } from "../../operation/gearscene.ts";
 import { planetaryOfPart } from "../../operation/planetary.ts";
 import type { Scene } from "../../operation/scene.ts";
 import type { Vec3 } from "../../math/vec.ts";
@@ -115,8 +115,7 @@ const GEARS: Group = {
     { id: "clockgears", label: "Clock", icon: "clockgear", items: ["tool:clock", "tool:clockring", "tool:clockrack"] },
     { id: "pulleys", label: "Pulley", icon: "pulley", items: ["tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8"] },
     { id: "sprockets", label: "Sprocket", icon: "sprocket", items: ["tool:sprocket", "tool:isosprocket"] },
-    "gear:edit", "gear:helix",
-    { id: "meshes", label: "Mesh", icon: "meshgear", items: ["gear:mesh", "gear:meshrack", "gear:meshring"] }, // (the gears that fit the one selected, in a submenu of their own to keep the ring short, `in_695`)
+    // (Edit, Helix and Mesh are not in the ring: they are on the gear's own icon, `in_771`)
   ],
 };
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
@@ -141,11 +140,11 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     if (repeating && !IN_REPEAT.has(r.id)) return [r.id, { ...base, enabled: false, why: "apply or cancel the repeat that is open first" }];
     if (r.id === "cam:edit") { const has = sel.some((x) => !!gearOfPart(sc, x)?.spec.cam); return [r.id, { ...base, enabled: has, why: has ? null : "select a cam" }]; }
     if (r.id === "gear:helix") { // (the helix is a number of a plain gear, `in_693`)
-      const rec = sel.map((x) => gearOfPart(sc, x)).find((g) => !!g);
+      const rec = sel.map((x) => gearOfSelection(sc, x)).find((g) => !!g);
       const why = !rec ? "select a gear" : !canHelix(rec.spec) ? "a helix goes on a plain gear (not yet a rack, pulley, sprocket, clock gear or worm)" : null;
       return [r.id, { ...base, enabled: !why, why }];
     }
-    if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfPart(sc, x) || (r.id === "gear:edit" && !!planetaryOfPart(sc, x))); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
+    if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfSelection(sc, x) || (r.id === "gear:edit" && !!planetaryOfPart(sc, x))); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }
     if (r.select === "combine") { const why = whyNotCombine(session); return [r.id, { ...base, enabled: !why, why }]; }
@@ -521,6 +520,11 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   const cands = candidatesAt(sc, pv, pickOpts(s));
   const refs = cands.map((c) => c.ref);
   const base: AppState = { ...s, menu: null, focus: null, resume: null };
+  // a gear tool that is armed for the next gear stays on after a gear is made (`in_688`): a double click on a body then is a person selecting it, not starting a gear: the tool is put away and the double click selects the body
+  if (s.tool?.kind === "gear" && i.count >= 2 && !i.shift && s.tool.points.length === 1 && !s.tool.sized && !s.tool.gear?.mesh && !s.tool.gear?.editing && !(s.tool.gear?.typed ?? []).some((x) => x !== "") && refs.some((r) => sc.parts[r]?.origin === "body")) {
+    const free = { ...base, tool: null, resume: null };
+    return doClickSelect(doClickSelect(free, { ...i, count: 1 }, env, cands, refs, pv), i, env, cands, refs, pv);
+  }
   if (s.tool) return clickWithTool(base, i, env, refs);
   // sketching goes on while you click on vertices: the click right after a figure, on a vertex, starts the next one from it; any other click drops the mode
   const vertex = s.resume && !s.op ? refs.map((r) => sc.parts[r]).find((p) => p?.kind === "corner" && p.origin === "drawn" && p.plane) : undefined;

@@ -25,7 +25,7 @@ import { thinPlacesOf } from "./measure.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
 import { axisAcross } from "./revolve.ts";
-import { gearOfPart } from "../operation/gearscene.ts";
+import { gearOfPart, gearOfSelection } from "../operation/gearscene.ts";
 import { planetaryOfGear } from "../operation/planetary.ts";
 import { canHelix, finish as finishTool } from "./tools.ts";
 import { hasBody } from "../operation/gear.ts";
@@ -693,7 +693,7 @@ function bodySplitOf(sc: Scene, outcome: CompileOutcome, op: Op): Frame["bodySpl
 
 /** The gear's icon and what a click on it offers (`in_693`), for the first gear in the selection; null when none is selected. */
 function gearChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
-  const rec = sel.map((r) => gearOfPart(sc, r)).find((g) => !!g);
+  const rec = sel.map((r) => gearOfSelection(sc, r)).find((g) => !!g);
   const pl = rec ? sc.parts[rec.plane] : undefined;
   if (!rec || !pl || pl.kind !== "plane") return null;
   const r = rec.spec.worm ? rec.spec.worm.length / 2 : Math.max(5, rec.spec.module * (rec.spec.teeth / 2 + 2));

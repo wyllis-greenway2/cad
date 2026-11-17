@@ -1,5 +1,6 @@
 // The involute gear outline (`dec_gear_tool`, `in_576`): its numbers, its arcs against the true involute, and that it makes a body.
 import test from "node:test";
+import { frameOf } from "../src/interaction/frame.ts";
 import assert from "node:assert/strict";
 import { gearOutline, bulgeOf, moduleForOutside } from "../src/operation/gear.ts";
 import type { GearOutline } from "../src/operation/gear.ts";
@@ -340,7 +341,8 @@ test("Edit gear: the number box opens on the selected gear with its numbers; typ
   st = reduce(st, { type: "escape" }, env); // (the tool is on to make the next gear: put it away)
   st = pick({ ...st, tool: null }, [made.ref]);
   const items = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; enabled: boolean; children?: { id: string; enabled: boolean }[] }[]).flatMap(function walk(i: any): { id: string; enabled: boolean }[] { return [i, ...(i.children ?? []).flatMap(walk)]; });
-  assert.ok(items.find((i) => i.id === "gear:edit")!.enabled);
+  assert.ok(!items.some((i) => i.id === "gear:edit"), "Edit gear is on the gear's icon, not in the ring (`in_771`)");
+  assert.ok(frameOf(st, env).gearChip!.items.find((i) => i.id === "gear:edit")!.enabled);
   st = reduce(st, { type: "runAction", id: "gear:edit" }, env);
   assert.equal(st.tool!.gear!.editing, "g_001");
   const e = entryOf(scene(st.session), st.tool, st.op)!;
@@ -365,7 +367,7 @@ test("Edit gear: the number box opens on the selected gear with its numbers; typ
 test("Ring gear tool: the pointer sets the outside of the wall; typed Wall changes it; the ring is made with its wall and one undo takes it all", () => {
   let st = top();
   const ids = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap(function walk(i: any): string[] { return [i.id, ...(i.children ?? []).flatMap(walk)]; });
-  assert.ok(ids.includes("tool:ring") && ids.includes("gear:edit"));
+  assert.ok(ids.includes("tool:ring") && !ids.includes("gear:edit"));
   st = reduce(st, { type: "runAction", id: "tool:ring" }, env);
   assert.equal(st.tool!.gear!.internal, true);
   st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
@@ -503,7 +505,8 @@ test("Mesh gear: with a gear selected, the pointer says which way the partner st
   const face = faceOf(st, "g_001");
   st = pick({ ...st, tool: null }, [face.ref]);
   const items = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; enabled: boolean; children?: { id: string; enabled: boolean }[] }[]).flatMap(function walk(i: any): { id: string; enabled: boolean }[] { return [i, ...(i.children ?? []).flatMap(walk)]; });
-  assert.ok(items.find((i) => i.id === "gear:mesh")!.enabled && items.find((i) => i.id === "gear:meshrack")!.enabled);
+  assert.ok(!items.some((i) => i.id === "gear:mesh"), "the Mesh items are on the gear's icon (`in_771`)");
+  assert.ok(frameOf(st, env).gearChip!.items.find((i) => i.id === "gear:mesh")!.enabled && frameOf(st, env).gearChip!.items.find((i) => i.id === "gear:meshrack")!.enabled);
   let m = reduce(st, { type: "runAction", id: "gear:mesh" }, env);
   assert.equal(m.tool!.gear!.mesh!.rack, false);
   m = move(m, [C[0], C[1] + 50, 0]); // (straight up from the gear)
