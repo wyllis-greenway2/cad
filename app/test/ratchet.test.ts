@@ -10,7 +10,7 @@ import { runOp } from "../src/interaction/runop.ts";
 import type { Op } from "../src/interaction/operations.ts";
 import type { CamSpec } from "../src/operation/cams.ts";
 import { camShapes } from "../src/operation/cams.ts";
-import { drawCam } from "../src/operation/camdraw.ts";
+import { camFace } from "../src/operation/camscene.ts";
 import { wheelPoints } from "../src/operation/ratchet.ts";
 import { armCam, typeKey, finish, camSpecOf } from "../src/interaction/tools.ts";
 import type { Tool } from "../src/interaction/tools.ts";
@@ -20,13 +20,14 @@ const XY = worldRef("XY");
 const spec = (over: Partial<CamSpec> = {}): CamSpec => ({ kind: "ratchet", teeth: 16, diameter: 60, depth: 4, hook: 0, hole: 10, pawl: 40, width: 8, lift: 0, ...over });
 const area = (pts: readonly (readonly number[])[]): number => { let a = 0; pts.forEach((p, i) => { const q = pts[(i + 1) % pts.length]!; a += p[0]! * q[1]! - q[0]! * p[1]!; }); return Math.abs(a) / 2; };
 const volume = (s: ReturnType<typeof createSession>) => Object.values(scene(s).parts).filter((p) => p.kind === "body").reduce((t, p) => t + ((p as { volume?: number }).volume ?? 0), 0);
-const make = (sp: CamSpec) => {
+const make = (sp: CamSpec, at: [number, number, number] = [0, 0, 0], turn = 0) => {
   const s = createSession(kernel);
-  const d = drawCam(scene(s), scene(s).parts[XY] as Plane, [0, 0, 0], sp);
-  assert.ok(d.ok, d.ok ? "" : d.error);
-  const made = run(s, d.value.command);
+  const { turn: deg, ...cam } = sp; // (the turn is the record's, in radians)
+  const t = turn + ((deg ?? 0) * Math.PI) / 180;
+  const rec = { id: "g_001", plane: XY, at, spec: { teeth: 1, module: 1, cam }, ...(t ? { turn: t } : {}) };
+  const made = run(s, { type: "gear", ...rec });
   assert.ok(!made.message, made.message ?? "");
-  return { s: made, select: d.value.select };
+  return { s: made, select: [camFace(rec)!] };
 };
 
 test("the wheel has a tip and a root for each tooth, the face straight down with no hook and leaning with one", () => {

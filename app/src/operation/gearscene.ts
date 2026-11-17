@@ -14,6 +14,8 @@ import { boreLoop } from "./bore.ts";
 import type { GearSpec, GearOutline } from "./gear.ts";
 import { wormRefs, wormParts, wormSteps, wheelRefs, wheelParts, wheelSteps } from "./wormscene.ts";
 import { wheelSections } from "./wheelsections.ts";
+import { camShapes } from "./cams.ts";
+import { camParts, camRefs } from "./camscene.ts";
 
 /** `at`: the centre, in the world; `turn`: how far the gear is turned about its centre in its plane, radians (tooth 0 points along the plane's first direction when 0); `spec`: the numbers (`gear.ts`) */
 export interface GearRecord { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }
@@ -38,6 +40,7 @@ const cornerRef = (id: string, i: number): Ref => drawnRef(`${id}.p${i}`);
 const lineRef = (id: string, i: number): Ref => drawnRef(`${id}.s${i}`);
 /** The sides of a gear's outline, in order (what a step that extrudes it names), the circle of its bore and, for a ring, the circle of its wall; empty if the numbers make no gear. */
 export function gearRefs(rec: GearRecord): { lines: Ref[]; wall?: Ref; bore?: string } {
+  if (rec.spec.cam) return camRefs(rec); // (a cam or a ratchet, `camscene.ts`)
   const o = outlineOf(rec.spec);
   if (!o.ok) return { lines: [] };
   if (rec.spec.worm) return { lines: wormRefs(rec).threads[0]! }; // (the thread's figure)
@@ -53,6 +56,7 @@ function boreGroup(rec: GearRecord): string {
 
 /** The parts of a gear: the corners and sides of its outline and, for a ring, its wall's circle. Locked. Empty if its plane is not there or the numbers make no gear. */
 function partsOf(s: Scene, rec: GearRecord): Part[] {
+  if (rec.spec.cam) return camParts(s, rec);
   if (rec.spec.worm) return wormParts(s, rec);
   if (rec.spec.wheel) return wheelParts(s, rec);
   const plane = s.parts[rec.plane];
@@ -122,7 +126,7 @@ export function addGear(s: Scene, rec: GearRecord): Result<Scene> {
   if (gearsOf(s).some((g) => g.id === rec.id)) return err(`gear ${rec.id} already exists`);
   const pl = s.parts[rec.plane];
   if (!pl || pl.kind !== "plane") return err(`plane ${rec.plane} does not exist`);
-  const o = outlineOf(rec.spec);
+  const o = rec.spec.cam ? camShapes(rec.spec.cam) : outlineOf(rec.spec);
   if (!o.ok) return err(o.error);
   if (rec.spec.wheel) { const w = wheelSections(rec.spec); if (!w.ok) return err(w.error); }
   return ok({ ...s, gears: [...gearsOf(s), { ...rec, at: [...rec.at] as unknown as Vec3, spec: { ...rec.spec } }] });
@@ -150,7 +154,7 @@ function swapBore(st: Step, lines: readonly Ref[], was: string | undefined, now:
 export function setGear(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: number): Result<Scene> {
   const rec = gearsOf(s).find((g) => g.id === id);
   if (!rec) return err(`gear ${id} does not exist`);
-  const o = outlineOf(spec);
+  const o = spec.cam ? camShapes(spec.cam) : outlineOf(spec);
   if (!o.ok) return err(o.error);
   if (spec.wheel) { const w = wheelSections(spec); if (!w.ok) return err(w.error); }
   const next: GearRecord = { ...rec, spec: { ...spec }, ...(at ? { at: [...at] as unknown as Vec3 } : {}), ...(turn !== undefined ? (turn ? { turn } : { turn: undefined }) : {}) };

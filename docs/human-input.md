@@ -3133,3 +3133,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_697 — 2026-11-17 — directive
 > Go with your recommendation, start on the ratchet wheel and pawl
 (asks for the ratchet wheel and pawl to be started; the recommendation was a decision entry first, then the generator)
+
+## in_698 — 2026-11-17 — directive
+> Go with your recommendation, give cams and ratchets a record
+(asks for cams and ratchets to keep their numbers as a record, as a gear does, so they can be changed by number after they are drawn)

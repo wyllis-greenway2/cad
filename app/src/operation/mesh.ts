@@ -23,6 +23,7 @@ const norm = (a: number): number => { const t = ((a % TAU) + TAU) % TAU; return 
  */
 export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; offset?: number; width?: number; /** a ring that goes round the gear (`in_686`) */ ring?: boolean }, where: number): Result<Placement> {
   const s = src.spec;
+  if (s.cam) return err("a cam or a ratchet does not mesh with a gear");
   if (s.worm) return meshWormWheel(src, u, v, partner, where);
   if (s.wheel) return err("a worm wheel is meshed by selecting the worm, not the wheel");
   const z2 = Math.round(partner.teeth);

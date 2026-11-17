@@ -2,7 +2,7 @@
 // sets the plane and the first point, and the figure is finished by a second click or by typing sizes (Enter). A tool draws ONE figure, selects it, and hands back
 // to normal selection. Pure: the controller feeds it points and keys; it returns the new tool state and, when a figure is done, the command and what to select.
 import { typedNumber } from "../shared/numbers.ts";
-import { typedLength } from "../shared/units.ts";
+import { typedLength, lengthText } from "../shared/units.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, dist, cross } from "../math/vec.ts";
@@ -17,7 +17,7 @@ import { distinctPoints, splinePoints } from "../operation/spline.ts";
 import { drawClosedSpline } from "../operation/splinering.ts";
 import type { CamKind, CamLaw, CamSpec } from "../operation/cams.ts";
 import { camShapes } from "../operation/cams.ts";
-import { drawCam } from "../operation/camdraw.ts";
+import { camFace } from "../operation/camscene.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
 import { candidatesAt, visibleFrom } from "./picking.ts";
 import { anchorCorners, anchorLines, anchorCutCorners } from "../operation/anchors.ts";
@@ -67,7 +67,7 @@ export interface Tool {
   /** a cam (`dec_spline_and_cams`): which, and the numbers typed (diameter, lift or offset, the shaft's hole) and the one being typed in */
   cam?: CamState;
 }
-export interface CamState { kind: CamKind; typed: string[]; field: number; /** a disc cam: the law of its follower's motion */ law?: CamLaw }
+export interface CamState { kind: CamKind; typed: string[]; field: number; /** a disc cam: the law of its follower's motion */ law?: CamLaw; /** its numbers are being changed: the record (`gearscene.ts`) of the cam */ editing?: string }
 /** the numbers of each cam, in the order the box shows them (the rise, dwell and return are degrees) */
 export const CAM_FIELDS: Record<CamKind, string[]> = { eccentric: ["Diameter", "Offset", "Hole"], snail: ["Diameter", "Lift", "Hole"], disc: ["Diameter", "Lift", "Rise", "Dwell", "Return", "Hole", "Roller"], ratchet: ["Teeth", "Diameter", "Depth", "Hook", "Hole", "Pawl", "Width", "Angle"] };
 /** A tool armed to draw a cam: the first click is the shaft, the pointer's distance from it sets the diameter, and numbers can be typed for the rest. */
@@ -130,6 +130,16 @@ export const variantOf = (g: { internal?: boolean; rack?: boolean; pulley?: Pull
 export const armTool = (kind: ToolKind, variant: GearVariant = "gear"): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: 0, ...(kind === "gear" ? { gear: { internal: variant === "ring" || variant === "clockring", ...(variant === "helical" ? { helical: true as const } : {}), ...(variant === "worm" ? { worm: true as const } : {}), ...(variant === "wormwheel" ? { wheel: true as const } : {}), typed: ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], field: 0, ...(variant === "rack" || variant === "clockrack" ? { rack: true } : {}), ...(variant === "gt2" ? { pulley: "2GT" as const } : variant === "gt3" ? { pulley: "3GT" as const } : variant === "htd5" ? { pulley: "HTD5M" as const } : variant === "htd8" ? { pulley: "HTD8M" as const } : {}), ...(variant === "sprocket" || variant === "isosprocket" ? { sprocket: true as const } : {}), ...(variant === "isosprocket" ? { iso: true as const } : {}), ...(variant === "clock" || variant === "clockring" || variant === "clockrack" ? { cycloidal: true as const } : {}) } } : {}) });
 /** The tool opened to make a gear or a rack that meshes with `src`: its centre is the gear's, the pointer says where the partner goes. */
 export const meshGearTool = (src: GearRecord, rack: boolean, ring = false): Tool => ({ ...armTool("gear"), plane: src.plane, points: [src.at], cursor: src.at, gear: { internal: ring, typed: ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], field: 0, mesh: { src, rack, ring } } });
+/** The tool opened on a cam or a ratchet that is already made, to change its numbers: its plane and shaft, and its numbers as they are now (in the number system in use; the angles in degrees). */
+export function editCamTool(rec: { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }): Tool {
+  const c = rec.spec.cam!;
+  const len = (n: number | undefined): string => (n === undefined ? "" : lengthText(n));
+  const num = (n: number | undefined): string => (n === undefined ? "" : String(Math.round(n * 1e6) / 1e6));
+  const typed = c.kind === "ratchet" ? [num(c.teeth), len(c.diameter), len(c.depth), num(c.hook ?? 0), len(c.hole), len(c.pawl), len(c.width), num(Math.round((((rec.turn ?? 0) * 180) / Math.PI) * 1e6) / 1e6)]
+    : c.kind === "disc" ? [len(c.diameter), len(c.lift), num(c.rise), num(c.dwell), num(c.ret), len(c.hole), len(c.roller ?? 0)]
+    : [len(c.diameter), len(c.lift), len(c.hole)];
+  return { ...armCam(c.kind, c.law), plane: rec.plane, points: [rec.at], cursor: rec.at, cam: { kind: c.kind, typed, field: 0, ...(c.law ? { law: c.law } : {}), editing: rec.id } };
+}
 /** The tool opened on a gear that is already made, to change its numbers: its plane and centre, and its numbers as they are. */
 export const editGearTool = (rec: { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }): Tool => ({ ...armTool("gear", variantOf(rec.spec)), plane: rec.plane, points: [rec.at], cursor: rec.at, gear: { internal: !!rec.spec.internal, ...(rec.spec.helix !== undefined ? { helical: true as const } : {}), ...(rec.spec.worm ? { worm: true as const } : {}), ...(rec.spec.wheel ? { wheel: true as const } : {}), ...(rec.spec.rack ? { rack: true } : {}), ...(rec.spec.pulley ? { pulley: rec.spec.pulley } : {}), ...(rec.spec.sprocket ? { sprocket: true as const } : {}), ...(rec.spec.sprocket?.iso ? { iso: true as const } : {}), ...(rec.spec.cycloidal ? { cycloidal: true as const } : {}), typed: ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], field: 0, editing: rec.id, base: rec.spec, ...(rec.turn ? { turn: rec.turn } : {}) } });
 
@@ -486,7 +496,8 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
     const shapes = spec ? camShapes(spec) : null;
     if (!spec || !shapes || !shapes.ok) return { segments: [], circle: t.cursor && t.points[0] ? { center: t.points[0], radius: dist(t.points[0], t.cursor), normal: n } : null, cursor: t.cursor };
     const [ox, oy] = localOf(pl, t.points[0]!);
-    const at = (q: readonly [number, number]): Vec3 => liftOf(pl, [ox + q[0], oy + q[1]]);
+    const [ct, st] = [Math.cos(((spec.turn ?? 0) * Math.PI) / 180), Math.sin(((spec.turn ?? 0) * Math.PI) / 180)];
+    const at = (q: readonly [number, number]): Vec3 => liftOf(pl, [ox + q[0] * ct - q[1] * st, oy + q[0] * st + q[1] * ct]);
     const segments: [Vec3, Vec3][] = [];
     const line = (pts: Vec3[]) => pts.slice(1).forEach((p, i) => segments.push([pts[i]!, p]));
     for (const c of shapes.value.circles) line(Array.from({ length: 49 }, (_, i) => at([c.c[0] + c.r * Math.cos((i / 48) * 2 * Math.PI), c.c[1] + c.r * Math.sin((i / 48) * 2 * Math.PI)])));
@@ -567,9 +578,16 @@ export function finish(scene: Scene, t: Tool): Finished | null {
     return d ? { command: joinedAtCorners(scene, pl.ref, d.command), select: [d.line] } : null;
   }
   if (t.kind === "cam") {
-    const spec = camSpecOf(t);
-    const d = spec ? drawCam(scene, pl, t.points[0]!, spec) : null;
-    return d && d.ok ? { command: d.value.command, select: d.value.select } : null;
+    const full = camSpecOf(t);
+    if (!full) return null;
+    const { turn: degrees, ...cam } = full; // (the turn is the record's, in radians, as a gear's)
+    const id = t.cam?.editing ?? nextId(scene, "g");
+    const old = t.cam?.editing ? scene.gears?.find((g) => g.id === id) : undefined;
+    const turn = cam.kind === "ratchet" || !old ? ((degrees ?? 0) * Math.PI) / 180 : old.turn ?? 0; // (only the ratchet has an Angle field: the other cams keep the turn they have, as a move or a turn of them left it)
+    const rec = { id, plane: pl.ref, at: t.points[0]!, spec: { teeth: 1, module: 1, cam }, ...(turn ? { turn } : {}) };
+    if (!camShapes(cam).ok) return null;
+    const face = camFace(rec);
+    return { command: t.cam?.editing ? { type: "setGear", id, spec: rec.spec, turn } : { type: "gear", id, plane: pl.ref, at: rec.at, spec: rec.spec, ...(turn ? { turn } : {}) }, select: face ? [face] : [] };
   }
   if (t.kind === "spline") {
     const through = distinctPoints(t.points);

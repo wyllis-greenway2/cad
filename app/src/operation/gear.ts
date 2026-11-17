@@ -10,6 +10,7 @@ import { pulleyOutline } from "./pulley.ts";
 import { sprocketOutline } from "./sprocket.ts";
 import { cycloidalOutline } from "./cycloidal.ts";
 import { boreProblem } from "./bore.ts";
+import type { CamSpec } from "./cams.ts";
 import { gearRoot } from "./gearroot.ts";
 import { wormOf, wheelOf } from "./worm.ts";
 import type { WormSpec, WheelSpec } from "./worm.ts";
@@ -58,6 +59,8 @@ export interface GearSpec {
   sprocket?: { chain?: number; pitch?: number; roller?: number; /** the ISO 606 tooth form (`iso606.ts`): the chain number is then the B series' 6 to 24 (or an ANSI number for the A series), and `fit` from 0 (tight) to 1 (loose), 0.5 if none, where in ISO's limits the seat and flank are */ iso?: boolean; fit?: number };
   /** a cycloidal (clock) gear (`cycloidal.ts`): the generating circle's radius, the addendum and the dedendum, in modules (3, 1 and 1.25 if none); the same circle for gears that are to mesh; backlash as for a gear */
   cycloidal?: { circle?: number; addendum?: number; dedendum?: number };
+  /** a cam or a ratchet (`dec_spline_and_cams`, `dec_ratchet`) kept as a record as a gear is: its numbers (`teeth` and `module` are 1 and unused); its parts are made by `camscene.ts`, not from an outline */
+  cam?: CamSpec;
 }
 export interface GearOutline {
   /** the corners of the outline in order, counter-clockwise */
@@ -145,6 +148,7 @@ function wheelOutline(spec: GearSpec): Result<GearOutline> {
 
 /** The outline of a gear, or why there is none (and why its bore has no such flat or keyway). */
 export function gearOutline(spec: GearSpec): Result<GearOutline> {
+  if (spec.cam) return err("a cam is not a gear: it has no tooth outline");
   const r = outlineOf(spec);
   if (!r.ok) return r;
   const why = boreProblem(spec, r.value.rootRadius);

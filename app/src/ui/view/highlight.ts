@@ -178,7 +178,7 @@ export function buildHighlight(overlay: THREE.Group, marks: THREE.Group, s: Scen
   // a selected curved edge of the body shows its middle too, as the curve of a sketch does (`in_209`)
   for (const r of h.selection) { const p = get(r); const c = p && p.kind === "line" && p.origin === "body" ? edgeCentre(s, p) : null; if (c) overlay.add(sphereAt(c, unit * settings.pick.vertexScale * 0.7, 0x2b2b2d, false)); }
   // a selected spline shows the points it passes through, to take hold of and move (`dec_spline_and_cams`)
-  for (const r of h.selection) { const p = get(r); const w = p && p.kind === "line" && p.spline ? splineWorld(get, p) : null; if (w) for (const q of w.slice(1, -1)) overlay.add(sphereAt(q, unit * settings.pick.vertexScale * 0.9, tealHex, false)); }
+  for (const r of h.selection) { const p = get(r); const w = p && p.kind === "line" && p.spline && p.movable ? splineWorld(get, p) : null; if (w) for (const q of w.slice(1, -1)) overlay.add(sphereAt(q, unit * settings.pick.vertexScale * 0.9, tealHex, false)); }
   // (a part a hint is about stays in the hint's amber: the hover blue would be drawn over it, and the circle or arc the line is tangent to would not look lit, `in_230`)
   if (h.hover && !h.selection.includes(h.hover) && !(h.amber ?? []).includes(h.hover)) {
     mark(h.hover, "hover");
