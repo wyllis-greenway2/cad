@@ -3,7 +3,7 @@ id: dec_gear_speed
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_689, in_694, in_698, in_699
+human_input: in_689, in_694, in_698, in_699, in_700
 date: 2026-11-17
 depends_on:
   - dec_speed_rules: the kernel-side rules this extends (checks, rough first, one sweep); a change to them changes which of the costs below are still there
@@ -32,6 +32,10 @@ Three changes, from `prototypes/wheel-fast` (the numbers are in its README): **t
 ## The gear's sketch parts (`in_698`): measured first, and what was found instead
 
 Asked: cut down the sides and corners of a gear's outline that stay in the scene after its body is made (about 20 a tooth: 2000 of the 2019 parts of a 100 tooth gear). Measured before touching them, in the real app (a 100 tooth gear with a bore, extruded, headless Chromium) and in Node: **the parts themselves are cheap**: a scan of all of them is some tens of microseconds, picking skips what an extrude used up, the highlight no longer builds them. What was dear was what is **derived from every arc of the outline for each frame**: `avoidOf` (the places a bubble keeps off) turned each of the 400 arcs into 64 points on every frame, 5.6 of the frame's 8.2 ms in Node. And a second cost not tied to parts at all: each axis label asked the whole scene (every segment of every line, every triangle of the body) whether the body hides it, every frame, and threw the lines' answers away. Fixed: `avoidOf` and `centreDots` are worked out once for a scene (`WeakMap`); the label rays go to the meshes only and are not repeated while the camera, the size and the drawn model are the same (`world.ts`, `view.ts`). The 100 tooth gear: frame 12.2 to 9.7 ms orbiting, 11.7 to 6.0 ms hovering (after the gear as one feature had taken 17.5 to 10.9); `frameOf` 8.2 to 2.6 ms in Node; the screen is the same pixel for pixel in three views. **The parts are not removed**: the steps and constraints name them (`d/g_001.s17`), the gear's record would have to make them on demand for the compiler and the solver, and what they cost is now small; that is left unless a number shows they matter (an edit's compile is 15 to 30 ms at 100 teeth: `compileTimings`).
+
+## The page's work per edit (`in_700`) and a bigger cost found with it
+
+The page's own work at an edit that leaves the kernel's graph as it was: **103.6 to 30.8 ms** for eight extruded gears (5799 parts) in the real app (`dec_scene_derivation_cache`). **Found, not fixed:** a change to the first of eight gears makes the kernel build all eight again (about 4 s, the page's own work is under 0.2 s of that), because each step's kept answer is keyed by the steps before it (`interpreter.mjs` `compile`: the key of an op includes the keys of its target and its inputs), so a body that is only a compound beside the others is rebuilt whenever one before it changes. The work that is not the join (the prism of its own sketch, its checks, its mesh) does not depend on the others and could be kept under its own key.
 
 ## Causes, and the fix that goes with each (the first two are landed; the rest are for the human to choose from)
 

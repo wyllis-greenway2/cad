@@ -3139,3 +3139,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_699 — 2026-11-17 — directive
 > yes do the per-body checks next
 (approves doing the per-body checks next: the checks, names and fingerprints of a body worked out per body, so that adding a gear costs what that gear costs and not the whole model)
+
+## in_700 — 2026-11-17 — directive
+> yes do the page's per-edit scene derivation next
+(approves doing the page's per-edit scene derivation next: the work the page does on the whole scene at every edit, which grows with the number of parts and bodies)

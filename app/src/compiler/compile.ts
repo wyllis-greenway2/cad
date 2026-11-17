@@ -9,6 +9,9 @@ import { solveScene } from "./solve.ts";
 import type { SolveOutcome } from "./solve.ts";
 import { buildGraph } from "./graph.ts";
 import { cuttingSheets } from "../operation/cutface.ts";
+import type { Sheet } from "../operation/cutface.ts";
+import type { Part } from "../operation/part.ts";
+import type { GearShape } from "../operation/gearshape.ts";
 import { gearShapes } from "../operation/gearshape.ts";
 import { bodyParts } from "./body.ts";
 import { rebindAnchors } from "../operation/anchors.ts";
@@ -54,6 +57,20 @@ function logged(t: number[], ops: number, o: CompileOutcome): CompileOutcome {
   return o;
 }
 
+/**
+ * The parts of the body for a kernel answer, kept while it is the same answer (`in_700`): the kernel hands back the very same result for a graph it has made, and a change that leaves the kernel's graph as it was (a figure drawn, a
+ * constraint) asked for the parts of every body of it again, a face and edges for each of thousands, and made new part objects for them, which everything worked out from the parts then did again too.
+ */
+const bodyKept = new WeakMap<object, { key: string; parts: Part[] }>();
+function bodyPartsOf(result: KernelResult, sheets: Sheet[], gears: GearShape[]): Part[] {
+  const key = JSON.stringify([sheets, gears]);
+  const kept = bodyKept.get(result);
+  if (kept && kept.key === key) return kept.parts;
+  const parts = bodyParts(result, sheets, gears);
+  bodyKept.set(result, { key, parts });
+  return parts;
+}
+
 export function compile(scene: Scene, kernel: Kernel): CompileOutcome {
   const T0 = performance.now();
   const known = settled.get(scene);
@@ -76,7 +93,7 @@ export function compile(scene: Scene, kernel: Kernel): CompileOutcome {
     const step = solved.scene.steps.find((s) => `x_${s.id}` === op.id || `s_${s.id}` === op.id);
     if (step) { errors[step.id] ??= op.error; if (op.culprits?.length) problems[step.id] = op.culprits.flatMap((i) => (step.parts[i] ? [step.parts[i]!] : [])); }
   }
-  const placed = withBody(solved.scene, bodyParts(result, cuttingSheets(solved.scene), gearShapes(solved.scene)));
+  const placed = withBody(solved.scene, bodyPartsOf(result, cuttingSheets(solved.scene), gearShapes(solved.scene)));
   const bound = rebindAnchors(placed); // (a relation to an edge of the body that the change took away is moved to the edge that looks most like it, `in_309`)
   // the drawn parts held to such an edge are solved again against the edge as it is now (the first solve was made before the body was)
   const again = bound.scene !== placed ? solveScene(bound.scene) : null;
