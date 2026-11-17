@@ -3217,3 +3217,6 @@ No input. The full test suite was run on the code as of the engagement setting (
 
 ## Handoff 727 — 2026-11-17 (the crown gear prototype)
 `in_800`. **Built (prototype only, `prototypes/crown-gear`):** the crown's flank planes, the straight pinion's flank by the gearing law, the bodies in the kernel. **Measured:** zc 40, z1 18, module 2, 20 degrees: overlap 0.7 to 1.3 mm3 at the place and rolled, 101 to 117 half a pitch round (cone shifts -2, 0.7, 2 work; -1.34 gives an invalid solid). z1 14 is undercut. **Spiral:** cone-end results recorded in its README (17/43 fails at every shift; 30/45 did not finish). **Next:** the human decides the pinion (straight bevel or spur), then a decision entry for the tool; nothing outside `prototypes/` yet; hypoid not started.
+
+## Handoff 728 — 2026-11-17 (in_801: recommendations taken)
+`in_801`. Approved: straight bevel pinion first, straight teeth, spiral later. Wrote `dec_crown_gears` as a **provisional** proposal (numbers, menu, linking); nothing built in `app/` until the human approves it.

@@ -3548,3 +3548,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_800 — 2026-11-17 — approval
 > okay yes lets do the crown gear, but should we wait till after we finish the spiral bevel?
 (approves making the crown gear, and asks whether to wait until the spiral bevel is finished)
+
+## in_801 — 2026-11-17 — approval
+> I will take your reccomendations
+(approves the recommendations asked about: the first crown tool's pinion, and straight teeth first with spiral later)

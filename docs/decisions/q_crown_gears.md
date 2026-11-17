@@ -3,7 +3,7 @@ id: q_crown_gears
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_800, in_799
+human_input: in_801, in_800, in_799
 date: 2026-11-17
 depends_on:
   - dec_bevel_gears: a crown gear is the limit of a bevel wheel (pitch angle 90 degrees); what it meshes with, and how a pair is linked and placed, follow that decision's
@@ -25,3 +25,6 @@ alternative_to:
 ## Rationale
 
 The flat end of the bevel family is a different object (a flat annulus with teeth on its face, no cone to cut) and is the generating member of the spiral bevel. Making it its own tool avoids pushing the bevel tool to a limit where its construction fails.
+
+## Recommendation put to the human, and the answer (`in_801`)
+Recommended: the first tool is for a **straight bevel pinion** (the pair measured in the prototype), straight radial teeth; spiral teeth later (with the spiral bevel); the spur pinion (face gear) after, as its own prototype. The human answered "I will take your reccomendations" (`in_801`). Still to propose and approve: the tool's numbers, menu place, linking and inner-radius limit (`dec_crown_gears`, provisional).
