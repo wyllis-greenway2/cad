@@ -111,6 +111,16 @@ function discRadii(wheel: readonly V2[], c: number, a: number, beta: number, cle
  * The shapes of a Geneva drive. With `quick` the locking disc's notch, which takes most of the time (`discRadii`), is not worked out: the disc is a plain circle of its radius, and the checks that need the notch (the hole against it)
  * are left to the real thing: for the picture while the numbers are typed (`cams.ts` `camShapesQuick`); the wheel and the crank are the same.
  */
+/**
+ * The radii made smooth without ever being made bigger: each is the average of the lowest values round it (the lowest within `w` places of each place within `w` places of it), so every value is at most the one it came from and
+ * the scallops that the wheel's separate positions leave in the notch's edge are gone. The notch comes out a little wider (by about `w` places of angle), never narrower.
+ */
+export function smoothUnder(r: readonly number[], w: number): number[] {
+  const n = r.length;
+  const low = r.map((_, i) => { let m = Infinity; for (let k = -w; k <= w; k++) m = Math.min(m, r[(((i + k) % n) + n) % n]!); return m; });
+  return low.map((_, i) => { let sum = 0; for (let k = -w; k <= w; k++) sum += low[(((i + k) % n) + n) % n]!; return sum / (2 * w + 1); });
+}
+
 export function genevaShapes(s: CamSpec, quick = false): Result<{ polys: { points: V2[]; bulges: number[] }[]; circles: CamShapes["circles"]; rings: V2[][] }> {
   const n = Math.round(s.teeth ?? 0);
   const [a, p, clr] = [s.crank ?? 0, s.pin ?? 0, s.clearance ?? 0];
@@ -168,7 +178,7 @@ export function genevaShapes(s: CamSpec, quick = false): Result<{ polys: { point
   if (lockOn && quick) {
     if (hole < 0) hole = Math.max(0, Math.min(a / 4, 2 * (sc - w / 2 - MIN_WALL)));
   } else if (lockOn) {
-    radii = discRadii(outlinePoints(wheel.points, wheel.bulges), c, a, Math.PI / 2 - half, clr, rl, COUNT);
+    radii = smoothUnder(discRadii(outlinePoints(wheel.points, wheel.bulges), c, a, Math.PI / 2 - half, clr, rl, COUNT), 8);
     const smallest = Math.min(...radii);
     if (hole < 0) hole = Math.max(0, Math.min(a / 4, 2 * (smallest - MIN_WALL), 2 * (sc - w / 2 - MIN_WALL)));
     else if (hole / 2 > smallest - MIN_WALL + 1e-9) return err("the locking disc's notch comes too near the shaft's hole (the wheel's rim passes close to the disc's shaft): use a smaller hole, a bigger crank, or fewer slots");

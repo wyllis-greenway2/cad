@@ -9,7 +9,7 @@ import type { Op } from "../src/interaction/operations.ts";
 import { loopPoints } from "../src/operation/part.ts";
 import type { CamSpec } from "../src/operation/cams.ts";
 import { camShapes } from "../src/operation/cams.ts";
-import { genevaCentres, genevaWheelRadius, outlinePoints } from "../src/operation/geneva.ts";
+import { genevaCentres, genevaWheelRadius, outlinePoints, smoothUnder } from "../src/operation/geneva.ts";
 import { splinePoints } from "../src/operation/spline.ts";
 import { camFace, camRefs } from "../src/operation/camscene.ts";
 import { loopFaceRef } from "../src/operation/loops.ts";
@@ -204,7 +204,6 @@ test("the quick shapes have the same wheel and crank as the real ones, a plain c
   const [cx, cy] = [quick.value.rings![0]!.reduce((s, q) => s + q[0], 0) / 48, quick.value.rings![0]!.reduce((s, q) => s + q[1], 0) / 48];
   const radii = quick.value.rings![0]!.map((q) => Math.hypot(q[0] - cx, q[1] - cy));
   assert.ok(Math.max(...radii) - Math.min(...radii) < 1e-9);
-  assert.ok(full.value.rings![0]!.length !== 48 || true);
   assert.ok(tq * 5 < tf, `quick ${tq.toFixed(0)} ms, real ${tf.toFixed(0)} ms`);
 });
 
@@ -222,5 +221,32 @@ test("the tool's picture uses the quick shapes: a number typed makes a picture w
   const made = run(s, fin!.command);
   const rec = scene(made).gears![0]!;
   const real = camShapes(rec.spec.cam!);
-  assert.ok(real.ok && real.value.rings![0]!.length !== 48, "the real disc is the notched one");
+  assert.ok(real.ok);
+  const ring = real.value.rings![0]!;
+  const centre = [ring.reduce((t, q) => t + q[0], 0) / ring.length, ring.reduce((t, q) => t + q[1], 0) / ring.length]; // (no hole here, so no shaft to measure from: the middle of the points will do)
+  const rs = ring.map((q) => Math.hypot(q[0] - centre[0]!, q[1] - centre[1]!));
+  assert.ok(Math.max(...rs) - Math.min(...rs) > 1, "the real disc is the notched one, not a circle");
+});
+
+// ---- the notch's edge is smooth (`in_798`)
+test("smoothing the radii never makes one bigger, and takes the scallops out of a notch's edge", () => {
+  // a rim of radius 10 with a notch cut to a scalloped edge: radii that dip in a regular wiggle
+  const raw = Array.from({ length: 720 }, (_, i) => (i > 200 && i < 320 ? 4 + 0.6 * Math.abs(Math.sin(i / 3)) : 10));
+  const smooth = smoothUnder(raw, 8);
+  smooth.forEach((v, i) => assert.ok(v <= raw[i]! + 1e-12, `at ${i}: ${v} against ${raw[i]}`));
+  const rough = (r: number[]) => r.reduce((t, v, i) => t + Math.abs(r[(i + 1) % r.length]! - 2 * v + r[(i + r.length - 1) % r.length]!), 0);
+  assert.ok(rough(smooth) < rough(raw) * 0.4, `${rough(smooth)} against ${rough(raw)}`);
+  assert.deepEqual(smoothUnder([5, 5, 5, 5, 5, 5, 5, 5], 2), [5, 5, 5, 5, 5, 5, 5, 5], "a plain rim stays as it is");
+});
+
+test("the real locking disc's outline has no ridges: the second difference of its radius along the notch is small", () => {
+  const sp = spec({ teeth: 5, crank: 20, pin: 5, diameter: 40, hole: -1, lock: undefined });
+  const sh = camShapes(sp);
+  assert.ok(sh.ok);
+  const { local } = drive(sp);
+  const rs = local.map(([x, y]) => Math.hypot(x, y));
+  // along the outline (16 points to each span between knots) the radius changes by steps that are themselves steady: no wiggle of more than a fifth of a millimetre between neighbours
+  let worst = 0;
+  for (let i = 0; i + 2 < rs.length; i++) worst = Math.max(worst, Math.abs(rs[i]! - 2 * rs[i + 1]! + rs[i + 2]!));
+  assert.ok(worst < 0.2, `worst second difference ${worst.toFixed(3)} mm`);
 });

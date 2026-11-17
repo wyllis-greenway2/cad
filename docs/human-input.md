@@ -3536,3 +3536,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_797 — 2026-11-17 — directive
 > update from claude/inspiring-pascal-l342k7, all your edits should updated there
 (asks for this branch to be brought up to date with claude/inspiring-pascal-l342k7, and for all of this branch's edits to be there; they already were, merged by the other Claude)
+
+## in_798 — 2026-11-17 — directive
+> oh okay that is pretty cool. Can we offer this as a pre assembled 3d model? it can by offered as a sketch view too. Also I think that our sketch has a few issues, look at all these little ridges
+(asks for the Geneva drive to be offered as a pre-assembled 3D model, and also as an assembled sketch view; and reports little ridges along the notch of the locking disc's outline, with a picture)
