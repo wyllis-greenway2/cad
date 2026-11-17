@@ -3,7 +3,7 @@ id: q_gear_finishing
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_760, in_759, in_758, in_755
+human_input: in_761, in_760, in_759, in_758, in_755
 date: 2026-11-17
 depends_on:
   - dec_gear_tool: the tooth outline is drawn as lines and arcs (4 arcs to a flank by default) and a helical body is a twist of it; a change to that changes each option here
@@ -11,7 +11,7 @@ depends_on:
   - dec_gear_feature: a gear body keeps eight parts, so extra tooth faces cost the kernel and the mesh, not the page's parts
 alternative_to:
 ---
-# Gear finishing: a spline flank (open); tooth chamfer, worm wheel land and helical rack (built, `in_758`, `in_759`, `in_760`)
+# Gear finishing: spline flank (prototype done, `in_761`); tooth chamfer, worm wheel land and helical rack (built, `in_758`, `in_759`, `in_760`)
 
 **Tooth chamfer built (`in_760`):** `GearSpec.chamfer` (modules, 0 to 1, the Chamfer field, last in the box of a spur gear and a ring; needs a thickness or a helix, and less than half of it). One turned cutter (`chamferProfile` in `gear.ts`: a 45 degree triangle at each face joined by a strip beyond the tips, reaching below the bottom face so its box middle differs from the body's: the kernel tells bodies apart by the middle of their boxes) made by a `revolve` step (`tool: 1`, a piece of its own) and cut from the gear's body by a `combine` subtract that names the body by `@s0`. Works for spur, helical and ring gears; not for racks, pulleys, sprockets, clock gears, worms, wheels. **Cost, measured (kernel, 8 mm thick, module 2, bore 5): 40 teeth 1.4 s plain and 5.9 s with a chamfer, helical 1.2 s and 11.0 s, 100 teeth 2.2 s and 13.8 s, so the default is no chamfer.** Checked: one body, the same box, less material, taken off again by `setGear`. Not looked at in the app, not printed.
 
@@ -23,11 +23,11 @@ alternative_to:
 
 **Tooth chamfer.** Chamfering every tooth edge at both faces is hundreds of edge operations (about 20 edges a tooth, a fillet or chamfer each) and the kernel is slow and fragile on that; do not do it edge by edge. Cheaper and how machinists do it: **one cut with a revolved profile** (the blank's envelope with a 45 degree cone at each end, a chamfer of c modules), which breaks every tooth tip at once. It adds about one conical face a tooth at each end; with `dec_gear_feature` those are not parts, so the page does not slow down; the kernel adds one boolean. Printing note: a 0.2 to 0.4 mm chamfer on the bottom face also helps the first layer; this is the human's call. To measure before deciding: a prototype with the 40 tooth gear, time with and without.
 
-**A richer curve for the flank.** Now: 4 arcs a side by default (2 to 8, `detail`), about 20 parts a tooth. One **B-spline per flank** (an interpolating curve through about 8 points of the involute) would be exact to about 0.001 mm and cut a body to about 4 faces a tooth (2 flanks, tip, root) instead of 10 or so; the spline tool exists (`dec_spline_and_cams`). Not clear it is faster: B-spline faces are slower than cylinders in the kernel's boolean and offset operations, arcs are exact analytic cylinders and print the same. A prototype (spur gear 40 teeth: kernel time, faces, volume against the exact area) would decide; it is cheap, and under `prototypes/`.
+**A richer curve for the flank: prototype done (`in_761`, `prototypes/gear-spline-flank`, its README has the table).** One cubic B-spline a flank matches four arcs for accuracy (0.0004 to 0.0007 mm at 40 teeth) and makes half the faces (243 against 483) and builds its outline 3 to 4 times faster; **not a sure win for triangles** (4 times more at 40 teeth, fewer at 100) **or booleans** (no consistent difference, about 1.8 times faster at 100 teeth, one run each), and it is touchy: the first settings tried gave 0.22 mm and 870 000 triangles; only cubic with tolerance 1e-3 to 1e-4 works well. Recommendation (the AI's, not decided): do not change the default; a spline `detail` option is worth building only if the face count matters.
 
 **A helical rack, and a rack with a helix field.** `meshWith` refuses a helical gear against a rack ("a helical gear does not mesh with a rack yet") and `canHelix` excludes racks, so the rack has no Helix field. A helical rack is the rack's section (transverse module mn / cos(helix), the same trapezoid) **sheared** along the rack as it is extruded: each layer slid sideways by height x tan(helix). The body is an oblique extrusion (the kernel's prism along a slanted vector) rather than the twist used for a gear, so it needs a step that takes a direction not along the normal, then Helix on the rack (opposite hand to the gear it meshes with), and the mesh placement shifted by the shear. Medium work; not started.
 
-**Questions for the human, still open:** (1) a spline flank prototype first? (2) is the cost of the chamfer (4 to 9 times the build time) acceptable, or should it be made faster before it is used much? (3) is the wheel land worth a default of one module at about four times the build time (now off)?
+**Questions for the human, still open:** (1) build a spline flank option (`detail`) from the prototype's setting, or leave the arcs? (2) is the cost of the chamfer (4 to 9 times the build time) acceptable, or should it be made faster before it is used much? (3) is the wheel land worth a default of one module at about four times the build time (now off)?
 
 ## Rationale
 
