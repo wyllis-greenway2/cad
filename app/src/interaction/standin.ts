@@ -7,7 +7,7 @@ import { gearShapeOf } from "../operation/gearshape.ts";
 /** How long the kernel has been working before a disc is drawn for a gear it has not made (ms): a gear that comes at once is not preceded by a flash. */
 export const STANDIN_MS = 250;
 
-/** The label's words for a wait of `seconds` whole seconds: nothing about time for the first two (a body that comes at once is not timed), `in_803`. */
+/** The label's words for a wait of `seconds` whole seconds: nothing about time for the first two (a body that comes at once is not timed), `in_804`. */
 export function standInWords(seconds: number): string {
   return seconds >= 2 ? `Building… ${seconds} s` : "Building…";
 }

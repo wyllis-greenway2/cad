@@ -37,6 +37,9 @@ const PER_FLANK = 4; // (a flank is two arcs, through five points of the tooth)
 /** The pitch angle of a gear of `z` teeth meshing with one of `mate` teeth, the shafts `shaftDeg` apart: tan delta = sin S / (mate / z + cos S). */
 export const pitchAngle = (z: number, mate: number, shaftDeg = 90): number => { const s = (shaftDeg * Math.PI) / 180; return Math.atan2(Math.sin(s), mate / z + Math.cos(s)); };
 
+/** Whether this bevel gear is a crown gear (`crown.ts`): its pitch angle is a right angle. */
+export const isCrown = (spec: GearSpec): boolean => !!spec.bevel && Math.abs(pitchAngle(spec.teeth, spec.bevel.mate, spec.bevel.shaft ?? 90) - Math.PI / 2) < 1e-6;
+
 /** The numbers that follow from a bevel gear's spec, or why there is no gear. */
 export function bevelOf(spec: GearSpec): Result<BevelGeometry> {
   const b = spec.bevel;
@@ -46,19 +49,25 @@ export function bevelOf(spec: GearSpec): Result<BevelGeometry> {
   if (!Number.isFinite(mate) || mate < 6 || mate > 200) return err("the gear it meshes with needs 6 to 200 teeth");
   if (!Number.isFinite(m) || m <= 0) return err("the module must be above zero");
   if (!(shaft >= 30 && shaft <= 150)) return err("the angle between the shafts must be from 30 to 150 degrees");
-  const face = b.face ?? 1 / 3;
+  const crownMate = Math.abs((shaft * Math.PI) / 180 - pitchAngle(z, mate, shaft) - Math.PI / 2) < 1e-6; // (the gear it meshes with is a crown gear: a pinion for it, `crown.ts`)
+  const face = b.face ?? (crownMate ? 0.15 : 1 / 3); // (0.15: CROWN_FACE of `crown.ts`; a pinion has the crown's width)
   if (!(face >= 0.1 && face <= 0.5)) return err("the face width must be from 0.1 to 0.5 of the cone distance (a third is usual)");
   const alpha = ((spec.pressure ?? 20) * Math.PI) / 180;
   if (!(alpha > 0 && alpha < (35 * Math.PI) / 180)) return err("the pressure angle must be between 0 and 35 degrees");
   const delta = pitchAngle(z, mate, shaft);
+  if (isCrown(spec)) { // a crown gear: flat, the pitch point on the plane of its face (`crown.ts`); the numbers the pair and the mesh use are these
+    const R = (m * z) / 2, fc = b.face ?? 0.15; // (CROWN_FACE of `crown.ts`)
+    return ok({ delta, R, face: R * fc, big: 0, small: 0, k: 1, pitchRadius: R, tipRadius: R, rootRadius: R * (1 - fc), addendum: m, dedendum: 1.25 * m, zv: Infinity });
+  }
   const deltaMate = (shaft * Math.PI) / 180 - delta;
   const R = (m * z) / (2 * Math.sin(delta));
   const zv = z / Math.cos(delta), zvMate = mate / Math.cos(deltaMate);
   const wheel = z >= mate;
   const uv = wheel ? zv / zvMate : zvMate / zv; // (the equivalent teeth of the wheel over the pinion's, at least 1)
   const haWheel = 0.54 * m + (0.46 * m) / uv;
-  const addendum = wheel ? haWheel : 2 * m - haWheel;
-  const dedendum = 2.188 * m - addendum;
+  // (a pinion for a crown gear has the proportions of the pair `prototypes/crown-gear` measured, `crown.ts`)
+  const addendum = crownMate ? m : wheel ? haWheel : 2 * m - haWheel;
+  const dedendum = crownMate ? 1.25 * m : 2.188 * m - addendum;
   const pitchRadius = R * Math.sin(delta);
   const faceMm = R * face;
   const big = R * Math.cos(delta);

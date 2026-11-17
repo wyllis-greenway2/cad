@@ -1,4 +1,4 @@
-// The label on the disc that stands for a gear body the kernel has not made yet (`dec_gear_standin`, `in_803`): a small dark pill on the middle of the disc that says it is being made and for how long, so the grey disc reads as a
+// The label on the disc that stands for a gear body the kernel has not made yet (`dec_gear_standin`, `in_804`): a small dark pill on the middle of the disc that says it is being made and for how long, so the grey disc reads as a
 // place holder, not as the part. A mark, not a control: it takes no clicks. Pure DOM; the page says where each disc's middle is on the screen and how long the wait has lasted.
 
 import { standInWords } from "../interaction/api.ts";

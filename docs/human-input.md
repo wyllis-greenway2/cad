@@ -3553,14 +3553,18 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > I will take your reccomendations
 (approves the recommendations asked about: the first crown tool's pinion, and straight teeth first with spiral later)
 
-## in_802 — 2026-11-17 — question
+## in_802 — 2026-11-17 — approval
+> Yes, build it as proposed
+(approves dec_crown_gears as proposed and asks for it to be built)
+
+## in_803 — 2026-11-17 — question
 > okay so what are we working on again? and what is the status of it?
 (asks what the current work is and its status)
 
-## in_803 — 2026-11-17 — directive
+## in_804 — 2026-11-17 — directive
 > yes do the stand-in disc label next
 (approves doing the stand-in disc label next: a label on the stand-in disc that says the body is being made)
 
-## in_804 — 2026-11-17 — directive
+## in_805 — 2026-11-17 — directive
 > lets do what is left on the list to make it faster
 (asks to do what is left on the speed list: discs for other heavy bodies, and the kernel worker's memory)

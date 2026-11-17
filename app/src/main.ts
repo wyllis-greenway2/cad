@@ -179,7 +179,7 @@ const ring = createRing(document.body, (id) => {
 }, (id) => dispatch({ type: "runAction", id: `why:${id}` })); // (a dimmed option pressed: its reason is said and the ring stays, `in_538`)
 
 const hintIcons = createHints(document.body);
-const standLabels = createStandInLabels(document.body); // (the words on the discs that stand for gear bodies not made yet, `in_803`)
+const standLabels = createStandInLabels(document.body); // (the words on the discs that stand for gear bodies not made yet, `in_804`)
 let lastStandSecs: number | null = null;
 let lastIcon: [number, number] | null = null;
 let touchRects: DOMRect[] = []; // (where the drag icons of a finger stood on the last frame: the bubbles and the suggestions keep off them, `in_292`)
@@ -492,7 +492,7 @@ function frame(now: number) {
     const pageAt = projector(state.cam, size.w, size.h).project;
     const onPageAt = (p: Vec3): [number, number] | null => { const q = pageAt(p); return q && q[0] > -50 && q[1] > -50 && q[0] < size.w + 50 && q[1] < size.h + 50 ? [q[0] + page.left, q[1] + page.top] : null; };
     const waitSecs = staleSince === null ? 0 : Math.floor((performance.now() - staleSince) / 1000);
-    const shownSecs = standLabels.update(f.standIns.map((d) => onPageAt([d.centre[0] + d.normal[0] * d.depth / 2, d.centre[1] + d.normal[1] * d.depth / 2, d.centre[2] + d.normal[2] * d.depth / 2])), waitSecs, standShown); // (the label on each disc, and its seconds, `in_803`)
+    const shownSecs = standLabels.update(f.standIns.map((d) => onPageAt([d.centre[0] + d.normal[0] * d.depth / 2, d.centre[1] + d.normal[1] * d.depth / 2, d.centre[2] + d.normal[2] * d.depth / 2])), waitSecs, standShown); // (the label on each disc, and its seconds, `in_804`)
     if (shownSecs !== null && shownSecs !== lastStandSecs) { lastStandSecs = shownSecs; dirty = true; }
     if (buildStats.runs !== buildsBefore) { timing.add("geometry: built again (buildContent)", buildStats.totalMs); timing.add("geometry: of it the sharp edges (cornerEdges)", buildStats.cornersMs); timing.add("geometry: triangles built", buildStats.triangles); }
     view.setBodyMatrix(f.bodyMatrix, f.selectionMoves, f.bodySplit, f.followers.map((q) => ({ matrix: q.matrix, only: q.split })));

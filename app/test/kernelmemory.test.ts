@@ -1,4 +1,4 @@
-// The kernel's thread is restarted when its memory has grown big (`in_804`): the memory of a kernel only grows, so after a heavy model it stays big for the session and later edits add to it, until the browser stops it.
+// The kernel's thread is restarted when its memory has grown big (`in_805`): the memory of a kernel only grows, so after a heavy model it stays big for the session and later edits add to it, until the browser stops it.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createAsyncKernel } from "../src/kernel-async.ts";

@@ -1,4 +1,4 @@
-// A straight crown gear and its straight bevel pinion, made by the gearing law and measured in the kernel (`q_crown_gears`).
+// A straight crown gear and its straight bevel pinion, made by the gearing law and measured in the kernel (`dec_crown_gears`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { example, overlap } from "./crownbody.ts";
