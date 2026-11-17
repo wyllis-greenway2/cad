@@ -11,6 +11,9 @@ import { ok, err } from "../shared/result.ts";
 import { typedLength } from "../shared/units.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { dot } from "../math/vec.ts";
+import type { Part } from "../operation/part.ts";
+import { normalOfPlane, pointOf, roundOf } from "../operation/part.ts";
+import type { Ref } from "../shared/ref.ts";
 import { FASTENER_FAMILIES, FASTENER_SIZES, FASTENER_SOURCES, CLEARANCE_FIT_LIST as CLEARANCE_FITS, RECEIVER_KINDS, isFastenerSize, receiversText, makeNut, makeCountersunk, makeWasher, makeSocketHead, lengthAdvice, STANDARD_LENGTHS, countersunkDims, socketHeadDims, clearanceHole, tapHole, chartEngagement, nutTrap, receiverProblem, receiverSteps } from "../operation/fasteners.ts";
 import type { FastenerFamily, FastenerSize, PartSteps, ReceiverKind, ClearanceFit, FaceSpot } from "../operation/fasteners.ts";
 
@@ -93,15 +96,39 @@ export const receiverStart = (): ReceiverValues => ({ kind: "clearance", size: "
 const kindOf = (s: string): ReceiverKind => (RECEIVER_KINDS.find((k) => k.id === s)?.id ?? "clearance");
 const fitOf = (s: string): ClearanceFit => (s === "fine" || s === "coarse" ? s : "medium");
 
-/** The flat face selected, as a plane with the point the hole is centred on (the middle of the face's box across it) and how far the body reaches through, or why there is none. */
-export function selectedFace(session: Session): Result<{ spot: FaceSpot; through: number }> {
+/** A flat face of a body: a plane of the body that is not a round or curved face. */
+const isFlatFace = (p: Part | undefined): p is Extract<Part, { kind: "plane" }> => !!p && p.kind === "plane" && p.origin === "body" && !p.rounded && !p.round && !p.curved && !!p.mesh?.length;
+/** The place a selected part stands for: a corner is where it is; a circle (drawn, a round face of the body or a circular edge of it) is its centre. Null for anything else. */
+function placeOf(sc: Scene, p: Part): Vec3 | null {
+  const get = (r: Ref) => sc.parts[r];
+  if (p.kind === "corner") return pointOf(get, p.ref);
+  return roundOf(get, p.ref)?.center ?? null;
+}
+/**
+ * The flat face selected, as a plane with the point the hole is centred on (the middle of the face's box across it), how far the body reaches through, and the places picked: the face with, if wanted, corners and circles
+ * selected too (a corner, the centre of a drawn circle, of a round face or of a circular edge of the body, `in_707`), each taken onto the face along its normal. Or why there is none.
+ */
+export function selectedFace(session: Session): Result<{ spot: FaceSpot; through: number; points: Vec3[] }> {
   const sc = scene(session);
   const sel = selection(session).map((r) => sc.parts[r]).filter((p): p is NonNullable<typeof p> => !!p);
-  const face = sel.length === 1 && sel[0]!.kind === "plane" && sel[0]!.origin === "body" ? sel[0]! : null;
-  if (!face || face.kind !== "plane" || face.rounded || face.round || face.curved || !face.mesh?.length) return err("select one flat face of a body first");
+  const faces = sel.filter(isFlatFace);
+  const face = faces.length === 1 ? faces[0]! : null;
+  if (!face) return err(faces.length > 1 ? "select one flat face of a body (and, to place the hole, corners or circles)" : "select one flat face of a body first");
+  const picked: Vec3[] = [];
+  for (const p of sel) {
+    if (p === face) continue;
+    const at = placeOf(sc, p);
+    if (!at) return err("with the face, select only corners or circles to place the hole at");
+    picked.push(at);
+  }
+  const n = normalOfPlane(face);
+  const onFace = (q: Vec3): Vec3 => { const h = dot([q[0] - face.at[0], q[1] - face.at[1], q[2] - face.at[2]], n); return [q[0] - n[0] * h, q[1] - n[1] * h, q[2] - n[2] * h]; };
+  const points: Vec3[] = [];
+  for (const q of picked.map(onFace)) if (!points.some((o) => Math.hypot(o[0] - q[0], o[1] - q[1], o[2] - q[2]) < 1e-6)) points.push(q); // (two parts at one place are one hole)
   let lo: [number, number] = [Infinity, Infinity], hi: [number, number] = [-Infinity, -Infinity];
-  for (let i = 0; i + 2 < face.mesh.length; i += 3) {
-    const d: Vec3 = [face.mesh[i]! - face.at[0], face.mesh[i + 1]! - face.at[1], face.mesh[i + 2]! - face.at[2]];
+  const mesh = face.mesh!;
+  for (let i = 0; i + 2 < mesh.length; i += 3) {
+    const d: Vec3 = [mesh[i]! - face.at[0], mesh[i + 1]! - face.at[1], mesh[i + 2]! - face.at[2]];
     const [x, y] = [dot(d, face.u), dot(d, face.v)];
     lo = [Math.min(lo[0], x), Math.min(lo[1], y)]; hi = [Math.max(hi[0], x), Math.max(hi[1], y)];
   }
@@ -110,17 +137,17 @@ export function selectedFace(session: Session): Result<{ spot: FaceSpot; through
   const body = Object.values(sc.parts).find((p) => p.kind === "body" && p.ref === face.ref.replace(/\/f@.*$/, "/o"));
   const box = body?.kind === "body" ? body.bbox : undefined;
   const through = box ? Math.hypot(box.max[0] - box.min[0], box.max[1] - box.min[1], box.max[2] - box.min[2]) : 1000;
-  return ok({ spot: { plane: face.ref, centre, u: face.u, v: face.v }, through });
+  return ok({ spot: { plane: face.ref, centre, u: face.u, v: face.v }, through, points });
 }
 export const whyNoReceiver = (session: Session): string | null => { const f = selectedFace(session); return f.ok ? null : f.error; };
 
-export function receiverDialog(v: ReceiverValues): Dialog {
+export function receiverDialog(v: ReceiverValues, places = 0): Dialog {
   const kind = kindOf(v.kind);
   const size = isFastenerSize(v.size) ? v.size : "M3";
   const fit = fitOf(v.fit);
   const family: FastenerFamily = kind === "countersunk" ? "countersunk" : kind === "counterbore" ? "socketHead" : "nut";
   return {
-    title: "Fastener hole",
+    title: places > 1 ? `Fastener holes (${places})` : "Fastener hole",
     ok: "Cut",
     fields: [
       { id: "kind", label: "Receiver", type: "choice", value: kind, choices: RECEIVER_KINDS.map((k) => ({ value: k.id, label: k.label })) },
@@ -128,8 +155,8 @@ export function receiverDialog(v: ReceiverValues): Dialog {
       ...(kind === "tapped" ? [] : [{ id: "fit", label: "Clearance (ISO 273)", type: "choice" as const, value: fit, choices: CLEARANCE_FITS.map((f) => ({ value: f, label: `${f} (${clearanceHole(size, f)} mm)` })) }]),
       ...(kind === "tapped" ? [{ id: "engagement", label: "Thread engagement (%), empty is the chart's drill", type: "text" as const, value: v.engagement ?? "", note: engagementNote(size, v.engagement ?? "") }] : []),
       { id: "depth", label: "Depth (mm), empty goes right through", type: "text", value: v.depth, note: kind === "nutPocket" ? `the pocket is ${nutTrap(size).depth} mm deep, the hole goes on through` : "" },
-      { id: "dx", label: "Across the face from its middle (mm)", type: "text", value: v.dx },
-      { id: "dy", label: "Up the face from its middle (mm)", type: "text", value: v.dy, note: "the face's own two directions; the sizes are the standard's own, and the printer's offset is added when the part is made for printing" },
+      { id: "dx", label: places ? "Across the face from the place picked (mm)" : "Across the face from its middle (mm)", type: "text", value: v.dx },
+      { id: "dy", label: places ? "Up the face from the place picked (mm)" : "Up the face from its middle (mm)", type: "text", value: v.dy, note: "the face's own two directions; the sizes are the standard's own, and the printer's offset is added when the part is made for printing" },
     ],
   };
 }
@@ -149,6 +176,9 @@ const engagementOf = (text: string): number | undefined | null => {
   return Number.isFinite(n) ? n / 100 : null;
 };
 
+/** How many places the selection names: the corners and circles picked, 0 when none (the hole goes in the middle of the face). */
+export const placesPicked = (session: Session): number => { const f = selectedFace(session); return f.ok ? f.value.points.length : 0; };
+
 /** Cut the receiver into the body whose flat face is selected: the steps, one after another from the scene each leaves. */
 export function cutReceiver(session: Session, v: ReceiverValues): Result<Session> {
   const face = selectedFace(session);
@@ -163,8 +193,10 @@ export function cutReceiver(session: Session, v: ReceiverValues): Result<Session
   const bad = receiverProblem(kind, v.size, fitOf(v.fit), depth, engagement);
   if (bad) return err(bad);
   const sp = face.value.spot;
-  const spot: FaceSpot = { ...sp, centre: [sp.centre[0] + sp.u[0] * dx + sp.v[0] * dy, sp.centre[1] + sp.u[1] * dx + sp.v[1] * dy, sp.centre[2] + sp.u[2] * dx + sp.v[2] * dy] };
-  const c = oneCommand(scene(session), receiverSteps(kind, v.size, fitOf(v.fit), depth, spot, engagement));
+  const size = v.size; // (narrowed above)
+  const places: Vec3[] = face.value.points.length ? face.value.points : [sp.centre]; // (the places picked, else the middle of the face)
+  const steps: PartSteps = places.flatMap((p) => receiverSteps(kind, size, fitOf(v.fit), depth, { ...sp, centre: [p[0] + sp.u[0] * dx + sp.v[0] * dy, p[1] + sp.u[1] * dx + sp.v[1] * dy, p[2] + sp.u[2] * dx + sp.v[2] * dy] }, engagement));
+  const c = oneCommand(scene(session), steps);
   if (!c.ok) return c;
   const s = run(session, c.value);
   return s.message ? err(s.message) : ok(s);

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";
 import { createSession, scene } from "../src/interaction/session.ts";
 import { undoLast as undoOnce } from "../src/interaction/session.ts";
+const undoLastOnce = undoOnce;
 import { addPart, addPartDialog, addPartStart, addPartSteps } from "../src/interaction/addpart.ts";
 import { FASTENER_SIZES, clearanceHole, tapDrill, countersink, nutTrap, nutDims, countersunkDims, countersunkProfile, hexagon, lengthProblem, receiversText } from "../src/operation/fasteners.ts";
 
@@ -337,4 +338,68 @@ test("the length note in the dialog says what the number typed is and lists the 
   assert.ok(note("20").startsWith("20 mm is a standard length (ISO 888)."));
   assert.ok(note("").startsWith("standard lengths (ISO 888): 2, 3, 4, 5, 6, 8, 10"), "no advice for an empty box");
   assert.ok(note("20").includes("100 mm and longer") && note("20").includes("were not read"));
+});
+
+// ---- the hole at a picked place ----
+import { drawCircle } from "../src/operation/build.ts";
+import { placesPicked } from "../src/interaction/addpart.ts";
+
+/** a 30 x 20 x 8 block with a 6 mm hole at (8, 10); the selection is returned for the caller to choose from */
+const blockWithHole = (): { s: Session; refs: string[]; top: string; corner: string; edge: string; wall: string } => {
+  let s = createSession(kernel);
+  const r = drawSquaredRectangle(scene(s), worldRef("XY"), [0, 0, 0], [30, 20, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  const c = drawCircle(scene(s), worldRef("XY"), [8, 10, 0], 3);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: r.lines, params: { depth: 8, holes: c.circle } } });
+  const parts = Object.values(scene(s).parts);
+  const named = (pred: (p: (typeof parts)[number]) => boolean) => parts.find(pred)!.ref;
+  return {
+    s, refs: parts.map((p) => p.ref),
+    top: named((p) => p.kind === "plane" && p.origin === "body" && p.ref.endsWith("0,0,1,8")),
+    corner: named((p) => p.kind === "corner" && p.origin === "body" && p.ref.endsWith("v@30,20,8")),
+    edge: named((p) => p.kind === "line" && p.origin === "body" && !!p.circle && p.ref.includes("e@11,10,8")),
+    wall: named((p) => p.kind === "plane" && p.origin === "body" && p.ref.includes("/c@")),
+  };
+};
+const V2 = 30 * 20 * 8 - cyl(6, 8);
+
+test("a corner picked with the face is where the hole goes: a hole at the corner is cut away from the block's edge", () => {
+  const b = blockWithHole();
+  const r = cutReceiver(select(b.s, [b.top, b.corner]), { ...base, kind: "clearance", size: "M4", fit: "medium", dx: "-5", dy: "-5" });
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  near(volumes(r.value)[0]!, V2 - cyl(4.5, 8));
+  assert.equal(placesPicked(select(b.s, [b.top, b.corner])), 1);
+});
+test("the centre of a hole's circular edge and of its round wall are the same place: one hole there, bigger than the old one", () => {
+  const b = blockWithHole();
+  const sel = select(b.s, [b.top, b.edge, b.wall]);
+  assert.equal(placesPicked(sel), 1, "two parts at one place are one place");
+  const r = cutReceiver(sel, { ...base, kind: "clearance", size: "M8", fit: "coarse" });
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  near(volumes(r.value)[0]!, 30 * 20 * 8 - cyl(10, 8), 0.003); // (the 10 mm hole takes the 6 mm one in)
+});
+test("several places picked are several holes, made as one step to undo", () => {
+  const b = blockWithHole();
+  const sel = select(b.s, [b.top, b.corner, b.edge]);
+  assert.equal(placesPicked(sel), 2);
+  const r = cutReceiver(sel, { ...base, kind: "clearance", size: "M3", fit: "fine", dx: "-4", dy: "-4" });
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  const before = sel.history.scene.steps.length;
+  near(volumes(r.value)[0]!, V2 - 2 * cyl(3.2, 8)); // (the typed offset is from each place: (26, 16) and (4, 6), both in the solid)
+  assert.ok(r.value.history.scene.steps.length > before);
+  assert.equal(undoLastOnce(r.value).history.scene.steps.length, before, "one undo takes all the holes");
+});
+test("what cannot place a hole is refused with a reason, and with no place picked the face's middle is used", () => {
+  const b = blockWithHole();
+  const noFace = select(b.s, [b.corner]);
+  assert.equal(whyNoReceiver(noFace), "select one flat face of a body first");
+  const body = b.refs.find((r) => r === "b/body/o")!;
+  assert.ok(whyNoReceiver(select(b.s, [b.top, body]))?.includes("only corners or circles"));
+  const two = b.refs.filter((r) => r.includes("0,0,1,8") || r.includes("0,0,-1,0"));
+  assert.ok(whyNoReceiver(select(b.s, two))?.includes("one flat face"));
+  assert.equal(placesPicked(select(b.s, [b.top])), 0);
+  assert.ok(receiverDialog(receiverStart(), 2).title.includes("(2)"));
+  assert.ok(receiverDialog(receiverStart(), 1).fields.find((f) => f.id === "dx")!.label.includes("place picked"));
+  assert.ok(receiverDialog(receiverStart(), 0).fields.find((f) => f.id === "dx")!.label.includes("its middle"));
 });
