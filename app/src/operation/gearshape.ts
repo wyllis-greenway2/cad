@@ -7,7 +7,8 @@ import { gearOutline } from "./gear.ts";
 import type { GearRecord } from "./gearscene.ts";
 import { isMade } from "./gearscene.ts";
 import { wheelOf } from "./worm.ts";
-import { bevelLayout, bevelFrame } from "./bevel.ts";
+import { bevelLayout, bevelFrame, isCrown } from "./bevel.ts";
+import { crownOf } from "./crown.ts";
 
 export interface GearShape {
   /** the step that makes the body; the body is named `x_` and this in the kernel's answer */
@@ -46,6 +47,14 @@ export function gearShapeOf(sc: Scene, st: Step): GearShape | null {
   const n = cross(plane.u, plane.v), len = Math.hypot(...n) || 1;
   let normal: Vec3 = [n[0] / len, n[1] / len, n[2] / len];
   const g = o.value;
+  if (rec.spec.bevel && isCrown(rec.spec)) { // a crown gear (`dec_crown_gears`): the loft is the body's first step; the stand-in is a disc from the plate's foot to the tips
+    if (st.type !== "loft") return null;
+    const c = crownOf(rec.spec);
+    if (!c.ok) return null;
+    normal = bevelFrame(plane.u, plane.v, rec.spec, rec.turn ?? 0).n;
+    const foot = -(c.value.root + c.value.thick);
+    return { step: st.id, gear: rec.id, centre: [0, 1, 2].map((k) => rec.at[k]! + normal[k]! * foot) as unknown as Vec3, normal, depth: c.value.tip - foot, radius: c.value.outer + 0.5 * rec.spec.module, rootRadius: c.value.inner, ring: false, hole: (rec.spec.bore ?? 0) > 0 ? (rec.spec.bore as number) / 2 : 0 };
+  }
   if (rec.spec.bevel) { // a bevel gear (`in_776`): the loft is the body's first step (the blank and the combine are not shapes of their own); the body stands from the hub's back, behind the pitch plane, to the toe's tips, along its axis
     if (st.type !== "loft") return null;
     const lay = bevelLayout(rec.spec);
