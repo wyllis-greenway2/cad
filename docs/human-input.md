@@ -3117,3 +3117,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_693 — 2026-11-17 — directive
 > Go with your recommendation, add and remove spline points
 (asks for adding and taking away points of a spline to be built, the next step after moving them)
+
+## in_694 — 2026-11-17 — directive
+> Go with your recommendation, start on the eccentric and snail cams
+(asks for the eccentric cam and the snail (drop) cam to be started, the first cams of `dec_spline_and_cams`)

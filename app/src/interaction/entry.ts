@@ -8,7 +8,7 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Plane } from "../operation/part.ts";
 import type { Tool, Preview } from "./tools.ts";
-import { FIELDS, previewOf, rectEnd, circleRadius, lineNext, arcOf, gearFields, gearLive } from "./tools.ts";
+import { FIELDS, previewOf, rectEnd, circleRadius, lineNext, arcOf, gearFields, gearLive, camSpecOf, CAM_FIELDS } from "./tools.ts";
 import type { Op } from "./operations.ts";
 import type { Gizmo } from "./gizmo.ts";
 import type { Camera } from "./camera.ts";
@@ -87,6 +87,11 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
       live.push(Math.abs(ex - ax), Math.abs(ey - ay));
     }
   } else if (tool.kind === "circle") live.push(circleRadius(pl, tool) * 2);
+  else if (tool.kind === "cam" && tool.cam) {
+    const spec = camSpecOf(tool);
+    const live = spec ? [spec.diameter, spec.lift, spec.hole] : [];
+    return { fields: CAM_FIELDS[tool.cam.kind].map((label, i) => ({ label, value: (tool.cam!.typed[i] ?? "") !== "" ? tool.cam!.typed[i]! : live[i] ? roundedText(live[i]!) : "", active: tool.cam!.field === i, typed: (tool.cam!.typed[i] ?? "") !== "" })), unit: "mm" };
+  }
   else if (tool.kind === "gear") {
     const g = tool.gear ?? { internal: false, typed: [] as string[], field: 0 };
     const shown = gearLive(scene, tool);

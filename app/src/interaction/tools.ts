@@ -14,6 +14,9 @@ import { live } from "../operation/ownership.ts";
 import type { Command } from "../operation/commands.ts";
 import { drawSquaredRectangle, drawCircle, drawChain, drawArc, drawSpline, joinedAtCorners } from "../operation/build.ts";
 import { distinctPoints, splinePoints } from "../operation/spline.ts";
+import type { CamKind, CamSpec } from "../operation/cams.ts";
+import { camShapes } from "../operation/cams.ts";
+import { drawCam } from "../operation/camdraw.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
 import { candidatesAt, visibleFrom } from "./picking.ts";
 import { anchorCorners, anchorLines, anchorCutCorners } from "../operation/anchors.ts";
@@ -30,7 +33,7 @@ import { chainOf } from "../operation/chains.ts";
 import type { GearRecord } from "../operation/gearscene.ts";
 import { meshWith } from "../operation/mesh.ts";
 
-export type ToolKind = "rect" | "circle" | "line" | "arc" | "spline" | "trim" | "gear";
+export type ToolKind = "rect" | "circle" | "line" | "arc" | "spline" | "cam" | "trim" | "gear";
 export interface Tool {
   kind: ToolKind;
   /** null while armed (waiting for the first click on a surface) */
@@ -60,6 +63,22 @@ export interface Tool {
   trimming?: { ref: Ref; span: Vec3[] };
   /** a gear (`dec_gear_tool`): a ring or an outside gear, the numbers typed, the field being typed in, and, when its numbers are being changed, which gear and how it is now */
   gear?: GearState;
+  /** a cam (`dec_spline_and_cams`): which, and the numbers typed (diameter, lift or offset, the shaft's hole) and the one being typed in */
+  cam?: CamState;
+}
+export interface CamState { kind: CamKind; typed: string[]; field: number }
+export const CAM_FIELDS: Record<CamKind, string[]> = { eccentric: ["Diameter", "Offset", "Hole"], snail: ["Diameter", "Lift", "Hole"] };
+/** A tool armed to draw a cam: the first click is the shaft, the pointer's distance from it sets the diameter, and numbers can be typed for all three. */
+export const armCam = (kind: CamKind): Tool => ({ ...armTool("cam"), cam: { kind, typed: ["", "", ""], field: 0 } });
+export function camTyped(t: Tool, field: number, text: string): Tool { const c = t.cam!; return { ...t, cam: { ...c, field, typed: c.typed.map((x, i) => (i === field ? text : x)) } }; }
+/** The cam being drawn: each number as typed, else the diameter from the pointer's distance from the shaft, the lift or offset a quarter of the radius (an eighth for an offset: the follower moves twice it), the hole a fifth of the diameter. */
+export function camSpecOf(t: Tool): CamSpec | null {
+  const c = t.cam;
+  const at = t.points[0];
+  if (!c || !at) return null;
+  const typed = (i: number) => typedLength(c.typed[i] ?? "");
+  const diameter = typed(0) ?? (t.cursor ? 2 * dist(at, t.cursor) : 0);
+  return { kind: c.kind, diameter, lift: typed(1) ?? diameter / (c.kind === "eccentric" ? 16 : 8), hole: typed(2) ?? diameter / 5 };
 }
 export interface GearState {
   internal: boolean; typed: string[]; field: number; editing?: string; base?: GearSpec;
@@ -103,7 +122,7 @@ export const meshGearTool = (src: GearRecord, rack: boolean, ring = false): Tool
 /** The tool opened on a gear that is already made, to change its numbers: its plane and centre, and its numbers as they are. */
 export const editGearTool = (rec: { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }): Tool => ({ ...armTool("gear", variantOf(rec.spec)), plane: rec.plane, points: [rec.at], cursor: rec.at, gear: { internal: !!rec.spec.internal, ...(rec.spec.helix !== undefined ? { helical: true as const } : {}), ...(rec.spec.worm ? { worm: true as const } : {}), ...(rec.spec.wheel ? { wheel: true as const } : {}), ...(rec.spec.rack ? { rack: true } : {}), ...(rec.spec.pulley ? { pulley: rec.spec.pulley } : {}), ...(rec.spec.sprocket ? { sprocket: true as const } : {}), ...(rec.spec.sprocket?.iso ? { iso: true as const } : {}), ...(rec.spec.cycloidal ? { cycloidal: true as const } : {}), typed: ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], field: 0, editing: rec.id, base: rec.spec, ...(rec.turn ? { turn: rec.turn } : {}) } });
 
-export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"], spline: [], trim: [], gear: ["Teeth", "Module"] };
+export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"], spline: [], cam: [], trim: [], gear: ["Teeth", "Module"] };
 
 // ---- points on a plane ----
 export function pointOnPlane(pv: PointerView, pl: Plane): Vec3 | null {
@@ -177,6 +196,11 @@ export function typeKey(t: Tool, key: string): Tool {
     if (key === "Tab") return { ...t, gear: { ...g, field: (g.field + 1) % gearFields(g).length } };
     const typed = typeInto(g.typed[g.field] ?? "", key);
     return typed === null ? t : { ...t, gear: { ...g, typed: Array.from({ length: 16 }, (_, i) => (i === g.field ? typed : g.typed[i] ?? "")) } };
+  }
+  if (t.kind === "cam" && t.cam) {
+    if (key === "Tab") return { ...t, cam: { ...t.cam, field: (t.cam.field + 1) % t.cam.typed.length } };
+    const typed = typeInto(t.cam.typed[t.cam.field] ?? "", key);
+    return typed === null ? t : camTyped(t, t.cam.field, typed);
   }
   const n = FIELDS[t.kind].length;
   if (key === "Tab") return { ...t, field: n > 1 ? ((t.field === 0 ? 1 : 0) as 0 | 1) : 0 };
@@ -339,6 +363,8 @@ function gearTarget(scene: Scene, t: Tool): GearTarget | null {
   return r && r.ok ? r.value : null;
 }
 /** Why the gear the tool stands at makes none (what Enter or a click says), or null. */
+/** Why a cam that is not made is not (`cams.ts`), for the message line. */
+export function camProblemOf(t: Tool): string | null { const spec = camSpecOf(t); const shapes = spec ? camShapes(spec) : null; return shapes && !shapes.ok ? shapes.error : null; }
 export function gearProblem(scene: Scene, t: Tool): string | null {
   const r = gearMade(scene, t);
   return r && !r.ok ? r.error : null;
@@ -444,6 +470,18 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
     const [a, b] = [t.points[0]!, t.points[1] ?? t.cursor];
     return { segments: b ? [[a, b]] : [], circle: null, cursor: t.cursor };
   }
+  if (t.kind === "cam") { // a cam (`dec_spline_and_cams`): what it is made of, in the plane, round the shaft the first click placed
+    const spec = camSpecOf(t);
+    const shapes = spec ? camShapes(spec) : null;
+    if (!spec || !shapes || !shapes.ok) return { segments: [], circle: t.cursor && t.points[0] ? { center: t.points[0], radius: dist(t.points[0], t.cursor), normal: n } : null, cursor: t.cursor };
+    const [ox, oy] = localOf(pl, t.points[0]!);
+    const at = (q: readonly [number, number]): Vec3 => liftOf(pl, [ox + q[0], oy + q[1]]);
+    const segments: [Vec3, Vec3][] = [];
+    const line = (pts: Vec3[]) => pts.slice(1).forEach((p, i) => segments.push([pts[i]!, p]));
+    for (const c of shapes.value.circles) line(Array.from({ length: 49 }, (_, i) => at([c.c[0] + c.r * Math.cos((i / 48) * 2 * Math.PI), c.c[1] + c.r * Math.sin((i / 48) * 2 * Math.PI)])));
+    if (shapes.value.spiral) { const sp = splinePoints(shapes.value.spiral.map(at)); line([...sp, sp[0]!]); }
+    return { segments, circle: null, cursor: t.cursor };
+  }
   if (t.kind === "spline") { // a spline: the curve through the points placed and the pointer (`dec_spline_and_cams`); its points are the corners to hold it by
     const through = distinctPoints(t.cursor ? [...t.points, t.cursor] : t.points);
     const pts = through.length >= 3 ? splinePoints(through) : through;
@@ -506,6 +544,11 @@ export function finish(scene: Scene, t: Tool): Finished | null {
     if (!arc) return null;
     const d = drawArc(scene, pl.ref, arc.a, arc.mid, arc.b, normalOfPlane(pl));
     return d ? { command: joinedAtCorners(scene, pl.ref, d.command), select: [d.line] } : null;
+  }
+  if (t.kind === "cam") {
+    const spec = camSpecOf(t);
+    const d = spec ? drawCam(scene, pl, t.points[0]!, spec) : null;
+    return d && d.ok ? { command: d.value.command, select: d.value.select } : null;
   }
   if (t.kind === "spline") {
     const through = distinctPoints(t.points);
