@@ -56,11 +56,13 @@ export function gearBody(s: Session, pr: Pair, which: "pinion" | "ring", turn: n
     if (process.env.VARIANT === "toe") bl.polygon = [[bl.polygon[1]![0] + 1000, 0], [bl.polygon[1]![0] + 1000, bl.polygon[3]![1] + 1000], bl.polygon[3]!, bl.polygon[4]!, bl.polygon[5]!];
     s = prism;
     const bp = drawnRef(nextId(scene(s), "p"));
-    s = run(s, { type: "addPart", part: { ref: bp, kind: "plane", origin: "drawn", plane: null, movable: true, at: [0, 0, 0], u, v: g.axis } } as never);
+    // the blank's sketch plane may be turned about the axis so that the seam of its cones is not where the teeth's corners are (SEAM, radians)
+    const sa = Number(process.env.SEAM ?? 0), ub: V3 = [u[0] * Math.cos(sa) + v[0] * Math.sin(sa), u[1] * Math.cos(sa) + v[1] * Math.sin(sa), u[2] * Math.cos(sa) + v[2] * Math.sin(sa)];
+    s = run(s, { type: "addPart", part: { ref: bp, kind: "plane", origin: "drawn", plane: null, movable: true, at: [0, 0, 0], u: ub, v: g.axis } } as never);
     let poly = bl.polygon.map(([x, r]): [number, number] => [r, x]);
     const area = poly.reduce((acc, p, i) => { const q = poly[(i + 1) % poly.length]!; return acc + (p[0] * q[1] - q[0] * p[1]); }, 0);
     if (area < 0) poly = poly.slice().reverse();
-    const pts3 = poly.map(([r, x]): V3 => [u[0] * r + g.axis[0] * x, u[1] * r + g.axis[1] * x, u[2] * r + g.axis[2] * x]);
+    const pts3 = poly.map(([r, x]): V3 => [ub[0] * r + g.axis[0] * x, ub[1] * r + g.axis[1] * x, ub[2] * r + g.axis[2] * x]);
     const ch = drawChain(scene(s), bp as never, pts3, true);
     s = run(s, ch.command);
     const revId = nextId(scene(s), "s");
