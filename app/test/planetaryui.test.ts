@@ -29,7 +29,7 @@ test("the box: Sun teeth, Planet teeth, Planets, Ratio, Module, Width, Helix, Pr
   const st = start();
   const e = box(st);
   assert.equal(e.panel, "Planetary gear set");
-  assert.deepEqual(e.fields.map((f) => f.label), ["Sun teeth", "Planet teeth", "Planets", "Ratio", "Module", "Width", "Helix", "Pressure", "Backlash", "Clearance", "Sun bore", "Wall", "Pin", "Pin gap", "Carrier"]);
+  assert.deepEqual(e.fields.map((f) => f.label), ["Sun teeth", "Planet teeth", "Planets", "Ratio", "Module", "Width", "Helix", "Pressure", "Backlash", "Clearance", "Sun bore", "Wall", "Pin", "Pin gap", "Carrier", "Plate gap"]);
   assert.deepEqual([values(st)["Sun teeth"], values(st)["Planet teeth"], values(st)["Planets"], values(st)["Ratio"]], ["24", "18", "3", "3.5"]);
   assert.match(e.info!, /Ring 60 teeth\. Ring held \(sun in, carrier out\): 3\.5:1\. Carrier held \(sun in, ring out, reversed\): -2\.5:1\. Sun held \(ring in, carrier out\): 1\.4:1\./);
 });
@@ -42,7 +42,7 @@ test("a ratio typed gives the teeth; one tooth count typed keeps it; a ratio no 
   assert.deepEqual([values(k)["Sun teeth"], values(k)["Planet teeth"]], ["24", "36"]);
   let bad = start(); bad = typeText(bad, "20"); bad = tab(bad, 1); bad = typeText(bad, "13"); bad = tab(bad, 2); bad = typeText(bad, "5"); // both teeth typed: the ratio is only shown
   assert.equal(values(bad)["Ratio"], "5");
-  assert.equal(entryOf(scene(bad.session), bad.tool, bad.op)!.fields.length, 15);
+  assert.equal(entryOf(scene(bad.session), bad.tool, bad.op)!.fields.length, 16);
 });
 
 test("Enter makes the set: a sun, planets and a ring as gears, a carrier when its thickness is typed; the click after the centre makes it too", () => {
@@ -97,4 +97,15 @@ test("deleting a gear of the set deletes the set: its gears, bodies and record",
   assert.equal(st.session.message, null);
   assert.equal(scene(st.session).planetaries, undefined);
   assert.equal(scene(st.session).gears, undefined);
+});
+
+test("selecting the carrier's body and Edit gear opens the whole set too", () => {
+  let st = tab(start(), 14); st = typeText(st, "4"); st = key(st, "Enter"); // Carrier 4
+  assert.equal(st.session.message, null);
+  st = { ...reduce(st, { type: "escape" }, env), tool: null };
+  const sc = scene(st.session);
+  const carrier = Object.values(sc.parts).find((p) => p.kind === "body" && (p as { id?: string }).id === `x_${sc.planetaries![0]!.carrierStep}`)!;
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [carrier.ref] as never } } };
+  st = reduce(st, { type: "runAction", id: "gear:edit" }, env);
+  assert.ok(st.tool?.gear?.planetary && st.tool.gear.editing === "q_001");
 });

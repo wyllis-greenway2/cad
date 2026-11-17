@@ -154,3 +154,26 @@ test("the overlap check can see a bad fit: a planet turned half a tooth runs int
   const v = overlap(s, stepOf(s, "q_001s"), stepOf(s, "q_001p1"));
   assert.ok(v > 5, `${v}`);
 });
+
+test("a plate gap puts the carrier on a plane of its own below the gears: the pins are that much longer, nothing touches, and the gap can be changed or taken away", () => {
+  const gap = 1.5;
+  let s = make({ ...SPUR, carrier: 4, plateGap: gap });
+  assert.equal(s.message, null);
+  const sc = scene(s);
+  assert.ok(sc.parts["d/q_001.pl" as never], "the carrier's own plane");
+  assert.equal(bodies(s).length, 7);
+  const carrier = bodies(s).find((b) => b.id === `x_${sc.planetaries![0]!.carrierStep}`)!;
+  const [R, t, pin, W, hole] = [40, 4, defaultPin(SPUR), 6, 5.4];
+  const expected = Math.PI * R * R * t - Math.PI * (hole / 2) ** 2 * t + 4 * Math.PI * (pin / 2) ** 2 * (W + gap);
+  assert.ok(Math.abs(carrier.volume! - expected) / expected < 0.01, `${carrier.volume} against ${expected}`);
+  const zs = (id: string) => { const b = bodies(s).find((x) => x.id === `x_${id}`) as unknown as { bbox: { min: number[]; max: number[] } }; return [b.bbox.min[2]!, b.bbox.max[2]!]; };
+  const [cz, pz] = [zs(sc.planetaries!.at(0)!.carrierStep!), zs(stepOf(s, "q_001p1"))];
+  assert.ok(Math.abs(cz[0]! + gap + 4) < 1e-6 && Math.abs(cz[1]! - 6) < 1e-6, `carrier z ${cz}`); // plate from -(gap + 4) to -gap, pins up to the planets' top, 6
+  assert.ok(Math.abs(pz[0]!) < 1e-6 && cz[0]! + 4 < pz[0]! - gap + 1e-6, `planet z ${pz}`); // the planet starts at 0, the plate's top is gap below it
+  for (const g of ["q_001p1", "q_001s", "q_001r"]) assert.equal(overlap(s, sc.planetaries![0]!.carrierStep!, stepOf(s, g)), 0, g);
+  s = run(s, { type: "setPlanetary", id: "q_001", spec: { ...SPUR, carrier: 4 } }); // gap taken away: the plane goes
+  assert.equal(s.message, null);
+  assert.equal(scene(s).parts["d/q_001.pl" as never], undefined);
+  assert.equal(bodies(s).length, 7);
+  assert.match(run(make({ ...SPUR, carrier: 4 }), { type: "setPlanetary", id: "q_001", spec: { ...SPUR, carrier: 4, plateGap: -1 } }).message ?? "", /below zero/);
+});

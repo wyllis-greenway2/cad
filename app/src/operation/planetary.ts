@@ -20,6 +20,7 @@ export interface PlanetarySpec {
   /** the sun's bore, mm (0: none); default as for a gear of its size */ bore?: number;
   /** the ring's wall in modules */ rim?: number;
   pin?: number; pinGap?: number; carrier?: number;
+  /** the room between the planets and the carrier's plate along the axis, mm (0: they touch); with some the carrier is made on a plane of its own that far below the gears' */ plateGap?: number;
 }
 export interface PlanetaryRecord {
   id: string; plane: Ref; at: Vec3; spec: PlanetarySpec; turn?: number;
@@ -77,7 +78,7 @@ export interface Layout {
   planets: { spec: GearSpec; at: Vec3; turn: number }[];
   ring: { spec: GearSpec; at: Vec3; turn: number };
   /** the carrier, in the plane's frame: the plate's radius, the hole for the sun's shaft (mm across, 0 none), and the pins (centre as a point in the world, diameter, length) */
-  carrier?: { thickness: number; radius: number; hole: number; pins: { at: Vec3; diameter: number }[] };
+  carrier?: { thickness: number; gap: number; radius: number; hole: number; pins: { at: Vec3; diameter: number }[] };
 }
 /** The gears and the carrier of a set, placed: the sun at the centre, the planets `360 / N` apart (the first in the direction `turn`), each turned to mesh the sun, the ring turned to mesh the planets; null with the reason when the set cannot be made. */
 export function layoutOf(spec: PlanetarySpec, plane: { u: Vec3; v: Vec3 }, at: Vec3, turn = 0): Result<Layout> {
@@ -103,8 +104,9 @@ export function layoutOf(spec: PlanetarySpec, plane: { u: Vec3; v: Vec3 }, at: V
   const out: Layout = { sun: { spec: sunSpec, at, turn }, planets, ring };
   if ((spec.carrier ?? 0) > 0) {
     const ringPitchR = (mt(spec) * (spec.sun + 2 * spec.planet)) / 2;
-    out.carrier = { thickness: spec.carrier!, radius: ringPitchR, hole: bore > 0 ? bore + 2 * gap : 0, pins: planets.map((p) => ({ at: p.at, diameter: pin })) };
+    out.carrier = { thickness: spec.carrier!, gap: spec.plateGap ?? 0, radius: ringPitchR, hole: bore > 0 ? bore + 2 * gap : 0, pins: planets.map((p) => ({ at: p.at, diameter: pin })) };
     if (pin <= 0) return err("the pin needs a diameter");
+    if (!((spec.plateGap ?? 0) >= 0)) return err("the gap between the planets and the plate cannot be below zero");
   }
   return ok(out);
 }
@@ -127,16 +129,22 @@ function carrierScene(s: Scene, rec: PlanetaryRecord, lay: Layout["carrier"] | u
   const steps = s.steps.filter((x) => x.id !== keep);
   if (!lay) return { scene: { ...s, parts, steps } };
   const r = carrierRefs(rec.id, lay.pins.length);
-  const base = { origin: "drawn" as const, plane: rec.plane, movable: false };
-  parts[r.centre] = { ...base, ref: r.centre, kind: "corner", at: rec.at };
+  // with a gap the carrier is drawn on a plane of its own, that far below the gears' plane (the figures of an extrude start at their plane)
+  const base0 = s.parts[rec.plane];
+  const n: Vec3 = base0 && base0.kind === "plane" ? (() => { const c: Vec3 = [base0.u[1] * base0.v[2] - base0.u[2] * base0.v[1], base0.u[2] * base0.v[0] - base0.u[0] * base0.v[2], base0.u[0] * base0.v[1] - base0.u[1] * base0.v[0]]; const l = Math.hypot(...c) || 1; return [c[0] / l, c[1] / l, c[2] / l]; })() : [0, 0, 1];
+  const drop = (p: Vec3): Vec3 => [p[0] - n[0] * lay.gap, p[1] - n[1] * lay.gap, p[2] - n[2] * lay.gap];
+  const planeRef = lay.gap > 0 && base0 && base0.kind === "plane" ? drawnRef(`${rec.id}.pl`) : rec.plane;
+  if (planeRef !== rec.plane && base0 && base0.kind === "plane") parts[planeRef] = { ref: planeRef, kind: "plane", origin: "drawn", plane: null, movable: false, at: drop(base0.at), u: base0.u, v: base0.v };
+  const base = { origin: "drawn" as const, plane: planeRef, movable: false };
+  parts[r.centre] = { ...base, ref: r.centre, kind: "corner", at: drop(rec.at) };
   parts[r.plate] = { ...base, ref: r.plate, kind: "circle", center: r.centre, radius: lay.radius };
   if (lay.hole > 0) parts[r.hole] = { ...base, ref: r.hole, kind: "circle", center: r.centre, radius: lay.hole / 2 };
   lay.pins.forEach((p, i) => {
-    parts[r.pins[i]!.centre] = { ...base, ref: r.pins[i]!.centre, kind: "corner", at: p.at };
+    parts[r.pins[i]!.centre] = { ...base, ref: r.pins[i]!.centre, kind: "corner", at: drop(p.at) };
     parts[r.pins[i]!.circle] = { ...base, ref: r.pins[i]!.circle, kind: "circle", center: r.pins[i]!.centre, radius: p.diameter / 2 };
   });
   // one extrude: the plate below the plane (negative), the pins above it, each for the width of the planets (the figures of a step may each have their own depth)
-  const pinLen = rec.spec.width;
+  const pinLen = rec.spec.width + lay.gap; // (from the plate's plane up to the gears' top)
   const step: Step = {
     id: keep ?? nextId(s, "s"), type: "extrude", parts: [r.plate],
     params: { depth: -lay.thickness, ...(lay.hole > 0 ? { holes: r.hole } : {}), also: r.pins.map((p) => p.circle).join("|"), alsoDepth: r.pins.map(() => pinLen).join("|"), mode: "new", planetary: rec.id },

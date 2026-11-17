@@ -32,6 +32,7 @@ export const GEAR_HINTS: Record<GearKey, string> = {
   planets: "How many planets. They stand evenly round the sun; (sun + ring) divided by this must be a whole number, or they could not all mesh.",
   pin: "Diameter of the pin each planet turns on, mm (the planet's bore is this plus the gap all round).",
   pingap: "Room between a pin and its planet's bore, mm, all round. 0.2 is a loose fit; raise it to print in place.",
+  plategap: "Room between the planets and the carrier plate along the axis, mm (0: they touch). With some, the plate is on a plane of its own that far below the gears, and the pins are as much longer.",
   carrier: "Thickness of the carrier plate (mm): a plate with a pin at each planet, behind the gears. 0 (or empty) makes no carrier.",
   teeth: "How many teeth. A partner needs the same module and pressure angle; its teeth divided by yours is the speed ratio.",
   module: "Tooth size in mm: pitch diameter divided by teeth. Meshing gears must have the same module. Common: 0.5, 0.8, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5.",
