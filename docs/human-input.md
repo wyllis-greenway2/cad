@@ -3580,3 +3580,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_808 — 2026-11-17 — approval
 > I will take your recommendations
 (approves the recommended order: make the spiral's cone cut robust and find why 17/43 fails, rerun 30/45 and more cases, then propose a spiral tool; hypoid after)
+
+## in_809 — 2026-11-17 — approval
+> I will take your recommendations
+(approves the recommended next step: wait for the 22/34, 25/25 and 18/36 results to tell a size limit from a general problem, then propose the spiral tool with its limits)
