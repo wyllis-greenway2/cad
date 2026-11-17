@@ -3095,3 +3095,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_688 — 2026-11-17 — directive
 > okay the next thing I want you to help me work on is how to speed up the app. Things can get really slow. And sometimes for non obvious reasons. for example, the same gear sketch is fast when not selected, and very slow when selected, but isn't it the same line, same rendering, same everything? So why so slow when sselected?
 (asks to work on the app's speed, starting with why a gear sketch is fast unselected and very slow selected; attached a project and a state snapshot of it, `fast_when_not_selected`)
+
+## in_689 — 2026-11-17 — directive
+> yes that sounds good, lets pin that idea though and keep looking and holistic fixes for slowness. Another thing that is really slow is just when there are too many gears, or gears with too many teeth, or worm gears and especially worm gear wheels. Those are so slow they basically just crash the app. Even with a single gear. So how can we make this better?
+(approves the highlight batching idea but pins it, not to be built yet; asks to keep looking for holistic speed fixes; reports that many gears, gears with many teeth, worm gears and especially worm wheels are so slow they nearly crash the app, even a single one)
