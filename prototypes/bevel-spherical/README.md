@@ -1,4 +1,4 @@
-# Spherical involute tooth for the straight bevel gear (a prototype, `in_764`)
+# Spherical involute tooth for the straight bevel gear (a prototype, `in_777`)
 
 **Meant to learn:** whether the exact conjugate tooth of a straight bevel gear (a cone through the apex over a spherical involute, derived in `spherical.ts` with no source) fits a mate better than the Tredgold back cone tooth the app uses (`dec_bevel_gears`), as a stand-in for the octoid whose equations were not found (`q_bevel_gears`).
 

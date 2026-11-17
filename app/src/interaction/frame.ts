@@ -25,7 +25,8 @@ import { thinPlacesOf } from "./measure.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
 import { axisAcross } from "./revolve.ts";
-import { gearOfPart } from "../operation/gearscene.ts";
+import { gearOfPart, gearOfSelection } from "../operation/gearscene.ts";
+import { planetaryOfGear } from "../operation/planetary.ts";
 import { canHelix, finish as finishTool } from "./tools.ts";
 import { hasBody } from "../operation/gear.ts";
 import { hardMotion, hardNote, limitedOp, hardCollision, hardOverlaps, hardNames } from "./hard.ts";
@@ -694,7 +695,7 @@ function bodySplitOf(sc: Scene, outcome: CompileOutcome, op: Op): Frame["bodySpl
 
 /** The gear's icon and what a click on it offers (`in_693`), for the first gear in the selection; null when none is selected. */
 function gearChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
-  const rec = sel.map((r) => gearOfPart(sc, r)).find((g) => !!g);
+  const rec = sel.map((r) => gearOfSelection(sc, r)).find((g) => !!g);
   const pl = rec ? sc.parts[rec.plane] : undefined;
   if (!rec || !pl || pl.kind !== "plane") return null;
   const r = rec.spec.worm ? rec.spec.worm.length / 2 : Math.max(5, rec.spec.module * (rec.spec.teeth / 2 + 2));
@@ -702,9 +703,10 @@ function gearChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
   const plain = canHelix(rec.spec);
   const worm = !!rec.spec.worm || !!rec.spec.wheel;
   const bevel = !!rec.spec.bevel;
+  if (planetaryOfGear(sc, rec.id)) return { at, items: [{ id: "gear:edit", label: "Edit planetary set", icon: "planetary", enabled: true, why: null }] }; // (a gear of a planetary set is edited with the whole set, `dec_planetary_gears`)
   return { at, items: [
     { id: "gear:edit", label: "Edit gear", icon: "gear", enabled: true, why: null },
-    { id: "gear:helix", label: "Helix", icon: "helical", enabled: plain, why: plain ? null : "a helix goes on a plain gear (not yet a rack, pulley, sprocket, clock gear or worm)" },
+    { id: "gear:helix", label: "Helix", icon: "helical", enabled: plain, why: plain ? null : "a helix goes on a plain gear (not yet a pulley, sprocket, clock gear or worm)" },
     { id: "gear:mesh", label: "Mesh gear", icon: "meshgear", enabled: true, why: null },
     { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack", enabled: !worm && !bevel, why: worm ? "a rack does not mesh with a worm or its wheel" : bevel ? "a bevel gear meshes with a bevel gear" : null },
     { id: "gear:meshring", label: "Mesh ring", icon: "meshring", enabled: !worm && !bevel, why: worm ? "a ring does not mesh with a worm or its wheel" : bevel ? "a bevel gear meshes with a bevel gear" : null },

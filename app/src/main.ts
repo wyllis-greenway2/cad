@@ -15,7 +15,7 @@ import { laserDialog, runLaser, findingsDialog, machineChoices, machineDialog, s
 import { parseLibrary, libraryText, saveMachine, removeMachine, saveSettings, removeSettings } from "./interaction/library.ts";
 import { flatSnapshot } from "./interaction/partsnapshot.ts";
 import type { LaserValues } from "./interaction/manufacture.ts";
-import { addPartStart, addPartDialog, addPart, familyName, receiverStart, receiverDialog, cutReceiver, whyNoReceiver } from "./interaction/addpart.ts";
+import { addPartStart, addPartDialog, addPart, familyName, lengthAdviceOf, receiverStart, receiverDialog, cutReceiver, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
 import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
 import type { ExportOptions } from "./interaction/transfer.ts";
@@ -257,19 +257,20 @@ async function addPartFlow() {
   if (!r.ok) return say(r.error);
   state = { ...state, session: r.value };
   dirty = true;
-  say(`added: ${answers.size} ${familyName(String(answers.family))}, at the origin`);
+  say(`added: ${answers.size} ${familyName(String(answers.family))}, at the origin${lengthAdviceOf(answers as unknown as ReturnType<typeof addPartStart>) ? ` (${lengthAdviceOf(answers as unknown as ReturnType<typeof addPartStart>)})` : ""}`);
 }
 /** Fastener hole (`in_746`): the receiver for a fastener (a clearance hole, a countersunk one, a hole to tap, a nut pocket) cut into the body whose flat face is selected, at the face's middle or as far from it as typed. */
 async function fastenerHoleFlow() {
   const why = whyNoReceiver(state.session);
   if (why) return say(why);
-  const answers = await dialog.open((v) => receiverDialog(v as unknown as ReturnType<typeof receiverStart>), receiverStart() as unknown as Values);
+  const answers = await dialog.open((v) => receiverDialog(v as unknown as ReturnType<typeof receiverStart>, placesPicked(state.session)), receiverStart() as unknown as Values);
   if (!answers) return;
+  const places = placesPicked(state.session); // (before the cut: the selection may not survive it)
   const r = cutReceiver(state.session, answers as unknown as ReturnType<typeof receiverStart>);
   if (!r.ok) return say(r.error);
   state = { ...state, session: r.value };
   dirty = true;
-  say(`cut: ${answers.size} ${String(answers.kind)}`);
+  say(`cut: ${answers.size} ${String(answers.kind)}${places > 1 ? ` at ${places} places` : ""}`);
 }
 /** What a body is made of (`in_565`): a dialog asks for the name, and the selected bodies are tagged with it (one step to undo). */
 async function materialDialogFlow() {

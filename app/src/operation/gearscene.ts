@@ -9,12 +9,14 @@ import { ok, err } from "../shared/result.ts";
 import type { Scene, Step } from "./scene.ts";
 import { nextId, bumpCounter } from "./scene.ts";
 import type { Part } from "./part.ts";
-import { gearOutline, helixTwist, hasBody } from "./gear.ts";
+import { gearOutline, helixTwist, helixShear, hasBody } from "./gear.ts";
 import { boreLoop } from "./bore.ts";
 import type { GearSpec, GearOutline } from "./gear.ts";
 import { wormRefs, wormParts, wormSteps, wheelRefs, wheelParts, wheelSteps } from "./wormscene.ts";
 import { wheelSections } from "./wheelsections.ts";
 import { bevelRefs, bevelParts, bevelSteps } from "./bevelscene.ts";
+import { camShapes } from "./cams.ts";
+import { camParts, camRefs } from "./camscene.ts";
 import { meshBevel } from "./mesh.ts";
 
 /** `at`: the centre, in the world; `turn`: how far the gear is turned about its centre in its plane, radians (tooth 0 points along the plane's first direction when 0); `spec`: the numbers (`gear.ts`) */
@@ -40,6 +42,7 @@ const cornerRef = (id: string, i: number): Ref => drawnRef(`${id}.p${i}`);
 const lineRef = (id: string, i: number): Ref => drawnRef(`${id}.s${i}`);
 /** The sides of a gear's outline, in order (what a step that extrudes it names), the circle of its bore and, for a ring, the circle of its wall; empty if the numbers make no gear. */
 export function gearRefs(rec: GearRecord): { lines: Ref[]; wall?: Ref; bore?: string } {
+  if (rec.spec.cam) return camRefs(rec); // (a cam or a ratchet, `camscene.ts`)
   const o = outlineOf(rec.spec);
   if (!o.ok) return { lines: [] };
   if (rec.spec.bevel) { const b = bevelRefs(rec); return { lines: b.sections[0]!, ...(b.bores[0] ? { bore: b.bores[0] } : {}) }; } // (the big end)
@@ -57,6 +60,7 @@ function boreGroup(rec: GearRecord): string {
 /** The parts of a gear: the corners and sides of its outline and, for a ring, its wall's circle. Locked. Empty if its plane is not there or the numbers make no gear. */
 function partsOf(s: Scene, rec: GearRecord): Part[] {
   if (rec.spec.bevel) return bevelParts(s, rec);
+  if (rec.spec.cam) return camParts(s, rec);
   if (rec.spec.worm) return wormParts(s, rec);
   if (rec.spec.wheel) return wheelParts(s, rec);
   const plane = s.parts[rec.plane];
@@ -121,6 +125,11 @@ function bodyParams(s: Scene, rec: GearRecord): { step: Omit<Step, "id"> } | nul
   const plane = s.parts[rec.plane];
   if (!hasBody(rec.spec) || !plane || plane.kind !== "plane") return null;
   const fig = bodyFigure(rec);
+  const shear = helixShear(rec.spec);
+  if (shear !== null) { // a helical rack (`in_783`): its section carried through the thickness, slid along the rack by tan(helix) for each mm (the rack's own x is the plane's first direction turned by the record's turn)
+    const [c, sn] = [Math.cos(rec.turn ?? 0), Math.sin(rec.turn ?? 0)];
+    return { step: { type: "extrude", parts: fig.parts, params: { depth: rec.spec.width!, slantx: shear * c, slanty: shear * sn, ...(fig.holes ? { holes: fig.holes } : {}), mode: "new", gear: rec.id } } };
+  }
   const turn = helixTwist(rec.spec);
   if (turn === null) return rec.spec.width ? { step: { type: "extrude", parts: fig.parts, params: { depth: rec.spec.width, ...(fig.holes ? { holes: fig.holes } : {}), mode: "new", gear: rec.id } } } : null; // (a thickness and no helix: a straight extrusion)
   const [u, v] = [plane.u, plane.v];
@@ -158,11 +167,11 @@ export function addGear(s: Scene, rec: GearRecord): Result<Scene> {
   if (gearsOf(s).some((g) => g.id === rec.id)) return err(`gear ${rec.id} already exists`);
   const pl = s.parts[rec.plane];
   if (!pl || pl.kind !== "plane") return err(`plane ${rec.plane} does not exist`);
-  const o = outlineOf(rec.spec);
+  const o = rec.spec.cam ? camShapes(rec.spec.cam) : outlineOf(rec.spec);
   if (!o.ok) return err(o.error);
   if (rec.spec.wheel) { const w = wheelSections(rec.spec); if (!w.ok) return err(w.error); }
   const added = { ...rec, at: [...rec.at] as unknown as Vec3, spec: { ...rec.spec } };
-  // a bevel gear made to mesh with another: that one learns of it (the two are put right together when either's teeth are changed, `in_763`)
+  // a bevel gear made to mesh with another: that one learns of it (the two are put right together when either's teeth are changed, `in_776`)
   const mate = rec.spec.bevel?.with ? gearsOf(s).find((g) => g.id === rec.spec.bevel!.with) : undefined;
   const gears = gearsOf(s).map((g) => (g === mate && mate.spec.bevel && mate.spec.bevel.with === undefined ? { ...g, spec: { ...g.spec, bevel: { ...g.spec.bevel!, with: rec.id } } } : g));
   return ok({ ...s, gears: [...gears, added] });
@@ -190,7 +199,7 @@ function swapBore(st: Step, lines: readonly Ref[], was: string | undefined, now:
 function setGearCore(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: number): Result<Scene> {
   const rec = gearsOf(s).find((g) => g.id === id);
   if (!rec) return err(`gear ${id} does not exist`);
-  const o = outlineOf(spec);
+  const o = spec.cam ? camShapes(spec.cam) : outlineOf(spec);
   if (!o.ok) return err(o.error);
   if (spec.wheel) { const w = wheelSections(spec); if (!w.ok) return err(w.error); }
   const next: GearRecord = { ...rec, spec: { ...spec }, ...(at ? { at: [...at] as unknown as Vec3 } : {}), ...(turn !== undefined ? (turn ? { turn } : { turn: undefined }) : {}) };
@@ -215,7 +224,7 @@ function setGearCore(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: num
   return ok({ ...counter, steps: turned, gears: gearsOf(s).map((g) => (g === rec ? next : g)) });
 }
 /**
- * New numbers for a gear, and, for a bevel gear made to mesh with another (`BevelSpec.with`), the other put right with it (`in_763`): the teeth of one are the other's mate teeth, they share the module, the pressure angle, the shaft angle and
+ * New numbers for a gear, and, for a bevel gear made to mesh with another (`BevelSpec.with`), the other put right with it (`in_776`): the teeth of one are the other's mate teeth, they share the module, the pressure angle, the shaft angle and
  * the face, and the one that stands across (the partner: it has a direction) is placed again from the other (the anchor), phase and all, as when it was made.
  */
 export function setGear(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: number): Result<Scene> {
@@ -254,4 +263,21 @@ export function gearOfPart(s: Scene, ref: Ref): GearRecord | undefined {
   }
   const refs: Ref[] = p?.kind === "face" ? [...p.loop, ...(p.disk ? [p.disk] : [])] : [ref];
   return gearsOf(s).find((g) => refs.some((r) => isMade(g.id, r)));
+}
+
+/**
+ * The gear a selected part belongs to, for the gear's icon and its Edit, Helix and Mesh items: what `gearOfPart` finds, and also the body of a gear that was extruded from its outline (or a face of that body), whose
+ * step names the parts of the gear's own sketch. (Not for delete, move or turn: a body made from a gear's outline is a body to those, as before.)
+ */
+const onlyBody = (s: Scene): string | undefined => { const bs = Object.values(s.parts).filter((q) => q.kind === "body" && !!q.id); return bs.length === 1 ? (bs[0] as { id?: string }).id : undefined; }; // (with one body, its faces do not say which it is)
+export function gearOfSelection(s: Scene, ref: Ref): GearRecord | undefined {
+  const own = gearOfPart(s, ref);
+  if (own) return own;
+  const p = s.parts[ref];
+  if (!p || p.origin === "drawn" || p.origin === "world" || !s.gears?.length) return undefined;
+  const owner = p.kind === "body" ? p : p.of ? s.parts[p.of] : undefined; // (`of`: the body it is a face or an edge of, when there are several)
+  const bodyId = owner ? (owner as { id?: string }).id : onlyBody(s);
+  const step = bodyId?.startsWith("x_") ? s.steps.find((st) => st.id === bodyId.slice(2) && st.type === "extrude" && st.parts.length > 0) : undefined;
+  if (!step) return undefined;
+  return s.gears.find((g) => step.parts.every((r) => isMade(g.id, r)));
 }

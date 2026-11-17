@@ -22,9 +22,10 @@ const norm = (a: number): number => { const t = ((a % TAU) + TAU) % TAU; return 
  * of the partner from its centre (radians from `u` towards `v`); for a rack as the source, how far along the rack (mm from the middle of its pitch line) the partner stands. Refused, with the reason, for a gear
  * with a profile shift (its centre distance is not the plain one), for the tooth counts that make no mesh (a gear in a ring needs fewer teeth than the ring) and for a rack against a ring.
  */
-export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; offset?: number; width?: number; /** a ring that goes round the gear (`in_686`) */ ring?: boolean }, where: number): Result<Placement> {
+export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; offset?: number; width?: number; land?: number; /** a ring that goes round the gear (`in_686`) */ ring?: boolean }, where: number): Result<Placement> {
   const s = src.spec;
   if (s.bevel) return meshBevel(src, u, v, partner, where);
+  if (s.cam) return err("a cam or a ratchet does not mesh with a gear");
   if (s.worm) return meshWormWheel(src, u, v, partner, where);
   if (s.wheel) return meshWheelWorm(src, u, v, partner, where);
   const z2 = Math.round(partner.teeth);
@@ -32,10 +33,9 @@ export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: nu
   if ((s.shift ?? 0) !== 0) return err("a gear with a profile shift is not meshed yet");
   if (!Number.isFinite(z2) || z2 < 1) return err("the partner needs teeth");
   const helical = s.helix !== undefined;
-  if (helical && partner.rack) return err("a helical gear does not mesh with a rack yet");
   const m = helical ? s.module / Math.cos((Math.abs(s.helix!) * Math.PI) / 180) : s.module; // (a helical gear's pitch circles are those of its transverse section)
   const at = (c: Vec3, x: number, y: number): Vec3 => [c[0] + u[0] * x + v[0] * y, c[1] + u[1] * x + v[1] * y, c[2] + u[2] * x + v[2] * y];
-  const base: GearSpec = { teeth: z2, module: s.module, ...(helical ? { helix: (partner.ring || s.internal ? 1 : -1) * s.helix! } : {}), ...(s.width ? { width: s.width } : {}), // (a helical pair outside has opposite hands, a gear in a ring the ring's own)
+  const base: GearSpec = { teeth: z2, module: s.module, ...(helical ? { helix: (partner.ring || s.internal || partner.rack || s.rack ? 1 : -1) * s.helix! } : {}), ...(s.width ? { width: s.width } : {}), // (a helical pair outside has opposite hands, a gear in a ring the ring's own)
      ...(s.cycloidal ? { cycloidal: { ...s.cycloidal } } : {}), ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), ...(s.backlash !== undefined ? { backlash: s.backlash } : {}), ...(s.clearance !== undefined ? { clearance: s.clearance } : {}) };
   const turn1 = src.turn ?? 0;
   if (s.rack) {
@@ -89,7 +89,7 @@ export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: nu
  * worm from its middle. It is turned so that its teeth meet the thread: in the wheel's own frame (x along the worm's axis, y from the worm to the wheel's centre) the sections of the wheel (`wheelsections.ts`) are for a worm whose thread stands at x = lead / 4
  * on the line of contact (mod the pitch of the thread); the thread of this worm stands at x_c, so the wheel is turned by the difference over its pitch radius.
  */
-function meshWormWheel(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; offset?: number; width?: number }, where: number): Result<Placement> {
+function meshWormWheel(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; offset?: number; width?: number; land?: number }, where: number): Result<Placement> {
   const s = src.spec, g = wormOf(s);
   if (!g.ok) return g;
   if (partner.rack) return err("a rack does not mesh with a worm");
@@ -98,7 +98,7 @@ function meshWormWheel(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: numb
   const probe = wheelOf({ teeth: z2, module: s.module, ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), wheel: { ...wheel, width: 1 } });
   if (!probe.ok) return probe;
   const width = partner.width && partner.width > 0 ? partner.width : Math.min(6 * s.module, 1.2 * probe.value.throat);
-  const spec: GearSpec = { teeth: z2, module: s.module, ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), wheel: { ...wheel, width } };
+  const spec: GearSpec = { teeth: z2, module: s.module, ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), wheel: { ...wheel, width, land: partner.land !== undefined && partner.land >= 0 ? partner.land : s.module } }; // (a land of a module at each face unless another is typed, `in_783`)
   const w = wheelOf(spec);
   if (!w.ok) return w;
   const t = src.turn ?? 0;

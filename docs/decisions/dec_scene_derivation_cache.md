@@ -3,7 +3,7 @@ id: dec_scene_derivation_cache
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_701, in_727, in_767
+human_input: in_701, in_727, in_784
 date: 2026-11-17
 depends_on:
   - dec_gear_speed: the measured cost this removes (the page's work at each edit grows with the number of parts: 5800 for eight gears); a change to those numbers changes whether this is worth the risk of a stale answer
@@ -25,7 +25,7 @@ depends_on:
 
 **What is not changed.** An edit that changes a gear's own parts or its kernel step is worked out for that gear in full, as it must be. **Not done, and bigger:** an edit to an *early* gear makes the kernel build every gear after it again (8 gears: 4 s), because each step's kept answer is keyed by the steps before it; see `dec_gear_speed`.
 
-## The smaller costs that were left (`in_767`)
+## The smaller costs that were left (`in_784`)
 
 Measured in the real app first (eight gears extruded, 5799 parts; headless Chromium): a frame of an orbit 13.1 ms, of the pointer moving 9.1 ms, an edit's compile 33.7 ms. What the profile showed, and what was done:
 1. **Picking a body's face** (`part.ts`, `rayMesh`): the ray was asked of every triangle of every face under it with three arrays made for each, 273 ms of the 369 of picking in the profile. It is now asked of the mesh's box (found once, by the mesh) and the triangles are worked with plain numbers: the same nearest hit (`test/raymesh.test.ts`: 500 rays against the plain way).

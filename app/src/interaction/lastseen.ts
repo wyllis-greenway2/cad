@@ -14,7 +14,7 @@ const SKETCH = "sketch";
 /** The bodies in the order they were made, each with its box; with no body, the drawing (its corners) as one thing; none for an empty model. */
 const thingsKept = new WeakMap<Scene, Thing[]>();
 function thingsOf(sc: Scene): Thing[] {
-  const known = thingsKept.get(sc); // (asked for at every frame: worked out once for a scene, `in_767`)
+  const known = thingsKept.get(sc); // (asked for at every frame: worked out once for a scene, `in_784`)
   if (known) return known;
   const out = thingsFor(sc);
   thingsKept.set(sc, out);

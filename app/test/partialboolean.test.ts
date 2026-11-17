@@ -1,4 +1,4 @@
-// A step that adds to or cuts into the body works on the bodies it meets and leaves the others as they are (`dec_per_body_checks`, `in_766`): the answer is the one a boolean on the whole shape gives.
+// A step that adds to or cuts into the body works on the bodies it meets and leaves the others as they are (`dec_per_body_checks`, `in_764`): the answer is the one a boolean on the whole shape gives.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

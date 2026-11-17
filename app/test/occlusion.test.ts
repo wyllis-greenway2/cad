@@ -1,4 +1,4 @@
-// The axis labels' "is the model in front" test and the picking of a face's triangles give the answer the plain way gives (`in_767`): only faster.
+// The axis labels' "is the model in front" test and the picking of a face's triangles give the answer the plain way gives (`in_784`): only faster.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { register } from "node:module";

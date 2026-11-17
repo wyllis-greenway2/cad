@@ -6,7 +6,8 @@ import { dist, dot, sub, cross, normalize } from "../../math/vec.ts";
 import type { Plane } from "../../operation/part.ts";
 import { normalOfPlane, segmentOf, circleOf } from "../../operation/part.ts";
 import { lookup, nextId } from "../../operation/scene.ts";
-import { gearOfPart } from "../../operation/gearscene.ts";
+import { gearOfPart, gearOfSelection } from "../../operation/gearscene.ts";
+import { planetaryOfPart } from "../../operation/planetary.ts";
 import type { Scene } from "../../operation/scene.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { scene as sceneOf, selection as selectionOf, clickOn, hoverOn, run } from "../session.ts";
@@ -51,6 +52,8 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:spline", label: "Spline", icon: "spline", tool: "spline" },
   { id: "tool:eccentric", label: "Eccentric cam", icon: "cam", tool: "cam" },
   { id: "tool:snail", label: "Snail cam", icon: "cam", tool: "cam" },
+  { id: "tool:ratchet", label: "Ratchet", icon: "cam", tool: "cam" },
+  { id: "tool:geneva", label: "Geneva", icon: "cam", tool: "cam" },
   { id: "tool:disc:cycloidal", label: "Cycloidal", icon: "cam", tool: "cam" },
   { id: "tool:disc:harmonic", label: "Harmonic", icon: "cam", tool: "cam" },
   { id: "tool:disc:parabolic", label: "Parabolic", icon: "cam", tool: "cam" },
@@ -59,6 +62,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:bevel", label: "Bevel gear", icon: "bevelgear", tool: "gear" },
   { id: "tool:worm", label: "Worm", icon: "worm", tool: "gear" },
   { id: "tool:wormwheel", label: "Worm wheel", icon: "wormwheel", tool: "gear" },
+  { id: "tool:planetary", label: "Planetary set", icon: "planetary", tool: "gear" },
   { id: "tool:ring", label: "Ring gear", icon: "ringgear", tool: "gear" },
   { id: "tool:rack", label: "Rack", icon: "rack", tool: "gear" },
   { id: "tool:gt2", label: "GT2 pulley", icon: "txtGT2", tool: "gear" },
@@ -71,6 +75,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:clockring", label: "Clock ring", icon: "clockring", tool: "gear" },
   { id: "tool:clockrack", label: "Clock rack", icon: "rack", tool: "gear" },
   { id: "gear:edit", label: "Edit gear", icon: "gear" },
+  { id: "cam:edit", label: "Edit cam", icon: "cam" },
   { id: "gear:helix", label: "Helix", icon: "helical" },
   { id: "gear:mesh", label: "Mesh gear", icon: "meshgear" },
   { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack" },
@@ -105,25 +110,24 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
 interface Group { id: string; label: string; icon: string; items: (string | Group)[] }
 const GEARS: Group = {
   id: "gears", label: "Gear", icon: "gear", items: [
-    "tool:gear", "tool:ring", "tool:rack",
+    "tool:gear", "tool:ring", "tool:rack", "tool:planetary",
     "tool:bevel",
     { id: "worms", label: "Worm", icon: "worm", items: ["tool:worm", "tool:wormwheel"] },
     { id: "clockgears", label: "Clock", icon: "clockgear", items: ["tool:clock", "tool:clockring", "tool:clockrack"] },
     { id: "pulleys", label: "Pulley", icon: "pulley", items: ["tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8"] },
     { id: "sprockets", label: "Sprocket", icon: "sprocket", items: ["tool:sprocket", "tool:isosprocket"] },
-    "gear:edit", "gear:helix",
-    { id: "meshes", label: "Mesh", icon: "meshgear", items: ["gear:mesh", "gear:meshrack", "gear:meshring"] }, // (the gears that fit the one selected, in a submenu of their own to keep the ring short, `in_695`)
+    // (Edit, Helix and Mesh are not in the ring: they are on the gear's own icon, `in_771`)
   ],
 };
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
-  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", { id: "cams", label: "Cam", icon: "cam", items: ["tool:eccentric", "tool:snail", { id: "disccams", label: "Disc cam", icon: "cam", items: ["tool:disc:cycloidal", "tool:disc:harmonic", "tool:disc:parabolic"] }] }, GEARS, "tool:trim", "op:offset"] },
+  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", { id: "cams", label: "Cam", icon: "cam", items: ["tool:eccentric", "tool:snail", "tool:ratchet", "tool:geneva", { id: "disccams", label: "Disc cam", icon: "cam", items: ["tool:disc:cycloidal", "tool:disc:harmonic", "tool:disc:parabolic"] }, "cam:edit"] }, GEARS, "tool:trim", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts"] },
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
 ];
 /** While a repeat is open only drawing, Move and Rotate (and constraints) are offered (the rest could change what is being repeated or the pivot's parts). */
-const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", "tool:eccentric", "tool:snail", "tool:disc:cycloidal", "tool:disc:harmonic", "tool:disc:parabolic", "tool:gear", "tool:worm", "tool:wormwheel", "tool:ring", "tool:rack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "tool:clock", "tool:clockring", "tool:clockrack", "tool:trim", "op:move", "op:rotate", "op:copy", "op:mirror", "op:linear", "op:circular"]);
+const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", "tool:eccentric", "tool:snail", "tool:ratchet", "tool:geneva", "tool:disc:cycloidal", "tool:disc:harmonic", "tool:disc:parabolic", "tool:gear", "tool:worm", "tool:wormwheel", "tool:ring", "tool:rack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "tool:clock", "tool:clockring", "tool:clockrack", "tool:trim", "op:move", "op:rotate", "op:copy", "op:mirror", "op:linear", "op:circular"]);
 const category = (id: string, label: string, icon: string, kids: MenuItem[]): MenuItem => {
   const first = kids.find((k) => k.enabled);
   return { id, label, icon, enabled: true, why: null, children: kids, ...(first ? {} : { dim: true as const }) }; // (always opens, so every ring can be looked through: dimmed when nothing in it applies now, `in_538`)
@@ -135,12 +139,13 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   const leaf = new Map<string, MenuItem>(LEAVES.map((r) => {
     const base = { id: r.id, label: r.label, icon: r.icon };
     if (repeating && !IN_REPEAT.has(r.id)) return [r.id, { ...base, enabled: false, why: "apply or cancel the repeat that is open first" }];
+    if (r.id === "cam:edit") { const has = sel.some((x) => !!gearOfPart(sc, x)?.spec.cam); return [r.id, { ...base, enabled: has, why: has ? null : "select a cam" }]; }
     if (r.id === "gear:helix") { // (the helix is a number of a plain gear, `in_693`)
-      const rec = sel.map((x) => gearOfPart(sc, x)).find((g) => !!g);
-      const why = !rec ? "select a gear" : !canHelix(rec.spec) ? "a helix goes on a plain gear (not yet a rack, pulley, sprocket, clock gear or worm)" : null;
+      const rec = sel.map((x) => gearOfSelection(sc, x)).find((g) => !!g);
+      const why = !rec ? "select a gear" : !canHelix(rec.spec) ? "a helix goes on a plain gear (not yet a pulley, sprocket, clock gear or worm)" : null;
       return [r.id, { ...base, enabled: !why, why }];
     }
-    if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfPart(sc, x)); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
+    if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfSelection(sc, x) || (r.id === "gear:edit" && !!planetaryOfPart(sc, x))); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }
     if (r.select === "combine") { const why = whyNotCombine(session); return [r.id, { ...base, enabled: !why, why }]; }
@@ -430,7 +435,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
     // a gear: the first click after its centre only sets the size and the number box stays open; the next click in space makes it and starts the next gear (`in_688`)
     const sug = !t.sized && !i.shift ? meshSuggestion(sc, t) : null; // (next to a gear it would mesh with: the click makes the gear that meshes, Shift leaves it, `in_709`)
     if (sug) return { ...base, tool: snapToMesh(sug, t), session: { ...sess, message: `meshed with ${sug.src.id}: ${sug.teeth} teeth` } };
-    if (!t.sized) return { ...base, tool: { ...t, cursor: at, sized: true } };
+    if (!t.sized && !t.gear?.planetary) return { ...base, tool: { ...t, cursor: at, sized: true } }; // (a planetary set has no size to set: the next click makes it)
     const done = commitFigure(base, finish(sc, t));
     return done.tool && !done.tool.points.length && !done.session.message ? clickWithTool(done, i, env, refs) : done;
   }
@@ -516,6 +521,11 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   const cands = candidatesAt(sc, pv, pickOpts(s));
   const refs = cands.map((c) => c.ref);
   const base: AppState = { ...s, menu: null, focus: null, resume: null };
+  // a gear tool that is armed for the next gear stays on after a gear is made (`in_688`): a double click on a body then is a person selecting it, not starting a gear: the tool is put away and the double click selects the body
+  if (s.tool?.kind === "gear" && i.count >= 2 && !i.shift && s.tool.points.length === 1 && !s.tool.sized && !s.tool.gear?.mesh && !s.tool.gear?.editing && !(s.tool.gear?.typed ?? []).some((x) => x !== "") && refs.some((r) => sc.parts[r]?.origin === "body")) {
+    const free = { ...base, tool: null, resume: null };
+    return doClickSelect(doClickSelect(free, { ...i, count: 1 }, env, cands, refs, pv), i, env, cands, refs, pv);
+  }
   if (s.tool) return clickWithTool(base, i, env, refs);
   // sketching goes on while you click on vertices: the click right after a figure, on a vertex, starts the next one from it; any other click drops the mode
   const vertex = s.resume && !s.op ? refs.map((r) => sc.parts[r]).find((p) => p?.kind === "corner" && p.origin === "drawn" && p.plane) : undefined;

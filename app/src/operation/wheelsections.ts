@@ -12,7 +12,7 @@ import type { P } from "./arcs.ts";
 /** one section: its height from the wheel's middle plane, and its closed outline of z teeth as points and the bulge of each side */
 export interface Section { h: number; points: P[]; bulges: number[] }
 export const SECTIONS = 5;
-/** How many arcs the gap between two teeth is cut into (each an arc through its ends and middle): the loft's time goes as about the 1.5th power of the arcs (100 teeth: 18 arcs 16.9 s, 12 arcs 8.7 s), and the arcs lie within about 0.007 mm of the flank (the loft itself is 0.05 mm off the exact wheel, a printer 0.2 mm), `in_768`. */
+/** How many arcs the gap between two teeth is cut into (each an arc through its ends and middle): the loft's time goes as about the 1.5th power of the arcs (100 teeth: 18 arcs 16.9 s, 12 arcs 8.7 s), and the arcs lie within about 0.007 mm of the flank (the loft itself is 0.05 mm off the exact wheel, a printer 0.2 mm), `in_786`. */
 const NGAP = 12;
 /** Bisection steps that put a crossing of the grid exactly: the cells are about 0.05 mm, so 10 steps give 0.0001 mm (the sections lie on the exact surface to 0.002 mm). */
 const ITER = 10;

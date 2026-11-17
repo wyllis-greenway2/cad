@@ -1,4 +1,4 @@
-// Picking a body's face asks the ray of its triangles with plain numbers and a box found once; the nearest hit is the one the plain way finds (`in_767`).
+// Picking a body's face asks the ray of its triangles with plain numbers and a box found once; the nearest hit is the one the plain way finds (`in_784`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { depthOf } from "../src/operation/part.ts";

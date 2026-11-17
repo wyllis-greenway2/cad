@@ -108,11 +108,20 @@ export function wheelParts(s: Scene, rec: GearRecord): Part[] {
       out.push({ ...base, ref: ref(rec.id, `w${q}b`), kind: "circle", center: ref(rec.id, `w${q}c`), radius: rec.spec.bore! / 2 });
     }
   });
+  const land = rec.spec.wheel?.land ?? 0;
+  if (land > 0) for (const q of [0, SECTIONS - 1]) { // (the round shoulder at each face that the land is made from, `in_783`)
+    const [sec, pl] = [w.value[q]!, ref(rec.id, `w${q}q`)];
+    out.push({ origin: "drawn", plane: pl, movable: false, ref: ref(rec.id, `w${q}kc`), kind: "corner", at: along(rec.at, f, 0, 0, sec.h) });
+    out.push({ origin: "drawn", plane: pl, movable: false, ref: ref(rec.id, `w${q}k`), kind: "circle", center: ref(rec.id, `w${q}kc`), radius: g.value.landRadius });
+  }
   return out;
 }
 export function wheelSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] | null {
   if (!frameOf(s, rec) || !wheelOf(rec.spec).ok || !wheelSections(rec.spec).ok) return null;
   const { sections, bores } = wheelRefs(rec);
   const figs: Figure[] = sections.map((lines, q) => ({ outer: lines, holes: bores[q] ? [bores[q]!.split(",") as Ref[]] : [] }));
-  return [{ type: "loft", parts: sections[0]!, params: { ...figureParams(figs), mode: "new", gear: rec.id } }]; // (a piece of its own, beside the worm it meshes with)
+  const steps: Omit<Step, "id">[] = [{ type: "loft", parts: sections[0]!, params: { ...figureParams(figs), mode: "new", gear: rec.id } }]; // (a piece of its own, beside the worm it meshes with)
+  const land = rec.spec.wheel?.land ?? 0;
+  if (land > 0) for (const [q, depth] of [[0, -land], [SECTIONS - 1, land]] as const) steps.push({ type: "extrude", parts: [ref(rec.id, `w${q}k`)], params: { depth, ...(bores[q] ? { holes: bores[q]! } : {}), mode: "add", gear: rec.id } }); // (a round shoulder at each face, as wide as clears the worm's thread: a land, `in_783`)
+  return steps;
 }
