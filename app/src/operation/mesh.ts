@@ -107,7 +107,7 @@ function meshWormWheel(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: numb
   const at: Vec3 = [src.at[0] + u[0] * px + v[0] * py, src.at[1] + u[1] * px + v[1] * py, src.at[2] + u[2] * px + v[2] * py];
   // where the thread stands on the line of contact, along the wheel's x (which is the worm's axis, or its opposite when the wheel is on the -Y side)
   const lead = g.value.lead, px2 = g.value.px;
-  const a0 = wormLayout(g.value, s.worm!.length).a0;
+  const a0 = wormLayout(g.value, s.worm!).a0;
   const aC = a0 + (side > 0 ? 0 : lead / 2); // (the thread's figure is on the worm's +Y side: on the other side the thread is half a lead on)
   const xc = side * (aC - off);
   const delta = ((((xc - lead / 4) % px2) + px2 + px2 / 2) % px2) - px2 / 2;

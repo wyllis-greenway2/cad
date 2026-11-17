@@ -41,20 +41,20 @@ test("the numbers of a worm: the lead is the starts times pi times the module; t
 test("the gear command makes a worm: a core and a thread joined into one body, as a step of the gear; its volume is the core's and the thread's, less where they overlap", () => {
   const s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: worm });
   assert.ok(!s.message, s.message ?? "");
-  assert.deepEqual(scene(s).steps.map((x) => x.type), ["revolve", "revolve"]);
+  assert.deepEqual(scene(s).steps.map((x) => x.type), ["revolve", "revolve", "revolve", "revolve"], "the core, the thread and the two run-outs cut away (`in_696`)");
   assert.ok(scene(s).steps.every((x) => x.params.gear === "g_001"));
   assert.deepEqual(s.outcome.errors, {});
   const b = bodies(s);
   assert.equal(b.length, 1, "one body: the thread is joined to the core");
   const core = Math.PI * 9.5 ** 2 * 30;
-  assert.ok(b[0]!.volume > core + 3000 && b[0]!.volume < core + 5500, `${b[0]!.volume}`);
+  assert.ok(b[0]!.volume > core + 2000 && b[0]!.volume < core + 5500, `${b[0]!.volume}`);
   assert.equal(gearOfPart(scene(s), b[0]!.ref as never)?.id, "g_001", "its body selects the gear");
 });
 
 test("a worm with two starts has two threads; a bore is a hole through the core", () => {
   const two = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: { ...worm, teeth: 2, worm: { diameter: 24, length: 40 }, bore: 6 } });
   assert.ok(!two.message, two.message ?? "");
-  assert.equal(scene(two).steps.length, 3);
+  assert.equal(scene(two).steps.length, 5, "the core, two threads, the two run-outs");
   assert.equal(bodies(two).length, 1);
   const none = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: { ...worm, teeth: 2, worm: { diameter: 24, length: 40 } } });
   assert.ok(Math.abs(bodies(none)[0]!.volume - bodies(two)[0]!.volume - Math.PI * 9 * 40) < 0.01 * bodies(none)[0]!.volume, "the bore takes its cylinder out");
@@ -145,12 +145,12 @@ test("the Worm and Worm wheel tools: in the Worm submenu of the Gear submenu; a 
   const ids = (reduce(top(), { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap(function walk(i: any): string[] { return [i.id, ...(i.children ?? []).flatMap(walk)]; });
   assert.ok(ids.includes("tool:worm") && ids.includes("tool:wormwheel"));
   let st = open("tool:worm");
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Starts", "Module", "Pressure", "Diameter", "Length", "Bore", "Flat", "Key", "Key depth"]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Starts", "Module", "Pressure", "Diameter", "Length", "Journal", "Run-out", "Bore", "Flat", "Key", "Key depth"]);
   assert.ok(previewFor(scene(st.session), st.tool)!.segments.length >= 6, "the box of its length is drawn");
   st = typeText(st, "2"); st = key(st, "Enter");
   const rec = scene(st.session).gears![0]!;
   assert.deepEqual([rec.spec.teeth, rec.spec.module, rec.spec.worm!.diameter], [2, 2, 20]);
-  assert.equal(scene(st.session).steps.length, 3);
+  assert.equal(scene(st.session).steps.length, 5);
   assert.equal(selection(st.session).length, 0);
   assert.deepEqual(st.session.outcome.errors, {});
   // too many starts says so
@@ -180,4 +180,21 @@ test("a worm and a wheel have a D flat or a keyway bore as any gear does (`in_69
   const h0 = { ...wheelSpec, bore: 8 };
   const [wr, wf, wk] = [make(h0), make({ ...h0, flat: 1 }), make({ ...h0, key: 3 })];
   assert.ok(wf > wr && wk < wr, `the wheel: ${wf} > ${wr} > ${wk}`);
+});
+
+test("the ends of a worm (`in_696`): journals with the thread running out into the shaft (the default), a thread that stops square, or no journals and the thread cut flat; the box shows the journal and run-out it has", () => {
+  const make = (w: { journal?: number; runout?: number }) => {
+    const s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: { ...worm, worm: { diameter: 24, length: 30, ...w } } });
+    assert.ok(!s.message, s.message ?? ""); assert.deepEqual(s.outcome.errors, {}); assert.equal(bodies(s).length, 1, "one body");
+    const b = Object.values(scene(s).parts).find((p) => p.kind === "body") as { volume: number; bbox: { min: Vec3; max: Vec3 } };
+    return { volume: b.volume, length: b.bbox.max[0] - b.bbox.min[0] };
+  };
+  const [run1, square, flush] = [make({}), make({ runout: 0 }), make({ journal: 0 })];
+  assert.ok(run1.volume < square.volume, `the run-out takes the end wall of the thread away (${run1.volume} < ${square.volume})`);
+  assert.ok(flush.volume > run1.volume, "a thread that runs the whole length has more of it");
+  for (const x of [run1, square, flush]) assert.ok(Math.abs(x.length - 30) < 1e-3, `the worm is as long as asked (${x.length})`);
+  assert.match(err({ ...worm, worm: { diameter: 24, length: 30, journal: 0.5 } }), /journal/);
+  assert.match(err({ ...worm, worm: { diameter: 24, length: 30, journal: 9 } }), /journal/);
+  assert.match(err({ ...worm, worm: { diameter: 24, length: 30, runout: 99 } }), /run-out/);
+  assert.match(err({ ...worm, worm: { diameter: 24, length: 13, journal: 3 } }), /too short|journal/);
 });

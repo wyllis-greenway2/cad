@@ -3125,3 +3125,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_695 — 2026-11-17 — directive
 > can we have the pulley icon be more like a smooth circle with a belt coming off it. Can we have a different icon for the helix gear? Maybe just an arrow in a semi screw form? Can we have a different icon for the worm? Maybe more cylinder 3d view. Maybe we should have a mesh gear menu with the sub mesh types available in order to keep the menu smaller.Can we have a new icon for the clock gear, maybe half clock half gear.
 (asks for new icons: a pulley as a smooth wheel with a belt, helix as an arrow in a half screw, worm as a 3D cylinder, clock gear as half clock half gear; and a Mesh submenu holding the mesh gear, rack and ring items)
+
+## in_696 — 2026-11-17 — directive
+> Yes, try the chamfer run-out, and can we offer flush or journaled thread end options on them?
+(approves trying a chamfer run-out of the worm's thread, and asks for flush or journaled thread ends as options)

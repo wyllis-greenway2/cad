@@ -9,7 +9,13 @@ import { ok, err } from "../shared/result.ts";
 import type { GearSpec } from "./gear.ts";
 
 /** a worm: its pitch diameter and the length of its core, mm; its starts are `GearSpec.teeth`, its axial module `module`, its axial pressure angle `pressure` */
-export interface WormSpec { diameter: number; length: number }
+export interface WormSpec {
+  diameter: number; length: number;
+  /** the plain shaft at each end, in mm (`in_696`): 0 is a worm whose thread runs the whole length and is cut flat at the ends; left out, two modules (less on a short worm) */
+  journal?: number;
+  /** how long the thread takes to run out into the shaft at each end of a worm with journals, in mm: 0 is a thread that stops square; left out, a pitch or two */
+  runout?: number;
+}
 /** a worm wheel: the pitch diameter of the worm it is for, the worm's starts, and its own width, mm; its teeth are `GearSpec.teeth`, the module and pressure angle those of the worm */
 export interface WheelSpec { starts: number; diameter: number; width: number }
 
@@ -48,19 +54,43 @@ export function wormOf(spec: GearSpec): Result<WormGeometry> {
   if (w.length > 40 * g.value.lead) return err("the worm is too long for its lead");
   const bore = spec.bore ?? 0;
   if (bore < 0 || bore >= 1.8 * g.value.rRoot) return err("the bore must be smaller than the worm's root diameter");
+  if (w.journal !== undefined && !(w.journal === 0 || (w.journal >= 1 && w.journal * 4 < w.length))) return err("the journal (the plain shaft at each end) is 0 for a thread that runs the whole length, or from 1 mm up to a quarter of the length");
+  if (w.runout !== undefined && !(w.runout >= 0 && w.runout <= 3 * g.value.lead)) return err("the run-out of the thread is from 0 to three leads");
+  const ends = wormLayout(g.value, w);
+  if (!ends.flush && !(ends.sweep >= 0.5 * g.value.lead)) return err("the worm is too short for its journals: a longer worm or shorter journals");
   const shape = boreProblem(spec, g.value.rRoot);
   if (shape) return err(shape);
   return g;
 }
 
-/** What the worm's steps are made of, along the axis from its middle: the core from -L/2 to L/2; each start one thread, its figure a trapezoid at its first tooth's place `a0 + j px`, carried `sweep` mm along the axis (the thread ends inside the core). */
-export function wormLayout(g: WormGeometry, length: number): { base: number; a0: number; sweep: number; figure: [number, number][] } {
+/**
+ * What the worm's steps are made of, along the axis from its middle: the core and each start's thread, its figure a trapezoid at its first tooth's place `a0 + j px`, carried `sweep` along its helix (`in_608`).
+ * A worm with journals (the default) has its thread start `journal` from each end of the core, and the thread runs out into the shaft over `runout` (a cone cut, `figures`); a worm with none (`journal` 0, `flush`) has the core and
+ * the thread longer than the worm and cut flat at its ends, so the thread runs the whole length (`in_696`).
+ */
+export function wormLayout(g: WormGeometry, w: WormSpec): { base: number; a0: number; sweep: number; figure: [number, number][]; flush: boolean; journal: number; runout: number; /** the core's length: the worm's, or longer to be cut flat */ core: number; /** the figures (axial place, radius) that are cut away after the threads: the run-outs, or the two ends */ cuts: [number, number][][] } {
   const base = g.rRoot - 0.5 * g.module; // (the thread's foot reaches a little into the core, so the two join)
   const hb = g.half(base);
-  const edge = hb + 0.5; // (the thread stays this far inside the core's ends: a thread that touches an end face exactly is a join the kernel cannot make)
-  const a0 = -length / 2 + edge;
-  const sweep = length - 2 * edge - (g.starts - 1) * g.px;
-  return { base, a0, sweep, figure: [[hb, base], [g.half(g.rTip), g.rTip], [-g.half(g.rTip), g.rTip], [-hb, base]] }; // (counter-clockwise in (axis, radius): a thread swept from a figure drawn the other way round is a solid turned inside out)
+  const stagger = (g.starts - 1) * g.px;
+  const room = (w.length - g.lead - 2 * hb - stagger) / 2; // (the most a journal can be, for a thread of a lead)
+  const journal = w.journal ?? Math.max(1, Math.min(2 * g.module, room));
+  const flush = journal === 0;
+  const edge = flush ? hb + 0.5 : journal + hb; // (the thread's start stays this far inside the core's end: a thread that touches an end face exactly is a join the kernel cannot make)
+  const over = flush ? hb + 0.5 + stagger + 1 : 0; // (a worm cut flat: the core and the thread go this far beyond each end)
+  const core = w.length + 2 * over;
+  const a0 = -core / 2 + edge;
+  const sweep = core - 2 * edge - stagger;
+  const figure: [number, number][] = [[hb, base], [g.half(g.rTip), g.rTip], [-g.half(g.rTip), g.rTip], [-hb, base]]; // (counter-clockwise in (axis, radius): a thread swept from a figure drawn the other way round is the wrong way out)
+  const runout = flush ? 0 : w.runout ?? Math.max(0, Math.min(1.5 * g.lead, 0.4 * sweep));
+  const e = 0.05, top = g.rTip + 1.5;
+  const cuts: [number, number][][] = [];
+  if (flush) for (const s of [-1, 1]) { const [x0, x1] = [s * w.length / 2, s * (core / 2 + 1)]; cuts.push([[x0, 0], [x1, 0], [x1, top], [x0, top]]); } // (what is beyond the ends)
+  else if (runout > 0) { // (the cone the thread comes out of at the start, and goes into at the end: from the root's radius at the thread's end to its full height a run-out away)
+    const [xs, xe] = [a0 - hb, a0 + sweep + stagger + hb];
+    cuts.push([[xs, g.rRoot + e], [xs + runout, g.rTip + e], [xs + runout, top], [xs, top]]);
+    cuts.push([[xe, g.rRoot + e], [xe, top], [xe - runout, top], [xe - runout, g.rTip + e]]);
+  }
+  return { base, a0, sweep, figure, flush, journal, runout, core, cuts };
 }
 
 /** The numbers of a worm wheel (a `GearSpec` with `wheel`): the worm it is for and what follows from the two. */

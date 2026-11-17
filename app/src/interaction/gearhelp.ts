@@ -29,6 +29,8 @@ export const GEAR_HINTS: Record<GearKey, string> = {
   width: "Width of the gear along its axis, in mm; only used with a helix (a plain gear is a flat outline). Six modules if left alone.",
   diameter: "A worm's pitch diameter in mm (a worm has no teeth to count). The wheel for it must be made for the same diameter. Ten times the module is usual; a thicker worm is stronger and has a smaller lead angle.",
   length: "How long the worm's core is, in mm. At least two leads (a lead is the starts times pi times the module).",
+  journal: "The plain shaft left at each end of the worm, in mm, for a bearing or a coupling. 0 makes the thread run the whole length and be cut flat at the ends (no shaft). Left alone: two modules (less on a short worm).",
+  runout: "How long the thread takes to run out into the shaft at each end, in mm (a cone cut away from the tooth, so it does not stop in a square wall). 0 stops it square. Only for a worm with a journal; left alone: a pitch or two.",
   starts: "How many threads the worm has (1 to 4). The wheel turns this many teeth for each turn of the worm, so more starts is a faster, steeper drive.",
 };
 

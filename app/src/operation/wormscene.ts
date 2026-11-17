@@ -39,7 +39,7 @@ export function wormRefs(rec: GearRecord): WormRefs {
 export function wormParts(s: Scene, rec: GearRecord): Part[] {
   const f = frameOf(s, rec), g = wormOf(rec.spec);
   if (!f || !g.ok) return [];
-  const lay = wormLayout(g.value, rec.spec.worm!.length);
+  const lay = wormLayout(g.value, rec.spec.worm!);
   const base = { origin: "drawn" as const, plane: rec.plane, movable: false };
   const out: Part[] = [];
   const k = Math.round(rec.spec.teeth);
@@ -48,12 +48,16 @@ export function wormParts(s: Scene, rec: GearRecord): Part[] {
     for (let i = 0; i < 4; i++) out.push({ ...base, ref: ref(rec.id, `t${j}s${i}`), kind: "line", a: ref(rec.id, `t${j}p${i}`), b: ref(rec.id, `t${j}p${(i + 1) % 4}`) });
   }
   // the core: a rectangle (its inner side the bore's radius, or on the axis) drawn on a second plane through the axis, a quarter turn from the sheet, and turned about the axis: a cylinder (a tube with a bore)
-  const L = rec.spec.worm!.length, q = ref(rec.id, "cq"), loop = (rec.spec.bore ?? 0) > 0 ? boreLoop(rec.spec) : null, r0 = loop ? 0 : (rec.spec.bore ?? 0) / 2;
+  const L = lay.core, q = ref(rec.id, "cq"), loop = (rec.spec.bore ?? 0) > 0 ? boreLoop(rec.spec) : null, r0 = loop ? 0 : (rec.spec.bore ?? 0) / 2;
   out.push({ ref: q, origin: "drawn", plane: null, movable: false, kind: "plane", at: rec.at, u: f.X, v: f.n });
   const qb = { origin: "drawn" as const, plane: q, movable: false };
   const rect: [number, number][] = [[-L / 2, r0], [L / 2, r0], [L / 2, g.value.rRoot], [-L / 2, g.value.rRoot]];
   rect.forEach(([a, r], i) => out.push({ ...qb, ref: ref(rec.id, `c${i}p`), kind: "corner", at: along(rec.at, f, a, 0, r) }));
   for (let i = 0; i < 4; i++) out.push({ ...qb, ref: ref(rec.id, `c${i}s`), kind: "line", a: ref(rec.id, `c${i}p`), b: ref(rec.id, `c${(i + 1) % 4}p`) });
+  lay.cuts.forEach((poly, k) => { // (the figures cut away after the threads: the two run-outs, or what is beyond a flat end, on the same plane as the core)
+    poly.forEach(([a, r], i) => out.push({ ...qb, ref: ref(rec.id, `x${k}p${i}`), kind: "corner", at: along(rec.at, f, a, 0, r) }));
+    for (let i = 0; i < poly.length; i++) out.push({ ...qb, ref: ref(rec.id, `x${k}s${i}`), kind: "line", a: ref(rec.id, `x${k}p${i}`), b: ref(rec.id, `x${k}p${(i + 1) % poly.length}`) });
+  });
   if (loop) { // a flat or a keyway: the loop of the bore on a plane across the axis, just before the worm's start, cut along the whole of it (a revolved core can only have a round bore)
     const bq = ref(rec.id, "bq");
     out.push({ ref: bq, origin: "drawn", plane: null, movable: false, kind: "plane", at: along(rec.at, f, -L / 2 - 1, 0, 0), u: f.Y, v: f.n });
@@ -67,10 +71,11 @@ export function wormSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] | null 
   const f = frameOf(s, rec), g = wormOf(rec.spec);
   if (!f || !g.ok) return null;
   const { threads, core } = wormRefs(rec);
-  const L = rec.spec.worm!.length, lay = wormLayout(g.value, L);
+  const lay = wormLayout(g.value, rec.spec.worm!), L = lay.core;
   const axis = { ax: rec.at[0], ay: rec.at[1], az: rec.at[2], dx: f.X[0], dy: f.X[1], dz: f.X[2] };
   const steps: Omit<Step, "id">[] = [{ type: "revolve", parts: core, params: { angle: 360, advance: 0, ...axis, mode: "new", gear: rec.id } }]; // (a piece of its own: it stands beside the wheel it drives and does not cut or join it)
   for (const lines of threads) steps.push({ type: "revolve", parts: lines, params: { angle: (360 * lay.sweep) / g.value.lead, advance: lay.sweep, ...axis, mode: "add", gear: rec.id } });
+  lay.cuts.forEach((poly, k) => steps.push({ type: "revolve", parts: poly.map((_, i) => ref(rec.id, `x${k}s${i}`)), params: { angle: 360, advance: 0, ...axis, mode: "cut", gear: rec.id } })); // (a revolve that takes away: the run-outs, or the ends)
   const loop = (rec.spec.bore ?? 0) > 0 ? boreLoop(rec.spec) : null;
   if (loop) steps.push({ type: "extrude", parts: loop.points.map((_, i) => ref(rec.id, `bs${i}`)), params: { depth: String(L + 2), mode: "cut", gear: rec.id } }); // (a flat or a keyway: cut along the axis after the threads are on)
   return steps;
