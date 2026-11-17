@@ -3412,3 +3412,15 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_766 — 2026-11-17 — approval
 > Yes, build picked-point placement
 (asks for the fastener hole to be placed at a picked point, a corner or the centre of a circle, instead of only the middle of the face plus a typed offset)
+
+## in_767 — 2026-11-17 — directive
+> Go with your recommendation, start on the ratchet wheel and pawl
+(asks for the ratchet wheel and pawl to be started; the recommendation was a decision entry first, then the generator)
+
+## in_768 — 2026-11-17 — directive
+> Go with your recommendation, give cams and ratchets a record
+(asks for cams and ratchets to keep their numbers as a record, as a gear does, so they can be changed by number after they are drawn)
+
+## in_769 — 2026-11-17 — directive
+> Go with your recommendation, source the ratchet numbers
+(asks for the ratchet's default numbers to be sourced, `q_ratchet_numbers`: look for where the tooth depth, hook angle, pawl pivot rule and pawl size come from, and write them in)

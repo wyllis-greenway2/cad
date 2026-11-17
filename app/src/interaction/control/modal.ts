@@ -7,7 +7,7 @@ import type { Session } from "../session.ts";
 import { nearCommand } from "../suggest.ts";
 import { actionsFor, measureAction } from "../actions.ts";
 import type { ToolKind, Tool } from "../tools.ts";
-import { armTool, typeKey, finish, lineNext, gearTyped, editGearTool, editPlanetaryTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf } from "../tools.ts";
+import { armTool, typeKey, finish, lineNext, gearTyped, editGearTool, editPlanetaryTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf, editCamTool } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
 import type { CamKind, CamLaw } from "../../operation/cams.ts";
 import { gearOfPart } from "../../operation/gearscene.ts";
@@ -118,7 +118,7 @@ export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["n
 
 /** Put a finished figure into the scene and hand back to normal selection with the figure selected. */
 /** The tool stays on after a figure is made, ready on the same plane for the next, until a right click or the cancel icon at the top puts it away (`in_193`). */
-const stays = (t: AppState["tool"]): AppState["tool"] => (t && !t.gear?.editing && !t.gear?.mesh ? { ...armTool(t.kind, variantOf(t.gear)), plane: t.plane, made: (t.made ?? 0) + 1, ...(t.reveal ? { reveal: true as const } : {}) } : null);
+const stays = (t: AppState["tool"]): AppState["tool"] => (t && !t.gear?.editing && !t.gear?.mesh && !t.cam?.editing ? { ...armTool(t.kind, variantOf(t.gear)), plane: t.plane, made: (t.made ?? 0) + 1, ...(t.reveal ? { reveal: true as const } : {}) } : null);
 
 export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppState {
   if (!fin) {
@@ -436,7 +436,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   }
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
   if (id.startsWith("tool:disc:")) return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", "disc", id.slice(10) as CamLaw); // (a disc cam of this law, `dec_spline_and_cams`)
-  if (id === "tool:eccentric" || id === "tool:snail") return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", id === "tool:snail" ? "snail" : "eccentric"); // (an eccentric cam and a snail cam, `dec_spline_and_cams`)
+  if (id === "tool:eccentric" || id === "tool:snail" || id === "tool:ratchet") return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", id === "tool:snail" ? "snail" : id === "tool:ratchet" ? "ratchet" : "eccentric"); // (an eccentric cam and a snail cam, `dec_spline_and_cams`)
   if (id === "tool:worm" || id === "tool:wormwheel") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:worm" ? "worm" : "wormwheel"); // (a worm, and the wheel for one, `in_608`)
   if (id === "tool:bevel") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "bevel"); // (a straight bevel gear, an approximation, `in_735`)
   if (id === "tool:planetary") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "planetary"); // (a planetary gear set, `dec_planetary_gears`)
@@ -450,6 +450,11 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     const rec = selectionOf(s.session).map((r) => gearOfPart(sc, r)).find((g) => !!g);
     return rec ? { ...closed, tool: meshGearTool(rec, id === "gear:meshrack", id === "gear:meshring"), op: null } : { ...closed, session: { ...s.session, message: "select a gear first" } };
   }
+  if (id === "cam:edit") { // the numbers of the cam or the ratchet that is selected, in the number box (`in_768`)
+    const sc = sceneOf(s.session);
+    const rec = selectionOf(s.session).map((r) => gearOfPart(sc, r)).find((g) => !!g?.spec.cam);
+    return rec ? { ...closed, tool: editCamTool(rec), op: null } : { ...closed, session: { ...s.session, message: "select a cam or a ratchet first" } };
+  }
   if (id === "gear:helix") { // the number box of the selected gear, at its Helix field (`in_693`: the helix is a number of every plain gear, 0 for none)
     const sc = sceneOf(s.session);
     const rec = selectionOf(s.session).map((r) => gearOfPart(sc, r)).find((g) => !!g);
@@ -462,7 +467,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     const set = selectionOf(s.session).map((r) => planetaryOfPart(sc, r)).find((p) => !!p);
     if (set) return { ...closed, tool: editPlanetaryTool(set), op: null };
     const rec = selectionOf(s.session).map((r) => gearOfPart(sc, r)).find((g) => !!g);
-    return rec ? { ...closed, tool: editGearTool(rec), op: null } : { ...closed, session: { ...s.session, message: "select a gear first" } };
+    return rec ? { ...closed, tool: rec.spec.cam ? editCamTool(rec) : editGearTool(rec), op: null } : { ...closed, session: { ...s.session, message: "select a gear first" } };
   }
   if (id.startsWith("tool:")) return beginTool(closed, id.slice(5) as ToolKind, now, s.menu?.plane ?? null);
   if (s.repeat && (id === "op:linear" || id === "op:circular") && !s.repeat.op.editStep && !s.repeat.op.editPattern) return doRepeatSwitch(closed, id === "op:linear" ? "linear" : "circular"); // (a repeat that is open changes kind, `in_382`)

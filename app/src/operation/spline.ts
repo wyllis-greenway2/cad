@@ -37,7 +37,7 @@ export function splinePoints(pts: readonly Vec3[], perSpan = 16, ends?: Ends): V
   return out;
 }
 /** how long the curve is (a polyline along it) */
-export const splineLength = (pts: readonly Vec3[], ends?: Ends): number => splinePoints(pts, 8, ends).reduce((s, q, i, all) => (i ? s + dist(q, all[i - 1]!) : 0), 0);
+const splineLength = (pts: readonly Vec3[], ends?: Ends): number => splinePoints(pts, 8, ends).reduce((s, q, i, all) => (i ? s + dist(q, all[i - 1]!) : 0), 0);
 /** how far a spline is let stray from the arcs that stand for it, mm: a few parts in ten thousand of its length (0.02 mm for a hundred), and never less than a thousandth */
 export const splineTolerance = (pts: readonly Vec3[], ends?: Ends): number => Math.max(1e-3, splineLength(pts, ends) * 2e-4);
 export interface Piece { a: Vec3; /** the middle of the arc from `a` to `b`; null when the piece is a straight line */ mid: Vec3 | null; b: Vec3 }
