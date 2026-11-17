@@ -1,4 +1,4 @@
-// The highlight is drawn in a few batches and not built again while it is the same (`dec_highlight_batching`, `in_688`, `in_697`): a selected gear sketch (400 lines, 401 corners) was 800 objects built again on every frame.
+// The highlight is drawn in a few batches and not built again while it is the same (`dec_highlight_batching`, `in_688`, `in_717`): a selected gear sketch (400 lines, 401 corners) was 800 objects built again on every frame.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";

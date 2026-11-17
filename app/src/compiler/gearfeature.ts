@@ -1,4 +1,4 @@
-// A gear as one feature (`dec_gear_feature`, `in_696`): the body the kernel makes of a gear has a face and edges for every arc of every tooth (80 parts a tooth, 16000 parts for 200 teeth), and everything after it
+// A gear as one feature (`dec_gear_feature`, `in_716`): the body the kernel makes of a gear has a face and edges for every arc of every tooth (80 parts a tooth, 16000 parts for 200 teeth), and everything after it
 // (naming, picking, the highlight, the scene's lists) is worked by part. A person picks a gear's two faces (to change its thickness), its bore, and the whole gear: those are kept; the rest of the teeth is one surface of the whole.
 // Pure: the kernel's answer and the gear shapes in, which parts to keep out.
 import type { KernelResult, KernelEdge, KernelFace } from "./kernel/adapter.ts";

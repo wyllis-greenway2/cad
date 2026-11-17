@@ -1,4 +1,4 @@
-// A gear as one feature (`dec_gear_feature`, `in_696`): the body of a gear has only the parts a person picks, not a face and edges for every arc of every tooth.
+// A gear as one feature (`dec_gear_feature`, `in_716`): the body of a gear has only the parts a person picks, not a face and edges for every arc of every tooth.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

@@ -3,7 +3,7 @@ id: dec_gear_feature
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_690, in_696
+human_input: in_690, in_716
 date: 2026-11-17
 depends_on:
   - dec_gear_speed: the measured cost this removes (about 80 parts a tooth: 16000 parts for 200 teeth, worked by every stage after the kernel); a change to those numbers changes whether this is worth its loss of editing
@@ -12,7 +12,7 @@ depends_on:
 ---
 # A gear's body is one feature: its two faces, its bore and the whole gear
 
-**Asked (`in_690`: "open to treating the gear as one feature, probably the only selectable parts might be the surface to adjust thickness, and the bore", approved `in_696`):**
+**Asked (`in_690`: "open to treating the gear as one feature, probably the only selectable parts might be the surface to adjust thickness, and the bore", approved `in_716`):**
 
 1. **Kept, as parts of the body:** the whole body (the gear), its two flat faces across the axis (to change the thickness), the bore (its round face and the two half rims the kernel makes of its circle) and a flat or keyway across the bore; for an internal gear (a ring) its round wall and the rims of it. Everything the kernel says of the teeth (the face of every arc of every flank, the edges between them, their corners) is **not** a part: the teeth are the body's surface, drawn as before (the mesh and its sharp lines are the kernel's, not the parts').
 2. **Which bodies.** A body of the kernel's answer that was made by a step of a gear (`gearshape.ts`: an extrude of the gear's outline, a helical twist, a worm wheel's loft; not a worm) **and is wholly that gear**: its box is the gear's (the depth, no wider than the gear's outside diameter, centred where the gear is). A gear that has been joined to something, moved off its record, cut or put on a tilted plane keeps all its parts, as before: nothing is taken from a body that is more than the gear.
