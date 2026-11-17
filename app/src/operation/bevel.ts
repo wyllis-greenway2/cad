@@ -101,7 +101,7 @@ export function bevelRaw(spec: GearSpec): Result<{ x: number; r: number; th: num
 }
 
 /** The outline as it is on the plane across the axis through the pitch point (x = R cos delta): each point of the back cone carried along its ray through the apex onto it. Polar points (radius, angle). */
-export function bevelPolar(spec: GearSpec): Result<[number, number][]> {
+function bevelPolar(spec: GearSpec): Result<[number, number][]> {
   const raw = bevelRaw(spec), g = bevelOf(spec);
   if (!raw.ok) return raw;
   if (!g.ok) return g;
