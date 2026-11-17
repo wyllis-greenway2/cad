@@ -3556,3 +3556,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_802 — 2026-11-17 — directive
 > Go with your recommendation, draft the motion decision entry
 (asks for the decision entry for motion in general to be drafted, from the proposal made after `in_800`; a draft, not an approval of the design)
+
+## in_803 — 2026-11-17 — approval
+> I approve
+(approves `dec_mechanism_motion` as drafted, with its five choices: a view-only pose, kinematic only, saved drivers and couplings, the first slice being stages 1 and 2, and couplings made by the generators)

@@ -1,9 +1,9 @@
 ---
 id: dec_mechanism_motion
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_802
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_803, in_802
 date: 2026-11-17
 depends_on:
   - dec_standing_mates: a mechanism's joints are the pivots and sliders that decision makes (a coaxial mate leaves a turn and a slide, with stops and a drive step); a change to how joints keep their value changes this
@@ -13,7 +13,7 @@ alternative_to:
 ---
 # Motion in general: joints, couplings and a driver, solved kinematically, drawn on screen and written to nothing
 
-**Drafted at `in_802`, from the proposal after `in_800`; not approved.** The human asked whether things in the app can move in general (a gear driving other gears or attached parts, a camshaft driving a piston). **Choices to veto** are in the last section.
+**Drafted at `in_802`, from the proposal after `in_800`; approved at `in_803`** with its five choices (last section). The human asked whether things in the app can move in general (a gear driving other gears or attached parts, a camshaft driving a piston).
 
 - **A mechanism is joints, couplings and a driver.**
   - **Joints** are what the project already has: the pivots and sliders of coaxial mates, each with a value (a turn in degrees, a slide in mm) and stops (`dec_standing_mates`).
@@ -32,7 +32,7 @@ alternative_to:
   4. **Loops** through the pose solver, and **the cycle sweep**.
 - **Not in this entry:** forces and dynamics of any kind; a motor's torque or a load; flexible parts (the printed spring pawl); measuring speed or acceleration of a point (a later report).
 
-## Choices to veto (the AI's reading of the proposal)
+## The five choices (approved at `in_803`)
 
 1. **The pose is view only** (nothing written until **keep this pose**), not a committed motion.
 2. **Kinematic only**: no forces, springs or gravity.
