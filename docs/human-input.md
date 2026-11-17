@@ -3552,3 +3552,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_801 — 2026-11-17 — directive
 > Go with your recommendation, build the spike
 (asks for the spike to be built: per-body matrices driven by a timer turning the Geneva model's crank and wheel, with a frame-time readout, to measure the cost of moving parts on screen)
+
+## in_802 — 2026-11-17 — directive
+> Go with your recommendation, draft the motion decision entry
+(asks for the decision entry for motion in general to be drafted, from the proposal made after `in_800`; a draft, not an approval of the design)
