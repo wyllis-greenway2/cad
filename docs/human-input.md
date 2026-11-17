@@ -3532,3 +3532,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_796 — 2026-11-17 — directive
 > yes do the worm wheels next
 (approves doing the worm wheels next: what is left of their cost beyond the loft, a 200-tooth wheel and other worm types through the kernel)
+
+## in_797 — 2026-11-17 — approval
+> Yes, leave the arcs as they are, but first update from claude/inspiring-pascal-l342k7, all your edits should have been pushed there
+(answers the spline flank question: no spline option, the tooth flanks stay chains of arcs; and asks that this branch first be brought up to date from claude/inspiring-pascal-l342k7, which already held all of this branch's work: a fast-forward of 79 commits)

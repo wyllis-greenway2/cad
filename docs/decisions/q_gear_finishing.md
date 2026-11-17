@@ -3,7 +3,7 @@ id: q_gear_finishing
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_792, in_791, in_790, in_783, in_770
+human_input: in_797, in_792, in_791, in_790, in_783, in_770
 date: 2026-11-17
 depends_on:
   - dec_gear_tool: the tooth outline is drawn as lines and arcs (4 arcs to a flank by default) and a helical body is a twist of it; a change to that changes each option here
@@ -11,7 +11,7 @@ depends_on:
   - dec_gear_feature: a gear body keeps eight parts, so extra tooth faces cost the kernel and the mesh, not the page's parts
 alternative_to:
 ---
-# Gear finishing: spline flank (prototype done, `in_792`); tooth chamfer, worm wheel land and helical rack (built, `in_783`, `in_790`, `in_791`)
+# Gear finishing: spline flank (prototype done, `in_792`; arcs kept, `in_797`); tooth chamfer, worm wheel land and helical rack (built, `in_783`, `in_790`, `in_791`)
 
 **Tooth chamfer built (`in_791`):** `GearSpec.chamfer` (modules, 0 to 1, the Chamfer field, last in the box of a spur gear and a ring; needs a thickness or a helix, and less than half of it). One turned cutter (`chamferProfile` in `gear.ts`: a 45 degree triangle at each face joined by a strip beyond the tips, reaching below the bottom face so its box middle differs from the body's: the kernel tells bodies apart by the middle of their boxes) made by a `revolve` step (`tool: 1`, a piece of its own) and cut from the gear's body by a `combine` subtract that names the body by `@s0`. Works for spur, helical and ring gears; not for racks, pulleys, sprockets, clock gears, worms, wheels. **Cost, measured (kernel, 8 mm thick, module 2, bore 5): 40 teeth 1.4 s plain and 5.9 s with a chamfer, helical 1.2 s and 11.0 s, 100 teeth 2.2 s and 13.8 s, so the default is no chamfer.** Checked: one body, the same box, less material, taken off again by `setGear`. Not looked at in the app, not printed.
 
@@ -27,7 +27,7 @@ alternative_to:
 
 **A helical rack, and a rack with a helix field.** `meshWith` refuses a helical gear against a rack ("a helical gear does not mesh with a rack yet") and `canHelix` excludes racks, so the rack has no Helix field. A helical rack is the rack's section (transverse module mn / cos(helix), the same trapezoid) **sheared** along the rack as it is extruded: each layer slid sideways by height x tan(helix). The body is an oblique extrusion (the kernel's prism along a slanted vector) rather than the twist used for a gear, so it needs a step that takes a direction not along the normal, then Helix on the rack (opposite hand to the gear it meshes with), and the mesh placement shifted by the shear. Medium work; not started.
 
-**Questions for the human, still open:** (1) build a spline flank option (`detail`) from the prototype's setting, or leave the arcs? (2) is the cost of the chamfer (4 to 9 times the build time) acceptable, or should it be made faster before it is used much? (3) is the wheel land worth a default of one module at about four times the build time (now off)?
+**Answered (`in_797`): leave the arcs as they are** ("Yes, leave the arcs as they are", to the recommendation not to build a spline option); the prototype stays as the record. **Question for the human, still open:** is the cost of the chamfer (4 to 9 times the build time) acceptable, or should it be made faster before it is used much? (3) is the wheel land worth a default of one module at about four times the build time (now off)?
 
 ## Rationale
 
