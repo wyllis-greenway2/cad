@@ -25,6 +25,16 @@ Every outside source the project has read or looked up, so it can be found again
 | Gleason, *Gear Technology Solutions*, page 55 (https://www.gleason.com/gear-technology-solutions/files/basic-html/page55.html) | searched | copyright | straight bevel basics: not seen | `q_bevel_gears` |
 | Our own derivation: the spherical involute (`prototypes/bevel-spherical/spherical.ts`), from the condition that the curve's tangent makes a constant angle with the axis | derived, tested | ours | a stand-in for the octoid; measured the same as the Tredgold tooth at 20 / 30 teeth | `prototypes/bevel-spherical/README.md` |
 
+## Spiral bevel and hypoid gears (`q_spiral_hypoid_gears`, `prototypes/bevel-spiral`)
+
+| Source | Status | Rights | Used for | Recorded in |
+|---|---|---|---|---|
+| NASA NTRS circular-cut spiral bevel papers (https://ntrs.nasa.gov/api/citations/19820018805/downloads/19820018805.pdf, .../19810017922/downloads/19810017922.pdf, .../19830024896/downloads/19830024896.pdf) | searched | US government work (public) | **to read next:** the tooth surface equations of a circular-cut spiral bevel gear; the spiral as a logarithmic spiral a circular arc approximates | `q_spiral_hypoid_gears` |
+| Gear Technology, Aug 2015, "chapter2.pdf" (https://ik.imagekit.io/agmamedia/gt/issues/0815x/chapter2.pdf) | searched | copyright, article (free to read) | **to read next:** a worked spiral bevel example (30 degrees, cutter radius 76.2 mm, 13 / 35 teeth) to check a model against | `q_spiral_hypoid_gears` |
+| "The intrinsic pitch cones in hypoid gears", AGMA media (https://ik.imagekit.io/agmamedia/2025/10/09/the-intrinsic-pitch-cones-in-hypoid-gears_rmx2WSkU4.pdf) | searched | copyright | **to read next:** hypoid pitch cones | `q_spiral_hypoid_gears` |
+| ISO 23509 (spiral and hypoid in one set, section 5.9 the hypoid geometry; preview of ANSI/AGMA ISO 23509-A08: https://webstore.ansi.org/preview-pages/AGMA/preview_ANSI+AGMA+ISO+23509-A08.pdf) | searched (contents only) | copyright, paid standard | the formulas: not seen | `q_spiral_hypoid_gears` |
+| The spiral angle at a cone distance (Wasilewski, `in_734`, listed under bevel gears) | read | | `prototypes/bevel-spiral/spiral.ts` | `prototypes/bevel-spiral/README.md` |
+
 ## Spur, helical, ring and rack gears, bores (`dec_gear_tool`)
 
 | Source | Status | Rights | Used for | Recorded in |
