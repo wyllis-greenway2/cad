@@ -9,7 +9,7 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Plane } from "../operation/part.ts";
 import type { Tool, Preview } from "./tools.ts";
-import { FIELDS, previewOf, rectEnd, circleRadius, lineNext, arcOf, gearFields, gearLive, gearGuard, meshSuggestion, camSpecOf, CAM_FIELDS, planetaryInfo } from "./tools.ts";
+import { FIELDS, previewOf, rectEnd, circleRadius, lineNext, arcOf, gearFields, gearLive, gearGuard, meshSuggestion, camSpecOf, camFieldsOf, planetaryInfo } from "./tools.ts";
 import type { Op } from "./operations.ts";
 import type { Gizmo } from "./gizmo.ts";
 import type { Camera } from "./camera.ts";
@@ -90,8 +90,8 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
   } else if (tool.kind === "circle") live.push(circleRadius(pl, tool) * 2);
   else if (tool.kind === "cam" && tool.cam) {
     const spec = camSpecOf(tool);
-    const live = spec ? (spec.kind === "linear" ? [spec.teeth!, spec.pitch!, spec.depth!, spec.hook!, spec.base!, spec.pawl!, spec.width!, spec.turn!] : spec.kind === "geneva" ? [spec.teeth!, spec.crank!, spec.pin!, spec.clearance!, spec.hole >= 0 ? spec.hole : undefined as unknown as number, spec.lock ?? (undefined as unknown as number)] : spec.kind === "ratchet" ? [spec.teeth!, spec.diameter, spec.depth!, spec.hook!, spec.hole, spec.pawl!, spec.width!, spec.turn!] : spec.kind === "disc" ? [spec.diameter, spec.lift, spec.rise!, spec.dwell!, spec.ret!, spec.hole, spec.roller ?? 0] : [spec.diameter, spec.lift, spec.hole]) : [];
-    return { panel: camTitle(tool.cam.kind, tool.cam.law, spec?.kind === "geneva" && spec.crank && (spec.teeth ?? 0) >= 3 ? `${lengthText(genevaCentres(Math.round(spec.teeth!), spec.crank))} ${unitName("mm")}` : undefined), followUnits: true, fields: CAM_FIELDS[tool.cam.kind].map((label, i) => ({ hint: CAM_HINTS[label], ...(["Rise", "Dwell", "Return", "Hook", "Angle"].includes(label) ? { unit: "°" } : label === "Teeth" || label === "Slots" ? { unit: "" } : {}), label, value: (tool.cam!.typed[i] ?? "") !== "" ? tool.cam!.typed[i]! : live[i] !== undefined ? roundedText(live[i]!) : "", active: tool.cam!.field === i, typed: (tool.cam!.typed[i] ?? "") !== "" })), unit: "mm" };
+    const live = spec ? (spec.kind === "linear" ? [spec.teeth!, spec.pitch!, spec.depth!, spec.hook!, spec.base!, spec.pawl!, spec.width!, spec.turn!] : spec.kind === "geneva" ? [spec.teeth!, spec.crank!, spec.pin!, spec.clearance!, spec.hole >= 0 ? spec.hole : undefined as unknown as number, spec.lock ?? (undefined as unknown as number), ...(spec.layout === "model" ? [spec.layer!, spec.plate!] : [])] : spec.kind === "ratchet" ? [spec.teeth!, spec.diameter, spec.depth!, spec.hook!, spec.hole, spec.pawl!, spec.width!, spec.turn!] : spec.kind === "disc" ? [spec.diameter, spec.lift, spec.rise!, spec.dwell!, spec.ret!, spec.hole, spec.roller ?? 0] : [spec.diameter, spec.lift, spec.hole]) : [];
+    return { panel: camTitle(tool.cam.kind, tool.cam.law, spec?.kind === "geneva" && spec.crank && (spec.teeth ?? 0) >= 3 ? `${lengthText(genevaCentres(Math.round(spec.teeth!), spec.crank))} ${unitName("mm")}` : undefined, tool.cam.layout), followUnits: true, fields: camFieldsOf(tool.cam.kind, tool.cam.layout).map((label, i) => ({ hint: CAM_HINTS[label], ...(["Rise", "Dwell", "Return", "Hook", "Angle"].includes(label) ? { unit: "°" } : label === "Teeth" || label === "Slots" ? { unit: "" } : {}), label, value: (tool.cam!.typed[i] ?? "") !== "" ? tool.cam!.typed[i]! : live[i] !== undefined ? roundedText(live[i]!) : "", active: tool.cam!.field === i, typed: (tool.cam!.typed[i] ?? "") !== "" })), unit: "mm" };
   }
   else if (tool.kind === "gear") {
     const g = tool.gear ?? { internal: false, typed: [] as string[], field: 0 };

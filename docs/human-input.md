@@ -3540,3 +3540,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_798 — 2026-11-17 — directive
 > oh okay that is pretty cool. Can we offer this as a pre assembled 3d model? it can by offered as a sketch view too. Also I think that our sketch has a few issues, look at all these little ridges
 (asks for the Geneva drive to be offered as a pre-assembled 3D model, and also as an assembled sketch view; and reports little ridges along the notch of the locking disc's outline, with a picture)
+
+## in_799 — 2026-11-17 — directive
+> Go with your recommendation, build all three layouts
+(asks for all three Geneva layouts to be built: the apart sketch (as now), an assembled sketch view, and a pre-assembled 3D model of three bodies in place)

@@ -171,6 +171,7 @@ export function genevaShapes(s: CamSpec, quick = false): Result<{ polys: { point
   let rings: V2[][] = [];
   let discAt: V2 = [0, 0];
   const hy = -(rw + 6 + Math.max(p, 4));
+  const layout = s.layout ?? "apart";
   let hole = s.hole;
   let discOutline: ((t: number) => V2) | null = null;
   let radii: number[] | null = null;
@@ -185,12 +186,13 @@ export function genevaShapes(s: CamSpec, quick = false): Result<{ polys: { point
   } else if (hole < 0) hole = Math.max(0, Math.min(a / 4, 2 * (sc - w / 2 - MIN_WALL)));
   if (hole / 2 > sc - w / 2 - MIN_WALL + 1e-9) return err("a slot would reach the shaft's hole: use more slots, a smaller pin or clearance, or a smaller hole");
   const rh = Math.max(hole / 2 + 1.5, p);
+  const crankAt: V2 = layout === "apart" ? [0, hy] : [c, 0]; // (assembled: on the crank's shaft, the pin pointing away from the wheel, the pose the wheel is locked in)
   if (lockOn && quick) { // (a plain circle in the notch's place: close enough to see the disc's size and where it goes)
-    discAt = [a + p / 2 + 4 + rl + rh, hy];
+    discAt = layout === "apart" ? [a + p / 2 + 4 + rl + rh, hy] : [c, 0];
     rings = [Array.from({ length: 48 }, (_, i): V2 => [discAt[0] + rl * Math.cos((2 * Math.PI * i) / 48), discAt[1] + rl * Math.sin((2 * Math.PI * i) / 48)])];
   } else if (radii) {
     const f = (t: number): number => { const x = ((t / (2 * Math.PI)) % 1 + 1) % 1 * COUNT; const i = Math.floor(x); const u = x - i; return radii![i % COUNT]! * (1 - u) + radii![(i + 1) % COUNT]! * u; };
-    discAt = [a + p / 2 + 4 + rl + rh, hy]; // (beside the crank, its notch toward +x like the crank's pin)
+    discAt = layout === "apart" ? [a + p / 2 + 4 + rl + rh, hy] : [c, 0]; // (apart: beside the crank, its notch toward +x like the crank's pin; assembled: on the crank's shaft, in the pose the wheel is locked in)
     discOutline = (t) => [discAt[0] + f(t) * Math.cos(t), discAt[1] + f(t) * Math.sin(t)];
     const dense = Array.from({ length: COUNT }, (_, i) => discOutline!((2 * Math.PI * i) / COUNT));
     // the corners of the notch (where the disc's radius leaves the full radius) are knots, so the curve is not rounded off them
@@ -202,8 +204,10 @@ export function genevaShapes(s: CamSpec, quick = false): Result<{ polys: { point
   // the crank, below the wheel: a hub with the shaft's hole, an arm as wide as the pin, and the pin's circle at its end, the pin pointing along +x
   const rp = p / 2;
   const xh = Math.sqrt(rh * rh - rp * rp);
-  const q2: V2 = [xh, hy - rp], t2: V2 = [a, hy - rp], t1: V2 = [a, hy + rp], q1: V2 = [xh, hy + rp];
-  const crank = { points: [q2, t2, t1, q1], bulges: [0, bulgeOf(t2, [a + rp, hy], t1), 0, bulgeOf(q1, [-rh, hy], q2)] };
-  const circles: CamShapes["circles"] = hole > 0 ? [{ c: [0, 0], r: hole / 2, hole: true }, { c: [0, hy], r: hole / 2, hole: true }, ...(lockOn ? [{ c: discAt, r: hole / 2, hole: true as const }] : [])] : [];
+  const [kx, ky] = crankAt;
+  const q2: V2 = [kx + xh, ky - rp], t2: V2 = [kx + a, ky - rp], t1: V2 = [kx + a, ky + rp], q1: V2 = [kx + xh, ky + rp];
+  const crank = { points: [q2, t2, t1, q1], bulges: [0, bulgeOf(t2, [kx + a + rp, ky], t1), 0, bulgeOf(q1, [kx - rh, ky], q2)] };
+  const circles: CamShapes["circles"] = hole > 0 ? [{ c: [0, 0], r: hole / 2, hole: true }, { c: crankAt, r: hole / 2, hole: true }, ...(lockOn ? [{ c: discAt, r: hole / 2, hole: true as const }] : [])] : [];
+  if (layout === "model") circles.push({ c: [kx + a, ky], r: rp }); // (the pin: a body of its own, joined to the crank plate, that stands up into the wheel's slot)
   return ok({ polys: [wheel, crank], circles, rings });
 }

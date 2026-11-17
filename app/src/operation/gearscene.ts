@@ -16,7 +16,7 @@ import { wormRefs, wormParts, wormSteps, wheelRefs, wheelParts, wheelSteps } fro
 import { wheelSections } from "./wheelsections.ts";
 import { bevelRefs, bevelParts, bevelSteps } from "./bevelscene.ts";
 import { camShapes } from "./cams.ts";
-import { camParts, camRefs } from "./camscene.ts";
+import { camParts, camRefs, camSteps } from "./camscene.ts";
 import { meshBevel } from "./mesh.ts";
 
 /** `at`: the centre, in the world; `turn`: how far the gear is turned about its centre in its plane, radians (tooth 0 points along the plane's first direction when 0); `spec`: the numbers (`gear.ts`) */
@@ -162,6 +162,7 @@ function bodyParams(s: Scene, rec: GearRecord): { step: Omit<Step, "id"> } | nul
 }
 /** The steps that make the body of a gear that has one made with it (a helical gear's twist, a worm's core and threads, a worm wheel's loft), without their names; none for a plain gear. */
 function ownedSpecs(s: Scene, rec: GearRecord): Omit<Step, "id">[] {
+  if (rec.spec.cam) return camSteps(s, rec) ?? []; // (a Geneva drive that comes as a model, `camscene.ts`)
   if (rec.spec.bevel) return bevelSteps(s, rec) ?? [];
   if (rec.spec.worm) return wormSteps(s, rec) ?? [];
   if (rec.spec.wheel) return wheelSteps(s, rec) ?? [];
