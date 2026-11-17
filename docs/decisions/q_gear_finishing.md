@@ -3,7 +3,7 @@ id: q_gear_finishing
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_759, in_758, in_755
+human_input: in_760, in_759, in_758, in_755
 date: 2026-11-17
 depends_on:
   - dec_gear_tool: the tooth outline is drawn as lines and arcs (4 arcs to a flank by default) and a helical body is a twist of it; a change to that changes each option here
@@ -11,7 +11,9 @@ depends_on:
   - dec_gear_feature: a gear body keeps eight parts, so extra tooth faces cost the kernel and the mesh, not the page's parts
 alternative_to:
 ---
-# Gear finishing: tooth chamfer and a spline flank (open); worm wheel land and helical rack (built, `in_758`)
+# Gear finishing: a spline flank (open); tooth chamfer, worm wheel land and helical rack (built, `in_758`, `in_759`, `in_760`)
+
+**Tooth chamfer built (`in_760`):** `GearSpec.chamfer` (modules, 0 to 1, the Chamfer field, last in the box of a spur gear and a ring; needs a thickness or a helix, and less than half of it). One turned cutter (`chamferProfile` in `gear.ts`: a 45 degree triangle at each face joined by a strip beyond the tips, reaching below the bottom face so its box middle differs from the body's: the kernel tells bodies apart by the middle of their boxes) made by a `revolve` step (`tool: 1`, a piece of its own) and cut from the gear's body by a `combine` subtract that names the body by `@s0`. Works for spur, helical and ring gears; not for racks, pulleys, sprockets, clock gears, worms, wheels. **Cost, measured (kernel, 8 mm thick, module 2, bore 5): 40 teeth 1.4 s plain and 5.9 s with a chamfer, helical 1.2 s and 11.0 s, 100 teeth 2.2 s and 13.8 s, so the default is no chamfer.** Checked: one body, the same box, less material, taken off again by `setGear`. Not looked at in the app, not printed.
 
 **Built (`in_758`, approved: "Yes, build the helical rack and the wheel land"):** (1) **Helical rack** (`GearSpec.helix` and `width` on a rack; fields Helix and Thickness after Clearance; `rackOutline`, `helixShear` in `gear.ts`): the outline is the section across the rack (module mn / cos(helix), pressure angle atan(tan an / cos(helix)), addendum and dedendum the normal ones), and the body is one `extrude` step with `slantx` and `slanty` (new step numbers: the sideways slide for each mm of depth, in the plane; the kernel's `op.slant`, an oblique prism) so each layer is slid along the rack by tan(helix). Mesh rack from a helical gear and Mesh gear from a helical rack work; the rack takes the gear's helix number as it is (a rack and a gear that mesh have the same sign here, an outside gear pair have opposite signs): `test/helicalrack.test.ts` checks it in the kernel (the right hand rack overlaps the gear by under 8 mm3, the other hand by a good deal more). (2) **Worm wheel land** (`wheel.land`, the Land field; none by default): first built as a round shoulder (`in_758`); the human then asked for the toothed land cut by the worm's envelope (`in_759`) and that replaced it. The end sections are carried straight out to the faces (two `extrude` steps, each a piece of its own), the worm's envelope (the cylinder of the thread's tip circle plus a tenth of a module about its axis, as far as it lies past each face: a circular segment drawn across the worm's axis and carried along it, `envelope` in `wormscene.ts`) is cut out of each (a `combine` subtract), and the three pieces are joined (a `combine` add with `glue`). A step can now name the body another step of its gear made (`@s1`, put right by `resolveOwnRefs` in `gearscene.ts`) because a cut by a step acts on every body made so far, the worm's included. **Cost: the wheel takes about 23 s to make with a land against about 5.5 s without (the join of the land with the throated part is most of it, 38 s without `glue`), so the default is no land;** the tool and Mesh gear take a Land typed. Checked in the kernel: one body, width + 2 land thick, and the worm and the wheel with a land overlap by under a cubic millimetre. Not looked at in the app.
 
@@ -25,7 +27,7 @@ alternative_to:
 
 **A helical rack, and a rack with a helix field.** `meshWith` refuses a helical gear against a rack ("a helical gear does not mesh with a rack yet") and `canHelix` excludes racks, so the rack has no Helix field. A helical rack is the rack's section (transverse module mn / cos(helix), the same trapezoid) **sheared** along the rack as it is extruded: each layer slid sideways by height x tan(helix). The body is an oblique extrusion (the kernel's prism along a slanted vector) rather than the twist used for a gear, so it needs a step that takes a direction not along the normal, then Helix on the rack (opposite hand to the gear it meshes with), and the mesh placement shifted by the shear. Medium work; not started.
 
-**Questions for the human, still open:** (1) a chamfer of tooth tips by one revolved cut, as a field of the gear? (2) a spline flank prototype first? (3) is the wheel land worth a default of one module at about four times the build time (now off)?
+**Questions for the human, still open:** (1) a spline flank prototype first? (2) is the cost of the chamfer (4 to 9 times the build time) acceptable, or should it be made faster before it is used much? (3) is the wheel land worth a default of one module at about four times the build time (now off)?
 
 ## Rationale
 
