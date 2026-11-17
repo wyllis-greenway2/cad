@@ -47,7 +47,7 @@ test("the gear command makes a worm: a core and a thread joined into one body, a
   const b = bodies(s);
   assert.equal(b.length, 1, "one body: the thread is joined to the core");
   const core = Math.PI * 9.5 ** 2 * 30;
-  assert.ok(b[0]!.volume > core + 2000 && b[0]!.volume < core + 5500, `${b[0]!.volume}`);
+  assert.ok(b[0]!.volume > core + 1000 && b[0]!.volume < core + 5500, `${b[0]!.volume}`);
   assert.equal(gearOfPart(scene(s), b[0]!.ref as never)?.id, "g_001", "its body selects the gear");
 });
 
@@ -196,7 +196,7 @@ test("the ends of a worm (`in_696`): journals with the thread running out into t
   assert.match(err({ ...worm, worm: { diameter: 24, length: 30, journal: 0.5 } }), /journal/);
   assert.match(err({ ...worm, worm: { diameter: 24, length: 30, journal: 9 } }), /journal/);
   assert.match(err({ ...worm, worm: { diameter: 24, length: 30, runout: 99 } }), /run-out/);
-  assert.match(err({ ...worm, worm: { diameter: 24, length: 13, journal: 3 } }), /too short|journal/);
+  assert.equal(err({ ...worm, worm: { diameter: 24, length: 13, journal: 3 } }), "", "a short journal is made as long as the thread's end wall needs");
 });
 
 test("a worm for a worm wheel (`in_697`): placed by the helper on either side of the wheel, the two overlap by under a cubic millimetre; it has the starts the wheel was made for; a rack and a ring are refused", () => {

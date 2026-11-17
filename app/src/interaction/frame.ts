@@ -26,7 +26,8 @@ import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
 import { axisAcross } from "./revolve.ts";
 import { gearOfPart } from "../operation/gearscene.ts";
-import { canHelix } from "./tools.ts";
+import { canHelix, finish as finishTool } from "./tools.ts";
+import { hasBody } from "../operation/gear.ts";
 import { hardMotion, hardNote, limitedOp, hardCollision, hardOverlaps, hardNames } from "./hard.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
 import { withCorner } from "./runop.ts";
@@ -303,6 +304,19 @@ function pickingOp(s: AppState): Op | null {
 }
 
 function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome } | null {
+  // a gear that has a body (a thickness, a helix, a worm), being edited: the body it would be is drawn as its numbers are typed, from the kernel in its draft mode (`in_719`); a wheel is not (its sections take seconds to work out)
+  if (s.tool?.kind === "gear" && s.tool.gear?.editing && !s.op) {
+    const sc = sceneOf(s.session);
+    const rec = sc.gears?.find((g) => g.id === s.tool!.gear!.editing);
+    const cmd = rec && !rec.spec.wheel && (hasBody(rec.spec) || rec.spec.worm) ? finishTool(sc, s.tool)?.command : undefined;
+    if (cmd && cmd.type === "setGear" && !cmd.spec.wheel) {
+      const key = JSON.stringify(["gear", cmd]);
+      if (memo && memo.history === s.session.history && memo.outcome === s.session.outcome && memo.key === key) return memo.value;
+      const value = previewCommand(s.session, cmd);
+      memo = { history: s.session.history, outcome: s.session.outcome, key, value };
+      return value;
+    }
+  }
   // the cut that is being set up shows what the parts kept would make
   if (s.cut) {
     const cmd = cutStep(sceneOf(s.session), s.cut);

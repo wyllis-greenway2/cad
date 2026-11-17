@@ -75,20 +75,23 @@ export function wormLayout(g: WormGeometry, w: WormSpec): { base: number; a0: nu
   const room = (w.length - g.lead - 2 * hb - stagger) / 2; // (the most a journal can be, for a thread of a lead)
   const journal = w.journal ?? Math.max(1, Math.min(2 * g.module, room));
   const flush = journal === 0;
-  const edge = flush ? hb + 0.5 : journal + hb; // (the thread's start stays this far inside the core's end: a thread that touches an end face exactly is a join the kernel cannot make)
+  // a worm with journals: the thread's wall at its start (as wide as the tooth) lies in the plain shaft, so that the run-out begins where the shaft ends, `journal` from the end of the worm; the thread stays 0.5 clear of the core's end (a thread that touches an end face exactly is a join the kernel cannot make)
+  const edge = flush ? hb + 0.5 : Math.max(hb + 0.5, journal - hb);
   const over = flush ? hb + 0.5 + stagger + 1 : 0; // (a worm cut flat: the core and the thread go this far beyond each end)
   const core = w.length + 2 * over;
   const a0 = -core / 2 + edge;
   const sweep = core - 2 * edge - stagger;
   const figure: [number, number][] = [[hb, base], [g.half(g.rTip), g.rTip], [-g.half(g.rTip), g.rTip], [-hb, base]]; // (counter-clockwise in (axis, radius): a thread swept from a figure drawn the other way round is the wrong way out)
-  const runout = flush ? 0 : w.runout ?? Math.max(0, Math.min(1.5 * g.lead, 0.4 * sweep));
-  const e = 0.05, top = g.rTip + 1.5;
+  const runout = flush ? 0 : w.runout ?? Math.max(0, Math.min(1.5 * g.lead, 0.4 * (sweep - 2 * hb - stagger)));
+  const e = 0, top = g.rTip + 1.5; // (the cone starts exactly at the root's radius, the core's own surface: a cut a hair above it leaves a sliver of thread the kernel calls self-crossing)
   const cuts: [number, number][][] = [];
   if (flush) for (const s of [-1, 1]) { const [x0, x1] = [s * w.length / 2, s * (core / 2 + 1)]; cuts.push([[x0, 0], [x1, 0], [x1, top], [x0, top]]); } // (what is beyond the ends)
   else if (runout > 0) { // (the cone the thread comes out of at the start, and goes into at the end: from the root's radius at the thread's end to its full height a run-out away)
-    const [xs, xe] = [a0 - hb, a0 + sweep + stagger + hb];
-    cuts.push([[xs, g.rRoot + e], [xs + runout, g.rTip + e], [xs + runout, top], [xs, top]]);
-    cuts.push([[xe, g.rRoot + e], [xe, top], [xe - runout, top], [xe - runout, g.rTip + e]]);
+    // the end face of a thread is a flat wall as wide as the tooth: the cone is at the root's radius where that wall ends (its far edge, `hb` past the thread's start and `hb` before its stop, the later start and the earlier stop of the starts) and rises to the full height a run-out beyond, so the wall is gone and not a wedge of it (`in_719`)
+    const [xs, xe] = [a0 + stagger + hb, a0 + sweep - hb];
+    const pad = 2 * hb + stagger + 1; // (the cone goes on at the root's radius over the whole of the thread's end, where the wall stood)
+    cuts.push([[xs - pad, g.rRoot + e], [xs, g.rRoot + e], [xs + runout, g.rTip + e], [xs + runout, top], [xs - pad, top]]);
+    cuts.push([[xe - runout, g.rTip + e], [xe, g.rRoot + e], [xe + pad, g.rRoot + e], [xe + pad, top], [xe - runout, top]]); // (counter-clockwise like the first)
   }
   return { base, a0, sweep, figure, flush, journal, runout, core, cuts };
 }
