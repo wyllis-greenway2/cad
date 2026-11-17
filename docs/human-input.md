@@ -3536,3 +3536,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_797 — 2026-11-17 — question
 > okay so what are we working on again? and what is the status of it?
 (asks what is being worked on and its status; the planetary gear maker)
+
+## in_798 — 2026-11-17 — directive
+> I am pretty sure it was you who added the short planetar section. Okay try it in the browser and see if you an find bugs
+(says the AI added the short planetary section of the sources index, and asks it to try the planetary tool in the browser and look for bugs; the section came with the source-index commit c2477a4 of another session, not this one: the AI did not claim authorship)
