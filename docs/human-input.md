@@ -3560,3 +3560,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_803 — 2026-11-17 — directive
 > yes do the stand-in disc label next
 (approves doing the stand-in disc label next: a label on the stand-in disc that says the body is being made)
+
+## in_804 — 2026-11-17 — directive
+> lets do what is left on the list to make it faster
+(asks to do what is left on the speed list: discs for other heavy bodies, and the kernel worker's memory)
