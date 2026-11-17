@@ -3157,3 +3157,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_703 — 2026-11-17 — directive
 > Go with your recommendation, build the cheaper Geneva preview
 (asks for a cheaper preview of the Geneva drive while its numbers are typed, so typing is not slowed by the locking disc's long working out)
+
+## in_704 — 2026-11-17 — directive
+> Go with your recommendation, build the linear ratchet
+(asks for the linear ratchet to be built: a straight bar of ratchet teeth with its pawl, the next shape after the Geneva drive)
