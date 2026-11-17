@@ -61,7 +61,7 @@ test("a worm with two starts has two threads; a bore is a hole through the core"
 });
 
 const wheelSpec: GearSpec = { teeth: 20, module: 2, wheel: { starts: 1, diameter: 24, width: 12 } };
-test("the sections of a worm wheel: five outlines of 20 teeth, 19 sides to a tooth, the tips on an arc about the worm's axis (the throat) and the teeth turning across the width", () => {
+test("the sections of a worm wheel: five outlines of 20 teeth, 13 sides to a tooth, the tips on an arc about the worm's axis (the throat) and the teeth turning across the width", () => {
   const t0 = Date.now();
   const r = wheelSections(wheelSpec);
   assert.ok(r.ok, r.ok ? "" : r.error);
@@ -71,7 +71,7 @@ test("the sections of a worm wheel: five outlines of 20 teeth, 19 sides to a too
   const w = wheelOf(wheelSpec);
   assert.ok(w.ok);
   for (const s of secs) {
-    assert.equal(s.points.length, 20 * 19);
+    assert.equal(s.points.length, 20 * 13);
     const rs = s.points.map((p) => Math.hypot(p[0], p[1]));
     const tip = (w as { value: { tipAt: (h: number) => number } }).value.tipAt(s.h);
     assert.ok(Math.abs(Math.max(...rs) - tip) < 1e-3, `h ${s.h}: tip ${Math.max(...rs)} against ${tip}`);

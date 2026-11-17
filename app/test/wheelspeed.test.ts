@@ -24,18 +24,26 @@ const GOLD: Record<string, { h: number; n: number; pts: number[][]; bul: number[
 };
 const SPECS: Record<string, GearSpec> = { m2s1z24: wheel(24), m2s2z30: wheel(30, 2) };
 
-test("the sections of a wheel are the same shape as the slow scan made them, to a few thousandths of a millimetre", () => {
+test("the sections of a wheel start where the slow scan had them and every tooth is the first turned, to a few thousandths of a millimetre", () => {
   for (const [name, spec] of Object.entries(SPECS)) {
     const r = wheelSections(spec);
     assert.ok(r.ok, name);
     const got = [r.value[0]!, r.value[2]!, r.value[4]!];
     GOLD[name]!.forEach((g, k) => {
       const s = got[k]!;
-      assert.equal(s.points.length, g.n, `${name} section ${k}: the same number of points`);
+      const per = s.points.length / spec.teeth; // (the points of a tooth: the arcs of its gap and its top)
+      assert.ok(Number.isInteger(per) && per >= 6, `${name} section ${k}: ${per} points a tooth`);
       assert.ok(Math.abs(s.h - g.h) < 1e-9);
-      const idx = [0, 3, 7, 9, 12, 18, 19, 40, s.points.length - 1];
-      idx.forEach((i, m) => assert.ok(Math.hypot(s.points[i]![0] - g.pts[m]![0]!, s.points[i]![1] - g.pts[m]![1]!) < 0.005, `${name} section ${k} point ${i}`));
-      [0, 7, 9, 18].forEach((i, m) => assert.ok(Math.abs(s.bulges[i]! - g.bul[m]!) < 0.01, `${name} section ${k} bulge ${i}`));
+      // the gap starts where the old scan had it (the arcs between are cut by their number: the start of each tooth, and of the first, are the contour's own points)
+      assert.ok(Math.hypot(s.points[0]![0] - g.pts[0]![0]!, s.points[0]![1] - g.pts[0]![1]!) < 0.005, `${name} section ${k} first point`);
+      // every tooth is the first one turned
+      const turn = (2 * Math.PI) / spec.teeth;
+      for (const t of [1, spec.teeth - 1]) {
+        const [c, sn] = [Math.cos(t * turn), Math.sin(t * turn)];
+        const [x, y] = [g.pts[0]![0]!, g.pts[0]![1]!];
+        const p = s.points[t * per]!;
+        assert.ok(Math.hypot(p[0] - (x * c - y * sn), p[1] - (x * sn + y * c)) < 0.005, `${name} section ${k} tooth ${t}`);
+      }
     });
   }
 });
@@ -54,7 +62,7 @@ test("a wheel is made for tooth counts the validity check used to refuse (24, 32
     const r = bodyVolumes(wheel(teeth));
     assert.deepEqual(r.errors, [], `${teeth} teeth`);
     assert.equal(r.volumes.length, 1, `${teeth} teeth: one body`);
-    assert.ok(Math.abs(r.volumes[0]! - volume) < 2, `${teeth} teeth: ${r.volumes[0]} mm3, expected about ${volume}`);
+    assert.ok(Math.abs(r.volumes[0]! - volume) < 5e-4 * volume, `${teeth} teeth: ${r.volumes[0]} mm3, expected about ${volume} (the arcs of the gap are 12 and not 18: a few hundredths of a per cent)`);
   }
 });
 
@@ -70,4 +78,18 @@ test("the quick box that names a freeform face contains the face (a sphere's box
   const exact = surfacesOf(makeSphere(5)).filter((f) => f.kind === "surf");
   assert.ok(exact.length >= 1 && exact.every((f) => f.hi.every((v) => Math.abs(v - 5) < 1e-6)), "the exact box of a sphere is its own");
   for (const f of faces) for (let k = 0; k < 3; k++) { assert.ok(f.lo[k]! <= -4.999 && f.lo[k]! > -5.5, `lo ${f.lo}`); assert.ok(f.hi[k]! >= 4.999 && f.hi[k]! < 5.5, `hi ${f.hi}`); }
+});
+
+test("a wheel of many teeth has the coarser screen mesh (freeform faces by the hundred), and its names of faces and edges are the same kept and worked out from nothing", async () => {
+  const { clearKernelCaches } = await import("../src/compiler/kernel/occt/interpreter.mjs");
+  const { graphOf } = await import("../src/compiler/compile.ts");
+  const s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: wheel(60) });
+  const graph = { ...graphOf(scene(s)), names: true } as Parameters<typeof kernel.evaluate>[0];
+  const kept = kernel.evaluate(graph, { tolerance: 0.05, angular: 0.3 });
+  assert.ok(kept.mesh && kept.mesh.triangles.length / 3 < 120000, `${kept.mesh ? kept.mesh.triangles.length / 3 : 0} triangles (it was 200 thousand and more)`);
+  assert.ok(kept.mesh!.triangles.length / 3 > 5000, "and it is still a wheel");
+  clearKernelCaches();
+  const fresh = kernel.evaluate(graph, { tolerance: 0.06, angular: 0.35 });
+  assert.deepEqual(fresh.faceNames, kept.faceNames);
+  assert.deepEqual(fresh.edgeNames, kept.edgeNames);
 });

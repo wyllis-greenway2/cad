@@ -3,7 +3,7 @@ id: dec_ratchet
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_767
+human_input: in_767, in_768, in_795
 date: 2026-11-17
 depends_on:
   - dec_spline_and_cams: the ratchet is one more shape of the cam tool (a generator that writes ordinary drawn parts), drawn with the same tool, box, names and tests
@@ -18,7 +18,8 @@ alternative_to:
 - **The pawl.** A lever drawn with the wheel: its tip rests on the face of a tooth over a part of the face's length, its other end is a rounded boss with the pivot hole. The arm runs **along the tangent to the wheel at the foot of the nose** (counter-clockwise from there), its lower edge on that line and the boss resting on it, so the load from the tooth runs along the arm (the arm in compression) and the pawl is not pushed out of the gap. Where that tangent would pass through the next tooth, the arm is turned outward from it, by the least angle that clears (up to 40 degrees), as real pawls do. The nose is as deep as the gap lets it be: no part of the pawl lies across the wheel's outline (checked by segments, not only points); when none can be found the reason is given (the arm too short, the width too big). Numbers: Pawl (the arm's length from the contact to the pivot, mm; 0 for no pawl; 0.7 of the diameter by default), Width (of the boss, mm; twice the depth at least a tenth of the diameter), and the pivot hole (half the boss diameter).
 - **Which way it turns.** The wheel is free to turn clockwise (the ramps ride up under the pawl) and held against counter-clockwise (the face is against the pawl). **Angle** (degrees from +x) turns the whole drawing about the shaft, so the engaged tooth is where the person wants it.
 - **Kept as a record** (`in_768`). Like the cams, a ratchet is a record with its numbers (`dec_spline_and_cams`): its parts (a closed outline of lines for the wheel, a closed outline of lines and one arc for the pawl, circles for the bore and the pivot) are made from the record and are locked; Edit cam changes its numbers, Move and Turn move the record.
-- **Not yet:** an internal ratchet (teeth pointing in), a two-way (symmetric) ratchet, a linear ratchet (a rack of teeth, a cable tie), a face ratchet, a flexing (printed spring) pawl, the pawl's return spring.
+- **The straight (linear) ratchet** (built, `in_795`): a bar of teeth along +x for a rack, a cable tie, a ratchet strap or a slide that is to move one way. `linearShapes` (`operation/ratchet.ts`): Teeth (2 to 200, 10 by default), Pitch (the distance from tip to tip, mm; the pointer's distance from the first click divided by the teeth), Depth (0.4 of the pitch), Hook (0 to 30 degrees, as the wheel's), Base (the bar under the roots, 1.5 times the depth), Pawl (the arm, 3 times the pitch; 0 for none), Width (the pawl's boss, twice the depth or half the pitch, the larger) and Angle. The tips are on the line y = 0, the roots a depth below, each face dropping to the root behind it; the pawl rests on the face of the middle tooth on the +x side, its arm along the bar and turned up from it by the least angle that clears the next tooth (the straight bar's "tangent" is the bar's own line); the bar is **free toward -x and held against +x**. Same box, record, Edit cam and refusals as the wheel; the same defaults (conventions, `q_ratchet_numbers`). Tests: `linear.test.ts`.
+- **Not yet:** an internal ratchet (teeth pointing in), a two-way (symmetric) ratchet, a face ratchet, a flexing (printed spring) pawl, the pawl's return spring.
 
 ## Rationale
 

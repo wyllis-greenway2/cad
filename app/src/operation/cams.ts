@@ -5,10 +5,10 @@ import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { splineAt } from "./spline.ts";
-import { ratchetShapes } from "./ratchet.ts";
+import { ratchetShapes, linearShapes } from "./ratchet.ts";
 import { genevaShapes } from "./geneva.ts";
 
-export type CamKind = "eccentric" | "snail" | "disc" | "ratchet" | "geneva";
+export type CamKind = "eccentric" | "snail" | "disc" | "ratchet" | "linear" | "geneva";
 /** how a disc cam's follower moves while it rises or returns: all three start and end at rest (no jump of speed, so the profile has no corner); the cycloidal law is the gentlest on the follower, the harmonic the simplest, the parabolic the one of steady push (an even acceleration, then an even braking) */
 export type CamLaw = "cycloidal" | "harmonic" | "parabolic";
 export interface CamSpec {
@@ -25,6 +25,8 @@ export interface CamSpec {
   roller?: number;
   /** a ratchet (`kind: "ratchet"`, `dec_ratchet`): the tooth count, the depth of a tooth (mm), the lean of the face (degrees from radial), the pawl's arm (mm from its contact to its pivot, 0 for none) and the width of its boss (mm) */
   teeth?: number; depth?: number; hook?: number; pawl?: number; width?: number;
+  /** a straight ratchet (`kind: "linear"`, `dec_ratchet`): `teeth`, `depth`, `hook`, `pawl` and `width` as for the wheel; the distance from one tip to the next (mm) and the thickness of the bar under the roots (mm) */
+  pitch?: number; base?: number;
   /** a Geneva drive (`kind: "geneva"`, `dec_geneva`): `teeth` is the slot count; the crank's pin circle radius, the pin's diameter and the clearance each side of the pin in a slot (mm) */
   crank?: number; pin?: number; clearance?: number;
   /** a Geneva drive: the locking disc's radius, mm (absent: worked out; 0: no locking disc, the wheel's rim plain round) */
@@ -47,8 +49,8 @@ export interface CamShapes {
 }
 const SPIRAL_POINTS = 25;
 export function camProblem(s: CamSpec): string | null {
-  if (s.kind !== "geneva" && !(s.diameter > 0)) return "the cam needs a diameter";
-  if (s.kind !== "ratchet" && s.kind !== "geneva" && !(s.lift > 0)) return s.kind === "eccentric" ? "the cam needs an offset (how far the shaft is from the middle of the disc)" : "the cam needs a lift (how far it rises over one turn)";
+  if (s.kind !== "geneva" && s.kind !== "linear" && !(s.diameter > 0)) return "the cam needs a diameter";
+  if (s.kind !== "ratchet" && s.kind !== "linear" && s.kind !== "geneva" && !(s.lift > 0)) return s.kind === "eccentric" ? "the cam needs an offset (how far the shaft is from the middle of the disc)" : "the cam needs a lift (how far it rises over one turn)";
   if (s.hole < 0 && s.kind !== "geneva") return "the shaft's hole cannot be less than nothing"; // (a Geneva drive's hole left empty is worked out)
   const r = s.diameter / 2;
   if (s.kind === "eccentric" && s.hole / 2 + s.lift >= r - 1e-9) return "the shaft's hole would break through the edge of the disc: make the offset or the hole smaller, or the disc bigger";
@@ -90,6 +92,7 @@ function shapesOfSpec(s: CamSpec): Result<CamShapes> {
   const r = s.diameter / 2;
   const hole: CamShapes["circles"] = s.hole > 0 ? [{ c: [0, 0], r: s.hole / 2, hole: true }] : [];
   if (s.kind === "geneva") { const g = genevaShapes(s); return g.ok ? ok({ circles: g.value.circles, spiral: null, closed: null, polys: g.value.polys, ...(g.value.rings.length ? { rings: g.value.rings } : {}) }) : err(g.error); }
+  if (s.kind === "linear") { const r = linearShapes(s); return r.ok ? ok({ circles: r.value.circles, spiral: null, closed: null, polys: r.value.polys }) : err(r.error); }
   if (s.kind === "ratchet") { const r = ratchetShapes(s); return r.ok ? ok({ circles: r.value.circles, spiral: null, closed: null, polys: r.value.polys }) : err(r.error); }
   if (s.kind === "disc") return discShapes(s, hole);
   if (s.kind === "eccentric") return ok({ circles: [{ c: [s.lift, 0], r }, ...hole], spiral: null, closed: null });

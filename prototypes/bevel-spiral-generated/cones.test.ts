@@ -1,4 +1,4 @@
-// The spiral bevel pair made by the gearing law with cone ends, in the kernel, for several tooth counts and spiral angles (`in_795`): each gear is a prism of the tooth sections (a loft through planes from the toe's cone to the heel's, beyond the face by what the
+// The spiral bevel pair made by the gearing law with cone ends, in the kernel, for several tooth counts and spiral angles (`in_798`): each gear is a prism of the tooth sections (a loft through planes from the toe's cone to the heel's, beyond the face by what the
 // cones need) intersected with the blank of the two back cones; the measure is the overlap of the pair (nothing at the meshing place, the same rolled, a lot half a pitch round).
 import test from "node:test";
 import assert from "node:assert/strict";
