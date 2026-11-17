@@ -25,7 +25,7 @@ export type Command =
   /** a plane put somewhere else (the cross section plane moved, turned or flipped, `in_396`) */
   | { type: "placePlane"; ref: Ref; at: Vec3; u: Vec3; v: Vec3; /** switches the cut on or off (left as it is when absent) */ cut?: boolean; /** the side cut away is the other one (left as it is when absent) */ flip?: boolean; /** the invisible mode (left as it is when absent) */ hidden?: boolean }
   | { type: "setRadius"; ref: Ref; radius: number }
-  | { type: "setSpline"; ref: Ref; /** the points between the ends, as along the chord and out from it (`Line.spline`) */ spline: [number, number][] }
+  | { type: "setSpline"; ref: Ref; /** the points between the ends, as along the chord and out from it (`Line.spline`) */ spline: [number, number][]; /** a half of a closed spline: the points of the closed curve either side (`Line.around`); absent leaves it as it is, null takes it away */ around?: { before: [number, number]; after: [number, number] } | null }
   | { type: "deletePart"; ref: Ref }
   | { type: "deleteParts"; refs: Ref[] }
   | { type: "addRelation"; relation: Relation }
@@ -166,8 +166,10 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       const p = s.parts[c.ref];
       if (!p || p.kind !== "line" || !p.spline) return err(`${c.ref} is not a spline`);
       if (!p.movable) return err(`${c.ref} is a reference and cannot change`);
-      if (c.spline.length < 1 || c.spline.some((q) => !Number.isFinite(q[0]) || !Number.isFinite(q[1]))) return err("a spline needs at least one point between its ends");
-      return ok({ ...s, parts: { ...s.parts, [c.ref]: { ...p, spline: c.spline } } });
+      const closedHalf = c.around === undefined ? !!p.around : !!c.around;
+      if ((c.spline.length < 1 && !closedHalf) || c.spline.some((q) => !Number.isFinite(q[0]) || !Number.isFinite(q[1]))) return err("a spline needs at least one point between its ends");
+      const { around: _gone, ...rest } = p;
+      return ok({ ...s, parts: { ...s.parts, [c.ref]: { ...(c.around === null ? rest : p), spline: c.spline, ...(c.around ? { around: c.around } : {}) } } });
     }
     case "setRadius": {
       const p = s.parts[c.ref];

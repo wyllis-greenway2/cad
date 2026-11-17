@@ -87,7 +87,7 @@ function copiesOf(s: Scene, rec: PatternRecord): Part[] {
     const base = { origin: "drawn" as const, plane: target, movable: false };
     for (const p of sources) if (p.kind === "corner") out.push({ ...base, ref: nameOf(rec.id, k, p.ref), kind: "corner", at: place(p.at) });
     for (const p of sources) {
-      if (p.kind === "line" && corners.has(p.a) && corners.has(p.b) && (!p.center || corners.has(p.center))) out.push({ ...base, ref: nameOf(rec.id, k, p.ref), kind: "line", a: nameOf(rec.id, k, p.a), b: nameOf(rec.id, k, p.b), ...(p.bulge ? { bulge: turnedOver ? -p.bulge : p.bulge } : {}), ...(p.spline ? { spline: p.spline.map(([t, h]): [number, number] => [t, turnedOver ? -h : h]) } : {}), ...(p.center ? { center: nameOf(rec.id, k, p.center), ccw: turnedOver ? !p.ccw : p.ccw } : {}) });
+      if (p.kind === "line" && corners.has(p.a) && corners.has(p.b) && (!p.center || corners.has(p.center))) out.push({ ...base, ref: nameOf(rec.id, k, p.ref), kind: "line", a: nameOf(rec.id, k, p.a), b: nameOf(rec.id, k, p.b), ...(p.bulge ? { bulge: turnedOver ? -p.bulge : p.bulge } : {}), ...(p.spline ? { spline: p.spline.map(([t, h]): [number, number] => [t, turnedOver ? -h : h]) } : {}), ...(p.around ? { around: { before: [p.around.before[0], turnedOver ? -p.around.before[1] : p.around.before[1]] as [number, number], after: [p.around.after[0], turnedOver ? -p.around.after[1] : p.around.after[1]] as [number, number] } } : {}), ...(p.center ? { center: nameOf(rec.id, k, p.center), ccw: turnedOver ? !p.ccw : p.ccw } : {}) });
       else if (p.kind === "circle" && corners.has(p.center)) out.push({ ...base, ref: nameOf(rec.id, k, p.ref), kind: "circle", center: nameOf(rec.id, k, p.center), radius: p.radius });
     }
   });

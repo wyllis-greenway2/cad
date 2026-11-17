@@ -72,7 +72,7 @@ export function pasteFigure(scene: Scene, refs: readonly Ref[], offset: Vec3, on
   const made: Ref[] = [];
   for (const p of sources) if (p.kind === "corner") { commands.push({ type: "addPart", part: { ...base, ref: name(p.ref), kind: "corner", at: place(p.at) } }); made.push(name(p.ref)); }
   for (const p of sources) {
-    if (p.kind === "line" && corners.has(p.a) && corners.has(p.b) && (!p.center || corners.has(p.center))) { commands.push({ type: "addPart", part: { ...base, ref: name(p.ref), kind: "line", a: name(p.a), b: name(p.b), ...(p.bulge ? { bulge: p.bulge } : {}), ...(p.spline ? { spline: p.spline } : {}), ...(p.center ? { center: name(p.center), ccw: p.ccw } : {}) } }); made.push(name(p.ref)); }
+    if (p.kind === "line" && corners.has(p.a) && corners.has(p.b) && (!p.center || corners.has(p.center))) { commands.push({ type: "addPart", part: { ...base, ref: name(p.ref), kind: "line", a: name(p.a), b: name(p.b), ...(p.bulge ? { bulge: p.bulge } : {}), ...(p.spline ? { spline: p.spline } : {}), ...(p.around ? { around: p.around } : {}), ...(p.center ? { center: name(p.center), ccw: p.ccw } : {}) } }); made.push(name(p.ref)); }
     else if (p.kind === "circle" && corners.has(p.center)) { commands.push({ type: "addPart", part: { ...base, ref: name(p.ref), kind: "circle", center: name(p.center), radius: p.radius } }); made.push(name(p.ref)); }
   }
   // a rectangle stays level: its horizontal and vertical sides are kept (the relations between parts that were all copied and need no number)

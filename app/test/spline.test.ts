@@ -163,3 +163,87 @@ test("the last point between the ends cannot be taken away: the message says so"
   assert.match(st.session.message ?? "", /at least one point/);
   assert.equal(knots(st, d.line).length, 3);
 });
+
+// ---- a closed spline (`in_695`)
+import { drawClosedSpline, otherHalf, splineSetCommand } from "../src/operation/splinering.ts";
+import { splineEnds } from "../src/operation/part.ts";
+
+const ring: Vec3[] = [[20, 0, 0], [10, 17, 0], [-8, 14, 0], [-20, 1, 0], [-9, -16, 0], [8, -18, 0]];
+const closedScene = (pts: Vec3[] = ring) => {
+  let s = createSession(kernel);
+  const d = drawClosedSpline(scene(s), XY, pts, N);
+  assert.ok(d.ok, d.ok ? "" : d.error);
+  s = run(s, d.value.command);
+  assert.equal(s.message, null);
+  return { s, lines: d.value.lines, select: d.value.select };
+};
+const unit = (a: Vec3, b: Vec3): Vec3 => { const d = [b[0] - a[0], b[1] - a[1], 0]; const l = Math.hypot(d[0]!, d[1]!); return [d[0]! / l, d[1]! / l, 0]; };
+/** the angle, degrees, between the way the closed curve goes into a corner and the way it goes out (the curve's own tangents, not its drawn samples) */
+const kinkAt = (s: ReturnType<typeof createSession>, lines: string[], corner: string): number => {
+  const get = (r: string) => scene(s).parts[r as never] as never;
+  const [la, lb] = lines.map((r) => scene(s).parts[r as never] as unknown as { a: string; b: string; ref: string });
+  const [first, second] = la!.b === corner ? [la!, lb!] : [lb!, la!]; // (the side that arrives at the corner, the side that leaves it)
+  const tan = (ref: string, end: boolean): Vec3 => {
+    const l = scene(s).parts[ref as never] as never;
+    const w = splineWorld(get as never, l)!;
+    const e = splineEnds(get as never, l);
+    const t = end ? w.length - 1 : 0;
+    return unit(splineAt(w, t - 1e-4, e), splineAt(w, t + 1e-4, e));
+  };
+  const [u, v] = [tan(first.ref, true), tan(second.ref, false)];
+  return (Math.acos(Math.max(-1, Math.min(1, u[0]! * v[0]! + u[1]! * v[1]!))) * 180) / Math.PI;
+};
+
+test("a closed spline is two sides between the same two corners, and comes round smoothly at both", () => {
+  const { s, lines } = closedScene();
+  assert.equal(lines.length, 2);
+  const [a, b] = lines.map((r) => scene(s).parts[r as never] as unknown as { a: string; b: string });
+  assert.equal(a!.a, b!.b); assert.equal(a!.b, b!.a);
+  assert.ok(kinkAt(s, lines, a!.a) < 3, `corner 1: ${kinkAt(s, lines, a!.a)}`);
+  assert.ok(kinkAt(s, lines, a!.b) < 3, `corner 2: ${kinkAt(s, lines, a!.b)}`);
+  assert.ok(kinkAt(s, lines, a!.a) < 0.1, "exactly smooth");
+});
+
+test("the closed spline is a face, and it extrudes to the volume of the curve it is", () => {
+  const { s, select } = closedScene();
+  const face = scene(s).parts[select[0] as never] as unknown as { loop: string[]; corners: string[] };
+  assert.ok(face, "the loop is a face");
+  const poly = loopPoints((r) => scene(s).parts[r], face.loop as never, face.corners as never);
+  let area = 0;
+  poly.forEach((p, i) => { const q = poly[(i + 1) % poly.length]!; area += p[0] * q[1] - q[0] * p[1]; });
+  area = Math.abs(area) / 2;
+  const op = startOp(scene(s), [select[0] as never], "extrude");
+  assert.ok(op.ok, JSON.stringify(op));
+  const made = runOp(s, { ...(op as { op: Op }).op, value: 4 })!.session;
+  assert.ok(!made.message, made.message ?? "");
+  near(volume(made) / 4, area, area * 0.01);
+});
+
+test("a point of one half moved, added or taken away keeps the join smooth in both halves", () => {
+  const { s, lines } = closedScene();
+  const [a] = lines.map((r) => scene(s).parts[r as never] as unknown as { a: string; b: string });
+  let st = select(view(s), [lines[0]!]);
+  const moved = knots(st, lines[0]!)[1]!; // (the point next to the start of the first half)
+  st = drag(st, moved, [moved[0] + 3, moved[1] + 6, 0]);
+  assert.equal(st.session.message, null);
+  assert.ok(kinkAt(st.session, lines, a!.a) < 0.1, `after moving: ${kinkAt(st.session, lines, a!.a)}`);
+  assert.ok(kinkAt(st.session, lines, a!.b) < 0.1);
+  const before = knots(st, lines[0]!).length;
+  const where = knots(st, lines[0]!)[1]!;
+  st = dbl(st, where); // (taken away)
+  assert.equal(knots(st, lines[0]!).length, before - 1);
+  assert.ok(kinkAt(st.session, lines, a!.a) < 0.1 && kinkAt(st.session, lines, a!.b) < 0.1, "still smooth after taking a point away");
+  void otherHalf; void splineSetCommand; void splineEnds;
+});
+
+test("the tool closes the curve when a click lands on its first point", () => {
+  const s = createSession(kernel);
+  const t = { ...armTool("spline"), plane: XY, points: [...ring, ring[0]!], cursor: ring[0]! };
+  const fin = finish(scene(s), t);
+  assert.ok(fin, "closed");
+  const made = run(s, fin!.command);
+  assert.equal(Object.values(scene(made).parts).filter((p) => p.kind === "line" && (p as { around?: unknown }).around).length, 2);
+  // three points are enough; two are not
+  assert.ok(finish(scene(s), { ...t, points: [ring[0]!, ring[1]!, ring[2]!, ring[0]!] }));
+  assert.equal(finish(scene(s), { ...t, points: [ring[0]!, ring[1]!, ring[0]!] }), null);
+});

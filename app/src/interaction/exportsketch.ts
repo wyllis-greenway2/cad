@@ -2,7 +2,7 @@
 import type { Ref } from "../shared/ref.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Part, Plane, Line } from "../operation/part.ts";
-import { pointOf, localOf, curveMid, splineWorld } from "../operation/part.ts";
+import { pointOf, localOf, curveMid, splineWorld, splineEnds } from "../operation/part.ts";
 import { splinePieces } from "../operation/spline.ts";
 import { bodyOutline, bodyOutlines } from "./offsetbody.ts";
 import { svgText, dxfText, boundsOf } from "../compiler/flatfile.ts";
@@ -34,7 +34,7 @@ function piecesOf(scene: Scene, pl: Plane, part: Part): Piece[] {
   if (part.kind === "line" && part.spline) {
     const w = splineWorld((r: Ref) => scene.parts[r], part);
     if (!w) return [];
-    return splinePieces(w).flatMap((pc): Piece[] => {
+    return splinePieces(w, undefined, splineEnds((r: Ref) => scene.parts[r], part)).flatMap((pc): Piece[] => {
       const [p, q] = [localOf(pl, pc.a), localOf(pl, pc.b)];
       const m = pc.mid ? localOf(pl, pc.mid) : null;
       const circ = m ? circleThrough(p, m, q) : null;

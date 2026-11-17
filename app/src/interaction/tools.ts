@@ -14,6 +14,7 @@ import { live } from "../operation/ownership.ts";
 import type { Command } from "../operation/commands.ts";
 import { drawSquaredRectangle, drawCircle, drawChain, drawArc, drawSpline, joinedAtCorners } from "../operation/build.ts";
 import { distinctPoints, splinePoints } from "../operation/spline.ts";
+import { drawClosedSpline } from "../operation/splinering.ts";
 import type { CamKind, CamSpec } from "../operation/cams.ts";
 import { camShapes } from "../operation/cams.ts";
 import { drawCam } from "../operation/camdraw.ts";
@@ -552,7 +553,11 @@ export function finish(scene: Scene, t: Tool): Finished | null {
   }
   if (t.kind === "spline") {
     const through = distinctPoints(t.points);
-    if (through.length < 3 || dist(through[0]!, through[through.length - 1]!) < 1e-6) return null; // (two points are a line; a curve that comes back to its start is not made yet)
+    if (t.points.length > 3 && dist(t.points[0]!, t.points[t.points.length - 1]!) < 1e-6) { // the last point is the first again: a closed curve (`dec_spline_and_cams`)
+      const closed = drawClosedSpline(scene, pl.ref, through, normalOfPlane(pl));
+      return closed.ok ? { command: joinedAtCorners(scene, pl.ref, closed.value.command), select: closed.value.select } : null;
+    }
+    if (through.length < 3 || dist(through[0]!, through[through.length - 1]!) < 1e-6) return null; // (two points are a line)
     const d = drawSpline(scene, pl.ref, through, normalOfPlane(pl));
     return d ? { command: joinedAtCorners(scene, pl.ref, d.command), select: [d.line] } : null;
   }

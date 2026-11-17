@@ -418,6 +418,9 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
     return dist(at, t.points[0]!) < 1e-6 ? base : { ...base, tool: { ...t, points: [...t.points, at], cursor: at, typed: ["", ""], ends: [...(t.ends ?? []), hint?.hints ?? []] } };
   }
   if (t.kind === "spline") { // a spline: each click places a point of it; a click on the last point again, a double click, or Enter makes it (`dec_spline_and_cams`)
+    const pr0 = projector(base.cam, env.w, env.h);
+    const [fx, fy] = pr0.project(t.points[0]!);
+    if (t.points.length >= 3 && Math.hypot(fx - i.x, fy - i.y) <= settings.pick.pointPx) return commitFigure(base, finish(sc, { ...t, points: [...t.points, t.points[0]!] })); // (a click on the first point closes the curve)
     if (dist(at, t.points[t.points.length - 1]!) < 1e-6 || i.count >= 2) return commitFigure(base, finish(sc, t));
     return { ...base, tool: { ...t, points: [...t.points, at], cursor: at, typed: ["", ""] } };
   }

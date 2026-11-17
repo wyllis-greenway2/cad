@@ -32,6 +32,7 @@ import type { Gizmo } from "../gizmo.ts";
 import { candidatesAt } from "../picking.ts";
 import { projector, basis, viewAxes, nearTolMm } from "../camera.ts";
 import { lookup } from "../../operation/scene.ts";
+import { splineSetCommand } from "../../operation/splinering.ts";
 import { pointOf, splineWorld, splineStored, normalOfPlane } from "../../operation/part.ts";
 import { doOrbit } from "./viewing.ts";
 import { finishBox } from "./box.ts";
@@ -302,7 +303,7 @@ function moveKnot(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env):
   if (!w || !at) return s;
   const stored = splineStored(w.map((q, k) => (k === d.knot.index + 1 ? at : q)), normalOfPlane(pl));
   if (!stored) return s;
-  const next = run(d.base, { type: "setSpline", ref: d.knot.line, spline: stored });
+  const next = run(d.base, splineSetCommand(sc, d.knot.line, stored));
   return next.message ? s : { ...s, session: { ...next, click: d.base.click } };
 }
 
