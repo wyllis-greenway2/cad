@@ -51,7 +51,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:spline", label: "Spline", icon: "spline", tool: "spline" },
   { id: "tool:eccentric", label: "Eccentric cam", icon: "cam", tool: "cam" },
   { id: "tool:snail", label: "Snail cam", icon: "cam", tool: "cam" },
-  { id: "tool:disc:cycloidal", label: "Cycloidal (smoothest)", icon: "cam", tool: "cam" },
+  { id: "tool:disc:cycloidal", label: "Cycloidal", icon: "cam", tool: "cam" },
   { id: "tool:disc:harmonic", label: "Harmonic", icon: "cam", tool: "cam" },
   { id: "tool:disc:parabolic", label: "Parabolic", icon: "cam", tool: "cam" },
   { id: "tool:trim", label: "Trim", icon: "scissors", tool: "trim" },
