@@ -688,16 +688,19 @@ const OPS = {
       };
       const sk0 = sketch(profile);
       const ends0 = ctx.roleFigs && !ctx.roleFigs.has(profile) ? edgeEnds(sk0) : null; // (the sketch is used up by the extrusion: its edges are read first)
-      let solid = sk0.extrude(d + dir * back);
+      // a slanted extrusion (`op.slant`, `in_758`): sideways by this much for each mm of depth, in the sketch's own x and y (a helical rack: its section slid along the rack)
+      const lean = op.slant && (op.slant[0] || op.slant[1]) ? { extrusionDirection: [op.slant[0], op.slant[1], 1] } : undefined;
+      const reach = lean ? Math.hypot(op.slant[0], op.slant[1], 1) : 1;
+      let solid = lean ? sk0.extrude((d + dir * back) * reach, lean) : sk0.extrude(d + dir * back);
       if (ctx.roleFigs && !ctx.roleFigs.has(profile)) ctx.roleFigs.set(profile, safeRoles(ends0, d, ctx.get(profile, "sketch").sides, profile === op.profile)); // (the roles of its faces by the sketch's own edges, worked out from the prism made here: `dec_stable_reference_mechanism`)
-      for (const h of holes ?? []) { const skh = sketch(h); const endsH = ctx.roleFigs && !ctx.roleFigs.has(h) ? edgeEnds(skh) : null; const sh = skh.extrude(d + dir * back); if (endsH) ctx.roleFigs.set(h, safeRoles(endsH, d, ctx.get(h, "sketch").sides, false)); solid = solid.cut(sh); } // figures drawn inside this one are holes in it
+      for (const h of holes ?? []) { const skh = sketch(h); const endsH = ctx.roleFigs && !ctx.roleFigs.has(h) ? edgeEnds(skh) : null; const sh = lean ? skh.extrude((d + dir * back) * reach, lean) : skh.extrude(d + dir * back); if (endsH) ctx.roleFigs.set(h, safeRoles(endsH, d, ctx.get(h, "sketch").sides, false)); solid = solid.cut(sh); } // figures drawn inside this one are holes in it
       return solid;
     };
     const toolOf = (back) => {
       // the body's own solid, kept under a key that is its sketches' and its depth, not the steps before it: a change to an earlier step (another gear) leaves this body the very same solid, so everything that is kept for a solid
       // (its validity, its mesh, the details of its faces) is found again, and it is not built again (`dec_per_body_checks`). The roles of its faces by its sketches' own edges are kept with it.
       const ids = [op.profile, ...(op.holes ?? []), ...(op.also ?? []).flatMap((f) => [f.profile, ...(f.holes ?? [])])];
-      const ownKey = ids.every((i) => ctx.keyOf?.(i)) ? fingerprint(JSON.stringify(["prism", back, dist, ctx.params, op.profile, op.holes ?? [], op.also ?? [], ids.map((i) => ctx.keyOf(i))])) : null;
+      const ownKey = ids.every((i) => ctx.keyOf?.(i)) ? fingerprint(JSON.stringify(["prism", back, dist, op.slant ?? null, ctx.params, op.profile, op.holes ?? [], op.also ?? [], ids.map((i) => ctx.keyOf(i))])) : null;
       const kept = ownKey ? prisms.get(ownKey) : null;
       if (kept && (!ctx.roleFigs || kept.roles)) {
         prisms.delete(ownKey); prisms.set(ownKey, kept);

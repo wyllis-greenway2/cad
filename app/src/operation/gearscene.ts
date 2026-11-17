@@ -9,7 +9,7 @@ import { ok, err } from "../shared/result.ts";
 import type { Scene, Step } from "./scene.ts";
 import { nextId, bumpCounter } from "./scene.ts";
 import type { Part } from "./part.ts";
-import { gearOutline, helixTwist, hasBody } from "./gear.ts";
+import { gearOutline, helixTwist, helixShear, hasBody } from "./gear.ts";
 import { boreLoop } from "./bore.ts";
 import type { GearSpec, GearOutline } from "./gear.ts";
 import { wormRefs, wormParts, wormSteps, wheelRefs, wheelParts, wheelSteps } from "./wormscene.ts";
@@ -120,6 +120,11 @@ function bodyParams(s: Scene, rec: GearRecord): { step: Omit<Step, "id"> } | nul
   const plane = s.parts[rec.plane];
   if (!hasBody(rec.spec) || !plane || plane.kind !== "plane") return null;
   const fig = bodyFigure(rec);
+  const shear = helixShear(rec.spec);
+  if (shear !== null) { // a helical rack (`in_758`): its section carried through the thickness, slid along the rack by tan(helix) for each mm (the rack's own x is the plane's first direction turned by the record's turn)
+    const [c, sn] = [Math.cos(rec.turn ?? 0), Math.sin(rec.turn ?? 0)];
+    return { step: { type: "extrude", parts: fig.parts, params: { depth: rec.spec.width!, slantx: shear * c, slanty: shear * sn, ...(fig.holes ? { holes: fig.holes } : {}), mode: "new", gear: rec.id } } };
+  }
   const turn = helixTwist(rec.spec);
   if (turn === null) return rec.spec.width ? { step: { type: "extrude", parts: fig.parts, params: { depth: rec.spec.width, ...(fig.holes ? { holes: fig.holes } : {}), mode: "new", gear: rec.id } } } : null; // (a thickness and no helix: a straight extrusion)
   const [u, v] = [plane.u, plane.v];

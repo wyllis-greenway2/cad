@@ -3376,3 +3376,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_757 — 2026-11-17 — approval
 > Yes, shorten it to Bevel gear
 (approves shortening the menu label "Bevel gear (approx.)" to "Bevel gear", so the menu tooltip test passes)
+
+## in_758 — 2026-11-17 — approval
+> Yes, build the helical rack and the wheel land
+(approves building the helical rack (with the Helix field on a rack and meshing it with a helical gear) and the straight land at each face of the worm wheel, two of the four options of `q_gear_finishing`; the tooth chamfer and the spline flank are not answered)

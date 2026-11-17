@@ -157,7 +157,7 @@ test("the Worm and Worm wheel tools: in the Worm submenu of the Gear submenu; a 
   let bad = open("tool:worm"); bad = typeText(bad, "9"); bad = key(bad, "Enter");
   assert.match(bad.session.message ?? "", /1 to 4 starts/);
   const w = open("tool:wormwheel");
-  assert.deepEqual(entryOf(scene(w.session), w.tool, w.op)!.fields.map((f) => f.label), ["Teeth", "Starts", "Module", "Pressure", "Worm diameter", "Width", "Bore", "Flat", "Key", "Key depth"]);
+  assert.deepEqual(entryOf(scene(w.session), w.tool, w.op)!.fields.map((f) => f.label), ["Teeth", "Starts", "Module", "Pressure", "Worm diameter", "Width", "Land", "Bore", "Flat", "Key", "Key depth"]);
 });
 
 test("Mesh gear on a worm makes its wheel: Teeth, Offset, Width and Bore are its fields; the pointer says which side of the worm; one undo takes the wheel away", () => {
@@ -168,7 +168,7 @@ test("Mesh gear on a worm makes its wheel: Teeth, Offset, Width and Bore are its
   let m: AppState = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [body.ref] as never } } } as AppState;
   m = reduce(m, { type: "runAction", id: "gear:mesh" }, env);
   assert.ok(m.tool?.gear?.mesh, "the mesh tool is open");
-  assert.deepEqual(entryOf(scene(m.session), m.tool, m.op)!.fields.map((f) => f.label), ["Teeth", "Offset", "Width", "Bore", "Flat", "Key", "Key depth"]);
+  assert.deepEqual(entryOf(scene(m.session), m.tool, m.op)!.fields.map((f) => f.label), ["Teeth", "Offset", "Width", "Land", "Bore", "Flat", "Key", "Key depth"]);
 });
 
 test("a worm and a wheel have a D flat or a keyway bore as any gear does (`in_693`): the worm's is cut along its axis, the wheel's is a hole in each section; the flat takes less out than the round bore and the keyway more", () => {
@@ -217,4 +217,18 @@ test("a worm for a worm wheel (`in_697`): placed by the helper on either side of
   assert.match((meshWith(src, [1, 0, 0], [0, 1, 0], { teeth: 2 }, 0) as { error: string }).error, /start/);
   assert.ok(!meshWith(src, [1, 0, 0], [0, 1, 0], { teeth: 1, rack: true }, 0).ok);
   assert.ok(!meshWith(src, [1, 0, 0], [0, 1, 0], { teeth: 1, ring: true }, 0).ok);
+});
+
+test("a worm wheel's land (`in_758`): a straight land at each face makes it width + 2 land thick and heavier, the wheel has one body, and Mesh gear gives it a module of land that does not touch the worm", () => {
+  const withLand = (land: number | undefined) => run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: { ...wheelSpec, wheel: { ...wheelSpec.wheel!, ...(land !== undefined ? { land } : {}) } } });
+  const [none, land] = [withLand(undefined), withLand(2)];
+  assert.deepEqual(scene(land).steps.map((st) => st.type), ["loft", "extrude", "extrude"]);
+  assert.equal(bodies(land).length, 1, "one body");
+  const box = (s: Session) => (Object.values(scene(s).parts).find((p) => p.kind === "body") as unknown as { bbox: { min: Vec3; max: Vec3 } }).bbox;
+  const [a, b] = [box(none), box(land)];
+  assert.ok(Math.abs(b.max[2] - b.min[2] - (a.max[2] - a.min[2]) - 4) < 1e-3, `4 mm thicker: ${b.max[2] - b.min[2]} against ${a.max[2] - a.min[2]}`);
+  assert.ok(bodies(land)[0]!.volume > bodies(none)[0]!.volume + 100);
+  assert.equal(wheelOf({ ...wheelSpec, wheel: { ...wheelSpec.wheel!, land: 9 } }).ok, false, "more than 4 modules is refused");
+  const r = meshWith({ id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: worm }, [1, 0, 0], [0, 1, 0], { teeth: 20 }, Math.PI / 2);
+  assert.equal((r as { value: { spec: GearSpec } }).value.spec.wheel!.land, 2, "a module of land by default");
 });

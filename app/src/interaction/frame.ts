@@ -701,7 +701,7 @@ function gearChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
   const worm = !!rec.spec.worm || !!rec.spec.wheel;
   return { at, items: [
     { id: "gear:edit", label: "Edit gear", icon: "gear", enabled: true, why: null },
-    { id: "gear:helix", label: "Helix", icon: "helical", enabled: plain, why: plain ? null : "a helix goes on a plain gear (not yet a rack, pulley, sprocket, clock gear or worm)" },
+    { id: "gear:helix", label: "Helix", icon: "helical", enabled: plain, why: plain ? null : "a helix goes on a plain gear (not yet a pulley, sprocket, clock gear or worm)" },
     { id: "gear:mesh", label: "Mesh gear", icon: "meshgear", enabled: true, why: null },
     { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack", enabled: !worm, why: worm ? "a rack does not mesh with a worm or its wheel" : null },
     { id: "gear:meshring", label: "Mesh ring", icon: "meshring", enabled: !worm, why: worm ? "a ring does not mesh with a worm or its wheel" : null },
