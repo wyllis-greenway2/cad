@@ -101,7 +101,8 @@ const GEARS: Group = {
     { id: "clockgears", label: "Clock", icon: "clockgear", items: ["tool:clock", "tool:clockring", "tool:clockrack"] },
     { id: "pulleys", label: "Pulley", icon: "pulley", items: ["tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8"] },
     { id: "sprockets", label: "Sprocket", icon: "sprocket", items: ["tool:sprocket", "tool:isosprocket"] },
-    "gear:edit", "gear:helix", "gear:mesh", "gear:meshrack", "gear:meshring",
+    "gear:edit", "gear:helix",
+    { id: "meshes", label: "Mesh", icon: "meshgear", items: ["gear:mesh", "gear:meshrack", "gear:meshring"] }, // (the gears that fit the one selected, in a submenu of their own to keep the ring short, `in_695`)
   ],
 };
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [

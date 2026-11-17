@@ -3121,3 +3121,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_694 — 2026-11-17 — directive
 > So a mesh gear appears to not report its bore properly? it seems to show 0 even if it defaults to some other bore value? When I modify a mesh gear inside a ring to be too large to fit, it dissapears. I thought we were going to have guardrails where invalid options flash red instead of failing?
 (reports that a mesh gear's box shows a bore of 0 though it has the default one, and that a mesh gear in a ring made too big disappears instead of the guardrail with the red flash)
+
+## in_695 — 2026-11-17 — directive
+> can we have the pulley icon be more like a smooth circle with a belt coming off it. Can we have a different icon for the helix gear? Maybe just an arrow in a semi screw form? Can we have a different icon for the worm? Maybe more cylinder 3d view. Maybe we should have a mesh gear menu with the sub mesh types available in order to keep the menu smaller.Can we have a new icon for the clock gear, maybe half clock half gear.
+(asks for new icons: a pulley as a smooth wheel with a belt, helix as an arrow in a half screw, worm as a 3D cylinder, clock gear as half clock half gear; and a Mesh submenu holding the mesh gear, rack and ring items)
