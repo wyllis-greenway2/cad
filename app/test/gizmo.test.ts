@@ -2340,3 +2340,22 @@ test("the mover's arrow, with its axes turned, moves the mover along the arrow a
   near(g[1] - centre0[1], 10, 0.6);
   near(g[0] - centre0[0], 0, 1e-6);
 });
+
+test("an edge behind a face the cross section cuts away is there to point at: the inside of an opened body (`in_688`)", () => {
+  const st = box();
+  const lines = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "body") as unknown as { ref: string; a: string; b: string }[];
+  const corner = (r: string) => (scene(st.session).parts[r] as unknown as { at: Vec3 }).at;
+  const found = (l: { ref: string; a: string; b: string }, opts: object) => { const m = scale(add(corner(l.a), corner(l.b)), 0.5); const [x, y] = px(st, m); return candidatesAt(scene(st.session), projector(st.cam, env.w, env.h).view(x, y), { pointTol: 3, lineTol: 3, ...opts }).some((c) => c.ref === l.ref); };
+  const hidden = lines.filter((l) => !found(l, {}));
+  assert.ok(hidden.length > 0, "some edges are behind a face");
+  let opened = 0;
+  for (const l of hidden) {
+    for (const n of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] as Vec3[]) {
+      const c = { at: [20, 10, 10] as Vec3, n };
+      const ends = [corner(l.a), corner(l.b)].map((q) => dot(sub(q, c.at), n) > 1e-3);
+      if (ends[0] || ends[1]) continue; // (the edge itself must be kept)
+      if (found(l, { clips: [c] })) { opened++; break; }
+    }
+  }
+  assert.ok(opened > 0, "with the near wall cut away, an inside edge can be picked");
+});
