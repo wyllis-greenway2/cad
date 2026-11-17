@@ -3544,3 +3544,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_799 — 2026-11-17 — directive
 > Go with your recommendation, build all three layouts
 (asks for all three Geneva layouts to be built: the apart sketch (as now), an assembled sketch view, and a pre-assembled 3D model of three bodies in place)
+
+## in_800 — 2026-11-17 — directive
+> Okay I actually wanted to talk about this in general. Can we make it so that things in the app can move in general? So a gear could drive other gears or attached parts? cam shaft could drive a piston etc. And how could we make this work generally?
+(asks whether things in the app can move in general, a gear driving other gears or attached parts, a camshaft driving a piston, and how that could work in general; a discussion, not yet a build)
