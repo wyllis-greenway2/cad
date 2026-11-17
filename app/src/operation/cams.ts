@@ -27,6 +27,8 @@ export interface CamSpec {
   teeth?: number; depth?: number; hook?: number; pawl?: number; width?: number;
   /** a Geneva drive (`kind: "geneva"`, `dec_geneva`): `teeth` is the slot count; the crank's pin circle radius, the pin's diameter and the clearance each side of the pin in a slot (mm) */
   crank?: number; pin?: number; clearance?: number;
+  /** a Geneva drive: the locking disc's radius, mm (absent: worked out; 0: no locking disc, the wheel's rim plain round) */
+  lock?: number;
   /** the whole drawing turned about the shaft, degrees counter-clockwise from +x (0 if absent) */
   turn?: number;
 }
@@ -38,6 +40,8 @@ export interface CamShapes {
   spiral: V2[] | null;
   /** a disc cam's outline: points of a closed curve round the shaft, counter-clockwise */
   closed: V2[] | null;
+  /** more closed splines (a Geneva drive's locking disc): the points of each, counter-clockwise */
+  rings?: V2[][];
   /** closed outlines of straight sides and arcs (a ratchet's wheel and pawl): the corners, and the bulge of the side from each to the next (`Line.bulge`) */
   polys?: { points: V2[]; bulges: number[] }[];
 }
@@ -45,7 +49,7 @@ const SPIRAL_POINTS = 25;
 export function camProblem(s: CamSpec): string | null {
   if (s.kind !== "geneva" && !(s.diameter > 0)) return "the cam needs a diameter";
   if (s.kind !== "ratchet" && s.kind !== "geneva" && !(s.lift > 0)) return s.kind === "eccentric" ? "the cam needs an offset (how far the shaft is from the middle of the disc)" : "the cam needs a lift (how far it rises over one turn)";
-  if (s.hole < 0) return "the shaft's hole cannot be less than nothing";
+  if (s.hole < 0 && s.kind !== "geneva") return "the shaft's hole cannot be less than nothing"; // (a Geneva drive's hole left empty is worked out)
   const r = s.diameter / 2;
   if (s.kind === "eccentric" && s.hole / 2 + s.lift >= r - 1e-9) return "the shaft's hole would break through the edge of the disc: make the offset or the hole smaller, or the disc bigger";
   if (s.kind === "disc") {
@@ -57,12 +61,20 @@ export function camProblem(s: CamSpec): string | null {
   if (s.kind === "snail" && s.hole / 2 >= r - 1e-9) return "the shaft's hole is as wide as the cam's base circle: make the hole smaller";
   return null;
 }
+/** the shapes of a cam, kept for the numbers they were made from (the Geneva drive's take a moment to work out, and the scene asks for them each time it is derived) */
+const shapeCache = new Map<string, Result<CamShapes>>();
 export function camShapes(s: CamSpec): Result<CamShapes> {
+  const key = JSON.stringify(s);
+  let r = shapeCache.get(key);
+  if (!r) { r = shapesOfSpec(s); if (shapeCache.size > 64) shapeCache.clear(); shapeCache.set(key, r); }
+  return r;
+}
+function shapesOfSpec(s: CamSpec): Result<CamShapes> {
   const why = camProblem(s);
   if (why) return err(why);
   const r = s.diameter / 2;
   const hole: CamShapes["circles"] = s.hole > 0 ? [{ c: [0, 0], r: s.hole / 2, hole: true }] : [];
-  if (s.kind === "geneva") { const g = genevaShapes(s); return g.ok ? ok({ circles: g.value.circles, spiral: null, closed: null, polys: g.value.polys }) : err(g.error); }
+  if (s.kind === "geneva") { const g = genevaShapes(s); return g.ok ? ok({ circles: g.value.circles, spiral: null, closed: null, polys: g.value.polys, ...(g.value.rings.length ? { rings: g.value.rings } : {}) }) : err(g.error); }
   if (s.kind === "ratchet") { const r = ratchetShapes(s); return r.ok ? ok({ circles: r.value.circles, spiral: null, closed: null, polys: r.value.polys }) : err(r.error); }
   if (s.kind === "disc") return discShapes(s, hole);
   if (s.kind === "eccentric") return ok({ circles: [{ c: [s.lift, 0], r }, ...hole], spiral: null, closed: null });
@@ -100,6 +112,27 @@ function outline(s: CamSpec, t: number): V2 {
   const l = Math.hypot(tx, ty) || 1;
   return [p[0] - (ty / l) * rho, p[1] + (tx / l) * rho]; // (the normal outward of a counter-clockwise curve is the tangent turned a quarter turn clockwise; the profile is inside the pitch curve)
 }
+/**
+ * The points of a closed outline that is a function of the angle `outline(t)` (t from 0 to 2 pi), chosen so that the spline through them (`spline.ts`, closed: `splinering.ts`) stays within `tol` of the outline: knots at the given
+ * angles (`marks`, from 0 to 2 pi), some between them at most 30 degrees apart, and more wherever the curve through them strays; `dense` is the outline as a dense polyline, to measure against.
+ */
+export function fitKnots(outline: (t: number) => V2, marks: readonly number[], tol: number, dense: readonly V2[]): V2[] {
+  const d = Math.PI / 180;
+  let knots: number[] = [];
+  marks.slice(0, -1).forEach((m, i) => { const next = marks[i + 1]!; const n = Math.max(2, Math.ceil((next - m) / (30 * d))); for (let k = 0; k < n; k++) knots.push(m + ((next - m) * k) / n); });
+  for (let pass = 0; pass < 6 && knots.length < 240; pass++) {
+    const ring = knots.map((t) => outline(t));
+    const bad: number[] = [];
+    knots.forEach((t, i) => {
+      const t2 = i + 1 < knots.length ? knots[i + 1]! : 2 * Math.PI;
+      const [p0, p1, p2, p3] = [ring[(i + ring.length - 1) % ring.length]!, ring[i]!, ring[(i + 1) % ring.length]!, ring[(i + 2) % ring.length]!];
+      if (offOutline(middleOf(p0, p1, p2, p3), dense) > tol) bad.push((t + t2) / 2);
+    });
+    if (!bad.length) break;
+    knots = [...knots, ...bad].sort((a, b) => a - b);
+  }
+  return knots.map((t) => outline(t));
+}
 /** how far a point is from the closed outline given as a dense polyline */
 function offOutline(q: V2, poly: readonly V2[]): number {
   let best = Infinity;
@@ -130,22 +163,8 @@ function discShapes(s: CamSpec, hole: CamShapes["circles"]): Result<CamShapes> {
   // the knots: the ends of the rise, the dwell and the return, some between, and more wherever the curve through them strays from the true outline
   const d = Math.PI / 180;
   const marks = [0, s.rise! * d, (s.rise! + (s.dwell ?? 0)) * d, (s.rise! + (s.dwell ?? 0) + s.ret!) * d, 2 * Math.PI].filter((m, i, all) => i === 0 || m > all[i - 1]! + 1e-9);
-  let knots: number[] = [];
-  marks.slice(0, -1).forEach((m, i) => { const next = marks[i + 1]!; const n = Math.max(2, Math.ceil((next - m) / (30 * d))); for (let k = 0; k < n; k++) knots.push(m + ((next - m) * k) / n); });
-  const tol = Math.max(0.02, (s.diameter / 2) * 1e-3);
-  for (let pass = 0; pass < 6 && knots.length < 240; pass++) {
-    const ring = knots.map((t) => outline(s, t));
-    const bad: number[] = [];
-    knots.forEach((t, i) => {
-      const t2 = i + 1 < knots.length ? knots[i + 1]! : 2 * Math.PI;
-      const [p0, p1, p2, p3] = [ring[(i + ring.length - 1) % ring.length]!, ring[i]!, ring[(i + 1) % ring.length]!, ring[(i + 2) % ring.length]!];
-      const q = middleOf(p0, p1, p2, p3);
-      if (offOutline(q, dense) > tol) bad.push((t + t2) / 2);
-    });
-    if (!bad.length) break;
-    knots = [...knots, ...bad].sort((a, b) => a - b);
-  }
-  return ok({ circles: hole, spiral: null, closed: knots.map((t) => outline(s, t)) });
+  const ring = fitKnots((t) => outline(s, t), marks, Math.max(0.02, (s.diameter / 2) * 1e-3), dense);
+  return ok({ circles: hole, spiral: null, closed: ring });
 }
 /** the middle of the span from p1 to p2 of the spline through the four points, as the drawing makes it (`spline.ts`): how closely the knots follow the outline */
 const middleOf = (p0: V2, p1: V2, p2: V2, p3: V2): V2 => { const q = splineAt([p0, p1, p2, p3].map((p) => [p[0], p[1], 0] as Vec3), 1.5); return [q[0], q[1]]; };

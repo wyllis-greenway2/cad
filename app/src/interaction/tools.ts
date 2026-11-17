@@ -69,7 +69,7 @@ export interface Tool {
 }
 export interface CamState { kind: CamKind; typed: string[]; field: number; /** a disc cam: the law of its follower's motion */ law?: CamLaw; /** its numbers are being changed: the record (`gearscene.ts`) of the cam */ editing?: string }
 /** the numbers of each cam, in the order the box shows them (the rise, dwell and return are degrees) */
-export const CAM_FIELDS: Record<CamKind, string[]> = { eccentric: ["Diameter", "Offset", "Hole"], snail: ["Diameter", "Lift", "Hole"], disc: ["Diameter", "Lift", "Rise", "Dwell", "Return", "Hole", "Roller"], ratchet: ["Teeth", "Diameter", "Depth", "Hook", "Hole", "Pawl", "Width", "Angle"], geneva: ["Slots", "Crank", "Pin", "Clearance", "Hole"] };
+export const CAM_FIELDS: Record<CamKind, string[]> = { eccentric: ["Diameter", "Offset", "Hole"], snail: ["Diameter", "Lift", "Hole"], disc: ["Diameter", "Lift", "Rise", "Dwell", "Return", "Hole", "Roller"], ratchet: ["Teeth", "Diameter", "Depth", "Hook", "Hole", "Pawl", "Width", "Angle"], geneva: ["Slots", "Crank", "Pin", "Clearance", "Hole", "Lock"] };
 /** A tool armed to draw a cam: the first click is the shaft, the pointer's distance from it sets the diameter, and numbers can be typed for the rest. */
 export const armCam = (kind: CamKind, law?: CamLaw): Tool => ({ ...armTool("cam"), cam: { kind, typed: CAM_FIELDS[kind].map(() => ""), field: 0, ...(law ? { law } : {}) } });
 export function camTyped(t: Tool, field: number, text: string): Tool { const c = t.cam!; return { ...t, cam: { ...c, field, typed: c.typed.map((x, i) => (i === field ? text : x)) } }; }
@@ -83,7 +83,7 @@ export function camSpecOf(t: Tool): CamSpec | null {
   const diameter = typed(0) ?? (t.cursor ? 2 * dist(at, t.cursor) : 0);
   if (c.kind === "geneva") {
     const crank = typed(1) ?? (t.cursor ? dist(at, t.cursor) : 0);
-    return { kind: "geneva", teeth: Math.round(degrees(0) ?? 4), diameter: 2 * crank, crank, pin: typed(2) ?? crank / 4, clearance: typed(3) ?? 0.3, hole: typed(4) ?? 0.25 * crank, lift: 0 };
+    return { kind: "geneva", teeth: Math.round(degrees(0) ?? 4), diameter: 2 * crank, crank, pin: typed(2) ?? crank / 4, clearance: typed(3) ?? 0.3, hole: typed(4) ?? -1, ...(typed(5) !== null ? { lock: typed(5)! } : {}), lift: 0 }; // (a hole left empty is worked out from the room there is, `genevaShapes`)
   }
   if (c.kind === "ratchet") {
     const teeth = Math.round(degrees(0) ?? 20);
@@ -139,7 +139,7 @@ export function editCamTool(rec: { id: string; plane: Ref; at: Vec3; spec: GearS
   const c = rec.spec.cam!;
   const len = (n: number | undefined): string => (n === undefined ? "" : lengthText(n));
   const num = (n: number | undefined): string => (n === undefined ? "" : String(Math.round(n * 1e6) / 1e6));
-  const typed = c.kind === "geneva" ? [num(c.teeth), len(c.crank), len(c.pin), len(c.clearance), len(c.hole)] : c.kind === "ratchet" ? [num(c.teeth), len(c.diameter), len(c.depth), num(c.hook ?? 0), len(c.hole), len(c.pawl), len(c.width), num(Math.round((((rec.turn ?? 0) * 180) / Math.PI) * 1e6) / 1e6)]
+  const typed = c.kind === "geneva" ? [num(c.teeth), len(c.crank), len(c.pin), len(c.clearance), c.hole >= 0 ? len(c.hole) : "", c.lock === undefined ? "" : len(c.lock)] : c.kind === "ratchet" ? [num(c.teeth), len(c.diameter), len(c.depth), num(c.hook ?? 0), len(c.hole), len(c.pawl), len(c.width), num(Math.round((((rec.turn ?? 0) * 180) / Math.PI) * 1e6) / 1e6)]
     : c.kind === "disc" ? [len(c.diameter), len(c.lift), num(c.rise), num(c.dwell), num(c.ret), len(c.hole), len(c.roller ?? 0)]
     : [len(c.diameter), len(c.lift), len(c.hole)];
   return { ...armCam(c.kind, c.law), plane: rec.plane, points: [rec.at], cursor: rec.at, cam: { kind: c.kind, typed, field: 0, ...(c.law ? { law: c.law } : {}), editing: rec.id } };

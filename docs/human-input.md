@@ -3149,3 +3149,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_701 — 2026-11-17 — directive
 > Go with your recommendation, start on the Geneva drive
 (asks for the Geneva drive to be started, the next shape after the ratchet)
+
+## in_702 — 2026-11-17 — directive
+> Go with your recommendation, build the locking disc
+(asks for the Geneva drive's locking disc to be built: the wheel's locking arcs and the driver's notched disc that keeps the wheel from turning between engagements)
