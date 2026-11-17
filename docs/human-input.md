@@ -3488,3 +3488,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_785 — 2026-11-17 — directive
 > wait until its surfaces can be derived from those papers. Lets build it right
 (decides: no approximate spiral bevel gear; wait until its tooth surfaces can be derived from the NASA papers and the other sources, and build it correctly)
+
+## in_786 — 2026-11-17 — directive
+> what is the mating point design?
+(asks what the mating point design is)
+
+## in_787 — 2026-11-17 — approval
+> Yes, draft it with those defaults
+(asks for the insert fastener proposal to be drafted as a provisional entry, with the defaults of an automatic length, standing mates and the screw alone)
