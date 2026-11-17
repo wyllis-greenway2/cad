@@ -1,4 +1,4 @@
-// The stand-in for a gear's body that the kernel has not made yet (`dec_gear_standin`, `in_695`): which steps get a disc, and its size and place.
+// The stand-in for a gear's body that the kernel has not made yet (`dec_gear_standin`, `in_707`): which steps get a disc, and its size and place.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

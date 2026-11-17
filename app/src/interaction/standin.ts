@@ -1,4 +1,4 @@
-// The stand-in for a gear's body that is still being made (`dec_gear_standin`, `in_690`, `in_695`): a plain disc (a ring, with a bore or for an internal gear) at the gear's outside diameter, worked out from the gear's record and the step, with no kernel.
+// The stand-in for a gear's body that is still being made (`dec_gear_standin`, `in_702`, `in_707`): a plain disc (a ring, with a bore or for an internal gear) at the gear's outside diameter, worked out from the gear's record and the step, with no kernel.
 // Pure: a scene and what the kernel has answered so far in, the discs to draw out.
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene, Step } from "../operation/scene.ts";

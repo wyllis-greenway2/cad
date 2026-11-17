@@ -3,7 +3,7 @@ id: dec_gear_standin
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_690, in_695
+human_input: in_702, in_707
 date: 2026-11-17
 depends_on:
   - dec_gear_speed: the measured cost of a heavy gear's body that this hides while it is made; a change to how fast the body is made changes how often the stand-in shows
@@ -12,7 +12,7 @@ depends_on:
 ---
 # A gear's body that is still being made is drawn as a plain disc
 
-**Asked (`in_690`, approved `in_695`):** gears (and so much else) take a long time to come out of the kernel; while that is so, draw each gear's body as a plain disc, and settle to the real gear when it arrives.
+**Asked (`in_702`, approved `in_707`):** gears (and so much else) take a long time to come out of the kernel; while that is so, draw each gear's body as a plain disc, and settle to the real gear when it arrives.
 
 **The rules**
 1. **When.** The kernel is working (`outcome.kernel.stale`) and the step that makes a gear's body (an extrude or a twist of the gear's outline, a worm wheel's loft) is not in the answer that is being shown (the step is new; nothing of it has been drawn yet). It is drawn once the wait has lasted 250 ms, so a gear that comes at once is never preceded by a flash. A gear whose body is already drawn is **not** replaced: an edit that waits for the kernel keeps showing the old gear, as it does now.

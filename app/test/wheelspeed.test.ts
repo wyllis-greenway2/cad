@@ -1,4 +1,4 @@
-// The worm wheel's speed changes (`dec_gear_speed`, `in_694`): the sections are worked out quickly and to the same shape, the smooth loft through them is no longer refused by the validity check, and the faces of a loft are named without the exact box of each.
+// The worm wheel's speed changes (`dec_gear_speed`, `in_706`): the sections are worked out quickly and to the same shape, the smooth loft through them is no longer refused by the validity check, and the faces of a loft are named without the exact box of each.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { makeSphere } from "replicad";
