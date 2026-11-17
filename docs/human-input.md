@@ -3182,3 +3182,27 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_709 — 2026-11-17 — directive
 > yes build the suggested snap click. Worm A, Clock A, none of the pulley icons, lets try pully with spokes and a shorter belt ends. Lets do GT2 GT3 5M and 8M only in icons with no pully symbol for the sub pulley types.
 (approves building the suggested snap click; chooses worm option A and clock option A; rejects the pulley options and asks for a pulley with spokes and shorter belt ends; asks that the pulley types' icons be only GT2, GT3, 5M and 8M, with no pulley symbol)
+
+## in_710 — 2026-11-17 — directive
+> Okay lets not build all of this now. Lets build only a few specific parts. So first off, what did we decide? that it would be much better to create things on the fly instead of store then? like for fasteners for example?
+(asks what was decided about the parts library, and whether standard parts like fasteners are generated on the fly rather than stored; says to build only a few specific parts for now, not all of it)
+
+## in_711 — 2026-11-17 — directive
+> How can we offer an interface that produces all standard parts as an output? and how do we know or handle situations where nominal is actually slightly different then the listed or standardized part feature listed size
+(asks how one interface could produce all standard parts, and how to handle a real part whose size differs slightly from the listed nominal)
+
+## in_712 — 2026-11-17 — approval
+> Yes, draft those two entries
+(asks for the add-part interface and the tolerance and fit proposals to be drafted as two entries)
+
+## in_713 — 2026-11-17 — approval
+> Yes, accept both
+(approves dec_parts_interface and dec_parts_tolerance)
+
+## in_714 — 2026-11-17 — directive
+> Okay so what is a simple subset of things we can build first? we would need really good data for it. Also I was thinking it would be smart to build a fastener set that has a matching receiver set. So that would be a pilot hole size for threads or the countersink size and amount for heads, the oversize size for drilling for slip movement on the shoulder or shank part, etc. Is this standardized? and how much more complicated does this make it? I believe this also now depends on the material type? For example the pilot hole for tapping or threading depends on the material it is being drilled into?
+(asks for a simple first subset with good data; proposes a fastener set with a matching receiver set (pilot hole for threads, countersink size and depth for heads, oversize clearance for the shank); asks whether this is standardized, how much more complex it makes the work, and whether it depends on the material, for example the pilot hole for tapping)
+
+## in_715 — 2026-11-17 — approval
+> Yes, draft that entry and find sources
+(asks for the first fastener and receiver subset to be drafted as one provisional entry, and for sources of its data to be found)
