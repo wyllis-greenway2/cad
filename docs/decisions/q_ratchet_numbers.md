@@ -3,7 +3,7 @@ id: q_ratchet_numbers
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_767
+human_input: in_781, in_769, in_767
 date: 2026-11-17
 depends_on:
 alternative_to:
@@ -11,6 +11,8 @@ alternative_to:
 # Where do the ratchet's default numbers come from, and are they right?
 
 `dec_ratchet` builds a ratchet wheel and pawl from conventions remembered, not read in a source this session: the tooth depth (0.4 of the circular pitch), the face's hook (0 to 30 degrees, none by default), the pawl's pivot on the tangent at the contact, the contact over part of the face, the pawl's arm (0.7 of the diameter) and width. They are defaults a person can change, not standards (there is none for a ratchet tooth). Open: whether to find sources (Machinery's Handbook, a ratchet maker's catalogue) and write them in, as the pulleys' numbers were (`q_timing_pulleys`), and what defaults a printed part wants (a deeper tooth, a hooked face, a thicker pawl). Not decided; the human has not answered.
+
+**Decided for now (`in_781`): leave the numbers as they are.** The defaults stay conventions a person can change; nothing more is built on them until a source is read. This entry stays open for the two things still unchecked: the sources (the Handbook's page), and whether the pawl's tangent construction meets the Handbook's pivot rule for a hooked face.
 
 ## Sourcing attempt (`in_769`)
 

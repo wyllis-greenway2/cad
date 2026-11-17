@@ -3468,3 +3468,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_780 — 2026-11-17 — approval
 > Yes, run the suite and the browser check
 (asks for the full test suite and a browser check of picking a face and corners for the fastener hole to be run)
+
+## in_781 — 2026-11-17 — directive
+> Go with your recommendation, leave the ratchet numbers as they are
+(asks for the ratchet's default numbers to be left as they are; they stay conventions, not sourced numbers)
+
+## in_782 — 2026-11-17 — directive
+> Go with your recommendation, start on the Geneva drive
+(asks for the Geneva drive to be started, the next shape after the ratchet)
