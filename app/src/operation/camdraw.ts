@@ -18,7 +18,8 @@ export function drawCam(scene: Scene, pl: Plane, at: Vec3, spec: CamSpec, turn =
   const shapes = camShapes(spec);
   if (!shapes.ok) return err(shapes.error);
   const [ox, oy] = localOf(pl, at);
-  const [c, s] = [Math.cos(turn), Math.sin(turn)];
+  const total = turn + ((spec.turn ?? 0) * Math.PI) / 180;
+  const [c, s] = [Math.cos(total), Math.sin(total)];
   const place = (q: readonly [number, number]): Vec3 => liftOf(pl, [ox + q[0] * c - q[1] * s, oy + q[0] * s + q[1] * c]);
   const commands: Command[] = [];
   const select: Ref[] = [];
@@ -37,6 +38,11 @@ export function drawCam(scene: Scene, pl: Plane, at: Vec3, spec: CamSpec, turn =
     const closing = drawChain(cur, pl.ref, [pts[pts.length - 1]!, pts[0]!], false, { reuse: true });
     take(closing.command);
     select.push(loopFaceRef([sp.line, ...closing.lines]));
+  }
+  for (const poly of shapes.value.polys ?? []) { // a closed outline of straight sides and arcs (a ratchet's wheel, its pawl)
+    const ch = drawChain(cur, pl.ref, poly.points.map(place), true, { bulges: poly.bulges });
+    take(ch.command);
+    if (!select.length) select.push(loopFaceRef(ch.lines));
   }
   if (shapes.value.closed) {
     const cl = drawClosedSpline(cur, pl.ref, shapes.value.closed.map(place), normalOfPlane(pl));

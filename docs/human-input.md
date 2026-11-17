@@ -3129,3 +3129,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_696 — 2026-11-17 — directive
 > Go with your recommendation, start on the cam helper
 (asks for the cam helper to be started: a cam profile drawn from a rise, dwell and return with a choice of motion law, the last step of `dec_spline_and_cams`)
+
+## in_697 — 2026-11-17 — directive
+> Go with your recommendation, start on the ratchet wheel and pawl
+(asks for the ratchet wheel and pawl to be started; the recommendation was a decision entry first, then the generator)

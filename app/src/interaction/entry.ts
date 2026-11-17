@@ -89,8 +89,8 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
   } else if (tool.kind === "circle") live.push(circleRadius(pl, tool) * 2);
   else if (tool.kind === "cam" && tool.cam) {
     const spec = camSpecOf(tool);
-    const live = spec ? (spec.kind === "disc" ? [spec.diameter, spec.lift, spec.rise!, spec.dwell!, spec.ret!, spec.hole, spec.roller ?? 0] : [spec.diameter, spec.lift, spec.hole]) : [];
-    return { panel: camTitle(tool.cam.kind, tool.cam.law), followUnits: true, fields: CAM_FIELDS[tool.cam.kind].map((label, i) => ({ hint: CAM_HINTS[label], ...(["Rise", "Dwell", "Return"].includes(label) ? { unit: "°" } : {}), label, value: (tool.cam!.typed[i] ?? "") !== "" ? tool.cam!.typed[i]! : live[i] !== undefined ? roundedText(live[i]!) : "", active: tool.cam!.field === i, typed: (tool.cam!.typed[i] ?? "") !== "" })), unit: "mm" };
+    const live = spec ? (spec.kind === "ratchet" ? [spec.teeth!, spec.diameter, spec.depth!, spec.hook!, spec.hole, spec.pawl!, spec.width!, spec.turn!] : spec.kind === "disc" ? [spec.diameter, spec.lift, spec.rise!, spec.dwell!, spec.ret!, spec.hole, spec.roller ?? 0] : [spec.diameter, spec.lift, spec.hole]) : [];
+    return { panel: camTitle(tool.cam.kind, tool.cam.law), followUnits: true, fields: CAM_FIELDS[tool.cam.kind].map((label, i) => ({ hint: CAM_HINTS[label], ...(["Rise", "Dwell", "Return", "Hook", "Angle"].includes(label) ? { unit: "°" } : label === "Teeth" ? { unit: "" } : {}), label, value: (tool.cam!.typed[i] ?? "") !== "" ? tool.cam!.typed[i]! : live[i] !== undefined ? roundedText(live[i]!) : "", active: tool.cam!.field === i, typed: (tool.cam!.typed[i] ?? "") !== "" })), unit: "mm" };
   }
   else if (tool.kind === "gear") {
     const g = tool.gear ?? { internal: false, typed: [] as string[], field: 0 };
