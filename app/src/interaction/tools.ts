@@ -227,6 +227,8 @@ export function circleRadius(pl: Plane, t: Tool): number {
 }
 /** The numbers of the gear being drawn or changed: each as typed, else as the gear has it now, else the default (20 teeth, 20 degrees, no shift or backlash, a wall or a bar of 2 modules); with no module typed and none to start from, the one (to the nearest 0.05) that makes the outside as wide as the pointer is from the centre (a rack: as long as twice that). Null while there is no size. */
 /** The bore's shape as typed (or as the gear had it): a flat, a keyway and its depth. */
+/** The bore a new gear has unless 0 is typed (`in_691`): 5 mm, the common small shaft, or less where the gear is too small to take it (two fifths of the root circle's diameter), to the half millimetre below; none under 1 mm. */
+const defaultBore = (teeth: number, module: number): number => { const d = Math.min(5, 0.4 * module * (teeth - 2.5)); return d >= 1 ? Math.floor(d * 2) / 2 : 0; };
 const shapeOf = (typed: (k: string) => number | null, b: GearSpec | undefined, focus?: string) => {
   const [flat, key, keyDepth] = [typed("flat") ?? b?.flat, typed("key") ?? b?.key, typed("keydepth") ?? b?.keyDepth];
   // a bore has a flat or a keyway, not both: the one typed last takes the other's numbers to nothing (`in_689`)
@@ -284,7 +286,7 @@ function gearSpecOf(t: Tool): GearSpec | null {
   const backlash = typed("backlash") ?? b?.backlash;
   const clearance = typed("clearance") ?? b?.clearance; // (the root clearance, in modules)
   const rim = g.internal || g.rack ? typed("rim") ?? b?.rim : undefined;
-  const bore = g.internal || g.rack ? undefined : typed("bore") ?? b?.bore;
+  const boreTyped = g.internal || g.rack ? undefined : typed("bore") ?? b?.bore;
   const fillet = g.internal || g.rack ? undefined : typed("fillet") ?? b?.fillet;
   const detail = g.internal || g.rack ? undefined : b?.detail;
   const [helix, width] = g.helical ? [typed("helix") ?? b?.helix ?? 15, typed("width") ?? b?.width] : [undefined, undefined]; // (a helical gear: its helix angle, and its width, six modules if none is given)
@@ -297,6 +299,7 @@ function gearSpecOf(t: Tool): GearSpec | null {
     const exact = g.rack ? (2 * reach) / (Math.PI * Math.max(1, teeth)) : g.internal ? reach / (teeth / 2 + 1 + (clearance ?? 0.25) + (rim ?? 2)) : moduleForOutside(teeth, 2 * reach, shift ?? 0);
     module = Math.max(0.1, Math.round(exact / 0.05) * 0.05);
   }
+  const bore = boreTyped ?? (g.internal || g.rack || b ? undefined : defaultBore(teeth, module)); // (a new gear has a bore unless 0 is typed, `in_691`)
   return { teeth, module, ...(pressure !== undefined ? { pressure } : {}), ...(shift !== undefined ? { shift } : {}), ...(backlash !== undefined ? { backlash } : {}), ...(clearance !== undefined ? { clearance } : {}), ...(g.internal ? { internal: true as const } : {}), ...(g.rack ? { rack: true as const } : {}), ...(rim !== undefined ? { rim } : {}), ...(fillet ? { fillet } : {}), ...(detail ? { detail } : {}), ...(helix !== undefined ? { helix, width: width ?? 6 * module } : {}), ...(bore ? { bore, ...shapeOf(typed, b, fields[g.field]?.key) } : {}) };
 }
 type GearTarget = { spec: GearSpec; at: Vec3; turn: number; live: Partial<Record<GearKey, number>> };
@@ -332,7 +335,7 @@ function gearMade(scene: Scene, t: Tool): Result<GearTarget> | null {
   const [wOff, wWidth] = [typed("offset") ?? 0, typed("width")];
   const r = meshWith(src, pl.u, pl.v, { teeth, rack, ring, ...(src.spec.worm ? { offset: wOff, ...(wWidth ? { width: wWidth } : {}) } : {}) }, where);
   if (!r.ok) return err(r.error);
-  const bore = rack ? null : typed("bore");
+  const bore = rack ? null : typed("bore") ?? (src.spec.worm ? null : defaultBore(teeth, r.value.spec.module) || null); // (a partner has a bore too, `in_691`)
   const spec = bore ? { ...r.value.spec, bore, ...shapeOf(typed, undefined, fields[g.field]?.key) } : r.value.spec;
   const o = gearOutline(spec);
   if (!o.ok) return err(o.error);

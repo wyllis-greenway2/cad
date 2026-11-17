@@ -215,7 +215,7 @@ test("the Gear tool is in the Sketch ring; click the centre, the pointer sets th
   assert.ok(previewFor(scene(st.session), st.tool)!.segments.length > 100, "the teeth are shown while the size is set");
   const e = entryOf(scene(st.session), st.tool, st.op);
   assert.deepEqual(e!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Bore", "Flat", "Key", "Key depth"]);
-  assert.deepEqual(e!.fields.map((f) => f.value), ["20", "2", "20", "0", "0", "0.25", "0", "0", "0", "0", "0"]);
+  assert.deepEqual(e!.fields.map((f) => f.value), ["20", "2", "20", "0", "0", "0.25", "0", "5", "0", "0", "0"]);
   st = click(st, [C[0] + 22, C[1], 0]);
   assert.equal(drawn(st).length, 0, "the click that sets the size makes nothing yet (`in_688`): the number box stays open");
   assert.ok(st.tool!.sized, "the tool is on, the size set");
@@ -227,7 +227,7 @@ test("the Gear tool is in the Sketch ring; click the centre, the pointer sets th
   assert.ok(selection(st.session).length === 1, "the figure is selected");
   assert.equal(st.tool!.points.length, 1, "the next gear starts where it was clicked");
   assert.ok(!st.tool!.sized);
-  assert.equal(drawn(st).length, 20 * 12, "twelve corners to a tooth: two sides of five points and the two feet below the base circle");
+  assert.equal(drawn(st).length, 20 * 12 + 1, "(and the bore, `in_691`) twelve corners to a tooth: two sides of five points and the two feet below the base circle");
   assert.equal(scene(st.session).gears!.length, 1, "it keeps its numbers");
   st = { ...st, session: undoLast(st.session) };
   assert.equal(drawn(st).length, 0);
@@ -344,7 +344,7 @@ test("Edit gear: the number box opens on the selected gear with its numbers; typ
   st = reduce(st, { type: "runAction", id: "gear:edit" }, env);
   assert.equal(st.tool!.gear!.editing, "g_001");
   const e = entryOf(scene(st.session), st.tool, st.op)!;
-  assert.deepEqual(e.fields.map((f) => f.value), ["20", "2", "20", "0", "0", "0.25", "0", "0", "0", "0", "0"], "its numbers as they are");
+  assert.deepEqual(e.fields.map((f) => f.value), ["20", "2", "20", "0", "0", "0.25", "0", "5", "0", "0", "0"], "its numbers as they are");
   st = typeText(st, "30");
   st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab");
   st = typeText(st, "0.1");

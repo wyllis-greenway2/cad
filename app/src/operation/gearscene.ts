@@ -100,7 +100,7 @@ function twistParams(s: Scene, rec: GearRecord): Record<string, number | string>
   const n: Vec3 = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
   const len = Math.hypot(...n) || 1;
   const bore = gearRefs(rec).bore;
-  return { ...(bore ? { holes: bore } : {}), angle: turn, advance: rec.spec.width!, ax: rec.at[0], ay: rec.at[1], az: rec.at[2], dx: n[0] / len, dy: n[1] / len, dz: n[2] / len, gear: rec.id };
+  return { ...(bore ? { holes: bore } : {}), angle: turn, advance: rec.spec.width!, ax: rec.at[0], ay: rec.at[1], az: rec.at[2], dx: n[0] / len, dy: n[1] / len, dz: n[2] / len, mode: "new", gear: rec.id };
 }
 /** The steps that make the body of a gear that has one made with it (a helical gear's twist, a worm's core and threads, a worm wheel's loft), without their names; none for a plain gear. */
 function ownedSpecs(s: Scene, rec: GearRecord): Omit<Step, "id">[] {

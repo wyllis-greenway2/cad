@@ -157,3 +157,26 @@ test("selecting the body of a helical gear selects the gear: Edit gear opens its
   const body = Object.values(scene(s).parts).find((p) => p.kind === "body")!;
   assert.equal(gearOfPart(scene(s), body.ref)?.id, "g_001");
 });
+
+test("Mesh gear on a helical gear makes the partner (a helical gear of the opposite hand) when Enter or a click applies it (`in_691`)", () => {
+  let st = reduce(top(), { type: "begin", name: "gear" }, env);
+  st = reduce(st, { type: "runAction", id: "tool:helical" }, env);
+  st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
+  st = click(st, C);
+  st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2");
+  st = key(st, "Enter");
+  assert.equal(scene(st.session).gears!.length, 1);
+  const body = Object.values(scene(st.session).parts).find((p) => p.kind === "body")!;
+  st = { ...st, tool: null, session: { ...st.session, click: { ...st.session.click, selection: [body.ref] } } };
+  st = reduce(st, { type: "runAction", id: "gear:mesh" }, env);
+  assert.ok(st.tool?.gear?.mesh, `the mesh tool is open: ${st.session.message}`);
+  assert.ok(previewFor(scene(st.session), st.tool), "an outline is drawn before the pointer moves");
+  const noMove = key(st, "Enter");
+  assert.equal(scene(noMove.session).gears!.length, 2, `Enter makes it where the tool stands (${noMove.session.message})`);
+  st = reduce(st, { type: "hover", x: px(st, [C[0] + 60, C[1], 0])[0], y: px(st, [C[0] + 60, C[1], 0])[1] }, env);
+  st = key(st, "Enter");
+  assert.equal(scene(st.session).gears!.length, 2, `a partner is made (${st.session.message})`);
+  assert.equal(scene(st.session).gears![1]!.spec.helix, -scene(st.session).gears![0]!.spec.helix!);
+  assert.deepEqual(st.session.outcome.errors, {});
+  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "body").length, 2, "and its body");
+});
