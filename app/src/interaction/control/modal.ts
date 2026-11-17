@@ -9,7 +9,7 @@ import { actionsFor, measureAction } from "../actions.ts";
 import type { ToolKind, Tool } from "../tools.ts";
 import { armTool, typeKey, finish, lineNext, gearTyped, editGearTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
-import type { CamKind } from "../../operation/cams.ts";
+import type { CamKind, CamLaw } from "../../operation/cams.ts";
 import { gearOfPart } from "../../operation/gearscene.ts";
 import type { OpKind } from "../operations.ts";
 import { startOp, typeOp, autoOp, drawnFigure } from "../operations.ts";
@@ -72,9 +72,9 @@ function facePlane(s: AppState, over: Ref | null, now: number): AppState {
   return plane && sideOf(s.cam, normalOfPlane(plane)) === 0 ? animateTo(s, planeView(s.cam, plane, false), now) : s;
 }
 
-function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = null, variant: GearVariant = "gear", cam?: CamKind): AppState {
-  if (s.tool?.kind === kind && !s.tool.plane && variantOf(s.tool.gear) === (kind === "gear" ? variant : "gear") && s.tool.cam?.kind === cam) return { ...s, tool: null }; // pressing it again puts it away
-  const make = (): Tool => (cam ? armCam(cam) : armTool(kind, variant));
+function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = null, variant: GearVariant = "gear", cam?: CamKind, law?: CamLaw): AppState {
+  if (s.tool?.kind === kind && !s.tool.plane && variantOf(s.tool.gear) === (kind === "gear" ? variant : "gear") && s.tool.cam?.kind === cam && s.tool.cam?.law === law) return { ...s, tool: null }; // pressing it again puts it away
+  const make = (): Tool => (cam ? armCam(cam, law) : armTool(kind, variant));
   const armed: AppState = { ...s, tool: make(), op: null, menu: null };
   const { plane, onSketch } = sketchPlane(s, over);
   if (plane && onSketch) return animateTo({ ...armed, tool: { ...make(), plane: plane.ref, reveal: true } }, planeView(s.cam, plane, false), now);
@@ -434,6 +434,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     return { ...closed, session: { ...session, message: made ? `${made === 1 ? "the mate was" : `${made} mates were`} put back` : "every mate is true" } };
   }
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
+  if (id.startsWith("tool:disc:")) return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", "disc", id.slice(10) as CamLaw); // (a disc cam of this law, `dec_spline_and_cams`)
   if (id === "tool:eccentric" || id === "tool:snail") return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", id === "tool:snail" ? "snail" : "eccentric"); // (an eccentric cam and a snail cam, `dec_spline_and_cams`)
   if (id === "tool:worm" || id === "tool:wormwheel") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:worm" ? "worm" : "wormwheel"); // (a worm, and the wheel for one, `in_608`)
   if (id === "tool:bevel") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "bevel"); // (a straight bevel gear, an approximation, `in_735`)

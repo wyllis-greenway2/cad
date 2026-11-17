@@ -7,6 +7,7 @@ import type { Plane } from "./part.ts";
 import { localOf, liftOf, normalOfPlane } from "./part.ts";
 import { drawCircle, drawChain, drawSpline, joinedAtCorners } from "./build.ts";
 import { loopFaceRef, diskFaceRef } from "./loops.ts";
+import { drawClosedSpline } from "./splinering.ts";
 import type { CamSpec } from "./cams.ts";
 import { camShapes } from "./cams.ts";
 import type { Result } from "../shared/result.ts";
@@ -36,6 +37,12 @@ export function drawCam(scene: Scene, pl: Plane, at: Vec3, spec: CamSpec, turn =
     const closing = drawChain(cur, pl.ref, [pts[pts.length - 1]!, pts[0]!], false, { reuse: true });
     take(closing.command);
     select.push(loopFaceRef([sp.line, ...closing.lines]));
+  }
+  if (shapes.value.closed) {
+    const cl = drawClosedSpline(cur, pl.ref, shapes.value.closed.map(place), normalOfPlane(pl));
+    if (!cl.ok) return err(cl.error);
+    take(cl.value.command);
+    select.push(...cl.value.select);
   }
   for (const circ of shapes.value.circles) {
     const d = drawCircle(cur, pl.ref, place(circ.c), circ.r);

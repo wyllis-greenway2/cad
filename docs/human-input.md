@@ -3372,3 +3372,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_756 — 2026-11-17 — directive
 > merge the latest changes into the preview and let me test
 (asks me again to merge the latest work into the preview branch so they can test it)
+
+## in_757 — 2026-11-17 — directive
+> Go with your recommendation, start on the cam helper
+(asks for the cam helper to be started: a cam profile drawn from a rise, dwell and return with a choice of motion law, the last step of `dec_spline_and_cams`)

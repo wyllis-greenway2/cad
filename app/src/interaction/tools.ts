@@ -15,7 +15,7 @@ import type { Command } from "../operation/commands.ts";
 import { drawSquaredRectangle, drawCircle, drawChain, drawArc, drawSpline, joinedAtCorners } from "../operation/build.ts";
 import { distinctPoints, splinePoints } from "../operation/spline.ts";
 import { drawClosedSpline } from "../operation/splinering.ts";
-import type { CamKind, CamSpec } from "../operation/cams.ts";
+import type { CamKind, CamLaw, CamSpec } from "../operation/cams.ts";
 import { camShapes } from "../operation/cams.ts";
 import { drawCam } from "../operation/camdraw.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
@@ -71,10 +71,11 @@ export interface Tool {
   /** a cam (`dec_spline_and_cams`): which, and the numbers typed (diameter, lift or offset, the shaft's hole) and the one being typed in */
   cam?: CamState;
 }
-export interface CamState { kind: CamKind; typed: string[]; field: number }
-export const CAM_FIELDS: Record<CamKind, string[]> = { eccentric: ["Diameter", "Offset", "Hole"], snail: ["Diameter", "Lift", "Hole"] };
-/** A tool armed to draw a cam: the first click is the shaft, the pointer's distance from it sets the diameter, and numbers can be typed for all three. */
-export const armCam = (kind: CamKind): Tool => ({ ...armTool("cam"), cam: { kind, typed: ["", "", ""], field: 0 } });
+export interface CamState { kind: CamKind; typed: string[]; field: number; /** a disc cam: the law of its follower's motion */ law?: CamLaw }
+/** the numbers of each cam, in the order the box shows them (the rise, dwell and return are degrees) */
+export const CAM_FIELDS: Record<CamKind, string[]> = { eccentric: ["Diameter", "Offset", "Hole"], snail: ["Diameter", "Lift", "Hole"], disc: ["Diameter", "Lift", "Rise", "Dwell", "Return", "Hole", "Roller"] };
+/** A tool armed to draw a cam: the first click is the shaft, the pointer's distance from it sets the diameter, and numbers can be typed for the rest. */
+export const armCam = (kind: CamKind, law?: CamLaw): Tool => ({ ...armTool("cam"), cam: { kind, typed: CAM_FIELDS[kind].map(() => ""), field: 0, ...(law ? { law } : {}) } });
 export function camTyped(t: Tool, field: number, text: string): Tool { const c = t.cam!; return { ...t, cam: { ...c, field, typed: c.typed.map((x, i) => (i === field ? text : x)) } }; }
 /** The cam being drawn: each number as typed, else the diameter from the pointer's distance from the shaft, the lift or offset a quarter of the radius (an eighth for an offset: the follower moves twice it), the hole a fifth of the diameter. */
 export function camSpecOf(t: Tool): CamSpec | null {
@@ -82,7 +83,9 @@ export function camSpecOf(t: Tool): CamSpec | null {
   const at = t.points[0];
   if (!c || !at) return null;
   const typed = (i: number) => typedLength(c.typed[i] ?? "");
+  const degrees = (i: number): number | null => { const x = c.typed[i] ?? ""; const n = x === "" || x === "-" ? NaN : Number(x); return Number.isFinite(n) ? n : null; }; // (an angle is not a length: it is not changed by the number system)
   const diameter = typed(0) ?? (t.cursor ? 2 * dist(at, t.cursor) : 0);
+  if (c.kind === "disc") return { kind: "disc", law: c.law ?? "cycloidal", diameter, lift: typed(1) ?? diameter / 8, rise: degrees(2) ?? 120, dwell: degrees(3) ?? 30, ret: degrees(4) ?? 120, hole: typed(5) ?? diameter / 5, roller: typed(6) ?? 0 };
   return { kind: c.kind, diameter, lift: typed(1) ?? diameter / (c.kind === "eccentric" ? 16 : 8), hole: typed(2) ?? diameter / 5 };
 }
 export interface GearState {
@@ -683,6 +686,7 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
     const line = (pts: Vec3[]) => pts.slice(1).forEach((p, i) => segments.push([pts[i]!, p]));
     for (const c of shapes.value.circles) line(Array.from({ length: 49 }, (_, i) => at([c.c[0] + c.r * Math.cos((i / 48) * 2 * Math.PI), c.c[1] + c.r * Math.sin((i / 48) * 2 * Math.PI)])));
     if (shapes.value.spiral) { const sp = splinePoints(shapes.value.spiral.map(at)); line([...sp, sp[0]!]); }
+    if (shapes.value.closed) { const ring = shapes.value.closed.map(at); const n = ring.length; line(splinePoints([...ring, ring[0]!], 8, { before: ring[n - 1]!, after: ring[1]! })); }
     return { segments, circle: null, cursor: t.cursor };
   }
   if (t.kind === "spline") { // a spline: the curve through the points placed and the pointer (`dec_spline_and_cams`); its points are the corners to hold it by
