@@ -3228,3 +3228,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_720 — 2026-11-17 — approval
 > Yes, prototype the straight bevel pair and search for the proportions
 (approves prototyping the straight bevel pair and searching for the tooth proportions)
+
+## in_721 — 2026-11-17 — question
+> so you cant build it correctly without more data? Can you link me to places you think have the data that you cant get but maybe I can get for you?
+(asks whether the bevel gear can be built correctly without more data, and for links to where the missing data may be found)
