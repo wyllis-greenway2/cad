@@ -3127,3 +3127,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_696 — 2026-11-17 — directive
 > yes do the gear as one feature next
 (approves doing the gear as one feature next: a gear's body having only a few selectable parts, the thickness faces, the bore and the whole gear, instead of a face and edges for every arc of every tooth)
+
+## in_697 — 2026-11-17 — directive
+> yes do the highlight batching next
+(approves doing the pinned highlight batching next: what is selected drawn in a few batches, kept while it does not change)

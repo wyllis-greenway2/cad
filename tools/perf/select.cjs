@@ -5,7 +5,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const p = await b.newPage({ viewport: { width: 1280, height: 687 }, deviceScaleFactor: 1 });
   const errs = []; p.on('pageerror', (e) => errs.push(String(e)));
   await p.goto('http://localhost:5199/'); await sleep(2500);
-  console.log('load', await p.evaluate((t) => window.__cad.load(t), fs.readFileSync('/tmp/claude-0/prof/gear.json', 'utf8'))); await sleep(3000);
+  console.log('load', await p.evaluate((t) => window.__cad.load(t), fs.readFileSync('' + (process.env.GEAR || '/home/user/cad/app/test/fixtures/gear-selected-slow-in_688.cad.json') + '', 'utf8'))); await sleep(3000);
   const cd = await p.context().newCDPSession(p); await cd.send('Profiler.enable'); await cd.send('Profiler.setSamplingInterval', { interval: 300 });
   const orbit = async () => { await p.mouse.move(640, 400); await p.mouse.down(); for (let i = 0; i < 40; i++) await p.mouse.move(640 + i * 4, 400 + i * 2); await p.mouse.up(); };
   const hover = async () => { for (let i = 0; i < 60; i++) { await p.mouse.move(500 + i * 4, 300 + (i % 7)); await sleep(16); } };

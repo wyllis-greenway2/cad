@@ -26,6 +26,9 @@ const unitDir = (a: Vec3, b: Vec3): Vec3 => {
 
 export function buildGizmo(group: THREE.Group, g: GizmoView | null, unit: number, pen: Pen) {
   clearGroup(group);
+  pen.build("gizmo", () => buildGizmoLines(group, g, unit, pen));
+}
+function buildGizmoLines(group: THREE.Group, g: GizmoView | null, unit: number, pen: Pen) {
   if (!g) return;
   const ink = rgb(settings.theme.axis).getHex();
   for (const h of g.handles) {

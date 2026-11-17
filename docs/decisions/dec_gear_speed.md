@@ -10,7 +10,7 @@ depends_on:
   - dec_worm_gears: the wheel is a loft through sections of the worm's cut; a change to how it is made changes the proposals for it
   - dec_highlight_batching: the page-side half of the same asked-for work (what is drawn is a few batches); sized by the same measuring
 ---
-# Why many gears, many teeth and worm wheels are slow, and what would fix it (measured; nothing built yet)
+# Why many gears, many teeth and worm wheels are slow, and what would fix it (measured; most of it built, see Landed)
 
 **Asked (`in_689`):** too many gears, gears with many teeth, worm gears and above all worm wheels are so slow they nearly crash the app, even one of them. Measured in Node with the kernel in the same process, one run each, a sandbox with few cores (good for comparing, not for absolute times).
 
