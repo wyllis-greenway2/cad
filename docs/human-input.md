@@ -3098,30 +3098,30 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 >  If you cut open a box that has been made hollow with a cross section plane, you can't really select internal edges of the box? but you can select internal planes? if you cut a box open with a regular cut extrusion, then you can select edges and planes normally.
 (reports two bugs: repeatedly entering game mode while moving the mouse leaves the game cursor off centre and the blue hover circle separated from the cursor; and in a cross section of a hollowed box the inside edges cannot be selected though the inside faces can, whereas a box cut open with a cut extrusion lets both be selected)
 
-## in_689 — 2026-11-17 — directive
+## in_737 — 2026-11-17 — directive
 > Go with your recommendation, draft the decision entry
 (asks for a decision entry drafted for the proposal just made: a spline tool, curves turned to arcs only when the kernel needs them, and a cam helper that draws onto it; a draft, not an approval of the design)
 
-## in_690 — 2026-11-17 — approval
+## in_738 — 2026-11-17 — approval
 > Go with your recommendation on spline storage
 (approves the recommendation on `q_spline_storage`: a spline stores its control points and is made into arcs only when the kernel needs them)
 
-## in_691 — 2026-11-17 — directive
+## in_739 — 2026-11-17 — directive
 > Go with your recommendation, start on the spline tool
 (asks for the spline tool to be started, the first step of `dec_spline_and_cams`)
 
-## in_692 — 2026-11-17 — directive
+## in_740 — 2026-11-17 — directive
 > Go with your recommendation, start on editing spline points
 (asks for editing the points of a spline after it is drawn to be started, the next step after the spline tool)
 
-## in_693 — 2026-11-17 — directive
+## in_741 — 2026-11-17 — directive
 > Go with your recommendation, add and remove spline points
 (asks for adding and taking away points of a spline to be built, the next step after moving them)
 
-## in_694 — 2026-11-17 — directive
+## in_742 — 2026-11-17 — directive
 > Go with your recommendation, start on the eccentric and snail cams
 (asks for the eccentric cam and the snail (drop) cam to be started, the first cams of `dec_spline_and_cams`)
 
-## in_695 — 2026-11-17 — directive
+## in_743 — 2026-11-17 — directive
 > Go with your recommendation, build the closed spline
 (asks for the closed spline to be built: a smooth curve that comes back to its start, the next step toward the cam helper)

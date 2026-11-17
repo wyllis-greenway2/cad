@@ -3,7 +3,7 @@ id: q_spline_dimensions
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_690
+human_input: in_738
 date: 2026-11-17
 depends_on:
 alternative_to:

@@ -89,7 +89,7 @@ test("a shape with a spline side is a face, and extrudes to the volume the curve
 
 const near = (a: number, b: number, tol = 1e-6) => assert.ok(Math.abs(a - b) <= tol, `${a} vs ${b}`);
 
-// ---- the points of a spline are moved by taking hold of them (`in_692`)
+// ---- the points of a spline are moved by taking hold of them (`in_740`)
 import { createState, reduce } from "../src/interaction/controller.ts";
 import type { AppState } from "../src/interaction/controller.ts";
 import { projector, lookStraight, homeCamera } from "../src/interaction/camera.ts";
@@ -134,7 +134,7 @@ test("pressing on the curve between its points still moves the whole line, and a
   near(w[2]![1] - w[0]![1], 2, 0.3); // (and the curve kept its shape)
 });
 
-// ---- points added and taken away by a double click (`in_693`)
+// ---- points added and taken away by a double click (`in_741`)
 const dbl = (st: AppState, p: Vec3): AppState => { const [x, y] = px(st, p); st = reduce(st, { type: "hover", x, y }, env); return reduce(st, { type: "click", x, y, count: 2, shift: false }, env); };
 
 test("a double click on the curve of a selected spline puts a point there, and on one of its points takes it away", () => {
@@ -164,7 +164,7 @@ test("the last point between the ends cannot be taken away: the message says so"
   assert.equal(knots(st, d.line).length, 3);
 });
 
-// ---- a closed spline (`in_695`)
+// ---- a closed spline (`in_743`)
 import { drawClosedSpline, otherHalf, splineSetCommand } from "../src/operation/splinering.ts";
 import { splineEnds } from "../src/operation/part.ts";
 

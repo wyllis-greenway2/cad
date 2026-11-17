@@ -61,7 +61,7 @@ test("a cam that cannot be drawn says why", () => {
   assert.equal(camShapes({ kind: "snail", diameter: 20, lift: 5, hole: 0 }).ok, true);
 });
 
-// ---- the tool (`in_694`)
+// ---- the tool (`in_742`)
 import { armCam, typeKey, finish, camSpecOf, previewOf } from "../src/interaction/tools.ts";
 import type { Tool } from "../src/interaction/tools.ts";
 
