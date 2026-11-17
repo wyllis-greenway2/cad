@@ -31,7 +31,7 @@ export function sphericalSection(sp: BevelSpec, perFlank = 10, turn = 0): [numbe
   const alpha = ((sp.pressure ?? 20) * Math.PI) / 180, z = sp.z, Rcd = R * Math.cos(delta);
   const gb = Math.asin(Math.sin(delta) * Math.cos(alpha));
   const tTip = delta + Math.atan(b.addendum / R), tRoot = delta - Math.atan(b.dedendum / R);
-  const half0 = Math.PI / (2 * z) - 0; // (half the tooth's azimuth at the pitch cone: the arc pi m / 2 over the pitch radius R sin(delta) = m z / 2)
+  const half0 = (sp.module * (Math.PI / 2 + (sp.xt ?? 0))) / (2 * R * Math.sin(delta)); // (half the tooth's azimuth at the pitch cone: the arc m (pi / 2 + xt) over the pitch radius R sin(delta) = m z / 2; xt a change of the thickness, as the Tredgold prototype has it)
   const f0 = involuteAzimuth(delta, gb);
   const halfAt = (t: number) => half0 + f0 - involuteAzimuth(t, gb);
   const pitch = (2 * Math.PI) / z;

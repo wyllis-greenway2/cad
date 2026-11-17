@@ -1,3 +1,4 @@
+// (0.1 mm of backlash in every pair: with none the flanks touch along the line of contact and the kernel cannot tell touching from overlapping, it answers with a body of the pair unchanged)
 // The spherical involute tooth: the property it is derived from, and whether a pair of such gears keeps fitting as it turns (the Tredgold tooth of `prototypes/bevel-pair` fits at one place only).
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -50,7 +51,7 @@ const bodies = (s: Session) => Object.values(scene(s).parts).filter((p) => p.kin
 
 /** the overlap of the pair (cubic mm) with the pinion turned by `eps` and the wheel by the angle that keeps them meshing */
 function overlapAt(z1: number, z2: number, eps: number, extra: number, section: (sp: BevelSpec, n: number, turn: number) => [number, number][]): number {
-  const [sp1, sp2]: [BevelSpec, BevelSpec] = [{ z: z1, mate: z2, module: 2 }, { z: z2, mate: z1, module: 2 }];
+  const [sp1, sp2]: [BevelSpec, BevelSpec] = [{ z: z1, mate: z2, module: 2, xt: -0.05 }, { z: z2, mate: z1, module: 2, xt: -0.05 }];
   const b1 = bevelOf(sp1);
   const a1: V = [1, 0, 0], a2: V = [0, 0, 1];
   const contact: V = [Math.cos(b1.delta), 0, Math.sin(b1.delta)];
@@ -59,6 +60,7 @@ function overlapAt(z1: number, z2: number, eps: number, extra: number, section: 
   s = gearBody(s, sp2, a2, contact, Math.PI / z2 - (eps * z1) / z2 + extra, section);
   const b = bodies(s);
   assert.equal(b.length, 2);
+  console.log(`VOL ${eps} ${extra} ${b.map((x) => x.volume.toFixed(0)).join(' ')}`);
   const done = run(s, { type: "addStep", step: { id: "s_900", type: "combine", parts: b.map((x) => x.ref) as never, params: { mode: "intersect", keep: 1 } } } as never);
   if (/nothing in common/.test(done.message ?? "")) return 0;
   return bodies(done).map((x) => x.volume).sort((x, y) => y - x)[0] ?? 0;
