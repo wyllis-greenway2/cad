@@ -54,7 +54,7 @@ test("a partner made with nothing typed is one that meshes: a gear in a ring has
   assert.equal(gearLive(sc, at(meshGearTool(gear, false)))![0], 20);
 });
 
-import { finishTool } from "../src/interaction/tools.ts";
+import { finish as finishTool } from "../src/interaction/tools.ts";
 test("the bevel gear tool: its numbers, its title that says it is an approximation, and the gear it makes with nothing typed (a pair-ready 20 tooth gear, module 2, a bore)", () => {
   const sc = scene(createSession(kernel));
   const t = { ...armTool("gear", "bevel"), plane: worldRef("XY"), points: [[0, 0, 0] as [number, number, number]], cursor: [10, 0, 0] as [number, number, number] };
