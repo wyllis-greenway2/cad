@@ -116,27 +116,55 @@ const key = (st: AppState, k: string) => reduce(st, { type: "typed", key: k, shi
 const typeText = (st: AppState, text: string) => [...text].reduce((t, c) => key(t, c), st);
 const C: Vec3 = [10, 10, 0];
 
-test("the Helical gear tool: in the Gear submenu; Helix (15 shown) and Width are fields after Detail; typing teeth, helix and width and Enter makes the gear and its twisted body; nothing is left selected", () => {
-  const ids = (reduce(top(), { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap(function walk(i: any): string[] { return [i.id, ...(i.children ?? []).flatMap(walk)]; });
-  assert.ok(ids.includes("tool:helical"));
+const plainGear = (): AppState => {
   let st = reduce(top(), { type: "begin", name: "gear" }, env);
-  st = reduce(st, { type: "runAction", id: "tool:helical" }, env);
-  st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
   st = click(st, C);
+  st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2");
+  st = key(st, "Enter");
+  const made = Object.values(scene(st.session).parts).find((p) => p.kind === "face" && p.ref.includes("g_"))!;
+  st = reduce(st, { type: "escape" }, env);
+  return { ...st, tool: null, session: { ...st.session, click: { ...st.session.click, selection: [made.ref] } } };
+};
+
+test("Add helix puts a helix on a plain gear that is selected (`in_692`): in the Gear submenu, Helix (15 shown) and Width are fields; typing helix and width and Enter gives it the twist and its body; Remove helix takes them away", () => {
+  const st0 = plainGear();
+  const items = (reduce(st0, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; enabled: boolean; children?: { id: string; enabled: boolean }[] }[]).flatMap(function walk(i: any): { id: string; enabled: boolean }[] { return [i, ...(i.children ?? []).flatMap(walk)]; });
+  assert.ok(items.find((i) => i.id === "gear:helix")!.enabled);
+  assert.ok(!items.find((i) => i.id === "gear:unhelix")!.enabled, "a plain gear has no helix to take off");
+  assert.ok(!items.some((i) => i.id === "tool:helical"), "there is no gear tool of its own for it");
+  let st = reduce(st0, { type: "runAction", id: "gear:helix" }, env);
+  assert.equal(st.tool!.gear!.editing, "g_001");
   const fields = entryOf(scene(st.session), st.tool, st.op)!.fields;
   assert.deepEqual(fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Helix", "Width", "Bore", "Flat", "Key", "Key depth"]);
-  st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2");
-  assert.equal(entryOf(scene(st.session), st.tool, st.op)!.fields[7]!.value, "15", "a helix of 15 degrees unless another is typed");
-  for (let i = 0; i < 6; i++) st = key(st, "Tab"); // (to Helix)
+  assert.equal(fields[7]!.value, "15", "a helix of 15 degrees unless another is typed");
+  for (let i = 0; i < 7; i++) st = key(st, "Tab"); // (to Helix)
   st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "8");
   const preview = previewFor(scene(st.session), st.tool)!;
-  assert.ok(preview.segments.some((seg) => Math.abs(seg[0][2] - 8) < 1e-6 || Math.abs(seg[1][2] - 8) < 1e-6), "the preview has the outline again at the far end, worked out in the page");
+  assert.ok(preview.segments.some((seg) => Math.abs(seg[0][2] - 8) < 1e-6 || Math.abs(seg[1][2] - 8) < 1e-6), "the preview has the outline again at the far end");
   st = key(st, "Enter");
   const rec = scene(st.session).gears![0]!;
   assert.deepEqual([rec.spec.teeth, rec.spec.module, rec.spec.helix, rec.spec.width], [20, 2, 20, 8]);
   assert.equal(scene(st.session).steps.filter((x) => x.type === "revolve").length, 1);
-  assert.equal(selection(st.session).length, 0);
   assert.deepEqual(st.session.outcome.errors, {});
+  // taken off again
+  const body = Object.values(scene(st.session).parts).find((p) => p.kind === "body")!;
+  let off: AppState = { ...st, tool: null, session: { ...st.session, click: { ...st.session.click, selection: [body.ref] } } };
+  off = reduce(off, { type: "runAction", id: "gear:unhelix" }, env);
+  assert.equal(scene(off.session).gears![0]!.spec.helix, undefined);
+  assert.equal(scene(off.session).steps.filter((x) => x.type === "revolve").length, 0, "the twist goes with it");
+});
+
+test("a helix is put on a plain gear only: not on a ring (the item says why)", () => {
+  let st = reduce(top(), { type: "begin", name: "gear" }, env);
+  st = reduce(st, { type: "runAction", id: "tool:ring" }, env);
+  st = click(st, C);
+  st = typeText(st, "40"); st = key(st, "Tab"); st = typeText(st, "2");
+  st = key(st, "Enter");
+  const made = Object.values(scene(st.session).parts).find((p) => p.kind === "face" && p.ref.includes("g_"))!;
+  st = { ...st, tool: null, session: { ...st.session, click: { ...st.session.click, selection: [made.ref] } } };
+  const items = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; enabled: boolean; why?: string | null; children?: any[] }[]).flatMap(function walk(i: any): any[] { return [i, ...(i.children ?? []).flatMap(walk)]; });
+  const it = items.find((i) => i.id === "gear:helix")!;
+  assert.ok(!it.enabled && /plain gear/.test(it.why ?? ""));
 });
 
 test("a partner of a helical gear has the opposite hand, the same module and width, and stands at the centre distance of the transverse sections; a rack is refused", () => {
@@ -159,13 +187,9 @@ test("selecting the body of a helical gear selects the gear: Edit gear opens its
 });
 
 test("Mesh gear on a helical gear makes the partner (a helical gear of the opposite hand) when Enter or a click applies it (`in_691`)", () => {
-  let st = reduce(top(), { type: "begin", name: "gear" }, env);
-  st = reduce(st, { type: "runAction", id: "tool:helical" }, env);
-  st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
-  st = click(st, C);
-  st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2");
-  st = key(st, "Enter");
-  assert.equal(scene(st.session).gears!.length, 1);
+  let st = reduce(plainGear(), { type: "runAction", id: "gear:helix" }, env);
+  st = key(st, "Enter"); // (the helix of 15 degrees it shows)
+  assert.equal(scene(st.session).gears![0]!.spec.helix, 15);
   const body = Object.values(scene(st.session).parts).find((p) => p.kind === "body")!;
   st = { ...st, tool: null, session: { ...st.session, click: { ...st.session.click, selection: [body.ref] } } };
   st = reduce(st, { type: "runAction", id: "gear:mesh" }, env);

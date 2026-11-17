@@ -7,7 +7,7 @@ import type { Session } from "../session.ts";
 import { nearCommand } from "../suggest.ts";
 import { actionsFor, measureAction } from "../actions.ts";
 import type { ToolKind } from "../tools.ts";
-import { armTool, typeKey, finish, lineNext, gearTyped, editGearTool, meshGearTool, gearProblem, gearFix, variantOf } from "../tools.ts";
+import { armTool, typeKey, finish, lineNext, gearTyped, editGearTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, helixGearTool } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
 import { gearOfPart } from "../../operation/gearscene.ts";
 import type { OpKind } from "../operations.ts";
@@ -426,7 +426,6 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     return { ...closed, session: { ...session, message: made ? `${made === 1 ? "the mate was" : `${made} mates were`} put back` : "every mate is true" } };
   }
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
-  if (id === "tool:helical") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "helical"); // (a gear that is twisted along its axis, `in_598`)
   if (id === "tool:worm" || id === "tool:wormwheel") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:worm" ? "worm" : "wormwheel"); // (a worm, and the wheel for one, `in_608`)
   if (id === "tool:ring") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "ring"); // (a gear with its teeth pointing in)
   if (id === "tool:rack") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "rack");
@@ -437,6 +436,16 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     const sc = sceneOf(s.session);
     const rec = selectionOf(s.session).map((r) => gearOfPart(sc, r)).find((g) => !!g);
     return rec ? { ...closed, tool: meshGearTool(rec, id === "gear:meshrack", id === "gear:meshring"), op: null } : { ...closed, session: { ...s.session, message: "select a gear first" } };
+  }
+  if (id === "gear:helix" || id === "gear:unhelix") { // a helix put on a gear that is selected, or taken off it (`in_692`: a modification of a gear, not a gear of its own kind)
+    const sc = sceneOf(s.session);
+    const rec = selectionOf(s.session).map((r) => gearOfPart(sc, r)).find((g) => !!g);
+    if (!rec) return { ...closed, session: { ...s.session, message: "select a gear first" } };
+    if (!canHelix(rec.spec)) return { ...closed, session: { ...s.session, message: "a helix can be put on a plain gear (not yet on a ring, a rack, a pulley, a sprocket, a clock gear or a worm)" } };
+    if (id === "gear:helix") return { ...closed, tool: helixGearTool(rec), op: null };
+    const { helix: _h, width: _w, ...plain } = rec.spec;
+    const done = run(s.session, { type: "setGear", id: rec.id, spec: plain });
+    return { ...closed, session: done.message ? done : { ...done, message: "the helix is taken off: the gear is a plain gear again" } };
   }
   if (id === "gear:edit") { // the numbers of the gear that is selected, in the number box (`in_577`)
     const sc = sceneOf(s.session);

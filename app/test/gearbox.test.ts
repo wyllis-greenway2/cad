@@ -12,7 +12,7 @@ import { worldRef } from "../src/shared/ref.ts";
 
 await kernel.init();
 
-const VARIANTS: GearVariant[] = ["gear", "helical", "ring", "rack", "gt2", "gt3", "htd5", "htd8", "sprocket", "isosprocket", "clock", "clockring", "clockrack"];
+const VARIANTS: GearVariant[] = ["gear", "ring", "rack", "gt2", "gt3", "htd5", "htd8", "sprocket", "isosprocket", "clock", "clockring", "clockrack"];
 
 test("every number of every kind of gear has a hint, and each kind has a title", () => {
   for (const v of VARIANTS) {
@@ -22,6 +22,7 @@ test("every number of every kind of gear has a hint, and each kind has a title",
     for (const f of fields) assert.ok(GEAR_HINTS[f.key] && GEAR_HINTS[f.key].length > 10, `${v}: ${f.key} says what it is`);
     assert.ok(gearTitle(t.gear!).length > 2, v);
   }
+  for (const f of gearFields({ internal: false, helical: true })) assert.ok(GEAR_HINTS[f.key].length > 10, `helical: ${f.key}`);
   assert.equal(gearTitle(armTool("gear", "gt2").gear!), "GT2 pulley");
 });
 

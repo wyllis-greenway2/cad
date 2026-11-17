@@ -3107,3 +3107,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_691 — 2026-11-17 — directive
 > Okay the gear icon itself is kinda messed up looking. Also can we have more icons? They all look identical. I am wondering if maybe we should just offer the helix gear as a modification that can be applied to any existing gear? Because then you could take any gear profile and have a helix version of it without the menu exploding. What do you think? Also I like the idea that you can make a mesh gear in 3d basically for the helix because it needs information that is more than 2d, so that makes sense. Should we make this a general mode for 3d gears though? making a mesh gear on a 3d gear just automatically makes a 3d version? Also it doesn't seem to work, if I click a helix gear, and then click mesh gear, it shows a drawn outline, but if I just click apply, it doesn't actually create the gear? Maybe I was supposed to touch something in settings? Also can we have gears default to have a bore?
 (asks for a better gear icon and distinct icons for the gear tools; asks what I think of helix as a modification of any gear, and of mesh making a 3D partner of any 3D gear; reports that Mesh gear on a helical gear makes nothing; asks that gears default to having a bore)
+
+## in_692 — 2026-11-17 — approval
+> Yes, make helix a modifier on any gear
+(approves the AI's recommendation: a helix is a modification put on a gear that is selected, not a gear tool of its own kind; Mesh follows the source's 3D-ness)

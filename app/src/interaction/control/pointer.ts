@@ -17,7 +17,7 @@ import type { ToolKind, Tool } from "../tools.ts";
 import { diskFaceRef } from "../../operation/loops.ts";
 import { lineHint, arcEndHint, hintRelations, circleCentredAt, anchorCentreAt, pointHint, arcBulgeHint, circleRadiusHint, tangentCentre } from "../hints.ts";
 import type { Hint } from "../hints.ts";
-import { snapOnPlane, guidesOf, finish, planeForDrawing, armTool, pointOnPlane } from "../tools.ts";
+import { snapOnPlane, guidesOf, finish, planeForDrawing, armTool, pointOnPlane, canHelix } from "../tools.ts";
 import { trimAt } from "../../operation/trim.ts";
 import type { Command } from "../../operation/commands.ts";
 import type { OpKind, Op } from "../operations.ts";
@@ -48,7 +48,6 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:arc", label: "Curve", icon: "arc", tool: "arc" },
   { id: "tool:trim", label: "Trim", icon: "scissors", tool: "trim" },
   { id: "tool:gear", label: "Spur gear", icon: "gear", tool: "gear" },
-  { id: "tool:helical", label: "Helical gear", icon: "helical", tool: "gear" },
   { id: "tool:worm", label: "Worm", icon: "worm", tool: "gear" },
   { id: "tool:wormwheel", label: "Worm wheel", icon: "wormwheel", tool: "gear" },
   { id: "tool:ring", label: "Ring gear", icon: "ringgear", tool: "gear" },
@@ -63,6 +62,8 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:clockring", label: "Clock ring", icon: "clockring", tool: "gear" },
   { id: "tool:clockrack", label: "Clock rack", icon: "rack", tool: "gear" },
   { id: "gear:edit", label: "Edit gear", icon: "gear" },
+  { id: "gear:helix", label: "Add helix", icon: "helical" },
+  { id: "gear:unhelix", label: "Remove helix", icon: "gear" },
   { id: "gear:mesh", label: "Mesh gear", icon: "meshgear" },
   { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack" },
   { id: "gear:meshring", label: "Mesh ring", icon: "meshring" },
@@ -96,12 +97,12 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
 interface Group { id: string; label: string; icon: string; items: (string | Group)[] }
 const GEARS: Group = {
   id: "gears", label: "Gear", icon: "gear", items: [
-    "tool:gear", "tool:helical", "tool:ring", "tool:rack",
+    "tool:gear", "tool:ring", "tool:rack",
     { id: "worms", label: "Worm", icon: "worm", items: ["tool:worm", "tool:wormwheel"] },
     { id: "clockgears", label: "Clock", icon: "clockgear", items: ["tool:clock", "tool:clockring", "tool:clockrack"] },
     { id: "pulleys", label: "Pulley", icon: "pulley", items: ["tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8"] },
     { id: "sprockets", label: "Sprocket", icon: "sprocket", items: ["tool:sprocket", "tool:isosprocket"] },
-    "gear:edit", "gear:mesh", "gear:meshrack", "gear:meshring",
+    "gear:edit", "gear:helix", "gear:unhelix", "gear:mesh", "gear:meshrack", "gear:meshring",
   ],
 };
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
@@ -112,7 +113,7 @@ const CATEGORIES: { id: string; label: string; icon: string; items: (string | Gr
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
 ];
 /** While a repeat is open only drawing, Move and Rotate (and constraints) are offered (the rest could change what is being repeated or the pivot's parts). */
-const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:gear", "tool:helical", "tool:worm", "tool:wormwheel", "tool:ring", "tool:rack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "tool:clock", "tool:clockring", "tool:clockrack", "tool:trim", "op:move", "op:rotate", "op:copy", "op:mirror", "op:linear", "op:circular"]);
+const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:gear", "tool:worm", "tool:wormwheel", "tool:ring", "tool:rack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "tool:clock", "tool:clockring", "tool:clockrack", "tool:trim", "op:move", "op:rotate", "op:copy", "op:mirror", "op:linear", "op:circular"]);
 const category = (id: string, label: string, icon: string, kids: MenuItem[]): MenuItem => {
   const first = kids.find((k) => k.enabled);
   return { id, label, icon, enabled: true, why: null, children: kids, ...(first ? {} : { dim: true as const }) }; // (always opens, so every ring can be looked through: dimmed when nothing in it applies now, `in_538`)
@@ -124,6 +125,11 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   const leaf = new Map<string, MenuItem>(LEAVES.map((r) => {
     const base = { id: r.id, label: r.label, icon: r.icon };
     if (repeating && !IN_REPEAT.has(r.id)) return [r.id, { ...base, enabled: false, why: "apply or cancel the repeat that is open first" }];
+    if (r.id === "gear:helix" || r.id === "gear:unhelix") { // (a helix is put on a plain gear and taken off a helical one, `in_692`)
+      const rec = sel.map((x) => gearOfPart(sc, x)).find((g) => !!g);
+      const why = !rec ? "select a gear" : !canHelix(rec.spec) ? "a helix goes on a plain gear (not yet a ring, rack, pulley, sprocket, clock gear or worm)" : r.id === "gear:unhelix" && rec.spec.helix === undefined ? "this gear has no helix" : null;
+      return [r.id, { ...base, enabled: !why, why }];
+    }
     if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfPart(sc, x)); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }
