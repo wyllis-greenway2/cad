@@ -308,7 +308,7 @@ function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome }
   if (s.tool?.kind === "gear" && s.tool.gear?.editing && !s.op) {
     const sc = sceneOf(s.session);
     const rec = sc.gears?.find((g) => g.id === s.tool!.gear!.editing);
-    const cmd = rec && !rec.spec.wheel && (hasBody(rec.spec) || rec.spec.worm) ? finishTool(sc, s.tool)?.command : undefined;
+    const cmd = rec && !rec.spec.wheel && !rec.spec.bevel && (hasBody(rec.spec) || rec.spec.worm) ? finishTool(sc, s.tool)?.command : undefined;
     if (cmd && cmd.type === "setGear" && !cmd.spec.wheel) {
       const key = JSON.stringify(["gear", cmd]);
       if (memo && memo.history === s.session.history && memo.outcome === s.session.outcome && memo.key === key) return memo.value;

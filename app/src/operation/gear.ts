@@ -13,6 +13,8 @@ import { boreProblem } from "./bore.ts";
 import { gearRoot } from "./gearroot.ts";
 import { wormOf, wheelOf } from "./worm.ts";
 import type { WormSpec, WheelSpec } from "./worm.ts";
+import { bevelPoints } from "./bevel.ts";
+import type { BevelSpec } from "./bevel.ts";
 
 /** the belts there are timing pulleys for (`pulley.ts`) */
 export type PulleyKind = "2GT" | "3GT" | "HTD5M" | "HTD8M";
@@ -41,6 +43,8 @@ export interface GearSpec {
   worm?: WormSpec;
   /** a worm wheel (`in_608`): the throated wheel for a worm of this diameter and this many starts, as wide as this */
   wheel?: WheelSpec;
+  /** a straight bevel gear (`bevel.ts`, `in_735`): an APPROXIMATION of the standard tooth; `teeth`, `module` and `pressure` as for a gear (the module is the one at the big end); the teeth of its mate, the angle between the shafts and the face width are here */
+  bevel?: BevelSpec;
   /** arcs to each side of a tooth's flank (2 to 8; 4 by default): fewer is a rougher involute and a body with fewer faces, which is quicker to make (`dec_speed_rules`) */
   detail?: number;
   /** the corner radius of the rack cutter, in modules: the root is then shaped as that cutter makes it (a fillet, and the undercut when there are few teeth: `gearroot.ts`); none or 0: the root is the circle between the flanks */
@@ -118,7 +122,7 @@ function rackOutline(spec: GearSpec): Result<GearOutline> {
 
 /** How far the outline of a helical gear is turned while it is carried along its axis for its whole width, degrees (the sign is the hand), or null for a gear that is not helical: width x tan(helix) / transverse pitch radius. */
 /** Whether a gear has a body made with it (`in_697`): a helix, or a thickness above zero (a flat gear has neither). */
-export const hasBody = (spec: GearSpec): boolean => spec.helix !== undefined || (spec.width ?? 0) > 0;
+export const hasBody = (spec: GearSpec): boolean => spec.helix !== undefined || (spec.width ?? 0) > 0 || !!spec.bevel;
 export function helixTwist(spec: GearSpec): number | null {
   if (spec.helix === undefined || !(spec.width! > 0) || !(spec.teeth > 0) || !(spec.module > 0)) return null;
   const b = (spec.helix * Math.PI) / 180;
@@ -145,6 +149,14 @@ function wheelOutline(spec: GearSpec): Result<GearOutline> {
   return ok({ points, bulges: points.map(() => 0), pitchRadius: rw, baseRadius: 0, tipRadius: tipAt(0), rootRadius: rootAt(0), warnings: [] });
 }
 
+/** A straight bevel gear's outline: the big end of the toothed cone (`bevel.ts`), as straight sides. */
+function bevelOutline(spec: GearSpec): Result<GearOutline> {
+  const b = bevelPoints(spec);
+  if (!b.ok) return b;
+  const { geometry: g, points } = b.value;
+  return ok({ points, bulges: points.map(() => 0), pitchRadius: g.pitchRadius, baseRadius: g.pitchRadius * Math.cos(((spec.pressure ?? 20) * Math.PI) / 180), tipRadius: g.tipRadius, rootRadius: g.rootRadius, warnings: ["an approximation of the standard bevel tooth (Tredgold back cone), not the octoid form of ISO 23509"] });
+}
+
 /** The outline of a gear, or why there is none (and why its bore has no such flat or keyway). */
 export function gearOutline(spec: GearSpec): Result<GearOutline> {
   const r = outlineOf(spec);
@@ -154,6 +166,7 @@ export function gearOutline(spec: GearSpec): Result<GearOutline> {
 }
 function outlineOf(spec: GearSpec): Result<GearOutline> {
   if (!spec.pulley && !spec.sprocket && !spec.cycloidal && spec.clearance !== undefined && !(spec.clearance >= 0 && spec.clearance <= 1)) return err("the clearance is from 0 to 1 module");
+  if (spec.bevel) return bevelOutline(spec);
   if (spec.worm) return wormOutline(spec);
   if (spec.wheel) return wheelOutline(spec);
   if (spec.cycloidal) return cycloidalOutline(spec);
