@@ -3532,3 +3532,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_796 — 2026-11-17 — directive
 > yes do the worm wheels next
 (approves doing the worm wheels next: what is left of their cost beyond the loft, a 200-tooth wheel and other worm types through the kernel)
+
+## in_797 — 2026-11-17 — question
+> okay so what are we working on again? and what is the status of it?
+(asks what is being worked on and its status; the planetary gear maker)
