@@ -55,7 +55,7 @@ export interface Grid { P: V3[][] }
 export function flankGrid(pr: Pair, which: "pinion" | "ring", f: "A" | "B", nth = 160, ny = 80): Grid {
   const c = pr.spec.crown, sp = pr.spec;
   const thM = Math.atan2(Math.sin(c.beta), -Math.cos(c.beta) * (c.hand ?? 1));
-  const span = (1.2 * sp.b) / c.RW + 0.25;
+  const span = (1.2 * (sp.b + 16)) / c.RW + 0.25; // (the face and a margin each side, for the planes beyond the toe and the heel that the cone ends need)
   const g = which === "pinion" ? pr.pinion : pr.ring;
   const [y0, y1] = [-g.hF - 3, g.hK + 3];
   const P: V3[][] = [];
@@ -128,4 +128,29 @@ export function outlineAt(g: Gear, which: "pinion" | "ring", A: [number, number]
     for (let k = 1; k <= 2; k++) pts.push([rr, down[0]! + off + ((up[0]! + pitch - down[0]!) * k) / 3]); // (the root arc to the next tooth)
   }
   return pts;
+}
+
+// ---- the cone ends ----
+/**
+ * The blank of a gear whose ends are cones (the back cones, square to the pitch cone, at the toe and the heel; as the straight gear's, `app/src/operation/bevel.ts` `bevelLayout`): a revolved shape between the toe's cone and the heel's, with a flat hub disc
+ * inside the roots at each end, and the range of planes across the axis the prism of the teeth must cover to hold every tooth up to the cones. Coordinates (x along the axis from the apex, radius r).
+ */
+export interface Blank { xS: number; xB: number; polygon: [number, number][] }
+export function blankFor(g: Gear, rhoToe: number, rhoHeel: number, m: number): Blank | string {
+  const [sg, cg, tg] = [Math.sin(g.gamma), Math.cos(g.gamma), Math.tan(g.gamma)];
+  const [x0t, x0h] = [rhoToe / cg, rhoHeel / cg];
+  // where the heel cone meets the root cone, the toe cone the tip cone: the planes beyond which no tooth is left
+  const rRootH = (x0h - g.hF / sg) * sg * cg, xRootH = x0h - rRootH * tg;
+  const rTipT = (x0t + g.hK / sg) * sg * cg, xTipT = x0t - rTipT * tg;
+  const xB = xRootH + 0.5 * m, xS = xTipT - 0.5 * m;
+  const xFar = xB + 0.25 * m;
+  const Lh = (r: number) => x0h - tg * r, Lt = (r: number) => x0t - tg * r;
+  const rA = (x0h - xFar) / tg;
+  if (!(rA > 0.5)) return "the heel cone is too flat for this gear";
+  const rootT = rootRadius(g, rhoToe * cg), rFor = (x: number) => (x0t - x) / tg;
+  const rT = Math.min(1.2 * rootT, Math.max(0.8 * rootT, rFor(xFar - 2 * m))); // (the hub two modules thick where the toe cone allows it; a steep ring gear needs the hub out to just past the roots at the toe)
+  if (!(Lt(rT) < xFar - 0.3 * m && Lt(rT) > xS)) return "the hub does not fit between the cones";
+  const rmax = 1.25 * tipRadius(g, xB);
+  const xr: [number, number][] = [[xFar, 0], [xFar, rA], [Lh(rmax), rmax], [Lt(rmax), rmax], [Lt(rT), rT], [Lt(rT), 0]];
+  return { xS, xB, polygon: xr };
 }
