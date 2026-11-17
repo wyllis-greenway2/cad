@@ -3152,3 +3152,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_702 — 2026-11-17 — approval
 > Yes, look for the 2019 edition
 (asks for the 2019 edition of ISO 10642 to be looked for)
+
+## in_703 — 2026-11-17 — approval
+> Yes, look for those catalogs
+(asks for current maker or supplier catalogs that state their standard and edition to be looked for, for the ISO 4762 head, ISO 10642 and the clearance hole table)
