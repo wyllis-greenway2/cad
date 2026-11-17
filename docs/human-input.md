@@ -3419,3 +3419,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_767 — 2026-11-17 — directive
 > yes do the smaller per-edit and per-frame costs next
 (approves doing the smaller per-edit and per-frame costs next: grouping loops once per derive, copying the parts map twice per edit, picking against the body's triangles, and the axis-label check during an orbit)
+
+## in_768 — 2026-11-17 — directive
+> yes do the worm wheels next
+(approves doing the worm wheels next: what is left of their cost beyond the loft, a 200-tooth wheel and other worm types through the kernel)

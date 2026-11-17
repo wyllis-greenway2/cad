@@ -37,6 +37,8 @@ function roughBox(shape) {
 
 /** The faces made of an analytic surface (a plane, a cylinder, a sphere, a cone, a torus): their exact box is quick; that of a freeform face (a twisted wall, a loft) takes a millisecond each, so it is taken from the mesh (`dec_speed_rules`). */
 const lumpFacts = new Map(); // (solid identity -> { volume, rough box, faces, edges })
+/** More freeform faces than this in a body and its screen mesh is the coarser one. */
+const HEAVY_FREEFORM = 300;
 const ANALYTIC = new Set(["PLANE", "CYLINDRE", "SPHERE", "CONE", "TORUS"]);
 /** The box of the triangles `g` (a face's range of the mesh) as the corners lo and hi. */
 function meshBounds(m, g) {
@@ -46,12 +48,16 @@ function meshBounds(m, g) {
 }
 function describeSolid(shape, tess0, lite, vol0) {
     // the finer the part, the finer the mesh: the deflection allowed is a small part of the part's own size (a 2 mm post must not be a 20-sided prism: `in_165`), never coarser than `tess.tolerance`
-    const free = facesOf(shape).some((f) => !ANALYTIC.has(f.geomType));
+    const freeform = facesOf(shape).filter((f) => !ANALYTIC.has(f.geomType)).length;
+    const free = freeform > 0;
+    const heavy = freeform > HEAVY_FREEFORM; // (a worm wheel or a helical gear of many teeth: hundreds of freeform faces, each meshed finely for its tiny curve)
     const rb = roughBox(shape).map((v) => v / 1e5); // (a box that is quick to find: enough to size the mesh by; the exact one of a body with freeform faces is taken from the mesh)
     let [lo, hi] = free ? [[rb[0], rb[1], rb[2]], [rb[3], rb[4], rb[5]]] : shape.boundingBox.bounds;
     const diag = Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
     // a draft (while a size is dragged, `in_216`): a rough mesh, quickly; the fine one is made when the pointer is let go
-    const tess = tess0.draft ? { tolerance: Math.max(0.1, diag * 0.01), angular: 0.5 } : { tolerance: Math.min(tess0.tolerance, Math.max(0.002, diag * 0.002)), angular: Math.min(tess0.angular, 0.2) };
+    const tess = tess0.draft ? { tolerance: Math.max(0.1, diag * 0.01), angular: 0.5 }
+      : heavy ? { tolerance: Math.min(tess0.tolerance * 2, Math.max(0.002, diag * 0.004)), angular: 0.5 } // (what is drawn, not what is exported: a quarter of the triangles for a fifth of the time)
+      : { tolerance: Math.min(tess0.tolerance, Math.max(0.002, diag * 0.002)), angular: Math.min(tess0.angular, 0.2) };
     const m = shape.mesh({ tolerance: tess.tolerance, angularTolerance: tess.angular });
     const mesh = { vertices: new Float32Array(m.vertices), normals: new Float32Array(m.normals), triangles: new Uint32Array(m.triangles) };
     mesh.sharp = Float32Array.from(cornerEdges(mesh.vertices, mesh.normals, mesh.triangles, EDGE_ANGLE_DEG)); // (once for each body, kept with its description: the page draws them and does not search the triangles, `dec_sharp_edges_once`)
