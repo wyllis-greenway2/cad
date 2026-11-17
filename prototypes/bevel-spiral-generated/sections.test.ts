@@ -8,8 +8,8 @@ const deg = (d: number) => (d * Math.PI) / 180;
 export const EXAMPLE = (): PairSpec => {
   const [z1, z2, mn, bm] = [20, 30, 3.0, deg(30)];
   const g1 = Math.atan(z1 / z2), g2 = Math.PI / 2 - g1;
-  const mf = mn / Math.cos(bm), D02 = mf * z2; // (the outer ring gear pitch diameter at the heel: the mean one 3.46 x 30, with the face a third of the cone distance)
-  const R = D02 / 2 / Math.sin(g2), b = R / 3, RM = R - b / 2, RW = 0.88 * RM; // (the cutter radius a little under the mean cone distance, as the paper has it)
+  const mf = mn / Math.cos(bm); // (the transverse module at the mean: the mean pitch diameter is mf z, Stadtfeld eq. 6)
+  const RM = (mf * z2) / (2 * Math.sin(g2)), b = 0.3 * RM, RW = 0.88 * RM; // (a face of 0.3 of the mean cone distance, the cutter radius a little under it, as the paper has it)
   return { crown: { RM, RW, beta: bm, tB: Math.PI * mn, alpha: deg(20), gamma: g2, hand: 1 }, z1, z2, mn, b };
 };
 
