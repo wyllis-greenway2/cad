@@ -3129,3 +3129,16 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_696 — 2026-11-17 — directive
 > Yes, try the chamfer run-out, and can we offer flush or journaled thread end options on them?
 (approves trying a chamfer run-out of the worm's thread, and asks for flush or journaled thread ends as options)
+
+## in_697 — 2026-11-17 — directive
+> I have an idea about a parts library that users could use to add parts to their projects.
+> There are a few factors I want to cover. How and where these parts could actually be purchased (including lead times) so that a product assembly could have a full cost breakdown and lead time breakdown. Another thought I had is how to actually efficiently get such a large catalogue and how to efficiently store and use it? would it be better to have a zillion actual models? or to only have key data about them and the ability to create them on the fly when requested user side? for example, there are a handful of factors to permute in order to make screws. thread type, diameter, length, shoulder, head type, seating type etc. So if you held only these factors, and the user selected the assembly of them to create the part on the fly with a part generator, would that be more efficient then actually storing and retrieving all possible instances of permutes of those factors? Also how do we handle other parts that are not standard like screw? For example mcmaster carr has many models of motors, clips, specialized machinery etc. So how can we offer some of that? Should we allow users to import and add to a public library so that the ecosystem is self growing? Or are there open source libraries we could use to just get a lot of parts fast.
+(a brainstorm on a parts library: where parts are bought with lead times and a cost and lead time breakdown for an assembly; generating parts on the fly from a few factors against storing every model; how to handle non-standard parts such as motors and clips; whether users can add to a public library; whether open source libraries could fill it fast)
+
+## in_698 — 2026-11-17 — approval
+> Yes, draft those provisional entries
+(asks for the parts library recommendations of the previous answer to be drafted as provisional entries)
+
+## in_699 — 2026-11-17 — approval
+> Yes, accept all three
+(approves the three drafted parts library entries: dec_parts_library, dec_parts_sourcing and q_parts_open_sources)
