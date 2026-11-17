@@ -3536,3 +3536,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_797 — 2026-11-17 — directive
 > update from claude/inspiring-pascal-l342k7, all your edits should be updated there
 (asks for this branch to be brought up to date from claude/inspiring-pascal-l342k7 and for all of this session's edits to be on that branch; the explicit permission to write to it)
+
+## in_798 — 2026-11-17 — question
+> okay so what are we working on again? and what is the status of it?
+(asks what the current work is and its status)
