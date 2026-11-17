@@ -3412,3 +3412,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_766 — 2026-11-17 — directive
 > lets work on Spiral bevel and hypoid
 (asks me to work on spiral bevel and hypoid gears next)
+
+## in_767 — 2026-11-17 — directive
+> wait until its surfaces can be derived from those papers. Lets build it right
+(decides: no approximate spiral bevel gear; wait until its tooth surfaces can be derived from the NASA papers and the other sources, and build it correctly)
