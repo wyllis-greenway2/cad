@@ -11,7 +11,7 @@ import { createWorld } from "./world.ts";
 import { createPen, clearGroup, ringOf, sphereAt } from "./view/pen.ts";
 import { buildContent } from "./view/content.ts";
 import type { BodyMesh } from "./view/content.ts";
-import { buildHighlight, TEAL } from "./view/highlight.ts";
+import { buildHighlight, highlightKey, TEAL } from "./view/highlight.ts";
 import { sectionClip } from "./orb.ts";
 import { buildGizmo } from "./view/gizmo.ts";
 import type { ToolpathView } from "../interaction/api.ts";
@@ -49,6 +49,8 @@ export function createView(host: HTMLElement) {
   const pen = createPen();
   const envMap = new THREE.PMREMGenerator(renderer).fromScene(studio(), 0.04).texture; // a soft studio, only reflected in the body
   let lastScene: Scene | null = null;
+  let sceneStamp = 0; // (counts the times what is drawn was built again: the highlight is built from it)
+  let highlightWas: string | null = null; // (what the highlight on the screen was built from, or null if it moves)
   /** What is drawn is built again at the next frame (a look setting changed, `in_459`). */
   const rebuild = (): void => { lastScene = null; };
   let lastMesh: BodyMesh | null = null;
@@ -58,6 +60,7 @@ export function createView(host: HTMLElement) {
   function setScene(s: Scene, mesh: BodyMesh | null) {
     if (s === lastScene) return;
     lastScene = s;
+    sceneStamp++;
     lastMesh = mesh;
     const built = buildContent(content, s, mesh, pen, envMap);
     bodyMat = built ? built.material : null;
@@ -214,6 +217,10 @@ export function createView(host: HTMLElement) {
   const setWireframe = (on: boolean) => { if (on !== wire) { wire = on; applyFade(); } };
   const setBodyFade = (on: boolean) => { if (on !== fade) { fade = on; applyFade(); } };
   const setHighlight = (h: Highlight, cam: Camera, nowMs: number) => {
+    // turning the view changes nothing the highlight is made from (only a zoom does, by the size of its balls): it is not built again while it is the same
+    const key = highlightKey(h, nowMs, cam.distance, `${sceneStamp}|${sectionKey}`);
+    if (key !== null && key === highlightWas) return;
+    highlightWas = key;
     buildHighlight(overlay, marks, lastScene, lastMesh, h, cam, pen, nowMs);
     // what is selected or pointed at is cut where the part is: the teal of a face stops at the section plane, it does not go on into the cut-away space (`in_680`)
     if (clips.length) for (const g of [overlay, marks]) g.traverse((o) => { const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined; for (const mat of Array.isArray(m) ? m : m ? [m] : []) if (!(mat instanceof THREE.ShaderMaterial) || mat.clipping) mat.clippingPlanes = clips; });
@@ -221,23 +228,27 @@ export function createView(host: HTMLElement) {
   /** The figure being drawn, or the prism an extrude would make (lines; not part of the scene). */
   function setPreview(p: Preview | null, cam: Camera) {
     clearGroup(preview);
-    if (!p) return;
-    const colour = p.red ? 0xe5484d : TEAL; // (a gear whose number was just put right flashes red, `in_690`)
-    if (p.cursor) preview.add(sphereAt(p.cursor, cam.distance * settings.pick.vertexScale, TEAL));
-    for (const [a, b] of p.segments) preview.add(pen.line([...a, ...b], colour, 2, false));
-    for (const [a, b] of p.guides ?? []) preview.add(pen.dashed([...a, ...b], TEAL, 1.5, cam.distance * 0.012)); // (alignment guides are dashed so they read differently from the figure, `in_381`)
-    if (p.circle) preview.add(pen.line(ringOf(p.circle.center, p.circle.radius, p.circle.normal), TEAL, 2, false));
+    pen.build("preview", () => {
+      if (!p) return;
+      const colour = p.red ? 0xe5484d : TEAL; // (a gear whose number was just put right flashes red, `in_690`)
+      if (p.cursor) preview.add(sphereAt(p.cursor, cam.distance * settings.pick.vertexScale, TEAL));
+      for (const [a, b] of p.segments) preview.add(pen.line([...a, ...b], colour, 2, false));
+      for (const [a, b] of p.guides ?? []) preview.add(pen.dashed([...a, ...b], TEAL, 1.5, cam.distance * 0.012)); // (alignment guides are dashed so they read differently from the figure, `in_381`)
+      if (p.circle) preview.add(pen.line(ringOf(p.circle.center, p.circle.radius, p.circle.normal), TEAL, 2, false));
+    });
   }
 
   /** The lines that go with constraints: the arc of an angle, the segment a distance measures. */
   function setNotes(lines: Vec3[][], dashed: Vec3[][] = [], dash = 1) {
     clearGroup(notes);
+    pen.build("notes", () => {
     for (const l of dashed) { const m = pen.dashed(l.flat(), 0x55575c, 1.4, dash); m.renderOrder = 4; notes.add(m); } // (the lines from an arc's centre to its ends, `in_463`)
     for (const l of lines) {
       const m = pen.line(l.flat(), 0x55575c, 1.6, false);
       m.renderOrder = 4;
       notes.add(m);
     }
+    });
   }
   let thinShown: number[] | null = null;
   /** Mark the triangles (nine numbers each) that are too thin to print, in the colour of `settings.measure`; none to put the marks away. The same list is not built again. */
@@ -283,6 +294,7 @@ export function createView(host: HTMLElement) {
     lastToolpath = v;
     lastToolpathDistance = cam.distance;
     clearGroup(toolpath);
+    pen.build("toolpath", () => {
     if (!v) return;
     const colourOf = (layer: string): number => (layer === "travel" ? settings.theme.previewTravel : layer === "score" ? settings.theme.markScore : layer === "engrave" ? settings.theme.markEngrave : settings.theme.previewCut);
     for (const [lines, faint] of [[v.rest, true], [v.done, false]] as const) {
@@ -297,6 +309,7 @@ export function createView(host: HTMLElement) {
     }
     if (v.stock.length) { const m = pen.segments(v.stock, settings.theme.previewSheet, 1.4, false); m.renderOrder = 2; m.raycast = () => {}; toolpath.add(m); } // (the sheet's edge, so a layout can be seen against it)
     if (v.head) { const dot = sphereAt(v.head, cam.distance * 0.006, settings.theme.previewCut, false); dot.raycast = () => {}; toolpath.add(dot); }
+    });
   };
 
   function resize() {

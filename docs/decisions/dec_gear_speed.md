@@ -10,7 +10,7 @@ depends_on:
   - dec_worm_gears: the wheel is a loft through sections of the worm's cut; a change to how it is made changes the proposals for it
   - dec_highlight_batching: the page-side half of the same asked-for work (what is drawn is a few batches); sized by the same measuring
 ---
-# Why many gears, many teeth and worm wheels are slow, and what would fix it (measured; nothing built yet)
+# Why many gears, many teeth and worm wheels are slow, and what would fix it (measured; most of it built, see Landed)
 
 **Asked (`in_701`):** too many gears, gears with many teeth, worm gears and above all worm wheels are so slow they nearly crash the app, even one of them. Measured in Node with the kernel in the same process, one run each, a sandbox with few cores (good for comparing, not for absolute times).
 
@@ -27,7 +27,7 @@ For the 40 tooth wheel the whole is 14 s; the page is blocked for the first 3 s 
 
 ## Landed (`in_706`: "yes land those three changes with tests")
 
-Three changes, from `prototypes/wheel-fast` (the numbers are in its README): **the quick box for naming the freeform faces of a shape that has more than 64 of them** (`facenames.mjs` `quickBounds`, `QUICK_FROM`: 4.2 s to 8 ms of the 10.3 s kernel time of a 40 tooth wheel, same volume; a loft's own sides are named by comparing the exact box of each face with the box of the sketch's corners, so a body with few freeform faces keeps the exact box, found by the suite); **the faster wheel sections** (`wheelsections.ts`: 10 bisections, a coarse grid first, exact crossings only for chains that can pass, a scan step of 0.2 mm along the thread; 5 to 7 times quicker, within 0.003 mm); **`BRepLib.SameParameter` after a smooth loft** (`interpreter.mjs`: the wheel is no longer refused for 24, 28, 30, 32, 44, 48, 60 teeth). Tests: `test/wheelspeed.test.ts` (the sections against the old scan's numbers; the time; the counts that used to be refused, with their volumes; a bored wheel; the quick box). Of the five proposals below, 1 and 2 are done, and 5 is built as `dec_gear_standin` (a plain disc while the body is made, `in_707`); 3 and 4 are not built.
+Three changes, from `prototypes/wheel-fast` (the numbers are in its README): **the quick box for naming the freeform faces of a shape that has more than 64 of them** (`facenames.mjs` `quickBounds`, `QUICK_FROM`: 4.2 s to 8 ms of the 10.3 s kernel time of a 40 tooth wheel, same volume; a loft's own sides are named by comparing the exact box of each face with the box of the sketch's corners, so a body with few freeform faces keeps the exact box, found by the suite); **the faster wheel sections** (`wheelsections.ts`: 10 bisections, a coarse grid first, exact crossings only for chains that can pass, a scan step of 0.2 mm along the thread; 5 to 7 times quicker, within 0.003 mm); **`BRepLib.SameParameter` after a smooth loft** (`interpreter.mjs`: the wheel is no longer refused for 24, 28, 30, 32, 44, 48, 60 teeth). Tests: `test/wheelspeed.test.ts` (the sections against the old scan's numbers; the time; the counts that used to be refused, with their volumes; a bored wheel; the quick box). Of the five proposals below, 1 and 2 are done, 5 is built as `dec_gear_standin` (a plain disc while the body is made, `in_707`), and 3 as `dec_gear_feature` (a gear's body has a few parts, `in_716`); 4 (per-body checks) is not built.
 
 ## Causes, and the fix that goes with each (the first two are landed; the rest are for the human to choose from)
 

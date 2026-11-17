@@ -8,7 +8,7 @@ import { surfaceTriangles } from "../../interaction/surfaces.ts";
 import { centreDots } from "../../interaction/centredots.ts";
 import { hoverOrb, selectOrb, fullOrb, orbMaterial, selectedLook } from "../orb.ts";
 import type { Pen } from "./pen.ts";
-import { clearGroup, trisMesh, ringOf, sphereAt, rgb } from "./pen.ts";
+import { clearGroup, trisMesh, ringOf, sphereAt, spheresAt, rgb } from "./pen.ts";
 
 export interface Highlight {
   hover: Ref | undefined;
@@ -89,6 +89,8 @@ function surfaceOrb(kind: Kind, ref: Ref, tris: number[], h: Highlight, unit: nu
   return trisMesh(tris, orbMaterial(teal, ringRgb, orb, { offset: -2 }));
 }
 
+/** A flat run of xyz as points. */
+const chunk3 = (flat: readonly number[]): number[][] => { const out: number[][] = []; for (let i = 0; i + 2 < flat.length; i += 3) out.push([flat[i]!, flat[i + 1]!, flat[i + 2]!]); return out; };
 const ringPairs = (o: { center: Vec3; radius: number; normal: Vec3 }): number[] => { const pts = ringOf(o.center, o.radius, o.normal); const out: number[] = []; for (let i = 0; i + 5 < pts.length; i += 3) out.push(pts[i]!, pts[i + 1]!, pts[i + 2]!, pts[i + 3]!, pts[i + 4]!, pts[i + 5]!); return out; };
 
 /** The outline of a filled surface: the sides of its triangles that only one triangle has (so the edges of a selected face are blue too, as the rest of what is selected, `in_206`). Flat pairs of points. */
@@ -111,7 +113,40 @@ function outlineOfTriangles(tris: number[]): number[] {
 export function buildHighlight(overlay: THREE.Group, marks: THREE.Group, s: Scene | null, body: { vertices: Float32Array; triangles: Uint32Array } | null, h: Highlight, cam: Camera, pen: Pen, nowMs: number) {
   clearGroup(overlay);
   clearGroup(marks);
+  pen.build("highlight", () => buildParts(overlay, marks, s, body, h, cam, pen, nowMs)); // (the lines it made before are let go)
+}
+
+/**
+ * What the highlight is made from, as one string, or null when it is moving and must be made again for every frame (a refused change flashing, the copies of a repeat breathing, the colour spreading over a face): while the string is the
+ * same the highlight that was built is still right, so turning the view (which changes none of it) does not build it again. `stamp` is what the view says of its own scene, picture and sections; `unit` the distance of the camera, which sizes the balls.
+ */
+export function highlightKey(h: Highlight, nowMs: number, unit: number, stamp: string): string | null {
+  if (h.temp?.length || h.red?.refs.length) return null;
+  const spreading = !!h.spread && nowMs - h.spread.startMs < settings.orb.fillMs + 50;
+  if (spreading) return null;
+  return JSON.stringify([stamp, unit, h.hover ?? null, h.hoverPoint, h.selection, h.amber ?? [], h.spread ? [h.spread.ref, h.spread.point] : null]);
+}
+
+/** What a part is drawn as, kept to be drawn together: the lines of one look are one object, and so are the balls (a selected gear is 800 parts, and was 800 objects built again for every frame). */
+interface Batch { kind: Kind; col: number; width: number; depth: boolean; alpha: number; segs: number[]; balls: { at: Vec3; radius: number }[] }
+
+function buildParts(overlay: THREE.Group, marks: THREE.Group, s: Scene | null, body: { vertices: Float32Array; triangles: Uint32Array } | null, h: Highlight, cam: Camera, pen: Pen, nowMs: number) {
   if (!s) return;
+  const batches = new Map<string, Batch>();
+  const batchFor = (kind: Kind, col: number, width: number, depth: boolean, alpha: number): Batch => {
+    const key = `${kind}|${col}|${width}|${depth}|${alpha}`;
+    let b = batches.get(key);
+    if (!b) { b = { kind, col, width, depth, alpha, segs: [], balls: [] }; batches.set(key, b); }
+    return b;
+  };
+  const pairsOf = (pts: readonly (readonly number[])[]): number[] => { const out: number[] = []; for (let i = 0; i + 1 < pts.length; i++) out.push(...pts[i]!, ...pts[i + 1]!); return out; };
+  const flushBatches = () => {
+    for (const b of batches.values()) {
+      const fade = <T extends THREE.Object3D>(m: T): T => { if (b.kind === "amber") m.traverse((c) => { c.renderOrder = 8; }); /* (the hint's orange is drawn over the blue of a selected circle or face it is about, `in_301`) */ if (b.alpha < 1) m.traverse((c) => { const mat = (c as THREE.Mesh).material as THREE.Material | undefined; if (mat) { mat.transparent = true; mat.opacity = b.alpha; } }); return m; };
+      if (b.segs.length) overlay.add(fade(pen.segments(b.segs, b.col, b.width, b.depth)));
+      if (b.balls.length) overlay.add(fade(spheresAt(b.balls, b.col, b.depth)));
+    }
+  };
   const get = lookup(s);
   const unit = cam.distance;
   // the middle point of a selected curved edge of the body is drawn on the edge: pointed at, it lights there (`in_214`)
@@ -160,15 +195,17 @@ export function buildHighlight(overlay: THREE.Group, marks: THREE.Group, s: Scen
     const w = kind === "select" ? settings.pick.edgeWidthPx : settings.pick.edgeHoverWidthPx;
     const col = kind === "amber" ? AMBER : kind === "red" ? RED : kind === "temp" ? TEMP : tealHex;
     const alpha = kind === "red" ? h.red?.alpha ?? 1 : kind === "temp" ? 0.5 + 0.4 * Math.sin(nowMs / 280) : 1; // (the copies breathe: they are not there yet)
-    const fade = <T extends THREE.Object3D>(m: T): T => { if (kind === "amber") m.traverse((c) => { c.renderOrder = 8; }); /* (the hint's orange is drawn over the blue of a selected circle or face it is about, `in_301`) */ if (alpha < 1) m.traverse((c) => { const mat = (c as THREE.Mesh).material as THREE.Material | undefined; if (mat) { mat.transparent = true; mat.opacity = alpha; } }); return m; };
-    if (o.shape === "point") overlay.add(fade(sphereAt(o.at, unit * settings.pick.vertexScale * (kind === "select" ? settings.pick.vertexSelectScale : 1), col, true)));
-    else if (o.shape === "polyline") overlay.add(fade(pen.line(o.pts.flat(), col, kind === "red" || kind === "temp" ? 3.4 : w, true)));
-    else if (o.shape === "segment") overlay.add(fade(pen.line([...o.a, ...o.b], col, kind === "red" || kind === "temp" ? 3.4 : w, true)));
-    else if (o.shape === "circle") overlay.add(fade(pen.line(ringOf(o.center, o.radius, o.normal), col, kind === "red" || kind === "temp" ? 3.4 : w, true)));
+    const wide = kind === "red" || kind === "temp" ? 3.4 : w;
+    const b = batchFor(kind, col, wide, true, alpha);
+    if (o.shape === "point") batchFor(kind, col, 0, true, alpha).balls.push({ at: o.at, radius: unit * settings.pick.vertexScale * (kind === "select" ? settings.pick.vertexSelectScale : 1) });
+    else if (o.shape === "polyline") b.segs.push(...pairsOf(o.pts));
+    else if (o.shape === "segment") b.segs.push(...o.a, ...o.b);
+    else if (o.shape === "circle") b.segs.push(...pairsOf(chunk3(ringOf(o.center, o.radius, o.normal))));
     else if (p.kind === "axis") overlay.add(pen.line([...p.at, ...[0, 1, 2].map((i) => p.at[i]! + p.dir[i]! * AXIS_LEN)], col, w, false));
   };
   // the middle of a circle or an arc is always shown: a small dot, so it can be picked to line the curve up with other things (`in_159`). It is in `marks`, not in `overlay`: a body dragged on the graphics card moves the overlay (its highlight) by the body's matrix, and a dot of a sketch that is not the body's must not go with it (what is the body's is already carried in the scene shown)
-  for (const at of centreDots(s)) marks.add(sphereAt(at, unit * settings.pick.vertexScale * 0.7, 0x2b2b2d, true));
+  const dots = centreDots(s);
+  if (dots.length) marks.add(spheresAt(dots.map((at) => ({ at, radius: unit * settings.pick.vertexScale * 0.7 })), 0x2b2b2d, true));
   for (const r of h.amber ?? []) mark(r, "amber");
   for (const r of h.red?.refs ?? []) mark(r, "red");
   for (const r of h.temp ?? []) mark(r, "temp");
@@ -183,4 +220,5 @@ export function buildHighlight(overlay: THREE.Group, marks: THREE.Group, s: Scen
     const hp = get(h.hover);
     if (hp && hp.kind === "line" && hp.twin && !h.selection.includes(hp.twin)) mark(hp.twin, "hover"); // (the other half of a rim)
   }
+  flushBatches();
 }
