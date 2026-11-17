@@ -3,7 +3,7 @@ id: dec_gear_speed
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_689, in_694, in_698, in_699, in_700
+human_input: in_689, in_694, in_698, in_699, in_700, in_702
 date: 2026-11-17
 depends_on:
   - dec_speed_rules: the kernel-side rules this extends (checks, rough first, one sweep); a change to them changes which of the costs below are still there
@@ -35,7 +35,7 @@ Asked: cut down the sides and corners of a gear's outline that stay in the scene
 
 ## The page's work per edit (`in_700`) and a bigger cost found with it
 
-The page's own work at an edit that leaves the kernel's graph as it was: **103.6 to 30.8 ms** for eight extruded gears (5799 parts) in the real app (`dec_scene_derivation_cache`). **Found, not fixed:** a change to the first of eight gears makes the kernel build all eight again (about 4 s, the page's own work is under 0.2 s of that), because each step's kept answer is keyed by the steps before it (`interpreter.mjs` `compile`: the key of an op includes the keys of its target and its inputs), so a body that is only a compound beside the others is rebuilt whenever one before it changes. The work that is not the join (the prism of its own sketch, its checks, its mesh) does not depend on the others and could be kept under its own key.
+The page's own work at an edit that leaves the kernel's graph as it was: **103.6 to 30.8 ms** for eight extruded gears (5799 parts) in the real app (`dec_scene_derivation_cache`). **Fixed (`in_702`, `dec_per_body_checks` 6: 8 gears 4.0 s to 1.5 s, 16 gears 10.5 s to 3.3 s):** a change to the first of eight gears made the kernel build all eight again (about 4 s, the page's own work is under 0.2 s of that), because each step's kept answer is keyed by the steps before it (`interpreter.mjs` `compile`: the key of an op includes the keys of its target and its inputs), so a body that is only a compound beside the others is rebuilt whenever one before it changes. The work that is not the join (the prism of its own sketch, its checks, its mesh) does not depend on the others and could be kept under its own key.
 
 ## Causes, and the fix that goes with each (the first two are landed; the rest are for the human to choose from)
 

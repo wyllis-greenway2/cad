@@ -3,7 +3,7 @@ id: dec_per_body_checks
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_689, in_699
+human_input: in_689, in_699, in_702
 date: 2026-11-17
 depends_on:
   - dec_gear_speed: the measured cost this removes (each gear added to a model cost more than the one before, 0.8 s to 3.6 s for six, though its own extrude is 0.4 s); a change to those numbers changes whether this is worth its risk
@@ -22,12 +22,15 @@ depends_on:
 3. **The edges of a face and the ends and middle of an edge** are found once (`facenames.mjs`, `edgesOfFace`, `itemOfEdge`); **what a face is** (its kind, direction, place, box) too (`surfacesOf`, `factsOf`). What is given out is a copy, so changing one answer does not change the next.
 4. **A piece added whose box meets none of the bodies** (`joined`) is a body of its own: the compound of them, with no boolean on the others. A piece that does meet one is fused as before.
 5. A new body is still checked, meshed, named and described in full: that is what it costs.
+6. **A body's own solid is kept under what it was made from, not what came before it** (`in_702`; `interpreter.mjs`, `extrude`'s `toolOf`, `prisms`): a step's kept answer is keyed by the steps before it, so a change to an early gear made every body after it be built again (8 gears: 9 steps, 4.0 s). The solid a step makes of its own sketches (the prism, with the roles of its faces by the sketches' own edges, which are replayed when it is found again) is now kept under a key of its sketches' answers, its depth and the named parameters, so the later bodies are the very same solids as before, and everything kept for a solid (validity, no self-crossing, mesh, the details of its faces: all now by the solid, also for a single solid: `isValidSolid`, `crossesItself`) is found again. Only the body that changed is built.
 
 **What is not changed:** the results. The kept answers are the ones working it out again gives (`test/perbody.test.ts`: the names of the edges and faces are the same cold and kept; two gears apart have the volume of one twice; touching gears are one body with the volumes added; a compound of valid solids is valid).
 
 ## Measured
 
 Six gears, one after another: **13.8 s to 9.2 s** in all. The last gear's step: fingerprints 265 to 56 ms, the kernel's naming of the final shape 340 to under 100 ms, the fuse gone. The cost of each added gear (ten gears): 1.5 s for the second to 2.7 s for the tenth, a rise of about 0.13 s a gear where it was 0.55 s a gear (0.9 to 3.6 s over six). What still rises is mostly outside the kernel (the page's scene is derived from every part again at each edit, `withDerived`, which grows with the 700 or so parts a gear sketch has) and the work a new body is owed.
+
+**Measured (`in_702`, Node, 30-tooth gears):** an edit to the first gear: 8 gears **4.0 s to 1.5 s**, 16 gears **10.5 s to 3.3 s** (the fingerprints 826 to 89 ms, the checks and the builds of the later bodies gone). Editing the last of 16 is 2.0 s, of which about 0.65 s is the changed body's own work (describe 0.3, self-crossing 0.2, validity 0.1, prism 0.07) and the rest grows with the model, in proportion: naming the faces and edges (0.3), the fingerprints (0.07), the page's parts (0.25). `test/prismkept.test.ts` (3 tests: an early edit builds one body and finds three kept; the kept answer's volumes, face names and edge names are the worked-out answer's; a valid solid is found so again).
 
 ## Rationale
 

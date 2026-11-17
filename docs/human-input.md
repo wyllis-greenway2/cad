@@ -3147,3 +3147,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_701 — 2026-11-17 — question
 > What do you reccomend?
 (asks which of the remaining speed items to do next)
+
+## in_702 — 2026-11-17 — directive
+> yes start on number 1
+(approves starting on the kernel's rebuild of every later body when an earlier step changes: a body's own work kept under a key that does not include the steps before it)
