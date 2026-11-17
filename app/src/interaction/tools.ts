@@ -644,7 +644,7 @@ export function previewOf(scene: Scene, t: Tool): Preview | null {
     return guides.length ? { segments: [], guides, circle: null, cursor: t.cursor } : null;
   }
   const p = previewShape(scene, t, pl);
-  return p ? { ...p, guides: guidesOf(scene, pl, t.cursor) } : p;
+  return p ? { ...p, guides: t.gear?.editing || t.gear?.planetary ? [] : guidesOf(scene, pl, t.cursor) } : p; // (a gear being changed, or a planetary set, has no pointer to line up: its cursor is its own centre, which lines up with its own corners)
 }
 function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
   const n = normalOfPlane(pl);

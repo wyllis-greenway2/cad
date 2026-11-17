@@ -10,6 +10,7 @@ import { createState, reduce } from "../src/interaction/controller.ts";
 import type { AppState } from "../src/interaction/controller.ts";
 import { projector, lookStraight, homeCamera } from "../src/interaction/camera.ts";
 import { entryOf } from "../src/interaction/entry.ts";
+import { previewOf } from "../src/interaction/tools.ts";
 import type { Vec3 } from "../src/math/vec.ts";
 
 await kernel.init();
@@ -108,4 +109,14 @@ test("selecting the carrier's body and Edit gear opens the whole set too", () =>
   st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [carrier.ref] as never } } };
   st = reduce(st, { type: "runAction", id: "gear:edit" }, env);
   assert.ok(st.tool?.gear?.planetary && st.tool.gear.editing === "q_001");
+});
+
+test("editing a set draws no alignment guides: the cursor is the set's own centre, which always lines up with its planets' corners (the dashed line seen while editing)", () => {
+  let st = selectFace(made(), 1);
+  st = reduce(st, { type: "runAction", id: "gear:edit" }, env);
+  const pv = previewOf(scene(st.session), st.tool!);
+  assert.ok(pv && pv.segments.length > 0, "the outlines are drawn");
+  assert.deepEqual(pv!.guides ?? [], []);
+  const fresh = previewOf(scene(start().session), start().tool!);
+  assert.deepEqual(fresh!.guides ?? [], [], "and none while a new set is placed");
 });

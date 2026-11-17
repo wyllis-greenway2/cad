@@ -3548,3 +3548,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_800 — 2026-11-17 — directive
 > lets do Spacing, housing and moving next
 (asks to do the planetary set's unequal / out-of-phase spacing, the ring housing and the moving of a set next; then answered two questions from the AI in the chat (not typed words: choices made in the question panel): the housing is "Outer shell, as a body of its own" (a tube round the ring with a thickness set by the person, plus an optional end cap, the ring staying a separate body), and the spacing is offered as "Automatic nearest-meshing positions" (a Spacing field: 0 equal, 1 nearest positions where every planet meshes))
+
+## in_801 — 2026-11-17 — directive
+> chase the dashed line next
+(asks to find where the dashed line seen while editing a planetary set comes from)
