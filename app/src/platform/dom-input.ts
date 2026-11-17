@@ -27,7 +27,11 @@ export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { to
   let game = false; // (game mode, `in_302`, `in_304`: Space turns it on and off, with no time limit (`in_383`): time must pass for the view to move and turn, at a finer step)
   let timer: ReturnType<typeof setInterval> | null = null;
   let tickMs = 0;
-  const startGame = () => { if (game) return; game = true; try { void (el.requestPointerLock() as unknown as Promise<void> | undefined)?.catch?.(() => undefined); } catch { /* no lock: the pointer moves as it does, and the mode still works */ } ticking(); };
+  let lockTries = 0;
+  const takeLock = (): void => { try { void (el.requestPointerLock() as unknown as Promise<void> | undefined)?.catch?.(() => retryLock()); } catch { /* no lock: the pointer moves as it does, and the mode still works */ } };
+  // a lock the browser refused (asked again too soon after the last was let go, as when Space is pressed over and over) is asked for again a moment later, while the mode is still on, so the mode is not left running with the pointer free (the crosshair and the blue circle apart)
+  const retryLock = (): void => { if (game && !freed && !locked() && lockTries++ < 20) setTimeout(() => { if (game && !freed && !locked()) takeLock(); }, 60); };
+  const startGame = () => { if (game) return; game = true; lockTries = 0; takeLock(); ticking(); };
   const endGame = () => { game = false; gameKeys.clear(); if (locked()) document.exitPointerLock(); ticking(); };
   const ticking = () => {
     const want = game ? GAME_TICK_MS : down.size ? TICK_MS : 0;
@@ -103,7 +107,9 @@ export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { to
   on<Event>(el, "contextmenu", (e) => e.preventDefault());
   // the pointer held at the middle (`in_304`): when it is let go (Esc, or the page lost focus) game mode is over; when it is taken, the recogniser is told where the middle is
   on<Event>(document, "pointerlockchange", () => {
-    if (locked()) { const [x, y] = centre(); bus.emit("input", { kind: "move", id: 1, device: "mouse", x, y, dx: 0, dy: 0, button: 0, mods: { shift: false, ctrl: false, alt: false }, t: now() }); }
+    if (locked() && !game) { document.exitPointerLock(); return; } // (a lock granted after the mode was already over: let it go, or the pointer stays held with nothing using it)
+    if (locked()) { lockTries = 0; const [x, y] = centre(); bus.emit("input", { kind: "move", id: 1, device: "mouse", x, y, dx: 0, dy: 0, button: 0, mods: { shift: false, ctrl: false, alt: false }, t: now() }); }
+    else if (game && !freed && lockTries < 20 && lockTries > 0) retryLock(); // (let go at once after being taken: asked for again)
     else if (game && !freed) { bus.emit("input", { kind: "key", key: "Escape", down: true, mods: { shift: false, ctrl: false, alt: false }, t: now() }); endGame(); }
   });
   on<Event>(window, "blur", () => { endGame();  for (const id of down) bus.emit("input", { kind: "cancel", id, device: "mouse", x: 0, y: 0, button: 0, mods: { shift: false, ctrl: false, alt: false }, t: now() }); down.clear(); ticking(); });
@@ -133,7 +139,7 @@ export function attachInput(el: HTMLElement, bus: InputBus): (() => void) & { to
     if (e.key === "Escape" && down && game) endGame();
     if (e.key === "Alt" && game) {
       if (down && !freed) { freed = true; if (locked()) document.exitPointerLock(); }
-      else if (!down && freed) { freed = false; try { void (el.requestPointerLock() as unknown as Promise<void> | undefined)?.catch?.(() => undefined); } catch { /* no lock */ } }
+      else if (!down && freed) { freed = false; takeLock(); }
     }
     bus.emit("input", { kind: "key", key: e.key, down, mods: modsOf(e), t: now() });
   };
