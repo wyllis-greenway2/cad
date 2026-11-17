@@ -3568,3 +3568,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_805 — 2026-11-17 — directive
 > lets do what is left on the list to make it faster
 (asks to do what is left on the speed list: discs for other heavy bodies, and the kernel worker's memory)
+
+## in_806 — 2026-11-17 — directive
+> yes do the discs for other heavy bodies next
+(approves doing the stand-in discs for other heavy bodies next: cylinders, sweeps, worms)

@@ -3,7 +3,7 @@ id: dec_gear_standin
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_702, in_707, in_804
+human_input: in_702, in_707, in_804, in_806
 date: 2026-11-17
 depends_on:
   - dec_gear_speed: the measured cost of a heavy gear's body that this hides while it is made; a change to how fast the body is made changes how often the stand-in shows
@@ -19,7 +19,7 @@ depends_on:
 2. **What.** A flat, ghosted disc (a ring when the gear has a bore or is an internal gear) at the gear's outside diameter and the step's depth, on the gear's own plane, worked out from the gear's record alone (`standin.ts`, no kernel). Translucent grey with a faint outline, so it reads as a place holder, not as the part.
 3. **What it is not.** It cannot be picked, hovered, measured, exported or used for clearance and overlap: those already wait for the kernel (`stale`), and the stand-in is drawn outside the scene.
 4. **A label (`in_804`).** A small dark pill on the middle of each disc says **Building…**, and after two seconds how long (**Building… 5 s**, counting): so the grey disc reads as a place holder and a long wait is not mistaken for a hang. It appears and goes with the disc (`ui/standinlabel.ts`, the words in `standInWords`); it takes no clicks.
-5. **Not for a worm.** A worm is a thread along an axis, not a disc, and takes about half a second; it is left as it is.
+5. **A worm (`in_806`).** A worm's heavy step is its thread (a helical sweep; the core is quick): its first thread step is drawn as one disc as long as the worm, at the thread's outside radius, along the worm's axis from one end, with the bore as its hole. It is measured at 1 to 2 s a worm in the page. A hand-drawn cylinder (an extrude of a circle) is not given a disc: it comes from the kernel in a few ms. A hand-drawn sweep along a bent path took 0.1 s (one arc) to 0.7 to 1.7 s (three to eight arcs) in a rough measure; it is not given a disc, since a disc is the wrong shape for a body that follows a path and the person's own sketch and path are already on the screen (a stand-in for it would need its own design: a tube along the path, say).
 
 ## Rationale
 

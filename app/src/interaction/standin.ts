@@ -3,6 +3,7 @@
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene, Step } from "../operation/scene.ts";
 import { gearShapeOf } from "../operation/gearshape.ts";
+import { wormOf } from "../operation/worm.ts";
 
 /** How long the kernel has been working before a disc is drawn for a gear it has not made (ms): a gear that comes at once is not preceded by a flash. */
 export const STANDIN_MS = 250;
@@ -33,5 +34,22 @@ export function standIns(sc: Scene, kernel: KernelSeen | null | undefined): Stan
 
 function standInOf(sc: Scene, st: Step): StandIn | null {
   const g = gearShapeOf(sc, st);
-  return g ? { step: g.step, centre: g.centre, normal: g.normal, depth: g.depth, radius: g.radius, hole: g.hole } : null;
+  if (!g) return wormStandInOf(sc, st);
+  return { step: g.step, centre: g.centre, normal: g.normal, depth: g.depth, radius: g.radius, hole: g.hole };
+}
+
+/** A worm's thread is its heavy step (a helical sweep: its core is quick): a disc as long as the worm, at the thread's outside radius, along the worm's axis (`in_806`; the first thread step of the worm stands for the body). */
+function wormStandInOf(sc: Scene, st: Step): StandIn | null {
+  if (st.type !== "revolve" || st.params.mode !== "add" || !(Number(st.params.advance) > 0) || typeof st.params.gear !== "string") return null;
+  const rec = sc.gears?.find((g) => g.id === st.params.gear);
+  if (!rec?.spec.worm) return null;
+  const first = sc.steps.find((o) => o.type === "revolve" && o.params.gear === rec.id && o.params.mode === "add" && Number(o.params.advance) > 0);
+  if (first?.id !== st.id) return null;
+  const g = wormOf(rec.spec), plane = sc.parts[rec.plane];
+  if (!g.ok || !plane || plane.kind !== "plane") return null;
+  const [c, sn] = [Math.cos(rec.turn ?? 0), Math.sin(rec.turn ?? 0)];
+  const x: Vec3 = [0, 1, 2].map((k) => plane.u[k]! * c + plane.v[k]! * sn) as unknown as Vec3;
+  const len = rec.spec.worm.length, hole = (rec.spec.bore ?? 0) / 2;
+  const radius = g.value.rTip;
+  return { step: st.id, centre: [0, 1, 2].map((k) => rec.at[k]! - x[k]! * len / 2) as unknown as Vec3, normal: x, depth: len, radius, hole: hole < radius ? hole : 0 };
 }

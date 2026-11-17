@@ -58,11 +58,15 @@ test("a bore makes the disc a ring with a hole of the bore's radius; an internal
   assert.ok(Math.abs(ring[0]!.hole - o.value.tipRadius) < 1e-9);
 });
 
-test("a helical gear's twist step is drawn as a disc as wide as the gear; a worm is not drawn", () => {
+test("a helical gear's twist step is drawn as a disc as wide as the gear; a worm is drawn as one disc as long as the worm", () => {
   const helical = standIns(scene(made({ teeth: 20, module: 2, helix: 15, width: 12 })), waiting);
   assert.equal(helical.length, 1);
   assert.ok(Math.abs(Math.abs(helical[0]!.depth) - 12) < 1e-9);
-  assert.deepEqual(standIns(scene(made({ teeth: 1, module: 2, worm: { diameter: 24, length: 30 } })), waiting), []);
+  const worm = standIns(scene(made({ teeth: 2, module: 2, worm: { diameter: 24, length: 30 } })), waiting);
+  assert.equal(worm.length, 1, "one disc for two threads");
+  assert.ok(Math.abs(worm[0]!.depth - 30) < 1e-9);
+  assert.ok(Math.abs(worm[0]!.radius - 14) < 1e-9, "the thread's tip: pitch radius 12 plus a module");
+  assert.ok(Math.abs(worm[0]!.centre[0]! - (5 - 15)) < 1e-9 && Math.abs(worm[0]!.normal[0]! - 1) < 1e-9, "from one end, along the axis");
 });
 
 test("a worm wheel's disc is centred on its plane (its sections lie either side)", () => {
