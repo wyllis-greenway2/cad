@@ -133,7 +133,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "zoom": return doZoom(s, i, env);
     case "look": return doLook(s, i, env);
     case "home": return doHome(s, env);
-    case "runAction": return doRunAction(s, i.id, env.now);
+    case "runAction": return doRunAction(i.part && i.id.startsWith("gear:") && !s.session.click.selection.includes(i.part as never) ? { ...s, session: { ...s.session, click: { ...s.session.click, selection: [i.part as never] } } } : s, i.id, env.now); // (the icon of a gear that is only pointed at: its Edit, Helix and Mesh are for that gear, `in_809`)
     case "overrideRefusal": return overrideRefusal(s);
     case "menuTurn": return s; // (game mode's: the menu is turned by the page, `in_467`)
     case "sweepPlace": return s.op?.kind === "sweep" ? { ...s, op: { ...s.op, sweepPlace: i.id === "sketch" ? "sketch" : "path" } } : s;

@@ -339,11 +339,11 @@ function gearSpecOf(t: Tool): GearSpec | null {
   if (g.worm || g.wheel) { // a worm or a worm wheel (`in_608`): the module is 2 unless another is typed, the worm's pitch diameter ten modules, its length 15 (or 2.5 leads, if more)
     const module = typed("module") ?? b?.module ?? 2;
     const pressure = typed("pressure") ?? b?.pressure;
-    const bore = typed("bore") ?? b?.bore;
+    const bore = typed("bore") ?? b?.bore ?? (g.wheel && !b ? defaultBore(Math.round(typed("teeth") ?? 30), typed("module") ?? 2) || undefined : undefined); // (a new worm wheel has a bore unless 0 is typed, as a gear has, `in_809`)
     const diameter = typed("diameter") ?? b?.worm?.diameter ?? b?.wheel?.diameter ?? 10 * module;
     if (g.worm) {
       const starts = Math.round(typed("teeth") ?? b?.teeth ?? 1);
-      const length = typed("length") ?? b?.worm?.length ?? Math.max(15, 2.5 * Math.PI * Math.max(1, starts)) * module;
+      const length = typed("length") ?? b?.worm?.length ?? Math.max(25, 4 * Math.PI * Math.max(1, starts)) * module; // (25 modules, or 4 leads if more: longer than it was, `in_809`)
       const [journal, runout] = [typed("journal") ?? b?.worm?.journal, typed("runout") ?? b?.worm?.runout]; // (left empty: the default for this worm, `in_696`)
       return { teeth: starts, module, ...(pressure !== undefined ? { pressure } : {}), worm: { diameter, length, ...(journal !== undefined ? { journal } : {}), ...(runout !== undefined ? { runout } : {}) }, ...(bore ? { bore, ...shapeOf(typed, b, fields[g.field]?.key) } : {}) };
     }
@@ -416,7 +416,7 @@ function planetaryMade(scene: Scene, t: Tool): Result<GearTarget> | null {
   const typed = (k: string) => { const i = fields.findIndex((f) => f.key === k); return i < 0 ? null : typedNumber(g.typed[i] ?? ""); };
   const b = g.planetaryBase;
   const planets = Math.round(typed("planets") ?? b?.planets ?? 3);
-  const module = typed("module") ?? b?.module ?? 2;
+  const module = typed("module") ?? b?.module ?? 1; // (a planetary set is small: module 1, `in_809`)
   const width = typed("width") ?? b?.width ?? 6;
   const helixT = typed("helix") ?? b?.helix;
   const helix = helixT ? helixT : undefined;
@@ -491,7 +491,7 @@ function gearMade(scene: Scene, t: Tool): Result<GearTarget> | null {
   const wLand = typed("land");
   const r = meshWith(src, pl.u, pl.v, { teeth, rack, ring, ...(src.spec.worm || src.spec.wheel ? { offset: wOff, ...(wWidth ? { width: wWidth } : {}), ...(wLand !== null ? { land: wLand } : {}) } : {}) }, where);
   if (!r.ok) return err(r.error);
-  const bore = rack ? null : typed("bore") ?? (src.spec.worm || src.spec.wheel ? null : defaultBore(teeth, r.value.spec.module) || null); // (a partner has a bore too, `in_691`)
+  const bore = rack ? null : typed("bore") ?? (src.spec.wheel ? null : defaultBore(teeth, r.value.spec.module) || null); // (a partner has a bore too, `in_691`)
   const spec = bore ? { ...r.value.spec, bore, ...shapeOf(typed, undefined, fields[g.field]?.key) } : r.value.spec;
   const o = gearOutline(spec);
   if (!o.ok) return err(o.error);

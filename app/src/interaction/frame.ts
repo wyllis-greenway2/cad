@@ -106,7 +106,7 @@ export interface Frame {
   bodyEyes: { ref: string; hidden: boolean; corners: Vec3[] }[];
   eyesQuiet: boolean;
   /** the gear's own icon (`in_693`): a gear is selected (its sketch or its body): where it stands (the top of the gear) and what it offers */
-  gearChip: { at: Vec3; items: { id: string; label: string; icon: string; enabled: boolean; why: string | null }[] } | null;
+  gearChip: { /** the part of the gear the icon is for (what is selected or pointed at) */ part: Ref; at: Vec3; items: { id: string; label: string; icon: string; enabled: boolean; why: string | null }[] } | null;
   /** the bodies that move with the one being dragged, each by its own matrix, as its mates take them along (`in_341`) */
   followers: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[];
   /** what is selected is the body, so its highlight is moved by the same matrix */
@@ -389,7 +389,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
   const m = settling && !s.op && lastDrag?.matrix && activeOp(s)?.kind === "move" ? lastDrag.matrix : null;
   const gizmo = followedGizmo && m ? { centre: add(followedGizmo.centre, [m[12]!, m[13]!, m[14]!]), handles: followedGizmo.handles.map((h) => ({ ...h, points: h.points.map((q) => add(q, [m[12]!, m[13]!, m[14]!])) })) } : followedGizmo;
   // the arrow of a push / pull, an extrude or a fillet / chamfer that showed up by itself has its bubble too, ready for a typed size
-  const auto = s.op ? null : activeOp(s);
+  const auto = s.op || s.tool?.kind === "gear" ? null : activeOp(s); // (a gear's number box is not pushed aside by the size bubble of the face that is selected, `in_809`)
   const shownOp = s.op ?? (auto && !(s.cam.straight && auto.kind !== "edge") && (auto.kind === "pushpull" || auto.kind === "extrude" || auto.kind === "edge") ? auto : null);
   // the arrows of a move have a number bubble on each, there as long as the arrows are (`in_215`)
   const mo = !s.tool && !s.repeat ? (s.op ?? auto) : null;
@@ -695,7 +695,8 @@ function bodySplitOf(sc: Scene, outcome: CompileOutcome, op: Op): Frame["bodySpl
 
 /** The gear's icon and what a click on it offers (`in_693`), for the first gear in the selection; null when none is selected. */
 function gearChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
-  const rec = sel.map((r) => gearOfSelection(sc, r)).find((g) => !!g);
+  const part = sel.find((r) => !!gearOfSelection(sc, r));
+  const rec = part ? gearOfSelection(sc, part) : undefined;
   const pl = rec ? sc.parts[rec.plane] : undefined;
   if (!rec || !pl || pl.kind !== "plane") return null;
   const r = rec.spec.worm ? rec.spec.worm.length / 2 : Math.max(5, rec.spec.module * (rec.spec.teeth / 2 + 2));
@@ -703,8 +704,8 @@ function gearChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
   const plain = canHelix(rec.spec);
   const worm = !!rec.spec.worm || !!rec.spec.wheel;
   const bevel = !!rec.spec.bevel;
-  if (planetaryOfGear(sc, rec.id)) return { at, items: [{ id: "gear:edit", label: "Edit planetary set", icon: "planetary", enabled: true, why: null }] }; // (a gear of a planetary set is edited with the whole set, `dec_planetary_gears`)
-  return { at, items: [
+  if (planetaryOfGear(sc, rec.id)) return { part: part!, at, items: [{ id: "gear:edit", label: "Edit planetary set", icon: "planetary", enabled: true, why: null }] }; // (a gear of a planetary set is edited with the whole set, `dec_planetary_gears`)
+  return { part: part!, at, items: [
     { id: "gear:edit", label: "Edit gear", icon: "gear", enabled: true, why: null },
     { id: "gear:helix", label: "Helix", icon: "helical", enabled: plain, why: plain ? null : "a helix goes on a plain gear (not yet a pulley, sprocket, clock gear or worm)" },
     { id: "gear:mesh", label: "Mesh gear", icon: "meshgear", enabled: true, why: null },

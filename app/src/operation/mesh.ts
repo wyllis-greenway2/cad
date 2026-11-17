@@ -128,7 +128,7 @@ function meshWheelWorm(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: numb
   if (partner.rack || partner.ring) return err("only a worm meshes with a worm wheel");
   const starts = Math.round(partner.teeth);
   if (starts !== s.wheel!.starts) return err(`the worm for this wheel has ${s.wheel!.starts} start${s.wheel!.starts === 1 ? "" : "s"}: it was made for that many (type Starts)`);
-  const length = partner.width && partner.width > 0 ? partner.width : Math.max(15, 2.5 * Math.PI * Math.max(1, starts)) * s.module;
+  const length = partner.width && partner.width > 0 ? partner.width : Math.max(25, 4 * Math.PI * Math.max(1, starts)) * s.module;
   const spec: GearSpec = { teeth: starts, module: s.module, ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), worm: { diameter: s.wheel!.diameter, length } };
   const g = wormOf(spec);
   if (!g.ok) return g;

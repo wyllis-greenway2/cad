@@ -188,7 +188,7 @@ const crosshair = createCrosshair(document.body);
 const hardMarks = createHardMarks(document.body, (id) => dispatch({ type: "runAction", id }));
 const worldOrb = createWorldOrb(document.body, () => dispatch({ type: "runAction", id: "world:toggle" }));
 const sheetChips = createSheetChips(document.body, (id) => dispatch({ type: "runAction", id }));
-const gearChip = createGearChip(document.body, (id) => dispatch({ type: "runAction", id })); // (a gear that is selected has its own icon, `in_693`)
+const gearChip = createGearChip(document.body, (id, part) => dispatch({ type: "runAction", id, part })); // (a gear that is selected has its own icon, `in_693`)
 const bodyChips = createBodyChips(document.body, (id) => dispatch({ type: "runAction", id }));
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const notices = createNotices(document.body, statusEl, (i) => dispatch(i)); // (every message, refusal, help and the working sign, `in_665`)

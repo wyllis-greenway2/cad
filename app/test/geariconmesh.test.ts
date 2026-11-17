@@ -96,3 +96,22 @@ test("a double click on a body while the gear tool waits for the next gear's cen
   assert.equal(st.tool, null);
   assert.deepEqual(selection(st.session), [bodyOf(st)]);
 });
+
+test("the icon of a gear that is only pointed at works: Edit, Helix and Mesh select that gear first (`in_809`); a gear's number box is shown when a face of it is selected", () => {
+  const st = top();
+  const face = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !(p as { curved?: unknown }).curved)!;
+  // nothing selected, the pointer over the gear: the icon is there for that part, and a click on its Edit item works
+  const hovered: AppState = { ...st, session: { ...st.session, hover: face.ref as never } };
+  const chip = frameOf(hovered, env).gearChip!;
+  assert.equal(chip.part, face.ref);
+  const e = reduce(hovered, { type: "runAction", id: "gear:edit", part: chip.part }, env);
+  assert.ok(e.tool?.gear?.editing, "the editor opened");
+  assert.deepEqual(selection(e.session), [face.ref], "and the gear is selected");
+  // a face of the gear selected: its box is shown, not the size bubble of the face
+  const sel = select(st, [face.ref]);
+  const h = reduce(sel, { type: "runAction", id: "gear:helix", part: face.ref }, env);
+  const f = frameOf(h, env).entry!;
+  assert.equal(f.panel, "Gear");
+  assert.ok(f.focus);
+  assert.equal(f.fields.find((x) => x.label === "Helix")!.value, "15");
+});

@@ -50,7 +50,7 @@ export type Intent =
   | { type: "escape" }
   | { type: "save" }
   | { type: "open" }
-  | { type: "runAction"; id: string }
+  | { type: "runAction"; id: string; /** the part an item of a gear's icon was clicked for: it is selected first when what is selected is not that gear (`in_809`) */ part?: string }
   /** the button on a refused change: delete the constraints that stopped it and do it (`in_366`) */
   | { type: "overrideRefusal" }
   /** what pushing or pulling a flat face does: move it with the step that made it, extrude a prism from it, or extend it with its neighbours (`in_405`) */

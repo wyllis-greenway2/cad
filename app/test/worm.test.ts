@@ -241,3 +241,18 @@ test("a worm wheel's land (`in_790`): the tooth section carried straight out to 
   assert.deepEqual(both.outcome.errors, {});
   assert.ok(overlap(both) < 1, `the worm and the wheel with a land overlap by ${overlap(both)} mm3`);
 });
+
+test("defaults (`in_809`): a worm is 25 modules long; a new worm wheel has a bore, the worm has none; a wheel made by Mesh gear has one too", () => {
+  let w = reduce(top(), { type: "begin", name: "gear" }, env);
+  w = reduce(top(), { type: "runAction", id: "tool:worm" }, env);
+  w = click(w, [10, 10, 0]);
+  const worm = entryOf(scene(w.session), w.tool, w.op)!.fields;
+  assert.equal(worm.find((f) => f.label === "Length")!.value, "50", "25 modules of 2 mm");
+  assert.equal(worm.find((f) => f.label === "Bore")!.value, "0");
+  let wheel = reduce(top(), { type: "runAction", id: "tool:wormwheel" }, env);
+  wheel = click(wheel, [10, 10, 0]);
+  assert.notEqual(entryOf(scene(wheel.session), wheel.tool, wheel.op)!.fields.find((f) => f.label === "Bore")!.value, "0", "a bore");
+  const r = meshWith({ id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: worm0 }, [1, 0, 0], [0, 1, 0], { teeth: 20 }, Math.PI / 2);
+  assert.ok(r.ok);
+});
+const worm0: GearSpec = { teeth: 1, module: 2, worm: { diameter: 24, length: 50 } };
