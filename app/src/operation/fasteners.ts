@@ -94,8 +94,19 @@ export const socketHeadDims = (size: FastenerSize): SocketHeadDims => SOCKET_HEA
 // ---- the receivers: the hole a fastener goes into ----
 /** The clearance hole for the shank (mm), in the fit chosen. */
 export const clearanceHole = (size: FastenerSize, fit: ClearanceFit): number => CLEARANCE[size][fit];
-/** The drill for a threaded hole (mm): the nominal diameter less the pitch (`Optimas` coarse thread chart). Engagement as a setting is not built yet. */
+/** The chart's drill for a threaded hole (mm): the nominal diameter less the pitch (Optimas coarse thread chart). `tapHole` takes an engagement instead. */
 export const tapDrill = (size: FastenerSize): number => round3(nominalDiameter(size) - COUNTERSUNK[size].pitch);
+/**
+ * The engaged height of the ISO basic internal thread, as a fraction of the pitch: 5/8 of the fundamental triangle's height H = (sqrt 3 / 2) P, about 0.5413 P (ISO 68-1 basic profile). A hole of diameter `d - 2 * 0.5413 * P` gives every thread its full engaged height (100%); the engagement of any
+ * other hole is `(d - hole) / (2 * 0.5413 * P)`. **This is our convention** (the US charts count percent thread from another height, 0.6495 P, and give other percentages for the same hole); no source read states which one the tap drill chart uses.
+ */
+const ENGAGED_HEIGHT = (5 / 8) * (Math.sqrt(3) / 2);
+/** The smallest and largest thread engagement the setting takes (fractions): 40% to 100% of the basic engaged height. */
+export const ENGAGEMENT_RANGE: readonly [number, number] = [0.4, 1];
+/** The engagement the chart's tap drill (nominal less pitch) gives, on that convention: about 92%, the same for every size. */
+export const chartEngagement = (size: FastenerSize): number => (nominalDiameter(size) - tapDrill(size)) / (2 * ENGAGED_HEIGHT * COUNTERSUNK[size].pitch);
+/** The diameter of a hole to tap (mm) for a thread engagement (a fraction: 0.75 is 75%); with none, the chart's tap drill. A smaller engagement is a bigger hole: an easier tap and a weaker thread. */
+export const tapHole = (size: FastenerSize, engagement?: number): number => (engagement === undefined ? tapDrill(size) : round3(nominalDiameter(size) - 2 * ENGAGED_HEIGHT * COUNTERSUNK[size].pitch * engagement));
 /** The countersink for a countersunk screw: the diameter at the surface (the head's theoretical diameter), the angle (90 degrees) and the depth the cone goes (the head's height). */
 export const countersink = (size: FastenerSize): { diameter: number; angle: number; depth: number } => ({ diameter: COUNTERSUNK[size].head.theoretical, angle: 90, depth: COUNTERSUNK[size].headHeight });
 /** The pocket for a hex nut, at the nut's own size (the printer's offset is added in the manufacturing version, `dec_parts_tolerance`): across flats, across corners and depth. */
@@ -185,8 +196,8 @@ const cross3 = (a: readonly number[], b: readonly number[]): [number, number, nu
 const along = (p: readonly number[], d: readonly number[], t: number): [number, number, number] => [p[0]! + d[0]! * t, p[1]! + d[1]! * t, p[2]! + d[2]! * t];
 const BIT = 0.5; // (a cut starts this far outside the face, so it never ends exactly on it)
 /** The side view of a round receiver as a closed outline about its axis (x out from it, y along the outward normal, the face at 0): a plain hole, or one with the 90 degree countersink at its mouth. Null for a countersink wider than the hole it opens (never for the sizes here). */
-export function receiverProfile(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number): [number, number][] {
-  const r = (kind === "tapped" ? tapDrill(size) : clearanceHole(size, fit)) / 2;
+export function receiverProfile(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number, engagement?: number): [number, number][] {
+  const r = (kind === "tapped" ? tapHole(size, engagement) : clearanceHole(size, fit)) / 2;
   if (kind === "countersunk") {
     const big = countersink(size).diameter / 2;
     return [[0, BIT], [big, BIT], [big, 0], [r, -(big - r)], [r, -depth], [0, -depth]];
@@ -198,9 +209,10 @@ export function receiverProfile(kind: ReceiverKind, size: FastenerSize, fit: Cle
   return [[0, BIT], [r, BIT], [r, -depth], [0, -depth]];
 }
 /** Why this receiver cannot be cut with these numbers, or null. A countersink has to be shallower than the hole. */
-export function receiverProblem(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number): string | null {
+export function receiverProblem(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number, engagement?: number): string | null {
   if (!(depth > 0) || !Number.isFinite(depth)) return "the depth must be a number above zero";
-  const hole = kind === "tapped" ? tapDrill(size) : clearanceHole(size, fit);
+  if (kind === "tapped" && engagement !== undefined && !(engagement >= ENGAGEMENT_RANGE[0] && engagement <= ENGAGEMENT_RANGE[1])) return `the thread engagement is between ${ENGAGEMENT_RANGE[0] * 100}% and ${ENGAGEMENT_RANGE[1] * 100}%`;
+  const hole = kind === "tapped" ? tapHole(size, engagement) : clearanceHole(size, fit);
   const cone = kind === "countersunk" ? countersink(size).diameter / 2 - hole / 2 : 0;
   if (cone >= depth) return `the countersink goes ${round3(cone)} mm deep: the hole must be deeper than that`;
   if (kind === "counterbore" && depth <= counterbore(size).depth) return `the counterbore is ${counterbore(size).depth} mm deep: the hole must be deeper than that`;
@@ -208,7 +220,7 @@ export function receiverProblem(kind: ReceiverKind, size: FastenerSize, fit: Cle
   return null;
 }
 /** The steps that cut a receiver into a body at a spot on a face; `depth` is how far the hole goes (a pocket's own depth is the nut's thickness). */
-export function receiverSteps(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number, spot: FaceSpot): PartSteps {
+export function receiverSteps(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number, spot: FaceSpot, engagement?: number): PartSteps {
   const n = cross3(spot.u, spot.v);
   const len = Math.hypot(...n) || 1;
   const out: [number, number, number] = [n[0] / len, n[1] / len, n[2] / len];
@@ -221,7 +233,7 @@ export function receiverSteps(kind: ReceiverKind, size: FastenerSize, fit: Clear
     axisPlane = ref;
     return { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: spot.centre, u: t, v: out, infinite: true } };
   });
-  steps.push((s) => { const r = drawChain(s, axisPlane!, receiverProfile(kind, size, fit, depth).map(([x, y]) => along(along(spot.centre, t, x), out, y)), true); outline = r.lines; return r.command; });
+  steps.push((s) => { const r = drawChain(s, axisPlane!, receiverProfile(kind, size, fit, depth, engagement).map(([x, y]) => along(along(spot.centre, t, x), out, y)), true); outline = r.lines; return r.command; });
   steps.push((s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "revolve", parts: outline, params: { ...figureParams([{ outer: outline, holes: [] }]), mode: "cut", angle: 360, advance: 0, ax: spot.centre[0], ay: spot.centre[1], az: spot.centre[2], dx: out[0], dy: out[1], dz: out[2] } } }));
   if (kind === "nutPocket") {
     const trap = nutTrap(size);

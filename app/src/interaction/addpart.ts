@@ -11,8 +11,8 @@ import { ok, err } from "../shared/result.ts";
 import { typedLength } from "../shared/units.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { dot } from "../math/vec.ts";
-import { FASTENER_FAMILIES, FASTENER_SIZES, FASTENER_SOURCES, CLEARANCE_FIT_LIST as CLEARANCE_FITS, RECEIVER_KINDS, isFastenerSize, receiversText, makeNut, makeCountersunk, makeWasher, makeSocketHead, countersunkDims, socketHeadDims, clearanceHole, nutTrap, receiverProblem, receiverSteps } from "../operation/fasteners.ts";
-import type { FastenerFamily, PartSteps, ReceiverKind, ClearanceFit, FaceSpot } from "../operation/fasteners.ts";
+import { FASTENER_FAMILIES, FASTENER_SIZES, FASTENER_SOURCES, CLEARANCE_FIT_LIST as CLEARANCE_FITS, RECEIVER_KINDS, isFastenerSize, receiversText, makeNut, makeCountersunk, makeWasher, makeSocketHead, countersunkDims, socketHeadDims, clearanceHole, tapHole, chartEngagement, nutTrap, receiverProblem, receiverSteps } from "../operation/fasteners.ts";
+import type { FastenerFamily, FastenerSize, PartSteps, ReceiverKind, ClearanceFit, FaceSpot } from "../operation/fasteners.ts";
 
 export interface AddPartValues { family: string; size: string; length: string; /** a socket head screw's head: "knurled" (the default) or "smooth" */ head?: string }
 /** The family's name in the words of a message: "hex nut", "flat washer". */
@@ -73,8 +73,8 @@ export function addPart(session: Session, v: AddPartValues): Result<Session> {
 }
 
 // ---- the receivers: the hole or pocket a fastener goes into, cut into the body whose face is selected ----
-export interface ReceiverValues { kind: string; size: string; fit: string; depth: string; dx: string; dy: string }
-export const receiverStart = (): ReceiverValues => ({ kind: "clearance", size: "M3", fit: "medium", depth: "", dx: "0", dy: "0" });
+export interface ReceiverValues { kind: string; size: string; fit: string; depth: string; dx: string; dy: string; /** a hole to tap: the thread engagement in percent; empty is the chart's tap drill */ engagement?: string }
+export const receiverStart = (): ReceiverValues => ({ kind: "clearance", size: "M3", fit: "medium", depth: "", dx: "0", dy: "0", engagement: "" });
 const kindOf = (s: string): ReceiverKind => (RECEIVER_KINDS.find((k) => k.id === s)?.id ?? "clearance");
 const fitOf = (s: string): ClearanceFit => (s === "fine" || s === "coarse" ? s : "medium");
 
@@ -111,12 +111,28 @@ export function receiverDialog(v: ReceiverValues): Dialog {
       { id: "kind", label: "Receiver", type: "choice", value: kind, choices: RECEIVER_KINDS.map((k) => ({ value: k.id, label: k.label })) },
       { id: "size", label: "Size (coarse thread)", type: "choice", value: size, choices: FASTENER_SIZES.map((s) => ({ value: s, label: s })), note: `all the receivers: ${receiversText(size, family)}` },
       ...(kind === "tapped" ? [] : [{ id: "fit", label: "Clearance (ISO 273)", type: "choice" as const, value: fit, choices: CLEARANCE_FITS.map((f) => ({ value: f, label: `${f} (${clearanceHole(size, f)} mm)` })) }]),
+      ...(kind === "tapped" ? [{ id: "engagement", label: "Thread engagement (%), empty is the chart's drill", type: "text" as const, value: v.engagement ?? "", note: engagementNote(size, v.engagement ?? "") }] : []),
       { id: "depth", label: "Depth (mm), empty goes right through", type: "text", value: v.depth, note: kind === "nutPocket" ? `the pocket is ${nutTrap(size).depth} mm deep, the hole goes on through` : "" },
       { id: "dx", label: "Across the face from its middle (mm)", type: "text", value: v.dx },
       { id: "dy", label: "Up the face from its middle (mm)", type: "text", value: v.dy, note: "the face's own two directions; the sizes are the standard's own, and the printer's offset is added when the part is made for printing" },
     ],
   };
 }
+
+/** What the engagement typed gives: the hole it makes, or why it is not one. */
+function engagementNote(size: FastenerSize, text: string): string {
+  const e = engagementOf(text);
+  if (e === null) return "type a number of percent, for example 75";
+  const hole = tapHole(size, e);
+  return `hole ${hole} mm${e === undefined ? ` (the chart's drill: ${round1(chartEngagement(size) * 100)}% of the ISO basic engaged height)` : ""}; less engagement is a bigger hole: easier to tap, a weaker thread; a percentage here is counted on the ISO basic profile`;
+}
+const round1 = (x: number): number => Math.round(x * 10) / 10;
+/** The engagement typed as a fraction: undefined for empty (the chart's drill), null for something that is not a number. */
+const engagementOf = (text: string): number | undefined | null => {
+  if (text.trim() === "") return undefined;
+  const n = Number(text.trim().replace("%", ""));
+  return Number.isFinite(n) ? n / 100 : null;
+};
 
 /** Cut the receiver into the body whose flat face is selected: the steps, one after another from the scene each leaves. */
 export function cutReceiver(session: Session, v: ReceiverValues): Result<Session> {
@@ -127,11 +143,13 @@ export function cutReceiver(session: Session, v: ReceiverValues): Result<Session
   const depth = v.depth.trim() === "" ? face.value.through : typedLength(v.depth);
   const [dx, dy] = [typedLength(v.dx.trim() === "" ? "0" : v.dx), typedLength(v.dy.trim() === "" ? "0" : v.dy)];
   if (depth === null || dx === null || dy === null) return err("type the depth and the distances as numbers");
-  const bad = receiverProblem(kind, v.size, fitOf(v.fit), depth);
+  const engagement = engagementOf(v.engagement ?? "");
+  if (engagement === null) return err("type the thread engagement as a number of percent");
+  const bad = receiverProblem(kind, v.size, fitOf(v.fit), depth, engagement);
   if (bad) return err(bad);
   const sp = face.value.spot;
   const spot: FaceSpot = { ...sp, centre: [sp.centre[0] + sp.u[0] * dx + sp.v[0] * dy, sp.centre[1] + sp.u[1] * dx + sp.v[1] * dy, sp.centre[2] + sp.u[2] * dx + sp.v[2] * dy] };
-  const c = oneCommand(scene(session), receiverSteps(kind, v.size, fitOf(v.fit), depth, spot));
+  const c = oneCommand(scene(session), receiverSteps(kind, v.size, fitOf(v.fit), depth, spot, engagement));
   if (!c.ok) return c;
   const s = run(session, c.value);
   return s.message ? err(s.message) : ok(s);

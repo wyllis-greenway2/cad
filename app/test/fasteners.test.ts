@@ -178,7 +178,7 @@ test("the dialog lists the receivers, sizes and clearances, and takes the cleara
   const d = receiverDialog(receiverStart());
   assert.deepEqual(d.fields.map((f) => f.id), ["kind", "size", "fit", "depth", "dx", "dy"]);
   assert.ok(d.fields[2]!.choices!.some((c) => c.label === "medium (3.4 mm)"));
-  assert.deepEqual(receiverDialog({ ...receiverStart(), kind: "tapped" }).fields.map((f) => f.id), ["kind", "size", "depth", "dx", "dy"]);
+  assert.deepEqual(receiverDialog({ ...receiverStart(), kind: "tapped" }).fields.map((f) => f.id), ["kind", "size", "engagement", "depth", "dx", "dy"]);
 });
 
 // ---- the washer and the socket head cap screw ----
@@ -262,4 +262,45 @@ test("the smooth head is the narrower head of ISO 4762: its own largest diameter
   assert.equal(dlg.value, "smooth");
   assert.deepEqual(dlg.choices!.map((c) => c.label), ["knurled, largest 5.68 mm across", "smooth, largest 5.5 mm across"]);
   assert.equal(addPartDialog({ family: "socketHead", size: "M3", length: "8" }).fields.find((x) => x.id === "head")!.value, "knurled", "knurled unless asked");
+});
+
+// ---- the tapped hole's engagement ----
+import { tapHole, chartEngagement, ENGAGEMENT_RANGE } from "../src/operation/fasteners.ts";
+
+test("with no engagement the hole is the chart's drill, which is about 92% of the ISO basic engaged height for every size", () => {
+  assert.deepEqual(FASTENER_SIZES.map((s) => tapHole(s)), [2.5, 3.3, 4.2, 5, 6.75]);
+  for (const s of FASTENER_SIZES) near(chartEngagement(s), 1 / 1.0825, 0.001);
+  assert.deepEqual(ENGAGEMENT_RANGE, [0.4, 1]);
+});
+test("less engagement is a bigger hole, by 1.0825 pitches over the whole range from nothing to full", () => {
+  for (const [size, pitch] of [["M3", 0.5], ["M6", 1], ["M8", 1.25]] as const) {
+    const d = Number(size.slice(1));
+    assert.ok(Math.abs(tapHole(size, 1) - (d - 1.0825 * pitch)) < 0.0015, `${size} full`);
+    assert.ok(Math.abs(tapHole(size, 0.75) - (d - 1.0825 * pitch * 0.75)) < 0.0015, `${size} 75%`);
+    assert.ok(tapHole(size, 0.5) > tapHole(size, 0.75) && tapHole(size, 0.75) > tapHole(size, 1));
+  }
+});
+test("a hole to tap is cut at the engagement typed, and the chart's drill when it is empty", () => {
+  const at = (engagement: string) => { const r = cutReceiver(block().s, { ...base, kind: "tapped", size: "M6", depth: "6", engagement }); assert.ok(r.ok, r.ok ? "" : r.error); return volumes(r.value)[0]!; };
+  near(at(""), V - cyl(6 - 1, 6));
+  near(at("75"), V - cyl(tapHole("M6", 0.75), 6));
+  near(at("75%"), V - cyl(tapHole("M6", 0.75), 6));
+  assert.ok(at("50") < at("75") && at("75") < at("100"), "more engagement, more material left");
+});
+test("an engagement out of range or not a number is refused with a reason", () => {
+  assert.ok(receiverProblem("tapped", "M6", "medium", 6, 0.2)?.includes("between 40% and 100%"));
+  assert.ok(receiverProblem("tapped", "M6", "medium", 6, 1.2)?.includes("between 40% and 100%"));
+  assert.equal(receiverProblem("tapped", "M6", "medium", 6, 0.75), null);
+  const bad = cutReceiver(block().s, { ...base, kind: "tapped", engagement: "abc" });
+  assert.ok(!bad.ok && bad.error.includes("percent"));
+  const low = cutReceiver(block().s, { ...base, kind: "tapped", engagement: "10" });
+  assert.ok(!low.ok && low.error.includes("40%"));
+});
+test("the dialog has the engagement for a hole to tap only, and says what hole it makes", () => {
+  const t = (engagement: string) => receiverDialog({ ...receiverStart(), kind: "tapped", size: "M6", engagement });
+  assert.deepEqual(t("").fields.map((f) => f.id), ["kind", "size", "engagement", "depth", "dx", "dy"]);
+  assert.ok(t("").fields[2]!.note?.includes("hole 5 mm (the chart's drill: 92.4%"));
+  assert.ok(t("75").fields[2]!.note?.includes(`hole ${tapHole("M6", 0.75)} mm`));
+  assert.ok(t("x").fields[2]!.note?.includes("number of percent"));
+  assert.ok(!receiverDialog(receiverStart()).fields.some((f) => f.id === "engagement"));
 });
