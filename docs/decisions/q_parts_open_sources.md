@@ -3,7 +3,7 @@ id: q_parts_open_sources
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_688, in_689
+human_input: in_688, in_689, in_690
 date: 2026-11-17
 depends_on:
   - dec_parts_library: which sources can fill the official library, and on what licence, decides how fast it grows
@@ -11,7 +11,7 @@ alternative_to:
 ---
 # Which open sources can fill the library, and what a public layer needs
 
-**Asked (`in_688`):** could open source libraries get a lot of parts quickly, and should users add to a public library so it grows itself?
+**Asked (`in_688`); the human said to accept it (`in_690`), but a question has no accepted state: it stays open until the points below are answered.** could open source libraries get a lot of parts quickly, and should users add to a public library so it grows itself?
 
 **Not read from a source: from memory, to verify before use** (`docs/licenses.md` first; no GPL or AGPL for code we use):
 - `cq_warehouse` and `bd_warehouse`: fasteners, bearings, threads, sprockets and chains as code; believed Apache-2.0; Python, so a rewrite in TypeScript, not an import.

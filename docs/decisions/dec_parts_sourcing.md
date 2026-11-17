@@ -1,9 +1,9 @@
 ---
 id: dec_parts_sourcing
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_688, in_689
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_688, in_689, in_690
 date: 2026-11-17
 depends_on:
   - dec_parts_library: offers attach to a library part (a family's numbers or an entry) and are kept apart from its geometry
@@ -12,7 +12,7 @@ alternative_to:
 ---
 # Where parts are bought: offers, and a cost and lead time breakdown for an assembly
 
-**Drafted from `in_688`, not yet approved. Nothing built.** The human asked how and where parts are bought, with lead times, so an assembly has a full cost and lead time breakdown.
+**Accepted by the human (`in_690`) as proposed by the AI from `in_688`. Nothing built.** The human asked how and where parts are bought, with lead times, so an assembly has a full cost and lead time breakdown.
 
 1. **Three things kept apart:** the geometry (generator or file), the identity (family and numbers, or an entry), and the *offers*: vendor, part number, price breaks, pack size, stock and lead time, each stamped with the date it was true. A **mapping** says which vendor part number matches which identity (for example "M3 x 12 pan head" to a vendor's number). Identity never depends on a vendor.
 2. **The bill of materials is computed from the assembly:** each distinct part, how many, and the offer chosen. **Cost counts pack sizes** (a bag of 100 for a project that needs 6 is the price paid, and the bill says what is left over) and shipping where known. Made parts add the material and machine time from their manufacturing plans.

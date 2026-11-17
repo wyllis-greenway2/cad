@@ -1,9 +1,9 @@
 ---
 id: dec_parts_library
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_688, in_689
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_688, in_689, in_690
 date: 2026-11-17
 depends_on:
   - prin_graph_is_truth: a library part is a step in the graph (a family and its numbers), so it stays editable and reproducible
@@ -15,7 +15,7 @@ alternative_to:
 ---
 # Parts library: families that generate parts, interface entries and stored models
 
-**Drafted from `in_688`, not yet approved. Nothing built.** The human asked for a library of parts users add to a project, and whether to store every model or to hold key data and generate parts on demand.
+**Accepted by the human (`in_690`) as proposed by the AI from `in_688`. Nothing built.** The human asked for a library of parts users add to a project, and whether to store every model or to hold key data and generate parts on demand.
 
 1. **Generate where a standard exists.** A *family* (screw, nut, washer, bearing, pulley, standard profile) is a recipe: a generator plus a dimension table and the factors a user picks (for a screw: thread, diameter, length, head, seating). The part is built on the user's side through the same path as the gear tool and kept in the graph as the family and its numbers (changing the length later is changing a number). Storing every combination is not done: it is millions of files for what a few kilobytes of table and a generator give.
 2. **Interface entries for the rest.** A part with no standard (a motor, a switch, a connector, a clip) is a small data entry: its envelope, mounting holes, shaft or connector position and the mating points, from which a simplified solid is generated. Most designs need only these, so most bought parts need no full model.

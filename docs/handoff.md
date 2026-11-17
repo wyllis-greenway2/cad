@@ -2887,3 +2887,6 @@ The default branch `claude/inspiring-pascal-l342k7` (gear tool, hard bodies, lof
 
 ## Handoff 619 — 2026-11-17 (in_689: parts library drafted as provisional entries)
 `in_689`. Drafted, **provisional and unreviewed, no code:** `dec_parts_library` (families that generate parts, interface entries, stored models linked or fetched on use, mating points, the three layers and official-only start), `dec_parts_sourcing` (offers kept apart from geometry and dated, mapping to vendor numbers, bill of materials with pack sizes and a lead time that is the longest of the parallel purchases plus made-part route time, no scraping), `q_parts_open_sources` (open source candidates named from memory, to be verified; what a public layer needs). **Next:** the human reviews and answers the open points; nothing is accepted until they approve.
+
+## Handoff 620 — 2026-11-17 (in_690: parts library entries accepted)
+`in_690`. `dec_parts_library` and `dec_parts_sourcing` are **accepted** (`ai-proposed-human-approved`). `q_parts_open_sources` cannot be accepted (a question is open by rule); it stays open, with a note that the human asked to accept it, and its three points are still to be answered. Nothing built. **Next:** the human decides whether the fastener family (with the fastener hole tool) is built first, and whether the AI reads and checks the open source licences.
