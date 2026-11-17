@@ -24,8 +24,10 @@ import type { Values } from "./ui/dialog.ts";
 import type { ExportFormat } from "./interaction/exportfile.ts";
 import { aboutOf } from "./operation/file.ts";
 import { webFiles, webStore } from "./platform/web-files.ts";
-import { createState, reduce, advance, stopView } from "./interaction/controller.ts";
+import { createState, reduce, advance, stopView, afterTakenBack } from "./interaction/controller.ts";
 import { frameOf } from "./interaction/frame.ts";
+import { requestOverlap } from "./interaction/overlap.ts";
+import { clearanceBetween } from "./interaction/clearance.ts";
 import { appRows, nextScrollMode, isScrollMode, nextPanScale } from "./interaction/appmenu.ts";
 import { snapshotOf, logEntry } from "./interaction/snapshot.ts";
 import { createTiming } from "./interaction/timing.ts";
@@ -48,6 +50,7 @@ import { createSheetChips } from "./ui/sheetchips.ts";
 import { createWorldOrb } from "./ui/worldorb.ts";
 import { createHardMarks } from "./ui/hardmarks.ts";
 import { createPanel } from "./ui/panel.ts";
+import { createBodyChips } from "./ui/bodychips.ts";
 import { createHelper } from "./ui/helper.ts";
 import { createBusy } from "./ui/busy.ts";
 import { createControls } from "./ui/controls.ts";
@@ -94,6 +97,15 @@ const bus = createBus<{ input: RawInput }>();
 const recognizer = createRecognizer();
 const panel = createPanel(document.body, {
   row: (id, act) => dispatch({ type: "panelRow", id, act }),
+  action: (id) => dispatch({ type: "panelAction", id }),
+  insert: () => dispatch({ type: "stepInsert" }),
+  tab: (id) => dispatch({ type: "panel", name: id as "bodies" | "history" | "sketches" | "parameters" | "constraints" | "measure" }),
+  go: (id) => dispatch({ type: "stepGo", id }),
+  edit: (id) => dispatch({ type: "stepEdit", id }),
+  set: (id, key, value) => dispatch({ type: "stepSet", id, key, value }),
+  link: (id, key, expr) => dispatch({ type: "stepLink", id, key, expr }),
+  param: (name, expr) => dispatch({ type: "paramSet", name, expr }),
+  unparam: (name) => dispatch({ type: "paramRemove", name }),
   undo: () => dispatch({ type: "undo" }),
   redo: () => dispatch({ type: "redo" }),
   close: () => dispatch({ type: "panel", name: state.panel ?? "bodies" }),
@@ -168,9 +180,11 @@ const crosshair = createCrosshair(document.body);
 const hardMarks = createHardMarks(document.body, (id) => dispatch({ type: "runAction", id }));
 const worldOrb = createWorldOrb(document.body, () => dispatch({ type: "runAction", id: "world:toggle" }));
 const sheetChips = createSheetChips(document.body, (id) => dispatch({ type: "runAction", id }));
+const bodyChips = createBodyChips(document.body, (id) => dispatch({ type: "runAction", id }));
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const refusalChip = createRefusalChip(document.body, () => dispatch({ type: "overrideRefusal" }), () => dispatch({ type: "holdFlash" }));
 const faceKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "faceKind", kind: id as "move" | "extrude" | "extend" }));
+const sweepKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "sweepPlace", id }), "Sweep:");
 const loftKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "loftKind", id }), "Loft:");
 const sizeKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "sizeKind", kind: id as "constant" | "variable" | "twoDistances" | "swap" }), "Size:");
 const addChip = createAddChip(document.body, () => dispatch({ type: "runAction", id: "select:add" }));
@@ -388,7 +402,7 @@ async function boot() {
       const session = refresh(state.session);
       // the answer for the last step was an error and it was taken back: what was being worked on is over
       const c = session.conflict;
-      state = { ...state, session, ...(session.history.cursor < before ? { op: null, drag: null } : {}), ...(c && c !== state.session.conflict ? { flash: { ...c, at: performance.now() } } : {}) }; // (a step taken back with its reason: what is the problem flashes red, `in_266`)
+      state = { ...afterTakenBack({ ...state, session }, before), ...(c && c !== state.session.conflict ? { flash: { ...c, at: performance.now() } } : {}) }; // (a step taken back with its reason: what is the problem flashes red, `in_266`)
       dirty = true;
     }, undefined, { store: (resultStore = resultStoreOn() ? openResultStore<KernelResult>(typeof __KERNEL__ === "string" ? __KERNEL__ : "unstamped") : null) });
     await worked.init();
@@ -441,6 +455,8 @@ function frame(now: number) {
     const page = host.getBoundingClientRect();
     const buildsBefore = buildStats.runs;
     view.setScene(f.scene, f.mesh);
+    view.setHiddenBodies(f.hiddenBodies);
+    view.setThin(f.thin);
     if (buildStats.runs !== buildsBefore) { timing.add("geometry: built again (buildContent)", buildStats.totalMs); timing.add("geometry: of it the sharp edges (cornerEdges)", buildStats.cornersMs); timing.add("geometry: triangles built", buildStats.triangles); }
     view.setBodyMatrix(f.bodyMatrix, f.selectionMoves, f.bodySplit, f.followers.map((q) => ({ matrix: q.matrix, only: q.split })));
     view.setHiddenEdges(f.hiddenEdges);
@@ -456,6 +472,7 @@ function frame(now: number) {
     { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); hardMarks.update(f.hardMarks, (q) => { const c = pr.project(q); return c && c[0] > -10 && c[1] > -10 && c[0] < size.w + 10 && c[1] < size.h + 10 ? [c[0] + pg.left, c[1] + pg.top] : null; }); }
     { const pg = host.getBoundingClientRect(); const c = projector(state.cam, size.w, size.h).project([0, 0, 0]); worldOrb.update(c && c[0] > -20 && c[1] > -20 && c[0] < size.w + 20 && c[1] < size.h + 20 ? [c[0] + pg.left, c[1] + pg.top] : null, f.worldHidden); }
     { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); sheetChips.update(f.sectionPlanes.filter((p) => !p.guide).map((p) => ({ ref: p.ref, mode: p.mode, hidden: p.hidden, move: p.move, selected: p.selected, corners: p.corners })), (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null); }
+    { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); bodyChips.update(f.bodyEyes, (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null, f.eyesQuiet); }
     toolChip.update(f.tool, f.confirm, lastDevice === "touch");
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null, f.cut?.join ?? true); }
     undoBar.update(lastDevice === "touch", f.undoRedo);
@@ -466,6 +483,7 @@ function frame(now: number) {
     faceKindChip.update(f.faceKinds);
     sizeKindChip.update(f.sizeKinds);
     loftKindChip.update(f.loftKinds);
+    sweepKindChip.update(f.sweepKinds);
     resetView.update(f.resetView);
     // game mode and the straight (orthographic) view, in and out, cleanly (`in_467`, `in_469`, `in_471`): going in while a straight view is on or on its way puts it away smoothly (the animation is given up
     // properly, so no half-made view is left); a view that becomes straight or goes on its way to it while in game mode ends the game mode
@@ -510,6 +528,11 @@ function frame(now: number) {
     if (bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid, inFront)) dirty = true; // (a bubble still sliding to its place: another frame)
     refusalChip.update(f.refusal, f.refusal ? bubbles.rectOf(f.refusal.beside) : null); // (beside the bubble of the constraint that stopped it, `in_367`)
     view.setNotes(f.annotations.flatMap((a) => a.lines), f.annotations.flatMap((a) => a.dashed ?? []), state.cam.distance * 0.012);
+    { // the Measure tab with two overlapping bodies selected asks the kernel for the volume they share, once; the answer is drawn when it comes (`dec_measure_report`, `in_622`)
+      const sc = scene(state.session);
+      const two = selection(state.session).filter((r) => sc.parts[r]?.kind === "body");
+      if (state.panel === "measure" && two.length === 2 && !state.session.outcome.kernel?.stale && clearanceBetween(sc, two[0]!, two[1]!)?.kind === "overlap") requestOverlap(engine, sc, two[0]!, two[1]!, () => { dirty = true; });
+    }
     panel.update(f.panel);
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };
     // the icon stands at the upper left of the handles, out of the way of the arrows and rings (`in_215`)

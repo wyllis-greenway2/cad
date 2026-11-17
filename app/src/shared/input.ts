@@ -57,6 +57,7 @@ export type Intent =
   | { type: "faceKind"; kind: "move" | "extrude" | "extend" }
   /** a fillet of one edge: the same size all along, or a size at each end (`in_406`) */
   | { type: "loftKind"; id: string }
+  | { type: "sweepPlace"; id: string }
   /** game mode (`in_467`): the mouse turning while the menu is open (its selection goes round the ring) */
   | { type: "menuTurn"; dx: number; dy: number }
   | { type: "sizeKind"; kind: "constant" | "variable" | "twoDistances" | "swap" }
@@ -77,9 +78,18 @@ export type Intent =
   | { type: "previewAt"; at: number }
   | { type: "previewClose" }
   /** open or close a list from the ⋯ menu (the bodies, the history) */
-  | { type: "panel"; name: "bodies" | "history" | "groups" }
+  | { type: "panel"; name: "bodies" | "history" | "groups" | "sketches" | "parameters" | "constraints" | "measure" }
   /** a row of the open list: select it (a body) or take it out (a step) */
-  | { type: "panelRow"; id: string; act: "select" | "remove" | "sketch" | "edit" }
+  | { type: "panelRow"; id: string; act: "select" | "remove" | "sketch" | "edit" | "hide" | "pick" }
+  | { type: "panelAction"; id: string }
+  /** the History (`dec_history_navigation`): go to a step, open or close the numbers of a step, set one of them */
+  | { type: "stepGo"; id: string }
+  | { type: "stepEdit"; id: string | null }
+  | { type: "stepInsert" }
+  | { type: "stepSet"; id: string; key: string; value: number }
+  | { type: "stepLink"; id: string; key: string; expr: string }
+  | { type: "paramSet"; name: string; expr: string }
+  | { type: "paramRemove"; name: string }
   /** the text of a field of the value box changed (a tool's field, or the operation's one number) */
   | { type: "entry"; field: number; text: string }
   /** the Apply and Cancel buttons of a repeat being set up (`in_141`) */

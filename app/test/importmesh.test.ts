@@ -76,7 +76,7 @@ test("a block exported as STL or as 3MF comes back as one body: the same volume,
     assert.equal(bodyFaces(r.session), 6, "flat areas are single faces");
     assert.match(r.message, new RegExp(`imported block\\.${f}: a body made of 12 triangles`));
     assert.equal(scene(r.session).steps.at(-1)!.type, "importMesh");
-    assert.ok(panelOf("history", scene(r.session), [], r.session.outcome.errors)!.rows.at(-1)!.label.includes(`Import block.${f} (mesh)`));
+    assert.ok(panelOf("history", scene(r.session), [], r.session.outcome.errors)!.rows.filter((r) => !r.child).at(-1)!.label.includes(`Import block.${f} (mesh)`));
     assert.equal(bodies(undoLast(r.session)).length, 0);
   }
 });

@@ -1,5 +1,6 @@
 // Select similar (`in_257`, `dec_selection_tools` section 4): from the selected edges, faces or sketch parts, everything of the same kind in the same body (or sketch) that matches by a few fixed rules.
 // The rules are values that do not change when a copy is turned or moved, so the teeth of a gear match whichever way they point; "direction" is the one rule that does care, and it starts off.
+import { inHiddenBody } from "./objects.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, sub, dot, cross, normalize } from "../math/vec.ts";
@@ -31,7 +32,7 @@ const angleOf = (a: Vec3, b: Vec3) => Math.atan2(Math.hypot(...cross(a, b)), dot
 /** The body's faces with their corners looked up by position, so the faces an edge lies between are found by the two ends. */
 interface Faces { list: Face[]; byVertex: Map<string, Face[]> }
 function facesOf(scene: Scene): Faces {
-  const list = Object.values(scene.parts).filter((p): p is Face => p.kind === "plane" && p.origin === "body" && !!p.mesh && p.mesh.length >= 9);
+  const list = Object.values(scene.parts).filter((p): p is Face => p.kind === "plane" && p.origin === "body" && !!p.mesh && p.mesh.length >= 9 && !inHiddenBody(scene, p));
   const byVertex = new Map<string, Face[]>();
   for (const f of list) {
     const seen = new Set<string>();
@@ -175,6 +176,7 @@ export function similarTo(scene: Scene, selection: readonly Ref[], rules: readon
   const cat = [...cats][0]!;
   const out = new Set<Ref>(selection);
   for (const p of Object.values(scene.parts)) {
+    if (inHiddenBody(scene, p)) continue; // (a hidden body is not reached, `dec_hidden_bodies`)
     if (out.has(p.ref)) continue;
     const pr = propsOf(scene, p, faces);
     if (pr && eProps.some((e) => matches(e!, pr, set))) out.add(p.ref);

@@ -18,6 +18,7 @@ import { nextId } from "../../operation/scene.ts";
 import { apply } from "../../operation/commands.ts";
 import { autoOp, isLive, startOp, valueOf } from "../operations.ts";
 import { advanceOf } from "../revolve.ts";
+import { orbSpotsOf, snapOrb } from "../orbsnap.ts";
 import { objectOf, bodyCentre } from "../objects.ts";
 import { runOp } from "../runop.ts";
 import { sectionGizmo } from "../gizmo.ts";
@@ -196,7 +197,8 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
   }
   if ("value" in r && s.op.kind === "scale") return { ...s, op: { ...s.op, axes: undefined, value: Math.round((s.drag.base + r.value) * 1e6) / 1e6, typed: "", rot: ["", "", ""] as [string, string, string] } }; // (the diagonal: all together again)
   if ("value" in r) return { ...s, op: { ...s.op, value: Math.round((s.drag.base + r.value) * 1e6) / 1e6, typed: "", rot: ["", "", ""] as [string, string, string], ...(s.drag.handle.axis !== null ? { axis: s.drag.handle.axis } : {}) } };
-  return { ...s, op: { ...s.op, pivot: snapPivot(s, r.pivot, i.x, i.y, env) } };
+  const placed = orbPlace(s, r.pivot, s.drag.handle.origin, i.x, i.y, env);
+  return { ...s, op: { ...s.op, pivot: placed.at }, session: placed.note ? { ...s.session, message: placed.note } : s.session };
 }
 
 /** An arrow seen nearly end-on moves its value a lot for a little pointer movement (the pointer's ray meets its line a long way along it): such a drag follows the pointer across the screen at a steady rate instead. */
@@ -411,12 +413,16 @@ function moveRim(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env): 
   return { ...s, dragHint: t ? { hints: [{ kind: "tangent", ref: t }], at: now } : null, session: moved };
 }
 
-/** The centre of the rotator sticks to a corner you point near (the point you want to turn about), else it goes where the pointer puts it. */
-function snapPivot(s: AppState, free: Vec3, x: number, y: number, env: Env): Vec3 {
-  const sc = sceneOf(s.session);
-  const pv = projector(s.cam, env.w, env.h).view(x, y);
-  const c = candidatesAt(sc, pv, { ...pickOpts(s), lineTol: 0 }).find((k) => k.kind === "corner");
-  return (c ? pointOf(lookup(sc), c.ref) : null) ?? free;
+/**
+ * Where the orb (the mover's, the revolve's) goes while it is dragged (`in_652`): held to the axes chosen with Shift on its position arrows, sticking to a place the pointer is near (a corner, the middle of an edge, a
+ * circle's centre, the middle of a face or of a body), else lined up with the places along each axis it may move along (`orbsnap.ts`). `from` is where the drag began.
+ */
+function orbPlace(s: AppState, free: Vec3, from: Vec3, x: number, y: number, env: Env): { at: Vec3; note: string | null } {
+  const pr = projector(s.cam, env.w, env.h);
+  const frame = s.op?.frame ?? ([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as const);
+  const worldAligned = frame.every((a, k) => Math.abs(a[k]!) > 1 - 1e-9);
+  const mmPerPx = (2 * s.cam.distance * Math.tan((settings.view.fovDeg * Math.PI) / 360)) / env.h;
+  return snapOrb(orbSpotsOf(sceneOf(s.session)), free, [x, y], (p) => pr.project(p), { pointPx: settings.sketch.snapPx, alignMm: settings.sketch.alignPx * mmPerPx, held: s.lockAxes.map((k) => frame[k]!), from, worldAligned });
 }
 
 /** The pointer went up after a drag: a handle drag that made a value is done as one step and the operation stays open; moving the rotator's centre is not a step. */

@@ -406,3 +406,158 @@ test("the position bubble of a turned orb is the place along its own axis, and t
   const u = [0, 0.8, -0.6]; // (across it, in the plane of y and z: unchanged)
   assert.ok(Math.abs((p[1]! * u[1]! + p[2]! * u[2]!) - (2 * 0.8 - 3 * 0.6)) < 1e-9);
 });
+
+// ---- two faults found by hand (`in_648`) ----
+import { frameOf as frameOfRev } from "../src/interaction/frame.ts";
+import { afterTakenBack } from "../src/interaction/controller.ts";
+test("while a position arrow of the revolve's orb is dragged its number bubble stays at the arrow and goes with the orb (it was sent off the picture by the angle)", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  const pr = projector(st.cam, 800, 600);
+  const h = gizmoOf(st)!.handles.find((x) => x.id === "piv:x")!;
+  const a = pr.project(h.points[0]!), b = pr.project(h.points.at(-1)!);
+  const mid: [number, number] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  st = reduce(st, { type: "orbit", dx: 1, dy: 0, x: mid[0] + 1, y: mid[1] } as never, env);
+  assert.ok(st.drag && "handle" in st.drag);
+  const seen: { at: number[]; centre: number[]; tip: number[]; value: string }[] = [];
+  for (let k = 1; k <= 5; k++) {
+    const dx = (b[0] - a[0]) * 0.1, dy = (b[1] - a[1]) * 0.1;
+    st = reduce(st, { type: "orbit", dx, dy, x: mid[0] + dx * k, y: mid[1] + dy * k } as never, env);
+    const f = frameOfRev(st, { w: 800, h: 600 });
+    const e = f.entries[0]!;
+    seen.push({ at: [...(e.at as readonly number[])], centre: [...st.op!.pivot!], tip: [...f.gizmo!.handles.find((x) => x.id === "piv:x")!.points.at(-1)!], value: e.fields[0]!.value });
+  }
+  for (const q of seen) {
+    assert.ok(Math.hypot(q.at[0]! - q.centre[0]!, q.at[1]! - q.centre[1]!, q.at[2]! - q.centre[2]!) < 40, `the bubble is by the orb (${JSON.stringify(q.at)} against ${JSON.stringify(q.centre)})`);
+    assert.deepEqual(q.at, q.tip, "at the tip of the arrow");
+  }
+  assert.ok(Number(seen.at(-1)!.value) > Number(seen[0]!.value), "and the number goes up as the orb is pulled");
+  assert.ok(seen.at(-1)!.centre[0]! > seen[0]!.centre[0]!, "the orb goes along");
+});
+
+test("a revolve whose last step the kernel could not make stays open for the arrow to be taken again; an operation that is not live is over", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  const open = { ...st, op: { ...st.op!, auto: false, made: true, advValue: 0.3 }, drag: null };
+  const kept = afterTakenBack(open, 5); // (the session is at cursor 0: before where it was)
+  assert.equal(kept.op?.kind, "revolve");
+  assert.equal(kept.op?.made, false);
+  assert.equal(kept.op?.advValue, 0.3, "the advance that was pulled is kept");
+  assert.equal(afterTakenBack({ ...open, op: { ...open.op, auto: true } }, 5).op, null, "an operation that started by itself and is not live is over");
+  assert.equal(afterTakenBack(open, 0), open, "nothing was taken back: nothing changes");
+});
+
+// ---- the message for a spiral the kernel cannot make (`in_649`) ----
+test("a spiral the kernel cannot make says so by the turn and the advance asked for, not that holes cut everything away", () => {
+  const { s, face } = figure();
+  const st = startOp(scene(s), [face as never], "revolve");
+  assert.ok(st.ok);
+  const op = (st as { op: Op }).op;
+  // 90 degrees with 0.7 mm of advance (a pitch of 2.8 mm a turn) is one the kernel makes nothing of; 360 at the same pitch it does make
+  const bad = runOp(s, { ...op, pivot: [9, 0, 0], value: 90, advValue: 0.7, auto: false });
+  assert.ok(bad);
+  assert.match(bad.session.message ?? "", /^the kernel could not make a spiral of 90° with an advance of 0\.7 mm/);
+  assert.doesNotMatch(bad.session.message ?? "", /holes/);
+  assert.match(bad.session.message ?? "", /a small change to either/);
+  const good = runOp(s, { ...op, pivot: [9, 0, 0], value: 360, advValue: 2.8, auto: false });
+  assert.ok(good && !good.session.message, good?.session.message ?? "");
+});
+
+// ---- a twist packed into a tiny advance (`in_648`, `in_651`) ----
+test("a twist of many turns in a tiny advance is made as asked (the self-crossing check used to overflow its stack on the fine mesh and the step was refused)", () => {
+  let s = createSession(kernel);
+  const r = drawRectangle(scene(s), XY, [-3, -1, 0], [3, 1, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  const op = begin(s, loopFaceRef(r.lines));
+  for (const [angle, advance] of [[-3600, 2], [360, 0.001]] as const) {
+    const made = runOp(s, { ...twistMid(op), value: angle, advValue: advance })!;
+    assert.equal(made.session.message, null, `${angle} in ${advance}: ${made.session.message}`);
+    assert.deepEqual(made.session.outcome.errors, {});
+    assert.ok(Math.abs(volume(made.session) - 12 * advance) < 0.05 * Math.max(1, advance), `${angle} in ${advance}: the bar's volume, ${volume(made.session)}`);
+  }
+});
+
+// ---- positioning the orb (`in_652`) ----
+import { snapOrb, heldTo, orbSpots } from "../src/interaction/orbsnap.ts";
+import { candidatesAt } from "../src/interaction/picking.ts";
+test("the orb's places: a corner, an edge's middle, a circle's centre and a body's middle are found; held to axes, the way it moves is cut to them", () => {
+  const { s } = figure();
+  const names = orbSpots(scene(s)).map((p) => p.name);
+  assert.ok(names.includes("a corner") && names.includes("the middle of an edge"), names.join(", "));
+  // held to X: only the part of the way along X is kept; held to X and Y: the plane
+  assert.deepEqual(heldTo([1, 1, 1], [5, 7, 9], [[1, 0, 0]]), [5, 1, 1]);
+  assert.deepEqual(heldTo([1, 1, 1], [5, 7, 9], [[1, 0, 0], [0, 1, 0]]), [5, 7, 1]);
+  assert.deepEqual(heldTo([1, 1, 1], [5, 7, 9], []), [5, 7, 9]);
+  const flat = (p: Vec3): [number, number] => [p[0] * 10, p[1] * 10]; // (a flat picture: pixels are tenths of mm)
+  const spots = [{ at: [4, 6, 2] as Vec3, name: "a corner" }, { at: [9, 9, 9] as Vec3, name: "the middle of an edge" }];
+  const opts = { pointPx: 12, alignMm: 0.3, held: [] as Vec3[], from: [0, 0, 0] as Vec3, worldAligned: true };
+  // the pointer near a place: onto it
+  let r = snapOrb(spots, [4.05, 6.05, 5], [40.5, 60.5], flat, opts);
+  assert.deepEqual(r.at, [4, 6, 2]);
+  assert.equal(r.note, "on a corner");
+  // far from every place but lined up along an axis: that axis is brought to the place's
+  r = snapOrb(spots, [4.2, 20, 5], [42, 200], flat, opts);
+  assert.deepEqual(r.at, [4, 20, 5]);
+  assert.match(r.note ?? "", /in line \(X with a corner\)/);
+  // nothing near: as it is
+  r = snapOrb(spots, [20, 30, 40], [200, 300], flat, opts);
+  assert.deepEqual(r.at, [20, 30, 40]);
+  assert.equal(r.note, null);
+  // held to the XY plane: a place is taken only as far as the plane goes, and no lining up along Z
+  r = snapOrb(spots, [4.05, 6.05, 5], [40.5, 60.5], flat, { ...opts, held: [[1, 0, 0], [0, 1, 0]], from: [0, 0, 7] });
+  assert.deepEqual(r.at, [4, 6, 7], "onto the corner, but at the height the drag began");
+  r = snapOrb(spots, [20, 30, 2.1], [200, 300], flat, { ...opts, held: [[1, 0, 0], [0, 1, 0]], from: [0, 0, 7] });
+  assert.deepEqual(r.at, [20, 30, 7], "held in the plane: Z stays where it began, and is not lined up");
+});
+
+test("Shift on the orb's position arrows holds its drag to those axes (one: a line, two: a plane); a click on one holds it alone, a second click frees it", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  st = { ...st, op: Z(st.op!) };
+  const pr = projector(st.cam, 800, 600);
+  const tip = (id: string): [number, number] => pr.project(gizmoOf(st)!.handles.find((h) => h.id === id)!.points.at(-1)!) as [number, number];
+  const click = (id: string, shift: boolean) => { const [x, y] = tip(id); st = reduce(st, { type: "click", x, y, count: 1, shift } as never, env); };
+  click("piv:x", false);
+  assert.deepEqual(st.lockAxes, [0], "one axis");
+  assert.match(st.session.message ?? "", /moves along X only/);
+  click("piv:x", false);
+  assert.deepEqual(st.lockAxes, [], "a second click frees it");
+  click("piv:x", true);
+  click("piv:y", true);
+  assert.deepEqual(st.lockAxes, [0, 1]);
+  assert.match(st.session.message ?? "", /in the XY plane only/);
+  // the orb dragged up the screen with X and Y held: its Z (the way the frame's Z goes) does not change; free, it changes
+  const z0 = st.op!.pivot![2]!;
+  const frameAxes = st.op!.frame!;
+  const [ox, oy] = pr.project(st.op!.pivot!);
+  const dragOrb = (state: typeof st): typeof st => {
+    let t = reduce(state, { type: "orbit", dx: 0, dy: -3, x: ox, y: oy - 3 } as never, env);
+    for (let k = 2; k <= 8; k++) t = reduce(t, { type: "orbit", dx: 0, dy: -10, x: ox, y: oy - 10 * k } as never, env);
+    return t;
+  };
+  const held = dragOrb(st);
+  const along = (p: readonly number[], q: readonly number[], a: readonly number[]) => (p[0]! - q[0]!) * a[0]! + (p[1]! - q[1]!) * a[1]! + (p[2]! - q[2]!) * a[2]!;
+  assert.ok(Math.abs(along(held.op!.pivot!, [0, 0, z0], frameAxes[2]!)) < 1e-6, "held to the first two axes: nothing along the third");
+  const free = dragOrb({ ...st, lockAxes: [] });
+  assert.ok(Math.hypot(free.op!.pivot![0]! - 0, free.op!.pivot![1]! - 0, free.op!.pivot![2]! - 0) > 1, "free, the orb moved");
+});
+
+test("a click on a world plane puts the orb into that plane, where it was across it (the plane's middle is not asked for)", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  st = { ...st, op: { ...st.op!, pivot: [9, 4, 3] } };
+  const pr = projector(st.cam, 800, 600);
+  // the pixel of a pane of the XY plane: found by looking at what is under a grid of pixels
+  let hitAt: [number, number] | null = null;
+  for (let x = 0; x < 800 && !hitAt; x += 6) for (let y = 0; y < 600 && !hitAt; y += 6) {
+    const c = candidatesAt(scene(st.session), pr.view(x, y), { pointTol: 10, lineTol: 8 })[0];
+    if (c?.ref === worldRef("XY")) hitAt = [x, y];
+  }
+  assert.ok(hitAt, "a world plane can be pointed at");
+  st = reduce(st, { type: "click", x: hitAt![0], y: hitAt![1], count: 1, shift: false } as never, env);
+  assert.deepEqual(st.op!.pivot, [9, 4, 0], "into the XY plane: x and y as they were, z in the plane");
+});

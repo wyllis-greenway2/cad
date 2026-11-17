@@ -13,6 +13,7 @@ import { add, scale, sub, dot } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { lookup } from "../operation/scene.ts";
 import { consumed } from "../operation/ownership.ts";
+import { inHiddenBody } from "./objects.ts";
 
 export interface Candidate { ref: Ref; kind: Kind; rank: number; /** pixels (points, lines) or distance along the ray (surfaces) */ score: number }
 export interface PickOptions {
@@ -65,7 +66,7 @@ export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = 
     if (p.kind === "line") { const [a, b] = [scene.parts[p.a], scene.parts[p.b]]; return a?.kind === "corner" && b?.kind === "corner" && ahead(a.at) > 1e-3 && ahead(b.at) > 1e-3; }
     return false;
   };
-  const parts = Object.values(scene.parts).filter((p) => !before(p) && !(opts.world && p.origin === "world" && p.kind === "plane" && p.infinite && p.ref !== opts.world) && !used.has(p.ref) && !(p.kind === "plane" && !!p.section && !!p.hidden) && !((p.kind === "line" || p.kind === "corner") && p.derived));
+  const parts = Object.values(scene.parts).filter((p) => !before(p) && !inHiddenBody(scene, p) && !(opts.world && p.origin === "world" && p.kind === "plane" && p.infinite && p.ref !== opts.world) && !used.has(p.ref) && !(p.kind === "plane" && !!p.section && !!p.hidden) && !((p.kind === "line" || p.kind === "corner") && p.derived));
   // surfaces first: only the nearest one counts, plus anything flush with it (a shape drawn on a face, a pane lying in a face); things behind it are hidden
   const surfaces: { p: Part; t: number }[] = [];
   for (const p of parts) {

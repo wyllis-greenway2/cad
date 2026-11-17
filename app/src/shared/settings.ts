@@ -77,11 +77,13 @@ export const settings = {
     outlines: true, // the dark lines along a body's edges: off, the body is drawn by its shading alone (`in_459`; the menu row switches it, the choice is kept)
     /** how faint the edges of a body behind a face are drawn while a sketch tool is on (`in_324`) */
     hiddenEdgeOpacity: 0.22,
+    hiddenBodyOpacity: 0.09, // a hidden body (`dec_hidden_bodies`): its surface this strong, its outline twice as strong
   },
   grid: { show: true, divisions: 30, minorAlpha: 0.35, majorAlpha: 0.7, color: [0.62, 0.63, 0.67] as [number, number, number] },
   flash: { ms: 4500, shakeMs: 450, holdMs: 1000 }, // a refused change (`in_366`: it stays long enough to read and to press "Delete constraint to proceed"; while the pointer is on that button it waits at `holdMs`): the broken constraints flash red and fade over this long; the one that tried shakes for the first part of it
   world: { axisLengthMm: 24, axisWidthPx: 1.6, axisOpacity: 1, paneGapMm: 3, paneMm: 8, paneRound: 0.18, paneOpacity: 0.18, paneActiveOpacity: 0.4 }, // (the three little panes of the world planes: how far from the origin, how big, how see-through) // the small charcoal axes at the origin: their real length in mm (so they zoom with the model: was 8.4), line width, opacity
   buttons: { marginPx: 18, sizePx: 34 }, // the X Y Z buttons at the right edge, lower right
   light: { key: 1.7, fill: 0.12, ambient: 0.42, roughness: 0.4, sheen: 0.55, sheenRoughness: 0.25, reflect: 0.5 }, // lights ride with the camera; the body has a slight clear-coat sheen and a soft studio reflected in it
+  measure: { densityGramsPerCm3: 1.24, minWallMm: 0.8, wallSamples: 40000, thinColor: 0xe5484d, thinOpacity: 0.6 }, // (the measure report's weight of a body at full fill: PLA; the thinnest wall that prints well, two lines of a 0.4 mm nozzle; the most points the wall check tries; `dec_measure_report`)
   extrude: { edgeAngleDeg: 30 }, // outline edges are drawn where faces meet at more than this angle
 };

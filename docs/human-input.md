@@ -2780,3 +2780,198 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_610 — 2026-11-17 — directive
 > okay now can you merge in claude/hopeful-cannon-6 next?
 (asks for claude/hopeful-cannon-6 to be merged into this branch, after claude/cool-einstein-odsxco-next)
+
+## in_611 — 2026-11-16 — question
+> What are some other key sketching of body operations you think we need to make this like a real usable cad program? What are some fundamentals that we are missing now?
+(asks which sketching and body operations are missing, and which fundamentals are still lacking, for this to be a really usable CAD program; answered in chat, nothing built)
+
+## in_612 — 2026-11-16 — directive
+> okay so for all those points. 1 should we introduce this? perhaps as a thing that can be viewd similar to how you can view history or bodies? or integrate it into those things? perhaps as a constraints version of these things? or built into history in cosntraints? It seems like we are pretty close to the stable references with bodies list, we should make a sketches list too, and possibly a constraints one? what do you think? The history is not very usable. Can we have it so that you can move to different spots in the history? can we make it so that you can click on different operations in the history and modify them? Can we make it so that bodies can be set to invisible? Similar to how you can make a plane visible or invisible with a little icon that shows on hover. Invisible is still ever so slightly visible so you know it is there, the cursor doesn't interact aside from making the icon fade in on hover so you can bring the body back. The bodies list should be able to do this as well. The bodies list should also have an option to select all bodies or deselect all bodies and apply the hide or un-hide to all and should offer the ability to delete bodies. Should we have a sketches area? were original copies of actual sketches drawn with the sketching tools are saved? We would need a sketch ID system, probably similar to the body system where each closed sketch is considered its own sketch. This might help users who today could be confused if their sketch becomes modified via vody modifications. For measuring and checking, we have the measuring tool under the view part of the right click menu, maybe we should make that report more useful information? Also back to our original question about history and stable references, I am almost thinking we should just have a single unified system? So basically a history with filters? like every body, sketch, or constraint lives in the history, and that context also gives relational information about it, so maybe we should unify this all into one thing that has filters to isolate and work with only the sketches, or the bodies, or constraints etc. It seems like the named dimensions and formulas probably belong in there as well.
+(asks whether named dimensions and formulas should be their own view or part of the history / a constraints version of it; proposes a sketches list and a constraints list beside the bodies list, a usable history (move to any point, click an operation to modify it), hiding bodies with a hover icon like the planes (faint, no interaction), a bodies list with select all / deselect all / hide all / delete, a sketch identity system like the bodies, a more useful measure report, and finally one unified history with filters for bodies, sketches and constraints, holding the named dimensions too; asks what I think)
+
+## in_613 — 2026-11-16 — question
+> Yes except it seems like we need to resolve the sketch Identity issue. So originally I was thinking that a sketch moved and morphed with the object it produced, it literally turned into a part of the object. Do you think this is the right method to keep? or do you think we should consider the body and the sketch a separate thing and the body can morph away from the sketch that originally produced it?
+(agrees with the plan of `in_612` and the order and the single panel, but says the sketch identity question must be settled first: should a sketch move and morph with the body it made and become part of it, or are the sketch and the body separate things so that the body can morph away from the sketch that made it; asks what I think)
+
+## in_614 — 2026-11-16 — question
+> I don't really see the difference though? because another way to look at is just where the sketch lives? either in its original drawn spot, or moves with the surface of the body it created?
+(says the two models of `in_613` do not look different to them, and offers another way to see it: only where the sketch lives, either in its original drawn place or moving with the surface of the body it made)
+
+## in_615 — 2026-11-16 — question
+> but didn't we already solve the shape problem too? because I thought we integrated the sketch into the edges of the body, so if the body moves, then it is basically considered a sketch modification too? So arent they always synced?
+(asks whether the shape question is not already solved, since they thought the sketch had been integrated into the edges of the body so that a body change counts as a sketch modification, so that the two are always in sync)
+
+## in_616 — 2026-11-16 — question
+> okay so the decision is that sketches are part of the body, and stay synced with the body?
+(asks whether the decision is that sketches are part of the body and stay synced with it; not a recorded decision: answered that it is close but not what was proposed, and asked which of the options they mean)
+
+## in_617 — 2026-11-16 — question
+> what do you recommend? and does this mean if someone wants to see one of their original sketches, then it is a step in history they would go to?
+(asks what I recommend among the options for the sketch and the body, and whether, under it, someone who wants to see one of their original sketches would go to a step in the history)
+
+## in_618 — 2026-11-16 — directive
+> yes write up the decision
+(asks me to write up, as one decision for approval, the recommendation of `in_617`: the sketch is the recipe of its step, synced with the body wherever the sketch can express the change, labelled where it cannot, with its rows under their steps; this is a request to write it up, not an approval of it: it is written as `dec_sketch_recipe_synced`, `provisional`)
+
+## in_619 — 2026-11-16 — approval
+> yes approve it
+(approves `dec_sketch_recipe_synced` as written: a sketch is the recipe of its step, kept in step with the body wherever it can express the change and labelled where it cannot; it is `accepted` now)
+
+## in_620 — 2026-11-16 — directive
+> yes start with hidden bodies
+(approves starting the build order of `in_612` with hidden bodies and the upgraded Bodies list: a body can be hidden, drawn very faintly and not interactive, with an eye icon that fades in on hover, in the Bodies list too, with select all and none, hide and show all, and delete)
+
+## in_621 — 2026-11-16 — directive
+> yes start on the history
+(approves starting the next item of the order of `in_612`: a usable History: click a step to edit its values, and view the model at a step)
+
+## in_622 — 2026-11-16 — directive
+> yes start on the model panel
+(approves starting the third item of the order of `in_612`: the Model panel, one panel with filters, with the sketches named and given a status)
+
+## in_623 — 2026-11-16 — directive
+> yes start on named parameters
+(approves starting the fourth item of the order of `in_612`: named parameters and formulas)
+
+## in_624 — 2026-11-16 — directive
+> yes start on stable references
+(approves starting the fifth item of the order of `in_612`: stable references, then inserting a step in the middle)
+
+## in_625 — 2026-11-16 — approval
+> C: matching first, kernel history later (Recommended)
+(answers the question of `q_stable_reference_mechanism`, choosing option C: names from the sketch-based steps carried by matching outside the kernel, kernel history added later where matching is not enough)
+
+## in_626 — 2026-11-16 — directive
+> yes start on edge names
+(approves the next item of `dec_stable_reference_mechanism`: names for edges, so a fillet or chamfer keeps its edge)
+
+## in_627 — 2026-11-16 — directive
+> yes start on the sketch-edge names
+(approves the next item of `dec_stable_reference_mechanism`: roles from the sketch's own edges for the faces of an extrusion, a revolve, a loft and a sweep, instead of the rank)
+
+## in_628 — 2026-11-16 — question
+> what do you reccomend?
+(asks which of the three next items to do: finish the names for revolve, loft and sweep, curved faces, or the insertion of a step in the middle; answered in chat with a recommendation of the insertion, nothing built)
+
+## in_629 — 2026-11-16 — directive
+> yes start on the insertion
+(approves the recommendation: build the insertion of a step in the middle of the history, the later steps made again)
+
+## in_630 — 2026-11-16 — directive
+> yes start on curved face names
+(approves the next item of `dec_stable_reference_mechanism`: lasting names for curved faces, which also gives the edges beside them a name)
+
+## in_631 — 2026-11-16 — directive
+> yes start on the first one
+(approves the first of the three options put in chat: name the faces a fillet or chamfer makes after the edge they round, and finish the names for revolve, loft and sweep)
+
+## in_632 — 2026-11-16 — directive
+> yes start on the model panel
+(approves the next item: the rest of the Model panel, with the rows of each kind shown under the step that owns them, and the Constraints filter)
+
+## in_633 — 2026-11-16 — directive
+> yes start on the measure report
+(approves the last item of the order of `in_612`: a richer measure report)
+
+## in_634 — 2026-11-16 — directive
+> yes start on the clearance check
+(approves the next item: the nearest distance between two bodies and the overlap of two, the clearance a fit needs, in the measure report)
+
+## in_635 — 2026-11-16 — directive
+> yes start on loft and sweep names
+(approves the next item of `dec_stable_reference_mechanism`: lasting names for the faces of a loft and a sweep)
+
+## in_636 — 2026-11-16 — directive
+> yes start on the sketch statuses
+(approves the next item of `dec_sketch_recipe_synced` / `dec_model_panel`: the sketch statuses unused and detached in the Model panel)
+
+## in_637 — 2026-11-16 — directive
+> yes start on names kept for good
+(approves the next item of `dec_sketch_recipe_synced` rule 5 / `dec_model_panel`: sketch names that are given when a figure is drawn and kept, instead of the order of the steps)
+
+## in_638 — 2026-11-16 — directive
+> yes start on selecting a sketch from a step's row
+(approves the next item of `dec_model_panel`: choosing a sketch's row selects the sketch in the model, so it can be looked at and worked on)
+
+## in_639 — 2026-11-16 — directive
+> yes start on the overlap volume
+(approves the next item of `dec_measure_report`: the volume two bodies share where they go into each other)
+
+## in_640 — 2026-11-16 — directive
+> yes start on the centre of mass
+(approves the next item of `dec_measure_report`: the centre of mass of a body and of the model)
+
+## in_641 — 2026-11-16 — directive
+> yes start on the wall thickness checks
+(approves the next item of `dec_measure_report`: wall thickness checks for printing)
+
+## in_642 — 2026-11-16 — question
+> which of these features do you think are most useful? I dont want to over complicate things
+(asks which of the remaining features (marking the thin places, overhang checks, the thinnest gap between parts, a text copy of the report, the place of the nearest points, the sweep faces along a bent path) are the most useful, and says the app should not be made more complicated; answered in chat, nothing built)
+
+## in_643 — 2026-11-16 — directive
+> yes start on marking the thin places
+(approves marking the places the wall check finds too thin, in the picture, while the Measure tab is open)
+
+## in_644 — 2026-11-16 — question
+> okay so we are ready to merge? what is your branch called?
+(asks whether the work is ready to merge and what the branch is called; answered in chat)
+
+## in_645 — 2026-11-16 — question
+> why not just merge this branch into that? wouldn't it be the same amount of work? or would merging default into this be better?
+(asks whether to merge this branch into the default branch directly, or the default branch into this one first, and whether the work is the same; answered in chat)
+
+## in_646 — 2026-11-16 — question
+> can you merge into claude/inspiring-pascal-l342k7 which is the main branch even while that claude is still working on it?
+(asks whether I can merge this work into the default branch while another session is still working on it; answered in chat, nothing merged yet)
+
+## in_647 — 2026-11-16 — directive
+> okay then instead, why dont you just get this branch up to date so that we can keep on working on it without being too far behind?
+(asks me to bring this branch up to date with the default branch, without merging into the default branch, so work can go on here)
+
+## in_648 — 2026-11-16 — directive
+> When in rotate extrusion mode, the orb xyz position thing doesn't actually move live in preview if you grab a move arrow and pull, instead it vanishes, and only shows up at end position on drag end. Also the arrow to spiral doesn't seem to work, the whole operation cancels every time I pull it even a little. Maybe it is too senstive? Or something else?
+(reports two faults in the revolve operation ("rotate extrusion"): the orb that shows the position does not move with the preview while a move arrow is dragged, it vanishes and comes back at the end; and the spiral arrow cancels the whole operation at once when pulled, even a little; asks whether it is too sensitive or something else)
+
+## in_649 — 2026-11-16 — directive
+> yes make that error message clearer
+(approves making the message clearer for a revolve the kernel cannot make, the one that said "nothing was left of the figure when its holes were cut")
+
+## in_650 — 2026-11-16 — directive
+> instead of failing on a short spiral, can we just have it reduce the rotational degrees to 0?
+(asks that a spiral the kernel cannot make fall back to a turn of 0 degrees, instead of failing; answered in chat with a question about which kind of revolve is meant, nothing built yet)
+
+## in_651 — 2026-11-16 — approval
+> Twist about the figure's normal
+(answers which revolve is meant: the twist about the figure's own normal, where a turn of 0 degrees with an advance is a straight extrusion; the fallback is for that kind only)
+
+## in_652 — 2026-11-16 — directive
+> The rotational extrude orb is still kind of hard to position. Can we have it so that if you click on a plane, it just centers in that plane? Can we have it so that you can move it like any other xyz thing where you can shift select more than one axis to restrict its motion to that axis? so I could select xy and then it is restricted to that plane as I drag the orb? Also can we have it snap to suggested spots just like sketching does? so alignements, and center points coaxial points center point of bodies etc.
+(asks for three changes to the revolve's orb: a click on a plane puts the orb in that plane; shift-selecting more than one axis arrow restricts the drag of the orb to those axes (for example the XY plane); and the orb snaps to suggested places as sketching does: alignments, centre points, coaxial points, centres of bodies and the like)
+
+## in_653 — 2026-11-16 — question
+> okay can you help look at something? this really didn't chamfer how I expected, why?
+(attaches a project file ("chamfer_not_as_expected_at_all") and a state snapshot: a rectangle swept along a path of two arcs, then a chamfer of 5.1 mm on eight of its long edges; asks why the chamfer did not come out as expected)
+
+## in_654 — 2026-11-16 — question
+> what is the root cause? why does it do one edge differently then four?
+(asks for the root cause of the chamfer coming out wrongly, and why a chamfer of one edge is made differently from a chamfer of four)
+
+## in_655 — 2026-11-16 — directive
+> yes fix the fallback chamfer, then lets look into why the sweep has kinks even though the spline doesn't.
+(approves two things in order: fix the app's fallback chamfer (the region method) so it does not leave stray triangular faces on curved faces and at kinks, then look into why the swept edges have kinks at the joint of the two arcs although the path is smooth)
+
+## in_656 — 2026-11-17 — question
+> do you think we should chase the remaining slivers? Also what is the square profile to the path? and where should the spline line actually be located in order to loft properly?
+(asks whether the remaining sliver faces of the chamfer are worth chasing, what "square to the path" means for a profile, and where the path (the spline line) should be placed for a sweep (called a loft) to come out right; answered in chat, nothing built)
+
+## in_657 — 2026-11-17 — directive
+> maybe we should have a loft option where a selected profile follows a line as it does now starting from the profile, or an option that centers a copy of the sketch on the spline line itself and follows it always starting normal to the line? So you could have the option to loft from the sketch or loft through the line.
+(proposes two modes for the sweep: the profile follows the path from where it is drawn, as now; or a copy of the profile is centred on the path itself and follows it, always starting square to the path; asks for the option of both; the human's word "loft" is the sweep along a path)
+
+## in_658 — 2026-11-17 — approval
+> Middle of its box (Recommended) / Along the line (Recommended)
+(answers two questions put in chat about the sweep's new "along the line" mode: the point of the sketch placed on the path is the middle of its box, and a new sweep starts in the "along the line" mode; existing sweeps stay as they are)
+
+## in_659 — 2026-11-17 — directive
+> The input on the rotation extrusion can be really annoying and cover the arrows I need to pull on the orb. Can we have those input bubbles offset away from the orb such that it doesn't cover it?

@@ -44,7 +44,7 @@ test("a STEP file is a body with no history: a block exported as STEP comes back
   assert.equal(Object.values(scene(r.session).parts).filter((p) => p.kind === "plane" && p.origin === "body").length, 6);
   assert.match(r.message, /imported block\.step: a body with no history/);
   assert.equal(scene(r.session).steps.at(-1)!.type, "import");
-  assert.ok(panelOf("history", scene(r.session), [], r.session.outcome.errors)!.rows.at(-1)!.label.includes("Import block.step"), "the history says what was imported");
+  assert.ok(panelOf("history", scene(r.session), [], r.session.outcome.errors)!.rows.filter((r) => !r.child).at(-1)!.label.includes("Import block.step"), "the history says what was imported");
   assert.equal(bodies(undoLast(r.session)), 0, "one step to undo");
 });
 

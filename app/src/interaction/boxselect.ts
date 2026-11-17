@@ -1,5 +1,6 @@
 // Drag select (`in_230`): a drag with the right button draws a rectangle; what is inside it when it is let go is selected (what it touches too, when it is dragged from right to left; Shift
 // adds to what is selected). Edges (lines, arcs, circles) are what it picks; only when there are none in it, the corners. What a face of the body hides is not picked, nor what a step used up.
+import { inHiddenBody } from "./objects.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
@@ -61,7 +62,7 @@ export function boxSelect(scene: Scene, box: Box, project: (p: Vec3) => [number,
   const edges: Ref[] = [];
   const corners: Ref[] = [];
   for (const p of Object.values(scene.parts)) {
-    if (p.origin === "world" || used.has(p.ref) || ("derived" in p && p.derived)) continue;
+    if (p.origin === "world" || used.has(p.ref) || ("derived" in p && p.derived) || inHiddenBody(scene, p)) continue;
     if (p.kind === "line" || p.kind === "circle") { if (hit(p.ref)) edges.push(p.ref); }
     else if (p.kind === "corner") { if (hit(p.ref)) corners.push(p.ref); }
   }

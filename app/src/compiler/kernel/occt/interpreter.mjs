@@ -38,6 +38,7 @@ import { reshape } from "./reshape.mjs";
 import { findCrossing } from "./selfcross.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
+import { nameFaces, refOfName, namedEdgeRefs, figureRoles, edgeEnds, edgeRoles, revolveRoles, loftRoles, sweepRoles, endTangent, creaseOf } from "./facenames.mjs";
 import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf } from "./bodies.mjs";
 
 /** The imported solids scaled about the origin by `op.scale` and then placed: `op.place` "center" brings the middle of their box to the origin, "floor" brings the middle of the box to the z axis and the bottom to z = 0 (a part that sits on the build plate). */
@@ -259,6 +260,17 @@ export function selectFaces(shape, query) {
     f = inQueryPlane(f, shape, query);
   }
   return f.find(shape);
+}
+
+/** The face an operation names (`dec_stable_reference_mechanism`): by the name it carries when the body has names, else by the numbers it carries; a name the body no longer has is an error, not another face. */
+function namedRef(op, ctx) {
+  const name = op.ref?.name;
+  if (!name) return op.ref;
+  const names = op.target ? ctx.peek(op.target, "solid").faceNames : undefined;
+  const found = refOfName(names, name);
+  if (found) return found;
+  if (!names) return op.ref; // (no names kept for this body: the numbers it carries)
+  throw new Error(`face not found (${name} is not a face of the body any more)`);
 }
 
 /** The plane of a face reference: unit normal n and offset d (n . p = d). A ref is { n, d, point } (any angle) or the older { axis, sign, offset, point }. */
@@ -538,8 +550,8 @@ const OPS = {
       drawing = drawing.translate(x, y);
     }
     // op.frame = { origin, xDir, normal }: an explicit plane (e.g. a face of the body); otherwise the named base plane
-    if (op.frame) return { kind: "sketch", drawing, plane: new Plane(op.frame.origin, op.frame.xDir, op.frame.normal), origin: undefined };
-    return { kind: "sketch", drawing, plane: op.plane ?? "XY", origin: p("origin") ?? 0 };
+    if (op.frame) return { kind: "sketch", drawing, plane: new Plane(op.frame.origin, op.frame.xDir, op.frame.normal), origin: undefined, sides: op.sides };
+    return { kind: "sketch", drawing, plane: op.plane ?? "XY", origin: p("origin") ?? 0, sides: op.sides };
   },
 
   /**
@@ -548,6 +560,8 @@ const OPS = {
   sweep(op, ctx) {
     const sketchOf = (id) => { const q = ctx.get(id, "sketch"); return q.drawing.sketchOnPlane(q.plane, q.origin); };
     const outer = sketchOf(op.profile);
+    const endsOuter0 = edgeEnds(outer);
+    const endsOuter = ctx.roleFigs ? endsOuter0 : null; // (the profile's edges, read before the sweep uses it up, for the names of its faces)
     const face = outer.face();
     const pn = face.normalAt();
     const N = [pn.x, pn.y, pn.z];
@@ -563,6 +577,18 @@ const OPS = {
     const t0 = [segs[0].b[0] - segs[0].a[0], segs[0].b[1] - segs[0].a[1], segs[0].b[2] - segs[0].a[2]];
     const tl = Math.hypot(...t0) || 1;
     if (Math.abs(t0[0] * N[0] + t0[1] * N[1] + t0[2] * N[2]) / tl < 0.05) throw new Error("the path runs along the shape's plane where it starts: the shape would be carried edge on (draw the path leaving the plane)");
+    if (ctx.roleFigs) { try { const last = segs[segs.length - 1]; ctx.roleFigs.set("sweep", sweepRoles(endsOuter, endTangent(last), last.b, true, ctx.get(op.profile, "sketch").sides, segs.length === 1 && !last.m ? Math.hypot(last.b[0] - last.a[0], last.b[1] - last.a[1], last.b[2] - last.a[2]) : 0)); } catch { ctx.roleFigs.set("sweep", []); } } // (`dec_stable_reference_mechanism`: the start cap and the end cap)
+    // a profile that is not square to the path creases the sides where the path's curvature changes (`in_655`): said, with how much
+    if (ctx.sweepNote && endsOuter0) {
+      try {
+        const pts = endsOuter0.edges.flatMap((q) => [q.a, q.b, ...(q.mid ? [q.mid] : [])]);
+        const c = creaseOf(segs, pts, segs[0].a);
+        if (c && c.deg >= 2) {
+          const tilt = (Math.acos(Math.min(1, Math.abs(N[0] * c.T0[0] + N[1] * c.T0[1] + N[2] * c.T0[2]))) * 180) / Math.PI;
+          ctx.sweepNote.note = `the shape is ${Math.round(tilt)}° off square to the path, so the sides crease by about ${Math.round(c.deg)}° where the path's curvature changes (the joint of its arcs): draw the shape square to the path, or give the path a curvature that changes smoothly, for a smooth sweep`;
+        }
+      } catch { /* no note */ }
+    }
     const spine = assembleWire(segs.map((s) => (s.m ? makeThreePointArc(s.a, s.m, s.b) : makeLine(s.a, s.b))));
     const make = (sk) => {
       const solid = genericSweep(sk.wire, spine, { frenet: true, transitionMode: "right" });
@@ -589,11 +615,15 @@ const OPS = {
       const q = ctx.get(h, "sketch");
       return typeof q.plane === "string" ? q.drawing.sketchOnPlane(q.plane, q.origin ?? 0) : q.drawing.sketchOnPlane(q.plane, q.origin);
     };
-    const through = (ids) => { const sk = ids.map(sketchOf); return sk[0].loftWith(sk.slice(1), { ruled: !op.smooth }); };
-    let solid = through(op.sections.map((s) => s.profile));
+    const through = (ids, key) => {
+      const sk = ids.map(sketchOf);
+      if (ctx.roleFigs) { try { ctx.roleFigs.set(key, loftRoles(ids.map((id, k) => ({ ends: edgeEnds(sk[k]), sides: ctx.get(id, "sketch").sides })), key === "main", !!op.smooth)); } catch { ctx.roleFigs.set(key, []); } } // (the roles of its faces by the sketches' own edges, read before they are used up: `dec_stable_reference_mechanism`)
+      return sk[0].loftWith(sk.slice(1), { ruled: !op.smooth });
+    };
+    let solid = through(op.sections.map((s) => s.profile), "main");
     if (!isValidSolid(solid)) throw new Error("the loft could not be made through those sketches (try turning an outline round with its start point, or reverse one)");
     const holes = op.sections[0].holes?.length ?? 0;
-    for (let i = 0; i < holes; i++) solid = solid.cut(through(op.sections.map((s) => s.holes[i])));
+    for (let i = 0; i < holes; i++) solid = solid.cut(through(op.sections.map((s) => s.holes[i]), `hole${i}`));
     if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the loft when its holes were cut");
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
     if (!target) return { kind: "solid", shape: solid };
@@ -628,8 +658,11 @@ const OPS = {
         const z = q.plane.zDir;
         return q.drawing.sketchOnPlane(back ? q.plane.translate(-dir * back * z.x, -dir * back * z.y, -dir * back * z.z) : q.plane, q.origin);
       };
-      let solid = sketch(profile).extrude(d + dir * back);
-      for (const h of holes ?? []) solid = solid.cut(sketch(h).extrude(d + dir * back)); // figures drawn inside this one are holes in it
+      const sk0 = sketch(profile);
+      const ends0 = ctx.roleFigs && !ctx.roleFigs.has(profile) ? edgeEnds(sk0) : null; // (the sketch is used up by the extrusion: its edges are read first)
+      let solid = sk0.extrude(d + dir * back);
+      if (ctx.roleFigs && !ctx.roleFigs.has(profile)) ctx.roleFigs.set(profile, safeRoles(ends0, d, ctx.get(profile, "sketch").sides, profile === op.profile)); // (the roles of its faces by the sketch's own edges, worked out from the prism made here: `dec_stable_reference_mechanism`)
+      for (const h of holes ?? []) { const skh = sketch(h); const endsH = ctx.roleFigs && !ctx.roleFigs.has(h) ? edgeEnds(skh) : null; const sh = skh.extrude(d + dir * back); if (endsH) ctx.roleFigs.set(h, safeRoles(endsH, d, ctx.get(h, "sketch").sides, false)); solid = solid.cut(sh); } // figures drawn inside this one are holes in it
       return solid;
     };
     const toolOf = (back) => {
@@ -676,7 +709,12 @@ const OPS = {
     const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
     const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
     // the figure and the figures drawn inside it (holes), each a sketch in the same plane
-    const sketchOf = (id) => { const q = ctx.get(id, "sketch"); return q.drawing.sketchOnPlane(q.plane, q.origin); };
+    const sketchOf = (id) => {
+      const q = ctx.get(id, "sketch");
+      const sk = q.drawing.sketchOnPlane(q.plane, q.origin);
+      if (ctx.roleFigs && !ctx.roleFigs.has(id)) { try { ctx.roleFigs.set(id, revolveRoles(edgeEnds(sk), A, D, angle, advance, q.sides, id === op.profile)); } catch { ctx.roleFigs.set(id, []); } } // (the roles of its faces by the profile's own edges, read before the figure is made: `dec_stable_reference_mechanism`)
+      return sk;
+    };
     const outerSketch = sketchOf(op.profile);
     const face = outerSketch.face();
     const pn = face.normalAt();
@@ -730,8 +768,19 @@ const OPS = {
     }
     let solid;
     if (twistAll) solid = twistAll(outerSketch, (op.holes ?? []).map(sketchOf));
-    else { solid = make(outerSketch); for (const h of op.holes ?? []) solid = solid.cut(make(sketchOf(h))); }
-    if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error(twisted && !op.holes?.length ? "the twist could not be made at this size" : "nothing was left of the figure when its holes were cut");
+    else solid = make(outerSketch);
+    // (the figure itself came out empty or inside out: said by what was asked, not as if holes had cut it away, `in_649`)
+    if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) {
+      if (twisted) throw new Error(op.holes?.length ? "nothing was left of the figure when its holes were cut" : "the twist could not be made at this size");
+      const r2 = (v) => Math.round(v * 100) / 100;
+      throw new Error(Math.abs(advance) > 1e-9
+        ? `the kernel could not make a spiral of ${r2(angle)}° with an advance of ${r2(advance)} mm: it fails for some pairs of turn and advance, and a small change to either (a little more advance, or a little more or less turn) usually makes it`
+        : `the kernel could not turn the figure ${r2(angle)}° about that line (a line that touches or cuts across the figure can do this: move the line off it, or change the angle)`);
+    }
+    if (!twistAll) {
+      for (const h of op.holes ?? []) solid = solid.cut(make(sketchOf(h)));
+      if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the figure when its holes were cut");
+    }
     const targetValue = op.target ? (op.mode === "new" ? ctx.peek(op.target, "solid") : ctx.get(op.target, "solid")) : null; // (a piece of its own stands beside the body: no copy of it is needed)
     const target = targetValue ? targetValue.shape : null;
     if (!target) return { kind: "solid", shape: solid, checked: true, ...(twisted ? { noCross: true } : {}) }; // (checked just above; a twist cannot cross itself)
@@ -752,7 +801,7 @@ const OPS = {
   faceExtrude(op, ctx) {
     const t = stage("copying the body it works on", () => ctx.get(op.target, "solid").shape);
     const dist = resolve(op.distance, ctx.params);
-    const best = stage("finding the face", () => findFace(t, op.ref));
+    const best = stage("finding the face", () => findFace(t, namedRef(op, ctx)));
     const fn = stage("the face's normal", () => best.normalAt()); // the face's own normal, exactly: a rounded one slants the prism and leaves slivers (an invalid solid)
     const fl = Math.hypot(fn.x, fn.y, fn.z);
     const n = [fn.x / fl, fn.y / fl, fn.z / fl];
@@ -792,7 +841,7 @@ const OPS = {
     const dist = resolve(op.distance, ctx.params);
     if (!Number.isFinite(dist)) throw new Error("bad distance");
     if (Math.abs(dist) < 1e-6) return { kind: "solid", shape: t };
-    const best = findFace(t, op.ref);
+    const best = findFace(t, namedRef(op, ctx));
     const fn = best.normalAt();
     const fl = Math.hypot(fn.x, fn.y, fn.z);
     const n = [fn.x / fl, fn.y / fl, fn.z / fl];
@@ -862,7 +911,7 @@ const OPS = {
    */
   faceTilt(op, ctx) {
     const t = ctx.get(op.target, "solid").shape;
-    const best = findFace(t, op.ref);
+    const best = findFace(t, namedRef(op, ctx));
     const angle = resolve(op.angle, ctx.params);
     if (!Number.isFinite(angle)) throw new Error("bad angle");
     const { n } = refPlane(op.ref);
@@ -924,7 +973,7 @@ const OPS = {
     const t = ctx.get(op.target, "solid").shape;
     const v = resolve(op.value, ctx.params);
     if (!(v > 1e-6)) throw new Error("the size must be positive");
-    const refs = [].concat(op.ref);
+    const refs = namedEdgeRefs(ctx.peek(op.target, "solid").edgeNames, [].concat(op.ref));
     const found = refs.length ? resolveEdges(t, refs) : null;
     // a fillet or chamfer that changes along its edges (`in_406`, `in_410`): sizes at places along each edge (0 its start, 1 its other end); smaller sizes keep the proportions
     const rel = op.stations && op.stations.length >= 2 ? op.stations.map(([x, s]) => [x, s / v]) : null;
@@ -986,7 +1035,7 @@ const OPS = {
         const sizes = new Map();
         op.together.mods.forEach((m, i) => {
           const last = i === op.together.mods.length - 1; // (this step's own edges and size: the ones being tried)
-          const hit = resolveEdges(base, last ? list : [].concat(m.ref));
+          const hit = resolveEdges(base, last ? list : namedEdgeRefs(ctx.peek(op.together.base, "solid").edgeNames, [].concat(m.ref)));
           if (!hit) throw e;
           for (const h of hit) sizes.set(h, last ? size : resolve(m.value, ctx.params));
         });
@@ -1481,7 +1530,45 @@ function rimFaces(e, fs) {
   if (Math.abs(n[0] * ax[0] + n[1] * ax[1] + n[2] * ax[2]) / nl < 1 - 1e-6) return null; // (the flat face is not across the axis: a cone, or a slanted cut)
   return { plane, wall, C, ax, R, n };
 }
-function rimTool(e, fs, size, mode, stations, whole = false) {
+/**
+ * Where a round of a piece of a rim ends (`in_655`): at each end of the arc, the plane the tool is cut by. Where the next piece of the chain is rounded too (a rim that the kernel splits where two arcs of a sweep meet,
+ * or two tangent arcs) both tools are cut by the plane that halves the angle between the pieces there (a mitre), so they meet and nothing is left standing between them; where the end is free it is cut by the plane of
+ * the one flat face that closes the edge there (the end of a sweep, a cap), as the round of a straight edge is, not by the plane across the arc, which is another plane where the face is not square to the edge.
+ * Returns [start, end], each `{ V, n }` (n pointing out of the piece, the tool keeps the side it is behind) or null for the flat cut across the arc.
+ */
+function rimEnds(t, e, set, faces, byEdge) {
+  const near = (p, q) => Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z) < 1e-6;
+  const unit = (v) => { const l = Math.hypot(v[0], v[1], v[2]); return l > 1e-12 ? [v[0] / l, v[1] / l, v[2] / l] : null; };
+  const leaving = (edge, atStart) => { // the way the edge runs away from one of its ends, along the edge
+    const [p, q] = atStart ? [edge.startPoint, edge.pointAt(0.02)] : [edge.endPoint, edge.pointAt(0.98)];
+    return unit([q.x - p.x, q.y - p.y, q.z - p.z]);
+  };
+  const fsHere = new Set((byEdge.get(e.hashCode) ?? []).map((f) => f.hashCode));
+  return [true, false].map((atStart) => {
+    const V = atStart ? e.startPoint : e.endPoint;
+    const others = edgesOf(t).filter((x) => x.hashCode !== e.hashCode && set.has(x.hashCode) && (near(x.startPoint, V) || near(x.endPoint, V)));
+    if (others.length === 1) {
+      const x = others[0];
+      if (!rimFaces(x, byEdge.get(x.hashCode) ?? [])) return null; // (the next piece is not a rim: a straight side of the outline is cut by its own planes, and this end keeps the flat cut across the arc)
+      const into = leaving(e, atStart); // (along the arc, away from this end: the way out of the piece is the other way)
+      const tB = leaving(x, near(x.startPoint, V));
+      if (!into || !tB) return null;
+      const out = into.map((c) => -c);
+      const n = unit([out[0] + tB[0], out[1] + tB[1], out[2] + tB[2]]);
+      if (n && n[0] * out[0] + n[1] * out[1] + n[2] * out[2] > Math.cos(0.5 * Math.PI / 180)) return null; // (tangent pieces: the mitre is the plane across the arc already, the flat cut stands)
+      return n ? { V, n } : null;
+    }
+    if (others.length) return null;
+    const third = faces.filter((f) => !fsHere.has(f.hashCode) && faceVertices(f).some((p) => near(p, V)));
+    if (third.length !== 1 || third[0].geomType !== "PLANE") return null;
+    const nn = third[0].normalAt();
+    const n = unit([nn.x, nn.y, nn.z]);
+    const into = leaving(e, atStart);
+    if (n && into && -(n[0] * into[0] + n[1] * into[1] + n[2] * into[2]) > Math.cos(0.5 * Math.PI / 180)) return null; // (a face square to the arc: it is the plane across it already)
+    return { V, n };
+  });
+}
+function rimTool(e, fs, size, mode, stations, whole = false, ends = null) {
   const rf = rimFaces(e, fs);
   if (!rf) return null;
   const { plane, wall, C, ax, R, n } = rf;
@@ -1562,8 +1649,18 @@ function rimTool(e, fs, size, mode, stations, whole = false) {
     for (const piece of pieces.slice(1)) ring = ring.fuse(piece); // (joined into one ring before it is cut: pieces cut one after the other leave slivers where they meet)
     return { tool: ring, convex, R, length: e.length, partial: false, key: String(e.hashCode), capped, tip };
   }
-  const sketch = outline.sketchOnPlane(new Plane(C, rS, cross3(rS, ax)));
-  const solid = sketch.revolve(ax, { origin: C, angle: span });
+  // the ends: where the arc ends against a plane (the next piece's mitre, the cap) the tool is turned a little further at that end and cut by the plane (`rimEnds`); else it ends in the flat cut across the arc
+  const clipStart = ends && !closed ? (ccw ? ends[0] : ends[1]) : null;
+  const clipEnd = ends && !closed ? (ccw ? ends[1] : ends[0]) : null;
+  const room = Math.max(0, (360 - span) / 2 - 5);
+  const extra = Math.min(60, room);
+  const [e0, e1] = [clipStart && extra > 1 ? extra : 0, clipEnd && extra > 1 ? extra : 0];
+  const turnBy = (r, deg) => { const phi = (deg * Math.PI) / 180; const k = cross3(ax, r); return r.map((x, i) => x * Math.cos(phi) + k[i] * Math.sin(phi)); };
+  const rS2 = e0 ? turnBy(rS, -e0) : rS;
+  const sketch = outline.sketchOnPlane(new Plane(C, rS2, cross3(rS2, ax)));
+  let solid = sketch.revolve(ax, { origin: C, angle: span + e0 + e1 });
+  const reachAll = (() => { const bb = bounds(solid); return 2 * Math.hypot(bb.max[0] - bb.min[0], bb.max[1] - bb.min[1], bb.max[2] - bb.min[2]) + 10; })();
+  for (const [clip, did] of [[clipStart, e0], [clipEnd, e1]]) if (clip && did) solid = solid.intersect(slabSolid([clip.V.x, clip.V.y, clip.V.z], clip.n, -reachAll, 1e-3, reachAll));
   return { tool: solid, convex, R, length: e.length, partial: !closed, key: String(e.hashCode), capped, tip };
 }
 /** The solid between the planes at `from` and `to` along the unit vector m from the point p, square and `big` wide about it. */
@@ -1761,7 +1858,7 @@ function regionRound(t, set0, size, mode, stations) {
     const fs = byEdge.get(e.hashCode) ?? [];
     if (rimFaces(e, fs)) {
       // a rim: a circle where a flat face meets a round wall about the same axis (the end of a post or a hole, the foot of a post): made by revolving the corner region about the axis (`rimTool`)
-      const rim = rimTool(e, fs, size, mode, stations, wholeRim.has(e.hashCode));
+      const rim = rimTool(e, fs, size, mode, stations, wholeRim.has(e.hashCode), !stations && !wholeRim.has(e.hashCode) ? rimEnds(t, e, set, faces, byEdge) : null);
       if (!rim) return null;
       const key = rim.key;
       rims.set(key, rim);
@@ -1992,6 +2089,12 @@ const LOCAL = {
   cylDraft: (op) => [op.ref?.center],
   edgeMod: (op) => [].concat(op.ref ?? []).map((r) => r.mid),
 };
+// a sweep may say that its sides crease (`in_655`): the note goes with its result like the notes of a fillet
+{
+  const sweep0 = OPS.sweep;
+  OPS.sweep = (op, ctx) => { const sink = {}; ctx.sweepNote = sink; try { const v = sweep0(op, ctx); return sink.note && v?.kind === "solid" ? { ...v, note: sink.note } : v; } finally { ctx.sweepNote = null; } };
+}
+
 function run(op, ctx, results) {
   const probes = (LOCAL[op.type]?.(op) ?? []).filter(Boolean);
   const from = op.target ? results.get(op.target)?.value : null;
@@ -2006,6 +2109,9 @@ function run(op, ctx, results) {
   }
   return OPS[op.type](op, ctx);
 }
+
+/** The roles of a figure's faces; never fails the step (with none, its faces are named by their rank). */
+function safeRoles(...args) { try { return figureRoles(...args); } catch { return []; } }
 
 /** Compile the whole graph. Returns per-op results; never throws for op-level failures. */
 /** `quick`: a rough answer for a picture while a size is dragged (`dec_speed_rules`): the safety checks are left out, and what was made without them is kept as unchecked, so that a whole answer asked for later makes it again with them. */
@@ -2031,7 +2137,7 @@ export function compile(graph, quick = false) {
       return r.value;
     },
   };
-  const pj = JSON.stringify(params);
+  const pj = JSON.stringify([params, !!graph.names]);
   for (const op of graph.ops) {
     const t0 = performance.now();
     const key = fingerprint(JSON.stringify([op, pj, [op.target, op.profile, ...(op.holes ?? []), ...(op.also ?? []).flatMap((f) => [f.profile, ...f.holes]), ...(op.sections ?? []).flatMap((s) => [s.profile, ...(s.holes ?? [])])].map((d) => (d ? keys.get(d) ?? null : null))]));
@@ -2047,6 +2153,7 @@ export function compile(graph, quick = false) {
     try {
       if (!OPS[op.type]) throw new Error(`unknown op type ${op.type}`);
       beginStages();
+      ctx.roleFigs = graph.names && (op.type === "extrude" || op.type === "revolve" || op.type === "loft" || op.type === "sweep") ? new Map() : null;
       const value = run(op, ctx, results);
       const stagesOf = endStages();
       if (value.kind === "solid") {
@@ -2057,6 +2164,7 @@ export function compile(graph, quick = false) {
         const tM = performance.now();
         value.markers = trackBodies(prev, value.shape, op.id);
         markMs = performance.now() - tM;
+        if (graph.names) { const named = nameFaces(from?.faceNames, value.tf, value.shape, op.id, (op.type === "extrude" || op.type === "revolve" || op.type === "loft" || op.type === "sweep") && ctx.roleFigs ? [...ctx.roleFigs.values()].flat() : op.type === "edgeMod" ? edgeRoles(op, from?.edgeNames) : null); value.faceNames = named.faces; Object.defineProperty(value, "edgeNames", { get: () => named.edges, enumerable: true, configurable: true }); } // (the names of the flat faces, carried from the body it was made from)
       }
       const rigid = op.type === "transform" && (op.mode === "move" || op.mode === "rotate"); // (moving a valid body cannot make it invalid: the check is skipped, it costs as much as the move)
       const tC = performance.now();
@@ -2079,7 +2187,7 @@ export function finalSolid(graph, results) {
   for (let i = graph.ops.length - 1; i >= 0; i--) {
     const r = results.get(graph.ops[i].id);
     if (r && !r.error && r.value.kind === "empty") return null; // the body was deleted
-    if (r && !r.error && r.value.kind === "solid") return { id: graph.ops[i].id, shape: r.value.shape, key: r.key, markers: r.value.markers ?? [] };
+    if (r && !r.error && r.value.kind === "solid") return { id: graph.ops[i].id, shape: r.value.shape, key: r.key, markers: r.value.markers ?? [], ...(r.value.faceNames ? { faceNames: r.value.faceNames, edgeNames: r.value.edgeNames } : {}) };
   }
   return null;
 }

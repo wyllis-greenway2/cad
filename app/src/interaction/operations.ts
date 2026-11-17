@@ -104,6 +104,8 @@ export interface Op {
   /** sweep (`dec_sweep`): the shape carried (its outer sides or circle and the figures inside it) and the path it is carried along, as the step stores it */
   sweepFig?: Figure;
   sweepLines?: Ref[];
+  /** "path": a copy of the shape stands square on the path (`dec_sweep_modes`, the default of a new sweep); "sketch": it is carried from where it is drawn. */
+  sweepPlace?: "path" | "sketch";
   loftFigs?: Figure[];
   loftRuled?: boolean;
   loftSplit?: boolean;
@@ -362,7 +364,7 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     const path = walkPath(lookup(scene), lines.map((l) => l.ref));
     if (!path.ok) return { ok: false, why: path.why };
     const fig = figureOf(scene, drawnFace(scene, [shapes[0]!])!);
-    return { ok: true, op: { ...base, parts: fig.outer, sweepFig: fig, sweepLines: lines.map((l) => l.ref) } };
+    return { ok: true, op: { ...base, parts: fig.outer, sweepFig: fig, sweepLines: lines.map((l) => l.ref), sweepPlace: "path" } };
   }
   if (kind === "revolve") {
     // closed figures turned about a line in their plane, any angle, with an advance for a spiral (`dec_spiral_extrude`): the line selected with them, a world axis in their plane, or one of their own sides; a figure
@@ -629,6 +631,10 @@ export function typeOp(op: Op, key: string): Op {
 
 /** The step that does it (one command, one undo). Null while there is no number yet. */
 /** The face a push / pull works on, as numbers kept in the step: the body is changed by later steps (another push, a turn) so its named faces move, but this step always meant the face as it was. */
+/** The lasting name of a flat face of the body, kept in a push or pull so it finds the face again after an earlier step is changed or another is put before it (`dec_stable_reference_mechanism`). */
+const stableName = (scene: Scene, ref: Ref | undefined): Record<string, string> => { const p = ref ? scene.parts[ref] : undefined; return p?.kind === "plane" && p.stable ? { fname: p.stable } : {}; };
+/** The lasting names of the edges of a fillet or chamfer, joined by `;` and in the order of its parts (empty where an edge has none): kept in the step so it finds its edges after an earlier step is changed. */
+const stableEdges = (scene: Scene, refs: readonly Ref[]): Record<string, string> => { const names = refs.map((r) => { const p = scene.parts[r]; return p?.kind === "line" && p.stable ? p.stable : ""; }); return names.some(Boolean) ? { enames: names.join(";") } : {}; };
 const faceParams = (op: Op): Record<string, number> => {
   const n = op.normal;
   const p = op.origin;
@@ -775,18 +781,18 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   }
   if (op.kind === "pushpull" && op.faces && op.faces.length > 1) {
     if (v === 0) return null;
-    return { type: "batch", commands: op.faces.map((f, k): Command => ({ type: "addStep", step: { id: `${id}f${k}`, type: "pushPull", parts: [op.parts[k]!], params: { depth: v, ...faceParams({ ...op, normal: f.normal, origin: f.origin }), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } })) };
+    return { type: "batch", commands: op.faces.map((f, k): Command => ({ type: "addStep", step: { id: `${id}f${k}`, type: "pushPull", parts: [op.parts[k]!], params: { depth: v, ...faceParams({ ...op, normal: f.normal, origin: f.origin }), ...stableName(scene, op.parts[k]), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } })) };
   }
   if (op.kind === "pushpull" && op.edit && !op.noEdit && (op.faceKind ?? "move") === "move") return v === 0 ? null : editCommand(scene, op.edit, v);
-  if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } };
+  if (op.kind === "pushpull") return v === 0 ? null : { type: "addStep", step: { id, type: "pushPull", parts: op.parts, params: { depth: v, ...faceParams(op), ...stableName(scene, op.parts[0]), ...(op.faceKind === "extend" ? { extend: 1 } : {}) } } };
   // one operation, two results: a positive size is a fillet, a negative one a chamfer of that size (drag the double arrow one way or the other, or type a minus)
   if (op.kind === "edge" && op.twoDist && v !== 0) { // a chamfer with a distance along each face (`dec_chamfer_two_distances`)
     const face = chosenFace(scene, op);
     if (!face) return null;
     const second = typedNumber(op.endTyped ?? "");
-    return { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: "chamfer", value: Math.abs(v), d2: second !== null && second > 0 ? second : Math.abs(v), face: face.spec, ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
+    return { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: "chamfer", value: Math.abs(v), d2: second !== null && second > 0 ? second : Math.abs(v), face: face.spec, ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}), ...stableEdges(scene, op.parts) } } };
   }
-  if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(variableEnd(op, v) !== null ? { end: variableEnd(op, v)! } : {}), ...(variableMid(op, v) !== null ? { mid: variableMid(op, v)! } : {}), ...variableQuarters(op, v), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) } } };
+  if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(variableEnd(op, v) !== null ? { end: variableEnd(op, v)! } : {}), ...(variableMid(op, v) !== null ? { mid: variableMid(op, v)! } : {}), ...variableQuarters(op, v), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}), ...stableEdges(scene, op.parts) } } };
   if (op.kind === "scale" && op.target === "shape" && !op.axes) return v <= 0 ? null : scaleShapeCommand(scene, op, v);
   if (op.kind === "scale" && op.axes) {
     // factors along the axes alone (`dec_scale_axes`): the recipe is stretched, about the middle of the body

@@ -18,7 +18,7 @@ import { NONE } from "../operation/frames.ts";
 import { buildTree, collides, collidesMoving, moved, partOf, freePart, contactNormals } from "../operation/collide.ts";
 import type { Tree } from "../operation/collide.ts";
 
-interface Mesh { tris: number[]; tree: Tree }
+export interface Mesh { tris: number[]; tree: Tree }
 const cache = new WeakMap<Scene, Map<Ref, Mesh>>();
 
 /** A body of the model with a name of its own (the stand-in for a model of one body has none). */
@@ -31,7 +31,7 @@ export const meets = (scene: Scene, a: Ref, b: Ref): boolean => isHard(scene, a)
 export const isHard = (scene: Scene, ref: Ref): boolean => { const p = scene.parts[ref]; return p?.kind === "body" && !!p.id && !!scene.hard?.includes(p.id); };
 
 /** The triangles of a body, from the meshes of its faces, and the tree over them (kept for the scene: a drag tests many places against the same bodies). */
-function meshOf(scene: Scene, body: Ref): Mesh | null {
+export function meshOf(scene: Scene, body: Ref): Mesh | null {
   let by = cache.get(scene);
   if (!by) {
     by = new Map();

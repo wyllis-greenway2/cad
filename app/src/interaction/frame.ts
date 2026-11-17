@@ -21,6 +21,7 @@ import { apply } from "../operation/commands.ts";
 import { outlineOf } from "../operation/part.ts";
 import { seenIn } from "./picking.ts";
 import { tapeAnnotations } from "./tape.ts";
+import { thinPlacesOf } from "./measure.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
 import { axisAcross } from "./revolve.ts";
@@ -32,6 +33,7 @@ import type { Session } from "./session.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import { SIMILAR_RULES } from "./similar.ts";
 import { loftChips, loftStarts } from "./loft.ts";
+import { sweepChips } from "./sweep.ts";
 import { sweepStart } from "./sweep.ts";
 import { moverOp } from "./control/pose.ts";
 import { mirrorPlane } from "./mirror.ts";
@@ -85,6 +87,13 @@ export interface Frame {
   hiddenEdges: boolean;
   /** when the matrix moves one body of several: the triangles (ranges of the mesh's index list) and the box of that body, so only it is moved (`in_273`) */
   bodySplit: { tris: [number, number][]; box: { min: Vec3; max: Vec3 } } | null;
+  /** the bodies that are hidden (`dec_hidden_bodies`), each as its triangles (ranges of the mesh's index list): drawn very faintly, not part of the body that is drawn in full */
+  hiddenBodies: { tris: [number, number][] }[] | null;
+  /** the triangles of the places too thin to print, marked in the picture while the Measure tab is open (`in_626`) */
+  thin: number[] | null;
+  /** the eye on each body (`dec_hidden_bodies`): its box's corners and whether it is hidden; `eyesQuiet`: a tool or an operation is in use, so the eyes of shown bodies stay away */
+  bodyEyes: { ref: string; hidden: boolean; corners: Vec3[] }[];
+  eyesQuiet: boolean;
   /** the bodies that move with the one being dragged, each by its own matrix, as its mates take them along (`in_341`) */
   followers: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[];
   /** what is selected is the body, so its highlight is moved by the same matrix */
@@ -142,6 +151,7 @@ export interface Frame {
   faceKinds: { id: "move" | "extrude" | "extend"; label: string; title: string; on: boolean }[] | null;
   /** a fillet of one edge: the same size all along, or a size at each end (`in_406`) */
   /** a revolve: the lines the figure can turn about, one chosen (`dec_spiral_extrude`) */
+  sweepKinds: { id: string; label: string; title: string; on: boolean }[] | null;
   loftKinds: { id: string; label: string; title: string; on: boolean }[] | null;
   sizeKinds: { id: "constant" | "variable" | "twoDistances" | "swap"; label: string; title: string; on: boolean }[] | null;
   /** the pill of adding to the selection (`in_539`): on (every tap adds, Done leaves), an offer (something is selected: a finger can start it), or none */
@@ -364,6 +374,10 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     bodyMatrix,
     hiddenEdges: !!s.tool && hasBody,
     bodySplit,
+    hiddenBodies: hiddenItemsOf(sc, outcome),
+    thin: s.panel === "measure" && !outcome.kernel?.stale ? thinPlacesOf(sc, sel) : null,
+    bodyEyes: Object.values(sc.parts).flatMap((p) => { if (p.kind !== "body" || !p.bbox) return []; const [lo, hi] = [p.bbox.min, p.bbox.max]; const corners: Vec3[] = []; for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) corners.push([x, y, z]); return [{ ref: p.ref, hidden: !!sc.hiddenBodies?.includes(p.ref), corners }]; }),
+    eyesQuiet: !!s.tool || !!s.op || !!s.drag || !!s.repeat,
     followers: gpu?.followers ?? [],
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
     highlight: { hover: s.session.hover, /* (a visible sheet lights the blue hover disc as every surface does, `in_470`) */ hoverPoint: s.hoverPoint, selection: s.moverSphere ? [] : [...sel.filter((r) => !isSectionPlane(sc, r)), ...(s.op?.twoDist ? [chosenFace(sceneOf(s.op.made ? undone(s.session) : s.session), s.op)?.ref].filter((r): r is Ref => !!r) : [])], /* (the face the first distance is along is lit like a selected face, `dec_chamfer_two_distances`) */ /* (the object is not what is selected while the mover is oriented: it is only drawn as wireframe, `in_421`) */ // (a cross section plane is drawn by its own faint quad, not lit like a face, `in_396`)
@@ -380,7 +394,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     box: s.box ? { ...s.box, touching: crossing(s.box) } : null,
     avoid: busy || !annotationsPresent ? { segs: [], pts: [] } : avoidOf(sc),
     hint: s.tool?.hints?.length && s.tool.cursor ? { kinds: s.tool.hints.map((h) => h.kind), at: s.tool.cursor } : s.dragHint ? { kinds: s.dragHint.hints.map((h) => h.kind), at: s.dragHint.at } : null,
-    panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors, s.showSketch),
+    panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors, s.showSketch, s.session.history, s.stepEdit),
     annotations: busy ? withFlashed([], sc, flash?.t === 0 && gpu?.blocked?.length ? flash : null) : [...withFlashed(annotationsFor(sc, sel, s.focus, s.showAllConstraints || !!s.showSketch), sc, flash), ...(s.tape ? tapeAnnotations(sc, sel) : [])],
     flash,
     refusal: flash && s.flash?.retry && s.flash.victims.length ? { text: s.session.message ?? "", beside: s.flash.victims[0]!, button: s.flash.victims.length === 1 ? "Delete constraint to proceed" : "Delete constraints to proceed" } : null,
@@ -413,6 +427,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     resetView: !s.anim && !s.tool && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
     modeSwitch: gizmo ? (s.repeat ? repeatSwitchOf(s.repeat, gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points))) : null,
     faceKinds: faceKinds(s),
+    sweepKinds: s.op?.kind === "sweep" ? sweepChips(s.op) : null,
     loftKinds: s.op?.kind === "loft" ? loftChips(sceneOf(s.session), s.op) : null,
     sizeKinds: sizeKinds(s),
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
@@ -622,6 +637,29 @@ function similarChip(s: AppState): Frame["similar"] {
   const sel = selectionOf(s.session);
   if (sel.length !== sim.refs.length || !sim.refs.every((r) => sel.includes(r))) return null;
   return { rules: SIMILAR_RULES.map((r) => ({ ...r, on: sim.rules.includes(r.id) })), count: sim.refs.length, noun: sim.noun };
+}
+
+/** The triangles of each hidden body (`dec_hidden_bodies`): all of the mesh when it is the only body, else the faces the kernel says are its. Null when none is hidden. */
+function hiddenItemsOf(sc: Scene, outcome: CompileOutcome): { tris: [number, number][] }[] | null {
+  const hidden = sc.hiddenBodies;
+  const k = outcome.kernel;
+  if (!hidden?.length || !k?.mesh) return null;
+  const out: { tris: [number, number][] }[] = [];
+  for (const ref of hidden) {
+    const body = sc.parts[ref];
+    if (body?.kind !== "body") continue;
+    if (!k.bodies || k.bodies.length < 2) { out.push({ tris: [[0, k.mesh.triangles.length]] }); continue; }
+    const index = k.bodies.findIndex((b) => b.id === body.id);
+    if (index < 0) continue;
+    const tris: [number, number][] = [];
+    for (const f of k.faces ?? []) {
+      if (f.body !== index) continue;
+      const ranges = (f.ranges as { start: number; count: number }[] | undefined) ?? [{ start: f.start, count: f.count }];
+      for (const r of ranges) tris.push([r.start, r.count]);
+    }
+    if (tris.length) out.push({ tris });
+  }
+  return out.length ? out : null;
 }
 
 /** The part of the mesh that is one body of several, for a move, turn or scale of that body (null for the whole body): its triangles, from the faces the kernel says are its, and its box (`in_273`). */

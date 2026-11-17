@@ -3,6 +3,7 @@
 // `viewing` (camera), `pointer` (hover, click, menu), `modal` (tools, operations, typing, edits).
 import type { Intent } from "../shared/input.ts";
 import { figureRefs } from "../operation/scene.ts";
+import { isLive } from "./operations.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { AppState, Env } from "./control/state.ts";
 import { doHover, doClick, doMenu, doHold, doTapAim, doMovePoint } from "./control/pointer.ts";
@@ -10,6 +11,8 @@ import { doCut } from "./control/select.ts";
 import { doPan, doWalk, doSwivel, doZoom, doLook, doHome, doResetView } from "./control/viewing.ts";
 import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
+import { doBodiesAction } from "./control/bodies.ts";
+import { doStepGo, doStepEdit, doStepInsert, doStepSet, doStepLink, doParamSet, doParamRemove } from "./control/history.ts";
 import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
 import { hoverOn, run, scene as sceneOf } from "./session.ts";
 import { loftChoice } from "./loft.ts";
@@ -25,6 +28,14 @@ import { normalOfPlane } from "../operation/part.ts";
 import { add, sub, scale, dot } from "../math/vec.ts";
 
 export { createState } from "./control/state.ts";
+/**
+ * The kernel's answer for the last step was an error and the step was taken back (the cursor is before where it was): an operation that goes on after the drag (a pull, a revolve, a fillet) stays open, as it does
+ * when the step is refused at once, so the arrow can be taken again; anything else is over (`in_648`: a spiral arrow pulled a little made too small an advance and the whole revolve was dropped).
+ */
+export function afterTakenBack(s: AppState, before: number): AppState {
+  if (s.session.history.cursor >= before) return s;
+  return { ...s, drag: null, op: s.op && isLive(s.op) ? { ...s.op, made: false } : null };
+}
 export type { AppState } from "./control/state.ts";
 export { advance, gridPlaneOf } from "./control/viewing.ts";
 export { stop as stopView } from "./control/state.ts";
@@ -123,6 +134,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "runAction": return doRunAction(s, i.id, env.now);
     case "overrideRefusal": return overrideRefusal(s);
     case "menuTurn": return s; // (game mode's: the menu is turned by the page, `in_467`)
+    case "sweepPlace": return s.op?.kind === "sweep" ? { ...s, op: { ...s.op, sweepPlace: i.id === "sketch" ? "sketch" : "path" } } : s;
     case "loftKind": return s.op?.kind === "loft" ? { ...s, op: loftChoice(sceneOf(s.session), s.op, i.id) } : s;
     case "sizeKind": {
       if (s.op?.kind !== "edge") return s;
@@ -147,6 +159,14 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "previewClose": return { ...s, preview: null };
     case "panel": return doPanel(s, i.name);
     case "panelRow": return doPanelRow(s, i.id, i.act);
+    case "panelAction": return doBodiesAction(s, i.id);
+    case "stepGo": return doStepGo(s, i.id);
+    case "stepEdit": return doStepEdit(s, i.id);
+    case "stepInsert": return doStepInsert(s);
+    case "stepSet": return doStepSet(s, i.id, i.key, i.value);
+    case "stepLink": return doStepLink(s, i.id, i.key, i.expr);
+    case "paramSet": return doParamSet(s, i.name, i.expr);
+    case "paramRemove": return doParamRemove(s, i.name);
     case "relation": return doRelation(s, i);
     case "save":
     case "open":

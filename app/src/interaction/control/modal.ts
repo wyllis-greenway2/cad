@@ -17,7 +17,7 @@ import { faceSketchCommand } from "../offsetbody.ts";
 import { placements } from "../../operation/repeat.ts";
 import type { Part } from "../../operation/part.ts";
 import { runOp } from "../runop.ts";
-import { lookup, nextId } from "../../operation/scene.ts";
+import { lookup, nextId, figuresOf } from "../../operation/scene.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { planeOf } from "../objects.ts";
 import { sketchOfEdge } from "../../operation/edgesource.ts";
@@ -28,6 +28,9 @@ import { mateStatus } from "../../operation/mates.ts";
 import { moveOffset } from "../gizmo.ts";
 import { normalOfPlane } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
+import { doBodyEye, doDeleteBody } from "./bodies.ts";
+import { doParamRemove } from "./history.ts";
+import { constraintOwners } from "../panels.ts";
 import type { AppState } from "./state.ts";
 import { activeOp, movePivot, movePivotTo, gizmoOf } from "./handles.ts";
 import { withPose, orientApply, moverOp, putMover } from "./pose.ts";
@@ -387,10 +390,11 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "world:toggle") return { ...closed, worldHidden: !s.worldHidden };
   if (id.startsWith("sheet:delete:")) return doSheetDelete(closed, id.slice(13) as never);
   if (id.startsWith("sheet:visible:")) return doSheetVisible(closed, id.slice(14) as never);
+  if (id.startsWith("body:eye:")) return doBodyEye(closed, id.slice(9) as Ref); // (the eye on a body, `dec_hidden_bodies`)
   if (id.startsWith("sheet:mode:")) return doSheetMode(closed, id.slice(11) as never);
   if (id === "sheet:move") return doSheetMove(closed);
   if (id === "view:wireframe") return { ...closed, wireframe: !s.wireframe, session: { ...closed.session, message: s.wireframe ? "solid view" : "wireframe view: the faces of bodies are not drawn, to see what is inside" } };
-  if (id === "tape:measure") return { ...closed, tape: !s.tape, session: { ...closed.session, message: s.tape ? "tape measure off" : "tape measure on: select a face, or two (Shift adds the second), to see what they are to each other" } };
+  if (id === "tape:measure") return { ...closed, tape: !s.tape, panel: s.tape ? (s.panel === "measure" ? null : s.panel) : "measure", session: { ...closed.session, message: s.tape ? "tape measure off" : "tape measure on: select a face, or two (Shift adds the second), to see what they are to each other" } };
   if (id.startsWith("mate:stand:")) { // a mate is made standing (it puts itself back after a change) or not (`in_321`)
     const rel = sceneOf(s.session).relations.find((r) => r.id === id.slice(11));
     if (!rel?.params) return closed;
@@ -498,9 +502,40 @@ export function doRelation(s: AppState, i: Extract<Intent, { type: "relation" }>
 }
 
 /** The ⋯ menu's lists: choosing one opens it, choosing it again closes it. */
-export const doPanel = (s: AppState, name: "bodies" | "history" | "groups"): AppState => ({ ...s, panel: s.panel === name ? null : name, menu: null });
+export const doPanel = (s: AppState, name: "bodies" | "history" | "groups" | "sketches" | "parameters" | "constraints" | "measure"): AppState => ({ ...s, panel: s.panel === name ? null : name, menu: null });
 /** A row of the open list: a body is selected, a step is taken out of the history. */
-export function doPanelRow(s: AppState, id: string, act: "select" | "remove" | "sketch" | "edit"): AppState {
+/** Choose a sketch (`in_621`): its drawn parts (the outer lines or the circle, and the figures inside it) are selected and it is shown in the picture, so it can be looked at, measured and held by constraints as any drawn figure. `id` is `fig:<step>:<which figure of the step>`, or the face of a figure no step has taken. */
+function doSketchPick(s: AppState, id: string): AppState {
+  const sc = sceneOf(s.session);
+  let parts: Ref[] = [];
+  let show: string | null = null;
+  if (id.startsWith("fig:")) {
+    const [, stepId, k] = id.split(":");
+    const st = sc.steps.find((x) => x.id === stepId);
+    const fig = st ? figuresOf(st).filter((f) => f.outer.length)[Number(k)] : undefined;
+    if (!st || !fig) return s;
+    parts = [...fig.outer, ...fig.holes.flat()];
+    show = st.id;
+  } else {
+    const f = sc.parts[id];
+    if (f?.kind !== "face") return s;
+    parts = f.disk ? [f.disk, ...(f.holes ?? [])] : [...f.loop];
+  }
+  parts = parts.filter((q) => q in sc.parts);
+  return withSession({ ...s, showSketch: show ?? s.showSketch, menu: null }, { ...s.session, click: { ...s.session.click, selection: parts }, message: null });
+}
+export function doPanelRow(s: AppState, id: string, act: "select" | "remove" | "sketch" | "edit" | "hide" | "pick"): AppState {
+  if (act === "pick") return doSketchPick(s, id);
+  if (act === "remove" && s.panel === "parameters") return doParamRemove(s, id); // (the cross of a parameter, `dec_named_parameters`)
+  if (act === "remove" && s.panel === "constraints") return withSession(s, run(s.session, { type: "removeRelation", id })); // (the cross of a constraint)
+  if (act === "select" && (s.panel === "constraints" || id.startsWith("rels:"))) { // (a constraint, or the constraints of a step: the parts they tie are selected)
+    const sc = sceneOf(s.session);
+    const rels = id.startsWith("rels:") ? sc.relations.filter((rel) => constraintOwners(sc).get(rel.id) === id.slice(5)) : sc.relations.filter((rel) => rel.id === id);
+    const parts = [...new Set(rels.flatMap((rel) => rel.parts))].filter((q) => q in sc.parts);
+    return withSession(s, { ...s.session, click: { ...s.session.click, selection: parts }, message: null });
+  }
+  if (act === "hide") return doBodyEye(s, id as Ref); // (the eye of a row of the Bodies list, `dec_hidden_bodies`)
+  if (act === "remove" && sceneOf(s.session).parts[id]?.kind === "body") return doDeleteBody(s, id as Ref); // (the cross of a row of the Bodies list: the body is deleted)
   if (act === "edit") return doRepeatEditStep(s, id); // (a step that is a repeat of the body: its numbers are set again, `in_257`)
   if (act === "sketch") return { ...s, showSketch: s.showSketch === id ? null : id }; // (the sketch of an extrusion shown, or put away again)
   if (groupsOf(sceneOf(s.session)).some((g) => g.id === id)) {

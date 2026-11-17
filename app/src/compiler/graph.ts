@@ -11,7 +11,7 @@ import type { KernelGraph, KernelOp } from "./kernel/adapter.ts";
 import { decodeEdge, decodeFace } from "./body.ts";
 import { loopOf } from "../operation/loops.ts";
 import { matchSections } from "./loftmatch.ts";
-import { walkPath } from "../operation/path.ts";
+import { walkPath, pathStart, squareXDir } from "../operation/path.ts";
 import { NONE, applyPoint, applyDir, inverse, laterMotion } from "../operation/frames.ts";
 import type { Rigid } from "../operation/frames.ts";
 export { loopOf };
@@ -46,13 +46,13 @@ export function buildGraph(scene: Scene): GraphResult {
     if (first.kind === "circle") {
       const c = pointOf(get, first.center);
       if (!c) return "the circle's centre is gone";
-      return { id, type: "sketch", shape: "circle", radius: r6(first.radius * back.k), at: to2d(plane, c, back.k), plane: "XY", origin: 0, frame: frameOf(plane, back) };
+      return { id, type: "sketch", shape: "circle", sides: [first.ref], radius: r6(first.radius * back.k), at: to2d(plane, c, back.k), plane: "XY", origin: 0, frame: frameOf(plane, back) };
     }
     const loop = loopOf(get, refs);
     if (!loop.ok) return loop.error;
     if (loop.corners.some((c) => !pointOf(get, c))) return "a corner of the shape is gone";
     const steps = loopSteps(get, refs, loop.corners); // (a side that is an arc has its middle point: the kernel draws a true arc through the two corners and it)
-    return { id, type: "sketch", shape: "polygon", points: steps.map((p) => to2d(plane, p.at, back.k)), ...(steps.some((p) => p.mid) ? { mids: steps.map((p) => (p.mid ? to2d(plane, p.mid, back.k) : null)) } : {}), plane: "XY", origin: 0, frame: frameOf(plane, back) };
+    return { id, type: "sketch", shape: "polygon", points: steps.map((p) => to2d(plane, p.at, back.k)), sides: steps.map((p) => p.line ?? ""), ...(steps.some((p) => p.mid) ? { mids: steps.map((p) => (p.mid ? to2d(plane, p.mid, back.k) : null)) } : {}), plane: "XY", origin: 0, frame: frameOf(plane, back) };
   };
 
   for (const st of scene.steps) {
@@ -142,6 +142,32 @@ export function buildGraph(scene: Scene): GraphResult {
         const walked = walkPath(get, lines);
         if (!walked.ok) { errors[st.id] = walked.why; break; }
         const path = walked.sides.map((x) => ({ a: [...x.a], b: [...x.b], ...(x.m ? { m: [...x.m] } : {}) }));
+        if (st.params.place === "path") {
+          // "along the line" (`dec_sweep_modes`): a copy of the shape, the middle of its box on the start of the path, square to the path there
+          const pl = get(get(figs[0]!.outer[0]!)?.plane ?? ("" as Ref));
+          if (pl && pl.kind === "plane") {
+            const back = inverse(laterMotion(scene.steps, scene.steps.indexOf(st), (body) => pl.body === body));
+            const start = pathStart(walked.sides, { at: pl.at, n: normalOfPlane(pl) });
+            const fr = { origin: [...start.point].map(r9), xDir: [...squareXDir(start.tangent, applyDir(back, normalize(pl.u)))].map(r9), normal: [...start.tangent].map(r9) };
+            type Flat = { points?: number[][]; mids?: (number[] | null)[]; at?: number[]; frame?: unknown };
+            const box: number[][] = [];
+            const o = sk as unknown as Flat;
+            if (o.points) box.push(...o.points, ...((o.mids ?? []).filter(Boolean) as number[][])); else if (o.at) box.push(o.at);
+            const ext = (i: number) => [Math.min(...box.map((q) => q[i]!)), Math.max(...box.map((q) => q[i]!))];
+            const [ex, ey] = [ext(0), ext(1)];
+            const c = [r6((ex[0]! + ex[1]!) / 2), r6((ey[0]! + ey[1]!) / 2)];
+            const sh = (q: number[]): number[] => [r6(q[0]! - c[0]!), r6(q[1]! - c[1]!)];
+            const move = (op: KernelOp): void => {
+              const x = op as unknown as Flat;
+              if (x.points) x.points = x.points.map(sh);
+              if (x.mids) x.mids = x.mids.map((q) => (q ? sh(q) : q));
+              if (x.at) x.at = sh(x.at);
+              x.frame = fr;
+            };
+            move(sk);
+            for (const h of ops) if (holes.includes(h.id)) move(h);
+          }
+        }
         ops.push(sk);
         ops.push({ id: xid, type: "sweep", profile: sk.id, ...(holes.length ? { holes } : {}), path, ...(prev ? { target: prev } : {}), mode: !prev ? "add" : st.params.mode === "add" || st.params.mode === "cut" || st.params.mode === "new" ? String(st.params.mode) : "cutOrAdd" });
         prev = xid;
@@ -171,7 +197,7 @@ export function buildGraph(scene: Scene): GraphResult {
         }
         if (p.nx !== undefined && p.px !== undefined) {
           // the face as it was when the step was made (later steps move the body's named faces, this one still means its own)
-          ops.push({ id: xid, type: p.extend ? "faceExtend" : "faceExtrude", target: prev, ref: { n: [Number(p.nx), Number(p.ny), Number(p.nz)], d: Number(p.fd), point: [Number(p.px), Number(p.py), Number(p.pz)] }, distance: Number(p.depth ?? 0) });
+          ops.push({ id: xid, type: p.extend ? "faceExtend" : "faceExtrude", target: prev, ref: { n: [Number(p.nx), Number(p.ny), Number(p.nz)], d: Number(p.fd), point: [Number(p.px), Number(p.py), Number(p.pz)], ...(p.fname ? { name: String(p.fname) } : {}) }, distance: Number(p.depth ?? 0) });
           prev = xid;
           break;
         }
@@ -188,7 +214,8 @@ export function buildGraph(scene: Scene): GraphResult {
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
         const ranks = String(st.params.ranks ?? "").split(",");
         const sigs = String(st.params.sigs ?? "").split("|");
-        const refs = st.parts.map((r, i) => { const e = decodeEdge(r); return e ? { ...e, ...(ranks[i] && ranks[i] !== "-" ? { rank: ranks[i] } : {}), ...(sigs[i] ? { sig: sigs[i] } : {}) } : e; });
+        const enames = String(st.params.enames ?? "").split(";"); // (the lasting names of the edges, `dec_stable_reference_mechanism`)
+        const refs = st.parts.map((r, i) => { const e = decodeEdge(r); return e ? { ...e, ...(ranks[i] && ranks[i] !== "-" ? { rank: ranks[i] } : {}), ...(sigs[i] ? { sig: sigs[i] } : {}), ...(enames[i] ? { name: enames[i] } : {}) } : e; });
         if (refs.some((r) => !r)) { errors[st.id] = "select lines of the body"; break; }
         const mode = String(st.params.mode ?? "fillet");
         const value = Number(st.params.value ?? 0);
@@ -264,7 +291,7 @@ export function buildGraph(scene: Scene): GraphResult {
       }
     }
   }
-  return { graph: { params: {}, ops }, errors };
+  return { graph: { params: {}, ops, names: true }, errors };
 }
 
 /** The sizes along the edge of a fillet or chamfer that changes along it (`in_406`, `in_410`): [place from 0 at the start to 1 at the other end, size] at the start, at a quarter, the middle and three quarters when they are given, and at the end. */

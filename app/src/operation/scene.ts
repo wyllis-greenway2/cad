@@ -36,6 +36,8 @@ export interface Step {
   type: "extrude" | "pushPull" | "edgeMod" | "move" | "rotate" | "scale" | "pattern" | "combine" | "hollow" | "reshape" | "revolve" | "loft" | "sweep" | "delete" | "import" | "importMesh";
   parts: Ref[];
   params: Record<string, number | string>;
+  /** numbers of this step that are tied to a formula of named parameters (`dec_named_parameters`): key → formula; `params[key]` holds its value now */
+  links?: Record<string, string>;
 }
 /** A figure an extrude uses: the refs of its sides (or its circle), and those of each figure drawn inside it, which are holes. */
 export interface Figure { outer: Ref[]; holes: Ref[][] }
@@ -89,8 +91,15 @@ export interface Scene {
   reveal?: Ref;
   /** A figure moved on a plane of its own keeps that plane under its own name; the name the command gave to a new plane is kept here as another name for it, so a history made when a move made a new plane (more parts were left on the old plane then) still replays (`in_372`) */
   planeAlias?: Readonly<Record<string, Ref>>;
+  /** the bodies (their refs, `b/<name>/o`) that are hidden (`dec_hidden_bodies`): drawn very faintly, not hoverable, selectable or snapped to; how the model is looked at, not a step; absent when none is hidden */
+  hiddenBodies?: readonly Ref[];
+  /** the named parameters (`dec_named_parameters`): name → formula text (a number is a formula) */
+  parameters?: Readonly<Record<string, string>>;
   /** derived, not saved: for each cut step, the bodies (their names) it took material from, as the kernel found when it made them (`in_436`): deleting a body takes out the cuts made only in it */
   cutOf?: Readonly<Record<string, readonly string[]>>;
+  /** the number each drawn figure was given when it first appeared (`dec_sketch_recipe_synced`, `sketchnames.ts`): by the ref of its derived face; made again when commands are replayed, not saved */
+  sketchNames?: Readonly<Record<string, number>>;
+  sketchCount?: number;
   /** Id counter: ids are never reused, so replaying a command list gives the same names. */
   counter: number;
 }
@@ -145,6 +154,8 @@ export interface SceneJson {
   materials?: Record<string, string>;
   manufacturing?: { definitions?: Record<string, unknown>; plans?: unknown[]; marks?: Record<string, Record<string, string>> };
   clearance?: number;
+  hiddenBodies?: Ref[];
+  parameters?: Record<string, string>;
 }
 export function toJSON(s: Scene): SceneJson {
   return {
@@ -160,6 +171,8 @@ export function toJSON(s: Scene): SceneJson {
     ...(s.materials && Object.keys(s.materials).length ? { materials: { ...s.materials } } : {}),
     ...(s.manufacturing && (Object.keys(s.manufacturing.definitions ?? {}).length || s.manufacturing.plans?.length || Object.keys(s.manufacturing.marks ?? {}).length) ? { manufacturing: { ...(s.manufacturing.definitions ? { definitions: { ...s.manufacturing.definitions } } : {}), ...(s.manufacturing.plans ? { plans: [...s.manufacturing.plans] } : {}), ...(s.manufacturing.marks && Object.keys(s.manufacturing.marks).length ? { marks: Object.fromEntries(Object.entries(s.manufacturing.marks).map(([k, v]) => [k, { ...v }])) } : {}) } } : {}),
     ...(s.clearance ? { clearance: s.clearance } : {}),
+    ...(s.hiddenBodies?.length ? { hiddenBodies: [...s.hiddenBodies] } : {}),
+    ...(s.parameters && Object.keys(s.parameters).length ? { parameters: { ...s.parameters } } : {}),
   };
 }
 export function fromJSON(j: SceneJson): Scene {
@@ -167,7 +180,7 @@ export function fromJSON(j: SceneJson): Scene {
   const s = emptyScene();
   const parts: Record<string, Part> = { ...s.parts };
   for (const p of j.parts) parts[p.ref] = p;
-  return { parts, relations: [...j.relations], steps: [...j.steps], counter: j.counter, ...(j.hard?.length ? { hard: [...j.hard] } : {}), ...(j.materials && Object.keys(j.materials).length ? { materials: { ...j.materials } } : {}), ...(j.manufacturing ? { manufacturing: { ...(j.manufacturing.definitions ? { definitions: { ...j.manufacturing.definitions } } : {}), ...(j.manufacturing.plans ? { plans: [...j.manufacturing.plans] } : {}), ...(j.manufacturing.marks ? { marks: Object.fromEntries(Object.entries(j.manufacturing.marks).map(([k, v]) => [k, { ...v }])) } : {}) } } : {}), ...(j.clearance ? { clearance: j.clearance } : {}), ...(j.groups?.length ? { groups: j.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}), ...(j.patterns?.length ? { patterns: j.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}), ...(j.gears?.length ? { gears: j.gears.map((g) => ({ ...g, at: [...g.at] as unknown as Vec3, spec: { ...g.spec } })) } : {}) };
+  return { parts, relations: [...j.relations], steps: [...j.steps], counter: j.counter, ...(j.hard?.length ? { hard: [...j.hard] } : {}), ...(j.materials && Object.keys(j.materials).length ? { materials: { ...j.materials } } : {}), ...(j.manufacturing ? { manufacturing: { ...(j.manufacturing.definitions ? { definitions: { ...j.manufacturing.definitions } } : {}), ...(j.manufacturing.plans ? { plans: [...j.manufacturing.plans] } : {}), ...(j.manufacturing.marks ? { marks: Object.fromEntries(Object.entries(j.manufacturing.marks).map(([k, v]) => [k, { ...v }])) } : {}) } } : {}), ...(j.clearance ? { clearance: j.clearance } : {}), ...(j.groups?.length ? { groups: j.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}), ...(j.patterns?.length ? { patterns: j.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}), ...(j.gears?.length ? { gears: j.gears.map((g) => ({ ...g, at: [...g.at] as unknown as Vec3, spec: { ...g.spec } })) } : {}), ...(j.hiddenBodies?.length ? { hiddenBodies: [...j.hiddenBodies] } : {}), ...(j.parameters && Object.keys(j.parameters).length ? { parameters: { ...j.parameters } } : {}) };
 }
 
 /** The scene with its body parts replaced by these (derived from the kernel result; never saved). */

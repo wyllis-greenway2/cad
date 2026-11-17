@@ -79,9 +79,12 @@ export function createChip(host: HTMLElement, h: ChipHandlers) {
         // out past the tip of the arrow, away from its other end (to the right when there is no direction), so it never sits on the arrow
         let [ux, uy] = from ? [at[0] - from[0], at[1] - from[1]] : [0, 0];
         const l = Math.hypot(ux, uy);
-        if (l < 6) [ux, uy] = [1, 0]; else [ux, uy] = [ux / l, uy / l];
-        x += ux * (w / 2 + 18);
-        y += uy * (hgt / 2 + 18);
+        // (with no arrow it is the middle of the handles, the orb: it stands well off down and to the right, clear of the arrows and rings round it, `in_659`)
+        const centred = l < 6;
+        if (centred) [ux, uy] = [0.8, 0.6]; else [ux, uy] = [ux / l, uy / l];
+        const gap = centred ? 56 : 18;
+        x += ux * (w / 2 + gap);
+        y += uy * (hgt / 2 + gap);
       }
       el.style.transform = `translate(${Math.round(Math.max(4, Math.min(window.innerWidth - w - 4, x - w / 2)))}px,${Math.round(Math.max(4, Math.min(window.innerHeight - hgt - 4, y - hgt / 2)))}px)`;
     },

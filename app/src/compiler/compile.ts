@@ -3,6 +3,7 @@
 import type { Scene } from "../operation/scene.ts";
 import type { Ref } from "../shared/ref.ts";
 import { withBody, withDerived } from "../operation/scene.ts";
+import { withSketchNames } from "../operation/sketchnames.ts";
 import type { Kernel, KernelGraph, KernelResult } from "./kernel/adapter.ts";
 import { solveScene } from "./solve.ts";
 import type { SolveOutcome } from "./solve.ts";
@@ -58,7 +59,7 @@ export function compile(scene: Scene, kernel: Kernel): CompileOutcome {
   const T1 = performance.now();
   const { graph, errors } = buildGraph(withDerived(solved.scene)); // (a step may name a piece of a cut figure, which exists only once the faces are derived from the solved drawing)
   const T2 = performance.now();
-  if (!graph.ops.length) return remembered({ scene: withDerived(withBody(solved.scene, [])), solve: solved, kernel: null, errors });
+  if (!graph.ops.length) return remembered({ scene: withSketchNames(withDerived(withBody(solved.scene, []))), solve: solved, kernel: null, errors });
   const result = kernel.evaluate(graph);
   const T3 = performance.now();
   const problems: Record<string, Ref[]> = {};
@@ -77,7 +78,7 @@ export function compile(scene: Scene, kernel: Kernel): CompileOutcome {
   const bound = rebindAnchors(placed); // (a relation to an edge of the body that the change took away is moved to the edge that looks most like it, `in_309`)
   // the drawn parts held to such an edge are solved again against the edge as it is now (the first solve was made before the body was)
   const again = bound.scene !== placed ? solveScene(bound.scene) : null;
-  const derived = withDerived(again ? again.scene : bound.scene);
+  const derived = withSketchNames(withDerived(again ? again.scene : bound.scene));
   return logged([T0, T1, T2, T3, performance.now()], graph.ops.length, remembered({ scene: Object.keys(cuts).length ? { ...derived, cutOf: cuts } : derived, solve: again ? { ...again, moves: [...solved.moves, ...again.moves] } : solved, kernel: result, errors, ...(bound.lost.length ? { lost: bound.lost } : {}), ...(Object.keys(notes).length ? { notes } : {}), ...(Object.keys(modes).length ? { modes } : {}), ...(Object.keys(problems).length ? { problems } : {}) }));
 }
 function remembered(o: CompileOutcome): CompileOutcome {

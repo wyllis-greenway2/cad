@@ -25,6 +25,7 @@ export function changeWords(scene: Scene, c: Command): string {
     case "setStepParams": { const st = scene.steps.find((x) => x.id === c.id); return st ? `${st.type === "extrude" ? "that change to an extrusion" : STEP[st.type] ?? "that change to a step"}${ofBody(scene, st.parts)}` : "that change"; }
     case "stretch": return "that scale";
     case "placePlane": return "that move of the plane";
+    case "hideBodies": return "that hiding of a body";
     case "movePart": return "that move of a point of a drawing";
     case "setRadius": return "that change of a radius";
     case "setRelationValue": return "that change of a number";

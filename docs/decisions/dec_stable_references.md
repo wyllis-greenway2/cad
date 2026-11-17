@@ -20,7 +20,7 @@ Rules:
 - OCCT's own history (what each face became) may be added later for the cases naming cannot follow (a face that splits or is merged), behind the same interface.
 - Proof required: change an upstream parameter and check that a downstream face move and a downstream fillet still attach to the right face and line (a test in the conformance suite).
 
-Not built yet. Until it is, references are geometric only (a step fails with "face not found" when an earlier edit moves its face).
+Built in part (`dec_stable_reference_mechanism`, `in_625`): the flat faces of a body have lasting names and a push or pull keeps the name of its face. Not built yet: edges, curved faces and the other steps that name faces or edges (hollow, fillet, chamfer, repeat); they stay geometric (a step fails with "face not found" when an earlier edit moves its face).
 
 ## Rationale
 
