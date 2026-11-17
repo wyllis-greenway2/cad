@@ -3292,3 +3292,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_736 — 2026-11-17 — directive
 > okay so, can you look up how all the gear stuff works? I want you to help me build a planetary gear maker
 (asks for research on how planetary gears work and for help building a planetary gear maker; no build approved yet)
+
+## in_737 — 2026-11-17 — directive
+> 1 can we make it so that you can set either? you input the ratio and it figures out the teeth, or you input the teeth and it figures out the ratio? 2 Can we have the carrier plate optional? the tool could include it or not. 3 I think it should be a feature where if you go into edit, then you can edit the whole assembly basically the same as when you originally created it. 4 lets do spur and helical. 5 sure.
+(answers the five questions of q_planetary_gears: 1 either inputs: ratio gives teeth, or teeth give ratio; 2 the carrier plate optional; 3 a feature that keeps its numbers, Edit gear edits the whole assembly as when made; 4 spur and helical; 5 yes, show the ratio for each held part)
