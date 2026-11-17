@@ -15,11 +15,12 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
   let hints: HTMLElement[] = [];
   let warn: HTMLElement | null = null;
   let suggest: HTMLElement | null = null;
+  let focusedFor = "";
   return {
     rect(): DOMRect | null { return el.style.display === "none" ? null : el.getBoundingClientRect(); },
     /** `entry`: the panel to show (null hides it). */
     update(entry: Entry | null) {
-      if (!entry || !entry.panel) { el.style.display = "none"; sig = ""; inputs = []; return; }
+      if (!entry || !entry.panel) { el.style.display = "none"; sig = ""; focusedFor = ""; inputs = []; return; }
       const now = JSON.stringify([entry.panel, entry.fields.map((f) => [f.label, f.unit ?? entry.unit])]);
       if (now !== sig) {
         sig = now;
@@ -85,6 +86,12 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
         if (f.bad) input.style.borderColor = "#e5484d"; else if (document.activeElement !== input) input.style.borderColor = "#cfd0d4";
       });
       el.style.display = "block";
+      if (entry.focus && focusedFor !== sig) { // (the box was opened on a number, as the Helix item of a gear's icon does: it takes the keyboard there and scrolls to it, `in_756`)
+        focusedFor = sig;
+        const at = Math.max(0, entry.fields.findIndex((f) => f.active));
+        const input = inputs[at];
+        if (input) { input.focus(); input.select(); input.scrollIntoView({ block: "center" }); }
+      }
     },
   };
 }

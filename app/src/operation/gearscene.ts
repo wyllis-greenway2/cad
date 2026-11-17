@@ -224,3 +224,20 @@ export function gearOfPart(s: Scene, ref: Ref): GearRecord | undefined {
   const refs: Ref[] = p?.kind === "face" ? [...p.loop, ...(p.disk ? [p.disk] : [])] : [ref];
   return gearsOf(s).find((g) => refs.some((r) => isMade(g.id, r)));
 }
+
+/**
+ * The gear a selected part belongs to, for the gear's icon and its Edit, Helix and Mesh items: what `gearOfPart` finds, and also the body of a gear that was extruded from its outline (or a face of that body), whose
+ * step names the parts of the gear's own sketch. (Not for delete, move or turn: a body made from a gear's outline is a body to those, as before.)
+ */
+const onlyBody = (s: Scene): string | undefined => { const bs = Object.values(s.parts).filter((q) => q.kind === "body" && !!q.id); return bs.length === 1 ? (bs[0] as { id?: string }).id : undefined; }; // (with one body, its faces do not say which it is)
+export function gearOfSelection(s: Scene, ref: Ref): GearRecord | undefined {
+  const own = gearOfPart(s, ref);
+  if (own) return own;
+  const p = s.parts[ref];
+  if (!p || p.origin === "drawn" || p.origin === "world" || !s.gears?.length) return undefined;
+  const owner = p.kind === "body" ? p : p.of ? s.parts[p.of] : undefined; // (`of`: the body it is a face or an edge of, when there are several)
+  const bodyId = owner ? (owner as { id?: string }).id : onlyBody(s);
+  const step = bodyId?.startsWith("x_") ? s.steps.find((st) => st.id === bodyId.slice(2) && st.type === "extrude" && st.parts.length > 0) : undefined;
+  if (!step) return undefined;
+  return s.gears.find((g) => step.parts.every((r) => isMade(g.id, r)));
+}

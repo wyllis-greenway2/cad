@@ -1,0 +1,98 @@
+// The gear's icon is the only way to Edit, Helix and Mesh (`in_756`), it is there for the body of a gear extruded from its outline too (`in_755`), the meshing gear is drawn in orange before the second click, and Helix from the icon starts at 15 degrees.
+import test from "node:test";
+import assert from "node:assert/strict";
+import { kernel } from "../src/compiler/kernel/index.ts";
+import { worldRef } from "../src/shared/ref.ts";
+import { createSession, run, scene, selection } from "../src/interaction/session.ts";
+import { createState, reduce } from "../src/interaction/controller.ts";
+import type { AppState } from "../src/interaction/controller.ts";
+import { frameOf } from "../src/interaction/frame.ts";
+import { gearRefs, gearOfSelection } from "../src/operation/gearscene.ts";
+import { loopFaceRef } from "../src/operation/loops.ts";
+import { startOp } from "../src/interaction/operations.ts";
+import { runOp } from "../src/interaction/runop.ts";
+import type { Op } from "../src/interaction/operations.ts";
+import { entryOf, previewFor } from "../src/interaction/entry.ts";
+import { projector, lookStraight, homeCamera } from "../src/interaction/camera.ts";
+import type { Vec3 } from "../src/math/vec.ts";
+import type { GearSpec } from "../src/operation/gear.ts";
+
+await kernel.init();
+const env = { w: 800, h: 600, now: 0 };
+const spec: GearSpec = { teeth: 20, module: 2, bore: 5 };
+const AT: Vec3 = [20, 0, 0];
+const extruded = () => {
+  const s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: AT, spec });
+  const face = loopFaceRef(gearRefs({ id: "g_001", plane: worldRef("XY"), at: AT, spec }).lines);
+  return runOp(s, { ...(startOp(scene(s), [face as never], "extrude") as unknown as { op: Op }).op, value: 10 })!.session;
+};
+const top = (s = extruded()): AppState => ({ ...createState(s), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 0, 0] } });
+const px = (st: AppState, p: Vec3) => projector(st.cam, env.w, env.h).project(p);
+const move = (st: AppState, p: Vec3) => reduce(st, { type: "hover", x: px(st, p)[0], y: px(st, p)[1] }, env);
+const click = (st: AppState, p: Vec3, count = 1) => reduce(st, { type: "click", x: px(st, p)[0], y: px(st, p)[1], count, shift: false }, env);
+const bodyOf = (st: AppState) => Object.values(scene(st.session).parts).find((p) => p.kind === "body")!.ref;
+const select = (st: AppState, refs: string[]): AppState => ({ ...st, session: { ...st.session, click: { ...st.session.click, selection: refs as never } } });
+
+test("the body of a gear extruded from its outline is a gear to the icon: Edit, Mesh and Helix work on it, and Mesh opens the number box", () => {
+  const st = select(top(), [bodyOf(top())]);
+  assert.equal(gearOfSelection(scene(st.session), bodyOf(st))?.id, "g_001");
+  const chip = frameOf(st, env).gearChip!;
+  assert.deepEqual(chip.items.map((i) => i.id), ["gear:edit", "gear:helix", "gear:mesh", "gear:meshrack", "gear:meshring"]);
+  const m = reduce(st, { type: "runAction", id: "gear:mesh" }, env);
+  assert.ok(m.tool?.gear?.mesh, "the Mesh gear tool is on");
+  assert.equal(frameOf(m, env).entry?.panel, "Gear (meshing)", "and its box is shown");
+  assert.deepEqual(frameOf(m, env).entry!.fields.map((f) => f.label).slice(0, 4), ["Teeth", "Ratio", "Angle", "Bore"]);
+  // a face of the body is the gear too
+  const face = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !(p as { curved?: unknown }).curved)!;
+  assert.equal(gearOfSelection(scene(st.session), face.ref)?.id, "g_001");
+});
+
+test("the Sketch ring has no Edit, Helix or Mesh: they are on the gear's icon", () => {
+  const st = select(top(), [bodyOf(top())]);
+  const ids = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: unknown[] }[]).flatMap(function walk(i: any): string[] { return [i.id, ...(i.children ?? []).flatMap(walk)]; });
+  assert.ok(ids.includes("tool:gear"));
+  for (const gone of ["gear:edit", "gear:helix", "gear:mesh", "gear:meshrack", "gear:meshring"]) assert.ok(!ids.includes(gone), gone);
+});
+
+test("Helix from the icon puts 15 degrees on a gear that has none, the box opens on that number and takes the keyboard there; a gear that has a helix keeps it", () => {
+  const st = select(top(), [bodyOf(top())]);
+  const h = reduce(st, { type: "runAction", id: "gear:helix" }, env);
+  const e = entryOf(scene(h.session), h.tool, h.op)!;
+  const at = e.fields.findIndex((f) => f.label === "Helix");
+  assert.equal(e.fields[at]!.value, "15");
+  assert.ok(e.fields[at]!.active && e.fields[at]!.typed);
+  assert.ok(e.focus, "the box is told to focus and scroll to it");
+  const plain = reduce(st, { type: "runAction", id: "gear:edit" }, env);
+  assert.ok(!entryOf(scene(plain.session), plain.tool, plain.op)!.focus, "Edit gear does not");
+  // a gear that already has a helix: the number is not changed
+  const s2 = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: AT, spec: { ...spec, helix: 25, width: 10 } });
+  const st2 = select(top(s2), [bodyOf(top(s2))]);
+  const h2 = reduce(st2, { type: "runAction", id: "gear:helix" }, env);
+  const e2 = entryOf(scene(h2.session), h2.tool, h2.op)!;
+  assert.equal(e2.fields.find((f) => f.label === "Helix")!.value, "25");
+  assert.ok(!e2.fields.find((f) => f.label === "Helix")!.typed);
+});
+
+test("a gear being sized next to a gear it meshes with is drawn orange as that meshed gear, before the second click", () => {
+  let st = reduce(top(), { type: "begin", name: "gear" }, env);
+  st = click(st, [60, 0, 0]);
+  st = move(st, [60 + 22, 0, 0]); // (centre 40 from the first gear: a pitch radius of 20 + 20)
+  const p = previewFor(scene(st.session), st.tool);
+  assert.ok(p?.orange, "orange");
+  const plain = previewFor(scene(st.session), { ...st.tool!, points: [[200, 0, 0]], cursor: [222, 0, 0] });
+  assert.ok(!plain?.orange, "not next to a gear: not orange");
+  const e = entryOf(scene(st.session), st.tool, st.op)!;
+  assert.match(e.suggest ?? "", /orange.*tooth gear that meshes/);
+  // the second click makes it the Mesh gear tool with the teeth set
+  st = click(st, [60 + 22, 0, 0]);
+  assert.ok(st.tool?.gear?.mesh && st.tool.sized);
+});
+
+test("a double click on a body while the gear tool waits for the next gear's centre puts the tool away and selects the body", () => {
+  let st = reduce(top(), { type: "begin", name: "gear" }, env);
+  st = move(st, [29, 3, 10]);
+  st = click(st, [29, 3, 10], 1);
+  st = click(st, [29, 3, 10], 2);
+  assert.equal(st.tool, null);
+  assert.deepEqual(selection(st.session), [bodyOf(st)]);
+});

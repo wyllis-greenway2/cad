@@ -1,5 +1,6 @@
 // Helical gears (`in_598`): the outline is the transverse section, the body is the twist of it, and both follow the numbers.
 import test from "node:test";
+import { frameOf } from "../src/interaction/frame.ts";
 import assert from "node:assert/strict";
 import { gearOutline, helixTwist } from "../src/operation/gear.ts";
 import type { GearOutline, GearSpec } from "../src/operation/gear.ts";
@@ -129,14 +130,16 @@ const plainGear = (): AppState => {
 test("Helix is a number of every plain gear (`in_693`): 0 is a plain gear; typing one makes it a body with its twist; the Helix item opens the box at it; 0 takes it off again", () => {
   const st0 = plainGear();
   const items = (reduce(st0, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; enabled: boolean; children?: { id: string; enabled: boolean }[] }[]).flatMap(function walk(i: any): { id: string; enabled: boolean }[] { return [i, ...(i.children ?? []).flatMap(walk)]; });
-  assert.ok(items.find((i) => i.id === "gear:helix")!.enabled);
+  assert.ok(!items.some((i) => i.id === "gear:helix"), "Helix is on the gear's icon (`in_756`)");
+  assert.ok(frameOf(st0, env).gearChip!.items.find((i) => i.id === "gear:helix")!.enabled);
   assert.ok(!items.some((i) => i.id === "tool:helical" || i.id === "gear:unhelix"));
   let st = reduce(st0, { type: "runAction", id: "gear:helix" }, env);
   assert.equal(st.tool!.gear!.editing, "g_001");
   assert.equal(st.tool!.gear!.field, 7, "the box starts at the Helix field");
   const fields = entryOf(scene(st.session), st.tool, st.op)!.fields;
   assert.deepEqual(fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Helix", "Thickness", "Bore", "Flat", "Key", "Key depth"]);
-  assert.equal(fields[7]!.value, "0", "no helix: a plain gear");
+  assert.equal(fields[7]!.value, "15", "no helix: the Helix item puts 15 degrees in (`in_756`); Esc would leave the gear plain");
+  st = key(st, "Backspace"); st = key(st, "Backspace");
   st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "8");
   const preview = previewFor(scene(st.session), st.tool)!;
   assert.ok(preview.segments.some((seg) => Math.abs(seg[0][2] - 8) < 1e-6 || Math.abs(seg[1][2] - 8) < 1e-6), "the preview has the outline again at the far end");
@@ -215,7 +218,7 @@ test("selecting the body of a helical gear selects the gear: Edit gear opens its
 
 test("Mesh gear on a helical gear makes the partner (a helical gear of the opposite hand) when Enter or a click applies it (`in_691`)", () => {
   let st = reduce(plainGear(), { type: "runAction", id: "gear:helix" }, env);
-  st = typeText(st, "15"); st = key(st, "Enter");
+  st = key(st, "Enter"); // (15 is in the field already, `in_756`)
   assert.equal(scene(st.session).gears![0]!.spec.helix, 15);
   const body = Object.values(scene(st.session).parts).find((p) => p.kind === "body")!;
   st = { ...st, tool: null, session: { ...st.session, click: { ...st.session.click, selection: [body.ref] } } };

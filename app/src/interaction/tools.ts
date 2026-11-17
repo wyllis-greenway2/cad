@@ -87,6 +87,7 @@ export function camSpecOf(t: Tool): CamSpec | null {
 }
 export interface GearState {
   internal: boolean; typed: string[]; field: number; editing?: string; base?: GearSpec;
+  /** the box opened on this number: its text is taken into the box's focus and scrolled to when it opens (`in_756`: the Helix item of a gear's icon) */ focus?: true;
   /** the number that was taken back to a value that makes a gear (`in_690`): its field, and when (the box and the drawing flash red for a moment) */ bad?: { field: number; at: number };
   /** the turn the gear being changed has (radians), so its preview stands as it does */ turn?: number;
   /** a rack (`in_579`) */ rack?: boolean;
@@ -130,7 +131,7 @@ export const canHelix = (spec: GearSpec): boolean => !spec.bevel && !spec.rack &
 export const meshGearTool = (src: GearRecord, rack: boolean, ring = false): Tool => ({ ...armTool("gear"), plane: src.plane, points: [src.at], cursor: src.at, gear: { internal: ring, typed: ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], field: 0, mesh: { src, rack, ring } } });
 /** The tool opened on a gear that is already made, to change its numbers: its plane and centre, and its numbers as they are. */
 /** The tool opened on a gear that is already made, to change its numbers (`focus`: the number the box starts at, as the helix item does, `in_693`): its plane and centre, and its numbers as they are. */
-export const editGearTool = (rec: { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }, focus?: GearKey): Tool => ({ ...armTool("gear", variantOf(rec.spec)), plane: rec.plane, points: [rec.at], cursor: rec.at, gear: { internal: !!rec.spec.internal, ...(rec.spec.bevel ? { bevel: true as const } : {}), ...(rec.spec.worm ? { worm: true as const } : {}), ...(rec.spec.wheel ? { wheel: true as const } : {}), ...(rec.spec.rack ? { rack: true } : {}), ...(rec.spec.pulley ? { pulley: rec.spec.pulley } : {}), ...(rec.spec.sprocket ? { sprocket: true as const } : {}), ...(rec.spec.sprocket?.iso ? { iso: true as const } : {}), ...(rec.spec.cycloidal ? { cycloidal: true as const } : {}), typed: ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], field: Math.max(0, gearFields({ internal: !!rec.spec.internal, ...(rec.spec.bevel ? { bevel: true as const } : {}), ...(rec.spec.worm ? { worm: true as const } : {}), ...(rec.spec.wheel ? { wheel: true as const } : {}), ...(rec.spec.rack ? { rack: true } : {}), ...(rec.spec.pulley ? { pulley: rec.spec.pulley } : {}), ...(rec.spec.sprocket ? { sprocket: true as const } : {}), ...(rec.spec.sprocket?.iso ? { iso: true as const } : {}), ...(rec.spec.cycloidal ? { cycloidal: true as const } : {}) }).findIndex((f) => f.key === focus)), editing: rec.id, base: rec.spec, ...(rec.turn ? { turn: rec.turn } : {}) } });
+export const editGearTool = (rec: { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }, focus?: GearKey): Tool => ({ ...armTool("gear", variantOf(rec.spec)), plane: rec.plane, points: [rec.at], cursor: rec.at, gear: { internal: !!rec.spec.internal, ...(rec.spec.bevel ? { bevel: true as const } : {}), ...(rec.spec.worm ? { worm: true as const } : {}), ...(rec.spec.wheel ? { wheel: true as const } : {}), ...(rec.spec.rack ? { rack: true } : {}), ...(rec.spec.pulley ? { pulley: rec.spec.pulley } : {}), ...(rec.spec.sprocket ? { sprocket: true as const } : {}), ...(rec.spec.sprocket?.iso ? { iso: true as const } : {}), ...(rec.spec.cycloidal ? { cycloidal: true as const } : {}), typed: ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], field: Math.max(0, gearFields({ internal: !!rec.spec.internal, ...(rec.spec.bevel ? { bevel: true as const } : {}), ...(rec.spec.worm ? { worm: true as const } : {}), ...(rec.spec.wheel ? { wheel: true as const } : {}), ...(rec.spec.rack ? { rack: true } : {}), ...(rec.spec.pulley ? { pulley: rec.spec.pulley } : {}), ...(rec.spec.sprocket ? { sprocket: true as const } : {}), ...(rec.spec.sprocket?.iso ? { iso: true as const } : {}), ...(rec.spec.cycloidal ? { cycloidal: true as const } : {}) }).findIndex((f) => f.key === focus)), editing: rec.id, base: rec.spec, ...(focus ? { focus: true as const } : {}), ...(rec.turn ? { turn: rec.turn } : {}) } });
 
 export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"], spline: [], cam: [], trim: [], gear: ["Teeth", "Module"] };
 
@@ -520,6 +521,8 @@ export interface Preview {
   circle: { center: Vec3; radius: number; normal: Vec3 } | null;
   /** a gear whose number was just put right (`in_690`): drawn red for a moment */
   red?: true;
+  /** a gear being sized that would mesh with the one beside it, drawn as that meshed gear (`in_755`) */
+  orange?: true;
   /** where the pointer is on the plane (a small ball marks it) */
   cursor: Vec3 | null;
 }
@@ -560,9 +563,10 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
   }
   if (t.kind === "circle") return { segments: [], circle: { center: t.points[0]!, radius: circleRadius(pl, t), normal: n }, cursor: t.cursor };
   if (t.kind === "gear") {
-    let target = gearTarget(scene, t);
+    const sug = meshSuggestion(scene, t); // (a gear that would mesh: it is drawn as that gear, in orange, with a dashed line to the one it meshes with, `in_755`)
+    const meshed = sug ? gearTarget(scene, snapToMesh(sug, t)) : null;
+    let target = meshed ?? gearTarget(scene, t);
     let red = !!t.gear?.bad;
-    const sug = meshSuggestion(scene, t); // (a gear that would mesh: a dashed line to it)
     if (!target) { const guard = gearGuard(scene, t); target = guard ? gearTarget(scene, guard.tool) : null; red = red || !!target; } // (numbers that make no gear: the nearest that does, in red, `in_694`)
     const o = target ? gearOutline(target.spec) : null;
     if (!target || !o || !o.ok) return null;
@@ -661,7 +665,7 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
         segments.push([prev, q]); prev = q;
       }
     });
-    return { segments, circle: shaped ? null : o.value.outerRadius !== undefined ? { center: target.at, radius: o.value.outerRadius, normal: n } : bore > 0 ? { center: target.at, radius: bore / 2, normal: n } : null, cursor: t.cursor, ...(red ? { red: true as const } : {}), ...(sug ? { guides: [[t.points[0]!, sug.src.at] as [Vec3, Vec3]] } : {}) };
+    return { segments, circle: shaped ? null : o.value.outerRadius !== undefined ? { center: target.at, radius: o.value.outerRadius, normal: n } : bore > 0 ? { center: target.at, radius: bore / 2, normal: n } : null, cursor: t.cursor, ...(red ? { red: true as const } : meshed ? { orange: true as const } : {}), ...(sug ? { guides: [[t.points[0]!, sug.src.at] as [Vec3, Vec3]] } : {}) };
   }
   if (t.kind === "arc") {
     const arc = t.points.length >= 2 ? arcOf(pl, t) : null;
