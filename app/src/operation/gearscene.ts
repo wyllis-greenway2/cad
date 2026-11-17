@@ -9,7 +9,7 @@ import { ok, err } from "../shared/result.ts";
 import type { Scene, Step } from "./scene.ts";
 import { nextId, bumpCounter } from "./scene.ts";
 import type { Part } from "./part.ts";
-import { gearOutline, helixTwist, helixShear, hasBody, chamferOf } from "./gear.ts";
+import { gearOutline, helixTwist, helixShear, hasBody, chamferOf, edgeOutlines } from "./gear.ts";
 import { boreLoop } from "./bore.ts";
 import type { GearSpec, GearOutline } from "./gear.ts";
 import { wormRefs, wormParts, wormSteps, wheelRefs, wheelParts, wheelSteps } from "./wormscene.ts";
@@ -140,6 +140,14 @@ function bodyParams(s: Scene, rec: GearRecord): { step: Omit<Step, "id"> } | nul
   const plane = s.parts[rec.plane];
   if (!hasBody(rec.spec) || !plane || plane.kind !== "plane") return null;
   const fig = bodyFigure(rec);
+  const edge = edgeOutlines(rec.spec);
+  if (edge) { // an edge chamfer (`in_811`): the body is made by the kernel from the full outline and the one inset by the chamfer
+    const n3 = cross3(plane.u, plane.v), len3 = Math.hypot(...n3) || 1;
+    const [ct, st] = [Math.cos(rec.turn ?? 0), Math.sin(rec.turn ?? 0)];
+    const text = (o: { points: [number, number][]; bulges: number[] }) => o.points.map((p, i) => `${+p[0].toFixed(7)} ${+p[1].toFixed(7)} ${+(o.bulges[i] ?? 0).toFixed(9)}`).join(";");
+    const ring = !!rec.spec.internal;
+    return { step: { type: "chamferBody", parts: fig.parts, params: { full: text(edge.full), inset: text(edge.inset), edge: edge.c, width: rec.spec.width!, bore: ring ? 0 : rec.spec.bore ?? 0, wall: ring ? edge.full.outerRadius ?? 0 : 0, cx: rec.at[0], cy: rec.at[1], cz: rec.at[2], dx: n3[0] / len3, dy: n3[1] / len3, dz: n3[2] / len3, ux: plane.u[0] * ct + plane.v[0] * st, uy: plane.u[1] * ct + plane.v[1] * st, uz: plane.u[2] * ct + plane.v[2] * st, ...(fig.holes ? { holes: fig.holes } : {}), gear: rec.id } } };
+  }
   const shear = helixShear(rec.spec);
   if (shear !== null) { // a helical rack (`in_783`): its section carried through the thickness, slid along the rack by tan(helix) for each mm (the rack's own x is the plane's first direction turned by the record's turn)
     const [c, sn] = [Math.cos(rec.turn ?? 0), Math.sin(rec.turn ?? 0)];
@@ -305,7 +313,7 @@ export function gearOfSelection(s: Scene, ref: Ref): GearRecord | undefined {
   if (!p || p.origin === "drawn" || p.origin === "world" || !s.gears?.length) return undefined;
   const owner = p.kind === "body" ? p : p.of ? s.parts[p.of] : undefined; // (`of`: the body it is a face or an edge of, when there are several)
   const bodyId = owner ? (owner as { id?: string }).id : onlyBody(s);
-  const step = bodyId?.startsWith("x_") ? s.steps.find((st) => st.id === bodyId.slice(2) && st.type === "extrude" && st.parts.length > 0) : undefined;
+  const step = bodyId?.startsWith("x_") ? s.steps.find((st) => st.id === bodyId.slice(2) && (st.type === "extrude" || st.type === "chamferBody") && st.parts.length > 0) : undefined;
   if (!step) return undefined;
   return s.gears.find((g) => step.parts.every((r) => isMade(g.id, r)));
 }

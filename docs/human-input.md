@@ -3588,3 +3588,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_810 — 2026-11-17 — approval
 > Yes, prototype the fast perimeter chamfer for spur gears and rings
 (approves a prototype of the fast perimeter chamfer: a ruled loft through the full outline and the inset outline, for spur gears and rings, under prototypes/; nothing in the app)
+
+## in_811 — 2026-11-17 — approval
+> Yes, build the perimeter chamfer
+(approves building the perimeter chamfer into the app, as proposed after the prototype: a field of spur and ring gears, made by its own body step from the full and the inset outline)

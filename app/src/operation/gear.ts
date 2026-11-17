@@ -55,6 +55,10 @@ export interface GearSpec {
   fillet?: number;
   /** the tips of the teeth broken at the two faces of a gear that has a thickness (`in_791`): a flat 45 degree bevel this many modules deep on each tooth tip at each face, cut by the kernel in one step (`chamferOf`, `toothChamfer`); none or 0: sharp */
   chamfer?: number;
+  /** the whole perimeter of both faces of a spur gear or a ring with a thickness chamfered, mm (`in_811`, for printing): the body is a ruled loft through the outline inset by this much at each face and the full outline this far in (`edgeOutlines`); none or 0: sharp */
+  edge?: number;
+  /** the outline moved in by this much (mm): not a number of a gear but what `edgeOutlines` asks `gearOutline` for: an involute's offset is an involute of the same base circle, so the inset outline is the same gear with its teeth thinner and its tip and root circles moved */
+  inset?: number;
   /** a flat cut this deep (mm) into the bore, on its +x side: a D bore (`bore.ts`) */
   flat?: number;
   /** a keyway of this width (mm) in the bore, with its depth `keyDepth` (the hub depth t2 of DIN 6885, mm: the standard's for the bore if none) */
@@ -147,6 +151,16 @@ export function chamferOf(spec: GearSpec): { depth: number; side: 1 | -1; width:
   if (!(c > 0) || !(w > 0) || spec.rack || spec.pulley || spec.sprocket || spec.cycloidal || spec.worm || spec.wheel || spec.bevel) return null;
   return { depth: c, side: spec.internal ? -1 : 1, width: w };
 }
+/**
+ * The two outlines of an edge chamfer (`in_811`): the full one and the one inset by the chamfer, with the same number of sides, as the body is a ruled loft through the inset outline at the bottom face, the full one a chamfer above it, the full one a chamfer
+ * under the top face and the inset one at the top face. Null with no edge chamfer, no thickness or a kind of gear that has none.
+ */
+export function edgeOutlines(spec: GearSpec): { full: GearOutline; inset: GearOutline; c: number } | null {
+  const c = spec.edge ?? 0;
+  if (!(c > 0) || !hasBody(spec) || spec.rack || spec.pulley || spec.sprocket || spec.cycloidal || spec.worm || spec.wheel || spec.bevel || spec.helix !== undefined) return null;
+  const [full, inset] = [gearOutline({ ...spec, edge: undefined, chamfer: undefined }), gearOutline({ ...spec, edge: undefined, chamfer: undefined, inset: c })];
+  return full.ok && inset.ok && full.value.points.length === inset.value.points.length ? { full: full.value, inset: inset.value, c } : null;
+}
 /** How far each layer of a helical rack is slid along the rack for each mm of its thickness (tan of the helix angle, with the sign of the hand), or null for anything that is not a helical rack (`in_783`). */
 export const helixShear = (spec: GearSpec): number | null => spec.rack && spec.helix !== undefined && spec.width! > 0 ? Math.tan((spec.helix * Math.PI) / 180) : null;
 export function helixTwist(spec: GearSpec): number | null {
@@ -220,6 +234,24 @@ function outlineOf(spec: GearSpec): Result<GearOutline> {
     if (!(hasBody(spec))) return err("a chamfer needs a thickness: give the gear a thickness (or a helix)");
     if (!(spec.chamfer! * mn * 2 < (spec.width ?? 0))) return err("the chamfer is deeper than half the thickness of the gear");
   }
+  if ((spec.edge ?? 0) !== 0 && !spec.inset) { // an edge chamfer (`in_811`): the numbers it needs, and that the outline inset by it is one of the same shape (the loft joins them side by side)
+    const c = spec.edge!;
+    if (!(c > 0 && c <= 3)) return err("the edge chamfer is from 0 to 3 mm");
+    if (!hasBody(spec)) return err("an edge chamfer needs a thickness: give the gear a thickness");
+    if (spec.helix !== undefined) return err("an edge chamfer is not made for a helical gear yet");
+    if (spec.flat || spec.key) return err("an edge chamfer is not made for a bore with a flat or a keyway yet");
+    if ((spec.fillet ?? 0) > 0) return err("an edge chamfer is not made with a root fillet yet");
+    if (!(c * 2 < (spec.width ?? 0))) return err("the edge chamfer is deeper than half the thickness of the gear");
+    const [a, b] = [outlineOf({ ...spec, edge: undefined, chamfer: undefined }), outlineOf({ ...spec, edge: undefined, chamfer: undefined, inset: c })];
+    if (!a.ok) return a;
+    if (!b.ok) return err(`the edge chamfer is too big for these teeth (${b.error})`);
+    if (a.value.points.length !== b.value.points.length) return err("the edge chamfer is too big for these teeth: the outline inset by it has another shape");
+    return a;
+  }
+  if (spec.inset && !spec.internal) { // the outline moved in by `inset` (`edgeOutlines`): thinner teeth and the tip and root circles in by that much, the same involutes
+    const { inset: d, ...rest } = spec;
+    return outlineOf({ ...rest, shift: (rest.shift ?? 0) - d / mn, backlash: (rest.backlash ?? 0) + (2 * d * (1 - Math.sin(alphaN))) / Math.cos(alphaN) });
+  }
   const helical = spec.helix !== undefined;
   if (helical) {
     if (!(Math.abs(spec.helix!) > 0 && Math.abs(spec.helix!) <= 45)) return err("the helix angle must be from 1 to 45 degrees (a minus sign is a left hand helix); a gear with no helix is the plain gear tool");
@@ -239,7 +271,7 @@ function outlineOf(spec: GearSpec): Result<GearOutline> {
   const invAt = (r: number) => inv(Math.acos(Math.min(1, rb / r)));
   // the half thickness of a tooth (an external gear) or of the material between two gaps (an internal gear), as an angle, at radius r
   const thickness = Math.max(1e-6, (Math.PI / 2 + 2 * x * Math.tan(alpha)) * m - backlash);
-  const half0 = thickness / (2 * rp);
+  const half0 = thickness / (2 * rp) - (spec.internal ? (spec.inset ?? 0) / rb : 0); // (a ring inset: its teeth thinner by the flank's move along the base circle)
   const half = spec.internal ? (r: number) => half0 + invAt(r) - invP : (r: number) => half0 + invP - invAt(r);
   const pitch = (2 * Math.PI) / z;
   const tooth = (k: number) => k * pitch;
@@ -315,8 +347,8 @@ function outlineOf(spec: GearSpec): Result<GearOutline> {
   }
 
   // an internal gear: the hole, going round counter-clockwise; at each tooth of the ring the side comes in from the gap's root circle to the tip circle, round the tip, and out again
-  const rr = rp + m * (1 + c);
-  let rt = rp - m;
+  const rr = rp + m * (1 + c) + (spec.inset ?? 0);
+  let rt = rp - m + (spec.inset ?? 0);
   if (rt <= rb) { rt = rb * 1.0005; warnings.push("few teeth for a ring: the tip circle is inside the base circle, so the tips are cut at it"); }
   if (rt >= rp) return err("the tip circle would be outside the pitch circle: raise the tooth count");
   if (half(rr) >= pitch / 2 - 1e-4) return err("the teeth meet at the root: raise the tooth count");
@@ -328,7 +360,7 @@ function outlineOf(spec: GearSpec): Result<GearOutline> {
     for (let j = 0; j <= ARCS; j++) { add(ccw.p[j]!); if (j < ARCS) edge(ccw.p[j]!, ccw.mid[j]!, ccw.p[j + 1]!); }
     edge(ccw.p[ARCS]!, polar(rr, phi + pitch / 2), flank(rt, rr, tooth(k + 1), -1).p[ARCS]!);
   }
-  return ok({ points, bulges, pitchRadius: rp, baseRadius: rb, tipRadius: rt, rootRadius: rr, outerRadius: rr + m * (spec.rim ?? 2), warnings });
+  return ok({ points, bulges, pitchRadius: rp, baseRadius: rb, tipRadius: rt, rootRadius: rr, outerRadius: rr - (spec.inset ?? 0) + m * (spec.rim ?? 2), warnings });
 }
 
 /** The module that makes the gear's outside diameter this wide (external, no shift): the outside diameter is m (z + 2). */

@@ -31,6 +31,8 @@ import {
   twistExtrude,
   makeFace,
   addHolesInFace,
+  loft,
+  makeCircle,
 } from "replicad";
 import { decodeMesh } from "./meshdata.mjs";
 import { facesOf, edgesOf, shellsOf, solidsOf } from "./topo.mjs";
@@ -1278,6 +1280,48 @@ const OPS = {
     if (!parts.length) throw new Error(op.mode === "intersect" ? "those bodies have nothing in common" : "nothing would be left of the body");
     if (op.mode === "add" && parts.length > 1) throw new Error("those bodies do not touch or overlap, so they cannot become one body");
     return { kind: "solid", shape: makeCompound([...found.rest, ...parts, ...kept]), first: op.bodies[0] };
+  },
+
+  /**
+   * A gear body with the whole perimeter of both faces chamfered (`in_811`, `prototypes/perimeter-chamfer`): the outline inset by `edge` at the bottom face (height 0, along `axis` from `origin`), the full outline `edge` up, the full outline `edge` below
+   * the top face (`width`) and the inset outline at the top face, joined by ruled lofts (between lines a plane, between arcs about the same axis a cone); a bore is a circle of radius bore/2 + edge at each face and bore/2 between, a ring's wall
+   * (`wall` > 0, the hole being the outline) a circle of radius wall - edge at each face and wall between. The shells of the two lofts, the hole's turned inside out, and the two flat ends are sewn into one solid: no boolean on the gear.
+   * `full` and `inset`: the outlines as `x y bulge` of each side joined by `;`, in the gear's own x and y (tooth 0 along `first`); a piece of its own beside the other bodies.
+   */
+  chamferBody(op, ctx) {
+    const c = op.edge, W = op.width;
+    const n = (() => { const l = Math.hypot(...op.axis) || 1; return op.axis.map((x) => x / l); })();
+    const u = (() => { const l = Math.hypot(...op.first) || 1; return op.first.map((x) => x / l); })();
+    const cr = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const v = cr(n, u);
+    const at = (x, y, h) => [0, 1, 2].map((i) => op.origin[i] + u[i] * x + v[i] * y + n[i] * h);
+    const parse = (text) => text.split(";").filter(Boolean).map((s) => s.split(" ").map(Number));
+    const wireOf = (pts, h) => assembleWire(pts.map((a, i) => {
+      const b = pts[(i + 1) % pts.length], k = a[2];
+      if (!k) return makeLine(at(a[0], a[1], h), at(b[0], b[1], h));
+      const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+      return makeThreePointArc(at(a[0], a[1], h), at((a[0] + b[0]) / 2 - dy * k, (a[1] + b[1]) / 2 + dx * k, h), at(b[0], b[1], h));
+    }));
+    const circle = (r, h) => assembleWire([makeCircle(r, at(0, 0, h), n)]);
+    const heights = [0, c, W - c, W];
+    const [full, inset] = [parse(op.full), parse(op.inset)];
+    const sections = [inset, full, full, inset];
+    const ring = op.wall > 0;
+    const outer = ring ? loft([op.wall - c, op.wall, op.wall, op.wall - c].map((r, i) => circle(r, heights[i])), { ruled: true }, true) : loft(sections.map((s, i) => wireOf(s, heights[i])), { ruled: true }, true);
+    const holes = ring ? sections.map((s, i) => wireOf(s, heights[i])) : op.bore > 0 ? [op.bore / 2 + c, op.bore / 2, op.bore / 2, op.bore / 2 + c].map((r, i) => circle(r, heights[i])) : null;
+    const capOuter = (k) => (ring ? circle(op.wall - c, heights[k]) : wireOf(inset, heights[k]));
+    const faces = [outer];
+    if (holes) {
+      const inner = loft(holes, { ruled: true }, true);
+      faces.push(cast(inner.wrapped.Reversed()));
+      for (const k of [0, 3]) faces.push(addHolesInFace(makeFace(capOuter(k)), [ring ? wireOf(inset, heights[k]) : holes[k]]));
+    } else for (const k of [0, 3]) faces.push(makeFace(capOuter(k)));
+    const solid = makeSolid(faces);
+    if (!isValidSolid(solid) || !(volume(solid) > 1e-9)) throw new Error("the edge chamfer could not be made at this size: a smaller chamfer");
+    const targetValue = op.target ? ctx.peek(op.target, "solid") : null;
+    const target = targetValue ? targetValue.shape : null;
+    if (!target) return { kind: "solid", shape: solid, checked: true, noCross: true };
+    return { kind: "solid", shape: makeCompound([...target.solids, solid]), checked: true };
   },
 
   /**

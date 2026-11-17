@@ -35,7 +35,7 @@ const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0
 
 /** The shape of the body a step makes, if the step makes the body of a gear (not a worm's: that is a thread along an axis); null if it does not. */
 export function gearShapeOf(sc: Scene, st: Step): GearShape | null {
-  if (st.type !== "extrude" && st.type !== "revolve" && st.type !== "loft") return null;
+  if (st.type !== "extrude" && st.type !== "revolve" && st.type !== "loft" && st.type !== "chamferBody") return null;
   if (st.params.tool) return null; // (a cutter on the way to the body: a chamfer's, `in_791`)
   if (typeof st.params.gear === "string" && sc.gears?.find((g) => g.id === st.params.gear)?.spec.wheel && st.type !== "loft") return null; // (a wheel's other steps (its lands, the worm's envelope) are pieces on the way to the one body, `in_790`)
   const first = st.parts[0];

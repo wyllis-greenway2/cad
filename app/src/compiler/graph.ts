@@ -267,6 +267,13 @@ export function buildGraph(scene: Scene): GraphResult {
         prev = xid;
         break;
       }
+      case "chamferBody": {
+        // a gear body with its whole perimeter chamfered (`in_811`): a ruled loft through the outline inset at each face and the full outline a chamfer in, made by the kernel from the two outlines in the step (numbers: x, y and the bulge of each side, `;` between sides), a piece of its own
+        const p = st.params;
+        ops.push({ id: xid, type: "chamferBody", full: String(p.full), inset: String(p.inset), edge: Number(p.edge), width: Number(p.width), bore: Number(p.bore ?? 0), wall: Number(p.wall ?? 0), origin: [Number(p.cx), Number(p.cy), Number(p.cz)], axis: [Number(p.dx), Number(p.dy), Number(p.dz)], first: [Number(p.ux), Number(p.uy), Number(p.uz)], ...(prev ? { target: prev, mode: "new" } : {}) });
+        prev = xid;
+        break;
+      }
       case "toothChamfer": {
         // the tips of a gear's teeth broken at its two faces (`in_760`, `in_804`): one flat wedge cut from each tooth at each face, made and cut by the kernel in one step; the body is named by the step that made it
         const body = (st.parts[0] ?? "").startsWith("b/") ? st.parts[0]!.split("/")[1] : "";
