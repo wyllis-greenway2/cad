@@ -26,10 +26,11 @@ function square(): { s: Session; face: string } {
   s = run(s, r.command);
   return { s, face: loopFaceRef(r.lines) };
 }
-function begin(s: Session, sel: string[]): Op {
+function begin(s: Session, sel: string[], place?: "sketch"): Op {
   const st = startOp(scene(s), sel as never, "sweep");
   assert.ok(st.ok, st.ok ? "" : st.why);
-  return (st as { op: Op }).op;
+  const op = (st as { op: Op }).op;
+  return place ? { ...op, sweepPlace: place } : op;
 }
 
 test("a square carried along a straight line up is the prism: 4 x 4 x 20", () => {
@@ -65,7 +66,7 @@ test("a path away from the shape is followed where it is: a straight one 10 to t
   let { s, face } = square();
   const p = drawChain(scene(s), XZ, [[10, 0, 0], [10, 0, 20]]);
   s = run(s, p.command);
-  const r = runOp(s, begin(s, [face, ...p.lines]))!;
+  const r = runOp(s, begin(s, [face, ...p.lines], "sketch"))!;
   assert.deepEqual(r.session.outcome.errors, {});
   assert.ok(Math.abs(volume(r.session) - 320) < 0.5, `volume ${volume(r.session)}`);
   const box = Object.values(scene(r.session).parts).find((q) => q.kind === "body" && q.bbox) as unknown as { bbox: { min: number[]; max: number[] } };
@@ -83,7 +84,7 @@ test("a bend away from the shape carries it rigidly round: the area times the le
   let { s, face } = square();
   const a = drawArc(scene(s), XZ, [10, 0, 0], [30 - 20 * Math.SQRT1_2, 0, 20 * Math.SQRT1_2], [30, 0, 20], [0, -1, 0])!;
   s = run(s, a.command);
-  const r = runOp(s, begin(s, [face, a.line]))!;
+  const r = runOp(s, begin(s, [face, a.line], "sketch"))!;
   assert.deepEqual(r.session.outcome.errors, {});
   assert.ok(Math.abs(volume(r.session) - 16 * 15 * Math.PI) < 8, `volume ${volume(r.session)}`);
 });
@@ -92,7 +93,7 @@ test("a path that runs along the shape's plane where it starts is refused, with 
   let { s, face } = square();
   const p = drawChain(scene(s), XZ, [[0, 0, 0], [20, 0, 0]]);
   s = run(s, p.command);
-  const r = runOp(s, begin(s, [face, ...p.lines]))!;
+  const r = runOp(s, begin(s, [face, ...p.lines], "sketch"))!;
   assert.match(String(Object.values(r.session.outcome.errors)[0] ?? r.session.message), /plane/);
   assert.equal(startOp(scene(s), [face] as never, "sweep").ok, false);
 });
