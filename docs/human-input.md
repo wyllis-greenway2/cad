@@ -3580,3 +3580,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_808 — 2026-11-17 — directive
 > look at the tube stand-in in the real app
 (asks to look at the tube stand-in for sweeps in the real app)
+
+## in_809 — 2026-11-17 — question
+> okay so are we all done making it faster now?
+(asks whether the speed work is finished)
