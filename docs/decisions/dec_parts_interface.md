@@ -1,9 +1,9 @@
 ---
 id: dec_parts_interface
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_691, in_692, in_693
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_691, in_692, in_693, in_694
 date: 2026-11-17
 depends_on:
   - dec_parts_library: this is the one way a person reaches the families and entries that entry defines
@@ -13,7 +13,7 @@ alternative_to:
 ---
 # One "Add part" interface over every standard part family
 
-**Drafted from `in_692`, not yet approved. Nothing built.** The human asked how one interface can produce every standard part. They also said (`in_691`) to build only a few specific parts first, not the whole library.
+**Accepted by the human (`in_694`) as proposed by the AI from `in_692`. Nothing built.** The human asked how one interface can produce every standard part. They also said (`in_691`) to build only a few specific parts first, not the whole library.
 
 1. **A family is data plus a generator, and one panel reads all of them.** Adding a family adds a table and a generator; the interface does not change.
 2. **The flow:** pick a category, then a family (for example "ISO 4762 socket head cap screw"), fill the form, see the part generated at once as a preview, and place it. A name typed in a search box ("M3x12", "608") goes straight to the family and size.

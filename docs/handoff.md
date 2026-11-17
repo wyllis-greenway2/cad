@@ -2893,3 +2893,6 @@ The default branch `claude/inspiring-pascal-l342k7` (gear tool, hard bodies, lof
 
 ## Handoff 621 — 2026-11-17 (in_693: two parts entries drafted)
 `in_691` to `in_693`. Drafted, **provisional and unreviewed, no code:** `dec_parts_interface` (one Add part panel over every family: category, family, schema-driven form, preview, place; one output type, a solid or sketch plus mating points; first families: metric socket head, button head and countersunk screws, hex nuts, flat washers, and the matching holes) and `dec_parts_tolerance` (nominal, minimum and maximum each cited; a measured override on one placed part; the printer's fit offset kept in the manufacturing version; the fit checked at nominal, minimum and maximum and advised, never blocked). The human said to build only a few specific parts now. **Next:** the human reviews and accepts; then the fastener family is built.
+
+## Handoff 622 — 2026-11-17 (in_694: parts interface and tolerance accepted)
+`in_694`. `dec_parts_interface` and `dec_parts_tolerance` are **accepted** (`ai-proposed-human-approved`). Nothing built. **Next:** build the first fastener family; its dimension tables need a cited source read first (no values from memory).

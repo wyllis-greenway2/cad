@@ -3116,3 +3116,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_693 — 2026-11-17 — approval
 > Yes, draft those two entries
 (asks for the add-part interface and the tolerance and fit proposals to be drafted as two entries)
+
+## in_694 — 2026-11-17 — approval
+> Yes, accept both
+(approves dec_parts_interface and dec_parts_tolerance)
