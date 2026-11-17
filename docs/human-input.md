@@ -3288,3 +3288,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_735 — 2026-11-17 — approval
 > yes build the straight bevel and mark it as an approximation, lets mark in our to do list that we will need to verify this stuff later.
 (approves building the straight bevel gear as an approximation, and asks for a to-do list item to verify the bevel data later)
+
+## in_736 — 2026-11-17 — directive
+> merge the latest changes into the preview and let me test
+(asks me to merge the latest work into the preview branch so they can test it)
