@@ -3642,3 +3642,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_823 — 2026-11-17 — directive
 > yes try the worm wheel loft next
 (approves trying to make the worm wheel's loft faster)
+
+## in_824 — 2026-11-17 — directive
+> yes try lofting one tooth and turning it
+(approves trying to loft one tooth of the worm wheel and turn it round, instead of lofting the whole wheel)
