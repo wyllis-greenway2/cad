@@ -3107,3 +3107,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_691 — 2026-11-17 — question
 > okay do any of these actually reduce the final model quality though?
 (asks whether any of the proposed gear speed fixes reduce the quality of the final model)
+
+## in_692 — 2026-11-17 — directive
+> yes start with the worm wheel prototype
+(asks for the worm wheel speed prototype to be started, the first of the gear speed fixes)
