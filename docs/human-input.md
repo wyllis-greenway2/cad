@@ -3400,3 +3400,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_763 — 2026-11-17 — directive
 > okay so I think there are a few problems. First off, it seems like the gear teeth get longer as the tooth count increases? Are you sure we got our tooth profiles working right see this small meshed gear and large meshed gear. Also changing the tooth count on a mesh seems to not realign the gear to socket into the meshed original gear properly. Also another problem is that we now have rules for handling gears with speed, the other gears follow these rules (see spur gear) but not the bevel gears.
 (reports three problems with the bevel gears: the teeth look longer as the tooth count goes up, changing the tooth count of a meshed gear does not re-seat it in its partner, and the bevel gears do not follow the speed rules the other gears follow; images may have been attached, which I cannot see)
+
+## in_764 — 2026-11-17 — directive
+> okay can we try again to get the the standard octoid tooth ? lets keep researching. See what you can find and or give me links to help you get documentation
+(asks me to research again for the standard octoid tooth of the bevel gear, and to find or link documentation that would give me what I need)
