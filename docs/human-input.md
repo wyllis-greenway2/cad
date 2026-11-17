@@ -3584,3 +3584,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_809 — 2026-11-17 — directive
 > It seems that the planetary gear defaults to module 2, can we have it be module 1? module 2 is quite large. If you hover a gear and click edit, it doesn't do anything. If you click a gear and then click the edit button, it launches the editor. The gears dont turn fully blue when selected. Why is helix back to not jsut opening to the gear edit menu and focused on the helix field? Can we default to have the worm gear longer? Can we default for a worm wheel to have a bore? I like that the tooth edge can have a chamfer, but I was also thinking that all top and bottom edges may need a small chamfer in order to print well, can we offer a perimeter chamfer? or will this take forever?
 (asks for: the planetary gear's default module to be 1 not 2; the gear icon's Edit to work on a gear that is only hovered, not just on a selected one; gears to turn fully blue when selected; why the Helix item is no longer opening the gear's box focused on the Helix field; a longer default worm; a default bore for a worm wheel; and whether a chamfer round the whole top and bottom perimeter of a gear can be offered or would take very long)
+
+## in_810 — 2026-11-17 — approval
+> Yes, prototype the fast perimeter chamfer for spur gears and rings
+(approves a prototype of the fast perimeter chamfer: a ruled loft through the full outline and the inset outline, for spur gears and rings, under prototypes/; nothing in the app)
