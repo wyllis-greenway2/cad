@@ -2,7 +2,7 @@
 // The pieces are in `view/`: `content` (the scene), `highlight` (ring, teal, amber), `pen` (thick lines and shapes); the world dressing is `world.ts`.
 import * as THREE from "three";
 import { studio } from "./view/studio.ts";
-import type { Scene, Vec3 } from "../interaction/api.ts";
+import type { Scene, Vec3, StandIn } from "../interaction/api.ts";
 import { settings } from "../interaction/api.ts";
 import type { Camera } from "../interaction/camera.ts";
 import { basis, position, projector, mixOf, eyeDistance, ORTHO_MIX } from "../interaction/camera.ts";
@@ -42,8 +42,9 @@ export function createView(host: HTMLElement) {
   const gizmo = new THREE.Group();
   const notes = new THREE.Group();
   const toolpath = new THREE.Group(); // (a manufacturing route's toolpath over the drawing, `in_570`)
+  const standGroup = new THREE.Group(); // (the discs that stand for gear bodies the kernel has not made yet, `dec_gear_standin`)
   const thinGroup = new THREE.Group(); // (the places too thin to print, while the Measure tab is open: `in_626`)
-  scene3.add(content, overlay, marks, preview, gizmo, notes, toolpath, thinGroup);
+  scene3.add(content, overlay, marks, preview, gizmo, notes, toolpath, thinGroup, standGroup);
   const world = createWorld(scene3, host);
   const pen = createPen();
   const envMap = new THREE.PMREMGenerator(renderer).fromScene(studio(), 0.04).texture; // a soft studio, only reflected in the body
@@ -239,6 +240,25 @@ export function createView(host: HTMLElement) {
   }
   let thinShown: number[] | null = null;
   /** Mark the triangles (nine numbers each) that are too thin to print, in the colour of `settings.measure`; none to put the marks away. The same list is not built again. */
+  let standKey = "";
+  /** The discs for gear bodies still being made, drawn translucent and ghosted so they read as place holders (`dec_gear_standin`); `show` is false until the wait has lasted a little. */
+  function setStandIns(list: StandIn[], show: boolean): void {
+    const key = show ? JSON.stringify(list) : "";
+    if (key === standKey) return;
+    standKey = key;
+    clearGroup(standGroup);
+    if (!show) return;
+    for (const d of list) {
+      const shape = new THREE.Shape();
+      shape.absarc(0, 0, d.radius, 0, Math.PI * 2, false);
+      if (d.hole > 0) { const h = new THREE.Path(); h.absarc(0, 0, d.hole, 0, Math.PI * 2, true); shape.holes.push(h); }
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: Math.abs(d.depth), bevelEnabled: false, curveSegments: 64 });
+      if (d.depth < 0) geo.translate(0, 0, d.depth);
+      const body = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x9aa0a6, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false }));
+      const rim = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), new THREE.LineBasicMaterial({ color: 0x6b7280, transparent: true, opacity: 0.55 }));
+      for (const o of [body, rim]) { o.position.set(...d.centre); o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(...d.normal)); o.renderOrder = 2; standGroup.add(o); }
+    }
+  }
   function setThin(tris: number[] | null): void {
     if (tris === thinShown) return;
     thinShown = tris;
@@ -318,5 +338,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { rebuild, setWorldHidden, setScene, setHiddenBodies, setThin, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setToolpath, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { rebuild, setWorldHidden, setScene, setHiddenBodies, setThin, setStandIns, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setToolpath, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

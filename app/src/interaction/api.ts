@@ -15,3 +15,6 @@ export { consumed } from "../operation/ownership.ts";
 export { ringPoints } from "../math/ring.ts";
 export { faceEdges } from "./offsetbody.ts";
 export { edgeCentre, sketchOfEdge } from "../operation/edgesource.ts";
+
+export type { StandIn } from "./standin.ts";
+export { STANDIN_MS } from "./standin.ts";

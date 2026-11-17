@@ -42,7 +42,7 @@ import { candidatesAt } from "./interaction/picking.ts";
 import { createAsyncKernel } from "./kernel-async.ts";
 import { openResultStore } from "./platform/result-store.ts";
 import type { Kernel, KernelResult } from "./compiler/kernel/adapter.ts";
-import { kernel, initKernelWeb, drawRectangle, nextId } from "./interaction/api.ts";
+import { kernel, initKernelWeb, drawRectangle, nextId, STANDIN_MS } from "./interaction/api.ts";
 import type { Ref, Command, Vec3 } from "./interaction/api.ts";
 import { createView } from "./ui/view.ts";
 import { createMenu } from "./ui/menu.ts";
@@ -456,6 +456,8 @@ function frame(now: number) {
     view.setScene(f.scene, f.mesh);
     view.setHiddenBodies(f.hiddenBodies);
     view.setThin(f.thin);
+    const standShown = staleSince !== null && performance.now() - staleSince >= STANDIN_MS; // (the discs for gear bodies the kernel has not made: after a short wait, `dec_gear_standin`)
+    view.setStandIns(f.standIns, standShown);
     if (buildStats.runs !== buildsBefore) { timing.add("geometry: built again (buildContent)", buildStats.totalMs); timing.add("geometry: of it the sharp edges (cornerEdges)", buildStats.cornersMs); timing.add("geometry: triangles built", buildStats.triangles); }
     view.setBodyMatrix(f.bodyMatrix, f.selectionMoves, f.bodySplit, f.followers.map((q) => ({ matrix: q.matrix, only: q.split })));
     view.setHiddenEdges(f.hiddenEdges);
@@ -577,7 +579,7 @@ function frame(now: number) {
     if (waiting && staleSince === null) staleSince = tFrame;
     else if (!waiting && staleSince !== null) { timing.add("edit: waiting for the kernel until its answer is drawn", tEnd - staleSince); staleSince = null; }
     controls.update(window.innerWidth, window.innerHeight, settings.buttons.marginPx, settings.buttons.sizePx);
-    dirty = panesFading || !!f.flash || !!f.gizmo?.pulse || f.entries.some((e) => e.opacity !== undefined && e.opacity < 1) || working || !!f.highlight.temp?.length || touchMoved; // keep drawing while a refused change flashes, the "working" sign turns, or the copies of a repeat pulse
+    dirty = panesFading || !!f.flash || !!f.gizmo?.pulse || f.entries.some((e) => e.opacity !== undefined && e.opacity < 1) || working || !!f.highlight.temp?.length || touchMoved || (f.standIns.length > 0 && !standShown); // keep drawing while a refused change flashes, the "working" sign turns, or the copies of a repeat pulse
   }
   requestAnimationFrame(frame);
 }
