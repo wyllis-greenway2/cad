@@ -94,7 +94,7 @@ export function withGears(s: Scene): Scene {
 
 /**
  * The parts of a gear, kept while its record and its plane are the same ones: made again for every change of the scene they were new objects each time, so that everything worked out from them (a loop's points, a face) was worked out
- * again for every gear on every edit (`in_726`). A gear whose numbers change has a new record, and so new parts.
+ * again for every gear on every edit (`in_727`). A gear whose numbers change has a new record, and so new parts.
  */
 const madeKept = new WeakMap<GearRecord, { plane: Part | undefined; parts: Part[] }>();
 function madeParts(s: Scene, rec: GearRecord): Part[] {

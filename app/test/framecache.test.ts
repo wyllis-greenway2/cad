@@ -1,4 +1,4 @@
-// What a picture needs of a scene that does not change with the pointer is worked out once for the scene, not for every move of the pointer (`in_724`): a gear's outline is 400 arcs, 64 points each.
+// What a picture needs of a scene that does not change with the pointer is worked out once for the scene, not for every move of the pointer (`in_725`): a gear's outline is 400 arcs, 64 points each.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

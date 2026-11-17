@@ -248,7 +248,7 @@ export function curveMid(get: Lookup, part: Line): Vec3 | null {
   return add(scale(add(s[0], s[1]), 0.5), scale(perp, part.bulge * len));
 }
 /**
- * What is worked out of a loop of lines is kept while the parts it was made from are the very same objects (`in_726`): a scene is changed one part at a time, and the loop of a gear that was not touched (400 sides, an arc
+ * What is worked out of a loop of lines is kept while the parts it was made from are the very same objects (`in_727`): a scene is changed one part at a time, and the loop of a gear that was not touched (400 sides, an arc
  * each, 64 points to the arc) was worked out again for every gear on every change. The parts it read are noted as it is worked out; a part that is another object now, or gone, makes it work again.
  */
 const loopKept = new Map<string, { deps: [Ref, Part | undefined][]; value: unknown; weight: number }>();

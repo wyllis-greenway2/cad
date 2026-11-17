@@ -58,7 +58,7 @@ function logged(t: number[], ops: number, o: CompileOutcome): CompileOutcome {
 }
 
 /**
- * The parts of the body for a kernel answer, kept while it is the same answer (`in_726`): the kernel hands back the very same result for a graph it has made, and a change that leaves the kernel's graph as it was (a figure drawn, a
+ * The parts of the body for a kernel answer, kept while it is the same answer (`in_727`): the kernel hands back the very same result for a graph it has made, and a change that leaves the kernel's graph as it was (a figure drawn, a
  * constraint) asked for the parts of every body of it again, a face and edges for each of thousands, and made new part objects for them, which everything worked out from the parts then did again too.
  */
 const bodyKept = new WeakMap<object, { key: string; parts: Part[] }>();

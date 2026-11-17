@@ -1,4 +1,4 @@
-// Per-body work (`dec_per_body_checks`, `in_725`): what is worked out of a body is worked out once for the body, so a model of many bodies costs what its new body costs, and the answers are the ones that working it all out again gives.
+// Per-body work (`dec_per_body_checks`, `in_726`): what is worked out of a body is worked out once for the body, so a model of many bodies costs what its new body costs, and the answers are the ones that working it all out again gives.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { makeBox, makeCompound } from "replicad";

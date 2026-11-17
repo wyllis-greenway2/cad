@@ -1,4 +1,4 @@
-// What the page works out of the scene at an edit is kept while the parts it was made from are the same objects, and never longer (`in_726`): a gear's parts, a loop's points, the parts of the body for a kernel answer, the faces derived from the drawn parts.
+// What the page works out of the scene at an edit is kept while the parts it was made from are the same objects, and never longer (`in_727`): a gear's parts, a loop's points, the parts of the body for a kernel answer, the faces derived from the drawn parts.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

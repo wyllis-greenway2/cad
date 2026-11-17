@@ -1,4 +1,4 @@
-// A body's own solid is kept under what it was made from, not what came before it (`dec_per_body_checks`, `in_728`): a change to an earlier step builds that body again and leaves the others' solids as they were, and the answers are the ones that
+// A body's own solid is kept under what it was made from, not what came before it (`dec_per_body_checks`, `in_729`): a change to an earlier step builds that body again and leaves the others' solids as they were, and the answers are the ones that
 // working everything out again gives.
 import test from "node:test";
 import assert from "node:assert/strict";

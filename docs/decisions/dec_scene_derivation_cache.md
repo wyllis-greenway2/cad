@@ -3,7 +3,7 @@ id: dec_scene_derivation_cache
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_701, in_726
+human_input: in_701, in_727
 date: 2026-11-17
 depends_on:
   - dec_gear_speed: the measured cost this removes (the page's work at each edit grows with the number of parts: 5800 for eight gears); a change to those numbers changes whether this is worth the risk of a stale answer
@@ -11,7 +11,7 @@ depends_on:
 ---
 # What the page works out of the scene at an edit is kept while the parts it came from are the same objects
 
-**Asked (`in_701`, approved `in_726`):** the page's work on the whole scene at every edit grows with the number of parts and bodies; it should cost what the edit changed.
+**Asked (`in_701`, approved `in_727`):** the page's work on the whole scene at every edit grows with the number of parts and bodies; it should cost what the edit changed.
 
 **Found (eight gears of 30 teeth, extruded, 5799 parts; an edit that leaves the kernel's graph as it was):** 183 ms per edit in Node, 103.6 ms in the real app's own compile timings (graph 41, place 60). The cost was not in the parts but in what was worked out of them again each time: the parts of every gear were made new at every derive (so every part was a new object and nothing worked out from it could be kept), the points of each closed loop (400 arcs of 64 points for a gear) and the faces of the drawn parts, the parts of the body from a kernel answer that had not changed, and a search through all of a loop's lines for each of its corners.
 
