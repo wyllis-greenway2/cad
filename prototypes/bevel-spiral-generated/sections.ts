@@ -122,8 +122,13 @@ export function outlineAt(g: Gear, which: "pinion" | "ring", A: [number, number]
   const thick = (i: number) => (which === "ring" ? fh2[i]! - fl[i]! : fl[i]! + pitch - fh2[i]!) * fine[i]!;
   let top = 40;
   while (top > 4 && thick(top) < 0.15) top--;
-  const rt = fine[top]!;
-  const radii = Array.from({ length: nf + 1 }, (_, i) => rr + ((rt - rr) * i) / nf);
+  // and the same for the gap between two teeth at the root (the ring gear's flare can close it before the root): the root is raised to where it is wide enough
+  const gapAt = (i: number) => (which === "ring" ? fl[i]! + pitch - fh2[i]! : fh2[i]! - fl[i]!) * fine[i]!;
+  let bot = 0;
+  while (bot < top - 6 && gapAt(bot) < 0.15) bot++;
+  if (top - bot < 6) return null;
+  const [rt, rrr] = [fine[top]!, fine[bot]!];
+  const radii = Array.from({ length: nf + 1 }, (_, i) => rrr + ((rt - rrr) * i) / nf);
   const [ca, cb] = [curveOf(A, radii, pitch), curveOf(B, radii, pitch)];
   if (!ca || !cb) return null;
   let [lo, hi] = ca[nf >> 1]! < cb[nf >> 1]! ? [ca, cb] : [cb, ca];
@@ -136,7 +141,7 @@ export function outlineAt(g: Gear, which: "pinion" | "ring", A: [number, number]
     for (let i = 0; i <= nf; i++) pts.push([radii[i]!, up[i]! + off]);
     for (let k = 1; k <= 2; k++) pts.push([rt, up[nf]! + off + ((down[nf]! - up[nf]!) * k) / 3]); // (the tip arc)
     for (let i = nf; i >= 0; i--) pts.push([radii[i]!, down[i]! + off]);
-    for (let k = 1; k <= 2; k++) pts.push([rr, down[0]! + off + ((up[0]! + pitch - down[0]!) * k) / 3]); // (the root arc to the next tooth)
+    for (let k = 1; k <= 2; k++) pts.push([rrr, down[0]! + off + ((up[0]! + pitch - down[0]!) * k) / 3]); // (the root arc to the next tooth)
   }
   return pts;
 }
