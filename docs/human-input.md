@@ -3285,6 +3285,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > (the human attached three pages of the Gleason "Gear Technology Solutions" book as PDFs and the Gear Technology "Ask the expert: Backlash and Axial Movement" article, Sept/Oct 2017) Hey while we are here, is there anything else you need? Maybe to verify our other gears?
 (sends the backlash article and three Gleason pages; asks whether anything else is needed, for example to verify the other gears)
 
-## in_735 — 2026-11-17 — directive
+## in_752 — 2026-11-17 — directive
 > okay now lets keep working
 (asks to keep working, without saying on what)
