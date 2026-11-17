@@ -64,6 +64,7 @@ export interface Tool {
 }
 export interface GearState {
   internal: boolean; typed: string[]; field: number; editing?: string; base?: GearSpec;
+  /** the number that was taken back to a value that makes a gear (`in_690`): its field, and when (the box and the drawing flash red for a moment) */ bad?: { field: number; at: number };
   /** the turn the gear being changed has (radians), so its preview stands as it does */ turn?: number;
   /** a rack (`in_579`) */ rack?: boolean;
   /** a helical gear (`in_598`): the twisted body is made with it */ helical?: true;
@@ -74,7 +75,7 @@ export interface GearState {
   /** a cycloidal (clock) gear (`in_585`) */ cycloidal?: true;
   /** a gear or a rack made to mesh with `src` (`in_672`); `rack`: the partner is a rack */ mesh?: { src: GearRecord; rack: boolean; ring?: boolean };
 }
-export type GearKey = "teeth" | "module" | "pressure" | "shift" | "backlash" | "rim" | "bore" | "ratio" | "angle" | "offset" | "clearance" | "chain" | "pitch" | "roller" | "circle" | "addendum" | "dedendum" | "fit" | "flat" | "key" | "keydepth" | "fillet" | "detail" | "helix" | "width" | "diameter" | "length" | "starts";
+export type GearKey = "teeth" | "module" | "pressure" | "shift" | "backlash" | "rim" | "bore" | "ratio" | "angle" | "offset" | "clearance" | "chain" | "pitch" | "roller" | "circle" | "addendum" | "dedendum" | "fit" | "flat" | "key" | "keydepth" | "fillet" | "helix" | "width" | "diameter" | "length" | "starts";
 /** The numbers of a gear in the order the number box shows them (a ring has a wall where a gear has a shift; a rack has the bar under its teeth; a partner has its tooth count, ratio and the direction it stands in). */
 export const gearFields = (g: { internal: boolean; helical?: true; worm?: true; wheel?: true; rack?: boolean; pulley?: PulleyKind; sprocket?: true; iso?: true; cycloidal?: true; mesh?: { src: GearRecord; rack: boolean; ring?: boolean } }): { key: GearKey; label: string }[] => {
   const f = (key: GearKey, label: string) => ({ key, label });
@@ -92,7 +93,7 @@ const gearFieldsBase = (g: { internal: boolean; helical?: true; worm?: true; whe
   if (g.cycloidal) return [f("teeth", "Teeth"), f("module", "Module"), f("backlash", "Backlash"), f("circle", "Circle"), f("addendum", "Addendum"), f("dedendum", "Dedendum"), g.internal ? f("rim", "Wall") : g.rack ? f("rim", "Base") : f("bore", "Bore")];
   if (g.sprocket) return [f("teeth", "Teeth"), f("chain", "Chain"), f("pitch", "Pitch"), f("roller", "Roller"), ...(g.iso ? [f("fit", "Fit")] : []), f("bore", "Bore")];
   if (g.rack) return [f("teeth", "Teeth"), f("module", "Module"), f("pressure", "Pressure"), f("backlash", "Backlash"), f("rim", "Base"), f("clearance", "Clearance")];
-  return [f("teeth", "Teeth"), f("module", "Module"), f("pressure", "Pressure"), g.internal ? f("rim", "Wall") : f("shift", "Shift"), f("backlash", "Backlash"), f("clearance", "Clearance"), ...(g.internal ? [] : [f("fillet", "Fillet"), f("detail", "Detail"), ...(g.helical ? [f("helix", "Helix"), f("width", "Width")] : []), f("bore", "Bore")])]; // (the root as the cutter leaves it, `in_592`)
+  return [f("teeth", "Teeth"), f("module", "Module"), f("pressure", "Pressure"), g.internal ? f("rim", "Wall") : f("shift", "Shift"), f("backlash", "Backlash"), f("clearance", "Clearance"), ...(g.internal ? [] : [f("fillet", "Fillet"), ...(g.helical ? [f("helix", "Helix"), f("width", "Width")] : []), f("bore", "Bore")])]; // (the root as the cutter leaves it, `in_592`)
 };
 const gearState = (t: Tool): GearState => t.gear ?? { internal: false, typed: [], field: 0 };
 /** A tool that waits for its first click on a surface. */
@@ -285,7 +286,7 @@ function gearSpecOf(t: Tool): GearSpec | null {
   const rim = g.internal || g.rack ? typed("rim") ?? b?.rim : undefined;
   const bore = g.internal || g.rack ? undefined : typed("bore") ?? b?.bore;
   const fillet = g.internal || g.rack ? undefined : typed("fillet") ?? b?.fillet;
-  const detail = g.internal || g.rack ? undefined : typed("detail") ?? b?.detail;
+  const detail = g.internal || g.rack ? undefined : b?.detail;
   const [helix, width] = g.helical ? [typed("helix") ?? b?.helix ?? 15, typed("width") ?? b?.width] : [undefined, undefined]; // (a helical gear: its helix angle, and its width, six modules if none is given)
   const typedModule = typed("module");
   let module = typedModule !== null && typedModule > 0 ? typedModule : b?.module;
@@ -309,7 +310,7 @@ function gearMade(scene: Scene, t: Tool): Result<GearTarget> | null {
     if (!spec || !at) return null;
     const o = gearOutline(spec);
     if (!o.ok) return err(o.error);
-    return ok({ spec, at, turn: g.turn ?? 0, live: { teeth: spec.teeth, module: spec.module, pressure: spec.pressure ?? 20, shift: spec.shift ?? 0, backlash: spec.backlash ?? 0, rim: spec.rim ?? 2, bore: spec.bore ?? 0, fillet: spec.fillet ?? 0, detail: spec.detail ?? 4, helix: spec.helix ?? 15, diameter: spec.worm?.diameter ?? spec.wheel?.diameter ?? 0, length: spec.worm?.length ?? 0, starts: spec.wheel?.starts ?? 1, width: spec.width ?? 0, flat: spec.flat ?? 0, key: spec.key ?? 0, keydepth: spec.keyDepth ?? (spec.bore ? standardKey(spec.bore)?.t2 ?? 0 : 0), clearance: spec.clearance ?? (spec.pulley === "HTD5M" ? 0.07 : spec.pulley ? 0 : 0.25), circle: spec.cycloidal?.circle ?? 3, addendum: spec.cycloidal?.addendum ?? 1, dedendum: spec.cycloidal?.dedendum ?? 1.25, chain: spec.sprocket?.chain ?? 0, fit: spec.sprocket?.fit ?? 0.5, ...(spec.sprocket ? (() => { const c = chainOf(spec.sprocket); return c ? { pitch: c.pitch, roller: c.roller } : {}; })() : {}) } });
+    return ok({ spec, at, turn: g.turn ?? 0, live: { teeth: spec.teeth, module: spec.module, pressure: spec.pressure ?? 20, shift: spec.shift ?? 0, backlash: spec.backlash ?? 0, rim: spec.rim ?? 2, bore: spec.bore ?? 0, fillet: spec.fillet ?? 0, helix: spec.helix ?? 15, diameter: spec.worm?.diameter ?? spec.wheel?.diameter ?? 0, length: spec.worm?.length ?? 0, starts: spec.wheel?.starts ?? 1, width: spec.width ?? 0, flat: spec.flat ?? 0, key: spec.key ?? 0, keydepth: spec.keyDepth ?? (spec.bore ? standardKey(spec.bore)?.t2 ?? 0 : 0), clearance: spec.clearance ?? (spec.pulley === "HTD5M" ? 0.07 : spec.pulley ? 0 : 0.25), circle: spec.cycloidal?.circle ?? 3, addendum: spec.cycloidal?.addendum ?? 1, dedendum: spec.cycloidal?.dedendum ?? 1.25, chain: spec.sprocket?.chain ?? 0, fit: spec.sprocket?.fit ?? 0.5, ...(spec.sprocket ? (() => { const c = chainOf(spec.sprocket); return c ? { pitch: c.pitch, roller: c.roller } : {}; })() : {}) } });
   }
   if (!pl || pl.kind !== "plane") return null;
   const { src, rack, ring } = g.mesh;
@@ -347,6 +348,38 @@ export function gearProblem(scene: Scene, t: Tool): string | null {
   const r = gearMade(scene, t);
   return r && !r.ok ? r.error : null;
 }
+/**
+ * A gear that cannot be made, put right (`in_690`): the number typed that spoils it is taken back to the nearest value that makes a gear (too few teeth go up to the least that works, a fillet that is too large to the largest),
+ * found by trying the numbers between it and what the box has without it. The field and the reason come back so the box can flash and say; null when nothing is wrong or no number typed is to blame.
+ */
+export function gearFix(scene: Scene, t: Tool): { tool: Tool; field: number; message: string } | null {
+  const why = gearProblem(scene, t);
+  if (!why) return null;
+  const g = gearState(t);
+  const fields = gearFields(g);
+  const valid = (x: Tool) => { const r = gearMade(scene, x); return !!r && r.ok; };
+  const text = (v: number) => String(Number(v.toFixed(4)));
+  const order = fields.map((_, i) => i).filter((i) => (g.typed[i] ?? "") !== "").sort((a, b) => (a === g.field ? -1 : 0) - (b === g.field ? -1 : 0));
+  for (const i of order) {
+    const typedV = typedNumber(g.typed[i]!);
+    if (typedV === null) continue;
+    const cleared = gearTyped(t, i, "");
+    if (!valid(cleared)) continue; // (this number is not alone to blame)
+    const home = gearLive(scene, cleared)?.[i] ?? 0;
+    const whole = fields[i]!.key === "teeth" || fields[i]!.key === "starts";
+    let [good, bad] = [whole ? Math.round(home) : home, typedV];
+    if (whole) {
+      bad = Math.round(bad);
+      while (Math.abs(bad - good) > 1) { const mid = Math.round((good + bad) / 2); if (valid(gearTyped(t, i, String(mid)))) good = mid; else bad = mid; }
+    } else {
+      for (let k = 0; k < 28; k++) { const mid = (good + bad) / 2; if (valid(gearTyped(t, i, text(mid)))) good = mid; else bad = mid; }
+    }
+    if (!valid(gearTyped(t, i, text(good)))) continue;
+    const fixed = gearTyped(t, i, text(good));
+    return { tool: { ...fixed, gear: { ...gearState(fixed), field: i } }, field: i, message: `${why}: ${fields[i]!.label} ${g.typed[i]} is taken back to ${text(good)}` };
+  }
+  return null;
+}
 /** What each field of the number box says while nothing is typed in it: the numbers as they are now. */
 export function gearLive(scene: Scene, t: Tool): number[] | null {
   const g = gearTarget(scene, t);
@@ -370,6 +403,8 @@ export interface Preview {
   /** dashed lines from the cursor to what it lines up with (not part of the figure, `in_381`) */
   guides?: [Vec3, Vec3][];
   circle: { center: Vec3; radius: number; normal: Vec3 } | null;
+  /** a gear whose number was just put right (`in_690`): drawn red for a moment */
+  red?: true;
   /** where the pointer is on the plane (a small ball marks it) */
   cursor: Vec3 | null;
 }
@@ -453,7 +488,7 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
         segments.push([prev, q]); prev = q;
       }
     });
-    return { segments, circle: shaped ? null : o.value.outerRadius !== undefined ? { center: target.at, radius: o.value.outerRadius, normal: n } : bore > 0 ? { center: target.at, radius: bore / 2, normal: n } : null, cursor: t.cursor };
+    return { segments, circle: shaped ? null : o.value.outerRadius !== undefined ? { center: target.at, radius: o.value.outerRadius, normal: n } : bore > 0 ? { center: target.at, radius: bore / 2, normal: n } : null, cursor: t.cursor, ...(t.gear?.bad ? { red: true as const } : {}) };
   }
   if (t.kind === "arc") {
     const arc = t.points.length >= 2 ? arcOf(pl, t) : null;

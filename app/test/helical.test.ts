@@ -124,10 +124,10 @@ test("the Helical gear tool: in the Gear submenu; Helix (15 shown) and Width are
   st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
   st = click(st, C);
   const fields = entryOf(scene(st.session), st.tool, st.op)!.fields;
-  assert.deepEqual(fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Detail", "Helix", "Width", "Bore", "Flat", "Key", "Key depth"]);
+  assert.deepEqual(fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Helix", "Width", "Bore", "Flat", "Key", "Key depth"]);
   st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2");
-  assert.equal(entryOf(scene(st.session), st.tool, st.op)!.fields[8]!.value, "15", "a helix of 15 degrees unless another is typed");
-  for (let i = 0; i < 7; i++) st = key(st, "Tab"); // (to Helix)
+  assert.equal(entryOf(scene(st.session), st.tool, st.op)!.fields[7]!.value, "15", "a helix of 15 degrees unless another is typed");
+  for (let i = 0; i < 6; i++) st = key(st, "Tab"); // (to Helix)
   st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "8");
   const preview = previewFor(scene(st.session), st.tool)!;
   assert.ok(preview.segments.some((seg) => Math.abs(seg[0][2] - 8) < 1e-6 || Math.abs(seg[1][2] - 8) < 1e-6), "the preview has the outline again at the far end, worked out in the page");

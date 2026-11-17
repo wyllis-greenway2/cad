@@ -12,6 +12,7 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
   for (const t of ["pointerdown", "pointerup", "wheel", "contextmenu"]) el.addEventListener(t, (e) => { e.stopPropagation(); if (t === "contextmenu") e.preventDefault(); });
   let sig = "";
   let inputs: HTMLInputElement[] = [];
+  let hints: HTMLElement[] = [];
   return {
     rect(): DOMRect | null { return el.style.display === "none" ? null : el.getBoundingClientRect(); },
     /** `entry`: the panel to show (null hides it). */
@@ -21,6 +22,7 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
       if (now !== sig) {
         sig = now;
         el.replaceChildren();
+        hints = [];
         const title = document.createElement("div");
         title.textContent = entry.panel;
         title.style.cssText = "font-weight:600;font-size:15px;margin-bottom:6px";
@@ -52,7 +54,7 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
           unit.style.cssText = "width:10px;opacity:.65";
           line.append(name, input, unit);
           row.appendChild(line);
-          if (f.hint) { const hint = document.createElement("div"); hint.textContent = f.hint; hint.style.cssText = "font-size:11.5px;color:#777;margin-top:3px;line-height:1.35"; row.appendChild(hint); }
+          { const hint = document.createElement("div"); hints[i] = hint; hint.textContent = f.hint ?? ""; hint.style.cssText = "font-size:11.5px;color:#777;margin-top:3px;line-height:1.35"; row.appendChild(hint); }
           el.appendChild(row);
           return input;
         });
@@ -65,7 +67,13 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
         bar.append(textButton("Cancel", { click: () => h.cancel() }), textButton("Make it", { tone: "primary", click: () => h.enter() }));
         el.appendChild(bar);
       }
-      entry.fields.forEach((f, i) => { const input = inputs[i]!; if (document.activeElement !== input) input.value = f.value; });
+      entry.fields.forEach((f, i) => { // (a number just taken back to one that makes a gear flashes red, `in_690`)
+        const input = inputs[i]!;
+        if (hints[i] && hints[i]!.textContent !== (f.hint ?? "")) hints[i]!.textContent = f.hint ?? ""; // (the line for a bore's standard key follows the bore typed)
+        if (document.activeElement !== input || f.bad) input.value = f.value;
+        input.style.background = f.bad ? "#fde8e8" : "";
+        if (f.bad) input.style.borderColor = "#e5484d"; else if (document.activeElement !== input) input.style.borderColor = "#cfd0d4";
+      });
       el.style.display = "block";
     },
   };

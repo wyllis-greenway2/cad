@@ -98,6 +98,7 @@ export const doHome = (s: AppState, env: Env): AppState => animateTo(s, { ...hom
 /** Advance the camera animation to time `now`. */
 export function advance(s: AppState, now: number): AppState {
   if (s.flash && now - s.flash.at >= settings.flash.ms) s = { ...s, flash: null }; // the flash has faded
+  if (s.tool?.gear?.bad && now - s.tool.gear.bad.at >= settings.flash.ms) s = { ...s, tool: { ...s.tool, gear: { ...s.tool.gear, bad: undefined } } }; // (so has a gear's number that was put right, `in_690`)
   if (s.mixT0 !== null) {
     // the perspective coming in after a straight view was left
     const t0 = s.mixT0 < 0 ? now : s.mixT0;
