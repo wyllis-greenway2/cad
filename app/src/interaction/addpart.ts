@@ -14,6 +14,7 @@ import { dot } from "../math/vec.ts";
 import type { Part } from "../operation/part.ts";
 import { normalOfPlane, pointOf, roundOf } from "../operation/part.ts";
 import type { Ref } from "../shared/ref.ts";
+import { partDrawing, receiverDrawing } from "./partdrawing.ts";
 import { FASTENER_FAMILIES, FASTENER_SIZES, FASTENER_SOURCES, CLEARANCE_FIT_LIST as CLEARANCE_FITS, RECEIVER_KINDS, isFastenerSize, receiversText, makeNut, makeCountersunk, makeWasher, makeSocketHead, lengthAdvice, STANDARD_LENGTHS, countersunkDims, socketHeadDims, clearanceHole, tapHole, chartEngagement, nutTrap, receiverProblem, receiverSteps } from "../operation/fasteners.ts";
 import type { FastenerFamily, FastenerSize, PartSteps, ReceiverKind, ClearanceFit, FaceSpot } from "../operation/fasteners.ts";
 
@@ -30,20 +31,27 @@ export function addPartDialog(v: AddPartValues): Dialog {
     title: "Add part",
     ok: "Add",
     fields: [
-      { id: "family", label: "Family", type: "choice", value: family, choices: FASTENER_FAMILIES.map((f) => ({ value: f.id, label: `${f.label} (${f.standard})` })), note: `numbers from: ${FASTENER_SOURCES[family]}; placed at the origin, drawn at its nominal size` },
-      { id: "size", label: "Size (coarse thread)", type: "choice", value: size, choices: FASTENER_SIZES.map((s) => ({ value: s, label: s })), note: `matches: ${receiversText(size, family)}` },
+      { id: "family", label: "Family", type: "choice", layout: "cards", value: family, choices: FASTENER_FAMILIES.map((f) => ({ value: f.id, label: `${f.label} · ${f.standard.replace(/ \(.*$/, "")}`, image: partDrawing(f.id, size, drawnLength(f.id, size, v.length), v.head === "smooth", 96, 64) })), note: `numbers from: ${FASTENER_SOURCES[family]}; placed at the origin, drawn at its nominal size` },
+      { id: "size", label: "Size (coarse thread)", type: "choice", layout: "chips", value: size, choices: FASTENER_SIZES.map((s) => ({ value: s, label: s })), note: `matches: ${receiversText(size, family)}` },
+      { id: "picture", label: "Drawn at its size", type: "picture", value: partDrawing(family, size, drawnLength(family, size, v.length), v.head === "smooth", 200, 120) },
       ...(family === "countersunk" || family === "socketHead" ? [{ id: "length", label: family === "socketHead" ? "Length under the head (mm)" : "Length from the top of the head (mm)", type: "text" as const, value: v.length, note: lengthNote(family, size, v.length) }] : []),
-      ...(family === "socketHead" ? [{ id: "head", label: "Head", type: "choice" as const, value: v.head === "smooth" ? "smooth" : "knurled", choices: [{ value: "knurled", label: `knurled, largest ${socketHeadDims(size).head.max} mm across` }, { value: "smooth", label: `smooth, largest ${socketHeadDims(size).head.smooth} mm across` }], note: "both are in ISO 4762; the counterbore is cut for the wider (knurled) head" }] : []),
+      ...(family === "socketHead" ? [{ id: "head", label: "Head", type: "choice" as const, layout: "chips" as const, value: v.head === "smooth" ? "smooth" : "knurled", choices: [{ value: "knurled", label: `knurled, largest ${socketHeadDims(size).head.max} mm across` }, { value: "smooth", label: `smooth, largest ${socketHeadDims(size).head.smooth} mm across` }], note: "both are in ISO 4762; the counterbore is cut for the wider (knurled) head" }] : []),
     ],
   };
 }
 
+/** The length a picture is drawn at: the one typed when it can be made, else a short usual one (the drawing is of the size, so it never fails for a half-typed number). */
+function drawnLength(family: FastenerFamily, size: FastenerSize, text: string): number {
+  const n = typedLength(text);
+  const ok = n !== null && (family === "socketHead" ? n > 0.5 : family === "countersunk" ? n > countersunkDims(size).headHeight + 0.5 : false);
+  return ok ? n! : family === "countersunk" ? countersunkDims(size).headHeight + 8 : 10;
+}
 /** The line under the length: what ISO 888 says of the number typed, the standard lengths, and what the part is made at. A length that is not a standard one is advised, never refused. */
 function lengthNote(family: FastenerFamily, size: FastenerSize, text: string): string {
   const n = typedLength(text);
   const own = family === "socketHead" ? "counted under the head, any length over 0.5 mm is made" : `counted from the top of the head, any length over ${Math.round((countersunkDims(size).headHeight + 0.5) * 1000) / 1000} mm is made`;
   const standard = `standard lengths (ISO 888): ${STANDARD_LENGTHS.filter((l) => l <= 100).join(", ")} mm and longer`;
-  return `${n === null ? "" : lengthAdvice(n) + ". "}${standard}. ${own}; the lengths each size is made in were not read. The part is made at ${family === "socketHead" ? "the largest body size" : "nominal size"}`;
+  return `${n === null ? "" : lengthAdvice(n) + ". "}${standard[0]!.toUpperCase()}${standard.slice(1)}. ${own[0]!.toUpperCase()}${own.slice(1)}; the lengths each size is made in were not read. The part is made at ${family === "socketHead" ? "the largest body size" : "nominal size"}`;
 }
 /** The advice on the length of the answers, for the message after the part is added ("" for a part with no length or a standard length). */
 export function lengthAdviceOf(v: AddPartValues): string {
@@ -150,9 +158,10 @@ export function receiverDialog(v: ReceiverValues, places = 0): Dialog {
     title: places > 1 ? `Fastener holes (${places})` : "Fastener hole",
     ok: "Cut",
     fields: [
-      { id: "kind", label: "Receiver", type: "choice", value: kind, choices: RECEIVER_KINDS.map((k) => ({ value: k.id, label: k.label })) },
-      { id: "size", label: "Size (coarse thread)", type: "choice", value: size, choices: FASTENER_SIZES.map((s) => ({ value: s, label: s })), note: `all the receivers: ${receiversText(size, family)}` },
-      ...(kind === "tapped" ? [] : [{ id: "fit", label: "Clearance (ISO 273)", type: "choice" as const, value: fit, choices: CLEARANCE_FITS.map((f) => ({ value: f, label: `${f} (${clearanceHole(size, f)} mm)` })) }]),
+      { id: "kind", label: "Receiver", type: "choice", layout: "cards", value: kind, choices: RECEIVER_KINDS.map((k) => ({ value: k.id, label: k.short, image: receiverDrawing(k.id, size, fit, 84, 72) })) },
+      { id: "size", label: "Size (coarse thread)", type: "choice", layout: "chips", value: size, choices: FASTENER_SIZES.map((s) => ({ value: s, label: s })), note: `all the receivers: ${receiversText(size, family)}` },
+      { id: "picture", label: "Cut across, at its size", type: "picture", value: receiverDrawing(kind, size, fit, 170, 140) },
+      ...(kind === "tapped" ? [] : [{ id: "fit", label: "Clearance (ISO 273)", type: "choice" as const, layout: "chips" as const, value: fit, choices: CLEARANCE_FITS.map((f) => ({ value: f, label: `${f} (${clearanceHole(size, f)} mm)` })) }]),
       ...(kind === "tapped" ? [{ id: "engagement", label: "Thread engagement (%), empty is the chart's drill", type: "text" as const, value: v.engagement ?? "", note: engagementNote(size, v.engagement ?? "") }] : []),
       { id: "depth", label: "Depth (mm), empty goes right through", type: "text", value: v.depth, note: kind === "nutPocket" ? `the pocket is ${nutTrap(size).depth} mm deep, the hole goes on through` : "" },
       { id: "dx", label: places ? "Across the face from the place picked (mm)" : "Across the face from its middle (mm)", type: "text", value: v.dx },

@@ -156,8 +156,6 @@ const menu = createMenu(document.body, (id) => {
   else if (id === "share") shareState();
   else if (id === "export") void exportDialogFlow();
   else if (id === "import") void importDialogFlow();
-  else if (id === "addPart") void addPartFlow();
-  else if (id === "fastenerHole") void fastenerHoleFlow();
   else if (id === "material") void materialDialogFlow();
   else if (id === "laser") void laserDialogFlow();
   else if (id === "laserTable") void laserTableFlow();
@@ -174,6 +172,8 @@ const menu = createMenu(document.body, (id) => {
 const ring = createRing(document.body, (id) => {
   ring.hide();
   if (id === "view:game") { input.toggleGame(); return; }
+  if (id === "models:fasteners") { void addPartFlow(); return; } // (Shape, Models: the dialogs are the page's, `in_800`, `in_801`)
+  if (id === "models:holes") { void fastenerHoleFlow(); return; }
   dispatch({ type: "runAction", id });
 }, (id) => dispatch({ type: "runAction", id: `why:${id}` })); // (a dimmed option pressed: its reason is said and the ring stays, `in_538`)
 
@@ -385,7 +385,7 @@ function dispatch(i: Intent) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(typeof __BUILD__ === "string" ? __BUILD__ : "", { export: canExport(state.session) || canExportFlat(state.session), fastenerHole: !whyNoReceiver(state.session), material: !whyNoMaterial(state.session), laser: canExportFlat(state.session), laserLayers: !whyNoLayers(state.session), laserTable: parseLibrary(webStore.get("cad.library")).library.settings.length > 0, clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, scene(state.session).clearance ?? 0)); }
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(typeof __BUILD__ === "string" ? __BUILD__ : "", { export: canExport(state.session) || canExportFlat(state.session), material: !whyNoMaterial(state.session), laser: canExportFlat(state.session), laserLayers: !whyNoLayers(state.session), laserTable: parseLibrary(webStore.get("cad.library")).library.settings.length > 0, clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, scene(state.session).clearance ?? 0)); }
     else {
       menu.hide();
       if (state.menu && inGame()) { // game mode: the ring stands in the world, ahead of the eye, where it was opened (`in_463`, `in_471`)

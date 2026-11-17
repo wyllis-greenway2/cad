@@ -16,8 +16,12 @@ export type FieldValue = string | number | boolean;
 export interface Field {
   id: string;
   label: string;
-  type: "choice" | "text" | "number" | "check";
-  choices?: { value: string; label: string; /** why it cannot be chosen now */ disabled?: string }[];
+  type: "choice" | "text" | "number" | "check" | "picture";
+  /** a choice can carry a drawing (`image`: inline SVG made by the program), shown as a card when the field's `layout` is "cards" */
+  choices?: { value: string; label: string; /** why it cannot be chosen now */ disabled?: string; image?: string }[];
+  /** how a choice is laid out: a list of radio buttons (the default), cards with a drawing each, or small chips in a row */
+  layout?: "cards" | "chips";
+  /** for a picture: the SVG to show (made by the program, never typed by a person) */
   value: FieldValue;
   /** a line under it: what it means or what will happen */
   note?: string;
