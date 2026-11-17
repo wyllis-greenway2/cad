@@ -10,6 +10,85 @@ import { AXES, AXIS_LEN, axisSet, fadable, makeLabel, srgb } from "./world/parts
 import { createGrid } from "./world/grid.ts";
 import { createPanes } from "./world/panes.ts";
 
+/**
+ * Whether the ray meets a mesh before its `far`, found with the mesh's triangles in chunks of 128 with a box round each (made once for the mesh): the ray is asked of the chunks' boxes and only the triangles of the chunks it meets are
+ * worked, and the first hit ends it (three's own raycast works every triangle of a mesh whose box the ray meets, and keeps them all: a gear body is thousands, three times a frame while the view turns, `in_765`). The same answer: the sides
+ * of a triangle that the material draws are those that count, as three has it. What is not a plain mesh of its own triangles is asked of three.
+ */
+const CHUNK = 128;
+const chunked = new WeakMap<THREE.BufferGeometry, { boxes: Float32Array; tris: number }>();
+function chunksOf(g: THREE.BufferGeometry, pos: THREE.BufferAttribute): { boxes: Float32Array; tris: number } {
+  let c = chunked.get(g);
+  if (c) return c;
+  const idx = g.index;
+  const tris = idx ? idx.count / 3 : pos.count / 3;
+  const n = Math.ceil(tris / CHUNK);
+  const boxes = new Float32Array(n * 6);
+  for (let i = 0; i < n; i++) boxes.set([Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity], i * 6);
+  for (let t = 0; t < tris; t++) {
+    const b = Math.floor(t / CHUNK) * 6;
+    for (let k = 0; k < 3; k++) {
+      const v = idx ? idx.getX(t * 3 + k) : t * 3 + k;
+      for (let a = 0; a < 3; a++) { const x = pos.array[v * 3 + a]!; if (x < boxes[b + a]!) boxes[b + a] = x; if (x > boxes[b + 3 + a]!) boxes[b + 3 + a] = x; }
+    }
+  }
+  c = { boxes, tris };
+  chunked.set(g, c);
+  return c;
+}
+const toLocal = new THREE.Matrix4();
+export function anyHit(ray: THREE.Raycaster, o: THREE.Object3D): boolean {
+  const mesh = o as THREE.Mesh;
+  const g = mesh.geometry as THREE.BufferGeometry | undefined;
+  const pos = g?.getAttribute?.("position") as THREE.BufferAttribute | undefined;
+  const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+  if (!mesh.isMesh || !g || !pos || pos.itemSize !== 3 || (pos as unknown as { isInterleavedBufferAttribute?: boolean }).isInterleavedBufferAttribute || !material || (o as { isLineSegments2?: boolean }).isLineSegments2 || (o as { isLine2?: boolean }).isLine2 || (mesh as unknown as { isInstancedMesh?: boolean }).isInstancedMesh) {
+    return ray.intersectObject(o, false).length > 0;
+  }
+  const { boxes, tris } = chunksOf(g, pos);
+  toLocal.copy(mesh.matrixWorld).invert();
+  const org = ray.ray.origin.clone().applyMatrix4(toLocal);
+  const dir = ray.ray.direction.clone().transformDirection(toLocal);
+  const far = ray.far;
+  const [ox, oy, oz, dx, dy, dz] = [org.x, org.y, org.z, dir.x, dir.y, dir.z];
+  const o3 = [ox, oy, oz], d3 = [dx, dy, dz];
+  const side = material.side;
+  const idx = g.index;
+  const P = pos.array;
+  for (let c = 0; c * CHUNK < tris; c++) {
+    let [t0, t1] = [0, far];
+    let missed = false;
+    for (let a = 0; a < 3 && !missed; a++) {
+      const [lo, hi] = [boxes[c * 6 + a]!, boxes[c * 6 + 3 + a]!];
+      if (Math.abs(d3[a]!) < 1e-12) { if (o3[a]! < lo || o3[a]! > hi) missed = true; continue; }
+      let [p, q] = [(lo - o3[a]!) / d3[a]!, (hi - o3[a]!) / d3[a]!];
+      if (p > q) [p, q] = [q, p];
+      t0 = Math.max(t0, p); t1 = Math.min(t1, q);
+      if (t0 > t1) missed = true;
+    }
+    if (missed) continue;
+    for (let t = c * CHUNK; t < Math.min(tris, (c + 1) * CHUNK); t++) {
+      const [i0, i1, i2] = idx ? [idx.getX(t * 3), idx.getX(t * 3 + 1), idx.getX(t * 3 + 2)] : [t * 3, t * 3 + 1, t * 3 + 2];
+      const [ax, ay, az] = [P[i0! * 3]!, P[i0! * 3 + 1]!, P[i0! * 3 + 2]!];
+      const [e1x, e1y, e1z, e2x, e2y, e2z] = [P[i1! * 3]! - ax, P[i1! * 3 + 1]! - ay, P[i1! * 3 + 2]! - az, P[i2! * 3]! - ax, P[i2! * 3 + 1]! - ay, P[i2! * 3 + 2]! - az];
+      // Moller-Trumbore, with the sides of the triangle the material draws counting, as three has it (a ray along the normal's way meets the back)
+      const [hx, hy, hz] = [dy * e2z - dz * e2y, dz * e2x - dx * e2z, dx * e2y - dy * e2x];
+      const det = e1x * hx + e1y * hy + e1z * hz;
+      if (Math.abs(det) < 1e-18 || (det < 0 && side === THREE.FrontSide) || (det > 0 && side === THREE.BackSide)) continue;
+      const f = 1 / det;
+      const [sx, sy, sz] = [ox - ax, oy - ay, oz - az];
+      const u = f * (sx * hx + sy * hy + sz * hz);
+      if (u < 0 || u > 1) continue;
+      const [qx, qy, qz] = [sy * e1z - sz * e1y, sz * e1x - sx * e1z, sx * e1y - sy * e1x];
+      const v = f * (dx * qx + dy * qy + dz * qz);
+      if (v < 0 || u + v > 1) continue;
+      const t_ = f * (e2x * qx + e2y * qy + e2z * qz);
+      if (t_ >= 0 && t_ <= far) return true;
+    }
+  }
+  return false;
+}
+
 const HEAD = 1.1; // arrowhead length at the axes' own size (small: `in_140`)
 
 export function createWorld(scene3: THREE.Scene, host: HTMLElement) {
@@ -31,7 +110,8 @@ export function createWorld(scene3: THREE.Scene, host: HTMLElement) {
     const len = Math.hypot(d[0]!, d[1]!, d[2]!);
     ray.set(new THREE.Vector3(...eye), new THREE.Vector3(d[0]! / len, d[1]! / len, d[2]! / len));
     ray.far = len - 0.05;
-    return ray.intersectObjects(occluders as THREE.Object3D[], false).length > 0; // (only the meshes are asked: a ray through every segment of every drawn line, to throw the answer away, was most of a gear's frame)
+    for (const o of occluders) if (anyHit(ray, o)) return true; // (only the meshes are asked: a ray through every segment of every drawn line, to throw the answer away, was most of a gear's frame)
+    return false;
   }
   /** Place the axes at their real size in the world (so they grow and shrink as you zoom), and their labels (hidden when the model is in front of them). */
   let placedFor = "";

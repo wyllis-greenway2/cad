@@ -3404,3 +3404,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_764 — 2026-11-17 — directive
 > yes do the joined and pushed-in extrudes next
 (approves doing the joined and pushed-in extrudes next: a step that adds to or cuts into the body works on the bodies it touches and not on the whole shape)
+
+## in_765 — 2026-11-17 — directive
+> yes do the smaller per-edit and per-frame costs next
+(approves doing the smaller per-edit and per-frame costs next: grouping loops once per derive, copying the parts map twice per edit, picking against the body's triangles, and the axis-label check during an orbit)

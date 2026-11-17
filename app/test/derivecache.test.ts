@@ -93,3 +93,33 @@ test("the faces derived from the drawn parts follow a change (a figure drawn, a 
   const gone = run(s, { type: "deletePart", ref: corners[0]! });
   assert.equal(faces(gone), 0, "a figure that lost a corner is no face");
 });
+
+test("the loop of lines is traced as the plain search through the lines traces it, whatever order the lines come in", async () => {
+  const { loopOf } = await import("../src/operation/loops.ts");
+  const plain = (get: ReturnType<typeof lookup>, lines: readonly Ref[]): Ref[] | null => { // (the way it was: a search through all the sides for each corner)
+    const segs = lines.map((r) => get(r)).filter((p): p is Extract<Part, { kind: "line" }> => p?.kind === "line");
+    const used = new Set<number>();
+    const corners: Ref[] = [segs[0]!.a];
+    let cur = segs[0]!.b;
+    used.add(0);
+    while (cur !== corners[0]) {
+      corners.push(cur);
+      const next = segs.findIndex((q, i) => !used.has(i) && (q.a === cur || q.b === cur));
+      if (next < 0) return null;
+      used.add(next);
+      cur = segs[next]!.a === cur ? segs[next]!.b : segs[next]!.a;
+    }
+    return used.size === segs.length ? corners : null;
+  };
+  const sc = scene(gear(createSession(kernel), "g_001", 40));
+  const get = lookup(sc);
+  const lines = Object.values(sc.parts).filter((p) => p.kind === "line" && p.ref.startsWith("d/g_001.s")).map((p) => p.ref);
+  assert.ok(lines.length > 100);
+  const order = (seed: number) => { let x = seed; const out = [lines[0]!, ...lines.slice(1)]; for (let i = out.length - 1; i > 1; i--) { x = (x * 1103515245 + 12345) % 2147483648; const j = 1 + (x % i); [out[i], out[j]] = [out[j]!, out[i]!]; } return out; };
+  for (const list of [lines, order(1), order(2), [...lines].reverse().slice(0, 1).concat(lines.slice(0, -1).reverse())]) {
+    const r = loopOf(get, list);
+    const want = plain(get, list);
+    if (want) { assert.ok(r.ok); assert.deepEqual(r.ok ? r.corners : null, want); } else assert.equal(r.ok, false);
+  }
+  assert.equal(loopOf(get, lines.slice(0, -1)).ok, false, "an open run of lines is no loop");
+});

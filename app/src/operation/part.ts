@@ -421,35 +421,58 @@ export const inPolygon = (q: [number, number], poly: [number, number][]): boolea
   }
   return inside;
 };
-/** Moller-Trumbore: the distance along the ray to a triangle, or null. */
-function rayTriangle(o: Vec3, d: Vec3, a: Vec3, b: Vec3, c: Vec3): number | null {
-  const e1 = sub(b, a);
-  const e2 = sub(c, a);
-  const h = cross(d, e2);
-  const det = dot(e1, h);
-  if (Math.abs(det) < 1e-12) return null;
-  const f = 1 / det;
-  const s = sub(o, a);
-  const u = f * dot(s, h);
-  if (u < 0 || u > 1) return null;
-  const q = cross(s, e1);
-  const v = f * dot(d, q);
-  if (v < 0 || u + v > 1) return null;
-  const t = f * dot(e2, q);
-  return t > 1e-9 ? t : null;
+/** The box round the triangles of a mesh (flat xyz, nine to a triangle), found once for the mesh. */
+const meshBoxes = new WeakMap<readonly number[], [number, number, number, number, number, number]>();
+function boxOfMesh(m: readonly number[]): [number, number, number, number, number, number] {
+  let box = meshBoxes.get(m);
+  if (box) return box;
+  box = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
+  for (let i = 0; i + 2 < m.length; i += 3) for (let k = 0; k < 3; k++) { const v = m[i + k]!; if (v < box[k]!) box[k] = v; if (v > box[k + 3]!) box[k + 3] = v; }
+  meshBoxes.set(m, box);
+  return box;
+}
+/**
+ * The distance along a ray to the nearest triangle of a mesh, or null: the ray is first asked of the mesh's box (found once), and the triangles are worked with plain numbers (a face of a gear is thousands of them, and every move of the
+ * pointer asks, `in_765`; the same answer as `rayTriangle` for each triangle).
+ */
+function rayMesh(m: readonly number[], o: Vec3, d: Vec3): number | null {
+  const b = boxOfMesh(m);
+  // the slab test: the ray meets the box between where it enters and where it leaves
+  let [t0, t1] = [0, Infinity];
+  for (let k = 0; k < 3; k++) {
+    if (Math.abs(d[k]!) < 1e-12) { if (o[k]! < b[k]! - 1e-9 || o[k]! > b[k + 3]! + 1e-9) return null; continue; }
+    let [a, c] = [(b[k]! - 1e-9 - o[k]!) / d[k]!, (b[k + 3]! + 1e-9 - o[k]!) / d[k]!];
+    if (a > c) [a, c] = [c, a];
+    t0 = Math.max(t0, a);
+    t1 = Math.min(t1, c);
+    if (t0 > t1) return null;
+  }
+  const [ox, oy, oz, dx, dy, dz] = [o[0], o[1], o[2], d[0], d[1], d[2]];
+  let best: number | null = null;
+  for (let i = 0; i + 8 < m.length; i += 9) {
+    const [ax, ay, az] = [m[i]!, m[i + 1]!, m[i + 2]!];
+    const [e1x, e1y, e1z, e2x, e2y, e2z] = [m[i + 3]! - ax, m[i + 4]! - ay, m[i + 5]! - az, m[i + 6]! - ax, m[i + 7]! - ay, m[i + 8]! - az];
+    const [hx, hy, hz] = [dy * e2z - dz * e2y, dz * e2x - dx * e2z, dx * e2y - dy * e2x];
+    const det = e1x * hx + e1y * hy + e1z * hz;
+    if (Math.abs(det) < 1e-12) continue;
+    const f = 1 / det;
+    const [sx, sy, sz] = [ox - ax, oy - ay, oz - az];
+    const u = f * (sx * hx + sy * hy + sz * hz);
+    if (u < 0 || u > 1) continue;
+    const [qx, qy, qz] = [sy * e1z - sz * e1y, sz * e1x - sx * e1z, sx * e1y - sy * e1x];
+    const v = f * (dx * qx + dy * qy + dz * qz);
+    if (v < 0 || u + v > 1) continue;
+    const t = f * (e2x * qx + e2y * qy + e2z * qz);
+    if (t > 1e-9 && (best === null || t < best)) best = t;
+  }
+  return best;
 }
 const planeOps: KindOps<Plane> = {
   hit: (get, part, pv) => (planeOps.depth!(get, part, pv) === null ? null : 0),
   depth: (_g, part, pv) => {
     if (!pv.ray) return null;
     if (part.mesh) {
-      let best: number | null = null;
-      const m = part.mesh;
-      for (let i = 0; i + 8 < m.length; i += 9) {
-        const t = rayTriangle(pv.ray.o, pv.ray.d, [m[i]!, m[i + 1]!, m[i + 2]!], [m[i + 3]!, m[i + 4]!, m[i + 5]!], [m[i + 6]!, m[i + 7]!, m[i + 8]!]);
-        if (t !== null && (best === null || t < best)) best = t;
-      }
-      return best;
+      return rayMesh(part.mesh, pv.ray.o, pv.ray.d);
     }
     if (part.infinite) {
       // a world plane: all of it, from either side (the picking leaves out the two that are not on, `in_190`)

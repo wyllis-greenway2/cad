@@ -12,13 +12,16 @@ import { regionsOf } from "./regions.ts";
 export function loopOf(get: Lookup, lines: readonly Ref[]): { ok: true; corners: Ref[] } | { ok: false; error: string } {
   const segs = lines.map((r) => get(r)).filter((p): p is Extract<NonNullable<ReturnType<Lookup>>, { kind: "line" }> => p?.kind === "line");
   if (!segs.length || segs.length !== lines.length) return { ok: false, error: "select lines to extrude" };
+  // the sides at each corner, in the order of the lines: the next side is the first not walked yet that has the corner (as a search through all the sides for each corner was, a gear's four hundred made it the square of that)
+  const at = new Map<Ref, number[]>();
+  segs.forEach((sg, i) => { for (const c of sg.a === sg.b ? [sg.a] : [sg.a, sg.b]) { const list = at.get(c); if (list) list.push(i); else at.set(c, [i]); } });
   const used = new Set<number>();
   const corners: Ref[] = [segs[0]!.a];
   let cur = segs[0]!.b;
   used.add(0);
   while (cur !== corners[0]) {
     corners.push(cur);
-    const next = segs.findIndex((s, i) => !used.has(i) && (s.a === cur || s.b === cur));
+    const next = (at.get(cur) ?? []).find((i) => !used.has(i)) ?? -1;
     if (next < 0) return { ok: false, error: "the lines do not make a closed shape" };
     used.add(next);
     cur = segs[next]!.a === cur ? segs[next]!.b : segs[next]!.a;
@@ -31,6 +34,39 @@ export function loopOf(get: Lookup, lines: readonly Ref[]): { ok: true; corners:
 export const loopFaceRef = (lines: readonly Ref[]): Ref => mkRef(`d/loop@${[...lines].sort()[0]!.slice(2)}`);
 export const diskFaceRef = (circle: Ref): Ref => mkRef(`d/disk@${circle.slice(2)}`);
 
+type DrawnLine = Extract<Part, { kind: "line" }>;
+const groupsKept = new Map<Ref, { ls: readonly DrawnLine[]; groups: DrawnLine[][] }>();
+/**
+ * The connected groups of the lines on a plane (by shared corners), kept while the lines are the same objects in the same order (`in_765`): a change that leaves the lines of a plane as they are (a corner moved, a bubble, a body drawn
+ * again) found its groups again by walking every line of every gear; the lines at each corner are known, so a line's neighbours are not looked for among all the lines.
+ */
+function groupsOf(plane: Ref, ls: readonly DrawnLine[]): DrawnLine[][] {
+  const kept = groupsKept.get(plane);
+  if (kept && kept.ls.length === ls.length && kept.ls.every((l, i) => l === ls[i])) return kept.groups;
+  const groups: DrawnLine[][] = [];
+  const at = new Map<Ref, number[]>();
+  ls.forEach((l, i) => { for (const c of l.a === l.b ? [l.a] : [l.a, l.b]) { const list = at.get(c); if (list) list.push(i); else at.set(c, [i]); } });
+  const left = new Set(ls.map((l) => l.ref));
+  let from = 0;
+  while (left.size) {
+    const group: DrawnLine[] = [];
+    while (!left.has(ls[from]!.ref)) from++;
+    const first = ls[from]!;
+    const queue = [first];
+    left.delete(first.ref);
+    while (queue.length) {
+      const cur = queue.pop()!;
+      group.push(cur);
+      const near = [...new Set([...(at.get(cur.a) ?? []), ...(at.get(cur.b) ?? [])])].sort((x, y) => x - y); // (in the order of the lines, as before)
+      for (const i of near) { const o = ls[i]!; if (left.has(o.ref)) (left.delete(o.ref), queue.push(o)); }
+    }
+    groups.push(group);
+  }
+  if (groupsKept.size > 32) groupsKept.clear();
+  groupsKept.set(plane, { ls: [...ls], groups });
+  return groups;
+}
+
 /** The faces of a scene's drawn lines and circles: each closed loop of lines on a plane, and each circle as a disk. Derived: not saved, rebuilt after any change. */
 export function derivedFaces(s: Scene): { faces: Face[]; parts: Part[] } {
   const cut = regionsOf(s);
@@ -42,23 +78,7 @@ export function derivedFaces(s: Scene): { faces: Face[]; parts: Part[] } {
   const out: Face[] = [];
   const base = { origin: "drawn" as const, movable: true };
   for (const [plane, ls] of byPlane) {
-    // connected groups of lines (by shared corners); the lines at each corner are known, so a line's neighbours are not looked for among all the lines
-    const at = new Map<Ref, number[]>();
-    ls.forEach((l, i) => { for (const c of l.a === l.b ? [l.a] : [l.a, l.b]) { const list = at.get(c); if (list) list.push(i); else at.set(c, [i]); } });
-    const left = new Set(ls.map((l) => l.ref));
-    let from = 0;
-    while (left.size) {
-      const group: typeof lines = [];
-      while (!left.has(ls[from]!.ref)) from++;
-      const first = ls[from]!;
-      const queue = [first];
-      left.delete(first.ref);
-      while (queue.length) {
-        const cur = queue.pop()!;
-        group.push(cur);
-        const near = [...new Set([...(at.get(cur.a) ?? []), ...(at.get(cur.b) ?? [])])].sort((x, y) => x - y); // (in the order of the lines, as before)
-        for (const i of near) { const o = ls[i]!; if (left.has(o.ref)) (left.delete(o.ref), queue.push(o)); }
-      }
+    for (const group of groupsOf(plane, ls)) {
       const loop = loopOf(get, group.map((l) => l.ref));
       if (!loop.ok || (group.length < 3 && !group.some((l) => l.bulge || l.center || l.spline))) continue; // (an arc and its chord are a shape of two lines)
       out.push({ ...base, ref: loopFaceRef(group.map((l) => l.ref)), kind: "face", plane, loop: group.map((l) => l.ref), corners: loop.corners });

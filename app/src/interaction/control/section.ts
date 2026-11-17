@@ -5,6 +5,7 @@ import type { Vec3 } from "../../math/vec.ts";
 import { add, sub, scale, dot, cross, normalize, centroid } from "../../math/vec.ts";
 import { about } from "../../math/rotation.ts";
 import type { Scene } from "../../operation/scene.ts";
+import { partIndex } from "../../operation/partindex.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { drawnRef } from "../../shared/ref.ts";
 import { nextId } from "../../operation/scene.ts";
@@ -17,7 +18,7 @@ const AXES: Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
 
 /** The box that holds every body of the scene, or null with no body. */
 function modelBox(sc: Scene): { lo: Vec3; hi: Vec3 } | null {
-  const bodies = Object.values(sc.parts).filter((p) => p.kind === "body" && p.bbox);
+  const bodies = partIndex(sc).bodies.filter((p) => p.bbox);
   if (!bodies.length) return null;
   const mins = bodies.map((b) => (b as { bbox: { min: Vec3 } }).bbox.min);
   const maxs = bodies.map((b) => (b as { bbox: { max: Vec3 } }).bbox.max);
@@ -56,8 +57,8 @@ const MODE_FLAGS: Record<SheetMode, { cut: boolean; flip: boolean }> = { 0: { cu
 /** Every sheet that is cutting the view (`in_416`, `in_459`: any number at once): its middle, and the normal that points to the half cut away (the place a drag has taken it to while its handles are dragged). */
 export function cutsNow(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; extent: number }[] {
   const sc = sceneOf(s.session);
-  return Object.values(sc.parts).flatMap((p) => {
-    if (p.kind !== "plane" || !p.section || !p.cut || p.extent === undefined) return [];
+  return partIndex(sc).sections.flatMap((p) => {
+    if (!p.cut || p.extent === undefined) return [];
     const live = s.sectionLive && s.sectionLive.ref === p.ref ? s.sectionLive : null;
     const n = live ? live.n : normalize(cross(p.u, p.v));
     return [{ ref: p.ref, centre: live ? live.centre : (add(p.at, scale(add(p.u, p.v), p.extent / 2)) as Vec3), n: p.flip ? (scale(n, -1) as Vec3) : n, extent: p.extent }];

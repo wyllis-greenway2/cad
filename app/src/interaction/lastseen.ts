@@ -2,6 +2,7 @@
 // or, if it is gone, to the last one there is.
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
+import { partIndex } from "../operation/partindex.ts";
 import type { Camera } from "./camera.ts";
 import { basis, position } from "./camera.ts";
 import type { AppState } from "./control/state.ts";
@@ -11,9 +12,17 @@ export interface Thing { id: string; lo: Vec3; hi: Vec3 }
 const SKETCH = "sketch";
 
 /** The bodies in the order they were made, each with its box; with no body, the drawing (its corners) as one thing; none for an empty model. */
+const thingsKept = new WeakMap<Scene, Thing[]>();
 function thingsOf(sc: Scene): Thing[] {
+  const known = thingsKept.get(sc); // (asked for at every frame: worked out once for a scene, `in_765`)
+  if (known) return known;
+  const out = thingsFor(sc);
+  thingsKept.set(sc, out);
+  return out;
+}
+function thingsFor(sc: Scene): Thing[] {
   const bodies: Thing[] = [];
-  for (const p of Object.values(sc.parts)) if (p.kind === "body" && p.bbox) bodies.push({ id: p.id ?? p.ref, lo: p.bbox.min, hi: p.bbox.max });
+  for (const p of partIndex(sc).bodies) if (p.bbox) bodies.push({ id: p.id ?? p.ref, lo: p.bbox.min, hi: p.bbox.max });
   if (bodies.length) return bodies;
   const lo = [Infinity, Infinity, Infinity];
   const hi = [-Infinity, -Infinity, -Infinity];
