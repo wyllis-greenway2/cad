@@ -2761,3 +2761,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_606 — 2026-11-16 — directive
 > yes fix the fallback chamfer, then lets look into why the sweep has kinks even though the spline doesn't.
 (approves two things in order: fix the app's fallback chamfer (the region method) so it does not leave stray triangular faces on curved faces and at kinks, then look into why the swept edges have kinks at the joint of the two arcs although the path is smooth)
+
+## in_607 — 2026-11-17 — question
+> do you think we should chase the remaining slivers? Also what is the square profile to the path? and where should the spline line actually be located in order to loft properly?
+(asks whether the remaining sliver faces of the chamfer are worth chasing, what "square to the path" means for a profile, and where the path (the spline line) should be placed for a sweep (called a loft) to come out right; answered in chat, nothing built)
