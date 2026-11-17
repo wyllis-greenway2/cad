@@ -9,7 +9,8 @@ import { actionsFor, measureAction } from "../actions.ts";
 import type { ToolKind, Tool } from "../tools.ts";
 import { gearFields, armTool, typeKey, finish, lineNext, gearTyped, editGearTool, editPlanetaryTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf, editCamTool } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
-import type { CamKind, CamLaw } from "../../operation/cams.ts";
+import type { CamKind, CamLaw, CamLayout } from "../../operation/cams.ts";
+import { doMotionPlay, doCamFollow } from "./motion.ts";
 import { gearOfPart, gearOfSelection } from "../../operation/gearscene.ts";
 import { planetaryOfPart } from "../../operation/planetary.ts";
 import type { OpKind } from "../operations.ts";
@@ -73,9 +74,9 @@ function facePlane(s: AppState, over: Ref | null, now: number): AppState {
   return plane && sideOf(s.cam, normalOfPlane(plane)) === 0 ? animateTo(s, planeView(s.cam, plane, false), now) : s;
 }
 
-function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = null, variant: GearVariant = "gear", cam?: CamKind, law?: CamLaw): AppState {
-  if (s.tool?.kind === kind && !s.tool.plane && variantOf(s.tool.gear) === (kind === "gear" ? variant : "gear") && s.tool.cam?.kind === cam && s.tool.cam?.law === law) return { ...s, tool: null }; // pressing it again puts it away
-  const make = (): Tool => (cam ? armCam(cam, law) : armTool(kind, variant));
+function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = null, variant: GearVariant = "gear", cam?: CamKind, law?: CamLaw, layout?: CamLayout): AppState {
+  if (s.tool?.kind === kind && !s.tool.plane && variantOf(s.tool.gear) === (kind === "gear" ? variant : "gear") && s.tool.cam?.kind === cam && s.tool.cam?.law === law && s.tool.cam?.layout === layout) return { ...s, tool: null }; // pressing it again puts it away
+  const make = (): Tool => (cam ? armCam(cam, law, layout) : armTool(kind, variant));
   const armed: AppState = { ...s, tool: make(), op: null, menu: null };
   const { plane, onSketch } = sketchPlane(s, over);
   if (plane && onSketch) return animateTo({ ...armed, tool: { ...make(), plane: plane.ref, reveal: true } }, planeView(s.cam, plane, false), now);
@@ -302,6 +303,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
 /** Esc lets go in steps: the menu, then an open badge, then the tool or operation, then the selection. */
 export function doEscape(s: AppState): AppState {
   if (s.menu) return { ...s, menu: null };
+  if (s.motion) return { ...s, motion: null }; // (a joint that is being played goes back to rest)
   if (s.picking && !s.op) return { ...s, picking: null, session: { ...s.session, message: null } }; // (the operation that was waiting for what to click is given up, `in_464`)
   if (s.moverSphere) return cancelOrient(s); // (the mover is put back as it was, `in_421`)
   if (sectionNow(s) && !s.tool && !s.op && !s.repeat) return { ...s, sectionLive: null, session: { ...s.session, click: { ...s.session.click, selection: [] }, message: null } }; // (the plane is let go, as a tool is put away: it stays as a plane in the part, `in_394`, `in_396`)
@@ -436,6 +438,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   }
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
   if (id.startsWith("tool:disc:")) return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", "disc", id.slice(10) as CamLaw); // (a disc cam of this law, `dec_spline_and_cams`)
+  if (id === "tool:geneva:assembled" || id === "tool:geneva:model") return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", "geneva", undefined, id === "tool:geneva:model" ? "model" : "assembled"); // (a Geneva drive drawn in place, as a sketch or as bodies, `dec_geneva`)
   if (id === "tool:eccentric" || id === "tool:snail" || id === "tool:ratchet" || id === "tool:geneva" || id === "tool:linear") return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", id === "tool:snail" ? "snail" : id === "tool:ratchet" ? "ratchet" : id === "tool:geneva" ? "geneva" : id === "tool:linear" ? "linear" : "eccentric"); // (an eccentric cam and a snail cam, `dec_spline_and_cams`)
   if (id === "tool:worm" || id === "tool:wormwheel") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:worm" ? "worm" : "wormwheel"); // (a worm, and the wheel for one, `in_608`)
   if (id === "tool:crown") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "crown"); // (a crown gear, `dec_crown_gears`)
@@ -451,6 +454,8 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     const rec = selectionOf(s.session).map((r) => gearOfSelection(sc, r)).find((g) => !!g);
     return rec ? { ...closed, tool: meshGearTool(rec, id === "gear:meshrack", id === "gear:meshring"), op: null } : { ...closed, session: { ...s.session, message: "select a gear first" } };
   }
+  if (id === "cam:follow") return doCamFollow(closed); // (the rod that rides the cam, `dec_mechanism_motion` stage 3)
+  if (id === "motion:play") return doMotionPlay(closed); // (the joint of the selected body played, `dec_mechanism_motion`)
   if (id === "cam:edit") { // the numbers of the cam or the ratchet that is selected, in the number box (`in_768`)
     const sc = sceneOf(s.session);
     const rec = selectionOf(s.session).map((r) => gearOfPart(sc, r)).find((g) => !!g?.spec.cam);

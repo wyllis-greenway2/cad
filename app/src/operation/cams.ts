@@ -8,6 +8,7 @@ import { splineAt } from "./spline.ts";
 import { ratchetShapes, linearShapes } from "./ratchet.ts";
 import { genevaShapes } from "./geneva.ts";
 
+export type CamLayout = "apart" | "assembled" | "model";
 export type CamKind = "eccentric" | "snail" | "disc" | "ratchet" | "linear" | "geneva";
 /** how a disc cam's follower moves while it rises or returns: all three start and end at rest (no jump of speed, so the profile has no corner); the cycloidal law is the gentlest on the follower, the harmonic the simplest, the parabolic the one of steady push (an even acceleration, then an even braking) */
 export type CamLaw = "cycloidal" | "harmonic" | "parabolic";
@@ -29,6 +30,8 @@ export interface CamSpec {
   pitch?: number; base?: number;
   /** a Geneva drive (`kind: "geneva"`, `dec_geneva`): `teeth` is the slot count; the crank's pin circle radius, the pin's diameter and the clearance each side of the pin in a slot (mm) */
   crank?: number; pin?: number; clearance?: number;
+  /** a Geneva drive: how it is drawn (`dec_geneva`): `apart` (the crank and the locking disc beside the wheel, as sketches), `assembled` (all in place, the crank on the disc's shaft: a sketch of the assembly) or `model` (in place, and made into bodies: the wheel and the locking disc `layer` mm thick, the crank plate `plate` mm thick under them with its pin standing up into the wheel's slot) */
+  layout?: "apart" | "assembled" | "model"; layer?: number; plate?: number;
   /** a Geneva drive: the locking disc's radius, mm (absent: worked out; 0: no locking disc, the wheel's rim plain round) */
   lock?: number;
   /** the whole drawing turned about the shaft, degrees counter-clockwise from +x (0 if absent) */
