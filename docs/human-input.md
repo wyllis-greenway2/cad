@@ -3436,3 +3436,16 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_772 — 2026-11-17 — approval
 > Yes, shorten it to Bevel gear
 (approves shortening the menu label "Bevel gear (approx.)" to "Bevel gear", so the menu tooltip test passes)
+
+## in_773 — 2026-11-17 — directive
+> I have a lot of Claudes working in this repository, can I have you merge all their work into a main as we go so I can continually test their work regardless of which branch is making edits?
+(asks for the work of all the Claude branches to be merged into one branch as it goes, so it can be tested whichever branch is being edited)
+
+## in_774 — 2026-11-17 — directive
+> does main even have anything on it? I think we have basically been using claude/inspiring-pascal-l342k7 as main? We dont have production now, only localhost
+(asks whether a main branch has anything on it, and says claude/inspiring-pascal-l342k7 has been used as main, with no production, only localhost)
+
+## in_775 — 2026-11-17 — approval
+> yes, merge everything into it now
+(approves merging all the branches into claude/inspiring-pascal-l342k7 now, and pushing it)
+

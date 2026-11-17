@@ -62,7 +62,7 @@ export function bevelOf(spec: GearSpec): Result<BevelGeometry> {
 }
 
 /** The outline of the big end of the tooth ring: polar points (radius, angle), counter-clockwise, the first tooth centred on angle 0. */
-export function bevelPolar(spec: GearSpec): Result<[number, number][]> {
+function bevelPolar(spec: GearSpec): Result<[number, number][]> {
   const g = bevelOf(spec);
   if (!g.ok) return g;
   const { delta, R, addendum, dedendum, zv } = g.value;
