@@ -49,7 +49,7 @@ export function gearBody(s: Session, pr: Pair, which: "pinion" | "ring", turn: n
   // teeth (the intersection answers "nothing in common"): the cones are then moved along the axis by a fraction of a millimetre, as far as the first that it can cut
   const prism = s;
   let last = "";
-  for (const dx of [0, -0.3, 0.3, -0.6, 0.6, -1, 1]) {
+  for (const dx of [-0.7]) { // (one try: a failed boolean can leave the kernel unable to go on; -0.7 mm is where the cut of the 20 / 30 ring gear, which failed with the cones at 0 to +3, worked)
     const bl = blankFor(g, RM - b / 2, RM + b / 2, m, dx);
     if (typeof bl === "string") throw new Error(`${which}: ${bl}`);
     s = prism;
