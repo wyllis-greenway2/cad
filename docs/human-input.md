@@ -3091,3 +3091,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_687 — 2026-11-17 — directive
 > merge hopeful-cannon-3qzdtg next
 (asks for claude/hopeful-cannon-3qzdtg to be merged into this branch, after the others)
+
+## in_688 — 2026-11-17 — directive
+> okay when I try to make a gear, I have to add a second click in order to set the gear long enough to move over to the input menu to set gear attributes but by that time it already closes and makes the gear profile. I think this might be a misunderstanding of a general rule we have the clicking out in blank space applies, but this isn't really clicking out in blank space, it is just applying the second click to create a sketch shape. Can we have it so that the sketch still remains active untill a second click out in space cancels or starts another sketch shape? So in this case, the gear menu should still be avaialable even after a second click to set the gear.
+(asks that a gear's second click only set its size and leave the number box open; a later click in space ends it or starts another)
+
+## in_689 — 2026-11-17 — question
+> I think maybe we should get rid of the detail variable in the gear creator? because the teeth need to actually be a real tooth profile. I think we could temporarily reduce the detail for operations for speed as a coarser mesh technique though. What do you think? or should we just default the tooth detail to less say 2 or 3 instead of 4 because that is already so close to the real profile that it doesn't matter anymore? The flat, key and key depth dont actually preview in your sketch while you change the numbers. Also there seems to be a conflict that is not obious if you input flats and keys. Can you not have both? if not maybe one entry should zero the other rather than failing the sketch?
+(asks whether to drop or lower the gear Detail field; reports that flat, key and key depth do not preview; asks that typing a flat or a key zero the other instead of failing)

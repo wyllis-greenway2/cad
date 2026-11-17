@@ -217,8 +217,16 @@ test("the Gear tool is in the Sketch ring; click the centre, the pointer sets th
   assert.deepEqual(e!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Detail", "Bore", "Flat", "Key", "Key depth"]);
   assert.deepEqual(e!.fields.map((f) => f.value), ["20", "2", "20", "0", "0", "0.25", "0", "4", "0", "0", "0", "0"]);
   st = click(st, [C[0] + 22, C[1], 0]);
+  assert.equal(drawn(st).length, 0, "the click that sets the size makes nothing yet (`in_688`): the number box stays open");
+  assert.ok(st.tool!.sized, "the tool is on, the size set");
+  st = move(st, [C[0] + 60, C[1], 0]);
+  assert.ok(entryOf(scene(st.session), st.tool, st.op), "the box is still there");
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.value)[1], "2", "moving the pointer no longer changes the size");
+  st = click(st, [C[0] + 60, C[1] + 40, 0]); // (a click in space makes the gear at the size set, and starts the next one there)
   assert.ok(Math.abs(reach(st) - 22) < 1e-6, `outside radius ${reach(st)}`);
   assert.ok(selection(st.session).length === 1, "the figure is selected");
+  assert.equal(st.tool!.points.length, 1, "the next gear starts where it was clicked");
+  assert.ok(!st.tool!.sized);
   assert.equal(drawn(st).length, 20 * 12, "twelve corners to a tooth: two sides of five points and the two feet below the base circle");
   assert.equal(scene(st.session).gears!.length, 1, "it keeps its numbers");
   st = { ...st, session: undoLast(st.session) };
@@ -364,7 +372,8 @@ test("Ring gear tool: the pointer sets the outside of the wall; typed Wall chang
   st = click(st, C);
   st = move(st, [C[0] + 45, C[1], 0]);
   assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Wall", "Backlash", "Clearance"]);
-  st = click(st, [C[0] + 45, C[1], 0]);
+  st = click(st, [C[0] + 45, C[1], 0]); // (sets the size)
+  st = click(st, [C[0] + 45, C[1], 0]); // (makes it, `in_688`)
   const rec = scene(st.session).gears![0]!;
   assert.equal(rec.spec.internal, true);
   const g = must(gearOutline(rec.spec));
@@ -589,7 +598,7 @@ test("a gear, a rack or a partner that is not made says why, and the tool stays 
   assert.ok(st.tool, "the tool is still on");
   st = reduce(st, { type: "typed", key: "Backspace", shift: false }, env); st = typeText(st, "12"); // (12 teeth with a pressure angle that is no angle)
   st = key(st, "Tab"); st = key(st, "Tab"); st = typeText(st, "0");
-  const clicked = click(st, [C[0] + 10, C[1], 0]);
+  const clicked = click(click(st, [C[0] + 10, C[1], 0]), [C[0] + 10, C[1], 0]); // (the first sets the size, the second makes it, `in_688`)
   assert.match(say(clicked), /pressure angle/);
   // a rack too thin at its tips; backlash larger than the tooth
   let r = reduce(top(), { type: "begin", name: "gear" }, env);
@@ -633,4 +642,30 @@ test("a gear's clearance field: the root clearance in modules (0.25 shown), type
   const more = run(s, { type: "setGear", id: "g_001", spec: { teeth: 20, module: 2, clearance: 0.6 } });
   assert.ok(!more.message, more.message ?? "");
   assert.ok(bodyVolume(more) < bodyVolume(s), "a deeper root takes more away");
+});
+
+test("a flat and a keyway typed together: the one typed last wins and the other goes to nothing, not a failed sketch; the preview shows the bore's own shape (`in_689`)", async () => {
+  const { gearTyped, finish } = await import("../src/interaction/tools.ts");
+  let st = top();
+  st = reduce(st, { type: "begin", name: "gear" }, env);
+  st = click(st, C);
+  st = move(st, [C[0] + 22, C[1], 0]);
+  const f = (t: typeof st.tool, field: number, text: string) => gearTyped(t!, field, text);
+  const round = f(st.tool, 8, "10"); // bore 10
+  const plain = previewFor(scene(st.session), round)!;
+  assert.ok(plain.circle, "a round bore is the one circle");
+  let t = f(round, 9, "1"); // and a flat of 1
+  const withFlat = previewFor(scene(st.session), t)!;
+  assert.equal(withFlat.circle, null, "a bore with a flat is drawn as its own outline");
+  assert.ok(withFlat.segments.length > plain.segments.length + 10);
+  t = f(t, 10, "3"); // a key 3 wide with the flat still typed: the key (typed last) wins
+  const fin = finish(scene(st.session), t!)!;
+  assert.ok(fin, "it makes a gear");
+  const spec = (fin.command as { spec: { flat?: number; key?: number } }).spec;
+  assert.equal(spec.flat, undefined, "the flat is dropped");
+  assert.equal(spec.key, 3);
+  const back = finish(scene(st.session), f(t, 9, "1"))!; // the flat typed again: the flat wins
+  const spec2 = (back.command as { spec: { flat?: number; key?: number } }).spec;
+  assert.equal(spec2.key, undefined);
+  assert.equal(spec2.flat, 1);
 });

@@ -269,7 +269,7 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
     // a circle's centre on another circle's centre: it will be made concentric
     const about = raw && pl && pl.kind === "plane" && s.tool.kind === "circle" && !s.tool.points.length ? circleCentredAt(sc, pl, raw) : (s.tool.concentric ?? null);
     const hints: Hint[] = h ? h.hints : about ? [{ kind: "concentric", ref: about }] : [];
-    if (raw) next = { ...next, tool: { ...s.tool, cursor: h ? h.at : raw, hints } };
+    if (raw && !s.tool.sized) next = { ...next, tool: { ...s.tool, cursor: h ? h.at : raw, hints } }; // (a gear whose size a click has set keeps it, `in_688`)
   }
   // trim: the part of the line or circle under the pointer that a click would cut off
   // (and the line or circle itself is not lit as a whole: only the part that would go is, in the selected blue, and nothing at all where nothing crosses; `in_206`)
@@ -408,6 +408,12 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   const hint = flat ? hintFor(sc, t, plane, pv, flat) : null;
   const at = hint ? hint.at : flat;
   if (!at) return base;
+  if (t.kind === "gear" && t.points.length) {
+    // a gear: the first click after its centre only sets the size and the number box stays open; the next click in space makes it and starts the next gear (`in_688`)
+    if (!t.sized) return { ...base, tool: { ...t, cursor: at, sized: true } };
+    const done = commitFigure(base, finish(sc, t));
+    return done.tool && !done.tool.points.length && !done.session.message ? clickWithTool(done, i, env, refs) : done;
+  }
   if (t.kind === "arc" && t.points.length < 2) {
     // an arc: the second click is its other end, the third sets how far it bows out (the pointer's distance from the chord); an end on a line or a circle says so
     return dist(at, t.points[0]!) < 1e-6 ? base : { ...base, tool: { ...t, points: [...t.points, at], cursor: at, typed: ["", ""], ends: [...(t.ends ?? []), hint?.hints ?? []] } };
