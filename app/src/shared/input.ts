@@ -57,6 +57,7 @@ export type Intent =
   | { type: "faceKind"; kind: "move" | "extrude" | "extend" }
   /** a fillet of one edge: the same size all along, or a size at each end (`in_406`) */
   | { type: "loftKind"; id: string }
+  | { type: "sweepPlace"; id: string }
   /** game mode (`in_467`): the mouse turning while the menu is open (its selection goes round the ring) */
   | { type: "menuTurn"; dx: number; dy: number }
   | { type: "sizeKind"; kind: "constant" | "variable" | "twoDistances" | "swap" }

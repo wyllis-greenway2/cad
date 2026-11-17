@@ -173,6 +173,7 @@ const bodyChips = createBodyChips(document.body, (id) => dispatch({ type: "runAc
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const refusalChip = createRefusalChip(document.body, () => dispatch({ type: "overrideRefusal" }), () => dispatch({ type: "holdFlash" }));
 const faceKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "faceKind", kind: id as "move" | "extrude" | "extend" }));
+const sweepKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "sweepPlace", id }), "Sweep:");
 const loftKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "loftKind", id }), "Loft:");
 const sizeKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "sizeKind", kind: id as "constant" | "variable" | "twoDistances" | "swap" }), "Size:");
 const addChip = createAddChip(document.body, () => dispatch({ type: "runAction", id: "select:add" }));
@@ -392,6 +393,7 @@ function frame(now: number) {
     faceKindChip.update(f.faceKinds);
     sizeKindChip.update(f.sizeKinds);
     loftKindChip.update(f.loftKinds);
+    sweepKindChip.update(f.sweepKinds);
     resetView.update(f.resetView);
     // game mode and the straight (orthographic) view, in and out, cleanly (`in_467`, `in_469`, `in_471`): going in while a straight view is on or on its way puts it away smoothly (the animation is given up
     // properly, so no half-made view is left); a view that becomes straight or goes on its way to it while in game mode ends the game mode

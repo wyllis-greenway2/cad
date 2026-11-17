@@ -31,3 +31,40 @@ export function walkPath(get: Lookup, lines: readonly Ref[]): { ok: true; sides:
   }
   return { ok: true, sides };
 }
+
+const sub3 = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const dot3 = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross3 = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const unit3 = (a: Vec3): Vec3 => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+
+/**
+ * Where a sweep made "along the line" (`dec_sweep_modes`) starts: the end of the path nearer the shape's plane (as the kernel takes it), and the direction the path leaves it in (the arc's tangent for an arc), so the shape
+ * can stand on that point square to the path. `plane` is a point on the shape's plane and its normal.
+ */
+export function pathStart(sides: readonly PathSide[], plane: { at: Vec3; n: Vec3 }): { point: Vec3; tangent: Vec3 } {
+  const off = (q: Vec3): number => Math.abs(dot3(sub3(q, plane.at), plane.n));
+  const head = sides[0]!, tail = sides.at(-1)!;
+  const fromTail = off(tail.b) < off(head.a);
+  const [p, o, m] = fromTail ? [tail.b, tail.a, tail.m] : [head.a, head.b, head.m];
+  const v2 = sub3(o, p);
+  if (!m) return { point: p, tangent: unit3(v2) };
+  const v1 = sub3(m, p);
+  const n = cross3(v1, v2);
+  const nn = dot3(n, n);
+  if (nn < 1e-18) return { point: p, tangent: unit3(v2) };
+  const [q1, q2] = [cross3(v2, n), cross3(n, v1)];
+  const cp: Vec3 = [0, 1, 2].map((i) => (dot3(v1, v1) * q1[i]! + dot3(v2, v2) * q2[i]!) / (2 * nn)) as unknown as Vec3; // (centre minus p)
+  let t = unit3(cross3(n, cp));
+  if (dot3(t, v1) < 0) t = [-t[0], -t[1], -t[2]];
+  return { point: p, tangent: t };
+}
+
+/** The direction in the plane square to `tangent` that is nearest to `want` (the shape's own x direction), or a world direction when they line up. */
+export function squareXDir(tangent: Vec3, want: Vec3): Vec3 {
+  for (const w of [want, [0, 0, 1] as Vec3, [1, 0, 0] as Vec3]) {
+    const d = dot3(w, tangent);
+    const x: Vec3 = [w[0] - d * tangent[0], w[1] - d * tangent[1], w[2] - d * tangent[2]];
+    if (Math.hypot(x[0], x[1], x[2]) > 1e-6) return unit3(x);
+  }
+  return [1, 0, 0];
+}

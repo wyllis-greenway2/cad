@@ -15,9 +15,18 @@ import { extrudeCap } from "./operations.ts";
 /** The step of a sweep: the shape is the step's figure, the path is the lines it follows (named, so it follows a later edit of them). */
 export function sweepCommand(scene: Scene, op: Op): Command | null {
   if (!op.sweepFig || !op.sweepLines?.length) return null;
-  return { type: "addStep", step: { id: nextId(scene, "s"), type: "sweep", parts: op.sweepFig.outer, params: { ...figureParams([op.sweepFig]), path: op.sweepLines.join(",") } } };
+  return { type: "addStep", step: { id: nextId(scene, "s"), type: "sweep", parts: op.sweepFig.outer, params: { ...figureParams([op.sweepFig]), path: op.sweepLines.join(","), place: op.sweepPlace === "sketch" ? "sketch" : "path" } } };
 }
 
+
+/** The two ways to place the shape (`dec_sweep_modes`), as chips. */
+export function sweepChips(op: Op): { id: string; label: string; title: string; on: boolean }[] {
+  const sketch = op.sweepPlace === "sketch";
+  return [
+    { id: "path", label: "Along the line", title: "A copy of the shape stands with the middle of its box on the start of the path, square to the path, and follows it", on: !sketch },
+    { id: "sketch", label: "From the sketch", title: "The shape is carried along the path from where it is drawn", on: sketch },
+  ];
+}
 
 /** The corner the shape is carried from, to show as a dot: the end of the path nearer the shape's plane. */
 export function sweepStart(scene: Scene, op: Op): Ref[] {

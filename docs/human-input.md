@@ -2769,3 +2769,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_608 — 2026-11-17 — directive
 > maybe we should have a loft option where a selected profile follows a line as it does now starting from the profile, or an option that centers a copy of the sketch on the spline line itself and follows it always starting normal to the line? So you could have the option to loft from the sketch or loft through the line.
 (proposes two modes for the sweep: the profile follows the path from where it is drawn, as now; or a copy of the profile is centred on the path itself and follows it, always starting square to the path; asks for the option of both; the human's word "loft" is the sweep along a path)
+
+## in_609 — 2026-11-17 — approval
+> Middle of its box (Recommended) / Along the line (Recommended)
+(answers two questions put in chat about the sweep's new "along the line" mode: the point of the sketch placed on the path is the middle of its box, and a new sweep starts in the "along the line" mode; existing sweeps stay as they are)

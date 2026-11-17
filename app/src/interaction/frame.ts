@@ -33,6 +33,7 @@ import type { Session } from "./session.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import { SIMILAR_RULES } from "./similar.ts";
 import { loftChips, loftStarts } from "./loft.ts";
+import { sweepChips } from "./sweep.ts";
 import { sweepStart } from "./sweep.ts";
 import { moverOp } from "./control/pose.ts";
 import { mirrorPlane } from "./mirror.ts";
@@ -143,6 +144,7 @@ export interface Frame {
   faceKinds: { id: "move" | "extrude" | "extend"; label: string; title: string; on: boolean }[] | null;
   /** a fillet of one edge: the same size all along, or a size at each end (`in_406`) */
   /** a revolve: the lines the figure can turn about, one chosen (`dec_spiral_extrude`) */
+  sweepKinds: { id: string; label: string; title: string; on: boolean }[] | null;
   loftKinds: { id: string; label: string; title: string; on: boolean }[] | null;
   sizeKinds: { id: "constant" | "variable" | "twoDistances" | "swap"; label: string; title: string; on: boolean }[] | null;
   /** the pill of adding to the selection (`in_539`): on (every tap adds, Done leaves), an offer (something is selected: a finger can start it), or none */
@@ -413,6 +415,7 @@ export function frameOf(s: AppState, size: { w: number; h: number }, now = 0): F
     resetView: !s.anim && !s.tool && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
     modeSwitch: gizmo ? (s.repeat ? repeatSwitchOf(s.repeat, gizmo.centre, gizmo.handles.flatMap((h) => h.points)) : modeSwitchOf(s.op ?? activeOp(s), gizmo.centre, gizmo.handles.flatMap((h) => h.points))) : null,
     faceKinds: faceKinds(s),
+    sweepKinds: s.op?.kind === "sweep" ? sweepChips(s.op) : null,
     loftKinds: s.op?.kind === "loft" ? loftChips(sceneOf(s.session), s.op) : null,
     sizeKinds: sizeKinds(s),
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)

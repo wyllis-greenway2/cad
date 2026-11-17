@@ -104,6 +104,8 @@ export interface Op {
   /** sweep (`dec_sweep`): the shape carried (its outer sides or circle and the figures inside it) and the path it is carried along, as the step stores it */
   sweepFig?: Figure;
   sweepLines?: Ref[];
+  /** "path": a copy of the shape stands square on the path (`dec_sweep_modes`, the default of a new sweep); "sketch": it is carried from where it is drawn. */
+  sweepPlace?: "path" | "sketch";
   loftFigs?: Figure[];
   loftRuled?: boolean;
   loftSplit?: boolean;
@@ -362,7 +364,7 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     const path = walkPath(lookup(scene), lines.map((l) => l.ref));
     if (!path.ok) return { ok: false, why: path.why };
     const fig = figureOf(scene, drawnFace(scene, [shapes[0]!])!);
-    return { ok: true, op: { ...base, parts: fig.outer, sweepFig: fig, sweepLines: lines.map((l) => l.ref) } };
+    return { ok: true, op: { ...base, parts: fig.outer, sweepFig: fig, sweepLines: lines.map((l) => l.ref), sweepPlace: "path" } };
   }
   if (kind === "revolve") {
     // closed figures turned about a line in their plane, any angle, with an advance for a spiral (`dec_spiral_extrude`): the line selected with them, a world axis in their plane, or one of their own sides; a figure

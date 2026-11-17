@@ -11,7 +11,7 @@ import type { KernelGraph, KernelOp } from "./kernel/adapter.ts";
 import { decodeEdge, decodeFace } from "./body.ts";
 import { loopOf } from "../operation/loops.ts";
 import { matchSections } from "./loftmatch.ts";
-import { walkPath } from "../operation/path.ts";
+import { walkPath, pathStart, squareXDir } from "../operation/path.ts";
 import { NONE, applyPoint, applyDir, inverse, laterMotion } from "../operation/frames.ts";
 import type { Rigid } from "../operation/frames.ts";
 export { loopOf };
@@ -142,6 +142,32 @@ export function buildGraph(scene: Scene): GraphResult {
         const walked = walkPath(get, lines);
         if (!walked.ok) { errors[st.id] = walked.why; break; }
         const path = walked.sides.map((x) => ({ a: [...x.a], b: [...x.b], ...(x.m ? { m: [...x.m] } : {}) }));
+        if (st.params.place === "path") {
+          // "along the line" (`dec_sweep_modes`): a copy of the shape, the middle of its box on the start of the path, square to the path there
+          const pl = get(get(figs[0]!.outer[0]!)?.plane ?? ("" as Ref));
+          if (pl && pl.kind === "plane") {
+            const back = inverse(laterMotion(scene.steps, scene.steps.indexOf(st), (body) => pl.body === body));
+            const start = pathStart(walked.sides, { at: pl.at, n: normalOfPlane(pl) });
+            const fr = { origin: [...start.point].map(r9), xDir: [...squareXDir(start.tangent, applyDir(back, normalize(pl.u)))].map(r9), normal: [...start.tangent].map(r9) };
+            type Flat = { points?: number[][]; mids?: (number[] | null)[]; at?: number[]; frame?: unknown };
+            const box: number[][] = [];
+            const o = sk as unknown as Flat;
+            if (o.points) box.push(...o.points, ...((o.mids ?? []).filter(Boolean) as number[][])); else if (o.at) box.push(o.at);
+            const ext = (i: number) => [Math.min(...box.map((q) => q[i]!)), Math.max(...box.map((q) => q[i]!))];
+            const [ex, ey] = [ext(0), ext(1)];
+            const c = [r6((ex[0]! + ex[1]!) / 2), r6((ey[0]! + ey[1]!) / 2)];
+            const sh = (q: number[]): number[] => [r6(q[0]! - c[0]!), r6(q[1]! - c[1]!)];
+            const move = (op: KernelOp): void => {
+              const x = op as unknown as Flat;
+              if (x.points) x.points = x.points.map(sh);
+              if (x.mids) x.mids = x.mids.map((q) => (q ? sh(q) : q));
+              if (x.at) x.at = sh(x.at);
+              x.frame = fr;
+            };
+            move(sk);
+            for (const h of ops) if (holes.includes(h.id)) move(h);
+          }
+        }
         ops.push(sk);
         ops.push({ id: xid, type: "sweep", profile: sk.id, ...(holes.length ? { holes } : {}), path, ...(prev ? { target: prev } : {}), mode: !prev ? "add" : st.params.mode === "add" || st.params.mode === "cut" || st.params.mode === "new" ? String(st.params.mode) : "cutOrAdd" });
         prev = xid;
