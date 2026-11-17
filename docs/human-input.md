@@ -3380,3 +3380,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_758 — 2026-11-17 — approval
 > Yes, build the helical rack and the wheel land
 (approves building the helical rack (with the Helix field on a rack and meshing it with a helical gear) and the straight land at each face of the worm wheel, two of the four options of `q_gear_finishing`; the tooth chamfer and the spline flank are not answered)
+
+## in_759 — 2026-11-17 — approval
+> Yes, build the toothed land cut by the worm's envelope
+(answers the open question of `q_gear_finishing`: the worm wheel's land is to keep the tooth section out to the face and be cut back by the worm's envelope, instead of the round shoulder)

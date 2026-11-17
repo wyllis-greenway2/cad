@@ -140,12 +140,18 @@ function ownedSpecs(s: Scene, rec: GearRecord): Omit<Step, "id">[] {
   const body = bodyParams(s, rec);
   return body ? [body.step] : [];
 }
+/** A gear's own steps that name each other's bodies (`@s0`: the body the gear's first step made, `@s1` the second's, as a worm wheel's land is joined): the names put in, now that the steps are named. */
+function resolveOwnRefs(steps: readonly Step[]): Step[] {
+  return steps.map((st) => st.parts.some((r) => /^@s\d+$/.test(r)) ? { ...st, parts: st.parts.map((r) => { const m = /^@s(\d+)$/.exec(r); return m ? (`b/x_${steps[Number(m[1])]!.id}/o` as Ref) : r; }) } : st);
+}
 const ownedBy = (id: string) => (st: Step): boolean => st.params.gear === id;
 /** The steps that make the body of a gear, named (the scene's next names), with the scene they are added to: its counter is moved on past them. */
 export function ownedSteps(s: Scene, rec: GearRecord): { scene: Scene; steps: Step[] } {
   let cur = s;
   const steps: Step[] = [];
   for (const spec of ownedSpecs(s, rec)) { const st: Step = { ...spec, id: nextId(cur, "s") }; steps.push(st); cur = bumpCounter({ ...cur, steps: [...cur.steps, st] }, st.id); }
+  const named = resolveOwnRefs(steps);
+  if (named.some((st, i) => st !== steps[i])) { cur = { ...cur, steps: cur.steps.map((st) => named.find((n) => n.id === st.id) ?? st) }; named.forEach((st, i) => { steps[i] = st; }); }
   // a worm made for a wheel that is there already: its threads and cuts act on every piece that stands before them (a step that adds or cuts works on all the bodies made so far, and a thread touching the wheel's teeth would join it),
   // so its steps go in front of the wheel's, and the wheel (a piece of its own) comes after, as when the wheel is made for the worm (`in_708`)
   if (rec.spec.worm && steps.length) {
@@ -208,7 +214,8 @@ export function setGear(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: 
   let counter: Scene = { ...s, steps };
   const made: Step[] = fresh.map((spec, i) => { const name = old[i]?.id ?? nextId(counter, "s"); const st: Step = { ...spec, id: name }; if (!old[i]) counter = bumpCounter({ ...counter, steps: [...counter.steps, st] }, name); return st; });
   const place = at0 < 0 ? kept.length : steps.slice(0, at0).filter((st) => !own(st)).length;
-  const turned = [...kept.slice(0, place), ...made, ...kept.slice(place)];
+  const named = resolveOwnRefs(made);
+  const turned = [...kept.slice(0, place), ...named, ...kept.slice(place)];
   return ok({ ...counter, steps: turned, gears: gearsOf(s).map((g) => (g === rec ? next : g)) });
 }
 /** A gear taken away: its record and its parts, and the constraints on them. A step made from it stays and is reported broken, as one made from a deleted figure is. */

@@ -33,7 +33,7 @@ export const GEAR_HINTS: Record<GearKey, string> = {
   runout: "How long the thread takes to run out into the shaft at each end, in mm (a cone cut away from the tooth, so it does not stop in a square wall). 0 stops it square. Only for a worm with a journal; left alone: a pitch or two.",
   mate: "Bevel gear (an APPROXIMATION of the standard tooth, to be verified): how many teeth the gear it meshes with has. With the shaft angle it fixes this gear's cone angle; the pair share the module.",
   shaft: "Bevel gear: the angle between the two shafts in degrees (90 is the usual pair). From 30 to 150.",
-  land: "Worm wheel: a straight cylindrical land at each face, in mm (one module by default): the teeth keep their section out to the faces instead of ending in a thin wedge, as on a hobbed wheel. 0 is the throated part alone.",
+  land: "Worm wheel: a straight land at each face, in mm (none by default; a module or two is usual, and it takes the kernel several times as long): the teeth keep their section out to the faces, cut back where the worm's thread would be, instead of ending in a thin wedge. 0 is the throated part alone.",
   face: "Bevel gear: the width of the teeth along the cone as a fraction of the cone distance. A third is the usual limit (0.1 to 0.5).",
   starts: "How many threads the worm has (1 to 4). The wheel turns this many teeth for each turn of the worm, so more starts is a faster, steeper drive.",
 };

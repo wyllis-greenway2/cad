@@ -95,7 +95,7 @@ function meshWormWheel(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: numb
   const probe = wheelOf({ teeth: z2, module: s.module, ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), wheel: { ...wheel, width: 1 } });
   if (!probe.ok) return probe;
   const width = partner.width && partner.width > 0 ? partner.width : Math.min(6 * s.module, 1.2 * probe.value.throat);
-  const spec: GearSpec = { teeth: z2, module: s.module, ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), wheel: { ...wheel, width, land: partner.land !== undefined && partner.land >= 0 ? partner.land : s.module } }; // (a land of a module at each face unless another is typed, `in_758`)
+  const spec: GearSpec = { teeth: z2, module: s.module, ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), wheel: { ...wheel, width, land: partner.land !== undefined && partner.land > 0 ? partner.land : 0 } }; // (no land unless one is typed: it takes the kernel about four times as long to make the wheel, `in_759`)
   const w = wheelOf(spec);
   if (!w.ok) return w;
   const t = src.turn ?? 0;

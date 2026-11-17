@@ -303,7 +303,7 @@ function gearSpecOf(t: Tool): GearSpec | null {
     const starts = Math.round(typed("starts") ?? b?.wheel?.starts ?? 1);
     const throat = diameter / 2 - 1.25 * module + 0.25 * module;
     const width = typed("width") ?? b?.wheel?.width ?? Math.min(6 * module, 1.2 * throat);
-    return { teeth: Math.round(typed("teeth") ?? b?.teeth ?? 30), module, ...(pressure !== undefined ? { pressure } : {}), wheel: { starts, diameter, width, land: typed("land") ?? b?.wheel?.land ?? module }, ...(bore ? { bore, ...shapeOf(typed, b, fields[g.field]?.key) } : {}) };
+    return { teeth: Math.round(typed("teeth") ?? b?.teeth ?? 30), module, ...(pressure !== undefined ? { pressure } : {}), wheel: { starts, diameter, width, land: typed("land") ?? b?.wheel?.land ?? 0 }, ...(bore ? { bore, ...shapeOf(typed, b, fields[g.field]?.key) } : {}) };
   }
   if (g.pulley) { // a timing pulley: its grooves, how much bigger than the belt tooth they are, and a bore; the belt fixes the rest
     const [clearance, bore] = [typed("clearance") ?? b?.clearance, typed("bore") ?? b?.bore];
