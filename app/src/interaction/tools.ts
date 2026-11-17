@@ -342,7 +342,7 @@ function gearMade(scene: Scene, t: Tool): Result<GearTarget> | null {
   const spec = bore ? { ...r.value.spec, bore, ...shapeOf(typed, undefined, fields[g.field]?.key) } : r.value.spec;
   const o = gearOutline(spec);
   if (!o.ok) return err(o.error);
-  return ok({ ...r.value, spec, live: { teeth, ratio: srcRack ? 0 : teeth / src.spec.teeth, angle: (where * 180) / Math.PI, offset: src.spec.worm ? wOff : where, width: r.value.spec.wheel?.width ?? 0, bore: 0 } });
+  return ok({ ...r.value, spec, live: { teeth, ratio: srcRack ? 0 : teeth / src.spec.teeth, angle: (where * 180) / Math.PI, offset: src.spec.worm ? wOff : where, width: r.value.spec.wheel?.width ?? 0, bore: spec.bore ?? 0, flat: spec.flat ?? 0, key: spec.key ?? 0, keydepth: spec.keyDepth ?? (spec.bore ? standardKey(spec.bore)?.t2 ?? 0 : 0) } });
 }
 /** The gear to be made (or changed) by the tool as it stands: its numbers, where it stands and how it is turned, and what each field of the box says while nothing is typed in it. A partner (`in_579`) is where the pointer says (a gear: the direction of it from the gear it meshes with; a gear on a rack: how far along the rack), or as typed. Null while there is none. */
 function gearTarget(scene: Scene, t: Tool): GearTarget | null {
@@ -385,6 +385,20 @@ export function gearFix(scene: Scene, t: Tool): { tool: Tool; field: number; mes
     return { tool: { ...fixed, gear: { ...gearState(fixed), field: i } }, field: i, message: `${why}: ${fields[i]!.label} ${g.typed[i]} is taken back to ${text(good)}` };
   }
   return null;
+}
+const guardMemo = new WeakMap<Scene, Map<string, ReturnType<typeof gearFix>>>();
+/**
+ * A gear that cannot be made while its numbers are being typed (`in_694`): the gear it would be with the number that spoils it taken back to the nearest value that works (what Enter would do), for the drawing to show in red
+ * and for the box to mark the field and say why; null while the gear can be made. Worked out once for each set of numbers (the bisection is not done at every frame).
+ */
+export function gearGuard(scene: Scene, t: Tool): { field: number; why: string; tool: Tool } | null {
+  if (t.kind !== "gear") return null;
+  const key = JSON.stringify([t.gear?.typed, t.cursor, t.points, t.gear?.editing, t.gear?.field]);
+  const memo = guardMemo.get(scene) ?? new Map<string, ReturnType<typeof gearFix>>();
+  guardMemo.set(scene, memo);
+  if (!memo.has(key)) memo.set(key, gearFix(scene, t));
+  const fx = memo.get(key);
+  return fx ? { field: fx.field, why: gearProblem(scene, t) ?? fx.message, tool: fx.tool } : null;
 }
 /** What each field of the number box says while nothing is typed in it: the numbers as they are now. */
 export function gearLive(scene: Scene, t: Tool): number[] | null {
@@ -461,7 +475,9 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
   }
   if (t.kind === "circle") return { segments: [], circle: { center: t.points[0]!, radius: circleRadius(pl, t), normal: n }, cursor: t.cursor };
   if (t.kind === "gear") {
-    const target = gearTarget(scene, t);
+    let target = gearTarget(scene, t);
+    let red = !!t.gear?.bad;
+    if (!target) { const guard = gearGuard(scene, t); target = guard ? gearTarget(scene, guard.tool) : null; red = red || !!target; } // (numbers that make no gear: the nearest that does, in red, `in_694`)
     const o = target ? gearOutline(target.spec) : null;
     if (!target || !o || !o.ok) return null;
     const [cx, cy] = localOf(pl, target.at);
@@ -498,7 +514,7 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
       } else for (const r of [o.value.rootRadius, -o.value.rootRadius, o.value.tipRadius, -o.value.tipRadius]) segments.push([at([-L, r]), at([L, r])]);
       const b = (target.spec.bore ?? 0) / 2;
       if (b > 0) for (const x of [-L, L]) ring(x, b, 0, 24);
-      return { segments, circle: null, cursor: t.cursor, ...(t.gear?.bad ? { red: true as const } : {}) };
+      return { segments, circle: null, cursor: t.cursor, ...(red ? { red: true as const } : {}) };
     }
     if (target.spec.wheel) { // a worm wheel (`in_693`): its wire frame: the circles of its tip surface (an arc about the worm's axis, so smaller at the faces than in the middle), its root and its bore, at the middle and at each face
       const g = wheelOf(target.spec);
@@ -507,7 +523,7 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
         for (const h of [-hw, 0, hw]) { const c = [target.at[0] + n[0] * h, target.at[1] + n[1] * h, target.at[2] + n[2] * h] as Vec3; ringAbout(segments, pl, c, g.value.tipAt(h)); ringAbout(segments, pl, c, g.value.rootAt(h)); }
         const b = (target.spec.bore ?? 0) / 2;
         if (b > 0) for (const h of [-hw, hw]) ringAbout(segments, pl, [target.at[0] + n[0] * h, target.at[1] + n[1] * h, target.at[2] + n[2] * h], b);
-        return { segments, circle: null, cursor: t.cursor, ...(t.gear?.bad ? { red: true as const } : {}) };
+        return { segments, circle: null, cursor: t.cursor, ...(red ? { red: true as const } : {}) };
       }
       return { segments, circle: { center: target.at, radius: o.value.pitchRadius, normal: n }, cursor: t.cursor };
     }
@@ -540,7 +556,7 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
         segments.push([prev, q]); prev = q;
       }
     });
-    return { segments, circle: shaped ? null : o.value.outerRadius !== undefined ? { center: target.at, radius: o.value.outerRadius, normal: n } : bore > 0 ? { center: target.at, radius: bore / 2, normal: n } : null, cursor: t.cursor, ...(t.gear?.bad ? { red: true as const } : {}) };
+    return { segments, circle: shaped ? null : o.value.outerRadius !== undefined ? { center: target.at, radius: o.value.outerRadius, normal: n } : bore > 0 ? { center: target.at, radius: bore / 2, normal: n } : null, cursor: t.cursor, ...(red ? { red: true as const } : {}) };
   }
   if (t.kind === "arc") {
     const arc = t.points.length >= 2 ? arcOf(pl, t) : null;

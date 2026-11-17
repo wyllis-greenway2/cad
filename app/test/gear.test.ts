@@ -702,3 +702,28 @@ test("a number that makes no gear is taken back to the nearest that does, and fl
   const keyHint = entryOf(sc, withBore, null)!.fields.find((f) => f.label === "Key")!.hint!;
   assert.match(keyHint, /10 mm bore the standard key is 3 wide and the keyway 1.4 deep/);
 });
+
+test("a gear meshed inside a ring that is made too big does not disappear: the nearest gear that fits is drawn in red, the field is marked and the box says why; the bore it has is shown (`in_694`)", () => {
+  let st = reduce(top(), { type: "begin", name: "gear" }, env);
+  st = reduce(st, { type: "runAction", id: "tool:ring" }, env);
+  st = click(st, C);
+  st = typeText(st, "40"); st = key(st, "Tab"); st = typeText(st, "2");
+  st = key(st, "Enter");
+  const made = Object.values(scene(st.session).parts).find((p) => p.kind === "face" && p.ref.includes("g_"))!;
+  st = reduce(st, { type: "escape" }, env);
+  st = reduce({ ...st, tool: null, session: { ...st.session, click: { ...st.session.click, selection: [made.ref] } } }, { type: "runAction", id: "gear:mesh" }, env);
+  assert.ok(st.tool?.gear?.mesh);
+  st = move(st, [C[0] + 10, C[1], 0]);
+  const e0 = entryOf(scene(st.session), st.tool, st.op)!;
+  assert.equal(e0.warn, undefined, "the default gear fits");
+  assert.equal(e0.fields.find((f) => f.label === "Bore")!.value, "5", "the bore it has is the one shown");
+  st = typeText(st, "40"); // (a gear as big as its ring)
+  const e = entryOf(scene(st.session), st.tool, st.op)!;
+  assert.ok(e.warn && e.warn.length > 5, `a reason is given: ${e.warn}`);
+  assert.equal(e.fields[0]!.bad, true, "the Teeth field is marked");
+  const pv = previewFor(scene(st.session), st.tool);
+  assert.ok(pv && pv.red && pv.segments.length > 20, "the nearest gear that fits is drawn, in red");
+  st = key(st, "Enter");
+  assert.equal(scene(st.session).gears!.length, 1, "Enter takes the number back and makes nothing yet");
+  assert.ok(Number(st.tool!.gear!.typed[0]) < 40, `taken back to ${st.tool!.gear!.typed[0]}`);
+});

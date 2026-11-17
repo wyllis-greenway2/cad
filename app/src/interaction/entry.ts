@@ -8,7 +8,7 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Plane } from "../operation/part.ts";
 import type { Tool, Preview } from "./tools.ts";
-import { FIELDS, previewOf, rectEnd, circleRadius, lineNext, arcOf, gearFields, gearLive } from "./tools.ts";
+import { FIELDS, previewOf, rectEnd, circleRadius, lineNext, arcOf, gearFields, gearLive, gearGuard } from "./tools.ts";
 import type { Op } from "./operations.ts";
 import type { Gizmo } from "./gizmo.ts";
 import type { Camera } from "./camera.ts";
@@ -22,7 +22,7 @@ import { loftNumbers, loftGapNumbers } from "./loft.ts";
 
 export interface EntryField { /** the number was just taken back to one that makes a gear: it flashes red (`in_690`) */ bad?: boolean; /** a line that says what the number is (the gear box, `in_685`) */ hint?: string; label: string; value: string; active: boolean; typed: boolean; /** a short name shown in front of the number when there are several (X Y Z) */ short?: string; /** which numbered field of its operation it is, when the operation has several bubbles */ index?: number; /** the unit of this field when it is not the entry's (a position and a rotation in one bubble) */ unit?: string }
 /** `at`: where in the scene the bubble sits (null: no place to attach it to) */
-export interface Entry { /** shown as a labelled panel that stands still, not a bubble that follows the pointer: a box of many numbers to click into (the gear tool, `in_685`) */ panel?: string; fields: EntryField[]; unit: string; /** how plainly it shows: less than 1 while it fades out (`in_439`) */ opacity?: number; /** the number typed is also a constraint (a size of a figure): a lock shows by it, closed once typed (`in_384`) */ constraint?: boolean; at?: Vec3 | null; /** the other end of the arrow the bubble is at the tip of: the bubble stands out past the tip, away from it, so it does not cover the arrow */ from?: Vec3 | null }
+export interface Entry { /** a gear whose numbers make none: why, in red (`in_694`) */ warn?: string; /** shown as a labelled panel that stands still, not a bubble that follows the pointer: a box of many numbers to click into (the gear tool, `in_685`) */ panel?: string; fields: EntryField[]; unit: string; /** how plainly it shows: less than 1 while it fades out (`in_439`) */ opacity?: number; /** the number typed is also a constraint (a size of a figure): a lock shows by it, closed once typed (`in_384`) */ constraint?: boolean; at?: Vec3 | null; /** the other end of the arrow the bubble is at the tip of: the bubble stands out past the tip, away from it, so it does not cover the arrow */ from?: Vec3 | null }
 
 
 /** The number chip: for a tool, its fields (what is typed, else the live size); for an operation, its one number. Null when there is nothing to show yet. */
@@ -89,8 +89,9 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
   } else if (tool.kind === "circle") live.push(circleRadius(pl, tool) * 2);
   else if (tool.kind === "gear") {
     const g = tool.gear ?? { internal: false, typed: [] as string[], field: 0 };
-    const shown = gearLive(scene, tool);
-    return { panel: gearTitle(g), fields: gearFields(g).map((f, i) => ({ ...(g.bad?.field === i ? { bad: true } : {}), hint: [g.worm && f.key === "teeth" ? GEAR_HINTS.starts : GEAR_HINTS[f.key], boreHint(f.key, boreNow(g, shown))].filter(Boolean).join(" "), label: f.label, value: (g.typed[i] ?? "") !== "" ? g.typed[i]! : shown ? roundedText(shown[i]!) : "", active: g.field === i, typed: (g.typed[i] ?? "") !== "", ...(f.key === "pressure" || f.key === "angle" ? { unit: "°" } : {}) })), unit: "mm" };
+    const guard = gearGuard(scene, tool);
+    const shown = gearLive(scene, tool) ?? (guard ? gearLive(scene, guard.tool) : null);
+    return { panel: gearTitle(g), fields: gearFields(g).map((f, i) => ({ ...(g.bad?.field === i || guard?.field === i ? { bad: true } : {}), hint: [g.worm && f.key === "teeth" ? GEAR_HINTS.starts : GEAR_HINTS[f.key], boreHint(f.key, boreNow(g, shown))].filter(Boolean).join(" "), label: f.label, value: (g.typed[i] ?? "") !== "" ? g.typed[i]! : shown ? roundedText(shown[i]!) : "", active: g.field === i, typed: (g.typed[i] ?? "") !== "", ...(f.key === "pressure" || f.key === "angle" ? { unit: "°" } : {}) })), unit: "mm", ...(guard ? { warn: guard.why } : {}) };
   }
   else if (tool.kind === "arc") {
     if (tool.points.length < 2) return null; // nothing to size until the arc has its two ends

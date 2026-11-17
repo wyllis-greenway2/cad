@@ -3117,3 +3117,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 >
 > I think the worm gear builder needs a better interface. Shouldn't we just show a real profile of the tooth layout kind of like a rack gear? and also shouldn't we have all the same bore abilities as any gear? and should we just show wireframe 3d model in the preview instead of 2d?
 (asks for a gear icon beside a selected gear (sketch or body) offering Edit and Mesh; Helix as a field that is always in the gear box, 0 for a flat gear and any other value a 3D gear, the Helix item going straight to it; and for the worm: a rack-like tooth profile in the preview, the same bores as any gear, and a 3D wire frame preview)
+
+## in_694 — 2026-11-17 — directive
+> So a mesh gear appears to not report its bore properly? it seems to show 0 even if it defaults to some other bore value? When I modify a mesh gear inside a ring to be too large to fit, it dissapears. I thought we were going to have guardrails where invalid options flash red instead of failing?
+(reports that a mesh gear's box shows a bore of 0 though it has the default one, and that a mesh gear in a ring made too big disappears instead of the guardrail with the red flash)
