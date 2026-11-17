@@ -3,7 +3,7 @@ id: q_gear_finishing
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_770
+human_input: in_783, in_770
 date: 2026-11-17
 depends_on:
   - dec_gear_tool: the tooth outline is drawn as lines and arcs (4 arcs to a flank by default) and a helical body is a twist of it; a change to that changes each option here
@@ -11,7 +11,9 @@ depends_on:
   - dec_gear_feature: a gear body keeps eight parts, so extra tooth faces cost the kernel and the mesh, not the page's parts
 alternative_to:
 ---
-# Gear finishing: worm wheel lands, tooth chamfer, a spline flank, a helical rack
+# Gear finishing: tooth chamfer and a spline flank (open); worm wheel land and helical rack (built, `in_783`)
+
+**Built (`in_783`, approved: "Yes, build the helical rack and the wheel land"):** (1) **Helical rack** (`GearSpec.helix` and `width` on a rack; fields Helix and Thickness after Clearance; `rackOutline`, `helixShear` in `gear.ts`): the outline is the section across the rack (module mn / cos(helix), pressure angle atan(tan an / cos(helix)), addendum and dedendum the normal ones), and the body is one `extrude` step with `slantx` and `slanty` (new step numbers: the sideways slide for each mm of depth, in the plane; the kernel's `op.slant`, an oblique prism) so each layer is slid along the rack by tan(helix). Mesh rack from a helical gear and Mesh gear from a helical rack work; the rack takes the gear's helix number as it is (a rack and a gear that mesh have the same sign here, an outside gear pair have opposite signs): `test/helicalrack.test.ts` checks it in the kernel (the right hand rack overlaps the gear by under 8 mm3, the other hand by a good deal more). (2) **Worm wheel land** (`wheel.land`, the Land field, a module by default from Mesh gear and the tool, 0 for the wheel as it was): **a round shoulder at each face, not a toothed land.** Reason found while building: the worm's thread reaches out to its tip radius in every direction about its axis, so a land that keeps the full tooth section runs into the thread unless it is about 7 mm thick (for the 12 mm wide, module 2, 24 mm worm test wheel), which is a different, much wider wheel; the shoulder is a disc of the largest radius that clears the thread (`WheelGeometry.landRadius`, the thread's tip circle and a tenth of a module beyond it), a little under the root circle. The human's picture (a straight sided helical gear with the worm's seat cut from it) would need the cut of the worm's envelope on a straight toothed blank; that is not built.
 
 **Asked (`in_770`):** are our worm wheels made as real ones are, should the top and bottom of the teeth be chamfered and what would it cost, would a richer curve for the tooth flank be more exact or quicker than 4 arcs, and why can a helical gear not mesh with a rack. Nothing is built for these; this records what was found (from the code and general gear knowledge, **not measured** here) and what to decide.
 
@@ -23,7 +25,7 @@ alternative_to:
 
 **A helical rack, and a rack with a helix field.** `meshWith` refuses a helical gear against a rack ("a helical gear does not mesh with a rack yet") and `canHelix` excludes racks, so the rack has no Helix field. A helical rack is the rack's section (transverse module mn / cos(helix), the same trapezoid) **sheared** along the rack as it is extruded: each layer slid sideways by height x tan(helix). The body is an oblique extrusion (the kernel's prism along a slanted vector) rather than the twist used for a gear, so it needs a step that takes a direction not along the normal, then Helix on the rack (opposite hand to the gear it meshes with), and the mesh placement shifted by the shear. Medium work; not started.
 
-**Questions for the human:** (1) build the wheel land (width default)? (2) a chamfer of tooth tips by one revolved cut, as a field of the gear? (3) a spline flank prototype first? (4) the helical rack and the Helix field on a rack?
+**Questions for the human, still open:** (1) a chamfer of tooth tips by one revolved cut, as a field of the gear? (2) a spline flank prototype first? (3) is the round shoulder what the wheel land should be, or build the toothed land cut by the worm's envelope?
 
 ## Rationale
 

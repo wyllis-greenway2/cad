@@ -53,7 +53,7 @@ export const GEAR_HINTS: Record<GearKey, string> = {
   addendum: "Clock gears: height of the tooth above the pitch circle, in modules.",
   dedendum: "Clock gears: depth of the gap below the pitch circle, in modules.",
   fit: "ISO sprocket: how loose the tooth form is, 0 (tight) to 1 (loose).",
-  helix: "Helix angle at the pitch circle in degrees: 0 is a straight tooth, anything else makes it a 3D helical gear (six modules thick unless you give a thickness). A minus sign makes a left hand gear; a partner needs the opposite hand (Mesh gear does that).",
+  helix: "Helix angle at the pitch circle in degrees: 0 is a straight tooth, anything else makes it a 3D helical gear (six modules thick unless you give a thickness). A minus sign makes a left hand gear; a partner needs the opposite hand (Mesh gear does that). On a rack the teeth lean along its length by this angle, and the gear that meshes with it has the same number (Mesh gear and Mesh rack make it so).",
   width: "How thick the gear is along its axis, in mm. 0 leaves a flat outline (a sketch); anything above makes it a 3D gear. With a helix and no thickness, six modules.",
   diameter: "A worm's pitch diameter in mm (a worm has no teeth to count). The wheel for it must be made for the same diameter. Ten times the module is usual; a thicker worm is stronger and has a smaller lead angle.",
   length: "How long the worm's core is, in mm. At least two leads (a lead is the starts times pi times the module).",
@@ -61,6 +61,7 @@ export const GEAR_HINTS: Record<GearKey, string> = {
   runout: "How long the thread takes to run out into the shaft at each end, in mm (a cone cut away from the tooth, so it does not stop in a square wall). 0 stops it square. Only for a worm with a journal; left alone: a pitch or two.",
   mate: "Bevel gear (an APPROXIMATION of the standard tooth, to be verified): how many teeth the gear it meshes with has. With the shaft angle it fixes this gear's cone angle; the pair share the module.",
   shaft: "Bevel gear: the angle between the two shafts in degrees (90 is the usual pair). From 30 to 150.",
+  land: "Worm wheel: a straight cylindrical land at each face, in mm (one module by default): the teeth keep their section out to the faces instead of ending in a thin wedge, as on a hobbed wheel. 0 is the throated part alone.",
   face: "Bevel gear: the width of the teeth along the cone as a fraction of the cone distance. A third is the usual limit (0.1 to 0.5).",
   starts: "How many threads the worm has (1 to 4). The wheel turns this many teeth for each turn of the worm, so more starts is a faster, steeper drive.",
 };

@@ -704,7 +704,7 @@ function gearChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
   if (planetaryOfGear(sc, rec.id)) return { at, items: [{ id: "gear:edit", label: "Edit planetary set", icon: "planetary", enabled: true, why: null }] }; // (a gear of a planetary set is edited with the whole set, `dec_planetary_gears`)
   return { at, items: [
     { id: "gear:edit", label: "Edit gear", icon: "gear", enabled: true, why: null },
-    { id: "gear:helix", label: "Helix", icon: "helical", enabled: plain, why: plain ? null : "a helix goes on a plain gear (not yet a rack, pulley, sprocket, clock gear or worm)" },
+    { id: "gear:helix", label: "Helix", icon: "helical", enabled: plain, why: plain ? null : "a helix goes on a plain gear (not yet a pulley, sprocket, clock gear or worm)" },
     { id: "gear:mesh", label: "Mesh gear", icon: "meshgear", enabled: true, why: null },
     { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack", enabled: !worm && !bevel, why: worm ? "a rack does not mesh with a worm or its wheel" : bevel ? "a bevel gear meshes with a bevel gear" : null },
     { id: "gear:meshring", label: "Mesh ring", icon: "meshring", enabled: !worm && !bevel, why: worm ? "a ring does not mesh with a worm or its wheel" : bevel ? "a bevel gear meshes with a bevel gear" : null },

@@ -142,7 +142,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     if (r.id === "cam:edit") { const has = sel.some((x) => !!gearOfPart(sc, x)?.spec.cam); return [r.id, { ...base, enabled: has, why: has ? null : "select a cam" }]; }
     if (r.id === "gear:helix") { // (the helix is a number of a plain gear, `in_693`)
       const rec = sel.map((x) => gearOfSelection(sc, x)).find((g) => !!g);
-      const why = !rec ? "select a gear" : !canHelix(rec.spec) ? "a helix goes on a plain gear (not yet a rack, pulley, sprocket, clock gear or worm)" : null;
+      const why = !rec ? "select a gear" : !canHelix(rec.spec) ? "a helix goes on a plain gear (not yet a pulley, sprocket, clock gear or worm)" : null;
       return [r.id, { ...base, enabled: !why, why }];
     }
     if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfSelection(sc, x) || (r.id === "gear:edit" && !!planetaryOfPart(sc, x))); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }

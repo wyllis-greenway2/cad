@@ -3476,3 +3476,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_782 — 2026-11-17 — directive
 > Go with your recommendation, start on the Geneva drive
 (asks for the Geneva drive to be started, the next shape after the ratchet)
+
+## in_783 — 2026-11-17 — approval
+> Yes, build the helical rack and the wheel land
+(approves building the helical rack (with the Helix field on a rack and meshing it with a helical gear) and the straight land at each face of the worm wheel, two of the four options of `q_gear_finishing`; the tooth chamfer and the spline flank are not answered)

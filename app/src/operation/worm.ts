@@ -17,7 +17,7 @@ export interface WormSpec {
   runout?: number;
 }
 /** a worm wheel: the pitch diameter of the worm it is for, the worm's starts, and its own width, mm; its teeth are `GearSpec.teeth`, the module and pressure angle those of the worm */
-export interface WheelSpec { starts: number; diameter: number; width: number }
+export interface WheelSpec { starts: number; diameter: number; width: number; /** a straight land at each face, mm (`in_783`): the throated part is `width` wide and the wheel `width` + 2 `land`; none (0) is the wheel as it was */ land?: number }
 
 export interface WormGeometry {
   starts: number; module: number; alpha: number; tanA: number;
@@ -101,7 +101,7 @@ export interface WheelGeometry {
   worm: WormGeometry; z: number; rw: number;
   /** the distance from the wheel's axis to the worm's */ cd: number;
   /** the throat: the distance from the worm's axis to the wheel's tip surface, an arc about it */ throat: number;
-  width: number;
+  width: number; /** the straight land at each face, mm, and the radius of its round shoulder (the largest that stays clear of the worm's thread: a land with teeth would run into it) */ land: number; landRadius: number;
   /** the radius of the tip surface at height h from the middle plane (an arc about the worm's axis) and of the root circle there */
   tipAt: (h: number) => number; rootAt: (h: number) => number;
 }
@@ -115,11 +115,16 @@ export function wheelOf(spec: GearSpec): Result<WheelGeometry> {
   if (z < g.value.starts * 8) return err("a worm wheel needs at least 8 teeth to a start");
   const worm = g.value, rw = (spec.module * z) / 2, cd = rw + worm.rp, throat = worm.rRoot + 0.25 * spec.module;
   if (!(w.width > 0 && w.width < 1.8 * throat * 0.7)) return err(`the width of the wheel must be from 0 to ${(1.26 * throat).toFixed(1)} mm for this worm`);
+  const land = w.land ?? 0;
+  if (!(land >= 0 && land <= 4 * spec.module)) return err("the land at each face of the wheel must be from 0 to 4 modules");
   const bore = spec.bore ?? 0;
   if (bore < 0 || bore >= 2 * (cd - worm.rTip) * 0.9) return err("the bore must be smaller than the wheel's root circle");
   const shape = boreProblem(spec, cd - worm.rTip);
   if (shape) return err(shape);
+  const clear = worm.rTip + 0.1 * spec.module; // (the thread's tip circle, and a tenth of a module beyond it)
+  const landRadius = cd - Math.sqrt(clear * clear - (w.width / 2) * (w.width / 2));
+  if (land > 0 && !(landRadius > bore / 2 + 0.5)) return err("the land has no room round the bore: no land (0), a smaller bore or a narrower wheel");
   const tipAt = (h: number) => cd - Math.sqrt(throat * throat - h * h);
   const rootAt = (h: number) => cd - Math.sqrt(worm.rTip * worm.rTip - h * h);
-  return ok({ worm, z, rw, cd, throat, width: w.width, tipAt, rootAt });
+  return ok({ worm, z, rw, cd, throat, width: w.width, land, landRadius, tipAt, rootAt });
 }

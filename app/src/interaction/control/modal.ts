@@ -459,7 +459,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     const sc = sceneOf(s.session);
     const rec = selectionOf(s.session).map((r) => gearOfSelection(sc, r)).find((g) => !!g);
     if (!rec) return { ...closed, session: { ...s.session, message: "select a gear first" } };
-    if (!canHelix(rec.spec)) return { ...closed, session: { ...s.session, message: "a helix can be put on a plain gear (not yet on a rack, a pulley, a sprocket, a clock gear or a worm)" } };
+    if (!canHelix(rec.spec)) return { ...closed, session: { ...s.session, message: "a helix can be put on a plain gear (not yet on a pulley, a sprocket, a clock gear or a worm)" } };
     const open = editGearTool(rec, "helix");
     const at = gearFields(open.gear!).findIndex((f) => f.key === "helix");
     return { ...closed, tool: rec.spec.helix === undefined && at >= 0 ? gearTyped(open, at, "15") : open, op: null }; // (a gear with no helix is given 15 degrees at once, and the box opens on the number, `in_771`)

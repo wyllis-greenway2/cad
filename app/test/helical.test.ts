@@ -168,7 +168,7 @@ test("a helix typed when the gear is made makes it 3D at once", () => {
   assert.equal(scene(st.session).steps.filter((x) => x.type === "revolve").length, 1);
 });
 
-test("a helix goes on a ring too, and a ring round a helical gear has its hand (`in_697`); a gear in a helical ring has the ring's hand; a rack still takes none", () => {
+test("a helix goes on a ring too, and a ring round a helical gear has its hand (`in_697`); a gear in a helical ring has the ring's hand", () => {
   const spec: GearSpec = { teeth: 20, module: 2, helix: 15, width: 10 };
   const src: GearRecord = { id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec };
   const ring = meshWith(src, [1, 0, 0], [0, 1, 0], { teeth: 40, ring: true }, 0);
@@ -197,7 +197,7 @@ test("a thickness makes a flat gear 3D with no helix: a straight extrusion; 0 le
   assert.deepEqual(scene(twisted).steps.map((x) => x.type), ["revolve"]);
 });
 
-test("a partner of a helical gear has the opposite hand, the same module and width, and stands at the centre distance of the transverse sections; a rack is refused", () => {
+test("a partner of a helical gear has the opposite hand, the same module and width, and stands at the centre distance of the transverse sections; a rack has the same hand number (`in_783`)", () => {
   const spec: GearSpec = { teeth: 20, module: 2, helix: 15, width: 10 };
   const src: GearRecord = { id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec };
   const r = meshWith(src, [1, 0, 0], [0, 1, 0], { teeth: 30 }, 0);
@@ -206,7 +206,8 @@ test("a partner of a helical gear has the opposite hand, the same module and wid
   assert.deepEqual([p.spec.helix, p.spec.width, p.spec.module, p.spec.teeth], [-15, 10, 2, 30]);
   assert.ok(Math.abs(p.at[0] - (2 * 50) / (2 * Math.cos((15 * Math.PI) / 180))) < 1e-9, `${p.at[0]}`);
   const rack = meshWith(src, [1, 0, 0], [0, 1, 0], { teeth: 10, rack: true }, 0);
-  assert.ok(!rack.ok);
+  assert.ok(rack.ok, rack.ok ? "" : rack.error);
+  assert.deepEqual([(rack as { value: { spec: GearSpec } }).value.spec.helix, (rack as { value: { spec: GearSpec } }).value.spec.width], [15, 10]);
 });
 
 import { gearOfPart } from "../src/operation/gearscene.ts";

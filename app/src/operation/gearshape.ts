@@ -61,7 +61,7 @@ export function gearShapeOf(sc: Scene, st: Step): GearShape | null {
   if (rec.spec.wheel) {
     const w = wheelOf(rec.spec);
     if (!w.ok) return null;
-    depth = rec.spec.wheel.width;
+    depth = rec.spec.wheel.width + 2 * (rec.spec.wheel.land ?? 0); // (the throated part and a land at each face, `in_783`)
     centre = [0, 1, 2].map((k) => rec.at[k]! - normal[k]! * depth / 2) as unknown as Vec3; // (its sections lie either side of its plane)
     radius = w.value.tipAt(depth / 2); // (the throat: the tip is widest at the faces)
     rootRadius = w.value.rootAt(0);

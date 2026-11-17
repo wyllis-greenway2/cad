@@ -105,12 +105,19 @@ function rackOutline(spec: GearSpec): Result<GearOutline> {
   const m = spec.module;
   if (!Number.isFinite(n) || n < 1 || n > 500) return err("a rack needs 1 to 500 teeth");
   if (!Number.isFinite(m) || m <= 0) return err("the module must be above zero");
-  const alpha = ((spec.pressure ?? 20) * Math.PI) / 180;
-  if (!(alpha > 0 && alpha < (35 * Math.PI) / 180)) return err("the pressure angle must be between 0 and 35 degrees");
+  const alphaN = ((spec.pressure ?? 20) * Math.PI) / 180;
+  if (!(alphaN > 0 && alphaN < (35 * Math.PI) / 180)) return err("the pressure angle must be between 0 and 35 degrees");
+  // a helical rack (`in_783`): the module, the pressure angle and the backlash are the normal ones; the outline is the section across the rack, whose module is mn / cos(helix) and whose pressure angle is atan(tan(an) / cos(helix)); the body is that section slid along the rack as it goes through its thickness (`helixShear`)
+  if (spec.helix !== undefined) {
+    if (!(Math.abs(spec.helix) > 0 && Math.abs(spec.helix) <= 45)) return err("the helix angle must be from 1 to 45 degrees (a minus sign is a left hand helix); a rack with no helix is the plain rack");
+    if (!(spec.width! > 0)) return err("the width of a helical rack must be above zero");
+  }
+  const k = spec.helix !== undefined ? Math.cos((Math.abs(spec.helix) * Math.PI) / 180) : 1;
+  const alpha = Math.atan(Math.tan(alphaN) / k);
   const [c, t] = [spec.clearance ?? 0.25, Math.tan(alpha)];
-  const p = Math.PI * m;
-  const s = p / 2 - (spec.backlash ?? 0); // (the tooth's thickness on the pitch line)
-  const [tip, root] = [m, -(1 + c) * m];
+  const p = (Math.PI * m) / k;
+  const s = p / 2 - (spec.backlash ?? 0) / k; // (the tooth's thickness on the pitch line)
+  const [tip, root] = [m, -(1 + c) * m]; // (the addendum and dedendum are the normal ones, measured across the teeth, so the same in the section)
   const [ht, hr] = [s / 2 - m * t, s / 2 + (1 + c) * m * t]; // (half the tooth at its tip and at its root)
   if (s <= 0 || ht <= 1e-6) return err("the teeth would be pointed: less backlash is needed");
   if (p - 2 * hr <= 1e-6) return err("the teeth meet at the root");
@@ -126,7 +133,10 @@ function rackOutline(spec: GearSpec): Result<GearOutline> {
 /** How far the outline of a helical gear is turned while it is carried along its axis for its whole width, degrees (the sign is the hand), or null for a gear that is not helical: width x tan(helix) / transverse pitch radius. */
 /** Whether a gear has a body made with it (`in_697`): a helix, or a thickness above zero (a flat gear has neither). */
 export const hasBody = (spec: GearSpec): boolean => spec.helix !== undefined || (spec.width ?? 0) > 0 || !!spec.bevel;
+/** How far each layer of a helical rack is slid along the rack for each mm of its thickness (tan of the helix angle, with the sign of the hand), or null for anything that is not a helical rack (`in_783`). */
+export const helixShear = (spec: GearSpec): number | null => spec.rack && spec.helix !== undefined && spec.width! > 0 ? Math.tan((spec.helix * Math.PI) / 180) : null;
 export function helixTwist(spec: GearSpec): number | null {
+  if (spec.rack) return null; // (a rack is slid, not turned)
   if (spec.helix === undefined || !(spec.width! > 0) || !(spec.teeth > 0) || !(spec.module > 0)) return null;
   const b = (spec.helix * Math.PI) / 180;
   const rp = (spec.module * Math.round(spec.teeth)) / (2 * Math.cos(b));
