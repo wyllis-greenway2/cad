@@ -12,7 +12,7 @@ import { createPanes } from "./world/panes.ts";
 
 /**
  * Whether the ray meets a mesh before its `far`, found with the mesh's triangles in chunks of 128 with a box round each (made once for the mesh): the ray is asked of the chunks' boxes and only the triangles of the chunks it meets are
- * worked, and the first hit ends it (three's own raycast works every triangle of a mesh whose box the ray meets, and keeps them all: a gear body is thousands, three times a frame while the view turns, `in_765`). The same answer: the sides
+ * worked, and the first hit ends it (three's own raycast works every triangle of a mesh whose box the ray meets, and keeps them all: a gear body is thousands, three times a frame while the view turns, `in_767`). The same answer: the sides
  * of a triangle that the material draws are those that count, as three has it. What is not a plain mesh of its own triangles is asked of three.
  */
 const CHUNK = 128;

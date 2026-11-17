@@ -1,4 +1,4 @@
-// What a picture asks of a scene by the kind of its parts, found once for the scene (`in_765`): the bodies, the sheets that cut or can, and the parts as a list. A picture is made at every move of the pointer and every step of an orbit,
+// What a picture asks of a scene by the kind of its parts, found once for the scene (`in_767`): the bodies, the sheets that cut or can, and the parts as a list. A picture is made at every move of the pointer and every step of an orbit,
 // and a scene of eight gears has five thousand parts: looking through them all for the three that are bodies was done many times a frame. Pure: a scene in, lists out; the same scene gives the same lists.
 import type { Scene } from "./scene.ts";
 import type { Part } from "./part.ts";

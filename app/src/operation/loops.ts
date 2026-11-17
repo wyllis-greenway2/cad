@@ -37,7 +37,7 @@ export const diskFaceRef = (circle: Ref): Ref => mkRef(`d/disk@${circle.slice(2)
 type DrawnLine = Extract<Part, { kind: "line" }>;
 const groupsKept = new Map<Ref, { ls: readonly DrawnLine[]; groups: DrawnLine[][] }>();
 /**
- * The connected groups of the lines on a plane (by shared corners), kept while the lines are the same objects in the same order (`in_765`): a change that leaves the lines of a plane as they are (a corner moved, a bubble, a body drawn
+ * The connected groups of the lines on a plane (by shared corners), kept while the lines are the same objects in the same order (`in_767`): a change that leaves the lines of a plane as they are (a corner moved, a bubble, a body drawn
  * again) found its groups again by walking every line of every gear; the lines at each corner are known, so a line's neighbours are not looked for among all the lines.
  */
 function groupsOf(plane: Ref, ls: readonly DrawnLine[]): DrawnLine[][] {

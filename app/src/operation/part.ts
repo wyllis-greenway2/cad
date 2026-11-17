@@ -433,7 +433,7 @@ function boxOfMesh(m: readonly number[]): [number, number, number, number, numbe
 }
 /**
  * The distance along a ray to the nearest triangle of a mesh, or null: the ray is first asked of the mesh's box (found once), and the triangles are worked with plain numbers (a face of a gear is thousands of them, and every move of the
- * pointer asks, `in_765`; the same answer as `rayTriangle` for each triangle).
+ * pointer asks, `in_767`; the same answer as `rayTriangle` for each triangle).
  */
 function rayMesh(m: readonly number[], o: Vec3, d: Vec3): number | null {
   const b = boxOfMesh(m);

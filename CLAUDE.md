@@ -13,6 +13,7 @@ Current decisions live in `docs/decisions/`. This file is the short version of h
 ## The record
 - `docs/decisions/*.md`: one file per principle, invariant, decision or open question. Format below.
 - `docs/human-input.md`: **verbatim** human input that steers the project (provenance record).
+- `docs/sources/README.md`: index of every outside source read or looked up (status, rights, use, where recorded). Add a row when you read or look one up; the files of copyrighted sources are not kept in the repository.
 - `docs/handoff.md`: append-only; one entry per session.
 - `docs/origin/`: original human-authored documents. Never edit. Hashes in `SHA256SUMS`.
 - `tools/check_docs.py` enforces the rules below mechanically. Never weaken it to make it pass.

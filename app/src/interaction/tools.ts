@@ -25,7 +25,7 @@ import { settings } from "../shared/settings.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Hint } from "./hints.ts";
 import { gearOutline, moduleForOutside, helixTwist, hasBody } from "../operation/gear.ts";
-import { bevelOf, bevelFrame } from "../operation/bevel.ts";
+import { bevelOf, bevelFrame, bevelRaw, bevelLayout } from "../operation/bevel.ts";
 import { wormOf, wheelOf, wormLayout } from "../operation/worm.ts";
 import type { GearSpec, PulleyKind } from "../operation/gear.ts";
 import { standardKey, boreLoop, boreProblem } from "../operation/bore.ts";
@@ -289,7 +289,7 @@ function gearSpecOf(t: Tool): GearSpec | null {
     const [pressure, backlash] = [typed("pressure") ?? b?.pressure, typed("backlash") ?? b?.backlash];
     const [mate, shaft, face] = [Math.round(typed("mate") ?? b?.bevel?.mate ?? teeth), typed("shaft") ?? b?.bevel?.shaft, typed("face") ?? b?.bevel?.face];
     const bore = typed("bore") ?? b?.bore ?? (b ? undefined : defaultBore(teeth, module) || undefined);
-    return { teeth, module, ...(pressure !== undefined ? { pressure } : {}), ...(backlash !== undefined ? { backlash } : {}), bevel: { mate, ...(shaft !== undefined && shaft !== 90 ? { shaft } : {}), ...(face !== undefined ? { face } : {}), ...(b?.bevel?.frame ? { frame: b.bevel.frame } : {}) }, ...(bore ? { bore, ...shapeOf(typed, b, fields[g.field]?.key) } : {}) };
+    return { teeth, module, ...(pressure !== undefined ? { pressure } : {}), ...(backlash !== undefined ? { backlash } : {}), bevel: { mate, ...(shaft !== undefined && shaft !== 90 ? { shaft } : {}), ...(face !== undefined ? { face } : {}), ...(b?.bevel?.frame ? { frame: b.bevel.frame } : {}), ...(b?.bevel?.with ? { with: b.bevel.with } : {}), ...(b?.bevel?.dir !== undefined ? { dir: b.bevel.dir } : {}) }, ...(bore ? { bore, ...shapeOf(typed, b, fields[g.field]?.key) } : {}) };
   }
   if (g.worm || g.wheel) { // a worm or a worm wheel (`in_608`): the module is 2 unless another is typed, the worm's pitch diameter ten modules, its length 15 (or 2.5 leads, if more)
     const module = typed("module") ?? b?.module ?? 2;
@@ -624,18 +624,19 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
       }
       return { segments, circle: { center: target.at, radius: o.value.pitchRadius, normal: n }, cursor: t.cursor };
     }
-    if (target.spec.bevel) { // a straight bevel gear (`in_735`): the outline of its big end and of its small end (the big end's scaled toward the apex, further along the axis) and a line from every tooth to it, in the gear's own frame (a partner stands across its mate's, `in_755`)
-      const bg = bevelOf(target.spec);
-      if (bg.ok) {
+    if (target.spec.bevel) { // a straight bevel gear (`in_735`, `in_763`): the outline of its heel and of its toe on the back cones (the true ends of the teeth, not a section across the axis) and a line from every tooth to it, in the gear's own frame (a partner stands across its mate's, `in_755`)
+      const bg = bevelOf(target.spec), raw = bevelRaw(target.spec);
+      if (bg.ok && raw.ok) {
         const f = bevelFrame(pl.u, pl.v, target.spec, target.turn);
-        const { k, big, small } = bg.value;
-        const place = (q: readonly [number, number], sc: number, h: number): Vec3 => [target.at[0] + f.X[0] * q[0] * sc + f.Y[0] * q[1] * sc + f.n[0] * h, target.at[1] + f.X[1] * q[0] * sc + f.Y[1] * q[1] * sc + f.n[1] * h, target.at[2] + f.X[2] * q[0] * sc + f.Y[2] * q[1] * sc + f.n[2] * h];
-        const pts = o.value.points;
-        pts.forEach((p0, i) => { const p1 = pts[(i + 1) % pts.length]!; segments.push([place(p0, 1, 0), place(p1, 1, 0)], [place(p0, k, big - small), place(p1, k, big - small)]); });
+        const { k, big } = bg.value;
+        const place = (q: { x: number; r: number; th: number }, sc: number): Vec3 => { const h = big - sc * q.x, rr = sc * q.r, [cx2, sy2] = [rr * Math.cos(q.th), rr * Math.sin(q.th)]; return [target.at[0] + f.X[0] * cx2 + f.Y[0] * sy2 + f.n[0] * h, target.at[1] + f.X[1] * cx2 + f.Y[1] * sy2 + f.n[1] * h, target.at[2] + f.X[2] * cx2 + f.Y[2] * sy2 + f.n[2] * h]; };
+        const pts = raw.value;
+        pts.forEach((p0, i) => { const p1 = pts[(i + 1) % pts.length]!; segments.push([place(p0, 1), place(p1, 1)], [place(p0, k), place(p1, k)]); });
         const per = Math.max(1, Math.round(pts.length / Math.max(1, Math.round(target.spec.teeth))));
-        for (let i = 0; i < pts.length; i += per) segments.push([place(pts[i]!, 1, 0), place(pts[i]!, k, big - small)]);
+        for (let i = 0; i < pts.length; i += per) segments.push([place(pts[i]!, 1), place(pts[i]!, k)]);
         const b0 = (target.spec.bore ?? 0) / 2;
-        if (b0 > 0) for (const [sc, h] of [[1, 0], [k, big - small]] as const) { let prev: Vec3 | null = null; for (let j = 0; j <= 24; j++) { const a2 = (2 * Math.PI * j) / 24; const q = place([b0 * Math.cos(a2), b0 * Math.sin(a2)], 1, h); void sc; if (prev) segments.push([prev, q]); prev = q; } }
+        const hubs = bevelLayout(target.spec);
+        if (b0 > 0 && hubs.ok) for (const h of [hubs.value.heel.h, hubs.value.toe.h]) { let prev: Vec3 | null = null; for (let j = 0; j <= 24; j++) { const a2 = (2 * Math.PI * j) / 24; const q: Vec3 = [target.at[0] + f.X[0] * b0 * Math.cos(a2) + f.Y[0] * b0 * Math.sin(a2) + f.n[0] * h, target.at[1] + f.X[1] * b0 * Math.cos(a2) + f.Y[1] * b0 * Math.sin(a2) + f.n[1] * h, target.at[2] + f.X[2] * b0 * Math.cos(a2) + f.Y[2] * b0 * Math.sin(a2) + f.n[2] * h]; if (prev) segments.push([prev, q]); prev = q; } }
       }
       return { segments, circle: null, cursor: t.cursor, ...(red ? { red: true as const } : {}) };
     }

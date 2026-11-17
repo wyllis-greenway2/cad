@@ -153,14 +153,14 @@ const [dot3, cross3, norm3] = [(a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] +
  * (radians, from the plane's first direction, taken across the source's axis) so its axis stands at the shaft angle to the source's, and it is turned to put a tooth where the source has a gap. The source's axis is its plane's normal
  * (or its frame's, if it stands across itself) and its apex lies along it at the cone distance times cos delta. Worked in 3D: the partner's frame (`BevelSpec.frame`) is the one whose first direction is the tangent of the contact, tooth 0 along it.
  */
-function meshBevel(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; ring?: boolean }, where: number): Result<Placement> {
+export function meshBevel(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; ring?: boolean }, where: number): Result<Placement> {
   const s = src.spec, z2 = Math.round(partner.teeth);
   if (partner.rack || partner.ring) return err("a bevel gear meshes with a bevel gear: not with a rack or a ring");
   if (!Number.isFinite(z2) || z2 < 1) return err("the partner needs teeth");
   const g1 = bevelOf(s);
   if (!g1.ok) return g1;
   const shaft = s.bevel!.shaft ?? 90, sig = (shaft * Math.PI) / 180;
-  const spec: GearSpec = { teeth: z2, module: s.module, ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), ...(s.backlash !== undefined ? { backlash: s.backlash } : {}), bevel: { mate: s.teeth, ...(shaft !== 90 ? { shaft } : {}), ...(s.bevel!.face !== undefined ? { face: s.bevel!.face } : {}) } };
+  const spec: GearSpec = { teeth: z2, module: s.module, ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), ...(s.backlash !== undefined ? { backlash: s.backlash } : {}), bevel: { mate: s.teeth, ...(shaft !== 90 ? { shaft } : {}), ...(s.bevel!.face !== undefined ? { face: s.bevel!.face } : {}), ...(s.bevel!.with === undefined ? { with: src.id } : {}), dir: where } };
   const g2 = bevelOf(spec);
   if (!g2.ok) return g2;
   const f1 = bevelFrame(u, v, s, src.turn ?? 0), f0 = bevelFrame(u, v, s, 0);

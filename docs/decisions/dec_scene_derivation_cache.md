@@ -3,7 +3,7 @@ id: dec_scene_derivation_cache
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_701, in_727
+human_input: in_701, in_727, in_767
 date: 2026-11-17
 depends_on:
   - dec_gear_speed: the measured cost this removes (the page's work at each edit grows with the number of parts: 5800 for eight gears); a change to those numbers changes whether this is worth the risk of a stale answer
@@ -24,6 +24,16 @@ depends_on:
 **Measured.** The real app, eight gears, 25 edits that leave the kernel's graph as it was: **103.6 to 30.8 ms** (graph 41.1 to 20.8, place 60.2 to 8.2). Node: 183 to 47 ms. `test/derivecache.test.ts` (4 tests: the kept answers equal the worked-out ones, including on equal parts that are other objects; a moved corner, a deleted corner, another kernel answer and a gear with other numbers all give new answers; the same objects are kept where they should be). The whole suite (1323 tests) is unchanged.
 
 **What is not changed.** An edit that changes a gear's own parts or its kernel step is worked out for that gear in full, as it must be. **Not done, and bigger:** an edit to an *early* gear makes the kernel build every gear after it again (8 gears: 4 s), because each step's kept answer is keyed by the steps before it; see `dec_gear_speed`.
+
+## The smaller costs that were left (`in_767`)
+
+Measured in the real app first (eight gears extruded, 5799 parts; headless Chromium): a frame of an orbit 13.1 ms, of the pointer moving 9.1 ms, an edit's compile 33.7 ms. What the profile showed, and what was done:
+1. **Picking a body's face** (`part.ts`, `rayMesh`): the ray was asked of every triangle of every face under it with three arrays made for each, 273 ms of the 369 of picking in the profile. It is now asked of the mesh's box (found once, by the mesh) and the triangles are worked with plain numbers: the same nearest hit (`test/raymesh.test.ts`: 500 rays against the plain way).
+2. **The scene looked through by kind at every frame** (`partindex.ts`): the bodies, the sheets that cut and the parts as a list are found once for a scene (`frame.ts`, `section.ts`, `lastseen.ts`'s `thingsOf` too): five thousand parts looked through for the three that are bodies, several times a frame.
+3. **The axis labels' test whether the model hides them** (`ui/world.ts`, `anyHit`): three's raycast works every triangle of a mesh whose box the ray meets and keeps every hit. The triangles of a mesh are now in chunks of 128 with a box each (made once), the ray is asked of the boxes first and the first hit ends it; the sides of a triangle the material draws are those that count, as three has it (`test/occlusion.test.ts`: 600 rays for each side against three).
+4. **`loopOf`** searched all the lines for each corner (400 by 400 for a gear): it finds the next side by the corner's list of sides now (`test/derivecache.test.ts`: against the old search, with the lines in scrambled order), and **the groups of lines on a plane** are kept while the lines are the same objects in the same order (`loops.ts`, `groupsOf`).
+
+**Measured after:** an orbit 13.1 to 7.4 ms, the pointer moving 9.1 to 3.6 ms, an edit's compile 33.7 to 24.5 ms (graph 22.0 to 12.8); the screen is the same, pixel for pixel, in three views (the labels hidden and shown as before). **A mistake caught by the suite:** rewriting the grouping from an older reading of `loops.ts` dropped the other branch's `l.spline` in the test for a loop of one line (a closed spline is a face): five tests failed and it was put back. **Not changed, left:** the first of an edit's two derives still walks every line of a plane when its lines change; the constraint bubbles' layout (about 1.5 ms a frame); the page's graph and `consumed` for every step.
 
 ## Rationale
 
