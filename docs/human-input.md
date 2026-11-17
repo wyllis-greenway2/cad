@@ -3125,3 +3125,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_695 — 2026-11-17 — directive
 > Go with your recommendation, build the closed spline
 (asks for the closed spline to be built: a smooth curve that comes back to its start, the next step toward the cam helper)
+
+## in_696 — 2026-11-17 — directive
+> Go with your recommendation, start on the cam helper
+(asks for the cam helper to be started: a cam profile drawn from a rise, dwell and return with a choice of motion law, the last step of `dec_spline_and_cams`)

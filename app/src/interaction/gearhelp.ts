@@ -1,6 +1,18 @@
 // What each number of the gear box means, in a line (`in_685`): the box is a panel with every number named and explained, not a row of bare numbers. Words only; the numbers are `tools.ts`'s.
 import type { GearKey } from "./tools.ts";
 
+/** What each number of a cam says, in a line (`dec_spline_and_cams`), by the label the box shows */
+export const CAM_HINTS: Record<string, string> = {
+  Diameter: "The base circle: the smallest the cam gets (the pointer's distance from the shaft sets it, or type it). For an eccentric, the whole disc.",
+  Offset: "How far the shaft is from the middle of the disc, mm. The follower moves twice this.",
+  Lift: "How far the follower rises over the base circle, mm (a snail: over one turn).",
+  Rise: "Degrees of the turn over which the follower rises, from the +x direction round counter-clockwise.",
+  Dwell: "Degrees the follower stays at the top before it comes down. 0 for none.",
+  Return: "Degrees of the turn over which the follower comes down. Rise + dwell + return is at most 360; what is left is the rest at the bottom.",
+  Hole: "The shaft's hole, diameter in mm. 0 for none (a fifth of the diameter if left).",
+  Roller: "Radius of the follower's roller, mm; 0 for a point follower. The outline is taken in by this much; a roller too big for a tight turn is refused.",
+};
+export const camTitle = (kind: string, law?: string): string => (kind === "eccentric" ? "Eccentric cam" : kind === "snail" ? "Snail cam" : `Disc cam, ${law ?? "cycloidal"}`);
 export const GEAR_HINTS: Record<GearKey, string> = {
   teeth: "How many teeth. A partner needs the same module and pressure angle; its teeth divided by yours is the speed ratio.",
   module: "Tooth size in mm: pitch diameter divided by teeth. Meshing gears must have the same module. Common: 0.5, 0.8, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5.",
