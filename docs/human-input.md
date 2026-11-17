@@ -3151,3 +3151,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_702 — 2026-11-17 — directive
 > yes start on number 1
 (approves starting on the kernel's rebuild of every later body when an earlier step changes: a body's own work kept under a key that does not include the steps before it)
+
+## in_703 — 2026-11-17 — directive
+> yes merge in the cannon-6 work
+(approves merging claude/hopeful-cannon-6, the sweep modes and the orb bubble offset, into this branch)
