@@ -102,10 +102,33 @@ function sweepStandInOf(sc: Scene, st: Step): StandIn | null {
     if (p?.kind === "circle") circle = p.radius;
     else if (p?.kind === "line") { const a = pointOf(get, p.a), b = pointOf(get, p.b), m = curveMid(get, p); for (const q of [a, b, m]) if (q) pts.push(q); }
   }
-  const ext = [0, 1, 2].map((i) => pts.length ? Math.max(...pts.map((q) => q[i]!)) - Math.min(...pts.map((q) => q[i]!)) : 0).sort((x, y) => y - x);
-  const radius = circle > 0 ? circle : 0.5 * Math.sqrt(ext[0]! * ext[1]!);
+  const radius = circle > 0 ? circle : Math.sqrt(hullArea(pts) / Math.PI);
   const path = pathPoints(walked.sides);
   const mid = path[Math.floor(path.length / 2)]!;
   if (!(radius > 0) || !path.every((q) => q.every(Number.isFinite))) return null;
   return { step: st.id, centre: mid, normal: [0, 0, 1], depth: 0, radius, hole: 0, path };
+}
+
+/** The area of the convex hull of points that lie in one plane (0 for fewer than three, or a line): the shape's own area when it is convex. */
+function hullArea(pts: readonly Vec3[]): number {
+  if (pts.length < 3) return 0;
+  const c: Vec3 = [0, 1, 2].map((i) => pts.reduce((t, q) => t + q[i]!, 0) / pts.length) as unknown as Vec3;
+  const far = pts.reduce((best, q) => (dot(sub(q, c), sub(q, c)) > dot(sub(best, c), sub(best, c)) ? q : best), pts[0]!);
+  const e1 = sub(far, c);
+  const other = pts.reduce((best, q) => (dot(crs(e1, sub(q, c)), crs(e1, sub(q, c))) > dot(crs(e1, sub(best, c)), crs(e1, sub(best, c))) ? q : best), pts[0]!);
+  const n = unit(crs(e1, sub(other, c))), ux = unit(e1), uy = crs(n, ux);
+  if (dot(crs(e1, sub(other, c)), crs(e1, sub(other, c))) < 1e-12) return 0;
+  const p2 = pts.map((q) => [dot(sub(q, c), ux), dot(sub(q, c), uy)] as [number, number]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const half = (list: [number, number][]): [number, number][] => {
+    const h: [number, number][] = [];
+    for (const q of list) {
+      while (h.length >= 2 && (h[h.length - 1]![0] - h[h.length - 2]![0]) * (q[1] - h[h.length - 2]![1]) - (h[h.length - 1]![1] - h[h.length - 2]![1]) * (q[0] - h[h.length - 2]![0]) <= 0) h.pop();
+      h.push(q);
+    }
+    return h;
+  };
+  const hull = [...half(p2).slice(0, -1), ...half([...p2].reverse()).slice(0, -1)];
+  let a = 0;
+  for (let i = 0; i < hull.length; i++) { const [p, q] = [hull[i]!, hull[(i + 1) % hull.length]!]; a += p[0] * q[1] - q[0] * p[1]; }
+  return Math.abs(a) / 2;
 }

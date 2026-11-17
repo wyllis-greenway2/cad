@@ -102,7 +102,7 @@ test("a sweep the kernel has not made yet is a tube along its path, as thick as 
   const d = standIns(scene(done), waiting);
   assert.equal(d.length, 1);
   assert.ok(d[0]!.path && d[0]!.path.length === 2, "a straight path is its two ends");
-  assert.ok(Math.abs(d[0]!.radius - 2) < 1e-9, "a 4 x 4 box: radius 2 (the same area, a little less than the square's own half-diagonal)");
+  assert.ok(Math.abs(d[0]!.radius - 4 / Math.sqrt(Math.PI)) < 1e-9, "a 4 x 4 square: the circle of the same area, 4 / sqrt(pi)");
   assert.deepEqual(standIns(scene(done), { stale: true, ops: [{ id: `x_${scene(done).steps.at(-1)!.id}` }] }), [], "none once the kernel has made it");
   // an arc: points on the circle of the arc
   s = createSession(kernel);

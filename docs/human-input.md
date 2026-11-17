@@ -3576,3 +3576,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_807 — 2026-11-17 — directive
 > yes do the tube stand-in for sweeps next
 (approves the tube stand-in for sweeps: a tube along the sweep's path drawn while the kernel makes the body)
+
+## in_808 — 2026-11-17 — directive
+> look at the tube stand-in in the real app
+(asks to look at the tube stand-in for sweeps in the real app)
