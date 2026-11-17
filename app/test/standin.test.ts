@@ -9,7 +9,7 @@ import { loopFaceRef } from "../src/operation/loops.ts";
 import { startOp } from "../src/interaction/operations.ts";
 import type { Op } from "../src/interaction/operations.ts";
 import { runOp } from "../src/interaction/runop.ts";
-import { standIns, STANDIN_MS } from "../src/interaction/standin.ts";
+import { standIns, STANDIN_MS, standInWords } from "../src/interaction/standin.ts";
 import { gearOutline } from "../src/operation/gear.ts";
 import type { GearSpec } from "../src/operation/gear.ts";
 import type { Vec3 } from "../src/math/vec.ts";
@@ -75,4 +75,11 @@ test("a worm wheel's disc is centred on its plane (its sections lie either side)
 
 test("the wait before a disc is drawn is short but not a flash", () => {
   assert.ok(STANDIN_MS >= 100 && STANDIN_MS <= 500);
+});
+
+test("the label on a disc says it is being made, and for how long once that is more than a moment", () => {
+  assert.equal(standInWords(0), "Building…");
+  assert.equal(standInWords(1), "Building…");
+  assert.equal(standInWords(2), "Building… 2 s");
+  assert.equal(standInWords(37), "Building… 37 s");
 });
