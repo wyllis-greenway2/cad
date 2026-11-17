@@ -3244,3 +3244,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_724 — 2026-11-17 — question
 > can try to find the remaining information and or link me to get you what you need?
 (asks me to look for the missing bevel gear data myself and, or, to link where to get it)
+
+## in_725 — 2026-11-17 — question
+> (the human attached three pages of the Gleason "Gear Technology Solutions" book as PDFs and the Gear Technology "Ask the expert: Backlash and Axial Movement" article, Sept/Oct 2017) Hey while we are here, is there anything else you need? Maybe to verify our other gears?
+(sends the backlash article and three Gleason pages; asks whether anything else is needed, for example to verify the other gears)
