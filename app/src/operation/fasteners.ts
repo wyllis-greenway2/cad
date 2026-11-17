@@ -48,7 +48,6 @@ const COUNTERSUNK: Record<FastenerSize, CountersunkDims> = {
 };
 /** Clearance holes, ISO 273 (mm): the fine, medium and coarse series (tolerance classes H12, H13 and H14). */
 export type ClearanceFit = "fine" | "medium" | "coarse";
-export const CLEARANCE_FITS: readonly ClearanceFit[] = ["fine", "medium", "coarse"];
 const CLEARANCE: Record<FastenerSize, Record<ClearanceFit, number>> = {
   M3: { fine: 3.2, medium: 3.4, coarse: 3.6 },
   M4: { fine: 4.3, medium: 4.5, coarse: 4.8 },
@@ -59,7 +58,7 @@ const CLEARANCE: Record<FastenerSize, Record<ClearanceFit, number>> = {
 const round3 = (x: number): number => Math.round(x * 1000) / 1000;
 
 export const isFastenerSize = (s: string): s is FastenerSize => (FASTENER_SIZES as readonly string[]).includes(s);
-export const nominalDiameter = (size: FastenerSize): number => Number(size.slice(1));
+const nominalDiameter = (size: FastenerSize): number => Number(size.slice(1));
 export const nutDims = (size: FastenerSize): NutDims => NUTS[size];
 export const countersunkDims = (size: FastenerSize): CountersunkDims => COUNTERSUNK[size];
 
@@ -106,7 +105,7 @@ export type PartSteps = ((s: Scene) => Command)[];
 const ground: Ref = worldRef("XY");
 
 /** A hex nut at the origin on the ground plane, standing up from it: the hexagon with the thread's hole, extruded the nut's thickness. */
-export function nutSteps(size: FastenerSize): PartSteps {
+function nutSteps(size: FastenerSize): PartSteps {
   const d = NUTS[size];
   let circle: Ref | null = null;
   let hex: Ref[] = [];
@@ -119,7 +118,7 @@ export function nutSteps(size: FastenerSize): PartSteps {
 export const makeNut = (size: string): Result<PartSteps> => (isFastenerSize(size) ? ok(nutSteps(size)) : err(`${size} is not a size this family has`));
 
 /** A countersunk screw at the origin, the top of its head on the ground plane and the shank going down (-Z) the length given: the side view turned a full turn about the Z axis, then the hexagon socket cut down from the top of the head. */
-export function countersunkSteps(size: FastenerSize, length: number): PartSteps {
+function countersunkSteps(size: FastenerSize, length: number): PartSteps {
   const d = COUNTERSUNK[size];
   const side: Ref = worldRef("XZ");
   let outline: Ref[] = [];
