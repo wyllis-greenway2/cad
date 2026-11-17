@@ -1,9 +1,9 @@
 ---
 id: dec_parts_fastener_pilot
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_691, in_695, in_696, in_697
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_691, in_695, in_696, in_697, in_698
 date: 2026-11-17
 depends_on:
   - dec_parts_library: the pilot is the first generated family of that library
@@ -13,7 +13,7 @@ alternative_to:
 ---
 # Pilot: metric fasteners and their matching receivers
 
-**Drafted from `in_695`, not yet approved. Nothing built, and no table value is written yet** (see "Data status"). The human asked for a simple first subset with really good data, with each fastener paired with a receiver.
+**Accepted by the human only for the hex nut and the countersunk screw (`in_698`), proposed by the AI from `in_695`. The other families wait for their data ("Data status").** The human asked for a simple first subset with really good data, with each fastener paired with a receiver.
 
 1. **Sizes:** M3, M4, M5, M6 and M8, coarse thread.
 2. **Fasteners:** hexagon socket head cap screw (ISO 4762), hexagon socket countersunk head screw (ISO 10642), hexagon nut (ISO 4032), plain washer (ISO 7089). Button head (ISO 7380) only if its data is as easy to get. Not in the pilot: inch sizes, fine threads, visible threads, inserts, self-tapping screws, other families.
@@ -25,6 +25,10 @@ alternative_to:
    - **Nut trap:** a hexagon pocket from the nut's across flats and thickness; the printer's fit offset is added later in the manufacturing version (`dec_parts_tolerance`, point 3), never here.
 4. **Tolerances:** every dimension is stored with its minimum and maximum where a source gives them; the receiver shows the hole at the nominal and the gap at the part's extremes (`dec_parts_tolerance`, points 1 and 4).
 5. **Data rule:** a value enters a table only when read from at least two independent sources that agree (the standard's number and the sources named in the entry's data note); a disagreement leaves the value marked unverified and out of the build until the human decides. No value is written from memory or from a summary of a search.
+
+## Built (`in_698`): the hex nut and the countersunk screw
+
+`operation/fasteners.ts` (the tables, the receivers' numbers and the steps that draw a part), `interaction/addpart.ts` (the dialog and the run), the ⋯ menu's **Add part…** row, `test/fasteners.test.ts`. **Hex nut (ISO 4032)** M3 to M8: a hexagon at its nominal width across flats with the thread's hole at the nominal diameter, extruded its thickness, at the origin on the ground plane. **Countersunk screw (ISO 10642, the 1997 edition's figures)** M3 to M8: the side view (the 90 degree cone, the shank, the axis) turned a full turn, then the hexagon socket cut down its minimum depth; any length over the head's height plus half a millimetre (the standard length list was not read). **Receivers:** the clearance hole (ISO 273, fine, medium, coarse), the tap drill (nominal less pitch), the countersink and the nut pocket, as numbers (`clearanceHole`, `tapDrill`, `countersink`, `nutTrap`); the dialog shows them for the size chosen. **Not built:** drawing a receiver into a body (the pocket or hole as a step), the tap drill's engagement setting, mating points, the part kept as family and numbers (the part is ordinary steps, so its sketches can be edited but its size cannot be changed by number), threads on the part (the hole is at the nominal diameter), and the families without enough data (socket head cap screw, washer, button head). The kernel checks the volumes against the formulas.
 
 ## Data status (read 2026-11-17; **no value is in the program yet**)
 

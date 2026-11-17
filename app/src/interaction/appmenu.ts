@@ -9,6 +9,7 @@ export const appRows = (build = "", can: { export?: boolean; /** a body is selec
   { id: "save", label: "Save", enabled: true, why: null },
   { id: "open", label: "Open…", enabled: true, why: null },
   { id: "import", label: "Import…", enabled: true, why: null },
+  { id: "addPart", label: "Add part…", enabled: true, why: null }, // (the fasteners: a hex nut and a countersunk screw, `dec_parts_interface`)
   { id: "material", label: "Material…", enabled: can.material ?? true, why: "select a body first" },
   { id: "export", label: "Export…", enabled: can.export ?? true, why: "nothing to export yet: make a body, or draw something" },
   { id: "laser", label: "Laser cut…", enabled: can.laser ?? true, why: "draw something, or select a sketch first" },

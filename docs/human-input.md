@@ -3132,3 +3132,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_697 — 2026-11-17 — approval
 > Yes, read the sources
 (asks for the candidate sources of the fastener pilot data to be read in full)
+
+## in_698 — 2026-11-17 — approval
+> Yes, build those two families
+(approves building the hex nut family (ISO 4032) and the countersunk screw family (ISO 10642, the 1997 edition's figures) of the fastener pilot)
