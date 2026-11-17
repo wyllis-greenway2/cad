@@ -1,6 +1,7 @@
 // The operations that take a number (`dec_interaction_spec`): extrude a closed figure, fillet or chamfer lines of the body (one operation: one way is a fillet, the other a chamfer), move, rotate or scale the body.
 // An operation starts from the selection (the menu or a key), shows its number, and is finished by Enter or a click: that adds ONE step to the scene, so it undoes in one go.
 import { typedNumber } from "../shared/numbers.ts";
+import { typedLength, units } from "../shared/units.ts";
 import type { Ref } from "../shared/ref.ts";
 import { edgeDirection, moveCentre, moveOffset } from "./gizmo.ts";
 import { patternStart, patternCommand } from "./pattern.ts";
@@ -246,6 +247,8 @@ export function surfaceAxes(scene: Scene, part: Part | undefined): [Vec3, Vec3, 
 }
 /** The mover put on one flat face or plane has an arrow normal to it (`in_419`). */
 export function startOp(scene: Scene, selection: readonly Ref[], kind: OpKind, view: ViewAxes | null = null): StartResult {
+  // the cut face of a sheet is a face of the cut view (`in_681`): it is looked at, picked and sketched on; the body is changed through its own faces
+  if (selection.some((r) => { const p = scene.parts[r]; return p?.kind === "plane" && !!p.cap; })) return { ok: false, why: "the cut face is only a view of the cut: sketch on it or look at it; put the cutting sheet away to work on the body" };
   const r = startOpMoved(scene, selection, kind, view);
   if (!r.ok || (kind !== "move" && kind !== "rotate") || selection.length !== 1 || (r.op.target !== "body" && r.op.target !== "plane" && r.op.target !== "part")) return r;
   const f = surfaceAxes(scene, scene.parts[selection[0]!]);
@@ -573,13 +576,13 @@ export function autoOp(scene: Scene, selection: readonly Ref[]): Op | null {
 /** The size at the middle of the edge, when one is given (the round then goes through the start, the middle and the end sizes, `in_410`), else null. */
 function variableMid(op: Op, v: number): number | null {
   if (!op.variable || !op.vary || op.kind !== "edge" || v === 0 || variableEnd(op, v) === null) return null;
-  const t = typedNumber(op.midTyped ?? "");
+  const t = typedLength(op.midTyped ?? "");
   return t !== null && t > 0 ? t : null;
 }
 /** The sizes typed at a quarter and at three quarters of the way along the edges (`in_410`), as the step's `q1` and `q3` (only when the size at the other end is given too). */
 function variableQuarters(op: Op, v: number): { q1?: number; q3?: number } {
   if (!op.variable || !op.vary || op.kind !== "edge" || v === 0 || variableEnd(op, v) === null) return {};
-  const [a, b] = [typedNumber(op.q1Typed ?? ""), typedNumber(op.q3Typed ?? "")];
+  const [a, b] = [typedLength(op.q1Typed ?? ""), typedLength(op.q3Typed ?? "")];
   return { ...(a !== null && a > 0 ? { q1: a } : {}), ...(b !== null && b > 0 ? { q3: b } : {}) };
 }
 /** The flat faces all of an operation's straight edges lie on: the ones a chamfer's first distance can be measured along, each as a part and as the kernel names it (`n,d,point`). */
@@ -603,12 +606,12 @@ function variableEnd(op: Op, v: number): number | null {
   if (!op.variable || !op.vary || op.kind !== "edge" || v === 0) return null;
   // round a rim there is no end: the size comes back to where it began, so the end is the start, and the rim changes only if a size is given somewhere round it
   if (op.rimVary) return [op.midTyped, op.q1Typed, op.q3Typed].some((x) => typedNumber(x ?? "") !== null) ? Math.abs(v) : null;
-  const t = typedNumber(op.endTyped ?? "");
+  const t = typedLength(op.endTyped ?? "");
   return t !== null && t > 0 && Math.abs(t - Math.abs(v)) > 1e-9 ? t : null;
 }
 /** The number the operation will use: what was typed, else the pointer's or default value. */
 export const valueOf = (op: Op): number | null => {
-  const t = typedNumber(op.typed);
+  const t = (op.unit ?? OP_UNIT[op.kind]) === "mm" ? typedLength(op.typed) : typedNumber(op.typed); // (a length is typed in the number system in use: the model keeps millimetres, `in_661`)
   if (t !== null && op.kind === "move" && op.typedBase !== undefined) return t - op.typedBase; // (a typed position along the axis: the step is how far that is from where it is)
   // a typed size is the size you want: how far to move is what is missing from the size now
   return t !== null && op.dim ? (t - op.dim.base) / op.dim.scale : t ?? op.value;
@@ -623,7 +626,8 @@ export function typeOp(op: Op, key: string): Op {
   else if (key === "." && !t.includes(".")) t += t === "" ? "0." : ".";
   else if (key === "-" && t === "") t = "-";
   else if (key === "ArrowUp" || key === "ArrowDown") {
-    const step = (op.kind === "edge" ? settings.op.sizeStep : settings.op.distanceStep) * (key === "ArrowUp" ? 1 : -1);
+    const inches = units.system === "in" && (op.unit ?? OP_UNIT[op.kind]) === "mm"; // (the same small step, in the system in use: a tenth of a millimetre, a hundredth of an inch, `in_661`)
+    const step = (op.kind === "edge" ? settings.op.sizeStep : settings.op.distanceStep) * (inches ? 2.54 : 1) * (key === "ArrowUp" ? 1 : -1);
     return { ...op, typed: "", value: Math.round(((valueOf(op) ?? 0) + step) * 1e6) / 1e6 };
   } else return op;
   return { ...op, typed: t };
@@ -789,8 +793,8 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   if (op.kind === "edge" && op.twoDist && v !== 0) { // a chamfer with a distance along each face (`dec_chamfer_two_distances`)
     const face = chosenFace(scene, op);
     if (!face) return null;
-    const second = typedNumber(op.endTyped ?? "");
-    return { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: "chamfer", value: Math.abs(v), d2: second !== null && second > 0 ? second : Math.abs(v), face: face.spec, ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}), ...stableEdges(scene, op.parts) } } };
+    const second = typedLength(op.endTyped ?? "");
+    return { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: "chamfer", value: Math.abs(v), d2: second !== null && second > 0 ? second : Math.abs(v), face: face.spec, ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}) , ...stableEdges(scene, op.parts) } } };
   }
   if (op.kind === "edge") return v === 0 ? null : { type: "addStep", step: { id, type: "edgeMod", parts: op.parts, params: { mode: v > 0 ? "fillet" : "chamfer", value: Math.abs(v), ...(variableEnd(op, v) !== null ? { end: variableEnd(op, v)! } : {}), ...(variableMid(op, v) !== null ? { mid: variableMid(op, v)! } : {}), ...variableQuarters(op, v), ...(op.ranks ? { ranks: op.ranks } : {}), ...(op.sigs ? { sigs: op.sigs } : {}), ...stableEdges(scene, op.parts) } } };
   if (op.kind === "scale" && op.target === "shape" && !op.axes) return v <= 0 ? null : scaleShapeCommand(scene, op, v);

@@ -12,7 +12,7 @@ import { homeCamera } from "../src/interaction/camera.ts";
 import { advance } from "../src/interaction/control/viewing.ts";
 import { drawSquaredRectangle } from "../src/operation/build.ts";
 import { nextId } from "../src/operation/scene.ts";
-import { appRows, nextPanScale } from "../src/interaction/appmenu.ts";
+import { appRows } from "../src/interaction/appmenu.ts";
 
 await kernel.init();
 const XY = worldRef("XY");
@@ -55,8 +55,6 @@ test("it goes to the body that was last in view; when that is gone, the last one
   assert.ok(Math.abs(out.cam.target[0] - 65) < 1, `the last body there is: ${out.cam.target}`);
 });
 
-test("an empty model offers no reset; the pan speed row cycles low, medium, high (`in_303`)", () => {
+test("an empty model offers no reset", () => {
   assert.equal(frame({ ...createState(createSession(kernel)), cam: { ...homeCamera(), target: [9999, 0, 0] } }).resetView, false);
-  assert.match(appRows("auto", "", undefined, false, 0.3).find((r) => r.id === "panSpeed")!.label, /medium/);
-  assert.equal(nextPanScale(0.5), 0.15);
 });

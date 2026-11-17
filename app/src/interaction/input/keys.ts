@@ -11,7 +11,7 @@ const LOOK = { lookX: "X", lookY: "Y", lookZ: "Z", lookN: "N" } as const;
 /** The intents for a key going down (a release or Space is the caller's business). */
 export function keyIntents(e: Key, I: typeof settings.input): Intent[] {
   const a = keyAction(e.key, e.mods, I.keys);
-  const typing = !e.mods.ctrl && !e.mods.alt && /^([0-9.\-]|Backspace|Tab|Enter|ArrowUp|ArrowDown)$/.test(e.key);
+  const typing = !e.mods.ctrl && !e.mods.alt && /^([0-9.\-]|Backspace|Tab|Enter|ArrowUp|ArrowDown|ArrowLeft|ArrowRight)$/.test(e.key);
   if (typing) return [...(e.key === "Backspace" && a === "delete" ? [{ type: "delete" } as Intent] : []), { type: "typed", key: e.key, shift: e.mods.shift }];
   if (!a) return [];
   if (PLAIN.has(a)) return [{ type: a } as Intent];

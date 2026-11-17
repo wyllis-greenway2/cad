@@ -102,7 +102,7 @@ test("a name that is too long or has control characters is refused; nothing sele
 });
 
 test("the ⋯ menu has a Material… row, live with a body selected and dimmed with the reason without one", () => {
-  const rows = (can: boolean) => appRows("pan" as never, "", { material: can }, false, 1, true, 0).filter((r) => r.id === "material");
+  const rows = (can: boolean) => appRows("", { material: can }).filter((r) => r.id === "material");
   assert.deepEqual(rows(true).map((r) => [r.label, r.enabled]), [["Material…", true]]);
   assert.deepEqual(rows(false).map((r) => [r.enabled, r.why]), [[false, "select a body first"]]);
 });

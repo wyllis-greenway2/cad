@@ -11,6 +11,8 @@ type Rgb = [number, number, number];
 const make = () => ({
   uOrbC: { value: new THREE.Vector3() }, uOrbR: { value: 1 }, uOrbA: { value: 0 }, uOrbRingA: { value: 0 }, uOrbSoft: { value: 2 }, uOrbFill: { value: 0 }, uRingPx: { value: 1.6 }, uOrbDisc: { value: 0 },
 });
+/** The sheets that are cutting the view (`in_680`): the teal of a selected face and the ring of the pointer stop at them, as the part does (up to eight; each a normal and a constant, a point is kept when dot(normal, p) + constant is not below nothing). Shared by every orb material. */
+export const sectionClip = { clCount: { value: 0 }, clPlanes: { value: Array.from({ length: 8 }, () => new THREE.Vector4()) } };
 export const hoverOrb = make();
 export const selectOrb = make();
 /** A surface lit all over (a shape selected inside the sketch view, where there is no click to spread from). */
@@ -33,10 +35,11 @@ vec2 orbParts(vec3 p, vec3 c, float R, float fillA, float fill, float ringA, flo
 /** A material that draws the orb on whatever geometry it is given (positions are world positions through the mesh's own matrix). */
 export function orbMaterial(rgb: Rgb, ringRgb: Rgb, orb: ReturnType<typeof make>, { offset = 0 } = {}) {
   return new THREE.ShaderMaterial({
-    uniforms: { uCol: { value: new THREE.Vector3(...rgb) }, uRingCol: { value: new THREE.Vector3(...ringRgb) }, ...orb },
+    uniforms: { uCol: { value: new THREE.Vector3(...rgb) }, uRingCol: { value: new THREE.Vector3(...ringRgb) }, ...orb, ...sectionClip },
     vertexShader: "varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }",
-    fragmentShader: `uniform vec3 uCol; uniform vec3 uRingCol; uniform vec3 uOrbC; uniform float uOrbR; uniform float uOrbA; uniform float uOrbRingA; uniform float uOrbSoft; uniform float uOrbFill; uniform float uRingPx; uniform float uOrbDisc; varying vec3 vW; ${ORB_GLSL}
+    fragmentShader: `uniform vec3 uCol; uniform vec3 uRingCol; uniform vec3 uOrbC; uniform float uOrbR; uniform float uOrbA; uniform float uOrbRingA; uniform float uOrbSoft; uniform float uOrbFill; uniform float uRingPx; uniform float uOrbDisc; uniform vec4 clPlanes[8]; uniform int clCount; varying vec3 vW; ${ORB_GLSL}
       void main() {
+        for (int i = 0; i < 8; i++) { if (i >= clCount) break; if (dot(clPlanes[i].xyz, vW) + clPlanes[i].w < 0.0) discard; }
         vec2 pr = orbParts(vW, uOrbC, uOrbR, uOrbA, uOrbFill, uOrbRingA, uOrbSoft, uRingPx, uOrbDisc);
         float a = 1.0 - (1.0 - pr.x) * (1.0 - pr.y);
         gl_FragColor = vec4(mix(uCol, uRingCol, pr.y / max(a, 1e-4)), a); // the fill is the teal, the ring is the colour the selected face shows

@@ -180,7 +180,7 @@ test("what an extrude has used up is neither drawn nor picked; undo and deleting
 });
 
 import { frameOf } from "../src/interaction/frame.ts";
-import { appRows, nextScrollMode, isScrollMode } from "../src/interaction/appmenu.ts";
+import { appRows, isScrollMode } from "../src/interaction/appmenu.ts";
 
 test("the frame says what to draw: the cursor, the body, the selection; the small axes are always there and nothing flies into a corner", () => {
   const empty = frameOf(createState(createSession(kernel)), { w: 800, h: 600 });
@@ -194,10 +194,10 @@ test("the frame says what to draw: the cursor, the body, the selection; the smal
   assert.deepEqual(frameOf(sel, { w: 800, h: 600 }).highlight.selection, [XY]);
 });
 
-test("the menu always ends with the lists, save, open, export, share state and the scroll mode, which cycles", () => {
-  assert.deepEqual(appRows("auto").map((r) => r.id), ["bodies", "history", "groups", "save", "open", "import", "material", "export", "laser", "laserLayers", "share", "constraints", "hard:clearance", "outlines", "panSpeed", "scrollMode"]);
-  assert.match(appRows("pan").find((r) => r.id === "scrollMode")!.label, /pans/);
-  assert.deepEqual(["auto", "pan", "zoom"].map((m) => nextScrollMode(m as never)), ["pan", "zoom", "auto"]);
+test("the ⋯ list always has every row, dimmed when one cannot be used, and ends with the settings page (`in_661`)", () => {
+  assert.deepEqual(appRows().map((r) => r.id), ["mate:reapply", "bodies", "history", "groups", "save", "open", "import", "material", "export", "laser", "laserLayers", "clearAnswers", "share", "constraints", "hard:clearance", "settings", "build"]);
+  assert.deepEqual(appRows().filter((r) => !r.enabled).map((r) => r.id), ["mate:reapply", "clearAnswers", "build"], "dimmed, not left out");
+  assert.ok(appRows().filter((r) => !r.enabled).every((r) => r.why), "each dimmed row says why when it is pressed");
   assert.ok(isScrollMode("zoom") && !isScrollMode("x") && !isScrollMode(null));
 });
 

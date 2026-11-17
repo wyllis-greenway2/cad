@@ -21,7 +21,7 @@ const norm = (a: number): number => { const t = ((a % TAU) + TAU) % TAU; return 
  * of the partner from its centre (radians from `u` towards `v`); for a rack as the source, how far along the rack (mm from the middle of its pitch line) the partner stands. Refused, with the reason, for a gear
  * with a profile shift (its centre distance is not the plain one), for the tooth counts that make no mesh (a gear in a ring needs fewer teeth than the ring) and for a rack against a ring.
  */
-export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; offset?: number; width?: number }, where: number): Result<Placement> {
+export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; offset?: number; width?: number; /** a ring that goes round the gear (`in_686`) */ ring?: boolean }, where: number): Result<Placement> {
   const s = src.spec;
   if (s.worm) return meshWormWheel(src, u, v, partner, where);
   if (s.wheel) return err("a worm wheel is meshed by selecting the worm, not the wheel");
@@ -37,6 +37,7 @@ export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: nu
   const turn1 = src.turn ?? 0;
   if (s.rack) {
     if (partner.rack) return err("a rack does not mesh with a rack");
+    if (partner.ring) return err("a ring does not go round a rack");
     if (z2 < 3) return err("a gear needs 3 or more teeth");
     // the rack along its own x (turned by `turn1`), teeth up; the gear stands on the teeth side, its pitch circle on the rack's pitch line
     const [c, sn] = [Math.cos(turn1), Math.sin(turn1)];
@@ -45,6 +46,17 @@ export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: nu
     const e = wrap(-L / 2 - where, Math.PI * m); // (a tooth of the gear stands this far along the rack from where it touches, at a gap of the rack)
     const psi = -e / r2;
     return ok({ at: at(src.at, c * where - sn * r2, sn * where + c * r2), turn: norm(turn1 - Math.PI / 2 - psi), spec: base });
+  }
+  if (partner.ring) {
+    // a ring round an outside gear: the gear is inside the ring, so this is the case of a gear in a ring seen from the gear: `where` is the direction of the ring's middle from the gear, and the contact is
+    // the other way, `phi2` (the direction of the gear from the ring's middle)
+    if (s.internal) return err("a ring does not go round a ring");
+    if (z2 <= s.teeth) return err("a ring round a gear needs more teeth than the gear's " + s.teeth + " (type Teeth)");
+    const phi2 = where + Math.PI;
+    const a = (m * (z2 - s.teeth)) / 2;
+    const psiGear = phi2 - turn1;
+    const psiRing = (TAU / z2) * ((psiGear * s.teeth) / TAU + 0.5);
+    return ok({ at: at(src.at, Math.cos(where) * a, Math.sin(where) * a), turn: norm(phi2 - psiRing), spec: { ...base, internal: true } });
   }
   const r1 = (m * s.teeth) / 2;
   const phi = where;
@@ -59,7 +71,7 @@ export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: nu
   }
   if (z2 < 3) return err("a gear needs 3 or more teeth");
   if (s.internal) {
-    if (z2 >= s.teeth) return err("a gear in a ring needs fewer teeth than the ring");
+    if (z2 >= s.teeth) return err("a gear in a ring needs fewer teeth than the ring's " + s.teeth + " (type Teeth)");
     const a = (m * (s.teeth - z2)) / 2;
     const psi2 = (TAU / z2) * ((psi1 * s.teeth) / TAU - 0.5);
     return ok({ at: at(src.at, dir[0] * a, dir[1] * a), turn: norm(phi - psi2), spec: base });

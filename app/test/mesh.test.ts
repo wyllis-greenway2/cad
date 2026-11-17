@@ -119,3 +119,25 @@ test("what cannot mesh is refused with the reason: a shifted gear, a gear as big
   assert.ok(!meshWith(rec({ teeth: 10, module: 2, rack: true }), U, V, { teeth: 5, rack: true }, 0).ok);
   assert.ok(!meshWith(rec({ teeth: 30, module: 2, internal: true }), U, V, { teeth: 5, rack: true }, 0).ok);
 });
+
+test("a ring round a gear (`in_686`): the ring's middle is (zr - z) m / 2 from the gear's in the direction asked, the gear's teeth fit the ring's, and half a pitch out they run into it", () => {
+  for (const [z, zr, turn1] of [[16, 40, 0], [20, 48, 0.5]] as const) {
+    for (const phi of [0, 1.3, -2.4]) {
+      const gear = rec({ teeth: z, module: 2 }, [3, -2, 0], turn1);
+      const r = meshWith(gear, U, V, { teeth: zr, ring: true }, phi);
+      assert.ok(r.ok, r.ok ? "" : r.error);
+      if (!r.ok) return;
+      assert.equal(r.value.spec.internal, true, "it is a ring");
+      assert.ok(Math.abs(Math.hypot(r.value.at[0] - 3, r.value.at[1] + 2) - (zr - z)) < 1e-9, "centre distance");
+      assert.ok(Math.abs(Math.atan2(r.value.at[1] + 2, r.value.at[0] - 3) - phi) < 1e-9 || Math.abs(Math.abs(Math.atan2(r.value.at[1] + 2, r.value.at[0] - 3) - phi) - 2 * Math.PI) < 1e-9, "in the direction asked");
+      const [hole, g] = [polygon(r.value.spec, r.value.at, r.value.turn), polygon(gear.spec, gear.at, turn1)];
+      const deep = Math.max(0, ...g.filter((p) => !inside(p, hole)).map((p) => edgeDist(p, hole)));
+      assert.ok(deep < 0.02, `${z}/${zr} at ${phi}: ${deep}`);
+      const out = polygon(r.value.spec, r.value.at, r.value.turn + Math.PI / zr);
+      assert.ok(Math.max(0, ...g.filter((p) => !inside(p, out)).map((p) => edgeDist(p, out))) > 0.3, "half a pitch out, the gear runs into the ring");
+    }
+  }
+  assert.ok(!meshWith(rec({ teeth: 30, module: 2 }), U, V, { teeth: 30, ring: true }, 0).ok, "a ring needs more teeth than the gear");
+  assert.ok(!meshWith(rec({ teeth: 30, module: 2, internal: true }), U, V, { teeth: 40, ring: true }, 0).ok, "no ring round a ring");
+  assert.ok(!meshWith(rec({ teeth: 20, module: 2, rack: true }), U, V, { teeth: 40, ring: true }, 0).ok, "no ring round a rack");
+});

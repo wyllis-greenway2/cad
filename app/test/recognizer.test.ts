@@ -141,7 +141,7 @@ test("finger: a tap is a click; taps in a row count; a drag orbits; a long press
   out.push(...lp.feed({ kind: "tick", t: clock + 100 }));
   out.push(...lp.feed({ kind: "tick", t: clock + settings.input.longPressMs + 10 }));
   out.push(...lp.feed(ev("up", 50, 50, { device: "touch", dt: 1000 })));
-  assert.deepEqual(out, [{ type: "menu", x: 50, y: 50 }]);
+  assert.deepEqual(out, [{ type: "menu", x: 50, y: 50, touch: true }]);
 });
 
 test("finger: two fingers pan together and pinch to zoom; lifting one does not start an orbit or a click", () => {
@@ -210,7 +210,7 @@ test("finger on an operation: the drag icon drags the arrow that was tapped as a
   const drag = run(r, [T("down", 202, 278), T("move", 222, 278), T("move", 252, 268), T("up", 252, 268)]);
   assert.deepEqual(drag, [{ type: "orbit", dx: 20, dy: 0, x: 220, y: 200 }, { type: "orbit", dx: 30, dy: -10, x: 250, y: 190 }, { type: "dragEnd" }], "the first move says it began at the arrow (x - dx, y - dy is the anchor), and the drag ends when the finger lifts");
   assert.deepEqual(types(run(r, [T("down", 300, 140), T("up", 300, 140)])), ["click"], "a tap on another arrow selects it");
-  assert.deepEqual(run(r, [T("down", 100, 400), T("up", 100, 400)]), [{ type: "menu", x: 100, y: 400 }], "a tap anywhere else is a right click: it applies");
+  assert.deepEqual(run(r, [T("down", 100, 400), T("up", 100, 400)]), [{ type: "menu", x: 100, y: 400, touch: true }], "a tap anywhere else is a right click: it applies");
   r.setTouchHelper({ kind: "handle", icons: [{ anchor: [200, 200], icon: [200, 276], index: -1 }], closes: false, handles: [] });
   assert.deepEqual(types(run(r, [T("down", 100, 400), T("up", 100, 400)])), ["click"], "nothing open (an arrow only selected): a tap elsewhere is an ordinary click");
   assert.deepEqual(run(r, [T("down", 202, 278), T("up", 202, 278)]), [], "a tap on the icon does nothing");
@@ -221,5 +221,5 @@ test("an operation is open and no arrow is chosen: there is no drag icon, a tap 
   const r = createRecognizer();
   r.setTouchHelper({ kind: "handle", icons: [], closes: true, handles: [[[150, 200], [250, 200]]] });
   assert.deepEqual(types(run(r, [T("down", 200, 205), T("up", 200, 205)])), ["click"], "on an arrow: select it");
-  assert.deepEqual(run(r, [T("down", 100, 400), T("up", 100, 400)]), [{ type: "menu", x: 100, y: 400 }], "in free space: a right click");
+  assert.deepEqual(run(r, [T("down", 100, 400), T("up", 100, 400)]), [{ type: "menu", x: 100, y: 400, touch: true }], "in free space: a right click");
 });

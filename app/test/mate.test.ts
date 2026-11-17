@@ -108,7 +108,7 @@ test("the menu offers the mates for two selected faces of two bodies, and choosi
   let st = { ...createState(s), cam: homeCamera() };
   st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: pick } } };
   const menu = reduce(st, { type: "menu", x: 5, y: 5, button: true }, env).menu!;
-  const items = menu.items.flatMap((i) => i.children ?? [i]);
+  const items = menu.items.flatMap((i) => (i.children ?? [i]).flatMap((c) => c.children ?? [c]));
   assert.ok(items.some((i) => i.id === "mate:flush" && i.enabled), `the menu has Mate: flush: ${items.map((i) => i.id).filter((i) => i.startsWith("mate") || i === "tangent")}`);
   const done = reduce(st, { type: "runAction", id: "mate:flush" }, env);
   assert.ok(Math.abs(bodies(done.session).find((x) => x.id === b!.id)!.bbox!.min[0] - 10) < 1e-3, "choosing it moved B against A");
@@ -162,8 +162,8 @@ test("a change that moves one of the bodies makes the mate not true, says so, an
 test("the menu offers 'put the mates back' only when one is not true, and doing it from the menu works (`in_315`)", () => {
   const { s, a } = matedBoxes();
   const env = { w: 800, h: 600, now: 0 };
-  assert.ok(!appRows("auto", "", { matesOff: 0 }).some((r) => r.id === "mate:reapply"));
-  assert.ok(appRows("auto", "", { matesOff: 1 }).some((r) => r.id === "mate:reapply"));
+  assert.ok(!appRows("", { matesOff: 0 }).some((r) => r.id === "mate:reapply" && r.enabled));
+  assert.ok(appRows("", { matesOff: 1 }).some((r) => r.id === "mate:reapply" && r.enabled));
   let wider = s;
   for (const ref of rightA) { const at = (scene(wider).parts[ref] as unknown as { at: number[] }).at; wider = run(wider, { type: "movePart", ref, to: [13, at[1]!, at[2]!] } as never); }
   assert.equal(mateStatus(scene(wider))[0]!.state, "off");
@@ -574,6 +574,20 @@ test("a change that leaves standing mates with no placement where they all hold 
   const free = run(s, { type: "removeRelation", id: scene(s).relations.find((r) => r.kind === "mate")!.id });
   const ok = run(free, actionsFor(scene(free), [face(free, b!.id, [1, 0, 0]), face(free, c!.id, [-1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
   assert.ok(!ok.message, `${ok.message}`);
+});
+
+
+test("a change refused for mates at odds offers the button: it deletes the standing mate that is there and makes the change, as one step (`in_596`)", () => {
+  let s = box(box(box(createSession(kernel), 0, 0), 40, 0), 25, 30);
+  const [a, b, c] = bodies(s);
+  const face = (q: Session, id: string | undefined, n: [number, number, number]) => faceOf(q, bodies(q).find((x) => x.id === id)!, n);
+  s = run(s, actionsFor(scene(s), [face(s, b!.id, [-1, 0, 0]), face(s, a!.id, [1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  const refused = run(s, actionsFor(scene(s), [face(s, b!.id, [1, 0, 0]), face(s, c!.id, [-1, 0, 0])]).find((x) => x.id === "mate:flush")!.run());
+  assert.ok(refused.conflict?.retry, "the refusal carries what to do once the mate is gone");
+  const st = reduce({ ...createState(refused), flash: { ...refused.conflict!, at: 0 } }, { type: "overrideRefusal" }, { w: 800, h: 600, now: 0 } as never);
+  assert.equal(st.session.message, null, "the change was made");
+  assert.equal(scene(st.session).relations.filter((r) => r.kind === "mate").length, 1, "the new mate stands, the old one is gone");
+  assert.equal(st.session.history.cursor, s.history.cursor + 1, "one step: one undo takes both back");
 });
 
 

@@ -54,7 +54,7 @@ function pickArrow(st: AppState, id?: string): AppState {
   const h = hs.find((x) => !id || x.id === id)!;
   // the spot of it furthest from the other handles (the rings cross one another)
   const others = hs.filter((x) => x !== h).flatMap((x) => x.points.map((q) => px(st, q)));
-  const spots = h.kind === "arc" ? h.points : [scale(add(h.points[0]!, h.points.at(-1)!), 0.5)];
+  const spots = h.kind === "ring" ? h.points : [scale(add(h.points[0]!, h.points.at(-1)!), 0.5)];
   const far = (q: Vec3) => Math.min(...others.map((o) => Math.hypot(o[0] - px(st, q)[0], o[1] - px(st, q)[1])), 1e9);
   const at = spots.reduce((b, q) => (far(q) > far(b) ? q : b));
   const [x, y] = px(st, at);
@@ -141,7 +141,7 @@ test("Fillet / chamfer is one operation with a double arrow on the edge: drag ou
   assert.ok(dot(d, [0, -1, 1]) > 1.3);
   let st = reduce(st0, { type: "begin", name: "edge" }, env);
   const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => [h.id, h.kind]), [["edge:0", "double"]]);
+  assert.deepEqual(g.handles.map((h) => [h.id, h.kind, !!h.both]), [["edge:0", "arrow", true]]);
   near(g.centre[0], 10);
   near(g.centre[2], 20); // a quarter of the way along the edge, so the arrow is not under the length bubble at its middle
   const h = g.handles[0]!;
@@ -259,7 +259,7 @@ test("a closed figure shows the arrow to pull it out; the same arrow on a flat f
   const h = frame(st).gizmo!.handles;
   assert.deepEqual(h.map((q) => q.id), ["pull"]);
   nearV(scale(add(h[0]!.points[0]!, h[0]!.points[1]!), 0.5), [20, 10, 0]);
-  assert.equal(h[0]!.kind, "double", "the arrow points both ways: out to pull, in to push");
+  assert.ok(h[0]!.kind === "arrow" && h[0]!.both, "the arrow points both ways: out to pull, in to push");
   nearV(sub(h[0]!.points[1]!, h[0]!.points[0]!).map((v, i) => (i < 2 ? Math.abs(v) : v / Math.abs(v || 1))), [0, 0, 1], 1e-6);
   const mid = scale(add(h[0]!.points[0]!, h[0]!.points[1]!), 0.5);
   st = drag(st, mid, add(mid, [0, 0, 12]));
@@ -296,7 +296,7 @@ test("a line of the body shows the fillet / chamfer double arrow by itself; seve
   assert.ok(ringOps(st).includes("op:edge"), "fillet / chamfer is in the right-click ring too");
   const g = gizmoOf(st)!; // and the arrows show up by themselves
   assert.equal(g.handles.length, 1, "one arrow for all the edges");
-  assert.ok(g.handles.every((h) => h.kind === "double"));
+  assert.ok(g.handles.every((h) => h.kind === "arrow" && h.both));
   const h = g.handles[0]!;
   const centre = scale(add(h.points[0]!, h.points[1]!), 0.5);
   const d = sub(h.points[1]!, h.points[0]!);
@@ -1301,6 +1301,24 @@ test("a rectangle with a locked width cannot be stretched from its side: it is r
   st = typeNumber(st, "50");
   assert.deepEqual(scene(st.session).steps.map((x) => x.type), ["extrude"], "the length is locked at 40: nothing was added");
   assert.ok(st.session.conflict && st.session.conflict.culprits.length > 0, "the constraint that holds it flashes");
+});
+
+test("a side that a locked length holds is refused like any other change: the notice offers to delete the constraint and make it, and one undo takes both back (`in_665`)", () => {
+  let st = box();
+  const lines = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn");
+  const bottom = lines.find((l) => { if (l.kind !== "line") return false; const [a, b] = [scene(st.session).parts[l.a] as { at: Vec3 }, scene(st.session).parts[l.b] as { at: Vec3 }]; return a.at[1] === 0 && b.at[1] === 0; })!;
+  st = { ...st, session: run(st.session, actionsFor(scene(st.session), [bottom.ref]).find((x) => x.id === "length")!.run(40)) };
+  const side = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && Math.abs(p.at[0] - 40) < 1e-6 && p.u[0] === 0 && p.v[0] === 0)!;
+  st = reduce(select(st, [side.ref]), { type: "begin", name: "pushpull" }, env);
+  st = typeNumber(st, "50");
+  const refusal = frame(st).notices.find((n) => n.kind === "refusal");
+  assert.ok(refusal?.action, "a refusal by a constraint has the button");
+  assert.deepEqual(refusal!.action!.intent, { type: "overrideRefusal" });
+  assert.ok(refusal!.beside, "it stands by the constraint that stopped it");
+  const before = scene(st.session).relations.length;
+  st = reduce(st, refusal!.action!.intent, env);
+  assert.ok(scene(st.session).relations.length < before, "the constraint that held it is deleted");
+  assert.equal(st.session.message, null, "and the change is made");
 });
 
 test("a chamfer face of a box edge: pulling it out makes the chamfer smaller, as the step that made it; the end of an earlier prism push is its depth", () => {

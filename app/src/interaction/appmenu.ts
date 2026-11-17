@@ -1,17 +1,8 @@
-// The rows the menu always ends with, whatever is selected: save, open, and the scroll mode (what a scroll does: a trackpad pans and a wheel zooms, or always one).
+import { lengthText } from "../shared/units.ts";
+// The rows of the ⋯ list, always all there and dimmed when one cannot be used (`in_661`): the lists, save, open, import, export, share, and the settings page (the view, the mouse and the keyboard are there, `dec_settings_page`).
 export interface AppRow { id: string; label: string; enabled: boolean; why: string | null }
-export type ScrollMode = "auto" | "pan" | "zoom";
-
-const NEXT: Record<ScrollMode, ScrollMode> = { auto: "pan", pan: "zoom", zoom: "auto" };
-const LABEL: Record<ScrollMode, string> = { auto: "Scroll auto", pan: "Scroll pans", zoom: "Scroll zooms" }; // (the rows are one or two words, `in_541`)
-
-/** How much of a trackpad's scroll the view pans by (`in_303`): trackpads and their system settings differ a lot, so it is the user's choice. */
-const PAN_LEVELS = [{ name: "low", scale: 0.15 }, { name: "medium", scale: 0.3 }, { name: "high", scale: 0.5 }] as const;
-export const nextPanScale = (scale: number): number => { const i = PAN_LEVELS.findIndex((l) => Math.abs(l.scale - scale) < 1e-9); return PAN_LEVELS[(i + 1) % PAN_LEVELS.length]!.scale; };
-const panName = (scale: number): string => PAN_LEVELS.reduce((a, l) => (Math.abs(l.scale - scale) < Math.abs(a.scale - scale) ? l : a)).name;
-
-export const appRows = (mode: ScrollMode, build = "", can: { export?: boolean; /** a body is selected, so a material can be tagged on it (`in_565`) */ material?: boolean; /** there is a flat drawing to cut with a laser (`in_569`) */ laser?: boolean; /** the person's laser table has rows to look at (`in_573`) */ laserTable?: boolean; /** drawn lines are selected, so the laser route can mark them (`in_603`) */ laserLayers?: boolean; /** how many mates are no longer true (`in_315`) */ matesOff?: number; /** the kernel's answers are kept between sessions (`dec_description_cache`): a row to forget them */ clearAnswers?: boolean } = {}, allConstraints = false, panScale = 0.3, outlines = true, clearance = 0): AppRow[] => [
-  ...(can.matesOff ? [{ id: "mate:reapply", label: "Reapply mates", enabled: true, why: null }] : []),
+export const appRows = (build = "", can: { export?: boolean; /** a body is selected, so a material can be tagged on it (`in_597`) */ material?: boolean; /** there is a flat drawing to cut with a laser (`in_662`) */ laser?: boolean; /** the person's laser table has rows to look at (`in_666`) */ laserTable?: boolean; /** drawn lines are selected, so the laser route can mark them (`in_603`) */ laserLayers?: boolean; /** how many mates are no longer true (`in_315`) */ matesOff?: number; /** the kernel's answers are kept between sessions (`dec_description_cache`): a row to forget them */ clearAnswers?: boolean } = {}, allConstraints = false, clearance = 0): AppRow[] => [
+  { id: "mate:reapply", label: "Reapply mates", enabled: !!can.matesOff, why: "every mate is true as it is" }, // (always there, dimmed when it cannot be used, `in_661`)
   { id: "bodies", label: "Bodies", enabled: true, why: null },
   { id: "history", label: "History", enabled: true, why: null },
   { id: "groups", label: "Groups", enabled: true, why: null },
@@ -23,14 +14,12 @@ export const appRows = (mode: ScrollMode, build = "", can: { export?: boolean; /
   { id: "laser", label: "Laser cut…", enabled: can.laser ?? true, why: "draw something, or select a sketch first" },
   { id: "laserLayers", label: "Laser layers…", enabled: can.laserLayers ?? true, why: "select lines or a figure of the drawing first" },
   ...(can.laserTable ? [{ id: "laserTable", label: "Laser table…", enabled: true, why: null }] : []),
-  ...(can.clearAnswers ? [{ id: "clearAnswers", label: "Clear cache", enabled: true, why: null }] : []),
+  { id: "clearAnswers", label: "Clear cache", enabled: !!can.clearAnswers, why: "no kept answers in this page" },
   { id: "share", label: "Share state", enabled: true, why: null },
   { id: "constraints", label: allConstraints ? "All constraints" : "Key constraints", enabled: true, why: null },
-  { id: "hard:clearance", label: `Clearance ${clearance}`, enabled: true, why: null },
-  { id: "outlines", label: outlines ? "✓ Edge lines" : "Edge lines", enabled: true, why: null },
-  { id: "panSpeed", label: `Pan ${panName(panScale)}`, enabled: true, why: null },
-  { id: "scrollMode", label: LABEL[mode], enabled: true, why: null },
-  ...(build ? [{ id: "build", label: `Build ${build}`, enabled: false, why: "which version of the app this page is running" }] : []),
+  { id: "hard:clearance", label: `Clearance ${lengthText(clearance)}`, enabled: true, why: null },
+  { id: "settings", label: "Settings…", enabled: true, why: null }, // (the options of the view, the mouse and the keyboard, and the number system are on their own page, `in_661`)
+  { id: "build", label: build ? `Build ${build}` : "Build", enabled: false, why: "which version of the app this page is running" },
 ];
-export const nextScrollMode = (mode: ScrollMode): ScrollMode => NEXT[mode];
+export type ScrollMode = "auto" | "pan" | "zoom";
 export const isScrollMode = (s: string | null): s is ScrollMode => s === "auto" || s === "pan" || s === "zoom";

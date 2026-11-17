@@ -113,7 +113,7 @@ test("findings and what the file writer could not write are shown to read before
 });
 
 test("the ⋯ menu has a Laser cut… row, live with a drawing and dimmed with the reason without one", () => {
-  const rows = (can: boolean) => appRows("pan" as never, "", { laser: can }, false, 1, true, 0).filter((x) => x.id === "laser");
+  const rows = (can: boolean) => appRows("", { laser: can }).filter((x) => x.id === "laser");
   assert.deepEqual(rows(true).map((x) => [x.label, x.enabled]), [["Laser cut…", true]]);
   assert.deepEqual(rows(false).map((x) => [x.enabled, x.why]), [[false, "draw something, or select a sketch first"]]);
 });

@@ -85,7 +85,7 @@ export function createTouch(I: typeof settings.input, countClick: ClickCounter, 
       if (cur?.mode === "one" && cur.moved && !cur.long && cur.id === e.id) return [{ type: "dragEnd" }];
       if (e.kind === "cancel" || !cur || cur.mode !== "one" || cur.moved || cur.long || cur.id !== e.id) return [];
       // a tap while the helper is up: on an arrow or ring of the operation it selects that (a click); anywhere else it is a right click: an operation is applied, a tool put away (`in_284`, corrected by `in_285`: apply, not cancel)
-      if (helper?.closes && !helper.handles.some((p) => nearLine(p, e.x, e.y))) return [{ type: "menu", x: e.x, y: e.y }];
+      if (helper?.closes && !helper.handles.some((p) => nearLine(p, e.x, e.y))) return [{ type: "menu", x: e.x, y: e.y, touch: true }];
       // a sketch tool is on and a finger has no hover: a tap sets the point the cursor is held at and holds it for the next where the tap was (`in_286`)
       if (drawing()) return [{ type: "tapAim", x: e.x, y: e.y }];
       return [{ type: "click", x: e.x, y: e.y, count: countClick(e.x, e.y, e.t, true), shift: false }];
@@ -95,7 +95,7 @@ export function createTouch(I: typeof settings.input, countClick: ClickCounter, 
     tick(t: number): Intent[] {
       if (g?.mode === "one" && !g.moved && !g.long && t - g.t0 >= I.longPressMs) {
         g.long = true;
-        return [{ type: "menu", x: g.x, y: g.y }];
+        return [{ type: "menu", x: g.x, y: g.y, touch: true }];
       }
       return [];
     },

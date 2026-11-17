@@ -8,6 +8,8 @@ import type { Vec3 } from "../math/vec.ts";
 import { cross, normalize } from "../math/vec.ts";
 import type { Part } from "../operation/part.ts";
 import type { KernelResult, KernelEdge } from "./kernel/adapter.ts";
+import { sectionFaces, axesOf } from "../operation/cutface.ts";
+import type { Sheet } from "../operation/cutface.ts";
 
 const r4 = (v: number) => Math.round(v * 1e4) / 1e4;
 const key = (p: readonly number[]) => p.map((v) => String(r4(v) + 0)).join(",");
@@ -47,7 +49,7 @@ export function decodeFace(r: Ref): { n: Vec3; d: number } | null {
   return m ? { n: [Number(m[1]), Number(m[2]), Number(m[3])], d: Number(m[4]) } : null;
 }
 
-export function bodyParts(result: KernelResult): Part[] {
+export function bodyParts(result: KernelResult, sheets: Sheet[] = []): Part[] {
   const out: Part[] = [];
   const base = { origin: "body" as const, plane: null, movable: false };
   const corners = new Set<string>();
@@ -153,6 +155,41 @@ export function bodyParts(result: KernelResult): Part[] {
       ref = faceName(f.n, f.d, [x / k, y / k, z / k]);
     }
     out.push({ ...base, ref, kind: "plane", at: [f.n[0] * f.d, f.n[1] * f.d, f.n[2] * f.d], u: f.u, v: f.v, ...(f.stable ? { stable: f.stable } : {}), ...(f.mesh.length ? { mesh: f.mesh } : {}), ...(f.body !== undefined ? { of: bodyPart(f.body) } : {}) });
+  }
+  // where a sheet that is cutting passes through the body the cut is a face too, with its edges and corners (`in_681`): named by where they are, like the rest
+  if (sheets.length && result.mesh) {
+    const lines = new Set(out.filter((p) => p.kind === "line").map((p) => p.ref));
+    // with several bodies each is cut on its own (only its own triangles), and its parts say which body they belong to
+    const triangles = (i: number | null): ArrayLike<number> => {
+      if (i === null) return result.mesh!.triangles;
+      const keep: number[] = [];
+      for (const f of result.faces ?? []) if (f.body === i) for (const r of (f.ranges as { start: number; count: number }[] | undefined) ?? [{ start: f.start, count: f.count }]) for (let k = r.start; k < r.start + r.count; k++) keep.push(result.mesh!.triangles[k]!);
+      return keep;
+    };
+    for (const body of many ? bodies.map((_, i) => i) : [null]) {
+      const mesh = { vertices: result.mesh.vertices, triangles: triangles(body) };
+      const of = body === null ? {} : { of: bodyPart(body) };
+      sheets.forEach((sheet, i) => {
+        for (const f of sectionFaces(mesh, sheet, sheets.filter((_, j) => j !== i))) {
+          const k = f.mesh.length / 3;
+          const mid: Vec3 = [0, 1, 2].map((a) => { let t = 0; for (let j = 0; j < f.mesh.length; j += 3) t += f.mesh[j + a]!; return t / k; }) as unknown as Vec3;
+          const [u, v] = axesOf(f.n);
+          out.push({ ...base, ref: faceName(f.n, f.d, mid), kind: "plane", at: [f.n[0] * f.d, f.n[1] * f.d, f.n[2] * f.d], u, v, mesh: f.mesh, cap: true, ...of });
+          // the edges of the cut: straight sides, and arcs where the cut goes round a curved face (a circle is two half arcs that know each other, as the kernel's rims are)
+          const names = f.edges.map((e) => edgeName(e.a, e.b, e.arc ? e.arc.mid : ([(e.a[0] + e.b[0]) / 2, (e.a[1] + e.b[1]) / 2, (e.a[2] + e.b[2]) / 2] as Vec3)));
+          const twinOf: number[] = [];
+          let open: number | null = null; // (the halves of a circle come two by two)
+          f.edges.forEach((e, j) => { if (!e.half) return; if (open === null) open = j; else { twinOf[open] = j; twinOf[j] = open; open = null; } });
+          f.edges.forEach((e, j) => {
+            const name = names[j]!;
+            if (lines.has(name)) return;
+            lines.add(name);
+            const twin = e.half ? names[twinOf[j]!] : undefined;
+            out.push({ ...base, ref: name, kind: "line", a: corner(e.a, body ?? undefined), b: corner(e.b, body ?? undefined), ...(e.arc ? { mid: e.arc.mid, circle: { center: e.arc.center, normal: e.arc.normal, radius: e.arc.radius } } : {}), ...(twin ? { twin } : {}), ...of });
+          });
+        }
+      });
+    }
   }
   return out;
 }

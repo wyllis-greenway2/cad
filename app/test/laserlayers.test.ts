@@ -125,7 +125,7 @@ test("the dialog says which layers are marked; the dialog and the menu: Laser la
   assert.equal(d.title, "Laser layers: 1 line"); assert.equal(d.ok, "Set");
   assert.deepEqual(d.fields[0]!.choices!.map((c) => c.value), ["cut", "score", "engrave"]);
   assert.match(String(d.fields[1]!.value), /for the laser route only/);
-  const rows = (can: boolean) => appRows("pan" as never, "", { laserLayers: can }, false, 1, true, 0).filter((x) => x.id === "laserLayers");
+  const rows = (can: boolean) => appRows("", { laserLayers: can }).filter((x) => x.id === "laserLayers");
   assert.deepEqual(rows(true).map((x) => [x.label, x.enabled]), [["Laser layers…", true]]);
   assert.deepEqual(rows(false).map((x) => [x.enabled, x.why]), [[false, "select lines or a figure of the drawing first"]]);
   const ring = reduce({ ...createState(pick([loopFaceRef(r.lines)])), cam: homeCamera() }, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items.map((i) => i.id);

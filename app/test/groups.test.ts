@@ -160,7 +160,7 @@ test("Group and Ungroup are offered in the suggestion row like a suggested icon,
   assert.ok(!ids(select(st, [c[0]!])).includes("select:group"), "one thing is not several");
 });
 
-test("the touch way to select several: Add mode (the ring's Select, or the pill) makes every tap add to the selection and a tap on what is selected take it out; the pill says so and Done leaves (`in_539`)", () => {
+test("the touch way to select several: Add mode (in a finger's ring, Select) makes every tap add to the selection and a tap on what is selected take it out; the pill says so and Done leaves (`in_539`)", () => {
   const { s, c } = sketch();
   let st = reduce({ ...createState(s), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 15, 0] } }, { type: "runAction", id: "select:add" }, env);
   assert.equal(st.adding, true);
@@ -173,11 +173,12 @@ test("the touch way to select several: Add mode (the ring's Select, or the pill)
   assert.equal(selection(st.session).length, 1, "a tap on one that is selected takes it out");
   st = reduce(st, { type: "runAction", id: "select:add" }, env); // Done
   assert.equal(st.adding, false);
-  assert.equal(frameOf(st, env).adding, "offer", "with something selected the pill offers it again (on a touch screen)");
-  const menu = reduce(st, { type: "menu", x: 300, y: 300, button: true }, env).menu!.items.flatMap((i) => i.children ?? [i]);
-  assert.equal(menu.find((i) => i.id === "select:add")!.label, "Add mode");
-  const on = reduce(reduce(st, { type: "runAction", id: "select:add" }, env), { type: "menu", x: 300, y: 300, button: true }, env).menu!.items.flatMap((i) => i.children ?? [i]);
-  assert.equal(on.find((i) => i.id === "select:add")!.label, "Stop adding");
+  assert.equal(frameOf(st, env).adding, null, "the pill is not offered: it only says adding is on (`in_663`)");
+  const items = (x: AppState, touch: boolean) => reduce(x, { type: "menu", x: 300, y: 300, ...(touch ? { touch: true } : { button: true }) }, env).menu!.items.flatMap((i) => i.children ?? [i]);
+  assert.equal(items(st, true).find((i) => i.id === "select:add")!.label, "Add mode", "a finger's menu has it");
+  assert.ok(!items(st, false).some((i) => i.id === "select:add"), "a mouse's menu does not (it has Shift)");
+  const on = reduce(st, { type: "runAction", id: "select:add" }, env);
+  assert.equal(items(on, false).find((i) => i.id === "select:add")!.label, "Stop adding", "while it is on, the way out is always there");
 });
 
 test("Esc ends Add mode and keeps what is selected; Esc again clears it; with a tool open Esc puts the tool away first (`in_540`)", () => {

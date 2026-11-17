@@ -1,5 +1,6 @@
 // The constraint hints while a line is drawn (`in_152`): a few small round icons beside the end of the line, one for each constraint it will be made with. They only show; the click is the line's.
-import { iconSvg, iconKey } from "./icons.ts";
+import { iconKey } from "./icons.ts";
+import { roundButton } from "./look.ts";
 
 export function createHints(host: HTMLElement) {
   const el = document.createElement("div");
@@ -16,10 +17,7 @@ export function createHints(host: HTMLElement) {
       if (sig !== shown) {
         shown = sig;
         el.replaceChildren(...kinds.map((k) => {
-          const b = document.createElement("div");
-          b.innerHTML = iconSvg(iconKey(k));
-          b.style.cssText = "width:26px;height:26px;border-radius:13px;background:#fff;border:1px solid #1ab8b3;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 6px rgba(0,0,0,.18)";
-          return b;
+          return roundButton({ icon: iconKey(k), size: 26, tone: "accent" }); // (a mark, not a button: the click is the line's)
         }));
       }
       el.style.display = "flex";

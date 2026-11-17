@@ -9,6 +9,7 @@ import type { Part } from "../operation/part.ts";
 import { pointOf, loopPoints } from "../operation/part.ts";
 import type { Command } from "../operation/commands.ts";
 import { typedNumber } from "../shared/numbers.ts";
+import { typedLength } from "../shared/units.ts";
 import type { Op } from "./operations.ts";
 
 /** The line a figure turns about: a point on it and its direction (unit): the mover's orb and the axis of its frame (`in_438`). */
@@ -51,7 +52,7 @@ const cross3 = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[
 /** The line being turned about. */
 export const axisOf = (op: Op): RevAxis | null => (op.pivot && op.frame ? { p: op.pivot, d: op.frame[op.axis], label: "the mover's axis" } : null); // (the orb's place and the axis of its frame the person chose, `in_438`)
 /** The advance along the axis over the whole turn: what is typed, else what the arrow was dragged to, else none. */
-export const advanceOf = (op: Op): number => { const t = typedNumber(op.advTyped ?? ""); return t !== null ? t : op.advValue ?? 0; };
+export const advanceOf = (op: Op): number => { const t = typedLength(op.advTyped ?? ""); return t !== null ? t : op.advValue ?? 0; };
 /** Where the ring and the arrow stand: the orb, on the axis. */
 export const revolveCentre = (op: Op): Vec3 | null => op.pivot ?? null;
 

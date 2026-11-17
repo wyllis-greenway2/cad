@@ -128,7 +128,7 @@ test("the table dialog lists the rows and takes one out; the ⋯ menu shows Lase
   assert.equal(d.title, "Your laser table"); assert.equal(d.ok, "Done");
   assert.equal(tableDialog([r0], { row: r0.id, remove: true }).ok, "Take it out");
   assert.deepEqual(d.fields[0]!.choices!.map((c) => c.value), [r0.id]);
-  const rows = (can: boolean) => appRows("pan" as never, "", { laserTable: can }, false, 1, true, 0).filter((x) => x.id === "laserTable");
+  const rows = (can: boolean) => appRows("", { laserTable: can }).filter((x) => x.id === "laserTable");
   assert.deepEqual(rows(true).map((x) => [x.label, x.enabled]), [["Laser table…", true]]);
   assert.deepEqual(rows(false), []);
 });

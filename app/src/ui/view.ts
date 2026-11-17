@@ -12,6 +12,7 @@ import { createPen, clearGroup, ringOf, sphereAt } from "./view/pen.ts";
 import { buildContent } from "./view/content.ts";
 import type { BodyMesh } from "./view/content.ts";
 import { buildHighlight, TEAL } from "./view/highlight.ts";
+import { sectionClip } from "./orb.ts";
 import { buildGizmo } from "./view/gizmo.ts";
 import type { ToolpathView } from "../interaction/api.ts";
 import type { GizmoView } from "./view/gizmo.ts";
@@ -146,10 +147,10 @@ export function createView(host: HTMLElement) {
     const u = new THREE.Vector3().crossVectors(Math.abs(n.z) < 0.9 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0), n).normalize();
     const v = new THREE.Vector3().crossVectors(n, u);
     const cut = new THREE.Mesh(new THREE.PlaneGeometry(1e4, 1e4), new THREE.ShaderMaterial({
-      uniforms: { cl: { value: Array.from({ length: 8 }, (_, i) => { const q = others[i]; return q ? new THREE.Vector4(q.normal.x, q.normal.y, q.normal.z, q.constant) : new THREE.Vector4(); }) }, cc: { value: Math.min(8, others.length) }, u: { value: u }, v: { value: v }, at: { value: new THREE.Vector3(...secNow.at) }, pitch: { value: Math.max(0.5, bodySize() / 34) } },
+      uniforms: { cl: { value: Array.from({ length: 8 }, (_, i) => { const q = others[i]; return q ? new THREE.Vector4(q.normal.x, q.normal.y, q.normal.z, q.constant) : new THREE.Vector4(); }) }, cc: { value: Math.min(8, others.length) }, u: { value: u }, v: { value: v }, at: { value: new THREE.Vector3(...secNow.at) }, pitch: { value: Math.max(0.3, bodySize() / 50) } },
       vertexShader: "varying vec3 w; void main(){ vec4 p = modelMatrix * vec4(position, 1.0); w = p.xyz; gl_Position = projectionMatrix * viewMatrix * p; }",
-      // solid light grey with slanting parallel lines (45 degrees, as a cut part is hatched in a drawing)
-      fragmentShader: "uniform vec4 cl[8]; uniform int cc; uniform vec3 u; uniform vec3 v; uniform vec3 at; uniform float pitch; varying vec3 w; void main(){ for(int i=0;i<8;i++){ if(i>=cc) break; if(dot(cl[i].xyz, w) + cl[i].w < 0.0) discard; } vec3 d = w - at; float a = (dot(d, u) + dot(d, v)) / pitch; float line = smoothstep(0.43, 0.47, abs(fract(a) - 0.5)); gl_FragColor = vec4(mix(vec3(0.92, 0.93, 0.95), vec3(0.62, 0.64, 0.68), line), 1.0); }",
+      // solid grey, a little darker than a face of the part, with slanting parallel lines close together (45 degrees, as a cut part is hatched in a drawing, `in_680`)
+      fragmentShader: "uniform vec4 cl[8]; uniform int cc; uniform vec3 u; uniform vec3 v; uniform vec3 at; uniform float pitch; varying vec3 w; void main(){ for(int i=0;i<8;i++){ if(i>=cc) break; if(dot(cl[i].xyz, w) + cl[i].w < 0.0) discard; } vec3 d = w - at; float a = (dot(d, u) + dot(d, v)) / pitch; float line = smoothstep(0.43, 0.47, abs(fract(a) - 0.5)); gl_FragColor = vec4(mix(vec3(0.80, 0.81, 0.84), vec3(0.53, 0.55, 0.60), line), 1.0); }",
       side: THREE.DoubleSide, depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6, // (a face of the part like any other: what is in front of it hides it, `in_396`)
       stencilWrite: true, stencilRef: 0, stencilFunc: THREE.NotEqualStencilFunc, stencilFail: THREE.ReplaceStencilOp, stencilZFail: THREE.ReplaceStencilOp, stencilZPass: THREE.ReplaceStencilOp,
     }));
@@ -193,6 +194,8 @@ export function createView(host: HTMLElement) {
     const exact = list.map((sec) => new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(...sec.n).negate(), new THREE.Vector3(...sec.at)));
     clips = exact.map((q) => new THREE.Plane(q.normal.clone(), q.constant + eps));
     tight = exact.map((q) => new THREE.Plane(q.normal.clone(), q.constant - eps));
+    sectionClip.clCount.value = Math.min(8, clips.length);
+    clips.slice(0, 8).forEach((q, i) => sectionClip.clPlanes.value[i]!.set(q.normal.x, q.normal.y, q.normal.z, q.constant)); // (the teal and the ring of the pointer are cut where the part is, `in_680`)
     applyClip();
   };
   /** The body see-through (the sketch plane is looked at straight and the body is between it and the camera) or as it was (`in_194`). */
@@ -209,7 +212,11 @@ export function createView(host: HTMLElement) {
   }
   const setWireframe = (on: boolean) => { if (on !== wire) { wire = on; applyFade(); } };
   const setBodyFade = (on: boolean) => { if (on !== fade) { fade = on; applyFade(); } };
-  const setHighlight = (h: Highlight, cam: Camera, nowMs: number) => buildHighlight(overlay, marks, lastScene, lastMesh, h, cam, pen, nowMs);
+  const setHighlight = (h: Highlight, cam: Camera, nowMs: number) => {
+    buildHighlight(overlay, marks, lastScene, lastMesh, h, cam, pen, nowMs);
+    // what is selected or pointed at is cut where the part is: the teal of a face stops at the section plane, it does not go on into the cut-away space (`in_680`)
+    if (clips.length) for (const g of [overlay, marks]) g.traverse((o) => { const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined; for (const mat of Array.isArray(m) ? m : m ? [m] : []) if (!(mat instanceof THREE.ShaderMaterial) || mat.clipping) mat.clippingPlanes = clips; });
+  };
   /** The figure being drawn, or the prism an extrude would make (lines; not part of the scene). */
   function setPreview(p: Preview | null, cam: Camera) {
     clearGroup(preview);

@@ -1,5 +1,6 @@
 // The page that asks the questions of the Import and Export dialogs (`dec_import_export_menu`): it draws a description (`interaction/transfer.ts`) and gives back the answers, or null when it is cancelled. It knows nothing of what the choices mean.
 import type { Dialog, Field, FieldValue } from "../interaction/transfer.ts";
+import { textButton, guardOpenClicks } from "./look.ts";
 
 export type Values = Record<string, FieldValue>;
 const valuesOf = (d: Dialog): Values => Object.fromEntries(d.fields.map((f) => [f.id, f.value]));
@@ -10,6 +11,7 @@ export function createDialog(host: HTMLElement) {
   const card = document.createElement("div");
   card.style.cssText = "background:#fff;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.25);padding:18px 20px;min-width:320px;max-width:min(520px,92vw);max-height:90vh;overflow:auto";
   veil.appendChild(card);
+  const armed = guardOpenClicks(veil); // (the press that opened the dialog must not click on it, `in_599`)
   host.appendChild(veil);
   let finish: ((v: Values | null) => void) | null = null;
   let current: Values = {};
@@ -34,7 +36,7 @@ export function createDialog(host: HTMLElement) {
     for (const f of dlg.fields) card.appendChild(row(f, values, redraw));
     const bar = document.createElement("div");
     bar.style.cssText = "display:flex;gap:8px;justify-content:flex-end;margin-top:16px";
-    const button = (label: string, primary: boolean, click: () => void) => { const b = document.createElement("button"); b.textContent = label; b.style.cssText = `padding:9px 16px;border-radius:8px;border:1px solid ${primary ? "#1d7f84" : "#cfd0d4"};background:${primary ? "#1d7f84" : "#fff"};color:${primary ? "#fff" : "#222"};font:inherit;cursor:pointer;min-height:40px`; b.addEventListener("click", click); return b; };
+    const button = (label: string, primary: boolean, click: () => void) => textButton(label, { tone: primary ? "primary" : "plain", click });
     bar.append(button("Cancel", false, () => close(null)), button(dlg.ok, true, () => close({ ...values })));
     card.appendChild(bar);
   };
@@ -84,6 +86,7 @@ export function createDialog(host: HTMLElement) {
       if (finish) close(null);
       const values: Values = { ...initial };
       current = values;
+      armed();
       draw(build, values);
       veil.style.display = "flex";
       const first = card.querySelector("input"); // (a question that begins with a text to type, as the material's does, has the cursor in it: the others begin with a choice)

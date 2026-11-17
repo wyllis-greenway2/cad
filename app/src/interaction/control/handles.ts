@@ -56,7 +56,7 @@ export function gizmoOf(s: AppState): Gizmo | null {
   const g0 = op ? gizmoFor(sceneOf(s.session), op, s.cam, s.moverSphere && hasOrb(op.kind)) : null; // (the sphere selected: its own arrows are there, `in_416`)
   const g = g0; // (a linear repeat shows all three arrows from the start, `in_382`; the helper bubbles only point at one)
   // the arrow of a push / pull or an extrude stands where the face is now: out by the value so far (it stays there when you let go, until the operation ends)
-  const shown = g && op && op.normal && (op.kind === "pushpull" || op.kind === "extrude" || op.kind === "offset" || op.kind === "hollow") ? followed(g, { dir: op.normal, kind: "double", id: "pull" }, op.value) : g;
+  const shown = g && op && op.normal && (op.kind === "pushpull" || op.kind === "extrude" || op.kind === "offset" || op.kind === "hollow") ? followed(g, { dir: op.normal, kind: "arrow", id: "pull" }, op.value) : g;
   // a body that is free to turn and slide on a mate has the ring and the arrow of its joint as well (`in_323`)
   const sel = selectionOf(s.session);
   const joint = !s.op && !s.repeat && sel.length === 1 ? jointHandles(sceneOf(s.session), sel[0]!, s.cam) : [];
@@ -203,7 +203,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
 
 /** An arrow seen nearly end-on moves its value a lot for a little pointer movement (the pointer's ray meets its line a long way along it): such a drag follows the pointer across the screen at a steady rate instead. */
 function withScreen(d: Drag, h: Handle, pr: ReturnType<typeof projector>, x0: number, y0: number, heightPx: number): Drag {
-  if (h.kind !== "arrow" && h.kind !== "double") return d;
+  if (h.kind !== "arrow" || h.ratio) return d;
   const [a, b] = [pr.project(h.points[0]!), pr.project(h.points[1]!)];
   const world = Math.hypot(h.points[1]![0] - h.points[0]![0], h.points[1]![1] - h.points[0]![1], h.points[1]![2] - h.points[0]![2]);
   const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -448,7 +448,7 @@ export function doDragEnd(s: AppState, env?: Env): AppState {
     return made ? { ...cleared, session: made.session, op: kept, spread: null, hoverPoint: null } : { ...cleared, op: kept };
   }
   if (!d || !("handle" in d) || !s.op) return cleared; // (a handle of a repeat being set up only set its numbers)
-  if (d.handle.kind === "ball") return s.op.auto ? { ...cleared, op: null } : { ...cleared, ...(s.moverSphere && env ? { orbMovedAt: env.now } : {}) }; // (the whole orb moved in the orient mode: its numbers show a while, `in_439`)
+  if (d.handle.kind === "orb") return s.op.auto ? { ...cleared, op: null } : { ...cleared, ...(s.moverSphere && env ? { orbMovedAt: env.now } : {}) }; // (the whole orb moved in the orient mode: its numbers show a while, `in_439`)
   if (isLive(s.op)) {
     // one step for the whole operation: what was made before is taken out and made again with the total value (so the number does not start over between drags)
     const sess = s.op.made ? undoLast(s.session) : s.session;

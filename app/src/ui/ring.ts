@@ -1,7 +1,8 @@
 // The right-click menu (`in_133`, `in_143`): the operations as little round bubbles in the style of the constraint bubbles, laid in a ring around the click point. Each shows its icon, the
 // words are in the tooltip; one that cannot start from what is selected is dimmed. A bubble with sub-items opens them as a new ring that unfolds from it (and the bubble itself turns into a ✕
 // that closes them again); the rings are all the same size and share a centre. It displays what the interaction layer says and reports which was chosen.
-import { iconSvg, iconKey } from "./icons.ts";
+import { iconKey } from "./icons.ts";
+import { roundButton } from "./look.ts";
 
 export interface RingItem { id: string; label: string; icon: string; enabled: boolean; why: string | null; dim?: boolean; children?: RingItem[] }
 const SIZE = 36;
@@ -39,18 +40,14 @@ export function createRing(host: HTMLElement, onChoose: (id: string) => void, on
   };
   const pos = (a: number) => ({ left: Math.round(C.x + Math.cos(a) * C.R - SIZE / 2), top: Math.round(C.y + Math.sin(a) * C.R - SIZE / 2) });
   const bubble = (it: RingItem, at: { left: number; top: number }, from: { left: number; top: number } | null, k: number, go: () => void) => {
-    const b = document.createElement("div");
-    b.innerHTML = iconSvg(iconKey(it.icon));
-    b.title = it.label; // (one or two words: the reason an option cannot be used is said when it is pressed, `in_538`)
     const live = it.enabled;
     const faint = !it.enabled || !!it.dim;
     const start = from ?? at;
-    b.style.cssText = `position:absolute;left:${start.left}px;top:${start.top}px;width:${SIZE}px;height:${SIZE}px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#fff;border:1px solid ${it.id === "back" ? "#c0392b" : "#d6d7db"};color:${it.id === "back" ? "#c0392b" : "inherit"};box-shadow:0 1px 6px rgba(0,0,0,.14);cursor:${live ? "pointer" : "default"};opacity:${from ? 0 : live ? 1 : 0.38};transform:scale(${from ? 0.4 : 1})`;
-    if (live) {
-      b.addEventListener("pointerenter", () => { if (it.id !== "back") b.style.borderColor = "#1ab8b3"; });
-      b.addEventListener("pointerleave", () => { b.style.borderColor = it.id === "back" ? "#c0392b" : "#d6d7db"; });
-      b.addEventListener("pointerup", (e) => { e.stopPropagation(); go(); });
-    } else b.addEventListener("pointerup", (e) => { e.stopPropagation(); onBlocked(it.id); }); // (a dimmed option says why it cannot be used, and the ring stays open)
+    // (the same round button as every other, standing where the ring puts it; the reason an option cannot be used is said when it is pressed, `in_538`)
+    const b = roundButton({ icon: iconKey(it.icon), size: SIZE, tone: it.id === "back" ? "danger" : "light", title: it.label, live });
+    b.style.cssText += `;position:absolute;left:${start.left}px;top:${start.top}px;opacity:${from ? 0 : faint ? 0.38 : 1};transform:scale(${from ? 0.4 : 1})`;
+    if (live) b.addEventListener("pointerup", (e) => { e.stopPropagation(); go(); });
+    else b.addEventListener("pointerup", (e) => { e.stopPropagation(); onBlocked(it.id); }); // (a dimmed option says why it cannot be used, and the ring stays open)
     acts.set(b, { live, id: it.id, go });
     root.appendChild(b);
     if (from) {

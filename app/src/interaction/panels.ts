@@ -1,4 +1,5 @@
 // The two lists the ⋯ menu opens (`in_132`): the bodies (with their names) and the history of building steps. Pure: derived from the scene; the UI draws them.
+import { lengthText, unitName } from "../shared/units.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Scene, Step } from "../operation/scene.ts";
 import { figuresOf, usesFigures, figureRefs } from "../operation/scene.ts";
@@ -18,23 +19,25 @@ export interface PanelRow { id: string; label: string; /** selected (a body) */ 
 export interface Panel { kind: PanelKind; title: string; rows: PanelRow[]; /** the History: the cursor is at the last step (the numbers can be changed); else a line says where it is */ note?: string; /** buttons for the whole list (the Bodies list: select all and none, hide all and show all) */ actions?: { id: string; label: string; title: string }[]; /** the Measure tab: what the selection is, in numbers (`dec_measure_report`) */ sections?: { title: string; lines: { label: string; value: string }[] }[]; /** the History, before its last step: the switch that makes what is done go in at the cursor (`dec_insert_step`) */ insert?: { on: boolean }; /** the Model panel's tabs; the one that is open is `on` */ tabs?: { id: PanelKind; label: string; on: boolean }[] }
 
 const n = (v: unknown): string => String(Math.round(Number(v) * 100) / 100);
+/** A length of a step in the number system in use, with its unit (`in_661`). */
+const len = (v: unknown): string => `${lengthText(Number(v))} ${unitName("mm")}`;
 /** What a step says, in a few words. */
 function stepLabel(st: Step): string {
   const p = st.params;
   switch (st.type) {
-    case "extrude": return `Extrude ${n(p.depth)} mm`;
-    case "hollow": return `Hollow, ${n(p.thickness)} mm walls`;
+    case "extrude": return `Extrude ${len(p.depth)}`;
+    case "hollow": return `Hollow, ${len(p.thickness)} walls`;
     case "pattern": return p.mode === "mirror" ? "Mirror copy" : p.mode === "circular" ? `Circular repeat ${n(p.count)}` : `Linear repeat ${n(p.nx)} × ${n(p.ny)} × ${n(p.nz)}`;
     case "sweep": return "Sweep along a path";
     case "importMesh": return `Import ${String(p.name ?? "mesh")} (mesh)`;
     case "import": return `Import ${String(p.name ?? "STEP file")}`;
     case "loft": return `Loft through ${1 + String(p.also ?? "").split("|").filter(Boolean).length} sketches${p.ruled ? " (ruled)" : ""}`;
-    case "revolve": return Number(p.advance ?? 0) ? `Spiral ${n(p.angle)}°, ${n(p.advance)} mm along the axis` : `Revolve ${n(p.angle)}°`;
-    case "pushPull": return `Push / pull ${n(p.depth)} mm`;
-    case "edgeMod": return `${p.mode === "chamfer" ? "Chamfer" : "Fillet"} ${n(p.value)} mm`;
+    case "revolve": return Number(p.advance ?? 0) ? `Spiral ${n(p.angle)}°, ${len(p.advance)} along the axis` : `Revolve ${n(p.angle)}°`;
+    case "pushPull": return `Push / pull ${len(p.depth)}`;
+    case "edgeMod": return `${p.mode === "chamfer" ? "Chamfer" : "Fillet"} ${len(p.value)}`;
     case "combine": return `${p.mode === "subtract" ? "Subtract" : p.mode === "intersect" ? "Intersect" : "Add"} bodies${Number(p.keep) === 1 ? " (tools kept)" : ""}`;
     case "rotate": return `Rotate ${"XYZ"[Number(p.axis ?? 0)]} ${n(p.value)}°`;
-    case "move": return `Move ${"XYZ"[Number(p.axis ?? 0)]} ${n(p.value)} mm`;
+    case "move": return `Move ${"XYZ"[Number(p.axis ?? 0)]} ${len(p.value)}`;
     case "scale": return `Scale ×${n(p.value)}`;
     case "reshape": return `Reshape by ${String(p.moves ?? "").split(";").filter(Boolean).length} corner(s)`;
     default: return st.type;

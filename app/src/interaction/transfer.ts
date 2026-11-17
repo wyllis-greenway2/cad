@@ -10,6 +10,7 @@ import type { ExportFormat, FileOutcome, Quality, Units } from "./exportfile.ts"
 import { exportFlat, canExportFlat, sketchPieces } from "./exportsketch.ts";
 import { importAny, IMPORT_DEFAULTS, IMPORT_KINDS } from "./importfile.ts";
 import type { ImportOptions, ImportOutcome } from "./importfile.ts";
+import { units as numberSystem } from "../shared/units.ts";
 
 export type FieldValue = string | number | boolean;
 export interface Field {
@@ -114,7 +115,7 @@ export function importDialog(name: string, o0: Partial<ImportOptions>): Dialog {
   const kind = KIND_OF(name);
   const fields: Field[] = [{ id: "file", label: "File", type: "text", readonly: true, value: name }];
   const units = (fileSays: string): Field => ({ id: "units", label: "Units", type: "choice", value: o.units, choices: [{ value: "file", label: fileSays }, { value: "mm", label: "Millimetres" }, { value: "cm", label: "Centimetres" }, { value: "in", label: "Inches" }, { value: "m", label: "Metres" }] });
-  if (kind === "stl") fields.push({ id: "units", label: "Units", type: "choice", value: o.units === "file" ? "mm" : o.units, choices: [{ value: "mm", label: "Millimetres (an STL has no units of its own)" }, { value: "cm", label: "Centimetres" }, { value: "in", label: "Inches" }, { value: "m", label: "Metres" }] });
+  if (kind === "stl") fields.push({ id: "units", label: "Units", type: "choice", value: o.units === "file" ? numberSystem.system : o.units, choices: [{ value: "mm", label: "Millimetres (an STL has no units of its own)" }, { value: "cm", label: "Centimetres" }, { value: "in", label: "Inches" }, { value: "m", label: "Metres" }] });
   else if (kind === "3mf") fields.push(units("As the file says"));
   else if (kind === "svg") fields.push(units("As the file says (its size, or 96 to the inch)"));
   else if (kind === "dxf") fields.push(units("As the file says (its INSUNITS, else millimetres)"));

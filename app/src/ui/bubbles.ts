@@ -2,6 +2,11 @@
 // pointer. A dimension is just its number and a little lock; any other constraint is its icon. Click the number to type a new one, click the lock to lock or unlock it, click the
 // bubble to open it (an x to delete it appears; hovering also shows it) and click again to close it. Several constraints at one spot are laid side by side. The words are in tooltips.
 import { roundedText } from "../shared/numbers.ts";
+import { bubbleCss } from "./look.ts";
+import { lengthIn, lengthText, areaText, unitName, units } from "../shared/units.ts";
+
+/** A bubble's number and unit as the person reads them in the number system in use (`in_661`): only a length changes. */
+const shownNumber = (a: { value: number | null; unit: string | null }): string => (a.unit === "mm" ? lengthText(a.value ?? 0) : a.unit === "mm²" ? areaText(a.value ?? 0) : roundedText(a.value ?? 0));
 import type { Vec3 } from "../interaction/api.ts";
 import type { Annotation } from "../interaction/annotations.ts";
 import { iconKey, iconSvg } from "./icons.ts";
@@ -34,8 +39,8 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
     const el = e.el;
     e.a = a;
     el.replaceChildren();
-    el.title = `${a.label}${a.value !== null ? ` ${roundedText(a.value)}${a.unit === "deg" ? "°" : ` ${a.unit ?? ""}`}${a.locked ? " (locked)" : a.readOnly ? " (measured: it belongs to the body)" : " (measured: click the number to type one and lock it)"}` : ""}${a.broken ? ": a part it used is gone" : ""}`;
-    el.style.cssText = `position:absolute;left:0;top:0;display:flex;align-items:center;gap:3px;height:26px;box-sizing:border-box;padding:0 7px;border-radius:13px;background:#fff;border:1px solid ${a.broken ? "#d33" : a.open ? "#e0a82e" : "#d6d7db"};box-shadow:0 1px 6px rgba(0,0,0,.12);cursor:${a.relationId ? "pointer" : "default"};white-space:nowrap`;
+    el.title = `${a.label}${a.value !== null ? ` ${shownNumber(a)}${a.unit === "deg" ? "°" : ` ${unitName(a.unit ?? "")}`}${a.locked ? " (locked)" : a.readOnly ? " (measured: it belongs to the body)" : " (measured: click the number to type one and lock it)"}` : ""}${a.broken ? ": a part it used is gone" : ""}`;
+    el.style.cssText = bubbleCss(a.broken ? "#d33" : a.open ? "#e0a82e" : "#d6d7db", `position:absolute;left:0;top:0;cursor:${a.relationId ? "pointer" : "default"}`);
     const relation = a.relationId;
     const isMate = a.kind.startsWith("mate:");
     // a mate is only its icon until it is clicked; then it has its number (with the word for it, to type over) and the cross (`in_345`)
@@ -44,14 +49,14 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
       if (a.symbol) { const sym = document.createElement("span"); sym.textContent = a.symbol; sym.style.cssText = "font-weight:600;opacity:.6"; el.appendChild(sym); } // Ø or R: what the number is the size of
       if (a.tag) { const tag = document.createElement("span"); tag.textContent = a.tag; tag.style.cssText = "font-size:11px;opacity:.65;margin-right:1px"; el.appendChild(tag); } // (gap, distance, offset, angle: which number of a mate this is, `in_320`)
       const num = document.createElement("span");
-      num.textContent = roundedText(a.value);
+      num.textContent = shownNumber(a);
       num.style.cssText = `font-weight:600;${a.editable ? "cursor:text;" : ""}`;
       if (a.editable) {
         num.addEventListener("click", (ev) => { ev.stopPropagation(); edit(a, e, num); });
         num.title = "Type a new number";
       }
       el.appendChild(num);
-      if ((a.tag && !isMate) || a.unit === "deg") { const unit = document.createElement("span"); unit.textContent = a.unit === "deg" ? "°" : a.unit ?? ""; /* (every degree value has its mark, the angle of a constraint too, `in_434`) */ unit.style.cssText = "font-size:11px;opacity:.65"; el.appendChild(unit); }
+      if ((a.tag && !isMate) || a.unit === "deg") { const unit = document.createElement("span"); unit.textContent = a.unit === "deg" ? "°" : unitName(a.unit ?? ""); /* (every degree value has its mark, the angle of a constraint too, `in_434`) */ unit.style.cssText = "font-size:11px;opacity:.65"; el.appendChild(unit); }
       const lock = document.createElement("span");
       lock.innerHTML = iconSvg(a.kind === "tape" ? "dimension" : a.kind.startsWith("mate:") ? iconKey(a.kind) : a.locked ? "lock" : "unlock"); // (the tape measure shows the measuring stick: it is the one place it belongs, `in_338`) // (a mate shows what it is, not a padlock, `in_338`) // (a closed padlock when locked, an open one when it is only a measurement, `in_290`)
       lock.style.cssText = `display:inline-flex;padding:2px;cursor:${a.editable ? "pointer" : "default"};opacity:${a.locked ? 1 : 0.8};color:${a.locked ? "#1a8f8b" : "inherit"}`;
@@ -81,7 +86,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
     const input = document.createElement("input");
     input.type = "number";
     input.step = "any";
-    input.value = String(Math.round((a.value ?? 0) * 100) / 100);
+    input.value = shownNumber(a);
     input.style.cssText = "width:64px;font:600 13px system-ui,sans-serif;border:none;outline:none;background:transparent;text-align:right";
     num.replaceWith(input);
     input.focus();
@@ -91,7 +96,8 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
       if (done) return;
       done = true;
       e.editing = false;
-      const v = Number(input.value);
+      const typed = Number(input.value);
+      const v = a.unit === "mm" ? lengthIn(typed) : typed; // (typed in the number system in use; the model keeps millimetres)
       if (keep && Number.isFinite(v) && (v > 0 || (a.kind.startsWith("mate:") && v >= 0))) (a.relationId ? h.set(a.relationId, v) : h.measure(v, a.measureId));
       make(a, e); // back to showing the number (a refused change leaves the old one; an accepted one is redrawn with the new)
     };
@@ -113,7 +119,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
       for (const a of list) {
         seen.add(a.id);
         let e = entries.get(a.id);
-        const sig = JSON.stringify([a.kind, a.value, a.unit, a.locked, a.editable, a.readOnly, a.broken, a.open, a.symbol, a.tag]);
+        const sig = JSON.stringify([units.system, a.kind, a.value, a.unit, a.locked, a.editable, a.readOnly, a.broken, a.open, a.symbol, a.tag]);
         if (!e) {
           const entry: Entry = { el: document.createElement("div"), sig: "", editing: false, a, tinted: false };
           // listeners on the bubble itself are added once (the contents are rebuilt when it changes, the bubble is not), and read the current annotation

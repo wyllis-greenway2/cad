@@ -231,7 +231,11 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
     // a change that leaves mates that held with no placement where they all hold is refused, as one that breaks sketch constraints is: the mates are named and nothing is made (`in_330`, `in_331`); a conflict that was already there is not the change's
     const held = new Set(mateStatus(s.history.scene).filter((m) => m.state === "ok").map((m) => m.id));
     const brought = atOdds.filter((id) => held.has(id) || !s.history.scene.relations.some((r) => r.id === id));
-    if (brought.length) return { ...s, message: atOddsMessage(next.history.scene, atOdds, changeWords(s.history.scene, c), hard), conflict: { culprits: [], victims: atOdds } };
+    if (brought.length) {
+      // the button "Delete constraint to proceed" takes away the standing mates that are there and makes the change: one refusal rule (`in_596`); not for an undo or a redo, which do not go through here
+      const there = atOdds.filter((id) => s.history.scene.relations.some((r) => r.id === id));
+      return { ...s, message: atOddsMessage(next.history.scene, atOdds, changeWords(s.history.scene, c), hard), conflict: { culprits: [], victims: atOdds, ...(there.length ? { retry: c } : {}) } };
+    }
     if (fixes.length) {
       const again = exec(s.history, { type: "batch", commands: [describedCommand(s.history.scene, c), ...fixes] });
       if (again.ok) return { ...withHistory(s, again.value), conflict: null, message: "the standing mates were put back with the change" };
@@ -305,7 +309,7 @@ export function refresh(s: Session): Session {
     if (atOdds.some((id) => held.has(id) || !(h.snapshots[h.cursor - 1] ?? h.base).relations.some((r) => r.id === id))) {
       const undone = undo(h);
       const back = withHistory(s, { ...undone, commands: undone.commands.slice(0, undone.cursor), snapshots: undone.snapshots.slice(0, undone.cursor + 1) }); // (taken back, not kept to be done again with redo)
-      return { ...back, checkSteps: undefined, fallback: undefined, message: atOddsMessage(now.history.scene, atOdds, changeWords(h.snapshots[h.cursor - 1] ?? h.base, h.commands[h.cursor - 1]!), hard), conflict: { culprits: [], victims: atOdds } };
+      return { ...back, checkSteps: undefined, fallback: undefined, message: atOddsMessage(now.history.scene, atOdds, changeWords(h.snapshots[h.cursor - 1] ?? h.base, h.commands[h.cursor - 1]!), hard), conflict: { culprits: [], victims: atOdds, ...(atOdds.some((id) => (h.snapshots[h.cursor - 1] ?? h.base).relations.some((r) => r.id === id)) ? { retry: h.commands[h.cursor - 1]! } : {}) } }; // (the button of the refusal, when the answer came late too, `in_596`)
     }
   }
   // and a mate that is not true now, with nothing said when the change was made (the answer was awaited): said once the answer is here

@@ -2979,3 +2979,111 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_660 — 2026-11-17 — directive
 > Can we merge in claude/adoring-dijkstra-from-pascal
 (asks for claude/adoring-dijkstra-from-pascal to be merged into this branch, after claude/hopeful-cannon-6)
+
+## in_661 — 2026-11-16 — directive
+> The menu sometimes entirely hides icons when they arent available to apply, other times it just fades the icon and makes it unclickable. Can we have it so that the icons are always present, but only onclickable when they cannot be applied. 
+>
+> Can we have a settings option under the ... that brings you to a real settings page. That is where we will have special view options like view no black edges, and the trackpad, mouse pad, and keyboard settings. A person should be able to see key bindings and set their own there as well. The settings area should allow you to change the number system from inch to mm for now.
+(asks: every icon of the ring menu and every row of the ⋯ list always present, and only unclickable (dimmed) when it cannot be applied, none left out; a Settings entry in the ⋯ list that opens a real settings page, holding view options (such as no black edges), trackpad, mouse and keyboard settings, the key bindings listed with the person able to set their own, and the number system, inch or mm for now)
+
+## in_662 — 2026-11-16 — directive
+> There are still lots of situations where you cant click on things or you are locked out of options when in game mode. like for example when extruding a face, the option buttons to click move extrud extend are not actually clickable because they are stuck to your camera, and only things that are not stuck on the camera can be clicked on, since the cursor is also stuck on the camera. How do we solve this problem? possible with tab and enter? or maybe make the buttons live in the world like bubbles instead of on the camera?
+>
+> How can we have more unifed and simplified code? for example could we have a singular unified notification system? Can we have it operate in unfied mannar? Can we have unfied rules for things? Like for example, it seems like some constraints warn and offer to delete constraint when you try to voilate them and others dont. Can we have more unified button and bubble types? also the menu seems odd. some things like the constraints dont exist at all unless you select the appropriate things to apply them, other things like body operations exist all the time even if you dont select the appropriate things to apply them. Can we have it unified so that menu items always exist and are always navigable, but you can't actually apply it or click the icnon (it is in faded mode) unless it is available for what you have selected? Also it seems like we may have different rules for operations and when they apply or cancel? it seems ike some only apply on checkmark selection, some apply immedietly, some apply on right click in blank space. Can we have a unified system for this? I am inclined to have things apply on right click in blank space and or with a checkmark button, and a cancel button or esc to cancel. Also for the button options on operations, can we have it be unified? maybe it is just part of the operation thing that already lives at the top of the window that shows the operation symbol, and to apply or cancel the operation. It would make sense to have that also show operation options. Also it seems like even this operation is not always standardized? sometimes it doesn't have a checkmark to apply? Like for example doing a rotation extrude in mobile, there is no checkmark. Maybe we should move that to the bottom of the screen? On mobile it would probably need to merge with the undo redo. Also the add more button is really annoying in mobile. lets just have it be a special mobile option that is under the finger menu. Also the xyz rotational orbs seem to have lots of different flavors throughout the system. Probably more flavors than we need? Lets do an audit and see what can be unified and standardized in our system.
+(asks, first, how to make the option buttons of an operation (move, extrude, extend…) usable in game mode, where the cursor is fixed to the camera and only things in the world can be clicked: Tab and Enter, or buttons that live in the world like bubbles; then for an audit of what can be unified: one notification system working one way, one set of rules (some constraints warn and offer "Delete constraint" when violated, others do not), one set of button and bubble types, menu items that always exist and are always navigable but faded and unclickable unless they apply to the selection (constraints are absent until selected, body operations are always there), one rule for when an operation applies or cancels (checkmark, immediately, right click in blank space: the human leans to right click in blank space and/or a checkmark, with a cancel button or Esc), the operation options as part of the operation bar at the top of the window that shows the operation symbol, apply and cancel (that bar sometimes has no checkmark, as with a rotation extrude on mobile; perhaps move it to the bottom of the screen and on mobile merge it with undo and redo), the "Add more" pill on mobile moved into the finger menu as a mobile-only option, and the many kinds of X Y Z rotation orbs reduced)
+
+## in_663 — 2026-11-16 — directive
+> Go with that order, start with Add more
+(approves the order proposed in `dec_ui_unification` (Add more, then the operation bar with Tab stepping, then notifications and the refusal rule, then the full constraint list, then the bubble and button types, then the handles) and asks for the first step: "Add more" moved into the finger menu as a mobile-only option)
+
+## in_664 — 2026-11-16 — directive
+> Go with the operation bar and Tab stepping
+(approves and asks for step 2 of `dec_ui_unification`: one operation bar with the operation's options, apply and cancel for every operation, tool, repeat, picking, cut and mover state on every device (at the bottom and joined with undo and redo on a phone), and Tab and Shift+Tab stepping through the options of the open operation)
+
+## in_665 — 2026-11-16 — directive
+> Go with the notification system next
+(approves and asks for step 3 of `dec_ui_unification`: one notification path and renderer for every message, refusal, helper and hint, and one refusal rule: any change refused because of a constraint offers "Delete constraint to proceed")
+
+## in_666 — 2026-11-16 — directive
+> Go with the constraint list next
+(approves and asks for step 5 of `dec_ui_unification` (the constraint list): every constraint and mate the table knows is always in the Constraints ring, dimmed unless it fits the selection)
+
+## in_667 — 2026-11-16 — directive
+> Go with the bubble and button types next
+(approves and asks for step 5 of `dec_ui_unification`: one bubble component and one round button look, so the many pill and chip files shrink to descriptions)
+
+## in_668 — 2026-11-16 — directive
+> Go with the handles next
+(approves and asks for step 6, the last, of `dec_ui_unification`: the X Y Z handles reduced to fewer kinds, with one family per job (move, turn, size, count) and one drawing and one drag code)
+
+## in_669 — 2026-11-16 — directive
+> Go with your recommendations, start with the game mode check
+(approves the three recommendations given after step 6 of `dec_ui_unification`: check Tab stepping in game mode with the pointer locked first; leave the handle families by id unmerged; turn `dec_ui_unification` into an accepted decision with its loose ends as small open questions)
+
+## in_670 — 2026-11-16 — directive
+> Go with your recommendation on the bar chips
+(approves the recommendation of `q_ui_bar_chips`: Select similar and Cut join the operation bar; the sheet chips and the dimension operation stay where they are)
+
+## in_671 — 2026-11-16 — directive
+> Go with the mates at odds button
+(approves `q_ui_mates_at_odds_button`: offer "Delete constraint to proceed" for a change that would leave standing mates at odds; not for undo or redo)
+
+## in_672 — 2026-11-16 — directive
+> Go with your recommendation on the round controls
+(approves `q_ui_round_controls`: leave the X Y Z, ⋯, Cut and world-orb controls with their own looks)
+
+## in_673 — 2026-11-16 — directive
+> Go with the browser pass
+(asks for the browser check I offered of what only tests covered so far: the Cut chips in the operation bar, the mates-at-odds button and the refusal pill)
+
+## in_674 — 2026-11-16 — directive
+> Go with your recommendations, start with the pill
+(approves the three recommendations given after the browser pass: look at the locked-length refusal pill in the browser first; then a test for the late-answer path of the mates button; then a phone-sized pass; then get the branch merged)
+
+## in_675 — 2026-11-16 — approval
+> Yes, go ahead and merge it on my branch
+(approves merging `claude/inspiring-pascal-l342k7` into this branch, after the question "if you merge in here will that disrupt the other claude?", which was answered: no, nothing is written to their branch; the inputs and handoffs of this branch are renumbered after theirs first)
+
+## in_676 — 2026-11-16 — directive
+> I think the gear code needs to be left alone because it is in regards to already existing external standards for gear sizes right? I suppose free form gears could have sizes though, just leave it alone for now but lets add a note to our project that we should review that. What else do we need to do?
+(asks that the gear tool's numbers be left alone for now, since gears are sized by existing external standards, with a note in the project to review it later, because free-form gears could have sizes of their own; and asks what else is left to do)
+
+## in_677 — 2026-11-16 — directive
+> Go with your recommendation, start on the unit gaps
+(approves doing the unit gaps of the number system: areas, the Import and Export dialogs' unit choice, and the Clearance row)
+
+## in_678 — 2026-11-16 — directive
+> Go with your recommendation
+(approves the recommendation to have the parts that need real hardware tried by a person; since the AI cannot do that, the AI prepares the list of what to try)
+
+## in_679 — 2026-11-16 — directive
+> Go with your recommendation
+(repeats the approval of the recommendation to have the real-hardware checks done by a person; nothing further for the AI to build from it)
+
+## in_680 — 2026-11-16 — directive
+> Okay I am still waiting on other claudes before we merge, so help me with some other items please.  when you have an object in cross section, can we treat it almost as if that cut view is the real object? so for example when you select a face, the highlighted blue face is also cut at the same place (doesn't extend into the cut space). Can we treat the cut surface as a real surface? the blue cursor circle highlighter should go on it on hover, click on it should allow you to have most normal face interactions such as sketching on the face etc. Sketching on the face should allow constraints to the edges and lines of the cut edge etc. Can we have the gray of a cut surface slightly darker than the normal grey of a surface. can we have the haching lines be spaced closer together. When you drag the plane, the plane doesn't actually move live in preview, it only moves on drag end.
+(asks, for a body in cross section: the cut view treated as the real object (a selected face's blue highlight is cut at the same place, not drawn into the cut-away space); the cut surface as a real surface (the hover circle on it, a click selects it and allows most face interactions such as sketching, with constraints to the edges and lines of the cut edge); the cut surface's grey slightly darker than a normal surface; the hatching lines closer together; and the plane following the drag live in the preview, not only at the end of the drag)
+
+## in_681 — 2026-11-16 — directive
+> Go with your recommendation, build the cut face
+(approves building the cut face as a real face, as proposed in `dec_cross_section`: the cut face derived as flat face, edges and corners named by position, pickable, sketchable, with constraints to its edges; the cut face updates when the drag is let go; picking skips the cut-away half; a sketch on a cut face lives on a new plane made from it)
+
+## in_682 — 2026-11-16 — directive
+> Go with your recommendation, add arcs for curved cuts
+(approves the recommendation to give a curved cut (a cylinder sliced by a section plane) real arcs and circles as its edges, instead of many short straight edges)
+
+## in_683 — 2026-11-16 — directive
+> Go with your recommendation
+(approves doing the remaining cut-face limits, the ones the AI listed as not done: a sheet that passes exactly through an edge, a corner or a face of the body, and the cut face of one of several bodies naming its body)
+
+## in_684 — 2026-11-16 — directive
+> okay can you update to the latest from claude/inspiring-pascal-l342k7 so we can keep working without getting to far behind.
+(asks that the latest of `claude/inspiring-pascal-l342k7` be merged into this branch so it does not fall far behind)
+
+## in_685 — 2026-11-16 — directive
+> okay for the gear maker. It is unclear what all the fields do, and also they are very very hard to click on because they follow the cursor and fly away as you try to click on them. Also it is unclear how to make gears that will mesh together perfectly. Are they at infinite scales? what characteristics about the gear do I need to pay attention to in order to make a matching interlocking partner? Also are these standard with real world gears? What if I want to make a part to receive a real gear? for example a rack gear to ride on a gear I already have? Also what is a mesh gear and how do I use it?
+(asks, for the gear tool: that what each number does be made clear; that the numbers not follow the cursor and fly away from the click; and questions answered: how to make gears that mesh perfectly, whether they are at any scale, which characteristics a partner must match, whether they follow real world standards, how to make a part to receive a real gear (for example a rack for a gear one already has), and what Mesh gear is and how to use it)
+
+## in_686 — 2026-11-17 — directive
+> Yes, add the ring around a gear, also the mesh gear in a ring doesn't seem to actually work?
+(asks for a ring that meshes around a selected gear (Mesh gear on an outside gear making a ring), and reports that Mesh gear on a ring gear does not seem to work)

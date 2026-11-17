@@ -112,7 +112,7 @@ test("nothing to export is said, for every format; the file names follow the for
 });
 
 test("the menu has one Export… (greyed out with the reason when there is nothing to export) and one Import…", () => {
-  const rows = (can: Parameters<typeof appRows>[2]) => appRows("pan" as never, "", can, false, 1, true, 0);
+  const rows = (can: Parameters<typeof appRows>[1]) => appRows("", can, false, 0);
   const ids = rows({ export: true }).map((r) => r.id);
   assert.ok(["save", "open", "import", "export"].every((i) => ids.includes(i)));
   assert.ok(!ids.some((i) => /^export.+/.test(i)), "no row for each format any more");

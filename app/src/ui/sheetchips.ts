@@ -1,6 +1,7 @@
 // The icons on the sheets (`in_459`): each sheet has one that goes through its four modes (cuts the half its normal points to, the other half, does not cut, invisible) and the sheet that is selected has a second, its move icon
 // (the arrow along its normal; the mover with its arrows and rings; the plane across X, then Y, then Z). They only show and report the click. An invisible sheet takes no pointer pick: its icon fades in while the pointer is over it.
 import { iconSvg } from "./icons.ts";
+import { roundButton, onPress } from "./look.ts";
 import type { Vec3 } from "../interaction/api.ts";
 
 export interface SheetView { ref: string; mode: 0 | 1 | 2; hidden: boolean; move: 0 | 1 | 2 | 3 | 4; selected: boolean; corners: Vec3[] }
@@ -23,10 +24,9 @@ export function createSheetChips(host: HTMLElement, run: (id: string) => void) {
   type Pair = { box: HTMLDivElement; mode: HTMLDivElement; eye: HTMLDivElement; move: HTMLDivElement; del: HTMLDivElement; sig: string };
   const pool = new Map<string, Pair>();
   const button = (parent: HTMLElement, id: () => string): HTMLDivElement => {
-    const b = document.createElement("div");
-    b.style.cssText = "width:30px;height:30px;box-sizing:border-box;border-radius:15px;background:#fff;border:1px solid #8a8f98;color:#2b2b2d;display:flex;align-items:center;justify-content:center;cursor:pointer;font:700 13px system-ui,sans-serif;box-shadow:0 1px 3px rgba(0,0,0,.2)";
-    b.addEventListener("pointerdown", (e) => e.stopPropagation());
-    b.addEventListener("click", (e) => { e.stopPropagation(); run(id()); });
+    const b = roundButton({ size: 30, edge: "#8a8f98" }); // (a darker edge: it stands on the model)
+    b.style.font = "700 13px system-ui,sans-serif"; // (the letter of a plane across an axis)
+    onPress(b, () => run(id()));
     parent.appendChild(b);
     return b;
   };

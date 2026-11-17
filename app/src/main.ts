@@ -28,7 +28,11 @@ import { createState, reduce, advance, stopView, afterTakenBack } from "./intera
 import { frameOf } from "./interaction/frame.ts";
 import { requestOverlap } from "./interaction/overlap.ts";
 import { clearanceBetween } from "./interaction/clearance.ts";
-import { appRows, nextScrollMode, isScrollMode, nextPanScale } from "./interaction/appmenu.ts";
+import { appRows, isScrollMode } from "./interaction/appmenu.ts";
+import { createSettings } from "./ui/settings.ts";
+import type { Change } from "./ui/settings.ts";
+import { keysFromText, keysToText } from "./interaction/preferences.ts";
+import { units } from "./shared/units.ts";
 import { snapshotOf, logEntry } from "./interaction/snapshot.ts";
 import { createTiming } from "./interaction/timing.ts";
 import { buildStats } from "./ui/view/content.ts";
@@ -51,14 +55,11 @@ import { createWorldOrb } from "./ui/worldorb.ts";
 import { createHardMarks } from "./ui/hardmarks.ts";
 import { createPanel } from "./ui/panel.ts";
 import { createBodyChips } from "./ui/bodychips.ts";
-import { createHelper } from "./ui/helper.ts";
-import { createBusy } from "./ui/busy.ts";
 import { createControls } from "./ui/controls.ts";
+import { createGearBox } from "./ui/gearbox.ts";
 import { createToolChip } from "./ui/toolchip.ts";
 import { createToolCursor } from "./ui/toolcursor.ts";
-import { createSimilarChip } from "./ui/similarchip.ts";
-import { createRefusalChip } from "./ui/refusalchip.ts";
-import { createFaceKindChip } from "./ui/facekindchip.ts";
+import { createNotices } from "./ui/notices.ts";
 import { createResetView } from "./ui/resetview.ts";
 import { createCrosshair } from "./ui/crosshair.ts";
 import { createModeSwitch } from "./ui/modeswitch.ts";
@@ -66,7 +67,6 @@ import { createSuggest } from "./ui/suggest.ts";
 import { createHints } from "./ui/hint.ts";
 import { createBoxView } from "./ui/boxview.ts";
 import { createTouchCursor } from "./ui/touchcursor.ts";
-import { createUndoBar } from "./ui/undobar.ts";
 import { createCutParts } from "./ui/cutparts.ts";
 import { createBubbles } from "./ui/bubbles.ts";
 import { installTouchTips } from "./ui/tips.ts";
@@ -83,6 +83,7 @@ const chipHandlers = {
   },
   cancel: () => dispatch({ type: "escape" }),
 };
+const gearBox = createGearBox(document.body, chipHandlers); // (the gear tool's numbers: a labelled panel that stands still, `in_685`)
 const chips: ReturnType<typeof createChip>[] = []; // one value bubble, or several (a linear repeat has one on each axis)
 const chipAt = (i: number) => (chips[i] ??= createChip(document.body, chipHandlers));
 const bubbles = createBubbles(document.body, {
@@ -128,23 +129,28 @@ const PAN_KEY = "cad.panScale";
 const savedPan = Number(webStore.get(PAN_KEY));
 if (Number.isFinite(savedPan) && savedPan > 0) settings.input.trackpadPanScale = savedPan;
 
+const KEYS_KEY = "cad.keys";
+const UNITS_KEY = "cad.units";
+const USUAL_KEYS: Record<string, string[]> = JSON.parse(JSON.stringify(settings.input.keys));
+settings.input.keys = keysFromText(webStore.get(KEYS_KEY), USUAL_KEYS);
+if (webStore.get(UNITS_KEY) === "in") units.system = "in";
+
+/** The settings page (`dec_settings_page`, `in_661`): each change is made and kept as it is made. */
+const settingsPage = createSettings(document.body, () => ({ units: units.system, outlines: settings.theme.outlines, scrollMode: recognizer.scrollMode, panScale: settings.input.trackpadPanScale, keys: settings.input.keys, usualKeys: USUAL_KEYS }), (c: Change) => {
+  if (c.what === "units") { units.system = c.value; webStore.set(UNITS_KEY, c.value); }
+  else if (c.what === "outlines") { settings.theme.outlines = c.value; webStore.set(OUTLINE_KEY, c.value ? "1" : "0"); view.rebuild(); }
+  else if (c.what === "scrollMode") { recognizer.setScrollMode(c.value); webStore.set(SCROLL_KEY, c.value); }
+  else if (c.what === "panScale") { settings.input.trackpadPanScale = c.value; webStore.set(PAN_KEY, String(c.value)); }
+  else { settings.input.keys = c.value; webStore.set(KEYS_KEY, keysToText(c.value, USUAL_KEYS)); }
+  dirty = true;
+});
+
 const menu = createMenu(document.body, (id) => {
   menu.hide();
   if (state.menu) { state = { ...state, menu: null }; dirty = true; } // (a row that opens a dialog or sets something does not close the ⋯ menu's state on its own: the first Esc afterwards would only have closed that)
   if (id === "view:game") { input.toggleGame(); return; } // (game mode is the input's: it holds the pointer, `in_391`)
-  if (id === "outlines") {
-    settings.theme.outlines = !settings.theme.outlines;
-    webStore.set(OUTLINE_KEY, settings.theme.outlines ? "1" : "0");
-    view.rebuild();
-    dirty = true;
-  } else if (id === "panSpeed") {
-    settings.input.trackpadPanScale = nextPanScale(settings.input.trackpadPanScale);
-    webStore.set(PAN_KEY, String(settings.input.trackpadPanScale));
-  } else if (id === "scrollMode") {
-    const next = nextScrollMode(recognizer.scrollMode);
-    recognizer.setScrollMode(next);
-    webStore.set(SCROLL_KEY, next);
-  } else if (id === "constraints") dispatch({ type: "runAction", id: "constraints" });
+  if (id === "settings") settingsPage.open();
+  else if (id === "constraints") dispatch({ type: "runAction", id: "constraints" });
   else if (id === "share") shareState();
   else if (id === "export") void exportDialogFlow();
   else if (id === "import") void importDialogFlow();
@@ -172,8 +178,6 @@ let lastIcon: [number, number] | null = null;
 let touchRects: DOMRect[] = []; // (where the drag icons of a finger stood on the last frame: the bubbles and the suggestions keep off them, `in_292`)
 const touchHandle = createTouchCursor(document.body);
 const boxView = createBoxView(document.body);
-const helper = createHelper(document.body);
-const busySign = createBusy(document.body);
 
 const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
 const crosshair = createCrosshair(document.body);
@@ -182,19 +186,13 @@ const worldOrb = createWorldOrb(document.body, () => dispatch({ type: "runAction
 const sheetChips = createSheetChips(document.body, (id) => dispatch({ type: "runAction", id }));
 const bodyChips = createBodyChips(document.body, (id) => dispatch({ type: "runAction", id }));
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
-const refusalChip = createRefusalChip(document.body, () => dispatch({ type: "overrideRefusal" }), () => dispatch({ type: "holdFlash" }));
-const faceKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "faceKind", kind: id as "move" | "extrude" | "extend" }));
-const sweepKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "sweepPlace", id }), "Sweep:");
-const loftKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "loftKind", id }), "Loft:");
-const sizeKindChip = createFaceKindChip(document.body, (id) => dispatch({ type: "sizeKind", kind: id as "constant" | "variable" | "twoDistances" | "swap" }), "Size:");
-const addChip = createAddChip(document.body, () => dispatch({ type: "runAction", id: "select:add" }));
+const notices = createNotices(document.body, statusEl, (i) => dispatch(i)); // (every message, refusal, help and the working sign, `in_665`)
 const previewBar = createPreviewBar(document.body, (at) => dispatch({ type: "previewAt", at }), () => dispatch({ type: "previewClose" }));
-const similarChip = createSimilarChip(document.body, (rule) => dispatch({ type: "similarRule", rule: rule as "kind" }));
+const addChip = createAddChip(document.body, () => dispatch({ type: "runAction", id: "select:add" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch(to === "invert" ? { type: "runAction", id: "hollow:invert" } : to === "linear" || to === "circular" ? { type: "runAction", id: `op:${to}` } : { type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);
-const cutParts = createCutParts(document.body, (mask) => dispatch({ type: "cut", act: "toggle", mask }), () => dispatch({ type: "cut", act: "join" }));
-const undoBar = createUndoBar(document.body, () => dispatch({ type: "undo" }), () => dispatch({ type: "redo" }));
-const toolChip = createToolChip(document.body, () => dispatch({ type: "escape" }), () => dispatch({ type: "typed", key: "Enter", shift: false }));
+const cutParts = createCutParts(document.body, (mask) => dispatch({ type: "cut", act: "toggle", mask }));
+const toolChip = createToolChip(document.body, () => dispatch({ type: "escape" }), () => dispatch({ type: "typed", key: "Enter", shift: false }), (o) => dispatch(o.intent), () => dispatch({ type: "undo" }), () => dispatch({ type: "redo" }));
 const controls = createControls(document.body, {
   menu: (x, y) => dispatch({ type: "menu", x, y, button: true }),
   look: (plane) => dispatch({ type: "look", plane }),
@@ -235,10 +233,11 @@ const say = (message: string) => { state = { ...state, session: { ...state.sessi
 async function exportDialogFlow() {
   let saved = EXPORT_DEFAULTS;
   try { saved = { ...EXPORT_DEFAULTS, ...JSON.parse(webStore.get(EXPORT_KEY) ?? "{}") }; } catch { /* not kept, or not readable: the usual */ }
+  saved = { ...saved, units: units.system }; // (the units start from the number system of the settings page; a different choice here is for this file only, `in_677`)
   const answers = await dialog.open((v) => exportDialog(state.session, v as unknown as ExportOptions), (({ name: _name, ...rest }) => rest)(fitExport(state.session, { ...saved, name: "" })) as unknown as Values); // (the file name is not asked as an answer to begin with: the dialog offers its own)
   if (!answers) return;
   const o = fitExport(state.session, answers as unknown as ExportOptions);
-  webStore.set(EXPORT_KEY, JSON.stringify({ format: o.format, units: o.units, quality: o.quality, what: "all", perBody: o.perBody, name: "" }));
+  webStore.set(EXPORT_KEY, JSON.stringify({ format: o.format, quality: o.quality, what: "all", perBody: o.perBody, name: "" }));
   say(`making the ${FLAT_OR_NOT(o.format)} file…`);
   const r = await exportWith(state.session, engine, o);
   if (!r.ok) return say(r.error);
@@ -358,7 +357,7 @@ function dispatch(i: Intent) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(recognizer.scrollMode, typeof __BUILD__ === "string" ? __BUILD__ : "", { export: canExport(state.session) || canExportFlat(state.session), material: !whyNoMaterial(state.session), laser: canExportFlat(state.session), laserLayers: !whyNoLayers(state.session), laserTable: parseLibrary(webStore.get("cad.library")).library.settings.length > 0, clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, settings.input.trackpadPanScale, settings.theme.outlines, scene(state.session).clearance ?? 0)); }
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(typeof __BUILD__ === "string" ? __BUILD__ : "", { export: canExport(state.session) || canExportFlat(state.session), material: !whyNoMaterial(state.session), laser: canExportFlat(state.session), laserLayers: !whyNoLayers(state.session), laserTable: parseLibrary(webStore.get("cad.library")).library.settings.length > 0, clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, scene(state.session).clearance ?? 0)); }
     else {
       menu.hide();
       if (state.menu && inGame()) { // game mode: the ring stands in the world, ahead of the eye, where it was opened (`in_463`, `in_471`)
@@ -394,7 +393,7 @@ let resultStore: ReturnType<typeof openResultStore<KernelResult>> = null;
 const resultStoreOn = (): boolean => { const q = new URLSearchParams(location.search).get("cache"); return q === "1" || (q !== "0" && !import.meta.env.DEV); };
 
 async function boot() {
-  statusEl.textContent = "loading the geometry kernel…";
+  notices.say("loading the geometry kernel…");
   // the kernel works on its own thread so a heavy model does not freeze the page; if that cannot start, it runs here instead
   try {
     const worked = createAsyncKernel(() => {
@@ -410,7 +409,7 @@ async function boot() {
   } catch {
     await initKernelWeb();
   }
-  statusEl.textContent = "";
+  notices.say("");
   let session = createSession(engine);
   if (new URLSearchParams(location.search).get("demo") === "box") {
     const r = drawRectangle(scene(session), "w/XY" as Ref, [-20, -10, 0], [20, 10, 0], [1, 0, 0], [0, 1, 0]);
@@ -473,17 +472,11 @@ function frame(now: number) {
     { const pg = host.getBoundingClientRect(); const c = projector(state.cam, size.w, size.h).project([0, 0, 0]); worldOrb.update(c && c[0] > -20 && c[1] > -20 && c[0] < size.w + 20 && c[1] < size.h + 20 ? [c[0] + pg.left, c[1] + pg.top] : null, f.worldHidden); }
     { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); sheetChips.update(f.sectionPlanes.filter((p) => !p.guide).map((p) => ({ ref: p.ref, mode: p.mode, hidden: p.hidden, move: p.move, selected: p.selected, corners: p.corners })), (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null); }
     { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); bodyChips.update(f.bodyEyes, (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null, f.eyesQuiet); }
-    toolChip.update(f.tool, f.confirm, lastDevice === "touch");
-    { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null, f.cut?.join ?? true); }
-    undoBar.update(lastDevice === "touch", f.undoRedo);
-    similarChip.update(f.similar);
+    toolChip.update(f.tool, f.confirm, lastDevice === "touch", f.options, f.undoRedo);
+    { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null); }
     view.setToolpath(f.toolpath, state.cam);
     previewBar.update(f.previewBar);
-    addChip.update(f.adding === "offer" && lastDevice !== "touch" ? null : f.adding);
-    faceKindChip.update(f.faceKinds);
-    sizeKindChip.update(f.sizeKinds);
-    loftKindChip.update(f.loftKinds);
-    sweepKindChip.update(f.sweepKinds);
+    addChip.update(f.adding);
     resetView.update(f.resetView);
     // game mode and the straight (orthographic) view, in and out, cleanly (`in_467`, `in_469`, `in_471`): going in while a straight view is on or on its way puts it away smoothly (the animation is given up
     // properly, so no half-made view is left); a view that becomes straight or goes on its way to it while in game mode ends the game mode
@@ -524,9 +517,8 @@ function frame(now: number) {
     toolCursor.update(f.tool ? f.tool.kind : null);
     const project = projector(state.cam, size.w, size.h).project;
     // what comes before the constraint bubbles: the ring, and the number bubbles (and the helper bubble, the suggestions and the hint icons), as they stood on the last frame
-    const inFront = [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), hintIcons.rect(), ...touchRects].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : []));
+    const inFront = [ring.rect(), ...chips.map((c) => c.rect()), notices.helpRect(), hintIcons.rect(), ...touchRects].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : []));
     if (bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid, inFront)) dirty = true; // (a bubble still sliding to its place: another frame)
-    refusalChip.update(f.refusal, f.refusal ? bubbles.rectOf(f.refusal.beside) : null); // (beside the bubble of the constraint that stopped it, `in_367`)
     view.setNotes(f.annotations.flatMap((a) => a.lines), f.annotations.flatMap((a) => a.dashed ?? []), state.cam.distance * 0.012);
     { // the Measure tab with two overlapping bodies selected asks the kernel for the volume they share, once; the answer is drawn when it comes (`dec_measure_report`, `in_622`)
       const sc = scene(state.session);
@@ -537,13 +529,13 @@ function frame(now: number) {
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };
     // the icon stands at the upper left of the handles, out of the way of the arrows and rings (`in_215`)
     const corner = f.modeSwitch ? f.modeSwitch.pts.map((p) => onPage(p)!).reduce<[number, number]>((c, q) => [Math.min(c[0], q[0]), Math.min(c[1], q[1])], [Infinity, Infinity]) : null;
-    suggest.update(f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : null, [ring.rect(), ...chips.map((c) => c.rect()), helper.rect(), ...touchRects, ...bubbles.rects()].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : [])));
-    const valueBubbles = f.entries.length ? f.entries : f.entry ? [f.entry] : [];
+    suggest.update(f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : null, [ring.rect(), ...chips.map((c) => c.rect()), notices.helpRect(), ...touchRects, ...bubbles.rects()].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : [])));
+    gearBox.update(f.entry?.panel ? f.entry : null);
+    const valueBubbles = (f.entries.length ? f.entries : f.entry ? [f.entry] : []).filter((e) => !e.panel);
     valueBubbles.forEach((e, i) => chipAt(i).update(e.fields, e.unit || "mm", onPage(e.at), onPage(e.from), !!state.tool && lastDevice !== "touch", lastDevice === "touch", !!e.constraint, e.opacity ?? 1)); // (a mouse draws through the bubble: a finger can tap into it to type a size, `in_289`)
     for (let i = valueBubbles.length; i < chips.length; i++) chips[i]!.update(null, "mm", null);
     modeSwitch.update(f.modeSwitch, corner && Number.isFinite(corner[0]) ? corner : null, chips.flatMap((c) => c.rect() ?? [])); // (after the bubbles: it keeps off them, `in_231`)
-    helper.update(f.helper ? f.helper.text : null, f.helper ? onPage(f.helper.at) : null);
-    const working = busySign.update(f.busy, now);
+    const working = notices.update(f.notices, { onPage, bubble: (id) => bubbles.rectOf(id), touch: lastDevice === "touch", now });
     controls.hint(f.lookHint);
     controls.menuOpen(menu.open);
     controls.facing(f.facing);
@@ -585,9 +577,6 @@ function frame(now: number) {
     if (waiting && staleSince === null) staleSince = tFrame;
     else if (!waiting && staleSince !== null) { timing.add("edit: waiting for the kernel until its answer is drawn", tEnd - staleSince); staleSince = null; }
     controls.update(window.innerWidth, window.innerHeight, settings.buttons.marginPx, settings.buttons.sizePx);
-    statusEl.textContent = f.message;
-    statusEl.style.bottom = lastDevice === "touch" ? "108px" : ""; // (above the undo bar of a finger, and clear of the X Y Z buttons: a long message is not under them, `in_336`)
-    statusEl.style.right = lastDevice === "touch" ? "64px" : "";
     dirty = panesFading || !!f.flash || !!f.gizmo?.pulse || f.entries.some((e) => e.opacity !== undefined && e.opacity < 1) || working || !!f.highlight.temp?.length || touchMoved; // keep drawing while a refused change flashes, the "working" sign turns, or the copies of a repeat pulse
   }
   requestAnimationFrame(frame);
