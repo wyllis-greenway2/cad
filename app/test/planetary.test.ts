@@ -5,9 +5,15 @@ import { kernel } from "../src/compiler/kernel/index.ts";
 import { worldRef } from "../src/shared/ref.ts";
 import { createSession, run, scene } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";
-import { ratios, problemsOf, fromRatio, layoutOf, defaultPin } from "../src/operation/planetary.ts";
+import { gearOutline } from "../src/operation/gear.ts";
+import { ratios, problemsOf, fromRatio, layoutOf, defaultPin, planetSteps } from "../src/operation/planetary.ts";
 import type { PlanetarySpec } from "../src/operation/planetary.ts";
 import { toJSON, fromJSON } from "../src/operation/scene.ts";
+import { startOp, opCommand } from "../src/interaction/operations.ts";
+import type { Op } from "../src/interaction/operations.ts";
+import { gearRefs } from "../src/operation/gearscene.ts";
+import { loopFaceRef } from "../src/operation/loops.ts";
+import { undoLast } from "../src/interaction/session.ts";
 
 await kernel.init();
 const SPUR: PlanetarySpec = { sun: 16, planet: 12, planets: 4, module: 2, width: 6 };
@@ -153,4 +159,127 @@ test("the overlap check can see a bad fit: a planet turned half a tooth runs int
   assert.equal(s.message, null);
   const v = overlap(s, stepOf(s, "q_001s"), stepOf(s, "q_001p1"));
   assert.ok(v > 5, `${v}`);
+});
+
+test("a plate gap puts the carrier on a plane of its own below the gears: the pins are that much longer, nothing touches, and the gap can be changed or taken away", () => {
+  const gap = 1.5;
+  let s = make({ ...SPUR, carrier: 4, plateGap: gap });
+  assert.equal(s.message, null);
+  const sc = scene(s);
+  assert.ok(sc.parts["d/q_001.pl" as never], "the carrier's own plane");
+  assert.equal(bodies(s).length, 7);
+  const carrier = bodies(s).find((b) => b.id === `x_${sc.planetaries![0]!.carrierStep}`)!;
+  const [R, t, pin, W, hole] = [40, 4, defaultPin(SPUR), 6, 5.4];
+  const expected = Math.PI * R * R * t - Math.PI * (hole / 2) ** 2 * t + 4 * Math.PI * (pin / 2) ** 2 * (W + gap);
+  assert.ok(Math.abs(carrier.volume! - expected) / expected < 0.01, `${carrier.volume} against ${expected}`);
+  const zs = (id: string) => { const b = bodies(s).find((x) => x.id === `x_${id}`) as unknown as { bbox: { min: number[]; max: number[] } }; return [b.bbox.min[2]!, b.bbox.max[2]!]; };
+  const [cz, pz] = [zs(sc.planetaries!.at(0)!.carrierStep!), zs(stepOf(s, "q_001p1"))];
+  assert.ok(Math.abs(cz[0]! + gap + 4) < 1e-6 && Math.abs(cz[1]! - 6) < 1e-6, `carrier z ${cz}`); // plate from -(gap + 4) to -gap, pins up to the planets' top, 6
+  assert.ok(Math.abs(pz[0]!) < 1e-6 && cz[0]! + 4 < pz[0]! - gap + 1e-6, `planet z ${pz}`); // the planet starts at 0, the plate's top is gap below it
+  for (const g of ["q_001p1", "q_001s", "q_001r"]) assert.equal(overlap(s, sc.planetaries![0]!.carrierStep!, stepOf(s, g)), 0, g);
+  s = run(s, { type: "setPlanetary", id: "q_001", spec: { ...SPUR, carrier: 4 } }); // gap taken away: the plane goes
+  assert.equal(s.message, null);
+  assert.equal(scene(s).parts["d/q_001.pl" as never], undefined);
+  assert.equal(bodies(s).length, 7);
+  assert.match(run(make({ ...SPUR, carrier: 4 }), { type: "setPlanetary", id: "q_001", spec: { ...SPUR, carrier: 4, plateGap: -1 } }).message ?? "", /below zero/);
+});
+
+const faceOfGear = (s: Session, id: string) => loopFaceRef(gearRefs(scene(s).gears!.find((g) => g.id === id)!).lines);
+function opOn(s: Session, id: string, kind: "move" | "rotate", axis: 0 | 1 | 2, value: number) {
+  const o = startOp(scene(s), [faceOfGear(s, id) as never], kind);
+  assert.ok(o.ok, o.ok ? "" : o.why);
+  return opCommand(scene(s), { ...(o as { op: Op }).op, axis, value })!;
+}
+
+test("Move on a gear of the set moves the whole set: the record's centre, every gear and the carrier, as one command; undo puts it back", () => {
+  const s = make({ ...SPUR, carrier: 4 });
+  const cmd = opOn(s, "q_001p2", "move", 0, 30);
+  assert.ok(cmd);
+  const moved = run(s, cmd);
+  assert.equal(moved.message, null);
+  const sc = scene(moved);
+  assert.deepEqual(sc.planetaries![0]!.at.map((x) => Math.round(x * 1e6) / 1e6), [30, 0, 0]);
+  const before = scene(s).gears!;
+  for (const g of sc.gears!) { const g0 = before.find((x) => x.id === g.id)!; assert.ok(Math.abs(g.at[0] - g0.at[0] - 30) < 1e-6 && Math.abs(g.at[1] - g0.at[1]) < 1e-6, g.id); }
+  assert.equal(bodies(moved).length, 7);
+  const bb = moved.outcome.kernel!.bbox!;
+  assert.ok(Math.abs((bb.min[0] + bb.max[0]) / 2 - 30) < 1e-3, `${bb.min[0]} .. ${bb.max[0]}`);
+  assert.deepEqual(scene(undoLast(moved)).planetaries![0]!.at, [0, 0, 0]);
+  assert.equal(opOn(s, "q_001s", "move", 2, 10), null, "a move across the plane is not made");
+});
+
+test("Rotate on a gear of the set turns the whole set about that gear's centre: the planets go round the sun and every mesh still fits", () => {
+  const s = make(SPUR);
+  const turned = run(s, opOn(s, "q_001s", "rotate", 2, 90));
+  assert.equal(turned.message, null);
+  const sc = scene(turned);
+  assert.ok(Math.abs((sc.planetaries![0]!.turn ?? 0) - Math.PI / 2) < 1e-9);
+  const p1 = sc.gears!.find((g) => g.id === "q_001p1")!.at;
+  assert.ok(Math.abs(p1[0]) < 1e-6 && Math.abs(p1[1] - (2 * 28) / 2) < 1e-6, `${p1}`); // the first planet was on +x at 28 mm, now on +y
+  for (const g of ["q_001p1", "q_001p3"]) assert.ok(overlap(turned, stepOf(turned, "q_001s"), stepOf(turned, g)) < 0.01 && overlap(turned, stepOf(turned, g), stepOf(turned, "q_001r")) < 0.01, g);
+  // turned about a planet: the set swings round it
+  const about = run(s, opOn(s, "q_001p1", "rotate", 2, 180));
+  assert.equal(about.message, null);
+  const at = scene(about).planetaries![0]!.at;
+  assert.ok(Math.abs(at[0] - 56) < 1e-6 && Math.abs(at[1]) < 1e-6, `${at}`); // the sun was 28 mm from planet 1 on its own side, now 28 mm past it
+});
+
+test("spacing 1: any number of planets at the nearest meshing positions (whole tooth steps from the first); equal spacing still needs the whole number", () => {
+  const odd: PlanetarySpec = { ...SPUR, planets: 3 }; // 56 / 3 is not whole
+  assert.ok(problemsOf(odd).some((x) => x.fatal && /Spacing to 1/.test(x.text)));
+  const near: PlanetarySpec = { ...odd, spacing: 1 };
+  assert.deepEqual(problemsOf(near).filter((x) => x.fatal), []);
+  assert.ok(problemsOf(near).some((x) => !x.fatal && /not evenly spaced/.test(x.text)));
+  assert.deepEqual(planetSteps(near), [0, 19, 37]); // 56 / 3 = 18.67: steps of 19, 18, 19
+  assert.deepEqual(planetSteps({ ...SPUR }), [0, 14, 28, 42]); // equal: unchanged
+  assert.ok(!problemsOf({ ...SPUR, spacing: 1 }).some((x) => /not evenly/.test(x.text)), "an even set has no warning");
+  const [evenOnly, anyCount] = [fromRatio(6, "ring", { planets: 3, module: 2, width: 6 }), fromRatio(6, "ring", { planets: 3, module: 2, width: 6, spacing: 1 })];
+  assert.ok(anyCount.length > evenOnly.length && anyCount[0]!.error <= evenOnly[0]!.error, `${anyCount.length} against ${evenOnly.length}`); // more sets reach a ratio when the spacing may be nearest
+});
+
+for (const [name, spec] of [["spur", { ...SPUR, planets: 3, spacing: 1 }], ["helical", { ...SPUR, planets: 3, spacing: 1, helix: 15 }], ["five planets on 24 / 18 teeth", { sun: 24, planet: 18, planets: 5, module: 2, width: 6, spacing: 1 }]] as const) {
+  test(`unevenly spaced set (${name}): every planet meshes with the sun and the ring, and none touches another`, () => {
+    const s = make(spec);
+    assert.equal(s.message, null);
+    const n = spec.planets;
+    for (let k = 1; k <= n; k++) {
+      const p = stepOf(s, `q_001p${k}`);
+      for (const [what, v] of [["sun", overlap(s, stepOf(s, "q_001s"), p)], ["ring", overlap(s, p, stepOf(s, "q_001r"))], ...(k < n ? [["next planet", overlap(s, p, stepOf(s, `q_001p${k + 1}`))] as [string, number]] : [])] as [string, number][]) assert.ok(v < 0.1, `${name}: planet ${k} and ${what} overlap ${v} mm3`);
+    }
+    const angles = scene(s).gears!.filter((g) => g.id.startsWith("q_001p")).map((g) => Math.atan2(g.at[1], g.at[0]));
+    assert.ok(Math.max(...angles) - Math.min(...angles) > 0);
+  });
+}
+
+test("a housing: a tube round the ring and an end cap, each a body, with a fit all round the ring; the carrier, the gap and the housing together; edit and delete take them with the set", () => {
+  const spec: PlanetarySpec = { ...SPUR, carrier: 4, plateGap: 1, housing: 3, housingCap: 2, housingFit: 0.3 };
+  let s = make(spec);
+  assert.equal(s.message, null);
+  const sc = scene(s);
+  const rec = sc.planetaries![0]!;
+  assert.ok(rec.shellStep && rec.capStep && rec.carrierStep);
+  assert.equal(bodies(s).length, 9); // sun, 4 planets, ring, carrier, tube, cap
+  const ring = sc.gears!.find((g) => g.id === "q_001r")!;
+  const ro = (gearOutline(ring.spec) as { value: { outerRadius: number } }).value.outerRadius;
+  const shell = bodies(s).find((b) => b.id === `x_${rec.shellStep}`)!;
+  const wantShell = Math.PI * ((ro + 0.3 + 3) ** 2 - (ro + 0.3) ** 2) * (6 + 1);
+  assert.ok(Math.abs(shell.volume! - wantShell) / wantShell < 0.01, `${shell.volume} against ${wantShell}`);
+  const cap = bodies(s).find((b) => b.id === `x_${rec.capStep}`)!;
+  const wantCap = (Math.PI * (ro + 0.3 + 3) ** 2 - Math.PI * (5.4 / 2) ** 2) * 2;
+  assert.ok(Math.abs(cap.volume! - wantCap) / wantCap < 0.01, `${cap.volume} against ${wantCap}`);
+  const zs = (id: string) => { const b = bodies(s).find((x) => x.id === `x_${id}`) as unknown as { bbox: { min: number[]; max: number[] } }; return [b.bbox.min[2]!, b.bbox.max[2]!]; };
+  assert.ok(Math.abs(zs(rec.shellStep!)[0]!) < 1e-6 && Math.abs(zs(rec.shellStep!)[1]! - 7) < 1e-6, `tube z ${zs(rec.shellStep!)}`); // from the gears' plane up past the gap
+  assert.ok(Math.abs(zs(rec.capStep!)[0]! - 7) < 1e-6 && Math.abs(zs(rec.capStep!)[1]! - 9) < 1e-6, `cap z ${zs(rec.capStep!)}`);
+  for (const [a, b] of [[rec.shellStep!, stepOf(s, "q_001r")], [rec.shellStep!, rec.carrierStep!], [rec.capStep!, stepOf(s, "q_001p1")], [rec.capStep!, stepOf(s, "q_001s")], [rec.capStep!, rec.shellStep!], [rec.shellStep!, stepOf(s, "q_001p2")]] as [string, string][]) assert.equal(overlap(s, a, b), 0, `${a} ${b}`);
+  s = run(s, { type: "setPlanetary", id: "q_001", spec: { ...spec, housingCap: 0 } }); // the cap goes
+  assert.equal(s.message, null);
+  assert.equal(bodies(s).length, 8);
+  assert.equal(scene(s).planetaries![0]!.capStep, undefined);
+  assert.equal(scene(s).parts["d/q_001.hp" as never], undefined);
+  s = run(s, { type: "setPlanetary", id: "q_001", spec: { ...spec, housing: 0, housingCap: 0 } });
+  assert.equal(bodies(s).length, 7);
+  assert.match(run(make(SPUR), { type: "setPlanetary", id: "q_001", spec: { ...SPUR, housingCap: 2 } }).message ?? "", /needs a housing/);
+  s = run(make(spec), { type: "deletePlanetary", id: "q_001" });
+  assert.equal(Object.keys(scene(s).parts).filter((r) => r.startsWith("d/q_001")).length, 0);
+  assert.equal(scene(s).steps.length, 0);
 });
