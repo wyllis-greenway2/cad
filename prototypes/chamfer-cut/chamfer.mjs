@@ -1,4 +1,4 @@
-// Prototype (thrown away, `in_798`): why the tooth chamfer's cut takes seconds, and whether cutting with sector pieces is quicker than one ring.
+// Prototype (thrown away, `in_804`): why the tooth chamfer's cut takes seconds, and whether cutting with sector pieces is quicker than one ring.
 // Run (from app/): Z=40 node ../prototypes/chamfer-cut/chamfer.mjs
 import { makeThreePointArc, makeLine, assembleWire, makeFace, basicFaceExtrusion, makeCircle, measureVolume, Vector, draw, makeCompound } from "../../app/node_modules/replicad/dist/replicad.js";
 import { init } from "../../app/src/compiler/kernel/occt/evaluate.mjs";

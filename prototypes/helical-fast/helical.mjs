@@ -1,4 +1,4 @@
-// Prototype (thrown away, `in_800`): a helical gear body made by sweeping ONE tooth and copying it round, against sweeping the whole outline.
+// Prototype (thrown away, `in_806`): a helical gear body made by sweeping ONE tooth and copying it round, against sweeping the whole outline.
 // Run (from app/): Z=40 node ../prototypes/helical-fast/helical.mjs
 import { getOC, makeThreePointArc, makeLine, assembleWire, makeFace, makeSolid, addHolesInFace, makeCircle, measureVolume, Vector, twistExtrude, cast } from "../../app/node_modules/replicad/dist/replicad.js";
 import { init } from "../../app/src/compiler/kernel/occt/evaluate.mjs";

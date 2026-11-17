@@ -3533,22 +3533,50 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > yes do the worm wheels next
 (approves doing the worm wheels next: what is left of their cost beyond the loft, a 200-tooth wheel and other worm types through the kernel)
 
-## in_797 — 2026-11-17 — approval
+## in_797 — 2026-11-17 — directive
+> update from claude/inspiring-pascal-l342k7, all your edits should be updated there
+(asks for this branch to be brought up to date from claude/inspiring-pascal-l342k7 and for all of this session's edits to be on that branch; the explicit permission to write to it)
+
+## in_798 — 2026-11-17 — directive
+> add the cone-ended blank and test more tooth counts
+(asks me to add the cone-ended blank (the heel and toe cones) to the spiral bevel pair made by the gearing law, and to test more tooth counts)
+
+## in_799 — 2026-11-17 — question
+> [the human attached a saved project, "bevel_long.json": a 20 tooth bevel gear, its 40 tooth partner, and a change of the first gear's mate teeth to 40] okay I have a few questions about bevels. So why to the angles stop being 45 degrees when you go from one tooth count to another tooth count? like this file for example. Is this how real bevel gears work? why?
+(asks why the cone angles of a bevel pair are no longer 45 degrees when the tooth counts differ, whether real bevel gears work that way, and why)
+
+## in_800 — 2026-11-17 — approval
+> okay yes lets do the crown gear, but should we wait till after we finish the spiral bevel?
+(approves making the crown gear, and asks whether to wait until the spiral bevel is finished)
+
+## in_801 — 2026-11-17 — approval
+> I will take your reccomendations
+(approves the recommendations asked about: the first crown tool's pinion, and straight teeth first with spiral later)
+
+## in_802 — 2026-11-17 — approval
+> Yes, build it as proposed
+(approves dec_crown_gears as proposed and asks for it to be built)
+
+## in_803 — 2026-11-17 — approval
 > Yes, leave the arcs as they are, but first update from claude/inspiring-pascal-l342k7, all your edits should have been pushed there
 (answers the spline flank question: no spline option, the tooth flanks stay chains of arcs; and asks that this branch first be brought up to date from claude/inspiring-pascal-l342k7, which already held all of this branch's work: a fast-forward of 79 commits)
 
-## in_798 — 2026-11-17 — directive
+## in_804 — 2026-11-17 — directive
 > lets try to speed it up
 (asks to make the tooth chamfer faster, after being told it adds about 4.5 to 10 s to the build of a gear)
 
-## in_799 — 2026-11-17 — approval
+## in_805 — 2026-11-17 — approval
 > Yes, make the helical wedges follow the helix
 (approves making the tooth chamfer's wedges on a helical gear follow the helix, to cut the 4.4 s it adds to a helical gear)
 
-## in_800 — 2026-11-17 — directive
+## in_806 — 2026-11-17 — directive
 > lets try making helical gears faster
 (asks to make helical gears faster to build, after the finding that a helical gear is the slow case, with and without the chamfer)
 
-## in_801 — 2026-11-17 — approval
+## in_807 — 2026-11-17 — approval
 > Yes, record that as the decision
 (approves the AI's recommendation: accept the 4.4 s the chamfer adds to a helical gear, do not build the chamfered tooth on one tooth block copied round, and spend the next session looking at the new gear features in the app: the chamfer, the land, the helical rack, the orange mesh preview)
+
+## in_808 — 2026-11-17 — approval
+> Yes, merge it into my branch
+(approves merging claude/inspiring-pascal-l342k7 into claude/intelligent-hawking-8j1lyr, to bring in the 17 commits this branch lacked)

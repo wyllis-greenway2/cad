@@ -14,7 +14,8 @@ import type { CamSpec } from "./cams.ts";
 import { gearRoot } from "./gearroot.ts";
 import { wormOf, wheelOf } from "./worm.ts";
 import type { WormSpec, WheelSpec } from "./worm.ts";
-import { bevelPoints, bevelLayout } from "./bevel.ts";
+import { bevelPoints, bevelLayout, isCrown } from "./bevel.ts";
+import { crownOf, crownSection } from "./crown.ts";
 import type { BevelSpec } from "./bevel.ts";
 
 /** the belts there are timing pulleys for (`pulley.ts`) */
@@ -46,6 +47,8 @@ export interface GearSpec {
   wheel?: WheelSpec;
   /** a straight bevel gear (`bevel.ts`, `in_735`): an APPROXIMATION of the standard tooth; `teeth`, `module` and `pressure` as for a gear (the module is the one at the big end); the teeth of its mate, the angle between the shafts and the face width are here */
   bevel?: BevelSpec;
+  /** a crown gear (`crown.ts`, `in_802`): a bevel gear whose pitch angle is a right angle; the radii the teeth run between, mm (the pitch radius less a face width, and the pitch radius, if none; the plate's thickness is `width`) */
+  crown?: { inner?: number; outer?: number };
   /** arcs to each side of a tooth's flank (2 to 8; 4 by default): fewer is a rougher involute and a body with fewer faces, which is quicker to make (`dec_speed_rules`) */
   detail?: number;
   /** the corner radius of the rack cutter, in modules: the root is then shaped as that cutter makes it (a fillet, and the undercut when there are few teeth: `gearroot.ts`); none or 0: the root is the circle between the flanks */
@@ -136,7 +139,7 @@ function rackOutline(spec: GearSpec): Result<GearOutline> {
 /** Whether a gear has a body made with it (`in_697`): a helix, or a thickness above zero (a flat gear has neither). */
 export const hasBody = (spec: GearSpec): boolean => spec.helix !== undefined || (spec.width ?? 0) > 0 || !!spec.bevel;
 /**
- * What a tooth chamfer is (`in_760`, `in_798`): how deep it is (mm), which way is out of the material at the tooth tips (+1 outside a gear, -1 inside a ring) and the thickness; null when there is no chamfer or no thickness, or for a kind of gear
+ * What a tooth chamfer is (`in_760`, `in_804`): how deep it is (mm), which way is out of the material at the tooth tips (+1 outside a gear, -1 inside a ring) and the thickness; null when there is no chamfer or no thickness, or for a kind of gear
  * that has none. The kernel cuts one flat wedge off each tooth tip at each face (`toothChamfer`).
  */
 export function chamferOf(spec: GearSpec): { depth: number; side: 1 | -1; width: number } | null {
@@ -175,6 +178,12 @@ function wheelOutline(spec: GearSpec): Result<GearOutline> {
 
 /** A straight bevel gear's outline: the big end of the toothed cone (`bevel.ts`), as corners and arcs. */
 function bevelOutline(spec: GearSpec): Result<GearOutline> {
+  if (isCrown(spec)) { // a crown gear: the section across its pitch plane (`crown.ts`)
+    const c = crownOf(spec);
+    if (!c.ok) return c;
+    const { points, bulges } = crownSection(spec, c.value, 0);
+    return ok({ points, bulges, pitchRadius: c.value.R, baseRadius: c.value.R, tipRadius: c.value.outer, rootRadius: c.value.inner, warnings: ["a crown gear with straight radial teeth, to mesh with a straight bevel pinion"] });
+  }
   const b = bevelPoints(spec);
   if (!b.ok) return b;
   const lay = bevelLayout(spec); // (the body is made from it: the numbers that cannot are refused here, with why)

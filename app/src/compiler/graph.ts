@@ -268,7 +268,7 @@ export function buildGraph(scene: Scene): GraphResult {
         break;
       }
       case "toothChamfer": {
-        // the tips of a gear's teeth broken at its two faces (`in_760`, `in_798`): one flat wedge cut from each tooth at each face, made and cut by the kernel in one step; the body is named by the step that made it
+        // the tips of a gear's teeth broken at its two faces (`in_760`, `in_804`): one flat wedge cut from each tooth at each face, made and cut by the kernel in one step; the body is named by the step that made it
         const body = (st.parts[0] ?? "").startsWith("b/") ? st.parts[0]!.split("/")[1] : "";
         if (!prev || !body || body === "body") { errors[st.id] = "there is no body to chamfer"; break; }
         const p = st.params;

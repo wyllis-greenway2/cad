@@ -1281,7 +1281,7 @@ const OPS = {
   },
 
   /**
-   * The tips of a gear's teeth broken at its two faces (`in_798`): at each tooth and each face one flat wedge is cut off, a plane at 45 degrees from `depth` inside the tip circle at the face to the tip circle `depth` in. The wedges are
+   * The tips of a gear's teeth broken at its two faces (`in_804`): at each tooth and each face one flat wedge is cut off, a plane at 45 degrees from `depth` inside the tip circle at the face to the tip circle `depth` in. The wedges are
    * made in one go and cut in one boolean; a flat cut meets a flank (a cylinder) in a curve the kernel knows exactly, where the turned cone it replaces had to be found by marching, which took 10 times as long. `first` is the direction of
    * tooth 0, `axis` the gear's axis from its first face (at `centre`) towards its second, `twist` how far the teeth at the second face are turned from those at the first (a helical gear), `side` +1 for an outside gear and -1 for a ring.
    */

@@ -55,7 +55,7 @@ export interface Grid { P: V3[][] }
 export function flankGrid(pr: Pair, which: "pinion" | "ring", f: "A" | "B", nth = 160, ny = 80): Grid {
   const c = pr.spec.crown, sp = pr.spec;
   const thM = Math.atan2(Math.sin(c.beta), -Math.cos(c.beta) * (c.hand ?? 1));
-  const span = (1.2 * sp.b) / c.RW + 0.25;
+  const span = (1.2 * (sp.b + 16)) / c.RW + 0.25; // (the face and a margin each side, for the planes beyond the toe and the heel that the cone ends need)
   const g = which === "pinion" ? pr.pinion : pr.ring;
   const [y0, y1] = [-g.hF - 3, g.hK + 3];
   const P: V3[][] = [];
@@ -96,8 +96,14 @@ export function curveOf(pts: [number, number][], radii: number[], pitch: number)
   if (inside.length < 4) return null;
   const ref0 = inside[0]![1];
   const unw = inside.map(([r, f]): [number, number] => [r, f - ref0 - 2 * Math.PI * Math.round((f - ref0) / (2 * Math.PI))]);
-  const med = unw.map((q) => q[1]).sort((a, b) => a - b)[unw.length >> 1]!;
-  const q = unw.filter((p) => Math.abs(p[1] - med) < 0.6 * pitch).sort((a, b) => a[0] - b[0]);
+  // the branch of the contour that the flank is: from the point at the middle radius outward each way, a point is taken if its azimuth is within a quarter of a pitch of the last one taken (the whole surface's contour has other branches; the flank of a gear with
+  // small pitch and a steep spiral changes its azimuth by more than the pitch over its height, so the median would not do)
+  const sorted = unw.slice().sort((a, b) => a[0] - b[0]);
+  const rMid = (radii[0]! + radii[radii.length - 1]!) / 2;
+  let seed = 0; for (let i = 1; i < sorted.length; i++) if (Math.abs(sorted[i]![0] - rMid) < Math.abs(sorted[seed]![0] - rMid)) seed = i;
+  const taken: [number, number][] = [sorted[seed]!];
+  for (const dir of [1, -1]) { let last = sorted[seed]![1]; for (let i = seed + dir; i >= 0 && i < sorted.length; i += dir) { if (Math.abs(sorted[i]![1] - last) < 0.25 * pitch) { taken.push(sorted[i]!); last = sorted[i]![1]; } } }
+  const q = taken.sort((a, b) => a[0] - b[0]);
   if (q.length < 4 || q[q.length - 1]![0] < radii[radii.length - 1]! - 0.3) return null;
   return radii.map((r) => {
     if (r <= q[0]![0]) return q[0]![1] + ref0;
@@ -108,15 +114,31 @@ export function curveOf(pts: [number, number][], radii: number[], pitch: number)
 }
 /** The outline of a gear in the plane at X: z teeth, each as the two flank curves, a tip arc and a root arc; polar points (radius, azimuth), counter-clockwise */
 export function outlineAt(g: Gear, which: "pinion" | "ring", A: [number, number][], B: [number, number][], X: number, nf = 8): [number, number][] | null {
-  const [rt, rr] = [tipRadius(g, X), rootRadius(g, X)];
-  const radii = Array.from({ length: nf + 1 }, (_, i) => rr + ((rt - rr) * i) / nf);
-  const pitchAz = (2 * Math.PI) / g.z;
-  const [ca, cb] = [curveOf(A, radii, pitchAz), curveOf(B, radii, pitchAz)];
-  if (!ca || !cb) return null;
-  const mid = nf >> 1;
-  let [lo, hi] = ca[mid]! < cb[mid]! ? [ca, cb] : [cb, ca];
-  if (hi[mid]! - lo[mid]! > Math.PI) [lo, hi] = [hi, lo.map((v) => v + 2 * Math.PI)]; // (the pair straddles the branch cut)
+  const [rt0, rr] = [tipRadius(g, X), rootRadius(g, X)];
   const pitch = (2 * Math.PI) / g.z;
+  const fine = Array.from({ length: 41 }, (_, i) => rr + ((rt0 - rr) * i) / 40);
+  const [fa, fb] = [curveOf(A, fine, pitch), curveOf(B, fine, pitch)];
+  if (!fa || !fb) return null;
+  const mid0 = 20;
+  let swap = fa[mid0]! > fb[mid0]!;
+  const [fl, fh] = swap ? [fb, fa] : [fa, fb];
+  const adj = (hi: number[], lo: number[]) => (hi[mid0]! - lo[mid0]! > Math.PI ? hi.map((v) => v - 2 * Math.PI) : hi);
+  const fh2 = adj(fh, fl);
+  // the tooth's thickness along the arc at each radius: where it falls under the least (the flanks cross, the tooth is pointed there) the tip is lowered to that radius, a pointed tooth being what the surfaces make (the cone end of the toe cuts it off)
+  const thick = (i: number) => (which === "ring" ? fh2[i]! - fl[i]! : fl[i]! + pitch - fh2[i]!) * fine[i]!;
+  let top = 40;
+  while (top > 4 && thick(top) < 0.15) top--;
+  // and the same for the gap between two teeth at the root (the ring gear's flare can close it before the root): the root is raised to where it is wide enough
+  const gapAt = (i: number) => (which === "ring" ? fl[i]! + pitch - fh2[i]! : fh2[i]! - fl[i]!) * fine[i]!;
+  let bot = 0;
+  while (bot < top - 6 && gapAt(bot) < 0.15) bot++;
+  if (top - bot < 6) return null;
+  const [rt, rrr] = [fine[top]!, fine[bot]!];
+  const radii = Array.from({ length: nf + 1 }, (_, i) => rrr + ((rt - rrr) * i) / nf);
+  const [ca, cb] = [curveOf(A, radii, pitch), curveOf(B, radii, pitch)];
+  if (!ca || !cb) return null;
+  let [lo, hi] = ca[nf >> 1]! < cb[nf >> 1]! ? [ca, cb] : [cb, ca];
+  if (hi[nf >> 1]! - lo[nf >> 1]! > Math.PI) [lo, hi] = [hi, lo.map((v) => v + 2 * Math.PI)]; // (the pair straddles the branch cut)
   // ring gear: the tooth is between the curves; pinion: the slot is, the tooth between this slot's high curve and the next slot's low curve
   const [up, down] = which === "ring" ? [lo, hi] : [hi, lo.map((v) => v + pitch)];
   const pts: [number, number][] = [];
@@ -125,7 +147,36 @@ export function outlineAt(g: Gear, which: "pinion" | "ring", A: [number, number]
     for (let i = 0; i <= nf; i++) pts.push([radii[i]!, up[i]! + off]);
     for (let k = 1; k <= 2; k++) pts.push([rt, up[nf]! + off + ((down[nf]! - up[nf]!) * k) / 3]); // (the tip arc)
     for (let i = nf; i >= 0; i--) pts.push([radii[i]!, down[i]! + off]);
-    for (let k = 1; k <= 2; k++) pts.push([rr, down[0]! + off + ((up[0]! + pitch - down[0]!) * k) / 3]); // (the root arc to the next tooth)
+    for (let k = 1; k <= 2; k++) pts.push([rrr, down[0]! + off + ((up[0]! + pitch - down[0]!) * k) / 3]); // (the root arc to the next tooth)
   }
   return pts;
+}
+
+// ---- the cone ends ----
+/**
+ * The blank of a gear whose ends are cones (the back cones, square to the pitch cone, at the toe and the heel; as the straight gear's, `app/src/operation/bevel.ts` `bevelLayout`): a revolved shape between the toe's cone and the heel's, with a flat hub disc
+ * inside the roots at each end, and the range of planes across the axis the prism of the teeth must cover to hold every tooth up to the cones. Coordinates (x along the axis from the apex, radius r).
+ */
+export interface Blank { xS: number; xB: number; polygon: [number, number][] }
+export function blankFor(g: Gear, rhoToe: number, rhoHeel: number, m: number, dx = 0): Blank | string {
+  const [sg, cg, tg] = [Math.sin(g.gamma), Math.cos(g.gamma), Math.tan(g.gamma)];
+  const [x0t, x0h] = [rhoToe / cg + dx, rhoHeel / cg + dx]; // (dx: both cones moved along the axis, for a kernel that cannot cut at the very place the corners of the teeth are: see `cones.ts`)
+  // where the heel cone meets the root cone, the toe cone the tip cone: the planes beyond which no tooth is left
+  const rRootH = (x0h - g.hF / sg) * sg * cg, xRootH = x0h - rRootH * tg;
+  const rTipT = (x0t + g.hK / sg) * sg * cg, xTipT = x0t - rTipT * tg;
+  const xB = xRootH + 0.5 * m, xS = xTipT - 0.5 * m;
+  const xFar = xB + 0.25 * m;
+  const Lh = (r: number) => x0h - tg * r, Lt = (r: number) => x0t - tg * r;
+  const rA = (x0h - xFar) / tg;
+  if (!(rA > 0.5)) return "the heel cone is too flat for this gear";
+  const rootT = rootRadius(g, rhoToe * cg), rFor = (x: number) => (x0t - x) / tg;
+  const rT = Math.min(1.2 * rootT, Math.max(0.8 * rootT, rFor(xFar - 2 * m))); // (the hub two modules thick where the toe cone allows it; a steep ring gear needs the hub out to just past the roots at the toe)
+  if (!(Lt(rT) < xFar - 0.3 * m && Lt(rT) > xS)) return "the hub does not fit between the cones";
+  // below the prism's first plane nothing is left to cut, and the cones run on past the apex for a steep gear: the blank is closed by a flat end a little below that plane
+  const xLow = xS - 1;
+  if (!(xLow > 0.5)) return "the toe is too near the apex for this gear";
+  const [rmaxH, rT1] = [(x0h - xLow) / tg, (x0t - xLow) / tg];
+  if (!(rmaxH > rT1 + 1)) return "the heel cone is too steep for this gear"; // (what lies beyond rmaxH is outside the heel cone, cut off anyway)
+  const xr: [number, number][] = [[xFar, 0], [xFar, rA], [xLow, rmaxH], [xLow, rT1], [Lt(rT), rT], [Lt(rT), 0]];
+  return { xS, xB, polygon: xr };
 }

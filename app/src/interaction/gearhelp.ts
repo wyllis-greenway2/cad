@@ -61,11 +61,13 @@ export const GEAR_HINTS: Record<GearKey, string> = {
   length: "How long the worm's core is, in mm. At least two leads (a lead is the starts times pi times the module).",
   journal: "The plain shaft left at each end of the worm, in mm, for a bearing or a coupling. 0 makes the thread run the whole length and be cut flat at the ends (no shaft). Left alone: two modules (less on a short worm).",
   runout: "How long the thread takes to run out into the shaft at each end, in mm (a cone cut away from the tooth, so it does not stop in a square wall). 0 stops it square. Only for a worm with a journal; left alone: a pitch or two.",
-  mate: "Bevel gear (an APPROXIMATION of the standard tooth, to be verified): how many teeth the gear it meshes with has. With the shaft angle it fixes this gear's cone angle; the pair share the module.",
+  mate: "Crown gear: how many teeth the straight bevel pinion it meshes with has (it must have fewer, and enough not to be undercut: 17 or more for 20 degrees). The angle between the shafts is 90 degrees plus the pinion's cone angle, worked out from the two counts. Bevel gear (an APPROXIMATION of the standard tooth, to be verified): how many teeth the gear it meshes with has. With the shaft angle it fixes this gear's cone angle; the pair share the module.",
   shaft: "Bevel gear: the angle between the two shafts in degrees (90 is the usual pair). From 30 to 150.",
   chamfer: "Break the tips of the teeth at the two faces, in modules deep (0.1 to 0.5 is usual; 0 is sharp). A 45 degree cone cut once for the whole gear, so it costs one cut, not one for each tooth. Needs a thickness. Also helps a printed gear come off the bed without a ridge.",
   land: "Worm wheel: a straight land at each face, in mm (none by default; a module or two is usual, and it takes the kernel several times as long): the teeth keep their section out to the faces, cut back where the worm's thread would be, instead of ending in a thin wedge. 0 is the throated part alone.",
   face: "Bevel gear: the width of the teeth along the cone as a fraction of the cone distance. A third is the usual limit (0.1 to 0.5).",
+  inner: "Crown gear: the radius where the teeth start, mm. The teeth are thinnest here (their flanks are planes through the axis' radial lines), so they come to a point if it is too small. The pitch radius less 15% of it by default.",
+  outer: "Crown gear: the radius where the teeth end, mm; the pitch radius (module times teeth over 2) by default.",
   starts: "How many threads the worm has (1 to 4). The wheel turns this many teeth for each turn of the worm, so more starts is a faster, steeper drive.",
 };
 
@@ -81,8 +83,8 @@ export const PLANETARY_HINTS: Partial<Record<GearKey, string>> = {
   clearance: "Gap between a tooth tip and the bottom of its partner's gap, in modules. 0.25 is standard.",
 };
 /** The name the box shows for the kind of gear being made. */
-export function gearTitle(g: { planetary?: true; bevel?: true; internal?: boolean; rack?: boolean; pulley?: string; sprocket?: true; iso?: true; cycloidal?: true; mesh?: unknown }): string {
-  const what = g.bevel ? "Bevel gear (approximation)" : g.pulley ? `${g.pulley === "2GT" ? "GT2" : g.pulley === "3GT" ? "GT3" : g.pulley === "HTD5M" ? "HTD 5M" : "HTD 8M"} pulley` : g.sprocket ? (g.iso ? "ISO sprocket" : "Sprocket") : g.cycloidal ? (g.internal ? "Clock ring" : g.rack ? "Clock rack" : "Clock gear") : g.rack ? "Rack" : g.internal ? "Ring gear" : "Gear";
+export function gearTitle(g: { planetary?: true; crown?: true; bevel?: true; internal?: boolean; rack?: boolean; pulley?: string; sprocket?: true; iso?: true; cycloidal?: true; mesh?: unknown }): string {
+  const what = g.crown ? "Crown gear" : g.bevel ? "Bevel gear (approximation)" : g.pulley ? `${g.pulley === "2GT" ? "GT2" : g.pulley === "3GT" ? "GT3" : g.pulley === "HTD5M" ? "HTD 5M" : "HTD 8M"} pulley` : g.sprocket ? (g.iso ? "ISO sprocket" : "Sprocket") : g.cycloidal ? (g.internal ? "Clock ring" : g.rack ? "Clock rack" : "Clock gear") : g.rack ? "Rack" : g.internal ? "Ring gear" : "Gear";
   if (g.planetary) return "Planetary gear set";
   return g.mesh ? `${what} (meshing)` : what;
 }

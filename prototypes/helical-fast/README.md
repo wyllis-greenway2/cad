@@ -1,4 +1,4 @@
-# helical-fast (prototype, `in_800`)
+# helical-fast (prototype, `in_806`)
 
 **Meant to learn:** where a helical gear's build time goes, and whether sweeping one tooth and copying it round, or building the shell by hand instead of sewing it, makes it faster.
 
