@@ -3145,3 +3145,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_700 — 2026-11-17 — directive
 > Go with your recommendation, leave the ratchet numbers as they are
 (asks for the ratchet's default numbers to be left as they are; they stay conventions, not sourced numbers)
+
+## in_701 — 2026-11-17 — directive
+> Go with your recommendation, start on the Geneva drive
+(asks for the Geneva drive to be started, the next shape after the ratchet)

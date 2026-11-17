@@ -9,7 +9,11 @@ export const CAM_HINTS: Record<string, string> = {
   Rise: "Degrees of the turn over which the follower rises, from the +x direction round counter-clockwise.",
   Dwell: "Degrees the follower stays at the top before it comes down. 0 for none.",
   Return: "Degrees of the turn over which the follower comes down. Rise + dwell + return is at most 360; what is left is the rest at the bottom.",
-  Hole: "The shaft's hole, diameter in mm. 0 for none (a fifth of the diameter if left).",
+  Hole: "The shaft's hole, diameter in mm. 0 for none. If left, a fifth of the diameter for a cam or a ratchet, a quarter of the crank radius for a Geneva wheel (the hole of the crank too).",
+  Slots: "How many slots the wheel has, 3 to 24. The wheel turns one slot's step (360 divided by this) for each turn of the crank. Few slots make a jerky drive.",
+  Crank: "The radius of the circle the crank's pin goes round, mm (the pointer's distance from the wheel's shaft sets it, or type it). With the slots it fixes how far apart the two shafts are: a divided by the sine of 180 over the slots (the title shows it).",
+  Pin: "The pin's diameter, mm (a quarter of the crank radius if left). The slots are this wide plus the clearance each side.",
+  Clearance: "Play between the pin and the slot, mm each side. 0.3 if left (a starting point for printing; set it for your printer).",
   Teeth: "How many teeth (a whole number, 3 to 200). More teeth hold in finer steps.",
   Depth: "From the tip of a tooth to its root, mm. A common start is 0.4 of the pitch (the circle's length divided by the teeth).",
   Hook: "How far the holding face of each tooth leans from straight to the centre, degrees (0 to 30). 0 is a radial face; a lean holds the pawl in the gap.",
@@ -18,7 +22,7 @@ export const CAM_HINTS: Record<string, string> = {
   Angle: "Turns the whole drawing about the shaft, degrees counter-clockwise from +x: where the engaged tooth and the pawl sit.",
   Roller: "Radius of the follower's roller, mm; 0 for a point follower. The outline is taken in by this much; a roller too big for a tight turn is refused.",
 };
-export const camTitle = (kind: string, law?: string): string => (kind === "ratchet" ? "Ratchet wheel and pawl" : kind === "eccentric" ? "Eccentric cam" : kind === "snail" ? "Snail cam" : `Disc cam, ${law ?? "cycloidal"}`);
+export const camTitle = (kind: string, law?: string, centres?: string): string => (kind === "geneva" ? `Geneva wheel and crank${centres ? `, shafts ${centres} apart` : ""}` : kind === "ratchet" ? "Ratchet wheel and pawl" : kind === "eccentric" ? "Eccentric cam" : kind === "snail" ? "Snail cam" : `Disc cam, ${law ?? "cycloidal"}`);
 export const GEAR_HINTS: Record<GearKey, string> = {
   teeth: "How many teeth. A partner needs the same module and pressure angle; its teeth divided by yours is the speed ratio.",
   module: "Tooth size in mm: pitch diameter divided by teeth. Meshing gears must have the same module. Common: 0.5, 0.8, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5.",
