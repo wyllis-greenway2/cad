@@ -2975,3 +2975,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_659 — 2026-11-17 — directive
 > The input on the rotation extrusion can be really annoying and cover the arrows I need to pull on the orb. Can we have those input bubbles offset away from the orb such that it doesn't cover it?
+
+## in_660 — 2026-11-17 — directive
+> Can we merge in claude/adoring-dijkstra-from-pascal
+(asks for claude/adoring-dijkstra-from-pascal to be merged into this branch, after claude/hopeful-cannon-6)
