@@ -1,4 +1,4 @@
-# Crown gear prototype (`q_crown_gears`)
+# Crown gear prototype (`dec_crown_gears`)
 
 **Meant to learn:** whether a straight crown (face) gear and its straight bevel pinion, the pinion made by the gearing law from the crown's flank planes, fit in the kernel at a pitch angle of 90 degrees, where the bevel gear tool's construction has no cone left.
 

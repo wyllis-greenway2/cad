@@ -9,10 +9,11 @@ import { units } from "../src/shared/units.ts";
 import { kernel } from "../src/compiler/kernel/index.ts";
 import { createSession, scene } from "../src/interaction/session.ts";
 import { worldRef } from "../src/shared/ref.ts";
+import { isCrown } from "../src/operation/bevel.ts";
 
 await kernel.init();
 
-const VARIANTS: GearVariant[] = ["gear", "bevel", "ring", "rack", "gt2", "gt3", "htd5", "htd8", "sprocket", "isosprocket", "clock", "clockring", "clockrack"];
+const VARIANTS: GearVariant[] = ["gear", "bevel", "crown", "ring", "rack", "gt2", "gt3", "htd5", "htd8", "sprocket", "isosprocket", "clock", "clockring", "clockrack"];
 
 test("every number of every kind of gear has a hint, and each kind has a title", () => {
   for (const v of VARIANTS) {
@@ -67,6 +68,24 @@ test("the bevel gear tool: its numbers, its title that says it is an approximati
   assert.equal(spec.module, 2);
   assert.equal(spec.bevel?.mate, 20, "its mate has as many teeth unless typed");
   assert.ok((spec.bore ?? 0) > 0, "a bore, as any new gear has");
+});
+
+test("the crown gear tool (`dec_crown_gears`, `in_802`): its numbers, its title, the gear it makes with nothing typed (a bevel gear whose shaft angle makes its pitch angle a right angle), and Mesh gear on it makes the pinion", () => {
+  const sc = scene(createSession(kernel));
+  const t = { ...armTool("gear", "crown"), plane: worldRef("XY"), points: [[0, 0, 0] as [number, number, number]], cursor: [10, 0, 0] as [number, number, number] };
+  assert.deepEqual(gearFields(t.gear!).map((f) => f.key), ["teeth", "mate", "module", "pressure", "inner", "outer", "width", "backlash", "bore", "flat", "key", "keydepth"]);
+  assert.equal(gearTitle(t.gear!), "Crown gear");
+  const cmd = finishTool(sc, t)?.command as { type: string; spec: GearRecord["spec"] } | undefined;
+  assert.ok(cmd && cmd.type === "gear", "makes a gear");
+  assert.equal(cmd.spec.teeth, 40);
+  assert.equal(cmd.spec.bevel?.mate, 18, "a pinion of 18 teeth unless typed");
+  assert.ok(Math.abs((cmd.spec.bevel?.shaft ?? 0) - (90 + (Math.asin(18 / 40) * 180) / Math.PI)) < 1e-9, "the shafts at 90 degrees plus the pinion's pitch angle");
+  assert.ok(isCrown(cmd.spec));
+  const rec = { id: "g_001", plane: worldRef("XY"), at: [0, 0, 0] as [number, number, number], spec: cmd.spec };
+  const mesh = finish(sc, { ...meshGearTool(rec, false), cursor: [30, 0, 0] })?.command as { type: string; spec: GearRecord["spec"] } | undefined;
+  assert.ok(mesh && mesh.type === "gear", "the pinion");
+  assert.equal(mesh.spec.teeth, 18, "the pinion's teeth are the crown's mate");
+  assert.equal(mesh.spec.bevel?.mate, 40);
 });
 
 test("Mesh gear on a bevel gear makes its partner: the same module, the source's tooth count, standing across at the shaft angle with its own frame (`in_755`)", () => {

@@ -15,6 +15,9 @@ import type { GearSpec, GearOutline } from "./gear.ts";
 import { wormRefs, wormParts, wormSteps, wheelRefs, wheelParts, wheelSteps } from "./wormscene.ts";
 import { wheelSections } from "./wheelsections.ts";
 import { bevelRefs, bevelParts, bevelSteps } from "./bevelscene.ts";
+import { crownRefs, crownParts, crownSteps } from "./crownscene.ts";
+import { isCrown } from "./bevel.ts";
+import { crownShaft } from "./crown.ts";
 import { camShapes } from "./cams.ts";
 import { camParts, camRefs } from "./camscene.ts";
 import { meshBevel } from "./mesh.ts";
@@ -45,6 +48,7 @@ export function gearRefs(rec: GearRecord): { lines: Ref[]; wall?: Ref; bore?: st
   if (rec.spec.cam) return camRefs(rec); // (a cam or a ratchet, `camscene.ts`)
   const o = outlineOf(rec.spec);
   if (!o.ok) return { lines: [] };
+  if (rec.spec.bevel && isCrown(rec.spec)) { const c = crownRefs(rec); return { lines: c.sections[0]!, ...(c.plateBore ? { bore: c.plateBore } : {}) }; } // (a crown gear: the tip's section)
   if (rec.spec.bevel) { const b = bevelRefs(rec); return { lines: b.sections[0]!, ...(b.bores[0] ? { bore: b.bores[0] } : {}) }; } // (the big end)
   if (rec.spec.worm) return { lines: wormRefs(rec).threads[0]! }; // (the thread's figure)
   if (rec.spec.wheel) { const w = wheelRefs(rec); return { lines: w.sections[Math.floor(w.sections.length / 2)]!, ...(w.bores[0] ? { bore: w.bores[Math.floor(w.bores.length / 2)]! } : {}) }; } // (the middle section)
@@ -59,7 +63,7 @@ function boreGroup(rec: GearRecord): string {
 
 /** The parts of a gear: the corners and sides of its outline and, for a ring, its wall's circle. Locked. Empty if its plane is not there or the numbers make no gear. */
 function partsOf(s: Scene, rec: GearRecord): Part[] {
-  if (rec.spec.bevel) return bevelParts(s, rec);
+  if (rec.spec.bevel) return isCrown(rec.spec) ? crownParts(s, rec) : bevelParts(s, rec);
   if (rec.spec.cam) return camParts(s, rec);
   if (rec.spec.worm) return wormParts(s, rec);
   if (rec.spec.wheel) return wheelParts(s, rec);
@@ -162,7 +166,7 @@ function bodyParams(s: Scene, rec: GearRecord): { step: Omit<Step, "id"> } | nul
 }
 /** The steps that make the body of a gear that has one made with it (a helical gear's twist, a worm's core and threads, a worm wheel's loft), without their names; none for a plain gear. */
 function ownedSpecs(s: Scene, rec: GearRecord): Omit<Step, "id">[] {
-  if (rec.spec.bevel) return bevelSteps(s, rec) ?? [];
+  if (rec.spec.bevel) return (isCrown(rec.spec) ? crownSteps(s, rec) : bevelSteps(s, rec)) ?? [];
   if (rec.spec.worm) return wormSteps(s, rec) ?? [];
   if (rec.spec.wheel) return wheelSteps(s, rec) ?? [];
   const body = bodyParams(s, rec);
@@ -257,8 +261,14 @@ function setGearCore(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: num
  * New numbers for a gear, and, for a bevel gear made to mesh with another (`BevelSpec.with`), the other put right with it (`in_776`): the teeth of one are the other's mate teeth, they share the module, the pressure angle, the shaft angle and
  * the face, and the one that stands across (the partner: it has a direction) is placed again from the other (the anchor), phase and all, as when it was made.
  */
-export function setGear(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: number): Result<Scene> {
+export function setGear(s: Scene, id: string, spec0: GearSpec, at?: Vec3, turn?: number): Result<Scene> {
   const rec = gearsOf(s).find((g) => g.id === id);
+  let spec = spec0;
+  const mateRec = rec && spec.bevel?.with ? gearsOf(s).find((g) => g.id === spec.bevel!.with) : undefined;
+  if (rec && spec.bevel && mateRec && (isCrown(rec.spec) || isCrown(mateRec.spec))) { // a pair with a crown gear: the angle between the shafts follows from the two counts (`dec_crown_gears`), the crown's or the pinion's changed
+    const [cz, pz] = isCrown(rec.spec) ? [spec.teeth, spec.bevel.mate] : [spec.bevel.mate, spec.teeth];
+    if (pz < cz) spec = { ...spec, bevel: { ...spec.bevel, shaft: crownShaft(cz, pz) } };
+  }
   const bv = spec.bevel;
   const other = rec && bv?.with ? gearsOf(s).find((g) => g.id === bv.with) : undefined;
   if (!rec || !bv || !other || !other.spec.bevel || other.spec.bevel.with !== id) return setGearCore(s, id, spec, at, turn);

@@ -1,4 +1,4 @@
-// A straight crown gear and the straight bevel pinion that meshes with it (a prototype, `q_crown_gears`, `in_800`; nothing in `app/src` imports it).
+// A straight crown gear and the straight bevel pinion that meshes with it (a prototype, `dec_crown_gears`, `in_800`; nothing in `app/src` imports it).
 // The crown gear is the pitch angle of 90 degrees: a flat annulus whose teeth stand from its face, straight and radial, each flank a plane through the radial line where the flank meets the pitch plane, leaning by the pressure angle: at the height `y`
 // (the pitch plane at 0, the teeth's tips towards -y, the pinion's side) the flank is moved sideways by `-y tan(alpha)` towards the middle of the tooth, a distance that does not grow with the radius, so the tooth is thinnest at its inner end.
 // The pinion is the envelope of the crown's flanks by the gearing law (`prototypes/bevel-spiral-generated/generate.ts`: the crown's axis y, the pinion's axis at 90 degrees + its pitch angle, the ratio of roll sin(g) = z1 / zc), as the spiral bevel's pinion is.

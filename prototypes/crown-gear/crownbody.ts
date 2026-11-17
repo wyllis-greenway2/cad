@@ -1,4 +1,4 @@
-// The bodies of a crown gear and its straight bevel pinion in the kernel (`q_crown_gears`, a prototype): the crown a plate with teeth (each tooth a ruled loft of three sections, exact since its flanks are planes, the teeth and the plate fused), the pinion
+// The bodies of a crown gear and its straight bevel pinion in the kernel (`dec_crown_gears`, a prototype): the crown a plate with teeth (each tooth a ruled loft of three sections, exact since its flanks are planes, the teeth and the plate fused), the pinion
 // the prism of its flank sections cut to the blank of two back cones (as `prototypes/bevel-spiral-generated/cones.ts`).
 import assert from "node:assert/strict";
 import { crownPair, flankAngle, pinionGrid } from "./crown.ts";
