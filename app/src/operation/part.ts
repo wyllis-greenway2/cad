@@ -196,8 +196,11 @@ export function arcPoints(a: Vec3, m: Vec3, b: Vec3, steps = 40): Vec3[] {
   let tb = ang(b);
   if (tm > 0) { while (tb <= tm) tb += 2 * Math.PI; } else { while (tb >= tm) tb -= 2 * Math.PI; }
   const out: Vec3[] = [];
-  for (let i = 0; i <= steps; i++) {
-    const t = (tb * i) / steps;
+  // `steps` is for a whole circle: an arc of a few degrees (the side of a gear's tooth is a chain of them) is drawn in as few pieces as keep that angle between its points, so a gear of a hundred teeth is a few
+  // thousand points and not tens of thousands (the fill of a ring round a gear did not come back, `in_593`)
+  const pieces = Math.max(2, Math.min(steps, Math.ceil(Math.abs(tb) / ((2 * Math.PI) / steps))));
+  for (let i = 0; i <= pieces; i++) {
+    const t = (tb * i) / pieces;
     out.push(add(c, add(scale(e1, Math.cos(t) * r), scale(e2, Math.sin(t) * r))));
   }
   return out;

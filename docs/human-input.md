@@ -2709,3 +2709,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_592 — 2026-11-16 — directive
 > okay for the gear maker. It is unclear what all the fields do, and also they are very very hard to click on because they follow the cursor and fly away as you try to click on them. Also it is unclear how to make gears that will mesh together perfectly. Are they at infinite scales? what characteristics about the gear do I need to pay attention to in order to make a matching interlocking partner? Also are these standard with real world gears? What if I want to make a part to receive a real gear? for example a rack gear to ride on a gear I already have? Also what is a mesh gear and how do I use it?
 (asks, for the gear tool: that what each number does be made clear; that the numbers not follow the cursor and fly away from the click; and questions answered: how to make gears that mesh perfectly, whether they are at any scale, which characteristics a partner must match, whether they follow real world standards, how to make a part to receive a real gear (for example a rack for a gear one already has), and what Mesh gear is and how to use it)
+
+## in_593 — 2026-11-17 — directive
+> Yes, add the ring around a gear, also the mesh gear in a ring doesn't seem to actually work?
+(asks for a ring that meshes around a selected gear (Mesh gear on an outside gear making a ring), and reports that Mesh gear on a ring gear does not seem to work)

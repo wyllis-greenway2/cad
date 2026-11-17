@@ -63,6 +63,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "gear:edit", label: "Edit gear", icon: "gear" },
   { id: "gear:mesh", label: "Mesh gear", icon: "gear" },
   { id: "gear:meshrack", label: "Mesh rack", icon: "rack" },
+  { id: "gear:meshring", label: "Mesh ring", icon: "gear" },
   { id: "op:offset", label: "Offset", icon: "offset", op: "offset" },
   { id: "op:pushpull", label: "Push pull", icon: "pushpull", op: "pushpull" },
   { id: "op:edge", label: "Fillet chamfer", icon: "edge", op: "edge" },
@@ -97,7 +98,7 @@ const GEARS: Group = {
     { id: "clockgears", label: "Clock", icon: "gear", items: ["tool:clock", "tool:clockring", "tool:clockrack"] },
     { id: "pulleys", label: "Pulley", icon: "gear", items: ["tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8"] },
     { id: "sprockets", label: "Sprocket", icon: "gear", items: ["tool:sprocket", "tool:isosprocket"] },
-    "gear:edit", "gear:mesh", "gear:meshrack",
+    "gear:edit", "gear:mesh", "gear:meshrack", "gear:meshring",
   ],
 };
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
@@ -120,7 +121,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   const leaf = new Map<string, MenuItem>(LEAVES.map((r) => {
     const base = { id: r.id, label: r.label, icon: r.icon };
     if (repeating && !IN_REPEAT.has(r.id)) return [r.id, { ...base, enabled: false, why: "apply or cancel the repeat that is open first" }];
-    if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack") { const has = sel.some((x) => !!gearOfPart(sc, x)); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
+    if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfPart(sc, x)); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }
     if (r.select === "combine") { const why = whyNotCombine(session); return [r.id, { ...base, enabled: !why, why }]; }
