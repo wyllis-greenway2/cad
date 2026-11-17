@@ -3136,3 +3136,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_698 — 2026-11-17 — approval
 > Yes, build those two families
 (approves building the hex nut family (ISO 4032) and the countersunk screw family (ISO 10642, the 1997 edition's figures) of the fastener pilot)
+
+## in_699 — 2026-11-17 — approval
+> Yes, build the receivers into bodies
+(asks for the receivers of the fastener pilot (the clearance hole, the countersink, the hole to tap, the nut pocket) to be cut into bodies)

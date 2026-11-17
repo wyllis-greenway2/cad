@@ -1,7 +1,7 @@
 import { lengthText } from "../shared/units.ts";
 // The rows of the ⋯ list, always all there and dimmed when one cannot be used (`in_661`): the lists, save, open, import, export, share, and the settings page (the view, the mouse and the keyboard are there, `dec_settings_page`).
 export interface AppRow { id: string; label: string; enabled: boolean; why: string | null }
-export const appRows = (build = "", can: { export?: boolean; /** a body is selected, so a material can be tagged on it (`in_597`) */ material?: boolean; /** there is a flat drawing to cut with a laser (`in_662`) */ laser?: boolean; /** the person's laser table has rows to look at (`in_666`) */ laserTable?: boolean; /** drawn lines are selected, so the laser route can mark them (`in_603`) */ laserLayers?: boolean; /** how many mates are no longer true (`in_315`) */ matesOff?: number; /** the kernel's answers are kept between sessions (`dec_description_cache`): a row to forget them */ clearAnswers?: boolean } = {}, allConstraints = false, clearance = 0): AppRow[] => [
+export const appRows = (build = "", can: { export?: boolean; /** a body is selected, so a material can be tagged on it (`in_597`) */ material?: boolean; /** there is a flat drawing to cut with a laser (`in_662`) */ laser?: boolean; /** the person's laser table has rows to look at (`in_666`) */ laserTable?: boolean; /** drawn lines are selected, so the laser route can mark them (`in_603`) */ laserLayers?: boolean; /** one flat face of a body is selected, so a fastener's hole can be cut in it */ fastenerHole?: boolean; /** how many mates are no longer true (`in_315`) */ matesOff?: number; /** the kernel's answers are kept between sessions (`dec_description_cache`): a row to forget them */ clearAnswers?: boolean } = {}, allConstraints = false, clearance = 0): AppRow[] => [
   { id: "mate:reapply", label: "Reapply mates", enabled: !!can.matesOff, why: "every mate is true as it is" }, // (always there, dimmed when it cannot be used, `in_661`)
   { id: "bodies", label: "Bodies", enabled: true, why: null },
   { id: "history", label: "History", enabled: true, why: null },
@@ -10,6 +10,7 @@ export const appRows = (build = "", can: { export?: boolean; /** a body is selec
   { id: "open", label: "Open…", enabled: true, why: null },
   { id: "import", label: "Import…", enabled: true, why: null },
   { id: "addPart", label: "Add part…", enabled: true, why: null }, // (the fasteners: a hex nut and a countersunk screw, `dec_parts_interface`)
+  { id: "fastenerHole", label: "Fastener hole…", enabled: can.fastenerHole ?? true, why: "select one flat face of a body first" }, // (the receiver for a fastener, cut into the body: `dec_parts_fastener_pilot`)
   { id: "material", label: "Material…", enabled: can.material ?? true, why: "select a body first" },
   { id: "export", label: "Export…", enabled: can.export ?? true, why: "nothing to export yet: make a body, or draw something" },
   { id: "laser", label: "Laser cut…", enabled: can.laser ?? true, why: "draw something, or select a sketch first" },

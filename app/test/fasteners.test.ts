@@ -3,6 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";
 import { createSession, scene } from "../src/interaction/session.ts";
+import { undoLast as undoOnce } from "../src/interaction/session.ts";
 import { addPart, addPartDialog, addPartStart, addPartSteps } from "../src/interaction/addpart.ts";
 import { FASTENER_SIZES, clearanceHole, tapDrill, countersink, nutTrap, nutDims, countersunkDims, countersunkProfile, hexagon, lengthProblem, receiversText } from "../src/operation/fasteners.ts";
 
@@ -76,13 +77,106 @@ test("the outline of the screw starts on the axis at the top of the head and end
   assert.deepEqual([p[0], p[p.length - 1]], [[0, 0], [0, -16]]);
   assert.deepEqual(p[1], [5.6, 0]);
 });
+test("a part is one command, so it is one step to undo and the kernel is asked once", () => {
+  const r = addPart(createSession(kernel), { family: "countersunk", size: "M5", length: "12" });
+  assert.ok(r.ok);
+  assert.equal(r.value.history.scene.steps.length, 2, "a revolve and a cut");
+  const back = undoOnce(r.value);
+  assert.equal(back.history.scene.steps.length, 0);
+});
 test("the dialog offers the families and sizes, shows the matching holes and its source, and asks the length only for a screw", () => {
   const nut = addPartDialog(addPartStart());
-  assert.deepEqual(nut.fields.map((f) => f.id), ["family", "size", "source"]);
+  assert.deepEqual(nut.fields.map((f) => f.id), ["family", "size"]);
   assert.ok(nut.fields[1]!.note?.includes("clearance hole 3.2 / 3.4 / 3.6") && nut.fields[1]!.note?.includes("nut pocket 5.5"));
   const screw = addPartDialog({ family: "countersunk", size: "M6", length: "12" });
-  assert.deepEqual(screw.fields.map((f) => f.id), ["family", "size", "length", "source"]);
+  assert.deepEqual(screw.fields.map((f) => f.id), ["family", "size", "length"]);
   assert.ok(screw.fields[1]!.note?.includes("countersink 13.44 mm across at 90°"));
-  assert.ok(String(screw.fields.find((f) => f.id === "source")!.value).includes("1997"));
+  assert.ok(screw.fields[0]!.note?.includes("1997") && !nut.fields[0]!.note?.includes("1997"), "the source shown follows the family");
+  assert.ok(!screw.fields[2]!.note?.includes("0000000"), "a length shown without rounding noise");
   assert.equal(receiversText("M3", "nut").includes("tap drill 2.5"), true);
+});
+
+// ---- the receivers cut into a body ----
+import { worldRef } from "../src/shared/ref.ts";
+import { drawSquaredRectangle } from "../src/operation/build.ts";
+import { nextId } from "../src/operation/scene.ts";
+import { run } from "../src/interaction/session.ts";
+import type { Session } from "../src/interaction/session.ts";
+import { cutReceiver, receiverDialog, receiverStart, selectedFace, whyNoReceiver } from "../src/interaction/addpart.ts";
+import { receiverProblem, receiverProfile } from "../src/operation/fasteners.ts";
+
+const select = (s: Session, refs: string[]): Session => ({ ...s, click: { ...s.click, selection: refs as never } });
+/** a 20 x 10 x 8 block, with its top face selected */
+const block = (): { s: Session; top: string } => {
+  let s = createSession(kernel);
+  const r = drawSquaredRectangle(scene(s), worldRef("XY"), [0, 0, 0], [20, 10, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: r.lines, params: { depth: 8 } } });
+  const top = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.ref.endsWith("0,0,1,8"))!.ref;
+  return { s: select(s, [top]), top };
+};
+const V = 20 * 10 * 8;
+const cyl = (d: number, h: number) => Math.PI * (d / 2) ** 2 * h;
+const base = receiverStart();
+
+test("a face must be selected, one flat face of a body, for a receiver to be cut", () => {
+  assert.equal(whyNoReceiver(select(block().s, [])), "select one flat face of a body first");
+  const { s, top } = block();
+  const f = selectedFace(s);
+  assert.ok(f.ok);
+  assert.deepEqual(f.value.spot.centre, [10, 5, 8], "the middle of the face");
+  assert.ok(f.value.through > 20, "through is the whole reach of the body");
+  assert.equal(whyNoReceiver(s), null);
+  assert.equal(top.includes("0,0,1,8"), true);
+});
+test("a clearance hole takes out a cylinder of the ISO 273 diameter, through the body", () => {
+  for (const [size, fit, d] of [["M4", "medium", 4.5], ["M3", "fine", 3.2], ["M8", "coarse", 10]] as const) {
+    const r = cutReceiver(block().s, { ...base, kind: "clearance", size, fit });
+    assert.ok(r.ok, r.ok ? "" : r.error);
+    near(volumes(r.value).reduce((a, b) => a + b, 0), V - cyl(d, 8)); // (the M8 coarse hole is as wide as the block and parts it in two: all the pieces are counted)
+  }
+});
+test("a hole to tap is the tap drill, to the depth typed", () => {
+  const r = cutReceiver(block().s, { ...base, kind: "tapped", size: "M5", depth: "6" });
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  near(volumes(r.value)[0]!, V - cyl(4.2, 6));
+});
+test("a countersunk clearance hole is a hole with a 90 degree cone at its mouth", () => {
+  const r = cutReceiver(block().s, { ...base, kind: "countersunk", size: "M4", fit: "medium" });
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  const [big, small] = [8.96 / 2, 4.5 / 2];
+  const cone = big - small;
+  near(volumes(r.value)[0]!, V - ((Math.PI * cone) / 3) * (big * big + big * small + small * small) - cyl(4.5, 8 - cone));
+});
+test("a nut pocket is the hexagon of the nut, its depth the nut's thickness, with the hole through", () => {
+  const r = cutReceiver(block().s, { ...base, kind: "nutPocket", size: "M4", fit: "medium" });
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  const hex = (Math.sqrt(3) / 2) * 49 - Math.PI * 2.25 ** 2;
+  near(volumes(r.value)[0]!, V - cyl(4.5, 8) - hex * 3.2);
+});
+test("a hole is put as far from the middle as typed, and the same hole off the face is refused only by the kernel's rules", () => {
+  const r = cutReceiver(block().s, { ...base, kind: "clearance", size: "M3", fit: "fine", dx: "5", dy: "-2" });
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  near(volumes(r.value)[0]!, V - cyl(3.2, 8));
+});
+test("numbers that make no receiver are refused with a reason", () => {
+  assert.ok(receiverProblem("countersunk", "M8", "fine", 2)?.includes("deeper"));
+  assert.ok(receiverProblem("nutPocket", "M8", "medium", 6)?.includes("through"));
+  assert.ok(receiverProblem("clearance", "M3", "fine", 0)?.includes("above zero"));
+  const bad = cutReceiver(block().s, { ...base, kind: "clearance", depth: "abc" });
+  assert.ok(!bad.ok && bad.error.includes("numbers"));
+  assert.ok(!cutReceiver(select(block().s, []), base).ok);
+  assert.ok(!cutReceiver(block().s, { ...base, size: "M9" }).ok);
+});
+test("the receiver's outline starts and ends on the axis and its countersink is 45 degrees to it", () => {
+  const p = receiverProfile("countersunk", "M6", "medium", 10);
+  assert.deepEqual([p[0]![0], p[p.length - 1]![0]], [0, 0]);
+  const [flat, cone] = [p[2]!, p[3]!]; // (the mouth, then where the cone meets the hole)
+  assert.ok(Math.abs((flat[0] - cone[0]) - (flat[1] - cone[1])) < 1e-9);
+});
+test("the dialog lists the receivers, sizes and clearances, and takes the clearance away for a hole to tap", () => {
+  const d = receiverDialog(receiverStart());
+  assert.deepEqual(d.fields.map((f) => f.id), ["kind", "size", "fit", "depth", "dx", "dy"]);
+  assert.ok(d.fields[2]!.choices!.some((c) => c.label === "medium (3.4 mm)"));
+  assert.deepEqual(receiverDialog({ ...receiverStart(), kind: "tapped" }).fields.map((f) => f.id), ["kind", "size", "depth", "dx", "dy"]);
 });

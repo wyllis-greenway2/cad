@@ -2,6 +2,7 @@
 // of numbers, what is calculated from them, and the steps that draw a part. Every number is written down only where two sources read in full agree (`docs/decisions/dec_parts_fastener_pilot.md`, "Data status"); a part is made at
 // its nominal size, and the printer's offset is left to the manufacturing version (`dec_parts_tolerance`).
 import type { Ref } from "../shared/ref.ts";
+import type { Vec3 } from "../math/vec.ts";
 import { worldRef } from "../shared/ref.ts";
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
@@ -48,6 +49,7 @@ const COUNTERSUNK: Record<FastenerSize, CountersunkDims> = {
 };
 /** Clearance holes, ISO 273 (mm): the fine, medium and coarse series (tolerance classes H12, H13 and H14). */
 export type ClearanceFit = "fine" | "medium" | "coarse";
+export const CLEARANCE_FIT_LIST: readonly ClearanceFit[] = ["fine", "medium", "coarse"];
 const CLEARANCE: Record<FastenerSize, Record<ClearanceFit, number>> = {
   M3: { fine: 3.2, medium: 3.4, coarse: 3.6 },
   M4: { fine: 4.3, medium: 4.5, coarse: 4.8 },
@@ -134,4 +136,60 @@ export function makeCountersunk(size: string, length: number): Result<PartSteps>
   if (!isFastenerSize(size)) return err(`${size} is not a size this family has`);
   const bad = lengthProblem(size, length);
   return bad ? err(bad) : ok(countersunkSteps(size, length));
+}
+
+// ---- the receivers cut into a body ----
+export type ReceiverKind = "clearance" | "countersunk" | "tapped" | "nutPocket";
+export const RECEIVER_KINDS: readonly { id: ReceiverKind; label: string }[] = [
+  { id: "clearance", label: "Clearance hole" },
+  { id: "countersunk", label: "Countersunk clearance hole (for a countersunk screw)" },
+  { id: "tapped", label: "Hole to tap (the tap drill)" },
+  { id: "nutPocket", label: "Nut pocket with its clearance hole" },
+];
+/** Where a receiver goes: a flat face of a body, as the plane the face lies on (`at` a point on it, `u` and `v` across it, the normal `u` x `v` pointing out of the body), and the point on it the hole is centred on. */
+export interface FaceSpot { plane: Ref; centre: Vec3; u: Vec3; v: Vec3 }
+const cross3 = (a: readonly number[], b: readonly number[]): [number, number, number] => [a[1]! * b[2]! - a[2]! * b[1]!, a[2]! * b[0]! - a[0]! * b[2]!, a[0]! * b[1]! - a[1]! * b[0]!];
+const along = (p: readonly number[], d: readonly number[], t: number): [number, number, number] => [p[0]! + d[0]! * t, p[1]! + d[1]! * t, p[2]! + d[2]! * t];
+const BIT = 0.5; // (a cut starts this far outside the face, so it never ends exactly on it)
+/** The side view of a round receiver as a closed outline about its axis (x out from it, y along the outward normal, the face at 0): a plain hole, or one with the 90 degree countersink at its mouth. Null for a countersink wider than the hole it opens (never for the sizes here). */
+export function receiverProfile(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number): [number, number][] {
+  const r = (kind === "tapped" ? tapDrill(size) : clearanceHole(size, fit)) / 2;
+  if (kind === "countersunk") {
+    const big = countersink(size).diameter / 2;
+    return [[0, BIT], [big, BIT], [big, 0], [r, -(big - r)], [r, -depth], [0, -depth]];
+  }
+  return [[0, BIT], [r, BIT], [r, -depth], [0, -depth]];
+}
+/** Why this receiver cannot be cut with these numbers, or null. A countersink has to be shallower than the hole. */
+export function receiverProblem(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number): string | null {
+  if (!(depth > 0) || !Number.isFinite(depth)) return "the depth must be a number above zero";
+  const hole = kind === "tapped" ? tapDrill(size) : clearanceHole(size, fit);
+  const cone = kind === "countersunk" ? countersink(size).diameter / 2 - hole / 2 : 0;
+  if (cone >= depth) return `the countersink goes ${round3(cone)} mm deep: the hole must be deeper than that`;
+  if (kind === "nutPocket" && depth <= nutTrap(size).depth) return `the nut pocket is ${nutTrap(size).depth} mm deep: the hole through must be deeper than that`;
+  return null;
+}
+/** The steps that cut a receiver into a body at a spot on a face; `depth` is how far the hole goes (a pocket's own depth is the nut's thickness). */
+export function receiverSteps(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number, spot: FaceSpot): PartSteps {
+  const n = cross3(spot.u, spot.v);
+  const len = Math.hypot(...n) || 1;
+  const out: [number, number, number] = [n[0] / len, n[1] / len, n[2] / len];
+  const t = spot.u;
+  const steps: PartSteps = [];
+  let axisPlane: Ref | null = null;
+  let outline: Ref[] = [];
+  steps.push((s) => { // (a plane through the axis, across the face: x along the face, y along the normal)
+    const ref: Ref = `d/${nextId(s, "e")}.pl` as Ref;
+    axisPlane = ref;
+    return { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: spot.centre, u: t, v: out, infinite: true } };
+  });
+  steps.push((s) => { const r = drawChain(s, axisPlane!, receiverProfile(kind, size, fit, depth).map(([x, y]) => along(along(spot.centre, t, x), out, y)), true); outline = r.lines; return r.command; });
+  steps.push((s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "revolve", parts: outline, params: { ...figureParams([{ outer: outline, holes: [] }]), mode: "cut", angle: 360, advance: 0, ax: spot.centre[0], ay: spot.centre[1], az: spot.centre[2], dx: out[0], dy: out[1], dz: out[2] } } }));
+  if (kind === "nutPocket") {
+    const trap = nutTrap(size);
+    let hex: Ref[] = [];
+    steps.push((s) => { const r = drawChain(s, spot.plane, hexagon(trap.acrossFlats).map(([x, y]) => along(along(spot.centre, spot.u, x), spot.v, y)), true); hex = r.lines; return r.command; });
+    steps.push((s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "extrude", parts: hex, params: { depth: -trap.depth, mode: "cut", ...figureParams([{ outer: hex, holes: [] }]) } } }));
+  }
+  return steps;
 }
