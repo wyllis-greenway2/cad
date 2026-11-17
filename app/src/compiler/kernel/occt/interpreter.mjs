@@ -628,12 +628,10 @@ const OPS = {
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
     if (!target) return { kind: "solid", shape: solid };
     if (op.mode === "cutOrAdd") {
-      const before = measureVolume(target);
-      try { const cut = target.clone().cut(solid.clone()); if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut }; } catch { /* a join instead */ }
-      return { kind: "solid", shape: target.fuse(solid) };
+      return { kind: "solid", shape: cutOrAdd(target, solid).shape };
     }
     if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
-    return { kind: "solid", shape: op.mode === "cut" ? target.cut(solid) : target.fuse(solid) };
+    return { kind: "solid", shape: op.mode === "cut" ? cutFrom(target, solid) : fuseInto(target, solid) };
   },
 
   /** Sketches joined side to side (`dec_loft_sketches`): smooth through all of them, or ruled (straight between each two); holes are lofted the same way and cut out. */
@@ -662,12 +660,10 @@ const OPS = {
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
     if (!target) return { kind: "solid", shape: solid };
     if (op.mode === "cutOrAdd") {
-      const before = measureVolume(target);
-      try { const cut = target.clone().cut(solid.clone()); if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut }; } catch { /* a join instead */ }
-      return { kind: "solid", shape: target.fuse(solid) };
+      return { kind: "solid", shape: cutOrAdd(target, solid).shape };
     }
     if (op.mode === "new") { if (!isValidSolid(solid)) throw new Error("kernel returned an invalid solid"); return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]), checked: true }; } // (the bodies it stands beside were checked when they were made: only the new piece is)
-    return { kind: "solid", shape: op.mode === "cut" ? target.cut(solid) : target.fuse(solid) };
+    return { kind: "solid", shape: op.mode === "cut" ? cutFrom(target, solid) : fuseInto(target, solid) };
   },
 
   /** The solids of a STEP file, as bodies of their own beside the ones already there (`dec_import`): read here, on this thread, from the text kept in the step. A file with no solid in it (only surfaces or curves) is refused with that. */
@@ -727,24 +723,21 @@ const OPS = {
     if (!target) return { kind: "solid", shape: solid };
     // (only when the plane is on the boundary of the body: with material just behind it, as a hole begun inside the body under a skin, the tool begins where it was drawn)
     const cuts = op.mode === "cut" || op.mode === "cutOrAdd"; // (a piece added or of its own needs no start behind the plane, and the test costs a boolean on the whole body)
-    const behind = !cuts || (() => { try { const slab = prism(op.profile, op.holes, dist < 0 ? BACK : -BACK, 0); return measureVolume(target.clone().intersect(slab.clone())) > 0.5 * measureVolume(slab); } catch { return false; } })(); // (mostly body in a slab behind the plane)
+    const behind = !cuts || (() => { try { const slab = prism(op.profile, op.holes, dist < 0 ? BACK : -BACK, 0); const met = partMet(target, slab); return !!met && measureVolume(met.clone().intersect(slab.clone())) > 0.5 * measureVolume(slab); } catch { return false; } })(); // (mostly body in a slab behind the plane)
     const back = behind ? 0 : BACK;
     if (op.mode === "cutOrAdd") {
       // a figure pulled backwards: a pocket when it meets the body (drawn on a face and pushed in); drawn out in the open it is a new piece, not a cut that does nothing
-      const [tb, sb] = [bounds(target), bounds(solid)];
-      const meets = [0, 1, 2].every((i) => sb.min[i] < tb.max[i] - 1e-6 && sb.max[i] > tb.min[i] + 1e-6);
-      if (meets) {
-        const before = measureVolume(target);
+      if (runsInto(target, solid)) { // (it runs into a body: the cut is tried on the bodies it meets, and the others are left as they are)
         const tool = toolOf(back);
-        const cut = target.clone().cut(tool.clone());
-        if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut, used: "cut", cutInto: cutInto(targetValue, tool) };
+        const r = cutOrAdd(target, tool);
+        if (r.cut) return { kind: "solid", shape: r.shape, used: "cut", cutInto: cutInto(targetValue, tool) };
       }
       return joined(target, solid);
     }
     // "new" (`in_295`): a piece that stood apart when it was made stays a body of its own, however the others grow later: no join, one compound
     if (op.mode === "new") { if (!isValidSolid(solid)) throw new Error("kernel returned an invalid solid"); return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]), checked: true }; } // (the bodies it stands beside were checked when they were made: only the new piece is)
-    if (op.mode === "cut") { const tool = toolOf(back); return { kind: "solid", shape: target.cut(tool.clone()), cutInto: cutInto(targetValue, tool) }; }
-    return { kind: "solid", shape: target.fuse(solid) };
+    if (op.mode === "cut") { const tool = toolOf(back); return { kind: "solid", shape: cutFrom(target, tool.clone()), cutInto: cutInto(targetValue, tool) }; }
+    return { kind: "solid", shape: fuseInto(target, solid) };
   },
 
   /**
@@ -839,13 +832,12 @@ const OPS = {
     const target = targetValue ? targetValue.shape : null;
     if (!target) return { kind: "solid", shape: solid, checked: true, ...(twisted ? { noCross: true } : {}) }; // (checked just above; a twist cannot cross itself)
     if (op.mode === "cutOrAdd") {
-      const before = measureVolume(target);
-      try { const cut = target.clone().cut(solid.clone()); if (Math.abs(measureVolume(cut) - before) > 1e-6 * Math.max(1, before)) return { kind: "solid", shape: cut, used: "cut", cutInto: cutInto(targetValue, solid) }; } catch { /* a join instead */ }
-      return joined(target, solid);
+      const r = cutOrAdd(target, solid);
+      return r.cut ? { kind: "solid", shape: r.shape, used: "cut", cutInto: cutInto(targetValue, solid) } : { kind: "solid", shape: r.shape, used: r.used };
     }
     if (op.mode === "new") { if (!isValidSolid(solid)) throw new Error("kernel returned an invalid solid"); return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]), checked: true }; } // (the bodies it stands beside were checked when they were made: only the new piece is)
-    if (op.mode === "cut") return { kind: "solid", shape: target.cut(solid.clone()), cutInto: cutInto(targetValue, solid) };
-    return { kind: "solid", shape: target.fuse(solid) };
+    if (op.mode === "cut") return { kind: "solid", shape: cutFrom(target, solid.clone()), cutInto: cutInto(targetValue, solid) };
+    return { kind: "solid", shape: fuseInto(target, solid) };
   },
 
   /**
@@ -1352,17 +1344,81 @@ function cutInto(value, tool) {
   return hit;
 }
 
+/**
+ * The bodies of `target` whose box meets the box of `solid`, and the others, which it does not touch (`dec_per_body_checks`): a boolean with a piece works on the bodies it meets and leaves the rest as they are, the very same solids, so what
+ * is kept for them is found again and a piece put beside five bodies is not fused with all five. Null when it meets all of them (the whole shape is the part) or the shape has no body.
+ */
+const NEAR = 1e-4;
+function touching(target, solid) {
+  const lumps = target.solids;
+  if (!lumps.length) return null;
+  const nb = boxOf(solid);
+  const [hit, rest] = [[], []];
+  for (const l of lumps) { const b = boxOf(l); ([0, 1, 2].some((i) => nb.min[i] > b.max[i] + NEAR || nb.max[i] < b.min[i] - NEAR) ? rest : hit).push(l); }
+  if (rest.length) kernelStats.partialBooleans++;
+  return rest.length ? { hit, rest } : null;
+}
+/** The part of `target` a boolean with `solid` works on: the bodies it meets (one, or a compound of them), the whole shape when it meets all, or null when it meets none. */
+function partMet(target, solid) {
+  const t = touching(target, solid);
+  if (!t) return target;
+  return t.hit.length ? (t.hit.length === 1 ? t.hit[0] : makeCompound(t.hit)) : null;
+}
+/** Whether the box of `solid` runs into the box of any body of `target` (not just touches it): only then is a cut tried for a figure pulled backwards (`in_295`). */
+function runsInto(target, solid) {
+  const nb = boxOf(solid);
+  return target.solids.some((l) => { const b = boxOf(l); return [0, 1, 2].every((i) => nb.min[i] < b.max[i] - 1e-6 && nb.max[i] > b.min[i] + 1e-6); });
+}
+/** What a boolean on the part gave, put back with the bodies it did not touch. */
+const putBack = (rest, done) => makeCompound([...rest, ...(done.solids ?? [done])]);
+/**
+ * What a boolean gave for these bodies and this piece, kept by the identity of each (`dec_per_body_checks`): a step that comes after a change to an earlier body finds the bodies it works on as they were (the same solids) and is
+ * not worked out again; a worm's thread added to its core is the same boolean however many worms were changed before it.
+ */
+const booleans = new Map();
+function keptBoolean(kind, lumps, tool, make) {
+  const key = `${kind}|${lumps.map(solidKey).join(",")}|${solidKey(tool)}`;
+  if (booleans.has(key)) { const hit = booleans.get(key); booleans.delete(key); booleans.set(key, hit); kernelStats.booleansKept++; return hit; }
+  const made = make();
+  booleans.set(key, made);
+  while (booleans.size > 64) booleans.delete(booleans.keys().next().value);
+  return made;
+}
+/** `target` with `solid` fused to it, on the bodies the piece meets only (a piece that meets none is a body of its own). */
+function fuseInto(target, solid) {
+  const t = touching(target, solid);
+  if (!t) return keptBoolean("fuse", target.solids, solid, () => target.fuse(solid));
+  return putBack(t.rest, t.hit.length ? keptBoolean("fuse", t.hit, solid, () => partMet(target, solid).fuse(solid)) : solid);
+}
+/** `target` with `tool` cut out of it, on the bodies the tool meets only (one that meets none cuts nothing). */
+function cutFrom(target, tool) {
+  const t = touching(target, tool);
+  if (!t) return keptBoolean("cut", target.solids, tool, () => target.cut(tool));
+  return t.hit.length ? putBack(t.rest, keptBoolean("cut", t.hit, tool, () => (t.hit.length === 1 ? t.hit[0] : makeCompound(t.hit)).cut(tool))) : target;
+}
+/** A figure pulled out in the open or into the body: cut when it takes material from the bodies it meets, else added (a body of its own when it meets none). `cut` says which. */
+function cutOrAdd(target, tool) {
+  const t = touching(target, tool);
+  const lumps = t ? t.hit : target.solids;
+  if (lumps.length) {
+    const trial = keptBoolean("cutOrAdd", lumps, tool, () => {
+      const part = t ? (t.hit.length === 1 ? t.hit[0] : makeCompound(t.hit)) : target;
+      const before = measureVolume(part);
+      try {
+        const done = part.clone().cut(tool.clone());
+        if (Math.abs(measureVolume(done) - before) > 1e-6 * Math.max(1, before)) return { cut: true, done };
+      } catch { /* a join instead */ }
+      return { cut: false };
+    });
+    if (trial.cut) return { cut: true, shape: t ? putBack(t.rest, trial.done) : trial.done };
+  }
+  return { cut: false, ...joined(target, tool) };
+}
 /** The body and a piece added to it, and what that was: a piece that stands apart is a body of its own (`new`), one that touches it joins it (`add`); said, so that a step that did not say can be made to (`in_436`). */
 function joined(target, solid) {
-  // a piece whose box meets none of the bodies is a body of its own: the compound of them, with no boolean on all the others (a gear put down beside five gears took the time of fusing with all five, `dec_per_body_checks`)
-  const lumps = target.solids;
-  if (lumps.length) {
-    const nb = boxOf(solid);
-    const apart = lumps.every((l) => { const b = boxOf(l); return [0, 1, 2].some((i) => nb.min[i] > b.max[i] + 1e-6 || nb.max[i] < b.min[i] - 1e-6); });
-    if (apart) return { kind: "solid", shape: makeCompound([...lumps, ...(solid.solids ?? [solid])]), used: "new" };
-  }
-  const shape = target.fuse(solid);
-  const used = (shape.solids?.length ?? 1) > (target.solids?.length ?? 1) ? "new" : "add";
+  const before = target.solids?.length ?? 1;
+  const shape = fuseInto(target, solid);
+  const used = (shape.solids?.length ?? 1) > before ? "new" : "add";
   return { kind: "solid", shape, used };
 }
 
@@ -2144,9 +2200,9 @@ function ownSolid(ctx, op, kind, ids, build) {
 }
 
 /** How many bodies' own solids were built and how many were kept ones (read by the tests, `dec_per_body_checks`). */
-export const kernelStats = { prismsBuilt: 0, prismsReused: 0 };
+export const kernelStats = { prismsBuilt: 0, prismsReused: 0, partialBooleans: 0, booleansKept: 0 };
 /** Forget what is kept of bodies, so that the next answer is worked out from nothing (for the tests: the kept and the worked-out answers are to be the same). */
-export function clearKernelCaches() { prisms.clear(); validSolids.clear(); uncrossed.clear(); memo.clear(); clearNameCaches(); }
+export function clearKernelCaches() { prisms.clear(); booleans.clear(); validSolids.clear(); uncrossed.clear(); memo.clear(); clearNameCaches(); }
 const memo = new Map(); // key -> { value, ms }
 const remember = (key, entry) => {
   memo.delete(key);
