@@ -109,10 +109,12 @@ export function wheelParts(s: Scene, rec: GearRecord): Part[] {
     }
   });
   const land = rec.spec.wheel?.land ?? 0;
-  if (land > 0) for (const q of [0, SECTIONS - 1]) { // (the round shoulder at each face that the land is made from, `in_783`)
-    const [sec, pl] = [w.value[q]!, ref(rec.id, `w${q}q`)];
-    out.push({ origin: "drawn", plane: pl, movable: false, ref: ref(rec.id, `w${q}kc`), kind: "corner", at: along(rec.at, f, 0, 0, sec.h) });
-    out.push({ origin: "drawn", plane: pl, movable: false, ref: ref(rec.id, `w${q}k`), kind: "circle", center: ref(rec.id, `w${q}kc`), radius: g.value.landRadius });
+  if (land > 0) for (const side of [-1, 1] as const) { // (the worm's envelope beyond each face: the figure of the cylinder about the worm's axis that is past the plane of the face, drawn across the worm's axis, `in_790`)
+    const t = envelope(rec, g.value, side);
+    out.push({ ref: t.plane, origin: "drawn", plane: null, movable: false, kind: "plane", at: along(rec.at, f, -t.ext, 0, 0), u: f.Y, v: f.n });
+    const base = { origin: "drawn" as const, plane: t.plane, movable: false };
+    t.points.forEach(([y, h], i) => out.push({ ...base, ref: t.corners[i]!, kind: "corner", at: along(rec.at, f, -t.ext, y, h) }));
+    t.points.forEach((_, i) => out.push({ ...base, ref: t.lines[i]!, kind: "line", a: t.corners[i]!, b: t.corners[(i + 1) % 2]!, ...(t.bulges[i] ? { bulge: t.bulges[i]! } : {}) }));
   }
   return out;
 }
@@ -122,6 +124,37 @@ export function wheelSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] | null
   const figs: Figure[] = sections.map((lines, q) => ({ outer: lines, holes: bores[q] ? [bores[q]!.split(",") as Ref[]] : [] }));
   const steps: Omit<Step, "id">[] = [{ type: "loft", parts: sections[0]!, params: { ...figureParams(figs), mode: "new", gear: rec.id } }]; // (a piece of its own, beside the worm it meshes with)
   const land = rec.spec.wheel?.land ?? 0;
-  if (land > 0) for (const [q, depth] of [[0, -land], [SECTIONS - 1, land]] as const) steps.push({ type: "extrude", parts: [ref(rec.id, `w${q}k`)], params: { depth, ...(bores[q] ? { holes: bores[q]! } : {}), mode: "add", gear: rec.id } }); // (a round shoulder at each face, as wide as clears the worm's thread: a land, `in_783`)
+  if (land > 0) {
+    // a land (`in_790`): the end sections carried straight out to the faces as pieces of their own; the worm's envelope (the cylinder about its axis, as far as it lies past the face) cut out of each, so that the teeth of the land stand
+    // where the thread is not and the wheel can turn with the worm; then the three pieces joined. `@sN` is the body of this gear's Nth step, named when the steps are (`resolveOwnRefs`).
+    const g = wheelOf(rec.spec);
+    if (!g.ok) return null;
+    const [lo, hi] = [envelope(rec, g.value, -1), envelope(rec, g.value, 1)];
+    const own = { gear: rec.id };
+    steps.push(
+      { type: "extrude", parts: sections[0]!, params: { depth: -land, ...(bores[0] ? { holes: bores[0]! } : {}), mode: "new", ...own } },
+      { type: "extrude", parts: sections[SECTIONS - 1]!, params: { depth: land, ...(bores[SECTIONS - 1] ? { holes: bores[SECTIONS - 1]! } : {}), mode: "new", ...own } },
+      { type: "extrude", parts: lo.lines, params: { depth: 2 * lo.ext, mode: "new", ...own } },
+      { type: "extrude", parts: hi.lines, params: { depth: 2 * hi.ext, mode: "new", ...own } },
+      { type: "combine", parts: ["@s1", "@s3"] as Ref[], params: { mode: "subtract", ...own } },
+      { type: "combine", parts: ["@s2", "@s4"] as Ref[], params: { mode: "subtract", ...own } },
+      { type: "combine", parts: ["@s0", "@s1", "@s2"] as Ref[], params: { mode: "add", glue: 1, ...own } }, // (glue: the pieces meet only along faces they share, which the kernel joins in less than half the time)
+    );
+  }
   return steps;
+}
+/**
+ * The worm's envelope past one face of the wheel (`in_790`): the cylinder of radius `clear` about the worm's axis (along the wheel's X at -cd in Y), as far as it lies beyond the plane of that face (at +-width/2): in the plane across the worm's axis
+ * a circular segment, a chord at the face and an arc round the axis, drawn at x = -ext (wide enough for the whole wheel) and carried 2 ext along the axis. As points (y, h) and the bulge of each side, with the names of its corners, sides and plane.
+ */
+function envelope(rec: GearRecord, g: { cd: number; clear: number; width: number }, side: -1 | 1): { ext: number; points: [number, number][]; bulges: number[]; corners: Ref[]; lines: Ref[]; plane: Ref } {
+  const k = side > 0 ? "p" : "m";
+  const hc = (g.width / 2) * side;
+  const q = Math.sqrt(Math.max(1e-9, g.clear * g.clear - hc * hc));
+  const bulge = -(g.clear - Math.abs(hc)) / (2 * q); // (the arc bows away from the chord, to the right of the way it goes from its first corner)
+  const left: [number, number] = [-g.cd - q, hc], right: [number, number] = [-g.cd + q, hc];
+  // counter-clockwise in (y, h): above the face the chord is the bottom (left to right, then the arc back over the top); below it the chord is the top (the arc from the left under to the right, then the chord back)
+  const points: [number, number][] = [left, right];
+  const bulges = side > 0 ? [0, bulge] : [bulge, 0];
+  return { ext: (rec.spec.module * rec.spec.teeth) / 2 + 3 * rec.spec.module, points, bulges, corners: [0, 1].map((i) => ref(rec.id, `w${k}tp${i}`)), lines: [0, 1].map((i) => ref(rec.id, `w${k}ts${i}`)), plane: ref(rec.id, `w${k}tq`) };
 }

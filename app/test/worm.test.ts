@@ -219,10 +219,11 @@ test("a worm for a worm wheel (`in_697`): placed by the helper on either side of
   assert.ok(!meshWith(src, [1, 0, 0], [0, 1, 0], { teeth: 1, ring: true }, 0).ok);
 });
 
-test("a worm wheel's land (`in_783`): a straight land at each face makes it width + 2 land thick and heavier, the wheel has one body, and Mesh gear gives it a module of land that does not touch the worm", () => {
+test("a worm wheel's land (`in_790`): the tooth section carried straight out to each face and cut back by the worm's envelope: width + 2 land thick, heavier, one body (the steps name each other's bodies); Mesh gear gives no land unless one is typed, and with one the pair still does not touch", () => {
   const withLand = (land: number | undefined) => run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: { ...wheelSpec, wheel: { ...wheelSpec.wheel!, ...(land !== undefined ? { land } : {}) } } });
   const [none, land] = [withLand(undefined), withLand(2)];
-  assert.deepEqual(scene(land).steps.map((st) => st.type), ["loft", "extrude", "extrude"]);
+  assert.deepEqual(scene(land).steps.map((st) => st.type), ["loft", "extrude", "extrude", "extrude", "extrude", "combine", "combine", "combine"]);
+  assert.deepEqual(scene(land).steps.filter((st) => st.type === "combine").map((st) => st.parts.length), [2, 2, 3]);
   assert.equal(bodies(land).length, 1, "one body");
   const box = (s: Session) => (Object.values(scene(s).parts).find((p) => p.kind === "body") as unknown as { bbox: { min: Vec3; max: Vec3 } }).bbox;
   const [a, b] = [box(none), box(land)];
@@ -230,5 +231,13 @@ test("a worm wheel's land (`in_783`): a straight land at each face makes it widt
   assert.ok(bodies(land)[0]!.volume > bodies(none)[0]!.volume + 100);
   assert.equal(wheelOf({ ...wheelSpec, wheel: { ...wheelSpec.wheel!, land: 9 } }).ok, false, "more than 4 modules is refused");
   const r = meshWith({ id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: worm }, [1, 0, 0], [0, 1, 0], { teeth: 20 }, Math.PI / 2);
-  assert.equal((r as { value: { spec: GearSpec } }).value.spec.wheel!.land, 2, "a module of land by default");
+  assert.equal((r as { value: { spec: GearSpec } }).value.spec.wheel!.land, 0, "no land by default");
+  // with a land the pair still stands side by side and does not overlap: the land is cut back by the worm's envelope
+  const withLandPair = meshWith({ id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: worm }, [1, 0, 0], [0, 1, 0], { teeth: 20, land: 2 }, Math.PI / 2);
+  assert.ok(withLandPair.ok);
+  const p = (withLandPair as { value: { at: Vec3; turn: number; spec: GearSpec } }).value;
+  assert.equal(p.spec.wheel!.land, 2);
+  const both = run(run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: worm }), { type: "gear", id: "g_002", plane: worldRef("XY"), at: p.at, spec: p.spec, turn: p.turn });
+  assert.deepEqual(both.outcome.errors, {});
+  assert.ok(overlap(both) < 1, `the worm and the wheel with a land overlap by ${overlap(both)} mm3`);
 });

@@ -101,7 +101,7 @@ export interface WheelGeometry {
   worm: WormGeometry; z: number; rw: number;
   /** the distance from the wheel's axis to the worm's */ cd: number;
   /** the throat: the distance from the worm's axis to the wheel's tip surface, an arc about it */ throat: number;
-  width: number; /** the straight land at each face, mm, and the radius of its round shoulder (the largest that stays clear of the worm's thread: a land with teeth would run into it) */ land: number; landRadius: number;
+  width: number; /** the straight land at each face, mm: the tooth section carried straight out to the face, cut back by the worm's envelope */ land: number; /** the radius of the cylinder about the worm's axis the land is cut back by: the thread's tip circle and a tenth of a module beyond it */ clear: number;
   /** the radius of the tip surface at height h from the middle plane (an arc about the worm's axis) and of the root circle there */
   tipAt: (h: number) => number; rootAt: (h: number) => number;
 }
@@ -121,10 +121,8 @@ export function wheelOf(spec: GearSpec): Result<WheelGeometry> {
   if (bore < 0 || bore >= 2 * (cd - worm.rTip) * 0.9) return err("the bore must be smaller than the wheel's root circle");
   const shape = boreProblem(spec, cd - worm.rTip);
   if (shape) return err(shape);
-  const clear = worm.rTip + 0.1 * spec.module; // (the thread's tip circle, and a tenth of a module beyond it)
-  const landRadius = cd - Math.sqrt(clear * clear - (w.width / 2) * (w.width / 2));
-  if (land > 0 && !(landRadius > bore / 2 + 0.5)) return err("the land has no room round the bore: no land (0), a smaller bore or a narrower wheel");
+  const clear = worm.rTip + 0.1 * spec.module;
   const tipAt = (h: number) => cd - Math.sqrt(throat * throat - h * h);
   const rootAt = (h: number) => cd - Math.sqrt(worm.rTip * worm.rTip - h * h);
-  return ok({ worm, z, rw, cd, throat, width: w.width, land, landRadius, tipAt, rootAt });
+  return ok({ worm, z, rw, cd, throat, width: w.width, land, clear, tipAt, rootAt });
 }

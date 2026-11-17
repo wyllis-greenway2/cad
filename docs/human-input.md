@@ -3504,3 +3504,15 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_789 — 2026-11-17 — directive
 > Go with your recommendation, build the cheaper Geneva preview
 (asks for a cheaper preview of the Geneva drive while its numbers are typed, so typing is not slowed by the locking disc's long working out)
+
+## in_790 — 2026-11-17 — approval
+> Yes, build the toothed land cut by the worm's envelope
+(answers the open question of `q_gear_finishing`: the worm wheel's land is to keep the tooth section out to the face and be cut back by the worm's envelope, instead of the round shoulder)
+
+## in_791 — 2026-11-17 — approval
+> Yes, build the tooth chamfer
+(answers the open question of `q_gear_finishing`: the tooth tips of a gear are to be chamfered at the top and bottom faces, by one revolved cut as proposed there, not edge by edge)
+
+## in_792 — 2026-11-17 — approval
+> Yes, build the spline flank prototype
+(answers the last open option of `q_gear_finishing`: a prototype to measure a tooth flank made as one B-spline against the chain of arcs; a prototype under `prototypes/`, not production code)

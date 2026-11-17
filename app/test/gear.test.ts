@@ -215,8 +215,8 @@ test("the Gear tool is in the Sketch ring; click the centre, the pointer sets th
   st = move(st, [C[0] + 22, C[1], 0]);
   assert.ok(previewFor(scene(st.session), st.tool)!.segments.length > 100, "the teeth are shown while the size is set");
   const e = entryOf(scene(st.session), st.tool, st.op);
-  assert.deepEqual(e!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Helix", "Thickness", "Bore", "Flat", "Key", "Key depth"]);
-  assert.deepEqual(e!.fields.map((f) => f.value), ["20", "2", "20", "0", "0", "0.25", "0", "0", "0", "5", "0", "0", "0"]);
+  assert.deepEqual(e!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Helix", "Thickness", "Bore", "Flat", "Key", "Key depth", "Chamfer"]);
+  assert.deepEqual(e!.fields.map((f) => f.value), ["20", "2", "20", "0", "0", "0.25", "0", "0", "0", "5", "0", "0", "0", "0"]);
   st = click(st, [C[0] + 22, C[1], 0]);
   assert.equal(drawn(st).length, 0, "the click that sets the size makes nothing yet (`in_688`): the number box stays open");
   assert.ok(st.tool!.sized, "the tool is on, the size set");
@@ -346,7 +346,7 @@ test("Edit gear: the number box opens on the selected gear with its numbers; typ
   st = reduce(st, { type: "runAction", id: "gear:edit" }, env);
   assert.equal(st.tool!.gear!.editing, "g_001");
   const e = entryOf(scene(st.session), st.tool, st.op)!;
-  assert.deepEqual(e.fields.map((f) => f.value), ["20", "2", "20", "0", "0", "0.25", "0", "0", "0", "5", "0", "0", "0"], "its numbers as they are");
+  assert.deepEqual(e.fields.map((f) => f.value), ["20", "2", "20", "0", "0", "0.25", "0", "0", "0", "5", "0", "0", "0", "0"], "its numbers as they are");
   st = typeText(st, "30");
   st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab");
   st = typeText(st, "0.1");
@@ -373,7 +373,7 @@ test("Ring gear tool: the pointer sets the outside of the wall; typed Wall chang
   st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
   st = click(st, C);
   st = move(st, [C[0] + 45, C[1], 0]);
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Wall", "Backlash", "Clearance", "Helix", "Thickness"]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Wall", "Backlash", "Clearance", "Helix", "Thickness", "Chamfer"]);
   st = click(st, [C[0] + 45, C[1], 0]); // (sets the size)
   st = click(st, [C[0] + 45, C[1], 0]); // (makes it, `in_688`)
   const rec = scene(st.session).gears![0]!;
@@ -424,7 +424,7 @@ test("the Gear box has a Bore field; typing it in Edit gear applies it (a ring h
   let st = top();
   st = reduce(st, { type: "begin", name: "gear" }, env);
   st = click(st, C);
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Helix", "Thickness", "Bore", "Flat", "Key", "Key depth"]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Helix", "Thickness", "Bore", "Flat", "Key", "Key depth", "Chamfer"]);
   st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2");
   for (let i = 0; i < 8; i++) st = key(st, "Tab");
   st = typeText(st, "6");
@@ -432,7 +432,7 @@ test("the Gear box has a Bore field; typing it in Edit gear applies it (a ring h
   assert.equal(scene(st.session).gears![0]!.spec.bore, 6);
   assert.ok(Object.values(scene(st.session).parts).some((p) => p.kind === "circle" && p.ref === "d/g_001.b"));
   const ring = reduce(top(), { type: "runAction", id: "tool:ring" }, env);
-  assert.equal(entryOf(scene(ring.session), { ...ring.tool!, plane: worldRef("XY"), points: [C] }, null)!.fields.length, 8, "a ring has no Bore: Teeth, Module, Pressure, Wall, Backlash, Clearance, Helix, Thickness");
+  assert.equal(entryOf(scene(ring.session), { ...ring.tool!, plane: worldRef("XY"), points: [C] }, null)!.fields.length, 9, "a ring has no Bore: Teeth, Module, Pressure, Wall, Backlash, Clearance, Helix, Thickness, Chamfer");
 });
 
 test("Move on a gear moves it: its centre goes where the move takes it, as one command, and the body made from it follows; undo puts it back", () => {
