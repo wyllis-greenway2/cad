@@ -3176,3 +3176,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_708 — 2026-11-17 — approval
 > Yes, run the suite and the browser check
 (asks for the full test suite and a browser check of picking a face and corners for the fastener hole to be run)
+
+## in_709 — 2026-11-17 — directive
+> what is the mating point design?
+(asks what the mating point design is)
+
+## in_710 — 2026-11-17 — approval
+> Yes, draft it with those defaults
+(asks for the insert fastener proposal to be drafted as a provisional entry, with the defaults of an automatic length, standing mates and the screw alone)
