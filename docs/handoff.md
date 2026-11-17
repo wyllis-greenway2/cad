@@ -2887,3 +2887,6 @@ The default branch `claude/inspiring-pascal-l342k7` (gear tool, hard bodies, lof
 
 ## Handoff 619 — 2026-11-17 (in_689: a spline tool and a cam helper, drafted)
 `in_689`. Research answered in chat (how the gear code works; cams, ratchets and other shapes; what the sketch tools lack: only lines and circular arcs, no spline or ellipse). Drafted `dec_spline_and_cams` (provisional, ai-unreviewed: spline side with control points, fitted to arcs only when the kernel needs them, ellipse after, a cam helper writing onto it) and `q_spline_storage` (open: control points or arcs fitted at drawing). **No code written**; nothing is approved. Next: the human answers `q_spline_storage`; ratchet, Geneva and spline-profile generators need their own entries.
+
+## Handoff 620 — 2026-11-17 (in_690: spline storage decided)
+`in_690`. The human took the recommendation on spline storage: control points, made into arcs only when the kernel needs them. `dec_spline_and_cams` is now **accepted** (ai-proposed-human-approved); `q_spline_storage` is gone (answered) and `q_spline_dimensions` (dimensions along a curve) is the open part. **No code yet.** First slice to build: the spline tool (click points, ends constrained, tangent at the ends), then the fit to arcs at extrude/export, then the cam helper.

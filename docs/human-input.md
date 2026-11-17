@@ -3101,3 +3101,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_689 — 2026-11-17 — directive
 > Go with your recommendation, draft the decision entry
 (asks for a decision entry drafted for the proposal just made: a spline tool, curves turned to arcs only when the kernel needs them, and a cam helper that draws onto it; a draft, not an approval of the design)
+
+## in_690 — 2026-11-17 — approval
+> Go with your recommendation on spline storage
+(approves the recommendation on `q_spline_storage`: a spline stores its control points and is made into arcs only when the kernel needs them)
