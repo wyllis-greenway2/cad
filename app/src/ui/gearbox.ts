@@ -15,6 +15,7 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
   let hints: HTMLElement[] = [];
   let warn: HTMLElement | null = null;
   let suggest: HTMLElement | null = null;
+  let info: HTMLElement | null = null;
   return {
     rect(): DOMRect | null { return el.style.display === "none" ? null : el.getBoundingClientRect(); },
     /** `entry`: the panel to show (null hides it). */
@@ -31,6 +32,9 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
         suggest = document.createElement("div");
         suggest.style.cssText = "display:none;margin:2px 0 6px;padding:6px 8px;border-radius:8px;background:#e6f6f5;color:#0b6b67;font-size:12px;line-height:1.35";
         el.appendChild(suggest);
+        info = document.createElement("div");
+        info.style.cssText = "display:none;margin:2px 0 6px;padding:6px 8px;border-radius:8px;background:#eef2fb;color:#2b3a67;font-size:12px;line-height:1.4";
+        el.appendChild(info);
         const title = document.createElement("div");
         title.textContent = entry.panel;
         title.style.cssText = "font-weight:600;font-size:15px;margin-bottom:6px";
@@ -67,7 +71,7 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
           return input;
         });
         const note = document.createElement("div");
-        note.textContent = entry.panel.includes("meshing") ? "Made to fit the gear it was started from: the module, pressure angle and spacing are taken from it." : "A partner that fits: select this gear, then Gear, Mesh gear (or Mesh rack).";
+        note.textContent = entry.panel.startsWith("Planetary") ? "A sun, planets and a ring, each a body of its own, and an optional carrier. Select any of its gears and choose Edit gear to change the whole set." : entry.panel.includes("meshing") ? "Made to fit the gear it was started from: the module, pressure angle and spacing are taken from it." : "A partner that fits: select this gear, then Gear, Mesh gear (or Mesh rack).";
         note.style.cssText = "font-size:11.5px;color:#555;margin-top:8px;padding-top:8px;border-top:1px solid #f0f1f3;line-height:1.35";
         el.appendChild(note);
         const bar = document.createElement("div");
@@ -76,6 +80,7 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
         el.appendChild(bar);
       }
       if (suggest) { suggest.textContent = entry.suggest ?? ""; suggest.style.display = entry.suggest ? "block" : "none"; } // (a click that makes it mesh with the gear beside it, `in_709`)
+      if (info) { info.textContent = entry.info ?? ""; info.style.display = entry.info ? "block" : "none"; } // (a planetary set: the ratio for each part held)
       if (warn) { warn.textContent = entry.warn ?? ""; warn.style.display = entry.warn ? "block" : "none"; } // (numbers that make no gear: why, in red)
       entry.fields.forEach((f, i) => { // (a number just taken back to one that makes a gear flashes red, `in_690`)
         const input = inputs[i]!;

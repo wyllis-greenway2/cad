@@ -18,6 +18,7 @@ import { faceEdges } from "./offsetbody.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize } from "../math/vec.ts";
 import { gearOfPart } from "../operation/gearscene.ts";
+import { planetaryOfGear } from "../operation/planetary.ts";
 import type { GearRecord } from "../operation/gearscene.ts";
 import type { Scene } from "../operation/scene.ts";
 import { surfaceTriangles } from "./surfaces.ts";
@@ -673,18 +674,21 @@ function planeTurn(scene: Scene, op: Op): Mat3 {
  */
 function gearCommand(scene: Scene, op: Op, rec: GearRecord, turns: { axis: 0 | 1 | 2; angle: number }[], translate: Vec3, pivot: Vec3): Command | null {
   const pl = scene.parts[rec.plane];
-  if (!pl || pl.kind !== "plane" || op.parts.some((r) => gearOfPart(scene, r)?.id !== rec.id)) return null;
+  const set = planetaryOfGear(scene, rec.id); // (a gear of a planetary set moves and turns with the whole set, `dec_planetary_gears`)
+  if (!pl || pl.kind !== "plane" || op.parts.some((r) => { const g = gearOfPart(scene, r); return set ? !g || planetaryOfGear(scene, g.id)?.id !== set.id : g?.id !== rec.id; })) return null;
+  const anchor: { at: Vec3; turn?: number } = set ?? rec;
   const n = normalOfPlane(pl);
   const rot = (m: Mat3, v: Vec3): Vec3 => [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] + m[4] * v[1] + m[5] * v[2], m[6] * v[0] + m[7] * v[1] + m[8] * v[2]];
-  let [c, u, nn]: [Vec3, Vec3, Vec3] = [rec.at, pl.u, n];
+  let [c, u, nn]: [Vec3, Vec3, Vec3] = [anchor.at, pl.u, n];
   for (const t of turns) { const m = about(t.axis, t.angle); c = add(pivot, rot(m, sub(c, pivot))); u = rot(m, u); nn = rot(m, nn); }
   c = add(c, translate);
-  if (Math.abs(dot(sub(c, rec.at), n)) > 1e-6 || Math.abs(dot(nn, n) - 1) > 1e-9) return null;
+  if (Math.abs(dot(sub(c, anchor.at), n)) > 1e-6 || Math.abs(dot(nn, n) - 1) > 1e-9) return null;
   const delta = Math.atan2(dot(u, pl.v), dot(u, pl.u));
   const corners = new Set(op.parts.filter((r) => scene.parts[r]?.kind === "corner"));
   const released = scene.relations.filter((r) => r.kind === "fixed" && r.parts.every((q) => corners.has(q)));
-  const turn = (rec.turn ?? 0) + delta;
-  return { type: "batch", commands: [...released.map((r): Command => ({ type: "removeRelation", id: r.id })), { type: "setGear", id: rec.id, spec: rec.spec, at: c, turn: Math.abs(turn) < 1e-12 ? 0 : turn }] };
+  const turn = (anchor.turn ?? 0) + delta;
+  const place = { at: c, turn: Math.abs(turn) < 1e-12 ? 0 : turn };
+  return { type: "batch", commands: [...released.map((r): Command => ({ type: "removeRelation", id: r.id })), set ? { type: "setPlanetary", id: set.id, spec: set.spec, ...place } : { type: "setGear", id: rec.id, spec: rec.spec, ...place }] };
 }
 /** Moving or turning a drawn figure with its plane: `transformFigure`, and the corners it pinned in place let go (one command, so one undo). */
 function figureCommand(scene: Scene, op: Op, turns: { axis: 0 | 1 | 2; angle: number }[], translate: Vec3): Command | null {

@@ -7,9 +7,10 @@ import type { Session } from "../session.ts";
 import { nearCommand } from "../suggest.ts";
 import { actionsFor, measureAction } from "../actions.ts";
 import type { ToolKind } from "../tools.ts";
-import { armTool, typeKey, finish, lineNext, gearTyped, editGearTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix } from "../tools.ts";
+import { armTool, typeKey, finish, lineNext, gearTyped, editGearTool, editPlanetaryTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
 import { gearOfPart } from "../../operation/gearscene.ts";
+import { planetaryOfPart } from "../../operation/planetary.ts";
 import type { OpKind } from "../operations.ts";
 import { startOp, typeOp, autoOp, drawnFigure } from "../operations.ts";
 import { pasteFigure, surfaceOf } from "../paste.ts";
@@ -432,6 +433,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   }
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
   if (id === "tool:worm" || id === "tool:wormwheel") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:worm" ? "worm" : "wormwheel"); // (a worm, and the wheel for one, `in_608`)
+  if (id === "tool:planetary") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "planetary"); // (a planetary gear set, `dec_planetary_gears`)
   if (id === "tool:ring") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "ring"); // (a gear with its teeth pointing in)
   if (id === "tool:rack") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "rack");
   if (id === "tool:clock" || id === "tool:clockring" || id === "tool:clockrack") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:clock" ? "clock" : id === "tool:clockring" ? "clockring" : "clockrack"); // (a cycloidal clock gear, `in_585`)
@@ -449,8 +451,10 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     if (!canHelix(rec.spec)) return { ...closed, session: { ...s.session, message: "a helix can be put on a plain gear (not yet on a rack, a pulley, a sprocket, a clock gear or a worm)" } };
     return { ...closed, tool: editGearTool(rec, "helix"), op: null };
   }
-  if (id === "gear:edit") { // the numbers of the gear that is selected, in the number box (`in_577`)
+  if (id === "gear:edit") { // the numbers of the gear that is selected, in the number box (`in_577`); a gear of a planetary set opens the whole set (`dec_planetary_gears`)
     const sc = sceneOf(s.session);
+    const set = selectionOf(s.session).map((r) => planetaryOfPart(sc, r)).find((p) => !!p);
+    if (set) return { ...closed, tool: editPlanetaryTool(set), op: null };
     const rec = selectionOf(s.session).map((r) => gearOfPart(sc, r)).find((g) => !!g);
     return rec ? { ...closed, tool: editGearTool(rec), op: null } : { ...closed, session: { ...s.session, message: "select a gear first" } };
   }

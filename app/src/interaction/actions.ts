@@ -4,6 +4,7 @@
 // Geometry is read in 3D from the scene, so no plane or sketch is involved in measuring.
 import { arcRadiusCommand } from "./faceedit.ts";
 import { gearOfPart } from "../operation/gearscene.ts";
+import { planetaryOfGear } from "../operation/planetary.ts";
 import { sketchOfEdge } from "../operation/edgesource.ts";
 import { whyNotDeleteSurface, deleteSurface } from "../operation/trim.ts";
 import type { Ref } from "../shared/ref.ts";
@@ -153,12 +154,14 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
   }
 
   // a gear that keeps its numbers goes as a whole, with its record (`gearscene.ts`)
-  const gearIds = [...new Set(sel.flatMap((r) => { const g = gearOfPart(scene, r); return g ? [g.id] : []; }))];
-  if (gearIds.length) {
+  const gears = sel.flatMap((r) => { const g = gearOfPart(scene, r); return g ? [g] : []; });
+  const sets = [...new Set(gears.flatMap((g) => { const p = planetaryOfGear(scene, g.id); return p ? [p.id] : []; }))]; // (a gear of a planetary set takes the whole set with it, `dec_planetary_gears`)
+  const gearIds = [...new Set(gears.filter((g) => !planetaryOfGear(scene, g.id)).map((g) => g.id))];
+  if (gearIds.length || sets.length) {
     out.push({
       id: "delete", label: "Delete", group: "operation", dimensional: false, unit: null, parts: [...sel],
       enabled: true, why: null, measure: () => null, spot: () => null,
-      run: (): Command => ({ type: "batch", commands: gearIds.map((id): Command => ({ type: "deleteGear", id })) }),
+      run: (): Command => ({ type: "batch", commands: [...sets.map((id): Command => ({ type: "deletePlanetary", id })), ...gearIds.map((id): Command => ({ type: "deleteGear", id }))] }),
     });
   }
   // delete: drawn parts (a closed figure goes with its corners, so nothing is left behind), or the whole body (one step, so it undoes)

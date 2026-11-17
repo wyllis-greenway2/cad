@@ -3,6 +3,12 @@ import type { GearKey } from "./tools.ts";
 import { KEYS, standardKey } from "../operation/bore.ts";
 
 export const GEAR_HINTS: Record<GearKey, string> = {
+  sun: "Teeth on the sun, the middle gear. Type the planet's teeth or a ratio and the rest follows.",
+  planet: "Teeth on each planet. The ring gets sun + 2 planets teeth. Leave empty to let a ratio choose.",
+  planets: "How many planets. They stand evenly round the sun; (sun + ring) divided by this must be a whole number, or they could not all mesh.",
+  pin: "Diameter of the pin each planet turns on, mm (the planet's bore is this plus the gap all round).",
+  pingap: "Room between a pin and its planet's bore, mm, all round. 0.2 is a loose fit; raise it to print in place.",
+  carrier: "Thickness of the carrier plate (mm): a plate with a pin at each planet, behind the gears. 0 (or empty) makes no carrier.",
   teeth: "How many teeth. A partner needs the same module and pressure angle; its teeth divided by yours is the speed ratio.",
   module: "Tooth size in mm: pitch diameter divided by teeth. Meshing gears must have the same module. Common: 0.5, 0.8, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5.",
   pressure: "Pressure angle in degrees, the slope of the tooth side. 20 is the modern standard (older gears use 14.5). Meshing gears must share it.",
@@ -34,10 +40,21 @@ export const GEAR_HINTS: Record<GearKey, string> = {
   starts: "How many threads the worm has (1 to 4). The wheel turns this many teeth for each turn of the worm, so more starts is a faster, steeper drive.",
 };
 
+/** What the numbers of a planetary set mean where it differs from a gear's (`dec_planetary_gears`). */
+export const PLANETARY_HINTS: Partial<Record<GearKey, string>> = {
+  ratio: "Speed ratio with the ring held, sun in, carrier out (the usual reduction). Type it and the teeth are chosen to be nearest; type the teeth and it is shown. Empty: shown as the teeth give it.",
+  module: "Tooth size in mm for the whole set: every gear has the same module.",
+  width: "How thick every gear is along its axis, in mm.",
+  helix: "Helix angle of the sun in degrees (0: straight teeth). The planets take the opposite hand and the ring the planets' hand, so they all mesh; a minus sign is a left hand sun.",
+  bore: "Hole through the sun for its shaft, in mm (0 for none).",
+  rim: "Thickness of the ring's wall round its teeth, in modules.",
+  backlash: "Play between meshed teeth in mm, for every mesh.",
+  clearance: "Gap between a tooth tip and the bottom of its partner's gap, in modules. 0.25 is standard.",
+};
 /** The name the box shows for the kind of gear being made. */
-export function gearTitle(g: { internal?: boolean; rack?: boolean; pulley?: string; sprocket?: true; iso?: true; cycloidal?: true; mesh?: unknown }): string {
+export function gearTitle(g: { planetary?: true; internal?: boolean; rack?: boolean; pulley?: string; sprocket?: true; iso?: true; cycloidal?: true; mesh?: unknown }): string {
   const what = g.pulley ? `${g.pulley === "2GT" ? "GT2" : g.pulley === "3GT" ? "GT3" : g.pulley === "HTD5M" ? "HTD 5M" : "HTD 8M"} pulley` : g.sprocket ? (g.iso ? "ISO sprocket" : "Sprocket") : g.cycloidal ? (g.internal ? "Clock ring" : g.rack ? "Clock rack" : "Clock gear") : g.rack ? "Rack" : g.internal ? "Ring gear" : "Gear";
-  return g.mesh ? `${what} (meshing)` : what;
+  return g.planetary ? "Planetary gear set" : g.mesh ? `${what} (meshing)` : what;
 }
 
 /** A line for the bore fields that says what the standard gives for the bore as it is now (`in_690`); null for the other fields or a bore the DIN 6885 table does not cover (6 to 38 mm). */

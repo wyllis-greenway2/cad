@@ -26,6 +26,7 @@ import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
 import { axisAcross } from "./revolve.ts";
 import { gearOfPart } from "../operation/gearscene.ts";
+import { planetaryOfGear } from "../operation/planetary.ts";
 import { canHelix, finish as finishTool } from "./tools.ts";
 import { hasBody } from "../operation/gear.ts";
 import { hardMotion, hardNote, limitedOp, hardCollision, hardOverlaps, hardNames } from "./hard.ts";
@@ -699,6 +700,7 @@ function gearChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
   const at: Vec3 = [rec.at[0] + pl.v[0] * r, rec.at[1] + pl.v[1] * r, rec.at[2] + pl.v[2] * r];
   const plain = canHelix(rec.spec);
   const worm = !!rec.spec.worm || !!rec.spec.wheel;
+  if (planetaryOfGear(sc, rec.id)) return { at, items: [{ id: "gear:edit", label: "Edit planetary set", icon: "planetary", enabled: true, why: null }] }; // (a gear of a planetary set is edited with the whole set, `dec_planetary_gears`)
   return { at, items: [
     { id: "gear:edit", label: "Edit gear", icon: "gear", enabled: true, why: null },
     { id: "gear:helix", label: "Helix", icon: "helical", enabled: plain, why: plain ? null : "a helix goes on a plain gear (not yet a rack, pulley, sprocket, clock gear or worm)" },
