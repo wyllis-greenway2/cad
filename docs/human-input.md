@@ -3124,3 +3124,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_695 — 2026-11-17 — directive
 > Okay so what is a simple subset of things we can build first? we would need really good data for it. Also I was thinking it would be smart to build a fastener set that has a matching receiver set. So that would be a pilot hole size for threads or the countersink size and amount for heads, the oversize size for drilling for slip movement on the shoulder or shank part, etc. Is this standardized? and how much more complicated does this make it? I believe this also now depends on the material type? For example the pilot hole for tapping or threading depends on the material it is being drilled into?
 (asks for a simple first subset with good data; proposes a fastener set with a matching receiver set (pilot hole for threads, countersink size and depth for heads, oversize clearance for the shank); asks whether this is standardized, how much more complex it makes the work, and whether it depends on the material, for example the pilot hole for tapping)
+
+## in_696 — 2026-11-17 — approval
+> Yes, draft that entry and find sources
+(asks for the first fastener and receiver subset to be drafted as one provisional entry, and for sources of its data to be found)
