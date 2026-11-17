@@ -3404,3 +3404,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_764 — 2026-11-17 — directive
 > yes do the joined and pushed-in extrudes next
 (approves doing the joined and pushed-in extrudes next: a step that adds to or cuts into the body works on the bodies it touches and not on the whole shape)
+
+## in_765 — 2026-11-17 — approval
+> Yes, build the standard length lists
+(asks for the standard length lists of the screws to be built, in place of a free length number)
+
+## in_766 — 2026-11-17 — approval
+> Yes, build picked-point placement
+(asks for the fastener hole to be placed at a picked point, a corner or the centre of a circle, instead of only the middle of the face plus a typed offset)
