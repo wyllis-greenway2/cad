@@ -13,16 +13,20 @@ import { drawChain, drawCircle } from "./build.ts";
 
 export type FastenerSize = "M3" | "M4" | "M5" | "M6" | "M8";
 export const FASTENER_SIZES: readonly FastenerSize[] = ["M3", "M4", "M5", "M6", "M8"];
-export type FastenerFamily = "nut" | "countersunk";
+export type FastenerFamily = "nut" | "countersunk" | "washer" | "socketHead";
 export const FASTENER_FAMILIES: readonly { id: FastenerFamily; label: string; standard: string }[] = [
   { id: "nut", label: "Hex nut", standard: "ISO 4032" },
   { id: "countersunk", label: "Countersunk socket screw", standard: "ISO 10642 (1997 figures)" },
+  { id: "socketHead", label: "Socket head cap screw", standard: "ISO 4762" },
+  { id: "washer", label: "Flat washer", standard: "ISO 7089" },
 ];
 /** Where the numbers come from, shown to the person and kept with the entry. */
 export const FASTENER_SOURCES = {
   clearance: "ISO 273 clearance holes: Albany County Fasteners chart and Optimas tapping sizes (the two agree)",
   nut: "ISO 4032 hexagon nut, style 1: H&B metric hex nut sheet and the omdl ISO 4032 table (the two agree)",
   countersunk: "ISO 10642 countersunk head screw, the 1997 edition's figures: Westfield Fasteners sheet and the 1997 ISO 10642 sample (the two agree); the 2019 edition was not read",
+  washer: "ISO 7089 plain washer, normal series: Westfield Fasteners sheet and the omdl ISO 7089 table (the two agree)",
+  socketHead: "ISO 4762 socket head cap screw: CDE Fasteners sheet and the omdl ISO 4762 table (the two agree on the head diameter and the socket depth); the Misumi table gives smaller head diameters (5.50 for M3) and other socket depths, which are not used",
   tapDrill: "Optimas tapping sizes (coarse thread): the drill is the nominal diameter less the pitch",
 } as const;
 
@@ -47,6 +51,27 @@ const COUNTERSUNK: Record<FastenerSize, CountersunkDims> = {
   M6: { pitch: 1, head: { theoretical: 13.44, min: 11.34 }, shank: { max: 6, min: 5.82 }, headHeight: 3.72, socket: { acrossFlats: 4, acrossFlatsMin: 4.02, depthMin: 2.2 }, threadLength: 24 },
   M8: { pitch: 1.25, head: { theoretical: 17.92, min: 15.24 }, shank: { max: 8, min: 7.78 }, headHeight: 4.96, socket: { acrossFlats: 5, acrossFlatsMin: 5.02, depthMin: 3 }, threadLength: 28 },
 };
+/** Flat washer, ISO 7089, normal series (mm): the inside diameter (nominal and the largest), the outside diameter (nominal and the smallest) and the thickness (nominal, with its limits). */
+export interface WasherDims { inside: { nom: number; max: number }; outside: { nom: number; min: number }; thickness: { nom: number; max: number; min: number } }
+const WASHERS: Record<FastenerSize, WasherDims> = {
+  M3: { inside: { nom: 3.2, max: 3.38 }, outside: { nom: 7, min: 6.64 }, thickness: { nom: 0.5, max: 0.55, min: 0.45 } },
+  M4: { inside: { nom: 4.3, max: 4.48 }, outside: { nom: 9, min: 8.64 }, thickness: { nom: 0.8, max: 0.9, min: 0.7 } },
+  M5: { inside: { nom: 5.3, max: 5.48 }, outside: { nom: 10, min: 9.64 }, thickness: { nom: 1, max: 1.1, min: 0.9 } },
+  M6: { inside: { nom: 6.4, max: 6.62 }, outside: { nom: 12, min: 11.57 }, thickness: { nom: 1.6, max: 1.8, min: 1.4 } },
+  M8: { inside: { nom: 8.4, max: 8.62 }, outside: { nom: 16, min: 15.57 }, thickness: { nom: 1.6, max: 1.8, min: 1.4 } },
+};
+/** Hexagon socket head cap screw, ISO 4762 (mm): body diameter (max, min), head diameter (max, min) and height (max, min), the socket's width across flats (nominal) and its depth (the key engagement, smallest). */
+export interface SocketHeadDims {
+  pitch: number; shank: { max: number; min: number }; head: { max: number; min: number }; headHeight: { max: number; min: number };
+  socket: { acrossFlats: number; depthMin: number };
+}
+const SOCKET_HEAD: Record<FastenerSize, SocketHeadDims> = {
+  M3: { pitch: 0.5, shank: { max: 3, min: 2.86 }, head: { max: 5.68, min: 5.32 }, headHeight: { max: 3, min: 2.86 }, socket: { acrossFlats: 2.5, depthMin: 1.3 } },
+  M4: { pitch: 0.7, shank: { max: 4, min: 3.82 }, head: { max: 7.22, min: 6.78 }, headHeight: { max: 4, min: 3.82 }, socket: { acrossFlats: 3, depthMin: 2 } },
+  M5: { pitch: 0.8, shank: { max: 5, min: 4.82 }, head: { max: 8.72, min: 8.28 }, headHeight: { max: 5, min: 4.82 }, socket: { acrossFlats: 4, depthMin: 2.5 } },
+  M6: { pitch: 1, shank: { max: 6, min: 5.82 }, head: { max: 10.22, min: 9.78 }, headHeight: { max: 6, min: 5.7 }, socket: { acrossFlats: 5, depthMin: 3 } },
+  M8: { pitch: 1.25, shank: { max: 8, min: 7.78 }, head: { max: 13.27, min: 12.73 }, headHeight: { max: 8, min: 7.64 }, socket: { acrossFlats: 6, depthMin: 4 } },
+};
 /** Clearance holes, ISO 273 (mm): the fine, medium and coarse series (tolerance classes H12, H13 and H14). */
 export type ClearanceFit = "fine" | "medium" | "coarse";
 export const CLEARANCE_FIT_LIST: readonly ClearanceFit[] = ["fine", "medium", "coarse"];
@@ -63,6 +88,8 @@ export const isFastenerSize = (s: string): s is FastenerSize => (FASTENER_SIZES 
 const nominalDiameter = (size: FastenerSize): number => Number(size.slice(1));
 export const nutDims = (size: FastenerSize): NutDims => NUTS[size];
 export const countersunkDims = (size: FastenerSize): CountersunkDims => COUNTERSUNK[size];
+export const washerDims = (size: FastenerSize): WasherDims => WASHERS[size];
+export const socketHeadDims = (size: FastenerSize): SocketHeadDims => SOCKET_HEAD[size];
 
 // ---- the receivers: the hole a fastener goes into ----
 /** The clearance hole for the shank (mm), in the fit chosen. */
@@ -73,11 +100,16 @@ export const tapDrill = (size: FastenerSize): number => round3(nominalDiameter(s
 export const countersink = (size: FastenerSize): { diameter: number; angle: number; depth: number } => ({ diameter: COUNTERSUNK[size].head.theoretical, angle: 90, depth: COUNTERSUNK[size].headHeight });
 /** The pocket for a hex nut, at the nut's own size (the printer's offset is added in the manufacturing version, `dec_parts_tolerance`): across flats, across corners and depth. */
 export const nutTrap = (size: FastenerSize): { acrossFlats: number; acrossCorners: number; depth: number } => ({ acrossFlats: NUTS[size].acrossFlats.max, acrossCorners: round3(NUTS[size].acrossFlats.max / Math.cos(Math.PI / 6)), depth: NUTS[size].thickness.max });
+/** The counterbore for a socket head cap screw: the head's width plus `COUNTERBORE_EXTRA`, as deep as the head is high. **A rule of ours, not a standard's** (no source was found for counterbore sizes): the extra width is one number to change. */
+export const COUNTERBORE_EXTRA = 0.5;
+export const counterbore = (size: FastenerSize): { diameter: number; depth: number } => ({ diameter: round3(SOCKET_HEAD[size].head.max + COUNTERBORE_EXTRA), depth: SOCKET_HEAD[size].headHeight.max });
 /** What the receivers of a size are, in words: the numbers a person drills or draws. */
 export function receiversText(size: FastenerSize, family: FastenerFamily): string {
   const c = clearanceHole(size, "fine"), m = clearanceHole(size, "medium"), l = clearanceHole(size, "coarse");
   const base = `clearance hole ${c} / ${m} / ${l} mm (fine / medium / coarse), tap drill ${tapDrill(size)} mm`;
   if (family === "countersunk") { const k = countersink(size); return `${base}, countersink ${k.diameter} mm across at ${k.angle}°, ${k.depth} mm deep`; }
+  if (family === "socketHead") { const c = counterbore(size); return `${base}, counterbore ${c.diameter} mm across and ${c.depth} mm deep (our rule: the head plus ${COUNTERBORE_EXTRA} mm, no standard)`; }
+  if (family === "washer") return `${base}; a washer has no receiver of its own`;
   const t = nutTrap(size);
   return `${base}, nut pocket ${t.acrossFlats} mm across flats (${t.acrossCorners} across corners), ${t.depth} mm deep`;
 }
@@ -139,10 +171,11 @@ export function makeCountersunk(size: string, length: number): Result<PartSteps>
 }
 
 // ---- the receivers cut into a body ----
-export type ReceiverKind = "clearance" | "countersunk" | "tapped" | "nutPocket";
+export type ReceiverKind = "clearance" | "countersunk" | "counterbore" | "tapped" | "nutPocket";
 export const RECEIVER_KINDS: readonly { id: ReceiverKind; label: string }[] = [
   { id: "clearance", label: "Clearance hole" },
   { id: "countersunk", label: "Countersunk clearance hole (for a countersunk screw)" },
+  { id: "counterbore", label: "Counterbored clearance hole (for a socket head screw)" },
   { id: "tapped", label: "Hole to tap (the tap drill)" },
   { id: "nutPocket", label: "Nut pocket with its clearance hole" },
 ];
@@ -158,6 +191,10 @@ export function receiverProfile(kind: ReceiverKind, size: FastenerSize, fit: Cle
     const big = countersink(size).diameter / 2;
     return [[0, BIT], [big, BIT], [big, 0], [r, -(big - r)], [r, -depth], [0, -depth]];
   }
+  if (kind === "counterbore") {
+    const c = counterbore(size);
+    return [[0, BIT], [c.diameter / 2, BIT], [c.diameter / 2, -c.depth], [r, -c.depth], [r, -depth], [0, -depth]];
+  }
   return [[0, BIT], [r, BIT], [r, -depth], [0, -depth]];
 }
 /** Why this receiver cannot be cut with these numbers, or null. A countersink has to be shallower than the hole. */
@@ -166,6 +203,7 @@ export function receiverProblem(kind: ReceiverKind, size: FastenerSize, fit: Cle
   const hole = kind === "tapped" ? tapDrill(size) : clearanceHole(size, fit);
   const cone = kind === "countersunk" ? countersink(size).diameter / 2 - hole / 2 : 0;
   if (cone >= depth) return `the countersink goes ${round3(cone)} mm deep: the hole must be deeper than that`;
+  if (kind === "counterbore" && depth <= counterbore(size).depth) return `the counterbore is ${counterbore(size).depth} mm deep: the hole must be deeper than that`;
   if (kind === "nutPocket" && depth <= nutTrap(size).depth) return `the nut pocket is ${nutTrap(size).depth} mm deep: the hole through must be deeper than that`;
   return null;
 }
@@ -192,4 +230,47 @@ export function receiverSteps(kind: ReceiverKind, size: FastenerSize, fit: Clear
     steps.push((s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "extrude", parts: hex, params: { depth: -trap.depth, mode: "cut", ...figureParams([{ outer: hex, holes: [] }]) } } }));
   }
   return steps;
+}
+
+// ---- the washer and the socket head cap screw ----
+/** A flat washer at the origin on the ground plane, standing up from it: a ring, extruded its thickness. */
+function washerSteps(size: FastenerSize): PartSteps {
+  const d = WASHERS[size];
+  let outer: Ref | null = null;
+  let inner: Ref | null = null;
+  return [
+    (s) => { const r = drawCircle(s, ground, [0, 0, 0], d.outside.nom / 2); outer = r.circle; return r.command; },
+    (s) => { const r = drawCircle(s, ground, [0, 0, 0], d.inside.nom / 2); inner = r.circle; return r.command; },
+    (s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "extrude", parts: [outer!], params: { depth: d.thickness.nom, ...figureParams([{ outer: [outer!], holes: [[inner!]] }]) } } }),
+  ];
+}
+export const makeWasher = (size: string): Result<PartSteps> => (isFastenerSize(size) ? ok(washerSteps(size)) : err(`${size} is not a size this family has`));
+/** The side view of a socket head cap screw as a closed outline (x out from the axis, y along it, the top of the head at 0): the cylindrical head, the shank, the axis. The length is counted from under the head. */
+export function socketHeadProfile(size: FastenerSize, length: number): [number, number][] {
+  const d = SOCKET_HEAD[size];
+  const [R, r, k] = [d.head.max / 2, d.shank.max / 2, d.headHeight.max];
+  return [[0, 0], [R, 0], [R, -k], [r, -k], [r, -k - length], [0, -k - length]];
+}
+/** Why a socket head screw of this length cannot be made, or null: the length (under the head) must be longer than the head is high. */
+export function socketLengthProblem(size: FastenerSize, length: number): string | null {
+  if (!Number.isFinite(length)) return "the length is not a number";
+  return length > 0.5 ? null : "the length, counted under the head, must be more than 0.5 mm";
+}
+/** A socket head cap screw at the origin, the top of its head on the ground plane and the shank going down (-Z): the side view turned a full turn about Z, then the hexagon socket cut down from the top. */
+function socketHeadSteps(size: FastenerSize, length: number): PartSteps {
+  const d = SOCKET_HEAD[size];
+  const side: Ref = worldRef("XZ");
+  let outline: Ref[] = [];
+  let hex: Ref[] = [];
+  return [
+    (s) => { const r = drawChain(s, side, socketHeadProfile(size, length).map(([x, z]) => [x, 0, z] as [number, number, number]), true); outline = r.lines; return r.command; },
+    (s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "revolve", parts: outline, params: { ...figureParams([{ outer: outline, holes: [] }]), angle: 360, advance: 0, ax: 0, ay: 0, az: 0, dx: 0, dy: 0, dz: 1 } } }),
+    (s) => { const r = drawChain(s, ground, hexagon(d.socket.acrossFlats).map(([x, y]) => [x, y, 0] as [number, number, number]), true); hex = r.lines; return r.command; },
+    (s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "extrude", parts: hex, params: { depth: -d.socket.depthMin, mode: "cut", ...figureParams([{ outer: hex, holes: [] }]) } } }),
+  ];
+}
+export function makeSocketHead(size: string, length: number): Result<PartSteps> {
+  if (!isFastenerSize(size)) return err(`${size} is not a size this family has`);
+  const bad = socketLengthProblem(size, length);
+  return bad ? err(bad) : ok(socketHeadSteps(size, length));
 }

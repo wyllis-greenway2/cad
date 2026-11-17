@@ -3140,3 +3140,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_699 — 2026-11-17 — approval
 > Yes, build the receivers into bodies
 (asks for the receivers of the fastener pilot (the clearance hole, the countersink, the hole to tap, the nut pocket) to be cut into bodies)
+
+## in_700 — 2026-11-17 — approval
+> Yes, build the washer and socket head screw
+(asks for the flat washer (ISO 7089) and the socket head cap screw (ISO 4762) families to be built)

@@ -180,3 +180,67 @@ test("the dialog lists the receivers, sizes and clearances, and takes the cleara
   assert.ok(d.fields[2]!.choices!.some((c) => c.label === "medium (3.4 mm)"));
   assert.deepEqual(receiverDialog({ ...receiverStart(), kind: "tapped" }).fields.map((f) => f.id), ["kind", "size", "depth", "dx", "dy"]);
 });
+
+// ---- the washer and the socket head cap screw ----
+import { washerDims, socketHeadDims, socketHeadProfile, socketLengthProblem, counterbore, COUNTERBORE_EXTRA } from "../src/operation/fasteners.ts";
+
+test("the washer's numbers are those of ISO 7089 as the two sources give them", () => {
+  assert.deepEqual([washerDims("M3").inside.nom, washerDims("M3").outside.nom, washerDims("M3").thickness.nom], [3.2, 7, 0.5]);
+  assert.deepEqual([washerDims("M8").inside.nom, washerDims("M8").outside.nom, washerDims("M8").thickness.nom, washerDims("M8").outside.min], [8.4, 16, 1.6, 15.57]);
+  for (const s of FASTENER_SIZES) {
+    const w = washerDims(s);
+    assert.equal(w.inside.nom, clearanceHole(s, "fine"), "the washer's hole is the fine clearance hole");
+    near(w.thickness.nom, (w.thickness.max + w.thickness.min) / 2, 1e-9);
+  }
+});
+test("the socket head screw's numbers are those of ISO 4762 as CDE and omdl give them", () => {
+  const m4 = socketHeadDims("M4");
+  assert.deepEqual([m4.head.max, m4.head.min, m4.headHeight.max, m4.socket.acrossFlats, m4.socket.depthMin], [7.22, 6.78, 4, 3, 2]);
+  assert.deepEqual(FASTENER_SIZES.map((s) => socketHeadDims(s).socket.depthMin), [1.3, 2, 2.5, 3, 4]);
+  assert.deepEqual(FASTENER_SIZES.map((s) => socketHeadDims(s).head.max), [5.68, 7.22, 8.72, 10.22, 13.27]);
+  for (const s of FASTENER_SIZES) assert.equal(socketHeadDims(s).headHeight.max, Number(s.slice(1)), "the head is as high as the screw is wide");
+});
+test("a washer made by the kernel is the ring: the outside disc less the hole, times the thickness", () => {
+  for (const size of FASTENER_SIZES) {
+    const r = addPart(createSession(kernel), { family: "washer", size, length: "" });
+    assert.ok(r.ok, r.ok ? "" : r.error);
+    const w = washerDims(size);
+    near(volumes(r.value)[0]!, Math.PI * ((w.outside.nom / 2) ** 2 - (w.inside.nom / 2) ** 2) * w.thickness.nom);
+    assert.equal(volumes(r.value).length, 1);
+  }
+});
+test("a socket head screw made by the kernel is the head and the shank less the hexagon socket, in one step", () => {
+  for (const [size, length] of [["M3", 10], ["M5", 16], ["M8", 30]] as const) {
+    const r = addPart(createSession(kernel), { family: "socketHead", size, length: String(length) });
+    assert.ok(r.ok, r.ok ? "" : r.error);
+    const d = socketHeadDims(size);
+    const solid = Math.PI * (d.head.max / 2) ** 2 * d.headHeight.max + Math.PI * (d.shank.max / 2) ** 2 * length;
+    near(volumes(r.value)[0]!, solid - (Math.sqrt(3) / 2) * d.socket.acrossFlats ** 2 * d.socket.depthMin);
+    assert.equal(r.value.history.scene.steps.length, 2);
+  }
+  assert.deepEqual([socketHeadProfile("M3", 10)[0], socketHeadProfile("M3", 10)[5]], [[0, 0], [0, -13]]);
+  assert.equal(socketLengthProblem("M3", 0.2)?.includes("0.5"), true);
+  assert.ok(!addPartSteps({ family: "socketHead", size: "M3", length: "0" }).ok);
+});
+test("a counterbore for a socket head screw is the head's width plus the rule's extra, as deep as the head is high", () => {
+  assert.equal(COUNTERBORE_EXTRA, 0.5);
+  assert.deepEqual([counterbore("M4").diameter, counterbore("M4").depth], [7.72, 4]);
+  const r = cutReceiver(block().s, { ...base, kind: "counterbore", size: "M4", fit: "medium" });
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  near(volumes(r.value)[0]!, V - cyl(7.72, 4) - cyl(4.5, 4));
+  assert.ok(receiverProblem("counterbore", "M8", "medium", 6)?.includes("deeper"));
+  assert.ok(receiversText("M4", "socketHead").includes("counterbore 7.72 mm across and 4 mm deep (our rule"));
+});
+test("the dialog offers four families, asks the length for both screws only, and shows each family's own source", () => {
+  const f = (family: string) => addPartDialog({ family, size: "M5", length: "12" });
+  assert.deepEqual(f("nut").fields[0]!.choices!.map((c) => c.value), ["nut", "countersunk", "socketHead", "washer"]);
+  assert.deepEqual(f("socketHead").fields.map((x) => x.id), ["family", "size", "length"]);
+  assert.deepEqual(f("washer").fields.map((x) => x.id), ["family", "size"]);
+  assert.ok(f("socketHead").fields[0]!.note?.includes("CDE Fasteners") && f("washer").fields[0]!.note?.includes("Westfield"));
+  assert.ok(f("socketHead").fields[1]!.note?.includes("counterbore"));
+  assert.ok(receiverDialog({ ...receiverStart(), kind: "counterbore" }).fields[1]!.note?.includes("counterbore"));
+});
+test("a message names the family as the person chose it", async () => {
+  const { familyName } = await import("../src/interaction/addpart.ts");
+  assert.deepEqual(["nut", "countersunk", "socketHead", "washer"].map(familyName), ["hex nut", "countersunk socket screw", "socket head cap screw", "flat washer"]);
+});

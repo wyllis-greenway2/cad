@@ -11,12 +11,14 @@ import { ok, err } from "../shared/result.ts";
 import { typedLength } from "../shared/units.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { dot } from "../math/vec.ts";
-import { FASTENER_FAMILIES, FASTENER_SIZES, FASTENER_SOURCES, CLEARANCE_FIT_LIST as CLEARANCE_FITS, RECEIVER_KINDS, isFastenerSize, receiversText, makeNut, makeCountersunk, countersunkDims, clearanceHole, nutTrap, receiverProblem, receiverSteps } from "../operation/fasteners.ts";
+import { FASTENER_FAMILIES, FASTENER_SIZES, FASTENER_SOURCES, CLEARANCE_FIT_LIST as CLEARANCE_FITS, RECEIVER_KINDS, isFastenerSize, receiversText, makeNut, makeCountersunk, makeWasher, makeSocketHead, countersunkDims, clearanceHole, nutTrap, receiverProblem, receiverSteps } from "../operation/fasteners.ts";
 import type { FastenerFamily, PartSteps, ReceiverKind, ClearanceFit, FaceSpot } from "../operation/fasteners.ts";
 
 export interface AddPartValues { family: string; size: string; length: string }
+/** The family's name in the words of a message: "hex nut", "flat washer". */
+export const familyName = (id: string): string => (FASTENER_FAMILIES.find((f) => f.id === id)?.label ?? "part").toLowerCase();
 export const addPartStart = (): AddPartValues => ({ family: "nut", size: "M3", length: "10" });
-const familyOf = (s: string): FastenerFamily => (s === "countersunk" ? "countersunk" : "nut");
+const familyOf = (s: string): FastenerFamily => (s === "countersunk" || s === "socketHead" || s === "washer" ? s : "nut");
 
 export function addPartDialog(v: AddPartValues): Dialog {
   const family = familyOf(v.family);
@@ -25,9 +27,9 @@ export function addPartDialog(v: AddPartValues): Dialog {
     title: "Add part",
     ok: "Add",
     fields: [
-      { id: "family", label: "Family", type: "choice", value: family, choices: FASTENER_FAMILIES.map((f) => ({ value: f.id, label: `${f.label} (${f.standard})` })), note: `numbers from: ${FASTENER_SOURCES[family === "nut" ? "nut" : "countersunk"]}; placed at the origin, drawn at its nominal size` },
+      { id: "family", label: "Family", type: "choice", value: family, choices: FASTENER_FAMILIES.map((f) => ({ value: f.id, label: `${f.label} (${f.standard})` })), note: `numbers from: ${FASTENER_SOURCES[family]}; placed at the origin, drawn at its nominal size` },
       { id: "size", label: "Size (coarse thread)", type: "choice", value: size, choices: FASTENER_SIZES.map((s) => ({ value: s, label: s })), note: `matches: ${receiversText(size, family)}` },
-      ...(family === "countersunk" ? [{ id: "length", label: "Length from the top of the head (mm)", type: "text" as const, value: v.length, note: `the standard's length list was not read: any length over ${Math.round((countersunkDims(size).headHeight + 0.5) * 1000) / 1000} mm; the part is made at nominal size` }] : []),
+      ...(family === "countersunk" || family === "socketHead" ? [{ id: "length", label: family === "socketHead" ? "Length under the head (mm)" : "Length from the top of the head (mm)", type: "text" as const, value: v.length, note: family === "socketHead" ? "the standard's length list was not read: any length over 0.5 mm; the part is made at the largest head and body size" : `the standard's length list was not read: any length over ${Math.round((countersunkDims(size).headHeight + 0.5) * 1000) / 1000} mm; the part is made at nominal size` }] : []),
     ],
   };
 }
@@ -35,9 +37,12 @@ export function addPartDialog(v: AddPartValues): Dialog {
 /** The steps for the answers, or why not. */
 export function addPartSteps(v: AddPartValues): Result<PartSteps> {
   if (!isFastenerSize(v.size)) return err(`${v.size} is not a size this family has`);
-  if (familyOf(v.family) === "nut") return makeNut(v.size);
+  const family = familyOf(v.family);
+  if (family === "nut") return makeNut(v.size);
+  if (family === "washer") return makeWasher(v.size);
   const length = typedLength(v.length);
-  return length === null ? err("type the length as a number") : makeCountersunk(v.size, length);
+  if (length === null) return err("type the length as a number");
+  return family === "socketHead" ? makeSocketHead(v.size, length) : makeCountersunk(v.size, length);
 }
 
 /**
@@ -97,7 +102,7 @@ export function receiverDialog(v: ReceiverValues): Dialog {
   const kind = kindOf(v.kind);
   const size = isFastenerSize(v.size) ? v.size : "M3";
   const fit = fitOf(v.fit);
-  const family = kind === "countersunk" ? "countersunk" : "nut";
+  const family: FastenerFamily = kind === "countersunk" ? "countersunk" : kind === "counterbore" ? "socketHead" : "nut";
   return {
     title: "Fastener hole",
     ok: "Cut",
