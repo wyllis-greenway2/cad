@@ -3,7 +3,7 @@ id: dec_per_body_checks
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_701, in_726, in_729, in_737
+human_input: in_701, in_726, in_729, in_760
 date: 2026-11-17
 depends_on:
   - dec_gear_speed: the measured cost this removes (each gear added to a model cost more than the one before, 0.8 s to 3.6 s for six, though its own extrude is 0.4 s); a change to those numbers changes whether this is worth its risk
@@ -30,7 +30,7 @@ depends_on:
 
 Six gears, one after another: **13.8 s to 9.2 s** in all. The last gear's step: fingerprints 265 to 56 ms, the kernel's naming of the final shape 340 to under 100 ms, the fuse gone. The cost of each added gear (ten gears): 1.5 s for the second to 2.7 s for the tenth, a rise of about 0.13 s a gear where it was 0.55 s a gear (0.9 to 3.6 s over six). What still rises is mostly outside the kernel (the page's scene is derived from every part again at each edit, `withDerived`, which grows with the 700 or so parts a gear sketch has) and the work a new body is owed.
 
-7. **Naming the faces and edges is per body** (`in_737`; `facenames.mjs`, `infoOf`, `surfacesOf`, `nameEdges`): the faces of each solid, what each face is, and the names of the solid's edges for the names its faces were given, are kept by the solid (its identity, and only for the same solid), so a step that adds or changes another body no longer looks through the faces and edges of every body. An edge lies between two faces of one body, so each body's edges are named from its own faces and the lists are put together in the order of the bodies; the answer is the one the face by face way gave (`test/perbody.test.ts`, `test/prismkept.test.ts`: the names of faces and edges are the same kept and worked out from nothing). Editing the first of 16 gears: 2.8 s to 1.9 s; the last: 1.83 s to 1.59 s.
+7. **Naming the faces and edges is per body** (`in_760`; `facenames.mjs`, `infoOf`, `surfacesOf`, `nameEdges`): the faces of each solid, what each face is, and the names of the solid's edges for the names its faces were given, are kept by the solid (its identity, and only for the same solid), so a step that adds or changes another body no longer looks through the faces and edges of every body. An edge lies between two faces of one body, so each body's edges are named from its own faces and the lists are put together in the order of the bodies; the answer is the one the face by face way gave (`test/perbody.test.ts`, `test/prismkept.test.ts`: the names of faces and edges are the same kept and worked out from nothing). Editing the first of 16 gears: 2.8 s to 1.9 s; the last: 1.83 s to 1.59 s.
 
 **Measured (`in_729`, Node, 30-tooth gears):** an edit to the first gear: 8 gears **4.0 s to 1.5 s**, 16 gears **10.5 s to 3.3 s** (the fingerprints 826 to 89 ms, the checks and the builds of the later bodies gone). Editing the last of 16 is 2.0 s, of which about 0.65 s is the changed body's own work (describe 0.3, self-crossing 0.2, validity 0.1, prism 0.07) and the rest grows with the model, in proportion: naming the faces and edges (0.3), the fingerprints (0.07), the page's parts (0.25). `test/prismkept.test.ts` (3 tests: an early edit builds one body and finds three kept; the kept answer's volumes, face names and edge names are the worked-out answer's; a valid solid is found so again).
 
