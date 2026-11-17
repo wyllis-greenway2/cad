@@ -18,6 +18,7 @@ import { diskFaceRef } from "../../operation/loops.ts";
 import { lineHint, arcEndHint, hintRelations, circleCentredAt, anchorCentreAt, pointHint, arcBulgeHint, circleRadiusHint, tangentCentre } from "../hints.ts";
 import type { Hint } from "../hints.ts";
 import { snapOnPlane, guidesOf, finish, planeForDrawing, armTool, pointOnPlane } from "../tools.ts";
+import { splineEdit } from "../splineedit.ts";
 import { trimAt } from "../../operation/trim.ts";
 import type { Command } from "../../operation/commands.ts";
 import type { OpKind, Op } from "../operations.ts";
@@ -565,6 +566,12 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
   const sess = base.session;
   const sc = sceneOf(sess);
   const get = lookup(sc);
+  if (i.count === 2 && !i.shift && !base.op) { // a double click on a selected spline: a point put on the curve there, or the point there taken away (`dec_spline_and_cams`)
+    const pr = projector(base.cam, env.w, env.h);
+    const edit = splineEdit(sc, selectionOf(sess), (q) => pr.project(q), i.x, i.y, settings.pick.pointPx, settings.pick.linePx);
+    if (typeof edit === "string") return withSession(base, { ...sess, message: edit });
+    if (edit) { const next = run(sess, edit); return withSession(base, next.message ? next : { ...next, click: sess.click }); }
+  }
   // a sketch drawn on a face of the body lies in the same plane as that face: the two are one surface for looking at it and for selecting the whole object
   const planes = refs.map((r) => planeOf(get, r));
   // (a point, line or circle edge under the click with something else: repeated clicks cycle through them, they do not select the object or turn the view)

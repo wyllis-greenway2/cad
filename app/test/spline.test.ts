@@ -133,3 +133,33 @@ test("pressing on the curve between its points still moves the whole line, and a
   near(w[0]![1], 12, 0.3); // (the whole line went up by the drag)
   near(w[2]![1] - w[0]![1], 2, 0.3); // (and the curve kept its shape)
 });
+
+// ---- points added and taken away by a double click (`in_693`)
+const dbl = (st: AppState, p: Vec3): AppState => { const [x, y] = px(st, p); st = reduce(st, { type: "hover", x, y }, env); return reduce(st, { type: "click", x, y, count: 2, shift: false }, env); };
+
+test("a double click on the curve of a selected spline puts a point there, and on one of its points takes it away", () => {
+  let s = createSession(kernel);
+  const d = drawSpline(scene(s), XY, through, N)!;
+  s = run(s, d.command);
+  let st = select(view(s), [d.line]);
+  const onCurve = splineAt(through, 1.5);
+  st = dbl(st, onCurve);
+  assert.equal(st.session.message, null);
+  let w = knots(st, d.line);
+  assert.equal(w.length, 6, "one more point");
+  near(w[2]![0], onCurve[0], 0.3); near(w[2]![1], onCurve[1], 0.3); // (in its place along the curve, between the 2nd and 3rd points)
+  assert.deepEqual(st.session.click.selection, [d.line], "the spline stays selected");
+  st = dbl(st, w[2]!);
+  w = knots(st, d.line);
+  assert.equal(w.length, 5, "taken away again");
+  assert.deepEqual(w[0], through[0]);
+});
+
+test("the last point between the ends cannot be taken away: the message says so", () => {
+  let s = createSession(kernel);
+  const d = drawSpline(scene(s), XY, [[0, 0, 0], [20, 10, 0], [40, 0, 0]], N)!;
+  s = run(s, d.command);
+  const st = dbl(select(view(s), [d.line]), [20, 10, 0]);
+  assert.match(st.session.message ?? "", /at least one point/);
+  assert.equal(knots(st, d.line).length, 3);
+});
