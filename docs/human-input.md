@@ -3144,3 +3144,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_700 — 2026-11-17 — approval
 > Yes, build the washer and socket head screw
 (asks for the flat washer (ISO 7089) and the socket head cap screw (ISO 4762) families to be built)
+
+## in_701 — 2026-11-17 — approval
+> Yes, the counterbore rule is fine, use the 5.68 head
+(approves the counterbore rule (the head's largest width plus 0.5 mm, as deep as the head is high) and the larger 5.68 mm ISO 4762 head for M3, the head diameters of the CDE and omdl tables)

@@ -3,7 +3,7 @@ id: dec_parts_fastener_pilot
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_691, in_695, in_696, in_697, in_698, in_699, in_700
+human_input: in_691, in_695, in_696, in_697, in_698, in_699, in_700, in_701
 date: 2026-11-17
 depends_on:
   - dec_parts_library: the pilot is the first generated family of that library
@@ -46,7 +46,7 @@ Where each table stands against the two-source rule (point 5):
 
 **Settled later the same day (`in_700`):** the omdl tables, read after the first pass, supply the second source. **ISO 7089 washers:** the omdl table and the Westfield sheet agree for M3 to M8 (inside diameter nominal and largest, outside diameter nominal and smallest, thickness limits), so the washer is built. **ISO 4762 socket head:** the omdl table agrees with the CDE sheet (head diameter 5.68 / 7.22 / 8.72 / 10.22 / 13.27 largest and 5.32 / 6.78 / 8.28 / 9.78 / 12.73 smallest; socket depth, the key engagement, 1.3 / 2 / 2.5 / 3 / 4; body and head height as the nominal size), so those are used; **the Misumi table differs** (5.50 / 7.00 / 8.50 / 10.00 / 13.00 largest, other socket depths): possibly the figures for a smooth head, but no source read says so, so it is not used and the difference stays open for the human. **Counterbore sizes:** no source; the counterbore is **a rule of ours, not a standard**: the head's largest width plus 0.5 mm (`COUNTERBORE_EXTRA`), as deep as the head is high.
 
-**Left to decide:** which ISO 10642 edition to follow; whether the ISO 4762 head should be the smooth-head 5.50 of the Misumi table; the counterbore rule's extra width.
+**Decided by the human (`in_701`):** the counterbore rule (the head's largest width plus 0.5 mm, as deep as the head is high) stands, and the ISO 4762 head is the larger one (5.68 for M3, as CDE and omdl give it), not the Misumi 5.50. **Left to decide:** which ISO 10642 edition to follow.
 
 ## Rationale
 
