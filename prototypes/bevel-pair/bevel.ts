@@ -1,10 +1,12 @@
 // A straight bevel gear pair, the shape of its teeth worked out (a prototype, `dec_gear_tool`, `in_719`; nothing in `app/src` imports it).
 // The tooth is the Tredgold back cone tooth: an involute spur tooth of the equivalent gear (z / cos delta teeth, the module, the pressure angle) developed on the back cone, carried round the axis (angle / cos delta) and projected
 // through the pitch cone's apex onto a plane across the axis; the small end of the tooth is the same outline scaled toward the apex, so the faces of the tooth are ruled by lines through the apex (as those of a real straight bevel tooth are).
-// Proportions: Boston Gear's stock straight bevel formulas (https://documents.mrosupply.com/product_documents/SH/SH82-P/1930-bg_engineering-info-miter-and-bevel-gears.pdf, a maker's catalogue, read 2026-11-17): 20 degrees, a = 1/P,
-// hT = 2.188/P + 0.002 in, b = hT - a, circular tooth thickness 1.5708/P (so, with a module m: a = m, hT = 2.188 m + 0.0508 mm), the pitch angle tan^-1(Np/NG) for 90 degree shafts. Not read from the standards (AGMA 2005, ISO 23509): UNVERIFIED as the standard's.
-export interface BevelSpec { z: number; mate: number; module: number; pressure?: number; /** the angle between the shafts, degrees */ shaft?: number; /** face width as a fraction of the cone distance */ face?: number }
-export interface Bevel { delta: number; coneDistance: number; face: number; pitchRadius: number; tipRadius: number; rootRadius: number }
+// Formulas: Autodesk Inventor 2022 Help, "Basic Geometric Calculation for Bevel Gears" (a PDF of the page the human sent, `in_722`; CC BY-NC-SA 3.0): pitch angle tan delta = sin(sigma) / (u + cos(sigma)), outer cone distance R = d / (2 sin delta),
+// equivalent teeth z / cos(delta), dedendum reduction k = 0.02 (17 - zv) (when positive), addendum h_a = m (ha* + x - k), dedendum h_f = m (ha* + c* - x), outside diameter d + 2 h_a cos(delta), face angle delta + atan(h_a / R), root angle delta - atan(h_f / R),
+// tooth thickness s = m (pi/2 + 2 x tan(alpha) + xt). The page does not give the defaults of ha*, c* (used here: 1 and 0.2, UNVERIFIED), the unit correction x (the long and short addendum: 0 here) or the face width (its own pages, not sent). Boston Gear's stock
+// formulas (a maker's catalogue) agree to within 0.012 m of the dedendum: a = 1/P, hT = 2.188/P + 0.002 in. The standards (AGMA 2005, ISO 23509) were not read: previews only (contents and scope).
+export interface BevelSpec { z: number; mate: number; module: number; pressure?: number; /** the angle between the shafts, degrees */ shaft?: number; /** face width as a fraction of the cone distance */ face?: number; /** unit addendum ha* and clearance c* (1 and 0.2), the unit correction x (the long and short addendum, 0), the change of tooth thickness xt (0) */ ha?: number; c?: number; x?: number; xt?: number }
+export interface Bevel { delta: number; coneDistance: number; face: number; pitchRadius: number; tipRadius: number; rootRadius: number; /** addendum and dedendum at the big end, mm */ addendum: number; dedendum: number }
 const inv = (a: number) => Math.tan(a) - a;
 
 /** The pitch angle of the gear `z` meshing with `mate`, the shafts `shaft` degrees apart (90 for the usual pair): tan delta = sin sigma / (mate / z + cos sigma). */
@@ -13,7 +15,10 @@ export const pitchAngle = (z: number, mate: number, shaftDeg = 90): number => { 
 export function bevelOf(sp: BevelSpec): Bevel {
   const delta = pitchAngle(sp.z, sp.mate, sp.shaft ?? 90);
   const R = (sp.module * sp.z) / (2 * Math.sin(delta));
-  return { delta, coneDistance: R, face: R * (sp.face ?? 1 / 3), pitchRadius: R * Math.sin(delta), tipRadius: R * Math.sin(delta) + sp.module * Math.cos(delta), rootRadius: R * Math.sin(delta) - (1.188 * sp.module + 0.0508) * Math.cos(delta) };
+  const zv = sp.z / Math.cos(delta), k = Math.max(0, 0.02 * (17 - zv)); // (the dedendum reduction of a gear with few equivalent teeth)
+  const [ha, c, x] = [sp.ha ?? 1, sp.c ?? 0.2, sp.x ?? 0];
+  const [addendum, dedendum] = [sp.module * (ha + x - k), sp.module * (ha + c - x)];
+  return { delta, coneDistance: R, face: R * (sp.face ?? 1 / 3), pitchRadius: R * Math.sin(delta), tipRadius: R * Math.sin(delta) + addendum * Math.cos(delta), rootRadius: R * Math.sin(delta) - dedendum * Math.cos(delta), addendum, dedendum };
 }
 
 /** The outline of the big end of the tooth, in a plane across the axis at the distance `R cos delta` from the apex: polar points (radius, angle), counter-clockwise, the first tooth centred on angle 0 (`turn`: turned by this much, radians). */
@@ -24,9 +29,9 @@ export function bevelSection(sp: BevelSpec, perFlank = 10, turn = 0): [number, n
   const [cd, z] = [Math.cos(delta), sp.z];
   const zv = z / cd; // (the teeth of the equivalent spur gear on the back cone)
   const Rb = (m * zv) / 2; // (its pitch radius)
-  const tipV = Rb + m, rootV = Rb - (1.188 * m + 0.0508);
+  const tipV = Rb + b.addendum, rootV = Rb - b.dedendum;
   const baseV = Rb * Math.cos(alpha);
-  const half0 = Math.PI / (2 * zv); // (half the tooth thickness on the pitch circle, as an angle: pi m / 4 over the pitch radius)
+  const half0 = (m * (Math.PI / 2 + 2 * (sp.x ?? 0) * Math.tan(alpha) + (sp.xt ?? 0)) / 2) / Rb; // (half the tooth thickness on the pitch circle, as an angle: s / 2 over the pitch radius, s = m (pi/2 + 2 x tan alpha + xt))
   const halfAt = (rho: number) => half0 + inv(alpha) - inv(Math.acos(Math.min(1, baseV / rho)));
   const pitchV = 2 * Math.PI / zv;
   // developed point (rho, phi) -> the plane's polar point

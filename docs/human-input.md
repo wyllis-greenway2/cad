@@ -3232,3 +3232,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_721 — 2026-11-17 — question
 > so you cant build it correctly without more data? Can you link me to places you think have the data that you cant get but maybe I can get for you?
 (asks whether the bevel gear can be built correctly without more data, and for links to where the missing data may be found)
+
+## in_722 — 2026-11-17 — directive
+> (the human attached three files and wrote nothing else: the Autodesk Inventor 2022 Help page "Basic Geometric Calculation for Bevel Gears" as a PDF, the preview of ANSI/AGMA ISO 23509-B17, and the preview of AGMA 937-A12)
+(sends the sources asked for: the first has the bevel gear formulas, the other two are previews of the standards)
