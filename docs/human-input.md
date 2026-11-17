@@ -3559,32 +3559,86 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_803 — 2026-11-17 — question
 > okay so what are we working on again? and what is the status of it?
-(asks what the current work is and its status)
+(asks what is being worked on and its status; the planetary gear maker)
 
 ## in_804 — 2026-11-17 — directive
+> I am pretty sure it was you who added the short planetar section. Okay try it in the browser and see if you an find bugs
+(says the AI added the short planetary section of the sources index, and asks it to try the planetary tool in the browser and look for bugs; the section came with the source-index commit c2477a4 of another session, not this one: the AI did not claim authorship)
+
+## in_805 — 2026-11-17 — directive
+> what else is on the not done list? lets move there
+(asks what else is on the not done list of the planetary gear maker and says to go on to those items)
+
+## in_806 — 2026-11-17 — directive
+> lets do Spacing, housing and moving next
+(asks to do the planetary set's unequal / out-of-phase spacing, the ring housing and the moving of a set next; then answered two questions from the AI in the chat (not typed words: choices made in the question panel): the housing is "Outer shell, as a body of its own" (a tube round the ring with a thickness set by the person, plus an optional end cap, the ring staying a separate body), and the spacing is offered as "Automatic nearest-meshing positions" (a Spacing field: 0 equal, 1 nearest positions where every planet meshes))
+
+## in_807 — 2026-11-17 — directive
+> chase the dashed line next
+(asks to find where the dashed line seen while editing a planetary set comes from)
+
+## in_808 — 2026-11-17 — approval
+> I will take your recommendations
+(approves the recommended order: make the spiral's cone cut robust and find why 17/43 fails, rerun 30/45 and more cases, then propose a spiral tool; hypoid after)
+
+## in_809 — 2026-11-17 — approval
+> I will take your recommendations
+(approves the recommended next step: wait for the 22/34, 25/25 and 18/36 results to tell a size limit from a general problem, then propose the spiral tool with its limits)
+
+## in_810 — 2026-11-17 — directive
+> update from claude/inspiring-pascal-l342k7 all your edits should already be merged in there
+(asks for claude/inspiring-pascal-l342k7 to be merged into this branch, saying all of this branch's edits should already be in it)
+
+## in_811 — 2026-11-17 — directive
+> oh no I have it, it wasn't where I expected it. Okay can we put it in the right click menu and take it out of the ... menu. lets put it under bodies menu. Lets make a generic models area there that will contain more than just hardware, this will go there as a sub menu. Can we make the menu to select the hardware more visual?
+(asks for Add part to move out of the ⋯ menu into the right click menu, under the bodies menu, as a submenu of a new generic models area that will hold more than hardware; and for the menu that selects the hardware to be more visual)
+
+## in_812 — 2026-11-17 — directive
+> No I want it under "Shape" as a "Models" and then as "Fasteners"
+(answers where the Models area goes in the right click menu: under Shape, as "Models", and then as "Fasteners")
+
+## in_813 — 2026-11-17 — directive
+> In the same place next to Fasteners called "Fastener Holes"
+(answers where the fastener hole goes: in the same place, next to Fasteners, called "Fastener Holes")
+
+## in_814 — 2026-11-17 — directive
+> can you merge the code so I can try it?
+(asks for this branch's code to be merged so the human can try it)
+
+## in_815 — 2026-11-17 — directive
+> can you merge in claude/cool-einstein-odsxco-work please
+(asks for claude/cool-einstein-odsxco-work to be merged into the testing branch)
+
+## in_816 — 2026-11-17 — approval
+> yes, merge those and push to the testing branch
+(approves merging the testing branch's newest commits into this branch and pushing the result to claude/inspiring-pascal-l342k7)
+
+(asks what the current work is and its status)
+
+## in_817 — 2026-11-17 — directive
 > yes do the stand-in disc label next
 (approves doing the stand-in disc label next: a label on the stand-in disc that says the body is being made)
 
-## in_805 — 2026-11-17 — directive
+## in_818 — 2026-11-17 — directive
 > lets do what is left on the list to make it faster
 (asks to do what is left on the speed list: discs for other heavy bodies, and the kernel worker's memory)
 
-## in_806 — 2026-11-17 — directive
+## in_819 — 2026-11-17 — directive
 > yes do the discs for other heavy bodies next
 (approves doing the stand-in discs for other heavy bodies next: cylinders, sweeps, worms)
 
-## in_807 — 2026-11-17 — directive
+## in_820 — 2026-11-17 — directive
 > yes do the tube stand-in for sweeps next
 (approves the tube stand-in for sweeps: a tube along the sweep's path drawn while the kernel makes the body)
 
-## in_808 — 2026-11-17 — directive
+## in_821 — 2026-11-17 — directive
 > look at the tube stand-in in the real app
 (asks to look at the tube stand-in for sweeps in the real app)
 
-## in_809 — 2026-11-17 — question
+## in_822 — 2026-11-17 — question
 > okay so are we all done making it faster now?
 (asks whether the speed work is finished)
 
-## in_810 — 2026-11-17 — directive
+## in_823 — 2026-11-17 — directive
 > yes try the worm wheel loft next
 (approves trying to make the worm wheel's loft faster)

@@ -319,6 +319,17 @@ function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome }
       return value;
     }
   }
+  // a planetary set being edited: the bodies it would make, in the same draft mode (`dec_planetary_gears`)
+  if (s.tool?.kind === "gear" && s.tool.gear?.planetary && s.tool.gear.editing && !s.op) {
+    const cmd = finishTool(sceneOf(s.session), s.tool)?.command;
+    if (cmd && cmd.type === "setPlanetary") {
+      const key = JSON.stringify(["planetary", cmd]);
+      if (memo && memo.history === s.session.history && memo.outcome === s.session.outcome && memo.key === key) return memo.value;
+      const value = previewCommand(s.session, cmd);
+      memo = { history: s.session.history, outcome: s.session.outcome, key, value };
+      return value;
+    }
+  }
   // the cut that is being set up shows what the parts kept would make
   if (s.cut) {
     const cmd = cutStep(sceneOf(s.session), s.cut);

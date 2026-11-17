@@ -48,7 +48,7 @@ function meshBounds(m, g) {
 }
 /**
  * The meshing leaves its triangles and polygons on the faces and edges of the shape, in the kernel's memory, for as long as the shape lives; the page has its own copy (typed arrays), and a solid that is kept (its own solid under its
- * key, the bodies of an answer) would carry them with it for ever (`in_805`: a 200 tooth wheel's 344 thousand triangles). They are taken off once the description is made; meshing again, if it is asked, makes them again.
+ * key, the bodies of an answer) would carry them with it for ever (`in_818`: a 200 tooth wheel's 344 thousand triangles). They are taken off once the description is made; meshing again, if it is asked, makes them again.
  */
 function freeTriangles(shape) {
   try { getOC().BRepTools.Clean(shape.wrapped, true); } catch { /* nothing to free */ }
@@ -335,7 +335,7 @@ function exportShape(graph, only) {
   return { ok: true, shape, box };
 }
 
-/** How many bytes the kernel's memory has grown to: it grows and never shrinks, so this is the most it has needed (the page restarts the thread when it is high and nothing is waiting, `in_805`). */
+/** How many bytes the kernel's memory has grown to: it grows and never shrinks, so this is the most it has needed (the page restarts the thread when it is high and nothing is waiting, `in_818`). */
 export function heapBytes() {
   try { return getOC().wasmMemory?.buffer.byteLength ?? 0; } catch { return 0; }
 }

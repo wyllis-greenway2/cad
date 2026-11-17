@@ -206,12 +206,12 @@ export function makeCountersunk(size: string, length: number): Result<PartSteps>
 
 // ---- the receivers cut into a body ----
 export type ReceiverKind = "clearance" | "countersunk" | "counterbore" | "tapped" | "nutPocket";
-export const RECEIVER_KINDS: readonly { id: ReceiverKind; label: string }[] = [
-  { id: "clearance", label: "Clearance hole" },
-  { id: "countersunk", label: "Countersunk clearance hole (for a countersunk screw)" },
-  { id: "counterbore", label: "Counterbored clearance hole (for a socket head screw)" },
-  { id: "tapped", label: "Hole to tap (the tap drill)" },
-  { id: "nutPocket", label: "Nut pocket with its clearance hole" },
+export const RECEIVER_KINDS: readonly { id: ReceiverKind; label: string; /** a short name for a card */ short: string }[] = [
+  { id: "clearance", label: "Clearance hole", short: "Clearance hole" },
+  { id: "countersunk", label: "Countersunk clearance hole (for a countersunk screw)", short: "Countersunk" },
+  { id: "counterbore", label: "Counterbored clearance hole (for a socket head screw)", short: "Counterbored" },
+  { id: "tapped", label: "Hole to tap (the tap drill)", short: "Hole to tap" },
+  { id: "nutPocket", label: "Nut pocket with its clearance hole", short: "Nut pocket" },
 ];
 /** Where a receiver goes: a flat face of a body, as the plane the face lies on (`at` a point on it, `u` and `v` across it, the normal `u` x `v` pointing out of the body), and the point on it the hole is centred on. */
 export interface FaceSpot { plane: Ref; centre: Vec3; u: Vec3; v: Vec3 }

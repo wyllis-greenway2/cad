@@ -87,13 +87,13 @@ test("a part is one command, so it is one step to undo and the kernel is asked o
 });
 test("the dialog offers the families and sizes, shows the matching holes and its source, and asks the length only for a screw", () => {
   const nut = addPartDialog(addPartStart());
-  assert.deepEqual(nut.fields.map((f) => f.id), ["family", "size"]);
+  assert.deepEqual(nut.fields.map((f) => f.id), ["family", "size", "picture"]);
   assert.ok(nut.fields[1]!.note?.includes("clearance hole 3.2 / 3.4 / 3.6") && nut.fields[1]!.note?.includes("nut pocket 5.5"));
   const screw = addPartDialog({ family: "countersunk", size: "M6", length: "12" });
-  assert.deepEqual(screw.fields.map((f) => f.id), ["family", "size", "length"]);
+  assert.deepEqual(screw.fields.map((f) => f.id), ["family", "size", "picture", "length"]);
   assert.ok(screw.fields[1]!.note?.includes("countersink 13.44 mm across at 90°"));
   assert.ok(screw.fields[0]!.note?.includes("1997") && !nut.fields[0]!.note?.includes("1997"), "the source shown follows the family");
-  assert.ok(!screw.fields[2]!.note?.includes("0000000"), "a length shown without rounding noise");
+  assert.ok(!screw.fields.find((f) => f.id === "length")!.note?.includes("0000000"), "a length shown without rounding noise");
   assert.equal(receiversText("M3", "nut").includes("tap drill 2.5"), true);
 });
 
@@ -177,9 +177,9 @@ test("the receiver's outline starts and ends on the axis and its countersink is 
 });
 test("the dialog lists the receivers, sizes and clearances, and takes the clearance away for a hole to tap", () => {
   const d = receiverDialog(receiverStart());
-  assert.deepEqual(d.fields.map((f) => f.id), ["kind", "size", "fit", "depth", "dx", "dy"]);
-  assert.ok(d.fields[2]!.choices!.some((c) => c.label === "medium (3.4 mm)"));
-  assert.deepEqual(receiverDialog({ ...receiverStart(), kind: "tapped" }).fields.map((f) => f.id), ["kind", "size", "engagement", "depth", "dx", "dy"]);
+  assert.deepEqual(d.fields.map((f) => f.id), ["kind", "size", "picture", "fit", "depth", "dx", "dy"]);
+  assert.ok(d.fields.find((f) => f.id === "fit")!.choices!.some((c) => c.label === "medium (3.4 mm)"));
+  assert.deepEqual(receiverDialog({ ...receiverStart(), kind: "tapped" }).fields.map((f) => f.id), ["kind", "size", "picture", "engagement", "depth", "dx", "dy"]);
 });
 
 // ---- the washer and the socket head cap screw ----
@@ -235,8 +235,8 @@ test("a counterbore for a socket head screw is the head's width plus the rule's 
 test("the dialog offers four families, asks the length for both screws only, and shows each family's own source", () => {
   const f = (family: string) => addPartDialog({ family, size: "M5", length: "12" });
   assert.deepEqual(f("nut").fields[0]!.choices!.map((c) => c.value), ["nut", "countersunk", "socketHead", "washer"]);
-  assert.deepEqual(f("socketHead").fields.map((x) => x.id), ["family", "size", "length", "head"]);
-  assert.deepEqual(f("washer").fields.map((x) => x.id), ["family", "size"]);
+  assert.deepEqual(f("socketHead").fields.map((x) => x.id), ["family", "size", "picture", "length", "head"]);
+  assert.deepEqual(f("washer").fields.map((x) => x.id), ["family", "size", "picture"]);
   assert.ok(f("socketHead").fields[0]!.note?.includes("CDE Fasteners") && f("washer").fields[0]!.note?.includes("Westfield"));
   assert.ok(f("socketHead").fields[1]!.note?.includes("counterbore"));
   assert.ok(receiverDialog({ ...receiverStart(), kind: "counterbore" }).fields[1]!.note?.includes("counterbore"));
@@ -299,10 +299,10 @@ test("an engagement out of range or not a number is refused with a reason", () =
 });
 test("the dialog has the engagement for a hole to tap only, and says what hole it makes", () => {
   const t = (engagement: string) => receiverDialog({ ...receiverStart(), kind: "tapped", size: "M6", engagement });
-  assert.deepEqual(t("").fields.map((f) => f.id), ["kind", "size", "engagement", "depth", "dx", "dy"]);
-  assert.ok(t("").fields[2]!.note?.includes("hole 5 mm (the chart's drill: 92.4%"));
-  assert.ok(t("75").fields[2]!.note?.includes(`hole ${tapHole("M6", 0.75)} mm`));
-  assert.ok(t("x").fields[2]!.note?.includes("number of percent"));
+  assert.deepEqual(t("").fields.map((f) => f.id), ["kind", "size", "picture", "engagement", "depth", "dx", "dy"]);
+  assert.ok(t("").fields.find((f) => f.id === "engagement")!.note?.includes("hole 5 mm (the chart's drill: 92.4%"));
+  assert.ok(t("75").fields.find((f) => f.id === "engagement")!.note?.includes(`hole ${tapHole("M6", 0.75)} mm`));
+  assert.ok(t("x").fields.find((f) => f.id === "engagement")!.note?.includes("number of percent"));
   assert.ok(!receiverDialog(receiverStart()).fields.some((f) => f.id === "engagement"));
 });
 
@@ -336,7 +336,7 @@ test("the length note in the dialog says what the number typed is and lists the 
   const note = (length: string) => addPartDialog({ family: "countersunk", size: "M5", length }).fields.find((f) => f.id === "length")!.note!;
   assert.ok(note("13").startsWith("13 mm is not a standard length: the standard lengths nearest are 12 and 16 mm."));
   assert.ok(note("20").startsWith("20 mm is a standard length (ISO 888)."));
-  assert.ok(note("").startsWith("standard lengths (ISO 888): 2, 3, 4, 5, 6, 8, 10"), "no advice for an empty box");
+  assert.ok(note("").startsWith("Standard lengths (ISO 888): 2, 3, 4, 5, 6, 8, 10"), "no advice for an empty box");
   assert.ok(note("20").includes("100 mm and longer") && note("20").includes("were not read"));
 });
 
@@ -402,4 +402,88 @@ test("what cannot place a hole is refused with a reason, and with no place picke
   assert.ok(receiverDialog(receiverStart(), 2).title.includes("(2)"));
   assert.ok(receiverDialog(receiverStart(), 1).fields.find((f) => f.id === "dx")!.label.includes("place picked"));
   assert.ok(receiverDialog(receiverStart(), 0).fields.find((f) => f.id === "dx")!.label.includes("its middle"));
+});
+
+// ---- the drawings in the pickers ----
+import { partDrawing, receiverDrawing } from "../src/interaction/partdrawing.ts";
+import { RECEIVER_KINDS } from "../src/operation/fasteners.ts";
+import type { FastenerFamily, ReceiverKind } from "../src/operation/fasteners.ts";
+
+const FAMILIES: FastenerFamily[] = ["nut", "countersunk", "socketHead", "washer"];
+const numbersIn = (svg: string): number[] => (svg.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+test("a part is drawn for every family and size: a closed SVG with outlines, and nothing not a number or a path", () => {
+  for (const family of FAMILIES) for (const size of FASTENER_SIZES) {
+    const svg = partDrawing(family, size, 12, false);
+    assert.ok(svg.startsWith("<svg") && svg.endsWith("</svg>"), `${family} ${size}`);
+    assert.ok((svg.match(/<(path|circle)/g) ?? []).length >= 2, "a side view and a top view");
+    assert.ok(!svg.includes("NaN") && !svg.includes("undefined") && !svg.includes("Infinity"), `${family} ${size} has a bad number`);
+    assert.ok(!/<script|onload|onclick|javascript:/i.test(svg));
+  }
+});
+test("the drawing keeps the proportions: a longer screw is a taller drawing, and a smooth head is a narrower one than a knurled", () => {
+  const height = (svg: string): number => Number(/viewBox="[-\d.]+ [-\d.]+ [\d.]+ ([\d.]+)"/.exec(svg)![1]);
+  const width = (svg: string): number => Number(/viewBox="[-\d.]+ [-\d.]+ ([\d.]+) /.exec(svg)![1]);
+  assert.ok(height(partDrawing("socketHead", "M5", 30, false)) > height(partDrawing("socketHead", "M5", 10, false)));
+  assert.ok(width(partDrawing("socketHead", "M8", 10, false)) > width(partDrawing("socketHead", "M3", 10, false)), "a bigger size is a bigger drawing");
+  const d = (smooth: boolean) => partDrawing("socketHead", "M5", 12, smooth);
+  assert.notEqual(d(true), d(false));
+  assert.ok(width(d(true)) < width(d(false)) + 1e-9);
+});
+test("a hole is drawn across, for every receiver and size, with the block and the hole as one path", () => {
+  for (const kind of RECEIVER_KINDS.map((k) => k.id) as ReceiverKind[]) for (const size of FASTENER_SIZES) {
+    const svg = receiverDrawing(kind, size, "medium");
+    assert.ok(svg.startsWith("<svg") && svg.includes('fill-rule="evenodd"'), `${kind} ${size}`);
+    assert.ok(!svg.includes("NaN") && !svg.includes("undefined"), `${kind} ${size}`);
+  }
+  assert.notEqual(receiverDrawing("clearance", "M6", "medium"), receiverDrawing("countersunk", "M6", "medium"));
+  assert.notEqual(receiverDrawing("clearance", "M6", "fine"), receiverDrawing("clearance", "M6", "coarse"));
+  assert.ok(numbersIn(receiverDrawing("nutPocket", "M8", "medium")).length > 20);
+});
+test("the pickers are visual: family and receiver cards carry a drawing each, sizes and fits are chips, and a picture shows the choice", () => {
+  const add = addPartDialog(addPartStart());
+  const family = add.fields.find((f) => f.id === "family")!;
+  assert.equal(family.layout, "cards");
+  assert.ok(family.choices!.length === 4 && family.choices!.every((c) => c.image?.startsWith("<svg")), "a drawing on every card");
+  assert.equal(add.fields.find((f) => f.id === "size")!.layout, "chips");
+  const pic = add.fields.find((f) => f.id === "picture")!;
+  assert.equal(pic.type, "picture");
+  assert.ok(String(pic.value).startsWith("<svg"));
+  assert.notEqual(String(addPartDialog({ ...addPartStart(), size: "M8" }).fields.find((f) => f.id === "picture")!.value), String(pic.value), "the picture follows the size");
+  const hole = receiverDialog(receiverStart());
+  assert.equal(hole.fields.find((f) => f.id === "kind")!.layout, "cards");
+  assert.ok(hole.fields.find((f) => f.id === "kind")!.choices!.every((c) => c.image?.startsWith("<svg")));
+  assert.equal(hole.fields.find((f) => f.id === "fit")!.layout, "chips");
+  assert.equal(hole.fields.find((f) => f.id === "picture")!.type, "picture");
+  const halfTyped = addPartDialog({ family: "countersunk", size: "M5", length: "1" }).fields.find((f) => f.id === "picture")!;
+  assert.ok(!String(halfTyped.value).includes("NaN"), "a length that cannot be made does not break the picture");
+});
+
+// ---- Shape, Models in the right-click ring ----
+import { createState, reduce } from "../src/interaction/controller.ts";
+
+type Item = { id: string; label: string; enabled: boolean; why: string | null; children?: Item[] };
+const ringOf = (session: Session): Item[] => reduce({ ...createState(session) }, { type: "menu", x: 400, y: 300, button: true }, { w: 800, h: 600, now: 0 }).menu!.items as unknown as Item[];
+const find = (items: Item[], id: string): Item | undefined => { for (const i of items) { if (i.id === id) return i; const f = i.children ? find(i.children, id) : undefined; if (f) return f; } return undefined; };
+
+test("the right-click ring has Models under Shape, with Fasteners and Fastener Holes in it", () => {
+  const items = ringOf(createSession(kernel));
+  const shape = items.find((i) => i.id === "shape")!;
+  const models = shape.children!.find((i) => i.id === "models")!;
+  assert.equal(models.label, "Models");
+  assert.deepEqual(models.children!.map((c) => [c.id, c.label]), [["models:fasteners", "Fasteners"], ["models:holes", "Fastener Holes"]]);
+  assert.equal(find(items, "models:fasteners")!.enabled, true, "Fasteners is always there to use");
+});
+test("Fastener Holes is dimmed with its reason until one flat face is selected", () => {
+  const none = find(ringOf(createSession(kernel)), "models:holes")!;
+  assert.equal(none.enabled, false);
+  assert.equal(none.why, "select one flat face of a body first");
+  const { s } = block();
+  const yes = find(ringOf(s), "models:holes")!;
+  assert.equal(yes.enabled, true);
+  assert.equal(yes.why, null);
+});
+test("the ⋯ list no longer holds Add part or Fastener hole: they are in the ring", async () => {
+  const { appRows } = await import("../src/interaction/appmenu.ts");
+  const ids = appRows().map((r) => r.id);
+  assert.ok(!ids.includes("addPart") && !ids.includes("fastenerHole"));
 });

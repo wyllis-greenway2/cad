@@ -69,6 +69,10 @@ Every outside source the project has read or looked up, so it can be found again
 
 Read in full from the pages named in the entry (Albany County Fasteners for ISO 273, Optimas, Misumi, CDE, omdl, Westfield, Hexagon & Bolt, the iTeh samples of ISO 10642:2004 and the later change lists). The rule there is two independent sources that agree; where they differ the entry says so. **Not repeated here: the entry holds each source with its date.**
 
-## Planetary gears (`q_planetary_gears`, `dec_planetary_gears`)
+## Planetary gears (`dec_planetary_gears`, `prototypes/planetary`)
 
-Searched only, a mix of good and weak (industrialmonitordirect.com, Eng-Tips thread 357212, Glinsky's notebooks, AGMA "Epicyclic gearboxes" Aug 2021, tec-science, woodgears.ca, tspi.at); the maths is checked in `prototypes/planetary`, not taken from them. Listed in the entry.
+| Source | Status | Rights | Used for | Recorded in |
+|---|---|---|---|---|
+| Eng-tips thread 357212 (https://www.eng-tips.com/threads/planetary-gear-question.357212); Chad Glinsky, drivetrainhub "Chapter 4 - Planetary Gears" notebook (https://nbviewer.jupyter.org/github/drivetrainhub/notebooks-gears/blob/master/geometry/Chapter%204%20-%20Planetary%20Gears.ipynb); AGMA, "Epicyclic gearboxes" (https://ik.imagekit.io/agmamedia/issues/0821/epicyclic-gearboxes.pdf), Aug 2021 | searched (web search summary, 2026-11-17: not read as pages) | copyright, forum / notebook / article | `(Zs + Zr) / N` whole for equally spaced planets in phase; out of phase (sequential) and unequal spacing exist; planet tips need clearance | `dec_planetary_gears` |
+| tec-science planetary pages (https://www.tec-science.com/?p=28857); woodgears.ca (https://woodgears.ca/gear/planetary.html); tspi.at calculator (https://www.tspi.at/diy/planetarycalc.html); firgelliauto.com epicyclic pages | searched (as above) | copyright | `Zr = Zs + 2 Zp`; Willis `(ns - nc) / (nr - nc) = -Zr / Zs`; ratio with ring, carrier or sun held (some write it as the reciprocal) | `dec_planetary_gears` |
+| Our own check of the rules against the kernel (`test/planetary.test.ts`): sets that pass the whole number rule fit, one that does not, does not; the ring's hand (the planets', for an internal pair) was derived from the contact geometry | derived, tested | ours | verifies the rules above; corrects the AI's earlier statement about the ring's hand | `dec_planetary_gears` |

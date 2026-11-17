@@ -33,13 +33,13 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
         suggest = document.createElement("div");
         suggest.style.cssText = "display:none;margin:2px 0 6px;padding:6px 8px;border-radius:8px;background:#e6f6f5;color:#0b6b67;font-size:12px;line-height:1.35";
         el.appendChild(suggest);
-        info = document.createElement("div");
-        info.style.cssText = "display:none;margin:2px 0 6px;padding:6px 8px;border-radius:8px;background:#eef2fb;color:#2b3a67;font-size:12px;line-height:1.4";
-        el.appendChild(info);
         const title = document.createElement("div");
         title.textContent = entry.panel;
         title.style.cssText = "font-weight:600;font-size:15px;margin-bottom:6px";
         el.appendChild(title);
+        info = document.createElement("div");
+        info.style.cssText = "display:none;margin:2px 0 6px;padding:6px 8px;border-radius:8px;background:#eef2fb;color:#2b3a67;font-size:12px;line-height:1.4";
+        el.appendChild(info);
         inputs = entry.fields.map((f, i) => {
           const row = document.createElement("div");
           row.style.cssText = "padding:6px 0;border-top:1px solid #f0f1f3";

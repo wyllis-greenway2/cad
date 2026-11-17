@@ -94,7 +94,7 @@ test("a wheel of many teeth has the coarser screen mesh (freeform faces by the h
   assert.deepEqual(fresh.edgeNames, kept.edgeNames);
 });
 
-test("a wheel's loft is not checked for matching sections (`in_810`): the same volume as before to every digit, and a loft told it is matched when it is not still comes out right", () => {
+test("a wheel's loft is not checked for matching sections (`in_823`): the same volume as before to every digit, and a loft told it is matched when it is not still comes out right", () => {
   const v = bodyVolumes(wheel(60));
   assert.deepEqual(v.errors, []);
   assert.ok(Math.abs(v.volumes[0]! - 114392.87812056803) < 0.01, `60 teeth: ${v.volumes[0]}`); // (the volume with the checked loft)
