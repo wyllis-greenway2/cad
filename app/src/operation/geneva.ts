@@ -111,6 +111,16 @@ function discRadii(wheel: readonly V2[], c: number, a: number, beta: number, cle
  * The shapes of a Geneva drive. With `quick` the locking disc's notch, which takes most of the time (`discRadii`), is not worked out: the disc is a plain circle of its radius, and the checks that need the notch (the hole against it)
  * are left to the real thing: for the picture while the numbers are typed (`cams.ts` `camShapesQuick`); the wheel and the crank are the same.
  */
+/**
+ * The radii made smooth without ever being made bigger: each is the average of the lowest values round it (the lowest within `w` places of each place within `w` places of it), so every value is at most the one it came from and
+ * the scallops that the wheel's separate positions leave in the notch's edge are gone. The notch comes out a little wider (by about `w` places of angle), never narrower.
+ */
+export function smoothUnder(r: readonly number[], w: number): number[] {
+  const n = r.length;
+  const low = r.map((_, i) => { let m = Infinity; for (let k = -w; k <= w; k++) m = Math.min(m, r[(((i + k) % n) + n) % n]!); return m; });
+  return low.map((_, i) => { let sum = 0; for (let k = -w; k <= w; k++) sum += low[(((i + k) % n) + n) % n]!; return sum / (2 * w + 1); });
+}
+
 export function genevaShapes(s: CamSpec, quick = false): Result<{ polys: { points: V2[]; bulges: number[] }[]; circles: CamShapes["circles"]; rings: V2[][] }> {
   const n = Math.round(s.teeth ?? 0);
   const [a, p, clr] = [s.crank ?? 0, s.pin ?? 0, s.clearance ?? 0];
@@ -161,6 +171,7 @@ export function genevaShapes(s: CamSpec, quick = false): Result<{ polys: { point
   let rings: V2[][] = [];
   let discAt: V2 = [0, 0];
   const hy = -(rw + 6 + Math.max(p, 4));
+  const layout = s.layout ?? "apart";
   let hole = s.hole;
   let discOutline: ((t: number) => V2) | null = null;
   let radii: number[] | null = null;
@@ -168,19 +179,20 @@ export function genevaShapes(s: CamSpec, quick = false): Result<{ polys: { point
   if (lockOn && quick) {
     if (hole < 0) hole = Math.max(0, Math.min(a / 4, 2 * (sc - w / 2 - MIN_WALL)));
   } else if (lockOn) {
-    radii = discRadii(outlinePoints(wheel.points, wheel.bulges), c, a, Math.PI / 2 - half, clr, rl, COUNT);
+    radii = smoothUnder(discRadii(outlinePoints(wheel.points, wheel.bulges), c, a, Math.PI / 2 - half, clr, rl, COUNT), 8);
     const smallest = Math.min(...radii);
     if (hole < 0) hole = Math.max(0, Math.min(a / 4, 2 * (smallest - MIN_WALL), 2 * (sc - w / 2 - MIN_WALL)));
     else if (hole / 2 > smallest - MIN_WALL + 1e-9) return err("the locking disc's notch comes too near the shaft's hole (the wheel's rim passes close to the disc's shaft): use a smaller hole, a bigger crank, or fewer slots");
   } else if (hole < 0) hole = Math.max(0, Math.min(a / 4, 2 * (sc - w / 2 - MIN_WALL)));
   if (hole / 2 > sc - w / 2 - MIN_WALL + 1e-9) return err("a slot would reach the shaft's hole: use more slots, a smaller pin or clearance, or a smaller hole");
   const rh = Math.max(hole / 2 + 1.5, p);
+  const crankAt: V2 = layout === "apart" ? [0, hy] : [c, 0]; // (assembled: on the crank's shaft, the pin pointing away from the wheel, the pose the wheel is locked in)
   if (lockOn && quick) { // (a plain circle in the notch's place: close enough to see the disc's size and where it goes)
-    discAt = [a + p / 2 + 4 + rl + rh, hy];
+    discAt = layout === "apart" ? [a + p / 2 + 4 + rl + rh, hy] : [c, 0];
     rings = [Array.from({ length: 48 }, (_, i): V2 => [discAt[0] + rl * Math.cos((2 * Math.PI * i) / 48), discAt[1] + rl * Math.sin((2 * Math.PI * i) / 48)])];
   } else if (radii) {
     const f = (t: number): number => { const x = ((t / (2 * Math.PI)) % 1 + 1) % 1 * COUNT; const i = Math.floor(x); const u = x - i; return radii![i % COUNT]! * (1 - u) + radii![(i + 1) % COUNT]! * u; };
-    discAt = [a + p / 2 + 4 + rl + rh, hy]; // (beside the crank, its notch toward +x like the crank's pin)
+    discAt = layout === "apart" ? [a + p / 2 + 4 + rl + rh, hy] : [c, 0]; // (apart: beside the crank, its notch toward +x like the crank's pin; assembled: on the crank's shaft, in the pose the wheel is locked in)
     discOutline = (t) => [discAt[0] + f(t) * Math.cos(t), discAt[1] + f(t) * Math.sin(t)];
     const dense = Array.from({ length: COUNT }, (_, i) => discOutline!((2 * Math.PI * i) / COUNT));
     // the corners of the notch (where the disc's radius leaves the full radius) are knots, so the curve is not rounded off them
@@ -192,8 +204,12 @@ export function genevaShapes(s: CamSpec, quick = false): Result<{ polys: { point
   // the crank, below the wheel: a hub with the shaft's hole, an arm as wide as the pin, and the pin's circle at its end, the pin pointing along +x
   const rp = p / 2;
   const xh = Math.sqrt(rh * rh - rp * rp);
-  const q2: V2 = [xh, hy - rp], t2: V2 = [a, hy - rp], t1: V2 = [a, hy + rp], q1: V2 = [xh, hy + rp];
-  const crank = { points: [q2, t2, t1, q1], bulges: [0, bulgeOf(t2, [a + rp, hy], t1), 0, bulgeOf(q1, [-rh, hy], q2)] };
-  const circles: CamShapes["circles"] = hole > 0 ? [{ c: [0, 0], r: hole / 2, hole: true }, { c: [0, hy], r: hole / 2, hole: true }, ...(lockOn ? [{ c: discAt, r: hole / 2, hole: true as const }] : [])] : [];
-  return ok({ polys: [wheel, crank], circles, rings });
+  const [kx, ky] = crankAt;
+  const q2: V2 = [kx + xh, ky - rp], t2: V2 = [kx + a, ky - rp], t1: V2 = [kx + a, ky + rp], q1: V2 = [kx + xh, ky + rp];
+  const crank = { points: [q2, t2, t1, q1], bulges: [0, bulgeOf(t2, [kx + a + rp, ky], t1), 0, bulgeOf(q1, [kx - rh, ky], q2)] };
+  const circles: CamShapes["circles"] = hole > 0 ? [{ c: [0, 0], r: hole / 2, hole: true }, { c: crankAt, r: hole / 2, hole: true }, ...(lockOn ? [{ c: discAt, r: hole / 2, hole: true as const }] : [])] : [];
+  if (layout === "model") circles.push({ c: [kx + a, ky], r: rp }); // (the pin: a body of its own, joined to the crank plate, that stands up into the wheel's slot)
+  // assembled, the wheel stands in the pose it is locked in: turned half a step, so a locking arc, not a slot, faces the disc (the disc's notch was worked out with a slot toward it: the middle of the pin's visit)
+  const wheelOut = layout === "apart" ? wheel : { points: wheel.points.map(([x, y]): V2 => [x * Math.cos(half) - y * Math.sin(half), x * Math.sin(half) + y * Math.cos(half)]), bulges: wheel.bulges };
+  return ok({ polys: [wheelOut, crank], circles, rings });
 }

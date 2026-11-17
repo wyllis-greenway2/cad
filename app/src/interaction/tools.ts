@@ -15,7 +15,7 @@ import type { Command } from "../operation/commands.ts";
 import { drawSquaredRectangle, drawCircle, drawChain, drawArc, drawSpline, joinedAtCorners } from "../operation/build.ts";
 import { distinctPoints, splinePoints } from "../operation/spline.ts";
 import { drawClosedSpline } from "../operation/splinering.ts";
-import type { CamKind, CamLaw, CamSpec } from "../operation/cams.ts";
+import type { CamKind, CamLaw, CamLayout, CamSpec } from "../operation/cams.ts";
 import { camShapes, camShapesQuick } from "../operation/cams.ts";
 import { camFace } from "../operation/camscene.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
@@ -74,11 +74,13 @@ export interface Tool {
   /** a cam (`dec_spline_and_cams`): which, and the numbers typed (diameter, lift or offset, the shaft's hole) and the one being typed in */
   cam?: CamState;
 }
-export interface CamState { kind: CamKind; typed: string[]; field: number; /** a disc cam: the law of its follower's motion */ law?: CamLaw; /** its numbers are being changed: the record (`gearscene.ts`) of the cam */ editing?: string }
+export interface CamState { kind: CamKind; typed: string[]; field: number; /** a disc cam: the law of its follower's motion */ law?: CamLaw; /** a Geneva drive: how it is drawn (`dec_geneva`) */ layout?: CamLayout; /** its numbers are being changed: the record (`gearscene.ts`) of the cam */ editing?: string }
 /** the numbers of each cam, in the order the box shows them (the rise, dwell and return are degrees) */
 export const CAM_FIELDS: Record<CamKind, string[]> = { eccentric: ["Diameter", "Offset", "Hole"], snail: ["Diameter", "Lift", "Hole"], disc: ["Diameter", "Lift", "Rise", "Dwell", "Return", "Hole", "Roller"], ratchet: ["Teeth", "Diameter", "Depth", "Hook", "Hole", "Pawl", "Width", "Angle"], geneva: ["Slots", "Crank", "Pin", "Clearance", "Hole", "Lock"], linear: ["Teeth", "Pitch", "Depth", "Hook", "Base", "Pawl", "Width", "Angle"] };
 /** A tool armed to draw a cam: the first click is the shaft, the pointer's distance from it sets the diameter, and numbers can be typed for the rest. */
-export const armCam = (kind: CamKind, law?: CamLaw): Tool => ({ ...armTool("cam"), cam: { kind, typed: CAM_FIELDS[kind].map(() => ""), field: 0, ...(law ? { law } : {}) } });
+/** the numbers a cam's box shows: a Geneva drive that comes as a model has the thickness of its layers too */
+export const camFieldsOf = (kind: CamKind, layout?: CamLayout): string[] => (kind === "geneva" && layout === "model" ? [...CAM_FIELDS.geneva, "Layer", "Plate"] : CAM_FIELDS[kind]);
+export const armCam = (kind: CamKind, law?: CamLaw, layout?: CamLayout): Tool => ({ ...armTool("cam"), cam: { kind, typed: camFieldsOf(kind, layout).map(() => ""), field: 0, ...(law ? { law } : {}), ...(layout ? { layout } : {}) } });
 export function camTyped(t: Tool, field: number, text: string): Tool { const c = t.cam!; return { ...t, cam: { ...c, field, typed: c.typed.map((x, i) => (i === field ? text : x)) } }; }
 /** The cam being drawn: each number as typed, else the diameter from the pointer's distance from the shaft, the lift or offset a quarter of the radius (an eighth for an offset: the follower moves twice it), the hole a fifth of the diameter. */
 export function camSpecOf(t: Tool): CamSpec | null {
@@ -96,7 +98,7 @@ export function camSpecOf(t: Tool): CamSpec | null {
   }
   if (c.kind === "geneva") {
     const crank = typed(1) ?? (t.cursor ? dist(at, t.cursor) : 0);
-    return { kind: "geneva", teeth: Math.round(degrees(0) ?? 4), diameter: 2 * crank, crank, pin: typed(2) ?? crank / 4, clearance: typed(3) ?? 0.3, hole: typed(4) ?? -1, ...(typed(5) !== null ? { lock: typed(5)! } : {}), lift: 0 }; // (a hole left empty is worked out from the room there is, `genevaShapes`)
+    return { kind: "geneva", teeth: Math.round(degrees(0) ?? 4), diameter: 2 * crank, crank, pin: typed(2) ?? crank / 4, clearance: typed(3) ?? 0.3, hole: typed(4) ?? -1, ...(typed(5) !== null ? { lock: typed(5)! } : {}), ...(c.layout && c.layout !== "apart" ? { layout: c.layout } : {}), ...(c.layout === "model" ? { layer: typed(6) ?? 6, plate: typed(7) ?? 3 } : {}), lift: 0 }; // (a hole left empty is worked out from the room there is, `genevaShapes`)
   }
   if (c.kind === "ratchet") {
     const teeth = Math.round(degrees(0) ?? 20);
@@ -165,10 +167,10 @@ export function editCamTool(rec: { id: string; plane: Ref; at: Vec3; spec: GearS
   const c = rec.spec.cam!;
   const len = (n: number | undefined): string => (n === undefined ? "" : lengthText(n));
   const num = (n: number | undefined): string => (n === undefined ? "" : String(Math.round(n * 1e6) / 1e6));
-  const typed = c.kind === "linear" ? [num(c.teeth), len(c.pitch), len(c.depth), num(c.hook ?? 0), len(c.base), len(c.pawl), len(c.width), num(Math.round((((rec.turn ?? 0) * 180) / Math.PI) * 1e6) / 1e6)] : c.kind === "geneva" ? [num(c.teeth), len(c.crank), len(c.pin), len(c.clearance), c.hole >= 0 ? len(c.hole) : "", c.lock === undefined ? "" : len(c.lock)] : c.kind === "ratchet" ? [num(c.teeth), len(c.diameter), len(c.depth), num(c.hook ?? 0), len(c.hole), len(c.pawl), len(c.width), num(Math.round((((rec.turn ?? 0) * 180) / Math.PI) * 1e6) / 1e6)]
+  const typed = c.kind === "linear" ? [num(c.teeth), len(c.pitch), len(c.depth), num(c.hook ?? 0), len(c.base), len(c.pawl), len(c.width), num(Math.round((((rec.turn ?? 0) * 180) / Math.PI) * 1e6) / 1e6)] : c.kind === "geneva" ? [num(c.teeth), len(c.crank), len(c.pin), len(c.clearance), c.hole >= 0 ? len(c.hole) : "", c.lock === undefined ? "" : len(c.lock), ...(c.layout === "model" ? [len(c.layer), len(c.plate)] : [])] : c.kind === "ratchet" ? [num(c.teeth), len(c.diameter), len(c.depth), num(c.hook ?? 0), len(c.hole), len(c.pawl), len(c.width), num(Math.round((((rec.turn ?? 0) * 180) / Math.PI) * 1e6) / 1e6)]
     : c.kind === "disc" ? [len(c.diameter), len(c.lift), num(c.rise), num(c.dwell), num(c.ret), len(c.hole), len(c.roller ?? 0)]
     : [len(c.diameter), len(c.lift), len(c.hole)];
-  return { ...armCam(c.kind, c.law), plane: rec.plane, points: [rec.at], cursor: rec.at, cam: { kind: c.kind, typed, field: 0, ...(c.law ? { law: c.law } : {}), editing: rec.id } };
+  return { ...armCam(c.kind, c.law, c.layout), plane: rec.plane, points: [rec.at], cursor: rec.at, cam: { kind: c.kind, typed, field: 0, ...(c.law ? { law: c.law } : {}), ...(c.layout ? { layout: c.layout } : {}), editing: rec.id } };
 }
 /** The tool opened on a gear that is already made, to change its numbers (`focus`: the number the box starts at, as the helix item does, `in_693`): its plane and centre, and its numbers as they are. */
 export const editGearTool = (rec: { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }, focus?: GearKey): Tool => ({ ...armTool("gear", variantOf(rec.spec)), plane: rec.plane, points: [rec.at], cursor: rec.at, gear: { internal: !!rec.spec.internal, ...(rec.spec.bevel ? { bevel: true as const } : {}), ...(isCrown(rec.spec) ? { crown: true as const } : {}), ...(rec.spec.worm ? { worm: true as const } : {}), ...(rec.spec.wheel ? { wheel: true as const } : {}), ...(rec.spec.rack ? { rack: true } : {}), ...(rec.spec.pulley ? { pulley: rec.spec.pulley } : {}), ...(rec.spec.sprocket ? { sprocket: true as const } : {}), ...(rec.spec.sprocket?.iso ? { iso: true as const } : {}), ...(rec.spec.cycloidal ? { cycloidal: true as const } : {}), typed: ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], field: Math.max(0, gearFields({ internal: !!rec.spec.internal, ...(rec.spec.bevel ? { bevel: true as const } : {}), ...(isCrown(rec.spec) ? { crown: true as const } : {}), ...(rec.spec.worm ? { worm: true as const } : {}), ...(rec.spec.wheel ? { wheel: true as const } : {}), ...(rec.spec.rack ? { rack: true } : {}), ...(rec.spec.pulley ? { pulley: rec.spec.pulley } : {}), ...(rec.spec.sprocket ? { sprocket: true as const } : {}), ...(rec.spec.sprocket?.iso ? { iso: true as const } : {}), ...(rec.spec.cycloidal ? { cycloidal: true as const } : {}) }).findIndex((f) => f.key === focus)), editing: rec.id, base: rec.spec, ...(focus ? { focus: true as const } : {}), ...(rec.turn ? { turn: rec.turn } : {}) } });
@@ -915,7 +917,7 @@ export function finish(scene: Scene, t: Tool): Finished | null {
     const made = hasBody(target.spec) || target.spec.worm || target.spec.wheel; // (hasBody: a bevel gear too) // (a helical gear, a worm and a wheel are made into their bodies at once, like an extrusion: nothing is left selected)
     const refs = made ? null : gearRefs({ id, plane: pl.ref, at: target.at, spec: target.spec });
     const select = refs ? [refs.wall ? diskFaceRef(refs.wall) : loopFaceRef(refs.lines)] : [];
-    return { command: t.gear?.editing ? { type: "setGear", id, spec: target.spec } : { type: "gear", id, plane: pl.ref, at: target.at, spec: target.spec, ...(target.turn ? { turn: target.turn } : {}) }, select };
+    return { command: t.gear?.editing ? { type: "setGear", id, spec: target.spec } : { type: "gear", id, plane: pl.ref, at: target.at, spec: target.spec, ...(target.turn ? { turn: target.turn } : {}), ...(t.gear?.mesh ? { meshWith: t.gear.mesh.src.id } : {}) }, select };
   }
   if (t.kind === "arc") {
     const arc = arcOf(pl, t);

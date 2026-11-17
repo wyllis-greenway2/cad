@@ -76,6 +76,11 @@ export type Intent =
   | { type: "typed"; key: string; shift: boolean }
   /** move the head of the toolpath preview (0 to 1), or end the preview (`in_570`) */
   | { type: "previewAt"; at: number }
+  | { type: "motionAt"; amount: number }
+  | { type: "motionPlay" }
+  | { type: "motionKind"; kind: "turn" | "slide" }
+  | { type: "motionKeep" }
+  | { type: "motionClose" }
   | { type: "previewClose" }
   /** open or close a list from the ⋯ menu (the bodies, the history) */
   | { type: "panel"; name: "bodies" | "history" | "groups" | "sketches" | "parameters" | "constraints" | "measure" }

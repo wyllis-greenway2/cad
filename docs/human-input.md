@@ -3616,3 +3616,47 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_817 — 2026-11-17 — approval
 > I will take your recommendations
 (approves my recommendation, which I take to be: pin down the tooth-count cap with two more pairs first, then build the spiral tool with the limits found; if the human meant something else, they should say)
+
+## in_818 — 2026-11-17 — directive
+> update from claude/inspiring-pascal-l342k7, all your edits should updated there
+(asks for this branch to be brought up to date with claude/inspiring-pascal-l342k7, and for all of this branch's edits to be there; they already were, merged by the other Claude)
+
+## in_819 — 2026-11-17 — directive
+> oh okay that is pretty cool. Can we offer this as a pre assembled 3d model? it can by offered as a sketch view too. Also I think that our sketch has a few issues, look at all these little ridges
+(asks for the Geneva drive to be offered as a pre-assembled 3D model, and also as an assembled sketch view; and reports little ridges along the notch of the locking disc's outline, with a picture)
+
+## in_820 — 2026-11-17 — directive
+> Go with your recommendation, build all three layouts
+(asks for all three Geneva layouts to be built: the apart sketch (as now), an assembled sketch view, and a pre-assembled 3D model of three bodies in place)
+
+## in_821 — 2026-11-17 — directive
+> Okay I actually wanted to talk about this in general. Can we make it so that things in the app can move in general? So a gear could drive other gears or attached parts? cam shaft could drive a piston etc. And how could we make this work generally?
+(asks whether things in the app can move in general, a gear driving other gears or attached parts, a camshaft driving a piston, and how that could work in general; a discussion, not yet a build)
+
+## in_822 — 2026-11-17 — directive
+> Go with your recommendation, build the spike
+(asks for the spike to be built: per-body matrices driven by a timer turning the Geneva model's crank and wheel, with a frame-time readout, to measure the cost of moving parts on screen)
+
+## in_823 — 2026-11-17 — directive
+> Go with your recommendation, draft the motion decision entry
+(asks for the decision entry for motion in general to be drafted, from the proposal made after `in_821`; a draft, not an approval of the design)
+
+## in_824 — 2026-11-17 — approval
+> I approve
+(approves `dec_mechanism_motion` as drafted, with its five choices: a view-only pose, kinematic only, saved drivers and couplings, the first slice being stages 1 and 2, and couplings made by the generators)
+
+## in_825 — 2026-11-17 — directive
+> Go with your recommendation, start stage 2
+(asks for stage 2 of `dec_mechanism_motion` to be started: gear ratio couplings, so one driven gear turns the gears and attached parts it drives)
+
+## in_826 — 2026-11-17 — directive
+> Go with your recommendation, start stage 3
+(asks for stage 3 of `dec_mechanism_motion` to be started: cam and follower contact, and the Geneva and the ratchet as couplings)
+
+## in_827 — 2026-11-17 — directive
+> Go with your recommendation, start on the Geneva coupling
+(asks for stage 3b of `dec_mechanism_motion` to be started: the Geneva drive as a coupling, the wheel driven by its crank)
+
+## in_828 — 2026-11-17 — directive
+> can you please merge in claude/adoring-dijkstra-next-pascal
+(asks for claude/adoring-dijkstra-next-pascal to be merged into the testing branch)

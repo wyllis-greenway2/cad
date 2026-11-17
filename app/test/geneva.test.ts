@@ -9,7 +9,7 @@ import type { Op } from "../src/interaction/operations.ts";
 import { loopPoints } from "../src/operation/part.ts";
 import type { CamSpec } from "../src/operation/cams.ts";
 import { camShapes } from "../src/operation/cams.ts";
-import { genevaCentres, genevaWheelRadius, outlinePoints } from "../src/operation/geneva.ts";
+import { genevaCentres, genevaWheelRadius, outlinePoints, smoothUnder } from "../src/operation/geneva.ts";
 import { splinePoints } from "../src/operation/spline.ts";
 import { camFace, camRefs } from "../src/operation/camscene.ts";
 import { loopFaceRef } from "../src/operation/loops.ts";
@@ -204,7 +204,6 @@ test("the quick shapes have the same wheel and crank as the real ones, a plain c
   const [cx, cy] = [quick.value.rings![0]!.reduce((s, q) => s + q[0], 0) / 48, quick.value.rings![0]!.reduce((s, q) => s + q[1], 0) / 48];
   const radii = quick.value.rings![0]!.map((q) => Math.hypot(q[0] - cx, q[1] - cy));
   assert.ok(Math.max(...radii) - Math.min(...radii) < 1e-9);
-  assert.ok(full.value.rings![0]!.length !== 48 || true);
   assert.ok(tq * 5 < tf, `quick ${tq.toFixed(0)} ms, real ${tf.toFixed(0)} ms`);
 });
 
@@ -222,5 +221,99 @@ test("the tool's picture uses the quick shapes: a number typed makes a picture w
   const made = run(s, fin!.command);
   const rec = scene(made).gears![0]!;
   const real = camShapes(rec.spec.cam!);
-  assert.ok(real.ok && real.value.rings![0]!.length !== 48, "the real disc is the notched one");
+  assert.ok(real.ok);
+  const ring = real.value.rings![0]!;
+  const centre = [ring.reduce((t, q) => t + q[0], 0) / ring.length, ring.reduce((t, q) => t + q[1], 0) / ring.length]; // (no hole here, so no shaft to measure from: the middle of the points will do)
+  const rs = ring.map((q) => Math.hypot(q[0] - centre[0]!, q[1] - centre[1]!));
+  assert.ok(Math.max(...rs) - Math.min(...rs) > 1, "the real disc is the notched one, not a circle");
+});
+
+// ---- the notch's edge is smooth (`in_819`)
+test("smoothing the radii never makes one bigger, and takes the scallops out of a notch's edge", () => {
+  // a rim of radius 10 with a notch cut to a scalloped edge: radii that dip in a regular wiggle
+  const raw = Array.from({ length: 720 }, (_, i) => (i > 200 && i < 320 ? 4 + 0.6 * Math.abs(Math.sin(i / 3)) : 10));
+  const smooth = smoothUnder(raw, 8);
+  smooth.forEach((v, i) => assert.ok(v <= raw[i]! + 1e-12, `at ${i}: ${v} against ${raw[i]}`));
+  const rough = (r: number[]) => r.reduce((t, v, i) => t + Math.abs(r[(i + 1) % r.length]! - 2 * v + r[(i + r.length - 1) % r.length]!), 0);
+  assert.ok(rough(smooth) < rough(raw) * 0.4, `${rough(smooth)} against ${rough(raw)}`);
+  assert.deepEqual(smoothUnder([5, 5, 5, 5, 5, 5, 5, 5], 2), [5, 5, 5, 5, 5, 5, 5, 5], "a plain rim stays as it is");
+});
+
+test("the real locking disc's outline has no ridges: the second difference of its radius along the notch is small", () => {
+  const sp = spec({ teeth: 5, crank: 20, pin: 5, diameter: 40, hole: -1, lock: undefined });
+  const sh = camShapes(sp);
+  assert.ok(sh.ok);
+  const { local } = drive(sp);
+  const rs = local.map(([x, y]) => Math.hypot(x, y));
+  // along the outline (16 points to each span between knots) the radius changes by steps that are themselves steady: no wiggle of more than a fifth of a millimetre between neighbours
+  let worst = 0;
+  for (let i = 0; i + 2 < rs.length; i++) worst = Math.max(worst, Math.abs(rs[i]! - 2 * rs[i + 1]! + rs[i + 2]!));
+  assert.ok(worst < 0.2, `worst second difference ${worst.toFixed(3)} mm`);
+});
+
+// ---- the three layouts (`in_820`)
+import { createState, reduce } from "../src/interaction/controller.ts";
+import { homeCamera } from "../src/interaction/camera.ts";
+import { editCamTool } from "../src/interaction/tools.ts";
+
+const base5 = (over: Partial<CamSpec> = {}): CamSpec => spec({ teeth: 5, crank: 20, pin: 5, diameter: 40, hole: -1, lock: undefined, ...over });
+
+test("assembled: the crank and the locking disc are on the crank's shaft, a centre distance from the wheel's, the pin away from the wheel, and the wheel and the disc do not meet", () => {
+  const c = genevaCentres(5, 20);
+  const sh = camShapes(base5({ layout: "assembled" }));
+  assert.ok(sh.ok && sh.value.polys!.length === 2 && sh.value.rings!.length === 1);
+  const crank = sh.value.polys![1]!.points;
+  assert.ok(Math.abs(Math.max(...crank.map((q) => q[0])) - (c + 20)) < 1e-6, "the crank's end is the pin, a crank radius beyond its shaft");
+  assert.ok(crank.every((q) => Math.abs(q[1]) <= 2.6), "the crank lies along the line of centres");
+  assert.ok(!sh.value.circles.some((q) => !q.hole), "no pin circle in a sketch of the assembly");
+  const { wheel, local } = drive(base5({ layout: "assembled" }));
+  const placed = local.map(([x, y]): Pt => [x + c, y]); // (the disc in the pose the wheel is locked in: turned by nothing)
+  assert.ok(!overlap(wheel, placed), "locked: the wheel and the disc do not meet");
+  // and it is locked: a turn of the wheel either way runs it into the disc (the wheel is drawn in the pose it is locked in, a locking arc facing the disc)
+  for (const dt of [-0.05, 0.05]) assert.ok(overlap(turned(wheel, dt), placed), `a turn of ${dt} is blocked`);
+  const { s } = make(base5({ layout: "assembled" }));
+  assert.equal(Object.values(scene(s).steps).length, 0, "a sketch: no steps");
+});
+
+test("the model: three bodies in place: the wheel and the locking disc one layer up from the plane, the crank plate under it with its pin joined and standing up through the layer", () => {
+  const { s } = make(base5({ layout: "model", layer: 6, plate: 3 }));
+  const steps = scene(s).steps;
+  assert.deepEqual(steps.map((st) => `${st.params.mode}:${st.params.depth}`), ["new:6", "new:6", "new:-3", "add:6"]);
+  const bodies = Object.values(scene(s).parts).filter((p) => p.kind === "body") as unknown as { bbox: { min: number[]; max: number[] }; volume: number }[];
+  assert.equal(bodies.length, 3, "the wheel, the locking disc, and the crank with its pin");
+  const byZ = (lo: number, hi: number) => bodies.filter((b) => Math.abs(b.bbox.min[2]! - lo) < 1e-6 && Math.abs(b.bbox.max[2]! - hi) < 1e-6);
+  assert.equal(byZ(0, 6).length, 2, "the wheel and the disc: from the plane up the layer");
+  assert.equal(byZ(-3, 6).length, 1, "the crank: its plate below the plane, its pin up to the top of the layer");
+  const c = genevaCentres(5, 20);
+  const crank = byZ(-3, 6)[0]!;
+  assert.ok(crank.bbox.max[0]! > c + 20 - 0.01 && crank.bbox.min[0]! > c - 12, "the crank is on its shaft");
+  // a thicker layer changes the bodies by the same steps
+  const next = run(s, { type: "setGear", id: "g_001", spec: { teeth: 1, module: 1, cam: { ...(scene(s).gears![0]!.spec.cam as CamSpec), layer: 8 } } });
+  assert.ok(!next.message, next.message ?? "");
+  assert.equal(scene(next).steps.length, 4);
+  const taller = (Object.values(scene(next).parts).filter((p) => p.kind === "body") as unknown as { bbox: { max: number[] } }[]).filter((b) => Math.abs(b.bbox.max[2]! - 8) < 1e-6);
+  assert.equal(taller.length, 3, "all three are as tall as the new layer");
+  const gone = run(next, { type: "deleteGear", id: "g_001" });
+  assert.equal(Object.values(scene(gone).parts).filter((p) => p.kind === "body").length, 0, "the bodies go with the record");
+});
+
+test("the layouts are in the Geneva submenu; the model's box has Layer and Plate; Edit reads them back; the apart sketch is as before", () => {
+  const env = { w: 800, h: 600, now: 0 };
+  let st = { ...createState(createSession(kernel)), cam: homeCamera() };
+  st = reduce(st, { type: "runAction", id: "tool:geneva:model" }, env as never);
+  assert.equal(st.tool!.cam!.layout, "model");
+  assert.equal(st.tool!.cam!.typed.length, 8);
+  let t: Tool = { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [20, 0, 0] };
+  for (const k of ["5", "Tab", "2", "0", "Tab", "5", "Tab", "0", ".", "3", "Tab", "Tab", "Tab", "8", "Tab", "4"]) t = typeKey(t, k);
+  const sp = camSpecOf(t)!;
+  assert.deepEqual([sp.teeth, sp.crank, sp.pin, sp.layout, sp.layer, sp.plate], [5, 20, 5, "model", 8, 4]);
+  const fin = finish(scene(createSession(kernel)), t);
+  assert.ok(fin);
+  const made = run(createSession(kernel), fin!.command);
+  assert.equal(scene(made).steps.length, 4);
+  const et = editCamTool(scene(made).gears![0]!);
+  assert.equal(et.cam!.layout, "model");
+  assert.deepEqual(et.cam!.typed.slice(6), ["8", "4"]);
+  const apart = camSpecOf({ ...armCam("geneva"), plane: XY, points: [[0, 0, 0]], cursor: [10, 0, 0] })!;
+  assert.equal(apart.layout, undefined, "the apart sketch is the default and keeps no layout");
 });
