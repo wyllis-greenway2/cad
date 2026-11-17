@@ -3,7 +3,7 @@ id: q_planetary_gears
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_736
+human_input: in_754
 date: 2026-11-17
 depends_on:
   - dec_gear_tool: a planetary set is sun, planets and ring made as gear records and meshed with Mesh gear and Mesh ring; a change to how gears are records changes it
@@ -11,7 +11,7 @@ alternative_to:
 ---
 # Planetary gear maker: what the rules are, and what to build
 
-**Asked (`in_736`):** look up how planetary gears work and help build a planetary gear maker. Nothing is built; this records what was found and what to decide.
+**Asked (`in_754`):** look up how planetary gears work and help build a planetary gear maker. Nothing is built; this records what was found and what to decide.
 
 **What exists already (`dec_gear_tool`):** the sun (outside gear), the ring (`Ring gear`) and a gear meshed in a ring (`Mesh gear`) or a ring round a gear (`Mesh ring`). A planetary helper was listed there as "later". What is missing is one command that makes the whole set, with the planets placed and the numbers checked.
 
