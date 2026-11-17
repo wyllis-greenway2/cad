@@ -3,7 +3,7 @@ id: dec_parts_tolerance
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_692, in_693, in_694
+human_input: in_711, in_712, in_713
 date: 2026-11-17
 depends_on:
   - dec_parts_library: every family table carries these values and the per-part override lives on the placed part
@@ -14,7 +14,7 @@ alternative_to:
 ---
 # Nominal, minimum, maximum, the real part, and the printer: kept in separate places
 
-**Accepted by the human (`in_694`) as proposed by the AI from `in_692`. Nothing built.** The human asked how to handle the case where a real part's size is slightly different from the listed or standard size.
+**Accepted by the human (`in_713`) as proposed by the AI from `in_711`. Nothing built.** The human asked how to handle the case where a real part's size is slightly different from the listed or standard size.
 
 1. **A table value says what it is.** Each dimension in a family table is a *nominal*, with a *minimum* and a *maximum* where the standard gives them, each with a cited source (`dec_manufacturing_definitions`, point 5, applies: the AI writes no dimension from memory). Where no tolerance can be cited the entry says "nominal only" and none is invented. The part is generated at the nominal by default.
 2. **A measured part overrides one part, not the library.** A person can set any dimension of a placed part to what they measured ("my screws are 5.62 across the head"). The override is stored on that part with a note that it is theirs, and shows as an override; the library is not changed. A project that keeps a copy of a part (`dec_parts_library`, point 5) keeps the override with it.

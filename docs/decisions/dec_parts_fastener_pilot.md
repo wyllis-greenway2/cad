@@ -3,7 +3,7 @@ id: dec_parts_fastener_pilot
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_691, in_695, in_696
+human_input: in_710, in_714, in_715
 date: 2026-11-17
 depends_on:
   - dec_parts_library: the pilot is the first generated family of that library
@@ -13,7 +13,7 @@ alternative_to:
 ---
 # Pilot: metric fasteners and their matching receivers
 
-**Drafted from `in_695`, not yet approved. Nothing built, and no table value is written yet** (see "Data status"). The human asked for a simple first subset with really good data, with each fastener paired with a receiver.
+**Drafted from `in_714`, not yet approved. Nothing built, and no table value is written yet** (see "Data status"). The human asked for a simple first subset with really good data, with each fastener paired with a receiver.
 
 1. **Sizes:** M3, M4, M5, M6 and M8, coarse thread.
 2. **Fasteners:** hexagon socket head cap screw (ISO 4762), hexagon socket countersunk head screw (ISO 10642), hexagon nut (ISO 4032), plain washer (ISO 7089). Button head (ISO 7380) only if its data is as easy to get. Not in the pilot: inch sizes, fine threads, visible threads, inserts, self-tapping screws, other families.
@@ -40,4 +40,4 @@ Candidate sources found by a web search, whose short summaries are not data and 
 
 ## Rationale
 
-Starting with five sizes and four fasteners proves the family schema, the matching receivers and the tolerance rules with the fasteners most printed designs use, without waiting for the whole library (`in_691`). Pairing each fastener with its receiver costs little, since every receiver is a small function of the fastener's own row (`in_695`), and it is the part a designer needs most. The data rule exists because a wrong dimension on a screw makes a failed part, and the first search already shows sources that disagree.
+Starting with five sizes and four fasteners proves the family schema, the matching receivers and the tolerance rules with the fasteners most printed designs use, without waiting for the whole library (`in_710`). Pairing each fastener with its receiver costs little, since every receiver is a small function of the fastener's own row (`in_714`), and it is the part a designer needs most. The data rule exists because a wrong dimension on a screw makes a failed part, and the first search already shows sources that disagree.
