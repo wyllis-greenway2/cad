@@ -74,7 +74,7 @@ export function gearBody(s: Session, pr: Pair, which: "pinion" | "ring", turn: n
   throw new Error(last);
 }
 export const CONE_SHIFT = { last: 0 };
-function overlap(pr: Pair, turnPinion: number, turnRing: number, N: number): { vol: number; none: boolean; vols: number[] } {
+export function overlap(pr: Pair, turnPinion: number, turnRing: number, N: number): { vol: number; none: boolean; vols: number[] } {
   let s = createSession(kernel);
   s = gearBody(s, pr, "pinion", turnPinion, N);
   s = gearBody(s, pr, "ring", turnRing, N);
