@@ -3143,3 +3143,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_700 — 2026-11-17 — directive
 > yes do the page's per-edit scene derivation next
 (approves doing the page's per-edit scene derivation next: the work the page does on the whole scene at every edit, which grows with the number of parts and bodies)
+
+## in_701 — 2026-11-17 — question
+> What do you reccomend?
+(asks which of the remaining speed items to do next)
