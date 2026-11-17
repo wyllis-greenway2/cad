@@ -11,13 +11,13 @@ import { ok, err } from "../shared/result.ts";
 import { typedLength } from "../shared/units.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { dot } from "../math/vec.ts";
-import { FASTENER_FAMILIES, FASTENER_SIZES, FASTENER_SOURCES, CLEARANCE_FIT_LIST as CLEARANCE_FITS, RECEIVER_KINDS, isFastenerSize, receiversText, makeNut, makeCountersunk, makeWasher, makeSocketHead, countersunkDims, clearanceHole, nutTrap, receiverProblem, receiverSteps } from "../operation/fasteners.ts";
+import { FASTENER_FAMILIES, FASTENER_SIZES, FASTENER_SOURCES, CLEARANCE_FIT_LIST as CLEARANCE_FITS, RECEIVER_KINDS, isFastenerSize, receiversText, makeNut, makeCountersunk, makeWasher, makeSocketHead, countersunkDims, socketHeadDims, clearanceHole, nutTrap, receiverProblem, receiverSteps } from "../operation/fasteners.ts";
 import type { FastenerFamily, PartSteps, ReceiverKind, ClearanceFit, FaceSpot } from "../operation/fasteners.ts";
 
-export interface AddPartValues { family: string; size: string; length: string }
+export interface AddPartValues { family: string; size: string; length: string; /** a socket head screw's head: "knurled" (the default) or "smooth" */ head?: string }
 /** The family's name in the words of a message: "hex nut", "flat washer". */
 export const familyName = (id: string): string => (FASTENER_FAMILIES.find((f) => f.id === id)?.label ?? "part").toLowerCase();
-export const addPartStart = (): AddPartValues => ({ family: "nut", size: "M3", length: "10" });
+export const addPartStart = (): AddPartValues => ({ family: "nut", size: "M3", length: "10", head: "knurled" });
 const familyOf = (s: string): FastenerFamily => (s === "countersunk" || s === "socketHead" || s === "washer" ? s : "nut");
 
 export function addPartDialog(v: AddPartValues): Dialog {
@@ -29,7 +29,8 @@ export function addPartDialog(v: AddPartValues): Dialog {
     fields: [
       { id: "family", label: "Family", type: "choice", value: family, choices: FASTENER_FAMILIES.map((f) => ({ value: f.id, label: `${f.label} (${f.standard})` })), note: `numbers from: ${FASTENER_SOURCES[family]}; placed at the origin, drawn at its nominal size` },
       { id: "size", label: "Size (coarse thread)", type: "choice", value: size, choices: FASTENER_SIZES.map((s) => ({ value: s, label: s })), note: `matches: ${receiversText(size, family)}` },
-      ...(family === "countersunk" || family === "socketHead" ? [{ id: "length", label: family === "socketHead" ? "Length under the head (mm)" : "Length from the top of the head (mm)", type: "text" as const, value: v.length, note: family === "socketHead" ? "the standard's length list was not read: any length over 0.5 mm; the part is made at the largest head and body size" : `the standard's length list was not read: any length over ${Math.round((countersunkDims(size).headHeight + 0.5) * 1000) / 1000} mm; the part is made at nominal size` }] : []),
+      ...(family === "countersunk" || family === "socketHead" ? [{ id: "length", label: family === "socketHead" ? "Length under the head (mm)" : "Length from the top of the head (mm)", type: "text" as const, value: v.length, note: family === "socketHead" ? "the standard's length list was not read: any length over 0.5 mm; the part is made at the largest body size" : `the standard's length list was not read: any length over ${Math.round((countersunkDims(size).headHeight + 0.5) * 1000) / 1000} mm; the part is made at nominal size` }] : []),
+      ...(family === "socketHead" ? [{ id: "head", label: "Head", type: "choice" as const, value: v.head === "smooth" ? "smooth" : "knurled", choices: [{ value: "knurled", label: `knurled, largest ${socketHeadDims(size).head.max} mm across` }, { value: "smooth", label: `smooth, largest ${socketHeadDims(size).head.smooth} mm across` }], note: "both are in ISO 4762; the counterbore is cut for the wider (knurled) head" }] : []),
     ],
   };
 }
@@ -42,7 +43,7 @@ export function addPartSteps(v: AddPartValues): Result<PartSteps> {
   if (family === "washer") return makeWasher(v.size);
   const length = typedLength(v.length);
   if (length === null) return err("type the length as a number");
-  return family === "socketHead" ? makeSocketHead(v.size, length) : makeCountersunk(v.size, length);
+  return family === "socketHead" ? makeSocketHead(v.size, length, v.head === "smooth") : makeCountersunk(v.size, length);
 }
 
 /**

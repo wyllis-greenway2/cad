@@ -234,7 +234,7 @@ test("a counterbore for a socket head screw is the head's width plus the rule's 
 test("the dialog offers four families, asks the length for both screws only, and shows each family's own source", () => {
   const f = (family: string) => addPartDialog({ family, size: "M5", length: "12" });
   assert.deepEqual(f("nut").fields[0]!.choices!.map((c) => c.value), ["nut", "countersunk", "socketHead", "washer"]);
-  assert.deepEqual(f("socketHead").fields.map((x) => x.id), ["family", "size", "length"]);
+  assert.deepEqual(f("socketHead").fields.map((x) => x.id), ["family", "size", "length", "head"]);
   assert.deepEqual(f("washer").fields.map((x) => x.id), ["family", "size"]);
   assert.ok(f("socketHead").fields[0]!.note?.includes("CDE Fasteners") && f("washer").fields[0]!.note?.includes("Westfield"));
   assert.ok(f("socketHead").fields[1]!.note?.includes("counterbore"));
@@ -243,4 +243,23 @@ test("the dialog offers four families, asks the length for both screws only, and
 test("a message names the family as the person chose it", async () => {
   const { familyName } = await import("../src/interaction/addpart.ts");
   assert.deepEqual(["nut", "countersunk", "socketHead", "washer"].map(familyName), ["hex nut", "countersunk socket screw", "socket head cap screw", "flat washer"]);
+});
+
+test("the smooth head is the narrower head of ISO 4762: its own largest diameters, and a screw drawn with it has the narrower head", () => {
+  assert.deepEqual(FASTENER_SIZES.map((s) => socketHeadDims(s).head.smooth), [5.5, 7, 8.5, 10, 13]);
+  assert.deepEqual(FASTENER_SIZES.map((s) => socketHeadDims(s).head.max), [5.68, 7.22, 8.72, 10.22, 13.27]);
+  for (const s of FASTENER_SIZES) assert.ok(socketHeadDims(s).head.smooth < socketHeadDims(s).head.max && socketHeadDims(s).head.smooth > socketHeadDims(s).head.min);
+  assert.equal(socketHeadProfile("M3", 10, true)[1]![0], 2.75);
+  assert.equal(socketHeadProfile("M3", 10)[1]![0], 2.84);
+  const [size, length] = ["M5", 16] as const;
+  const mk = (head: string) => { const r = addPart(createSession(kernel), { family: "socketHead", size, length: String(length), head }); assert.ok(r.ok, r.ok ? "" : r.error); return volumes(r.value)[0]!; };
+  const d = socketHeadDims(size);
+  const solid = (dia: number) => Math.PI * (dia / 2) ** 2 * d.headHeight.max + Math.PI * (d.shank.max / 2) ** 2 * length - (Math.sqrt(3) / 2) * d.socket.acrossFlats ** 2 * d.socket.depthMin;
+  near(mk("smooth"), solid(d.head.smooth));
+  near(mk("knurled"), solid(d.head.max));
+  assert.ok(mk("smooth") < mk("knurled"));
+  const dlg = addPartDialog({ family: "socketHead", size: "M3", length: "8", head: "smooth" }).fields.find((x) => x.id === "head")!;
+  assert.equal(dlg.value, "smooth");
+  assert.deepEqual(dlg.choices!.map((c) => c.label), ["knurled, largest 5.68 mm across", "smooth, largest 5.5 mm across"]);
+  assert.equal(addPartDialog({ family: "socketHead", size: "M3", length: "8" }).fields.find((x) => x.id === "head")!.value, "knurled", "knurled unless asked");
 });

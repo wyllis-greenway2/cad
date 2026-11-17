@@ -3156,3 +3156,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_703 — 2026-11-17 — approval
 > Yes, look for those catalogs
 (asks for current maker or supplier catalogs that state their standard and edition to be looked for, for the ISO 4762 head, ISO 10642 and the clearance hole table)
+
+## in_704 — 2026-11-17 — approval
+> Yes, add the smooth head option
+(asks for the smooth head option of the socket head cap screw, the smooth-head largest diameters of ISO 4762 as an alternative to the knurled head)
