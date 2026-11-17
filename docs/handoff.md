@@ -3211,3 +3211,12 @@ No input. The full test suite was run on the code as of the engagement setting (
 
 ## Handoff 725 — 2026-11-17 (in_797: this branch and inspiring-pascal are the same)
 `in_797` (the human's explicit permission to write to `claude/inspiring-pascal-l342k7`). **Checked:** every commit of `claude/hopeful-cannon-7` was already an ancestor of `claude/inspiring-pascal-l342k7` (that branch's sessions had merged this one, renumbering its inputs and handoffs: the worm wheels' input is there as `in_786` and `in_796`, Handoff 712 as 722); this branch was five commits behind it (the spiral bevel work, Handoffs 723 and 724) and was brought up to its tip with a fast-forward, no merge commit and no renumbering of this branch's own entries. **Then:** this entry and `in_797` are the only things added; pushed to this branch and, with the permission, to `claude/inspiring-pascal-l342k7` (a fast-forward of its tip, so nothing of the other sessions' is touched).
+
+## Handoff 726 — 2026-11-17 (in_800: the crown gear approved; sequencing)
+`in_800`. **The human approved making a crown gear** and asked whether to wait for the spiral bevel. **Decided with the human's question answered:** not to wait: the spiral prototype's sets run in the background and the rest of it is waiting (more tooth counts, then the hypoid, which needs reading), and the crown gear is the generating gear of the spiral bevel, so it helps it. **Recorded:** `q_crown_gears` (open: what it is, what it meshes with, what the human decides, the plan: a prototype first). Nothing in `app/`.
+
+## Handoff 727 — 2026-11-17 (the crown gear prototype)
+`in_800`. **Built (prototype only, `prototypes/crown-gear`):** the crown's flank planes, the straight pinion's flank by the gearing law, the bodies in the kernel. **Measured:** zc 40, z1 18, module 2, 20 degrees: overlap 0.7 to 1.3 mm3 at the place and rolled, 101 to 117 half a pitch round (cone shifts -2, 0.7, 2 work; -1.34 gives an invalid solid). z1 14 is undercut. **Spiral:** cone-end results recorded in its README (17/43 fails at every shift; 30/45 did not finish). **Next:** the human decides the pinion (straight bevel or spur), then a decision entry for the tool; nothing outside `prototypes/` yet; hypoid not started.
+
+## Handoff 728 — 2026-11-17 (in_801: recommendations taken)
+`in_801`. Approved: straight bevel pinion first, straight teeth, spiral later. Wrote `dec_crown_gears` as a **provisional** proposal (numbers, menu, linking); nothing built in `app/` until the human approves it.
