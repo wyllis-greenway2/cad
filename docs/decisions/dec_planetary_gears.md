@@ -3,7 +3,7 @@ id: dec_planetary_gears
 kind: decision
 status: provisional
 origin: ai-proposed-human-approved
-human_input: in_738, in_737, in_736
+human_input: in_762, in_761, in_736
 date: 2026-11-17
 depends_on:
   - dec_gear_tool: the sun, planets and ring are ordinary gear records (made, meshed, edited and extruded as any gear); a change to how a gear is a record changes the set
@@ -13,7 +13,7 @@ alternative_to:
 ---
 # A planetary set that keeps its numbers
 
-**Approved (`in_738`, after `in_737`):** the human asked for a planetary gear maker and answered the design questions: either the teeth or the ratio is given and the other follows; the carrier plate is optional; the set is a feature that keeps its numbers and Edit gear edits the whole of it as it was made; spur and helical; the ratio is shown for each part held; the carrier is a plate with a pin at each planet (thickness, pin diameter and clearance set by the person); each planet is a body of its own.
+**Approved (`in_762`, after `in_761`):** the human asked for a planetary gear maker and answered the design questions: either the teeth or the ratio is given and the other follows; the carrier plate is optional; the set is a feature that keeps its numbers and Edit gear edits the whole of it as it was made; spur and helical; the ratio is shown for each part held; the carrier is a plate with a pin at each planet (thickness, pin diameter and clearance set by the person); each planet is a body of its own.
 
 **Built (`operation/planetary.ts`, commands `planetary`, `setPlanetary`, `deletePlanetary`, `Scene.planetaries`, saved in the file):**
 - A set is a record (plane, centre, turn, numbers) that ties together gear records `<id>s` (sun), `<id>p1..N` (planets) and `<id>r` (ring): ordinary gears, so every body is a separate body with its own steps, and everything that works on a gear (selecting, extruding, meshing, export) works on them. Editing the set sets each gear again (`setGear`), adds or takes away planets, and makes the carrier again.

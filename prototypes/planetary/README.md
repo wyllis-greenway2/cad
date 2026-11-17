@@ -1,4 +1,4 @@
-# Planetary set maths (a prototype, `in_736`, `in_737`)
+# Planetary set maths (a prototype, `in_736`, `in_761`)
 
 **What it was meant to learn:** whether the rules found for planetary sets (ring = sun + 2 planets, `(sun + ring) / planets` whole, planets clear of each other, Willis ratios) are enough to place a sun, planets and ring with the app's own `gearOutline` and `meshWith` so that every mesh fits; and how to go both ways (teeth to ratio, ratio to teeth).
 

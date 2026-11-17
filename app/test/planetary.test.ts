@@ -1,4 +1,4 @@
-// A planetary set that keeps its numbers (`dec_planetary_gears`, `in_736` to `in_738`): the maths (teeth to ratio and ratio to teeth, the checks), the set as a command (gears, carrier, edit, delete, save), and the bodies the kernel makes from it.
+// A planetary set that keeps its numbers (`dec_planetary_gears`, `in_736` to `in_762`): the maths (teeth to ratio and ratio to teeth, the checks), the set as a command (gears, carrier, edit, delete, save), and the bodies the kernel makes from it.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

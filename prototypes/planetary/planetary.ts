@@ -1,4 +1,4 @@
-// Planetary set maths (a prototype, `in_736`, `in_737`): tooth counts from a ratio or a ratio from tooth counts, the assembly and clearance checks, the ratio for each held part, and where each planet stands.
+// Planetary set maths (a prototype, `in_736`, `in_761`): tooth counts from a ratio or a ratio from tooth counts, the assembly and clearance checks, the ratio for each held part, and where each planet stands.
 export type Hold = "ring" | "carrier" | "sun";
 export interface PlanetarySet { sun: number; planet: number; ring: number; planets: number }
 export interface Problem { fatal: boolean; text: string }

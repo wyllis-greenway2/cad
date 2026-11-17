@@ -1,4 +1,4 @@
-// A planetary gear set that keeps its numbers (`dec_planetary_gears`, `in_736` to `in_738`): a sun, N planets and a ring that are ordinary gear records (`gearscene.ts`: their parts, bodies, meshing and numbers work as for any gear), a record that ties them together
+// A planetary gear set that keeps its numbers (`dec_planetary_gears`, `in_736` to `in_762`): a sun, N planets and a ring that are ordinary gear records (`gearscene.ts`: their parts, bodies, meshing and numbers work as for any gear), a record that ties them together
 // (`Scene.planetaries`), and an optional carrier: a plate with a pin at each planet, one body. Changing the numbers of the set changes every gear and the carrier; the set can be given by its tooth counts or by a ratio. Pure: scenes in, scenes out.
 import type { Ref } from "../shared/ref.ts";
 import { drawnRef } from "../shared/ref.ts";
