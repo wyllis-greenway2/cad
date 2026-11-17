@@ -355,7 +355,7 @@ export function refOfName(names, name) {
 /** What the extrusion needs of a sketch to name its faces, as plain numbers, read before the extrusion uses the sketch up: its edges' ends in the order of its wire, and the direction it is extruded along. */
 export function edgeEnds(sketch) {
   const d = sketch.defaultDirection;
-  return { dir: [d.x, d.y, d.z], edges: sketch.wire.edges.map((e) => { const p = (v) => [v.x, v.y, v.z]; const line = e.geomType === "LINE"; return { a: p(e.startPoint), b: p(e.endPoint), line, ...(line ? {} : { mid: p(e.pointAt(0.5)), p1: p(e.pointAt(1 / 3)), p2: p(e.pointAt(2 / 3)) }) }; }) };
+  return { dir: [d.x, d.y, d.z], edges: edgesOf(sketch.wire).map((e) => { const p = (v) => [v.x, v.y, v.z]; const line = e.geomType === "LINE"; return { a: p(e.startPoint), b: p(e.endPoint), line, ...(line ? {} : { mid: p(e.pointAt(0.5)), p1: p(e.pointAt(1 / 3)), p2: p(e.pointAt(2 / 3)) }) }; }) };
 }
 
 /**

@@ -3528,3 +3528,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_795 — 2026-11-17 — directive
 > Go with your recommendation, build the linear ratchet
 (asks for the linear ratchet to be built: a straight bar of ratchet teeth with its pawl, the next shape after the Geneva drive)
+
+## in_796 — 2026-11-17 — directive
+> yes do the worm wheels next
+(approves doing the worm wheels next: what is left of their cost beyond the loft, a 200-tooth wheel and other worm types through the kernel)
