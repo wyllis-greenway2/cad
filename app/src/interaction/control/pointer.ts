@@ -17,7 +17,7 @@ import type { ToolKind, Tool } from "../tools.ts";
 import { diskFaceRef } from "../../operation/loops.ts";
 import { lineHint, arcEndHint, hintRelations, circleCentredAt, anchorCentreAt, pointHint, arcBulgeHint, circleRadiusHint, tangentCentre } from "../hints.ts";
 import type { Hint } from "../hints.ts";
-import { snapOnPlane, guidesOf, finish, planeForDrawing, armTool, pointOnPlane, canHelix } from "../tools.ts";
+import { snapOnPlane, guidesOf, finish, planeForDrawing, armTool, pointOnPlane, canHelix, meshSuggestion, snapToMesh } from "../tools.ts";
 import { trimAt } from "../../operation/trim.ts";
 import type { Command } from "../../operation/commands.ts";
 import type { OpKind, Op } from "../operations.ts";
@@ -53,10 +53,10 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:wormwheel", label: "Worm wheel", icon: "wormwheel", tool: "gear" },
   { id: "tool:ring", label: "Ring gear", icon: "ringgear", tool: "gear" },
   { id: "tool:rack", label: "Rack", icon: "rack", tool: "gear" },
-  { id: "tool:gt2", label: "GT2 pulley", icon: "pulley", tool: "gear" },
-  { id: "tool:gt3", label: "GT3 pulley", icon: "pulley", tool: "gear" },
-  { id: "tool:htd5", label: "HTD 5M", icon: "pulley", tool: "gear" },
-  { id: "tool:htd8", label: "HTD 8M", icon: "pulley", tool: "gear" },
+  { id: "tool:gt2", label: "GT2 pulley", icon: "txtGT2", tool: "gear" },
+  { id: "tool:gt3", label: "GT3 pulley", icon: "txtGT3", tool: "gear" },
+  { id: "tool:htd5", label: "HTD 5M", icon: "txt5M", tool: "gear" },
+  { id: "tool:htd8", label: "HTD 8M", icon: "txt8M", tool: "gear" },
   { id: "tool:sprocket", label: "ANSI sprocket", icon: "sprocket", tool: "gear" },
   { id: "tool:isosprocket", label: "ISO sprocket", icon: "sprocket", tool: "gear" },
   { id: "tool:clock", label: "Clock gear", icon: "clockgear", tool: "gear" },
@@ -418,6 +418,8 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   if (!at) return base;
   if (t.kind === "gear" && t.points.length) {
     // a gear: the first click after its centre only sets the size and the number box stays open; the next click in space makes it and starts the next gear (`in_688`)
+    const sug = !t.sized && !i.shift ? meshSuggestion(sc, t) : null; // (next to a gear it would mesh with: the click makes the gear that meshes, Shift leaves it, `in_709`)
+    if (sug) return { ...base, tool: snapToMesh(sug, t), session: { ...sess, message: `meshed with ${sug.src.id}: ${sug.teeth} teeth` } };
     if (!t.sized) return { ...base, tool: { ...t, cursor: at, sized: true } };
     const done = commitFigure(base, finish(sc, t));
     return done.tool && !done.tool.points.length && !done.session.message ? clickWithTool(done, i, env, refs) : done;

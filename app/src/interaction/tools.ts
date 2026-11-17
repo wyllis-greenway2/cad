@@ -410,6 +410,42 @@ export function gearGuard(scene: Scene, t: Tool): { field: number; why: string; 
   const fx = memo.get(key);
   return fx ? { field: fx.field, why: gearProblem(scene, t) ?? fx.message, tool: fx.tool } : null;
 }
+/**
+ * A gear being sized next to a gear of the same kind that would mesh with it (`in_709`): its pitch circle (as the pointer sizes it) all but touches the pitch circle of a plain gear of the same plane, within a module. The gear to mesh with,
+ * how many teeth the partner has to be at that distance (the module is the other's), and the direction from it; null while there is none, the module is typed, or the size is set already. A click then makes it the gear that meshes with it.
+ */
+export function meshSuggestion(scene: Scene, t: Tool): { src: GearRecord; teeth: number; where: number } | null {
+  const g = t.gear;
+  if (t.kind !== "gear" || !t.plane || !t.points.length || t.sized || !g || g.mesh || g.editing || g.internal || g.rack || g.worm || g.wheel || g.pulley || g.sprocket || g.cycloidal) return null;
+  const fields = gearFields(g);
+  if (g.typed[fields.findIndex((f) => f.key === "module")]) return null; // (a module that is typed is not the other gear's)
+  const target = gearTarget(scene, t);
+  const o = target ? gearOutline(target.spec) : null;
+  const pl = scene.parts[t.plane];
+  if (!o || !o.ok || !pl || pl.kind !== "plane") return null;
+  const centre = t.points[0]!;
+  let best: { src: GearRecord; teeth: number; where: number; off: number } | null = null;
+  for (const rec of scene.gears ?? []) {
+    const sp = rec.spec;
+    if (rec.plane !== t.plane || sp.internal || sp.rack || sp.pulley || sp.sprocket || sp.cycloidal || sp.worm || sp.wheel || (sp.shift ?? 0) !== 0) continue;
+    const oG = gearOutline(sp);
+    if (!oG.ok) continue;
+    const d = dist(centre, rec.at);
+    if (d < 1e-6) continue;
+    const m = (sp.module * 2 * oG.value.pitchRadius) / (sp.module * Math.round(sp.teeth)); // (the transverse module: a helical gear's pitch circles are bigger)
+    const off = Math.abs(d - (oG.value.pitchRadius + o.value.pitchRadius));
+    const teeth = Math.round((2 * (d - oG.value.pitchRadius)) / m);
+    if (off > m || teeth < 6 || teeth > 500 || (best && off >= best.off)) continue;
+    const [gx, gy] = localOf(pl, rec.at), [cx, cy] = localOf(pl, centre);
+    best = { src: rec, teeth, where: Math.atan2(cy - gy, cx - gx), off };
+  }
+  return best ? { src: best.src, teeth: best.teeth, where: best.where } : null;
+}
+/** The tool a click turns the gear being sized into when it has a gear to mesh with: the Mesh gear tool on that gear, with the tooth count and the direction, the size set. */
+export function snapToMesh(sug: { src: GearRecord; teeth: number }, t: Tool): Tool {
+  const m = meshGearTool(sug.src, false);
+  return { ...m, cursor: t.points[0]!, sized: true, gear: { ...m.gear!, typed: m.gear!.typed.map((x, i) => (i === 0 ? String(sug.teeth) : x)) } };
+}
 /** What each field of the number box says while nothing is typed in it: the numbers as they are now. */
 export function gearLive(scene: Scene, t: Tool): number[] | null {
   const g = gearTarget(scene, t);
@@ -487,6 +523,7 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
   if (t.kind === "gear") {
     let target = gearTarget(scene, t);
     let red = !!t.gear?.bad;
+    const sug = meshSuggestion(scene, t); // (a gear that would mesh: a dashed line to it)
     if (!target) { const guard = gearGuard(scene, t); target = guard ? gearTarget(scene, guard.tool) : null; red = red || !!target; } // (numbers that make no gear: the nearest that does, in red, `in_694`)
     const o = target ? gearOutline(target.spec) : null;
     if (!target || !o || !o.ok) return null;
@@ -574,7 +611,7 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
         segments.push([prev, q]); prev = q;
       }
     });
-    return { segments, circle: shaped ? null : o.value.outerRadius !== undefined ? { center: target.at, radius: o.value.outerRadius, normal: n } : bore > 0 ? { center: target.at, radius: bore / 2, normal: n } : null, cursor: t.cursor, ...(red ? { red: true as const } : {}) };
+    return { segments, circle: shaped ? null : o.value.outerRadius !== undefined ? { center: target.at, radius: o.value.outerRadius, normal: n } : bore > 0 ? { center: target.at, radius: bore / 2, normal: n } : null, cursor: t.cursor, ...(red ? { red: true as const } : {}), ...(sug ? { guides: [[t.points[0]!, sug.src.at] as [Vec3, Vec3]] } : {}) };
   }
   if (t.kind === "arc") {
     const arc = t.points.length >= 2 ? arcOf(pl, t) : null;

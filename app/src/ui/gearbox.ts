@@ -14,6 +14,7 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
   let inputs: HTMLInputElement[] = [];
   let hints: HTMLElement[] = [];
   let warn: HTMLElement | null = null;
+  let suggest: HTMLElement | null = null;
   return {
     rect(): DOMRect | null { return el.style.display === "none" ? null : el.getBoundingClientRect(); },
     /** `entry`: the panel to show (null hides it). */
@@ -27,6 +28,9 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
         warn = document.createElement("div");
         warn.style.cssText = "display:none;margin:2px 0 6px;padding:6px 8px;border-radius:8px;background:#fde8e8;color:#b42318;font-size:12px;line-height:1.35";
         el.appendChild(warn);
+        suggest = document.createElement("div");
+        suggest.style.cssText = "display:none;margin:2px 0 6px;padding:6px 8px;border-radius:8px;background:#e6f6f5;color:#0b6b67;font-size:12px;line-height:1.35";
+        el.appendChild(suggest);
         const title = document.createElement("div");
         title.textContent = entry.panel;
         title.style.cssText = "font-weight:600;font-size:15px;margin-bottom:6px";
@@ -71,6 +75,7 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
         bar.append(textButton("Cancel", { click: () => h.cancel() }), textButton("Make it", { tone: "primary", click: () => h.enter() }));
         el.appendChild(bar);
       }
+      if (suggest) { suggest.textContent = entry.suggest ?? ""; suggest.style.display = entry.suggest ? "block" : "none"; } // (a click that makes it mesh with the gear beside it, `in_709`)
       if (warn) { warn.textContent = entry.warn ?? ""; warn.style.display = entry.warn ? "block" : "none"; } // (numbers that make no gear: why, in red)
       entry.fields.forEach((f, i) => { // (a number just taken back to one that makes a gear flashes red, `in_690`)
         const input = inputs[i]!;

@@ -727,3 +727,33 @@ test("a gear meshed inside a ring that is made too big does not disappear: the n
   assert.equal(scene(st.session).gears!.length, 1, "Enter takes the number back and makes nothing yet");
   assert.ok(Number(st.tool!.gear!.typed[0]) < 40, `taken back to ${st.tool!.gear!.typed[0]}`);
 });
+
+test("a gear sized next to a gear of the same kind, its pitch circle all but touching the other's, is suggested to mesh with it; a click makes the gear that meshes (the module of the other), Shift+click leaves it (`in_709`)", () => {
+  let st = reduce(top(), { type: "begin", name: "gear" }, env);
+  st = click(st, C);
+  st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2"); st = key(st, "Enter"); // (20 teeth, module 2: pitch radius 20)
+  assert.equal(scene(st.session).gears!.length, 1);
+  st = reduce(st, { type: "escape" }, env);
+  st = reduce(st, { type: "begin", name: "gear" }, env);
+  const near: Vec3 = [C[0] + 40.3, C[1], 0]; // (a gear of the same size 40.3 away: its pitch circles all but touch)
+  st = click(st, near);
+  st = move(st, [near[0] + 22, near[1], 0]);
+  const e = entryOf(scene(st.session), st.tool, st.op)!;
+  assert.match(e.suggest ?? "", /20 tooth gear that meshes/);
+  assert.ok(previewFor(scene(st.session), st.tool)!.guides?.length, "a dashed line to the gear it meshes with");
+  const shifted = reduce(st, { type: "click", x: px(st, [near[0] + 22, near[1], 0])[0], y: px(st, [near[0] + 22, near[1], 0])[1], count: 1, shift: true }, env);
+  assert.ok(!shifted.tool!.gear!.mesh && shifted.tool!.sized, "Shift+click only sets the size");
+  const snapped = click(st, [near[0] + 22, near[1], 0]);
+  assert.ok(snapped.tool!.gear!.mesh, "the tool is the Mesh gear tool");
+  assert.equal(snapped.tool!.gear!.typed[0], "20");
+  const made = key(snapped, "Enter");
+  assert.equal(scene(made.session).gears!.length, 2);
+  const g2 = scene(made.session).gears![1]!;
+  assert.deepEqual([g2.spec.teeth, g2.spec.module], [20, 2]);
+  assert.ok(Math.abs(Math.hypot(g2.at[0] - C[0], g2.at[1] - C[1]) - 40) < 1e-6, "at the exact centre distance");
+  // too far: no suggestion
+  let far = reduce(reduce(made, { type: "escape" }, env), { type: "begin", name: "gear" }, env);
+  far = click(far, [C[0] + 90, C[1] + 60, 0]);
+  far = move(far, [C[0] + 112, C[1] + 60, 0]);
+  assert.equal(entryOf(scene(far.session), far.tool, far.op)?.suggest, undefined, "too far: no suggestion");
+});
