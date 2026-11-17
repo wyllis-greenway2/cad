@@ -3576,3 +3576,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_807 — 2026-11-17 — directive
 > chase the dashed line next
 (asks to find where the dashed line seen while editing a planetary set comes from)
+
+## in_808 — 2026-11-17 — approval
+> okay it looks pretty good. are we all done here?
+(after testing the planetary gear maker on claude/inspiring-pascal-l342k7: says it looks pretty good and asks whether the work is done; not an explicit approval to mark dec_planetary_gears accepted)

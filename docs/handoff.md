@@ -3237,3 +3237,6 @@ No input. The full test suite was run on the code as of the engagement setting (
 
 ## Handoff 734 — 2026-11-17 (in_807: the dashed line)
 `in_807`. **Found:** the dashed line seen while editing a planetary set is the alignment guide of the tools (`guidesOf`, `tools.ts`): while a gear or a set is edited the cursor is its own centre, which lines up (same x or y) with the corners of its planets or neighbours, so a dashed line to them was drawn. Not planetary-specific. **Fixed:** `previewOf` draws no guides for a gear being edited or a planetary set; `test/planetaryui.test.ts` (8 tests; the test failed before the fix); gone in the browser. **Check:** see the commit.
+
+## Handoff 735 — 2026-11-17 (in_808: the planetary gear maker tested by the human)
+`in_808`. The human tested the planetary gear maker on `claude/inspiring-pascal-l342k7` (the merge `b008bf5`) and said it looks pretty good. `dec_planetary_gears` stays `provisional` (that is not an explicit approval of the decision). **Left over:** bolt flanges or other housing features, the gear chip for the carrier, a gap of its own between the planets and the housing's cap, the speed of making the bodies on a real graphics card not measured (about 8 s here in software drawing). Nothing in `app/` changed.
