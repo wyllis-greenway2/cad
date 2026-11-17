@@ -93,3 +93,16 @@ test("a wheel of many teeth has the coarser screen mesh (freeform faces by the h
   assert.deepEqual(fresh.faceNames, kept.faceNames);
   assert.deepEqual(fresh.edgeNames, kept.edgeNames);
 });
+
+test("a wheel's loft is not checked for matching sections (`in_810`): the same volume as before to every digit, and a loft told it is matched when it is not still comes out right", () => {
+  const v = bodyVolumes(wheel(60));
+  assert.deepEqual(v.errors, []);
+  assert.ok(Math.abs(v.volumes[0]! - 114392.87812056803) < 0.01, `60 teeth: ${v.volumes[0]}`); // (the volume with the checked loft)
+  const sq = { id: "s_a", type: "sketch", shape: "polygon", points: [[-5, -5], [5, -5], [5, 5], [-5, 5]], plane: "XY", origin: 0 };
+  const hex = { id: "s_b", type: "sketch", shape: "polygon", points: Array.from({ length: 6 }, (_, i) => [8 * Math.cos(i * Math.PI / 3), 8 * Math.sin(i * Math.PI / 3)]), plane: "XY", origin: 10 };
+  for (const matched of [false, true]) {
+    const r = kernel.evaluate({ params: {}, ops: [sq, hex, { id: "x_l", type: "loft", sections: [{ profile: "s_a", holes: [] }, { profile: "s_b", holes: [] }], smooth: true, matched }] } as never) as unknown as { ops: { id: string; error: string | null }[]; volume: number };
+    assert.equal(r.ops.find((o) => o.id === "x_l")!.error, null, `matched ${matched}`);
+    assert.ok(r.volume > 1000 && r.volume < 2000, `matched ${matched}: ${r.volume}`);
+  }
+});

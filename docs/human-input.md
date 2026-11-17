@@ -3584,3 +3584,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_809 — 2026-11-17 — question
 > okay so are we all done making it faster now?
 (asks whether the speed work is finished)
+
+## in_810 — 2026-11-17 — directive
+> yes try the worm wheel loft next
+(approves trying to make the worm wheel's loft faster)
