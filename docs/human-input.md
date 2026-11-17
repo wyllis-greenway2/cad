@@ -3552,3 +3552,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_801 — 2026-11-17 — directive
 > In the same place next to Fasteners called "Fastener Holes"
 (answers where the fastener hole goes: in the same place, next to Fasteners, called "Fastener Holes")
+
+## in_802 — 2026-11-17 — directive
+> can you merge the code so I can try it?
+(asks for this branch's code to be merged so the human can try it)
