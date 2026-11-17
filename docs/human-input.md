@@ -2765,3 +2765,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_607 — 2026-11-17 — question
 > do you think we should chase the remaining slivers? Also what is the square profile to the path? and where should the spline line actually be located in order to loft properly?
 (asks whether the remaining sliver faces of the chamfer are worth chasing, what "square to the path" means for a profile, and where the path (the spline line) should be placed for a sweep (called a loft) to come out right; answered in chat, nothing built)
+
+## in_608 — 2026-11-17 — directive
+> maybe we should have a loft option where a selected profile follows a line as it does now starting from the profile, or an option that centers a copy of the sketch on the spline line itself and follows it always starting normal to the line? So you could have the option to loft from the sketch or loft through the line.
+(proposes two modes for the sweep: the profile follows the path from where it is drawn, as now; or a copy of the profile is centred on the path itself and follows it, always starting square to the path; asks for the option of both; the human's word "loft" is the sweep along a path)
