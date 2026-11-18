@@ -4000,3 +4000,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_913 — 2026-11-18 — question
 > okay so how are we looking? do we have a fast system that can handle lots of complex parts like gears etc?
 (asks for the state of the speed work: whether the system is fast and can handle many complex parts such as gears)
+
+## in_914 — 2026-11-18 — approval
+> yes start
+(approves starting the Phase 1 prototype: ghosts from the commands and piecewise building of independent parts in camera order, measured on the 300 and 1000 part projects)

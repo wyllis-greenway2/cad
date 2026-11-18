@@ -3,7 +3,7 @@ id: q_progressive_load
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_906, in_907, in_908, in_912
+human_input: in_906, in_907, in_908, in_912, in_914
 date: 2026-11-18
 depends_on:
   - q_limits_and_failures: the measured limits (a project of 300 separate parts 17 s to open, 1000 parts a 33 s freeze, about 961 bodies at the kernel's 4 GB) are what this is meant to remove
@@ -53,6 +53,8 @@ depends_on:
 2. **The differential harness** is built (`prototypes/progressive`) and run: groups of independent steps built alone and in other orders give the same bodies, volumes, boxes and face names (17 groups, 17 bodies, 6 other orders, no difference on five made assemblies; the two pattern grids among the 70 fixtures are one group once a pattern is seen to use its source: the first, wrong grouping built the pattern without its source and the harness found that at once: 162 differences). **Not covered yet:** groups with modifying steps, revolves, lofts and sweeps, a body that moves, edits in the middle of a load. Still open: the rest.
 
 **Extended (`in_912`):** parts with fillets, holes and moves, and ten fixtures of several bodies, built in groups alone and in other orders: **no difference** (20 groups, 27 orders, 30 bodies) after a fix the test found (a body moved among others lost the names of the faces across its motion: `facenames.mjs` `carried`, `movenames.test.ts`). A page-side rule for what a step changes (by name, by place, by relation, by box) covered 52 of 65 steps (48 exactly, 4 by saying "every body so far"); the 13 it missed were one fixture in which a body is moved through another's place: **until the ghost keeps every body's box at every step, a project with moves of that kind is one group**, and the rule is a check of the harness rather than a promise. **Phase 0 is built** (`dec_open_and_survive`).
+
+**Phase 1 prototyped (`in_914`, `prototypes/progressive-load`, Node, the real kernel, parts apart):** ghosts of every part **from the saved commands alone** after **6 ms (300 parts) and 22 ms (1000)**, where the replay of the commands into a scene is 1.3 s and 6.3 s; the nearest parts made in 0.1 to 0.3 s whatever the size; **piece by piece the cost is a line** (about 12 ms a part): 100 parts 1.6 s (the whole 2.6 s), 300 parts 4.3 s (the whole **21 s**), **1000 parts 12 s where the whole in one go is past the 60 s limit**; bodies and volumes are the whole's. Not yet measured: the page taking each answer into the scene, the memory over a thousand pieces, parts that touch (one group), the browser with the thread beside the page. **Recommendation (the AI's):** the numbers say Phase 1 is worth building; the next step is a decision entry and the smallest piece of it in the app (the ghost layer drawn from the commands at once, the kernel asked for one group at a time in the camera's order), measured in the browser first.
 
 ## Rationale
 
