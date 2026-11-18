@@ -4090,3 +4090,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_934 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for this branch (the fastener tool's curved surfaces, the shared panel layout and the dialogs in it) to be merged into claude/inspiring-pascal-l342k7)
+
+## in_935 — 2026-11-18 — question
+> Why does it say this?
+(asks why the fastener panel shows "a rule for the corners needs a distance between copies, not a count"; a screenshot of the panel's red message above Type: Countersunk)

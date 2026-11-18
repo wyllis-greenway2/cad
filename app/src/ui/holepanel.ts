@@ -65,7 +65,7 @@ export function createHolePanel(host: HTMLElement, h: HolePanelHandlers) {
       const path = v.mode === "face" || v.mode === "line"; // (the spacing and the rest are for a path)
       show(rows.by, path); show(rows.value, path); show(rows.shift, path);
       show(rows.offset, v.mode === "face");
-      show(rows.corners, v.mode === "face");
+      show(rows.corners, v.mode === "face" && distance); // (a rule for the corners needs a distance between holes, not a number of them)
       show(rows.ends, v.mode === "line" && distance);
       show(rows.drill, v.values.kind === "drillTap");
       show(rows.far, !(v.values.kind === "tapped" || v.values.kind === "nutPocket" || v.values.kind === "drillTap")); // (a nut on the far side goes with a hole right through)
