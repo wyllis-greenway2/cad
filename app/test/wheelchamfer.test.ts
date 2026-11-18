@@ -12,9 +12,9 @@ const wheel = (over: object = {}, land = 0): GearSpec => ({ teeth: 30, module: 2
 const make = (spec: GearSpec) => run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec });
 const body = (s: ReturnType<typeof make>) => Object.values(scene(s).parts).find((p) => p.kind === "body") as unknown as { volume: number; bbox: { min: number[]; max: number[] } };
 
-test("the worm wheel has the Chamfer field, last", () => {
+test("the worm wheel has the Chamfer field, then Edge chamfer", () => {
   const t = armTool("gear", "wormwheel");
-  assert.equal(gearFields(t.gear!).at(-1)!.label, "Chamfer");
+  assert.deepEqual(gearFields(t.gear!).slice(-2).map((f) => f.label), ["Chamfer", "Edge chamfer"]);
 });
 
 for (const land of [0, 2]) {
@@ -66,6 +66,40 @@ test("a rack has Chamfer (the tips of its teeth at both faces) and Edge chamfer 
   assert.match(run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: { ...rack, chamfer: 0.25, edge: 0.6 } }).message ?? "", /not made together/);
 });
 
-test("an edge chamfer on a worm wheel is refused with why: the kernel cannot chamfer the edges of its throated faces (`in_924`)", () => {
-  assert.match(make(wheel({ edge: 0.5 })).message ?? "", /not made for a worm wheel yet/);
+test("an edge chamfer on a worm wheel is made in its land (`in_928`): the sections pulled in, a ruled loft and the rest straight, sewn to the throated part and cut by the worm's envelope; refused with why with no land, a land shorter than the chamfer, a chamfer that would take the teeth, and a bore with a flat", () => {
+  assert.equal(gearFields(armTool("gear", "wormwheel").gear!).at(-1)!.label, "Edge chamfer");
+  for (const land of [4, 2]) {
+    const [a, b] = [make(wheel({}, land)), make(wheel({ edge: 0.5 }, land))];
+    assert.ok(!b.message, b.message ?? "");
+    assert.deepEqual(b.outcome.errors, {});
+    assert.equal(Object.values(scene(b).parts).filter((p) => p.kind === "body").length, 1, "one body");
+    const [va, vb] = [body(a).volume, body(b).volume];
+    assert.ok(vb < va - 20 && vb > 0.98 * va, `land ${land}: ${va} -> ${vb}`);
+    const [ba, bb] = [body(a).bbox, body(b).bbox];
+    assert.ok(Math.abs(ba.max[2]! - bb.max[2]!) < 0.01 && Math.abs(ba.min[2]! - bb.min[2]!) < 0.01, "as thick as before");
+    assert.ok(Object.values(scene(b).parts).filter((p) => p.origin === "body" && p.kind === "plane").length < 30, "still one feature");
+  }
+  assert.match(make(wheel({ edge: 0.5 }, 0)).message ?? "", /made in its land/);
+  assert.match(make(wheel({ edge: 2 }, 1)).message ?? "", /made in its land/);
+  assert.match(make(wheel({ edge: 1 }, 4)).message ?? "", /too big for these teeth/);
+  assert.match(make(wheel({ edge: 0.5, chamfer: 0.25 }, 4)).message ?? "", /not made together/);
+});
+
+import { insetOutline } from "../src/operation/wheelinset.ts";
+import { wheelSections } from "../src/operation/wheelsections.ts";
+test("the wheel's end section pulled in: the same number of sides, its area a chamfer times its perimeter less, and every corner the chamfer from the full outline (`in_928`)", () => {
+  const w = wheelSections(wheel({}, 4));
+  assert.ok(w.ok);
+  if (!w.ok) return;
+  const sec = w.value[0]!;
+  const o = insetOutline(sec, 0.4);
+  assert.ok(o.ok, o.ok ? "" : o.error);
+  if (!o.ok) return;
+  assert.equal(o.value.points.length, sec.points.length);
+  const area = (p: number[][]) => p.reduce((s, q, i) => { const r = p[(i + 1) % p.length]!; return s + (q[0]! * r[1]! - r[0]! * q[1]!) / 2; }, 0);
+  const perimeter = sec.points.reduce((s, q, i) => { const r = sec.points[(i + 1) % sec.points.length]!; return s + Math.hypot(r[0] - q[0], r[1] - q[1]); }, 0);
+  const [a0, a1] = [area(sec.points), area(o.value.points)];
+  assert.ok(Math.abs(a0 - a1 - 0.4 * perimeter) < 0.01 * a0 * 0.1 + 2, `${a0} - ${a1} against ${0.4 * perimeter}`);
+  for (const q of o.value.points) { let d = Infinity; for (const p of sec.points) d = Math.min(d, Math.hypot(p[0] - q[0], p[1] - q[1])); assert.ok(d >= 0.4 - 0.02 && d < 0.4 * 1.6, `a corner ${d} from the outline`); }
+  assert.ok(!insetOutline(sec, 1.2).ok, "a chamfer wider than a tooth's tip is refused");
 });
