@@ -18,7 +18,7 @@ const err = (s: GearSpec) => { const r = gearOutline(s); return r.ok ? "" : r.er
 test("the limits of a spiral pair say why: a small pinion, a big pair, a steep ring, the angle, the shafts", () => {
   assert.equal(err(pinion()), "");
   assert.match(err(pinion({ teeth: 12 })), /16 or more teeth/);
-  assert.match(err({ ...pinion(), teeth: 30, bevel: { mate: 40, spiral: 30 } }), /more than 56 teeth in all/);
+  assert.match(err({ ...pinion(), teeth: 30, bevel: { mate: 40, spiral: 30 } }), /56 teeth at most between the two gears/);
   assert.match(err({ ...pinion({ teeth: 16 }), bevel: { mate: 34, spiral: 30 } }), /2.05 to 1/);
   assert.match(err({ ...pinion(), bevel: { mate: 30, spiral: 5 } }), /spiral angle must be/);
   assert.match(err({ ...pinion(), bevel: { mate: 30, spiral: 30, shaft: 80 } }), /90 degrees only/);
@@ -94,4 +94,21 @@ test("a spiral pair is linked: the partner's teeth changed in its box, the other
   const over = /nothing in common/.test(done.message ?? "") ? 0 : bodies(done).map((x) => x.volume).sort((x, y) => y - x)[0] ?? 0;
   console.log("SPIRAL linked", over);
   assert.ok(over < 10, `the pair still fits: ${over}`);
+});
+
+test("a 16 / 30 pinion's tooth outlines have no lumps (`in_890`): every side is a gentle arc, in every plane (a surface folded over itself made the flank zigzag and arcs through it bulged by a third of their length)", () => {
+  const p = spiralPairOf(16, 30, 2, 30, 0.05);
+  assert.ok(p.ok);
+  for (const which of ["pinion", "ring"] as const) {
+    const b = spiralBody(p.value, which);
+    assert.ok(b.ok, b.ok ? "" : b.error);
+    for (const [q, sec] of b.value.sections.entries()) assert.ok(Math.max(...sec.bulges.map(Math.abs)) < 0.2, `${which} plane ${q}: bulge ${Math.max(...sec.bulges.map(Math.abs)).toFixed(2)}`);
+  }
+});
+
+test("the user's gear (16 teeth, mate 30, module 2, 30 degrees, bore 5) is made", () => {
+  const s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [15.56, 25.8, 0], spec: { teeth: 16, module: 2, bevel: { mate: 30, spiral: 30 }, bore: 5 } });
+  assert.ok(!s.message, s.message ?? "");
+  assert.deepEqual(s.outcome.errors, {});
+  assert.equal(bodies(s).length, 1);
 });

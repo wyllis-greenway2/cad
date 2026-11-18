@@ -3897,3 +3897,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_887 — 2026-11-19 — approval
 > yes please start
 (approves starting the hypoid gear work with the reading: the offset geometry in the Zarebski paper, the later Stadtfeld chapters, and ISO 23509 if it can be had; then a prototype and a proposal, nothing in app/ before approval)
+
+## in_888 — 2026-11-19 — directive
+> [attached a state snapshot "clear_spiral_bevel_problems_state.json", a saved project "clear_spiral_bevel_problems.json" (a 16 tooth spiral bevel gear, mate 30, module 2, bore 5), and a screenshot of the spiral bevel gear box with the message "a spiral bevel pair of more than 56 teeth in all is not made yet (the kernel runs out of memory cutting it)" over Teeth 24, Mate teeth 35] hang on lets take a break from that, I found a bug in the bevel spiral gear. So first off, it seems to fail and say I exceeded tooth count when I set the mating gear to a tooth count still less than the max tooth count? Also look at this bevel gear, the teeth have huge have round lumps on them.
+(pauses the hypoid reading to report two spiral bevel bugs: the tooth limit message read as a per gear limit when it is for the two gears together, and round lumps on the teeth of a 16 / 30 gear)

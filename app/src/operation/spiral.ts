@@ -34,7 +34,7 @@ export function spiralPairOf(z1: number, z2: number, mn: number, betaDeg: number
   if (!(Number.isInteger(z1) && Number.isInteger(z2))) return err("the tooth counts must be whole numbers");
   if (z1 < SPIRAL.minPinion) return err(`a spiral bevel pinion needs ${SPIRAL.minPinion} or more teeth`);
   if (z2 < z1) return err("the ring gear has at least as many teeth as the pinion");
-  if (z1 + z2 > SPIRAL.maxTotal) return err(`a spiral bevel pair of more than ${SPIRAL.maxTotal} teeth in all is not made yet (the kernel runs out of memory cutting it)`);
+  if (z1 + z2 > SPIRAL.maxTotal) return err(`a spiral bevel pair is made for ${SPIRAL.maxTotal} teeth at most between the two gears: ${z1} and ${z2} make ${z1 + z2} (with ${z1} teeth the other can have up to ${SPIRAL.maxTotal - z1}; the kernel runs out of memory cutting more)`);
   if (z2 / z1 > SPIRAL.maxRatio) return err(`a spiral bevel pair of more than ${SPIRAL.maxRatio} to 1 is not made yet (the ring's cone is too steep for the kernel to cut): the pinion needs at least ${Math.ceil(z2 / SPIRAL.maxRatio)} teeth for this ring gear`);
   if (!(mn > 0)) return err("the module must be above zero");
   if (!(betaDeg >= SPIRAL.minAngle && betaDeg <= SPIRAL.maxAngle)) return err(`the spiral angle must be from ${SPIRAL.minAngle} to ${SPIRAL.maxAngle} degrees`);
@@ -79,7 +79,7 @@ function flankGrid(pr: SpiralPair, which: "pinion" | "ring", f: "A" | "B", nth =
   const thM = Math.atan2(Math.sin(pr.beta), -Math.cos(pr.beta));
   const span = (1.2 * (pr.b + 16)) / pr.RW + 0.25; // (the face and a margin each side, for the planes beyond the toe and the heel that the cone ends need)
   const g = which === "pinion" ? pr.pinion : pr.ring;
-  const [y0, y1] = [-g.hF - 3, g.hK + 3];
+  const [y0, y1] = [-g.hF - 1.5, g.hK + 1.5]; // (a wider range folds the surface over itself: planes across a gear then cut two sheets and the flank curve zigzags, `in_890`)
   const P: Grid = [];
   for (let i = 0; i <= nth; i++) {
     const th = thM - span + (2 * span * i) / nth;
@@ -190,7 +190,6 @@ export interface SpiralBody {
   pitchRadius: number; tipRadius: number; rootRadius: number; addendum: number; dedendum: number;
 }
 const SECTIONS = 7; // (nine planes and four arcs to a flank made a gear in 46 s, over the browser's 60 s limit: `in_836`)
-const ARCS: 2 | 4 = 2; // (arcs to a flank)
 const cache = new Map<string, Result<SpiralBody>>();
 /**
  * The body of the pinion (`which` = "pinion") or the ring gear of a pair. The sections' corners are taken from the outline at every second sample of a flank (four arcs through nine points) and one arc across each tip and root.
@@ -204,34 +203,63 @@ export function spiralBody(pr: SpiralPair, which: "pinion" | "ring"): Result<Spi
   cache.set(key, r);
   return r;
 }
+/** how far the samples between `a` and `b` (the circular arc through `a`, the middle sample and `b`) lie from that arc, mm: the largest */
+function arcDeviation(pts: P[]): number {
+  const [a, b, m] = [pts[0]!, pts[pts.length - 1]!, pts[pts.length >> 1]!];
+  const d = 2 * (a[0] * (m[1] - b[1]) + m[0] * (b[1] - a[1]) + b[0] * (a[1] - m[1]));
+  if (Math.abs(d) < 1e-9) { // (a straight run: the distance from the line)
+    const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    return Math.max(...pts.map((p) => Math.abs((b[0] - a[0]) * (a[1] - p[1]) - (a[0] - p[0]) * (b[1] - a[1])) / l));
+  }
+  const ux = ((a[0] ** 2 + a[1] ** 2) * (m[1] - b[1]) + (m[0] ** 2 + m[1] ** 2) * (b[1] - a[1]) + (b[0] ** 2 + b[1] ** 2) * (a[1] - m[1])) / d;
+  const uy = ((a[0] ** 2 + a[1] ** 2) * (b[0] - m[0]) + (m[0] ** 2 + m[1] ** 2) * (a[0] - b[0]) + (b[0] ** 2 + b[1] ** 2) * (m[0] - a[0])) / d;
+  const r = Math.hypot(a[0] - ux, a[1] - uy);
+  return Math.max(...pts.map((p) => Math.abs(Math.hypot(p[0] - ux, p[1] - uy) - r)));
+}
+/**
+ * Where a flank's two arcs meet, as the index of the sample (of the nine) that is the corner between them: the one for which the two arcs lie nearest the samples over every section. A flank has a bend where the involute part ends and the straight part
+ * down to the root begins; arcs that meet in the middle of the flank put a round lump there (`in_890`), arcs that meet at the bend follow it.
+ */
+function splitOf(flanks: P[][]): number {
+  let best = 4, least = Infinity;
+  for (let k = 2; k <= NF - 2; k++) {
+    let total = 0;
+    for (const f of flanks) total += Math.max(arcDeviation(f.slice(0, k + 1)), 0) + Math.max(arcDeviation(f.slice(k)), 0);
+    if (total < least - 1e-9) { least = total; best = k; }
+  }
+  return best;
+}
 function spiralBodyMade(pr: SpiralPair, which: "pinion" | "ring"): Result<SpiralBody> {
   const g = which === "pinion" ? pr.pinion : pr.ring;
   const m = pr.mn, dx = (SPIRAL.shifts[pr.cone] ?? SPIRAL.shifts[0]) * m;
   const bl = blankFor(g, pr.RM - pr.b / 2, pr.RM + pr.b / 2, m, dx);
   if (typeof bl === "string") return err(bl);
   const [A, B] = [flankGrid(pr, which, "A"), flankGrid(pr, which, "B")];
-  const sections: SpiralBody["sections"] = [];
   const mirror = ([r, th]: [number, number]): P => [r * Math.cos(th), -r * Math.sin(th)]; // (the axis towards the apex: the azimuth turns the other way)
+  const outlines: { x: number; o: [number, number][] }[] = [];
   for (let i = 0; i < SECTIONS; i++) {
     const X = bl.xS + ((bl.xB - bl.xS) * i) / (SECTIONS - 1);
     const o = outlineAt(g, which, contourAt(A, g.axis, X), contourAt(B, g.axis, X), X);
     if (!o) return err(`the tooth surfaces make no outline at ${X.toFixed(1)} mm from the apex: other tooth counts or a smaller module`);
-    const per = 2 * NF + 6;
+    outlines.push({ x: X, o });
+  }
+  const per = 2 * NF + 6;
+  // one tooth's samples: the flank going up (0 to NF), the tip's two inner points, the flank coming down (NF + 3 to 2 NF + 3), the root's two
+  const upOf = (o: [number, number][]): P[] => Array.from({ length: NF + 1 }, (_, k) => mirror(o[k]!));
+  const downOf = (o: [number, number][]): P[] => Array.from({ length: NF + 1 }, (_, k) => mirror(o[NF + 3 + k]!));
+  const [ku, kd] = [splitOf(outlines.map(({ o }) => upOf(o))), splitOf(outlines.map(({ o }) => downOf(o)))];
+  const sections: SpiralBody["sections"] = [];
+  for (const { x: X, o } of outlines) {
     const points: P[] = [], bulges: number[] = [];
     const at = (j: number, k: number): [number, number] => o[(j * per + k) % o.length]!;
     const mid = (p: [number, number], q: [number, number]): [number, number] => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
     for (let j = 0; j < g.z; j++) {
-      // the corners: every second sample of the flank going up, the tip's two ends, every second sample coming down; each side an arc through the next three samples or through the middle of the tip or root arc
-      const idx = ARCS === 4 ? [0, 2, 4, 6, 8] : [0, 4, 8];
-      const corners = [...idx, ...idx.slice().reverse().map((k) => 2 * NF + 3 - k)].map((k) => ({ k, p: mirror(at(j, k)) }));
-      const upThrough = ARCS === 4 ? [1, 3, 5, 7] : [2, 6];
-      const through: ([number, number] | null)[] = [...upThrough.map((k) => at(j, k)), mid(at(j, NF + 1), at(j, NF + 2)), ...(ARCS === 4 ? [NF + 4, NF + 6, NF + 8, NF + 10] : [NF + 5, NF + 9]).map((k) => at(j, k)), mid(at(j, NF + 12), at(j, NF + 13))];
-      corners.forEach((c, i) => {
-        const nextP = i + 1 < corners.length ? corners[i + 1]!.p : mirror(at(j + 1, 0));
-        points.push(c.p);
-        const via = through[i]!;
-        bulges.push(bulgeOf(c.p, mirror(via), nextP));
-      });
+      // the corners: the flank going up (the sample 0, the split, the sample NF), the tip's ends, the flank coming down (the sample at its start, the split, its end); each side an arc through the sample in the middle of its run, or through the middle of the tip or root arc
+      const side = (k0: number, k1: number, via: [number, number]) => { points.push(mirror(at(j, k0))); bulges.push(bulgeOf(mirror(at(j, k0)), mirror(via), k1 === 2 * NF + 6 ? mirror(at(j + 1, 0)) : mirror(at(j, k1)))); };
+      side(0, ku, at(j, ku >> 1)); side(ku, NF, at(j, (ku + NF) >> 1));
+      side(NF, NF + 3, mid(at(j, NF + 1), at(j, NF + 2))); // across the tip
+      side(NF + 3, NF + 3 + kd, at(j, NF + 3 + (kd >> 1))); side(NF + 3 + kd, 2 * NF + 3, at(j, NF + 3 + ((kd + NF) >> 1)));
+      side(2 * NF + 3, 2 * NF + 6, mid(at(j, NF * 2 + 4), at(j, NF * 2 + 5))); // across the root to the next tooth
     }
     sections.push({ x: X, points, bulges });
   }
