@@ -12,6 +12,7 @@ import type { Part } from "./part.ts";
 import type { GearRecord } from "./gearscene.ts";
 import { wormOf, wormLayout, wheelOf } from "./worm.ts";
 import { chamferOf } from "./gear.ts";
+import { wheelEnds } from "./wheelinset.ts";
 import { boreLoop } from "./bore.ts";
 import { wheelSections, SECTIONS } from "./wheelsections.ts";
 
@@ -134,9 +135,18 @@ export function wheelSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] | null
     const f = frameOf(s, rec)!;
     const own = { gear: rec.id };
     // the pieces first joined by sewing their faces (the end sections are the same outlines: no boolean), then the worm's envelope cut out of the whole (`in_814`: the fuse of the lands took eleven seconds)
+    // an edge chamfer (`in_828`): each land is a body of the kernel's own, a ruled loft from the section pulled in by the chamfer at the face to the full section a chamfer in, and the rest straight
+    const ends = (rec.spec.edge ?? 0) > 0 ? wheelEnds(rec.spec) : null;
+    if (ends && !ends.ok) return null;
+    const text = (o: { points: [number, number][]; bulges: number[] }) => o.points.map((p, i) => `${+p[0].toFixed(7)} ${+p[1].toFixed(7)} ${+(o.bulges[i] ?? 0).toFixed(9)}`).join(";");
+    const chamfered = (end: "lo" | "hi"): Omit<Step, "id"> => {
+      const e = ends!.ok ? ends!.value[end] : null!;
+      const o = along(rec.at, f, 0, 0, end === "lo" ? -g.value.width / 2 - land : g.value.width / 2);
+      return { type: "chamferBody", parts: sections[end === "lo" ? 0 : SECTIONS - 1]!, params: { full: text(e.full), inset: text(e.inset), edge: rec.spec.edge!, width: land, one: end === "lo" ? -1 : 1, bore: rec.spec.bore ?? 0, wall: 0, cx: o[0], cy: o[1], cz: o[2], dx: f.n[0], dy: f.n[1], dz: f.n[2], ux: f.X[0], uy: f.X[1], uz: f.X[2], ...(bores[end === "lo" ? 0 : SECTIONS - 1] ? { holes: bores[end === "lo" ? 0 : SECTIONS - 1]! } : {}), ...own } };
+    };
     steps.push(
-      { type: "extrude", parts: sections[0]!, params: { depth: -land, ...(bores[0] ? { holes: bores[0]! } : {}), mode: "new", ...own } },
-      { type: "extrude", parts: sections[SECTIONS - 1]!, params: { depth: land, ...(bores[SECTIONS - 1] ? { holes: bores[SECTIONS - 1]! } : {}), mode: "new", ...own } },
+      ends ? chamfered("lo") : { type: "extrude", parts: sections[0]!, params: { depth: -land, ...(bores[0] ? { holes: bores[0]! } : {}), mode: "new", ...own } },
+      ends ? chamfered("hi") : { type: "extrude", parts: sections[SECTIONS - 1]!, params: { depth: land, ...(bores[SECTIONS - 1] ? { holes: bores[SECTIONS - 1]! } : {}), mode: "new", ...own } },
       { type: "sewBodies", parts: ["@s0", "@s1", "@s2"] as Ref[], params: { cx: rec.at[0], cy: rec.at[1], cz: rec.at[2], dx: f.n[0], dy: f.n[1], dz: f.n[2], heights: `${-g.value.width / 2},${g.value.width / 2}`, ...own } },
       { type: "extrude", parts: lo.lines, params: { depth: 2 * lo.ext, mode: "new", ...own } },
       { type: "extrude", parts: hi.lines, params: { depth: 2 * hi.ext, mode: "new", ...own } },

@@ -12,6 +12,7 @@ import type { Part } from "./part.ts";
 import { gearOutline, helixTwist, helixShear, hasBody, chamferOf, edgeOutlines } from "./gear.ts";
 import { boreLoop } from "./bore.ts";
 import type { GearSpec, GearOutline } from "./gear.ts";
+import { wheelEnds } from "./wheelinset.ts";
 import { wormRefs, wormParts, wormSteps, wheelRefs, wheelParts, wheelSteps } from "./wormscene.ts";
 import { wheelSections } from "./wheelsections.ts";
 import { bevelRefs, bevelParts, bevelSteps } from "./bevelscene.ts";
@@ -205,7 +206,7 @@ export function addGear(s: Scene, rec: GearRecord): Result<Scene> {
   if (!pl || pl.kind !== "plane") return err(`plane ${rec.plane} does not exist`);
   const o = rec.spec.cam ? camShapes(rec.spec.cam) : outlineOf(rec.spec);
   if (!o.ok) return err(o.error);
-  if (rec.spec.wheel) { const w = wheelSections(rec.spec); if (!w.ok) return err(w.error); }
+  if (rec.spec.wheel) { const w = wheelSections(rec.spec); if (!w.ok) return err(w.error); if ((rec.spec.edge ?? 0) > 0) { const e = wheelEnds(rec.spec); if (!e.ok) return err(e.error); } }
   const added = { ...rec, at: [...rec.at] as unknown as Vec3, spec: { ...rec.spec } };
   // a bevel gear made to mesh with another: that one learns of it (the two are put right together when either's teeth are changed, `in_776`)
   const mate = rec.spec.bevel?.with ? gearsOf(s).find((g) => g.id === rec.spec.bevel!.with) : undefined;
@@ -237,7 +238,7 @@ function setGearCore(s: Scene, id: string, spec: GearSpec, at?: Vec3, turn?: num
   if (!rec) return err(`gear ${id} does not exist`);
   const o = spec.cam ? camShapes(spec.cam) : outlineOf(spec);
   if (!o.ok) return err(o.error);
-  if (spec.wheel) { const w = wheelSections(spec); if (!w.ok) return err(w.error); }
+  if (spec.wheel) { const w = wheelSections(spec); if (!w.ok) return err(w.error); if ((spec.edge ?? 0) > 0) { const e = wheelEnds(spec); if (!e.ok) return err(e.error); } }
   const next: GearRecord = { ...rec, spec: { ...spec }, ...(at ? { at: [...at] as unknown as Vec3 } : {}), ...(turn !== undefined ? (turn ? { turn } : { turn: undefined }) : {}) };
   const [was, now] = [gearRefs(rec), gearRefs(next)];
   const after = new Set(partsOf(s, next).map((p) => p.ref));

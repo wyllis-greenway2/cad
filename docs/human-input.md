@@ -3659,3 +3659,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_827 — 2026-11-18 — approval
 > okay do it all please
 (approves all the items of the last reply: merging into claude/inspiring-pascal-l342k7, a browser pass over the new work, the wheel's notch, the edge chamfer on the worm wheel, reducing the worm to one feature, chamfers for the other kinds of gear; the unanswered questions cannot be done for the human)
+
+## in_828 — 2026-11-18 — approval
+> build it please
+(approves building the edge chamfer of the worm wheel's land, with a prototype first: the end section pulled in by the chamfer, a ruled loft from it to the full section, the rest of the land carried straight, sewn to the throated part, then the worm's envelope cut out; the chamfer no bigger than the land)

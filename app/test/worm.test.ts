@@ -157,7 +157,7 @@ test("the Worm and Worm wheel tools: in the Worm submenu of the Gear submenu; a 
   let bad = open("tool:worm"); bad = typeText(bad, "9"); bad = key(bad, "Enter");
   assert.match(bad.session.message ?? "", /1 to 4 starts/);
   const w = open("tool:wormwheel");
-  assert.deepEqual(entryOf(scene(w.session), w.tool, w.op)!.fields.map((f) => f.label), ["Teeth", "Starts", "Module", "Pressure", "Worm diameter", "Width", "Land", "Bore", "Flat", "Key", "Key depth", "Chamfer"]);
+  assert.deepEqual(entryOf(scene(w.session), w.tool, w.op)!.fields.map((f) => f.label), ["Teeth", "Starts", "Module", "Pressure", "Worm diameter", "Width", "Land", "Bore", "Flat", "Key", "Key depth", "Chamfer", "Edge chamfer"]);
 });
 
 test("Mesh gear on a worm makes its wheel: Teeth, Offset, Width and Bore are its fields; the pointer says which side of the worm; one undo takes the wheel away", () => {
