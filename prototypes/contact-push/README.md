@@ -1,0 +1,21 @@
+# Contact push (a prototype, `in_892`)
+
+**What it was meant to learn:** whether a very simple rule (move the played joint a little; if it overlaps, move the other body along its own joint by the smallest amount that clears it; if it cannot, stop) is enough to reproduce a mechanism that is normally given a formula, using only the mesh test the hard bodies already use (`app/src/operation/collide.ts`, no kernel booleans), and what that costs.
+
+**What it is:** `run.ts` makes the Geneva drive as a 3D model through the app's own modules, takes the face meshes of the wheel, the locking disc and the crank, turns the crank and the disc a degree at a time, and moves the wheel by the smallest angle that clears it of the pin and the disc (doubling the distance until clear, then halving to the nearest). The result is compared with `genevaTurn`. Run: `node prototypes/contact-push/run.ts` (from the repository root); `SLOTS`, `CRANK`, `CLEAR`, `TURNS`, `TRACE` and `DIAG` set the drive and what it prints.
+
+**What it learned:**
+
+| slots | crank mm | clearance mm | worst gap to the formula (degrees) | jams | ms a step (average) |
+|---|---|---|---|---|---|
+| 4 | 15 | 0.3 | 2.7 | 0 | 2.3 |
+| 5 | 20 | 0.3 | 1.2 | 0 | 3.4 |
+| 5 | 20 | 0.6 | 2.4 | 0 | 2.1 |
+| 8 | 25 | 0.3 | 0.4 | 0 | 5.1 |
+
+(Three turns each; the wheel ends within 0.6 degrees of the formula's slot count, so the error does not add up. Timings are from a shared sandbox CPU in Node, not a user's machine; the slowest single steps were 13 to 83 ms, unexamined: the first use of a body or garbage collection.)
+
+- The rule alone reproduces the Geneva's step: the wheel waits while the pin is out, follows the pin through the slot and the locking disc holds it between visits. The difference from the formula is the clearance round the pin: the wheel follows the wall the pin presses.
+- **A face resting on a face counts as a hit** in the existing mesh test (its nudge to break ties goes one way): the crank's plate under the wheel was "colliding" with it whenever it was over it. A mechanism of layers needs only the part that overlaps in height to be tested; here only the pin's triangles are used.
+- A collision test costs about 0.2 ms for a pair of a thousand triangles each; about 11 tests a step after the search was made a doubling and a halving (it was 17 to 21 with a plain scan).
+- **Not tried:** a ratchet's pawl with a rest value, a gear train with passed-on hardness, a cam and follower, the time budget, the jam message, many bodies. The Geneva is one case with one free joint.

@@ -3893,3 +3893,27 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_886 — 2026-11-19 — approval
 > yes build it
 (approves the face gear tool as proposed in dec_crown_gear_set: Gear > Face gear, a gear record like the crown's, Mesh gear making the spur pinion at exactly 90 degrees)
+
+## in_887 — 2026-11-19 — directive
+> Can we make it more intuitive? How feasible would it be? So for example, you could have one body that is set to rotate, and then everything else that happens is a cascade through constraints only? so collision of hard bodies or other constraints such as surface or coaxial constraints. Would this be heavy and slow to process?
+(asks whether one body set to rotate could drive everything else through constraints and collision of hard bodies, and whether that would be too heavy)
+
+## in_888 — 2026-11-19 — directive
+> would it be possible to make a really light hard body solver that didn't use the kernal and understood when bodies collide?
+(asks for a light hard body solver that does not use the kernel)
+
+## in_889 — 2026-11-19 — directive
+> I am just brainstorming here. Are there any super simple rules that actually capture most of what we need? So for example, all we do is detect collision, then just allow what ever motion delta is left that doesn't have collision? Would this model things sliding across each others surface?
+(brainstorming a simple rule: detect collision and allow the motion that is left)
+
+## in_890 — 2026-11-19 — directive
+> So how could we make this a practical method in an animation tool kit? so for example, I would imagine most things could be solved with constraints, you wouldn't rely on collision for everything, but then any key parts that do need collision, would have this simple model. Could we limit the cascade push problem simply be defining which other bodies are hard bodies or not? Or perhaps a rule such that everything that a hard body encounters is considered solid, so it can push soft bodies, but things the soft bodies encounter are not considered solid? So in the animation tool, it could capture most things right just by defining one part as a hard body, and if any cascading problems show up, then the person would need to declare more hard bodies? Or maybe for the best user experience we just set a cascade limit, since that is all that really matters anyway?
+(proposes hard bodies as the ones that push, with a cascade limit)
+
+## in_891 — 2026-11-19 — directive
+> so how about this so most things work with constraints, we should probably build these already into gear assemblies etc or make them easy to apply. Then we have the hard bodies, but instead of needing to declare everything as a hard body that you want to cascade past the first contact, instead we just let hard-bodies transfer their hard body feature cascade to a certain depth? I think that would make a better user experience if we can support it. If that is too resource intensive, then maybe we should go back to the method that the user needs to declare every hard body past level 2? What do you think? Also does this mean we should rebuild our current hard body system in general? For use generally as apposed to just for the animation system? it seems like if this lighter simpler model works well, then we should use it instead of the kernel system which I think we are currently using.
+(proposes hardness that spreads to a depth, and asks whether the hard body system should be rebuilt on the light model)
+
+## in_892 — 2026-11-19 — directive
+> Shall I start with the decision entry and the prototype together?
+((the message is the AI's own closing question sent back; read as a go-ahead for the decision entry and the prototype, and the AI said so))
