@@ -4110,3 +4110,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_939 — 2026-11-18 — question
 > what do we do in a situation like this where we are trying to make a lid fastened to an object below, but we can't extend the holes past the body of the object whos face we selected now?
 (asks how to handle a lid fastened to an object below: a screenshot of countersunk holes previewed in the top plate of the teardrop model, ending at the bottom of the plate, where the holes need to go on into the body below that the selected face does not belong to)
+
+## in_940 — 2026-11-18 — directive
+> why don't we have the cuts go fully into space including whatever is under or behind our selection? but maybe we use information about the body selected to default to that depth or to help the user set a clearance to that depth and maybe a pilot for tap past that point
+(asks for the cuts to go fully through everything under or behind the selection, and for the selected body's thickness to be used as the default depth, or to help set a clearance hole to that depth and a pilot for tapping past that point)

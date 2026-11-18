@@ -332,7 +332,7 @@ function holesOptions(): { bar: HolePanelView; view: ToolpathView | null } {
   const note = plan?.ok ? `${plan.value.places.length} hole${plan.value.places.length === 1 ? "" : "s"}${plan.value.spacing !== null ? `, ${Math.round(plan.value.spacing * 100) / 100} mm apart` : ""}` : "";
   const v = hardware!.values;
   holesNow = {
-    bar: { kinds: receiverKinds(), sizes: receiverSizes(), values: { kind: v.kind, size: v.size, by: v.by ?? "distance", value: v.value ?? "30", ends: v.ends ?? "fit", corners: v.corners ?? "each", offset: v.offset ?? "10", shift: v.shift ?? "0", depth: v.depth, far: v.far ?? "none", drill: v.drill ?? "", insert: v.insert ?? "none", length: v.length ?? "" }, mode, round: !!receiverContext(session)?.curved, note, problem },
+    bar: { kinds: receiverKinds(), sizes: receiverSizes(), values: { kind: v.kind, size: v.size, by: v.by ?? "distance", value: v.value ?? "30", ends: v.ends ?? "fit", corners: v.corners ?? "each", offset: v.offset ?? "10", shift: v.shift ?? "0", depth: v.depth, far: v.far ?? "none", drill: v.drill ?? "", insert: v.insert ?? "none", length: v.length ?? "" }, mode, round: !!receiverContext(session)?.curved, ...(plan?.ok ? { reach: { body: plan.value.reach, stack: plan.value.stack } } : {}), note, problem },
     view: plan?.ok ? holesView(plan.value) : null,
   };
   holesKey = key;

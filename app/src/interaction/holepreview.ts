@@ -14,7 +14,7 @@ const at = (c: Vec3, e1: Vec3, e2: Vec3, n: Vec3, x: number, y: number, h: numbe
 /** The lines of the holes of a plan: pairs of points as flat numbers (ax, ay, az, bx, by, bz, ...). */
 export function holeLines(plan: ReceiverPlan): number[] {
   const { kind, size, fit } = plan;
-  const depth = Math.max(0.1, Math.min(plan.depth, plan.reach)); // (a hole right through is drawn to the far side of the body)
+  const depth = Math.max(0.1, Math.min(plan.depth, plan.stack)); // (a hole right through is drawn to the far side of the body)
   // the profile as the cut makes it, from the face down: the half a millimetre the cut starts above the face is not drawn
   const prof = receiverProfile(kind, size, fit, depth, plan.engagement, plan.drill).map(([x, y]) => [x, Math.min(y, 0)] as const);
   const out: number[] = [];
@@ -55,8 +55,8 @@ export function holeLines(plan: ReceiverPlan): number[] {
     if (plan.far) { // the nut's pocket on the far side: its hexagon at the far face and at its floor, and its corners joined
       const trap = nutTrap(size);
       const hex = hexagon(trap.acrossFlats);
-      for (const h of [-plan.reach, -plan.reach + trap.depth]) for (let i = 0; i < hex.length; i++) { const [p, q] = [hex[i]!, hex[(i + 1) % hex.length]!]; seg(at(c, e1, e2, n, p[0], p[1], h), at(c, e1, e2, n, q[0], q[1], h)); }
-      for (const p of hex) seg(at(c, e1, e2, n, p[0], p[1], -plan.reach), at(c, e1, e2, n, p[0], p[1], -plan.reach + trap.depth));
+      for (const h of [-plan.stack, -plan.stack + trap.depth]) for (let i = 0; i < hex.length; i++) { const [p, q] = [hex[i]!, hex[(i + 1) % hex.length]!]; seg(at(c, e1, e2, n, p[0], p[1], h), at(c, e1, e2, n, q[0], q[1], h)); }
+      for (const p of hex) seg(at(c, e1, e2, n, p[0], p[1], -plan.stack), at(c, e1, e2, n, p[0], p[1], -plan.stack + trap.depth));
     }
   }
   return out;

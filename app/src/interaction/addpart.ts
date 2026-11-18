@@ -300,20 +300,44 @@ function alongPath(session: Session, v: ReceiverValues, where: "outline" | "line
 
 /** Cut the receiver into the body whose flat face is selected: the steps, one after another from the scene each leaves. */
 /** What the answers would cut: the receiver, the size and fit, how deep, the thread engagement, the face's spot (for its two ways and its normal) and the centre of each hole. The cut and the preview are both made from it. */
-export interface ReceiverPlan { kind: ReceiverKind; size: FastenerSize; fit: ClearanceFit; depth: number; engagement: number | undefined; spot: FaceSpot; places: Vec3[]; /** a nut pocket is cut on the far side of the body too */ far: boolean; /** the spacing the holes stand at when they follow a path (the adjusted one, for a fit), else null */ spacing: number | null; /** the path the holes follow, as a polyline on the face (empty when they do not follow one) */ guide: Vec3[]; /** how far the body reaches through, along the face's inward normal */ reach: number; /** a drill then tap: how deep the clearance part goes */ drill: number | undefined; /** the spot of each place, with its own way in (the same on a flat face; each its own on a curved one, `in_929`) */ spots: FaceSpot[]; /** the surface is curved */ curved: boolean; /** the hardware put into the holes (`in_910`), or null */ insert: { screw: { family: "countersunk" | "socketHead"; length: number; seat: number } | null; nut: "near" | "far" | null } | null }
+export interface ReceiverPlan { kind: ReceiverKind; size: FastenerSize; fit: ClearanceFit; depth: number; engagement: number | undefined; spot: FaceSpot; places: Vec3[]; /** a nut pocket is cut on the far side of the body too */ far: boolean; /** the spacing the holes stand at when they follow a path (the adjusted one, for a fit), else null */ spacing: number | null; /** the path the holes follow, as a polyline on the face (empty when they do not follow one) */ guide: Vec3[]; /** how far the body reaches through, along the face's inward normal */ reach: number; /** how far everything in the way reaches from the face (the body and whatever is under it, `in_940`) */ stack: number; /** a drill then tap: how deep the clearance part goes */ drill: number | undefined; /** the spot of each place, with its own way in (the same on a flat face; each its own on a curved one, `in_929`) */ spots: FaceSpot[]; /** the surface is curved */ curved: boolean; /** the hardware put into the holes (`in_910`), or null */ insert: { screw: { family: "countersunk" | "socketHead"; length: number; seat: number } | null; nut: "near" | "far" | null } | null }
+/**
+ * How far everything in the way reaches from the face, along the way the holes go (`in_940`): from each place a ray goes into the model, and the farthest a body's box lets it go is how far the cut can matter (a lid on an object: the lid and the object under it). Never less than
+ * the body of the face itself (`reach`). The boxes are the bodies' boxes, so a body whose box is in the way but whose shape is not is counted: the far end of the preview may be long.
+ */
+function stackReach(sc: Scene, spot: FaceSpot, places: readonly Vec3[], reach: number): number {
+  const n = unit3(cross3v(spot.u, spot.v)); // (out of the body)
+  const bodies = Object.values(sc.parts).filter((p): p is Extract<Part, { kind: "body" }> => p.kind === "body" && !!p.bbox);
+  let far = reach;
+  for (const c of places) for (const b of bodies) {
+    let t0 = -Infinity, t1 = Infinity, hit = true;
+    for (let k = 0; k < 3; k++) {
+      const d = -n[k]!; // (into the model)
+      const o = c[k]!;
+      if (Math.abs(d) < 1e-9) { if (o < b.bbox!.min[k]! - 1e-6 || o > b.bbox!.max[k]! + 1e-6) hit = false; continue; }
+      const [a, e] = [(b.bbox!.min[k]! - o) / d, (b.bbox!.max[k]! - o) / d];
+      t0 = Math.max(t0, Math.min(a, e)); t1 = Math.min(t1, Math.max(a, e));
+    }
+    if (hit && t1 >= Math.max(t0, 0) && t1 > 1e-6) far = Math.max(far, t1);
+  }
+  return far;
+}
 /** What the answers say about the receiver itself, whatever the surface: the kind, the depth, the thread, the drilled part, the nut on the far side and the hardware put in. `through` is the depth of a hole right through, `reach` how far the hole can go (the room the screw has). */
 interface Hardware { kind: ReceiverKind; depth: number; engagement: number | undefined; drill: number | undefined; far: boolean; insert: ReceiverPlan["insert"] }
-function hardwareOf(v: ReceiverValues, through: number, reach: number, curved: boolean): Result<Hardware> {
+function hardwareOf(v: ReceiverValues, through: number, reach: number, stack: number, curved: boolean): Result<Hardware> {
   if (!isFastenerSize(v.size)) return err(`${v.size} is not a size this family has`);
   const kind = kindOf(v.kind);
-  const depth = v.depth.trim() === "" ? through : typedLength(v.depth);
+  const below = stack > reach + 1e-6; // (more body under the one the face is of: a lid on an object, `in_940`)
+  const tapLen0 = Math.round(1.5 * Number(v.size.slice(1)) * 10) / 10;
+  // empty depth: right through everything in the way; a hole drilled and tapped is blind, so it is the body's thickness and a pilot's length past it
+  const depth = v.depth.trim() === "" ? (kindOf(v.kind) === "drillTap" && below ? Math.round((reach + tapLen0) * 100) / 100 : through) : typedLength(v.depth);
   if (depth === null) return err("type the depth and the distances as numbers");
   const engagement = engagementOf(v.engagement ?? "");
   if (engagement === null) return err("type the thread engagement as a number of percent");
   const tapLen = Math.round(1.5 * Number(v.size.slice(1)) * 10) / 10; // (a tapped part by default 1.5 diameters deep)
   const drillTyped = (v.drill ?? "").trim() === "" ? undefined : typedLength(v.drill!);
   if (drillTyped === null) return err("type the drilled depth as a number");
-  const drill = kind === "drillTap" ? (drillTyped ?? Math.round((Math.min(depth, reach) - tapLen) * 10) / 10) : undefined;
+  const drill = kind === "drillTap" ? (drillTyped ?? (below ? Math.round(reach * 100) / 100 : Math.round((Math.min(depth, stack) - tapLen) * 10) / 10)) : undefined; // (clearance as deep as the body of the face, the tapped pilot past it)
   const bad = receiverProblem(kind, v.size, fitOf(v.fit), depth, engagement, drill);
   if (bad) return err(bad);
   const far = v.far === "nut";
@@ -327,7 +351,7 @@ function hardwareOf(v: ReceiverValues, through: number, reach: number, curved: b
     if (family) {
       if (curved && v.depth.trim() === "") return err("type the depth: how far the hole goes is not known on a curved surface, so the screw cannot be fitted to it");
       const seat = seatDepth(kind, v.size);
-      const room = Math.min(depth, reach) - seat;
+      const room = Math.min(depth, stack) - seat;
       const typed = (v.length ?? "").trim() === "" ? undefined : typedLength(v.length!);
       if (typed === null) return err("type the screw length as a number");
       const length = typed ?? longestStandard(room);
@@ -346,9 +370,6 @@ export function receiverPlan(session: Session, v: ReceiverValues): Result<Receiv
   if (!face.ok) return face;
   const [dx, dy] = [typedLength(v.dx.trim() === "" ? "0" : v.dx), typedLength(v.dy.trim() === "" ? "0" : v.dy)];
   if (dx === null || dy === null) return err("type the depth and the distances as numbers");
-  const hw = hardwareOf(v, face.value.through, face.value.reach, false);
-  if (!hw.ok) return hw;
-  const { kind, depth, engagement, drill, far, insert } = hw.value;
   const sp = face.value.spot;
   const where = whereOf(v, { places: face.value.points.length, lines: face.value.lines.length, outline: null, linePath: null });
   let centres: Vec3[];
@@ -366,7 +387,11 @@ export function receiverPlan(session: Session, v: ReceiverValues): Result<Receiv
   else centres = [sp.centre]; // (the middle of the face)
   const [ox, oy] = along ? [0, 0] : [dx, dy]; // (the offsets are from each place; along a path the path's own offset is the way in)
   const places = centres.map((p): Vec3 => [p[0] + sp.u[0] * ox + sp.v[0] * oy, p[1] + sp.u[1] * ox + sp.v[1] * oy, p[2] + sp.u[2] * ox + sp.v[2] * oy]);
-  return ok({ kind, size: v.size as FastenerSize, fit: fitOf(v.fit), depth, engagement, spot: sp, places, far, spacing, guide, reach: face.value.reach, drill, insert, spots: places.map((c) => ({ ...sp, centre: c })), curved: false });
+  const stack = stackReach(scene(session), face.value.spot, places, face.value.reach);
+  const hw = hardwareOf(v, face.value.through, face.value.reach, stack, false);
+  if (!hw.ok) return hw;
+  const { kind, depth, engagement, drill, far, insert } = hw.value;
+  return ok({ kind, size: v.size as FastenerSize, fit: fitOf(v.fit), depth, engagement, spot: sp, places, far, spacing, guide, reach: face.value.reach, stack, drill, insert, spots: places.map((c) => ({ ...sp, centre: c })), curved: false });
 }
 
 // ---- a curved surface (`in_929`): a round face of a body, a line drawn across it, the holes going in along the surface's normal ----
@@ -427,7 +452,8 @@ function spotOnRound(r: Round, q: Vec3): Result<FaceSpot> {
 const cross3v = (a: readonly number[], b: readonly number[]): Vec3 => [a[1]! * b[2]! - a[2]! * b[1]!, a[2]! * b[0]! - a[0]! * b[2]!, a[0]! * b[1]! - a[1]! * b[0]!];
 function curvedPlan(session: Session, v: ReceiverValues, r: Round): Result<ReceiverPlan> {
   const sc = scene(session);
-  const hw = hardwareOf(v, r.through, v.depth.trim() === "" ? 2 * r.radius : r.through, true);
+  const reachR = v.depth.trim() === "" ? 2 * r.radius : r.through;
+  const hw = hardwareOf(v, r.through, reachR, reachR, true);
   if (!hw.ok) return hw;
   const where = r.points.length ? "picked" : r.lines.length ? "lines" : "round";
   let raw: Vec3[];
@@ -473,20 +499,20 @@ function curvedPlan(session: Session, v: ReceiverValues, r: Round): Result<Recei
   for (const q of raw) { const s = spotOnRound(r, q); if (!s.ok) return s; spots.push(s.value); }
   const guide: Vec3[] = [];
   for (const q of guide3) { const s = spotOnRound(r, q); if (s.ok) guide.push(s.value.centre); } // (the line as it lies on the surface; a point past its end is left out)
-  return ok({ kind: hw.value.kind, size: v.size as FastenerSize, fit: fitOf(v.fit), depth: hw.value.depth, engagement: hw.value.engagement, spot: spots[0]!, places: spots.map((s) => s.centre), far: false, spacing, guide, reach: v.depth.trim() === "" ? 2 * r.radius : hw.value.depth, drill: hw.value.drill, insert: hw.value.insert, spots, curved: true });
+  return ok({ kind: hw.value.kind, size: v.size as FastenerSize, fit: fitOf(v.fit), depth: hw.value.depth, engagement: hw.value.engagement, spot: spots[0]!, places: spots.map((s) => s.centre), far: false, spacing, guide, reach: v.depth.trim() === "" ? 2 * r.radius : hw.value.depth, stack: v.depth.trim() === "" ? 2 * r.radius : hw.value.depth, drill: hw.value.drill, insert: hw.value.insert, spots, curved: true });
 }
 export function cutReceiver(session: Session, v: ReceiverValues): Result<Session> {
   const plan = receiverPlan(session, v);
   if (!plan.ok) return plan;
   const p = plan.value;
-  const steps: PartSteps = p.spots.flatMap((at) => [...receiverSteps(p.kind, p.size, p.fit, p.depth, at, p.engagement, p.drill), ...(p.far ? farNutSteps(p.size, at, p.reach) : [])]);
+  const steps: PartSteps = p.spots.flatMap((at) => [...receiverSteps(p.kind, p.size, p.fit, p.depth, at, p.engagement, p.drill), ...(p.far ? farNutSteps(p.size, at, p.stack) : [])]);
   if (p.insert) { // (the hardware goes in after every hole is cut: a cut is made on the last body, which a screw must not be)
     const ins = p.insert;
     for (const at of p.spots) {
       const c = at.centre;
       if (ins.screw) steps.push(...screwInPlace(ins.screw.family, p.size, ins.screw.length, at, ins.screw.seat));
       if (ins.nut === "near") steps.push(...nutInPlace(p.size, at.plane, c, at.u, at.v, at.own));
-      if (ins.nut === "far") steps.push(...farNutInPlace(p.size, at, p.reach));
+      if (ins.nut === "far") steps.push(...farNutInPlace(p.size, at, p.stack));
     }
   }
   const c = oneCommand(scene(session), steps);

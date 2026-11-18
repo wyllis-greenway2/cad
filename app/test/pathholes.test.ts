@@ -314,3 +314,40 @@ test("a round face alone: a row round it at the middle of its height, spaced alo
   const r = cutReceiver(s, vals({ kind: "clearance", size: "M4", by: "count", value: "4", corners: "ignore" }));
   assert.ok(r.ok, r.ok ? "" : r.error);
 });
+
+// ---- a lid on an object (`in_940`): the cut goes through everything, the body of the face gives the defaults ----
+const lidOn = (): { s: Session; lid: string } => {
+  let s = createSession(kernel);
+  const a = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [100, 60, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, a.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: a.lines, params: { depth: 20 } } });
+  const top = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.ref.endsWith("0,0,1,20"))!.ref;
+  const b = drawSquaredRectangle(scene(s), top as never, [0, 0, 20], [100, 60, 20], [1, 0, 0], [0, 1, 0]);
+  s = run(s, b.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: b.lines, params: { depth: 5, mode: "new" } } });
+  const lid = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.ref.endsWith("0,0,1,25"))!.ref;
+  return { s: select(s, [lid]), lid };
+};
+test("a lid on an object: the plan reaches through both bodies and the body of the face is the default clearance depth", () => {
+  const { s } = lidOn();
+  assert.ok(bodies(s).length >= 2, `${bodies(s).length} bodies`);
+  const p = receiverPlan(s, vals({ kind: "drillTap", size: "M4", place: "centre" }));
+  assert.ok(p.ok, p.ok ? "" : p.error);
+  if (!p.ok) return;
+  near(p.value.reach, 5, 1e-6);
+  near(p.value.stack, 25, 1e-6);
+  near(p.value.drill!, 5, 1e-6); // (clearance through the lid)
+  near(p.value.depth, 5 + 6, 1e-6); // (and a pilot of 1.5 diameters past it)
+  const c = receiverPlan(s, vals({ kind: "clearance", size: "M4", place: "centre" }));
+  assert.ok(c.ok && c.value.depth > 25); // (a plain hole goes right through everything)
+});
+test("a lid on an object cut as drill + tap: clearance in the lid, the pilot in the body below, and the screw spans both", () => {
+  const { s } = lidOn();
+  const before = total(s);
+  const r = cutReceiver(s, vals({ kind: "drillTap", size: "M4", fit: "medium", place: "centre", insert: "screw" }));
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  if (!r.ok) return;
+  const screw = Math.min(...bodies(r.value).map((b) => b.volume ?? 1e9));
+  const hosts = total(r.value) - screw;
+  near(before - hosts, cyl(4.5, 5) + cyl(3.3, 6), 0.01);
+});
