@@ -27,8 +27,8 @@ test("the limits of a spiral pair say why: a small pinion, a big pair, a steep r
   assert.ok(p.ok);
   const [a, b] = [spiralBody(p.value, "pinion"), spiralBody(p.value, "ring")];
   assert.ok(a.ok && b.ok);
-  assert.equal(a.value.sections.length, 9);
-  assert.equal(a.value.sections[0]!.points.length, 20 * 10, "ten sides to each tooth: four arcs a flank, one across the tip and one across the root");
+  assert.equal(a.value.sections.length, 7);
+  assert.equal(a.value.sections[0]!.points.length, 20 * 6, "six sides to each tooth: two arcs a flank, one across the tip and one across the root");
 });
 
 test("the gear command makes a spiral bevel gear: one body (the prism cut to the blank), a bore through it", () => {

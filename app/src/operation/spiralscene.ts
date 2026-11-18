@@ -1,5 +1,5 @@
 // The parts and steps of a spiral bevel gear (`dec_spiral_bevel_gears`, `in_836`), made from a gear record by `gearscene.ts` as those of a straight bevel gear are (`bevelscene.ts`): the gear's plane is the plane of the heel's pitch point, its axis the plane's normal, the apex along it
-// (`+n`). The body is a loft through nine planes across the axis (the tooth outline there, `spiral.ts`: ruled lines of arcs, smooth between the planes: the tooth is curved), cut by the blank of the two back cones (a revolved piece of its own); a bore is a hole in every plane.
+// (`+n`). The body is a loft through seven planes across the axis (the tooth outline there, `spiral.ts`: lines of arcs, smooth between the planes: the tooth is curved), cut by the blank of the two back cones (a revolved piece of its own); a bore is a hole in every plane.
 import type { Ref } from "../shared/ref.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
