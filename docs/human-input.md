@@ -3660,3 +3660,15 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_828 — 2026-11-17 — directive
 > can you please merge in claude/adoring-dijkstra-next-pascal
 (asks for claude/adoring-dijkstra-next-pascal to be merged into the testing branch)
+
+## in_829 — 2026-11-18 — directive
+> Go with your recommendation, add the reverse switch, also the planetary assembly doesn't work right, I don't think it is an issue with your animator, I think it is just that the assembly isn't wired up to know that the gears are meshed.
+(asks for a reverse switch on the motion bar, and for the planetary assembly to record that its gears are meshed so playing one turns the others)
+
+## in_830 — 2026-11-18 — directive
+> Go with your recommendation, build the carrier turning
+(asks for the planetary carrier to be playable: the carrier turns and the planets orbit)
+
+## in_831 — 2026-11-18 — directive
+> please merge in claude/adoring-dijkstra-next-pascal
+(asks again for claude/adoring-dijkstra-next-pascal to be merged into the testing branch)

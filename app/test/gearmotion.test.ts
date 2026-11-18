@@ -151,3 +151,50 @@ test("a gear with no body, or one meshed with a worm, a pulley or a cam, is not 
   assert.ok(fin && fin.command.type === "gear", "a partner is made");
   assert.equal((fin!.command as { meshWith?: string }).meshWith, "g_001", "and says which gear it was meshed with");
 });
+
+test("a planetary set is wired up as meshed: playing the sun turns the planets and the ring by the tooth ratios (the carrier held), and the planets and the ring play back to the sun", async () => {
+  const { addPlanetary } = await import("../src/operation/planetary.ts");
+  void addPlanetary;
+  let s = createSession(kernel);
+  s = run(s, { type: "planetary", id: "q_001", plane: XY, at: [0, 0, 0], spec: { sun: 12, planet: 18, planets: 3, module: 1, width: 5, backlash: 0.15 } });
+  assert.ok(!s.message, s.message ?? "");
+  const sc = scene(s);
+  const q = sc.planetaries![0]!;
+  const sun = sc.gears!.find((g) => g.id === q.sunId)!;
+  const r = followersOf(sc, sun);
+  assert.equal(r.followers.length, 4, r.why ?? "the three planets and the ring");
+  const kOf = (id: string) => r.followers.find((f) => f.gear === id)!.k;
+  for (const p of q.planetIds) assert.ok(Math.abs(kOf(p) + 12 / 18) < 1e-9, "a planet turns the opposite way by 12/18");
+  assert.ok(Math.abs(kOf(q.ringId) + 12 / 48) < 1e-9, "the ring (48 teeth) turns the way the planets do, the sun's turn times 12/48 backwards");
+  // from a planet: the sun and the other planets and the ring all follow
+  const planet = sc.gears!.find((g) => g.id === q.planetIds[1])!;
+  assert.equal(followersOf(sc, planet).followers.length, 4);
+});
+
+test("a planetary carrier played: the planets go round the centre with it and turn 1 + S/P in the world, the ring 1 + S/R, the sun stays; the pose is not kept", async () => {
+  const { carrierPlay } = await import("../src/operation/gearcouple.ts");
+  const { followMatrix } = await import("../src/interaction/motion.ts");
+  let s = createSession(kernel);
+  s = run(s, { type: "planetary", id: "q_001", plane: XY, at: [0, 0, 0], spec: { sun: 12, planet: 18, planets: 3, module: 1, width: 5, backlash: 0.15, carrier: 3 } });
+  assert.ok(!s.message, s.message ?? "");
+  const sc = scene(s);
+  const q = sc.planetaries![0]!;
+  const carrier = Object.values(sc.parts).find((p) => p.kind === "body" && (p as { id?: string }).id === `x_${q.carrierStep}`)!;
+  assert.ok(carrier, "the carrier has a body");
+  const r = startMotion(sc, carrier.ref);
+  assert.ok(r.ok, r.ok ? "" : r.why);
+  if (!r.ok) return;
+  assert.equal(r.motion.follows.length, 4, "three planets and the ring; the sun is held");
+  const planet = r.motion.follows.find((f) => f.gear === q.planetIds[0])!;
+  const g = sc.gears!.find((x) => x.id === q.planetIds[0])!;
+  const m = followMatrix(planet, 90);
+  const a = g.at as unknown as [number, number, number], b: [number, number, number] = [a[0] + 5, a[1], a[2]];
+  const [pa, pb] = [apply(m, a), apply(m, b)];
+  const orbit = [a[0] * Math.cos(Math.PI / 2) - a[1] * Math.sin(Math.PI / 2), a[0] * Math.sin(Math.PI / 2) + a[1] * Math.cos(Math.PI / 2)];
+  near([pa[0]!, pa[1]!], orbit, 1e-6); // (the planet's centre has gone a quarter of the way round)
+  const ang = Math.atan2(pb[1]! - pa[1]!, pb[0]! - pa[0]!) * 180 / Math.PI;
+  assert.ok(Math.abs(ang - 90 * (1 + 12 / 18)) < 1e-6, `turned ${ang}`);
+  const ring = r.motion.follows.find((f) => f.gear === q.ringId)!;
+  assert.ok(Math.abs(ring.k - (1 + 12 / 48)) < 1e-9);
+  assert.equal(keepCommand(sc, { ...r.motion, amount: 90 }), null);
+});

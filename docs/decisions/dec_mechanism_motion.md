@@ -3,7 +3,7 @@ id: dec_mechanism_motion
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_824, in_823
+human_input: in_829, in_830, in_827, in_826, in_825, in_824, in_823, in_822, in_821
 date: 2026-11-17
 depends_on:
   - dec_standing_mates: a mechanism's joints are the pivots and sliders that decision makes (a coaxial mate leaves a turn and a slide, with stops and a drive step); a change to how joints keep their value changes this
@@ -47,6 +47,10 @@ alternative_to:
 ## Built: stage 3b, the Geneva drive as a coupling (`in_827`)
 
 **Play on the crank or the locking disc of a Geneva drive made as a model** (three bodies) turns the crank and the disc together about the second shaft, and the wheel about its own by the real law of the drive (`genevaTurn`): the pin is in a slot while the crank is within 90 - 180/n degrees either side of the line of centres, and there the wheel follows the slot; between visits it stands still, so it makes a step of 360/n degrees for each turn of the crank. The wheel itself cannot be played (it is driven). **Keep pose is refused** for a Geneva (it is one drawing: turn it with Edit cam). **Not built:** the ratchet as a coupling.
+
+## Built: reverse, and planetary sets wired as meshed (`in_829`)
+
+The motion bar has a **⇄ switch**: the speed changes sign and a motion that is playing goes on from where it stands the other way round. **A planetary set** (`Scene.planetaries`) is now known to be meshed: `followersOf` links the sun to each planet and the ring to the first planet, so playing the sun, a planet or the ring turns the others by the tooth ratios with **the carrier held** (planets spin on fixed axes). This works for sets made before too, since the links are derived from the set's record. **The carrier turning** (`in_830`): Play on the carrier body (the plate with the pins) turns it about the sun's axis with **the sun held**; each planet turns `S/P` about its own axis and goes round the centre with the carrier (so `1 + S/P` in the world), the ring turns `1 + S/R` (S, P, R the teeth of sun, planet, ring; `carrierPlay`, `Follower.after`, `followMatrix`). Keep pose is refused for it (turn the set with its own Turn instead). **Not built:** other holds (ring held with the sun driving the carrier, or carrier driven with the ring held).
 
 ## The five choices (approved at `in_824`)
 

@@ -13,7 +13,7 @@ import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
 import { doBodiesAction } from "./control/bodies.ts";
 import { doMotionKind, doMotionKeep } from "./control/motion.ts";
-import { setPlaying } from "./motion.ts";
+import { setPlaying, reverseMotion } from "./motion.ts";
 import { doStepGo, doStepEdit, doStepInsert, doStepSet, doStepLink, doParamSet, doParamRemove } from "./control/history.ts";
 import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
 import { hoverOn, run, scene as sceneOf } from "./session.ts";
@@ -172,6 +172,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "previewClose": return { ...s, preview: null };
     case "motionAt": return s.motion ? { ...s, motion: { ...s.motion, playing: false, startedAt: null, amount: Math.min(s.motion.hi, Math.max(s.motion.lo, Number.isFinite(i.amount) ? i.amount : 0)) } } : s; // (the scrubber: a hand on it stops the play)
     case "motionPlay": return s.motion ? { ...s, motion: setPlaying(s.motion, !s.motion.playing) } : s;
+    case "motionReverse": return s.motion ? { ...s, motion: reverseMotion(s.motion) } : s;
     case "motionKind": return doMotionKind(s, i.kind);
     case "motionKeep": return doMotionKeep(s);
     case "motionClose": return { ...s, motion: null };

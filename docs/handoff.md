@@ -3297,3 +3297,12 @@ No steering input. The new `docs/sources/README.md` (CLAUDE.md, source index rul
 
 ## Handoff 754 — 2026-11-17 (in_817: the spiral's size limit)
 `in_817`. 28/42 and 30/45 ran the kernel out of memory in the ring's cone cut; 25/50 failed in the pinion's ("nothing in common"). Every pair of 56 teeth or fewer worked (22/34 the largest). `dec_spiral_bevel_gears` (still **provisional**) now says: refuse more than 56 teeth in all, a ring cone over about 65 degrees. Waiting for the human's explicit approval to build it.
+
+## Handoff 755 — 2026-11-18 (in_829: reverse switch, planetary wired as meshed)
+`in_829`. **Built:** `reverseMotion`, intent `motionReverse`, `Frame.motionBar.reversed`, the ⇄ switch in `ui/motionbar.ts`; `followersOf` derives the planetary links (sun to planets, ring to planet 1) from `Scene.planetaries`. Tests: one in `motion.test.ts`, one in `gearmotion.test.ts`. **Not built:** the carrier turning (planets orbiting); the ratchet coupling. **Next:** browser check of reverse, the planetary, the cam follower and the Geneva.
+
+## Handoff 756 — 2026-11-18 (in_830: the planetary carrier turning)
+`in_830`. **Built:** `carrierPlay` (`gearcouple.ts`), `Follower.after`, `followMatrix` (`motion.ts`, used by `frame.ts`); startMotion plays a planetary carrier with the sun held; Keep pose refused. Test in `gearmotion.test.ts`. **Not built:** other holds (ring held), the ratchet coupling. **Next:** browser check of everything in stage 3 and the planetary.
+
+## Handoff 757 — 2026-11-18 (in_831: merge claude/adoring-dijkstra-next-pascal again)
+`in_831`. Merged the testing branch's two newest commits, then `claude/adoring-dijkstra-next-pascal` (the motion bar's reverse switch, planetary sets wired as meshed, the planetary carrier turning): its `in_807`, `in_808` became `in_829`, `in_830`, its Handoffs 736, 737 became 755, 756; its references to its earlier numbers follow the earlier renumbering (`in_797` to `in_806` are `in_818` to `in_827`, Handoffs 725 to 735 are 742 to 752). Conflicts: docs only. **Check:** see the next commit.
