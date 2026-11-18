@@ -3693,3 +3693,14 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_836 — 2026-11-18 — approval
 > yes lets build it
 (approves dec_spiral_bevel_gears as proposed, with its limits, and asks for the spiral bevel tool to be built)
+## in_837 — 2026-11-19 — directive
+> okay so the animation bar jumps a lot. Try doing a planetary gear, then animating it. Also the blue mouse cursor hover thingy, seems to fly away into the animation and is decoupled from the mouse.
+(two bugs: the motion bar jumps while a planetary set is played; the blue hover marker leaves the mouse during an animation)
+
+## in_838 — 2026-11-19 — directive
+> Go with your recommendation, start on the ratio link
+(asks for the hand-made link between any two joints and a ratio to be started, as the fifth choice of `dec_mechanism_motion` allows)
+
+## in_839 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for the branch `claude/adoring-dijkstra-motion-next` to be merged into the testing branch)

@@ -8,9 +8,11 @@ import type { Scene } from "../operation/scene.ts";
 import { mateStatus } from "../operation/mates.ts";
 import { jointRoom, driveCommand } from "./mate.ts";
 import type { Command } from "../operation/commands.ts";
+import { apply } from "../operation/commands.ts";
 import { followersOf, gearAxis, gearOfBody, genevaPlay, carrierPlay } from "../operation/gearcouple.ts";
 import type { Follower } from "../operation/gearcouple.ts";
 import { followAmount } from "../operation/gearcouple.ts";
+import { linkFollowers } from "../operation/coupling.ts";
 
 export type JointKind = "turn" | "slide";
 export interface Motion {
@@ -64,7 +66,7 @@ export function startMotion(scene: Scene, body: Ref, kind: JointKind = "turn"): 
   const free = !Number.isFinite(room.down) || !Number.isFinite(room.up);
   const [lo, hi] = free ? (kind === "turn" ? [-FREE_TURN, FREE_TURN] : [-FREE_SLIDE, FREE_SLIDE]) : [room.down, room.up];
   if (hi - lo < 1e-9) return { ok: false, why: "the joint's stops leave it no room to move" };
-  return { ok: true, motion: { mate: m.id, follows: [], kind, body, point: m.mover.point, dir: normalize(m.mover.dir), amount: 0, lo, hi, free, playing: false, from: 0, startedAt: null, speed: kind === "turn" ? 60 : 10 } };
+  return { ok: true, motion: { mate: m.id, follows: linkFollowers(scene, m.id, kind), kind, body, point: m.mover.point, dir: normalize(m.mover.dir), amount: 0, lo, hi, free, playing: false, from: 0, startedAt: null, speed: kind === "turn" ? 60 : 10 } };
 }
 
 /** The amount at a time (ms): a joint with no stops that turns goes on turning; any other swings from stop to stop and back. */
@@ -115,7 +117,19 @@ export function jointMatrix(m: Pick<Motion, "kind" | "point" | "dir">, amount: n
 /** The command that keeps the pose: a joint's drive step; or, for a gear played, each gear (and the racks) set to where it stands, as `setGear` does (the record's turn or its centre), in one batch so one undo. Null when there is nothing to keep. */
 export function keepCommand(scene: Scene, m: Motion): Command | null {
   if (Math.abs(m.amount) < 1e-9 || m.noKeep) return null;
-  if (!m.gear) return driveCommand(scene, m.mate, m.kind, m.amount);
+  if (!m.gear) {
+    const commands: Command[] = [];
+    let cur = scene; // (each drive is worked out on the scene the one before it leaves, so the steps have their own names)
+    const drives: { mate: string; kind: JointKind; by: number }[] = [{ mate: m.mate, kind: m.kind, by: m.amount }, ...m.follows.flatMap((f) => (f.mate ? [{ mate: f.mate, kind: f.kind, by: followAmount(f, m.amount) }] : []))]; // (the joints linked to it, by their ratios)
+    for (const d of drives) {
+      const c = driveCommand(cur, d.mate, d.kind, d.by);
+      if (!c) continue;
+      commands.push(c);
+      const next = apply(cur, c);
+      if (next.ok) cur = next.value;
+    }
+    return commands.length > 1 ? { type: "batch", commands } : commands[0] ?? null;
+  }
   const moves: { gear: string; kind: "turn" | "slide"; dir: Vec3; k: number }[] = [{ gear: m.gear, kind: m.kind, dir: m.dir, k: 1 }, ...m.follows.filter((f) => !f.mate).map((f) => ({ gear: f.gear, kind: f.kind, dir: f.dir, k: f.k }))];
   const commands: Command[] = [];
   for (const mv of moves) {
@@ -127,7 +141,7 @@ export function keepCommand(scene: Scene, m: Motion): Command | null {
   }
   for (const f of m.follows) { // (a cam's follower: its slider mate is driven to where the cam's edge has put it)
     if (!f.mate) continue;
-    const c = driveCommand(scene, f.mate, "slide", followAmount(f, m.amount));
+    const c = driveCommand(scene, f.mate, f.kind, followAmount(f, m.amount));
     if (c) commands.push(c);
   }
   return commands.length ? { type: "batch", commands } : null;
