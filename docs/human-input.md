@@ -3968,3 +3968,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_905 — 2026-11-18 — directive
 > Okay, now I want to test the limits and fail states. How big of an assembly can I make? 10 parts? 100 parts? 1000 parts? how many faces can I render? also how does it fail? just freeze and explode? or fail in silent errors?
 (asks to test the limits and the fail states: how many parts an assembly can have (10, 100, 1000), how many faces can be rendered, and how the app fails: freezing, crashing, or silent errors)
+
+## in_906 — 2026-11-18 — question
+> how can we make it way faster and tolerant? Can we not even try to load it all at once, put the user in the environment, and prevent interface from freezing or feeling frozen while we populate models and data from the camera backwards? How can we have the interface still operate smoothly even after load? should we only render the objects closest to camera and ghost render the other? sort of like how the gear works where it is just a donut while rendering while it is being built? How can we give the user the detail and fidelity they need intelligently? maybe based off camera position and selection?
+(asks how to make large models much faster and more tolerant: not loading everything at once, putting the user in the scene at once, never freezing, filling in models and data from the camera backwards, keeping the interface smooth after load, drawing near objects in full and the others as ghosts like the gear's stand-in disc, and giving detail and fidelity by camera position and selection)
