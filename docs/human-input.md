@@ -4268,3 +4268,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_978 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 once more, for the flat constraints ring, the mates with the world and the new tangent mates; gives permission to write to that branch)
+
+## in_979 — 2026-11-19 — directive
+> In an animation, if you click an animated part, it sketch or highlight doesn't actually follow the part, it floats out in space as a rotated version of the flat static one. Also lets get rid of the persistent pause icons. The pause button in media player is enough.
+(with a screenshot of a Geneva wheel: the selection's teal fill floats away from the animated body, turned about the wrong axis; and the pause icons that stay on animated bodies are to go)

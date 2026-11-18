@@ -93,6 +93,18 @@ export interface FlashFrame { t: number; victims: string[]; culprits: string[]; 
 const animatedMemo = new WeakMap<Scene, Map<Ref, Ref>>();
 /** The bodies hooked up to an animation (`gearcouple.ts`), worked out once for each scene. */
 const animated = (sc: Scene): Map<Ref, Ref> => { let m = animatedMemo.get(sc); if (!m) { m = animatedBodies(sc); animatedMemo.set(sc, m); } return m; };
+const IDENTITY16 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+/** The matrix a motion draws a body by: the driver's, or a follower's (a gear it turns, a rod it slides, a body that yields); null for a body that stays. */
+const motionMatrixOf = (m: NonNullable<AppState["motion"]>, body: Ref): number[] | null => {
+  if (m.body === body) return jointMatrix(m, m.amount);
+  const fo = [...m.follows, ...(m.yields ?? [])].find((f) => f.body === body);
+  return fo ? followMatrix(fo, m.amount) : null;
+};
+/** The matrix the selection is drawn by while a motion plays (`in_979`): the one matrix of the selected bodies when they all have it (a body that stays has none: the identity); the identity when they differ, so a highlight is never moved by the matrix of another body than its own. */
+const selectionMatrixOf = (m: NonNullable<AppState["motion"]>, bodies: ReadonlySet<Ref>): number[] => {
+  const all = [...bodies].map((b) => motionMatrixOf(m, b) ?? IDENTITY16);
+  return all.length && all.every((x) => x.every((v, i) => Math.abs(v - all[0]![i]!) < 1e-9)) ? all[0]! : IDENTITY16;
+};
 /** What the bar shows: a joint with no stops that turns goes round and round, so the number is kept within half a turn either way (it would otherwise grow without end, and the slider has its ends at the half turns). */
 /** A number for the bar that is always the same width (`in_961`): one decimal, always (not "-78" one frame and "-83.2" the next), padded on the left with figure spaces (as wide as a digit) to the width of "-100.5", so the words round it do not move as it changes. */
 const steadyNumber = (x: number): string => { const t = (Math.abs(x) < 0.05 ? 0 : x).toFixed(1); return t.padStart(6, "\u2007"); };
@@ -121,6 +133,8 @@ export interface Frame {
   followers: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[];
   /** what is selected is the body, so its highlight is moved by the same matrix */
   selectionMoves: boolean;
+  /** while a motion plays: the matrix the selected body is drawn by (the driver's, a follower's, or none for a body that stays), so what is highlighted goes with the body and not by the driver's matrix (`in_979`); null when there is no motion */
+  selectionMatrix: number[] | null;
   highlight: { /** the triangles of a body of several that is selected or pointed at, as ranges of the mesh's index list: every face of it, the teeth of a gear too, which are not parts (`in_867`) */ bodyTris?: Record<string, [number, number][]>; hover: Ref | undefined; hoverPoint: Vec3 | null; selection: readonly Ref[]; amber: readonly Ref[]; /** the parts of constraints a refused change would have broken, and how red they still are */ red: { refs: readonly Ref[]; alpha: number }; /** the copies a repeat that is open would make, drawn pulsing (`in_244`) */ temp: readonly Ref[]; spread: AppState["spread"]; };
   preview: Preview | null;
   entry: Entry | null;
@@ -459,6 +473,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     eyesQuiet: true, // (a body that is shown has no eye of its own now: Hide body is in the View menu, `in_697`; a hidden body keeps its eye)
     gearChip: s.tool || s.op || s.drag || s.repeat ? null : gearChipOf(sc, sel), // (the gear's icon is there when the gear is selected, not when the pointer is over it, `in_962`)
     followers: gpu?.followers ?? [],
+    selectionMatrix: s.motion ? selectionMatrixOf(s.motion, selBodies) : null,
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
     highlight: { bodyTris: bodyTrisOf(sc, s.session.outcome, [s.session.hover, ...sel]), hover: s.motion ? undefined : s.session.hover, /* (a visible sheet lights the blue hover disc as every surface does, `in_470`) */ hoverPoint: s.motion ? null : s.hoverPoint, selection: s.moverSphere ? [] : [...sel.filter((r) => !isSectionPlane(sc, r)), ...(s.op?.twoDist ? [chosenFace(sceneOf(s.op.made ? undone(s.session) : s.session), s.op)?.ref].filter((r): r is Ref => !!r) : [])], /* (the face the first distance is along is lit like a selected face, `dec_chamfer_two_distances`) */ /* (the object is not what is selected while the mover is oriented: it is only drawn as wireframe, `in_421`) */ // (a cross section plane is drawn by its own faint quad, not lit like a face, `in_396`)
     amber: [...new Set([...(s.op?.kind === "loft" ? loftStarts(sceneOf(s.session), s.op) : []), ...(s.op?.kind === "sweep" ? sweepStart(sceneOf(s.session), s.op) : []), ...focusParts(sc, sel, s.focus), ...variableStart(sceneOf(s.op?.made ? undone(s.session) : s.session), s.op), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },

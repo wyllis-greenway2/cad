@@ -86,3 +86,27 @@ test("the play button of an animated body is for the body that is selected (or h
   assert.equal(eyes(sel as typeof base)[b.crank!], true, "selected: the button");
   assert.equal(eyes(sel as typeof base)[b.wheel!], false, "and only for that body");
 });
+
+test("while a motion plays what is selected is drawn by the matrix of its own body, not the driver's: the wheel's highlight goes with the wheel (`in_979`)", async () => {
+  const { createState, reduce } = await import("../src/interaction/controller.ts");
+  const { homeCamera } = await import("../src/interaction/camera.ts");
+  const { frameOf } = await import("../src/interaction/frame.ts");
+  const { jointMatrix, followMatrix } = await import("../src/interaction/motion.ts");
+  const s = make();
+  const b = genevaBodies(scene(s), scene(s).gears![0]!);
+  const env = { w: 800, h: 600, now: 0 };
+  let st = { ...createState(s), cam: homeCamera() };
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [b.crank!] } } } as typeof st;
+  st = reduce(st, { type: "runAction", id: "motion:play" }, env as never);
+  st = reduce(st, { type: "motionAt", amount: 120 }, env as never);
+  const near = (x: number[], y: number[]) => x.every((v, i) => Math.abs(v - y[i]!) < 1e-9);
+  const driver = jointMatrix(st.motion!, 120);
+  const wheelFollower = st.motion!.follows.find((f) => f.body === b.wheel)!;
+  const wheel = followMatrix(wheelFollower, 120);
+  assert.ok(!near(driver, wheel), "the two bodies are drawn by different matrices");
+  const sel = (r: typeof b.wheel) => frameOf({ ...st, session: { ...st.session, click: { ...st.session.click, selection: [r!] } } } as typeof st, { w: 800, h: 600 }).selectionMatrix!;
+  assert.ok(near(sel(b.crank), driver), "the driver's selection goes by the driver's matrix");
+  assert.ok(near(sel(b.wheel), wheel), "the wheel's selection goes by the wheel's");
+  const none = frameOf({ ...st, motion: null } as typeof st, { w: 800, h: 600 });
+  assert.equal(none.selectionMatrix, null, "no motion: nothing");
+});
