@@ -68,7 +68,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:bevel", label: "Bevel gear", icon: "bevelgear", tool: "gear" },
   { id: "tool:crown", label: "Crown gear", icon: "crowngear", tool: "gear" },
   { id: "tool:face", label: "Face gear", icon: "facegear", tool: "gear" },
-  { id: "tool:spiral", label: "Spiral bevel / hypoid", icon: "spiralbevel", tool: "gear" },
+  { id: "tool:spiral", label: "Spiral hypoid", icon: "spiralbevel", tool: "gear" },
   { id: "tool:worm", label: "Worm", icon: "worm", tool: "gear" },
   { id: "tool:wormwheel", label: "Worm wheel", icon: "wormwheel", tool: "gear" },
   { id: "tool:planetary", label: "Planetary set", icon: "planetary", tool: "gear" },
