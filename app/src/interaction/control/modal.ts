@@ -441,6 +441,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "tool:geneva:assembled" || id === "tool:geneva:model") return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", "geneva", undefined, id === "tool:geneva:model" ? "model" : "assembled"); // (a Geneva drive drawn in place, as a sketch or as bodies, `dec_geneva`)
   if (id === "tool:eccentric" || id === "tool:snail" || id === "tool:ratchet" || id === "tool:geneva" || id === "tool:linear") return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", id === "tool:snail" ? "snail" : id === "tool:ratchet" ? "ratchet" : id === "tool:geneva" ? "geneva" : id === "tool:linear" ? "linear" : "eccentric"); // (an eccentric cam and a snail cam, `dec_spline_and_cams`)
   if (id === "tool:worm" || id === "tool:wormwheel") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:worm" ? "worm" : "wormwheel"); // (a worm, and the wheel for one, `in_608`)
+  if (id === "tool:spiral") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "spiral"); // (a spiral bevel gear, `dec_spiral_bevel_gears`)
   if (id === "tool:crown") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "crown"); // (a crown gear, `dec_crown_gears`)
   if (id === "tool:bevel") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "bevel"); // (a straight bevel gear, an approximation, `in_735`)
   if (id === "tool:planetary") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "planetary"); // (a planetary gear set, `dec_planetary_gears`)

@@ -8,11 +8,16 @@ import { ok, err } from "../shared/result.ts";
 import type { GearSpec } from "./gear.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { bulgeOf } from "./arcs.ts";
+import { spiralFor, spiralGeometry } from "./spiral.ts";
 import type { P } from "./arcs.ts";
 
 /** a bevel gear: the teeth of the gear it meshes with, the angle between the shafts (degrees, 90 if none) and the face width as a fraction of the cone distance (a third if none) */
 export interface BevelSpec {
   mate: number; shaft?: number; face?: number;
+  /** a spiral bevel gear (`spiral.ts`, `dec_spiral_bevel_gears`): its mean spiral angle in degrees; `module` is then the normal module at the middle of the face, `face` is not used (a spiral gear's is 0.3 of the mean cone distance) */
+  spiral?: number;
+  /** which of the cone positions the kernel cut the spiral gear's body with (`SPIRAL.shifts` of `spiral.ts`: the first is tried, and the next if the kernel cannot cut there: `spiralretry.ts`); 0 if none */
+  cone?: number;
   /** a partner that stands across its mate's axis (`meshBevel`): its own first and second directions (unit vectors, the plane of the big end, its normal their cross product, along the axis towards the apex) in place of the plane's; none for a gear on its plane */
   frame?: [Vec3, Vec3];
   /** the gear it was made to mesh with (and, for that gear, this one): editing the teeth of either puts the other right again (`in_776`) */
@@ -48,6 +53,12 @@ export function bevelOf(spec: GearSpec): Result<BevelGeometry> {
   if (!Number.isFinite(z) || z < 6 || z > 200) return err("a bevel gear needs 6 to 200 teeth");
   if (!Number.isFinite(mate) || mate < 6 || mate > 200) return err("the gear it meshes with needs 6 to 200 teeth");
   if (!Number.isFinite(m) || m <= 0) return err("the module must be above zero");
+  if (b.spiral !== undefined) { // a spiral bevel gear: its pair's numbers (`spiral.ts`)
+    const sp = spiralFor(spec);
+    if (!sp.ok) return sp;
+    const g = spiralGeometry(sp.value.pair, sp.value.which);
+    return ok({ delta: g.delta, R: g.R, face: g.face, big: g.big, small: g.small, k: g.k, pitchRadius: g.pitchRadius, tipRadius: g.tip, rootRadius: g.root, addendum: g.addendum, dedendum: g.dedendum, zv: g.zv });
+  }
   if (!(shaft >= 30 && shaft <= 150)) return err("the angle between the shafts must be from 30 to 150 degrees");
   const crownMate = Math.abs((shaft * Math.PI) / 180 - pitchAngle(z, mate, shaft) - Math.PI / 2) < 1e-6; // (the gear it meshes with is a crown gear: a pinion for it, `crown.ts`)
   const face = b.face ?? (crownMate ? 0.15 : 1 / 3); // (0.15: CROWN_FACE of `crown.ts`; a pinion has the crown's width)

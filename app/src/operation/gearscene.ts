@@ -16,6 +16,7 @@ import { wormRefs, wormParts, wormSteps, wheelRefs, wheelParts, wheelSteps } fro
 import { wheelSections } from "./wheelsections.ts";
 import { bevelRefs, bevelParts, bevelSteps } from "./bevelscene.ts";
 import { crownRefs, crownParts, crownSteps } from "./crownscene.ts";
+import { spiralRefs, spiralParts, spiralSteps } from "./spiralscene.ts";
 import { isCrown } from "./bevel.ts";
 import { crownShaft } from "./crown.ts";
 import { camShapes } from "./cams.ts";
@@ -48,6 +49,7 @@ export function gearRefs(rec: GearRecord): { lines: Ref[]; wall?: Ref; bore?: st
   if (rec.spec.cam) return camRefs(rec); // (a cam or a ratchet, `camscene.ts`)
   const o = outlineOf(rec.spec);
   if (!o.ok) return { lines: [] };
+  if (rec.spec.bevel?.spiral !== undefined) { const b = spiralRefs(rec); return { lines: b.sections[0] ?? [], ...(b.bores[0] ? { bore: b.bores[0] } : {}) }; } // (a spiral bevel gear: the heel's first plane)
   if (rec.spec.bevel && isCrown(rec.spec)) { const c = crownRefs(rec); return { lines: c.sections[0]!, ...(c.plateBore ? { bore: c.plateBore } : {}) }; } // (a crown gear: the tip's section)
   if (rec.spec.bevel) { const b = bevelRefs(rec); return { lines: b.sections[0]!, ...(b.bores[0] ? { bore: b.bores[0] } : {}) }; } // (the big end)
   if (rec.spec.worm) return { lines: wormRefs(rec).threads[0]! }; // (the thread's figure)
@@ -63,6 +65,7 @@ function boreGroup(rec: GearRecord): string {
 
 /** The parts of a gear: the corners and sides of its outline and, for a ring, its wall's circle. Locked. Empty if its plane is not there or the numbers make no gear. */
 function partsOf(s: Scene, rec: GearRecord): Part[] {
+  if (rec.spec.bevel?.spiral !== undefined) return spiralParts(s, rec);
   if (rec.spec.bevel) return isCrown(rec.spec) ? crownParts(s, rec) : bevelParts(s, rec);
   if (rec.spec.cam) return camParts(s, rec);
   if (rec.spec.worm) return wormParts(s, rec);
@@ -167,6 +170,7 @@ function bodyParams(s: Scene, rec: GearRecord): { step: Omit<Step, "id"> } | nul
 /** The steps that make the body of a gear that has one made with it (a helical gear's twist, a worm's core and threads, a worm wheel's loft), without their names; none for a plain gear. */
 function ownedSpecs(s: Scene, rec: GearRecord): Omit<Step, "id">[] {
   if (rec.spec.cam) return camSteps(s, rec) ?? []; // (a Geneva drive that comes as a model, `camscene.ts`)
+  if (rec.spec.bevel?.spiral !== undefined) return spiralSteps(s, rec) ?? [];
   if (rec.spec.bevel) return (isCrown(rec.spec) ? crownSteps(s, rec) : bevelSteps(s, rec)) ?? [];
   if (rec.spec.worm) return wormSteps(s, rec) ?? [];
   if (rec.spec.wheel) return wheelSteps(s, rec) ?? [];
@@ -275,7 +279,7 @@ export function setGear(s: Scene, id: string, spec0: GearSpec, at?: Vec3, turn?:
   if (!rec || !bv || !other || !other.spec.bevel || other.spec.bevel.with !== id) return setGearCore(s, id, spec, at, turn, link);
   const edited: GearRecord = { ...rec, spec, ...(at ? { at } : {}), ...(turn !== undefined ? { turn } : {}) };
   const follower = bv.dir !== undefined ? edited : other, anchor = bv.dir !== undefined ? other : edited;
-  const fresh = (g: GearRecord): GearSpec => ({ ...g.spec, teeth: g === edited ? spec.teeth : bv.mate, module: spec.module, ...(spec.pressure !== undefined ? { pressure: spec.pressure } : {}), bevel: { ...g.spec.bevel!, mate: g === edited ? bv.mate : spec.teeth, ...(bv.shaft !== undefined ? { shaft: bv.shaft } : {}), ...(bv.face !== undefined ? { face: bv.face } : {}) } });
+  const fresh = (g: GearRecord): GearSpec => ({ ...g.spec, teeth: g === edited ? spec.teeth : bv.mate, module: spec.module, ...(spec.pressure !== undefined ? { pressure: spec.pressure } : {}), bevel: { ...g.spec.bevel!, mate: g === edited ? bv.mate : spec.teeth, ...(bv.shaft !== undefined ? { shaft: bv.shaft } : {}), ...(bv.face !== undefined ? { face: bv.face } : {}), ...(bv.spiral !== undefined ? { spiral: bv.spiral } : {}) }, ...(bv.spiral !== undefined && spec.backlash !== undefined ? { backlash: spec.backlash } : {}) });
   const a2: GearRecord = { ...anchor, spec: fresh(anchor) };
   const pl = s.parts[a2.plane];
   if (!pl || pl.kind !== "plane") return setGearCore(s, id, spec, at, turn);

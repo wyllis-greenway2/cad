@@ -9,6 +9,7 @@ import { isMade } from "./gearscene.ts";
 import { wheelOf } from "./worm.ts";
 import { bevelLayout, bevelFrame, isCrown } from "./bevel.ts";
 import { crownOf } from "./crown.ts";
+import { spiralOf } from "./spiralscene.ts";
 
 export interface GearShape {
   /** the step that makes the body; the body is named `x_` and this in the kernel's answer */
@@ -47,6 +48,14 @@ export function gearShapeOf(sc: Scene, st: Step): GearShape | null {
   const n = cross(plane.u, plane.v), len = Math.hypot(...n) || 1;
   let normal: Vec3 = [n[0] / len, n[1] / len, n[2] / len];
   const g = o.value;
+  if (rec.spec.bevel?.spiral !== undefined) { // a spiral bevel gear (`dec_spiral_bevel_gears`): the loft is the body's first step; the stand-in is a disc from the heel's plane to the toe's, as wide as the tip circle of the heel
+    if (st.type !== "loft") return null;
+    const sb = spiralOf(rec);
+    if (!sb) return null;
+    normal = bevelFrame(plane.u, plane.v, rec.spec, rec.turn ?? 0).n;
+    const [toe, heel] = [sb.sections[0]!.x, sb.sections[sb.sections.length - 1]!.x];
+    return { step: st.id, gear: rec.id, centre: [0, 1, 2].map((k) => rec.at[k]! + normal[k]! * (sb.big - heel)) as unknown as Vec3, normal, depth: heel - toe, radius: sb.tipRadius, rootRadius: sb.rootRadius * 0.8, ring: false, hole: (rec.spec.bore ?? 0) > 0 ? (rec.spec.bore as number) / 2 : 0 };
+  }
   if (rec.spec.bevel && isCrown(rec.spec)) { // a crown gear (`dec_crown_gears`): the loft is the body's first step; the stand-in is a disc from the plate's foot to the tips
     if (st.type !== "loft") return null;
     const c = crownOf(rec.spec);

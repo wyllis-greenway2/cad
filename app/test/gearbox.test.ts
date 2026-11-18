@@ -13,7 +13,7 @@ import { isCrown } from "../src/operation/bevel.ts";
 
 await kernel.init();
 
-const VARIANTS: GearVariant[] = ["gear", "bevel", "crown", "ring", "rack", "gt2", "gt3", "htd5", "htd8", "sprocket", "isosprocket", "clock", "clockring", "clockrack"];
+const VARIANTS: GearVariant[] = ["gear", "bevel", "crown", "spiral", "ring", "rack", "gt2", "gt3", "htd5", "htd8", "sprocket", "isosprocket", "clock", "clockring", "clockrack"];
 
 test("every number of every kind of gear has a hint, and each kind has a title", () => {
   for (const v of VARIANTS) {
@@ -86,6 +86,23 @@ test("the crown gear tool (`dec_crown_gears`, `in_802`): its numbers, its title,
   assert.ok(mesh && mesh.type === "gear", "the pinion");
   assert.equal(mesh.spec.teeth, 18, "the pinion's teeth are the crown's mate");
   assert.equal(mesh.spec.bevel?.mate, 40);
+});
+
+test("the spiral bevel gear tool (`dec_spiral_bevel_gears`, `in_829`): its numbers, its title, the gear it makes with nothing typed, and Mesh gear on it makes the other of the pair", () => {
+  const sc = scene(createSession(kernel));
+  const t = { ...armTool("gear", "spiral"), plane: worldRef("XY"), points: [[0, 0, 0] as [number, number, number]], cursor: [10, 0, 0] as [number, number, number] };
+  assert.deepEqual(gearFields(t.gear!).map((f) => f.key), ["teeth", "mate", "module", "spiral", "backlash", "bore", "flat", "key", "keydepth"]);
+  assert.equal(gearTitle(t.gear!), "Spiral bevel gear");
+  const cmd = finishTool(sc, t)?.command as { type: string; spec: GearRecord["spec"] } | undefined;
+  assert.ok(cmd && cmd.type === "gear", "makes a gear");
+  assert.equal(cmd.spec.teeth, 24);
+  assert.equal(cmd.spec.bevel?.mate, 24, "its mate has as many teeth unless typed");
+  assert.equal(cmd.spec.bevel?.spiral, 30, "a 30 degree spiral");
+  const rec = { id: "g_001", plane: worldRef("XY"), at: [0, 0, 0] as [number, number, number], spec: cmd.spec };
+  const mesh = finish(sc, { ...meshGearTool(rec, false), cursor: [30, 0, 0] })?.command as { type: string; spec: GearRecord["spec"] } | undefined;
+  assert.ok(mesh && mesh.type === "gear", "the partner");
+  assert.equal(mesh.spec.bevel?.spiral, 30, "with the same spiral");
+  assert.equal(mesh.spec.bevel?.mate, 24);
 });
 
 test("Mesh gear on a bevel gear makes its partner: the same module, the source's tooth count, standing across at the shaft angle with its own frame (`in_755`)", () => {

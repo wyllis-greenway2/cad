@@ -3297,3 +3297,6 @@ No steering input. The new `docs/sources/README.md` (CLAUDE.md, source index rul
 
 ## Handoff 754 — 2026-11-17 (in_817: the spiral's size limit)
 `in_817`. 28/42 and 30/45 ran the kernel out of memory in the ring's cone cut; 25/50 failed in the pinion's ("nothing in common"). Every pair of 56 teeth or fewer worked (22/34 the largest). `dec_spiral_bevel_gears` (still **provisional**) now says: refuse more than 56 teeth in all, a ring cone over about 65 degrees. Waiting for the human's explicit approval to build it.
+
+## Handoff 755 — 2026-11-18 (in_829: the spiral bevel tool, built; full check still to run)
+`in_829` (approved `dec_spiral_bevel_gears`). **Built:** Gear > Spiral bevel: `spiral.ts` (the prototype's maths rewritten), `spiralscene.ts`, `spiralretry.ts` (the kernel's cone cut fails for some cone places and not others, so `run` and `refresh` try the next of `SPIRAL.shifts`, kept in `bevel.cone`), `meshBevel` phase for a spiral pair, the tool, menu, icon, help, preview, stand-in. **Measured by Mesh gear (20 / 30 module 3):** overlap 0.99 mm3 at its place, 379 half a pitch round. **Still running when this was committed:** the tests for 24/24, 16/32, 22/34 at 35 degrees and the linked edit (`test/spiral.test.ts`), then the full `npm run check`; the next entry says how they came out. Nothing about them is claimed until then.

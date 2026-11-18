@@ -3660,3 +3660,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_828 — 2026-11-17 — directive
 > can you please merge in claude/adoring-dijkstra-next-pascal
 (asks for claude/adoring-dijkstra-next-pascal to be merged into the testing branch)
+
+## in_829 — 2026-11-18 — approval
+> yes lets build it
+(approves dec_spiral_bevel_gears as proposed, with its limits, and asks for the spiral bevel tool to be built)
