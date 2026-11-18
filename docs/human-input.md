@@ -4223,3 +4223,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_966 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for this branch (countersunk default, a smaller inset, the wireframe-style preview, movable holes, wireframe staying on) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
+
+## in_967 — 2026-11-18 — directive
+> Can we have it so that a fastener position can be moved with precision? why not just use our xyz rotate or orb position tool? Also can we make it smart enough to just pick a reasonable preset for the conditions? so We dont want then so inset that fasteners are overlapping, we dont want them so little inset that they are striking through the edge. Also if there is really no space it might make sense to just do center line method. Also we may want to add more or less in the fastener count if they are too cramped.
+(asks for: a way to move a fastener position with precision, by the existing xyz move or rotate or orb tools; the tool to choose a reasonable preset for the conditions: an inset neither so big that fasteners overlap nor so small that they break through the edge; the centre line method when there is really no space; and more or fewer fasteners when they are too cramped)

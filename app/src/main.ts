@@ -18,7 +18,7 @@ import { parseLibrary, libraryText, saveMachine, removeMachine, saveSettings, re
 import { flatSnapshot } from "./interaction/partsnapshot.ts";
 import type { LaserValues } from "./interaction/manufacture.ts";
 import { pathRepeatTarget, pathRepeatDialog, pathRepeatCommand, pathRepeatStart, pathRepeatValuesFor } from "./interaction/pathrepeat.ts";
-import { receiverStart, receiverKinds, receiverSizes, receiverContext, receiverPlan, cutReceiver, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
+import { receiverStart, receiverKinds, receiverSizes, receiverContext, receiverPlan, cutReceiver, makeHolePoints, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
 import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
 import type { ExportOptions } from "./interaction/transfer.ts";
@@ -302,6 +302,7 @@ const holeBar = createHolePanel(document.body, {
   },
   commit() { holesCut(); },
   close() { holesClose(); },
+  points() { holesPoints(); },
 });
 function holesOpen(): void {
   if (hardware) return;
@@ -319,8 +320,19 @@ function holesValues(): { values: ReceiverValues; mode: HolePanelView["mode"] } 
   if (ctx.places) return { values: { ...v, place: "picked" }, mode: "picked" };
   if (ctx.lines) return { values: { ...v, place: "lines", corners: "ignore" }, mode: "line" }; // (a line has no corners to keep: its ends are its ends)
   // a face: the lines its edges give (`in_958`): the edges stepped in, or one edge stepped in (an edge selected with the face, else the longest), or that edge stepped in to the middle of the face
-  const rows = v.rows === "edge" || v.rows === "midline" ? v.rows : ctx.edges ? "edge" : "outline";
+  const rows = v.rows === "edge" || v.rows === "midline" || v.rows === "outline" ? v.rows : ctx.edges ? "edge" : "auto";
   return { values: { ...v, place: rows, ...(v.by === "count" && v.corners === "inward" ? { corners: "each" } : {}) }, mode: "face" }; // (counting the holes with a hole at every corner: the corners are some of the count; working in from the corners needs a distance)
+}
+/** Points at the holes, selected with the face, so that the move tools can place them exactly (`in_967`). */
+function holesPoints(): void {
+  if (!hardware) return;
+  const { values } = holesValues();
+  const r = makeHolePoints(state.session, values);
+  if (!r.ok) return say(r.error);
+  state = { ...state, session: r.value };
+  holesKey = "";
+  dirty = true;
+  say("points made at the holes: move them with the move tools, and the holes follow them");
 }
 function holesCut(): void {
   if (!hardware) return;
@@ -345,10 +357,10 @@ function holesOptions(): { bar: HolePanelView; view: ToolpathView | null } {
   const plan = mode === "none" ? null : receiverPlan(session, { ...values, ...(hardware ? { moved: hardware.values.moved } : {}) });
   holesPlan = plan?.ok ? plan.value : null;
   const problem = mode === "none" ? (receiverContext(session)?.curved ? "select a line drawn across the round face, or corners and circles on it" : "select a flat face of a body, or a line drawn on one") : plan && !plan.ok ? plan.error : null;
-  const note = plan?.ok ? `${plan.value.places.length} hole${plan.value.places.length === 1 ? "" : "s"}${plan.value.spacing !== null ? `, ${Math.round(plan.value.spacing * 100) / 100} mm apart` : ""}${plan.value.insetUsed !== undefined ? `. The inset is cut down to ${plan.value.insetUsed} mm: the face is too small for ${values.offset} mm` : ""}` : "";
+  const note = plan?.ok ? `${plan.value.places.length} hole${plan.value.places.length === 1 ? "" : "s"}${plan.value.spacing !== null ? `, ${Math.round(plan.value.spacing * 100) / 100} mm apart` : ""}${plan.value.auto ? `. Automatic: ${plan.value.auto}` : plan.value.insetUsed !== undefined ? `. The inset is cut down to ${plan.value.insetUsed} mm: the face is too small for ${values.offset} mm` : ""}` : "";
   const v = hardware!.values;
   holesNow = {
-    bar: { kinds: receiverKinds(), sizes: receiverSizes(), values: { kind: v.kind, size: v.size, by: v.by ?? "distance", value: v.value ?? "30", ends: v.ends ?? "fit", corners: v.corners ?? "each", offset: v.offset ?? "10", shift: v.shift ?? "0", depth: v.depth, far: v.far ?? "none", rows: v.rows ?? "outline", rowCount: v.rowCount ?? "1", rowGap: v.rowGap ?? "8", drill: v.drill ?? "", insert: v.insert ?? "none", length: v.length ?? "" }, mode, round: !!receiverContext(session)?.curved, ...(plan?.ok ? { reach: { body: plan.value.reach, stack: plan.value.stack } } : {}), note, problem },
+    bar: { kinds: receiverKinds(), sizes: receiverSizes(), values: { kind: v.kind, size: v.size, by: v.by ?? "distance", value: v.value ?? "30", ends: v.ends ?? "fit", corners: v.corners ?? "each", offset: v.offset ?? "10", shift: v.shift ?? "0", depth: v.depth, far: v.far ?? "none", rows: v.rows ?? "auto", rowCount: v.rowCount ?? "1", rowGap: v.rowGap ?? "8", drill: v.drill ?? "", insert: v.insert ?? "none", length: v.length ?? "" }, mode, round: !!receiverContext(session)?.curved, ...(plan?.ok ? { reach: { body: plan.value.reach, stack: plan.value.stack } } : {}), note, problem },
     view: plan?.ok ? holesView(plan.value) : null,
   };
   holesKey = key;
