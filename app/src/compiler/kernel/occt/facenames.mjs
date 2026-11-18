@@ -181,7 +181,10 @@ export function nameFaces(prev, tf, shape, opId, roles) {
       for (const i of surfs) {
         const f = faces[i];
         if (taken.has(i) || f.type !== m.type) continue;
-        const gap = Math.max(...[0, 1, 2].flatMap((k) => [Math.abs(f.lo[k] - m.lo[k]), Math.abs(f.hi[k] - m.hi[k])]));
+        // (the largest difference of the two boxes' corners, given up as soon as it is more than is allowed or than the best so far: a body of five thousand faces looked at every old name against every face, building arrays, was seconds, `in_857`)
+        const limit = Math.min(tol * 2, bestGap);
+        let gap = 0;
+        for (let k = 0; k < 3 && gap <= limit; k++) { const a = Math.abs(f.lo[k] - m.lo[k]), b = Math.abs(f.hi[k] - m.hi[k]); if (a > gap) gap = a; if (b > gap) gap = b; }
         if (gap <= tol * 2 && gap < bestGap) { best = i; bestGap = gap; }
       }
       if (best >= 0) { taken.add(best); given[best] = m.name; }
@@ -495,7 +498,7 @@ function sectionPlane(edges) {
  * of the next is `side:<the id of that edge in the earlier section>` when the four corners are in one plane (a ruled side of straight edges that are parallel or meet); a curved side has none. A loft that is
  * not ruled bends between three or more sections and its sides are splines, which no name is made for.
  */
-export function loftRoles(sections, caps, smooth = false) {
+export function loftRoles(sections, caps, smooth = false, capsOnly = false) {
   const roles = [];
   if (!sections || sections.length < 2 || sections.some((s) => !s.ends || !s.sides)) return roles;
   if (caps) {
@@ -503,6 +506,7 @@ export function loftRoles(sections, caps, smooth = false) {
     if (first) roles.push({ role: "start", n: first.n, c: first.c });
     if (last) roles.push({ role: "end", n: last.n, c: last.c });
   }
+  if (capsOnly) return roles; // (a wheel: the end faces only)
   if (smooth && sections.length > 2) { // a loft bent through three or more sections: one spline side for each edge, from the first section to the last, in the box of that edge's corners in every section
     const first = sections[0];
     if (first.sides.length === first.ends.edges.length && sections.every((s) => s.ends.edges.length === first.ends.edges.length)) {

@@ -189,7 +189,8 @@ export interface SpiralBody {
   /** the blank's section: (radius, height along the axis towards the apex from the plane of the heel's pitch point), counter-clockwise */ blank: [number, number][];
   pitchRadius: number; tipRadius: number; rootRadius: number; addendum: number; dedendum: number;
 }
-const SECTIONS = 9;
+const SECTIONS = 7; // (nine planes and four arcs to a flank made a gear in 46 s, over the browser's 60 s limit: `in_836`)
+const ARCS: 2 | 4 = 2; // (arcs to a flank)
 const cache = new Map<string, Result<SpiralBody>>();
 /**
  * The body of the pinion (`which` = "pinion") or the ring gear of a pair. The sections' corners are taken from the outline at every second sample of a flank (four arcs through nine points) and one arc across each tip and root.
@@ -221,8 +222,10 @@ function spiralBodyMade(pr: SpiralPair, which: "pinion" | "ring"): Result<Spiral
     const mid = (p: [number, number], q: [number, number]): [number, number] => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
     for (let j = 0; j < g.z; j++) {
       // the corners: every second sample of the flank going up, the tip's two ends, every second sample coming down; each side an arc through the next three samples or through the middle of the tip or root arc
-      const corners = [0, 2, 4, 6, 8, NF + 3, NF + 5, NF + 7, NF + 9, NF + 11].map((k) => ({ k, p: mirror(at(j, k)) }));
-      const through: ([number, number] | null)[] = [at(j, 1), at(j, 3), at(j, 5), at(j, 7), mid(at(j, NF + 1), at(j, NF + 2)), at(j, NF + 4), at(j, NF + 6), at(j, NF + 8), at(j, NF + 10), mid(at(j, NF + 12), at(j, NF + 13))];
+      const idx = ARCS === 4 ? [0, 2, 4, 6, 8] : [0, 4, 8];
+      const corners = [...idx, ...idx.slice().reverse().map((k) => 2 * NF + 3 - k)].map((k) => ({ k, p: mirror(at(j, k)) }));
+      const upThrough = ARCS === 4 ? [1, 3, 5, 7] : [2, 6];
+      const through: ([number, number] | null)[] = [...upThrough.map((k) => at(j, k)), mid(at(j, NF + 1), at(j, NF + 2)), ...(ARCS === 4 ? [NF + 4, NF + 6, NF + 8, NF + 10] : [NF + 5, NF + 9]).map((k) => at(j, k)), mid(at(j, NF + 12), at(j, NF + 13))];
       corners.forEach((c, i) => {
         const nextP = i + 1 < corners.length ? corners[i + 1]!.p : mirror(at(j + 1, 0));
         points.push(c.p);

@@ -26,6 +26,7 @@ import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
 import { jointMatrix, followMatrix } from "./motion.ts";
 import { linksOf } from "../operation/coupling.ts";
+import { animatedBodies } from "../operation/gearcouple.ts";
 import { axisAcross } from "./revolve.ts";
 import { gearOfPart, gearOfSelection } from "../operation/gearscene.ts";
 import { planetaryOfGear } from "../operation/planetary.ts";
@@ -89,6 +90,9 @@ import type { StandIn } from "./standin.ts";
 /** A refused change, while it flashes: how far through it is (0 to 1), the constraints it would have broken (red, fading), the ones that tried (they shake), and the parts of the broken ones. */
 export interface FlashFrame { t: number; victims: string[]; culprits: string[]; parts: Ref[] }
 
+const animatedMemo = new WeakMap<Scene, Map<Ref, Ref>>();
+/** The bodies hooked up to an animation (`gearcouple.ts`), worked out once for each scene. */
+const animated = (sc: Scene): Map<Ref, Ref> => { let m = animatedMemo.get(sc); if (!m) { m = animatedBodies(sc); animatedMemo.set(sc, m); } return m; };
 /** What the bar shows: a joint with no stops that turns goes round and round, so the number is kept within half a turn either way (it would otherwise grow without end, and the slider has its ends at the half turns). */
 const shownAmount = (m: NonNullable<AppState["motion"]>): number => (m.free && m.kind === "turn" ? ((((m.amount + 180) % 360) + 360) % 360) - 180 : m.amount);
 export interface GizmoFrame { handles: Handle[]; hover: string | null; active: string | null; chosen?: string | null; locked?: string[]; /** the handle that pulses blue: the mover's sphere while it is the thing being oriented (`in_421`) */ pulse?: string }
@@ -107,15 +111,15 @@ export interface Frame {
   /** the triangles of the places too thin to print, marked in the picture while the Measure tab is open (`in_626`) */
   thin: number[] | null;
   /** the eye on each body (`dec_hidden_bodies`): its box's corners and whether it is hidden; `eyesQuiet`: a tool or an operation is in use, so the eyes of shown bodies stay away */
-  bodyEyes: { ref: string; hidden: boolean; corners: Vec3[] }[];
+  bodyEyes: { ref: string; hidden: boolean; corners: Vec3[]; /** a body hooked up to an animation has a play button (pause while it plays) beside its eye */ play?: "play" | "pause" }[];
   eyesQuiet: boolean;
   /** the gear's own icon (`in_693`): a gear is selected (its sketch or its body): where it stands (the top of the gear) and what it offers */
-  gearChip: { at: Vec3; items: { id: string; label: string; icon: string; enabled: boolean; why: string | null }[] } | null;
+  gearChip: { /** the part of the gear the icon is for (what is selected or pointed at) */ part: Ref; at: Vec3; items: { id: string; label: string; icon: string; enabled: boolean; why: string | null }[] } | null;
   /** the bodies that move with the one being dragged, each by its own matrix, as its mates take them along (`in_341`) */
   followers: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[];
   /** what is selected is the body, so its highlight is moved by the same matrix */
   selectionMoves: boolean;
-  highlight: { hover: Ref | undefined; hoverPoint: Vec3 | null; selection: readonly Ref[]; amber: readonly Ref[]; /** the parts of constraints a refused change would have broken, and how red they still are */ red: { refs: readonly Ref[]; alpha: number }; /** the copies a repeat that is open would make, drawn pulsing (`in_244`) */ temp: readonly Ref[]; spread: AppState["spread"]; };
+  highlight: { /** the triangles of a body of several that is selected or pointed at, as ranges of the mesh's index list: every face of it, the teeth of a gear too, which are not parts (`in_867`) */ bodyTris?: Record<string, [number, number][]>; hover: Ref | undefined; hoverPoint: Vec3 | null; selection: readonly Ref[]; amber: readonly Ref[]; /** the parts of constraints a refused change would have broken, and how red they still are */ red: { refs: readonly Ref[]; alpha: number }; /** the copies a repeat that is open would make, drawn pulsing (`in_244`) */ temp: readonly Ref[]; spread: AppState["spread"]; };
   preview: Preview | null;
   entry: Entry | null;
   /** the several value bubbles of a repeat being set up (one on each axis, or one by the rings) */
@@ -424,7 +428,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
   const m = settling && !s.op && lastDrag?.matrix && activeOp(s)?.kind === "move" ? lastDrag.matrix : null;
   const gizmo = followedGizmo && m ? { centre: add(followedGizmo.centre, [m[12]!, m[13]!, m[14]!]), handles: followedGizmo.handles.map((h) => ({ ...h, points: h.points.map((q) => add(q, [m[12]!, m[13]!, m[14]!])) })) } : followedGizmo;
   // the arrow of a push / pull, an extrude or a fillet / chamfer that showed up by itself has its bubble too, ready for a typed size
-  const auto = s.op ? null : activeOp(s);
+  const auto = s.op || s.tool?.kind === "gear" ? null : activeOp(s); // (a gear's number box is not pushed aside by the size bubble of the face that is selected, `in_864`)
   const shownOp = s.op ?? (auto && !(s.cam.straight && auto.kind !== "edge") && (auto.kind === "pushpull" || auto.kind === "extrude" || auto.kind === "edge") ? auto : null);
   // the arrows of a move have a number bubble on each, there as long as the arrows are (`in_215`)
   const mo = !s.tool && !s.repeat ? (s.op ?? auto) : null;
@@ -448,12 +452,12 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     bodySplit,
     hiddenBodies: hiddenItemsOf(sc, outcome),
     thin: s.panel === "measure" && !outcome.kernel?.stale ? thinPlacesOf(sc, sel) : null,
-    bodyEyes: index.bodies.flatMap((p) => { if (!p.bbox) return []; const [lo, hi] = [p.bbox.min, p.bbox.max]; const corners: Vec3[] = []; for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) corners.push([x, y, z]); return [{ ref: p.ref, hidden: !!sc.hiddenBodies?.includes(p.ref), corners }]; }),
+    bodyEyes: index.bodies.flatMap((p) => { if (!p.bbox) return []; const [lo, hi] = [p.bbox.min, p.bbox.max]; const corners: Vec3[] = []; for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) corners.push([x, y, z]); const drives = animated(sc).get(p.ref); const m = s.motion; return [{ ref: p.ref, hidden: !!sc.hiddenBodies?.includes(p.ref), corners, ...(drives ? { play: m && m.body === drives && m.playing ? "pause" as const : "play" as const } : {}) }]; }),
     eyesQuiet: true, // (a body that is shown has no eye of its own now: Hide body is in the View menu, `in_697`; a hidden body keeps its eye)
     gearChip: s.tool || s.op || s.drag || s.repeat ? null : gearChipOf(sc, s.session.hover ? [...sel, s.session.hover] : sel),
     followers: gpu?.followers ?? [],
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
-    highlight: { hover: s.motion ? undefined : s.session.hover, /* (a visible sheet lights the blue hover disc as every surface does, `in_470`) */ hoverPoint: s.motion ? null : s.hoverPoint, selection: s.moverSphere ? [] : [...sel.filter((r) => !isSectionPlane(sc, r)), ...(s.op?.twoDist ? [chosenFace(sceneOf(s.op.made ? undone(s.session) : s.session), s.op)?.ref].filter((r): r is Ref => !!r) : [])], /* (the face the first distance is along is lit like a selected face, `dec_chamfer_two_distances`) */ /* (the object is not what is selected while the mover is oriented: it is only drawn as wireframe, `in_421`) */ // (a cross section plane is drawn by its own faint quad, not lit like a face, `in_396`)
+    highlight: { bodyTris: bodyTrisOf(sc, s.session.outcome, [s.session.hover, ...sel]), hover: s.motion ? undefined : s.session.hover, /* (a visible sheet lights the blue hover disc as every surface does, `in_470`) */ hoverPoint: s.motion ? null : s.hoverPoint, selection: s.moverSphere ? [] : [...sel.filter((r) => !isSectionPlane(sc, r)), ...(s.op?.twoDist ? [chosenFace(sceneOf(s.op.made ? undone(s.session) : s.session), s.op)?.ref].filter((r): r is Ref => !!r) : [])], /* (the face the first distance is along is lit like a selected face, `dec_chamfer_two_distances`) */ /* (the object is not what is selected while the mover is oriented: it is only drawn as wireframe, `in_421`) */ // (a cross section plane is drawn by its own faint quad, not lit like a face, `in_396`)
     amber: [...new Set([...(s.op?.kind === "loft" ? loftStarts(sceneOf(s.session), s.op) : []), ...(s.op?.kind === "sweep" ? sweepStart(sceneOf(s.session), s.op) : []), ...focusParts(sc, sel, s.focus), ...variableStart(sceneOf(s.op?.made ? undone(s.session) : s.session), s.op), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
     preview: withGhost(previewFor(sc, s.tool), s), // (the picture itself moves now: the thin rings that stood in for it are not needed)
     entry: inUnits(movingOp || (shownOp && !s.tool && hasGizmo(shownOp.kind) && !numberShown) ? null : entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp)),
@@ -713,6 +717,25 @@ function hiddenItemsOf(sc: Scene, outcome: CompileOutcome): { tris: [number, num
   return out.length ? out : null;
 }
 
+/** The triangles of each body of several among `refs` (a body of one has no need: the whole mesh is its own), as ranges of the mesh's index list, from the faces the kernel says are the body's (`in_867`). */
+function bodyTrisOf(sc: Scene, outcome: CompileOutcome, refs: readonly (Ref | undefined)[]): Record<string, [number, number][]> | undefined {
+  const k = outcome.kernel;
+  if (!k?.bodies || k.bodies.length < 2) return undefined;
+  const out: Record<string, [number, number][]> = {};
+  for (const r of refs) {
+    const b = r ? sc.parts[r] : undefined;
+    if (!r || b?.kind !== "body" || !b.id || out[r]) continue;
+    const index = k.bodies.findIndex((x) => x.id === b.id);
+    if (index < 0) continue;
+    const tris: [number, number][] = [];
+    for (const f of k.faces ?? []) {
+      if (f.body !== index) continue;
+      for (const g of (f.ranges as { start: number; count: number }[] | undefined) ?? [{ start: f.start, count: f.count }]) tris.push([g.start, g.count]);
+    }
+    if (tris.length) out[r] = tris;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
 /** The part of the mesh that is one body of several, for a move, turn or scale of that body (null for the whole body): its triangles, from the faces the kernel says are its, and its box (`in_273`). */
 function bodySplitOf(sc: Scene, outcome: CompileOutcome, op: Op): Frame["bodySplit"] {
   const body = sc.parts[op.parts[0]!];
@@ -731,7 +754,8 @@ function bodySplitOf(sc: Scene, outcome: CompileOutcome, op: Op): Frame["bodySpl
 
 /** The gear's icon and what a click on it offers (`in_693`), for the first gear in the selection; null when none is selected. */
 function gearChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
-  const rec = sel.map((r) => gearOfSelection(sc, r)).find((g) => !!g);
+  const part = sel.find((r) => !!gearOfSelection(sc, r));
+  const rec = part ? gearOfSelection(sc, part) : undefined;
   const pl = rec ? sc.parts[rec.plane] : undefined;
   if (!rec || !pl || pl.kind !== "plane") return null;
   const r = rec.spec.worm ? rec.spec.worm.length / 2 : Math.max(5, rec.spec.module * (rec.spec.teeth / 2 + 2));
@@ -739,8 +763,8 @@ function gearChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
   const plain = canHelix(rec.spec);
   const worm = !!rec.spec.worm || !!rec.spec.wheel;
   const bevel = !!rec.spec.bevel;
-  if (planetaryOfGear(sc, rec.id)) return { at, items: [{ id: "gear:edit", label: "Edit planetary set", icon: "planetary", enabled: true, why: null }] }; // (a gear of a planetary set is edited with the whole set, `dec_planetary_gears`)
-  return { at, items: [
+  if (planetaryOfGear(sc, rec.id)) return { part: part!, at, items: [{ id: "gear:edit", label: "Edit planetary set", icon: "planetary", enabled: true, why: null }] }; // (a gear of a planetary set is edited with the whole set, `dec_planetary_gears`)
+  return { part: part!, at, items: [
     { id: "gear:edit", label: "Edit gear", icon: "gear", enabled: true, why: null },
     { id: "gear:helix", label: "Helix", icon: "helical", enabled: plain, why: plain ? null : "a helix goes on a plain gear (not yet a pulley, sprocket, clock gear or worm)" },
     { id: "gear:mesh", label: "Mesh gear", icon: "meshgear", enabled: true, why: null },

@@ -71,3 +71,21 @@ test("the surfaces of several bodies are those of each body one after the other,
   assert.equal(both.length, 12);
   assert.deepEqual(strip(surfacesOf(makeCompound([a(), b()]))), strip(both), "again, from what was kept");
 });
+
+test("a model of sixty plain parts does not make them all again at every step: what is kept is bounded by faces, not by a count of forty or so (`in_857`)", async () => {
+  const { drawRectangle } = await import("../src/operation/build.ts");
+  const { kernelStats } = await import("../src/compiler/kernel/occt/interpreter.mjs");
+  const add = (s: Session, i: number): Session => {
+    const r = drawRectangle(scene(s), worldRef("XY"), [(i % 10) * 12, Math.floor(i / 10) * 12, 0], [(i % 10) * 12 + 8, Math.floor(i / 10) * 12 + 8, 0], [1, 0, 0], [0, 1, 0]);
+    const s2 = run(s, r.command);
+    return runOp(s2, { ...(startOp(scene(s2), [loopFaceRef(r.lines) as never], "extrude") as { op: Op }).op, value: 5 + (i % 7) })!.session;
+  };
+  let s = createSession(kernel);
+  for (let i = 0; i < 60; i++) s = add(s, i);
+  const before = { ...kernelStats };
+  s = add(s, 60);
+  assert.ok(kernelStats.prismsBuilt - before.prismsBuilt <= 3, `the 61st part made ${kernelStats.prismsBuilt - before.prismsBuilt} prisms`);
+  assert.equal(bodies(s).length, 61);
+  const ops = (s.outcome as unknown as { kernel: { ops: { cached?: boolean }[] } }).kernel.ops;
+  assert.ok(ops.filter((o) => o.cached).length >= 100, `only ${ops.filter((o) => o.cached).length} of ${ops.length} steps were taken from what was kept`);
+});

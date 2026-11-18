@@ -3734,6 +3734,134 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for this branch to be merged into claude/inspiring-pascal-l342k7)
 
+(asks what the current work is and its status)
+
+## in_847 — 2026-11-17 — directive
+> yes do the stand-in disc label next
+(approves doing the stand-in disc label next: a label on the stand-in disc that says the body is being made)
+
+## in_848 — 2026-11-17 — directive
+> lets do what is left on the list to make it faster
+(asks to do what is left on the speed list: discs for other heavy bodies, and the kernel worker's memory)
+
+## in_849 — 2026-11-17 — directive
+> yes do the discs for other heavy bodies next
+(approves doing the stand-in discs for other heavy bodies next: cylinders, sweeps, worms)
+
+## in_850 — 2026-11-17 — directive
+> yes do the tube stand-in for sweeps next
+(approves the tube stand-in for sweeps: a tube along the sweep's path drawn while the kernel makes the body)
+
+## in_851 — 2026-11-17 — directive
+> look at the tube stand-in in the real app
+(asks to look at the tube stand-in for sweeps in the real app)
+
+## in_852 — 2026-11-17 — question
+> okay so are we all done making it faster now?
+(asks whether the speed work is finished)
+
+## in_853 — 2026-11-17 — directive
+> yes try the worm wheel loft next
+(approves trying to make the worm wheel's loft faster)
+
+## in_854 — 2026-11-17 — directive
+> yes try lofting one tooth and turning it
+(approves trying to loft one tooth of the worm wheel and turn it round, instead of lofting the whole wheel)
+
+## in_855 — 2026-11-17 — directive
+> yes do the caps and the other costs next
+(approves working on the other costs of the worm wheel: the caps, and the sections, mesh, names and checks)
+
+## in_856 — 2026-11-18 — question
+> what else do you think we should do on speed work?
+(asks for the AI's view of what speed work is still worth doing)
+
+## in_857 — 2026-11-18 — directive
+> yes do 1 then 3
+(approves the two speed items: first measuring ordinary use (blocks, edits, undo and redo, loading files, many ordinary bodies), then checking the stand-ins and the memory restart in the browser under load)
+
+## in_858 — 2026-11-17 — approval
+> Yes, leave the arcs as they are, but first update from claude/inspiring-pascal-l342k7, all your edits should have been pushed there
+(answers the spline flank question: no spline option, the tooth flanks stay chains of arcs; and asks that this branch first be brought up to date from claude/inspiring-pascal-l342k7, which already held all of this branch's work: a fast-forward of 79 commits)
+
+## in_859 — 2026-11-17 — directive
+> lets try to speed it up
+(asks to make the tooth chamfer faster, after being told it adds about 4.5 to 10 s to the build of a gear)
+
+## in_860 — 2026-11-17 — approval
+> Yes, make the helical wedges follow the helix
+(approves making the tooth chamfer's wedges on a helical gear follow the helix, to cut the 4.4 s it adds to a helical gear)
+
+## in_861 — 2026-11-17 — directive
+> lets try making helical gears faster
+(asks to make helical gears faster to build, after the finding that a helical gear is the slow case, with and without the chamfer)
+
+## in_862 — 2026-11-17 — approval
+> Yes, record that as the decision
+(approves the AI's recommendation: accept the 4.4 s the chamfer adds to a helical gear, do not build the chamfered tooth on one tooth block copied round, and spend the next session looking at the new gear features in the app: the chamfer, the land, the helical rack, the orange mesh preview)
+
+## in_863 — 2026-11-17 — approval
+> Yes, merge it into my branch
+(approves merging claude/inspiring-pascal-l342k7 into claude/intelligent-hawking-8j1lyr, to bring in the 17 commits this branch lacked)
+
+## in_864 — 2026-11-17 — directive
+> It seems that the planetary gear defaults to module 2, can we have it be module 1? module 2 is quite large. If you hover a gear and click edit, it doesn't do anything. If you click a gear and then click the edit button, it launches the editor. The gears dont turn fully blue when selected. Why is helix back to not jsut opening to the gear edit menu and focused on the helix field? Can we default to have the worm gear longer? Can we default for a worm wheel to have a bore? I like that the tooth edge can have a chamfer, but I was also thinking that all top and bottom edges may need a small chamfer in order to print well, can we offer a perimeter chamfer? or will this take forever?
+(asks for: the planetary gear's default module to be 1 not 2; the gear icon's Edit to work on a gear that is only hovered, not just on a selected one; gears to turn fully blue when selected; why the Helix item is no longer opening the gear's box focused on the Helix field; a longer default worm; a default bore for a worm wheel; and whether a chamfer round the whole top and bottom perimeter of a gear can be offered or would take very long)
+
+## in_865 — 2026-11-17 — approval
+> Yes, prototype the fast perimeter chamfer for spur gears and rings
+(approves a prototype of the fast perimeter chamfer: a ruled loft through the full outline and the inset outline, for spur gears and rings, under prototypes/; nothing in the app)
+
+## in_866 — 2026-11-17 — approval
+> Yes, build the perimeter chamfer
+(approves building the perimeter chamfer into the app, as proposed after the prototype: a field of spur and ring gears, made by its own body step from the full and the inset outline)
+
+## in_867 — 2026-11-17 — approval
+> Yes, make clicking a gear select the whole gear
+(approves that a click on a gear selects the whole gear, turning it blue all over, with the face of it selected by a second click, as the AI proposed after the user reported that gears do not turn fully blue when selected)
+
+## in_868 — 2026-11-17 — directive
+> hover doesn't make any part wholly blue, so gears shouldn't be special, I just want gears to be treated as regular parts in appearances, ( know they sides are treated special for speed and efficiency purposes and that is good)
+(says that hover lights no part wholly, so a gear should not be special either: gears are to look and be picked like any regular part, the speed shortcut of their sides staying; this undoes the click-selects-the-whole-gear change of in_867 and keeps its fix that a selected body is filled blue all over, teeth too, as any body)
+
+## in_869 — 2026-11-18 — directive
+> After you say make it on the gear menu, it should keep the menu open and show the semi wireframe preview that it already does. If you add a worm wheel to a worm then try to give it land of 3mm, it crashes. The worm wheels are extremely slow in general. Hitting the edit icon on any gear type should bring you back to the full menu you originally used to create that gear. It seems like panning stopped working on track pad? I think it used to be two finger swipe? Did we account for harmonic problems in the planetary system?
+(asks for six things: after Make it on the gear box, the box stays open and the wireframe preview is still shown; a worm wheel meshed to a worm given a 3 mm land crashes; worm wheels are very slow in general; the Edit icon on any kind of gear is to bring back the full box it was made with; trackpad panning (two finger swipe) seems to have stopped working; and whether harmonic problems of the planetary system (the question is not explained further) were accounted for)
+
+## in_870 — 2026-11-18 — approval
+> Yes, build it that way
+(approves the AI's split for the planetary set: harmonic issues (hunting tooth, in-step planets) and a low contact ratio as non-blocking warnings, and only what makes the set unusable blocking: the existing rules plus a contact ratio under 1; the ring to planet interference limit was not verified, so it is not made to block)
+
+## in_871 — 2026-11-18 — approval
+> Yes, make Make it keep the box open
+(approves the AI's proposal for the gear box's Make it: it applies the numbers and leaves the box open on the gear just made, with its preview, so editing can go on; a Done button or Esc closes it)
+
+## in_872 — 2026-11-18 — directive
+> [the human attached two files: a state snapshot, "moving_bevel_gear_gets_weird.json", and a saved project, "moving_bevel_gear_gets_wierd.json": one 20 tooth bevel gear (mate 20, bore 5) at 24.67, 26.32, hidden and shown again, then a move of its body along Y by 11.2 following] trying to rotate a bevel gear sometimes fail? and or mvoing after a rotate does weird stuff.
+(reports that rotating a bevel gear sometimes fails and that moving it after a rotate does odd things; the files are the project (a bevel gear, hide and show, a move) and a snapshot of the app's state (the kernel took 11 s, 9.3 s of it the combine step of the bevel gear's body))
+
+## in_873 — 2026-11-18 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7, and so gives permission to write to that branch)
+
+> okay it looks pretty good. are we all done here?
+(after testing the planetary gear maker on claude/inspiring-pascal-l342k7: says it looks pretty good and asks whether the work is done; not an explicit approval to mark dec_planetary_gears accepted)
+
+## in_875 — 2026-11-18 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks to merge this branch's work into claude/inspiring-pascal-l342k7: the explicit permission to write to that branch for this merge)
+## in_876 — 2026-11-19 — directive
+> Okay can we make it so that bodies that are hooked up to an animation have a play pause button on them on hover?
+(asks for a play/pause button on hover over any body that is part of an animation)
+
+## in_877 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for the branch `claude/adoring-dijkstra-play-chip` to be merged into the testing branch)
+
+## in_878 — 2026-11-19 — directive
+> why dont we polish the crown gear, it seems like the current one doesn't actually rest at 90 degrees? and should we make other variations of it. Please do it, I will take your recommendations. Lets make a good set of crown gears
+(asks to polish the crown gear, says its pinion does not stand at 90 degrees, asks whether to make other variations, and asks for a good set of crown gears, taking the AI's recommendations)
+
 ## in_879 — 2026-11-18 — directive
 > okay can we have it so that we can use the model view itself for the preview? so for example, you would just select your hardware in the menu, then when you do, it goes back to the regular cad screen, and then it has options, so you could click on surfaces, and it previews what it would do, and you could set different settings, and could see it update the preview.
 (asks for the hardware tools to use the model view for their preview: choose the hardware in the menu, return to the normal CAD screen with the options shown there, click on surfaces to see a preview of what would be done, change settings and see the preview update)

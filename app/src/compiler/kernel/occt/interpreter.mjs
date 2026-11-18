@@ -31,6 +31,8 @@ import {
   twistExtrude,
   makeFace,
   addHolesInFace,
+  loft,
+  makeCircle,
 } from "replicad";
 import { decodeMesh } from "./meshdata.mjs";
 import { facesOf, edgesOf, shellsOf, solidsOf } from "./topo.mjs";
@@ -641,28 +643,33 @@ const OPS = {
       const q = ctx.get(h, "sketch");
       return typeof q.plane === "string" ? q.drawing.sketchOnPlane(q.plane, q.origin ?? 0) : q.drawing.sketchOnPlane(q.plane, q.origin);
     };
-    const through = (ids, key) => {
+    const through = (ids, key, as = op) => {
       const sk = ids.map(sketchOf);
-      if (ctx.roleFigs) { try { ctx.roleFigs.set(key, loftRoles(ids.map((id, k) => ({ ends: edgeEnds(sk[k]), sides: ctx.get(id, "sketch").sides })), key === "main", !!op.smooth)); } catch { ctx.roleFigs.set(key, []); } } // (the roles of its faces by the sketches' own edges, read before they are used up: `dec_stable_reference_mechanism`)
-      const made = sk[0].loftWith(sk.slice(1), { ruled: !op.smooth });
+      // a worm wheel (`op.matched`): only its two end faces are named by their roles; its thousand flank faces get the names of new faces (the gear is one feature, `dec_gear_feature`, and the roles of a thousand sides cost 1 s of a 100 tooth wheel: a box for each side, every face looked against every box)
+      if (ctx.roleFigs) { try { ctx.roleFigs.set(key, op.matched ? loftRoles([0, ids.length - 1].map((k) => ({ ends: edgeEnds(sk[k]), sides: [] })), key === "main", false, true) : loftRoles(ids.map((id, k) => ({ ends: edgeEnds(sk[k]), sides: ctx.get(id, "sketch").sides })), key === "main", !!op.smooth)); } catch { ctx.roleFigs.set(key, []); } } // (the roles of its faces by the sketches' own edges, read before they are used up: `dec_stable_reference_mechanism`)
+      // sections that are known to match edge for edge (a worm wheel's: one gap turned, `op.matched`) need not be checked for it: that check is the larger half of the loft's time (100 teeth: 7.3 s to 3.7 s, the same solid to every digit)
+      const made = as.matched && as.smooth ? matchedLoft(sk) : sk[0].loftWith(sk.slice(1), { ruled: !as.smooth });
       // a smooth loft through many sections can leave an edge whose 3D curve and whose curves on its two faces do not run at the same pace; the validity check refuses the whole solid for that (a wheel of 24 teeth was refused, one of 40 was not), though the
       // solid is whole and has the same volume to every digit. Making the edges run at the same pace again (`BRepLib.SameParameter`) is what the check asks for.
       if (op.smooth) getOC().BRepLib.SameParameter(made.wrapped, 1e-5, false);
       return made;
     };
     let solid = through(op.sections.map((s) => s.profile), "main");
-    if (!isValidSolid(solid)) throw new Error("the loft could not be made through those sketches (try turning an outline round with its start point, or reverse one)");
+    let whole = isValidSolid(solid);
+    if (!whole && op.matched) { solid = through(op.sections.map((s) => s.profile), "main", { ...op, matched: false }); whole = isValidSolid(solid); } // (the sections were not as matched as said: the checked loft)
+    if (!whole) throw new Error("the loft could not be made through those sketches (try turning an outline round with its start point, or reverse one)");
     const holes = op.sections[0].holes?.length ?? 0;
     for (let i = 0; i < holes; i++) solid = solid.cut(through(op.sections.map((s) => s.holes[i]), `hole${i}`));
-    if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the loft when its holes were cut");
+    if (holes && (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9))) throw new Error("nothing was left of the loft when its holes were cut"); // (a loft without holes was found valid just above, and its volume is measured when it is described: measuring it here too was 0.35 s of a 100 tooth wheel)
       return { solid };
     });
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
-    if (!target) return { kind: "solid", shape: solid };
+    const trusted = op.trusted ? { noCross: true } : {}; // (a gear's loft is made from sections worked out from the gear's numbers, which do not cross: the self-crossing check, a mesh and a search of two seconds for a worm wheel, is left out, `in_869`)
+    if (!target) return { kind: "solid", shape: solid, ...trusted };
     if (op.mode === "cutOrAdd") {
       return { kind: "solid", shape: cutOrAdd(target, solid).shape };
     }
-    if (op.mode === "new") { if (!isValidSolid(solid)) throw new Error("kernel returned an invalid solid"); return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]), checked: true }; } // (the bodies it stands beside were checked when they were made: only the new piece is)
+    if (op.mode === "new") { if (!isValidSolid(solid)) throw new Error("kernel returned an invalid solid"); return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]), checked: true, ...trusted }; } // (the bodies it stands beside were checked when they were made: only the new piece is)
     return { kind: "solid", shape: op.mode === "cut" ? cutFrom(target, solid) : fuseInto(target, solid) };
   },
 
@@ -716,7 +723,7 @@ const OPS = {
       for (const f of op.also ?? []) sld = sld.fuse(prism(f.profile, f.holes, f.distance === undefined ? dist : resolve(f.distance, ctx.params), back)); // siblings extruded together (each may have a depth of its own, `in_351`)
       if (ownKey) {
         prisms.set(ownKey, { solid: sld, roles: ctx.roleFigs ? [...ctx.roleFigs.entries()].filter(([k]) => !had.has(k)) : null });
-        while (prisms.size > 64) prisms.delete(prisms.keys().next().value);
+        keepWithin(prisms, ownKey, sld);
       }
       return sld;
     };
@@ -1287,6 +1294,103 @@ const OPS = {
     return { kind: "solid", shape: makeCompound([...found.rest, ...parts, ...kept]), first: op.bodies[0] };
   },
 
+  /**
+   * Bodies that meet along flat faces joined into one without a boolean (`in_869`): every flat face across `axis` at one of `heights` (measured from `origin` along it) is left out of each body, and the faces that are left of all of them
+   * are sewn into one solid, named as the first body is (the pieces of a worm wheel and its lands: their end faces are the same outline, drawn from the same sketch, and the fuse of them took eleven seconds).
+   */
+  sewBodies(op, ctx) {
+    const t = ctx.get(op.target, "solid");
+    const found = lumpsByName(t.shape, t.markers ?? [], op.bodies);
+    if (!found || found.picked.length < 2) throw new Error("select two or more bodies (one of them is not there any more)");
+    const l = Math.hypot(...op.axis) || 1, n = op.axis.map((x) => x / l);
+    const faces = [];
+    for (const lump of found.picked) for (const f of facesOf(lump)) {
+      if (f.geomType === "PLANE") {
+        const [c, nm] = [f.center, f.normalAt()];
+        const h = (c.x - op.origin[0]) * n[0] + (c.y - op.origin[1]) * n[1] + (c.z - op.origin[2]) * n[2];
+        const across = Math.abs(nm.x * n[0] + nm.y * n[1] + nm.z * n[2]);
+        if (across > 1 - 1e-6 && op.heights.some((x) => Math.abs(h - x) < 1e-5)) continue;
+      }
+      faces.push(f);
+    }
+    const solid = makeSolid(faces);
+    if (!isValidSolid(solid) || !(volume(solid) > 1e-9)) throw new Error("those pieces could not be joined into one body");
+    return { kind: "solid", shape: makeCompound([...found.rest, solid]), first: op.bodies[0], checked: true, noCross: true };
+  },
+
+  /**
+   * A gear body with the whole perimeter of both faces chamfered (`in_866`, `prototypes/perimeter-chamfer`): the outline inset by `edge` at the bottom face (height 0, along `axis` from `origin`), the full outline `edge` up, the full outline `edge` below
+   * the top face (`width`) and the inset outline at the top face, joined by ruled lofts (between lines a plane, between arcs about the same axis a cone); a bore is a circle of radius bore/2 + edge at each face and bore/2 between, a ring's wall
+   * (`wall` > 0, the hole being the outline) a circle of radius wall - edge at each face and wall between. The shells of the two lofts, the hole's turned inside out, and the two flat ends are sewn into one solid: no boolean on the gear.
+   * `full` and `inset`: the outlines as `x y bulge` of each side joined by `;`, in the gear's own x and y (tooth 0 along `first`); a piece of its own beside the other bodies.
+   */
+  chamferBody(op, ctx) {
+    const c = op.edge, W = op.width;
+    const n = (() => { const l = Math.hypot(...op.axis) || 1; return op.axis.map((x) => x / l); })();
+    const u = (() => { const l = Math.hypot(...op.first) || 1; return op.first.map((x) => x / l); })();
+    const cr = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const v = cr(n, u);
+    const at = (x, y, h) => [0, 1, 2].map((i) => op.origin[i] + u[i] * x + v[i] * y + n[i] * h);
+    const parse = (text) => text.split(";").filter(Boolean).map((s) => s.split(" ").map(Number));
+    const wireOf = (pts, h) => assembleWire(pts.map((a, i) => {
+      const b = pts[(i + 1) % pts.length], k = a[2];
+      if (!k) return makeLine(at(a[0], a[1], h), at(b[0], b[1], h));
+      const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+      return makeThreePointArc(at(a[0], a[1], h), at((a[0] + b[0]) / 2 - dy * k, (a[1] + b[1]) / 2 + dx * k, h), at(b[0], b[1], h));
+    }));
+    const circle = (r, h) => assembleWire([makeCircle(r, at(0, 0, h), n)]);
+    const heights = [0, c, W - c, W];
+    const [full, inset] = [parse(op.full), parse(op.inset)];
+    const sections = [inset, full, full, inset];
+    const ring = op.wall > 0;
+    const outer = ring ? loft([op.wall - c, op.wall, op.wall, op.wall - c].map((r, i) => circle(r, heights[i])), { ruled: true }, true) : loft(sections.map((s, i) => wireOf(s, heights[i])), { ruled: true }, true);
+    const holes = ring ? sections.map((s, i) => wireOf(s, heights[i])) : op.bore > 0 ? [op.bore / 2 + c, op.bore / 2, op.bore / 2, op.bore / 2 + c].map((r, i) => circle(r, heights[i])) : null;
+    const capOuter = (k) => (ring ? circle(op.wall - c, heights[k]) : wireOf(inset, heights[k]));
+    const faces = [outer];
+    if (holes) {
+      const inner = loft(holes, { ruled: true }, true);
+      faces.push(cast(inner.wrapped.Reversed()));
+      for (const k of [0, 3]) faces.push(addHolesInFace(makeFace(capOuter(k)), [ring ? wireOf(inset, heights[k]) : holes[k]]));
+    } else for (const k of [0, 3]) faces.push(makeFace(capOuter(k)));
+    const solid = makeSolid(faces);
+    if (!isValidSolid(solid) || !(volume(solid) > 1e-9)) throw new Error("the edge chamfer could not be made at this size: a smaller chamfer");
+    const targetValue = op.target ? ctx.peek(op.target, "solid") : null;
+    const target = targetValue ? targetValue.shape : null;
+    if (!target) return { kind: "solid", shape: solid, checked: true, noCross: true };
+    return { kind: "solid", shape: makeCompound([...target.solids, solid]), checked: true };
+  },
+
+  /**
+   * The tips of a gear's teeth broken at its two faces (`in_859`): at each tooth and each face one flat wedge is cut off, a plane at 45 degrees from `depth` inside the tip circle at the face to the tip circle `depth` in. The wedges are
+   * made in one go and cut in one boolean; a flat cut meets a flank (a cylinder) in a curve the kernel knows exactly, where the turned cone it replaces had to be found by marching, which took 10 times as long. `first` is the direction of
+   * tooth 0, `axis` the gear's axis from its first face (at `centre`) towards its second, `twist` how far the teeth at the second face are turned from those at the first (a helical gear), `side` +1 for an outside gear and -1 for a ring.
+   */
+  toothChamfer(op, ctx) {
+    const t = ctx.get(op.target, "solid");
+    const found = (t.markers?.length ?? 0) > 1 ? lumpsByName(t.shape, t.markers, [op.body]) : null;
+    const body = found ? found.picked[0] : t.shape;
+    const norm = (v) => { const l = Math.hypot(...v) || 1; return v.map((x) => x / l); };
+    const n = norm(op.axis), u0 = norm(op.first);
+    const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const turn = (v, a) => { const c = Math.cos(a), s = Math.sin(a), w = cross(n, v), d = n[0] * v[0] + n[1] * v[1] + n[2] * v[2]; return [0, 1, 2].map((i) => v[i] * c + w[i] * s + n[i] * d * (1 - c)); };
+    const [z, tip, c, W, s] = [op.teeth, op.tip, op.depth, op.width, op.side];
+    const wt = (Math.PI * tip) / z; // (half a pitch at the tip circle: the wedges of neighbours meet and no more)
+    const pieces = [];
+    for (let k = 0; k < z; k++) {
+      for (const top of [false, true]) {
+        const x = turn(u0, (2 * Math.PI * k) / z + (top ? op.twist : 0)); // (the tooth's direction at this face)
+        const tang = cross(x, n);
+        const o = [0, 1, 2].map((i) => op.centre[i] - wt * tang[i]);
+        const r = (v) => tip + s * v; // (v from the tip, away from the material)
+        const h = (v) => (top ? W - v : v);
+        const wedge = draw([r(-c - 1), h(-1)]).lineTo([r(1), h(c + 1)]).lineTo([r(1), h(-1)]).close();
+        pieces.push(wedge.sketchOnPlane(new Plane(o, x, tang)).extrude(2 * wt));
+      }
+    }
+    const made = body.cut(makeCompound(pieces));
+    return { kind: "solid", shape: found ? makeCompound([...found.rest, ...lumpsOf(made)]) : made, first: op.body };
+  },
+
   /** Cylindrical hole cut from the top of the target, at (x, y). depth omitted = through. */
   hole(op, ctx) {
     const t = ctx.get(op.target, "solid").shape;
@@ -1391,7 +1495,7 @@ function keptBoolean(kind, lumps, tool, make) {
   if (booleans.has(key)) { const hit = booleans.get(key); booleans.delete(key); booleans.set(key, hit); kernelStats.booleansKept++; return hit; }
   const made = make();
   booleans.set(key, made);
-  while (booleans.size > 64) booleans.delete(booleans.keys().next().value);
+  keepWithin(booleans, key, made);
   return made;
 }
 /** `target` with `solid` fused to it, on the bodies the piece meets only (a piece that meets none is a body of its own). */
@@ -2182,7 +2286,26 @@ function describeError(e, op) {
  * What was worked out before, by what it was worked out from: an op is the same op if its description and everything it is built on are the same. A move at the end of a long
  * model therefore only redoes the move. Kept: the newest ones. (Booleans use up what they are given, so an op is handed a copy of its input, never the kept one.)
  */
-const KEEP = 96;
+/**
+ * What a kept-answer map holds is bounded by the faces of the solids it keeps, not by how many there are: a count of 64 was a cliff at forty or so plain parts (each part kept one or two), after which every step made
+ * all of them again (50 parts: 0.1 s a step; 70: 2.5 s, `in_857`), and a heap of wheels of thousands of faces would have been more than the memory has. The oldest go first.
+ */
+const FACES_KEPT = 20000;
+const weights = new WeakMap();
+function keepWithin(map, key, solid) {
+  let w = 1;
+  try { w = Math.max(1, facesOf(solid).length); } catch { /* (not a solid: counted as one) */ }
+  let w0 = weights.get(map);
+  if (!w0) { w0 = new Map(); weights.set(map, w0); }
+  w0.set(key, w);
+  let total = 0;
+  for (const v of w0.values()) total += v;
+  while (map.size > 1 && (total > FACES_KEPT || map.size > 1500)) {
+    const oldest = map.keys().next().value;
+    total -= w0.get(oldest) ?? 0; w0.delete(oldest); map.delete(oldest);
+  }
+  for (const k of w0.keys()) if (!map.has(k)) w0.delete(k); // (an entry taken out by the map's own use)
+}
 const prisms = new Map(); // a body's own solid by what it was made from, not what came before it: key -> { solid, roles }
 /**
  * The solid a revolve, loft or sweep makes of its own sketches, kept under a key made of those sketches' answers and its own settings, and not of the steps before it (as the extrude's is): a change to an earlier step leaves this body
@@ -2204,7 +2327,7 @@ function ownSolid(ctx, op, kind, ids, build) {
   const value = build();
   if (ownKey) {
     prisms.set(ownKey, { value, solid: value.solid, roles: ctx.roleFigs ? [...ctx.roleFigs.entries()].filter(([k]) => !had.has(k)) : null, note: ctx.sweepNote ? ctx.sweepNote.note ?? null : undefined });
-    while (prisms.size > 64) prisms.delete(prisms.keys().next().value);
+    keepWithin(prisms, ownKey, value.solid);
   }
   return value;
 }
@@ -2213,11 +2336,18 @@ function ownSolid(ctx, op, kind, ids, build) {
 export const kernelStats = { prismsBuilt: 0, prismsReused: 0, partialBooleans: 0, booleansKept: 0 };
 /** Forget what is kept of bodies, so that the next answer is worked out from nothing (for the tests: the kept and the worked-out answers are to be the same). */
 export function clearKernelCaches() { prisms.clear(); booleans.clear(); validSolids.clear(); uncrossed.clear(); memo.clear(); clearNameCaches(); }
-const memo = new Map(); // key -> { value, ms }
+const memo = new Map(); // key -> { value, own }
+/**
+ * The answers kept for the steps, the oldest forgotten first once they hold more than `MEMO_FACES` faces of their own (a step's own are the faces its answer has beyond its target's, the answers of a row of steps
+ * sharing the solids of the bodies before them) or `MEMO_COUNT` answers. A count of 96 was a cliff at 48 plain parts (a sketch and a push each), after which every step made them all again (`in_857`).
+ */
+const MEMO_FACES = 150000, MEMO_COUNT = 2000;
 const remember = (key, entry) => {
   memo.delete(key);
   memo.set(key, entry);
-  while (memo.size > KEEP) memo.delete(memo.keys().next().value);
+  let total = 0;
+  for (const e of memo.values()) total += e.own ?? 1;
+  while (memo.size > 1 && (total > MEMO_FACES || memo.size > MEMO_COUNT)) { const [k0, e0] = memo.entries().next().value; total -= e0.own ?? 1; memo.delete(k0); }
 };
 
 /**
@@ -2304,7 +2434,7 @@ export function compile(graph, quick = false) {
     const kept = memo.get(key);
     if (kept && !(kept.unchecked && !quick)) {
       remember(key, kept);
-      results.set(op.id, { value: kept.value, ms: 0, key, cached: true });
+      results.set(op.id, { value: kept.value, ms: 0, key, cached: true, faces: kept.faces });
       continue;
     }
     let markMs = 0;
@@ -2332,7 +2462,9 @@ export function compile(graph, quick = false) {
       if (value.kind === "solid" && !rigid && !skipChecks && !value.noCross && crossesItself(value.shape, op.target && results.get(op.target)?.value?.kind === "solid" ? results.get(op.target).value.shape : null)) throw new Error("that would make the body pass through itself (one part of it goes through another)");
       checkMs = performance.now() - tC;
       results.set(op.id, { value, ms: performance.now() - t0, key, markMs, checkMs, ...(Object.keys(stagesOf).length ? { stages: Object.fromEntries(Object.entries(stagesOf).map(([n, v]) => [n, Math.round(v * 10) / 10])) } : {}) });
-      remember(key, { value, ...(skipChecks && !value.checked ? { unchecked: true } : {}) });
+      const faces = value.kind === "solid" ? facesOf(value.shape).length : 0;
+      results.get(op.id).faces = faces;
+      remember(key, { value, faces, own: Math.max(1, faces - (op.target ? results.get(op.target)?.faces ?? 0 : 0)), ...(skipChecks && !value.checked ? { unchecked: true } : {}) });
     } catch (e) {
       endStages();
       results.set(op.id, { error: describeError(e, op), ms: performance.now() - t0, ...(e?.detail?.culprits?.length ? { culprits: e.detail.culprits } : {}) });
@@ -2356,3 +2488,15 @@ export function volume(shape) {
 }
 
 export { makeBox };
+
+/** A smooth loft through sections whose edges match one to one (the same number, the same start, the same way round), without the kernel's check of that, which it does with every section's edges against every other's. */
+function matchedLoft(sk) {
+  const oc = getOC();
+  const b = new oc.BRepOffsetAPI_ThruSections(true, false, 1e-6);
+  try {
+    b.CheckCompatibility(false);
+    for (const s of sk) b.AddWire(s.wire.wrapped);
+    b.Build();
+    return cast(b.Shape());
+  } finally { b.delete(); }
+}

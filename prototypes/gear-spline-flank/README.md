@@ -10,21 +10,23 @@
 
 | teeth | flank | deviation | faces | build ms | triangles | mesh ms | intersect ms |
 |---|---|---|---|---|---|---|---|
-| 40 | 2 arcs | 0.0057 mm | 323 | 197 | 4660 | 141 | 351 |
-| 40 | **4 arcs (the app)** | **0.0007 mm** | 483 | 85 | 5300 | 137 | 369 |
-| 40 | 8 arcs | 0.0001 mm | 803 | 79 | 9140 | 264 | 776 |
-| 40 | spline, 8 points, tol 1e-3, degree 3 | 0.0004 mm | **243** | **25** | 21134 | 204 | 288 |
-| 40 | spline, 12 points, tol 1e-4, degree 3 | 0.0001 mm | 243 | 29 | 11860 | 119 | 576 |
-| 100 | 4 arcs | 0.0000 mm | 1003 | 114 | 11700 | 477 | 1476 |
-| 100 | 8 arcs | 0.0000 mm | 1803 | 217 | 21300 | 826 | 3414 |
-| 100 | spline, 8 points, tol 1e-3, degree 3 | 0.0002 mm | **403** | **48** | **9300** | **123** | **825** |
+| 40 | 2 arcs | 0.0057 mm | 323 | 94 | 4984 | 130 | 482 |
+| 40 | **4 arcs (the app)** | **0.0007 mm** | 483 | 58 | 5624 | 116 | 552 |
+| 40 | 8 arcs | 0.0001 mm | 803 | 103 | 9464 | 278 | 1263 |
+| 40 | spline, 8 points, tol 1e-3, degree 3 | 0.0004 mm | **243** | **27** | 21458 | 234 | 309 |
+| 40 | spline, 12 points, tol 1e-4, degree 3 | 0.0001 mm | 243 | 30 | 12184 | 146 | 714 |
+| 100 | 4 arcs | 0.0000 mm | 1003 | 131 | 12504 | 543 | 1817 |
+| 100 | 8 arcs | 0.0000 mm | 1803 | 435 | 22104 | 896 | 4753 |
+| 100 | spline, 8 points, tol 1e-3, degree 3 | 0.0002 mm | **403** | **55** | **10104** | **132** | **1192** |
+
+(Rerun on 2026-11-17 after a slip in the first run: the bore's wire was the same way round as the outline, so the face was invalid, the bore added instead of taken away and the booleans were on a bad solid. The numbers above are the corrected ones; the conclusions did not change.)
 
 - **Accuracy:** one cubic spline matches four arcs (0.0004 to 0.0007 mm at 40 teeth, a thousandth of the module and far below what a printer holds), and tolerance 1e-4 matches eight arcs. **But the spline is fragile in how it is asked for:** the first try (degree up to 5, tolerance 1e-5) gave 0.023 mm with 6 points and **0.22 mm with 10 points and 870 000 triangles**; degree 3 with tolerance 1e-3 or 1e-4 is the setting that works. The library approximates, so the curve does not pass through the points exactly.
 - **Faces:** a spline flank halves the edges and faces (243 against 483 at 40 teeth), and with them the work of everything done per face. With `dec_gear_feature` the page already keeps 8 parts for a gear body, so the saving is in the kernel and mesh, not in the page.
-- **Build time of the outline and prism:** 3 to 4 times shorter (25 against 85 ms at 40 teeth), a small part of a gear's cost.
-- **Triangles:** **not reliably fewer.** At 40 teeth the spline gave 4 times the triangles of four arcs (21 000 against 5 300; 12 000 with tolerance 1e-4), at 100 teeth fewer (9 300 against 11 700). B-spline faces are meshed by their curvature and knots, arcs are exact cylinders: how many triangles a spline flank costs depends on its knots, which the library chooses.
-- **Kernel booleans (intersect with a neighbour):** no consistent difference at 40 teeth (290 to 640 ms against 370), about 1.8 times faster at 100 teeth (825 against 1476 ms): within the noise of one run each, no more than a hint.
-- **Overlap with the meshing neighbour:** nothing, for every row (the volume error of about 40 mm2 is the same in every row, about the area of two bores: a bookkeeping slip in this prototype's reference, so only the differences between rows mean anything).
+- **Build time of the outline and prism:** 2 to 3 times shorter (27 against 58 ms at 40 teeth), a small part of a gear's cost.
+- **Triangles:** **not reliably fewer.** At 40 teeth the spline gave 4 times the triangles of four arcs (21 000 against 5 600; 12 000 with tolerance 1e-4), at 100 teeth fewer (10 100 against 12 500). B-spline faces are meshed by their curvature and knots, arcs are exact cylinders: how many triangles a spline flank costs depends on its knots, which the library chooses.
+- **Kernel booleans (intersect with a neighbour):** no consistent difference at 40 teeth (310 to 710 ms against 550), about 1.5 times faster at 100 teeth (1190 against 1820 ms): within the noise of one run each, no more than a hint.
+- **Overlap with the meshing neighbour:** nothing (under 0.02 mm3), for every row; the volume of every row is within 0.7 mm2 of the exact outline (the 2 arc rows 1.0).
 
 **Not tried:** the spline interpolating exactly (an OCCT `GeomAPI_Interpolate` is not in replicad); fillet and root shapes as splines; a helical gear's spline faces (the twist sweep of a spline); STEP export; the real app's mesh settings; a printed gear. Only a few runs each.
 

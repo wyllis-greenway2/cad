@@ -80,7 +80,7 @@ for (const z of (process.env.Z ?? "40").split(",").map(Number)) {
     row.dev = deviation(g, edges, z);
     try {
       const [wire, tWire] = ms(() => assembleWire(edges));
-      const [solid, tSolid] = ms(() => { const face = makeFace(wire, [assembleWire([makeCircle(bore / 2)])]); return basicFaceExtrusion(face, new Vector([0, 0, W])); });
+      const [solid, tSolid] = ms(() => { const face = makeFace(wire, [assembleWire([makeCircle(bore / 2, [0, 0, 0], [0, 0, -1])])]); return basicFaceExtrusion(face, new Vector([0, 0, W])); });
       row.build = tEdges + tWire + tSolid;
       row.faces = solid.faces.length;
       row.vol = measureVolume(solid);

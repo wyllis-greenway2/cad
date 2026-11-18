@@ -93,3 +93,39 @@ test("a wheel of many teeth has the coarser screen mesh (freeform faces by the h
   assert.deepEqual(fresh.faceNames, kept.faceNames);
   assert.deepEqual(fresh.edgeNames, kept.edgeNames);
 });
+
+test("a wheel's loft is not checked for matching sections (`in_853`): the same volume as before to every digit, and a loft told it is matched when it is not still comes out right", () => {
+  const v = bodyVolumes(wheel(60));
+  assert.deepEqual(v.errors, []);
+  assert.ok(Math.abs(v.volumes[0]! - 114392.87812056803) < 0.01, `60 teeth: ${v.volumes[0]}`); // (the volume with the checked loft)
+  const sq = { id: "s_a", type: "sketch", shape: "polygon", points: [[-5, -5], [5, -5], [5, 5], [-5, 5]], plane: "XY", origin: 0 };
+  const hex = { id: "s_b", type: "sketch", shape: "polygon", points: Array.from({ length: 6 }, (_, i) => [8 * Math.cos(i * Math.PI / 3), 8 * Math.sin(i * Math.PI / 3)]), plane: "XY", origin: 10 };
+  for (const matched of [false, true]) {
+    const r = kernel.evaluate({ params: {}, ops: [sq, hex, { id: "x_l", type: "loft", sections: [{ profile: "s_a", holes: [] }, { profile: "s_b", holes: [] }], smooth: true, matched }] } as never) as unknown as { ops: { id: string; error: string | null }[]; volume: number };
+    assert.equal(r.ops.find((o) => o.id === "x_l")!.error, null, `matched ${matched}`);
+    assert.ok(r.volume > 1000 && r.volume < 2000, `matched ${matched}: ${r.volume}`);
+  }
+});
+
+test("a wheel's two end faces keep the names of their roles and every flank face has a name of its own (`in_855`: the roles of the thousand sides are not worked out)", () => {
+  const s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: wheel(30) });
+  const k = (s.outcome as unknown as { kernel: { faceNames: { name: string }[]; faces: unknown[] | null } }).kernel;
+  const names = k.faceNames.map((f) => f.name);
+  assert.ok(names.some((n) => /:start$/.test(n)), names.slice(0, 5).join());
+  assert.ok(names.some((n) => /:end$/.test(n)));
+  assert.equal(new Set(names).size, names.length, "no two faces share a name");
+});
+
+test("wheels one beside another stay two bodies with their own names (`in_857`: the exact box of a thousand faces and every old name against every face were quick for one wheel and not for two)", () => {
+  let s = createSession(kernel);
+  for (let i = 0; i < 3; i++) {
+    s = run(s, { type: "gear", id: `g_00${i + 1}`, plane: worldRef("XY"), at: [i * 80, 0, 0], spec: wheel(30 + i) });
+  }
+  const bodies = Object.values(scene(s).parts).filter((p) => p.kind === "body");
+  assert.equal(bodies.length, 3);
+  assert.equal(new Set(bodies.map((b) => b.ref)).size, 3);
+  const k = (s.outcome as unknown as { kernel: { faceNames: { name: string }[]; ops: { error: string | null }[] } }).kernel;
+  assert.deepEqual(k.ops.map((o) => o.error).filter(Boolean), []);
+  const names = k.faceNames.map((f) => f.name);
+  assert.equal(new Set(names).size, names.length, "no two faces share a name");
+});

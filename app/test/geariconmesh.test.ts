@@ -96,3 +96,43 @@ test("a double click on a body while the gear tool waits for the next gear's cen
   assert.equal(st.tool, null);
   assert.deepEqual(selection(st.session), [bodyOf(st)]);
 });
+
+test("the icon of a gear that is only pointed at works: Edit, Helix and Mesh select that gear first (`in_864`); a gear's number box is shown when a face of it is selected", () => {
+  const st = top();
+  const face = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && !(p as { curved?: unknown }).curved)!;
+  // nothing selected, the pointer over the gear: the icon is there for that part, and a click on its Edit item works
+  const hovered: AppState = { ...st, session: { ...st.session, hover: face.ref as never } };
+  const chip = frameOf(hovered, env).gearChip!;
+  assert.equal(chip.part, face.ref);
+  const e = reduce(hovered, { type: "runAction", id: "gear:edit", part: chip.part }, env);
+  assert.ok(e.tool?.gear?.editing, "the editor opened");
+  assert.deepEqual(selection(e.session), [face.ref], "and the gear is selected");
+  // a face of the gear selected: its box is shown, not the size bubble of the face
+  const sel = select(st, [face.ref]);
+  const h = reduce(sel, { type: "runAction", id: "gear:helix", part: face.ref }, env);
+  const f = frameOf(h, env).entry!;
+  assert.equal(f.panel, "Gear");
+  assert.ok(f.focus);
+  assert.equal(f.fields.find((x) => x.label === "Helix")!.value, "15");
+});
+
+test("a gear is picked like any regular part: a click selects the face, a double click the whole body (`in_868`)", () => {
+  const st = top();
+  const p: Vec3 = [29, 3, 8]; // (the top of the gear)
+  const one = click(move(st, p), p, 1);
+  const face = selection(one.session)[0]!;
+  assert.equal(scene(one.session).parts[face]?.kind, "plane", "the face");
+  const two = click(one, p, 2);
+  assert.deepEqual(selection(two.session), [bodyOf(two)], "the whole body on the double click");
+});
+
+test("a gear selected as a whole is filled all over: the frame names every triangle of its body, the teeth too (`in_867`)", () => {
+  const s = run(extruded(), { type: "gear", id: "g_002", plane: worldRef("XY"), at: [60, 0, 0], spec: { teeth: 20, module: 2, bore: 5, width: 8 } }); // (a second body: a body of several)
+  const body = Object.values(scene(s).parts).filter((p) => p.kind === "body").map((p) => p.ref);
+  assert.equal(body.length, 2);
+  const st = select({ ...top(s) }, [body[0]!]);
+  const tris = frameOf(st, env).highlight.bodyTris?.[body[0]!];
+  assert.ok(tris && tris.length > 50, `ranges ${tris?.length}`);
+  const total = tris!.reduce((t, [, c]) => t + c, 0);
+  assert.ok(total / 3 > 1000, `${total / 3} triangles: a whole 20 tooth gear, not its two faces`);
+});

@@ -9,7 +9,7 @@ import { ok, err } from "../shared/result.ts";
 import type { Scene, Step } from "./scene.ts";
 import { nextId, bumpCounter } from "./scene.ts";
 import type { Part } from "./part.ts";
-import { gearOutline, helixTwist, helixShear, hasBody, chamferProfile } from "./gear.ts";
+import { gearOutline, helixTwist, helixShear, hasBody, chamferOf, edgeOutlines } from "./gear.ts";
 import { boreLoop } from "./bore.ts";
 import type { GearSpec, GearOutline } from "./gear.ts";
 import { wormRefs, wormParts, wormSteps, wheelRefs, wheelParts, wheelSteps } from "./wormscene.ts";
@@ -93,30 +93,18 @@ function partsOf(s: Scene, rec: GearRecord): Part[] {
     out.push({ ...base, ref: drawnRef(`${rec.id}.bc`), kind: "corner", at: rec.at });
     out.push({ ...base, ref: drawnRef(`${rec.id}.b`), kind: "circle", center: drawnRef(`${rec.id}.bc`), radius: rec.spec.bore! / 2 });
   }
-  const cut = chamferProfile(rec.spec, g.tipRadius);
-  if (cut) { // the figure of the chamfer's cutter (`in_791`): drawn on a plane through the axis, along the plane's first direction and its normal
-    const nn = cross3(plane.u, plane.v), len = Math.hypot(...nn) || 1;
-    const q = drawnRef(`${rec.id}.xq`);
-    out.push({ ref: q, origin: "drawn", plane: null, movable: false, kind: "plane", at: rec.at, u: plane.u, v: [nn[0] / len, nn[1] / len, nn[2] / len] });
-    const b2 = { origin: "drawn" as const, plane: q, movable: false };
-    cut.forEach(([r, h], i) => out.push({ ...b2, ref: drawnRef(`${rec.id}.xp${i}`), kind: "corner", at: [rec.at[0] + plane.u[0] * r + (nn[0] / len) * h, rec.at[1] + plane.u[1] * r + (nn[1] / len) * h, rec.at[2] + plane.u[2] * r + (nn[2] / len) * h] }));
-    cut.forEach((_, i) => out.push({ ...b2, ref: drawnRef(`${rec.id}.xs${i}`), kind: "line", a: drawnRef(`${rec.id}.xp${i}`), b: drawnRef(`${rec.id}.xp${(i + 1) % cut.length}`) }));
-  }
   return out;
 }
 const cross3 = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-/** The steps of a tooth chamfer (`in_791`): the cutter turned a full turn as a piece of its own, then cut from the gear's body (the body the gear's first step made, `@s0`); a cut acts on every body, so the neighbours are not asked. */
+/** The step of a tooth chamfer (`in_760`, `in_859`): the kernel cuts a flat wedge off each tooth tip at each face of the gear's body (the body the gear's first step made, `@s0`; a cut by another kind of step acts on every body, so the neighbours are not asked). */
 function chamferSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] {
-  const plane = s.parts[rec.plane], o = outlineOf(rec.spec);
-  if (!plane || plane.kind !== "plane" || !o.ok) return [];
-  const cut = chamferProfile(rec.spec, o.value.tipRadius);
-  if (!cut) return [];
+  const plane = s.parts[rec.plane], o = outlineOf(rec.spec), ch = chamferOf(rec.spec);
+  if (!plane || plane.kind !== "plane" || !o.ok || !ch) return [];
   const n = cross3(plane.u, plane.v), len = Math.hypot(...n) || 1;
-  const lines = cut.map((_, i) => drawnRef(`${rec.id}.xs${i}`));
-  return [
-    { type: "revolve", parts: lines, params: { angle: 360, advance: 0, ax: rec.at[0], ay: rec.at[1], az: rec.at[2], dx: n[0] / len, dy: n[1] / len, dz: n[2] / len, mode: "new", gear: rec.id, tool: 1 } },
-    { type: "combine", parts: ["@s0", "@s1"] as Ref[], params: { mode: "subtract", gear: rec.id } },
-  ];
+  const [c, sn] = [Math.cos(rec.turn ?? 0), Math.sin(rec.turn ?? 0)];
+  const first: Vec3 = [plane.u[0] * c + plane.v[0] * sn, plane.u[1] * c + plane.v[1] * sn, plane.u[2] * c + plane.v[2] * sn]; // (tooth 0)
+  const twist = ((helixTwist(rec.spec) ?? 0) * Math.PI) / 180;
+  return [{ type: "toothChamfer", parts: ["@s0"] as Ref[], params: { gear: rec.id, teeth: Math.round(rec.spec.teeth), tip: o.value.tipRadius, depth: ch.depth, width: ch.width, side: ch.side, twist, cx: rec.at[0], cy: rec.at[1], cz: rec.at[2], dx: n[0] / len, dy: n[1] / len, dz: n[2] / len, ux: first[0], uy: first[1], uz: first[2] } }];
 }
 
 /** The scene with its gears' parts made again from the records as they are now (the old ones taken out first). */
@@ -155,6 +143,14 @@ function bodyParams(s: Scene, rec: GearRecord): { step: Omit<Step, "id"> } | nul
   const plane = s.parts[rec.plane];
   if (!hasBody(rec.spec) || !plane || plane.kind !== "plane") return null;
   const fig = bodyFigure(rec);
+  const edge = edgeOutlines(rec.spec);
+  if (edge) { // an edge chamfer (`in_866`): the body is made by the kernel from the full outline and the one inset by the chamfer
+    const n3 = cross3(plane.u, plane.v), len3 = Math.hypot(...n3) || 1;
+    const [ct, st] = [Math.cos(rec.turn ?? 0), Math.sin(rec.turn ?? 0)];
+    const text = (o: { points: [number, number][]; bulges: number[] }) => o.points.map((p, i) => `${+p[0].toFixed(7)} ${+p[1].toFixed(7)} ${+(o.bulges[i] ?? 0).toFixed(9)}`).join(";");
+    const ring = !!rec.spec.internal;
+    return { step: { type: "chamferBody", parts: fig.parts, params: { full: text(edge.full), inset: text(edge.inset), edge: edge.c, width: rec.spec.width!, bore: ring ? 0 : rec.spec.bore ?? 0, wall: ring ? edge.full.outerRadius ?? 0 : 0, cx: rec.at[0], cy: rec.at[1], cz: rec.at[2], dx: n3[0] / len3, dy: n3[1] / len3, dz: n3[2] / len3, ux: plane.u[0] * ct + plane.v[0] * st, uy: plane.u[1] * ct + plane.v[1] * st, uz: plane.u[2] * ct + plane.v[2] * st, ...(fig.holes ? { holes: fig.holes } : {}), gear: rec.id } } };
+  }
   const shear = helixShear(rec.spec);
   if (shear !== null) { // a helical rack (`in_783`): its section carried through the thickness, slid along the rack by tan(helix) for each mm (the rack's own x is the plane's first direction turned by the record's turn)
     const [c, sn] = [Math.cos(rec.turn ?? 0), Math.sin(rec.turn ?? 0)];
@@ -322,7 +318,7 @@ export function gearOfSelection(s: Scene, ref: Ref): GearRecord | undefined {
   if (!p || p.origin === "drawn" || p.origin === "world" || !s.gears?.length) return undefined;
   const owner = p.kind === "body" ? p : p.of ? s.parts[p.of] : undefined; // (`of`: the body it is a face or an edge of, when there are several)
   const bodyId = owner ? (owner as { id?: string }).id : onlyBody(s);
-  const step = bodyId?.startsWith("x_") ? s.steps.find((st) => st.id === bodyId.slice(2) && st.type === "extrude" && st.parts.length > 0) : undefined;
+  const step = bodyId?.startsWith("x_") ? s.steps.find((st) => st.id === bodyId.slice(2) && (st.type === "extrude" || st.type === "chamferBody") && st.parts.length > 0) : undefined;
   if (!step) return undefined;
   return s.gears.find((g) => step.parts.every((r) => isMade(g.id, r)));
 }
