@@ -78,3 +78,43 @@ test("a moving body that meets a hard wall it cannot push stops there, and says 
   const free = solveContact(scene(s), { ...m, amount: 20 });
   assert.ok(!free.contact!.jam, "backing away is free");
 });
+
+test("a gear pair: with the driver hard the driven gear yields to its teeth, and follows the ratio of the teeth within a degree, with no formula", async () => {
+  const { startOp } = await import("../src/interaction/operations.ts");
+  const { runOp } = await import("../src/interaction/runop.ts");
+  const { gearRefs } = await import("../src/operation/gearscene.ts");
+  const { loopFaceRef, diskFaceRef } = await import("../src/operation/loops.ts");
+  const { meshWith } = await import("../src/operation/mesh.ts");
+  const { bodyOfGear, gearAxis } = await import("../src/operation/gearcouple.ts");
+  const { startContact } = await import("../src/interaction/contact.ts");
+  const g1: { id: string; plane: typeof XY; at: [number, number, number]; spec: import("../src/operation/gear.ts").GearSpec; turn?: number } = { id: "g_001", plane: XY, at: [0, 0, 0], spec: { teeth: 20, module: 2, backlash: 0.15 } };
+  const p = meshWith(g1, [1, 0, 0], [0, 1, 0], { teeth: 30 }, 0);
+  assert.ok(p.ok);
+  if (!p.ok) return;
+  let s = createSession(kernel);
+  for (const [r, withId] of [[g1, undefined], [{ id: "g_002", plane: XY, at: p.value.at, spec: p.value.spec, turn: p.value.turn }, "g_001"]] as const) {
+    s = run(s, { type: "gear", id: r.id, plane: XY, at: [...r.at] as [number, number, number], spec: r.spec, ...(r.turn ? { turn: r.turn } : {}), ...(withId ? { meshWith: withId } : {}) });
+    const refs = gearRefs(r as never);
+    const op = startOp(scene(s), [(refs.wall ? diskFaceRef(refs.wall) : loopFaceRef(refs.lines)) as never], "extrude");
+    assert.ok(op.ok);
+    s = runOp(s, { ...(op as { op: import("../src/interaction/operations.ts").Op }).op, value: 5 })!.session;
+  }
+  const [a, b] = scene(s).gears!;
+  const [bodyA, bodyB] = [bodyOfGear(scene(s), a!)!, bodyOfGear(scene(s), b!)!];
+  s = run(s, { type: "setHard", body: (scene(s).parts[bodyA] as { id: string }).id, on: true });
+  const r = startMotion(scene(s), bodyA, "turn", s.outcome);
+  assert.ok(r.ok);
+  if (!r.ok) return;
+  const ax = gearAxis(scene(s), scene(s).gears![1]!)!;
+  const stripped: typeof r.motion = { ...r.motion, follows: [] as typeof r.motion.follows };
+  const contact = startContact(scene(s), stripped, [{ body: bodyB, point: ax.point, dir: ax.dir }], s.outcome);
+  assert.ok(contact);
+  let m: typeof r.motion = { ...stripped, contact: contact! };
+  let worst = 0;
+  for (let deg = 1; deg <= 90; deg++) {
+    m = solveContact(scene(s), { ...m, amount: deg }, s.outcome);
+    assert.ok(!m.contact!.jam, `jam at ${deg}: ${m.contact!.jam}`);
+    worst = Math.max(worst, Math.abs(followAmount(m.yields![0]!, deg) - (-20 / 30) * deg));
+  }
+  assert.ok(worst < 1.5, `within ${worst} degrees of the ratio`);
+});

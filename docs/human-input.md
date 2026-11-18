@@ -3932,3 +3932,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_896 — 2026-11-19 — directive
 > yes please start
 (asks for the contact push to be built in the app, starting with the Geneva)
+
+## in_897 — 2026-11-19 — directive
+> lets not merge just yet, what else is there to builld?
+(asks what else there is to build; the AI listed it)
+
+## in_898 — 2026-11-19 — directive
+> Okay lets work in your suggested order
+(approves the AI's order: try the contact push on a ratchet, a gear train and a cam follower, adding rest values and sliding yielders as the cases need them; then the depth rule and the time budget; then a joint solver for linkages)
