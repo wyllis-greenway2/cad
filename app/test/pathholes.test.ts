@@ -108,7 +108,7 @@ test("rules that make no hole, or too many, are refused with the reason", () => 
   const noLines = cutReceiver(s, vals({ place: "lines" }));
   assert.ok(noLines.ok, "with no line selected the holes fall back to the middle of the face");
   const off = cutReceiver(s, vals({ place: "outline", by: "count", value: "4", offset: "40" }));
-  assert.ok(off.ok, "an inset that is too big goes smaller (`in_960`)");
+  assert.ok(off.ok, "an inset that is too big goes smaller (`in_965`)");
 });
 test("the dialog offers where the holes go, says why one cannot be chosen, and swaps the offsets for the path's rules", () => {
   const { s, top } = block();
@@ -388,7 +388,7 @@ test("a round face gives the same lines as a flat one: a whole post has the lowe
   assert.ok(m.ok && new Set(m.value.places.map((q) => Math.round(q[2]))).size === 2);
 });
 
-test("an inset too big for a small face goes smaller instead of failing (`in_960`)", () => {
+test("an inset too big for a small face goes smaller instead of failing (`in_965`)", () => {
   const { s } = block(); // (100 x 60: an inset of 40 turns the short sides inside out)
   const p = receiverPlan(s, vals({ place: "outline", by: "count", value: "8", corners: "ignore", offset: "40" }));
   assert.ok(p.ok, p.ok ? "" : p.error);
@@ -399,6 +399,6 @@ test("an inset too big for a small face goes smaller instead of failing (`in_960
   const w = receiverPlan(select(p0, [face]), vals({ place: "outline", by: "count", value: "4", corners: "ignore", offset: "30" })); // (the wall is 40 high)
   assert.ok(w.ok && w.value.insetUsed !== undefined && w.value.insetUsed < 20, w.ok ? "" : w.error);
 });
-test("the fastener tool starts as a countersunk hole (`in_960`)", () => {
+test("the fastener tool starts as a countersunk hole (`in_965`)", () => {
   assert.equal(receiverStart().kind, "countersunk");
 });

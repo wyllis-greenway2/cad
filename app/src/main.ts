@@ -287,7 +287,7 @@ async function pathRepeatFlow() {
 let hardware: { values: ReceiverValues } | null = null;
 let holesKey = "";
 let holesNow: { bar: HolePanelView; view: ToolpathView | null } | null = null;
-let holesPlan: ReceiverPlan | null = null; // (the holes the pointer can pick up and move, `in_960`)
+let holesPlan: ReceiverPlan | null = null; // (the holes the pointer can pick up and move, `in_965`)
 let holesDrag: number | null = null;
 let holesMovesFor = ""; // (the selection the moved holes belong to)
 let lastHolesScene: ReturnType<typeof scene> | null = null;
@@ -505,7 +505,7 @@ function dispatch(i: Intent, again = false) {
 }
 // which kind of device was used last: a laptop can have a mouse and a touch screen, so it is the event itself that says, not the machine (`in_160`)
 let lastDevice: "mouse" | "touch" | "pen" = "mouse";
-/** A hole of the fastener tool's preview picked up with the pointer and moved over the surface (`in_960`); true when the pointer's event was for it and the view is not to have it. */
+/** A hole of the fastener tool's preview picked up with the pointer and moved over the surface (`in_965`); true when the pointer's event was for it and the view is not to have it. */
 function holesPointer(raw: { kind: string; x?: number; y?: number }): boolean {
   if (!hardware || !holesPlan || dialog.isOpen) return false;
   const [x, y] = [raw.x ?? 0, raw.y ?? 0];

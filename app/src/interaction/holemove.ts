@@ -1,4 +1,4 @@
-// Moving one hole of the fastener tool's preview (`in_960`): the pointer is put on a previewed hole and dragged, and the hole follows it over the surface. A hole that is moved keeps the place the pointer put it at until the rules that make the
+// Moving one hole of the fastener tool's preview (`in_965`): the pointer is put on a previewed hole and dragged, and the hole follows it over the surface. A hole that is moved keeps the place the pointer put it at until the rules that make the
 // row change (the number, the spacing, the line) and the row is made again. Pure: the camera's projection and ray come in.
 import type { Vec3 } from "../math/vec.ts";
 import { dot } from "../math/vec.ts";

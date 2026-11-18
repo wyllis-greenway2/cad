@@ -865,7 +865,7 @@ test("a turn step about any axis (a direction in the step) turns the body about 
   assert.ok(b.max[2] - b.min[2] > 30, `${JSON.stringify(b)}`);
 });
 
-test("the wireframe stays on through a right click (it opens the menu) until it is taken out (`in_960`)", () => {
+test("the wireframe stays on through a right click (it opens the menu) until it is taken out (`in_965`)", () => {
   let st: AppState = createState(createSession(kernel));
   st = reduce(st, { type: "runAction", id: "view:wireframe" }, env);
   assert.equal(st.wireframe, true);

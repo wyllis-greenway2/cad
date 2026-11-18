@@ -61,7 +61,7 @@ export function holeLines(plan: ReceiverPlan): number[] {
   }
   return out;
 }
-/** The surfaces of what would be cut, as triangles (flat xyz): each hole's side view turned round its axis, and a nut pocket's walls; drawn nearly clear and dark, as a part in wireframe (`in_960`). */
+/** The surfaces of what would be cut, as triangles (flat xyz): each hole's side view turned round its axis, and a nut pocket's walls; drawn nearly clear and dark, as a part in wireframe (`in_965`). */
 function holeSurfaces(plan: ReceiverPlan): number[] {
   const { kind, size, fit } = plan;
   const depth = Math.max(0.1, Math.min(plan.depth, plan.stack));

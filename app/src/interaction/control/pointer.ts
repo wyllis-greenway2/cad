@@ -703,7 +703,7 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: E
   // an operation that is open: a right click accepts it and leaves it, as Enter does (`in_244`)
   if (!i.button && s.op) return doApply(s);
   if (!i.button && s.picking && !s.tool) return doApply(s); // (a right click starts what was clicked for it, as Enter does, `in_464`)
-  // the cross section is put away by a right click as a tool is (`in_394`); the wireframe stays until it is taken out (`in_960`), so a right click opens the menu with it on; the ⋯ button still opens the menu
+  // the cross section is put away by a right click as a tool is (`in_394`); the wireframe stays until it is taken out (`in_965`), so a right click opens the menu with it on; the ⋯ button still opens the menu
   if (!i.button && !s.tool && !s.op && !s.repeat && !s.cut && sectionNow(s)) return { ...s, sectionLive: null, menu: null, session: { ...s.session, click: { ...s.session.click, selection: sectionNow(s) ? [] : s.session.click.selection }, message: null } };
   // while a sketching tool is on, a right click puts it away (the ⋯ button still opens the menu): the tool stays on until then or the cancel icon (`in_193`)
   if (s.tool && !i.button) return { ...s, tool: null, resume: null, menu: null };

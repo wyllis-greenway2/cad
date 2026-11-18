@@ -11,7 +11,7 @@ export interface ToolpathView {
   head: Point3 | null;
   /** the sheet or stock the toolpath is cut from, as the four sides of its box (flat pairs of points in the world); empty when the route gave none */
   stock: number[];
-  /** surfaces drawn semi-transparent and dark, as a part is in wireframe (`in_960`): flat xyz of triangles */
+  /** surfaces drawn semi-transparent and dark, as a part is in wireframe (`in_965`): flat xyz of triangles */
   surfaces?: number[];
 }
 interface Seg { a: Point3; b: Point3; layer: string; len: number }
