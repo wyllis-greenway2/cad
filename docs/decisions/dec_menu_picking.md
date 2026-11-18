@@ -3,7 +3,7 @@ id: dec_menu_picking
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_666, in_661, in_542, in_541, in_540, in_539, in_538, in_463, in_464, in_465
+human_input: in_830, in_666, in_661, in_542, in_541, in_540, in_539, in_538, in_463, in_464, in_465
 date: 2026-11-15
 depends_on:
 alternative_to:
@@ -34,6 +34,8 @@ alternative_to:
 **The ⋯ list's rows (`in_541`):** its rows are one or two words too (Reapply mates, Export body, Clear cache, Share state, All constraints / Key constraints, Clearance 0.2, ✓ Edge lines, Pan medium, Scroll auto / pans / zooms); the long reasons are no longer tooltips: a dimmed row pressed says why (`say:` action, `onBlocked` in `ui/menu.ts`). `menutips.test.ts` checks every row in every state.
 
 **Esc and the ring (`in_542`):** Esc ends the ring, whatever ring it is on, and the selection stays (the next Esc clears it). Outside game mode it already did; in game mode the key leaves the game and sent no intent, so the ring stayed up: now it closes in the same press (`main.ts`).
+
+**Built after (`in_830`, the human: "anything in the menu can be selected... it should actually help you select those items"):** (1) a dimmed item of the menu whose reason is a selection ("select a line first", "select two circles first", "select a body", the mates, Hard body, Group...) can be pressed now: the menu steps aside, the message and the bubble beside the buttons say what to select ("Select a line first: click it"), and the item **runs by itself as soon as what it needs is selected** (`AppState.awaiting`, `settleAwaiting` in `pointer.ts`, called by `reduce` when the selection changes); Esc gives it up, and choosing anything else does too. A dimmed item whose reason is not a selection ("nothing to undo", "no bodies yet") is only explained, the ring staying, as before. (2) An operation chosen with nothing selected (`picking`) says what is missing in its bubble (`startOp`'s own words: "Select a closed figure first") and no longer "Click what it needs". **Not done:** a step-by-step prompt for the operations that need several kinds of thing in turn ("a face, then a line"): the first thing missing is said, then the next when it is selected; the gear box's own items (Edit, Mesh, Helix on the icon over a gear) are only there when a gear is pointed at.
 
 ## Rationale
 It changes how every operation of the menu starts; kept the select-first path so nothing gets slower, and the many-things operations wait for an explicit end because no count says when they are complete.

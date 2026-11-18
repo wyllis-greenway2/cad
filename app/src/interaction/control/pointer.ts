@@ -37,7 +37,7 @@ import { doLook, selectedSurface } from "./viewing.ts";
 import { sectionNow, doSectionClick } from "./section.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
 import { selectedBodies } from "./bodies.ts";
-import { commitFigure, commitOp, setRepeatAxis, doApply, finishPicking, picksMany } from "./modal.ts";
+import { commitFigure, commitOp, setRepeatAxis, doApply, finishPicking, picksMany, doRunAction, instruction } from "./modal.ts";
 import { doGizmoHover, gizmoOf, chosenId, activeOp, movePivotTo } from "./handles.ts";
 import { orientApply, hasOrb, putMover } from "./pose.ts";
 import { patternValues } from "../pattern.ts";
@@ -134,6 +134,22 @@ const category = (id: string, label: string, icon: string, kids: MenuItem[]): Me
   const first = kids.find((k) => k.enabled);
   return { id, label, icon, enabled: true, why: null, children: kids, ...(first ? {} : { dim: true as const }) }; // (always opens, so every ring can be looked through: dimmed when nothing in it applies now, `in_538`)
 };
+/** The item of the menu with this id as it stands now: whether it can be used and, if not, what it needs (`in_830`). */
+function menuItemNow(session: Session, id: string): { enabled: boolean; why: string | null } | null {
+  const m = menuFor(session, 0, 0, false, null);
+  const find = (items: readonly MenuItem[]): MenuItem | undefined => { for (const it of items) { if (it.id === id) return it; const k = it.children ? find(it.children) : undefined; if (k) return k; } return undefined; };
+  const it = m ? find(m.items) : undefined;
+  return it ? { enabled: it.enabled, why: it.why } : null;
+}
+/** The item that was waiting for a selection runs once it can, else says again what it needs (`in_830`). */
+export function settleAwaiting(s: AppState, now = 0): AppState {
+  const a = s.awaiting;
+  if (!a) return s;
+  const it = menuItemNow(s.session, a.id);
+  if (!it) return { ...s, awaiting: null };
+  if (it.enabled) return doRunAction({ ...s, awaiting: null, session: { ...s.session, message: null } }, a.id, now);
+  return { ...s, awaiting: { ...a, why: it.why ?? a.why }, session: { ...s.session, message: `${a.label}: ${instruction(it.why ?? a.why)}` } };
+}
 function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean; section: boolean; clip?: boolean; adding?: boolean; touch?: boolean } = { wireframe: false, tape: false, section: false }): AppState["menu"] {
   const adding = !!view.adding;
   const sc = sceneOf(session);
