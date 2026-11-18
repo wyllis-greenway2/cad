@@ -3674,3 +3674,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 >
 > Ihave a bug where when I delete gears, then if I later craete more gears, the deleted ones show up in the preview for a moment as it creates the new gears.
 (asks for a Cancel button in the gear box; one button for both Update and Create that says Update when there are unapplied changes; every item of the menu selectable, and a tool that needs things selected helping the person select them ("select face, select line, click this, click that"), instead of the menu offering some without their selection, hiding others, and saying "Click what it needs"; and reports that gears deleted show in the preview for a moment while new gears are made)
+
+## in_831 — 2026-11-18 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 once more, for the Cancel button, the single apply button, the guided menu items and the fix for the ghosts of deleted gears; gives permission to write to that branch)
