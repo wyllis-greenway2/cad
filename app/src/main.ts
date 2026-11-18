@@ -55,6 +55,7 @@ import { createAddChip } from "./ui/addchip.ts";
 import { createPreviewBar } from "./ui/previewbar.ts";
 import { createMotionBar } from "./ui/motionbar.ts";
 import { tickMotion } from "./interaction/motion.ts";
+import { solveContact } from "./interaction/contact.ts";
 import { createChip } from "./ui/chip.ts";
 import { createSheetChips } from "./ui/sheetchips.ts";
 import { createWorldOrb } from "./ui/worldorb.ts";
@@ -557,7 +558,7 @@ function frame(now: number) {
   const tStart = performance.now();
   if (drawnAt !== null) { timing.add("browser: from a drawn frame to the next one (commit, the graphics card, the screen's refresh)", tStart - drawnAt); drawnAt = null; }
   if (state.anim || state.flash || state.mixT0 !== null) { state = advance(state, now); dirty = true; }
-  if (state.motion?.playing) { state = { ...state, motion: tickMotion(state.motion, now) }; dirty = true; } // (a joint that is being played: the clock moves it on, and the picture is made again every frame, `dec_mechanism_motion`)
+  if (state.motion?.playing) { state = { ...state, motion: solveContact(scene(state.session), tickMotion(state.motion, now), state.session.outcome) }; dirty = true; } // (a joint that is being played: the clock moves it on, and the picture is made again every frame, `dec_mechanism_motion`)
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading || state.flash) {
     const size = view.size();

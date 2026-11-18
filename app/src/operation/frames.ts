@@ -13,9 +13,19 @@ const mul = (m: Mat3, v: Vec3): Vec3 => [m[0] * v[0] + m[1] * v[1] + m[2] * v[2]
 export const applyPoint = (r: Rigid, p: Vec3): Vec3 => { const q = mul(r.turn, p); return [r.k * q[0] + r.shift[0], r.k * q[1] + r.shift[1], r.k * q[2] + r.shift[2]]; };
 export const applyDir = (r: Rigid, d: Vec3): Vec3 => mul(r.turn, d);
 /** a, then b. */
-const compose = (a: Rigid, b: Rigid): Rigid => ({ turn: then(a.turn, b.turn), shift: applyPoint(b, a.shift), k: a.k * b.k });
+export const compose = (a: Rigid, b: Rigid): Rigid => ({ turn: then(a.turn, b.turn), shift: applyPoint(b, a.shift), k: a.k * b.k });
 export const inverse = (r: Rigid): Rigid => { const t = transpose(r.turn); const s = mul(t, r.shift); return { turn: t, shift: [-s[0] / r.k, -s[1] / r.k, -s[2] / r.k], k: 1 / r.k }; };
 
+/** A turn of `deg` degrees about the axis through `point` with direction `dir` (the right hand rule), or a slide of `mm` along `dir`: the motion of a joint, as a rigid motion. */
+export function jointOf(kind: "turn" | "slide", point: Vec3, dir: Vec3, amount: number): Rigid {
+  const l = Math.hypot(dir[0], dir[1], dir[2]) || 1;
+  const d: Vec3 = [dir[0] / l, dir[1] / l, dir[2] / l];
+  if (kind === "slide") return { turn: [1, 0, 0, 0, 1, 0, 0, 0, 1], shift: [d[0] * amount, d[1] * amount, d[2] * amount], k: 1 };
+  const a = (amount * Math.PI) / 180, [c, s] = [Math.cos(amount * Math.PI / 180), Math.sin(a)], t = 1 - c;
+  const turn: Mat3 = [t * d[0] * d[0] + c, t * d[0] * d[1] - s * d[2], t * d[0] * d[2] + s * d[1], t * d[0] * d[1] + s * d[2], t * d[1] * d[1] + c, t * d[1] * d[2] - s * d[0], t * d[0] * d[2] - s * d[1], t * d[1] * d[2] + s * d[0], t * d[2] * d[2] + c];
+  const q = mul(turn, point);
+  return { turn, shift: [point[0] - q[0], point[1] - q[1], point[2] - q[2]], k: 1 };
+}
 /** The motion one step of the whole body makes, when the sketches were carried along with it (`follow`), else null (older steps, and anything that is not a move or a turn). */
 function stepMotion(st: Step): Rigid | null {
   return Number(st.params.follow) === 1 ? motionOf(st) : null;

@@ -21,7 +21,7 @@ import { lineHint, arcEndHint, hintRelations, circleCentredAt, anchorCentreAt, p
 import type { Hint } from "../hints.ts";
 import { snapOnPlane, guidesOf, finish, planeForDrawing, armTool, pointOnPlane, canHelix, meshSuggestion, snapToMesh } from "../tools.ts";
 import { splineEdit } from "../splineedit.ts";
-import { startMotion } from "../motion.ts";
+import { startPlain } from "../motion.ts";
 import { gearOfBody } from "../../operation/gearcouple.ts";
 import { trimAt } from "../../operation/trim.ts";
 import type { Command } from "../../operation/commands.ts";
@@ -154,7 +154,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   const leaf = new Map<string, MenuItem>(LEAVES.map((r) => {
     const base = { id: r.id, label: r.label, icon: r.icon };
     if (repeating && !IN_REPEAT.has(r.id)) return [r.id, { ...base, enabled: false, why: "apply or cancel the repeat that is open first" }];
-    if (r.id === "motion:play") { const body = sel.find((x) => sc.parts[x]?.kind === "body"); const m = body ? startMotion(sc, body, "turn") : null; return [r.id, { ...base, enabled: !!m?.ok, why: m?.ok ? null : "select a body on a pin or a rod (the first body of a coaxial mate)" }]; }
+    if (r.id === "motion:play") { const body = sel.find((x) => sc.parts[x]?.kind === "body"); const m = body ? startPlain(sc, body, "turn") : null; return [r.id, { ...base, enabled: !!m?.ok, why: m?.ok ? null : "select a body on a pin or a rod (the first body of a coaxial mate)" }]; }
     if (r.id === "motion:link") { const n = sel.filter((x) => sc.parts[x]?.kind === "body").length; return [r.id, { ...base, enabled: n === 2, why: n === 2 ? null : "select two bodies that each turn on a pin or slide on a rod" }]; }
     if (r.id === "cam:follow") { const has = sel.some((x) => sc.parts[x]?.kind === "body" && !!gearOfBody(sc, x)?.spec.cam); return [r.id, { ...base, enabled: has, why: has ? null : "select a cam with its body, then the rod that rides it" }]; }
     if (r.id === "cam:edit") { const has = sel.some((x) => !!gearOfPart(sc, x)?.spec.cam); return [r.id, { ...base, enabled: has, why: has ? null : "select a cam" }]; }

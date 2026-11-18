@@ -3960,3 +3960,18 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_903 — 2026-11-18 — question
 > [attached four PDFs: Gear_Theory2.pdf, bevelgear.pdf, hobbed.pdf, 19910018232-cut1.pdf (NASA CR 4383, 100 pages of it)] Didn't you need me to share these with you?
 (the human sent the papers the AI had said it was waiting for; the AI had gone ahead meanwhile with a derivation from the general gearing law)
+## in_904 — 2026-11-19 — directive
+> yes please start
+(asks for the contact push to be built in the app, starting with the Geneva)
+
+## in_905 — 2026-11-19 — directive
+> lets not merge just yet, what else is there to builld?
+(asks what else there is to build; the AI listed it)
+
+## in_906 — 2026-11-19 — directive
+> Okay lets work in your suggested order
+(approves the AI's order: try the contact push on a ratchet, a gear train and a cam follower, adding rest values and sliding yielders as the cases need them; then the depth rule and the time budget; then a joint solver for linkages)
+
+## in_907 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for the branch `claude/adoring-dijkstra-contact-push` to be merged into the testing branch)
