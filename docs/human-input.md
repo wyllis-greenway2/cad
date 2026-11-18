@@ -3993,3 +3993,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_911 — 2026-11-19 — directive
 > Okay now lets make it easier to setup animations. So first off, I think that you should just be able to select any object and turn it into a rotating object. This would be the one that would have the play button on click. Then it should just interact however it does with collisions or linkages. So my second question is, for the linkages, do we only need the normal constraints we already had, or do we still need the special animations linkages?
 (asks for a way to make any selected object a rotating one with a play button, interacting by collision or linkage; and asks whether the normal constraints are enough or the special animation linkages are still needed: the AI answered and proposed a design, not yet built)
+
+## in_912 — 2026-11-19 — directive
+> why cant a body just rotate? you say this body rotates and define a pivot point. Probably by selecting a curved face. Or just defining a pivot point in free space with the orb mover tool thing.
+(answers the AI's question about how to set the axis of a body that is made to turn: a selected curved face, or a pivot point set with the orb mover tool; read as approval to build it that way)

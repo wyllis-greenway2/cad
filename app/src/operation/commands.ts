@@ -18,6 +18,7 @@ import { stretchScene } from "./stretch.ts";
 import { addPattern, setPattern, breakPattern, patternsWithout } from "./repeat.ts";
 import { addGear, setGear, deleteGear, ownedSteps } from "./gearscene.ts";
 import { addCoupling, setCoupling, deleteCoupling } from "./coupling.ts";
+import { setPivot, deletePivot } from "./pivot.ts";
 import { addPlanetary, setPlanetary, deletePlanetary } from "./planetary.ts";
 import type { PlanetarySpec } from "./planetary.ts";
 import type { GearSpec } from "./gear.ts";
@@ -79,6 +80,9 @@ export type Command =
   | { type: "couple"; a: string; b: string; ka: "turn" | "slide"; kb: "turn" | "slide"; ratio: number; id?: string }
   | { type: "setCoupling"; id: string; ratio?: number; ka?: "turn" | "slide"; kb?: "turn" | "slide" }
   | { type: "deleteCoupling"; id: string }
+  /** a body that turns about an axis of its own (`pivot.ts`): the body's id, a point of the axis and its direction; `deletePivot` makes it still again */
+  | { type: "pivot"; body: string; point: Vec3; dir: Vec3 }
+  | { type: "deletePivot"; body: string }
   /** a planetary set that keeps its numbers (`planetary.ts`, `dec_planetary_gears`): a sun, planets and a ring (gear records of their own) and an optional carrier; `setPlanetary` gives it new numbers (and a new centre or turn), `deletePlanetary` takes it all away */
   | { type: "planetary"; id: string; plane: Ref; at: Vec3; spec: PlanetarySpec; /** radians */ turn?: number }
   | { type: "setPlanetary"; id: string; spec: PlanetarySpec; at?: Vec3; turn?: number }
@@ -329,6 +333,8 @@ export function apply(s: Scene, c: Command): Result<Scene> {
     case "couple": return addCoupling(s, c);
     case "setCoupling": return setCoupling(s, c.id, { ...(c.ratio !== undefined ? { ratio: c.ratio } : {}), ...(c.ka ? { ka: c.ka } : {}), ...(c.kb ? { kb: c.kb } : {}) });
     case "deleteCoupling": return deleteCoupling(s, c.id);
+    case "pivot": return setPivot(s, c.body, c.point, c.dir);
+    case "deletePivot": return deletePivot(s, c.body);
     case "planetary": return addPlanetary(s, { id: c.id, plane: c.plane, at: c.at, spec: c.spec, ...(c.turn ? { turn: c.turn } : {}) });
     case "setPlanetary": return setPlanetary(s, c.id, c.spec, c.at, c.turn);
     case "deletePlanetary": return deletePlanetary(s, c.id);
