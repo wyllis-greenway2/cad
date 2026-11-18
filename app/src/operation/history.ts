@@ -33,11 +33,26 @@ const lean = (s: Scene): Scene => {
   for (const p of Object.values(s.parts)) if (p.origin !== "body") parts[p.ref] = p;
   return { ...s, parts, lean: true };
 };
-/** The snapshots with the one that has just left the whole ones made lean. */
+/**
+ * The most parts the whole snapshots may hold together (`in_913`): thirty whole snapshots of a scene of a hundred thousand parts (ten spur gears: 290 faces each) were 400 MB, and thirty gears 1.7 GB; the newest two are always whole,
+ * and the others while they are within the number of snapshots and of parts.
+ */
+let WHOLE_PARTS = 150000;
+/** (for tests) the budget of parts for the whole snapshots */
+export function setWholeBudget(n: number): void { WHOLE_PARTS = n; }
+const partsKept = new WeakMap<Scene, number>();
+const partsIn = (s: Scene): number => { let n = partsKept.get(s); if (n === undefined) { n = Object.keys(s.parts).length; partsKept.set(s, n); } return n; };
+/** The snapshots with the ones that have left the whole ones (by their number or by the parts they hold) made lean. */
 const thin = (snapshots: readonly Scene[]): Scene[] => {
   const out = [...snapshots];
-  const m = out.length - 1 - KEEP_WHOLE;
-  if (m > 0 && out[m]) out[m] = lean(out[m]!);
+  let held = 0;
+  for (let i = out.length - 1; i > 0; i--) {
+    const sc = out[i]!;
+    if (sc.lean) break; // (all the older ones are lean already)
+    const fromEnd = out.length - 1 - i;
+    held += partsIn(sc);
+    if (fromEnd >= 2 && (fromEnd > KEEP_WHOLE || held > WHOLE_PARTS)) out[i] = lean(sc);
+  }
   return out;
 };
 /** The scene after the first `i` commands, whole: a lean one has its body parts made again. */
@@ -130,7 +145,7 @@ export function replay(base: Scene, commands: readonly Command[], cursor = comma
     scene = derived ? d(r.value) : r.value;
     snapshots.push(whole ? scene : derived ? lean(scene) : { ...scene, lean: true }); // (a scene not derived has no body parts to take out)
   }
-  let cur: History = { derive: d, base, commands: [...commands], cursor: n, scene, snapshots };
+  let cur: History = { derive: d, base, commands: [...commands], cursor: n, scene, snapshots: thin(snapshots) };
   while (cur.cursor > cursor) cur = undo(cur);
   return ok(cur);
 }

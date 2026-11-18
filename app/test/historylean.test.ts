@@ -45,3 +45,19 @@ test("undo and redo through a long history keep the same bodies at each step", (
   for (let k = 0; k < 12; k++) u = redoLast(u);
   assert.equal(bodies(u), 20);
 });
+
+test("a scene of many parts keeps fewer snapshots whole: the budget is in parts, not only in steps (`in_913`)", async () => {
+  const { setWholeBudget } = await import("../src/operation/history.ts");
+  let s = createSession(kernel);
+  setWholeBudget(300); // (a scene of this model's size is 40 parts a box: seven or eight snapshots)
+  try {
+    for (let i = 0; i < 10; i++) s = addBox(s, i);
+    const snaps = s.history.snapshots;
+    const whole = snaps.filter((x) => !x.lean).length;
+    assert.ok(whole >= 3 && whole < 14, `${whole} whole of ${snaps.length}`);
+    assert.ok(!snaps.at(-1)!.lean && !snaps.at(-2)!.lean, "the newest two are whole");
+    assert.equal(snaps[6]!.lean, true, "an older one of this big scene is lean");
+    const back = goToCursor(s, 6);
+    assert.equal(bodies(back), 3, "and going back to it has its bodies again");
+  } finally { setWholeBudget(150000); }
+});

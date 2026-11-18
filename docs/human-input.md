@@ -3996,3 +3996,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_912 — 2026-11-18 — approval
 > yes
 (approves extending the differential test to parts with modifying steps (fillets, holes, moves), revolves, lofts and sweeps, as recommended)
+
+## in_913 — 2026-11-18 — question
+> okay so how are we looking? do we have a fast system that can handle lots of complex parts like gears etc?
+(asks for the state of the speed work: whether the system is fast and can handle many complex parts such as gears)
