@@ -115,3 +115,17 @@ test("a wheel's two end faces keep the names of their roles and every flank face
   assert.ok(names.some((n) => /:end$/.test(n)));
   assert.equal(new Set(names).size, names.length, "no two faces share a name");
 });
+
+test("wheels one beside another stay two bodies with their own names (`in_827`: the exact box of a thousand faces and every old name against every face were quick for one wheel and not for two)", () => {
+  let s = createSession(kernel);
+  for (let i = 0; i < 3; i++) {
+    s = run(s, { type: "gear", id: `g_00${i + 1}`, plane: worldRef("XY"), at: [i * 80, 0, 0], spec: wheel(30 + i) });
+  }
+  const bodies = Object.values(scene(s).parts).filter((p) => p.kind === "body");
+  assert.equal(bodies.length, 3);
+  assert.equal(new Set(bodies.map((b) => b.ref)).size, 3);
+  const k = (s.outcome as unknown as { kernel: { faceNames: { name: string }[]; ops: { error: string | null }[] } }).kernel;
+  assert.deepEqual(k.ops.map((o) => o.error).filter(Boolean), []);
+  const names = k.faceNames.map((f) => f.name);
+  assert.equal(new Set(names).size, names.length, "no two faces share a name");
+});

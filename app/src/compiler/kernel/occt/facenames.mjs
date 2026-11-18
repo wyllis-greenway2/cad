@@ -181,7 +181,10 @@ export function nameFaces(prev, tf, shape, opId, roles) {
       for (const i of surfs) {
         const f = faces[i];
         if (taken.has(i) || f.type !== m.type) continue;
-        const gap = Math.max(...[0, 1, 2].flatMap((k) => [Math.abs(f.lo[k] - m.lo[k]), Math.abs(f.hi[k] - m.hi[k])]));
+        // (the largest difference of the two boxes' corners, given up as soon as it is more than is allowed or than the best so far: a body of five thousand faces looked at every old name against every face, building arrays, was seconds, `in_827`)
+        const limit = Math.min(tol * 2, bestGap);
+        let gap = 0;
+        for (let k = 0; k < 3 && gap <= limit; k++) { const a = Math.abs(f.lo[k] - m.lo[k]), b = Math.abs(f.hi[k] - m.hi[k]); if (a > gap) gap = a; if (b > gap) gap = b; }
         if (gap <= tol * 2 && gap < bestGap) { best = i; bestGap = gap; }
       }
       if (best >= 0) { taken.add(best); given[best] = m.name; }

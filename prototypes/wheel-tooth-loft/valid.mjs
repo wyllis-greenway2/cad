@@ -4,7 +4,7 @@ import { init } from "../../app/src/compiler/kernel/occt/evaluate.mjs";
 import { wheelSections } from "../../app/src/operation/wheelsections.ts";
 await init();
 const oc = getOC(); const Z = Number(process.env.Z ?? 100);
-const secs = wheelSections({ teeth: Z, module: 2, wheel: { diameter: 24, starts: 1, width: 10 } }).value;
+const secs = wheelSections({ teeth: Z, module: Number(process.env.M ?? 2), wheel: { diameter: 24, starts: 1, width: 10 } }).value;
 const mid = (a, b, bu) => [(a[0] + b[0]) / 2 - bu * (b[1] - a[1]), (a[1] + b[1]) / 2 + bu * (b[0] - a[0])];
 const sk = secs.map((s) => { const N = s.points.length; let pen = draw(s.points[0]); for (let i = 0; i < N; i++) { const [a, b] = [s.points[i], s.points[(i + 1) % N]]; if (i === N - 1) { pen = s.bulges[i] ? pen.threePointsArcTo(b, mid(a, b, s.bulges[i])) : pen.lineTo(b); } else pen = s.bulges[i] ? pen.threePointsArcTo(b, mid(a, b, s.bulges[i])) : pen.lineTo(b); } return pen.close().sketchOnPlane("XY", s.h); });
 const b = new oc.BRepOffsetAPI_ThruSections(true, false, 1e-6); b.CheckCompatibility(false); for (const s of sk) b.AddWire(s.wire.wrapped); b.Build();

@@ -24,6 +24,8 @@ function rig(opts: { restartMb?: number; hardMb?: number } = {}) {
 
 test("a thread whose memory has grown past the limit is restarted when nothing waits, and the next job goes to the new one", () => {
   const { k, workers } = rig({ restartMb: 1000 });
+  k.evaluate(graph(0));
+  workers[0]!.answer(300); // (its first answer: what the model takes from nothing)
   k.evaluate(graph(1));
   workers[0]!.answer(1500);
   assert.equal(workers.length, 2, "a new thread was started");
@@ -47,6 +49,8 @@ test("a thread that has not grown past the limit is left alone", () => {
 
 test("with a job waiting the thread is not restarted for the soft limit, but is when nothing waits any more", () => {
   const { k, workers } = rig({ restartMb: 1000, hardMb: 3000 });
+  k.evaluate(graph(0));
+  workers[0]!.answer(300);
   k.evaluate(graph(1));
   k.evaluate(graph(2)); // (the newest request is kept while the first is worked on)
   workers[0]!.answer(1500);
@@ -58,6 +62,8 @@ test("with a job waiting the thread is not restarted for the soft limit, but is 
 
 test("past the hard limit the thread is restarted even though a job waits, and the job goes to the new one", () => {
   const { k, workers } = rig({ restartMb: 1000, hardMb: 2000 });
+  k.evaluate(graph(0));
+  workers[0]!.answer(300);
   k.evaluate(graph(1));
   k.evaluate(graph(2));
   workers[0]!.answer(2500);
@@ -65,4 +71,17 @@ test("past the hard limit the thread is restarted even though a job waits, and t
   assert.equal(workers[0]!.posted.length, 0);
   workers[1]!.ready();
   assert.equal(workers[1]!.posted.length, 1, "the waiting job was given to the new thread");
+});
+
+test("a model that needs more than the limit from the start does not have its thread restarted after every answer (`in_827`): only when it has grown well beyond what making it takes", () => {
+  const { k, workers } = rig({ restartMb: 1000, hardMb: 3000 });
+  k.evaluate(graph(1));
+  workers[0]!.answer(1500); // (the first answer: already over the limit)
+  assert.equal(workers.length, 1);
+  k.evaluate(graph(2));
+  workers[0]!.answer(1600);
+  assert.equal(workers.length, 1, "a little more: left alone");
+  k.evaluate(graph(3));
+  workers[0]!.answer(2200);
+  assert.equal(workers.length, 2, "grown by more than two fifths of its first answer: restarted");
 });

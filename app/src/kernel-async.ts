@@ -33,6 +33,8 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   const respawn = opts.respawn ?? spawn;
   const [restartMb, hardMb] = [opts.restartMb ?? 1800, opts.hardMb ?? 3000];
   let heapMb = 0; // (how big the thread's memory has grown, as its last answer said)
+  let baseMb = 0; // (how big it was at its first answer: what making the model from nothing takes. A thread is restarted only when it has grown well beyond this: a model that needs more than the limit would otherwise be restarted after every answer and made again from nothing each time, `in_827`)
+  const grown = () => heapMb > baseMb * 1.4;
   let worker = first;
   let up = false; // (the current worker has said it is ready)
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -46,6 +48,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   const restart = (why: string) => {
     console.warn(`the kernel's thread is restarted: its memory has grown to ${heapMb} MB (${why})`);
     heapMb = 0;
+    baseMb = 0;
     up = false;
     try { worker.terminate?.(); } catch { /* (already gone) */ }
     worker = respawn();
@@ -53,7 +56,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   };
   const pump = () => {
     if (busy) return;
-    if (heapMb > hardMb && up) { restart("too big to go on"); return; } // (the jobs wait for the new thread: it says when it is ready, and the next pump posts them)
+    if (heapMb > hardMb && grown() && up) { restart("too big to go on"); return; } // (the jobs wait for the new thread: it says when it is ready, and the next pump posts them)
     if (!up) return;
     const wanted = exports.shift();
     if (wanted) {
@@ -98,7 +101,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     if (!job || job.id !== m.id) return; // (the answer to a job that was given up)
     busy = null;
     if (timer) clearTimeout(timer);
-    if (typeof m.heapMB === "number") heapMb = m.heapMB;
+    if (typeof m.heapMB === "number") { heapMb = m.heapMB; if (!baseMb) baseMb = heapMb; }
     if (job.asked) {
       job.asked.resolve(m.exported ?? { ok: false, error: m.failed ?? "the kernel could not make the mesh" });
       pump();
@@ -117,7 +120,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
       last = m.result;
       onChange();
     }
-    if (heapMb > restartMb && !queued && exports.length === 0) { restart("nothing is waiting"); return; }
+    if (heapMb > restartMb && grown() && !queued && exports.length === 0) { restart("nothing is waiting"); return; }
     pump();
   };
   const attach = (w: WorkerLike) => {

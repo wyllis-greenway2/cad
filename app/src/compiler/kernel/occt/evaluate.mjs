@@ -9,8 +9,8 @@ import { cornerEdges } from "../../../shared/sharp.mjs";
 
 const described = new Map();
 const lumpDescribed = new Map();
-/** The most triangles the kept descriptions of bodies hold together (about 40 MB). */
-const DESCRIBED_TRIANGLES = 400000;
+/** The most triangles the kept descriptions of bodies hold together (about 100 MB). */
+const DESCRIBED_TRIANGLES = 1000000;
 /** The angle (degrees) at which the surface turns a corner that is drawn as an edge: the page's `settings.extrude.edgeAngleDeg`, which the page checks against the answer's `sharpDeg` (it searches itself if they differ). */
 const EDGE_ANGLE_DEG = 30;
 const copyOf = (d) => ({
