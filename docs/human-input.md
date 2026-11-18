@@ -3850,3 +3850,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_875 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks to merge this branch's work into claude/inspiring-pascal-l342k7: the explicit permission to write to that branch for this merge)
+
+## in_876 — 2026-11-18 — directive
+> yes look at the quadratic edit cost next
+(approves looking at the quadratic cost of editing an early part of a model of many parts)
