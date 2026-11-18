@@ -3,7 +3,7 @@ id: q_progressive_load
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_906, in_907
+human_input: in_906, in_907, in_908
 date: 2026-11-18
 depends_on:
   - q_limits_and_failures: the measured limits (a project of 300 separate parts 17 s to open, 1000 parts a 33 s freeze, about 961 bodies at the kernel's 4 GB) are what this is meant to remove
@@ -46,6 +46,11 @@ depends_on:
 **6. Layers and their order.** *L0 ghost* (page only: every body's box or prism from its sketch and depth, a gear as its disc) for all bodies at once, drawn as one batch; *L1 coarse* (a draft mesh, or a cached one); *L2 full*; *L3 named* (faces, edges, corners, only for the body looked at or selected, and for what a step in hand needs); *L4 exact* (on demand). **The order of work:** a body is made after the bodies it is joined to (dependency, from 1), and among bodies that are free of each other by the camera: selected, in view and near (by the size it has on the screen), in view and far, out of view; each time the camera or the selection moves the order is made again and what is no longer wanted is dropped. Two or three kernel threads could take free bodies side by side (four cores here; each has its own memory, so the total needs care).
 
 **Recommended first steps (nothing built):** (1) write the table of operations and their levels from the code (a document, a day's reading); (2) the **differential test harness** with the kernel as it is (a project built in pieces in random orders must equal the one-shot: this tells how independent the bodies really are, before any screen is touched); (3) Phase 0 of the first section; (4) then the ghost layer and the gating, on a branch.
+
+## First steps done (`in_908`)
+
+1. **The table of what each thing needs** is written: `docs/progressive-levels.md` (every command, what the person does with the view, what a ghost needs, from the code).
+2. **The differential harness** is built (`prototypes/progressive`) and run: groups of independent steps built alone and in other orders give the same bodies, volumes, boxes and face names (17 groups, 17 bodies, 6 other orders, no difference on five made assemblies; the two pattern grids among the 70 fixtures are one group once a pattern is seen to use its source: the first, wrong grouping built the pattern without its source and the harness found that at once: 162 differences). **Not covered yet:** groups with modifying steps, revolves, lofts and sweeps, a body that moves, edits in the middle of a load. Still open: Phase 0 and the rest.
 
 ## Rationale
 

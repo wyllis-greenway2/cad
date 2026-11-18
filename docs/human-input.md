@@ -3976,3 +3976,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_907 — 2026-11-18 — question
 > how can we be sure letting the user interact before it is fully loaded doesn't break or do weird stuff? should we load in relationships first to know what could break and what the user should safely be allowed to touch? Also should we uses caching for speed? and how about layering it so everything gets loaded as quickly as possible? Maybe load via dependency from relationship information at least in really rough mesh or coarse ghost / donut etc, and also relative to closeness to the camera etc?
 (asks how to be sure that interacting before a model is fully loaded does not break anything: loading the relationships first to know what can break and what the user may safely touch; whether to use caching; and layering the load, by dependency and by closeness to the camera, with rough meshes or ghosts first)
+
+## in_908 — 2026-11-18 — directive
+> okay build it please
+(approves building the first steps of the progressive loading plan: the table of what each operation needs, and the differential test harness)
