@@ -307,7 +307,7 @@ function holesValues(): { values: ReceiverValues; mode: HolePanelView["mode"] } 
   if (!ctx) return { values: v, mode: "none" };
   if (ctx.places) return { values: { ...v, place: "picked" }, mode: "picked" };
   if (ctx.lines) return { values: { ...v, place: "lines", corners: "ignore" }, mode: "line" }; // (a line has no corners to keep: its ends are its ends)
-  // a face: the lines its edges give (`in_951`): the edges stepped in, or one edge stepped in (an edge selected with the face, else the longest), or that edge stepped in to the middle of the face
+  // a face: the lines its edges give (`in_958`): the edges stepped in, or one edge stepped in (an edge selected with the face, else the longest), or that edge stepped in to the middle of the face
   const rows = v.rows === "edge" || v.rows === "midline" ? v.rows : ctx.edges ? "edge" : "outline";
   return { values: { ...v, place: rows, ...(v.by === "count" && v.corners === "inward" ? { corners: "each" } : {}) }, mode: "face" }; // (counting the holes with a hole at every corner: the corners are some of the count; working in from the corners needs a distance)
 }

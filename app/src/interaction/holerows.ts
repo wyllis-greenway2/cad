@@ -1,4 +1,4 @@
-// Rows of holes from the edges a face has (`dec_parts_tool`, `in_951`): the tool does not know flat faces from round ones. A surface gives its outline and a way to turn a point of its own two directions into a place with a way in; the rules
+// Rows of holes from the edges a face has (`dec_parts_tool`, `in_958`): the tool does not know flat faces from round ones. A surface gives its outline and a way to turn a point of its own two directions into a place with a way in; the rules
 // here make lines from the outline (the edges stepped in, one edge stepped in, one edge stepped in to the middle of the face, or the lines drawn) and each line is repeated like any line (`operation/pathrepeat.ts`), once or in several rows.
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";

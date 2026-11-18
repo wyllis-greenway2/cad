@@ -84,7 +84,7 @@ test("a hole to tap in a row: every place gets the same receiver and the depth a
   assert.ok(r.ok, r.ok ? "" : r.error);
   near(total(r.value), V - 5 * cyl(4.2, 6)); // (80 / 20: five places)
 });
-test("an edge of the body selected with the face is one edge stepped in: holes along it, the inset in from it (`in_951`)", () => {
+test("an edge of the body selected with the face is one edge stepped in: holes along it, the inset in from it (`in_958`)", () => {
   const { s, top, V } = block();
   const sc = scene(s);
   const edge = Object.values(sc.parts).find((p) => p.kind === "line" && p.origin === "body" && !p.circle && p.ref.includes("e@0,0,8~100,0,8"))!.ref;
@@ -355,7 +355,7 @@ test("a lid on an object cut as drill + tap: clearance in the lid, the pilot in 
   near(before - hosts, cyl(4.5, 5) + cyl(3.3, 6), 0.01);
 });
 
-// ---- the lines a face's edges give, the same on a flat face and a round one (`in_951`) ----
+// ---- the lines a face's edges give, the same on a flat face and a round one (`in_958`) ----
 test("one edge stepped in to the middle of a flat face, and rows either side of it", () => {
   const { s } = block();
   const mid = receiverPlan(s, vals({ place: "midline", by: "count", value: "3", corners: "ignore" }));

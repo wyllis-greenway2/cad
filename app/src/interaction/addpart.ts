@@ -107,7 +107,7 @@ export function addPart(session: Session, v: AddPartValues): Result<Session> {
 }
 
 // ---- the receivers: the hole or pocket a fastener goes into, cut into the body whose face is selected ----
-export interface ReceiverValues extends Partial<PathRepeatValues> { kind: string; size: string; fit: string; depth: string; dx: string; dy: string; /** where the holes go: "centre" (the middle of the face), "picked" (the corners and circles selected), "outline" (along the face's outline) or "lines" (along the lines selected), `in_845` */ place?: string; /** a hole to tap: the thread engagement in percent; empty is the chart's tap drill */ engagement?: string; /** a nut pocket on the far side of the body as well ("nut"), or none (`in_909`) */ far?: string; /** a drill then tap: how deep the clearance part goes, mm (empty: the tapped part is 1.5 diameters), `in_910` */ drill?: string; /** "screw": the hardware is put into the holes as bodies (the screw, and the nut of a pocket); "none" (the default), `in_910` */ insert?: string; /** the screw's length, mm; empty is the longest standard length that fits */ length?: string; /** which line a face gives the rows (`in_951`): "outline" (its edges stepped in, the default), "edge" (one edge stepped in) or "midline" (one edge stepped in to the middle of the face) */ rows?: string; /** how many rows, and how far apart (mm) */ rowCount?: string; rowGap?: string }
+export interface ReceiverValues extends Partial<PathRepeatValues> { kind: string; size: string; fit: string; depth: string; dx: string; dy: string; /** where the holes go: "centre" (the middle of the face), "picked" (the corners and circles selected), "outline" (along the face's outline) or "lines" (along the lines selected), `in_845` */ place?: string; /** a hole to tap: the thread engagement in percent; empty is the chart's tap drill */ engagement?: string; /** a nut pocket on the far side of the body as well ("nut"), or none (`in_909`) */ far?: string; /** a drill then tap: how deep the clearance part goes, mm (empty: the tapped part is 1.5 diameters), `in_910` */ drill?: string; /** "screw": the hardware is put into the holes as bodies (the screw, and the nut of a pocket); "none" (the default), `in_910` */ insert?: string; /** the screw's length, mm; empty is the longest standard length that fits */ length?: string; /** which line a face gives the rows (`in_958`): "outline" (its edges stepped in, the default), "edge" (one edge stepped in) or "midline" (one edge stepped in to the middle of the face) */ rows?: string; /** how many rows, and how far apart (mm) */ rowCount?: string; rowGap?: string }
 export const receiverStart = (): ReceiverValues => ({ kind: "clearance", size: "M3", fit: "medium", depth: "", dx: "0", dy: "0", engagement: "", ...pathRepeatStart(), value: "30", corners: "each", offset: "10", far: "none", drill: "", insert: "none", length: "", rows: "outline", rowCount: "1", rowGap: "8" });
 const kindOf = (s: string): ReceiverKind => (RECEIVER_KINDS.find((k) => k.id === s)?.id ?? "clearance");
 const fitOf = (s: string): ClearanceFit => (s === "fine" || s === "coarse" ? s : "medium");
@@ -187,7 +187,7 @@ export function selectedFace(session: Session): Result<{ spot: FaceSpot; through
 export const whyNoReceiver = (session: Session): string | null => { const f = selectedFace(session); return f.ok ? null : f.error; };
 
 /** What the selection offers for placing the holes: how many places were picked, how many lines, and the face's outline and the lines as paths (or why they are not). */
-export interface ReceiverContext { /** the surface is a round face (`in_929`) */ curved?: boolean; /** the edges of the face selected with it (`in_951`) */ edges: number; places: number; /** the lines drawn on a plane that are selected: a path of their own */ lines: number; outline: Result<Path> | null; linePath: Result<Path> | null }
+export interface ReceiverContext { /** the surface is a round face (`in_929`) */ curved?: boolean; /** the edges of the face selected with it (`in_958`) */ edges: number; places: number; /** the lines drawn on a plane that are selected: a path of their own */ lines: number; outline: Result<Path> | null; linePath: Result<Path> | null }
 export function receiverContext(session: Session): ReceiverContext | null {
   const sc = scene(session);
   const round = selectedRound(session);
@@ -388,7 +388,7 @@ export function receiverPlan(session: Session, v: ReceiverValues): Result<Receiv
   return ok({ kind, size: v.size as FastenerSize, fit: fitOf(v.fit), depth, engagement, spot: sp, places, far, spacing, guide, reach: face.value.reach, stack, drill, insert, spots: places.map((c, i) => ({ ...spots[i]!, centre: c })), curved: false });
 }
 
-/** How many rows and how far apart (`in_951`). */
+/** How many rows and how far apart (`in_958`). */
 function rowNumbers(v: ReceiverValues): Result<{ count: number; gap: number }> {
   const n = (v.rowCount ?? "1").trim() === "" ? 1 : Number(v.rowCount);
   const g = (v.rowGap ?? "8").trim() === "" ? 0 : typedLength(v.rowGap!);
