@@ -18,4 +18,4 @@ export { faceEdges } from "./offsetbody.ts";
 export { edgeCentre, sketchOfEdge } from "../operation/edgesource.ts";
 
 export type { StandIn } from "./standin.ts";
-export { STANDIN_MS } from "./standin.ts";
+export { STANDIN_MS, standInWords } from "./standin.ts";

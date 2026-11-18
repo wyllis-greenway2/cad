@@ -26,11 +26,15 @@ const failedResult = (graph: KernelGraph, error: string, ms = 0): KernelResult =
  * `limitMs`: how long a job may take (`in_255`: a body scaled to half a million times its size did not come back from the kernel, and with the worker stuck on it nothing after it was ever answered). A job that
  * takes longer is given up: the worker is stopped and a new one started, and the job is answered as an error, so the step that asked for it is refused and the page works again.
  */
-export function createAsyncKernel(onChange: () => void, first: WorkerLike = spawn(), opts: { limitMs?: number; respawn?: () => WorkerLike; /** answers kept from earlier sessions (`dec_description_cache`) */ store?: ResultStore | null } = {}): AsyncKernel {
+export function createAsyncKernel(onChange: () => void, first: WorkerLike = spawn(), opts: { limitMs?: number; respawn?: () => WorkerLike; /** the size (MB) the thread's memory may grow to before it is restarted when nothing waits (default 1800), and before it is restarted even though jobs wait (default 3000; the most the kernel can have is 4096) */ restartMb?: number; hardMb?: number; /** answers kept from earlier sessions (`dec_description_cache`) */ store?: ResultStore | null } = {}): AsyncKernel {
   const store = opts.store ?? null;
   const asked = new Set<string>(); // (the graphs the store has been asked for: once each)
   const limit = opts.limitMs ?? 60000;
   const respawn = opts.respawn ?? spawn;
+  const [restartMb, hardMb] = [opts.restartMb ?? 1800, opts.hardMb ?? 3000];
+  let heapMb = 0; // (how big the thread's memory has grown, as its last answer said)
+  let baseMb = 0; // (how big it was at its first answer: what making the model from nothing takes. A thread is restarted only when it has grown well beyond this: a model that needs more than the limit would otherwise be restarted after every answer and made again from nothing each time, `in_857`)
+  const grown = () => heapMb > baseMb * 1.4;
   let worker = first;
   let up = false; // (the current worker has said it is ready)
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -40,8 +44,20 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   const exports: { graph: KernelGraph; quality: ExportQuality; resolve: (r: ExportResult | StepResult) => void }[] = []; // (the exports waiting: each is answered, none is dropped for a newer one)
   let queued: { key: string; graph: KernelGraph; draft: boolean; lite: boolean; at: number } | null = null;
   let counter = 0;
+  /** A thread whose memory has grown big is stopped and a new one started (the memory of a kernel only grows: a heavy model leaves it big for the rest of the session, and the next edits add to it until the browser stops it). What it kept is lost: the next answer is worked out from nothing, and the answers the page has kept (the last few) are still shown. */
+  const restart = (why: string) => {
+    console.warn(`the kernel's thread is restarted: its memory has grown to ${heapMb} MB (${why})`);
+    heapMb = 0;
+    baseMb = 0;
+    up = false;
+    try { worker.terminate?.(); } catch { /* (already gone) */ }
+    worker = respawn();
+    attach(worker);
+  };
   const pump = () => {
-    if (busy || !up) return;
+    if (busy) return;
+    if (heapMb > hardMb && grown() && up) { restart("too big to go on"); return; } // (the jobs wait for the new thread: it says when it is ready, and the next pump posts them)
+    if (!up) return;
     const wanted = exports.shift();
     if (wanted) {
       const job = { id: ++counter, key: "", graph: wanted.graph, asked: { resolve: wanted.resolve } };
@@ -76,7 +92,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   let resolveReady: () => void = () => {};
   let rejectReady: (e: Error) => void = () => {};
   const ready = new Promise<void>((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
-  const onMessage = (e: MessageEvent<{ ready?: boolean; failed?: string; id?: number; result?: KernelResult; exported?: ExportResult | StepResult; at?: { started: number; sent: number } }>) => {
+  const onMessage = (e: MessageEvent<{ ready?: boolean; failed?: string; id?: number; heapMB?: number; result?: KernelResult; exported?: ExportResult | StepResult; at?: { started: number; sent: number } }>) => {
     const received = performance.timeOrigin + performance.now();
     const m = e.data;
     if (m.ready) { up = true; resolveReady(); pump(); return; }
@@ -85,6 +101,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     if (!job || job.id !== m.id) return; // (the answer to a job that was given up)
     busy = null;
     if (timer) clearTimeout(timer);
+    if (typeof m.heapMB === "number") { heapMb = m.heapMB; if (!baseMb) baseMb = heapMb; }
     if (job.asked) {
       job.asked.resolve(m.exported ?? { ok: false, error: m.failed ?? "the kernel could not make the mesh" });
       pump();
@@ -103,6 +120,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
       last = m.result;
       onChange();
     }
+    if (heapMb > restartMb && grown() && !queued && exports.length === 0) { restart("nothing is waiting"); return; }
     pump();
   };
   const attach = (w: WorkerLike) => {

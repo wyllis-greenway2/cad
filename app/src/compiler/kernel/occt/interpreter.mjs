@@ -641,20 +641,24 @@ const OPS = {
       const q = ctx.get(h, "sketch");
       return typeof q.plane === "string" ? q.drawing.sketchOnPlane(q.plane, q.origin ?? 0) : q.drawing.sketchOnPlane(q.plane, q.origin);
     };
-    const through = (ids, key) => {
+    const through = (ids, key, as = op) => {
       const sk = ids.map(sketchOf);
-      if (ctx.roleFigs) { try { ctx.roleFigs.set(key, loftRoles(ids.map((id, k) => ({ ends: edgeEnds(sk[k]), sides: ctx.get(id, "sketch").sides })), key === "main", !!op.smooth)); } catch { ctx.roleFigs.set(key, []); } } // (the roles of its faces by the sketches' own edges, read before they are used up: `dec_stable_reference_mechanism`)
-      const made = sk[0].loftWith(sk.slice(1), { ruled: !op.smooth });
+      // a worm wheel (`op.matched`): only its two end faces are named by their roles; its thousand flank faces get the names of new faces (the gear is one feature, `dec_gear_feature`, and the roles of a thousand sides cost 1 s of a 100 tooth wheel: a box for each side, every face looked against every box)
+      if (ctx.roleFigs) { try { ctx.roleFigs.set(key, op.matched ? loftRoles([0, ids.length - 1].map((k) => ({ ends: edgeEnds(sk[k]), sides: [] })), key === "main", false, true) : loftRoles(ids.map((id, k) => ({ ends: edgeEnds(sk[k]), sides: ctx.get(id, "sketch").sides })), key === "main", !!op.smooth)); } catch { ctx.roleFigs.set(key, []); } } // (the roles of its faces by the sketches' own edges, read before they are used up: `dec_stable_reference_mechanism`)
+      // sections that are known to match edge for edge (a worm wheel's: one gap turned, `op.matched`) need not be checked for it: that check is the larger half of the loft's time (100 teeth: 7.3 s to 3.7 s, the same solid to every digit)
+      const made = as.matched && as.smooth ? matchedLoft(sk) : sk[0].loftWith(sk.slice(1), { ruled: !as.smooth });
       // a smooth loft through many sections can leave an edge whose 3D curve and whose curves on its two faces do not run at the same pace; the validity check refuses the whole solid for that (a wheel of 24 teeth was refused, one of 40 was not), though the
       // solid is whole and has the same volume to every digit. Making the edges run at the same pace again (`BRepLib.SameParameter`) is what the check asks for.
       if (op.smooth) getOC().BRepLib.SameParameter(made.wrapped, 1e-5, false);
       return made;
     };
     let solid = through(op.sections.map((s) => s.profile), "main");
-    if (!isValidSolid(solid)) throw new Error("the loft could not be made through those sketches (try turning an outline round with its start point, or reverse one)");
+    let whole = isValidSolid(solid);
+    if (!whole && op.matched) { solid = through(op.sections.map((s) => s.profile), "main", { ...op, matched: false }); whole = isValidSolid(solid); } // (the sections were not as matched as said: the checked loft)
+    if (!whole) throw new Error("the loft could not be made through those sketches (try turning an outline round with its start point, or reverse one)");
     const holes = op.sections[0].holes?.length ?? 0;
     for (let i = 0; i < holes; i++) solid = solid.cut(through(op.sections.map((s) => s.holes[i]), `hole${i}`));
-    if (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9)) throw new Error("nothing was left of the loft when its holes were cut");
+    if (holes && (!isValidSolid(solid) || !(measureVolume(solid) > 1e-9))) throw new Error("nothing was left of the loft when its holes were cut"); // (a loft without holes was found valid just above, and its volume is measured when it is described: measuring it here too was 0.35 s of a 100 tooth wheel)
       return { solid };
     });
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
@@ -716,7 +720,7 @@ const OPS = {
       for (const f of op.also ?? []) sld = sld.fuse(prism(f.profile, f.holes, f.distance === undefined ? dist : resolve(f.distance, ctx.params), back)); // siblings extruded together (each may have a depth of its own, `in_351`)
       if (ownKey) {
         prisms.set(ownKey, { solid: sld, roles: ctx.roleFigs ? [...ctx.roleFigs.entries()].filter(([k]) => !had.has(k)) : null });
-        while (prisms.size > 64) prisms.delete(prisms.keys().next().value);
+        keepWithin(prisms, ownKey, sld);
       }
       return sld;
     };
@@ -1391,7 +1395,7 @@ function keptBoolean(kind, lumps, tool, make) {
   if (booleans.has(key)) { const hit = booleans.get(key); booleans.delete(key); booleans.set(key, hit); kernelStats.booleansKept++; return hit; }
   const made = make();
   booleans.set(key, made);
-  while (booleans.size > 64) booleans.delete(booleans.keys().next().value);
+  keepWithin(booleans, key, made);
   return made;
 }
 /** `target` with `solid` fused to it, on the bodies the piece meets only (a piece that meets none is a body of its own). */
@@ -2182,7 +2186,26 @@ function describeError(e, op) {
  * What was worked out before, by what it was worked out from: an op is the same op if its description and everything it is built on are the same. A move at the end of a long
  * model therefore only redoes the move. Kept: the newest ones. (Booleans use up what they are given, so an op is handed a copy of its input, never the kept one.)
  */
-const KEEP = 96;
+/**
+ * What a kept-answer map holds is bounded by the faces of the solids it keeps, not by how many there are: a count of 64 was a cliff at forty or so plain parts (each part kept one or two), after which every step made
+ * all of them again (50 parts: 0.1 s a step; 70: 2.5 s, `in_857`), and a heap of wheels of thousands of faces would have been more than the memory has. The oldest go first.
+ */
+const FACES_KEPT = 20000;
+const weights = new WeakMap();
+function keepWithin(map, key, solid) {
+  let w = 1;
+  try { w = Math.max(1, facesOf(solid).length); } catch { /* (not a solid: counted as one) */ }
+  let w0 = weights.get(map);
+  if (!w0) { w0 = new Map(); weights.set(map, w0); }
+  w0.set(key, w);
+  let total = 0;
+  for (const v of w0.values()) total += v;
+  while (map.size > 1 && (total > FACES_KEPT || map.size > 1500)) {
+    const oldest = map.keys().next().value;
+    total -= w0.get(oldest) ?? 0; w0.delete(oldest); map.delete(oldest);
+  }
+  for (const k of w0.keys()) if (!map.has(k)) w0.delete(k); // (an entry taken out by the map's own use)
+}
 const prisms = new Map(); // a body's own solid by what it was made from, not what came before it: key -> { solid, roles }
 /**
  * The solid a revolve, loft or sweep makes of its own sketches, kept under a key made of those sketches' answers and its own settings, and not of the steps before it (as the extrude's is): a change to an earlier step leaves this body
@@ -2204,7 +2227,7 @@ function ownSolid(ctx, op, kind, ids, build) {
   const value = build();
   if (ownKey) {
     prisms.set(ownKey, { value, solid: value.solid, roles: ctx.roleFigs ? [...ctx.roleFigs.entries()].filter(([k]) => !had.has(k)) : null, note: ctx.sweepNote ? ctx.sweepNote.note ?? null : undefined });
-    while (prisms.size > 64) prisms.delete(prisms.keys().next().value);
+    keepWithin(prisms, ownKey, value.solid);
   }
   return value;
 }
@@ -2213,11 +2236,18 @@ function ownSolid(ctx, op, kind, ids, build) {
 export const kernelStats = { prismsBuilt: 0, prismsReused: 0, partialBooleans: 0, booleansKept: 0 };
 /** Forget what is kept of bodies, so that the next answer is worked out from nothing (for the tests: the kept and the worked-out answers are to be the same). */
 export function clearKernelCaches() { prisms.clear(); booleans.clear(); validSolids.clear(); uncrossed.clear(); memo.clear(); clearNameCaches(); }
-const memo = new Map(); // key -> { value, ms }
+const memo = new Map(); // key -> { value, own }
+/**
+ * The answers kept for the steps, the oldest forgotten first once they hold more than `MEMO_FACES` faces of their own (a step's own are the faces its answer has beyond its target's, the answers of a row of steps
+ * sharing the solids of the bodies before them) or `MEMO_COUNT` answers. A count of 96 was a cliff at 48 plain parts (a sketch and a push each), after which every step made them all again (`in_857`).
+ */
+const MEMO_FACES = 150000, MEMO_COUNT = 2000;
 const remember = (key, entry) => {
   memo.delete(key);
   memo.set(key, entry);
-  while (memo.size > KEEP) memo.delete(memo.keys().next().value);
+  let total = 0;
+  for (const e of memo.values()) total += e.own ?? 1;
+  while (memo.size > 1 && (total > MEMO_FACES || memo.size > MEMO_COUNT)) { const [k0, e0] = memo.entries().next().value; total -= e0.own ?? 1; memo.delete(k0); }
 };
 
 /**
@@ -2304,7 +2334,7 @@ export function compile(graph, quick = false) {
     const kept = memo.get(key);
     if (kept && !(kept.unchecked && !quick)) {
       remember(key, kept);
-      results.set(op.id, { value: kept.value, ms: 0, key, cached: true });
+      results.set(op.id, { value: kept.value, ms: 0, key, cached: true, faces: kept.faces });
       continue;
     }
     let markMs = 0;
@@ -2332,7 +2362,9 @@ export function compile(graph, quick = false) {
       if (value.kind === "solid" && !rigid && !skipChecks && !value.noCross && crossesItself(value.shape, op.target && results.get(op.target)?.value?.kind === "solid" ? results.get(op.target).value.shape : null)) throw new Error("that would make the body pass through itself (one part of it goes through another)");
       checkMs = performance.now() - tC;
       results.set(op.id, { value, ms: performance.now() - t0, key, markMs, checkMs, ...(Object.keys(stagesOf).length ? { stages: Object.fromEntries(Object.entries(stagesOf).map(([n, v]) => [n, Math.round(v * 10) / 10])) } : {}) });
-      remember(key, { value, ...(skipChecks && !value.checked ? { unchecked: true } : {}) });
+      const faces = value.kind === "solid" ? facesOf(value.shape).length : 0;
+      results.get(op.id).faces = faces;
+      remember(key, { value, faces, own: Math.max(1, faces - (op.target ? results.get(op.target)?.faces ?? 0 : 0)), ...(skipChecks && !value.checked ? { unchecked: true } : {}) });
     } catch (e) {
       endStages();
       results.set(op.id, { error: describeError(e, op), ms: performance.now() - t0, ...(e?.detail?.culprits?.length ? { culprits: e.detail.culprits } : {}) });
@@ -2356,3 +2388,15 @@ export function volume(shape) {
 }
 
 export { makeBox };
+
+/** A smooth loft through sections whose edges match one to one (the same number, the same start, the same way round), without the kernel's check of that, which it does with every section's edges against every other's. */
+function matchedLoft(sk) {
+  const oc = getOC();
+  const b = new oc.BRepOffsetAPI_ThruSections(true, false, 1e-6);
+  try {
+    b.CheckCompatibility(false);
+    for (const s of sk) b.AddWire(s.wire.wrapped);
+    b.Build();
+    return cast(b.Shape());
+  } finally { b.delete(); }
+}

@@ -3733,3 +3733,49 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_846 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for this branch to be merged into claude/inspiring-pascal-l342k7)
+
+(asks what the current work is and its status)
+
+## in_847 — 2026-11-17 — directive
+> yes do the stand-in disc label next
+(approves doing the stand-in disc label next: a label on the stand-in disc that says the body is being made)
+
+## in_848 — 2026-11-17 — directive
+> lets do what is left on the list to make it faster
+(asks to do what is left on the speed list: discs for other heavy bodies, and the kernel worker's memory)
+
+## in_849 — 2026-11-17 — directive
+> yes do the discs for other heavy bodies next
+(approves doing the stand-in discs for other heavy bodies next: cylinders, sweeps, worms)
+
+## in_850 — 2026-11-17 — directive
+> yes do the tube stand-in for sweeps next
+(approves the tube stand-in for sweeps: a tube along the sweep's path drawn while the kernel makes the body)
+
+## in_851 — 2026-11-17 — directive
+> look at the tube stand-in in the real app
+(asks to look at the tube stand-in for sweeps in the real app)
+
+## in_852 — 2026-11-17 — question
+> okay so are we all done making it faster now?
+(asks whether the speed work is finished)
+
+## in_853 — 2026-11-17 — directive
+> yes try the worm wheel loft next
+(approves trying to make the worm wheel's loft faster)
+
+## in_854 — 2026-11-17 — directive
+> yes try lofting one tooth and turning it
+(approves trying to loft one tooth of the worm wheel and turn it round, instead of lofting the whole wheel)
+
+## in_855 — 2026-11-17 — directive
+> yes do the caps and the other costs next
+(approves working on the other costs of the worm wheel: the caps, and the sections, mesh, names and checks)
+
+## in_856 — 2026-11-18 — question
+> what else do you think we should do on speed work?
+(asks for the AI's view of what speed work is still worth doing)
+
+## in_857 — 2026-11-18 — directive
+> yes do 1 then 3
+(approves the two speed items: first measuring ordinary use (blocks, edits, undo and redo, loading files, many ordinary bodies), then checking the stand-ins and the memory restart in the browser under load)

@@ -4,3 +4,4 @@ export function init(options?: object): Promise<unknown>;
 export function evaluate(graph: KernelGraph, tess?: { tolerance: number; angular: number }): KernelResult;
 export function exportMesh(graph: KernelGraph, quality: ExportQuality): ExportResult;
 export function exportStep(graph: KernelGraph, bodies?: string[], unit?: "in"): Promise<StepResult>;
+export function heapBytes(): number;

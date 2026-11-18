@@ -1,7 +1,7 @@
 // The kernel's own thread (`in_132`): the geometry kernel runs here so that a heavy model does not freeze the page while it is being worked out. It takes an operation graph,
 // answers with the result, and keeps nothing between jobs. `kernel-async.ts` is the other end.
 import { kernel } from "./compiler/kernel/index.ts";
-import { initWeb } from "./compiler/kernel/occt/web.mjs";
+import { initWeb, heapBytes } from "./compiler/kernel/occt/web.mjs";
 import type { ExportQuality, KernelGraph, KernelResult } from "./compiler/kernel/adapter.ts";
 
 const post = (message: unknown, transfer: Transferable[] = []) => (self as unknown as { postMessage(m: unknown, t: Transferable[]): void }).postMessage(message, transfer);
@@ -32,7 +32,7 @@ self.onmessage = (e: MessageEvent<{ id: number; graph: KernelGraph; draft?: bool
     kernel.draft = !!e.data.draft;
     kernel.lite = !!e.data.lite;
     const result = kernel.evaluate(e.data.graph);
-    post({ id: e.data.id, result, at: { started, sent: performance.timeOrigin + performance.now() } }, buffers(result));
+    post({ id: e.data.id, result, heapMB: Math.round(heapBytes() / 1048576), at: { started, sent: performance.timeOrigin + performance.now() } }, buffers(result)); // (`heapMB`: how big its memory has grown: the page restarts it when that is high and nothing waits)
   } catch (err) {
     post({ id: e.data.id, failed: String(err) });
   }
