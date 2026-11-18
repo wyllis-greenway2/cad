@@ -3964,3 +3964,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_904 — 2026-11-18 — directive
 > Yes prototype the warm-up
 (approves a prototype of the kernel warm-up: measuring how much of the first model's delay a warm-up removes)
+
+## in_905 — 2026-11-18 — directive
+> Okay, now I want to test the limits and fail states. How big of an assembly can I make? 10 parts? 100 parts? 1000 parts? how many faces can I render? also how does it fail? just freeze and explode? or fail in silent errors?
+(asks to test the limits and the fail states: how many parts an assembly can have (10, 100, 1000), how many faces can be rendered, and how the app fails: freezing, crashing, or silent errors)
