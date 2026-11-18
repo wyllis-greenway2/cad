@@ -66,3 +66,43 @@ test("the plan says why when the settings make no hole, and the panel starts at 
   assert.ok(!receiverPlan(select(s, []), vals()).ok);
   assert.equal(receiverStartFor(s).place, "centre");
 });
+
+// ---- the path the holes follow, and a line alone ----
+import { guideLines } from "../src/interaction/holepreview.ts";
+import { drawChain } from "../src/operation/build.ts";
+import { selectedFace } from "../src/interaction/addpart.ts";
+
+test("holes along the outline carry the path they follow: the outline moved in by the inset, as a closed line on the face, and the spacing", () => {
+  const p = plan(block(), vals({ place: "outline", by: "distance", value: "30", corners: "each", offset: "10" }));
+  assert.ok(p.guide.length > 20);
+  assert.ok(p.guide.every((q) => Math.abs(q[2] - 8) < 1e-6), "on the face");
+  const xs = p.guide.map((q) => q[0]), ys = p.guide.map((q) => q[1]);
+  assert.deepEqual([Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)].map((x) => Math.round(x * 1e6) / 1e6), [10, 90, 10, 50]);
+  assert.ok(p.spacing !== null && p.spacing <= 30 + 1e-9 && p.spacing >= 20 - 1e-9);
+  assert.deepEqual(plan(block(), vals()).guide, [], "no path for a hole in the middle");
+  assert.equal(plan(block(), vals()).spacing, null);
+});
+test("a different inset moves the guide with it, and the preview draws it dashed and pale next to the holes", () => {
+  const at = (inset: string) => { const g = plan(block(), vals({ place: "outline", by: "count", value: "4", corners: "ignore", offset: inset })).guide.map((q) => q[0]); return Math.min(...g); };
+  assert.ok(Math.abs(at("5") - 5) < 1e-6 && Math.abs(at("15") - 15) < 1e-6);
+  const view = holesView(plan(block(), vals({ place: "outline", by: "count", value: "4", corners: "ignore", offset: "10" })))!;
+  assert.ok(view.done.travel!.length > 0 && view.done.cut!.length > 0);
+  assert.equal(holesView(plan(block(), vals()))!.done.travel, undefined);
+});
+test("a dashed line: dashes and gaps by turns along the polyline, a dash a fifth of the way when the dash is 4 and the gap 3 and the line 20 long", () => {
+  const d = guideLines([[0, 0, 0], [20, 0, 0]], 4, 3);
+  assert.deepEqual(d.map((x) => Math.round(x * 1e6) / 1e6), [0, 0, 0, 4, 0, 0, 7, 0, 0, 11, 0, 0, 14, 0, 0, 18, 0, 0]);
+  assert.deepEqual(guideLines([[0, 0, 0]]), []);
+});
+test("a line drawn on a face is enough: it stands for the face, and the holes follow it", () => {
+  const s0 = block();
+  const top = (s0.click.selection as readonly string[])[0]!;
+  const l = drawChain(scene(s0), top as never, [[10, 30, 8], [90, 30, 8]]);
+  const s = select(run(s0, l.command), [l.lines[0]!]); // the line alone, no face selected
+  const f = selectedFace(s);
+  assert.ok(f.ok, f.ok ? "" : f.error);
+  assert.equal(f.value.lines.length, 1);
+  const p = plan(s, vals({ place: "lines", by: "count", value: "5", corners: "ignore" }));
+  assert.equal(p.places.length, 5);
+  assert.deepEqual(p.places.map((q) => Math.round(q[0])), [10, 30, 50, 70, 90]);
+});

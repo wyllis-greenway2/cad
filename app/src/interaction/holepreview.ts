@@ -54,8 +54,28 @@ export function holeLines(plan: ReceiverPlan): number[] {
   }
   return out;
 }
-/** The holes as the view's overlay (the same form as a toolpath's lines), or null for a plan with no place. */
+/** The path the holes follow as a dashed line (a dash and a gap by turns along the polyline), flat pairs of points; empty when there is no path. */
+export function guideLines(guide: readonly Vec3[], dash = 4, gap = 3): number[] {
+  const out: number[] = [];
+  let on = true;
+  let left = dash;
+  for (let i = 0; i + 1 < guide.length; i++) {
+    let a = guide[i]!;
+    const b = guide[i + 1]!;
+    let len = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+    while (len > 1e-9) {
+      const step = Math.min(left, len);
+      const k = step / len;
+      const m: Vec3 = [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+      if (on) out.push(a[0], a[1], a[2], m[0], m[1], m[2]);
+      a = m; len -= step; left -= step;
+      if (left <= 1e-9) { on = !on; left = on ? dash : gap; }
+    }
+  }
+  return out;
+}
+/** The holes as the view's overlay (the same form as a toolpath's lines: the holes in the cut colour, the path they follow dashed and pale), or null for a plan with no place. */
 export function holesView(plan: ReceiverPlan): ToolpathView | null {
   if (!plan.places.length) return null;
-  return { done: { cut: holeLines(plan) }, rest: {}, head: null, stock: [] };
+  return { done: { cut: holeLines(plan), ...(plan.guide.length ? { travel: guideLines(plan.guide) } : {}) }, rest: {}, head: null, stock: [] };
 }

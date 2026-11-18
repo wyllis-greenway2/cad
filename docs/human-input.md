@@ -3745,3 +3745,15 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_849 — 2026-11-18 — approval
 > Replace the hardware ones with the panel (Recommended)
 (answers what happens to the dialogs: the hardware ones (Fasteners and Fastener Holes) are replaced by the panel and the preview; Path repeat keeps its dialog for now)
+
+## in_850 — 2026-11-18 — directive
+> No I was thinking of a smaller interface, So you could select hardware, then that whole window goes away, then there is a little helper bar, like with fillets or anything else etc. Then it has a few options, cut hardware holes, it should allow you to select a line, or face. Line just traces the hardware along the line and it should allow you to set seperation and devision methods. If you select a face it should show the center offset line of the cut path and allow you to modify that with an inset. Or select different patterns to apply hardware across the surface.
+(says the panel is too big: wants a smaller interface where choosing hardware closes the whole window and leaves a little helper bar, as for fillets; with a few options, cut hardware holes; select a line (the hardware is traced along it, with separation and division methods) or a face (the centre offset line of the cut path is shown and can be changed with an inset); or choose different patterns to apply the hardware across the surface)
+
+## in_851 — 2026-11-18 — approval
+> Small boxes in the bar (Recommended)
+(answers how the numbers of the hardware helper bar are set: small boxes in the bar that are typed in, with the preview following)
+
+## in_852 — 2026-11-18 — approval
+> Outline (the inset line)
+(answers which pattern across a face to build first: the outline, the face's outline moved in by the inset)
