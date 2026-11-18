@@ -4232,3 +4232,12 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > [attached crown.json] okay, are the crowns supposed to not join at 90 degrees? Also should the crown have a bevel? Or did we not build that yet
 (recorded late, from before the session's context was summarised: asks why a crown and its pinion do not stand at 90 degrees, and whether the crown should have a bevel; the AI answered that the angle is by design (90 degrees plus the pinion's cone angle) and asked which bevel was meant, offering a chamfer of the tooth tips; the human then chose the chamfer work in `in_967`)
 
+
+
+## in_969 — 2026-11-19 — directive
+> @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/40a34e4b-model.cad_53.json" ... @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/623701a6-model.stl" can we make the animation not pause when you move around the camera? It does it with camera rotate but not other camera movements.  Why do the gears get semi transparent and every thing gets really slow when I try to sketch around gears? Also when I click on the top of a gear to sketch, it doesn't really make a sketching plane on that surface like it does when I sketch on any other body surface. Normally it sets a world plane on that surface and sketching anywhere, even off that edge is still on plane.
+(with a project file `model.cad_53.json` (two meshed gears, a pin, a drawn rectangle), a screenshot and an STL: three things: the animation pauses while the camera is rotated, the gears go semi transparent and everything slows when sketching round gears, and a click on a gear's top face does not make a sketch plane that goes on past the face's edge)
+
+## in_970 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the branch `claude/adoring-dijkstra-camera-sketch` to be merged into the testing branch; the full suite is not needed)
