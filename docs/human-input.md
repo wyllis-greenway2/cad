@@ -4090,3 +4090,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_934 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for this branch (the fastener tool's curved surfaces, the shared panel layout and the dialogs in it) to be merged into claude/inspiring-pascal-l342k7)
+
+## in_935 — 2026-11-18 — question
+> is it done? is it ready?
+(asks whether the cone-cut work is finished and ready to test; the AI answered with what is verified and that the full check was still running)
+
