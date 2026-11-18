@@ -4007,3 +4007,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_914 — 2026-11-18 — question
 > okay so what do you need to continue?
 (asks what the AI is waiting for on the hypoid work; the AI answered with the proposal `dec_hypoid_gears` and the three open points)
+
+## in_915 — 2026-11-18 — approval
+> Yes I approve
+(approves `dec_hypoid_gears` as proposed: the first hypoid tool, pinion below the ring's axis only, the offset limit about 0.1 of the ring's pitch diameter, the spiral tool's other limits; the AI recommended building before reading the other two sources)
+

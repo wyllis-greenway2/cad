@@ -1,15 +1,15 @@
 ---
 id: dec_hypoid_gears
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_902, in_903
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_915, in_902, in_903
 date: 2026-11-18
 depends_on:
   - dec_spiral_bevel_gears: a hypoid pair is that pair with the ring's axis moved off the pinion's; the tooth maths, the bodies and the limits are that decision's
 alternative_to:
 ---
-# Hypoid gears: a proposal (not built in the app; the prototype is `prototypes/hypoid`)
+# Hypoid gears (accepted in_915; the prototype is `prototypes/hypoid`)
 
 **Proposed, for the human to approve (`in_902` asked to build it; the tool needs an accepted entry first):** Gear > Hypoid: a pinion and a ring gear at 90 degrees whose axes miss by an offset; the spiral bevel tool's model with one more number.
 
