@@ -1,12 +1,13 @@
 // How one field of a dialog description is drawn and how it answers (`interaction/transfer.ts`): choices as radio buttons, cards with a drawing or chips, a picture, text and numbers. Shared by the modal dialog (`dialog.ts`) and the
 // options panel that stands beside the model view (`optionspanel.ts`, `dec_parts_tool`), so the two cannot differ. Knows nothing of what the choices mean.
 import type { Field, FieldValue } from "../interaction/transfer.ts";
+import { panelRow, choiceSelect } from "./panelkit.ts";
 
 export type Values = Record<string, FieldValue>;
 export const line = (text: string, css: string): HTMLElement => { const d = document.createElement("div"); d.textContent = text; d.style.cssText = css; return d; };
 
 /** One field as an element. `redraw` draws the description again (a choice can change what else is asked); `live`: a typed answer draws it again when it is finished (a picture follows it); `compact`: cards in as many columns as fit a narrow panel. */
-export function fieldRow(f: Field, values: Values, redraw: () => void, live = false, compact = false): HTMLElement {
+function fieldRow(f: Field, values: Values, redraw: () => void, live = false, compact = false): HTMLElement {
   const r = document.createElement("div");
   r.style.cssText = "margin:10px 0";
   const label = line(f.label, "font-size:12px;color:#666;margin-bottom:4px");
@@ -73,4 +74,34 @@ export function fieldRow(f: Field, values: Values, redraw: () => void, live = fa
   }
   if (f.note && f.type !== "check") r.appendChild(line(f.note, "font-size:12px;color:#777;margin-top:3px"));
   return r;
+}
+
+/**
+ * One field as a row of the panel that stands on the left of the page (`ui/panelkit.ts`, `in_919`): a text, a number or a plain list of choices is the row's name and a box or a dropdown with its note under it; cards, chips, a picture,
+ * a tick and a shown value are as `fieldRow` draws them, as wide as the panel.
+ */
+export function panelFieldRow(f: Field, values: Values, redraw: () => void, live = false): HTMLElement {
+  if (f.type === "picture" || f.type === "check" || f.readonly || (f.type === "choice" && f.layout)) { const r = fieldRow(f, values, redraw, live, true); r.style.margin = "8px 0"; return r; }
+  if (f.type === "choice") {
+    const sel = choiceSelect(() => { values[f.id] = sel.value; redraw(); });
+    sel.style.width = "170px";
+    for (const c of f.choices!) { const o = document.createElement("option"); o.value = c.value; o.textContent = c.label; o.disabled = !!c.disabled; if (c.disabled) o.title = c.disabled; sel.appendChild(o); }
+    sel.value = String(values[f.id] ?? f.value);
+    const row = panelRow(f.label, sel);
+    row.hint.textContent = f.note ?? "";
+    return row.el;
+  }
+  const i = document.createElement("input");
+  i.type = f.type === "number" ? "number" : "text";
+  i.dataset.field = f.id; // (so a panel that draws again can put the cursor back)
+  if (f.type === "number") i.step = "any";
+  i.value = String(values[f.id] ?? f.value);
+  i.style.cssText = `width:${f.type === "number" ? 84 : 170}px;box-sizing:border-box;padding:6px 8px;border:1px solid #cfd0d4;border-radius:8px;font:600 14px system-ui,sans-serif;${f.type === "number" ? "text-align:right;" : ""}outline:none;user-select:text;-webkit-user-select:text`;
+  i.addEventListener("focus", () => { i.style.borderColor = "#1ab8b3"; });
+  i.addEventListener("blur", () => { i.style.borderColor = "#cfd0d4"; });
+  i.addEventListener("input", () => { values[f.id] = f.type === "number" ? Number(i.value) : i.value; });
+  i.addEventListener("change", () => { if (live) redraw(); });
+  const row = panelRow(f.label, i);
+  row.hint.textContent = f.note ?? "";
+  return row.el;
 }

@@ -4022,3 +4022,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_918 — 2026-11-18 — directive
 > Gear-box layout for the fastener tool (Recommended)
 (answers the question on in_917: the fastener tool takes the gear box's layout: its settings move into the left panel as labelled rows, one shared panel component for the gear box and the fastener tool)
+
+## in_919 — 2026-11-18 — directive
+> put the other dialogs there too
+(asks for the other dialogs (Path repeat and the rest) to use the same left panel layout as the gear box and the fastener tool)
