@@ -3699,3 +3699,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_837 — 2026-11-18 — approval
 > okay build the not built yet stuff
 (approves building what the last reply left out: Horizontal and Vertical on a face or an axis (a mate with the world), and Tangent between bodies)
+
+## in_838 — 2026-11-18 — approval
+> okay build the left out stuff please
+(approves building what the last reply left out: mates against the world's other planes (X and Y directions, a face and a world plane selected), and Tangent for spheres and cones)

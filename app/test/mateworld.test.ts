@@ -146,3 +146,106 @@ test("Tangent of two cylinders stands their axes parallel and the sum of the rad
   const dy = (c2!.bbox!.min[1]! + c2!.bbox!.max[1]!) / 2 - (c1!.bbox!.min[1]! + c1!.bbox!.max[1]!) / 2;
   assert.ok(Math.abs(Math.hypot(dx, dy) - 7) < 0.05, `the axes are 7 apart (4 + 3): ${Math.hypot(dx, dy)}`);
 });
+
+test("a face and a world plane selected: Parallel puts the face against the X or Y plane's direction, Coincident lays the body on the plane, a cylinder rests on the ground with Tangent (`in_838`)", () => {
+  let s = box(createSession(kernel), 5, 5);
+  s = rotate(s, theBody(s), 2, 30); // (turned about Z: its side faces are not along X or Y)
+  const faces = (st: Session) => Object.values(scene(st).parts).filter((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && !!p.mesh && !p.curved && !p.round && !p.rounded);
+  const side = faces(s).sort((a, b) => Math.abs(normalOfPlane(a)[2]!) - Math.abs(normalOfPlane(b)[2]!))[0]!;
+  const yz = worldRef("YZ");
+  const par = actionsFor(scene(s), [side.ref, yz]).find((x) => x.id === "mate:parallel")!;
+  assert.ok(par?.enabled, `offered: ${par?.why}`);
+  const after = run(s, par.run());
+  assert.ok(!after.message, `${after.message}`);
+  const parallelToYZ = faces(after).some((p) => Math.abs(Math.abs(normalOfPlane(p)[0]!) - 1) < 1e-6);
+  assert.ok(parallelToYZ, "a side face now faces along X: it is parallel to the YZ plane");
+  assert.ok(mateStatus(scene(after)).some((m) => m.mode === "parallel" && m.state === "ok"), "the mate holds");
+  // flush: the bottom face of a body that floats is laid on the XY plane
+  const fl = createSession(kernel);
+  let f = box(fl, 0, 0);
+  f = run(f, { type: "addStep", step: { id: nextId(scene(f), "s"), type: "move", parts: [theBody(f).ref], params: { axis: 2, value: 7 } } });
+  const bottom = faces(f).sort((a, b) => normalOfPlane(a)[2]! - normalOfPlane(b)[2]!)[0]!;
+  const flush = actionsFor(scene(f), [bottom.ref, worldRef("XY")]).find((x) => x.id === "mate:flush")!;
+  assert.ok(flush?.enabled, `offered: ${flush?.why}`);
+  const laid = run(f, flush.run());
+  assert.ok(!laid.message, `${laid.message}`);
+  assert.ok(Math.abs(theBody(laid).bbox!.min[2]!) < 1e-3, `the body lies on the plane: z from ${theBody(laid).bbox!.min[2]}`);
+  // a cylinder standing up is laid on the ground
+  let c = cylinder(createSession(kernel), 0, 0, 3);
+  c = run(c, { type: "addStep", step: { id: nextId(scene(c), "s"), type: "move", parts: [theBody(c).ref], params: { axis: 2, value: 9 } } });
+  const roundFace = (Object.values(scene(c).parts).find((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && !!(p.curved || p.round)))!.ref;
+  const tan = actionsFor(scene(c), [roundFace, worldRef("XY")]).find((x) => x.id === "mate:tangent")!;
+  assert.ok(tan?.enabled, `offered: ${tan?.why}`);
+  const rest = run(c, tan.run());
+  assert.ok(!rest.message, `${rest.message}`);
+  assert.ok(Math.abs(theBody(rest).bbox!.min[2]!) < 0.05 && Math.abs(theBody(rest).bbox!.max[2]! - 6) < 0.05, `the cylinder lies on the ground: z ${theBody(rest).bbox!.min[2]}..${theBody(rest).bbox!.max[2]}`);
+});
+
+import { drawChain } from "../src/operation/build.ts";
+const revolved = (s: Session, pts: number[][], bulges: number[] | undefined, x: number, y: number): Session => {
+  const ch = drawChain(scene(s), XY, pts as never, true, bulges ? { bulges } : {});
+  return run(run(s, ch.command), { type: "addStep", step: { id: nextId(scene(s), "s"), type: "revolve", parts: ch.lines, params: { angle: 360, advance: 0, ax: x, ay: y, az: 0, dx: 0, dy: 1, dz: 0, mode: "new" } } });
+};
+const ball = (s: Session, x: number, y: number, r: number) => revolved(s, [[x, y - r, 0], [x, y + r, 0]], [0, 0.5], x, y);
+const cone = (s: Session, x: number, y: number) => revolved(s, [[x, y, 0], [x + 6, y, 0], [x, y + 10, 0]], undefined, x, y);
+const curved = (s: Session, body: Body, what: "sphere" | "cone"): Ref => (Object.values(scene(s).parts).find((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && p.of === body.ref && !!(what === "sphere" ? p.sphere : p.cone)))!.ref;
+
+test("a ball: tangent to a flat face rests on it, tangent to a cylinder touches its side, tangent to a ball touches at a point (`in_838`)", () => {
+  // on a flat face
+  let s = ball(box(createSession(kernel), 0, 0), 40, 5, 3);
+  let [a, b] = bodies(s);
+  let boxB = a!.bbox!.max[0]! < 20 ? a! : b!;
+  let ballB = boxB === a ? b! : a!;
+  let act = actionsFor(scene(s), [curved(s, ballB, "sphere"), faceOf(s, boxB, [0, 0, 1])]).find((x) => x.id === "mate:tangent")!;
+  assert.ok(act?.enabled, `ball on a face: ${act?.why}`);
+  let after = run(s, act.run());
+  assert.ok(!after.message, `${after.message}`);
+  const bb = bodies(after).find((x) => x.id === ballB.id)!;
+  assert.ok(Math.abs(bb.bbox!.min[2]! - 10) < 0.05, `the ball rests on the top face: its lowest point is at z ${bb.bbox!.min[2]}`);
+  assert.ok(mateStatus(scene(after)).some((m) => m.mode === "tangent" && m.state === "ok"), "the mate holds");
+  // against a cylinder
+  s = ball(cylinder(createSession(kernel), 0, 0, 4), 30, 1, 2);
+  [a, b] = bodies(s);
+  const cylB = a!.bbox!.max[0]! < 15 ? a! : b!;
+  ballB = cylB === a ? b! : a!;
+  act = actionsFor(scene(s), [curved(s, ballB, "sphere"), roundOfBody(s, cylB)]).find((x) => x.id === "mate:tangent")!;
+  assert.ok(act?.enabled, `ball on a cylinder: ${act?.why}`);
+  after = run(s, act.run());
+  assert.ok(!after.message, `${after.message}`);
+  const bc = bodies(after).find((x) => x.id === ballB.id)!;
+  const centre = [(bc.bbox!.min[0]! + bc.bbox!.max[0]!) / 2, (bc.bbox!.min[1]! + bc.bbox!.max[1]!) / 2];
+  assert.ok(Math.abs(Math.hypot(centre[0]!, centre[1]!) - 6) < 0.05, `the ball's centre is 6 from the cylinder's axis (4 + 2): ${Math.hypot(centre[0]!, centre[1]!)}`);
+  // two balls
+  s = ball(ball(createSession(kernel), 0, 0, 4), 30, 3, 2);
+  [a, b] = bodies(s);
+  const first = a!.bbox!.max[0]! < 15 ? a! : b!;
+  const second = first === a ? b! : a!;
+  act = actionsFor(scene(s), [curved(s, second, "sphere"), curved(s, first, "sphere")]).find((x) => x.id === "mate:tangent")!;
+  assert.ok(act?.enabled, `two balls: ${act?.why}`);
+  after = run(s, act.run());
+  assert.ok(!after.message, `${after.message}`);
+  const cs = [first, second].map((x) => { const q = bodies(after).find((y) => y.id === x.id)!; return q.bbox!.min.map((v, i) => (v + q.bbox!.max[i]!) / 2); });
+  assert.ok(Math.abs(Math.hypot(cs[1]![0]! - cs[0]![0]!, cs[1]![1]! - cs[0]![1]!, cs[1]![2]! - cs[0]![2]!) - 6) < 0.05, "the centres are 6 apart (4 + 2)");
+});
+
+test("a cone: tangent to a flat face (a world plane) puts its apex on it and lays it along a line of the cone; tangent to a round face is refused with why (`in_838`)", () => {
+  let s = cone(createSession(kernel), 0, 0);
+  const c = bodies(s).length ? bodies(s)[0]! : (Object.values(scene(s).parts).find((p): p is Body => p.kind === "body")!);
+  const coneFace = (Object.values(scene(s).parts).find((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && !!p.cone))!.ref;
+  void c;
+  const act = actionsFor(scene(s), [coneFace, worldRef("XY")]).find((x) => x.id === "mate:tangent")!;
+  assert.ok(act?.enabled, `cone on the ground: ${act?.why}`);
+  s = run(s, act.run());
+  assert.ok(!s.message, `${s.message}`);
+  const body = Object.values(scene(s).parts).find((p): p is Body => p.kind === "body")!;
+  assert.ok(Math.abs(body.bbox!.min[2]!) < 0.1, `the cone touches the plane: its lowest point is at z ${body.bbox!.min[2]}`);
+  assert.ok(mateStatus(scene(s)).some((m) => m.mode === "tangent" && m.state === "ok"), "the mate holds");
+  // against a cylinder: refused with why
+  const two = cone(cylinder(createSession(kernel), 40, 0, 3), 0, 0);
+  const [p, q] = bodies(two);
+  const cyl = p!.bbox!.min[0]! > 20 ? p! : q!;
+  const cn = cyl === p ? q! : p!;
+  const refused = actionsFor(scene(two), [curved(two, cn, "cone"), roundOfBody(two, cyl)]).find((x) => x.id === "mate:tangent");
+  assert.ok(!refused || !refused.enabled, "a cone against a cylinder is not made");
+  if (refused) assert.match(refused.why ?? "", /cone/);
+});

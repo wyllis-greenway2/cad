@@ -11,6 +11,7 @@ import { nextId } from "../operation/scene.ts";
 import type { MateMode } from "../operation/mates.ts";
 import type { MateState } from "../operation/mates.ts";
 import { featureOf, mateRelation, mateStatus, isFlatMode, turnOnly, angleOfMode, canonBody, bodyPart } from "../operation/mates.ts";
+import { shapeOf, tangentMotion, whyNotTangent } from "../operation/tangent.ts";
 import type { Command } from "../operation/commands.ts";
 import { apply } from "../operation/commands.ts";
 import { carrySketches } from "./operations.ts";
@@ -28,9 +29,9 @@ type Mat = [Vec3, Vec3, Vec3]; // rows
 /** Why these two faces cannot be mated this way, or null. */
 export function whyNotMate(scene: Scene, mode: MateMode, mover: Ref, other: Ref): string | null {
   const [a, b] = [featureOf(scene, mover, mode), featureOf(scene, other, mode)];
-  if (!a || !b) return mode === "tangent" ? "a round face and a flat or round face of two bodies" : mode === "axisToFace" ? "a flat face and a round face of two bodies" : isFlatMode(mode) ? "two flat faces of two bodies" : "two round faces of two bodies";
+  if (!a || !b) return mode === "tangent" ? "a round face (a cylinder, a ball or a cone) and a flat or round face of two bodies" : mode === "axisToFace" ? "a flat face and a round face of two bodies" : isFlatMode(mode) ? "two flat faces of two bodies" : "two round faces of two bodies";
   if (mode === "axisToFace" && (a.radius > 0) === (b.radius > 0)) return "a flat face and a round face (one of each)";
-  if (mode === "tangent" && !(a.radius > 0) && !(b.radius > 0)) return "a round face (a cylinder) against a flat or a round one: two flat faces are not tangent";
+  if (mode === "tangent") { const w = whyNotTangent(shapeOf(a), shapeOf(b)); if (w) return w; }
   if (a.body === b.body) return "the faces are of one body: choose a face of each of two bodies";
   return null;
 }
@@ -78,37 +79,17 @@ export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref
   const [a, b] = [featureOf(scene, mover, mode)!, featureOf(scene, other, mode)!];
   // the turn: a flat face to face the other (its normal opposite), a round face's axis parallel to the other's (the nearer of the two ways)
   const want: Vec3 = mode === "flush" ? [-b.dir[0], -b.dir[1], -b.dir[2]] : dot(a.dir, b.dir) >= 0 ? b.dir : [-b.dir[0], -b.dir[1], -b.dir[2]]; // (a flush face faces the other; for the rest the nearer way is taken)
-  // a tangent mate (`in_837`): the turn that puts a round face's axis in a flat face's plane (or a flat face's normal at a right angle to the axis), or its axis along the other's; and the move that leaves them a radius (or the radii) apart
-  const planeAxis = mode === "tangent" && (a.radius > 0) !== (b.radius > 0);
-  const inPlane = (v: Vec3, n: Vec3): Vec3 => { const t: Vec3 = [v[0] - dot(v, n) * n[0], v[1] - dot(v, n) * n[1], v[2] - dot(v, n) * n[2]]; return length(t) > 1e-9 ? normalize(t) : normalize(Math.abs(n[0]) < 0.9 ? cross(n, [1, 0, 0]) : cross(n, [0, 1, 0])); };
-  const R = mode === "tangent" ? (planeAxis ? (a.radius > 0 ? turnBetween(a.dir, inPlane(a.dir, b.dir)) : turnBetween(a.dir, inPlane(a.dir, b.dir))) : turnBetween(a.dir, want)) : turnOnly(mode) ? turnToAngle(a.dir, b.dir, angleOfMode(mode, gap)) : turnBetween(a.dir, want);
+  const tmo = mode === "tangent" ? tangentMotion(a, b) : null; // (a tangent mate: the turn and the move that bring the faces to touch, `in_837`, `in_838`)
+  const R = tmo ? (tmo.turnTo ? turnBetween(a.dir, tmo.turnTo) : turnBetween(a.dir, a.dir)) : turnOnly(mode) ? turnToAngle(a.dir, b.dir, angleOfMode(mode, gap)) : turnBetween(a.dir, want);
   const pivot = a.point; // (a point on the face or on the axis stays where it is under the turn)
   // the move: a flat face onto the other's plane (plus the gap, along the other's normal); an axis onto the other's axis, keeping its place along it
   let move: Vec3;
   let moverWhenTrue: Vec3; // (a point of the mover's face or axis when the mate is true)
-  let tangentSide = 1; // (a tangent mate: which side of the plane, outside or inside, as it stands now)
-  if (mode === "tangent") {
-    const turned = rotate(R, a.dir);
-    if (planeAxis) {
-      const [plane, axis] = a.radius > 0 ? [{ point: b.point, dir: b.dir }, { point: a.point, dir: turned, r: a.radius }] : [{ point: a.point, dir: turned }, { point: b.point, dir: b.dir, r: b.radius }];
-      const n = normalize(plane.dir);
-      const d = dot(sub(axis.point, plane.point), n);
-      tangentSide = 1; // (a flat face has an outside: the round one goes on it, however the axis stands now)
-      const m = a.radius > 0 ? tangentSide * axis.r - d : d - tangentSide * axis.r; // (the axis moves along the normal by this much; or the plane moves along it by the opposite)
-      move = [n[0] * m, n[1] * m, n[2] * m];
-      moverWhenTrue = a.radius > 0 ? [a.point[0] + move[0], a.point[1] + move[1], a.point[2] + move[2]] : [a.point[0] + move[0], a.point[1] + move[1], a.point[2] + move[2]];
-    } else {
-      const w = sub(a.point, b.point);
-      const along = dot(w, b.dir);
-      const perp: Vec3 = [w[0] - b.dir[0] * along, w[1] - b.dir[1] * along, w[2] - b.dir[2] * along];
-      const pl = length(perp);
-      const [r1, r2] = [a.radius, b.radius];
-      tangentSide = pl >= (r1 + r2 + Math.abs(r1 - r2)) / 2 ? 1 : -1; // (outside when they stand apart now, inside when one is in the other)
-      const target = tangentSide > 0 ? r1 + r2 : Math.abs(r1 - r2);
-      const way: Vec3 = pl > 1e-9 ? [perp[0] / pl, perp[1] / pl, perp[2] / pl] : normalize(Math.abs(b.dir[0]) < 0.9 ? cross(b.dir, [1, 0, 0]) : cross(b.dir, [0, 1, 0]));
-      move = [way[0] * (target - pl), way[1] * (target - pl), way[2] * (target - pl)];
-      moverWhenTrue = [b.point[0] + b.dir[0] * along + way[0] * target, b.point[1] + b.dir[1] * along + way[1] * target, b.point[2] + b.dir[2] * along + way[2] * target];
-    }
+  let tangentSide = 1;
+  if (tmo) {
+    tangentSide = tmo.side;
+    move = tmo.move(rotate(R, a.dir));
+    moverWhenTrue = [a.point[0] + move[0], a.point[1] + move[1], a.point[2] + move[2]];
   } else if (mode === "flush") {
     const s = dot(sub(a.point, b.point), b.dir);
     move = [b.dir[0] * (gap - s), b.dir[1] * (gap - s), b.dir[2] * (gap - s)];
@@ -260,7 +241,7 @@ export function jointRoom(scene: Scene, mateId: string, kind: "turn" | "slide"):
  */
 /** The standing mates in `states` as a problem for the solver: the mates, and the bodies they join with their middles. */
 function problemOf(scene: Scene, states: readonly MateState[]): { mates: SolveMate[]; bodies: SolveBody[] } {
-  const mates: SolveMate[] = states.map((m) => ({ id: m.id, mode: m.mode, gap: m.gap, counts: m.counts !== false, mover: m.mover!.body, other: m.other!.body, a: { point: m.mover!.point, dir: m.mover!.dir, radius: m.mover!.radius }, b: { point: m.other!.point, dir: m.other!.dir, radius: m.other!.radius } }));
+  const mates: SolveMate[] = states.map((m) => ({ id: m.id, mode: m.mode, gap: m.gap, counts: m.counts !== false, mover: m.mover!.body, other: m.other!.body, a: { point: m.mover!.point, dir: m.mover!.dir, radius: m.mover!.radius, ...(m.mover!.shape ? { shape: m.mover!.shape } : {}), ...(m.mover!.semi !== undefined ? { semi: m.mover!.semi } : {}) }, b: { point: m.other!.point, dir: m.other!.dir, radius: m.other!.radius, ...(m.other!.shape ? { shape: m.other!.shape } : {}), ...(m.other!.semi !== undefined ? { semi: m.other!.semi } : {}) } }));
   const bodies: SolveBody[] = [];
   for (const ref of new Set(mates.flatMap((m) => [m.mover, m.other]))) {
     const w = scene.parts[ref];

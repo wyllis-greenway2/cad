@@ -22,6 +22,50 @@ const copyOf = (d) => ({
   mesh: d.mesh && { vertices: d.mesh.vertices.slice(), normals: d.mesh.normals.slice(), triangles: d.mesh.triangles.slice(), ...(d.mesh.sharp ? { sharp: d.mesh.sharp.slice(), sharpDeg: d.mesh.sharpDeg } : {}) },
 });
 
+
+/**
+ * A cone's apex, axis and half angle, fitted to the points and normals of its face (`in_838`): every normal of a cone makes the same angle with its axis (n . s = c, solved for u = s / c by least squares) and every tangent plane
+ * goes through the apex (n . apex = n . p, least squares); the axis points from the apex to the face. Null when the face is too flat to say (a cylinder, a plane).
+ */
+function coneFit(m, g, rnd) {
+  const ids = new Set();
+  for (let i = g.start; i < g.start + g.count; i++) ids.add(m.triangles[i]);
+  const all = [...ids], step = Math.max(1, Math.floor(all.length / 600));
+  const pts = [];
+  for (let k = 0; k < all.length; k += step) { const ix = all[k] * 3; pts.push({ n: [m.normals[ix], m.normals[ix + 1], m.normals[ix + 2]], p: [m.vertices[ix], m.vertices[ix + 1], m.vertices[ix + 2]] }); }
+  if (pts.length < 6) return undefined;
+  const fit = (use) => {
+    const A = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], b = [0, 0, 0], b2 = [0, 0, 0], mid = [0, 0, 0];
+    for (const { n, p } of use) {
+      const np = n[0] * p[0] + n[1] * p[1] + n[2] * p[2];
+      for (let i = 0; i < 3; i++) { for (let j2 = 0; j2 < 3; j2++) A[i][j2] += n[i] * n[j2]; b[i] += n[i]; b2[i] += n[i] * np; mid[i] += p[i]; }
+    }
+    const solve = (rhs) => {
+      const M = A.map((r, i) => [...r, rhs[i]]);
+      for (let c = 0; c < 3; c++) {
+        let piv = c; for (let r = c + 1; r < 3; r++) if (Math.abs(M[r][c]) > Math.abs(M[piv][c])) piv = r;
+        if (Math.abs(M[piv][c]) < 1e-9) return null;
+        [M[c], M[piv]] = [M[piv], M[c]];
+        for (let r = 0; r < 3; r++) if (r !== c) { const f = M[r][c] / M[c][c]; for (let k2 = c; k2 < 4; k2++) M[r][k2] -= f * M[c][k2]; }
+      }
+      return [M[0][3] / M[0][0], M[1][3] / M[1][1], M[2][3] / M[2][2]];
+    };
+    const u = solve(b), apex = solve(b2);
+    return u && apex ? { u, apex, centre: mid.map((v) => v / use.length) } : null;
+  };
+  let f = fit(pts);
+  if (!f) return undefined;
+  // the points near the apex have normals that are not the cone's (they are averaged there): the fit is made again without them
+  const far = Math.max(...pts.map(({ p }) => Math.hypot(p[0] - f.apex[0], p[1] - f.apex[1], p[2] - f.apex[2])));
+  const away = pts.filter(({ p }) => Math.hypot(p[0] - f.apex[0], p[1] - f.apex[1], p[2] - f.apex[2]) > 0.12 * far);
+  if (away.length >= 6) f = fit(away) ?? f;
+  const lu = Math.hypot(...f.u), c = 1 / lu;
+  if (!(c > 1e-3 && c < 0.9999)) return undefined;
+  let axis = f.u.map((v) => v / lu);
+  if ((f.centre[0] - f.apex[0]) * axis[0] + (f.centre[1] - f.apex[1]) * axis[1] + (f.centre[2] - f.apex[2]) * axis[2] < 0) axis = axis.map((v) => -v);
+  return { apex: f.apex.map(rnd), axis: axis.map(rnd), semi: rnd(Math.asin(c)) };
+}
+
 export const KERNEL_NAME = "occt (replicad)";
 
 /** Load the kernel (once). `options` is passed to the WASM loader (e.g. where to find the .wasm file). */
@@ -140,7 +184,14 @@ function describeSolid(shape, tess0, lite, vol0) {
         if (f.geomType === "CYLINDRE") radius = f._geomAdaptor().Cylinder().Radius();
         else if (f.geomType === "SPHERE") radius = f._geomAdaptor().Sphere().Radius();
       } catch { radius = undefined; }
-      faces.push({ type: "surf", surface: String(f.geomType), start: g.start, count: g.count, lo: lo.map(r4s), hi: hi.map(r4s), ...(radius ? { radius: Math.round(radius * 1e4) / 1e4 } : {}), ...(partOf.has(f.hashCode) ? { axisOf: partOf.get(f.hashCode) } : {}) });
+      // a sphere says where its centre is, a cone where its apex is, which way its axis goes and how wide it opens (for a tangent mate, `in_838`)
+      let centre, cone;
+      try {
+        const r6s = (v) => Math.round(v * 1e6) / 1e6;
+        if (f.geomType === "SPHERE") { const c = f._geomAdaptor().Sphere().Location(); centre = [r6s(c.X()), r6s(c.Y()), r6s(c.Z())]; }
+        else if (f.geomType === "CONE") cone = coneFit(m, g, r6s); // (the kernel's binding has no cone: it is fitted to the face's own triangles and normals)
+      } catch { centre = undefined; cone = undefined; }
+      faces.push({ type: "surf", surface: String(f.geomType), start: g.start, count: g.count, lo: lo.map(r4s), hi: hi.map(r4s), ...(radius ? { radius: Math.round(radius * 1e4) / 1e4 } : {}), ...(centre ? { centre } : {}), ...(cone ? { cone } : {}), ...(partOf.has(f.hashCode) ? { axisOf: partOf.get(f.hashCode) } : {}) });
     }
     // edges as polylines, and their end points as vertices (for selecting lines and corners)
     const em = shape.meshEdges({ tolerance: tess.tolerance, angularTolerance: tess.angular });

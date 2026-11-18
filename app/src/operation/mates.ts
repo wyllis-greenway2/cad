@@ -8,6 +8,8 @@ import { lookup } from "./scene.ts";
 import type { Part } from "./part.ts";
 import { normalOfPlane, roundOf } from "./part.ts";
 import { laterMotion, applyPoint, applyDir } from "./frames.ts";
+import type { Shape } from "./tangent.ts";
+import { shapeOf, tangentResiduals } from "./tangent.ts";
 
 /**
  * flush: face on face with a gap; coaxial: round face on round face; parallel: only turned until the flat faces are parallel; parallelAxes: the same for the axes of round faces (`in_317`);
@@ -27,7 +29,7 @@ export const turnOnly = (m: MateMode): boolean => m !== "flush" && m !== "coaxia
 export const angleOfMode = (m: MateMode, amount: number): number => (m === "perpendicular" || m === "perpendicularAxes" ? 90 : m === "angle" || m === "angleAxes" ? amount : 0);
 const MATE_KIND = "mate";
 /** A face of a body as something to mate: a flat face by a point on it and its outward normal; a round face by a point on its axis, the axis and its radius. */
-export interface MateFeature { ref: Ref; body: Ref; bodyId: string; point: Vec3; dir: Vec3; radius: number }
+export interface MateFeature { ref: Ref; body: Ref; bodyId: string; point: Vec3; dir: Vec3; radius: number; /** a ball (its centre is `point`, `dir` means nothing) or a cone (`point` its apex, `dir` its axis into it, `semi` its half angle, radians); a flat or a round face has none (`in_838`) */ shape?: Shape; semi?: number }
 
 /** A world plane (`w/XY`...): the other side of a mate with the world (`in_837`): a face made level or upright is turned against its normal, which stands still. */
 export const isWorldPlane = (scene: Scene, ref: Ref): boolean => { const p = scene.parts[ref]; return p?.kind === "plane" && p.origin === "world"; };
@@ -53,6 +55,8 @@ export function featureOf(scene: Scene, ref: Ref, mode: MateMode): MateFeature |
   if (p?.kind !== "plane" || p.origin !== "body") return null;
   const body = ownerOf(scene, p);
   if (!body?.id) return null;
+  if (mode === "tangent" && p.sphere && p.radius) return { ref, body: canonBody(scene, body.ref), bodyId: body.id, point: p.sphere, dir: [0, 0, 1], radius: p.radius, shape: "sphere" }; // (a ball: its centre and radius, `in_838`)
+  if (mode === "tangent" && p.cone) return { ref, body: canonBody(scene, body.ref), bodyId: body.id, point: p.cone.apex, dir: normalize(p.cone.axis), radius: 0, shape: "cone", semi: p.cone.semi }; // (a cone: apex, axis, half angle)
   if (mode === "axisToFace" || mode === "tangent") return featureOf(scene, ref, "flush") ?? featureOf(scene, ref, "coaxial"); // (a flat face by its normal, a round one by its axis)
   if (isFlatMode(mode)) return p.curved || p.round || p.rounded ? null : { ref, body: canonBody(scene, body.ref), bodyId: body.id, point: p.at, dir: normalOfPlane(p), radius: 0 };
   const r = roundOf(lookup(scene), ref);
@@ -60,16 +64,17 @@ export function featureOf(scene: Scene, ref: Ref, mode: MateMode): MateFeature |
 }
 
 const KEYS = ["x", "y", "z"] as const;
-const put = (o: Record<string, number>, prefix: string, f: { point: Vec3; dir: Vec3; radius: number }) => { KEYS.forEach((k, i) => { o[`${prefix}d${k}`] = f.dir[i]!; o[`${prefix}p${k}`] = f.point[i]!; }); o[`${prefix}r`] = f.radius; };
-const get = (p: Record<string, number>, prefix: string): { point: Vec3; dir: Vec3; radius: number } => ({ dir: KEYS.map((k) => p[`${prefix}d${k}`] ?? 0) as unknown as Vec3, point: KEYS.map((k) => p[`${prefix}p${k}`] ?? 0) as unknown as Vec3, radius: p[`${prefix}r`] ?? 0 });
+const CODE: Record<string, number> = { sphere: 2, cone: 3 };
+const put = (o: Record<string, number>, prefix: string, f: { point: Vec3; dir: Vec3; radius: number; shape?: Shape; semi?: number }) => { KEYS.forEach((k, i) => { o[`${prefix}d${k}`] = f.dir[i]!; o[`${prefix}p${k}`] = f.point[i]!; }); o[`${prefix}r`] = f.radius; if (f.shape && CODE[f.shape]) { o[`${prefix}k`] = CODE[f.shape]!; o[`${prefix}s`] = f.semi ?? 0; } };
+const get = (p: Record<string, number>, prefix: string): { point: Vec3; dir: Vec3; radius: number; shape?: Shape; semi?: number } => ({ dir: KEYS.map((k) => p[`${prefix}d${k}`] ?? 0) as unknown as Vec3, point: KEYS.map((k) => p[`${prefix}p${k}`] ?? 0) as unknown as Vec3, radius: p[`${prefix}r`] ?? 0, ...(p[`${prefix}k`] === 2 ? { shape: "sphere" as const } : p[`${prefix}k`] === 3 ? { shape: "cone" as const, semi: p[`${prefix}s`] ?? 0 } : {}) });
 
 /** The relation that records a mate, with the faces as they stand when it is true. */
 export function mateRelation(id: string, mode: MateMode, gap: number, mover: MateFeature, other: MateFeature, whenTrue: { mover: { point: Vec3; dir: Vec3 }; other: { point: Vec3; dir: Vec3 } }, counts = true, standing = false, steps?: number): Relation {
   // `fix`: the number counts (a parallel mate that was given a distance; for the others it always does, `in_319`)
   // `steps`: how many steps the scene had when the mate was true: the faces are kept as they stood then, and the body's own moves and turns since are followed exactly (`in_343`), not looked for
   const params: Record<string, number> = { mode: numberOfMode(mode), gap, fix: counts ? 1 : 0, stand: standing ? 1 : 0, ...(steps !== undefined ? { steps } : {}) };
-  put(params, "m", { ...whenTrue.mover, radius: mover.radius });
-  put(params, "o", { ...whenTrue.other, radius: other.radius });
+  put(params, "m", { ...whenTrue.mover, radius: mover.radius, ...(mover.shape ? { shape: mover.shape } : {}), ...(mover.semi !== undefined ? { semi: mover.semi } : {}) });
+  put(params, "o", { ...whenTrue.other, radius: other.radius, ...(other.shape ? { shape: other.shape } : {}), ...(other.semi !== undefined ? { semi: other.semi } : {}) });
   return { id, kind: MATE_KIND, parts: [mover.body, other.body], params, locked: true };
 }
 
@@ -77,15 +82,15 @@ export function mateRelation(id: string, mode: MateMode, gap: number, mover: Mat
  * Where a face the mate remembers is now (`in_343`): the faces were kept as they stood when the mate was true, and the body has been moved and turned since only by the steps recorded for it, so they are where those steps put them.
  * A mate made before this was kept (no `steps`) is looked for where it was.
  */
-function predicted(scene: Scene, body: Ref, want: { point: Vec3; dir: Vec3; radius: number }, from: number | undefined): { point: Vec3; dir: Vec3; radius: number } {
+function predicted<W extends { point: Vec3; dir: Vec3; radius: number }>(scene: Scene, body: Ref, want: W, from: number | undefined): W {
   const b = bodyPart(scene, body);
   if (from === undefined || !b?.id) return want;
   const rigid = laterMotion(scene.steps.slice(from), -1, (id) => id === b.id);
-  return { point: applyPoint(rigid, want.point), dir: applyDir(rigid, want.dir), radius: want.radius };
+  return { ...want, point: applyPoint(rigid, want.point), dir: applyDir(rigid, want.dir) };
 }
 const angle = (a: Vec3, b: Vec3) => Math.acos(Math.max(-1, Math.min(1, dot(normalize(a), normalize(b)))));
 /** The face of a body that looks most like the one the mate remembers (the same way round, nearest to it), or null if none is near enough. */
-function findFace(scene: Scene, body: Ref, mode: MateMode, want: { point: Vec3; dir: Vec3; radius: number }): MateFeature | null {
+function findFace(scene: Scene, body: Ref, mode: MateMode, want: { point: Vec3; dir: Vec3; radius: number; shape?: Shape; semi?: number }): MateFeature | null {
   let best: { f: MateFeature; score: number } | null = null;
   let candidates = 0; // (the faces of the body that face the way the mate remembers)
   let ofKind = 0; // (the faces of the body of the kind the mate joins: round for a coaxial mate, flat for a flush one)
@@ -95,16 +100,17 @@ function findFace(scene: Scene, body: Ref, mode: MateMode, want: { point: Vec3; 
     const own = ownerOf(scene, p);
     if (!own || canonBody(scene, own.ref) !== body) continue;
     const f = featureOf(scene, p.ref, mode);
-    if (!f || ((mode === "axisToFace" || mode === "tangent") && (f.radius > 0) !== (want.radius > 0))) continue; // (the kind of face it was: flat or round)
+    if (!f || (mode === "axisToFace" && (f.radius > 0) !== (want.radius > 0)) || (mode === "tangent" && shapeOf(f) !== shapeOf(want))) continue; // (the kind of face it was: flat or round; a tangent mate's: flat, round, a ball or a cone)
     ofKind++;
     only = f;
-    const turn = mode === "flush" ? angle(f.dir, want.dir) : Math.min(angle(f.dir, want.dir), Math.PI - angle(f.dir, want.dir)); // (a flush face has its way round; a round face's axis, and a face that is only parallel, have none)
+    const ball = mode === "tangent" && want.shape === "sphere"; // (a ball has no axis to have turned)
+    const turn = ball ? 0 : mode === "flush" ? angle(f.dir, want.dir) : Math.min(angle(f.dir, want.dir), Math.PI - angle(f.dir, want.dir)); // (a flush face has its way round; a round face's axis, and a face that is only parallel, have none)
     const loose = turnOnly(mode); // (a mate that is about a turn: the face may have been turned a good way since, and is still the one)
     if (turn > (loose ? 0.8 : 0.14)) continue; // (more than eight degrees from it, or forty-five for a mate that turns)
     candidates++;
     const d = sub(f.point, want.point);
     const along = dot(d, want.dir);
-    const score = (isFlatMode(mode) || ((mode === "axisToFace" || mode === "tangent") && want.radius === 0) ? Math.abs(along) : Math.hypot(d[0] - want.dir[0] * along, d[1] - want.dir[1] * along, d[2] - want.dir[2] * along) + Math.abs(f.radius - want.radius)) + (loose ? 5 : 30) * turn;
+    const score = ball ? Math.hypot(d[0], d[1], d[2]) : (isFlatMode(mode) || ((mode === "axisToFace" || mode === "tangent") && want.radius === 0) ? Math.abs(along) : Math.hypot(d[0] - want.dir[0] * along, d[1] - want.dir[1] * along, d[2] - want.dir[2] * along) + Math.abs(f.radius - want.radius)) + (loose ? 5 : 30) * turn;
     if (!best || score < best.score) best = { f, score };
   }
   // the face is the one that faces that way, however far the body has been pulled from it: only when several face that way is the nearest taken, and only if it is near (a body pulled off its mate was 'lost' and nothing held it, `in_338`)
@@ -152,16 +158,8 @@ export function mateStatus(scene: Scene): MateState[] {
     const w = sub(mover.point, other.point);
     const along = dot(w, other.dir);
     const across = Math.hypot(w[0] - other.dir[0] * along, w[1] - other.dir[1] * along, w[2] - other.dir[2] * along); // (how far the mover's point is from the other's axis)
-    if (mode === "tangent") { // a round face on a flat one, or on another round one (`in_837`)
-      const [r1, r2] = [mover.radius, other.radius];
-      if ((r1 > 0) !== (r2 > 0)) { // a plane and an axis: the axis parallel to it and a radius from it, on the side `gap` says
-        const [plane, axis, r] = r1 > 0 ? [other, mover, r1] : [mover, other, r2];
-        const n = normalize(plane.dir);
-        const d = dot(sub(axis.point, plane.point), n);
-        residual = Math.max(Math.abs(dot(normalize(axis.dir), n)) * r, Math.abs(d - (gap < 0 ? -1 : 1) * r));
-      } else {
-        residual = Math.max(Math.abs(across - (gap >= 0 ? r1 + r2 : Math.abs(r1 - r2))), Math.sin(turned) * (r1 + r2));
-      }
+    if (mode === "tangent") { // a round face on a flat one, on another round one, a ball or a cone (`in_837`, `in_838`)
+      residual = Math.max(...tangentResiduals(mover, other, gap).map(Math.abs));
       ok = residual < 1e-3;
     } else if (mode === "flush") {
       residual = Math.abs(dot(w, other.dir) - gap);
