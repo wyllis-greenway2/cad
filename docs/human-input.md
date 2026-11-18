@@ -3703,3 +3703,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_838 — 2026-11-18 — approval
 > okay build the left out stuff please
 (approves building what the last reply left out: mates against the world's other planes (X and Y directions, a face and a world plane selected), and Tangent for spheres and cones)
+
+## in_839 — 2026-11-18 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 once more, for the flat constraints ring, the mates with the world and the new tangent mates; gives permission to write to that branch)
