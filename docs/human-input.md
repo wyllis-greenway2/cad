@@ -4102,3 +4102,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_937 — 2026-11-18 — question
 > Why cant I put fasteners in this surface?
 (asks why fasteners cannot be put in a round face: a screenshot of the fastener panel with a round wall of a teardrop plate selected (R 28.22) and the red message "select a line drawn across the round face, or corners and circles on it")
+
+## in_938 — 2026-11-18 — question
+> how should we handle selecting multiple faces like this? Like for example if someone is trying to put a set of screws around the perimeter of something?
+(asks how the fastener tool should handle several faces selected together: a screenshot of three side faces of the teardrop plate selected (a round one, a flat one, a round one); the example is a set of screws round the perimeter of something)
