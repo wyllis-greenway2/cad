@@ -130,18 +130,22 @@ const cloneFacts = (e) => Object.fromEntries(Object.entries(e).map(([k, v]) => [
 /** A name moved with the body: the point and the end of its normal are carried by the same motion (`tf`, as `moveMarkers` takes it). */
 function carried(names, tf) {
   if (!tf) return names;
-  const at = moveMarkers(names.map((m) => ({ id: m.name, at: m.c })), tf);
-  const tip = moveMarkers(names.map((m) => ({ id: m.name, at: [m.c[0] + m.n[0], m.c[1] + m.n[1], m.c[2] + m.n[2]] })), tf);
+  // one body of several was moved, turned or scaled (`tf.only`, and `tf.box` where it stood): the names of its faces go with it and the names of the other bodies' faces stay. (The motion is told the body's name and a name is not a body's name: every name was left where it was, and the faces of the moved body that stand across the motion lost theirs, `in_912`.)
+  const mine = (m) => !tf.only || !tf.box || [0, 1, 2].every((i) => m.c[i] >= tf.box.min[i] - 1e-6 && m.c[i] <= tf.box.max[i] + 1e-6);
+  const go = tf.only && tf.box ? { ...tf, only: null } : tf;
+  const at = moveMarkers(names.map((m) => ({ id: m.name, at: m.c })), go);
+  const tip = moveMarkers(names.map((m) => ({ id: m.name, at: [m.c[0] + m.n[0], m.c[1] + m.n[1], m.c[2] + m.n[2]] })), go);
   return names.map((m, i) => {
+    if (!mine(m)) return m;
     const d = [tip[i].at[0] - at[i].at[0], tip[i].at[1] - at[i].at[1], tip[i].at[2] - at[i].at[2]];
     const l = Math.hypot(...d) || 1;
     if (m.kind === "surf") { // (a surface of another kind is carried as its box: by a move or a scale it stays a box; by a turn it does not, and is not matched)
       if (tf.mode !== "move" && tf.mode !== "scale") return { name: m.name, kind: "surf", type: m.type, n: m.n, c: at[i].at, lo: [NaN, NaN, NaN], hi: [NaN, NaN, NaN] };
-      const [a, b] = [moveMarkers([{ id: "lo", at: m.lo }], tf)[0].at, moveMarkers([{ id: "hi", at: m.hi }], tf)[0].at];
+      const [a, b] = [moveMarkers([{ id: "lo", at: m.lo }], go)[0].at, moveMarkers([{ id: "hi", at: m.hi }], go)[0].at];
       return { name: m.name, kind: "surf", type: m.type, n: m.n, c: at[i].at, lo: [0, 1, 2].map((k) => Math.min(a[k], b[k])), hi: [0, 1, 2].map((k) => Math.max(a[k], b[k])) };
     }
     const q = { name: m.name, n: d.map((v) => v / l), c: at[i].at };
-    if (m.kind === "cyl") { q.kind = "cyl"; q.o = moveMarkers([{ id: "o", at: m.o }], tf)[0].at; q.r = tf.mode === "scale" ? m.r * tf.v : m.r; }
+    if (m.kind === "cyl") { q.kind = "cyl"; q.o = moveMarkers([{ id: "o", at: m.o }], go)[0].at; q.r = tf.mode === "scale" ? m.r * tf.v : m.r; }
     return q;
   });
 }
