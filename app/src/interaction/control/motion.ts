@@ -125,7 +125,7 @@ export function doMakeTurn(s: AppState): AppState {
       if (f) { from = { body: f.body, point: f.point, dir: f.dir }; break; }
     }
   }
-  if (!from) return say("select a round face of the body (its axis is the pivot), or open Rotate on the body, put the orb where it should turn and choose Make it turn");
+  if (!from) return say("select a round face of the body (its axis is the pivot), or open Rotate on the body, put the orb where it should turn and choose Pivot");
   const id = (sc.parts[from.body] as { id?: string } | undefined)?.id;
   if (!id) return say("this is not a body of the model");
   const made = run(s.session, { type: "pivot", body: id, point: from.point, dir: from.dir });

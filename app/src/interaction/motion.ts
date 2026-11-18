@@ -67,7 +67,7 @@ export function startPlain(scene: Scene, body: Ref, kind: JointKind = "turn"): {
     if (!g || !ax) {
       const pv = pivotOfBody(scene, body); // (a body made to turn: about an axis of its own, with no partner)
       if (pv) return { ok: true, motion: { mate: "", gear: "", follows: [], kind: "turn", body, point: pv.point, dir: pv.dir, amount: 0, lo: -FREE_TURN, hi: FREE_TURN, free: true, playing: false, from: 0, startedAt: null, speed: 45, noKeep: "a body that is made to turn is not kept at a pose yet: it stays where it is drawn" } };
-      return { ok: false, why: "select a body that turns on a pin or slides on a rod (the first body of a coaxial mate), a gear with its body, or any body after Make it turn" };
+      return { ok: false, why: "select a body that turns on a pin or slides on a rod (the first body of a coaxial mate), a gear with its body, or any body after Pivot" };
     }
     const { followers, why } = followersOf(scene, g);
     const [lo, hi] = ax.kind === "turn" ? [-FREE_TURN, FREE_TURN] : [-FREE_SLIDE, FREE_SLIDE];

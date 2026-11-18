@@ -89,7 +89,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "cam:follow", label: "Follower", icon: "cam" },
   { id: "motion:play", label: "Play", icon: "play" },
   { id: "motion:link", label: "Link joints", icon: "play" },
-  { id: "motion:pivot", label: "Make it turn", icon: "play" },
+  { id: "motion:pivot", label: "Pivot", icon: "play" },
   { id: "motion:unpivot", label: "Stop turning", icon: "play" },
   { id: "gear:helix", label: "Helix", icon: "helical" },
   { id: "gear:mesh", label: "Mesh gear", icon: "meshgear" },

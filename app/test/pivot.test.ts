@@ -26,7 +26,7 @@ function cylinder(s: Session, x: number, y: number, radius: number, h = 10): Ses
 const env = { w: 800, h: 600, now: 0 };
 const select = (st: ReturnType<typeof createState>, refs: Ref[]): ReturnType<typeof createState> => ({ ...st, session: { ...st.session, click: { ...st.session.click, selection: refs } } }) as ReturnType<typeof createState>;
 
-test("a round face of a body selected, Make it turn: the body turns about that face's axis, plays at once, has a play button, and is saved", () => {
+test("a round face of a body selected, Pivot: the body turns about that face's axis, plays at once, has a play button, and is saved", () => {
   const s = cylinder(cylinder(createSession(kernel), 30, 0, 5), 100, 0, 3); // (two bodies, so each has a name of its own)
   const [b] = bodies(s);
   assert.ok(b);
