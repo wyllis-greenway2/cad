@@ -3241,3 +3241,6 @@ No steering input. The new `docs/sources/README.md` (CLAUDE.md, source index rul
 
 ## Handoff 735 — 2026-11-17 (in_806: stage 3b, the Geneva coupling)
 `in_806`. **Built:** `gearcouple.ts` (`genevaBodies`, `genevaShaft`, `genevaPlay`, `genevaTurn`; `Follower.geneva`; `gearOfBody` knows the wheel, disc and crank), `motion.ts` (`startMotion` plays a Geneva from its crank or disc, refuses the wheel; `Motion.noKeep`, Keep pose refused with a reason). Tests `genevamotion.test.ts` (2). **Not built:** the ratchet as a coupling; the sketch layouts have no bodies to play. **Next:** the ratchet (pawl rides the tooth ramp), then browser check of a played Geneva and a cam follower.
+
+## Handoff 736 — 2026-11-18 (in_807: reverse switch, planetary wired as meshed)
+`in_807`. **Built:** `reverseMotion`, intent `motionReverse`, `Frame.motionBar.reversed`, the ⇄ switch in `ui/motionbar.ts`; `followersOf` derives the planetary links (sun to planets, ring to planet 1) from `Scene.planetaries`. Tests: one in `motion.test.ts`, one in `gearmotion.test.ts`. **Not built:** the carrier turning (planets orbiting); the ratchet coupling. **Next:** browser check of reverse, the planetary, the cam follower and the Geneva.

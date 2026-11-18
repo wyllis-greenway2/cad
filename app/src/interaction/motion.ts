@@ -80,6 +80,11 @@ export function tickMotion(m: Motion, now: number): Motion {
   const started = m.startedAt === null ? { ...m, startedAt: now, from: m.amount } : m;
   return { ...started, amount: amountAt(started, now) };
 }
+/** The other way round: the speed changes sign, and a motion that is playing goes on from where it stands. */
+export function reverseMotion(m: Motion): Motion {
+  const r = { ...m, speed: -m.speed };
+  return m.playing ? { ...r, from: m.amount, startedAt: null } : r;
+}
 /** Playing stops where it is (and a stopped one starts from where it stands). */
 export function setPlaying(m: Motion, on: boolean): Motion {
   return on ? { ...m, playing: true, startedAt: null, from: m.amount } : { ...m, playing: false, startedAt: null };

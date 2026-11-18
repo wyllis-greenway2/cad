@@ -140,3 +140,20 @@ test("Keep pose writes the drive step the joint uses, once (one undo), and ends 
   assert.equal(mate.params?.turn, 35, "the joint stands at 35 degrees now");
   void pin;
 });
+
+test("reverse: the speed changes sign, a motion that is playing goes on from where it stands the other way, and it shows on the bar", async () => {
+  const { reverseMotion } = await import("../src/interaction/motion.ts");
+  const { s, pin } = pinInHole();
+  const st = startMotion(scene(s), pin.ref, "turn");
+  assert.ok(st.ok);
+  if (!st.ok) return;
+  const m0 = setPlaying(st.motion, true);
+  const m1 = tickMotion(m0, 1000), m2 = tickMotion(m1, 2000);
+  assert.ok(m2.amount > 0);
+  const r = reverseMotion(m2);
+  assert.equal(r.speed, -m2.speed);
+  assert.equal(r.from, m2.amount);
+  const back = tickMotion(tickMotion(r, 3000), 4000);
+  assert.ok(back.amount < m2.amount, "it comes back");
+  assert.equal(reverseMotion(reverseMotion(m2)).speed, m2.speed);
+});

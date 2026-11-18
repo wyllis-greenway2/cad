@@ -146,6 +146,11 @@ function edge(s: Scene, a: GearRecord, b: GearRecord): { k: number; kind: "turn"
 export function followersOf(s: Scene, driver: GearRecord): { followers: Follower[]; why?: string } {
   const links = new Map<string, string[]>();
   for (const g of gearsOf(s)) if (g.meshWith && gearsOf(s).some((q) => q.id === g.meshWith)) { links.set(g.id, [...(links.get(g.id) ?? []), g.meshWith]); links.set(g.meshWith, [...(links.get(g.meshWith) ?? []), g.id]); }
+  for (const q of s.planetaries ?? []) { // a planetary set: the sun meshes each planet, and the ring meshes them (the first stands for the rest: the others reach it through the sun)
+    const ids = new Set(gearsOf(s).map((g) => g.id));
+    const pairs: [string, string][] = [...q.planetIds.map((p): [string, string] => [q.sunId, p]), ...(q.planetIds[0] ? [[q.ringId, q.planetIds[0]] as [string, string]] : [])];
+    for (const [x, y] of pairs) if (ids.has(x) && ids.has(y)) { links.set(x, [...(links.get(x) ?? []), y]); links.set(y, [...(links.get(y) ?? []), x]); }
+  }
   const seen = new Map<string, number>([[driver.id, 1]]); // (the factor from the driver, in the unit of each gear's own amount)
   const out: Follower[] = [];
   let why: string | undefined;

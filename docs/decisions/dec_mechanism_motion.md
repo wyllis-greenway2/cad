@@ -48,6 +48,10 @@ alternative_to:
 
 **Play on the crank or the locking disc of a Geneva drive made as a model** (three bodies) turns the crank and the disc together about the second shaft, and the wheel about its own by the real law of the drive (`genevaTurn`): the pin is in a slot while the crank is within 90 - 180/n degrees either side of the line of centres, and there the wheel follows the slot; between visits it stands still, so it makes a step of 360/n degrees for each turn of the crank. The wheel itself cannot be played (it is driven). **Keep pose is refused** for a Geneva (it is one drawing: turn it with Edit cam). **Not built:** the ratchet as a coupling.
 
+## Built: reverse, and planetary sets wired as meshed (`in_807`)
+
+The motion bar has a **⇄ switch**: the speed changes sign and a motion that is playing goes on from where it stands the other way round. **A planetary set** (`Scene.planetaries`) is now known to be meshed: `followersOf` links the sun to each planet and the ring to the first planet, so playing the sun, a planet or the ring turns the others by the tooth ratios with **the carrier held** (planets spin on fixed axes). This works for sets made before too, since the links are derived from the set's record. **Not built:** the carrier turning, so that the planets orbit; that needs a planetary-specific coupling (the carrier's angle sets the planets' orbit as well as their spin).
+
 ## The five choices (approved at `in_803`)
 
 1. **The pose is view only** (nothing written until **keep this pose**), not a committed motion.

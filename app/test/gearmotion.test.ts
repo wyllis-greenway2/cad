@@ -151,3 +151,22 @@ test("a gear with no body, or one meshed with a worm, a pulley or a cam, is not 
   assert.ok(fin && fin.command.type === "gear", "a partner is made");
   assert.equal((fin!.command as { meshWith?: string }).meshWith, "g_001", "and says which gear it was meshed with");
 });
+
+test("a planetary set is wired up as meshed: playing the sun turns the planets and the ring by the tooth ratios (the carrier held), and the planets and the ring play back to the sun", async () => {
+  const { addPlanetary } = await import("../src/operation/planetary.ts");
+  void addPlanetary;
+  let s = createSession(kernel);
+  s = run(s, { type: "planetary", id: "q_001", plane: XY, at: [0, 0, 0], spec: { sun: 12, planet: 18, planets: 3, module: 1, width: 5, backlash: 0.15 } });
+  assert.ok(!s.message, s.message ?? "");
+  const sc = scene(s);
+  const q = sc.planetaries![0]!;
+  const sun = sc.gears!.find((g) => g.id === q.sunId)!;
+  const r = followersOf(sc, sun);
+  assert.equal(r.followers.length, 4, r.why ?? "the three planets and the ring");
+  const kOf = (id: string) => r.followers.find((f) => f.gear === id)!.k;
+  for (const p of q.planetIds) assert.ok(Math.abs(kOf(p) + 12 / 18) < 1e-9, "a planet turns the opposite way by 12/18");
+  assert.ok(Math.abs(kOf(q.ringId) + 12 / 48) < 1e-9, "the ring (48 teeth) turns the way the planets do, the sun's turn times 12/48 backwards");
+  // from a planet: the sun and the other planets and the ring all follow
+  const planet = sc.gears!.find((g) => g.id === q.planetIds[1])!;
+  assert.equal(followersOf(sc, planet).followers.length, 4);
+});

@@ -79,6 +79,7 @@ export type Intent =
   | { type: "motionAt"; amount: number }
   | { type: "motionPlay" }
   | { type: "motionKind"; kind: "turn" | "slide" }
+  | { type: "motionReverse" }
   | { type: "motionKeep" }
   | { type: "motionClose" }
   | { type: "previewClose" }

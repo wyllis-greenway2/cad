@@ -3572,3 +3572,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_806 — 2026-11-17 — directive
 > Go with your recommendation, start on the Geneva coupling
 (asks for stage 3b of `dec_mechanism_motion` to be started: the Geneva drive as a coupling, the wheel driven by its crank)
+
+## in_807 — 2026-11-18 — directive
+> Go with your recommendation, add the reverse switch, also the planetary assembly doesn't work right, I don't think it is an issue with your animator, I think it is just that the assembly isn't wired up to know that the gears are meshed.
+(asks for a reverse switch on the motion bar, and for the planetary assembly to record that its gears are meshed so playing one turns the others)
