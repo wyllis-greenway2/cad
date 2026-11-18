@@ -158,7 +158,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       if (c.part.plane && !(c.part.plane in s.parts) && s.planeAlias?.[c.part.plane]) return apply(s, { ...c, part: { ...c.part, plane: s.planeAlias[c.part.plane]! } as typeof c.part }); // (`in_372`)
       for (const a of anchorsOf(c.part)) if (a !== c.part.ref && !(a in s.parts)) return err(`${c.part.ref} uses ${a}, which does not exist`);
       if (c.part.plane && !(c.part.plane in s.parts)) return err(`plane ${c.part.plane} does not exist`);
-      // only a world plane is infinite (hit anywhere, drawn across the whole view): a drawn plane that says so, as the first fastener holes made (`in_886`), is made an ordinary plane when it is read
+      // only a world plane is infinite (hit anywhere, drawn across the whole view): a drawn plane that says so, as the first fastener holes made (`in_908`), is made an ordinary plane when it is read
       const part = c.part.kind === "plane" && c.part.origin === "drawn" && c.part.infinite ? ({ ...c.part, infinite: undefined } as typeof c.part) : c.part;
       return ok(bumpCounter({ ...s, parts: { ...s.parts, [part.ref]: part } }, idOf(part.ref)));
     }

@@ -201,7 +201,7 @@ export interface Rules {
   corners?: "ignore" | "each" | "inward";
   /** the path is moved this far to its left first */
   offset?: number;
-  /** the whole row is walked this far along the path (`in_887`): on a closed path the places turn round it, on an open one they move along it and any that go past an end are left out */
+  /** the whole row is walked this far along the path (`in_909`): on a closed path the places turn round it, on an open one they move along it and any that go past an end are left out */
   shift?: number;
 }
 export interface Placed { frames: Frame[]; /** the spacing the copies stand at (the adjusted one when the rules adjust it; a side's own for corners "each") */ spacing: number | null; /** the path as it was moved by the offset */ path: Path }

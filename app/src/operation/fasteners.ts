@@ -212,7 +212,7 @@ export const RECEIVER_KINDS: readonly { id: ReceiverKind; label: string; /** a s
   { id: "counterbore", label: "Counterbored clearance hole (for a socket head screw)", short: "Counterbored" },
   { id: "tapped", label: "Hole to tap (the tap drill)", short: "Hole to tap" },
   { id: "nutPocket", label: "Nut pocket with its clearance hole", short: "Nut pocket" },
-  { id: "drillTap", label: "Clearance hole to a depth, tapped past it (the tap drill)", short: "Drill + tap" }, // (`in_888`, `in_889`)
+  { id: "drillTap", label: "Clearance hole to a depth, tapped past it (the tap drill)", short: "Drill + tap" }, // (`in_910`, `in_911`)
 ];
 /** Where a receiver goes: a flat face of a body, as the plane the face lies on (`at` a point on it, `u` and `v` across it, the normal `u` x `v` pointing out of the body), and the point on it the hole is centred on. */
 export interface FaceSpot { plane: Ref; centre: Vec3; u: Vec3; v: Vec3 }
@@ -314,7 +314,7 @@ export function makeSocketHead(size: string, length: number, smooth = false): Re
 }
 
 /**
- * The nut pocket on the other side of a body (`in_887`): the hexagon of the nut cut into the far face of the body round the same axis, as deep as the nut is thick. `spot.centre` is where the hole is on the near face, `reach` how far
+ * The nut pocket on the other side of a body (`in_909`): the hexagon of the nut cut into the far face of the body round the same axis, as deep as the nut is thick. `spot.centre` is where the hole is on the near face, `reach` how far
  * the body goes from that face to the far one along the hole. The pocket's plane stands on the far face, facing out of the body, so the cut goes into it as one made from the near face does.
  */
 export function farNutSteps(size: FastenerSize, spot: FaceSpot, reach: number): PartSteps {
@@ -335,7 +335,7 @@ export function farNutSteps(size: FastenerSize, spot: FaceSpot, reach: number): 
   ];
 }
 
-// ---- the hardware inserted into the holes (`in_888`, `in_889`) ----
+// ---- the hardware inserted into the holes (`in_910`, `in_911`) ----
 /** The longest standard length that fits in `room` mm, or null when none does. */
 export const longestStandard = (room: number): number | null => { const l = STANDARD_LENGTHS.filter((x) => x <= room + 1e-9); return l.length ? l[l.length - 1]! : null; };
 /** How far under the face the head of the screw sits: a countersunk head is flush (0), a socket head sits in its counterbore, or on the face (and stands above it). */

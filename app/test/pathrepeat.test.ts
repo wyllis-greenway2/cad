@@ -145,7 +145,7 @@ test("a frame lifted onto a plane in space carries the point and the two ways", 
   assert.deepEqual(l.across.map((x) => Math.round(x * 1e6) / 1e6), [0, 0, 1]);
 });
 
-// ---- walking the row along the path (`in_887`) ----
+// ---- walking the row along the path (`in_909`) ----
 test("a shift walks the whole row along an open line: the places move together, and those that go past an end are left out", () => {
   const base = placeAlong(line(100), { spacing: { by: "distance", distance: 20 }, ends: "remainder" });
   assert.deepEqual(ss(base), [0, 20, 40, 60, 80, 100]);

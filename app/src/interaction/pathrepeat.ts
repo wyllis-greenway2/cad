@@ -21,7 +21,7 @@ import { scene as sceneOf, selection as selectionOf } from "./session.ts";
 import type { Dialog, Field } from "./transfer.ts";
 import { pathPicture } from "./pathdrawing.ts";
 
-export interface PathRepeatValues { by: string; value: string; ends: string; startInset: string; endInset: string; corners: string; offset: string; turn: string; reverse: string; /** the whole row walked along the path (`in_887`), mm */ shift?: string }
+export interface PathRepeatValues { by: string; value: string; ends: string; startInset: string; endInset: string; corners: string; offset: string; turn: string; reverse: string; /** the whole row walked along the path (`in_909`), mm */ shift?: string }
 export const pathRepeatStart = (): PathRepeatValues => ({ by: "distance", value: "20", ends: "fit", startInset: "0", endInset: "0", corners: "ignore", offset: "0", turn: "keep", reverse: "start", shift: "0" });
 const fmt = (n: number): string => String(Math.round(n * 1000) / 1000);
 

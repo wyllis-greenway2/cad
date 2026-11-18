@@ -134,7 +134,7 @@ test("what was selected decides where the dialog starts: picked places, else lin
   assert.equal(receiverStartFor(select(s, [top, corner])).place, "picked");
 });
 
-// ---- a nut on the other side, and walking the row (`in_887`) ----
+// ---- a nut on the other side, and walking the row (`in_909`) ----
 test("a nut pocket on the far side is cut with the hole: the same volume as the hole and a pocket at the far face", () => {
   const { s, V } = block();
   const hex = (Math.sqrt(3) / 2) * 49 - Math.PI * 2.25 ** 2; // (M4: 7 mm across flats, 3.2 thick; the hole's own circle is inside it)
@@ -173,7 +173,7 @@ test("a shift walks the whole row along the outline: a closed loop turns the hol
   assert.equal(plan1.value.places.length, 8);
 });
 
-// ---- a hole drilled then tapped, and the hardware put in (`in_888`, `in_889`) ----
+// ---- a hole drilled then tapped, and the hardware put in (`in_910`, `in_911`) ----
 const bodies = (s: Session) => Object.values(scene(s).parts).filter((p) => p.kind === "body") as { volume?: number }[];
 test("drill then tap: a clearance part to a depth, the tap drill past it", () => {
   const { s, V } = block();
