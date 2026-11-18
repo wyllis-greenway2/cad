@@ -3608,3 +3608,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_815 — 2026-11-18 — approval
 > Yes, build it that way
 (approves the AI's split for the planetary set: harmonic issues (hunting tooth, in-step planets) and a low contact ratio as non-blocking warnings, and only what makes the set unusable blocking: the existing rules plus a contact ratio under 1; the ring to planet interference limit was not verified, so it is not made to block)
+
+## in_816 — 2026-11-18 — approval
+> Yes, make Make it keep the box open
+(approves the AI's proposal for the gear box's Make it: it applies the numbers and leaves the box open on the gear just made, with its preview, so editing can go on; a Done button or Esc closes it)

@@ -226,7 +226,7 @@ test("the Gear tool is in the Sketch ring; click the centre, the pointer sets th
   st = click(st, [C[0] + 60, C[1] + 40, 0]); // (a click in space makes the gear at the size set, and starts the next one there)
   assert.ok(Math.abs(reach(st) - 22) < 1e-6, `outside radius ${reach(st)}`);
   assert.ok(selection(st.session).length === 1, "the figure is selected");
-  assert.equal(st.tool!.points.length, 1, "the next gear starts where it was clicked");
+  assert.ok(st.tool!.gear!.kept && st.tool!.gear!.editing === "g_001", "the box stays open on the gear just made (`in_816`)");
   assert.ok(!st.tool!.sized);
   assert.equal(drawn(st).length, 20 * 12 + 1, "(and the bore, `in_691`) twelve corners to a tooth: two sides of five points and the two feet below the base circle");
   assert.equal(scene(st.session).gears!.length, 1, "it keeps its numbers");
@@ -329,7 +329,7 @@ test("a gear is saved as its numbers (the file holds the command, not the parts)
   assert.equal(scene(gone).gears, undefined);
 });
 
-test("Edit gear: the number box opens on the selected gear with its numbers; typing teeth and Enter changes it and puts the tool away; Esc leaves it alone", () => {
+test("Edit gear: the number box opens on the selected gear with its numbers; typing teeth and Enter changes it and the box stays open (Apply, Done); Esc leaves it alone", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "gear" }, env);
   st = click(st, C);
@@ -351,8 +351,10 @@ test("Edit gear: the number box opens on the selected gear with its numbers; typ
   st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab");
   st = typeText(st, "0.1");
   st = key(st, "Enter");
-  assert.equal(st.tool, null, "the tool is put away");
+  assert.ok(st.tool?.gear?.kept && st.tool.gear.editing === "g_001", "the box stays open on the gear (`in_816`)");
   assert.deepEqual([scene(st.session).gears![0]!.spec.teeth, scene(st.session).gears![0]!.spec.backlash], [30, 0.1]);
+  st = reduce(st, { type: "escape" }, env);
+  assert.equal(st.tool, null, "Done (Esc) puts it away: a box that was opened to edit goes back to nothing");
   assert.equal(selection(st.session).length, 1, "and the gear is still selected");
   // Esc leaves it alone
   let again = reduce(pick(st, [...selection(st.session)] as string[]), { type: "runAction", id: "gear:edit" }, env);
@@ -520,7 +522,7 @@ test("Mesh gear: with a gear selected, the pointer says which way the partner st
   assert.equal(b!.spec.teeth, 30);
   assert.ok(Math.abs(Math.hypot(b!.at[0] - a!.at[0], b!.at[1] - a!.at[1]) - 2 * (20 + 30) / 2) < 1e-6, "m (z1 + z2) / 2 apart");
   assert.ok(Math.abs(b!.at[0] - a!.at[0]) < 2 && b!.at[1] > a!.at[1], "up");
-  assert.equal(m.tool, null, "the tool is put away");
+  assert.ok(m.tool?.gear?.kept, "the box stays open on the partner (`in_816`)");
   assert.equal(selection(m.session).length, 1);
   assert.equal(gearsOfState({ ...m, session: undoLast(m.session) }).length, 1);
   // a typed angle: 180 degrees puts it to the left
@@ -759,4 +761,25 @@ test("a gear sized next to a gear of the same kind, its pitch circle all but tou
   far = click(far, [C[0] + 90, C[1] + 60, 0]);
   far = move(far, [C[0] + 112, C[1] + 60, 0]);
   assert.equal(entryOf(scene(far.session), far.tool, far.op)?.suggest, undefined, "too far: no suggestion");
+});
+
+test("Make it keeps the box open (`in_816`): the gear is made and its box stays with its preview; Apply changes it again; Done (Esc) goes back to the tool that made it, armed for the next gear", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "gear" }, env);
+  st = click(st, C); st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2");
+  st = key(st, "Enter");
+  assert.equal(scene(st.session).gears!.length, 1);
+  const open = entryOf(scene(st.session), st.tool, st.op)!;
+  assert.ok(open.panel && open.kept, "the box is shown, as a kept one (Done and Apply)");
+  assert.equal(open.fields[0]!.value, "20");
+  assert.ok(previewFor(scene(st.session), st.tool), "and its outline is shown");
+  // Apply: another tooth count changes the same gear, no second one
+  st = typeText(st, "24"); st = key(st, "Enter");
+  assert.deepEqual([scene(st.session).gears!.length, scene(st.session).gears![0]!.spec.teeth], [1, 24]);
+  assert.ok(st.tool?.gear?.kept);
+  // Done: back to the gear tool, armed, the next gear can be started
+  st = reduce(st, { type: "escape" }, env);
+  assert.ok(st.tool?.kind === "gear" && !st.tool.points.length && !st.tool.gear?.editing, "armed again");
+  st = reduce(st, { type: "escape" }, env);
+  assert.equal(st.tool, null, "and a second Esc puts it away");
 });

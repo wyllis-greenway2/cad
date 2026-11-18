@@ -41,6 +41,8 @@ import { meshWith } from "../operation/mesh.ts";
 
 export type ToolKind = "rect" | "circle" | "line" | "arc" | "spline" | "cam" | "trim" | "gear";
 export interface Tool {
+  /** the tool to go back to when this one is let go (`in_816`): a gear box kept open on the gear just made goes back to the tool that made it, armed for the next */
+  back?: Tool | null;
   kind: ToolKind;
   /** null while armed (waiting for the first click on a surface) */
   plane: Ref | null;
@@ -110,6 +112,7 @@ export function camSpecOf(t: Tool): CamSpec | null {
 }
 export interface GearState {
   internal: boolean; typed: string[]; field: number; editing?: string; base?: GearSpec;
+  /** the box was kept open on the gear just made or changed (`in_816`): Make it goes on applying, and Done (or Esc) lets it go */ kept?: true;
   /** the box opened on this number: its text is taken into the box's focus and scrolled to when it opens (`in_771`: the Helix item of a gear's icon) */ focus?: true;
   /** the number that was taken back to a value that makes a gear (`in_690`): its field, and when (the box and the drawing flash red for a moment) */ bad?: { field: number; at: number };
   /** the turn the gear being changed has (radians), so its preview stands as it does */ turn?: number;
