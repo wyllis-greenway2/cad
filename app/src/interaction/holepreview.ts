@@ -1,4 +1,4 @@
-// The preview of the holes a Fastener Holes panel would cut (`dec_parts_tool`, `in_847`): drawn in the model view from numbers, with no kernel, so it follows every change of a setting and of the selection. For each hole its outline: the
+// The preview of the holes a Fastener Holes panel would cut (`dec_parts_tool`, `in_879`): drawn in the model view from numbers, with no kernel, so it follows every change of a setting and of the selection. For each hole its outline: the
 // section of the receiver turned to four sides, and a ring for each step of it (the hole, the countersink, the counterbore), and for a nut pocket the hexagon at the face and at its floor. As lines in the same form as a toolpath's, so the
 // view's toolpath overlay draws it. Pure: a plan in, lines out.
 import type { Vec3 } from "../math/vec.ts";

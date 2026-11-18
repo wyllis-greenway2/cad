@@ -3734,30 +3734,30 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for this branch to be merged into claude/inspiring-pascal-l342k7)
 
-## in_847 — 2026-11-18 — directive
+## in_879 — 2026-11-18 — directive
 > okay can we have it so that we can use the model view itself for the preview? so for example, you would just select your hardware in the menu, then when you do, it goes back to the regular cad screen, and then it has options, so you could click on surfaces, and it previews what it would do, and you could set different settings, and could see it update the preview.
 (asks for the hardware tools to use the model view for their preview: choose the hardware in the menu, return to the normal CAD screen with the options shown there, click on surfaces to see a preview of what would be done, change settings and see the preview update)
 
-## in_848 — 2026-11-18 — approval
+## in_880 — 2026-11-18 — approval
 > Fastener Holes first (Recommended)
 (answers which to build first with a live preview in the model view: the Fastener Holes tool)
 
-## in_849 — 2026-11-18 — approval
+## in_881 — 2026-11-18 — approval
 > Replace the hardware ones with the panel (Recommended)
 (answers what happens to the dialogs: the hardware ones (Fasteners and Fastener Holes) are replaced by the panel and the preview; Path repeat keeps its dialog for now)
 
-## in_850 — 2026-11-18 — directive
+## in_882 — 2026-11-18 — directive
 > No I was thinking of a smaller interface, So you could select hardware, then that whole window goes away, then there is a little helper bar, like with fillets or anything else etc. Then it has a few options, cut hardware holes, it should allow you to select a line, or face. Line just traces the hardware along the line and it should allow you to set seperation and devision methods. If you select a face it should show the center offset line of the cut path and allow you to modify that with an inset. Or select different patterns to apply hardware across the surface.
 (says the panel is too big: wants a smaller interface where choosing hardware closes the whole window and leaves a little helper bar, as for fillets; with a few options, cut hardware holes; select a line (the hardware is traced along it, with separation and division methods) or a face (the centre offset line of the cut path is shown and can be changed with an inset); or choose different patterns to apply the hardware across the surface)
 
-## in_851 — 2026-11-18 — approval
+## in_883 — 2026-11-18 — approval
 > Small boxes in the bar (Recommended)
 (answers how the numbers of the hardware helper bar are set: small boxes in the bar that are typed in, with the preview following)
 
-## in_852 — 2026-11-18 — approval
+## in_884 — 2026-11-18 — approval
 > Outline (the inset line)
 (answers which pattern across a face to build first: the outline, the face's outline moved in by the inset)
 
-## in_853 — 2026-11-18 — directive
+## in_885 — 2026-11-18 — directive
 > merge it into pascal now
 (asks for this branch (the fastener holes helper bar) to be merged into claude/inspiring-pascal-l342k7 now)

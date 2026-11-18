@@ -1,4 +1,4 @@
-// The helper bar of the hardware holes tool (`dec_parts_tool`, `in_850` to `in_852`): a small pill at the top of the page, in the style of the operation bar, with the few settings of a row of holes as small boxes to type in or choose
+// The helper bar of the hardware holes tool (`dec_parts_tool`, `in_882` to `in_884`): a small pill at the top of the page, in the style of the operation bar, with the few settings of a row of holes as small boxes to type in or choose
 // from, and a check and a cross. The surfaces are chosen in the view (a face, or a line), the holes are drawn there as the numbers change, and this bar only holds the numbers. It knows nothing of what they mean: it shows a
 // description and reports the values.
 import { roundButton } from "./look.ts";

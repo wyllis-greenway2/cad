@@ -126,7 +126,7 @@ export function selectedFace(session: Session): Result<{ spot: FaceSpot; through
   const sc = scene(session);
   const sel = selection(session).map((r) => sc.parts[r]).filter((p): p is NonNullable<typeof p> => !!p);
   let faces = sel.filter(isFlatFace);
-  if (!faces.length) { // a line drawn on a flat face of a body stands for that face (`in_850`: select a line, and the holes follow it)
+  if (!faces.length) { // a line drawn on a flat face of a body stands for that face (`in_882`: select a line, and the holes follow it)
     const own = sel.flatMap((p) => (p.kind === "line" && p.origin === "drawn" && p.plane ? [sc.parts[p.plane]] : []));
     const found = [...new Set(own.filter(isFlatFace))];
     if (found.length === 1) faces = found;

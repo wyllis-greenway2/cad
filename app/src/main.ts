@@ -285,7 +285,7 @@ async function pathRepeatFlow() {
   say(target.edit || target.body?.step ? "path repeat changed" : "path repeat made");
 }
 /**
- * Fastener Holes in the model view (`dec_parts_tool`, `in_847` to `in_849`): the tool is a panel of settings that stands beside the view, the selection is the click (the face, and with Shift the corners, circles and lines that place the
+ * Fastener Holes in the model view (`dec_parts_tool`, `in_879` to `in_881`): the tool is a panel of settings that stands beside the view, the selection is the click (the face, and with Shift the corners, circles and lines that place the
  * holes), and what would be cut is drawn over the model as the settings change. Cut makes the holes (one undo) and the tool stays on; Close, or Esc, leaves it.
  */
 let hardware: { values: ReceiverValues } | null = null;
