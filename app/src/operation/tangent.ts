@@ -1,4 +1,4 @@
-// Tangent mates between the faces of two bodies (`in_970`, `in_971`): a flat face, a cylinder, a sphere or a cone against another. Pure maths: each face as what it is for this (a plane: a point and its normal; a cylinder: a point of its axis, the
+// Tangent mates between the faces of two bodies (`in_976`, `in_977`): a flat face, a cylinder, a sphere or a cone against another. Pure maths: each face as what it is for this (a plane: a point and its normal; a cylinder: a point of its axis, the
 // axis and the radius; a sphere: its centre and radius; a cone: its apex, the axis (from the apex into the cone) and the half angle), and the numbers that are all zero when two touch along a line or at a point.
 import type { Vec3 } from "../math/vec.ts";
 import { sub, dot, cross, length } from "../math/vec.ts";

@@ -39,7 +39,7 @@ function residuals(m: SolveMate, a: SolveFeature, b: SolveFeature): number[] {
     case "parallel": { const c = cross(da, db); return m.counts ? [c[0], c[1], c[2], Math.abs(along) - m.gap] : [c[0], c[1], c[2]]; }
     case "parallelAxes": case "axisToFace": { const c = cross(da, db); return [c[0], c[1], c[2]]; }
     case "perpendicular": case "perpendicularAxes": return [dot(da, db)];
-    case "tangent": return tangentResiduals({ point: a.point, dir: a.dir, radius: a.radius ?? 0, ...(a.shape ? { shape: a.shape } : {}), ...(a.semi !== undefined ? { semi: a.semi } : {}) }, { point: b.point, dir: b.dir, radius: b.radius ?? 0, ...(b.shape ? { shape: b.shape } : {}), ...(b.semi !== undefined ? { semi: b.semi } : {}) }, m.gap); // (a face on another, `in_970`, `in_971`)
+    case "tangent": return tangentResiduals({ point: a.point, dir: a.dir, radius: a.radius ?? 0, ...(a.shape ? { shape: a.shape } : {}), ...(a.semi !== undefined ? { semi: a.semi } : {}) }, { point: b.point, dir: b.dir, radius: b.radius ?? 0, ...(b.shape ? { shape: b.shape } : {}), ...(b.semi !== undefined ? { semi: b.semi } : {}) }, m.gap); // (a face on another, `in_976`, `in_977`)
     case "angle": case "angleAxes": {
       const want = (m.gap * Math.PI) / 180;
       return m.gap > 90 ? [dot(da, db) - Math.cos(want)] : [dot(da, db) ** 2 - Math.cos(want) ** 2]; // (as lines up to 90, between the directions past it, `in_326`)

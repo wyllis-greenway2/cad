@@ -79,7 +79,7 @@ export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref
   const [a, b] = [featureOf(scene, mover, mode)!, featureOf(scene, other, mode)!];
   // the turn: a flat face to face the other (its normal opposite), a round face's axis parallel to the other's (the nearer of the two ways)
   const want: Vec3 = mode === "flush" ? [-b.dir[0], -b.dir[1], -b.dir[2]] : dot(a.dir, b.dir) >= 0 ? b.dir : [-b.dir[0], -b.dir[1], -b.dir[2]]; // (a flush face faces the other; for the rest the nearer way is taken)
-  const tmo = mode === "tangent" ? tangentMotion(a, b) : null; // (a tangent mate: the turn and the move that bring the faces to touch, `in_970`, `in_971`)
+  const tmo = mode === "tangent" ? tangentMotion(a, b) : null; // (a tangent mate: the turn and the move that bring the faces to touch, `in_976`, `in_977`)
   const R = tmo ? (tmo.turnTo ? turnBetween(a.dir, tmo.turnTo) : turnBetween(a.dir, a.dir)) : turnOnly(mode) ? turnToAngle(a.dir, b.dir, angleOfMode(mode, gap)) : turnBetween(a.dir, want);
   const pivot = a.point; // (a point on the face or on the axis stays where it is under the turn)
   // the move: a flat face onto the other's plane (plus the gap, along the other's normal); an axis onto the other's axis, keeping its place along it
@@ -245,7 +245,7 @@ function problemOf(scene: Scene, states: readonly MateState[]): { mates: SolveMa
   const bodies: SolveBody[] = [];
   for (const ref of new Set(mates.flatMap((m) => [m.mover, m.other]))) {
     const w = scene.parts[ref];
-    if (w?.kind === "plane" && w.origin === "world") { bodies.push({ id: ref, pivot: w.at, order: -1 }); continue; } // (the world: it stands still, and the first of the set that only moves each other, `in_970`)
+    if (w?.kind === "plane" && w.origin === "world") { bodies.push({ id: ref, pivot: w.at, order: -1 }); continue; } // (the world: it stands still, and the first of the set that only moves each other, `in_976`)
     const b = bodyPart(scene, ref as Ref);
     if (!b?.bbox) continue;
     bodies.push({ id: ref, pivot: [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2], order: Number(String(b.id ?? "").replace(/\D/g, "")) || 0 });
@@ -302,7 +302,7 @@ export function heldCommand(scene: Scene, group: readonly Ref[], asked: Rigid, g
  */
 let lastGrab: { key: string; pose: Pose } | null = null;
 export function constrainedMotion(scene: Scene, group0: readonly Ref[], asked: Rigid, grab?: Vec3): { rigids: { body: Ref; rigid: Rigid }[]; blocked: string[] } | null {
-  const group = group0.map((g) => canonBody(scene, g)); // (a body is called one thing here, whether the scene has one body or several, `in_970`)
+  const group = group0.map((g) => canonBody(scene, g)); // (a body is called one thing here, whether the scene has one body or several, `in_976`)
   const states = mateStatus(scene).filter((m) => m.standing && m.state === "ok" && m.mover && m.other && (group.includes(m.mover.body) !== group.includes(m.other.body)));
   if (!states.length) return null;
   const problem = problemOf(scene, states);

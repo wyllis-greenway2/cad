@@ -204,7 +204,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   }));
   const build = (i: string | Group): MenuItem => (typeof i === "string" ? leaf.get(i)! : category(i.id, i.label, i.icon, i.items.map(build)));
   const acts = actionsFor(sc, sel);
-  // every constraint and mate once, in one flat list by what a person means (`in_969`): Parallel is two lines or two faces; the ring never changes shape with the selection; an entry that nothing selected fits is dimmed and says what to select (`in_666`)
+  // every constraint and mate once, in one flat list by what a person means (`in_975`): Parallel is two lines or two faces; the ring never changes shape with the selection; an entry that nothing selected fits is dimmed and says what to select (`in_666`)
   const live = acts.filter((a) => a.group === "relation");
   const entries: MenuItem[] = CONSTRAINT_ENTRIES.map((e): MenuItem => { const a = resolveEntry(e, live); return { id: e.id, label: e.label, icon: e.icon, enabled: !!a, why: a ? null : `select ${e.what} first` }; });
   const groups: MenuItem[] = [...entries, leaf.get("body:hard")!];
@@ -698,8 +698,8 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: E
   // an operation that is open: a right click accepts it and leaves it, as Enter does (`in_244`)
   if (!i.button && s.op) return doApply(s);
   if (!i.button && s.picking && !s.tool) return doApply(s); // (a right click starts what was clicked for it, as Enter does, `in_464`)
-  // the views (the cross section, the wireframe) are put away by a right click as a tool is (`in_394`); the ⋯ button still opens the menu
-  if (!i.button && !s.tool && !s.op && !s.repeat && !s.cut && (sectionNow(s) || s.wireframe)) return { ...s, sectionLive: null, wireframe: false, menu: null, session: { ...s.session, click: { ...s.session.click, selection: sectionNow(s) ? [] : s.session.click.selection }, message: null } };
+  // the cross section is put away by a right click as a tool is (`in_394`); the wireframe stays until it is taken out (`in_965`), so a right click opens the menu with it on; the ⋯ button still opens the menu
+  if (!i.button && !s.tool && !s.op && !s.repeat && !s.cut && sectionNow(s)) return { ...s, sectionLive: null, menu: null, session: { ...s.session, click: { ...s.session.click, selection: sectionNow(s) ? [] : s.session.click.selection }, message: null } };
   // while a sketching tool is on, a right click puts it away (the ⋯ button still opens the menu): the tool stays on until then or the cancel icon (`in_193`)
   if (s.tool && !i.button) return { ...s, tool: null, resume: null, menu: null };
   // a long press on a move arrow chooses the arrow with the others, as Shift does: a phone has no Shift (`in_300`)

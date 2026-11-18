@@ -15,7 +15,7 @@ export interface RowSurface {
   map(q: Pt): Result<FaceSpot>;
   loop?: { radius: number; lo: number; hi: number; at(phi: number, a: number): Result<FaceSpot> };
 }
-export interface RowsMade { places: FaceSpot[]; /** each row as a polyline on the surface, for the guide drawn in the view */ guide: Vec3[][]; /** the spacing of the first row's places, when it has one */ spacing: number | null }
+export interface RowsMade { /** the inset the rows were made with, when it was less than asked for (the face was too small for it, `in_965`) */ insetUsed?: number; places: FaceSpot[]; /** each row as a polyline on the surface, for the guide drawn in the view */ guide: Vec3[][]; /** the spacing of the first row's places, when it has one */ spacing: number | null }
 const MAX_HOLES = 200;
 
 /** The longest side of an outline as a path of its own (the first when two are as long); the way it runs is the way the outline runs, so the inside is on its left. */
@@ -63,10 +63,24 @@ export function rowsAlongLine(path: Path, map: (q: Pt) => Result<FaceSpot>, rule
 }
 /** The rows the surface's own edges give. `inset` is the first row's distance in from the edge (or from the middle for the middle line: the rows lie either side of it); `rules` places along each line. */
 export function rowsFromEdges(surf: RowSurface, mode: RowMode, edge: Path | null, rules: Rules, count: number, gap: number): Result<RowsMade> {
+  const asked = rules.offset ?? 0;
+  const first = rowsFromEdgesAt(surf, mode, edge, rules, count, gap);
+  if (first.ok || mode === "midline" || asked <= 0) return first;
+  // the inset is too much for a small face: it goes smaller (half, and half again) instead of failing, down to none
+  let inset = asked;
+  for (let i = 0; i < 12; i++) {
+    inset = i === 11 ? 0 : inset / 2;
+    const r = rowsFromEdgesAt(surf, mode, edge, { ...rules, offset: inset }, count, gap);
+    if (r.ok) return ok({ ...r.value, insetUsed: Math.round(inset * 100) / 100 });
+  }
+  return first;
+}
+function rowsFromEdgesAt(surf: RowSurface, mode: RowMode, edge: Path | null, rules: Rules, count: number, gap: number): Result<RowsMade> {
   const out: RowsMade = { places: [], guide: [], spacing: null };
   const inset = rules.offset ?? 0;
   if (surf.loop) { // (a whole turn round: the lines are the circles at the two ends, stepped in along the axis)
     const { radius, lo, hi, at } = surf.loop;
+    if (mode !== "midline" && inset * 2 >= hi - lo - 1e-6) return err("the inset is more than the wall can take"); // (the caller goes smaller)
     const ring = circlePath([0, 0], radius);
     const mapAt = (a: number) => (q: Pt): Result<FaceSpot> => at(Math.atan2(q[1], q[0]), a);
     const rowsAt: number[] = mode === "outline"

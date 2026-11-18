@@ -117,7 +117,7 @@ test("Esc ends the ring (and the ⋯ list): the menu is gone from the state and 
 
 import { actionsFor } from "../src/interaction/actions.ts";
 import { CONSTRAINT_ENTRIES, resolveEntry } from "../src/interaction/constraintlist.ts";
-test("nothing is left out of the ring: every relation that fits the selection is made by an entry of the list, which is lit exactly when one of what it stands for can be applied (`in_661`, `in_969`)", () => {
+test("nothing is left out of the ring: every relation that fits the selection is made by an entry of the list, which is lit exactly when one of what it stands for can be applied (`in_661`, `in_975`)", () => {
   let blocked = 0;
   for (const { name, st } of states()) {
     const items = reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as Item[];
@@ -134,7 +134,7 @@ test("nothing is left out of the ring: every relation that fits the selection is
   assert.ok(blocked > 0, "the test met an entry that cannot be applied");
 });
 
-test("the Constraints ring is one flat list of the same entries whatever is selected, each once, no rings inside it: dimmed unless the selection fits, with what to select said (`in_666`, `in_969`)", () => {
+test("the Constraints ring is one flat list of the same entries whatever is selected, each once, no rings inside it: dimmed unless the selection fits, with what to select said (`in_666`, `in_975`)", () => {
   const kidsOf = (st: AppState) => reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items.find((i) => i.id === "constraints")!.children!;
   const shapes = states().map(({ st }) => JSON.stringify(kidsOf(st).map((i) => i.id)));
   assert.equal(new Set(shapes).size, 1, "no constraint comes or goes with the selection");
@@ -153,7 +153,7 @@ test("the Constraints ring is one flat list of the same entries whatever is sele
   assert.ok(litFor("circle").includes("dimension"), "a circle: its size");
 });
 
-test("an entry makes the relation or mate the selection fits: Parallel on two lines is the parallel relation (`in_969`)", () => {
+test("an entry makes the relation or mate the selection fits: Parallel on two lines is the parallel relation (`in_975`)", () => {
   const two = states().find((x) => x.name === "two lines")!.st;
   const made = reduce(two, { type: "runAction", id: "c:parallel" }, env);
   assert.ok(scene(made.session).relations.some((r) => r.kind === "parallel"), "the parallel relation");

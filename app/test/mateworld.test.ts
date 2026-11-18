@@ -1,4 +1,4 @@
-// A face or an axis of a body made level or upright (`in_970`): a mate with the world, the face turned against the plane across the world's up direction; it holds after the body is moved or turned.
+// A face or an axis of a body made level or upright (`in_976`): a mate with the world, the face turned against the plane across the world's up direction; it holds after the body is moved or turned.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";
@@ -42,7 +42,7 @@ const rotate = (s: Session, b: Body, axis: 0 | 1 | 2, deg: number) => run(s, { t
 const dirOf = (s: Session, ref: Ref): readonly number[] => normalOfPlane(scene(s).parts[ref] as PlanePart);
 const upOf = (s: Session, ref: Ref) => Math.abs(dirOf(s, ref)[2]!);
 
-test("Horizontal on a flat face of a tilted body turns the body until the face is level; Vertical until it is upright; both are mates with the world that stay true (`in_970`)", () => {
+test("Horizontal on a flat face of a tilted body turns the body until the face is level; Vertical until it is upright; both are mates with the world that stay true (`in_976`)", () => {
   let s = box(createSession(kernel), 0, 0);
   s = rotate(s, theBody(s), 0, 20);
   const top = (st: Session) => Object.values(scene(st).parts).filter((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && !!p.mesh && !p.curved && !p.round && !p.rounded).sort((a, b) => Math.abs(normalOfPlane(b)[2]!) - Math.abs(normalOfPlane(a)[2]!))[0]!;
@@ -64,7 +64,7 @@ test("Horizontal on a flat face of a tilted body turns the body until the face i
   assert.ok(Math.abs(normalOfPlane(sideNow)[2]!) < 1e-6, "an upright face has a level normal");
 });
 
-test("Horizontal on the round face of a cylinder lays its axis level; Vertical stands it up (`in_970`)", () => {
+test("Horizontal on the round face of a cylinder lays its axis level; Vertical stands it up (`in_976`)", () => {
   let s = cylinder(createSession(kernel), 0, 0, 5);
   s = rotate(s, theBody(s), 0, 35);
   const round = (Object.values(scene(s).parts).find((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && !!(p.curved || p.round)))!.ref;
@@ -77,7 +77,7 @@ test("Horizontal on the round face of a cylinder lays its axis level; Vertical s
   assert.ok(mateStatus(scene(v)).find((x) => x.mode === "parallelAxes")?.state === "ok", "the upright mate holds");
 });
 
-test("a mate with the world is dimmed for two faces and for none, and the ring's Horizontal makes it (`in_970`)", () => {
+test("a mate with the world is dimmed for two faces and for none, and the ring's Horizontal makes it (`in_976`)", () => {
   const s = box(box(createSession(kernel), 0, 0), 40, 0);
   const [a, b] = bodies(s);
   assert.ok(!actionsFor(scene(s), [faceOf(s, a!, [0, 0, 1]), faceOf(s, b!, [0, 0, 1])]).some((x) => x.id === "mate:horizontal"), "two faces: the pair mates, not the world");
@@ -86,7 +86,7 @@ test("a mate with the world is dimmed for two faces and for none, and the ring's
 
 import { startOp } from "../src/interaction/operations.ts";
 import { runOp } from "../src/interaction/runop.ts";
-test("a body made level stays level: turning it about a horizontal axis is held by the mate, and moving it sideways is free (`in_970`)", () => {
+test("a body made level stays level: turning it about a horizontal axis is held by the mate, and moving it sideways is free (`in_976`)", () => {
   let s = box(createSession(kernel), 0, 0);
   const faces = (st: Session) => Object.values(scene(st).parts).filter((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && !!p.mesh && !p.curved && !p.round && !p.rounded);
   const topOf = (st: Session) => faces(st).sort((a, b) => Math.abs(normalOfPlane(b)[2]!) - Math.abs(normalOfPlane(a)[2]!))[0]!;
@@ -104,7 +104,7 @@ test("a body made level stays level: turning it about a horizontal axis is held 
   assert.equal(moved!.session.message, null, "a move along X leaves a level face level: nothing holds it");
 });
 
-test("Tangent lays a cylinder on a flat face of another body (outside it, a radius from the plane, the axis in it), and holds two cylinders a radius apart; the ring's Tangent makes it (`in_970`)", () => {
+test("Tangent lays a cylinder on a flat face of another body (outside it, a radius from the plane, the axis in it), and holds two cylinders a radius apart; the ring's Tangent makes it (`in_976`)", () => {
   let s = box(createSession(kernel), 0, 0);
   s = cylinder(s, 40, 3, 3);
   const [a, b] = bodies(s);
@@ -129,7 +129,7 @@ test("Tangent lays a cylinder on a flat face of another body (outside it, a radi
   assert.ok(!actionsFor(scene(s), [faceOf(s, boxBody, [0, 0, 1]), faceOf(s, boxBody, [1, 0, 0])]).some((x) => x.id === "mate:tangent" && x.enabled));
 });
 
-test("Tangent of two cylinders stands their axes parallel and the sum of the radii apart (`in_970`)", () => {
+test("Tangent of two cylinders stands their axes parallel and the sum of the radii apart (`in_976`)", () => {
   let s = cylinder(createSession(kernel), 0, 0, 4);
   s = cylinder(s, 30, 2, 3);
   const [a, b] = bodies(s);
@@ -147,7 +147,7 @@ test("Tangent of two cylinders stands their axes parallel and the sum of the rad
   assert.ok(Math.abs(Math.hypot(dx, dy) - 7) < 0.05, `the axes are 7 apart (4 + 3): ${Math.hypot(dx, dy)}`);
 });
 
-test("a face and a world plane selected: Parallel puts the face against the X or Y plane's direction, Coincident lays the body on the plane, a cylinder rests on the ground with Tangent (`in_971`)", () => {
+test("a face and a world plane selected: Parallel puts the face against the X or Y plane's direction, Coincident lays the body on the plane, a cylinder rests on the ground with Tangent (`in_977`)", () => {
   let s = box(createSession(kernel), 5, 5);
   s = rotate(s, theBody(s), 2, 30); // (turned about Z: its side faces are not along X or Y)
   const faces = (st: Session) => Object.values(scene(st).parts).filter((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && !!p.mesh && !p.curved && !p.round && !p.rounded);
@@ -190,7 +190,7 @@ const ball = (s: Session, x: number, y: number, r: number) => revolved(s, [[x, y
 const cone = (s: Session, x: number, y: number) => revolved(s, [[x, y, 0], [x + 6, y, 0], [x, y + 10, 0]], undefined, x, y);
 const curved = (s: Session, body: Body, what: "sphere" | "cone"): Ref => (Object.values(scene(s).parts).find((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && p.of === body.ref && !!(what === "sphere" ? p.sphere : p.cone)))!.ref;
 
-test("a ball: tangent to a flat face rests on it, tangent to a cylinder touches its side, tangent to a ball touches at a point (`in_971`)", () => {
+test("a ball: tangent to a flat face rests on it, tangent to a cylinder touches its side, tangent to a ball touches at a point (`in_977`)", () => {
   // on a flat face
   let s = ball(box(createSession(kernel), 0, 0), 40, 5, 3);
   let [a, b] = bodies(s);
@@ -228,7 +228,7 @@ test("a ball: tangent to a flat face rests on it, tangent to a cylinder touches 
   assert.ok(Math.abs(Math.hypot(cs[1]![0]! - cs[0]![0]!, cs[1]![1]! - cs[0]![1]!, cs[1]![2]! - cs[0]![2]!) - 6) < 0.05, "the centres are 6 apart (4 + 2)");
 });
 
-test("a cone: tangent to a flat face (a world plane) puts its apex on it and lays it along a line of the cone; tangent to a round face is refused with why (`in_971`)", () => {
+test("a cone: tangent to a flat face (a world plane) puts its apex on it and lays it along a line of the cone; tangent to a round face is refused with why (`in_977`)", () => {
   let s = cone(createSession(kernel), 0, 0);
   const c = bodies(s).length ? bodies(s)[0]! : (Object.values(scene(s).parts).find((p): p is Body => p.kind === "body")!);
   const coneFace = (Object.values(scene(s).parts).find((p): p is PlanePart => p.kind === "plane" && p.origin === "body" && !!p.cone))!.ref;

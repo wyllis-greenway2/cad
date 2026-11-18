@@ -26,7 +26,7 @@ const copyOf = (d) => ({
 
 
 /**
- * A cone's apex, axis and half angle, fitted to the points and normals of its face (`in_971`): every normal of a cone makes the same angle with its axis (n . s = c, solved for u = s / c by least squares) and every tangent plane
+ * A cone's apex, axis and half angle, fitted to the points and normals of its face (`in_977`): every normal of a cone makes the same angle with its axis (n . s = c, solved for u = s / c by least squares) and every tangent plane
  * goes through the apex (n . apex = n . p, least squares); the axis points from the apex to the face. Null when the face is too flat to say (a cylinder, a plane).
  */
 function coneFit(m, g, rnd) {
@@ -193,7 +193,7 @@ function describeSolid(shape, tess0, lite, vol0) {
         if (f.geomType === "CYLINDRE") radius = f._geomAdaptor().Cylinder().Radius();
         else if (f.geomType === "SPHERE") radius = f._geomAdaptor().Sphere().Radius();
       } catch { radius = undefined; }
-      // a sphere says where its centre is, a cone where its apex is, which way its axis goes and how wide it opens (for a tangent mate, `in_971`)
+      // a sphere says where its centre is, a cone where its apex is, which way its axis goes and how wide it opens (for a tangent mate, `in_977`)
       let centre, cone;
       try {
         const r6s = (v) => Math.round(v * 1e6) / 1e6;

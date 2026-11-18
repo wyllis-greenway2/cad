@@ -1,4 +1,4 @@
-// The constraints and mates the ring always lists (`in_666`, `in_969`, `dec_ui_unification`): one flat list of the things a person means (Horizontal, Parallel, Tangent, Dimension...), each once, whatever it is made of underneath. An entry stands for
+// The constraints and mates the ring always lists (`in_666`, `in_975`, `dec_ui_unification`): one flat list of the things a person means (Horizontal, Parallel, Tangent, Dimension...), each once, whatever it is made of underneath. An entry stands for
 // several of what the relations table and the mates know (Parallel is the relation of two lines, the mate of two flat faces and of two axes); the one the selection fits is the one made. An entry that nothing fits is dimmed and says what to select.
 // Pure.
 import type { Action } from "./actions.ts";

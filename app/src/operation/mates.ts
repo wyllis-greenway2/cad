@@ -15,7 +15,7 @@ import { shapeOf, tangentResiduals } from "./tangent.ts";
  * flush: face on face with a gap; coaxial: round face on round face; parallel: only turned until the flat faces are parallel; parallelAxes: the same for the axes of round faces (`in_317`);
  * perpendicular and perpendicularAxes: turned until they are at a right angle; angle and angleAxes: turned until they are at the typed angle (degrees, 0 to 180; kept in `gap`) (`in_318`, `in_326`). Up to 90 the angle is between the faces' planes or the axes, as lines; past 90 it is between the directions themselves (a flat face's outward normal, an axis's own direction), so 100 and 80 are different: 100 leans the two away from each other.
  * axisToFace: the axis of a round face is turned to stand at a right angle to a flat face (along its normal), whichever of the two is first (`in_325`).
- * tangent (`in_970`): a round face against a flat one (the axis parallel to the plane, a radius from it) or against another round one (the axes parallel, the sum of the radii apart, or their difference when one is inside the other); `gap` is +1 or -1: which side of the plane, outside or inside.
+ * tangent (`in_976`): a round face against a flat one (the axis parallel to the plane, a radius from it) or against another round one (the axes parallel, the sum of the radii apart, or their difference when one is inside the other); `gap` is +1 or -1: which side of the plane, outside or inside.
  * The angle is the one between the faces' planes, or between the axes, as lines: the faces have no "right way round" for these.
  */
 export type MateMode = "flush" | "coaxial" | "parallel" | "parallelAxes" | "perpendicular" | "perpendicularAxes" | "angle" | "angleAxes" | "axisToFace" | "tangent";
@@ -29,14 +29,14 @@ export const turnOnly = (m: MateMode): boolean => m !== "flush" && m !== "coaxia
 export const angleOfMode = (m: MateMode, amount: number): number => (m === "perpendicular" || m === "perpendicularAxes" ? 90 : m === "angle" || m === "angleAxes" ? amount : 0);
 const MATE_KIND = "mate";
 /** A face of a body as something to mate: a flat face by a point on it and its outward normal; a round face by a point on its axis, the axis and its radius. */
-export interface MateFeature { ref: Ref; body: Ref; bodyId: string; point: Vec3; dir: Vec3; radius: number; /** a ball (its centre is `point`, `dir` means nothing) or a cone (`point` its apex, `dir` its axis into it, `semi` its half angle, radians); a flat or a round face has none (`in_971`) */ shape?: Shape; semi?: number }
+export interface MateFeature { ref: Ref; body: Ref; bodyId: string; point: Vec3; dir: Vec3; radius: number; /** a ball (its centre is `point`, `dir` means nothing) or a cone (`point` its apex, `dir` its axis into it, `semi` its half angle, radians); a flat or a round face has none (`in_977`) */ shape?: Shape; semi?: number }
 
-/** A world plane (`w/XY`...): the other side of a mate with the world (`in_970`): a face made level or upright is turned against its normal, which stands still. */
+/** A world plane (`w/XY`...): the other side of a mate with the world (`in_976`): a face made level or upright is turned against its normal, which stands still. */
 export const isWorldPlane = (scene: Scene, ref: Ref): boolean => { const p = scene.parts[ref]; return p?.kind === "plane" && p.origin === "world"; };
 
 /**
  * The name of a body that is the same whether the scene has one body (whose part is `b/body/o`, and whose faces say nothing of the body they are of) or several (`b/<id>/o`): a mate with the world is made in a scene of one body, and must
- * still find it when another body comes (`in_970`).
+ * still find it when another body comes (`in_976`).
  */
 export const canonBody = (scene: Scene, ref: Ref): Ref => { const p = scene.parts[ref]; return p?.kind === "body" && p.id ? (`b/${p.id}/o` as Ref) : ref; };
 /** The part of a body by its name as `canonBody` gives it (or as the scene calls it). */
@@ -55,7 +55,7 @@ export function featureOf(scene: Scene, ref: Ref, mode: MateMode): MateFeature |
   if (p?.kind !== "plane" || p.origin !== "body") return null;
   const body = ownerOf(scene, p);
   if (!body?.id) return null;
-  if (mode === "tangent" && p.sphere && p.radius) return { ref, body: canonBody(scene, body.ref), bodyId: body.id, point: p.sphere, dir: [0, 0, 1], radius: p.radius, shape: "sphere" }; // (a ball: its centre and radius, `in_971`)
+  if (mode === "tangent" && p.sphere && p.radius) return { ref, body: canonBody(scene, body.ref), bodyId: body.id, point: p.sphere, dir: [0, 0, 1], radius: p.radius, shape: "sphere" }; // (a ball: its centre and radius, `in_977`)
   if (mode === "tangent" && p.cone) return { ref, body: canonBody(scene, body.ref), bodyId: body.id, point: p.cone.apex, dir: normalize(p.cone.axis), radius: 0, shape: "cone", semi: p.cone.semi }; // (a cone: apex, axis, half angle)
   if (mode === "axisToFace" || mode === "tangent") return featureOf(scene, ref, "flush") ?? featureOf(scene, ref, "coaxial"); // (a flat face by its normal, a round one by its axis)
   if (isFlatMode(mode)) return p.curved || p.round || p.rounded ? null : { ref, body: canonBody(scene, body.ref), bodyId: body.id, point: p.at, dir: normalOfPlane(p), radius: 0 };
@@ -146,7 +146,7 @@ export function mateStatus(scene: Scene): MateState[] {
     const gap = rel.params.gap ?? 0;
     const base = { id: rel.id, mode, gap, standing: (rel.params.stand ?? 0) === 1 };
     const [mb, ob] = rel.parts;
-    const world = !!ob && isWorldPlane(scene, ob); // (a mate with the world: the other side is a world plane that stands still, `in_970`)
+    const world = !!ob && isWorldPlane(scene, ob); // (a mate with the world: the other side is a world plane that stands still, `in_976`)
     if (!mb || !ob || !bodyPart(scene, mb) || (!bodyPart(scene, ob) && !world)) { out.push({ ...base, state: "lost" }); continue; }
     const [mover, other] = [findFace(scene, mb, mode, predicted(scene, mb, get(rel.params, "m"), rel.params.steps)), world ? featureOf(scene, ob, mode) : findFace(scene, ob, mode, predicted(scene, ob, get(rel.params, "o"), rel.params.steps))];
     if (!mover || !other) { out.push({ ...base, state: "lost", ...(mover ? { mover } : {}), ...(other ? { other } : {}) }); continue; }
@@ -158,7 +158,7 @@ export function mateStatus(scene: Scene): MateState[] {
     const w = sub(mover.point, other.point);
     const along = dot(w, other.dir);
     const across = Math.hypot(w[0] - other.dir[0] * along, w[1] - other.dir[1] * along, w[2] - other.dir[2] * along); // (how far the mover's point is from the other's axis)
-    if (mode === "tangent") { // a round face on a flat one, on another round one, a ball or a cone (`in_970`, `in_971`)
+    if (mode === "tangent") { // a round face on a flat one, on another round one, a ball or a cone (`in_976`, `in_977`)
       residual = Math.max(...tangentResiduals(mover, other, gap).map(Math.abs));
       ok = residual < 1e-3;
     } else if (mode === "flush") {

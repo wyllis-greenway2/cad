@@ -503,7 +503,7 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
     return cmd ? { ...withSession(s, run(s.session, cmd)), menu: null } : closed;
   }
   const acts = actionsFor(sceneOf(s.session), selectionOf(s.session));
-  const entry = CONSTRAINT_ENTRIES.find((e) => e.id === id); // (an entry of the constraints list stands for the action the selection fits, `in_969`)
+  const entry = CONSTRAINT_ENTRIES.find((e) => e.id === id); // (an entry of the constraints list stands for the action the selection fits, `in_975`)
   const a = entry ? resolveEntry(entry, acts) : acts.find((x) => x.id === id);
   return a && a.enabled ? { ...withSession(s, run(s.session, a.run())), menu: null } : closed;
 }

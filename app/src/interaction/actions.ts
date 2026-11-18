@@ -43,7 +43,7 @@ export interface Action {
 }
 
 const isFlatBodyFace = (get: ReturnType<typeof lookup>, sel: readonly Ref[]): boolean => sel.every((r) => { const p = get(r); return p?.kind === "plane" && p.origin === "body" && !!p.mesh && !p.curved && !p.round && !p.rounded; });
-const isBallOrCone = (get: ReturnType<typeof lookup>, sel: readonly Ref[]): boolean => sel.every((r) => { const p = get(r); return p?.kind === "plane" && p.origin === "body" && (!!p.sphere || !!p.cone); }); // (a ball or a cone: a tangent mate's, `in_971`)
+const isBallOrCone = (get: ReturnType<typeof lookup>, sel: readonly Ref[]): boolean => sel.every((r) => { const p = get(r); return p?.kind === "plane" && p.origin === "body" && (!!p.sphere || !!p.cone); }); // (a ball or a cone: a tangent mate's, `in_977`)
 const isRoundBodyFace = (get: ReturnType<typeof lookup>, sel: readonly Ref[]): boolean => sel.every((r) => { const p = get(r); return p?.kind === "plane" && p.origin === "body" && !!roundOf(get, r); });
 
 /** Every relation and operation that applies to the selection, relations first, in the order of the table. */
@@ -94,7 +94,7 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
 
   // two faces of two bodies: they can be mated, the first one's body is moved to the second (`in_314`); flush has a gap that can be typed (`in_317`)
   if (sel.length === 2) {
-    // a face of a body and a world plane (`in_971`): the face is mated with the plane, which stands still (parallel to the world's X, Y or Z plane, flush on it, an axis along its normal, a cylinder resting on it)
+    // a face of a body and a world plane (`in_977`): the face is mated with the plane, which stands still (parallel to the world's X, Y or Z plane, flush on it, an axis along its normal, a cylinder resting on it)
     const wi = sel.findIndex((r) => isWorldPlane(scene, r));
     const world = wi >= 0 && sel.some((r) => isFlatBodyFace(get, [r]) || isRoundBodyFace(get, [r]));
     const pair: [Ref, Ref] = world ? (wi === 1 ? [sel[0]!, sel[1]!] : [sel[1]!, sel[0]!]) : [sel[0]!, sel[1]!];
@@ -134,7 +134,7 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
     }
   }
 
-  // one face or axis of a body made level or upright (`in_970`): a mate with the world, the face turned against the plane across the world's up direction (a flat face level: its normal along it; upright: at a right angle to it; an axis the other way round)
+  // one face or axis of a body made level or upright (`in_976`): a mate with the world, the face turned against the plane across the world's up direction (a flat face level: its normal along it; upright: at a right angle to it; an axis the other way round)
   if (sel.length === 1 && (isFlatBodyFace(get, sel) || isRoundBodyFace(get, sel))) {
     const flat = isFlatBodyFace(get, sel);
     const world = worldRef("XY");
