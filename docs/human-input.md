@@ -3983,3 +3983,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_909 — 2026-11-19 — directive
 > lets try to make it faster
 (asks for the contact push to be made faster)
+
+## in_910 — 2026-11-19 — directive
+> excellent! now try to make it even faster try a coarser mesh for animation;
+> starting each step from the last step’s contacts;
+> a cheaper pre-check for pairs that are far apart.
+(asks for three more speed-ups of the contact push: a coarser mesh for animation, starting each step from the last step's contacts, a cheaper pre-check for pairs that are far apart)

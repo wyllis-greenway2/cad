@@ -50,6 +50,10 @@ A body that yields is now cleared of the driver and the walls and of the body th
 
 A profile of the gear trains showed the cost: the test for a body wholly inside another was a third of it (now left out for the push: `collidesMoving`'s `surfaceOnly`, one optional argument), the pairs' filtered meshes were worked out again at every call (now kept, a miss too), and the search for room went both ways at every distance (now the way it went last first). The Geneva in the app is 0.4 ms a degree median (was 1.4), a gear pair 3 ms (was 11), a train of six gears 20 ms (was 77), with the same accuracy. Left in the profile: the two trees' walk and placing the moving triangles. Not done: a coarser mesh for animation, a warm start from the last step's contacts, testing only pairs that are close by a cheaper box test.
 
+## Built, fifth slice (`in_910`: faster still)
+
+A cheaper box pre-check for pairs far apart; the search for room begins at the last push; only bodies that moved are tested again (a chain is a walk, not a test of every body at every link); the halving is 5 steps. **A coarser mesh for animation was tried and is not worth it** (merging the triangles into grid cells of 0.1 to 0.4 mm changed no times beyond the noise: the tree already limits a test to the leaves that meet). About 30 per cent faster together (a train of 4 gears 6.6 ms a degree, 8 gears 18 to 22, the Geneva 0.36), same accuracy; a test of a train of three gears in `contact.test.ts`. What is left is the narrow phase (about 90 per cent of the time): more speed needs fewer tests (a step worked out from the contact's geometry) or a cheaper test.
+
 ## Open questions for the human
 
 - The default depth of passed-on hardness, and whether ghost is wanted as a body state or only as a setting of a joint.

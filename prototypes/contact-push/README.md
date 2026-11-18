@@ -50,3 +50,13 @@ Profiling the gear trains showed where the time went: **a third of it was the te
 | 6 | 77 | 20 |
 
 The Geneva in the app: 1.4 ms a degree median (9 ms at the 95th percentile) before, 0.4 (3 ms) after; the slowest single steps are still 17 to 30 ms (the first step of a push, when the way it went last is the wrong way). What is left in the profile is the walk of the two trees and the placing of the moving triangles (`collidesMoving`, `triOf`, `boxOf`).
+
+## Faster still (`in_910`)
+
+Three more things were tried:
+
+- **A cheaper pre-check for pairs that are far apart** (the boxes of the two bodies, each where it stands, are compared before the trees are walked): built. A small gain in a chain, where the neighbours are close; it matters for a model with many bodies that are not near.
+- **Starting each step from the last step's contacts:** built in two parts. The search for room begins at the push of the step before (a clear place a little short of it is found with a few tests), and only the bodies that moved since they were last tested are tested again (the driver at the start of a step, then each body that yielded, a pass at a time: a chain is a walk along it, not a test of every body again at every link). The halving is 5 steps (0.005 degrees).
+- **A coarser mesh for animation:** tried, **not worth it**. The triangles of each pair were merged into the cells of a grid of 0.1, 0.2 and 0.4 mm (a gear's walls are about 1,300 triangles): the times did not change beyond the noise (a 4 gear train 8.4, 7.9, 8.4 and 9.0 ms a degree at 0, 0.1, 0.2, 0.4 mm), because the tree already keeps a test to the leaves that meet; the accuracy of the pair also did not change. Not kept.
+
+Together (medians, Node on a shared sandbox CPU, which is noisy to about 15 per cent): a train of 4 gears 10 to 13 ms a degree before, now 6.6; 6 gears 17, now 12 to 15; 8 gears 28, now 18 to 22; the Geneva in the app 0.41, now 0.36 (the slowest step 13 ms, was 16). The accuracy is the same (0.3 to 2.2 degrees). What is left is the narrow phase: placing the moving triangles and walking the two trees (about 90 per cent of the profile), so more speed needs fewer tests (a step worked out from the contact's geometry rather than searched) or a cheaper test.
