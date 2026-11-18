@@ -3980,3 +3980,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_908 — 2026-11-18 — directive
 > okay build it please
 (approves building the first steps of the progressive loading plan: the table of what each operation needs, and the differential test harness)
+
+## in_909 — 2026-11-18 — approval
+> I approve
+(approves the last proposal; which of the two offered next steps it means is asked)
