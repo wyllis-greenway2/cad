@@ -4196,6 +4196,30 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for this branch (one set of line rules for flat and round faces, rows) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
 
+## in_960 — 2026-11-18 — directive
+> look if the defect is hiding elsewhere in other hypoid pairs
+(asks the AI to check other hypoid pairs for the ragged-tooth defect)
+
+## in_961 — 2026-11-19 — directive
+> @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/3003c693-Screencast_from_2026-11-18_20-35-15.webm" The numbers are still shaky sometimes like this
+(a screencast of the motion bar while a body turns: the number in the bar changes width from frame to frame ("-78°" has no decimal where "-83.2°" has one, and "-100.5°" is a character wider), so the text moves; the AI read the frames and fixed the format)
+
+## in_962 — 2026-11-19 — directive
+> Lets have the gear icon and the play icon not show on hover. Instead it should show on selection instead. The pause button icon can still be persistent when a part is animating.
+(asks for the gear icon and the play icon to show when the body is selected and not when the pointer is over it; the pause button stays while a part animates)
+
+## in_963 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the branch `claude/adoring-dijkstra-chips-on-select` to be merged into the testing branch, with the steady bar number under it; the full suite is not needed)
+
+## in_964 — 2026-11-18 — question
+> okay so what next?
+(asks what to work on next; the AI recommends, the human decides)
+
 ## in_965 — 2026-11-18 — directive
 > can we have the fastener tool default to countersunk. If the default inset of 10 mm fails because the part is too small then it should just go smaller, not fail. Can we make the previewed fastener holes just be styled like regular wireframe? See our parts have a wireframe style that is semi transparent dark. Also speaking of wireframe, our parts should be persistent in wireframe untill taken out. Currently they leave wireframe on right click and possibly in other ways. Can we have it so that you can move individual fasteners in the preview?
 (asks for: the fastener tool to default to countersunk; the inset to go smaller instead of failing when the default 10 mm is too big for the part; the previewed holes drawn in the parts' wireframe style (semi-transparent dark); wireframe to stay on until the person takes it out (it now leaves on right click and perhaps other ways); and the individual fasteners in the preview to be movable)
+
+## in_966 — 2026-11-18 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for this branch (countersunk default, a smaller inset, the wireframe-style preview, movable holes, wireframe staying on) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
