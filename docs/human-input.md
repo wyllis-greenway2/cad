@@ -3592,3 +3592,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_811 — 2026-11-18 — approval
 > Yes, go ahead with step (b)
 (approves step (b) of the path repeat: the repeat of a drawn figure along a drawn path)
+
+## in_812 — 2026-11-18 — approval
+> Yes, go ahead with step (c)
+(approves step (c) of the path repeat: the repeat of a body along a path)

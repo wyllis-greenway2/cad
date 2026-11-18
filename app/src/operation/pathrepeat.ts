@@ -287,7 +287,8 @@ export function lifted(f: Frame, plane: { origin: readonly [number, number, numb
 /** Everything a path repeat keeps besides the path itself: the rules, and whether the copies turn with the path and whether the path is walked from its other end. */
 export interface RepeatNumbers { rules: Rules; turn: boolean; reverse: boolean }
 /** How many numbers a record's `params` holds. */
-const PATH_PARAMS = 9;
+export const PATH_NUMBERS = 9;
+const PATH_PARAMS = PATH_NUMBERS;
 const ENDS = ["fit", "remainder", "centre"] as const;
 const CORNERS = ["ignore", "each", "inward"] as const;
 /** The rules as the numbers a repeat's record keeps: [by (0 distance, 1 count), its value, ends (0 fit, 1 remainder, 2 centre), start inset, end inset, corners (0 ignore, 1 each, 2 inward), offset, turn (0 or 1), reverse (0 or 1)]. */

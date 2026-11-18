@@ -12,8 +12,9 @@ import type { Part } from "../operation/part.ts";
 import type { PatternRecord } from "../operation/repeat.ts";
 import { pathRepeatOf } from "../operation/repeat.ts";
 import type { Rules, RepeatNumbers } from "../operation/pathrepeat.ts";
-import { placeAlong, numbersOf, rulesFrom, lengthOf } from "../operation/pathrepeat.ts";
-import { pathMaps, readPath } from "../operation/pathmaps.ts";
+import { placeAlong, numbersOf, rulesFrom, lengthOf, PATH_NUMBERS } from "../operation/pathrepeat.ts";
+import { pathMaps, readPath, bodyPlaces, pathPlaneOf } from "../operation/pathmaps.ts";
+import { BODY_OBJECT } from "../compiler/body.ts";
 import { figurePartsOf } from "./objects.ts";
 import type { Session } from "./session.ts";
 import { scene as sceneOf, selection as selectionOf } from "./session.ts";
@@ -25,15 +26,40 @@ export const pathRepeatStart = (): PathRepeatValues => ({ by: "distance", value:
 const fmt = (n: number): string => String(Math.round(n * 1000) / 1000);
 
 /** What the selection says: the figure to repeat (the parts of the faces selected), the lines and arcs of the path (selected lines that are not the figure's own), the plane, and, when a repeat that is there is selected, that one to change. */
-export interface PathRepeatTarget { figure: Ref[]; path: Ref[]; plane: Ref; edit?: PatternRecord }
+export interface PathRepeatTarget {
+  figure: Ref[]; path: Ref[]; plane: Ref; edit?: PatternRecord;
+  /** a body repeated along the path (`in_812`): the body (and its name, when it is one of several) and, for one already repeated, the step to change */
+  body?: { ref: Ref; one?: string; /** the body's name when the repeat was made, to find it again */ src?: string; step?: string; params?: number[] };
+}
 export function pathRepeatTarget(session: Session): Result<PathRepeatTarget> {
   const sc = sceneOf(session);
   const sel = selectionOf(session).map((r) => sc.parts[r]).filter((p): p is Part => !!p);
   for (const p of sel) { const rec = pathRepeatOf(sc, p.ref); if (rec) return ok({ figure: rec.parts, path: rec.path ?? [], plane: rec.plane, edit: rec }); }
+  // a body, with the lines of a path (or a body that a path repeat made, to change its rules)
+  const bodies = sel.filter((p): p is Extract<Part, { kind: "body" }> => p.kind === "body");
+  if (bodies.length) {
+    if (bodies.length > 1) return err("select one body to repeat");
+    const body = bodies[0]!;
+    const own = body.ref !== BODY_OBJECT && body.id ? body.id : undefined;
+    const lines = sel.filter((p) => p.kind === "line" && p.origin === "drawn").map((p) => p.ref);
+    // (a body the repeat made, or the one it was made from, selected alone: its rules are changed; with lines selected too it is a new repeat)
+    const made = lines.length ? undefined : sc.steps.find((st) => st.type === "pattern" && st.params.mode === "path" && (!!body.id && (body.id === `x_${st.id}` || body.id.startsWith(`x_${st.id}.`)) || st.parts.includes(body.ref) || (!!body.id && st.params.src === body.id) || (own !== undefined && st.params.body === own)));
+    if (made) {
+      const path = String(made.params.path ?? "").split(",").filter(Boolean) as Ref[];
+      const plane = pathPlaneOf(sc, path);
+      if (!plane.ok) return plane;
+      return ok({ figure: [], path, plane: plane.value, body: { ref: body.ref, ...(own ? { one: own } : {}), step: made.id, params: Array.from({ length: PATH_NUMBERS }, (_, i) => Number(made.params[`pr${i}`])) } });
+    }
+    const path = lines;
+    if (!path.length) return err("select the lines or arcs of the path, with the body");
+    const plane = pathPlaneOf(sc, path);
+    if (!plane.ok) return plane;
+    return ok({ figure: [], path, plane: plane.value, body: { ref: body.ref, ...(own ? { one: own } : {}), ...(body.id ? { src: body.id } : {}) } });
+  }
   const faces = sel.filter((p): p is Extract<Part, { kind: "face" }> => p.kind === "face" && p.origin === "drawn");
   const figure = [...new Set(faces.flatMap((f) => figurePartsOf(sc, f)))];
   const path = sel.filter((p) => p.kind === "line" && p.origin === "drawn" && !figure.includes(p.ref)).map((p) => p.ref);
-  if (!figure.length) return err("select the figure to repeat (a closed shape) and the lines or arcs of the path it follows");
+  if (!figure.length) return err("select the figure to repeat (a closed shape) or a body, and the lines or arcs of the path it follows");
   if (!path.length) return err("select the lines or arcs of the path, with the figure");
   const first = figure.map((r) => sc.parts[r]).find((p) => p?.kind === "corner" || p?.kind === "circle");
   const corner = first?.kind === "circle" ? sc.parts[first.center] : first;
@@ -43,8 +69,8 @@ export function pathRepeatTarget(session: Session): Result<PathRepeatTarget> {
 }
 export const whyNoPathRepeat = (session: Session): string | null => { const t = pathRepeatTarget(session); return t.ok ? null : t.error; };
 
-/** The values of the dialog for a repeat that is there. */
-export function pathRepeatValuesOf(rec: PatternRecord): PathRepeatValues {
+/** The values of the dialog for a repeat that is there (a figure's record, or the numbers of a body's step). */
+export function pathRepeatValuesOf(rec: { params: readonly number[] }): PathRepeatValues {
   const n = rulesFrom(rec.params);
   if (!n.ok) return pathRepeatStart();
   const r = n.value.rules;
@@ -65,23 +91,27 @@ export function pathRepeatNumbers(v: PathRepeatValues): Result<RepeatNumbers> {
 }
 
 const record = (t: PathRepeatTarget, params: number[]) => ({ plane: t.plane, path: t.path, params });
+/** The numbers a target starts the dialog with: the repeat's own, or the usual. */
+export const pathRepeatValuesFor = (t: PathRepeatTarget): PathRepeatValues => (t.edit ? pathRepeatValuesOf(t.edit) : t.body?.params ? pathRepeatValuesOf({ params: t.body.params }) : pathRepeatStart());
 /** The dialog: the rules, and a picture of the path with the places the copies stand at. `ctx` is what the selection gave. */
 export function pathRepeatDialog(session: Session, t: PathRepeatTarget, v: PathRepeatValues): Dialog {
   const sc = sceneOf(session);
+  const what = t.body ? "body" : "figure";
   const plane = sc.parts[t.plane];
   const path = plane?.kind === "plane" ? readPath(sc, t.path, plane, v.reverse === "other") : null;
   const closed = !!(path?.ok && path.value.closed);
   const n = pathRepeatNumbers(v);
   const placed = path?.ok && n.ok ? placeAlong(path.value, n.value.rules) : null;
-  const note = !path ? "" : !path.ok ? path.error : !n.ok ? n.error : placed && !placed.ok ? placed.error : placed?.ok ? `${placed.value.frames.length} places (the first is the figure itself, so ${Math.max(0, placed.value.frames.length - 1)} copies)${placed.value.spacing !== null ? `, ${fmt(placed.value.spacing)} mm apart` : ""}; the path is ${fmt(lengthOf(placed.value.path))} mm long${n.value.rules.offset ? " after the offset" : ""}` : "";
+  const note = !path ? "" : !path.ok ? path.error : !n.ok ? n.error : placed && !placed.ok ? placed.error : placed?.ok ? `${placed.value.frames.length} places (the first is the ${what} itself, so ${Math.max(0, placed.value.frames.length - 1)} copies)${placed.value.spacing !== null ? `, ${fmt(placed.value.spacing)} mm apart` : ""}; the path is ${fmt(lengthOf(placed.value.path))} mm long${n.value.rules.offset ? " after the offset" : ""}` : "";
   const by = v.by === "count" ? "count" : "distance";
+  const changing = !!t.edit || !!t.body?.step;
   return {
-    title: t.edit ? "Path repeat: change the rules" : "Path repeat",
-    ok: t.edit ? "Change" : "Repeat",
+    title: changing ? "Path repeat: change the rules" : t.body ? "Path repeat of a body" : "Path repeat",
+    ok: changing ? "Change" : "Repeat",
     fields: [
       { id: "picture", label: "Where the copies stand", type: "picture", value: pathPicture(path?.ok ? path.value : null, placed?.ok ? placed.value.frames.map((f) => ({ at: f.at, corner: f.corner })) : [], n.ok && n.value.rules.offset && placed?.ok ? placed : null), note },
       { id: "by", label: "Spacing", type: "choice", layout: "chips", value: by, choices: [{ value: "distance", label: "A distance apart" }, { value: "count", label: "A number, equally divided" }] },
-      { id: "value", label: by === "count" ? "How many (the figure itself is one)" : "Distance between copies (mm)", type: "text", value: v.value },
+      { id: "value", label: by === "count" ? `How many (the ${what} itself is one)` : "Distance between copies (mm)", type: "text", value: v.value },
       ...(by === "distance" && v.corners === "ignore" ? [{ id: "ends", label: "At the end of the path", type: "choice" as const, layout: "chips" as const, value: v.ends === "remainder" || v.ends === "centre" ? v.ends : "fit", choices: [{ value: "fit", label: "Adjust the spacing to land on the end" }, { value: "remainder", label: "Leave the rest at the end" }, { value: "centre", label: "Centre them" }] }] : []),
       { id: "corners", label: "Corners", type: "choice", layout: "chips", value: v.corners === "each" || v.corners === "inward" ? v.corners : "ignore", choices: [{ value: "ignore", label: "Not special" }, { value: "each", label: "A copy at every corner, each side divided" }, { value: "inward", label: "Work in from each corner" }], note: by === "count" && v.corners !== "ignore" ? "a rule for the corners needs a distance, not a number" : "" },
       ...(!closed && v.corners === "ignore" ? [{ id: "startInset", label: "First copy this far from the start (mm)", type: "text" as const, value: v.startInset }, { id: "endInset", label: "Last copy this far from the end (mm)", type: "text" as const, value: v.endInset }] : []),
@@ -98,6 +128,14 @@ export function pathRepeatCommand(session: Session, t: PathRepeatTarget, v: Path
   const n = pathRepeatNumbers(v);
   if (!n.ok) return n;
   const params = numbersOf(n.value);
+  if (t.body) { // a body: a step of the history with the numbers (`pr0` to `pr8`) and the path's lines
+    const numbers = Object.fromEntries(params.map((x, i) => [`pr${i}`, x]));
+    const tried = bodyPlaces(sc, { path: t.path, params });
+    if (!tried.ok) return tried;
+    if (tried.value.places.length > 200) return err("that is more than 200 copies");
+    if (t.body.step) return ok({ type: "setStepParams", id: t.body.step, params: numbers });
+    return ok({ type: "addStep", step: { id: nextId(sc, "s"), type: "pattern", parts: [t.body.ref], params: { mode: "path", path: t.path.join(","), ...numbers, ...(t.body.one ? { body: t.body.one } : {}), ...(t.body.src ? { src: t.body.src } : {}) } } });
+  }
   const tried = pathMaps(sc, record(t, params));
   if (tried.why) return err(tried.why);
   if (tried.maps.length > 200) return err("that is more than 200 copies");

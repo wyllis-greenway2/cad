@@ -91,3 +91,34 @@ export function pathMaps(s: Scene, rec: { plane: Ref; path?: Ref[]; params: read
   });
   return { maps, why: maps.length ? null : "the rules leave no copy but the figure itself", spacing: placed.value.spacing, count: frames.length };
 }
+
+/** The plane all the lines of a path are drawn on, or why they are not on one (a body repeat has no figure to take the plane from). */
+export function pathPlaneOf(s: Scene, refs: readonly Ref[]): Result<Ref> {
+  const planes = new Set(refs.map((r) => s.parts[r]).map((p) => (p?.kind === "line" ? p.plane : null)));
+  if (planes.size !== 1 || planes.has(null) || !s.parts[[...planes][0] as Ref]) return err("the lines of the path must be drawn on one plane");
+  return ok([...planes][0] as Ref);
+}
+export interface BodyPlace { move: Vec3; /** a turn about the point, in degrees, about the direction */ turn: { angle: number; pivot: Vec3; dir: Vec3 } | null }
+/**
+ * Where the copies of a body go (`dec_path_repeat`, step (c)): for each place along the path after the first, how far the body is moved and, when the copies turn with the path, the turn about the first place that comes first.
+ * The first place is where the body is (the original). Or why there is none.
+ */
+export function bodyPlaces(s: Scene, rec: { path: readonly Ref[]; params: readonly number[] }): Result<{ places: BodyPlace[]; spacing: number | null; count: number }> {
+  const plane = pathPlaneOf(s, rec.path);
+  if (!plane.ok) return plane;
+  const pl = s.parts[plane.value] as Plane;
+  const n = rulesFrom(rec.params);
+  if (!n.ok) return n;
+  const path = readPath(s, rec.path, pl, n.value.reverse);
+  if (!path.ok) return path;
+  const placed = placeAlong(path.value, n.value.rules);
+  if (!placed.ok) return placed;
+  const frames = placed.value.frames;
+  if (frames.length < 2) return err("the rules leave no copy but the body itself");
+  const b = basisOf(pl);
+  const first = frames[0]!;
+  const pivot = to3(b, first.at);
+  const angle = (t: Pt): number => Math.atan2(t[1], t[0]);
+  const places: BodyPlace[] = frames.slice(1).map((f) => ({ move: sub(to3(b, f.at), pivot), turn: n.value.turn ? { angle: (((angle(f.along) - angle(first.along)) * 180) / Math.PI), pivot, dir: b.n } : null }));
+  return ok({ places, spacing: placed.value.spacing, count: frames.length });
+}

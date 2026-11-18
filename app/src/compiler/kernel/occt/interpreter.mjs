@@ -1197,6 +1197,13 @@ const OPS = {
       for (let i = 1; i < count; i++) copies.push(t.clone().rotate(step * i, op.pivot, axis));
       return { kind: "solid", shape: again(fuseTree(copies)) };
     }
+    if (op.mode === "placed") {
+      // the copies of a body repeated along a path (`dec_path_repeat`): each place is given (a turn about a point first, if there is one, then a move); the body is at the first place itself
+      if (op.places.length + 1 > 200) throw new Error("that is more than 200 copies");
+      const copies = [out];
+      for (const q of op.places) { let c = t.clone(); if (q.turn) c = c.rotate(q.turn.angle, q.turn.pivot, q.turn.dir); copies.push(c.translate(q.move)); }
+      return { kind: "solid", shape: again(fuseTree(copies)) };
+    }
     throw new Error(`unknown repeat ${op.mode}`);
   },
 

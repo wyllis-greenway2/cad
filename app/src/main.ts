@@ -15,7 +15,7 @@ import { laserDialog, runLaser, findingsDialog, machineChoices, machineDialog, s
 import { parseLibrary, libraryText, saveMachine, removeMachine, saveSettings, removeSettings } from "./interaction/library.ts";
 import { flatSnapshot } from "./interaction/partsnapshot.ts";
 import type { LaserValues } from "./interaction/manufacture.ts";
-import { pathRepeatTarget, pathRepeatDialog, pathRepeatCommand, pathRepeatStart, pathRepeatValuesOf } from "./interaction/pathrepeat.ts";
+import { pathRepeatTarget, pathRepeatDialog, pathRepeatCommand, pathRepeatStart, pathRepeatValuesFor } from "./interaction/pathrepeat.ts";
 import { addPartStart, addPartDialog, addPart, familyName, lengthAdviceOf, receiverStart, receiverDialog, cutReceiver, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
 import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
@@ -266,7 +266,7 @@ async function pathRepeatFlow() {
   const t = pathRepeatTarget(state.session);
   if (!t.ok) return say(t.error);
   const target = t.value;
-  const answers = await dialog.open((v) => pathRepeatDialog(state.session, target, v as unknown as ReturnType<typeof pathRepeatStart>), (target.edit ? pathRepeatValuesOf(target.edit) : pathRepeatStart()) as unknown as Values);
+  const answers = await dialog.open((v) => pathRepeatDialog(state.session, target, v as unknown as ReturnType<typeof pathRepeatStart>), pathRepeatValuesFor(target) as unknown as Values);
   if (!answers) return;
   const c = pathRepeatCommand(state.session, target, answers as unknown as ReturnType<typeof pathRepeatStart>);
   if (!c.ok) return say(c.error);
@@ -274,7 +274,7 @@ async function pathRepeatFlow() {
   if (next.message) return say(next.message);
   state = { ...state, session: next };
   dirty = true;
-  say(target.edit ? "path repeat changed" : "path repeat made");
+  say(target.edit || target.body?.step ? "path repeat changed" : "path repeat made");
 }
 /** Fastener hole (`in_746`): the receiver for a fastener (a clearance hole, a countersunk one, a hole to tap, a nut pocket) cut into the body whose flat face is selected, at the face's middle or as far from it as typed. */
 async function fastenerHoleFlow() {
