@@ -3654,3 +3654,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_826 — 2026-11-18 — question
 > what else do you think we should do on speed work?
 (asks for the AI's view of what speed work is still worth doing)
+
+## in_827 — 2026-11-18 — directive
+> yes do 1 then 3
+(approves the two speed items: first measuring ordinary use (blocks, edits, undo and redo, loading files, many ordinary bodies), then checking the stand-ins and the memory restart in the browser under load)

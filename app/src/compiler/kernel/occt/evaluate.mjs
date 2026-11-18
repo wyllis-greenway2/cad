@@ -9,6 +9,8 @@ import { cornerEdges } from "../../../shared/sharp.mjs";
 
 const described = new Map();
 const lumpDescribed = new Map();
+/** The most triangles the kept descriptions of bodies hold together (about 40 MB). */
+const DESCRIBED_TRIANGLES = 400000;
 /** The angle (degrees) at which the surface turns a corner that is drawn as an edge: the page's `settings.extrude.edgeAngleDeg`, which the page checks against the answer's `sharpDeg` (it searches itself if they differ). */
 const EDGE_ANGLE_DEG = 30;
 const copyOf = (d) => ({
@@ -249,7 +251,10 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
       const tD = performance.now();
       if (d) { lumpDescribed.delete(fp); reused++; } else { d = describeSolid(l, tess, lite, v); meshMs += performance.now() - tD; }
       lumpDescribed.set(fp, d);
-      while (lumpDescribed.size > 40) lumpDescribed.delete(lumpDescribed.keys().next().value);
+      // the descriptions kept are the last ones used, within a weight (the triangles they hold) and not a count: a model of fifty plain parts was described again at every step with a count of 40 (a cliff at the forty-first body, `in_827`), while a few gears of a hundred thousand triangles stay within the memory
+      let held = 0;
+      for (const v of lumpDescribed.values()) held += (v.mesh?.triangles?.length ?? 0) / 3;
+      while (lumpDescribed.size > 1 && (held > DESCRIBED_TRIANGLES || lumpDescribed.size > 2000)) { const [k0, v0] = lumpDescribed.entries().next().value; held -= (v0.mesh?.triangles?.length ?? 0) / 3; lumpDescribed.delete(k0); }
       return d;
     });
     describeInfo = { bodies: lumps.length, reused, fingerprintMs: Math.round(fpMs * 10) / 10, describedMs: Math.round(meshMs * 10) / 10 };
