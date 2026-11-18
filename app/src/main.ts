@@ -264,7 +264,7 @@ async function addPartFlow() {
   dirty = true;
   say(`added: ${answers.size} ${familyName(String(answers.family))}, at the origin${lengthAdviceOf(answers as unknown as ReturnType<typeof addPartStart>) ? ` (${lengthAdviceOf(answers as unknown as ReturnType<typeof addPartStart>)})` : ""}`);
 }
-/** Path repeat (`dec_path_repeat`, `in_840`): the figure and the lines of the path selected, a dialog for the rules (with a picture of where the copies stand), and the repeat made (or the rules of the one selected changed). */
+/** Path repeat (`dec_path_repeat`, `in_843`): the figure and the lines of the path selected, a dialog for the rules (with a picture of where the copies stand), and the repeat made (or the rules of the one selected changed). */
 async function pathRepeatFlow() {
   const t = pathRepeatTarget(state.session);
   if (!t.ok) return say(t.error);
