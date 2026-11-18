@@ -3893,3 +3893,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_886 — 2026-11-19 — approval
 > yes build it
 (approves the face gear tool as proposed in dec_crown_gear_set: Gear > Face gear, a gear record like the crown's, Mesh gear making the spur pinion at exactly 90 degrees)
+
+## in_887 — 2026-11-19 — approval
+> yes please start
+(approves starting the hypoid gear work with the reading: the offset geometry in the Zarebski paper, the later Stadtfeld chapters, and ISO 23509 if it can be had; then a prototype and a proposal, nothing in app/ before approval)
