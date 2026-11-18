@@ -4124,3 +4124,14 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_942 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for the branch `claude/adoring-dijkstra-pivot` to be merged into the testing branch; it carries the contact push chains, the speed-ups and any body made to turn)
+
+## in_943 — 2026-11-18 — directive
+> [the human attached a saved project, "hidden_gears.json" (two spiral bevel gears made and deleted, then a spiral bevel gear with an offset), and a state snapshot of the app]
+> Can we have a cancel button on the gear menu. Lets have one button operate as both update and create, it shuold say update when unapplied changes exist. The menu is not very consistent, it shows some operations even if you dont have the things selected to apply them, and others you can't select unless you already have the right things selected. Also for the ones you can select without having the right things selected to apply, it just says "Click what it needs". Lets make this better. Lets have it so that anything in the menu can be selected. If that tool needs things selected in order for it to work, then it should actually help you select those items. It should say select face, select line click this click that etc. 
+>
+> Ihave a bug where when I delete gears, then if I later craete more gears, the deleted ones show up in the preview for a moment as it creates the new gears.
+(asks for a Cancel button in the gear box; one button for both Update and Create that says Update when there are unapplied changes; every item of the menu selectable, and a tool that needs things selected helping the person select them ("select face, select line, click this, click that"), instead of the menu offering some without their selection, hiding others, and saying "Click what it needs"; and reports that gears deleted show in the preview for a moment while new gears are made)
+
+## in_944 — 2026-11-18 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 once more, for the Cancel button, the single apply button, the guided menu items and the fix for the ghosts of deleted gears; gives permission to write to that branch)

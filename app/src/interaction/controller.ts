@@ -6,7 +6,7 @@ import { figureRefs } from "../operation/scene.ts";
 import { isLive } from "./operations.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { AppState, Env } from "./control/state.ts";
-import { doHover, doClick, doMenu, doHold, doTapAim, doMovePoint } from "./control/pointer.ts";
+import { doHover, doClick, doMenu, doHold, doTapAim, doMovePoint, settleAwaiting } from "./control/pointer.ts";
 import { doCut } from "./control/select.ts";
 import { doPan, doWalk, doSwivel, doZoom, doLook, doHome, doResetView } from "./control/viewing.ts";
 import { doDragMove, doDragEnd } from "./control/handles.ts";
@@ -16,7 +16,7 @@ import { doMotionKind, doMotionKeep, doMotionLink } from "./control/motion.ts";
 import { setPlaying, reverseMotion } from "./motion.ts";
 import { solveContact } from "./contact.ts";
 import { doStepGo, doStepEdit, doStepInsert, doStepSet, doStepLink, doParamSet, doParamRemove } from "./control/history.ts";
-import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doGearUpdate, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
+import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
 import { hoverOn, run, scene as sceneOf } from "./session.ts";
 import { stepOption, activateOption, similarOf } from "./options.ts";
 import { loftChoice } from "./loft.ts";
@@ -53,6 +53,7 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   let next = apply(s, i, env);
   if (i.type === "faceKind" || i.type === "sizeKind" || i.type === "loftKind" || i.type === "similarRule" || i.type === "cut") next = { ...next, optionAt: null }; // (an option chosen by the pointer: the keyboard's place in the bar starts from there again, `in_664`)
   if (next.cam !== s.cam || next.session.history.scene !== s.session.history.scene || next.lastSeen === null) next = noteSeen(next, env.w, env.h, projector(next.cam, env.w, env.h).project as (p: Vec3) => [number, number]); // (what was last in view, for Reset camera, `in_303`)
+  if (next.awaiting && next.session.click.selection.join("|") !== s.session.click.selection.join("|")) next = settleAwaiting(next, env.now); // (what a pressed, dimmed item waited for is selected: it runs, `in_943`)
   if (next.resume && !RESUMING.has(i.type)) next = { ...next, resume: null }; // only a click, or moving the view, keeps "sketching goes on" waiting for a vertex
   // the hidden sketch of a plane is shown while a tool begun on the edge of a body sketches in it (`in_211`)
   const shownStep = next.showSketch ? next.session.history.scene.steps.find((x) => x.id === next.showSketch) : undefined;
@@ -155,7 +156,6 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "undo": return doUndo(s);
     case "redo": return doRedo(s);
     case "escape": return doEscape(s);
-    case "gearUpdate": return doGearUpdate(s);
     case "begin": return doBegin(s, i.name, env.now);
     case "typed": {
       // Tab and Shift+Tab step through the options of the open operation, each step choosing it (`in_664`); the left and right arrows go between its numbers, which Tab does when it has no options or has several numbers to type

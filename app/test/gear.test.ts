@@ -760,35 +760,29 @@ test("a gear sized next to a gear of the same kind, its pitch circle all but tou
   assert.equal(entryOf(scene(far.session), far.tool, far.op)?.suggest, undefined, "too far: no suggestion");
 });
 
-test("one box for a gear to be made and one that is made (`in_919`): Update (gray, left) is there only when a number is different and keeps the box open; Create (a new gear) or Done (a gear that exists) is blue, applies and ends the tool", () => {
+test("one box for a gear to be made and one that is made (`in_943`): Cancel, and one button: Create for a new gear, Update when numbers of a gear that is made are not yet applied, Done when none are; it applies and ends the tool; Cancel (Esc) leaves the gear as it was", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "gear" }, env);
   st = click(st, C); st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2");
-  const fresh = entryOf(scene(st.session), st.tool, st.op)!;
-  assert.deepEqual(fresh.gearButtons, { edit: false, changed: false }, "a gear to be made: Create, and nothing to update");
-  st = reduce(st, { type: "gearUpdate" }, env);
-  assert.equal(scene(st.session).gears ?? undefined, undefined, "Update makes nothing of a gear that is not made");
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.gearButtons, { edit: false, changed: false }, "a gear to be made: Create");
   st = key(st, "Enter");
   assert.equal(scene(st.session).gears!.length, 1);
   assert.equal(st.tool, null, "Create makes the gear and the tool is over: no wireframe left behind");
   // the same box on the gear that is made
   st = pick(st, [...selection(st.session)] as string[]);
   st = reduce(st, { type: "runAction", id: "gear:edit" }, env);
-  let e = entryOf(scene(st.session), st.tool, st.op)!;
-  assert.deepEqual(e.gearButtons, { edit: true, changed: false }, "its numbers as they are: Done, and nothing to update");
-  st = reduce(st, { type: "gearUpdate" }, env);
-  assert.equal(scene(st.session).steps.length + (scene(st.session).gears?.length ?? 0), 1, "Update with nothing changed does nothing");
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.gearButtons, { edit: true, changed: false }, "its numbers as they are: Done");
   st = typeText(st, "24");
-  e = entryOf(scene(st.session), st.tool, st.op)!;
-  assert.deepEqual(e.gearButtons, { edit: true, changed: true }, "a number is different: Update is there");
-  const before = scene(st.session).gears![0]!.spec.teeth;
-  st = reduce(st, { type: "gearUpdate" }, env);
-  assert.deepEqual([before, scene(st.session).gears![0]!.spec.teeth, scene(st.session).gears!.length], [20, 24, 1], "Update changes the same gear");
-  assert.ok(st.tool?.gear?.editing === "g_001", "and the box stays open on it");
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.gearButtons, { edit: true, changed: false }, "with nothing left to update");
-  st = reduce(st, { type: "escape" }, env);
-  assert.equal(st.tool, null, "Esc lets go (what was updated stays)");
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.gearButtons, { edit: true, changed: true }, "a number is not yet applied: Update");
+  // Cancel: Esc puts the tool away and the gear is as it was
+  const cancelled = reduce(st, { type: "escape" }, env);
+  assert.equal(cancelled.tool, null);
+  assert.equal(scene(cancelled.session).gears![0]!.spec.teeth, 20, "nothing was applied");
+  // Update: applies and ends the tool
+  st = key(st, "Enter");
+  assert.equal(st.tool, null);
   assert.equal(scene(st.session).gears![0]!.spec.teeth, 24);
+  assert.equal(scene(st.session).gears!.length, 1, "the same gear");
   // Done with nothing changed only lets go: no step is made
   st = pick(st, [...selection(st.session)] as string[]);
   st = reduce(st, { type: "runAction", id: "gear:edit" }, env);
@@ -797,3 +791,4 @@ test("one box for a gear to be made and one that is made (`in_919`): Update (gra
   assert.equal(st.tool, null);
   assert.equal(st.session.history.commands.length, n, "no command for nothing");
 });
+
