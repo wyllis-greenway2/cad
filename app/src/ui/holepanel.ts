@@ -6,7 +6,7 @@ import type { Row } from "./panelkit.ts";
 
 export interface HolePanelValues { kind: string; size: string; by: string; value: string; ends: string; corners: string; offset: string; shift: string; depth: string; far: string; drill: string; insert: string; length: string }
 /** What the panel shows: the choices of the receiver and the size, the values, which surface is selected (a face, a line, or none yet), and a line of words (how many holes, or why none). */
-export interface HolePanelView { kinds: { id: string; label: string }[]; sizes: string[]; values: HolePanelValues; mode: "face" | "line" | "picked" | "none"; /** the surface is a round face (`in_937`) */ round?: boolean; /** how thick the body of the face is, and how far everything in the way reaches (`in_940`) */ reach?: { body: number; stack: number }; note: string; problem: string | null }
+export interface HolePanelView { kinds: { id: string; label: string }[]; sizes: string[]; values: HolePanelValues; mode: "face" | "line" | "picked" | "none"; /** the surface is a round face (`in_946`) */ round?: boolean; /** how thick the body of the face is, and how far everything in the way reaches (`in_949`) */ reach?: { body: number; stack: number }; note: string; problem: string | null }
 export interface HolePanelHandlers { change(values: HolePanelValues): void; commit(): void; close(): void }
 
 export function createHolePanel(host: HTMLElement, h: HolePanelHandlers) {

@@ -179,7 +179,7 @@ test("the shift is one of the numbers a repeat keeps, and a record made before i
   assert.ok(old.ok && old.value.rules.shift === 0);
 });
 
-// ---- a count with a hole at every corner (`in_936`) ----
+// ---- a count with a hole at every corner (`in_945`) ----
 test("a count with every corner: the corners are part of the count and the rest are shared out between the sides by their length", () => {
   const rect: Path = { closed: true, segs: [{ a: [0, 0], b: [40, 0], bulge: 0 }, { a: [40, 0], b: [40, 20], bulge: 0 }, { a: [40, 20], b: [0, 20], bulge: 0 }, { a: [0, 20], b: [0, 0], bulge: 0 }] };
   const r = placeAlong(rect, { spacing: { by: "count", count: 10 }, corners: "each" });

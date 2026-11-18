@@ -4091,26 +4091,26 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for this branch (the fastener tool's curved surfaces, the shared panel layout and the dialogs in it) to be merged into claude/inspiring-pascal-l342k7)
 
-## in_935 — 2026-11-18 — question
+## in_944 — 2026-11-18 — question
 > Why does it say this?
 (asks why the fastener panel shows "a rule for the corners needs a distance between copies, not a count"; a screenshot of the panel's red message above Type: Countersunk)
 
-## in_936 — 2026-11-18 — directive
+## in_945 — 2026-11-18 — directive
 > But why not? why couldn't we put a fastener in each corner, and also divide the spaces between by the remaining count?
 (says there is no reason a count cannot be used with a fastener at every corner: put one in each corner and divide the spaces between by the remaining count)
 
-## in_937 — 2026-11-18 — question
+## in_946 — 2026-11-18 — question
 > Why cant I put fasteners in this surface?
 (asks why fasteners cannot be put in a round face: a screenshot of the fastener panel with a round wall of a teardrop plate selected (R 28.22) and the red message "select a line drawn across the round face, or corners and circles on it")
 
-## in_938 — 2026-11-18 — question
+## in_947 — 2026-11-18 — question
 > how should we handle selecting multiple faces like this? Like for example if someone is trying to put a set of screws around the perimeter of something?
 (asks how the fastener tool should handle several faces selected together: a screenshot of three side faces of the teardrop plate selected (a round one, a flat one, a round one); the example is a set of screws round the perimeter of something)
 
-## in_939 — 2026-11-18 — question
+## in_948 — 2026-11-18 — question
 > what do we do in a situation like this where we are trying to make a lid fastened to an object below, but we can't extend the holes past the body of the object whos face we selected now?
 (asks how to handle a lid fastened to an object below: a screenshot of countersunk holes previewed in the top plate of the teardrop model, ending at the bottom of the plate, where the holes need to go on into the body below that the selected face does not belong to)
 
-## in_940 — 2026-11-18 — directive
+## in_949 — 2026-11-18 — directive
 > why don't we have the cuts go fully into space including whatever is under or behind our selection? but maybe we use information about the body selected to default to that depth or to help the user set a clearance to that depth and maybe a pilot for tap past that point
 (asks for the cuts to go fully through everything under or behind the selection, and for the selected body's thickness to be used as the default depth, or to help set a clearance hole to that depth and a pilot for tapping past that point)

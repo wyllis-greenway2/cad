@@ -237,7 +237,7 @@ export function placeAlong(path: Path, rules: Rules): Result<Placed> {
     const d = sp.by === "distance" ? sp.distance : 1;
     const sides: [number, number][] = [];
     for (let i = 0; i < cs.length - (p.closed ? 0 : 1); i++) sides.push([cs[i]!, p.closed && i === cs.length - 1 ? cs[0]! + total : cs[i + 1]!]);
-    // by a count with a hole at every corner (`in_936`): the count is all the holes, the corners are some of them, and the rest are shared out between the sides by their length (the largest remainders get the odd ones)
+    // by a count with a hole at every corner (`in_945`): the count is all the holes, the corners are some of them, and the rest are shared out between the sides by their length (the largest remainders get the odd ones)
     let extra: number[] | null = null;
     if (sp.by === "count") {
       const rest = sp.count - (p.closed ? sides.length : sides.length + 1);

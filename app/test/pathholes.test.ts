@@ -315,7 +315,7 @@ test("a round face alone: a row round it at the middle of its height, spaced alo
   assert.ok(r.ok, r.ok ? "" : r.error);
 });
 
-// ---- a lid on an object (`in_940`): the cut goes through everything, the body of the face gives the defaults ----
+// ---- a lid on an object (`in_949`): the cut goes through everything, the body of the face gives the defaults ----
 const lidOn = (): { s: Session; lid: string } => {
   let s = createSession(kernel);
   const a = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [100, 60, 0], [1, 0, 0], [0, 1, 0]);
