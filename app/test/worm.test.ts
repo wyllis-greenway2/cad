@@ -222,8 +222,8 @@ test("a worm for a worm wheel (`in_697`): placed by the helper on either side of
 test("a worm wheel's land (`in_790`): the tooth section carried straight out to each face and cut back by the worm's envelope: width + 2 land thick, heavier, one body (the steps name each other's bodies); Mesh gear gives no land unless one is typed, and with one the pair still does not touch", () => {
   const withLand = (land: number | undefined) => run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: { ...wheelSpec, wheel: { ...wheelSpec.wheel!, ...(land !== undefined ? { land } : {}) } } });
   const [none, land] = [withLand(undefined), withLand(2)];
-  assert.deepEqual(scene(land).steps.map((st) => st.type), ["loft", "extrude", "extrude", "extrude", "extrude", "combine", "combine", "combine"]);
-  assert.deepEqual(scene(land).steps.filter((st) => st.type === "combine").map((st) => st.parts.length), [2, 2, 3]);
+  assert.deepEqual(scene(land).steps.map((st) => st.type), ["loft", "extrude", "extrude", "sewBodies", "extrude", "extrude", "combine", "combine"]);
+  assert.deepEqual(scene(land).steps.filter((st) => st.type === "combine" || st.type === "sewBodies").map((st) => st.parts.length), [3, 2, 2]);
   assert.equal(bodies(land).length, 1, "one body");
   const box = (s: Session) => (Object.values(scene(s).parts).find((p) => p.kind === "body") as unknown as { bbox: { min: Vec3; max: Vec3 } }).bbox;
   const [a, b] = [box(none), box(land)];
@@ -241,3 +241,18 @@ test("a worm wheel's land (`in_790`): the tooth section carried straight out to 
   assert.deepEqual(both.outcome.errors, {});
   assert.ok(overlap(both) < 1, `the worm and the wheel with a land overlap by ${overlap(both)} mm3`);
 });
+
+test("defaults (`in_864`): a worm is 25 modules long; a new worm wheel has a bore, the worm has none; a wheel made by Mesh gear has one too", () => {
+  let w = reduce(top(), { type: "begin", name: "gear" }, env);
+  w = reduce(top(), { type: "runAction", id: "tool:worm" }, env);
+  w = click(w, [10, 10, 0]);
+  const worm = entryOf(scene(w.session), w.tool, w.op)!.fields;
+  assert.equal(worm.find((f) => f.label === "Length")!.value, "50", "25 modules of 2 mm");
+  assert.equal(worm.find((f) => f.label === "Bore")!.value, "0");
+  let wheel = reduce(top(), { type: "runAction", id: "tool:wormwheel" }, env);
+  wheel = click(wheel, [10, 10, 0]);
+  assert.notEqual(entryOf(scene(wheel.session), wheel.tool, wheel.op)!.fields.find((f) => f.label === "Bore")!.value, "0", "a bore");
+  const r = meshWith({ id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: worm0 }, [1, 0, 0], [0, 1, 0], { teeth: 20 }, Math.PI / 2);
+  assert.ok(r.ok);
+});
+const worm0: GearSpec = { teeth: 1, module: 2, worm: { diameter: 24, length: 50 } };

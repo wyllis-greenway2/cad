@@ -121,6 +121,27 @@ export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["n
 /** The tool stays on after a figure is made, ready on the same plane for the next, until a right click or the cancel icon at the top puts it away (`in_193`). */
 const stays = (t: AppState["tool"]): AppState["tool"] => (t && !t.gear?.editing && !t.gear?.mesh && !t.cam?.editing ? { ...armTool(t.kind, variantOf(t.gear)), plane: t.plane, made: (t.made ?? 0) + 1, ...(t.reveal ? { reveal: true as const } : {}) } : null);
 
+/**
+ * After a gear (or a planetary set) is made or changed from its box, the box stays open on it (`in_871`): the tool becomes the Edit tool of that gear, so that the numbers can go on being changed with the preview showing; Done or Esc lets it go
+ * and goes back to the tool that made it, armed for the next gear (a box that was opened to edit goes back to nothing).
+ */
+function keptOpen(s: AppState, next: Session, command: Command): Tool | null {
+  const t = s.tool;
+  if (!t || t.kind !== "gear" || t.cam) return null;
+  const sc = sceneOf(next);
+  const id = (command as { id?: string }).id;
+  const back = t.back !== undefined ? t.back : stays(t);
+  if (command.type === "planetary" || command.type === "setPlanetary") {
+    const set = sc.planetaries?.find((p) => p.id === id);
+    return set ? { ...editPlanetaryTool(set), gear: { ...editPlanetaryTool(set).gear!, kept: true }, back } : null;
+  }
+  if (command.type !== "gear" && command.type !== "setGear") return null;
+  const rec = sc.gears?.find((g) => g.id === id);
+  if (!rec) return null;
+  const open = editGearTool(rec);
+  return { ...open, gear: { ...open.gear!, kept: true }, back };
+}
+
 export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppState {
   if (!fin) {
     const fix = s.tool?.kind === "gear" ? gearFix(sceneOf(s.session), s.tool) : null; // (the number that spoils it is taken back to the nearest that makes a gear, and flashes, `in_690`)
@@ -131,6 +152,8 @@ export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppSt
   const next = run(s.session, fin.command);
   if (next.message) return { ...s, session: next };
   const sel = fin.select.filter((r) => r in sceneOf(next).parts);
+  const kept = keptOpen(s, next, fin.command);
+  if (kept) return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: kept, resume: null, spread: null };
   // a circle drawn about another circle's centre is concentric with it
   const circle = fin.select[0]?.startsWith("d/disk@") ? (`d/${fin.select[0].slice(7)}` as Ref) : null;
   if (s.tool?.kind === "circle" && s.tool.concentric && circle && circle in sceneOf(next).parts) {
@@ -313,7 +336,7 @@ export function doEscape(s: AppState): AppState {
   if (s.box) return { ...s, box: null };
   if (s.repeat && !s.op) return doRepeatCancel(s); // (the repeat that is open is given up, as the pill's cross used to)
   if (s.op) return cancelOp(s);
-  if (s.tool) return { ...s, tool: null, op: null, drag: null, gizmoHover: null };
+  if (s.tool) return { ...s, tool: s.tool.gear?.kept ? s.tool.back ?? null : null, op: null, drag: null, gizmoHover: null }; // (a gear box kept open lets go: to the tool that made it, `in_871`)
   if (s.preview && !s.tool && !s.op) return { ...s, preview: null }; // (the toolpath preview is put away, `in_570`)
   if (s.adding) return { ...s, adding: false, session: { ...s.session, message: null } }; // (adding to the selection is left, what is selected stays; the next Esc clears it, `in_540`)
   return withSession(s, clearSelection(s.session));

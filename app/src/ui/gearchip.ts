@@ -3,9 +3,9 @@
 import { iconSvg } from "./icons.ts";
 import type { Vec3 } from "../interaction/api.ts";
 
-export interface GearChip { at: Vec3; items: { id: string; label: string; icon: string; enabled: boolean; why: string | null }[] }
+export interface GearChip { part: string; at: Vec3; items: { id: string; label: string; icon: string; enabled: boolean; why: string | null }[] }
 
-export function createGearChip(host: HTMLElement, run: (id: string) => void) {
+export function createGearChip(host: HTMLElement, run: (id: string, part: string) => void) {
   const box = document.createElement("div");
   box.style.cssText = "position:fixed;left:0;top:0;display:none;z-index:7;flex-direction:column;align-items:flex-start;gap:4px";
   const button = document.createElement("div");
@@ -41,7 +41,7 @@ export function createGearChip(host: HTMLElement, run: (id: string) => void) {
           if (it.enabled) {
             row.addEventListener("mouseenter", () => { row.style.background = "#eef7f7"; });
             row.addEventListener("mouseleave", () => { row.style.background = ""; });
-            row.addEventListener("click", (e) => { e.stopPropagation(); open = false; show(); run(it.id); });
+            row.addEventListener("click", (e) => { e.stopPropagation(); open = false; show(); run(it.id, chip.part); });
           }
           list.appendChild(row);
         }
