@@ -3,7 +3,7 @@
 import { iconSvg } from "./icons.ts";
 import type { Vec3 } from "../interaction/api.ts";
 
-export interface BodyEye { ref: string; hidden: boolean; /** a body hooked up to an animation: its play (or pause) button */ play?: "play" | "pause"; /** the eight corners of the body's box */ corners: Vec3[] }
+export interface BodyEye { ref: string; hidden: boolean; /** the body is selected: its play button shows */ selected?: true; /** a body hooked up to an animation: its play (or pause) button */ play?: "play" | "pause"; /** the eight corners of the body's box */ corners: Vec3[] }
 
 /** The convex hull of points (Andrew's monotone chain). */
 function hull(pts: [number, number][]): [number, number][] {
@@ -70,7 +70,7 @@ export function createBodyChips(host: HTMLElement, run: (id: string) => void) {
           const beside = b.hidden || !quiet ? 34 : 0; // (a shown body has no eye now, `in_697`: the play button takes its place)
           chip.play.style.transform = `translate(${Math.round(at[0] - 15 + beside)}px, ${Math.round(at[1] - 15)}px)`;
           chip.play.style.display = "flex";
-          const showPlay = over || chip.play.matches(":hover") || b.play === "pause"; // (a motion that plays keeps its pause button within reach)
+          const showPlay = !!b.selected || chip.play.matches(":hover") || b.play === "pause"; // (shown for a body that is selected, `in_957`, not for one the pointer is over; a motion that plays keeps its pause button)
           chip.play.style.opacity = showPlay ? "1" : "0";
           chip.play.style.pointerEvents = showPlay ? "auto" : "none";
         } else { chip.play.style.display = "none"; chip.playSig = ""; }

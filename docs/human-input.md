@@ -4183,3 +4183,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_956 — 2026-11-19 — directive
 > @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/3003c693-Screencast_from_2026-11-18_20-35-15.webm" The numbers are still shaky sometimes like this
 (a screencast of the motion bar while a body turns: the number in the bar changes width from frame to frame ("-78°" has no decimal where "-83.2°" has one, and "-100.5°" is a character wider), so the text moves; the AI read the frames and fixed the format)
+
+## in_957 — 2026-11-19 — directive
+> Lets have the gear icon and the play icon not show on hover. Instead it should show on selection instead. The pause button icon can still be persistent when a part is animating.
+(asks for the gear icon and the play icon to show when the body is selected and not when the pointer is over it; the pause button stays while a part animates)
