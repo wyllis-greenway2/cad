@@ -3858,3 +3858,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_877 — 2026-11-18 — directive
 > lets proceed further before merging
 (asks to carry on with further work before merging the testing branch)
+
+## in_878 — 2026-11-18 — question
+> where else could we get good speed improvements or fix bugs?
+(asks for the AI's view of where else speed could be improved or bugs fixed)
