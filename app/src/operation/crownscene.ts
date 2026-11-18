@@ -1,6 +1,7 @@
 // The parts and steps of a crown gear (`dec_crown_gears`, `in_802`), made from a gear record by `gearscene.ts` as those of a bevel gear are. The gear's plane is its pitch plane; its axis is the plane's normal and the teeth stand on the `+n` side.
 // The body: a loft of the whole toothed ring between two sections (the tip and the root, ruled: the flanks are planes, so two sections hold them exactly) cut by a revolved blank (no raised hub inside the teeth),
 // and a plate under it (an extruded disc, a thickness thick), the two joined.
+import { endBlank } from "./blankchamfer.ts";
 import type { Ref } from "../shared/ref.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
@@ -24,7 +25,7 @@ export function crownRefs(rec: GearRecord): CrownRefs {
   const bore = (q: string): string | undefined => ((rec.spec.bore ?? 0) > 0 ? (loop ? loop.points.map((_, k) => ref(rec.id, `${q}bs${k}`)).join(",") : ref(rec.id, `${q}b`)) : undefined);
   return {
     sections: Array.from({ length: SECTIONS }, (_, q) => Array.from({ length: sides }, (_, i) => ref(rec.id, `v${q}s${i}`))), planes: Array.from({ length: SECTIONS }, (_, q) => ref(rec.id, `v${q}q`)),
-    blank: Array.from({ length: 6 }, (_, i) => ref(rec.id, `kns${i}`)), blankPlane: ref(rec.id, "knq"),
+    blank: Array.from({ length: (rec.spec.chamfer ?? 0) > 0 ? 8 : 6 }, (_, i) => ref(rec.id, `kns${i}`)), blankPlane: ref(rec.id, "knq"),
     plate: ref(rec.id, "pk"), platePlane: ref(rec.id, "pq"), plateBore: bore("p"),
   };
 }
@@ -63,9 +64,9 @@ export function crownParts(s: Scene, rec: GearRecord): Part[] {
   const bb = { origin: "drawn" as const, plane: bp, movable: false as const };
   const top = g.tip + m, bottom = -(g.root + 0.2 * m), hub = -(g.root + 0.1 * m);
   const rh = hubInner(rec); // (the hub: a thin ring inside the roots joining the teeth, wholly inside the plate, clear of the bore)
-  const blank: [number, number][] = [[rh, bottom], [g.outer + m, bottom], [g.outer + m, top], [g.inner, top], [g.inner, hub], [rh, hub]];
+  const blank = endBlank(rh, bottom, hub, top, g.inner, g.outer, g.tip, m, (rec.spec.chamfer ?? 0) * m);
   blank.forEach(([a, h], i) => out.push({ ...bb, ref: ref(rec.id, `knp${i}`), kind: "corner", at: at(a, 0, h) }));
-  for (let i = 0; i < 6; i++) out.push({ ...bb, ref: ref(rec.id, `kns${i}`), kind: "line", a: ref(rec.id, `knp${i}`), b: ref(rec.id, `knp${(i + 1) % 6}`) });
+  blank.forEach((_, i) => out.push({ ...bb, ref: ref(rec.id, `kns${i}`), kind: "line", a: ref(rec.id, `knp${i}`), b: ref(rec.id, `knp${(i + 1) % blank.length}`) }));
   // the plate: a disc on a plane a thickness below the root, drawn there and carried up to it
   const pq = ref(rec.id, "pq");
   out.push({ ref: pq, origin: "drawn", plane: null, movable: false, kind: "plane", at: at(0, 0, -(g.root + g.thick)), u, v });

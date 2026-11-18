@@ -41,3 +41,19 @@ export function chamferedBlank(p0: XR, heelLow: XR, heelHigh: XR, toeHigh: XR, t
   if (!h || !t) return plain;
   return [p0, heelLow, h.start, h.top, t.top, t.start, toeLow, p5];
 }
+
+/**
+ * The blank of a crown or a face gear (radius, height; the order the plain one has): the teeth end on a cylinder at the inner radius and one at the outer, and the tips are the plane at the height `tip`. With a chamfer `c` (mm) each end gets a 45 degree facet from `c` down the
+ * cylinder to `c` in along the tip plane and on to a quarter of a module above the tips; the outer wall is then at the outer radius itself (the loft goes past it, so the blank cuts the end: a loft's end and a wall that coincide are not cut cleanly). With none the outer wall is a module beyond the
+ * teeth, which end by the loft's own end.
+ */
+export function endBlank(rh: number, bottom: number, hub: number, top: number, inner: number, outer: number, tip: number, m: number, c: number): XR[] {
+  if (!(c > 0)) return [[rh, bottom], [outer + m, bottom], [outer + m, top], [inner, top], [inner, hub], [rh, hub]];
+  const topC = Math.min(top, tip + 0.25 * m); // (a quarter of a module above the tips is enough, and keeps the two facets apart on short teeth)
+  const rise = topC - tip + c; // (the facet is at 45 degrees: it goes as far across as up)
+  return [[rh, bottom], [outer, bottom], [outer, tip - c], [outer - rise, topC], [inner + rise, topC], [inner, tip - c], [inner, hub], [rh, hub]];
+}
+/** the shortest tooth (outer less inner radius) that a chamfer of `c` (mm) leaves two separate facets on, for a module `m` */
+export const shortestFor = (c: number, m: number): number => 2 * (0.25 * m + c) + 0.1 * m;
+/** how far past the outer radius the loft of a chamfered crown or face gear goes (mm): the blank's wall cuts the ends of its teeth there */
+export const END_REACH = 0.4;

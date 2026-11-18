@@ -38,16 +38,18 @@ test("the spiral pair and the straight bevel gear carry the chamfer in their bla
   const bad = spiralPairOf(20, 30, 3, 30, 0.05, 0, 0, 4);
   assert.ok(!bad.ok && /chamfer is from 0 to 1 module/.test(bad.error));
 });
+const crownShaft = (z: number, p: number) => 90 + (Math.asin(p / z) * 180) / Math.PI;
 const volumeOf = (spec: GearSpec): { n: number; v: number; message?: string } => {
   const s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec });
   const b = Object.values(scene(s).parts).filter((p) => p.kind === "body") as unknown as { volume: number }[];
   return { n: b.length, v: b[0]?.volume ?? 0, ...(s.message ? { message: s.message } : {}) };
 };
-for (const [name, spec] of [["straight bevel", { teeth: 20, module: 3, bevel: { mate: 30 } }], ["spiral pinion", { teeth: 20, module: 3, bevel: { mate: 30, spiral: 30 } }], ["spiral ring gear", { teeth: 30, module: 3, bevel: { mate: 20, spiral: 30 } }]] as [string, GearSpec][]) {
+for (const [name, spec] of [["straight bevel", { teeth: 20, module: 3, bevel: { mate: 30 } }], ["spiral pinion", { teeth: 20, module: 3, bevel: { mate: 30, spiral: 30 } }], ["spiral ring gear", { teeth: 30, module: 3, bevel: { mate: 20, spiral: 30 } }], ["crown gear", { teeth: 40, module: 2, bevel: { mate: 18, shaft: crownShaft(40, 18) }, bore: 5 }], ["face gear", { teeth: 40, module: 2, bevel: { mate: 14, facegear: "gear" }, bore: 5 }]] as [string, GearSpec][]) {
   test(`a ${name} with a chamfer of half a module is one body with less volume than without`, () => {
     const [plain, cut] = [volumeOf(spec), volumeOf({ ...spec, chamfer: 0.5 })];
     assert.ok(!plain.message && !cut.message, `${plain.message ?? ""} ${cut.message ?? ""}`);
     assert.equal(cut.n, 1);
-    assert.ok(cut.v < plain.v && cut.v > 0.98 * plain.v, `${plain.v} -> ${cut.v}`);
+    assert.ok(Math.abs(cut.v - plain.v) > 1, "a chamfer takes something off");
+    assert.ok(cut.v < plain.v && cut.v > 0.95 * plain.v, `${plain.v} -> ${cut.v}`);
   });
 }

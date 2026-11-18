@@ -73,7 +73,7 @@ test("the bevel gear tool: its numbers, its title that says it is an approximati
 test("the crown gear tool (`dec_crown_gears`, `in_802`): its numbers, its title, the gear it makes with nothing typed (a bevel gear whose shaft angle makes its pitch angle a right angle), and Mesh gear on it makes the pinion", () => {
   const sc = scene(createSession(kernel));
   const t = { ...armTool("gear", "crown"), plane: worldRef("XY"), points: [[0, 0, 0] as [number, number, number]], cursor: [10, 0, 0] as [number, number, number] };
-  assert.deepEqual(gearFields(t.gear!).map((f) => f.key), ["teeth", "mate", "module", "pressure", "inner", "outer", "width", "backlash", "bore", "flat", "key", "keydepth"]);
+  assert.deepEqual(gearFields(t.gear!).map((f) => f.key), ["teeth", "mate", "module", "pressure", "inner", "outer", "width", "backlash", "bore", "flat", "key", "keydepth", "chamfer"]);
   assert.equal(gearTitle(t.gear!), "Crown gear");
   const cmd = finishTool(sc, t)?.command as { type: string; spec: GearRecord["spec"] } | undefined;
   assert.ok(cmd && cmd.type === "gear", "makes a gear");
@@ -108,7 +108,7 @@ test("the spiral bevel gear tool (`dec_spiral_bevel_gears`, `in_836`): its numbe
 test("the face gear tool (`dec_crown_gear_set`, `in_886`): its numbers, its title, the gear it makes with nothing typed, and Mesh gear on it makes the spur pinion at 90 degrees", () => {
   const sc = scene(createSession(kernel));
   const t = { ...armTool("gear", "face"), plane: worldRef("XY"), points: [[0, 0, 0] as [number, number, number]], cursor: [10, 0, 0] as [number, number, number] };
-  assert.deepEqual(gearFields(t.gear!).map((f) => f.key), ["teeth", "mate", "module", "inner", "outer", "width", "backlash", "bore", "flat", "key", "keydepth"]);
+  assert.deepEqual(gearFields(t.gear!).map((f) => f.key), ["teeth", "mate", "module", "inner", "outer", "width", "backlash", "bore", "flat", "key", "keydepth", "chamfer"]);
   assert.equal(gearTitle(t.gear!), "Face gear");
   const cmd = finishTool(sc, t)?.command as { type: string; spec: GearRecord["spec"] } | undefined;
   assert.ok(cmd && cmd.type === "gear", "makes a gear");
