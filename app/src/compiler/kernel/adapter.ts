@@ -57,6 +57,8 @@ export interface Kernel {
   exportMesh(graph: KernelGraph, quality: ExportQuality): Promise<ExportResult>;
   /** the final body (or only the bodies named) as a STEP file; answers later when the kernel works on its own thread */
   exportStep(graph: KernelGraph, bodies?: string[], unit?: "in"): Promise<StepResult>;
+  /** nothing is being made now (a scene with no steps): the picture the kernel last gave is not the picture of what comes next, so it is forgotten (`in_951`: deleted gears showed for a moment while new ones were made); a kernel that keeps no last picture ignores it */
+  clear?(): void;
   /** ask for rough meshes (set while a size is being dragged, cleared when it is let go); a kernel that does not know it ignores it */
   draft?: boolean;
   /** ask for the mesh only, no faces, edges or corners: for a preview, a quarter of the time (`in_358`) */

@@ -134,6 +134,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     draft: false,
     lite: false,
     init: () => ready,
+    clear() { last = EMPTY; },
     get pending() { return busy !== null || queued !== null || exports.length > 0; },
     exportMesh(graph: KernelGraph, quality: ExportQuality): Promise<ExportResult> {
       return new Promise((resolve) => { exports.push({ graph, quality, resolve: (r) => resolve(r as ExportResult) }); pump(); });
@@ -153,10 +154,12 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
         if (asked.size > 200) asked.delete(asked.values().next().value as string);
         void store.get(key).then((kept) => { if (kept && !cache.has(key)) { cache.set(key, { ...kept, fromCache: true }); onChange(); } });
       }
-      if (busy?.key === key) return { ...last, stale: true }; // already being worked out
+      // what is shown meanwhile is the last finished result, unless it has a body that this graph no longer makes (a gear that was deleted): that one is not shown, nothing is, until the answer comes (`in_951`)
+      const shown = (): KernelResult => (last.bodies?.some((b) => !graph.ops.some((o) => o.id === b.id)) ? EMPTY : last);
+      if (busy?.key === key) return { ...shown(), stale: true }; // already being worked out
       queued = { key, graph, draft, lite, at: performance.now() }; // only the newest request is kept: what was asked before it is no longer wanted
       pump();
-      return { ...last, stale: true }; // (what is shown meanwhile is marked, so nothing is built on it)
+      return { ...shown(), stale: true }; // (what is shown meanwhile is marked, so nothing is built on it)
     },
   };
   return self;

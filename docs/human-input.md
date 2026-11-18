@@ -4157,6 +4157,41 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for this branch (round faces alone, a count with a hole at every corner, cuts through everything with the body of the face giving the defaults) to be merged into claude/inspiring-pascal-l342k7)
 
+## in_951 — 2026-11-18 — directive
+> [the human attached a saved project, "hidden_gears.json" (two spiral bevel gears made and deleted, then a spiral bevel gear with an offset), and a state snapshot of the app]
+> Can we have a cancel button on the gear menu. Lets have one button operate as both update and create, it shuold say update when unapplied changes exist. The menu is not very consistent, it shows some operations even if you dont have the things selected to apply them, and others you can't select unless you already have the right things selected. Also for the ones you can select without having the right things selected to apply, it just says "Click what it needs". Lets make this better. Lets have it so that anything in the menu can be selected. If that tool needs things selected in order for it to work, then it should actually help you select those items. It should say select face, select line click this click that etc. 
+>
+> Ihave a bug where when I delete gears, then if I later craete more gears, the deleted ones show up in the preview for a moment as it creates the new gears.
+(asks for a Cancel button in the gear box; one button for both Update and Create that says Update when there are unapplied changes; every item of the menu selectable, and a tool that needs things selected helping the person select them ("select face, select line, click this, click that"), instead of the menu offering some without their selection, hiding others, and saying "Click what it needs"; and reports that gears deleted show in the preview for a moment while new gears are made)
+
+## in_952 — 2026-11-18 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 once more, for the Cancel button, the single apply button, the guided menu items and the fix for the ghosts of deleted gears; gives permission to write to that branch)
+
+## in_953 — 2026-11-19 — question
+> why do gears rotate like this? when I add a gear, then mesh a gear to it, then rotate the original gear, it rotates the mesh gear around it like it is entirely glued to it? Is this because we should probably be adding an extra coaxial constraint or something like that to our mesh gears?
+(with a project file `weird_rotate.json` and a state snapshot: the AI found the two gears are one body, joined because their teeth touch exactly and the second gear's extrude joined the first; no coaxial mate is missing)
+
+## in_954 — 2026-11-19 — directive
+> how about we just make the gear creator in general have a very slight backlash by default? because we wouldn't want meshed gears to have slightly different size than original would we?
+(asks for the gear creator to give every new gear a very slight backlash by default, so a meshed gear is made with the same numbers as the original)
+
+## in_955 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the branch `claude/adoring-dijkstra-default-backlash` to be merged into the testing branch, and says the full suite is not needed: only the quick checks were run)
+
+## in_956 — 2026-11-18 — directive
+> [attached two files: the state snapshot messed_up_hypoid_gear_tooth_state.json and the project messed_up_gear_tooth.json (a 16 teeth pinion and a 24 teeth ring gear, module 2, spiral 30, hypoid offset 6, bore 5)] Look at this, it really messed up the teeth in this model
+(reports that the hypoid pair's teeth are wrong in this model; asks the AI to look)
+
+## in_957 — 2026-11-18 — question
+> so is it fixed now?
+(asks whether the ragged hypoid ring teeth are fixed; the AI answered what was verified and what was not)
+
 ## in_958 — 2026-11-18 — directive
 > Why does it treat these curved faces different than flat faces? Shouldn't it just step the edges in if it is in offset mode? Also I like the mode that the curved face is in but it seems like it is a different mode we should offer, which I think would be just one edge offset and in this case also centered, but that could be general where one edge could be offset and repeated. Basically we would just have rules about how to make lines based off edges we have available and then these lines have pattern repeats like any lines. We don't want to make special cases
 (asks why curved faces are treated differently from flat ones: the outline offset mode should step the edges in on a curved face too; the mid-height row they like is a separate mode for any face, one edge offset (here centred), and in general one edge offset and repeated; the tool should have rules for making lines from the edges available and these lines get pattern repeats like any lines, with no special cases; two screenshots of the teardrop plate: a flat face with four holes in a block and the round wall with holes round it at mid-height, and the model file)
+
+## in_959 — 2026-11-18 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for this branch (one set of line rules for flat and round faces, rows) to be merged into claude/inspiring-pascal-l342k7, with no full test run)

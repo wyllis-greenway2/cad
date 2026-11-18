@@ -153,7 +153,7 @@ const rootRadius = (g: SpiralGear, X: number): number => (X - g.hF / Math.sin(g.
  * A flank curve as the azimuth at each of the radii: the points inside the radii (a little beyond), the branch of the contour that is the flank (from the point at the middle radius outward each way, a point is taken if its azimuth is within a quarter
  * of a pitch of the last one taken: the contour of the whole surface has other branches), linear between them; below the lowest radius straight down to the root; null if the curve does not reach the tip.
  */
-function curveOf(pts: [number, number][], radii: number[], pitch: number): number[] | null {
+function curveOf(pts: [number, number][], radii: number[], pitch: number, lean = false): number[] | null {
   const [lo, hi] = [radii[0]! - 1.5, radii[radii.length - 1]! + 1.5];
   const inside = pts.filter(([r]) => r >= lo && r <= hi);
   if (inside.length < 4) return null;
@@ -168,6 +168,13 @@ function curveOf(pts: [number, number][], radii: number[], pitch: number): numbe
   const q = taken.sort((a, b) => a[0] - b[0]);
   if (q.length < 4 || q[q.length - 1]![0] < radii[radii.length - 1]! - 0.3) return null;
   return radii.map((r) => {
+    if (r <= q[0]![0] && lean) { // (below the lowest point the flank goes on along its own lean: the offset ring gear's flank stops short of the root, up to a few mm, `in_956`; straight down at the same azimuth made a ragged tooth)
+      let k = 1;
+      while (k < q.length - 1 && q[k]![0] - q[0]![0] < 1.5) k++;
+      const dr = q[k]![0] - q[0]![0];
+      const slope = dr > 1e-6 ? (q[k]![1] - q[0]![1]) / dr : 0;
+      return q[0]![1] + slope * (r - q[0]![0]) + ref0;
+    }
     if (r <= q[0]![0]) return q[0]![1] + ref0;
     let i = 1;
     while (i < q.length - 1 && q[i]![0] < r) i++;
@@ -180,11 +187,11 @@ function curveOf(pts: [number, number][], radii: number[], pitch: number): numbe
 const THIN = 0.15;
 const NF = 8; // (radii of a flank curve: eight steps)
 /** The outline of a gear in the plane at X: z teeth, each two flank curves, a tip arc and a root arc; polar points (radius, azimuth), `NF + 1 + 2 + NF + 1 + 2` for each tooth; null if the surfaces do not make one here. */
-function outlineAt(g: SpiralGear, which: "pinion" | "ring", A: [number, number][], B: [number, number][], X: number): [number, number][] | null {
+function outlineAt(g: SpiralGear, which: "pinion" | "ring", A: [number, number][], B: [number, number][], X: number, lean = false): [number, number][] | null {
   const [rt0, rr] = [tipRadius(g, X), rootRadius(g, X)];
   const pitch = (2 * Math.PI) / g.z;
   const fine = Array.from({ length: 41 }, (_, i) => rr + ((rt0 - rr) * i) / 40);
-  const [fa, fb] = [curveOf(A, fine, pitch), curveOf(B, fine, pitch)];
+  const [fa, fb] = [curveOf(A, fine, pitch, lean), curveOf(B, fine, pitch, lean)];
   if (!fa || !fb) return null;
   const mid0 = 20;
   const swap = fa[mid0]! > fb[mid0]!;
@@ -201,7 +208,7 @@ function outlineAt(g: SpiralGear, which: "pinion" | "ring", A: [number, number][
   if (top - bot < 6) return null;
   const [rt, rrr] = [fine[top]!, fine[bot]!];
   const radii = Array.from({ length: NF + 1 }, (_, i) => rrr + ((rt - rrr) * i) / NF);
-  const [ca, cb] = [curveOf(A, radii, pitch), curveOf(B, radii, pitch)];
+  const [ca, cb] = [curveOf(A, radii, pitch, lean), curveOf(B, radii, pitch, lean)];
   if (!ca || !cb) return null;
   let [lo, hi] = ca[NF >> 1]! < cb[NF >> 1]! ? [ca, cb] : [cb, ca];
   if (hi[NF >> 1]! - lo[NF >> 1]! > Math.PI) [lo, hi] = [hi, lo.map((v) => v + 2 * Math.PI)]; // (the pair straddles the branch cut)
@@ -277,7 +284,7 @@ function spiralBodyMade(pr: SpiralPair, which: "pinion" | "ring"): Result<Spiral
   const outlines: { x: number; o: [number, number][] }[] = [];
   for (let i = 0; i < SECTIONS; i++) {
     const X = bl.xS + ((bl.xB - bl.xS) * i) / (SECTIONS - 1);
-    const o = outlineAt(g, which, contourAt(A, g.axis, X, g.origin), contourAt(B, g.axis, X, g.origin), X);
+    const o = outlineAt(g, which, contourAt(A, g.axis, X, g.origin), contourAt(B, g.axis, X, g.origin), X, which === "ring" && pr.E !== 0);
     if (!o) return err(`the tooth surfaces make no outline at ${X.toFixed(1)} mm from the apex: other tooth counts or a smaller module`);
     outlines.push({ x: X, o });
   }
@@ -285,8 +292,8 @@ function spiralBodyMade(pr: SpiralPair, which: "pinion" | "ring"): Result<Spiral
   // one tooth's samples: the flank going up (0 to NF), the tip's two inner points, the flank coming down (NF + 3 to 2 NF + 3), the root's two
   const upOf = (o: [number, number][]): P[] => Array.from({ length: NF + 1 }, (_, k) => mirror(o[k]!));
   const downOf = (o: [number, number][]): P[] => Array.from({ length: NF + 1 }, (_, k) => mirror(o[NF + 3 + k]!));
-  const [ku, kd] = [splitOf(outlines.map(({ o }) => upOf(o))), splitOf(outlines.map(({ o }) => downOf(o)))];
   const sections: SpiralBody["sections"] = [];
+  const [ku, kd] = [splitOf(outlines.map(({ o }) => upOf(o))), splitOf(outlines.map(({ o }) => downOf(o)))];
   for (const { x: X, o } of outlines) {
     const points: P[] = [], bulges: number[] = [];
     const at = (j: number, k: number): [number, number] => o[(j * per + k) % o.length]!;

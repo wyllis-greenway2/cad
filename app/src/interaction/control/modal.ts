@@ -109,7 +109,7 @@ function beginOp(s0: AppState, kind: OpKind, now = 0, over: Ref | null = null): 
   }
   const r = startOp(sceneOf(s.session), selectionOf(s.session), kind, viewAxes(s.cam));
   // what it needs is not selected: it waits for what is clicked next, and says what that is (`in_464`)
-  if (!r.ok) return { ...s, picking: s.repeat ? null : { kind }, session: { ...s.session, message: s.repeat ? r.why : `${r.why}: click it now (Esc to leave)` }, menu: null };
+  if (!r.ok) return { ...s, picking: s.repeat ? null : { kind, why: r.why }, session: { ...s.session, message: s.repeat ? r.why : `${r.why}: click it now (Esc to leave)` }, menu: null };
   const started: AppState = { ...s, picking: null, op: withPose(s, r.op), tool: null, menu: null, session: { ...s.session, message: r.op.kind === "revolve" ? "turning about the longest straight line: click another line, a point or a face to move the orb there, or click the orb to turn it any way" : null } };
   return IS_SKETCH_OP[kind] ? facePlane(started, over, now) : started;
 }
@@ -121,23 +121,7 @@ export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["n
 /** The tool stays on after a figure is made, ready on the same plane for the next, until a right click or the cancel icon at the top puts it away (`in_193`). */
 const stays = (t: AppState["tool"]): AppState["tool"] => (t && t.kind !== "gear" && !t.cam?.editing ? { ...armTool(t.kind, variantOf(t.gear)), plane: t.plane, made: (t.made ?? 0) + 1, ...(t.reveal ? { reveal: true as const } : {}) } : null);
 
-/**
- * A gear (or a planetary set) made or changed from its box (`in_919`): Update (`keep`) leaves the box open on it as the Edit tool, the numbers as they now are; the blue button (Create or Done), Enter and a click that places it end the tool.
- */
-function afterGear(s: AppState, next: Session, command: Command, keep: boolean): Tool | null {
-  const t = s.tool;
-  if (!keep || !t || t.kind !== "gear" || t.cam) return null;
-  const sc = sceneOf(next);
-  const cmds = command.type === "batch" ? command.commands : [command];
-  const last = cmds[cmds.length - 1]!;
-  const id = (last as { id?: string }).id;
-  if (last.type === "planetary" || last.type === "setPlanetary") { const set = sc.planetaries?.find((p) => p.id === id); return set ? editPlanetaryTool(set) : null; }
-  if (last.type !== "gear" && last.type !== "setGear") return null;
-  const rec = sc.gears?.find((g) => g.id === id);
-  return rec ? editGearTool(rec) : null;
-}
-
-export function commitFigure(s: AppState, fin: ReturnType<typeof finish>, keep = false): AppState {
+export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppState {
   if (!fin) {
     const fix = s.tool?.kind === "gear" ? gearFix(sceneOf(s.session), s.tool) : null; // (the number that spoils it is taken back to the nearest that makes a gear, and flashes, `in_690`)
     if (fix) return { ...s, tool: { ...fix.tool, gear: { ...fix.tool.gear!, bad: { field: fix.field, at: performance.now() } } }, session: { ...s.session, message: fix.message } };
@@ -147,7 +131,7 @@ export function commitFigure(s: AppState, fin: ReturnType<typeof finish>, keep =
   const next = run(s.session, fin.command);
   if (next.message) return { ...s, session: next };
   const sel = fin.select.filter((r) => r in sceneOf(next).parts);
-  if (s.tool?.kind === "gear" && !s.tool.cam) return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: afterGear(s, next, fin.command, keep), resume: null, spread: null }; // (a gear that is made is made: the tool is over, `in_919`)
+  if (s.tool?.kind === "gear" && !s.tool.cam) return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: null, resume: null, spread: null }; // (a gear that is made is made: the tool is over, `in_822`)
   // a circle drawn about another circle's centre is concentric with it
   const circle = fin.select[0]?.startsWith("d/disk@") ? (`d/${fin.select[0].slice(7)}` as Ref) : null;
   if (s.tool?.kind === "circle" && s.tool.concentric && circle && circle in sceneOf(next).parts) {
@@ -229,13 +213,6 @@ export function doTyped(s: AppState, key: string): AppState {
   if (t.kind === "gear" && t.gear?.editing && !t.cam && !gearChanged(sceneOf(s.session), t)) return { ...s, tool: null }; // (nothing was changed: Done only lets go, `in_919`)
   const next = t.kind === "line" && t.typed[0] !== "" ? lineNext(t) : null; // a typed length gives the line's end
   return commitFigure(s, finish(sceneOf(s.session), next ? { ...t, points: [t.points[0]!, next] } : t));
-}
-
-/** The gray Update button of the gear box (`in_919`): the numbers are applied to the gear and the box stays open on it; nothing happens when no number is different. */
-export function doGearUpdate(s: AppState): AppState {
-  const t = s.tool;
-  if (!t || t.kind !== "gear" || t.cam || !t.gear?.editing || !gearChanged(sceneOf(s.session), t)) return s;
-  return commitFigure(s, finish(sceneOf(s.session), t), true);
 }
 
 /** The text of a field of the value box changed: the operation's number, or a size of the figure being drawn. */
@@ -329,6 +306,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
 export function doEscape(s: AppState): AppState {
   if (s.menu) return { ...s, menu: null };
   if (s.motion) return { ...s, motion: null }; // (a joint that is being played goes back to rest)
+  if (s.awaiting) return { ...s, awaiting: null, session: { ...s.session, message: null } }; // (the item that waited for a selection is given up, `in_951`)
   if (s.picking && !s.op) return { ...s, picking: null, session: { ...s.session, message: null } }; // (the operation that was waiting for what to click is given up, `in_464`)
   if (s.moverSphere) return cancelOrient(s); // (the mover is put back as it was, `in_421`)
   if (sectionNow(s) && !s.tool && !s.op && !s.repeat) return { ...s, sectionLive: null, session: { ...s.session, click: { ...s.session.click, selection: [] }, message: null } }; // (the plane is let go, as a tool is put away: it stays as a plane in the part, `in_394`, `in_396`)
@@ -356,10 +334,12 @@ function cancelOp(s: AppState): AppState {
  * what its drags made as it is; a tool that has a figure under way makes it, else it is put away.
  */
 /** What is selected now is given to the operation that was waiting for it: it begins if that is what it needed; else it says what is missing and goes on waiting. */
+/** What a dimmed item needs, said as what to do now: "select a gear" -> "Select a gear: click it". */
+export const instruction = (why: string): string => { const t = why.charAt(0).toUpperCase() + why.slice(1); return /^select/i.test(why) ? `${t}: click it (Esc to leave)` : `${t} (Esc to leave)`; };
 export function finishPicking(s: AppState, now = 0): AppState {
   if (!s.picking) return s;
   const r = startOp(sceneOf(s.session), selectionOf(s.session), s.picking.kind, viewAxes(s.cam));
-  if (!r.ok) return { ...s, session: { ...s.session, message: `${r.why}: click it now (Esc to leave)` } };
+  if (!r.ok) return { ...s, picking: { ...s.picking, why: r.why }, session: { ...s.session, message: `${r.why}: click it now (Esc to leave)` } };
   return beginOp({ ...s, picking: null }, s.picking.kind, now);
 }
 
@@ -375,12 +355,15 @@ export function doApply(s: AppState): AppState {
   return s;
 }
 
-export function doRunAction(s: AppState, id: string, now = 0): AppState {
+export function doRunAction(s0: AppState, id: string, now = 0): AppState {
+  const s = s0.awaiting && !id.startsWith("why:") ? { ...s0, awaiting: null } : s0; // (another choice gives up the one that waited, `in_951`)
   if (id.startsWith("say:")) return { ...s, session: { ...s.session, message: id.slice(4) } }; // (a dimmed row of the ⋯ list pressed: what is said, `in_541`)
-  if (id.startsWith("why:")) { // a dimmed option of the ring pressed: what it needs is said, the ring stays (`in_538`)
-    const find = (items: readonly { id: string; label: string; why: string | null; children?: readonly unknown[] }[]): { label: string; why: string | null } | undefined => { for (const it of items) { if (it.id === id.slice(4)) return it; const k = it.children ? find(it.children as never) : undefined; if (k) return k; } return undefined; };
+  if (id.startsWith("why:")) { // a dimmed option of the menu pressed (`in_538`): it can be chosen; what it needs is said as what to select, and it runs by itself once that is selected (`in_951`)
+    const find = (items: readonly { id: string; label: string; icon?: string; why: string | null; children?: readonly unknown[] }[]): { id: string; label: string; icon?: string; why: string | null } | undefined => { for (const it of items) { if (it.id === id.slice(4)) return it; const k = it.children ? find(it.children as never) : undefined; if (k) return k; } return undefined; };
     const hit = s.menu ? find(s.menu.items) : undefined;
-    return hit?.why ? { ...s, session: { ...s.session, message: `${hit.label}: ${hit.why}` } } : s;
+    if (!hit?.why) return s;
+    if (!/^select/i.test(hit.why)) return { ...s, session: { ...s.session, message: `${hit.label}: ${hit.why}` } }; // (nothing to select: the reason is said and the ring stays, as before)
+    return { ...s, menu: null, picking: null, awaiting: { id: hit.id, label: hit.label, icon: hit.icon ?? hit.id, why: hit.why }, session: { ...s.session, message: `${hit.label}: ${instruction(hit.why)}` } };
   }
   const closed = { ...s, menu: null };
   if (id === "look") {
