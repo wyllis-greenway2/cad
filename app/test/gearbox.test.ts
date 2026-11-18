@@ -59,7 +59,7 @@ import { finish as finishTool, finish } from "../src/interaction/tools.ts";
 test("the bevel gear tool: its numbers, its title that says it is an approximation, and the gear it makes with nothing typed (a pair-ready 20 tooth gear, module 2, a bore)", () => {
   const sc = scene(createSession(kernel));
   const t = { ...armTool("gear", "bevel"), plane: worldRef("XY"), points: [[0, 0, 0] as [number, number, number]], cursor: [10, 0, 0] as [number, number, number] };
-  assert.deepEqual(gearFields(t.gear!).map((f) => f.key), ["teeth", "mate", "module", "pressure", "shaft", "face", "backlash", "bore", "flat", "key", "keydepth"]);
+  assert.deepEqual(gearFields(t.gear!).map((f) => f.key), ["teeth", "mate", "module", "pressure", "shaft", "face", "backlash", "bore", "flat", "key", "keydepth", "chamfer"]);
   assert.match(gearTitle(t.gear!), /approximation/);
   const cmd = finishTool(sc, t)?.command;
   assert.ok(cmd && cmd.type === "gear", "makes a gear");
@@ -91,7 +91,7 @@ test("the crown gear tool (`dec_crown_gears`, `in_802`): its numbers, its title,
 test("the spiral bevel gear tool (`dec_spiral_bevel_gears`, `in_836`): its numbers, its title, the gear it makes with nothing typed, and Mesh gear on it makes the other of the pair", () => {
   const sc = scene(createSession(kernel));
   const t = { ...armTool("gear", "spiral"), plane: worldRef("XY"), points: [[0, 0, 0] as [number, number, number]], cursor: [10, 0, 0] as [number, number, number] };
-  assert.deepEqual(gearFields(t.gear!).map((f) => f.key), ["teeth", "mate", "module", "spiral", "hypoid", "backlash", "bore", "flat", "key", "keydepth"]);
+  assert.deepEqual(gearFields(t.gear!).map((f) => f.key), ["teeth", "mate", "module", "spiral", "hypoid", "backlash", "bore", "flat", "key", "keydepth", "chamfer"]);
   assert.equal(gearTitle(t.gear!), "Spiral bevel gear");
   const cmd = finishTool(sc, t)?.command as { type: string; spec: GearRecord["spec"] } | undefined;
   assert.ok(cmd && cmd.type === "gear", "makes a gear");

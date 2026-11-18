@@ -10,6 +10,7 @@ import { ok, err } from "../shared/result.ts";
 import { bulgeOf } from "./arcs.ts";
 import type { P } from "./arcs.ts";
 import type { GearSpec } from "./gear.ts";
+import { chamferedBlank } from "./blankchamfer.ts";
 
 type V3 = [number, number, number];
 const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -27,10 +28,11 @@ export interface SpiralPair {
   /** the mean cone distance, the cutter radius, the mean spiral angle (radians), the face width along the cone (all mm but the angle) */ RM: number; RW: number; beta: number; b: number;
   /** half the pinion's slot widening, mm (backlash) */ bl: number;
   /** which cone position (`SPIRAL.shifts`) */ cone: number;
+  /** the tooth chamfer at the heel and the toe, mm (`dec_bevel_chamfer`) */ cham: number;
   /** the ring's axis passes this far from the pinion's (mm; the pinion below it; 0 is the spiral bevel pair) and the ratio of roll of the ring to the pinion, z1 / z2 (`dec_hypoid_gears`) */ E: number; kk: number;
 }
 /** The pair for a pinion of `z1` teeth and a ring gear of `z2` (z2 at least z1), the normal module, the mean spiral angle (degrees; the pinion's), the backlash (mm) and the hypoid offset (mm, 0 for none), or why there is none. */
-export function spiralPairOf(z1: number, z2: number, mn: number, betaDeg: number, backlash: number, cone = 0, offset = 0): Result<SpiralPair> {
+export function spiralPairOf(z1: number, z2: number, mn: number, betaDeg: number, backlash: number, cone = 0, offset = 0, chamfer = 0): Result<SpiralPair> {
   if (!(Number.isInteger(z1) && Number.isInteger(z2))) return err("the tooth counts must be whole numbers");
   if (z1 < SPIRAL.minPinion) return err(`a spiral bevel pinion needs ${SPIRAL.minPinion} or more teeth`);
   if (z2 < z1) return err("the ring gear has at least as many teeth as the pinion");
@@ -40,13 +42,14 @@ export function spiralPairOf(z1: number, z2: number, mn: number, betaDeg: number
   if (!(betaDeg >= SPIRAL.minAngle && betaDeg <= SPIRAL.maxAngle)) return err(`the spiral angle must be from ${SPIRAL.minAngle} to ${SPIRAL.maxAngle} degrees`);
   if (!(backlash >= 0 && backlash <= 0.5 * mn)) return err("the backlash must be from 0 to half a module");
   const beta = (betaDeg * Math.PI) / 180;
+  if (!(chamfer >= 0 && chamfer <= mn)) return err("the chamfer is from 0 to 1 module deep");
   if (!(offset >= 0)) return err("the offset must be 0 or more (the pinion lies below the ring gear's axis)");
   const maxE = SPIRAL.maxOffset * ((z2 * mn) / Math.cos(beta));
   if (offset > maxE) return err(`the offset can be ${SPIRAL.maxOffset} of the ring gear's pitch diameter at most: ${maxE.toFixed(1)} mm for ${z2} teeth of module ${mn} at ${betaDeg} degrees`);
   const E = -offset;
   if (E === 0) {
     const g1 = Math.atan(z1 / z2);
-    return ok(pairAt(z1, z2, mn, beta, 0, g1, backlash, cone));
+    return ok({ ...pairAt(z1, z2, mn, beta, 0, g1, backlash, cone), cham: chamfer });
   }
   // the pinion's pitch angle: found so that the contact lines of the two flanks lie either side of the mean point
   const g0 = Math.atan(z1 / z2);
@@ -55,7 +58,7 @@ export function spiralPairOf(z1: number, z2: number, mn: number, betaDeg: number
   let flo = F(lo);
   if (flo * F(hi) > 0) return err(`no pinion pitch angle fits the offset ${offset} mm: a smaller offset`);
   for (let i = 0; i < 60; i++) { const mid = (lo + hi) / 2, fm = F(mid); if (fm * flo > 0) { lo = mid; flo = fm; } else hi = mid; }
-  return ok(pairAt(z1, z2, mn, beta, E, (lo + hi) / 2, backlash, cone));
+  return ok({ ...pairAt(z1, z2, mn, beta, E, (lo + hi) / 2, backlash, cone), cham: chamfer });
 }
 /** the pair with the pinion's pitch angle g1 and the offset E (negative: the ring's axis through (E, 0, 0), the pinion's through the apex, the shafts at 90 degrees) */
 function pairAt(z1: number, z2: number, mn: number, beta: number, E: number, g1: number, bl: number, cone: number): SpiralPair {
@@ -63,7 +66,7 @@ function pairAt(z1: number, z2: number, mn: number, beta: number, E: number, g1:
   const RM = (z1 * mn) / (2 * s1 * Math.cos(beta));
   const radius = Math.hypot(E, RM * c1), g2 = Math.atan2(radius, RM * s1);
   const [hK, hF] = [mn, 1.2 * mn];
-  return { pinion: { axis: [0, -s1, c1], origin: [0, 0, 0], rho: RM, gamma: g1, z: z1, hK, hF }, ring: { axis: [0, c1, s1], origin: [E, 0, 0], rho: Math.hypot(radius, RM * s1), gamma: g2, z: z2, hK, hF }, z1, z2, mn, alpha: (20 * Math.PI) / 180, RM, RW: SPIRAL.cutter * RM, beta, b: SPIRAL.face * RM, bl, cone, E, kk: z1 / z2 };
+  return { pinion: { axis: [0, -s1, c1], origin: [0, 0, 0], rho: RM, gamma: g1, z: z1, hK, hF }, ring: { axis: [0, c1, s1], origin: [E, 0, 0], rho: Math.hypot(radius, RM * s1), gamma: g2, z: z2, hK, hF }, z1, z2, mn, alpha: (20 * Math.PI) / 180, RM, RW: SPIRAL.cutter * RM, beta, b: SPIRAL.face * RM, bl, cone, E, kk: z1 / z2, cham: 0 };
 }
 /** the sum over the two flanks of the gearing law's residual at their pitch points: zero when the contact lines of the flanks lie either side of the mean point */
 function residual(pr: SpiralPair): number {
@@ -240,7 +243,7 @@ const cache = new Map<string, Result<SpiralBody>>();
  * The body of the pinion (`which` = "pinion") or the ring gear of a pair. The sections' corners are taken from the outline at every second sample of a flank (four arcs through nine points) and one arc across each tip and root.
  */
 export function spiralBody(pr: SpiralPair, which: "pinion" | "ring"): Result<SpiralBody> {
-  const key = JSON.stringify([pr.z1, pr.z2, pr.mn, pr.beta, pr.bl, pr.cone, pr.E, which]);
+  const key = JSON.stringify([pr.z1, pr.z2, pr.mn, pr.beta, pr.bl, pr.cone, pr.E, pr.cham, which]);
   const hit = cache.get(key);
   if (hit) return hit;
   const r = spiralBodyMade(pr, which);
@@ -277,7 +280,7 @@ function splitOf(flanks: P[][]): number {
 function spiralBodyMade(pr: SpiralPair, which: "pinion" | "ring"): Result<SpiralBody> {
   const g = which === "pinion" ? pr.pinion : pr.ring;
   const m = pr.mn, dx = (SPIRAL.shifts[pr.cone] ?? SPIRAL.shifts[0]) * m;
-  const bl = blankFor(g, g.rho - pr.b / 2, g.rho + pr.b / 2, m, dx);
+  const bl = blankFor(g, g.rho - pr.b / 2, g.rho + pr.b / 2, m, dx, pr.cham);
   if (typeof bl === "string") return err(bl);
   const [A, B] = [flankGrid(pr, which, "A"), flankGrid(pr, which, "B")];
   const mirror = ([r, th]: [number, number]): P => [r * Math.cos(th), -r * Math.sin(th)]; // (the axis towards the apex: the azimuth turns the other way)
@@ -326,7 +329,7 @@ export interface Blank { xS: number; xB: number; polygon: [number, number][] }
  * each end, and the range of planes across the axis the prism of the teeth must cover to hold every tooth up to the cones. Coordinates (x along the axis from the apex, radius r). `dx` moves both cones along the axis: the kernel cannot always cut
  * where the cones pass through the corners of the teeth (`SPIRAL.shift`).
  */
-function blankFor(g: SpiralGear, rhoToe: number, rhoHeel: number, m: number, dx: number): Blank | string {
+function blankFor(g: SpiralGear, rhoToe: number, rhoHeel: number, m: number, dx: number, cham = 0): Blank | string {
   const [sg, cg, tg] = [Math.sin(g.gamma), Math.cos(g.gamma), Math.tan(g.gamma)];
   const [x0t, x0h] = [rhoToe / cg + dx, rhoHeel / cg + dx];
   const rRootH = (x0h - g.hF / sg) * sg * cg, xRootH = x0h - rRootH * tg;
@@ -343,7 +346,8 @@ function blankFor(g: SpiralGear, rhoToe: number, rhoHeel: number, m: number, dx:
   if (!(xLow > 0.5)) return "the toe is too near the apex for this gear";
   const [rmaxH, rT1] = [(x0h - xLow) / tg, (x0t - xLow) / tg];
   if (!(rmaxH > rT1 + 1)) return "the heel cone is too steep for this gear";
-  return { xS, xB, polygon: [[xFar, 0], [xFar, rA], [xLow, rmaxH], [xLow, rT1], [Lt(rT), rT], [Lt(rT), 0]] };
+  // (the tooth chamfer: the heel's and the toe's corners where the back cones meet the tip cone, `blankchamfer.ts`)
+  return { xS, xB, polygon: chamferedBlank([xFar, 0], [xFar, rA], [xLow, rmaxH], [xLow, rT1], [Lt(rT), rT], [Lt(rT), 0], { a: tg, b: g.hK / cg }, cham, m) };
 }
 
 /** the azimuth of the pair's contact line in a gear's own frame at the pair's place (the frame of `spiralBody`, mirrored): the pinion's -pi/2, the ring gear's +pi/2 */
@@ -359,7 +363,7 @@ export function spiralFor(spec: GearSpec): Result<{ pair: SpiralPair; which: "pi
   if ((spec.pressure ?? 20) !== 20) return err("a spiral bevel pair is made for a pressure angle of 20 degrees only");
   const [z, mate] = [Math.round(spec.teeth), Math.round(b.mate)];
   const which = spiralRole({ ...spec, teeth: z, bevel: { ...b, mate } });
-  const pair = which === "pinion" ? spiralPairOf(z, mate, spec.module, b.spiral, spec.backlash ?? SPIRAL.backlash, b.cone ?? 0, b.offset ?? 0) : spiralPairOf(mate, z, spec.module, b.spiral, spec.backlash ?? SPIRAL.backlash, b.cone ?? 0, b.offset ?? 0);
+  const pair = which === "pinion" ? spiralPairOf(z, mate, spec.module, b.spiral, spec.backlash ?? SPIRAL.backlash, b.cone ?? 0, b.offset ?? 0, (spec.chamfer ?? 0) * spec.module) : spiralPairOf(mate, z, spec.module, b.spiral, spec.backlash ?? SPIRAL.backlash, b.cone ?? 0, b.offset ?? 0, (spec.chamfer ?? 0) * spec.module);
   return pair.ok ? ok({ pair: pair.value, which }) : pair;
 }
 /** The numbers of the gear that the placing, the preview and the checks need, without making its sections. */
