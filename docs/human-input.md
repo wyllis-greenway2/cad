@@ -4223,3 +4223,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_966 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for this branch (countersunk default, a smaller inset, the wireframe-style preview, movable holes, wireframe staying on) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
+
+## in_967 — 2026-11-18 — directive
+> lets skip 1, do 2 and 4 next then 3
+(of the AI's options: skip the menu split; build the chamfer on crown, face, bevel and spiral gears (2), then measure the browser time near the new limits (4), then read the pitch cones paper and ISO 23509 (3); the run of the full test suite stays first as the AI recommended)
+
