@@ -4188,3 +4188,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > so is it fixed now?
 (asks whether the ragged hypoid ring teeth are fixed; the AI answered what was verified and what was not)
 
+## in_958 — 2026-11-18 — directive
+> look if the defect is hiding elsewhere in other hypoid pairs
+(asks the AI to check other hypoid pairs for the ragged-tooth defect)
+
