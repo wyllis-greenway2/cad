@@ -21,7 +21,7 @@ import { pathRuleFields, pathRepeatNumbers, pathRepeatStart } from "./pathrepeat
 import type { PathRepeatValues } from "./pathrepeat.ts";
 import { faceEdges } from "./offsetbody.ts";
 import { partDrawing, receiverDrawing } from "./partdrawing.ts";
-import { FASTENER_FAMILIES, FASTENER_SIZES, FASTENER_SOURCES, CLEARANCE_FIT_LIST as CLEARANCE_FITS, RECEIVER_KINDS, isFastenerSize, receiversText, makeNut, makeCountersunk, makeWasher, farNutSteps, makeSocketHead, lengthAdvice, STANDARD_LENGTHS, countersunkDims, socketHeadDims, clearanceHole, tapHole, chartEngagement, nutTrap, receiverProblem, receiverSteps } from "../operation/fasteners.ts";
+import { FASTENER_FAMILIES, FASTENER_SIZES, FASTENER_SOURCES, CLEARANCE_FIT_LIST as CLEARANCE_FITS, RECEIVER_KINDS, isFastenerSize, receiversText, makeNut, makeCountersunk, makeWasher, farNutSteps, makeSocketHead, lengthAdvice, STANDARD_LENGTHS, countersunkDims, socketHeadDims, clearanceHole, tapHole, chartEngagement, nutTrap, receiverProblem, receiverSteps, screwFor, seatDepth, longestStandard, screwInPlace, nutInPlace, farNutInPlace } from "../operation/fasteners.ts";
 import type { FastenerFamily, FastenerSize, PartSteps, ReceiverKind, ClearanceFit, FaceSpot } from "../operation/fasteners.ts";
 
 export interface AddPartValues { family: string; size: string; length: string; /** a socket head screw's head: "knurled" (the default) or "smooth" */ head?: string }
@@ -105,8 +105,8 @@ export function addPart(session: Session, v: AddPartValues): Result<Session> {
 }
 
 // ---- the receivers: the hole or pocket a fastener goes into, cut into the body whose face is selected ----
-export interface ReceiverValues extends Partial<PathRepeatValues> { kind: string; size: string; fit: string; depth: string; dx: string; dy: string; /** where the holes go: "centre" (the middle of the face), "picked" (the corners and circles selected), "outline" (along the face's outline) or "lines" (along the lines selected), `in_845` */ place?: string; /** a hole to tap: the thread engagement in percent; empty is the chart's tap drill */ engagement?: string; /** a nut pocket on the far side of the body as well ("nut"), or none (`in_887`) */ far?: string }
-export const receiverStart = (): ReceiverValues => ({ kind: "clearance", size: "M3", fit: "medium", depth: "", dx: "0", dy: "0", engagement: "", ...pathRepeatStart(), value: "30", corners: "each", offset: "10", far: "none" });
+export interface ReceiverValues extends Partial<PathRepeatValues> { kind: string; size: string; fit: string; depth: string; dx: string; dy: string; /** where the holes go: "centre" (the middle of the face), "picked" (the corners and circles selected), "outline" (along the face's outline) or "lines" (along the lines selected), `in_845` */ place?: string; /** a hole to tap: the thread engagement in percent; empty is the chart's tap drill */ engagement?: string; /** a nut pocket on the far side of the body as well ("nut"), or none (`in_887`) */ far?: string; /** a drill then tap: how deep the clearance part goes, mm (empty: the tapped part is 1.5 diameters), `in_888` */ drill?: string; /** "screw": the hardware is put into the holes as bodies (the screw, and the nut of a pocket); "none" (the default), `in_888` */ insert?: string; /** the screw's length, mm; empty is the longest standard length that fits */ length?: string }
+export const receiverStart = (): ReceiverValues => ({ kind: "clearance", size: "M3", fit: "medium", depth: "", dx: "0", dy: "0", engagement: "", ...pathRepeatStart(), value: "30", corners: "each", offset: "10", far: "none", drill: "", insert: "none", length: "" });
 const kindOf = (s: string): ReceiverKind => (RECEIVER_KINDS.find((k) => k.id === s)?.id ?? "clearance");
 const fitOf = (s: string): ClearanceFit => (s === "fine" || s === "coarse" ? s : "medium");
 
@@ -277,7 +277,7 @@ function alongPath(session: Session, v: ReceiverValues, where: "outline" | "line
 
 /** Cut the receiver into the body whose flat face is selected: the steps, one after another from the scene each leaves. */
 /** What the answers would cut: the receiver, the size and fit, how deep, the thread engagement, the face's spot (for its two ways and its normal) and the centre of each hole. The cut and the preview are both made from it. */
-export interface ReceiverPlan { kind: ReceiverKind; size: FastenerSize; fit: ClearanceFit; depth: number; engagement: number | undefined; spot: FaceSpot; places: Vec3[]; /** a nut pocket is cut on the far side of the body too */ far: boolean; /** the spacing the holes stand at when they follow a path (the adjusted one, for a fit), else null */ spacing: number | null; /** the path the holes follow, as a polyline on the face (empty when they do not follow one) */ guide: Vec3[]; /** how far the body reaches through, along the face's inward normal */ reach: number }
+export interface ReceiverPlan { kind: ReceiverKind; size: FastenerSize; fit: ClearanceFit; depth: number; engagement: number | undefined; spot: FaceSpot; places: Vec3[]; /** a nut pocket is cut on the far side of the body too */ far: boolean; /** the spacing the holes stand at when they follow a path (the adjusted one, for a fit), else null */ spacing: number | null; /** the path the holes follow, as a polyline on the face (empty when they do not follow one) */ guide: Vec3[]; /** how far the body reaches through, along the face's inward normal */ reach: number; /** a drill then tap: how deep the clearance part goes */ drill: number | undefined; /** the hardware put into the holes (`in_888`), or null */ insert: { screw: { family: "countersunk" | "socketHead"; length: number; seat: number } | null; nut: "near" | "far" | null } | null }
 export function receiverPlan(session: Session, v: ReceiverValues): Result<ReceiverPlan> {
   const face = selectedFace(session);
   if (!face.ok) return face;
@@ -288,7 +288,11 @@ export function receiverPlan(session: Session, v: ReceiverValues): Result<Receiv
   if (depth === null || dx === null || dy === null) return err("type the depth and the distances as numbers");
   const engagement = engagementOf(v.engagement ?? "");
   if (engagement === null) return err("type the thread engagement as a number of percent");
-  const bad = receiverProblem(kind, v.size, fitOf(v.fit), depth, engagement);
+  const tapLen = Math.round(1.5 * Number(v.size.slice(1)) * 10) / 10; // (a tapped part by default 1.5 diameters deep)
+  const drillTyped = (v.drill ?? "").trim() === "" ? undefined : typedLength(v.drill!);
+  if (drillTyped === null) return err("type the drilled depth as a number");
+  const drill = kind === "drillTap" ? (drillTyped ?? Math.round((Math.min(depth, face.value.reach) - tapLen) * 10) / 10) : undefined;
+  const bad = receiverProblem(kind, v.size, fitOf(v.fit), depth, engagement, drill);
   if (bad) return err(bad);
   const sp = face.value.spot;
   const far = v.far === "nut";
@@ -310,13 +314,38 @@ export function receiverPlan(session: Session, v: ReceiverValues): Result<Receiv
   else centres = [sp.centre]; // (the middle of the face)
   const [ox, oy] = along ? [0, 0] : [dx, dy]; // (the offsets are from each place; along a path the path's own offset is the way in)
   const places = centres.map((p): Vec3 => [p[0] + sp.u[0] * ox + sp.v[0] * oy, p[1] + sp.u[1] * ox + sp.v[1] * oy, p[2] + sp.u[2] * ox + sp.v[2] * oy]);
-  return ok({ kind, size: v.size, fit: fitOf(v.fit), depth, engagement, spot: sp, places, far, spacing, guide, reach: face.value.reach });
+  let insert: ReceiverPlan["insert"] = null;
+  if (v.insert === "screw") {
+    const family = screwFor(kind);
+    let screw: NonNullable<ReceiverPlan["insert"]>["screw"] = null;
+    if (family) {
+      const seat = seatDepth(kind, v.size);
+      const room = Math.min(depth, face.value.reach) - seat;
+      const typed = (v.length ?? "").trim() === "" ? undefined : typedLength(v.length!);
+      if (typed === null) return err("type the screw length as a number");
+      const length = typed ?? longestStandard(room);
+      if (length === null || length === undefined) return err(`no standard ${v.size} screw is short enough for a hole ${Math.round(room * 10) / 10} mm deep`);
+      if (length > room + 1e-9) return err(`a ${length} mm screw is longer than the ${Math.round(room * 10) / 10} mm the hole has`);
+      screw = { family, length, seat };
+    }
+    insert = { screw, nut: kind === "nutPocket" ? "near" : far ? "far" : null };
+  }
+  return ok({ kind, size: v.size, fit: fitOf(v.fit), depth, engagement, spot: sp, places, far, spacing, guide, reach: face.value.reach, drill, insert });
 }
 export function cutReceiver(session: Session, v: ReceiverValues): Result<Session> {
   const plan = receiverPlan(session, v);
   if (!plan.ok) return plan;
   const p = plan.value;
-  const steps: PartSteps = p.places.flatMap((c) => [...receiverSteps(p.kind, p.size, p.fit, p.depth, { ...p.spot, centre: c }, p.engagement), ...(p.far ? farNutSteps(p.size, { ...p.spot, centre: c }, p.reach) : [])]);
+  const steps: PartSteps = p.places.flatMap((c) => [...receiverSteps(p.kind, p.size, p.fit, p.depth, { ...p.spot, centre: c }, p.engagement, p.drill), ...(p.far ? farNutSteps(p.size, { ...p.spot, centre: c }, p.reach) : [])]);
+  if (p.insert) { // (the hardware goes in after every hole is cut: a cut is made on the last body, which a screw must not be)
+    const ins = p.insert;
+    for (const c of p.places) {
+      const at = { ...p.spot, centre: c };
+      if (ins.screw) steps.push(...screwInPlace(ins.screw.family, p.size, ins.screw.length, at, ins.screw.seat));
+      if (ins.nut === "near") steps.push(...nutInPlace(p.size, p.spot.plane, c, p.spot.u, p.spot.v));
+      if (ins.nut === "far") steps.push(...farNutInPlace(p.size, at, p.reach));
+    }
+  }
   const c = oneCommand(scene(session), steps);
   if (!c.ok) return c;
   const s = run(session, c.value);

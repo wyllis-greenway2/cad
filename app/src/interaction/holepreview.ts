@@ -19,7 +19,7 @@ export function holeLines(plan: ReceiverPlan): number[] {
   const e2 = cross(n, e1);
   const depth = Math.max(0.1, Math.min(plan.depth, plan.reach)); // (a hole right through is drawn to the far side of the body)
   // the profile as the cut makes it, from the face down: the half a millimetre the cut starts above the face is not drawn
-  const prof = receiverProfile(kind, size, fit, depth, plan.engagement).map(([x, y]) => [x, Math.min(y, 0)] as const);
+  const prof = receiverProfile(kind, size, fit, depth, plan.engagement, plan.drill).map(([x, y]) => [x, Math.min(y, 0)] as const);
   const out: number[] = [];
   const seg = (a: Vec3, b: Vec3): void => { out.push(a[0], a[1], a[2], b[0], b[1], b[2]); };
   const rings = new Set<string>();

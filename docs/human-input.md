@@ -3898,3 +3898,13 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > Can we have the fastener tool work around curved surfaces? Can we have it so that it can cut nut or other receiver sockets on the other side at the same time? So it could cut a countersunk head profile, or a nut, or both. Both would be countersunk on one side or heads on one side and nut cutouts on the other side.
 > Can we have it so you can shift the whole line? it is hard to set. So this would be an offset inline. Or if it is a closed loop it would rotate the parts along the line. Basically walks them along the line. Also how do I change the hardware in this menu?
 (asks for: the fastener tool to work around curved surfaces; a nut or other receiver socket cut on the other side at the same time, so a head profile (countersunk), a nut, or both, with heads on one side and nut cutouts on the other; a way to shift the whole row along the line (an offset along it; on a closed loop it turns the parts round it: walks them along the line); and how to change the hardware in the bar)
+
+## in_888 — 2026-11-18 — directive
+> Okay can we make a few more options. Can we have so that you can do a drill hole, or tap hole, or both. Both would be drill hole to a certain depth, then drill hole past that depth. Can we have it so that this is actually just a unified hardware tool, it can create the threaded holes, and also insert hardware models into them at the same time. It should default to insert fasteners off but could be toggled on.
+(asks for: hole kinds drill, tap, or both (tapped to a depth, then a drilled hole past it); the hardware tool and Fastener Holes made one tool that cuts the holes and can also insert the hardware models into them, with inserting off by default and a toggle to turn it on)
+
+## in_889 — 2026-11-18 — directive
+> Clearance first, tapped past it
+> Screw plus optional washer/nut (Recommended)
+> Fastener Holes becomes the one bar; Fasteners menu entry goes away (Recommended)
+(answers to three questions on in_888: for a hole that is both drilled and tapped, a clearance hole first to a depth and the tapped hole past it; Insert puts in the screw plus an optional washer and nut; Fastener Holes becomes the one bar and the Fasteners menu entry goes away)

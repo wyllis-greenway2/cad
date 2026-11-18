@@ -107,7 +107,6 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:linear", label: "Line repeat", icon: "linear", op: "linear" },
   { id: "op:circular", label: "Round repeat", icon: "circular", op: "circular" },
   { id: "repeat:path", label: "Path repeat", icon: "pathrepeat" }, // (`dec_path_repeat`, `in_841`: a figure repeated along a line, a curve or an outline)
-  { id: "models:fasteners", label: "Fasteners", icon: "fastener" }, // (Shape, then Models: a dialog with drawings, `dec_parts_interface`, `in_812`)
   { id: "models:holes", label: "Fastener Holes", icon: "fastenerHole" }, // (the hole for a fastener cut into the face selected, `in_813`)
   { id: "body:hard", label: "Hard body", icon: "hard", select: "hard" }, // (a constraint: no other body goes into it while one or the other is moved by hand, `in_473`, `in_490`)
   { id: "combine:parts", label: "Combine", icon: "subtract", select: "combine" }, // (add, cut and what is left of both: the parts the bodies make are each kept or tossed, `in_298`)
@@ -135,7 +134,7 @@ const GEARS: Group = {
 };
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", { id: "cams", label: "Cam", icon: "cam", items: ["tool:eccentric", "tool:snail", "tool:ratchet", "tool:linear", { id: "genevas", label: "Geneva", icon: "cam", items: ["tool:geneva", "tool:geneva:assembled", "tool:geneva:model"] }, { id: "disccams", label: "Disc cam", icon: "cam", items: ["tool:disc:cycloidal", "tool:disc:harmonic", "tool:disc:parabolic"] }, "cam:edit", "cam:follow"] }, GEARS, "tool:trim", "op:offset"] },
-  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "models", label: "Models", icon: "models", items: ["models:fasteners", "models:holes"] }] },
+  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "models", label: "Models", icon: "models", items: ["models:holes"] }] },
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
@@ -164,7 +163,6 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     }
     if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfSelection(sc, x) || (r.id === "gear:edit" && !!planetaryOfPart(sc, x))); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
     if (r.id === "repeat:path") { const why = whyNoPathRepeat(session); return [r.id, { ...base, enabled: !why, why }]; }
-    if (r.id === "models:fasteners") return [r.id, { ...base, enabled: true, why: null }];
     if (r.id === "models:holes") return [r.id, { ...base, enabled: true, why: null }]; // (it opens a panel that says what to select, `dec_parts_tool`)
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }
