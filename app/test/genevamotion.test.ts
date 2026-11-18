@@ -70,3 +70,19 @@ test("a body hooked up to an animation has a play button: the crank, the disc an
   const none = reduce(st, { type: "runAction", id: "body:play:b/nope/o" }, env as never);
   assert.match(none.session.message ?? "", /not hooked up/);
 });
+
+test("the play button of an animated body is for the body that is selected (or has a face selected), not for the one the pointer is over; the pause button stays while it plays (`in_962`)", async () => {
+  const { createState } = await import("../src/interaction/controller.ts");
+  const { homeCamera } = await import("../src/interaction/camera.ts");
+  const { frameOf } = await import("../src/interaction/frame.ts");
+  const s = make();
+  const b = genevaBodies(scene(s), scene(s).gears![0]!);
+  const base = { ...createState(s), cam: homeCamera() };
+  const eyes = (st: typeof base) => Object.fromEntries(frameOf(st, { w: 800, h: 600 }).bodyEyes.map((e) => [e.ref, e.selected ?? false]));
+  assert.deepEqual([eyes(base)[b.wheel!], eyes(base)[b.crank!]], [false, false], "nothing selected: no button");
+  const hovered = { ...base, session: { ...base.session, hover: b.crank } };
+  assert.equal(eyes(hovered as typeof base)[b.crank!], false, "pointed at: still no button");
+  const sel = { ...base, session: { ...base.session, click: { ...base.session.click, selection: [b.crank!] } } };
+  assert.equal(eyes(sel as typeof base)[b.crank!], true, "selected: the button");
+  assert.equal(eyes(sel as typeof base)[b.wheel!], false, "and only for that body");
+});

@@ -60,6 +60,10 @@ The motion bar has a **⇄ switch**: the speed changes sign and a motion that is
 
 **Move ring → Pivot** gives a body an axis of its own, with no partner body and no mate: `Scene.pivots` (`operation/pivot.ts`: `{body (its id), point, dir}`, one to a body; commands `pivot` and `deletePivot`; saved in the file). The axis comes from the first of: **a rotate that is open on the body** (its pivot, where the orb has been put, and the axis it is turning about, `axisVec`), or **a round face of a body that is selected** (the face's axis). The rotate is closed (nothing is turned) and the body plays at once; **Stop turning** takes the pivot away. A pivoted body has the play button on hover (`animatedBodies`), plays by the bar (speed, reverse, scrub), and when a hard body is in the mechanism it can **yield** to what pushes it (`dec_contact_push`). Keep pose is not available for it yet (it stays where it is drawn). **Limits:** a model of a single body has no name for its body (the stand-in `b/body/o`), so it cannot be given a pivot until there are two bodies; sliding (a pivot that slides) is not built. **The AI's answer to the question of whether special animation linkages are still needed:** yes as an invisible fast path (long trains, belts and screws that do not touch, exact ratios), not as something the user sets up; the user meets two ideas, *this turns* and *hard*.
 
+## Built: the play button and the gear icon show on selection (`in_962`)
+
+The **play button** of an animated body (the one beside where its eye would be) and the **gear icon** are shown for a body that is **selected** (or has a face selected), **not when the pointer is over it** (`in_962` took back the hover icon of `in_864`; Edit, Helix and Mesh by the icon on a part still select the gear first). The **pause button** stays shown for the body whose motion is playing, selected or not. `Frame.bodyEyes[].selected`; `gearChipOf` takes the selection only.
+
 ## The five choices (approved at `in_824`)
 
 1. **The pose is view only** (nothing written until **keep this pose**), not a committed motion.
