@@ -3604,3 +3604,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_814 — 2026-11-18 — directive
 > After you say make it on the gear menu, it should keep the menu open and show the semi wireframe preview that it already does. If you add a worm wheel to a worm then try to give it land of 3mm, it crashes. The worm wheels are extremely slow in general. Hitting the edit icon on any gear type should bring you back to the full menu you originally used to create that gear. It seems like panning stopped working on track pad? I think it used to be two finger swipe? Did we account for harmonic problems in the planetary system?
 (asks for six things: after Make it on the gear box, the box stays open and the wireframe preview is still shown; a worm wheel meshed to a worm given a 3 mm land crashes; worm wheels are very slow in general; the Edit icon on any kind of gear is to bring back the full box it was made with; trackpad panning (two finger swipe) seems to have stopped working; and whether harmonic problems of the planetary system (the question is not explained further) were accounted for)
+
+## in_815 — 2026-11-18 — approval
+> Yes, build it that way
+(approves the AI's split for the planetary set: harmonic issues (hunting tooth, in-step planets) and a low contact ratio as non-blocking warnings, and only what makes the set unusable blocking: the existing rules plus a contact ratio under 1; the ring to planet interference limit was not verified, so it is not made to block)

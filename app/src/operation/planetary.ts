@@ -37,6 +37,24 @@ export function ratios(s: { sun: number; planet: number }): Record<Hold, number>
   return { ring: 1 + ring / s.sun, carrier: -ring / s.sun, sun: 1 + s.sun / ring };
 }
 const mt = (s: PlanetarySpec): number => (s.helix ? s.module / Math.cos((Math.abs(s.helix) * Math.PI) / 180) : s.module); // (the module of the section across the gear)
+const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
+/**
+ * The contact ratio of each mesh of a set (`in_815`): the length of the path of contact over the base pitch, across the gear (the section across it for a helical set), plus the overlap of the width of a helical one: for the sun and a planet
+ * (two outside gears) (sqrt(ra1^2 - rb1^2) + sqrt(ra2^2 - rb2^2) - a sin(alpha)) / (pi m cos(alpha)); for a planet and the ring (inside it) (sqrt(ra_p^2 - rb_p^2) - sqrt(ra_r^2 - rb_r^2) + a sin(alpha)) / (pi m cos(alpha)), the ring's tip circle
+ * the inner one; plus b sin(beta) / (pi m_n) when helical. Standard gears (no shift). Checked against the textbook pairs (20 and 20 teeth: 1.56).
+ */
+export function contactRatios(s: PlanetarySpec): { sunPlanet: number; planetRing: number } {
+  const [beta, alpha0] = [((s.helix ?? 0) * Math.PI) / 180, ((s.pressure ?? 20) * Math.PI) / 180];
+  const m = s.module / Math.cos(beta), alpha = Math.atan(Math.tan(alpha0) / Math.cos(beta)), ring = s.sun + 2 * s.planet;
+  const [rp, rb] = [(z: number) => (z * m) / 2, (z: number) => (z * m * Math.cos(alpha)) / 2];
+  const leg = (r: number, z: number) => Math.sqrt(Math.max(0, r * r - rb(z) * rb(z)));
+  const ra = (z: number) => rp(z) + s.module; // (the addendum is the normal module)
+  const pb = Math.PI * m * Math.cos(alpha);
+  const overlap = beta ? (s.width * Math.sin(Math.abs(beta))) / (Math.PI * s.module) : 0;
+  const sunPlanet = (leg(ra(s.sun), s.sun) + leg(ra(s.planet), s.planet) - (rp(s.sun) + rp(s.planet)) * Math.sin(alpha)) / pb + overlap;
+  const planetRing = (leg(ra(s.planet), s.planet) - leg(rp(ring) - s.module, ring) + (rp(ring) - rp(s.planet)) * Math.sin(alpha)) / pb + overlap;
+  return { sunPlanet, planetRing };
+}
 /** What is wrong with a set, and what is only worth a warning: whole numbers, the planets spaced evenly (sun + ring over planets whole), not touching each other, a width, undercut. */
 export function problemsOf(s: PlanetarySpec): Problem[] {
   const out: Problem[] = [];
@@ -50,6 +68,15 @@ export function problemsOf(s: PlanetarySpec): Problem[] {
     const apart = (s.sun + s.planet) * mt(s) * Math.sin(Math.PI / s.planets);
     const across = s.planet * mt(s) + 2 * s.module;
     if (apart <= across + 1e-9) out.push({ fatal: true, text: `neighbouring planets would touch: ${apart.toFixed(2)} mm apart, their tips need ${across.toFixed(2)} mm (fewer planets, or fewer teeth on the planets)` });
+  }
+  if (out.every((p) => !p.fatal) && s.sun >= 3 && s.planet >= 3) { // the contact ratio (`in_815`): under 1 the teeth lose contact between one pair and the next (the drive judders and can jam): not a set; under 1.2 only a warning (the usual advice: 1.2 at least, and about 1.4 for power transmission: Machinery's Handbook)
+    const c = contactRatios(s);
+    for (const [name, v] of [["sun and planet", c.sunPlanet], ["planet and ring", c.planetRing]] as const) {
+      if (v < 1) out.push({ fatal: true, text: `the contact ratio of the ${name} is ${v.toFixed(2)}, under 1: one pair of teeth lets go before the next takes up (more teeth, or a smaller pressure angle${s.helix ? "" : ", or a helix"})` });
+      else if (v < 1.2) out.push({ fatal: false, text: `the contact ratio of the ${name} is ${v.toFixed(2)}: under 1.2 the drive is rough and loud (about 1.4 is advised for power transmission)` });
+    }
+    const g = gcd(s.sun, s.planet);
+    if (g > 1) out.push({ fatal: false, text: `the sun's ${s.sun} and the planet's ${s.planet} teeth share a factor of ${g}: the same pairs of teeth meet again every ${s.sun / g} turns of the planet, so wear is uneven and the mesh hums; no common factor (a "hunting tooth") spreads it` });
   }
   const below = Math.ceil(2 / Math.sin(((s.pressure ?? 20) * Math.PI) / 180) ** 2);
   for (const [n, z] of [["sun", s.sun], ["planet", s.planet]] as const) if (z < below && !s.helix) out.push({ fatal: false, text: `the ${n} has ${z} teeth: under ${below} undercuts at ${s.pressure ?? 20} degrees` });
