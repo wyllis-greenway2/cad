@@ -3866,3 +3866,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_879 — 2026-11-18 — directive
 > okay yes lets do all of those. start on 1
 (approves doing all the listed items in order: first checking a slower device, then the wheel's sections off the page, the out-of-memory over about 200 parts, and measuring the unmeasured heavy operations; also the smaller items offered)
+
+## in_880 — 2026-11-18 — question
+> which do you recommend?
+(asks which of the offered next steps the AI recommends)
