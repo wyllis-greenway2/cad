@@ -141,3 +141,13 @@ test("a body that was moved and turned is exported where it is, not put back", a
   assert.deepEqual(xs, [[90, 110], [-20, 20], [0, 20]], "moved 100 along x, then turned a quarter about its own centre: it is where it stands, not put back at the origin");
   assert.ok(Math.abs(volumeOf(read(stlBytes(m.vertices, m.triangles, "t")).tris) - 16000) < 0.01);
 });
+
+test("the count of open edges of a closed mesh of many triangles is 0, and a mesh with a missing triangle has three open edges (`in_899`: the corners are looked up once each)", () => {
+  // a UV sphere of about 20 thousand triangles
+  const rows = 100, cols = 200, V: number[] = [], T: number[] = [];
+  for (let i = 0; i <= rows; i++) for (let j = 0; j < cols; j++) { const a = (Math.PI * i) / rows, b = (2 * Math.PI * j) / cols; V.push(Math.sin(a) * Math.cos(b), Math.sin(a) * Math.sin(b), Math.cos(a)); }
+  const at = (i: number, j: number) => i * cols + (j % cols);
+  for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) { if (i > 0) T.push(at(i, j), at(i + 1, j), at(i, j + 1)); if (i < rows - 1) T.push(at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)); }
+  assert.equal(openEdges(V, T), 0);
+  assert.equal(openEdges(V, T.slice(0, T.length - 3)), 3);
+});

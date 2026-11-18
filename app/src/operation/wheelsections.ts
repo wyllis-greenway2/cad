@@ -14,20 +14,42 @@ export interface Section { h: number; points: P[]; bulges: number[] }
 export const SECTIONS = 5;
 /** How many arcs the gap between two teeth is cut into (each an arc through its ends and middle): the loft's time goes as about the 1.5th power of the arcs (100 teeth: 18 arcs 16.9 s, 12 arcs 8.7 s), and the arcs lie within about 0.007 mm of the flank (the loft itself is 0.05 mm off the exact wheel, a printer 0.2 mm), `in_796`. */
 const NGAP = 12;
+/** The least bulge a side of a section has (the sag as a fraction of its length: 2e-5 of a 0.4 mm side is 0.000009 mm): a piece of the flank that comes out exactly straight (bulge 1e-14) made the kernel's loft throw, in a 200 tooth wheel of module 1.02 or 1.03 (`in_897`). */
+const MIN_BULGE = 2e-5;
 /** Bisection steps that put a crossing of the grid exactly: the cells are about 0.05 mm, so 10 steps give 0.0001 mm (the sections lie on the exact surface to 0.002 mm). */
 const ITER = 10;
 /** Every COARSE-th node of the grid is tested first, and only the cells next to the contour are tested fully (the wheel's gap is one curve across the grid, so most nodes are far from it). */
 const COARSE = 4;
 
 const cache = new Map<string, Result<Section[]>>();
+const keyOf = (spec: GearSpec): string => JSON.stringify([spec.teeth, spec.module, spec.pressure ?? 20, spec.wheel]);
+/** Thrown (only while the page has asked for it, `askBeforeWorking`) in place of working the sections out on the page's own thread: the page works them out in a thread of their own and then does the thing again (`in_899`: a 100 tooth wheel froze the page 2.5 s, 10 s on a device four times slower). */
+export class SectionsNeeded extends Error {
+  spec: GearSpec;
+  constructor(spec: GearSpec) { super("the wheel's sections have to be worked out first"); this.spec = spec; }
+}
+let askBefore: ((spec: GearSpec) => boolean) | null = null;
+/** While `fn` runs, a wheel whose sections are not kept yet (and that `wanted` says should wait) throws `SectionsNeeded` instead of being worked out in place; anything else is as before. */
+export function askBeforeWorking<T>(wanted: (spec: GearSpec) => boolean, fn: () => T): T {
+  const before = askBefore;
+  askBefore = wanted;
+  try { return fn(); } finally { askBefore = before; }
+}
+/** Whether the sections of this wheel are kept. */
+export const sectionsKept = (spec: GearSpec): boolean => cache.has(keyOf(spec));
+/** Keep the sections that were worked out somewhere else (a thread of their own). */
+export function keepSections(spec: GearSpec, r: Result<Section[]>): void {
+  if (cache.size > 24) cache.clear();
+  cache.set(keyOf(spec), r);
+}
 /** The SECTIONS sections of the wheel the spec makes, lowest first. Cached by the numbers (it takes a fraction of a second to a second). */
 export function wheelSections(spec: GearSpec): Result<Section[]> {
-  const key = JSON.stringify([spec.teeth, spec.module, spec.pressure ?? 20, spec.wheel]);
+  const key = keyOf(spec);
   let r = cache.get(key);
   if (!r) {
+    if (askBefore?.(spec)) throw new SectionsNeeded(spec);
     r = make(spec);
-    if (cache.size > 8) cache.clear();
-    cache.set(key, r);
+    keepSections(spec, r);
   }
   return r;
 }
@@ -170,7 +192,8 @@ function make(spec: GearSpec): Result<Section[]> {
         // the last arc of a tooth ends where the next tooth begins: its end is that point exactly, so the outline closes
         const pe = i === arcs.length - 1 ? ((): P => { const [c3, s3] = [Math.cos((t + 1) * P2), Math.sin((t + 1) * P2)]; return [c3 * start[0] - s3 * start[1], s3 * start[0] + c3 * start[1]]; })() : rot(e);
         points.push(pa);
-        bulges.push(bulgeOf(pa, pm, pe));
+        const b = bulgeOf(pa, pm, pe);
+        bulges.push(Math.abs(b) < MIN_BULGE ? (b < 0 ? -MIN_BULGE : MIN_BULGE) : b); // (a piece of the flank that is straight, or nearly: an arc through three points on a line is no arc to the kernel)
       });
     }
     return { h, points, bulges };

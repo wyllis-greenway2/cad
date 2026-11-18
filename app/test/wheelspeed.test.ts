@@ -129,3 +129,22 @@ test("wheels one beside another stay two bodies with their own names (`in_857`: 
   const names = k.faceNames.map((f) => f.name);
   assert.equal(new Set(names).size, names.length, "no two faces share a name");
 });
+
+test("no side of a wheel's sections is exactly straight: a piece of the flank on a line made the kernel's loft throw (200 teeth, module 1.02, `in_897`)", () => {
+  const r = wheelSections({ teeth: 200, module: 1.02, wheel: { diameter: 24, starts: 1, width: 10 } });
+  assert.ok(r.ok);
+  for (const sec of r.value) assert.ok(sec.bulges.every((b) => Math.abs(b) >= 1.99e-5), `a bulge of ${Math.min(...sec.bulges.map(Math.abs))}`);
+});
+
+test("the export of a body of many faces has the box of its own mesh and does not ask the kernel for the exact box (`in_899`: 6.7 s of an 11 s export of a 100 tooth wheel)", async () => {
+  const { graphOf } = await import("../src/compiler/compile.ts");
+  const s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: wheel(30) });
+  const m = await kernel.exportMesh({ ...graphOf(scene(s)), names: true } as never, { tolerance: 0.05, angular: 0.3 });
+  assert.ok(m.ok);
+  if (!m.ok) return;
+  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < m.vertices.length; i += 3) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k]!, m.vertices[i + k]!); hi[k] = Math.max(hi[k]!, m.vertices[i + k]!); }
+  for (let k = 0; k < 3; k++) { assert.ok(Math.abs(m.bbox.min[k]! - lo[k]!) < 1e-6 && Math.abs(m.bbox.max[k]! - hi[k]!) < 1e-6); }
+  // and it is the wheel's size: tip radius about 25 mm (the worm's tip 13 over a pitch radius of 30.. is more than the 12 mm worm radius)
+  assert.ok(m.bbox.max[2]! - m.bbox.min[2]! > 9.9 && m.bbox.max[2]! - m.bbox.min[2]! < 10.1, "10 mm wide");
+});

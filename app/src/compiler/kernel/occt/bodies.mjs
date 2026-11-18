@@ -2,6 +2,7 @@
 // each operation by a marker, a point inside it (the middle of its box, kept up to date): the solid that holds a body's marker is that body, a solid with no marker is a new body (named by the operation that made it), and a
 // marker with no solid of its own any more (two bodies joined, one cut away) is gone. Pure geometry on plain numbers and replicad shapes; nothing here leaves the kernel folder.
 import { getOC } from "replicad";
+import { facesOf } from "./topo.mjs";
 
 // The exact box of a solid takes a tenth of a second for a loft of a thousand faces: kept by the solid's own identity (the same shape, found again in a later result, has the same box), and by a quick box round it, so that
 // another solid with the same identity number is never taken for it (`in_446`)
@@ -19,7 +20,7 @@ export const box = (s) => {
   if (kept) return { min: [...kept.min], max: [...kept.max] };
   // the exact box of a solid of many faces is far the dearer (a 100 tooth worm wheel: about 3 s, each time one is next to another body; a quick box round it, a little roomier, is a few milliseconds): a body of more than 300 faces is held by the
   // quick box, which is all a marker needs (`in_857`)
-  const many = s.faces.length > 300;
+  const many = facesOf(s).length > 300;
   const made = many ? quickBox(s) : (() => { const b = s.boundingBox.bounds; return { min: [...b[0]], max: [...b[1]] }; })();
   boxes.set(key, made);
   while (boxes.size > 400) boxes.delete(boxes.keys().next().value);
