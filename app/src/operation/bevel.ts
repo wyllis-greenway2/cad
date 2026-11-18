@@ -17,6 +17,8 @@ export interface BevelSpec {
   mate: number; shaft?: number; face?: number;
   /** a spiral bevel gear (`spiral.ts`, `dec_spiral_bevel_gears`): its mean spiral angle in degrees; `module` is then the normal module at the middle of the face, `face` is not used (a spiral gear's is 0.3 of the mean cone distance) */
   spiral?: number;
+  /** a hypoid gear (`dec_hypoid_gears`): the offset, mm, of the ring gear's axis from the pinion's (the pinion below it); with `spiral` only; 0 or none for a spiral bevel pair */
+  offset?: number;
   /** a face gear drive (`face.ts`, `dec_crown_gear_set`): this record is the face gear ("gear") or the spur pinion ("pinion") of a pair at 90 degrees; `GearSpec.crown` has the radii of the teeth */
   facegear?: "gear" | "pinion";
   /** which of the cone positions the kernel cut the spiral gear's body with (`SPIRAL.shifts` of `spiral.ts`: the first is tried, and the next if the kernel cannot cut there: `spiralretry.ts`); 0 if none */

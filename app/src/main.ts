@@ -95,6 +95,7 @@ const chipHandlers = {
     if (lastDevice === "touch" && state.tool && !state.tool.points.length) dispatch({ type: "escape" });
   },
   cancel: () => dispatch({ type: "escape" }),
+  update: () => dispatch({ type: "gearUpdate" }),
 };
 const gearBox = createGearBox(document.body, chipHandlers); // (the gear tool's numbers: a labelled panel that stands still, `in_685`)
 const chips: ReturnType<typeof createChip>[] = []; // one value bubble, or several (a linear repeat has one on each axis)

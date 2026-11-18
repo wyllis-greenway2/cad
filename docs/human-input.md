@@ -3960,6 +3960,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_903 — 2026-11-18 — directive
 > [attached four PDFs: Gear_Theory2.pdf, bevelgear.pdf, hobbed.pdf, 19910018232-cut1.pdf (NASA CR 4383, 100 pages of it)] Didn't you need me to share these with you?
 (the human sent the papers the AI had said it was waiting for; the AI had gone ahead meanwhile with a derivation from the general gearing law)
+
 ## in_904 — 2026-11-19 — directive
 > yes please start
 (asks for the contact push to be built in the app, starting with the Geneva)
@@ -4003,6 +4004,65 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for this branch (the Fastener tool: drill + tap, insert, wireframe) to be merged into claude/inspiring-pascal-l342k7)
 
+## in_914 — 2026-11-18 — question
+> okay so what do you need to continue?
+(asks what the AI is waiting for on the hypoid work; the AI answered with the proposal `dec_hypoid_gears` and the three open points)
+
+## in_915 — 2026-11-18 — approval
+> Yes I approve
+(approves `dec_hypoid_gears` as proposed: the first hypoid tool, pinion below the ring's axis only, the offset limit about 0.1 of the ring's pitch diameter, the spiral tool's other limits; the AI recommended building before reading the other two sources)
+
+## in_916 — 2026-11-18 — directive
+> fix the spiral test on inspiring-pascal
+(asks for the failing spiral test on claude/inspiring-pascal-l342k7 to be fixed; it was already fixed on that branch's latest commit, so nothing was written to it)
+
+## in_917 — 2026-11-18 — approval
+> Yes, correct the handoff
+(approves correcting Handoff 829, which still called the spiral test failure open)
+
+## in_918 — 2026-11-18 — directive
+> [the human attached a saved project, "why_cant_I_move_this_pin.json", and a state snapshot, "why_cant_I_move_this_pin_state.json": a block with two holes (circles 22.12 and 44.89 in X, y 23.57), a pin (circle e_015, concentric with the first hole) extruded 26.2 and moved up by 24.5 and 12.7 in Z, then seven moves in X that did nothing]
+> Why cant I move this pin? normally if there is a constraint preventing me from doing something it is supposed to make itself known and offer a delete button. This is supposed to be a systemwide feature with constraints. or is this not a constraint preventing me?
+(asks why the pin cannot be moved, and says a constraint that blocks an action must make itself known and offer a delete button, as a system-wide behaviour)
+
+## in_919 — 2026-11-18 — directive
+> [the human attached a saved project, "bevel_not_seating.json": a bevel gear of 30 teeth made for a mate of 20, and a bevel gear of 30 teeth made with Mesh gear from it]
+> in the gear tool, the apply button is not clear. I think it should say update, and only be available when data is actually changed to update. Otherwise it should say Create which closes the menu and creates the gear and applies the operation. The Create button should be right and blue and the update button left gray.Also when you are done it should actually be done, right now it stays in some slight wireframe mode untill the checkmark is pressed on the top of the screen. Also why is the menu for creating a new gear and editing a gear differen't? The buttons are different at least. I think they should be exactly the same. This smells like duplicate code. Also on the edit menu when I click make it, it seems to not actually close the menu but isntead go back to the other menu? Also bevel gears dont seat properly when you make a mesh gear.
+(asks for Update and Create buttons in one gear box for new and existing gears, the box closing and the tool ending when done, and the bevel partner to seat; Update and Create may stay named for both uses)
+
+## in_920 — 2026-11-18 — approval
+> Create/Done by state (Recommended)
+(chosen from the AI's three options in the question panel: one box; left gray Update, enabled only when something changed; right blue button closes the box and ends the tool, Create for a new gear and Done for an existing one, applying any pending change first)
+
+## in_921 — 2026-11-18 — directive
+> when you are sketching, there should be a suggested click when concentric with a circle with the dashed lines just like it does for other constraints. If you have a block with a hole in it, them sketch on the surface of the block, it turns the circle orange to indicate concentric with it, but doesn't actually seem to snap the line or cursor or dash a line like it does with other things in suggested constraints.
+(asks for a suggested click, with the cursor snapping and the dashed guide, when the point being sketched is concentric with a circle, as the other suggested constraints do)
+
+## in_922 — 2026-11-18 — directive
+> [the human attached a saved project, "weird_notch_cut_in_wheel.json" (a worm of 1 tooth, module 2, diameter 20, length 50; a worm wheel of 30 teeth meshed with it, land set to 4), and a state snapshot of the app]
+> I have this weird notch cut in the teeth of the wheel next to the worm gear. This shows up often. I think it is a bug. Also why does the wheel gear not have options that others do? Such as the teeth chamfer options? Also worm gear wheels dont seem to have the usual efficiency tricks that other gears have. Normal gears like regular spur gears have special rules for rendering their faces and edges (they are not selectable as individual curved planes) and it helps rendering speed a lot. Can you do an audit to see how many gears have this problem?
+(reports a notch cut in the worm wheel's teeth next to the worm, that it shows up often; asks why the wheel lacks options such as the tooth chamfer; says worm wheels lack the rendering and selection rules that plain gears have (their faces and edges are not individual curved planes); asks for an audit of how many gear kinds lack those rules)
+
+## in_923 — 2026-11-18 — approval
+> okay lets do your proposals
+(approves the five proposals of the last reply: carry a gear's shape through a move or turn; the worm wheel with a land as a gear shape; reduce the racks; chamfers for more kinds, starting with the worm wheel; fix the 3 start worm)
+
+## in_924 — 2026-11-18 — approval
+> okay do it all please
+(approves all the items of the last reply: merging into claude/inspiring-pascal-l342k7, a browser pass over the new work, the wheel's notch, the edge chamfer on the worm wheel, reducing the worm to one feature, chamfers for the other kinds of gear; the unanswered questions cannot be done for the human)
+
+## in_925 — 2026-11-18 — question
+> okay what should we work on next?
+(asks what to work on next after the hypoid gears; the AI recommends, the human decides)
+
+## in_926 — 2026-11-18 — question
+> wait why did spiral hypoid replace regular spiral bevels?
+(asks why the menu entry "Spiral bevel" became "Spiral hypoid"; the AI answered it is the same tool with an offset field and offered separate entries)
+
+## in_927 — 2026-11-18 — directive
+> okay fix the kernel’s cone cut for spiral and hypoid gears please
+(a directive: make the kernel cut the tooth prism with the gear's cones reliably, so the tooth-count and cone limits can be opened; the AI had recommended it first)
+
 ## in_928 — 2026-11-18 — directive
 > no need for a full test suite on this merge
 (says the full suite is not needed on the merge into the testing branch)
@@ -4026,3 +4086,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_933 — 2026-11-18 — directive
 > put the other dialogs there too
 (asks for the other dialogs (Path repeat and the rest) to use the same left panel layout as the gear box and the fastener tool)
+
+## in_934 — 2026-11-18 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for this branch (the fastener tool's curved surfaces, the shared panel layout and the dialogs in it) to be merged into claude/inspiring-pascal-l342k7)

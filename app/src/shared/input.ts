@@ -48,6 +48,8 @@ export type Intent =
   | { type: "redo" }
   | { type: "delete" }
   | { type: "escape" }
+  /** the gray Update button of the gear box: apply the numbers and keep the box open (`in_919`) */
+  | { type: "gearUpdate" }
   | { type: "save" }
   | { type: "open" }
   | { type: "runAction"; id: string; /** the part an item of a gear's icon was clicked for: it is selected first when what is selected is not that gear (`in_864`) */ part?: string }

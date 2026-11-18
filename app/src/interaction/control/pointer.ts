@@ -19,7 +19,7 @@ import type { ToolKind, Tool } from "../tools.ts";
 import { diskFaceRef } from "../../operation/loops.ts";
 import { lineHint, arcEndHint, hintRelations, circleCentredAt, anchorCentreAt, pointHint, arcBulgeHint, circleRadiusHint, tangentCentre } from "../hints.ts";
 import type { Hint } from "../hints.ts";
-import { snapOnPlane, guidesOf, finish, planeForDrawing, armTool, pointOnPlane, canHelix, meshSuggestion, snapToMesh } from "../tools.ts";
+import { snapOnPlane, guidesOf, concentricGuides, finish, planeForDrawing, armTool, pointOnPlane, canHelix, meshSuggestion, snapToMesh } from "../tools.ts";
 import { splineEdit } from "../splineedit.ts";
 import { startPlain } from "../motion.ts";
 import { gearOfBody } from "../../operation/gearcouple.ts";
@@ -68,7 +68,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:bevel", label: "Bevel gear", icon: "bevelgear", tool: "gear" },
   { id: "tool:crown", label: "Crown gear", icon: "crowngear", tool: "gear" },
   { id: "tool:face", label: "Face gear", icon: "facegear", tool: "gear" },
-  { id: "tool:spiral", label: "Spiral bevel", icon: "spiralbevel", tool: "gear" },
+  { id: "tool:spiral", label: "Spiral hypoid", icon: "spiralbevel", tool: "gear" },
   { id: "tool:worm", label: "Worm", icon: "worm", tool: "gear" },
   { id: "tool:wormwheel", label: "Worm wheel", icon: "wormwheel", tool: "gear" },
   { id: "tool:planetary", label: "Planetary set", icon: "planetary", tool: "gear" },
@@ -309,7 +309,7 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
     const h = raw && pl && pl.kind === "plane" ? hintFor(sc, s.tool, pl, pv, raw) : null; // (the end of a line, an end of an arc, the bow of an arc: each takes a constraint it is close to)
     // a circle's centre on another circle's centre: it will be made concentric
     const about = raw && pl && pl.kind === "plane" && s.tool.kind === "circle" && !s.tool.points.length ? circleCentredAt(sc, pl, raw) : (s.tool.concentric ?? null);
-    const hints: Hint[] = h ? h.hints : about ? [{ kind: "concentric", ref: about }] : [];
+    const hints: Hint[] = anc || (about && !h?.hints.length) ? [{ kind: "concentric", ref: (anc?.ref ?? about)! }] : h ? h.hints : []; // (the centre of a circle's edge the pointer is at wins: the cursor is there, `in_921`)
     if (raw && !s.tool.sized) next = { ...next, tool: { ...s.tool, cursor: h ? h.at : raw, hints } }; // (a gear whose size a click has set keeps it, `in_688`)
   }
   // trim: the part of the line or circle under the pointer that a click would cut off
@@ -331,7 +331,8 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
       const anc = at && pl ? anchorCentreAt(sc, pl, pv) : null;
       const about = anc?.ref ?? (at && pl ? circleCentredAt(sc, pl, at) : null);
       const h = !about && at && pl ? pointHint(sc, pl, pv, at) : null; // (a circle's centre on another circle's edge or on a line, `in_294`)
-      next = { ...next, tool: { ...s.tool, hints: about ? [{ kind: "concentric", ref: about }] : h?.hints ?? [], cursor: anc ? anc.at : about ? at : h?.hints.length ? h.at : s.tool.held ? at : null } };
+      const hs: Hint[] = about ? [{ kind: "concentric", ref: about }] : h?.hints ?? [];
+      next = { ...next, tool: { ...s.tool, guides: pl ? [...lined, ...concentricGuides(sc, pl, hs)] : lined, hints: hs, cursor: anc ? anc.at : about ? at : h?.hints.length ? h.at : s.tool.held ? at : null } }; // (the dashed guides across the circle it would be concentric with, `in_921`)
     }
   }
   return doGizmoHover(next, i.x, i.y, env);

@@ -38,6 +38,7 @@ function stepLabel(st: Step): string {
     case "sewBodies": return `Join ${st.parts.length} pieces of a gear`;
     case "chamferBody": return `Gear with a ${len(p.edge)} edge chamfer`;
     case "toothChamfer": return `Tooth chamfer ${len(p.depth)}`;
+    case "chamferEnds": return p.tipDir === undefined ? `Edge chamfer ${len(p.size)}` : `Tip chamfer ${len(p.size)}`;
     case "combine": return `${p.mode === "subtract" ? "Subtract" : p.mode === "intersect" ? "Intersect" : "Add"} bodies${Number(p.keep) === 1 ? " (tools kept)" : ""}`;
     case "rotate": return `Rotate ${"XYZ"[Number(p.axis ?? 0)]} ${n(p.value)}°`;
     case "move": return `Move ${"XYZ"[Number(p.axis ?? 0)]} ${len(p.value)}`;

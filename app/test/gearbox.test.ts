@@ -91,7 +91,7 @@ test("the crown gear tool (`dec_crown_gears`, `in_802`): its numbers, its title,
 test("the spiral bevel gear tool (`dec_spiral_bevel_gears`, `in_836`): its numbers, its title, the gear it makes with nothing typed, and Mesh gear on it makes the other of the pair", () => {
   const sc = scene(createSession(kernel));
   const t = { ...armTool("gear", "spiral"), plane: worldRef("XY"), points: [[0, 0, 0] as [number, number, number]], cursor: [10, 0, 0] as [number, number, number] };
-  assert.deepEqual(gearFields(t.gear!).map((f) => f.key), ["teeth", "mate", "module", "spiral", "backlash", "bore", "flat", "key", "keydepth"]);
+  assert.deepEqual(gearFields(t.gear!).map((f) => f.key), ["teeth", "mate", "module", "spiral", "hypoid", "backlash", "bore", "flat", "key", "keydepth"]);
   assert.equal(gearTitle(t.gear!), "Spiral bevel gear");
   const cmd = finishTool(sc, t)?.command as { type: string; spec: GearRecord["spec"] } | undefined;
   assert.ok(cmd && cmd.type === "gear", "makes a gear");
@@ -130,7 +130,7 @@ test("Mesh gear on a bevel gear makes its partner: the same module, the source's
   const t = meshGearTool(rec, false);
   const cmd = finish(sc, { ...t, cursor: [30, 0, 0] })?.command as { type: string; spec: { teeth: number; module: number; bevel?: { mate: number; frame?: unknown } }; at: number[] } | undefined;
   assert.ok(cmd && cmd.type === "gear", "makes a gear");
-  assert.equal(cmd.spec.teeth, 20, "as many teeth as the source unless typed");
+  assert.equal(cmd.spec.teeth, 30, "the teeth the source was made to mesh with (its mate teeth) unless typed (`in_919`)");
   assert.equal(cmd.spec.bevel?.mate, 20);
   assert.ok(cmd.spec.bevel?.frame, "it stands across: its own frame");
   assert.ok(Math.abs(cmd.at[0]! - 25.98) < 0.1 || cmd.at[0]! > 5, "its centre is out along the direction asked");

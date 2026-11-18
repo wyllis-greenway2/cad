@@ -158,13 +158,14 @@ const [dot3, cross3, norm3] = [(a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] +
  * (or its frame's, if it stands across itself) and its apex lies along it at the cone distance times cos delta. Worked in 3D: the partner's frame (`BevelSpec.frame`) is the one whose first direction is the tangent of the contact, tooth 0 along it.
  */
 export function meshBevel(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; ring?: boolean }, where: number): Result<Placement> {
-  const s = src.spec, z2 = Math.round(partner.teeth);
+  const z2 = Math.round(partner.teeth);
   if (partner.rack || partner.ring) return err("a bevel gear meshes with a bevel gear: not with a rack or a ring");
   if (!Number.isFinite(z2) || z2 < 1) return err("the partner needs teeth");
+  const s: GearSpec = { ...src.spec, bevel: { ...src.spec.bevel!, mate: z2 } }; // (the source's cone is the one for the partner it is given: a source made for a partner of other teeth would not seat, `in_919`)
   const g1 = bevelOf(s);
   if (!g1.ok) return g1;
   const shaft = s.bevel!.shaft ?? 90, sig = (shaft * Math.PI) / 180;
-  const spec: GearSpec = { teeth: z2, module: s.module, ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), ...(s.backlash !== undefined ? { backlash: s.backlash } : {}), bevel: { mate: s.teeth, ...(shaft !== 90 ? { shaft } : {}), ...(s.bevel!.face !== undefined ? { face: s.bevel!.face } : {}), ...(s.bevel!.spiral !== undefined ? { spiral: s.bevel!.spiral } : {}), ...(s.bevel!.with === undefined ? { with: src.id } : {}), dir: where } };
+  const spec: GearSpec = { teeth: z2, module: s.module, ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), ...(s.backlash !== undefined ? { backlash: s.backlash } : {}), bevel: { mate: s.teeth, ...(shaft !== 90 ? { shaft } : {}), ...(s.bevel!.face !== undefined ? { face: s.bevel!.face } : {}), ...(s.bevel!.spiral !== undefined ? { spiral: s.bevel!.spiral } : {}), ...(s.bevel!.offset ? { offset: s.bevel!.offset } : {}), ...(s.bevel!.with === undefined ? { with: src.id } : {}), dir: where } };
   const g2 = bevelOf(spec);
   if (!g2.ok) return g2;
   const f1 = bevelFrame(u, v, s, src.turn ?? 0), f0 = bevelFrame(u, v, s, 0);
@@ -176,8 +177,10 @@ export function meshBevel(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: n
   const apex: Vec3 = [src.at[0] + ns[0] * g1.value.big, src.at[1] + ns[1] * g1.value.big, src.at[2] + ns[2] * g1.value.big];
   const u2: Vec3 = [-Math.cos(sig) * ns[0] + Math.sin(sig) * e[0], -Math.cos(sig) * ns[1] + Math.sin(sig) * e[1], -Math.cos(sig) * ns[2] + Math.sin(sig) * e[2]]; // (the partner's axis out from the apex)
   const n2: Vec3 = [-u2[0], -u2[1], -u2[2]];
-  const at2: Vec3 = [apex[0] + u2[0] * g2.value.big, apex[1] + u2[1] * g2.value.big, apex[2] + u2[2] * g2.value.big];
   const X2 = norm3(cross3(ns, e)), Y2 = norm3(cross3(n2, X2));
+  // a hypoid pair (`dec_hypoid_gears`): the partner's apex (the foot of the common perpendicular on its axis) is the source's moved by the offset along the direction across both axes (the pinion below the ring gear's axis: the same sign either way round)
+  const eo = -(s.bevel!.offset ?? 0), apex2: Vec3 = [apex[0] + X2[0] * eo, apex[1] + X2[1] * eo, apex[2] + X2[2] * eo];
+  const at2: Vec3 = [apex2[0] + u2[0] * g2.value.big, apex2[1] + u2[1] * g2.value.big, apex2[2] + u2[2] * g2.value.big];
   // the source's tooth nearest the contact line stands phi1 (radians of its turn) from it; along the contact's tangent (the source turns the way that carries a point along X2) that is r1 phi1; the partner's teeth must stand half a pitch further along,
   // and the partner turns the other way about its own axis (its tangent there is the opposite), so its offset from the contact is the opposite of that arc over its pitch radius
   const [r1, r2, pitch1] = [g1.value.pitchRadius, g2.value.pitchRadius, TAU / Math.round(s.teeth)];

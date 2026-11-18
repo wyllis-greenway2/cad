@@ -83,7 +83,7 @@ export function wormLayout(g: WormGeometry, w: WormSpec): { base: number; a0: nu
   const sweep = core - 2 * edge - stagger;
   const figure: [number, number][] = [[hb, base], [g.half(g.rTip), g.rTip], [-g.half(g.rTip), g.rTip], [-hb, base]]; // (counter-clockwise in (axis, radius): a thread swept from a figure drawn the other way round is the wrong way out)
   const runout = flush ? 0 : w.runout ?? Math.max(0, Math.min(1.5 * g.lead, 0.4 * (sweep - 2 * hb - stagger)));
-  const e = 0, top = g.rTip + 1.5; // (the cone starts exactly at the root's radius, the core's own surface: a cut a hair above it leaves a sliver of thread the kernel calls self-crossing)
+  const e = g.starts >= 3 ? -0.002 : 0, top = g.rTip + 1.5; // (the cone starts at the root's radius, the core's own surface (for three starts or more 0.002 mm inside it: a cut a hair above it leaves a sliver of thread the kernel calls self-crossing, and exactly on it a worm of three starts was an invalid solid, `in_923`))
   const cuts: [number, number][][] = [];
   if (flush) for (const s of [-1, 1]) { const [x0, x1] = [s * w.length / 2, s * (core / 2 + 1)]; cuts.push([[x0, 0], [x1, 0], [x1, top], [x0, top]]); } // (what is beyond the ends)
   else if (runout > 0) { // (the cone the thread comes out of at the start, and goes into at the end: from the root's radius at the thread's end to its full height a run-out away)
@@ -117,6 +117,10 @@ export function wheelOf(spec: GearSpec): Result<WheelGeometry> {
   if (!(w.width > 0 && w.width < 1.8 * throat * 0.7)) return err(`the width of the wheel must be from 0 to ${(1.26 * throat).toFixed(1)} mm for this worm`);
   const land = w.land ?? 0;
   if (!(land >= 0 && land <= 4 * spec.module)) return err("the land at each face of the wheel must be from 0 to 4 modules");
+  if ((spec.chamfer ?? 0) !== 0) { // the tips of the teeth broken at the two faces, as a gear's are (`in_923`)
+    if (!((spec.chamfer ?? 0) > 0 && (spec.chamfer ?? 0) <= 1)) return err("the chamfer is from 0 to 1 module deep");
+    if (!(spec.chamfer! * spec.module * 2 < w.width + 2 * land)) return err("the chamfer is deeper than half the thickness of the wheel");
+  }
   const bore = spec.bore ?? 0;
   if (bore < 0 || bore >= 2 * (cd - worm.rTip) * 0.9) return err("the bore must be smaller than the wheel's root circle");
   const shape = boreProblem(spec, cd - worm.rTip);

@@ -1,0 +1,2 @@
+# Hypoid pair (prototype)
+Learned: the spiral model of `bevel-spiral-generated` gives a conjugate pair when the ring's axis is offset; the gearing law's offset term is closed form. Measured results are in `docs/decisions/dec_hypoid_gears.md`. Not learned: the pinion pitch angle rule (mine: balanced contact lines), the other offset direction, the pinion cone cut for steeper pinion cones. Run: `E=-20 node --experimental-strip-types --test prototypes/hypoid/run.test.ts` from `app/` (env Z1, Z2, MN, BETA, E).
