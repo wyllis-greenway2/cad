@@ -16,3 +16,6 @@ alternative_to:
 ## Rationale
 
 The human asked for 90 degrees; only the face gear gives it. It is a recommendation, so it stays provisional until the human has seen it; the face gear starts as a prototype (`prototypes/face-gear`), which needs no decision.
+
+## Face gear prototype result (`prototypes/face-gear`)
+A face gear and its spur pinion (14 / 40 teeth, module 2, radii 40 to 46) are conjugate in the kernel: overlap 2.0 mm3 at the place, 2.1 rolled, 49.2 half a pitch round. The tooth is the envelope of the pinion's involute (not a plane); the inner radius is limited by where the envelope exists, the outer by the tooth becoming pointed. **Proposed for the human to approve:** Gear > Face gear (Teeth, Pinion teeth, Module, Pressure, Inner radius, Outer radius, Thickness, Backlash, Bore), a gear record like the crown's with a spur pinion at 90 degrees from Mesh gear; refused with the reason where the envelope does not exist or the teeth are pointed. Not built: nothing outside `prototypes/` yet.
