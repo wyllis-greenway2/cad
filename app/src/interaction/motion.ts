@@ -8,7 +8,7 @@ import type { Scene } from "../operation/scene.ts";
 import { mateStatus } from "../operation/mates.ts";
 import { jointRoom, driveCommand } from "./mate.ts";
 import type { Command } from "../operation/commands.ts";
-import { followersOf, gearAxis, gearOfBody, genevaPlay } from "../operation/gearcouple.ts";
+import { followersOf, gearAxis, gearOfBody, genevaPlay, carrierPlay } from "../operation/gearcouple.ts";
 import type { Follower } from "../operation/gearcouple.ts";
 import { followAmount } from "../operation/gearcouple.ts";
 
@@ -47,6 +47,8 @@ const FREE_TURN = 180, FREE_SLIDE = 30;
 /** The motion of the joint that the body is the first of (a true coaxial mate), or the reason there is none. */
 export function startMotion(scene: Scene, body: Ref, kind: JointKind = "turn"): { ok: true; motion: Motion } | { ok: false; why: string } {
   const m = mateStatus(scene).find((x) => x.state === "ok" && x.mode === "coaxial" && x.mover?.body === body);
+  const cp = m?.mover ? null : carrierPlay(scene, body);
+  if (cp) return { ok: true, motion: { mate: "", gear: "", follows: cp.followers, kind: "turn", body, point: cp.driver.point, dir: cp.driver.dir, amount: 0, lo: -FREE_TURN, hi: FREE_TURN, free: true, playing: false, from: 0, startedAt: null, speed: 30, noKeep: "a turning carrier is a pose of the whole set: turn the set with Edit (its Turn field) instead" } };
   if (!m?.mover) { // not a pin or a rod: a gear that was made with its body, which turns (or a rack, which slides) and takes the gears meshed with it along
     const g = gearOfBody(scene, body);
     const ax = g ? gearAxis(scene, g) : null;
@@ -79,6 +81,12 @@ export function tickMotion(m: Motion, now: number): Motion {
   if (!m.playing) return m;
   const started = m.startedAt === null ? { ...m, startedAt: now, from: m.amount } : m;
   return { ...started, amount: amountAt(started, now) };
+}
+const mul4 = (a: number[], b: number[]): number[] => Array.from({ length: 16 }, (_, i) => { const [c, r] = [Math.floor(i / 4), i % 4]; return a[r]! * b[c * 4]! + a[4 + r]! * b[c * 4 + 1]! + a[8 + r]! * b[c * 4 + 2]! + a[12 + r]! * b[c * 4 + 3]!; });
+/** The matrix of a follower when the driver is at `a`: its own turn or slide (`followAmount`), and for a planet on a turning carrier the orbit after it. */
+export function followMatrix(f: Follower, a: number): number[] {
+  const first = jointMatrix(f, followAmount(f, a));
+  return f.after ? mul4(jointMatrix({ kind: "turn", point: f.after.point, dir: f.after.dir }, f.after.k * a), first) : first;
 }
 /** The other way round: the speed changes sign, and a motion that is playing goes on from where it stands. */
 export function reverseMotion(m: Motion): Motion {

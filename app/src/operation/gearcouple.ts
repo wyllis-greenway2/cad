@@ -28,6 +28,8 @@ export interface Follower {
   mate?: string;
   /** a Geneva wheel: turned by its crank by the law of the drive (`genevaTurn`) instead of `k` times the driver's amount; `n` slots, `a` the crank's radius */
   geneva?: { n: number; a: number };
+  /** a planet on a turning carrier: after it has turned about its own axis (`k`), the whole is turned again about this axis by `k` times the driver's amount (the orbit) */
+  after?: { point: Vec3; dir: Vec3; k: number };
 }
 /**
  * How far a Geneva wheel has turned (degrees, the way round that the crank turns being positive) when the crank has turned `deg` degrees from the pose the drive is drawn in (the pin pointing away from the wheel, the wheel locked). The pin
@@ -237,4 +239,23 @@ export function camFollower(s: Scene, rec: GearRecord): { follower?: Follower } 
 export function gearAxis(s: Scene, g: GearRecord): { kind: "turn" | "slide"; point: Vec3; dir: Vec3 } | null {
   const dir = isRack(g) ? rackDir(s, g) : normalOf(s, g);
   return dir ? { kind: isRack(g) ? "slide" : "turn", point: g.at, dir } : null;
+}
+
+/**
+ * A planetary set played from its carrier (the plate with the pins, one body): the carrier turns about the sun's axis and the sun is held. The ring turns `1 + S/R` for each degree of the carrier, and each planet turns `S/P` about its own axis and then
+ * goes round the centre with the carrier (it rolls round the held sun, so its turn in the world is `1 + S/P`). `S`, `P` and `R` are the sun's, a planet's and the ring's teeth. Null when this body is not a carrier.
+ */
+export function carrierPlay(s: Scene, body: Ref): { driver: { point: Vec3; dir: Vec3 }; followers: Follower[] } | null {
+  const q = (s.planetaries ?? []).find((p) => p.carrierStep && bodyOfStep(s, p.carrierStep) === body);
+  const n = q ? normalOf(s, { plane: q.plane } as GearRecord) : null;
+  if (!q || !n) return null;
+  const [S, P] = [q.spec.sun, q.spec.planet], R = S + 2 * P;
+  const followers: Follower[] = [];
+  for (const id of q.planetIds) {
+    const g = gearsOf(s).find((x) => x.id === id), b = g ? bodyOfGear(s, g) : null;
+    if (g && b) followers.push({ gear: id, body: b, kind: "turn", point: g.at, dir: n, k: S / P, after: { point: q.at, dir: n, k: 1 } });
+  }
+  const ring = gearsOf(s).find((x) => x.id === q.ringId), rb = ring ? bodyOfGear(s, ring) : null;
+  if (ring && rb) followers.push({ gear: q.ringId, body: rb, kind: "turn", point: q.at, dir: n, k: 1 + S / R });
+  return { driver: { point: q.at, dir: n }, followers };
 }
