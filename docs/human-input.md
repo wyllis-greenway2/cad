@@ -3600,3 +3600,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_813 — 2026-11-18 — approval
 > Yes, go ahead with step (d)
 (approves step (d) of the path repeat: fastener holes along a path or a face's outline, with the rules)
+
+## in_814 — 2026-11-18 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for this branch to be merged into claude/inspiring-pascal-l342k7)
