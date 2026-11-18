@@ -254,7 +254,7 @@ export function receiverSteps(kind: ReceiverKind, size: FastenerSize, fit: Clear
   steps.push((s) => { // (a plane through the axis, across the face: x along the face, y along the normal)
     const ref: Ref = `d/${nextId(s, "e")}.pl` as Ref;
     axisPlane = ref;
-    return { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: spot.centre, u: t, v: out, infinite: true } };
+    return { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: spot.centre, u: t, v: out } }; // (not an infinite plane: that is a world plane, hit anywhere and drawn across the whole view; this one only holds the hole's side view)
   });
   steps.push((s) => { const r = drawChain(s, axisPlane!, receiverProfile(kind, size, fit, depth, engagement).map(([x, y]) => along(along(spot.centre, t, x), out, y)), true); outline = r.lines; return r.command; });
   steps.push((s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "revolve", parts: outline, params: { ...figureParams([{ outer: outline, holes: [] }]), mode: "cut", angle: 360, advance: 0, ax: spot.centre[0], ay: spot.centre[1], az: spot.centre[2], dx: out[0], dy: out[1], dz: out[2] } } }));

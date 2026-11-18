@@ -485,3 +485,19 @@ test("the ⋯ list no longer holds Add part or Fastener hole: they are in the ri
   const ids = appRows().map((r) => r.id);
   assert.ok(!ids.includes("addPart") && !ids.includes("fastenerHole"));
 });
+
+// ---- no plane left across the view ----
+test("a hole leaves no infinite plane behind: the planes it made are ordinary ones, so nothing tints the view or is picked anywhere", () => {
+  const r = cutReceiver(block().s, { ...base, kind: "clearance", size: "M4", fit: "medium" });
+  assert.ok(r.ok);
+  const infinite = Object.values(scene(r.value).parts).filter((p) => p.kind === "plane" && p.infinite && p.origin !== "world");
+  assert.deepEqual(infinite.map((p) => p.ref), []);
+  assert.ok(Object.values(scene(r.value).parts).some((p) => p.kind === "plane" && p.origin === "drawn" && p.ref.endsWith(".pl")), "the plane for the hole's side view is still there");
+});
+test("a file made before this, with a drawn plane that says it is infinite, opens with an ordinary plane", async () => {
+  const { apply } = await import("../src/operation/commands.ts");
+  const { emptyScene } = await import("../src/operation/scene.ts");
+  const out = apply(emptyScene(), { type: "addPart", part: { ref: "d/e_040.pl", kind: "plane", origin: "drawn", plane: null, movable: false, at: [0, 0, 0], u: [1, 0, 0], v: [0, 0, 1], infinite: true } as never });
+  assert.ok(out.ok);
+  assert.equal((out.value.parts["d/e_040.pl" as never] as { infinite?: boolean }).infinite, undefined);
+});
