@@ -212,7 +212,8 @@ test("insert: the screw is the longest standard length that fits, or the one typ
   assert.ok(p.ok && p.value.insert?.screw?.length === 8);
   const t = receiverPlan(s, vals({ kind: "clearance", size: "M4", insert: "screw", length: "5" }));
   assert.ok(t.ok && t.value.insert?.screw?.length === 5);
-  assert.ok(!receiverPlan(s, vals({ kind: "clearance", size: "M4", insert: "screw", length: "20" })).ok);
+  assert.ok(receiverPlan(s, vals({ kind: "clearance", size: "M4", insert: "screw", length: "20" })).ok, "a hole open at its far end takes a screw that is too long");
+  assert.ok(!receiverPlan(s, vals({ kind: "clearance", size: "M4", insert: "screw", length: "20", depth: "6" })).ok, "a blind hole does not");
 });
 test("insert with a far nut puts a nut body in the far pocket; a nut pocket on this side gets its nut", () => {
   const { s } = block();
@@ -476,4 +477,19 @@ test("the plan says how much room the screw had, so the length chosen can be exp
   const lid = lidOn().s;
   const q = receiverPlan(lid, vals({ kind: "countersunk", size: "M4", place: "centre", insert: "screw" }));
   assert.ok(q.ok && q.value.insert?.screw?.room === 25 && q.value.insert.screw.length === 25); // (the longest standard length that is not over 25)
+});
+
+test("a screw through a hole open at the far end is the shortest standard length that reaches, not the longest that fits (`in_969`)", () => {
+  let s = createSession(kernel);
+  const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [60, 40, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: r.lines, params: { depth: 29.6 } } });
+  const top = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.ref.endsWith("0,0,1,29.6"))!.ref;
+  const sel = select(s, [top]);
+  const p = receiverPlan(sel, vals({ kind: "countersunk", size: "M3", place: "centre", insert: "screw" }));
+  assert.ok(p.ok && p.value.insert?.screw?.length === 30 && p.value.insert.screw.room === 29.6, p.ok ? String(p.value.insert?.screw?.length) : p.error);
+  const blind = receiverPlan(sel, vals({ kind: "countersunk", size: "M3", place: "centre", insert: "screw", depth: "20" }));
+  assert.ok(blind.ok && blind.value.insert?.screw?.length === 20, "a blind hole keeps to what fits");
+  const tap = receiverPlan(sel, vals({ kind: "drillTap", size: "M3", place: "centre", insert: "screw" }));
+  assert.ok(tap.ok && (tap.value.insert?.screw?.length ?? 99) <= (tap.value.insert?.screw?.room ?? 0), "a tapped pilot is blind too");
 });

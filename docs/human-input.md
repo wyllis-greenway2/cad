@@ -4231,3 +4231,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_968 — 2026-11-18 — question
 > when I do the fastener operation it is successful. But it still has this error message? Also it appears to have selected screws that are too short? is this because there  arent long enough ones in the catalogue?
 (shows the red message "select a flat face of a body, or a line drawn on one" in the fastener panel after a successful cut, with a saved model and a state file; asks why the message stays and whether the screws chosen are too short because the catalogue has no longer ones)
+
+## in_969 — 2026-11-18 — directive
+> I think we generally want to go with fasteners that are too long not too short if it is needed to fit the hole specs we made. Also I don't know if it is related to the fastener operation, but why is it that I can just pull the lid off this thing even though its supposed to have a constraint making the faces in plane?
+(asks for the fastener length to be the next standard length up rather than down when needed to fit the hole; and asks why the lid can be pulled off in the saved model although a constraint is meant to keep its faces in plane; the model and a state file are attached)

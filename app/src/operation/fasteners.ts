@@ -339,6 +339,8 @@ export function farNutSteps(size: FastenerSize, spot: FaceSpot, reach: number): 
 
 // ---- the hardware inserted into the holes (`in_910`, `in_911`) ----
 /** The longest standard length that fits in `room` mm, or null when none does. */
+/** The shortest standard length that is at least `room` mm (a screw that reaches through a hole whose far end is open), or null when none is. */
+export const shortestStandard = (room: number): number | null => { const l = STANDARD_LENGTHS.filter((x) => x >= room - 1e-9); return l.length ? l[0]! : null; };
 export const longestStandard = (room: number): number | null => { const l = STANDARD_LENGTHS.filter((x) => x <= room + 1e-9); return l.length ? l[l.length - 1]! : null; };
 /** How far under the face the head of the screw sits: a countersunk head is flush (0), a socket head sits in its counterbore, or on the face (and stands above it). */
 export const seatDepth = (kind: ReceiverKind, size: FastenerSize): number => (kind === "counterbore" ? counterbore(size).depth : 0);

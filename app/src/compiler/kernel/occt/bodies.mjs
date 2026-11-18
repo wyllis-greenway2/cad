@@ -48,7 +48,7 @@ export const lumpsOf = (shape) => shape.solids;
 
 /** Where a marker goes when an operation moves, turns or scales the bodies it names (`only`: one body's id, else all of them). */
 export function moveMarkers(markers, tf) {
-  if (tf.mode === "reshape") return markers.map((m) => (tf.only && m.id !== tf.only ? m : { ...m, at: tf.at })); // (the body's shape changed: it is found by its new middle)
+  if (tf.mode === "reshape") return markers.map((m) => (tf.only && m.id !== tf.only ? m : { ...m, at: tf.at, box: undefined })); // (the body's shape changed: it is found by its new middle)
   const go = (p) => {
     if (tf.mode === "move") { if (tf.vec) return [0, 1, 2].map((i) => p[i] + tf.vec[i]); const q = [...p]; q[tf.axis] += tf.v; return q; }
     const d = [0, 1, 2].map((i) => p[i] - tf.pivot[i]);
@@ -67,7 +67,7 @@ export function moveMarkers(markers, tf) {
     e[j] = d[i] * s + d[j] * c;
     return [0, 1, 2].map((k) => tf.pivot[k] + e[k]);
   };
-  return markers.map((m) => (tf.only && m.id !== tf.only ? m : { ...m, at: go(m.at) }));
+  return markers.map((m) => (tf.only && m.id !== tf.only ? m : { ...m, at: go(m.at), box: undefined })); // (the box it had is not where it is now)
 }
 
 /**
@@ -77,19 +77,33 @@ export function moveMarkers(markers, tf) {
 export function trackBodies(prev, shape, opId) {
   const lumps = lumpsOf(shape);
   if (!lumps.length) return [];
-  if (lumps.length === 1) return [{ id: prev[0]?.id ?? opId, at: centre(quickBox(lumps[0])), lump: 0 }]; // (the marker only has to lie in the body's box: a quick box serves, the exact one of a body of freeform faces takes a third of a second, `dec_speed_rules`)
+  if (lumps.length === 1) { const b = quickBox(lumps[0]); return [{ id: prev[0]?.id ?? opId, at: centre(b), box: b, lump: 0 }]; } // (the marker only has to lie in the body's box: a quick box serves, the exact one of a body of freeform faces is far the dearer)
   const boxes = lumps.map(box);
   const claimed = new Set();
-  const out = [];
+  const taken = prev.map(() => -1);
   const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-  for (const m of prev) {
+  prev.forEach((m, pi) => {
     // the solid whose box holds the marker; of several (bodies that overlap), the one whose middle is nearest it
     let i = -1;
     boxes.forEach((b, k) => { if (!claimed.has(k) && inside(b, m.at) && (i < 0 || dist(centre(b), m.at) < dist(centre(boxes[i]), m.at))) i = k; });
-    if (i >= 0) { claimed.add(i); out.push({ id: m.id, at: centre(boxes[i]), lump: i }); }
-  }
+    if (i >= 0) { claimed.add(i); taken[pi] = i; }
+  });
+  // a body that got smaller (or moved) so that its marker, the middle of its old box, is now outside it: the free solid that shares the most of the box it had is that body, and keeps its name (`in_969`: a push or pull of a lid
+  // made it a new body, and a mate on it was lost)
+  prev.forEach((m, pi) => {
+    if (taken[pi] >= 0 || !m.box) return;
+    let best = -1, bv = 0;
+    boxes.forEach((b, k) => {
+      if (claimed.has(k)) return;
+      const v = [0, 1, 2].reduce((a, i) => a * Math.max(0, Math.min(b.max[i], m.box.max[i]) - Math.max(b.min[i], m.box.min[i])), 1);
+      if (v > bv + 1e-9) { bv = v; best = k; }
+    });
+    if (best >= 0) { claimed.add(best); taken[pi] = best; }
+  });
+  const out = [];
+  prev.forEach((m, pi) => { if (taken[pi] >= 0) out.push({ id: m.id, at: centre(boxes[taken[pi]]), box: boxes[taken[pi]], lump: taken[pi] }); });
   let born = 0;
-  lumps.forEach((_, k) => { if (!claimed.has(k)) out.push({ id: born++ ? `${opId}.${born - 1}` : opId, at: centre(boxes[k]), lump: k }); });
+  lumps.forEach((_, k) => { if (!claimed.has(k)) out.push({ id: born++ ? `${opId}.${born - 1}` : opId, at: centre(boxes[k]), box: boxes[k], lump: k }); });
   return out;
 }
 

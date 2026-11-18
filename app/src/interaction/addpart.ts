@@ -24,7 +24,7 @@ import { pathRuleFields, pathRepeatNumbers, pathRepeatStart } from "./pathrepeat
 import type { PathRepeatValues } from "./pathrepeat.ts";
 import { faceEdges } from "./offsetbody.ts";
 import { partDrawing, receiverDrawing } from "./partdrawing.ts";
-import { countersink, counterbore, FASTENER_FAMILIES, FASTENER_SIZES, FASTENER_SOURCES, CLEARANCE_FIT_LIST as CLEARANCE_FITS, RECEIVER_KINDS, isFastenerSize, receiversText, makeNut, makeCountersunk, makeWasher, farNutSteps, makeSocketHead, lengthAdvice, STANDARD_LENGTHS, countersunkDims, socketHeadDims, clearanceHole, tapHole, chartEngagement, nutTrap, receiverProblem, receiverSteps, screwFor, seatDepth, longestStandard, screwInPlace, nutInPlace, farNutInPlace } from "../operation/fasteners.ts";
+import { countersink, counterbore, FASTENER_FAMILIES, FASTENER_SIZES, FASTENER_SOURCES, CLEARANCE_FIT_LIST as CLEARANCE_FITS, RECEIVER_KINDS, isFastenerSize, receiversText, makeNut, makeCountersunk, makeWasher, farNutSteps, makeSocketHead, lengthAdvice, STANDARD_LENGTHS, countersunkDims, socketHeadDims, clearanceHole, tapHole, chartEngagement, nutTrap, receiverProblem, receiverSteps, screwFor, seatDepth, longestStandard, shortestStandard, screwInPlace, nutInPlace, farNutInPlace } from "../operation/fasteners.ts";
 import type { FastenerFamily, FastenerSize, PartSteps, ReceiverKind, ClearanceFit, FaceSpot } from "../operation/fasteners.ts";
 
 export interface AddPartValues { family: string; size: string; length: string; /** a socket head screw's head: "knurled" (the default) or "smooth" */ head?: string }
@@ -327,9 +327,11 @@ function hardwareOf(v: ReceiverValues, through: number, reach: number, stack: nu
       const room = Math.min(depth, stack) - seat;
       const typed = (v.length ?? "").trim() === "" ? undefined : typedLength(v.length!);
       if (typed === null) return err("type the screw length as a number");
-      const length = typed ?? longestStandard(room);
+      // a hole open at its far end (right through everything): a screw a little too long is better than one too short, so it is the shortest standard length that reaches; a blind hole has no room beyond its end: the longest that fits (`in_969`)
+      const blind = depth < stack - 1e-6 || kind === "drillTap";
+      const length = typed ?? (blind ? longestStandard(room) : (shortestStandard(room) ?? longestStandard(room)));
       if (length === null || length === undefined) return err(`no standard ${v.size} screw is short enough for a hole ${Math.round(room * 10) / 10} mm deep`);
-      if (length > room + 1e-9) return err(`a ${length} mm screw is longer than the ${Math.round(room * 10) / 10} mm the hole has`);
+      if (blind && length > room + 1e-9) return err(`a ${length} mm screw is longer than the ${Math.round(room * 10) / 10} mm the hole has`);
       screw = { family, length, seat, room: Math.round(room * 100) / 100 };
     }
     insert = { screw, nut: kind === "nutPocket" ? "near" : far ? "far" : null };
