@@ -3500,3 +3500,7 @@ No input. **The suite without `spiral.test.ts` on the helper bar commit (Handoff
 
 ## Handoff 819 — 2026-11-18 (in_901: merged into the testing branch)
 `in_901` (the human's explicit permission to push to `claude/inspiring-pascal-l342k7`). Brought that branch's tip (`in_895`, Handoff 812) into this branch, renumbered this branch's entries after it, and pushed to both. **Check of the merged tree:** `npm run check`: 1641 tests pass, none fail; typecheck, layers, boundary, unused and docs pass.
+
+## Handoff 820 — 2026-11-18 (in_902, in_903: hypoid prototype)
+`in_902` (build the hypoid gears), `in_903` (the human sent four PDFs). **Read (subagent):** Stadtfeld Gear_Theory2, bevelgear, hobbed and NASA CR 4383 pp. 1-8, 15-24, 55-63, 66-72, 87-93: the ratio of roll stays z1 / z2 with an offset; no pitch angle rule or offset limit in them. **Built (`prototypes/hypoid`, nothing in `app/`):** the spiral model with the ring's axis through (E, 0, 0), the pinion's pitch angle solved for balanced contact lines, kernel bodies and overlap (`run.test.ts`, env Z1 Z2 MN BETA E). Results in `dec_hypoid_gears` (proposed, provisional). Next: the human's answer on the proposal; then the tool, the other offset direction and the pinion cone cut.
+
