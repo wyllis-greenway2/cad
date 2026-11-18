@@ -3636,6 +3636,6 @@ Merged `claude/intelligent-hawking-8j1lyr` (its in_819-827 are in_916-924, Hando
 ## Handoff 864 — 2026-11-18 (in_959: the line rules for faces merged into the testing branch)
 `in_959`. Merged the testing branch's tip (13 commits, up to `in_957`, Handoff 862) into this branch, then pushed to it. **Numbers:** this branch's `in_951` became **`in_958`** and its Handoff 858 became **863**, in a commit of their own before the merge. **Conflicts:** `human-input.md` and `handoff.md` only (theirs first, then ours); the code merged without one (`main.ts` auto-merged). **Checks:** types, unused, docs and the fastener, hole, path and tools tests (below). No full suite, as asked.
 
-## Handoff 865 — 2026-11-18 (in_959: the ragged ring defect in other hypoid pairs)
-`in_959` (look if the defect is elsewhere). Measured the gap between the ring flank's lowest point and the root cone for eleven pairs (the prototype's grid, scratch script) and rendered the rings of six of the worst after the fix (exported mesh, software renderer, Playwright screenshot): all regular. Details in `dec_hypoid_gears` ("Checked in other pairs"). Not checked: pinions, extremes of the limits, the browser.
+## Handoff 865 — 2026-11-18 (in_960: the ragged ring defect in other hypoid pairs)
+`in_960` (look if the defect is elsewhere). Measured the gap between the ring flank's lowest point and the root cone for eleven pairs (the prototype's grid, scratch script) and rendered the rings of six of the worst after the fix (exported mesh, software renderer, Playwright screenshot): all regular. Details in `dec_hypoid_gears` ("Checked in other pairs"). Not checked: pinions, extremes of the limits, the browser.
 
