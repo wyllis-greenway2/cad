@@ -53,7 +53,7 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   let next = apply(s, i, env);
   if (i.type === "faceKind" || i.type === "sizeKind" || i.type === "loftKind" || i.type === "similarRule" || i.type === "cut") next = { ...next, optionAt: null }; // (an option chosen by the pointer: the keyboard's place in the bar starts from there again, `in_664`)
   if (next.cam !== s.cam || next.session.history.scene !== s.session.history.scene || next.lastSeen === null) next = noteSeen(next, env.w, env.h, projector(next.cam, env.w, env.h).project as (p: Vec3) => [number, number]); // (what was last in view, for Reset camera, `in_303`)
-  if (next.awaiting && next.session.click.selection.join("|") !== s.session.click.selection.join("|")) next = settleAwaiting(next, env.now); // (what a pressed, dimmed item waited for is selected: it runs, `in_943`)
+  if (next.awaiting && next.session.click.selection.join("|") !== s.session.click.selection.join("|")) next = settleAwaiting(next, env.now); // (what a pressed, dimmed item waited for is selected: it runs, `in_951`)
   if (next.resume && !RESUMING.has(i.type)) next = { ...next, resume: null }; // only a click, or moving the view, keeps "sketching goes on" waiting for a vertex
   // the hidden sketch of a plane is shown while a tool begun on the edge of a body sketches in it (`in_211`)
   const shownStep = next.showSketch ? next.session.history.scene.steps.find((x) => x.id === next.showSketch) : undefined;

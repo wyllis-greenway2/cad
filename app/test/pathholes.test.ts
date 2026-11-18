@@ -100,7 +100,7 @@ test("rules that make no hole, or too many, are refused with the reason", () => 
   assert.ok(!cutReceiver(s, vals({ place: "outline", by: "distance", value: "0" })).ok);
   const many = cutReceiver(s, vals({ place: "outline", by: "distance", value: "1", corners: "ignore", offset: "5" }));
   assert.ok(!many.ok && many.error.includes("200"), many.ok ? "" : many.error);
-  const e = cutReceiver(s, vals({ place: "outline", by: "count", value: "4", corners: "each" }));
+  const e = cutReceiver(s, vals({ place: "outline", by: "count", value: "4", corners: "inward" }));
   assert.ok(!e.ok && e.error.includes("distance"));
   const noLines = cutReceiver(s, vals({ place: "lines" }));
   assert.ok(noLines.ok, "with no line selected the holes fall back to the middle of the face");
@@ -260,11 +260,8 @@ test("a line round a post: the holes stand round it, each looking at the axis", 
   if (!p.ok) return;
   for (const sp of p.value.spots) { const out = [sp.u[1] * sp.v[2] - sp.u[2] * sp.v[1], sp.u[2] * sp.v[0] - sp.u[0] * sp.v[2], sp.u[0] * sp.v[1] - sp.u[1] * sp.v[0]]; near(out[0]! * sp.centre[0] + out[1]! * sp.centre[1], 10, 1e-6); } // (the way out is straight out from the axis)
 });
-test("a round face with no line is told what to select; a nut on the far side and a screw without a depth are refused", () => {
+test("on a round face a nut on the far side and a screw without a depth are refused", () => {
   const { s: s0, face } = post();
-  const s = select(s0, [face]);
-  const p = receiverPlan(s, vals({}));
-  assert.ok(!p.ok && p.error.includes("line"));
   const t = alongAxis(s0, face);
   assert.ok(!receiverPlan(t, vals({ place: "lines", by: "count", value: "2", corners: "ignore", far: "nut" })).ok);
   assert.ok(!receiverPlan(t, vals({ place: "lines", by: "count", value: "2", corners: "ignore", insert: "screw" })).ok);
@@ -295,4 +292,62 @@ test("the depth of a hole through is the thickness of the body the face is of, w
   const p = receiverPlan(select(s, [tops[0]!.ref]), vals({ place: "centre" }));
   assert.ok(p.ok, p.ok ? "" : p.error);
   if (p.ok) near(p.value.reach, 8, 1e-6);
+});
+
+test("holes along the outline counted with a hole at every corner: the count is all the holes, the corners among them", () => {
+  const { s } = block();
+  const p = receiverPlan(s, vals({ place: "outline", by: "count", value: "12", corners: "each", offset: "10" }));
+  assert.ok(p.ok, p.ok ? "" : p.error);
+  if (p.ok) assert.equal(p.value.places.length, 12);
+  assert.ok(!receiverPlan(s, vals({ place: "outline", by: "count", value: "3", corners: "each", offset: "10" })).ok);
+});
+
+test("a round face alone: a row round it at the middle of its height, spaced along the surface, in from its ends", () => {
+  const { s: s0, face } = post();
+  const s = select(s0, [face]);
+  const p = receiverPlan(s, vals({ kind: "clearance", size: "M4", by: "count", value: "6", corners: "ignore" }));
+  assert.ok(p.ok, p.ok ? "" : p.error);
+  if (!p.ok) return;
+  assert.equal(p.value.places.length, 6); // (a whole post: six round it)
+  for (const c of p.value.places) { near(Math.hypot(c[0], c[1]), 10, 1e-6); near(c[2], 20, 1e-6); }
+  near(p.value.spacing!, (2 * Math.PI * 10) / 6, 1e-6);
+  const r = cutReceiver(s, vals({ kind: "clearance", size: "M4", by: "count", value: "4", corners: "ignore" }));
+  assert.ok(r.ok, r.ok ? "" : r.error);
+});
+
+// ---- a lid on an object (`in_949`): the cut goes through everything, the body of the face gives the defaults ----
+const lidOn = (): { s: Session; lid: string } => {
+  let s = createSession(kernel);
+  const a = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [100, 60, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, a.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: a.lines, params: { depth: 20 } } });
+  const top = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.ref.endsWith("0,0,1,20"))!.ref;
+  const b = drawSquaredRectangle(scene(s), top as never, [0, 0, 20], [100, 60, 20], [1, 0, 0], [0, 1, 0]);
+  s = run(s, b.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: b.lines, params: { depth: 5, mode: "new" } } });
+  const lid = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.ref.endsWith("0,0,1,25"))!.ref;
+  return { s: select(s, [lid]), lid };
+};
+test("a lid on an object: the plan reaches through both bodies and the body of the face is the default clearance depth", () => {
+  const { s } = lidOn();
+  assert.ok(bodies(s).length >= 2, `${bodies(s).length} bodies`);
+  const p = receiverPlan(s, vals({ kind: "drillTap", size: "M4", place: "centre" }));
+  assert.ok(p.ok, p.ok ? "" : p.error);
+  if (!p.ok) return;
+  near(p.value.reach, 5, 1e-6);
+  near(p.value.stack, 25, 1e-6);
+  near(p.value.drill!, 5, 1e-6); // (clearance through the lid)
+  near(p.value.depth, 5 + 6, 1e-6); // (and a pilot of 1.5 diameters past it)
+  const c = receiverPlan(s, vals({ kind: "clearance", size: "M4", place: "centre" }));
+  assert.ok(c.ok && c.value.depth > 25); // (a plain hole goes right through everything)
+});
+test("a lid on an object cut as drill + tap: clearance in the lid, the pilot in the body below, and the screw spans both", () => {
+  const { s } = lidOn();
+  const before = total(s);
+  const r = cutReceiver(s, vals({ kind: "drillTap", size: "M4", fit: "medium", place: "centre", insert: "screw" }));
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  if (!r.ok) return;
+  const screw = Math.min(...bodies(r.value).map((b) => b.volume ?? 1e9));
+  const hosts = total(r.value) - screw;
+  near(before - hosts, cyl(4.5, 5) + cyl(3.3, 6), 0.01);
 });

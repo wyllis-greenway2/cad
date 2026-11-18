@@ -48,7 +48,7 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
         el.appendChild(note);
         const bar = document.createElement("div");
         bar.style.cssText = "display:flex;gap:8px;justify-content:flex-end;margin-top:10px;position:sticky;bottom:-12px;padding:8px 0 4px;background:#fff;border-top:1px solid #f0f1f3"; // (the buttons stay at the bottom of the panel while its long list of numbers is scrolled, `in_871`)
-        // Cancel, and one button that makes or changes the gear and puts the tool away (`in_943`): Create for a gear to be made, Update when a gear that is made has numbers not yet applied, Done when it has none
+        // Cancel, and one button that makes or changes the gear and puts the tool away (`in_951`): Create for a gear to be made, Update when a gear that is made has numbers not yet applied, Done when it has none
         const primary = textButton("Create", { tone: "primary", click: () => h.enter() });
         primaryButton = primary;
         bar.append(textButton("Cancel", { click: () => h.cancel() }), primary);

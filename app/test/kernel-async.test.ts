@@ -110,7 +110,7 @@ test("an export is asked of the worker apart from the screen's jobs, each is ans
   assert.deepEqual(await two, { ok: false, error: "boom" });
 });
 
-test("what is shown while the answer is awaited is not a picture of what was deleted (`in_943`): the body of a step the new graph no longer has is not shown, and a scene with no steps makes the next picture start empty", async () => {
+test("what is shown while the answer is awaited is not a picture of what was deleted (`in_951`): the body of a step the new graph no longer has is not shown, and a scene with no steps makes the next picture start empty", async () => {
   const f = fake();
   const k = createAsyncKernel(() => {}, f.w);
   f.say({ ready: true });

@@ -105,8 +105,8 @@ export interface AppState {
   /** the axes and the little panes put away with the orb at their junction (`in_463`) */
   worldHidden: boolean;
   /** an operation chosen from the menu with what it needs not selected (`in_464`): it waits for what is clicked next; the operations that take several things (a loft, a sweep) wait for Enter or the check */
-  picking: { kind: OpKind; /** what it still needs, as `startOp` says it ("select a closed figure first"): shown in its bubble (`in_943`) */ why?: string } | null;
-  /** a dimmed item of the menu that was pressed (`in_943`): it waits for what it needs to be selected, helping with what to select, and runs by itself when it can; Esc gives it up */
+  picking: { kind: OpKind; /** what it still needs, as `startOp` says it ("select a closed figure first"): shown in its bubble (`in_951`) */ why?: string } | null;
+  /** a dimmed item of the menu that was pressed (`in_951`): it waits for what it needs to be selected, helping with what to select, and runs by itself when it can; Esc gives it up */
   awaiting: { id: string; label: string; icon: string; why: string } | null;
   /** looking straight at a plane is a little hard to leave (`in_193`): the drag so far, in pixels, that has been kept from the camera; past `settings.view.leaveStraightPx` the view turns, and goes smoothly into perspective */
   orthoDebt: number;

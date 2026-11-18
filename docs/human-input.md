@@ -4125,13 +4125,45 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for the branch `claude/adoring-dijkstra-pivot` to be merged into the testing branch; it carries the contact push chains, the speed-ups and any body made to turn)
 
-## in_943 — 2026-11-18 — directive
+## in_943 — 2026-11-18 — question
+> is it done? is it ready?
+(asks whether the cone-cut work is finished and ready to test; the AI answered with what is verified and that the full check was still running)
+
+## in_944 — 2026-11-18 — question
+> Why does it say this?
+(asks why the fastener panel shows "a rule for the corners needs a distance between copies, not a count"; a screenshot of the panel's red message above Type: Countersunk)
+
+## in_945 — 2026-11-18 — directive
+> But why not? why couldn't we put a fastener in each corner, and also divide the spaces between by the remaining count?
+(says there is no reason a count cannot be used with a fastener at every corner: put one in each corner and divide the spaces between by the remaining count)
+
+## in_946 — 2026-11-18 — question
+> Why cant I put fasteners in this surface?
+(asks why fasteners cannot be put in a round face: a screenshot of the fastener panel with a round wall of a teardrop plate selected (R 28.22) and the red message "select a line drawn across the round face, or corners and circles on it")
+
+## in_947 — 2026-11-18 — question
+> how should we handle selecting multiple faces like this? Like for example if someone is trying to put a set of screws around the perimeter of something?
+(asks how the fastener tool should handle several faces selected together: a screenshot of three side faces of the teardrop plate selected (a round one, a flat one, a round one); the example is a set of screws round the perimeter of something)
+
+## in_948 — 2026-11-18 — question
+> what do we do in a situation like this where we are trying to make a lid fastened to an object below, but we can't extend the holes past the body of the object whos face we selected now?
+(asks how to handle a lid fastened to an object below: a screenshot of countersunk holes previewed in the top plate of the teardrop model, ending at the bottom of the plate, where the holes need to go on into the body below that the selected face does not belong to)
+
+## in_949 — 2026-11-18 — directive
+> why don't we have the cuts go fully into space including whatever is under or behind our selection? but maybe we use information about the body selected to default to that depth or to help the user set a clearance to that depth and maybe a pilot for tap past that point
+(asks for the cuts to go fully through everything under or behind the selection, and for the selected body's thickness to be used as the default depth, or to help set a clearance hole to that depth and a pilot for tapping past that point)
+
+## in_950 — 2026-11-18 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for this branch (round faces alone, a count with a hole at every corner, cuts through everything with the body of the face giving the defaults) to be merged into claude/inspiring-pascal-l342k7)
+
+## in_951 — 2026-11-18 — directive
 > [the human attached a saved project, "hidden_gears.json" (two spiral bevel gears made and deleted, then a spiral bevel gear with an offset), and a state snapshot of the app]
 > Can we have a cancel button on the gear menu. Lets have one button operate as both update and create, it shuold say update when unapplied changes exist. The menu is not very consistent, it shows some operations even if you dont have the things selected to apply them, and others you can't select unless you already have the right things selected. Also for the ones you can select without having the right things selected to apply, it just says "Click what it needs". Lets make this better. Lets have it so that anything in the menu can be selected. If that tool needs things selected in order for it to work, then it should actually help you select those items. It should say select face, select line click this click that etc. 
 >
 > Ihave a bug where when I delete gears, then if I later craete more gears, the deleted ones show up in the preview for a moment as it creates the new gears.
 (asks for a Cancel button in the gear box; one button for both Update and Create that says Update when there are unapplied changes; every item of the menu selectable, and a tool that needs things selected helping the person select them ("select face, select line, click this, click that"), instead of the menu offering some without their selection, hiding others, and saying "Click what it needs"; and reports that gears deleted show in the preview for a moment while new gears are made)
 
-## in_944 — 2026-11-18 — directive
+## in_952 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 once more, for the Cancel button, the single apply button, the guided menu items and the fix for the ghosts of deleted gears; gives permission to write to that branch)

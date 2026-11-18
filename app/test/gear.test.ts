@@ -760,7 +760,7 @@ test("a gear sized next to a gear of the same kind, its pitch circle all but tou
   assert.equal(entryOf(scene(far.session), far.tool, far.op)?.suggest, undefined, "too far: no suggestion");
 });
 
-test("one box for a gear to be made and one that is made (`in_943`): Cancel, and one button: Create for a new gear, Update when numbers of a gear that is made are not yet applied, Done when none are; it applies and ends the tool; Cancel (Esc) leaves the gear as it was", () => {
+test("one box for a gear to be made and one that is made (`in_951`): Cancel, and one button: Create for a new gear, Update when numbers of a gear that is made are not yet applied, Done when none are; it applies and ends the tool; Cancel (Esc) leaves the gear as it was", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "gear" }, env);
   st = click(st, C); st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2");

@@ -1,4 +1,4 @@
-// A dimmed item of the menu can be pressed (`in_943`): it says what to select, the menu steps aside, and it runs by itself once that is selected; Esc gives it up. An operation chosen with nothing selected waits and says what it needs.
+// A dimmed item of the menu can be pressed (`in_951`): it says what to select, the menu steps aside, and it runs by itself once that is selected; Esc gives it up. An operation chosen with nothing selected waits and says what it needs.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

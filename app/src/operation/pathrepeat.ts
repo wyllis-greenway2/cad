@@ -233,19 +233,32 @@ export function placeAlong(path: Path, rules: Rules): Result<Placed> {
 
   // corners: a copy at every corner and the sides between divided (each), or worked in from each corner (inward)
   if (corners !== "ignore" && cs.length > 0 && !(p.closed && cs.length < 1)) {
-    if (sp.by !== "distance") return err("a rule for the corners needs a distance between copies, not a count");
-    const d = sp.distance;
+    if (sp.by !== "distance" && corners !== "each") return err("working in from the corners needs a distance between copies, not a count");
+    const d = sp.by === "distance" ? sp.distance : 1;
     const sides: [number, number][] = [];
     for (let i = 0; i < cs.length - (p.closed ? 0 : 1); i++) sides.push([cs[i]!, p.closed && i === cs.length - 1 ? cs[0]! + total : cs[i + 1]!]);
+    // by a count with a hole at every corner (`in_945`): the count is all the holes, the corners are some of them, and the rest are shared out between the sides by their length (the largest remainders get the odd ones)
+    let extra: number[] | null = null;
+    if (sp.by === "count") {
+      const rest = sp.count - (p.closed ? sides.length : sides.length + 1);
+      if (rest < 0) return err(`a hole at every corner is ${p.closed ? sides.length : sides.length + 1} holes: the number must be at least that`);
+      const lens = sides.map(([a, b]) => b - a);
+      const sum = lens.reduce((x, y) => x + y, 0) || 1;
+      const raw = lens.map((l) => (rest * l) / sum);
+      extra = raw.map(Math.floor);
+      let left = rest - extra.reduce((x, y) => x + y, 0);
+      const order = raw.map((r, i) => [r - Math.floor(r), i] as const).sort((x, y) => y[0] - x[0] || x[1] - y[1]);
+      for (const [, i] of order) { if (left <= 0) break; extra[i]!++; left--; }
+    }
     const out: number[] = [];
     const corner = new Set<number>();
     let adjusted: number | null = null;
-    for (const [a, b] of sides) {
+    for (const [si, [a, b]] of sides.entries()) {
       const L = b - a;
       corner.add(a);
       out.push(a);
       if (corners === "each") {
-        const n = Math.max(1, Math.ceil(L / d - 1e-9));
+        const n = extra ? extra[si]! + 1 : Math.max(1, Math.ceil(L / d - 1e-9));
         adjusted = adjusted === null ? L / n : Math.min(adjusted, L / n);
         for (let k = 1; k < n; k++) out.push(a + (L * k) / n);
       } else {
