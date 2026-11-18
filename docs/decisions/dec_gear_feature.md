@@ -3,7 +3,7 @@ id: dec_gear_feature
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_690, in_716
+human_input: in_690, in_716, in_922
 date: 2026-11-17
 depends_on:
   - dec_gear_speed: the measured cost this removes (about 80 parts a tooth: 16000 parts for 200 teeth, worked by every stage after the kernel); a change to those numbers changes whether this is worth its loss of editing
@@ -23,6 +23,27 @@ depends_on:
 `test/gearfeature.test.ts`: a 40 tooth spur gear with a bore: 2892 parts of the body before (483 faces, 1443 lines, 966 corners), **8** after (the body, 2 faces, the bore, 2 rim halves, 2 corners); a ring the same; a helical gear and a worm wheel 8 or fewer; a gear of a hundred teeth 8.
 
 In the real app (headless Chromium, a 100 tooth spur gear with a bore, extruded, orbiting and hovering): **8020 parts before, 2019 after**; the page's frame **17.5 ms before, 10.9 ms after** (working the frame out 9.3 to 3.7 ms). What is left of the 2019 is the gear's own sketch (a side and a corner for every arc of the outline, 20 a tooth), which the steps name and which is the next thing to cut.
+
+## Audit of every gear kind (`in_922`; findings only, nothing is decided from them)
+
+Measured with a 20 tooth, module 2 gear 8 thick (or the kind's own size) made on its own: the parts of its body (planes / lines / corners), and again after the things that happen to gears. `~` marks a kind that is not reduced.
+
+| Kind | Parts of the body | Reduced? |
+|---|---|---|
+| spur, helical, ring, cycloidal, pulley, sprocket, bevel, spiral bevel, crown, worm wheel with no land | 2-3 / 0-3 / 0-3 | yes |
+| spur with a perimeter (edge) chamfer | 3 / 44 / 84 | mostly: the chamfer's own rims stay |
+| planetary set (5 bodies) | 15 / 10 / 10 | yes (each gear) |
+| **worm** (rule 2: not a worm) | 25 / 63 / 41 (length 50); 36 / 99 / 63 (length 100) | no, the thread's faces |
+| **worm wheel with a land** (the report: land 4) | **1169 / 2792 / 1632** | no: its body is the result of two subtracts, so it is not the body of the gear's step |
+| **rack**, 10 teeth; 40 teeth; helical rack | 46 / 132 / 88; 166 / 492 / 328; 46 / 132 / 88 | no (flat faces, but a part for every tooth face) |
+| **any gear moved or turned by a step** | **243 / 723 / 482** (a spur gear, 3 / 2 / 2 before the move) | no: its box is no longer the gear's (rule 2) |
+| two gears joined (or a gear cut) | 470 / 1404 / 936 | no, by rule 2 |
+
+So the rule is lost by the worm, the wheel with a land, the rack (three kinds), and every gear that has been moved or turned, which is the common case; the plain made-and-left gear keeps it. Also found: a worm with 3 starts, diameter 20, length 50 makes "kernel returned an invalid solid" (the plain one-start worm is fine).
+
+**The wheel's options.** The Chamfer and Edge chamfer fields exist only for a plain gear and a ring; not for a rack, bevel, crown, worm, worm wheel, pulley, sprocket, clock gear or planetary set (the tooth chamfer is made by cutting wedges from the extruded body, and the perimeter chamfer by insetting its outline; neither was written for a throated, lofted or conical tooth).
+
+**Built after the audit (`in_923`, the human approved all five proposals):** (1) the shape of a gear follows the moves, turns and scales that came after its step (`movedShape` in `gearshape.ts`; a gear facing some other way than along a world axis is checked by the box of a disc of its size, `gearfeature.ts`): a spur gear moved or turned is 3 planes, not 243. A turn about a point that was not recorded is not known, and the body keeps its parts as before. `b/body/o` names the body only where the scene has one gear. (2) A worm wheel with a land is a shape (its tip radius at the face of the land was the throat's formula beyond its range, NaN): 1169 planes became 12. (3) A rack, a helical rack and a turned or moved one are shapes of their own kind (the outline's box, sheared by the helix; no round faces): 46 planes became 2 and 166 became 2. (4) A worm is a shape too (`in_924`): its two ends and the whole body, and not the faces of every turn of its thread (36 planes became 6 for 100 mm; the root cylinder in pieces and the shaft are not kept; the stand-in disc is not drawn for it). (5) Still not reduced: gears that are joined or cut. Tests: `gearmovedfeature.test.ts`.
 
 ## Rationale
 

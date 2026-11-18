@@ -354,3 +354,30 @@ test("a constraint to a flat wall follows the wall when the body's size changes 
   assert.ok(rel2.parts.some((q) => q.startsWith("b/body/f@") && q in scene(bigger).parts), `it names a wall that is there: ${rel2.parts}`);
   assert.ok(!bigger.outcome.lost?.length, `nothing lost: ${bigger.outcome.lost}`);
 });
+
+import { previewFor } from "../src/interaction/entry.ts";
+test("a circle's centre that would be concentric with the edge of a hole is suggested as other constraints are: the cursor is at the centre and dashed lines cross the hole through it, before the plane is set and after (`in_921`)", () => {
+  const s = open();
+  const { round } = setup(s);
+  const env = { w: 900, h: 700, now: 0 };
+  let st: AppState = { ...createState(s), cam: { ...homeCamera(), straight: true, azimuth: 0, elevation: Math.PI / 2, target: [round.center[0], round.center[1], 13.5], distance: 60 } };
+  const px = (p: number[]) => projector(st.cam, env.w, env.h).project(p as never);
+  st = reduce(st, { type: "begin", name: "circle" }, env);
+  const check = (what: string) => {
+    const near = px([round.center[0] + 0.2, round.center[1] - 0.1, 13.5]);
+    st = reduce(st, { type: "hover", x: near[0], y: near[1] }, env);
+    assert.deepEqual(st.tool!.hints?.map((h) => h.kind), ["concentric"], `${what}: the suggestion`);
+    const pv = previewFor(scene(st.session), st.tool);
+    assert.ok(pv?.cursor && Math.hypot(pv.cursor[0] - round.center[0], pv.cursor[1] - round.center[1]) < 1e-9, `${what}: the cursor is shown at the centre`);
+    assert.equal(pv!.guides?.length, 2, `${what}: two dashed lines through the centre`);
+    for (const [a, b] of pv!.guides!) assert.ok(Math.hypot((a[0] + b[0]) / 2 - round.center[0], (a[1] + b[1]) / 2 - round.center[1]) < 1e-9 && Math.hypot(b[0] - a[0], b[1] - a[1]) > 2 * round.radius, `${what}: through the centre, past the rim`);
+  };
+  check("before the plane is set");
+  const near = px([round.center[0] + 0.2, round.center[1], 13.5]);
+  st = reduce(st, { type: "click", x: near[0], y: near[1], count: 1, shift: false }, env);
+  const r = px([round.center[0] + 2, round.center[1], 13.5]);
+  st = reduce(st, { type: "hover", x: r[0], y: r[1] }, env);
+  st = reduce(st, { type: "click", x: r[0], y: r[1], count: 1, shift: false }, env);
+  assert.ok(st.tool, "the tool stays");
+  check("with the plane set");
+});

@@ -158,9 +158,10 @@ const [dot3, cross3, norm3] = [(a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] +
  * (or its frame's, if it stands across itself) and its apex lies along it at the cone distance times cos delta. Worked in 3D: the partner's frame (`BevelSpec.frame`) is the one whose first direction is the tangent of the contact, tooth 0 along it.
  */
 export function meshBevel(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; ring?: boolean }, where: number): Result<Placement> {
-  const s = src.spec, z2 = Math.round(partner.teeth);
+  const z2 = Math.round(partner.teeth);
   if (partner.rack || partner.ring) return err("a bevel gear meshes with a bevel gear: not with a rack or a ring");
   if (!Number.isFinite(z2) || z2 < 1) return err("the partner needs teeth");
+  const s: GearSpec = { ...src.spec, bevel: { ...src.spec.bevel!, mate: z2 } }; // (the source's cone is the one for the partner it is given: a source made for a partner of other teeth would not seat, `in_919`)
   const g1 = bevelOf(s);
   if (!g1.ok) return g1;
   const shaft = s.bevel!.shaft ?? 90, sig = (shaft * Math.PI) / 180;
