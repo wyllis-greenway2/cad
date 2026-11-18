@@ -15,7 +15,7 @@ export interface RowSurface {
   map(q: Pt): Result<FaceSpot>;
   loop?: { radius: number; lo: number; hi: number; at(phi: number, a: number): Result<FaceSpot> };
 }
-export interface RowsMade { /** what the automatic rules chose, in words (`in_979`) */ auto?: string; /** the inset the rows were made with, when it was less than asked for (the face was too small for it, `in_965`) */ insetUsed?: number; places: FaceSpot[]; /** each row as a polyline on the surface, for the guide drawn in the view */ guide: Vec3[][]; /** the spacing of the first row's places, when it has one */ spacing: number | null }
+export interface RowsMade { /** what the automatic rules chose, in words (`in_980`) */ auto?: string; /** the inset the rows were made with, when it was less than asked for (the face was too small for it, `in_965`) */ insetUsed?: number; places: FaceSpot[]; /** each row as a polyline on the surface, for the guide drawn in the view */ guide: Vec3[][]; /** the spacing of the first row's places, when it has one */ spacing: number | null }
 const MAX_HOLES = 200;
 
 /** The longest side of an outline as a path of its own (the first when two are as long); the way it runs is the way the outline runs, so the inside is on its left. */
@@ -111,7 +111,7 @@ function rowsFromEdgesAt(surf: RowSurface, mode: RowMode, edge: Path | null, rul
   return out2.places.length > MAX_HOLES ? err(`that is more than ${MAX_HOLES} holes`) : ok(out2);
 }
 
-// ---- the automatic choice (`in_979`): a reasonable line, inset and spacing for the face and the hardware ----
+// ---- the automatic choice (`in_980`): a reasonable line, inset and spacing for the face and the hardware ----
 const minPair = (spots: readonly FaceSpot[]): number => { let m = Infinity; for (let i = 0; i < spots.length; i++) for (let j = i + 1; j < spots.length; j++) m = Math.min(m, Math.hypot(spots[i]!.centre[0] - spots[j]!.centre[0], spots[i]!.centre[1] - spots[j]!.centre[1], spots[i]!.centre[2] - spots[j]!.centre[2])); return m; };
 /** The most a closed outline can be moved in before it turns inside out or is gone. */
 function roomIn(outline: Path): number {

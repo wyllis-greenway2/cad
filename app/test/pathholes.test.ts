@@ -404,7 +404,7 @@ test("the fastener tool starts as a countersunk hole (`in_965`)", () => {
   assert.equal(receiverStart().kind, "countersunk");
 });
 
-// ---- the automatic choice (`in_979`) ----
+// ---- the automatic choice (`in_980`) ----
 const minDist = (ps: readonly (readonly number[])[]): number => { let m = Infinity; for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) m = Math.min(m, Math.hypot(ps[i]![0]! - ps[j]![0]!, ps[i]![1]! - ps[j]![1]!, ps[i]![2]! - ps[j]![2]!)); return m; };
 const small = (w: number, h: number): { s: Session; top: string } => {
   let s = createSession(kernel);
@@ -451,7 +451,7 @@ test("automatic: a post's wall has a loop at each end, or one round the middle w
 test("a new tool starts on automatic", () => {
   assert.equal(receiverStart().rows, "auto");
 });
-test("points at the holes: corners on the face at each place, selected with it, and the tool follows them (`in_979`)", async () => {
+test("points at the holes: corners on the face at each place, selected with it, and the tool follows them (`in_980`)", async () => {
   const { makeHolePoints } = await import("../src/interaction/addpart.ts");
   const { s } = block();
   const v = vals({ kind: "countersunk", size: "M3", place: "outline", by: "count", value: "4", corners: "ignore", offset: "10" });
@@ -470,7 +470,7 @@ test("points at the holes: corners on the face at each place, selected with it, 
   const round = post();
   assert.ok(!makeHolePoints(select(round.s, [round.face]), vals({ place: "midline" })).ok);
 });
-test("the plan says how much room the screw had, so the length chosen can be explained (`in_980`)", () => {
+test("the plan says how much room the screw had, so the length chosen can be explained (`in_981`)", () => {
   const { s } = block();
   const p = receiverPlan(s, vals({ kind: "clearance", size: "M4", insert: "screw" }));
   assert.ok(p.ok && p.value.insert?.screw?.length === 8 && p.value.insert.screw.room === 8);
@@ -479,7 +479,7 @@ test("the plan says how much room the screw had, so the length chosen can be exp
   assert.ok(q.ok && q.value.insert?.screw?.room === 25 && q.value.insert.screw.length === 25); // (the longest standard length that is not over 25)
 });
 
-test("a screw through a hole open at the far end is the shortest standard length that reaches, not the longest that fits (`in_981`)", () => {
+test("a screw through a hole open at the far end is the shortest standard length that reaches, not the longest that fits (`in_982`)", () => {
   let s = createSession(kernel);
   const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [60, 40, 0], [1, 0, 0], [0, 1, 0]);
   s = run(s, r.command);

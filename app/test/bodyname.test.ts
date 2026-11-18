@@ -1,4 +1,4 @@
-// A body keeps its name when a push or pull makes it smaller, so a mate on it is not lost (`in_981`: a lid pushed in lost its mate and could be pulled off).
+// A body keeps its name when a push or pull makes it smaller, so a mate on it is not lost (`in_982`: a lid pushed in lost its mate and could be pulled off).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";
