@@ -4195,3 +4195,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_959 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for this branch (one set of line rules for flat and round faces, rows) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
+
+## in_960 — 2026-11-18 — directive
+> can we have the fastener tool default to countersunk. If the default inset of 10 mm fails because the part is too small then it should just go smaller, not fail. Can we make the previewed fastener holes just be styled like regular wireframe? See our parts have a wireframe style that is semi transparent dark. Also speaking of wireframe, our parts should be persistent in wireframe untill taken out. Currently they leave wireframe on right click and possibly in other ways. Can we have it so that you can move individual fasteners in the preview?
+(asks for: the fastener tool to default to countersunk; the inset to go smaller instead of failing when the default 10 mm is too big for the part; the previewed holes drawn in the parts' wireframe style (semi-transparent dark); wireframe to stay on until the person takes it out (it now leaves on right click and perhaps other ways); and the individual fasteners in the preview to be movable)

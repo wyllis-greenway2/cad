@@ -107,8 +107,8 @@ export function addPart(session: Session, v: AddPartValues): Result<Session> {
 }
 
 // ---- the receivers: the hole or pocket a fastener goes into, cut into the body whose face is selected ----
-export interface ReceiverValues extends Partial<PathRepeatValues> { kind: string; size: string; fit: string; depth: string; dx: string; dy: string; /** where the holes go: "centre" (the middle of the face), "picked" (the corners and circles selected), "outline" (along the face's outline) or "lines" (along the lines selected), `in_845` */ place?: string; /** a hole to tap: the thread engagement in percent; empty is the chart's tap drill */ engagement?: string; /** a nut pocket on the far side of the body as well ("nut"), or none (`in_909`) */ far?: string; /** a drill then tap: how deep the clearance part goes, mm (empty: the tapped part is 1.5 diameters), `in_910` */ drill?: string; /** "screw": the hardware is put into the holes as bodies (the screw, and the nut of a pocket); "none" (the default), `in_910` */ insert?: string; /** the screw's length, mm; empty is the longest standard length that fits */ length?: string; /** which line a face gives the rows (`in_958`): "outline" (its edges stepped in, the default), "edge" (one edge stepped in) or "midline" (one edge stepped in to the middle of the face) */ rows?: string; /** how many rows, and how far apart (mm) */ rowCount?: string; rowGap?: string }
-export const receiverStart = (): ReceiverValues => ({ kind: "clearance", size: "M3", fit: "medium", depth: "", dx: "0", dy: "0", engagement: "", ...pathRepeatStart(), value: "30", corners: "each", offset: "10", far: "none", drill: "", insert: "none", length: "", rows: "outline", rowCount: "1", rowGap: "8" });
+export interface ReceiverValues extends Partial<PathRepeatValues> { kind: string; size: string; fit: string; depth: string; dx: string; dy: string; /** where the holes go: "centre" (the middle of the face), "picked" (the corners and circles selected), "outline" (along the face's outline) or "lines" (along the lines selected), `in_845` */ place?: string; /** a hole to tap: the thread engagement in percent; empty is the chart's tap drill */ engagement?: string; /** a nut pocket on the far side of the body as well ("nut"), or none (`in_909`) */ far?: string; /** a drill then tap: how deep the clearance part goes, mm (empty: the tapped part is 1.5 diameters), `in_910` */ drill?: string; /** "screw": the hardware is put into the holes as bodies (the screw, and the nut of a pocket); "none" (the default), `in_910` */ insert?: string; /** the screw's length, mm; empty is the longest standard length that fits */ length?: string; /** which line a face gives the rows (`in_958`): "outline" (its edges stepped in, the default), "edge" (one edge stepped in) or "midline" (one edge stepped in to the middle of the face) */ rows?: string; /** how many rows, and how far apart (mm) */ rowCount?: string; rowGap?: string; /** holes moved by the pointer in the preview (`in_960`): the place of each, by its number in the row, as the pointer put it */ moved?: Record<number, Vec3> }
+export const receiverStart = (): ReceiverValues => ({ kind: "countersunk", size: "M3", fit: "medium", depth: "", dx: "0", dy: "0", engagement: "", ...pathRepeatStart(), value: "30", corners: "each", offset: "10", far: "none", drill: "", insert: "none", length: "", rows: "outline", rowCount: "1", rowGap: "8" });
 const kindOf = (s: string): ReceiverKind => (RECEIVER_KINDS.find((k) => k.id === s)?.id ?? "clearance");
 const fitOf = (s: string): ClearanceFit => (s === "fine" || s === "coarse" ? s : "medium");
 
@@ -272,7 +272,7 @@ export const placesPicked = (session: Session): number => { const f = selectedFa
 
 /** Cut the receiver into the body whose flat face is selected: the steps, one after another from the scene each leaves. */
 /** What the answers would cut: the receiver, the size and fit, how deep, the thread engagement, the face's spot (for its two ways and its normal) and the centre of each hole. The cut and the preview are both made from it. */
-export interface ReceiverPlan { kind: ReceiverKind; size: FastenerSize; fit: ClearanceFit; depth: number; engagement: number | undefined; spot: FaceSpot; places: Vec3[]; /** a nut pocket is cut on the far side of the body too */ far: boolean; /** the spacing the holes stand at when they follow a path (the adjusted one, for a fit), else null */ spacing: number | null; /** the lines the holes follow, each as a polyline on the surface (none when they do not follow one) */ guide: Vec3[][]; /** how far the body reaches through, along the face's inward normal */ reach: number; /** how far everything in the way reaches from the face (the body and whatever is under it, `in_949`) */ stack: number; /** a drill then tap: how deep the clearance part goes */ drill: number | undefined; /** the spot of each place, with its own way in (the same on a flat face; each its own on a curved one, `in_929`) */ spots: FaceSpot[]; /** the surface is curved */ curved: boolean; /** the hardware put into the holes (`in_910`), or null */ insert: { screw: { family: "countersunk" | "socketHead"; length: number; seat: number } | null; nut: "near" | "far" | null } | null }
+export interface ReceiverPlan { kind: ReceiverKind; size: FastenerSize; fit: ClearanceFit; depth: number; engagement: number | undefined; spot: FaceSpot; places: Vec3[]; /** a nut pocket is cut on the far side of the body too */ far: boolean; /** the spacing the holes stand at when they follow a path (the adjusted one, for a fit), else null */ spacing: number | null; /** the inset the rows were made with when it was cut down because the face is too small for what was asked (`in_960`) */ insetUsed?: number; /** the lines the holes follow, each as a polyline on the surface (none when they do not follow one) */ guide: Vec3[][]; /** how far the body reaches through, along the face's inward normal */ reach: number; /** how far everything in the way reaches from the face (the body and whatever is under it, `in_949`) */ stack: number; /** a drill then tap: how deep the clearance part goes */ drill: number | undefined; /** the spot of each place, with its own way in (the same on a flat face; each its own on a curved one, `in_929`) */ spots: FaceSpot[]; /** the surface is curved */ curved: boolean; /** the hardware put into the holes (`in_910`), or null */ insert: { screw: { family: "countersunk" | "socketHead"; length: number; seat: number } | null; nut: "near" | "far" | null } | null }
 /**
  * How far everything in the way reaches from the face, along the way the holes go (`in_949`): from each place a ray goes into the model, and the farthest a body's box lets it go is how far the cut can matter (a lid on an object: the lid and the object under it). Never less than
  * the body of the face itself (`reach`). The boxes are the bodies' boxes, so a body whose box is in the way but whose shape is not is counted: the far end of the preview may be long.
@@ -352,6 +352,7 @@ export function receiverPlan(session: Session, v: ReceiverValues): Result<Receiv
   let spots: FaceSpot[];
   let guide: Vec3[][] = [];
   let spacing: number | null = null;
+  let insetUsed: number | undefined;
   let along = false;
   if (where === "outline" || where === "edge" || where === "midline" || where === "lines") {
     const rules = pathRepeatNumbers({ ...pathRepeatStart(), ...v } as PathRepeatValues);
@@ -376,16 +377,23 @@ export function receiverPlan(session: Session, v: ReceiverValues): Result<Receiv
       got = rowsFromEdges(surf, where, edge, rules.value.rules, rn.value.count, rn.value.gap);
     }
     if (!got.ok) return got;
-    spots = got.value.places; guide = got.value.guide; spacing = got.value.spacing;
+    spots = got.value.places; guide = got.value.guide; spacing = got.value.spacing; insetUsed = got.value.insetUsed;
     along = true;
   } else spots = (where === "picked" ? fv.points : [sp.centre]).map((c): FaceSpot => ({ ...sp, centre: c })); // (the places picked, or the middle of the face)
+  for (const [i, t] of Object.entries(v.moved ?? {})) { // (a hole the pointer moved: onto the face at the place it was put)
+    const k = Number(i);
+    if (!spots[k]) continue;
+    const n = normalOfPlane(fv.face);
+    const h = dot([t[0] - fv.face.at[0], t[1] - fv.face.at[1], t[2] - fv.face.at[2]], n);
+    spots[k] = { ...spots[k]!, centre: [t[0] - n[0] * h, t[1] - n[1] * h, t[2] - n[2] * h] };
+  }
   const [ox, oy] = along ? [0, 0] : [dx, dy]; // (the offsets are from each place; along a line the line's own offset is the way in)
   const places = spots.map((q): Vec3 => [q.centre[0] + sp.u[0] * ox + sp.v[0] * oy, q.centre[1] + sp.u[1] * ox + sp.v[1] * oy, q.centre[2] + sp.u[2] * ox + sp.v[2] * oy]);
   const stack = stackReach(scene(session), face.value.spot, places, face.value.reach);
   const hw = hardwareOf(v, face.value.through, face.value.reach, stack, false);
   if (!hw.ok) return hw;
   const { kind, depth, engagement, drill, far, insert } = hw.value;
-  return ok({ kind, size: v.size as FastenerSize, fit: fitOf(v.fit), depth, engagement, spot: sp, places, far, spacing, guide, reach: face.value.reach, stack, drill, insert, spots: places.map((c, i) => ({ ...spots[i]!, centre: c })), curved: false });
+  return ok({ kind, size: v.size as FastenerSize, fit: fitOf(v.fit), depth, engagement, spot: sp, places, far, spacing, guide, reach: face.value.reach, stack, drill, insert, spots: places.map((c, i) => ({ ...spots[i]!, centre: c })), curved: false, ...(insetUsed !== undefined ? { insetUsed } : {}) });
 }
 
 /** How many rows and how far apart (`in_958`). */
@@ -516,6 +524,7 @@ function curvedPlan(session: Session, v: ReceiverValues, r: Round): Result<Recei
   let spots: FaceSpot[] = [];
   let guide: Vec3[][] = [];
   let spacing: number | null = null;
+  let insetUsed: number | undefined;
   if (where === "picked") for (const q of r.points) { const s = spotOnRound(r, q); if (!s.ok) return s; spots.push(s.value); }
   else if (where === "lines") { // lines drawn on a plane: taken onto the surface (each point straight out from the axis) and followed along it
     const l = readLinesPath(sc, drawn, r.face);
@@ -531,9 +540,11 @@ function curvedPlan(session: Session, v: ReceiverValues, r: Round): Result<Recei
     const got = rowsFromEdges(surf, where, edge, rules.value.rules, rn.value.count, rn.value.gap);
     if (!got.ok) return got;
     ({ places: spots, guide, spacing } = got.value);
+    insetUsed = got.value.insetUsed;
   } else return err("select the round face, and a line, or corners and circles on it");
+  for (const [i, t] of Object.entries(v.moved ?? {})) { const k = Number(i); const m = spots[k] ? spotOnRound(r, t) : null; if (m && m.ok) spots[k] = m.value; } // (a hole the pointer moved: back onto the surface, straight out from the axis)
   if (!spots.length) return err("the rules leave no hole");
-  return ok({ kind: hw.value.kind, size: v.size as FastenerSize, fit: fitOf(v.fit), depth: hw.value.depth, engagement: hw.value.engagement, spot: spots[0]!, places: spots.map((s) => s.centre), far: false, spacing, guide, reach: v.depth.trim() === "" ? 2 * r.radius : hw.value.depth, stack: v.depth.trim() === "" ? 2 * r.radius : hw.value.depth, drill: hw.value.drill, insert: hw.value.insert, spots, curved: true });
+  return ok({ kind: hw.value.kind, size: v.size as FastenerSize, fit: fitOf(v.fit), depth: hw.value.depth, engagement: hw.value.engagement, spot: spots[0]!, places: spots.map((s) => s.centre), far: false, spacing, guide, reach: v.depth.trim() === "" ? 2 * r.radius : hw.value.depth, stack: v.depth.trim() === "" ? 2 * r.radius : hw.value.depth, drill: hw.value.drill, insert: hw.value.insert, spots, curved: true, ...(insetUsed !== undefined ? { insetUsed } : {}) });
 }
 export function cutReceiver(session: Session, v: ReceiverValues): Result<Session> {
   const plan = receiverPlan(session, v);

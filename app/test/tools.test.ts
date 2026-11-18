@@ -864,3 +864,14 @@ test("a turn step about any axis (a direction in the step) turns the body about 
   // a 40 x 20 x 20 block turned a quarter about a diagonal in the floor's plane no longer lies along the axes: its box is wider than 40 in Z
   assert.ok(b.max[2] - b.min[2] > 30, `${JSON.stringify(b)}`);
 });
+
+test("the wireframe stays on through a right click (it opens the menu) until it is taken out (`in_960`)", () => {
+  let st: AppState = createState(createSession(kernel));
+  st = reduce(st, { type: "runAction", id: "view:wireframe" }, env);
+  assert.equal(st.wireframe, true);
+  st = reduce(st, { type: "menu", x: 400, y: 300, button: false }, env);
+  assert.equal(st.wireframe, true, "still wireframe after the right click");
+  assert.ok(st.menu, "and the right click opened the menu");
+  st = reduce(st, { type: "runAction", id: "view:wireframe" }, env);
+  assert.equal(st.wireframe, false);
+});

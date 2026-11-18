@@ -108,7 +108,7 @@ test("rules that make no hole, or too many, are refused with the reason", () => 
   const noLines = cutReceiver(s, vals({ place: "lines" }));
   assert.ok(noLines.ok, "with no line selected the holes fall back to the middle of the face");
   const off = cutReceiver(s, vals({ place: "outline", by: "count", value: "4", offset: "40" }));
-  assert.ok(!off.ok && off.error.includes("inside out"), off.ok ? "" : off.error);
+  assert.ok(off.ok, "an inset that is too big goes smaller (`in_960`)");
 });
 test("the dialog offers where the holes go, says why one cannot be chosen, and swaps the offsets for the path's rules", () => {
   const { s, top } = block();
@@ -386,4 +386,19 @@ test("a round face gives the same lines as a flat one: a whole post has the lowe
   assert.ok(e.ok && e.value.places.every((q) => Math.abs(q[2] - 5) < 1e-6));
   const m = receiverPlan(post1, vals({ place: "midline", by: "count", value: "4", corners: "ignore", rowCount: "2", rowGap: "6" }));
   assert.ok(m.ok && new Set(m.value.places.map((q) => Math.round(q[2]))).size === 2);
+});
+
+test("an inset too big for a small face goes smaller instead of failing (`in_960`)", () => {
+  const { s } = block(); // (100 x 60: an inset of 40 turns the short sides inside out)
+  const p = receiverPlan(s, vals({ place: "outline", by: "count", value: "8", corners: "ignore", offset: "40" }));
+  assert.ok(p.ok, p.ok ? "" : p.error);
+  if (p.ok) { assert.ok(p.value.insetUsed !== undefined && p.value.insetUsed < 40 && p.value.insetUsed > 0); assert.equal(p.value.places.length, 8); }
+  const fine = receiverPlan(s, vals({ place: "outline", by: "count", value: "8", corners: "ignore", offset: "10" }));
+  assert.ok(fine.ok && fine.value.insetUsed === undefined, "an inset that fits is used as it is");
+  const { s: p0, face } = post();
+  const w = receiverPlan(select(p0, [face]), vals({ place: "outline", by: "count", value: "4", corners: "ignore", offset: "30" })); // (the wall is 40 high)
+  assert.ok(w.ok && w.value.insetUsed !== undefined && w.value.insetUsed < 20, w.ok ? "" : w.error);
+});
+test("the fastener tool starts as a countersunk hole (`in_960`)", () => {
+  assert.equal(receiverStart().kind, "countersunk");
 });

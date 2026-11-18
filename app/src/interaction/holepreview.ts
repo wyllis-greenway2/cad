@@ -61,6 +61,37 @@ export function holeLines(plan: ReceiverPlan): number[] {
   }
   return out;
 }
+/** The surfaces of what would be cut, as triangles (flat xyz): each hole's side view turned round its axis, and a nut pocket's walls; drawn nearly clear and dark, as a part in wireframe (`in_960`). */
+function holeSurfaces(plan: ReceiverPlan): number[] {
+  const { kind, size, fit } = plan;
+  const depth = Math.max(0.1, Math.min(plan.depth, plan.stack));
+  const prof = receiverProfile(kind, size, fit, depth, plan.engagement, plan.drill).map(([x, y]) => [x, Math.min(y, 0)] as const);
+  const out: number[] = [];
+  const tri = (a: Vec3, b: Vec3, c: Vec3): void => { out.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]); };
+  for (const spot of plan.spots) {
+    const c = spot.centre;
+    const e1 = unit(spot.u);
+    const n = unit(cross(spot.u, spot.v));
+    const e2 = cross(n, e1);
+    for (let i = 0; i + 1 < prof.length; i++) {
+      const [a, b] = [prof[i]!, prof[i + 1]!];
+      if (a[0] < 1e-9 && b[0] < 1e-9) continue; // (along the axis: nothing to draw)
+      for (let k = 0; k < RING; k++) {
+        const [t0, t1] = [(k / RING) * 2 * Math.PI, ((k + 1) / RING) * 2 * Math.PI];
+        const p = (r: number, y: number, t: number): Vec3 => at(c, e1, e2, n, r * Math.cos(t), r * Math.sin(t), y);
+        tri(p(a[0], a[1], t0), p(a[0], a[1], t1), p(b[0], b[1], t1));
+        tri(p(a[0], a[1], t0), p(b[0], b[1], t1), p(b[0], b[1], t0));
+      }
+    }
+    const walls = (h0: number, h1: number): void => { // a hexagonal pocket's six walls
+      const hex = hexagon(nutTrap(size).acrossFlats);
+      for (let i = 0; i < hex.length; i++) { const [p, q] = [hex[i]!, hex[(i + 1) % hex.length]!]; const [a0, a1, b0, b1] = [at(c, e1, e2, n, p[0], p[1], h0), at(c, e1, e2, n, q[0], q[1], h0), at(c, e1, e2, n, p[0], p[1], h1), at(c, e1, e2, n, q[0], q[1], h1)]; tri(a0, a1, b1); tri(a0, b1, b0); }
+    };
+    if (kind === "nutPocket") walls(0, -nutTrap(size).depth);
+    if (plan.far) walls(-plan.stack, -plan.stack + nutTrap(size).depth);
+  }
+  return out;
+}
 /** The path the holes follow as a dashed line (a dash and a gap by turns along the polyline), flat pairs of points; empty when there is no path. */
 export function guideLines(guide: readonly Vec3[], dash = 4, gap = 3): number[] {
   const out: number[] = [];
@@ -84,5 +115,5 @@ export function guideLines(guide: readonly Vec3[], dash = 4, gap = 3): number[] 
 /** The holes as the view's overlay (the same form as a toolpath's lines: the holes in the cut colour, the path they follow dashed and pale), or null for a plan with no place. */
 export function holesView(plan: ReceiverPlan): ToolpathView | null {
   if (!plan.places.length) return null;
-  return { done: { wire: holeLines(plan), ...(plan.guide.length ? { travel: plan.guide.flatMap((g) => guideLines(g)) } : {}) }, rest: {}, head: null, stock: [] };
+  return { surfaces: holeSurfaces(plan), done: { wire: holeLines(plan), ...(plan.guide.length ? { travel: plan.guide.flatMap((g) => guideLines(g)) } : {}) }, rest: {}, head: null, stock: [] };
 }
