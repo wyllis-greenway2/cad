@@ -3244,3 +3244,6 @@ No steering input. The new `docs/sources/README.md` (CLAUDE.md, source index rul
 
 ## Handoff 736 — 2026-11-18 (in_807: reverse switch, planetary wired as meshed)
 `in_807`. **Built:** `reverseMotion`, intent `motionReverse`, `Frame.motionBar.reversed`, the ⇄ switch in `ui/motionbar.ts`; `followersOf` derives the planetary links (sun to planets, ring to planet 1) from `Scene.planetaries`. Tests: one in `motion.test.ts`, one in `gearmotion.test.ts`. **Not built:** the carrier turning (planets orbiting); the ratchet coupling. **Next:** browser check of reverse, the planetary, the cam follower and the Geneva.
+
+## Handoff 737 — 2026-11-18 (in_808: the planetary carrier turning)
+`in_808`. **Built:** `carrierPlay` (`gearcouple.ts`), `Follower.after`, `followMatrix` (`motion.ts`, used by `frame.ts`); startMotion plays a planetary carrier with the sun held; Keep pose refused. Test in `gearmotion.test.ts`. **Not built:** other holds (ring held), the ratchet coupling. **Next:** browser check of everything in stage 3 and the planetary.
