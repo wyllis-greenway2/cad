@@ -3901,3 +3901,30 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_888 — 2026-11-19 — directive
 > [attached a state snapshot "clear_spiral_bevel_problems_state.json", a saved project "clear_spiral_bevel_problems.json" (a 16 tooth spiral bevel gear, mate 30, module 2, bore 5), and a screenshot of the spiral bevel gear box with the message "a spiral bevel pair of more than 56 teeth in all is not made yet (the kernel runs out of memory cutting it)" over Teeth 24, Mate teeth 35] hang on lets take a break from that, I found a bug in the bevel spiral gear. So first off, it seems to fail and say I exceeded tooth count when I set the mating gear to a tooth count still less than the max tooth count? Also look at this bevel gear, the teeth have huge have round lumps on them.
 (pauses the hypoid reading to report two spiral bevel bugs: the tooth limit message read as a per gear limit when it is for the two gears together, and round lumps on the teeth of a 16 / 30 gear)
+## in_889 — 2026-11-19 — directive
+> Can we make it more intuitive? How feasible would it be? So for example, you could have one body that is set to rotate, and then everything else that happens is a cascade through constraints only? so collision of hard bodies or other constraints such as surface or coaxial constraints. Would this be heavy and slow to process?
+(asks whether one body set to rotate could drive everything else through constraints and collision of hard bodies, and whether that would be too heavy)
+
+## in_890 — 2026-11-19 — directive
+> would it be possible to make a really light hard body solver that didn't use the kernal and understood when bodies collide?
+(asks for a light hard body solver that does not use the kernel)
+
+## in_891 — 2026-11-19 — directive
+> I am just brainstorming here. Are there any super simple rules that actually capture most of what we need? So for example, all we do is detect collision, then just allow what ever motion delta is left that doesn't have collision? Would this model things sliding across each others surface?
+(brainstorming a simple rule: detect collision and allow the motion that is left)
+
+## in_892 — 2026-11-19 — directive
+> So how could we make this a practical method in an animation tool kit? so for example, I would imagine most things could be solved with constraints, you wouldn't rely on collision for everything, but then any key parts that do need collision, would have this simple model. Could we limit the cascade push problem simply be defining which other bodies are hard bodies or not? Or perhaps a rule such that everything that a hard body encounters is considered solid, so it can push soft bodies, but things the soft bodies encounter are not considered solid? So in the animation tool, it could capture most things right just by defining one part as a hard body, and if any cascading problems show up, then the person would need to declare more hard bodies? Or maybe for the best user experience we just set a cascade limit, since that is all that really matters anyway?
+(proposes hard bodies as the ones that push, with a cascade limit)
+
+## in_893 — 2026-11-19 — directive
+> so how about this so most things work with constraints, we should probably build these already into gear assemblies etc or make them easy to apply. Then we have the hard bodies, but instead of needing to declare everything as a hard body that you want to cascade past the first contact, instead we just let hard-bodies transfer their hard body feature cascade to a certain depth? I think that would make a better user experience if we can support it. If that is too resource intensive, then maybe we should go back to the method that the user needs to declare every hard body past level 2? What do you think? Also does this mean we should rebuild our current hard body system in general? For use generally as apposed to just for the animation system? it seems like if this lighter simpler model works well, then we should use it instead of the kernel system which I think we are currently using.
+(proposes hardness that spreads to a depth, and asks whether the hard body system should be rebuilt on the light model)
+
+## in_894 — 2026-11-19 — directive
+> Shall I start with the decision entry and the prototype together?
+((the message is the AI's own closing question sent back; read as a go-ahead for the decision entry and the prototype, and the AI said so))
+
+## in_895 — 2026-11-19 — directive
+> excellent so it is already done? please merge it so I can test it. If I test the geneva plate now will it be operating on collision with one rotating body? Everything else donstream is constraint or collision as our model states now?
+(asks for `claude/adoring-dijkstra-contact` to be merged into the testing branch, and whether the Geneva in the app now runs on collision: the AI said no, the prototype is not in the app)
