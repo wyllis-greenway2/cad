@@ -72,6 +72,8 @@ export const settings = {
     /** the toolpath preview (`in_570`): a cut line is red, score and engrave are the colours of their marks, a travel move a pale grey */
     previewCut: 0xe03131,
     previewTravel: 0x9aa0a6,
+    /** the fastener tool's preview (`in_890`): the holes and the hardware drawn as a wireframe, in the charcoal of a body's edges */
+    previewWire: 0x2a2a2d,
     /** the edge of the sheet in the toolpath preview (`in_572`) */
     previewSheet: 0x4b5563,
     outlines: true, // the dark lines along a body's edges: off, the body is drawn by its shading alone (`in_459`; the menu row switches it, the choice is kept)

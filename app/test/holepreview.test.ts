@@ -86,7 +86,7 @@ test("a different inset moves the guide with it, and the preview draws it dashed
   const at = (inset: string) => { const g = plan(block(), vals({ place: "outline", by: "count", value: "4", corners: "ignore", offset: inset })).guide.map((q) => q[0]); return Math.min(...g); };
   assert.ok(Math.abs(at("5") - 5) < 1e-6 && Math.abs(at("15") - 15) < 1e-6);
   const view = holesView(plan(block(), vals({ place: "outline", by: "count", value: "4", corners: "ignore", offset: "10" })))!;
-  assert.ok(view.done.travel!.length > 0 && view.done.cut!.length > 0);
+  assert.ok(view.done.travel!.length > 0 && view.done.wire!.length > 0);
   assert.equal(holesView(plan(block(), vals()))!.done.travel, undefined);
 });
 test("a dashed line: dashes and gaps by turns along the polyline, a dash a fifth of the way when the dash is 4 and the gap 3 and the line 20 long", () => {

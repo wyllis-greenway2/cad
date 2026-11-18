@@ -307,11 +307,11 @@ export function createView(host: HTMLElement) {
     clearGroup(toolpath);
     pen.build("toolpath", () => {
     if (!v) return;
-    const colourOf = (layer: string): number => (layer === "travel" ? settings.theme.previewTravel : layer === "score" ? settings.theme.markScore : layer === "engrave" ? settings.theme.markEngrave : settings.theme.previewCut);
+    const colourOf = (layer: string): number => (layer === "travel" ? settings.theme.previewTravel : layer === "wire" ? settings.theme.previewWire : layer === "score" ? settings.theme.markScore : layer === "engrave" ? settings.theme.markEngrave : settings.theme.previewCut);
     for (const [lines, faint] of [[v.rest, true], [v.done, false]] as const) {
       for (const [layer, pairs] of Object.entries(lines)) {
         if (!pairs.length) continue;
-        const m = pen.segments(pairs, colourOf(layer), layer === "travel" ? 1 : 2.2, false);
+        const m = pen.segments(pairs, colourOf(layer), layer === "travel" ? 1 : layer === "wire" ? 1.3 : 2.2, false);
         m.renderOrder = faint ? 3 : 4;
         m.raycast = () => {}; // (not something the axis labels hide behind)
         if (faint) { const mat = m.material as import("three/addons/lines/LineMaterial.js").LineMaterial; mat.transparent = true; mat.opacity = layer === "travel" ? 0.35 : 0.28; }

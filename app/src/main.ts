@@ -182,7 +182,7 @@ const ring = createRing(document.body, (id) => {
   ring.hide();
   if (id === "view:game") { input.toggleGame(); return; }
   if (id === "repeat:path") { void pathRepeatFlow(); return; } // (`dec_path_repeat`)
-  if (id === "models:holes") { holesOpen(); return; } // (the tool is a panel and a preview in the model view, `dec_parts_tool`)
+  if (id === "tool:fasteners") { holesOpen(); return; } // (the tool is a panel and a preview in the model view, `dec_parts_tool`)
   dispatch({ type: "runAction", id });
 }, (id) => dispatch({ type: "runAction", id: `why:${id}` })); // (a dimmed option pressed: its reason is said and the ring stays, `in_538`)
 

@@ -465,20 +465,19 @@ type Item = { id: string; label: string; enabled: boolean; why: string | null; c
 const ringOf = (session: Session): Item[] => reduce({ ...createState(session) }, { type: "menu", x: 400, y: 300, button: true }, { w: 800, h: 600, now: 0 }).menu!.items as unknown as Item[];
 const find = (items: Item[], id: string): Item | undefined => { for (const i of items) { if (i.id === id) return i; const f = i.children ? find(i.children, id) : undefined; if (f) return f; } return undefined; };
 
-test("the right-click ring has Models under Shape, with Fastener Holes in it", () => {
+test("the right-click ring has the Fastener tool directly under Shape, with the screw icon, and no Models", () => {
   const items = ringOf(createSession(kernel));
   const shape = items.find((i) => i.id === "shape")!;
-  const models = shape.children!.find((i) => i.id === "models")!;
-  assert.equal(models.label, "Models");
-  assert.deepEqual(models.children!.map((c) => [c.id, c.label]), [["models:holes", "Fastener Holes"]]);
-  assert.equal(find(items, "models:fasteners"), undefined, "the Fasteners entry is retired: Fastener Holes inserts the hardware (in_889)");
+  const tool = shape.children!.find((i) => i.id === "tool:fasteners")!;
+  assert.equal(tool.label, "Fastener tool");
+  assert.equal(find(items, "models"), undefined);
 });
 test("Fastener Holes is always in the ring: it opens a panel that says what to select", () => {
-  const none = find(ringOf(createSession(kernel)), "models:holes")!;
+  const none = find(ringOf(createSession(kernel)), "tool:fasteners")!;
   assert.equal(none.enabled, true);
   assert.equal(none.why, null);
   const { s } = block();
-  assert.equal(find(ringOf(s), "models:holes")!.enabled, true);
+  assert.equal(find(ringOf(s), "tool:fasteners")!.enabled, true);
 });
 test("the ⋯ list no longer holds Add part or Fastener hole: they are in the ring", async () => {
   const { appRows } = await import("../src/interaction/appmenu.ts");

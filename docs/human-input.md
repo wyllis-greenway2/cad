@@ -3908,3 +3908,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > Screw plus optional washer/nut (Recommended)
 > Fastener Holes becomes the one bar; Fasteners menu entry goes away (Recommended)
 (answers to three questions on in_888: for a hole that is both drilled and tapped, a clearance hole first to a depth and the tapped hole past it; Insert puts in the screw plus an optional washer and nut; Fastener Holes becomes the one bar and the Fasteners menu entry goes away)
+
+## in_890 — 2026-11-18 — directive
+> Okay now this isn't really a model anymore, so it doesn't belong under the models category, instead lets put it under shapes with the screw symbol and just call it fastener tool. Also, for the styling, can we just try wireframe instead of the red lines we have?
+(asks for: the tool moved out of Models to directly under Shape, with the screw symbol, named "Fastener tool"; and to try a wireframe look for the preview in place of the red lines)

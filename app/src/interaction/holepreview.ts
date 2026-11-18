@@ -83,5 +83,5 @@ export function guideLines(guide: readonly Vec3[], dash = 4, gap = 3): number[] 
 /** The holes as the view's overlay (the same form as a toolpath's lines: the holes in the cut colour, the path they follow dashed and pale), or null for a plan with no place. */
 export function holesView(plan: ReceiverPlan): ToolpathView | null {
   if (!plan.places.length) return null;
-  return { done: { cut: holeLines(plan), ...(plan.guide.length ? { travel: guideLines(plan.guide) } : {}) }, rest: {}, head: null, stock: [] };
+  return { done: { wire: holeLines(plan), ...(plan.guide.length ? { travel: guideLines(plan.guide) } : {}) }, rest: {}, head: null, stock: [] };
 }
