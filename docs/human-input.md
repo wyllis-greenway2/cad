@@ -4180,5 +4180,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the branch `claude/adoring-dijkstra-default-backlash` to be merged into the testing branch, and says the full suite is not needed: only the quick checks were run)
 
+## in_956 — 2026-11-18 — directive
 > [attached two files: the state snapshot messed_up_hypoid_gear_tooth_state.json and the project messed_up_gear_tooth.json (a 16 teeth pinion and a 24 teeth ring gear, module 2, spiral 30, hypoid offset 6, bore 5)] Look at this, it really messed up the teeth in this model
 (reports that the hypoid pair's teeth are wrong in this model; asks the AI to look)

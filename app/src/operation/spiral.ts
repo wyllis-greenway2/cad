@@ -168,7 +168,7 @@ function curveOf(pts: [number, number][], radii: number[], pitch: number, lean =
   const q = taken.sort((a, b) => a[0] - b[0]);
   if (q.length < 4 || q[q.length - 1]![0] < radii[radii.length - 1]! - 0.3) return null;
   return radii.map((r) => {
-    if (r <= q[0]![0] && lean) { // (below the lowest point the flank goes on along its own lean: the offset ring gear's flank stops short of the root, up to a few mm, `in_951`; straight down at the same azimuth made a ragged tooth)
+    if (r <= q[0]![0] && lean) { // (below the lowest point the flank goes on along its own lean: the offset ring gear's flank stops short of the root, up to a few mm, `in_956`; straight down at the same azimuth made a ragged tooth)
       let k = 1;
       while (k < q.length - 1 && q[k]![0] - q[0]![0] < 1.5) k++;
       const dr = q[k]![0] - q[0]![0];
