@@ -18,7 +18,7 @@ const err = (s: GearSpec) => { const r = gearOutline(s); return r.ok ? "" : r.er
 test("the limits of a spiral pair say why: a small pinion, a big pair, a steep ring, the angle, the shafts", () => {
   assert.equal(err(pinion()), "");
   assert.match(err(pinion({ teeth: 12 })), /16 or more teeth/);
-  assert.match(err({ ...pinion(), teeth: 30, bevel: { mate: 55, spiral: 30 } }), /80 teeth at most between the two gears/);
+  assert.match(err({ ...pinion(), teeth: 30, bevel: { mate: 36, spiral: 30 } }), /64 teeth at most between the two gears/);
   assert.match(err({ ...pinion({ teeth: 16 }), bevel: { mate: 42, spiral: 30 } }), /2.55 to 1/);
   assert.match(err({ ...pinion(), bevel: { mate: 30, spiral: 5 } }), /spiral angle must be/);
   assert.match(err({ ...pinion(), bevel: { mate: 30, spiral: 30, shaft: 80 } }), /90 degrees only/);
