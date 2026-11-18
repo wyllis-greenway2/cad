@@ -493,3 +493,35 @@ test("a screw through a hole open at the far end is the shortest standard length
   const tap = receiverPlan(sel, vals({ kind: "drillTap", size: "M3", place: "centre", insert: "screw" }));
   assert.ok(tap.ok && (tap.value.insert?.screw?.length ?? 99) <= (tap.value.insert?.screw?.room ?? 0), "a tapped pilot is blind too");
 });
+
+// ---- the depth is chosen for the part, not right through whatever is in the way (`in_984`) ----
+test("an empty depth: through when that is not much further than a screw's length, else a screw's length", () => {
+  const thin = receiverPlan(block().s, vals({ kind: "countersunk", size: "M3", place: "centre" }));
+  assert.ok(thin.ok && thin.value.depthNote?.includes("right through"), thin.ok ? String(thin.value.depthNote) : thin.error);
+  let s = createSession(kernel);
+  const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [60, 40, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: r.lines, params: { depth: 80 } } });
+  const top = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.ref.endsWith("0,0,1,80"))!.ref;
+  const thick = receiverPlan(select(s, [top]), vals({ kind: "countersunk", size: "M3", place: "centre" }));
+  assert.ok(thick.ok, thick.ok ? "" : thick.error);
+  if (thick.ok) { near(thick.value.depth, 20, 1e-9); assert.ok(thick.value.depthNote?.includes("20 mm screw"), thick.value.depthNote); }
+  const typed = receiverPlan(select(s, [top]), vals({ kind: "countersunk", size: "M3", place: "centre", depth: "50" }));
+  assert.ok(typed.ok && typed.value.depth === 50 && typed.value.depthNote === undefined, "a typed depth is kept");
+  const nut = receiverPlan(select(s, [top]), vals({ kind: "clearance", size: "M3", place: "centre", far: "nut" }));
+  assert.ok(nut.ok && nut.value.depth > 80, "a nut on the far side needs the hole right through");
+});
+test("on a curve the holes are not so deep that they meet toward the middle", () => {
+  const { s: s0, face } = post();
+  const ring = receiverPlan(select(s0, [face]), vals({ kind: "clearance", size: "M3", place: "midline", by: "count", value: "8" }));
+  assert.ok(ring.ok, ring.ok ? "" : ring.error);
+  if (!ring.ok) return;
+  assert.ok(ring.value.depth < 20, `${ring.value.depth} deep, the post is 20 across`);
+  // no two holes closer than the hole and a wall, along their whole depth
+  const axes = ring.value.spots.map((sp) => { const l = Math.hypot(sp.centre[0], sp.centre[1]); return [-sp.centre[0] / l, -sp.centre[1] / l]; });
+  const at = (i: number, z: number) => [ring.value.spots[i]!.centre[0] + axes[i]![0]! * z, ring.value.spots[i]!.centre[1] + axes[i]![1]! * z];
+  for (let i = 0; i < 8; i++) for (let j = i + 1; j < 8; j++) assert.ok(Math.hypot(at(i, ring.value.depth)[0]! - at(j, ring.value.depth)[0]!, at(i, ring.value.depth)[1]! - at(j, ring.value.depth)[1]!) >= 3.4 + 1.5 - 1e-6 || ring.value.depthNote?.includes("close"), `${i} ${j}`);
+  // holes along the axis are side by side and can go as deep as a flat face's
+  const column = receiverPlan(select(s0, [face]), vals({ kind: "clearance", size: "M3", place: "edge", by: "count", value: "3" }));
+  assert.ok(column.ok, column.ok ? "" : column.error);
+});
