@@ -20,7 +20,7 @@ depends_on:
 
 **Result:** the first answer 5.4 s to 4.5 to 4.8 s at normal speed; no change at 4 times slower (there the page's own reading is the longer).
 
-**Not done, and why (`q_kernel_warmup`):** from the moment the kernel is up to the first answer there are 2 to 3.5 s for a model the kernel makes in 0.1 s in Node, and the next different models are 1.9 s, 3.6 s and then 0.16 s: the first calls of the kernel's thousands of functions are slow in the browser. The kernel's file is cached by the browser when the server says so (a deployment matter: the file name carries its hash, so it can be kept for good).
+**Warm-up tried and dropped (`in_904`, `prototypes/kernel-warmup`):** from the kernel being up to the first answer is 1.4 to 4 s for models the kernel makes in 0.1 s in Node; three models made first (7 to 8 s of the kernel's time) took 0.5 to 1.2 s off the first real one, and the larger part of a first load (1.6 to 2.6 s of 4 s) is the page's own first run, which the kernel cannot warm. Not built. The kernel's file is cached by the browser when the server says so (a deployment matter: the file name carries its hash, so it can be kept for good).
 
 ## Rationale
 

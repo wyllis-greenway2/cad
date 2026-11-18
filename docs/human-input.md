@@ -3960,3 +3960,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_903 — 2026-11-18 — directive
 > yes please
 (approves starting with the startup time work: starting the kernel earlier, caching the kernel file, splitting rarely used code)
+
+## in_904 — 2026-11-18 — directive
+> Yes prototype the warm-up
+(approves a prototype of the kernel warm-up: measuring how much of the first model's delay a warm-up removes)
