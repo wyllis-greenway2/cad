@@ -3988,3 +3988,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_910 — 2026-11-18 — approval
 > Phase 0 (Recommended)
 (the answer chosen to the question which next step the approval covers: Phase 0, building the scene once when opening a project, keeping the last good picture when a step fails, keeping an automatic copy of the project in the browser, and stopping a step before the kernel's memory crashes the tab)
+
+## in_911 — 2026-11-18 — question
+> what do you reccomend?
+(asks which of the offered next steps the AI recommends)
