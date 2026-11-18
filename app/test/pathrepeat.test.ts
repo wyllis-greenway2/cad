@@ -144,3 +144,37 @@ test("a frame lifted onto a plane in space carries the point and the two ways", 
   assert.deepEqual(l.along.map((x) => Math.round(x * 1e6) / 1e6), [0, 1, 0]);
   assert.deepEqual(l.across.map((x) => Math.round(x * 1e6) / 1e6), [0, 0, 1]);
 });
+
+// ---- walking the row along the path (`in_887`) ----
+test("a shift walks the whole row along an open line: the places move together, and those that go past an end are left out", () => {
+  const base = placeAlong(line(100), { spacing: { by: "distance", distance: 20 }, ends: "remainder" });
+  assert.deepEqual(ss(base), [0, 20, 40, 60, 80, 100]);
+  assert.deepEqual(ss(placeAlong(line(100), { spacing: { by: "distance", distance: 20 }, ends: "remainder", shift: 7 })), [7, 27, 47, 67, 87]);
+  assert.deepEqual(ss(placeAlong(line(100), { spacing: { by: "distance", distance: 20 }, ends: "remainder", shift: -7 })), [13, 33, 53, 73, 93]);
+  assert.ok(!placeAlong(line(100), { spacing: { by: "count", count: 2 }, shift: 500 }).ok);
+  assert.ok(!placeAlong(line(100), { spacing: { by: "count", count: 2 }, shift: NaN }).ok);
+});
+test("on a closed loop a shift turns the places round it, none is lost, and the spacing stays", () => {
+  const closed = placeAlong(rect(100, 60), { spacing: { by: "count", count: 8 }, shift: 10 });
+  assert.ok(closed.ok);
+  assert.deepEqual(closed.value.frames.map((f) => Math.round(f.s)), [10, 50, 90, 130, 170, 210, 250, 290]);
+  const round = placeAlong(rect(100, 60), { spacing: { by: "count", count: 8 }, shift: 315 });
+  assert.ok(round.ok);
+  assert.deepEqual(round.value.frames.map((f) => Math.round(f.s)), [315, 35, 75, 115, 155, 195, 235, 275]);
+  assert.equal(round.value.frames.length, 8);
+  // a circle: the first place moves round by the angle of the shift
+  const c = placeAlong(circlePath([0, 0], 10), { spacing: { by: "count", count: 4 }, shift: (Math.PI * 10) / 2 });
+  assert.ok(c.ok);
+  nearPt(c.value.frames[0]!.at, [0, 10], 1e-6);
+});
+test("the shift is one of the numbers a repeat keeps, and a record made before it reads as no shift", async () => {
+  const { numbersOf, rulesFrom, PATH_NUMBERS } = await import("../src/operation/pathrepeat.ts");
+  assert.equal(PATH_NUMBERS, 10);
+  const n = numbersOf({ rules: { spacing: { by: "distance", distance: 20 }, ends: "fit", corners: "each", offset: 3, shift: 4 }, turn: true, reverse: false });
+  assert.equal(n.length, 10);
+  assert.equal(n[9], 4);
+  const back = rulesFrom(n);
+  assert.ok(back.ok && back.value.rules.shift === 4);
+  const old = rulesFrom(n.slice(0, 9));
+  assert.ok(old.ok && old.value.rules.shift === 0);
+});

@@ -3893,3 +3893,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_886 — 2026-11-18 — directive
 > okay that is pretty good! there is this weird blue plane everywhere after applying an operation though
 (praises the result and reports a blue plane across the whole view after applying an operation (the fastener holes); a screenshot of a teardrop plate with a ring of countersunk holes and two saved files were attached)
+
+## in_887 — 2026-11-18 — directive
+> Can we have the fastener tool work around curved surfaces? Can we have it so that it can cut nut or other receiver sockets on the other side at the same time? So it could cut a countersunk head profile, or a nut, or both. Both would be countersunk on one side or heads on one side and nut cutouts on the other side.
+> Can we have it so you can shift the whole line? it is hard to set. So this would be an offset inline. Or if it is a closed loop it would rotate the parts along the line. Basically walks them along the line. Also how do I change the hardware in this menu?
+(asks for: the fastener tool to work around curved surfaces; a nut or other receiver socket cut on the other side at the same time, so a head profile (countersunk), a nut, or both, with heads on one side and nut cutouts on the other; a way to shift the whole row along the line (an offset along it; on a closed loop it turns the parts round it: walks them along the line); and how to change the hardware in the bar)

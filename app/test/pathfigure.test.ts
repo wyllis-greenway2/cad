@@ -153,7 +153,7 @@ test("the dialog says how many places and how far apart, draws the path and the 
   const t = pathRepeatTarget(s);
   assert.ok(t.ok);
   const d = pathRepeatDialog(s, t.value, vals({ by: "distance", value: "20" }));
-  assert.deepEqual(d.fields.map((f) => f.id), ["picture", "by", "value", "ends", "corners", "startInset", "endInset", "offset", "turn", "reverse"]);
+  assert.deepEqual(d.fields.map((f) => f.id), ["picture", "by", "value", "ends", "corners", "startInset", "endInset", "offset", "shift", "turn", "reverse"]);
   const pic = d.fields[0]!;
   assert.equal(pic.type, "picture");
   assert.ok(String(pic.value).startsWith("<svg") && String(pic.value).includes("<circle") && String(pic.value).includes("<path"));

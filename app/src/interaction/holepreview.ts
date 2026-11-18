@@ -51,6 +51,12 @@ export function holeLines(plan: ReceiverPlan): number[] {
       for (const h of [0, -trap.depth]) for (let i = 0; i < hex.length; i++) { const [p, q] = [hex[i]!, hex[(i + 1) % hex.length]!]; seg(at(c, e1, e2, n, p[0], p[1], h), at(c, e1, e2, n, q[0], q[1], h)); }
       for (const p of hex) seg(at(c, e1, e2, n, p[0], p[1], 0), at(c, e1, e2, n, p[0], p[1], -trap.depth));
     }
+    if (plan.far) { // the nut's pocket on the far side: its hexagon at the far face and at its floor, and its corners joined
+      const trap = nutTrap(size);
+      const hex = hexagon(trap.acrossFlats);
+      for (const h of [-plan.reach, -plan.reach + trap.depth]) for (let i = 0; i < hex.length; i++) { const [p, q] = [hex[i]!, hex[(i + 1) % hex.length]!]; seg(at(c, e1, e2, n, p[0], p[1], h), at(c, e1, e2, n, q[0], q[1], h)); }
+      for (const p of hex) seg(at(c, e1, e2, n, p[0], p[1], -plan.reach), at(c, e1, e2, n, p[0], p[1], -plan.reach + trap.depth));
+    }
   }
   return out;
 }

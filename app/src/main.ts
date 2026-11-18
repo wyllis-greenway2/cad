@@ -310,7 +310,7 @@ function holesClose(): void { hardware = null; holesKey = ""; holesNow = null; h
 /** What the selection says for the holes: a line (or lines) selected: along them; a face: along its outline moved in by the inset; corners or circles picked: at them; nothing usable yet: say what to select. */
 function holesValues(): { values: ReceiverValues; mode: HoleBarView["mode"] } {
   const ctx = receiverContext(state.session);
-  const v = hardware!.values;
+  const v = hardware!.values.kind === "tapped" || hardware!.values.kind === "nutPocket" ? { ...hardware!.values, far: "none" } : hardware!.values; // (a nut on the far side goes with a hole right through)
   if (!ctx) return { values: v, mode: "none" };
   if (ctx.places) return { values: { ...v, place: "picked" }, mode: "picked" };
   if (ctx.lines) return { values: { ...v, place: "lines", corners: "ignore" }, mode: "line" }; // (a line has no corners to keep: its ends are its ends)
@@ -339,7 +339,7 @@ function holesOptions(): { bar: HoleBarView; view: ToolpathView | null } {
   const note = plan?.ok ? `${plan.value.places.length} hole${plan.value.places.length === 1 ? "" : "s"}${plan.value.spacing !== null ? `, ${Math.round(plan.value.spacing * 100) / 100} mm apart` : ""}` : "";
   const v = hardware!.values;
   holesNow = {
-    bar: { kinds: receiverKinds(), sizes: receiverSizes(), values: { kind: v.kind, size: v.size, by: v.by ?? "distance", value: v.value ?? "30", ends: v.ends ?? "fit", corners: v.corners ?? "each", offset: v.offset ?? "10", depth: v.depth }, mode, note, problem },
+    bar: { kinds: receiverKinds(), sizes: receiverSizes(), values: { kind: v.kind, size: v.size, by: v.by ?? "distance", value: v.value ?? "30", ends: v.ends ?? "fit", corners: v.corners ?? "each", offset: v.offset ?? "10", shift: v.shift ?? "0", depth: v.depth, far: v.far ?? "none" }, mode, note, problem },
     view: plan?.ok ? holesView(plan.value) : null,
   };
   holesKey = key;

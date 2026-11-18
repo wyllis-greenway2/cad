@@ -7,7 +7,7 @@ import { createSession, run, scene } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";
 import { drawChain, drawCircle, drawSquaredRectangle } from "../src/operation/build.ts";
 import { nextId } from "../src/operation/scene.ts";
-import { cutReceiver, receiverContext, receiverDialog, receiverStart, receiverStartFor, selectedFace } from "../src/interaction/addpart.ts";
+import { cutReceiver, receiverContext, receiverDialog, receiverStart, receiverStartFor, selectedFace, receiverPlan } from "../src/interaction/addpart.ts";
 import type { ReceiverValues } from "../src/interaction/addpart.ts";
 import { readFaceOutline } from "../src/operation/pathmaps.ts";
 import { faceEdges } from "../src/interaction/offsetbody.ts";
@@ -132,4 +132,43 @@ test("what was selected decides where the dialog starts: picked places, else lin
   const sc = scene(s);
   const corner = Object.values(sc.parts).find((p) => p.kind === "corner" && p.origin === "body" && p.ref.endsWith("v@100,60,8"))!.ref;
   assert.equal(receiverStartFor(select(s, [top, corner])).place, "picked");
+});
+
+// ---- a nut on the other side, and walking the row (`in_887`) ----
+test("a nut pocket on the far side is cut with the hole: the same volume as the hole and a pocket at the far face", () => {
+  const { s, V } = block();
+  const hex = (Math.sqrt(3) / 2) * 49 - Math.PI * 2.25 ** 2; // (M4: 7 mm across flats, 3.2 thick; the hole's own circle is inside it)
+  const r = cutReceiver(s, vals({ kind: "clearance", size: "M4", fit: "medium", far: "nut" }));
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  near(total(r.value), V - cyl(4.5, 8) - hex * 3.2);
+  // with a countersink on the near side as well: the head profile and the nut
+  const both = cutReceiver(s, vals({ kind: "countersunk", size: "M4", fit: "medium", far: "nut" }));
+  assert.ok(both.ok, both.ok ? "" : both.error);
+  const cone = 4.48 - 2.25;
+  near(total(both.value), V - ((Math.PI * cone) / 3) * (4.48 * 4.48 + 4.48 * 2.25 + 2.25 * 2.25) - cyl(4.5, 8 - cone) - hex * 3.2);
+});
+test("a row of holes with a nut pocket at each, on the other side", () => {
+  const { s, V } = block();
+  const r = cutReceiver(s, vals({ place: "outline", by: "distance", value: "30", corners: "each", offset: "10", far: "nut" }));
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  const hex = (Math.sqrt(3) / 2) * 49 - Math.PI * 2.25 ** 2;
+  near(total(r.value), V - 10 * (cyl(4.5, 8) + hex * 3.2));
+});
+test("a nut on the other side is refused with a hole to tap, a nut pocket on this side, or a depth short of the far side", () => {
+  const { s } = block();
+  assert.ok(!cutReceiver(s, vals({ kind: "tapped", far: "nut" })).ok);
+  assert.ok(!cutReceiver(s, vals({ kind: "nutPocket", far: "nut" })).ok);
+  const d = cutReceiver(s, vals({ kind: "clearance", far: "nut", depth: "5" }));
+  assert.ok(!d.ok && d.error.includes("right through"));
+});
+test("a shift walks the whole row along the outline: a closed loop turns the holes round, the same number of holes and the same volume", () => {
+  const { s, V } = block();
+  const at = (shift: string) => { const r = cutReceiver(s, vals({ place: "outline", by: "count", value: "8", corners: "ignore", offset: "10", shift })); assert.ok(r.ok, r.ok ? "" : r.error); return total(r.value); };
+  near(at("0"), V - 8 * cyl(4.5, 8));
+  near(at("12.5"), V - 8 * cyl(4.5, 8));
+  const plan0 = receiverPlan(s, vals({ place: "outline", by: "count", value: "8", corners: "ignore", offset: "10", shift: "0" }));
+  const plan1 = receiverPlan(s, vals({ place: "outline", by: "count", value: "8", corners: "ignore", offset: "10", shift: "10" }));
+  assert.ok(plan0.ok && plan1.ok);
+  assert.notDeepEqual(plan0.value.places[0], plan1.value.places[0]);
+  assert.equal(plan1.value.places.length, 8);
 });

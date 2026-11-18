@@ -106,3 +106,13 @@ test("a line drawn on a face is enough: it stands for the face, and the holes fo
   assert.equal(p.places.length, 5);
   assert.deepEqual(p.places.map((q) => Math.round(q[0])), [10, 30, 50, 70, 90]);
 });
+
+test("a nut pocket on the far side adds its hexagon at the far face and at its floor, and its corners, for each hole: 18 more lines", () => {
+  const s = block();
+  const one = holeLines(plan(s, vals())).length / 6;
+  const far = holeLines(plan(s, vals({ far: "nut" })));
+  assert.equal(far.length / 6, one + 18);
+  const z = points(far).map((q) => q[2]);
+  assert.ok(Math.min(...z) >= -1e-6 && Math.max(...z) <= 8 + 1e-6, "all within the body");
+  assert.ok(points(far).some((q) => Math.abs(q[2] - 3.2 * 0) < 1e-6), "the hexagon is at the far face (z = 0)");
+});

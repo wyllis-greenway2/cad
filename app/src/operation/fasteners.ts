@@ -309,3 +309,25 @@ export function makeSocketHead(size: string, length: number, smooth = false): Re
   const bad = socketLengthProblem(size, length);
   return bad ? err(bad) : ok(socketHeadSteps(size, length, smooth));
 }
+
+/**
+ * The nut pocket on the other side of a body (`in_887`): the hexagon of the nut cut into the far face of the body round the same axis, as deep as the nut is thick. `spot.centre` is where the hole is on the near face, `reach` how far
+ * the body goes from that face to the far one along the hole. The pocket's plane stands on the far face, facing out of the body, so the cut goes into it as one made from the near face does.
+ */
+export function farNutSteps(size: FastenerSize, spot: FaceSpot, reach: number): PartSteps {
+  const trap = nutTrap(size);
+  const n0 = cross3(spot.u, spot.v);
+  const l = Math.hypot(...n0) || 1;
+  const n: Vec3 = [n0[0] / l, n0[1] / l, n0[2] / l];
+  const lu = Math.hypot(...spot.u) || 1;
+  const e1: Vec3 = [spot.u[0] / lu, spot.u[1] / lu, spot.u[2] / lu];
+  const v = cross3(e1, n); // (e1 x v = -n: the plane faces out of the far side)
+  const far = along(spot.centre, n, -reach);
+  let plane: Ref | null = null;
+  let hex: Ref[] = [];
+  return [
+    (s) => { const ref: Ref = `d/${nextId(s, "e")}.pl` as Ref; plane = ref; return { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: far, u: e1, v } }; },
+    (s) => { const r = drawChain(s, plane!, hexagon(trap.acrossFlats).map(([x, y]) => along(along(far, e1, x), v, y)), true); hex = r.lines; return r.command; },
+    (s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "extrude", parts: hex, params: { depth: -trap.depth, mode: "cut", ...figureParams([{ outer: hex, holes: [] }]) } } }),
+  ];
+}

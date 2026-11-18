@@ -3,7 +3,7 @@
 // description and reports the values.
 import { roundButton } from "./look.ts";
 
-export interface HoleBarValues { kind: string; size: string; by: string; value: string; ends: string; corners: string; offset: string; depth: string }
+export interface HoleBarValues { kind: string; size: string; by: string; value: string; ends: string; corners: string; offset: string; shift: string; depth: string; far: string }
 /** What the bar shows: the choices of the receiver and the size, the numbers, which surface is selected (a face, a line, or none yet), and a line of words (how many holes, or why none). */
 export interface HoleBarView { kinds: { id: string; label: string }[]; sizes: string[]; values: HoleBarValues; mode: "face" | "line" | "picked" | "none"; note: string; problem: string | null }
 export interface HoleBarHandlers { change(values: HoleBarValues): void; commit(): void; close(): void }
@@ -29,20 +29,22 @@ export function createHoleBar(host: HTMLElement, h: HoleBarHandlers) {
     if (s.dataset.sig !== sig) { s.replaceChildren(...items.map((i) => { const o = document.createElement("option"); o.value = i.id; o.textContent = i.label; return o; })); s.dataset.sig = sig; }
     if (s.value !== value) s.value = value;
   };
-  const kind = select(), size = select(), by = select(), ends = select(), corners = select();
-  const value = box(46), offset = box(46), depth = box(50, "through");
+  const kind = select(), size = select(), by = select(), ends = select(), corners = select(), far = select();
+  const value = box(46), offset = box(46), shift = box(46), depth = box(50, "through");
   const mode = words("");
   const insetG = group(words("Inset"), offset);
   const endsG = group(words("Ends"), ends);
   const cornersG = group(words("Corners"), corners);
+  const shiftG = group(words("Shift"), shift);
+  const farG = group(words("Nut"), far);
   const tick = roundButton({ icon: "check", size: 28, tone: "dark", title: "Cut the holes (Enter)" });
   const cross = roundButton({ icon: "cross", size: 28, tone: "dark", title: "Close (Esc)" });
   tick.addEventListener("click", (e) => { e.stopPropagation(); h.commit(); });
   cross.addEventListener("click", (e) => { e.stopPropagation(); h.close(); });
-  pill.append(words("Holes"), kind, size, mode, by, value, insetG, cornersG, endsG, group(words("Depth"), depth), tick, cross);
-  const read = (): HoleBarValues => ({ kind: kind.value, size: size.value, by: by.value, value: value.value, ends: ends.value, corners: corners.value, offset: offset.value, depth: depth.value });
-  for (const c of [kind, size, by, ends, corners]) c.addEventListener("change", () => h.change(read()));
-  for (const c of [value, offset, depth]) c.addEventListener("input", () => h.change(read())); // (the preview follows each key)
+  pill.append(words("Holes"), group(words("Type"), kind), group(words("Size"), size), farG, mode, by, value, insetG, shiftG, cornersG, endsG, group(words("Depth"), depth), tick, cross);
+  const read = (): HoleBarValues => ({ kind: kind.value, size: size.value, by: by.value, value: value.value, ends: ends.value, corners: corners.value, offset: offset.value, shift: shift.value, depth: depth.value, far: far.value });
+  for (const c of [kind, size, by, ends, corners, far]) c.addEventListener("change", () => h.change(read()));
+  for (const c of [value, offset, shift, depth]) c.addEventListener("input", () => h.change(read())); // (the preview follows each key)
   const setText = (i: HTMLInputElement, v: string) => { if (document.activeElement !== i && i.value !== v) i.value = v; };
   return {
     update(v: HoleBarView | null): void {
@@ -52,9 +54,11 @@ export function createHoleBar(host: HTMLElement, h: HoleBarHandlers) {
       fill(size, v.sizes.map((s) => ({ id: s, label: s })), v.values.size);
       fill(by, [{ id: "distance", label: "Every" }, { id: "count", label: "Number" }], v.values.by === "count" ? "count" : "distance");
       fill(ends, [{ id: "fit", label: "fit" }, { id: "remainder", label: "leave rest" }, { id: "centre", label: "centre" }], v.values.ends);
+      fill(far, [{ id: "none", label: "none" }, { id: "nut", label: "pocket on the other side" }], v.values.far === "nut" ? "nut" : "none");
       fill(corners, [{ id: "each", label: "every corner" }, { id: "ignore", label: "none" }, { id: "inward", label: "from corners" }], v.values.corners);
       setText(value, v.values.value);
       setText(offset, v.values.offset);
+      setText(shift, v.values.shift);
       setText(depth, v.values.depth);
       mode.textContent = v.mode === "face" ? "along the outline" : v.mode === "line" ? "along the line" : v.mode === "picked" ? "at the places picked" : "select a face or a line";
       const distance = v.values.by !== "count";
@@ -63,8 +67,11 @@ export function createHoleBar(host: HTMLElement, h: HoleBarHandlers) {
       const rules = v.mode === "face" || v.mode === "line"; // (the spacing and the rest are for a path)
       by.style.display = value.style.display = rules ? "" : "none";
       insetG.style.display = v.mode === "face" ? "inline-flex" : "none";
+      shiftG.style.display = rules ? "inline-flex" : "none";
+      farG.style.display = v.values.kind === "tapped" || v.values.kind === "nutPocket" ? "none" : "inline-flex"; // (a nut on the far side goes with a hole right through)
       cornersG.style.display = v.mode === "face" ? "inline-flex" : "none";
       endsG.style.display = v.mode === "line" && distance ? "inline-flex" : "none";
+      shift.title = v.mode === "face" ? "walk the holes round the outline, mm" : "move the whole row along the line, mm";
       note.textContent = v.problem ?? v.note;
       note.style.display = note.textContent ? "block" : "none";
       note.style.background = v.problem ? "rgba(120,80,0,.92)" : "rgba(52,54,59,.9)";
