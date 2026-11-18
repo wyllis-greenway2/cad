@@ -80,6 +80,7 @@ export type Intent =
   | { type: "motionPlay" }
   | { type: "motionKind"; kind: "turn" | "slide" }
   | { type: "motionReverse" }
+  | { type: "motionLink"; id: string; ratio?: number; kind?: "turn" | "slide"; remove?: true }
   | { type: "motionKeep" }
   | { type: "motionClose" }
   | { type: "previewClose" }

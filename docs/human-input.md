@@ -3693,6 +3693,18 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_836 — 2026-11-18 — approval
 > yes lets build it
 (approves dec_spiral_bevel_gears as proposed, with its limits, and asks for the spiral bevel tool to be built)
+## in_837 — 2026-11-19 — directive
+> okay so the animation bar jumps a lot. Try doing a planetary gear, then animating it. Also the blue mouse cursor hover thingy, seems to fly away into the animation and is decoupled from the mouse.
+(two bugs: the motion bar jumps while a planetary set is played; the blue hover marker leaves the mouse during an animation)
+
+## in_838 — 2026-11-19 — directive
+> Go with your recommendation, start on the ratio link
+(asks for the hand-made link between any two joints and a ratio to be started, as the fifth choice of `dec_mechanism_motion` allows)
+
+## in_839 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for the branch `claude/adoring-dijkstra-motion-next` to be merged into the testing branch)
+
 
 ## in_840 — 2026-11-18 — directive
 > lets hold of on that.  I think I would like to make it so that you could cut fastener holes in a pattern. Like for example if you had a block, you could say cut fasteners on face x distance from edge and x spacing per fastener. You might also have rules like work from corners inward, or have fastener in corner even if it means adjusting the spacing slightly, or have x number of fasteners equally spaced. Another way would be to have fasteners just follow a line. So you could have a line that defines the path of the fasteners and they are spaced at x distance or evenly divided along that line. However before we build this I think this might require us to first build a deeper underlying ability that I want anyway for other reasons. That ability is a sweep pattern repeat. It would be similar to other pattern repeats we have which can be used for sketching or modeling. However this would be repeating along some other indicator very much like how the fasteners would be placed as I described. You could use it defining lines or maybe even faces and their edges, you should be able to follow patterns along that in different methods, x distance, equally divided etc. You should also be able to apply an offset (similar to how fasteners using the edge of plane would work). So I believe it is all the same machinery. Can you help me build this sweep pattern repeat tool, and then we can use it to integrate into our fastener system?

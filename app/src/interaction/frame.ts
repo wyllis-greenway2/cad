@@ -25,6 +25,7 @@ import { thinPlacesOf } from "./measure.ts";
 import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
 import { jointMatrix, followMatrix } from "./motion.ts";
+import { linksOf } from "../operation/coupling.ts";
 import { axisAcross } from "./revolve.ts";
 import { gearOfPart, gearOfSelection } from "../operation/gearscene.ts";
 import { planetaryOfGear } from "../operation/planetary.ts";
@@ -88,6 +89,8 @@ import type { StandIn } from "./standin.ts";
 /** A refused change, while it flashes: how far through it is (0 to 1), the constraints it would have broken (red, fading), the ones that tried (they shake), and the parts of the broken ones. */
 export interface FlashFrame { t: number; victims: string[]; culprits: string[]; parts: Ref[] }
 
+/** What the bar shows: a joint with no stops that turns goes round and round, so the number is kept within half a turn either way (it would otherwise grow without end, and the slider has its ends at the half turns). */
+const shownAmount = (m: NonNullable<AppState["motion"]>): number => (m.free && m.kind === "turn" ? ((((m.amount + 180) % 360) + 360) % 360) - 180 : m.amount);
 export interface GizmoFrame { handles: Handle[]; hover: string | null; active: string | null; chosen?: string | null; locked?: string[]; /** the handle that pulses blue: the mover's sphere while it is the thing being oriented (`in_421`) */ pulse?: string }
 
 export interface Frame {
@@ -180,7 +183,7 @@ export interface Frame {
   toolpath: ToolpathView | null;
   previewBar: { at: number; label: string } | null;
   /** the bar of a joint that is played or scrubbed: where it stands, its range, what it does and whether it is playing (`dec_mechanism_motion`) */
-  motionBar: { amount: number; lo: number; hi: number; kind: "turn" | "slide"; playing: boolean; reversed: boolean; label: string } | null;
+  motionBar: { amount: number; lo: number; hi: number; kind: "turn" | "slide"; playing: boolean; reversed: boolean; label: string; /** the links of the joint played: the ratio, as seen from it, and what the other end does */ links: { id: string; ratio: number; kind: "turn" | "slide" }[] } | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
   modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate" | "linear" | "circular" | "invert"; label: string } | null;
   /** the sketching tool that is on, for the pill at the top (`in_193`) */
@@ -450,7 +453,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     gearChip: s.tool || s.op || s.drag || s.repeat ? null : gearChipOf(sc, s.session.hover ? [...sel, s.session.hover] : sel),
     followers: gpu?.followers ?? [],
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
-    highlight: { hover: s.session.hover, /* (a visible sheet lights the blue hover disc as every surface does, `in_470`) */ hoverPoint: s.hoverPoint, selection: s.moverSphere ? [] : [...sel.filter((r) => !isSectionPlane(sc, r)), ...(s.op?.twoDist ? [chosenFace(sceneOf(s.op.made ? undone(s.session) : s.session), s.op)?.ref].filter((r): r is Ref => !!r) : [])], /* (the face the first distance is along is lit like a selected face, `dec_chamfer_two_distances`) */ /* (the object is not what is selected while the mover is oriented: it is only drawn as wireframe, `in_421`) */ // (a cross section plane is drawn by its own faint quad, not lit like a face, `in_396`)
+    highlight: { hover: s.motion ? undefined : s.session.hover, /* (a visible sheet lights the blue hover disc as every surface does, `in_470`) */ hoverPoint: s.motion ? null : s.hoverPoint, selection: s.moverSphere ? [] : [...sel.filter((r) => !isSectionPlane(sc, r)), ...(s.op?.twoDist ? [chosenFace(sceneOf(s.op.made ? undone(s.session) : s.session), s.op)?.ref].filter((r): r is Ref => !!r) : [])], /* (the face the first distance is along is lit like a selected face, `dec_chamfer_two_distances`) */ /* (the object is not what is selected while the mover is oriented: it is only drawn as wireframe, `in_421`) */ // (a cross section plane is drawn by its own faint quad, not lit like a face, `in_396`)
     amber: [...new Set([...(s.op?.kind === "loft" ? loftStarts(sceneOf(s.session), s.op) : []), ...(s.op?.kind === "sweep" ? sweepStart(sceneOf(s.session), s.op) : []), ...focusParts(sc, sel, s.focus), ...variableStart(sceneOf(s.op?.made ? undone(s.session) : s.session), s.op), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
     preview: withGhost(previewFor(sc, s.tool), s), // (the picture itself moves now: the thin rings that stood in for it are not needed)
     entry: inUnits(movingOp || (shownOp && !s.tool && hasGizmo(shownOp.kind) && !numberShown) ? null : entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp)),
@@ -493,7 +496,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : undefined, /* (only the orient mode pulses, and the revolve's orb that is ready to be oriented; the mirror's and the copies' orbs do not, `in_439`) */ hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "revolve" && !s.moverSphere ? `rev:turn:${"xyz"[s.op.axis]}` : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
     similar: similarOf(s),
     toolpath: s.preview ? previewView(s.preview.toolpath, s.preview.at) : null,
-    motionBar: s.motion ? { amount: s.motion.amount, lo: s.motion.lo, hi: s.motion.hi, kind: s.motion.kind, playing: s.motion.playing, reversed: s.motion.speed < 0, label: `${s.motion.kind === "turn" ? "turned" : "slid"} ${Math.round(s.motion.amount * 10) / 10}${s.motion.kind === "turn" ? "°" : " mm"}` } : null,
+    motionBar: s.motion ? { amount: shownAmount(s.motion), lo: s.motion.lo, hi: s.motion.hi, kind: s.motion.kind, playing: s.motion.playing, reversed: s.motion.speed < 0, links: s.motion.mate ? linksOf(sc, s.motion.mate, s.motion.kind).map((l) => ({ id: l.id, ratio: l.k, kind: l.kind })) : [], label: `${s.motion.kind === "turn" ? "turned" : "slid"} ${Math.round(shownAmount(s.motion) * 10) / 10}${s.motion.kind === "turn" ? "°" : " mm"}` } : null,
     previewBar: s.preview ? { at: s.preview.at, label: `${Math.round(s.preview.at * 100)}%${s.preview.toolpath.seconds ? ` of ~${s.preview.toolpath.seconds < 90 ? Math.round(s.preview.toolpath.seconds) + " s" : Math.round(s.preview.toolpath.seconds / 6) / 10 + " min"}` : ""}` } : null,
     adding: s.adding ? "on" : null,
     resetView: !s.anim && !s.tool && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),

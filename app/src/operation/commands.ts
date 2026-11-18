@@ -17,6 +17,7 @@ import { addGroup, removeGroup, withoutParts } from "./groups.ts";
 import { stretchScene } from "./stretch.ts";
 import { addPattern, setPattern, breakPattern, patternsWithout } from "./repeat.ts";
 import { addGear, setGear, deleteGear, ownedSteps } from "./gearscene.ts";
+import { addCoupling, setCoupling, deleteCoupling } from "./coupling.ts";
 import { addPlanetary, setPlanetary, deletePlanetary } from "./planetary.ts";
 import type { PlanetarySpec } from "./planetary.ts";
 import type { GearSpec } from "./gear.ts";
@@ -74,6 +75,10 @@ export type Command =
   | { type: "gear"; id: string; plane: Ref; at: Vec3; spec: GearSpec; /** radians */ turn?: number; /** the gear it was meshed with (`GearRecord.meshWith`) */ meshWith?: string }
   | { type: "setGear"; id: string; spec: GearSpec; at?: Vec3; /** the gear turned about its centre in its plane, radians (0 puts it back) */ turn?: number; /** a cam's follower (null takes it away) */ follower?: { mate: string; side: 1 | -1 } | null }
   | { type: "deleteGear"; id: string }
+  /** a link between two joints (`coupling.ts`): the second moves by the ratio times what the first does */
+  | { type: "couple"; a: string; b: string; ka: "turn" | "slide"; kb: "turn" | "slide"; ratio: number; id?: string }
+  | { type: "setCoupling"; id: string; ratio?: number; ka?: "turn" | "slide"; kb?: "turn" | "slide" }
+  | { type: "deleteCoupling"; id: string }
   /** a planetary set that keeps its numbers (`planetary.ts`, `dec_planetary_gears`): a sun, planets and a ring (gear records of their own) and an optional carrier; `setPlanetary` gives it new numbers (and a new centre or turn), `deletePlanetary` takes it all away */
   | { type: "planetary"; id: string; plane: Ref; at: Vec3; spec: PlanetarySpec; /** radians */ turn?: number }
   | { type: "setPlanetary"; id: string; spec: PlanetarySpec; at?: Vec3; turn?: number }
@@ -321,6 +326,9 @@ export function apply(s: Scene, c: Command): Result<Scene> {
     }
     case "setGear": return setGear(s, c.id, c.spec, c.at, c.turn, c.follower);
     case "deleteGear": return deleteGear(s, c.id);
+    case "couple": return addCoupling(s, c);
+    case "setCoupling": return setCoupling(s, c.id, { ...(c.ratio !== undefined ? { ratio: c.ratio } : {}), ...(c.ka ? { ka: c.ka } : {}), ...(c.kb ? { kb: c.kb } : {}) });
+    case "deleteCoupling": return deleteCoupling(s, c.id);
     case "planetary": return addPlanetary(s, { id: c.id, plane: c.plane, at: c.at, spec: c.spec, ...(c.turn ? { turn: c.turn } : {}) });
     case "setPlanetary": return setPlanetary(s, c.id, c.spec, c.at, c.turn);
     case "deletePlanetary": return deletePlanetary(s, c.id);
