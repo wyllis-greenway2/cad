@@ -100,7 +100,7 @@ export function createView(host: HTMLElement) {
   const IDENTITY = new Array<number>(16).fill(0).map((_, i) => (i % 5 === 0 ? 1 : 0));
   overlay.matrixAutoUpdate = false;
   /** The body (and, when what is selected is the body, its highlight) drawn moved by a matrix: a body being dragged is not worked out again by the kernel for every move of the pointer (`in_216`). */
-  function setBodyMatrix(m: number[] | null, withOverlay: boolean, only: Part | null = null, followers: { matrix: number[]; only: Part }[] = []) {
+  function setBodyMatrix(m: number[] | null, withOverlay: boolean, only: Part | null = null, followers: { matrix: number[]; only: Part }[] = [], overlayMatrix: number[] | null = null) {
     bodyMatrix = m;
     // bodies of several that move on their own (the one dragged, and those that follow it, `in_341`): only their triangles and outline move, each by its own matrix; else the whole body does
     splitNow = m && only ? [only, ...followers.map((f) => f.only)] : null;
@@ -109,7 +109,7 @@ export function createView(host: HTMLElement) {
     if (moverGroup) { moverGroup.matrix.fromArray(IDENTITY); moverGroup.matrixWorldNeedsUpdate = true; }
     const matrices = [m, ...followers.map((f) => f.matrix)];
     (moversOf?.() ?? []).forEach((kid, k) => { kid.matrix.fromArray(matrices[k] ?? IDENTITY); kid.matrixWorldNeedsUpdate = true; });
-    overlay.matrix.fromArray(m && withOverlay ? m : IDENTITY);
+    overlay.matrix.fromArray(overlayMatrix ?? (m && withOverlay ? m : IDENTITY)); // (a motion gives the matrix of the selected body itself, `in_984`)
     overlay.matrixWorldNeedsUpdate = true;
   }
   let fade = false;

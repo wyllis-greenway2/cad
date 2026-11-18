@@ -4288,3 +4288,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_983 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for this branch (the automatic line choice, Make points, screws rounded up for a through hole, a body keeping its name when pushed thinner) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
+
+## in_984 — 2026-11-19 — directive
+> In an animation, if you click an animated part, it sketch or highlight doesn't actually follow the part, it floats out in space as a rotated version of the flat static one. Also lets get rid of the persistent pause icons. The pause button in media player is enough.
+(with a screenshot of a Geneva wheel: the selection's teal fill floats away from the animated body, turned about the wrong axis; and the pause icons that stay on animated bodies are to go)
+
+## in_985 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the branch `claude/adoring-dijkstra-follow-select` to be merged into the testing branch; the full suite is not needed)
