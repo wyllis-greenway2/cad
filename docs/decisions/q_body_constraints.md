@@ -3,7 +3,7 @@ id: q_body_constraints
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_293, in_305, in_306, in_307, in_308, in_309, in_310, in_311, in_312, in_313, in_314
+human_input: in_293, in_821, in_305, in_306, in_307, in_308, in_309, in_310, in_311, in_312, in_313, in_314
 date: 2026-11-14
 depends_on:
 alternative_to:
@@ -41,6 +41,8 @@ The human asked (`in_293`) for "the same constraints and suggestions on bodies t
 3. **Fixed in place** for a body (it refuses to be dragged or moved), which is small.
 
 Questions for the human: is (1) enough for now, with (2) kept for later? Which relations first: flush faces, a distance between faces, centres aligned?
+
+**A sketch tied to something that stays (`in_293`, fixed again after `in_821`).** A body moved or turned brings its sketches; a sketch constraint that ties one to something that stays holds it, and the move is refused with the constraint named and a button that deletes it and makes the move. That check (`heldBack` in `runop.ts`) only saw a sketch that was stretched out of shape, so a circle tied concentric with a hole's was pulled back to the hole by a sideways move without any message: the move was recorded and did nothing (a pin that "cannot be moved", seven such steps in the report). It also sees a carried corner that did not arrive where the move took it. Test: `pinmove.test.ts`, the report in `test/fixtures/pin-move-in_821.cad.json`.
 
 ## Rationale
 

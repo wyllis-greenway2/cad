@@ -3628,3 +3628,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_820 — 2026-11-18 — approval
 > Yes, correct the handoff
 (approves correcting Handoff 745, which still called the spiral test failure open)
+
+## in_821 — 2026-11-18 — directive
+> [the human attached a saved project, "why_cant_I_move_this_pin.json", and a state snapshot, "why_cant_I_move_this_pin_state.json": a block with two holes (circles 22.12 and 44.89 in X, y 23.57), a pin (circle e_015, concentric with the first hole) extruded 26.2 and moved up by 24.5 and 12.7 in Z, then seven moves in X that did nothing]
+> Why cant I move this pin? normally if there is a constraint preventing me from doing something it is supposed to make itself known and offer a delete button. This is supposed to be a systemwide feature with constraints. or is this not a constraint preventing me?
+(asks why the pin cannot be moved, and says a constraint that blocks an action must make itself known and offer a delete button, as a system-wide behaviour)

@@ -3,6 +3,7 @@
 import type { Session } from "./session.ts";
 import { scene as sceneOf, run } from "./session.ts";
 import type { Command } from "../operation/commands.ts";
+import { apply } from "../operation/commands.ts";
 import type { Op } from "./operations.ts";
 import { opCommand, valueOf, bodyMotion } from "./operations.ts";
 import { heldCommand, constrainedMotion } from "./mate.ts";
@@ -119,6 +120,14 @@ function heldBack(before: ReturnType<typeof sceneOf>, after: ReturnType<typeof s
     const p = before.parts[r];
     if (p?.kind === "line") { const [x, y] = [len(before, p.a, p.b), len(after, p.a, p.b)]; if (x !== null && y !== null && Math.abs(y - x * k) > 1e-4 * Math.max(1, x)) deformed = true; }
     if (p?.kind === "circle") { const q = after.parts[r]; if (q?.kind === "circle" && Math.abs(q.radius - p.radius * k) > 1e-4 * Math.max(1, p.radius)) deformed = true; }
+  }
+  // a sketch that did not arrive where the move took it (a circle tied concentric with a hole that stays is pulled back to it, `in_821`): not out of shape, but held all the same
+  if (!deformed) {
+    const raw = apply(before, cmd);
+    if (raw.ok) for (const r of moved) {
+      const [want, got] = [raw.value.parts[r as keyof typeof raw.value.parts], after.parts[r as keyof typeof after.parts]];
+      if (want?.kind === "corner" && got?.kind === "corner" && Math.abs(want.at[0] - got.at[0]) + Math.abs(want.at[1] - got.at[1]) + Math.abs(want.at[2] - got.at[2]) > 1e-3) deformed = true;
+    }
   }
   if (!deformed) return null;
   const parts = new Set<string>([...moved].flatMap((r) => { const p = before.parts[r]; return p?.kind === "line" ? [r, p.a, p.b, ...(p.center ? [p.center] : [])] : p?.kind === "circle" ? [r, p.center] : [r]; }));
