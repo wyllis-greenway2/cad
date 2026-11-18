@@ -3,7 +3,7 @@
 import type { Entry } from "../interaction/entry.ts";
 import { textButton } from "./look.ts";
 
-export interface GearBoxHandlers { entry(field: number, text: string): void; enter(): void; cancel(): void }
+export interface GearBoxHandlers { entry(field: number, text: string): void; enter(): void; cancel(): void; update(): void }
 
 export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
   const el = document.createElement("div");
@@ -17,12 +17,13 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
   let suggest: HTMLElement | null = null;
   let info: HTMLElement | null = null;
   let focusedFor = "";
+  let updateButton: HTMLButtonElement | null = null;
   return {
     rect(): DOMRect | null { return el.style.display === "none" ? null : el.getBoundingClientRect(); },
     /** `entry`: the panel to show (null hides it). */
     update(entry: Entry | null) {
       if (!entry || !entry.panel) { el.style.display = "none"; sig = ""; focusedFor = ""; inputs = []; return; }
-      const now = JSON.stringify([entry.panel, !!entry.kept, entry.fields.map((f) => [f.label, f.unit ?? entry.unit])]);
+      const now = JSON.stringify([entry.panel, !!entry.gearButtons?.edit, entry.fields.map((f) => [f.label, f.unit ?? entry.unit])]);
       if (now !== sig) {
         sig = now;
         el.replaceChildren();
@@ -77,7 +78,9 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
         el.appendChild(note);
         const bar = document.createElement("div");
         bar.style.cssText = "display:flex;gap:8px;justify-content:flex-end;margin-top:10px;position:sticky;bottom:-12px;padding:8px 0 4px;background:#fff;border-top:1px solid #f0f1f3"; // (the buttons stay at the bottom of the panel while its long list of numbers is scrolled, `in_816`)
-        bar.append(textButton(entry.kept ? "Done" : "Cancel", { click: () => h.cancel() }), textButton(entry.kept ? "Apply" : "Make it", { tone: "primary", click: () => h.enter() }));
+        // the same two buttons for a gear to be made and one that is made (`in_822`): Update (gray, left) applies the numbers and keeps the box open, only when something is different; the blue one (Create, or Done for a gear that exists) applies and ends the tool
+        updateButton = textButton("Update", { click: () => h.update() });
+        bar.append(updateButton, textButton(entry.gearButtons?.edit ? "Done" : "Create", { tone: "primary", click: () => h.enter() }));
         el.appendChild(bar);
       }
       if (suggest) { suggest.textContent = entry.suggest ?? ""; suggest.style.display = entry.suggest ? "block" : "none"; } // (a click that makes it mesh with the gear beside it, `in_709`)
@@ -90,6 +93,7 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
         input.style.background = f.bad ? "#fde8e8" : "";
         if (f.bad) input.style.borderColor = "#e5484d"; else if (document.activeElement !== input) input.style.borderColor = "#cfd0d4";
       });
+      if (updateButton) { const on = !!entry.gearButtons?.changed; updateButton.disabled = !on; updateButton.style.opacity = on ? "1" : ".45"; updateButton.style.cursor = on ? "pointer" : "default"; updateButton.style.background = "#eceef1"; }
       el.style.display = "block";
       if (entry.focus && focusedFor !== sig) { // (the box was opened on a number, as the Helix item of a gear's icon does: it takes the keyboard there and scrolls to it, `in_771`)
         focusedFor = sig;

@@ -41,8 +41,6 @@ import { meshWith } from "../operation/mesh.ts";
 
 export type ToolKind = "rect" | "circle" | "line" | "arc" | "spline" | "cam" | "trim" | "gear";
 export interface Tool {
-  /** the tool to go back to when this one is let go (`in_816`): a gear box kept open on the gear just made goes back to the tool that made it, armed for the next */
-  back?: Tool | null;
   kind: ToolKind;
   /** null while armed (waiting for the first click on a surface) */
   plane: Ref | null;
@@ -112,7 +110,6 @@ export function camSpecOf(t: Tool): CamSpec | null {
 }
 export interface GearState {
   internal: boolean; typed: string[]; field: number; editing?: string; base?: GearSpec;
-  /** the box was kept open on the gear just made or changed (`in_816`): Make it goes on applying, and Done (or Esc) lets it go */ kept?: true;
   /** the box opened on this number: its text is taken into the box's focus and scrolled to when it opens (`in_771`: the Helix item of a gear's icon) */ focus?: true;
   /** the number that was taken back to a value that makes a gear (`in_690`): its field, and when (the box and the drawing flash red for a moment) */ bad?: { field: number; at: number };
   /** the turn the gear being changed has (radians), so its preview stands as it does */ turn?: number;
@@ -480,7 +477,7 @@ function gearMade(scene: Scene, t: Tool): Result<GearTarget> | null {
   const typed = (k: string) => { const i = fields.findIndex((f) => f.key === k); return i < 0 ? null : typedNumber(g.typed[i] ?? ""); };
   const srcRack = !!src.spec.rack;
   const ratio = typed("ratio");
-  const teeth = Math.round(typed("teeth") ?? (src.spec.worm ? 30 : src.spec.wheel ? src.spec.wheel.starts : ratio !== null && ratio > 0 && !srcRack ? ratio * src.spec.teeth : isCrown(src.spec) ? src.spec.bevel!.mate : srcRack ? 16 : rack ? 10 : ring ? 2 * src.spec.teeth : src.spec.internal ? Math.max(3, Math.floor(src.spec.teeth / 2)) : src.spec.teeth)); // (a partner has as many teeth as the gear it meshes with, but a gear in a ring has half the ring's and a ring round a gear twice the gear's: the same number would be refused, `in_686`)
+  const teeth = Math.round(typed("teeth") ?? (src.spec.worm ? 30 : src.spec.wheel ? src.spec.wheel.starts : ratio !== null && ratio > 0 && !srcRack ? ratio * src.spec.teeth : src.spec.bevel ? src.spec.bevel.mate : srcRack ? 16 : rack ? 10 : ring ? 2 * src.spec.teeth : src.spec.internal ? Math.max(3, Math.floor(src.spec.teeth / 2)) : src.spec.teeth)); // (a partner has as many teeth as the gear it meshes with, but a gear in a ring has half the ring's and a ring round a gear twice the gear's: the same number would be refused, `in_686`)
   const [cx, cy] = localOf(pl, src.at);
   const [px, py] = t.cursor ? localOf(pl, t.cursor) : [cx, cy];
   let where: number;
@@ -505,6 +502,17 @@ function gearMade(scene: Scene, t: Tool): Result<GearTarget> | null {
 function gearTarget(scene: Scene, t: Tool): GearTarget | null {
   const r = gearMade(scene, t);
   return r && r.ok ? r.value : null;
+}
+const canon = (v: unknown): string => JSON.stringify(v, (_k, x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x as Record<string, unknown>).filter(([, y]) => y !== undefined).sort(([a], [b]) => (a < b ? -1 : 1))) : x));
+/** Whether the numbers in the box of a gear (or planetary set) that is being edited are not the ones it has: Update is there only then (`in_822`). */
+export function gearChanged(scene: Scene, t: Tool): boolean {
+  const id = t.kind === "gear" && !t.cam ? t.gear?.editing : undefined;
+  if (!id) return false;
+  const target = gearTarget(scene, t);
+  if (!target) return false;
+  if (t.gear?.planetary) { const rec = scene.planetaries?.find((p) => p.id === id); return !!rec && !!target.planetary && canon(target.planetary.spec) !== canon(rec.spec); }
+  const rec = scene.gears?.find((g) => g.id === id);
+  return !!rec && canon(target.spec) !== canon(rec.spec);
 }
 /** Why the gear the tool stands at makes none (what Enter or a click says), or null. */
 /** Why a cam that is not made is not (`cams.ts`), for the message line. */
@@ -917,7 +925,11 @@ export function finish(scene: Scene, t: Tool): Finished | null {
     const made = hasBody(target.spec) || target.spec.worm || target.spec.wheel; // (hasBody: a bevel gear too) // (a helical gear, a worm and a wheel are made into their bodies at once, like an extrusion: nothing is left selected)
     const refs = made ? null : gearRefs({ id, plane: pl.ref, at: target.at, spec: target.spec });
     const select = refs ? [refs.wall ? diskFaceRef(refs.wall) : loopFaceRef(refs.lines)] : [];
-    return { command: t.gear?.editing ? { type: "setGear", id, spec: target.spec } : { type: "gear", id, plane: pl.ref, at: target.at, spec: target.spec, ...(target.turn ? { turn: target.turn } : {}) }, select };
+    const made1: Command = t.gear?.editing ? { type: "setGear", id, spec: target.spec } : { type: "gear", id, plane: pl.ref, at: target.at, spec: target.spec, ...(target.turn ? { turn: target.turn } : {}) };
+    // a bevel partner of other teeth than the gear was made for: that gear's mate teeth follow, so that the two cones fit (`in_822`)
+    const src = t.gear?.mesh?.src;
+    const follow: Command[] = src?.spec.bevel && target.spec.bevel && !t.gear?.editing && src.spec.bevel.mate !== target.spec.teeth ? [{ type: "setGear", id: src.id, spec: { ...src.spec, bevel: { ...src.spec.bevel, mate: target.spec.teeth } } }] : [];
+    return { command: follow.length ? { type: "batch", commands: [...follow, made1] } : made1, select };
   }
   if (t.kind === "arc") {
     const arc = arcOf(pl, t);

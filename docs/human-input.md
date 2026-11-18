@@ -3633,3 +3633,12 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > [the human attached a saved project, "why_cant_I_move_this_pin.json", and a state snapshot, "why_cant_I_move_this_pin_state.json": a block with two holes (circles 22.12 and 44.89 in X, y 23.57), a pin (circle e_015, concentric with the first hole) extruded 26.2 and moved up by 24.5 and 12.7 in Z, then seven moves in X that did nothing]
 > Why cant I move this pin? normally if there is a constraint preventing me from doing something it is supposed to make itself known and offer a delete button. This is supposed to be a systemwide feature with constraints. or is this not a constraint preventing me?
 (asks why the pin cannot be moved, and says a constraint that blocks an action must make itself known and offer a delete button, as a system-wide behaviour)
+
+## in_822 — 2026-11-18 — directive
+> [the human attached a saved project, "bevel_not_seating.json": a bevel gear of 30 teeth made for a mate of 20, and a bevel gear of 30 teeth made with Mesh gear from it]
+> in the gear tool, the apply button is not clear. I think it should say update, and only be available when data is actually changed to update. Otherwise it should say Create which closes the menu and creates the gear and applies the operation. The Create button should be right and blue and the update button left gray.Also when you are done it should actually be done, right now it stays in some slight wireframe mode untill the checkmark is pressed on the top of the screen. Also why is the menu for creating a new gear and editing a gear differen't? The buttons are different at least. I think they should be exactly the same. This smells like duplicate code. Also on the edit menu when I click make it, it seems to not actually close the menu but isntead go back to the other menu? Also bevel gears dont seat properly when you make a mesh gear.
+(asks for Update and Create buttons in one gear box for new and existing gears, the box closing and the tool ending when done, and the bevel partner to seat; Update and Create may stay named for both uses)
+
+## in_823 — 2026-11-18 — approval
+> Create/Done by state (Recommended)
+(chosen from the AI's three options in the question panel: one box; left gray Update, enabled only when something changed; right blue button closes the box and ends the tool, Create for a new gear and Done for an existing one, applying any pending change first)

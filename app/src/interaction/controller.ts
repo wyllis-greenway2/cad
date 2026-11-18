@@ -13,7 +13,7 @@ import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
 import { doBodiesAction } from "./control/bodies.ts";
 import { doStepGo, doStepEdit, doStepInsert, doStepSet, doStepLink, doParamSet, doParamRemove } from "./control/history.ts";
-import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
+import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doGearUpdate, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
 import { hoverOn, run, scene as sceneOf } from "./session.ts";
 import { stepOption, activateOption, similarOf } from "./options.ts";
 import { loftChoice } from "./loft.ts";
@@ -152,6 +152,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "undo": return doUndo(s);
     case "redo": return doRedo(s);
     case "escape": return doEscape(s);
+    case "gearUpdate": return doGearUpdate(s);
     case "begin": return doBegin(s, i.name, env.now);
     case "typed": {
       // Tab and Shift+Tab step through the options of the open operation, each step choosing it (`in_664`); the left and right arrows go between its numbers, which Tab does when it has no options or has several numbers to type
