@@ -1,4 +1,4 @@
-// The parts and steps of a face gear drive's two gears (`dec_crown_gear_set`, `in_879`), made from a gear record by `gearscene.ts` as those of a crown gear are (`crownscene.ts`).
+// The parts and steps of a face gear drive's two gears (`dec_crown_gear_set`, `in_886`), made from a gear record by `gearscene.ts` as those of a crown gear are (`crownscene.ts`).
 // The face gear: its plane is its pitch plane, its axis the plane's normal, the teeth stand on the `+n` side. The body: a smooth loft of the toothed ring through five heights (`face.ts`: the tooth is the pinion's envelope, curved), cut by a revolved blank (a thin hub joins the teeth) and joined to a plate.
 // The spur pinion: its axis lies along a radius of the face gear; its plane is across that axis at the inner end of the teeth and it is extruded along the axis over the face (`bevel.frame` is its plane's directions, as a bevel partner's).
 import type { Ref } from "../shared/ref.ts";

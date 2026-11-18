@@ -1,4 +1,4 @@
-// Face gears (`dec_crown_gear_set`, `in_879`): a face gear and its spur pinion at 90 degrees, bevel records with `bevel.facegear`; the face gear's tooth the envelope of the pinion's involute (`face.ts`), the body a smooth loft cut to a blank and joined to a plate; the pinion a spur gear along a radius of the face gear.
+// Face gears (`dec_crown_gear_set`, `in_886`): a face gear and its spur pinion at 90 degrees, bevel records with `bevel.facegear`; the face gear's tooth the envelope of the pinion's involute (`face.ts`), the body a smooth loft cut to a blank and joined to a plate; the pinion a spur gear along a radius of the face gear.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { gearOutline } from "../src/operation/gear.ts";

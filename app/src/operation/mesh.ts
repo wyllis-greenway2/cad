@@ -193,7 +193,7 @@ export function meshBevel(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: n
 }
 
 /**
- * The other gear of a face gear drive (`dec_crown_gear_set`, `in_879`): the spur pinion for a face gear, or the face gear for a pinion, the axes crossing at 90 degrees. The pinion's axis lies along the radius of the face gear that `where` points along (radians from the first direction of
+ * The other gear of a face gear drive (`dec_crown_gear_set`, `in_886`): the spur pinion for a face gear, or the face gear for a pinion, the axes crossing at 90 degrees. The pinion's axis lies along the radius of the face gear that `where` points along (radians from the first direction of
  * the plane, for a face gear; for a pinion, the direction from its axis towards the face gear, in its own plane), at the height of its pitch radius above the face gear's pitch plane; its plane is across that axis at the inner end of the teeth (a millimetre short) and its directions are
  * the tangent and the face gear's axis. A pair rolls: the pinion turned by an angle turns the face gear by z1 / z2 of it the same way about its axis, in any state (the surfaces are conjugate), so the partner's phase follows from the source's. The pair's place has the face gear's slot 0
  * on the contact radius and the pinion's tooth 0 pointing at it.

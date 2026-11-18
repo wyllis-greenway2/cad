@@ -105,7 +105,7 @@ test("the spiral bevel gear tool (`dec_spiral_bevel_gears`, `in_836`): its numbe
   assert.equal(mesh.spec.bevel?.mate, 24);
 });
 
-test("the face gear tool (`dec_crown_gear_set`, `in_879`): its numbers, its title, the gear it makes with nothing typed, and Mesh gear on it makes the spur pinion at 90 degrees", () => {
+test("the face gear tool (`dec_crown_gear_set`, `in_886`): its numbers, its title, the gear it makes with nothing typed, and Mesh gear on it makes the spur pinion at 90 degrees", () => {
   const sc = scene(createSession(kernel));
   const t = { ...armTool("gear", "face"), plane: worldRef("XY"), points: [[0, 0, 0] as [number, number, number]], cursor: [10, 0, 0] as [number, number, number] };
   assert.deepEqual(gearFields(t.gear!).map((f) => f.key), ["teeth", "mate", "module", "inner", "outer", "width", "backlash", "bore", "flat", "key", "keydepth"]);
