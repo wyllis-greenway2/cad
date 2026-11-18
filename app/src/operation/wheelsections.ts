@@ -22,14 +22,34 @@ const ITER = 10;
 const COARSE = 4;
 
 const cache = new Map<string, Result<Section[]>>();
+const keyOf = (spec: GearSpec): string => JSON.stringify([spec.teeth, spec.module, spec.pressure ?? 20, spec.wheel]);
+/** Thrown (only while the page has asked for it, `askBeforeWorking`) in place of working the sections out on the page's own thread: the page works them out in a thread of their own and then does the thing again (`in_879`: a 100 tooth wheel froze the page 2.5 s, 10 s on a device four times slower). */
+export class SectionsNeeded extends Error {
+  spec: GearSpec;
+  constructor(spec: GearSpec) { super("the wheel's sections have to be worked out first"); this.spec = spec; }
+}
+let askBefore: ((spec: GearSpec) => boolean) | null = null;
+/** While `fn` runs, a wheel whose sections are not kept yet (and that `wanted` says should wait) throws `SectionsNeeded` instead of being worked out in place; anything else is as before. */
+export function askBeforeWorking<T>(wanted: (spec: GearSpec) => boolean, fn: () => T): T {
+  const before = askBefore;
+  askBefore = wanted;
+  try { return fn(); } finally { askBefore = before; }
+}
+/** Whether the sections of this wheel are kept. */
+export const sectionsKept = (spec: GearSpec): boolean => cache.has(keyOf(spec));
+/** Keep the sections that were worked out somewhere else (a thread of their own). */
+export function keepSections(spec: GearSpec, r: Result<Section[]>): void {
+  if (cache.size > 24) cache.clear();
+  cache.set(keyOf(spec), r);
+}
 /** The SECTIONS sections of the wheel the spec makes, lowest first. Cached by the numbers (it takes a fraction of a second to a second). */
 export function wheelSections(spec: GearSpec): Result<Section[]> {
-  const key = JSON.stringify([spec.teeth, spec.module, spec.pressure ?? 20, spec.wheel]);
+  const key = keyOf(spec);
   let r = cache.get(key);
   if (!r) {
+    if (askBefore?.(spec)) throw new SectionsNeeded(spec);
     r = make(spec);
-    if (cache.size > 8) cache.clear();
-    cache.set(key, r);
+    keepSections(spec, r);
   }
   return r;
 }
