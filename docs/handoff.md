@@ -3654,3 +3654,7 @@ Merged `claude/intelligent-hawking-8j1lyr` (its in_819-827 are in_916-924, Hando
 
 ## Handoff 870 — 2026-11-18 (in_966: the fastener tool's defaults, look and movable holes merged into the testing branch)
 `in_966`. Merged the testing branch's tip (7 commits, up to `in_964`, Handoff 868) into this branch, then pushed to it. **Numbers:** this branch's `in_960` became **`in_965`** and its Handoff 865 became **869**, in a commit of their own before the merge. **Conflicts:** `human-input.md` and `handoff.md` only (theirs first, then ours); the code merged without one. **Checks:** types, unused, docs and the fastener, hole, tools, gizmo and world tests (below). No full suite, as asked.
+
+## Handoff 871 — 2026-11-18 (in_967: chamfer for the bevel family)
+`in_967` (do the chamfer; then the browser time; then the sources), `in_968` (the crown "bevel" question, recorded late). **Built (`dec_bevel_chamfer`, accepted):** the Chamfer field for straight bevel, spiral / hypoid, crown and face gears (`blankchamfer.ts`, hooks in `bevel.ts`, `spiral.ts`, `crown.ts`, `crownscene.ts`, `face.ts`, `facescene.ts`, `tools.ts`); no new kernel steps. Tests `bevelchamfer.test.ts` (kernel, seven gears) and the gear box's field lists. A full run before it: 1714 tests pass, 0 fail, typecheck, layers, boundary, unused clean (the limits' and the ring teeth's changes); not re-run after the chamfer. Next: the browser time near the limits, then the sources. Next numbers: `in_969`, Handoff 872.
+
