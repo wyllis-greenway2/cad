@@ -289,7 +289,7 @@ function measureOf(scene: Scene, selection: readonly Ref[]): Annotation | null {
 /** What each kind of mate is called (the tooltip of its icon), and the word before its number when it has one. */
 const MATE_WORDS: Record<MateMode, { label: string; tag?: string }> = {
   flush: { label: "Flush faces", tag: "gap" }, coaxial: { label: "Coaxial", tag: "offset" }, parallel: { label: "Parallel faces", tag: "distance" }, parallelAxes: { label: "Parallel axes" },
-  perpendicular: { label: "Perpendicular faces" }, perpendicularAxes: { label: "Perpendicular axes" }, angle: { label: "Angle between faces", tag: "angle" }, angleAxes: { label: "Angle between axes", tag: "angle" }, axisToFace: { label: "Axis perpendicular to a face" },
+  perpendicular: { label: "Perpendicular faces" }, perpendicularAxes: { label: "Perpendicular axes" }, angle: { label: "Angle between faces", tag: "angle" }, angleAxes: { label: "Angle between axes", tag: "angle" }, axisToFace: { label: "Axis perpendicular to a face" }, tangent: { label: "Tangent" },
 };
 /**
  * The mates of the bodies and faces that are selected, shown as any constraint is: a bubble with its icon (and its number when it has one), there only while a body or a face it joins is selected; red when it is not true (`in_338`).

@@ -4216,3 +4216,31 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > okay so what next?
 (asks what to work on next; the AI recommends, the human decides)
 
+## in_965 — 2026-11-18 — directive
+> the constraints menu is very confusing. Like for example why do we have a tangent under "two circles" ? and then tangent under two lines? isnt tangent just tangent?
+(asks why Tangent appears under several selections; this opens the redesign of the constraints menu)
+
+## in_966 — 2026-11-18 — directive
+> Okay lets clean this up, What is the best way to organize this? Also do we really need seperate constraints for 3d? like if you select two planes and make them parallel, is that really different then just a parallel constraint? its just in a planar context
+
+## in_967 — 2026-11-18 — directive
+> if we get rid of our all duplicates, can it be a small enough set to just be entirely flat and not need nested menus?
+
+## in_968 — 2026-11-18 — directive
+> why would horizontal or virtical be 2d only? couldn't a plane be horizontal or virtical? How many others do we have like this? that should probably be generic but are specific? also how many entries do we have now? it could be 12 after de duplication?
+
+## in_969 — 2026-11-18 — approval
+> yes build it please
+(approves the flat constraints menu of 12 generic entries: Horizontal, Vertical, Parallel, Perpendicular, Angle, Coincident, On, Tangent, Concentric, Equal, Dimension, Fix in place; each chooses the 2D relation or the 3D mate from what is selected; Horizontal and Vertical also on faces and axes)
+
+## in_970 — 2026-11-18 — approval
+> okay build the not built yet stuff
+(approves building what the last reply left out: Horizontal and Vertical on a face or an axis (a mate with the world), and Tangent between bodies)
+
+## in_971 — 2026-11-18 — approval
+> okay build the left out stuff please
+(approves building what the last reply left out: mates against the world's other planes (X and Y directions, a face and a world plane selected), and Tangent for spheres and cones)
+
+## in_972 — 2026-11-18 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 once more, for the flat constraints ring, the mates with the world and the new tangent mates; gives permission to write to that branch)

@@ -7,7 +7,7 @@ import { apply } from "../operation/commands.ts";
 import type { Op } from "./operations.ts";
 import { opCommand, valueOf, bodyMotion } from "./operations.ts";
 import { heldCommand, constrainedMotion } from "./mate.ts";
-import { mateStatus } from "../operation/mates.ts";
+import { mateStatus, canonBody } from "../operation/mates.ts";
 import { isTangentArc } from "./faceedit.ts";
 import { axisAcross } from "./revolve.ts";
 import { limitedOp, hardCollision, hardNames } from "./hard.ts";
@@ -34,7 +34,7 @@ export function runOp(sess: Session, op0: Op): { session: Session; cmd: Command 
     const group = op.parts.filter((r) => sceneOf(sess).parts[r]?.kind === "body");
     const named = asked ? constrainedMotion(sceneOf(sess), group, asked, op.grab)?.blocked ?? [] : [];
     // (when the solver does not say which held it, every standing mate the bodies have with one that stays is what holds it)
-    const blocked = named.length ? named : mateStatus(sceneOf(sess)).filter((m) => m.standing && m.state === "ok" && m.mover && m.other && (group.includes(m.mover.body) !== group.includes(m.other.body))).map((m) => m.id);
+    const blocked = named.length ? named : mateStatus(sceneOf(sess)).filter((m) => m.standing && m.state === "ok" && m.mover && m.other && (group.map((g) => canonBody(sceneOf(sess), g)).includes(m.mover.body) !== group.map((g) => canonBody(sceneOf(sess), g)).includes(m.other.body))).map((m) => m.id);
     const plain = blocked.length ? opCommand(sceneOf(sess), op) : null;
     return { session: { ...sess, message: "the mates of this body leave it nowhere to go that way", ...(blocked.length && plain ? { conflict: { culprits: [], victims: blocked, retry: plain } } : {}) }, cmd: held };
   }

@@ -1,5 +1,5 @@
 // The pointer intents: hover, click (selecting, or drawing when a tool is armed, or finishing an operation) and the menu.
-import { CONSTRAINT_GROUPS, fits } from "../constraintlist.ts";
+import { CONSTRAINT_ENTRIES, resolveEntry } from "../constraintlist.ts";
 import { whyNoPathRepeat } from "../pathrepeat.ts";
 import type { Intent } from "../../shared/input.ts";
 import type { Ref } from "../../shared/ref.ts";
@@ -14,7 +14,7 @@ import type { Vec3 } from "../../math/vec.ts";
 import { scene as sceneOf, selection as selectionOf, clickOn, hoverOn, run } from "../session.ts";
 import type { Session } from "../session.ts";
 import { candidatesAt } from "../picking.ts";
-import { actionsFor, relationKinds } from "../actions.ts";
+import { actionsFor } from "../actions.ts";
 import type { ToolKind, Tool } from "../tools.ts";
 import { diskFaceRef } from "../../operation/loops.ts";
 import { lineHint, arcEndHint, hintRelations, circleCentredAt, anchorCentreAt, pointHint, arcBulgeHint, circleRadiusHint, tangentCentre } from "../hints.ts";
@@ -204,22 +204,17 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   }));
   const build = (i: string | Group): MenuItem => (typeof i === "string" ? leaf.get(i)! : category(i.id, i.label, i.icon, i.items.map(build)));
   const acts = actionsFor(sc, sel);
+  // every constraint and mate once, in one flat list by what a person means (`in_969`): Parallel is two lines or two faces; the ring never changes shape with the selection; an entry that nothing selected fits is dimmed and says what to select (`in_666`)
   const live = acts.filter((a) => a.group === "relation");
-  const selKinds = relationKinds(sc, sel);
-  // every constraint and mate there is, in groups by what they apply to: the ring never changes shape with the selection; one that does not fit it is dimmed and says what to select (`in_666`)
-  const groups: MenuItem[] = CONSTRAINT_GROUPS.map((g) => category(g.id, g.label, g.items[0]!.id, g.items.map((it): MenuItem => {
-    const a = live.find((x) => x.id === it.id);
-    const fit = fits(g, selKinds);
-    return { id: it.id, label: it.label, icon: it.id, enabled: fit && !!a && a.enabled, why: !fit || !a ? `select ${g.what} first` : a.why };
-  })));
-  groups.push(category("group:bodies", "Bodies", "hard", [leaf.get("body:hard")!]));
+  const entries: MenuItem[] = CONSTRAINT_ENTRIES.map((e): MenuItem => { const a = resolveEntry(e, live); return { id: e.id, label: e.label, icon: e.icon, enabled: !!a, why: a ? null : `select ${e.what} first` }; });
+  const groups: MenuItem[] = [...entries, leaf.get("body:hard")!];
   const del = acts.find((a) => a.id === "delete");
   // looking straight at the selected plane or face, or at the one the click was on (`in_171`: the eye lives here, not on the screen)
   const clicked = over ? planeOf(lookup(sc), over) : null; // (the surface the right click was on: a face, a sketch's plane, a world plane; a sketch tool chosen from the ring turns to it when the selection does not say which plane)
   const target = lookTarget(sc, sel, over);
   const items: MenuItem[] = [
     ...CATEGORIES.slice(0, 1).map((c) => category(c.id, c.label, c.icon, c.items.filter((i) => i !== "select:add" || view.touch || adding).map(build))),
-    category("constraints", "Constraints", "constraint", groups), // (a hard body is a constraint on every body that meets it, `in_490`)
+    category("constraints", "Constraints", "constraint", groups), // (a hard body is a constraint on every body that meets it, `in_490`; the constraints are one flat list, `in_969`)
     ...CATEGORIES.slice(1).map((c) => category(c.id, c.label, c.icon, c.items.filter((i) => i !== "select:add" || view.touch || adding).map(build))),
     // the eye: how the model is looked at (`in_386`): straight at a surface, as wireframe, and the tape measure
     category("view", "View", "eye", [
