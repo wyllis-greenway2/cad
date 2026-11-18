@@ -61,14 +61,14 @@ test("a spiral pair made by Mesh gear fits at its place and not half a pitch rou
   assert.ok(wrong > 20 * Math.max(fit, 1), `half a pitch round: ${wrong}`);
 });
 
-test("other pairs made by Mesh gear (24 / 24 and 16 / 32; 22 / 34 at 35 degrees) fit at their place, rolled, and not half a pitch round", () => {
-  for (const [z1, z2, angle] of [[24, 24, 30], [16, 32, 30], [22, 34, 35]] as const) {
+for (const [z1, z2, angle] of [[24, 24, 30], [16, 32, 30], [22, 34, 35]] as const) {
+  test(`spiral pair ${z1} / ${z2} at ${angle} degrees made by Mesh gear fits at its place and not half a pitch round`, () => {
     const [fit, wrong] = [overlapOf(z1, z2, 3, 0, angle), overlapOf(z1, z2, 3, Math.PI / z2, angle)];
     console.log("SPIRAL", z1, z2, fit, wrong);
     assert.ok(fit < 10, `${z1}/${z2} at its place: ${fit}`);
     assert.ok(wrong > 20 * Math.max(fit, 1), `${z1}/${z2} half a pitch round: ${wrong}`);
-  }
-});
+  });
+}
 
 test("a spiral pair is linked: the partner's teeth changed in its box, the other gear's mate teeth follow and the partner is placed again so that the pair still fits", () => {
   const spec = { teeth: 20, module: 3, bevel: { mate: 30, spiral: 30 } } as GearSpec;
