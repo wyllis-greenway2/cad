@@ -79,7 +79,7 @@ function flankGrid(pr: SpiralPair, which: "pinion" | "ring", f: "A" | "B", nth =
   const thM = Math.atan2(Math.sin(pr.beta), -Math.cos(pr.beta));
   const span = (1.2 * (pr.b + 16)) / pr.RW + 0.25; // (the face and a margin each side, for the planes beyond the toe and the heel that the cone ends need)
   const g = which === "pinion" ? pr.pinion : pr.ring;
-  const [y0, y1] = [-g.hF - 1.5, g.hK + 1.5]; // (a wider range folds the surface over itself: planes across a gear then cut two sheets and the flank curve zigzags, `in_890`)
+  const [y0, y1] = [-g.hF - 1.5, g.hK + 1.5]; // (a wider range folds the surface over itself: planes across a gear then cut two sheets and the flank curve zigzags, `in_888`)
   const P: Grid = [];
   for (let i = 0; i <= nth; i++) {
     const th = thM - span + (2 * span * i) / nth;
@@ -218,7 +218,7 @@ function arcDeviation(pts: P[]): number {
 }
 /**
  * Where a flank's two arcs meet, as the index of the sample (of the nine) that is the corner between them: the one for which the two arcs lie nearest the samples over every section. A flank has a bend where the involute part ends and the straight part
- * down to the root begins; arcs that meet in the middle of the flank put a round lump there (`in_890`), arcs that meet at the bend follow it.
+ * down to the root begins; arcs that meet in the middle of the flank put a round lump there (`in_888`), arcs that meet at the bend follow it.
  */
 function splitOf(flanks: P[][]): number {
   let best = 4, least = Infinity;

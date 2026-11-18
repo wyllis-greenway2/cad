@@ -96,7 +96,7 @@ test("a spiral pair is linked: the partner's teeth changed in its box, the other
   assert.ok(over < 10, `the pair still fits: ${over}`);
 });
 
-test("a 16 / 30 pinion's tooth outlines have no lumps (`in_890`): every side is a gentle arc, in every plane (a surface folded over itself made the flank zigzag and arcs through it bulged by a third of their length)", () => {
+test("a 16 / 30 pinion's tooth outlines have no lumps (`in_888`): every side is a gentle arc, in every plane (a surface folded over itself made the flank zigzag and arcs through it bulged by a third of their length)", () => {
   const p = spiralPairOf(16, 30, 2, 30, 0.05);
   assert.ok(p.ok);
   for (const which of ["pinion", "ring"] as const) {
