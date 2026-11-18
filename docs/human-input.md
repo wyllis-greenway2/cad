@@ -4216,3 +4216,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > okay so what next?
 (asks what to work on next; the AI recommends, the human decides)
 
+
+## in_965 — 2026-11-19 — directive
+> @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/40a34e4b-model.cad_53.json" ... @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/623701a6-model.stl" can we make the animation not pause when you move around the camera? It does it with camera rotate but not other camera movements.  Why do the gears get semi transparent and every thing gets really slow when I try to sketch around gears? Also when I click on the top of a gear to sketch, it doesn't really make a sketching plane on that surface like it does when I sketch on any other body surface. Normally it sets a world plane on that surface and sketching anywhere, even off that edge is still on plane.
+(with a project file `model.cad_53.json` (two meshed gears, a pin, a drawn rectangle), a screenshot and an STL: three things: the animation pauses while the camera is rotated, the gears go semi transparent and everything slows when sketching round gears, and a click on a gear's top face does not make a sketch plane that goes on past the face's edge)
