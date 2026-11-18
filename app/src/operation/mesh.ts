@@ -12,6 +12,8 @@ import type { GearSpec } from "./gear.ts";
 import { wormOf, wheelOf, wormLayout } from "./worm.ts";
 import { bevelOf, bevelFrame } from "./bevel.ts";
 import { spiralRole, CONTACT } from "./spiral.ts";
+import { faceFor } from "./face.ts";
+import { PINION_OVERHANG } from "./facescene.ts";
 
 export interface Placement { at: Vec3; turn: number; spec: GearSpec }
 const TAU = 2 * Math.PI;
@@ -25,6 +27,7 @@ const norm = (a: number): number => { const t = ((a % TAU) + TAU) % TAU; return 
  */
 export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; offset?: number; width?: number; land?: number; /** a ring that goes round the gear (`in_686`) */ ring?: boolean }, where: number): Result<Placement> {
   const s = src.spec;
+  if (s.bevel?.facegear !== undefined) return meshFace(src, u, v, partner, where);
   if (s.bevel) return meshBevel(src, u, v, partner, where);
   if (s.cam) return err("a cam or a ratchet does not mesh with a gear");
   if (s.worm) return meshWormWheel(src, u, v, partner, where);
@@ -187,4 +190,44 @@ export function meshBevel(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: n
   const e2: Vec3 = [(-ns[0] + Math.cos(sig) * n2[0]) / Math.sin(sig), (-ns[1] + Math.cos(sig) * n2[1]) / Math.sin(sig), (-ns[2] + Math.cos(sig) * n2[2]) / Math.sin(sig)]; // (the direction across the partner's axis towards the source)
   const a2 = Math.atan2(dot3(e2, Y2), dot3(e2, X2));
   return ok({ at: at2, turn: norm(a2 + psi), spec: { ...spec, bevel: { ...spec.bevel!, frame: [X2, Y2] } } });
+}
+
+/**
+ * The other gear of a face gear drive (`dec_crown_gear_set`, `in_879`): the spur pinion for a face gear, or the face gear for a pinion, the axes crossing at 90 degrees. The pinion's axis lies along the radius of the face gear that `where` points along (radians from the first direction of
+ * the plane, for a face gear; for a pinion, the direction from its axis towards the face gear, in its own plane), at the height of its pitch radius above the face gear's pitch plane; its plane is across that axis at the inner end of the teeth (a millimetre short) and its directions are
+ * the tangent and the face gear's axis. A pair rolls: the pinion turned by an angle turns the face gear by z1 / z2 of it the same way about its axis, in any state (the surfaces are conjugate), so the partner's phase follows from the source's. The pair's place has the face gear's slot 0
+ * on the contact radius and the pinion's tooth 0 pointing at it.
+ */
+export function meshFace(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; ring?: boolean }, where: number): Result<Placement> {
+  const s = src.spec, z2 = Math.round(partner.teeth), b = s.bevel!;
+  if (partner.rack || partner.ring) return err("a face gear drive is a face gear and a spur pinion: not a rack or a ring");
+  if (!Number.isFinite(z2) || z2 < 1) return err("the partner needs teeth");
+  const mine = faceFor(s);
+  if (!mine.ok) return mine;
+  const role = b.facegear!;
+  const spec: GearSpec = { teeth: z2, module: s.module, ...(s.backlash !== undefined ? { backlash: s.backlash } : {}), ...(s.crown ? { crown: { ...s.crown } } : {}), bevel: { mate: s.teeth, facegear: role === "gear" ? "pinion" : "gear", ...(b.with === undefined ? { with: src.id } : {}), dir: where } };
+  const theirs = faceFor(spec);
+  if (!theirs.ok) return theirs;
+  const pr = theirs.value.pair;
+  const [f0, f1] = [bevelFrame(u, v, s, 0), bevelFrame(u, v, s, src.turn ?? 0)];
+  const kk = pr.z1 / pr.z2;
+  const dirOf = (a: number): Vec3 => [Math.cos(a) * f0.X[0] + Math.sin(a) * f0.Y[0], Math.cos(a) * f0.X[1] + Math.sin(a) * f0.Y[1], Math.cos(a) * f0.X[2] + Math.sin(a) * f0.Y[2]];
+  if (role === "gear") { // the source is the face gear: the pinion lies along the radius at `where`, above the teeth
+    const n = f1.n, asked = dirOf(where), off = dot3(asked, n);
+    const e = norm3([asked[0] - n[0] * off, asked[1] - n[1] * off, asked[2] - n[2] * off]);
+    const t = norm3(cross3(n, e));
+    const p = (k: number): Vec3 => [src.at[0] + n[0] * pr.r1 + e[0] * k, src.at[1] + n[1] * pr.r1 + e[1] * k, src.at[2] + n[2] * pr.r1 + e[2] * k];
+    const omega = Math.atan2(dot3(e, f0.Y), dot3(e, f0.X));
+    const phiF = (src.turn ?? 0) - omega, phiP = phiF / kk;
+    return ok({ at: p(pr.inner - PINION_OVERHANG), turn: norm(-Math.PI / 2 + phiP), spec: { ...spec, bevel: { ...spec.bevel!, frame: [t, n] } } });
+  }
+  // the source is the pinion: the face gear lies below it on the side `where` points to
+  const ep = f1.n, asked = dirOf(where), off = dot3(asked, ep);
+  const d = norm3([asked[0] - ep[0] * off, asked[1] - ep[1] * off, asked[2] - ep[2] * off]);
+  const nF: Vec3 = [-d[0], -d[1], -d[2]];
+  const I: Vec3 = [src.at[0] - ep[0] * (pr.inner - PINION_OVERHANG), src.at[1] - ep[1] * (pr.inner - PINION_OVERHANG), src.at[2] - ep[2] * (pr.inner - PINION_OVERHANG)];
+  const at2: Vec3 = [I[0] + d[0] * pr.r1, I[1] + d[1] * pr.r1, I[2] + d[2] * pr.r1];
+  const Y = norm3(cross3(nF, ep));
+  const phiP = (src.turn ?? 0) - where;
+  return ok({ at: at2, turn: norm(kk * phiP), spec: { ...spec, bevel: { ...spec.bevel!, frame: [ep, Y] } } });
 }

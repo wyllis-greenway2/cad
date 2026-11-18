@@ -3448,3 +3448,6 @@ No input. The first push of this branch to `claude/inspiring-pascal-l342k7` was 
 
 ## Handoff 803 — 2026-11-19 (the face gear pairs)
 Four more face gear pairs mesh in the kernel (18/50, 20/60, 16/32 module 3, 12/36): overlap 0.4 to 3.8 mm3 at the place, 49 to 146 half a pitch round. Radii from the pitch radius outward 3 to 4 modules. Still waiting for the human's approval to build Gear > Face gear (`dec_crown_gear_set` is provisional).
+
+## Handoff 804 — 2026-11-19 (in_879: the face gear tool built)
+`in_879` (approved the face gear). **Built:** Gear > Face gear: `face.ts` (the prototype's envelope maths), `facescene.ts` (the face gear: five-height smooth loft, blank, plate; the spur pinion), `bevel.facegear` records, `meshFace`, linking, tool, menu, icon, preview, stand-in, help. **Measured by Mesh gear** (14 / 40, module 2): overlap 2.2 mm3 at its place, 52 half a pitch round; from the pinion's side 1.1 / 51; the linked edit 1.0. **Learned:** the longest tooth depends on the pinion (16 on 40 needs a shorter one than 14), so the default outer radius is searched; five heights fit as well as six and are quicker (15.6 s against 17.5 s for 40 teeth). **Not built:** a spiral crown. Full check running; the next entry says how it came out.
