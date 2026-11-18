@@ -15,7 +15,9 @@ import type { Part } from "../operation/part.ts";
 import { normalOfPlane, pointOf, roundOf } from "../operation/part.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Path, Pt } from "../operation/pathrepeat.ts";
-import { placeAlong, lengthOf, pointAt, circlePath } from "../operation/pathrepeat.ts";
+import { lengthOf, pointAt, pathOf } from "../operation/pathrepeat.ts";
+import { rowsFromEdges, rowsAlongLine } from "./holerows.ts";
+import type { RowSurface, RowsMade } from "./holerows.ts";
 import { readFaceOutline, readLinesPath, planeBasis } from "../operation/pathmaps.ts";
 import { pathRuleFields, pathRepeatNumbers, pathRepeatStart } from "./pathrepeat.ts";
 import type { PathRepeatValues } from "./pathrepeat.ts";
@@ -105,8 +107,8 @@ export function addPart(session: Session, v: AddPartValues): Result<Session> {
 }
 
 // ---- the receivers: the hole or pocket a fastener goes into, cut into the body whose face is selected ----
-export interface ReceiverValues extends Partial<PathRepeatValues> { kind: string; size: string; fit: string; depth: string; dx: string; dy: string; /** where the holes go: "centre" (the middle of the face), "picked" (the corners and circles selected), "outline" (along the face's outline) or "lines" (along the lines selected), `in_845` */ place?: string; /** a hole to tap: the thread engagement in percent; empty is the chart's tap drill */ engagement?: string; /** a nut pocket on the far side of the body as well ("nut"), or none (`in_909`) */ far?: string; /** a drill then tap: how deep the clearance part goes, mm (empty: the tapped part is 1.5 diameters), `in_910` */ drill?: string; /** "screw": the hardware is put into the holes as bodies (the screw, and the nut of a pocket); "none" (the default), `in_910` */ insert?: string; /** the screw's length, mm; empty is the longest standard length that fits */ length?: string }
-export const receiverStart = (): ReceiverValues => ({ kind: "clearance", size: "M3", fit: "medium", depth: "", dx: "0", dy: "0", engagement: "", ...pathRepeatStart(), value: "30", corners: "each", offset: "10", far: "none", drill: "", insert: "none", length: "" });
+export interface ReceiverValues extends Partial<PathRepeatValues> { kind: string; size: string; fit: string; depth: string; dx: string; dy: string; /** where the holes go: "centre" (the middle of the face), "picked" (the corners and circles selected), "outline" (along the face's outline) or "lines" (along the lines selected), `in_845` */ place?: string; /** a hole to tap: the thread engagement in percent; empty is the chart's tap drill */ engagement?: string; /** a nut pocket on the far side of the body as well ("nut"), or none (`in_909`) */ far?: string; /** a drill then tap: how deep the clearance part goes, mm (empty: the tapped part is 1.5 diameters), `in_910` */ drill?: string; /** "screw": the hardware is put into the holes as bodies (the screw, and the nut of a pocket); "none" (the default), `in_910` */ insert?: string; /** the screw's length, mm; empty is the longest standard length that fits */ length?: string; /** which line a face gives the rows (`in_958`): "outline" (its edges stepped in, the default), "edge" (one edge stepped in) or "midline" (one edge stepped in to the middle of the face) */ rows?: string; /** how many rows, and how far apart (mm) */ rowCount?: string; rowGap?: string }
+export const receiverStart = (): ReceiverValues => ({ kind: "clearance", size: "M3", fit: "medium", depth: "", dx: "0", dy: "0", engagement: "", ...pathRepeatStart(), value: "30", corners: "each", offset: "10", far: "none", drill: "", insert: "none", length: "", rows: "outline", rowCount: "1", rowGap: "8" });
 const kindOf = (s: string): ReceiverKind => (RECEIVER_KINDS.find((k) => k.id === s)?.id ?? "clearance");
 const fitOf = (s: string): ClearanceFit => (s === "fine" || s === "coarse" ? s : "medium");
 
@@ -185,24 +187,28 @@ export function selectedFace(session: Session): Result<{ spot: FaceSpot; through
 export const whyNoReceiver = (session: Session): string | null => { const f = selectedFace(session); return f.ok ? null : f.error; };
 
 /** What the selection offers for placing the holes: how many places were picked, how many lines, and the face's outline and the lines as paths (or why they are not). */
-export interface ReceiverContext { /** the surface is a round face (`in_929`) */ curved?: boolean; places: number; lines: number; outline: Result<Path> | null; linePath: Result<Path> | null }
+export interface ReceiverContext { /** the surface is a round face (`in_929`) */ curved?: boolean; /** the edges of the face selected with it (`in_958`) */ edges: number; places: number; /** the lines drawn on a plane that are selected: a path of their own */ lines: number; outline: Result<Path> | null; linePath: Result<Path> | null }
 export function receiverContext(session: Session): ReceiverContext | null {
+  const sc = scene(session);
   const round = selectedRound(session);
   if (round) {
     if (!round.ok) return null;
-    const lp = round.value.lines.length ? readLinesPath(scene(session), round.value.lines, round.value.face) : null;
-    return { curved: true, places: round.value.points.length, lines: round.value.lines.length, outline: null, linePath: lp ? (lp.ok ? ok(lp.value.path) : lp) : null };
+    const own = new Set(faceEdges(sc, round.value.face));
+    const drawn = round.value.lines.filter((x) => !own.has(x));
+    const lp = drawn.length ? readLinesPath(sc, drawn, round.value.face) : null;
+    return { curved: true, edges: round.value.lines.length - drawn.length, places: round.value.points.length, lines: drawn.length, outline: null, linePath: lp ? (lp.ok ? ok(lp.value.path) : lp) : null };
   }
   const f = selectedFace(session);
   if (!f.ok) return null;
-  const sc = scene(session);
   const outline = readFaceOutline(sc, f.value.face, faceEdges(sc, f.value.face));
-  const linePath = f.value.lines.length ? readLinesPath(sc, f.value.lines, f.value.face) : null;
-  return { places: f.value.points.length, lines: f.value.lines.length, outline, linePath: linePath ? (linePath.ok ? ok(linePath.value.path) : linePath) : null };
+  const own = new Set(faceEdges(sc, f.value.face));
+  const drawn = f.value.lines.filter((x) => !own.has(x));
+  const linePath = drawn.length ? readLinesPath(sc, drawn, f.value.face) : null;
+  return { edges: f.value.lines.length - drawn.length, places: f.value.points.length, lines: drawn.length, outline, linePath: linePath ? (linePath.ok ? ok(linePath.value.path) : linePath) : null };
 }
 /** Where the dialog starts the holes: at the places picked, else along the lines selected, else in the middle of the face. */
 export const receiverStartFor = (session: Session): ReceiverValues => { const c = receiverContext(session); return { ...receiverStart(), place: c && c.places ? "picked" : c && c.lines ? "lines" : "centre" }; };
-const PLACES = ["centre", "picked", "outline", "lines"] as const;
+const PLACES = ["centre", "picked", "outline", "edge", "midline", "lines"] as const;
 type Where = (typeof PLACES)[number];
 const whereOf = (v: ReceiverValues, ctx?: ReceiverContext | null): Where => {
   const w = (PLACES as readonly string[]).includes(v.place ?? "") ? (v.place as Where) : ctx?.places ? "picked" : "centre";
@@ -264,43 +270,9 @@ const engagementOf = (text: string): number | undefined | null => {
 /** How many places the selection names: the corners and circles picked, 0 when none (the hole goes in the middle of the face). */
 export const placesPicked = (session: Session): number => { const f = selectedFace(session); return f.ok ? f.value.points.length : 0; };
 
-/** The places along the face's outline or the lines selected, by the rules in the answers, on the face (a path in another plane is taken onto the face along its normal). Or why there are none. */
-function alongPath(session: Session, v: ReceiverValues, where: "outline" | "lines", f: { spot: FaceSpot; lines: Ref[]; face: Extract<Part, { kind: "plane" }> }): Result<{ places: Vec3[]; guide: Vec3[]; spacing: number | null }> {
-  const sc = scene(session);
-  const rules = pathRepeatNumbers({ ...pathRepeatStart(), ...v } as PathRepeatValues);
-  if (!rules.ok) return rules;
-  let path: Path;
-  let plane = f.face;
-  if (where === "outline") {
-    const o = readFaceOutline(sc, f.face, faceEdges(sc, f.face));
-    if (!o.ok) return o;
-    path = o.value;
-  } else {
-    const l = readLinesPath(sc, f.lines, f.face);
-    if (!l.ok) return l;
-    path = l.value.path;
-    plane = l.value.plane as typeof f.face;
-  }
-  const placed = placeAlong(path, rules.value.rules);
-  if (!placed.ok) return placed;
-  if (placed.value.frames.length > 200) return err("that is more than 200 holes");
-  const b = planeBasis(plane);
-  const n = normalOfPlane(f.face);
-  const onFace = (q: readonly [number, number]): Vec3 => {
-    const p: Vec3 = [b.at[0] + b.u[0] * q[0] + b.v[0] * q[1], b.at[1] + b.u[1] * q[0] + b.v[1] * q[1], b.at[2] + b.u[2] * q[0] + b.v[2] * q[1]];
-    const h = dot([p[0] - f.face.at[0], p[1] - f.face.at[1], p[2] - f.face.at[2]], n); // (onto the face along its normal)
-    return [p[0] - n[0] * h, p[1] - n[1] * h, p[2] - n[2] * h];
-  };
-  // the path the holes follow (the outline moved in by the inset, or the line), as a polyline for the guide drawn in the view
-  const total = lengthOf(placed.value.path);
-  const steps = Math.min(400, Math.max(24, Math.ceil(total / 2)));
-  const guide = Array.from({ length: steps + 1 }, (_, i) => onFace(pointAt(placed.value.path, (total * i) / steps).at));
-  return ok({ places: placed.value.frames.map((fr) => onFace(fr.at)), guide, spacing: placed.value.spacing });
-}
-
 /** Cut the receiver into the body whose flat face is selected: the steps, one after another from the scene each leaves. */
 /** What the answers would cut: the receiver, the size and fit, how deep, the thread engagement, the face's spot (for its two ways and its normal) and the centre of each hole. The cut and the preview are both made from it. */
-export interface ReceiverPlan { kind: ReceiverKind; size: FastenerSize; fit: ClearanceFit; depth: number; engagement: number | undefined; spot: FaceSpot; places: Vec3[]; /** a nut pocket is cut on the far side of the body too */ far: boolean; /** the spacing the holes stand at when they follow a path (the adjusted one, for a fit), else null */ spacing: number | null; /** the path the holes follow, as a polyline on the face (empty when they do not follow one) */ guide: Vec3[]; /** how far the body reaches through, along the face's inward normal */ reach: number; /** how far everything in the way reaches from the face (the body and whatever is under it, `in_949`) */ stack: number; /** a drill then tap: how deep the clearance part goes */ drill: number | undefined; /** the spot of each place, with its own way in (the same on a flat face; each its own on a curved one, `in_929`) */ spots: FaceSpot[]; /** the surface is curved */ curved: boolean; /** the hardware put into the holes (`in_910`), or null */ insert: { screw: { family: "countersunk" | "socketHead"; length: number; seat: number } | null; nut: "near" | "far" | null } | null }
+export interface ReceiverPlan { kind: ReceiverKind; size: FastenerSize; fit: ClearanceFit; depth: number; engagement: number | undefined; spot: FaceSpot; places: Vec3[]; /** a nut pocket is cut on the far side of the body too */ far: boolean; /** the spacing the holes stand at when they follow a path (the adjusted one, for a fit), else null */ spacing: number | null; /** the lines the holes follow, each as a polyline on the surface (none when they do not follow one) */ guide: Vec3[][]; /** how far the body reaches through, along the face's inward normal */ reach: number; /** how far everything in the way reaches from the face (the body and whatever is under it, `in_949`) */ stack: number; /** a drill then tap: how deep the clearance part goes */ drill: number | undefined; /** the spot of each place, with its own way in (the same on a flat face; each its own on a curved one, `in_929`) */ spots: FaceSpot[]; /** the surface is curved */ curved: boolean; /** the hardware put into the holes (`in_910`), or null */ insert: { screw: { family: "countersunk" | "socketHead"; length: number; seat: number } | null; nut: "near" | "far" | null } | null }
 /**
  * How far everything in the way reaches from the face, along the way the holes go (`in_949`): from each place a ray goes into the model, and the farthest a body's box lets it go is how far the cut can matter (a lid on an object: the lid and the object under it). Never less than
  * the body of the face itself (`reach`). The boxes are the bodies' boxes, so a body whose box is in the way but whose shape is not is counted: the far end of the preview may be long.
@@ -371,27 +343,75 @@ export function receiverPlan(session: Session, v: ReceiverValues): Result<Receiv
   const [dx, dy] = [typedLength(v.dx.trim() === "" ? "0" : v.dx), typedLength(v.dy.trim() === "" ? "0" : v.dy)];
   if (dx === null || dy === null) return err("type the depth and the distances as numbers");
   const sp = face.value.spot;
-  const where = whereOf(v, { places: face.value.points.length, lines: face.value.lines.length, outline: null, linePath: null });
-  let centres: Vec3[];
-  let along = false;
-  let guide: Vec3[] = [];
+  const sc = scene(session);
+  const fv = face.value;
+  const edgeRefs = new Set(faceEdges(sc, fv.face));
+  const edgeSel = fv.lines.filter((x) => edgeRefs.has(x));
+  const drawn = fv.lines.filter((x) => !edgeRefs.has(x));
+  const where = whereOf(v, { places: fv.points.length, lines: drawn.length, edges: 0, outline: null, linePath: null });
+  let spots: FaceSpot[];
+  let guide: Vec3[][] = [];
   let spacing: number | null = null;
-  if (where === "outline" || where === "lines") {
-    const got = alongPath(session, v, where, face.value);
+  let along = false;
+  if (where === "outline" || where === "edge" || where === "midline" || where === "lines") {
+    const rules = pathRepeatNumbers({ ...pathRepeatStart(), ...v } as PathRepeatValues);
+    if (!rules.ok) return rules;
+    const rn = rowNumbers(v);
+    if (!rn.ok) return rn;
+    const surf = flatSurface(sc, fv);
+    let got: Result<RowsMade>;
+    if (where === "lines") { // lines drawn on a plane: taken onto the face along its normal
+      const l = readLinesPath(sc, drawn, fv.face);
+      if (!l.ok) return l;
+      const b = planeBasis(l.value.plane);
+      const n = normalOfPlane(fv.face);
+      const map = (q: Pt): Result<FaceSpot> => {
+        const p: Vec3 = [b.at[0] + b.u[0] * q[0] + b.v[0] * q[1], b.at[1] + b.u[1] * q[0] + b.v[1] * q[1], b.at[2] + b.u[2] * q[0] + b.v[2] * q[1]];
+        const h = dot([p[0] - fv.face.at[0], p[1] - fv.face.at[1], p[2] - fv.face.at[2]], n);
+        return ok({ ...sp, centre: [p[0] - n[0] * h, p[1] - n[1] * h, p[2] - n[2] * h] });
+      };
+      got = rowsAlongLine(l.value.path, map, rules.value.rules, rn.value.count, rn.value.gap);
+    } else {
+      const edge = where !== "outline" && edgeSel.length && surf.outline.ok ? flatSideOf(sc, fv.face, edgeSel[0]!, surf.outline.value) : null;
+      got = rowsFromEdges(surf, where, edge, rules.value.rules, rn.value.count, rn.value.gap);
+    }
     if (!got.ok) return got;
-    centres = got.value.places;
-    guide = got.value.guide;
-    spacing = got.value.spacing;
+    spots = got.value.places; guide = got.value.guide; spacing = got.value.spacing;
     along = true;
-  } else if (where === "picked") centres = face.value.points;
-  else centres = [sp.centre]; // (the middle of the face)
-  const [ox, oy] = along ? [0, 0] : [dx, dy]; // (the offsets are from each place; along a path the path's own offset is the way in)
-  const places = centres.map((p): Vec3 => [p[0] + sp.u[0] * ox + sp.v[0] * oy, p[1] + sp.u[1] * ox + sp.v[1] * oy, p[2] + sp.u[2] * ox + sp.v[2] * oy]);
+  } else spots = (where === "picked" ? fv.points : [sp.centre]).map((c): FaceSpot => ({ ...sp, centre: c })); // (the places picked, or the middle of the face)
+  const [ox, oy] = along ? [0, 0] : [dx, dy]; // (the offsets are from each place; along a line the line's own offset is the way in)
+  const places = spots.map((q): Vec3 => [q.centre[0] + sp.u[0] * ox + sp.v[0] * oy, q.centre[1] + sp.u[1] * ox + sp.v[1] * oy, q.centre[2] + sp.u[2] * ox + sp.v[2] * oy]);
   const stack = stackReach(scene(session), face.value.spot, places, face.value.reach);
   const hw = hardwareOf(v, face.value.through, face.value.reach, stack, false);
   if (!hw.ok) return hw;
   const { kind, depth, engagement, drill, far, insert } = hw.value;
-  return ok({ kind, size: v.size as FastenerSize, fit: fitOf(v.fit), depth, engagement, spot: sp, places, far, spacing, guide, reach: face.value.reach, stack, drill, insert, spots: places.map((c) => ({ ...sp, centre: c })), curved: false });
+  return ok({ kind, size: v.size as FastenerSize, fit: fitOf(v.fit), depth, engagement, spot: sp, places, far, spacing, guide, reach: face.value.reach, stack, drill, insert, spots: places.map((c, i) => ({ ...spots[i]!, centre: c })), curved: false });
+}
+
+/** How many rows and how far apart (`in_958`). */
+function rowNumbers(v: ReceiverValues): Result<{ count: number; gap: number }> {
+  const n = (v.rowCount ?? "1").trim() === "" ? 1 : Number(v.rowCount);
+  const g = (v.rowGap ?? "8").trim() === "" ? 0 : typedLength(v.rowGap!);
+  if (!Number.isInteger(n) || n < 1) return err("the number of rows must be a whole number, one or more");
+  if (g === null || (n > 1 && !(g > 0))) return err("type the distance between the rows as a number above zero");
+  return ok({ count: n, gap: g });
+}
+/** A flat face as a surface for the rows: its outline in the plane's own directions, and a place on the plane with the face's way in. */
+function flatSurface(sc: Scene, f: { spot: FaceSpot; face: Extract<Part, { kind: "plane" }> }): RowSurface {
+  const b = planeBasis(f.face);
+  return {
+    outline: readFaceOutline(sc, f.face, faceEdges(sc, f.face)),
+    map: (q) => ok({ ...f.spot, centre: [b.at[0] + b.u[0] * q[0] + b.v[0] * q[1], b.at[1] + b.u[1] * q[0] + b.v[1] * q[1], b.at[2] + b.u[2] * q[0] + b.v[2] * q[1]] }),
+  };
+}
+/** The side of the outline an edge of the face stands for (it keeps the way the outline runs, so the inside is on its left), else the edge as a line of its own. */
+function flatSideOf(sc: Scene, face: Extract<Part, { kind: "plane" }>, ref: Ref, outline: Path): Path | null {
+  const l = readLinesPath(sc, [ref], face);
+  if (!l.ok || !l.value.path.segs[0]) return null;
+  const e = l.value.path.segs[0];
+  const same = (p: Pt, q: Pt): boolean => Math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-3;
+  const hit = outline.segs.find((s) => (same(s.a, e.a) && same(s.b, e.b)) || (same(s.a, e.b) && same(s.b, e.a)));
+  return { segs: [hit ?? e], closed: false };
 }
 
 // ---- a curved surface (`in_929`): a round face of a body, a line drawn across it, the holes going in along the surface's normal ----
@@ -450,55 +470,69 @@ function spotOnRound(r: Round, q: Vec3): Result<FaceSpot> {
   return ok({ plane: r.face.ref, centre: surface, u, v, own: true });
 }
 const cross3v = (a: readonly number[], b: readonly number[]): Vec3 => [a[1]! * b[2]! - a[2]! * b[1]!, a[2]! * b[0]! - a[0]! * b[2]!, a[0]! * b[1]! - a[1]! * b[0]!];
+/** A point of space as the round face's own two directions: the way round (the arc length from the middle of the face) and the way along the axis. */
+function uvOnRound(r: Round, p: Vec3): Pt {
+  const d: Vec3 = [p[0] - r.center[0], p[1] - r.center[1], p[2] - r.center[2]];
+  const a = dot(d, r.axis);
+  const rv: Vec3 = [d[0] - r.axis[0] * a, d[1] - r.axis[1] * a, d[2] - r.axis[2] * a];
+  return [r.radius * Math.atan2(dot(rv, r.turn.e2), dot(rv, r.turn.e1)), a];
+}
+/** A round face as a surface for the rows, unrolled: along the arc, and along the axis. A face that goes all the way round has only a lowest and a highest line round it. */
+function roundSurface(r: Round): RowSurface {
+  const { e1, e2, lo, hi, full } = r.turn;
+  const at3 = (phi: number, a: number): Vec3 => [r.center[0] + r.axis[0] * a + (Math.cos(phi) * e1[0] + Math.sin(phi) * e2[0]) * r.radius, r.center[1] + r.axis[1] * a + (Math.cos(phi) * e1[1] + Math.sin(phi) * e2[1]) * r.radius, r.center[2] + r.axis[2] * a + (Math.cos(phi) * e1[2] + Math.sin(phi) * e2[2]) * r.radius];
+  const mapAt = (phi: number, a: number): Result<FaceSpot> => spotOnRound(r, at3(phi, a));
+  const map = (q: Pt): Result<FaceSpot> => mapAt(q[0] / r.radius, q[1]);
+  if (full) return { outline: err("a wall that goes all the way round has no edges at its sides"), map, loop: { radius: r.radius, lo: r.range[0], hi: r.range[1], at: mapAt } };
+  const [s0, s1] = [r.radius * lo, r.radius * hi];
+  return { outline: ok(pathOf([[s0, r.range[0]], [s1, r.range[0]], [s1, r.range[1]], [s0, r.range[1]]], true)), map };
+}
+/** The side of the unrolled outline nearest to an edge of the round face. */
+function roundSideNear(r: Round, sc: Scene, ref: Ref, outline: Path): Path | null {
+  const l = sc.parts[ref];
+  if (!l || l.kind !== "line") return null;
+  const [a, b] = [pointOf((x) => sc.parts[x], l.a), pointOf((x) => sc.parts[x], l.b)];
+  if (!a || !b) return null;
+  const m = uvOnRound(r, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]);
+  let best: Path | null = null;
+  let bd = Infinity;
+  for (const s of outline.segs) { const d = Math.hypot((s.a[0] + s.b[0]) / 2 - m[0], (s.a[1] + s.b[1]) / 2 - m[1]); if (d < bd) { bd = d; best = { segs: [s], closed: false }; } }
+  return best;
+}
 function curvedPlan(session: Session, v: ReceiverValues, r: Round): Result<ReceiverPlan> {
   const sc = scene(session);
   const reachR = v.depth.trim() === "" ? 2 * r.radius : r.through;
   const hw = hardwareOf(v, r.through, reachR, reachR, true);
   if (!hw.ok) return hw;
-  const where = r.points.length ? "picked" : r.lines.length ? "lines" : "round";
-  let raw: Vec3[];
-  let guide3: Vec3[] = [];
+  const rules = pathRepeatNumbers({ ...pathRepeatStart(), ...v } as PathRepeatValues);
+  if (!rules.ok) return rules;
+  const rn = rowNumbers(v);
+  if (!rn.ok) return rn;
+  const surf = roundSurface(r);
+  const edgeRefs = new Set(faceEdges(sc, r.face));
+  const edgeSel = r.lines.filter((x) => edgeRefs.has(x));
+  const drawn = r.lines.filter((x) => !edgeRefs.has(x));
+  const where = whereOf(v, { places: r.points.length, lines: drawn.length, edges: 0, outline: null, linePath: null });
+  let spots: FaceSpot[] = [];
+  let guide: Vec3[][] = [];
   let spacing: number | null = null;
-  if (where === "picked") raw = r.points;
-  else if (where === "round") { // the round face alone: a row round it at the middle of its height, spaced along the surface, kept the inset from its edges
-    const rules = pathRepeatNumbers({ ...pathRepeatStart(), ...v } as PathRepeatValues);
-    if (!rules.ok) return rules;
-    const inset = rules.value.rules.offset ?? 0;
-    const { e1, e2, lo, hi, full } = r.turn;
-    const rad = r.radius;
-    const at2 = (phi: number): Pt => [rad * Math.cos(phi), rad * Math.sin(phi)];
-    const path: Path = full ? circlePath([0, 0], rad) : { closed: false, segs: [{ a: at2(lo), b: at2(hi), bulge: -Math.tan((hi - lo) / 4) / 2 }] };
-    const placed = placeAlong(path, { ...rules.value.rules, offset: 0, corners: "ignore", ...(full ? {} : { startInset: inset, endInset: inset }) });
-    if (!placed.ok) return placed;
-    if (placed.value.frames.length > 200) return err("that is more than 200 holes");
-    const mid = (r.range[0] + r.range[1]) / 2;
-    const at3 = (q: readonly [number, number]): Vec3 => { const phi = Math.atan2(q[1], q[0]); const x = Math.cos(phi) * rad, y = Math.sin(phi) * rad; return [r.center[0] + r.axis[0] * mid + e1[0] * x + e2[0] * y, r.center[1] + r.axis[1] * mid + e1[1] * x + e2[1] * y, r.center[2] + r.axis[2] * mid + e1[2] * x + e2[2] * y]; };
-    raw = placed.value.frames.map((f) => at3(f.at));
-    spacing = placed.value.spacing;
-    const total = lengthOf(placed.value.path);
-    const steps = Math.min(400, Math.max(24, Math.ceil(total / 2)));
-    guide3 = Array.from({ length: steps + 1 }, (_, i) => at3(pointAt(placed.value.path, (total * i) / steps).at));
-  } else {
-    const rules = pathRepeatNumbers({ ...pathRepeatStart(), ...v } as PathRepeatValues);
-    if (!rules.ok) return rules;
-    const l = readLinesPath(sc, r.lines, r.face);
+  if (where === "picked") for (const q of r.points) { const s = spotOnRound(r, q); if (!s.ok) return s; spots.push(s.value); }
+  else if (where === "lines") { // lines drawn on a plane: taken onto the surface (each point straight out from the axis) and followed along it
+    const l = readLinesPath(sc, drawn, r.face);
     if (!l.ok) return l;
-    const placed = placeAlong(l.value.path, rules.value.rules);
-    if (!placed.ok) return placed;
-    if (placed.value.frames.length > 200) return err("that is more than 200 holes");
     const b = planeBasis(l.value.plane);
-    const at3 = (q: readonly [number, number]): Vec3 => [b.at[0] + b.u[0] * q[0] + b.v[0] * q[1], b.at[1] + b.u[1] * q[0] + b.v[1] * q[1], b.at[2] + b.u[2] * q[0] + b.v[2] * q[1]];
-    raw = placed.value.frames.map((f) => at3(f.at));
-    spacing = placed.value.spacing;
-    const total = lengthOf(placed.value.path);
-    const steps = Math.min(400, Math.max(24, Math.ceil(total / 2)));
-    guide3 = Array.from({ length: steps + 1 }, (_, i) => at3(pointAt(placed.value.path, (total * i) / steps).at));
-  }
-  const spots: FaceSpot[] = [];
-  if (!raw.length) return err("the rules leave no hole");
-  for (const q of raw) { const s = spotOnRound(r, q); if (!s.ok) return s; spots.push(s.value); }
-  const guide: Vec3[] = [];
-  for (const q of guide3) { const s = spotOnRound(r, q); if (s.ok) guide.push(s.value.centre); } // (the line as it lies on the surface; a point past its end is left out)
+    const total = lengthOf(l.value.path);
+    const pts = Array.from({ length: Math.min(200, Math.max(8, Math.ceil(total))) + 1 }, (_, i) => { const q = pointAt(l.value.path, (total * i) / Math.min(200, Math.max(8, Math.ceil(total)))).at; const p3: Vec3 = [b.at[0] + b.u[0] * q[0] + b.v[0] * q[1], b.at[1] + b.u[1] * q[0] + b.v[1] * q[1], b.at[2] + b.u[2] * q[0] + b.v[2] * q[1]]; return uvOnRound(r, p3); });
+    const got = rowsAlongLine(pathOf(pts, false), surf.map, { ...rules.value.rules, corners: "ignore" }, rn.value.count, rn.value.gap);
+    if (!got.ok) return got;
+    ({ places: spots, guide, spacing } = got.value);
+  } else if (where === "outline" || where === "edge" || where === "midline") {
+    const edge = where !== "outline" && edgeSel.length && surf.outline.ok ? roundSideNear(r, sc, edgeSel[0]!, surf.outline.value) : null;
+    const got = rowsFromEdges(surf, where, edge, rules.value.rules, rn.value.count, rn.value.gap);
+    if (!got.ok) return got;
+    ({ places: spots, guide, spacing } = got.value);
+  } else return err("select the round face, and a line, or corners and circles on it");
+  if (!spots.length) return err("the rules leave no hole");
   return ok({ kind: hw.value.kind, size: v.size as FastenerSize, fit: fitOf(v.fit), depth: hw.value.depth, engagement: hw.value.engagement, spot: spots[0]!, places: spots.map((s) => s.centre), far: false, spacing, guide, reach: v.depth.trim() === "" ? 2 * r.radius : hw.value.depth, stack: v.depth.trim() === "" ? 2 * r.radius : hw.value.depth, drill: hw.value.drill, insert: hw.value.insert, spots, curved: true });
 }
 export function cutReceiver(session: Session, v: ReceiverValues): Result<Session> {

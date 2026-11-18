@@ -84,16 +84,19 @@ test("a hole to tap in a row: every place gets the same receiver and the depth a
   assert.ok(r.ok, r.ok ? "" : r.error);
   near(total(r.value), V - 5 * cyl(4.2, 6)); // (80 / 20: five places)
 });
-test("an edge of the body selected with the face is a path: holes along it, taken onto the face", () => {
+test("an edge of the body selected with the face is one edge stepped in: holes along it, the inset in from it (`in_958`)", () => {
   const { s, top, V } = block();
   const sc = scene(s);
   const edge = Object.values(sc.parts).find((p) => p.kind === "line" && p.origin === "body" && !p.circle && p.ref.includes("e@0,0,8~100,0,8"))!.ref;
   const sel = select(s, [top, edge]);
   const f = selectedFace(sel);
   assert.ok(f.ok && f.value.lines.length === 1);
-  const r = cutReceiver(sel, vals({ place: "lines", by: "count", value: "3", offset: "10", corners: "ignore" }));
+  const p = receiverPlan(sel, vals({ place: "edge", by: "count", value: "3", offset: "10", corners: "ignore" }));
+  assert.ok(p.ok, p.ok ? "" : p.error);
+  if (p.ok) for (const c of p.value.places) near(c[1], 10, 1e-6); // (the edge runs along +x, so its left is +y: 10 in from the edge)
+  const r = cutReceiver(sel, vals({ place: "edge", by: "count", value: "3", offset: "10", corners: "ignore" }));
   assert.ok(r.ok, r.ok ? "" : r.error);
-  near(total(r.value), V - 3 * cyl(4.5, 8)); // (the edge runs along +x, so its left is +y: 10 in from the edge)
+  near(total(r.value), V - 3 * cyl(4.5, 8));
 });
 test("rules that make no hole, or too many, are refused with the reason", () => {
   const { s } = block();
@@ -305,13 +308,13 @@ test("holes along the outline counted with a hole at every corner: the count is 
 test("a round face alone: a row round it at the middle of its height, spaced along the surface, in from its ends", () => {
   const { s: s0, face } = post();
   const s = select(s0, [face]);
-  const p = receiverPlan(s, vals({ kind: "clearance", size: "M4", by: "count", value: "6", corners: "ignore" }));
+  const p = receiverPlan(s, vals({ kind: "clearance", size: "M4", by: "count", value: "6", corners: "ignore", place: "midline" }));
   assert.ok(p.ok, p.ok ? "" : p.error);
   if (!p.ok) return;
   assert.equal(p.value.places.length, 6); // (a whole post: six round it)
   for (const c of p.value.places) { near(Math.hypot(c[0], c[1]), 10, 1e-6); near(c[2], 20, 1e-6); }
   near(p.value.spacing!, (2 * Math.PI * 10) / 6, 1e-6);
-  const r = cutReceiver(s, vals({ kind: "clearance", size: "M4", by: "count", value: "4", corners: "ignore" }));
+  const r = cutReceiver(s, vals({ kind: "clearance", size: "M4", by: "count", value: "4", corners: "ignore", place: "midline" }));
   assert.ok(r.ok, r.ok ? "" : r.error);
 });
 
@@ -350,4 +353,37 @@ test("a lid on an object cut as drill + tap: clearance in the lid, the pilot in 
   const screw = Math.min(...bodies(r.value).map((b) => b.volume ?? 1e9));
   const hosts = total(r.value) - screw;
   near(before - hosts, cyl(4.5, 5) + cyl(3.3, 6), 0.01);
+});
+
+// ---- the lines a face's edges give, the same on a flat face and a round one (`in_958`) ----
+test("one edge stepped in to the middle of a flat face, and rows either side of it", () => {
+  const { s } = block();
+  const mid = receiverPlan(s, vals({ place: "midline", by: "count", value: "3", corners: "ignore" }));
+  assert.ok(mid.ok, mid.ok ? "" : mid.error);
+  if (mid.ok) for (const c of mid.value.places) near(c[1], 30, 1e-6); // (the longest edge is 100 long, the face 60 across)
+  const two = receiverPlan(s, vals({ place: "midline", by: "count", value: "3", corners: "ignore", rowCount: "2", rowGap: "10" }));
+  assert.ok(two.ok, two.ok ? "" : two.error);
+  if (two.ok) { assert.equal(two.value.places.length, 6); assert.deepEqual([...new Set(two.value.places.map((c) => Math.round(c[1])))].sort((a, b) => a - b), [25, 35]); assert.equal(two.value.guide.length, 2); }
+});
+test("one edge stepped in, repeated in rows going in", () => {
+  const { s } = block();
+  const p = receiverPlan(s, vals({ place: "edge", by: "count", value: "2", corners: "ignore", offset: "6", rowCount: "3", rowGap: "8" }));
+  assert.ok(p.ok, p.ok ? "" : p.error);
+  if (p.ok) assert.deepEqual([...new Set(p.value.places.map((c) => Math.round(c[1])))].sort((a, b) => a - b), [6, 14, 22]);
+  assert.ok(!receiverPlan(s, vals({ place: "edge", by: "count", value: "2", corners: "ignore", rowCount: "2", rowGap: "0" })).ok);
+});
+test("a round face gives the same lines as a flat one: a whole post has the lowest and the highest line round it, each stepped in along the axis", () => {
+  const { s: s0, face } = post();
+  const post1 = select(s0, [face]);
+  // a whole post: the lowest and the highest line round it, each stepped in along the axis
+  const p = receiverPlan(post1, vals({ place: "outline", by: "count", value: "4", corners: "ignore", offset: "5" }));
+  assert.ok(p.ok, p.ok ? "" : p.error);
+  if (!p.ok) return;
+  assert.deepEqual([...new Set(p.value.places.map((q) => Math.round(q[2])))].sort((a, b) => a - b), [5, 35]);
+  assert.equal(p.value.places.length, 8);
+  assert.equal(p.value.guide.length, 2);
+  const e = receiverPlan(post1, vals({ place: "edge", by: "count", value: "4", corners: "ignore", offset: "5" }));
+  assert.ok(e.ok && e.value.places.every((q) => Math.abs(q[2] - 5) < 1e-6));
+  const m = receiverPlan(post1, vals({ place: "midline", by: "count", value: "4", corners: "ignore", rowCount: "2", rowGap: "6" }));
+  assert.ok(m.ok && new Set(m.value.places.map((q) => Math.round(q[2]))).size === 2);
 });
