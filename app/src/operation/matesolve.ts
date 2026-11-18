@@ -7,7 +7,7 @@ import type { MateMode } from "./mates.ts";
 import type { Rigid } from "./frames.ts";
 
 /** What a mate is about on one body: the face as a point on it and a direction (a flat face's outward normal, a round face's axis). */
-export interface SolveFeature { point: Vec3; dir: Vec3 }
+export interface SolveFeature { point: Vec3; dir: Vec3; /** a round face's radius (0: a flat one): a tangent mate needs it */ radius?: number }
 export interface SolveMate { id: string; mode: MateMode; gap: number; /** whether the distance counts (a parallel mate with a distance) */ counts: boolean; mover: string; other: string; a: SolveFeature; b: SolveFeature }
 export interface SolveBody { id: string; /** the point its turns are about (its middle) */ pivot: Vec3; /** the order it was made in: of bodies that only move each other the first stays */ order: number }
 /** A pose: turn (a rotation vector, radians) about the pivot, then shift. */
@@ -37,6 +37,16 @@ function residuals(m: SolveMate, a: SolveFeature, b: SolveFeature): number[] {
     case "parallel": { const c = cross(da, db); return m.counts ? [c[0], c[1], c[2], Math.abs(along) - m.gap] : [c[0], c[1], c[2]]; }
     case "parallelAxes": case "axisToFace": { const c = cross(da, db); return [c[0], c[1], c[2]]; }
     case "perpendicular": case "perpendicularAxes": return [dot(da, db)];
+    case "tangent": { // a round face on a flat one: the axis in the plane and a radius from it (the side is `gap`'s sign); on another round one: the axes parallel and the radii apart (`in_837`)
+      const [ra, rb] = [a.radius ?? 0, b.radius ?? 0];
+      if ((ra > 0) !== (rb > 0)) {
+        const [plane, axis, r] = ra > 0 ? [b, a, ra] : [a, b, rb];
+        const n = unit(plane.dir);
+        return [dot(unit(axis.dir), n), dot(sub(axis.point, plane.point), n) - (m.gap < 0 ? -1 : 1) * r];
+      }
+      const c = cross(da, db);
+      return [c[0], c[1], c[2], length(perp) - (m.gap >= 0 ? ra + rb : Math.abs(ra - rb))];
+    }
     case "angle": case "angleAxes": {
       const want = (m.gap * Math.PI) / 180;
       return m.gap > 90 ? [dot(da, db) - Math.cos(want)] : [dot(da, db) ** 2 - Math.cos(want) ** 2]; // (as lines up to 90, between the directions past it, `in_326`)
@@ -47,7 +57,7 @@ function residuals(m: SolveMate, a: SolveFeature, b: SolveFeature): number[] {
 const posed = (f: SolveFeature, pivot: Vec3, p: Pose | undefined): SolveFeature => {
   if (!p) return f;
   const R = rotationOf(p.turn);
-  return { point: add(add(pivot, mul(R, sub(f.point, pivot))), p.shift), dir: mul(R, f.dir) };
+  return { point: add(add(pivot, mul(R, sub(f.point, pivot))), p.shift), dir: mul(R, f.dir), ...(f.radius !== undefined ? { radius: f.radius } : {}) };
 };
 
 /** Solve the linear system A x = b (small, dense) by Gaussian elimination with a pivot; null if singular. */

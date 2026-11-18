@@ -16,6 +16,7 @@ import type { Command } from "../operation/commands.ts";
 import { relationKind, planeOfParts, roundOf } from "../operation/part.ts";
 import type { Kind } from "../operation/part.ts";
 import { whyNotMate, mateCommand, driveCommand, hardDrive, limitCommand, unlimitCommand, jointOf } from "./mate.ts";
+import { worldRef } from "../shared/ref.ts";
 import type { MateMode } from "../operation/mates.ts";
 import { featureOf, existingMate, faceMiddle, isFlatMode, mateStatus } from "../operation/mates.ts";
 import { ordered } from "./selection.ts";
@@ -94,11 +95,11 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
   if (sel.length === 2) {
     const kinds: [MateMode, string, "mm" | "deg" | null][] = [
       ["flush", "Mate: flush faces", "mm"], ["parallel", "Mate: parallel faces", "mm"], ["perpendicular", "Mate: perpendicular faces", null], ["angle", "Mate: angle between faces", "deg"],
-      ["coaxial", "Mate: coaxial", "mm"], ["parallelAxes", "Mate: parallel axes", null], ["perpendicularAxes", "Mate: perpendicular axes", null], ["angleAxes", "Mate: angle between axes", "deg"], ["axisToFace", "Mate: axis perpendicular to a face", null],
+      ["coaxial", "Mate: coaxial", "mm"], ["parallelAxes", "Mate: parallel axes", null], ["perpendicularAxes", "Mate: perpendicular axes", null], ["angleAxes", "Mate: angle between axes", "deg"], ["axisToFace", "Mate: axis perpendicular to a face", null], ["tangent", "Mate: tangent", null],
     ];
     for (const [mode, label, unit] of kinds) {
       const why = whyNotMate(scene, mode, sel[0]!, sel[1]!);
-      if (why && (mode === "axisToFace" ? !(isFlatBodyFace(get, [sel[0]!]) !== isFlatBodyFace(get, [sel[1]!]) || (isRoundBodyFace(get, [sel[0]!]) !== isRoundBodyFace(get, [sel[1]!]))) : isFlatMode(mode) ? !isFlatBodyFace(get, sel) : !isRoundBodyFace(get, sel))) continue; // (not this kind of faces: no row for it)
+      if (why && (mode === "tangent" ? !(isRoundBodyFace(get, [sel[0]!]) || isRoundBodyFace(get, [sel[1]!])) : mode === "axisToFace" ? !(isFlatBodyFace(get, [sel[0]!]) !== isFlatBodyFace(get, [sel[1]!]) || (isRoundBodyFace(get, [sel[0]!]) !== isRoundBodyFace(get, [sel[1]!]))) : isFlatMode(mode) ? !isFlatBodyFace(get, sel) : !isRoundBodyFace(get, sel))) continue; // (not this kind of faces: no row for it)
       const [fa, fb] = [featureOf(scene, sel[0]!, mode), featureOf(scene, sel[1]!, mode)];
       const degrees = unit === "deg";
       // what the faces leave now, as the number it would be typed as: the gap between flush faces, the distance between parallel faces, the distance between axes, the angle (`in_317`..`in_319`); the tape measure shows them (`in_338`)
@@ -121,6 +122,26 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
           const again = fa && fb ? existingMate(scene, mode, fa.body, fb.body) ?? undefined : undefined; // (a mate made again between the same bodies replaces the one there)
           const amount = unit === null ? 0 : degrees ? Math.min(180, Math.max(0, value ?? measureNow() ?? 0)) : Math.max(0, value ?? 0);
           const r = mateCommand(scene, mode, sel[0]!, sel[1]!, amount, again, mode !== "parallel" || value !== undefined, true); // (parallel faces are only turned unless a distance is typed)
+          return "command" in r ? r.command : { type: "batch", commands: [] };
+        },
+      });
+    }
+  }
+
+  // one face or axis of a body made level or upright (`in_837`): a mate with the world, the face turned against the plane across the world's up direction (a flat face level: its normal along it; upright: at a right angle to it; an axis the other way round)
+  if (sel.length === 1 && (isFlatBodyFace(get, sel) || isRoundBodyFace(get, sel))) {
+    const flat = isFlatBodyFace(get, sel);
+    const world = worldRef("XY");
+    for (const [id, label, flatMode, roundMode] of [["horizontal", "Horizontal", "parallel", "perpendicularAxes"], ["vertical", "Vertical", "perpendicular", "parallelAxes"]] as const) {
+      const mode: MateMode = flat ? flatMode : roundMode;
+      const fa = featureOf(scene, sel[0]!, mode);
+      const why = whyNotMate(scene, mode, sel[0]!, world);
+      out.push({
+        id: `mate:${id}`, label, group: "relation", dimensional: false, unit: null, parts: [...sel], enabled: why === null, why,
+        measure: () => null, spot: () => faceMiddle(scene, sel[0]!),
+        run: (): Command => {
+          const again = fa ? existingMate(scene, mode, fa.body, world) ?? undefined : undefined;
+          const r = mateCommand(scene, mode, sel[0]!, world, 0, again, false, true);
           return "command" in r ? r.command : { type: "batch", commands: [] };
         },
       });

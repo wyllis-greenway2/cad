@@ -3,7 +3,7 @@ id: dec_ui_unification
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_836, in_835, in_834, in_833, in_832, in_674, in_673, in_672, in_671, in_670, in_669, in_668, in_667, in_666, in_665, in_664, in_663, in_662
+human_input: in_837, in_836, in_835, in_834, in_833, in_832, in_674, in_673, in_672, in_671, in_670, in_669, in_668, in_667, in_666, in_665, in_664, in_663, in_662
 date: 2026-11-16
 depends_on:
 alternative_to:

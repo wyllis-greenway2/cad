@@ -116,6 +116,7 @@ Object.assign(ICONS, {
   "mate:parallelAxes": svg('<path d="M5 14.5L7.6 1.5" stroke-dasharray="2.4 1.6"/><path d="M10.4 14.5L13 1.5" stroke-dasharray="2.4 1.6"/>'),
   "mate:perpendicularAxes": svg('<path d="M3 2v11.5" stroke-dasharray="2.4 1.6"/><path d="M3 13.5h11" stroke-dasharray="2.4 1.6"/><path d="M3 10h3.5v3.5"/>'),
   "mate:angleAxes": svg('<path d="M2.5 13.5h11" stroke-dasharray="2.4 1.6"/><path d="M2.5 13.5L11.5 4.5" stroke-dasharray="2.4 1.6"/><path d="M7.5 13.5a5 5 0 0 0-1.4-3.4"/>'),
+  "mate:tangent": svg('<circle cx="8" cy="10" r="4"/><path d="M1.5 6h13"/>'),
   "mate:axisToFace": svg('<path d="M1.8 12.8l3.2-3.2h9.2l-3.2 3.2z"/><path d="M8 9.6V1.8" stroke-dasharray="2.4 1.6"/><path d="M8 9.6h2.6"/><path d="M10.6 9.6V7"/>'),
   sameHeight: svg('<circle cx="3.6" cy="8" r="1.5"/><circle cx="12.4" cy="8" r="1.5"/><path d="M5.5 8h5" stroke-dasharray="1.4 1.6"/>'),
   sameAcross: svg('<circle cx="8" cy="3.6" r="1.5"/><circle cx="8" cy="12.4" r="1.5"/><path d="M8 5.5v5" stroke-dasharray="1.4 1.6"/>'),

@@ -3695,3 +3695,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_836 — 2026-11-18 — approval
 > yes build it please
 (approves the flat constraints menu of 12 generic entries: Horizontal, Vertical, Parallel, Perpendicular, Angle, Coincident, On, Tangent, Concentric, Equal, Dimension, Fix in place; each chooses the 2D relation or the 3D mate from what is selected; Horizontal and Vertical also on faces and axes)
+
+## in_837 — 2026-11-18 — approval
+> okay build the not built yet stuff
+(approves building what the last reply left out: Horizontal and Vertical on a face or an axis (a mate with the world), and Tangent between bodies)

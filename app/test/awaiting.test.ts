@@ -26,8 +26,8 @@ test("Horizontal is dimmed with nothing selected; pressed, it asks for a line, a
   st = reduce(st, { type: "runAction", id: "why:c:horizontal" }, env);
   assert.equal(st.awaiting?.id, "c:horizontal");
   assert.equal(st.menu, null, "the menu steps aside");
-  assert.match(st.session.message ?? "", /Select a line, or two points first: click it/);
-  assert.match(frameOf(st, env).confirm?.text ?? "", /^Select a line, or two points first/, "the bubble says what to select");
+  assert.match(st.session.message ?? "", /Select a line, two points, or a face or an axis of a body first: click it/);
+  assert.match(frameOf(st, env).confirm?.text ?? "", /^Select a line, two points, or a face or an axis of a body first/, "the bubble says what to select");
   st = click(st, [10, 2.5, 0]);
   assert.equal(st.awaiting, null, "it was run");
   assert.ok(scene(st.session).relations.some((r) => r.kind === "horizontal"), "the line is held horizontal");
