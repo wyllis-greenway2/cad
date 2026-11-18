@@ -3862,3 +3862,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_878 — 2026-11-18 — question
 > where else could we get good speed improvements or fix bugs?
 (asks for the AI's view of where else speed could be improved or bugs fixed)
+
+## in_879 — 2026-11-18 — directive
+> okay yes lets do all of those. start on 1
+(approves doing all the listed items in order: first checking a slower device, then the wheel's sections off the page, the out-of-memory over about 200 parts, and measuring the unmeasured heavy operations; also the smaller items offered)
