@@ -215,7 +215,7 @@ export const RECEIVER_KINDS: readonly { id: ReceiverKind; label: string; /** a s
   { id: "drillTap", label: "Clearance hole to a depth, tapped past it (the tap drill)", short: "Drill + tap" }, // (`in_910`, `in_911`)
 ];
 /** Where a receiver goes: a flat face of a body, as the plane the face lies on (`at` a point on it, `u` and `v` across it, the normal `u` x `v` pointing out of the body), and the point on it the hole is centred on. */
-export interface FaceSpot { plane: Ref; centre: Vec3; u: Vec3; v: Vec3 }
+export interface FaceSpot { plane: Ref; centre: Vec3; u: Vec3; v: Vec3; /** on a curved surface (`in_915`): `plane` is not the plane of the spot, so a plane touching the surface at `centre` (`u`, `v` across it, the normal `u` x `v` out of the body) is made for what has to be drawn on it */ own?: boolean }
 const cross3 = (a: readonly number[], b: readonly number[]): [number, number, number] => [a[1]! * b[2]! - a[2]! * b[1]!, a[2]! * b[0]! - a[0]! * b[2]!, a[0]! * b[1]! - a[1]! * b[0]!];
 const along = (p: readonly number[], d: readonly number[], t: number): [number, number, number] => [p[0]! + d[0]! * t, p[1]! + d[1]! * t, p[2]! + d[2]! * t];
 const BIT = 0.5; // (a cut starts this far outside the face, so it never ends exactly on it)
@@ -264,7 +264,9 @@ export function receiverSteps(kind: ReceiverKind, size: FastenerSize, fit: Clear
   if (kind === "nutPocket") {
     const trap = nutTrap(size);
     let hex: Ref[] = [];
-    steps.push((s) => { const r = drawChain(s, spot.plane, hexagon(trap.acrossFlats).map(([x, y]) => along(along(spot.centre, spot.u, x), spot.v, y)), true); hex = r.lines; return r.command; });
+    let hexPlane: Ref = spot.plane;
+    if (spot.own) steps.push((s) => { const ref: Ref = `d/${nextId(s, "e")}.pl` as Ref; hexPlane = ref; return { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: spot.centre, u: spot.u, v: spot.v } }; });
+    steps.push((s) => { const r = drawChain(s, hexPlane, hexagon(trap.acrossFlats).map(([x, y]) => along(along(spot.centre, spot.u, x), spot.v, y)), true); hex = r.lines; return r.command; });
     steps.push((s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "extrude", parts: hex, params: { depth: -trap.depth, mode: "cut", ...figureParams([{ outer: hex, holes: [] }]) } } }));
   }
   return steps;
@@ -374,11 +376,13 @@ export function screwInPlace(family: "countersunk" | "socketHead", size: Fastene
   ];
 }
 /** A hex nut as its own body standing in its pocket: the plane is the face the pocket is cut from (facing out of the body), `centre` the hole's axis on it. */
-export function nutInPlace(size: FastenerSize, plane: Ref, centre: Vec3, u: Vec3, v: Vec3): PartSteps {
+export function nutInPlace(size: FastenerSize, plane0: Ref, centre: Vec3, u: Vec3, v: Vec3, own = false): PartSteps {
   const d = NUTS[size];
   let circle: Ref | null = null;
   let hex: Ref[] = [];
+  let plane: Ref = plane0;
   return [
+    ...(own ? [(s: Scene): Command => { const ref: Ref = `d/${nextId(s, "e")}.pl` as Ref; plane = ref; return { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: centre, u, v } }; }] : []),
     (s) => { const r = drawChain(s, plane, hexagon(d.acrossFlats.max).map(([x, y]) => along(along(centre, u, x), v, y)), true); hex = r.lines; return r.command; },
     (s) => { const r = drawCircle(s, plane, centre, nominalDiameter(size) / 2); circle = r.circle; return r.command; },
     (s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "extrude", parts: hex, params: { depth: -d.thickness.max, mode: "new", ...figureParams([{ outer: hex, holes: circle ? [[circle]] : [] }]) } } }),

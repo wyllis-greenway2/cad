@@ -4002,3 +4002,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_913 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for this branch (the Fastener tool: drill + tap, insert, wireframe) to be merged into claude/inspiring-pascal-l342k7)
+
+## in_914 — 2026-11-18 — directive
+> no need for a full test suite on this merge
+(says the full suite is not needed on the merge into the testing branch)
+
+## in_915 — 2026-11-18 — directive
+> 3 both. Basically like a flat surface. We would draw a line, position the fasteners on it, going in normal to the surface.
+(answers the curved-surface question: both readings, holes through a curved wall and holes along a line on a curved face; it should work like a flat surface: a line is drawn, the fasteners are positioned along it, each going in along the normal of the surface)

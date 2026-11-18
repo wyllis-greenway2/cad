@@ -305,6 +305,7 @@ function holesValues(): { values: ReceiverValues; mode: HoleBarView["mode"] } {
   const v = hardware!.values.kind === "tapped" || hardware!.values.kind === "nutPocket" || hardware!.values.kind === "drillTap" ? { ...hardware!.values, far: "none" } : hardware!.values; // (a nut on the far side goes with a hole right through)
   if (!ctx) return { values: v, mode: "none" };
   if (ctx.places) return { values: { ...v, place: "picked" }, mode: "picked" };
+  if (ctx.curved && !ctx.lines) return { values: v, mode: "none" }; // (a round face has no outline to follow: a line or places are needed)
   if (ctx.lines) return { values: { ...v, place: "lines", corners: "ignore" }, mode: "line" }; // (a line has no corners to keep: its ends are its ends)
   return { values: { ...v, place: "outline" }, mode: "face" };
 }
@@ -327,7 +328,7 @@ function holesOptions(): { bar: HoleBarView; view: ToolpathView | null } {
   if (holesNow && key === holesKey && lastHolesScene === sc) return holesNow;
   const { values, mode } = holesValues();
   const plan = mode === "none" ? null : receiverPlan(session, values);
-  const problem = mode === "none" ? "select a flat face of a body, or a line drawn on one" : plan && !plan.ok ? plan.error : null;
+  const problem = mode === "none" ? (receiverContext(session)?.curved ? "select a line drawn across the round face, or corners and circles on it" : "select a flat face of a body, or a line drawn on one") : plan && !plan.ok ? plan.error : null;
   const note = plan?.ok ? `${plan.value.places.length} hole${plan.value.places.length === 1 ? "" : "s"}${plan.value.spacing !== null ? `, ${Math.round(plan.value.spacing * 100) / 100} mm apart` : ""}` : "";
   const v = hardware!.values;
   holesNow = {

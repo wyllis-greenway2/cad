@@ -6,7 +6,7 @@ import { worldRef } from "../src/shared/ref.ts";
 import { createSession, run, scene } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";
 import { drawChain, drawCircle, drawSquaredRectangle } from "../src/operation/build.ts";
-import { nextId } from "../src/operation/scene.ts";
+import { nextId, figureParams } from "../src/operation/scene.ts";
 import { cutReceiver, receiverContext, receiverDialog, receiverStart, receiverStartFor, selectedFace, receiverPlan } from "../src/interaction/addpart.ts";
 import type { ReceiverValues } from "../src/interaction/addpart.ts";
 import { readFaceOutline } from "../src/operation/pathmaps.ts";
@@ -219,4 +219,64 @@ test("insert with a far nut puts a nut body in the far pocket; a nut pocket on t
   const b = cutReceiver(s, vals({ kind: "nutPocket", size: "M4", insert: "screw" }));
   assert.ok(b.ok, b.ok ? "" : b.error);
   if (b.ok) assert.equal(bodies(b.value).length, 2);
+});
+
+// ---- a curved surface (`in_915`): a round face, a line across it, the holes going in along the normal ----
+const post = (): { s: Session; face: string; V: number } => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 10);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 40, ...figureParams([{ outer: [c.circle], holes: [] }]) } } });
+  const face = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && !!(p.curved || p.round))!.ref;
+  return { s, face, V: Math.PI * 100 * 40 };
+};
+const alongAxis = (s: Session, face: string, x = 12): Session => {
+  const l = drawChain(scene(s), worldRef("XZ"), [[x, 0, 5], [x, 0, 35]], false);
+  s = run(s, l.command);
+  return select(s, [face, l.lines[0]!]);
+};
+// what one hole of diameter d takes from a post of radius R, straight through it across the axis
+const through = (d: number, R: number): number => { let v = 0; const n = 400, a = d / 2, h = d / n; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const y = -a + (i + 0.5) * h, z = -a + (j + 0.5) * h; if (y * y + z * z <= a * a) v += 2 * Math.sqrt(R * R - y * y) * h * h; } return v; };
+test("a line along a round post: holes in along the normal, through the post", () => {
+  const { s: s0, face, V } = post();
+  const s = alongAxis(s0, face);
+  const p = receiverPlan(s, vals({ kind: "clearance", size: "M4", place: "lines", by: "count", value: "3", corners: "ignore" }));
+  assert.ok(p.ok, p.ok ? "" : p.error);
+  if (!p.ok) return;
+  assert.equal(p.value.places.length, 3);
+  assert.ok(p.value.curved);
+  for (const c of p.value.places) near(Math.hypot(c[0], c[1]), 10, 1e-6); // (on the surface)
+  const r = cutReceiver(s, vals({ kind: "clearance", size: "M4", fit: "medium", place: "lines", by: "count", value: "3", corners: "ignore" }));
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  if (r.ok) near(total(r.value), V - 3 * through(4.5, 10), 0.003);
+});
+test("a line round a post: the holes stand round it, each looking at the axis", () => {
+  const { s: s0, face } = post();
+  const arc = drawChain(scene(s0), XY, [[12, 0, 20], [0, 12, 20]], false); // (a straight line across a corner of the plane: the places are projected onto the post)
+  let s = run(s0, arc.command);
+  s = select(s, [face, arc.lines[0]!]);
+  const p = receiverPlan(s, vals({ kind: "clearance", size: "M4", place: "lines", by: "count", value: "3", corners: "ignore" }));
+  assert.ok(p.ok, p.ok ? "" : p.error);
+  if (!p.ok) return;
+  for (const sp of p.value.spots) { const out = [sp.u[1] * sp.v[2] - sp.u[2] * sp.v[1], sp.u[2] * sp.v[0] - sp.u[0] * sp.v[2], sp.u[0] * sp.v[1] - sp.u[1] * sp.v[0]]; near(out[0]! * sp.centre[0] + out[1]! * sp.centre[1], 10, 1e-6); } // (the way out is straight out from the axis)
+});
+test("a round face with no line is told what to select; a nut on the far side and a screw without a depth are refused", () => {
+  const { s: s0, face } = post();
+  const s = select(s0, [face]);
+  const p = receiverPlan(s, vals({}));
+  assert.ok(!p.ok && p.error.includes("line"));
+  const t = alongAxis(s0, face);
+  assert.ok(!receiverPlan(t, vals({ place: "lines", by: "count", value: "2", corners: "ignore", far: "nut" })).ok);
+  assert.ok(!receiverPlan(t, vals({ place: "lines", by: "count", value: "2", corners: "ignore", insert: "screw" })).ok);
+  assert.ok(receiverPlan(t, vals({ place: "lines", by: "count", value: "2", corners: "ignore", insert: "screw", depth: "20" })).ok);
+});
+test("hardware in a curved hole: a counterbore with its screw, a nut pocket with its nut", () => {
+  const { s: s0, face } = post();
+  const s = alongAxis(s0, face);
+  const a = cutReceiver(s, vals({ kind: "counterbore", size: "M4", place: "lines", by: "count", value: "2", corners: "ignore", depth: "20", insert: "screw" }));
+  assert.ok(a.ok, a.ok ? "" : a.error);
+  if (a.ok) assert.equal(bodies(a.value).length, 3);
+  const b = cutReceiver(s, vals({ kind: "nutPocket", size: "M4", place: "lines", by: "count", value: "2", corners: "ignore", insert: "screw" }));
+  assert.ok(b.ok, b.ok ? "" : b.error);
+  if (b.ok) assert.equal(bodies(b.value).length, 3);
 });

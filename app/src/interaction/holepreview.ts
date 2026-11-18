@@ -13,17 +13,18 @@ const at = (c: Vec3, e1: Vec3, e2: Vec3, n: Vec3, x: number, y: number, h: numbe
 
 /** The lines of the holes of a plan: pairs of points as flat numbers (ax, ay, az, bx, by, bz, ...). */
 export function holeLines(plan: ReceiverPlan): number[] {
-  const { spot, kind, size, fit } = plan;
-  const e1 = unit(spot.u);
-  const n = unit(cross(spot.u, spot.v)); // (out of the body)
-  const e2 = cross(n, e1);
+  const { kind, size, fit } = plan;
   const depth = Math.max(0.1, Math.min(plan.depth, plan.reach)); // (a hole right through is drawn to the far side of the body)
   // the profile as the cut makes it, from the face down: the half a millimetre the cut starts above the face is not drawn
   const prof = receiverProfile(kind, size, fit, depth, plan.engagement, plan.drill).map(([x, y]) => [x, Math.min(y, 0)] as const);
   const out: number[] = [];
   const seg = (a: Vec3, b: Vec3): void => { out.push(a[0], a[1], a[2], b[0], b[1], b[2]); };
   const rings = new Set<string>();
-  for (const c of plan.places) {
+  for (const spot of plan.spots) {
+    const c = spot.centre;
+    const e1 = unit(spot.u);
+    const n = unit(cross(spot.u, spot.v)); // (out of the body: on a curved surface each place has its own)
+    const e2 = cross(n, e1);
     // the section, on four sides
     for (const [s1, s2] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
       const dir1: Vec3 = [e1[0] * s1 + e2[0] * s2, e1[1] * s1 + e2[1] * s2, e1[2] * s1 + e2[2] * s2];
