@@ -222,8 +222,8 @@ test("a worm for a worm wheel (`in_697`): placed by the helper on either side of
 test("a worm wheel's land (`in_790`): the tooth section carried straight out to each face and cut back by the worm's envelope: width + 2 land thick, heavier, one body (the steps name each other's bodies); Mesh gear gives no land unless one is typed, and with one the pair still does not touch", () => {
   const withLand = (land: number | undefined) => run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: { ...wheelSpec, wheel: { ...wheelSpec.wheel!, ...(land !== undefined ? { land } : {}) } } });
   const [none, land] = [withLand(undefined), withLand(2)];
-  assert.deepEqual(scene(land).steps.map((st) => st.type), ["loft", "extrude", "extrude", "extrude", "extrude", "combine", "combine", "combine"]);
-  assert.deepEqual(scene(land).steps.filter((st) => st.type === "combine").map((st) => st.parts.length), [2, 2, 3]);
+  assert.deepEqual(scene(land).steps.map((st) => st.type), ["loft", "extrude", "extrude", "sewBodies", "extrude", "extrude", "combine", "combine"]);
+  assert.deepEqual(scene(land).steps.filter((st) => st.type === "combine" || st.type === "sewBodies").map((st) => st.parts.length), [3, 2, 2]);
   assert.equal(bodies(land).length, 1, "one body");
   const box = (s: Session) => (Object.values(scene(s).parts).find((p) => p.kind === "body") as unknown as { bbox: { min: Vec3; max: Vec3 } }).bbox;
   const [a, b] = [box(none), box(land)];

@@ -2,9 +2,12 @@
 // each operation by a marker, a point inside it (the middle of its box, kept up to date): the solid that holds a body's marker is that body, a solid with no marker is a new body (named by the operation that made it), and a
 // marker with no solid of its own any more (two bodies joined, one cut away) is gone. Pure geometry on plain numbers and replicad shapes; nothing here leaves the kernel folder.
 import { getOC } from "replicad";
+import { facesOf } from "./topo.mjs";
 
 // The exact box of a solid takes a tenth of a second for a loft of a thousand faces: kept by the solid's own identity (the same shape, found again in a later result, has the same box), and by a quick box round it, so that
 // another solid with the same identity number is never taken for it (`in_446`)
+const ANALYTIC = new Set(["PLANE", "CYLINDRE", "SPHERE", "CONE", "TORUS"]);
+const HEAVY_FREEFORM = 300;
 const boxes = new Map();
 function roughKey(s) {
   const oc = getOC();
@@ -17,7 +20,9 @@ export const box = (s) => {
   const key = `${s.hashCode}|${roughKey(s)}`;
   const kept = boxes.get(key);
   if (kept) return { min: [...kept.min], max: [...kept.max] };
-  const b = s.boundingBox.bounds;
+  // a body of hundreds of freeform faces (a worm wheel, a helical gear of many teeth): its exact box is found by a search that took two seconds for every new solid made of it; a quick box, a few mm roomier, serves to find it again by its marker
+  const heavy = facesOf(s).filter((f) => !ANALYTIC.has(f.geomType)).length > HEAVY_FREEFORM;
+  const b = heavy ? (() => { const q = quickBox(s); return [q.min, q.max]; })() : s.boundingBox.bounds;
   const made = { min: [...b[0]], max: [...b[1]] };
   boxes.set(key, made);
   while (boxes.size > 400) boxes.delete(boxes.keys().next().value);

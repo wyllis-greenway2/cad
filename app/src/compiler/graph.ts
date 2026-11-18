@@ -122,7 +122,7 @@ export function buildGraph(scene: Scene): GraphResult {
         if (!matched.ok) { errors[st.id] = matched.why; break; }
         matched.sketches.forEach((s) => ops.push(s));
         sections.forEach((s) => s.holes.forEach((h) => ops.push(h)));
-        ops.push({ id: xid, type: "loft", sections: sections.map((s, i) => ({ profile: matched.sketches[i]!.id, holes: s.holes.map((h) => h.id) })), smooth: st.params.ruled ? false : true, ...(prev ? { target: prev } : {}), mode: !prev ? "add" : st.params.mode === "add" || st.params.mode === "cut" || st.params.mode === "new" ? String(st.params.mode) : "cutOrAdd" });
+        ops.push({ id: xid, type: "loft", sections: sections.map((s, i) => ({ profile: matched.sketches[i]!.id, holes: s.holes.map((h) => h.id) })), smooth: st.params.ruled ? false : true, ...(typeof st.params.gear === "string" ? { trusted: true } : {}), ...(prev ? { target: prev } : {}), mode: !prev ? "add" : st.params.mode === "add" || st.params.mode === "cut" || st.params.mode === "new" ? String(st.params.mode) : "cutOrAdd" });
         prev = xid;
         break;
       }
@@ -264,6 +264,15 @@ export function buildGraph(scene: Scene): GraphResult {
         const names = st.parts.map((r) => (r.startsWith("b/") ? r.split("/")[1]! : ""));
         if (names.length < 2 || names.some((n) => !n || n === "body")) { errors[st.id] = "select two or more bodies"; break; }
         ops.push({ id: xid, type: "combine", target: prev, mode: String(st.params.mode ?? "add"), bodies: names, ...(Number(st.params.keep) === 1 ? { keep: 1 } : {}), ...(Number(st.params.glue) === 1 ? { glue: 1 } : {}), ...(st.params.drop ? { drop: String(st.params.drop).split(",").filter(Boolean) } : {}), ...(st.params.mode === "regions" ? { regions: String(st.params.regions ?? "").split(",").filter((x) => x !== "").map(Number), join: Number(st.params.join) === 1 } : {}) });
+        prev = xid;
+        break;
+      }
+      case "sewBodies": {
+        // bodies that meet along flat faces joined into one (`in_814`): the faces they share (flat, across the axis, at the heights said) left out and the rest sewn into one solid: no boolean (a gear's worm wheel and its lands: 11 s by a fuse)
+        const names = st.parts.map((r) => (r.startsWith("b/") ? r.split("/")[1]! : ""));
+        if (!prev || names.length < 2 || names.some((n) => !n || n === "body")) { errors[st.id] = "select two or more bodies"; break; }
+        const p = st.params;
+        ops.push({ id: xid, type: "sewBodies", target: prev, bodies: names, origin: [Number(p.cx), Number(p.cy), Number(p.cz)], axis: [Number(p.dx), Number(p.dy), Number(p.dz)], heights: String(p.heights).split(",").map(Number) });
         prev = xid;
         break;
       }

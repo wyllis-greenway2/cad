@@ -660,11 +660,12 @@ const OPS = {
       return { solid };
     });
     const target = op.target ? ctx.get(op.target, "solid").shape : null;
-    if (!target) return { kind: "solid", shape: solid };
+    const trusted = op.trusted ? { noCross: true } : {}; // (a gear's loft is made from sections worked out from the gear's numbers, which do not cross: the self-crossing check, a mesh and a search of two seconds for a worm wheel, is left out, `in_814`)
+    if (!target) return { kind: "solid", shape: solid, ...trusted };
     if (op.mode === "cutOrAdd") {
       return { kind: "solid", shape: cutOrAdd(target, solid).shape };
     }
-    if (op.mode === "new") { if (!isValidSolid(solid)) throw new Error("kernel returned an invalid solid"); return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]), checked: true }; } // (the bodies it stands beside were checked when they were made: only the new piece is)
+    if (op.mode === "new") { if (!isValidSolid(solid)) throw new Error("kernel returned an invalid solid"); return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]), checked: true, ...trusted }; } // (the bodies it stands beside were checked when they were made: only the new piece is)
     return { kind: "solid", shape: op.mode === "cut" ? cutFrom(target, solid) : fuseInto(target, solid) };
   },
 
@@ -1280,6 +1281,30 @@ const OPS = {
     if (!parts.length) throw new Error(op.mode === "intersect" ? "those bodies have nothing in common" : "nothing would be left of the body");
     if (op.mode === "add" && parts.length > 1) throw new Error("those bodies do not touch or overlap, so they cannot become one body");
     return { kind: "solid", shape: makeCompound([...found.rest, ...parts, ...kept]), first: op.bodies[0] };
+  },
+
+  /**
+   * Bodies that meet along flat faces joined into one without a boolean (`in_814`): every flat face across `axis` at one of `heights` (measured from `origin` along it) is left out of each body, and the faces that are left of all of them
+   * are sewn into one solid, named as the first body is (the pieces of a worm wheel and its lands: their end faces are the same outline, drawn from the same sketch, and the fuse of them took eleven seconds).
+   */
+  sewBodies(op, ctx) {
+    const t = ctx.get(op.target, "solid");
+    const found = lumpsByName(t.shape, t.markers ?? [], op.bodies);
+    if (!found || found.picked.length < 2) throw new Error("select two or more bodies (one of them is not there any more)");
+    const l = Math.hypot(...op.axis) || 1, n = op.axis.map((x) => x / l);
+    const faces = [];
+    for (const lump of found.picked) for (const f of facesOf(lump)) {
+      if (f.geomType === "PLANE") {
+        const [c, nm] = [f.center, f.normalAt()];
+        const h = (c.x - op.origin[0]) * n[0] + (c.y - op.origin[1]) * n[1] + (c.z - op.origin[2]) * n[2];
+        const across = Math.abs(nm.x * n[0] + nm.y * n[1] + nm.z * n[2]);
+        if (across > 1 - 1e-6 && op.heights.some((x) => Math.abs(h - x) < 1e-5)) continue;
+      }
+      faces.push(f);
+    }
+    const solid = makeSolid(faces);
+    if (!isValidSolid(solid) || !(volume(solid) > 1e-9)) throw new Error("those pieces could not be joined into one body");
+    return { kind: "solid", shape: makeCompound([...found.rest, solid]), first: op.bodies[0], checked: true, noCross: true };
   },
 
   /**
