@@ -4167,3 +4167,15 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_952 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 once more, for the Cancel button, the single apply button, the guided menu items and the fix for the ghosts of deleted gears; gives permission to write to that branch)
+
+## in_953 — 2026-11-19 — question
+> why do gears rotate like this? when I add a gear, then mesh a gear to it, then rotate the original gear, it rotates the mesh gear around it like it is entirely glued to it? Is this because we should probably be adding an extra coaxial constraint or something like that to our mesh gears?
+(with a project file `weird_rotate.json` and a state snapshot: the AI found the two gears are one body, joined because their teeth touch exactly and the second gear's extrude joined the first; no coaxial mate is missing)
+
+## in_954 — 2026-11-19 — directive
+> how about we just make the gear creator in general have a very slight backlash by default? because we wouldn't want meshed gears to have slightly different size than original would we?
+(asks for the gear creator to give every new gear a very slight backlash by default, so a meshed gear is made with the same numbers as the original)
+
+## in_955 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the branch `claude/adoring-dijkstra-default-backlash` to be merged into the testing branch, and says the full suite is not needed: only the quick checks were run)

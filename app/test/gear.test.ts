@@ -216,7 +216,7 @@ test("the Gear tool is in the Sketch ring; click the centre, the pointer sets th
   assert.ok(previewFor(scene(st.session), st.tool)!.segments.length > 100, "the teeth are shown while the size is set");
   const e = entryOf(scene(st.session), st.tool, st.op);
   assert.deepEqual(e!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Helix", "Thickness", "Bore", "Flat", "Key", "Key depth", "Chamfer", "Edge chamfer"]);
-  assert.deepEqual(e!.fields.map((f) => f.value), ["20", "2", "20", "0", "0", "0.25", "0", "0", "0", "5", "0", "0", "0", "0", "0"]);
+  assert.deepEqual(e!.fields.map((f) => f.value), ["20", "2", "20", "0", "0.06", "0.25", "0", "0", "0", "5", "0", "0", "0", "0", "0"]);
   st = click(st, [C[0] + 22, C[1], 0]);
   assert.equal(drawn(st).length, 0, "the click that sets the size makes nothing yet (`in_688`): the number box stays open");
   assert.ok(st.tool!.sized, "the tool is on, the size set");
@@ -345,7 +345,7 @@ test("Edit gear: the number box opens on the selected gear with its numbers; typ
   st = reduce(st, { type: "runAction", id: "gear:edit" }, env);
   assert.equal(st.tool!.gear!.editing, "g_001");
   const e = entryOf(scene(st.session), st.tool, st.op)!;
-  assert.deepEqual(e.fields.map((f) => f.value), ["20", "2", "20", "0", "0", "0.25", "0", "0", "0", "5", "0", "0", "0", "0", "0"], "its numbers as they are");
+  assert.deepEqual(e.fields.map((f) => f.value), ["20", "2", "20", "0", "0.06", "0.25", "0", "0", "0", "5", "0", "0", "0", "0", "0"], "its numbers as they are");
   st = typeText(st, "30");
   st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab");
   st = typeText(st, "0.1");
@@ -792,3 +792,24 @@ test("one box for a gear to be made and one that is made (`in_951`): Cancel, and
   assert.equal(st.session.history.commands.length, n, "no command for nothing");
 });
 
+test("a new gear has a very slight play (3 per cent of the module) unless one is typed, so meshed gears are two bodies and the partner has the same numbers; 0 typed is none (`in_954`)", async () => {
+  const { gearTyped } = await import("../src/interaction/tools.ts");
+  let st = top();
+  st = reduce(st, { type: "begin", name: "gear" }, env);
+  st = click(st, C);
+  st = move(st, [C[0] + 22, C[1], 0]);
+  st = click(st, [C[0] + 22, C[1], 0]);
+  st = click(st, [C[0] + 60, C[1] + 40, 0]); // (a click in space makes it)
+  const g = scene(st.session).gears![0]!;
+  assert.ok(Math.abs((g.spec.backlash ?? 0) - Math.round(0.03 * g.spec.module * 1000) / 1000) < 1e-9, `backlash ${g.spec.backlash} for module ${g.spec.module}`);
+  assert.ok((g.spec.backlash ?? 0) >= 0.01, "enough for the kernel to keep meshed gears apart");
+  // none, when 0 is typed
+  let none = top();
+  none = reduce(none, { type: "begin", name: "gear" }, env);
+  none = click(none, C);
+  none = move(none, [C[0] + 22, C[1], 0]);
+  none = { ...none, tool: gearTyped(none.tool!, 4, "0") };
+  none = click(none, [C[0] + 22, C[1], 0]);
+  none = click(none, [C[0] + 60, C[1] + 40, 0]);
+  assert.equal(scene(none.session).gears![0]!.spec.backlash, undefined, "typed 0: no play");
+});
