@@ -1,4 +1,4 @@
-// A spiral bevel gear's tooth (`dec_spiral_bevel_gears`, `in_829`): the maths of `prototypes/bevel-spiral-generated`, reviewed and rewritten, with its tests in `test/spiral.test.ts`. The tooth surfaces come from the gearing law (H. J. Stadtfeld,
+// A spiral bevel gear's tooth (`dec_spiral_bevel_gears`, `in_836`): the maths of `prototypes/bevel-spiral-generated`, reviewed and rewritten, with its tests in `test/spiral.test.ts`. The tooth surfaces come from the gearing law (H. J. Stadtfeld,
 // "Gear Mathematics for Bevel & Hypoid Gears", chapter 2, Gear Technology, Aug 2015; Huston and Coy, NASA TM 82622): a crown gear with circular-arc teeth (the band between two cones about a cutter axis) is the generating gear; the pinion's flank
 // is the envelope of the crown's as the two roll about axes through a common apex (the ratio of roll the sine of the pinion's pitch angle), the ring gear's the envelope of the pinion's, so the pair is conjugate by construction.
 // A gear's body is a prism of its tooth sections (the outline in planes across its axis, `outlineAt`) cut by the blank of its two back cones (`blankFor`), as the straight bevel gear's is (`bevelscene.ts`).

@@ -121,7 +121,7 @@ export interface GearState {
   /** a worm (`in_608`) and the wheel for a worm */ worm?: true; wheel?: true;
   /** a straight bevel gear (`in_735`): an approximation of the standard tooth */ bevel?: true;
   /** a crown gear (`dec_crown_gears`, `in_802`): a bevel gear (`bevel` is set too) whose pitch angle is a right angle */ crown?: true;
-  /** a spiral bevel gear (`dec_spiral_bevel_gears`, `in_829`): a bevel gear (`bevel` is set too) with a curved tooth */ spiral?: true;
+  /** a spiral bevel gear (`dec_spiral_bevel_gears`, `in_836`): a bevel gear (`bevel` is set too) with a curved tooth */ spiral?: true;
   /** a timing pulley for this belt (`in_583`) */ pulley?: PulleyKind;
   /** a roller chain sprocket (`in_584`) */ sprocket?: true;
   /** the ISO 606 tooth form of it (`in_588`) */ iso?: true;

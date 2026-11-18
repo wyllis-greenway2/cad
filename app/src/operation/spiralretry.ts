@@ -1,4 +1,4 @@
-// A spiral bevel gear whose body the kernel could not cut (`dec_spiral_bevel_gears`, `in_829`): the cut of the tooth prism by the blank of the two cones fails for some places of the cones along the axis and not for others, and which depends on where the gear stands, so
+// A spiral bevel gear whose body the kernel could not cut (`dec_spiral_bevel_gears`, `in_836`): the cut of the tooth prism by the blank of the two cones fails for some places of the cones along the axis and not for others, and which depends on where the gear stands, so
 // the next place (`SPIRAL.shifts`, `BevelSpec.cone`) is tried, until one works or there are no more. The command that made the gear is made again with the gear's `cone` one more (a gear that stands at the cone it works with is kept as such in the file).
 import type { Scene } from "./scene.ts";
 import type { Command } from "./commands.ts";

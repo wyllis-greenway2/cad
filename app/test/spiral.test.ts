@@ -1,4 +1,4 @@
-// Spiral bevel gears (`dec_spiral_bevel_gears`, `in_829`): a bevel gear record with a spiral angle; its tooth from the gearing law (`spiral.ts`), the body a smooth loft of nine planes cut to the blank of two cones; the pair made by Mesh gear fits in the kernel.
+// Spiral bevel gears (`dec_spiral_bevel_gears`, `in_836`): a bevel gear record with a spiral angle; its tooth from the gearing law (`spiral.ts`), the body a smooth loft of nine planes cut to the blank of two cones; the pair made by Mesh gear fits in the kernel.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { gearOutline } from "../src/operation/gear.ts";

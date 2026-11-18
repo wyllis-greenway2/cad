@@ -3661,6 +3661,35 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > can you please merge in claude/adoring-dijkstra-next-pascal
 (asks for claude/adoring-dijkstra-next-pascal to be merged into the testing branch)
 
-## in_829 — 2026-11-18 — approval
+## in_829 — 2026-11-18 — directive
+> Go with your recommendation, add the reverse switch, also the planetary assembly doesn't work right, I don't think it is an issue with your animator, I think it is just that the assembly isn't wired up to know that the gears are meshed.
+(asks for a reverse switch on the motion bar, and for the planetary assembly to record that its gears are meshed so playing one turns the others)
+
+## in_830 — 2026-11-18 — directive
+> Go with your recommendation, build the carrier turning
+(asks for the planetary carrier to be playable: the carrier turns and the planets orbit)
+
+## in_831 — 2026-11-18 — directive
+> please merge in claude/adoring-dijkstra-next-pascal
+(asks again for claude/adoring-dijkstra-next-pascal to be merged into the testing branch)
+
+## in_832 — 2026-11-18 — directive
+> Full suite in the background: push after the quick checks and run the full check afterwards, then tell you if it fails.
+(chooses how merges into the testing branch are checked: types, docs and the tests near the changed code first, then push, with the full suite run afterwards in the background and the human told if it fails; given in answer to why a merge took so long)
+
+## in_833 — 2026-11-18 — approval
+> Yes, record that rule
+(approves the AI's proposed rule for how much of the test suite a merge into the testing branch gets: by what the merge touches, with a full run at the end of a batch; this replaces the routine of in_832)
+
+## in_834 — 2026-11-18 — directive
+> okay, now it is kind of annoying to merge in stuff, because I need to wait for that Claude to stop, and not work anymore, because while you are merging they can't still be working or else your merge takes forever as you continually merge as they continually work. So instead, can we have some sort of system where you just auto keep merging everything as you see it but it batches so that it doesn't update continually in a cycle forever? So that Way I get constant updates so that when I run  LAN=1 bash tools/preview.sh
+> it is constantly getting little updates from all the branches?
+(asks for merging to run by itself in batches, so that it does not chase the other sessions' pushes forever, and so the preview started with LAN=1 bash tools/preview.sh keeps getting small updates from all the branches)
+
+## in_835 — 2026-11-18 — approval
+> Every hour (Recommended)
+(answers the AI's questions in the chat: a scheduled batch merge every hour; yes to the optional background pull in tools/preview.sh, PULL_EVERY; yes to writing up collision-free numbering as a proposal. The answers were picked from the options of the AI's question box: "Every hour (Recommended)", "Yes, add PULL_EVERY (Recommended)", "Yes, propose it")
+
+## in_836 — 2026-11-18 — approval
 > yes lets build it
 (approves dec_spiral_bevel_gears as proposed, with its limits, and asks for the spiral bevel tool to be built)
