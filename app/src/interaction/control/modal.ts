@@ -10,7 +10,7 @@ import type { ToolKind, Tool } from "../tools.ts";
 import { gearFields, armTool, typeKey, finish, lineNext, gearTyped, editGearTool, editPlanetaryTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf, editCamTool } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
 import type { CamKind, CamLaw, CamLayout } from "../../operation/cams.ts";
-import { doMotionPlay, doCamFollow, doLink } from "./motion.ts";
+import { doMotionPlay, doCamFollow, doLink, doBodyPlay } from "./motion.ts";
 import { gearOfPart, gearOfSelection } from "../../operation/gearscene.ts";
 import { planetaryOfPart } from "../../operation/planetary.ts";
 import type { OpKind } from "../operations.ts";
@@ -399,6 +399,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "world:toggle") return { ...closed, worldHidden: !s.worldHidden };
   if (id.startsWith("sheet:delete:")) return doSheetDelete(closed, id.slice(13) as never);
   if (id.startsWith("sheet:visible:")) return doSheetVisible(closed, id.slice(14) as never);
+  if (id.startsWith("body:play:")) return doBodyPlay(closed, id.slice(10) as Ref); // (the play button on a body that is hooked up to an animation, `in_847`)
   if (id.startsWith("body:eye:")) return doBodyEye(closed, id.slice(9) as Ref); // (the eye on a body, `dec_hidden_bodies`)
   if (id.startsWith("sheet:mode:")) return doSheetMode(closed, id.slice(11) as never);
   if (id === "sheet:move") return doSheetMove(closed);

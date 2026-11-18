@@ -3733,3 +3733,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_846 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for this branch to be merged into claude/inspiring-pascal-l342k7)
+
+## in_847 — 2026-11-19 — directive
+> Okay can we make it so that bodies that are hooked up to an animation have a play pause button on them on hover?
+(asks for a play/pause button on hover over any body that is part of an animation)

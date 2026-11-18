@@ -47,3 +47,26 @@ test("playing the crank carries the disc about its shaft and the wheel by the la
   assert.ok(!bad.ok && /crank/.test(bad.why));
   assert.equal(keepCommand(scene(s), { ...r.motion, amount: 90 }), null);
 });
+
+test("a body hooked up to an animation has a play button: the crank, the disc and the wheel of a Geneva drive all play the crank; pressing it again pauses; a plain body has none", async () => {
+  const { createState, reduce } = await import("../src/interaction/controller.ts");
+  const { homeCamera } = await import("../src/interaction/camera.ts");
+  const { frameOf } = await import("../src/interaction/frame.ts");
+  const s = make();
+  const b = genevaBodies(scene(s), scene(s).gears![0]!);
+  const env = { w: 800, h: 600, now: 0 };
+  let st = { ...createState(s), cam: homeCamera() };
+  let f = frameOf(st, { w: 800, h: 600 });
+  const plays = (ff: typeof f) => Object.fromEntries(ff.bodyEyes.map((e) => [e.ref, e.play ?? null]));
+  assert.deepEqual([plays(f)[b.wheel!], plays(f)[b.disc!], plays(f)[b.crank!]], ["play", "play", "play"]);
+  st = reduce(st, { type: "runAction", id: `body:play:${b.wheel}` }, env as never);
+  assert.ok(st.motion?.playing && st.motion.body === b.crank, "the wheel's button plays its crank");
+  f = frameOf(st, { w: 800, h: 600 });
+  assert.equal(plays(f)[b.crank!], "pause");
+  st = reduce(st, { type: "runAction", id: `body:play:${b.crank}` }, env as never);
+  assert.equal(st.motion!.playing, false, "pressed again it pauses");
+  st = reduce(st, { type: "runAction", id: `body:play:${b.crank}` }, env as never);
+  assert.equal(st.motion!.playing, true, "and goes on");
+  const none = reduce(st, { type: "runAction", id: "body:play:b/nope/o" }, env as never);
+  assert.match(none.session.message ?? "", /not hooked up/);
+});

@@ -26,6 +26,7 @@ import { mateStatus, faceMiddle } from "../operation/mates.ts";
 import { jointRigid, constrainedMotion } from "./mate.ts";
 import { jointMatrix, followMatrix } from "./motion.ts";
 import { linksOf } from "../operation/coupling.ts";
+import { animatedBodies } from "../operation/gearcouple.ts";
 import { axisAcross } from "./revolve.ts";
 import { gearOfPart, gearOfSelection } from "../operation/gearscene.ts";
 import { planetaryOfGear } from "../operation/planetary.ts";
@@ -89,6 +90,9 @@ import type { StandIn } from "./standin.ts";
 /** A refused change, while it flashes: how far through it is (0 to 1), the constraints it would have broken (red, fading), the ones that tried (they shake), and the parts of the broken ones. */
 export interface FlashFrame { t: number; victims: string[]; culprits: string[]; parts: Ref[] }
 
+const animatedMemo = new WeakMap<Scene, Map<Ref, Ref>>();
+/** The bodies hooked up to an animation (`gearcouple.ts`), worked out once for each scene. */
+const animated = (sc: Scene): Map<Ref, Ref> => { let m = animatedMemo.get(sc); if (!m) { m = animatedBodies(sc); animatedMemo.set(sc, m); } return m; };
 /** What the bar shows: a joint with no stops that turns goes round and round, so the number is kept within half a turn either way (it would otherwise grow without end, and the slider has its ends at the half turns). */
 const shownAmount = (m: NonNullable<AppState["motion"]>): number => (m.free && m.kind === "turn" ? ((((m.amount + 180) % 360) + 360) % 360) - 180 : m.amount);
 export interface GizmoFrame { handles: Handle[]; hover: string | null; active: string | null; chosen?: string | null; locked?: string[]; /** the handle that pulses blue: the mover's sphere while it is the thing being oriented (`in_421`) */ pulse?: string }
@@ -107,7 +111,7 @@ export interface Frame {
   /** the triangles of the places too thin to print, marked in the picture while the Measure tab is open (`in_626`) */
   thin: number[] | null;
   /** the eye on each body (`dec_hidden_bodies`): its box's corners and whether it is hidden; `eyesQuiet`: a tool or an operation is in use, so the eyes of shown bodies stay away */
-  bodyEyes: { ref: string; hidden: boolean; corners: Vec3[] }[];
+  bodyEyes: { ref: string; hidden: boolean; corners: Vec3[]; /** a body hooked up to an animation has a play button (pause while it plays) beside its eye */ play?: "play" | "pause" }[];
   eyesQuiet: boolean;
   /** the gear's own icon (`in_693`): a gear is selected (its sketch or its body): where it stands (the top of the gear) and what it offers */
   gearChip: { at: Vec3; items: { id: string; label: string; icon: string; enabled: boolean; why: string | null }[] } | null;
@@ -448,7 +452,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     bodySplit,
     hiddenBodies: hiddenItemsOf(sc, outcome),
     thin: s.panel === "measure" && !outcome.kernel?.stale ? thinPlacesOf(sc, sel) : null,
-    bodyEyes: index.bodies.flatMap((p) => { if (!p.bbox) return []; const [lo, hi] = [p.bbox.min, p.bbox.max]; const corners: Vec3[] = []; for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) corners.push([x, y, z]); return [{ ref: p.ref, hidden: !!sc.hiddenBodies?.includes(p.ref), corners }]; }),
+    bodyEyes: index.bodies.flatMap((p) => { if (!p.bbox) return []; const [lo, hi] = [p.bbox.min, p.bbox.max]; const corners: Vec3[] = []; for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) corners.push([x, y, z]); const drives = animated(sc).get(p.ref); const m = s.motion; return [{ ref: p.ref, hidden: !!sc.hiddenBodies?.includes(p.ref), corners, ...(drives ? { play: m && m.body === drives && m.playing ? "pause" as const : "play" as const } : {}) }]; }),
     eyesQuiet: true, // (a body that is shown has no eye of its own now: Hide body is in the View menu, `in_697`; a hidden body keeps its eye)
     gearChip: s.tool || s.op || s.drag || s.repeat ? null : gearChipOf(sc, s.session.hover ? [...sel, s.session.hover] : sel),
     followers: gpu?.followers ?? [],

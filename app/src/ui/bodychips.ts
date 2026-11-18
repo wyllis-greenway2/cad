@@ -3,7 +3,7 @@
 import { iconSvg } from "./icons.ts";
 import type { Vec3 } from "../interaction/api.ts";
 
-export interface BodyEye { ref: string; hidden: boolean; /** the eight corners of the body's box */ corners: Vec3[] }
+export interface BodyEye { ref: string; hidden: boolean; /** a body hooked up to an animation: its play (or pause) button */ play?: "play" | "pause"; /** the eight corners of the body's box */ corners: Vec3[] }
 
 /** The convex hull of points (Andrew's monotone chain). */
 function hull(pts: [number, number][]): [number, number][] {
@@ -22,14 +22,19 @@ const inside = (pt: [number, number], poly: [number, number][]): boolean => {
 };
 
 export function createBodyChips(host: HTMLElement, run: (id: string) => void) {
-  const pool = new Map<string, { box: HTMLDivElement; sig: string }>();
+  const pool = new Map<string, { box: HTMLDivElement; sig: string; play: HTMLDivElement; playSig: string }>();
   const make = (ref: string) => {
     const box = document.createElement("div");
     box.style.cssText = "position:fixed;left:0;top:0;display:none;z-index:6;width:30px;height:30px;box-sizing:border-box;border-radius:15px;background:#fff;border:1px solid #8a8f98;color:#2b2b2d;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:opacity .2s";
     box.addEventListener("pointerdown", (e) => e.stopPropagation());
     box.addEventListener("click", (e) => { e.stopPropagation(); run(`body:eye:${ref}`); });
     host.appendChild(box);
-    return { box, sig: "" };
+    const play = document.createElement("div"); // (the play or pause button of a body that is hooked up to an animation, beside its eye, `in_847`)
+    play.style.cssText = box.style.cssText;
+    play.addEventListener("pointerdown", (e) => e.stopPropagation());
+    play.addEventListener("click", (e) => { e.stopPropagation(); run(`body:play:${ref}`); });
+    host.appendChild(play);
+    return { box, sig: "", play, playSig: "" };
   };
   return {
     /** The rects the eyes fill that are showing (the bubbles keep off them). */
@@ -60,8 +65,17 @@ export function createBodyChips(host: HTMLElement, run: (id: string) => void) {
         const show = over && (b.hidden || !quiet);
         chip.box.style.opacity = show ? "1" : "0";
         chip.box.style.pointerEvents = show ? "auto" : "none";
+        if (b.play) {
+          if (b.play !== chip.playSig) { chip.playSig = b.play; chip.play.innerHTML = iconSvg(b.play === "pause" ? "pause" : "play"); chip.play.title = b.play === "pause" ? "Pause the animation" : "Play the animation"; }
+          const beside = b.hidden || !quiet ? 34 : 0; // (a shown body has no eye now, `in_697`: the play button takes its place)
+          chip.play.style.transform = `translate(${Math.round(at[0] - 15 + beside)}px, ${Math.round(at[1] - 15)}px)`;
+          chip.play.style.display = "flex";
+          const showPlay = over || chip.play.matches(":hover") || b.play === "pause"; // (a motion that plays keeps its pause button within reach)
+          chip.play.style.opacity = showPlay ? "1" : "0";
+          chip.play.style.pointerEvents = showPlay ? "auto" : "none";
+        } else { chip.play.style.display = "none"; chip.playSig = ""; }
       }
-      for (const [ref, chip] of pool) if (!seen.has(ref)) { chip.box.remove(); pool.delete(ref); }
+      for (const [ref, chip] of pool) if (!seen.has(ref)) { chip.box.remove(); chip.play.remove(); pool.delete(ref); }
     },
   };
 }

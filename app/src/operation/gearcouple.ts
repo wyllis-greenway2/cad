@@ -259,3 +259,21 @@ export function carrierPlay(s: Scene, body: Ref): { driver: { point: Vec3; dir: 
   if (ring && rb) followers.push({ gear: q.ringId, body: rb, kind: "turn", point: q.at, dir: n, k: 1 + S / R });
   return { driver: { point: q.at, dir: n }, followers };
 }
+
+/**
+ * The bodies that are hooked up to an animation, each with the body whose Play moves it: a pin or a rod on a joint, a gear and the gears meshed with it, the crank and disc of a Geneva drive (the wheel, which they drive, goes with its crank), a planetary
+ * set's carrier, and a cam with its follower (the rod goes with the cam). Cheap enough for every change of the scene: one look at the mates and one at each record.
+ */
+export function animatedBodies(s: Scene): Map<Ref, Ref> {
+  const out = new Map<Ref, Ref>();
+  for (const m of mateStatus(s)) if (m.state === "ok" && m.mode === "coaxial" && m.mover) out.set(m.mover.body, m.mover.body);
+  for (const g of gearsOf(s)) {
+    const [b, ax] = [bodyOfGear(s, g), gearAxis(s, g)];
+    if (b && ax) out.set(b, b);
+    const gb = genevaBodies(s, g);
+    if (gb.crank) { out.set(gb.crank, gb.crank); if (gb.disc) out.set(gb.disc, gb.crank); if (gb.wheel) out.set(gb.wheel, gb.crank); }
+    if (g.follower && b) { const m = mateStatus(s).find((x) => x.id === g.follower!.mate && x.mover); if (m?.mover) out.set(m.mover.body, b); } // (the rod rides the cam: playing it plays the cam)
+  }
+  for (const q of s.planetaries ?? []) { const c = q.carrierStep ? bodyOfStep(s, q.carrierStep) : null; if (c) out.set(c, c); }
+  return out;
+}
