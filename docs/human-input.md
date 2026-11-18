@@ -3642,3 +3642,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_823 — 2026-11-18 — approval
 > Create/Done by state (Recommended)
 (chosen from the AI's three options in the question panel: one box; left gray Update, enabled only when something changed; right blue button closes the box and ends the tool, Create for a new gear and Done for an existing one, applying any pending change first)
+
+## in_824 — 2026-11-18 — directive
+> when you are sketching, there should be a suggested click when concentric with a circle with the dashed lines just like it does for other constraints. If you have a block with a hole in it, them sketch on the surface of the block, it turns the circle orange to indicate concentric with it, but doesn't actually seem to snap the line or cursor or dash a line like it does with other things in suggested constraints.
+(asks for a suggested click, with the cursor snapping and the dashed guide, when the point being sketched is concentric with a circle, as the other suggested constraints do)

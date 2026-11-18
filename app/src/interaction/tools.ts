@@ -7,9 +7,9 @@ import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, dist, cross } from "../math/vec.ts";
 import type { PointerView, Plane } from "../operation/part.ts";
-import { normalOfPlane, pointOf, segmentOf, arcPoints, localOf, liftOf } from "../operation/part.ts";
+import { normalOfPlane, pointOf, segmentOf, arcPoints, localOf, liftOf, roundOf } from "../operation/part.ts";
 import type { Scene } from "../operation/scene.ts";
-import { nextId } from "../operation/scene.ts";
+import { nextId, lookup } from "../operation/scene.ts";
 import { live } from "../operation/ownership.ts";
 import type { Command } from "../operation/commands.ts";
 import { drawSquaredRectangle, drawCircle, drawChain, drawArc, drawSpline, joinedAtCorners } from "../operation/build.ts";
@@ -657,15 +657,27 @@ export function guidesOf(spent: Scene, pl: Plane, cursor: Vec3 | null): [Vec3, V
   }
   return out;
 }
+/** Dashed lines across the circle that the point is suggested to be concentric with, through its centre, as far as a little past its rim (`in_824`): the suggestion is seen, as the guides to a corner are. */
+export function concentricGuides(scene: Scene, pl: Plane, hints: Hint[] | undefined): [Vec3, Vec3][] {
+  const out: [Vec3, Vec3][] = [];
+  for (const h of hints ?? []) {
+    if (h.kind !== "concentric" || !h.ref) continue;
+    const r = roundOf(lookup(live(scene)), h.ref);
+    if (!r) continue;
+    const reach = r.radius * 1.25;
+    for (const d of [pl.u, pl.v]) out.push([[r.center[0] - d[0] * reach, r.center[1] - d[1] * reach, r.center[2] - d[2] * reach], [r.center[0] + d[0] * reach, r.center[1] + d[1] * reach, r.center[2] + d[2] * reach]]);
+  }
+  return out;
+}
 export function previewOf(scene: Scene, t: Tool): Preview | null {
   if (t.kind === "trim") return t.trimming ? { segments: t.trimming.span.slice(1).map((p, i): [Vec3, Vec3] => [t.trimming!.span[i]!, p]), circle: null, cursor: null } : null; // the part that would be cut off
   const pl = t.plane ? (scene.parts[t.plane] as Plane | undefined) : undefined;
   if (!pl || pl.kind !== "plane" || !t.points.length) {
-    const guides = pl && pl.kind === "plane" ? guidesOf(scene, pl, t.cursor) : t.guides ?? []; // (nothing placed yet: only what the pointer lines up with)
+    const guides = pl && pl.kind === "plane" ? [...guidesOf(scene, pl, t.cursor), ...concentricGuides(scene, pl, t.hints)] : t.guides ?? []; // (nothing placed yet: only what the pointer lines up with, and the circle it is concentric with)
     return guides.length ? { segments: [], guides, circle: null, cursor: t.cursor } : null;
   }
   const p = previewShape(scene, t, pl);
-  return p ? { ...p, guides: guidesOf(scene, pl, t.cursor) } : p;
+  return p ? { ...p, guides: [...guidesOf(scene, pl, t.cursor), ...concentricGuides(scene, pl, t.hints)] } : p;
 }
 function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
   const n = normalOfPlane(pl);
