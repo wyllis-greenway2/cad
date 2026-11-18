@@ -4124,3 +4124,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_942 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for the branch `claude/adoring-dijkstra-pivot` to be merged into the testing branch; it carries the contact push chains, the speed-ups and any body made to turn)
+
+## in_943 — 2026-11-19 — question
+> why do gears rotate like this? when I add a gear, then mesh a gear to it, then rotate the original gear, it rotates the mesh gear around it like it is entirely glued to it? Is this because we should probably be adding an extra coaxial constraint or something like that to our mesh gears?
+(with a project file `weird_rotate.json` and a state snapshot: the AI found the two gears are one body, joined because their teeth touch exactly and the second gear's extrude joined the first; no coaxial mate is missing)
