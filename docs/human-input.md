@@ -3850,3 +3850,10 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_875 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks to merge this branch's work into claude/inspiring-pascal-l342k7: the explicit permission to write to that branch for this merge)
+## in_876 — 2026-11-19 — directive
+> Okay can we make it so that bodies that are hooked up to an animation have a play pause button on them on hover?
+(asks for a play/pause button on hover over any body that is part of an animation)
+
+## in_877 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for the branch `claude/adoring-dijkstra-play-chip` to be merged into the testing branch)

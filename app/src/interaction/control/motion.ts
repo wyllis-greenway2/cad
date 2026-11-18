@@ -4,7 +4,7 @@ import { scene as sceneOf, selection as selectionOf, run } from "../session.ts";
 import { startMotion, setPlaying, keepCommand } from "../motion.ts";
 import type { Command } from "../../operation/commands.ts";
 import { mateStatus } from "../../operation/mates.ts";
-import { gearOfBody, camFollower } from "../../operation/gearcouple.ts";
+import { gearOfBody, camFollower, animatedBodies } from "../../operation/gearcouple.ts";
 import { bodyCentre } from "../objects.ts";
 import { dot, sub, normalize } from "../../math/vec.ts";
 import { linksOf } from "../../operation/coupling.ts";
@@ -88,4 +88,17 @@ export function doMotionLink(s: AppState, i: Extract<Intent, { type: "motionLink
   if (next.message) return { ...s, session: next };
   const r = startMotion(sceneOf(next), m.body, m.kind);
   return { ...s, session: next, motion: r.ok ? { ...r.motion, amount: m.amount, playing: m.playing, from: m.amount, startedAt: null, speed: m.speed } : null };
+}
+
+/**
+ * The play button on a body hooked up to an animation: it plays what moves the body (the body itself, or the crank of a Geneva drive it belongs to, or the cam its rod rides) or, when that is what is already playing, pauses or goes on with it.
+ * The selection is not changed.
+ */
+export function doBodyPlay(s: AppState, ref: import("../../shared/ref.ts").Ref): AppState {
+  const sc = sceneOf(s.session);
+  const target = animatedBodies(sc).get(ref);
+  if (!target) return { ...s, session: { ...s.session, message: "this body is not hooked up to an animation" } };
+  if (s.motion && s.motion.body === target) return { ...s, motion: setPlaying(s.motion, !s.motion.playing) };
+  const r = startMotion(sc, target, "turn");
+  return r.ok ? { ...s, motion: setPlaying(r.motion, true), session: { ...s.session, message: null } } : { ...s, session: { ...s.session, message: r.why } };
 }
