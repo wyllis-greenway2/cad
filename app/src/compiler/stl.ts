@@ -32,7 +32,14 @@ export function openEdges(vertices: ArrayLike<number>, triangles: ArrayLike<numb
   // corners that are the same point: found in the cells round their own (two of them can fall either side of the edge of a cell, `in_267`)
   const cells = new Map<string, { p: [number, number, number]; id: number }[]>();
   let count = 0;
+  const known = new Int32Array(Math.ceil(vertices.length / 3)).fill(-1); // (a vertex of the mesh is looked up once, not once for each triangle it is a corner of: six or so; with string keys for the cells and for the edges this was 2 s for the export of a 100 tooth worm wheel, the page's own thread, `in_879`)
   const id = (i: number): number => {
+    if (known[i]! >= 0) return known[i]!;
+    const found = idOf(i);
+    known[i] = found;
+    return found;
+  };
+  const idOf = (i: number): number => {
     const p: [number, number, number] = [vertices[3 * i] as number, vertices[3 * i + 1] as number, vertices[3 * i + 2] as number];
     const c = p.map((v) => Math.floor(v / 1e-3)) as [number, number, number];
     for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
@@ -43,13 +50,13 @@ export function openEdges(vertices: ArrayLike<number>, triangles: ArrayLike<numb
     cells.set(k, [...(cells.get(k) ?? []), made]);
     return made.id;
   };
-  const uses = new Map<string, number>();
+  const uses = new Map<number, number>();
   for (let t = 0; t + 2 < triangles.length; t += 3) {
     const c = [id(triangles[t] as number), id(triangles[t + 1] as number), id(triangles[t + 2] as number)] as [number, number, number];
     for (let k = 0; k < 3; k++) {
       const a = c[k] as number, b = c[(k + 1) % 3] as number;
       if (a === b) continue; // (a sliver that has shrunk to a line)
-      const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+      const key = a < b ? a * 67108864 + b : b * 67108864 + a; // (the two numbers of the edge as one: corners are fewer than sixty-seven million)
       uses.set(key, (uses.get(key) ?? 0) + 1);
     }
   }
