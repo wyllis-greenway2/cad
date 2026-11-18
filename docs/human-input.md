@@ -4091,6 +4091,44 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for this branch (the fastener tool's curved surfaces, the shared panel layout and the dialogs in it) to be merged into claude/inspiring-pascal-l342k7)
 
+## in_935 — 2026-11-18 — approval
+> build it please
+(approves building the edge chamfer of the worm wheel's land, with a prototype first: the end section pulled in by the chamfer, a ruled loft from it to the full section, the rest of the land carried straight, sewn to the throated part, then the worm's envelope cut out; the chamfer no bigger than the land)
+
+## in_936 — 2026-11-18 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 again, for the edge chamfer of the worm wheel's land and what follows it; gives permission to write to that branch)
+
+## in_937 — 2026-11-19 — directive
+> wow that looks great! Perfect, so how efficient is this? is this practical for larger models? and what if a model relied almost entirely on collision instead of constraints?
+(asks how efficient the contact push is, whether it is practical for larger models, and what happens if a model relies almost entirely on collision: the AI measured gear trains)
+
+## in_938 — 2026-11-19 — directive
+> lets try to make it faster
+(asks for the contact push to be made faster)
+
+## in_939 — 2026-11-19 — directive
+> excellent! now try to make it even faster try a coarser mesh for animation;
+> starting each step from the last step’s contacts;
+> a cheaper pre-check for pairs that are far apart.
+(asks for three more speed-ups of the contact push: a coarser mesh for animation, starting each step from the last step's contacts, a cheaper pre-check for pairs that are far apart)
+
+## in_940 — 2026-11-19 — directive
+> Okay now lets make it easier to setup animations. So first off, I think that you should just be able to select any object and turn it into a rotating object. This would be the one that would have the play button on click. Then it should just interact however it does with collisions or linkages. So my second question is, for the linkages, do we only need the normal constraints we already had, or do we still need the special animations linkages?
+(asks for a way to make any selected object a rotating one with a play button, interacting by collision or linkage; and asks whether the normal constraints are enough or the special animation linkages are still needed: the AI answered and proposed a design, not yet built)
+
+## in_941 — 2026-11-19 — directive
+> why cant a body just rotate? you say this body rotates and define a pivot point. Probably by selecting a curved face. Or just defining a pivot point in free space with the orb mover tool thing.
+(answers the AI's question about how to set the axis of a body that is made to turn: a selected curved face, or a pivot point set with the orb mover tool; read as approval to build it that way)
+
+## in_942 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for the branch `claude/adoring-dijkstra-pivot` to be merged into the testing branch; it carries the contact push chains, the speed-ups and any body made to turn)
+
+## in_943 — 2026-11-18 — question
+> is it done? is it ready?
+(asks whether the cone-cut work is finished and ready to test; the AI answered with what is verified and that the full check was still running)
+
 ## in_944 — 2026-11-18 — question
 > Why does it say this?
 (asks why the fastener panel shows "a rule for the corners needs a distance between copies, not a count"; a screenshot of the panel's red message above Type: Countersunk)
@@ -4114,3 +4152,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_949 — 2026-11-18 — directive
 > why don't we have the cuts go fully into space including whatever is under or behind our selection? but maybe we use information about the body selected to default to that depth or to help the user set a clearance to that depth and maybe a pilot for tap past that point
 (asks for the cuts to go fully through everything under or behind the selection, and for the selected body's thickness to be used as the default depth, or to help set a clearance hole to that depth and a pilot for tapping past that point)
+
+## in_950 — 2026-11-18 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for this branch (round faces alone, a count with a hole at every corner, cuts through everything with the body of the face giving the defaults) to be merged into claude/inspiring-pascal-l342k7)

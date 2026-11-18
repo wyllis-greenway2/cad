@@ -4,8 +4,7 @@
 // A gear's body is a prism of its tooth sections (the outline in planes across its axis, `outlineAt`) cut by the blank of its two back cones (`blankFor`), as the straight bevel gear's is (`bevelscene.ts`).
 // All in one frame, the pair's at its place: the apex the origin, the contact line the z axis, the pinion's axis (0, -sin g1, cos g1), the ring's (0, sin g2, cos g2), each axis pointing from the apex into its gear; a gear's azimuth is measured
 // from x round its axis (CCW seen from the axis' tip); the pinion's contact line is at azimuth pi/2, the ring's at -pi/2.
-// Limits (measured by the prototype, `dec_spiral_bevel_gears`): shafts at 90 degrees, a 20 degree pressure angle, the face 0.3 of the mean cone distance, the cutter 0.88 of it; seven pairs of 16 to 56 teeth in all mesh to within 4 mm3; a ring cone steeper than
-// about 65 degrees and more than about 56 teeth in all failed in the kernel.
+// Limits (measured by the prototype, `dec_spiral_bevel_gears`): shafts at 90 degrees, a 20 degree pressure angle, the face 0.3 of the mean cone distance, the cutter 0.88 of it; pairs of 33 to 100 teeth in all and a ratio up to 2.53 mesh to within 6 mm3 (`prototypes/cone-cut`); a ratio of 3 and offsets over 0.2 of the ring's pitch diameter make no tooth outline, so 2.55 and 0.15 are the limits.
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import { bulgeOf } from "./arcs.ts";
@@ -18,7 +17,7 @@ const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[
 const rot = (p: V3, ax: V3, a: number): V3 => { const [c, s] = [Math.cos(a), Math.sin(a)], d = dot(ax, p), cr = cross(ax, p); return [p[0] * c + cr[0] * s + ax[0] * d * (1 - c), p[1] * c + cr[1] * s + ax[1] * d * (1 - c), p[2] * c + cr[2] * s + ax[2] * d * (1 - c)]; };
 
 /** the limits of a spiral bevel pair */
-export const SPIRAL = { /** the offset of a hypoid pair as a fraction of the ring's pitch diameter, at most */ maxOffset: 0.12, minPinion: 16, maxTotal: 56, maxRatio: 2.05, minAngle: 15, maxAngle: 45, defaultAngle: 30, face: 0.3, cutter: 0.88, backlash: 0.05, shifts: [-0.67, -0.9, -1.3, 0.9, 1.3, -0.4] } as const;
+export const SPIRAL = { /** the offset of a hypoid pair as a fraction of the ring's pitch diameter, at most */ maxOffset: 0.15, minPinion: 16, maxTotal: 80, maxRatio: 2.55, minAngle: 15, maxAngle: 45, defaultAngle: 30, face: 0.3, cutter: 0.88, backlash: 0.05, shifts: [-0.67, -0.9, -1.3, 0.9, 1.3, -0.4] } as const;
 /** (the cones' positions, in modules along the axis: the kernel cannot always cut where the cones pass through the corners of the teeth, and where it can depends on the gear's place: each is tried in turn, `spiralretry.ts`) */
 
 export interface SpiralGear { axis: V3; /** a point of the axis: the planes across the gear are measured from it (the pinion's the apex, the ring's the foot of the common perpendicular) */ origin: V3; /** its mean cone distance from that point */ rho: number; /** its pitch angle */ gamma: number; z: number; /** the addendum and dedendum of the crown's tooth that generates it, mm */ hK: number; hF: number }
@@ -35,8 +34,8 @@ export function spiralPairOf(z1: number, z2: number, mn: number, betaDeg: number
   if (!(Number.isInteger(z1) && Number.isInteger(z2))) return err("the tooth counts must be whole numbers");
   if (z1 < SPIRAL.minPinion) return err(`a spiral bevel pinion needs ${SPIRAL.minPinion} or more teeth`);
   if (z2 < z1) return err("the ring gear has at least as many teeth as the pinion");
-  if (z1 + z2 > SPIRAL.maxTotal) return err(`a spiral bevel pair is made for ${SPIRAL.maxTotal} teeth at most between the two gears: ${z1} and ${z2} make ${z1 + z2} (with ${z1} teeth the other can have up to ${SPIRAL.maxTotal - z1}; the kernel runs out of memory cutting more)`);
-  if (z2 / z1 > SPIRAL.maxRatio) return err(`a spiral bevel pair of more than ${SPIRAL.maxRatio} to 1 is not made yet (the ring's cone is too steep for the kernel to cut): the pinion needs at least ${Math.ceil(z2 / SPIRAL.maxRatio)} teeth for this ring gear`);
+  if (z1 + z2 > SPIRAL.maxTotal) return err(`a spiral bevel pair is made for ${SPIRAL.maxTotal} teeth at most between the two gears: ${z1} and ${z2} make ${z1 + z2} (with ${z1} teeth the other can have up to ${SPIRAL.maxTotal - z1}; each gear would take the kernel more than the browser's minute)`);
+  if (z2 / z1 > SPIRAL.maxRatio) return err(`a spiral bevel pair of more than ${SPIRAL.maxRatio} to 1 is not made (the ring's teeth are cut off at the root; 17 and 43 is the largest measured): the pinion needs at least ${Math.ceil(z2 / SPIRAL.maxRatio)} teeth for this ring gear`);
   if (!(mn > 0)) return err("the module must be above zero");
   if (!(betaDeg >= SPIRAL.minAngle && betaDeg <= SPIRAL.maxAngle)) return err(`the spiral angle must be from ${SPIRAL.minAngle} to ${SPIRAL.maxAngle} degrees`);
   if (!(backlash >= 0 && backlash <= 0.5 * mn)) return err("the backlash must be from 0 to half a module");

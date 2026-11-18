@@ -291,7 +291,7 @@ export function buildGraph(scene: Scene): GraphResult {
       case "chamferBody": {
         // a gear body with its whole perimeter chamfered (`in_866`): a ruled loft through the outline inset at each face and the full outline a chamfer in, made by the kernel from the two outlines in the step (numbers: x, y and the bulge of each side, `;` between sides), a piece of its own
         const p = st.params;
-        ops.push({ id: xid, type: "chamferBody", full: String(p.full), inset: String(p.inset), edge: Number(p.edge), width: Number(p.width), bore: Number(p.bore ?? 0), wall: Number(p.wall ?? 0), origin: [Number(p.cx), Number(p.cy), Number(p.cz)], axis: [Number(p.dx), Number(p.dy), Number(p.dz)], first: [Number(p.ux), Number(p.uy), Number(p.uz)], ...(prev ? { target: prev, mode: "new" } : {}) });
+        ops.push({ id: xid, type: "chamferBody", full: String(p.full), inset: String(p.inset), edge: Number(p.edge), width: Number(p.width), bore: Number(p.bore ?? 0), wall: Number(p.wall ?? 0), origin: [Number(p.cx), Number(p.cy), Number(p.cz)], axis: [Number(p.dx), Number(p.dy), Number(p.dz)], first: [Number(p.ux), Number(p.uy), Number(p.uz)], ...(p.one !== undefined ? { one: Number(p.one) } : {}), ...(prev ? { target: prev, mode: "new" } : {}) });
         prev = xid;
         break;
       }

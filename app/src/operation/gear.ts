@@ -245,7 +245,7 @@ function endChamferProblem(spec: GearSpec): string | null {
   if (c !== 0 && e !== 0) return "a chamfer of the tips of the teeth and one of the whole edge are not made together: one of them";
   if (!(thick > 0)) return "a chamfer needs a thickness: give it a thickness";
   if (c !== 0) { if (!(c > 0 && c <= 1)) return "the chamfer is from 0 to 1 module deep"; if (!(c * spec.module * 2 < thick)) return "the chamfer is deeper than half the thickness"; }
-  if (e !== 0) { if (!(e > 0 && e <= 3)) return "the edge chamfer is from 0 to 3 mm"; if (!(e * 2 < thick)) return "the edge chamfer is deeper than half the thickness"; if (spec.wheel) return "an edge chamfer is not made for a worm wheel yet (the kernel cannot chamfer the edges of its throated faces)"; }
+  if (e !== 0) { if (!(e > 0 && e <= 3)) return "the edge chamfer is from 0 to 3 mm"; if (!(e * 2 < thick)) return "the edge chamfer is deeper than half the thickness"; if (spec.wheel) { if (!((spec.wheel.land ?? 0) >= e)) return "the edge chamfer of a worm wheel is made in its land (the straight part at each face): give it a land at least as long as the chamfer"; if (spec.flat || spec.key) return "an edge chamfer is not made for a bore with a flat or a keyway yet"; } }
   return null;
 }
 function outlineOf(spec: GearSpec): Result<GearOutline> {

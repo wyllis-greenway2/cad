@@ -22,3 +22,7 @@ In the Spiral bevel tool (menu "Spiral hypoid"): a field **Hypoid offset** (mm; 
 
 ## Rationale
 The human asked for it (`in_902`). The prototype shows the general gearing law gives a conjugate pair with an offset, so no sources beyond those read are needed for a first version; what they do not give (the pitch angle rule, the limits) is stated as mine, to be checked against the intrinsic pitch cones paper and ISO 23509 if the human wants them read.
+
+## Limits opened (`in_927`)
+The pairs the prototype could not cut (20 / 30 at offset 12) make now (3.8 mm3). With the offset limit lifted (`prototypes/cone-cut`), 20 / 40 at module 3 and 35 degrees fits at 24 mm (0.16 of the ring's pitch diameter: 3.9 mm3) and 29 mm (0.2: 10 mm3); 24 / 36 at 22 mm (0.17) overlaps 12.6 mm3; offsets of 25 mm (18 / 36) and 36 mm (20 / 40) make no tooth outline. **The limits are now an offset of 0.15 of the ring's pitch diameter** (was 0.12), **80 teeth in all and a ratio of 2.55** (as the spiral pair's).
+

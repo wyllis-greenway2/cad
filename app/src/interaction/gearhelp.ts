@@ -54,7 +54,7 @@ export const GEAR_HINTS: Record<GearKey, string> = {
   rim: "Ring gear: thickness of the wall round the teeth, in modules. Rack: thickness of the bar under the teeth, in modules.",
   ratio: "Partner teeth divided by this gear's teeth (2 means it has twice as many teeth and turns half as fast).",
   angle: "Direction the partner stands in, in degrees round the gear (or how far a rack stands turned).",
-  hypoid: "Hypoid offset: how far the ring gear's axis misses the pinion's, in mm (0 for a spiral bevel pair). The pinion lies below the ring gear's axis; at most 0.12 of the ring gear's pitch diameter. The spiral angle is the pinion's: the ring gear's follows from it and the offset.",
+  hypoid: "Hypoid offset: how far the ring gear's axis misses the pinion's, in mm (0 for a spiral bevel pair). The pinion lies below the ring gear's axis; at most 0.15 of the ring gear's pitch diameter. The spiral angle is the pinion's: the ring gear's follows from it and the offset.",
   offset: "How far along the rack the gear sits, in mm.",
   chain: "Roller chain number: 40 to 120 (ANSI) or 6 to 24 (ISO B series).",
   pitch: "Chain pitch in mm (type your own, or choose a chain).",
@@ -77,7 +77,7 @@ export const GEAR_HINTS: Record<GearKey, string> = {
   face: "Bevel gear: the width of the teeth along the cone as a fraction of the cone distance. A third is the usual limit (0.1 to 0.5).",
   inner: "Crown gear: the radius where the teeth start, mm. The teeth are thinnest here (their flanks are planes through the axis' radial lines), so they come to a point if it is too small. The pitch radius less 15% of it by default.",
   outer: "Crown gear: the radius where the teeth end, mm; the pitch radius (module times teeth over 2) by default.",
-  spiral: "Spiral bevel gear: the mean spiral angle of the teeth, degrees, from 15 to 45 (30 is usual). The pair is made for each other (the ring gear's tooth is worked out from the pinion's), for shafts at 90 degrees and a 20 degree pressure angle, the pinion at least 16 teeth, the two gears together at most 56 teeth (24 and 32, say; not 24 and 35) and the ring gear at most twice the pinion's teeth.",
+  spiral: "Spiral bevel gear: the mean spiral angle of the teeth, degrees, from 15 to 45 (30 is usual). The pair is made for each other (the ring gear's tooth is worked out from the pinion's), for shafts at 90 degrees and a 20 degree pressure angle, the pinion at least 16 teeth, the two gears together at most 80 teeth (30 and 50, say; not 30 and 55) and the ring gear at most 2.5 times the pinion's teeth.",
   starts: "How many threads the worm has (1 to 4). The wheel turns this many teeth for each turn of the worm, so more starts is a faster, steeper drive.",
 };
 
