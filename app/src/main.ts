@@ -16,7 +16,7 @@ import { parseLibrary, libraryText, saveMachine, removeMachine, saveSettings, re
 import { flatSnapshot } from "./interaction/partsnapshot.ts";
 import type { LaserValues } from "./interaction/manufacture.ts";
 import { pathRepeatTarget, pathRepeatDialog, pathRepeatCommand, pathRepeatStart, pathRepeatValuesFor } from "./interaction/pathrepeat.ts";
-import { addPartStart, addPartDialog, addPart, familyName, lengthAdviceOf, receiverStart, receiverDialog, cutReceiver, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
+import { addPartStart, addPartDialog, addPart, familyName, lengthAdviceOf, receiverStartFor, receiverDialog, receiverContext, cutReceiver, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
 import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
 import type { ExportOptions } from "./interaction/transfer.ts";
@@ -280,10 +280,11 @@ async function pathRepeatFlow() {
 async function fastenerHoleFlow() {
   const why = whyNoReceiver(state.session);
   if (why) return say(why);
-  const answers = await dialog.open((v) => receiverDialog(v as unknown as ReturnType<typeof receiverStart>, placesPicked(state.session)), receiverStart() as unknown as Values);
+  const ctx = receiverContext(state.session);
+  const answers = await dialog.open((v) => receiverDialog(v as unknown as ReturnType<typeof receiverStartFor>, placesPicked(state.session), ctx), receiverStartFor(state.session) as unknown as Values);
   if (!answers) return;
   const places = placesPicked(state.session); // (before the cut: the selection may not survive it)
-  const r = cutReceiver(state.session, answers as unknown as ReturnType<typeof receiverStart>);
+  const r = cutReceiver(state.session, answers as unknown as ReturnType<typeof receiverStartFor>);
   if (!r.ok) return say(r.error);
   state = { ...state, session: r.value };
   dirty = true;

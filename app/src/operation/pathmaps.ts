@@ -25,11 +25,15 @@ const to3 = (b: PathPlane, q: Pt): Vec3 => add(add(b.plane.at, scale(b.u, q[0]))
  * in this plane. An arc is given its bulge from where its middle is.
  */
 export function readPath(s: Scene, refs: readonly Ref[], plane: Plane, reverse = false): Result<Path> {
-  const b = basisOf(plane);
-  const get = (r: Ref) => s.parts[r];
-  const lines = refs.map((r) => get(r)).filter((p): p is Line => p?.kind === "line");
+  const lines = refs.map((r) => s.parts[r]).filter((p): p is Line => p?.kind === "line");
   if (!lines.length || lines.length !== refs.length) return err("the path's lines are gone");
   if (lines.some((l) => l.plane !== plane.ref)) return err("the path must be drawn on the same plane as the figure");
+  const path = chainOf(s, lines, basisOf(plane));
+  return path.ok && reverse ? ok(reversedPath(path.value)) : path;
+}
+/** The lines as a path in the plane of `b` (no check of what plane they are drawn on): one chain with two ends, or one closed loop. */
+function chainOf(s: Scene, lines: readonly Line[], b: PathPlane): Result<Path> {
+  const get = (r: Ref) => s.parts[r];
   const deg = new Map<Ref, number>();
   for (const l of lines) for (const c of [l.a, l.b]) deg.set(c, (deg.get(c) ?? 0) + 1);
   if ([...deg.values()].some((n) => n > 2)) return err("the path branches: it must be one line, arc or chain");
@@ -59,8 +63,60 @@ export function readPath(s: Scene, refs: readonly Ref[], plane: Plane, reverse =
     segs.push({ a, b: bb, bulge });
     cur = next;
   }
-  const path: Path = { segs, closed };
-  return ok(reverse ? reversedPath(path) : path);
+  return ok({ segs, closed });
+}
+/** The plane's basis, for the callers that lift places back into space. */
+export const planeBasis = (plane: Plane): { u: Vec3; v: Vec3; n: Vec3; at: Vec3 } => { const b = basisOf(plane); return { u: b.u, v: b.v, n: b.n, at: plane.at }; };
+
+const shoelace = (p: Path): number => p.segs.reduce((t, g) => t + (g.a[0] * g.b[1] - g.b[0] * g.a[1]) / 2 + (Math.abs(g.bulge) < 1e-9 ? 0 : arcArea(g)), 0);
+/** The area between an arc and its chord (signed: positive when the arc bulges to the right of a to b, the way a counter-clockwise outline bulges outward). */
+function arcArea(g: Seg): number {
+  const c = Math.hypot(g.b[0] - g.a[0], g.b[1] - g.a[1]);
+  const th = -4 * Math.atan(2 * g.bulge);
+  const r = c / (2 * Math.abs(Math.sin(th / 2)));
+  return Math.sign(th) * 0.5 * r * r * (Math.abs(th) - Math.sin(Math.abs(th)));
+}
+/**
+ * The outline of a flat face (`dec_path_repeat`, step (d)) as a closed path in the face's plane, counter-clockwise as seen from outside the body, so that the left of the path is the inside of the face and a positive offset goes
+ * in. `edges` are the face's boundary lines (`faceEdges`). The outer outline only: the loop that encloses the most; the loops of holes in the face are left. Or why there is no outline.
+ */
+export function readFaceOutline(s: Scene, face: Plane, edges: readonly Ref[]): Result<Path> {
+  const lines = edges.map((r) => s.parts[r]).filter((p): p is Line => p?.kind === "line" && p.a !== p.b);
+  if (!lines.length) return err("the face has no straight or curved edges to follow");
+  // the loops: lines joined at their corners
+  const left = new Set(lines.map((_, i) => i));
+  const loops: Line[][] = [];
+  while (left.size) {
+    const first = [...left][0]!;
+    const loop: Line[] = [lines[first]!];
+    left.delete(first);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const i of [...left]) {
+        const l = lines[i]!;
+        if (loop.some((m) => m.a === l.a || m.a === l.b || m.b === l.a || m.b === l.b)) { loop.push(l); left.delete(i); grew = true; }
+      }
+    }
+    loops.push(loop);
+  }
+  const b = basisOf(face);
+  const paths = loops.map((loop) => chainOf(s, loop, b)).filter((p): p is { ok: true; value: Path } => p.ok && p.value.closed);
+  if (!paths.length) return err("the outline of the face is not a closed loop of edges");
+  const outer = paths.reduce((best, p) => (Math.abs(shoelace(p.value)) > Math.abs(shoelace(best.value)) ? p : best));
+  return ok(shoelace(outer.value) < 0 ? reversedPath(outer.value) : outer.value);
+}
+/** The lines selected as a path for holes: read in the plane they are drawn on (else in the face's: body edges lie in it), whatever plane that is. */
+export function readLinesPath(s: Scene, refs: readonly Ref[], fallback: Plane): Result<{ path: Path; plane: Plane }> {
+  const lines = refs.map((r) => s.parts[r]).filter((p): p is Line => p?.kind === "line");
+  if (!lines.length || lines.length !== refs.length) return err("the path's lines are gone");
+  const planes = new Set(lines.map((l) => l.plane));
+  const own = planes.size === 1 ? [...planes][0] : null;
+  if (planes.size > 1) return err("the lines of the path must be drawn on one plane");
+  const pl = own ? s.parts[own] : undefined;
+  const plane = pl?.kind === "plane" ? pl : fallback;
+  const path = chainOf(s, lines, basisOf(plane));
+  return path.ok ? ok({ path: path.value, plane }) : path;
 }
 
 export interface RepeatMap { place: (p: Vec3) => Vec3; vec: (v: Vec3) => Vec3 }

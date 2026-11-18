@@ -11,14 +11,14 @@ import { nextId } from "../operation/scene.ts";
 import type { Part } from "../operation/part.ts";
 import type { PatternRecord } from "../operation/repeat.ts";
 import { pathRepeatOf } from "../operation/repeat.ts";
-import type { Rules, RepeatNumbers } from "../operation/pathrepeat.ts";
+import type { Path, Rules, RepeatNumbers } from "../operation/pathrepeat.ts";
 import { placeAlong, numbersOf, rulesFrom, lengthOf, PATH_NUMBERS } from "../operation/pathrepeat.ts";
 import { pathMaps, readPath, bodyPlaces, pathPlaneOf } from "../operation/pathmaps.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import { figurePartsOf } from "./objects.ts";
 import type { Session } from "./session.ts";
 import { scene as sceneOf, selection as selectionOf } from "./session.ts";
-import type { Dialog } from "./transfer.ts";
+import type { Dialog, Field } from "./transfer.ts";
 import { pathPicture } from "./pathdrawing.ts";
 
 export interface PathRepeatValues { by: string; value: string; ends: string; startInset: string; endInset: string; corners: string; offset: string; turn: string; reverse: string }
@@ -94,28 +94,41 @@ const record = (t: PathRepeatTarget, params: number[]) => ({ plane: t.plane, pat
 /** The numbers a target starts the dialog with: the repeat's own, or the usual. */
 export const pathRepeatValuesFor = (t: PathRepeatTarget): PathRepeatValues => (t.edit ? pathRepeatValuesOf(t.edit) : t.body?.params ? pathRepeatValuesOf({ params: t.body.params }) : pathRepeatStart());
 /** The dialog: the rules, and a picture of the path with the places the copies stand at. `ctx` is what the selection gave. */
+/** The fields that say where copies stand along a path, and a picture of them: the spacing, the end rule, the corners, the insets, the offset. `what` names what the first place is ("figure", "body", "hole"). Shared by the path repeat's dialog and the fastener holes'. */
+export function pathRuleFields(v: PathRepeatValues, path: Result<Path> | null, what: string, label = "Where the copies stand"): { picture: Field; fields: Field[] } {
+  const closed = !!(path?.ok && path.value.closed);
+  const n = pathRepeatNumbers(v);
+  const placed = path?.ok && n.ok ? placeAlong(path.value, n.value.rules) : null;
+  const first = what === "hole" ? "" : ` (the first is the ${what} itself, so ${Math.max(0, (placed?.ok ? placed.value.frames.length : 1) - 1)} copies)`;
+  const note = !path ? "" : !path.ok ? path.error : !n.ok ? n.error : placed && !placed.ok ? placed.error : placed?.ok ? `${placed.value.frames.length} places${first}${placed.value.spacing !== null ? `, ${fmt(placed.value.spacing)} mm apart` : ""}; the path is ${fmt(lengthOf(placed.value.path))} mm long${n.value.rules.offset ? " after the offset" : ""}` : "";
+  const by = v.by === "count" ? "count" : "distance";
+  return {
+    picture: { id: "picture", label, type: "picture", value: pathPicture(path?.ok ? path.value : null, placed?.ok ? placed.value.frames.map((f) => ({ at: f.at, corner: f.corner })) : [], n.ok && n.value.rules.offset && placed?.ok ? placed : null), note },
+    fields: [
+      { id: "by", label: "Spacing", type: "choice", layout: "chips", value: by, choices: [{ value: "distance", label: "A distance apart" }, { value: "count", label: what === "hole" ? "A number, equally divided" : "A number, equally divided" }] },
+      { id: "value", label: by === "count" ? (what === "hole" ? "How many holes" : `How many (the ${what} itself is one)`) : (what === "hole" ? "Distance between holes (mm)" : "Distance between copies (mm)"), type: "text", value: v.value },
+      ...(by === "distance" && v.corners === "ignore" ? [{ id: "ends", label: "At the end of the path", type: "choice" as const, layout: "chips" as const, value: v.ends === "remainder" || v.ends === "centre" ? v.ends : "fit", choices: [{ value: "fit", label: "Adjust the spacing to land on the end" }, { value: "remainder", label: "Leave the rest at the end" }, { value: "centre", label: "Centre them" }] }] : []),
+      { id: "corners", label: "Corners", type: "choice", layout: "chips", value: v.corners === "each" || v.corners === "inward" ? v.corners : "ignore", choices: [{ value: "ignore", label: "Not special" }, { value: "each", label: what === "hole" ? "A hole at every corner, each side divided" : "A copy at every corner, each side divided" }, { value: "inward", label: "Work in from each corner" }], note: by === "count" && v.corners !== "ignore" ? "a rule for the corners needs a distance, not a number" : "" },
+      ...(!closed && v.corners === "ignore" ? [{ id: "startInset", label: what === "hole" ? "First hole this far from the start (mm)" : "First copy this far from the start (mm)", type: "text" as const, value: v.startInset }, { id: "endInset", label: what === "hole" ? "Last hole this far from the end (mm)" : "Last copy this far from the end (mm)", type: "text" as const, value: v.endInset }] : []),
+      { id: "offset", label: what === "hole" ? "Move the path in from the edge (mm; a negative number goes out)" : "Offset the path sideways (mm; to its left, a negative number to the right)", type: "text", value: v.offset, note: "for an outline drawn counter-clockwise, the left is the inside" },
+    ],
+  };
+}
+
+/** The dialog: the rules, and a picture of the path with the places the copies stand at. `t` is what the selection gave. */
 export function pathRepeatDialog(session: Session, t: PathRepeatTarget, v: PathRepeatValues): Dialog {
   const sc = sceneOf(session);
   const what = t.body ? "body" : "figure";
   const plane = sc.parts[t.plane];
   const path = plane?.kind === "plane" ? readPath(sc, t.path, plane, v.reverse === "other") : null;
-  const closed = !!(path?.ok && path.value.closed);
-  const n = pathRepeatNumbers(v);
-  const placed = path?.ok && n.ok ? placeAlong(path.value, n.value.rules) : null;
-  const note = !path ? "" : !path.ok ? path.error : !n.ok ? n.error : placed && !placed.ok ? placed.error : placed?.ok ? `${placed.value.frames.length} places (the first is the ${what} itself, so ${Math.max(0, placed.value.frames.length - 1)} copies)${placed.value.spacing !== null ? `, ${fmt(placed.value.spacing)} mm apart` : ""}; the path is ${fmt(lengthOf(placed.value.path))} mm long${n.value.rules.offset ? " after the offset" : ""}` : "";
-  const by = v.by === "count" ? "count" : "distance";
+  const r = pathRuleFields(v, path, what);
   const changing = !!t.edit || !!t.body?.step;
   return {
     title: changing ? "Path repeat: change the rules" : t.body ? "Path repeat of a body" : "Path repeat",
     ok: changing ? "Change" : "Repeat",
     fields: [
-      { id: "picture", label: "Where the copies stand", type: "picture", value: pathPicture(path?.ok ? path.value : null, placed?.ok ? placed.value.frames.map((f) => ({ at: f.at, corner: f.corner })) : [], n.ok && n.value.rules.offset && placed?.ok ? placed : null), note },
-      { id: "by", label: "Spacing", type: "choice", layout: "chips", value: by, choices: [{ value: "distance", label: "A distance apart" }, { value: "count", label: "A number, equally divided" }] },
-      { id: "value", label: by === "count" ? `How many (the ${what} itself is one)` : "Distance between copies (mm)", type: "text", value: v.value },
-      ...(by === "distance" && v.corners === "ignore" ? [{ id: "ends", label: "At the end of the path", type: "choice" as const, layout: "chips" as const, value: v.ends === "remainder" || v.ends === "centre" ? v.ends : "fit", choices: [{ value: "fit", label: "Adjust the spacing to land on the end" }, { value: "remainder", label: "Leave the rest at the end" }, { value: "centre", label: "Centre them" }] }] : []),
-      { id: "corners", label: "Corners", type: "choice", layout: "chips", value: v.corners === "each" || v.corners === "inward" ? v.corners : "ignore", choices: [{ value: "ignore", label: "Not special" }, { value: "each", label: "A copy at every corner, each side divided" }, { value: "inward", label: "Work in from each corner" }], note: by === "count" && v.corners !== "ignore" ? "a rule for the corners needs a distance, not a number" : "" },
-      ...(!closed && v.corners === "ignore" ? [{ id: "startInset", label: "First copy this far from the start (mm)", type: "text" as const, value: v.startInset }, { id: "endInset", label: "Last copy this far from the end (mm)", type: "text" as const, value: v.endInset }] : []),
-      { id: "offset", label: "Offset the path sideways (mm; to its left, a negative number to the right)", type: "text", value: v.offset, note: "for an outline drawn counter-clockwise, the left is the inside" },
+      r.picture,
+      ...r.fields,
       { id: "turn", label: "The copies", type: "choice", layout: "chips", value: v.turn === "turn" ? "turn" : "keep", choices: [{ value: "keep", label: "Keep their direction" }, { value: "turn", label: "Turn with the path" }] },
       { id: "reverse", label: "Count from", type: "choice", layout: "chips", value: v.reverse === "other" ? "other" : "start", choices: [{ value: "start", label: "The path's first end" }, { value: "other", label: "Its other end" }] },
     ],
