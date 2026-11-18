@@ -3846,3 +3846,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 > okay it looks pretty good. are we all done here?
 (after testing the planetary gear maker on claude/inspiring-pascal-l342k7: says it looks pretty good and asks whether the work is done; not an explicit approval to mark dec_planetary_gears accepted)
+
+## in_875 — 2026-11-18 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks to merge this branch's work into claude/inspiring-pascal-l342k7: the explicit permission to write to that branch for this merge)
