@@ -6,7 +6,7 @@ import { worldRef } from "../src/shared/ref.ts";
 import { createSession, run, scene } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";
 import { gearOutline } from "../src/operation/gear.ts";
-import { ratios, problemsOf, fromRatio, layoutOf, defaultPin, planetSteps } from "../src/operation/planetary.ts";
+import { ratios, problemsOf, fromRatio, layoutOf, defaultPin, planetSteps, contactRatios } from "../src/operation/planetary.ts";
 import type { PlanetarySpec } from "../src/operation/planetary.ts";
 import { toJSON, fromJSON } from "../src/operation/scene.ts";
 import { startOp, opCommand } from "../src/interaction/operations.ts";
@@ -282,4 +282,27 @@ test("a housing: a tube round the ring and an end cap, each a body, with a fit a
   s = run(make(spec), { type: "deletePlanetary", id: "q_001" });
   assert.equal(Object.keys(scene(s).parts).filter((r) => r.startsWith("d/q_001")).length, 0);
   assert.equal(scene(s).steps.length, 0);
+});
+
+test("harmonic and contact checks (`in_870`): the contact ratio is the textbook one; a ratio under 1.2 and teeth with a common factor are warnings, not refusals; the sets with whole teeth and a standard tooth never fall under 1", () => {
+  const base = { planets: 3, module: 1, width: 6 };
+  const c = contactRatios({ ...base, sun: 20, planet: 20 });
+  assert.ok(Math.abs(c.sunPlanet - 1.557) < 0.002, `two 20 tooth gears: ${c.sunPlanet}`);
+  assert.ok(Math.abs(c.planetRing - 1.95) < 0.002, `a 20 tooth gear in a 60 tooth ring: ${c.planetRing}`);
+  const helical = contactRatios({ ...base, sun: 20, planet: 20, helix: 20, width: 12 });
+  assert.ok(helical.sunPlanet > c.sunPlanet + 0.5, "a helix adds the overlap of the width");
+  // a set whose contact ratio is under 1.2: a warning that says so
+  const low = problemsOf({ ...base, sun: 9, planet: 9, pressure: 30 });
+  assert.ok(low.some((p) => !p.fatal && /contact ratio of the sun and planet is 1\.[12]\d/.test(p.text)), JSON.stringify(low));
+  assert.ok(!low.some((p) => p.fatal));
+  // teeth with a common factor: a warning with the factor; none without
+  const shared = problemsOf({ ...base, sun: 24, planet: 18 });
+  assert.ok(shared.some((p) => !p.fatal && /share a factor of 6/.test(p.text)));
+  assert.ok(!problemsOf({ ...base, sun: 24, planet: 17 }).some((p) => /factor/.test(p.text)));
+  assert.ok(!shared.some((p) => p.fatal), "only a warning");
+  // from 8 teeth up with the standard tooth none is under 1; three teeth at 14.5 degrees in a ring are (0.92): refused, as the planet would let go of the ring
+  assert.ok(problemsOf({ ...base, sun: 3, planet: 3, pressure: 14.5 }).some((p) => p.fatal && /contact ratio of the planet and ring is 0\.9/.test(p.text)));
+  let least = Infinity;
+  for (let a = 8; a <= 40; a++) for (let b = 8; b <= 40; b++) for (const pressure of [14.5, 20, 25, 30]) { const r = contactRatios({ ...base, sun: a, planet: b, pressure }); least = Math.min(least, r.sunPlanet, r.planetRing); }
+  assert.ok(least > 1, `the least contact ratio of 8 to 40 teeth: ${least}`);
 });

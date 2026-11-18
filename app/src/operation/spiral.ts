@@ -189,8 +189,8 @@ export interface SpiralBody {
   /** the blank's section: (radius, height along the axis towards the apex from the plane of the heel's pitch point), counter-clockwise */ blank: [number, number][];
   pitchRadius: number; tipRadius: number; rootRadius: number; addendum: number; dedendum: number;
 }
-const SECTIONS = Number(process.env.SP_SECTIONS ?? 7);
-const ARCS = Number(process.env.SP_ARCS ?? 2); // (arcs to a flank: 4 or 2)
+const SECTIONS = 7; // (nine planes and four arcs to a flank made a gear in 46 s, over the browser's 60 s limit: `in_836`)
+const ARCS: 2 | 4 = 2; // (arcs to a flank)
 const cache = new Map<string, Result<SpiralBody>>();
 /**
  * The body of the pinion (`which` = "pinion") or the ring gear of a pair. The sections' corners are taken from the outline at every second sample of a flank (four arcs through nine points) and one arc across each tip and root.

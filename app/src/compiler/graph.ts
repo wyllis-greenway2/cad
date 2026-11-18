@@ -43,7 +43,9 @@ export function buildGraph(scene: Scene): GraphResult {
     const plane = first.plane ? get(first.plane) : undefined;
     if (!plane || plane.kind !== "plane") return "the shape is not on a plane";
     // (the sketch is carried with the body; the extrude reads it back through the moves and turns that came after it, `in_204`; a move of one body of several counts for a sketch drawn on a face of that body, `in_277`)
-    const back = inverse(laterMotion(scene.steps, scene.steps.indexOf(st), (body) => plane.body === body));
+    // (a gear's sketch is derived from its record, so a move of its body does not carry it: it is not read back through the move, or the bevel's loft stood where the move had taken it and its revolve, whose axis is numbers, where it was, `in_872`)
+    const gearMade = !!scene.gears?.some((g) => first.ref.startsWith(`d/${g.id}.`));
+    const back = gearMade ? NONE : inverse(laterMotion(scene.steps, scene.steps.indexOf(st), (body) => plane.body === body));
     const id = sid;
     if (first.kind === "circle") {
       const c = pointOf(get, first.center);
@@ -124,7 +126,7 @@ export function buildGraph(scene: Scene): GraphResult {
         if (!matched.ok) { errors[st.id] = matched.why; break; }
         matched.sketches.forEach((s) => ops.push(s));
         sections.forEach((s) => s.holes.forEach((h) => ops.push(h)));
-        ops.push({ id: xid, type: "loft", sections: sections.map((s, i) => ({ profile: matched.sketches[i]!.id, holes: s.holes.map((h) => h.id) })), smooth: st.params.ruled ? false : true, ...(typeof st.params.gear === "string" && scene.gears?.some((g) => g.id === st.params.gear && g.spec.wheel) ? { matched: true } : {}), ...(prev ? { target: prev } : {}), mode: !prev ? "add" : st.params.mode === "add" || st.params.mode === "cut" || st.params.mode === "new" ? String(st.params.mode) : "cutOrAdd" });
+        ops.push({ id: xid, type: "loft", sections: sections.map((s, i) => ({ profile: matched.sketches[i]!.id, holes: s.holes.map((h) => h.id) })), smooth: st.params.ruled ? false : true, ...(typeof st.params.gear === "string" && scene.gears?.some((g) => g.id === st.params.gear && g.spec.wheel) ? { matched: true } : {}), ...(typeof st.params.gear === "string" ? { trusted: true } : {}), ...(prev ? { target: prev } : {}), mode: !prev ? "add" : st.params.mode === "add" || st.params.mode === "cut" || st.params.mode === "new" ? String(st.params.mode) : "cutOrAdd" });
         prev = xid;
         break;
       }
@@ -274,6 +276,31 @@ export function buildGraph(scene: Scene): GraphResult {
         const names = st.parts.map((r) => (r.startsWith("b/") ? r.split("/")[1]! : ""));
         if (names.length < 2 || names.some((n) => !n || n === "body")) { errors[st.id] = "select two or more bodies"; break; }
         ops.push({ id: xid, type: "combine", target: prev, mode: String(st.params.mode ?? "add"), bodies: names, ...(Number(st.params.keep) === 1 ? { keep: 1 } : {}), ...(Number(st.params.glue) === 1 ? { glue: 1 } : {}), ...(st.params.drop ? { drop: String(st.params.drop).split(",").filter(Boolean) } : {}), ...(st.params.mode === "regions" ? { regions: String(st.params.regions ?? "").split(",").filter((x) => x !== "").map(Number), join: Number(st.params.join) === 1 } : {}) });
+        prev = xid;
+        break;
+      }
+      case "sewBodies": {
+        // bodies that meet along flat faces joined into one (`in_869`): the faces they share (flat, across the axis, at the heights said) left out and the rest sewn into one solid: no boolean (a gear's worm wheel and its lands: 11 s by a fuse)
+        const names = st.parts.map((r) => (r.startsWith("b/") ? r.split("/")[1]! : ""));
+        if (!prev || names.length < 2 || names.some((n) => !n || n === "body")) { errors[st.id] = "select two or more bodies"; break; }
+        const p = st.params;
+        ops.push({ id: xid, type: "sewBodies", target: prev, bodies: names, origin: [Number(p.cx), Number(p.cy), Number(p.cz)], axis: [Number(p.dx), Number(p.dy), Number(p.dz)], heights: String(p.heights).split(",").map(Number) });
+        prev = xid;
+        break;
+      }
+      case "chamferBody": {
+        // a gear body with its whole perimeter chamfered (`in_866`): a ruled loft through the outline inset at each face and the full outline a chamfer in, made by the kernel from the two outlines in the step (numbers: x, y and the bulge of each side, `;` between sides), a piece of its own
+        const p = st.params;
+        ops.push({ id: xid, type: "chamferBody", full: String(p.full), inset: String(p.inset), edge: Number(p.edge), width: Number(p.width), bore: Number(p.bore ?? 0), wall: Number(p.wall ?? 0), origin: [Number(p.cx), Number(p.cy), Number(p.cz)], axis: [Number(p.dx), Number(p.dy), Number(p.dz)], first: [Number(p.ux), Number(p.uy), Number(p.uz)], ...(prev ? { target: prev, mode: "new" } : {}) });
+        prev = xid;
+        break;
+      }
+      case "toothChamfer": {
+        // the tips of a gear's teeth broken at its two faces (`in_760`, `in_859`): one flat wedge cut from each tooth at each face, made and cut by the kernel in one step; the body is named by the step that made it
+        const body = (st.parts[0] ?? "").startsWith("b/") ? st.parts[0]!.split("/")[1] : "";
+        if (!prev || !body || body === "body") { errors[st.id] = "there is no body to chamfer"; break; }
+        const p = st.params;
+        ops.push({ id: xid, type: "toothChamfer", target: prev, body, teeth: Number(p.teeth), tip: Number(p.tip), depth: Number(p.depth), width: Number(p.width), side: Number(p.side), twist: Number(p.twist ?? 0), centre: [Number(p.cx), Number(p.cy), Number(p.cz)], axis: [Number(p.dx), Number(p.dy), Number(p.dz)], first: [Number(p.ux), Number(p.uy), Number(p.uz)] });
         prev = xid;
         break;
       }

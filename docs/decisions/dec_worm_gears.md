@@ -3,7 +3,7 @@ id: dec_worm_gears
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_608, in_607, in_606, in_605, in_601, in_600, in_599
+human_input: in_869, in_608, in_607, in_606, in_605, in_601, in_600, in_599
 date: 2026-11-17
 depends_on:
   - dec_gear_tool: a worm and its wheel are gear records of the same kind (a record, parts made from it each derive, steps it owns); a change to how a gear is a record changes them
@@ -22,6 +22,8 @@ depends_on:
 **Meshing** (`meshWith`, Mesh gear on a worm; fields Teeth, Offset, Width, Bore): the wheel's centre is the centre distance (the wheel's pitch radius and the worm's) from the worm's axis on the side the pointer is on, `Offset` mm along the worm; it is turned so that its teeth meet the thread: the sections are for a worm whose thread stands at x = lead / 4 on the line of contact (mod the pitch of the thread), this worm's thread stands where its figure and the side put it, and the wheel is turned by the difference over its pitch radius. Checked by the kernel's intersection of the two bodies in `test/worm.test.ts`: on either side and along the worm the overlap is under 1 mm3 (about 0.01 mm3 in the runs) and a wheel 0.4 mm too near overlaps by tens of mm3.
 
 **Not built:** left hand worms (a mirror of the wheel's sections), a worm wheel for a worm on its own (the Worm wheel tool makes one by its numbers, anywhere; only Mesh gear places it against a worm), double enveloping worms, a wheel with a keyway or D bore, a worm meshed from the wheel's side (Mesh gear on a wheel is refused). The wheel is an approximation to 0.05 mm, as the prototype measured, not a hobbed wheel; nothing was checked in a browser or on a printed pair.
+
+**Faster worm wheels (`in_869`: "extremely slow in general"):** timed by step in the kernel (a 30 tooth wheel with a bore on a worm): the loft 6.0 s, of which the body's **exact box 1.9 s** (the marker of each new body is the middle of its box, and the box of a freeform body of hundreds of faces is found by a search) and the **self-crossing check 2.2 s** (a mesh and a search); a 3 mm land added 18 s more, **11 s of it the fuse of the lands with the wheel**. Three changes, none changing a result: (1) a gear's loft is `trusted` (its sections come from the gear's numbers and do not cross), so the self-crossing check is left out; (2) `box` in `bodies.mjs` is the quick box (a few mm roomier, same middle) for a body of more than 300 freeform faces; (3) the lands are joined to the wheel by a `sewBodies` step (the end faces, which are the same outlines drawn from the same sketch, are left out and the rest sewn into one solid: no boolean) and the worm's envelope is cut from the joined body after. **Measured (kernel, node): the wheel on a worm 7.3 s to 3.1 s; with a 3 mm land 18.4 s to 6.8 s; the volumes are the same to the digit (27615 and 45567 mm3).** In the browser a wheel with a 3 mm land appeared in 22 s (31 s before) while the test suite was running. The loft itself (about 1.4 s), the bore's cut (0.5 s) and the page's mesh are what is left.
 
 ## Rationale
 

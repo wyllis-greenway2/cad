@@ -130,15 +130,17 @@ export function wheelSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] | null
     const g = wheelOf(rec.spec);
     if (!g.ok) return null;
     const [lo, hi] = [envelope(rec, g.value, -1), envelope(rec, g.value, 1)];
+    const f = frameOf(s, rec)!;
     const own = { gear: rec.id };
+    // the pieces first joined by sewing their faces (the end sections are the same outlines: no boolean), then the worm's envelope cut out of the whole (`in_869`: the fuse of the lands took eleven seconds)
     steps.push(
       { type: "extrude", parts: sections[0]!, params: { depth: -land, ...(bores[0] ? { holes: bores[0]! } : {}), mode: "new", ...own } },
       { type: "extrude", parts: sections[SECTIONS - 1]!, params: { depth: land, ...(bores[SECTIONS - 1] ? { holes: bores[SECTIONS - 1]! } : {}), mode: "new", ...own } },
+      { type: "sewBodies", parts: ["@s0", "@s1", "@s2"] as Ref[], params: { cx: rec.at[0], cy: rec.at[1], cz: rec.at[2], dx: f.n[0], dy: f.n[1], dz: f.n[2], heights: `${-g.value.width / 2},${g.value.width / 2}`, ...own } },
       { type: "extrude", parts: lo.lines, params: { depth: 2 * lo.ext, mode: "new", ...own } },
       { type: "extrude", parts: hi.lines, params: { depth: 2 * hi.ext, mode: "new", ...own } },
-      { type: "combine", parts: ["@s1", "@s3"] as Ref[], params: { mode: "subtract", ...own } },
-      { type: "combine", parts: ["@s2", "@s4"] as Ref[], params: { mode: "subtract", ...own } },
-      { type: "combine", parts: ["@s0", "@s1", "@s2"] as Ref[], params: { mode: "add", glue: 1, ...own } }, // (glue: the pieces meet only along faces they share, which the kernel joins in less than half the time)
+      { type: "combine", parts: ["@s0", "@s4"] as Ref[], params: { mode: "subtract", ...own } },
+      { type: "combine", parts: ["@s0", "@s5"] as Ref[], params: { mode: "subtract", ...own } },
     );
   }
   return steps;

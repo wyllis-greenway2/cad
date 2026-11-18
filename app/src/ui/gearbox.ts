@@ -22,7 +22,7 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
     /** `entry`: the panel to show (null hides it). */
     update(entry: Entry | null) {
       if (!entry || !entry.panel) { el.style.display = "none"; sig = ""; focusedFor = ""; inputs = []; return; }
-      const now = JSON.stringify([entry.panel, entry.fields.map((f) => [f.label, f.unit ?? entry.unit])]);
+      const now = JSON.stringify([entry.panel, !!entry.kept, entry.fields.map((f) => [f.label, f.unit ?? entry.unit])]);
       if (now !== sig) {
         sig = now;
         el.replaceChildren();
@@ -76,8 +76,8 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
         note.style.cssText = "font-size:11.5px;color:#555;margin-top:8px;padding-top:8px;border-top:1px solid #f0f1f3;line-height:1.35";
         el.appendChild(note);
         const bar = document.createElement("div");
-        bar.style.cssText = "display:flex;gap:8px;justify-content:flex-end;margin-top:10px";
-        bar.append(textButton("Cancel", { click: () => h.cancel() }), textButton("Make it", { tone: "primary", click: () => h.enter() }));
+        bar.style.cssText = "display:flex;gap:8px;justify-content:flex-end;margin-top:10px;position:sticky;bottom:-12px;padding:8px 0 4px;background:#fff;border-top:1px solid #f0f1f3"; // (the buttons stay at the bottom of the panel while its long list of numbers is scrolled, `in_871`)
+        bar.append(textButton(entry.kept ? "Done" : "Cancel", { click: () => h.cancel() }), textButton(entry.kept ? "Apply" : "Make it", { tone: "primary", click: () => h.enter() }));
         el.appendChild(bar);
       }
       if (suggest) { suggest.textContent = entry.suggest ?? ""; suggest.style.display = entry.suggest ? "block" : "none"; } // (a click that makes it mesh with the gear beside it, `in_709`)
