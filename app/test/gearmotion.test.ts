@@ -198,3 +198,19 @@ test("a planetary carrier played: the planets go round the centre with it and tu
   assert.ok(Math.abs(ring.k - (1 + 12 / 48)) < 1e-9);
   assert.equal(keepCommand(sc, { ...r.motion, amount: 90 }), null);
 });
+
+test("while a motion plays the bar's number stays within half a turn either way, and nothing under the pointer is lit (it would be at the rest pose, not where the picture is)", () => {
+  const a = rec("g_001", [0, 0, 0], G1);
+  const s = build([{ id: "g_001", at: a.at, spec: a.spec }]);
+  const env = { w: 800, h: 600, now: 0 };
+  const body = bodyOfGear(scene(s), scene(s).gears![0]!)!;
+  let st = { ...createState(s), cam: homeCamera() };
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [body] }, hover: body }, hoverPoint: [1, 2, 3] };
+  st = reduce(st, { type: "runAction", id: "motion:play" }, env as never);
+  st = { ...st, motion: { ...st.motion!, amount: 1234.5 } };
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.ok(Math.abs(f.motionBar!.amount - (1234.5 - 1080)) < 1e-9, `${f.motionBar!.amount}`);
+  assert.ok(f.motionBar!.amount >= -180 && f.motionBar!.amount < 180);
+  assert.equal(f.highlight.hover, undefined);
+  assert.equal(f.highlight.hoverPoint, null);
+});

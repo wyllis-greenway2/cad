@@ -3672,3 +3672,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_831 — 2026-11-18 — directive
 > please merge in claude/adoring-dijkstra-next-pascal
 (asks again for claude/adoring-dijkstra-next-pascal to be merged into the testing branch)
+
+## in_832 — 2026-11-19 — directive
+> okay so the animation bar jumps a lot. Try doing a planetary gear, then animating it. Also the blue mouse cursor hover thingy, seems to fly away into the animation and is decoupled from the mouse.
+(two bugs: the motion bar jumps while a planetary set is played; the blue hover marker leaves the mouse during an animation)
