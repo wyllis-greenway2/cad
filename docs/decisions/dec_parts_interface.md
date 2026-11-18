@@ -24,7 +24,7 @@ alternative_to:
 
 7. **Where it is, and how it looks (`in_804`, `in_805`, `in_806`, built).** The panel is in the **right-click ring, under Shape, as Models**, with two items in it: **Fasteners** (the Add part dialog) and **Fastener Holes** (the dialog that cuts a receiver into the face selected; dimmed with its reason until one flat face is). They are no longer rows of the ⋯ list. Models is the generic area: other generated or ready-made parts go beside Fasteners later. The dialogs are **visual**: the family is a row of **cards with a line drawing** of the part (its side view and its top view, drawn from the real dimensions), the size and the clearance are **chips**, a **picture of the part at the size chosen** is shown under them (it follows the size, the head and the length typed), and the hole's receiver is a row of cards with its **cross-section** drawn at the size, with a larger one under. The drawings are made in `interaction/partdrawing.ts` as inline SVG, never from what is typed; the dialog's cards, chips and picture are `Field.layout` and the `picture` type (`interaction/transfer.ts`, `ui/dialog.ts`).
 
-8. **Where the holes go (`in_813`, built).** Fastener Holes has a **Where the holes go** choice: the middle of the face, the places picked, along the face's outline, or along the lines selected, the last two with the path repeat's rules (`dec_path_repeat`).
+8. **Where the holes go (`in_842`, built).** Fastener Holes has a **Where the holes go** choice: the middle of the face, the places picked, along the face's outline, or along the lines selected, the last two with the path repeat's rules (`dec_path_repeat`).
 
 ## Rationale
 

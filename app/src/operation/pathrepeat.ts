@@ -1,4 +1,4 @@
-// The machine of the path repeat (`dec_path_repeat`, `in_808` to `in_810`): a path in a plane, rules for where copies stand along it, and the frames (a point, the way the path runs, the way across it) the copies go to. Pure
+// The machine of the path repeat (`dec_path_repeat`, `in_837` to `in_839`): a path in a plane, rules for where copies stand along it, and the frames (a point, the way the path runs, the way across it) the copies go to. Pure
 // arithmetic on numbers: no scene, no kernel, no names. The path is a chain of straight lines and circular arcs, open or closed; it can be moved sideways first (the offset); the rules say how the copies are spaced, what happens at
 // the ends and what happens at the corners. A figure, a body or a fastener hole is then made at each frame by what uses this file.
 //

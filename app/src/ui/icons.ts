@@ -2,7 +2,7 @@
 const svg = (inner: string): string => `<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 
 const ICONS: Record<string, string> = {
-  // Repeat, Path repeat (`in_809`): dots standing along a curved path
+  // Repeat, Path repeat (`in_838`): dots standing along a curved path
   pathrepeat: svg('<path d="M2 12.5C5 12.5 5 4.5 8 4.5S11 11 14 11" stroke-dasharray="1.4 1.6" opacity=".7"/><circle cx="2.6" cy="12.4" r="1.5" fill="currentColor"/><circle cx="8" cy="4.6" r="1.5"/><circle cx="13.4" cy="11" r="1.5"/>'),
   // Shape, Models (`in_805`): a ready-made part, a block with a hexagon on its face; Fasteners: a countersunk screw; Fastener Holes: a block cut across with a hole and a countersink
   models: svg('<path d="M8 1.8l5.5 3v6.4l-5.5 3-5.5-3V4.8z"/><path d="M8 5.2l2.4 1.4v2.8L8 10.8 5.6 9.4V6.6z" stroke-width="1.2"/>'),

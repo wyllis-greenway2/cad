@@ -1,4 +1,4 @@
-// The path repeat of a drawn figure (`dec_path_repeat`, step (b), `in_808` to `in_811`): the figure and the lines and arcs of the path selected, a dialog for the rules (drawn with a picture of where the copies stand), and the
+// The path repeat of a drawn figure (`dec_path_repeat`, step (b), `in_837` to `in_840`): the figure and the lines and arcs of the path selected, a dialog for the rules (drawn with a picture of where the copies stand), and the
 // command that makes the repeat (or changes the rules of one that is there). The arithmetic is `operation/pathrepeat.ts`; the copies are made from the record by `operation/repeat.ts`.
 import type { Ref } from "../shared/ref.ts";
 import type { Result } from "../shared/result.ts";
@@ -28,7 +28,7 @@ const fmt = (n: number): string => String(Math.round(n * 1000) / 1000);
 /** What the selection says: the figure to repeat (the parts of the faces selected), the lines and arcs of the path (selected lines that are not the figure's own), the plane, and, when a repeat that is there is selected, that one to change. */
 export interface PathRepeatTarget {
   figure: Ref[]; path: Ref[]; plane: Ref; edit?: PatternRecord;
-  /** a body repeated along the path (`in_812`): the body (and its name, when it is one of several) and, for one already repeated, the step to change */
+  /** a body repeated along the path (`in_841`): the body (and its name, when it is one of several) and, for one already repeated, the step to change */
   body?: { ref: Ref; one?: string; /** the body's name when the repeat was made, to find it again */ src?: string; step?: string; params?: number[] };
 }
 export function pathRepeatTarget(session: Session): Result<PathRepeatTarget> {
