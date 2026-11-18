@@ -67,7 +67,7 @@ export type Command =
   /** break one group: what was in it stays, and a group inside it stays a group */
   | { type: "ungroup"; id: string }
   /** repeat a drawn figure so that it keeps its numbers (`in_257`, `repeat.ts`): the copies are made from this record */
-  | { type: "pattern"; id: string; kind: "linear" | "circular" | "mirror"; parts: Ref[]; plane: Ref; params: number[] }
+  | { type: "pattern"; id: string; kind: "linear" | "circular" | "mirror" | "path"; parts: Ref[]; plane: Ref; params: number[]; /** a path repeat: the lines the copies follow */ path?: Ref[] }
   | { type: "setPattern"; id: string; params: number[] }
   | { type: "breakPattern"; id: string }
   /** a gear that keeps its numbers (`gearscene.ts`, `dec_gear_tool`): its parts are made from this record; `setGear` gives it new numbers (and a new centre), `deleteGear` takes it away */
@@ -309,7 +309,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       return ok({ ...s, materials: Object.keys(materials).length ? materials : undefined });
     }
     case "setClearance": return Number.isFinite(c.value) && c.value >= 0 ? ok({ ...s, clearance: c.value || undefined }) : err("the clearance is a distance of nothing or more");
-    case "pattern": { const r = addPattern(s, { id: c.id, kind: c.kind, parts: c.parts, plane: c.plane, params: c.params }); return r.ok ? ok(bumpCounter(r.value, c.id)) : r; }
+    case "pattern": { const r = addPattern(s, { id: c.id, kind: c.kind, parts: c.parts, plane: c.plane, params: c.params, ...(c.path ? { path: c.path } : {}) }); return r.ok ? ok(bumpCounter(r.value, c.id)) : r; }
     case "setPattern": return setPattern(s, c.id, c.params);
     case "breakPattern": return breakPattern(s, c.id);
     case "gear": {

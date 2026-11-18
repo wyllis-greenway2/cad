@@ -282,3 +282,28 @@ export function lifted(f: Frame, plane: { origin: readonly [number, number, numb
   const p = lift(f.at);
   return { at: [plane.origin[0] + p[0], plane.origin[1] + p[1], plane.origin[2] + p[2]], along: lift(f.along), across: lift(f.across) };
 }
+
+// ---- the numbers a path repeat keeps ----
+/** Everything a path repeat keeps besides the path itself: the rules, and whether the copies turn with the path and whether the path is walked from its other end. */
+export interface RepeatNumbers { rules: Rules; turn: boolean; reverse: boolean }
+/** How many numbers a record's `params` holds. */
+const PATH_PARAMS = 9;
+const ENDS = ["fit", "remainder", "centre"] as const;
+const CORNERS = ["ignore", "each", "inward"] as const;
+/** The rules as the numbers a repeat's record keeps: [by (0 distance, 1 count), its value, ends (0 fit, 1 remainder, 2 centre), start inset, end inset, corners (0 ignore, 1 each, 2 inward), offset, turn (0 or 1), reverse (0 or 1)]. */
+export function numbersOf(n: RepeatNumbers): number[] {
+  const r = n.rules;
+  return [r.spacing.by === "count" ? 1 : 0, r.spacing.by === "count" ? r.spacing.count : r.spacing.distance, ENDS.indexOf(r.ends ?? "fit"), r.startInset ?? 0, r.endInset ?? 0, CORNERS.indexOf(r.corners ?? "ignore"), r.offset ?? 0, n.turn ? 1 : 0, n.reverse ? 1 : 0];
+}
+/** The numbers of a record read back as rules, or why they are not any. */
+export function rulesFrom(v: readonly number[]): Result<RepeatNumbers> {
+  if (v.length < PATH_PARAMS || !v.every(Number.isFinite)) return err("the numbers of the path repeat are not all there");
+  const [by, value, ends, i0, i1, corners, offset, turn, reverse] = v as number[];
+  const e = ENDS[Math.round(ends!)], c = CORNERS[Math.round(corners!)];
+  if (!e || !c) return err("the numbers of the path repeat name an end or a corner rule that is not one");
+  return ok({ rules: { spacing: Math.round(by!) === 1 ? { by: "count", count: value! } : { by: "distance", distance: value! }, ends: e, startInset: i0!, endInset: i1!, corners: c, offset: offset! }, turn: Math.round(turn!) === 1, reverse: Math.round(reverse!) === 1 });
+}
+/** The path walked from its other end (the same places along it, counted the other way round). */
+export function reversedPath(p: Path): Path {
+  return { segs: [...p.segs].reverse().map((s) => ({ a: s.b, b: s.a, bulge: -s.bulge })), closed: p.closed };
+}

@@ -3588,3 +3588,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_810 — 2026-11-18 — approval
 > Machine, drawn figures, bodies, then fasteners (Recommended)
 (answers the order to build the path repeat in: the pure machine, then drawn figures, then bodies, then the fastener holes)
+
+## in_811 — 2026-11-18 — approval
+> Yes, go ahead with step (b)
+(approves step (b) of the path repeat: the repeat of a drawn figure along a drawn path)

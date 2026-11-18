@@ -169,7 +169,7 @@ export function toJSON(s: Scene): SceneJson {
     relations: [...s.relations],
     steps: [...s.steps],
     ...(s.groups?.length ? { groups: s.groups.map((g) => ({ id: g.id, items: [...g.items] })) } : {}),
-    ...(s.patterns?.length ? { patterns: s.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params] })) } : {}),
+    ...(s.patterns?.length ? { patterns: s.patterns.map((r) => ({ ...r, parts: [...r.parts], params: [...r.params], ...(r.path ? { path: [...r.path] } : {}) })) } : {}),
     ...(s.gears?.length ? { gears: s.gears.map((g) => ({ ...g, at: [...g.at] as unknown as Vec3, spec: { ...g.spec } })) } : {}),
     ...(s.planetaries?.length ? { planetaries: s.planetaries.map((p) => ({ ...p, at: [...p.at] as unknown as Vec3, spec: { ...p.spec }, planetIds: [...p.planetIds] })) } : {}),
     ...(s.hard?.length ? { hard: [...s.hard] } : {}),
