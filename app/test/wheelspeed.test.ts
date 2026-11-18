@@ -94,7 +94,7 @@ test("a wheel of many teeth has the coarser screen mesh (freeform faces by the h
   assert.deepEqual(fresh.edgeNames, kept.edgeNames);
 });
 
-test("a wheel's loft is not checked for matching sections (`in_823`): the same volume as before to every digit, and a loft told it is matched when it is not still comes out right", () => {
+test("a wheel's loft is not checked for matching sections (`in_853`): the same volume as before to every digit, and a loft told it is matched when it is not still comes out right", () => {
   const v = bodyVolumes(wheel(60));
   assert.deepEqual(v.errors, []);
   assert.ok(Math.abs(v.volumes[0]! - 114392.87812056803) < 0.01, `60 teeth: ${v.volumes[0]}`); // (the volume with the checked loft)
@@ -107,7 +107,7 @@ test("a wheel's loft is not checked for matching sections (`in_823`): the same v
   }
 });
 
-test("a wheel's two end faces keep the names of their roles and every flank face has a name of its own (`in_825`: the roles of the thousand sides are not worked out)", () => {
+test("a wheel's two end faces keep the names of their roles and every flank face has a name of its own (`in_855`: the roles of the thousand sides are not worked out)", () => {
   const s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: wheel(30) });
   const k = (s.outcome as unknown as { kernel: { faceNames: { name: string }[]; faces: unknown[] | null } }).kernel;
   const names = k.faceNames.map((f) => f.name);
@@ -116,7 +116,7 @@ test("a wheel's two end faces keep the names of their roles and every flank face
   assert.equal(new Set(names).size, names.length, "no two faces share a name");
 });
 
-test("wheels one beside another stay two bodies with their own names (`in_827`: the exact box of a thousand faces and every old name against every face were quick for one wheel and not for two)", () => {
+test("wheels one beside another stay two bodies with their own names (`in_857`: the exact box of a thousand faces and every old name against every face were quick for one wheel and not for two)", () => {
   let s = createSession(kernel);
   for (let i = 0; i < 3; i++) {
     s = run(s, { type: "gear", id: `g_00${i + 1}`, plane: worldRef("XY"), at: [i * 80, 0, 0], spec: wheel(30 + i) });

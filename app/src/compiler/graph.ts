@@ -12,6 +12,8 @@ import { decodeEdge, decodeFace } from "./body.ts";
 import { loopOf } from "../operation/loops.ts";
 import { matchSections } from "./loftmatch.ts";
 import { walkPath, pathStart, squareXDir } from "../operation/path.ts";
+import { bodyPlaces } from "../operation/pathmaps.ts";
+import { PATH_NUMBERS } from "../operation/pathrepeat.ts";
 import { NONE, applyPoint, applyDir, inverse, laterMotion } from "../operation/frames.ts";
 import type { Rigid } from "../operation/frames.ts";
 export { loopOf };
@@ -234,6 +236,14 @@ export function buildGraph(scene: Scene): GraphResult {
         const p = st.params;
         const one = p.body ? { body: String(p.body) } : {}; // (one body of several is repeated, `in_271`)
         const turned = p.f0x !== undefined ? { frame: [[p.f0x, p.f0y, p.f0z], [p.f1x, p.f1y, p.f1z], [p.f2x, p.f2y, p.f2z]].map((r) => r.map(Number)) } : {}; // (the mover was turned: the copies run along its axes, `in_440`)
+        if (p.mode === "path") { // a body repeated along a path (`dec_path_repeat`, step (c)): the places are worked out here from the path's lines, and the kernel is given them
+          const found = bodyPlaces(scene, { path: String(p.path ?? "").split(",").filter(Boolean) as Ref[], params: Array.from({ length: PATH_NUMBERS }, (_, i) => Number(p[`pr${i}`])) });
+          if (!found.ok) { errors[st.id] = found.error; break; }
+          if (found.value.places.length > 200) { errors[st.id] = "that is more than 200 copies"; break; }
+          ops.push({ id: xid, type: "pattern", target: prev, mode: "placed", places: found.value.places.map((q) => ({ move: q.move.map(r9), ...(q.turn ? { turn: { angle: r9(q.turn.angle), pivot: [...q.turn.pivot].map(r9), dir: [...q.turn.dir].map(r9) } } : {}) })), ...one });
+          prev = xid;
+          break;
+        }
         ops.push(p.mode === "mirror"
           ? { id: xid, type: "pattern", target: prev, mode: "mirror", point: [Number(p.px), Number(p.py), Number(p.pz)], normal: [Number(p.nx), Number(p.ny), Number(p.nz)], ...one }
           : p.mode === "circular"

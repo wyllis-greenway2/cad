@@ -1201,6 +1201,13 @@ const OPS = {
       for (let i = 1; i < count; i++) copies.push(t.clone().rotate(step * i, op.pivot, axis));
       return { kind: "solid", shape: again(fuseTree(copies)) };
     }
+    if (op.mode === "placed") {
+      // the copies of a body repeated along a path (`dec_path_repeat`): each place is given (a turn about a point first, if there is one, then a move); the body is at the first place itself
+      if (op.places.length + 1 > 200) throw new Error("that is more than 200 copies");
+      const copies = [out];
+      for (const q of op.places) { let c = t.clone(); if (q.turn) c = c.rotate(q.turn.angle, q.turn.pivot, q.turn.dir); copies.push(c.translate(q.move)); }
+      return { kind: "solid", shape: again(fuseTree(copies)) };
+    }
     throw new Error(`unknown repeat ${op.mode}`);
   },
 
@@ -2181,7 +2188,7 @@ function describeError(e, op) {
  */
 /**
  * What a kept-answer map holds is bounded by the faces of the solids it keeps, not by how many there are: a count of 64 was a cliff at forty or so plain parts (each part kept one or two), after which every step made
- * all of them again (50 parts: 0.1 s a step; 70: 2.5 s, `in_827`), and a heap of wheels of thousands of faces would have been more than the memory has. The oldest go first.
+ * all of them again (50 parts: 0.1 s a step; 70: 2.5 s, `in_857`), and a heap of wheels of thousands of faces would have been more than the memory has. The oldest go first.
  */
 const FACES_KEPT = 20000;
 const weights = new WeakMap();
@@ -2232,7 +2239,7 @@ export function clearKernelCaches() { prisms.clear(); booleans.clear(); validSol
 const memo = new Map(); // key -> { value, own }
 /**
  * The answers kept for the steps, the oldest forgotten first once they hold more than `MEMO_FACES` faces of their own (a step's own are the faces its answer has beyond its target's, the answers of a row of steps
- * sharing the solids of the bodies before them) or `MEMO_COUNT` answers. A count of 96 was a cliff at 48 plain parts (a sketch and a push each), after which every step made them all again (`in_827`).
+ * sharing the solids of the bodies before them) or `MEMO_COUNT` answers. A count of 96 was a cliff at 48 plain parts (a sketch and a push each), after which every step made them all again (`in_857`).
  */
 const MEMO_FACES = 150000, MEMO_COUNT = 2000;
 const remember = (key, entry) => {

@@ -1,10 +1,10 @@
-# wheel-tooth-loft (prototype, `in_824`)
+# wheel-tooth-loft (prototype, `in_854`)
 
 **Meant to learn:** whether a worm wheel can be made faster by lofting **one tooth** (an open strip of its section's arcs through the five sections) and turning copies of it round, instead of one loft through the whole wheel's sections.
 
 **Run (from `app/`):** `Z=100 node ../prototypes/wheel-tooth-loft/run.mjs`
 
-**Method.** The app's own sections (`wheelSections`). (a) The whole loft with the compatibility check off (what the app does since `in_823`). (b) One tooth's open outline lofted as a shell (`ThruSections`, not solid), `Z` rotated copies, the two end caps made from the whole sections' outlines, all sewn (`BRepBuilderAPI_Sewing`, 1e-6) into one shell, made a solid. (c) A solid sector (the tooth closed through the centre) lofted, turned and **fused**.
+**Method.** The app's own sections (`wheelSections`). (a) The whole loft with the compatibility check off (what the app does since `in_853`). (b) One tooth's open outline lofted as a shell (`ThruSections`, not solid), `Z` rotated copies, the two end caps made from the whole sections' outlines, all sewn (`BRepBuilderAPI_Sewing`, 1e-6) into one shell, made a solid. (c) A solid sector (the tooth closed through the centre) lofted, turned and **fused**.
 
 **Learned (the kernel in Node, module 2, 24 mm worm, width 10):**
 

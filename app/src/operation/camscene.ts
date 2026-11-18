@@ -76,3 +76,24 @@ export function camParts(s: Scene, rec: GearRecord): Part[] {
   }
   return out;
 }
+
+/**
+ * The steps that make the bodies of a cam that comes as a model, without their names (`gearscene.ts` `ownedSpecs`; `dec_geneva`): a Geneva drive with `layout: "model"` is three bodies in place: the wheel and the locking disc, each
+ * `layer` mm thick up from the plane, and under them the crank plate, `plate` mm thick down from it, with its pin joined to it and standing up through the notch into the wheel's slot as high as the wheel. Null for any other.
+ */
+export function camSteps(s: Scene, rec: GearRecord): Omit<import("./scene.ts").Step, "id">[] | null {
+  const spec = rec.spec.cam;
+  const sh = shapesOf(rec);
+  if (!spec || spec.kind !== "geneva" || spec.layout !== "model" || !sh || !sh.polys || sh.polys.length < 2 || !s.parts[rec.plane]) return null;
+  const [layer, plate] = [spec.layer ?? 6, spec.plate ?? 3];
+  const r = (name: string): Ref => drawnRef(`${rec.id}.${name}`);
+  const names = (prefix: string, n: number): Ref[] => Array.from({ length: n }, (_, i) => r(`${prefix}${i}`));
+  const hole = (name: string): { holes: string } | Record<string, never> => (sh.circles.some((c) => c.hole && (name === "b" ? Math.hypot(...c.c) < 1e-9 : Math.hypot(...c.c) >= 1e-9)) ? { holes: r(name) } : {});
+  const steps: Omit<import("./scene.ts").Step, "id">[] = [
+    { type: "extrude", parts: names("s", sh.polys[0]!.points.length), params: { depth: layer, mode: "new", ...hole("b"), gear: rec.id } },
+  ];
+  if (sh.rings?.length) steps.push({ type: "extrude", parts: [r("v0a"), r("v0b")], params: { depth: layer, mode: "new", ...(sh.circles.filter((c) => c.hole && Math.hypot(...c.c) >= 1e-9).length > 1 ? { holes: r("q1") } : {}), gear: rec.id } });
+  steps.push({ type: "extrude", parts: names("t", sh.polys[1]!.points.length), params: { depth: -plate, mode: "new", ...(sh.circles.some((c) => c.hole && Math.hypot(...c.c) >= 1e-9) ? { holes: r("q") } : {}), gear: rec.id } });
+  if (sh.circles.some((c) => !c.hole)) steps.push({ type: "extrude", parts: [r("k")], params: { depth: layer, mode: "add", gear: rec.id } }); // (the pin: joined to the crank plate it stands on)
+  return steps;
+}

@@ -1,4 +1,4 @@
-// Prototype (thrown away, `in_824`): a worm wheel as one tooth's sector lofted and turned round, against the loft through the whole wheel's sections.
+// Prototype (thrown away, `in_854`): a worm wheel as one tooth's sector lofted and turned round, against the loft through the whole wheel's sections.
 // Run (from app/): Z=60 node ../prototypes/wheel-tooth-loft/run.mjs
 import { draw, Plane, getOC, measureVolume, cast, makeCompound } from "../../app/node_modules/replicad/dist/replicad.js";
 import { init } from "../../app/src/compiler/kernel/occt/evaluate.mjs";

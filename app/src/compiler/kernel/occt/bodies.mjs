@@ -18,7 +18,7 @@ export const box = (s) => {
   const kept = boxes.get(key);
   if (kept) return { min: [...kept.min], max: [...kept.max] };
   // the exact box of a solid of many faces is far the dearer (a 100 tooth worm wheel: about 3 s, each time one is next to another body; a quick box round it, a little roomier, is a few milliseconds): a body of more than 300 faces is held by the
-  // quick box, which is all a marker needs (`in_827`)
+  // quick box, which is all a marker needs (`in_857`)
   const many = s.faces.length > 300;
   const made = many ? quickBox(s) : (() => { const b = s.boundingBox.bounds; return { min: [...b[0]], max: [...b[1]] }; })();
   boxes.set(key, made);

@@ -72,7 +72,7 @@ test("the surfaces of several bodies are those of each body one after the other,
   assert.deepEqual(strip(surfacesOf(makeCompound([a(), b()]))), strip(both), "again, from what was kept");
 });
 
-test("a model of sixty plain parts does not make them all again at every step: what is kept is bounded by faces, not by a count of forty or so (`in_827`)", async () => {
+test("a model of sixty plain parts does not make them all again at every step: what is kept is bounded by faces, not by a count of forty or so (`in_857`)", async () => {
   const { drawRectangle } = await import("../src/operation/build.ts");
   const { kernelStats } = await import("../src/compiler/kernel/occt/interpreter.mjs");
   const add = (s: Session, i: number): Session => {

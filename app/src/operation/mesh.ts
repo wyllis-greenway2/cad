@@ -11,6 +11,7 @@ import type { GearRecord } from "./gearscene.ts";
 import type { GearSpec } from "./gear.ts";
 import { wormOf, wheelOf, wormLayout } from "./worm.ts";
 import { bevelOf, bevelFrame } from "./bevel.ts";
+import { spiralRole, CONTACT } from "./spiral.ts";
 
 export interface Placement { at: Vec3; turn: number; spec: GearSpec }
 const TAU = 2 * Math.PI;
@@ -160,7 +161,7 @@ export function meshBevel(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: n
   const g1 = bevelOf(s);
   if (!g1.ok) return g1;
   const shaft = s.bevel!.shaft ?? 90, sig = (shaft * Math.PI) / 180;
-  const spec: GearSpec = { teeth: z2, module: s.module, ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), ...(s.backlash !== undefined ? { backlash: s.backlash } : {}), bevel: { mate: s.teeth, ...(shaft !== 90 ? { shaft } : {}), ...(s.bevel!.face !== undefined ? { face: s.bevel!.face } : {}), ...(s.bevel!.with === undefined ? { with: src.id } : {}), dir: where } };
+  const spec: GearSpec = { teeth: z2, module: s.module, ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), ...(s.backlash !== undefined ? { backlash: s.backlash } : {}), bevel: { mate: s.teeth, ...(shaft !== 90 ? { shaft } : {}), ...(s.bevel!.face !== undefined ? { face: s.bevel!.face } : {}), ...(s.bevel!.spiral !== undefined ? { spiral: s.bevel!.spiral } : {}), ...(s.bevel!.with === undefined ? { with: src.id } : {}), dir: where } };
   const g2 = bevelOf(spec);
   if (!g2.ok) return g2;
   const f1 = bevelFrame(u, v, s, src.turn ?? 0), f0 = bevelFrame(u, v, s, 0);
@@ -179,7 +180,10 @@ export function meshBevel(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: n
   const [r1, r2, pitch1] = [g1.value.pitchRadius, g2.value.pitchRadius, TAU / Math.round(s.teeth)];
   const asnap = (x: number, period: number) => ((x % period) + period) % period;
   const phi1 = asnap((src.turn ?? 0) - Math.atan2(dot3(e, f0.Y), dot3(e, f0.X)), pitch1);
-  const psi = asnap(-(r1 * phi1 + (Math.PI * s.module) / 2) / r2, TAU / z2);
+  const spiral = s.bevel!.spiral !== undefined;
+  // a spiral pair (`spiral.ts`): the place the pair was made at has the pinion's contact line at azimuth -pi/2 of its body and the ring gear's at +pi/2; turning one by an angle turns the other by the ratio of their teeth the other way, whatever the angle (the surfaces are conjugate), so the partner's phase follows from the source's, no tooth to snap to
+  const beta2 = spiral ? CONTACT[spiralRole(spec)] - (Math.round(s.teeth) / z2) * ((Math.atan2(dot3(e, f0.Y), dot3(e, f0.X)) - (src.turn ?? 0)) - CONTACT[spiralRole(s)]) : 0;
+  const psi = spiral ? -beta2 : asnap(-(r1 * phi1 + (Math.PI * s.module) / 2) / r2, TAU / z2);
   const e2: Vec3 = [(-ns[0] + Math.cos(sig) * n2[0]) / Math.sin(sig), (-ns[1] + Math.cos(sig) * n2[1]) / Math.sin(sig), (-ns[2] + Math.cos(sig) * n2[2]) / Math.sin(sig)]; // (the direction across the partner's axis towards the source)
   const a2 = Math.atan2(dot3(e2, Y2), dot3(e2, X2));
   return ok({ at: at2, turn: norm(a2 + psi), spec: { ...spec, bevel: { ...spec.bevel!, frame: [X2, Y2] } } });

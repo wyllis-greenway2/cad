@@ -1,4 +1,4 @@
-// Prototype (thrown away, `in_825`): the cost of the validity check of a worm wheel's loft with and without the geometric controls.
+// Prototype (thrown away, `in_855`): the cost of the validity check of a worm wheel's loft with and without the geometric controls.
 import { draw, getOC, cast } from "../../app/node_modules/replicad/dist/replicad.js";
 import { init } from "../../app/src/compiler/kernel/occt/evaluate.mjs";
 import { wheelSections } from "../../app/src/operation/wheelsections.ts";

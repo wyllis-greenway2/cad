@@ -11,14 +11,14 @@ import { pointOf, curveMid } from "../operation/part.ts";
 /** How long the kernel has been working before a disc is drawn for a gear it has not made (ms): a gear that comes at once is not preceded by a flash. */
 export const STANDIN_MS = 250;
 
-/** The label's words for a wait of `seconds` whole seconds: nothing about time for the first two (a body that comes at once is not timed), `in_817`. */
+/** The label's words for a wait of `seconds` whole seconds: nothing about time for the first two (a body that comes at once is not timed), `in_847`. */
 export function standInWords(seconds: number): string {
   return seconds >= 2 ? `Building… ${seconds} s` : "Building…";
 }
 
 /** A disc: its middle, the way it faces, how thick it is (along the normal, from the middle's plane; negative goes the other way), its outside radius and, if it is a ring, the radius of its hole. */
 export interface StandIn { step: string; centre: Vec3; normal: Vec3; depth: number; radius: number; hole: number;
-  /** a swept body (`in_820`): the points of its path, which the stand-in is a tube along (then `centre` is the path's middle, `depth` 0 and `radius` the tube's) */ path?: Vec3[] }
+  /** a swept body (`in_850`): the points of its path, which the stand-in is a tube along (then `centre` is the path's middle, `depth` 0 and `radius` the tube's) */ path?: Vec3[] }
 
 /** What of the kernel's last answer matters here: whether it is still being worked out, and the steps it has made. */
 export interface KernelSeen { stale?: boolean; ops: readonly { id: string }[] }
@@ -42,7 +42,7 @@ function standInOf(sc: Scene, st: Step): StandIn | null {
   return { step: g.step, centre: g.centre, normal: g.normal, depth: g.depth, radius: g.radius, hole: g.hole };
 }
 
-/** A worm's thread is its heavy step (a helical sweep: its core is quick): a disc as long as the worm, at the thread's outside radius, along the worm's axis (`in_819`; the first thread step of the worm stands for the body). */
+/** A worm's thread is its heavy step (a helical sweep: its core is quick): a disc as long as the worm, at the thread's outside radius, along the worm's axis (`in_849`; the first thread step of the worm stands for the body). */
 function wormStandInOf(sc: Scene, st: Step): StandIn | null {
   if (st.type !== "revolve" || st.params.mode !== "add" || !(Number(st.params.advance) > 0) || typeof st.params.gear !== "string") return null;
   const rec = sc.gears?.find((g) => g.id === st.params.gear);
@@ -89,7 +89,7 @@ function arcBetween(a: Vec3, m: Vec3, b: Vec3): Vec3[] {
 }
 const unit = (a: Vec3): Vec3 => { const l = Math.hypot(...a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 
-/** A sweep that the kernel has not made yet is a tube along its path (`in_820`), as thick as the shape is (a tube of the same area as the shape's box). */
+/** A sweep that the kernel has not made yet is a tube along its path (`in_850`), as thick as the shape is (a tube of the same area as the shape's box). */
 function sweepStandInOf(sc: Scene, st: Step): StandIn | null {
   const get = lookup(sc);
   const walked = walkPath(get, String(st.params.path ?? "").split(",").filter(Boolean) as never);

@@ -15,7 +15,8 @@ import { laserDialog, runLaser, findingsDialog, machineChoices, machineDialog, s
 import { parseLibrary, libraryText, saveMachine, removeMachine, saveSettings, removeSettings } from "./interaction/library.ts";
 import { flatSnapshot } from "./interaction/partsnapshot.ts";
 import type { LaserValues } from "./interaction/manufacture.ts";
-import { addPartStart, addPartDialog, addPart, familyName, lengthAdviceOf, receiverStart, receiverDialog, cutReceiver, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
+import { pathRepeatTarget, pathRepeatDialog, pathRepeatCommand, pathRepeatStart, pathRepeatValuesFor } from "./interaction/pathrepeat.ts";
+import { addPartStart, addPartDialog, addPart, familyName, lengthAdviceOf, receiverStartFor, receiverDialog, receiverContext, cutReceiver, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
 import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
 import type { ExportOptions } from "./interaction/transfer.ts";
@@ -50,6 +51,8 @@ import { createMenu } from "./ui/menu.ts";
 import { createRing } from "./ui/ring.ts";
 import { createAddChip } from "./ui/addchip.ts";
 import { createPreviewBar } from "./ui/previewbar.ts";
+import { createMotionBar } from "./ui/motionbar.ts";
+import { tickMotion } from "./interaction/motion.ts";
 import { createChip } from "./ui/chip.ts";
 import { createSheetChips } from "./ui/sheetchips.ts";
 import { createWorldOrb } from "./ui/worldorb.ts";
@@ -173,13 +176,14 @@ const menu = createMenu(document.body, (id) => {
 const ring = createRing(document.body, (id) => {
   ring.hide();
   if (id === "view:game") { input.toggleGame(); return; }
+  if (id === "repeat:path") { void pathRepeatFlow(); return; } // (`dec_path_repeat`)
   if (id === "models:fasteners") { void addPartFlow(); return; } // (Shape, Models: the dialogs are the page's, `in_812`, `in_813`)
   if (id === "models:holes") { void fastenerHoleFlow(); return; }
   dispatch({ type: "runAction", id });
 }, (id) => dispatch({ type: "runAction", id: `why:${id}` })); // (a dimmed option pressed: its reason is said and the ring stays, `in_538`)
 
 const hintIcons = createHints(document.body);
-const standLabels = createStandInLabels(document.body); // (the words on the discs that stand for gear bodies not made yet, `in_817`)
+const standLabels = createStandInLabels(document.body); // (the words on the discs that stand for gear bodies not made yet, `in_847`)
 let lastStandSecs: number | null = null;
 let lastIcon: [number, number] | null = null;
 let touchRects: DOMRect[] = []; // (where the drag icons of a finger stood on the last frame: the bubbles and the suggestions keep off them, `in_292`)
@@ -196,6 +200,7 @@ const bodyChips = createBodyChips(document.body, (id) => dispatch({ type: "runAc
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const notices = createNotices(document.body, statusEl, (i) => dispatch(i)); // (every message, refusal, help and the working sign, `in_665`)
 const previewBar = createPreviewBar(document.body, (at) => dispatch({ type: "previewAt", at }), () => dispatch({ type: "previewClose" }));
+const motionBar = createMotionBar(document.body, (i) => dispatch(i));
 const addChip = createAddChip(document.body, () => dispatch({ type: "runAction", id: "select:add" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch(to === "invert" ? { type: "runAction", id: "hollow:invert" } : to === "linear" || to === "circular" ? { type: "runAction", id: `op:${to}` } : { type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);
@@ -262,14 +267,30 @@ async function addPartFlow() {
   dirty = true;
   say(`added: ${answers.size} ${familyName(String(answers.family))}, at the origin${lengthAdviceOf(answers as unknown as ReturnType<typeof addPartStart>) ? ` (${lengthAdviceOf(answers as unknown as ReturnType<typeof addPartStart>)})` : ""}`);
 }
+/** Path repeat (`dec_path_repeat`, `in_843`): the figure and the lines of the path selected, a dialog for the rules (with a picture of where the copies stand), and the repeat made (or the rules of the one selected changed). */
+async function pathRepeatFlow() {
+  const t = pathRepeatTarget(state.session);
+  if (!t.ok) return say(t.error);
+  const target = t.value;
+  const answers = await dialog.open((v) => pathRepeatDialog(state.session, target, v as unknown as ReturnType<typeof pathRepeatStart>), pathRepeatValuesFor(target) as unknown as Values);
+  if (!answers) return;
+  const c = pathRepeatCommand(state.session, target, answers as unknown as ReturnType<typeof pathRepeatStart>);
+  if (!c.ok) return say(c.error);
+  const next = run(state.session, c.value);
+  if (next.message) return say(next.message);
+  state = { ...state, session: next };
+  dirty = true;
+  say(target.edit || target.body?.step ? "path repeat changed" : "path repeat made");
+}
 /** Fastener hole (`in_746`): the receiver for a fastener (a clearance hole, a countersunk one, a hole to tap, a nut pocket) cut into the body whose flat face is selected, at the face's middle or as far from it as typed. */
 async function fastenerHoleFlow() {
   const why = whyNoReceiver(state.session);
   if (why) return say(why);
-  const answers = await dialog.open((v) => receiverDialog(v as unknown as ReturnType<typeof receiverStart>, placesPicked(state.session)), receiverStart() as unknown as Values);
+  const ctx = receiverContext(state.session);
+  const answers = await dialog.open((v) => receiverDialog(v as unknown as ReturnType<typeof receiverStartFor>, placesPicked(state.session), ctx), receiverStartFor(state.session) as unknown as Values);
   if (!answers) return;
   const places = placesPicked(state.session); // (before the cut: the selection may not survive it)
-  const r = cutReceiver(state.session, answers as unknown as ReturnType<typeof receiverStart>);
+  const r = cutReceiver(state.session, answers as unknown as ReturnType<typeof receiverStartFor>);
   if (!r.ok) return say(r.error);
   state = { ...state, session: r.value };
   dirty = true;
@@ -469,6 +490,7 @@ function frame(now: number) {
   const tStart = performance.now();
   if (drawnAt !== null) { timing.add("browser: from a drawn frame to the next one (commit, the graphics card, the screen's refresh)", tStart - drawnAt); drawnAt = null; }
   if (state.anim || state.flash || state.mixT0 !== null) { state = advance(state, now); dirty = true; }
+  if (state.motion?.playing) { state = { ...state, motion: tickMotion(state.motion, now) }; dirty = true; } // (a joint that is being played: the clock moves it on, and the picture is made again every frame, `dec_mechanism_motion`)
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading || state.flash) {
     const size = view.size();
@@ -492,7 +514,7 @@ function frame(now: number) {
     const pageAt = projector(state.cam, size.w, size.h).project;
     const onPageAt = (p: Vec3): [number, number] | null => { const q = pageAt(p); return q && q[0] > -50 && q[1] > -50 && q[0] < size.w + 50 && q[1] < size.h + 50 ? [q[0] + page.left, q[1] + page.top] : null; };
     const waitSecs = staleSince === null ? 0 : Math.floor((performance.now() - staleSince) / 1000);
-    const shownSecs = standLabels.update(f.standIns.map((d) => onPageAt([d.centre[0] + d.normal[0] * d.depth / 2, d.centre[1] + d.normal[1] * d.depth / 2, d.centre[2] + d.normal[2] * d.depth / 2])), waitSecs, standShown); // (the label on each disc, and its seconds, `in_817`)
+    const shownSecs = standLabels.update(f.standIns.map((d) => onPageAt([d.centre[0] + d.normal[0] * d.depth / 2, d.centre[1] + d.normal[1] * d.depth / 2, d.centre[2] + d.normal[2] * d.depth / 2])), waitSecs, standShown); // (the label on each disc, and its seconds, `in_847`)
     if (shownSecs !== null && shownSecs !== lastStandSecs) { lastStandSecs = shownSecs; dirty = true; }
     if (buildStats.runs !== buildsBefore) { timing.add("geometry: built again (buildContent)", buildStats.totalMs); timing.add("geometry: of it the sharp edges (cornerEdges)", buildStats.cornersMs); timing.add("geometry: triangles built", buildStats.triangles); }
     view.setBodyMatrix(f.bodyMatrix, f.selectionMoves, f.bodySplit, f.followers.map((q) => ({ matrix: q.matrix, only: q.split })));
@@ -515,6 +537,7 @@ function frame(now: number) {
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null); }
     view.setToolpath(f.toolpath, state.cam);
     previewBar.update(f.previewBar);
+    motionBar.update(f.motionBar);
     addChip.update(f.adding);
     resetView.update(f.resetView);
     // game mode and the straight (orthographic) view, in and out, cleanly (`in_467`, `in_469`, `in_471`): going in while a straight view is on or on its way puts it away smoothly (the animation is given up

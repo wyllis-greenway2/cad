@@ -50,7 +50,7 @@ function meshBounds(m, g) {
 }
 /**
  * The meshing leaves its triangles and polygons on the faces and edges of the shape, in the kernel's memory, for as long as the shape lives; the page has its own copy (typed arrays), and a solid that is kept (its own solid under its
- * key, the bodies of an answer) would carry them with it for ever (`in_818`: a 200 tooth wheel's 344 thousand triangles). They are taken off once the description is made; meshing again, if it is asked, makes them again.
+ * key, the bodies of an answer) would carry them with it for ever (`in_848`: a 200 tooth wheel's 344 thousand triangles). They are taken off once the description is made; meshing again, if it is asked, makes them again.
  */
 function freeTriangles(shape) {
   try { getOC().BRepTools.Clean(shape.wrapped, true); } catch { /* nothing to free */ }
@@ -251,7 +251,7 @@ export function evaluate(graph, tess = { tolerance: 0.05, angular: 0.3 }) {
       const tD = performance.now();
       if (d) { lumpDescribed.delete(fp); reused++; } else { d = describeSolid(l, tess, lite, v); meshMs += performance.now() - tD; }
       lumpDescribed.set(fp, d);
-      // the descriptions kept are the last ones used, within a weight (the triangles they hold) and not a count: a model of fifty plain parts was described again at every step with a count of 40 (a cliff at the forty-first body, `in_827`), while a few gears of a hundred thousand triangles stay within the memory
+      // the descriptions kept are the last ones used, within a weight (the triangles they hold) and not a count: a model of fifty plain parts was described again at every step with a count of 40 (a cliff at the forty-first body, `in_857`), while a few gears of a hundred thousand triangles stay within the memory
       let held = 0;
       for (const v of lumpDescribed.values()) held += (v.mesh?.triangles?.length ?? 0) / 3;
       while (lumpDescribed.size > 1 && (held > DESCRIBED_TRIANGLES || lumpDescribed.size > 2000)) { const [k0, v0] = lumpDescribed.entries().next().value; held -= (v0.mesh?.triangles?.length ?? 0) / 3; lumpDescribed.delete(k0); }
@@ -340,7 +340,7 @@ function exportShape(graph, only) {
   return { ok: true, shape, box };
 }
 
-/** How many bytes the kernel's memory has grown to: it grows and never shrinks, so this is the most it has needed (the page restarts the thread when it is high and nothing is waiting, `in_818`). */
+/** How many bytes the kernel's memory has grown to: it grows and never shrinks, so this is the most it has needed (the page restarts the thread when it is high and nothing is waiting, `in_848`). */
 export function heapBytes() {
   try { return getOC().wasmMemory?.buffer.byteLength ?? 0; } catch { return 0; }
 }

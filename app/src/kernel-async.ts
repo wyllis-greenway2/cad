@@ -33,7 +33,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   const respawn = opts.respawn ?? spawn;
   const [restartMb, hardMb] = [opts.restartMb ?? 1800, opts.hardMb ?? 3000];
   let heapMb = 0; // (how big the thread's memory has grown, as its last answer said)
-  let baseMb = 0; // (how big it was at its first answer: what making the model from nothing takes. A thread is restarted only when it has grown well beyond this: a model that needs more than the limit would otherwise be restarted after every answer and made again from nothing each time, `in_827`)
+  let baseMb = 0; // (how big it was at its first answer: what making the model from nothing takes. A thread is restarted only when it has grown well beyond this: a model that needs more than the limit would otherwise be restarted after every answer and made again from nothing each time, `in_857`)
   const grown = () => heapMb > baseMb * 1.4;
   let worker = first;
   let up = false; // (the current worker has said it is ready)

@@ -11,6 +11,8 @@ export const CAM_HINTS: Record<string, string> = {
   Dwell: "Degrees the follower stays at the top before it comes down. 0 for none.",
   Return: "Degrees of the turn over which the follower comes down. Rise + dwell + return is at most 360; what is left is the rest at the bottom.",
   Hole: "The shaft's hole, diameter in mm. 0 for none. If left, a fifth of the diameter for a cam or a ratchet, a quarter of the crank radius for a Geneva wheel (the hole of the crank too).",
+  Layer: "How thick the wheel and the locking disc are, mm (6 if left): they are one layer, and the crank's pin stands up through it.",
+  Plate: "How thick the crank plate is, mm (3 if left): it is under the wheel's layer, and carries the pin.",
   Pitch: "The distance from one tooth tip to the next along the bar, mm (the pointer's distance from the first click divided by the teeth sets it, or type it).",
   Base: "The thickness of the bar under the roots of the teeth, mm (one and a half times the depth if left).",
   Slots: "How many slots the wheel has, 3 to 24. The wheel turns one slot's step (360 divided by this) for each turn of the crank. Few slots make a jerky drive.",
@@ -25,7 +27,7 @@ export const CAM_HINTS: Record<string, string> = {
   Angle: "Turns the whole drawing about the shaft, degrees counter-clockwise from +x: where the engaged tooth and the pawl sit.",
   Roller: "Radius of the follower's roller, mm; 0 for a point follower. The outline is taken in by this much; a roller too big for a tight turn is refused.",
 };
-export const camTitle = (kind: string, law?: string, centres?: string): string => (kind === "linear" ? "Straight ratchet and pawl" : kind === "geneva" ? `Geneva wheel and crank${centres ? `, shafts ${centres} apart` : ""}` : kind === "ratchet" ? "Ratchet wheel and pawl" : kind === "eccentric" ? "Eccentric cam" : kind === "snail" ? "Snail cam" : `Disc cam, ${law ?? "cycloidal"}`);
+export const camTitle = (kind: string, law?: string, centres?: string, layout?: string): string => (kind === "geneva" && layout && layout !== "apart" ? `Geneva drive ${layout === "model" ? "as a 3D model" : "assembled (sketch)"}${centres ? `, shafts ${centres} apart` : ""}` : kind === "linear" ? "Straight ratchet and pawl" : kind === "geneva" ? `Geneva wheel and crank${centres ? `, shafts ${centres} apart` : ""}` : kind === "ratchet" ? "Ratchet wheel and pawl" : kind === "eccentric" ? "Eccentric cam" : kind === "snail" ? "Snail cam" : `Disc cam, ${law ?? "cycloidal"}`);
 export const GEAR_HINTS: Record<GearKey, string> = {
   sun: "Teeth on the sun, the middle gear. Type the planet's teeth or a ratio and the rest follows.",
   planet: "Teeth on each planet. The ring gets sun + 2 planets teeth. Leave empty to let a ratio choose.",
@@ -73,6 +75,7 @@ export const GEAR_HINTS: Record<GearKey, string> = {
   face: "Bevel gear: the width of the teeth along the cone as a fraction of the cone distance. A third is the usual limit (0.1 to 0.5).",
   inner: "Crown gear: the radius where the teeth start, mm. The teeth are thinnest here (their flanks are planes through the axis' radial lines), so they come to a point if it is too small. The pitch radius less 15% of it by default.",
   outer: "Crown gear: the radius where the teeth end, mm; the pitch radius (module times teeth over 2) by default.",
+  spiral: "Spiral bevel gear: the mean spiral angle of the teeth, degrees, from 15 to 45 (30 is usual). The pair is made for each other (the ring gear's tooth is worked out from the pinion's), for shafts at 90 degrees and a 20 degree pressure angle, the pinion at least 16 teeth, the pair at most 56 teeth in all and the ring gear at most twice the pinion's teeth.",
   starts: "How many threads the worm has (1 to 4). The wheel turns this many teeth for each turn of the worm, so more starts is a faster, steeper drive.",
 };
 
@@ -88,8 +91,8 @@ export const PLANETARY_HINTS: Partial<Record<GearKey, string>> = {
   clearance: "Gap between a tooth tip and the bottom of its partner's gap, in modules. 0.25 is standard.",
 };
 /** The name the box shows for the kind of gear being made. */
-export function gearTitle(g: { planetary?: true; crown?: true; bevel?: true; internal?: boolean; rack?: boolean; pulley?: string; sprocket?: true; iso?: true; cycloidal?: true; mesh?: unknown }): string {
-  const what = g.crown ? "Crown gear" : g.bevel ? "Bevel gear (approximation)" : g.pulley ? `${g.pulley === "2GT" ? "GT2" : g.pulley === "3GT" ? "GT3" : g.pulley === "HTD5M" ? "HTD 5M" : "HTD 8M"} pulley` : g.sprocket ? (g.iso ? "ISO sprocket" : "Sprocket") : g.cycloidal ? (g.internal ? "Clock ring" : g.rack ? "Clock rack" : "Clock gear") : g.rack ? "Rack" : g.internal ? "Ring gear" : "Gear";
+export function gearTitle(g: { planetary?: true; spiral?: true; crown?: true; bevel?: true; internal?: boolean; rack?: boolean; pulley?: string; sprocket?: true; iso?: true; cycloidal?: true; mesh?: unknown }): string {
+  const what = g.spiral ? "Spiral bevel gear" : g.crown ? "Crown gear" : g.bevel ? "Bevel gear (approximation)" : g.pulley ? `${g.pulley === "2GT" ? "GT2" : g.pulley === "3GT" ? "GT3" : g.pulley === "HTD5M" ? "HTD 5M" : "HTD 8M"} pulley` : g.sprocket ? (g.iso ? "ISO sprocket" : "Sprocket") : g.cycloidal ? (g.internal ? "Clock ring" : g.rack ? "Clock rack" : "Clock gear") : g.rack ? "Rack" : g.internal ? "Ring gear" : "Gear";
   if (g.planetary) return "Planetary gear set";
   return g.mesh ? `${what} (meshing)` : what;
 }

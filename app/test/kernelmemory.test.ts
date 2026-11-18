@@ -1,4 +1,4 @@
-// The kernel's thread is restarted when its memory has grown big (`in_818`): the memory of a kernel only grows, so after a heavy model it stays big for the session and later edits add to it, until the browser stops it.
+// The kernel's thread is restarted when its memory has grown big (`in_848`): the memory of a kernel only grows, so after a heavy model it stays big for the session and later edits add to it, until the browser stops it.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createAsyncKernel } from "../src/kernel-async.ts";
@@ -73,7 +73,7 @@ test("past the hard limit the thread is restarted even though a job waits, and t
   assert.equal(workers[1]!.posted.length, 1, "the waiting job was given to the new thread");
 });
 
-test("a model that needs more than the limit from the start does not have its thread restarted after every answer (`in_827`): only when it has grown well beyond what making it takes", () => {
+test("a model that needs more than the limit from the start does not have its thread restarted after every answer (`in_857`): only when it has grown well beyond what making it takes", () => {
   const { k, workers } = rig({ restartMb: 1000, hardMb: 3000 });
   k.evaluate(graph(1));
   workers[0]!.answer(1500); // (the first answer: already over the limit)

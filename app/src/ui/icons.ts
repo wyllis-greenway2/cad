@@ -2,6 +2,8 @@
 const svg = (inner: string): string => `<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 
 const ICONS: Record<string, string> = {
+  // Repeat, Path repeat (`in_841`): dots standing along a curved path
+  pathrepeat: svg('<path d="M2 12.5C5 12.5 5 4.5 8 4.5S11 11 14 11" stroke-dasharray="1.4 1.6" opacity=".7"/><circle cx="2.6" cy="12.4" r="1.5" fill="currentColor"/><circle cx="8" cy="4.6" r="1.5"/><circle cx="13.4" cy="11" r="1.5"/>'),
   // Shape, Models (`in_812`): a ready-made part, a block with a hexagon on its face; Fasteners: a countersunk screw; Fastener Holes: a block cut across with a hole and a countersink
   models: svg('<path d="M8 1.8l5.5 3v6.4l-5.5 3-5.5-3V4.8z"/><path d="M8 5.2l2.4 1.4v2.8L8 10.8 5.6 9.4V6.6z" stroke-width="1.2"/>'),
   fastener: svg('<path d="M3 2.5h10l-3.2 2.2h-3.6z" fill="currentColor" fill-opacity=".18"/><path d="M6.2 4.7v8.8L8 15l1.8-1.5V4.7"/><path d="M6.2 7.2h3.6M6.2 9.6h3.6M6.2 12h3.6" stroke-width="1"/>'),
@@ -62,6 +64,7 @@ Object.assign(ICONS, {
   intersect: svg('<circle cx="6" cy="8" r="4.2" stroke-dasharray="2 1.6"/><circle cx="10" cy="8" r="4.2" stroke-dasharray="2 1.6"/><path d="M8 4.5a4.2 4.2 0 0 1 0 7"/>'),
   edge: svg('<path d="M3 13V6.5C3 4.6 4.6 3 6.5 3H13"/><path d="M5.5 13.5L13.5 5.5"/>'),
   arc: svg('<path d="M3 12.5C3 6 8 2.5 13.5 3.5"/><circle cx="3" cy="12.5" r="1"/><circle cx="13.5" cy="3.5" r="1"/>'),
+  play: svg('<path d="M5 3.5v9l7.5-4.5z" fill="currentColor"/>'), // (play a joint, `dec_mechanism_motion`)
   cam: svg('<circle cx="7" cy="8" r="5"/><circle cx="7" cy="8" r="1.2"/><path d="M12 8h2.5"/>'), // (a cam: a disc turned about a point off its middle, `dec_spline_and_cams`)
   spline: svg('<path d="M2.5 11.5C5 3 7 14 9.5 7.5S12 4 13.5 4.5"/><circle cx="2.5" cy="11.5" r="1"/><circle cx="13.5" cy="4.5" r="1"/>'), // (a smooth curve through points, `dec_spline_and_cams`)
   offset: svg('<rect x="1.8" y="3.2" width="12.4" height="9.6" rx="1"/><rect x="4.6" y="5.8" width="6.8" height="4.4" rx=".6"/>'),
@@ -79,6 +82,7 @@ Object.assign(ICONS, {
   gear: svg('<path d="M12.71 7.06L14.57 7.42L14.57 8.58L12.71 8.94L11.99 10.67L13.06 12.24L12.24 13.06L10.67 11.99L8.94 12.71L8.58 14.57L7.42 14.57L7.06 12.71L5.33 11.99L3.76 13.06L2.94 12.24L4.01 10.67L3.29 8.94L1.43 8.58L1.43 7.42L3.29 7.06L4.01 5.33L2.94 3.76L3.76 2.94L5.33 4.01L7.06 3.29L7.42 1.43L8.58 1.43L8.94 3.29L10.67 4.01L12.24 2.94L13.06 3.76L11.99 5.33z M6 8a2 2 0 1 0 4 0a2 2 0 1 0 -4 0z"/>'), // (a toothed wheel with its bore: the gear tool, `dec_gear_tool`; drawn by a script from a trapezoid tooth, `in_691`)
   helical: svg('<path d="M3 13.5C3 11.6 13 11.6 13 9.6C13 7.6 3 7.6 3 5.6C3 4.2 7 3.2 10.5 3.2 M8.6 1.2L11 3.2L8.6 5.2"/>'),
   bevelgear: svg('<path d="M2.5 13.5h9.5l-1.3-2.4 1.1-1-1.5-1.8 1-.9-1.4-1.9H5.2L3.4 8.7 2.5 13.5z"/><path d="M8 13.5v-1.6M6.2 13.5v-1.6" stroke-dasharray="0.1 1.8"/>'),
+  spiralbevel: svg('<path d="M2.5 13.5h9.5l-1.3-2.4 1.1-1-1.5-1.8 1-.9-1.4-1.9H5.2L3.4 8.7 2.5 13.5z"/><path d="M4.2 12.6C6 11.2 6.8 9.6 7.4 7.4M6.6 12.6C8.4 11.2 9.2 9.6 9.8 7.4" fill="none"/>'),
   crowngear: svg('<ellipse cx="8" cy="10.5" rx="6" ry="2.6"/><path d="M2 10.5v1.7c0 1.4 2.7 2.6 6 2.6s6-1.2 6-2.6v-1.7"/><path d="M4.2 9.4V7.6M6.4 8.9V6.8M8.6 8.8V6.6M10.8 9V7M12.4 9.4V7.8" /><path d="M3.8 7.6h1M6 6.8h1M8.2 6.6h1M10.4 7h1M12 7.8h1"/>'),
   worm: svg('<path d="M1.5 8h1.2M13.3 8h1.2 M2.7 5.2l1.5-1.5 1.5 1.5 1.5-1.5 1.5 1.5 1.5-1.5 1.5 1.5 M2.7 10.8l1.5 1.5 1.5-1.5 1.5 1.5 1.5-1.5 1.5 1.5 1.5-1.5 M2.7 5.2v5.6M13.3 5.2v5.6"/>'),
   wormwheel: svg('<path d="M11.9 5.11L13.37 5.46L13.37 6.54L11.9 6.89L11.13 8.49L11.78 9.86L10.92 10.54L9.74 9.6L8 10L7.34 11.36L6.27 11.12L6.26 9.6L4.87 8.49L3.4 8.82L2.92 7.84L4.1 6.89L4.1 5.11L2.92 4.16L3.4 3.18L4.87 3.51L6.26 2.4L6.27 0.88L7.34 0.64L8 2L9.74 2.4L10.92 1.46L11.78 2.14L11.13 3.51z M6.7 6a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0 -2.6 0z M2 14.2h12 M4.5 12.6v3.2 M8 12.6v3.2 M11.5 12.6v3.2"/>'),

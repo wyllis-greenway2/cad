@@ -76,3 +76,19 @@ Read in full from the pages named in the entry (Albany County Fasteners for ISO 
 | Eng-tips thread 357212 (https://www.eng-tips.com/threads/planetary-gear-question.357212); Chad Glinsky, drivetrainhub "Chapter 4 - Planetary Gears" notebook (https://nbviewer.jupyter.org/github/drivetrainhub/notebooks-gears/blob/master/geometry/Chapter%204%20-%20Planetary%20Gears.ipynb); AGMA, "Epicyclic gearboxes" (https://ik.imagekit.io/agmamedia/issues/0821/epicyclic-gearboxes.pdf), Aug 2021 | searched (web search summary, 2026-11-17: not read as pages) | copyright, forum / notebook / article | `(Zs + Zr) / N` whole for equally spaced planets in phase; out of phase (sequential) and unequal spacing exist; planet tips need clearance | `dec_planetary_gears` |
 | tec-science planetary pages (https://www.tec-science.com/?p=28857); woodgears.ca (https://woodgears.ca/gear/planetary.html); tspi.at calculator (https://www.tspi.at/diy/planetarycalc.html); firgelliauto.com epicyclic pages | searched (as above) | copyright | `Zr = Zs + 2 Zp`; Willis `(ns - nc) / (nr - nc) = -Zr / Zs`; ratio with ring, carrier or sun held (some write it as the reciprocal) | `dec_planetary_gears` |
 | Our own check of the rules against the kernel (`test/planetary.test.ts`): sets that pass the whole number rule fit, one that does not, does not; the ring's hand (the planets', for an internal pair) was derived from the contact geometry | derived, tested | ours | verifies the rules above; corrects the AI's earlier statement about the ring's hand | `dec_planetary_gears` |
+
+## Ratchets (`q_ratchet_numbers`, `dec_ratchet`)
+
+| Source | Status | Rights | Used for | Recorded in |
+|---|---|---|---|---|
+| Machinery's Handbook, 31st edition, "Ratchet Gearing" (online copy: https://online.flippingbook.com/view/954046886/954) | searched; the page could not be fetched (the host is outside the session's network allowlist) | copyright, handbook | **to read next:** the pitch formula for a ratchet that holds a load, and the pawl pivot rule (the perpendicular to the tooth face on the pivot's side of the wheel's centre for a pushing pawl): only seen in a search summary | `q_ratchet_numbers` |
+| engineersedge.com, ratchet-type gear calculator (https://engineersedge.com/calculators/ratchet_type_gear_design_15333.htm) | searched; could not be fetched (host not allowed) | copyright, calculator page | **to read next:** tooth proportions it cites | `q_ratchet_numbers` |
+| Handbook of Machining and Metalworking Calculations, ch. 8 "Ratchets and Cam Geometry" (https://www.globalspec.com/reference/63926/203279/chapter-8-ratchets-and-cam-geometry) | searched; could not be fetched (host not allowed) | copyright, book | **to read next:** the design rule that the pawl stays engaged under load | `q_ratchet_numbers` |
+| Firgelli Automations blog pages on ratchets and pawls (firgelliauto.com) | searched | copyright, vendor blog | **not used:** the face angles (85 to 92 degrees, 30 to 45), the undercut (1 to 3 degrees, another page 2 to 5) and the friction limit (about 11 degrees) disagree with each other and name no source | `q_ratchet_numbers` |
+| US patents on reversible ratcheting tools (7131353, 7185566, 6918323, 7263919, via image-ppubs.uspto.gov) | searched | public | the pawl laid out with a gear arc tangent to an arc of the pawl's radius: a different layout from the pawl arm; not used | `q_ratchet_numbers` |
+
+## Geneva drive (`dec_geneva`)
+
+| Source | Status | Rights | Used for | Recorded in |
+|---|---|---|---|---|
+| Our own derivation: the centre distance `C = a / sin(pi / n)`, the entry at `b = C cos(pi / n)`, the wheel's turn `atan2(a sin(al), C - a cos(al))` over the visit, and the locking disc as the envelope of the turning wheel (`operation/geneva.ts`) | derived, tested by simulation (`test/geneva.test.ts`) | ours | all of the Geneva geometry; no outside source was read for it | `dec_geneva` |
