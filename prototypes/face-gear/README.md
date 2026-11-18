@@ -11,3 +11,5 @@
 - **The tooth's tip is limited by the pinion's base circle:** above 0.42 m over the pitch plane (14 teeth) the pinion's flank is the radial line below the base circle; the face gear's flank there is that radial line's envelope; the tip height used is m.
 - **The slot walls below the pinion's tip** (the root clearance) are made straight down: the last section copies the one above it.
 - **Smooth lofts of 22 straight sides a tooth ran the kernel out of memory in the join with the plate; two arcs to a flank (six sides a tooth) work.**
+
+**Four more pairs (each in its own process; overlap at the place / rolled / half a pitch round, mm3):** 18/50 module 2, radii 50 to 56: 0.6 / 0.7 / 49.3. 20/60 module 2, 58 to 66: 0.4 / 0.4 / 67.5. 16/32 module 3, 48 to 56: 3.8 / 3.9 / 146.1. 12/36 module 2, 36 to 42: 2.8 / 2.8 / 48.7 (a 12 tooth pinion, undercut as a spur gear; the face gear still fits it). All five pairs mesh; the radii used start at the pitch radius and run to 3 modules (4 for module 2 with 60 teeth) outward, which is inside the limits found (the envelope ends 2.3 mm inside the pitch radius for 14/40).

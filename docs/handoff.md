@@ -3445,3 +3445,6 @@ No input. The first push of this branch to `claude/inspiring-pascal-l342k7` was 
 
 ## Handoff 802 — 2026-11-19 (in_878: the crown gear set; the face gear prototype)
 `in_878`. **Why the crown's pinion is not at 90 degrees:** a crown with a straight bevel pinion has the shafts 90 degrees plus the pinion's pitch angle apart by geometry; a square drive needs a spur pinion on a **face gear**. **Prototype (`prototypes/face-gear`):** the face gear by the gearing law (the envelope of the pinion's involute); 14 / 40 teeth module 2: overlap 2.0 mm3 at the place, 2.1 rolled, 49.2 half a pitch round; inner limit where the envelope ends (37.7 mm for that pair). Four more pairs running (18/50, 20/60, 16/32 at module 3, 12/36). `dec_crown_gear_set` (provisional): the set is crown (built), face gear (this prototype), a spiral crown later. **Waiting:** the human's approval to build the face gear tool; nothing in `app/` yet.
+
+## Handoff 803 — 2026-11-19 (the face gear pairs)
+Four more face gear pairs mesh in the kernel (18/50, 20/60, 16/32 module 3, 12/36): overlap 0.4 to 3.8 mm3 at the place, 49 to 146 half a pitch round. Radii from the pitch radius outward 3 to 4 modules. Still waiting for the human's approval to build Gear > Face gear (`dec_crown_gear_set` is provisional).
