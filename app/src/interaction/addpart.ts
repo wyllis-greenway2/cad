@@ -119,6 +119,24 @@ function placeOf(sc: Scene, p: Part): Vec3 | null {
   return roundOf(get, p.ref)?.center ?? null;
 }
 /**
+ * The box of the body a face belongs to. A face's name does not say which body it is of (every face is `b/body/f@...` whatever the bodies are called, and several bodies may stand in the scene), so it is the smallest body whose box holds the face's own
+ * box; with none, the box of all the bodies together (never a made-up large number: the holes' depth and the preview follow from it).
+ */
+function bodyBoxOf(sc: Scene, face: Extract<Part, { kind: "plane" }>): { min: Vec3; max: Vec3 } | undefined {
+  const bodies = Object.values(sc.parts).filter((p): p is Extract<Part, { kind: "body" }> => p.kind === "body" && !!p.bbox);
+  const m = face.mesh;
+  if (m && m.length >= 3) {
+    const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i + 2 < m.length; i += 3) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k]!, m[i + k]!); hi[k] = Math.max(hi[k]!, m[i + k]!); }
+    const holds = bodies.filter((b) => [0, 1, 2].every((k) => lo[k]! >= b.bbox!.min[k]! - 1e-3 && hi[k]! <= b.bbox!.max[k]! + 1e-3));
+    const vol = (b: Extract<Part, { kind: "body" }>): number => [0, 1, 2].reduce((a, k) => a * (b.bbox!.max[k]! - b.bbox!.min[k]!), 1);
+    holds.sort((a, b) => vol(a) - vol(b));
+    if (holds[0]) return holds[0].bbox;
+  }
+  if (!bodies.length) return undefined;
+  return { min: [0, 1, 2].map((k) => Math.min(...bodies.map((b) => b.bbox!.min[k]!))) as unknown as Vec3, max: [0, 1, 2].map((k) => Math.max(...bodies.map((b) => b.bbox!.max[k]!))) as unknown as Vec3 };
+}
+/**
  * The flat face selected, as a plane with the point the hole is centred on (the middle of the face's box across it), how far the body reaches through, and the places picked: the face with, if wanted, corners and circles
  * selected too (a corner, the centre of a drawn circle, of a round face or of a circular edge of the body, `in_707`), each taken onto the face along its normal. Or why there is none.
  */
@@ -155,8 +173,7 @@ export function selectedFace(session: Session): Result<{ spot: FaceSpot; through
   }
   const cx = (lo[0] + hi[0]) / 2, cy = (lo[1] + hi[1]) / 2;
   const centre: Vec3 = [face.at[0] + face.u[0] * cx + face.v[0] * cy, face.at[1] + face.u[1] * cx + face.v[1] * cy, face.at[2] + face.u[2] * cx + face.v[2] * cy];
-  const body = Object.values(sc.parts).find((p) => p.kind === "body" && p.ref === face.ref.replace(/\/f@.*$/, "/o"));
-  const box = body?.kind === "body" ? body.bbox : undefined;
+  const box = bodyBoxOf(sc, face);
   const through = box ? Math.hypot(box.max[0] - box.min[0], box.max[1] - box.min[1], box.max[2] - box.min[2]) : 1000;
   const nIn = normalOfPlane(face);
   // how far the body goes from this face to its far side, along the way the hole goes: the face's place along the normal less the lowest corner of the body's box
@@ -377,8 +394,7 @@ function selectedRound(session: Session): Result<Round> | null {
   const mesh = face.mesh!;
   let lo = Infinity, hi = -Infinity;
   for (let i = 0; i + 2 < mesh.length; i += 3) { const t = dot([mesh[i]! - c.center[0], mesh[i + 1]! - c.center[1], mesh[i + 2]! - c.center[2]], axis); lo = Math.min(lo, t); hi = Math.max(hi, t); }
-  const body = Object.values(sc.parts).find((p) => p.kind === "body" && p.ref === face.ref.replace(/\/f@.*$/, "/o"));
-  const box = body?.kind === "body" ? body.bbox : undefined;
+  const box = bodyBoxOf(sc, face);
   const through = box ? Math.hypot(box.max[0] - box.min[0], box.max[1] - box.min[1], box.max[2] - box.min[2]) : 1000;
   return ok({ face, axis, center: c.center, radius: c.radius, convex: c.convex, range: [lo, hi], through, points: picked, lines });
 }

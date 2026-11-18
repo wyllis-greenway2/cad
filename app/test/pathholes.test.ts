@@ -280,3 +280,19 @@ test("hardware in a curved hole: a counterbore with its screw, a nut pocket with
   assert.ok(b.ok, b.ok ? "" : b.error);
   if (b.ok) assert.equal(bodies(b.value).length, 3);
 });
+
+test("the depth of a hole through is the thickness of the body the face is of, with other bodies about (not a huge number)", () => {
+  let s = createSession(kernel);
+  const a = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [100, 60, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, a.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: a.lines, params: { depth: 8 } } });
+  const b = drawSquaredRectangle(scene(s), XY, [200, 0, 0], [220, 20, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, b.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: b.lines, params: { depth: 30 } } });
+  assert.ok(bodies(s).length >= 2);
+  const tops = Object.values(scene(s).parts).filter((p) => p.kind === "plane" && p.origin === "body" && p.ref.endsWith("0,0,1,8"));
+  assert.equal(tops.length, 1);
+  const p = receiverPlan(select(s, [tops[0]!.ref]), vals({ place: "centre" }));
+  assert.ok(p.ok, p.ok ? "" : p.error);
+  if (p.ok) near(p.value.reach, 8, 1e-6);
+});

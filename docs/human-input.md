@@ -4010,3 +4010,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_915 — 2026-11-18 — directive
 > 3 both. Basically like a flat surface. We would draw a line, position the fasteners on it, going in normal to the surface.
 (answers the curved-surface question: both readings, holes through a curved wall and holes along a line on a curved face; it should work like a flat surface: a line is drawn, the fasteners are positioned along it, each going in along the normal of the surface)
+
+## in_916 — 2026-11-18 — directive
+> Okay one bug, it seems like this model makes the fasteners going "through" to go to the end of the world?
+(reports a bug with a saved model (two files and a screenshot): the holes meant to go right through are drawn to the end of the world; the screenshot shows the preview lines running far below a small plate)
