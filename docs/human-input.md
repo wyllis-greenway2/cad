@@ -4211,3 +4211,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_963 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the branch `claude/adoring-dijkstra-chips-on-select` to be merged into the testing branch, with the steady bar number under it; the full suite is not needed)
+
+## in_964 — 2026-11-18 — question
+> okay so what next?
+(asks what to work on next; the AI recommends, the human decides)
+
