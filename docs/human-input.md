@@ -4098,3 +4098,29 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_936 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 again, for the edge chamfer of the worm wheel's land and what follows it; gives permission to write to that branch)
+
+## in_937 — 2026-11-19 — directive
+> wow that looks great! Perfect, so how efficient is this? is this practical for larger models? and what if a model relied almost entirely on collision instead of constraints?
+(asks how efficient the contact push is, whether it is practical for larger models, and what happens if a model relies almost entirely on collision: the AI measured gear trains)
+
+## in_938 — 2026-11-19 — directive
+> lets try to make it faster
+(asks for the contact push to be made faster)
+
+## in_939 — 2026-11-19 — directive
+> excellent! now try to make it even faster try a coarser mesh for animation;
+> starting each step from the last step’s contacts;
+> a cheaper pre-check for pairs that are far apart.
+(asks for three more speed-ups of the contact push: a coarser mesh for animation, starting each step from the last step's contacts, a cheaper pre-check for pairs that are far apart)
+
+## in_940 — 2026-11-19 — directive
+> Okay now lets make it easier to setup animations. So first off, I think that you should just be able to select any object and turn it into a rotating object. This would be the one that would have the play button on click. Then it should just interact however it does with collisions or linkages. So my second question is, for the linkages, do we only need the normal constraints we already had, or do we still need the special animations linkages?
+(asks for a way to make any selected object a rotating one with a play button, interacting by collision or linkage; and asks whether the normal constraints are enough or the special animation linkages are still needed: the AI answered and proposed a design, not yet built)
+
+## in_941 — 2026-11-19 — directive
+> why cant a body just rotate? you say this body rotates and define a pivot point. Probably by selecting a curved face. Or just defining a pivot point in free space with the orb mover tool thing.
+(answers the AI's question about how to set the axis of a body that is made to turn: a selected curved face, or a pivot point set with the orb mover tool; read as approval to build it that way)
+
+## in_942 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for the branch `claude/adoring-dijkstra-pivot` to be merged into the testing branch; it carries the contact push chains, the speed-ups and any body made to turn)

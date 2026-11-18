@@ -229,10 +229,10 @@ function normalsOf(tree: Tree): Float64Array {
 
 /**
  * `collides(moved(mover.tris, r), fixed, clearance, open)` without moving every triangle (`in_479`): the tree of the moving body is walked together with the tree of the body that stays, each box of the moving
- * body taken to where the motion puts it, and only the triangles of the leaves that meet are moved and tested. For a heavy body that has a few contacts this is a few triangles, not all of them, at every
+ * body taken to where the motion puts it, and only the triangles of the leaves that meet are moved and tested. `surfaceOnly`: a body wholly inside the other, with no surface crossing, is not looked for. For a heavy body that has a few contacts this is a few triangles, not all of them, at every
  * step of a drag.
  */
-export function collidesMoving(mover: Tree, r: Rigid, fixed: Tree, clearance = 0, open = false, deep = false): boolean {
+export function collidesMoving(mover: Tree, r: Rigid, fixed: Tree, clearance = 0, open = false, deep = false, surfaceOnly = false): boolean {
   const mode = deep ? DEEPMODE : MOVE;
   if (!mover.nodes.length || !fixed.nodes.length) return false;
   const c = Math.max(0, clearance);
@@ -312,6 +312,7 @@ export function collidesMoving(mover: Tree, r: Rigid, fixed: Tree, clearance = 0
       else stack.push([mi, fn.l], [mi, fn.r]);
     }
   }
+  if (surfaceOnly) return false; // (a motion in small steps cannot swallow a body without a surface crossing first: the counted rays below walk every triangle of the body that stays, and were most of the time of a test that finds nothing)
   // no surface crosses: one may be wholly inside the other (as in `collides`; a point is only tried against a body whose box it is in)
   const within = (q: Vec3, lo: Vec3, hi: Vec3): boolean => q[0] >= lo[0] && q[0] <= hi[0] && q[1] >= lo[1] && q[1] <= hi[1] && q[2] >= lo[2] && q[2] <= hi[2];
   for (const q of probes(mover.tris, open)) { const p = applyPoint(r, q); if (within(p, fixed.lo, fixed.hi) && inside(p, fixed.tris)) return true; }

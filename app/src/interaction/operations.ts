@@ -883,7 +883,7 @@ function stripFollow(c: Command | null): Command | null {
  * a constraint of the whole body to that thing, and the solver holds the body's sketch (`compiler/solve.ts`), so a move that would break it is refused and the constraint flashes (`in_205`).
  */
 /** The direction of the axis the operation works along or about: the mover's own axis when it has been turned, else the world's (`in_417`). */
-const axisVec = (op: Op): Vec3 => op.frame ? op.frame[op.axis] : ([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as Vec3[])[op.axis]!;
+export const axisVec = (op: Op): Vec3 => op.frame ? op.frame[op.axis] : ([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as Vec3[])[op.axis]!;
 /** A turn about any axis as the turns about X, Y, Z one after another that make it (what a drawn figure is turned by). */
 const eulerTurns = (dir: Vec3, angle: number): { axis: 0 | 1 | 2; angle: number }[] => anglesOf(aboutDir(dir, angle)).map((a, k) => ({ axis: k as 0 | 1 | 2, angle: a })).filter((t) => Math.abs(t.angle) > 1e-9);
 

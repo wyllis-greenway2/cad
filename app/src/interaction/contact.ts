@@ -9,7 +9,7 @@ import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { collidesMoving, buildTree, collides } from "../operation/collide.ts";
 import type { Tree } from "../operation/collide.ts";
-import { jointOf, compose, inverse } from "../operation/frames.ts";
+import { jointOf, compose, inverse, applyPoint } from "../operation/frames.ts";
 import type { Rigid } from "../operation/frames.ts";
 import { followAmount } from "../operation/gearcouple.ts";
 import type { Follower } from "../operation/gearcouple.ts";
@@ -19,7 +19,7 @@ import type { CompileOutcome } from "../compiler/compile.ts";
 import type { Motion } from "./motion.ts";
 
 /** A body that yields: it turns about the axis through `point` with direction `dir` (or slides along `dir`), and stands at `value` degrees (mm) from where it was drawn. `rest`: where it goes back to when nothing holds it away (a spring, gravity: a follower dropping off a cam), as far as it is clear to. */
-export interface Pushable { body: Ref; kind: "turn" | "slide"; point: Vec3; dir: Vec3; value: number; /** the way it last went, so a tie goes on the same way */ way: 1 | -1; rest?: number }
+export interface Pushable { body: Ref; kind: "turn" | "slide"; point: Vec3; dir: Vec3; value: number; /** the way it last went, so a tie goes on the same way */ way: 1 | -1; /** how far it was pushed the last time it was: the next push is about the same, so the search begins there */ push?: number; rest?: number }
 export interface Candidate { body: Ref; kind?: "turn" | "slide"; point: Vec3; dir: Vec3; rest?: number; way?: 1 | -1 }
 export interface ContactState {
   pushables: Pushable[];
@@ -30,7 +30,7 @@ export interface ContactState {
   /** the pairs ("a|b") that were already overlapping where the motion began: left out, so a body can be pulled out of another */
   ignore: string[];
 }
-const MAX_PUSH = 12.8, STEP = 1, MAX_STEPS = 360;
+const MAX_PUSH = 12.8, STEP = 1, MAX_STEPS = 360, MAX_PASSES = 12;
 const nameOf = (scene: Scene, r: Ref): string => { const p = scene.parts[r]; return p?.kind === "body" && p.id ? p.id : r; };
 
 // ---- the triangles of a body: all of them, from the kernel's mesh ----
@@ -62,41 +62,42 @@ function bodyMesh(scene: Scene, outcome: CompileOutcome | undefined, ref: Ref): 
 }
 
 // ---- the part of two bodies that can meet: their overlap in height along an axis ----
-const layerCache = new WeakMap<object, Map<string, { tris: number[]; tree: Tree }>>();
+const layerCache = new WeakMap<object, Map<string, { tris: number[]; tree: Tree } | null>>();
 function layered(scene: Scene, outcome: CompileOutcome | undefined, body: Ref, other: Ref, axis: Vec3): { tris: number[]; tree: Tree } | null {
-  const [m, o] = [bodyMesh(scene, outcome, body), bodyMesh(scene, outcome, other)];
-  if (!m || !o) return null;
-  const l = Math.hypot(...axis) || 1;
-  const h = (x: number, y: number, z: number): number => (x * axis[0] + y * axis[1] + z * axis[2]) / l;
-  const span = (t: ArrayLike<number>): [number, number] => { let lo = Infinity, hi = -Infinity; for (let i = 0; i + 2 < t.length; i += 3) { const v = h(t[i]!, t[i + 1]!, t[i + 2]!); if (v < lo) lo = v; if (v > hi) hi = v; } return [lo, hi]; };
-  const [a, b] = [span(m.tris), span(o.tris)];
-  const eps = 0.01;
-  const [lo, hi] = [Math.max(a[0], b[0]) + eps, Math.min(a[1], b[1]) - eps];
-  if (!(hi > lo)) return null; // (they do not share a height: they cannot meet)
-  const key = `${body}|${other}|${axis.map((x) => Math.round(x * 1e4)).join(",")}`;
   const holder = outcome ?? scene;
   let per = layerCache.get(holder);
   if (!per) { per = new Map(); layerCache.set(holder, per); }
-  let got = per.get(key);
-  if (!got) {
-    const keep: number[] = [];
-    for (let i = 0; i + 8 < m.tris.length; i += 9) {
-      const hs = [h(m.tris[i]!, m.tris[i + 1]!, m.tris[i + 2]!), h(m.tris[i + 3]!, m.tris[i + 4]!, m.tris[i + 5]!), h(m.tris[i + 6]!, m.tris[i + 7]!, m.tris[i + 8]!)];
-      if (Math.max(...hs) > lo && Math.min(...hs) < hi) for (let k = 0; k < 9; k++) keep.push(m.tris[i + k]!);
+  const key = `${body}|${other}|${axis.map((x) => Math.round(x * 1e4)).join(",")}`;
+  if (per.has(key)) return per.get(key)!; // (asked many times a step: the answer, a miss included, is kept)
+  const [m, o] = [bodyMesh(scene, outcome, body), bodyMesh(scene, outcome, other)];
+  let got: { tris: number[]; tree: Tree } | null = null;
+  if (m && o) {
+    const l = Math.hypot(...axis) || 1;
+    const h = (x: number, y: number, z: number): number => (x * axis[0] + y * axis[1] + z * axis[2]) / l;
+    const span = (t: ArrayLike<number>): [number, number] => { let lo = Infinity, hi = -Infinity; for (let i = 0; i + 2 < t.length; i += 3) { const v = h(t[i]!, t[i + 1]!, t[i + 2]!); if (v < lo) lo = v; if (v > hi) hi = v; } return [lo, hi]; };
+    const [a, b] = [span(m.tris), span(o.tris)];
+    const eps = 0.01;
+    const [lo, hi] = [Math.max(a[0], b[0]) + eps, Math.min(a[1], b[1]) - eps];
+    if (hi > lo) { // (they share a height; if not they cannot meet)
+      const keep: number[] = [];
+      for (let i = 0; i + 8 < m.tris.length; i += 9) {
+        const hs = [h(m.tris[i]!, m.tris[i + 1]!, m.tris[i + 2]!), h(m.tris[i + 3]!, m.tris[i + 4]!, m.tris[i + 5]!), h(m.tris[i + 6]!, m.tris[i + 7]!, m.tris[i + 8]!)];
+        if (Math.max(...hs) > lo && Math.min(...hs) < hi) for (let k = 0; k < 9; k++) keep.push(m.tris[i + k]!);
+      }
+      if (keep.length) got = { tris: keep, tree: buildTree(keep) };
     }
-    got = { tris: keep, tree: buildTree(keep) };
-    per.set(key, got);
   }
-  return got.tris.length ? got : null;
+  per.set(key, got);
+  return got;
 }
 
-interface Mover { body: Ref; pose: (a: number, vals: number[]) => Rigid; /** the axis it turns about, or the line it slides along */ axis: Vec3; /** whether it turns: the layers of a mechanism are along the axis of a body that turns (a slider moves across them) */ turns: boolean }
+interface Mover { body: Ref; pose: (a: number, vals: number[]) => Rigid; /** the axis it turns about, or the line it slides along */ axis: Vec3; /** whether it turns: the layers of a mechanism are along the axis of a body that turns (a slider moves across them) */ turns: boolean; /** a body that yields */ yields?: true }
 
 /** Who moves, and who yields, for this motion: the driver, what its couplings carry (the formula's followers), and the pushables. */
 function moversOf(m: Motion, contact: ContactState): Mover[] {
   const out: Mover[] = [{ body: m.body, pose: (a) => jointOf(m.kind, m.point, m.dir, a), axis: m.dir, turns: m.kind === "turn" }];
   for (const f of m.follows) out.push({ body: f.body, axis: f.dir, turns: f.kind === "turn", pose: (a) => { const first = jointOf(f.kind, f.point, f.dir, followAmount(f, a)); return f.after ? compose(first, jointOf("turn", f.after.point, f.after.dir, f.after.k * a)) : first; } });
-  contact.pushables.forEach((p, i) => out.push({ body: p.body, axis: p.dir, turns: p.kind === "turn", pose: (_a, vals) => jointOf(p.kind, p.point, p.dir, vals[i]!) }));
+  contact.pushables.forEach((p, i) => out.push({ body: p.body, axis: p.dir, turns: p.kind === "turn", yields: true, pose: (_a, vals) => jointOf(p.kind, p.point, p.dir, vals[i]!) }));
   return out;
 }
 const IDENT: Rigid = { turn: [1, 0, 0, 0, 1, 0, 0, 0, 1], shift: [0, 0, 0], k: 1 };
@@ -108,8 +109,25 @@ function matedPairs(scene: Scene): Set<string> {
   return out;
 }
 
+/** The box of a tree's root (in its own place) taken to where a rigid motion puts it: the box of its eight corners. */
+function boxUnder(t: Tree, r: Rigid): [number[], number[]] {
+  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < 8; i++) {
+    const p = applyPoint(r, [i & 1 ? t.hi[0] : t.lo[0], i & 2 ? t.hi[1] : t.lo[1], i & 4 ? t.hi[2] : t.lo[2]]);
+    for (let k = 0; k < 3; k++) { if (p[k]! < lo[k]!) lo[k] = p[k]!; if (p[k]! > hi[k]!) hi[k] = p[k]!; }
+  }
+  return [lo, hi];
+}
+/** Do the boxes of two bodies, each where its motion puts it, stay apart by more than the clearance? (a cheap answer for a pair that is far from each other, before walking their trees) */
+function apart(a: Tree, ra: Rigid, b: Tree, rb: Rigid, clearance: number): boolean {
+  const [x, y] = [boxUnder(a, ra), boxUnder(b, rb)];
+  const pad = Math.max(0, clearance) + 1e-3;
+  for (let k = 0; k < 3; k++) if (x[1][k]! + pad < y[0][k]! || y[1][k]! + pad < x[0][k]!) return true;
+  return false;
+}
+
 /** The first thing a mover at `vals` is in, or null. `skip`: the mover (by index) that is being tried at another place, and the pairs to leave out. */
-function firstHit(scene: Scene, outcome: CompileOutcome | undefined, movers: Mover[], a: number, vals: number[], who: number, mated: Set<string>, ignore: ReadonlySet<string>, anyHard: boolean, statics: Ref[], clearance: number): Ref | null {
+function firstHit(scene: Scene, outcome: CompileOutcome | undefined, movers: Mover[], a: number, vals: number[], who: number, mated: Set<string>, ignore: ReadonlySet<string>, anyHard: boolean, statics: Ref[], clearance: number, only?: Ref): Ref | null {
   const me = movers[who]!;
   const rMe = me.pose(a, vals);
   const test = (other: Ref, rOther: Rigid, otherMover: Mover | null): boolean => {
@@ -118,10 +136,13 @@ function firstHit(scene: Scene, outcome: CompileOutcome | undefined, movers: Mov
     if (mated.has(key) || ignore.has(key)) return false;
     const [m1, o1] = [layered(scene, outcome, me.body, other, axis), layered(scene, outcome, other, me.body, axis)];
     if (!m1 || !o1) return false;
-    return collidesMoving(m1.tree, compose(rMe, inverse(rOther)), o1.tree, clearance);
+    if (apart(m1.tree, rMe, o1.tree, rOther, clearance)) return false; // (the boxes of the two, each where it stands, do not meet: nothing to walk)
+    // either way round: a touch is a hit or not by the direction the test goes, and a body cleared one way would be found in the other (a boundary the search stops at, found again, round and round)
+    return collidesMoving(m1.tree, compose(rMe, inverse(rOther)), o1.tree, clearance, false, false, true) || collidesMoving(o1.tree, compose(rOther, inverse(rMe)), m1.tree, clearance, false, false, true);
   };
   for (let j = 0; j < movers.length; j++) {
     if (j === who || movers[j]!.body === me.body) continue;
+    if (only !== undefined && movers[j]!.yields && movers[j]!.body !== only) continue; // (a body that yields looks for room away from what does not: another that yields is dealt with when its own turn comes, so a chain is worked out one link at a time)
     if (!anyHard && !meets(scene, me.body, movers[j]!.body)) continue;
     if (test(movers[j]!.body, movers[j]!.pose(a, vals), movers[j]!)) return movers[j]!.body;
   }
@@ -179,7 +200,7 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome):
   const anyHard = bodies.some((b) => isHard(scene, b));
   const movers = moversOf(m, c), mated = matedPairs(scene), statics = staticBodies(scene, bodies), ignore = new Set(c.ignore);
   const clearance = scene.clearance ?? 0;
-  const vals = c.pushables.map((p) => p.value), ways = c.pushables.map((p) => p.way), kinds = c.pushables.map((p) => p.kind);
+  const vals = c.pushables.map((p) => p.value), ways = c.pushables.map((p) => p.way), kinds = c.pushables.map((p) => p.kind), pushes = c.pushables.map((p) => p.push ?? 0);
   const step = m.kind === "turn" ? STEP : STEP / 2;
   const from = c.at, n = Math.min(MAX_STEPS, Math.max(1, Math.ceil(Math.abs(m.amount - from) / step)));
   let good = from, jam: string | null = null;
@@ -188,17 +209,27 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome):
     const was = vals.slice();
     // each moving body against the rest, again until nothing is in anything (a body that yields may come to meet another)
     const first = 1 + m.follows.length;
-    for (let pass = 0; pass < 4 && !jam; pass++) {
-      let moved = false;
-      for (let w = 0; w < movers.length && !jam; w++) {
+    let settled = false;
+    // only the bodies that moved since they were last tested are tested again: what did not move meets what did not move as it did before (the driver moved at the start of the step, then each body that yielded, one pass at a time: a chain is a walk along it, not a test of every body again at every link)
+    let dirty = new Set<number>(movers.map((_, w) => w).filter((w) => w < first));
+    for (let pass = 0; pass < MAX_PASSES && !jam; pass++) {
+      const next = new Set<number>();
+      for (const w of dirty) {
+        if (jam) break;
         const hit = firstHit(scene, outcome, movers, a, vals, w, mated, ignore, anyHard, statics, clearance);
         if (!hit) continue;
         const hitIx = c.pushables.findIndex((p) => p.body === hit);
-        const [pi, aside] = w >= first ? [w - first, w] : [hitIx, hitIx >= 0 ? first + hitIx : -1]; // (a pushable yields itself; the driver or what it carries makes the one it meets yield)
-        if (pi < 0 || !yieldBody(scene, outcome, movers, a, vals, ways, kinds, pi, aside, mated, ignore, anyHard, statics, clearance)) { jam = `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)}`; break; }
-        moved = true;
+        // who yields: a pushable that meets something that does not yield yields itself; a body that moves by its own rule, or a pushable, that meets a pushable makes that one yield
+        const [pi, aside] = w >= first && hitIx < 0 ? [w - first, w] : [hitIx, hitIx >= 0 ? first + hitIx : -1];
+        if (pi < 0 || !yieldBody(scene, outcome, movers, a, vals, ways, kinds, pushes, pi, aside, movers[w]!.body, mated, ignore, anyHard, statics, clearance)) { jam = `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)}`; break; }
+        next.add(aside); // (it moved: it is tested again)
+        if (w >= first) next.add(w); // (a body that yielded itself too)
       }
-      if (!moved) break;
+      if (!next.size) { settled = true; break; }
+      dirty = next;
+    }
+    if (!settled && !jam) { // the passes ran out with bodies still moving: say so, rather than leave bodies in each other without a word
+      for (let w = 0; w < movers.length && !jam; w++) { const hit = firstHit(scene, outcome, movers, a, vals, w, mated, ignore, anyHard, statics, clearance); if (hit) jam = `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)} (the chain is too long to settle)`; }
     }
     // a body with a rest value goes back toward it as far as it is clear to (found by halving: a follower dropping off a cam, a pawl into the next tooth)
     for (let pi = 0; pi < c.pushables.length && !jam; pi++) {
@@ -217,24 +248,42 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome):
     if (jam) { for (let k = 0; k < vals.length; k++) vals[k] = was[k]!; break; }
     good = a;
   }
-  const pushables = c.pushables.map((p, i) => ({ ...p, value: vals[i]!, way: ways[i]! }));
+  const pushables = c.pushables.map((p, i) => ({ ...p, value: vals[i]!, way: ways[i]!, push: pushes[i]! }));
   const follows = pushables.map((p): Follower => ({ gear: "", body: p.body, kind: p.kind, point: p.point, dir: p.dir, k: 0, value: p.value }));
   return { ...m, amount: jam ? good : m.amount, playing: jam ? false : m.playing, from: jam ? good : m.from, startedAt: jam ? null : m.startedAt, contact: { ...c, pushables, at: good, jam }, yields: follows };
 }
 
 /** Move pushable `pi` (mover `w`) by the smallest amount that leaves it clear of everything, trying the way it last went first: doubling the distance until clear, then halving to the nearest. False when there is none. */
-function yieldBody(scene: Scene, outcome: CompileOutcome | undefined, movers: Mover[], a: number, vals: number[], ways: (1 | -1)[], kinds: ("turn" | "slide")[], pi: number, w: number, mated: Set<string>, ignore: ReadonlySet<string>, anyHard: boolean, statics: Ref[], clearance: number): boolean {
+function yieldBody(scene: Scene, outcome: CompileOutcome | undefined, movers: Mover[], a: number, vals: number[], ways: (1 | -1)[], kinds: ("turn" | "slide")[], pushes: number[], pi: number, w: number, pusher: Ref, mated: Set<string>, ignore: ReadonlySet<string>, anyHard: boolean, statics: Ref[], clearance: number): boolean {
   const base = vals[pi]!;
   const slide = kinds[pi] === "slide";
-  const [d0, dMax] = slide ? [0.05, MAX_PUSH / 2] : [0.1, MAX_PUSH];
-  const clear = (v: number): boolean => { vals[pi] = v; return firstHit(scene, outcome, movers, a, vals, w, mated, ignore, anyHard, statics, clearance) === null; };
-  for (let d = d0; d <= dMax; d *= 2) {
-    for (const sgn of [ways[pi]!, -ways[pi]! as 1 | -1]) {
+  const dMax = slide ? MAX_PUSH / 2 : MAX_PUSH;
+  const clear = (v: number): boolean => { vals[pi] = v; return firstHit(scene, outcome, movers, a, vals, w, mated, ignore, anyHard, statics, clearance, pusher) === null; };
+  // look outward a little at a time (the room between two teeth is a fraction of a degree wide, so a doubling would step over it), then in bigger steps
+  const fine = slide ? 0.07 : 0.15, near = slide ? 2 : 4;
+  const distances: number[] = [];
+  for (let d = fine; d <= near + 1e-9; d += fine) distances.push(d);
+  for (let d = near * 1.5; d <= dMax * 1.0001; d *= 1.5) distances.push(d);
+  // where it was pushed to the last time first: the push of one step is near the push of the one before, so a clear place a little short of it is the answer and a few tests find it
+  const warm = pushes[pi]!;
+  if (warm > 2 * fine) {
+    const sgn = ways[pi]!;
+    if (clear(base + sgn * warm) && !clear(base + sgn * (warm - 2 * fine))) {
+      let [lo, hi] = [warm - 2 * fine, warm];
+      for (let k = 0; k < 5; k++) { const mid = (lo + hi) / 2; if (clear(base + sgn * mid)) hi = mid; else lo = mid; }
+      vals[pi] = base + sgn * hi; pushes[pi] = hi;
+      return true;
+    }
+  }
+  // the way it went last first, all the way out (a tooth pushes on the same side as it did a degree ago), then the other way: a body that turns back (a reversed play) takes one slow step
+  for (const sgn of [ways[pi]!, -ways[pi]! as 1 | -1]) {
+    for (const d of distances) {
       if (!clear(base + sgn * d)) continue;
-      let [lo, hi] = [0, d];
-      for (let k = 0; k < 9; k++) { const mid = (lo + hi) / 2; if (clear(base + sgn * mid)) hi = mid; else lo = mid; }
+      let [lo, hi] = [Math.max(0, d - (d <= near ? fine : d / 3)), d];
+      for (let k = 0; k < 5; k++) { const mid = (lo + hi) / 2; if (clear(base + sgn * mid)) hi = mid; else lo = mid; }
       vals[pi] = base + sgn * hi;
       ways[pi] = sgn;
+      pushes[pi] = hi;
       return true;
     }
   }
