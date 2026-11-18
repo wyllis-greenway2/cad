@@ -73,6 +73,8 @@ export const usesFigures = (st: Step): boolean => st.type === "extrude" || st.ty
 export const figureRefs = (st: Step): Ref[] => figuresOf(st).flatMap((f) => [...f.outer, ...f.holes.flat()]);
 export interface Scene {
   parts: Readonly<Record<string, Part>>;
+  /** a scene kept in the history without its body parts (they are made again from the kernel when it is gone back to, `history.ts`, `in_879`); never saved and never the scene being shown */
+  lean?: boolean;
   relations: readonly Relation[];
   steps: readonly Step[];
   /** selection groups, layered (`in_257`, `groups.ts`); absent when there are none */
