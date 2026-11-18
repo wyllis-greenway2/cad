@@ -3757,3 +3757,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_852 — 2026-11-18 — approval
 > Outline (the inset line)
 (answers which pattern across a face to build first: the outline, the face's outline moved in by the inset)
+
+## in_853 — 2026-11-18 — directive
+> merge it into pascal now
+(asks for this branch (the fastener holes helper bar) to be merged into claude/inspiring-pascal-l342k7 now)
