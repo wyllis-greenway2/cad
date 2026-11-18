@@ -3857,3 +3857,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_877 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for the branch `claude/adoring-dijkstra-play-chip` to be merged into the testing branch)
+
+## in_878 — 2026-11-19 — directive
+> why dont we polish the crown gear, it seems like the current one doesn't actually rest at 90 degrees? and should we make other variations of it. Please do it, I will take your recommendations. Lets make a good set of crown gears
+(asks to polish the crown gear, says its pinion does not stand at 90 degrees, asks whether to make other variations, and asks for a good set of crown gears, taking the AI's recommendations)
