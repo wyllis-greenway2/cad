@@ -18,9 +18,10 @@ test("a hypoid pair (`dec_hypoid_gears`): zero offset is the spiral pair, the pi
   const neg = spiralPairOf(20, 36, 3, 35, 0.05, 0, -3);
   assert.ok(!neg.ok && /offset must be 0 or more/.test(neg.error));
 });
-for (const [z1, z2, angle, offset] of [[20, 36, 35, 12], [24, 30, 35, 9], [20, 40, 35, 20]] as const) {
-  test(`hypoid pair ${z1} / ${z2} at ${angle} degrees, offset ${offset} mm, made by Mesh gear fits at its place and not half a pitch round`, () => {
-    const [fit, wrong] = [overlapOf(z1, z2, 3, 0, angle, offset), overlapOf(z1, z2, 3, Math.PI / z2, angle, offset)];
+// (the 16 / 24 pair, module 2, offset 6 is the user's model of the report that its ring gear's teeth were ragged: the offset ring's flank stops short of the root and the outline went straight down there, `spiral.ts` `curveOf`)
+for (const [z1, z2, angle, offset, mod] of [[20, 36, 35, 12, 3], [24, 30, 35, 9, 3], [20, 40, 35, 20, 3], [16, 24, 30, 6, 2]] as const) {
+  test(`hypoid pair ${z1} / ${z2} at ${angle} degrees, offset ${offset} mm, module ${mod}, made by Mesh gear fits at its place and not half a pitch round`, () => {
+    const [fit, wrong] = [overlapOf(z1, z2, mod, 0, angle, offset), overlapOf(z1, z2, mod, Math.PI / z2, angle, offset)];
     console.log("HYPOID", z1, z2, fit, wrong);
     assert.ok(fit < 10, `${z1}/${z2} at its place: ${fit}`);
     assert.ok(wrong > 20 * Math.max(fit, 1), `${z1}/${z2} half a pitch round: ${wrong}`);
