@@ -277,6 +277,7 @@ export function animatedBodies(s: Scene): Map<Ref, Ref> {
     if (gb.crank) { out.set(gb.crank, gb.crank); if (gb.disc) out.set(gb.disc, gb.crank); if (gb.wheel) out.set(gb.wheel, gb.crank); }
     if (g.follower && b) { const m = mateStatus(s).find((x) => x.id === g.follower!.mate && x.mover); if (m?.mover) out.set(m.mover.body, b); } // (the rod rides the cam: playing it plays the cam)
   }
+  for (const pv of s.pivots ?? []) { const b = Object.values(s.parts).find((p) => p.kind === "body" && p.id === pv.body); if (b) out.set(b.ref, b.ref); } // (a body made to turn)
   for (const q of s.planetaries ?? []) { const c = q.carrierStep ? bodyOfStep(s, q.carrierStep) : null; if (c) out.set(c, c); }
   return out;
 }

@@ -1339,19 +1339,24 @@ const OPS = {
       return makeThreePointArc(at(a[0], a[1], h), at((a[0] + b[0]) / 2 - dy * k, (a[1] + b[1]) / 2 + dx * k, h), at(b[0], b[1], h));
     }));
     const circle = (r, h) => assembleWire([makeCircle(r, at(0, 0, h), n)]);
-    const heights = [0, c, W - c, W];
     const [full, inset] = [parse(op.full), parse(op.inset)];
-    const sections = [inset, full, full, inset];
+    // `one`: 1 chamfers only the top face and -1 only the bottom one (a worm wheel's land: its other face is where it joins the throated part, `in_935`); 0 both
+    const one = op.one ?? 0;
+    const [botC, topC] = [one <= 0, one >= 0];
+    const marks = [...(botC ? [[0, true], [c, false]] : [[0, false]]), ...(topC ? [[W - c, false], [W, true]] : [[W, false]])]; // (the height of each section and whether it is the inset one)
+    const heights = marks.map((m) => m[0]);
+    const sections = marks.map((m) => (m[1] ? inset : full));
+    const last = heights.length - 1;
     const ring = op.wall > 0;
-    const outer = ring ? loft([op.wall - c, op.wall, op.wall, op.wall - c].map((r, i) => circle(r, heights[i])), { ruled: true }, true) : loft(sections.map((s, i) => wireOf(s, heights[i])), { ruled: true }, true);
-    const holes = ring ? sections.map((s, i) => wireOf(s, heights[i])) : op.bore > 0 ? [op.bore / 2 + c, op.bore / 2, op.bore / 2, op.bore / 2 + c].map((r, i) => circle(r, heights[i])) : null;
-    const capOuter = (k) => (ring ? circle(op.wall - c, heights[k]) : wireOf(inset, heights[k]));
+    const outer = ring ? loft(marks.map((m, i) => circle(m[1] ? op.wall - c : op.wall, heights[i])), { ruled: true }, true) : loft(sections.map((s, i) => wireOf(s, heights[i])), { ruled: true }, true);
+    const holes = ring ? sections.map((s, i) => wireOf(s, heights[i])) : op.bore > 0 ? marks.map((m, i) => circle(op.bore / 2 + (m[1] ? c : 0), heights[i])) : null;
+    const capOuter = (k) => (ring ? circle(marks[k][1] ? op.wall - c : op.wall, heights[k]) : wireOf(sections[k], heights[k]));
     const faces = [outer];
     if (holes) {
       const inner = loft(holes, { ruled: true }, true);
       faces.push(cast(inner.wrapped.Reversed()));
-      for (const k of [0, 3]) faces.push(addHolesInFace(makeFace(capOuter(k)), [ring ? wireOf(inset, heights[k]) : holes[k]]));
-    } else for (const k of [0, 3]) faces.push(makeFace(capOuter(k)));
+      for (const k of [0, last]) faces.push(addHolesInFace(makeFace(capOuter(k)), [ring ? wireOf(sections[k], heights[k]) : holes[k]]));
+    } else for (const k of [0, last]) faces.push(makeFace(capOuter(k)));
     const solid = makeSolid(faces);
     if (!isValidSolid(solid) || !(volume(solid) > 1e-9)) throw new Error("the edge chamfer could not be made at this size: a smaller chamfer");
     const targetValue = op.target ? ctx.peek(op.target, "solid") : null;
