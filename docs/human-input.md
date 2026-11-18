@@ -3952,5 +3952,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_901 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks to merge this branch's work into claude/inspiring-pascal-l342k7: the explicit permission to write to that branch for this merge)
+
+## in_902 — 2026-11-18 — directive
 > okay lets build the hypoid gears
 (a go-ahead for the hypoid work after the AI said it was paused for the PDFs; the AI read it as: derive the hypoid by the general gearing law in `prototypes/hypoid` first, then propose the tool for approval)
+
+## in_903 — 2026-11-18 — question
+> [attached four PDFs: Gear_Theory2.pdf, bevelgear.pdf, hobbed.pdf, 19910018232-cut1.pdf (NASA CR 4383, 100 pages of it)] Didn't you need me to share these with you?
+(the human sent the papers the AI had said it was waiting for; the AI had gone ahead meanwhile with a derivation from the general gearing law)
