@@ -42,6 +42,10 @@ The Geneva drive's wheel, with **no formula**, moved by the rule alone (the pin 
 - **A rest value moves a step at a time**: jumping to a far rest passed through the cam (the target was clear on the far side).
 - Keep pose is refused for a pose found by contact. **Not tried:** a ratchet (the ratchet comes as two sketches, a wheel and a pawl; it has no 3D model layout with the pawl on a pivot as the Geneva has, so it needs that first), passing hardness on to a depth, the time budget.
 
+## Built, third slice (`in_908`: chains, and what it costs)
+
+A body that yields is now cleared of the driver and the walls and of the body that pushed it only; the others that yield are dealt with when their turn comes, so **a chain gives way link by link** (up to 12 passes a step; when the passes run out with bodies still overlapping the motion stops and says `the chain is too long to settle`, instead of leaving them in each other). The search for room is fine near the body (a tenth of a degree, 0.07 mm: the room between two teeth is a fraction of a degree wide) and coarser further out. The pair test is made both ways round (a touch is a hit or not by the direction the test goes). **Measured (Node, shared sandbox CPU, `prototypes/contact-push`):** a Geneva about 3 to 5 ms a degree; a gear pair 7 to 11 ms; a train of 3, 4, 5, 6 gears 21, 37, 65, 77 ms a degree with every gear within 0.7 to 1.7 degrees of its ratio. So contact is practical for the key interface (a Geneva, a pair, a cam and its rod) and **not for a long train**: that is what the couplings are for (a gear train by couplings costs nothing).
+
 ## Open questions for the human
 
 - The default depth of passed-on hardness, and whether ghost is wanted as a body state or only as a setting of a joint.

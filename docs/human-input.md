@@ -3975,3 +3975,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_907 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for the branch `claude/adoring-dijkstra-contact-push` to be merged into the testing branch)
+
+## in_908 — 2026-11-19 — directive
+> wow that looks great! Perfect, so how efficient is this? is this practical for larger models? and what if a model relied almost entirely on collision instead of constraints?
+(asks how efficient the contact push is, whether it is practical for larger models, and what happens if a model relies almost entirely on collision: the AI measured gear trains)
