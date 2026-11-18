@@ -3680,3 +3680,13 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_833 — 2026-11-18 — approval
 > Yes, record that rule
 (approves the AI's proposed rule for how much of the test suite a merge into the testing branch gets: by what the merge touches, with a full run at the end of a batch; this replaces the routine of in_832)
+
+## in_834 — 2026-11-18 — directive
+> okay, now it is kind of annoying to merge in stuff, because I need to wait for that Claude to stop, and not work anymore, because while you are merging they can't still be working or else your merge takes forever as you continually merge as they continually work. So instead, can we have some sort of system where you just auto keep merging everything as you see it but it batches so that it doesn't update continually in a cycle forever? So that Way I get constant updates so that when I run  LAN=1 bash tools/preview.sh
+> it is constantly getting little updates from all the branches?
+(asks for merging to run by itself in batches, so that it does not chase the other sessions' pushes forever, and so the preview started with LAN=1 bash tools/preview.sh keeps getting small updates from all the branches)
+
+## in_835 — 2026-11-18 — approval
+> Every hour (Recommended)
+(answers the AI's questions in the chat: a scheduled batch merge every hour; yes to the optional background pull in tools/preview.sh, PULL_EVERY; yes to writing up collision-free numbering as a proposal. The answers were picked from the options of the AI's question box: "Every hour (Recommended)", "Yes, add PULL_EVERY (Recommended)", "Yes, propose it")
+
