@@ -4128,3 +4128,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_943 — 2026-11-19 — question
 > why do gears rotate like this? when I add a gear, then mesh a gear to it, then rotate the original gear, it rotates the mesh gear around it like it is entirely glued to it? Is this because we should probably be adding an extra coaxial constraint or something like that to our mesh gears?
 (with a project file `weird_rotate.json` and a state snapshot: the AI found the two gears are one body, joined because their teeth touch exactly and the second gear's extrude joined the first; no coaxial mate is missing)
+
+## in_944 — 2026-11-19 — directive
+> how about we just make the gear creator in general have a very slight backlash by default? because we wouldn't want meshed gears to have slightly different size than original would we?
+(asks for the gear creator to give every new gear a very slight backlash by default, so a meshed gear is made with the same numbers as the original)
