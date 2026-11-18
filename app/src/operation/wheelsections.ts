@@ -14,6 +14,8 @@ export interface Section { h: number; points: P[]; bulges: number[] }
 export const SECTIONS = 5;
 /** How many arcs the gap between two teeth is cut into (each an arc through its ends and middle): the loft's time goes as about the 1.5th power of the arcs (100 teeth: 18 arcs 16.9 s, 12 arcs 8.7 s), and the arcs lie within about 0.007 mm of the flank (the loft itself is 0.05 mm off the exact wheel, a printer 0.2 mm), `in_796`. */
 const NGAP = 12;
+/** The least bulge a side of a section has (the sag as a fraction of its length: 2e-5 of a 0.4 mm side is 0.000009 mm): a piece of the flank that comes out exactly straight (bulge 1e-14) made the kernel's loft throw, in a 200 tooth wheel of module 1.02 or 1.03 (`in_877`). */
+const MIN_BULGE = 2e-5;
 /** Bisection steps that put a crossing of the grid exactly: the cells are about 0.05 mm, so 10 steps give 0.0001 mm (the sections lie on the exact surface to 0.002 mm). */
 const ITER = 10;
 /** Every COARSE-th node of the grid is tested first, and only the cells next to the contour are tested fully (the wheel's gap is one curve across the grid, so most nodes are far from it). */
@@ -170,7 +172,8 @@ function make(spec: GearSpec): Result<Section[]> {
         // the last arc of a tooth ends where the next tooth begins: its end is that point exactly, so the outline closes
         const pe = i === arcs.length - 1 ? ((): P => { const [c3, s3] = [Math.cos((t + 1) * P2), Math.sin((t + 1) * P2)]; return [c3 * start[0] - s3 * start[1], s3 * start[0] + c3 * start[1]]; })() : rot(e);
         points.push(pa);
-        bulges.push(bulgeOf(pa, pm, pe));
+        const b = bulgeOf(pa, pm, pe);
+        bulges.push(Math.abs(b) < MIN_BULGE ? (b < 0 ? -MIN_BULGE : MIN_BULGE) : b); // (a piece of the flank that is straight, or nearly: an arc through three points on a line is no arc to the kernel)
       });
     }
     return { h, points, bulges };

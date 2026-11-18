@@ -3854,3 +3854,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_876 — 2026-11-18 — directive
 > yes look at the quadratic edit cost next
 (approves looking at the quadratic cost of editing an early part of a model of many parts)
+
+## in_877 — 2026-11-18 — directive
+> lets proceed further before merging
+(asks to carry on with further work before merging the testing branch)

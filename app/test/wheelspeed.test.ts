@@ -129,3 +129,9 @@ test("wheels one beside another stay two bodies with their own names (`in_857`: 
   const names = k.faceNames.map((f) => f.name);
   assert.equal(new Set(names).size, names.length, "no two faces share a name");
 });
+
+test("no side of a wheel's sections is exactly straight: a piece of the flank on a line made the kernel's loft throw (200 teeth, module 1.02, `in_877`)", () => {
+  const r = wheelSections({ teeth: 200, module: 1.02, wheel: { diameter: 24, starts: 1, width: 10 } });
+  assert.ok(r.ok);
+  for (const sec of r.value) assert.ok(sec.bulges.every((b) => Math.abs(b) >= 1.99e-5), `a bulge of ${Math.min(...sec.bulges.map(Math.abs))}`);
+});
