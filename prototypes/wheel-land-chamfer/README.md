@@ -1,4 +1,4 @@
-# wheel-land-chamfer (prototype, `in_928`)
+# wheel-land-chamfer (prototype, `in_935`)
 
 **Meant to learn:** whether the edge chamfer of a worm wheel can be made inside its land (the straight part at each face), where the kernel's own chamfer of the faces' edges cannot (it returns nothing after 6 to 29 s: the faces are cut by the worm's envelope and the rest is throated), by pulling the end section in by the chamfer and lofting.
 

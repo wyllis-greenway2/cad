@@ -1340,7 +1340,7 @@ const OPS = {
     }));
     const circle = (r, h) => assembleWire([makeCircle(r, at(0, 0, h), n)]);
     const [full, inset] = [parse(op.full), parse(op.inset)];
-    // `one`: 1 chamfers only the top face and -1 only the bottom one (a worm wheel's land: its other face is where it joins the throated part, `in_928`); 0 both
+    // `one`: 1 chamfers only the top face and -1 only the bottom one (a worm wheel's land: its other face is where it joins the throated part, `in_935`); 0 both
     const one = op.one ?? 0;
     const [botC, topC] = [one <= 0, one >= 0];
     const marks = [...(botC ? [[0, true], [c, false]] : [[0, false]]), ...(topC ? [[W - c, false], [W, true]] : [[W, false]])]; // (the height of each section and whether it is the inset one)

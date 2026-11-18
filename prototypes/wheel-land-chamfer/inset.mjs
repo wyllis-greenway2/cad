@@ -1,4 +1,4 @@
-// Prototype (thrown away, `in_928`): the outline of a worm wheel's end section (corners and the bulge of each side, counter-clockwise) pulled in by c, with the same number of sides,
+// Prototype (thrown away, `in_935`): the outline of a worm wheel's end section (corners and the bulge of each side, counter-clockwise) pulled in by c, with the same number of sides,
 // to chamfer the wheel's land. Run (from app/): Z=30 C=0.5 node ../prototypes/wheel-land-chamfer/inset.mjs
 import { wheelSections } from "../../app/src/operation/wheelsections.ts";
 

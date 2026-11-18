@@ -135,7 +135,7 @@ export function wheelSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] | null
     const f = frameOf(s, rec)!;
     const own = { gear: rec.id };
     // the pieces first joined by sewing their faces (the end sections are the same outlines: no boolean), then the worm's envelope cut out of the whole (`in_869`: the fuse of the lands took eleven seconds)
-    // an edge chamfer (`in_928`): each land is a body of the kernel's own, a ruled loft from the section pulled in by the chamfer at the face to the full section a chamfer in, and the rest straight
+    // an edge chamfer (`in_935`): each land is a body of the kernel's own, a ruled loft from the section pulled in by the chamfer at the face to the full section a chamfer in, and the rest straight
     const ends = (rec.spec.edge ?? 0) > 0 ? wheelEnds(rec.spec) : null;
     if (ends && !ends.ok) return null;
     const text = (o: { points: [number, number][]; bulges: number[] }) => o.points.map((p, i) => `${+p[0].toFixed(7)} ${+p[1].toFixed(7)} ${+(o.bulges[i] ?? 0).toFixed(9)}`).join(";");

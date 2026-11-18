@@ -65,8 +65,8 @@ import { createBodyChips } from "./ui/bodychips.ts";
 import { createGearChip } from "./ui/gearchip.ts";
 import { createControls } from "./ui/controls.ts";
 import { createGearBox } from "./ui/gearbox.ts";
-import { createHoleBar } from "./ui/holebar.ts";
-import type { HoleBarView } from "./ui/holebar.ts";
+import { createHolePanel } from "./ui/holepanel.ts";
+import type { HolePanelView } from "./ui/holepanel.ts";
 import { holesView } from "./interaction/holepreview.ts";
 import type { ToolpathView } from "./interaction/toolpathview.ts";
 import { createToolChip } from "./ui/toolchip.ts";
@@ -286,9 +286,9 @@ async function pathRepeatFlow() {
  */
 let hardware: { values: ReceiverValues } | null = null;
 let holesKey = "";
-let holesNow: { bar: HoleBarView; view: ToolpathView | null } | null = null;
+let holesNow: { bar: HolePanelView; view: ToolpathView | null } | null = null;
 let lastHolesScene: ReturnType<typeof scene> | null = null;
-const holeBar = createHoleBar(document.body, {
+const holeBar = createHolePanel(document.body, {
   change(v) { if (hardware) { hardware = { values: { ...hardware.values, ...v } }; holesKey = ""; dirty = true; } },
   commit() { holesCut(); },
   close() { holesClose(); },
@@ -301,11 +301,12 @@ function holesOpen(): void {
 }
 function holesClose(): void { hardware = null; holesKey = ""; holesNow = null; holeBar.update(null); dirty = true; }
 /** What the selection says for the holes: a line (or lines) selected: along them; a face: along its outline moved in by the inset; corners or circles picked: at them; nothing usable yet: say what to select. */
-function holesValues(): { values: ReceiverValues; mode: HoleBarView["mode"] } {
+function holesValues(): { values: ReceiverValues; mode: HolePanelView["mode"] } {
   const ctx = receiverContext(state.session);
   const v = hardware!.values.kind === "tapped" || hardware!.values.kind === "nutPocket" || hardware!.values.kind === "drillTap" ? { ...hardware!.values, far: "none" } : hardware!.values; // (a nut on the far side goes with a hole right through)
   if (!ctx) return { values: v, mode: "none" };
   if (ctx.places) return { values: { ...v, place: "picked" }, mode: "picked" };
+  if (ctx.curved && !ctx.lines) return { values: v, mode: "none" }; // (a round face has no outline to follow: a line or places are needed)
   if (ctx.lines) return { values: { ...v, place: "lines", corners: "ignore" }, mode: "line" }; // (a line has no corners to keep: its ends are its ends)
   return { values: { ...v, place: "outline" }, mode: "face" };
 }
@@ -321,14 +322,14 @@ function holesCut(): void {
   say(`cut: ${values.size} ${String(values.kind)}${places > 1 ? ` at ${places} places` : ""}`);
 }
 /** The bar and the preview for the selection and the numbers as they are, made again only when one of them changes. */
-function holesOptions(): { bar: HoleBarView; view: ToolpathView | null } {
+function holesOptions(): { bar: HolePanelView; view: ToolpathView | null } {
   const session = state.session;
   const sc = scene(session);
   const key = `${selection(session).join(",")}|${JSON.stringify(hardware?.values)}`;
   if (holesNow && key === holesKey && lastHolesScene === sc) return holesNow;
   const { values, mode } = holesValues();
   const plan = mode === "none" ? null : receiverPlan(session, values);
-  const problem = mode === "none" ? "select a flat face of a body, or a line drawn on one" : plan && !plan.ok ? plan.error : null;
+  const problem = mode === "none" ? (receiverContext(session)?.curved ? "select a line drawn across the round face, or corners and circles on it" : "select a flat face of a body, or a line drawn on one") : plan && !plan.ok ? plan.error : null;
   const note = plan?.ok ? `${plan.value.places.length} hole${plan.value.places.length === 1 ? "" : "s"}${plan.value.spacing !== null ? `, ${Math.round(plan.value.spacing * 100) / 100} mm apart` : ""}` : "";
   const v = hardware!.values;
   holesNow = {

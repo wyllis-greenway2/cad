@@ -66,7 +66,7 @@ test("a rack has Chamfer (the tips of its teeth at both faces) and Edge chamfer 
   assert.match(run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: { ...rack, chamfer: 0.25, edge: 0.6 } }).message ?? "", /not made together/);
 });
 
-test("an edge chamfer on a worm wheel is made in its land (`in_928`): the sections pulled in, a ruled loft and the rest straight, sewn to the throated part and cut by the worm's envelope; refused with why with no land, a land shorter than the chamfer, a chamfer that would take the teeth, and a bore with a flat", () => {
+test("an edge chamfer on a worm wheel is made in its land (`in_935`): the sections pulled in, a ruled loft and the rest straight, sewn to the throated part and cut by the worm's envelope; refused with why with no land, a land shorter than the chamfer, a chamfer that would take the teeth, and a bore with a flat", () => {
   assert.equal(gearFields(armTool("gear", "wormwheel").gear!).at(-1)!.label, "Edge chamfer");
   for (const land of [4, 2]) {
     const [a, b] = [make(wheel({}, land)), make(wheel({ edge: 0.5 }, land))];
@@ -87,7 +87,7 @@ test("an edge chamfer on a worm wheel is made in its land (`in_928`): the sectio
 
 import { insetOutline } from "../src/operation/wheelinset.ts";
 import { wheelSections } from "../src/operation/wheelsections.ts";
-test("the wheel's end section pulled in: the same number of sides, its area a chamfer times its perimeter less, and every corner the chamfer from the full outline (`in_928`)", () => {
+test("the wheel's end section pulled in: the same number of sides, its area a chamfer times its perimeter less, and every corner the chamfer from the full outline (`in_935`)", () => {
   const w = wheelSections(wheel({}, 4));
   assert.ok(w.ok);
   if (!w.ok) return;

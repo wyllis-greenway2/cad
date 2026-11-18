@@ -1,4 +1,4 @@
-// The end sections of a worm wheel pulled in by an edge chamfer (`in_928`, `prototypes/wheel-land-chamfer`): the wheel's land is its end section carried straight out, and the chamfer is a ruled loft from the section pulled in by the chamfer at
+// The end sections of a worm wheel pulled in by an edge chamfer (`in_935`, `prototypes/wheel-land-chamfer`): the wheel's land is its end section carried straight out, and the chamfer is a ruled loft from the section pulled in by the chamfer at
 // the face to the full section a chamfer in. The sections are chains of arcs (counter-clockwise, as corners and the bulge of each side), not involutes, so they are pulled in side by side: no offset of a curve in general, only of its pieces.
 // Pure maths in the wheel's own x and y.
 import type { Result } from "../shared/result.ts";
