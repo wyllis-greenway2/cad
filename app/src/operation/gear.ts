@@ -14,7 +14,8 @@ import type { CamSpec } from "./cams.ts";
 import { gearRoot } from "./gearroot.ts";
 import { wormOf, wheelOf } from "./worm.ts";
 import type { WormSpec, WheelSpec } from "./worm.ts";
-import { bevelPoints, bevelLayout, isCrown } from "./bevel.ts";
+import { bevelPoints, bevelLayout, isCrown, bevelOf } from "./bevel.ts";
+import { spiralFor, spiralBody } from "./spiral.ts";
 import { crownOf, crownSection } from "./crown.ts";
 import type { BevelSpec } from "./bevel.ts";
 
@@ -181,6 +182,16 @@ function wheelOutline(spec: GearSpec): Result<GearOutline> {
 
 /** A straight bevel gear's outline: the big end of the toothed cone (`bevel.ts`), as corners and arcs. */
 function bevelOutline(spec: GearSpec): Result<GearOutline> {
+  if (spec.bevel?.spiral !== undefined) { // a spiral bevel gear: the pair must make (`spiral.ts`): the outline is the heel's first plane
+    const sp = spiralFor(spec);
+    if (!sp.ok) return sp;
+    const body = spiralBody(sp.value.pair, sp.value.which);
+    if (!body.ok) return body;
+    const g = bevelOf(spec);
+    if (!g.ok) return g;
+    const s0 = body.value.sections[0]!;
+    return ok({ points: s0.points, bulges: s0.bulges, pitchRadius: g.value.pitchRadius, baseRadius: g.value.pitchRadius * Math.cos((20 * Math.PI) / 180), tipRadius: g.value.tipRadius, rootRadius: g.value.rootRadius, warnings: ["a spiral bevel tooth from the gearing law (a crown gear's circular-arc tooth enveloped by the pinion); the pair is made for each other"] });
+  }
   if (isCrown(spec)) { // a crown gear: the section across its pitch plane (`crown.ts`)
     const c = crownOf(spec);
     if (!c.ok) return c;

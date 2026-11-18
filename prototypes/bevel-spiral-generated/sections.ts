@@ -157,7 +157,7 @@ export function outlineAt(g: Gear, which: "pinion" | "ring", A: [number, number]
  * The blank of a gear whose ends are cones (the back cones, square to the pitch cone, at the toe and the heel; as the straight gear's, `app/src/operation/bevel.ts` `bevelLayout`): a revolved shape between the toe's cone and the heel's, with a flat hub disc
  * inside the roots at each end, and the range of planes across the axis the prism of the teeth must cover to hold every tooth up to the cones. Coordinates (x along the axis from the apex, radius r).
  */
-export interface Blank { xS: number; xB: number; polygon: [number, number][] }
+export interface Blank { xS: number; xB: number; polygon: [number, number][]; outH: [number, number][]; outT: [number, number][] }
 export function blankFor(g: Gear, rhoToe: number, rhoHeel: number, m: number, dx = 0): Blank | string {
   const [sg, cg, tg] = [Math.sin(g.gamma), Math.cos(g.gamma), Math.tan(g.gamma)];
   const [x0t, x0h] = [rhoToe / cg + dx, rhoHeel / cg + dx]; // (dx: both cones moved along the axis, for a kernel that cannot cut at the very place the corners of the teeth are: see `cones.ts`)
@@ -178,5 +178,8 @@ export function blankFor(g: Gear, rhoToe: number, rhoHeel: number, m: number, dx
   const [rmaxH, rT1] = [(x0h - xLow) / tg, (x0t - xLow) / tg];
   if (!(rmaxH > rT1 + 1)) return "the heel cone is too steep for this gear"; // (what lies beyond rmaxH is outside the heel cone, cut off anyway)
   const xr: [number, number][] = [[xFar, 0], [xFar, rA], [xLow, rmaxH], [xLow, rT1], [Lt(rT), rT], [Lt(rT), 0]];
-  return { xS, xB, polygon: xr };
+  // the same cuts as two solids to take away (beyond the heel's cone, beyond the toe's cone with the hub's flat end), for when the kernel cannot intersect with the blank
+  const outH: [number, number][] = [[xFar, 0], [xFar + 50, 0], [xFar + 50, rmaxH], [xLow, rmaxH], [xFar, rA]];
+  const outT: [number, number][] = [[Lt(rT), 0], [Lt(rT), rT], [xLow, rT1], [xLow - 20, rT1], [xLow - 20, 0]];
+  return { xS, xB, polygon: xr, outH, outT };
 }

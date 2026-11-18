@@ -11,6 +11,7 @@ import type { Kernel } from "../compiler/kernel/adapter.ts";
 import { compile } from "../compiler/compile.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
 import type { Command } from "../operation/commands.ts";
+import { coneRetry } from "../operation/spiralretry.ts";
 import { apply } from "../operation/commands.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { History } from "../operation/history.ts";
@@ -201,6 +202,11 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   const next = withHistory(s, r.value);
   // a step the kernel cannot make is refused, not kept to break the steps after it
   const failed = next.outcome.kernel?.stale ? undefined : steps.find((id) => next.outcome.errors[id]);
+  if (!next.outcome.kernel?.stale && (c.type === "gear" || c.type === "setGear" || c.type === "batch")) { // a spiral bevel gear's own steps that the kernel could not make: the next place of its cones is tried (`spiralretry.ts`)
+    const bad = next.history.scene.steps.find((st) => typeof st.params.gear === "string" && next.outcome.errors[st.id]);
+    const again = bad ? coneRetry(next.history.scene, c, bad.id, next.outcome.errors[bad.id]!) : null;
+    if (again) return run(s, again, opts);
+  }
   if (failed) {
     // the steps could not take it: the constraints that hold the parts it changes are shown, as for any other change that is refused (`in_210`)
     const changed = new Set(partsOf(c));
@@ -263,8 +269,14 @@ export function refresh(s: Session): Session {
   const now = withHistory(s, { ...h, scene, snapshots }, s.message);
   // the answer for the last step has come and it could not be made: it is taken back (it was shown before the answer came), and the reason says why
   const failed = !now.outcome.kernel?.stale ? (s.checkSteps ?? []).find((id) => now.outcome.errors[id]) : undefined;
+  const last = h.commands[h.cursor - 1];
+  const badGear = !now.outcome.kernel?.stale && last && (last.type === "gear" || last.type === "setGear" || last.type === "batch") ? now.history.scene.steps.find((st) => typeof st.params.gear === "string" && now.outcome.errors[st.id])?.id : undefined;
+  const spiralAgain = badGear && last ? coneRetry(now.history.scene, last, badGear, now.outcome.errors[badGear] ?? "") : null; // (a spiral bevel gear the kernel could not cut: the next place of its cones is tried, `spiralretry.ts`)
+  if (spiralAgain) return run(refresh({ ...withHistory(s, undo(h)), checkSteps: undefined, fallback: undefined }), spiralAgain);
   if (failed) {
     const back = refresh({ ...withHistory(s, undo(h)), checkSteps: undefined, fallback: undefined });
+    const again = last ? coneRetry(now.history.scene, last, failed, now.outcome.errors[failed] ?? "") : null;
+    if (again) return run(back, again);
     if (s.fallback) {
       const made = run(back, s.fallback);
       const corner = s.fallback.type === "addStep" && s.fallback.step.type === "edgeMod"; // (a fillet or chamfer made with the edges at its corner, `in_379`)

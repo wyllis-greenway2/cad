@@ -1,4 +1,4 @@
-// Drawings of the hardware for the pickers (`dec_parts_interface`, `in_804`): small line drawings of a part (its side view and its top view) and of a hole's cross-section, made from the real dimensions so a picture is of the size it
+// Drawings of the hardware for the pickers (`dec_parts_interface`, `in_811`): small line drawings of a part (its side view and its top view) and of a hole's cross-section, made from the real dimensions so a picture is of the size it
 // says. Pure: numbers in, an SVG string out (inline, drawn in the text colour, made here and never from what a person typed).
 import type { FastenerFamily, FastenerSize, ReceiverKind, ClearanceFit } from "../operation/fasteners.ts";
 import { nutDims, washerDims, countersunkDims, socketHeadDims, countersunkProfile, socketHeadProfile, hexagon, receiverProfile, clearanceHole, nutTrap } from "../operation/fasteners.ts";

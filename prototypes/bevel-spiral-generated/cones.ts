@@ -23,11 +23,18 @@ export function pairFor(z1: number, z2: number, mn: number, betaDeg: number) {
 }
 
 export function gearBody(s: Session, pr: Pair, which: "pinion" | "ring", turn: number, N: number, combine = true): Session {
-  const g: Gear = which === "pinion" ? pr.pinion : pr.ring;
+  let g: Gear = which === "pinion" ? pr.pinion : pr.ring;
   const RM = pr.spec.crown.RM, b = pr.spec.b, m = pr.spec.mn;
+  // AXZ: the gear built with its axis along z (its flank surfaces turned to it): cones about a tilted axis are harder for the kernel than about an axis of the frame
+  let turnTo: ((p: V3) => V3) | null = null;
+  if (process.env.AXZ) {
+    const a = g.axis, k = cross3(a, [0, 0, 1]), sn = Math.hypot(...k), cs = a[2];
+    if (sn > 1e-9) { const kk: V3 = [k[0] / sn, k[1] / sn, k[2] / sn]; turnTo = (p) => { const d = kk[0] * p[0] + kk[1] * p[1] + kk[2] * p[2], c = cross3(kk, p); return [p[0] * cs + c[0] * sn + kk[0] * d * (1 - cs), p[1] * cs + c[1] * sn + kk[1] * d * (1 - cs), p[2] * cs + c[2] * sn + kk[2] * d * (1 - cs)]; }; g = { ...g, axis: [0, 0, 1] }; }
+  }
   const bl = blankFor(g, RM - b / 2, RM + b / 2, m);
   if (typeof bl === "string") throw new Error(`${which}: ${bl}`);
-  const [A, B] = [flankGrid(pr, which, "A"), flankGrid(pr, which, "B")];
+  const grid = (f: "A" | "B") => { const q = flankGrid(pr, which, f); return turnTo ? { P: q.P.map((row) => row.map((p) => turnTo!(p))) } : q; };
+  const [A, B] = [grid("A"), grid("B")];
   const u: V3 = [1, 0, 0], v = cross3(g.axis, u);
   const secs: string[][] = [];
   for (let i = 0; i < N; i++) {
@@ -43,7 +50,7 @@ export function gearBody(s: Session, pr: Pair, which: "pinion" | "ring", turn: n
     secs.push(ch.lines as string[]);
   }
   const loftId = nextId(scene(s), "s");
-  s = run(s, { type: "addStep", step: { id: loftId, type: "loft", parts: secs[0] as never, params: { ...figureParams(secs.map((l) => ({ outer: l as never, holes: [] }))), mode: "new" } } } as never);
+  s = run(s, { type: "addStep", step: { id: loftId, type: "loft", parts: secs[0] as never, params: { ...figureParams(secs.map((l) => ({ outer: l as never, holes: [] }))), mode: "new", ...(process.env.RULED ? { ruled: 1 } : {}) } } } as never);
   if (s.message) throw new Error(`${which}: ${s.message}`);
   // the blank: its section on a plane through the axis (radius along the first direction, the axis along the second), revolved about the axis, intersected with the prism. The kernel cannot always cut where the cone passes through the corners of the
   // teeth (the intersection answers "nothing in common"): the cones are then moved along the axis by a fraction of a millimetre, as far as the first that it can cut
@@ -52,6 +59,7 @@ export function gearBody(s: Session, pr: Pair, which: "pinion" | "ring", turn: n
   for (const dx of [Number(process.env.CONE_DX ?? -0.67 * m)]) { // (one try: a failed boolean can leave the kernel unable to go on; -0.7 mm is where the cut of the 20 / 30 ring gear, which failed with the cones at 0 to +3, worked)
     const bl = blankFor(g, RM - b / 2, RM + b / 2, m, dx);
     if (typeof bl === "string") throw new Error(`${which}: ${bl}`);
+    if (process.env.VARIANT === "big") bl.polygon = [[bl.xS - 5, 0], [bl.xS - 5, 400], [bl.xB + 20, 400], [bl.xB + 20, 0]];
     if (process.env.VARIANT === "heel") bl.polygon = [bl.polygon[0]!, bl.polygon[1]!, bl.polygon[2]!, [bl.polygon[2]![0], 0]];
     if (process.env.VARIANT === "toe") bl.polygon = [[bl.polygon[1]![0] + 1000, 0], [bl.polygon[1]![0] + 1000, bl.polygon[3]![1] + 1000], bl.polygon[3]!, bl.polygon[4]!, bl.polygon[5]!];
     s = prism;
@@ -69,6 +77,32 @@ export function gearBody(s: Session, pr: Pair, which: "pinion" | "ring", turn: n
     s = run(s, { type: "addStep", step: { id: revId, type: "revolve", parts: ch.lines as never, params: { angle: 360, advance: 0, ax: 0, ay: 0, az: 0, dx: g.axis[0], dy: g.axis[1], dz: g.axis[2], mode: "new" } } } as never);
     if (s.message) { last = `${which} blank: ${s.message}`; continue; }
     if (!combine) return s;
+    if (process.env.CUT) { // the cones as two solids taken away from the prism (beyond the heel's cone, beyond the toe's), in place of the one blank intersected with it
+      const solid = (poly0: [number, number][]): string => {
+        const q = drawnRef(nextId(scene(s), "p"));
+        s = run(s, { type: "addPart", part: { ref: q, kind: "plane", origin: "drawn", plane: null, movable: true, at: [0, 0, 0], u, v: g.axis } } as never);
+        let pl = poly0.map(([x, r]): [number, number] => [r, x]);
+        const ar = pl.reduce((acc, p, i) => { const w = pl[(i + 1) % pl.length]!; return acc + (p[0] * w[1] - w[0] * p[1]); }, 0);
+        if (ar < 0) pl = pl.slice().reverse();
+        const c2 = drawChain(scene(s), q as never, pl.map(([r, x]): V3 => [u[0] * r + g.axis[0] * x, u[1] * r + g.axis[1] * x, u[2] * r + g.axis[2] * x]), true);
+        s = run(s, c2.command);
+        const id = nextId(scene(s), "s");
+        s = run(s, { type: "addStep", step: { id, type: "revolve", parts: c2.lines as never, params: { angle: 360, advance: 0, ax: 0, ay: 0, az: 0, dx: g.axis[0], dy: g.axis[1], dz: g.axis[2], mode: "new" } } } as never);
+        if (s.message) throw new Error(`${which} cut solid: ${s.message}`);
+        return id;
+      };
+      const [hId, tId] = [solid(bl.outH), solid(bl.outT)];
+      const c1 = nextId(scene(s), "s");
+      s = run(s, { type: "addStep", step: { id: c1, type: "combine", parts: [`b/x_${loftId}/o`, `b/x_${hId}/o`] as never, params: { mode: "subtract" } } } as never);
+      if (s.message) { last = `${which} heel cut: ${s.message}`; continue; }
+      const c2 = nextId(scene(s), "s");
+      s = run(s, { type: "addStep", step: { id: c2, type: "combine", parts: [`b/x_${loftId}/o`, `b/x_${tId}/o`] as never, params: { mode: "subtract" } } } as never);
+      if (s.message) { last = `${which} toe cut: ${s.message}`; continue; }
+      const rest = bodies(s);
+      if (rest.length !== 1) { last = `${which}: ${rest.length} bodies left`; continue; }
+      CONE_SHIFT.last = dx;
+      return s;
+    }
     const comId = nextId(scene(s), "s");
     s = run(s, { type: "addStep", step: { id: comId, type: "combine", parts: [`b/x_${loftId}/o`, `b/x_${revId}/o`] as never, params: { mode: "intersect" } } } as never);
     if (s.message) { last = `${which} cone ends: ${s.message}`; continue; }

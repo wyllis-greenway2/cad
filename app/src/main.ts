@@ -51,6 +51,8 @@ import { createMenu } from "./ui/menu.ts";
 import { createRing } from "./ui/ring.ts";
 import { createAddChip } from "./ui/addchip.ts";
 import { createPreviewBar } from "./ui/previewbar.ts";
+import { createMotionBar } from "./ui/motionbar.ts";
+import { tickMotion } from "./interaction/motion.ts";
 import { createChip } from "./ui/chip.ts";
 import { createSheetChips } from "./ui/sheetchips.ts";
 import { createWorldOrb } from "./ui/worldorb.ts";
@@ -174,7 +176,7 @@ const ring = createRing(document.body, (id) => {
   ring.hide();
   if (id === "view:game") { input.toggleGame(); return; }
   if (id === "repeat:path") { void pathRepeatFlow(); return; } // (`dec_path_repeat`)
-  if (id === "models:fasteners") { void addPartFlow(); return; } // (Shape, Models: the dialogs are the page's, `in_805`, `in_806`)
+  if (id === "models:fasteners") { void addPartFlow(); return; } // (Shape, Models: the dialogs are the page's, `in_812`, `in_813`)
   if (id === "models:holes") { void fastenerHoleFlow(); return; }
   dispatch({ type: "runAction", id });
 }, (id) => dispatch({ type: "runAction", id: `why:${id}` })); // (a dimmed option pressed: its reason is said and the ring stays, `in_538`)
@@ -195,6 +197,7 @@ const bodyChips = createBodyChips(document.body, (id) => dispatch({ type: "runAc
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const notices = createNotices(document.body, statusEl, (i) => dispatch(i)); // (every message, refusal, help and the working sign, `in_665`)
 const previewBar = createPreviewBar(document.body, (at) => dispatch({ type: "previewAt", at }), () => dispatch({ type: "previewClose" }));
+const motionBar = createMotionBar(document.body, (i) => dispatch(i));
 const addChip = createAddChip(document.body, () => dispatch({ type: "runAction", id: "select:add" }));
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch(to === "invert" ? { type: "runAction", id: "hollow:invert" } : to === "linear" || to === "circular" ? { type: "runAction", id: `op:${to}` } : { type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);
@@ -484,6 +487,7 @@ function frame(now: number) {
   const tStart = performance.now();
   if (drawnAt !== null) { timing.add("browser: from a drawn frame to the next one (commit, the graphics card, the screen's refresh)", tStart - drawnAt); drawnAt = null; }
   if (state.anim || state.flash || state.mixT0 !== null) { state = advance(state, now); dirty = true; }
+  if (state.motion?.playing) { state = { ...state, motion: tickMotion(state.motion, now) }; dirty = true; } // (a joint that is being played: the clock moves it on, and the picture is made again every frame, `dec_mechanism_motion`)
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading || state.flash) {
     const size = view.size();
@@ -525,6 +529,7 @@ function frame(now: number) {
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null); }
     view.setToolpath(f.toolpath, state.cam);
     previewBar.update(f.previewBar);
+    motionBar.update(f.motionBar);
     addChip.update(f.adding);
     resetView.update(f.resetView);
     // game mode and the straight (orthographic) view, in and out, cleanly (`in_467`, `in_469`, `in_471`): going in while a straight view is on or on its way puts it away smoothly (the animation is given up
