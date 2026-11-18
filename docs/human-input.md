@@ -4055,3 +4055,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > okay what should we work on next?
 (asks what to work on next after the hypoid gears; the AI recommends, the human decides)
 
+## in_926 — 2026-11-18 — question
+> wait why did spiral hypoid replace regular spiral bevels?
+(asks why the menu entry "Spiral bevel" became "Spiral hypoid"; the AI answered it is the same tool with an offset field and offered separate entries)
+
