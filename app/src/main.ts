@@ -46,7 +46,7 @@ import { createAsyncKernel } from "./kernel-async.ts";
 import { createWarmer } from "./sections-warm.ts";
 import { openResultStore } from "./platform/result-store.ts";
 import type { Kernel, KernelResult } from "./compiler/kernel/adapter.ts";
-import { kernel, initKernelWeb, drawRectangle, nextId, STANDIN_MS } from "./interaction/api.ts";
+import { drawRectangle, nextId, STANDIN_MS } from "./interaction/api.ts";
 import type { Ref, Command, Vec3 } from "./interaction/api.ts";
 import { createView } from "./ui/view.ts";
 import { createMenu } from "./ui/menu.ts";
@@ -128,7 +128,15 @@ let lastFrame: ReturnType<typeof frameOf> | null = null;
 const timing = createTiming();
 let drawnAt: number | null = null; // (when the last frame that drew was done: the next frame starts after the browser has handed it to the graphics card, `in_498`)
 let staleSince: number | null = null; // (when the picture began to wait for the kernel's answer: the time until that answer is drawn is what an edit makes you wait)
-let engine: Kernel = kernel; // the kernel in use: on its own thread when that could start (`boot`), else the one in this page
+/** What stands in for the kernel until `boot` has one (nothing asks it anything before). */
+const notReady: Kernel = {
+  name: "not started",
+  init: async () => undefined,
+  evaluate: () => { throw new Error("the kernel has not started yet"); },
+  exportMesh: async () => ({ ok: false, error: "the kernel has not started yet" }),
+  exportStep: async () => ({ ok: false, error: "the kernel has not started yet" }),
+};
+let engine: Kernel = notReady; // the kernel in use: on its own thread when that could start (`boot`), else the one in this page (loaded only then: it is most of the app's code, `in_903`)
 let dirty = true;
 
 const SCROLL_KEY = "cad.scrollMode";
@@ -526,7 +534,9 @@ async function boot() {
     await worked.init();
     engine = worked;
   } catch {
-    await initKernelWeb();
+    const web = await import("./compiler/kernel/web.ts"); // (the kernel in this page: not in the app's own code, which does not need it when the thread starts)
+    await web.initKernelWeb();
+    engine = web.kernel;
   }
   notices.say("");
   let session = createSession(engine);

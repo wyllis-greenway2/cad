@@ -8,7 +8,6 @@ export type { Plane } from "../operation/part.ts";
 export { lookup, nextId } from "../operation/scene.ts";
 export { drawRectangle } from "../operation/build.ts";
 export { settings } from "../shared/settings.ts";
-export { kernel, initKernelWeb } from "../compiler/kernel/web.ts";
 export type { Grid } from "./grid.ts";
 export type { ToolpathView } from "./toolpathview.ts";
 export { consumed } from "../operation/ownership.ts";

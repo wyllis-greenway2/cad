@@ -17,7 +17,9 @@ export interface AsyncKernel extends Kernel {
 
 /** The part of a worker this needs (so a test can stand in for it). */
 export interface WorkerLike { postMessage(m: unknown): void; addEventListener(type: "message" | "error", f: (e: any) => void): void; /** stop it at once (a real worker can; a stand-in need not) */ terminate?(): void } // eslint-disable-line @typescript-eslint/no-explicit-any
-const spawn = (): WorkerLike => new Worker(new URL("./kernel-worker.ts", import.meta.url), { type: "module" });
+/** The thread `early.ts` started while the app was still loading, once (a restart makes its own). */
+const takeEarlyKernel = (): WorkerLike | null => { const w = (globalThis as unknown as { __earlyKernel?: WorkerLike }).__earlyKernel ?? null; (globalThis as unknown as { __earlyKernel?: WorkerLike }).__earlyKernel = undefined; return w; };
+const spawn = (): WorkerLike => takeEarlyKernel() ?? new Worker(new URL("./kernel-worker.ts", import.meta.url), { type: "module" });
 
 /** What the kernel says when a job cannot be answered: an error on the last operation of the graph, so the step that asked for it is the one that is reported (and is taken back). */
 const failedResult = (graph: KernelGraph, error: string, ms = 0): KernelResult => ({ ...EMPTY, ops: graph.ops.map((o, i) => ({ id: o.id, type: o.type, error: i === graph.ops.length - 1 ? error : null, ms: i === graph.ops.length - 1 ? ms : 0 })) });

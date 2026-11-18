@@ -85,3 +85,15 @@ test("a model that needs more than the limit from the start does not have its th
   workers[0]!.answer(2200);
   assert.equal(workers.length, 2, "grown by more than two fifths of its first answer: restarted");
 });
+
+test("the thread the page started while the app was still loading is the one the kernel uses, once (`in_903`)", () => {
+  const listeners: ((e: { data: unknown }) => void)[] = [];
+  const posted: unknown[] = [];
+  const early: WorkerLike = { postMessage: (m) => { posted.push(m); }, addEventListener: (t, f) => { if (t === "message") listeners.push(f); } };
+  (globalThis as unknown as { __earlyKernel?: WorkerLike }).__earlyKernel = early;
+  const k = createAsyncKernel(() => {});
+  assert.equal((globalThis as unknown as { __earlyKernel?: WorkerLike }).__earlyKernel, undefined, "taken: a restart does not get it again");
+  for (const f of listeners) f({ data: { ready: true } });
+  k.evaluate(graph(1));
+  assert.equal(posted.length, 1, "its first job went to the early thread");
+});
