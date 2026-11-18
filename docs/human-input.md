@@ -3650,3 +3650,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_825 — 2026-11-17 — directive
 > yes do the caps and the other costs next
 (approves working on the other costs of the worm wheel: the caps, and the sections, mesh, names and checks)
+
+## in_826 — 2026-11-18 — question
+> what else do you think we should do on speed work?
+(asks for the AI's view of what speed work is still worth doing)
