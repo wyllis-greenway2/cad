@@ -4156,3 +4156,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_950 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for this branch (round faces alone, a count with a hole at every corner, cuts through everything with the body of the face giving the defaults) to be merged into claude/inspiring-pascal-l342k7)
+
+## in_951 — 2026-11-18 — directive
+> Why does it treat these curved faces different than flat faces? Shouldn't it just step the edges in if it is in offset mode? Also I like the mode that the curved face is in but it seems like it is a different mode we should offer, which I think would be just one edge offset and in this case also centered, but that could be general where one edge could be offset and repeated. Basically we would just have rules about how to make lines based off edges we have available and then these lines have pattern repeats like any lines. We don't want to make special cases
+(asks why curved faces are treated differently from flat ones: the outline offset mode should step the edges in on a curved face too; the mid-height row they like is a separate mode for any face, one edge offset (here centred), and in general one edge offset and repeated; the tool should have rules for making lines from the edges available and these lines get pattern repeats like any lines, with no special cases; two screenshots of the teardrop plate: a flat face with four holes in a block and the round wall with holes round it at mid-height, and the model file)

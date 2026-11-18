@@ -74,16 +74,16 @@ import { selectedFace } from "../src/interaction/addpart.ts";
 
 test("holes along the outline carry the path they follow: the outline moved in by the inset, as a closed line on the face, and the spacing", () => {
   const p = plan(block(), vals({ place: "outline", by: "distance", value: "30", corners: "each", offset: "10" }));
-  assert.ok(p.guide.length > 20);
-  assert.ok(p.guide.every((q) => Math.abs(q[2] - 8) < 1e-6), "on the face");
-  const xs = p.guide.map((q) => q[0]), ys = p.guide.map((q) => q[1]);
+  assert.ok(p.guide[0]!.length > 20);
+  assert.ok(p.guide[0]!.every((q) => Math.abs(q[2] - 8) < 1e-6), "on the face");
+  const xs = p.guide[0]!.map((q) => q[0]), ys = p.guide[0]!.map((q) => q[1]);
   assert.deepEqual([Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)].map((x) => Math.round(x * 1e6) / 1e6), [10, 90, 10, 50]);
   assert.ok(p.spacing !== null && p.spacing <= 30 + 1e-9 && p.spacing >= 20 - 1e-9);
   assert.deepEqual(plan(block(), vals()).guide, [], "no path for a hole in the middle");
   assert.equal(plan(block(), vals()).spacing, null);
 });
 test("a different inset moves the guide with it, and the preview draws it dashed and pale next to the holes", () => {
-  const at = (inset: string) => { const g = plan(block(), vals({ place: "outline", by: "count", value: "4", corners: "ignore", offset: inset })).guide.map((q) => q[0]); return Math.min(...g); };
+  const at = (inset: string) => { const g = plan(block(), vals({ place: "outline", by: "count", value: "4", corners: "ignore", offset: inset })).guide[0]!.map((q) => q[0]); return Math.min(...g); };
   assert.ok(Math.abs(at("5") - 5) < 1e-6 && Math.abs(at("15") - 15) < 1e-6);
   const view = holesView(plan(block(), vals({ place: "outline", by: "count", value: "4", corners: "ignore", offset: "10" })))!;
   assert.ok(view.done.travel!.length > 0 && view.done.wire!.length > 0);
