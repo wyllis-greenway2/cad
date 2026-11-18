@@ -3733,3 +3733,15 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_846 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for this branch to be merged into claude/inspiring-pascal-l342k7)
+
+## in_847 — 2026-11-18 — directive
+> okay can we have it so that we can use the model view itself for the preview? so for example, you would just select your hardware in the menu, then when you do, it goes back to the regular cad screen, and then it has options, so you could click on surfaces, and it previews what it would do, and you could set different settings, and could see it update the preview.
+(asks for the hardware tools to use the model view for their preview: choose the hardware in the menu, return to the normal CAD screen with the options shown there, click on surfaces to see a preview of what would be done, change settings and see the preview update)
+
+## in_848 — 2026-11-18 — approval
+> Fastener Holes first (Recommended)
+(answers which to build first with a live preview in the model view: the Fastener Holes tool)
+
+## in_849 — 2026-11-18 — approval
+> Replace the hardware ones with the panel (Recommended)
+(answers what happens to the dialogs: the hardware ones (Fasteners and Fastener Holes) are replaced by the panel and the preview; Path repeat keeps its dialog for now)

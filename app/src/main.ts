@@ -9,6 +9,7 @@ import { createRecognizer } from "./interaction/recognizer.ts";
 import { mateStatus } from "./operation/mates.ts";
 import { createSession, openSession, saveText, run, scene, selection, refresh } from "./interaction/session.ts";
 import type { Session } from "./interaction/session.ts";
+import type { ReceiverValues } from "./interaction/addpart.ts";
 import { canExport } from "./interaction/exportstl.ts";
 import { canExportFlat } from "./interaction/exportsketch.ts";
 import { laserDialog, runLaser, findingsDialog, machineChoices, machineDialog, startValues, projectMachines, recordCommands, tableRows, rowFrom, tableDialog, layersDialog, layersCommand, whyNoLayers, marksSummary } from "./interaction/manufacture.ts";
@@ -16,7 +17,7 @@ import { parseLibrary, libraryText, saveMachine, removeMachine, saveSettings, re
 import { flatSnapshot } from "./interaction/partsnapshot.ts";
 import type { LaserValues } from "./interaction/manufacture.ts";
 import { pathRepeatTarget, pathRepeatDialog, pathRepeatCommand, pathRepeatStart, pathRepeatValuesFor } from "./interaction/pathrepeat.ts";
-import { addPartStart, addPartDialog, addPart, familyName, lengthAdviceOf, receiverStartFor, receiverDialog, receiverContext, cutReceiver, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
+import { addPartStart, addPartDialog, addPart, familyName, lengthAdviceOf, receiverStartFor, receiverDialog, receiverContext, receiverPlan, cutReceiver, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
 import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
 import type { ExportOptions } from "./interaction/transfer.ts";
@@ -62,6 +63,10 @@ import { createBodyChips } from "./ui/bodychips.ts";
 import { createGearChip } from "./ui/gearchip.ts";
 import { createControls } from "./ui/controls.ts";
 import { createGearBox } from "./ui/gearbox.ts";
+import { createOptionsPanel } from "./ui/optionspanel.ts";
+import type { Options } from "./ui/optionspanel.ts";
+import { holesView } from "./interaction/holepreview.ts";
+import type { ToolpathView } from "./interaction/toolpathview.ts";
 import { createToolChip } from "./ui/toolchip.ts";
 import { createToolCursor } from "./ui/toolcursor.ts";
 import { createNotices } from "./ui/notices.ts";
@@ -177,7 +182,7 @@ const ring = createRing(document.body, (id) => {
   if (id === "view:game") { input.toggleGame(); return; }
   if (id === "repeat:path") { void pathRepeatFlow(); return; } // (`dec_path_repeat`)
   if (id === "models:fasteners") { void addPartFlow(); return; } // (Shape, Models: the dialogs are the page's, `in_812`, `in_813`)
-  if (id === "models:holes") { void fastenerHoleFlow(); return; }
+  if (id === "models:holes") { holesOpen(); return; } // (the tool is a panel and a preview in the model view, `dec_parts_tool`)
   dispatch({ type: "runAction", id });
 }, (id) => dispatch({ type: "runAction", id: `why:${id}` })); // (a dimmed option pressed: its reason is said and the ring stays, `in_538`)
 
@@ -279,20 +284,61 @@ async function pathRepeatFlow() {
   dirty = true;
   say(target.edit || target.body?.step ? "path repeat changed" : "path repeat made");
 }
-/** Fastener hole (`in_746`): the receiver for a fastener (a clearance hole, a countersunk one, a hole to tap, a nut pocket) cut into the body whose flat face is selected, at the face's middle or as far from it as typed. */
-async function fastenerHoleFlow() {
-  const why = whyNoReceiver(state.session);
-  if (why) return say(why);
-  const ctx = receiverContext(state.session);
-  const answers = await dialog.open((v) => receiverDialog(v as unknown as ReturnType<typeof receiverStartFor>, placesPicked(state.session), ctx), receiverStartFor(state.session) as unknown as Values);
-  if (!answers) return;
-  const places = placesPicked(state.session); // (before the cut: the selection may not survive it)
-  const r = cutReceiver(state.session, answers as unknown as ReturnType<typeof receiverStartFor>);
+/**
+ * Fastener Holes in the model view (`dec_parts_tool`, `in_847` to `in_849`): the tool is a panel of settings that stands beside the view, the selection is the click (the face, and with Shift the corners, circles and lines that place the
+ * holes), and what would be cut is drawn over the model as the settings change. Cut makes the holes (one undo) and the tool stays on; Close, or Esc, leaves it.
+ */
+let hardware: { values: ReceiverValues; /** the place follows the selection until the person chooses one */ auto: boolean } | null = null;
+let holesKey = "";
+let holesNow: { options: Options; view: ToolpathView | null } | null = null;
+const optionsPanel = createOptionsPanel(document.body, {
+  change(v) { if (hardware) { const chose = v.place !== undefined && v.place !== hardware.values.place; hardware = { values: v as unknown as ReceiverValues, auto: hardware.auto && !chose }; holesKey = ""; dirty = true; } },
+  commit() { holesCut(); },
+  close() { holesClose(); },
+});
+function holesOpen(): void {
+  if (hardware) return;
+  hardware = { values: receiverStartFor(state.session), auto: true };
+  holesKey = "";
+  optionsPanel.update(holesOptions().options, hardware.values as unknown as Values);
+  dirty = true;
+}
+function holesClose(): void { hardware = null; holesKey = ""; holesNow = null; optionsPanel.update(null); dirty = true; }
+function holesCut(): void {
+  if (!hardware) return;
+  const places = placesPicked(state.session);
+  const r = cutReceiver(state.session, hardware.values);
   if (!r.ok) return say(r.error);
   state = { ...state, session: r.value };
+  holesKey = "";
   dirty = true;
-  say(`cut: ${answers.size} ${String(answers.kind)}${places > 1 ? ` at ${places} places` : ""}`);
+  say(`cut: ${hardware.values.size} ${String(hardware.values.kind)}${places > 1 ? ` at ${places} places` : ""}`);
 }
+/** The panel and the preview for the selection and the settings as they are, made again only when one of them changes. */
+function holesOptions(): { options: Options; view: ToolpathView | null } {
+  const session = state.session;
+  const sc = scene(session);
+  const key = `${selection(session).join(",")}|${JSON.stringify(hardware?.values)}|${hardware?.auto}`;
+  if (holesNow && key === holesKey && lastHolesScene === sc) return holesNow;
+  const ctx = receiverContext(session);
+  if (hardware?.auto && ctx) hardware.values = { ...hardware.values, place: ctx.places ? "picked" : ctx.lines ? "lines" : "centre" };
+  const values = hardware!.values;
+  const plan = ctx ? receiverPlan(session, values) : null;
+  const why = ctx ? (plan && !plan.ok ? plan.error : null) : whyNoReceiver(session);
+  const dialog = receiverDialog(values, ctx?.places ?? 0, ctx);
+  holesNow = { options: { dialog: { ...dialog, title: "Fastener holes" }, message: why, action: "Cut" }, view: plan?.ok ? holesView(plan.value) : null };
+  holesKey = `${selection(session).join(",")}|${JSON.stringify(hardware?.values)}|${hardware?.auto}`;
+  lastHolesScene = sc;
+  return holesNow;
+}
+let lastHolesScene: ReturnType<typeof scene> | null = null;
+// Enter cuts and Esc leaves while the panel is open (before the page's own keys: Esc would clear the selection)
+window.addEventListener("keydown", (e) => {
+  if (!hardware || dialog.isOpen) return;
+  const typing = e.target instanceof HTMLInputElement && !optionsPanel.contains(e.target);
+  if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); holesClose(); }
+  else if (e.key === "Enter" && !typing) { e.preventDefault(); e.stopPropagation(); holesCut(); }
+}, true);
 /** What a body is made of (`in_565`): a dialog asks for the name, and the selected bodies are tagged with it (one step to undo). */
 async function materialDialogFlow() {
   const why = whyNoMaterial(state.session);
@@ -527,7 +573,7 @@ function frame(now: number) {
     { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); gearChip.update(f.gearChip, (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top - 26] : null; }); }
     toolChip.update(f.tool, f.confirm, lastDevice === "touch", f.options, f.undoRedo);
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null); }
-    view.setToolpath(f.toolpath, state.cam);
+    { const h = hardware ? holesOptions() : null; optionsPanel.update(h ? h.options : null); view.setToolpath(h && h.view ? h.view : f.toolpath, state.cam); } // (the holes the panel would cut are drawn over the model, `dec_parts_tool`)
     previewBar.update(f.previewBar);
     motionBar.update(f.motionBar);
     addChip.update(f.adding);

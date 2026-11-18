@@ -1,0 +1,31 @@
+---
+id: dec_parts_tool
+kind: decision
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_847, in_848, in_849
+date: 2026-11-18
+depends_on:
+  - dec_parts_interface: this changes where the Add part and Fastener Holes dialogs of that entry are shown: in the model view, as a panel with a live preview
+  - dec_parts_fastener_pilot: the receivers (clearance, countersunk, counterbored, to tap, nut pocket) and their sizes are that entry's
+  - dec_path_repeat: the rules and the places along a path (the outline, the lines selected) are that entry's
+  - dec_drag_preview_without_kernel: the preview is drawn from numbers on the page, not made by the kernel, so it can follow every change of a setting at once
+alternative_to:
+---
+# Hardware tools in the model view: a panel of settings, the selection as the clicks, a live preview
+
+**Accepted as proposed by the AI from `in_847`, with the human's choices (`in_848`: Fastener Holes first; `in_849`: the hardware dialogs are replaced by the panel and the preview, Path repeat keeps its dialog for now).** The human asked that choosing hardware in the menu return to the normal CAD screen, where there are options, where clicking on surfaces shows what would be done, and where changing a setting updates the preview.
+
+1. **Choosing the tool.** Shape, Models, **Fastener Holes** (and later **Fasteners**) arms a tool; no dialog opens and the view stays as it is. A **panel** stands still on the left of the page (as the gear box does, `in_685`) with the settings; the page's own selection is how surfaces are chosen: the face, with Shift the corners, circles and lines that place the holes (as before, `in_707`, `in_813`). Nothing new to learn: the selection is the click.
+2. **The panel** shows the same fields as the dialog had (the receiver cards with their cross-sections, size and clearance chips, where the holes go, the path rules, the depth, the thread engagement), made from the same descriptions (`receiverDialog`), so they cannot differ; a button **Cut** (Enter does the same), **Close** (Esc does the same). While no flat face is selected it says so and what to select.
+3. **The preview** is drawn in the model view, over the face, from the numbers: for each place the outline of what would be cut as the cross-section of the receiver turned to four sides and as rings (the hole's circle, the countersink's, the counterbore's, a nut pocket's hexagon), down to the depth (a hole right through shows to the far side of the body). It is redrawn as the selection or any setting changes, with no kernel. It reuses the view's toolpath overlay, so nothing new is drawn by the renderer.
+4. **Committing.** Cut makes the holes as one command (one undo, as now) and the tool stays on with the selection kept, so another set can be made at once; Close leaves. A refusal (a number that is not one, too many holes, an offset too big) is said in the panel and shows no preview.
+5. **Order:** (a) the panel from the field descriptions and the Fastener Holes tool with its preview; (b) the **Fasteners** (the parts) the same way, a ghost of the part placed on the surface or in a hole that is clicked; (c) Path repeat later if the human wants it.
+
+## Built (`in_848`, step (a): the panel and the Fastener Holes tool)
+
+**Shape, Models, Fastener Holes** now opens the **panel** on the left (always enabled: it says what to select) and leaves the view as it is; **the dialog is gone** for it. The panel is `ui/optionspanel.ts`, drawn from the same field descriptions as the dialog (`receiverDialog`) by the shared field drawing `ui/fields.ts` (taken out of `ui/dialog.ts`, which uses it too): receiver cards with their cross-sections (in as many columns as the panel holds), size and clearance chips, the picture, where the holes go, the path rules, depth, thread engagement; a number typed answers **as it is typed** (the preview follows each key); the cursor stays in the box. **The selection is the click:** the face, and with Shift corners, circles and lines; *where the holes go* follows the selection (picked places, else lines, else the middle) until a place is chosen in the panel. **The preview** (`interaction/holepreview.ts`, no kernel): for each hole the section of the receiver on four sides and a ring for each step (the hole, the cone of a countersink, a counterbore, a nut pocket's hexagon at the face and at its floor), a hole right through drawn to the far side of the body, a typed depth to that depth; as lines in the toolpath's form so **the view's existing overlay draws it** (`setToolpath`). **Cut** (the button, or Enter) makes the holes as one command (one undo) and the tool **stays on** with the selection; **Close** or Esc leaves (Esc is taken by the tool first, so it does not clear the selection). **Tests:** `holepreview.test.ts` (6): the lines of one hole (two rings and the section: 76 lines), the depth drawn to the body's far side and never past it, the extra rings of a countersink, a counterbore and a nut pocket's hexagons, a row along the outline (one set for each hole), the preview following the size and no preview with no place, the plan's refusals; `receiverPlan` now makes the places for the cut and the preview alike; and a browser pass (a block opened from a file, the tool opened from the ring with nothing selected, the face clicked: the hole drawn through the block; the countersunk card, M6, *along the face's outline*, a distance typed: six holes drawn as the number changed; Cut: the holes made). **Not built:** the **Fasteners** (the parts) in the panel ((b), their dialog stays for now), Path repeat in the panel ((c), only if asked), a hover preview of the hole under the pointer before a click, the preview cleared after a cut (it still shows over the holes just made, until the selection changes), touch layouts for the panel.
+
+## Rationale
+
+The dialog had to be closed to see the model, so every setting was a guess followed by a cut and an undo. The preview is cheap to draw from numbers, the descriptions of the settings already exist, and the selection already says which face and which places, so the tool needs no new way to click. Drawing the preview with the existing overlay keeps the renderer as it is.
