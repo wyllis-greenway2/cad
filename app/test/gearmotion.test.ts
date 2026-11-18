@@ -228,3 +228,20 @@ test("the number in the bar is always the same width, so the words round it do n
   assert.ok(labels.every((l) => /^turned [ -]*[0-9]+\.[0-9]°$/.test(l.replace(/ /g, " "))), JSON.stringify(labels));
   assert.ok(labels[0]!.endsWith("-100.5°") && labels[2]!.endsWith(" -78.0°"), "one decimal always");
 });
+
+test("turning the view (a drag of the camera) does not stop the picture of a motion: the bodies are still drawn where the motion has them (`in_969`)", () => {
+  const a = rec("g_001", [0, 0, 0], G1);
+  const b = partnerOf(a, 30);
+  const s = build([{ id: "g_001", at: a.at, spec: a.spec }, { id: "g_002", at: b.at, spec: b.spec, turn: b.turn, with: "g_001" }]);
+  const env = { w: 800, h: 600, now: 0 };
+  const bodyA = bodyOfGear(scene(s), scene(s).gears![0]!)!;
+  let st = { ...createState(s), cam: homeCamera() };
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [bodyA] } } };
+  st = reduce(st, { type: "runAction", id: "motion:play" }, env as never);
+  st = reduce(st, { type: "motionAt", amount: 36 }, env as never);
+  const still = frameOf(st, { w: 800, h: 600 });
+  assert.ok(still.bodyMatrix && still.followers.length === 1, "drawn moved");
+  const orbiting = frameOf({ ...st, drag: { camera: true } }, { w: 800, h: 600 });
+  assert.ok(orbiting.bodyMatrix && orbiting.followers.length === 1, "and still drawn moved while the view is turned");
+  near(orbiting.bodyMatrix!, still.bodyMatrix!);
+});

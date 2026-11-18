@@ -2,6 +2,7 @@
 // angle (the teeth of the pinion it meshes with, `mate`, and the angle between the shafts, 90 degrees plus the pinion's pitch angle, fix that: `crownShaft`), so the bevel gear's mesh, link and placing are its own; only its body differs, as there is no cone to cut.
 // The tooth is the one `prototypes/crown-gear` measured to fit a straight bevel pinion (about 1 mm3 of overlap at its place, over 100 half a pitch round): its flanks are planes through the radial lines at half the tooth's angle, leaning by the
 // pressure angle, so that the tooth is narrower by `h tan(alpha)` at the height `h` above the pitch plane at every radius (thinnest at the inner end). The proportions are those of the pinion `prototypes/crown-gear` measured against (addendum `m`, dedendum `1.25 m`, which `bevelOf` gives a pinion whose mate is a crown gear): the crown's tip is `m` above the pitch plane (a quarter module of clearance over the pinion's root), its root `1.25 m` below it (the same over the pinion's tip), the plate a thickness below that. (Straight flank planes through the radial lines make the gap narrower the deeper it goes, so a deeper root closes it at the inner end.)
+import { END_REACH, shortestFor } from "./blankchamfer.ts";
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import type { GearSpec } from "./gear.ts";
@@ -41,6 +42,8 @@ export function crownOf(spec: GearSpec): Result<CrownGeometry> {
   const thick = spec.width && spec.width > 0 ? spec.width : 2 * m;
   const g: CrownGeometry = { R, inner, outer, tip: m, root: 1.25 * m, thick, half: Math.PI / (2 * z) - (spec.backlash ?? 0) / (2 * R), alpha };
   if ((spec.bore ?? 0) / 2 > inner - m) return err("the bore must be inside the inner radius of the teeth");
+  if (!((spec.chamfer ?? 0) >= 0 && (spec.chamfer ?? 0) <= 1)) return err("the chamfer is from 0 to 1 module deep");
+  if ((spec.chamfer ?? 0) > 0 && !(outer - inner >= shortestFor((spec.chamfer ?? 0) * m, m))) return err(`the chamfer is too deep for teeth ${(outer - inner).toFixed(1)} mm long: at most ${Math.max(0, (outer - inner - 0.1 * m) / 2 - 0.25 * m).toFixed(1)} mm`);
   if (!(thick >= 0.5 * m)) return err("the plate must be at least half a module thick");
   if (!(2 * inner * Math.sin(flankAngle(g, g.tip, inner)) >= 0.2 * m)) return err("the teeth come to a point at their inner end: a larger inner radius, fewer teeth or a smaller pressure angle");
   if (!(flankAngle(g, -g.root, inner) < (Math.PI / z) * 0.98)) return err("the gaps close at the root of the inner end: a larger inner radius or a smaller pressure angle");
@@ -54,15 +57,16 @@ const flankAngle = (g: CrownGeometry, h: number, r: number): number => g.half - 
 /** The outline of the whole wheel in the plane at height `h`: corners (x, y) and the bulge of each side, counter-clockwise, tooth 0 centred on +x. Each tooth is its two flanks, the arc across its tip at the outer radius and the arc of the gap at the inner one. */
 export function crownSection(spec: GearSpec, g: CrownGeometry, h: number): { points: P[]; bulges: number[] } {
   const ri = g.inner - INSET; // (the loft goes a little inside the inner radius, where the blank cuts it: surfaces that coincide would not be cut cleanly)
+  const ro = g.outer + ((spec.chamfer ?? 0) > 0 ? END_REACH : 0); // (and with a chamfer a little beyond the outer radius too, `dec_bevel_chamfer`)
   const z = Math.round(spec.teeth), pitch = (2 * Math.PI) / z;
-  const [a0, a1] = [flankAngle(g, h, ri), flankAngle(g, h, g.outer)];
+  const [a0, a1] = [flankAngle(g, h, ri), flankAngle(g, h, ro)];
   const at = (r: number, th: number): P => [r * Math.cos(th), r * Math.sin(th)];
   const points: P[] = [], bulges: number[] = [];
   for (let k = 0; k < z; k++) {
     const c = k * pitch;
-    const [i0, o0, o1, i1] = [at(ri, c - a0), at(g.outer, c - a1), at(g.outer, c + a1), at(ri, c + a0)];
+    const [i0, o0, o1, i1] = [at(ri, c - a0), at(ro, c - a1), at(ro, c + a1), at(ri, c + a0)];
     points.push(i0, o0, o1, i1);
-    bulges.push(0, bulgeOf(o0, at(g.outer, c), o1), 0, bulgeOf(i1, at(ri, c + pitch / 2), at(ri, c + pitch - a0)));
+    bulges.push(0, bulgeOf(o0, at(ro, c), o1), 0, bulgeOf(i1, at(ri, c + pitch / 2), at(ri, c + pitch - a0)));
   }
   return { points, bulges };
 }

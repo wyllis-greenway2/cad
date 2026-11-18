@@ -10,7 +10,8 @@ import type { Scene } from "../operation/scene.ts";
 import { nextId } from "../operation/scene.ts";
 import type { MateMode } from "../operation/mates.ts";
 import type { MateState } from "../operation/mates.ts";
-import { featureOf, mateRelation, mateStatus, isFlatMode, turnOnly, angleOfMode } from "../operation/mates.ts";
+import { featureOf, mateRelation, mateStatus, isFlatMode, turnOnly, angleOfMode, canonBody, bodyPart } from "../operation/mates.ts";
+import { shapeOf, tangentMotion, whyNotTangent } from "../operation/tangent.ts";
 import type { Command } from "../operation/commands.ts";
 import { apply } from "../operation/commands.ts";
 import { carrySketches } from "./operations.ts";
@@ -28,8 +29,9 @@ type Mat = [Vec3, Vec3, Vec3]; // rows
 /** Why these two faces cannot be mated this way, or null. */
 export function whyNotMate(scene: Scene, mode: MateMode, mover: Ref, other: Ref): string | null {
   const [a, b] = [featureOf(scene, mover, mode), featureOf(scene, other, mode)];
-  if (!a || !b) return mode === "axisToFace" ? "a flat face and a round face of two bodies" : isFlatMode(mode) ? "two flat faces of two bodies" : "two round faces of two bodies";
+  if (!a || !b) return mode === "tangent" ? "a round face (a cylinder, a ball or a cone) and a flat or round face of two bodies" : mode === "axisToFace" ? "a flat face and a round face of two bodies" : isFlatMode(mode) ? "two flat faces of two bodies" : "two round faces of two bodies";
   if (mode === "axisToFace" && (a.radius > 0) === (b.radius > 0)) return "a flat face and a round face (one of each)";
+  if (mode === "tangent") { const w = whyNotTangent(shapeOf(a), shapeOf(b)); if (w) return w; }
   if (a.body === b.body) return "the faces are of one body: choose a face of each of two bodies";
   return null;
 }
@@ -77,12 +79,18 @@ export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref
   const [a, b] = [featureOf(scene, mover, mode)!, featureOf(scene, other, mode)!];
   // the turn: a flat face to face the other (its normal opposite), a round face's axis parallel to the other's (the nearer of the two ways)
   const want: Vec3 = mode === "flush" ? [-b.dir[0], -b.dir[1], -b.dir[2]] : dot(a.dir, b.dir) >= 0 ? b.dir : [-b.dir[0], -b.dir[1], -b.dir[2]]; // (a flush face faces the other; for the rest the nearer way is taken)
-  const R = turnOnly(mode) ? turnToAngle(a.dir, b.dir, angleOfMode(mode, gap)) : turnBetween(a.dir, want);
+  const tmo = mode === "tangent" ? tangentMotion(a, b) : null; // (a tangent mate: the turn and the move that bring the faces to touch, `in_976`, `in_977`)
+  const R = tmo ? (tmo.turnTo ? turnBetween(a.dir, tmo.turnTo) : turnBetween(a.dir, a.dir)) : turnOnly(mode) ? turnToAngle(a.dir, b.dir, angleOfMode(mode, gap)) : turnBetween(a.dir, want);
   const pivot = a.point; // (a point on the face or on the axis stays where it is under the turn)
   // the move: a flat face onto the other's plane (plus the gap, along the other's normal); an axis onto the other's axis, keeping its place along it
   let move: Vec3;
   let moverWhenTrue: Vec3; // (a point of the mover's face or axis when the mate is true)
-  if (mode === "flush") {
+  let tangentSide = 1;
+  if (tmo) {
+    tangentSide = tmo.side;
+    move = tmo.move(rotate(R, a.dir));
+    moverWhenTrue = [a.point[0] + move[0], a.point[1] + move[1], a.point[2] + move[2]];
+  } else if (mode === "flush") {
     const s = dot(sub(a.point, b.point), b.dir);
     move = [b.dir[0] * (gap - s), b.dir[1] * (gap - s), b.dir[2] * (gap - s)];
     moverWhenTrue = [b.point[0] + b.dir[0] * gap, b.point[1] + b.dir[1] * gap, b.point[2] + b.dir[2] * gap];
@@ -116,7 +124,7 @@ export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref
     const into = hardCollision(scene, [a.body], () => rigid);
     if (into.length) return { why: `the mate would put this body into ${hardNames(scene, into)}: hard bodies do not go into each other${(scene.clearance ?? 0) > 0 ? ` (or nearer than the clearance, ${scene.clearance} mm: give the mate a gap of at least that)` : ""}` };
   }
-  const made = mateRelation(again ?? nextId(scene, "r"), mode, gap, a, b, { mover: { point: moverWhenTrue, dir: turnOnly(mode) ? rotate(R, a.dir) : want }, other: { point: b.point, dir: b.dir } }, counts, standing, scene.steps.length + own);
+  const made = mateRelation(again ?? nextId(scene, "r"), mode, mode === "tangent" ? tangentSide : gap, a, b, { mover: { point: moverWhenTrue, dir: turnOnly(mode) || mode === "tangent" ? rotate(R, a.dir) : want }, other: { point: b.point, dir: b.dir } }, counts, standing, scene.steps.length + own);
   const kept = again ? scene.relations.find((r) => r.id === again)?.params : undefined; // (the drive values and limits of a joint stay when the mate is put back)
   if (kept) for (const k of JOINT_KEYS) if (k in kept) made.params![k] = kept[k]!;
   const record: Command = { type: "addRelation", relation: made };
@@ -233,11 +241,13 @@ export function jointRoom(scene: Scene, mateId: string, kind: "turn" | "slide"):
  */
 /** The standing mates in `states` as a problem for the solver: the mates, and the bodies they join with their middles. */
 function problemOf(scene: Scene, states: readonly MateState[]): { mates: SolveMate[]; bodies: SolveBody[] } {
-  const mates: SolveMate[] = states.map((m) => ({ id: m.id, mode: m.mode, gap: m.gap, counts: m.counts !== false, mover: m.mover!.body, other: m.other!.body, a: { point: m.mover!.point, dir: m.mover!.dir }, b: { point: m.other!.point, dir: m.other!.dir } }));
+  const mates: SolveMate[] = states.map((m) => ({ id: m.id, mode: m.mode, gap: m.gap, counts: m.counts !== false, mover: m.mover!.body, other: m.other!.body, a: { point: m.mover!.point, dir: m.mover!.dir, radius: m.mover!.radius, ...(m.mover!.shape ? { shape: m.mover!.shape } : {}), ...(m.mover!.semi !== undefined ? { semi: m.mover!.semi } : {}) }, b: { point: m.other!.point, dir: m.other!.dir, radius: m.other!.radius, ...(m.other!.shape ? { shape: m.other!.shape } : {}), ...(m.other!.semi !== undefined ? { semi: m.other!.semi } : {}) } }));
   const bodies: SolveBody[] = [];
   for (const ref of new Set(mates.flatMap((m) => [m.mover, m.other]))) {
-    const b = scene.parts[ref];
-    if (b?.kind !== "body" || !b.bbox) continue;
+    const w = scene.parts[ref];
+    if (w?.kind === "plane" && w.origin === "world") { bodies.push({ id: ref, pivot: w.at, order: -1 }); continue; } // (the world: it stands still, and the first of the set that only moves each other, `in_976`)
+    const b = bodyPart(scene, ref as Ref);
+    if (!b?.bbox) continue;
     bodies.push({ id: ref, pivot: [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2], order: Number(String(b.id ?? "").replace(/\D/g, "")) || 0 });
   }
   return { mates, bodies };
@@ -245,8 +255,8 @@ function problemOf(scene: Scene, states: readonly MateState[]): { mates: SolveMa
 
 /** The steps that put a body at a pose (turns about its pivot, then a move), with its sketches carried; none when the pose is no change. `k` tells the bodies of one batch apart in the step ids. */
 function poseCommands(scene: Scene, ref: Ref, pivot: Vec3, pose: Pose, k: number): Command[] {
-  const part = scene.parts[ref];
-  if (part?.kind !== "body" || !part.id) return [];
+  const part = bodyPart(scene, ref);
+  if (!part?.id) return [];
   let id = nextId(scene, "s");
   while (scene.steps.some((st) => st.id.startsWith(id))) id = `${id}_`;
   const angle = length(pose.turn);
@@ -272,8 +282,8 @@ export function heldCommand(scene: Scene, group: readonly Ref[], asked: Rigid, g
   let sc = scene;
   let any = false;
   held.rigids.forEach(({ body, rigid }, k) => {
-    const b = sc.parts[body];
-    if (b?.kind !== "body" || !b.bbox) return;
+    const b = bodyPart(sc, body);
+    if (!b?.bbox) return;
     const pivot: Vec3 = [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2];
     const pose = poseOfRigid(rigid, pivot);
     if (Math.hypot(...pose.shift) < 1e-2 && Math.hypot(...pose.turn) < 1e-4) return; // (a hundredth of a millimetre: the mates leave it nowhere to go, and the solver's leftovers are not a move)
@@ -291,14 +301,15 @@ export function heldCommand(scene: Scene, group: readonly Ref[], asked: Rigid, g
  * is, even one that is mated to them. Null when no standing mate holds it back.
  */
 let lastGrab: { key: string; pose: Pose } | null = null;
-export function constrainedMotion(scene: Scene, group: readonly Ref[], asked: Rigid, grab?: Vec3): { rigids: { body: Ref; rigid: Rigid }[]; blocked: string[] } | null {
+export function constrainedMotion(scene: Scene, group0: readonly Ref[], asked: Rigid, grab?: Vec3): { rigids: { body: Ref; rigid: Rigid }[]; blocked: string[] } | null {
+  const group = group0.map((g) => canonBody(scene, g)); // (a body is called one thing here, whether the scene has one body or several, `in_976`)
   const states = mateStatus(scene).filter((m) => m.standing && m.state === "ok" && m.mover && m.other && (group.includes(m.mover.body) !== group.includes(m.other.body)));
   if (!states.length) return null;
   const problem = problemOf(scene, states);
   const mates = problem.mates;
   // (every body dragged, also one that no mate joins to a body that stays: it moves with the others)
   const middle = (b: Scene["parts"][string] | undefined): Vec3 | null => (b?.kind === "body" && b.bbox ? [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2] : null);
-  const extra: SolveBody[] = group.flatMap((g) => { const c = middle(scene.parts[g]); return c && !problem.bodies.some((q) => q.id === g) ? [{ id: g, pivot: c, order: 0 }] : []; });
+  const extra: SolveBody[] = group.flatMap((g) => { const c = middle(bodyPart(scene, g)); return c && !problem.bodies.some((q) => q.id === g) ? [{ id: g, pivot: c, order: 0 }] : []; });
   const bodies = [...problem.bodies, ...extra];
   const members = group.flatMap((g) => { const b = bodies.find((q) => q.id === g); return b ? [b] : []; });
   if (!members.length) return null;
@@ -344,7 +355,7 @@ export function setMateValue(scene: Scene, id: string, value: number): Command |
 /** The standing mates that hold the bodies a move or turn command moves (each between one of them and a body that stays): the ones to offer to delete when the move is refused (`in_436`). */
 export function mateHolders(scene: Scene, c: Command): string[] {
   const flat = (x: Command): Command[] => (x.type === "batch" ? x.commands.flatMap(flat) : [x]);
-  const bodies = new Set(flat(c).flatMap((x) => (x.type === "addStep" && (x.step.type === "move" || x.step.type === "rotate") && x.step.params.body ? [x.step.parts[0]!] : [])));
+  const bodies = new Set(flat(c).flatMap((x) => (x.type === "addStep" && (x.step.type === "move" || x.step.type === "rotate") && x.step.params.body ? [canonBody(scene, x.step.parts[0]!)] : [])));
   return mateStatus(scene).filter((m) => m.standing && m.state === "ok" && m.mover && m.other && bodies.has(m.mover.body) !== bodies.has(m.other.body)).map((m) => m.id);
 }
 export function projectOnMates(scene: Scene, c: Command): Command | null {
