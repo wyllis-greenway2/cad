@@ -19,8 +19,12 @@ interface Reading { tag: string; value: number; unit: "mm" | "deg" | "mm²" }
 
 /** The numbers two faces of two bodies have between them. */
 export function readingsBetween(scene: Scene, a: Ref, b: Ref): Reading[] {
-  const flat = [featureOf(scene, a, "flush"), featureOf(scene, b, "flush")];
-  const round = [featureOf(scene, a, "coaxial"), featureOf(scene, b, "coaxial")];
+  let flat = [featureOf(scene, a, "flush"), featureOf(scene, b, "flush")];
+  let round = [featureOf(scene, a, "coaxial"), featureOf(scene, b, "coaxial")];
+  // two faces of the only body are read from their planes by the measure report, as before the mates could find the body of a face in a scene of one (`in_976`)
+  const oneBody = Object.values(scene.parts).filter((p) => p.kind === "body").length === 1;
+  if (oneBody && flat[0] && flat[1] && flat[0].body === flat[1].body) flat = [null, null];
+  if (oneBody && round[0] && round[1] && round[0].body === round[1].body) round = [null, null];
   const out: Reading[] = [];
   if (flat[0] && flat[1]) {
     const [fa, fb] = [flat[0], flat[1]];
