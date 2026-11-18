@@ -20,6 +20,8 @@ export interface PlanetarySpec {
   /** the sun's bore, mm (0: none); default as for a gear of its size */ bore?: number;
   /** the ring's wall in modules */ rim?: number;
   pin?: number; pinGap?: number; carrier?: number;
+  /** the tips of every gear's teeth broken at the faces, in modules (`in_826`) */ chamfer?: number;
+  /** the whole perimeter of every gear's faces chamfered, mm (`in_826`) */ edge?: number;
 }
 export interface PlanetaryRecord {
   id: string; plane: Ref; at: Vec3; spec: PlanetarySpec; turn?: number;
@@ -112,7 +114,7 @@ export function layoutOf(spec: PlanetarySpec, plane: { u: Vec3; v: Vec3 }, at: V
   if (bad) return err(bad.text);
   const [u, v] = [plane.u, plane.v];
   const pin = spec.pin ?? defaultPin(spec), gap = spec.pinGap ?? 0.2;
-  const common: GearSpec = { teeth: spec.sun, module: spec.module, width: spec.width, ...(spec.helix ? { helix: spec.helix } : {}), ...(spec.pressure !== undefined ? { pressure: spec.pressure } : {}), ...(spec.backlash ? { backlash: spec.backlash } : {}), ...(spec.clearance !== undefined ? { clearance: spec.clearance } : {}) };
+  const common: GearSpec = { teeth: spec.sun, module: spec.module, width: spec.width, ...(spec.helix ? { helix: spec.helix } : {}), ...(spec.pressure !== undefined ? { pressure: spec.pressure } : {}), ...(spec.backlash ? { backlash: spec.backlash } : {}), ...(spec.clearance !== undefined ? { clearance: spec.clearance } : {}), ...(spec.chamfer ? { chamfer: spec.chamfer } : {}), ...(spec.edge ? { edge: spec.edge } : {}) };
   const bore = spec.bore ?? defaultSunBore(spec);
   const sunSpec: GearSpec = { ...common, ...(bore > 0 ? { bore } : {}) };
   const sun: GearRecord = { id: "sun", plane: "" as Ref, at, spec: sunSpec, ...(turn ? { turn } : {}) };
@@ -120,13 +122,13 @@ export function layoutOf(spec: PlanetarySpec, plane: { u: Vec3; v: Vec3 }, at: V
   for (let k = 0; k < spec.planets; k++) {
     const r = meshWith(sun, u, v, { teeth: spec.planet }, turn + (TAU * k) / spec.planets);
     if (!r.ok) return err(r.error);
-    planets.push({ spec: { ...r.value.spec, bore: pin + 2 * gap }, at: r.value.at, turn: r.value.turn });
+    planets.push({ spec: { ...r.value.spec, bore: pin + 2 * gap, ...(spec.chamfer ? { chamfer: spec.chamfer } : {}), ...(spec.edge ? { edge: spec.edge } : {}) }, at: r.value.at, turn: r.value.turn });
   }
   const p0 = planets[0]!;
   const d = [at[0] - p0.at[0], at[1] - p0.at[1], at[2] - p0.at[2]] as const; // (from the first planet to the centre, in the plane: the direction the ring's middle lies from it)
   const around = meshWith({ id: "p", plane: "" as Ref, at: p0.at, spec: p0.spec, turn: p0.turn }, u, v, { teeth: spec.sun + 2 * spec.planet, ring: true }, Math.atan2(d[0] * v[0] + d[1] * v[1] + d[2] * v[2], d[0] * u[0] + d[1] * u[1] + d[2] * u[2]));
   if (!around.ok) return err(around.error);
-  const ring = { spec: { ...around.value.spec, ...(spec.rim !== undefined ? { rim: spec.rim } : {}) }, at, turn: around.value.turn };
+  const ring = { spec: { ...around.value.spec, ...(spec.rim !== undefined ? { rim: spec.rim } : {}), ...(spec.chamfer ? { chamfer: spec.chamfer } : {}), ...(spec.edge ? { edge: spec.edge } : {}) }, at, turn: around.value.turn };
   const out: Layout = { sun: { spec: sunSpec, at, turn }, planets, ring };
   if ((spec.carrier ?? 0) > 0) {
     const ringPitchR = (mt(spec) * (spec.sun + 2 * spec.planet)) / 2;

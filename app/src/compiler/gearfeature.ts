@@ -14,15 +14,23 @@ export function reducedGearBodies(result: KernelResult, gears: readonly GearShap
   bodies.forEach((b, i) => {
     const g = gears.find((q) => b.id === `x_${q.step}`);
     if (!g) return;
-    const k = [0, 1, 2].find((a) => Math.abs(Math.abs(g.normal[a]!) - 1) < 1e-6); // (a gear on a tilted plane has no round faces along a world axis: it keeps its parts)
-    if (k === undefined) return;
     const [lo, hi] = [b.min, b.max];
     const thick = Math.abs(g.depth);
-    if (Math.abs(hi[k]! - lo[k]! - thick) > 1e-3 * Math.max(1, thick) + 1e-3) return;
     const mid = [0, 1, 2].map((a) => g.centre[a]! + g.normal[a]! * g.depth / 2); // (the middle of the body)
-    for (let a = 0; a < 3; a++) {
-      if (a !== k && hi[a]! - lo[a]! > 2 * g.radius * SLACK + 0.01) return;
-      if (Math.abs((lo[a]! + hi[a]!) / 2 - mid[a]!) > 0.1 * g.radius + 0.01) return;
+    const k = [0, 1, 2].find((a) => Math.abs(Math.abs(g.normal[a]!) - 1) < 1e-6);
+    if (k !== undefined) { // (a gear that faces along a world axis: its thickness is exact, and it is no wider than its tips)
+      if (Math.abs(hi[k]! - lo[k]! - thick) > 1e-3 * Math.max(1, thick) + 1e-3) return;
+      for (let a = 0; a < 3; a++) {
+        if (a !== k && hi[a]! - lo[a]! > 2 * g.radius * SLACK + 0.01) return;
+        if (Math.abs((lo[a]! + hi[a]!) / 2 - mid[a]!) > 0.1 * g.radius + 0.01) return;
+      }
+    } else { // (a gear turned to face some other way, `in_826`: its box is that of a disc of its radius and thickness, a little less where no tooth points along an axis)
+      for (let a = 0; a < 3; a++) {
+        const half = (Math.abs(g.normal[a]!) * thick) / 2 + g.radius * Math.sqrt(Math.max(0, 1 - g.normal[a]! ** 2));
+        const got = (hi[a]! - lo[a]!) / 2;
+        if (got > half * SLACK + 0.01 || got < half - 0.15 * g.radius - 0.01) return;
+        if (Math.abs((lo[a]! + hi[a]!) / 2 - mid[a]!) > 0.1 * g.radius + 0.01) return;
+      }
     }
     out.set(i, g);
   });

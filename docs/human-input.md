@@ -3651,3 +3651,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > [the human attached a saved project, "weird_notch_cut_in_wheel.json" (a worm of 1 tooth, module 2, diameter 20, length 50; a worm wheel of 30 teeth meshed with it, land set to 4), and a state snapshot of the app]
 > I have this weird notch cut in the teeth of the wheel next to the worm gear. This shows up often. I think it is a bug. Also why does the wheel gear not have options that others do? Such as the teeth chamfer options? Also worm gear wheels dont seem to have the usual efficiency tricks that other gears have. Normal gears like regular spur gears have special rules for rendering their faces and edges (they are not selectable as individual curved planes) and it helps rendering speed a lot. Can you do an audit to see how many gears have this problem?
 (reports a notch cut in the worm wheel's teeth next to the worm, that it shows up often; asks why the wheel lacks options such as the tooth chamfer; says worm wheels lack the rendering and selection rules that plain gears have (their faces and edges are not individual curved planes); asks for an audit of how many gear kinds lack those rules)
+
+## in_826 — 2026-11-18 — approval
+> okay lets do your proposals
+(approves the five proposals of the last reply: carry a gear's shape through a move or turn; the worm wheel with a land as a gear shape; reduce the racks; chamfers for more kinds, starting with the worm wheel; fix the 3 start worm)

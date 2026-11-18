@@ -11,6 +11,7 @@ import { figureParams } from "./scene.ts";
 import type { Part } from "./part.ts";
 import type { GearRecord } from "./gearscene.ts";
 import { wormOf, wormLayout, wheelOf } from "./worm.ts";
+import { chamferOf } from "./gear.ts";
 import { boreLoop } from "./bore.ts";
 import { wheelSections, SECTIONS } from "./wheelsections.ts";
 
@@ -142,6 +143,16 @@ export function wheelSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] | null
       { type: "combine", parts: ["@s0", "@s4"] as Ref[], params: { mode: "subtract", ...own } },
       { type: "combine", parts: ["@s0", "@s5"] as Ref[], params: { mode: "subtract", ...own } },
     );
+  }
+  const ch = chamferOf(rec.spec), w = wheelOf(rec.spec), secs = wheelSections(rec.spec);
+  if (ch && w.ok && secs.ok) { // the tips of the teeth broken at both faces (`in_826`): the kernel's wedge for each tooth, as for a gear; the tooth 0 stands where the sections' first tooth does, the tip circle is the throat's at the faces of the throated part
+    const f = frameOf(s, rec)!;
+    const pts = secs.value[0]!.points, per = pts.length / Math.round(rec.spec.teeth);
+    const [a1, a2] = [Math.atan2(pts[per - 1]![1], pts[per - 1]![0]), Math.atan2(pts[per % pts.length]![1], pts[per % pts.length]![0])];
+    const mid = a1 + Math.atan2(Math.sin(a2 - a1), Math.cos(a2 - a1)) / 2; // (the middle of the first tooth's tip: the arc after the gap's last point)
+    const first: Vec3 = [f.X[0] * Math.cos(mid) + f.Y[0] * Math.sin(mid), f.X[1] * Math.cos(mid) + f.Y[1] * Math.sin(mid), f.X[2] * Math.cos(mid) + f.Y[2] * Math.sin(mid)];
+    const c0 = along(rec.at, f, 0, 0, -ch.width / 2);
+    steps.push({ type: "toothChamfer", parts: ["@s0"] as Ref[], params: { gear: rec.id, teeth: Math.round(rec.spec.teeth), tip: w.value.tipAt(w.value.width / 2), depth: ch.depth, width: ch.width, side: 1, twist: 0, cx: c0[0], cy: c0[1], cz: c0[2], dx: f.n[0], dy: f.n[1], dz: f.n[2], ux: first[0], uy: first[1], uz: first[2] } });
   }
   return steps;
 }

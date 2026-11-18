@@ -9,6 +9,9 @@ import { isMade } from "./gearscene.ts";
 import { wheelOf } from "./worm.ts";
 import { bevelLayout, bevelFrame, isCrown } from "./bevel.ts";
 import { crownOf } from "./crown.ts";
+import { then } from "../math/rotation.ts";
+import { motionOf, applyPoint, applyDir } from "./frames.ts";
+import type { Rigid } from "./frames.ts";
 
 export interface GearShape {
   /** the step that makes the body; the body is named `x_` and this in the kernel's answer */
@@ -66,6 +69,18 @@ export function gearShapeOf(sc: Scene, st: Step): GearShape | null {
     const hole0 = (rec.spec.bore ?? 0) > 0 ? (rec.spec.bore as number) / 2 : 0;
     return { step: st.id, gear: rec.id, centre: [0, 1, 2].map((k) => rec.at[k]! + normal[k]! * heel.h) as unknown as Vec3, normal, depth: depth0, radius: bg.tipRadius, rootRadius: bg.k * bg.rootRadius, ring: false, hole: hole0 };
   }
+  if (rec.spec.rack) { // a rack (`in_826`): flat faces and no round ones; its box is the outline's (turned about the gear's place), a helical one's sheared along its length by the helix
+    const depthR = st.type === "extrude" ? figureDepths(st)[0] ?? 0 : Number(st.params.advance ?? rec.spec.width ?? 0);
+    if (!Number.isFinite(depthR) || depthR === 0) return null;
+    const [c, sn] = [Math.cos(rec.turn ?? 0), Math.sin(rec.turn ?? 0)];
+    const pts = g.points.map(([x, y]) => [c * x - sn * y, sn * x + c * y] as const);
+    const [xs, ys] = [pts.map((q) => q[0]), pts.map((q) => q[1])];
+    const [cx, cy] = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+    const shear = rec.spec.helix !== undefined ? Math.abs(depthR * Math.tan((rec.spec.helix * Math.PI) / 180)) : 0;
+    const reach = Math.max(...pts.map(([x, y]) => Math.hypot(x - cx, y - cy))) + shear;
+    const centreR = [0, 1, 2].map((k) => rec.at[k]! + plane.u[k]! * cx + plane.v[k]! * cy) as unknown as Vec3;
+    return { step: st.id, gear: rec.id, centre: centreR, normal, depth: depthR, radius: reach, rootRadius: 0, ring: false, hole: 0 };
+  }
   let radius = g.outerRadius ?? g.tipRadius, rootRadius = g.rootRadius;
   let depth: number;
   let centre: Vec3 = rec.at;
@@ -74,7 +89,7 @@ export function gearShapeOf(sc: Scene, st: Step): GearShape | null {
     if (!w.ok) return null;
     depth = rec.spec.wheel.width + 2 * (rec.spec.wheel.land ?? 0); // (the throated part and a land at each face, `in_783`)
     centre = [0, 1, 2].map((k) => rec.at[k]! - normal[k]! * depth / 2) as unknown as Vec3; // (its sections lie either side of its plane)
-    radius = w.value.tipAt(depth / 2); // (the throat: the tip is widest at the faces)
+    radius = w.value.tipAt(rec.spec.wheel.width / 2); // (the throat: the tip is widest at the faces of the throated part; a land is that section carried straight out, `in_826`: the throat's own formula is not a number out there)
     rootRadius = w.value.rootAt(0);
   } else if (st.type === "extrude") depth = figureDepths(st)[0] ?? 0;
   else depth = Number(st.params.advance ?? rec.spec.width ?? 0);
@@ -83,8 +98,28 @@ export function gearShapeOf(sc: Scene, st: Step): GearShape | null {
   return { step: st.id, gear: rec.id, centre: [...centre] as unknown as Vec3, normal, depth, radius, rootRadius, ring: !!rec.spec.internal, hole: hole < radius ? hole : 0 };
 }
 
-/** The shapes of every gear body the scene has steps for. */
+/**
+ * The shape after the moves, turns and scales that came after the step that made the body (`in_826`): they are steps of their own, named for the body (`params.body`, or the body in `parts`), and the gear's record does not know of them.
+ * A turn about a point that was not recorded is not known: the shape is left as it was, and the body (its box no longer the gear's) keeps all its parts, as before.
+ */
+function movedShape(sc: Scene, g: GearShape, index: number): GearShape {
+  let m: Rigid | null = null;
+  const body = `x_${g.step}`;
+  for (let i = index + 1; i < sc.steps.length; i++) {
+    const st = sc.steps[i]!;
+    if (st.type !== "move" && st.type !== "rotate" && st.type !== "scale") continue;
+    const mine = st.params.body ? String(st.params.body) === body : st.parts.some((r) => String(r) === `b/${body}/o` || (String(r) === "b/body/o" && sc.gears?.length === 1)); // (`b/body/o`: the body, when there is one gear to be it)
+    if (!mine) continue;
+    const r = motionOf(st);
+    if (!r) return g;
+    m = m ? { turn: then(m.turn, r.turn), shift: applyPoint(r, m.shift), k: m.k * r.k } : r;
+  }
+  if (!m) return g;
+  const k = m.k;
+  return { ...g, centre: applyPoint(m, g.centre), normal: applyDir(m, g.normal), depth: g.depth * k, radius: g.radius * k, rootRadius: g.rootRadius * k, hole: g.hole * k };
+}
+/** The shapes of every gear body the scene has steps for, where each now stands. */
 export function gearShapes(sc: Scene): GearShape[] {
   if (!sc.gears?.length) return [];
-  return sc.steps.flatMap((st) => { const g = gearShapeOf(sc, st); return g ? [g] : []; });
+  return sc.steps.flatMap((st, i) => { const g = gearShapeOf(sc, st); return g ? [movedShape(sc, g, i)] : []; });
 }

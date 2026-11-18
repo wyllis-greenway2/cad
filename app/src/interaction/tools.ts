@@ -128,7 +128,7 @@ export type GearKey = "teeth" | "module" | "pressure" | "shift" | "backlash" | "
 /** The numbers of a gear in the order the number box shows them (a ring has a wall where a gear has a shift; a rack has the bar under its teeth; a partner has its tooth count, ratio and the direction it stands in). */
 export const gearFields = (g: { planetary?: true; internal: boolean; worm?: true; wheel?: true; bevel?: true; crown?: true; rack?: boolean; pulley?: PulleyKind; sprocket?: true; iso?: true; cycloidal?: true; mesh?: { src: GearRecord; rack: boolean; ring?: boolean } }): { key: GearKey; label: string }[] => {
   const f = (key: GearKey, label: string) => ({ key, label });
-  if (g.planetary) return [f("sun", "Sun teeth"), f("planet", "Planet teeth"), f("planets", "Planets"), f("ratio", "Ratio"), f("module", "Module"), f("width", "Width"), f("helix", "Helix"), f("pressure", "Pressure"), f("backlash", "Backlash"), f("clearance", "Clearance"), f("bore", "Sun bore"), f("rim", "Wall"), f("pin", "Pin"), f("pingap", "Pin gap"), f("carrier", "Carrier")]; // (a planetary set, `dec_planetary_gears`)
+  if (g.planetary) return [f("sun", "Sun teeth"), f("planet", "Planet teeth"), f("planets", "Planets"), f("ratio", "Ratio"), f("module", "Module"), f("width", "Width"), f("helix", "Helix"), f("pressure", "Pressure"), f("backlash", "Backlash"), f("clearance", "Clearance"), f("bore", "Sun bore"), f("rim", "Wall"), f("pin", "Pin"), f("pingap", "Pin gap"), f("carrier", "Carrier"), f("chamfer", "Chamfer"), f("edge", "Edge chamfer")]; // (a planetary set, `dec_planetary_gears`)
   const fs = gearFieldsBase(g, f);
   const at = fs.findIndex((x) => x.key === "bore");
   const withBore = at < 0 ? fs : [...fs.slice(0, at + 1), f("flat", "Flat"), f("key", "Key"), f("keydepth", "Key depth"), ...fs.slice(at + 1)]; // (a bore can have a D flat or a keyway, `in_589`)
@@ -139,7 +139,7 @@ const gearFieldsBase = (g: { internal: boolean; worm?: true; wheel?: true; bevel
   if (g.crown) return [f("teeth", "Teeth"), f("mate", "Pinion teeth"), f("module", "Module"), f("pressure", "Pressure"), f("inner", "Inner radius"), f("outer", "Outer radius"), f("width", "Thickness"), f("backlash", "Backlash"), f("bore", "Bore")]; // (`dec_crown_gears`: the shaft angle follows from the two tooth counts)
   if (g.bevel) return [f("teeth", "Teeth"), f("mate", "Mate teeth"), f("module", "Module"), f("pressure", "Pressure"), f("shaft", "Shaft angle"), f("face", "Face width"), f("backlash", "Backlash"), f("bore", "Bore")]; // (an approximation of the standard tooth, `in_735`)
   if (g.worm) return [f("teeth", "Starts"), f("module", "Module"), f("pressure", "Pressure"), f("diameter", "Diameter"), f("length", "Length"), f("journal", "Journal"), f("runout", "Run-out"), f("bore", "Bore")];
-  if (g.wheel) return [f("teeth", "Teeth"), f("starts", "Starts"), f("module", "Module"), f("pressure", "Pressure"), f("diameter", "Worm diameter"), f("width", "Width"), f("land", "Land"), f("bore", "Bore")];
+  if (g.wheel) return [f("teeth", "Teeth"), f("starts", "Starts"), f("module", "Module"), f("pressure", "Pressure"), f("diameter", "Worm diameter"), f("width", "Width"), f("land", "Land"), f("bore", "Bore"), f("chamfer", "Chamfer")]; // (the chamfer last, as a gear's, `in_826`)
   if (g.mesh?.src.spec.worm) return [f("teeth", "Teeth"), f("offset", "Offset"), f("width", "Width"), f("land", "Land"), f("bore", "Bore")]; // (the wheel for a worm: how many teeth, how far along the worm, how wide)
   if (g.mesh?.src.spec.wheel) return [f("teeth", "Starts"), f("offset", "Offset"), f("length", "Length"), f("bore", "Bore")]; // (the worm for a worm wheel, `in_697`)
   if (g.mesh) return g.mesh.src.spec.rack ? [f("teeth", "Teeth"), f("offset", "Offset"), f("bore", "Bore")] : g.mesh.rack ? [f("teeth", "Teeth"), f("angle", "Angle")] : g.mesh.ring ? [f("teeth", "Teeth"), f("ratio", "Ratio"), f("angle", "Angle")] : [f("teeth", "Teeth"), f("ratio", "Ratio"), f("angle", "Angle"), f("bore", "Bore")]; // (a gear made to mesh can have its bore at once, `in_588`)
@@ -350,7 +350,7 @@ function gearSpecOf(t: Tool): GearSpec | null {
     const starts = Math.round(typed("starts") ?? b?.wheel?.starts ?? 1);
     const throat = diameter / 2 - 1.25 * module + 0.25 * module;
     const width = typed("width") ?? b?.wheel?.width ?? Math.min(6 * module, 1.2 * throat);
-    return { teeth: Math.round(typed("teeth") ?? b?.teeth ?? 30), module, ...(pressure !== undefined ? { pressure } : {}), wheel: { starts, diameter, width, land: typed("land") ?? b?.wheel?.land ?? 0 }, ...(bore ? { bore, ...shapeOf(typed, b, fields[g.field]?.key) } : {}) };
+    return { teeth: Math.round(typed("teeth") ?? b?.teeth ?? 30), module, ...(pressure !== undefined ? { pressure } : {}), wheel: { starts, diameter, width, land: typed("land") ?? b?.wheel?.land ?? 0 }, ...(bore ? { bore, ...shapeOf(typed, b, fields[g.field]?.key) } : {}), ...((typed("chamfer") ?? b?.chamfer) ? { chamfer: (typed("chamfer") ?? b?.chamfer)! } : {}) };
   }
   if (g.pulley) { // a timing pulley: its grooves, how much bigger than the belt tooth they are, and a bore; the belt fixes the rest
     const [clearance, bore] = [typed("clearance") ?? b?.clearance, typed("bore") ?? b?.bore];
@@ -438,7 +438,7 @@ function planetaryMade(scene: Scene, t: Tool): Result<GearTarget> | null {
     sun, planet, planets, module, width, ...(helix ? { helix } : {}), ...(pressure !== undefined ? { pressure } : {}),
     ...(num("backlash", b?.backlash) ? { backlash: num("backlash", b?.backlash)! } : {}), ...(num("clearance", b?.clearance) !== undefined ? { clearance: num("clearance", b?.clearance)! } : {}),
     ...(boreT !== null ? { bore: boreT } : b?.bore !== undefined ? { bore: b.bore } : {}), ...(num("rim", b?.rim) !== undefined ? { rim: num("rim", b?.rim)! } : {}),
-    ...(num("pin", b?.pin) !== undefined ? { pin: num("pin", b?.pin)! } : {}), ...(num("pingap", b?.pinGap) !== undefined ? { pinGap: num("pingap", b?.pinGap)! } : {}), ...(num("carrier", b?.carrier) ? { carrier: num("carrier", b?.carrier)! } : {}),
+    ...(num("pin", b?.pin) !== undefined ? { pin: num("pin", b?.pin)! } : {}), ...(num("pingap", b?.pinGap) !== undefined ? { pinGap: num("pingap", b?.pinGap)! } : {}), ...(num("carrier", b?.carrier) ? { carrier: num("carrier", b?.carrier)! } : {}), ...(num("chamfer", b?.chamfer) ? { chamfer: num("chamfer", b?.chamfer)! } : {}), ...(num("edge", b?.edge) ? { edge: num("edge", b?.edge)! } : {}),
   };
   const bad = problemsOf(spec).find((p) => p.fatal);
   if (bad) return err(bad.text);
@@ -447,7 +447,7 @@ function planetaryMade(scene: Scene, t: Tool): Result<GearTarget> | null {
   if (!lay.ok) return err(lay.error);
   for (const x of [lay.value.sun, lay.value.planets[0]!, lay.value.ring]) { const o = gearOutline(x.spec); if (!o.ok) return err(o.error); }
   const r = planetaryRatios(spec);
-  const live: Partial<Record<GearKey, number>> = { sun: spec.sun, planet: spec.planet, planets: spec.planets, ratio: r.ring, module, width, helix: helix ?? 0, pressure: pressure ?? 20, backlash: spec.backlash ?? 0, clearance: spec.clearance ?? 0.25, bore: lay.value.sun.spec.bore ?? 0, rim: spec.rim ?? 2, pin: spec.pin ?? defaultPin(spec), pingap: spec.pinGap ?? 0.2, carrier: spec.carrier ?? 0 };
+  const live: Partial<Record<GearKey, number>> = { sun: spec.sun, planet: spec.planet, planets: spec.planets, ratio: r.ring, module, width, helix: helix ?? 0, pressure: pressure ?? 20, backlash: spec.backlash ?? 0, clearance: spec.clearance ?? 0.25, bore: lay.value.sun.spec.bore ?? 0, rim: spec.rim ?? 2, chamfer: spec.chamfer ?? 0, edge: spec.edge ?? 0, pin: spec.pin ?? defaultPin(spec), pingap: spec.pinGap ?? 0.2, carrier: spec.carrier ?? 0 };
   return ok({ spec: lay.value.sun.spec, at, turn, live, planetary: { spec, ratios: r, warnings: problemsOf(spec).filter((p) => !p.fatal), ringTeeth: spec.sun + 2 * spec.planet } });
 }
 /** The ratios of the set the tool would make, as a line for the box (each part held, the ring's teeth), and what is worth a warning; null for a tool that is not a planetary set or makes none. */

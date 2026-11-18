@@ -147,8 +147,10 @@ export const hasBody = (spec: GearSpec): boolean => spec.helix !== undefined || 
  * that has none. The kernel cuts one flat wedge off each tooth tip at each face (`toothChamfer`).
  */
 export function chamferOf(spec: GearSpec): { depth: number; side: 1 | -1; width: number } | null {
-  const [c, w] = [(spec.chamfer ?? 0) * spec.module, spec.width ?? 0];
-  if (!(c > 0) || !(w > 0) || spec.rack || spec.pulley || spec.sprocket || spec.cycloidal || spec.worm || spec.wheel || spec.bevel) return null;
+  const c = (spec.chamfer ?? 0) * spec.module;
+  if (spec.wheel) return c > 0 ? { depth: c, side: 1, width: spec.wheel.width + 2 * (spec.wheel.land ?? 0) } : null; // (a worm wheel: its throated part and a land at each face, `in_826`)
+  const w = spec.width ?? 0;
+  if (!(c > 0) || !(w > 0) || spec.rack || spec.pulley || spec.sprocket || spec.cycloidal || spec.worm || spec.bevel) return null;
   return { depth: c, side: spec.internal ? -1 : 1, width: w };
 }
 /**
