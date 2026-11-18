@@ -3612,3 +3612,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_816 — 2026-11-18 — approval
 > Yes, make Make it keep the box open
 (approves the AI's proposal for the gear box's Make it: it applies the numbers and leaves the box open on the gear just made, with its preview, so editing can go on; a Done button or Esc closes it)
+
+## in_817 — 2026-11-18 — directive
+> [the human attached two files: a state snapshot, "moving_bevel_gear_gets_weird.json", and a saved project, "moving_bevel_gear_gets_wierd.json": one 20 tooth bevel gear (mate 20, bore 5) at 24.67, 26.32, hidden and shown again, then a move of its body along Y by 11.2 following] trying to rotate a bevel gear sometimes fail? and or mvoing after a rotate does weird stuff.
+(reports that rotating a bevel gear sometimes fails and that moving it after a rotate does odd things; the files are the project (a bevel gear, hide and show, a move) and a snapshot of the app's state (the kernel took 11 s, 9.3 s of it the combine step of the bevel gear's body))

@@ -41,7 +41,9 @@ export function buildGraph(scene: Scene): GraphResult {
     const plane = first.plane ? get(first.plane) : undefined;
     if (!plane || plane.kind !== "plane") return "the shape is not on a plane";
     // (the sketch is carried with the body; the extrude reads it back through the moves and turns that came after it, `in_204`; a move of one body of several counts for a sketch drawn on a face of that body, `in_277`)
-    const back = inverse(laterMotion(scene.steps, scene.steps.indexOf(st), (body) => plane.body === body));
+    // (a gear's sketch is derived from its record, so a move of its body does not carry it: it is not read back through the move, or the bevel's loft stood where the move had taken it and its revolve, whose axis is numbers, where it was, `in_817`)
+    const gearMade = !!scene.gears?.some((g) => first.ref.startsWith(`d/${g.id}.`));
+    const back = gearMade ? NONE : inverse(laterMotion(scene.steps, scene.steps.indexOf(st), (body) => plane.body === body));
     const id = sid;
     if (first.kind === "circle") {
       const c = pointOf(get, first.center);
