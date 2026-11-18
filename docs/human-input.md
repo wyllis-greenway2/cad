@@ -4059,3 +4059,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > wait why did spiral hypoid replace regular spiral bevels?
 (asks why the menu entry "Spiral bevel" became "Spiral hypoid"; the AI answered it is the same tool with an offset field and offered separate entries)
 
+## in_927 — 2026-11-18 — directive
+> okay fix the kernel’s cone cut for spiral and hypoid gears please
+(a directive: make the kernel cut the tooth prism with the gear's cones reliably, so the tooth-count and cone limits can be opened; the AI had recommended it first)
+
