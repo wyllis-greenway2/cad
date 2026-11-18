@@ -13,11 +13,11 @@ export interface NoticeAction { label: string; title: string; /** what pressing 
 export interface Notice { kind: NoticeKind; text: string; /** a place in the scene it stands at (help) */ at?: Vec3; /** the constraint whose bubble it stands beside (a refusal) */ beside?: string; action?: NoticeAction }
 
 /** The notices of a frame, in the order they are drawn. At most one of each kind. */
-export function noticesOf(f: { message: string; refusal: { text: string; button: string; beside: string } | null; helper: { at: Vec3; text: string } | null; busy: boolean }): Notice[] {
+export function noticesOf(f: { message: string; refusal: { text: string; button: string; beside: string } | null; helper: { at: Vec3; text: string } | null; busy: boolean; /** what the working sign says (a model made in pieces says how far it is) */ busyText?: string }): Notice[] {
   const out: Notice[] = [];
   if (f.refusal) out.push({ kind: "refusal", text: f.refusal.text, beside: f.refusal.beside, action: { label: f.refusal.button, title: "Delete the constraints that stopped it, and make the change (one undo takes both back)", intent: { type: "overrideRefusal" }, hold: { type: "holdFlash" } } });
   else if (f.message) out.push({ kind: "status", text: f.message });
   if (f.helper) out.push({ kind: "help", text: f.helper.text, at: f.helper.at });
-  if (f.busy) out.push({ kind: "busy", text: "Working…" });
+  if (f.busy) out.push({ kind: "busy", text: f.busyText ?? "Working…" });
   return out;
 }

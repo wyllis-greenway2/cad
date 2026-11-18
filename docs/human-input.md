@@ -4004,3 +4004,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_914 — 2026-11-18 — approval
 > yes start
 (approves starting the Phase 1 prototype: ghosts from the commands and piecewise building of independent parts in camera order, measured on the 300 and 1000 part projects)
+
+## in_915 — 2026-11-18 — approval
+> yes
+(approves writing the decision and building the smallest slice of Phase 1 in the app: ghosts drawn at once from the commands, and the kernel asked for one group at a time in camera order, measured in the browser first)

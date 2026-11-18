@@ -1,7 +1,7 @@
 // The kernel as the app sees it, but worked out on its own thread (`in_132`). `evaluate` stays the same call: it answers at once with the result for this graph if it is known
 // (the cache), else with the last result there was (the picture lags a little) and asks the worker, newest request first, one at a time. When an answer comes `onChange` is called
 // so the app compiles again and picks the new result up from the cache. A heavy model therefore never freezes the page; it just takes a moment to appear.
-import type { ExportQuality, ExportResult, Kernel, KernelGraph, KernelResult, StepResult } from "./compiler/kernel/adapter.ts";
+import type { ExportQuality, ExportResult, Kernel, KernelGraph, KernelResult, StepResult, Vec } from "./compiler/kernel/adapter.ts";
 import type { ResultStore as Store } from "./platform/result-store.ts";
 type ResultStore = Store<KernelResult>; // (the store is made for the kernel's answer without knowing it: the platform layer does not import the compiler)
 
@@ -45,9 +45,9 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   let timer: ReturnType<typeof setTimeout> | null = null;
   const cache = new Map<string, KernelResult>();
   let last: KernelResult = EMPTY;
-  let busy: { id: number; key: string; graph: KernelGraph; asked?: { resolve: (r: ExportResult | StepResult) => void }; at?: number; posted?: number } | null = null;
+  let busy: { id: number; key: string; graph: KernelGraph; asked?: { resolve: (r: ExportResult | StepResult) => void }; at?: number; posted?: number; /** the answers so far of a model made in pieces have begun to come (`dec_progressive_open`) */ pieces?: boolean; /** and the thread has been asked to stop (a newer question is waiting) */ stopping?: boolean } | null = null;
   const exports: { graph: KernelGraph; quality: ExportQuality; resolve: (r: ExportResult | StepResult) => void }[] = []; // (the exports waiting: each is answered, none is dropped for a newer one)
-  let queued: { key: string; graph: KernelGraph; draft: boolean; lite: boolean; at: number } | null = null;
+  let queued: { key: string; graph: KernelGraph; draft: boolean; lite: boolean; at: number; eye?: Vec } | null = null;
   let counter = 0;
   /** A thread whose memory has grown big is stopped and a new one started (the memory of a kernel only grows: a heavy model leaves it big for the rest of the session, and the next edits add to it until the browser stops it). What it kept is lost: the next answer is worked out from nothing, and the answers the page has kept (the last few) are still shown. */
   const restart = (why: string) => {
@@ -73,11 +73,11 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
       return;
     }
     if (!queued) return;
-    const { key, graph, draft, lite, at } = queued;
+    const { key, graph, draft, lite, at, eye } = queued;
     queued = null;
     const job = { id: ++counter, key, graph, at, posted: performance.now() };
     busy = job;
-    worker.postMessage({ id: job.id, graph, draft, lite });
+    worker.postMessage({ id: job.id, graph, draft, lite, ...(eye ? { eye } : {}) });
     timer = setTimeout(() => stuck(job.id), limit);
     (timer as { unref?: () => void }).unref?.(); // (a timer must not keep a process alive that has nothing else to do)
   };
@@ -97,14 +97,24 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   let resolveReady: () => void = () => {};
   let rejectReady: (e: Error) => void = () => {};
   const ready = new Promise<void>((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
-  const onMessage = (e: MessageEvent<{ ready?: boolean; failed?: string; id?: number; heapMB?: number; result?: KernelResult; exported?: ExportResult | StepResult; at?: { started: number; sent: number } }>) => {
+  const onMessage = (e: MessageEvent<{ ready?: boolean; failed?: string; id?: number; heapMB?: number; partial?: boolean; cancelled?: boolean; result?: KernelResult; exported?: ExportResult | StepResult; at?: { started: number; sent: number } }>) => {
     const received = performance.timeOrigin + performance.now();
     const m = e.data;
     if (m.ready) { up = true; resolveReady(); pump(); return; }
     if (m.id === undefined) return void rejectReady(new Error(m.failed ?? "the kernel could not start"));
     const job = busy;
     if (!job || job.id !== m.id) return; // (the answer to a job that was given up)
+    if (m.partial && m.result) { // the parts made so far of a model made in pieces: shown at once, the job goes on (`dec_progressive_open`); each answer is a sign that it is alive, so its time starts again
+      job.pieces = true;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => stuck(job.id), limit);
+      (timer as { unref?: () => void }).unref?.();
+      last = { ...m.result, stale: true };
+      onChange();
+      return;
+    }
     busy = null;
+    if (m.cancelled) { if (timer) clearTimeout(timer); if (typeof m.heapMB === "number") heapMb = m.heapMB; pump(); return; } // (stopped for a newer question: what was made stays on the screen)
     if (timer) clearTimeout(timer);
     if (typeof m.heapMB === "number") { heapMb = m.heapMB; if (!baseMb) baseMb = heapMb; }
     if (job.asked) {
@@ -138,6 +148,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     lagging: true,
     draft: false,
     lite: false,
+    eye: undefined as Vec | undefined,
     init: () => ready,
     get pending() { return busy !== null || queued !== null || exports.length > 0; },
     exportMesh(graph: KernelGraph, quality: ExportQuality): Promise<ExportResult> {
@@ -159,7 +170,8 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
         void store.get(key).then((kept) => { if (kept && !cache.has(key)) { cache.set(key, { ...kept, fromCache: true }); onChange(); } });
       }
       if (busy?.key === key) return { ...last, stale: true }; // already being worked out
-      queued = { key, graph, draft, lite, at: performance.now() }; // only the newest request is kept: what was asked before it is no longer wanted
+      queued = { key, graph, draft, lite, at: performance.now(), ...(self.eye ? { eye: self.eye } : {}) }; // only the newest request is kept: what was asked before it is no longer wanted
+      if (busy?.pieces && !busy.stopping) { busy.stopping = true; worker.postMessage({ cancel: busy.id }); } // (a model being made in pieces is not finished for a question that has been overtaken: the parts made are kept)
       pump();
       return { ...last, stale: true }; // (what is shown meanwhile is marked, so nothing is built on it)
     },

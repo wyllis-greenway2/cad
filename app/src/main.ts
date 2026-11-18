@@ -581,6 +581,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 let keptHistory: unknown = null;
 function frame(now: number) {
   const tStart = performance.now();
+  engine.eye = [...position(state.cam)] as [number, number, number]; // (the kernel makes a model of many parts apart nearest the eye first, `dec_progressive_open`)
   if (state.session.history !== keptHistory) { keptHistory = state.session.history; const h = state.session.history; autosave.remember(() => saveText(state.session), h.commands.length, (why) => say(why)); } // (a moment after the last change, `in_910`)
   if (drawnAt !== null) { timing.add("browser: from a drawn frame to the next one (commit, the graphics card, the screen's refresh)", tStart - drawnAt); drawnAt = null; }
   if (state.anim || state.flash || state.mixT0 !== null) { state = advance(state, now); dirty = true; }
@@ -604,11 +605,11 @@ function frame(now: number) {
     view.setHiddenBodies(f.hiddenBodies);
     view.setThin(f.thin);
     const standShown = staleSince !== null && performance.now() - staleSince >= STANDIN_MS; // (the discs for gear bodies the kernel has not made: after a short wait, `dec_gear_standin`)
-    view.setStandIns(f.standIns, standShown);
+    view.setStandIns(f.standIns, standShown || f.standIns.some((d) => d.box)); // (the parts of a model made in pieces are drawn at once: there is nothing to wait for, `dec_progressive_open`)
     const pageAt = projector(state.cam, size.w, size.h).project;
     const onPageAt = (p: Vec3): [number, number] | null => { const q = pageAt(p); return q && q[0] > -50 && q[1] > -50 && q[0] < size.w + 50 && q[1] < size.h + 50 ? [q[0] + page.left, q[1] + page.top] : null; };
     const waitSecs = staleSince === null ? 0 : Math.floor((performance.now() - staleSince) / 1000);
-    const shownSecs = standLabels.update(f.standIns.map((d) => onPageAt([d.centre[0] + d.normal[0] * d.depth / 2, d.centre[1] + d.normal[1] * d.depth / 2, d.centre[2] + d.normal[2] * d.depth / 2])), waitSecs, standShown); // (the label on each disc, and its seconds, `in_847`)
+    const shownSecs = standLabels.update(f.standIns.filter((d) => !d.box).map((d) => onPageAt([d.centre[0] + d.normal[0] * d.depth / 2, d.centre[1] + d.normal[1] * d.depth / 2, d.centre[2] + d.normal[2] * d.depth / 2])), waitSecs, standShown); // (the label on each disc, and its seconds, `in_847`)
     if (shownSecs !== null && shownSecs !== lastStandSecs) { lastStandSecs = shownSecs; dirty = true; }
     if (buildStats.runs !== buildsBefore) { timing.add("geometry: built again (buildContent)", buildStats.totalMs); timing.add("geometry: of it the sharp edges (cornerEdges)", buildStats.cornersMs); timing.add("geometry: triangles built", buildStats.triangles); }
     view.setBodyMatrix(f.bodyMatrix, f.selectionMoves, f.bodySplit, f.followers.map((q) => ({ matrix: q.matrix, only: q.split })));
