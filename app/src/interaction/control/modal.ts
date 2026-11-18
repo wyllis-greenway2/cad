@@ -10,7 +10,7 @@ import type { ToolKind, Tool } from "../tools.ts";
 import { gearFields, armTool, typeKey, finish, lineNext, gearTyped, editGearTool, editPlanetaryTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf, editCamTool } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
 import type { CamKind, CamLaw, CamLayout } from "../../operation/cams.ts";
-import { doMotionPlay, doCamFollow } from "./motion.ts";
+import { doMotionPlay, doCamFollow, doLink } from "./motion.ts";
 import { gearOfPart, gearOfSelection } from "../../operation/gearscene.ts";
 import { planetaryOfPart } from "../../operation/planetary.ts";
 import type { OpKind } from "../operations.ts";
@@ -455,6 +455,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     const rec = selectionOf(s.session).map((r) => gearOfSelection(sc, r)).find((g) => !!g);
     return rec ? { ...closed, tool: meshGearTool(rec, id === "gear:meshrack", id === "gear:meshring"), op: null } : { ...closed, session: { ...s.session, message: "select a gear first" } };
   }
+  if (id === "motion:link") return doLink(closed); // (a ratio between two joints, `in_838`)
   if (id === "cam:follow") return doCamFollow(closed); // (the rod that rides the cam, `dec_mechanism_motion` stage 3)
   if (id === "motion:play") return doMotionPlay(closed); // (the joint of the selected body played, `dec_mechanism_motion`)
   if (id === "cam:edit") { // the numbers of the cam or the ratchet that is selected, in the number box (`in_768`)
@@ -679,6 +680,7 @@ function doRepeatEditStep(s: AppState, id: string): AppState {
   const sc = sceneOf(s.session);
   const st = sc.steps.find((x) => x.id === id && x.type === "pattern");
   if (!st) return say("that step is not a repeat");
+  if (st.params.mode === "path") return say("select the body and press Path repeat to change this one"); // (a repeat along a path has its own rules, `dec_path_repeat`)
   const kind = st.params.mode === "circular" ? "circular" : "linear";
   const r = startOp(sc, [st.parts[0] && sc.parts[st.parts[0]] ? st.parts[0] : BODY_OBJECT], kind, viewAxes(s.cam)); // (the body the repeat was made of, when it was one of several)
   if (!r.ok) return say(r.why);

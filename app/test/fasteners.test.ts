@@ -395,7 +395,7 @@ test("what cannot place a hole is refused with a reason, and with no place picke
   const noFace = select(b.s, [b.corner]);
   assert.equal(whyNoReceiver(noFace), "select one flat face of a body first");
   const body = b.refs.find((r) => r === "b/body/o")!;
-  assert.ok(whyNoReceiver(select(b.s, [b.top, body]))?.includes("only corners or circles"));
+  assert.ok(whyNoReceiver(select(b.s, [b.top, body]))?.includes("only corners, circles or lines"));
   const two = b.refs.filter((r) => r.includes("0,0,1,8") || r.includes("0,0,-1,0"));
   assert.ok(whyNoReceiver(select(b.s, two))?.includes("one flat face"));
   assert.equal(placesPicked(select(b.s, [b.top])), 0);

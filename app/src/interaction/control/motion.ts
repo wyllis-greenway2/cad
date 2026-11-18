@@ -2,10 +2,13 @@
 import type { AppState } from "./state.ts";
 import { scene as sceneOf, selection as selectionOf, run } from "../session.ts";
 import { startMotion, setPlaying, keepCommand } from "../motion.ts";
+import type { Command } from "../../operation/commands.ts";
 import { mateStatus } from "../../operation/mates.ts";
 import { gearOfBody, camFollower } from "../../operation/gearcouple.ts";
 import { bodyCentre } from "../objects.ts";
 import { dot, sub, normalize } from "../../math/vec.ts";
+import { linksOf } from "../../operation/coupling.ts";
+import type { Intent } from "../../shared/input.ts";
 import type { JointKind } from "../motion.ts";
 
 /** Play the joint of the selected body: it starts turning (a pin) at once; the bar has the scrubber, the turn or slide, keep and close. */
@@ -54,4 +57,35 @@ export function doCamFollow(s: AppState): AppState {
   const probe = camFollower({ ...sc, gears: sc.gears!.map((g) => (g.id === cam.id ? { ...g, follower: link } : g)) }, { ...cam, follower: link });
   if ("why" in probe) return say(probe.why);
   return { ...s, menu: null, session: run(s.session, { type: "setGear", id: cam.id, spec: cam.spec, follower: link }) };
+}
+
+/**
+ * Link the two joints selected (the first body of each of two coaxial mates): the second turns as much as the first (a ratio of 1, changed on the bar), and the first is played at once so the bar shows the link.
+ */
+export function doLink(s: AppState): AppState {
+  const sc = sceneOf(s.session);
+  const bodies = selectionOf(s.session).filter((r) => sc.parts[r]?.kind === "body");
+  const say = (message: string): AppState => ({ ...s, menu: null, session: { ...s.session, message } });
+  const mates = bodies.map((b) => mateStatus(sc).find((x) => x.state === "ok" && x.mode === "coaxial" && x.mover?.body === b));
+  if (bodies.length !== 2 || mates.some((m) => !m)) return say("select two bodies that each turn on a pin or slide on a rod (the first body of a coaxial mate), then Link joints");
+  const made = run(s.session, { type: "couple", a: mates[0]!.id, b: mates[1]!.id, ka: "turn", kb: "turn", ratio: 1 });
+  if (made.message) return say(made.message);
+  const r = startMotion(sceneOf(made), bodies[0]!, "turn");
+  return r.ok ? { ...s, menu: null, session: { ...made, message: null }, motion: setPlaying(r.motion, true) } : { ...s, menu: null, session: made };
+}
+/** The bar's edit of a link of the joint played: its ratio or what the other end does, as seen from this joint (the link may be stored the other way round), or taking it away. The motion starts again from where it stands. */
+export function doMotionLink(s: AppState, i: Extract<Intent, { type: "motionLink" }>): AppState {
+  const m = s.motion;
+  if (!m || !m.mate) return s;
+  const sc = sceneOf(s.session);
+  const c = sc.couplings?.find((x) => x.id === i.id);
+  const l = linksOf(sc, m.mate, m.kind).find((x) => x.id === i.id);
+  if (!c || !l) return s;
+  const mine = c.a === m.mate; // (stored as this joint to the other, or the other way round)
+  const command: Command = i.remove ? { type: "deleteCoupling", id: i.id }
+    : { type: "setCoupling", id: i.id, ...(i.ratio !== undefined ? { ratio: mine ? i.ratio : 1 / i.ratio } : {}), ...(i.kind ? (mine ? { kb: i.kind } : { ka: i.kind }) : {}) };
+  const next = run(s.session, command);
+  if (next.message) return { ...s, session: next };
+  const r = startMotion(sceneOf(next), m.body, m.kind);
+  return { ...s, session: next, motion: r.ok ? { ...r.motion, amount: m.amount, playing: m.playing, from: m.amount, startedAt: null, speed: m.speed } : null };
 }

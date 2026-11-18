@@ -14,6 +14,12 @@ import { dot } from "../math/vec.ts";
 import type { Part } from "../operation/part.ts";
 import { normalOfPlane, pointOf, roundOf } from "../operation/part.ts";
 import type { Ref } from "../shared/ref.ts";
+import type { Path } from "../operation/pathrepeat.ts";
+import { placeAlong } from "../operation/pathrepeat.ts";
+import { readFaceOutline, readLinesPath, planeBasis } from "../operation/pathmaps.ts";
+import { pathRuleFields, pathRepeatNumbers, pathRepeatStart } from "./pathrepeat.ts";
+import type { PathRepeatValues } from "./pathrepeat.ts";
+import { faceEdges } from "./offsetbody.ts";
 import { partDrawing, receiverDrawing } from "./partdrawing.ts";
 import { FASTENER_FAMILIES, FASTENER_SIZES, FASTENER_SOURCES, CLEARANCE_FIT_LIST as CLEARANCE_FITS, RECEIVER_KINDS, isFastenerSize, receiversText, makeNut, makeCountersunk, makeWasher, makeSocketHead, lengthAdvice, STANDARD_LENGTHS, countersunkDims, socketHeadDims, clearanceHole, tapHole, chartEngagement, nutTrap, receiverProblem, receiverSteps } from "../operation/fasteners.ts";
 import type { FastenerFamily, FastenerSize, PartSteps, ReceiverKind, ClearanceFit, FaceSpot } from "../operation/fasteners.ts";
@@ -99,8 +105,8 @@ export function addPart(session: Session, v: AddPartValues): Result<Session> {
 }
 
 // ---- the receivers: the hole or pocket a fastener goes into, cut into the body whose face is selected ----
-export interface ReceiverValues { kind: string; size: string; fit: string; depth: string; dx: string; dy: string; /** a hole to tap: the thread engagement in percent; empty is the chart's tap drill */ engagement?: string }
-export const receiverStart = (): ReceiverValues => ({ kind: "clearance", size: "M3", fit: "medium", depth: "", dx: "0", dy: "0", engagement: "" });
+export interface ReceiverValues extends Partial<PathRepeatValues> { kind: string; size: string; fit: string; depth: string; dx: string; dy: string; /** where the holes go: "centre" (the middle of the face), "picked" (the corners and circles selected), "outline" (along the face's outline) or "lines" (along the lines selected), `in_845` */ place?: string; /** a hole to tap: the thread engagement in percent; empty is the chart's tap drill */ engagement?: string }
+export const receiverStart = (): ReceiverValues => ({ kind: "clearance", size: "M3", fit: "medium", depth: "", dx: "0", dy: "0", engagement: "", ...pathRepeatStart(), value: "30", corners: "each", offset: "10" });
 const kindOf = (s: string): ReceiverKind => (RECEIVER_KINDS.find((k) => k.id === s)?.id ?? "clearance");
 const fitOf = (s: string): ClearanceFit => (s === "fine" || s === "coarse" ? s : "medium");
 
@@ -116,18 +122,20 @@ function placeOf(sc: Scene, p: Part): Vec3 | null {
  * The flat face selected, as a plane with the point the hole is centred on (the middle of the face's box across it), how far the body reaches through, and the places picked: the face with, if wanted, corners and circles
  * selected too (a corner, the centre of a drawn circle, of a round face or of a circular edge of the body, `in_707`), each taken onto the face along its normal. Or why there is none.
  */
-export function selectedFace(session: Session): Result<{ spot: FaceSpot; through: number; points: Vec3[] }> {
+export function selectedFace(session: Session): Result<{ spot: FaceSpot; through: number; points: Vec3[]; /** the lines selected with the face, a path for a row of holes (`in_845`) */ lines: Ref[]; face: Extract<Part, { kind: "plane" }> }> {
   const sc = scene(session);
   const sel = selection(session).map((r) => sc.parts[r]).filter((p): p is NonNullable<typeof p> => !!p);
   const faces = sel.filter(isFlatFace);
   const face = faces.length === 1 ? faces[0]! : null;
   if (!face) return err(faces.length > 1 ? "select one flat face of a body (and, to place the hole, corners or circles)" : "select one flat face of a body first");
   const picked: Vec3[] = [];
+  const lines: Ref[] = [];
   for (const p of sel) {
     if (p === face) continue;
     const at = placeOf(sc, p);
-    if (!at) return err("with the face, select only corners or circles to place the hole at");
-    picked.push(at);
+    if (at) picked.push(at);
+    else if (p.kind === "line") lines.push(p.ref); // (a straight line or an arc that is not a circle: a path for a row of holes)
+    else return err("with the face, select only corners, circles or lines to place the holes by");
   }
   const n = normalOfPlane(face);
   const onFace = (q: Vec3): Vec3 => { const h = dot([q[0] - face.at[0], q[1] - face.at[1], q[2] - face.at[2]], n); return [q[0] - n[0] * h, q[1] - n[1] * h, q[2] - n[2] * h]; };
@@ -145,17 +153,38 @@ export function selectedFace(session: Session): Result<{ spot: FaceSpot; through
   const body = Object.values(sc.parts).find((p) => p.kind === "body" && p.ref === face.ref.replace(/\/f@.*$/, "/o"));
   const box = body?.kind === "body" ? body.bbox : undefined;
   const through = box ? Math.hypot(box.max[0] - box.min[0], box.max[1] - box.min[1], box.max[2] - box.min[2]) : 1000;
-  return ok({ spot: { plane: face.ref, centre, u: face.u, v: face.v }, through, points });
+  return ok({ spot: { plane: face.ref, centre, u: face.u, v: face.v }, through, points, lines, face });
 }
 export const whyNoReceiver = (session: Session): string | null => { const f = selectedFace(session); return f.ok ? null : f.error; };
 
-export function receiverDialog(v: ReceiverValues, places = 0): Dialog {
+/** What the selection offers for placing the holes: how many places were picked, how many lines, and the face's outline and the lines as paths (or why they are not). */
+export interface ReceiverContext { places: number; lines: number; outline: Result<Path> | null; linePath: Result<Path> | null }
+export function receiverContext(session: Session): ReceiverContext | null {
+  const f = selectedFace(session);
+  if (!f.ok) return null;
+  const sc = scene(session);
+  const outline = readFaceOutline(sc, f.value.face, faceEdges(sc, f.value.face));
+  const linePath = f.value.lines.length ? readLinesPath(sc, f.value.lines, f.value.face) : null;
+  return { places: f.value.points.length, lines: f.value.lines.length, outline, linePath: linePath ? (linePath.ok ? ok(linePath.value.path) : linePath) : null };
+}
+/** Where the dialog starts the holes: at the places picked, else along the lines selected, else in the middle of the face. */
+export const receiverStartFor = (session: Session): ReceiverValues => { const c = receiverContext(session); return { ...receiverStart(), place: c && c.places ? "picked" : c && c.lines ? "lines" : "centre" }; };
+const PLACES = ["centre", "picked", "outline", "lines"] as const;
+type Where = (typeof PLACES)[number];
+const whereOf = (v: ReceiverValues, ctx?: ReceiverContext | null): Where => {
+  const w = (PLACES as readonly string[]).includes(v.place ?? "") ? (v.place as Where) : ctx?.places ? "picked" : "centre";
+  return w === "picked" && ctx && !ctx.places ? "centre" : w === "lines" && ctx && !ctx.lines ? "centre" : w;
+};
+
+export function receiverDialog(v: ReceiverValues, places = 0, ctx?: ReceiverContext | null): Dialog {
   const kind = kindOf(v.kind);
   const size = isFastenerSize(v.size) ? v.size : "M3";
   const fit = fitOf(v.fit);
   const family: FastenerFamily = kind === "countersunk" ? "countersunk" : kind === "counterbore" ? "socketHead" : "nut";
+  const where = whereOf(v, ctx);
+  const rules = pathRuleFields({ ...pathRepeatStart(), ...v } as PathRepeatValues, ctx ? (where === "lines" ? ctx.linePath : ctx.outline) : null, "hole");
   return {
-    title: places > 1 ? `Fastener holes (${places})` : "Fastener hole",
+    title: ctx && (where === "outline" || where === "lines") ? "Fastener holes along a path" : places > 1 ? `Fastener holes (${places})` : "Fastener hole",
     ok: "Cut",
     fields: [
       { id: "kind", label: "Receiver", type: "choice", layout: "cards", value: kind, choices: RECEIVER_KINDS.map((k) => ({ value: k.id, label: k.short, image: receiverDrawing(k.id, size, fit, 84, 72) })) },
@@ -164,8 +193,18 @@ export function receiverDialog(v: ReceiverValues, places = 0): Dialog {
       ...(kind === "tapped" ? [] : [{ id: "fit", label: "Clearance (ISO 273)", type: "choice" as const, layout: "chips" as const, value: fit, choices: CLEARANCE_FITS.map((f) => ({ value: f, label: `${f} (${clearanceHole(size, f)} mm)` })) }]),
       ...(kind === "tapped" ? [{ id: "engagement", label: "Thread engagement (%), empty is the chart's drill", type: "text" as const, value: v.engagement ?? "", note: engagementNote(size, v.engagement ?? "") }] : []),
       { id: "depth", label: "Depth (mm), empty goes right through", type: "text", value: v.depth, note: kind === "nutPocket" ? `the pocket is ${nutTrap(size).depth} mm deep, the hole goes on through` : "" },
-      { id: "dx", label: places ? "Across the face from the place picked (mm)" : "Across the face from its middle (mm)", type: "text", value: v.dx },
-      { id: "dy", label: places ? "Up the face from the place picked (mm)" : "Up the face from its middle (mm)", type: "text", value: v.dy, note: "the face's own two directions; the sizes are the standard's own, and the printer's offset is added when the part is made for printing" },
+      ...(ctx ? [{ id: "place", label: "Where the holes go", type: "choice" as const, layout: "chips" as const, value: where, choices: [
+        { value: "centre", label: "In the middle of the face" },
+        { value: "picked", label: places > 1 ? `At the ${places} places picked` : "At the place picked", ...(ctx.places ? {} : { disabled: "select corners or circles with the face" }) },
+        { value: "outline", label: "Along the face's outline", ...(ctx.outline?.ok ? {} : { disabled: ctx.outline?.ok === false ? ctx.outline.error : "the face has no outline to follow" }) },
+        { value: "lines", label: "Along the lines selected", ...(ctx.lines ? {} : { disabled: "select lines or arcs with the face" }) },
+      ] }] : []),
+      ...(ctx && (where === "outline" || where === "lines")
+        ? [{ ...rules.picture, id: "pathpicture", label: where === "outline" ? "Holes along the outline" : "Holes along the lines" }, ...rules.fields]
+        : [
+          { id: "dx", label: places ? "Across the face from the place picked (mm)" : "Across the face from its middle (mm)", type: "text" as const, value: v.dx },
+          { id: "dy", label: places ? "Up the face from the place picked (mm)" : "Up the face from its middle (mm)", type: "text" as const, value: v.dy, note: "the face's own two directions; the sizes are the standard's own, and the printer's offset is added when the part is made for printing" },
+        ]),
     ],
   };
 }
@@ -188,6 +227,35 @@ const engagementOf = (text: string): number | undefined | null => {
 /** How many places the selection names: the corners and circles picked, 0 when none (the hole goes in the middle of the face). */
 export const placesPicked = (session: Session): number => { const f = selectedFace(session); return f.ok ? f.value.points.length : 0; };
 
+/** The places along the face's outline or the lines selected, by the rules in the answers, on the face (a path in another plane is taken onto the face along its normal). Or why there are none. */
+function alongPath(session: Session, v: ReceiverValues, where: "outline" | "lines", f: { spot: FaceSpot; lines: Ref[]; face: Extract<Part, { kind: "plane" }> }): Result<Vec3[]> {
+  const sc = scene(session);
+  const rules = pathRepeatNumbers({ ...pathRepeatStart(), ...v } as PathRepeatValues);
+  if (!rules.ok) return rules;
+  let path: Path;
+  let plane = f.face;
+  if (where === "outline") {
+    const o = readFaceOutline(sc, f.face, faceEdges(sc, f.face));
+    if (!o.ok) return o;
+    path = o.value;
+  } else {
+    const l = readLinesPath(sc, f.lines, f.face);
+    if (!l.ok) return l;
+    path = l.value.path;
+    plane = l.value.plane as typeof f.face;
+  }
+  const placed = placeAlong(path, rules.value.rules);
+  if (!placed.ok) return placed;
+  if (placed.value.frames.length > 200) return err("that is more than 200 holes");
+  const b = planeBasis(plane);
+  const n = normalOfPlane(f.face);
+  return ok(placed.value.frames.map((fr): Vec3 => {
+    const p: Vec3 = [b.at[0] + b.u[0] * fr.at[0] + b.v[0] * fr.at[1], b.at[1] + b.u[1] * fr.at[0] + b.v[1] * fr.at[1], b.at[2] + b.u[2] * fr.at[0] + b.v[2] * fr.at[1]];
+    const h = dot([p[0] - f.face.at[0], p[1] - f.face.at[1], p[2] - f.face.at[2]], n); // (onto the face along its normal)
+    return [p[0] - n[0] * h, p[1] - n[1] * h, p[2] - n[2] * h];
+  }));
+}
+
 /** Cut the receiver into the body whose flat face is selected: the steps, one after another from the scene each leaves. */
 export function cutReceiver(session: Session, v: ReceiverValues): Result<Session> {
   const face = selectedFace(session);
@@ -203,8 +271,18 @@ export function cutReceiver(session: Session, v: ReceiverValues): Result<Session
   if (bad) return err(bad);
   const sp = face.value.spot;
   const size = v.size; // (narrowed above)
-  const places: Vec3[] = face.value.points.length ? face.value.points : [sp.centre]; // (the places picked, else the middle of the face)
-  const steps: PartSteps = places.flatMap((p) => receiverSteps(kind, size, fitOf(v.fit), depth, { ...sp, centre: [p[0] + sp.u[0] * dx + sp.v[0] * dy, p[1] + sp.u[1] * dx + sp.v[1] * dy, p[2] + sp.u[2] * dx + sp.v[2] * dy] }, engagement));
+  const where = whereOf(v, { places: face.value.points.length, lines: face.value.lines.length, outline: null, linePath: null });
+  let places: Vec3[];
+  let along = false;
+  if (where === "outline" || where === "lines") {
+    const got = alongPath(session, v, where, face.value);
+    if (!got.ok) return got;
+    places = got.value;
+    along = true;
+  } else if (where === "picked") places = face.value.points;
+  else places = [sp.centre]; // (the middle of the face)
+  const [ox, oy] = along ? [0, 0] : [dx, dy]; // (the offsets are from each place; along a path the path's own offset is the way in)
+  const steps: PartSteps = places.flatMap((p) => receiverSteps(kind, size, fitOf(v.fit), depth, { ...sp, centre: [p[0] + sp.u[0] * ox + sp.v[0] * oy, p[1] + sp.u[1] * ox + sp.v[1] * oy, p[2] + sp.u[2] * ox + sp.v[2] * oy] }, engagement));
   const c = oneCommand(scene(session), steps);
   if (!c.ok) return c;
   const s = run(session, c.value);

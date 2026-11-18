@@ -1,6 +1,7 @@
 // The pointer intents: hover, click (selecting, or drawing when a tool is armed, or finishing an operation) and the menu.
 import { CONSTRAINT_GROUPS, fits } from "../constraintlist.ts";
 import { whyNoReceiver } from "../addpart.ts";
+import { whyNoPathRepeat } from "../pathrepeat.ts";
 import type { Intent } from "../../shared/input.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { dist, dot, sub, cross, normalize } from "../../math/vec.ts";
@@ -86,6 +87,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "cam:edit", label: "Edit cam", icon: "cam" },
   { id: "cam:follow", label: "Follower", icon: "cam" },
   { id: "motion:play", label: "Play", icon: "play" },
+  { id: "motion:link", label: "Link joints", icon: "play" },
   { id: "gear:helix", label: "Helix", icon: "helical" },
   { id: "gear:mesh", label: "Mesh gear", icon: "meshgear" },
   { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack" },
@@ -105,6 +107,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "clipboard:paste", label: "Paste", icon: "paste", select: "paste" },
   { id: "op:linear", label: "Line repeat", icon: "linear", op: "linear" },
   { id: "op:circular", label: "Round repeat", icon: "circular", op: "circular" },
+  { id: "repeat:path", label: "Path repeat", icon: "pathrepeat" }, // (`dec_path_repeat`, `in_841`: a figure repeated along a line, a curve or an outline)
   { id: "models:fasteners", label: "Fasteners", icon: "fastener" }, // (Shape, then Models: a dialog with drawings, `dec_parts_interface`, `in_812`)
   { id: "models:holes", label: "Fastener Holes", icon: "fastenerHole" }, // (the hole for a fastener cut into the face selected, `in_813`)
   { id: "body:hard", label: "Hard body", icon: "hard", select: "hard" }, // (a constraint: no other body goes into it while one or the other is moved by hand, `in_473`, `in_490`)
@@ -134,8 +137,8 @@ const GEARS: Group = {
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", { id: "cams", label: "Cam", icon: "cam", items: ["tool:eccentric", "tool:snail", "tool:ratchet", "tool:linear", { id: "genevas", label: "Geneva", icon: "cam", items: ["tool:geneva", "tool:geneva:assembled", "tool:geneva:model"] }, { id: "disccams", label: "Disc cam", icon: "cam", items: ["tool:disc:cycloidal", "tool:disc:harmonic", "tool:disc:parabolic"] }, "cam:edit", "cam:follow"] }, GEARS, "tool:trim", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "models", label: "Models", icon: "models", items: ["models:fasteners", "models:holes"] }] },
-  { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play"] },
-  { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular"] },
+  { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link"] },
+  { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
 ];
 /** While a repeat is open only drawing, Move and Rotate (and constraints) are offered (the rest could change what is being repeated or the pivot's parts). */
@@ -152,6 +155,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     const base = { id: r.id, label: r.label, icon: r.icon };
     if (repeating && !IN_REPEAT.has(r.id)) return [r.id, { ...base, enabled: false, why: "apply or cancel the repeat that is open first" }];
     if (r.id === "motion:play") { const body = sel.find((x) => sc.parts[x]?.kind === "body"); const m = body ? startMotion(sc, body, "turn") : null; return [r.id, { ...base, enabled: !!m?.ok, why: m?.ok ? null : "select a body on a pin or a rod (the first body of a coaxial mate)" }]; }
+    if (r.id === "motion:link") { const n = sel.filter((x) => sc.parts[x]?.kind === "body").length; return [r.id, { ...base, enabled: n === 2, why: n === 2 ? null : "select two bodies that each turn on a pin or slide on a rod" }]; }
     if (r.id === "cam:follow") { const has = sel.some((x) => sc.parts[x]?.kind === "body" && !!gearOfBody(sc, x)?.spec.cam); return [r.id, { ...base, enabled: has, why: has ? null : "select a cam with its body, then the rod that rides it" }]; }
     if (r.id === "cam:edit") { const has = sel.some((x) => !!gearOfPart(sc, x)?.spec.cam); return [r.id, { ...base, enabled: has, why: has ? null : "select a cam" }]; }
     if (r.id === "gear:helix") { // (the helix is a number of a plain gear, `in_693`)
@@ -160,6 +164,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
       return [r.id, { ...base, enabled: !why, why }];
     }
     if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfSelection(sc, x) || (r.id === "gear:edit" && !!planetaryOfPart(sc, x))); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
+    if (r.id === "repeat:path") { const why = whyNoPathRepeat(session); return [r.id, { ...base, enabled: !why, why }]; }
     if (r.id === "models:fasteners") return [r.id, { ...base, enabled: true, why: null }];
     if (r.id === "models:holes") { const why = whyNoReceiver(session); return [r.id, { ...base, enabled: !why, why }]; }
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];

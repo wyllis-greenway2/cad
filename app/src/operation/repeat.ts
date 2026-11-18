@@ -12,9 +12,10 @@ import type { Scene } from "./scene.ts";
 import { figureRefs } from "./scene.ts";
 import type { Part } from "./part.ts";
 import { normalOfPlane } from "./part.ts";
+import { pathMaps } from "./pathmaps.ts";
 
 /** `params` are the numbers of the repeat tool (a mirror: the mirror plane, [x, y, z of a point on it, then its normal]): linear [nX, dX, nY, dY, nZ, dZ] (how many along each axis, how far apart), circular [count, degrees, axis (0 X, 1 Y, 2 Z), x, y, z of the point it turns about]; a repeat made with the mover turned has nine more, the three axes of the mover (`in_440`): the axes the copies run along, or turn about. */
-export interface PatternRecord { id: string; kind: "linear" | "circular" | "mirror"; parts: Ref[]; plane: Ref; params: number[] }
+export interface PatternRecord { id: string; kind: "linear" | "circular" | "mirror" | "path"; parts: Ref[]; plane: Ref; params: number[]; /** a path repeat: the lines and arcs the copies follow (`pathmaps.ts`), whose rules are `params` (`pathrepeat.ts`) */ path?: Ref[] }
 
 export const patternsOf = (s: Scene): readonly PatternRecord[] => s.patterns ?? [];
 const MOST = 200;
@@ -66,7 +67,7 @@ function copiesOf(s: Scene, rec: PatternRecord): Part[] {
   const n0 = normalOfPlane(plane);
   const out: Part[] = [];
   // each copy is a map of points and of directions: a move, a turn about a point, or (a mirror) a reflection in a plane (`in_433`)
-  const maps: { place: (p: Vec3) => Vec3; vec: (v: Vec3) => Vec3; mirror?: boolean }[] = rec.kind === "mirror" ? mirrorMaps(rec.params) : placements(rec.kind, rec.params).map((c) => ({
+  const maps: { place: (p: Vec3) => Vec3; vec: (v: Vec3) => Vec3; mirror?: boolean }[] = rec.kind === "mirror" ? mirrorMaps(rec.params) : rec.kind === "path" ? pathMaps(s, rec).maps : placements(rec.kind, rec.params).map((c) => ({
     place: (p: Vec3): Vec3 => (c.turn ? add(c.turn.pivot, turnVec(sub(p, c.turn.pivot), c.turn.axis, c.turn.angle, c.turn.dir)) : add(p, c.move)),
     vec: (v: Vec3): Vec3 => (c.turn ? turnVec(v, c.turn.axis, c.turn.angle, c.turn.dir) : v),
   }));
@@ -109,6 +110,8 @@ export function withPatterns(s: Scene): Scene {
 function patternOf(s: Scene, ref: Ref): PatternRecord | undefined {
   return patternsOf(s).find((r) => r.parts.includes(ref) || isMade(r.id, ref) || ref.includes(`@${r.id}.c`));
 }
+/** The path repeat a part belongs to: as the figure repeated, a copy of it, or a line of the path it follows. */
+export const pathRepeatOf = (s: Scene, ref: Ref): PatternRecord | undefined => patternsOf(s).find((r) => r.kind === "path" && (r.parts.includes(ref) || isMade(r.id, ref) || ref.includes(`@${r.id}.c`) || (r.path ?? []).includes(ref)));
 export function addPattern(s: Scene, rec: PatternRecord): Result<Scene> {
   if (patternsOf(s).some((r) => r.id === rec.id)) return err(`repeat ${rec.id} already exists`);
   if (!(rec.plane in s.parts)) return err(`plane ${rec.plane} does not exist`);

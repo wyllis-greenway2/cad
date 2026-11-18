@@ -15,7 +15,8 @@ import { laserDialog, runLaser, findingsDialog, machineChoices, machineDialog, s
 import { parseLibrary, libraryText, saveMachine, removeMachine, saveSettings, removeSettings } from "./interaction/library.ts";
 import { flatSnapshot } from "./interaction/partsnapshot.ts";
 import type { LaserValues } from "./interaction/manufacture.ts";
-import { addPartStart, addPartDialog, addPart, familyName, lengthAdviceOf, receiverStart, receiverDialog, cutReceiver, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
+import { pathRepeatTarget, pathRepeatDialog, pathRepeatCommand, pathRepeatStart, pathRepeatValuesFor } from "./interaction/pathrepeat.ts";
+import { addPartStart, addPartDialog, addPart, familyName, lengthAdviceOf, receiverStartFor, receiverDialog, receiverContext, cutReceiver, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
 import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
 import type { ExportOptions } from "./interaction/transfer.ts";
@@ -174,6 +175,7 @@ const menu = createMenu(document.body, (id) => {
 const ring = createRing(document.body, (id) => {
   ring.hide();
   if (id === "view:game") { input.toggleGame(); return; }
+  if (id === "repeat:path") { void pathRepeatFlow(); return; } // (`dec_path_repeat`)
   if (id === "models:fasteners") { void addPartFlow(); return; } // (Shape, Models: the dialogs are the page's, `in_812`, `in_813`)
   if (id === "models:holes") { void fastenerHoleFlow(); return; }
   dispatch({ type: "runAction", id });
@@ -262,14 +264,30 @@ async function addPartFlow() {
   dirty = true;
   say(`added: ${answers.size} ${familyName(String(answers.family))}, at the origin${lengthAdviceOf(answers as unknown as ReturnType<typeof addPartStart>) ? ` (${lengthAdviceOf(answers as unknown as ReturnType<typeof addPartStart>)})` : ""}`);
 }
+/** Path repeat (`dec_path_repeat`, `in_843`): the figure and the lines of the path selected, a dialog for the rules (with a picture of where the copies stand), and the repeat made (or the rules of the one selected changed). */
+async function pathRepeatFlow() {
+  const t = pathRepeatTarget(state.session);
+  if (!t.ok) return say(t.error);
+  const target = t.value;
+  const answers = await dialog.open((v) => pathRepeatDialog(state.session, target, v as unknown as ReturnType<typeof pathRepeatStart>), pathRepeatValuesFor(target) as unknown as Values);
+  if (!answers) return;
+  const c = pathRepeatCommand(state.session, target, answers as unknown as ReturnType<typeof pathRepeatStart>);
+  if (!c.ok) return say(c.error);
+  const next = run(state.session, c.value);
+  if (next.message) return say(next.message);
+  state = { ...state, session: next };
+  dirty = true;
+  say(target.edit || target.body?.step ? "path repeat changed" : "path repeat made");
+}
 /** Fastener hole (`in_746`): the receiver for a fastener (a clearance hole, a countersunk one, a hole to tap, a nut pocket) cut into the body whose flat face is selected, at the face's middle or as far from it as typed. */
 async function fastenerHoleFlow() {
   const why = whyNoReceiver(state.session);
   if (why) return say(why);
-  const answers = await dialog.open((v) => receiverDialog(v as unknown as ReturnType<typeof receiverStart>, placesPicked(state.session)), receiverStart() as unknown as Values);
+  const ctx = receiverContext(state.session);
+  const answers = await dialog.open((v) => receiverDialog(v as unknown as ReturnType<typeof receiverStartFor>, placesPicked(state.session), ctx), receiverStartFor(state.session) as unknown as Values);
   if (!answers) return;
   const places = placesPicked(state.session); // (before the cut: the selection may not survive it)
-  const r = cutReceiver(state.session, answers as unknown as ReturnType<typeof receiverStart>);
+  const r = cutReceiver(state.session, answers as unknown as ReturnType<typeof receiverStartFor>);
   if (!r.ok) return say(r.error);
   state = { ...state, session: r.value };
   dirty = true;
