@@ -3672,3 +3672,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_831 — 2026-11-18 — directive
 > please merge in claude/adoring-dijkstra-next-pascal
 (asks again for claude/adoring-dijkstra-next-pascal to be merged into the testing branch)
+
+## in_832 — 2026-11-18 — directive
+> Full suite in the background: push after the quick checks and run the full check afterwards, then tell you if it fails.
+(chooses how merges into the testing branch are checked: types, docs and the tests near the changed code first, then push, with the full suite run afterwards in the background and the human told if it fails; given in answer to why a merge took so long)
