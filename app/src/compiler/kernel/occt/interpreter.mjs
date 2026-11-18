@@ -2337,6 +2337,10 @@ function ownSolid(ctx, op, kind, ids, build) {
 export const kernelStats = { prismsBuilt: 0, prismsReused: 0, partialBooleans: 0, booleansKept: 0 };
 /** Forget what is kept of bodies, so that the next answer is worked out from nothing (for the tests: the kept and the worked-out answers are to be the same). */
 export function clearKernelCaches() { prisms.clear(); booleans.clear(); validSolids.clear(); uncrossed.clear(); memo.clear(); clearNameCaches(); }
+/** The size (MB) of the kernel's memory above which no step is made (`KERNEL_MEMORY_STOP_MB` in `kernel-async.ts` is the same number: a thread above it is restarted). */
+let memoryStopMb = 3300;
+export function setMemoryStop(mb) { memoryStopMb = mb; }
+const heapMegabytes = () => { try { return Math.round((getOC().wasmMemory?.buffer.byteLength ?? 0) / 1048576); } catch { return 0; } };
 const memo = new Map(); // key -> { value, own }
 /**
  * The answers kept for the steps, the oldest forgotten first once they hold more than `MEMO_FACES` faces of their own (a step's own are the faces its answer has beyond its target's, the answers of a row of steps
@@ -2438,6 +2442,8 @@ export function compile(graph, quick = false) {
       results.set(op.id, { value: kept.value, ms: 0, key, cached: true, faces: kept.faces });
       continue;
     }
+    // the kernel's memory is nearly its 4 GB: a step that went on would be the end of the page's tab (a model of 1100 bodies killed it after 46 s, `in_910`); this step and the ones after it say so and nothing more is made
+    if (memoryStopMb > 0) { const mb = heapMegabytes(); if (mb > memoryStopMb) { results.set(op.id, { error: `the model is too big for the kernel's memory (${mb} MB of 4096 used): use fewer or simpler parts, or save it and open it in pieces`, ms: 0 }); continue; } }
     let markMs = 0;
     let checkMs = 0;
     try {

@@ -1,13 +1,14 @@
 import { lengthText } from "../shared/units.ts";
 // The rows of the ⋯ list, always all there and dimmed when one cannot be used (`in_661`): the lists, save, open, import, export, share, and the settings page (the view, the mouse and the keyboard are there, `dec_settings_page`).
 export interface AppRow { id: string; label: string; enabled: boolean; why: string | null }
-export const appRows = (build = "", can: { export?: boolean; /** a body is selected, so a material can be tagged on it (`in_597`) */ material?: boolean; /** there is a flat drawing to cut with a laser (`in_662`) */ laser?: boolean; /** the person's laser table has rows to look at (`in_666`) */ laserTable?: boolean; /** drawn lines are selected, so the laser route can mark them (`in_603`) */ laserLayers?: boolean; /** how many mates are no longer true (`in_315`) */ matesOff?: number; /** the kernel's answers are kept between sessions (`dec_description_cache`): a row to forget them */ clearAnswers?: boolean } = {}, allConstraints = false, clearance = 0): AppRow[] => [
+export const appRows = (build = "", can: { export?: boolean; /** a body is selected, so a material can be tagged on it (`in_597`) */ material?: boolean; /** there is a flat drawing to cut with a laser (`in_662`) */ laser?: boolean; /** the person's laser table has rows to look at (`in_666`) */ laserTable?: boolean; /** drawn lines are selected, so the laser route can mark them (`in_603`) */ laserLayers?: boolean; /** how many mates are no longer true (`in_315`) */ matesOff?: number; /** the kernel's answers are kept between sessions (`dec_description_cache`): a row to forget them */ clearAnswers?: boolean; /** a copy of the last session was kept in the browser (`in_910`) */ restore?: boolean } = {}, allConstraints = false, clearance = 0): AppRow[] => [
   { id: "mate:reapply", label: "Reapply mates", enabled: !!can.matesOff, why: "every mate is true as it is" }, // (always there, dimmed when it cannot be used, `in_661`)
   { id: "bodies", label: "Bodies", enabled: true, why: null },
   { id: "history", label: "History", enabled: true, why: null },
   { id: "groups", label: "Groups", enabled: true, why: null },
   { id: "save", label: "Save", enabled: true, why: null },
   { id: "open", label: "Open…", enabled: true, why: null },
+  { id: "restore", label: "Restore session", enabled: !!can.restore, why: "no copy of an earlier session was kept in this browser" },
   { id: "import", label: "Import…", enabled: true, why: null },
   { id: "material", label: "Material…", enabled: can.material ?? true, why: "select a body first" },
   { id: "export", label: "Export…", enabled: can.export ?? true, why: "nothing to export yet: make a body, or draw something" },

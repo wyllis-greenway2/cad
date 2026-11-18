@@ -5,6 +5,8 @@ import type { ExportQuality, ExportResult, Kernel, KernelGraph, KernelResult, St
 import type { ResultStore as Store } from "./platform/result-store.ts";
 type ResultStore = Store<KernelResult>; // (the store is made for the kernel's answer without knowing it: the platform layer does not import the compiler)
 
+/** The size (MB) of its memory above which the kernel makes no more steps (`memoryStopMb` in `interpreter.mjs`): a thread this big is restarted before the next job, whatever it was at its first answer (`in_910`). */
+const KERNEL_MEMORY_STOP_MB = 3300;
 const EMPTY: KernelResult = { ops: [], finalId: null, volume: null, bbox: null, mesh: null, faces: null, edges: null, vertices: null, totalMs: 0 };
 const KEEP = 24; // results kept, newest last
 
@@ -22,7 +24,8 @@ const takeEarlyKernel = (): WorkerLike | null => { const w = (globalThis as unkn
 const spawn = (): WorkerLike => takeEarlyKernel() ?? new Worker(new URL("./kernel-worker.ts", import.meta.url), { type: "module" });
 
 /** What the kernel says when a job cannot be answered: an error on the last operation of the graph, so the step that asked for it is the one that is reported (and is taken back). */
-const failedResult = (graph: KernelGraph, error: string, ms = 0): KernelResult => ({ ...EMPTY, ops: graph.ops.map((o, i) => ({ id: o.id, type: o.type, error: i === graph.ops.length - 1 ? error : null, ms: i === graph.ops.length - 1 ? ms : 0 })) });
+/** The answer to a job that could not be made: the step that asked has the error. What was drawn before stays drawn (`shown`: the last answer that was made; a model of hundreds of parts whose newest step cannot be made was a blank screen, `in_910`). */
+const failedResult = (graph: KernelGraph, error: string, ms = 0, shown: KernelResult = EMPTY): KernelResult => ({ ...shown, stale: undefined, ops: graph.ops.map((o, i) => ({ id: o.id, type: o.type, error: i === graph.ops.length - 1 ? error : null, ms: i === graph.ops.length - 1 ? ms : 0 })) });
 
 /**
  * `limitMs`: how long a job may take (`in_255`: a body scaled to half a million times its size did not come back from the kernel, and with the worker stuck on it nothing after it was ever answered). A job that
@@ -58,7 +61,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   };
   const pump = () => {
     if (busy) return;
-    if (heapMb > hardMb && grown() && up) { restart("too big to go on"); return; } // (the jobs wait for the new thread: it says when it is ready, and the next pump posts them)
+    if ((heapMb > KERNEL_MEMORY_STOP_MB || (heapMb > hardMb && grown())) && up) { restart("too big to go on"); return; } // (the jobs wait for the new thread: it says when it is ready, and the next pump posts them)
     if (!up) return;
     const wanted = exports.shift();
     if (wanted) {
@@ -86,7 +89,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     try { worker.terminate?.(); } catch { /* (already gone) */ }
     console.error(`the kernel's thread was stopped after ${Math.round(limit / 1000)} seconds on a job`);
     if (job.asked) { job.asked.resolve({ ok: false, error: `the kernel was still working on the export after ${Math.round(limit / 1000)} seconds and was stopped` }); worker = respawn(); attach(worker); pump(); return; }
-    cache.set(job.key, failedResult(job.graph, `the kernel was still working on that after ${Math.round(limit / 1000)} seconds and was stopped: it cannot be made (try something smaller)`, limit));
+    cache.set(job.key, failedResult(job.graph, `the kernel was still working on that after ${Math.round(limit / 1000)} seconds and was stopped: it cannot be made (try something smaller)`, limit, last));
     worker = respawn();
     attach(worker);
     onChange();
@@ -111,7 +114,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     }
     if (m.failed) {
       console.error("the kernel's thread failed on a job:", m.failed);
-      cache.set(job.key, failedResult(job.graph, m.failed)); // (an answer, so what waits for it is not held up for ever, and the step that asked is reported)
+      cache.set(job.key, failedResult(job.graph, m.failed, 0, last)); // (an answer, so what waits for it is not held up for ever, and the step that asked is reported)
       onChange();
     }
     if (m.result) {
@@ -122,7 +125,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
       last = m.result;
       onChange();
     }
-    if (heapMb > restartMb && grown() && !queued && exports.length === 0) { restart("nothing is waiting"); return; }
+    if ((heapMb > KERNEL_MEMORY_STOP_MB || (heapMb > restartMb && grown())) && !queued && exports.length === 0) { restart("nothing is waiting"); return; }
     pump();
   };
   const attach = (w: WorkerLike) => {
