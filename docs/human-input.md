@@ -4228,3 +4228,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > lets skip 1, do 2 and 4 next then 3
 (of the AI's options: skip the menu split; build the chamfer on crown, face, bevel and spiral gears (2), then measure the browser time near the new limits (4), then read the pitch cones paper and ISO 23509 (3); the run of the full test suite stays first as the AI recommended)
 
+## in_968 — 2026-11-18 — question
+> [attached crown.json] okay, are the crowns supposed to not join at 90 degrees? Also should the crown have a bevel? Or did we not build that yet
+(recorded late, from before the session's context was summarised: asks why a crown and its pinion do not stand at 90 degrees, and whether the crown should have a bevel; the AI answered that the angle is by design (90 degrees plus the pinion's cone angle) and asked which bevel was meant, offering a chamfer of the tooth tips; the human then chose the chamfer work in `in_967`)
+
