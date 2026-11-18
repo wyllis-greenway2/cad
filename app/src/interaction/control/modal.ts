@@ -6,6 +6,7 @@ import { scene as sceneOf, selection as selectionOf, run, undoLast, redoLast, cl
 import type { Session } from "../session.ts";
 import { nearCommand } from "../suggest.ts";
 import { actionsFor, measureAction } from "../actions.ts";
+import { CONSTRAINT_ENTRIES, resolveEntry } from "../constraintlist.ts";
 import type { ToolKind, Tool } from "../tools.ts";
 import { gearFields, armTool, typeKey, finish, lineNext, gearTyped, editGearTool, editPlanetaryTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf, editCamTool , gearChanged } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
@@ -490,7 +491,9 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
     const cmd = nearCommand(sceneOf(s.session), selectionOf(s.session), id, nearTolMm(s.cam), seenIn(s.cam, sceneOf(s.session), { w: 800, h: 600 }));
     return cmd ? { ...withSession(s, run(s.session, cmd)), menu: null } : closed;
   }
-  const a = actionsFor(sceneOf(s.session), selectionOf(s.session)).find((x) => x.id === id);
+  const acts = actionsFor(sceneOf(s.session), selectionOf(s.session));
+  const entry = CONSTRAINT_ENTRIES.find((e) => e.id === id); // (an entry of the constraints list stands for the action the selection fits, `in_836`)
+  const a = entry ? resolveEntry(entry, acts) : acts.find((x) => x.id === id);
   return a && a.enabled ? { ...withSession(s, run(s.session, a.run())), menu: null } : closed;
 }
 export function doDelete(s: AppState): AppState {

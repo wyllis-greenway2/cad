@@ -44,15 +44,6 @@ export interface Action {
 const isFlatBodyFace = (get: ReturnType<typeof lookup>, sel: readonly Ref[]): boolean => sel.every((r) => { const p = get(r); return p?.kind === "plane" && p.origin === "body" && !!p.mesh && !p.curved && !p.round && !p.rounded; });
 const isRoundBodyFace = (get: ReturnType<typeof lookup>, sel: readonly Ref[]): boolean => sel.every((r) => { const p = get(r); return p?.kind === "plane" && p.origin === "body" && !!roundOf(get, r); });
 
-/** What kinds of parts the selection is, in its order (the kinds the relations table is read by): empty for nothing selected (`in_666`: the ring says which constraints fit). */
-export function relationKinds(scene: Scene, selection0: readonly Ref[]): Kind[] {
-  const get = lookup(scene);
-  const sel = ordered([...new Set(selection0.map((r) => sketchOfEdge(scene, r)?.ref ?? r))], get).filter((r) => get(r));
-  if (!sel.length) return [];
-  const sketchPlane = planeOfParts(get, sel);
-  return sel.map((r) => relationKind(get, r, sketchPlane));
-}
-
 /** Every relation and operation that applies to the selection, relations first, in the order of the table. */
 export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
   // an edge of the body that lies where a sketch part was is that sketch part: the sketch belongs to the body but is still a regular sketch (`in_210`); a change it cannot take is refused and flashes

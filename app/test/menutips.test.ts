@@ -116,31 +116,47 @@ test("Esc ends the ring (and the ⋯ list): the menu is gone from the state and 
 });
 
 import { actionsFor } from "../src/interaction/actions.ts";
-test("nothing is left out of the ring: every relation that fits the selection is there, dimmed when it cannot be applied, with its reason (`in_661`)", () => {
+import { CONSTRAINT_ENTRIES, resolveEntry } from "../src/interaction/constraintlist.ts";
+test("nothing is left out of the ring: every relation that fits the selection is made by an entry of the list, which is lit exactly when one of what it stands for can be applied (`in_661`, `in_836`)", () => {
   let blocked = 0;
   for (const { name, st } of states()) {
     const items = reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as Item[];
-    const kids = every(items.find((i) => i.id === "constraints")!.children!); // (in groups, `in_666`)
-    for (const a of actionsFor(scene(st.session), selection(st.session)).filter((x) => x.group === "relation")) {
-      const same = kids.filter((i) => i.id === a.id); // (a constraint that fits several kinds is in each group: only the group of the selection is lit)
-      assert.ok(same.length, `${name}: ${a.id} is in the ring`);
-      assert.equal(same.some((k) => k.enabled), a.enabled, `${name}: ${a.id} is clickable only when it can be applied`);
-      if (!a.enabled) { blocked++; assert.ok(same.every((k) => k.why), `${name}: ${a.id} says why`); }
+    const kids = every(items.find((i) => i.id === "constraints")!.children!);
+    const acts = actionsFor(scene(st.session), selection(st.session)).filter((x) => x.group === "relation");
+    for (const a of acts) assert.ok(CONSTRAINT_ENTRIES.some((e) => e.of.includes(a.id)), `${name}: ${a.id} is in an entry`);
+    for (const e of CONSTRAINT_ENTRIES) {
+      const kid = kids.find((k) => k.id === e.id)!;
+      assert.ok(kid, `${name}: ${e.id} is in the ring`);
+      assert.equal(kid.enabled, !!resolveEntry(e, acts), `${name}: ${e.id} is clickable only when something it stands for can be applied`);
+      if (!kid.enabled) { blocked++; assert.match(kid.why ?? "", /^select /, `${name}: ${e.id} says what to select`); }
     }
   }
-  assert.ok(blocked > 0, "the test met a relation that cannot be applied");
+  assert.ok(blocked > 0, "the test met an entry that cannot be applied");
 });
 
-import { CONSTRAINT_GROUPS } from "../src/interaction/constraintlist.ts";
-test("the Constraints ring is the same shape whatever is selected: every constraint and mate, in groups, dimmed unless the selection is what it is for, with what to select said (`in_666`)", () => {
-  const shapes = states().map(({ st }) => JSON.stringify(every(reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items.find((i) => i.id === "constraints")!.children!).map((i) => i.id)));
+test("the Constraints ring is one flat list of the same entries whatever is selected, each once, no rings inside it: dimmed unless the selection fits, with what to select said (`in_666`, `in_836`)", () => {
+  const kidsOf = (st: AppState) => reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items.find((i) => i.id === "constraints")!.children!;
+  const shapes = states().map(({ st }) => JSON.stringify(kidsOf(st).map((i) => i.id)));
   assert.equal(new Set(shapes).size, 1, "no constraint comes or goes with the selection");
   const { st } = states().find((x) => x.name === "empty")!;
-  const kids = every(reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items.find((i) => i.id === "constraints")!.children!);
-  for (const g of CONSTRAINT_GROUPS) for (const it of g.items) assert.ok(kids.some((k) => k.id === it.id), `${it.id} is listed`);
-  assert.ok(kids.filter((k) => !k.id.startsWith("group:")).every((k) => !k.enabled && k.why), "with nothing selected all are dimmed and say what to select");
-  assert.match(kids.find((k) => k.id === "parallel")!.why!, /select two lines/);
+  const kids = kidsOf(st) as Item[];
+  assert.ok(kids.every((k) => !k.children), "flat: no ring inside it");
+  assert.deepEqual(kids.map((k) => k.label), ["Horizontal", "Vertical", "Parallel", "Perpendicular", "Angle", "Coincident", "On", "Tangent", "Concentric", "Equal", "Dimension", "Fix", "Hard body"]);
+  assert.equal(new Set(kids.map((k) => k.label)).size, kids.length, "each once: tangent is tangent");
+  assert.ok(kids.filter((k) => k.id.startsWith("c:")).every((k) => !k.enabled && k.why), "with nothing selected all are dimmed and say what to select");
+  assert.match(kids.find((k) => k.id === "c:parallel")!.why!, /select two lines/);
+  const litFor = (name: string) => (kidsOf(states().find((x) => x.name === name)!.st) as Item[]).filter((k) => k.enabled && k.id.startsWith("c:")).map((k) => k.id.slice(2));
+  const lines = litFor("two lines");
+  for (const want of ["parallel", "perpendicular", "equal", "angle"]) assert.ok(lines.includes(want), `two lines: ${want} (${lines})`);
+  assert.ok(!lines.includes("coincident"), "two lines are not points");
+  assert.ok(litFor("line and circle").includes("tangent"), "a line and a circle: tangent");
+  assert.ok(litFor("circle").includes("dimension"), "a circle: its size");
+});
+
+test("an entry makes the relation or mate the selection fits: Parallel on two lines is the parallel relation (`in_836`)", () => {
   const two = states().find((x) => x.name === "two lines")!.st;
-  const lit = every(reduce(two, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items.find((i) => i.id === "constraints")!.children!).filter((k) => k.enabled && !k.id.startsWith("group:")).map((k) => k.id);
-  assert.ok(lit.includes("parallel") && lit.includes("perpendicular") && !lit.includes("coincident"), `two lines light the line constraints: ${lit}`);
+  const made = reduce(two, { type: "runAction", id: "c:parallel" }, env);
+  assert.ok(scene(made.session).relations.some((r) => r.kind === "parallel"), "the parallel relation");
+  const none = states().find((x) => x.name === "empty")!.st;
+  assert.equal(scene(reduce(none, { type: "runAction", id: "c:parallel" }, env).session).relations.length, 0, "nothing is made of nothing");
 });

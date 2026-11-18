@@ -1,34 +1,33 @@
-// The constraints and mates the ring always lists (`in_666`, `dec_ui_unification`): every one the relations table knows, grouped by what it applies to, so the ring's shape never depends on what is selected. A constraint
-// fits the selection when the selection is of that group's kinds; the ring dims the rest and says what to select. Pure.
-import { ROWS } from "./rows.ts";
-import type { Kind } from "../operation/part.ts";
+// The constraints and mates the ring always lists (`in_666`, `in_836`, `dec_ui_unification`): one flat list of the things a person means (Horizontal, Parallel, Tangent, Dimension...), each once, whatever it is made of underneath. An entry stands for
+// several of what the relations table and the mates know (Parallel is the relation of two lines, the mate of two flat faces and of two axes); the one the selection fits is the one made. An entry that nothing fits is dimmed and says what to select.
+// Pure.
+import type { Action } from "./actions.ts";
 
-export interface ConstraintGroup { id: string; label: string; /** what the selection has to be, said when a dimmed one is pressed */ what: string; /** the kinds of the selection it fits, sorted (null: faces and axes, the mates) */ kinds: string | null; items: { id: string; label: string }[] }
-/** What a constraint is called in the ring: one or two words (`in_538`). */
-const TIPS: Record<string, string> = { fixed: "Fix", onCircle: "On circle", sameAcross: "Same across", equalLength: "Equal", equalRadius: "Equal", "mate:flush": "Flush", "mate:parallel": "Parallel faces", "mate:perpendicular": "Perpendicular faces", "mate:angle": "Face angle", "mate:coaxial": "Coaxial", "mate:parallelAxes": "Parallel axes", "mate:perpendicularAxes": "Perpendicular axes", "mate:angleAxes": "Axis angle", "mate:axisToFace": "Axis-face" };
-const tipOf = (id: string, label: string): string => TIPS[id] ?? label;
+export interface ConstraintEntry {
+  /** the id the ring and `runAction` use */ id: string;
+  /** one or two words */ label: string;
+  /** the name of its icon */ icon: string;
+  /** the ids of the actions (`actionsFor`) it stands for, the first that is enabled for the selection is the one made */ of: readonly string[];
+  /** what to select, said when it is pressed with nothing that fits ("select two lines..." is waited for, `in_830`) */ what: string;
+}
 
-const NAME: Record<string, string> = { corner: "point", line: "line", circle: "circle" };
-const keyOf = (kinds: readonly string[]): string => [...kinds].sort().join("+");
-const GROUP_LABEL: Record<string, [string, string]> = {
-  corner: ["Point", "a point"], line: ["Line", "a line"], circle: ["Circle", "a circle"],
-  "corner+corner": ["Two points", "two points"], "corner+line": ["Point-line", "a point and a line"], "circle+corner": ["Point-circle", "a point and a circle"],
-  "line+line": ["Two lines", "two lines"], "circle+line": ["Line-circle", "a line and a circle"], "circle+circle": ["Two circles", "two circles"],
-};
-const ORDER = ["corner", "line", "circle", "corner+corner", "corner+line", "circle+corner", "line+line", "circle+line", "circle+circle"];
-
-/** The groups, the mates last. Each constraint once in its group (a row that applies to several kinds is in each). */
-export const CONSTRAINT_GROUPS: ConstraintGroup[] = [
-  ...ORDER.flatMap((k): ConstraintGroup[] => {
-    const rows = ROWS.filter((r) => keyOf(r.pair) === k);
-    if (!rows.length) return [];
-    const [label, what] = GROUP_LABEL[k]!;
-    const seen = new Set<string>();
-    const items = rows.filter((r) => !seen.has(r.id) && !!seen.add(r.id)).map((r) => ({ id: r.id, label: tipOf(r.id, r.label) }));
-    return [{ id: `group:${k}`, label, what, kinds: k, items }];
-  }),
-  { id: "group:mates", label: "Faces axes", what: "two faces or axes of two bodies", kinds: null, items: ["flush", "parallel", "perpendicular", "angle", "coaxial", "parallelAxes", "perpendicularAxes", "angleAxes", "axisToFace"].map((m) => ({ id: `mate:${m}`, label: tipOf(`mate:${m}`, m) })) },
+export const CONSTRAINT_ENTRIES: readonly ConstraintEntry[] = [
+  { id: "c:horizontal", label: "Horizontal", icon: "horizontal", of: ["horizontal", "sameHeight"], what: "a line, or two points" },
+  { id: "c:vertical", label: "Vertical", icon: "vertical", of: ["vertical", "sameAcross"], what: "a line, or two points" },
+  { id: "c:parallel", label: "Parallel", icon: "parallel", of: ["parallel", "mate:parallel", "mate:parallelAxes"], what: "two lines, or two faces or axes of two bodies" },
+  { id: "c:perpendicular", label: "Perpendicular", icon: "perpendicular", of: ["perpendicular", "mate:perpendicular", "mate:perpendicularAxes", "mate:axisToFace"], what: "two lines, or two faces or axes of two bodies" },
+  { id: "c:angle", label: "Angle", icon: "angle", of: ["angle", "arcAngle", "mate:angle", "mate:angleAxes"], what: "two lines or an arc, or two faces or axes of two bodies" },
+  { id: "c:coincident", label: "Coincident", icon: "coincident", of: ["coincident", "mate:flush"], what: "two points, or two flat faces of two bodies" },
+  { id: "c:on", label: "On", icon: "onLine", of: ["onLine", "onCircle"], what: "a point and a line or a circle" },
+  { id: "c:tangent", label: "Tangent", icon: "tangent", of: ["tangent"], what: "two lines, two circles, or a line and a circle" },
+  { id: "c:concentric", label: "Concentric", icon: "concentric", of: ["concentric", "mate:coaxial"], what: "two circles, or two round faces of two bodies" },
+  { id: "c:equal", label: "Equal", icon: "equalLength", of: ["equalLength", "equalRadius"], what: "two lines or two circles" },
+  { id: "c:dimension", label: "Dimension", icon: "distance", of: ["diameter", "radius", "length", "distance"], what: "a line, a circle or an arc, or two things to measure between" },
+  { id: "c:fixed", label: "Fix", icon: "fixed", of: ["fixed"], what: "a point" },
 ];
 
-/** Whether the selection (of these kinds) is what this group is for. Mates are for any two parts that are faces or axes, which the actions say themselves. */
-export const fits = (g: ConstraintGroup, selected: readonly Kind[]): boolean => (g.kinds === null ? selected.length === 2 : keyOf(selected) === g.kinds);
+/** The action an entry makes for the actions the selection has: the first of those it stands for that is enabled, or null. */
+export function resolveEntry(entry: ConstraintEntry, actions: readonly Action[]): Action | null {
+  for (const id of entry.of) { const a = actions.find((x) => x.id === id && x.group === "relation" && x.enabled); if (a) return a; }
+  return null;
+}

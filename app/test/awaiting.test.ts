@@ -21,13 +21,13 @@ const flat = (items: readonly { id: string; enabled: boolean; why: string | null
 test("Horizontal is dimmed with nothing selected; pressed, it asks for a line, and clicking the line makes the line horizontal by itself", () => {
   let st = start();
   st = reduce(st, { type: "menu", x: 300, y: 300 }, env);
-  const item = flat(st.menu!.items as never).find((i) => i.id === "horizontal");
+  const item = flat(st.menu!.items as never).find((i) => i.id === "c:horizontal");
   assert.ok(item && !item.enabled && /^select a line/.test(item.why ?? ""), `${item?.why}`);
-  st = reduce(st, { type: "runAction", id: "why:horizontal" }, env);
-  assert.equal(st.awaiting?.id, "horizontal");
+  st = reduce(st, { type: "runAction", id: "why:c:horizontal" }, env);
+  assert.equal(st.awaiting?.id, "c:horizontal");
   assert.equal(st.menu, null, "the menu steps aside");
-  assert.match(st.session.message ?? "", /Select a line first: click it/);
-  assert.match(frameOf(st, env).confirm?.text ?? "", /^Select a line first/, "the bubble says what to select");
+  assert.match(st.session.message ?? "", /Select a line, or two points first: click it/);
+  assert.match(frameOf(st, env).confirm?.text ?? "", /^Select a line, or two points first/, "the bubble says what to select");
   st = click(st, [10, 2.5, 0]);
   assert.equal(st.awaiting, null, "it was run");
   assert.ok(scene(st.session).relations.some((r) => r.kind === "horizontal"), "the line is held horizontal");
@@ -36,7 +36,7 @@ test("Horizontal is dimmed with nothing selected; pressed, it asks for a line, a
 test("Esc gives up what an item waits for; an item whose reason is not a selection is only explained", () => {
   let st = start();
   st = reduce(st, { type: "menu", x: 300, y: 300 }, env);
-  st = reduce(st, { type: "runAction", id: "why:horizontal" }, env);
+  st = reduce(st, { type: "runAction", id: "why:c:horizontal" }, env);
   assert.ok(st.awaiting);
   st = reduce(st, { type: "escape" }, env);
   assert.equal(st.awaiting, null);
