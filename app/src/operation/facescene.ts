@@ -1,6 +1,7 @@
 // The parts and steps of a face gear drive's two gears (`dec_crown_gear_set`, `in_886`), made from a gear record by `gearscene.ts` as those of a crown gear are (`crownscene.ts`).
 // The face gear: its plane is its pitch plane, its axis the plane's normal, the teeth stand on the `+n` side. The body: a smooth loft of the toothed ring through five heights (`face.ts`: the tooth is the pinion's envelope, curved), cut by a revolved blank (a thin hub joins the teeth) and joined to a plate.
 // The spur pinion: its axis lies along a radius of the face gear; its plane is across that axis at the inner end of the teeth and it is extruded along the axis over the face (`bevel.frame` is its plane's directions, as a bevel partner's).
+import { endBlank } from "./blankchamfer.ts";
 import type { Ref } from "../shared/ref.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
@@ -41,7 +42,7 @@ export function faceRefs(rec: GearRecord): FaceRefs {
     return { sections: [], blank: [], plate: ref(rec.id, "pk"), plateBore: undefined, lines: o ? o.points.map((_, i) => ref(rec.id, `s${i}`)) : [], bore: bore("") };
   }
   const g = faceGearOf(rec);
-  return { sections: g ? g.body.sections.map((s, q) => s.points.map((_, i) => ref(rec.id, `v${q}s${i}`))) : [], blank: Array.from({ length: 6 }, (_, i) => ref(rec.id, `kns${i}`)), plate: ref(rec.id, "pk"), plateBore: bore("p"), lines: [], bore: undefined };
+  return { sections: g ? g.body.sections.map((s, q) => s.points.map((_, i) => ref(rec.id, `v${q}s${i}`))) : [], blank: Array.from({ length: (rec.spec.bevel?.facegear === "gear" ? (rec.spec.chamfer ?? 0) : 0) > 0 ? 8 : 6 }, (_, i) => ref(rec.id, `kns${i}`)), plate: ref(rec.id, "pk"), plateBore: bore("p"), lines: [], bore: undefined };
 }
 /** the inner radius of the thin hub that joins the teeth: clear of the bore (its keyway or flat too) by a millimetre, or 0 with no bore */
 const hubInner = (rec: GearRecord): number => { if (!((rec.spec.bore ?? 0) > 0)) return 0; const l = boreLoop(rec.spec); return 1 + (l ? Math.max(...l.points.map((p) => Math.hypot(p[0], p[1]))) : rec.spec.bore! / 2); };
@@ -90,9 +91,9 @@ export function faceParts(s: Scene, rec: GearRecord): Part[] {
   out.push({ ref: bp, origin: "drawn", plane: null, movable: false, kind: "plane", at: rec.at, u: f.X, v: f.n });
   const bb = { origin: "drawn" as const, plane: bp, movable: false as const };
   const top = body.tip + m, bottom = -(body.root + 0.2 * m), hub = -(body.root + 0.1 * m), rh = hubInner(rec);
-  const blank: [number, number][] = [[rh, bottom], [pair.outer + m, bottom], [pair.outer + m, top], [pair.inner, top], [pair.inner, hub], [rh, hub]];
+  const blank = endBlank(rh, bottom, hub, top, pair.inner, pair.outer, body.tip, m, pair.cham);
   blank.forEach(([a, h], i) => out.push({ ...bb, ref: ref(rec.id, `knp${i}`), kind: "corner", at: at(a, 0, h) }));
-  for (let i = 0; i < 6; i++) out.push({ ...bb, ref: ref(rec.id, `kns${i}`), kind: "line", a: ref(rec.id, `knp${i}`), b: ref(rec.id, `knp${(i + 1) % 6}`) });
+  blank.forEach((_, i) => out.push({ ...bb, ref: ref(rec.id, `kns${i}`), kind: "line", a: ref(rec.id, `knp${i}`), b: ref(rec.id, `knp${(i + 1) % blank.length}`) }));
   // the plate: a disc on a plane a thickness below the root, carried up to it, a little wider than the tips
   const pq = ref(rec.id, "pq");
   out.push({ ref: pq, origin: "drawn", plane: null, movable: false, kind: "plane", at: at(0, 0, -(body.root + pair.thick)), u, v });

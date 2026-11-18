@@ -9,6 +9,7 @@ import type { GearSpec } from "./gear.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { bulgeOf } from "./arcs.ts";
 import { spiralFor, spiralGeometry } from "./spiral.ts";
+import { chamferedBlank } from "./blankchamfer.ts";
 import { faceFor } from "./face.ts";
 import type { P } from "./arcs.ts";
 
@@ -185,7 +186,9 @@ export function bevelLayout(spec: GearSpec): Result<BevelLayout> {
   const rFor = (x: number) => (k * x0 - x) / s;
   const rT = Math.min(0.97 * rootK, Math.max(0.8 * rootK, rFor(xFar - 2 * m)));
   if (!(Lk(rT) < xFar - 0.3 * m && Lk(rT) > xS)) return err("the hub does not fit between the cones for this module and teeth");
-  const xy: [number, number][] = [[xFar, 0], [xFar, rA], [L(rmax), rmax], [Lk(rmax), rmax], [Lk(rT), rT], [Lk(rT), 0]];
+  const cham = (spec.chamfer ?? 0) * m; // (the tooth chamfer, `dec_bevel_chamfer`: the corners of the blank where the back cones meet the tip cone, `blankchamfer.ts`)
+  if (!(cham >= 0 && cham <= m)) return err("the chamfer is from 0 to 1 module deep");
+  const xy = chamferedBlank([xFar, 0], [xFar, rA], [L(rmax), rmax], [Lk(rmax), rmax], [Lk(rT), rT], [Lk(rT), 0], { a: g.value.tipRadius / Rcd, b: 0 }, cham, m);
   let blank = xy.map(([x, r]): [number, number] => [r, Rcd - x]);
   const area = blank.reduce((acc, p, i) => { const q = blank[(i + 1) % blank.length]!; return acc + (p[0] * q[1] - q[0] * p[1]); }, 0);
   if (area < 0) blank = blank.slice().reverse();
