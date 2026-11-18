@@ -469,3 +469,11 @@ test("points at the holes: corners on the face at each place, selected with it, 
   const round = post();
   assert.ok(!makeHolePoints(select(round.s, [round.face]), vals({ place: "midline" })).ok);
 });
+test("the plan says how much room the screw had, so the length chosen can be explained (`in_968`)", () => {
+  const { s } = block();
+  const p = receiverPlan(s, vals({ kind: "clearance", size: "M4", insert: "screw" }));
+  assert.ok(p.ok && p.value.insert?.screw?.length === 8 && p.value.insert.screw.room === 8);
+  const lid = lidOn().s;
+  const q = receiverPlan(lid, vals({ kind: "countersunk", size: "M4", place: "centre", insert: "screw" }));
+  assert.ok(q.ok && q.value.insert?.screw?.room === 25 && q.value.insert.screw.length === 25); // (the longest standard length that is not over 25)
+});

@@ -4227,3 +4227,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_967 — 2026-11-18 — directive
 > Can we have it so that a fastener position can be moved with precision? why not just use our xyz rotate or orb position tool? Also can we make it smart enough to just pick a reasonable preset for the conditions? so We dont want then so inset that fasteners are overlapping, we dont want them so little inset that they are striking through the edge. Also if there is really no space it might make sense to just do center line method. Also we may want to add more or less in the fastener count if they are too cramped.
 (asks for: a way to move a fastener position with precision, by the existing xyz move or rotate or orb tools; the tool to choose a reasonable preset for the conditions: an inset neither so big that fasteners overlap nor so small that they break through the edge; the centre line method when there is really no space; and more or fewer fasteners when they are too cramped)
+
+## in_968 — 2026-11-18 — question
+> when I do the fastener operation it is successful. But it still has this error message? Also it appears to have selected screws that are too short? is this because there  arent long enough ones in the catalogue?
+(shows the red message "select a flat face of a body, or a line drawn on one" in the fastener panel after a successful cut, with a saved model and a state file; asks why the message stays and whether the screws chosen are too short because the catalogue has no longer ones)
