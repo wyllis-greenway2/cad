@@ -62,32 +62,33 @@ function bodyMesh(scene: Scene, outcome: CompileOutcome | undefined, ref: Ref): 
 }
 
 // ---- the part of two bodies that can meet: their overlap in height along an axis ----
-const layerCache = new WeakMap<object, Map<string, { tris: number[]; tree: Tree }>>();
+const layerCache = new WeakMap<object, Map<string, { tris: number[]; tree: Tree } | null>>();
 function layered(scene: Scene, outcome: CompileOutcome | undefined, body: Ref, other: Ref, axis: Vec3): { tris: number[]; tree: Tree } | null {
-  const [m, o] = [bodyMesh(scene, outcome, body), bodyMesh(scene, outcome, other)];
-  if (!m || !o) return null;
-  const l = Math.hypot(...axis) || 1;
-  const h = (x: number, y: number, z: number): number => (x * axis[0] + y * axis[1] + z * axis[2]) / l;
-  const span = (t: ArrayLike<number>): [number, number] => { let lo = Infinity, hi = -Infinity; for (let i = 0; i + 2 < t.length; i += 3) { const v = h(t[i]!, t[i + 1]!, t[i + 2]!); if (v < lo) lo = v; if (v > hi) hi = v; } return [lo, hi]; };
-  const [a, b] = [span(m.tris), span(o.tris)];
-  const eps = 0.01;
-  const [lo, hi] = [Math.max(a[0], b[0]) + eps, Math.min(a[1], b[1]) - eps];
-  if (!(hi > lo)) return null; // (they do not share a height: they cannot meet)
-  const key = `${body}|${other}|${axis.map((x) => Math.round(x * 1e4)).join(",")}`;
   const holder = outcome ?? scene;
   let per = layerCache.get(holder);
   if (!per) { per = new Map(); layerCache.set(holder, per); }
-  let got = per.get(key);
-  if (!got) {
-    const keep: number[] = [];
-    for (let i = 0; i + 8 < m.tris.length; i += 9) {
-      const hs = [h(m.tris[i]!, m.tris[i + 1]!, m.tris[i + 2]!), h(m.tris[i + 3]!, m.tris[i + 4]!, m.tris[i + 5]!), h(m.tris[i + 6]!, m.tris[i + 7]!, m.tris[i + 8]!)];
-      if (Math.max(...hs) > lo && Math.min(...hs) < hi) for (let k = 0; k < 9; k++) keep.push(m.tris[i + k]!);
+  const key = `${body}|${other}|${axis.map((x) => Math.round(x * 1e4)).join(",")}`;
+  if (per.has(key)) return per.get(key)!; // (asked many times a step: the answer, a miss included, is kept)
+  const [m, o] = [bodyMesh(scene, outcome, body), bodyMesh(scene, outcome, other)];
+  let got: { tris: number[]; tree: Tree } | null = null;
+  if (m && o) {
+    const l = Math.hypot(...axis) || 1;
+    const h = (x: number, y: number, z: number): number => (x * axis[0] + y * axis[1] + z * axis[2]) / l;
+    const span = (t: ArrayLike<number>): [number, number] => { let lo = Infinity, hi = -Infinity; for (let i = 0; i + 2 < t.length; i += 3) { const v = h(t[i]!, t[i + 1]!, t[i + 2]!); if (v < lo) lo = v; if (v > hi) hi = v; } return [lo, hi]; };
+    const [a, b] = [span(m.tris), span(o.tris)];
+    const eps = 0.01;
+    const [lo, hi] = [Math.max(a[0], b[0]) + eps, Math.min(a[1], b[1]) - eps];
+    if (hi > lo) { // (they share a height; if not they cannot meet)
+      const keep: number[] = [];
+      for (let i = 0; i + 8 < m.tris.length; i += 9) {
+        const hs = [h(m.tris[i]!, m.tris[i + 1]!, m.tris[i + 2]!), h(m.tris[i + 3]!, m.tris[i + 4]!, m.tris[i + 5]!), h(m.tris[i + 6]!, m.tris[i + 7]!, m.tris[i + 8]!)];
+        if (Math.max(...hs) > lo && Math.min(...hs) < hi) for (let k = 0; k < 9; k++) keep.push(m.tris[i + k]!);
+      }
+      if (keep.length) got = { tris: keep, tree: buildTree(keep) };
     }
-    got = { tris: keep, tree: buildTree(keep) };
-    per.set(key, got);
   }
-  return got.tris.length ? got : null;
+  per.set(key, got);
+  return got;
 }
 
 interface Mover { body: Ref; pose: (a: number, vals: number[]) => Rigid; /** the axis it turns about, or the line it slides along */ axis: Vec3; /** whether it turns: the layers of a mechanism are along the axis of a body that turns (a slider moves across them) */ turns: boolean; /** a body that yields */ yields?: true }
@@ -119,7 +120,7 @@ function firstHit(scene: Scene, outcome: CompileOutcome | undefined, movers: Mov
     const [m1, o1] = [layered(scene, outcome, me.body, other, axis), layered(scene, outcome, other, me.body, axis)];
     if (!m1 || !o1) return false;
     // either way round: a touch is a hit or not by the direction the test goes, and a body cleared one way would be found in the other (a boundary the search stops at, found again, round and round)
-    return collidesMoving(m1.tree, compose(rMe, inverse(rOther)), o1.tree, clearance) || collidesMoving(o1.tree, compose(rOther, inverse(rMe)), m1.tree, clearance);
+    return collidesMoving(m1.tree, compose(rMe, inverse(rOther)), o1.tree, clearance, false, false, true) || collidesMoving(o1.tree, compose(rOther, inverse(rMe)), m1.tree, clearance, false, false, true);
   };
   for (let j = 0; j < movers.length; j++) {
     if (j === who || movers[j]!.body === me.body) continue;
@@ -240,11 +241,12 @@ function yieldBody(scene: Scene, outcome: CompileOutcome | undefined, movers: Mo
   const distances: number[] = [];
   for (let d = fine; d <= near + 1e-9; d += fine) distances.push(d);
   for (let d = near * 1.5; d <= dMax * 1.0001; d *= 1.5) distances.push(d);
-  for (const d of distances) {
-    for (const sgn of [ways[pi]!, -ways[pi]! as 1 | -1]) {
+  // the way it went last first, all the way out (a tooth pushes on the same side as it did a degree ago), then the other way: a body that turns back (a reversed play) takes one slow step
+  for (const sgn of [ways[pi]!, -ways[pi]! as 1 | -1]) {
+    for (const d of distances) {
       if (!clear(base + sgn * d)) continue;
       let [lo, hi] = [Math.max(0, d - (d <= near ? fine : d / 3)), d];
-      for (let k = 0; k < 9; k++) { const mid = (lo + hi) / 2; if (clear(base + sgn * mid)) hi = mid; else lo = mid; }
+      for (let k = 0; k < 7; k++) { const mid = (lo + hi) / 2; if (clear(base + sgn * mid)) hi = mid; else lo = mid; }
       vals[pi] = base + sgn * hi;
       ways[pi] = sgn;
       return true;

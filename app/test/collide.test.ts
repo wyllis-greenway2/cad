@@ -87,6 +87,10 @@ test("walking the tree of the moving body gives what moving every triangle gives
   // wholly inside, wholly round it, and the same open
   assert.equal(collidesMoving(buildTree(box([0, 0, 0], [2, 2, 2])), shift([4, 4, 4]), stays), true, "inside");
   assert.equal(collidesMoving(buildTree(box([0, 0, 0], [30, 30, 30])), shift([-10, -10, -10]), stays), true, "round");
+  // surfaceOnly: the same bodies, wholly inside or round, are not looked for (the contact push moves in small steps: a surface crosses first), a crossing still is
+  assert.equal(collidesMoving(buildTree(box([0, 0, 0], [2, 2, 2])), shift([4, 4, 4]), stays, 0, false, false, true), false, "inside, not looked for");
+  assert.equal(collidesMoving(buildTree(box([0, 0, 0], [30, 30, 30])), shift([-10, -10, -10]), stays, 0, false, false, true), false, "round, not looked for");
+  assert.equal(collidesMoving(buildTree(box([0, 0, 0], [4, 4, 4])), shift([8, 4, 4]), stays, 0, false, false, true), true, "a crossing is still found");
 });
 
 test("a heavy moving body is much quicker walked than moved whole (`in_479`)", () => {

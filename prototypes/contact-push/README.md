@@ -37,3 +37,16 @@ Gear 1 turned and hard, every other gear yielding to the one before it (gears in
 | 6 | 1.5 | 77 (118) |
 
 All settle with no jam, but the cost grows with the length of the chain (about 10 to 15 ms a degree for each gear in Node on a shared sandbox CPU): at one degree a frame a six gear train is about 13 frames a second. The first try jammed at three gears: a body that yields had to be clear of every other body that yields, so a chain could not give way link by link; and the search for room doubled its distance and stepped over the gap between two teeth (a fraction of a degree wide). A touch is a hit or not by the direction the test goes, so the search stopped at a boundary that the check then found again, round and round: the test is now made both ways round.
+
+## Made faster (`in_909`)
+
+Profiling the gear trains showed where the time went: **a third of it was the test for a body wholly inside another** (a counted ray over every triangle of the body that stays, run for every test that found no crossing), the pairs' filtered meshes were worked out again at every call (their heights, before looking in the cache), and the search for room tried both directions at every distance. Now: the inside test is left out for the contact push (`surfaceOnly`: a motion in small steps crosses a surface first), the filtered meshes are kept with the pair (a miss too), and the search goes the way the body went last all the way out before the other way (a reversed play takes one slower step). Same chains, same accuracy:
+
+| gears | before (median ms a degree) | after |
+|---|---|---|
+| 2 | 11 | 3.5 |
+| 3 | 21 | 7.9 |
+| 4 | 37 | 9.9 |
+| 6 | 77 | 20 |
+
+The Geneva in the app: 1.4 ms a degree median (9 ms at the 95th percentile) before, 0.4 (3 ms) after; the slowest single steps are still 17 to 30 ms (the first step of a push, when the way it went last is the wrong way). What is left in the profile is the walk of the two trees and the placing of the moving triangles (`collidesMoving`, `triOf`, `boxOf`).
