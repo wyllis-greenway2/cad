@@ -3620,3 +3620,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_818 — 2026-11-18 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7, and so gives permission to write to that branch)
+
+## in_819 — 2026-11-18 — directive
+> fix the spiral test on inspiring-pascal
+(asks for the failing spiral test on claude/inspiring-pascal-l342k7 to be fixed; it was already fixed on that branch's latest commit, so nothing was written to it)
+
+## in_820 — 2026-11-18 — approval
+> Yes, correct the handoff
+(approves correcting Handoff 745, which still called the spiral test failure open)
