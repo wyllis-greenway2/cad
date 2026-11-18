@@ -260,11 +260,8 @@ test("a line round a post: the holes stand round it, each looking at the axis", 
   if (!p.ok) return;
   for (const sp of p.value.spots) { const out = [sp.u[1] * sp.v[2] - sp.u[2] * sp.v[1], sp.u[2] * sp.v[0] - sp.u[0] * sp.v[2], sp.u[0] * sp.v[1] - sp.u[1] * sp.v[0]]; near(out[0]! * sp.centre[0] + out[1]! * sp.centre[1], 10, 1e-6); } // (the way out is straight out from the axis)
 });
-test("a round face with no line is told what to select; a nut on the far side and a screw without a depth are refused", () => {
+test("on a round face a nut on the far side and a screw without a depth are refused", () => {
   const { s: s0, face } = post();
-  const s = select(s0, [face]);
-  const p = receiverPlan(s, vals({}));
-  assert.ok(!p.ok && p.error.includes("line"));
   const t = alongAxis(s0, face);
   assert.ok(!receiverPlan(t, vals({ place: "lines", by: "count", value: "2", corners: "ignore", far: "nut" })).ok);
   assert.ok(!receiverPlan(t, vals({ place: "lines", by: "count", value: "2", corners: "ignore", insert: "screw" })).ok);
@@ -303,4 +300,17 @@ test("holes along the outline counted with a hole at every corner: the count is 
   assert.ok(p.ok, p.ok ? "" : p.error);
   if (p.ok) assert.equal(p.value.places.length, 12);
   assert.ok(!receiverPlan(s, vals({ place: "outline", by: "count", value: "3", corners: "each", offset: "10" })).ok);
+});
+
+test("a round face alone: a row round it at the middle of its height, spaced along the surface, in from its ends", () => {
+  const { s: s0, face } = post();
+  const s = select(s0, [face]);
+  const p = receiverPlan(s, vals({ kind: "clearance", size: "M4", by: "count", value: "6", corners: "ignore" }));
+  assert.ok(p.ok, p.ok ? "" : p.error);
+  if (!p.ok) return;
+  assert.equal(p.value.places.length, 6); // (a whole post: six round it)
+  for (const c of p.value.places) { near(Math.hypot(c[0], c[1]), 10, 1e-6); near(c[2], 20, 1e-6); }
+  near(p.value.spacing!, (2 * Math.PI * 10) / 6, 1e-6);
+  const r = cutReceiver(s, vals({ kind: "clearance", size: "M4", by: "count", value: "4", corners: "ignore" }));
+  assert.ok(r.ok, r.ok ? "" : r.error);
 });

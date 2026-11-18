@@ -4098,3 +4098,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_936 — 2026-11-18 — directive
 > But why not? why couldn't we put a fastener in each corner, and also divide the spaces between by the remaining count?
 (says there is no reason a count cannot be used with a fastener at every corner: put one in each corner and divide the spaces between by the remaining count)
+
+## in_937 — 2026-11-18 — question
+> Why cant I put fasteners in this surface?
+(asks why fasteners cannot be put in a round face: a screenshot of the fastener panel with a round wall of a teardrop plate selected (R 28.22) and the red message "select a line drawn across the round face, or corners and circles on it")

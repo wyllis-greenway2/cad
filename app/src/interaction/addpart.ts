@@ -14,8 +14,8 @@ import { dot } from "../math/vec.ts";
 import type { Part } from "../operation/part.ts";
 import { normalOfPlane, pointOf, roundOf } from "../operation/part.ts";
 import type { Ref } from "../shared/ref.ts";
-import type { Path } from "../operation/pathrepeat.ts";
-import { placeAlong, lengthOf, pointAt } from "../operation/pathrepeat.ts";
+import type { Path, Pt } from "../operation/pathrepeat.ts";
+import { placeAlong, lengthOf, pointAt, circlePath } from "../operation/pathrepeat.ts";
 import { readFaceOutline, readLinesPath, planeBasis } from "../operation/pathmaps.ts";
 import { pathRuleFields, pathRepeatNumbers, pathRepeatStart } from "./pathrepeat.ts";
 import type { PathRepeatValues } from "./pathrepeat.ts";
@@ -371,7 +371,7 @@ export function receiverPlan(session: Session, v: ReceiverValues): Result<Receiv
 
 // ---- a curved surface (`in_929`): a round face of a body, a line drawn across it, the holes going in along the surface's normal ----
 /** The round face selected (a post's wall, a bore, a piece of one), with its axis, and the lines and places selected with it. Null when the selection holds no round face; or why the selection is not usable. */
-interface Round { face: Extract<Part, { kind: "plane" }>; axis: Vec3; center: Vec3; radius: number; convex: boolean; range: [number, number]; through: number; points: Vec3[]; lines: Ref[] }
+interface Round { face: Extract<Part, { kind: "plane" }>; axis: Vec3; center: Vec3; radius: number; convex: boolean; range: [number, number]; /** the round face round the axis: from the way `e1` (a way out from the axis, through the middle of the face) turning toward `e2`, from `lo` to `hi` radians; `full`: the whole way round */ turn: { e1: Vec3; e2: Vec3; lo: number; hi: number; full: boolean }; through: number; points: Vec3[]; lines: Ref[] }
 const isRoundFace = (p: Part | undefined): p is Extract<Part, { kind: "plane" }> => !!p && p.kind === "plane" && p.origin === "body" && !!p.mesh?.length && !!(p.curved || (p.round && p.radius));
 function selectedRound(session: Session): Result<Round> | null {
   const sc = scene(session);
@@ -394,9 +394,19 @@ function selectedRound(session: Session): Result<Round> | null {
   const mesh = face.mesh!;
   let lo = Infinity, hi = -Infinity;
   for (let i = 0; i + 2 < mesh.length; i += 3) { const t = dot([mesh[i]! - c.center[0], mesh[i + 1]! - c.center[1], mesh[i + 2]! - c.center[2]], axis); lo = Math.min(lo, t); hi = Math.max(hi, t); }
+  // which way round the axis the face goes: the way out from the axis through the middle of it, and how far each side turns from it
+  const radial = (k: number): Vec3 => { const d: Vec3 = [mesh[k]! - c.center[0], mesh[k + 1]! - c.center[1], mesh[k + 2]! - c.center[2]]; const t = dot(d, axis); return unit3([d[0] - axis[0] * t, d[1] - axis[1] * t, d[2] - axis[2] * t]); };
+  const sum = [0, 0, 0];
+  let count = 0;
+  for (let i = 0; i + 2 < mesh.length; i += 3) { const r = radial(i); sum[0]! += r[0]; sum[1]! += r[1]; sum[2]! += r[2]; count++; }
+  const full = Math.hypot(...sum) / Math.max(1, count) < 0.05;
+  const e1 = full ? unit3(Math.abs(axis[0]) < 0.9 ? cross3v(axis, [1, 0, 0]) : cross3v(axis, [0, 1, 0])) : unit3(sum);
+  const e2 = cross3v(axis, e1);
+  let tlo = 0, thi = 0;
+  if (!full) for (let i = 0; i + 2 < mesh.length; i += 3) { const r = radial(i); const t = Math.atan2(dot(r, e2), dot(r, e1)); tlo = Math.min(tlo, t); thi = Math.max(thi, t); }
   const box = bodyBoxOf(sc, face);
   const through = box ? Math.hypot(box.max[0] - box.min[0], box.max[1] - box.min[1], box.max[2] - box.min[2]) : 1000;
-  return ok({ face, axis, center: c.center, radius: c.radius, convex: c.convex, range: [lo, hi], through, points: picked, lines });
+  return ok({ face, axis, center: c.center, radius: c.radius, convex: c.convex, range: [lo, hi], through, points: picked, lines, turn: { e1, e2, lo: full ? 0 : tlo, hi: full ? 2 * Math.PI : thi, full } });
 }
 const unit3 = (a: readonly number[]): Vec3 => { const l = Math.hypot(a[0]!, a[1]!, a[2]!) || 1; return [a[0]! / l, a[1]! / l, a[2]! / l]; };
 /** A point of the surface under `q` (taken straight out from the axis), and the spot there: the way out of the body (away from the axis for a post, toward it for a bore), and two ways across. Or why not. */
@@ -419,13 +429,30 @@ function curvedPlan(session: Session, v: ReceiverValues, r: Round): Result<Recei
   const sc = scene(session);
   const hw = hardwareOf(v, r.through, v.depth.trim() === "" ? 2 * r.radius : r.through, true);
   if (!hw.ok) return hw;
-  const where = r.points.length ? "picked" : r.lines.length ? "lines" : null;
-  if (!where) return err("select a line drawn across the round face (or corners and circles on it) to place the holes by");
+  const where = r.points.length ? "picked" : r.lines.length ? "lines" : "round";
   let raw: Vec3[];
   let guide3: Vec3[] = [];
   let spacing: number | null = null;
   if (where === "picked") raw = r.points;
-  else {
+  else if (where === "round") { // the round face alone: a row round it at the middle of its height, spaced along the surface, kept the inset from its edges
+    const rules = pathRepeatNumbers({ ...pathRepeatStart(), ...v } as PathRepeatValues);
+    if (!rules.ok) return rules;
+    const inset = rules.value.rules.offset ?? 0;
+    const { e1, e2, lo, hi, full } = r.turn;
+    const rad = r.radius;
+    const at2 = (phi: number): Pt => [rad * Math.cos(phi), rad * Math.sin(phi)];
+    const path: Path = full ? circlePath([0, 0], rad) : { closed: false, segs: [{ a: at2(lo), b: at2(hi), bulge: -Math.tan((hi - lo) / 4) / 2 }] };
+    const placed = placeAlong(path, { ...rules.value.rules, offset: 0, corners: "ignore", ...(full ? {} : { startInset: inset, endInset: inset }) });
+    if (!placed.ok) return placed;
+    if (placed.value.frames.length > 200) return err("that is more than 200 holes");
+    const mid = (r.range[0] + r.range[1]) / 2;
+    const at3 = (q: readonly [number, number]): Vec3 => { const phi = Math.atan2(q[1], q[0]); const x = Math.cos(phi) * rad, y = Math.sin(phi) * rad; return [r.center[0] + r.axis[0] * mid + e1[0] * x + e2[0] * y, r.center[1] + r.axis[1] * mid + e1[1] * x + e2[1] * y, r.center[2] + r.axis[2] * mid + e1[2] * x + e2[2] * y]; };
+    raw = placed.value.frames.map((f) => at3(f.at));
+    spacing = placed.value.spacing;
+    const total = lengthOf(placed.value.path);
+    const steps = Math.min(400, Math.max(24, Math.ceil(total / 2)));
+    guide3 = Array.from({ length: steps + 1 }, (_, i) => at3(pointAt(placed.value.path, (total * i) / steps).at));
+  } else {
     const rules = pathRepeatNumbers({ ...pathRepeatStart(), ...v } as PathRepeatValues);
     if (!rules.ok) return rules;
     const l = readLinesPath(sc, r.lines, r.face);

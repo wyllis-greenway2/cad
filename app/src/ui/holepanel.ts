@@ -6,7 +6,7 @@ import type { Row } from "./panelkit.ts";
 
 export interface HolePanelValues { kind: string; size: string; by: string; value: string; ends: string; corners: string; offset: string; shift: string; depth: string; far: string; drill: string; insert: string; length: string }
 /** What the panel shows: the choices of the receiver and the size, the values, which surface is selected (a face, a line, or none yet), and a line of words (how many holes, or why none). */
-export interface HolePanelView { kinds: { id: string; label: string }[]; sizes: string[]; values: HolePanelValues; mode: "face" | "line" | "picked" | "none"; note: string; problem: string | null }
+export interface HolePanelView { kinds: { id: string; label: string }[]; sizes: string[]; values: HolePanelValues; mode: "face" | "line" | "picked" | "none"; /** the surface is a round face (`in_937`) */ round?: boolean; note: string; problem: string | null }
 export interface HolePanelHandlers { change(values: HolePanelValues): void; commit(): void; close(): void }
 
 export function createHolePanel(host: HTMLElement, h: HolePanelHandlers) {
@@ -58,19 +58,19 @@ export function createHolePanel(host: HTMLElement, h: HolePanelHandlers) {
       rows.value.label.textContent = distance ? "Every" : "Number";
       rows.value.unit.textContent = distance ? "mm" : "";
       rows.value.hint.textContent = distance ? "between holes along the path" : "of holes along the path";
-      rows.offset.hint.textContent = "how far in from the edge";
+      rows.offset.hint.textContent = v.round ? "how far in from the face's ends" : "how far in from the edge";
       rows.shift.hint.textContent = v.mode === "face" ? "walk the holes round the outline" : "move the row along the line";
       rows.corners.hint.textContent = "a hole at each corner (the number counts them), or none";
       rows.ends.hint.textContent = "how the row meets the line's ends";
       const path = v.mode === "face" || v.mode === "line"; // (the spacing and the rest are for a path)
       show(rows.by, path); show(rows.value, path); show(rows.shift, path);
       show(rows.offset, v.mode === "face");
-      show(rows.corners, v.mode === "face");
+      show(rows.corners, v.mode === "face" && !v.round);
       show(rows.ends, v.mode === "line" && distance);
       show(rows.drill, v.values.kind === "drillTap");
       show(rows.far, !(v.values.kind === "tapped" || v.values.kind === "nutPocket" || v.values.kind === "drillTap")); // (a nut on the far side goes with a hole right through)
       show(rows.length, v.values.insert === "screw" && v.values.kind !== "nutPocket");
-      setNote(where, v.mode === "face" ? "Along the face's outline (moved in by the inset)." : v.mode === "line" ? "Along the line selected." : v.mode === "picked" ? "At the places picked." : "Select a face or a line (or a round face and a line).");
+      setNote(where, v.mode === "face" ? (v.round ? "Round the face at its middle (a line across it gives other rows)." : "Along the face's outline (moved in by the inset).") : v.mode === "line" ? "Along the line selected." : v.mode === "picked" ? "At the places picked." : "Select a face or a line.");
       setNote(warn, v.problem);
       setNote(info, v.problem ? "" : v.note);
     },
