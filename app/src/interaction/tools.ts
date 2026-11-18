@@ -321,6 +321,8 @@ function wormEndsLive(spec: GearSpec): { journal: number; runout: number } | Rec
   return { journal: l.journal, runout: l.runout };
 }
 /** The bore a new gear has unless 0 is typed (`in_691`): 5 mm, the common small shaft, or less where the gear is too small to take it (two fifths of the root circle's diameter), to the half millimetre below; none under 1 mm. */
+/** The play a new gear has unless one is typed (`in_954`): 3 per cent of the module (a hundredth of a millimetre or more makes the kernel keep meshed gears as two bodies; gears whose teeth touch exactly are made one body, and then turn as one). A gear made before this, or edited, keeps what it has. */
+const defaultBacklash = (module: number): number => Math.round(0.03 * module * 1000) / 1000;
 const defaultBore = (teeth: number, module: number): number => { const d = Math.min(5, 0.4 * module * (teeth - 2.5)); return d >= 1 ? Math.floor(d * 2) / 2 : 0; };
 const shapeOf = (typed: (k: string) => number | null, b: GearSpec | undefined, focus?: string) => {
   const [flat, key, keyDepth] = [typed("flat") ?? b?.flat, typed("key") ?? b?.key, typed("keydepth") ?? b?.keyDepth];
@@ -428,7 +430,8 @@ function gearSpecOf(t: Tool): GearSpec | null {
     module = Math.max(0.1, Math.round(exact / 0.05) * 0.05);
   }
   const bore = boreTyped ?? (g.internal || g.rack || b ? undefined : defaultBore(teeth, module)); // (a new gear has a bore unless 0 is typed, `in_691`)
-  return { teeth, module, ...(pressure !== undefined ? { pressure } : {}), ...(shift !== undefined ? { shift } : {}), ...(backlash !== undefined ? { backlash } : {}), ...(clearance !== undefined ? { clearance } : {}), ...(g.internal ? { internal: true as const } : {}), ...(g.rack ? { rack: true as const } : {}), ...(rim !== undefined ? { rim } : {}), ...(fillet ? { fillet } : {}), ...(chamfer ? { chamfer } : {}), ...(edge ? { edge } : {}), ...(detail ? { detail } : {}), ...(helix !== undefined || thickAsked > 0 ? { ...(helix !== undefined ? { helix } : {}), width: thickAsked > 0 ? thickAsked : 6 * module } : {}), ...(bore ? { bore, ...shapeOf(typed, b, fields[g.field]?.key) } : {}) };
+  const play = backlash ?? (b ? undefined : defaultBacklash(module)); // (and a little play unless 0 is typed, `in_954`: a gear meshed with it is made with the same)
+  return { teeth, module, ...(pressure !== undefined ? { pressure } : {}), ...(shift !== undefined ? { shift } : {}), ...(play ? { backlash: play } : {}), ...(clearance !== undefined ? { clearance } : {}), ...(g.internal ? { internal: true as const } : {}), ...(g.rack ? { rack: true as const } : {}), ...(rim !== undefined ? { rim } : {}), ...(fillet ? { fillet } : {}), ...(chamfer ? { chamfer } : {}), ...(edge ? { edge } : {}), ...(detail ? { detail } : {}), ...(helix !== undefined || thickAsked > 0 ? { ...(helix !== undefined ? { helix } : {}), width: thickAsked > 0 ? thickAsked : 6 * module } : {}), ...(bore ? { bore, ...shapeOf(typed, b, fields[g.field]?.key) } : {}) };
 }
 type GearTarget = { spec: GearSpec; at: Vec3; turn: number; live: Partial<Record<GearKey, number>>; /** a planetary set: its numbers, the ratio for each part held, and what is worth a warning */ planetary?: { spec: PlanetarySpec; ratios: Record<Hold, number>; warnings: Problem[]; ringTeeth: number } };
 /** The gear the tool would make, or why it would make none (`in_580`: said when Enter or a click makes nothing); null while there is nothing to say yet (no size, no plane). */
@@ -464,7 +467,7 @@ function planetaryMade(scene: Scene, t: Tool): Result<GearTarget> | null {
   const boreT = typed("bore");
   const spec: PlanetarySpec = {
     sun, planet, planets, module, width, ...(helix ? { helix } : {}), ...(pressure !== undefined ? { pressure } : {}),
-    ...(num("backlash", b?.backlash) ? { backlash: num("backlash", b?.backlash)! } : {}), ...(num("clearance", b?.clearance) !== undefined ? { clearance: num("clearance", b?.clearance)! } : {}),
+    ...(num("backlash", b ? b.backlash : defaultBacklash(module)) ? { backlash: num("backlash", b ? b.backlash : defaultBacklash(module))! } : {}), ...(num("clearance", b?.clearance) !== undefined ? { clearance: num("clearance", b?.clearance)! } : {}),
     ...(boreT !== null ? { bore: boreT } : b?.bore !== undefined ? { bore: b.bore } : {}), ...(num("rim", b?.rim) !== undefined ? { rim: num("rim", b?.rim)! } : {}),
     ...(num("pin", b?.pin) !== undefined ? { pin: num("pin", b?.pin)! } : {}), ...(num("pingap", b?.pinGap) !== undefined ? { pinGap: num("pingap", b?.pinGap)! } : {}), ...(num("carrier", b?.carrier) ? { carrier: num("carrier", b?.carrier)! } : {}), ...(num("plategap", b?.plateGap) ? { plateGap: num("plategap", b?.plateGap)! } : {}), ...(num("spacing", b?.spacing) ? { spacing: 1 } : {}),
     ...(num("housing", b?.housing) ? { housing: num("housing", b?.housing)! } : {}), ...(num("cap", b?.housingCap) ? { housingCap: num("cap", b?.housingCap)! } : {}), ...(num("housingfit", b?.housingFit) !== undefined ? { housingFit: num("housingfit", b?.housingFit)! } : {}),

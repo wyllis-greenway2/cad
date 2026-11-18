@@ -78,6 +78,7 @@ export function compile(scene: Scene, kernel: Kernel): CompileOutcome {
   const T1 = performance.now();
   const { graph, errors } = buildGraph(withDerived(solved.scene)); // (a step may name a piece of a cut figure, which exists only once the faces are derived from the solved drawing)
   const T2 = performance.now();
+  if (!graph.ops.length) kernel.clear?.(); // (nothing is asked of the kernel: what it last drew must not stand in for the next answer, `in_951`)
   if (!graph.ops.length) return remembered({ scene: withSketchNames(withDerived(withBody(solved.scene, []))), solve: solved, kernel: null, errors });
   const result = kernel.evaluate(graph);
   const T3 = performance.now();
