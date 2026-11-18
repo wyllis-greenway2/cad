@@ -3663,3 +3663,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_828 — 2026-11-18 — approval
 > build it please
 (approves building the edge chamfer of the worm wheel's land, with a prototype first: the end section pulled in by the chamfer, a ruled loft from it to the full section, the rest of the land carried straight, sewn to the throated part, then the worm's envelope cut out; the chamfer no bigger than the land)
+
+## in_829 — 2026-11-18 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 again, for the edge chamfer of the worm wheel's land and what follows it; gives permission to write to that branch)
