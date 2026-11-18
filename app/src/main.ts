@@ -43,6 +43,7 @@ import type { AppState } from "./interaction/controller.ts";
 import { projector, position, basis } from "./interaction/camera.ts";
 import { candidatesAt } from "./interaction/picking.ts";
 import { createAsyncKernel } from "./kernel-async.ts";
+import { createWarmer } from "./sections-warm.ts";
 import { openResultStore } from "./platform/result-store.ts";
 import type { Kernel, KernelResult } from "./compiler/kernel/adapter.ts";
 import { kernel, initKernelWeb, drawRectangle, nextId, STANDIN_MS } from "./interaction/api.ts";
@@ -54,6 +55,7 @@ import { createAddChip } from "./ui/addchip.ts";
 import { createPreviewBar } from "./ui/previewbar.ts";
 import { createMotionBar } from "./ui/motionbar.ts";
 import { tickMotion } from "./interaction/motion.ts";
+import { solveContact } from "./interaction/contact.ts";
 import { createChip } from "./ui/chip.ts";
 import { createSheetChips } from "./ui/sheetchips.ts";
 import { createWorldOrb } from "./ui/worldorb.ts";
@@ -187,6 +189,7 @@ const ring = createRing(document.body, (id) => {
 }, (id) => dispatch({ type: "runAction", id: `why:${id}` })); // (a dimmed option pressed: its reason is said and the ring stays, `in_538`)
 
 const hintIcons = createHints(document.body);
+const sections = createWarmer(); // (a wheel's sections are worked out in a thread of their own, `in_899`)
 const standLabels = createStandInLabels(document.body); // (the words on the discs that stand for gear bodies not made yet, `in_847`)
 let lastStandSecs: number | null = null;
 let lastIcon: [number, number] | null = null;
@@ -431,13 +434,15 @@ async function importDialogFlow() {
   state = { ...state, session: r.ok ? { ...r.session, message: r.message } : { ...state.session, message: r.error } };
   dirty = true;
 }
-function dispatch(i: Intent) {
-  logIntent(i);
+function dispatch(i: Intent, again = false) {
+  if (!again) logIntent(i);
   if (i.type === "save") { webFiles.save(FILE_NAME, saveText(state.session, { app: "CAD", build: typeof __BUILD__ === "string" ? __BUILD__ : "", saved: new Date().toISOString() })); return; } // (what made the file is written at its top, `in_528`)
   if (i.type === "open") {
-    void webFiles.open().then((text) => {
+    void webFiles.open().then(async (text) => {
       if (text === null) return;
-      const r = openSession(engine, text);
+      let tried = sections.attempt(() => openSession(engine, text));
+      while (!tried.ok) { say("working out the wheel…"); await tried.ready; tried = sections.attempt(() => openSession(engine, text)); } // (a project with a worm wheel: its sections first, off the page's thread, `in_899`)
+      const r = tried.value;
       if (r.ok) { adopt(r.value); const a = aboutOf(text); if (a) { state = { ...state, session: { ...state.session, message: `opened a project saved by ${a.app}${a.build ? ` build ${a.build}` : ""} on ${a.saved.slice(0, 10)}` } }; dirty = true; } }
       else state = { ...state, session: { ...state.session, message: r.error } }, (dirty = true);
     });
@@ -450,7 +455,13 @@ function dispatch(i: Intent) {
   }
   // the ⋯ button again closes its menu (`in_294`)
   if (i.type === "menu" && i.button && menu.open) { menu.hide(); dirty = true; return; }
-  state = reduce(state, i, env());
+  const tried = sections.attempt(() => reduce(state, i, env()));
+  if (!tried.ok) { // a wheel whose sections are not worked out yet: they are worked out in a thread of their own and the same thing is done again (`in_899`)
+    say("working out the wheel…");
+    void tried.ready.then(() => dispatch({ ...i }, true));
+    return;
+  }
+  state = tried.value;
   recognizer.setDrawing(!!state.tool, state.cam.straight); // (with a sketch tool in hand a click that wanders is still a click: up to the drag that would leave a straight view, `in_463`)
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
@@ -528,7 +539,7 @@ async function boot() {
     snapshot: () => snapshotOf(state, { intents: intentLog, viewport: { w: view.size().w, h: view.size().h, dpr: window.devicePixelRatio }, device: lastDevice, userAgent: navigator.userAgent, build: "", scrollMode: recognizer.scrollMode, timing: timing.summary(), at: new Date().toISOString(), pointer }),
     select: (refs: string[]) => { state = { ...state, session: { ...state.session, click: { ...state.session.click, selection: refs as never } } }; dirty = true; }, // (for scripted checks)
     flash: (victims: string[]) => { state = { ...state, flash: { victims, culprits: [], at: performance.now() } as never }; dirty = true; }, // (a refused change's flash, for scripted checks)
-    dispatch, run: (c: Command) => { state = { ...state, session: run(state.session, c) }; dirty = true; },
+    dispatch, run: (c: Command): void => { const tried = sections.attempt(() => run(state.session, c)); if (tried.ok) { state = { ...state, session: tried.value }; dirty = true; } else { void tried.ready.then(() => (window as unknown as { __cad: { run(c: Command): void } }).__cad.run(c)); } }, // (for scripted checks: a wheel's sections come from their own thread, as for a person's own command)
   };
   requestAnimationFrame(frame);
 }
@@ -536,7 +547,7 @@ function frame(now: number) {
   const tStart = performance.now();
   if (drawnAt !== null) { timing.add("browser: from a drawn frame to the next one (commit, the graphics card, the screen's refresh)", tStart - drawnAt); drawnAt = null; }
   if (state.anim || state.flash || state.mixT0 !== null) { state = advance(state, now); dirty = true; }
-  if (state.motion?.playing) { state = { ...state, motion: tickMotion(state.motion, now) }; dirty = true; } // (a joint that is being played: the clock moves it on, and the picture is made again every frame, `dec_mechanism_motion`)
+  if (state.motion?.playing) { state = { ...state, motion: solveContact(scene(state.session), tickMotion(state.motion, now), state.session.outcome) }; dirty = true; } // (a joint that is being played: the clock moves it on, and the picture is made again every frame, `dec_mechanism_motion`)
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading || state.flash) {
     const size = view.size();

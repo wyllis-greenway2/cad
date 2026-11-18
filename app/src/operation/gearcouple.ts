@@ -30,6 +30,8 @@ export interface Follower {
   geneva?: { n: number; a: number };
   /** a planet on a turning carrier: after it has turned about its own axis (`k`), the whole is turned again about this axis by `k` times the driver's amount (the orbit) */
   after?: { point: Vec3; dir: Vec3; k: number };
+  /** a body that yields to contact (`interaction/contact.ts`): where it stands, whatever the driver's amount */
+  value?: number;
 }
 /**
  * How far a Geneva wheel has turned (degrees, the way round that the crank turns being positive) when the crank has turned `deg` degrees from the pose the drive is drawn in (the pin pointing away from the wheel, the wheel locked). The pin
@@ -44,7 +46,8 @@ export function genevaTurn(n: number, a: number, deg: number): number {
   return (-(turns * step + p) * 180) / Math.PI;
 }
 /** How much a follower makes when the driver is at `a` (degrees or mm): its ratio, or a cam follower's table, read between the whole degrees and round the turn. */
-export function followAmount(f: Pick<Follower, "k" | "table" | "geneva">, a: number): number {
+export function followAmount(f: Pick<Follower, "k" | "table" | "geneva" | "value">, a: number): number {
+  if (f.value !== undefined) return f.value;
   if (f.geneva) return genevaTurn(f.geneva.n, f.geneva.a, a);
   const t = f.table;
   if (!t || t.length === 0) return f.k * a;

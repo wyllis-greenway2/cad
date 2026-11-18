@@ -17,11 +17,12 @@ import { wheelSections } from "./wheelsections.ts";
 import { bevelRefs, bevelParts, bevelSteps } from "./bevelscene.ts";
 import { crownRefs, crownParts, crownSteps } from "./crownscene.ts";
 import { spiralRefs, spiralParts, spiralSteps } from "./spiralscene.ts";
+import { faceRefs, faceParts, faceSteps } from "./facescene.ts";
 import { isCrown } from "./bevel.ts";
 import { crownShaft } from "./crown.ts";
 import { camShapes } from "./cams.ts";
 import { camParts, camRefs, camSteps } from "./camscene.ts";
-import { meshBevel } from "./mesh.ts";
+import { meshBevel, meshFace } from "./mesh.ts";
 
 /** `at`: the centre, in the world; `turn`: how far the gear is turned about its centre in its plane, radians (tooth 0 points along the plane's first direction when 0); `spec`: the numbers (`gear.ts`) */
 export interface GearRecord { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number; /** a cam's follower: the slider mate whose body rides the cam's edge, and the side of the cam it is on along the slider's direction (`gearcouple.ts`, stage 3) */ follower?: { mate: string; side: 1 | -1 }; /** the gear this one was meshed with when it was made (Mesh gear): they turn each other (`gearcouple.ts`, `dec_mechanism_motion`) */ meshWith?: string }
@@ -49,6 +50,7 @@ export function gearRefs(rec: GearRecord): { lines: Ref[]; wall?: Ref; bore?: st
   if (rec.spec.cam) return camRefs(rec); // (a cam or a ratchet, `camscene.ts`)
   const o = outlineOf(rec.spec);
   if (!o.ok) return { lines: [] };
+  if (rec.spec.bevel?.facegear !== undefined) { const b = faceRefs(rec); return { lines: b.lines.length ? b.lines : b.sections[0] ?? [], ...((b.bore ?? b.plateBore) ? { bore: (b.bore ?? b.plateBore)! } : {}) }; } // (a face gear drive: the pinion's outline, the face gear's tip section)
   if (rec.spec.bevel?.spiral !== undefined) { const b = spiralRefs(rec); return { lines: b.sections[0] ?? [], ...(b.bores[0] ? { bore: b.bores[0] } : {}) }; } // (a spiral bevel gear: the heel's first plane)
   if (rec.spec.bevel && isCrown(rec.spec)) { const c = crownRefs(rec); return { lines: c.sections[0]!, ...(c.plateBore ? { bore: c.plateBore } : {}) }; } // (a crown gear: the tip's section)
   if (rec.spec.bevel) { const b = bevelRefs(rec); return { lines: b.sections[0]!, ...(b.bores[0] ? { bore: b.bores[0] } : {}) }; } // (the big end)
@@ -65,6 +67,7 @@ function boreGroup(rec: GearRecord): string {
 
 /** The parts of a gear: the corners and sides of its outline and, for a ring, its wall's circle. Locked. Empty if its plane is not there or the numbers make no gear. */
 function partsOf(s: Scene, rec: GearRecord): Part[] {
+  if (rec.spec.bevel?.facegear !== undefined) return faceParts(s, rec);
   if (rec.spec.bevel?.spiral !== undefined) return spiralParts(s, rec);
   if (rec.spec.bevel) return isCrown(rec.spec) ? crownParts(s, rec) : bevelParts(s, rec);
   if (rec.spec.cam) return camParts(s, rec);
@@ -166,6 +169,7 @@ function bodyParams(s: Scene, rec: GearRecord): { step: Omit<Step, "id"> } | nul
 /** The steps that make the body of a gear that has one made with it (a helical gear's twist, a worm's core and threads, a worm wheel's loft), without their names; none for a plain gear. */
 function ownedSpecs(s: Scene, rec: GearRecord): Omit<Step, "id">[] {
   if (rec.spec.cam) return camSteps(s, rec) ?? []; // (a Geneva drive that comes as a model, `camscene.ts`)
+  if (rec.spec.bevel?.facegear !== undefined) return faceSteps(s, rec) ?? [];
   if (rec.spec.bevel?.spiral !== undefined) return spiralSteps(s, rec) ?? [];
   if (rec.spec.bevel) return (isCrown(rec.spec) ? crownSteps(s, rec) : bevelSteps(s, rec)) ?? [];
   if (rec.spec.worm) return wormSteps(s, rec) ?? [];
@@ -275,12 +279,12 @@ export function setGear(s: Scene, id: string, spec0: GearSpec, at?: Vec3, turn?:
   if (!rec || !bv || !other || !other.spec.bevel || other.spec.bevel.with !== id) return setGearCore(s, id, spec, at, turn, link);
   const edited: GearRecord = { ...rec, spec, ...(at ? { at } : {}), ...(turn !== undefined ? { turn } : {}) };
   const follower = bv.dir !== undefined ? edited : other, anchor = bv.dir !== undefined ? other : edited;
-  const fresh = (g: GearRecord): GearSpec => ({ ...g.spec, teeth: g === edited ? spec.teeth : bv.mate, module: spec.module, ...(spec.pressure !== undefined ? { pressure: spec.pressure } : {}), bevel: { ...g.spec.bevel!, mate: g === edited ? bv.mate : spec.teeth, ...(bv.shaft !== undefined ? { shaft: bv.shaft } : {}), ...(bv.face !== undefined ? { face: bv.face } : {}), ...(bv.spiral !== undefined ? { spiral: bv.spiral } : {}) }, ...(bv.spiral !== undefined && spec.backlash !== undefined ? { backlash: spec.backlash } : {}) });
+  const fresh = (g: GearRecord): GearSpec => ({ ...g.spec, teeth: g === edited ? spec.teeth : bv.mate, module: spec.module, ...(spec.pressure !== undefined ? { pressure: spec.pressure } : {}), bevel: { ...g.spec.bevel!, mate: g === edited ? bv.mate : spec.teeth, ...(bv.shaft !== undefined ? { shaft: bv.shaft } : {}), ...(bv.face !== undefined ? { face: bv.face } : {}), ...(bv.spiral !== undefined ? { spiral: bv.spiral } : {}) }, ...((bv.spiral !== undefined || bv.facegear !== undefined) && spec.backlash !== undefined ? { backlash: spec.backlash } : {}), ...(bv.facegear !== undefined && spec.crown ? { crown: spec.crown } : {}) });
   const a2: GearRecord = { ...anchor, spec: fresh(anchor) };
   const pl = s.parts[a2.plane];
   if (!pl || pl.kind !== "plane") return setGearCore(s, id, spec, at, turn);
   const f0 = fresh(follower);
-  const placed = meshBevel(a2, pl.u, pl.v, { teeth: f0.teeth }, follower.spec.bevel!.dir ?? 0);
+  const placed = (a2.spec.bevel!.facegear !== undefined ? meshFace : meshBevel)(a2, pl.u, pl.v, { teeth: f0.teeth }, follower.spec.bevel!.dir ?? 0);
   if (!placed.ok) return err(placed.error);
   const f2: GearRecord = { ...follower, at: placed.value.at, turn: placed.value.turn, spec: { ...f0, bevel: { ...f0.bevel!, ...(placed.value.spec.bevel!.frame ? { frame: placed.value.spec.bevel!.frame } : {}) } } };
   const first = setGearCore(s, a2.id, a2.spec, anchor === edited ? at : undefined, anchor === edited ? turn : undefined);

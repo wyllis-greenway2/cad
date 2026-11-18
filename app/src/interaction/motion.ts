@@ -11,6 +11,10 @@ import type { Command } from "../operation/commands.ts";
 import { apply } from "../operation/commands.ts";
 import { followersOf, gearAxis, gearOfBody, genevaPlay, carrierPlay } from "../operation/gearcouple.ts";
 import type { Follower } from "../operation/gearcouple.ts";
+import type { ContactState } from "./contact.ts";
+import { startContact } from "./contact.ts";
+import type { Candidate } from "./contact.ts";
+import type { CompileOutcome } from "../compiler/compile.ts";
 import { followAmount } from "../operation/gearcouple.ts";
 import { linkFollowers } from "../operation/coupling.ts";
 
@@ -42,12 +46,15 @@ export interface Motion {
   speed: number;
   /** when the pose cannot be kept: why (a Geneva drive stays one drawing) */
   noKeep?: string;
+  /** contact push (`contact.ts`): the bodies that yield and where the motion stands; the followers they make this frame */
+  contact?: ContactState;
+  yields?: Follower[];
 }
 /** The span a joint with no stops is scrubbed and swung over: a turn goes right round either way, a slide as far as the body is wide again. */
 const FREE_TURN = 180, FREE_SLIDE = 30;
 
 /** The motion of the joint that the body is the first of (a true coaxial mate), or the reason there is none. */
-export function startMotion(scene: Scene, body: Ref, kind: JointKind = "turn"): { ok: true; motion: Motion } | { ok: false; why: string } {
+export function startPlain(scene: Scene, body: Ref, kind: JointKind = "turn"): { ok: true; motion: Motion } | { ok: false; why: string } {
   const m = mateStatus(scene).find((x) => x.state === "ok" && x.mode === "coaxial" && x.mover?.body === body);
   const cp = m?.mover ? null : carrierPlay(scene, body);
   if (cp) return { ok: true, motion: { mate: "", gear: "", follows: cp.followers, kind: "turn", body, point: cp.driver.point, dir: cp.driver.dir, amount: 0, lo: -FREE_TURN, hi: FREE_TURN, free: true, playing: false, from: 0, startedAt: null, speed: 30, noKeep: "a turning carrier is a pose of the whole set: turn the set with Edit (its Turn field) instead" } };
@@ -67,6 +74,21 @@ export function startMotion(scene: Scene, body: Ref, kind: JointKind = "turn"): 
   const [lo, hi] = free ? (kind === "turn" ? [-FREE_TURN, FREE_TURN] : [-FREE_SLIDE, FREE_SLIDE]) : [room.down, room.up];
   if (hi - lo < 1e-9) return { ok: false, why: "the joint's stops leave it no room to move" };
   return { ok: true, motion: { mate: m.id, follows: linkFollowers(scene, m.id, kind), kind, body, point: m.mover.point, dir: normalize(m.mover.dir), amount: 0, lo, hi, free, playing: false, from: 0, startedAt: null, speed: kind === "turn" ? 60 : 10 } };
+}
+
+/** The motion of the body that is played or the joint it is the first of (`startPlain`), and, when a hard body is in the mechanism, with contact push on (`contact.ts`, `dec_contact_push`): the bodies that can yield are the wheel of a Geneva drive (which then yields instead of following its formula) and the first body of each coaxial mate that nothing else here moves. */
+export function startMotion(scene: Scene, body: Ref, kind: JointKind = "turn", outcome?: CompileOutcome): { ok: true; motion: Motion } | { ok: false; why: string } {
+  const r = startPlain(scene, body, kind);
+  if (!r.ok || !scene.hard?.length) return r;
+  const m = r.motion;
+  const wheel = m.follows.find((f) => f.geneva);
+  const camRod = m.follows.find((f) => f.table); // (a cam's follower: with a hard body here it rides the cam by contact, going back to where it began when the cam lets it)
+  const candidates: Candidate[] = wheel ? [{ body: wheel.body, point: wheel.point, dir: wheel.dir }] : [];
+  if (camRod) { const way: 1 | -1 = camRod.table!.reduce((a, b) => (Math.abs(b) > Math.abs(a) ? b : a), 0) < 0 ? -1 : 1; candidates.push({ body: camRod.body, kind: "slide", point: camRod.point, dir: camRod.dir, rest: -way * 50, way }); } // (the way the cam pushes it, and the rest: toward the cam, as far as it is clear to)
+  for (const j of mateStatus(scene)) if (j.state === "ok" && j.mode === "coaxial" && j.mover && j.mover.body !== m.body && !candidates.some((c) => c.body === j.mover!.body)) candidates.push({ body: j.mover.body, point: j.mover.point, dir: normalize(j.mover.dir) });
+  const stripped: Motion = wheel || camRod ? { ...m, follows: m.follows.filter((f) => f !== wheel && f !== camRod) } : m;
+  const contact = startContact(scene, stripped, candidates, outcome);
+  return { ok: true, motion: contact ? { ...stripped, contact, noKeep: "a pose found by contact cannot be kept yet",  yields: contact.pushables.map((p): Follower => ({ gear: "", body: p.body, kind: p.kind, point: p.point, dir: p.dir, k: 0, value: 0, ...(camRod && p.body === camRod.body && camRod.mate ? { mate: camRod.mate } : {}) })) } : m };
 }
 
 /** The amount at a time (ms): a joint with no stops that turns goes on turning; any other swings from stop to stop and back. */

@@ -2279,6 +2279,7 @@ function describeError(e, op) {
   // the kernel says nothing when it cannot build a shape: say what was being done, and the usual reason
   if (op?.type === "edgeMod") return `the kernel could not make a ${op.mode === "chamfer" ? "chamfer" : "fillet"} of that size on this edge: it is probably too big for the faces beside it (try a smaller size)`;
   if (op?.type === "cylRadius" || op?.type === "faceExtrude" || op?.type === "faceExtend") return "the kernel could not make that size (it may be too small, too big, or run into another part of the model)";
+  if (op?.type === "loft") return "the kernel could not loft through those sections (it gave no reason): a side of one that is almost straight, or two sides that nearly touch, can do it; try a small change of a size";
   return "the kernel could not make this step (it gave no reason)";
 }
 

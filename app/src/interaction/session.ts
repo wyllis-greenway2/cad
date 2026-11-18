@@ -15,7 +15,7 @@ import { coneRetry } from "../operation/spiralretry.ts";
 import { apply } from "../operation/commands.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { History } from "../operation/history.ts";
-import { newHistory, exec, undo, redo, goTo, toggleInsert } from "../operation/history.ts";
+import { newHistory, exec, undo, redo, goTo, toggleInsert, sceneAt } from "../operation/history.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Result } from "../shared/result.ts";
 import { ok } from "../shared/result.ts";
@@ -317,11 +317,11 @@ export function refresh(s: Session): Session {
       if (again.ok) return { ...withHistory(now, again.value), checkSteps: undefined, fallback: undefined, message: "the standing mates were put back with the change" };
     }
     // the answer shows the change leaves mates that held with no placement where they all hold: it is taken back, as when it is made with the answer at hand (`in_331`)
-    const held = new Set(mateStatus(h.snapshots[h.cursor - 1] ?? h.base).filter((m) => m.state === "ok").map((m) => m.id));
-    if (atOdds.some((id) => held.has(id) || !(h.snapshots[h.cursor - 1] ?? h.base).relations.some((r) => r.id === id))) {
+    const held = new Set(mateStatus(sceneAt(h, h.cursor - 1)).filter((m) => m.state === "ok").map((m) => m.id));
+    if (atOdds.some((id) => held.has(id) || !sceneAt(h, h.cursor - 1).relations.some((r) => r.id === id))) {
       const undone = undo(h);
       const back = withHistory(s, { ...undone, commands: undone.commands.slice(0, undone.cursor), snapshots: undone.snapshots.slice(0, undone.cursor + 1) }); // (taken back, not kept to be done again with redo)
-      return { ...back, checkSteps: undefined, fallback: undefined, message: atOddsMessage(now.history.scene, atOdds, changeWords(h.snapshots[h.cursor - 1] ?? h.base, h.commands[h.cursor - 1]!), hard), conflict: { culprits: [], victims: atOdds, ...(atOdds.some((id) => (h.snapshots[h.cursor - 1] ?? h.base).relations.some((r) => r.id === id)) ? { retry: h.commands[h.cursor - 1]! } : {}) } }; // (the button of the refusal, when the answer came late too, `in_596`)
+      return { ...back, checkSteps: undefined, fallback: undefined, message: atOddsMessage(now.history.scene, atOdds, changeWords(sceneAt(h, h.cursor - 1), h.commands[h.cursor - 1]!), hard), conflict: { culprits: [], victims: atOdds, ...(atOdds.some((id) => (h.snapshots[h.cursor - 1] ?? h.base).relations.some((r) => r.id === id)) ? { retry: h.commands[h.cursor - 1]! } : {}) } }; // (the button of the refusal, when the answer came late too, `in_596`)
     }
   }
   // and a mate that is not true now, with nothing said when the change was made (the answer was awaited): said once the answer is here

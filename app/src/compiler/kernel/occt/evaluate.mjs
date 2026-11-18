@@ -4,7 +4,7 @@ import { loadOC } from "./oc.mjs";
 import { compile, finalSolid, volume } from "./interpreter.mjs";
 import { makeCompound, getOC, exportSTEP as writeStep } from "replicad";
 import { facesOf, edgesOf } from "./topo.mjs";
-import { lumpsOf, lumpsByName, solidKey } from "./bodies.mjs";
+import { lumpsOf, lumpsByName, solidKey, box as boxOf } from "./bodies.mjs";
 import { cornerEdges } from "../../../shared/sharp.mjs";
 
 const described = new Map();
@@ -302,7 +302,14 @@ export function exportMesh(graph, quality) {
   if (!picked.ok) return picked;
   const { shape, box } = picked;
   const m = shape.mesh({ tolerance: quality.tolerance, angularTolerance: quality.angular });
-  return { ok: true, vertices: new Float32Array(m.vertices), triangles: new Uint32Array(m.triangles), volume: volume(shape), bbox: { min: [...box[0]], max: [...box[1]] } };
+  const vertices = new Float32Array(m.vertices);
+  let bbox = { min: [...box[0]], max: [...box[1]] };
+  if (facesOf(shape).length > 300 && vertices.length) { // (the box of the file's own vertices: exact to the mesh, and found in a moment)
+    const [lo, hi] = [[Infinity, Infinity, Infinity], [-Infinity, -Infinity, -Infinity]];
+    for (let i = 0; i < vertices.length; i += 3) for (let k = 0; k < 3; k++) { const v = vertices[i + k]; if (v < lo[k]) lo[k] = v; if (v > hi[k]) hi[k] = v; }
+    bbox = { min: lo, max: hi };
+  }
+  return { ok: true, vertices, triangles: new Uint32Array(m.triangles), volume: volume(shape), bbox };
 }
 
 /** The final body of a graph (or only the bodies named) as a STEP file (`dec_export_formats`): the exact solid, as bytes; in millimetres or, with `unit` "in", inches. */
@@ -327,7 +334,7 @@ function exportShape(graph, only) {
   const fin = finalSolid(graph, results);
   if (!fin) return { ok: false, error: failed ? failed.error : "nothing to export yet: make a body" };
   let box = null;
-  try { box = fin.shape.boundingBox.bounds; } catch { box = null; }
+  try { const b = boxOf(fin.shape); box = [b.min, b.max]; } catch { box = null; } // (the exact box for a body of 300 faces or fewer; a quick one round a body of more: the exact box of a 100 tooth worm wheel took 6.7 s of an 11 s export, `in_899`)
   if (!box) return { ok: false, error: "nothing to export: nothing is left of the body" };
   let shape = fin.shape;
   if (only?.length) {
@@ -335,7 +342,8 @@ function exportShape(graph, only) {
     const found = lumpsByName(shape, fin.markers ?? [], only);
     if (!found) return { ok: false, error: "that body is not there any more" };
     shape = found.picked.length === 1 ? found.picked[0] : makeCompound(found.picked);
-    box = shape.boundingBox.bounds;
+    const b = boxOf(shape);
+    box = [b.min, b.max];
   }
   return { ok: true, shape, box };
 }

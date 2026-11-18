@@ -57,7 +57,8 @@ export function flankGrid(pr: Pair, which: "pinion" | "ring", f: "A" | "B", nth 
   const thM = Math.atan2(Math.sin(c.beta), -Math.cos(c.beta) * (c.hand ?? 1));
   const span = (1.2 * (sp.b + 16)) / c.RW + 0.25; // (the face and a margin each side, for the planes beyond the toe and the heel that the cone ends need)
   const g = which === "pinion" ? pr.pinion : pr.ring;
-  const [y0, y1] = [-g.hF - 3, g.hK + 3];
+  const GM = Number(process.env.GM ?? 3);
+  const [y0, y1] = [-g.hF - GM, g.hK + GM];
   const P: V3[][] = [];
   for (let i = 0; i <= nth; i++) {
     const th = thM - span + (2 * span * i) / nth;
