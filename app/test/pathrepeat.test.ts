@@ -131,7 +131,7 @@ test("bad numbers are refused with a reason", () => {
   assert.ok(!placeAlong(line(100), { spacing: { by: "count", count: 0 } }).ok);
   assert.ok(!placeAlong(line(100), { spacing: { by: "count", count: 2.5 } }).ok);
   assert.ok(!placeAlong(line(100), { spacing: { by: "distance", distance: NaN } }).ok);
-  const e = placeAlong(rect(100, 60), { spacing: { by: "count", count: 3 }, corners: "each" });
+  const e = placeAlong(rect(100, 60), { spacing: { by: "count", count: 3 }, corners: "inward" });
   assert.ok(!e.ok && e.error.includes("distance"));
   assert.ok(!placeAlong({ segs: [{ a: [0, 0], b: [10, 0], bulge: 0 }, { a: [11, 0], b: [20, 0], bulge: 0 }], closed: false }, { spacing: { by: "count", count: 2 } }).ok, "sides that do not meet");
   assert.ok(!placeAlong({ segs: [], closed: false }, { spacing: { by: "count", count: 2 } }).ok);
@@ -177,4 +177,19 @@ test("the shift is one of the numbers a repeat keeps, and a record made before i
   assert.ok(back.ok && back.value.rules.shift === 4);
   const old = rulesFrom(n.slice(0, 9));
   assert.ok(old.ok && old.value.rules.shift === 0);
+});
+
+// ---- a count with a hole at every corner (`in_936`) ----
+test("a count with every corner: the corners are part of the count and the rest are shared out between the sides by their length", () => {
+  const rect: Path = { closed: true, segs: [{ a: [0, 0], b: [40, 0], bulge: 0 }, { a: [40, 0], b: [40, 20], bulge: 0 }, { a: [40, 20], b: [0, 20], bulge: 0 }, { a: [0, 20], b: [0, 0], bulge: 0 }] };
+  const r = placeAlong(rect, { spacing: { by: "count", count: 10 }, corners: "each" });
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  if (!r.ok) return;
+  assert.equal(r.value.frames.length, 10); // (4 corners and 6 more: the long sides take two each, the short ones one each)
+  const at = (x: number, y: number) => r.value.frames.some((f) => Math.hypot(f.at[0] - x, f.at[1] - y) < 1e-6);
+  for (const [x, y] of [[0, 0], [40, 0], [40, 20], [0, 20]] as const) assert.ok(at(x, y));
+  assert.ok(at(40 / 3, 0) && at(80 / 3, 0) && at(40, 10) && at(0, 10));
+  const few = placeAlong(rect, { spacing: { by: "count", count: 3 }, corners: "each" });
+  assert.ok(!few.ok && few.error.includes("at least"));
+  assert.ok(!placeAlong(rect, { spacing: { by: "count", count: 8 }, corners: "inward" }).ok);
 });

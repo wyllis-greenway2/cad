@@ -308,7 +308,7 @@ function holesValues(): { values: ReceiverValues; mode: HolePanelView["mode"] } 
   if (ctx.places) return { values: { ...v, place: "picked" }, mode: "picked" };
   if (ctx.curved && !ctx.lines) return { values: v, mode: "none" }; // (a round face has no outline to follow: a line or places are needed)
   if (ctx.lines) return { values: { ...v, place: "lines", corners: "ignore" }, mode: "line" }; // (a line has no corners to keep: its ends are its ends)
-  return { values: { ...v, place: "outline", ...(v.by === "count" ? { corners: "ignore" } : {}) }, mode: "face" }; // (a rule for the corners needs a distance between holes: counting the holes leaves the corners out)
+  return { values: { ...v, place: "outline", ...(v.by === "count" && v.corners === "inward" ? { corners: "each" } : {}) }, mode: "face" }; // (counting the holes with a hole at every corner: the corners are some of the count; working in from the corners needs a distance)
 }
 function holesCut(): void {
   if (!hardware) return;

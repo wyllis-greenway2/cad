@@ -100,7 +100,7 @@ test("rules that make no hole, or too many, are refused with the reason", () => 
   assert.ok(!cutReceiver(s, vals({ place: "outline", by: "distance", value: "0" })).ok);
   const many = cutReceiver(s, vals({ place: "outline", by: "distance", value: "1", corners: "ignore", offset: "5" }));
   assert.ok(!many.ok && many.error.includes("200"), many.ok ? "" : many.error);
-  const e = cutReceiver(s, vals({ place: "outline", by: "count", value: "4", corners: "each" }));
+  const e = cutReceiver(s, vals({ place: "outline", by: "count", value: "4", corners: "inward" }));
   assert.ok(!e.ok && e.error.includes("distance"));
   const noLines = cutReceiver(s, vals({ place: "lines" }));
   assert.ok(noLines.ok, "with no line selected the holes fall back to the middle of the face");
@@ -295,4 +295,12 @@ test("the depth of a hole through is the thickness of the body the face is of, w
   const p = receiverPlan(select(s, [tops[0]!.ref]), vals({ place: "centre" }));
   assert.ok(p.ok, p.ok ? "" : p.error);
   if (p.ok) near(p.value.reach, 8, 1e-6);
+});
+
+test("holes along the outline counted with a hole at every corner: the count is all the holes, the corners among them", () => {
+  const { s } = block();
+  const p = receiverPlan(s, vals({ place: "outline", by: "count", value: "12", corners: "each", offset: "10" }));
+  assert.ok(p.ok, p.ok ? "" : p.error);
+  if (p.ok) assert.equal(p.value.places.length, 12);
+  assert.ok(!receiverPlan(s, vals({ place: "outline", by: "count", value: "3", corners: "each", offset: "10" })).ok);
 });

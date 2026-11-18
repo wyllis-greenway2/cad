@@ -41,12 +41,13 @@ export function createHolePanel(host: HTMLElement, h: HolePanelHandlers) {
     update(v: HolePanelView | null): void {
       if (!v) { el.style.display = "none"; return; }
       el.style.display = "block";
+      const distance = v.values.by !== "count";
       fillSelect(kind, v.kinds, v.values.kind);
       fillSelect(size, v.sizes.map((s) => ({ id: s, label: s })), v.values.size);
       fillSelect(by, [{ id: "distance", label: "by distance" }, { id: "count", label: "by number" }], v.values.by === "count" ? "count" : "distance");
       fillSelect(ends, [{ id: "fit", label: "fit" }, { id: "remainder", label: "leave the rest" }, { id: "centre", label: "centre" }], v.values.ends);
       fillSelect(far, [{ id: "none", label: "none" }, { id: "nut", label: "pocket on the other side" }], v.values.far === "nut" ? "nut" : "none");
-      fillSelect(corners, [{ id: "each", label: "every corner" }, { id: "ignore", label: "none" }, { id: "inward", label: "from the corners" }], v.values.corners);
+      fillSelect(corners, distance ? [{ id: "each", label: "every corner" }, { id: "ignore", label: "none" }, { id: "inward", label: "from the corners" }] : [{ id: "each", label: "every corner" }, { id: "ignore", label: "none" }], v.values.corners === "inward" && !distance ? "each" : v.values.corners);
       fillSelect(insert, [{ id: "none", label: "no" }, { id: "screw", label: "yes" }], v.values.insert === "screw" ? "screw" : "none");
       setText(value, v.values.value);
       setText(offset, v.values.offset);
@@ -54,18 +55,17 @@ export function createHolePanel(host: HTMLElement, h: HolePanelHandlers) {
       setText(depth, v.values.depth);
       setText(drill, v.values.drill);
       setText(length, v.values.length);
-      const distance = v.values.by !== "count";
       rows.value.label.textContent = distance ? "Every" : "Number";
       rows.value.unit.textContent = distance ? "mm" : "";
       rows.value.hint.textContent = distance ? "between holes along the path" : "of holes along the path";
       rows.offset.hint.textContent = "how far in from the edge";
       rows.shift.hint.textContent = v.mode === "face" ? "walk the holes round the outline" : "move the row along the line";
-      rows.corners.hint.textContent = "a hole at each corner, or none";
+      rows.corners.hint.textContent = "a hole at each corner (the number counts them), or none";
       rows.ends.hint.textContent = "how the row meets the line's ends";
       const path = v.mode === "face" || v.mode === "line"; // (the spacing and the rest are for a path)
       show(rows.by, path); show(rows.value, path); show(rows.shift, path);
       show(rows.offset, v.mode === "face");
-      show(rows.corners, v.mode === "face" && distance); // (a rule for the corners needs a distance between holes, not a number of them)
+      show(rows.corners, v.mode === "face");
       show(rows.ends, v.mode === "line" && distance);
       show(rows.drill, v.values.kind === "drillTap");
       show(rows.far, !(v.values.kind === "tapped" || v.values.kind === "nutPocket" || v.values.kind === "drillTap")); // (a nut on the far side goes with a hole right through)

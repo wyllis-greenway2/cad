@@ -4094,3 +4094,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_935 — 2026-11-18 — question
 > Why does it say this?
 (asks why the fastener panel shows "a rule for the corners needs a distance between copies, not a count"; a screenshot of the panel's red message above Type: Countersunk)
+
+## in_936 — 2026-11-18 — directive
+> But why not? why couldn't we put a fastener in each corner, and also divide the spaces between by the remaining count?
+(says there is no reason a count cannot be used with a fastener at every corner: put one in each corner and divide the spaces between by the remaining count)
