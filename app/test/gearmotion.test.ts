@@ -214,3 +214,17 @@ test("while a motion plays the bar's number stays within half a turn either way,
   assert.equal(f.highlight.hover, undefined);
   assert.equal(f.highlight.hoverPoint, null);
 });
+
+test("the number in the bar is always the same width, so the words round it do not move as it changes (`in_956`)", () => {
+  const a = rec("g_001", [0, 0, 0], G1);
+  const s = build([{ id: "g_001", at: a.at, spec: a.spec }]);
+  const env = { w: 800, h: 600, now: 0 };
+  const body = bodyOfGear(scene(s), scene(s).gears![0]!)!;
+  let st = { ...createState(s), cam: homeCamera() };
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [body] } } };
+  st = reduce(st, { type: "runAction", id: "motion:play" }, env as never);
+  const labels = [-100.5, -93.7, -78, -72, -9.7, 0, 5, 45, 99.96, 179.9].map((amount) => frameOf({ ...st, motion: { ...st.motion!, amount } }, { w: 800, h: 600 }).motionBar!.label);
+  assert.equal(new Set(labels.map((l) => l.length)).size, 1, `all one width: ${JSON.stringify(labels)}`);
+  assert.ok(labels.every((l) => /^turned [ -]*[0-9]+\.[0-9]°$/.test(l.replace(/ /g, " "))), JSON.stringify(labels));
+  assert.ok(labels[0]!.endsWith("-100.5°") && labels[2]!.endsWith(" -78.0°"), "one decimal always");
+});
