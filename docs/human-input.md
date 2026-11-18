@@ -3928,3 +3928,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_895 — 2026-11-19 — directive
 > excellent so it is already done? please merge it so I can test it. If I test the geneva plate now will it be operating on collision with one rotating body? Everything else donstream is constraint or collision as our model states now?
 (asks for `claude/adoring-dijkstra-contact` to be merged into the testing branch, and whether the Geneva in the app now runs on collision: the AI said no, the prototype is not in the app)
+
+## in_896 — 2026-11-19 — directive
+> yes please start
+(asks for the contact push to be built in the app, starting with the Geneva)
