@@ -130,13 +130,13 @@ test("wheels one beside another stay two bodies with their own names (`in_857`: 
   assert.equal(new Set(names).size, names.length, "no two faces share a name");
 });
 
-test("no side of a wheel's sections is exactly straight: a piece of the flank on a line made the kernel's loft throw (200 teeth, module 1.02, `in_877`)", () => {
+test("no side of a wheel's sections is exactly straight: a piece of the flank on a line made the kernel's loft throw (200 teeth, module 1.02, `in_897`)", () => {
   const r = wheelSections({ teeth: 200, module: 1.02, wheel: { diameter: 24, starts: 1, width: 10 } });
   assert.ok(r.ok);
   for (const sec of r.value) assert.ok(sec.bulges.every((b) => Math.abs(b) >= 1.99e-5), `a bulge of ${Math.min(...sec.bulges.map(Math.abs))}`);
 });
 
-test("the export of a body of many faces has the box of its own mesh and does not ask the kernel for the exact box (`in_879`: 6.7 s of an 11 s export of a 100 tooth wheel)", async () => {
+test("the export of a body of many faces has the box of its own mesh and does not ask the kernel for the exact box (`in_899`: 6.7 s of an 11 s export of a 100 tooth wheel)", async () => {
   const { graphOf } = await import("../src/compiler/compile.ts");
   const s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: wheel(30) });
   const m = await kernel.exportMesh({ ...graphOf(scene(s)), names: true } as never, { tolerance: 0.05, angular: 0.3 });

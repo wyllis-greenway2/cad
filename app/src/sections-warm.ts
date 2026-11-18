@@ -1,4 +1,4 @@
-// Working out a wheel's sections off the page's thread (`in_879`). `attempt` runs something that needs them; if the sections are not kept it gets no answer, a worker is asked for them, and `ready` says when to try again.
+// Working out a wheel's sections off the page's thread (`in_899`). `attempt` runs something that needs them; if the sections are not kept it gets no answer, a worker is asked for them, and `ready` says when to try again.
 import { askBeforeWorking, keepSections, SectionsNeeded } from "./operation/wheelsections.ts";
 import type { Section } from "./operation/wheelsections.ts";
 import type { GearSpec } from "./operation/gear.ts";

@@ -10,7 +10,7 @@ import type { ToolKind, Tool } from "../tools.ts";
 import { gearFields, armTool, typeKey, finish, lineNext, gearTyped, editGearTool, editPlanetaryTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf, editCamTool } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
 import type { CamKind, CamLaw, CamLayout } from "../../operation/cams.ts";
-import { doMotionPlay, doCamFollow, doLink } from "./motion.ts";
+import { doMotionPlay, doCamFollow, doLink, doBodyPlay } from "./motion.ts";
 import { gearOfPart, gearOfSelection } from "../../operation/gearscene.ts";
 import { planetaryOfPart } from "../../operation/planetary.ts";
 import type { OpKind } from "../operations.ts";
@@ -422,6 +422,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "world:toggle") return { ...closed, worldHidden: !s.worldHidden };
   if (id.startsWith("sheet:delete:")) return doSheetDelete(closed, id.slice(13) as never);
   if (id.startsWith("sheet:visible:")) return doSheetVisible(closed, id.slice(14) as never);
+  if (id.startsWith("body:play:")) return doBodyPlay(closed, id.slice(10) as Ref); // (the play button on a body that is hooked up to an animation, `in_876`)
   if (id.startsWith("body:eye:")) return doBodyEye(closed, id.slice(9) as Ref); // (the eye on a body, `dec_hidden_bodies`)
   if (id.startsWith("sheet:mode:")) return doSheetMode(closed, id.slice(11) as never);
   if (id === "sheet:move") return doSheetMove(closed);
@@ -465,6 +466,7 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
   if (id === "tool:eccentric" || id === "tool:snail" || id === "tool:ratchet" || id === "tool:geneva" || id === "tool:linear") return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", id === "tool:snail" ? "snail" : id === "tool:ratchet" ? "ratchet" : id === "tool:geneva" ? "geneva" : id === "tool:linear" ? "linear" : "eccentric"); // (an eccentric cam and a snail cam, `dec_spline_and_cams`)
   if (id === "tool:worm" || id === "tool:wormwheel") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:worm" ? "worm" : "wormwheel"); // (a worm, and the wheel for one, `in_608`)
   if (id === "tool:spiral") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "spiral"); // (a spiral bevel gear, `dec_spiral_bevel_gears`)
+  if (id === "tool:face") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "face"); // (a face gear, `dec_crown_gear_set`)
   if (id === "tool:crown") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "crown"); // (a crown gear, `dec_crown_gears`)
   if (id === "tool:bevel") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "bevel"); // (a straight bevel gear, an approximation, `in_735`)
   if (id === "tool:planetary") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "planetary"); // (a planetary gear set, `dec_planetary_gears`)

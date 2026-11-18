@@ -9,6 +9,7 @@ import type { GearSpec } from "./gear.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { bulgeOf } from "./arcs.ts";
 import { spiralFor, spiralGeometry } from "./spiral.ts";
+import { faceFor } from "./face.ts";
 import type { P } from "./arcs.ts";
 
 /** a bevel gear: the teeth of the gear it meshes with, the angle between the shafts (degrees, 90 if none) and the face width as a fraction of the cone distance (a third if none) */
@@ -16,6 +17,8 @@ export interface BevelSpec {
   mate: number; shaft?: number; face?: number;
   /** a spiral bevel gear (`spiral.ts`, `dec_spiral_bevel_gears`): its mean spiral angle in degrees; `module` is then the normal module at the middle of the face, `face` is not used (a spiral gear's is 0.3 of the mean cone distance) */
   spiral?: number;
+  /** a face gear drive (`face.ts`, `dec_crown_gear_set`): this record is the face gear ("gear") or the spur pinion ("pinion") of a pair at 90 degrees; `GearSpec.crown` has the radii of the teeth */
+  facegear?: "gear" | "pinion";
   /** which of the cone positions the kernel cut the spiral gear's body with (`SPIRAL.shifts` of `spiral.ts`: the first is tried, and the next if the kernel cannot cut there: `spiralretry.ts`); 0 if none */
   cone?: number;
   /** a partner that stands across its mate's axis (`meshBevel`): its own first and second directions (unit vectors, the plane of the big end, its normal their cross product, along the axis towards the apex) in place of the plane's; none for a gear on its plane */
@@ -53,6 +56,14 @@ export function bevelOf(spec: GearSpec): Result<BevelGeometry> {
   if (!Number.isFinite(z) || z < 6 || z > 200) return err("a bevel gear needs 6 to 200 teeth");
   if (!Number.isFinite(mate) || mate < 6 || mate > 200) return err("the gear it meshes with needs 6 to 200 teeth");
   if (!Number.isFinite(m) || m <= 0) return err("the module must be above zero");
+  if (b.facegear !== undefined) { // a face gear or its spur pinion (`face.ts`): what the placing and the preview need
+    const f = faceFor(spec);
+    if (!f.ok) return f;
+    const p = f.value.pair;
+    return f.value.role === "gear"
+      ? ok({ delta: Math.PI / 2, R: p.R2, face: p.outer - p.inner, big: 0, small: 0, k: 1, pitchRadius: p.R2, tipRadius: p.outer, rootRadius: p.inner, addendum: p.hK, dedendum: p.hF, zv: Infinity })
+      : ok({ delta: 0, R: p.r1, face: p.outer - p.inner, big: 0, small: 0, k: 1, pitchRadius: p.r1, tipRadius: p.r1 + p.hK, rootRadius: p.r1 - p.hF, addendum: p.hK, dedendum: p.hF, zv: z });
+  }
   if (b.spiral !== undefined) { // a spiral bevel gear: its pair's numbers (`spiral.ts`)
     const sp = spiralFor(spec);
     if (!sp.ok) return sp;

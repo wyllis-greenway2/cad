@@ -1,4 +1,4 @@
-// The history keeps its latest snapshots whole and the older ones without their body parts (`in_879`): a long history held a scene's worth of body parts for every step, as the square of the steps.
+// The history keeps its latest snapshots whole and the older ones without their body parts (`in_899`): a long history held a scene's worth of body parts for every step, as the square of the steps.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

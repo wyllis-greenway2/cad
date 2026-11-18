@@ -1,4 +1,4 @@
-// A worm wheel's sections, worked out in a thread of their own (`in_879`): the scan over the worm's turns is the page's heaviest work (a 100 tooth wheel 2.5 s, four times that on a slow device), and the page stays alive while this runs.
+// A worm wheel's sections, worked out in a thread of their own (`in_899`): the scan over the worm's turns is the page's heaviest work (a 100 tooth wheel 2.5 s, four times that on a slow device), and the page stays alive while this runs.
 // `sections-warm.ts` is the other end.
 import { wheelSections } from "./operation/wheelsections.ts";
 import type { GearSpec } from "./operation/gear.ts";

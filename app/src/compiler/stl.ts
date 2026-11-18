@@ -32,7 +32,7 @@ export function openEdges(vertices: ArrayLike<number>, triangles: ArrayLike<numb
   // corners that are the same point: found in the cells round their own (two of them can fall either side of the edge of a cell, `in_267`)
   const cells = new Map<string, { p: [number, number, number]; id: number }[]>();
   let count = 0;
-  const known = new Int32Array(Math.ceil(vertices.length / 3)).fill(-1); // (a vertex of the mesh is looked up once, not once for each triangle it is a corner of: six or so; with string keys for the cells and for the edges this was 2 s for the export of a 100 tooth worm wheel, the page's own thread, `in_879`)
+  const known = new Int32Array(Math.ceil(vertices.length / 3)).fill(-1); // (a vertex of the mesh is looked up once, not once for each triangle it is a corner of: six or so; with string keys for the cells and for the edges this was 2 s for the export of a 100 tooth worm wheel, the page's own thread, `in_899`)
   const id = (i: number): number => {
     if (known[i]! >= 0) return known[i]!;
     const found = idOf(i);

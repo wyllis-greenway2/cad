@@ -334,7 +334,7 @@ function exportShape(graph, only) {
   const fin = finalSolid(graph, results);
   if (!fin) return { ok: false, error: failed ? failed.error : "nothing to export yet: make a body" };
   let box = null;
-  try { const b = boxOf(fin.shape); box = [b.min, b.max]; } catch { box = null; } // (the exact box for a body of 300 faces or fewer; a quick one round a body of more: the exact box of a 100 tooth worm wheel took 6.7 s of an 11 s export, `in_879`)
+  try { const b = boxOf(fin.shape); box = [b.min, b.max]; } catch { box = null; } // (the exact box for a body of 300 faces or fewer; a quick one round a body of more: the exact box of a 100 tooth worm wheel took 6.7 s of an 11 s export, `in_899`)
   if (!box) return { ok: false, error: "nothing to export: nothing is left of the body" };
   let shape = fin.shape;
   if (only?.length) {

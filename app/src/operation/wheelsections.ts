@@ -14,7 +14,7 @@ export interface Section { h: number; points: P[]; bulges: number[] }
 export const SECTIONS = 5;
 /** How many arcs the gap between two teeth is cut into (each an arc through its ends and middle): the loft's time goes as about the 1.5th power of the arcs (100 teeth: 18 arcs 16.9 s, 12 arcs 8.7 s), and the arcs lie within about 0.007 mm of the flank (the loft itself is 0.05 mm off the exact wheel, a printer 0.2 mm), `in_796`. */
 const NGAP = 12;
-/** The least bulge a side of a section has (the sag as a fraction of its length: 2e-5 of a 0.4 mm side is 0.000009 mm): a piece of the flank that comes out exactly straight (bulge 1e-14) made the kernel's loft throw, in a 200 tooth wheel of module 1.02 or 1.03 (`in_877`). */
+/** The least bulge a side of a section has (the sag as a fraction of its length: 2e-5 of a 0.4 mm side is 0.000009 mm): a piece of the flank that comes out exactly straight (bulge 1e-14) made the kernel's loft throw, in a 200 tooth wheel of module 1.02 or 1.03 (`in_897`). */
 const MIN_BULGE = 2e-5;
 /** Bisection steps that put a crossing of the grid exactly: the cells are about 0.05 mm, so 10 steps give 0.0001 mm (the sections lie on the exact surface to 0.002 mm). */
 const ITER = 10;
@@ -23,7 +23,7 @@ const COARSE = 4;
 
 const cache = new Map<string, Result<Section[]>>();
 const keyOf = (spec: GearSpec): string => JSON.stringify([spec.teeth, spec.module, spec.pressure ?? 20, spec.wheel]);
-/** Thrown (only while the page has asked for it, `askBeforeWorking`) in place of working the sections out on the page's own thread: the page works them out in a thread of their own and then does the thing again (`in_879`: a 100 tooth wheel froze the page 2.5 s, 10 s on a device four times slower). */
+/** Thrown (only while the page has asked for it, `askBeforeWorking`) in place of working the sections out on the page's own thread: the page works them out in a thread of their own and then does the thing again (`in_899`: a 100 tooth wheel froze the page 2.5 s, 10 s on a device four times slower). */
 export class SectionsNeeded extends Error {
   spec: GearSpec;
   constructor(spec: GearSpec) { super("the wheel's sections have to be worked out first"); this.spec = spec; }

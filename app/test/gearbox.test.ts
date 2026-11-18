@@ -13,7 +13,7 @@ import { isCrown } from "../src/operation/bevel.ts";
 
 await kernel.init();
 
-const VARIANTS: GearVariant[] = ["gear", "bevel", "crown", "spiral", "ring", "rack", "gt2", "gt3", "htd5", "htd8", "sprocket", "isosprocket", "clock", "clockring", "clockrack"];
+const VARIANTS: GearVariant[] = ["gear", "bevel", "crown", "spiral", "face", "facepinion", "ring", "rack", "gt2", "gt3", "htd5", "htd8", "sprocket", "isosprocket", "clock", "clockring", "clockrack"];
 
 test("every number of every kind of gear has a hint, and each kind has a title", () => {
   for (const v of VARIANTS) {
@@ -103,6 +103,25 @@ test("the spiral bevel gear tool (`dec_spiral_bevel_gears`, `in_836`): its numbe
   assert.ok(mesh && mesh.type === "gear", "the partner");
   assert.equal(mesh.spec.bevel?.spiral, 30, "with the same spiral");
   assert.equal(mesh.spec.bevel?.mate, 24);
+});
+
+test("the face gear tool (`dec_crown_gear_set`, `in_886`): its numbers, its title, the gear it makes with nothing typed, and Mesh gear on it makes the spur pinion at 90 degrees", () => {
+  const sc = scene(createSession(kernel));
+  const t = { ...armTool("gear", "face"), plane: worldRef("XY"), points: [[0, 0, 0] as [number, number, number]], cursor: [10, 0, 0] as [number, number, number] };
+  assert.deepEqual(gearFields(t.gear!).map((f) => f.key), ["teeth", "mate", "module", "inner", "outer", "width", "backlash", "bore", "flat", "key", "keydepth"]);
+  assert.equal(gearTitle(t.gear!), "Face gear");
+  const cmd = finishTool(sc, t)?.command as { type: string; spec: GearRecord["spec"] } | undefined;
+  assert.ok(cmd && cmd.type === "gear", "makes a gear");
+  assert.equal(cmd.spec.teeth, 40);
+  assert.equal(cmd.spec.bevel?.mate, 14, "a pinion of 14 teeth unless typed");
+  assert.equal(cmd.spec.bevel?.facegear, "gear");
+  const rec = { id: "g_001", plane: worldRef("XY"), at: [0, 0, 0] as [number, number, number], spec: cmd.spec };
+  const mesh = finish(sc, { ...meshGearTool(rec, false), cursor: [30, 0, 0] })?.command as { type: string; spec: GearRecord["spec"] } | undefined;
+  assert.ok(mesh && mesh.type === "gear", "the pinion");
+  assert.equal(mesh.spec.teeth, 14, "the pinion's teeth are the face gear's mate");
+  assert.equal(mesh.spec.bevel?.facegear, "pinion");
+  assert.equal(mesh.spec.bevel?.mate, 40);
+  assert.ok(mesh.spec.bevel?.frame, "it stands across: its own frame");
 });
 
 test("Mesh gear on a bevel gear makes its partner: the same module, the source's tooth count, standing across at the shaft angle with its own frame (`in_755`)", () => {

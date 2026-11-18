@@ -24,7 +24,7 @@ export interface History {
 
 /**
  * How many of the latest snapshots are kept whole. The older ones lose their body parts (the faces, edges and corners of the kernel's answer: most of a scene, and each snapshot had its own): a model of a hundred parts held
- * 385 MB of scenes (175 parts, a gigabyte), growing as the square of the steps. Going back to one makes its bodies again from the kernel (`sceneAt`), as the kernel keeps its answers for the graphs it has seen (`in_879`).
+ * 385 MB of scenes (175 parts, a gigabyte), growing as the square of the steps. Going back to one makes its bodies again from the kernel (`sceneAt`), as the kernel keeps its answers for the graphs it has seen (`in_899`).
  */
 const KEEP_WHOLE = 30;
 const lean = (s: Scene): Scene => {

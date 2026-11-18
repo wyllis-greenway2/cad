@@ -142,7 +142,7 @@ test("a body that was moved and turned is exported where it is, not put back", a
   assert.ok(Math.abs(volumeOf(read(stlBytes(m.vertices, m.triangles, "t")).tris) - 16000) < 0.01);
 });
 
-test("the count of open edges of a closed mesh of many triangles is 0, and a mesh with a missing triangle has three open edges (`in_879`: the corners are looked up once each)", () => {
+test("the count of open edges of a closed mesh of many triangles is 0, and a mesh with a missing triangle has three open edges (`in_899`: the corners are looked up once each)", () => {
   // a UV sphere of about 20 thousand triangles
   const rows = 100, cols = 200, V: number[] = [], T: number[] = [];
   for (let i = 0; i <= rows; i++) for (let j = 0; j < cols; j++) { const a = (Math.PI * i) / rows, b = (2 * Math.PI * j) / cols; V.push(Math.sin(a) * Math.cos(b), Math.sin(a) * Math.sin(b), Math.cos(a)); }

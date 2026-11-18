@@ -473,14 +473,12 @@ test("the right-click ring has Models under Shape, with Fasteners and Fastener H
   assert.deepEqual(models.children!.map((c) => [c.id, c.label]), [["models:fasteners", "Fasteners"], ["models:holes", "Fastener Holes"]]);
   assert.equal(find(items, "models:fasteners")!.enabled, true, "Fasteners is always there to use");
 });
-test("Fastener Holes is dimmed with its reason until one flat face is selected", () => {
+test("Fastener Holes is always in the ring: it opens a panel that says what to select", () => {
   const none = find(ringOf(createSession(kernel)), "models:holes")!;
-  assert.equal(none.enabled, false);
-  assert.equal(none.why, "select one flat face of a body first");
+  assert.equal(none.enabled, true);
+  assert.equal(none.why, null);
   const { s } = block();
-  const yes = find(ringOf(s), "models:holes")!;
-  assert.equal(yes.enabled, true);
-  assert.equal(yes.why, null);
+  assert.equal(find(ringOf(s), "models:holes")!.enabled, true);
 });
 test("the ⋯ list no longer holds Add part or Fastener hole: they are in the ring", async () => {
   const { appRows } = await import("../src/interaction/appmenu.ts");

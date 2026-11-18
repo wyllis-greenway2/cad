@@ -9,6 +9,7 @@ import { createRecognizer } from "./interaction/recognizer.ts";
 import { mateStatus } from "./operation/mates.ts";
 import { createSession, openSession, saveText, run, scene, selection, refresh } from "./interaction/session.ts";
 import type { Session } from "./interaction/session.ts";
+import type { ReceiverValues } from "./interaction/addpart.ts";
 import { canExport } from "./interaction/exportstl.ts";
 import { canExportFlat } from "./interaction/exportsketch.ts";
 import { laserDialog, runLaser, findingsDialog, machineChoices, machineDialog, startValues, projectMachines, recordCommands, tableRows, rowFrom, tableDialog, layersDialog, layersCommand, whyNoLayers, marksSummary } from "./interaction/manufacture.ts";
@@ -16,7 +17,7 @@ import { parseLibrary, libraryText, saveMachine, removeMachine, saveSettings, re
 import { flatSnapshot } from "./interaction/partsnapshot.ts";
 import type { LaserValues } from "./interaction/manufacture.ts";
 import { pathRepeatTarget, pathRepeatDialog, pathRepeatCommand, pathRepeatStart, pathRepeatValuesFor } from "./interaction/pathrepeat.ts";
-import { addPartStart, addPartDialog, addPart, familyName, lengthAdviceOf, receiverStartFor, receiverDialog, receiverContext, cutReceiver, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
+import { addPartStart, addPartDialog, addPart, familyName, lengthAdviceOf, receiverStart, receiverKinds, receiverSizes, receiverContext, receiverPlan, cutReceiver, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
 import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
 import type { ExportOptions } from "./interaction/transfer.ts";
@@ -63,6 +64,10 @@ import { createBodyChips } from "./ui/bodychips.ts";
 import { createGearChip } from "./ui/gearchip.ts";
 import { createControls } from "./ui/controls.ts";
 import { createGearBox } from "./ui/gearbox.ts";
+import { createHoleBar } from "./ui/holebar.ts";
+import type { HoleBarView } from "./ui/holebar.ts";
+import { holesView } from "./interaction/holepreview.ts";
+import type { ToolpathView } from "./interaction/toolpathview.ts";
 import { createToolChip } from "./ui/toolchip.ts";
 import { createToolCursor } from "./ui/toolcursor.ts";
 import { createNotices } from "./ui/notices.ts";
@@ -179,12 +184,12 @@ const ring = createRing(document.body, (id) => {
   if (id === "view:game") { input.toggleGame(); return; }
   if (id === "repeat:path") { void pathRepeatFlow(); return; } // (`dec_path_repeat`)
   if (id === "models:fasteners") { void addPartFlow(); return; } // (Shape, Models: the dialogs are the page's, `in_812`, `in_813`)
-  if (id === "models:holes") { void fastenerHoleFlow(); return; }
+  if (id === "models:holes") { holesOpen(); return; } // (the tool is a panel and a preview in the model view, `dec_parts_tool`)
   dispatch({ type: "runAction", id });
 }, (id) => dispatch({ type: "runAction", id: `why:${id}` })); // (a dimmed option pressed: its reason is said and the ring stays, `in_538`)
 
 const hintIcons = createHints(document.body);
-const sections = createWarmer(); // (a wheel's sections are worked out in a thread of their own, `in_879`)
+const sections = createWarmer(); // (a wheel's sections are worked out in a thread of their own, `in_899`)
 const standLabels = createStandInLabels(document.body); // (the words on the discs that stand for gear bodies not made yet, `in_847`)
 let lastStandSecs: number | null = null;
 let lastIcon: [number, number] | null = null;
@@ -284,20 +289,72 @@ async function pathRepeatFlow() {
   dirty = true;
   say(target.edit || target.body?.step ? "path repeat changed" : "path repeat made");
 }
-/** Fastener hole (`in_746`): the receiver for a fastener (a clearance hole, a countersunk one, a hole to tap, a nut pocket) cut into the body whose flat face is selected, at the face's middle or as far from it as typed. */
-async function fastenerHoleFlow() {
-  const why = whyNoReceiver(state.session);
-  if (why) return say(why);
+/**
+ * Fastener Holes in the model view (`dec_parts_tool`, `in_879` to `in_881`): the tool is a panel of settings that stands beside the view, the selection is the click (the face, and with Shift the corners, circles and lines that place the
+ * holes), and what would be cut is drawn over the model as the settings change. Cut makes the holes (one undo) and the tool stays on; Close, or Esc, leaves it.
+ */
+let hardware: { values: ReceiverValues } | null = null;
+let holesKey = "";
+let holesNow: { bar: HoleBarView; view: ToolpathView | null } | null = null;
+let lastHolesScene: ReturnType<typeof scene> | null = null;
+const holeBar = createHoleBar(document.body, {
+  change(v) { if (hardware) { hardware = { values: { ...hardware.values, ...v } }; holesKey = ""; dirty = true; } },
+  commit() { holesCut(); },
+  close() { holesClose(); },
+});
+function holesOpen(): void {
+  if (hardware) return;
+  hardware = { values: receiverStart() };
+  holesKey = "";
+  dirty = true;
+}
+function holesClose(): void { hardware = null; holesKey = ""; holesNow = null; holeBar.update(null); dirty = true; }
+/** What the selection says for the holes: a line (or lines) selected: along them; a face: along its outline moved in by the inset; corners or circles picked: at them; nothing usable yet: say what to select. */
+function holesValues(): { values: ReceiverValues; mode: HoleBarView["mode"] } {
   const ctx = receiverContext(state.session);
-  const answers = await dialog.open((v) => receiverDialog(v as unknown as ReturnType<typeof receiverStartFor>, placesPicked(state.session), ctx), receiverStartFor(state.session) as unknown as Values);
-  if (!answers) return;
-  const places = placesPicked(state.session); // (before the cut: the selection may not survive it)
-  const r = cutReceiver(state.session, answers as unknown as ReturnType<typeof receiverStartFor>);
+  const v = hardware!.values;
+  if (!ctx) return { values: v, mode: "none" };
+  if (ctx.places) return { values: { ...v, place: "picked" }, mode: "picked" };
+  if (ctx.lines) return { values: { ...v, place: "lines", corners: "ignore" }, mode: "line" }; // (a line has no corners to keep: its ends are its ends)
+  return { values: { ...v, place: "outline" }, mode: "face" };
+}
+function holesCut(): void {
+  if (!hardware) return;
+  const { values } = holesValues();
+  const places = placesPicked(state.session);
+  const r = cutReceiver(state.session, values);
   if (!r.ok) return say(r.error);
   state = { ...state, session: r.value };
+  holesKey = "";
   dirty = true;
-  say(`cut: ${answers.size} ${String(answers.kind)}${places > 1 ? ` at ${places} places` : ""}`);
+  say(`cut: ${values.size} ${String(values.kind)}${places > 1 ? ` at ${places} places` : ""}`);
 }
+/** The bar and the preview for the selection and the numbers as they are, made again only when one of them changes. */
+function holesOptions(): { bar: HoleBarView; view: ToolpathView | null } {
+  const session = state.session;
+  const sc = scene(session);
+  const key = `${selection(session).join(",")}|${JSON.stringify(hardware?.values)}`;
+  if (holesNow && key === holesKey && lastHolesScene === sc) return holesNow;
+  const { values, mode } = holesValues();
+  const plan = mode === "none" ? null : receiverPlan(session, values);
+  const problem = mode === "none" ? "select a flat face of a body, or a line drawn on one" : plan && !plan.ok ? plan.error : null;
+  const note = plan?.ok ? `${plan.value.places.length} hole${plan.value.places.length === 1 ? "" : "s"}${plan.value.spacing !== null ? `, ${Math.round(plan.value.spacing * 100) / 100} mm apart` : ""}` : "";
+  const v = hardware!.values;
+  holesNow = {
+    bar: { kinds: receiverKinds(), sizes: receiverSizes(), values: { kind: v.kind, size: v.size, by: v.by ?? "distance", value: v.value ?? "30", ends: v.ends ?? "fit", corners: v.corners ?? "each", offset: v.offset ?? "10", depth: v.depth }, mode, note, problem },
+    view: plan?.ok ? holesView(plan.value) : null,
+  };
+  holesKey = key;
+  lastHolesScene = sc;
+  return holesNow;
+}
+// Enter cuts and Esc leaves while the bar is open (before the page's own keys: Esc would clear the selection)
+window.addEventListener("keydown", (e) => {
+  if (!hardware || dialog.isOpen) return;
+  const typing = e.target instanceof HTMLInputElement && !holeBar.contains(e.target);
+  if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); holesClose(); }
+  else if (e.key === "Enter" && !typing) { e.preventDefault(); e.stopPropagation(); holesCut(); }
+}, true);
 /** What a body is made of (`in_565`): a dialog asks for the name, and the selected bodies are tagged with it (one step to undo). */
 async function materialDialogFlow() {
   const why = whyNoMaterial(state.session);
@@ -394,7 +451,7 @@ function dispatch(i: Intent, again = false) {
     void webFiles.open().then(async (text) => {
       if (text === null) return;
       let tried = sections.attempt(() => openSession(engine, text));
-      while (!tried.ok) { say("working out the wheel…"); await tried.ready; tried = sections.attempt(() => openSession(engine, text)); } // (a project with a worm wheel: its sections first, off the page's thread, `in_879`)
+      while (!tried.ok) { say("working out the wheel…"); await tried.ready; tried = sections.attempt(() => openSession(engine, text)); } // (a project with a worm wheel: its sections first, off the page's thread, `in_899`)
       const r = tried.value;
       if (r.ok) { adopt(r.value); const a = aboutOf(text); if (a) { state = { ...state, session: { ...state.session, message: `opened a project saved by ${a.app}${a.build ? ` build ${a.build}` : ""} on ${a.saved.slice(0, 10)}` } }; dirty = true; } }
       else state = { ...state, session: { ...state.session, message: r.error } }, (dirty = true);
@@ -409,7 +466,7 @@ function dispatch(i: Intent, again = false) {
   // the ⋯ button again closes its menu (`in_294`)
   if (i.type === "menu" && i.button && menu.open) { menu.hide(); dirty = true; return; }
   const tried = sections.attempt(() => reduce(state, i, env()));
-  if (!tried.ok) { // a wheel whose sections are not worked out yet: they are worked out in a thread of their own and the same thing is done again (`in_879`)
+  if (!tried.ok) { // a wheel whose sections are not worked out yet: they are worked out in a thread of their own and the same thing is done again (`in_899`)
     say("working out the wheel…");
     void tried.ready.then(() => dispatch({ ...i }, true));
     return;
@@ -545,7 +602,7 @@ function frame(now: number) {
     { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); gearChip.update(f.gearChip, (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top - 26] : null; }); }
     toolChip.update(f.tool, f.confirm, lastDevice === "touch", f.options, f.undoRedo);
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null); }
-    view.setToolpath(f.toolpath, state.cam);
+    { const h = hardware ? holesOptions() : null; holeBar.update(h ? h.bar : null); view.setToolpath(h && h.view ? h.view : f.toolpath, state.cam); } // (the holes the panel would cut are drawn over the model, `dec_parts_tool`)
     previewBar.update(f.previewBar);
     motionBar.update(f.motionBar);
     addChip.update(f.adding);

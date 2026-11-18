@@ -1,6 +1,5 @@
 // The pointer intents: hover, click (selecting, or drawing when a tool is armed, or finishing an operation) and the menu.
 import { CONSTRAINT_GROUPS, fits } from "../constraintlist.ts";
-import { whyNoReceiver } from "../addpart.ts";
 import { whyNoPathRepeat } from "../pathrepeat.ts";
 import type { Intent } from "../../shared/input.ts";
 import type { Ref } from "../../shared/ref.ts";
@@ -68,6 +67,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:gear", label: "Spur gear", icon: "gear", tool: "gear" },
   { id: "tool:bevel", label: "Bevel gear", icon: "bevelgear", tool: "gear" },
   { id: "tool:crown", label: "Crown gear", icon: "crowngear", tool: "gear" },
+  { id: "tool:face", label: "Face gear", icon: "facegear", tool: "gear" },
   { id: "tool:spiral", label: "Spiral bevel", icon: "spiralbevel", tool: "gear" },
   { id: "tool:worm", label: "Worm", icon: "worm", tool: "gear" },
   { id: "tool:wormwheel", label: "Worm wheel", icon: "wormwheel", tool: "gear" },
@@ -126,7 +126,7 @@ interface Group { id: string; label: string; icon: string; items: (string | Grou
 const GEARS: Group = {
   id: "gears", label: "Gear", icon: "gear", items: [
     "tool:gear", "tool:ring", "tool:rack", "tool:planetary",
-    "tool:bevel", "tool:spiral", "tool:crown",
+    "tool:bevel", "tool:spiral", "tool:crown", "tool:face",
     { id: "worms", label: "Worm", icon: "worm", items: ["tool:worm", "tool:wormwheel"] },
     { id: "clockgears", label: "Clock", icon: "clockgear", items: ["tool:clock", "tool:clockring", "tool:clockrack"] },
     { id: "pulleys", label: "Pulley", icon: "pulley", items: ["tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8"] },
@@ -166,7 +166,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfSelection(sc, x) || (r.id === "gear:edit" && !!planetaryOfPart(sc, x))); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
     if (r.id === "repeat:path") { const why = whyNoPathRepeat(session); return [r.id, { ...base, enabled: !why, why }]; }
     if (r.id === "models:fasteners") return [r.id, { ...base, enabled: true, why: null }];
-    if (r.id === "models:holes") { const why = whyNoReceiver(session); return [r.id, { ...base, enabled: !why, why }]; }
+    if (r.id === "models:holes") return [r.id, { ...base, enabled: true, why: null }]; // (it opens a panel that says what to select, `dec_parts_tool`)
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }
     if (r.select === "combine") { const why = whyNotCombine(session); return [r.id, { ...base, enabled: !why, why }]; }
