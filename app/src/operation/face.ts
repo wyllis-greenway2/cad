@@ -17,7 +17,7 @@ const A1: V3 = [1, 0, 0], A2: V3 = [0, 0, 1];
 export const FACE = { minPinion: 12, maxFace: 64, minRatio: 2, maxRatio: 3.1, outer: 3, innerBelow: 1, outerLimit: 4, plate: 2, backlash: 0.05 } as const;
 export interface FacePair { z1: number; z2: number; m: number; alpha: number; bl: number; inner: number; outer: number; r1: number; R2: number; rb: number; hK: number; hF: number; /** the plate's thickness under the root, mm */ thick: number }
 /** The pair for a pinion of `z1` teeth and a face gear of `z2`, or why there is none. */
-export function facePairOf(z1: number, z2: number, m: number, bl: number, inner?: number, outer?: number, thick?: number): Result<FacePair> {
+function facePairOf(z1: number, z2: number, m: number, bl: number, inner?: number, outer?: number, thick?: number): Result<FacePair> {
   if (!(Number.isInteger(z1) && Number.isInteger(z2))) return err("the tooth counts must be whole numbers");
   if (z1 < FACE.minPinion) return err(`a face gear's pinion needs ${FACE.minPinion} or more teeth`);
   if (z2 > FACE.maxFace) return err(`a face gear of more than ${FACE.maxFace} teeth is not made yet`);
@@ -112,7 +112,7 @@ function curveAt(pts: [number, number][], radii: number[]): number[] | null {
   });
 }
 /** how far inside the inner radius the loft's outline goes (mm): the blank cuts it there (surfaces that coincide are not cut cleanly) */
-export const FACE_INSET = 0.4;
+const FACE_INSET = 0.4;
 export interface FaceBody {
   /** the heights above the pitch plane of the loft's sections (the tip, down past the pinion's tip, then straight to a little under the root: five) and the outline at each: corners (x, y) and the bulge of each side, slot 0 centred on +x */
   sections: { h: number; points: P[]; bulges: number[] }[];
