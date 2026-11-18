@@ -17,5 +17,8 @@ alternative_to:
 
 **Proposed limits for a first tool:** the pinion below the ring's axis only; offset up to about 0.1 of the ring's pitch diameter until more pairs are measured; the spiral tool's tooth counts, angle and pressure rules. The pinion's spiral angle is the input; the ring's follows from the offset.
 
+## As built (`in_915`)
+In the Spiral bevel tool (menu "Spiral hypoid"): a field **Hypoid offset** (mm; 0 is the spiral bevel pair; `BevelSpec.offset`). `spiral.ts`: `spiralPairOf` takes the offset, solves the pinion's pitch angle (bisection) and gives each gear its axis point and mean cone distance (`SpiralGear.origin`, `rho`); the ring is the envelope of the pinion with the offset term in the closed form (`ringPoint`); the planes across a gear are measured from its axis point. `mesh.ts` moves the partner's apex by the offset along the direction across both axes; the linked partner takes the offset (`gearscene.ts`). Limits: offset 0 to 0.12 of the ring's pitch diameter (the first measured pairs were 0.11 to 0.14), the pinion below the ring's axis only, **the spiral tool's limit of 56 teeth in all** (the prototype's 20 / 40 and 24 / 36 pairs, 60 in all, are over it). **Measured through Mesh gear (tests):** 20 / 36 teeth, offset 12 mm, 35 degrees: 1.1 mm3 at the place, 455 half a pitch round; 24 / 30, offset 9: 0.16 and 440.
+
 ## Rationale
 The human asked for it (`in_902`). The prototype shows the general gearing law gives a conjugate pair with an offset, so no sources beyond those read are needed for a first version; what they do not give (the pitch angle rule, the limits) is stated as mine, to be checked against the intrinsic pitch cones paper and ISO 23509 if the human wants them read.
