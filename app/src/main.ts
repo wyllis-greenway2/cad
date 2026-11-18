@@ -323,7 +323,7 @@ function holesValues(): { values: ReceiverValues; mode: HolePanelView["mode"] } 
   const rows = v.rows === "edge" || v.rows === "midline" || v.rows === "outline" ? v.rows : ctx.edges ? "edge" : "auto";
   return { values: { ...v, place: rows, ...(v.by === "count" && v.corners === "inward" ? { corners: "each" } : {}) }, mode: "face" }; // (counting the holes with a hole at every corner: the corners are some of the count; working in from the corners needs a distance)
 }
-/** Points at the holes, selected with the face, so that the move tools can place them exactly (`in_967`). */
+/** Points at the holes, selected with the face, so that the move tools can place them exactly (`in_979`). */
 function holesPoints(): void {
   if (!hardware) return;
   const { values } = holesValues();

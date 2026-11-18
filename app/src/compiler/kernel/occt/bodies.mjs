@@ -88,7 +88,7 @@ export function trackBodies(prev, shape, opId) {
     boxes.forEach((b, k) => { if (!claimed.has(k) && inside(b, m.at) && (i < 0 || dist(centre(b), m.at) < dist(centre(boxes[i]), m.at))) i = k; });
     if (i >= 0) { claimed.add(i); taken[pi] = i; }
   });
-  // a body that got smaller (or moved) so that its marker, the middle of its old box, is now outside it: the free solid that shares the most of the box it had is that body, and keeps its name (`in_969`: a push or pull of a lid
+  // a body that got smaller (or moved) so that its marker, the middle of its old box, is now outside it: the free solid that shares the most of the box it had is that body, and keeps its name (`in_981`: a push or pull of a lid
   // made it a new body, and a mate on it was lost)
   prev.forEach((m, pi) => {
     if (taken[pi] >= 0 || !m.box) return;

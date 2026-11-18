@@ -4224,14 +4224,14 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for this branch (countersunk default, a smaller inset, the wireframe-style preview, movable holes, wireframe staying on) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
 
-## in_967 — 2026-11-18 — directive
+## in_979 — 2026-11-18 — directive
 > Can we have it so that a fastener position can be moved with precision? why not just use our xyz rotate or orb position tool? Also can we make it smart enough to just pick a reasonable preset for the conditions? so We dont want then so inset that fasteners are overlapping, we dont want them so little inset that they are striking through the edge. Also if there is really no space it might make sense to just do center line method. Also we may want to add more or less in the fastener count if they are too cramped.
 (asks for: a way to move a fastener position with precision, by the existing xyz move or rotate or orb tools; the tool to choose a reasonable preset for the conditions: an inset neither so big that fasteners overlap nor so small that they break through the edge; the centre line method when there is really no space; and more or fewer fasteners when they are too cramped)
 
-## in_968 — 2026-11-18 — question
+## in_980 — 2026-11-18 — question
 > when I do the fastener operation it is successful. But it still has this error message? Also it appears to have selected screws that are too short? is this because there  arent long enough ones in the catalogue?
 (shows the red message "select a flat face of a body, or a line drawn on one" in the fastener panel after a successful cut, with a saved model and a state file; asks why the message stays and whether the screws chosen are too short because the catalogue has no longer ones)
 
-## in_969 — 2026-11-18 — directive
+## in_981 — 2026-11-18 — directive
 > I think we generally want to go with fasteners that are too long not too short if it is needed to fit the hole specs we made. Also I don't know if it is related to the fastener operation, but why is it that I can just pull the lid off this thing even though its supposed to have a constraint making the faces in plane?
 (asks for the fastener length to be the next standard length up rather than down when needed to fit the hole; and asks why the lid can be pulled off in the saved model although a constraint is meant to keep its faces in plane; the model and a state file are attached)
