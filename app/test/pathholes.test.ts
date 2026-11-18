@@ -221,7 +221,7 @@ test("insert with a far nut puts a nut body in the far pocket; a nut pocket on t
   if (b.ok) assert.equal(bodies(b.value).length, 2);
 });
 
-// ---- a curved surface (`in_915`): a round face, a line across it, the holes going in along the normal ----
+// ---- a curved surface (`in_929`): a round face, a line across it, the holes going in along the normal ----
 const post = (): { s: Session; face: string; V: number } => {
   let s = createSession(kernel);
   const c = drawCircle(scene(s), XY, [0, 0, 0], 10);

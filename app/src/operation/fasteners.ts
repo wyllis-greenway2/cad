@@ -215,7 +215,7 @@ export const RECEIVER_KINDS: readonly { id: ReceiverKind; label: string; /** a s
   { id: "drillTap", label: "Clearance hole to a depth, tapped past it (the tap drill)", short: "Drill + tap" }, // (`in_910`, `in_911`)
 ];
 /** Where a receiver goes: a flat face of a body, as the plane the face lies on (`at` a point on it, `u` and `v` across it, the normal `u` x `v` pointing out of the body), and the point on it the hole is centred on. */
-export interface FaceSpot { plane: Ref; centre: Vec3; u: Vec3; v: Vec3; /** on a curved surface (`in_915`): `plane` is not the plane of the spot, so a plane touching the surface at `centre` (`u`, `v` across it, the normal `u` x `v` out of the body) is made for what has to be drawn on it */ own?: boolean }
+export interface FaceSpot { plane: Ref; centre: Vec3; u: Vec3; v: Vec3; /** on a curved surface (`in_929`): `plane` is not the plane of the spot, so a plane touching the surface at `centre` (`u`, `v` across it, the normal `u` x `v` out of the body) is made for what has to be drawn on it */ own?: boolean }
 const cross3 = (a: readonly number[], b: readonly number[]): [number, number, number] => [a[1]! * b[2]! - a[2]! * b[1]!, a[2]! * b[0]! - a[0]! * b[2]!, a[0]! * b[1]! - a[1]! * b[0]!];
 const along = (p: readonly number[], d: readonly number[], t: number): [number, number, number] => [p[0]! + d[0]! * t, p[1]! + d[1]! * t, p[2]! + d[2]! * t];
 const BIT = 0.5; // (a cut starts this far outside the face, so it never ends exactly on it)

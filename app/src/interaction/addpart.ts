@@ -185,7 +185,7 @@ export function selectedFace(session: Session): Result<{ spot: FaceSpot; through
 export const whyNoReceiver = (session: Session): string | null => { const f = selectedFace(session); return f.ok ? null : f.error; };
 
 /** What the selection offers for placing the holes: how many places were picked, how many lines, and the face's outline and the lines as paths (or why they are not). */
-export interface ReceiverContext { /** the surface is a round face (`in_915`) */ curved?: boolean; places: number; lines: number; outline: Result<Path> | null; linePath: Result<Path> | null }
+export interface ReceiverContext { /** the surface is a round face (`in_929`) */ curved?: boolean; places: number; lines: number; outline: Result<Path> | null; linePath: Result<Path> | null }
 export function receiverContext(session: Session): ReceiverContext | null {
   const round = selectedRound(session);
   if (round) {
@@ -300,7 +300,7 @@ function alongPath(session: Session, v: ReceiverValues, where: "outline" | "line
 
 /** Cut the receiver into the body whose flat face is selected: the steps, one after another from the scene each leaves. */
 /** What the answers would cut: the receiver, the size and fit, how deep, the thread engagement, the face's spot (for its two ways and its normal) and the centre of each hole. The cut and the preview are both made from it. */
-export interface ReceiverPlan { kind: ReceiverKind; size: FastenerSize; fit: ClearanceFit; depth: number; engagement: number | undefined; spot: FaceSpot; places: Vec3[]; /** a nut pocket is cut on the far side of the body too */ far: boolean; /** the spacing the holes stand at when they follow a path (the adjusted one, for a fit), else null */ spacing: number | null; /** the path the holes follow, as a polyline on the face (empty when they do not follow one) */ guide: Vec3[]; /** how far the body reaches through, along the face's inward normal */ reach: number; /** a drill then tap: how deep the clearance part goes */ drill: number | undefined; /** the spot of each place, with its own way in (the same on a flat face; each its own on a curved one, `in_915`) */ spots: FaceSpot[]; /** the surface is curved */ curved: boolean; /** the hardware put into the holes (`in_910`), or null */ insert: { screw: { family: "countersunk" | "socketHead"; length: number; seat: number } | null; nut: "near" | "far" | null } | null }
+export interface ReceiverPlan { kind: ReceiverKind; size: FastenerSize; fit: ClearanceFit; depth: number; engagement: number | undefined; spot: FaceSpot; places: Vec3[]; /** a nut pocket is cut on the far side of the body too */ far: boolean; /** the spacing the holes stand at when they follow a path (the adjusted one, for a fit), else null */ spacing: number | null; /** the path the holes follow, as a polyline on the face (empty when they do not follow one) */ guide: Vec3[]; /** how far the body reaches through, along the face's inward normal */ reach: number; /** a drill then tap: how deep the clearance part goes */ drill: number | undefined; /** the spot of each place, with its own way in (the same on a flat face; each its own on a curved one, `in_929`) */ spots: FaceSpot[]; /** the surface is curved */ curved: boolean; /** the hardware put into the holes (`in_910`), or null */ insert: { screw: { family: "countersunk" | "socketHead"; length: number; seat: number } | null; nut: "near" | "far" | null } | null }
 /** What the answers say about the receiver itself, whatever the surface: the kind, the depth, the thread, the drilled part, the nut on the far side and the hardware put in. `through` is the depth of a hole right through, `reach` how far the hole can go (the room the screw has). */
 interface Hardware { kind: ReceiverKind; depth: number; engagement: number | undefined; drill: number | undefined; far: boolean; insert: ReceiverPlan["insert"] }
 function hardwareOf(v: ReceiverValues, through: number, reach: number, curved: boolean): Result<Hardware> {
@@ -369,7 +369,7 @@ export function receiverPlan(session: Session, v: ReceiverValues): Result<Receiv
   return ok({ kind, size: v.size as FastenerSize, fit: fitOf(v.fit), depth, engagement, spot: sp, places, far, spacing, guide, reach: face.value.reach, drill, insert, spots: places.map((c) => ({ ...sp, centre: c })), curved: false });
 }
 
-// ---- a curved surface (`in_915`): a round face of a body, a line drawn across it, the holes going in along the surface's normal ----
+// ---- a curved surface (`in_929`): a round face of a body, a line drawn across it, the holes going in along the surface's normal ----
 /** The round face selected (a post's wall, a bore, a piece of one), with its axis, and the lines and places selected with it. Null when the selection holds no round face; or why the selection is not usable. */
 interface Round { face: Extract<Part, { kind: "plane" }>; axis: Vec3; center: Vec3; radius: number; convex: boolean; range: [number, number]; through: number; points: Vec3[]; lines: Ref[] }
 const isRoundFace = (p: Part | undefined): p is Extract<Part, { kind: "plane" }> => !!p && p.kind === "plane" && p.origin === "body" && !!p.mesh?.length && !!(p.curved || (p.round && p.radius));

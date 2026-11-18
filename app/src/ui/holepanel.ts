@@ -1,4 +1,4 @@
-// The fastener tool's panel (`dec_parts_tool`, `in_917`, `in_918`): the settings of a row of holes as labelled rows in the same panel as the gear box (`ui/panelkit.ts`), in three groups (the hole, where the holes go, the hardware put in),
+// The fastener tool's panel (`dec_parts_tool`, `in_931`, `in_932`): the settings of a row of holes as labelled rows in the same panel as the gear box (`ui/panelkit.ts`), in three groups (the hole, where the holes go, the hardware put in),
 // each row with its name, its box, its unit and a line saying what it is. The surfaces are chosen in the view, the holes are drawn there as the numbers change, and this panel only holds the settings. It knows nothing of what they mean: it
 // shows a description and reports the values.
 import { panelShell, noteBox, setNote, panelTitle, sectionTitle, panelRow, numberInput, choiceSelect, fillSelect, panelButtons } from "./panelkit.ts";

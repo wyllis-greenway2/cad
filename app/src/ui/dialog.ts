@@ -10,8 +10,8 @@ const valuesOf = (d: Dialog): Values => Object.fromEntries(d.fields.map((f) => [
 
 export function createDialog(host: HTMLElement) {
   const veil = document.createElement("div");
-  veil.style.cssText = "position:fixed;inset:0;display:none;background:transparent;z-index:1000;font:14px system-ui,sans-serif"; // (not dimmed: the panel stands on the left and the model stays in view, `in_919`)
-  const card = panelShell(veil); // (the same panel as the gear box and the fastener tool, `in_919`)
+  veil.style.cssText = "position:fixed;inset:0;display:none;background:transparent;z-index:1000;font:14px system-ui,sans-serif"; // (not dimmed: the panel stands on the left and the model stays in view, `in_933`)
+  const card = panelShell(veil); // (the same panel as the gear box and the fastener tool, `in_933`)
   card.style.zIndex = "1001";
   const armed = guardOpenClicks(veil); // (the press that opened the dialog must not click on it, `in_599`)
   host.appendChild(veil);

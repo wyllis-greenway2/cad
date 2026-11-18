@@ -4003,26 +4003,26 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for this branch (the Fastener tool: drill + tap, insert, wireframe) to be merged into claude/inspiring-pascal-l342k7)
 
-## in_914 — 2026-11-18 — directive
+## in_928 — 2026-11-18 — directive
 > no need for a full test suite on this merge
 (says the full suite is not needed on the merge into the testing branch)
 
-## in_915 — 2026-11-18 — directive
+## in_929 — 2026-11-18 — directive
 > 3 both. Basically like a flat surface. We would draw a line, position the fasteners on it, going in normal to the surface.
 (answers the curved-surface question: both readings, holes through a curved wall and holes along a line on a curved face; it should work like a flat surface: a line is drawn, the fasteners are positioned along it, each going in along the normal of the surface)
 
-## in_916 — 2026-11-18 — directive
+## in_930 — 2026-11-18 — directive
 > Okay one bug, it seems like this model makes the fasteners going "through" to go to the end of the world?
 (reports a bug with a saved model (two files and a screenshot): the holes meant to go right through are drawn to the end of the world; the screenshot shows the preview lines running far below a small plate)
 
-## in_917 — 2026-11-18 — directive
+## in_931 — 2026-11-18 — directive
 > okay also lets try to standardize the menu. The system is starting to get lots of different interfaces. Do you think you can reuse the gear menu layout?
 (asks whether the fastener tool's helper bar can be standardized by reusing the gear menu's layout, since the app has many different interfaces now)
 
-## in_918 — 2026-11-18 — directive
+## in_932 — 2026-11-18 — directive
 > Gear-box layout for the fastener tool (Recommended)
-(answers the question on in_917: the fastener tool takes the gear box's layout: its settings move into the left panel as labelled rows, one shared panel component for the gear box and the fastener tool)
+(answers the question on in_931: the fastener tool takes the gear box's layout: its settings move into the left panel as labelled rows, one shared panel component for the gear box and the fastener tool)
 
-## in_919 — 2026-11-18 — directive
+## in_933 — 2026-11-18 — directive
 > put the other dialogs there too
 (asks for the other dialogs (Path repeat and the rest) to use the same left panel layout as the gear box and the fastener tool)

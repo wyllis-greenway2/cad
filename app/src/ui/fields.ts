@@ -77,7 +77,7 @@ function fieldRow(f: Field, values: Values, redraw: () => void, live = false, co
 }
 
 /**
- * One field as a row of the panel that stands on the left of the page (`ui/panelkit.ts`, `in_919`): a text, a number or a plain list of choices is the row's name and a box or a dropdown with its note under it; cards, chips, a picture,
+ * One field as a row of the panel that stands on the left of the page (`ui/panelkit.ts`, `in_933`): a text, a number or a plain list of choices is the row's name and a box or a dropdown with its note under it; cards, chips, a picture,
  * a tick and a shown value are as `fieldRow` draws them, as wide as the panel.
  */
 export function panelFieldRow(f: Field, values: Values, redraw: () => void, live = false): HTMLElement {

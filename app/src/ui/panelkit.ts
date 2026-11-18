@@ -1,4 +1,4 @@
-// The shared pieces of the labelled panels that stand still on the left of the page (`in_685` the gear box, `in_917`, `in_918` the fastener tool): the panel itself, a titled section, a row (the name, the box, its unit, a line saying
+// The shared pieces of the labelled panels that stand still on the left of the page (`in_685` the gear box, `in_931`, `in_932` the fastener tool): the panel itself, a titled section, a row (the name, the box, its unit, a line saying
 // what it is) and the boxes in it, so every tool's settings look and sit the same. They know nothing of what a row means.
 import { textButton } from "./look.ts";
 
