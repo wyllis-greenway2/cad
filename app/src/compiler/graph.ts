@@ -285,6 +285,15 @@ export function buildGraph(scene: Scene): GraphResult {
         prev = xid;
         break;
       }
+      case "chamferEnds": {
+        // the edges of the two end faces of a gear's body chamfered by the kernel (`in_827`): for a gear with a flat outline and teeth that are straight (a rack, a worm wheel); with `tipDir` only the edges along the tips of the teeth
+        const body = (st.parts[0] ?? "").startsWith("b/") ? st.parts[0]!.split("/")[1] : "";
+        if (!prev || !body || body === "body") { errors[st.id] = "there is no body to chamfer"; break; }
+        const p = st.params;
+        ops.push({ id: xid, type: "chamferEnds", target: prev, body, size: Number(p.size), width: Number(p.width), centre: [Number(p.cx), Number(p.cy), Number(p.cz)], axis: [Number(p.dx), Number(p.dy), Number(p.dz)], ...(p.tipDir !== undefined ? { tipDir: [Number(p.tx), Number(p.ty), Number(p.tz)], tip: Number(p.tip) } : {}) });
+        prev = xid;
+        break;
+      }
       case "toothChamfer": {
         // the tips of a gear's teeth broken at its two faces (`in_760`, `in_804`): one flat wedge cut from each tooth at each face, made and cut by the kernel in one step; the body is named by the step that made it
         const body = (st.parts[0] ?? "").startsWith("b/") ? st.parts[0]!.split("/")[1] : "";

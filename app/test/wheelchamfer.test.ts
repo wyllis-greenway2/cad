@@ -51,3 +51,21 @@ test("a planetary set takes the tooth chamfer and the edge chamfer for all its g
   assert.ok(vol(plain) - vol(s) > 1, `the tips and edges are broken: ${vol(plain)} -> ${vol(s)}`);
   assert.equal(scene(s).gears!.filter((g) => g.spec.chamfer === 0.25 && g.spec.edge === 0.4).length, 5, "sun, three planets and ring");
 });
+
+test("a rack has Chamfer (the tips of its teeth at both faces) and Edge chamfer (the whole edge of both faces), by the kernel's chamfer, straight, turned and helical; one at a time (`in_827`)", () => {
+  const t = armTool("gear", "rack");
+  assert.deepEqual(gearFields(t.gear!).slice(-2).map((f) => f.label), ["Chamfer", "Edge chamfer"]);
+  const rack = { teeth: 10, module: 2, width: 8, rack: true } as GearSpec;
+  const vol = (spec: GearSpec, turn = 0) => { const s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [3, 4, 0], spec, ...(turn ? { turn } : {}) }); assert.ok(!s.message, s.message ?? ""); assert.deepEqual(s.outcome.errors, {}); return body(s).volume; };
+  const v0 = vol(rack);
+  for (const [name, spec, turn] of [["tips", { ...rack, chamfer: 0.25 }, 0], ["tips, turned", { ...rack, chamfer: 0.25 }, 0.7], ["edge", { ...rack, edge: 0.6 }, 0], ["helical tips", { ...rack, helix: 15, chamfer: 0.25 }, 0], ["helical edge", { ...rack, helix: 15, edge: 0.6 }, 0]] as [string, GearSpec, number][]) {
+    const v = vol(spec, turn), plain = vol({ ...spec, chamfer: undefined, edge: undefined }, turn);
+    assert.ok(v < plain - 1 && v > 0.9 * plain, `${name}: ${plain} -> ${v}`);
+  }
+  assert.ok(v0 > 0);
+  assert.match(run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec: { ...rack, chamfer: 0.25, edge: 0.6 } }).message ?? "", /not made together/);
+});
+
+test("an edge chamfer on a worm wheel is refused with why: the kernel cannot chamfer the edges of its throated faces (`in_827`)", () => {
+  assert.match(make(wheel({ edge: 0.5 })).message ?? "", /not made for a worm wheel yet/);
+});

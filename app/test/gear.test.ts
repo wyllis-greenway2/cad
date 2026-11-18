@@ -484,7 +484,7 @@ test("Rack tool: click the middle of the pitch line, the pointer sets half its l
   st = reduce(st, { type: "runAction", id: "tool:rack" }, env);
   st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
   st = click(st, C);
-  assert.deepEqual(entryOf(scene(st.session), { ...st.tool!, cursor: [C[0] + 30, C[1], 0] }, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Backlash", "Base", "Clearance", "Helix", "Thickness"]);
+  assert.deepEqual(entryOf(scene(st.session), { ...st.tool!, cursor: [C[0] + 30, C[1], 0] }, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Backlash", "Base", "Clearance", "Helix", "Thickness", "Chamfer", "Edge chamfer"]);
   st = typeText(st, "8"); st = key(st, "Tab"); st = typeText(st, "3");
   st = key(st, "Enter");
   const rec = gearsOfState(st)[0]!;
@@ -577,7 +577,7 @@ test("Edit gear on a rack has the rack's own fields and changing the teeth chang
   st = click(st, C); st = typeText(st, "6"); st = key(st, "Tab"); st = typeText(st, "2"); st = key(st, "Enter");
   const sel = pick({ ...reduce(st, { type: "escape" }, env), tool: null }, [faceOf(st, "g_001").ref]);
   let e = reduce(sel, { type: "runAction", id: "gear:edit" }, env);
-  assert.deepEqual(entryOf(scene(e.session), e.tool, e.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Backlash", "Base", "Clearance", "Helix", "Thickness"]);
+  assert.deepEqual(entryOf(scene(e.session), e.tool, e.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Backlash", "Base", "Clearance", "Helix", "Thickness", "Chamfer", "Edge chamfer"]);
   e = typeText(e, "9"); e = key(e, "Enter");
   assert.equal(gearsOfState(e)[0]!.spec.teeth, 9);
   assert.equal(gearsOfState(e)[0]!.spec.rack, true);

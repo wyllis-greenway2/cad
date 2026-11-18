@@ -133,6 +133,7 @@ export const gearFields = (g: { planetary?: true; internal: boolean; worm?: true
   const at = fs.findIndex((x) => x.key === "bore");
   const withBore = at < 0 ? fs : [...fs.slice(0, at + 1), f("flat", "Flat"), f("key", "Key"), f("keydepth", "Key depth"), ...fs.slice(at + 1)]; // (a bore can have a D flat or a keyway, `in_589`)
   const plain = !g.worm && !g.wheel && !g.bevel && !g.rack && !g.pulley && !g.sprocket && !g.cycloidal && !g.mesh;
+  if (g.rack && !g.mesh && !g.pulley && !g.sprocket && !g.cycloidal) return [...withBore, f("chamfer", "Chamfer"), f("edge", "Edge chamfer")]; // (a rack: the tips of its teeth, or the whole edge of its faces, `in_827`)
   return plain ? [...withBore, f("chamfer", "Chamfer"), f("edge", "Edge chamfer")] : withBore; // (the tips of the teeth broken at the faces, last so that the numbers before it keep their places, `in_791`)
 };
 const gearFieldsBase = (g: { internal: boolean; worm?: true; wheel?: true; bevel?: true; crown?: true; rack?: boolean; pulley?: PulleyKind; sprocket?: true; iso?: true; cycloidal?: true; mesh?: { src: GearRecord; rack: boolean; ring?: boolean } }, f: (key: GearKey, label: string) => { key: GearKey; label: string }): { key: GearKey; label: string }[] => {
@@ -384,8 +385,8 @@ function gearSpecOf(t: Tool): GearSpec | null {
   const rim = g.internal || g.rack ? typed("rim") ?? b?.rim : undefined;
   const boreTyped = g.internal || g.rack ? undefined : typed("bore") ?? b?.bore;
   const fillet = g.internal || g.rack ? undefined : typed("fillet") ?? b?.fillet;
-  const edge = g.rack ? undefined : typed("edge") ?? b?.edge; // (the whole perimeter of both faces chamfered, mm, `in_811`)
-  const chamfer = g.rack ? undefined : typed("chamfer") ?? b?.chamfer; // (the tips of the teeth broken at the faces, in modules, `in_791`)
+  const edge = typed("edge") ?? b?.edge; // (the whole perimeter of both faces chamfered, mm, `in_811`)
+  const chamfer = typed("chamfer") ?? b?.chamfer; // (the tips of the teeth broken at the faces, in modules, `in_791`)
   const detail = g.internal || g.rack ? undefined : b?.detail;
   const helixAsked = typed("helix") ?? b?.helix ?? 0; // (a gear with a helix is a body: 0 is a plain gear, `in_693`)
   const thickAsked = typed("width") ?? b?.width ?? 0; // (and so is a gear with a thickness: 0 with no helix is a flat outline, `in_697`)

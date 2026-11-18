@@ -34,7 +34,7 @@ export interface Relation {
 /** A step of the history of building: extrude, round or bevel, move, rotate, scale, delete. It names the parts it uses by ref. */
 export interface Step {
   id: string;
-  type: "extrude" | "pushPull" | "edgeMod" | "move" | "rotate" | "scale" | "pattern" | "combine" | "hollow" | "reshape" | "revolve" | "loft" | "sweep" | "delete" | "import" | "importMesh" | "toothChamfer" | "chamferBody" | "sewBodies";
+  type: "extrude" | "pushPull" | "edgeMod" | "move" | "rotate" | "scale" | "pattern" | "combine" | "hollow" | "reshape" | "revolve" | "loft" | "sweep" | "delete" | "import" | "importMesh" | "toothChamfer" | "chamferBody" | "sewBodies" | "chamferEnds";
   parts: Ref[];
   params: Record<string, number | string>;
   /** numbers of this step that are tied to a formula of named parameters (`dec_named_parameters`): key → formula; `params[key]` holds its value now */

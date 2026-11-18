@@ -40,3 +40,13 @@ test("a rack, a helical rack, a turned rack and a moved rack are one feature too
     assert.ok(parts(moved) < 12, `${name}, moved: ${parts(moved)}`);
   }
 });
+
+test("a worm is one feature: its ends and the whole body, not the faces of every turn of its thread (36 planes for 100 mm before)", () => {
+  for (const [starts, length] of [[1, 100], [3, 50]] as const) {
+    const s = make({ teeth: starts, module: 2, worm: { diameter: 20, length } });
+    assert.deepEqual(s.outcome.errors, {});
+    assert.ok(parts(s) < 14, `${starts} starts, ${length} mm: ${parts(s)}`);
+    const moved = run(s, step("s_900", "move", { axis: 1, value: 5, follow: 1 }));
+    assert.ok(parts(moved) < 14, `moved: ${parts(moved)}`);
+  }
+});

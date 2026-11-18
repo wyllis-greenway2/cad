@@ -6,7 +6,7 @@ import { figureDepths } from "./scene.ts";
 import { gearOutline } from "./gear.ts";
 import type { GearRecord } from "./gearscene.ts";
 import { isMade } from "./gearscene.ts";
-import { wheelOf } from "./worm.ts";
+import { wheelOf, wormOf } from "./worm.ts";
 import { bevelLayout, bevelFrame, isCrown } from "./bevel.ts";
 import { crownOf } from "./crown.ts";
 import { then } from "../math/rotation.ts";
@@ -43,10 +43,20 @@ export function gearShapeOf(sc: Scene, st: Step): GearShape | null {
   if (typeof st.params.gear === "string" && sc.gears?.find((g) => g.id === st.params.gear)?.spec.wheel && st.type !== "loft") return null; // (a wheel's other steps (its lands, the worm's envelope) are pieces on the way to the one body, `in_790`)
   const first = st.parts[0];
   const rec: GearRecord | undefined = sc.gears?.find((g) => (typeof st.params.gear === "string" ? g.id === st.params.gear : !!first && isMade(g.id, first)));
-  if (!rec || rec.spec.worm) return null;
+  if (!rec) return null;
   const plane = sc.parts[rec.plane];
   const o = gearOutline(rec.spec);
   if (!plane || plane.kind !== "plane" || !o.ok) return null;
+  if (rec.spec.worm) { // a worm (`in_827`): a body along its axis (the plane's first direction turned by the gear's turn), as long as the worm; the thread's faces are not a person's to pick, the shaft's round faces and the ends are
+    if (st.type !== "revolve" || st.params.mode !== "new") return null;
+    const w = wormOf(rec.spec);
+    if (!w.ok) return null;
+    const [c, sn] = [Math.cos(rec.turn ?? 0), Math.sin(rec.turn ?? 0)];
+    const axis: Vec3 = [0, 1, 2].map((k) => plane.u[k]! * c + plane.v[k]! * sn) as unknown as Vec3;
+    const L = rec.spec.worm.length;
+    const hole = (rec.spec.bore ?? 0) > 0 ? (rec.spec.bore as number) / 2 : 0;
+    return { step: st.id, gear: rec.id, centre: [0, 1, 2].map((k) => rec.at[k]! - axis[k]! * L / 2) as unknown as Vec3, normal: axis, depth: L, radius: w.value.rTip, rootRadius: w.value.rRoot, ring: false, hole }; // (the root cylinder is cut into a piece for every turn of the thread: they are not kept, nor is the shaft, `in_827`)
+  }
   const n = cross(plane.u, plane.v), len = Math.hypot(...n) || 1;
   let normal: Vec3 = [n[0] / len, n[1] / len, n[2] / len];
   const g = o.value;

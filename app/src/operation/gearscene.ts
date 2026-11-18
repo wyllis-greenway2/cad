@@ -96,6 +96,13 @@ const cross3 = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[
 /** The step of a tooth chamfer (`in_760`, `in_804`): the kernel cuts a flat wedge off each tooth tip at each face of the gear's body (the body the gear's first step made, `@s0`; a cut by another kind of step acts on every body, so the neighbours are not asked). */
 function chamferSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] {
   const plane = s.parts[rec.plane], o = outlineOf(rec.spec), ch = chamferOf(rec.spec);
+  if (rec.spec.rack && plane && plane.kind === "plane" && o.ok && ((rec.spec.chamfer ?? 0) > 0 || (rec.spec.edge ?? 0) > 0) && (rec.spec.width ?? 0) > 0) { // a rack's chamfer (`in_827`): the tips of the teeth at the two faces, or the whole edge of both faces, by the kernel's chamfer
+    const n = cross3(plane.u, plane.v), len = Math.hypot(...n) || 1;
+    const [c, sn] = [Math.cos(rec.turn ?? 0), Math.sin(rec.turn ?? 0)];
+    const up: Vec3 = [-plane.u[0] * sn + plane.v[0] * c, -plane.u[1] * sn + plane.v[1] * c, -plane.u[2] * sn + plane.v[2] * c]; // (across the rack: the way its teeth stand)
+    const tips = (rec.spec.chamfer ?? 0) > 0;
+    return [{ type: "chamferEnds", parts: ["@s0"] as Ref[], params: { gear: rec.id, size: tips ? rec.spec.chamfer! * rec.spec.module : rec.spec.edge!, width: rec.spec.width!, cx: rec.at[0], cy: rec.at[1], cz: rec.at[2], dx: n[0] / len, dy: n[1] / len, dz: n[2] / len, ...(tips ? { tx: up[0], ty: up[1], tz: up[2], tip: o.value.tipRadius } : {}) } }];
+  }
   if (!plane || plane.kind !== "plane" || !o.ok || !ch) return [];
   const n = cross3(plane.u, plane.v), len = Math.hypot(...n) || 1;
   const [c, sn] = [Math.cos(rec.turn ?? 0), Math.sin(rec.turn ?? 0)];

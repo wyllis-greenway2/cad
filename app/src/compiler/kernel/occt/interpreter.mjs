@@ -1380,6 +1380,28 @@ const OPS = {
     return { kind: "solid", shape: found ? makeCompound([...found.rest, ...lumpsOf(made)]) : made, first: op.body };
   },
 
+  /**
+   * The edges of the two end faces of a gear's body chamfered by the kernel (`in_827`): the faces across `axis`, the first at `centre` and the second `width` along it. With `tipDir` and `tip`, only the edges that lie along the tips of the
+   * teeth (all their points `tip` from `centre` in that direction: a rack's). The kernel's chamfer takes a time that grows faster than the number of faces (`prototypes/perimeter-chamfer`): it is for a few teeth (a rack), or the wheel's end faces.
+   */
+  chamferEnds(op, ctx) {
+    const t = ctx.get(op.target, "solid");
+    const found = (t.markers?.length ?? 0) > 1 ? lumpsByName(t.shape, t.markers, [op.body]) : null;
+    const body = found ? found.picked[0] : t.shape;
+    const l = Math.hypot(...op.axis) || 1;
+    const n = op.axis.map((x) => x / l);
+    const along = (p, d) => (p.x - op.centre[0]) * d[0] + (p.y - op.centre[1]) * d[1] + (p.z - op.centre[2]) * d[2];
+    const td = op.tipDir ? (() => { const m = Math.hypot(...op.tipDir) || 1; return op.tipDir.map((x) => x / m); })() : null;
+    const wanted = (e) => {
+      const pts = [e.startPoint, e.endPoint];
+      if (!(pts.every((p) => Math.abs(along(p, n)) < 1e-3) || pts.every((p) => Math.abs(along(p, n) - op.width) < 1e-3))) return false;
+      return !td || pts.every((p) => Math.abs(along(p, td) - op.tip) < 1e-3);
+    };
+    const made = body.chamfer(op.size, (ef) => ef.when(({ element }) => wanted(element)));
+    if (!isValidSolid(made) || !(measureVolume(made) > 1e-9) || measureVolume(made) >= measureVolume(body)) throw new Error("the kernel could not chamfer the edges of the faces");
+    return { kind: "solid", shape: found ? makeCompound([...found.rest, ...lumpsOf(made)]) : made, first: op.body };
+  },
+
   /** Cylindrical hole cut from the top of the target, at (x, y). depth omitted = through. */
   hole(op, ctx) {
     const t = ctx.get(op.target, "solid").shape;

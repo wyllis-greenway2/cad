@@ -28,5 +28,6 @@ export function standIns(sc: Scene, kernel: KernelSeen | null | undefined): Stan
 
 function standInOf(sc: Scene, st: Step): StandIn | null {
   const g = gearShapeOf(sc, st);
+  if (g && sc.gears?.find((r) => r.id === g.gear)?.spec.worm) return null; // (a worm has a shape for its parts, not a disc to stand in for it: it is a thread along an axis)
   return g ? { step: g.step, centre: g.centre, normal: g.normal, depth: g.depth, radius: g.radius, hole: g.hole } : null;
 }
