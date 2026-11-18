@@ -239,7 +239,7 @@ export function buildGraph(scene: Scene): GraphResult {
         const one = p.body ? { body: String(p.body) } : {}; // (one body of several is repeated, `in_271`)
         const turned = p.f0x !== undefined ? { frame: [[p.f0x, p.f0y, p.f0z], [p.f1x, p.f1y, p.f1z], [p.f2x, p.f2y, p.f2z]].map((r) => r.map(Number)) } : {}; // (the mover was turned: the copies run along its axes, `in_440`)
         if (p.mode === "path") { // a body repeated along a path (`dec_path_repeat`, step (c)): the places are worked out here from the path's lines, and the kernel is given them
-          const found = bodyPlaces(scene, { path: String(p.path ?? "").split(",").filter(Boolean) as Ref[], params: Array.from({ length: PATH_NUMBERS }, (_, i) => Number(p[`pr${i}`])) });
+          const found = bodyPlaces(scene, { path: String(p.path ?? "").split(",").filter(Boolean) as Ref[], params: Array.from({ length: PATH_NUMBERS }, (_, i) => Number(p[`pr${i}`] ?? 0)) });
           if (!found.ok) { errors[st.id] = found.error; break; }
           if (found.value.places.length > 200) { errors[st.id] = "that is more than 200 copies"; break; }
           ops.push({ id: xid, type: "pattern", target: prev, mode: "placed", places: found.value.places.map((q) => ({ move: q.move.map(r9), ...(q.turn ? { turn: { angle: r9(q.turn.angle), pivot: [...q.turn.pivot].map(r9), dir: [...q.turn.dir].map(r9) } } : {}) })), ...one });

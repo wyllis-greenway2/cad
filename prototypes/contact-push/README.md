@@ -19,3 +19,7 @@
 - **A face resting on a face counts as a hit** in the existing mesh test (its nudge to break ties goes one way): the crank's plate under the wheel was "colliding" with it whenever it was over it. A mechanism of layers needs only the part that overlaps in height to be tested; here only the pin's triangles are used.
 - A collision test costs about 0.2 ms for a pair of a thousand triangles each; about 11 tests a step after the search was made a doubling and a halving (it was 17 to 21 with a plain scan).
 - **Not tried:** a ratchet's pawl with a rest value, a gear train with passed-on hardness, a cam and follower, the time budget, the jam message, many bodies. The Geneva is one case with one free joint.
+
+## Gear pair (`gears.ts`, `in_906`)
+
+Gear 1 turned, gear 2 yielding by contact alone (the app's `contact.ts`): 20 and 30 teeth, module 2, backlash 0.15: within 0.3 degrees of the ratio of the teeth for a turn, no jam, 6.7 ms a degree (median; 24 ms at worst) in Node for gears of 1,300 and 1,900 triangles; 12 and 36: 0.25 degrees, 4.8 ms; 20 and 20 at backlash 0.3: 0.9 degrees; 16 and 24 at module 1.5: 0.5 degrees. **What it first showed was that nothing happened:** the face meshes (`meshOf`) of a gear body are its top and bottom only (the teeth's walls are not parts of the scene), so the gears never met. The kernel's own mesh, read by the faces' ranges, has them.

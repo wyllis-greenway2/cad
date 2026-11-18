@@ -17,7 +17,7 @@ import { parseLibrary, libraryText, saveMachine, removeMachine, saveSettings, re
 import { flatSnapshot } from "./interaction/partsnapshot.ts";
 import type { LaserValues } from "./interaction/manufacture.ts";
 import { pathRepeatTarget, pathRepeatDialog, pathRepeatCommand, pathRepeatStart, pathRepeatValuesFor } from "./interaction/pathrepeat.ts";
-import { addPartStart, addPartDialog, addPart, familyName, lengthAdviceOf, receiverStart, receiverKinds, receiverSizes, receiverContext, receiverPlan, cutReceiver, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
+import { receiverStart, receiverKinds, receiverSizes, receiverContext, receiverPlan, cutReceiver, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
 import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
 import type { ExportOptions } from "./interaction/transfer.ts";
@@ -55,6 +55,7 @@ import { createAddChip } from "./ui/addchip.ts";
 import { createPreviewBar } from "./ui/previewbar.ts";
 import { createMotionBar } from "./ui/motionbar.ts";
 import { tickMotion } from "./interaction/motion.ts";
+import { solveContact } from "./interaction/contact.ts";
 import { createChip } from "./ui/chip.ts";
 import { createSheetChips } from "./ui/sheetchips.ts";
 import { createWorldOrb } from "./ui/worldorb.ts";
@@ -183,8 +184,7 @@ const ring = createRing(document.body, (id) => {
   ring.hide();
   if (id === "view:game") { input.toggleGame(); return; }
   if (id === "repeat:path") { void pathRepeatFlow(); return; } // (`dec_path_repeat`)
-  if (id === "models:fasteners") { void addPartFlow(); return; } // (Shape, Models: the dialogs are the page's, `in_812`, `in_813`)
-  if (id === "models:holes") { holesOpen(); return; } // (the tool is a panel and a preview in the model view, `dec_parts_tool`)
+  if (id === "tool:fasteners") { holesOpen(); return; } // (the tool is a panel and a preview in the model view, `dec_parts_tool`)
   dispatch({ type: "runAction", id });
 }, (id) => dispatch({ type: "runAction", id: `why:${id}` })); // (a dimmed option pressed: its reason is said and the ring stays, `in_538`)
 
@@ -264,16 +264,6 @@ async function exportDialogFlow() {
   webFiles.saveBytes(r.name, r.bytes, r.mime);
   say(r.message);
 }
-/** Add part (`dec_parts_interface`, `in_745`): the family, size and length asked for; the part is drawn at the origin as ordinary steps (a hex nut, a countersunk screw), one step to undo. */
-async function addPartFlow() {
-  const answers = await dialog.open((v) => addPartDialog(v as unknown as ReturnType<typeof addPartStart>), addPartStart() as unknown as Values);
-  if (!answers) return;
-  const r = addPart(state.session, answers as unknown as ReturnType<typeof addPartStart>);
-  if (!r.ok) return say(r.error);
-  state = { ...state, session: r.value };
-  dirty = true;
-  say(`added: ${answers.size} ${familyName(String(answers.family))}, at the origin${lengthAdviceOf(answers as unknown as ReturnType<typeof addPartStart>) ? ` (${lengthAdviceOf(answers as unknown as ReturnType<typeof addPartStart>)})` : ""}`);
-}
 /** Path repeat (`dec_path_repeat`, `in_843`): the figure and the lines of the path selected, a dialog for the rules (with a picture of where the copies stand), and the repeat made (or the rules of the one selected changed). */
 async function pathRepeatFlow() {
   const t = pathRepeatTarget(state.session);
@@ -312,7 +302,7 @@ function holesClose(): void { hardware = null; holesKey = ""; holesNow = null; h
 /** What the selection says for the holes: a line (or lines) selected: along them; a face: along its outline moved in by the inset; corners or circles picked: at them; nothing usable yet: say what to select. */
 function holesValues(): { values: ReceiverValues; mode: HoleBarView["mode"] } {
   const ctx = receiverContext(state.session);
-  const v = hardware!.values;
+  const v = hardware!.values.kind === "tapped" || hardware!.values.kind === "nutPocket" || hardware!.values.kind === "drillTap" ? { ...hardware!.values, far: "none" } : hardware!.values; // (a nut on the far side goes with a hole right through)
   if (!ctx) return { values: v, mode: "none" };
   if (ctx.places) return { values: { ...v, place: "picked" }, mode: "picked" };
   if (ctx.lines) return { values: { ...v, place: "lines", corners: "ignore" }, mode: "line" }; // (a line has no corners to keep: its ends are its ends)
@@ -341,7 +331,7 @@ function holesOptions(): { bar: HoleBarView; view: ToolpathView | null } {
   const note = plan?.ok ? `${plan.value.places.length} hole${plan.value.places.length === 1 ? "" : "s"}${plan.value.spacing !== null ? `, ${Math.round(plan.value.spacing * 100) / 100} mm apart` : ""}` : "";
   const v = hardware!.values;
   holesNow = {
-    bar: { kinds: receiverKinds(), sizes: receiverSizes(), values: { kind: v.kind, size: v.size, by: v.by ?? "distance", value: v.value ?? "30", ends: v.ends ?? "fit", corners: v.corners ?? "each", offset: v.offset ?? "10", depth: v.depth }, mode, note, problem },
+    bar: { kinds: receiverKinds(), sizes: receiverSizes(), values: { kind: v.kind, size: v.size, by: v.by ?? "distance", value: v.value ?? "30", ends: v.ends ?? "fit", corners: v.corners ?? "each", offset: v.offset ?? "10", shift: v.shift ?? "0", depth: v.depth, far: v.far ?? "none", drill: v.drill ?? "", insert: v.insert ?? "none", length: v.length ?? "" }, mode, note, problem },
     view: plan?.ok ? holesView(plan.value) : null,
   };
   holesKey = key;
@@ -557,7 +547,7 @@ function frame(now: number) {
   const tStart = performance.now();
   if (drawnAt !== null) { timing.add("browser: from a drawn frame to the next one (commit, the graphics card, the screen's refresh)", tStart - drawnAt); drawnAt = null; }
   if (state.anim || state.flash || state.mixT0 !== null) { state = advance(state, now); dirty = true; }
-  if (state.motion?.playing) { state = { ...state, motion: tickMotion(state.motion, now) }; dirty = true; } // (a joint that is being played: the clock moves it on, and the picture is made again every frame, `dec_mechanism_motion`)
+  if (state.motion?.playing) { state = { ...state, motion: solveContact(scene(state.session), tickMotion(state.motion, now), state.session.outcome) }; dirty = true; } // (a joint that is being played: the clock moves it on, and the picture is made again every frame, `dec_mechanism_motion`)
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading || state.flash) {
     const size = view.size();

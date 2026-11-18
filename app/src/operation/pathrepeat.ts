@@ -201,6 +201,8 @@ export interface Rules {
   corners?: "ignore" | "each" | "inward";
   /** the path is moved this far to its left first */
   offset?: number;
+  /** the whole row is walked this far along the path (`in_909`): on a closed path the places turn round it, on an open one they move along it and any that go past an end are left out */
+  shift?: number;
 }
 export interface Placed { frames: Frame[]; /** the spacing the copies stand at (the adjusted one when the rules adjust it; a side's own for corners "each") */ spacing: number | null; /** the path as it was moved by the offset */ path: Path }
 
@@ -220,7 +222,14 @@ export function placeAlong(path: Path, rules: Rules): Result<Placed> {
   const corners = rules.corners ?? "ignore";
   const cs = corners === "ignore" ? [] : cornersOf(p);
   const frame = (s: number, corner = false): Frame => { const x = pointAt(p, s); return { ...x, s: p.closed ? ((s % total) + total) % total : s, corner }; };
-  const done = (ss: number[], spacing: number | null, cornerAt: ReadonlySet<number> = new Set()): Result<Placed> => ok({ frames: ss.map((s) => frame(s, cornerAt.has(s))), spacing, path: p });
+  const shift = rules.shift ?? 0;
+  if (!Number.isFinite(shift)) return err("the shift is not a number");
+  // the row walked along the path: round a closed one, along an open one (what goes past an end is left out)
+  const done = (ss: number[], spacing: number | null, cornerAt: ReadonlySet<number> = new Set()): Result<Placed> => {
+    const moved2 = Math.abs(shift) < 1e-12 ? ss.map((s) => [s, cornerAt.has(s)] as const) : ss.map((s) => [s + shift, false] as const).filter(([s]) => p.closed || (s >= -1e-9 && s <= total + 1e-9));
+    if (!moved2.length) return err("the shift takes every place past the end of the path");
+    return ok({ frames: moved2.map(([s, c]) => frame(s, c)), spacing, path: p });
+  };
 
   // corners: a copy at every corner and the sides between divided (each), or worked in from each corner (inward)
   if (corners !== "ignore" && cs.length > 0 && !(p.closed && cs.length < 1)) {
@@ -287,22 +296,23 @@ export function lifted(f: Frame, plane: { origin: readonly [number, number, numb
 /** Everything a path repeat keeps besides the path itself: the rules, and whether the copies turn with the path and whether the path is walked from its other end. */
 export interface RepeatNumbers { rules: Rules; turn: boolean; reverse: boolean }
 /** How many numbers a record's `params` holds. */
-export const PATH_NUMBERS = 9;
-const PATH_PARAMS = PATH_NUMBERS;
+export const PATH_NUMBERS = 10;
+const PATH_PARAMS = 9; // (a record made before the shift had nine numbers: the tenth, the shift, is 0 when it is not there)
 const ENDS = ["fit", "remainder", "centre"] as const;
 const CORNERS = ["ignore", "each", "inward"] as const;
-/** The rules as the numbers a repeat's record keeps: [by (0 distance, 1 count), its value, ends (0 fit, 1 remainder, 2 centre), start inset, end inset, corners (0 ignore, 1 each, 2 inward), offset, turn (0 or 1), reverse (0 or 1)]. */
+/** The rules as the numbers a repeat's record keeps: [by (0 distance, 1 count), its value, ends (0 fit, 1 remainder, 2 centre), start inset, end inset, corners (0 ignore, 1 each, 2 inward), offset, turn (0 or 1), reverse (0 or 1), shift]. */
 export function numbersOf(n: RepeatNumbers): number[] {
   const r = n.rules;
-  return [r.spacing.by === "count" ? 1 : 0, r.spacing.by === "count" ? r.spacing.count : r.spacing.distance, ENDS.indexOf(r.ends ?? "fit"), r.startInset ?? 0, r.endInset ?? 0, CORNERS.indexOf(r.corners ?? "ignore"), r.offset ?? 0, n.turn ? 1 : 0, n.reverse ? 1 : 0];
+  return [r.spacing.by === "count" ? 1 : 0, r.spacing.by === "count" ? r.spacing.count : r.spacing.distance, ENDS.indexOf(r.ends ?? "fit"), r.startInset ?? 0, r.endInset ?? 0, CORNERS.indexOf(r.corners ?? "ignore"), r.offset ?? 0, n.turn ? 1 : 0, n.reverse ? 1 : 0, r.shift ?? 0];
 }
 /** The numbers of a record read back as rules, or why they are not any. */
 export function rulesFrom(v: readonly number[]): Result<RepeatNumbers> {
-  if (v.length < PATH_PARAMS || !v.every(Number.isFinite)) return err("the numbers of the path repeat are not all there");
+  if (v.length < PATH_PARAMS || !v.slice(0, PATH_NUMBERS).every(Number.isFinite)) return err("the numbers of the path repeat are not all there");
   const [by, value, ends, i0, i1, corners, offset, turn, reverse] = v as number[];
+  const shift = v[9] ?? 0;
   const e = ENDS[Math.round(ends!)], c = CORNERS[Math.round(corners!)];
   if (!e || !c) return err("the numbers of the path repeat name an end or a corner rule that is not one");
-  return ok({ rules: { spacing: Math.round(by!) === 1 ? { by: "count", count: value! } : { by: "distance", distance: value! }, ends: e, startInset: i0!, endInset: i1!, corners: c, offset: offset! }, turn: Math.round(turn!) === 1, reverse: Math.round(reverse!) === 1 });
+  return ok({ rules: { spacing: Math.round(by!) === 1 ? { by: "count", count: value! } : { by: "distance", distance: value! }, ends: e, startInset: i0!, endInset: i1!, corners: c, offset: offset!, shift }, turn: Math.round(turn!) === 1, reverse: Math.round(reverse!) === 1 });
 }
 /** The path walked from its other end (the same places along it, counted the other way round). */
 export function reversedPath(p: Path): Path {

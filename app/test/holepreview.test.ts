@@ -86,7 +86,7 @@ test("a different inset moves the guide with it, and the preview draws it dashed
   const at = (inset: string) => { const g = plan(block(), vals({ place: "outline", by: "count", value: "4", corners: "ignore", offset: inset })).guide.map((q) => q[0]); return Math.min(...g); };
   assert.ok(Math.abs(at("5") - 5) < 1e-6 && Math.abs(at("15") - 15) < 1e-6);
   const view = holesView(plan(block(), vals({ place: "outline", by: "count", value: "4", corners: "ignore", offset: "10" })))!;
-  assert.ok(view.done.travel!.length > 0 && view.done.cut!.length > 0);
+  assert.ok(view.done.travel!.length > 0 && view.done.wire!.length > 0);
   assert.equal(holesView(plan(block(), vals()))!.done.travel, undefined);
 });
 test("a dashed line: dashes and gaps by turns along the polyline, a dash a fifth of the way when the dash is 4 and the gap 3 and the line 20 long", () => {
@@ -105,4 +105,14 @@ test("a line drawn on a face is enough: it stands for the face, and the holes fo
   const p = plan(s, vals({ place: "lines", by: "count", value: "5", corners: "ignore" }));
   assert.equal(p.places.length, 5);
   assert.deepEqual(p.places.map((q) => Math.round(q[0])), [10, 30, 50, 70, 90]);
+});
+
+test("a nut pocket on the far side adds its hexagon at the far face and at its floor, and its corners, for each hole: 18 more lines", () => {
+  const s = block();
+  const one = holeLines(plan(s, vals())).length / 6;
+  const far = holeLines(plan(s, vals({ far: "nut" })));
+  assert.equal(far.length / 6, one + 18);
+  const z = points(far).map((q) => q[2]);
+  assert.ok(Math.min(...z) >= -1e-6 && Math.max(...z) <= 8 + 1e-6, "all within the body");
+  assert.ok(points(far).some((q) => Math.abs(q[2] - 3.2 * 0) < 1e-6), "the hexagon is at the far face (z = 0)");
 });

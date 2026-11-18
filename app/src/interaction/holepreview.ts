@@ -19,7 +19,7 @@ export function holeLines(plan: ReceiverPlan): number[] {
   const e2 = cross(n, e1);
   const depth = Math.max(0.1, Math.min(plan.depth, plan.reach)); // (a hole right through is drawn to the far side of the body)
   // the profile as the cut makes it, from the face down: the half a millimetre the cut starts above the face is not drawn
-  const prof = receiverProfile(kind, size, fit, depth, plan.engagement).map(([x, y]) => [x, Math.min(y, 0)] as const);
+  const prof = receiverProfile(kind, size, fit, depth, plan.engagement, plan.drill).map(([x, y]) => [x, Math.min(y, 0)] as const);
   const out: number[] = [];
   const seg = (a: Vec3, b: Vec3): void => { out.push(a[0], a[1], a[2], b[0], b[1], b[2]); };
   const rings = new Set<string>();
@@ -51,6 +51,12 @@ export function holeLines(plan: ReceiverPlan): number[] {
       for (const h of [0, -trap.depth]) for (let i = 0; i < hex.length; i++) { const [p, q] = [hex[i]!, hex[(i + 1) % hex.length]!]; seg(at(c, e1, e2, n, p[0], p[1], h), at(c, e1, e2, n, q[0], q[1], h)); }
       for (const p of hex) seg(at(c, e1, e2, n, p[0], p[1], 0), at(c, e1, e2, n, p[0], p[1], -trap.depth));
     }
+    if (plan.far) { // the nut's pocket on the far side: its hexagon at the far face and at its floor, and its corners joined
+      const trap = nutTrap(size);
+      const hex = hexagon(trap.acrossFlats);
+      for (const h of [-plan.reach, -plan.reach + trap.depth]) for (let i = 0; i < hex.length; i++) { const [p, q] = [hex[i]!, hex[(i + 1) % hex.length]!]; seg(at(c, e1, e2, n, p[0], p[1], h), at(c, e1, e2, n, q[0], q[1], h)); }
+      for (const p of hex) seg(at(c, e1, e2, n, p[0], p[1], -plan.reach), at(c, e1, e2, n, p[0], p[1], -plan.reach + trap.depth));
+    }
   }
   return out;
 }
@@ -77,5 +83,5 @@ export function guideLines(guide: readonly Vec3[], dash = 4, gap = 3): number[] 
 /** The holes as the view's overlay (the same form as a toolpath's lines: the holes in the cut colour, the path they follow dashed and pale), or null for a plan with no place. */
 export function holesView(plan: ReceiverPlan): ToolpathView | null {
   if (!plan.places.length) return null;
-  return { done: { cut: holeLines(plan), ...(plan.guide.length ? { travel: guideLines(plan.guide) } : {}) }, rest: {}, head: null, stock: [] };
+  return { done: { wire: holeLines(plan), ...(plan.guide.length ? { travel: guideLines(plan.guide) } : {}) }, rest: {}, head: null, stock: [] };
 }

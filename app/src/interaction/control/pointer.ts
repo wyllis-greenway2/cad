@@ -21,7 +21,7 @@ import { lineHint, arcEndHint, hintRelations, circleCentredAt, anchorCentreAt, p
 import type { Hint } from "../hints.ts";
 import { snapOnPlane, guidesOf, finish, planeForDrawing, armTool, pointOnPlane, canHelix, meshSuggestion, snapToMesh } from "../tools.ts";
 import { splineEdit } from "../splineedit.ts";
-import { startMotion } from "../motion.ts";
+import { startPlain } from "../motion.ts";
 import { gearOfBody } from "../../operation/gearcouple.ts";
 import { trimAt } from "../../operation/trim.ts";
 import type { Command } from "../../operation/commands.ts";
@@ -108,8 +108,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:linear", label: "Line repeat", icon: "linear", op: "linear" },
   { id: "op:circular", label: "Round repeat", icon: "circular", op: "circular" },
   { id: "repeat:path", label: "Path repeat", icon: "pathrepeat" }, // (`dec_path_repeat`, `in_841`: a figure repeated along a line, a curve or an outline)
-  { id: "models:fasteners", label: "Fasteners", icon: "fastener" }, // (Shape, then Models: a dialog with drawings, `dec_parts_interface`, `in_812`)
-  { id: "models:holes", label: "Fastener Holes", icon: "fastenerHole" }, // (the hole for a fastener cut into the face selected, `in_813`)
+  { id: "tool:fasteners", label: "Fastener tool", icon: "fastener" }, // (Shape: the hole for a fastener cut into the face selected, with the hardware inserted if asked, `in_813`, `in_912`)
   { id: "body:hard", label: "Hard body", icon: "hard", select: "hard" }, // (a constraint: no other body goes into it while one or the other is moved by hand, `in_473`, `in_490`)
   { id: "combine:parts", label: "Combine", icon: "subtract", select: "combine" }, // (add, cut and what is left of both: the parts the bodies make are each kept or tossed, `in_298`)
   { id: "select:similar", label: "Select similar", icon: "similar", select: "similar" },
@@ -136,7 +135,7 @@ const GEARS: Group = {
 };
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", { id: "cams", label: "Cam", icon: "cam", items: ["tool:eccentric", "tool:snail", "tool:ratchet", "tool:linear", { id: "genevas", label: "Geneva", icon: "cam", items: ["tool:geneva", "tool:geneva:assembled", "tool:geneva:model"] }, { id: "disccams", label: "Disc cam", icon: "cam", items: ["tool:disc:cycloidal", "tool:disc:harmonic", "tool:disc:parabolic"] }, "cam:edit", "cam:follow"] }, GEARS, "tool:trim", "op:offset"] },
-  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "models", label: "Models", icon: "models", items: ["models:fasteners", "models:holes"] }] },
+  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", "tool:fasteners"] },
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
@@ -154,7 +153,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   const leaf = new Map<string, MenuItem>(LEAVES.map((r) => {
     const base = { id: r.id, label: r.label, icon: r.icon };
     if (repeating && !IN_REPEAT.has(r.id)) return [r.id, { ...base, enabled: false, why: "apply or cancel the repeat that is open first" }];
-    if (r.id === "motion:play") { const body = sel.find((x) => sc.parts[x]?.kind === "body"); const m = body ? startMotion(sc, body, "turn") : null; return [r.id, { ...base, enabled: !!m?.ok, why: m?.ok ? null : "select a body on a pin or a rod (the first body of a coaxial mate)" }]; }
+    if (r.id === "motion:play") { const body = sel.find((x) => sc.parts[x]?.kind === "body"); const m = body ? startPlain(sc, body, "turn") : null; return [r.id, { ...base, enabled: !!m?.ok, why: m?.ok ? null : "select a body on a pin or a rod (the first body of a coaxial mate)" }]; }
     if (r.id === "motion:link") { const n = sel.filter((x) => sc.parts[x]?.kind === "body").length; return [r.id, { ...base, enabled: n === 2, why: n === 2 ? null : "select two bodies that each turn on a pin or slide on a rod" }]; }
     if (r.id === "cam:follow") { const has = sel.some((x) => sc.parts[x]?.kind === "body" && !!gearOfBody(sc, x)?.spec.cam); return [r.id, { ...base, enabled: has, why: has ? null : "select a cam with its body, then the rod that rides it" }]; }
     if (r.id === "cam:edit") { const has = sel.some((x) => !!gearOfPart(sc, x)?.spec.cam); return [r.id, { ...base, enabled: has, why: has ? null : "select a cam" }]; }
@@ -165,8 +164,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     }
     if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfSelection(sc, x) || (r.id === "gear:edit" && !!planetaryOfPart(sc, x))); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
     if (r.id === "repeat:path") { const why = whyNoPathRepeat(session); return [r.id, { ...base, enabled: !why, why }]; }
-    if (r.id === "models:fasteners") return [r.id, { ...base, enabled: true, why: null }];
-    if (r.id === "models:holes") return [r.id, { ...base, enabled: true, why: null }]; // (it opens a panel that says what to select, `dec_parts_tool`)
+    if (r.id === "tool:fasteners") return [r.id, { ...base, enabled: true, why: null }]; // (it opens a panel that says what to select, `dec_parts_tool`)
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }
     if (r.select === "combine") { const why = whyNotCombine(session); return [r.id, { ...base, enabled: !why, why }]; }
