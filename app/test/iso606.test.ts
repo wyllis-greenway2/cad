@@ -140,7 +140,8 @@ test("the Sketch ring holds one Gear icon that opens a submenu with every gear t
   assert.deepEqual(sketch.children!.map((i) => i.id), ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", "cams", "gears", "tool:trim", "op:offset"]);
   const gears = sketch.children!.find((i) => i.id === "gears")!;
   assert.equal(gears.label, "Gear");
-  assert.deepEqual(gears.children!.map((i) => i.id), ["tool:gear", "tool:ring", "tool:rack", "tool:planetary", "tool:bevel", "tool:spiral", "tool:crown", "tool:face", "worms", "clockgears", "pulleys", "sprockets"]);
+  assert.deepEqual(gears.children!.map((i) => i.id), ["tool:gear", "tool:ring", "tool:rack", "tool:planetary", "tool:bevel", "tool:spiral", "crowns", "worms", "clockgears", "pulleys", "sprockets"]);
+  assert.deepEqual(gears.children!.find((i) => i.id === "crowns")!.children!.map((i) => i.id), ["tool:crown", "tool:face"]); // (a face gear is a crown gear with a spur pinion: one submenu, `in_1030`)
   assert.deepEqual(gears.children!.find((i) => i.id === "clockgears")!.children!.map((i) => i.id), ["tool:clock", "tool:clockring", "tool:clockrack"]);
   assert.deepEqual(gears.children!.find((i) => i.id === "pulleys")!.children!.map((i) => i.id), ["tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8"]);
   assert.deepEqual(gears.children!.find((i) => i.id === "sprockets")!.children!.map((i) => i.id), ["tool:sprocket", "tool:isosprocket"]);
