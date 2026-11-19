@@ -10,7 +10,7 @@ import { mateStatus } from "./operation/mates.ts";
 import { createSession, openSession, saveText, run, scene, selection, refresh } from "./interaction/session.ts";
 import type { Session } from "./interaction/session.ts";
 import type { ReceiverValues, ReceiverPlan } from "./interaction/addpart.ts";
-import { pickPlace, dragTarget } from "./interaction/holemove.ts";
+import { pickPlace, dragTarget, rowOf } from "./interaction/holemove.ts";
 import { canExport } from "./interaction/exportstl.ts";
 import { canExportFlat } from "./interaction/exportsketch.ts";
 import { laserDialog, runLaser, findingsDialog, machineChoices, machineDialog, startValues, projectMachines, recordCommands, tableRows, rowFrom, tableDialog, layersDialog, layersCommand, whyNoLayers, marksSummary } from "./interaction/manufacture.ts";
@@ -308,7 +308,8 @@ let hardware: { values: ReceiverValues } | null = null;
 let holesKey = "";
 let holesNow: { bar: HolePanelView; view: ToolpathView | null } | null = null;
 let holesPlan: ReceiverPlan | null = null; // (the holes the pointer can pick up and move, `in_965`)
-let holesDrag: number | null = null;
+let holesPicked: number | null = null; // (the number in the row of the hole last picked: Delete takes it out, `in_1013`)
+let holesDrag: { index: number; row: number } | null = null; // (the hole picked up and the line it is meant to be on, `in_1012`)
 let holesMovesFor = ""; // (the selection the moved holes belong to)
 let lastHolesScene: ReturnType<typeof scene> | null = null;
 const holeBar = createHolePanel(document.body, {
@@ -317,7 +318,8 @@ const holeBar = createHolePanel(document.body, {
     const before = hardware.values as unknown as Record<string, unknown>;
     const rowKeys = ["by", "value", "ends", "corners", "offset", "shift", "rows", "rowCount", "rowGap"]; // (what makes the row: a hole moved by hand is kept only while it stays)
     const changed = rowKeys.some((k) => k in v && (v as unknown as Record<string, unknown>)[k] !== before[k]);
-    hardware = { values: { ...hardware.values, ...v, ...(changed ? { moved: {} } : {}) } };
+    hardware = { values: { ...hardware.values, ...v, ...(changed ? { moved: {}, removed: [] } : {}) } };
+    if (changed) holesPicked = null;
     holesKey = ""; dirty = true;
   },
   commit() { holesCut(); },
@@ -369,20 +371,20 @@ function holesCut(): void {
 function holesOptions(): { bar: HolePanelView; view: ToolpathView | null } {
   const session = state.session;
   const sc = scene(session);
-  const key = `${selection(session).join(",")}|${JSON.stringify(hardware?.values)}`;
+  const key = `${selection(session).join(",")}|${JSON.stringify(hardware?.values)}|${holesPicked}`;
   if (holesNow && key === holesKey && lastHolesScene === sc) return holesNow;
   const { values, mode } = holesValues();
   const sel = selection(session).join(",");
-  if (hardware && holesMovesFor !== sel) { holesMovesFor = sel; if (Object.keys(hardware.values.moved ?? {}).length) hardware = { values: { ...hardware.values, moved: {} } }; } // (another selection: the holes moved by hand are let go)
-  const plan = mode === "none" ? null : receiverPlan(session, { ...values, ...(hardware ? { moved: hardware.values.moved } : {}) });
+  if (hardware && holesMovesFor !== sel) { holesMovesFor = sel; holesPicked = null; if (Object.keys(hardware.values.moved ?? {}).length || (hardware.values.removed ?? []).length) hardware = { values: { ...hardware.values, moved: {}, removed: [] } }; } // (another selection: the holes moved by hand are let go)
+  const plan = mode === "none" ? null : receiverPlan(session, { ...values, ...(hardware ? { moved: hardware.values.moved, removed: hardware.values.removed } : {}) });
   holesPlan = plan?.ok ? plan.value : null;
   const problem = mode !== "none" && plan && !plan.ok ? plan.error : null; // (nothing selected is not an error: it is said in the plain line below)
   const none = receiverContext(session)?.curved ? "Select a line drawn across the round face, or corners and circles on it, for the next holes." : "Select a flat face of a body (or a line drawn on one) for the next holes.";
-  const note = mode === "none" ? none : plan?.ok ? `${plan.value.places.length} hole${plan.value.places.length === 1 ? "" : "s"}${plan.value.spacing !== null ? `, ${Math.round(plan.value.spacing * 100) / 100} mm apart` : ""}${plan.value.auto ? `. Automatic: ${plan.value.auto}` : plan.value.insetUsed !== undefined ? `. The inset is cut down to ${plan.value.insetUsed} mm: the face is too small for ${values.offset} mm` : ""}${plan.value.insert?.screw ? `. Screw ${values.size} x ${plan.value.insert.screw.length} mm: ${plan.value.insert.screw.length > plan.value.insert.screw.room + 1e-9 ? "the shortest standard length that reaches through" : "the longest standard length that fits"} the ${plan.value.insert.screw.room} mm the hole has` : ""}` : "";
+  const note = mode === "none" ? none : plan?.ok ? `${plan.value.places.length} hole${plan.value.places.length === 1 ? "" : "s"}${plan.value.spacing !== null ? `, ${Math.round(plan.value.spacing * 100) / 100} mm apart` : ""}${plan.value.auto ? `. Automatic: ${plan.value.auto}` : plan.value.insetUsed !== undefined ? `. The inset is cut down to ${plan.value.insetUsed} mm: the face is too small for ${values.offset} mm` : ""}${plan.value.depthNote ? `. Depth: ${plan.value.depthNote}` : ""}${plan.value.insert?.screw ? `. Screw ${values.size} x ${plan.value.insert.screw.length} mm: ${plan.value.insert.screw.length > plan.value.insert.screw.room + 1e-9 ? "the shortest standard length that reaches through" : "the longest standard length that fits"} the ${plan.value.insert.screw.room} mm the hole has` : ""}` : "";
   const v = hardware!.values;
   holesNow = {
-    bar: { kinds: receiverKinds(), sizes: receiverSizes(), values: { kind: v.kind, size: v.size, by: v.by ?? "distance", value: v.value ?? "30", ends: v.ends ?? "fit", corners: v.corners ?? "each", offset: v.offset ?? "10", shift: v.shift ?? "0", depth: v.depth, far: v.far ?? "none", rows: v.rows ?? "auto", rowCount: v.rowCount ?? "1", rowGap: v.rowGap ?? "8", drill: v.drill ?? "", insert: v.insert ?? "none", length: v.length ?? "" }, mode, round: !!receiverContext(session)?.curved, ...(plan?.ok ? { reach: { body: plan.value.reach, stack: plan.value.stack } } : {}), note, problem },
-    view: plan?.ok ? holesView(plan.value) : null,
+    bar: { kinds: receiverKinds(), sizes: receiverSizes(), values: { kind: v.kind, size: v.size, by: v.by ?? "distance", value: v.value ?? "30", ends: v.ends ?? "fit", corners: v.corners ?? "each", offset: v.offset ?? "10", shift: v.shift ?? "0", depth: v.depth, far: v.far ?? "none", rows: v.rows ?? "auto", rowCount: v.rowCount ?? "1", rowGap: v.rowGap ?? "8", washer: v.washer ?? "none", drill: v.drill ?? "", insert: v.insert ?? "none", length: v.length ?? "" }, mode, round: !!receiverContext(session)?.curved, ...(plan?.ok ? { reach: { body: plan.value.reach, stack: plan.value.stack } } : {}), note, problem },
+    view: plan?.ok ? holesView(plan.value, holesPicked !== null ? plan.value.index.indexOf(holesPicked) : -1) : null,
   };
   holesKey = key;
   lastHolesScene = sc;
@@ -394,6 +396,11 @@ window.addEventListener("keydown", (e) => {
   const typing = e.target instanceof HTMLInputElement && !holeBar.contains(e.target);
   if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); holesClose(); }
   else if (e.key === "Enter" && !typing) { e.preventDefault(); e.stopPropagation(); holesCut(); }
+  else if ((e.key === "Delete" || e.key === "Backspace") && !typing && holesPicked !== null) { // the hole picked is taken out of the row (not a part of the model)
+    e.preventDefault(); e.stopPropagation();
+    hardware = { values: { ...hardware.values, removed: [...(hardware.values.removed ?? []), holesPicked] } };
+    holesPicked = null; holesKey = ""; dirty = true;
+  }
 }, true);
 /** What a body is made of (`in_565`): a dialog asks for the name, and the selected bodies are tagged with it (one step to undo). */
 async function materialDialogFlow() {
@@ -539,20 +546,24 @@ function dispatch(i: Intent, again = false) {
 // which kind of device was used last: a laptop can have a mouse and a touch screen, so it is the event itself that says, not the machine (`in_160`)
 let lastDevice: "mouse" | "touch" | "pen" = "mouse";
 /** A hole of the fastener tool's preview picked up with the pointer and moved over the surface (`in_965`); true when the pointer's event was for it and the view is not to have it. */
-function holesPointer(raw: { kind: string; x?: number; y?: number }): boolean {
+function holesPointer(raw: { kind: string; x?: number; y?: number; mods?: { alt: boolean } }): boolean {
   if (!hardware || !holesPlan || dialog.isOpen) return false;
   const [x, y] = [raw.x ?? 0, raw.y ?? 0];
   const pj = projector(state.cam, view.size().w, view.size().h);
   if (raw.kind === "down") {
     const i = pickPlace(holesPlan, pj.project, x, y);
     if (i < 0) return false;
-    holesDrag = i;
+    holesDrag = { index: i, row: rowOf(holesPlan, i) };
+    holesPicked = holesPlan.index[i] ?? null;
+    holesKey = ""; dirty = true;
     return true;
   }
   if (holesDrag === null) return false;
   if (raw.kind === "move") {
-    const t = dragTarget(holesPlan, holesDrag, pj.ray(x, y));
-    if (t) { hardware = { values: { ...hardware.values, moved: { ...(hardware.values.moved ?? {}), [holesDrag]: t } } }; holesKey = ""; dirty = true; }
+    const mmPerPx = (pj.halfH * 2) / Math.max(1, view.size().h);
+    const snap = holesDrag.row >= 0 && !raw.mods?.alt ? { row: holesDrag.row, mm: 22 * mmPerPx } : undefined; // (drawn to its line within 22 px; Alt holds it free)
+    const t = dragTarget(holesPlan, holesDrag.index, pj.ray(x, y), snap);
+    if (t) { hardware = { values: { ...hardware.values, moved: { ...(hardware.values.moved ?? {}), [holesPlan.index[holesDrag.index] ?? holesDrag.index]: t } } }; holesKey = ""; dirty = true; }
     return true;
   }
   if (raw.kind === "up" || raw.kind === "cancel") { holesDrag = null; return true; }
