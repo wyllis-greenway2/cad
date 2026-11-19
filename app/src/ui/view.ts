@@ -78,6 +78,7 @@ export function createView(host: HTMLElement) {
     behinder = built ? built.behind : null;
     behinder?.(behindNow);
     splitNow = null;
+    lastSplitKey = ""; // (the pieces that moved on their own are gone with the old picture)
     if (bodyGroup) { bodyGroup.matrix.fromArray(bodyMatrix ?? IDENTITY); bodyGroup.matrixWorldNeedsUpdate = true; }
     if (moverGroup) moverGroup.matrix.fromArray(IDENTITY);
     applyFade();
@@ -118,7 +119,13 @@ export function createView(host: HTMLElement) {
     (moversOf?.() ?? []).forEach((kid, k) => { kid.matrix.fromArray(matrices[k] ?? IDENTITY); kid.matrixWorldNeedsUpdate = true; });
     overlay.matrix.fromArray(overlayMatrix ?? (m && withOverlay ? m : IDENTITY)); // (a motion gives the matrix of the selected body itself, `in_984`)
     overlay.matrixWorldNeedsUpdate = true;
+    // a cross section cuts what moves as it cuts what stands: when bodies begin or stop moving on their own their meshes are new (clipped and counted again), and each frame the passes that make the cut face follow the meshes (`in_1130`)
+    const splitKey = splitNow ? JSON.stringify(splitNow.map((q) => q.tris)) : "";
+    if (splitKey !== lastSplitKey) { lastSplitKey = splitKey; if (clips.length) applyClip(); }
+    for (const { mesh, twin } of twins) { mesh.updateWorldMatrix(true, false); twin.matrix.copy(mesh.matrixWorld); }
   }
+  let lastSplitKey = "";
+  const twins: { mesh: THREE.Mesh; twin: THREE.Mesh }[] = [];
   let fade = false;
   let wire = false;
   let sectionKey = "";
@@ -136,6 +143,7 @@ export function createView(host: HTMLElement) {
       for (const mat of Array.isArray(m) ? m : m ? [m] : []) { mat.clippingPlanes = clips.length ? clips : null; if (mat instanceof THREE.MeshBasicMaterial || mat instanceof THREE.MeshPhysicalMaterial || mat instanceof THREE.MeshStandardMaterial) { if (clips.length) { mat.userData.side ??= mat.side; mat.side = THREE.DoubleSide; } else if (mat.userData.side !== undefined) mat.side = mat.userData.side as THREE.Side; } mat.needsUpdate = true; }
     });
     clearGroup(sectionGroup);
+    twins.length = 0;
     if (!clips.length || !bodyGroup) return;
     const body = bodyGroup;
     secs.forEach((secNow, idx) => {
@@ -145,7 +153,7 @@ export function createView(host: HTMLElement) {
     const stencil = (side: THREE.Side, op: THREE.StencilOp) => new THREE.MeshBasicMaterial({ side, colorWrite: false, depthWrite: false, depthTest: false, clippingPlanes: planes, stencilWrite: true, stencilFunc: THREE.AlwaysStencilFunc, stencilFail: op, stencilZFail: op, stencilZPass: op });
     const back = stencil(THREE.BackSide, THREE.IncrementWrapStencilOp);
     const front = stencil(THREE.FrontSide, THREE.DecrementWrapStencilOp);
-    body.traverse((o) => {
+    for (const root of [body, moverGroup]) root?.traverse((o) => { // (the bodies that move on their own, a motion or a drag, are cut like the rest: they have their own meshes under `moverGroup`, `in_1130`)
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
       for (const [mat, order] of [[back, 1 + idx * 0.2], [front, 1 + idx * 0.2]] as const) { // (each sheet's stencil pass and cut face come one after the other, the stencil put back to nothing by the cut face)
@@ -155,6 +163,7 @@ export function createView(host: HTMLElement) {
         twin.matrix.copy(mesh.matrixWorld);
         twin.renderOrder = order;
         sectionGroup.add(twin);
+        twins.push({ mesh, twin });
       }
     });
     const n = new THREE.Vector3(...secNow.n).normalize();
