@@ -5118,3 +5118,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1197 — 2026-11-19 — question
 > Okay what should we make next? What about a piston maker? This could have a lot of useful variables. How can we make it real and according to standards? I know that the size and shape of the piston head has a relationship to the length of the piston arm and the diameter of the flywheel or cam shaft it operates on. How can we make it so that it makes real pistons according to official specs if there are official specs? or at least real pistons that would really work if fabricated.
 (asks what to make next, proposes a piston maker, and asks how to make it real: to official specs where there are any, otherwise a piston that would work if made)
+
+## in_1198 — 2026-11-19 — question
+> Hmm, I know it is a large project, but would it make sense to just have a whole engine builder? since all these parts need to relate perfectly? Or is that too large of a project?
+(asks whether a whole engine builder, since the parts must relate exactly, makes sense or is too large)
