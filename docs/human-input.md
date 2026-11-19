@@ -4878,3 +4878,15 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1131 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests. Then Also this message is very jumpy. Can we just get rid of this entirely? we should just detect issues and go into detail on the fix flow if the user clickes fix.
 (attached a screencast of the motion bar with the "this push is heavy" note and the pin-in-hole note alternating; asks for the merge, then for those notes to go: issues are only detected, and the detail is in the fix flow)
+
+## in_1132 — 2026-11-19 — question
+> Why cant it apply the coaxial mate to the pin and the arm? Also apparently this pin and arm already have a coaxial mate and the animation completely ignores it and uses hard body instead? why?
+(a screenshot of the walk with "not applied: the pivot would jam: x_s_002 against x_s_084 ..." at the foot; asks why the mate cannot be applied and why an existing coaxial mate seems ignored in favour of the hard body)
+
+## in_1133 — 2026-11-19 — directive
+> @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/502e696a-why_jamb.json"
+(the project file asked for in answer to in_1132: the lever, the two gears and the arm; hard body x_s_084, pivot on x_s_083, no mates)
+
+## in_1134 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the fix-walk changes (the refused mate named, the file checked) to be merged into the testing branch, no full test run)
