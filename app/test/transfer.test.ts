@@ -59,7 +59,7 @@ test("with nothing to export every format is greyed out with its reason; with a 
   assert.ok(field(empty, "format")!.choices!.every((c) => /nothing to export yet/.test(c.disabled ?? "")));
   const s = block();
   const stl = exportDialog(s, opts({ format: "stl" }));
-  assert.deepEqual(field(stl, "format")!.choices!.map((c) => [c.value, !c.disabled]), [["stl", true], ["3mf", true], ["obj", true], ["step", true], ["brep", true], ["svg", true], ["dxf", true]]);
+  assert.deepEqual(field(stl, "format")!.choices!.map((c) => [c.value, !c.disabled]), [["stl", true], ["3mf", true], ["obj", true], ["step", true], ["iges", true], ["brep", true], ["svg", true], ["dxf", true]]);
   assert.ok(field(stl, "quality"), "an STL has a quality");
   assert.ok(field(exportDialog(s, opts({ format: "3mf" })), "quality"));
   assert.equal(field(exportDialog(s, opts({ format: "step" })), "quality"), undefined, "an exact solid has none");
