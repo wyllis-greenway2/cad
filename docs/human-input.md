@@ -4852,3 +4852,13 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1126 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+(approves the "Fix constraints" offer, the walk through each pushed body, and the heat fixes proposed in answer to in_1110)
+
+## in_1127 — 2026-11-19 — directive
+> it is quite noisy. and cluttered with overlapping notices. Lets just not show any information we dont need to. It seems like the center message about what could be fixed specifically should only show up after you enter the workflow to fix the constraints one at a time. Also the fix constraints button doesn't work? I think there is an error message below in the screenshot.  Also what is this little thing in the play bar? It says turned, and has a little drop down box ? What is that? should we get rid of it?
+(a screenshot of the motion bar with the offer card, the pin-in-hole note over it, and "nothing here can be made a joint" below; asks for less on screen, the specific text only inside the walk, the button to work, and what "turned" and the box in the bar are)
+
+## in_1128 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the quieter Fix constraints offer to be merged into the testing branch, no full test run)

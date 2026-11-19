@@ -29,10 +29,10 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
   const cardText = document.createElement("span");
   const cardBtn = (text: string, title: string, act: "open" | "apply" | "skip" | "close", strong = false): HTMLSpanElement => { const b = btn(text, title); b.style.cssText += `;border:1px solid rgba(255,255,255,.45);border-radius:6px;padding:1px 8px;${strong ? "background:#2b8a3e;border-color:#2b8a3e" : ""}`; b.addEventListener("pointerup", (e) => { e.stopPropagation(); if (act === "close") dismissed = true; send({ type: "motionFix", act }); }); return b; };
   let dismissed = false;
-  const fixB = cardBtn("Fix constraints", "Work out, from the motion so far, which pushed bodies could be joints, and walk through them one at a time", "open", true);
+  const fixB = cardBtn("Fix constraints", "Collision constraints are slow. Work out which pushed bodies could be joints (they cost nothing), and walk through them one at a time", "open", true);
   const applyB = cardBtn("Apply", "Make this joint; the motion then runs on it", "apply", true);
   const skipB = cardBtn("Skip", "Leave this one to the push", "skip");
-  const closeB = cardBtn("✕", "Leave this", "close");
+  const closeB = cardBtn("✕", "Not now", "close");
   card.append(cardText, fixB, applyB, skipB, closeB);
   bar.append(note, card, play, rev, slider, label, kind, links, springs, keep, close);
   host.appendChild(bar);
@@ -96,7 +96,8 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
       const want = !!step || (v.fix.offer && !dismissed);
       card.style.display = want ? "flex" : "none";
       if (want) {
-        cardText.textContent = step ? `${step.n} of ${step.of}: ${step.text}` : "Collision constraints are slow. Joints that do the same thing cost nothing.";
+        cardText.textContent = step ? `${step.n} of ${step.of}: ${step.text}` : "";
+        cardText.style.display = step ? "" : "none";
         fixB.style.display = step ? "none" : ""; applyB.style.display = skipB.style.display = step ? "" : "none";
         applyB.textContent = step?.how === "mate" ? "Apply mate" : "Apply pivot";
       }

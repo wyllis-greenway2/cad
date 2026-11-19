@@ -148,3 +148,16 @@ export function fixCommands(scene: Scene, f: Fix): { command: Command; how: "mat
 
 /** Whether a motion has a pushed body with no joint that has moved: there is something the offer could be made for (cheap: it is asked every frame; the fit itself is made when the offer is taken). */
 export const canFix = (m: Motion): boolean => !!m.contact && m.contact.pushables.some((p) => p.free && (Math.hypot(...p.free) > MOVED_MM || Math.abs(p.spin ?? 0) > MOVED_DEG));
+
+const offered = new WeakMap<object, { at: number; ok: boolean }>();
+/**
+ * Whether the offer is shown: only when the fit has at least one joint to make (otherwise there is nothing to say, and the person is not asked a question with no answer). The fit is made again only when the driver has moved 30 more on, not every frame.
+ */
+export function fixOffered(scene: Scene, outcome: CompileOutcome | undefined, m: Motion): boolean {
+  if (!canFix(m)) return false;
+  const seen = offered.get(scene);
+  if (seen && Math.abs(m.amount - seen.at) < 30) return seen.ok;
+  const ok = !!planFixes(scene, outcome, m)?.fixes.length;
+  offered.set(scene, { at: m.amount, ok });
+  return ok;
+}
