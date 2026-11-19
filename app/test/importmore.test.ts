@@ -135,7 +135,7 @@ test("objBytes writes no -0 and counts corners from 1", () => {
 });
 
 test("the dialogs offer OBJ: Export lists it, Import knows .obj and says an OBJ has no units", () => {
-  const e = exportDialog(block(), {});
+  const e = exportDialog(block(), { format: "obj" });
   const fmt = e.fields.find((f) => f.id === "format")!;
   assert.ok((fmt as { choices: { value: string }[] }).choices.some((c) => c.value === "obj"));
   assert.ok(e.fields.some((f) => f.id === "quality"));
