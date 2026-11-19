@@ -12,7 +12,7 @@ import { createState, reduce } from "../src/interaction/controller.ts";
 import { homeCamera } from "../src/interaction/camera.ts";
 import { layersTarget, whyNoLayers, layersDialog, layersCommand, marksFor, marksKey, marksSummary, runLaser, laserDialog, laserDefaults, recordCommands, planFor, LASER_ROUTE } from "../src/interaction/manufacture.ts";
 import { flatSnapshot } from "../src/interaction/partsnapshot.ts";
-import { appRows } from "../src/interaction/appmenu.ts";
+import { fabricateRows } from "../src/interaction/appmenu.ts";
 import { runRoute, builtInRoutes, defaultSettings, CONTRACT_VERSION } from "../src/manufacturing/index.ts";
 import type { PartSnapshot, MachineDefinition } from "../src/manufacturing/index.ts";
 
@@ -125,7 +125,7 @@ test("the dialog says which layers are marked; the dialog and the menu: Laser la
   assert.equal(d.title, "Laser layers: 1 line"); assert.equal(d.ok, "Set");
   assert.deepEqual(d.fields[0]!.choices!.map((c) => c.value), ["cut", "score", "engrave"]);
   assert.match(String(d.fields[1]!.value), /for the laser route only/);
-  const rows = (can: boolean) => appRows("", { laserLayers: can }).filter((x) => x.id === "laserLayers");
+  const rows = (can: boolean) => fabricateRows({ laserLayers: can }).filter((x) => x.id === "laserLayers");
   assert.deepEqual(rows(true).map((x) => [x.label, x.enabled]), [["Laser layers…", true]]);
   assert.deepEqual(rows(false).map((x) => [x.enabled, x.why]), [[false, "select lines or a figure of the drawing first"]]);
   const ring = reduce({ ...createState(pick([loopFaceRef(r.lines)])), cam: homeCamera() }, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items.map((i) => i.id);

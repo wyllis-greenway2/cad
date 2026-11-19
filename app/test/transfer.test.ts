@@ -56,10 +56,10 @@ test("a project file says at its top what made it and when; a file saved before 
 // ---------- the Export dialog ----------
 test("with nothing to export every format is greyed out with its reason; with a body the 3D ones are on and the quality is asked only for the meshes", () => {
   const empty = exportDialog(createSession(kernel), opts());
-  assert.ok(field(empty, "format")!.choices!.every((c) => /nothing to export yet/.test(c.disabled ?? "")));
+  assert.ok(field(empty, "format")!.choices!.filter((c) => c.value !== "project").every((c) => /nothing to export yet/.test(c.disabled ?? "")), "every format but a project (which is always there, `in_1077`)");
   const s = block();
   const stl = exportDialog(s, opts({ format: "stl" }));
-  assert.deepEqual(field(stl, "format")!.choices!.map((c) => [c.value, !c.disabled]), [["stl", true], ["3mf", true], ["obj", true], ["step", true], ["iges", true], ["brep", true], ["svg", true], ["dxf", true]]);
+  assert.deepEqual(field(stl, "format")!.choices!.map((c) => [c.value, !c.disabled]), [["project", true], ["stl", true], ["3mf", true], ["obj", true], ["step", true], ["iges", true], ["brep", true], ["svg", true], ["dxf", true]]);
   assert.ok(field(stl, "quality"), "an STL has a quality");
   assert.ok(field(exportDialog(s, opts({ format: "3mf" })), "quality"));
   assert.equal(field(exportDialog(s, opts({ format: "step" })), "quality"), undefined, "an exact solid has none");
@@ -74,17 +74,17 @@ test("with nothing to export every format is greyed out with its reason; with a 
 test("only the selected bodies is offered with a selection of several bodies; a file for each body with more than one body", () => {
   const s = two();
   assert.equal(bodyRefs(s).length, 2);
-  const none = exportDialog(s, opts());
+  const none = exportDialog(s, opts({ format: "stl" }));
   const what = field(none, "what")!;
   assert.equal(what.choices!.find((c) => c.value === "selected")!.disabled, "select a body first");
   assert.match(field(none, "perBody")!.note ?? "", /a file for each of the 2 bodies/);
   const sel = select(s, [bodyRefs(s)[0]!]);
-  const d = exportDialog(sel, opts({ what: "selected" }));
+  const d = exportDialog(sel, opts({ format: "stl", what: "selected" }));
   assert.equal(field(d, "what")!.value, "selected");
   assert.match(field(d, "what")!.choices![1]!.label, /Only the selected body \(1\)/);
   assert.equal(field(d, "perBody"), undefined, "one body: nothing to choose");
-  assert.equal(fitExport(s, opts({ what: "selected" })).what, "all", "nothing selected: everything");
-  const one = exportDialog(block(), opts());
+  assert.equal(fitExport(s, opts({ format: "stl", what: "selected" })).what, "all", "nothing selected: everything");
+  const one = exportDialog(block(), opts({ format: "stl" }));
   assert.equal(field(one, "what")!.choices![1]!.disabled, "there is only one body");
 });
 
@@ -95,8 +95,9 @@ test("the options are made to fit: a format with nothing to export gives way to 
   assert.equal(fitExport(drawn, opts({ format: "stl" })).format, "svg", "a drawing and no body: a flat format");
   assert.equal(fitExport(block(), opts({ name: " a/b:c.stl " })).name, "a-b-c");
   assert.equal(fitExport(block(), opts({ name: "plain" })).name, "plain");
+  assert.equal(fitExport(createSession(kernel), {}).format, "project", "the project is what is exported first: it needs nothing to be there (`in_1077`)");
   // options that are not all there (nothing kept yet, or only some of it) are the usual for what is missing: the dialog opens with them
-  assert.deepEqual(fitExport(block(), {}), { ...EXPORT_DEFAULTS, format: "stl", name: "" });
+  assert.deepEqual(fitExport(block(), {}), { ...EXPORT_DEFAULTS, format: "project", name: "" });
   assert.doesNotThrow(() => exportDialog(block(), { format: "3mf" }));
   assert.doesNotThrow(() => importDialog("a.stl", {}));
 });

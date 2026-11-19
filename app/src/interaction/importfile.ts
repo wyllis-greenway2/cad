@@ -24,7 +24,7 @@ import { run, scene as sceneOf } from "./session.ts";
 const MAX_STEP_BYTES = 100e6;
 /** The most faces a mesh body may have once its flat areas are joined: the app lists and draws every face of a body on each change (about 0.7 ms a face). */
 const MAX_MESH_FACES = 6000;
-export const IMPORT_KINDS = ".step,.stp,.igs,.iges,.svg,.dxf,.stl,.3mf,.obj,.brep,.brp,.fcstd";
+export const IMPORT_KINDS = ".json,.step,.stp,.igs,.iges,.svg,.dxf,.stl,.3mf,.obj,.brep,.brp,.fcstd"; // (.json: a project, `in_1077`)
 
 /** The choices an import has (`dec_import_export_menu`): the units the numbers in the file are in (`file`: what it says itself; an STL says nothing and is millimetres), a further scale, where it is put, and for a drawing the plane. */
 export interface ImportOptions { units: "file" | "mm" | "cm" | "in" | "m"; scale: number; place: "file" | "center" | "floor"; plane: "selected" | "XY" | "XZ" | "YZ"; /** a mesh: fill small holes in its surface (`dec_exchange_gaps`) */ repair: boolean; /** a mesh of more triangles than the app builds: reduce it to fit, the shape changing a little */ reduce: boolean }

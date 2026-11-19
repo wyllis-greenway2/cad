@@ -83,7 +83,12 @@ export function openSession(kernel: Kernel, text: string): Result<Session> {
   const h = fromText(text, c.derive);
   return h.ok ? ok(wrap(h.value, c.outcomeOf, !!kernel.lagging)) : h;
 }
-export const saveText = (s: Session, about?: About): string => toText(s.history, about);
+/** The project as text. `extra` is written beside the model under its own names (`in_1077`: what the page knew when it was saved, for a file to send when something is to be looked into); opening a project ignores it. */
+export const saveText = (s: Session, about?: About, extra?: Record<string, unknown>): string => {
+  const text = toText(s.history, about);
+  if (!extra) return text;
+  try { return JSON.stringify({ ...JSON.parse(text), ...extra }); } catch { return text; }
+};
 function withHistory(s: Session, h: History, message: string | null = null): Session {
   // the selection keeps only parts that still exist
   return { ...s, history: h, outcome: s.outcomeOf(h), message, conflict: null, click: { ...s.click, selection: s.click.selection.filter((r) => r in h.scene.parts) } };

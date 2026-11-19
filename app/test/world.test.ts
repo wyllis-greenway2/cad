@@ -195,8 +195,8 @@ test("the frame says what to draw: the cursor, the body, the selection; the smal
 });
 
 test("the ⋯ list always has every row, dimmed when one cannot be used, and ends with the settings page (`in_661`)", () => {
-  assert.deepEqual(appRows().map((r) => r.id), ["mate:reapply", "bodies", "history", "groups", "save", "open", "restore", "import", "material", "export", "laser", "laserLayers", "clearAnswers", "share", "constraints", "hard:clearance", "settings", "build"]);
-  assert.deepEqual(appRows().filter((r) => !r.enabled).map((r) => r.id), ["mate:reapply", "restore", "clearAnswers", "build"], "dimmed, not left out");
+  assert.deepEqual(appRows().map((r) => r.id), ["mate:reapply", "bodies", "history", "groups", "import", "export", "fabricate", "clearAnswers", "constraints", "hard:clearance", "settings", "build"]); // (no Save, Open, Restore session or Share state: Import and Export take every file in and out, `in_1077`; the laser is under Fabricate)
+  assert.deepEqual(appRows().filter((r) => !r.enabled).map((r) => r.id), ["mate:reapply", "clearAnswers", "build"], "dimmed, not left out");
   assert.ok(appRows().filter((r) => !r.enabled).every((r) => r.why), "each dimmed row says why when it is pressed");
   assert.ok(isScrollMode("zoom") && !isScrollMode("x") && !isScrollMode(null));
 });
@@ -236,4 +236,15 @@ test("a sketch tool chosen from the ring opened over a world plane turns the vie
   e = reduce(e, { type: "runAction", id: "tool:rect" }, env);
   assert.ok(e.tool);
   assert.ok(e.anim, "the view turns");
+});
+
+import { saveText as saveTextOf, openSession as openSessionOf } from "../src/interaction/session.ts";
+test("a project saved with the page's state opens as the same project: the state beside the model is ignored (`in_1077`)", () => {
+  const s0 = withBody().session;
+  const text = saveTextOf(s0, { app: "CAD", build: "x", saved: "2026-01-01T00:00:00.000Z" }, { state: { what: "cad state snapshot", selection: ["a"], camera: { distance: 3 } } });
+  assert.ok(JSON.parse(text).state.what === "cad state snapshot" && JSON.parse(text).format === "cad-project");
+  const r = openSessionOf(kernel, text);
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  if (r.ok) assert.equal(Object.keys(scene(r.value).parts).length, Object.keys(scene(s0).parts).length);
+  assert.equal(JSON.parse(saveTextOf(s0)).state, undefined, "without it, nothing extra");
 });

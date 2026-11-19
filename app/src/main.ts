@@ -38,7 +38,7 @@ import { createState, reduce, advance, stopView, afterTakenBack } from "./intera
 import { frameOf } from "./interaction/frame.ts";
 import { requestOverlap } from "./interaction/overlap.ts";
 import { clearanceBetween } from "./interaction/clearance.ts";
-import { appRows, isScrollMode } from "./interaction/appmenu.ts";
+import { appRows, fabricateRows, isScrollMode } from "./interaction/appmenu.ts";
 import { createSettings } from "./ui/settings.ts";
 import type { Change } from "./ui/settings.ts";
 import { keysFromText, keysToText } from "./interaction/preferences.ts";
@@ -173,22 +173,21 @@ const settingsPage = createSettings(document.body, () => ({ units: units.system,
   dirty = true;
 });
 
+let menuAt: [number, number] = [0, 0]; // (where the ⋯ list was opened, for the lists under it)
+const fabricateList = () => fabricateRows({ laser: canExportFlat(state.session), laserLayers: !whyNoLayers(state.session), laserTable: parseLibrary(webStore.get("cad.library")).library.settings.length > 0 });
 const menu = createMenu(document.body, (id) => {
   menu.hide();
   if (state.menu) { state = { ...state, menu: null }; dirty = true; } // (a row that opens a dialog or sets something does not close the ⋯ menu's state on its own: the first Esc afterwards would only have closed that)
   if (id === "view:game") { input.toggleGame(); return; } // (game mode is the input's: it holds the pointer, `in_391`)
   if (id === "settings") settingsPage.open();
   else if (id === "constraints") dispatch({ type: "runAction", id: "constraints" });
-  else if (id === "share") shareState();
   else if (id === "export") void exportDialogFlow();
   else if (id === "import") void importDialogFlow();
-  else if (id === "material") void materialDialogFlow();
+  else if (id === "fabricate") { menu.show(menuAt[0], menuAt[1], [], fabricateList()); } // (a list of its own, in the same place: Fabricate, `in_1077`)
   else if (id === "laser") void laserDialogFlow();
   else if (id === "laserTable") void laserTableFlow();
   else if (id === "laserLayers") void laserLayersFlow();
   else if (id === "clearAnswers") void resultStore?.clear();
-  else if (id === "restore") void restoreLast();
-  else if (id === "save" || id === "open") dispatch({ type: id });
   else if (id === "bodies" || id === "history" || id === "groups") dispatch({ type: "panel", name: id });
   else if (id === "undo" || id === "redo") dispatch({ type: id });
   else dispatch({ type: "runAction", id });
@@ -200,6 +199,7 @@ const ring = createRing(document.body, (id) => {
   ring.hide();
   if (id === "view:game") { input.toggleGame(); return; }
   if (id === "repeat:path") { void pathRepeatFlow(); return; } // (`dec_path_repeat`)
+  if (id === "fab:material") { void materialDialogFlow(); return; } // (Shape, Fabricate, `in_1077`)
   if (id === "tool:fasteners") { holesOpen(); return; } // (the tool is a panel and a preview in the model view, `dec_parts_tool`)
   dispatch({ type: "runAction", id });
 }, (id) => dispatch({ type: "runAction", id: `why:${id}` })); // (a dimmed option pressed: its reason is said and the ring stays, `in_538`)
@@ -242,13 +242,6 @@ let tilt: [number, number] = [0, 0]; // (how far the view has been tilted to loo
 let ringAnchor: Vec3 | null = null; // (where a ring opened in game mode stands in the world)
 const inGame = (): boolean => recognizer.game && document.pointerLockElement !== null;
 let panesFading = false; // (the world panes are fading in or out: keep drawing, `in_442`)
-/** Bring back the copy of the session before this one (`in_997`). */
-async function restoreLast() {
-  const kept = autosave.previous();
-  if (!kept) return say("no copy of an earlier session was kept in this browser");
-  const r = await openProjectText(kept.text);
-  if (r.ok) { adopt(r.value); say(`restored: ${kept.steps} steps`); } else { openingGhosts = null; state = { ...state, session: { ...state.session, message: r.error } }; dirty = true; }
-}
 /** The boxes of the parts of a project that is being opened, drawn while its commands are replayed (`dec_progressive_open`, `in_1058`); null when nothing is being opened or the project has none. */
 let openingGhosts: StandIn[] | null = null;
 const nextPaint = () => new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
@@ -273,13 +266,11 @@ function logIntent(i: Intent) {
   if (intentLog.length > 400) intentLog.shift();
 }
 /** A file of everything about the state of the page, to send for a bug report (the project in it can be opened again). */
-function shareState() {
+/** The project as the text of a file: the model and its history (`saveText`) and, under `state`, what the page knew when it was saved (the view, the selection, what the kernel answered, the last things done): one file to send when something is to be looked into (`in_1077`). */
+function projectText(): string {
   const at = new Date();
   const snap = snapshotOf(state, { intents: intentLog, viewport: { w: view.size().w, h: view.size().h, dpr: window.devicePixelRatio }, device: lastDevice, userAgent: navigator.userAgent, build: typeof __BUILD__ === "string" ? __BUILD__ : "", scrollMode: recognizer.scrollMode, timing: timing.summary(), at: at.toISOString(), pointer });
-  const name = `cad-state-${at.toISOString().replace(/[:.]/g, "-").slice(0, 19)}.json`;
-  webFiles.save(name, JSON.stringify(snap, null, 1));
-  state = { ...state, session: { ...state.session, message: `saved ${name}: send that file` } };
-  dirty = true;
+  return saveText(state.session, { app: "CAD", build: typeof __BUILD__ === "string" ? __BUILD__ : "", saved: at.toISOString() }, { state: snap }); // (what made the file is written at its top, `in_528`)
 }
 const EXPORT_KEY = "cad.exportOptions";
 const dialog = createDialog(document.body);
@@ -288,10 +279,11 @@ const say = (message: string) => { state = { ...state, session: { ...state.sessi
 async function exportDialogFlow() {
   let saved = EXPORT_DEFAULTS;
   try { saved = { ...EXPORT_DEFAULTS, ...JSON.parse(webStore.get(EXPORT_KEY) ?? "{}") }; } catch { /* not kept, or not readable: the usual */ }
-  saved = { ...saved, units: units.system }; // (the units start from the number system of the settings page; a different choice here is for this file only, `in_677`)
+  saved = { ...saved, units: units.system, format: "project" }; // (the units start from the number system of the settings page; a different choice here is for this file only, `in_677`; the first format is the project: what is saved most, `in_1077`)
   const answers = await dialog.open((v) => exportDialog(state.session, v as unknown as ExportOptions), (({ name: _name, ...rest }) => rest)(fitExport(state.session, { ...saved, name: "" })) as unknown as Values); // (the file name is not asked as an answer to begin with: the dialog offers its own)
   if (!answers) return;
   const o = fitExport(state.session, answers as unknown as ExportOptions);
+  if (o.format === "project") { const name = `${o.name || FILE_NAME.replace(/\.json$/, "")}.json`; webFiles.save(name, projectText()); say(`saved ${name}`); return; }
   webStore.set(EXPORT_KEY, JSON.stringify({ format: o.format, quality: o.quality, what: "all", perBody: o.perBody, joined: o.joined, schema: o.schema, iges: o.iges, name: "" }));
   say(`making the ${FLAT_OR_NOT(o.format)} file…`);
   const r = await exportWith(state.session, engine, o);
@@ -552,6 +544,12 @@ const FLAT_OR_NOT = (f: string): string => (f === "3mf" ? "3MF" : f.toUpperCase(
 async function importDialogFlow(given?: { name: string; bytes: Uint8Array }) {
   const picked = given ?? (await webFiles.pick(IMPORT_KINDS));
   if (!picked) return;
+  if (/\.json$/i.test(picked.name) || new TextDecoder().decode(picked.bytes.slice(0, 40)).includes("cad-project")) { // a project (what Export writes first): opened as it was, with the state it carries ignored (`in_1077`)
+    const text = new TextDecoder().decode(picked.bytes);
+    const r = await openProjectText(text);
+    if (r.ok) { adopt(r.value); const a = aboutOf(text); say(a ? `opened a project saved by ${a.app}${a.build ? ` build ${a.build}` : ""} on ${a.saved.slice(0, 10)}` : "opened the project"); } else { openingGhosts = null; say(r.error); }
+    return;
+  }
   const name = await nameFor(picked.name, picked.bytes, KIND_OF); // (a file with no ending, or a wrong one, is read as what is in it, `dec_exchange_gaps`)
   if (!KIND_OF(name)) return say(`${picked.name} is not a file the app reads: it imports STEP (.step, .stp), IGES (.igs, .iges), BREP (.brep), FreeCAD (.FCStd), STL, 3MF, OBJ, SVG and DXF`);
   const answers = await dialog.open((v) => importDialog(name, v as unknown as ImportOptions), { ...IMPORT_DEFAULTS } as unknown as Values);
@@ -563,16 +561,8 @@ async function importDialogFlow(given?: { name: string; bytes: Uint8Array }) {
 }
 function dispatch(i: Intent, again = false) {
   if (!again) logIntent(i);
-  if (i.type === "save") { webFiles.save(FILE_NAME, saveText(state.session, { app: "CAD", build: typeof __BUILD__ === "string" ? __BUILD__ : "", saved: new Date().toISOString() })); return; } // (what made the file is written at its top, `in_528`)
-  if (i.type === "open") {
-    void webFiles.open().then(async (text) => {
-      if (text === null) return;
-      const r = await openProjectText(text);
-      if (r.ok) { adopt(r.value); const a = aboutOf(text); if (a) { state = { ...state, session: { ...state.session, message: `opened a project saved by ${a.app}${a.build ? ` build ${a.build}` : ""} on ${a.saved.slice(0, 10)}` } }; dirty = true; } }
-      else { openingGhosts = null; state = { ...state, session: { ...state.session, message: r.error } }; dirty = true; }
-    });
-    return;
-  }
+  if (i.type === "save") { void exportDialogFlow(); return; } // (Save and Open are Export and Import: every file going out or coming in, `in_1077`)
+  if (i.type === "open") { void importDialogFlow(); return; }
   if (i.type === "menuTurn") { if (ring.open) ring.turn(i.dx, i.dy); dirty = true; return; }
   if (ring.open && recognizer.game) {
     if (i.type === "click") { if (!ring.pickSelected()) ring.hide(); dirty = true; return; }
@@ -591,7 +581,7 @@ function dispatch(i: Intent, again = false) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(typeof __BUILD__ === "string" ? __BUILD__ : "", { export: canExport(state.session) || canExportFlat(state.session), material: !whyNoMaterial(state.session), laser: canExportFlat(state.session), laserLayers: !whyNoLayers(state.session), laserTable: parseLibrary(webStore.get("cad.library")).library.settings.length > 0, clearAnswers: !!resultStore, restore: !!autosave.previous(), matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, scene(state.session).clearance ?? 0)); }
+    if (i.button) { ring.hide(); menuAt = [i.x, i.y]; menu.show(i.x, i.y, [], appRows(typeof __BUILD__ === "string" ? __BUILD__ : "", { clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, scene(state.session).clearance ?? 0)); }
     else {
       menu.hide();
       if (state.menu && inGame()) { // game mode: the ring stands in the world, ahead of the eye, where it was opened (`in_463`, `in_471`)

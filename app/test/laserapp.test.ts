@@ -9,7 +9,7 @@ import { drawRectangle, drawCircle } from "../src/operation/build.ts";
 import { loopFaceRef } from "../src/operation/loops.ts";
 import { flatSnapshot } from "../src/interaction/partsnapshot.ts";
 import { registry, laserDialog, laserDefaults, runLaser, findingsDialog, LASER_ROUTE } from "../src/interaction/manufacture.ts";
-import { appRows } from "../src/interaction/appmenu.ts";
+import { fabricateRows } from "../src/interaction/appmenu.ts";
 import { CONTRACT_VERSION } from "../src/manufacturing/index.ts";
 
 await kernel.init();
@@ -112,8 +112,8 @@ test("findings and what the file writer could not write are shown to read before
   assert.equal(runLaser(createSession(kernel), laserDefaults()).ok, false, "nothing drawn: why, not a file");
 });
 
-test("the ⋯ menu has a Laser cut… row, live with a drawing and dimmed with the reason without one", () => {
-  const rows = (can: boolean) => appRows("", { laser: can }).filter((x) => x.id === "laser");
+test("the ⋯ menu's Fabricate list has a Laser cut… row, live with a drawing and dimmed with the reason without one", () => {
+  const rows = (can: boolean) => fabricateRows({ laser: can }).filter((x) => x.id === "laser");
   assert.deepEqual(rows(true).map((x) => [x.label, x.enabled]), [["Laser cut…", true]]);
   assert.deepEqual(rows(false).map((x) => [x.enabled, x.why]), [[false, "draw something, or select a sketch first"]]);
 });

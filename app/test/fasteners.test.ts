@@ -465,10 +465,12 @@ type Item = { id: string; label: string; enabled: boolean; why: string | null; c
 const ringOf = (session: Session): Item[] => reduce({ ...createState(session) }, { type: "menu", x: 400, y: 300, button: true }, { w: 800, h: 600, now: 0 }).menu!.items as unknown as Item[];
 const find = (items: Item[], id: string): Item | undefined => { for (const i of items) { if (i.id === id) return i; const f = i.children ? find(i.children, id) : undefined; if (f) return f; } return undefined; };
 
-test("the right-click ring has the Fastener tool directly under Shape, with the screw icon, and no Models", () => {
+test("the right-click ring has the Fastener tool under Shape, Fabricate (the hammer), next to Material, and no Models", () => {
   const items = ringOf(createSession(kernel));
   const shape = items.find((i) => i.id === "shape")!;
-  const tool = shape.children!.find((i) => i.id === "tool:fasteners")!;
+  const fab = shape.children!.find((i) => i.id === "fabricate")!; // (Shape, Fabricate: the material and the fastener tool, `in_1077`)
+  assert.equal(fab.label, "Fabricate");
+  const tool = fab.children!.find((i) => i.id === "tool:fasteners")!;
   assert.equal(tool.label, "Fastener tool");
   assert.equal(find(items, "models"), undefined);
 });
