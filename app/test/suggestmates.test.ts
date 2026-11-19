@@ -74,3 +74,31 @@ test("a mate that is made and true is not offered again, by the ring either (it 
   assert.ok(!again || !again.enabled, "not offered as a thing to do");
   assert.equal(scene(once).relations.filter((r) => r.kind === "mate").length, 1);
 });
+
+// ---------- a mate that a sketch's tangent already makes true (`in_1106`) ----------
+import { impliedMate } from "../src/interaction/implied.ts";
+import { drawSquaredRectangle } from "../src/operation/build.ts";
+test("a sketch line held tangent to a post's rim: the wall made from the line is already tangent to the post, so the tangent mate between them is said to hold, and one between other faces is not", () => {
+  let s = createSession(kernel);
+  const post = drawCircle(scene(s), XY, [0, 0, 0], 5);
+  s = run(s, post.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [post.circle], params: { depth: 10 } } });
+  const r = drawSquaredRectangle(scene(s), XY, [5, -5, 0], [25, 5, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  const sc0 = scene(s);
+  const left = r.lines.find((l) => { const q = sc0.parts[l]; if (q?.kind !== "line") return false; const [a, b] = [sc0.parts[q.a] as unknown as { at: number[] }, sc0.parts[q.b] as unknown as { at: number[] }]; return Math.abs(a.at[0]! - 5) < 1e-6 && Math.abs(b.at[0]! - 5) < 1e-6; })!;
+  const rim = Object.values(sc0.parts).find((p) => p.kind === "line" && p.origin === "body" && !!p.circle && Math.abs(p.circle.radius - 5) < 1e-6 && Math.abs(p.circle.center[2]) < 1e-6)!.ref as Ref;
+  const tangent = actionsFor(sc0, [left, rim]).find((x) => x.id === "tangent");
+  assert.ok(tangent?.enabled, "a sketch line can be made tangent to the body's rim");
+  s = run(s, tangent!.run());
+  assert.ok(!s.message, s.message ?? "");
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: r.lines, params: { depth: 10, mode: "new" } } });
+  const get = lookup(scene(s));
+  const wall = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && !roundOf(get, p.ref) && Math.abs(p.at[0] - 5) < 1e-6 && p.u[0] === 0 && p.v[0] === 0)!.ref as Ref;
+  const postWall = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && Math.abs((roundOf(get, p.ref)?.radius ?? 0) - 5) < 0.02)!.ref as Ref;
+  const id = scene(s).relations.find((x) => x.kind === "tangent")!.id;
+  assert.deepEqual(impliedMate(scene(s), "tangent", wall, postWall), [id]);
+  assert.deepEqual(impliedMate(scene(s), "tangent", postWall, wall), [id], "whichever is first");
+  const far = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && !p.curved && !roundOf(get, p.ref) && Math.abs(p.at[0] - 25) < 1e-6 && p.u[0] === 0 && p.v[0] === 0)!.ref as Ref;
+  assert.deepEqual(impliedMate(scene(s), "tangent", far, postWall), [], "the far end of the arm is not tangent to the post");
+});

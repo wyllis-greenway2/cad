@@ -219,6 +219,9 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   // a command that is only a refusal (an action that could not make its command): said, shown, and never kept as a step (`in_1105`)
   const refuse = (function find(x: Command): Extract<Command, { type: "refuse" }> | null { return x.type === "refuse" ? x : x.type === "batch" ? x.commands.map(find).find((y) => !!y) ?? null : null; })(c);
   if (refuse) return { ...s, message: refuse.why, already: undefined, conflict: refuse.soften?.length ? { culprits: [], victims: [], soften: refuse.soften, parts: refuse.into ?? [], ...(refuse.retry ? { retry: refuse.retry } : {}) } : null };
+  // a command that says the constraints that are there already make it true (a mate between two faces that a sketch's constraint already holds together): said, and they flash green (`in_1106`)
+  const holds = (function find(x: Command): Extract<Command, { type: "held" }> | null { return x.type === "held" ? x : x.type === "batch" ? x.commands.map(find).find((y) => !!y) ?? null : null; })(c);
+  if (holds) return { ...s, message: `that already holds: ${wordsOf(s.history.scene, holds.ids, "green")} makes it true`, already: holds.ids, conflict: null };
   // a constraint that already holds as asked is not made again: it is said, and it flashes green (`in_1103`)
   if (!opts.watchAll) { const held = alreadyApplied(s.history.scene, c); if (held.length) return { ...s, message: `that is already applied: ${wordsOf(s.history.scene, held, "green")}`, already: held, conflict: null }; }
   // a step is built on what is shown: while the kernel is still answering for the last change what is shown is the older model, and a step made now could mean something else (`in_142`)

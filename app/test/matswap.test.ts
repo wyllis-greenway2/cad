@@ -73,3 +73,30 @@ test("a mate that hard bodies stop is refused with what it ran into: the hardnes
   assert.deepEqual(st.session.conflict?.soften, ["x_s_084"]);
   assert.ok(st.session.conflict?.retry, "with the mate to make once it is soft");
 });
+
+// ---------- a mate that a sketch's constraint already makes true (`in_1106`) ----------
+import { suggestionsFor } from "../src/interaction/suggest.ts";
+import { impliedMate } from "../src/interaction/implied.ts";
+const HOLE_HERE = "b/body/c@2,27.59,25.5,5.4,2.2869,5.4,11.5" as Ref; // the arm's hole round the pin: its circle is held concentric with the pin's rim by the sketch's r_010
+
+test("a coaxial mate between the pin and the hole the sketch already holds round it: said, not made twice, and the sketch's Concentric flashes green", () => {
+  const s = open();
+  assert.deepEqual(impliedMate(scene(s), "coaxial", PIN, HOLE_HERE), ["r_010"]);
+  assert.deepEqual(impliedMate(scene(s), "coaxial", HOLE_HERE, PIN), ["r_010"], "whichever is first");
+  assert.deepEqual(impliedMate(scene(s), "parallelAxes", PIN, HOLE_HERE), ["r_010"], "parallel axes too: coaxial includes it");
+  assert.deepEqual(impliedMate(scene(s), "tangent", PIN, HOLE_HERE), [], "tangent is not what a Concentric makes true");
+  const st = pick(s, [PIN, HOLE_HERE]);
+  assert.equal(st.session.history, s.history, "nothing was made, nothing to undo");
+  assert.match(st.session.message ?? "", /already holds: the Concentric constraint \(it flashes green\) makes it true/);
+  assert.deepEqual(st.session.already, ["r_010"]);
+  assert.deepEqual(st.flash?.green, ["r_010"], "the constraint flashes green");
+  assert.equal(scene(st.session).relations.filter((r) => r.kind === "mate").length, 0, "no mate was added");
+});
+
+test("the suggester does not offer what the sketch already makes true, and the pin with another hole is offered the mates as before", () => {
+  const s = open();
+  const here = suggestionsFor(scene(s), [PIN, HOLE_HERE])?.items.map((i) => i.id) ?? [];
+  assert.ok(!here.includes("mate:coaxial") && !here.includes("mate:parallelAxes"), here.join());
+  const far = suggestionsFor(scene(s), [PIN, FAR_HOLE])?.items.map((i) => i.id) ?? [];
+  assert.ok(far.includes("mate:coaxial"), "not implied for another hole");
+});

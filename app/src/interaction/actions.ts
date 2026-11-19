@@ -20,6 +20,7 @@ import { worldRef } from "../shared/ref.ts";
 import type { MateMode } from "../operation/mates.ts";
 import { featureOf, existingMate, faceMiddle, isFlatMode, mateStatus, isWorldPlane } from "../operation/mates.ts";
 import { ordered } from "./selection.ts";
+import { impliedMate } from "./implied.ts";
 import { ROWS, REFERENCES_ONLY, same } from "./rows.ts";
 import type { Ctx } from "./rows.ts";
 
@@ -156,6 +157,8 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
         measure: measureNow,
         spot: () => faceMiddle(scene, pair[0]),
         run: (value?: number): Command => {
+          const implied = impliedMate(scene, mode, pair[0], pair[1]); // (a sketch constraint that already makes it true: said, not made twice, `in_1106`)
+          if (implied.length) return { type: "held", ids: implied };
           const again = fa && fb ? existingMate(scene, mode, fa.body, fb.body) ?? undefined : undefined; // (a mate made again between the same bodies replaces the one there)
           const amount = unit === null ? 0 : degrees ? Math.min(180, Math.max(0, value ?? measureNow() ?? 0)) : Math.max(0, value ?? 0);
           const r = mateCommand(scene, mode, pair[0], pair[1], amount, again, mode !== "parallel" || value !== undefined, true); // (parallel faces are only turned unless a distance is typed)

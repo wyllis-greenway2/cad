@@ -14,6 +14,7 @@ import { actionsFor } from "./actions.ts";
 import { similarTo } from "./similar.ts";
 import { breakable, topItems } from "../operation/groups.ts";
 import type { MateMode } from "../operation/mates.ts";
+import { impliedMate } from "./implied.ts";
 import { featureOf, existingMate, mateStatus } from "../operation/mates.ts";
 
 export interface Suggestions { at: Vec3; items: { id: string; label: string }[] }
@@ -102,7 +103,7 @@ function constraintsFor(scene: Scene, selection: readonly Ref[], tol = 0, seen?:
 function matesFor(scene: Scene, selection: readonly Ref[]): Suggestions | null {
   const mateable = selection.every((r) => { const p = scene.parts[r]; return !!p && ((p.kind === "plane" && (p.origin === "body" || p.origin === "world")) || (p.kind === "line" && p.origin === "body" && !!p.circle)); });
   if (!mateable) return null;
-  const items = actionsFor(scene, selection).filter((a) => a.id.startsWith("mate:") && a.enabled && a.id !== "mate:angle" && a.id !== "mate:angleAxes" && !mateMade(scene, a.id.slice(5) as MateMode, a.parts)).map((a) => ({ id: a.id, label: a.label }));
+  const items = actionsFor(scene, selection).filter((a) => a.id.startsWith("mate:") && a.enabled && a.id !== "mate:angle" && a.id !== "mate:angleAxes" && !mateMade(scene, a.id.slice(5) as MateMode, a.parts) && !(a.parts.length === 2 && impliedMate(scene, a.id.slice(5) as MateMode, a.parts[0]!, a.parts[1]!).length)).map((a) => ({ id: a.id, label: a.label }));
   const at = items.length ? spotOf(scene, selection) : null;
   return at ? { at, items } : null;
 }
