@@ -2146,7 +2146,8 @@ test("the mover's place can be typed: with the sphere selected its x, y and z ar
   const chosen = { ...st, handleSel: "piv:x" };
   assert.equal(frame(chosen).entries.length, 1, "the value of the arrow that was clicked");
   const moved = { ...st, orbMovedAt: 0 };
-  assert.equal(frameOf(moved, { w: 800, h: 600 }, 100).entries.length, 3, "the whole orb moved: all three, one on each arrow of the sphere");
+  assert.equal(frameOf(moved, { w: 800, h: 600 }, 100).entries.length, 0, "the whole orb moved with no axis chosen: no number (`in_1127`)");
+  assert.equal(frameOf({ ...moved, lockAxes: [0, 1, 2] }, { w: 800, h: 600 }, 100).entries.length, 3, "the axes chosen: one on each arrow of the sphere");
   st = reduce(st, { type: "entry", field: 0, text: "40" }, env);
   st = reduce(st, { type: "entry", field: 1, text: "20" }, env);
   nearV(gizmoOf(st)!.centre.map((c) => Math.round(c * 1e6) / 1e6) as unknown as Vec3, [40, 20, 10], 1e-6);
@@ -2234,8 +2235,10 @@ test("in the orient mode each of the three bubbles has the mover's position alon
   st = reduce(st, { type: "begin", name: "move" }, env);
   const [bx, by] = px(st, gizmoOf(st)!.centre);
   st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
-  const es = frameOf({ ...st, orbMovedAt: 0 }, { w: 800, h: 600 }, 100).entries; // (the whole orb just moved: all three show)
+  assert.equal(frameOf({ ...st, orbMovedAt: 0 }, { w: 800, h: 600 }, 100).entries.length, 0, "the whole orb just moved with no axis chosen: no number (`in_1127`)");
+  const es = frameOf({ ...st, lockAxes: [0, 1, 2], orbMovedAt: 0 }, { w: 800, h: 600 }, 100).entries; // (the axes chosen: theirs show)
   assert.equal(es.length, 3);
+  assert.equal(frameOf({ ...st, lockAxes: [2], orbMovedAt: 0 }, { w: 800, h: 600 }, 100).entries.length, 1, "one axis chosen: its number alone");
   for (const e of es) {
     assert.deepEqual(e.fields.map((f) => f.unit), ["mm", "°"], "a position and a turn");
     assert.deepEqual(e.fields.map((f) => f.index).map((i) => i! >= 3), [false, true]);
@@ -2244,9 +2247,9 @@ test("in the orient mode each of the three bubbles has the mover's position alon
   st = reduce(st, { type: "entry", field: 5, text: "90" }, env); // a quarter about Z
   const f = st.op!.frame!;
   near(f[0][1], 1, 1e-9); // (its X is the world Y now)
-  assert.equal(frameOf({ ...st, orbMovedAt: 0 }, { w: 800, h: 600 }, 100).entries[2]!.fields[1]!.value, "90");
+  assert.equal(frameOf({ ...st, lockAxes: [0, 1, 2], orbMovedAt: 0 }, { w: 800, h: 600 }, 100).entries[2]!.fields[1]!.value, "90");
   assert.equal(frame({ ...st, handleSel: "rot:z" }).entries[0]!.fields[0]!.value, "90", "a ring chosen: its turn alone");
-  assert.equal(frameOf({ ...st, orbMovedAt: 0 }, { w: 800, h: 600 }, 1700).entries[0]!.opacity! < 1, true, "and they fade");
+  assert.equal(frameOf({ ...st, lockAxes: [0, 1, 2], orbMovedAt: 0 }, { w: 800, h: 600 }, 1700).entries[0]!.opacity! < 1, true, "and they fade");
   st = reduce(st, { type: "entry", field: 5, text: "0" }, env);
   assert.equal(st.op!.frame, undefined, "no turn: true x, y, z again");
 });
