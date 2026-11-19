@@ -4136,3 +4136,6 @@ Built `Bearing` in the Models category from a table of 22 real deep-groove beari
 
 ## Handoff 1026 — 2026-11-19 (in_1158: the gear audit follow-ups, the cross section mover and the body constraints merged into the testing branch)
 `in_1158`. Merged the testing branch's tip (up to `in_1156`, Handoff 1024, after several looks) into this branch and pushed to `claude/inspiring-pascal-l342k7`. **Numbers:** my `in_1131`, `in_1132` became `in_1157`, `in_1158` and Handoff 1000 became 1021, in a commit of their own before the merge. **Conflicts:** `human-input.md` and `handoff.md` (theirs first) and `control/state.ts` (the one line of `createState`: their `building: null` kept, my `bodyConstraints: []` added). Checked: types, layers and unused, and the sheet, gizmo, hide-joins, menu and gear tests; the full suite was not run, as asked.
+
+## Handoff 1027 — 2026-11-19 (in_1159: new working branch)
+`in_1159`. Everything on `claude/intelligent-hawking-next` was already in the testing branch, so nothing to merge; created `claude/intelligent-hawking-next-2` from the testing branch's tip (which had moved on to `in_1158`, Handoff 1026). Work goes on there. Next: `in_1160`, Handoff 1028.
