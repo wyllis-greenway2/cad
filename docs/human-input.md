@@ -4930,3 +4930,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1144 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the carried joint to be merged into the testing branch, no full test run)
+
+## in_1145 — 2026-11-19 — directive
+> @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/622b1069-Screencast_from_2026-11-19_15-51-00.webm" okay now it spins the whole lever arm and completely ignores its hard body constraints, it flys right through other bodies. Also don't you think it should slip on coaxial constraints not drive the whole arm in rotation? I thought we had a rule that if xyz movement satisfies everything then we dont rotate? shouldn't that rule cause it to slip in the coaxial joint?
+(a screencast of the carried lever swinging round with the gear and through the far arm; two faults: the whole arm is turned with the gear, and nothing stops it going through other hard bodies; asks that it slip on the pin, the move-before-turn rule)

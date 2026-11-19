@@ -32,7 +32,7 @@ export interface Follower {
   /** a Geneva wheel: turned by its crank by the law of the drive (`genevaTurn`) instead of `k` times the driver's amount; `n` slots, `a` the crank's radius */
   geneva?: { n: number; a: number };
   /** a planet on a turning carrier: after it has turned about its own axis (`k`), the whole is turned again about this axis by `k` times the driver's amount (the orbit) */
-  after?: { point: Vec3; dir: Vec3; k: number };
+  after?: { point: Vec3; dir: Vec3; k: number; /** a body on a pin that goes round (`in_1145`): the pin's way only moves it (the same turn of the carrier is taken at the pin's place and the body is shifted by what that moves the pin), it is not turned with the carrier */ slip?: true };
   /** a body that yields to contact (`interaction/contact.ts`): where it stands, whatever the driver's amount */
   value?: number;
 }

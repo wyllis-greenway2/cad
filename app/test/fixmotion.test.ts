@@ -143,3 +143,20 @@ test("the lever held on the pin by the sketch's Concentric is a joint carried ro
   console.log(`carried lever, gear to 360: ${ms.toFixed(0)} ms`);
   assert.ok(ms < 3000);
 });
+
+test("the carried lever (`in_1145`) is moved with the pin and not turned with the gear, and where it meets the far arm, which is hard and turns on its pivot, the far arm gives way and then the lever slips on the pin: nothing goes through anything", () => {
+  let s = (openSession(kernel, readFileSync(new URL("./fixtures/lever-pin-held.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+  s = run(s, { type: "setHard", body: "x_s_083", on: true });
+  const sc = scene(s);
+  const r = startMotion(sc, "b/x_s_002/o" as never, "turn", s.outcome);
+  if (!r.ok) throw new Error(r.why);
+  const early = solveContact(sc, { ...r.motion, playing: true, amount: 20 }, s.outcome, Infinity);
+  const lever0 = early.contact!.pushables.find((p) => p.body === ("b/x_s_084/o" as never))!;
+  assert.ok(Math.abs(lever0.value) < 1, `not turned with the gear: ${lever0.value} degrees after 20 of the gear's`);
+  const m = solveContact(sc, { ...r.motion, playing: true, amount: 360 }, s.outcome, Infinity);
+  assert.equal(m.contact?.jam, null, m.contact?.jam ?? "");
+  const [lever, arm] = ["b/x_s_084/o", "b/x_s_083/o"].map((b) => m.contact!.pushables.find((p) => p.body === (b as never))!);
+  assert.ok(Math.abs(arm!.value) > 5, `the far arm gave way: ${arm!.value}`);
+  assert.ok(Math.abs(lever!.value) > 5 && Math.abs(lever!.value) < 90, `the lever slipped on the pin by a part of a turn, not the gear's: ${lever!.value}`);
+  assert.ok(m.yields!.find((f) => f.body === lever!.body)!.after?.slip, "drawn moved by the pin, not turned by it");
+});
