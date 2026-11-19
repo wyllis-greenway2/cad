@@ -4321,3 +4321,6 @@ Branch `claude/adoring-dijkstra-carry`. **Message:** "Collision occurred" (the d
 
 ## Handoff 1083 — 2026-11-19 (in_1226: replace all the Wheel styles with one realistic cast or machined profile; research first)
 `in_1226`. The human wants all four styles replaced by realistic ones (machinable or castable, with joins, bevels, fillets), starting with one, after research. Searched (snippets): draft, wall, fillet and machining rules in the sources README; the SFSA pages could not be fetched (host not allowed). **Nothing built or removed.** `dec_hub_spoke` has a "Second direction" section. Waiting on the human: the profile to build first and whether to allow `www.sfsa.org` (or send the SFSA design supplement or a handbook page).
+
+## Handoff 1084 — 2026-11-19 (in_1227: the human will try to get the documents; the list was given)
+`in_1227`. The human offered to fetch documents. The five wanted are listed in the sources README ("Documents asked of the human"): the SFSA design supplement, the Batesville guide, a gray iron or aluminum foundry design manual, hub and web proportions of a cast pulley or flywheel, keyway and set screw tables. Nothing built. When they send any, read it, add a row to the sources README, then propose the first profile (`dec_hub_spoke`, "Second direction").

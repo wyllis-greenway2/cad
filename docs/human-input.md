@@ -5224,3 +5224,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1226 — 2026-11-19 — directive
 > we want to replace all of yours and try again, they need to be more realistic. Real parts that could actually be machined or cast. This means they need proper joins bevels fillets etc. Lets just start with one, lets research a bit before we build anything
 (asks for all four spoke styles of the Wheel to be replaced by more realistic ones, parts that could really be machined or cast, with proper joins, bevels and fillets; start with one profile; research first, build nothing yet)
+
+## in_1227 — 2026-11-19 — directive
+> why dont you link me to any documents you need and I will see if I can get them for you
+(offers to fetch documents: asks me to list the documents I need, with links, and they will try to get them)
