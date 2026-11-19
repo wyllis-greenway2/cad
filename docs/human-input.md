@@ -5015,3 +5015,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1169 — 2026-11-19 — question
 > okay what next?
+
+## in_1170 — 2026-11-19 — approval
+> go with 1 and 2
+(approves the AI's recommendation of `in_1169`: check a gear or a cam edited against a mate, and the held-back preview of a drag, against the rule that a violated constraint flashes red, says so and offers to delete)

@@ -394,10 +394,10 @@ export function previewCommand(s: Session, c: Command): { scene: Scene; outcome:
   return r.ok ? { scene: r.value.scene, outcome: s.outcomeOf(r.value) } : null;
 }
 /** Why a command would be refused, as `run` would say it (the preview shows what is there, not a move the commit would refuse, `in_366`). */
-export function previewRefusal(s: Session, c: Command, shown: { scene: Scene; outcome: CompileOutcome }): string | null {
+export function previewRefusal(s: Session, c: Command, shown: { scene: Scene; outcome: CompileOutcome }): { why: string; ids: string[] } | null {
   const before = conflictsOf(s.outcome);
   const after = conflictsOf(shown.outcome);
   const broken = after.planes.some((p) => !before.planes.includes(p)) ? after.ids.filter((id) => !relationsOf(c).includes(id) && !before.ids.includes(id)) : [];
   const held = broken.length ? broken : heldBy(s.history.scene, c, shown.scene);
-  return held.length ? `that would break ${held.length === 1 ? "a constraint" : "constraints"} (${held.join(", ")})` : null;
+  return held.length ? { why: `that would break ${held.length === 1 ? "a constraint" : "constraints"} (${held.join(", ")})`, ids: held } : null;
 }

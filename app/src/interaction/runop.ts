@@ -108,9 +108,8 @@ function runOpCore(sess: Session, op0: Op): { session: Session; cmd: Command } |
   let edited = run(sess, cmd, { watchAll: true, ...(prism0 && op.edit.kind !== "side" && !ofCircle && !op.rounded ? { fallback: prism0 } : {}) });
   // moving the side of a sketch: the constraints may have put the corners back (a locked length); that is not an edit
   if (!edited.message && cmd.type === "batch") {
-    const after = sceneOf(edited).parts;
-    const held = cmd.commands.every((c) => { if (c.type !== "movePart") return true; const q = after[c.ref]; return q?.kind === "corner" && Math.hypot(q.at[0] - c.to[0], q.at[1] - c.to[1], q.at[2] - c.to[2]) < 1e-6; });
-    if (!held) { const holders = holdingSide(sceneOf(sess), cmd.commands.flatMap((c) => (c.type === "movePart" ? [c.ref] : []))); edited = { ...sess, message: "the constraints on the sketch would put it back", ...(holders.length ? { conflict: { culprits: holders, victims: holders, retry: cmd } } : {}) }; }
+    const holders = sideHeldBack(sceneOf(sess), sceneOf(edited), cmd);
+    if (holders) edited = { ...sess, message: "the constraints on the sketch would put it back", ...(holders.length ? { conflict: { culprits: holders, victims: holders, retry: cmd } } : {}) };
   }
   if (!edited.message) return { session: edited, cmd };
   // the side of a sketch that cannot move: no prism is added in its place (`in_208`); the constraints that hold it flash and the sketch stays as it was
@@ -139,6 +138,12 @@ function holdingPart(scene: ReturnType<typeof sceneOf>, refs: readonly string[])
   for (const r of scene.relations) if (r.kind === "tangent" && r.parts.some((x) => own.has(x))) for (const x of r.parts) tied.add(x); // (a line tangent to the arc is held by what holds the line)
   for (const q of Object.values(scene.parts)) if (q.kind === "line" && tied.has(q.ref)) { tied.add(q.a); tied.add(q.b); }
   return scene.relations.filter((r) => r.locked !== false && r.kind !== "arcEnds" && r.parts.some((x) => tied.has(x))).map((r) => r.id);
+}
+/** A side of a sketch moved, and the constraints put its corners back (a locked length): the constraints that hold it (maybe none named), or null when the corners went where they were asked to (`in_208`; also asked of the drag while it is made, `in_1170`). */
+export function sideHeldBack(before: ReturnType<typeof sceneOf>, after: ReturnType<typeof sceneOf>, cmd: Command): string[] | null {
+  if (cmd.type !== "batch") return null;
+  const held = cmd.commands.every((c) => { if (c.type !== "movePart") return true; const q = after.parts[c.ref]; return q?.kind === "corner" && Math.hypot(q.at[0] - c.to[0], q.at[1] - c.to[1], q.at[2] - c.to[2]) < 1e-6; });
+  return held ? null : holdingSide(before, cmd.commands.flatMap((c) => (c.type === "movePart" ? [c.ref] : [])));
 }
 function holdingSide(scene: ReturnType<typeof sceneOf>, corners: readonly string[]): string[] {
   const own = new Set<string>(corners);
