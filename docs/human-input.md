@@ -4591,5 +4591,48 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (takes the AI's recommendation: keep the gear chains as the narrow exception they are, and do not make them a general rule; the general fix for plain bodies waits for a measurement of whether they are slow)
 
 ## in_1058 — 2026-11-19 — directive
+> boxes before replay, then extending the pieces
+(asks for the next two steps in order: show the boxes before the project's commands are replayed, then extend the pieces to parts with fillets, holes and moves)
+
+## in_1059 — 2026-11-19 — directive
+> please work on either next
+(asks for the AI to go ahead with either of the two offered next steps: a faster, sliced replay for histories with moves, or gears and revolves as parts)
+
+## in_1060 — 2026-11-19 — question
+> Why does it take literally forever to extrude this plane? it seems like a really simple shape
+(attached: the project `model.cad_59.json`: two meshed gears, a pin, and a drawn arm outline on a plane at z 11.5; a screenshot of the arm profile and one of the extrude preview showing "Working…" at -3.2)
+
+## in_1061 — 2026-11-19 — question
+> What is the root cause here? and how can we make this as fast as possible given the fact that it didn't interact with complex geometry?
+
+## in_1062 — 2026-11-19 — directive
+> okay so what do you reccomend? it sounds like we should do all these things but how do we know when we can safely do them or when we need to re calc things? Like for example wouldn't body collision (we already have a collision system) tell us a lot about which parts need recalc when? also how about the difference beteween a selected  face line verticy body etc and deslected? so if it is under constant selection maybe the user is still working on it, and the preview is the most important, including showing interactions with other bodies if collisions happen (like cut away extrusions etc) and maybe the true final result and other recalc needs to happen on deselect which is interpereted as the user saying this is the final state they really want, no longer a preview.
+(asks for a recommendation on doing the speed-ups; proposes that the existing collision system say which bodies need recalculating, and that selection mean "still working, preview first" with the full recalculation on deselect)
+
+## in_1063 — 2026-11-19 — directive
+> yes please start
+(approves starting on the two changes that alter no behaviour: per-body keeping of parts and descriptions, and re-matching a constraint's named part only for relations that name a changed body)
+
+## in_1064 — 2026-11-19 — directive
+> option 1
+(chooses option 1 of `q_working_and_settled`: while a depth is being set the tool is drawn beside the unchanged body, and the fuse is done when the value is accepted, marked as a preview)
+
+## in_1065 — 2026-11-19 — directive
+> do the next step please
+(asks for the next step after the preview without the boolean; the AI had named keeping the page's parts per body as the biggest remaining lever, and settle on deselect as the other)
+
+## in_1066 — 2026-11-19 — directive
+> Option 2
+(chooses option 2: settle on deselect with a visible mark, from `q_working_and_settled`)
+
+## in_1067 — 2026-11-19 — directive
+> I will take your recommendation
+(takes the AI's recommendation: spend the effort on the floor of the preview, the page's derive and the kernel's prism, rather than the narrow Preview-mark version)
+
+## in_1068 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(the explicit permission to write to that branch for this merge; the full test run is waived)
+
+## in_1069 — 2026-11-19 — directive
 > it took 29 seconds and looks like this
 (attached the project file model.cad_63.json, a 40 tooth face gear at module 2 with a 14 tooth mate, saved by build 589c0e2e, and a screenshot of its teeth: a flared foot, a concave neck and a straight-sided cap; the browser took 29 seconds to make the face gear)

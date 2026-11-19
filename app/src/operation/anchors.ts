@@ -122,8 +122,15 @@ export function anchorRounds(scene: Scene, pl: Plane, opts: AnchorOpts = {}): An
 const dot3 = (a: readonly number[], b: readonly number[]): number => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
 
 /** Where along its facing a point stands in the box of the body it is in (0 at the bottom, 1 at the top); with no body box, 0.5. */
+const BOXES = new WeakMap<Scene, { bbox: { min: Vec3; max: Vec3 } }[]>();
+/** the boxes of the scene's bodies, found once for a scene (asked once for each candidate edge: every face and edge of two gears made it a scan of all their parts each time) */
+function boxesOf(scene: Scene): { bbox: { min: Vec3; max: Vec3 } }[] {
+  let b = BOXES.get(scene);
+  if (!b) { b = Object.values(scene.parts).flatMap((p) => (p.kind === "body" && p.bbox ? [{ bbox: p.bbox as { min: Vec3; max: Vec3 } }] : [])); BOXES.set(scene, b); }
+  return b;
+}
 function heightIn(scene: Scene, at: Vec3, normal: Vec3): number {
-  const boxes = Object.values(scene.parts).filter((p): p is Extract<typeof p, { kind: "body" }> => p.kind === "body" && !!p.bbox);
+  const boxes = boxesOf(scene);
   const inside = (b: { min: Vec3; max: Vec3 }) => [0, 1, 2].every((i) => at[i]! >= b.min[i]! - 1e-3 && at[i]! <= b.max[i]! + 1e-3);
   const box = boxes.find((b) => inside(b.bbox!))?.bbox ?? boxes[0]?.bbox;
   if (!box) return 0.5;

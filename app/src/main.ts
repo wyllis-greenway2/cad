@@ -31,6 +31,8 @@ import type { ExportFormat } from "./interaction/exportfile.ts";
 import { aboutOf } from "./operation/file.ts";
 import { webFiles, webStore } from "./platform/web-files.ts";
 import { createAutosave } from "./platform/autosave.ts";
+import { ghostsFromProject } from "./compiler/projectghosts.ts";
+import type { StandIn } from "./interaction/standin.ts";
 import { createState, reduce, advance, stopView, afterTakenBack } from "./interaction/controller.ts";
 import { frameOf } from "./interaction/frame.ts";
 import { requestOverlap } from "./interaction/overlap.ts";
@@ -243,12 +245,21 @@ let panesFading = false; // (the world panes are fading in or out: keep drawing,
 async function restoreLast() {
   const kept = autosave.previous();
   if (!kept) return say("no copy of an earlier session was kept in this browser");
-  let tried = sections.attempt(() => openSession(engine, kept.text));
-  while (!tried.ok) { say("working out the wheel…"); await tried.ready; tried = sections.attempt(() => openSession(engine, kept.text)); }
-  const r = tried.value;
-  if (r.ok) { adopt(r.value); say(`restored: ${kept.steps} steps`); } else state = { ...state, session: { ...state.session, message: r.error } }, (dirty = true);
+  const r = await openProjectText(kept.text);
+  if (r.ok) { adopt(r.value); say(`restored: ${kept.steps} steps`); } else { openingGhosts = null; state = { ...state, session: { ...state.session, message: r.error } }; dirty = true; }
 }
-function adopt(session: Session) { state = { ...createState(session), cam: state.cam }; menu.hide(); ring.hide(); dirty = true; }
+/** The boxes of the parts of a project that is being opened, drawn while its commands are replayed (`dec_progressive_open`, `in_1058`); null when nothing is being opened or the project has none. */
+let openingGhosts: StandIn[] | null = null;
+const nextPaint = () => new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+/** Open a project's text: a box for each of its parts at once (from the commands alone, in a few milliseconds), the picture drawn, and then the commands are replayed, which takes seconds for a big project and freezes the page while it does. */
+async function openProjectText(text: string) {
+  const parts = ghostsFromProject(text);
+  if (parts) { openingGhosts = parts.map((g): StandIn => ({ step: g.id, centre: [0, 0, 0], normal: [0, 0, 1], depth: 0, radius: 0, hole: 0, box: g.box })); dirty = true; await nextPaint(); }
+  let tried = sections.attempt(() => openSession(engine, text));
+  while (!tried.ok) { say("working out the wheel…"); await tried.ready; tried = sections.attempt(() => openSession(engine, text)); } // (a project with a worm wheel: its sections first, off the page's thread, `in_990`)
+  return tried.value;
+}
+function adopt(session: Session) { openingGhosts = null; state = { ...createState(session), cam: state.cam }; menu.hide(); ring.hide(); dirty = true; }
 // the last things done, kept so that a snapshot can show them (`in_200`): hovering is only kept as its last position
 const intentLog: unknown[] = [];
 let pointer: { x: number; y: number } | null = null;
@@ -534,11 +545,9 @@ function dispatch(i: Intent, again = false) {
   if (i.type === "open") {
     void webFiles.open().then(async (text) => {
       if (text === null) return;
-      let tried = sections.attempt(() => openSession(engine, text));
-      while (!tried.ok) { say("working out the wheel…"); await tried.ready; tried = sections.attempt(() => openSession(engine, text)); } // (a project with a worm wheel: its sections first, off the page's thread, `in_899`)
-      const r = tried.value;
+      const r = await openProjectText(text);
       if (r.ok) { adopt(r.value); const a = aboutOf(text); if (a) { state = { ...state, session: { ...state.session, message: `opened a project saved by ${a.app}${a.build ? ` build ${a.build}` : ""} on ${a.saved.slice(0, 10)}` } }; dirty = true; } }
-      else state = { ...state, session: { ...state.session, message: r.error } }, (dirty = true);
+      else { openingGhosts = null; state = { ...state, session: { ...state.session, message: r.error } }; dirty = true; }
     });
     return;
   }
@@ -657,6 +666,8 @@ async function boot() {
     project: (p: [number, number, number]) => projector(state.cam, view.size().w, view.size().h).project(p),
     candidatesAt: (x: number, y: number) => candidatesAt(scene(state.session), projector(state.cam, view.size().w, view.size().h).view(x, y), { pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx }),
     frame: () => frameOf(state, view.size()),
+    get opening() { return openingGhosts?.length ?? 0; },
+    openText: async (text: string) => { const r = await openProjectText(text); if (r.ok) adopt(r.value); else openingGhosts = null; return r.ok ? true : r.error; }, // (for scripted checks: as the open button does it)
     load: (text: string) => { const r = openSession(engine, text); if (r.ok) adopt(r.value); return r.ok ? true : r.error },
     snapshot: () => snapshotOf(state, { intents: intentLog, viewport: { w: view.size().w, h: view.size().h, dpr: window.devicePixelRatio }, device: lastDevice, userAgent: navigator.userAgent, build: "", scrollMode: recognizer.scrollMode, timing: timing.summary(), at: new Date().toISOString(), pointer }),
     select: (refs: string[]) => { state = { ...state, session: { ...state.session, click: { ...state.session.click, selection: refs as never } } }; dirty = true; }, // (for scripted checks)
@@ -695,7 +706,7 @@ function frame(now: number) {
     view.setHiddenBodies(f.hiddenBodies);
     view.setThin(f.thin);
     const standShown = staleSince !== null && performance.now() - staleSince >= STANDIN_MS; // (the discs for gear bodies the kernel has not made: after a short wait, `dec_gear_standin`)
-    view.setStandIns(f.standIns, standShown || f.standIns.some((d) => d.box)); // (the parts of a model made in pieces are drawn at once: there is nothing to wait for, `dec_progressive_open`)
+    view.setStandIns(openingGhosts ?? f.standIns, standShown || !!openingGhosts || f.standIns.some((d) => d.box)); // (the parts of a model made in pieces are drawn at once: there is nothing to wait for, `dec_progressive_open`)
     const pageAt = projector(state.cam, size.w, size.h).project;
     const onPageAt = (p: Vec3): [number, number] | null => { const q = pageAt(p); return q && q[0] > -50 && q[1] > -50 && q[0] < size.w + 50 && q[1] < size.h + 50 ? [q[0] + page.left, q[1] + page.top] : null; };
     const waitSecs = staleSince === null ? 0 : Math.floor((performance.now() - staleSince) / 1000);
