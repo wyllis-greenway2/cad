@@ -128,7 +128,7 @@ export function autoRows(surf: RowSurface, rules: Rules, count: number, gap: num
   const minInset = headR + 1.5; // (the edge of the head to the edge of the face: a couple of printed perimeters)
   const minSp = 2 * headR + 2; // (the heads' edges 2 mm apart)
   const pref = rules.offset ?? 10;
-  const farSp = Math.max(50, 10 * dia); // (holes further apart than this are too few: a lid held at a few places only, `in_986`; my number)
+  const farSp = Math.max(50, 10 * dia); // (holes further apart than this are too few: a lid held at a few places only, `in_1013`; my number)
   const fitSpacing = (mode: RowMode, inset: number, corners: Rules["corners"][]): Result<RowsMade> | null => {
     for (const c of corners) {
       let asked = rules.spacing.by === "count" ? rules.spacing.count : 0;

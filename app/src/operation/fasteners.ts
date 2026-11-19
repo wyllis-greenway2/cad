@@ -136,7 +136,7 @@ export const countersink = (size: FastenerSize): { diameter: number; angle: numb
 export const nutTrap = (size: FastenerSize): { acrossFlats: number; acrossCorners: number; depth: number } => ({ acrossFlats: NUTS[size].acrossFlats.max, acrossCorners: round3(NUTS[size].acrossFlats.max / Math.cos(Math.PI / 6)), depth: NUTS[size].thickness.max });
 /** The counterbore for a socket head cap screw: the head's width plus `COUNTERBORE_EXTRA`, as deep as the head is high. **A rule of ours, not a standard's** (no source was found for counterbore sizes): the extra width is one number to change. */
 export const COUNTERBORE_EXTRA = 0.5;
-export const counterbore = (size: FastenerSize, washer = false): { diameter: number; depth: number } => ({ diameter: round3(Math.max(SOCKET_HEAD[size].head.max, washer ? WASHERS[size].outside.nom : 0) + COUNTERBORE_EXTRA), depth: round3(SOCKET_HEAD[size].headHeight.max + (washer ? WASHERS[size].thickness.nom : 0)) }); // (with a washer under the head: wide enough for it and deeper by its thickness, `in_986`)
+export const counterbore = (size: FastenerSize, washer = false): { diameter: number; depth: number } => ({ diameter: round3(Math.max(SOCKET_HEAD[size].head.max, washer ? WASHERS[size].outside.nom : 0) + COUNTERBORE_EXTRA), depth: round3(SOCKET_HEAD[size].headHeight.max + (washer ? WASHERS[size].thickness.nom : 0)) }); // (with a washer under the head: wide enough for it and deeper by its thickness, `in_1013`)
 /** What the receivers of a size are, in words: the numbers a person drills or draws. */
 export function receiversText(size: FastenerSize, family: FastenerFamily): string {
   const c = clearanceHole(size, "fine"), m = clearanceHole(size, "medium"), l = clearanceHole(size, "coarse");
@@ -348,7 +348,7 @@ export const seatDepth = (kind: ReceiverKind, size: FastenerSize, washer = false
 export const washerable = (kind: ReceiverKind): boolean => kind === "clearance" || kind === "tapped" || kind === "drillTap" || kind === "counterbore";
 /** How far the washer top stands from the face (negative: below it, on the counterbore's floor). */
 export const washerTop = (kind: ReceiverKind, size: FastenerSize): number => (kind === "counterbore" ? -counterbore(size).depth : WASHERS[size].thickness.nom);
-/** A flat washer as its own body at a place: a ring (the outside and the hole of ISO 7089) extruded its thickness down from `top` above the face (`in_986`). */
+/** A flat washer as its own body at a place: a ring (the outside and the hole of ISO 7089) extruded its thickness down from `top` above the face (`in_1013`). */
 export function washerInPlace(size: FastenerSize, spot: FaceSpot, top: number): PartSteps {
   const d = WASHERS[size];
   const out = unit(cross3(spot.u, spot.v));

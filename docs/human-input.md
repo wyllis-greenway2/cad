@@ -4289,14 +4289,14 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for this branch (the automatic line choice, Make points, screws rounded up for a through hole, a body keeping its name when pushed thinner) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
 
-## in_984 — 2026-11-18 — directive
+## in_1011 — 2026-11-18 — directive
 > okay the fastener layout is much better, But still seems a little weird on curves, We might want to switch to limited depth on curves to prevent crowding that is actually just long bolts all reaching each other toward the center. In fact we probably shouldn't default to through at all, maybe a certain screw screw length or through if through isn't too far.
 (says the layout is much better but weird on curves: holes should have a limited depth on curves so that long bolts do not reach each other toward the centre; and the default should not be through at all: a certain screw length, or through when through is not too far; a saved model is attached)
 
-## in_985 — 2026-11-19 — directive
+## in_1012 — 2026-11-19 — directive
 > We should probably have the movement of the fasteners free hand snap to the line they want to live on in order to help the user.
 (asks for a fastener dragged by hand in the preview to snap to the line it is meant to be on, to help the person)
 
-## in_986 — 2026-11-19 — directive
+## in_1013 — 2026-11-19 — directive
 > lets do 4 and 5, I will take your recommendations
 (asks for items 4 and 5 of the list of what is next: washers (the optional washer under the head), and the smaller fastener gaps (points on round faces, adding holes when they are too far apart, moving a hole by typed numbers, deleting a single hole); and takes my recommendations for the numbers listed in item 6 for review)

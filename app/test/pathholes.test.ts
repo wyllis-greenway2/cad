@@ -468,7 +468,7 @@ test("points at the holes: corners on the face at each place, selected with it, 
   assert.ok(after.ok);
   if (after.ok) assert.deepEqual(after.value.places.map((c) => c.map((x) => Math.round(x * 1e4) / 1e4)).sort(), before.value.places.map((c) => c.map((x) => Math.round(x * 1e4) / 1e4)).sort());
   const round = post();
-  assert.ok(makeHolePoints(select(round.s, [round.face]), vals({ place: "midline" })).ok, "a round face has points too (`in_986`)");
+  assert.ok(makeHolePoints(select(round.s, [round.face]), vals({ place: "midline" })).ok, "a round face has points too (`in_1013`)");
 });
 test("the plan says how much room the screw had, so the length chosen can be explained (`in_981`)", () => {
   const { s } = block();
@@ -494,7 +494,7 @@ test("a screw through a hole open at the far end is the shortest standard length
   assert.ok(tap.ok && (tap.value.insert?.screw?.length ?? 99) <= (tap.value.insert?.screw?.room ?? 0), "a tapped pilot is blind too");
 });
 
-// ---- the depth is chosen for the part, not right through whatever is in the way (`in_984`) ----
+// ---- the depth is chosen for the part, not right through whatever is in the way (`in_1011`) ----
 test("an empty depth: through when that is not much further than a screw's length, else a screw's length", () => {
   const thin = receiverPlan(block().s, vals({ kind: "countersunk", size: "M3", place: "centre" }));
   assert.ok(thin.ok && thin.value.depthNote?.includes("right through"), thin.ok ? String(thin.value.depthNote) : thin.error);
@@ -526,7 +526,7 @@ test("on a curve the holes are not so deep that they meet toward the middle", ()
   assert.ok(column.ok, column.ok ? "" : column.error);
 });
 
-// ---- a washer under the head (`in_986`) ----
+// ---- a washer under the head (`in_1013`) ----
 test("a washer under the head: its own body, the counterbore made wide and deep enough, the screw seated on it", () => {
   const { s } = block();
   const none = receiverPlan(s, vals({ kind: "counterbore", size: "M4", place: "centre", insert: "screw" }));
@@ -551,7 +551,7 @@ test("a washer under the head: its own body, the counterbore made wide and deep 
   assert.equal(receiverPlan(s, vals({ kind: "counterbore", size: "M4", place: "centre", washer: "yes" })).ok && (receiverPlan(s, vals({ kind: "counterbore", size: "M4", place: "centre", washer: "yes" })) as { value: { washer: boolean } }).value.washer, false);
 });
 
-// ---- the smaller gaps (`in_986`) ----
+// ---- the smaller gaps (`in_1013`) ----
 test("a hole taken out of the row: the rest keep their numbers, and every hole gone is refused", () => {
   const { s } = block();
   const v = vals({ kind: "countersunk", size: "M3", place: "outline", by: "count", value: "6", corners: "ignore", offset: "10" });

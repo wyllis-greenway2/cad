@@ -143,7 +143,7 @@ test("a previewed hole can be picked up and moved: it stays where it was put unt
 });
 
 import { rowOf, nearestOnLine } from "../src/interaction/holemove.ts";
-test("a hole moved by hand snaps to the line it is meant to be on when the pointer is near it, and is free when it is not (`in_985`)", () => {
+test("a hole moved by hand snaps to the line it is meant to be on when the pointer is near it, and is free when it is not (`in_1012`)", () => {
   const s = block();
   const base = plan(s, vals({ place: "outline", by: "count", value: "6", corners: "ignore", offset: "10" }));
   const i = 1;
