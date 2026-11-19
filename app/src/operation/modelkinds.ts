@@ -1,18 +1,21 @@
 // The gear assemblies that come as models (`dec_gear_models`), as one list: for each, its numbers (with what they mean), the size it has overall, how to make it, and the simple picture of it that is shown while it is being placed. The tool
 // (`interaction/tools.ts`) works on this list without knowing which model it has. Pure.
 import type { Result } from "../shared/result.ts";
+import { ok, err } from "../shared/result.ts";
 import type { Place, ModelBuild } from "./modelparts.ts";
 import { gearboxSteps, gearboxProblem, gearboxRatio, gearboxFootprint, GEARBOX_START } from "./modelgearbox.ts";
 import type { GearboxSpec } from "./modelgearbox.ts";
-import { bearingSteps, bearingProblem, bearingGeometry, BEARING_START } from "./modelbearing.ts";
+import { bearingSteps, bearingProblem, bearingGeometry, bearingParts, BEARING_START } from "./modelbearing.ts";
+import { Builder } from "./modelparts.ts";
+import { bearingRow, bearingShape, bearingNumbers } from "./bearingdata.ts";
 import type { BearingSpec } from "./modelbearing.ts";
 import { differentialSteps, differentialProblem, differentialExtent, DIFFERENTIAL_START } from "./modeldifferential.ts";
 import type { DifferentialSpec } from "./modeldifferential.ts";
 import { cycloidalSteps, cycloidalProblem, cycloidalRatio, cycloidalRim, discOutline, CYCLOIDAL_START } from "./modelcycloidal.ts";
 import type { CycloidalSpec } from "./modelcycloidal.ts";
 
-export type ModelKind = "gearbox" | "bearing" | "differential" | "cycloidal";
-export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "bearing", "differential", "cycloidal"];
+export type ModelKind = "gearbox" | "ballbearing" | "bearing" | "differential" | "cycloidal";
+export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "bearing", "differential", "cycloidal"];
 /** The numbers of a model, by name */
 export type Nums = Record<string, number>;
 /** One number of a model: what it is called, a line that says what it is, and whether it grows with the overall size (a length of the thing, not a room left for the printer or a count) */
@@ -37,6 +40,14 @@ const circle = (cx: number, cy: number, r: number, count = 40): [number, number]
 const rect = (x0: number, y0: number, x1: number, y1: number): [number, number][] => [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
 const F = (key: string, label: string, hint: string, scaled?: true): ModelField => ({ key, label, hint, ...(scaled ? { scaled } : {}) });
 
+/** the bearing of a catalogue number with its balls, or why not (as the words of a refusal) */
+function catalogueShape(n: Nums): { bore: number; outer: number; width: number; balls: number; pitch: number; rb: number; rg: number; surface: number; half: number; typical: boolean } | string {
+  const row = bearingRow(Math.round(n.number!));
+  if (!row) return `${n.number} is not a bearing in the list: ${bearingNumbers()}`;
+  const sh = bearingShape(row, n.clearance!, { ...(n.balls ? { balls: Math.round(n.balls) } : {}), ...(n.ball ? { ball: n.ball } : {}) });
+  return sh.ok ? { bore: row.d, outer: row.D, width: row.B, balls: sh.value.balls, pitch: sh.value.pitch, rb: sh.value.dw / 2, rg: sh.value.rg, surface: sh.value.surface, half: sh.value.half, typical: sh.value.typical } : sh.error;
+}
+const catalogueProblem = (n: Nums): string | null => { const s = catalogueShape(n); return typeof s === "string" ? s : null; };
 const gb = (n: Nums): GearboxSpec => n as unknown as GearboxSpec;
 const br = (n: Nums): BearingSpec => n as unknown as BearingSpec;
 const df = (n: Nums): DifferentialSpec => n as unknown as DifferentialSpec;
@@ -57,8 +68,23 @@ const DEFS: Record<ModelKind, Def> = {
     },
     about: (n) => `${gearboxRatio(gb(n)).toFixed(2)} : 1 in all (${(n.gear! / n.pinion!).toFixed(2)} a stage)`,
   },
-  bearing: {
+  ballbearing: {
     title: "Ball bearing",
+    fields: [F("number", "Bearing number", "a deep groove ball bearing: 623 to 627, 607 to 609, 6000 to 6006, 6200 to 6206"), F("clearance", "Room round a ball", "mm all round it, from nothing: the balls are bodies of their own and must not touch the rings (not from a catalogue)"), F("balls", "Balls", "0: the catalogue's"), F("ball", "Ball diameter", "mm; 0: the catalogue's")],
+    start: { number: 608, clearance: 0.02, balls: 0, ball: 0 },
+    problem: (n) => catalogueProblem(n),
+    extent: (n) => bearingRow(Math.round(n.number!))?.D ?? 0,
+    centre: () => [0, 0],
+    build: (n, place) => { const sh = catalogueShape(n); if (typeof sh === "string") return err(sh); const b = new Builder(place); bearingParts(b, sh); return ok(b.build()); },
+    outline: (n) => {
+      const sh = catalogueShape(n);
+      if (typeof sh === "string") return [];
+      return [circle(0, 0, sh.outer / 2, 64), circle(0, 0, sh.bore / 2, 48), circle(0, 0, sh.pitch - sh.surface, 48), circle(0, 0, sh.pitch + sh.surface, 48), ...Array.from({ length: sh.balls }, (_, k) => circle(sh.pitch * Math.cos((2 * Math.PI * k) / sh.balls), sh.pitch * Math.sin((2 * Math.PI * k) / sh.balls), sh.rb, 14))];
+    },
+    about: (n) => { const r = bearingRow(Math.round(n.number!)), sh = catalogueShape(n); return r && typeof sh !== "string" ? `${r.number}: ${r.d} x ${r.D} x ${r.B} mm, ${sh.balls} balls of ${(2 * sh.rb).toFixed(2)} mm${sh.typical ? " (a typical set)" : " (the catalogue's)"}; the outer ring is held, the inner turns` : ""; },
+  },
+  bearing: {
+    title: "Print-in-place ball bearing",
     fields: [F("bore", "Bore", "mm", true), F("outer", "Outside diameter", "mm", true), F("width", "Width", "mm", true), F("balls", "Balls", "3 or more"), F("ball", "Ball diameter", "mm", true), F("gap", "Room round a ball", "all round it, in its groove: the balls and races print apart")],
     start: { ...BEARING_START },
     problem: (n) => bearingProblem(br(n)),
