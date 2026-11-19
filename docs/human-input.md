@@ -5304,3 +5304,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1246 — 2026-11-19 — directive
 > build the hollow piston with that wall
 (approves building the hollow piston with the skirt wall I proposed, half the crown thickness)
+
+## in_1247 — 2026-11-19 — directive
+> Can we have the wheel tool have a variation called cut spokes. It works by selecting a cylinder shaped object already ( a gear etc ) and it uses the bore if it already has a bore hole and the outer diameter to build the rest of the wheel inbetween. So it preserves the bore, and outer rim edge of whatever you insert it into, and builds the spokes between.
+(asks for a variation of the wheel tool, Cut spokes: select a round body that is there already (a gear, etc.); it keeps the bore (if it has one) and the outside edge, and builds the rest of the wheel between them)
