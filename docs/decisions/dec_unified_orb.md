@@ -39,6 +39,6 @@ alternative_to:
 
 Every orb having its own handles, drag, bubbles and click means each rule the human gives (Shift to hold axes, snapping, bubbles) has to be built again for each, and has been: the section orb has none of them. One orb whose tools only choose its modes makes a rule given once true everywhere, and makes the next tool cost its modes, not its handling.
 
-## Changed: no panes on the mover; two arrows chosen move in their plane (`in_1206`)
+## Changed: no panes on the mover; two arrows chosen move in their plane (`in_1207`)
 The three little panes between the arrows of the mover (`in_1181`) are gone; they are the cross section plane's alone (there they lay the plane across an axis, `dec_sheet_planes`). Their work is done by Shift: with two arrows chosen, taking either of them, or the body itself, moves the body freely in the plane of the two (the pointer's ray meets that plane, so the third axis never moves; before, the body went where the pointer was on the picture plane, read as two numbers), as one move step, and the numbers of the two axes show beside their arrows while it goes; the two axes stay chosen for the next drag. The panes of a linear or circular repeat and of the scale are kept (they are not the mover's).
 
