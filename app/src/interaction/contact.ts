@@ -20,7 +20,7 @@ import type { CompileOutcome } from "../compiler/compile.ts";
 import type { Motion } from "./motion.ts";
 
 /** A body that yields: it turns about the axis through `point` with direction `dir` (or slides along `dir`), and stands at `value` degrees (mm) from where it was drawn. `rest`: where it goes back to when nothing holds it away (a spring, gravity: a follower dropping off a cam), as far as it is clear to. */
-export interface Pushable { body: Ref; kind: "turn" | "slide"; /** the mate whose joint it is (for keeping the pose) */ mate?: string; point: Vec3; dir: Vec3; value: number; /** the way it last went, so a tie goes on the same way */ way: 1 | -1; /** how far it was pushed the last time it was: the next push is about the same, so the search begins there */ push?: number; rest?: number; /** a body with no joint (`dec_contact_push`, free push): where it has been pushed to, as a move from where it is drawn; it goes any way in the plane across the turning axis */ free?: [number, number, number]; /** how far it has turned about its own middle (`point`), degrees, as well: a body with no joint has three freedoms in the plane, two of sliding and one of turning */ spin?: number; /** how far its outline reaches from its middle in the plane, mm: a turn of a degree is that much of a slide */ reach?: number; /** the way it was last pushed, which the next push tries first */ dirAt?: Vec3; /** what a push could not go on because of: the body this one is against */ blockedBy?: Ref }
+export interface Pushable { body: Ref; kind: "turn" | "slide"; /** the mate whose joint it is (for keeping the pose) */ mate?: string; point: Vec3; dir: Vec3; value: number; /** the way it last went, so a tie goes on the same way */ way: 1 | -1; /** how far it was pushed the last time it was: the next push is about the same, so the search begins there */ push?: number; rest?: number; /** a body with no joint (`dec_contact_push`, free push): where it has been pushed to, as a move from where it is drawn; it goes any way in the plane across the turning axis */ free?: [number, number, number]; /** how far it has turned about its own middle (`point`), degrees, as well: a body with no joint has three freedoms in the plane, two of sliding and one of turning */ spin?: number; /** how far its outline reaches from its middle in the plane, mm: a turn of a degree is that much of a slide */ reach?: number; /** the way it was last slid (its place in the list of ways) and the way it was last turned, which the next push of that kind tries first; whether it was turning at the last push, and how many pushes ago it last looked for a slide */ dirSlide?: number; dirTurn?: [number, number]; turning?: boolean; since?: number; /** what a push could not go on because of: the body this one is against */ blockedBy?: Ref }
 export interface Candidate { body: Ref; kind?: "turn" | "slide"; mate?: string; point: Vec3; dir: Vec3; rest?: number; way?: 1 | -1; /** a body with no joint: pushed aside by what it meets */ free?: true; reach?: number }
 export interface ContactState {
   pushables: Pushable[];
@@ -284,7 +284,7 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
     if (i < n && performance.now() - began > budgetMs) { slow = true; break; } // (the rest of the steps wait for the next frame)
   }
   if (slow && !note) note = "this push is heavy: it plays slower than real time";
-  const pushables = c.pushables.map((p, i) => ({ ...p, value: vals[i]!, way: ways[i]!, push: pushes[i]!, ...(work[i]!.free ? { free: work[i]!.free, spin: work[i]!.spin ?? 0 } : {}), ...(work[i]!.dirAt ? { dirAt: work[i]!.dirAt } : {}), ...(work[i]!.blockedBy ? { blockedBy: work[i]!.blockedBy } : {}) }));
+  const pushables = c.pushables.map((p, i) => ({ ...p, value: vals[i]!, way: ways[i]!, push: pushes[i]!, ...(work[i]!.free ? { free: work[i]!.free, spin: work[i]!.spin ?? 0 } : {}), ...(work[i]!.dirSlide !== undefined ? { dirSlide: work[i]!.dirSlide } : {}), ...(work[i]!.dirTurn ? { dirTurn: work[i]!.dirTurn } : {}), turning: !!work[i]!.turning, since: work[i]!.since ?? 0, ...(work[i]!.blockedBy ? { blockedBy: work[i]!.blockedBy } : {}) }));
   const follows = yieldsOf(pushables, movers.find((q) => q.turns)?.axis ?? [0, 0, 1]);
   return { ...m, amount: jam || slow ? good : m.amount, playing: jam ? false : m.playing, from: jam || slow ? good : m.from, startedAt: jam || slow ? null : m.startedAt, contact: { ...c, pushables, at: good, jam, note, clash: jam ? clash : null, target: slow ? m.amount : null }, yields: follows };
 }
@@ -347,37 +347,56 @@ function yieldFree(scene: Scene, outcome: CompileOutcome | undefined, movers: Mo
   for (let d = 0.07; d <= 0.56 + 1e-9; d += 0.07) distances.push(d); // (no further in one step than a body is thick: pushed further it would be thrown through what pushes it, and clear of it on the far side)
   for (let d = 0.8; d <= FREE_STEP + 1e-9; d += 0.25) distances.push(d);
   const spent = (d: Vec3, t: number): boolean => Math.hypot(base[0] + (u[0] * d[0] + v[0] * d[1]) * t, base[1] + (u[1] * d[0] + v[1] * d[1]) * t, base[2] + (u[2] * d[0] + v[2] * d[1]) * t) > FREE_MAX || Math.abs(spin0 + ((d[2] * t) / reach) * (180 / Math.PI)) > FREE_SPIN;
+  // how far a way is clear: three tests along it (a third of a millimetre, a millimetre, the most a step may be), and the nearest place that clears is found by halving; a way whose clear places are all between the tests is found by the fine look
+  // (every 0.07 mm), which is made only when no way was found by the three
+  let fine = false;
+  const coarse = [0.3, 1, FREE_STEP];
   const nearest = (d: Vec3): number | null => {
-    for (const t of distances) {
+    const list = fine ? distances : coarse;
+    let before = 0;
+    for (const t of list) {
       if (spent(d, t)) return null;
-      if (!clear(d, t)) continue;
-      let [lo, hi] = [Math.max(0, t - (t <= 0.56 ? 0.07 : 0.25)), t];
-      for (let k = 0; k < 5; k++) { const mid = (lo + hi) / 2; if (clear(d, mid)) hi = mid; else lo = mid; }
+      if (!clear(d, t)) { before = t; continue; }
+      let [lo, hi] = [before, t];
+      for (let k = 0; k < (fine ? 5 : 6); k++) { const mid = (lo + hi) / 2; if (clear(d, mid)) hi = mid; else lo = mid; }
       return hi;
     }
     return null;
   };
-  // the ways: 64 round the plane at each of five heights toward the turn (the clear way out of a hole's wall is narrow: a push a few degrees off it runs the body into the next facet of the wall), and the two ways of the turn alone
-  const PHI = 64, ELS = [0, 1, -1, 2, -2]; // (heights 0, 30, -30, 60, -60 degrees: the index of a height is its place here)
+  // the order of freedom (`in_1077`): a body slides if any slide clears it; only when none does, it turns (a turn alone first, then a turn with a slide); when nothing does, it jams. The ways: 64 round the plane (the clear way out of a hole's wall
+  // is narrow: a push a few degrees off it runs the body into the next facet of the wall), at five heights toward the turn, and the two ways of the turn alone. The last way it went, and the ones near it, are tried first.
+  const PHI = 64, ELS = [0, 1, -1, 2, -2]; // (heights 0, 30, -30, 60, -60 degrees: the index of a height is its place here; 99 is the turn alone)
   const way = (k: number, e: number): Vec3 => {
     if (e === 99) return [0, 0, k === 0 ? 1 : -1];
     const el = (ELS[e]! * Math.PI) / 6, ph = (k * 2 * Math.PI) / PHI;
     return [Math.cos(el) * Math.cos(ph), Math.cos(el) * Math.sin(ph), Math.sin(el)];
   };
-  const last = pushes[pi]! > 0 ? p.dirAt : undefined; // (its place in the list of ways: [round, height, 0])
-  const order: [number, number][] = [];
-  if (last) for (const [dk, de] of [[0, 0], [1, 0], [-1, 0], [2, 0], [-2, 0], [4, 0], [-4, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]] as [number, number][]) {
-    const e = last[1]! + de;
-    if (last[1] === 99) { order.push([last[0]!, 99]); break; }
-    if (e >= 0 && e < ELS.length) order.push([(last[0]! + dk + PHI) % PHI, e]);
-  }
   let best: { k: number; e: number; t: number } | null = null;
   const tryWay = (k: number, e: number): void => { const t = nearest(way(k, e)); if (t !== null && (!best || t < best.t - 1e-6)) best = { k, e, t }; };
-  for (const [k, e] of order) { tryWay(k, e); if (best && (best as { t: number }).t < 1) break; } // (a way near the last one that clears is taken as it is)
-  if (!best) {
-    for (let e = 0; e < ELS.length; e++) for (let k = 0; k < PHI; k++) if (!order.some(([ok, oe]) => ok === k && oe === e)) tryWay(k, e);
-    tryWay(0, 99); tryWay(1, 99);
-  }
+  const around = (k: number, e: number): [number, number][] => { // the way it last went and the ones near it (round the plane, and a height each side)
+    if (e === 99) return [[k, 99], [(k + 1) % 2, 99]];
+    const out: [number, number][] = [];
+    for (const [dk, de] of [[0, 0], [1, 0], [-1, 0], [2, 0], [-2, 0], [4, 0], [-4, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]] as [number, number][]) { const h = e + de; if (h >= 0 && h < ELS.length && (h === 0) === (e === 0)) out.push([(k + dk + PHI) % PHI, h]); }
+    return out;
+  };
+  const warm = (list: [number, number][]): void => { for (const [k, e] of list) { tryWay(k, e); if (best && (best as { t: number }).t < 1) break; } }; // (a way near the last one that clears is taken as it is)
+  const turning = !!p.turning, since = p.since ?? 0;
+  // a body that is turning looks for a slide again only every few steps: the search that finds there is none is the costly part
+  const slideNow = !turning || since >= 5;
+  const search = (): void => {
+    if (slideNow) {
+      if (p.dirSlide !== undefined) warm(around(p.dirSlide, 0));
+      if (!best) for (let k = 0; k < PHI; k++) tryWay(k, 0);
+    }
+    if (!best) {
+      if (p.dirTurn) warm(around(p.dirTurn[0], p.dirTurn[1]));
+      if (!best) { tryWay(0, 99); tryWay(1, 99); } // (a turn alone)
+      if (!best) for (let e = 1; e < ELS.length; e++) for (let k = 0; k < PHI; k++) tryWay(k, e);
+    }
+    if (!best && !slideNow) for (let k = 0; k < PHI; k++) tryWay(k, 0); // (it had not looked for a slide for a few steps: the last way to look before a jam)
+  };
+  search();
+  if (!best) { fine = true; search(); }
   const found = best as { k: number; e: number; t: number } | null;
   if (!found) {
     for (let k = 0; k < 3; k++) p.free[k] = base[k]!;
@@ -392,7 +411,7 @@ function yieldFree(scene: Scene, outcome: CompileOutcome | undefined, movers: Mo
   }
   p.blockedBy = undefined;
   clear(way(found.k, found.e), found.t);
-  p.dirAt = [found.k, found.e, 0];
+  if (found.e === 0) { p.dirSlide = found.k; p.turning = false; p.since = 0; } else { p.dirTurn = [found.k, found.e]; p.turning = true; p.since = slideNow ? 1 : since + 1; }
   pushes[pi] = found.t;
   ways[pi] = 1;
   return true;
@@ -435,6 +454,6 @@ function yieldsOf(pushables: Pushable[], across: Vec3 = [0, 0, 1]): Follower[] {
 
 /** The motion started again from the beginning (pressing play after a jam): the driver at nothing, every body that yielded back where it is drawn, no jam. */
 export function restartContact(c: ContactState, across: Vec3 = [0, 0, 1]): { contact: ContactState; yields: Follower[] } {
-  const pushables = c.pushables.map((p): Pushable => { const { push: _p, dirAt: _d, blockedBy: _b, ...rest } = p; return { ...rest, value: 0, way: p.way, ...(p.free ? { free: [0, 0, 0] as [number, number, number], spin: 0 } : {}) }; });
+  const pushables = c.pushables.map((p): Pushable => { const { push: _p, dirSlide: _s, dirTurn: _t, turning: _u, since: _n, blockedBy: _b, ...rest } = p; return { ...rest, value: 0, way: p.way, ...(p.free ? { free: [0, 0, 0] as [number, number, number], spin: 0 } : {}) }; });
   return { contact: { ...c, pushables, at: 0, jam: null, note: null, clash: null, target: null }, yields: yieldsOf(pushables, across) };
 }

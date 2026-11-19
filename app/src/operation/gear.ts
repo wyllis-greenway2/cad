@@ -16,7 +16,7 @@ import { wormOf, wheelOf } from "./worm.ts";
 import type { WormSpec, WheelSpec } from "./worm.ts";
 import { bevelPoints, bevelLayout, isCrown, bevelOf } from "./bevel.ts";
 import { spiralFor, spiralBody } from "./spiral.ts";
-import { faceFor, faceBody, pinionWidth } from "./face.ts";
+import { faceFor, faceBody, pinionWidth, FACE } from "./face.ts";
 import { crownOf, crownSection } from "./crown.ts";
 import type { BevelSpec } from "./bevel.ts";
 
@@ -203,7 +203,7 @@ function bevelOutline(spec: GearSpec): Result<GearOutline> {
   if (spec.bevel?.facegear !== undefined) { // a face gear (its first section) or its spur pinion (a plain spur gear's outline)
     const f = faceFor(spec);
     if (!f.ok) return f;
-    if (f.value.role === "pinion") return gearOutline({ teeth: spec.teeth, module: spec.module, ...(spec.backlash !== undefined ? { backlash: spec.backlash } : {}) });
+    if (f.value.role === "pinion") return gearOutline({ teeth: spec.teeth, module: spec.module, backlash: spec.backlash ?? FACE.backlash });
     const body = faceBody(f.value.pair);
     if (!body.ok) return body;
     const s0 = body.value.sections[0]!, p = f.value.pair;

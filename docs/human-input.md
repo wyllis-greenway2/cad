@@ -4651,3 +4651,22 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1073 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please do the full suite tests
 (asks for the branch to be merged into the testing branch, with the whole suite run)
+
+## in_1075 — 2026-11-19 — directive
+> okay I think the precision settings to set certain distance on hand moved fastener should show up like a distance constraint bubble like it does on diameters etc. It should show the origin point, and also have that point be snappable so the user can put it back, and show distance moved from origin point.
+(asks for the precise distance of a hand-moved fastener to appear as a distance bubble in the view like the one on diameters; showing the origin point, which is snappable so the person can put the hole back, and showing the distance moved from it)
+
+## in_1076 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for this branch (the moved distance of a hole as a bubble, with its origin marked and snappable) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
+## in_1077 — 2026-11-19 — directive
+> Okay now this is better, but maybe we should have a rule that it doesn't rotate, unless it has no freedom of movement in xyz? because now it doesn't weird stuff and seems to rotate even when it doesn't need to. In fact, maybe we should make this a rule in general for collision and free hand movement of objects? They use xyz space for freedom of movement, unless there is none in which case it uses rotational movement, unless there is none and then it jambs. Also it is extremely slow now, and also the player bar is jumping all around again. How can we make it faster? is our rotational idea stupid and going to make everything really slow now?
+(files `why_jamb.json` and a screencast: the order of freedom for a pushed body (slide, then turn, then jam) as a rule for collision and for moving a body by hand; the slowness; the bar jumping)
+
+## in_1078 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for `claude/adoring-dijkstra-free-order` to be merged into the testing branch, without a full test run; it carries slide-before-turn for a pushed body, the cheaper search and the motion bar's note out of its layout)
+
+## in_1079 — 2026-11-19 — directive
+> I created default face gear and default mesh gear, The teeth clearly have collisions according to the rendering (unless rendering is false somehow?)
+(attached the project file model.cad_64.json, build c7db6782: a 40 tooth face gear and its 14 tooth pinion made with Mesh gear, both with default settings, and a close screenshot of two flanks crossing)

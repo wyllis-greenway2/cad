@@ -20,7 +20,9 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
   let linkKey = "";
   const springs = document.createElement("span"); springs.style.cssText = "display:flex;gap:8px;align-items:center"; // (the bodies that yield by contact, each with where it goes back to)
   let springKey = "";
-  bar.append(play, rev, slider, label, kind, links, springs, keep, close);
+  const note = document.createElement("div"); // (what is said about the motion: above the bar and out of its layout, so a long message does not move the bar)
+  note.style.cssText = "position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);max-width:min(80vw,640px);padding:4px 12px;border-radius:12px;background:rgba(34,37,41,.92);color:#fff;font-size:12.5px;white-space:normal;text-align:center;display:none;pointer-events:none";
+  bar.append(note, play, rev, slider, label, kind, links, springs, keep, close);
   host.appendChild(bar);
   play.addEventListener("pointerup", (e) => { e.stopPropagation(); send({ type: "motionPlay" }); });
   slider.addEventListener("input", () => send({ type: "motionAt", amount: Number(slider.value) }));
@@ -42,6 +44,7 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
       if (document.activeElement !== slider) slider.value = String(v.amount);
       rev.style.opacity = v.reversed ? "1" : ".6"; rev.style.textDecoration = v.reversed ? "underline" : "none";
       label.textContent = v.label;
+      note.textContent = v.note ?? ""; note.style.display = v.note ? "block" : "none";
       const sKey = JSON.stringify(v.springs);
       if (sKey !== springKey && !springs.contains(document.activeElement)) { // (made again only when they change, so a number being typed is not lost)
         springKey = sKey; springs.replaceChildren();
