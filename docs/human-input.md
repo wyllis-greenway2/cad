@@ -5114,3 +5114,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1196 — 2026-11-19 — directive
 > I didn't want bearing of your own or catalog as an icon option, I just wanted it in the menu as an option at the top. changing it would change the menu and what it has on it.
 (asks that Catalogue / Your own is not two icons in the ring but a choice at the top of the bearing's box, and that changing it changes what the box shows)
+
+## in_1197 — 2026-11-19 — question
+> Okay what should we make next? What about a piston maker? This could have a lot of useful variables. How can we make it real and according to standards? I know that the size and shape of the piston head has a relationship to the length of the piston arm and the diameter of the flywheel or cam shaft it operates on. How can we make it so that it makes real pistons according to official specs if there are official specs? or at least real pistons that would really work if fabricated.
+(asks what to make next, proposes a piston maker, and asks how to make it real: to official specs where there are any, otherwise a piston that would work if made)
