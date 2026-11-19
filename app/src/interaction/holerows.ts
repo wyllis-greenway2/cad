@@ -124,15 +124,24 @@ function roomIn(outline: Path): number {
  * must not be a loop with no room), with the spacing made wide enough that no two heads touch (fewer holes when they are too cramped, the asked spacing or number kept when it fits); when the face has no room for a loop, one line along its middle.
  * `headR` is the radius the head, the countersink or the pocket takes at the surface; the inset asked for in `rules` is the one preferred.
  */
-export function autoRows(surf: RowSurface, rules: Rules, count: number, gap: number, headR: number): Result<RowsMade> {
+export function autoRows(surf: RowSurface, rules: Rules, count: number, gap: number, headR: number, dia = 4): Result<RowsMade> {
   const minInset = headR + 1.5; // (the edge of the head to the edge of the face: a couple of printed perimeters)
   const minSp = 2 * headR + 2; // (the heads' edges 2 mm apart)
   const pref = rules.offset ?? 10;
+  const farSp = Math.max(50, 10 * dia); // (holes further apart than this are too few: a lid held at a few places only, `in_986`; my number)
   const fitSpacing = (mode: RowMode, inset: number, corners: Rules["corners"][]): Result<RowsMade> | null => {
     for (const c of corners) {
+      let asked = rules.spacing.by === "count" ? rules.spacing.count : 0;
+      if (rules.spacing.by === "count") { // too few for the length of the line: more of them, until no two are further apart than `farSp`
+        for (let k = 0; k < 40; k++) {
+          const r = rowsFromEdgesAt(surf, mode, null, { ...rules, offset: inset, corners: c, spacing: { by: "count", count: asked } }, count, gap);
+          if (!r.ok || r.value.spacing === null || r.value.spacing <= farSp + 1e-6) break;
+          asked = Math.ceil(asked * (r.value.spacing / farSp));
+        }
+      }
       const tries: Rules["spacing"][] = rules.spacing.by === "distance"
-        ? [1, 1.15, 1.3, 1.5, 1.75, 2, 2.5, 3, 4, 6].map((f) => ({ by: "distance" as const, distance: Math.max(rules.spacing.by === "distance" ? rules.spacing.distance : 30, minSp) * f }))
-        : Array.from({ length: Math.max(1, (rules.spacing as { count: number }).count) }, (_, k) => ({ by: "count" as const, count: (rules.spacing as { count: number }).count - k }));
+        ? [1, 1.15, 1.3, 1.5, 1.75, 2, 2.5, 3, 4, 6].map((f) => ({ by: "distance" as const, distance: Math.max(Math.min(rules.spacing.by === "distance" ? rules.spacing.distance : 30, farSp), minSp) * f }))
+        : Array.from({ length: Math.max(1, asked) }, (_, k) => ({ by: "count" as const, count: asked - k }));
       for (const sp of tries) {
         const r = rowsFromEdgesAt(surf, mode, null, { ...rules, offset: inset, corners: c, spacing: sp }, count, gap);
         if (r.ok && r.value.places.length >= 1 && (r.value.places.length === 1 || minPair(r.value.places) >= minSp * 0.999)) return r;

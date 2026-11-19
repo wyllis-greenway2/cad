@@ -136,7 +136,7 @@ export const countersink = (size: FastenerSize): { diameter: number; angle: numb
 export const nutTrap = (size: FastenerSize): { acrossFlats: number; acrossCorners: number; depth: number } => ({ acrossFlats: NUTS[size].acrossFlats.max, acrossCorners: round3(NUTS[size].acrossFlats.max / Math.cos(Math.PI / 6)), depth: NUTS[size].thickness.max });
 /** The counterbore for a socket head cap screw: the head's width plus `COUNTERBORE_EXTRA`, as deep as the head is high. **A rule of ours, not a standard's** (no source was found for counterbore sizes): the extra width is one number to change. */
 export const COUNTERBORE_EXTRA = 0.5;
-export const counterbore = (size: FastenerSize): { diameter: number; depth: number } => ({ diameter: round3(SOCKET_HEAD[size].head.max + COUNTERBORE_EXTRA), depth: SOCKET_HEAD[size].headHeight.max });
+export const counterbore = (size: FastenerSize, washer = false): { diameter: number; depth: number } => ({ diameter: round3(Math.max(SOCKET_HEAD[size].head.max, washer ? WASHERS[size].outside.nom : 0) + COUNTERBORE_EXTRA), depth: round3(SOCKET_HEAD[size].headHeight.max + (washer ? WASHERS[size].thickness.nom : 0)) }); // (with a washer under the head: wide enough for it and deeper by its thickness, `in_986`)
 /** What the receivers of a size are, in words: the numbers a person drills or draws. */
 export function receiversText(size: FastenerSize, family: FastenerFamily): string {
   const c = clearanceHole(size, "fine"), m = clearanceHole(size, "medium"), l = clearanceHole(size, "coarse");
@@ -220,7 +220,7 @@ const cross3 = (a: readonly number[], b: readonly number[]): [number, number, nu
 const along = (p: readonly number[], d: readonly number[], t: number): [number, number, number] => [p[0]! + d[0]! * t, p[1]! + d[1]! * t, p[2]! + d[2]! * t];
 const BIT = 0.5; // (a cut starts this far outside the face, so it never ends exactly on it)
 /** The side view of a round receiver as a closed outline about its axis (x out from it, y along the outward normal, the face at 0): a plain hole, or one with the 90 degree countersink at its mouth. Null for a countersink wider than the hole it opens (never for the sizes here). */
-export function receiverProfile(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number, engagement?: number, drill?: number): [number, number][] {
+export function receiverProfile(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number, engagement?: number, drill?: number, washer = false): [number, number][] {
   if (kind === "drillTap") { const rc = clearanceHole(size, fit) / 2, rt = tapHole(size, engagement) / 2, d = drill ?? depth / 2; return [[0, BIT], [rc, BIT], [rc, -d], [rt, -d], [rt, -depth], [0, -depth]]; }
   const r = (kind === "tapped" ? tapHole(size, engagement) : clearanceHole(size, fit)) / 2;
   if (kind === "countersunk") {
@@ -228,25 +228,25 @@ export function receiverProfile(kind: ReceiverKind, size: FastenerSize, fit: Cle
     return [[0, BIT], [big, BIT], [big, 0], [r, -(big - r)], [r, -depth], [0, -depth]];
   }
   if (kind === "counterbore") {
-    const c = counterbore(size);
+    const c = counterbore(size, washer);
     return [[0, BIT], [c.diameter / 2, BIT], [c.diameter / 2, -c.depth], [r, -c.depth], [r, -depth], [0, -depth]];
   }
   return [[0, BIT], [r, BIT], [r, -depth], [0, -depth]];
 }
 /** Why this receiver cannot be cut with these numbers, or null. A countersink has to be shallower than the hole. */
-export function receiverProblem(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number, engagement?: number, drill?: number): string | null {
+export function receiverProblem(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number, engagement?: number, drill?: number, washer = false): string | null {
   if (!(depth > 0) || !Number.isFinite(depth)) return "the depth must be a number above zero";
   if (kind === "drillTap" && !(drill !== undefined && drill > 0 && drill < depth)) return "the drilled part must be above zero and less deep than the whole hole";
   if ((kind === "tapped" || kind === "drillTap") && engagement !== undefined && !(engagement >= ENGAGEMENT_RANGE[0] && engagement <= ENGAGEMENT_RANGE[1])) return `the thread engagement is between ${ENGAGEMENT_RANGE[0] * 100}% and ${ENGAGEMENT_RANGE[1] * 100}%`;
   const hole = kind === "tapped" ? tapHole(size, engagement) : clearanceHole(size, fit);
   const cone = kind === "countersunk" ? countersink(size).diameter / 2 - hole / 2 : 0;
   if (cone >= depth) return `the countersink goes ${round3(cone)} mm deep: the hole must be deeper than that`;
-  if (kind === "counterbore" && depth <= counterbore(size).depth) return `the counterbore is ${counterbore(size).depth} mm deep: the hole must be deeper than that`;
+  if (kind === "counterbore" && depth <= counterbore(size, washer).depth) return `the counterbore is ${counterbore(size, washer).depth} mm deep: the hole must be deeper than that`;
   if (kind === "nutPocket" && depth <= nutTrap(size).depth) return `the nut pocket is ${nutTrap(size).depth} mm deep: the hole through must be deeper than that`;
   return null;
 }
 /** The steps that cut a receiver into a body at a spot on a face; `depth` is how far the hole goes (a pocket's own depth is the nut's thickness). */
-export function receiverSteps(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number, spot: FaceSpot, engagement?: number, drill?: number): PartSteps {
+export function receiverSteps(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number, spot: FaceSpot, engagement?: number, drill?: number, washer = false): PartSteps {
   const n = cross3(spot.u, spot.v);
   const len = Math.hypot(...n) || 1;
   const out: [number, number, number] = [n[0] / len, n[1] / len, n[2] / len];
@@ -259,7 +259,7 @@ export function receiverSteps(kind: ReceiverKind, size: FastenerSize, fit: Clear
     axisPlane = ref;
     return { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: spot.centre, u: t, v: out } }; // (not an infinite plane: that is a world plane, hit anywhere and drawn across the whole view; this one only holds the hole's side view)
   });
-  steps.push((s) => { const r = drawChain(s, axisPlane!, receiverProfile(kind, size, fit, depth, engagement, drill).map(([x, y]) => along(along(spot.centre, t, x), out, y)), true); outline = r.lines; return r.command; });
+  steps.push((s) => { const r = drawChain(s, axisPlane!, receiverProfile(kind, size, fit, depth, engagement, drill, washer).map(([x, y]) => along(along(spot.centre, t, x), out, y)), true); outline = r.lines; return r.command; });
   steps.push((s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "revolve", parts: outline, params: { ...figureParams([{ outer: outline, holes: [] }]), mode: "cut", angle: 360, advance: 0, ax: spot.centre[0], ay: spot.centre[1], az: spot.centre[2], dx: out[0], dy: out[1], dz: out[2] } } }));
   if (kind === "nutPocket") {
     const trap = nutTrap(size);
@@ -343,7 +343,26 @@ export function farNutSteps(size: FastenerSize, spot: FaceSpot, reach: number): 
 export const shortestStandard = (room: number): number | null => { const l = STANDARD_LENGTHS.filter((x) => x >= room - 1e-9); return l.length ? l[0]! : null; };
 export const longestStandard = (room: number): number | null => { const l = STANDARD_LENGTHS.filter((x) => x <= room + 1e-9); return l.length ? l[l.length - 1]! : null; };
 /** How far under the face the head of the screw sits: a countersunk head is flush (0), a socket head sits in its counterbore, or on the face (and stands above it). */
-export const seatDepth = (kind: ReceiverKind, size: FastenerSize): number => (kind === "counterbore" ? counterbore(size).depth : 0);
+export const seatDepth = (kind: ReceiverKind, size: FastenerSize, washer = false): number => (kind === "counterbore" ? counterbore(size).depth : washer && washerable(kind) ? -WASHERS[size].thickness.nom : 0); // (a washer on the surface lifts the head: the seat is above it)
+/** The receivers a washer goes under the head in: a countersunk head sits in its cone and a nut pocket has no head. */
+export const washerable = (kind: ReceiverKind): boolean => kind === "clearance" || kind === "tapped" || kind === "drillTap" || kind === "counterbore";
+/** How far the washer top stands from the face (negative: below it, on the counterbore's floor). */
+export const washerTop = (kind: ReceiverKind, size: FastenerSize): number => (kind === "counterbore" ? -counterbore(size).depth : WASHERS[size].thickness.nom);
+/** A flat washer as its own body at a place: a ring (the outside and the hole of ISO 7089) extruded its thickness down from `top` above the face (`in_986`). */
+export function washerInPlace(size: FastenerSize, spot: FaceSpot, top: number): PartSteps {
+  const d = WASHERS[size];
+  const out = unit(cross3(spot.u, spot.v));
+  const at = along(spot.centre, out, top);
+  let plane: Ref | null = null;
+  let outer: Ref | null = null;
+  let inner: Ref | null = null;
+  return [
+    (s) => { const ref: Ref = `d/${nextId(s, "e")}.pl` as Ref; plane = ref; return { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at, u: spot.u, v: spot.v } }; },
+    (s) => { const r = drawCircle(s, plane!, at, d.outside.nom / 2); outer = r.circle; return r.command; },
+    (s) => { const r = drawCircle(s, plane!, at, d.inside.nom / 2); inner = r.circle; return r.command; },
+    (s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "extrude", parts: [outer!], params: { depth: -d.thickness.nom, mode: "new", ...figureParams([{ outer: [outer!], holes: [[inner!]] }]) } } }),
+  ];
+}
 /** The screw a receiver takes: countersunk for a countersunk hole, else the socket head; none for a nut pocket (its screw comes from the other side). */
 export const screwFor = (kind: ReceiverKind): "countersunk" | "socketHead" | null => (kind === "countersunk" ? "countersunk" : kind === "nutPocket" ? null : "socketHead");
 /** A drawn plane facing `n` through `at` (u along `e1`), for a figure that is not on a face. */
