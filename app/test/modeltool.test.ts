@@ -329,3 +329,16 @@ test("glue: a body glued to a part that moves moves with it, however it was chos
   const un = reduce(sel(glued, [plate]), { type: "runAction", id: "motion:unglue" }, env as never);
   assert.ok(!glueOf(scene(un.session), idPlate), "Unglue took the plate out");
 });
+
+// ---- what the human asked (`in_1145`, `in_1149`): a bearing that loads with its constraints, so things can be driven on it ----
+test("a bearing loads with its outer ring held and its inner ring turning about the axis (a pivot), and Play still turns the balls with the inner ring", () => {
+  for (const kind of ["ballbearing", "bearing"] as ModelKind[]) {
+    const st = buildAll(kind), sc = scene(st.session), rec = sc.models![0]!;
+    const idOf = (part: string): string => { const b = Object.values(sc.parts).find((p) => p.kind === "body" && p.id !== undefined && (p as { id: string }).id === `x_${rec.parts[part]!.step}`); assert.ok(b, `${kind}: ${part}`); return (b as unknown as { id: string }).id; };
+    assert.deepEqual(sc.fixed, [idOf("Outer race")], `${kind}: only the outer ring is held`);
+    assert.equal(sc.pivots?.length, 1);
+    assert.equal(sc.pivots![0]!.body, idOf("Inner race"));
+    assert.ok(Math.abs(Math.abs(sc.pivots![0]!.dir[2]) - 1) < 1e-9, `${kind}: the axis is the bearing's`);
+    assert.ok(Math.hypot(sc.pivots![0]!.point[0], sc.pivots![0]!.point[1]) < 1e-9);
+  }
+});

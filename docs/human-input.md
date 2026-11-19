@@ -4945,3 +4945,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1148 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the corrected carried lever to be merged into the testing branch, no full test run)
+
+## in_1149 — 2026-11-19 — approval
+> yes build the bearing constraints next
+(approves the last of the three: a bearing that loads with its constraints, so things can be driven on it)

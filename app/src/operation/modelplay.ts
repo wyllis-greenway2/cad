@@ -14,9 +14,9 @@ import type { CycloidalSpec } from "./modelcycloidal.ts";
 
 /** A part that turns about an axis by `k` degrees for each degree of the driver; with `after`, the whole is then turned again about another axis by `after.k` times the driver's amount (a ball or a disc that goes round) */
 export interface PlayFollower { part: string; point: Vec3; dir: Vec3; k: number; after?: { point: Vec3; dir: Vec3; k: number } }
-export interface PlayPlan { driver: { part: string; point: Vec3; dir: Vec3 }; followers: PlayFollower[]; /** what the motion shows, and what is held */ note: string; /** the parts that are glued to one another (`glue.ts`): a gear and its rod, the cage and what is fixed to it; one of each group is the driver or a follower, the rest go with it */ glue: string[][] }
+export interface PlayPlan { /** parts that stand still (held: a wall, `setFixed`) and the parts that turn about an axis of their own (a pivot), made with the model so that things can be driven on it */ hold?: string[]; pivots?: { part: string; point: Vec3; dir: Vec3 }[]; driver: { part: string; point: Vec3; dir: Vec3 }; followers: PlayFollower[]; /** what the motion shows, and what is held */ note: string; /** the parts that are glued to one another (`glue.ts`): a gear and its rod, the cage and what is fixed to it; one of each group is the driver or a follower, the rest go with it */ glue: string[][] }
 /** the record kept in the scene: the plan, and the step that made the body of each part (or the gear that made it) */
-export interface ModelPlay extends Omit<PlayPlan, "glue"> { id: string; title: string; parts: Record<string, { step?: string; gear?: string }> }
+export interface ModelPlay extends Omit<PlayPlan, "glue" | "hold" | "pivots"> { id: string; title: string; parts: Record<string, { step?: string; gear?: string }> }
 
 /** The motion of a model of this kind, in the world where it stands */
 export function playPlan(kind: ModelKind, n: Nums, place: Place): PlayPlan {
@@ -40,7 +40,7 @@ export function playPlan(kind: ModelKind, n: Nums, place: Place): PlayPlan {
       const t = (2 * Math.PI * k) / count;
       return { part: `Ball ${k + 1}`, point: P(g.pitch * Math.cos(t), g.pitch * Math.sin(t), zm), dir: ez, k: 0, after: { point: o, dir: ez, k: orbit } };
     });
-    return { driver: { part: "Inner race", point: o, dir: ez }, followers, glue: [], note: "the inner race turns, the outer is held, the balls go round at about half its speed" };
+    return { driver: { part: "Inner race", point: o, dir: ez }, followers, glue: [], hold: ["Outer race"], pivots: [{ part: "Inner race", point: o, dir: ez }], note: "the inner race turns, the outer is held, the balls go round at about half its speed" };
   }
   if (kind === "differential") {
     const s = n as unknown as DifferentialSpec, ex = D(1, 0, 0), ey = D(0, 1, 0), spin = s.side / s.spider;

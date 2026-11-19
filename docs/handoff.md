@@ -4115,3 +4115,6 @@ Branch `claude/adoring-dijkstra-fix`. The screencast showed the bar's note alter
 
 ## Handoff 1020 — 2026-11-19 (in_1146: catalogue ball bearings, the second of three)
 Built `Bearing` in the Models category from a table of 22 real deep-groove bearings (`bearingdata.ts`, `dec_bearing_library`); the print-in-place one is now *Print bearing*. Balls are NSK's for 60/62 series, typical for the miniatures (said in the box). Tests: the table, every bearing makes a valid shape, a 608 and a 6203 are built with two rings and separate balls touching nothing; the size test skips models with no scaled length. Play follows the balls. **Not done:** the bearing loading ready to drive things (outer ring held, shaft glued to the inner ring), a look in the browser, the full suite (subsets only).
+
+## Handoff 1021 — 2026-11-19 (in_1149: bearings load with their constraints)
+`in_1149`. `PlayPlan.hold` and `pivots` (`modelplay.ts`) say what the bearing models hold and pivot; `finishCommand` (`modeltool.ts`) makes the `setFixed` (outer race) and `pivot` (inner race, the axis) with the model. Test in `modeltool.test.ts` for both bearing kinds; Play unchanged. Not done: a shaft made with the bearing; dragging a glued body; browser look. Subsets tested only.
