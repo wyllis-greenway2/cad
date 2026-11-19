@@ -83,7 +83,7 @@ export function nextPartCommand(scene: Scene, b: Building): Result<Command> {
 export const buildingText = (b: Building): string => `${b.title}: ${b.build.parts[Math.max(0, b.next - 1)]?.label ?? ""} (${Math.min(b.next, b.build.parts.length)} of ${b.build.parts.length})`;
 
 /** Which of the box's fields (the size and the turn, then the model's) are shown: a field with a condition is shown while the number it names has that value, the model's numbers being the live ones or, before the first click, those typed */
-export function visibleFields(m: ModelState, nums?: Nums): boolean[] {
+function visibleFields(m: ModelState, nums?: Nums): boolean[] {
   const fields = modelFields(m.kind);
   const n = nums ?? modelNumbers(m.kind, Object.fromEntries(fields.flatMap((f, k) => (numOf(m.typed[k + 2]) !== undefined ? [[f.key, numOf(m.typed[k + 2])!]] : []))));
   return [true, true, ...fields.map((f) => !f.when || n[f.when.key] === f.when.is)];
