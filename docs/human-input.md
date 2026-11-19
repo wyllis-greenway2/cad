@@ -4691,3 +4691,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1084 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for this branch (the ⋯ menu cleanup: Import and Export for every file, a project with the page's state, Fabricate) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
+
+## in_1085 — 2026-11-19 — directive
+> lets get rid of re apply mates, that should not be possible because edits should not allow violating mates. Lets put clearance into fabrication.
+(asks for the Reapply mates row to go, since edits should not be allowed to violate mates; and for Clearance to move into Fabricate)

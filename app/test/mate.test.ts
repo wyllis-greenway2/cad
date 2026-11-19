@@ -159,15 +159,14 @@ test("a change that moves one of the bodies makes the mate not true, says so, an
   assert.equal(putMatesBack(scene(after)), null, "nothing more to put back");
 });
 
-test("the menu offers 'put the mates back' only when one is not true, and doing it from the menu works (`in_315`)", () => {
+test("there is no menu row to put the mates back; the mark of one mate that is not true still puts just that one back (`in_315`, `in_1085`)", () => {
   const { s, a } = matedBoxes();
   const env = { w: 800, h: 600, now: 0 };
-  assert.ok(!appRows("", { matesOff: 0 }).some((r) => r.id === "mate:reapply" && r.enabled));
-  assert.ok(appRows("", { matesOff: 1 }).some((r) => r.id === "mate:reapply" && r.enabled));
+  assert.ok(!appRows("", {}).some((r) => r.id.startsWith("mate:reapply")), "the ⋯ list has no Reapply mates: edits are not to violate a mate, so it is not something to ask for");
   let wider = s;
   for (const ref of rightA) { const at = (scene(wider).parts[ref] as unknown as { at: number[] }).at; wider = run(wider, { type: "movePart", ref, to: [13, at[1]!, at[2]!] } as never); }
   assert.equal(mateStatus(scene(wider))[0]!.state, "off");
-  const st = reduce({ ...createState(wider), cam: homeCamera() }, { type: "runAction", id: "mate:reapply" }, env);
+  const st = reduce({ ...createState(wider), cam: homeCamera() }, { type: "runAction", id: `mate:reapply:${mateStatus(scene(wider))[0]!.id}` }, env);
   assert.equal(mateStatus(scene(st.session))[0]!.state, "ok");
   assert.match(st.session.message ?? "", /put back/);
   void a;

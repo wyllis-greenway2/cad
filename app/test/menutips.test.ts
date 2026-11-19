@@ -90,10 +90,10 @@ test("paste and push / pull have icons of their own (`in_538`)", () => {
   assert.ok(iconSvg("pushpull").split("<path").length <= 4, "simple: a face and an arrow");
 });
 
-import { appRows } from "../src/interaction/appmenu.ts";
+import { appRows, fabricateRows } from "../src/interaction/appmenu.ts";
 test("every row of the ⋯ list is one or two words, with every optional row there and in each state (`in_541`)", () => {
   for (const flag of [true, false]) {
-    for (const r of appRows("abc123", { export: flag, matesOff: 2, clearAnswers: true }, flag, 0.25)) {
+    for (const r of [...appRows("abc123", { export: flag, clearAnswers: true }, flag), ...fabricateRows({ laser: flag, laserLayers: flag, laserTable: true }, 0.25)]) {
       assert.ok(r.label.replace(/^✓ /, "").trim().split(/\s+/).length <= 2 && !/[():]/.test(r.label), `"${r.label}" (${r.id})`);
     }
   }
