@@ -4342,3 +4342,6 @@ The human uploaded three Honda GX160 spec sheets (no words with them, so no `hum
 
 ## Handoff 1090 — 2026-11-19 (in_1231: the remaining documents listed for the human)
 `in_1231`. The human asked what else is needed. The three still wanted are in the sources README ("Documents still asked of the human"): hub, web and rim proportions of a real cast pulley or flywheel (the right Machinery's Handbook pages), casting junction and fillet rules, textbook pulley and flywheel rules. Nothing built.
+
+## Handoff 1090 — 2026-11-19 (the cartecc, Caterpillar and Scraba PDFs sent again: identical, checked)
+The human re-sent three PDFs (no words, so no `human-input.md` entry). **md5 identical** to the earlier uploads (cartecc piston dimensions, Caterpillar patent 20160169153, Scraba Part 2). Because I had only a subagent's summary of the Scraba page before, I **checked its numbers against the PDF text**: all matched; added the reasons it gives (lands smaller than the skirt so the skirt takes the thrust and for heat growth; three rings usual, two only in drag racing) to `docs/sources/README.md`. Waiting for the human's answer on drafting the piston parameter list now (a `provisional` entry). Nothing built.
