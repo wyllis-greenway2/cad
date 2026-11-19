@@ -49,6 +49,6 @@ export function playPlan(kind: ModelKind, n: Nums, place: Place): PlayPlan {
       { part: "Spider gear 1", point: o, dir: ey, k: spin, after: { point: o, dir: ex, k: 1 } }, { part: "Spider gear 2", point: o, dir: ey, k: -spin, after: { point: o, dir: ex, k: 1 } }];
     return { driver: { part: "Cage", point: o, dir: ex }, followers, note: "the cage turns with axle 2 held: axle 1 turns twice as fast (the two axles' turns add up to twice the cage's) and the spiders spin on the pin" };
   }
-  const s = n as unknown as CycloidalSpec, back = -1 / (s.pins - 1);
-  return { driver: { part: "Input shaft and eccentric", point: o, dir: ez }, followers: [{ part: "Cycloidal disc", point: P(s.ecc, 0, 0), dir: ez, k: back, after: { point: o, dir: ez, k: 1 } }, { part: "Output plate and pins", point: o, dir: ez, k: back }], note: `the shaft turns, the disc goes round on its eccentric and turns the other way 1/${s.pins - 1} as fast, and so does the output; the base is held` };
+  const s = n as unknown as CycloidalSpec, back = -1 / (s.pins - 1); // (the disc's own turn is `back`; the orbit turns it too, so its spin about its own middle is `back - 1`: a planet's `k` is the same)
+  return { driver: { part: "Input shaft and eccentric", point: o, dir: ez }, followers: [{ part: "Cycloidal disc", point: P(s.ecc, 0, 0), dir: ez, k: back - 1, after: { point: o, dir: ez, k: 1 } }, { part: "Output plate and pins", point: o, dir: ez, k: back }], note: `the shaft turns, the disc goes round on its eccentric and turns the other way 1/${s.pins - 1} as fast, and so does the output; the base is held` };
 }

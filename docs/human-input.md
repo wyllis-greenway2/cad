@@ -4894,3 +4894,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1135 — 2026-11-19 — directive
 > It immediately flashes to a size of 0 and errors on first click. Also it seems like you can set module of 1 which seems reasonable but it doesn't sync other needed values?
 (attached two screenshots of the Differential model being placed: one with a module of 1 typed, the preview red with "the axle is too wide for the side gears" and a size of 312.9; one just after the first click with a size of 0 and "the heel cone is too flat for this module and teeth")
+
+## in_1136 — 2026-11-19 — directive
+> The cycloidal drive doesn't seem to animate properly.
+(attached a screencast of the cycloidal drive being played, three seconds)

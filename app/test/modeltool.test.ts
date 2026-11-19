@@ -136,7 +136,7 @@ test("Create makes the model a part at a time: the first part at once, the next 
 // ---- Play ----
 import { startPlain, followMatrix } from "../src/interaction/motion.ts";
 import { animatedBodies, modelBody } from "../src/operation/gearcouple.ts";
-import { playPlan } from "../src/operation/modelplay.ts";
+import { discOutline } from "../src/operation/modelcycloidal.ts";
 function buildAll(kind: ModelKind): ReturnType<typeof createState> {
   let st = { ...createState(createSession(kernel)), cam: homeCamera() };
   st = reduce(st, { type: "runAction", id: `model:${kind}` }, env as never);
@@ -201,17 +201,36 @@ test("the differential: with axle 2 held and the cage turned, axle 1 turns twice
   const diff = [rel1[0]! - relSpider[0]!, rel1[1]! - relSpider[1]!], line = [-Math.cos(delta), Math.sin(delta)];
   assert.ok(Math.abs(diff[0]! * line[1]! - diff[1]! * line[0]!) < 1e-9, "no slip at the contact line");
 });
-test("the cycloidal drive: the disc goes round on its eccentric and turns the other way a ninth as fast; the output turns with the disc", () => {
+test("the cycloidal drive moved by Play: the disc's middle goes round the shaft, the disc itself turns the other way a ninth as fast, the output plate with it, and the disc clears every ring pin at every turn", () => {
   const sc = scene(buildAll("cycloidal").session);
-  const rec = sc.models![0]!, disc = rec.followers.find((f) => f.part === "Cycloidal disc")!;
-  assert.ok(Math.abs(disc.k + 1 / 9) < 1e-12 && disc.after!.k === 1);
-  assert.ok(Math.abs(rec.followers.find((f) => f.part === "Output plate and pins")!.k + 1 / 9) < 1e-12);
+  const rec = sc.models![0]!, d = modelStart("cycloidal");
+  const disc = rec.followers.find((f) => f.part === "Cycloidal disc")!, out = rec.followers.find((f) => f.part === "Output plate and pins")!;
+  const move = (f: typeof disc, a: number) => followMatrix({ gear: "", body: "d/x" as never, kind: "turn", point: f.point, dir: f.dir, k: f.k, ...(f.after ? { after: f.after } : {}) }, a);
+  // the orientation of the disc after a turn of the input: the turn of a vector along its x axis
+  const turnOf = (m: number[]): number => Math.atan2(m[1]!, m[0]!);
+  for (const a of [10, 90, 200, 350]) {
+    assert.ok(Math.abs(wrap(turnOf(move(disc, a)) - (-(a * Math.PI) / 180 / (d.pins! - 1)))) < 1e-9, `the disc has turned ${turnOf(move(disc, a))} at ${a} degrees`);
+    assert.ok(Math.abs(wrap(turnOf(move(out, a)) - (-(a * Math.PI) / 180 / (d.pins! - 1)))) < 1e-9, "the output plate turns as the disc does");
+    const c = apply4(move(disc, a), disc.point);
+    assert.ok(Math.abs(Math.hypot(c[0]!, c[1]!) - d.ecc!) < 1e-9 && Math.abs(wrap(Math.atan2(c[1]!, c[0]!) - (a * Math.PI) / 180)) < 1e-9, "its middle goes round on the eccentric by the input's turn");
+  }
+  // and the lobes clear the pins as it moves: the disc's outline moved by the motion's matrices, against each ring pin's middle
+  const out2 = discOutline(d as never, 20 * (d.pins! - 1)).map(([x, y]) => [x + d.ecc!, y]);
+  const inside = (q: number[], poly: number[][]): boolean => { let r = false; for (let i = 0; i < poly.length; i++) { const [p1, p2] = [poly[i]!, poly[(i + 1) % poly.length]!]; if ((p1[1]! > q[1]!) !== (p2[1]! > q[1]!) && q[0]! < p1[0]! + ((q[1]! - p1[1]!) / (p2[1]! - p1[1]!)) * (p2[0]! - p1[0]!)) r = !r; } return r; };
+  const near = (q: number[], poly: number[][]): number => Math.min(...poly.map((p1, i) => { const p2 = poly[(i + 1) % poly.length]!, [dx, dy] = [p2[0]! - p1[0]!, p2[1]! - p1[1]!], t = Math.max(0, Math.min(1, ((q[0]! - p1[0]!) * dx + (q[1]! - p1[1]!) * dy) / (dx * dx + dy * dy))); return Math.hypot(q[0]! - p1[0]! - t * dx, q[1]! - p1[1]! - t * dy); }));
+  let least = Infinity;
+  for (let a = 0; a < 360; a += 7) {
+    const m = move(disc, a), world = out2.map((p) => apply4(m, [p[0]!, p[1]!, 0]));
+    for (let k = 0; k < d.pins!; k++) {
+      const q = [d.circle! * Math.cos((2 * Math.PI * k) / d.pins!), d.circle! * Math.sin((2 * Math.PI * k) / d.pins!)];
+      assert.ok(!inside(q, world), `a ring pin is inside the disc at ${a} degrees`);
+      least = Math.min(least, near(q, world) - d.pin! / 2);
+    }
+  }
+  assert.ok(least > 0 && least < d.play! + 0.05, `the disc runs ${least} mm from the pins (the room is ${d.play})`);
   assert.ok(!rec.followers.some((f) => f.part === "Base plate and ring pins"), "the base is held");
-  const p = playPlan("cycloidal", modelStart("cycloidal"), { at: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0], ez: [0, 0, 1] });
-  const f = p.followers[0]!;
-  const to = apply4(followMatrix({ gear: "", body: "d/x" as never, kind: "turn", ...f }, 90), f.point);
-  assert.ok(Math.abs(to[0]!) < 1e-9 && Math.abs(to[1]! - 1.5) < 1e-9, `the disc's middle at a quarter turn: ${to}`);
 });
+const wrap = (x: number): number => Math.atan2(Math.sin(x), Math.cos(x));
 test("the Play item of the ring starts the model from whichever of its bodies is selected, and the motion moves the model's own parts", () => {
   for (const [kind, from] of [["bearing", "Ball 3"], ["gearbox", "Top plate"], ["differential", "Cap 2"], ["cycloidal", "Output plate and pins"]] as [ModelKind, string][]) {
     let st = buildAll(kind);
