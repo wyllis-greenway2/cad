@@ -1,9 +1,9 @@
 ---
 id: dec_unified_orb
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_1127
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_1127, in_1128
 date: 2026-11-19
 depends_on:
   - dec_orb_positioning: its rules (Shift holds the drag to one, two or three axes; the orb sticks to places; a click on a plane puts it there) are the ones every orb is to have
@@ -23,7 +23,9 @@ alternative_to:
 4. The bubbles are hidden except for the axis (or ring) chosen or dragged.
 5. A click on the blue orb enters the smart select (the places `orbsnap.ts` knows, plus edges, vertices, faces and bodies) for every orb.
 6. **Order:** the cross section first (given the common pose, so it uses the same drag, Shift, bubbles and orb click), then the shared Shift module, the shared drag and the shared bubbles, then the orb click everywhere, then mirror, scale and repeats, then panes and second arrows for circular repeat and sweep.
-**To ask the human:** which tools are to be in both modes at once; whether the section's five move modes (its icon cycle) are replaced by the common swapper; whether a pane is shown on every orb or only when two axes are free.
+**The three questions (the human took the AI's recommendation, `in_1128`, without answering them; these are the AI's defaults, to be changed on a word):** the tools that have both a place and a turn (move, a sheet, mirror, revolve, the repeats) show the XYZ arrows and the rotate rings together with the swapper between them; scale and the push or pull arrows are XYZ only. The sheet's move icon keeps going through its modes (the arrow along the normal, the mover, across X, Y, Z) until the common swapper is built, and then the first two become the swapper. A pane is on every orb in its XYZ mode.
+
+**Built (stage 1a, `in_1128`):** on the sheet's mover, **Shift or a click on an arrow** holds a drag to axes with the orb's own words (`heldWords`: "the plane moves in the XY plane only"); **the blue orb is dragged to move the plane** (it turned the view before), held to the axes, sticking to the places `orbsnap.ts` knows and lining up with them (`orbPlace`); **a click on the blue orb selects it, and a corner, an edge midpoint or a face clicked then puts the plane there** (a face: lying on it, the normal outward; an edge: across it), a second click lets it go. `test/sectionorb.test.ts` (3). **Not yet:** the section's bubbles still follow `sectionEntries` (not the one rule), the plane's rotate rings do not take Shift, the orb is not drawn lit while selected, no pane handle, no second arrows for circular repeat or sweep, the other tools' orbs (mirror, scale, repeats) not moved onto the shared code. Not seen in the browser.
 
 ## Rationale
 
