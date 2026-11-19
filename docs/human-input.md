@@ -5092,3 +5092,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1190 — 2026-11-19 — approval
 > Push; new branch claude/hopeful-cannon-8 (Recommended)
 (the answer to the AI's question: permission to push to claude/inspiring-pascal-l342k7, then work on a new branch claude/hopeful-cannon-8 created from it)
+
+## in_1191 — 2026-11-19 — directive
+> run the full tests
