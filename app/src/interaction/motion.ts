@@ -19,6 +19,7 @@ import type { Candidate } from "./contact.ts";
 import { restartContact } from "./contact.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
 import { followAmount } from "../operation/gearcouple.ts";
+import type { FixPlan } from "./fixmotion.ts";
 import { linkFollowers } from "../operation/coupling.ts";
 
 export type JointKind = "turn" | "slide";
@@ -54,6 +55,8 @@ export interface Motion {
   /** contact push (`contact.ts`): the bodies that yield and where the motion stands; the followers they make this frame */
   contact?: ContactState;
   yields?: Follower[];
+  /** the walk through the joints that would take the place of the push (`fixmotion.ts`): the offers, the one shown, and what has been made so far */
+  fix?: { plan: FixPlan; i: number; made: string[] } | null;
 }
 /** The span a joint with no stops is scrubbed and swung over: a turn goes right round either way, a slide as far as the body is wide again. */
 const FREE_TURN = 180, FREE_SLIDE = 30;

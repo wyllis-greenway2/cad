@@ -3,7 +3,7 @@
 import { PILL } from "./look.ts";
 import type { Frame } from "../interaction/frame.ts";
 
-export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt"; amount: number } | { type: "motionPlay" } | { type: "motionKind"; kind: "turn" | "slide" } | { type: "motionKeep" } | { type: "motionReverse" } | { type: "motionRest"; ref: string; rest: number | null } | { type: "motionLink"; id: string; ratio?: number; kind?: "turn" | "slide"; remove?: true } | { type: "motionClose" }) => void) {
+export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt"; amount: number } | { type: "motionPlay" } | { type: "motionKind"; kind: "turn" | "slide" } | { type: "motionKeep" } | { type: "motionFix"; act: "open" | "apply" | "skip" | "close" } | { type: "motionReverse" } | { type: "motionRest"; ref: string; rest: number | null } | { type: "motionLink"; id: string; ratio?: number; kind?: "turn" | "slide"; remove?: true } | { type: "motionClose" }) => void) {
   const bar = document.createElement("div");
   bar.style.cssText = PILL + ";bottom:60px;left:50%;transform:translateX(-50%);pointer-events:auto;gap:10px;display:none";
   bar.setAttribute("data-motion-bar", "");
@@ -22,7 +22,19 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
   let springKey = "";
   const note = document.createElement("div"); // (what is said about the motion: above the bar and out of its layout, so a long message does not move the bar)
   note.style.cssText = "position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);max-width:min(80vw,640px);padding:4px 12px;border-radius:12px;background:rgba(34,37,41,.92);color:#fff;font-size:12.5px;white-space:normal;text-align:center;opacity:0;transition:opacity .35s ease;pointer-events:none";
-  bar.append(note, play, rev, slider, label, kind, links, springs, keep, close);
+  // the offer to put joints in the place of the push (`in_1122`): a card under the bar; while the walk is open it shows the joint offered, with Apply and Skip
+  const card = document.createElement("div");
+  card.style.cssText = "position:absolute;bottom:calc(100% + 46px);left:50%;transform:translateX(-50%);display:none;gap:10px;align-items:center;padding:6px 12px;border-radius:12px;background:rgba(34,37,41,.95);color:#fff;font-size:12.5px;width:max-content;max-width:min(86vw,720px);white-space:normal";
+  card.setAttribute("data-fix-card", "");
+  const cardText = document.createElement("span");
+  const cardBtn = (text: string, title: string, act: "open" | "apply" | "skip" | "close", strong = false): HTMLSpanElement => { const b = btn(text, title); b.style.cssText += `;border:1px solid rgba(255,255,255,.45);border-radius:6px;padding:1px 8px;${strong ? "background:#2b8a3e;border-color:#2b8a3e" : ""}`; b.addEventListener("pointerup", (e) => { e.stopPropagation(); if (act === "close") dismissed = true; send({ type: "motionFix", act }); }); return b; };
+  let dismissed = false;
+  const fixB = cardBtn("Fix constraints", "Work out, from the motion so far, which pushed bodies could be joints, and walk through them one at a time", "open", true);
+  const applyB = cardBtn("Apply", "Make this joint; the motion then runs on it", "apply", true);
+  const skipB = cardBtn("Skip", "Leave this one to the push", "skip");
+  const closeB = cardBtn("✕", "Leave this", "close");
+  card.append(cardText, fixB, applyB, skipB, closeB);
+  bar.append(note, card, play, rev, slider, label, kind, links, springs, keep, close);
   host.appendChild(bar);
   play.addEventListener("pointerup", (e) => { e.stopPropagation(); send({ type: "motionPlay" }); });
   slider.addEventListener("input", () => send({ type: "motionAt", amount: Number(slider.value) }));
@@ -80,6 +92,15 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
           box.append(times, num, k, x); links.appendChild(box);
         }
       }
+      const step = v.fix.step;
+      const want = !!step || (v.fix.offer && !dismissed);
+      card.style.display = want ? "flex" : "none";
+      if (want) {
+        cardText.textContent = step ? `${step.n} of ${step.of}: ${step.text}` : "Collision constraints are slow. Joints that do the same thing cost nothing.";
+        fixB.style.display = step ? "none" : ""; applyB.style.display = skipB.style.display = step ? "" : "none";
+        applyB.textContent = step?.how === "mate" ? "Apply mate" : "Apply pivot";
+      }
+      if (!v.fix.offer) dismissed = false;
       kind.textContent = v.kind === "turn" ? "turning" : "sliding";
     },
   };

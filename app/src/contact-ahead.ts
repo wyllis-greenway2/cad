@@ -31,6 +31,7 @@ export function createAhead(make: () => AheadWorker, send: (scene: Scene, outcom
           const kept = pathPlaces(scene, outcome, m);
           if (kept) for (const [g, p] of r.places) kept.places.set(g, p);
           here.reached = r.reached; here.done = r.done; here.jam = r.jam ?? null;
+          if (r.done) { try { worker.terminate?.(); } catch { /* (already gone) */ } } // (it has nothing more to do: its copy of the scene goes)
         });
         worker.addEventListener("error", () => { here.failed = true; });
         worker.postMessage({ type: "start", id, scene, kernel: send(scene, outcome, m), motion: m, to: m.amount + (m.kind === "turn" ? LIMIT_TURN : LIMIT_SLIDE) } satisfies AheadStart);

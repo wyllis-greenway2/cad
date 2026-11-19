@@ -4827,6 +4827,26 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1119 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests, then fix the remaining problems please
 
+## in_1120 — 2026-11-19 — question
+> okay can we have it so that things build one part at a time? would that appear to be faster for the user? so if there are a lot of parts in an assembly, they build one at a time and the user can see how it is put together. Can we make it so that these things work more like the gear menu? Where you can click on the screen and it builds a preview of the object (simple view like the gear profiles) so you can set scale and get an idea of how it is oriented and sized before you create? Also can we give abilities to set the size? like maybe if it has gears we would want to set gear module? Or how else would we want to let users specify and build these things? Can we have all of our assemblies animated? So the user can click the play button and watch how they work?
+(asks for the assembly models to be built one part at a time so the user sees how they go together and they feel faster; to work like the gear tool, with a click on the screen and a simple preview to set scale, orientation and size before they are made; for ways to set the size (the gear module, and how else); and for all of them to be animated with Play)
+
+## in_1121 — 2026-11-19 — question
+> okay and how is it performing? is it fast and lean?
+(asks how the push performs: speed and weight)
+
+## in_1122 — 2026-11-19 — directive
+> Okay it seems to soak up the juice on my laptop pretty fast, my fan turns on and it gets hot. is this normal and expected? or does it mean we should try to get it leaner?  Also do you think we could make it smart enough to just offer to apply constraints to make it a fully constraint driven automation that is really lean with no collision constraints or at least minimal collision constraints? Basically turn it into an animated model like we would normally make ourselves like the animated geneva plate or planetary gear system. This is a million times leaner, and helps the user not use collision when they don't need to. Is this something we can do? Maybe a popup that says, Collision constraints are slow,  fix constraints. The fix constraints is a button that just automatically fixes the constraints for the user. It should highlight and flash what it did, maybe walking through each constraint one at a time with a fix button that replaces the collision constraint with a coaxial or surface constraint etc etc.
+(asks whether the heat is expected or the push should be leaner; asks for a "fix constraints" offer that turns a collision-driven motion into a constraint-driven one, step by step, with flashes)
+
+## in_1123 — 2026-11-19 — approval
+> yes, please proceed
+(approves the "Fix constraints" offer, the walk through each pushed body, and the heat fixes proposed in answer to in_1122)
+
+## in_1124 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the Fix constraints work and the heat fixes to be merged into the testing branch, no full test run)
+
 ## in_1125 — 2026-11-19 — directive
 > okay fix the remaining problems
 
