@@ -4695,3 +4695,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1085 — 2026-11-19 — directive
 > lets get rid of re apply mates, that should not be possible because edits should not allow violating mates. Lets put clearance into fabrication.
 (asks for the Reapply mates row to go, since edits should not be allowed to violate mates; and for Clearance to move into Fabricate)
+
+## in_1086 — 2026-11-19 — directive
+> okay now lets get rid of all the cam options under sketch and the whole category. Lets make a models category that lives under shapes fabricate. It should have the geneva plate there as the first entry and it should only have the 3d model version
+(asks to remove all the cam options under Sketch and the whole cam category; to make a Models category under Shape, Fabricate with the Geneva plate as its first entry, and only its 3D model version)

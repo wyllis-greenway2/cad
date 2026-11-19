@@ -108,7 +108,7 @@ test("Material is under Shape, Fabricate in the ring (with the fastener tool), l
   const shape = ring(createSession(kernel)).find((i) => i.id === "shape")!;
   const fab = shape.children!.find((i) => i.id === "fabricate")!;
   assert.equal(fab.label, "Fabricate");
-  assert.deepEqual(fab.children!.map((c) => c.id), ["fab:material", "tool:fasteners"]);
+  assert.deepEqual(fab.children!.map((c) => c.id), ["fab:material", "tool:fasteners", "models"]);
   const none = fab.children!.find((c) => c.id === "fab:material")!;
   assert.deepEqual([none.enabled, none.why], [false, "select a body first"]);
   const b = twoBodies();
