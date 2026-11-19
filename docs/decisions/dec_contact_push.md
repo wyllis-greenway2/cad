@@ -3,7 +3,7 @@ id: dec_contact_push
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_889, in_890, in_891, in_892, in_893, in_894, in_1017
+human_input: in_889, in_890, in_891, in_892, in_893, in_894, in_1017, in_1047, in_1048, in_1049
 date: 2026-11-19
 depends_on:
   - dec_hard_bodies: this builds on its mesh test, its "one hard body is enough" rule and its sliding; a change to them changes what is built here
@@ -70,6 +70,14 @@ A cheaper box pre-check for pairs far apart; the search for room begins at the l
 - **Ghost:** not built, and not a state until a case needs it (a body that must pass through everything). If a case comes, it is a setting of the body, not of the joint.
 - **The rest value is a number on the joint** (the joint of a pivot, a coaxial mate or a cam's follower; degrees or mm, "return to"; none by default). A cam's follower rod gets it from the cam today (`rest` toward the cam, a millimetre a step); a settable one is not built yet.
 - **The mesh test is for interaction, the exact boolean for the final answer**, in steps: the hard bodies' drag, scrub and the animation use the mesh test (`operation/collide.ts` with the kernel's mesh, `contact.ts`); the kernel's boolean stays for what is kept (a pose kept, an interference report). `hardCollision` is the seam: the old and new tests are run side by side on the existing hard-body tests before the drag is switched. **One finding to carry into that step:** the face planes the drag reads (`meshOf`) leave out the walls of a gear's teeth, so a hard gear is tested on its caps only; the contact push reads the kernel's mesh by the faces' ranges (`bodyMesh`) and the drag should too.
+
+## Free push (`in_1048`, approved at `in_1049`: the AI's recommendations)
+
+A hard body with **no joint** (no pivot, no coaxial mate, no rod) that the played body meets is no longer a wall: it **yields by moving** (translation only to begin with) by the smallest amount along the contact that clears the overlap, **as long as no standing mate or constraint is broken**. The move goes through the same projection onto the standing mates that a free drag uses (`projectOnMates`), so a body with a coaxial mate still only turns or slides on it. If the move cannot be made without breaking a constraint, the motion stops and says which (the refusal rule: it names it, flashes it, offers to delete it).
+
+Choices (the AI's recommendations, taken at `in_1049`): **a default** for every hard body that has no joint; **a cap** on how far a pushed body may travel in one play (the depth limit and the time budget stay); **a body that is fixed (locked) or has a mate stays a wall** as before; a setting **"stays where it ends up"** beside Keep pose (a play ends with the body returned unless it is chosen). **Not physics:** no turning from the contact normal (the lever slides, it does not swing: a lever that should swing needs a pivot), no gravity or friction; a pushed body stops where it clears.
+
+**Built (`in_1049`).** `contact.ts` `yieldFree`: a `Pushable` with `free` (a move from where the body is drawn); a step of the driver pushes it by the smallest clear move in 64 ways round the plane across the turning axis (the way it was last pushed first, then the ones near it), no more than 2.5 mm a step (more would throw it through what pushes it, clear on the far side of a pin that is inside it: the mesh test sees surfaces, not containment) and 60 mm in all; it goes back a millimetre a step when nothing holds it away. When it cannot go on it says what it is against: "x_s_002 pushes x_s_084 against x_s_083". Who is free (`motion.ts`): a hard body that is not the driver, not carried by a coupling, with no mate, no pivot, and not **fixed**. **Fixed body** (`Scene.fixed`, command `setFixed`, ring leaf Fixed body / Free body beside Hard body, `isFixed`) is the wall. Not built: turning from the contact (a pushed body slides), the setting "stays where it ends up" beside Keep pose (a pose found by contact is still kept only for joints), a cap setting (60 mm is fixed in the code).
 
 ## Rationale
 

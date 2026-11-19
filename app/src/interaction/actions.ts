@@ -9,7 +9,7 @@ import { sketchOfEdge } from "../operation/edgesource.ts";
 import { whyNotDeleteSurface, deleteSurface } from "../operation/trim.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
-import { dot, sub } from "../math/vec.ts";
+import { dot, sub, normalize } from "../math/vec.ts";
 import type { Scene, Relation } from "../operation/scene.ts";
 import { lookup, nextId, figureRefs } from "../operation/scene.ts";
 import type { Command } from "../operation/commands.ts";
@@ -45,6 +45,23 @@ export interface Action {
 const isFlatBodyFace = (get: ReturnType<typeof lookup>, sel: readonly Ref[]): boolean => sel.every((r) => { const p = get(r); return p?.kind === "plane" && p.origin === "body" && !!p.mesh && !p.curved && !p.round && !p.rounded; });
 const isBallOrCone = (get: ReturnType<typeof lookup>, sel: readonly Ref[]): boolean => sel.every((r) => { const p = get(r); return p?.kind === "plane" && p.origin === "body" && (!!p.sphere || !!p.cone); }); // (a ball or a cone: a tangent mate's, `in_977`)
 const isRoundBodyFace = (get: ReturnType<typeof lookup>, sel: readonly Ref[]): boolean => sel.every((r) => { const p = get(r); return p?.kind === "plane" && p.origin === "body" && !!roundOf(get, r); });
+
+/** The round face of a body that a circular edge of it is the rim of (its axis through the edge's centre, the same radius); the edge itself if there is none. */
+function faceOfEdge(scene: Scene, ref: Ref): Ref {
+  const get = lookup(scene);
+  const e = get(ref);
+  if (e?.kind !== "line" || e.origin !== "body" || !e.circle) return ref;
+  const c = e.circle;
+  const f = Object.values(scene.parts).find((q) => {
+    if (q.kind !== "plane" || q.origin !== "body" || q.of !== e.of) return false;
+    const r = roundOf(get, q.ref);
+    if (!r?.normal || Math.abs(r.radius - c.radius) > 1e-3) return false;
+    const [d, n] = [sub(c.center, r.center), normalize(r.normal)];
+    const along = dot(d, n);
+    return Math.hypot(d[0] - n[0] * along, d[1] - n[1] * along, d[2] - n[2] * along) < 1e-3;
+  });
+  return f ? f.ref : ref;
+}
 
 /** Every relation and operation that applies to the selection, relations first, in the order of the table. */
 export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
@@ -93,11 +110,14 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
   }
 
   // two faces of two bodies: they can be mated, the first one's body is moved to the second (`in_314`); flush has a gap that can be typed (`in_317`)
-  if (sel.length === 2) {
+  const asFaces = selection0.length === 2 ? selection0.map((r) => faceOfEdge(scene, r)) : null; // (the edges as picked, not as the sketches they lie on)
+  const msel = asFaces && asFaces.some((r, i) => r !== selection0[i]) ? asFaces : sel;
+  if (msel.length === 2) {
+    // (a circular edge of a body, a hole's rim or a pin's end, stands for its round face: two of them can be mated like the faces, `in_1045`)
     // a face of a body and a world plane (`in_977`): the face is mated with the plane, which stands still (parallel to the world's X, Y or Z plane, flush on it, an axis along its normal, a cylinder resting on it)
-    const wi = sel.findIndex((r) => isWorldPlane(scene, r));
-    const world = wi >= 0 && sel.some((r) => isFlatBodyFace(get, [r]) || isRoundBodyFace(get, [r]));
-    const pair: [Ref, Ref] = world ? (wi === 1 ? [sel[0]!, sel[1]!] : [sel[1]!, sel[0]!]) : [sel[0]!, sel[1]!];
+    const wi = msel.findIndex((r) => isWorldPlane(scene, r));
+    const world = wi >= 0 && msel.some((r) => isFlatBodyFace(get, [r]) || isRoundBodyFace(get, [r]));
+    const pair: [Ref, Ref] = world ? (wi === 1 ? [msel[0]!, msel[1]!] : [msel[1]!, msel[0]!]) : [msel[0]!, msel[1]!];
     const kinds: [MateMode, string, "mm" | "deg" | null][] = [
       ["flush", "Mate: flush faces", "mm"], ["parallel", "Mate: parallel faces", "mm"], ["perpendicular", "Mate: perpendicular faces", null], ["angle", "Mate: angle between faces", "deg"],
       ["coaxial", "Mate: coaxial", "mm"], ["parallelAxes", "Mate: parallel axes", null], ["perpendicularAxes", "Mate: perpendicular axes", null], ["angleAxes", "Mate: angle between axes", "deg"], ["axisToFace", "Mate: axis perpendicular to a face", null], ["tangent", "Mate: tangent", null],
@@ -105,7 +125,7 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
     for (const [mode, label, unit] of kinds) {
       if (world && mode === "coaxial") continue; // (a round face has no axis of its own to put in a plane)
       const why = whyNotMate(scene, mode, pair[0], pair[1]);
-      if (why && (world ? (isFlatMode(mode) ? !isFlatBodyFace(get, [pair[0]]) : mode === "tangent" ? !(isRoundBodyFace(get, [pair[0]]) || isBallOrCone(get, [pair[0]])) : !isRoundBodyFace(get, [pair[0]])) : mode === "tangent" ? !(isRoundBodyFace(get, [sel[0]!]) || isRoundBodyFace(get, [sel[1]!]) || isBallOrCone(get, [sel[0]!]) || isBallOrCone(get, [sel[1]!])) : mode === "axisToFace" ? !(isFlatBodyFace(get, [sel[0]!]) !== isFlatBodyFace(get, [sel[1]!]) || (isRoundBodyFace(get, [sel[0]!]) !== isRoundBodyFace(get, [sel[1]!]))) : isFlatMode(mode) ? !isFlatBodyFace(get, sel) : !isRoundBodyFace(get, sel))) continue; // (not this kind of faces: no row for it)
+      if (why && (world ? (isFlatMode(mode) ? !isFlatBodyFace(get, [pair[0]]) : mode === "tangent" ? !(isRoundBodyFace(get, [pair[0]]) || isBallOrCone(get, [pair[0]])) : !isRoundBodyFace(get, [pair[0]])) : mode === "tangent" ? !(isRoundBodyFace(get, [msel[0]!]) || isRoundBodyFace(get, [msel[1]!]) || isBallOrCone(get, [msel[0]!]) || isBallOrCone(get, [msel[1]!])) : mode === "axisToFace" ? !(isFlatBodyFace(get, [msel[0]!]) !== isFlatBodyFace(get, [msel[1]!]) || (isRoundBodyFace(get, [msel[0]!]) !== isRoundBodyFace(get, [msel[1]!]))) : isFlatMode(mode) ? !isFlatBodyFace(get, msel) : !isRoundBodyFace(get, msel))) continue; // (not this kind of faces: no row for it)
       const [fa, fb] = [featureOf(scene, pair[0], mode), featureOf(scene, pair[1], mode)];
       const degrees = unit === "deg";
       // what the faces leave now, as the number it would be typed as: the gap between flush faces, the distance between parallel faces, the distance between axes, the angle (`in_317`..`in_319`); the tape measure shows them (`in_338`)

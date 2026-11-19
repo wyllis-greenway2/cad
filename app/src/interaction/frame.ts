@@ -15,7 +15,7 @@ import { normalOfPlane } from "../operation/part.ts";
 import { planeOf } from "./objects.ts";
 import type { Plane } from "../operation/part.ts";
 import type { Camera } from "./camera.ts";
-import { offsetOf, sideOf, nearTolMm, projector } from "./camera.ts";
+import { offsetOf, sideOf, nearTolMm, projector, eyeDistance } from "./camera.ts";
 import { dot, cross, normalize, add, sub, scale } from "../math/vec.ts";
 import { apply } from "../operation/commands.ts";
 import { outlineOf } from "../operation/part.ts";
@@ -57,7 +57,7 @@ import type { Command } from "../operation/commands.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
 import type { AppState } from "./control/state.ts";
 import { sketchPlaneOf } from "./control/state.ts";
-import { gridPlaneOf } from "./control/viewing.ts";
+import { gridPlaneOf, selectedSurface } from "./control/viewing.ts";
 import { nothingInView } from "./lastseen.ts";
 import { gridFor } from "./grid.ts";
 import { WORLD_NAMES, paneCorners } from "./panes.ts";
@@ -131,6 +131,8 @@ export interface Frame {
   bodyMatrix: number[] | null;
   /** the edges of a body that are behind a face are drawn faintly: while a sketch tool is on and there is a body to draw on or against (`in_324`) */
   hiddenEdges: boolean;
+  /** the plane being sketched on, as a point of it and its normal toward the camera: the body's edges past it are drawn faintly (`in_1045`) */
+  behindPlane: { n: [number, number, number]; at: [number, number, number] } | null;
   /** when the matrix moves one body of several: the triangles (ranges of the mesh's index list) and the box of that body, so only it is moved (`in_273`) */
   bodySplit: { tris: [number, number][]; box: { min: Vec3; max: Vec3 } } | null;
   /** the bodies that are hidden (`dec_hidden_bodies`), each as its triangles (ranges of the mesh's index list): drawn very faintly, not part of the body that is drawn in full */
@@ -481,6 +483,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     mesh: outcome.kernel?.mesh ?? null,
     bodyMatrix,
     hiddenEdges: !!s.tool && hasBody,
+    behindPlane: hasBody ? behindPlaneOf(s) : null,
     bodySplit,
     hiddenBodies: hiddenItemsOf(sc, outcome),
     thin: s.panel === "measure" && !outcome.kernel?.stale ? thinPlacesOf(sc, sel) : null,
@@ -691,6 +694,19 @@ function withGhost(base: Preview | null, s: AppState): Preview | null {
   for (let k = 0; k < N; k++) for (const h of [c.lo, c.hi]) segments.push([at((k / N) * Math.PI * 2, h), at(((k + 1) / N) * Math.PI * 2, h)]);
   for (let k = 0; k < 12; k++) segments.push([at((k / 12) * Math.PI * 2, c.lo), at((k / 12) * Math.PI * 2, c.hi)]);
   return { segments: [...(base?.segments ?? []), ...segments], circle: base?.circle ?? null, cursor: base?.cursor ?? null };
+}
+
+/** The plane a sketch tool is on (the tool's, else the one selected) with its normal turned toward the camera, from wherever the camera is: what is past it is not what is being worked on. */
+function behindPlaneOf(s: AppState): Frame["behindPlane"] {
+  if (!s.tool || s.tool.kind === "trim" || s.tool.kind === "gear" || s.tool.kind === "cam" || s.sectionLive || s.cut) return null;
+  const sc = sceneOf(s.session);
+  const ref = s.tool.plane ?? selectedSurface(sc, selectionOf(s.session));
+  const pl = ref ? sc.parts[ref] : undefined;
+  if (pl?.kind !== "plane") return null;
+  const n = normalOfPlane(pl);
+  const eye = add(s.cam.target, scale(offsetOf(s.cam), eyeDistance(s.cam)));
+  const side = dot(sub(eye, pl.at), n) >= 0 ? 1 : -1;
+  return { n: [n[0] * side, n[1] * side, n[2] * side], at: [pl.at[0], pl.at[1], pl.at[2]] };
 }
 
 /** Does any of the body lie between the camera and the plane being sketched on? (Only when looking straight at that plane: in 3D it is all as it was.) */

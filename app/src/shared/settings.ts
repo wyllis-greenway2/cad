@@ -79,6 +79,8 @@ export const settings = {
     outlines: true, // the dark lines along a body's edges: off, the body is drawn by its shading alone (`in_459`; the menu row switches it, the choice is kept)
     /** how faint the edges of a body behind a face are drawn while a sketch tool is on (`in_324`) */
     hiddenEdgeOpacity: 0.22,
+    /** the edges of a body on the far side of the plane being sketched on (`in_1045`) */
+    behindEdgeOpacity: 0.28,
     hiddenBodyOpacity: 0.09, // a hidden body (`dec_hidden_bodies`): its surface this strong, its outline twice as strong
   },
   grid: { show: true, divisions: 30, minorAlpha: 0.35, majorAlpha: 0.7, color: [0.62, 0.63, 0.67] as [number, number, number] },

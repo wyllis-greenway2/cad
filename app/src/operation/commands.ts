@@ -54,6 +54,7 @@ export type Command =
   | { type: "group"; id: string; items: string[] }
   /** a body made hard or soft (`dec_hard_bodies`): `body` is the name it keeps through the history */
   | { type: "setHard"; body: string; on: boolean }
+  | { type: "setFixed"; body: string; on: boolean }
   /** what a body is made of (`in_565`): `body` is the name it keeps through the history, `material` a material id (empty takes the tag off) */
   | { type: "setMaterial"; body: string; material: string }
   /** a copy of a machine (or other definition) the project used, kept in its manufacturing section by `kind/id@version` (`in_571`) */
@@ -285,6 +286,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       return ok(now.size ? { ...rest, hiddenBodies: [...now].sort() } : rest);
     }
     case "setHard": { const hard = (s.hard ?? []).filter((b) => b !== c.body); return ok({ ...s, ...(c.on ? { hard: [...hard, c.body] } : hard.length ? { hard } : { hard: undefined }) }); }
+    case "setFixed": { const fixed = (s.fixed ?? []).filter((b) => b !== c.body); return ok({ ...s, ...(c.on ? { fixed: [...fixed, c.body] } : fixed.length ? { fixed } : { fixed: undefined }) }); }
     case "useDefinition": {
       if (!c.key.trim()) return err("a definition needs a key");
       return ok({ ...s, manufacturing: { ...s.manufacturing, definitions: { ...s.manufacturing?.definitions, [c.key]: c.value } } });
