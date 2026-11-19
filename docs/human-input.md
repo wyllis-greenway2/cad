@@ -4443,3 +4443,15 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1021 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for the branch `claude/adoring-dijkstra-contact-rest` to be merged into the testing branch; it carries `dec_contact_push` accepted, Keep pose for a pivot and a pose found by contact, the depth rule, the hard bodies reading the kernel's mesh, the time budget and the settable rest)
+
+## in_1022 — 2026-11-19 — question
+> I am having a sketching bug I think. I cannot trim these lines going past tangent on the circle? if I try to trim it trims past the tangent point where it overlaps on the circle?
+(a trim of two lines tangent to a circle; files `cannot_trim_tangent_extra.json` and `tangent_extra.json` attached; see in_1023)
+
+## in_1023 — 2026-11-19 — directive
+> sorry that was not a bug, it was a body circle not an actual sketch artifact. Okay but I think this might be a bug, I drew an actual circle, and made it tangent, but now it seems the tangent constraints are prefenting me from dragging the circle center down? why? shouldn't it just slide tangent to the lines? or am I missing another constraint?
+(the trim report was a body edge, not a sketch curve: nothing to fix; the new report is a drawn circle tangent to two lines whose centre cannot be dragged; file `model.cad_59.json`)
+
+## in_1024 — 2026-11-19 — directive
+> hang on, I found a seperate and maybe related problem. The circle is not on the same plane at all as the reset of the sketch. When I select a sketch as a closed surface and click circle to sketch more, it creates a world plane in the plane of the closed sketch as it should, I would expect this would mean I sketching on that plane, but I am not, instead it sketches on a different plane.
+(a circle drawn after selecting a closed surface ended on `w/XY`, not on the surface's plane `d/p_008`; screenshot attached; not reproduced, see handoff 915)

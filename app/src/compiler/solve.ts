@@ -14,6 +14,7 @@ import { consumed } from "../operation/ownership.ts";
 import { solve } from "./solver/solver.mjs";
 import type { SolverConstraint } from "./solver/solver.mjs";
 
+const SOFT_PIN = 0.9; // (how firmly a dragged point that may not go exactly where the pointer is stays near it)
 const REFERENCE_WEIGHT = 0.2; // how firmly the second part of a relation stays where it is (soft: hard relations win)
 
 export interface PlaneReport {
@@ -248,7 +249,8 @@ function solvePlane(get: Lookup, plane: Plane, rels: Relation[], used: ReadonlyS
   for (const rel of rels) {
     if (rel.locked === false) continue; // an unlocked number is a measurement only (`dec_relations_standard`: measure, then lock)
     const c = constraintFor(m, rel);
-    if (c) m.cons.push({ id: rel.id, ...c } as SolverConstraint);
+    // a point dragged where the constraints do not let it go (a circle's centre between two tangent lines) goes to the nearest place they do: its pin is firm, not absolute (`drag_soft`, `settledWith`)
+    if (c) m.cons.push({ id: rel.id, ...c, ...(rel.id.startsWith("drag_soft") && c.type === "fixed" ? { w: SOFT_PIN } : {}) } as SolverConstraint);
     // a constraint between what built the body and something else (a free drawing, the world, the body) is a constraint of the whole body to that thing: the body's sketch is held where it is, so a move of the body
     // that would break it is refused and the constraint flashes, instead of the sketch being pulled back out of the body (`in_205`)
     if (rel.parts.some((q) => used.has(q)) && rel.parts.some((q) => !used.has(q))) {
