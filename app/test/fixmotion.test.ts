@@ -199,31 +199,33 @@ test("the walk begins from the start (`in_1169`): the model is put back where it
   assert.equal(b.speedK, 0.5);
 });
 
-test("two bodies on joints that give way to each other are drawn smoothly (`in_1202`): the worked-out places jump a couple of degrees in one step and take turns, and what is drawn ramps up to the jump at a steady rate, a little for each of them every step", async () => {
+test("two bodies on joints rubbing past each other (`in_1204`): the one that can clear by the smaller movement gives way, so there is no jump when a corner catches, the two turn together (their angles keep close: the surfaces slide, edges about parallel) and what is drawn is steady", async () => {
   const { contactOptions } = await import("../src/interaction/contact.ts");
   let s = (openSession(kernel, readFileSync(new URL("./fixtures/lever-pin-held.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
   s = run(s, { type: "setHard", body: "x_s_083", on: true });
   const sc = scene(s);
-  const play = (smooth: boolean): number[][] => {
+  const play = (smooth: boolean): { worked: number[][]; drawn: number[][] } => {
     contactOptions.smooth = smooth;
     const r = startMotion(sc, "b/x_s_002/o" as never, "turn", s.outcome);
     if (!r.ok) throw new Error(r.why);
     let m = r.motion;
-    const rows: number[][] = [];
+    const [worked, drawn]: number[][][] = [[], []];
     for (let a = 1; a <= 190; a++) {
       m = solveContact(sc, { ...m, playing: true, amount: a }, s.outcome, Infinity);
       assert.equal(m.contact?.jam, null, m.contact?.jam ?? "");
+      worked.push(m.contact!.pushables.map((p) => p.value));
       const v = (b: string) => m.yields!.find((f) => f.body === (b as never))?.value ?? 0;
-      rows.push([v("b/x_s_083/o"), v("b/x_s_084/o")]);
+      drawn.push([v("b/x_s_083/o"), v("b/x_s_084/o")]);
     }
-    return rows;
+    return { worked, drawn };
   };
   try {
     play(false); // (works the places out, which the smoothed play then goes over, as the app's thread leaves them ahead)
     const [rough, smooth] = [play(false), play(true)];
     const worst = (rows: number[][], k: number): number => rows.slice(21, 185).reduce((w, r, i) => Math.max(w, Math.abs(r[k]! - rows[20 + i]![k]!)), 0);
-    assert.ok(worst(rough, 0) > 1.5, `the worked-out far arm jumps: ${worst(rough, 0)}`);
-    assert.ok(worst(smooth, 0) < 0.8, `and is drawn steadily: ${worst(smooth, 0)} a step at the most`);
-    assert.ok(worst(smooth, 1) < 0.5, `the lever too: ${worst(smooth, 1)}`);
+    assert.ok(worst(rough.worked, 0) < 0.6 && worst(rough.worked, 1) < 0.6, `no jump in the worked-out places: ${worst(rough.worked, 0)}, ${worst(rough.worked, 1)}`);
+    assert.ok(worst(smooth.drawn, 0) < 0.6 && worst(smooth.drawn, 1) < 0.6, `drawn steadily: ${worst(smooth.drawn, 0)}, ${worst(smooth.drawn, 1)}`);
+    const apart = rough.worked.slice(40, 185).reduce((w, r) => Math.max(w, Math.abs(r[0]! - r[1]!)), 0);
+    assert.ok(apart < 2, `the two turn together, within ${apart} degrees of each other`);
   } finally { contactOptions.smooth = true; }
 });
