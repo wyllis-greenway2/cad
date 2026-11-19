@@ -5188,3 +5188,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1216 — 2026-11-19 — preference
 > When a round object is selected, what should the hub and spoke tool do with it? = "Fill it (Recommended)". Which spoke styles should the first version have? = "I don't really know, why dont we research spoke designs? I was thinking originally of designs that would cast well,"
 (chose Fill for a selected round object; wants spoke designs researched, with casting-friendly designs in mind, before choosing the styles)
+
+## in_1217 — 2026-11-19 — directive
+> okay its still really pretty thin, arent there any real engineering diagrams online we could get? humans have been making engines for over a hundred years
+(says the supplied piston sources are still thin and asks for real engineering diagrams of engines; the question before it, asking me to link documents he could get, was not steering and is not recorded)
