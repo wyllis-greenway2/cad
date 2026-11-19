@@ -25,7 +25,8 @@ test("the overall size grows every length that was not typed, and only those: th
     const usual = modelExtent(kind, modelStart(kind));
     for (const f of [0.5, 2]) {
       const n = modelNumbers(kind, {}, usual * f);
-      assert.ok(Math.abs(modelExtent(kind, n) - usual * f) < 0.02 * usual * f, `${kind}: the size ${usual * f} is ${modelExtent(kind, n)}`);
+      const got = modelExtent(kind, n); // (a size too small for the rooms the printer needs is taken up to the nearest that can be made: never under)
+      assert.ok(got >= usual * f * 0.98 && (got < usual * f * 1.02 || modelProblem(kind, modelNumbers(kind, {}, usual * f * 0.9)) === null || f < 1), `${kind}: the size ${usual * f} is ${got}`);
       for (const fl of modelFields(kind)) if (!fl.scaled) assert.equal(n[fl.key], modelStart(kind)[fl.key], `${kind}: ${fl.key} is not a length of the thing and stays`);
     }
     assert.deepEqual(modelNumbers(kind, {}, undefined), modelStart(kind));
@@ -224,4 +225,32 @@ test("the Play item of the ring starts the model from whichever of its bodies is
     const driverBody = anyBodyOf(sc, rec.parts[rec.driver.part]!);
     assert.equal(played.motion.body, driverBody, `${kind}: the driver is ${rec.driver.part}`);
   }
+});
+
+// ---- what the human found (`in_1130`): a first click that went to size 0 with an error, and a module that did not carry the rest ----
+test("a length typed sets the scale of the lengths not typed: a module of 1 where 1.5 is usual shrinks the rod, the plate and the rest by the same third", () => {
+  const n = modelNumbers("gearbox", { module: 1 }, undefined), usual = modelStart("gearbox");
+  assert.equal(n.module, 1);
+  assert.ok(Math.abs(n.rod! - usual.rod! * (1 / 1.5)) < 0.01 && Math.abs(n.plate! - usual.plate! / 1.5) < 0.01 && Math.abs(n.width! - usual.width! / 1.5) < 0.01);
+  assert.equal(n.fit, usual.fit, "the rooms for the printer stay");
+  assert.equal(modelProblem("gearbox", n), null);
+  const d = modelNumbers("differential", { module: 1 }, undefined);
+  assert.ok(Math.abs(d.axle! - 2.5) < 0.01 && Math.abs(d.pin! - 2) < 0.01, `${d.axle} ${d.pin}`);
+  assert.equal(modelProblem("differential", d), null, "the differential at module 1 is a differential");
+});
+test("whatever size the pointer asks for, from the first moment on, the numbers make a model (a tiny size is taken up to the nearest that can be made)", () => {
+  for (const kind of MODEL_KINDS) {
+    const usual = modelExtent(kind, modelStart(kind));
+    for (const f of [0.01, 0.1, 0.25, 0.5, 3, 20]) {
+      const n = modelNumbers(kind, {}, usual * f);
+      assert.equal(modelProblem(kind, n), null, `${kind} at ${f} of its usual size: ${modelProblem(kind, n)}`);
+      assert.ok(modelExtent(kind, n) > 0);
+    }
+  }
+  // the tool: the pointer a hair from the click (the first moment) gives a model, not a refusal, for the differential the human saw
+  const sc = scene(createSession(kernel));
+  const t: Tool = { ...armed("differential"), plane: XY, points: [[0, 0, 0]], cursor: [0.5, 0.2, 0] };
+  const g = modelTarget(sc, t)!;
+  assert.equal(g.problem, null);
+  assert.ok(g.size > 0);
 });

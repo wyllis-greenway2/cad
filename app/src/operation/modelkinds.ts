@@ -118,8 +118,9 @@ export const modelStart = (k: ModelKind): Nums => ({ ...DEFS[k].start });
 const tidy = (key: string, v: number): number => (key === "module" || key === "driveModule" ? Math.round(v * 20) / 20 : Math.round(v * 100) / 100);
 
 /**
- * The numbers a model has: the usual ones, with each number that was typed in place of the usual; and, given an overall size (mm across the longest way), every length that was not typed grown or shrunk by the one factor that makes the model that big
- * (the rooms and the counts stay as they are; the numbers that were typed are not moved). Found by halving: the size grows with the factor.
+ * The numbers a model has: the usual ones, with each number that was typed in place of the usual. A length that is typed also says how big the model is, so the lengths not typed follow it by the same factor (a module of 1 where 1.5 is usual: every
+ * length two thirds of what it was); and, given an overall size (mm across the longest way), every length that was not typed is grown or shrunk by the one factor that makes the model that big (the rooms and the counts stay as they are; the numbers
+ * typed are not moved). Found by halving: the size grows with the factor. A factor at which the model cannot be made (a size the numbers cannot reach, or a scale too small for the teeth) is not chosen: the nearest that can be made is.
  */
 export function modelNumbers(kind: ModelKind, typed: Nums, size?: number): Nums {
   const d = DEFS[kind];
@@ -128,8 +129,14 @@ export function modelNumbers(kind: ModelKind, typed: Nums, size?: number): Nums 
     for (const fl of d.fields) if (fl.scaled) n[fl.key] = tidy(fl.key, d.start[fl.key]! * f);
     return { ...n, ...typed };
   };
-  if (size === undefined || !(size > 0) || !d.fields.some((fl) => fl.scaled && typed[fl.key] === undefined)) return at(1);
+  const free = d.fields.some((fl) => fl.scaled && typed[fl.key] === undefined);
+  if (size === undefined || !(size > 0) || !free) {
+    const lead = d.fields.find((fl) => fl.scaled && typed[fl.key] !== undefined && d.start[fl.key]! > 0);
+    return lead ? at(typed[lead.key]! / d.start[lead.key]!) : at(1);
+  }
+  const reach = (f: number): number => d.extent(at(f)); // (0 where the model cannot be made)
   let [lo, hi] = [0.02, 200];
-  for (let i = 0; i < 60; i++) { const mid = Math.sqrt(lo * hi); if (d.extent(at(mid)) < size) lo = mid; else hi = mid; }
-  return at(Math.sqrt(lo * hi));
+  for (let i = 0; i < 60; i++) { const mid = Math.sqrt(lo * hi); if (reach(mid) < size) lo = mid; else hi = mid; }
+  for (const f of [Math.sqrt(lo * hi), hi, lo * 1.5, 1]) if (reach(f) > 0 && !d.problem(at(f))) return at(f);
+  return at(1);
 }

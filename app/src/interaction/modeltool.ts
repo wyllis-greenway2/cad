@@ -7,7 +7,7 @@ import { normalOfPlane, localOf } from "../operation/part.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
-import { modelFields, modelNumbers, modelCentre, modelExtent, modelProblem, modelOutline, modelBuild, modelTitle, modelAbout } from "../operation/modelkinds.ts";
+import { modelFields, modelNumbers, modelStart, modelCentre, modelExtent, modelProblem, modelOutline, modelBuild, modelTitle, modelAbout } from "../operation/modelkinds.ts";
 import type { ModelKind, Nums } from "../operation/modelkinds.ts";
 import { asCommand } from "../operation/modelparts.ts";
 import type { Place, ModelBuild } from "../operation/modelparts.ts";
@@ -23,8 +23,8 @@ export const armedModel = (kind: ModelKind): ModelState => ({ kind, typed: model
 export const modelTyped = (m: ModelState, field: number, text: string): ModelState => ({ ...m, field, typed: m.typed.map((x, i) => (i === field ? text : x)) });
 
 const numOf = (s: string | undefined): number | undefined => { if (s === undefined || s === "" || s === "-" || s === "0.") return undefined; const n = Number(s); return Number.isFinite(n) ? n : undefined; };
-/** the usual size of a model's box before the pointer has moved (mm, the way across): nothing, so the usual numbers are the numbers */
-const MIN_SIZE = 6;
+/** the least size the pointer sets, as a share of the usual size of the model (a model much smaller than that is a point on the screen, and its teeth and rooms do not fit) */
+const MIN_SHARE = 0.25;
 
 export interface ModelTarget { kind: ModelKind; nums: Nums; size: number; turn: number; place: Place; problem: string | null; middle: Vec3 }
 /** The model the tool would make: its numbers, where it stands and why not, if it cannot be made. Null before the first click. */
@@ -36,7 +36,7 @@ export function modelTarget(scene: Scene, t: Tool): ModelTarget | null {
   fields.forEach((f, i) => { const v = numOf(m.typed[i + 2]); if (v !== undefined) typed[f.key] = v; });
   const [mx, my] = localOf(pl, middle), cursor = t.cursor ? localOf(pl, t.cursor) : null;
   const reach = cursor ? 2 * Math.hypot(cursor[0] - mx, cursor[1] - my) : 0; // (the pointer's distance from the middle, both ways)
-  const size = numOf(m.typed[0]) ?? (reach > 1e-6 ? Math.max(MIN_SIZE, reach) : undefined);
+  const size = numOf(m.typed[0]) ?? (reach > 1e-6 ? Math.max(MIN_SHARE * modelExtent(m.kind, modelStart(m.kind)), reach) : undefined);
   const nums = modelNumbers(m.kind, typed, size);
   const turn = ((numOf(m.typed[1]) ?? 0) * Math.PI) / 180;
   const [u, v, n] = [pl.u, pl.v, normalOfPlane(pl)];

@@ -4890,3 +4890,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1134 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the fix-walk changes (the refused mate named, the file checked) to be merged into the testing branch, no full test run)
+
+## in_1135 — 2026-11-19 — directive
+> It immediately flashes to a size of 0 and errors on first click. Also it seems like you can set module of 1 which seems reasonable but it doesn't sync other needed values?
+(attached two screenshots of the Differential model being placed: one with a module of 1 typed, the preview red with "the axle is too wide for the side gears" and a size of 312.9; one just after the first click with a size of 0 and "the heel cone is too flat for this module and teeth")
