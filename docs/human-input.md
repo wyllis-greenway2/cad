@@ -5099,3 +5099,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1192 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the tap-and-drag speed clock and the shaded red jam to be merged into the testing branch, no full test run)
+
+## in_1193 — 2026-11-19 — directive
+> lets have the collision message just say collision occurred, and clicking it takes you to the collision. Also if you get close to a red model it appears the camera or something else cuts away some red?
+(a screenshot of a jam: two bodies shaded red close up, the lever's red covering only part of it, with a long "stopped: ... cannot turn clear of it" message; asks the message to say only that a collision occurred and a click to go to it, and why red is cut away close up)

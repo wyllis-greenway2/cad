@@ -3,7 +3,7 @@
 import { PILL } from "./look.ts";
 import type { Frame } from "../interaction/frame.ts";
 
-export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt"; amount: number } | { type: "motionPlay" } | { type: "motionKind"; kind: "turn" | "slide" } | { type: "motionKeep" } | { type: "motionFix"; act: "open" | "apply" | "skip" | "close" } | { type: "motionReverse" } | { type: "motionSpeed"; k: number } | { type: "motionRest"; ref: string; rest: number | null } | { type: "motionLink"; id: string; ratio?: number; kind?: "turn" | "slide"; remove?: true } | { type: "motionClose" }) => void) {
+export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt"; amount: number } | { type: "motionPlay" } | { type: "motionKind"; kind: "turn" | "slide" } | { type: "motionKeep" } | { type: "motionFix"; act: "open" | "apply" | "skip" | "close" } | { type: "motionReverse" } | { type: "motionSpeed"; k: number } | { type: "motionShowClash" } | { type: "motionRest"; ref: string; rest: number | null } | { type: "motionLink"; id: string; ratio?: number; kind?: "turn" | "slide"; remove?: true } | { type: "motionClose" }) => void) {
   const bar = document.createElement("div");
   bar.style.cssText = PILL + ";bottom:60px;left:50%;transform:translateX(-50%);pointer-events:auto;gap:10px;display:none";
   bar.setAttribute("data-motion-bar", "");
@@ -62,6 +62,7 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
     showPct();
   });
   clock.addEventListener("pointercancel", () => { drag = null; });
+  note.addEventListener("pointerup", (e) => { e.stopPropagation(); send({ type: "motionShowClash" }); });
   bar.append(note, card, play, rev, clock, pct, slider, links, keep, fixB, close);
   host.appendChild(bar);
   play.addEventListener("pointerup", (e) => { e.stopPropagation(); send({ type: "motionPlay" }); });
@@ -84,8 +85,10 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
       // the note fades in once it has been there a moment (a heavy push comes and goes from one frame to the next) and fades out a good while after it was last said, so it can be read; a jam is shown at once
       const clock = performance.now();
       if (v.note) { if (!noteSince) noteSince = clock; noteLast = v.note; noteSeen = clock; } else noteSince = 0;
-      const show = !!noteLast && (((!!v.note && (v.note.startsWith("stopped") || clock - noteSince >= 600))) || clock - noteSeen < 3000 && noteOn);
+      const show = !!noteLast && (((!!v.note && (v.note.startsWith("Collision") || clock - noteSince >= 600))) || clock - noteSeen < 3000 && noteOn);
       noteOn = show;
+      const clash = !!v.noteDetail; // (a collision stopped it: the note is a button that goes to it)
+      note.style.pointerEvents = clash ? "auto" : "none"; note.style.cursor = clash ? "pointer" : "default"; note.title = v.noteDetail ?? "";
       if (noteLast) note.textContent = noteLast;
       note.style.opacity = show ? "1" : "0";
       if (!show && noteLast && clock - noteSeen > 3500) noteLast = "";

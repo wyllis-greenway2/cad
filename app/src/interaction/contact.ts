@@ -37,6 +37,8 @@ export interface ContactState {
   note: string | null;
   /** where the bodies of a jam are in each other, in space, to show it: the triangles (nine numbers each) of the two that cross; null when there is no jam */
   clash?: number[] | null;
+  /** where the jam is: the middle and the size of a view of the place (`in_1191`) */
+  clashAt?: { centre: Vec3; radius: number } | null;
   /** the state is one on the path of a play from the start (every body where it is drawn at the start, and since then only forward): the places worked out along it are kept and used */
   path?: boolean;
   /** a pin in a hole found among what moves and what is pushed (`pinhole.ts`): the suggestion to mate them, said when the body has been moved far or the motion has stopped */
@@ -234,7 +236,8 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
   const vals = c.pushables.map((p) => p.value), ways = c.pushables.map((p) => p.way), kinds = c.pushables.map((p) => p.kind), pushes = c.pushables.map((p) => p.push ?? 0);
   const step = stepFor(scene, outcome, movers, m);
   const from = c.at, n = Math.min(MAX_STEPS, Math.max(1, Math.ceil(Math.abs(m.amount - from) / step)));
-  let good = from, jam: string | null = null, note: string | null = null, slow = false, clash: number[] | null = null;
+  let good = from, jam: string | null = null, note: string | null = null, slow = false, clash: number[] | null = null, clashAt: { centre: Vec3; radius: number } | null = null;
+  let clashPair = null as { w: number; hit: Ref } | null;
   let solid: ReadonlySet<Ref> = new Set();
   const first = 1 + m.follows.length;
   // what a step changes can be put back: the bodies' places, as they stood before it (a step that jams, or that moves a body with no joint further than the driver's own move asks, is made again in halves)
@@ -273,7 +276,8 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
           const joint = pi >= 0 && !work[pi]!.free ? ` (${nameOf(scene, work[pi]!.body)} ${work[pi]!.kind === "slide" ? "slides" : "turns"} on its joint but cannot ${work[pi]!.kind === "slide" ? "slide" : "turn"} clear of it)` : "";
           const flat = pi >= 0 && work[pi]!.free ? " (a body with no joint moves only in the flat of the mechanism, across the turning axis: it slides and turns there)" : "";
           jam = stuck ? `${nameOf(scene, movers[w]!.body)} pushes ${nameOf(scene, work[pi]!.body)} against ${nameOf(scene, stuck)}${flat}` : `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)}${joint}${flat}`;
-          clash = clashOf(scene, outcome, movers, a, vals, stuck ? aside : w, stuck ?? hit);
+          clashPair = { w: stuck ? aside : w, hit: stuck ?? hit };
+          clashAt = clashOf(scene, outcome, movers, a, vals, clashPair.w, clashPair.hit).at;
           break;
         }
         next.add(aside); // (it moved: it is tested again)
@@ -283,7 +287,7 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
       dirty = next;
     }
     if (!settled && !jam) { // the passes ran out with bodies still moving: say so, rather than leave bodies in each other without a word
-      for (let w = 0; w < movers.length && !jam; w++) { const hit = firstHit(scene, outcome, movers, a, vals, w, mated, ignore, solid, statics, clearance); if (hit) { jam = `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)} (the chain is too long to settle)`; clash = clashOf(scene, outcome, movers, a, vals, w, hit); } }
+      for (let w = 0; w < movers.length && !jam; w++) { const hit = firstHit(scene, outcome, movers, a, vals, w, mated, ignore, solid, statics, clearance); if (hit) { jam = `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)} (the chain is too long to settle)`; clashPair = { w, hit }; clashAt = clashOf(scene, outcome, movers, a, vals, w, hit).at; } }
     }
     // a body with no joint goes back toward where it is drawn as far as it is clear to, a millimetre a step (it was only pushed while something was in its way)
     for (let pi = 0; pi < work.length && !jam; pi++) {
@@ -402,7 +406,8 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
   const pushables = c.pushables.map((p, i) => ({ ...p, value: vals[i]!, way: ways[i]!, push: pushes[i]!, ...(work[i]!.free ? { free: work[i]!.free, spin: work[i]!.spin ?? 0 } : {}), ...(work[i]!.dirSlide !== undefined ? { dirSlide: work[i]!.dirSlide } : {}), ...(work[i]!.dirTurn ? { dirTurn: work[i]!.dirTurn } : {}), turning: !!work[i]!.turning, since: work[i]!.since ?? 0, still: work[i]!.still ?? 0, ...(work[i]!.blockedBy ? { blockedBy: work[i]!.blockedBy } : {}) }));
   const across = movers.find((q) => q.turns)?.axis ?? [0, 0, 1];
   const follows = shownYields() ?? yieldsOf(pushables, across);
-  return { ...m, amount: jam || slow ? good : m.amount, playing: jam ? false : m.playing, from: jam || slow ? good : m.from, startedAt: jam || slow ? null : m.startedAt, contact: { ...c, pushables, at: good, jam, note, clash: jam ? clash : null, target: slow ? m.amount : null, path: onPath }, yields: follows };
+  if (jam && clashPair) clash = clashOf(scene, outcome, movers, good, vals, clashPair.w, clashPair.hit).tris; // (the two bodies drawn red are where the bodies are drawn: the last clear place, not the step that met)
+  return { ...m, amount: jam || slow ? good : m.amount, playing: jam ? false : m.playing, from: jam || slow ? good : m.from, startedAt: jam || slow ? null : m.startedAt, contact: { ...c, pushables, at: good, jam, note, clash: jam ? clash : null, clashAt: jam ? clashAt : null, target: slow ? m.amount : null, path: onPath }, yields: follows };
 }
 
 /** Move pushable `pi` (mover `w`) by the smallest amount that leaves it clear of everything, trying the way it last went first: doubling the distance until clear, then halving to the nearest. False when there is none. */
@@ -568,14 +573,19 @@ function stepFor(scene: Scene, outcome: CompileOutcome | undefined, movers: Move
   return rate > 0 ? Math.min(base, Math.max(base / 4, MOVE_MM / rate)) : base;
 }
 
-/** The two bodies of a jam, whole, at the pose where they met (the triangles of each, in space), to show them shaded red (`in_1191`). */
-function clashOf(scene: Scene, outcome: CompileOutcome | undefined, movers: Mover[], a: number, vals: number[], w: number, hit: Ref): number[] {
+/** The two bodies of a jam, whole, at a pose (the triangles of each, in space), to show them shaded red (`in_1191`), and where they meet: the middle and the size of a view that shows the place (the box where their boxes overlap, or lie closest). */
+function clashOf(scene: Scene, outcome: CompileOutcome | undefined, movers: Mover[], a: number, vals: number[], w: number, hit: Ref): { tris: number[]; at: { centre: Vec3; radius: number } } {
   const me = movers[w]!;
   const [rMe, rOther] = [me.pose(a, vals), movers.find((q) => q.body === hit)?.pose(a, vals) ?? IDENT];
   const [m1, o1] = [bodyMesh(scene, outcome, me.body), bodyMesh(scene, outcome, hit)];
-  if (!m1 || !o1) return [];
+  if (!m1 || !o1) return { tris: [], at: { centre: [0, 0, 0], radius: 20 } };
   const pose = (tris: ArrayLike<number>, r: Rigid): number[] => { const out: number[] = new Array(tris.length); for (let i = 0; i + 2 < tris.length; i += 3) { const q = applyPoint(r, [tris[i]!, tris[i + 1]!, tris[i + 2]!]); out[i] = q[0]; out[i + 1] = q[1]; out[i + 2] = q[2]; } return out; };
-  return [...pose(m1.tris, rMe), ...pose(o1.tris, rOther)];
+  const [t1, t2] = [pose(m1.tris, rMe), pose(o1.tris, rOther)];
+  const box = (t: number[]): [number[], number[]] => { const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity]; for (let i = 0; i + 2 < t.length; i += 3) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k]!, t[i + k]!); hi[k] = Math.max(hi[k]!, t[i + k]!); } return [lo, hi]; };
+  const [b1, b2] = [box(t1), box(t2)];
+  const lo = [0, 1, 2].map((k) => Math.max(b1[0][k]!, b2[0][k]!)), hi = [0, 1, 2].map((k) => Math.min(b1[1][k]!, b2[1][k]!));
+  const mid = [0, 1, 2].map((k) => (lo[k]! + hi[k]!) / 2) as unknown as Vec3; // (where the boxes overlap; when they only come close the numbers cross over, and the middle is still between them)
+  return { tris: [...t1, ...t2], at: { centre: mid, radius: Math.max(8, Math.hypot(...[0, 1, 2].map((k) => Math.abs(hi[k]! - lo[k]!))) * 1.2) } };
 }
 
 /** The follower of each body that yields: where it stands now, as the drawing of it needs. */
@@ -604,7 +614,7 @@ function yieldsOf(pushables: Pushable[], across: Vec3 = [0, 0, 1]): Follower[] {
 /** The motion started again from the beginning (pressing play after a jam): the driver at nothing, every body that yielded back where it is drawn, no jam. */
 export function restartContact(c: ContactState, across: Vec3 = [0, 0, 1]): { contact: ContactState; yields: Follower[] } {
   const pushables = c.pushables.map((p): Pushable => { const { push: _p, dirSlide: _s, dirTurn: _t, turning: _u, since: _n, still: _z, blockedBy: _b, ...rest } = p; return { ...rest, value: 0, way: p.way, ...(p.free ? { free: [0, 0, 0] as [number, number, number], spin: 0 } : {}) }; });
-  return { contact: { ...c, pushables, at: 0, jam: null, note: null, clash: null, target: null, path: true }, yields: yieldsOf(pushables, across) };
+  return { contact: { ...c, pushables, at: 0, jam: null, note: null, clash: null, clashAt: null, target: null, path: true }, yields: yieldsOf(pushables, across) };
 }
 
 /**

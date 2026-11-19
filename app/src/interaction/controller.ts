@@ -7,6 +7,7 @@ import { figureRefs } from "../operation/scene.ts";
 import { isLive } from "./operations.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { AppState, Env } from "./control/state.ts";
+import { animateTo } from "./control/state.ts";
 import { doHover, doClick, doMenu, doHold, doTapAim, doMovePoint, settleAwaiting } from "./control/pointer.ts";
 import { doCut } from "./control/select.ts";
 import { doPan, doWalk, doSwivel, doZoom, doLook, doHome, doResetView } from "./control/viewing.ts";
@@ -25,7 +26,7 @@ import { loftChoice } from "./loft.ts";
 import { orientApply, storePose } from "./control/pose.ts";
 import { settings } from "../shared/settings.ts";
 import type { Command } from "../operation/commands.ts";
-import { projector } from "./camera.ts";
+import { projector, frame } from "./camera.ts";
 import { noteSeen } from "./lastseen.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { offsetNear } from "./offset.ts";
@@ -195,6 +196,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "motionAt": return s.motion ? { ...s, motion: solveContact(sceneOf(s.session), { ...s.motion, playing: false, startedAt: null, amount: Math.min(s.motion.hi, Math.max(s.motion.lo, Number.isFinite(i.amount) ? i.amount : 0)) }, s.session.outcome) } : s; // (the scrubber: a hand on it stops the play)
     case "motionPlay": return s.motion ? { ...s, motion: setPlaying(s.motion, !s.motion.playing) } : s;
     case "motionReverse": return s.motion ? { ...s, motion: reverseMotion(s.motion) } : s;
+    case "motionShowClash": { const at = s.motion?.contact?.clashAt; return at ? animateTo(s, frame(s.cam, at.centre, at.radius), env.now) : s; }
     case "motionSpeed": return s.motion ? { ...s, motion: setSpeed(s.motion, i.k) } : s;
     case "motionKind": return doMotionKind(s, i.kind);
     case "motionLink": return doMotionLink(s, i);
