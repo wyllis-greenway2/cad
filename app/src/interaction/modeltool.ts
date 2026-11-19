@@ -105,9 +105,13 @@ export function partIds(c: Command): { step?: string; gear?: string } {
   if (c.type === "batch") for (const x of c.commands) { const r = partIds(x); if (r.step || r.gear) return r; }
   return {};
 }
-/** The record that lets the finished model be played: how it moves, and the body each of its parts is */
-export function playRecord(b: Building): ModelPlay | null {
+/** The commands that finish a model that is made: the record that lets it be played (how it moves and which body is which part) and the glue between the parts that are fixed to one another */
+export function finishCommand(scene: Scene, b: Building): Command | null {
   const first = b.ids[b.build.parts[0]?.label ?? ""];
   const key = first?.step ?? first?.gear;
-  return key ? { id: `m_${key}`, title: b.title, ...b.play, parts: b.ids } : null;
+  if (!key) return null;
+  const record: ModelPlay = { id: `m_${key}`, title: b.title, driver: b.play.driver, followers: b.play.followers, note: b.play.note, parts: b.ids };
+  const bodyId = (part: string): string | null => { const p = b.ids[part]; if (!p) return null; if (p.step) return `x_${p.step}`; const st = scene.steps.find((x) => x.params.gear === p.gear && (x.params.mode === undefined || x.params.mode === "new")); return st ? `x_${st.id}` : null; }; // (a gear's body is named by the step that began it)
+  const glue = b.play.glue.map((g) => g.map(bodyId).filter((x): x is string => !!x)).filter((g) => g.length >= 2).map((bodies): Command => ({ type: "glue", bodies }));
+  return { type: "batch", commands: [{ type: "modelPlay", record }, ...glue] };
 }

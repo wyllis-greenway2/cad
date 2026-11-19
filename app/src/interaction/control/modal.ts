@@ -10,12 +10,12 @@ import { CONSTRAINT_ENTRIES, resolveEntry } from "../constraintlist.ts";
 import type { ToolKind, Tool } from "../tools.ts";
 import { gearFields, armTool, armModel, typeKey, finish, lineNext, gearTyped, editGearTool, editPlanetaryTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf, editCamTool , gearChanged } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
-import { modelTyped, modelCommand, modelBuilding, nextPartCommand, partIds, playRecord } from "../modeltool.ts";
+import { modelTyped, modelCommand, modelBuilding, nextPartCommand, partIds, finishCommand } from "../modeltool.ts";
 import type { ModelKind } from "../../operation/modelkinds.ts";
 /** why the model of a tool is not made (the words of its refusal), or null */
 const modelWhy = (sc: ReturnType<typeof sceneOf>, t: Tool): string | null => { const c = modelCommand(sc, t); return c.ok ? null : c.error; };
 import type { CamKind, CamLaw, CamLayout } from "../../operation/cams.ts";
-import { doMotionPlay, doCamFollow, doLink, doBodyPlay, doMakeTurn, doStopTurning } from "./motion.ts";
+import { doMotionPlay, doCamFollow, doLink, doBodyPlay, doMakeTurn, doGlue, doUnglue, doStopTurning } from "./motion.ts";
 import { gearOfPart, gearOfSelection } from "../../operation/gearscene.ts";
 import { planetaryOfPart } from "../../operation/planetary.ts";
 import type { OpKind } from "../operations.ts";
@@ -141,8 +141,8 @@ function makeNextPart(s: AppState): AppState {
   if (next.message) return { ...s, building: null, session: next };
   const last = b.next + 1 >= b.build.parts.length;
   const grown: typeof b = { ...b, next: b.next + 1, ids: { ...b.ids, [b.build.parts[b.next]!.label]: partIds(c.value) } };
-  const rec = last ? playRecord(grown) : null; // (the whole model is made: how it moves is kept, so that Play can move it)
-  const kept = rec ? run(next, { type: "modelPlay", record: rec }) : next;
+  const fin = last ? finishCommand(sceneOf(next), grown) : null; // (the whole model is made: how it moves is kept, and the parts that are fixed to one another are glued, so that Play can move it)
+  const kept = fin ? run(next, fin) : next;
   return { ...s, session: { ...(kept.message ? next : kept), click: { ...next.click, selection: [] } }, building: last ? null : grown };
 }
 /** The kernel has answered: the next part of the model being made */
@@ -503,6 +503,8 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
   }
   if (id === "motion:pivot") return doMakeTurn(closed); // (any body made to turn about an axis of its own, `in_912`)
   if (id === "motion:unpivot") return doStopTurning(closed);
+  if (id === "motion:glue") return doGlue(closed);
+  if (id === "motion:unglue") return doUnglue(closed);
   if (id === "motion:link") return doLink(closed); // (a ratio between two joints, `in_838`)
   if (id === "cam:follow") return doCamFollow(closed); // (the rod that rides the cam, `dec_mechanism_motion` stage 3)
   if (id === "motion:play") return doMotionPlay(closed); // (the joint of the selected body played, `dec_mechanism_motion`)

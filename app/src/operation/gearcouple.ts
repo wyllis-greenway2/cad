@@ -355,5 +355,10 @@ export function animatedBodies(s: Scene): Map<Ref, Ref> {
   for (const pv of s.pivots ?? []) { const b = Object.values(s.parts).find((p) => p.kind === "body" && p.id === pv.body); if (b) out.set(b.ref, b.ref); } // (a body made to turn)
   for (const q of s.planetaries ?? []) { const c = q.carrierStep ? bodyOfStep(s, q.carrierStep) : null; if (c) out.set(c, c); }
   for (const m of s.models ?? []) { const d = modelBody(s, m, m.driver.part); if (d) for (const p of Object.keys(m.parts)) { const b = modelBody(s, m, p); if (b) out.set(b, d); } } // (a model: playing any part of it plays it from its driver)
+  for (const grp of s.glue ?? []) { // (bodies glued to one that moves are played with it)
+    const refs = grp.bodies.map((id) => Object.values(s.parts).find((p) => p.kind === "body" && p.id === id)?.ref).filter((r): r is Ref => !!r);
+    const lead = refs.find((r) => out.has(r));
+    if (lead) for (const r of refs) if (!out.has(r)) out.set(r, out.get(lead)!);
+  }
   return out;
 }

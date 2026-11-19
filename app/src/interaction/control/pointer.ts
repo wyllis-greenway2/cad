@@ -10,6 +10,7 @@ import { normalOfPlane, segmentOf, circleOf } from "../../operation/part.ts";
 import { lookup, nextId } from "../../operation/scene.ts";
 import { gearOfPart, gearOfSelection } from "../../operation/gearscene.ts";
 import { planetaryOfPart } from "../../operation/planetary.ts";
+import { glueOf } from "../../operation/glue.ts";
 import type { Scene } from "../../operation/scene.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { scene as sceneOf, selection as selectionOf, clickOn, hoverOn, run } from "../session.ts";
@@ -93,6 +94,8 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "motion:link", label: "Link joints", icon: "play" },
   { id: "motion:pivot", label: "Pivot", icon: "play" },
   { id: "motion:unpivot", label: "Stop turning", icon: "play" },
+  { id: "motion:glue", label: "Glue", icon: "glue" }, // (bodies that move as one for motion, `in_1146`)
+  { id: "motion:unglue", label: "Unglue", icon: "glue" },
   { id: "gear:helix", label: "Helix", icon: "helical" },
   { id: "gear:mesh", label: "Mesh gear", icon: "meshgear" },
   { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack" },
@@ -149,7 +152,7 @@ const CATEGORIES: { id: string; label: string; icon: string; items: (string | Gr
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "fabricate", label: "Fabricate", icon: "hammer", items: ["fab:material", "tool:fasteners"] }] },
   { id: "mechanisms", label: "Models", icon: "gear", items: [GEARS, "model:gearbox", "model:bearing", "model:differential", "model:cycloidal", "tool:geneva:model"] }, // (the gears, and the devices made of them, `in_1145`; the gears were in Sketch and the devices in Shape, Fabricate, Models)
-  { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot"] },
+  { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
 ];
@@ -184,6 +187,8 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     if (repeating && !IN_REPEAT.has(r.id)) return [r.id, { ...base, enabled: false, why: "apply or cancel the repeat that is open first" }];
     if (r.id === "motion:play") { const body = sel.find((x) => sc.parts[x]?.kind === "body"); const m = body ? startPlain(sc, body, "turn") : null; return [r.id, { ...base, enabled: !!m?.ok, why: m?.ok ? null : "select a body on a pin or a rod (the first body of a coaxial mate)" }]; }
     if (r.id === "motion:pivot") { const has = sel.some((x) => { const p = sc.parts[x]; return p?.kind === "body" || (p?.kind === "plane" && p.origin === "body" && !!(p.curved || p.round || p.rounded)); }); return [r.id, { ...base, enabled: has, why: has ? null : "select a body (and a round face of it for the axis), or open Rotate on a body and place the pivot first" }]; }
+    if (r.id === "motion:glue") { const n = sel.filter((x) => sc.parts[x]?.kind === "body").length; return [r.id, { ...base, enabled: n >= 2, why: n >= 2 ? null : "select two bodies or more to glue together" }]; }
+    if (r.id === "motion:unglue") { const has = sel.some((x) => { const b = sc.parts[x]; return b?.kind === "body" && !!b.id && !!glueOf(sc, b.id); }); return [r.id, { ...base, enabled: has, why: has ? null : "select a glued body" }]; }
     if (r.id === "motion:unpivot") { const has = sel.some((x) => !!pivotOfBody(sc, x)); return [r.id, { ...base, enabled: has, why: has ? null : "select a body that was made to turn" }]; }
     if (r.id === "motion:link") { const n = sel.filter((x) => sc.parts[x]?.kind === "body").length; return [r.id, { ...base, enabled: n === 2, why: n === 2 ? null : "select two bodies that each turn on a pin or slide on a rod" }]; }
     if (r.id === "cam:follow") { const has = sel.some((x) => sc.parts[x]?.kind === "body" && !!gearOfBody(sc, x)?.spec.cam); return [r.id, { ...base, enabled: has, why: has ? null : "select a cam with its body, then the rod that rides it" }]; }

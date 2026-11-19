@@ -9,6 +9,7 @@ import { mateStatus } from "../operation/mates.ts";
 import { jointRoom, driveCommand, pivotTurnCommand, jointOf as mateJoint } from "./mate.ts";
 import type { Command } from "../operation/commands.ts";
 import { apply } from "../operation/commands.ts";
+import { glueOf, glueGroups } from "../operation/glue.ts";
 import { followersOf, gearAxis, gearOfBody, genevaPlay, carrierPlay, modelPlay } from "../operation/gearcouple.ts";
 import type { Follower } from "../operation/gearcouple.ts";
 import type { ContactState } from "./contact.ts";
@@ -65,6 +66,36 @@ const FREE_TURN = 180, FREE_SLIDE = 30;
 
 /** The motion of the joint that the body is the first of (a true coaxial mate), or the reason there is none. */
 export function startPlain(scene: Scene, body: Ref, kind: JointKind = "turn"): { ok: true; motion: Motion } | { ok: false; why: string } {
+  // a body glued to others (`glue.ts`) is played from whichever of its group can be, and the glued bodies go along with what moves
+  const id = (scene.parts[body] as { id?: string } | undefined)?.id;
+  const group = id ? glueOf(scene, id) : undefined;
+  const refOf = (bid: string): Ref | undefined => Object.values(scene.parts).find((p) => p.kind === "body" && p.id === bid)?.ref;
+  const order = group ? [body, ...group.bodies.map(refOf).filter((r): r is Ref => !!r && r !== body)] : [body];
+  let last: { ok: false; why: string } = { ok: false, why: "nothing to play" };
+  for (const b of order) {
+    const r = startBare(scene, b, kind);
+    if (r.ok) return { ok: true, motion: withGlue(scene, r.motion) };
+    if (b === body) last = r;
+  }
+  return last;
+}
+/** The bodies glued to a body that moves go with it: the same turn or slide, as the body they are glued to makes it */
+function withGlue(scene: Scene, m: Motion): Motion {
+  const groups = glueGroups(scene);
+  if (!groups.length) return m;
+  const idOf = (r: Ref): string | undefined => (scene.parts[r] as { id?: string } | undefined)?.id;
+  const refOf = (bid: string): Ref | undefined => Object.values(scene.parts).find((p) => p.kind === "body" && p.id === bid)?.ref;
+  const have = new Set<Ref>([m.body, ...m.follows.map((f) => f.body)]);
+  const extra: Follower[] = [];
+  const carry = (from: Ref, make: (to: Ref) => Follower): void => {
+    const g = groups.find((x) => x.bodies.includes(idOf(from) ?? ""));
+    for (const bid of g?.bodies ?? []) { const to = refOf(bid); if (to && !have.has(to)) { have.add(to); extra.push(make(to)); } }
+  };
+  carry(m.body, (to) => ({ gear: "glue", body: to, kind: m.kind, point: m.point, dir: m.dir, k: 1 }));
+  for (const f of m.follows) carry(f.body, (to) => ({ ...f, body: to }));
+  return extra.length ? { ...m, follows: [...m.follows, ...extra] } : m;
+}
+function startBare(scene: Scene, body: Ref, kind: JointKind): { ok: true; motion: Motion } | { ok: false; why: string } {
   const m = mateStatus(scene).find((x) => x.state === "ok" && x.mode === "coaxial" && x.mover?.body === body);
   const mp = m?.mover ? null : modelPlay(scene, body);
   if (mp) return { ok: true, motion: { mate: "", gear: "", follows: mp.followers, kind: "turn", body: mp.driver.body, point: mp.driver.point, dir: mp.driver.dir, amount: 0, lo: -FREE_TURN, hi: FREE_TURN, free: true, playing: false, from: 0, startedAt: null, speed: 30, noKeep: "a model is played as one picture: its pose is not kept", note: mp.note } }; // (a gear assembly model, `dec_gear_models`)

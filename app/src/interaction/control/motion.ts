@@ -1,4 +1,5 @@
 // A joint played and scrubbed (`dec_mechanism_motion`, stage 1): starting it from the selected body, changing what it turns or slides, and keeping the pose (the one thing that writes). The pure parts are in `../motion.ts`.
+import { glueOf } from "../../operation/glue.ts";
 import type { AppState } from "./state.ts";
 import { scene as sceneOf, selection as selectionOf, run } from "../session.ts";
 import { startMotion, setPlaying, keepCommand } from "../motion.ts";
@@ -138,6 +139,24 @@ export function doMakeTurn(s: AppState): AppState {
   return r.ok ? { ...closed, session: { ...made, message: null }, motion: setPlaying(r.motion, true) } : { ...closed, session: made };
 }
 /** A body that was made to turn is still again (the pivot is taken away); a motion of it that is open ends. */
+/** Glue the selected bodies together (`glue.ts`, `in_1146`): they move as one when played */
+export function doGlue(s: AppState): AppState {
+  const sc = sceneOf(s.session);
+  const ids = selectionOf(s.session).flatMap((r) => { const b = sc.parts[r]; return b?.kind === "body" && b.id ? [b.id] : []; });
+  if (ids.length < 2) return { ...s, menu: null, session: { ...s.session, message: "select two bodies or more to glue together" } };
+  const made = run(s.session, { type: "glue", bodies: ids });
+  return { ...s, menu: null, motion: null, session: made.message ? made : { ...made, message: `${ids.length} bodies glued: they move as one` } };
+}
+/** Take the selected glued bodies out of their groups */
+export function doUnglue(s: AppState): AppState {
+  const sc = sceneOf(s.session);
+  const ids = selectionOf(s.session).flatMap((r) => { const b = sc.parts[r]; return b?.kind === "body" && b.id && glueOf(sc, b.id) ? [b.id] : []; });
+  if (!ids.length) return { ...s, menu: null, session: { ...s.session, message: "select a glued body" } };
+  let session = s.session;
+  for (const id of ids) { const r = run(session, { type: "unglue", body: id }); if (r.message) return { ...s, menu: null, session: r }; session = r; }
+  return { ...s, menu: null, motion: null, session };
+}
+
 export function doStopTurning(s: AppState): AppState {
   const sc = sceneOf(s.session);
   const body = selectionOf(s.session).find((r) => !!pivotOfBody(sc, r));

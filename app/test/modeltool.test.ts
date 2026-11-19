@@ -163,11 +163,12 @@ test("a finished model keeps how it moves, and Play from any part of it plays th
     const from = rec.parts[part]!;
     const r = startPlain(sc, from.gear ? (Object.values(sc.parts).find((b) => b.kind === "body" && anim.get(b.ref) !== undefined && b.ref !== driverBody && anyBodyOf(sc, from) === b.ref) ?? { ref: all[0]! }).ref : anyBodyOf(sc, from));
     assert.ok(r.ok, r.ok ? "" : r.why);
-    if (r.ok) assert.equal(r.motion.follows.length, rec.followers.length, `${part}: every follower has its body`);
+    if (r.ok) assert.equal(r.motion.follows.length, Object.keys(rec.parts).length - 2 - 1, `${part}: everything but the two plates and the driver moves (the gears, and the rods and pinions glued to them)`);
   }
   const byPart = Object.fromEntries(rec.followers.map((f) => [f.part, f.k]));
   assert.ok(Math.abs(byPart["Stage 1 gear"]! - -1 / 3) < 1e-9, "the first gear turns a third as fast the other way");
-  assert.ok(Math.abs(byPart["Stage 2 pinion"]! - -1 / 3) < 1e-9, "the next pinion is on its rod");
+  assert.equal(byPart["Stage 2 pinion"], undefined, "the next pinion is glued to the gear's rod: it is not a follower of its own");
+  assert.equal(sc.glue?.length, 3, "a group for each rod: the rod, the gear on it and the pinion on it");
   assert.ok(Math.abs(byPart["Stage 2 gear"]! - 1 / 9) < 1e-9, "the last gear turns a ninth as fast, the same way");
 });
 test("the bearing's balls go round at about half the speed of the inner race, the outer race held", () => {
@@ -240,7 +241,8 @@ test("the Play item of the ring starts the model from whichever of its bodies is
     const played = reduce(st, { type: "runAction", id: "motion:play" }, env as never);
     assert.ok(played.motion, `${kind}: Play from ${from} starts a motion: ${played.session.message ?? ""}`);
     if (!played.motion) continue;
-    assert.equal(played.motion.follows.length, rec.followers.length, `${kind}: every moving part follows`);
+    const held: Record<ModelKind, number> = { gearbox: 2, bearing: 1, differential: 2, cycloidal: 1 };
+    assert.equal(played.motion.follows.length, Object.keys(rec.parts).length - held[kind] - 1, `${kind}: every moving part follows (the followers and what is glued to them)`);
     const driverBody = anyBodyOf(sc, rec.parts[rec.driver.part]!);
     assert.equal(played.motion.body, driverBody, `${kind}: the driver is ${rec.driver.part}`);
   }
@@ -272,4 +274,56 @@ test("whatever size the pointer asks for, from the first moment on, the numbers 
   const g = modelTarget(sc, t)!;
   assert.equal(g.problem, null);
   assert.ok(g.size > 0);
+});
+
+// ---- glue (`in_1146`) ----
+import { addGlue, removeGlue, glueOf } from "../src/operation/glue.ts";
+import { toJSON, fromJSON } from "../src/operation/scene.ts";
+test("glue: groups grow together, a body leaves its group, a group of one is no group, unknown bodies and a single body are refused, and it is saved with the project", () => {
+  const sc = scene(buildAll("bearing").session);
+  const ids = Object.values(sc.parts).filter((p) => p.kind === "body").map((p) => (p as { id: string }).id);
+  const one = addGlue(sc, [ids[0]!, ids[1]!]);
+  assert.ok(one.ok);
+  if (!one.ok) return;
+  const two = addGlue(one.value, [ids[1]!, ids[2]!]);
+  assert.ok(two.ok);
+  if (!two.ok) return;
+  assert.deepEqual(two.value.glue![0]!.bodies.slice().sort(), [ids[0]!, ids[1]!, ids[2]!].sort(), "a body already in a group brings the group in");
+  assert.equal(two.value.glue!.length, 1);
+  const out = removeGlue(two.value, ids[0]!);
+  assert.ok(out.ok && out.value.glue![0]!.bodies.length === 2 && !glueOf(out.value, ids[0]!));
+  if (out.ok) { const gone = removeGlue(out.value, ids[1]!); assert.ok(gone.ok && gone.value.glue === undefined, "a group of one is no group"); }
+  assert.ok(!addGlue(sc, [ids[0]!]).ok && !addGlue(sc, [ids[0]!, "x_nothing"]).ok);
+  assert.deepEqual(fromJSON(toJSON(two.value)).glue, two.value.glue, "saved and read back");
+});
+test("glue: a body glued to a part that moves moves with it, however it was chosen to play; Unglue takes it out; the ring items say what they need", () => {
+  let st = buildAll("gearbox");
+  const sc = scene(st.session), rec = sc.models![0]!;
+  const rod2 = modelBody(sc, rec, "Rod 2")!, gear1 = modelBody(sc, rec, "Stage 1 gear")!, plate = modelBody(sc, rec, "Base plate and posts")!;
+  assert.ok(glueOf(sc, (sc.parts[rod2] as { id: string }).id), "the model glued its rod to its gear");
+  const before = startPlain(sc, gear1);
+  assert.ok(before.ok);
+  if (!before.ok) return;
+  assert.ok(before.motion.follows.some((f) => f.body === rod2), "the rod goes with the gear");
+  // a held plate glued to the gear is carried along too
+  const idPlate = (sc.parts[plate] as { id: string }).id, idGear = (sc.parts[gear1] as { id: string }).id;
+  const g2 = addGlue(sc, [idPlate, idGear]);
+  assert.ok(g2.ok);
+  if (!g2.ok) return;
+  const withPlate = startPlain(g2.value, gear1);
+  assert.ok(withPlate.ok && withPlate.motion.follows.some((f) => f.body === plate), "so is a body glued to it afterwards");
+  // the rod alone (a plain body, no pivot, no gear) is played from the gear it is glued to
+  const fromRod = startPlain(sc, rod2);
+  assert.ok(fromRod.ok && fromRod.motion.body !== rod2, "played from the rod: the driver is a part of its group that can be played");
+  // the ring: Glue needs two bodies, Unglue a glued one; each does it
+  const ring = (state: typeof st) => reduce(state, { type: "menu", x: 400, y: 300, button: true }, env as never).menu!.items.flatMap((i: any) => (i.children ?? []).flatMap((c: any) => [c, ...(c.children ?? [])]));
+  const sel = (state: typeof st, refs: string[]) => ({ ...state, session: { ...state.session, click: { ...state.session.click, selection: refs as never } } });
+  const none = ring(sel(st, [])).find((i: any) => i.id === "motion:glue");
+  assert.ok(none && !none.enabled && /two bodies/.test(none.why ?? ""));
+  const two = ring(sel(st, [plate, gear1])).find((i: any) => i.id === "motion:glue");
+  assert.ok(two.enabled);
+  const glued = reduce(sel(st, [plate, gear1]), { type: "runAction", id: "motion:glue" }, env as never);
+  assert.ok(glueOf(scene(glued.session), idPlate), "Glue glued them");
+  const un = reduce(sel(glued, [plate]), { type: "runAction", id: "motion:unglue" }, env as never);
+  assert.ok(!glueOf(scene(un.session), idPlate), "Unglue took the plate out");
 });

@@ -21,6 +21,7 @@ import { addCoupling, setCoupling, deleteCoupling } from "./coupling.ts";
 import { setPivot, deletePivot } from "./pivot.ts";
 import { addPlanetary, setPlanetary, deletePlanetary } from "./planetary.ts";
 import type { ModelPlay } from "./modelplay.ts";
+import { addGlue, removeGlue } from "./glue.ts";
 import type { PlanetarySpec } from "./planetary.ts";
 import type { GearSpec } from "./gear.ts";
 
@@ -64,6 +65,9 @@ export type Command =
   | { type: "setMaterial"; body: string; material: string }
   /** a gear assembly model that can be played (`modelplay.ts`): how it moves and which body is which of its parts */
   | { type: "modelPlay"; record: ModelPlay }
+  /** bodies glued together so that they move as one (`glue.ts`): their ids; `unglue` takes one out of its group */
+  | { type: "glue"; bodies: string[] }
+  | { type: "unglue"; body: string }
   /** a copy of a machine (or other definition) the project used, kept in its manufacturing section by `kind/id@version` (`in_571`) */
   | { type: "useDefinition"; key: string; value: unknown }
   /** **Only to open projects saved before `in_603`** (when a drawn line carried what it was for): nothing makes it now. Replayed, it becomes the laser route's mark of those lines (`setMarks`), and the drawing is not touched. */
@@ -323,6 +327,8 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       const rest = (s.manufacturing?.plans ?? []).filter((p) => (p as { id?: string }).id !== c.plan.id);
       return ok({ ...s, manufacturing: { ...s.manufacturing, plans: [...rest, c.plan] } }); // (the newest is last: it is the one a dialog starts from)
     }
+    case "glue": return addGlue(s, c.bodies);
+    case "unglue": return removeGlue(s, c.body);
     case "modelPlay": return (s.models ?? []).some((m) => m.id === c.record.id) ? err(`the model ${c.record.id} is made already`) : ok({ ...s, models: [...(s.models ?? []), c.record] });
     case "setMaterial": {
       const m = c.material.trim();
