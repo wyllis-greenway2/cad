@@ -4859,3 +4859,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1128 — 2026-11-19 — approval
 > I will take your recommendation
 (takes the AI's recommendation: the plan of `dec_unified_orb`, beginning with the cross section's orb; the three open questions are left to the AI's defaults)
+
+## in_1129 — 2026-11-19 — approval
+> yes go ahead
+(approves the next step of `dec_unified_orb`: the one bubble rule and Shift on the plane's rotate rings)
