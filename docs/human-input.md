@@ -4883,6 +4883,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > Why cant it apply the coaxial mate to the pin and the arm? Also apparently this pin and arm already have a coaxial mate and the animation completely ignores it and uses hard body instead? why?
 (a screenshot of the walk with "not applied: the pivot would jam: x_s_002 against x_s_084 ..." at the foot; asks why the mate cannot be applied and why an existing coaxial mate seems ignored in favour of the hard body)
 
-## in_1133 — 2026-11-19 — attachment
+## in_1133 — 2026-11-19 — directive
 > @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/502e696a-why_jamb.json"
 (the project file asked for in answer to in_1132: the lever, the two gears and the arm; hard body x_s_084, pivot on x_s_083, no mates)
