@@ -4632,3 +4632,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1068 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (the explicit permission to write to that branch for this merge; the full test run is waived)
+
+## in_1069 — 2026-11-19 — question
+> okay what else to do?
