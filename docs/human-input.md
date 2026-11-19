@@ -5252,3 +5252,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1233 — 2026-11-19 — directive
 > yes draft the piston parameter list now
 (answers my offer to draft the piston parameter list as a provisional entry now, with the gaps marked open; approves the drafting, not the numbers in it)
+
+## in_1234 — 2026-11-19 — directive
+> These documents don't really look like what we need, they are small pulleys mostly without spokes. Why dont we try to find some old fashioned cast iron wheel diagrams?
+(says the Martin sheave catalogue and the casting guides are not what is needed, small pulleys mostly without spokes; suggests old-fashioned cast iron wheel diagrams)
