@@ -44,7 +44,7 @@ test("a relation the human puts on the sketch after the extrusion shows, and so 
   assert.equal(structuralRelations({ ...sc0, steps: [] }).size, 0, "before the step: everything shows");
 });
 
-test("View, All constraints shows every constraint of the world, and the History sketch button shows the joins too (`in_1154`)", () => {
+test("View, All constraints shows every constraint of the world, and the History sketch button shows the joins too (`in_1157`)", () => {
   const s = open();
   let st = createState(s);
   assert.equal(st.showAllConstraints, false);

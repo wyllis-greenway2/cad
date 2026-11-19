@@ -38,7 +38,7 @@ export interface AppState {
   menu: { x: number; y: number; items: MenuItem[]; /** the world plane the pointer was over when it opened: a sketch tool chosen from it turns to that plane */ plane?: Ref | null } | null;
   /** every constraint is shown, also the ones that only join the outline of a body's sketch (`in_239`) */
   showAllConstraints: boolean;
-  /** the bodies whose constraints are all shown (the half eye, half lock icon on a selected body, `in_1154`) */
+  /** the bodies whose constraints are all shown (the half eye, half lock icon on a selected body, `in_1157`) */
   bodyConstraints: Ref[];
   /** every tap adds to the selection or takes out what it hits, as Shift does: the way to select several with a finger (`in_539`) */
   adding: boolean;

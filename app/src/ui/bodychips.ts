@@ -3,7 +3,7 @@
 import { iconSvg } from "./icons.ts";
 import type { Vec3 } from "../interaction/api.ts";
 
-export interface BodyEye { ref: string; hidden: boolean; /** the body is selected: its play button shows */ selected?: true; /** a body hooked up to an animation: its play (or pause) button */ play?: "play" | "pause"; /** the body is selected: the icon of its constraints shows (`in_1154`) */ chosen?: true; /** the constraints of the body are shown */ cons?: true; /** the eight corners of the body's box */ corners: Vec3[] }
+export interface BodyEye { ref: string; hidden: boolean; /** the body is selected: its play button shows */ selected?: true; /** a body hooked up to an animation: its play (or pause) button */ play?: "play" | "pause"; /** the body is selected: the icon of its constraints shows (`in_1157`) */ chosen?: true; /** the constraints of the body are shown */ cons?: true; /** the eight corners of the body's box */ corners: Vec3[] }
 
 /** The convex hull of points (Andrew's monotone chain). */
 function hull(pts: [number, number][]): [number, number][] {
@@ -34,7 +34,7 @@ export function createBodyChips(host: HTMLElement, run: (id: string) => void) {
     play.addEventListener("pointerdown", (e) => e.stopPropagation());
     play.addEventListener("click", (e) => { e.stopPropagation(); run(`body:play:${ref}`); });
     host.appendChild(play);
-    const cons = document.createElement("div"); // (half an eye, half a lock, on a selected body: every constraint that has to do with it is shown, `in_1154`)
+    const cons = document.createElement("div"); // (half an eye, half a lock, on a selected body: every constraint that has to do with it is shown, `in_1157`)
     cons.style.cssText = box.style.cssText;
     cons.addEventListener("pointerdown", (e) => e.stopPropagation());
     cons.addEventListener("click", (e) => { e.stopPropagation(); run(`body:constraints:${ref}`); });
