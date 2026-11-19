@@ -1,6 +1,6 @@
 // The Import and Export dialogs (`dec_import_export_menu`, `in_528`): what each asks, from what is selected and what there is, and what is done with the answers. A dialog is a description (fields with their choices); the page draws it and
 // hands back the values. Pure: a session in, descriptions and files out.
-import type { Kernel } from "../compiler/kernel/adapter.ts";
+import type { Kernel, StepSchema } from "../compiler/kernel/adapter.ts";
 import { zipStored } from "../compiler/threemf.ts";
 import type { Session } from "./session.ts";
 import { scene as sceneOf } from "./session.ts";
@@ -32,8 +32,8 @@ export interface Dialog { title: string; ok: string; fields: Field[] }
 
 // ---------- export ----------
 export type ExportKind = ExportFormat | "svg" | "dxf";
-export interface ExportOptions { format: ExportKind; what: "all" | "selected"; units: Units; quality: Quality; perBody: boolean; /** a DXF with the pieces that meet joined into one path each */ joined: boolean; name: string }
-export const EXPORT_DEFAULTS: ExportOptions = { format: "stl", what: "all", units: "mm", quality: "fine", perBody: false, joined: true, name: "" };
+export interface ExportOptions { format: ExportKind; what: "all" | "selected"; units: Units; quality: Quality; perBody: boolean; /** a DXF with the pieces that meet joined into one path each */ joined: boolean; /** a STEP file's schema */ schema: StepSchema; name: string }
+export const EXPORT_DEFAULTS: ExportOptions = { format: "stl", what: "all", units: "mm", quality: "fine", perBody: false, joined: true, schema: "ap214", name: "" };
 const FLAT_KINDS = new Set<ExportKind>(["svg", "dxf"]);
 const NOTHING_3D = "nothing to export yet: make a body";
 const NOTHING_FLAT = "nothing to export yet: draw something, or select a sketch or a flat face of a body";
@@ -77,6 +77,7 @@ export function exportDialog(s: Session, o0: Partial<ExportOptions>): Dialog {
     fields.push({ id: "about", label: "What", type: "text", readonly: true, value: r.ok ? `${r.what}: ${r.pieces.length} piece${r.pieces.length === 1 ? "" : "s"}` : "", note: "the selected sketch or flat face; with nothing selected, the whole drawing (when it is on one plane)" });
   }
   fields.push({ id: "units", label: "Units", type: "choice", value: o.units, choices: [{ value: "mm", label: "Millimetres" }, { value: "in", label: "Inches" }] });
+  if (o.format === "step") fields.push({ id: "schema", label: "STEP version", type: "choice", value: o.schema, choices: [{ value: "ap214", label: "AP214: the one nearly every program reads" }, { value: "ap203", label: "AP203: the oldest, for old CAM and CAD" }, { value: "ap242", label: "AP242: the current one" }] });
   if (o.format === "dxf") fields.push({ id: "joined", label: "Outlines", type: "check", value: o.joined, note: "joined into one path each (a cutter or router follows it without lifting); off: separate lines and arcs" });
   if (o.format === "stl" || o.format === "3mf" || o.format === "obj") fields.push({ id: "quality", label: "Mesh quality", type: "choice", value: o.quality, choices: [{ value: "fine", label: "Fine (0.01 mm from the true surface)" }, { value: "medium", label: "Medium (0.05 mm)" }, { value: "coarse", label: "Coarse (0.2 mm: small files)" }] });
   if (!flat) {
@@ -94,7 +95,7 @@ export async function exportWith(s: Session, kernel: Kernel, o0: Partial<ExportO
   if (o.format === "svg" || o.format === "dxf") return exportFlat(s, o.format, `${base}.${o.format}`, o.units, o.joined);
   const format = o.format as ExportFormat;
   const only = o.what === "selected" ? selectedBodies(s) : undefined;
-  const choices = { units: o.units, quality: o.quality };
+  const choices = { units: o.units, quality: o.quality, schema: o.schema };
   if (!o.perBody) return exportFile(s, kernel, format, only, `${base}.${FORMATS[format].ext}`, choices);
   const ids = only ?? bodyIds(s);
   const files: { name: string; data: Uint8Array }[] = [];

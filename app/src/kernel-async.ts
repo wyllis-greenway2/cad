@@ -1,7 +1,7 @@
 // The kernel as the app sees it, but worked out on its own thread (`in_132`). `evaluate` stays the same call: it answers at once with the result for this graph if it is known
 // (the cache), else with the last result there was (the picture lags a little) and asks the worker, newest request first, one at a time. When an answer comes `onChange` is called
 // so the app compiles again and picks the new result up from the cache. A heavy model therefore never freezes the page; it just takes a moment to appear.
-import type { ExportQuality, ExportResult, Kernel, KernelGraph, KernelResult, StepResult, Vec } from "./compiler/kernel/adapter.ts";
+import type { ExportQuality, ExportResult, Kernel, KernelGraph, KernelResult, StepResult, StepSchema, Vec } from "./compiler/kernel/adapter.ts";
 import type { ResultStore as Store } from "./platform/result-store.ts";
 type ResultStore = Store<KernelResult>; // (the store is made for the kernel's answer without knowing it: the platform layer does not import the compiler)
 
@@ -155,9 +155,9 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     exportMesh(graph: KernelGraph, quality: ExportQuality): Promise<ExportResult> {
       return new Promise((resolve) => { exports.push({ graph, quality, resolve: (r) => resolve(r as ExportResult) }); pump(); });
     },
-    exportStep(graph: KernelGraph, bodies?: string[], unit?: "in"): Promise<StepResult> {
+    exportStep(graph: KernelGraph, bodies?: string[], unit?: "in", schema?: StepSchema): Promise<StepResult> {
       // the same queue as the mesh exports (one at a time, none dropped); the answer is a STEP result and is handed back as one
-      return new Promise((resolve) => { exports.push({ graph, quality: { tolerance: 0, angular: 0, step: true, ...(unit ? { unit } : {}), ...(bodies ? { bodies } : {}) }, resolve: (r) => resolve(r as StepResult) }); pump(); });
+      return new Promise((resolve) => { exports.push({ graph, quality: { tolerance: 0, angular: 0, step: true, ...(unit ? { unit } : {}), ...(schema ? { schema } : {}), ...(bodies ? { bodies } : {}) }, resolve: (r) => resolve(r as StepResult) }); pump(); });
     },
     evaluate(graph: KernelGraph): KernelResult {
       const [draft, lite] = [self.draft, self.lite]; // (a rough mesh while a size is dragged, `in_216`, and with no faces and edges, `in_358`: asked for and kept apart from the fine and whole one)
