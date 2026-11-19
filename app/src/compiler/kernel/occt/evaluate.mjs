@@ -372,6 +372,7 @@ export async function exportStep(graph, bodies, unit, schema) {
   try {
     // (the unit is a setting of the whole kernel that stays as it was left: it is set every time, millimetres too, or one export in inches would make all the next ones inches; the model is in millimetres either way)
     // (with several bodies, a product for each, named for the body, in one assembly; no colour: `stepout.mjs`)
+    if (schema === "brep") return { ok: true, bytes: new TextEncoder().encode(getOC().BRepToolsWrapper.Write(shape.wrapped)), volume: volume(shape), bbox: { min: [...box[0]], max: [...box[1]] } };
     const bytes = new Uint8Array(writeStepFile(named ?? [{ shape, name: "model" }], { unit: unit === "in" ? "INCH" : "MM", modelUnit: "MM", schema }));
     return { ok: true, bytes, volume: volume(shape), bbox: { min: [...box[0]], max: [...box[1]] } };
   } catch (e) {

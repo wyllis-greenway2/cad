@@ -123,6 +123,24 @@ export function readStep(text) {
   return solids;
 }
 
+/** The solids in the text of a BREP file (OpenCASCADE's own format, also what FreeCAD keeps its shapes in), or in several, joined by a NUL: BREP has no unit, so the numbers are millimetres. Each is checked. Throws with the reason when there is none or one is not valid. */
+export function readBrep(text) {
+  const oc = getOC();
+  const [r, gc] = localGC();
+  const solids = [];
+  let bad = 0;
+  for (const part of String(text).split("\0")) {
+    if (!part.trim()) continue;
+    let shape;
+    try { const raw = oc.BRepToolsWrapper.Read(part); if (raw.IsNull()) throw new Error("null"); shape = cast(r(raw)); } catch { bad++; continue; }
+    solids.push(...(shape.solids ?? []));
+  }
+  gc();
+  if (!solids.length) throw new Error(bad ? "this BREP data could not be read (it may be damaged)" : "this BREP data has no solid bodies in it (only surfaces or curves): the app imports solids");
+  solids.forEach((sd, i) => { if (!isValidSolid(sd)) throw new Error(`body ${i + 1} of the BREP data is not a valid solid (it has gaps or folds)`); });
+  return solids;
+}
+
 /** OCCT's own topology/geometry check. Operations can return garbage without throwing. */
 export function isValidSolid(shape) {
   const oc = getOC();
@@ -675,7 +693,7 @@ const OPS = {
 
   /** The solids of a STEP file, as bodies of their own beside the ones already there (`dec_import`): read here, on this thread, from the text kept in the step. A file with no solid in it (only surfaces or curves) is refused with that. */
   import(op, ctx) {
-    return importedSolids(op, ctx, placedSolids(readStep(String(op.data)), op));
+    return importedSolids(op, ctx, placedSolids(op.format === "brep" ? readBrep(op.data) : readStep(String(op.data)), op));
   },
   /** The closed meshes of a step (`dec_import_mesh`): each is sewn into a solid whose faces are its triangles, the flat ones that lie in one plane joined, as a body of its own beside the ones already there. */
   importMesh(op, ctx) {
