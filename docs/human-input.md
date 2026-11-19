@@ -4476,3 +4476,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > can you draw me a picture of how and why this works?
 (asks for a picture of how and why a hypoid gear pair works: the offset axes and cones, and why the teeth mesh; the AI drew a diagram)
 
+## in_1030 — 2026-11-19 — question
+> okay that is pretty cool, so what should we work on next?
+(asks what to work on next after the hypoid picture; the AI recommends, the human decides)
+
