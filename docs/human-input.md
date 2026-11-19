@@ -5041,3 +5041,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1175 — 2026-11-19 — approval
 > yes make it a real toggle button
 (approves making the bearing's Detail a real simple/detailed toggle button instead of a number field)
+
+## in_1176 — 2026-11-19 — directive
+> can we have a little geneva plate icon for the geneva plate? Can we havea  new icon for cucloidal drive that looks less like a gear. Can we have a new icon for bearings?
+(asks for an icon for the Geneva plate, a new cycloidal drive icon that looks less like a gear, and a new bearing icon)

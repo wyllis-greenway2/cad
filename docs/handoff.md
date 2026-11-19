@@ -4181,3 +4181,6 @@ Branch `claude/adoring-dijkstra-carry`. **Offer:** "Slow animation", **Fix Const
 
 ## Handoff 1040 — 2026-11-19 (in_1175: Detail is a toggle button)
 `in_1175`. `ModelField.choices` / `EntryField.choices` (`modelkinds.ts`, `entry.ts`, `modeltool.ts`): a field with named values is drawn by the gear box (`ui/gearbox.ts`) as a row of buttons (the chosen one filled); the click sends the place of the value as the typed text, so the model code did not change. Used by *Detail* of the bearing of your own. Checked in a real browser (Playwright: the button sends 1 and the fill moves; screenshot) and by a test in `modeltool.test.ts`.
+
+## Handoff 1041 — 2026-11-19 (in_1176: icons for the Geneva plate, the cycloidal drive and bearings)
+`in_1176`. `ui/icons.ts`: new `genevaplate` (a slotted wheel with its hole, used by *Geneva plate*), `cycloidal` redrawn (a ring of pins round a smooth lobed disc with its eccentric hub, no teeth), `bearing` redrawn (outer ring, bore and seven balls). Looked at in a real browser at 64 px (Playwright screenshot); not at 15 px in the ring itself.
