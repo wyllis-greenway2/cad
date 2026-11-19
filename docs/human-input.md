@@ -5292,3 +5292,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1243 — 2026-11-19 — directive
 > okay we want to be able to have a fillet or chamfer on the edges of the cutouts that make the spokes as well. Also yes we want all menus to be standardized in their error handling. We want unified code. the other models (bearings, gearbox, engine, differential, cycloidal). They should help guide the user ideally without failing.
 (asks for a fillet or chamfer on the edges of the cutouts that make the spokes; and for every model box (bearings, gearbox, engine, differential, cycloidal as well) to handle bad numbers the same way, with one shared code, guiding the user without failing)
+
+## in_1244 — 2026-11-19 — directive
+> build the assumed rules next
+(answers my offer to build the assumed design rules A1 to A10 of dec_piston_parameters, each marked assumed, now)

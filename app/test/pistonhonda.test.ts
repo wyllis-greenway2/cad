@@ -79,15 +79,43 @@ test("the engine's box: a preset is another start, a typed number replaces one a
   const n = modelNumbers("engine", { preset: 2 });
   assert.ok(n.bore === 68 && n.stroke === 45 && n.pin === 18 && n.preset === 2 && n.rings === 2, JSON.stringify(n));
   const half = modelNumbers("engine", { preset: 2, bore: 34 });
-  assert.ok(half.bore === 34 && Math.abs(half.stroke! - 22.5) < 0.06 && Math.abs(half.pin! - 9) < 0.06, `a typed bore scales the rest: ${JSON.stringify(half)}`);
+  assert.ok(half.bore === 34 && Math.abs(half.pin! - 9) < 0.06, `a typed bore scales the rest: ${JSON.stringify(half)}`);
+  assert.equal(engineProblem(half as never), null, "and the numbers not typed are moved only as far as the engine needs to be made");
+  assert.ok(half.stroke! >= 22.5 - 0.06, `(half the stroke, 22.5 mm, is too short for the shaft and crank pin at that size, so the box lengthens it: ${half.stroke})`);
   const own = modelNumbers("engine", { preset: 0 });
   assert.ok(own.bore === ENGINE_START.bore && own.pin === ENGINE_START.pin, "your own is the usual start");
 });
 
-test("the ring grooves are Honda's ring height and the ring's side room (a typed number)", () => {
-  for (const p of ENGINE_PRESETS) assert.ok(Math.abs(engineGeometry(p.spec).gh - (1.5 + p.spec.ringSide)) < 1e-9, `${p.name}`);
-  assert.ok(Math.abs(engineGeometry(ENGINE_START).gh - (1.0 + ENGINE_START.ringSide)) < 1e-9, "and the small usual engine's");
-  assert.ok(Math.abs(engineGeometry({ ...ENGINE_START, ringSide: 0.04 }).gh - 1.04) < 1e-9, "a side room typed is used");
+test("the ring belt (`dec_piston_belt`): Honda's ring heights and the typed side room, the assumed lands, top land and depth", () => {
+  const eg = (s: typeof ENGINE_START) => engineGeometry(s).belt;
+  for (const p of ENGINE_PRESETS) {
+    const bb = eg(p.spec), gs = bb.grooves;
+    assert.equal(gs.length, 3, `${p.name}: two compression grooves and an oil ring groove`);
+    assert.ok(Math.abs(gs[0]!.height - (1.5 + p.spec.ringSide)) < 1e-9 && Math.abs(gs[1]!.height - (1.5 + p.spec.ringSide)) < 1e-9, `${p.name}: the compression grooves are Honda's 1.5 mm ring and its side room`);
+    assert.ok(Math.abs(gs[2]!.height - (2.5 + p.spec.ringSide)) < 1e-9 && gs[2]!.oil, `${p.name}: and the oil groove Honda's 2.5 mm`);
+    assert.ok(Math.abs(gs[0]!.top - 0.07 * p.spec.bore) < 1e-9, `${p.name}: the top land is 0.07 of the bore`);
+    for (let k = 1; k < gs.length; k++) assert.ok(Math.abs(gs[k]!.top - (gs[k - 1]!.top + gs[k - 1]!.height) - 1.6 * 1.5) < 1e-9, `${p.name}: the land between rings is 1.6 times a compression ring's height`);
+    assert.ok(Math.abs(bb.depth - (p.spec.bore / 22 + 0.45)) < 1e-9 && Math.abs(bb.length - (gs[2]!.top + gs[2]!.height)) < 1e-9, `${p.name}: the depth and the belt's length`);
+  }
+  const small = eg(ENGINE_START);
+  assert.ok(Math.abs(small.grooves[0]!.height - (1.0 + ENGINE_START.ringSide)) < 1e-9 && Math.abs(small.grooves[2]!.height - (2.0 + ENGINE_START.ringSide)) < 1e-9, "the small usual engine takes the floors");
+  assert.ok(Math.abs(eg({ ...ENGINE_START, ringSide: 0.04 }).grooves[0]!.height - 1.04) < 1e-9, "a side room typed is used");
+  const bare = eg({ ...ENGINE_START, rings: 0, oil: 0 });
+  assert.ok(bare.grooves.length === 0 && Math.abs(bare.length - 0.07 * 30) < 1e-9, "no grooves: the belt is the top land");
+  assert.equal(eg({ ...ENGINE_START, rings: 3, oil: 0 }).grooves.length, 3);
+});
+
+test("the pin height is the stack: the belt, then the larger of the pin's radius and 0.05 of the bore, and what the rod's small eye and its slot need", () => {
+  for (const s of [ENGINE_START, ...ENGINE_PRESETS.map((p) => p.spec)]) {
+    const g = engineGeometry(s);
+    assert.ok(Math.abs(g.ch - (g.belt.length + Math.max(s.pin / 2 + 0.05 * s.bore, g.rs + 2.5))) < 1e-9, `bore ${s.bore}`);
+    assert.ok(g.ch - g.belt.length >= g.rs + 2.5 - 1e-9, "the web above the rod's slot is always there");
+  }
+  const gx = engineGeometry(ENGINE_PRESETS[1]!.spec);
+  assert.ok(gx.ch / 68 > 0.3 && gx.ch / 68 < 0.44, `the GX160's pin height ${gx.ch.toFixed(1)} mm = ${(gx.ch / 68).toFixed(3)} of the bore stays between a motorcycle catalogue's 0.30 and NACA 817's 0.44`);
+  assert.equal(engineProblem({ ...ENGINE_START, rings: 0, oil: 0 }), null, "no rings is an engine");
+  assert.match(engineProblem({ ...ENGINE_START, oil: 2 }) ?? "", /oil ring groove/);
+  assert.match(engineProblem({ ...ENGINE_START, topLand: 0.5 }) ?? "", /land above the top ring groove/);
 });
 
 test("two kinds of typed room (`dec_clearance_defaults`): the piston's fits default to Honda's nominal middles, and `room` is the moving parts' only", () => {
