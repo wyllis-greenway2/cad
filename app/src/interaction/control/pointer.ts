@@ -715,7 +715,8 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
   if ((onePlane || bodyFirst) && count === 2) {
     // two: the whole object (the view does not turn)
     const o = selectable[0] ? objectOf(sc, selectable[0]) : undefined;
-    return o ? withSession(base, { ...sess, click: { selection: [o], spot: sess.click.spot }, message: null }) : base;
+    const took = o ? withSession(base, { ...sess, click: { selection: [o], spot: sess.click.spot }, message: null }) : base;
+    return o && sc.parts[o]?.kind === "body" ? { ...took, consFor: o } : took; // (a double click on a body: its constraints icon is offered in the bar, `in_1160`)
   }
   if (!onePlane && bodyFirst && count >= 3) return withSession(base, { ...sess, click: { selection: [selectable[0]!], spot: sess.click.spot }, message: null }); // three on a point or a line: only that part again (the second click had taken the object)
   if (onePlane && count >= 3) {

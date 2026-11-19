@@ -1,5 +1,5 @@
-// The eye on a body (`dec_hidden_bodies`, `in_489`): while the pointer is over a body on the screen, a small eye fades in on it; one click hides the body, or, when it is hidden, brings it back. Like the icons on the
-// sheets (`sheetchips.ts`) it only shows and reports the click. A body that is shown has its eye only while the pointer is over it; one that is hidden too (the body itself takes no pick at all).
+// The eye on a hidden body (`dec_hidden_bodies`, `in_489`): a body that is hidden takes no pick, so it cannot be selected and its eye cannot be in the helpful bar (`suggest.ts`, `in_1160`): while the pointer is over it on the screen the eye fades in on it, and one click brings it back.
+// The eye of a body that is shown, its play button and the icon of its constraints are in the bar. Like the icons on the sheets (`sheetchips.ts`) it only shows and reports the click.
 import { iconSvg } from "./icons.ts";
 import type { Vec3 } from "../interaction/api.ts";
 
@@ -22,24 +22,14 @@ const inside = (pt: [number, number], poly: [number, number][]): boolean => {
 };
 
 export function createBodyChips(host: HTMLElement, run: (id: string) => void) {
-  const pool = new Map<string, { box: HTMLDivElement; sig: string; play: HTMLDivElement; playSig: string; cons: HTMLDivElement; consSig: string }>();
+  const pool = new Map<string, { box: HTMLDivElement; sig: string }>();
   const make = (ref: string) => {
     const box = document.createElement("div");
     box.style.cssText = "position:fixed;left:0;top:0;display:none;z-index:6;width:30px;height:30px;box-sizing:border-box;border-radius:15px;background:#fff;border:1px solid #8a8f98;color:#2b2b2d;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:opacity .2s";
     box.addEventListener("pointerdown", (e) => e.stopPropagation());
     box.addEventListener("click", (e) => { e.stopPropagation(); run(`body:eye:${ref}`); });
     host.appendChild(box);
-    const play = document.createElement("div"); // (the play or pause button of a body that is hooked up to an animation, beside its eye, `in_876`)
-    play.style.cssText = box.style.cssText;
-    play.addEventListener("pointerdown", (e) => e.stopPropagation());
-    play.addEventListener("click", (e) => { e.stopPropagation(); run(`body:play:${ref}`); });
-    host.appendChild(play);
-    const cons = document.createElement("div"); // (half an eye, half a lock, on a selected body: every constraint that has to do with it is shown, `in_1157`)
-    cons.style.cssText = box.style.cssText;
-    cons.addEventListener("pointerdown", (e) => e.stopPropagation());
-    cons.addEventListener("click", (e) => { e.stopPropagation(); run(`body:constraints:${ref}`); });
-    host.appendChild(cons);
-    return { box, sig: "", play, playSig: "", cons, consSig: "" };
+    return { box, sig: "" };
   };
   return {
     /** The rects the eyes fill that are showing (the bubbles keep off them). */
@@ -70,25 +60,8 @@ export function createBodyChips(host: HTMLElement, run: (id: string) => void) {
         const show = over && (b.hidden || !quiet);
         chip.box.style.opacity = show ? "1" : "0";
         chip.box.style.pointerEvents = show ? "auto" : "none";
-        if (b.play) {
-          if (b.play !== chip.playSig) { chip.playSig = b.play; chip.play.innerHTML = iconSvg(b.play === "pause" ? "pause" : "play"); chip.play.title = b.play === "pause" ? "Pause the animation" : "Play the animation"; }
-          const beside = b.hidden || !quiet ? 34 : 0; // (a shown body has no eye now, `in_697`: the play button takes its place)
-          chip.play.style.transform = `translate(${Math.round(at[0] - 15 + beside)}px, ${Math.round(at[1] - 15)}px)`;
-          chip.play.style.display = "flex";
-          const showPlay = !!b.selected || chip.play.matches(":hover"); // (shown for a body that is selected, `in_962`, not for one the pointer is over; the pause button of the bar is enough while it plays, so none stays on the bodies, `in_984`)
-          chip.play.style.opacity = showPlay ? "1" : "0";
-          chip.play.style.pointerEvents = showPlay ? "auto" : "none";
-        } else { chip.play.style.display = "none"; chip.playSig = ""; }
-        const consSig = String(!!b.cons);
-        if (consSig !== chip.consSig) { chip.consSig = consSig; chip.cons.innerHTML = iconSvg("eyelock"); chip.cons.title = b.cons ? "Constraints of this body are shown: hide them" : "Show every constraint that has to do with this body"; chip.cons.style.background = b.cons ? "#d6e8ff" : "#fff"; chip.cons.style.borderColor = b.cons ? "#2f6fe0" : "#8a8f98"; }
-        const beside2 = (b.hidden || !quiet ? 34 : 0) + (b.play ? 34 : 0);
-        chip.cons.style.transform = `translate(${Math.round(at[0] - 15 + beside2)}px, ${Math.round(at[1] - 15)}px)`;
-        chip.cons.style.display = "flex";
-        const showCons = !!b.chosen || !!b.cons || chip.cons.matches(":hover"); // (shown for a body that is selected, and kept while it is on)
-        chip.cons.style.opacity = showCons ? "1" : "0";
-        chip.cons.style.pointerEvents = showCons ? "auto" : "none";
       }
-      for (const [ref, chip] of pool) if (!seen.has(ref)) { chip.box.remove(); chip.play.remove(); chip.cons.remove(); pool.delete(ref); }
+      for (const [ref, chip] of pool) if (!seen.has(ref)) { chip.box.remove(); pool.delete(ref); }
     },
   };
 }
