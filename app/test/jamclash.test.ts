@@ -12,7 +12,8 @@ import { frameOf } from "../src/interaction/frame.ts";
 import type { Ref } from "../src/shared/ref.ts";
 
 await kernel.init();
-const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/lever-pivot-jam.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+const openHeld = () => (openSession(kernel, readFileSync(new URL("./fixtures/lever-pivot-jam.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value; // (the sketch's Concentric on the pin holds the arm on it: the motion plays it as a carried joint, `in_1136`)
+const open = () => run(openHeld(), { type: "removeRelation", id: "r_010" }); // (a lever that nothing holds: the free push is what these test)
 const jammed = () => {
   const s = run(open(), { type: "setFixed", body: "x_s_084", on: true }); // (the lever stays where it is: the pin comes against it)
   const r = startMotion(scene(s), "b/x_s_002/o" as Ref, "turn", s.outcome);

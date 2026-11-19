@@ -4894,3 +4894,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1135 — 2026-11-19 — question
 > @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/d9cc7a9a-why_jamb.json" If I load the file fresh and try to move the arm, it seems an aweful lot like it has a coaxial constraint, it flashes red and shows it to me see.
 (a screenshot of dragging the arm: "that cannot be done without breaking other constraints: the Concentric constraint ... the Tangent constraint (3 flash)"; says the arm looks held by a coaxial constraint)
+
+## in_1136 — 2026-11-19 — approval
+> yes, build the carried joint, but also why do we need that? why isn't the coaxial constraint itself the carried joint?
+(approves building the carried joint; asks why a separate thing is needed and why the coaxial constraint is not itself the carried joint; answered in chat: it is, what was missing is that the motion took its axis where the pin stood at the start)

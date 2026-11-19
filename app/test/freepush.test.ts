@@ -10,7 +10,8 @@ import { solveContact } from "../src/interaction/contact.ts";
 import type { Ref } from "../src/shared/ref.ts";
 
 await kernel.init();
-const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/lever-pin-jam.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+const openHeld = () => (openSession(kernel, readFileSync(new URL("./fixtures/lever-pin-jam.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value; // (the sketch's Concentric on the pin holds the arm on it: the motion plays it as a carried joint, `in_1136`)
+const open = () => run(openHeld(), { type: "removeRelation", id: "r_010" }); // (a lever that nothing holds: the free push is what these test)
 const GEAR = "b/x_s_002/o" as Ref, LEVER = "b/x_s_084/o" as Ref;
 
 const play = (s: Session, to: number) => {

@@ -20,6 +20,8 @@ import { restartContact } from "./contact.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
 import { followAmount } from "../operation/gearcouple.ts";
 import type { FixPlan } from "./fixmotion.ts";
+import { holeAndPin } from "./pinhole.ts";
+import { impliedMate } from "./implied.ts";
 import { linkFollowers } from "../operation/coupling.ts";
 
 export type JointKind = "turn" | "slide";
@@ -100,18 +102,23 @@ export function startMotion(scene: Scene, body: Ref, kind: JointKind = "turn", o
   const candidates: Candidate[] = wheel ? [{ body: wheel.body, point: wheel.point, dir: wheel.dir }] : [];
   if (camRod) { const way: 1 | -1 = camRod.table!.reduce((a, b) => (Math.abs(b) > Math.abs(a) ? b : a), 0) < 0 ? -1 : 1; candidates.push({ body: camRod.body, kind: "slide", ...(camRod.mate ? { mate: camRod.mate } : {}), point: camRod.point, dir: camRod.dir, rest: -way * 50, way }); } // (the way the cam pushes it, and the rest: toward the cam, as far as it is clear to)
   for (const pv of pivotsOf(scene)) { const b = Object.values(scene.parts).find((p) => p.kind === "body" && p.id === pv.body); if (b && b.ref !== m.body && !candidates.some((c) => c.body === b.ref)) candidates.push({ body: b.ref, point: pv.point, dir: pv.dir, ...(pv.rest !== undefined ? { rest: pv.rest } : {}) }); } // (a body made to turn can yield)
-  for (const j of mateStatus(scene)) if (j.state === "ok" && j.mode === "coaxial" && j.mover && j.mover.body !== m.body && !candidates.some((c) => c.body === j.mover!.body)) { const jr = mateJoint(scene, j.id)?.turn; candidates.push({ body: j.mover.body, mate: j.id, point: j.mover.point, dir: normalize(j.mover.dir), ...(jr?.rest !== undefined ? { rest: jr.rest - jr.now } : {}) }); } // (a joint's rest, where the joint counts from: the body is drawn where it stands now)
+  for (const j of mateStatus(scene)) if (j.state === "ok" && j.mode === "coaxial" && j.mover && j.mover.body !== m.body && !candidates.some((c) => c.body === j.mover!.body)) { const jr = mateJoint(scene, j.id)?.turn; const after = j.other ? carriedBy(m, j.other.body) : null; candidates.push({ body: j.mover.body, mate: j.id, point: j.mover.point, dir: normalize(j.mover.dir), ...(jr?.rest !== undefined ? { rest: jr.rest - jr.now } : {}), ...(after ? { after } : {}) }); } // (a joint's rest, where the joint counts from: the body is drawn where it stands now)
   // a hard body with no joint, no mate and no mark of being fixed is pushed aside by what it meets (`dec_contact_push`, free push); a fixed one, or one with a mate, stays a wall
   const mated = new Set<Ref>(); for (const j of mateStatus(scene)) { if (j.mover) mated.add(j.mover.body); if (j.other) mated.add(j.other.body); }
   const jointed = new Set<Ref>([m.body, ...m.follows.map((f) => f.body), ...candidates.map((c) => c.body)]);
   for (const b of Object.values(scene.parts)) {
+    // a body held on a pin that goes round with the motion (by a sketch constraint that makes it coaxial, which a drag honours): a joint about the pin, carried round by what the pin is on (`in_1136`), not a body that is pushed about
+    if (b.kind === "body" && b.id && isHard(scene, b.ref) && !isFixed(scene, b.ref) && !jointed.has(b.ref) && !mated.has(b.ref) && !pivotOfBody(scene, b.ref)) {
+      const on = holeAndPin(scene, b.ref), after = on ? carriedBy(m, on.on) : null;
+      if (on && after && impliedMate(scene, "coaxial", on.hole, on.pin).length) { candidates.push({ body: b.ref, kind: "turn", point: on.center, dir: on.axis, after }); continue; }
+    }
     if (b.kind !== "body" || !b.id || !isHard(scene, b.ref) || isFixed(scene, b.ref) || jointed.has(b.ref) || mated.has(b.ref) || pivotOfBody(scene, b.ref) || !b.bbox) continue;
     candidates.push({ body: b.ref, point: [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2], dir: [0, 0, 1], free: true, reach: Math.hypot(b.bbox.max[0] - b.bbox.min[0], b.bbox.max[1] - b.bbox.min[1], b.bbox.max[2] - b.bbox.min[2]) / 2 }); // (how far its outline reaches from its middle: half the diagonal of its box)
   }
   const stripped: Motion = wheel || camRod ? { ...m, follows: m.follows.filter((f) => f !== wheel && f !== camRod) } : m;
   const contact = startContact(scene, stripped, candidates, outcome);
-  const keepable = !!contact && contact.pushables.every((p) => !!p.mate || !!pivotOfBody(scene, p.body)); // (a pose by contact is kept for yielders that are joints: a mate's or a pivot's; not the wheel of a Geneva drive, which is one drawing)
-  return { ok: true, motion: contact ? { ...stripped, contact, ...(m.noKeep ? { noKeep: m.noKeep } : keepable ? {} : { noKeep: "a pose found by contact is kept only when every body that yields turns on a pin or a pivot or slides on a rod" }),  yields: contact.pushables.map((p): Follower => ({ gear: "", body: p.body, kind: p.kind, point: p.point, dir: p.dir, k: 0, value: 0, ...(camRod && p.body === camRod.body && camRod.mate ? { mate: camRod.mate } : {}) })) } : m };
+  const keepable = !!contact && contact.pushables.every((p) => !p.after && (!!p.mate || !!pivotOfBody(scene, p.body))); // (a pose by contact is kept for yielders that are joints: a mate's or a pivot's; not the wheel of a Geneva drive, which is one drawing)
+  return { ok: true, motion: contact ? { ...stripped, contact, ...(m.noKeep ? { noKeep: m.noKeep } : keepable ? {} : { noKeep: "a pose found by contact is kept only when every body that yields turns on a pin or a pivot or slides on a rod, and none is carried round by a pin that moves" }),  yields: contact.pushables.map((p): Follower => ({ gear: "", body: p.body, kind: p.kind, point: p.point, dir: p.dir, k: 0, value: 0, ...(camRod && p.body === camRod.body && camRod.mate ? { mate: camRod.mate } : {}) })) } : m };
 }
 
 /** The amount at a time (ms): a joint with no stops that turns goes on turning; any other swings from stop to stop and back. */
@@ -201,4 +208,11 @@ function keepJoints(scene: Scene, drives: Drive[]): Command[] {
     if (next.ok) cur = next.value;
   }
   return commands;
+}
+
+/** The turn that carries what is on a body of this motion: the driver's own (a turn), or a gear it turns by a plain ratio; null for a body that does not move, or a carrier that is itself carried or drawn by a table (a joint on such a pin is not made). */
+function carriedBy(m: Motion, body: Ref): { point: Vec3; dir: Vec3; k: number } | null {
+  if (body === m.body) return m.kind === "turn" ? { point: m.point, dir: m.dir, k: 1 } : null;
+  const f = m.follows.find((x) => x.body === body);
+  return f && f.kind === "turn" && !f.after && !f.table && !f.geneva && f.value === undefined ? { point: f.point, dir: f.dir, k: f.k } : null;
 }
