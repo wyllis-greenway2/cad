@@ -16,6 +16,7 @@ import { followAmount } from "../operation/gearcouple.ts";
 import type { Follower } from "../operation/gearcouple.ts";
 import { mateStatus } from "../operation/mates.ts";
 import { meshOf, isHard, meets } from "./hard.ts";
+import { pinInHole } from "./pinhole.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
 import type { Motion } from "./motion.ts";
 
@@ -38,6 +39,8 @@ export interface ContactState {
   clash?: number[] | null;
   /** the state is one on the path of a play from the start (every body where it is drawn at the start, and since then only forward): the places worked out along it are kept and used */
   path?: boolean;
+  /** a pin in a hole found among what moves and what is pushed (`pinhole.ts`): the suggestion to mate them, said when the body has been moved far or the motion has stopped */
+  tip?: string | null;
 }
 const FREE_STEP = 2.5; // (the most a body with no joint is pushed in one step of the driver, mm)
 /**
@@ -171,7 +174,8 @@ export function startContact(scene: Scene, m: Motion, candidates: Candidate[], o
   const anyHard = bodies.some((b) => isHard(scene, b));
   const staticsHard = Object.keys(scene.parts).some((r) => { const p = scene.parts[r as Ref]; return p?.kind === "body" && !!p.id && !bodies.includes(r as Ref) && isHard(scene, r as Ref); });
   if (!anyHard && !staticsHard) return null;
-  const contact: ContactState = { pushables, at: 0, jam: null, ignore: [], note: null, path: true };
+  const tip = pushables.filter((p) => p.free).map((p) => [m.body, ...m.follows.map((f) => f.body)].map((b) => pinInHole(scene, b, p.body)).find((x) => !!x)).find((x) => !!x) ?? null; // (a body with no joint that sits on a pin of what moves: a coaxial mate would say so exactly)
+  const contact: ContactState = { pushables, at: 0, jam: null, ignore: [], note: null, path: true, tip };
   // what overlaps where the motion begins is left alone
   const movers = moversOf(m, contact), mated = matedPairs(scene), statics = staticBodies(scene, bodies);
   const vals: number[] = pushables.map(() => 0), ignore: string[] = [];
@@ -256,7 +260,8 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
         if (!yielded) {
           const stuck = pi >= 0 ? work[pi]!.blockedBy : undefined; // (a body with no joint that is against another: say which)
           const joint = pi >= 0 && !work[pi]!.free ? ` (${nameOf(scene, work[pi]!.body)} ${work[pi]!.kind === "slide" ? "slides" : "turns"} on its joint but cannot ${work[pi]!.kind === "slide" ? "slide" : "turn"} clear of it)` : "";
-          jam = stuck ? `${nameOf(scene, movers[w]!.body)} pushes ${nameOf(scene, work[pi]!.body)} against ${nameOf(scene, stuck)}` : `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)}${joint}`;
+          const flat = pi >= 0 && work[pi]!.free ? " (a body with no joint moves only in the flat of the mechanism, across the turning axis: it slides and turns there)" : "";
+          jam = stuck ? `${nameOf(scene, movers[w]!.body)} pushes ${nameOf(scene, work[pi]!.body)} against ${nameOf(scene, stuck)}${flat}` : `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)}${joint}${flat}`;
           clash = clashOf(scene, outcome, movers, a, vals, stuck ? aside : w, stuck ?? hit, clearance);
           break;
         }

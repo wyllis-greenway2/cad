@@ -54,3 +54,18 @@ test("a pivot in a project file is not refused while the kernel has not made the
   assert.equal(setPivot(bare, "x_s_083", [10, 58, 8], [0, 0, 1]).ok, true);
   assert.equal(setPivot(bare, "x_s_999", [10, 58, 8], [0, 0, 1]).ok, false);
 });
+
+test("a lever on a pin: the model says so, and the note suggests the coaxial mate once the play has moved it, or stopped", async () => {
+  const { pinInHole } = await import("../src/interaction/pinhole.ts");
+  const s = run(open(), { type: "setFixed", body: "x_s_084", on: false });
+  const sc = scene(s);
+  assert.match(pinInHole(sc, "b/x_s_002/o" as Ref, "b/x_s_084/o" as Ref) ?? "", /x_s_084 has a hole on a pin of x_s_002: select the pin and the hole and make Mate: coaxial/);
+  assert.equal(pinInHole(sc, "b/x_s_002/o" as Ref, "b/x_s_083/o" as Ref), null, "the other bar is not on a pin");
+  const r = startMotion(sc, "b/x_s_002/o" as Ref, "turn", s.outcome);
+  if (!r.ok) throw new Error(r.why);
+  assert.ok(r.motion.contact?.tip, "the motion knows");
+  const env = { w: 800, h: 600, now: 0 };
+  assert.equal(frameOf({ ...createState(s), motion: r.motion }, env).motionBar!.note, null, "nothing is said while the lever has not been moved");
+  const moved = solveContact(sc, { ...r.motion, playing: true, amount: 60 }, s.outcome, Infinity);
+  assert.match(frameOf({ ...createState(s), motion: moved }, env).motionBar!.note ?? "", /Mate: coaxial/);
+});

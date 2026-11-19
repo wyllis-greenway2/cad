@@ -1,10 +1,10 @@
 // The page's end of the push worked out ahead (`in_1096`, `contact-worker.ts`): it starts the thread for a motion that is playing along the path, puts the places it sends back in the places kept for the page's own scene, and says how far they go, so the play
 // never asks the page's thread to work out what the other has not yet: it waits, evenly, for the thread (`clamp`). Nothing of it is saved or shown; without a worker (a test, a browser without them) the play works its steps out itself, as before.
-import type { Scene } from "../operation/scene.ts";
-import type { CompileOutcome } from "../compiler/compile.ts";
-import type { Motion } from "./motion.ts";
-import { pathPlaces, placesExtent } from "./contact.ts";
-import type { AheadReply, AheadStart } from "../contact-worker.ts";
+import type { Scene } from "./operation/scene.ts";
+import type { CompileOutcome } from "./compiler/compile.ts";
+import type { Motion } from "./interaction/motion.ts";
+import { pathPlaces, placesExtent } from "./interaction/contact.ts";
+import type { AheadReply, AheadStart } from "./contact-worker.ts";
 
 export interface AheadWorker { postMessage(m: unknown): void; addEventListener(type: "message" | "error", f: (e: any) => void): void; terminate?(): void } // eslint-disable-line @typescript-eslint/no-explicit-any
 const LIMIT_TURN = 1080, LIMIT_SLIDE = 400; // (how far ahead of the start the thread goes: three turns)

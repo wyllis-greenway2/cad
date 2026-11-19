@@ -1,5 +1,5 @@
 // The push worked out ahead of the picture, in a thread of its own (`in_1096`, `dec_contact_push`): the page hands over the scene, what the kernel made of it and the motion as it stands, and this goes on from there a few degrees at a time, sending
-// back the places it has worked out (`contactahead.ts` is the other end). The page never waits for it: a play that comes to places not yet here goes slower, evenly, until they are.
+// back the places it has worked out (`contact-ahead.ts` is the other end). The page never waits for it: a play that comes to places not yet here goes slower, evenly, until they are.
 import { solveContact, pathPlaces } from "./interaction/contact.ts";
 import type { Place } from "./interaction/contact.ts";
 import type { Motion } from "./interaction/motion.ts";

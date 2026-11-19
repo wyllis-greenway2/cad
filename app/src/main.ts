@@ -63,7 +63,7 @@ import { createPreviewBar } from "./ui/previewbar.ts";
 import { createMotionBar } from "./ui/motionbar.ts";
 import { tickMotion } from "./interaction/motion.ts";
 import { solveContact } from "./interaction/contact.ts";
-import { createAhead } from "./interaction/contactahead.ts";
+import { createAhead } from "./contact-ahead.ts";
 import { createChip } from "./ui/chip.ts";
 import { createSheetChips } from "./ui/sheetchips.ts";
 import { createWorldOrb } from "./ui/worldorb.ts";
