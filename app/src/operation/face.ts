@@ -143,18 +143,27 @@ function faceBodyMade(pr: FacePair): Result<FaceBody> {
   const outer = pr.outer + (pr.cham > 0 ? END_REACH : 0); // (with a chamfer the loft goes a little past the outer radius, where the blank's wall cuts the ends: `blankchamfer.ts`)
   const [A, B] = [faceGrid(pr, 1), faceGrid(pr, -1)];
   const radii = Array.from({ length: NR + 1 }, (_, i) => ri + ((outer - ri) * i) / NR);
-  const hs = [1, 0.4, -0.3, -1, -1.55].map((k) => k * m); // (five heights: six gave the same fit, four a worse one; the last is a little under the root)
+  // the heights (modules above the pitch plane): the pinion's involute flank makes the tooth exactly from the pinion's tip (a module below the plane) up to its base circle (0.42 module up on a 14 tooth pinion); there the tooth is as the envelope has it, widening
+  // steadily downwards. Above the base circle the pinion's flank is the radial line of its root, which the envelope turns into a flare (`in_1015`), and below its tip it does not reach: in those two parts of the tooth, which nothing touches, it is a smooth
+  // continuation: above, a taper to 0.6 of the width at the base circle's height (never pointed); below, the walls straight down to the root. (Five sections with straight necks above and below made an S: the human asked if real face gears look like that, `in_1030`.)
+  const hs = [1, 0.4, 0, -0.4, -0.7, -1, -1.55].map((k) => k * m);
   const xy = (r: number, th: number): P => [r * Math.cos(th), r * Math.sin(th)];
   const sections: FaceBody["sections"] = [];
   let last: [number[], number[]] | null = null;
   const curves: [number[], number[]][] = [];
-  for (const h of hs) {
+  for (const [q, h] of hs.entries()) {
+    if (q === 0) { curves.push([[], []]); continue; } // (the tip: made below from the section under it)
     let fa = curveAt(contourAt(pr, A, h), radii), fb = curveAt(contourAt(pr, B, h), radii);
     if (!fa || !fb) {
-      if (!last || h > -m) return err("the pinion cannot generate this face gear's tooth between these radii (inside about the pitch radius less a module there is none): a larger inner radius");
+      if (!last || h > -0.69 * m) return err("the pinion cannot generate this face gear's tooth between these radii (inside about the pitch radius less a module there is none): a larger inner radius");
       [fa, fb] = last; // (below the pinion's tip: the slot's walls stand straight down to the root)
     } else last = [fa, fb];
     curves.push([fa, fb]);
+  }
+  { // the tip: the section under it with the tooth 0.6 as wide (the same middle), so that the tooth tapers on up to its top
+    const [fa, fb] = curves[1]!;
+    const narrow = (a: number, i: number): [number, number] => { const [w, c] = [pitch + fb[i]! - a, (a + pitch + fb[i]!) / 2]; return [c - (0.6 * w) / 2, c + (0.6 * w) / 2 - pitch]; };
+    curves[0] = [fa.map((a, i) => narrow(a, i)[0]), fa.map((a, i) => narrow(a, i)[1])];
   }
   // the tooth gets no wider as it goes up (`in_1015`): where the pinion's flank is below its base circle (the tooth's top, a module up on a 14 tooth pinion) the involute formula, carried on, flares the tooth out, wider at the tip than a little under it; the tooth keeps its middle and the width of the
   // height below it there (the pinion does not touch that part of the tooth: a pair still fits)

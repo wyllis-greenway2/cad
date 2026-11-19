@@ -3808,3 +3808,7 @@ Merged `claude/intelligent-hawking-8j1lyr` (its in_819-827 are in_916-924, Hando
 
 ## Handoff 918 — 2026-11-19 (in_1028: the automatic choice tried over many situations merged into the testing branch; a new branch to work on)
 `in_1028`. Merged the testing branch's tip (20 commits, up to `in_1024`, Handoff 915) into this branch, then pushed to it. **Numbers:** this branch's `in_1015` to `in_1017` became **`in_1025` to `in_1027`** and its Handoffs 908 and 909 became **916 and 917**, in a commit of their own before the merge. **Conflicts:** `human-input.md` and `handoff.md` only (theirs first, then ours); the code merged without one. **Checks:** types, unused, docs and the targeted fastener, hole, path, tools, body name, mate, gizmo and world tests (below). No full suite. The human asked for further work to be started on a new branch from the updated testing branch.
+
+## Handoff 919 — 2026-11-19 (in_1030: the face gear's tooth profile, the Crown submenu)
+`in_1030` (a screenshot of odd face gear teeth; are real ones like that; one submenu for crown and face). The profile was an artifact of five sections with vertical necks (`dec_crown_gear_set` "The tooth profile, redone"): rebuilt from the envelope's true profile, a trapezoid now; the pair fits better. The Gear ring has a Crown submenu (Crown gear, Face gear). The human's screenshot was probably of a build before the first fix (`in_1015`) or after it: either way the shape was an S. The full suite is run next. Next numbers: `in_1031`, Handoff 920.
+

@@ -128,7 +128,8 @@ interface Group { id: string; label: string; icon: string; items: (string | Grou
 const GEARS: Group = {
   id: "gears", label: "Gear", icon: "gear", items: [
     "tool:gear", "tool:ring", "tool:rack", "tool:planetary",
-    "tool:bevel", "tool:spiral", "tool:crown", "tool:face",
+    "tool:bevel", "tool:spiral",
+    { id: "crowns", label: "Crown", icon: "crowngear", items: ["tool:crown", "tool:face"] }, // (a face gear is a crown gear with a spur pinion, `in_1030`)
     { id: "worms", label: "Worm", icon: "worm", items: ["tool:worm", "tool:wormwheel"] },
     { id: "clockgears", label: "Clock", icon: "clockgear", items: ["tool:clock", "tool:clockring", "tool:clockrack"] },
     { id: "pulleys", label: "Pulley", icon: "pulley", items: ["tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8"] },
