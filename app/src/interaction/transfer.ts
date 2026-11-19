@@ -116,7 +116,7 @@ export const KIND_OF = (name: string): "step" | "stl" | "3mf" | "obj" | "brep" |
 };
 
 /** Fit a number the person typed: more than nothing. */
-const fitImport = (given: Partial<ImportOptions>): ImportOptions => ({ ...IMPORT_DEFAULTS, ...given, scale: Number.isFinite(given.scale) && given.scale! > 1e-6 && given.scale! < 1e4 ? given.scale! : 1 });
+const fitImport = (given: Partial<ImportOptions>): ImportOptions => ({ ...IMPORT_DEFAULTS, ...given, repair: given.repair ?? true, reduce: given.reduce ?? true, scale: Number.isFinite(given.scale) && given.scale! > 1e-6 && given.scale! < 1e4 ? given.scale! : 1 });
 
 export function importDialog(name: string, o0: Partial<ImportOptions>): Dialog {
   const o = fitImport(o0);
@@ -133,6 +133,10 @@ export function importDialog(name: string, o0: Partial<ImportOptions>): Dialog {
     fields.push({ id: "plane", label: "On", type: "choice", value: o.plane, choices: [{ value: "selected", label: "The selected plane or face (else XY)" }, { value: "XY", label: "The XY plane (floor)" }, { value: "XZ", label: "The XZ plane (front)" }, { value: "YZ", label: "The YZ plane (side)" }] });
   } else {
     fields.push({ id: "place", label: "Where", type: "choice", value: o.place, choices: [{ value: "file", label: "As in the file" }, { value: "center", label: "Its middle at the origin" }, { value: "floor", label: "Standing on the XY plane, centred" }] });
+  }
+  if (kind === "stl" || kind === "3mf" || kind === "obj") {
+    fields.push({ id: "repair", label: "Repair", type: "check", value: o.repair, note: "fill small holes in the surface (64 edges or fewer)" });
+    fields.push({ id: "reduce", label: "Reduce big meshes", type: "check", value: o.reduce, note: "a mesh of over 12,000 triangles is reduced to fit: the shape changes a little (the volume is said); off: it is refused" });
   }
   return { title: `Import ${kind ? kind.toUpperCase() : ""}`.trim(), ok: "Import", fields };
 }

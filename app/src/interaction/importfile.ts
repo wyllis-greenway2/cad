@@ -9,6 +9,7 @@ import type { Plane } from "../operation/part.ts";
 import { parseSvg, parseDxf, binaryDxfText } from "../compiler/flatparse.ts";
 import { parseFcstd } from "../compiler/fcstd.ts";
 import { parseStl, parseObj, parse3mf, weld, shellsOf, MAX_MESH_TRIANGLES } from "../compiler/meshfile.ts";
+import { fillHoles, decimate, meshVolume } from "../compiler/meshrepair.ts";
 import type { Mesh } from "../compiler/meshfile.ts";
 import { encodeMesh } from "../compiler/kernel/occt/meshdata.mjs";
 import { pack } from "../compiler/kernel/occt/pack.mjs";
@@ -26,8 +27,8 @@ const MAX_MESH_FACES = 6000;
 export const IMPORT_KINDS = ".step,.stp,.svg,.dxf,.stl,.3mf,.obj,.brep,.brp,.fcstd";
 
 /** The choices an import has (`dec_import_export_menu`): the units the numbers in the file are in (`file`: what it says itself; an STL says nothing and is millimetres), a further scale, where it is put, and for a drawing the plane. */
-export interface ImportOptions { units: "file" | "mm" | "cm" | "in" | "m"; scale: number; place: "file" | "center" | "floor"; plane: "selected" | "XY" | "XZ" | "YZ" }
-export const IMPORT_DEFAULTS: ImportOptions = { units: "file", scale: 1, place: "file", plane: "selected" };
+export interface ImportOptions { units: "file" | "mm" | "cm" | "in" | "m"; scale: number; place: "file" | "center" | "floor"; plane: "selected" | "XY" | "XZ" | "YZ"; /** a mesh: fill small holes in its surface (`dec_exchange_gaps`) */ repair: boolean; /** a mesh of more triangles than the app builds: reduce it to fit, the shape changing a little */ reduce: boolean }
+export const IMPORT_DEFAULTS: ImportOptions = { units: "file", scale: 1, place: "file", plane: "selected", repair: true, reduce: true };
 const UNIT_MM = { mm: 1, cm: 10, in: 25.4, m: 1000 } as const;
 const unitMmOf = (o: ImportOptions): number | undefined => (o.units === "file" ? undefined : UNIT_MM[o.units]);
 const optionNote = (o: ImportOptions): string[] => [...(o.units !== "file" ? [`read as ${o.units}`] : []), ...(o.scale !== 1 ? [`scaled by ${o.scale}`] : []), ...(o.place === "center" ? ["its middle put at the origin"] : o.place === "floor" ? ["put on the XY plane, centred"] : [])];
@@ -111,11 +112,17 @@ export function importFile(s: Session, name: string, text: string, o: ImportOpti
 }
 
 /** The cleaned shells of some triangle corners (nine numbers a triangle): joined, closed, turned the right way; or why not. */
-function shellsFrom(corners: ArrayLike<number>, label: string): { ok: true; shells: Mesh[]; notes: string[] } | { ok: false; error: string } {
+function shellsFrom(corners: ArrayLike<number>, label: string, repair = false): { ok: true; shells: Mesh[]; notes: string[] } | { ok: false; error: string } {
   const w = weld(corners);
-  const r = shellsOf(w.mesh);
-  if (!r.ok) return { ok: false, error: label ? `${label}: ${r.error}` : r.error };
   const notes: string[] = [];
+  let mesh = w.mesh;
+  if (repair) { // small holes in the surface filled before it is checked (a hole bigger than 64 edges, or a tangle, stays and is refused below)
+    const f = fillHoles(mesh);
+    mesh = f.mesh;
+    if (f.filled) notes.push(`${f.filled} hole${f.filled === 1 ? "" : "s"} in the surface filled (each of 64 edges or fewer, flat as its edge is)`);
+  }
+  const r = shellsOf(mesh);
+  if (!r.ok) return { ok: false, error: `${label ? `${label}: ` : ""}${r.error}${repair ? "; holes of 64 edges or fewer are filled for you, the ones in this mesh are bigger or not simple" : ""}` };
   if (w.dropped) notes.push(`${w.dropped} triangle${w.dropped === 1 ? "" : "s"} with no area left out`);
   if (r.value.turned) notes.push(`${r.value.turned} triangle${r.value.turned === 1 ? "" : "s"} turned to face the same way as their neighbours`);
   if (r.value.insideOut) notes.push(`${r.value.insideOut === 1 ? "a body that was" : `${r.value.insideOut} bodies that were`} inside out turned the right way`);
@@ -150,13 +157,25 @@ async function importMeshFile(s: Session, name: string, bytes: Uint8Array, o: Im
     for (const ob of objects) ob.corners = ob.corners.map((x, i) => x + by[i % 3]!);
   }
   for (const ob of objects) {
-    const r = shellsFrom(ob.corners, ob.name);
+    const r = shellsFrom(ob.corners, ob.name, o.repair);
     if (!r.ok) return r;
     shells.push(...r.shells); notes.push(...r.notes);
   }
   notes.push(...optionNote({ ...o, units: ext === "stl" || ext === "obj" ? o.units : "file" }));
-  const triangles = shells.reduce((a, m) => a + m.triangles.length / 3, 0);
-  if (triangles > MAX_MESH_TRIANGLES) return { ok: false, error: `this mesh has ${triangles.toLocaleString("en-US")} triangles: the app imports up to ${MAX_MESH_TRIANGLES.toLocaleString("en-US")}` };
+  let triangles = shells.reduce((a, m) => a + m.triangles.length / 3, 0);
+  if (triangles > MAX_MESH_TRIANGLES) {
+    if (!o.reduce) return { ok: false, error: `this mesh has ${triangles.toLocaleString("en-US")} triangles: the app builds up to ${MAX_MESH_TRIANGLES.toLocaleString("en-US")} as they are. Turn on "Reduce big meshes" in the import options (the shape changes a little), or reduce it first in a mesh program (Decimate in Blender, Simplify in MeshLab or PrusaSlicer)` };
+    // reduced to a number whose faces the app handles (a curved body has a face for each triangle: `MAX_MESH_FACES`), each shell in its share; the flat areas of a boxy part cost nothing to reduce and are joined into single faces
+    const before = triangles, volBefore = shells.reduce((a, m) => a + Math.abs(meshVolume(m)), 0);
+    const goal = Math.floor(MAX_MESH_FACES * 0.9);
+    const cut = shells.map((m) => decimate(m, Math.max(4, Math.floor((goal * m.triangles.length) / 3 / before))));
+    const verdict = cut.map((m) => shellsOf(m));
+    if (verdict.some((v) => !v.ok)) return { ok: false, error: "this mesh could not be reduced without breaking its surface: reduce it first in a mesh program (Decimate in Blender, Simplify in MeshLab or PrusaSlicer)" };
+    shells.splice(0, shells.length, ...cut);
+    triangles = shells.reduce((a, m) => a + m.triangles.length / 3, 0);
+    const volAfter = shells.reduce((a, m) => a + Math.abs(meshVolume(m)), 0);
+    notes.push(`reduced from ${before.toLocaleString("en-US")} to ${triangles.toLocaleString("en-US")} triangles to fit (its volume changed by ${(Math.abs(volAfter - volBefore) / Math.max(volBefore, 1e-9) * 100).toFixed(2)} %: the shape is close, not the same: for a part to be printed as it was, keep the original file)`);
+  }
   const done = run(s, { type: "addStep", step: { id: nextId(scene, "s"), type: "importMesh", parts: [], params: { data: shells.map(encodeMesh).join("|"), name } } });
   if (sceneOf(done).steps.length === scene.steps.length) return { ok: false, error: done.message ?? "the mesh could not be imported" };
   const made = Object.values(sceneOf(done).parts).filter((p) => p.kind === "body").length - Object.values(scene.parts).filter((p) => p.kind === "body").length;

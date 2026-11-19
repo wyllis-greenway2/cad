@@ -8,7 +8,7 @@ import type { Session } from "../src/interaction/session.ts";
 import { drawSquaredRectangle, drawCircle } from "../src/operation/build.ts";
 import { nextId } from "../src/operation/scene.ts";
 import { exportFile } from "../src/interaction/exportfile.ts";
-import { importAny } from "../src/interaction/importfile.ts";
+import { importAny, IMPORT_DEFAULTS } from "../src/interaction/importfile.ts";
 import { exportDialog, importDialog, KIND_OF } from "../src/interaction/transfer.ts";
 import { zipStored } from "../src/compiler/threemf.ts";
 import { parseFcstd } from "../src/compiler/fcstd.ts";
@@ -50,7 +50,7 @@ test("BREP: a curved body keeps its round faces (a post of 10 mm radius: the exa
   const back = await importAny(createSession(kernel), "post.brep", b);
   assert.ok(back.ok);
   assert.ok(Math.abs(volume(back.session) - Math.PI * 100 * 30) < 1e-6);
-  const inch = await importAny(createSession(kernel), "post.brep", b, { units: "in", scale: 1, place: "file", plane: "selected" });
+  const inch = await importAny(createSession(kernel), "post.brep", b, { ...IMPORT_DEFAULTS, units: "in" });
   assert.ok(inch.ok);
   assert.ok(Math.abs(volume(inch.session) / (Math.PI * 100 * 30) - 25.4 ** 3) < 1e-3 * 25.4 ** 3);
 });

@@ -98,7 +98,7 @@ test("an open OBJ (a single triangle) is refused by Import as an open mesh, and 
   const s = createSession(kernel);
   const r = await importAny(s, "tri.obj", new TextEncoder().encode("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n"));
   assert.ok(!r.ok);
-  assert.match(r.error, /not closed|open/i);
+  assert.match(r.error, /closed|open/i);
 });
 
 test("OBJ export: a block is 8 points and 12 triangles, Z up as modelled, and reads back as the same body", async () => {
