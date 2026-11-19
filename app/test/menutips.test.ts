@@ -141,7 +141,7 @@ test("the Constraints ring is one flat list of the same entries whatever is sele
   const { st } = states().find((x) => x.name === "empty")!;
   const kids = kidsOf(st) as Item[];
   assert.ok(kids.every((k) => !k.children), "flat: no ring inside it");
-  assert.deepEqual(kids.map((k) => k.label), ["Horizontal", "Vertical", "Parallel", "Perpendicular", "Angle", "Coincident", "On", "Tangent", "Concentric", "Equal", "Dimension", "Fix", "Hard body"]);
+  assert.deepEqual(kids.map((k) => k.label), ["Horizontal", "Vertical", "Parallel", "Perpendicular", "Angle", "Coincident", "On", "Tangent", "Concentric", "Equal", "Dimension", "Fix", "Hard body", "Fixed body"]);
   assert.equal(new Set(kids.map((k) => k.label)).size, kids.length, "each once: tangent is tangent");
   assert.ok(kids.filter((k) => k.id.startsWith("c:")).every((k) => !k.enabled && k.why), "with nothing selected all are dimmed and say what to select");
   assert.match(kids.find((k) => k.id === "c:parallel")!.why!, /select two lines/);
