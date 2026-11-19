@@ -5027,6 +5027,17 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > okay I think the menu should have you either go into a catalog selector that is simple bearing only, or go into create your own path with simple or detailed selectable. Right now it kind of seems to be in a hybrid state of both make your own and select from catalog
 (asks for two separate paths under a bearing type: a catalogue selector that makes simple bearings only, and a make-your-own path where simple or detailed can be chosen)
 
-## in_1172 — 2026-11-19 — approval
+## in_1172 — 2026-11-19 — question
+> okay what next?
+
+## in_1173 — 2026-11-19 — approval
+> go with 1 and 2
+(approves the AI's recommendation of `in_1172`: check a gear or a cam edited against a mate, and the held-back preview of a drag, against the rule that a violated constraint flashes red, says so and offers to delete)
+
+## in_1174 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the held-back drag's flash and the gear and mate checks to be merged into the testing branch, no full test run)
+
+## in_1175 — 2026-11-19 — approval
 > yes make it a real toggle button
 (approves making the bearing's Detail a real simple/detailed toggle button instead of a number field)

@@ -36,7 +36,7 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
         el.appendChild(info);
         toggles = [];
         inputs = entry.fields.map((f, i) => {
-          if (f.choices) { // (a toggle button: one button for each value, the chosen one filled, `in_1172`)
+          if (f.choices) { // (a toggle button: one button for each value, the chosen one filled, `in_1175`)
             const group = document.createElement("div");
             group.style.cssText = "display:flex;gap:0";
             const buttons = f.choices.map((name, k) => { const b = textButton(name, { click: () => h.entry(f.index ?? i, String(k)) }); b.style.cssText += ";padding:6px 12px;border-radius:" + (k === 0 ? "8px 0 0 8px" : k === f.choices!.length - 1 ? "0 8px 8px 0" : "0"); return b; });
