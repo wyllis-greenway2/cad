@@ -8,6 +8,7 @@ import { kernel } from "../src/compiler/kernel/index.ts";
 import { worldRef } from "../src/shared/ref.ts";
 import { createSession, run, scene } from "../src/interaction/session.ts";
 import type { GearSpec } from "../src/operation/gear.ts";
+import type { Session } from "../src/interaction/session.ts";
 
 await kernel.init();
 const area = (p: [number, number][]) => Math.abs(p.reduce((a, q, i) => { const r = p[(i + 1) % p.length]!; return a + (q[0] * r[1] - r[0] * q[1]); }, 0)) / 2;
