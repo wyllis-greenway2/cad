@@ -711,7 +711,11 @@ addEventListener("pagehide", () => autosave.flush());
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") autosave.flush(); });
 let keptHistory: unknown = null;
 const ahead = createAhead(() => new Worker(new URL("./contact-worker.ts", import.meta.url), { type: "module" })); // (the push worked out ahead of the picture, `in_1096`)
+let lastPlayFrame = 0;
+const PLAY_FRAME_MS = 26; // (a motion that plays is drawn about 38 times a second, not as fast as the screen refreshes: the play is by the clock, so it is as quick, and the processor and the graphics card work a third less)
 function frame(now: number) {
+  if (state.motion?.playing && now - lastPlayFrame < PLAY_FRAME_MS) { requestAnimationFrame(frame); return; }
+  if (state.motion?.playing) lastPlayFrame = now;
   const tStart = performance.now();
   engine.eye = [...position(state.cam)] as [number, number, number]; // (the kernel makes a model of many parts apart nearest the eye first, `dec_progressive_open`)
   if (state.session.history !== keptHistory) { keptHistory = state.session.history; const h = state.session.history; autosave.remember(() => saveText(state.session), h.commands.length, (why) => say(why)); } // (a moment after the last change, `in_997`)
@@ -724,7 +728,7 @@ function frame(now: number) {
     let mo = tickMotion(state.motion, now);
     if (mo.contact) { ahead.ensure(sc, oc, state.motion); const reach = ahead.extent(sc, oc, state.motion); if (reach !== null && mo.amount > reach) mo = { ...mo, amount: reach, from: reach, startedAt: null }; }
     state = { ...state, motion: solveContact(sc, mo, oc) }; dirty = true;
-  } else if (!state.motion) ahead.stop();
+  } else if (!state.motion?.playing) ahead.stop(); // (paused or closed: the thread has nothing to work ahead for, and stops using the processor)
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading || state.flash) {
     const size = view.size();

@@ -7,7 +7,7 @@ import { dot, sub, normalize } from "../math/vec.ts";
 import { roundOf } from "../operation/part.ts";
 import { lookup } from "../operation/scene.ts";
 
-interface Round { center: Vec3; axis: Vec3; radius: number; lo: number; hi: number; convex: boolean; ax: number }
+interface Round { ref: Ref; center: Vec3; axis: Vec3; radius: number; lo: number; hi: number; convex: boolean; ax: number }
 const roundsOf = (scene: Scene, body: Ref): Round[] => {
   const get = lookup(scene);
   const out: Round[] = [];
@@ -15,7 +15,7 @@ const roundsOf = (scene: Scene, body: Ref): Round[] => {
     if (p.kind !== "plane" || p.origin !== "body" || p.of !== body || !p.curved || p.curved.convex === undefined) continue;
     const r = roundOf(get, p.ref);
     if (!r?.normal) continue;
-    out.push({ center: r.center, axis: normalize(r.normal), radius: r.radius, lo: p.curved.lo, hi: p.curved.hi, convex: !!p.curved.convex, ax: p.curved.axis });
+    out.push({ ref: p.ref, center: r.center, axis: normalize(r.normal), radius: r.radius, lo: p.curved.lo, hi: p.curved.hi, convex: !!p.curved.convex, ax: p.curved.axis });
   }
   return out;
 };
@@ -32,6 +32,29 @@ export function pinInHole(scene: Scene, a: Ref, b: Ref): string | null {
       if (off > hole.radius - pin.radius + 0.05) continue;
       if (pin.ax === hole.ax && (pin.hi < hole.lo || hole.hi < pin.lo)) continue; // (they do not meet along the axis)
       return `${name(scene, holeBody)} has a hole on a pin of ${name(scene, pinBody)}: select the pin and the hole and make Mate: coaxial, and it turns on the pin`;
+    }
+  }
+  return null;
+}
+
+/**
+ * The round faces to mate for a body that turns about the axis through `point` with direction `dir`: a hole of the body (`body`) on a pin of another body, the pin's axis parallel to `dir` and within the room the hole leaves (and `slack`) of `point`.
+ * The hole moves to the pin when they are mated, so the pin is the axis. Null when the model has no such pair.
+ */
+export function holeAndPin(scene: Scene, body: Ref, point: Vec3, dir: Vec3, slack = 1): { hole: Ref; pin: Ref } | null {
+  const d = normalize(dir);
+  for (const hole of roundsOf(scene, body).filter((r) => !r.convex)) {
+    if (Math.abs(dot(hole.axis, d)) < 0.999) continue;
+    for (const other of Object.values(scene.parts)) {
+      if (other.kind !== "body" || other.ref === body) continue;
+      for (const pin of roundsOf(scene, other.ref).filter((r) => r.convex)) {
+        if (Math.abs(dot(pin.axis, d)) < 0.999 || hole.radius < pin.radius - 0.01) continue;
+        const room = hole.radius - pin.radius;
+        const off = (a: Vec3, from: Vec3): number => { const w = sub(from, a), al = dot(w, d); return Math.hypot(w[0] - d[0] * al, w[1] - d[1] * al, w[2] - d[2] * al); };
+        if (off(pin.center, hole.center) > room + 0.05 || off(pin.center, point) > room + slack) continue;
+        if (pin.ax === hole.ax && (pin.hi < hole.lo || hole.hi < pin.lo)) continue;
+        return { hole: hole.ref, pin: pin.ref };
+      }
     }
   }
   return null;
