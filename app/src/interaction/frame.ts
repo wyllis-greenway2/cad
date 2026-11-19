@@ -144,6 +144,8 @@ export interface Frame {
   helper: { at: Vec3; text: string } | null;
   /** the kernel is still working the model out (a picture of it may be a moment old): a "working" sign shows if it takes a while */
   busy: boolean;
+  /** what the working sign says: how far a model made in pieces is (`dec_progressive_open`) */
+  busyText?: string;
   /** the discs that stand for gear bodies the kernel has not made yet (`dec_gear_standin`) */
   standIns: StandIn[];
   /** everything the person is told, as one list for one renderer (`in_665`) */
@@ -482,6 +484,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     entries: (s.moverSphere && moverOp(s) && !s.tool && gizmo ? moverPlaceEntries(gizmo, moverOp(s)!.frame, orbShow(s, now)) : sectionNow(s) && !s.op && !s.repeat && !s.tool && gizmo ? sectionEntries({ at: sectionNow(s)!.centre, n: sectionNow(s)!.n }, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel) : shownOp?.kind === "revolve" && !s.tool ? revolveEntries(shownOp, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel) : shownOp?.kind === "loft" && !s.tool ? loftEntries(sceneOf(s.session), shownOp) : shownOp?.kind === "mirror" ? mirrorEntries(shownOp, gizmo)  : shownOp?.kind === "scale" && shownOp.axes ? scaleEntries(shownOp, gizmo) : s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp && numberShown ? moveEntries(s.handleSel?.startsWith("move:") ? { ...movingOp, axis: "xyz".indexOf(s.handleSel[5]!) as 0 | 1 | 2 } : movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : []).map((e) => inUnits(e)),
     helper: helperAt(s, gizmo),
     busy: !!s.session.outcome.kernel?.stale,
+    ...(s.session.outcome.kernel?.partial ? { busyText: `Building ${s.session.outcome.kernel.partial.done} of ${s.session.outcome.kernel.partial.total} parts…` } : {}),
     standIns: standIns(sc, outcome.kernel),
     lookHint: lookOf(sc, sel, s.cam, s.world).lookHint,
     facing: facingOf(s.cam),

@@ -4309,3 +4309,66 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > lets do 2 3 and 4
 (of the AI's list: Mesh gear carries the chamfer to the partner (2); cut the kernel time of big spiral pairs (3); the spiral crown gear (4); the menu split (1) and ISO 23509 (5) stay out)
 
+## in_989 — 2026-11-18 — question
+> okay what else should we work on to make things fast and efficient?
+(asks for the AI's view of what else to work on for speed and efficiency)
+
+## in_990 — 2026-11-18 — directive
+> yes please
+(approves starting with the startup time work: starting the kernel earlier, caching the kernel file, splitting rarely used code)
+
+## in_991 — 2026-11-18 — directive
+> Yes prototype the warm-up
+(approves a prototype of the kernel warm-up: measuring how much of the first model's delay a warm-up removes)
+
+## in_992 — 2026-11-18 — directive
+> Okay, now I want to test the limits and fail states. How big of an assembly can I make? 10 parts? 100 parts? 1000 parts? how many faces can I render? also how does it fail? just freeze and explode? or fail in silent errors?
+(asks to test the limits and the fail states: how many parts an assembly can have (10, 100, 1000), how many faces can be rendered, and how the app fails: freezing, crashing, or silent errors)
+
+## in_993 — 2026-11-18 — question
+> how can we make it way faster and tolerant? Can we not even try to load it all at once, put the user in the environment, and prevent interface from freezing or feeling frozen while we populate models and data from the camera backwards? How can we have the interface still operate smoothly even after load? should we only render the objects closest to camera and ghost render the other? sort of like how the gear works where it is just a donut while rendering while it is being built? How can we give the user the detail and fidelity they need intelligently? maybe based off camera position and selection?
+(asks how to make large models much faster and more tolerant: not loading everything at once, putting the user in the scene at once, never freezing, filling in models and data from the camera backwards, keeping the interface smooth after load, drawing near objects in full and the others as ghosts like the gear's stand-in disc, and giving detail and fidelity by camera position and selection)
+
+## in_994 — 2026-11-18 — question
+> how can we be sure letting the user interact before it is fully loaded doesn't break or do weird stuff? should we load in relationships first to know what could break and what the user should safely be allowed to touch? Also should we uses caching for speed? and how about layering it so everything gets loaded as quickly as possible? Maybe load via dependency from relationship information at least in really rough mesh or coarse ghost / donut etc, and also relative to closeness to the camera etc?
+(asks how to be sure that interacting before a model is fully loaded does not break anything: loading the relationships first to know what can break and what the user may safely touch; whether to use caching; and layering the load, by dependency and by closeness to the camera, with rough meshes or ghosts first)
+
+## in_995 — 2026-11-18 — directive
+> okay build it please
+(approves building the first steps of the progressive loading plan: the table of what each operation needs, and the differential test harness)
+
+## in_996 — 2026-11-18 — approval
+> I approve
+(approves the last proposal; which of the two offered next steps it means is asked)
+
+## in_997 — 2026-11-18 — approval
+> Phase 0 (Recommended)
+(the answer chosen to the question which next step the approval covers: Phase 0, building the scene once when opening a project, keeping the last good picture when a step fails, keeping an automatic copy of the project in the browser, and stopping a step before the kernel's memory crashes the tab)
+
+## in_998 — 2026-11-18 — question
+> what do you reccomend?
+(asks which of the offered next steps the AI recommends)
+
+## in_999 — 2026-11-18 — approval
+> yes
+(approves extending the differential test to parts with modifying steps (fillets, holes, moves), revolves, lofts and sweeps, as recommended)
+
+## in_1000 — 2026-11-18 — question
+> okay so how are we looking? do we have a fast system that can handle lots of complex parts like gears etc?
+(asks for the state of the speed work: whether the system is fast and can handle many complex parts such as gears)
+
+## in_1001 — 2026-11-18 — approval
+> yes start
+(approves starting the Phase 1 prototype: ghosts from the commands and piecewise building of independent parts in camera order, measured on the 300 and 1000 part projects)
+
+## in_1002 — 2026-11-18 — approval
+> yes
+(approves writing the decision and building the smallest slice of Phase 1 in the app: ghosts drawn at once from the commands, and the kernel asked for one group at a time in camera order, measured in the browser first)
+
+## in_1003 — 2026-11-19 — question
+> okay what next?
+(asks what the AI recommends doing next)
+
+## in_1004 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks to merge this branch's work into claude/inspiring-pascal-l342k7: the explicit permission to write to that branch for this merge)

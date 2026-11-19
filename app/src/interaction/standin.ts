@@ -6,6 +6,9 @@ import { gearShapeOf } from "../operation/gearshape.ts";
 import { wormOf } from "../operation/worm.ts";
 import { figuresOf, lookup } from "../operation/scene.ts";
 import { walkPath } from "../operation/path.ts";
+import { graphOf } from "../compiler/compile.ts";
+import { ghostsOf } from "../compiler/kernel/pieces.ts";
+import type { Ghost } from "../compiler/kernel/pieces.ts";
 import { pointOf, curveMid } from "../operation/part.ts";
 
 /** How long the kernel has been working before a disc is drawn for a gear it has not made (ms): a gear that comes at once is not preceded by a flash. */
@@ -18,10 +21,11 @@ export function standInWords(seconds: number): string {
 
 /** A disc: its middle, the way it faces, how thick it is (along the normal, from the middle's plane; negative goes the other way), its outside radius and, if it is a ring, the radius of its hole. */
 export interface StandIn { step: string; centre: Vec3; normal: Vec3; depth: number; radius: number; hole: number;
+  /** a part of a model made in pieces that is not made yet (`dec_progressive_open`): its box, drawn at once from the commands alone (the other numbers are zero) */ box?: { min: Vec3; max: Vec3 };
   /** a swept body (`in_850`): the points of its path, which the stand-in is a tube along (then `centre` is the path's middle, `depth` 0 and `radius` the tube's) */ path?: Vec3[] }
 
 /** What of the kernel's last answer matters here: whether it is still being worked out, and the steps it has made. */
-export interface KernelSeen { stale?: boolean; ops: readonly { id: string }[] }
+export interface KernelSeen { stale?: boolean; ops: readonly { id: string }[]; /** the bodies made so far (a model made in pieces has some of them: `dec_progressive_open`) */ bodies?: readonly { id: string }[] | null }
 
 /** The stand-ins to draw: a disc for each step that makes a gear's body, a tube for a sweep while the kernel is working and has not made that step yet. */
 export function standIns(sc: Scene, kernel: KernelSeen | null | undefined): StandIn[] {
@@ -33,6 +37,7 @@ export function standIns(sc: Scene, kernel: KernelSeen | null | undefined): Stan
     const one = standInOf(sc, st);
     if (one) out.push(one);
   }
+  out.push(...pieceStandIns(sc, kernel));
   return out;
 }
 
@@ -132,4 +137,22 @@ function hullArea(pts: readonly Vec3[]): number {
   let a = 0;
   for (let i = 0; i < hull.length; i++) { const [p, q] = [hull[i]!, hull[(i + 1) % hull.length]!]; a += p[0] * q[1] - q[0] * p[1]; }
   return Math.abs(a) / 2;
+}
+
+// ---- the parts of a model made in pieces that are not made yet (`dec_progressive_open`, `in_1002`) ----
+const ghostMemo = new WeakMap<Scene, Ghost[] | null>();
+let lastPieces: { scene: Scene; built: number; list: StandIn[] } | null = null;
+const NONE: Vec3 = [0, 0, 0];
+/** A box for each part of a model of many parts apart that the kernel has not made yet, from the scene's own steps (the same ghosts the kernel's pieces are planned from). The same list while nothing changed: it is asked for every frame. */
+function pieceStandIns(sc: Scene, kernel: KernelSeen): StandIn[] {
+  if (sc.steps.length < 24) return [];
+  let ghosts = ghostMemo.get(sc);
+  if (ghosts === undefined) { const g = ghostsOf(graphOf(sc)); ghosts = g ? g.map((x) => x.ghost) : null; ghostMemo.set(sc, ghosts); }
+  if (!ghosts) return [];
+  const built = new Set((kernel.bodies ?? []).map((b) => b.id));
+  const pending = ghosts.filter((g) => !built.has(g.id));
+  if (lastPieces && lastPieces.scene === sc && lastPieces.built === built.size) return lastPieces.list;
+  const list = pending.map((g): StandIn => ({ step: g.id, centre: NONE, normal: [0, 0, 1], depth: 0, radius: 0, hole: 0, box: g.box }));
+  lastPieces = { scene: sc, built: built.size, list };
+  return list;
 }

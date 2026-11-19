@@ -34,6 +34,8 @@ export interface KernelResult {
   describe?: { bodies: number; reused: number; fingerprintMs?: number; describedMs?: number };
   /** this answer was kept from an earlier session (`dec_description_cache`): the kernel's own answer for the same graph, shown while the thread works the model out */
   fromCache?: boolean;
+  /** a model made in pieces (`dec_progressive_open`): the parts made so far, nearest the eye first, and how many there are; the answer is of these parts only and `stale` is set until the last is made */
+  partial?: { done: number; total: number };
   /** the kernel works on its own thread and has not answered this question yet: this is the last answer it gave, for an older model */
   stale?: boolean;
 }
@@ -57,6 +59,8 @@ export interface Kernel {
   exportMesh(graph: KernelGraph, quality: ExportQuality): Promise<ExportResult>;
   /** the final body (or only the bodies named) as a STEP file; answers later when the kernel works on its own thread */
   exportStep(graph: KernelGraph, bodies?: string[], unit?: "in"): Promise<StepResult>;
+  /** where the eye is (the kernel on its own thread makes a model of many parts apart nearest the eye first, `dec_progressive_open`); it is not part of the question: the same answer comes whichever it is */
+  eye?: Vec;
   /** nothing is being made now (a scene with no steps): the picture the kernel last gave is not the picture of what comes next, so it is forgotten (`in_951`: deleted gears showed for a moment while new ones were made); a kernel that keeps no last picture ignores it */
   clear?(): void;
   /** ask for rough meshes (set while a size is being dragged, cleared when it is let go); a kernel that does not know it ignores it */

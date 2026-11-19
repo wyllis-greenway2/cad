@@ -2,3 +2,4 @@
 export function isValidSolid(shape: unknown): boolean;
 export const kernelStats: { prismsBuilt: number; prismsReused: number; partialBooleans: number; booleansKept: number };
 export function clearKernelCaches(): void;
+export function setMemoryStop(mb: number): void;

@@ -41,7 +41,7 @@ import { findCrossing } from "./selfcross.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
 import { clearNameCaches, nameFaces, refOfName, namedEdgeRefs, figureRoles, edgeEnds, edgeRoles, revolveRoles, loftRoles, sweepRoles, endTangent, creaseOf } from "./facenames.mjs";
-import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf, solidKey } from "./bodies.mjs";
+import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf, quickBox, solidKey } from "./bodies.mjs";
 
 /** The imported solids scaled about the origin by `op.scale` and then placed: `op.place` "center" brings the middle of their box to the origin, "floor" brings the middle of the box to the z axis and the bottom to z = 0 (a part that sits on the build plate). */
 function placedSolids(solids, op) {
@@ -1230,15 +1230,16 @@ const OPS = {
     axis[op.axis] = 1;
     const again = (moved) => (one ? makeCompound([...one.rest, moved]) : moved);
     const only = one ? op.body : null;
+    const was = one ? quickBox(t) : undefined; // (where the body stood: the names of its faces move with it and no other body's do, `in_999`)
     // (a move by a vector, from dragging the body free, `in_291`: `op.vec`; else along one axis)
-    if (op.mode === "move") { const by = op.vec ?? axis.map((a) => a * v); return { kind: "solid", shape: again(t.translate(by)), tf: { mode: "move", axis: op.axis, v, vec: op.vec, only } }; }
-    if (op.mode === "rotate") { const pivot = op.pivot ?? middle(); const about = op.dir ?? axis; return { kind: "solid", shape: again(t.rotate(v, pivot, about)), tf: { mode: "rotate", axis: op.axis, dir: op.dir, v, pivot, only } }; } // (`op.dir`: a turn about any axis, `in_417`)
+    if (op.mode === "move") { const by = op.vec ?? axis.map((a) => a * v); return { kind: "solid", shape: again(t.translate(by)), tf: { mode: "move", axis: op.axis, v, vec: op.vec, only, box: was } }; }
+    if (op.mode === "rotate") { const pivot = op.pivot ?? middle(); const about = op.dir ?? axis; return { kind: "solid", shape: again(t.rotate(v, pivot, about)), tf: { mode: "rotate", axis: op.axis, dir: op.dir, v, pivot, only, box: was } }; } // (`op.dir`: a turn about any axis, `in_417`)
     if (op.mode === "scale") {
       if (!(v > 1e-6)) throw new Error("scale must be positive");
       // (a body made a hundred metres long or more is a slip of the keys, and the kernel does not come back from meshing it: `in_255`)
       if (v > 100) { const b = bounds(t); if (Math.max(...[0, 1, 2].map((i) => b.max[i] - b.min[i])) * v > 1e5) throw new Error("that scale would make the body more than 100 metres long"); }
       const pivot = op.pivot ?? middle();
-      return { kind: "solid", shape: again(t.scale(v, pivot)), tf: { mode: "scale", axis: 0, v, pivot, only } };
+      return { kind: "solid", shape: again(t.scale(v, pivot)), tf: { mode: "scale", axis: 0, v, pivot, only, box: was } };
     }
     throw new Error(`unknown transform ${op.mode}`);
   },
@@ -2364,6 +2365,10 @@ function ownSolid(ctx, op, kind, ids, build) {
 export const kernelStats = { prismsBuilt: 0, prismsReused: 0, partialBooleans: 0, booleansKept: 0 };
 /** Forget what is kept of bodies, so that the next answer is worked out from nothing (for the tests: the kept and the worked-out answers are to be the same). */
 export function clearKernelCaches() { prisms.clear(); booleans.clear(); validSolids.clear(); uncrossed.clear(); memo.clear(); clearNameCaches(); }
+/** The size (MB) of the kernel's memory above which no step is made (`KERNEL_MEMORY_STOP_MB` in `kernel-async.ts` is the same number: a thread above it is restarted). */
+let memoryStopMb = 3300;
+export function setMemoryStop(mb) { memoryStopMb = mb; }
+const heapMegabytes = () => { try { return Math.round((getOC().wasmMemory?.buffer.byteLength ?? 0) / 1048576); } catch { return 0; } };
 const memo = new Map(); // key -> { value, own }
 /**
  * The answers kept for the steps, the oldest forgotten first once they hold more than `MEMO_FACES` faces of their own (a step's own are the faces its answer has beyond its target's, the answers of a row of steps
@@ -2465,6 +2470,8 @@ export function compile(graph, quick = false) {
       results.set(op.id, { value: kept.value, ms: 0, key, cached: true, faces: kept.faces });
       continue;
     }
+    // the kernel's memory is nearly its 4 GB: a step that went on would be the end of the page's tab (a model of 1100 bodies killed it after 46 s, `in_997`); this step and the ones after it say so and nothing more is made
+    if (memoryStopMb > 0) { const mb = heapMegabytes(); if (mb > memoryStopMb) { results.set(op.id, { error: `the model is too big for the kernel's memory (${mb} MB of 4096 used): use fewer or simpler parts, or save it and open it in pieces`, ms: 0 }); continue; } }
     let markMs = 0;
     let checkMs = 0;
     try {
