@@ -4291,3 +4291,4 @@ Branch `claude/adoring-dijkstra-carry`. **Message:** "Collision occurred" (the d
 - The human asked for a hub and spoke tool (`in_1214`), alone or on a selected round object. Recorded verbatim; the proposal is the open question `q_hub_spoke` (nothing built, as code outside `prototypes/` needs an accepted entry).
 - Waiting on: which reading of "made into the object" (fill the selected circle, or fit the selected shaft or hole), then approval to build.
 - The piston research (Handoff 1072) still waits on the page fetches after a session restart.
+- `in_1215`: the human chose Fill for a selected round object and asked for spoke designs to be researched (casting-friendly). Two searches done (snippets, no page opened), recorded in the sources README; styles proposed in `q_hub_spoke`. Still waiting for approval of the styles before any code.
