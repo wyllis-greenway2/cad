@@ -13,10 +13,12 @@ export interface EngineSpec {
   /** the cylinder's bore, the stroke (mm) and the rod ratio: the crank's radius over the rod's length (0.25 to 0.33 is usual) */ bore: number; stroke: number; ratio: number;
   /** the gudgeon (piston) pin's diameter, the crankshaft's diameter, the thickness of the walls and the flywheel's diameter (mm) */ pin: number; shaft: number; wall: number; flywheel: number;
   /** the compression rings' grooves (0 to 3) */ rings: number;
-  /** the room all round the moving parts (mm): the piston in the bore, the pin in its eyes */ room: number;
+  /** the room all round the moving parts that are not the piston's own fits (mm): the shaft in the block, the rod's eyes on the pins, the slot for the rod */ room: number;
+  /** the piston's own fits (mm; `dec_clearance_defaults`, Honda's nominal middles): the piston's room in the bore (across, so half a side), the pin's room in its bore in the piston (across) and a ring's room above and below it in its groove */ skirtFit: number; pinFit: number; ringSide: number;
   /** which engine the numbers are: 0 your own, 1 to 3 a preset of `ENGINE_PRESETS` (the box starts from its numbers; a number typed replaces one) */ preset: number;
 }
-export const ENGINE_START: EngineSpec = { bore: 30, stroke: 30, ratio: 0.27, pin: 8, shaft: 8, wall: 4, flywheel: 50, rings: 2, room: 0.15, preset: 0 };
+const NOMINAL = pistonFit(30); // (the fits do not follow the bore)
+export const ENGINE_START: EngineSpec = { bore: 30, stroke: 30, ratio: 0.27, pin: 8, shaft: 8, wall: 4, flywheel: 50, rings: 2, room: 0.15, skirtFit: NOMINAL.skirtClearance, pinFit: NOMINAL.pinFit, ringSide: NOMINAL.ringSide, preset: 0 };
 
 /** Real engines as starting numbers (`dec_engine_presets`): the bore, stroke and pin of the Honda GX120, GX160 and GX200 (the service manual), two compression ring grooves, and the GX160's rod ratio from its rod length (83.8 to 84.4 mm between centres, the crank's radius 22.5 mm). **Assumed, not Honda's:** the GX120's and GX200's rod ratio (the model's usual) and every preset's shaft, wall and flywheel (the model's own proportions at the preset's bore). */
 const honda = (preset: number, bore: number, stroke: number, pin: number, ratio: number): EngineSpec => {
@@ -39,10 +41,10 @@ export interface EngineGeometry {
   /** the least half width of the slot in the piston for the rod to swing in, the floor's reach behind the crank */ slot: number; rf: number;
 }
 export function engineGeometry(s: EngineSpec): EngineGeometry {
-  const r = s.stroke / 2, l = r / s.ratio, B = s.bore, rp = B / 2 - s.room;
+  const r = s.stroke / 2, l = r / s.ratio, B = s.bore, rp = B / 2 - s.skirtFit / 2;
   const cp = Math.round(s.pin * 1.25 * 10) / 10, rb = cp / 2 + 2.5, rs = s.pin / 2 + 1.5, w = Math.max(3, Math.round(s.pin * 0.75 * 10) / 10);
   // the ring grooves are a Honda ring's height and its side room (`dec_engine_presets`); the rest of the piston is a remembered proportion until `dec_piston_parameters` is approved, except the skirt below the pin: 0.27 of the bore is ASSUMED (rule A5, NACA 817's reading), because the remembered 0.35 made a real GX160 (rod 84 mm, stroke 45) impossible (its skirt would hit the crank disc at the bottom of the stroke; it must be under 0.32)
-  const fit = pistonFit(B), ch = 0.55 * B, sk = 0.27 * B, gh = fit.compressionRing + fit.ringSide, gd = Math.max(1.2, 0.06 * B), gp = gh + Math.max(1, 0.04 * B), land = 0.12 * B;
+  const fit = pistonFit(B), ch = 0.55 * B, sk = 0.27 * B, gh = fit.compressionRing + s.ringSide, gd = Math.max(1.2, 0.06 * B), gp = gh + Math.max(1, 0.04 * B), land = 0.12 * B;
   const ro = B / 2 + s.wall, tb = s.wall, tw = Math.max(3, s.wall), tf = Math.max(4, s.wall + 2);
   const rweb = r + cp / 2 + 3, zc = tb + ro - 0.5;
   const x0 = l - r - sk - 1, x1 = r + l + ch + 1;
@@ -63,6 +65,9 @@ export function engineProblem(s: EngineSpec): string | null {
   if (![s.bore, s.stroke, s.pin, s.shaft, s.wall, s.flywheel].every((v) => v > 0)) return "the sizes must be more than 0";
   if (!Number.isInteger(s.rings) || s.rings < 0 || s.rings > 3) return "the rings are 0 to 3";
   if (s.room < 0.02 || s.room > 1) return "the room round the moving parts is 0.02 to 1 mm";
+  if (s.skirtFit < 0.005 || s.skirtFit > 1) return "the piston's room in the bore is 0.005 to 1 mm across (Honda 0.015 to 0.050)";
+  if (s.pinFit < 0.001 || s.pinFit > 0.5) return "the pin's room in the piston is 0.001 to 0.5 mm across (Honda 0.002 to 0.014)";
+  if (s.ringSide < 0.005 || s.ringSide > 0.5) return "a ring's room in its groove is 0.005 to 0.5 mm (Honda 0.015 to 0.045)";
   if (s.ratio < 0.2 || s.ratio > 0.5) return "the rod ratio (the crank's radius over the rod's length) is 0.2 to 0.5; 0.25 to 0.33 is usual";
   if (s.bore < 12) return "the bore must be 12 mm or more";
   if (s.pin < 0.18 * s.bore || s.pin > 0.4 * s.bore) return `the pin is 0.18 to 0.4 of the bore: ${(0.18 * s.bore).toFixed(1)} to ${(0.4 * s.bore).toFixed(1)} mm (0.25 to 0.3 is usual)`;
@@ -112,7 +117,7 @@ export function engineSteps(s: EngineSpec, place?: Place): Result<ModelBuild> {
   b.extrude(up(xp0 - g.sk), disc(0, 0, g.rp), [], g.sk + g.ch);
   for (let k = 0; k < s.rings; k++) b.extrude(up(xp0 + g.ch - g.land - k * g.gp - g.gh), disc(0, 0, g.rp + rm / 2), [disc(0, 0, g.rp - g.gd)], g.gh, { mode: "cut" });
   b.extrude(b.plane(g.zc - g.w / 2 - rm), box(xp0 - g.sk - 1, -g.slot, xp0 + g.rs + 1, g.slot), [], g.w + 2 * rm, { mode: "cut" });
-  b.extrude(b.plane(g.zc - g.rp - 1), disc(xp0, 0, s.pin / 2 + rm), [], 2 * g.rp + 2, { mode: "cut" });
+  b.extrude(b.plane(g.zc - g.rp - 1), disc(xp0, 0, s.pin / 2 + s.pinFit / 2), [], 2 * g.rp + 2, { mode: "cut" });
   b.part("Piston pin");
   const half = Math.sqrt(g.rp * g.rp - (s.pin / 2 + 1) ** 2) - 0.3;
   b.extrude(b.plane(g.zc - half), disc(xp0, 0, s.pin / 2), [], 2 * half);

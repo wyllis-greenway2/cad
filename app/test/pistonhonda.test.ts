@@ -84,9 +84,26 @@ test("the engine's box: a preset is another start, a typed number replaces one a
   assert.ok(own.bore === ENGINE_START.bore && own.pin === ENGINE_START.pin, "your own is the usual start");
 });
 
-test("the ring grooves are Honda's ring height and its side room", () => {
-  for (const p of ENGINE_PRESETS) assert.ok(Math.abs(engineGeometry(p.spec).gh - (1.5 + pistonFit(p.spec.bore).ringSide)) < 1e-9, `${p.name}`);
-  assert.ok(Math.abs(engineGeometry(ENGINE_START).gh - (1.0 + 0.03)) < 1e-9, "and the small usual engine's");
+test("the ring grooves are Honda's ring height and the ring's side room (a typed number)", () => {
+  for (const p of ENGINE_PRESETS) assert.ok(Math.abs(engineGeometry(p.spec).gh - (1.5 + p.spec.ringSide)) < 1e-9, `${p.name}`);
+  assert.ok(Math.abs(engineGeometry(ENGINE_START).gh - (1.0 + ENGINE_START.ringSide)) < 1e-9, "and the small usual engine's");
+  assert.ok(Math.abs(engineGeometry({ ...ENGINE_START, ringSide: 0.04 }).gh - 1.04) < 1e-9, "a side room typed is used");
+});
+
+test("two kinds of typed room (`dec_clearance_defaults`): the piston's fits default to Honda's nominal middles, and `room` is the moving parts' only", () => {
+  const f = pistonFit(30);
+  assert.ok(ENGINE_START.skirtFit === f.skirtClearance && ENGINE_START.pinFit === f.pinFit && ENGINE_START.ringSide === f.ringSide && ENGINE_START.room === 0.15, "the defaults");
+  assert.ok(within(ENGINE_START.skirtFit, COMMON.skirtClearance) && within(ENGINE_START.pinFit, COMMON.pinFit) && within(ENGINE_START.ringSide, COMMON.ringSide), "inside Honda's ranges");
+  for (const p of ENGINE_PRESETS) assert.ok(p.spec.skirtFit === f.skirtClearance && p.spec.pinFit === f.pinFit && p.spec.ringSide === f.ringSide, `${p.name} has the same fits`);
+  const g0 = engineGeometry(ENGINE_START);
+  assert.ok(Math.abs(g0.rp - (ENGINE_START.bore / 2 - ENGINE_START.skirtFit / 2)) < 1e-12, "the piston stands half the fit inside the bore");
+  assert.equal(engineGeometry({ ...ENGINE_START, room: 0.4 }).rp, g0.rp, "the room of the moving parts does not move the piston's radius");
+  assert.ok(Math.abs(engineGeometry({ ...ENGINE_START, skirtFit: 0.05 }).rp - (15 - 0.025)) < 1e-12, "the piston's fit does");
+  assert.match(engineProblem({ ...ENGINE_START, skirtFit: 0 }) ?? "", /piston's room in the bore/);
+  assert.match(engineProblem({ ...ENGINE_START, pinFit: 0 }) ?? "", /pin's room/);
+  assert.match(engineProblem({ ...ENGINE_START, ringSide: 2 }) ?? "", /ring's room/);
+  const typed = modelNumbers("engine", { skirtFit: 0.05 });
+  assert.ok(typed.skirtFit === 0.05 && typed.bore === ENGINE_START.bore && typed.room === 0.15, "a fit typed moves nothing else: the fits are not lengths of the engine");
 });
 
 type B = { ref: string; volume: number };

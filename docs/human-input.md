@@ -5284,3 +5284,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1241 — 2026-11-19 — approval
 > approve the Honda preset test and go ahead
 (approves the proposed test of the builder's defaults against the three Honda engines, with the Honda GX120, GX160 and GX200 as presets, and says to go ahead with the build)
+
+## in_1242 — 2026-11-19 — directive
+> option 3 for the clearance question, go ahead, we dont want to design this for 3d printing. it could be machined, cast etc, it is not specifically for 3d printing and should be manufacturing agnostic
+(answers q_clearance_profile with option 3: two typed numbers, the model's room for the moving parts and the piston's own fits from Honda; says to go ahead; the engine builder is not for 3D printing in particular, it could be machined or cast, and must be manufacturing agnostic)
