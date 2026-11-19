@@ -4384,3 +4384,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1007 — 2026-11-19 — question
 > Why does it take literally forever to extrude this plane? it seems like a really simple shape
 (attached: the project `model.cad_59.json`: two meshed gears, a pin, and a drawn arm outline on a plane at z 11.5; a screenshot of the arm profile and one of the extrude preview showing "Working…" at -3.2)
+
+## in_1008 — 2026-11-19 — question
+> What is the root cause here? and how can we make this as fast as possible given the fact that it didn't interact with complex geometry?
