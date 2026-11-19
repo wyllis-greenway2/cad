@@ -53,3 +53,22 @@ for (const [name, spec] of [["straight bevel", { teeth: 20, module: 3, bevel: { 
     assert.ok(cut.v < plain.v && cut.v > 0.95 * plain.v, `${plain.v} -> ${cut.v}`);
   });
 }
+
+import { meshWith } from "../src/operation/mesh.ts";
+test("Mesh gear gives the partner the chamfer, and a chamfer changed on one gear of a bevel, spiral or crown pair is the other's too", () => {
+  const spec = { teeth: 20, module: 3, chamfer: 0.4, bevel: { mate: 30 } } as GearSpec;
+  const src = { id: "g_001", plane: worldRef("XY"), at: [0, 0, 0] as [number, number, number], spec };
+  const p = meshWith(src, [1, 0, 0], [0, 1, 0], { teeth: 30 }, 0.3);
+  assert.ok(p.ok);
+  if (!p.ok) return;
+  assert.equal(p.value.spec.chamfer, 0.4, "the partner made by Mesh gear has the chamfer");
+  let s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: src.at, spec });
+  s = run(s, { type: "gear", id: "g_002", plane: worldRef("XY"), at: p.value.at, turn: p.value.turn, spec: p.value.spec });
+  assert.ok(!s.message, s.message ?? "");
+  const rec = scene(s).gears!.find((g) => g.id === "g_002")!;
+  const more = run(s, { type: "setGear", id: "g_002", spec: { ...rec.spec, chamfer: 0.7 }, at: rec.at, turn: rec.turn } as never);
+  assert.equal(scene(more).gears!.find((g) => g.id === "g_001")!.spec.chamfer, 0.7, "the other gear follows");
+  const { chamfer: _c, ...bare } = rec.spec;
+  const none = run(more, { type: "setGear", id: "g_002", spec: bare, at: rec.at, turn: rec.turn } as never);
+  assert.equal(scene(none).gears!.find((g) => g.id === "g_001")!.spec.chamfer, undefined, "and loses it when it is taken off");
+});

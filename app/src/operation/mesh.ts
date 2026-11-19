@@ -165,7 +165,7 @@ export function meshBevel(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: n
   const g1 = bevelOf(s);
   if (!g1.ok) return g1;
   const shaft = s.bevel!.shaft ?? 90, sig = (shaft * Math.PI) / 180;
-  const spec: GearSpec = { teeth: z2, module: s.module, ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), ...(s.backlash !== undefined ? { backlash: s.backlash } : {}), bevel: { mate: s.teeth, ...(shaft !== 90 ? { shaft } : {}), ...(s.bevel!.face !== undefined ? { face: s.bevel!.face } : {}), ...(s.bevel!.spiral !== undefined ? { spiral: s.bevel!.spiral } : {}), ...(s.bevel!.offset ? { offset: s.bevel!.offset } : {}), ...(s.bevel!.with === undefined ? { with: src.id } : {}), dir: where } };
+  const spec: GearSpec = { teeth: z2, module: s.module, ...(s.chamfer ? { chamfer: s.chamfer } : {}), ...(s.pressure !== undefined ? { pressure: s.pressure } : {}), ...(s.backlash !== undefined ? { backlash: s.backlash } : {}), bevel: { mate: s.teeth, ...(shaft !== 90 ? { shaft } : {}), ...(s.bevel!.face !== undefined ? { face: s.bevel!.face } : {}), ...(s.bevel!.spiral !== undefined ? { spiral: s.bevel!.spiral } : {}), ...(s.bevel!.offset ? { offset: s.bevel!.offset } : {}), ...(s.bevel!.with === undefined ? { with: src.id } : {}), dir: where } };
   const g2 = bevelOf(spec);
   if (!g2.ok) return g2;
   const f1 = bevelFrame(u, v, s, src.turn ?? 0), f0 = bevelFrame(u, v, s, 0);

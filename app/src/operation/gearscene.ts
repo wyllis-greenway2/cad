@@ -280,6 +280,14 @@ function noOffset(offset: number | undefined, spec: GearSpec): GearSpec {
   const { offset: _o, ...bevel } = spec.bevel;
   return { ...spec, bevel };
 }
+/** the partner of a bevel, spiral or crown gear has the edited gear's tooth chamfer too (`dec_bevel_chamfer`): none when it has none; a face gear's spur pinion has none of its own */
+function withChamfer(chamfer: number | undefined, spec: GearSpec): GearSpec {
+  if (spec.bevel?.facegear !== undefined) return spec;
+  if (chamfer) return { ...spec, chamfer };
+  if (spec.chamfer === undefined) return spec;
+  const { chamfer: _c, ...rest } = spec;
+  return rest;
+}
 export function setGear(s: Scene, id: string, spec0: GearSpec, at?: Vec3, turn?: number, link?: GearRecord["follower"] | null): Result<Scene> {
   const rec = gearsOf(s).find((g) => g.id === id);
   let spec = spec0;
@@ -293,7 +301,7 @@ export function setGear(s: Scene, id: string, spec0: GearSpec, at?: Vec3, turn?:
   if (!rec || !bv || !other || !other.spec.bevel || other.spec.bevel.with !== id) return setGearCore(s, id, spec, at, turn, link);
   const edited: GearRecord = { ...rec, spec, ...(at ? { at } : {}), ...(turn !== undefined ? { turn } : {}) };
   const follower = bv.dir !== undefined ? edited : other, anchor = bv.dir !== undefined ? other : edited;
-  const fresh = (g: GearRecord): GearSpec => noOffset(bv.offset, { ...g.spec, teeth: g === edited ? spec.teeth : bv.mate, module: spec.module, ...(spec.pressure !== undefined ? { pressure: spec.pressure } : {}), bevel: { ...g.spec.bevel!, mate: g === edited ? bv.mate : spec.teeth, ...(bv.shaft !== undefined ? { shaft: bv.shaft } : {}), ...(bv.face !== undefined ? { face: bv.face } : {}), ...(bv.spiral !== undefined ? { spiral: bv.spiral } : {}), ...(bv.offset ? { offset: bv.offset } : {}) }, ...((bv.spiral !== undefined || bv.facegear !== undefined) && spec.backlash !== undefined ? { backlash: spec.backlash } : {}), ...(bv.facegear !== undefined && spec.crown ? { crown: spec.crown } : {}) });
+  const fresh = (g: GearRecord): GearSpec => withChamfer(spec.chamfer, noOffset(bv.offset, { ...g.spec, teeth: g === edited ? spec.teeth : bv.mate, module: spec.module, ...(spec.pressure !== undefined ? { pressure: spec.pressure } : {}), bevel: { ...g.spec.bevel!, mate: g === edited ? bv.mate : spec.teeth, ...(bv.shaft !== undefined ? { shaft: bv.shaft } : {}), ...(bv.face !== undefined ? { face: bv.face } : {}), ...(bv.spiral !== undefined ? { spiral: bv.spiral } : {}), ...(bv.offset ? { offset: bv.offset } : {}) }, ...((bv.spiral !== undefined || bv.facegear !== undefined) && spec.backlash !== undefined ? { backlash: spec.backlash } : {}), ...(bv.facegear !== undefined && spec.crown ? { crown: spec.crown } : {}) }));
   const a2: GearRecord = { ...anchor, spec: fresh(anchor) };
   const pl = s.parts[a2.plane];
   if (!pl || pl.kind !== "plane") return setGearCore(s, id, spec, at, turn);
