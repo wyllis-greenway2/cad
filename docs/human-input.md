@@ -4488,3 +4488,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > so should we make this option of a 90 degree crown gear for users? or would they just have to make this on their own?
 (asks whether the app should offer a 90 degree crown gear drive as an option for users, or whether they must find the Face gear tool themselves)
 
+## in_1033 — 2026-11-19 — question
+> [attached a screenshot of the face gear's teeth: tall teeth whose sides are twisted into S-shaped curves, wider at the tip and at the foot than in the middle] okay why does the teeth look so odd for face gear? are you sure this is how real face gears are? seems like it would be really really hard to machine line that. Also isn't a face gear a type of crown gear? why don't we put them both under the same sub menu?
+(asks why the face gear's teeth look so odd, whether real face gears look like that and could be machined, and whether the face gear and the crown gear should be under one submenu)
+
