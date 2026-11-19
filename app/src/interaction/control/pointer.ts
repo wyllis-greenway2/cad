@@ -36,7 +36,7 @@ import { planeOf, objectOf } from "../objects.ts";
 import type { AppState, Env, MenuItem } from "./state.ts";
 import { paneAt } from "../panes.ts";
 import type { WorldName } from "../panes.ts";
-import { isHard } from "../hard.ts";
+import { isHard, isFixed } from "../hard.ts";
 import { doLook, selectedSurface } from "./viewing.ts";
 import { sectionNow, doSectionClick } from "./section.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
@@ -48,7 +48,7 @@ import { patternValues } from "../pattern.ts";
 import { hasGizmo, hitHandle, moveOffset } from "../gizmo.ts";
 
 /** The operations a right click offers (`in_133`), in categories (`in_143`): sketching, constraints, shape, moving and repeating, and delete. The ones that cannot start from the selection are there too, dimmed, with the reason. */
-const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind; /** a way of selecting more (`in_257`) */ select?: "similar" | "group" | "ungroup" | "combine" | "faces" | "edges" | "vertices" | "paste" | "hard" | "bodies" | "add" }[] = [
+const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind; /** a way of selecting more (`in_257`) */ select?: "fixed" | "similar" | "group" | "ungroup" | "combine" | "faces" | "edges" | "vertices" | "paste" | "hard" | "bodies" | "add" }[] = [
   { id: "tool:rect", label: "Rectangle", icon: "rect", tool: "rect" },
   { id: "tool:circle", label: "Circle", icon: "circle", tool: "circle" },
   { id: "tool:line", label: "Line", icon: "line", tool: "line" },
@@ -113,6 +113,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "repeat:path", label: "Path repeat", icon: "pathrepeat" }, // (`dec_path_repeat`, `in_841`: a figure repeated along a line, a curve or an outline)
   { id: "tool:fasteners", label: "Fastener tool", icon: "fastener" }, // (Shape: the hole for a fastener cut into the face selected, with the hardware inserted if asked, `in_813`, `in_912`)
   { id: "body:hard", label: "Hard body", icon: "hard", select: "hard" }, // (a constraint: no other body goes into it while one or the other is moved by hand, `in_473`, `in_490`)
+  { id: "body:fixed", label: "Fixed body", icon: "hard", select: "fixed" }, // (a body that stays where it is when a played body pushes on it: a wall; a hard body with no joint is otherwise pushed aside, `dec_contact_push`, `in_1029`)
   { id: "combine:parts", label: "Combine", icon: "subtract", select: "combine" }, // (add, cut and what is left of both: the parts the bodies make are each kept or tossed, `in_298`)
   { id: "select:similar", label: "Select similar", icon: "similar", select: "similar" },
   { id: "select:faces", label: "All faces", icon: "selfaces", select: "faces" },
@@ -194,6 +195,11 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
       const every = bodies.length > 0 && bodies.every((x) => isHard(sc, x));
       return [r.id, { ...base, label: every ? "Soft body" : "Hard body", enabled: bodies.length > 0, why: bodies.length ? null : "select a body" }];
     }
+    if (r.select === "fixed") {
+      const bodies = sel.filter((x) => sc.parts[x]?.kind === "body" && !!(sc.parts[x] as { id?: string }).id);
+      const every = bodies.length > 0 && bodies.every((x) => isFixed(sc, x));
+      return [r.id, { ...base, label: every ? "Free body" : "Fixed body", enabled: bodies.length > 0, why: bodies.length ? null : "select a body" }];
+    }
     if (r.select === "add") return [r.id, { ...base, label: adding ? "Stop adding" : "Add mode", enabled: true, why: null }];
     if (r.select === "bodies") { const any = Object.values(sc.parts).some((q) => q.kind === "body"); return [r.id, { ...base, enabled: any, why: any ? null : "no bodies yet" }]; }
     if (r.select === "paste") return [r.id, { ...base, enabled: !!view.clip, why: view.clip ? null : "nothing is copied: select something and press Ctrl+C" }];
@@ -207,7 +213,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   // every constraint and mate once, in one flat list by what a person means (`in_975`): Parallel is two lines or two faces; the ring never changes shape with the selection; an entry that nothing selected fits is dimmed and says what to select (`in_666`)
   const live = acts.filter((a) => a.group === "relation");
   const entries: MenuItem[] = CONSTRAINT_ENTRIES.map((e): MenuItem => { const a = resolveEntry(e, live); return { id: e.id, label: e.label, icon: e.icon, enabled: !!a, why: a ? null : `select ${e.what} first` }; });
-  const groups: MenuItem[] = [...entries, leaf.get("body:hard")!];
+  const groups: MenuItem[] = [...entries, leaf.get("body:hard")!, leaf.get("body:fixed")!];
   const del = acts.find((a) => a.id === "delete");
   // looking straight at the selected plane or face, or at the one the click was on (`in_171`: the eye lives here, not on the screen)
   const clicked = over ? planeOf(lookup(sc), over) : null; // (the surface the right click was on: a face, a sketch's plane, a world plane; a sketch tool chosen from the ring turns to it when the selection does not say which plane)
