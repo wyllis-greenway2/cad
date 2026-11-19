@@ -4412,3 +4412,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1014 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for this branch (the washer, taking a hole out, more holes when too far apart, points on round faces, the depth chosen for the part, snapping a moved hole to its line) to be merged into claude/inspiring-pascal-l342k7)
+
+## in_1015 — 2026-11-19 — directive
+> no need for full suite testing on this one
+(says the full suite is not needed on the merge into the testing branch)
