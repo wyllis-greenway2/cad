@@ -4136,3 +4136,6 @@ Built `Bearing` in the Models category from a table of 22 real deep-groove beari
 
 ## Handoff 1026 — 2026-11-19 (in_1158: the gear audit follow-ups, the cross section mover and the body constraints merged into the testing branch)
 `in_1158`. Merged the testing branch's tip (up to `in_1156`, Handoff 1024, after several looks) into this branch and pushed to `claude/inspiring-pascal-l342k7`. **Numbers:** my `in_1131`, `in_1132` became `in_1157`, `in_1158` and Handoff 1000 became 1021, in a commit of their own before the merge. **Conflicts:** `human-input.md` and `handoff.md` (theirs first) and `control/state.ts` (the one line of `createState`: their `building: null` kept, my `bodyConstraints: []` added). Checked: types, layers and unused, and the sheet, gizmo, hide-joins, menu and gear tests; the full suite was not run, as asked.
+
+## Handoff 1027 — 2026-11-19 (in_1159: a new working branch from the testing branch)
+`in_1159`. The last merge was already in `claude/inspiring-pascal-l342k7` (commit `1553b54e`), so there was nothing more to merge. Started `claude/cool-einstein-odsxco-gears5` from its tip; work goes on it from here. `claude/cool-einstein-odsxco-gears4` is left as it was.
