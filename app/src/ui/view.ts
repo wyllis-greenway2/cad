@@ -319,6 +319,10 @@ export function createView(host: HTMLElement) {
     const mesh = new THREE.Mesh(geo, mat);
     mesh.renderOrder = 3;
     thinGroup.add(mesh);
+    // the outline of each in full red, seen through what is in front of it: the places are small slivers, and a sliver behind a face is not seen
+    const outline = new THREE.LineSegments(new THREE.WireframeGeometry(geo), new THREE.LineBasicMaterial({ color: settings.measure.thinColor, depthTest: false, transparent: true, opacity: 0.95 }));
+    outline.renderOrder = 4;
+    thinGroup.add(outline);
   }
   const setWorldHidden = (on: boolean): void => world.setOff(on);
   const setPanes = (p: Parameters<typeof world.setPanes>[0]): boolean => world.setPanes(p);

@@ -19,28 +19,20 @@ const play = (s: Session, to: number) => {
   return solveContact(scene(s), { ...r.motion, playing: true, amount: to }, s.outcome, Infinity);
 };
 
-test("the big gear with the pin turns: the lever, which has no joint, is pushed aside instead of stopping the motion, as far as it can go", () => {
+test("the big gear with the pin turns: the lever, which has no joint, is pushed aside and swings out of the other bar's way, a whole turn", () => {
   const s = open();
   const r = startMotion(scene(s), GEAR, "turn", s.outcome);
   assert.ok(r.ok);
   if (!r.ok) return;
   assert.ok(r.motion.contact?.pushables.some((p) => p.body === LEVER && p.free), "the lever can be pushed any way");
-  const m = play(s, 30);
-  assert.equal(m.contact?.jam, null, m.contact?.jam ?? "");
-  assert.ok(Math.abs(m.amount - 30) < 1e-6, "it went the whole way");
-  const lever = m.contact!.pushables.find((p) => p.body === LEVER)!;
+  const half = play(s, 100);
+  assert.equal(half.contact?.jam, null, half.contact?.jam ?? "");
+  const lever = half.contact!.pushables.find((p) => p.body === LEVER)!;
   assert.ok(lever.free && Math.hypot(...lever.free) > 1, "the lever was moved");
-  // further on the lever is pushed against the other bar, which is in its way: the motion stops, and says which body is against which
-  const far = play(s, 90);
-  assert.equal(far.contact?.jam, "x_s_002 pushes x_s_084 against x_s_083");
-  assert.ok(far.amount > 30 && far.amount < 90, "it stopped where the lever could go no further");
-});
-
-test("with the other bar hard as well it is pushed in turn, and the gear goes further", () => {
-  const s = run(open(), { type: "setHard", body: "x_s_083", on: true });
-  const before = play(run(open(), { type: "setHard", body: "x_s_083", on: false }), 90).amount;
-  const m = play(s, 90);
-  assert.ok(m.amount > before + 1, `${m.amount} against ${before}: ${m.contact?.jam}`);
+  assert.ok(Math.abs(lever.spin ?? 0) > 5, `and turned (${lever.spin} degrees): a body with no joint has the turn as well as the slide`);
+  const whole = play(s, 360);
+  assert.equal(whole.contact?.jam, null, whole.contact?.jam ?? "");
+  assert.ok(Math.abs(whole.amount - 360) < 1e-6, "the gear made the whole turn");
 });
 
 test("a lever marked fixed stays a wall: the gear stops against it and says so", () => {
@@ -72,4 +64,22 @@ test("the ring offers Fixed body for a selected body, and it toggles to Free bod
   assert.deepEqual(scene(on.session).fixed, ["x_s_084"]);
   const off = reduce(on, { type: "runAction", id: "body:fixed" }, env);
   assert.equal(scene(off.session).fixed, undefined);
+});
+
+test("the picture of a body that slid and turned is the same move as the one the solver made: a turn about another place, found from the slide and the turn about its middle", async () => {
+  const { followMatrix } = await import("../src/interaction/motion.ts");
+  const s = open();
+  const m = play(s, 100);
+  const p = m.contact!.pushables.find((q) => q.body === LEVER)!;
+  const f = m.yields!.find((q) => q.body === LEVER)!;
+  assert.equal(f.kind, "turn");
+  const M = followMatrix(f, m.amount);
+  const at = (mat: number[], x: number[]): number[] => [0, 1, 2].map((r) => mat[r]! * x[0]! + mat[4 + r]! * x[1]! + mat[8 + r]! * x[2]! + mat[12 + r]!);
+  const r = ((p.spin ?? 0) * Math.PI) / 180, [c, sn] = [Math.cos(r), Math.sin(r)];
+  for (const x of [[10, 20, 8], [30, 50, 6], [0, 0, 0]]) {
+    const d = [x[0]! - p.point[0], x[1]! - p.point[1]];
+    const want = [p.point[0] + c * d[0]! - sn * d[1]! + p.free![0], p.point[1] + sn * d[0]! + c * d[1]! + p.free![1], x[2]! + p.free![2]];
+    const got = at(M, x);
+    assert.ok(Math.hypot(got[0]! - want[0]!, got[1]! - want[1]!, got[2]! - want[2]!) < 1e-6, `${got} vs ${want}`);
+  }
 });

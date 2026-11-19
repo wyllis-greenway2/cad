@@ -753,7 +753,7 @@ const OPS = {
     if (!target) return { kind: "solid", shape: solid };
     // (only when the plane is on the boundary of the body: with material just behind it, as a hole begun inside the body under a skin, the tool begins where it was drawn)
     const cuts = op.mode === "cut" || op.mode === "cutOrAdd"; // (a piece added or of its own needs no start behind the plane, and the test costs a boolean on the whole body)
-    const behind = !cuts || (() => { try { const slab = prism(op.profile, op.holes, dist < 0 ? BACK : -BACK, 0); const met = partMet(target, slab); return !!met && measureVolume(met.clone().intersect(slab.clone())) > 0.5 * measureVolume(slab); } catch { return false; } })(); // (mostly body in a slab behind the plane)
+    const behind = !cuts || (() => { try { const slab = prism(op.profile, op.holes, dist < 0 ? BACK : -BACK, 0); const met = partMet(target, slab); return !!met && !apartFrom(met, slab) && measureVolume(met.clone().intersect(slab.clone())) > 0.5 * measureVolume(slab); } catch { return false; } })(); // (mostly body in a slab behind the plane)
     const back = behind ? 0 : BACK;
     if (op.mode === "cutOrAdd") {
       // a figure pulled backwards: a pocket when it meets the body (drawn on a face and pushed in); drawn out in the open it is a new piece, not a cut that does nothing
@@ -1037,6 +1037,21 @@ const OPS = {
   cropBox(op, ctx) {
     const t = ctx.get(op.target, "solid").shape;
     return { kind: "solid", shape: t.intersect(makeBox(op.min, op.max)) };
+  },
+
+  /**
+   * The bodies of chains that were made apart, standing beside each other (`dec_gear_islands`): the target's and each of `others`'. What a gear is made of is its own numbers, so its steps are a chain of their own and do not depend on the gears before it
+   * (deleting or changing one gear did not make the next ones again); here they meet. A chain that failed is left out (its own step says why). Nothing is worked out: the solids are put in one compound.
+   */
+  join(op, ctx) {
+    const solids = [];
+    for (const id of [op.target, ...(op.others ?? [])]) {
+      let v;
+      try { v = ctx.peek(id, "solid"); } catch { continue; }
+      solids.push(...(v.shape.solids ?? [v.shape]));
+    }
+    if (!solids.length) throw new Error("none of the chains that were to be joined has a body");
+    return { kind: "solid", shape: solids.length === 1 ? solids[0] : makeCompound(solids), checked: true, noCross: true };
   },
 
   /** Delete the whole body: later steps start a new one. */
@@ -1546,10 +1561,48 @@ function keptBoolean(kind, lumps, tool, make) {
   keepWithin(booleans, key, made);
   return made;
 }
+/**
+ * Whether two shapes are certainly apart: their surfaces meet nowhere (no point or curve of one is on the other), and neither lies in the box of the other so that one could be inside the other. Exact where it says yes; any doubt (touching,
+ * a failed section, a box inside a box) says no and the real boolean is made. A figure drawn beside a body in the open, or over it with clearance (an arm round a pin), is apart: the boolean would give the two as they stand, and costs
+ * as much as the whole body has faces (`in_1064`).
+ */
+const apartKept = new Map();
+let apartOk = false; // (set while a marked preview of an extrusion is made: the made shape then has the pieces beside each other, whose edges are not those the boolean leaves, so a step made for good is not given it)
+function apartFrom(a, b) {
+  if (!apartOk) return false;
+  const key = `${(a.solids ?? [a]).map(solidKey).join(",")}|${(b.solids ?? [b]).map(solidKey).join(",")}`; // (asked by the trial cut, the join and the start-behind test for the same pair: once)
+  if (apartKept.has(key)) return apartKept.get(key);
+  const answer = apartMade(a, b);
+  apartKept.set(key, answer);
+  if (apartKept.size > 400) apartKept.delete(apartKept.keys().next().value);
+  return answer;
+}
+function apartMade(a, b) {
+  try {
+    const [ba, bb] = [boxOf(a), boxOf(b)];
+    const inside = (p, q) => [0, 1, 2].every((i) => p.min[i] >= q.min[i] - NEAR && p.max[i] <= q.max[i] + NEAR);
+    if (inside(ba, bb) || inside(bb, ba)) return false;
+    const oc = getOC();
+    const section = new oc.BRepAlgoAPI_Section();
+    const args = new oc.NCollection_List_TopoDS_Shape();
+    const tools = new oc.NCollection_List_TopoDS_Shape();
+    try {
+      args.Append(a.wrapped);
+      tools.Append(b.wrapped);
+      section.SetArguments(args);
+      section.SetTools(tools);
+      section.Build();
+      if (!section.IsDone() || section.HasErrors()) return false;
+      const ex = new oc.TopExp_Explorer(section.Shape(), oc.TopAbs_ShapeEnum.TopAbs_VERTEX, oc.TopAbs_ShapeEnum.TopAbs_SHAPE);
+      try { return !ex.More(); } finally { ex.delete(); }
+    } finally { args.delete(); tools.delete(); section.delete(); }
+  } catch { return false; }
+}
 /** `target` with `solid` fused to it, on the bodies the piece meets only (a piece that meets none is a body of its own). */
 function fuseInto(target, solid) {
   const t = touching(target, solid);
-  if (!t) return keptBoolean("fuse", target.solids, solid, () => target.fuse(solid));
+  if (!t) { if (apartFrom(target, solid)) { kernelStats.apartSkipped++; return makeCompound([...target.solids, ...(solid.solids ?? [solid])]); } return keptBoolean("fuse", target.solids, solid, () => target.fuse(solid)); }
+  if (t.hit.length && apartFrom(partMet(target, solid), solid)) { kernelStats.apartSkipped++; return makeCompound([...target.solids, ...(solid.solids ?? [solid])]); } // (apart from the bodies it is near: they stand as they are)
   return putBack(t.rest, t.hit.length ? keptBoolean("fuse", t.hit, solid, () => partMet(target, solid).fuse(solid)) : solid);
 }
 /** `target` with `tool` cut out of it, on the bodies the tool meets only (one that meets none cuts nothing). */
@@ -1562,7 +1615,7 @@ function cutFrom(target, tool) {
 function cutOrAdd(target, tool) {
   const t = touching(target, tool);
   const lumps = t ? t.hit : target.solids;
-  if (lumps.length) {
+  if (lumps.length && !apartFrom(t ? partMet(target, tool) : target, tool)) { // (a tool apart from the bodies cuts nothing: no trial)
     const trial = keptBoolean("cutOrAdd", lumps, tool, () => {
       const part = t ? (t.hit.length === 1 ? t.hit[0] : makeCompound(t.hit)) : target;
       const before = measureVolume(part);
@@ -2382,7 +2435,7 @@ function ownSolid(ctx, op, kind, ids, build) {
 }
 
 /** How many bodies' own solids were built and how many were kept ones (read by the tests, `dec_per_body_checks`). */
-export const kernelStats = { prismsBuilt: 0, prismsReused: 0, partialBooleans: 0, booleansKept: 0 };
+export const kernelStats = { prismsBuilt: 0, prismsReused: 0, partialBooleans: 0, booleansKept: 0, apartSkipped: 0 };
 /** Forget what is kept of bodies, so that the next answer is worked out from nothing (for the tests: the kept and the worked-out answers are to be the same). */
 export function clearKernelCaches() { prisms.clear(); booleans.clear(); validSolids.clear(); uncrossed.clear(); memo.clear(); clearNameCaches(); }
 /** The size (MB) of the kernel's memory above which no step is made (`KERNEL_MEMORY_STOP_MB` in `kernel-async.ts` is the same number: a thread above it is restarted). */
@@ -2429,6 +2482,11 @@ const LOCAL = {
   cylDraft: (op) => [op.ref?.center],
   edgeMod: (op) => [].concat(op.ref ?? []).map((r) => r.mid),
 };
+// a preview of an extrusion (`in_1064`) may leave out the boolean for a figure that is apart from the bodies it is near
+{
+  const extrude0 = OPS.extrude;
+  OPS.extrude = (op, ctx) => { apartOk = !!op.preview; try { return extrude0(op, ctx); } finally { apartOk = false; } };
+}
 // a sweep may say that its sides crease (`in_655`): the note goes with its result like the notes of a fillet
 {
   const sweep0 = OPS.sweep;
@@ -2482,7 +2540,7 @@ export function compile(graph, quick = false) {
   const pj = JSON.stringify([params, !!graph.names]);
   for (const op of graph.ops) {
     const t0 = performance.now();
-    const key = fingerprint(JSON.stringify([op, pj, [op.target, op.profile, ...(op.holes ?? []), ...(op.also ?? []).flatMap((f) => [f.profile, ...f.holes]), ...(op.sections ?? []).flatMap((s) => [s.profile, ...(s.holes ?? [])])].map((d) => (d ? keys.get(d) ?? null : null))]));
+    const key = fingerprint(JSON.stringify([op, pj, [op.target, op.profile, ...(op.holes ?? []), ...(op.others ?? []), ...(op.also ?? []).flatMap((f) => [f.profile, ...f.holes]), ...(op.sections ?? []).flatMap((s) => [s.profile, ...(s.holes ?? [])])].map((d) => (d ? keys.get(d) ?? null : null))]));
     keys.set(op.id, key);
     const kept = memo.get(key);
     if (kept && !(kept.unchecked && !quick)) {
@@ -2504,11 +2562,13 @@ export function compile(graph, quick = false) {
         // which bodies the result has, by the markers of the body it was made from (moved with it if this was a move)
         const from = op.target ? results.get(op.target)?.value : null;
         let prev = value.tf ? moveMarkers(from?.markers ?? [], value.tf) : from?.markers ?? [];
+        const extras = (op.others ?? []).map((id) => results.get(id)).filter((r) => r && !r.error && r.value.kind === "solid").map((r) => r.value); // (a join: the bodies of the other chains keep their names and their faces' names)
+        if (extras.length) prev = [...prev, ...extras.flatMap((v) => v.markers ?? [])];
         if (value.first) prev = [...prev.filter((m) => m.id === value.first), ...prev.filter((m) => m.id !== value.first)]; // (the body that stays keeps its name when bodies are combined)
         const tM = performance.now();
         value.markers = trackBodies(prev, value.shape, op.id);
         markMs = performance.now() - tM;
-        if (graph.names) { const named = nameFaces(from?.faceNames, value.tf, value.shape, op.id, (op.type === "extrude" || op.type === "revolve" || op.type === "loft" || op.type === "sweep") && ctx.roleFigs ? [...ctx.roleFigs.values()].flat() : op.type === "edgeMod" ? edgeRoles(op, from?.edgeNames) : null); value.faceNames = named.faces; Object.defineProperty(value, "edgeNames", { get: () => named.edges, enumerable: true, configurable: true }); } // (the names of the flat faces, carried from the body it was made from)
+        if (graph.names) { const named = nameFaces(extras.length ? [...(from?.faceNames ?? []), ...extras.flatMap((v) => v.faceNames ?? [])] : from?.faceNames, value.tf, value.shape, op.id, (op.type === "extrude" || op.type === "revolve" || op.type === "loft" || op.type === "sweep") && ctx.roleFigs ? [...ctx.roleFigs.values()].flat() : op.type === "edgeMod" ? edgeRoles(op, from?.edgeNames) : null); value.faceNames = named.faces; Object.defineProperty(value, "edgeNames", { get: () => named.edges, enumerable: true, configurable: true }); } // (the names of the flat faces, carried from the body it was made from)
       }
       const rigid = op.type === "transform" && (op.mode === "move" || op.mode === "rotate"); // (moving a valid body cannot make it invalid: the check is skipped, it costs as much as the move)
       const tC = performance.now();

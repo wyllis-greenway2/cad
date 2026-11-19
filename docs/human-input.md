@@ -4570,6 +4570,88 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for this branch (how far a hole is hand moved, shown and typed) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
 
+## in_1053 — 2026-11-19 — question
+> my teeth still have that weird profile, how to check in my terminal if I have the right code?
+(says the face gear teeth still look wrong in the app and asks how to check in the terminal that the right code is in their checkout; the AI gives commands)
+
+## in_1054 — 2026-11-19 — question
+> @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/97b271ad-rebuilt_gear_after_deletion.json" @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/66ce796a-rebuilt_gear_after_deletion_state.json" okay can you help fix a bug? why when I delete this crown gear did it have to rebuild the meshed gear?
+(with a project and a state snapshot of a spiral crown gear of 40 teeth and its meshed pinion of 18: asks why deleting the crown gear made the pinion be built again (the snapshot shows 18 of 28 steps made, 14.7 s, a 12 s boolean), and for it to be fixed)
+
+## in_1055 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 once more, with the gear chains change; the full suite is not needed)
+
+## in_1056 — 2026-11-19 — question
+> Okay is this a good generic root cause fix? Or an exception that should either be a general exception or new rule or we should not do in order to keep history intact?
+(asks whether the gear chains are a general root-cause fix, or an exception that should be generalised, made a rule, or left out so that the model's history stays intact)
+
+## in_1057 — 2026-11-19 — approval
+> I will take your recommendation
+(takes the AI's recommendation: keep the gear chains as the narrow exception they are, and do not make them a general rule; the general fix for plain bodies waits for a measurement of whether they are slow)
+
+## in_1058 — 2026-11-19 — directive
+> boxes before replay, then extending the pieces
+(asks for the next two steps in order: show the boxes before the project's commands are replayed, then extend the pieces to parts with fillets, holes and moves)
+
+## in_1059 — 2026-11-19 — directive
+> please work on either next
+(asks for the AI to go ahead with either of the two offered next steps: a faster, sliced replay for histories with moves, or gears and revolves as parts)
+
+## in_1060 — 2026-11-19 — question
+> Why does it take literally forever to extrude this plane? it seems like a really simple shape
+(attached: the project `model.cad_59.json`: two meshed gears, a pin, and a drawn arm outline on a plane at z 11.5; a screenshot of the arm profile and one of the extrude preview showing "Working…" at -3.2)
+
+## in_1061 — 2026-11-19 — question
+> What is the root cause here? and how can we make this as fast as possible given the fact that it didn't interact with complex geometry?
+
+## in_1062 — 2026-11-19 — directive
+> okay so what do you reccomend? it sounds like we should do all these things but how do we know when we can safely do them or when we need to re calc things? Like for example wouldn't body collision (we already have a collision system) tell us a lot about which parts need recalc when? also how about the difference beteween a selected  face line verticy body etc and deslected? so if it is under constant selection maybe the user is still working on it, and the preview is the most important, including showing interactions with other bodies if collisions happen (like cut away extrusions etc) and maybe the true final result and other recalc needs to happen on deselect which is interpereted as the user saying this is the final state they really want, no longer a preview.
+(asks for a recommendation on doing the speed-ups; proposes that the existing collision system say which bodies need recalculating, and that selection mean "still working, preview first" with the full recalculation on deselect)
+
+## in_1063 — 2026-11-19 — directive
+> yes please start
+(approves starting on the two changes that alter no behaviour: per-body keeping of parts and descriptions, and re-matching a constraint's named part only for relations that name a changed body)
+
+## in_1064 — 2026-11-19 — directive
+> option 1
+(chooses option 1 of `q_working_and_settled`: while a depth is being set the tool is drawn beside the unchanged body, and the fuse is done when the value is accepted, marked as a preview)
+
+## in_1065 — 2026-11-19 — directive
+> do the next step please
+(asks for the next step after the preview without the boolean; the AI had named keeping the page's parts per body as the biggest remaining lever, and settle on deselect as the other)
+
+## in_1066 — 2026-11-19 — directive
+> Option 2
+(chooses option 2: settle on deselect with a visible mark, from `q_working_and_settled`)
+
+## in_1067 — 2026-11-19 — directive
+> I will take your recommendation
+(takes the AI's recommendation: spend the effort on the floor of the preview, the page's derive and the kernel's prism, rather than the narrow Preview-mark version)
+
+## in_1068 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(the explicit permission to write to that branch for this merge; the full test run is waived)
+> also why does this one jamb? does the body have a constraint that makes it so that it cannot rotate? Can we make it so that it pauses at collision, and flashes red the collision area, and that hitting play again restarts the animation.
+(the file `why_jamb.json`: the gear with the pin pushes the lever, a hard body, into the bar that turns on a pivot; asks why the bar does not turn out of the way, and for a pause at the collision, the area in red, and play after it to restart)
+
+## in_1070 — 2026-11-19 — question
+> okay but why cant the body just rotate on its own even without a coaxial mate? it is just moving in directions that are free of collision as long as they dont violate constraints? why is that limited to pure xyz movement only?
+(asks why the free push only slides: a body with no joint should move any way that is clear, turning as well; the AI had given the cost and a wrong reason, "a guess of the turning centre": a plane's motion is a slide and a turn about the body's own middle, no guess needed)
+
+## in_1071 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for `claude/adoring-dijkstra-jam-clash` to be merged into the testing branch, without a full test run; it carries the red jam area, play restarting after a jam, the Pivot project-file fix and the free push that turns as well as slides)
+
+
+## in_1072 — 2026-11-19 — directive
+> it took 29 seconds and looks like this
+(attached the project file model.cad_63.json, a 40 tooth face gear at module 2 with a 14 tooth mate, saved by build 589c0e2e, and a screenshot of its teeth: a flared foot, a concave neck and a straight-sided cap; the browser took 29 seconds to make the face gear)
+
 ## in_1073 — 2026-11-19 — directive
 > okay I think the precision settings to set certain distance on hand moved fastener should show up like a distance constraint bubble like it does on diameters etc. It should show the origin point, and also have that point be snappable so the user can put it back, and show distance moved from origin point.
 (asks for the precise distance of a hand-moved fastener to appear as a distance bubble in the view like the one on diameters; showing the origin point, which is snappable so the person can put the hole back, and showing the distance moved from it)
+
+## in_1074 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for this branch (the moved distance of a hole as a bubble, with its origin marked and snappable) to be merged into claude/inspiring-pascal-l342k7, with no full test run)

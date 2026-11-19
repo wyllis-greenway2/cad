@@ -128,8 +128,8 @@ export const goTo = (h: History, cursor: number): History => { const c = Math.ma
  * If a command does not apply to a scene that is not derived (it may name a part only the derivation makes) the whole is done again as it always was, so that nothing is refused that was not refused before (`in_997`).
  */
 const REPLAY_STEP = 64;
-/** The commands that add what they are given to a scene and read nothing the derivation makes (the faces, the derived lines): a history of nothing else can be applied without deriving after each. A scene derived afresh is not always what one derived step by step is for the others (a fixture's undo gave other faces), so any other command in the history takes the slow way. */
-const ADDING = new Set(["addPart", "addRelation", "addStep"]);
+/** The commands that add or move what they are given in a scene and read nothing the derivation makes (the faces, the derived lines): a history of nothing else can be applied without deriving after each. A scene derived afresh is not always what one derived step by step is for the others (a fixture's undo gave other faces), so any other command in the history takes the slow way (`deleteParts` in a batch gave other scenes in a fixture, so it is not here; moves were tried against every fixture and agree). */
+const ADDING = new Set(["addPart", "addRelation", "addStep", "transformFigure", "movePart"]);
 const adding = (c: Command): boolean => (c.type === "batch" ? c.commands.every(adding) : ADDING.has(c.type));
 export function replay(base: Scene, commands: readonly Command[], cursor = commands.length, derive?: (s: Scene) => Scene, every = REPLAY_STEP): Result<History> {
   if (!derive || commands.length <= every || !commands.every(adding)) return replayEachStep(base, commands, cursor, derive);
