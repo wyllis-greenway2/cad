@@ -67,7 +67,7 @@ test("the history says a step's length in the number system in use", () => {
 });
 
 import { areaText } from "../src/shared/units.ts";
-import { appRows } from "../src/interaction/appmenu.ts";
+import { appRows, fabricateRows } from "../src/interaction/appmenu.ts";
 import { importDialog } from "../src/interaction/transfer.ts";
 import { IMPORT_DEFAULTS } from "../src/interaction/importfile.ts";
 import { createState, reduce } from "../src/interaction/controller.ts";
@@ -77,7 +77,7 @@ test("areas, the Clearance row and its steps and an STL's units follow the numbe
   units.system = "in";
   assert.equal(areaText(645.16), "1");
   assert.equal(unitName("mm²"), "in²");
-  assert.equal(appRows("", {}, false, 0.254).find((r) => r.id === "hard:clearance")!.label, "Clearance 0.01");
+  assert.equal(fabricateRows({}, 0.254).find((r) => r.id === "hard:clearance")!.label, "Clearance 0.01");
   const stl = importDialog("a.stl", { ...IMPORT_DEFAULTS }).fields.find((f) => f.id === "units")!;
   assert.equal(stl.value, "in", "an STL's units start from the number system");
   let st = createState(createSession(kernel));

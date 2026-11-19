@@ -86,6 +86,8 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   if (next.op && fresh) next = { ...next, opBase: s.session.history.cursor };
   else if (!next.op && next.opBase !== null) next = { ...next, opBase: null };
   const c = next.session.conflict;
+  const al = next.session.already; // (a constraint that already held: it flashes green, `in_1103`)
+  if (al && al !== s.session.already) return { ...next, flash: { culprits: [], victims: [], green: al, at: env.now } };
   return c && c !== s.session.conflict ? { ...next, flash: { ...c, at: env.now } } : next;
 }
 
