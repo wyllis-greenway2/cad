@@ -83,7 +83,7 @@ test("the Revolve operation shows a ring and an arrow on the axis, takes the ang
   assert.equal(st.op?.kind, "revolve");
   st = { ...st, op: Z(st.op!) };
   const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => h.id).sort(), ["piv:x", "piv:y", "piv:z", "rev:adv:x", "rev:adv:y", "rev:adv:z", "rev:orb", "rev:turn:x", "rev:turn:y", "rev:turn:z"]);
+  assert.deepEqual(g.handles.filter((h) => h.kind !== "pane").map((h) => h.id).sort(), ["piv:x", "piv:y", "piv:z", "rev:adv:x", "rev:adv:y", "rev:adv:z", "rev:orb", "rev:turn:x", "rev:turn:y", "rev:turn:z"]);
   for (const k of "900") st = reduce(st, { type: "typed", key: k, shift: false }, env);
   st = reduce(st, { type: "typed", key: "Tab", shift: false }, env);
   for (const k of "10") st = reduce(st, { type: "typed", key: k, shift: false }, env);
@@ -250,7 +250,7 @@ test("the orb is the mover's: a click on it selects it (the orient mode with its
   assert.equal(st.moverSphere, true, "the orient mode");
   const f = frameOf(st, { w: 800, h: 600 });
   assert.equal(f.confirm?.text, "Orient the mover");
-  assert.deepEqual(f.gizmo!.handles.map((h) => h.id), ["piv:x", "piv:y", "piv:z", "rot:x", "rot:y", "rot:z", "pivot"], "its arrows and rings, anywhere in space");
+  assert.deepEqual(f.gizmo!.handles.filter((h) => h.kind !== "pane").map((h) => h.id), ["piv:x", "piv:y", "piv:z", "rot:x", "rot:y", "rot:z", "pivot"], "its arrows and rings, anywhere in space");
   assert.equal(f.entries.length, 0, "the numbers show for the arrow or ring that is chosen, or for the whole orb moved (`in_439`)");
   st = { ...st, orbMovedAt: 0 };
   // type a place off the figure's plane and a turn about Z

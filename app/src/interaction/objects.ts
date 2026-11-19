@@ -73,3 +73,15 @@ export function figurePartsOf(scene: Scene, face: Extract<Part, { kind: "face" }
   const centres = face.loop.map((r) => scene.parts[r]).flatMap((l) => (l?.kind === "line" && l.center ? [l.center] : []));
   return [...new Set([...face.corners, ...centres, ...face.loop])];
 }
+
+/** The bodies that are selected, or have a face, an edge or a corner selected (`in_1177`). */
+export function bodiesOfSelection(sc: Scene, sel: readonly Ref[]): Set<Ref> {
+  const single = Object.values(sc.parts).filter((p) => p.kind === "body").length <= 1;
+  const out = new Set<Ref>();
+  for (const r of sel) {
+    const p = sc.parts[r];
+    if (p?.kind === "body") out.add(r);
+    else if (p && p.origin === "body") { if (p.of && p.of in sc.parts) out.add(p.of); else if (single) { const b = Object.values(sc.parts).find((q) => q.kind === "body"); if (b) out.add(b.ref); } }
+  }
+  return out;
+}

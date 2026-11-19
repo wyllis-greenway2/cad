@@ -58,3 +58,23 @@ test("a plane that is selected has its four icons in the bar, and not the ones o
   st = reduce(st, { type: "runAction", id: "sheet:move" }, env);
   assert.equal(frame(st).bar!.icons[2]!.icon, "rotate");
 });
+
+test("a face that is selected has the lock for its constraints too, and the constraints of a body or a face go back off when it is no longer selected (`in_1177`)", () => {
+  let st = box();
+  const b = bodyOf(st);
+  const top = "b/body/f@0,0,1,20";
+  assert.ok(scene(st.session).parts[top], "the top face is there");
+  st = select(st, [top]);
+  assert.ok(ids(st).includes(`body:constraints:${top}`), ids(st).join());
+  assert.equal(frame(st).bar!.icons.find((i) => i.id === `body:constraints:${top}`)!.icon, "unlock", "just a lock: open while off");
+  st = reduce(st, { type: "runAction", id: `body:constraints:${top}` }, env);
+  assert.deepEqual(st.bodyConstraints, [top]);
+  assert.equal(frame(st).bar!.icons.find((i) => i.id === `body:constraints:${top}`)!.icon, "lock", "and closed while on");
+  st = reduce(st, { type: "escape" }, env); // (nothing selected)
+  assert.deepEqual(st.bodyConstraints, [], "off again");
+  st = select(st, [b]);
+  st = reduce({ ...st, consFor: b }, { type: "runAction", id: `body:constraints:${b}` }, env);
+  assert.deepEqual(st.bodyConstraints, [b]);
+  st = reduce(select(st, []), { type: "escape" }, env);
+  assert.deepEqual(st.bodyConstraints, []);
+});

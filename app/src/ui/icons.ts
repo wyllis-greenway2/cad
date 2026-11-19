@@ -16,7 +16,6 @@ const ICONS: Record<string, string> = {
   // the world orb (`in_463`): an eye (a click would show the world), a crossed eye (a click would put it away)
   eye: svg('<path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/>'),
   eyeOff: svg('<path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/><path d="M2.5 13.5l11-11"/>'),
-  eyelock: svg('<path d="M8 3.8C4.5 3.8 2.2 6.4 1.4 8c.8 1.6 3.1 4.2 6.6 4.2"/><circle cx="5.2" cy="8" r="1.5"/><rect x="8.8" y="8" width="5.8" height="4.8" rx="1" fill="currentColor" fill-opacity=".18"/><path d="M10.2 8V6.7a1.5 1.5 0 0 1 3 0V8"/>'), // (half an eye, half a lock: show the constraints of this body, `in_1157`)
   // the modes of a sheet's icon (`in_459`): the plane edge on, and the half that is cut away dashed (above, below), no cut, invisible
   sheetCutUp: svg('<path d="M2 10h12"/><path d="M3 6h10M3 3.5h10" stroke-dasharray="1.6 1.4" opacity=".7"/><path d="M8 8.4V7.6" />'),
   sheetCutDown: svg('<path d="M2 6h12"/><path d="M3 10h10M3 12.5h10" stroke-dasharray="1.6 1.4" opacity=".7"/>'),
@@ -97,7 +96,7 @@ Object.assign(ICONS, {
   meshgear: svg('<path d="M7.8 9.85L9.07 10.12L9.07 11.08L7.8 11.35L7.05 12.65L7.45 13.89L6.62 14.37L5.75 13.4L4.25 13.4L3.38 14.37L2.55 13.89L2.95 12.65L2.2 11.35L0.93 11.08L0.93 10.12L2.2 9.85L2.95 8.55L2.55 7.31L3.38 6.83L4.25 7.8L5.75 7.8L6.62 6.83L7.45 7.31L7.05 8.55z M14.12 5.88L15.1 6.73L14.64 7.57L13.4 7.2L12.12 7.98L11.88 9.26L10.91 9.28L10.62 8.02L9.3 7.3L8.07 7.73L7.57 6.91L8.52 6.02L8.48 4.52L7.5 3.67L7.96 2.83L9.2 3.2L10.48 2.42L10.72 1.14L11.69 1.12L11.98 2.38L13.3 3.1L14.53 2.67L15.03 3.49L14.08 4.38z"/>'),
   glue: svg('<path d="M1.5 2.5h8v8h-8z M6.5 5.5h8v8h-8z"/>'),
   gearbox: svg('<path d="M1.6 3.2h12.8v9.6H1.6z M7.4 8.2a2 2 0 1 0 -4 0a2 2 0 1 0 4 0z M13.4 8.2a2.9 2.9 0 1 0 -5.8 0a2.9 2.9 0 1 0 5.8 0z"/>'),
-  // the Geneva plate model: a wheel with four slots and its hole (`in_1176`)
+  // the Geneva plate model: a wheel with four slots and its hole (`in_1193`)
   genevaplate: svg('<path d="M14.39 6.8A6.5 6.5 0 0 0 9.2 1.61L9.2 4.6L6.8 4.6L6.8 1.61A6.5 6.5 0 0 0 1.61 6.8L4.6 6.8L4.6 9.2L1.61 9.2A6.5 6.5 0 0 0 6.8 14.39L6.8 11.4L9.2 11.4L9.2 14.39A6.5 6.5 0 0 0 14.39 9.2L11.4 9.2L11.4 6.8L14.39 6.8z"/><circle cx="8" cy="8" r="1" stroke-width="1.2"/>'),
   bearing: svg('<circle cx="8" cy="8" r="6.6" stroke-width="1.2"/><circle cx="8" cy="8" r="2.3" stroke-width="1.2"/><circle cx="12.55" cy="8" r=".95" fill="currentColor" stroke="none"/><circle cx="10.84" cy="11.56" r=".95" fill="currentColor" stroke="none"/><circle cx="6.99" cy="12.44" r=".95" fill="currentColor" stroke="none"/><circle cx="3.9" cy="9.97" r=".95" fill="currentColor" stroke="none"/><circle cx="3.9" cy="6.03" r=".95" fill="currentColor" stroke="none"/><circle cx="6.99" cy="3.56" r=".95" fill="currentColor" stroke="none"/><circle cx="10.84" cy="4.44" r=".95" fill="currentColor" stroke="none"/>'),
   differential: svg('<path d="M1.2 8a6.8 6.8 0 1 0 13.6 0a6.8 6.8 0 1 0 -13.6 0z M8 1.4v13.2 M1.4 8h13.2 M9.5 8a1.5 1.5 0 1 0 -3 0a1.5 1.5 0 1 0 3 0z"/>'),

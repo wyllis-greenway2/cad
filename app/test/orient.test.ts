@@ -84,7 +84,7 @@ test("the orient mode on a mirror: the orb is clicked, the mover turned by a typ
   const [x, y] = projector(st.cam, 800, 600).project(orb.points[0]!);
   st = reduce(st, { type: "click", x, y, count: 1, shift: false }, env);
   assert.equal(st.moverSphere, true, "the orient mode");
-  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["piv:x", "piv:y", "piv:z", "rot:x", "rot:y", "rot:z", "pivot"]);
+  assert.deepEqual(gizmoOf(st)!.handles.filter((h) => h.kind !== "pane").map((h) => h.id), ["piv:x", "piv:y", "piv:z", "rot:x", "rot:y", "rot:z", "pivot"]);
   const f = frameOf(st, { w: 800, h: 600 });
   assert.equal(f.confirm?.text, "Orient the mover");
   st = reduce(st, { type: "entry", field: 5, text: "45" }, env);

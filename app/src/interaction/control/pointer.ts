@@ -278,6 +278,11 @@ function drawingPlane(sc: Scene, refs: readonly Ref[]): Ref | null {
   return null;
 }
 
+/** What is said when the axes a drag is held to are chosen (`in_652`, `in_1181`): the same words for the orb and for a plane that is moved. */
+function heldWords(held: readonly number[], what: string): string {
+  return held.length === 0 || held.length === 3 ? `${what} moves freely` : held.length === 1 ? `${what} moves along ${"XYZ"[held[0]!]} only` : `${what} moves in the ${held.map((a) => "XYZ"[a]).join("")} plane only`;
+}
+
 /** Where a click puts the mover's sphere (`in_416`): on a vertex, at the point of the edge or the face that was clicked; for a move the mover goes where the body's own moving has not yet taken it, so the offset so far is taken out. */
 function moverPlace(sc: Scene, c: { ref: Ref; kind: string; score: number } | undefined, pv: ReturnType<ReturnType<typeof projector>["view"]>, op: Op): Vec3 | null {
   const p = c ? sc.parts[c.ref] : undefined;
@@ -610,7 +615,8 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   if (s.op && !hasGizmo(s.op.kind)) return commitOp(base); // the dimension number chip: a click finishes it
   // the handles are dragged, so a click on one does nothing (it must not reselect what is under it)
   const g = gizmoOf(s);
-  const hit = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y, undefined, chosenId(s)) : null;
+  const hit0 = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y, undefined, chosenId(s)) : null;
+  const hit = hit0 && hit0.kind === "pane" && hit0.plane && s.moverSphere ? null : hit0; // (with the orb selected a click is for what is clicked, a corner, an edge or a face to put the mover on: an in-plane pane under it does not take it, though it still takes a drag)
   // the cross section plane's own mover (`in_1129`): a click on one of its three panes lays the plane across that axis; a click on its sphere selects it (a second lets it go), and with it selected a corner, an edge, a circle or a face clicked puts the plane there
   if (sectionNow(s) && !s.op && !s.repeat) {
     if (hit?.id.startsWith("pane:")) return { ...doSectionPane(base, "xyz".indexOf(hit.id[5]!) as 0 | 1 | 2), handleSel: null, gizmoHover: hit.id };
@@ -655,23 +661,30 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   }
   // a click on a ring of a repeat, or of the turn being set up, makes that the axis, with no drag needed (`in_206`)
   if (hit && hit.id.startsWith("rot:") && s.op?.kind === "rotate") return { ...base, op: { ...s.op, axis: "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2, typed: "" }, gizmoHover: hit.id, handleSel: hit.id };
+  // a click on a pane holds the drag to its plane, as two arrows chosen with Shift do (a second click lets it go, `in_1181`)
+  if (hit && hit.kind === "pane" && hit.plane && !s.repeat) {
+    const [a, b] = hit.plane;
+    const same = s.lockAxes.length === 2 && s.lockAxes.includes(a) && s.lockAxes.includes(b);
+    const lock = same ? [] : ([a, b].sort() as (0 | 1 | 2)[]);
+    return { ...base, lockAxes: lock, handleSel: null, gizmoHover: hit.id, session: { ...base.session, message: heldWords(lock, sectionNow(s) && !s.op ? "the plane" : s.moverSphere ? "the orb" : "the body") } };
+  }
   // Shift on a move arrow chooses it with the others already chosen: a body dragged free then moves only along those axes (`in_299`)
-  if (hit && i.shift && hit.id.startsWith("move:") && (!s.op || s.op.kind === "move") && !s.repeat && !sectionNow(s)) {
+  if (hit && i.shift && hit.id.startsWith("move:") && (!s.op || s.op.kind === "move") && !s.repeat) {
     const k = "xyz".indexOf(hit.id[5]!) as 0 | 1 | 2;
-    return { ...base, lockAxes: s.lockAxes.includes(k) ? s.lockAxes.filter((a) => a !== k) : [...s.lockAxes, k].sort() as (0 | 1 | 2)[], handleSel: null, gizmoHover: hit.id };
+    const held = s.lockAxes.includes(k) ? s.lockAxes.filter((a) => a !== k) : [...s.lockAxes, k].sort() as (0 | 1 | 2)[];
+    return { ...base, lockAxes: held, handleSel: null, gizmoHover: hit.id, ...(sectionNow(s) ? { session: { ...base.session, message: heldWords(held, "the plane") } } : {}) };
   }
   // a click on a move arrow chooses that one alone for a free drag (a second click on it goes back to all three), Shift adds or takes one out (`in_383`)
-  if (hit && hit.id.startsWith("move:") && (!s.op || s.op.kind === "move") && !s.repeat && !sectionNow(s)) {
+  if (hit && hit.id.startsWith("move:") && (!s.op || s.op.kind === "move") && !s.repeat) {
     const k = "xyz".indexOf(hit.id[5]!) as 0 | 1 | 2;
     const only = s.lockAxes.length === 1 && s.lockAxes[0] === k;
-    return { ...base, lockAxes: only ? [] : [k], handleSel: hit.id, gizmoHover: hit.id };
+    return { ...base, lockAxes: only ? [] : [k], handleSel: hit.id, gizmoHover: hit.id, ...(sectionNow(s) ? { session: { ...base.session, message: heldWords(only ? [] : [k], "the plane") } } : {}) };
   }
   // the orb's position arrows hold its drag to the axes chosen (`in_652`): a click on one holds it to that axis alone (a second click lets it go free), Shift adds an axis or takes one out (two held: the plane of the two)
   if (hit && /^piv:[xyz]$/.test(hit.id) && (s.op?.kind === "revolve" || s.moverSphere) && !s.repeat) {
     const k = "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2;
     const lock = i.shift ? (s.lockAxes.includes(k) ? s.lockAxes.filter((a) => a !== k) : [...s.lockAxes, k].sort() as (0 | 1 | 2)[]) : s.lockAxes.length === 1 && s.lockAxes[0] === k ? [] : [k];
-    const words = lock.length === 0 ? "the orb moves freely" : lock.length === 3 ? "the orb moves freely" : lock.length === 1 ? `the orb moves along ${"XYZ"[lock[0]!]} only` : `the orb moves in the ${lock.map((a) => "XYZ"[a]).join("")} plane only`;
-    return { ...base, lockAxes: lock.length === 3 ? [] : lock, handleSel: i.shift ? null : hit.id, gizmoHover: hit.id, session: { ...base.session, message: words } };
+    return { ...base, lockAxes: lock.length === 3 ? [] : lock, handleSel: i.shift ? null : hit.id, gizmoHover: hit.id, session: { ...base.session, message: heldWords(lock, "the orb") } };
   }
   // a click on an arrow selects it: it shows its number then (`in_238`)
   if (hit) return s.repeat && !s.op ? { ...(hit.id.startsWith("rot:") ? setRepeatAxis(base, "xyz".indexOf(hit.id[4]!)) : { ...base, repeat: { ...s.repeat, chosen: hit.id } }), handleSel: hit.id } : { ...base, handleSel: hit.id };
