@@ -8,6 +8,7 @@ import { gearOfBody, camFollower, animatedBodies } from "../../operation/gearcou
 import { bodyCentre } from "../objects.ts";
 import { dot, sub, normalize } from "../../math/vec.ts";
 import { linksOf } from "../../operation/coupling.ts";
+import { restCommand } from "../mate.ts";
 import { featureOf } from "../../operation/mates.ts";
 import { pivotOfBody } from "../../operation/pivot.ts";
 import { axisVec } from "../operations.ts";
@@ -142,4 +143,20 @@ export function doStopTurning(s: AppState): AppState {
   if (!body || !pv) return { ...s, menu: null, session: { ...s.session, message: "select a body that was made to turn" } };
   const made = run(s.session, { type: "deletePivot", body: pv.body });
   return { ...s, menu: null, motion: s.motion?.body === body ? null : s.motion, session: made };
+}
+
+/** Set (or take away, with null) where a body that yields by contact goes back to when nothing holds it away: the rest of its pivot, or of the joint of its mate (`in_1020`). The motion starts again from where it stands. */
+export function doMotionRest(s: AppState, i: Extract<Intent, { type: "motionRest" }>): AppState {
+  const m = s.motion;
+  const p = m?.contact?.pushables.find((x) => x.body === i.ref);
+  if (!m || !p) return s;
+  const sc = sceneOf(s.session);
+  const body = sc.parts[i.ref as import("../../shared/ref.ts").Ref];
+  const pv = pivotOfBody(sc, i.ref);
+  const command: Command | null = pv && body?.kind === "body" && body.id ? { type: "pivot", body: body.id, point: pv.point, dir: pv.dir, rest: i.rest } : p.mate ? restCommand(sc, p.mate, "turn", i.rest) : null;
+  if (!command) return s;
+  const next = run(s.session, command);
+  if (next.message) return { ...s, session: next };
+  const r = startMotion(sceneOf(next), m.body, m.kind, next.outcome);
+  return { ...s, session: next, motion: r.ok ? { ...r.motion, amount: m.amount, playing: m.playing, from: m.amount, startedAt: null, speed: m.speed } : null };
 }

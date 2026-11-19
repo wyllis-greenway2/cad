@@ -15,6 +15,8 @@ const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[
 const rot = (p: V3, ax: V3, a: number): V3 => { const [c, s] = [Math.cos(a), Math.sin(a)], d = dot(ax, p), cr = cross(ax, p); return [p[0] * c + cr[0] * s + ax[0] * d * (1 - c), p[1] * c + cr[1] * s + ax[1] * d * (1 - c), p[2] * c + cr[2] * s + ax[2] * d * (1 - c)]; };
 const A1: V3 = [1, 0, 0], A2: V3 = [0, 0, 1];
 
+/** how far the pinion's plane is out from where the axes cross, in front of the teeth's inner end (mm): the pinion is a millimetre longer than the face at each end */
+export const PINION_OVERHANG = 1;
 export const FACE = { minPinion: 12, maxFace: 64, minRatio: 2, maxRatio: 3.1, outer: 3, innerBelow: 1, outerLimit: 4, plate: 2, backlash: 0.05 } as const;
 export interface FacePair { z1: number; z2: number; m: number; alpha: number; bl: number; inner: number; outer: number; r1: number; R2: number; rb: number; hK: number; hF: number; /** the plate's thickness under the root, mm */ thick: number; /** the tooth chamfer at the two ends, mm (`dec_bevel_chamfer`) */ cham: number }
 /** The pair for a pinion of `z1` teeth and a face gear of `z2`, or why there is none. */
@@ -44,8 +46,9 @@ export function faceFor(spec: GearSpec): Result<{ pair: FacePair; role: "gear" |
   const [z, mate] = [Math.round(spec.teeth), Math.round(b.mate)];
   const [z1, z2] = b.facegear === "gear" ? [mate, z] : [z, mate];
   const bl = spec.backlash ?? FACE.backlash, thick = b.facegear === "gear" ? spec.width : undefined;
-  const ch = b.facegear === "gear" ? (spec.chamfer ?? 0) : 0; // (the face gear's tooth chamfer, in modules, `dec_bevel_chamfer`)
-  if (!(ch >= 0 && ch <= 1)) return err("the chamfer is from 0 to 1 module deep");
+  const chAll = spec.chamfer ?? 0; // (the tooth chamfer, in modules, `dec_bevel_chamfer`: a face gear's by its blank, its spur pinion's by the kernel's tooth chamfer, as a spur gear's)
+  if (!(chAll >= 0 && chAll <= 1)) return err("the chamfer is from 0 to 1 module deep");
+  const ch = b.facegear === "gear" ? chAll : 0;
   if (spec.crown?.outer === undefined) { // no outer radius given: the longest tooth the pair can have, the usual three modules out less a quarter module at a time (the tooth is thinnest at its outer end and more so for a bigger pinion)
     let last: Result<FacePair> = err("no outer radius");
     for (const k of [3, 2.75, 2.5, 2.25, 2, 1.75, 1.5]) {
@@ -57,6 +60,7 @@ export function faceFor(spec: GearSpec): Result<{ pair: FacePair; role: "gear" |
     return why.ok ? err("no face gear tooth for these numbers") : why;
   }
   const p = facePairOf(z1, z2, spec.module, bl, spec.crown?.inner, spec.crown?.outer, thick, ch * spec.module);
+  if (p.ok && b.facegear === "pinion" && chAll > 0 && !(chAll * spec.module * 2 < pinionWidth(p.value))) return err("the chamfer is deeper than half the thickness of the pinion");
   if (p.ok && ch > 0 && !(p.value.outer - p.value.inner >= shortestFor(ch * spec.module, spec.module))) return err(`the chamfer is too deep for teeth ${(p.value.outer - p.value.inner).toFixed(1)} mm long: at most ${Math.max(0, (p.value.outer - p.value.inner - 0.1 * spec.module) / 2 - 0.25 * spec.module).toFixed(1)} mm`);
   return p.ok ? ok({ pair: p.value, role: b.facegear }) : p;
 }
@@ -143,12 +147,23 @@ function faceBodyMade(pr: FacePair): Result<FaceBody> {
   const xy = (r: number, th: number): P => [r * Math.cos(th), r * Math.sin(th)];
   const sections: FaceBody["sections"] = [];
   let last: [number[], number[]] | null = null;
+  const curves: [number[], number[]][] = [];
   for (const h of hs) {
     let fa = curveAt(contourAt(pr, A, h), radii), fb = curveAt(contourAt(pr, B, h), radii);
     if (!fa || !fb) {
       if (!last || h > -m) return err("the pinion cannot generate this face gear's tooth between these radii (inside about the pitch radius less a module there is none): a larger inner radius");
       [fa, fb] = last; // (below the pinion's tip: the slot's walls stand straight down to the root)
     } else last = [fa, fb];
+    curves.push([fa, fb]);
+  }
+  // the tooth gets no wider as it goes up (`in_1015`): where the pinion's flank is below its base circle (the tooth's top, a module up on a 14 tooth pinion) the involute formula, carried on, flares the tooth out, wider at the tip than a little under it; the tooth keeps its middle and the width of the
+  // height below it there (the pinion does not touch that part of the tooth: a pair still fits)
+  for (let k = curves.length - 2; k >= 0; k--) {
+    const [fa, fb] = curves[k]!, [ga, gb] = curves[k + 1]!;
+    curves[k] = [fa.map((a, i) => { const [w, wb, c] = [pitch + fb[i]! - a, pitch + gb[i]! - ga[i]!, (a + pitch + fb[i]!) / 2]; return c - Math.min(w, wb) / 2; }), fa.map((a, i) => { const [w, wb, c] = [pitch + fb[i]! - a, pitch + gb[i]! - ga[i]!, (a + pitch + fb[i]!) / 2]; return c + Math.min(w, wb) / 2 - pitch; })];
+  }
+  for (const [q, h] of hs.entries()) {
+    const [fa, fb] = curves[q]!;
     if (h === pr.hK && (pitch - (fa[NR]! - fb[NR]!)) * outer < 0.25 * m) return err("the teeth come to a point at the outer radius: a smaller outer radius");
     const points: P[] = [], bulges: number[] = [];
     const side = (a: P, via: P, b: P) => { points.push(a); bulges.push(bulgeOf(a, via, b)); };
@@ -164,3 +179,5 @@ function faceBodyMade(pr: FacePair): Result<FaceBody> {
   }
   return ok({ sections, tip: pr.hK, root: pr.hF });
 }
+/** the pinion's width: the face and the overhang at each end */
+export const pinionWidth = (pr: FacePair): number => pr.outer - pr.inner + 2 * PINION_OVERHANG;

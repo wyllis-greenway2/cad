@@ -149,7 +149,7 @@ export function putMatesBack(scene: Scene, only?: string, standingOnly = false):
 }
 
 /** The numbers a joint keeps on its mate: where it stands now (turn in degrees, slide in mm) and the limits (absent: none). */
-const JOINT_KEYS = ["turn", "slide", "turnMin", "turnMax", "slideMin", "slideMax"] as const;
+const JOINT_KEYS = ["turn", "slide", "turnMin", "turnMax", "slideMin", "slideMax", "turnRest", "slideRest"] as const;
 export type JointKey = (typeof JOINT_KEYS)[number];
 
 const withParams = (scene: Scene, mateId: string, set: Partial<Record<JointKey, number | null>>): Command[] => {
@@ -160,10 +160,10 @@ const withParams = (scene: Scene, mateId: string, set: Partial<Record<JointKey, 
   return [{ type: "removeRelation", id: mateId }, { type: "addRelation", relation: { ...rel, params } }];
 };
 /** The limits of a joint as numbers (or none) and where it stands. */
-export function jointOf(scene: Scene, mateId: string): Record<"turn" | "slide", { now: number; min?: number; max?: number }> | null {
+export function jointOf(scene: Scene, mateId: string): Record<"turn" | "slide", { now: number; min?: number; max?: number; /** where it goes back to when nothing holds it away, `in_1020` */ rest?: number }> | null {
   const p = scene.relations.find((r) => r.id === mateId)?.params;
   if (!p) return null;
-  const of = (k: "turn" | "slide") => ({ now: p[k] ?? 0, ...(p[`${k}Min`] !== undefined ? { min: p[`${k}Min`]! } : {}), ...(p[`${k}Max`] !== undefined ? { max: p[`${k}Max`]! } : {}) });
+  const of = (k: "turn" | "slide") => ({ now: p[k] ?? 0, ...(p[`${k}Min`] !== undefined ? { min: p[`${k}Min`]! } : {}), ...(p[`${k}Max`] !== undefined ? { max: p[`${k}Max`]! } : {}), ...(p[`${k}Rest`] !== undefined ? { rest: p[`${k}Rest`]! } : {}) });
   return { turn: of("turn"), slide: of("slide") };
 }
 /** The command that sets one limit of a joint (or takes it away with null); refused when the limits would cross. */
@@ -174,6 +174,11 @@ export function limitCommand(scene: Scene, mateId: string, kind: "turn" | "slide
   return { type: "batch", commands: withParams(scene, mateId, { [`${kind}${side}`]: value }) };
 }
 
+/** The command that sets where a joint goes back to when nothing holds it away (degrees or mm, as the joint counts them; null takes it away): a spring, a pawl dropping into the next tooth (`dec_contact_push`, `in_1020`). */
+export function restCommand(scene: Scene, mateId: string, kind: "turn" | "slide", rest: number | null): Command | null {
+  if (!jointOf(scene, mateId) || (rest !== null && !Number.isFinite(rest))) return null;
+  return { type: "batch", commands: withParams(scene, mateId, { [`${kind}Rest`]: rest }) };
+}
 /** The command that takes both stops of a joint away. */
 export function unlimitCommand(scene: Scene, mateId: string, kind: "turn" | "slide"): Command | null {
   return jointOf(scene, mateId) ? { type: "batch", commands: withParams(scene, mateId, { [`${kind}Min`]: null, [`${kind}Max`]: null }) } : null;
@@ -204,6 +209,19 @@ export function driveCommand(scene: Scene, mateId: string, kind: "turn" | "slide
   const turns = eulerXYZ(turnAbout(a.dir, (delta * Math.PI) / 180));
   const steps = turns.map((t, k): Command => ({ type: "addStep", step: { id: `${id}${"xyz"[t.axis]}${k}`, type: "rotate", parts: [a.body], params: { axis: t.axis, value: t.angle, px: a.point[0], py: a.point[1], pz: a.point[2], follow: 1, body } } }));
   return { type: "batch", commands: [...steps, ...carrySketches(scene, turns, [0, 0, 0], a.point, 1, body), ...record] };
+}
+
+/**
+ * A body that was made to turn (`pivot.ts`, `in_912`) turned by `degrees` about its axis, as ordinary steps (the same turns and carried sketches as a joint driven), for keeping the pose of a motion. Null when the body is not there or the turn is nothing.
+ */
+export function pivotTurnCommand(scene: Scene, body: Ref, point: Vec3, dir: Vec3, degrees: number): Command | null {
+  const p = scene.parts[body];
+  if (p?.kind !== "body" || !p.id || !Number.isFinite(degrees) || Math.abs(degrees) < 1e-9) return null;
+  let id = nextId(scene, "s");
+  while (scene.steps.some((st) => st.id.startsWith(id))) id = `${id}_`;
+  const turns = eulerXYZ(turnAbout(normalize(dir), (degrees * Math.PI) / 180));
+  const steps = turns.map((t, k): Command => ({ type: "addStep", step: { id: `${id}${"xyz"[t.axis]}${k}`, type: "rotate", parts: [body], params: { axis: t.axis, value: t.angle, px: point[0], py: point[1], pz: point[2], follow: 1, body: p.id as string } } }));
+  return { type: "batch", commands: [...steps, ...carrySketches(scene, turns, [0, 0, 0], point, 1, p.id as string)] };
 }
 
 /**

@@ -1,9 +1,9 @@
 ---
 id: dec_contact_push
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_889, in_890, in_891, in_892, in_893, in_894
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_889, in_890, in_891, in_892, in_893, in_894, in_1017
 date: 2026-11-19
 depends_on:
   - dec_hard_bodies: this builds on its mesh test, its "one hard body is enough" rule and its sliding; a change to them changes what is built here
@@ -12,7 +12,7 @@ alternative_to:
 ---
 # Contact push: a played body pushes the bodies it meets, which yield by their own joints
 
-**Provisional: the AI's proposal, not approved.** It comes from the human's brainstorm (`in_889` to `in_893`): most of a mechanism is solved with joints and couplings, contact is for the key parts, one body is set to move, and the rest follows by constraints and collision.
+**Accepted at `in_1017`** (the human took the AI's recommendations for the open questions, below; the model itself was built and tried over `in_896` to `in_910` and the human asked for each step). It comes from the human's brainstorm (`in_889` to `in_893`): most of a mechanism is solved with joints and couplings, contact is for the key parts, one body is set to move, and the rest follows by constraints and collision.
 
 **A correction first.** The AI had said the hard bodies were checked with the kernel's booleans and were too slow to use live. That is wrong: `dec_hard_bodies` is already built on the kernel's **mesh** (`operation/collide.ts`: a tree of boxes over the triangles, `collidesMoving`, `contactNormals`, `freePart`), the exact boolean is kept for the final answer only, a hard body already treats every body it meets as hard (`meets`, `in_490`), and a dragged body already stops and slides. What is not there is the next level that `dec_hard_bodies` names as not built: **pushing**.
 
@@ -40,7 +40,7 @@ The Geneva drive's wheel, with **no formula**, moved by the rule alone (the pin 
 - **Touching counts as a hit** in the mesh test (a tangent line or a face on a face, by the direction of its nudge), so a pair touching where the motion begins is a *touch*, not an *overlap*: only a pair that still hits when either body is moved a hair either way is left out as already overlapping.
 - **The height of a layer is along a turning body's axis** (a slider moves across the layers: its own axis would make a rod and a cam never share a height).
 - **A rest value moves a step at a time**: jumping to a far rest passed through the cam (the target was clear on the far side).
-- Keep pose is refused for a pose found by contact. **Not tried:** a ratchet (the ratchet comes as two sketches, a wheel and a pawl; it has no 3D model layout with the pawl on a pivot as the Geneva has, so it needs that first), passing hardness on to a depth, the time budget.
+- Keep pose for a pose found by contact is kept (`in_1018`) when every body that yields is a mate's first body, a cam's follower rod or a pivoted body (not the wheel of a Geneva drive). **Not tried:** a ratchet (the ratchet comes as two sketches, a wheel and a pawl; it has no 3D model layout with the pawl on a pivot as the Geneva has, so it needs that first), passing hardness on to a depth, the time budget.
 
 ## Built, third slice (`in_937`: chains, and what it costs)
 
@@ -54,11 +54,22 @@ A profile of the gear trains showed the cost: the test for a body wholly inside 
 
 A cheaper box pre-check for pairs far apart; the search for room begins at the last push; only bodies that moved are tested again (a chain is a walk, not a test of every body at every link); the halving is 5 steps. **A coarser mesh for animation was tried and is not worth it** (merging the triangles into grid cells of 0.1 to 0.4 mm changed no times beyond the noise: the tree already limits a test to the leaves that meet). About 30 per cent faster together (a train of 4 gears 6.6 ms a degree, 8 gears 18 to 22, the Geneva 0.36), same accuracy; a test of a train of three gears in `contact.test.ts`. What is left is the narrow phase (about 90 per cent of the time): more speed needs fewer tests (a step worked out from the contact's geometry) or a cheaper test.
 
-## Open questions for the human
+## Built, sixth slice (`in_1019`: the depth rule)
 
-- The default depth of passed-on hardness, and whether ghost is wanted as a body state or only as a setting of a joint.
-- Whether the rest value belongs on the joint (a number in its settings) or on the body.
-- Whether this replaces the exact boolean for interaction while keeping it for the final answer (the AI's view: yes, in steps, the existing `hardCollision` is the seam, and the old and new tests are run side by side on the existing hard-body tests before anything is switched).
+**Hardness is passed on to three links** (`solidSet` in `contact.ts`, `DEPTH = 3`): at each step the bodies that move or yield are given a level: 0 for a hard one, then 1, 2, 3 for those whose boxes (each where its motion puts it) touch a body of the level before; a pair is tested when **either** of the two is solid (level 3 or less), so a hard body's push is carried by three solid bodies and one more that is pushed and does not push. A pair of bodies that are neither solid passes through. When the chain goes on past the last solid body (the body it pushes touches another that is not solid) the bar says so: `A touches B, past the depth of 3, and the chain goes on: mark a body in the middle hard to carry the push on`. Measured (Node, a train of gears, `prototypes/contact-push/chain.ts`): with the first gear hard, gears two to five are driven within 2 degrees of their ratios (8 ms a degree for five gears, less than before: the pairs beyond the depth are not tested) and the sixth stays, with the note; with the first and the fourth hard all eight are driven (16 ms a degree). Test: a six gear train in `contact.test.ts`. Not built: the time budget, a settable rest value on a joint, the switch of the hard bodies' drag to the mesh test.
+
+## Built, seventh slice (`in_1020`: the three that were not built)
+
+- **The hard bodies' tests read the kernel's mesh** (`meshOf` in `hard.ts`, from the outcome the scene came from: `outcomeOfScene`, `registerOutcome` in `compile.ts`): every face of a body, the walls of a gear's teeth too; the face planes of the scene (a gear body has two) are the fallback, and for a model of one body, which has no name. The drag, the stop search, the joint's limits against a hard body and the contact push all use it; the existing hard-body tests pass unchanged, and a test (`hardgear.test.ts`) shows two hard gears meeting by their teeth, which the old source could not. The kernel's boolean is still the final answer (a pose kept, the overlap report).
+- **A time budget** (`BUDGET_MS = 20` for a call of `solveContact`): past it the steps left wait for the next frame; the amount stops where it got to and the motion starts again from there (a play goes slower, not frozen), a scrub remembers where it was asked to go (`ContactState.target`; `main.ts` goes on to it, a part each frame), and the bar says `this push is heavy: it plays slower than real time`.
+- **A settable rest on a joint** (degrees from where the body is drawn; none by default): `Pivot.rest` (the `pivot` command takes `rest`, null takes it away) and a coaxial mate's `turnRest` (the joint's own number, `restCommand` in `mate.ts`; counted from the joint's zero). The bar shows, with contact on, a field for each body that yields and turns on a pivot or a mate: `name back to [ ] °`, empty for none (`Frame.motionBar.springs`, the intent `motionRest`, `doMotionRest`). A body that has one goes back toward it a step at a time as far as it is clear to, once nothing holds it away. The cam's rod still takes its rest from the cam. Tests in `pivot.test.ts` (a body pushed by another goes back with a rest of 0, stays with none; the bar's field sets and clears it) and `contact.test.ts` (the budget).
+
+## Answers (`in_1017`: the human took the AI's recommendations)
+
+- **Depth of passed-on hardness: 3.** A hard body that pushes makes the soft bodies it touches solid for their own pushing, to three links from the hard body; marking one body is enough for a mechanism of up to three links, and a longer chain marks a body in the middle as hard. A **time budget** for a frame and the jam message `the chain is too long to settle` (built) stand behind it. Built at `in_1019` (above).
+- **Ghost:** not built, and not a state until a case needs it (a body that must pass through everything). If a case comes, it is a setting of the body, not of the joint.
+- **The rest value is a number on the joint** (the joint of a pivot, a coaxial mate or a cam's follower; degrees or mm, "return to"; none by default). A cam's follower rod gets it from the cam today (`rest` toward the cam, a millimetre a step); a settable one is not built yet.
+- **The mesh test is for interaction, the exact boolean for the final answer**, in steps: the hard bodies' drag, scrub and the animation use the mesh test (`operation/collide.ts` with the kernel's mesh, `contact.ts`); the kernel's boolean stays for what is kept (a pose kept, an interference report). `hardCollision` is the seam: the old and new tests are run side by side on the existing hard-body tests before the drag is switched. **One finding to carry into that step:** the face planes the drag reads (`meshOf`) leave out the walls of a gear's teeth, so a hard gear is tested on its caps only; the contact push reads the kernel's mesh by the faces' ranges (`bodyMesh`) and the drag should too.
 
 ## Rationale
 

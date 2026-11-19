@@ -4413,6 +4413,49 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for this branch (the washer, taking a hole out, more holes when too far apart, points on round faces, the depth chosen for the part, snapping a moved hole to its line) to be merged into claude/inspiring-pascal-l342k7)
 
+## in_1015 — 2026-11-19 — question
+> are you sure the odd-looking tooth tops are just the involute shape?
+(challenges the AI's claim that the face gear's pinched-looking tooth tops are the involute shape; the AI measured and found it was wrong: a waist, the tooth wider at the tip than below it)
+
+## in_1016 — 2026-11-19 — question
+> okay what should we work on next?
+(asks what to work on next; the AI recommends, the human decides)
+
+
+
+
+## in_1017 — 2026-11-19 — approval
+> okay lets do 1, I will take your reccomendations
+(approves the AI's recommendations for the three open questions of `dec_contact_push`, which the AI then wrote into the entry as answers: spreading depth 3, ghost not built until a case needs it, the rest value a number on the joint, the mesh test for interaction with the exact boolean for the final answer, in steps behind the existing seam)
+
+## in_1018 — 2026-11-19 — directive
+> yes
+(answers the AI's question: start on Keep pose for pivots and contact motions)
+
+## in_1019 — 2026-11-19 — directive
+> okay start on the next item
+(asks for the next item of the agreed order: the depth rule for the contact push)
+
+## in_1020 — 2026-11-19 — directive
+> okay lets work on the still not built stuff
+(asks for the three things still not built for the contact push: the time budget, a settable rest value on a joint, and the switch of the hard bodies' drag to the mesh test)
+
+## in_1021 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for the branch `claude/adoring-dijkstra-contact-rest` to be merged into the testing branch; it carries `dec_contact_push` accepted, Keep pose for a pivot and a pose found by contact, the depth rule, the hard bodies reading the kernel's mesh, the time budget and the settable rest)
+
+## in_1022 — 2026-11-19 — directive
+> okay do 1 2 and 4, I am not so sure we want to split the menu onspiral and hypoid. What exactly is the difference between a spiral and hypoid gear and what are each used for?
+(of the AI's list: do the numeric tooth-width checks on the other gear kinds (1), the spiral crown's browser time (2), and meshed pairs rendered in contact (4); the menu split is not wanted for now; and a question: the difference between a spiral and a hypoid gear and what each is used for)
+
+## in_1023 — 2026-11-19 — question
+> okay so is it all done?
+(asks whether the work of the last plan is finished; the AI answers with what is verified and what is still running)
+
+## in_1024 — 2026-11-19 — directive
+> okay lets put the ISO 23509 on our to do list, we will do it later. So are we pretty sure that the hypoid gears will still work though? Also what do you mean that hypoid is different then spiral bevel because the shafts dont meet? does this mean the cone tips of the extended gear cones wouldn't meet?
+(a directive: ISO 23509 goes on the to-do list for later; and two questions: whether the hypoid gears still work, and whether the pitch cones' apexes of a hypoid pair do not meet)
+
 ## in_1025 — 2026-11-19 — directive
 > no need for full suite testing on this one
 (says the full suite is not needed on the merge into the testing branch)
@@ -4424,3 +4467,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1027 — 2026-11-19 — directive
 > okay do you want to test it in different situations and see how it performs?
 (asks for the automatic fastener choice to be tried in many different situations to see how it performs)
+
+## in_1028 — 2026-11-19 — directive
+> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
+(asks for this branch to be merged into claude/inspiring-pascal-l342k7 and for further work to be started on a new branch made from the updated testing branch)

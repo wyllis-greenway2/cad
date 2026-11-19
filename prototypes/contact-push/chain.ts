@@ -35,7 +35,7 @@ for (const r of recs) {
 const sc = scene(s);
 const bodies = sc.gears!.map((g) => bodyOfGear(sc, g)!);
 console.log(`${N} gears, ${new Set(bodies).size} bodies (a train that touches can be made one body by the kernel)`);
-s = run(s, { type: "setHard", body: (scene(s).parts[bodies[0]!] as any).id, on: true });
+for (const k of (process.env.HARD ?? "1").split(",").map(Number)) s = run(s, { type: "setHard", body: (scene(s).parts[bodies[k - 1]!] as any).id, on: true }); // (the gears marked hard: `HARD=1,4`; the first by default)
 const r: any = startMotion(scene(s), bodies[0]!, "turn", s.outcome);
 const stripped = { ...r.motion, follows: [] };
 const contact = startContact(scene(s), stripped, scene(s).gears!.slice(1).map((g, i) => { const ax = gearAxis(scene(s), g)!; return { body: bodies[i + 1]!, point: ax.point, dir: ax.dir }; }), s.outcome)!;
@@ -51,4 +51,4 @@ for (let deg = 1; deg <= 360 * TURNS; deg++) {
   m.yields!.forEach((y: any, i: number) => { worst[i + 1] = Math.max(worst[i + 1], Math.abs(y.value - ratio[i + 1]! * deg)); });
 }
 times.sort((a, b) => a - b); const n = times.length;
-console.log(`${jam ? `JAM at ${at} degrees (${jam}); ` : "no jam; "}the gears are within ${worst.slice(1).map((w) => w.toFixed(1)).join(", ")} degrees of their ratios; ms a degree: median ${times[Math.floor(n / 2)]!.toFixed(1)}, p95 ${times[Math.floor(n * 0.95)]!.toFixed(1)}, max ${times[n - 1]!.toFixed(0)} (${n} steps)`);
+console.log(`${jam ? `JAM at ${at} degrees (${jam}); ` : "no jam; "}${m.contact!.note ? `NOTE: ${m.contact!.note}; ` : ""}the gears are within ${worst.slice(1).map((w) => w.toFixed(1)).join(", ")} degrees of their ratios; ms a degree: median ${times[Math.floor(n / 2)]!.toFixed(1)}, p95 ${times[Math.floor(n * 0.95)]!.toFixed(1)}, max ${times[n - 1]!.toFixed(0)} (${n} steps)`);

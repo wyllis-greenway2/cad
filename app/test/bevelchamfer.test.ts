@@ -8,6 +8,7 @@ import { kernel } from "../src/compiler/kernel/index.ts";
 import { worldRef } from "../src/shared/ref.ts";
 import { createSession, run, scene } from "../src/interaction/session.ts";
 import type { GearSpec } from "../src/operation/gear.ts";
+import type { Session } from "../src/interaction/session.ts";
 
 await kernel.init();
 const area = (p: [number, number][]) => Math.abs(p.reduce((a, q, i) => { const r = p[(i + 1) % p.length]!; return a + (q[0] * r[1] - r[0] * q[1]); }, 0)) / 2;
@@ -38,6 +39,7 @@ test("the spiral pair and the straight bevel gear carry the chamfer in their bla
   const bad = spiralPairOf(20, 30, 3, 30, 0.05, 0, 0, 4);
   assert.ok(!bad.ok && /chamfer is from 0 to 1 module/.test(bad.error));
 });
+const bodies = (s: Session) => Object.values(scene(s).parts).filter((p) => p.kind === "body") as unknown as { ref: string; volume: number }[];
 const crownShaft = (z: number, p: number) => 90 + (Math.asin(p / z) * 180) / Math.PI;
 const volumeOf = (spec: GearSpec): { n: number; v: number; message?: string } => {
   const s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: [0, 0, 0], spec });
@@ -71,4 +73,27 @@ test("Mesh gear gives the partner the chamfer, and a chamfer changed on one gear
   const { chamfer: _c, ...bare } = rec.spec;
   const none = run(more, { type: "setGear", id: "g_002", spec: bare, at: rec.at, turn: rec.turn } as never);
   assert.equal(scene(none).gears!.find((g) => g.id === "g_001")!.spec.chamfer, undefined, "and loses it when it is taken off");
+});
+
+test("a face gear drive's spur pinion takes a tooth chamfer, alone and in its pair (the frame its pair gave it): less volume, still one body each and the pair still fits", () => {
+  const pin: GearSpec = { teeth: 14, module: 2, bevel: { mate: 40, facegear: "pinion" }, bore: 5 };
+  const [a, b] = [volumeOf(pin), volumeOf({ ...pin, chamfer: 0.4 })];
+  assert.ok(!a.message && !b.message, `${a.message ?? ""} ${b.message ?? ""}`);
+  assert.ok(b.v < a.v && b.v > 0.95 * a.v, `${a.v} -> ${b.v}`);
+  const gear: GearSpec = { teeth: 40, module: 2, bevel: { mate: 14, facegear: "gear" }, bore: 5 };
+  const src = { id: "g_001", plane: worldRef("XY"), at: [0, 0, 0] as [number, number, number], spec: gear };
+  const p = meshWith(src, [1, 0, 0], [0, 1, 0], { teeth: 14 }, 0.3);
+  assert.ok(p.ok);
+  if (!p.ok) return;
+  let s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: src.at, spec: gear });
+  s = run(s, { type: "gear", id: "g_002", plane: worldRef("XY"), at: p.value.at, turn: p.value.turn, spec: { ...p.value.spec, chamfer: 0.4 } });
+  assert.ok(!s.message, s.message ?? "");
+  assert.deepEqual(s.outcome.errors, {});
+  const bs = bodies(s);
+  assert.equal(bs.length, 2);
+  const done = run(s, { type: "addStep", step: { id: "s_900", type: "combine", parts: bs.map((x) => x.ref), params: { mode: "intersect" } } } as never);
+  const over = /nothing in common/.test(done.message ?? "") ? 0 : bodies(done).map((x) => x.volume).sort((x, y) => y - x)[0] ?? 0;
+  assert.ok(over < 10, `the pair fits: ${over}`);
+  const plain = bodies(run(createSession(kernel), { type: "gear", id: "g_002", plane: worldRef("XY"), at: p.value.at, turn: p.value.turn, spec: p.value.spec }));
+  assert.ok(Math.abs(plain[0]!.volume - bs[1]!.volume) > 1 || Math.abs(plain[0]!.volume - bs[0]!.volume) > 1, "the pinion in the pair lost its tooth tips");
 });

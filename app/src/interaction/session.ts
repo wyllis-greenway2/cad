@@ -8,7 +8,7 @@ import { bodyLabel } from "./panels.ts";
 import { describedCommand } from "../operation/anchors.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Kernel } from "../compiler/kernel/adapter.ts";
-import { compile } from "../compiler/compile.ts";
+import { compile, registerOutcome } from "../compiler/compile.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
 import type { Command } from "../operation/commands.ts";
 import { coneRetry } from "../operation/spiralretry.ts";
@@ -66,6 +66,7 @@ function makeCompiler(kernel: Kernel) {
   const derive = (sc: Scene): Scene => {
     const o = compile(sc, kernel);
     cache.set(o.scene, o);
+    registerOutcome(o);
     return o.scene;
   };
   return { derive, outcomeOf: (h: History): CompileOutcome => cache.get(h.scene)! };
