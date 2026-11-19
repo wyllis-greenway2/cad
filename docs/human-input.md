@@ -5093,6 +5093,17 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > Push; new branch claude/hopeful-cannon-8 (Recommended)
 (the answer to the AI's question: permission to push to claude/inspiring-pascal-l342k7, then work on a new branch claude/hopeful-cannon-8 created from it)
 
+> Can we make the clock not have options? instead just directly clicking it cycles through the speed options. It should also be that if you click or tap and hold and drag left or right you can smoothly set between percent based speed settings. So tapping goes in speed chunks. dragging smoothly adjusts. And first tap after a while should always just set it back to default. Also for collision, can we have it use shaded red bodies only? not red wireframe?
+(a screenshot of a jam drawn as red slivers with red wire lines; asks the clock to have no list: a tap goes to the next speed, a hold and drag sets it smoothly in percent, the first tap after a while returns to normal; and the jam to be drawn as the bodies shaded red, with no wireframe)
+
+## in_1192 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the tap-and-drag speed clock and the shaded red jam to be merged into the testing branch, no full test run)
+
+## in_1193 — 2026-11-19 — directive
+> can we have a little geneva plate icon for the geneva plate? Can we havea  new icon for cucloidal drive that looks less like a gear. Can we have a new icon for bearings?
+(asks for an icon for the Geneva plate, a new cycloidal drive icon that looks less like a gear, and a new bearing icon)
+
 ## in_1194 — 2026-11-19 — directive
 > can we make the world orb and z y z not show through objects? Every time I try to make a spring it fails. Why does it do this? Also can we setup some more helpful defaults so it always previews some sort of thing when you select the circular extrude? also can we have a better icon for that tool? It seems to default okay for objects that have flat edges, but for ones without maybe it should set the origin out in space on plane a certain amount, probably some multiple of the plane size etc, and then select the axis that starts extruding normal to the plane?
 (a screenshot of the Revolve tool on a circle in a plane, its mover and rings at an orb, a number bubble 1.6 and the message "the figure is 9.51 mm wide along the axis and the advance is 6.4 mm a turn: the turns would overlap"; the saved model 4d055877-model_1.json; "the world orb and z y z" is the world axes and the orb at the origin)

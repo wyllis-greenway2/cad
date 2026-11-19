@@ -61,7 +61,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:ratchet", label: "Ratchet", icon: "cam", tool: "cam" },
   { id: "tool:geneva", label: "Apart", icon: "cam", tool: "cam" },
   { id: "tool:geneva:assembled", label: "Assembled", icon: "cam", tool: "cam" },
-  { id: "tool:geneva:model", label: "Geneva plate", icon: "cam", tool: "cam" }, // (Shape, Fabricate, Models: the 3D model of the Geneva drive, the only way to it now, `in_1098`)
+  { id: "tool:geneva:model", label: "Geneva plate", icon: "genevaplate", tool: "cam" }, // (Shape, Fabricate, Models: the 3D model of the Geneva drive, the only way to it now, `in_1098`)
   { id: "tool:linear", label: "Linear ratchet", icon: "cam", tool: "cam" },
   { id: "tool:disc:cycloidal", label: "Cycloidal", icon: "cam", tool: "cam" },
   { id: "tool:disc:harmonic", label: "Harmonic", icon: "cam", tool: "cam" },
