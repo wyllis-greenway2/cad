@@ -4666,3 +4666,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1078 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for `claude/adoring-dijkstra-free-order` to be merged into the testing branch, without a full test run; it carries slide-before-turn for a pushed body, the cheaper search and the motion bar's note out of its layout)
+
+## in_1079 — 2026-11-19 — directive
+> I created default face gear and default mesh gear, The teeth clearly have collisions according to the rendering (unless rendering is false somehow?)
+(attached the project file model.cad_64.json, build c7db6782: a 40 tooth face gear and its 14 tooth pinion made with Mesh gear, both with default settings, and a close screenshot of two flanks crossing)

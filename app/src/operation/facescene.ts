@@ -10,7 +10,7 @@ import { figureParams } from "./scene.ts";
 import type { Part } from "./part.ts";
 import type { GearRecord } from "./gearscene.ts";
 import { bevelFrame } from "./bevel.ts";
-import { faceFor, faceBody } from "./face.ts";
+import { faceFor, faceBody, FACE } from "./face.ts";
 import type { FacePair, FaceBody } from "./face.ts";
 import { gearOutline } from "./gear.ts";
 import type { GearSpec } from "./gear.ts";
@@ -28,7 +28,7 @@ export function faceGearOf(rec: GearRecord): { pair: FacePair; body: FaceBody } 
 }
 /** the spur outline of a face gear drive's pinion (a plain spur gear of its teeth, module and backlash) */
 function pinionOutline(spec: GearSpec) {
-  const o = gearOutline({ teeth: spec.teeth, module: spec.module, ...(spec.backlash !== undefined ? { backlash: spec.backlash } : {}) });
+  const o = gearOutline({ teeth: spec.teeth, module: spec.module, backlash: spec.backlash ?? FACE.backlash }); // (the default is the face gear's, `in_1079`: a pinion with none touched the gear's flanks)
   return o.ok ? o.value : null;
 }
 export interface FaceRefs { sections: Ref[][]; blank: Ref[]; plate: Ref; plateBore: string | undefined; /** the pinion's outline sides, its bore */ lines: Ref[]; bore: string | undefined }
