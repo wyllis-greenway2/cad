@@ -185,7 +185,7 @@ test("how far a hole is moved by hand is shown along and across its line, and ty
   assert.deepEqual(back.spots[i]!.centre, base.spots[i]!.centre);
 });
 
-test("a hole picked has its origin marked, and dragging it back near the origin snaps to it (`in_1073`)", () => {
+test("a hole picked has its origin marked, and dragging it back near the origin snaps to it (`in_1075`)", () => {
   const s = block();
   const v = vals({ place: "outline", by: "count", value: "6", corners: "ignore", offset: "10" });
   const base = plan(s, v);

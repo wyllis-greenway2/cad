@@ -385,7 +385,7 @@ function holesPoints(): void {
   dirty = true;
   say("points made at the holes: move them with the move tools, and the holes follow them");
 }
-/** The bubble of the distance the hole picked is moved by hand from where the rules put it, like the one on a diameter (`in_1073`): its number can be typed over, and the hole then stands that far from its origin in the way it was moved. */
+/** The bubble of the distance the hole picked is moved by hand from where the rules put it, like the one on a diameter (`in_1075`): its number can be typed over, and the hole then stands that far from its origin in the way it was moved. */
 function holeNotes(): Annotation[] {
   if (!hardware || !holesPlan || holesPicked === null) return [];
   const pos = holesPlan.index.indexOf(holesPicked);

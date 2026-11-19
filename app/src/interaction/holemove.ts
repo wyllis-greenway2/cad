@@ -12,7 +12,7 @@ export function pickPlace(plan: ReceiverPlan, project: (p: Vec3) => [number, num
   return best;
 }
 /** Where the pointer's ray meets the surface the hole `index` stands on (taken as the plane that touches it there: a round face brings the point back onto itself when the plan is made), or null when the ray runs alongside it. */
-export function dragTarget(plan: ReceiverPlan, index: number, ray: { o: Vec3; d: Vec3 }, snap?: { row: number; mm: number; /** the place the rules put the hole: it snaps back to it within `originMm` (`in_1073`) */ origin?: Vec3; originMm?: number }): Vec3 | null {
+export function dragTarget(plan: ReceiverPlan, index: number, ray: { o: Vec3; d: Vec3 }, snap?: { row: number; mm: number; /** the place the rules put the hole: it snaps back to it within `originMm` (`in_1075`) */ origin?: Vec3; originMm?: number }): Vec3 | null {
   const s = plan.spots[index];
   if (!s) return null;
   const n: Vec3 = [s.u[1] * s.v[2] - s.u[2] * s.v[1], s.u[2] * s.v[0] - s.u[0] * s.v[2], s.u[0] * s.v[1] - s.u[1] * s.v[0]];
