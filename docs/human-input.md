@@ -4403,3 +4403,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1012 — 2026-11-19 — directive
 > do the next step please
 (asks for the next step after the preview without the boolean; the AI had named keeping the page's parts per body as the biggest remaining lever, and settle on deselect as the other)
+
+## in_1013 — 2026-11-19 — directive
+> Option 2
+(chooses option 2: settle on deselect with a visible mark, from `q_working_and_settled`)

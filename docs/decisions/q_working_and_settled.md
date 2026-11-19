@@ -26,6 +26,8 @@ alternative_to:
 
 **Done (`in_1011`, option 1 chosen): `dec_preview_without_boolean`** (a preview of an extrusion leaves out the boolean for a figure apart from the bodies; the step made for good keeps it). The rest of this entry (collision as the hint for what a preview includes, selection and deselect, per-body parts) is still open.
 
+**Measured before building settle-on-deselect (`in_1013`, option 2 chosen), Node, the arm project, a preview at a new depth each time:** the full answer 125 ms, the draft and lite answer (a rough mesh, no faces and edges: what a drag already asks for) 94 ms. So what "working" can leave out of the kernel's answer is about 30 ms of 125; the rest is the floor of the page's derive, the prism and the checks. And lite answers have no faces or edges, so a state that lasts while the operation is open (not only while the pointer is down) would stop hovering and picking on every body until it settles: a change to what the person can do, for 25% of a preview.
+
 **Open:** whether a preview may show other bodies as they were (marked) or must show them current; what "deselect" means for a long-lived selection (a time limit?); how a preview marks itself; whether a hard (collision) body is always included.
 
 ## Rationale
