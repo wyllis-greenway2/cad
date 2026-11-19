@@ -3707,3 +3707,7 @@ Merged `claude/intelligent-hawking-8j1lyr` (its in_819-827 are in_916-924, Hando
 
 ## Handoff 887 — 2026-11-19 (in_987: the cam tools and the Geneva fix merged into inspiring-pascal)
 `in_987` asked for it, without tests. Merged `claude/intelligent-hawking-8j1lyr` (its in_979 is in_986, its Handoff 880 is 886). The only conflicts were the two record files; pascal had moved to in_985 and Handoff 885. Checked: types and the docs, layer, unused and kernel-boundary checks; the tests were not run, as asked (they passed on the branch before the merge: 1738).
+
+## Handoff 888 — 2026-11-19 (in_988: the chamfer to the partner, the kernel time)
+`in_988` (2, 3 and 4 of the AI's list). **2 done:** Mesh gear and a linked edit carry the chamfer (`mesh.ts`, `gearscene.ts` `withChamfer`; test in `bevelchamfer.test.ts`). **3 done:** the cut of the loft with the cones went from 31 s to about 10 s by capping the loft's surfaces at degree three (`maxDegree`, details and the browser's times in `dec_spiral_bevel_gears` "The kernel's time halved"); the total is 80 teeth again; the face gear took the same cap. Tests pass in their files (spiral, spiralbig with 17 / 43, 25 / 50 and 28 / 42, hypoid, face, crown, bevelchamfer); the full suite not yet re-run. **4 (the spiral crown) next.** Next numbers: `in_989`, Handoff 889.
+

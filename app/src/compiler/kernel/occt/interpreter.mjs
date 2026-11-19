@@ -648,7 +648,7 @@ const OPS = {
       // a worm wheel (`op.matched`): only its two end faces are named by their roles; its thousand flank faces get the names of new faces (the gear is one feature, `dec_gear_feature`, and the roles of a thousand sides cost 1 s of a 100 tooth wheel: a box for each side, every face looked against every box)
       if (ctx.roleFigs) { try { ctx.roleFigs.set(key, op.matched ? loftRoles([0, ids.length - 1].map((k) => ({ ends: edgeEnds(sk[k]), sides: [] })), key === "main", false, true) : loftRoles(ids.map((id, k) => ({ ends: edgeEnds(sk[k]), sides: ctx.get(id, "sketch").sides })), key === "main", !!op.smooth)); } catch { ctx.roleFigs.set(key, []); } } // (the roles of its faces by the sketches' own edges, read before they are used up: `dec_stable_reference_mechanism`)
       // sections that are known to match edge for edge (a worm wheel's: one gap turned, `op.matched`) need not be checked for it: that check is the larger half of the loft's time (100 teeth: 7.3 s to 3.7 s, the same solid to every digit)
-      const made = as.matched && as.smooth ? matchedLoft(sk) : sk[0].loftWith(sk.slice(1), { ruled: !as.smooth });
+      const made = as.matched && as.smooth ? matchedLoft(sk) : as.maxDegree && as.smooth ? limitedLoft(sk, as.maxDegree) : sk[0].loftWith(sk.slice(1), { ruled: !as.smooth });
       // a smooth loft through many sections can leave an edge whose 3D curve and whose curves on its two faces do not run at the same pace; the validity check refuses the whole solid for that (a wheel of 24 teeth was refused, one of 40 was not), though the
       // solid is whole and has the same volume to every digit. Making the edges run at the same pace again (`BRepLib.SameParameter`) is what the check asks for.
       if (op.smooth) getOC().BRepLib.SameParameter(made.wrapped, 1e-5, false);
@@ -2511,6 +2511,17 @@ export function finalSolid(graph, results) {
   return null;
 }
 
+/** A smooth loft whose surfaces are of at most this degree (`op.maxDegree`): the kernel's own goes up to a degree one under the number of sections, and a boolean with a surface of degree six takes four times as long as with one of degree three (a spiral bevel ring gear of 42 teeth: 40 s to 16 s, the same fit, `in_988`). */
+function limitedLoft(sk, maxDegree) {
+  const oc = getOC();
+  const b = new oc.BRepOffsetAPI_ThruSections(true, false, 1e-6);
+  try {
+    b.SetMaxDegree(maxDegree);
+    for (const s of sk) b.AddWire(s.wire.wrapped);
+    b.Build();
+    return cast(b.Shape());
+  } finally { b.delete(); }
+}
 export function volume(shape) {
   return measureVolume(shape);
 }

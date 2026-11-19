@@ -72,7 +72,7 @@ export function spiralSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] | nul
   const figs: Figure[] = sections.map((lines, q) => ({ outer: lines, holes: bores[q] ? [bores[q]!.split(",") as Ref[]] : [] }));
   // the prism of the tooth sections (a smooth loft, a piece of its own), the blank (a piece of its own) and the two intersected
   return [
-    { type: "loft", parts: sections[0]!, params: { ...figureParams(figs), mode: "new", gear: rec.id } },
+    { type: "loft", parts: sections[0]!, params: { ...figureParams(figs), mode: "new", maxDegree: 3, gear: rec.id } }, // (surfaces of degree three: the cone cut with the kernel's own, up to degree six, took twice as long)
     { type: "revolve", parts: blank, params: { angle: 360, advance: 0, ax: rec.at[0], ay: rec.at[1], az: rec.at[2], dx: f.n[0], dy: f.n[1], dz: f.n[2], mode: "new", gear: rec.id } },
     { type: "combine", parts: ["b/x_$0/o" as Ref, "b/x_$1/o" as Ref], params: { mode: "intersect", gear: rec.id } },
   ];
