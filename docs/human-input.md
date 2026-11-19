@@ -4914,3 +4914,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1139 — 2026-11-19 — directive
 > okay one more thing, cross sections of animated parts seem to be special, they dont cut the same, they seem to have trasparent edges at the cut instead of grey and hatch,  and also they seem to continue in the cut space as black edge wireframe. Can we have animations cut just like anything else? Also these notes are from before I tried your most recent edits
+
+## in_1140 — 2026-11-19 — directive
+> on the cycloidial drive, can you attach things to the drive surfaces so I can actually see how it is opearating? the perfectly smooth shafts and plates are not obvious. Maybe a shaft with a key?
+(asks for features on the cycloidal drive's turning parts so its motion can be seen, for example a keyed shaft)
