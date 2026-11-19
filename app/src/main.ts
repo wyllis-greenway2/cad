@@ -22,8 +22,6 @@ import type { LaserValues } from "./interaction/manufacture.ts";
 import { pathRepeatTarget, pathRepeatDialog, pathRepeatCommand, pathRepeatStart, pathRepeatValuesFor } from "./interaction/pathrepeat.ts";
 import { receiverStart, receiverKinds, receiverSizes, receiverContext, receiverPlan, cutReceiver, makeHolePoints, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
 import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
-import { modelStart, modelDialog, addModel, modelKinds } from "./interaction/addmodel.ts";
-import type { ModelKind, ModelValues } from "./interaction/addmodel.ts";
 import { nameFor } from "./interaction/sniff.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
 import type { ExportOptions } from "./interaction/transfer.ts";
@@ -63,7 +61,7 @@ import { createRing } from "./ui/ring.ts";
 import { createAddChip } from "./ui/addchip.ts";
 import { createPreviewBar } from "./ui/previewbar.ts";
 import { createMotionBar } from "./ui/motionbar.ts";
-import { tickMotion } from "./interaction/motion.ts";
+import { tickMotion, motionHolds } from "./interaction/motion.ts";
 import { solveContact } from "./interaction/contact.ts";
 import { createAhead } from "./contact-ahead.ts";
 import { createChip } from "./ui/chip.ts";
@@ -202,7 +200,6 @@ const ring = createRing(document.body, (id) => {
   ring.hide();
   if (id === "view:game") { input.toggleGame(); return; }
   if (id === "repeat:path") { void pathRepeatFlow(); return; } // (`dec_path_repeat`)
-  if (id.startsWith("model:")) { void modelDialogFlow(id.slice(6) as ModelKind); return; } // (Shape, Fabricate, Models: a gear assembly, `dec_gear_models`)
   if (id === "fab:material") { void materialDialogFlow(); return; } // (Shape, Fabricate, `in_1083`)
   if (id === "tool:fasteners") { holesOpen(); return; } // (the tool is a panel and a preview in the model view, `dec_parts_tool`)
   dispatch({ type: "runAction", id });
@@ -465,20 +462,6 @@ async function materialDialogFlow() {
   state = { ...state, session: run(state.session, c.value) };
   say(String(answers.material ?? "").trim() ? `material set: ${String(answers.material).trim()}` : "material tag taken off");
 }
-/** A gear assembly as a model (`dec_gear_models`): a dialog for its numbers (the last ones kept), and the model made in one step. */
-const MODEL_KEY = "cad.modelOptions";
-async function modelDialogFlow(kind: ModelKind) {
-  if (!modelKinds().includes(kind)) return say("that model is not built yet");
-  const saved = (() => { try { return (JSON.parse(localStorage.getItem(MODEL_KEY) ?? "{}") as Record<string, Values>)[kind]; } catch { return undefined; } })();
-  const answers = await dialog.open((v) => modelDialog(kind, v as unknown as ModelValues), { ...modelStart(kind), ...(saved ?? {}) } as unknown as Values);
-  if (!answers) return;
-  const made = addModel(state.session, kind, answers as unknown as ModelValues);
-  if (!made.ok) return say(made.error);
-  try { localStorage.setItem(MODEL_KEY, JSON.stringify({ ...(JSON.parse(localStorage.getItem(MODEL_KEY) ?? "{}") as object), [kind]: answers })); } catch { /* (no storage: the numbers are not kept) */ }
-  state = { ...state, session: made.value };
-  dirty = true;
-  say(`${modelDialog(kind, answers as unknown as ModelValues).title} made`);
-}
 const LASER_KEY = "cad.laserOptions";
 const LIB_KEY = "cad.library";
 /** Laser cut (`in_569`, `in_571`, `dec_laser_outline_route`): which machine (the project's copy of the last one used, the user's own, or a new one), a dialog made from the route's own settings and started from the last plan for this drawing, the route run, the findings read before the file is saved; the project keeps a copy of the machine and the plan, the library keeps the machine. */
@@ -711,7 +694,12 @@ addEventListener("pagehide", () => autosave.flush());
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") autosave.flush(); });
 let keptHistory: unknown = null;
 const ahead = createAhead(() => new Worker(new URL("./contact-worker.ts", import.meta.url), { type: "module" })); // (the push worked out ahead of the picture, `in_1096`)
+let lastPlayFrame = 0;
+const PLAY_FRAME_MS = 26; // (a motion that plays is drawn about 38 times a second, not as fast as the screen refreshes: the play is by the clock, so it is as quick, and the processor and the graphics card work a third less)
 function frame(now: number) {
+  if (state.motion) { const held = motionHolds(scene(state.session), state.motion); if (held !== state.motion) { state = { ...state, motion: held }; dirty = true; } } // (what it moves was deleted or undone: the motion stops and its bar goes, `in_1129`)
+  if (state.motion?.playing && now - lastPlayFrame < PLAY_FRAME_MS) { requestAnimationFrame(frame); return; }
+  if (state.motion?.playing) lastPlayFrame = now;
   const tStart = performance.now();
   engine.eye = [...position(state.cam)] as [number, number, number]; // (the kernel makes a model of many parts apart nearest the eye first, `dec_progressive_open`)
   if (state.session.history !== keptHistory) { keptHistory = state.session.history; const h = state.session.history; autosave.remember(() => saveText(state.session), h.commands.length, (why) => say(why)); } // (a moment after the last change, `in_997`)
@@ -724,7 +712,7 @@ function frame(now: number) {
     let mo = tickMotion(state.motion, now);
     if (mo.contact) { ahead.ensure(sc, oc, state.motion); const reach = ahead.extent(sc, oc, state.motion); if (reach !== null && mo.amount > reach) mo = { ...mo, amount: reach, from: reach, startedAt: null }; }
     state = { ...state, motion: solveContact(sc, mo, oc) }; dirty = true;
-  } else if (!state.motion) ahead.stop();
+  } else if (!state.motion?.playing) ahead.stop(); // (paused or closed: the thread has nothing to work ahead for, and stops using the processor)
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading || state.flash) {
     const size = view.size();
@@ -873,6 +861,7 @@ function frame(now: number) {
     const waiting = !!state.session.outcome.kernel?.stale;
     if (waiting && staleSince === null) staleSince = tFrame;
     else if (!waiting && staleSince !== null) { timing.add("edit: waiting for the kernel until its answer is drawn", tEnd - staleSince); staleSince = null; }
+    if (state.building && !waiting) { dispatch({ type: "buildNext" }); dirty = true; } // (a model made a part at a time: the part that was made is drawn, now the next, `dec_gear_models`)
     controls.update(window.innerWidth, window.innerHeight, settings.buttons.marginPx, settings.buttons.sizePx);
     dirty = panesFading || !!f.flash || !!f.gizmo?.pulse || f.entries.some((e) => e.opacity !== undefined && e.opacity < 1) || working || !!f.highlight.temp?.length || touchMoved || (f.standIns.length > 0 && !standShown); // keep drawing while a refused change flashes, the "working" sign turns, or the copies of a repeat pulse
   }

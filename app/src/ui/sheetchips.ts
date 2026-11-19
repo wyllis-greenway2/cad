@@ -1,10 +1,10 @@
 // The icons on the sheets (`in_459`): each sheet has one that goes through its four modes (cuts the half its normal points to, the other half, does not cut, invisible) and the sheet that is selected has a second, its move icon
-// (the arrow along its normal; the mover with its arrows and rings; the plane across X, then Y, then Z). They only show and report the click. An invisible sheet takes no pointer pick: its icon fades in while the pointer is over it.
+// (the mover's arrows to move it, or its rings to turn it, `in_1129`). They only show and report the click. An invisible sheet takes no pointer pick: its icon fades in while the pointer is over it.
 import { iconSvg } from "./icons.ts";
 import { roundButton, onPress } from "./look.ts";
 import type { Vec3 } from "../interaction/api.ts";
 
-export interface SheetView { ref: string; mode: 0 | 1 | 2; hidden: boolean; move: 0 | 1 | 2 | 3 | 4; selected: boolean; corners: Vec3[] }
+export interface SheetView { ref: string; mode: 0 | 1 | 2; hidden: boolean; move: 0 | 1; selected: boolean; corners: Vec3[] }
 
 const MODE_ICON = ["sheetCutUp", "sheetCutDown", "sheetPlain"] as const;
 const MODE_TITLE = [
@@ -13,11 +13,8 @@ const MODE_TITLE = [
   "Does not cut (tap for the next mode)",
 ] as const;
 const MOVE_TITLE = [
-  "Moves along its normal with the arrow; tap to move it freely (arrows along x, y, z and rings)",
-  "Moving freely; tap to put it across X",
-  "Across X; tap for across Y",
-  "Across Y; tap for across Z",
-  "Across Z; tap to go back to where it was",
+  "Its arrows move it along x, y and z; tap to turn it with the rings instead",
+  "Its rings turn it about x, y and z; tap to move it with the arrows instead",
 ] as const;
 
 export function createSheetChips(host: HTMLElement, run: (id: string) => void) {
@@ -70,7 +67,7 @@ export function createSheetChips(host: HTMLElement, run: (id: string) => void) {
           pair.mode.title = MODE_TITLE[sh.mode];
           pair.eye.innerHTML = iconSvg(sh.hidden ? "eyeOff" : "eye");
           pair.eye.title = sh.hidden ? "Invisible: it cannot be pointed at; tap to make it visible" : "Visible; tap to make it invisible";
-          pair.move.innerHTML = sh.move === 0 ? iconSvg("sheetArrow") : sh.move === 1 ? iconSvg("sheetFree") : "XYZ"[sh.move - 2]!;
+          pair.move.innerHTML = iconSvg(sh.move === 0 ? "move" : "rotate"); // (the tool the handles are: move or turn, as a body's, `in_1129`)
           pair.move.title = MOVE_TITLE[sh.move];
           pair.move.style.display = sh.selected ? "flex" : "none";
         }

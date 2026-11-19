@@ -315,10 +315,10 @@ function mateAnnotations(scene: Scene, selection: readonly Ref[], focus: string 
   return out;
 }
 
-/** The parts to show in amber: what the open constraint ties the selection to. */
-export function focusParts(scene: Scene, selection: readonly Ref[], focus: string | null): Ref[] {
+/** The parts to show in amber: everything the open constraint ties. */
+export function focusParts(scene: Scene, focus: string | null): Ref[] {
   const rel = focus ? scene.relations.find((r) => r.id === focus) : undefined;
-  return rel ? rel.parts.filter((p) => !selection.includes(p) && p in scene.parts) : [];
+  return rel ? rel.parts.filter((p) => p in scene.parts) : []; // (every part it ties, the selected ones too: with the pair selected nothing else would light and the constraint would not say what it is for, `in_1129`)
 }
 
 /** A curved face of the body that is part of a cylinder or a sphere (a fillet, a rounded edge) says its radius when it is selected: R and the number, read only. (A full round post or hole shows its diameter, Ø, with its push / pull arrow.) */

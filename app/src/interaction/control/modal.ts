@@ -8,10 +8,14 @@ import { nearCommand } from "../suggest.ts";
 import { actionsFor, measureAction } from "../actions.ts";
 import { CONSTRAINT_ENTRIES, resolveEntry } from "../constraintlist.ts";
 import type { ToolKind, Tool } from "../tools.ts";
-import { gearFields, armTool, typeKey, finish, lineNext, gearTyped, editGearTool, editPlanetaryTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf, editCamTool , gearChanged } from "../tools.ts";
+import { gearFields, armTool, armModel, typeKey, finish, lineNext, gearTyped, editGearTool, editPlanetaryTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf, editCamTool , gearChanged } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
+import { modelTyped, modelCommand, modelBuilding, nextPartCommand, partIds, finishCommand } from "../modeltool.ts";
+import type { ModelKind } from "../../operation/modelkinds.ts";
+/** why the model of a tool is not made (the words of its refusal), or null */
+const modelWhy = (sc: ReturnType<typeof sceneOf>, t: Tool): string | null => { const c = modelCommand(sc, t); return c.ok ? null : c.error; };
 import type { CamKind, CamLaw, CamLayout } from "../../operation/cams.ts";
-import { doMotionPlay, doCamFollow, doLink, doBodyPlay, doMakeTurn, doStopTurning } from "./motion.ts";
+import { doMotionPlay, doCamFollow, doLink, doBodyPlay, doMakeTurn, doGlue, doUnglue, doStopTurning } from "./motion.ts";
 import { gearOfPart, gearOfSelection } from "../../operation/gearscene.ts";
 import { planetaryOfPart } from "../../operation/planetary.ts";
 import type { OpKind } from "../operations.ts";
@@ -55,7 +59,7 @@ import { doSimilar, doSelectAll, doSelectBodies, doGroup, doUngroup, doCutBegin,
 import { groupsOf, membersOf } from "../../operation/groups.ts";
 
 /** The sketch group (`in_229`): the tools that draw on a plane, and the operations that work in one. Every member follows the group's rules below, so a new tool is added here (the records name every kind, so the compiler asks which group it is in) and gets them all. */
-const IS_SKETCH_TOOL: Record<ToolKind, true> = { rect: true, circle: true, line: true, arc: true, spline: true, cam: true, trim: true, gear: true };
+const IS_SKETCH_TOOL: Record<ToolKind, true> = { rect: true, circle: true, line: true, arc: true, spline: true, cam: true, trim: true, gear: true, model: true };
 const IS_SKETCH_OP: Record<OpKind, boolean> = { offset: true, extrude: false, pushpull: false, edge: false, move: false, rotate: false, scale: false, dimension: false, linear: false, circular: false, copy: false, hollow: false, revolve: false, loft: false, sweep: false, mirror: false };
 const isSketchTool = (name: string): name is ToolKind => name in IS_SKETCH_TOOL;
 
@@ -75,9 +79,9 @@ function facePlane(s: AppState, over: Ref | null, now: number): AppState {
   return plane && sideOf(s.cam, normalOfPlane(plane)) === 0 ? animateTo(s, planeView(s.cam, plane, false), now) : s;
 }
 
-function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = null, variant: GearVariant = "gear", cam?: CamKind, law?: CamLaw, layout?: CamLayout): AppState {
-  if (s.tool?.kind === kind && !s.tool.plane && variantOf(s.tool.gear) === (kind === "gear" ? variant : "gear") && s.tool.cam?.kind === cam && s.tool.cam?.law === law && s.tool.cam?.layout === layout) return { ...s, tool: null }; // pressing it again puts it away
-  const make = (): Tool => (cam ? armCam(cam, law, layout) : armTool(kind, variant));
+function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = null, variant: GearVariant = "gear", cam?: CamKind, law?: CamLaw, layout?: CamLayout, model?: ModelKind): AppState {
+  if (s.tool?.kind === kind && s.tool.model?.kind === model && !s.tool.plane && variantOf(s.tool.gear) === (kind === "gear" ? variant : "gear") && s.tool.cam?.kind === cam && s.tool.cam?.law === law && s.tool.cam?.layout === layout) return { ...s, tool: null }; // pressing it again puts it away
+  const make = (): Tool => (model ? armModel(model) : cam ? armCam(cam, law, layout) : armTool(kind, variant));
   const armed: AppState = { ...s, tool: make(), op: null, menu: null };
   const { plane, onSketch } = sketchPlane(s, over);
   if (plane && onSketch) return animateTo({ ...armed, tool: { ...make(), plane: plane.ref, reveal: true } }, planeView(s.cam, plane, false), now);
@@ -122,13 +126,38 @@ export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["n
 /** The tool stays on after a figure is made, ready on the same plane for the next, until a right click or the cancel icon at the top puts it away (`in_193`). */
 const stays = (t: AppState["tool"]): AppState["tool"] => (t && t.kind !== "gear" && t.kind !== "cam" ? { ...armTool(t.kind, variantOf(t.gear)), plane: t.plane, made: (t.made ?? 0) + 1, ...(t.reveal ? { reveal: true as const } : {}) } : null);
 
+/** A model is made a part at a time (`dec_gear_models`): the first part now, and each next one when the kernel has answered for the one before (the page draws between, so the parts are seen going in) */
+function startBuilding(s: AppState): AppState {
+  const g = modelBuilding(sceneOf(s.session), s.tool!);
+  if (!g.ok) return { ...s, session: { ...s.session, message: g.error } };
+  return makeNextPart({ ...s, tool: null, resume: null, spread: null, building: g.value });
+}
+function makeNextPart(s: AppState): AppState {
+  const b = s.building;
+  if (!b) return s;
+  const c = nextPartCommand(sceneOf(s.session), b);
+  if (!c.ok) return { ...s, building: null, session: { ...s.session, message: c.error } };
+  const next = run(s.session, c.value);
+  if (next.message) return { ...s, building: null, session: next };
+  const last = b.next + 1 >= b.build.parts.length;
+  const grown: typeof b = { ...b, next: b.next + 1, ids: { ...b.ids, [b.build.parts[b.next]!.label]: partIds(c.value) } };
+  const fin = last ? finishCommand(sceneOf(next), grown) : null; // (the whole model is made: how it moves is kept, and the parts that are fixed to one another are glued, so that Play can move it)
+  const kept = fin ? run(next, fin) : next;
+  return { ...s, session: { ...(kept.message ? next : kept), click: { ...next.click, selection: [] } }, building: last ? null : grown };
+}
+/** The kernel has answered: the next part of the model being made */
+export function doBuildNext(s: AppState): AppState {
+  return !s.building || s.session.outcome.kernel?.stale ? s : makeNextPart(s);
+}
+
 export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppState {
   if (!fin) {
     const fix = s.tool?.kind === "gear" ? gearFix(sceneOf(s.session), s.tool) : null; // (the number that spoils it is taken back to the nearest that makes a gear, and flashes, `in_690`)
     if (fix) return { ...s, tool: { ...fix.tool, gear: { ...fix.tool.gear!, bad: { field: fix.field, at: performance.now() } } }, session: { ...s.session, message: fix.message } };
-    const why = s.tool?.kind === "gear" ? gearProblem(sceneOf(s.session), s.tool) : s.tool?.kind === "cam" ? camProblemOf(s.tool) : null; // (a gear, a rack or a partner that is not made says why, `in_580`)
+    const why = s.tool?.kind === "gear" ? gearProblem(sceneOf(s.session), s.tool) : s.tool?.kind === "cam" ? camProblemOf(s.tool) : s.tool?.kind === "model" ? modelWhy(sceneOf(s.session), s.tool) : null; // (a gear, a rack or a partner that is not made says why, `in_580`)
     return why ? { ...s, session: { ...s.session, message: why } } : s;
   }
+  if (s.tool?.kind === "model") return startBuilding(s);
   const next = run(s.session, fin.command);
   if (next.message) return { ...s, session: next };
   const sel = fin.select.filter((r) => r in sceneOf(next).parts);
@@ -299,12 +328,14 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
   if (!t || !t.plane || !t.points.length) return s;
   if (t.kind === "gear") return { ...s, tool: gearTyped(t, field, text) };
   if (t.kind === "cam" && t.cam) return { ...s, tool: camTyped(t, field, text) };
+  if (t.kind === "model" && t.model) return { ...s, tool: { ...t, model: modelTyped(t.model, field, text) } };
   const typed: [string, string] = field === 0 ? [text, t.typed[1]] : [t.typed[0], text];
   return { ...s, tool: { ...t, typed, field: (field === 0 ? 0 : 1) as 0 | 1 } };
 }
 
 /** Esc lets go in steps: the menu, then an open badge, then the tool or operation, then the selection. */
 export function doEscape(s: AppState): AppState {
+  if (s.building) return { ...s, building: null, session: { ...s.session, message: "stopped: the parts made so far stay (Undo takes them back, one at a time)" } }; // (a model made a part at a time)
   if (s.menu) return { ...s, menu: null };
   if (s.motion) return { ...s, motion: null }; // (a joint that is being played goes back to rest)
   if (s.awaiting) return { ...s, awaiting: null, session: { ...s.session, message: null } }; // (the item that waited for a selection is given up, `in_951`)
@@ -446,9 +477,19 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
   if (id === "tool:eccentric" || id === "tool:snail" || id === "tool:ratchet" || id === "tool:geneva" || id === "tool:linear") return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", id === "tool:snail" ? "snail" : id === "tool:ratchet" ? "ratchet" : id === "tool:geneva" ? "geneva" : id === "tool:linear" ? "linear" : "eccentric"); // (an eccentric cam and a snail cam, `dec_spline_and_cams`)
   if (id === "tool:worm" || id === "tool:wormwheel") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:worm" ? "worm" : "wormwheel"); // (a worm, and the wheel for one, `in_608`)
   if (id === "tool:spiral") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "spiral"); // (a spiral bevel gear, `dec_spiral_bevel_gears`)
+  if (id === "tool:hypoid") { // a hypoid spiral bevel gear: the spiral tool with the offset field already holding a usual offset (3 mm; the tool refuses one too large for the gear, `in_1129`)
+    const r = beginTool(closed, "gear", now, s.menu?.plane ?? null, "spiral");
+    const g = r.tool?.gear;
+    if (!r.tool || !g) return r;
+    const i = gearFields(g).findIndex((f) => f.key === "hypoid");
+    const typed = [...g.typed]; while (typed.length <= i) typed.push("");
+    if (i >= 0) typed[i] = "3";
+    return { ...r, tool: { ...r.tool, gear: { ...g, typed } } };
+  }
   if (id === "tool:face") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "face"); // (a face gear, `dec_crown_gear_set`)
   if (id === "tool:crown") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "crown"); // (a crown gear, `dec_crown_gears`)
   if (id === "tool:bevel") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "bevel"); // (a straight bevel gear, an approximation, `in_735`)
+  if (id.startsWith("model:")) return beginTool(closed, "model", now, s.menu?.plane ?? null, "gear", undefined, undefined, undefined, id.slice(6) as ModelKind); // (a gear assembly model: the first click is its middle, `dec_gear_models`)
   if (id === "tool:planetary") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "planetary"); // (a planetary gear set, `dec_planetary_gears`)
   if (id === "tool:ring") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "ring"); // (a gear with its teeth pointing in)
   if (id === "tool:rack") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "rack");
@@ -462,6 +503,8 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
   }
   if (id === "motion:pivot") return doMakeTurn(closed); // (any body made to turn about an axis of its own, `in_912`)
   if (id === "motion:unpivot") return doStopTurning(closed);
+  if (id === "motion:glue") return doGlue(closed);
+  if (id === "motion:unglue") return doUnglue(closed);
   if (id === "motion:link") return doLink(closed); // (a ratio between two joints, `in_838`)
   if (id === "cam:follow") return doCamFollow(closed); // (the rod that rides the cam, `dec_mechanism_motion` stage 3)
   if (id === "motion:play") return doMotionPlay(closed); // (the joint of the selected body played, `dec_mechanism_motion`)

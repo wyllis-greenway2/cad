@@ -21,3 +21,7 @@ alternative_to:
 Recorded because production code needs an entry (`CLAUDE.md` rule 9); the form is the AI's reading and stays provisional.
 
 **Reworked by `dec_sheet_planes` (`in_460`):** the chips, the single cut and the click that switched the cut are gone: a sheet has a mode icon and a move icon, any number of sheets can cut, and the plane is a face like any other.
+
+## Built: what moves is cut like what stands (`in_1130`)
+A body that moves on its own (a motion that plays, a body being dragged) is drawn from meshes of its own (`ui/view/content.ts`, `split`), made after the clip was set up, so they were not clipped (their edges went on in the cut-away space) and the passes that count the faces behind the plane, which make the grey hatched cut face, did not include them or follow their matrices (the cut showed through). Now (`ui/view.ts`): when bodies begin or stop moving on their own the clip is set up again (`applyClip`, which also takes the moving meshes), and every frame the counting passes copy the matrices of the meshes they stand for. Seen in the browser on a playing gear and lever; no automated test (it is the drawing).
+

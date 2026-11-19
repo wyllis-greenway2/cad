@@ -2,10 +2,9 @@
 // plate. The gears are gear records made with the gear tool (they keep their numbers and can be edited and meshed as any gear); the rods, the plates and the posts are plain bodies. Pure: numbers in, steps out.
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
-import type { PartSteps } from "./fasteners.ts";
 import { Builder, disc, box, meshedWith } from "./modelparts.ts";
+import type { Place, ModelBuild } from "./modelparts.ts";
 import type { GearHolder } from "./modelparts.ts";
-import type { Vec3 } from "../math/vec.ts";
 
 export interface GearboxSpec {
   /** how many pinion and gear pairs in a row */ stages: number;
@@ -19,7 +18,7 @@ export interface GearboxSpec {
   /** the room between a layer and the next, and between the end layers and the plates (mm) */ gap: number;
 }
 export const GEARBOX_START: GearboxSpec = { stages: 2, pinion: 12, gear: 36, module: 1.5, width: 6, rod: 5, fit: 0.1, bearing: 0.2, plate: 3, gap: 1 };
-export const GEARBOX_LIMITS = { stages: [1, 4], pinion: 10, ratio: [1.5, 6], module: [0.5, 5] } as const;
+const GEARBOX_LIMITS = { stages: [1, 4], pinion: 10, ratio: [1.5, 6], module: [0.5, 5] } as const;
 /** the speed ratio, input over output, of the whole train */
 export const gearboxRatio = (s: Pick<GearboxSpec, "stages" | "pinion" | "gear">): number => (s.gear / s.pinion) ** s.stages;
 
@@ -47,44 +46,45 @@ export function gearboxProblem(s: GearboxSpec): string | null {
 }
 
 /** The steps that make the gearbox (the problem, if the numbers make none) */
-export function gearboxSteps(s: GearboxSpec): Result<PartSteps> {
+export function gearboxSteps(s: GearboxSpec, place?: Place): Result<ModelBuild> {
   const bad = gearboxProblem(s);
   if (bad) return err(bad);
-  const b = new Builder();
+  const b = new Builder(place);
   const m = s.module, a = (m * (s.pinion + s.gear)) / 2; // (the centre distance of each stage)
   const tip = (z: number) => m * (z / 2 + 1);
   const rods = Array.from({ length: s.stages + 1 }, (_, k) => k * a);
   const W = s.width, G = s.gap, T = s.plate;
   const top = T + G + s.stages * (W + G); // (the underside of the top plate)
   const bore = s.rod + s.fit * 2;
-  // the gears: stage i in the layer i, its pinion on rod i and its gear (meshed with it) on rod i + 1
   const spec = (teeth: number) => ({ teeth, module: m, width: W, bore });
-  for (let i = 0; i < s.stages; i++) {
-    const pl = b.plane(T + G + i * (W + G));
-    const z = pl.z;
-    const p: GearHolder = b.gear(pl, [rods[i]!, 0, z], spec(s.pinion));
-    const placed = meshedWith({ ...p, id: "g_000", at: [rods[i]!, 0, z], spec: spec(s.pinion), turn: 0 }, s.gear, 0);
-    if (typeof placed === "string") return err(placed);
-    b.gear(pl, placed.at, { ...placed.spec, bore }, placed.turn, p);
-  }
-  // the rods, from the underside of the base plate to the top of the top plate
   const ground = b.plane(0);
-  for (const x of rods) b.extrude(ground, disc(x, 0, s.rod / 2), [], top + T);
-  // the base plate with its four posts, and the top plate
   const [x0, x1] = [-tip(s.pinion) - MARGIN, rods[s.stages]! + tip(s.gear) + MARGIN];
   const hy = tip(s.gear) + MARGIN;
   const post = (x: number, y: number) => ({ outer: disc(x, y, POST), holes: [disc(x, y, PILOT)], depth: top - LID_GAP });
   const corners: [number, number][] = [[x0 + POST + 1, -hy + POST + 1], [x1 - POST - 1, -hy + POST + 1], [x1 - POST - 1, hy - POST - 1], [x0 + POST + 1, hy - POST - 1]];
   const rodHoles = rods.map((x) => disc(x, 0, s.rod / 2 + s.bearing));
+  // from the bottom up: the base plate with its four posts, the rods (from the underside of the base plate to the top of the top plate), the gears layer by layer (stage i in the layer i: its pinion on rod i, its gear, meshed with it, on rod i + 1), and the top plate
+  b.part("Base plate and posts");
   b.extrude(ground, box(x0, -hy, x1, hy), rodHoles, T, { also: corners.map(([x, y]) => post(x, y)) });
+  rods.forEach((x, k) => { b.part(`Rod ${k + 1}`); b.extrude(ground, disc(x, 0, s.rod / 2), [], top + T); });
+  for (let i = 0; i < s.stages; i++) {
+    b.part(`Stage ${i + 1} pinion`);
+    const pl = b.plane(T + G + i * (W + G));
+    const z = pl.z;
+    const p: GearHolder = b.gear(pl, [rods[i]!, 0, z], spec(s.pinion));
+    const placed = meshedWith({ ...p, id: "g_000", at: [rods[i]!, 0, z], spec: spec(s.pinion), turn: 0 }, s.gear, 0);
+    if (typeof placed === "string") return err(placed);
+    b.part(`Stage ${i + 1} gear`);
+    b.gear(pl, placed.at, { ...placed.spec, bore }, placed.turn, p);
+  }
+  b.part("Top plate");
   const lid = b.plane(top);
   b.extrude(lid, box(x0, -hy, x1, hy), [...rodHoles, ...corners.map(([x, y]) => disc(x, y, SCREW / 2))], T);
-  return ok(b.steps);
+  return ok(b.build());
 }
 
-/** The centre of each rod and the box of the plates (for a preview and the tests) */
-export function gearboxPlaces(s: GearboxSpec): { rods: Vec3[]; box: [number, number, number, number] } {
-  const a = (s.module * (s.pinion + s.gear)) / 2;
-  const tip = (z: number) => s.module * (z / 2 + 1);
-  return { rods: Array.from({ length: s.stages + 1 }, (_, k) => [k * a, 0, 0] as Vec3), box: [-tip(s.pinion) - MARGIN, -(tip(s.gear) + MARGIN), s.stages * a + tip(s.gear) + MARGIN, tip(s.gear) + MARGIN] };
+/** the plates' box in the model's frame (x0, x1 along the rods, hy half the width across them): for the size, the middle and the preview */
+export function gearboxFootprint(s: GearboxSpec): { x0: number; x1: number; hy: number; rods: number[] } {
+  const a = (s.module * (s.pinion + s.gear)) / 2, tip = (z: number) => s.module * (z / 2 + 1);
+  return { x0: -tip(s.pinion) - MARGIN, x1: s.stages * a + tip(s.gear) + MARGIN, hy: tip(s.gear) + MARGIN, rods: Array.from({ length: s.stages + 1 }, (_, k) => k * a) };
 }

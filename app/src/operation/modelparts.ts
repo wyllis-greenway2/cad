@@ -29,23 +29,33 @@ export interface GearHolder { id: string; plane: Ref; at: Vec3; spec: GearSpec; 
 
 const ground: Ref = worldRef("XY");
 
+/** Where a model stands: the point its middle goes to, and the directions of its x, y and z (the plane's two directions, turned, and its normal): every point and direction of a model is made in its own frame and put here */
+export interface Place { at: Vec3; ex: Vec3; ey: Vec3; ez: Vec3 }
+const AT_ORIGIN: Place = { at: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0], ez: [0, 0, 1] };
+const isHome = (p: Place): boolean => p === AT_ORIGIN || (p.at.every((v) => v === 0) && p.ex[0] === 1 && p.ex[1] === 0 && p.ex[2] === 0 && p.ey[0] === 0 && p.ey[1] === 1 && p.ey[2] === 0 && p.ez[0] === 0 && p.ez[1] === 0 && p.ez[2] === 1);
+export const dirIn = (p: Place, v: Vec3): Vec3 => [p.ex[0] * v[0] + p.ey[0] * v[1] + p.ez[0] * v[2], p.ex[1] * v[0] + p.ey[1] * v[1] + p.ez[1] * v[2], p.ex[2] * v[0] + p.ey[2] * v[1] + p.ez[2] * v[2]];
+export const pointIn = (p: Place, v: Vec3): Vec3 => { const d = dirIn(p, v); return [p.at[0] + d[0], p.at[1] + d[1], p.at[2] + d[2]]; };
+
 /** The steps of a model, built up one call at a time. Heights are along the ground plane's normal (up). */
+/** A model as its steps, and the parts they make one after another: each with its name (the steps from `from` up to `to`), so a model can be built one part at a time and say which */
+export interface ModelBuild { steps: PartSteps; parts: { label: string; from: number; to: number }[] }
+
 export class Builder {
   readonly steps: PartSteps = [];
+  private readonly marks: { label: string; at: number }[] = [];
+  /** the steps that follow make a part called `label` (the planes the model stands on, made before the first, go with the first) */
+  part(label: string): void { this.marks.push({ label, at: this.steps.length }); }
+  build(): ModelBuild {
+    const parts = this.marks.map((m, i) => ({ label: m.label, from: i === 0 ? 0 : m.at, to: i + 1 < this.marks.length ? this.marks[i + 1]!.at : this.steps.length }));
+    return { steps: this.steps, parts };
+  }
+  private readonly place: Place;
+  constructor(place: Place = AT_ORIGIN) { this.place = place; }
   /** a plane `z` mm above the ground plane (the ground plane itself for 0) */
   plane(z: number): PlaneHolder {
     const h: PlaneHolder = { ref: ground, z, to3: (x, y) => [x, y, z] };
-    if (z === 0) return h;
-    this.steps.push((s) => {
-      const ref = drawnRef(`${nextId(s, "e")}.pl`);
-      h.ref = ref;
-      return { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: [0, 0, z], u: [1, 0, 0], v: [0, 1, 0] } } as Command;
-    });
-    return h;
-  }
-  /** a plane through the point `at` with the directions `u` and `v` (an upright plane to draw a section of a turned body on) */
-  frame(at: Vec3, u: Vec3, v: Vec3): PlaneHolder {
-    const h: PlaneHolder = { ref: ground, z: 0, to3: (x, y) => [at[0] + u[0] * x + v[0] * y, at[1] + u[1] * x + v[1] * y, at[2] + u[2] * x + v[2] * y] };
+    if (z === 0 && isHome(this.place)) return h;
+    const [at, u, v] = [pointIn(this.place, [0, 0, z]), dirIn(this.place, [1, 0, 0]), dirIn(this.place, [0, 1, 0])];
     this.steps.push((s) => {
       const ref = drawnRef(`${nextId(s, "e")}.pl`);
       h.ref = ref;
@@ -53,11 +63,22 @@ export class Builder {
     });
     return h;
   }
+  /** a plane through the point `at` with the directions `u` and `v` (an upright plane to draw a section of a turned body on) */
+  frame(at: Vec3, u: Vec3, v: Vec3): PlaneHolder {
+    const h: PlaneHolder = { ref: ground, z: 0, to3: (x, y) => [at[0] + u[0] * x + v[0] * y, at[1] + u[1] * x + v[1] * y, at[2] + u[2] * x + v[2] * y] };
+    const [at2, u2, v2] = [pointIn(this.place, at), dirIn(this.place, u), dirIn(this.place, v)];
+    this.steps.push((s) => {
+      const ref = drawnRef(`${nextId(s, "e")}.pl`);
+      h.ref = ref;
+      return { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: at2, u: u2, v: v2 } } as Command;
+    });
+    return h;
+  }
   /** draw a shape on a plane; the refs of its sides (or its circle) come back when the step has run, through `out` */
   private draw(pl: PlaneHolder, sh: Shape, out: { refs: Ref[] }): void {
     this.steps.push((s) => {
-      if ("circle" in sh) { const r = drawCircle(s, pl.ref, pl.to3(sh.circle[0], sh.circle[1]), sh.r); out.refs = [r.circle]; return r.command; }
-      const r = drawChain(s, pl.ref, sh.outline.map(([x, y]) => pl.to3(x, y)), true, sh.bulges ? { bulges: sh.bulges } : {});
+      if ("circle" in sh) { const r = drawCircle(s, pl.ref, pointIn(this.place, pl.to3(sh.circle[0], sh.circle[1])), sh.r); out.refs = [r.circle]; return r.command; }
+      const r = drawChain(s, pl.ref, sh.outline.map(([x, y]) => pointIn(this.place, pl.to3(x, y))), true, sh.bulges ? { bulges: sh.bulges } : {});
       out.refs = r.lines;
       return r.command;
     });
@@ -83,15 +104,19 @@ export class Builder {
   turn(pl: PlaneHolder, profile: [number, number][], bulges: number[] | undefined, axisAt: Vec3, axisDir: Vec3): void {
     const out = { refs: [] as Ref[] };
     this.draw(pl, outline(profile, bulges), out);
-    this.steps.push((s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "revolve", parts: out.refs, params: { ...figureParams([{ outer: out.refs, holes: [] }]), angle: 360, advance: 0, ax: axisAt[0], ay: axisAt[1], az: axisAt[2], dx: axisDir[0], dy: axisDir[1], dz: axisDir[2] } } }) as Command);
+    const [A, D] = [pointIn(this.place, axisAt), dirIn(this.place, axisDir)];
+    this.steps.push((s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "revolve", parts: out.refs, params: { ...figureParams([{ outer: out.refs, holes: [] }]), angle: 360, advance: 0, ax: A[0], ay: A[1], az: A[2], dx: D[0], dy: D[1], dz: D[2] } } }) as Command);
   }
   /** a gear made with the gear tool on a plane (it keeps its numbers: it can be edited and meshed as any gear); `partner`: the gear it meshes with, whose place (and the tooth phase) this gear's `at` and `turn` came from */
   gear(pl: PlaneHolder, at: Vec3, spec: GearSpec, turn = 0, partner?: GearHolder): GearHolder {
     const h: GearHolder = { id: "", plane: pl.ref, at, spec, turn };
+    const frame = spec.bevel?.frame;
+    const placed: GearSpec = frame ? { ...spec, bevel: { ...spec.bevel!, frame: [dirIn(this.place, frame[0]), dirIn(this.place, frame[1])] } } : spec; // (a bevel gear that stands across: its directions turn with the model)
+    const where = pointIn(this.place, at);
     this.steps.push((s) => {
       h.id = nextId(s, "g");
       h.plane = pl.ref;
-      return { type: "gear", id: h.id, plane: pl.ref, at, spec, ...(turn ? { turn } : {}), ...(partner ? { meshWith: partner.id } : {}) } as Command;
+      return { type: "gear", id: h.id, plane: pl.ref, at: where, spec: placed, ...(turn ? { turn } : {}), ...(partner ? { meshWith: partner.id } : {}) } as Command;
     });
     return h;
   }

@@ -12,11 +12,11 @@ import { doPan, doWalk, doSwivel, doZoom, doLook, doHome, doResetView } from "./
 import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
 import { doBodiesAction } from "./control/bodies.ts";
-import { doMotionKind, doMotionKeep, doMotionLink, doMotionRest } from "./control/motion.ts";
-import { setPlaying, reverseMotion } from "./motion.ts";
+import { doMotionKind, doMotionKeep, doMotionLink, doMotionRest, doMotionFix } from "./control/motion.ts";
+import { setPlaying, reverseMotion, motionHolds } from "./motion.ts";
 import { solveContact } from "./contact.ts";
 import { doStepGo, doStepEdit, doStepInsert, doStepSet, doStepLink, doParamSet, doParamRemove } from "./control/history.ts";
-import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
+import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doBuildNext, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
 import { hoverOn, run, scene as sceneOf } from "./session.ts";
 import { stepOption, activateOption, similarOf } from "./options.ts";
 import { loftChoice } from "./loft.ts";
@@ -51,6 +51,7 @@ const RESUMING = new Set<Intent["type"]>(["hover", "hoverEnd", "click", "orbit",
 export function reduce(s: AppState, i: Intent, env: Env): AppState {
   if (s.adding && i.type === "click" && !i.shift && !s.tool && !s.op && !s.repeat && !s.cut && !s.picking) i = { ...i, shift: true }; // (adding: a tap is a Shift click, `in_539`)
   let next = apply(s, i, env);
+  if (next.motion && sceneOf(next.session) !== sceneOf(s.session)) { const held = motionHolds(sceneOf(next.session), next.motion); next = held === next.motion ? next : { ...next, motion: held }; } // (what a motion moves is deleted or undone: it stops, `in_1129`)
   if (i.type === "faceKind" || i.type === "sizeKind" || i.type === "loftKind" || i.type === "similarRule" || i.type === "cut") next = { ...next, optionAt: null }; // (an option chosen by the pointer: the keyboard's place in the bar starts from there again, `in_664`)
   if (next.cam !== s.cam || next.session.history.scene !== s.session.history.scene || next.lastSeen === null) next = noteSeen(next, env.w, env.h, projector(next.cam, env.w, env.h).project as (p: Vec3) => [number, number]); // (what was last in view, for Reset camera, `in_303`)
   if (next.awaiting && next.session.click.selection.join("|") !== s.session.click.selection.join("|")) next = settleAwaiting(next, env.now); // (what a pressed, dimmed item waited for is selected: it runs, `in_951`)
@@ -145,6 +146,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "zoom": return doZoom(s, i, env);
     case "look": return doLook(s, i, env);
     case "home": return doHome(s, env);
+    case "buildNext": return doBuildNext(s);
     case "runAction": return doRunAction(i.part && i.id.startsWith("gear:") && !s.session.click.selection.includes(i.part as never) ? { ...s, session: { ...s.session, click: { ...s.session.click, selection: [i.part as never] } } } : s, i.id, env.now); // (the icon of a gear that is only pointed at: its Edit, Helix and Mesh are for that gear, `in_864`)
     case "overrideRefusal": return overrideRefusal(s);
     case "menuTurn": return s; // (game mode's: the menu is turned by the page, `in_467`)
@@ -187,6 +189,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "motionLink": return doMotionLink(s, i);
     case "motionRest": return doMotionRest(s, i);
     case "motionKeep": return doMotionKeep(s);
+    case "motionFix": return doMotionFix(s, i.act);
     case "motionClose": return { ...s, motion: null };
     case "panel": return doPanel(s, i.name);
     case "panelRow": return doPanelRow(s, i.id, i.act);

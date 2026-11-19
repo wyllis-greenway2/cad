@@ -472,7 +472,7 @@ test("the right-click ring has the Fastener tool under Shape, Fabricate (the ham
   assert.equal(fab.label, "Fabricate");
   const tool = fab.children!.find((i) => i.id === "tool:fasteners")!;
   assert.equal(tool.label, "Fastener tool");
-  assert.deepEqual(fab.children!.map((c) => c.id), ["fab:material", "tool:fasteners", "models"]);
+  assert.deepEqual(fab.children!.map((c) => c.id), ["fab:material", "tool:fasteners"]);
 });
 test("Fastener Holes is always in the ring: it opens a panel that says what to select", () => {
   const none = find(ringOf(createSession(kernel)), "tool:fasteners")!;
@@ -502,13 +502,13 @@ test("a file made before this, with a drawn plane that says it is infinite, open
   assert.ok(out.ok);
   assert.equal((out.value.parts["d/e_040.pl" as never] as { infinite?: boolean }).infinite, undefined);
 });
-test("Sketch has no Cam category any more; Models under Shape, Fabricate has the Geneva plate first, the 3D model version only (`in_1098`)", () => {
+test("Sketch has no Cam category and no Gear icon any more; the Models category (a gear icon) holds the Gear submenu, the devices and the Geneva plate (`in_1098`, `in_1145`)", () => {
   const items = ringOf(createSession(kernel));
   const sketch = items.find((i) => i.id === "sketch")!;
-  assert.ok(!sketch.children!.some((c) => c.id === "cams"), "no Cam category");
-  assert.ok(find(items, "tool:eccentric") === undefined && find(items, "tool:geneva") === undefined && find(items, "tool:disc:harmonic") === undefined && find(items, "cam:edit") === undefined && find(items, "cam:follow") === undefined, "none of the cam options");
-  const models = find(items, "models")!;
+  assert.ok(!sketch.children!.some((c) => c.id === "cams" || c.id === "gears"), "no Cam category, no Gear icon");
+  assert.ok(find(items, "tool:eccentric") === undefined && find(items, "tool:geneva") === undefined && find(items, "tool:disc:harmonic") === undefined && find(items, "cam:edit") === undefined && find(items, "cam:follow") === undefined, "none of the cam options is in the ring");
+  const models = items.find((i) => i.id === "mechanisms")!;
   assert.equal(models.label, "Models");
-  assert.deepEqual(models.children!.map((c) => [c.id, c.label]), [["tool:geneva:model", "Geneva plate"], ["model:gearbox", "Gearbox"], ["model:bearing", "Bearing"], ["model:differential", "Differential"], ["model:cycloidal", "Cycloidal drive"]]);
-  assert.ok(find(items, "fabricate")!.children!.some((c) => c.id === "models"));
+  assert.deepEqual(models.children!.map((c) => [c.id, c.label]), [["gears", "Gears"], ["model:gearbox", "Gearbox"], ["model:ballbearing", "Bearing"], ["model:bearing", "Print bearing"], ["model:differential", "Differential"], ["model:cycloidal", "Cycloidal drive"], ["tool:geneva:model", "Geneva plate"]]);
+  assert.ok(!find(items, "fabricate")!.children!.some((c) => c.id === "models"), "Fabricate no longer holds the models");
 });

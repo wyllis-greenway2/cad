@@ -78,6 +78,7 @@ export function createView(host: HTMLElement) {
     behinder = built ? built.behind : null;
     behinder?.(behindNow);
     splitNow = null;
+    lastSplitKey = ""; // (the pieces that moved on their own are gone with the old picture)
     if (bodyGroup) { bodyGroup.matrix.fromArray(bodyMatrix ?? IDENTITY); bodyGroup.matrixWorldNeedsUpdate = true; }
     if (moverGroup) moverGroup.matrix.fromArray(IDENTITY);
     applyFade();
@@ -118,7 +119,13 @@ export function createView(host: HTMLElement) {
     (moversOf?.() ?? []).forEach((kid, k) => { kid.matrix.fromArray(matrices[k] ?? IDENTITY); kid.matrixWorldNeedsUpdate = true; });
     overlay.matrix.fromArray(overlayMatrix ?? (m && withOverlay ? m : IDENTITY)); // (a motion gives the matrix of the selected body itself, `in_984`)
     overlay.matrixWorldNeedsUpdate = true;
+    // a cross section cuts what moves as it cuts what stands: when bodies begin or stop moving on their own their meshes are new (clipped and counted again), and each frame the passes that make the cut face follow the meshes (`in_1130`)
+    const splitKey = splitNow ? JSON.stringify(splitNow.map((q) => q.tris)) : "";
+    if (splitKey !== lastSplitKey) { lastSplitKey = splitKey; if (clips.length) applyClip(); }
+    for (const { mesh, twin } of twins) { mesh.updateWorldMatrix(true, false); twin.matrix.copy(mesh.matrixWorld); }
   }
+  let lastSplitKey = "";
+  const twins: { mesh: THREE.Mesh; twin: THREE.Mesh }[] = [];
   let fade = false;
   let wire = false;
   let sectionKey = "";
@@ -136,6 +143,7 @@ export function createView(host: HTMLElement) {
       for (const mat of Array.isArray(m) ? m : m ? [m] : []) { mat.clippingPlanes = clips.length ? clips : null; if (mat instanceof THREE.MeshBasicMaterial || mat instanceof THREE.MeshPhysicalMaterial || mat instanceof THREE.MeshStandardMaterial) { if (clips.length) { mat.userData.side ??= mat.side; mat.side = THREE.DoubleSide; } else if (mat.userData.side !== undefined) mat.side = mat.userData.side as THREE.Side; } mat.needsUpdate = true; }
     });
     clearGroup(sectionGroup);
+    twins.length = 0;
     if (!clips.length || !bodyGroup) return;
     const body = bodyGroup;
     secs.forEach((secNow, idx) => {
@@ -145,7 +153,7 @@ export function createView(host: HTMLElement) {
     const stencil = (side: THREE.Side, op: THREE.StencilOp) => new THREE.MeshBasicMaterial({ side, colorWrite: false, depthWrite: false, depthTest: false, clippingPlanes: planes, stencilWrite: true, stencilFunc: THREE.AlwaysStencilFunc, stencilFail: op, stencilZFail: op, stencilZPass: op });
     const back = stencil(THREE.BackSide, THREE.IncrementWrapStencilOp);
     const front = stencil(THREE.FrontSide, THREE.DecrementWrapStencilOp);
-    body.traverse((o) => {
+    for (const root of [body, moverGroup]) root?.traverse((o) => { // (the bodies that move on their own, a motion or a drag, are cut like the rest: they have their own meshes under `moverGroup`, `in_1130`)
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
       for (const [mat, order] of [[back, 1 + idx * 0.2], [front, 1 + idx * 0.2]] as const) { // (each sheet's stencil pass and cut face come one after the other, the stencil put back to nothing by the cut face)
@@ -155,6 +163,7 @@ export function createView(host: HTMLElement) {
         twin.matrix.copy(mesh.matrixWorld);
         twin.renderOrder = order;
         sectionGroup.add(twin);
+        twins.push({ mesh, twin });
       }
     });
     const n = new THREE.Vector3(...secNow.n).normalize();
@@ -163,8 +172,8 @@ export function createView(host: HTMLElement) {
     const cut = new THREE.Mesh(new THREE.PlaneGeometry(1e4, 1e4), new THREE.ShaderMaterial({
       uniforms: { cl: { value: Array.from({ length: 8 }, (_, i) => { const q = others[i]; return q ? new THREE.Vector4(q.normal.x, q.normal.y, q.normal.z, q.constant) : new THREE.Vector4(); }) }, cc: { value: Math.min(8, others.length) }, u: { value: u }, v: { value: v }, at: { value: new THREE.Vector3(...secNow.at) }, pitch: { value: Math.max(0.3, bodySize() / 50) } },
       vertexShader: "varying vec3 w; void main(){ vec4 p = modelMatrix * vec4(position, 1.0); w = p.xyz; gl_Position = projectionMatrix * viewMatrix * p; }",
-      // solid grey, a little darker than a face of the part, with slanting parallel lines close together (45 degrees, as a cut part is hatched in a drawing, `in_680`)
-      fragmentShader: "uniform vec4 cl[8]; uniform int cc; uniform vec3 u; uniform vec3 v; uniform vec3 at; uniform float pitch; varying vec3 w; void main(){ for(int i=0;i<8;i++){ if(i>=cc) break; if(dot(cl[i].xyz, w) + cl[i].w < 0.0) discard; } vec3 d = w - at; float a = (dot(d, u) + dot(d, v)) / pitch; float line = smoothstep(0.43, 0.47, abs(fract(a) - 0.5)); gl_FragColor = vec4(mix(vec3(0.80, 0.81, 0.84), vec3(0.53, 0.55, 0.60), line), 1.0); }",
+      // solid dark grey (well darker than a face of the part: `in_1129`), with slanting parallel lines close together, bolder (45 degrees, as a cut part is hatched in a drawing, `in_680`)
+      fragmentShader: "uniform vec4 cl[8]; uniform int cc; uniform vec3 u; uniform vec3 v; uniform vec3 at; uniform float pitch; varying vec3 w; void main(){ for(int i=0;i<8;i++){ if(i>=cc) break; if(dot(cl[i].xyz, w) + cl[i].w < 0.0) discard; } vec3 d = w - at; float a = (dot(d, u) + dot(d, v)) / pitch; float line = smoothstep(0.39, 0.43, abs(fract(a) - 0.5)); gl_FragColor = vec4(mix(vec3(0.46, 0.48, 0.53), vec3(0.16, 0.17, 0.20), line), 1.0); }",
       side: THREE.DoubleSide, depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6, // (a face of the part like any other: what is in front of it hides it, `in_396`)
       stencilWrite: true, stencilRef: 0, stencilFunc: THREE.NotEqualStencilFunc, stencilFail: THREE.ReplaceStencilOp, stencilZFail: THREE.ReplaceStencilOp, stencilZPass: THREE.ReplaceStencilOp,
     }));

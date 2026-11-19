@@ -4799,3 +4799,149 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1111 — 2026-11-19 — directive
 > yes, and check if we need to extend this logic to other constraints straddling bodies and edges
 (approves the AI's recommendation of `in_1107`: a sketch's Concentric that already makes two bodies coaxial counts as the mate, said and flashed green, not added a second time; and asks for the same question to be looked at for the other constraints that straddle sketches and bodies or edges)
+
+## in_1112 — 2026-11-19 — question
+> okay what else to do?
+
+## in_1113 — 2026-11-19 — directive
+> yes please start
+(approves starting with the full tests on the merged tree, then gears as lazy parts)
+
+## in_1114 — 2026-11-19 — directive
+> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
+
+## in_1115 — 2026-11-19 — approval
+> Push, then claude/hopeful-cannon-3qzdtg (Recommended)
+(the answer to the AI's question: permission to push to claude/inspiring-pascal-l342k7, then work on claude/hopeful-cannon-3qzdtg created from it)
+
+## in_1116 — 2026-11-19 — question
+> If this pin has a coaxial constraint to the hole, then why does it immediately violate that when I start the animation?
+(asks why a pin that has a coaxial constraint to its hole immediately violates it when the animation starts: a screenshot of a gear's pin through the hole of a lever with the message "that cannot be done without breaking other constraints" and "Delete constraints to proceed", and the saved model)
+
+## in_1117 — 2026-11-19 — directive
+> can you audit our gear animations? they seem pretty messed up sometimes. Especially the crown gear and worm gears.
+
+## in_1118 — 2026-11-19 — question
+> I can test in my browser, did you fix all the issues you found?
+
+## in_1119 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests, then fix the remaining problems please
+
+## in_1120 — 2026-11-19 — question
+> okay can we have it so that things build one part at a time? would that appear to be faster for the user? so if there are a lot of parts in an assembly, they build one at a time and the user can see how it is put together. Can we make it so that these things work more like the gear menu? Where you can click on the screen and it builds a preview of the object (simple view like the gear profiles) so you can set scale and get an idea of how it is oriented and sized before you create? Also can we give abilities to set the size? like maybe if it has gears we would want to set gear module? Or how else would we want to let users specify and build these things? Can we have all of our assemblies animated? So the user can click the play button and watch how they work?
+(asks for the assembly models to be built one part at a time so the user sees how they go together and they feel faster; to work like the gear tool, with a click on the screen and a simple preview to set scale, orientation and size before they are made; for ways to set the size (the gear module, and how else); and for all of them to be animated with Play)
+
+## in_1121 — 2026-11-19 — question
+> okay and how is it performing? is it fast and lean?
+(asks how the push performs: speed and weight)
+
+## in_1122 — 2026-11-19 — directive
+> Okay it seems to soak up the juice on my laptop pretty fast, my fan turns on and it gets hot. is this normal and expected? or does it mean we should try to get it leaner?  Also do you think we could make it smart enough to just offer to apply constraints to make it a fully constraint driven automation that is really lean with no collision constraints or at least minimal collision constraints? Basically turn it into an animated model like we would normally make ourselves like the animated geneva plate or planetary gear system. This is a million times leaner, and helps the user not use collision when they don't need to. Is this something we can do? Maybe a popup that says, Collision constraints are slow,  fix constraints. The fix constraints is a button that just automatically fixes the constraints for the user. It should highlight and flash what it did, maybe walking through each constraint one at a time with a fix button that replaces the collision constraint with a coaxial or surface constraint etc etc.
+(asks whether the heat is expected or the push should be leaner; asks for a "fix constraints" offer that turns a collision-driven motion into a constraint-driven one, step by step, with flashes)
+
+## in_1123 — 2026-11-19 — approval
+> yes, please proceed
+(approves the "Fix constraints" offer, the walk through each pushed body, and the heat fixes proposed in answer to in_1122)
+
+## in_1124 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the Fix constraints work and the heat fixes to be merged into the testing branch, no full test run)
+
+## in_1125 — 2026-11-19 — directive
+> okay fix the remaining problems
+
+## in_1126 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+(approves the "Fix constraints" offer, the walk through each pushed body, and the heat fixes proposed in answer to in_1110)
+
+## in_1127 — 2026-11-19 — directive
+> it is quite noisy. and cluttered with overlapping notices. Lets just not show any information we dont need to. It seems like the center message about what could be fixed specifically should only show up after you enter the workflow to fix the constraints one at a time. Also the fix constraints button doesn't work? I think there is an error message below in the screenshot.  Also what is this little thing in the play bar? It says turned, and has a little drop down box ? What is that? should we get rid of it?
+(a screenshot of the motion bar with the offer card, the pin-in-hole note over it, and "nothing here can be made a joint" below; asks for less on screen, the specific text only inside the walk, the button to work, and what "turned" and the box in the bar are)
+
+## in_1128 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the quieter Fix constraints offer to be merged into the testing branch, no full test run)
+
+## in_1129 — 2026-11-19 — approval
+> go ahead in that order, offer both overall size and the numbers
+(approves the plan of in_1120: first click-to-place with a simple preview and a size field and the numbers, then the models built one part at a time with labels, then Play for each; offers both an overall size and the numbers)
+
+## in_1130 — 2026-11-19 — directive
+> lets get rid of "What the bar items are
+>
+> “turned −41.5°”: the joint’s current angle.
+> “turning”: the switch between turning and sliding the joint. It only matters when the body could do either.
+> “x_s_083 back to [ ] °”: a number box, not a dropdown. It sets where a body that gets pushed returns to when nothing holds it away. Empty means it stays where it was pushed. This came from a feature you asked for earlier (in_1020)." also why doesn't it offer to fix this model? it sees like a pretty obvious coaxial solution?
+(asks to take the angle read-out, the turn/slide switch and the "back to" box out of the motion bar, and why a lever plainly on a pin is not offered the coaxial fix)
+
+## in_1131 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests. Then Also this message is very jumpy. Can we just get rid of this entirely? we should just detect issues and go into detail on the fix flow if the user clickes fix.
+(attached a screencast of the motion bar with the "this push is heavy" note and the pin-in-hole note alternating; asks for the merge, then for those notes to go: issues are only detected, and the detail is in the fix flow)
+
+## in_1132 — 2026-11-19 — question
+> Why cant it apply the coaxial mate to the pin and the arm? Also apparently this pin and arm already have a coaxial mate and the animation completely ignores it and uses hard body instead? why?
+(a screenshot of the walk with "not applied: the pivot would jam: x_s_002 against x_s_084 ..." at the foot; asks why the mate cannot be applied and why an existing coaxial mate seems ignored in favour of the hard body)
+
+## in_1133 — 2026-11-19 — directive
+> @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/502e696a-why_jamb.json"
+(the project file asked for in answer to in_1132: the lever, the two gears and the arm; hard body x_s_084, pivot on x_s_083, no mates)
+
+## in_1134 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the fix-walk changes (the refused mate named, the file checked) to be merged into the testing branch, no full test run)
+
+## in_1135 — 2026-11-19 — directive
+> It immediately flashes to a size of 0 and errors on first click. Also it seems like you can set module of 1 which seems reasonable but it doesn't sync other needed values?
+(attached two screenshots of the Differential model being placed: one with a module of 1 typed, the preview red with "the axle is too wide for the side gears" and a size of 312.9; one just after the first click with a size of 0 and "the heel cone is too flat for this module and teeth")
+
+## in_1136 — 2026-11-19 — directive
+> The cycloidal drive doesn't seem to animate properly.
+(attached a screencast of the cycloidal drive being played, three seconds)
+
+## in_1137 — 2026-11-19 — question
+> okay what next?
+
+## in_1138 — 2026-11-19 — directive
+> Lets just have one bevel gear option with sub options of bevel, bevel spiral, and hypoid spiral. lets also have new icons for the bevels. Maybe more 3d like a cone section etc. 
+> You cant select any worm gear with any surface except the ends. 
+> 
+> An animation seems to keep animating in the play bar even after it is deleted. 
+> 
+> Lets make the cross section plane have a more intuitive interface with an xyz thing that has selectable panes just like the world view ones, selecting a pane does cutaway on that pane. you can pull the arrows to adjsut and it should have the ability to swap between xyz mode and rotate mode just like objects do. you should be able to position the orb and the cut plane by clicking on lines and surfaces just like how the mover orb works elsewhere. Also can we have the cut surfaces be darker grey and have the hatch pattern?
+> 
+> also when you click a constraint, it should highlight the parts involved in the constraint. It doesn't seem to do this now and it is really hard to tell what a constraint is even for.
+
+## in_1139 — 2026-11-19 — directive
+> okay one more thing, cross sections of animated parts seem to be special, they dont cut the same, they seem to have trasparent edges at the cut instead of grey and hatch,  and also they seem to continue in the cut space as black edge wireframe. Can we have animations cut just like anything else? Also these notes are from before I tried your most recent edits
+
+## in_1140 — 2026-11-19 — directive
+> on the cycloidial drive, can you attach things to the drive surfaces so I can actually see how it is opearating? the perfectly smooth shafts and plates are not obvious. Maybe a shaft with a key?
+(asks for features on the cycloidal drive's turning parts so its motion can be seen, for example a keyed shaft)
+
+## in_1142 — 2026-11-19 — question
+> @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/d9cc7a9a-why_jamb.json" If I load the file fresh and try to move the arm, it seems an aweful lot like it has a coaxial constraint, it flashes red and shows it to me see.
+(a screenshot of dragging the arm: "that cannot be done without breaking other constraints: the Concentric constraint ... the Tangent constraint (3 flash)"; says the arm looks held by a coaxial constraint)
+
+## in_1143 — 2026-11-19 — approval
+> yes, build the carried joint, but also why do we need that? why isn't the coaxial constraint itself the carried joint?
+(approves building the carried joint; asks why a separate thing is needed and why the coaxial constraint is not itself the carried joint; answered in chat: it is, what was missing is that the motion took its axis where the pin stood at the start)
+
+## in_1144 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the carried joint to be merged into the testing branch, no full test run)
+
+## in_1145 — 2026-11-19 — directive
+> the gear boxes dont animate properl because it appears that the gears are not actually attached to the shafts and the shafts dont rotate. Oh actually nevermind, I see you fixed this problem since my last check, although Does this need a new type of constraint? because technically coaxial wouldn't capture that, Would we need alike a glue constraint or something analogous? And what would it do? treat the bodies as one body for motion? Can we have the bearings actually be a bearing creator similar to the fastener creator? where you can make a bunch of real world bearings? I am not sure these are real world bearings right now, the clearences on the spheres look way off. and can we have them load in with proper constraints so that you can really drive things on them already and animate them? Also lets change the menu again, lets actually just make a root model category in the menu, it should be a gear icon, in that there should be a sub menu of actual gears, and our other devices.
+(asks: whether a new constraint is needed to attach a gear to its shaft (coaxial does not hold it) and what it would do; for the bearing to be a creator like the fastener creator with real-world bearings, whose ball clearances look wrong now, loading with proper constraints so things can be driven on them and animated; and for a root Models category with a gear icon holding a submenu of the gears and the other devices)
+
+## in_1146 — 2026-11-19 — approval
+> yes do all three, glue first
+(approves the glue constraint (with the models using it), both kinds of bearing (catalogue and print-in-place), and the first families (deep-groove ball, the 6xx and 62xx series); glue first)
+
+> @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/622b1069-Screencast_from_2026-11-19_15-51-00.webm" okay now it spins the whole lever arm and completely ignores its hard body constraints, it flys right through other bodies. Also don't you think it should slip on coaxial constraints not drive the whole arm in rotation? I thought we had a rule that if xyz movement satisfies everything then we dont rotate? shouldn't that rule cause it to slip in the coaxial joint?
+(a screencast of the carried lever swinging round with the gear and through the far arm; two faults: the whole arm is turned with the gear, and nothing stops it going through other hard bodies; asks that it slip on the pin, the move-before-turn rule)
+
+## in_1148 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the corrected carried lever to be merged into the testing branch, no full test run)

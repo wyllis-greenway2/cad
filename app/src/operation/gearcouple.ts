@@ -9,8 +9,11 @@ import type { GearRecord } from "./gearscene.ts";
 import { isMade } from "./gearscene.ts";
 import { gearOutline } from "./gear.ts";
 import { normalOfPlane } from "./part.ts";
+import { bevelFrame } from "./bevel.ts";
+import { chainOf } from "./chains.ts";
 import { camShapes } from "./cams.ts";
 import { mateStatus } from "./mates.ts";
+import type { ModelPlay } from "./modelplay.ts";
 
 export interface Follower {
   gear: string;
@@ -29,7 +32,7 @@ export interface Follower {
   /** a Geneva wheel: turned by its crank by the law of the drive (`genevaTurn`) instead of `k` times the driver's amount; `n` slots, `a` the crank's radius */
   geneva?: { n: number; a: number };
   /** a planet on a turning carrier: after it has turned about its own axis (`k`), the whole is turned again about this axis by `k` times the driver's amount (the orbit) */
-  after?: { point: Vec3; dir: Vec3; k: number };
+  after?: { point: Vec3; dir: Vec3; k: number; /** a body on a pin that goes round (`in_1147`): the pin's way only moves it (the same turn of the carrier is taken at the pin's place and the body is shifted by what that moves the pin), it is not turned with the carrier */ slip?: true };
   /** a body that yields to contact (`interaction/contact.ts`): where it stands, whatever the driver's amount */
   value?: number;
 }
@@ -58,6 +61,17 @@ export function followAmount(f: Pick<Follower, "k" | "table" | "geneva" | "value
 const gearsOf = (s: Scene): readonly GearRecord[] => s.gears ?? [];
 /** the plane's normal for a gear, or null when its plane is not there */
 const normalOf = (s: Scene, rec: GearRecord): Vec3 | null => { const p = s.parts[rec.plane]; return p?.kind === "plane" ? normalize(normalOfPlane(p)) : null; };
+/**
+ * The axis a gear really turns about: its plane's normal for a plain gear; the normal of its own frame for a bevel, crown, spiral or face gear that was meshed with another (its plane is the source's, its shaft stands at the shaft angle: `meshBevel`, `meshFace`);
+ * the worm's own X (its shaft lies in the plane, along the plane's first direction turned by the record's turn). Null when the plane is not there.
+ */
+export function axisOf(s: Scene, rec: GearRecord): Vec3 | null {
+  const p = s.parts[rec.plane];
+  if (p?.kind !== "plane") return null;
+  if (rec.spec.worm) { const [c, sn, u, v] = [Math.cos(rec.turn ?? 0), Math.sin(rec.turn ?? 0), normalize(p.u), normalize(p.v)]; return normalize(add(scale(u, c), scale(v, sn))); }
+  if (rec.spec.bevel) return bevelFrame(normalize(p.u), normalize(p.v), rec.spec, 0).n;
+  return normalOf(s, rec);
+}
 /** the body a gear's outline was made into: the last step that used its sides (or that it owns), and the body that step names; null when there is none (a gear that is only a sketch, or a body changed since) */
 export function bodyOfGear(s: Scene, rec: GearRecord): Ref | null {
   const step = [...s.steps].reverse().find((st) => st.params.gear === rec.id || st.parts.some((r) => isMade(rec.id, r)));
@@ -115,11 +129,50 @@ function rackDir(s: Scene, g: GearRecord): Vec3 | null {
 }
 const pitchRadius = (g: GearRecord): number | null => { const o = gearOutline(g.spec); return o.ok ? o.value.pitchRadius : null; };
 
+/**
+ * A worm and its wheel: the wheel makes `starts / teeth` turns for a turn of the worm (the other way round for the worm). The way: the thread is a right-handed helix (`wormSteps`: a positive turn with a positive advance), so a turn of the worm by `w1` about its own axis X
+ * moves its surface at the contact by `-w1 lead / 2 pi` along X, and the wheel's surface there (`w2 R` along `n x y`, `y` the way from the wheel's centre to the worm's axis) must go with it. A worm with a wheel with the wrong sign would turn it backwards.
+ */
+function wormEdge(a: GearRecord, b: GearRecord, na: Vec3, nb: Vec3): { k: number } & { kind: "turn" } | { why: string } {
+  const [worm, wheel] = a.spec.worm && b.spec.wheel ? [a, b] : b.spec.worm && a.spec.wheel ? [b, a] : [null, null];
+  if (!worm || !wheel) return { why: "a worm meshes with a worm wheel" };
+  const [nw, nh] = worm === a ? [na, nb] : [nb, na];
+  const z = Math.round(wheel.spec.teeth), starts = Math.round(worm.spec.teeth);
+  if (!(z > 0 && starts > 0)) return { why: "the gears have no teeth to count" };
+  const off = sub(worm.at, wheel.at);
+  const y = sub(off, scale(nh, dot(off, nh))); // (the way from the wheel's centre across to the worm's axis)
+  if (Math.hypot(...y) < 1e-9) return { why: "the worm's axis passes through the wheel's centre" };
+  const sign = -(dot(cross(nh, normalize(y)), nw) >= 0 ? 1 : -1); // (the wheel's turn about its own axis for a positive turn of the worm)
+  const kw = sign * (starts / z);
+  return { k: wheel === b ? kw : 1 / kw, kind: "turn" };
+}
+/** The belt or chain a pulley or sprocket runs on, as one text to compare: a pulley's belt kind and pitch, a sprocket's chain pitch and roller; null for anything else. */
+function chainOf2(g: GearRecord): string | null {
+  if (g.spec.pulley) return `${g.spec.pulley}:${g.spec.module}`;
+  if (g.spec.sprocket) { const c = chainOf(g.spec.sprocket); return c ? `chain:${c.pitch.toFixed(4)}:${c.roller.toFixed(4)}` : null; }
+  return null;
+}
 /** The motion of gear `b` for a degree (or mm) of gear `a`, when `b` was meshed with `a` (either way round): `k` in b's own axis, or null when this kind of pair is not worked out yet. */
 function edge(s: Scene, a: GearRecord, b: GearRecord): { k: number; kind: "turn" | "slide" } | { why: string } {
-  const [na, nb] = [normalOf(s, a), normalOf(s, b)];
+  const [na, nb] = [axisOf(s, a), axisOf(s, b)];
   if (!na || !nb) return { why: "a gear's plane is gone" };
-  for (const g of [a, b]) if (g.spec.worm || g.spec.wheel || g.spec.cam || g.spec.pulley || g.spec.sprocket) return { why: "worms, worm wheels, pulleys, sprockets and cams are not coupled yet" };
+  for (const g of [a, b]) if (g.spec.cam) return { why: "cams are not coupled to gears" };
+  if (a.spec.pulley || b.spec.pulley || a.spec.sprocket || b.spec.sprocket) { // a belt or a chain: both turn the same way by the ratio of the teeth, if it is the same belt or chain (`in_1125`)
+    const [ca, cb] = [chainOf2(a), chainOf2(b)];
+    if (!ca || !cb || ca !== cb) return { why: "a belt or a chain goes round pulleys or sprockets of its own pitch" };
+    const [za, zb] = [Math.round(a.spec.teeth), Math.round(b.spec.teeth)];
+    if (!(za > 0 && zb > 0)) return { why: "the gears have no teeth to count" };
+    return { k: (za / zb) * (dot(na, nb) >= 0 ? 1 : -1), kind: "turn" };
+  }
+  if (a.spec.worm || b.spec.worm || a.spec.wheel || b.spec.wheel) return wormEdge(a, b, na, nb);
+  const [ba, bb] = [a.spec.bevel, b.spec.bevel];
+  if (ba || bb) {
+    if (!ba || !bb) return { why: "a bevel gear meshes with a bevel gear" };
+    const [za, zb] = [Math.round(a.spec.teeth), Math.round(b.spec.teeth)];
+    if (!(za > 0 && zb > 0)) return { why: "the gears have no teeth to count" };
+    // each about its own shaft (`axisOf`): a pair of cones, or of a crown and its pinion, goes the other way round (`meshBevel`: the partner's tangent at the contact is the opposite); a face gear and its pinion go the same way (`meshFace`: the pinion's turn gives the gear's z1/z2 of it)
+    return { k: (ba.facegear !== undefined ? 1 : -1) * (za / zb), kind: "turn" };
+  }
   // a gear and a rack
   if (isRack(a) !== isRack(b)) {
     const [gear, rack] = isRack(a) ? [b, a] : [a, b];
@@ -170,7 +223,7 @@ export function followersOf(s: Scene, driver: GearRecord): { followers: Follower
       const k = seen.get(a.id)! * e.k;
       seen.set(id, k);
       queue.push(b);
-      const [body, nb] = [bodyOfGear(s, b), normalOf(s, b)];
+      const [body, nb] = [bodyOfGear(s, b), axisOf(s, b)];
       const dir = e.kind === "slide" ? rackDir(s, b) : nb;
       if (body && dir) out.push({ gear: id, body, kind: e.kind, point: b.at, dir, k });
     }
@@ -240,7 +293,7 @@ export function camFollower(s: Scene, rec: GearRecord): { follower?: Follower } 
 }
 /** The axis a gear turns about (through its centre, along its plane's normal), or the line a rack slides along. */
 export function gearAxis(s: Scene, g: GearRecord): { kind: "turn" | "slide"; point: Vec3; dir: Vec3 } | null {
-  const dir = isRack(g) ? rackDir(s, g) : normalOf(s, g);
+  const dir = isRack(g) ? rackDir(s, g) : axisOf(s, g);
   return dir ? { kind: isRack(g) ? "slide" : "turn", point: g.at, dir } : null;
 }
 
@@ -263,6 +316,28 @@ export function carrierPlay(s: Scene, body: Ref): { driver: { point: Vec3; dir: 
   return { driver: { point: q.at, dir: n }, followers };
 }
 
+/** the body that is a part of a gear assembly model that can be played (`modelplay.ts`): the one the step made, or the gear's; null when it has gone */
+export const modelBody = (s: Scene, m: ModelPlay, part: string): Ref | null => {
+  const p = m.parts[part];
+  if (!p) return null;
+  if (p.step) return bodyOfStep(s, p.step);
+  const first = p.gear ? s.steps.find((st) => st.params.gear === p.gear && (st.params.mode === undefined || st.params.mode === "new")) : undefined; // (the body of a gear is named by the step that began it: a bevel gear's is a loft that is later cut, `combine`)
+  return first ? bodyOfStep(s, first.id) : null;
+};
+/** A model played from any of its bodies: the driver (its own body), and every part that turns with it or about it; null when this body is not a part of one */
+export function modelPlay(s: Scene, body: Ref): { driver: { point: Vec3; dir: Vec3; body: Ref }; followers: Follower[]; note: string } | null {
+  for (const m of s.models ?? []) {
+    const bodies = Object.keys(m.parts).map((p) => [p, modelBody(s, m, p)] as const);
+    if (!bodies.some(([, b]) => b === body)) continue;
+    const db = modelBody(s, m, m.driver.part);
+    if (!db) return null;
+    const followers: Follower[] = [];
+    for (const f of m.followers) { const b = modelBody(s, m, f.part); if (b) followers.push({ gear: m.id, body: b, kind: "turn", point: f.point, dir: f.dir, k: f.k, ...(f.after ? { after: f.after } : {}) }); }
+    return { driver: { point: m.driver.point, dir: m.driver.dir, body: db }, followers, note: m.note };
+  }
+  return null;
+}
+
 /**
  * The bodies that are hooked up to an animation, each with the body whose Play moves it: a pin or a rod on a joint, a gear and the gears meshed with it, the crank and disc of a Geneva drive (the wheel, which they drive, goes with its crank), a planetary
  * set's carrier, and a cam with its follower (the rod goes with the cam). Cheap enough for every change of the scene: one look at the mates and one at each record.
@@ -279,5 +354,11 @@ export function animatedBodies(s: Scene): Map<Ref, Ref> {
   }
   for (const pv of s.pivots ?? []) { const b = Object.values(s.parts).find((p) => p.kind === "body" && p.id === pv.body); if (b) out.set(b.ref, b.ref); } // (a body made to turn)
   for (const q of s.planetaries ?? []) { const c = q.carrierStep ? bodyOfStep(s, q.carrierStep) : null; if (c) out.set(c, c); }
+  for (const m of s.models ?? []) { const d = modelBody(s, m, m.driver.part); if (d) for (const p of Object.keys(m.parts)) { const b = modelBody(s, m, p); if (b) out.set(b, d); } } // (a model: playing any part of it plays it from its driver)
+  for (const grp of s.glue ?? []) { // (bodies glued to one that moves are played with it)
+    const refs = grp.bodies.map((id) => Object.values(s.parts).find((p) => p.kind === "body" && p.id === id)?.ref).filter((r): r is Ref => !!r);
+    const lead = refs.find((r) => out.has(r));
+    if (lead) for (const r of refs) if (!out.has(r)) out.set(r, out.get(lead)!);
+  }
   return out;
 }
