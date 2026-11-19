@@ -502,7 +502,7 @@ test("a file made before this, with a drawn plane that says it is infinite, open
   assert.ok(out.ok);
   assert.equal((out.value.parts["d/e_040.pl" as never] as { infinite?: boolean }).infinite, undefined);
 });
-test("Sketch has no Cam category any more; Models under Shape, Fabricate has the Geneva plate first, the 3D model version only (`in_1086`)", () => {
+test("Sketch has no Cam category any more; Models under Shape, Fabricate has the Geneva plate first, the 3D model version only (`in_1098`)", () => {
   const items = ringOf(createSession(kernel));
   const sketch = items.find((i) => i.id === "sketch")!;
   assert.ok(!sketch.children!.some((c) => c.id === "cams"), "no Cam category");

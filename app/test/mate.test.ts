@@ -159,7 +159,7 @@ test("a change that moves one of the bodies makes the mate not true, says so, an
   assert.equal(putMatesBack(scene(after)), null, "nothing more to put back");
 });
 
-test("there is no menu row to put the mates back; the mark of one mate that is not true still puts just that one back (`in_315`, `in_1085`)", () => {
+test("there is no menu row to put the mates back; the mark of one mate that is not true still puts just that one back (`in_315`, `in_1097`)", () => {
   const { s, a } = matedBoxes();
   const env = { w: 800, h: 600, now: 0 };
   assert.ok(!appRows("", {}).some((r) => r.id.startsWith("mate:reapply")), "the ⋯ list has no Reapply mates: edits are not to violate a mate, so it is not something to ask for");

@@ -13,12 +13,12 @@ export const appRows = (build = "", can: { export?: boolean; /** the kernel's an
   { id: "settings", label: "Settings…", enabled: true, why: null }, // (the options of the view, the mouse and the keyboard, and the number system are on their own page, `in_661`)
   { id: "build", label: build ? `Build ${build}` : "Build", enabled: false, why: "which version of the app this page is running" },
 ];
-/** The list under Fabricate in the ⋯ list: what is made from a drawing with a laser, and the clearance of the whole model (`in_1083`, `in_1085`; the material and the fastener tool are in the ring, Shape, Fabricate). */
+/** The list under Fabricate in the ⋯ list: what is made from a drawing with a laser, and the clearance of the whole model (`in_1083`, `in_1097`; the material and the fastener tool are in the ring, Shape, Fabricate). */
 export const fabricateRows = (can: { laser?: boolean; laserLayers?: boolean; laserTable?: boolean } = {}, clearance = 0): AppRow[] => [
   { id: "laser", label: "Laser cut…", enabled: can.laser ?? true, why: "draw something, or select a sketch first" },
   { id: "laserLayers", label: "Laser layers…", enabled: can.laserLayers ?? true, why: "select lines or a figure of the drawing first" },
   ...(can.laserTable ? [{ id: "laserTable", label: "Laser table…", enabled: true, why: null }] : []),
-  { id: "hard:clearance", label: `Clearance ${lengthText(clearance)}`, enabled: true, why: null }, // (the gap of the whole model for parts that fit one another, stepped through a few small values on each press: Fabricate, `in_1085`)
+  { id: "hard:clearance", label: `Clearance ${lengthText(clearance)}`, enabled: true, why: null }, // (the gap of the whole model for parts that fit one another, stepped through a few small values on each press: Fabricate, `in_1097`)
 ];
 export type ScrollMode = "auto" | "pan" | "zoom";
 export const isScrollMode = (s: string | null): s is ScrollMode => s === "auto" || s === "pan" || s === "zoom";
