@@ -4178,3 +4178,6 @@ Branch `claude/adoring-dijkstra-carry`. **Offer:** "Slow animation", **Fix Const
 
 ## Handoff 1039 — 2026-11-19 (in_1172, in_1173: a gear edited against a mate checked; a held-back drag now flashes while it is pulled)
 `in_1173` approved checking gears and cams against mates, and the held-back drag preview. **Gear:** uniform (`test/gearmate.test.ts`, 2 tests). **Drag:** an exception found (a locked side pulled by its arrow flashed nothing until it was let go) and closed: `sideHeldBack` in `runop.ts` (the release's own test), `previewRefusal` returns the ids too, `frame.ts` flashes them red while the pull is held back; `test/dragheld.test.ts`. Checked: gizmo, hardbody, droppedbubbles, typedconflict, matswap, gearmate, dragheld pass; typecheck, unused, docs pass. Next: `in_1175`, Handoff 1040. **Merge:** the testing branch's tip (6 commits; the two record files conflicted) merged; my entries moved on to `in_1172`-`in_1174`, Handoff 1039; no full suite, as asked.
+
+## Handoff 1040 — 2026-11-19 (in_1175: new working branch)
+`in_1175`. Everything on `claude/intelligent-hawking-next-2` was already in the testing branch (same commit), so nothing to merge; created `claude/intelligent-hawking-next-3` from its tip. Work goes on there. Next: `in_1176`, Handoff 1041.

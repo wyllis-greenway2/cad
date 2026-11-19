@@ -5037,3 +5037,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1174 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the held-back drag's flash and the gear and mate checks to be merged into the testing branch, no full test run)
+
+## in_1175 — 2026-11-19 — directive
+> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
+(asks for the work to be merged into the testing branch, which was already done, and for a new working branch made from its tip: `claude/intelligent-hawking-next-3`)
