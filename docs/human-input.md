@@ -4569,3 +4569,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1052 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for this branch (how far a hole is hand moved, shown and typed) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
+
+## in_1053 — 2026-11-19 — question
+> my teeth still have that weird profile, how to check in my terminal if I have the right code?
+(says the face gear teeth still look wrong in the app and asks how to check in the terminal that the right code is in their checkout; the AI gives commands)
+
