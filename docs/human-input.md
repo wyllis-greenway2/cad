@@ -4771,3 +4771,15 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1104 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for claude/intelligent-hawking-next to be merged into the testing branch, with the refusal that names the constraint and the already-applied green flash; no full suite needed)
+
+## in_1105 — 2026-11-19 — directive
+> okay build all those things. Lets put them under shape fabrication models.
+(approves the four gear assemblies recommended (a reduction gearbox, a bearing, a differential, a cycloidal drive; not a multi-speed transmission) and asks for them under Shape, Fabricate, Models)
+
+## in_1106 — 2026-11-19 — question
+> okay should it be faster and smoother now if I test it?
+(asks whether the work so far should feel faster and smoother; the AI said the thread that works ahead was on a branch not yet merged, so the testing branch had the quicker search but not the thread)
+
+## in_1107 — 2026-11-19 — directive
+> okay why don't you try it and tell me what you think? It still seems a bit chunky and bouncy when it gets to situations where it needs to rotate
+(asks the AI to try it itself; the push is chunky and bouncy where a body needs to turn)
