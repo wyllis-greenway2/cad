@@ -51,6 +51,7 @@ const FREE_STEP = 2.5; // (the most a body with no joint is pushed in one step o
  */
 export const contactOptions = { hints: true, keep: true, blend: true, smooth: true };
 const SPLITS = 3, SPLIT_PUSH = 0.4;
+export const AHEAD_STEPS = 16, RAMP_TURN = 0.3, RAMP_SLIDE = 0.15; // (how far ahead a body on a joint is drawn giving way, in steps; the steepest it is drawn moving to meet a jump: degrees, mm a step)
 export const SMOOTH_STEPS = 8; // (steps of the grid either side that the picture of a body with no joint is averaged over) // (a step that moves a body with no joint more than this, mm, is made again in halves, three times at most)
 const FREE_MAX = 60;
 const FREE_SPIN = 120; // (how far a body with no joint may be turned in one play, degrees) // (how far a body with no joint may be pushed in one play, mm: past it the push stops and says so)
@@ -370,31 +371,54 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
   const shownYields = (): Follower[] | null => {
     if (!contactOptions.smooth || !keep || !places || jam) return null;
     const free = work.map((q, ix) => (q.free ? ix : -1)).filter((ix) => ix >= 0);
-    if (!free.length) return null;
+    if (!work.length) return null;
     let top = 0;
     while (places.has(top + 1)) top++;
     const g = good / step, i0 = Math.floor(g + 1e-9), f = g - i0;
     if (g > top + 1e-9 || !places.has(0) || i0 < 0) return null;
-    const at = (i: number, ix: number): { free: [number, number, number]; spin: number } => {
+    const at = (i: number, ix: number): { free: [number, number, number]; spin: number; value: number } => {
       const w = Math.min(SMOOTH_STEPS, i, top - i);
-      let [sx, sy, sz, ss, sw] = [0, 0, 0, 0, 0];
-      for (let j = -w; j <= w; j++) { const e = places.get(i + j)!.work[ix]!, k = w + 1 - Math.abs(j); if (!e.free) continue; sx += e.free[0] * k; sy += e.free[1] * k; sz += e.free[2] * k; ss += (e.spin ?? 0) * k; sw += k; }
-      return { free: [sx / sw, sy / sw, sz / sw], spin: ss / sw };
+      let [sx, sy, sz, ss, sv, sw] = [0, 0, 0, 0, 0, 0];
+      for (let j = -w; j <= w; j++) { const pl = places.get(i + j)!, e = pl.work[ix]!, k = w + 1 - Math.abs(j); sv += (pl.vals[ix] ?? 0) * k; if (!e.free) { sw += k; continue; } sx += e.free[0] * k; sy += e.free[1] * k; sz += e.free[2] * k; ss += (e.spin ?? 0) * k; sw += k; }
+      return { free: [sx / sw, sy / sw, sz / sw], spin: ss / sw, value: sv / sw };
     };
+    // a body that turns or slides on a joint is drawn giving way ahead of its push (`in_1194`): the worked-out places jump (a corner of the body it meets catches, and it is pushed clear in one step), and a jump is drawn as a ramp that begins a few steps before it, at a
+    // steady rate: always on the side it is pushed to, so it is clear of what is pushing it. Two of them that take turns, a degree at a time, are each drawn giving way a little every step.
+    const early = (i: number, ix: number): number => {
+      const kind = kinds[ix]!, rate = kind === "slide" ? RAMP_SLIDE : RAMP_TURN;
+      const v = (j: number): number => places.get(j)?.vals[ix] ?? 0;
+      const last = Math.min(top, i + AHEAD_STEPS);
+      let far = 0;
+      for (let j = i; j <= last; j++) if (Math.abs(v(j) - v(i)) > Math.abs(far)) far = v(j) - v(i);
+      const dirn = far < 0 ? -1 : 1; // (the way it is going to be pushed)
+      let best = dirn * v(i);
+      for (let j = i + 1; j <= last; j++) best = Math.max(best, dirn * v(j) - rate * (j - i));
+      return dirn * best;
+    };
+    const valsShown = vals.slice();
     const shown = pushables.map((p, ix) => {
-      if (!free.includes(ix)) return p;
       const [a0, a1] = [at(i0, ix), at(Math.min(top, i0 + 1), ix)];
       const k = i0 + 1 > top ? 0 : f;
+      if (!free.includes(ix)) { const [e0, e1] = [early(i0, ix), early(Math.min(top, i0 + 1), ix)]; valsShown[ix] = e0 + (e1 - e0) * k; return { ...p, value: valsShown[ix]! }; }
       return { ...p, free: [0, 1, 2].map((q) => a0.free[q]! + (a1.free[q]! - a0.free[q]!) * k) as [number, number, number], spin: a0.spin + (a1.spin - a0.spin) * k };
     });
     // clear where it is drawn? (against everything: the driver, what yields, the walls). Where the average cuts a corner into what the body hugs, it is only taken as far toward the average as is clear (found by halving, from the worked-out place, which
     // is clear): it follows the average everywhere else and keeps to the surface where it cannot.
     const m2 = moversOf(m, { ...c, pushables: shown });
-    const solid2 = solidSet(scene, outcome, m2, good, vals).solid;
-    for (const ix of free) {
+    const solid2 = solidSet(scene, outcome, m2, good, valsShown).solid;
+    for (let ix = 0; ix < shown.length; ix++) {
+      if (!free.includes(ix)) {
+        const [avgV, wasV] = [valsShown[ix]!, vals[ix]!];
+        const putV = (k: number): boolean => { valsShown[ix] = wasV + (avgV - wasV) * k; (shown[ix] as { value: number }).value = valsShown[ix]!; return firstHit(scene, outcome, m2, good, valsShown, first + ix, mated, ignore, solid2, statics, clearance) === null; };
+        if (putV(1)) continue;
+        let [lo, hi] = [0, 1];
+        for (let k = 0; k < 6; k++) { const mid = (lo + hi) / 2; if (putV(mid)) lo = mid; else hi = mid; }
+        putV(lo);
+        continue;
+      }
       const [s, w0] = [shown[ix] as Pushable & { free: [number, number, number] }, work[ix]!];
       const [avg, was, spinAvg, spinWas] = [[...s.free] as [number, number, number], [...w0.free!] as [number, number, number], s.spin ?? 0, w0.spin ?? 0];
-      const put = (k: number): boolean => { for (let q = 0; q < 3; q++) s.free[q] = was[q]! + (avg[q]! - was[q]!) * k; s.spin = spinWas + (spinAvg - spinWas) * k; return firstHit(scene, outcome, m2, good, vals, first + ix, mated, ignore, solid2, statics, clearance) === null; };
+      const put = (k: number): boolean => { for (let q = 0; q < 3; q++) s.free[q] = was[q]! + (avg[q]! - was[q]!) * k; s.spin = spinWas + (spinAvg - spinWas) * k; return firstHit(scene, outcome, m2, good, valsShown, first + ix, mated, ignore, solid2, statics, clearance) === null; };
       if (put(1)) continue;
       let [lo, hi] = [0, 1];
       for (let k = 0; k < 6; k++) { const mid = (lo + hi) / 2; if (put(mid)) lo = mid; else hi = mid; }

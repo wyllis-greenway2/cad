@@ -5103,3 +5103,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1193 — 2026-11-19 — directive
 > lets have the collision message just say collision occurred, and clicking it takes you to the collision. Also if you get close to a red model it appears the camera or something else cuts away some red?
 (a screenshot of a jam: two bodies shaded red close up, the lever's red covering only part of it, with a long "stopped: ... cannot turn clear of it" message; asks the message to say only that a collision occurred and a click to go to it, and why red is cut away close up)
+
+## in_1194 — 2026-11-19 — directive
+> @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/4f661d14-wobbly_collisions.webm" Can we have the rotation collision work a little smoother? See in this video, it seems to over correct and it rotates too far away like it shoots from the surface. I would expect when these two rotatable bodies interact that they would essentially adjust their angles to slide their surfaces smooth with the edges keeping more or less parallel while sliding, not because of parallel constraint, but because that is the minimal movement lazy collision path for them to follow. Right now it is kind of jittery. See the video.
+(a screencast of the carried lever and the far arm pushing each other, the far arm shooting away in jumps; asks the two turning bodies to give way smoothly, sliding along each other by the minimal movement, not jittering)
