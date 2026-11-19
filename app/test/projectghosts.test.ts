@@ -27,10 +27,17 @@ test("a project that is anything but pushes of sketches on the base plane has no
   assert.equal(ghostsFromProject(JSON.stringify(moved)), null, "a command that moves a part");
   const other = JSON.parse(projectText(30)); other.commands[0].commands[0].part.plane = "w/XZ";
   assert.equal(ghostsFromProject(JSON.stringify(other)), null, "a sketch on another plane");
-  const fillet = JSON.parse(projectText(30)); fillet.commands.push({ type: "addStep", step: { id: "s_900", type: "edgeMod", parts: [], params: { mode: "fillet", value: 1 } } });
-  assert.equal(ghostsFromProject(JSON.stringify(fillet)), null, "a fillet");
+  const turn = JSON.parse(projectText(30)); turn.commands.push({ type: "addStep", step: { id: "s_900", type: "rotate", parts: [], params: { axis: 2, value: 10 } } });
+  assert.equal(ghostsFromProject(JSON.stringify(turn)), null, "a turn");
   assert.equal(ghostsFromProject("{not json"), null);
   assert.equal(ghostsFromProject(JSON.stringify({ format: "other" })), null);
+});
+
+test("fillets and holes do not change where a part stands: the boxes are still there", () => {
+  const withMods = JSON.parse(projectText(30));
+  withMods.commands.push({ type: "addStep", step: { id: "s_900", type: "edgeMod", parts: [], params: { mode: "fillet", value: 1 } } });
+  withMods.commands.push({ type: "addStep", step: { id: "s_901", type: "extrude", parts: ["d/e_001.s0"], params: { depth: 20, cut: "1" } } });
+  assert.equal(ghostsFromProject(JSON.stringify(withMods))!.length, 30, "the parts, not the fillet or the hole");
 });
 
 test("circles are boxes round them", () => {

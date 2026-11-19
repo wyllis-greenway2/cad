@@ -106,3 +106,50 @@ test("an answer put together owns its buffers: sending one (giving its buffers a
   assert.ok(b.mesh!.vertices.byteLength > 0, "the mesh");
   assert.ok(b.edges!.length > 0 && b.edges!.every((e) => e.pts.byteLength > 0), `${b.edges!.length} edges, ${b.edges!.filter((e) => e.pts.byteLength === 0).length} with no points`);
 });
+
+import { assembly } from "./pieceshelp.ts";
+import { graphOf as graphOfScene } from "../src/compiler/compile.ts";
+
+test("parts with rounded tops, holes and moves are pieces too: each with the steps that change it, and the answers put together are the whole's", () => {
+  const s = assembly(30);
+  const g = { ...graphOfScene(scene(s)), names: true } as KernelGraph;
+  const plan = planPieces(g);
+  assert.ok(plan, "an assembly of parts apart, rounded, with holes and moved, is of the kind");
+  assert.equal(plan.ghosts.length, 30);
+  assert.equal(plan.pieces.length, 30, "none tied to another (the moved ones go along the row of their own part)");
+  const types = plan.pieces.flatMap((p) => p.graph.ops.map((o) => o.type));
+  for (const t of ["edgeMod", "transform"]) assert.ok(types.includes(t), t);
+  assert.ok(plan.pieces.some((p) => p.graph.ops.some((o) => o.type === "extrude" && o.mode === "cutOrAdd")), "a hole");
+  assert.equal(plan.pieces.reduce((a, p) => a + p.graph.ops.filter((o) => o.type !== "sketch").length, 0), g.ops.filter((o) => o.type !== "sketch").length, "every step is in a piece");
+  const whole = kernel.evaluate(g) as unknown as Ans;
+  const merged = mergeAnswers(plan.pieces.map((p) => kernel.evaluate(p.graph))) as unknown as Ans;
+  const byId = (a: Ans) => a.bodies.map((b) => [b.id, Math.round(b.volume * 1e6), b.min.map((v) => Math.round(v * 1e5)), b.max.map((v) => Math.round(v * 1e5))]).sort((x, y) => String(x[0]).localeCompare(String(y[0])));
+  assert.deepEqual(byId(merged), byId(whole));
+  assert.ok(Math.abs(merged.volume - whole.volume) < 1e-6);
+  assert.deepEqual(merged.faceNames.map((f) => f.name).sort(), whole.faceNames.map((f) => f.name).sort());
+  assert.equal(merged.faces.length, whole.faces.length);
+  assert.equal(merged.mesh.triangles.length, whole.mesh.triangles.length);
+  // the ghost of a part is where its body ends
+  for (const gh of plan.ghosts) { const b = whole.bodies.find((x) => x.id === gh.id)!; for (let i = 0; i < 3; i++) assert.ok(Math.abs(gh.box.min[i]! - b.min[i]!) < 1e-6 + 1 && Math.abs(gh.box.max[i]! - b.max[i]!) < 1e-6 + 1, gh.id); }
+});
+
+test("a move that brings a part to its neighbour ties them: one piece; a turn, or a hole that meets no body, is not cut", async () => {
+  const { boxAt, slid } = await import("./pieceshelp.ts");
+  const { createSession } = await import("../src/interaction/session.ts");
+  let s = createSession(kernel);
+  for (let k = 0; k < 26; k++) s = boxAt(s, (k % 8) * 20, Math.floor(k / 8) * 20);
+  const ids = scene(s).steps.filter((st) => st.type === "extrude").map((st) => st.id);
+  const apart = planPieces({ ...graphOfScene(scene(s)), names: true } as KernelGraph)!;
+  assert.equal(apart.pieces.length, 26);
+  const onto = slid(s, ids[1]!, 20); // (the second part onto the third: 20 along the row)
+  const tied = planPieces({ ...graphOfScene(scene(onto)), names: true } as KernelGraph)!;
+  assert.equal(tied.pieces.length, 25, "two parts that meet are one piece");
+  assert.ok(tied.pieces.some((p) => p.ghosts.length === 2));
+  const g = { ...graphOfScene(scene(s)), names: true } as KernelGraph;
+  assert.equal(planPieces({ ...g, ops: [...g.ops, { id: "x_t", type: "transform", target: g.ops.at(-1)!.id, mode: "rotate", axis: 2, value: 10, body: ids[0]! }] }), null, "a turn");
+  const sk = g.ops.find((o) => o.type === "sketch")!;
+  const far = { ...sk, id: "s_far", points: (sk.points as number[][]).map((p) => [p[0]! + 1000, p[1]!]) };
+  assert.equal(planPieces({ ...g, ops: [...g.ops, far, { id: "x_h", type: "extrude", profile: "s_far", distance: 3, target: g.ops.at(-1)!.id, mode: "cutOrAdd" }] }), null, "a hole where there is no body: it may add one");
+  const near = { ...sk, id: "s_near" };
+  assert.ok(planPieces({ ...g, ops: [...g.ops, near, { id: "x_h", type: "extrude", profile: "s_near", distance: 3, target: g.ops.at(-1)!.id, mode: "cutOrAdd" }] }), "a hole in a body is a step of that body's piece");
+});

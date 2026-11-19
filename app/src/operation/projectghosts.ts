@@ -1,5 +1,5 @@
 // A box for every part of a saved project, from its commands alone (`dec_progressive_open`, `in_1005`): the boxes are drawn while the commands are being replayed (which takes 0.8 s for 300 parts and 4 s for 1000), so that the model is on the screen
-// at once. Pure: the text of a project in, the parts out; nothing is derived, solved or made. A project that is anything but pushes of sketches on the base plane (a move, a delete, a fillet, a sketch on another plane) has no boxes: they could be wrong.
+// at once. Pure: the text of a project in, the parts out; nothing is derived, solved or made. A project that is anything but pushes of sketches on the base plane, with fillets and holes (a move, a delete, a sketch on another plane, anything that may change where a part stands) has no boxes: they could be wrong.
 import type { Vec } from "../compiler/kernel/adapter.ts";
 import { MIN_PIECES } from "../compiler/kernel/pieces.ts";
 
@@ -30,8 +30,10 @@ export function ghostsFromProject(text: string): PartBox[] | null {
     }
     if (c.type === "addStep") {
       const st = c.step as Json, params = (st.params ?? {}) as Json;
-      if (st.type !== "extrude" || typeof params.depth !== "number" || params.cut || params.also) { ok = false; return; }
-      if (steps.length > 0 && params.mode !== "new") { ok = false; return; } // (a push that may join or cut is not a part of its own)
+      if (st.type === "edgeMod") return; // (a fillet or chamfer does not change where a part stands: its box stands)
+      if (st.type !== "extrude" || typeof params.depth !== "number" || params.also) { ok = false; return; }
+      if (params.cut || params.mode === "cut" || params.mode === "cutOrAdd") return; // (a hole: the part's box stands)
+      if (steps.length > 0 && params.mode !== "new") { ok = false; return; } // (a push that may join is not a part of its own)
       steps.push({ id: String(st.id), parts: (st.parts as unknown[]).map(String), depth: params.depth });
       return;
     }

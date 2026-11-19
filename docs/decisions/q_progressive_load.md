@@ -58,6 +58,8 @@ depends_on:
 
 **Phase 1, the smallest slice, built (`in_1002`, `dec_progressive_open`):** a model of 24 or more pushes of sketches of their own, apart, is made in pieces nearest the eye first with a box for each part not made yet and "Building N of M parts…"; in the built app 300 parts 4.4 s (12.9 to 17.5 s before), 1000 parts 14.6 s (past the limit before); an edit during the build stops it and is made. **Still open:** ghosts before the replay, touching parts, parts with modifying steps, gears, picking a ghost, the memory over thousands of pieces, lazy faces and edges (Phase 2), the kernel that does not hold everything (Phase 3).
 
+**Boxes before the replay and pieces with fillets, holes and moves built (`in_1005`, `dec_progressive_open`):** a frame with the boxes of 1000 parts is on the screen 121 ms after a project is opened (the replay then holds the page 3.4 s); fillets, holes and moves of a named body are parts' own steps: 250 parts with them 28 s whole, 4.3 s in pieces (6.6 times), in the built app 14 s with the page's 4 s replay. **Still open:** the replay in slices and quick for histories with moves, turns and scales, revolves, lofts, sweeps and gears as parts, touching parts, picking a ghost, lazy faces and edges (Phase 2), a kernel that does not hold everything (Phase 3).
+
 ## Rationale
 
 The human asked how to make big models fast and tolerant of their size; this records the direction and its parts so that the order is theirs to choose. Nothing is built.
