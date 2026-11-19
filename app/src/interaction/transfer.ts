@@ -1,6 +1,6 @@
 // The Import and Export dialogs (`dec_import_export_menu`, `in_528`): what each asks, from what is selected and what there is, and what is done with the answers. A dialog is a description (fields with their choices); the page draws it and
 // hands back the values. Pure: a session in, descriptions and files out.
-import type { Kernel } from "../compiler/kernel/adapter.ts";
+import type { Kernel, StepSchema } from "../compiler/kernel/adapter.ts";
 import { zipStored } from "../compiler/threemf.ts";
 import type { Session } from "./session.ts";
 import { scene as sceneOf } from "./session.ts";
@@ -32,8 +32,8 @@ export interface Dialog { title: string; ok: string; fields: Field[] }
 
 // ---------- export ----------
 export type ExportKind = ExportFormat | "svg" | "dxf";
-export interface ExportOptions { format: ExportKind; what: "all" | "selected"; units: Units; quality: Quality; perBody: boolean; name: string }
-export const EXPORT_DEFAULTS: ExportOptions = { format: "stl", what: "all", units: "mm", quality: "fine", perBody: false, name: "" };
+export interface ExportOptions { format: ExportKind; what: "all" | "selected"; units: Units; quality: Quality; perBody: boolean; /** a DXF with the pieces that meet joined into one path each */ joined: boolean; /** a STEP file's schema */ schema: StepSchema; /** an IGES file's faces as surfaces or solids */ iges: "surfaces" | "solids"; name: string }
+export const EXPORT_DEFAULTS: ExportOptions = { format: "stl", what: "all", units: "mm", quality: "fine", perBody: false, joined: true, schema: "ap214", iges: "surfaces", name: "" };
 const FLAT_KINDS = new Set<ExportKind>(["svg", "dxf"]);
 const NOTHING_3D = "nothing to export yet: make a body";
 const NOTHING_FLAT = "nothing to export yet: draw something, or select a sketch or a flat face of a body";
@@ -45,7 +45,7 @@ const bodyIds = (s: Session): string[] => Object.values(sceneOf(s).parts).flatMa
 export function fitExport(s: Session, given: Partial<ExportOptions>): ExportOptions {
   const o: ExportOptions = { ...EXPORT_DEFAULTS, ...given }; // (what is not given, or was never kept, is the usual)
   const ok = (k: ExportKind): boolean => (FLAT_KINDS.has(k) ? canExportFlat(s) : canExport(s));
-  const format = ok(o.format) ? o.format : (["stl", "3mf", "obj", "step", "svg", "dxf"] as const).find(ok) ?? o.format;
+  const format = ok(o.format) ? o.format : (["stl", "3mf", "obj", "step", "iges", "brep", "svg", "dxf"] as const).find(ok) ?? o.format;
   const what = o.what === "selected" && selectedBodies(s) ? "selected" : "all";
   const count = what === "selected" ? selectedBodies(s)!.length : bodyIds(s).length;
   return { ...o, format, what, perBody: o.perBody && count > 1 && !FLAT_KINDS.has(format), name: o.name.trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\.[A-Za-z0-9]{1,5}$/, "") };
@@ -62,6 +62,8 @@ export function exportDialog(s: Session, o0: Partial<ExportOptions>): Dialog {
       { value: "3mf", label: "3MF: for slicers (units, one file)", ...(can3d ? {} : { disabled: NOTHING_3D }) },
       { value: "obj", label: "OBJ: a mesh, for Blender and other mesh programs", ...(can3d ? {} : { disabled: NOTHING_3D }) },
       { value: "step", label: "STEP: for other CAD programs and shops (exact)", ...(can3d ? {} : { disabled: NOTHING_3D }) },
+      { value: "iges", label: "IGES: for older CAD, CAM and CNC systems", ...(can3d ? {} : { disabled: NOTHING_3D }) },
+      { value: "brep", label: "BREP: exact, for FreeCAD and other OpenCASCADE programs", ...(can3d ? {} : { disabled: NOTHING_3D }) },
       { value: "svg", label: "SVG: a flat drawing, for laser and vinyl", ...(canFlat ? {} : { disabled: NOTHING_FLAT }) },
       { value: "dxf", label: "DXF: a flat drawing, for CAD and CNC", ...(canFlat ? {} : { disabled: NOTHING_FLAT }) },
     ] },
@@ -76,7 +78,10 @@ export function exportDialog(s: Session, o0: Partial<ExportOptions>): Dialog {
     const r = sketchPieces(sceneOf(s), s.click.selection);
     fields.push({ id: "about", label: "What", type: "text", readonly: true, value: r.ok ? `${r.what}: ${r.pieces.length} piece${r.pieces.length === 1 ? "" : "s"}` : "", note: "the selected sketch or flat face; with nothing selected, the whole drawing (when it is on one plane)" });
   }
-  fields.push({ id: "units", label: "Units", type: "choice", value: o.units, choices: [{ value: "mm", label: "Millimetres" }, { value: "in", label: "Inches" }] });
+  if (o.format !== "brep") fields.push({ id: "units", label: "Units", type: "choice", value: o.units, choices: [{ value: "mm", label: "Millimetres" }, { value: "in", label: "Inches" }] }); // (a BREP has no unit)
+  if (o.format === "iges") fields.push({ id: "iges", label: "IGES body as", type: "choice", value: o.iges, choices: [{ value: "surfaces", label: "Trimmed surfaces: nearly every program reads them" }, { value: "solids", label: "B-rep solids: only the better programs read them" }] });
+  if (o.format === "step") fields.push({ id: "schema", label: "STEP version", type: "choice", value: o.schema, choices: [{ value: "ap214", label: "AP214: the one nearly every program reads" }, { value: "ap203", label: "AP203: the oldest, for old CAM and CAD" }, { value: "ap242", label: "AP242: the current one" }] });
+  if (o.format === "dxf") fields.push({ id: "joined", label: "Outlines", type: "check", value: o.joined, note: "joined into one path each (a cutter or router follows it without lifting); off: separate lines and arcs" });
   if (o.format === "stl" || o.format === "3mf" || o.format === "obj") fields.push({ id: "quality", label: "Mesh quality", type: "choice", value: o.quality, choices: [{ value: "fine", label: "Fine (0.01 mm from the true surface)" }, { value: "medium", label: "Medium (0.05 mm)" }, { value: "coarse", label: "Coarse (0.2 mm: small files)" }] });
   if (!flat) {
     const count = o.what === "selected" ? sel?.length ?? 0 : bodyIds(s).length;
@@ -90,10 +95,10 @@ export function exportDialog(s: Session, o0: Partial<ExportOptions>): Dialog {
 export async function exportWith(s: Session, kernel: Kernel, o0: Partial<ExportOptions>): Promise<FileOutcome> {
   const o = fitExport(s, o0);
   const base = o.name || (FLAT_KINDS.has(o.format) ? "sketch" : "model");
-  if (o.format === "svg" || o.format === "dxf") return exportFlat(s, o.format, `${base}.${o.format}`, o.units);
+  if (o.format === "svg" || o.format === "dxf") return exportFlat(s, o.format, `${base}.${o.format}`, o.units, o.joined);
   const format = o.format as ExportFormat;
   const only = o.what === "selected" ? selectedBodies(s) : undefined;
-  const choices = { units: o.units, quality: o.quality };
+  const choices = { units: o.units, quality: o.quality, schema: o.schema, iges: o.iges };
   if (!o.perBody) return exportFile(s, kernel, format, only, `${base}.${FORMATS[format].ext}`, choices);
   const ids = only ?? bodyIds(s);
   const files: { name: string; data: Uint8Array }[] = [];
@@ -107,20 +112,20 @@ export async function exportWith(s: Session, kernel: Kernel, o0: Partial<ExportO
 }
 
 // ---------- import ----------
-export const KIND_OF = (name: string): "step" | "stl" | "3mf" | "obj" | "svg" | "dxf" | null => {
+export const KIND_OF = (name: string): "step" | "iges" | "stl" | "3mf" | "obj" | "brep" | "fcstd" | "svg" | "dxf" | null => {
   const e = /\.([^.]+)$/.exec(name)?.[1]?.toLowerCase();
-  return e === "step" || e === "stp" ? "step" : e === "stl" || e === "3mf" || e === "obj" || e === "svg" || e === "dxf" ? e : null;
+  return e === "step" || e === "stp" ? "step" : e === "igs" || e === "iges" ? "iges" : e === "brp" ? "brep" : e === "stl" || e === "3mf" || e === "obj" || e === "brep" || e === "fcstd" || e === "svg" || e === "dxf" ? e : null;
 };
 
 /** Fit a number the person typed: more than nothing. */
-const fitImport = (given: Partial<ImportOptions>): ImportOptions => ({ ...IMPORT_DEFAULTS, ...given, scale: Number.isFinite(given.scale) && given.scale! > 1e-6 && given.scale! < 1e4 ? given.scale! : 1 });
+const fitImport = (given: Partial<ImportOptions>): ImportOptions => ({ ...IMPORT_DEFAULTS, ...given, repair: given.repair ?? true, reduce: given.reduce ?? true, scale: Number.isFinite(given.scale) && given.scale! > 1e-6 && given.scale! < 1e4 ? given.scale! : 1 });
 
 export function importDialog(name: string, o0: Partial<ImportOptions>): Dialog {
   const o = fitImport(o0);
   const kind = KIND_OF(name);
   const fields: Field[] = [{ id: "file", label: "File", type: "text", readonly: true, value: name }];
   const units = (fileSays: string): Field => ({ id: "units", label: "Units", type: "choice", value: o.units, choices: [{ value: "file", label: fileSays }, { value: "mm", label: "Millimetres" }, { value: "cm", label: "Centimetres" }, { value: "in", label: "Inches" }, { value: "m", label: "Metres" }] });
-  if (kind === "stl" || kind === "obj") fields.push({ id: "units", label: "Units", type: "choice", value: o.units === "file" ? numberSystem.system : o.units, choices: [{ value: "mm", label: "Millimetres (an STL or OBJ has no units of its own)" }, { value: "cm", label: "Centimetres" }, { value: "in", label: "Inches" }, { value: "m", label: "Metres" }] });
+  if (kind === "stl" || kind === "obj" || kind === "brep" || kind === "fcstd") fields.push({ id: "units", label: "Units", type: "choice", value: o.units === "file" ? numberSystem.system : o.units, choices: [{ value: "mm", label: kind === "fcstd" ? "Millimetres (FreeCAD keeps millimetres)" : "Millimetres (an STL, OBJ or BREP has no units of its own)" }, { value: "cm", label: "Centimetres" }, { value: "in", label: "Inches" }, { value: "m", label: "Metres" }] });
   else if (kind === "3mf") fields.push(units("As the file says"));
   else if (kind === "svg") fields.push(units("As the file says (its size, or 96 to the inch)"));
   else if (kind === "dxf") fields.push(units("As the file says (its INSUNITS, else millimetres)"));
@@ -130,6 +135,10 @@ export function importDialog(name: string, o0: Partial<ImportOptions>): Dialog {
     fields.push({ id: "plane", label: "On", type: "choice", value: o.plane, choices: [{ value: "selected", label: "The selected plane or face (else XY)" }, { value: "XY", label: "The XY plane (floor)" }, { value: "XZ", label: "The XZ plane (front)" }, { value: "YZ", label: "The YZ plane (side)" }] });
   } else {
     fields.push({ id: "place", label: "Where", type: "choice", value: o.place, choices: [{ value: "file", label: "As in the file" }, { value: "center", label: "Its middle at the origin" }, { value: "floor", label: "Standing on the XY plane, centred" }] });
+  }
+  if (kind === "stl" || kind === "3mf" || kind === "obj") {
+    fields.push({ id: "repair", label: "Repair", type: "check", value: o.repair, note: "fill small holes in the surface (64 edges or fewer)" });
+    fields.push({ id: "reduce", label: "Reduce big meshes", type: "check", value: o.reduce, note: "a mesh of over 12,000 triangles is reduced to fit: the shape changes a little (the volume is said); off: it is refused" });
   }
   return { title: `Import ${kind ? kind.toUpperCase() : ""}`.trim(), ok: "Import", fields };
 }

@@ -315,17 +315,31 @@ export function parseSvg(text: string, opts: { unitMm?: number } = {}): Parsed {
   const pieces: Piece[] = [];
   const left: Record<string, number> = {};
   let flattened = 0;
-  const stack: { name: string; m: M; skip: boolean }[] = [];
   let unit = 25.4 / 96;
-  for (const tag of text.matchAll(/<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<!\w[^>]*>|<(\/?)([\w:-]+)((?:[^>"']|"[^"]*"|'[^']*')*?)(\/?)>/g)) {
+  const byId = (id: string): string | null => { // the text of the element with this id (its whole extent, children included), for <use>
+    const open = new RegExp(`<([\\w:-]+)\\b[^>]*\\bid\\s*=\\s*(?:"${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"|'${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}')[^>]*>`).exec(text);
+    if (!open) return null;
+    if (open[0].endsWith("/>")) return open[0];
+    const tagName = open[1]!;
+    let depth = 1;
+    for (const t of text.slice(open.index + open[0].length).matchAll(new RegExp(`<(/?)${tagName}\\b[^>]*?(/?)>`, "g"))) {
+      if (t[1] === "/") depth--; else if (t[2] !== "/") depth++;
+      if (depth === 0) return text.slice(open.index, open.index + open[0].length + t.index! + t[0].length);
+    }
+    return null;
+  };
+  let uses = 0;
+  const walk = (src: string, base: M, depth: number): void => {
+  const stack: { name: string; m: M; skip: boolean }[] = [];
+  for (const tag of src.matchAll(/<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<!\w[^>]*>|<(\/?)([\w:-]+)((?:[^>"']|"[^"]*"|'[^']*')*?)(\/?)>/g)) {
     if (tag[2] === undefined) continue;
     const [closing, name, rest, selfClose] = [tag[1] === "/", tag[2].toLowerCase().replace(/^svg:/, ""), tag[3] ?? "", tag[4] === "/"];
     if (closing) { stack.pop(); continue; }
     const at = attrsOf(rest);
     const parent = stack.at(-1);
-    let m = parent ? parent.m : I;
+    let m = parent ? parent.m : base;
     let skip = parent?.skip ?? false;
-    if (name === "svg" && !parent) {
+    if (name === "svg" && !parent && depth === 0) {
       const [w, h] = [lengthMm(at.width), lengthMm(at.height)];
       const vb = nums(at.viewBox ?? "");
       if (vb.length === 4 && w && h && vb[2]! > 0 && vb[3]! > 0) unit = Math.min(w / vb[2]!, h / vb[3]!);
@@ -334,8 +348,9 @@ export function parseSvg(text: string, opts: { unitMm?: number } = {}): Parsed {
     }
     if (["defs", "clippath", "mask", "symbol", "pattern", "marker", "style", "script", "title", "desc", "metadata", "text", "image", "foreignobject"].includes(name)) { skip = true; if (["text", "image"].includes(name)) left[name] = (left[name] ?? 0) + 1; }
     if (at.transform) m = mul(m, transformOf(at.transform));
+    if (at.display === "none" || /display\s*:\s*none/i.test(at.style ?? "") || at.visibility === "hidden" || /visibility\s*:\s*hidden/i.test(at.style ?? "")) skip = true; // (hidden: the element and everything in it)
     if (!selfClose) stack.push({ name, m, skip });
-    if (skip || at.display === "none") continue;
+    if (skip) continue;
     const f = (k: string): number => Number(at[k] ?? 0) || 0;
     // user space to millimetres, y up: a scale and a turn over of y, after the element's own transform
     const to: M = mul([unit, 0, 0, -unit, 0, 0], m);
@@ -370,9 +385,21 @@ export function parseSvg(text: string, opts: { unitMm?: number } = {}): Parsed {
       const r = pathPieces(at.d ?? "", to, sim, flip, scaleBy);
       pieces.push(...r.pieces);
       flattened += r.flattened;
-    } else if (name === "use") left.use = (left.use ?? 0) + 1;
+    } else if (name === "use") {
+      // a copy of another element (or a symbol's content), at x and y further, under the use's own transform
+      const id = (at.href ?? at["xlink:href"] ?? "").replace(/^#/, "");
+      const target = id && depth < 8 && ++uses <= 2000 ? byId(id) : null; // (a use of a use of a use… is bounded in depth and in how many are followed)
+      if (!target) left.use = (left.use ?? 0) + 1;
+      else {
+        const inner = /^<symbol\b/i.test(target) ? target.replace(/^<symbol\b[^>]*>/i, "").replace(/<\/symbol>\s*$/i, "") : target;
+        walk(inner.replace(/\bid\s*=\s*("[^"]*"|'[^']*')/, ""), mul(m, [1, 0, 0, 1, f("x"), f("y")]), depth + 1);
+        if (pieces.length > MAX_PIECES) return;
+      }
+    }
     if (pieces.length > MAX_PIECES) break;
   }
+  };
+  walk(text, I, 0);
   const big = pieceCount(pieces.length);
   if (big) return { ok: false, error: big };
   if (flattened) notes.push(`${flattened} curve${flattened === 1 ? "" : "s"} (curves that are not circular arcs) turned into short lines: the app has no such curves yet`);

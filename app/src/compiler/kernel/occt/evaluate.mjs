@@ -2,7 +2,9 @@
 // Nothing outside src/kernel/occt/ may import OCCT or replicad (inv_kernel_boundary).
 import { loadOC } from "./oc.mjs";
 import { compile, finalSolid, volume } from "./interpreter.mjs";
-import { makeCompound, getOC, exportSTEP as writeStep } from "replicad";
+import { makeCompound, getOC } from "replicad";
+import { writeStepFile } from "./stepout.mjs";
+import { writeIgesFile } from "./igesio.mjs";
 import { facesOf, edgesOf } from "./topo.mjs";
 import { lumpsOf, lumpsByName, solidKey, box as boxOf } from "./bodies.mjs";
 import { cornerEdges } from "../../../shared/sharp.mjs";
@@ -364,14 +366,16 @@ export function exportMesh(graph, quality) {
 }
 
 /** The final body of a graph (or only the bodies named) as a STEP file (`dec_export_formats`): the exact solid, as bytes; in millimetres or, with `unit` "in", inches. */
-export async function exportStep(graph, bodies, unit) {
+export async function exportStep(graph, bodies, unit, schema) {
   const picked = exportShape(graph, bodies);
   if (!picked.ok) return picked;
-  const { shape, box } = picked;
+  const { shape, box, named } = picked;
   try {
     // (the unit is a setting of the whole kernel that stays as it was left: it is set every time, millimetres too, or one export in inches would make all the next ones inches; the model is in millimetres either way)
-    const blob = writeStep([{ shape, name: "model" }], { unit: unit === "in" ? "INCH" : "MM", modelUnit: "MM" });
-    const bytes = new Uint8Array(await blob.arrayBuffer());
+    // (with several bodies, a product for each, named for the body, in one assembly; no colour: `stepout.mjs`)
+    if (schema === "brep") return { ok: true, bytes: new TextEncoder().encode(getOC().BRepToolsWrapper.Write(shape.wrapped)), volume: volume(shape), bbox: { min: [...box[0]], max: [...box[1]] } };
+    if (schema === "iges" || schema === "iges-solids") return { ok: true, bytes: new Uint8Array(writeIgesFile(named ?? [{ shape, name: "model" }], { unit: unit === "in" ? "IN" : "MM", solids: schema === "iges-solids" })), volume: volume(shape), bbox: { min: [...box[0]], max: [...box[1]] } };
+    const bytes = new Uint8Array(writeStepFile(named ?? [{ shape, name: "model" }], { unit: unit === "in" ? "INCH" : "MM", modelUnit: "MM", schema }));
     return { ok: true, bytes, volume: volume(shape), bbox: { min: [...box[0]], max: [...box[1]] } };
   } catch (e) {
     return { ok: false, error: `the kernel could not write the STEP file: ${e instanceof Error ? e.message : String(e)}` };
@@ -388,15 +392,21 @@ function exportShape(graph, only) {
   try { const b = boxOf(fin.shape); box = [b.min, b.max]; } catch { box = null; } // (the exact box for a body of 300 faces or fewer; a quick one round a body of more: the exact box of a 100 tooth worm wheel took 6.7 s of an 11 s export, `in_899`)
   if (!box) return { ok: false, error: "nothing to export: nothing is left of the body" };
   let shape = fin.shape;
+  let named = null;
+  if (!only?.length && (fin.markers ?? []).length > 1) { // (all the bodies: each is a named product of the file)
+    const all = lumpsByName(shape, fin.markers, fin.markers.map((m) => m.id));
+    if (all) named = [...all.picked.map((p, i) => ({ shape: p, name: fin.markers[i].id })), ...all.rest.map((p) => ({ shape: p, name: "body" }))];
+  }
   if (only?.length) {
     // only some of the bodies: their solids, as one shape
     const found = lumpsByName(shape, fin.markers ?? [], only);
     if (!found) return { ok: false, error: "that body is not there any more" };
     shape = found.picked.length === 1 ? found.picked[0] : makeCompound(found.picked);
+    named = found.picked.map((p, i) => ({ shape: p, name: only[i] }));
     const b = boxOf(shape);
     box = [b.min, b.max];
   }
-  return { ok: true, shape, box };
+  return { ok: true, shape, box, named };
 }
 
 /** How many bytes the kernel's memory has grown to: it grows and never shrinks, so this is the most it has needed (the page restarts the thread when it is high and nothing is waiting, `in_848`). */

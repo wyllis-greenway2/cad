@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="200mm" height="100mm" viewBox="0 0 200 100">
+  <defs>
+    <g id="bolt"><circle cx="0" cy="0" r="3"/><rect x="-5" y="-5" width="10" height="10"/></g>
+    <symbol id="tick"><path d="M 0 0 L 8 0"/></symbol>
+  </defs>
+  <use xlink:href="#bolt" x="20" y="20"/>
+  <use href="#bolt" x="60" y="20" transform="rotate(45)"/>
+  <g transform="translate(100 50) scale(2)"><use xlink:href="#bolt"/></g>
+  <use xlink:href="#tick" x="150" y="80"/>
+  <g display="none"><rect x="1" y="1" width="50" height="50"/></g>
+  <g style="fill:none;display:none"><rect x="2" y="2" width="60" height="60"/></g>
+  <rect x="170" y="10" width="20" height="10" style="visibility:hidden"/>
+  <use xlink:href="#missing" x="5" y="5"/>
+  <line x1="0" y1="95" x2="10" y2="95"/>
+</svg>

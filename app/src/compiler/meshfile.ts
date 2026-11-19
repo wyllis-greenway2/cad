@@ -4,9 +4,11 @@ import type { MeshData } from "./kernel/occt/meshdata.mjs";
 
 export type Mesh = MeshData;
 export type Parsed<T> = { ok: true; value: T; notes: string[] } | { ok: false; error: string };
-/** The most triangles an imported mesh may have: each becomes a face of an exact solid for a while, at about a millisecond each. */
+/** The most triangles an imported mesh may have to be built as it is: each becomes a face of an exact solid for a while, at about a millisecond each. More are reduced to fit (`meshrepair.ts`) when the person lets it. */
 export const MAX_MESH_TRIANGLES = 12000;
-const tooMany = (n: number): string => `this mesh has ${n.toLocaleString("en-US")} triangles: the app imports up to ${MAX_MESH_TRIANGLES.toLocaleString("en-US")} (each becomes a face of an exact solid). Reduce it first in a mesh program (Decimate in Blender, Simplify in MeshLab or PrusaSlicer) and import that`;
+/** The most triangles a file may have to be read at all (the reduction of more takes too long, and the page's memory too much). */
+export const MAX_READ_TRIANGLES = 300000;
+const tooMany = (n: number): string => `this mesh has ${n.toLocaleString("en-US")} triangles: the app reads up to ${MAX_READ_TRIANGLES.toLocaleString("en-US")}. Reduce it first in a mesh program (Decimate in Blender, Simplify in MeshLab or PrusaSlicer) and import that`;
 
 // ---------- STL ----------
 /** The corners (nine numbers for each triangle) of a binary or text STL. */
@@ -17,7 +19,7 @@ export function parseStl(bytes: Uint8Array): Parsed<Float64Array> {
   if (bytes.length === binarySize || (binarySize > 0 && !/^solid/i.test(head))) {
     const n = view.getUint32(80, true);
     if (bytes.length < 84 + n * 50) return { ok: false, error: "this STL file is cut short (fewer triangles than its header says)" };
-    if (n > MAX_MESH_TRIANGLES) return { ok: false, error: tooMany(n) };
+    if (n > MAX_READ_TRIANGLES) return { ok: false, error: tooMany(n) };
     const out = new Float64Array(n * 9);
     for (let t = 0, at = 84; t < n; t++, at += 50) for (let k = 0; k < 9; k++) out[t * 9 + k] = view.getFloat32(at + 12 + 4 * k, true);
     return n ? { ok: true, value: out, notes: [] } : { ok: false, error: "this STL file has no triangles" };
@@ -27,7 +29,7 @@ export function parseStl(bytes: Uint8Array): Parsed<Float64Array> {
   const nums: number[] = [];
   for (const m of text.matchAll(/vertex\s+([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)\s+([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)\s+([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)/g)) {
     nums.push(Number(m[1]), Number(m[2]), Number(m[3]));
-    if (nums.length / 9 > MAX_MESH_TRIANGLES) return { ok: false, error: tooMany(Math.floor((text.match(/facet\s+normal/g) ?? []).length)) };
+    if (nums.length / 9 > MAX_READ_TRIANGLES) return { ok: false, error: tooMany(Math.floor((text.match(/facet\s+normal/g) ?? []).length)) };
   }
   if (!nums.length || nums.length % 9) return { ok: false, error: "this STL file has no triangles (or one with fewer than three corners)" };
   return { ok: true, value: Float64Array.from(nums), notes: [] };
@@ -147,7 +149,7 @@ export async function parse3mf(bytes: Uint8Array, opts: { unitMm?: number } = {}
   for (const item of model.items) { const err = await walk(model, item.id, item.m, "", 0); if (err) return { ok: false, error: err }; }
   if (skipped) notes.push(`${skipped} object${skipped === 1 ? " that is not a part" : "s that are not parts"} (supports, surfaces) left out`);
   const total = out.reduce((a, o) => a + o.corners.length / 9, 0);
-  if (total > MAX_MESH_TRIANGLES) return { ok: false, error: tooMany(total) };
+  if (total > MAX_READ_TRIANGLES) return { ok: false, error: tooMany(total) };
   return out.length ? { ok: true, value: out, notes } : { ok: false, error: "this 3MF file has no solid objects in it" };
 }
 
@@ -244,7 +246,7 @@ export function parseObj(text: string): Parsed<Float64Array> {
       const ix = rest.map((w) => { const i = Number(w.split("/")[0]); return Number.isInteger(i) && i !== 0 ? (i > 0 ? i - 1 : n + i) : -1; });
       if (ix.length < 3 || ix.some((i) => i < 0 || i >= n)) { bad++; continue; }
       for (let k = 1; k + 1 < ix.length; k++) for (const i of [ix[0]!, ix[k]!, ix[k + 1]!]) out.push(pts[3 * i]!, pts[3 * i + 1]!, pts[3 * i + 2]!);
-      if (out.length / 9 > MAX_MESH_TRIANGLES) return { ok: false, error: tooMany(Math.floor(out.length / 9)) };
+      if (out.length / 9 > MAX_READ_TRIANGLES) return { ok: false, error: tooMany(Math.floor(out.length / 9)) };
     } else if (key === "l" || key === "p") left.add(key === "l" ? "lines" : "points");
     else if (key && ["curv", "curv2", "surf", "cstype", "deg"].includes(key)) left.add("curved surfaces");
   }

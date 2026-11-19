@@ -10,8 +10,8 @@ import type { Session } from "../src/interaction/session.ts";
 import { drawSquaredRectangle, drawCircle } from "../src/operation/build.ts";
 import { nextId } from "../src/operation/scene.ts";
 import { exportFile } from "../src/interaction/exportfile.ts";
-import { importAny } from "../src/interaction/importfile.ts";
-import { parseStl, parse3mf, weld, shellsOf, unzip, MAX_MESH_TRIANGLES } from "../src/compiler/meshfile.ts";
+import { importAny, IMPORT_DEFAULTS } from "../src/interaction/importfile.ts";
+import { parseStl, parse3mf, weld, shellsOf, unzip, MAX_READ_TRIANGLES } from "../src/compiler/meshfile.ts";
 import { zipStored } from "../src/compiler/threemf.ts";
 import { encodeMesh, decodeMesh } from "../src/compiler/kernel/occt/meshdata.mjs";
 import { startOp } from "../src/interaction/operations.ts";
@@ -126,7 +126,11 @@ test("a mesh with a hole in it, one with an edge of three triangles, and one tha
   const s = block();
   const steps = scene(s).steps.length;
   const holed = cube(0, 0, 0, 10).slice(9);
-  const open = await importAny(s, "open.stl", binaryStl(holed));
+  const filled = await importAny(s, "open.stl", binaryStl(holed)); // (with Repair on, which is the usual, a hole this small is filled: `dec_exchange_gaps`)
+  assert.ok(filled.ok && /1 hole in the surface filled/.test(filled.message), filled.ok ? "" : filled.error);
+  if (filled.ok) assert.ok(Math.abs(volume(filled.session) - 17000) < 1e-6, // (the block of the session, 16000, and the cube, 1000)
+       `${volume(filled.session)}: ${filled.message}`);
+  const open = await importAny(s, "open.stl", binaryStl(holed), { ...IMPORT_DEFAULTS, repair: false });
   assert.ok(!open.ok && /not a closed solid: 3 edges are open/.test(open.error) && /Repair it/.test(open.error), open.ok ? "" : open.error);
   const three = await importAny(s, "three.stl", binaryStl([...cube(0, 0, 0, 10), ...cube(0, 0, 0, 10).slice(0, 9)]));
   assert.ok(!three.ok && /shared by more than two triangles/.test(three.error), three.ok ? "" : three.error);
@@ -138,10 +142,10 @@ test("two shells in one file are two bodies; a mesh over the size limit is refus
   const two = await importAny(createSession(kernel), "two.stl", binaryStl([...cube(0, 0, 0, 10), ...cube(30, 0, 0, 5)]));
   assert.ok(two.ok, two.ok ? "" : two.error);
   if (two.ok) { assert.equal(bodies(two.session).length, 2); assert.ok(Math.abs(volume(two.session) - 1125) < 1e-6); assert.match(two.message, /2 bodies/); }
-  const big = new Uint8Array(84 + 50 * (MAX_MESH_TRIANGLES + 1));
-  new DataView(big.buffer).setUint32(80, MAX_MESH_TRIANGLES + 1, true);
+  const big = new Uint8Array(84 + 50 * (MAX_READ_TRIANGLES + 1));
+  new DataView(big.buffer).setUint32(80, MAX_READ_TRIANGLES + 1, true);
   const r = await importAny(createSession(kernel), "big.stl", big);
-  assert.ok(!r.ok && /12,001 triangles: the app imports up to 12,000/.test(r.error) && /Decimate|Simplify/.test(r.error), r.ok ? "" : r.error);
+  assert.ok(!r.ok && /300,001 triangles: the app reads up to 300,000/.test(r.error) && /Decimate|Simplify/.test(r.error), r.ok ? "" : r.error);
 });
 
 test("an STL from another program (trimesh): a block, and three shells in one file as three bodies of the right volumes", async () => {

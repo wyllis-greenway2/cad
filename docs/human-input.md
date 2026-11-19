@@ -4492,3 +4492,26 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > [attached a screenshot of the face gear's teeth: tall teeth whose sides are twisted into S-shaped curves, wider at the tip and at the foot than in the middle] okay why does the teeth look so odd for face gear? are you sure this is how real face gears are? seems like it would be really really hard to machine line that. Also isn't a face gear a type of crown gear? why don't we put them both under the same sub menu?
 (asks why the face gear's teeth look so odd, whether real face gears look like that and could be machined, and whether the face gear and the crown gear should be under one submenu)
 
+## in_1034 — 2026-11-19 — question
+> okay while we are waiting for that, what other file types should we support?
+(asks which further file types to support, while the IGES kernel build is being run)
+
+## in_1035 — 2026-11-19 — directive
+> lets do 1 and 2 together
+(chooses the first two of the AI's list: a 3MF with names and an object for each body, and a DXF with a choice of version)
+
+## in_1036 — 2026-11-19 — directive
+> we will hold off on the merge for now, what else should we build?
+(asks the branch not to be merged into claude/inspiring-pascal-l342k7 yet; asks what to build next)
+
+## in_1037 — 2026-11-19 — question
+> no I mean what else should we work on for import export and compatability
+(says the question was about import, export and compatibility, not other features)
+
+## in_1038 — 2026-11-19 — directive
+> okay lets do all those except 4, we want to work on a drawing view and pdf export seperatly
+(chooses the AI's list: big and imperfect meshes, drag and drop with detection by content, STEP size limit and schema and names, SVG strokes and text, FreeCAD and BREP; not the 1:1 PDF export, which is for a drawing view built separately)
+
+## in_1039 — 2026-11-19 — directive
+> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
+(asks for the branch with the exchange work (OBJ, DXF, 3MF, STEP, BREP, FreeCAD, drop, meshes, IGES) to be merged into the testing branch, and for work to go on from a branch that has it)
