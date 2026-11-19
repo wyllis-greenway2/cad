@@ -26,7 +26,7 @@ export interface BubbleHandlers {
 
 interface Entry { el: HTMLElement; sig: string; editing: boolean; a: Annotation; tinted: boolean; /** the thin line back to its spot, once it has moved far */ leader?: HTMLElement; /** where it is from the spot it belongs to, on its way to where it should stand */ off?: [number, number] }
 /** A refused change while it flashes: how far through it is, what it would have broken (red, fading) and what tried it (it shakes). */
-export interface Flash { t: number; victims: readonly string[]; culprits: readonly string[] }
+export interface Flash { t: number; victims: readonly string[]; culprits: readonly string[]; /** constraints that already held when asked for again: mild green, fading (`in_1090`) */ green?: readonly string[] }
 
 export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
   const root = document.createElement("div");
@@ -157,6 +157,7 @@ export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
         // a refused change: what it would have broken goes mild red and fades back; what tried it shakes for a moment
         let dx = 0;
         if (flash && flash.victims.includes(q.a.id)) { const k = 1 - flash.t; e.el.style.background = `rgb(255, ${Math.round(255 - 110 * k)}, ${Math.round(255 - 110 * k)})`; e.el.style.borderColor = `rgba(220, 70, 70, ${k})`; e.tinted = true; }
+        else if (flash?.green?.includes(q.a.id)) { const k = 1 - flash.t; e.el.style.background = `rgb(${Math.round(255 - 95 * k)}, 255, ${Math.round(255 - 95 * k)})`; e.el.style.borderColor = `rgba(50, 160, 90, ${k})`; e.tinted = true; }
         else if (e.tinted) { e.el.style.background = "#fff"; e.el.style.borderColor = q.a.open ? "#e0a82e" : "#d6d7db"; e.tinted = false; }
         if (flash && flash.culprits.includes(q.a.id)) { const phase = (flash.t * settings.flash.ms) / settings.flash.shakeMs; if (phase < 1) dx = Math.sin(phase * Math.PI * 6) * 7 * (1 - phase); }
         e.el.style.transform = `translate(${Math.round(q.x + next[0] + dx)}px, ${Math.round(q.y + next[1])}px)`;

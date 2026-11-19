@@ -90,7 +90,7 @@ import { partIndex } from "../operation/partindex.ts";
 import type { StandIn } from "./standin.ts";
 
 /** A refused change, while it flashes: how far through it is (0 to 1), the constraints it would have broken (red, fading), the ones that tried (they shake), and the parts of the broken ones. */
-export interface FlashFrame { t: number; victims: string[]; culprits: string[]; parts: Ref[] }
+export interface FlashFrame { t: number; victims: string[]; culprits: string[]; parts: Ref[]; /** constraints that already held when asked for again: green, fading (`in_1090`) */ green?: string[]; greenParts?: Ref[] }
 
 const animatedMemo = new WeakMap<Scene, Map<Ref, Ref>>();
 /** The bodies hooked up to an animation (`gearcouple.ts`), worked out once for each scene. */
@@ -150,7 +150,7 @@ export interface Frame {
   selectionMoves: boolean;
   /** while a motion plays: the matrix the selected body is drawn by (the driver's, a follower's, or none for a body that stays), so what is highlighted goes with the body and not by the driver's matrix (`in_984`); null when there is no motion */
   selectionMatrix: number[] | null;
-  highlight: { /** the triangles of a body of several that is selected or pointed at, as ranges of the mesh's index list: every face of it, the teeth of a gear too, which are not parts (`in_867`) */ bodyTris?: Record<string, [number, number][]>; hover: Ref | undefined; hoverPoint: Vec3 | null; selection: readonly Ref[]; amber: readonly Ref[]; /** the parts of constraints a refused change would have broken, and how red they still are */ red: { refs: readonly Ref[]; alpha: number }; /** the copies a repeat that is open would make, drawn pulsing (`in_244`) */ temp: readonly Ref[]; spread: AppState["spread"]; };
+  highlight: { /** the triangles of a body of several that is selected or pointed at, as ranges of the mesh's index list: every face of it, the teeth of a gear too, which are not parts (`in_867`) */ bodyTris?: Record<string, [number, number][]>; hover: Ref | undefined; hoverPoint: Vec3 | null; selection: readonly Ref[]; amber: readonly Ref[]; /** the parts of constraints a refused change would have broken, and how red they still are */ red: { refs: readonly Ref[]; alpha: number }; /** constraints that already held, asked for again: green, fading (`in_1090`) */ green: { refs: readonly Ref[]; alpha: number }; /** the copies a repeat that is open would make, drawn pulsing (`in_244`) */ temp: readonly Ref[]; spread: AppState["spread"]; };
   preview: Preview | null;
   entry: Entry | null;
   /** the several value bubbles of a repeat being set up (one on each axis, or one by the rings) */
@@ -494,7 +494,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     selectionMatrix: s.motion ? selectionMatrixOf(s.motion, selBodies) : null,
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
     highlight: { bodyTris: bodyTrisOf(sc, s.session.outcome, [s.session.hover, ...sel]), hover: s.motion ? undefined : s.session.hover, /* (a visible sheet lights the blue hover disc as every surface does, `in_470`) */ hoverPoint: s.motion ? null : s.hoverPoint, selection: s.moverSphere ? [] : [...sel.filter((r) => !isSectionPlane(sc, r)), ...(s.op?.twoDist ? [chosenFace(sceneOf(s.op.made ? undone(s.session) : s.session), s.op)?.ref].filter((r): r is Ref => !!r) : [])], /* (the face the first distance is along is lit like a selected face, `dec_chamfer_two_distances`) */ /* (the object is not what is selected while the mover is oriented: it is only drawn as wireframe, `in_421`) */ // (a cross section plane is drawn by its own faint quad, not lit like a face, `in_396`)
-    amber: [...new Set([...(s.op?.kind === "loft" ? loftStarts(sceneOf(s.session), s.op) : []), ...(s.op?.kind === "sweep" ? sweepStart(sceneOf(s.session), s.op) : []), ...focusParts(sc, sel, s.focus), ...variableStart(sceneOf(s.op?.made ? undone(s.session) : s.session), s.op), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
+    amber: [...new Set([...(s.op?.kind === "loft" ? loftStarts(sceneOf(s.session), s.op) : []), ...(s.op?.kind === "sweep" ? sweepStart(sceneOf(s.session), s.op) : []), ...focusParts(sc, sel, s.focus), ...variableStart(sceneOf(s.op?.made ? undone(s.session) : s.session), s.op), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, green: { refs: flash?.greenParts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
     preview: withGhost(previewFor(sc, s.tool), s), // (the picture itself moves now: the thin rings that stood in for it are not needed)
     entry: inUnits(movingOp || (shownOp && !s.tool && hasGizmo(shownOp.kind) && !numberShown) ? null : entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp)),
     entries: (s.moverSphere && moverOp(s) && !s.tool && gizmo ? moverPlaceEntries(gizmo, moverOp(s)!.frame, orbShow(s, now)) : sectionNow(s) && !s.op && !s.repeat && !s.tool && gizmo ? sectionEntries({ at: sectionNow(s)!.centre, n: sectionNow(s)!.n }, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel) : shownOp?.kind === "revolve" && !s.tool ? revolveEntries(shownOp, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel) : shownOp?.kind === "loft" && !s.tool ? loftEntries(sceneOf(s.session), shownOp) : shownOp?.kind === "mirror" ? mirrorEntries(shownOp, gizmo)  : shownOp?.kind === "scale" && shownOp.axes ? scaleEntries(shownOp, gizmo) : s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp && numberShown ? moveEntries(s.handleSel?.startsWith("move:") ? { ...movingOp, axis: "xyz".indexOf(s.handleSel[5]!) as 0 | 1 | 2 } : movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp)) : []).map((e) => inUnits(e)),
@@ -560,7 +560,7 @@ const OPEN_LABELS: Record<string, string> = { linear: "Linear repeat", circular:
 const withFlashed = (list: Annotation[], sc: Scene, flash: FlashFrame | null): Annotation[] => {
   if (!flash) return list;
   const have = new Set(list.map((a) => a.id));
-  return [...list, ...annotationsOf(sc, [...new Set([...flash.victims, ...flash.culprits])]).filter((a) => !have.has(a.id))];
+  return [...list, ...annotationsOf(sc, [...new Set([...flash.victims, ...flash.culprits, ...(flash.green ?? [])])]).filter((a) => !have.has(a.id))];
 };
 /** The small plane drawn for the mirror's chosen arrow (`in_437`): a square across that axis where the plane stands, a little bigger than what is mirrored. */
 function mirrorGuide(s: AppState): Frame["sectionPlanes"] {
@@ -609,7 +609,7 @@ function flashOf(s: AppState, sc: Scene, now: number): FlashFrame | null {
   const t = (now - s.flash.at) / settings.flash.ms;
   if (t < 0 || t >= 1) return null;
   const parts = [...flashParts(sc, s.flash.victims), ...((s.flash.parts ?? []) as Ref[])];
-  return { t, victims: s.flash.victims, culprits: s.flash.culprits, parts };
+  return { t, victims: s.flash.victims, culprits: s.flash.culprits, parts, ...(s.flash.green?.length ? { green: s.flash.green, greenParts: flashParts(sc, s.flash.green) } : {}) };
 }
 
 /** Where the value bubble sits: at the tip of the arrow for a push / pull or an extrude and at the edge for a fillet or chamfer (so it is by what it sets), else at the middle of the handles, or by the figure being drawn. */
