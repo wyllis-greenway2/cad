@@ -5144,3 +5144,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1204 — 2026-11-19 — question
 > @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/50ed3d5f-Screencast_from_2026-11-19_20-03-28.webm" It still seems kind of jumpy and overshoots?
 (a second screencast of the carried lever and the far arm rubbing past each other: still jumpy and overshooting after the drawn ramp)
+
+## in_1205 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the smaller-movement-gives-way fix to be merged into the testing branch, no full test run)
