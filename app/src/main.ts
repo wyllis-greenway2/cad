@@ -22,8 +22,6 @@ import type { LaserValues } from "./interaction/manufacture.ts";
 import { pathRepeatTarget, pathRepeatDialog, pathRepeatCommand, pathRepeatStart, pathRepeatValuesFor } from "./interaction/pathrepeat.ts";
 import { receiverStart, receiverKinds, receiverSizes, receiverContext, receiverPlan, cutReceiver, makeHolePoints, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
 import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
-import { modelStart, modelDialog, addModel, modelKinds } from "./interaction/addmodel.ts";
-import type { ModelKind, ModelValues } from "./interaction/addmodel.ts";
 import { nameFor } from "./interaction/sniff.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
 import type { ExportOptions } from "./interaction/transfer.ts";
@@ -63,7 +61,7 @@ import { createRing } from "./ui/ring.ts";
 import { createAddChip } from "./ui/addchip.ts";
 import { createPreviewBar } from "./ui/previewbar.ts";
 import { createMotionBar } from "./ui/motionbar.ts";
-import { tickMotion } from "./interaction/motion.ts";
+import { tickMotion, motionHolds } from "./interaction/motion.ts";
 import { solveContact } from "./interaction/contact.ts";
 import { createAhead } from "./contact-ahead.ts";
 import { createChip } from "./ui/chip.ts";
@@ -72,7 +70,6 @@ import { createWorldOrb } from "./ui/worldorb.ts";
 import { createHardMarks } from "./ui/hardmarks.ts";
 import { createPanel } from "./ui/panel.ts";
 import { createBodyChips } from "./ui/bodychips.ts";
-import { createGearChip } from "./ui/gearchip.ts";
 import { createControls } from "./ui/controls.ts";
 import { createGearBox } from "./ui/gearbox.ts";
 import { createHolePanel } from "./ui/holepanel.ts";
@@ -202,7 +199,6 @@ const ring = createRing(document.body, (id) => {
   ring.hide();
   if (id === "view:game") { input.toggleGame(); return; }
   if (id === "repeat:path") { void pathRepeatFlow(); return; } // (`dec_path_repeat`)
-  if (id.startsWith("model:")) { void modelDialogFlow(id.slice(6) as ModelKind); return; } // (Shape, Fabricate, Models: a gear assembly, `dec_gear_models`)
   if (id === "fab:material") { void materialDialogFlow(); return; } // (Shape, Fabricate, `in_1083`)
   if (id === "tool:fasteners") { holesOpen(); return; } // (the tool is a panel and a preview in the model view, `dec_parts_tool`)
   dispatch({ type: "runAction", id });
@@ -218,12 +214,11 @@ let touchRects: DOMRect[] = []; // (where the drag icons of a finger stood on th
 const touchHandle = createTouchCursor(document.body);
 const boxView = createBoxView(document.body);
 
-const suggest = createSuggest(document.body, (id) => dispatch({ type: "runAction", id }));
+const suggest = createSuggest(document.body, (id, part) => dispatch({ type: "runAction", id, ...(part ? { part: part as never } : {}) })); // (the helpful bar: the icons of what is selected, the suggested constraints, `in_1160`)
 const crosshair = createCrosshair(document.body);
 const hardMarks = createHardMarks(document.body, (id) => dispatch({ type: "runAction", id }));
 const worldOrb = createWorldOrb(document.body, () => dispatch({ type: "runAction", id: "world:toggle" }));
 const sheetChips = createSheetChips(document.body, (id) => dispatch({ type: "runAction", id }));
-const gearChip = createGearChip(document.body, (id, part) => dispatch({ type: "runAction", id, part })); // (a gear that is selected has its own icon, `in_693`)
 const bodyChips = createBodyChips(document.body, (id) => dispatch({ type: "runAction", id }));
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const notices = createNotices(document.body, statusEl, (i) => dispatch(i)); // (every message, refusal, help and the working sign, `in_665`)
@@ -465,20 +460,6 @@ async function materialDialogFlow() {
   state = { ...state, session: run(state.session, c.value) };
   say(String(answers.material ?? "").trim() ? `material set: ${String(answers.material).trim()}` : "material tag taken off");
 }
-/** A gear assembly as a model (`dec_gear_models`): a dialog for its numbers (the last ones kept), and the model made in one step. */
-const MODEL_KEY = "cad.modelOptions";
-async function modelDialogFlow(kind: ModelKind) {
-  if (!modelKinds().includes(kind)) return say("that model is not built yet");
-  const saved = (() => { try { return (JSON.parse(localStorage.getItem(MODEL_KEY) ?? "{}") as Record<string, Values>)[kind]; } catch { return undefined; } })();
-  const answers = await dialog.open((v) => modelDialog(kind, v as unknown as ModelValues), { ...modelStart(kind), ...(saved ?? {}) } as unknown as Values);
-  if (!answers) return;
-  const made = addModel(state.session, kind, answers as unknown as ModelValues);
-  if (!made.ok) return say(made.error);
-  try { localStorage.setItem(MODEL_KEY, JSON.stringify({ ...(JSON.parse(localStorage.getItem(MODEL_KEY) ?? "{}") as object), [kind]: answers })); } catch { /* (no storage: the numbers are not kept) */ }
-  state = { ...state, session: made.value };
-  dirty = true;
-  say(`${modelDialog(kind, answers as unknown as ModelValues).title} made`);
-}
 const LASER_KEY = "cad.laserOptions";
 const LIB_KEY = "cad.library";
 /** Laser cut (`in_569`, `in_571`, `dec_laser_outline_route`): which machine (the project's copy of the last one used, the user's own, or a new one), a dialog made from the route's own settings and started from the last plan for this drawing, the route run, the findings read before the file is saved; the project keeps a copy of the machine and the plan, the library keeps the machine. */
@@ -599,7 +580,7 @@ function dispatch(i: Intent, again = false) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menuAt = [i.x, i.y]; menu.show(i.x, i.y, [], appRows(typeof __BUILD__ === "string" ? __BUILD__ : "", { clearAnswers: !!resultStore }, state.showAllConstraints)); }
+    if (i.button) { ring.hide(); menuAt = [i.x, i.y]; menu.show(i.x, i.y, [], appRows(typeof __BUILD__ === "string" ? __BUILD__ : "", { clearAnswers: !!resultStore })); }
     else {
       menu.hide();
       if (state.menu && inGame()) { // game mode: the ring stands in the world, ahead of the eye, where it was opened (`in_463`, `in_471`)
@@ -714,6 +695,7 @@ const ahead = createAhead(() => new Worker(new URL("./contact-worker.ts", import
 let lastPlayFrame = 0;
 const PLAY_FRAME_MS = 26; // (a motion that plays is drawn about 38 times a second, not as fast as the screen refreshes: the play is by the clock, so it is as quick, and the processor and the graphics card work a third less)
 function frame(now: number) {
+  if (state.motion) { const held = motionHolds(scene(state.session), state.motion); if (held !== state.motion) { state = { ...state, motion: held }; dirty = true; } } // (what it moves was deleted or undone: the motion stops and its bar goes, `in_1129`)
   if (state.motion?.playing && now - lastPlayFrame < PLAY_FRAME_MS) { requestAnimationFrame(frame); return; }
   if (state.motion?.playing) lastPlayFrame = now;
   const tStart = performance.now();
@@ -769,9 +751,8 @@ function frame(now: number) {
     view.setWorldHidden(f.worldHidden);
     { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); hardMarks.update(f.hardMarks, (q) => { const c = pr.project(q); return c && c[0] > -10 && c[1] > -10 && c[0] < size.w + 10 && c[1] < size.h + 10 ? [c[0] + pg.left, c[1] + pg.top] : null; }); }
     { const pg = host.getBoundingClientRect(); const c = projector(state.cam, size.w, size.h).project([0, 0, 0]); worldOrb.update(c && c[0] > -20 && c[1] > -20 && c[0] < size.w + 20 && c[1] < size.h + 20 ? [c[0] + pg.left, c[1] + pg.top] : null, f.worldHidden); }
-    { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); sheetChips.update(f.sectionPlanes.filter((p) => !p.guide).map((p) => ({ ref: p.ref, mode: p.mode, hidden: p.hidden, move: p.move, selected: p.selected, corners: p.corners })), (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null); }
-    { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); bodyChips.update(f.bodyEyes, (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null, f.eyesQuiet); }
-    { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); gearChip.update(f.gearChip, (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top - 26] : null; }); }
+    { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); sheetChips.update(f.sectionPlanes.filter((p) => !p.guide && p.hidden && !p.selected).map((p) => ({ ref: p.ref, mode: p.mode, hidden: p.hidden, move: p.move, selected: p.selected, corners: p.corners })), (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null); }
+    { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); bodyChips.update(f.bodyEyes.filter((e) => e.hidden), (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null, f.eyesQuiet); }
     toolChip.update(f.tool, f.confirm, lastDevice === "touch", f.options, f.undoRedo);
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null); }
     { const h = hardware ? holesOptions() : null; holeBar.update(h ? h.bar : null); view.setToolpath(h && h.view ? h.view : f.toolpath, state.cam); } // (the holes the panel would cut are drawn over the model, `dec_parts_tool`)
@@ -830,7 +811,7 @@ function frame(now: number) {
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };
     // the icon stands at the upper left of the handles, out of the way of the arrows and rings (`in_215`)
     const corner = f.modeSwitch ? f.modeSwitch.pts.map((p) => onPage(p)!).reduce<[number, number]>((c, q) => [Math.min(c[0], q[0]), Math.min(c[1], q[1])], [Infinity, Infinity]) : null;
-    suggest.update(f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : null, [ring.rect(), ...chips.map((c) => c.rect()), notices.helpRect(), ...touchRects, ...bubbles.rects()].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : [])));
+    suggest.update(f.bar, f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : f.bar?.at ? ((q) => (q ? [q[0], q[1] - 112] as [number, number] : null))(onPage(f.bar.at)) : null, [ring.rect(), ...chips.map((c) => c.rect()), notices.helpRect(), ...touchRects, ...bubbles.rects()].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : [])));
     gearBox.update(f.entry?.panel ? f.entry : null);
     const valueBubbles = (f.entries.length ? f.entries : f.entry ? [f.entry] : []).filter((e) => !e.panel);
     valueBubbles.forEach((e, i) => chipAt(i).update(e.fields, e.unit || "mm", onPage(e.at), onPage(e.from), !!state.tool && lastDevice !== "touch", lastDevice === "touch", !!e.constraint, e.opacity ?? 1)); // (a mouse draws through the bubble: a finger can tap into it to type a size, `in_289`)
@@ -877,6 +858,7 @@ function frame(now: number) {
     const waiting = !!state.session.outcome.kernel?.stale;
     if (waiting && staleSince === null) staleSince = tFrame;
     else if (!waiting && staleSince !== null) { timing.add("edit: waiting for the kernel until its answer is drawn", tEnd - staleSince); staleSince = null; }
+    if (state.building && !waiting) { dispatch({ type: "buildNext" }); dirty = true; } // (a model made a part at a time: the part that was made is drawn, now the next, `dec_gear_models`)
     controls.update(window.innerWidth, window.innerHeight, settings.buttons.marginPx, settings.buttons.sizePx);
     dirty = panesFading || !!f.flash || !!f.gizmo?.pulse || f.entries.some((e) => e.opacity !== undefined && e.opacity < 1) || working || !!f.highlight.temp?.length || touchMoved || (f.standIns.length > 0 && !standShown); // keep drawing while a refused change flashes, the "working" sign turns, or the copies of a repeat pulse
   }

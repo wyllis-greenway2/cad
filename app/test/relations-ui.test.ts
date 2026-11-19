@@ -142,7 +142,7 @@ test("a bubble opens and closes: focusing twice closes it; the number can be typ
   near(dist(at(st, a.corners[0]!), at(st, b.corners[0]!)), 12);
   st = reduce(st, { type: "relation", act: "focus", id: rel.id }, env);
   assert.equal(annotationsFor(scene(st.session), selection(st.session), st.focus).find((x) => x.id === rel.id)!.open, true);
-  assert.deepEqual(focusParts(scene(st.session), selection(st.session), st.focus), []);
+  assert.deepEqual([...focusParts(scene(st.session), st.focus)].sort(), [a.corners[0]!, b.corners[0]!].sort(), "both the parts it ties are lit, though they are selected (`in_1129`)");
   st = reduce(st, { type: "relation", act: "focus", id: rel.id }, env);
   assert.equal(st.focus, null, "the second click closes it");
   st = reduce(st, { type: "relation", act: "set", id: rel.id, value: 20 }, env);

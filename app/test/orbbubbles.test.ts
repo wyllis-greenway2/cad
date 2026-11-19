@@ -1,4 +1,4 @@
-// One rule for the number bubbles of an orb (`in_1127`, `dec_unified_orb`): only the axis chosen shows its number, whatever the tool; nothing chosen, nothing shown.
+// One rule for the number bubbles of an orb (`in_1174`, `dec_unified_orb`): only the axis chosen shows its number, whatever the tool; nothing chosen, nothing shown.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";

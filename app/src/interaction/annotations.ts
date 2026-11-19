@@ -261,6 +261,34 @@ function annotationsOf0(scene: Scene, selection: readonly Ref[], focus: string |
   return [...out, ...(m ? [m] : []), ...(r ? [r] : []), ...(arcAngle ? [arcAngle] : []), ...mateAnnotations(scene, selection, focus)];
 }
 
+/**
+ * Every constraint that has to do with these bodies (`in_1157`), whether or not anything is selected: the ones on the body's own corners, edges, circles and faces, on the sketch it was made from, and the mates and other relations it shares with other parts.
+ * `null` for every constraint of the whole scene.
+ */
+export function annotationsOfBodies(scene: Scene, bodies: readonly Ref[] | null, focus: string | null): Annotation[] {
+  const map = buildMap(scene);
+  const live = bodies === null ? Object.values(scene.parts).filter((p) => p.kind === "body").map((p) => p.ref) : bodies.filter((r) => scene.parts[r]?.kind === "body");
+  const scope = new Set<Ref>();
+  const single = Object.values(scene.parts).filter((p) => p.kind === "body").length <= 1;
+  for (const p of Object.values(scene.parts)) if (p.origin === "body" && p.kind !== "body" && (p.of ? live.includes(p.of) : single)) scope.add(p.ref); // (what the kernel made of it: its corners, edges, circles, faces)
+  for (const r of live) {
+    const b = scene.parts[r];
+    const step = b?.kind === "body" ? scene.steps.find((st) => `x_${st.id}` === b.id) : undefined;
+    for (const q of step?.parts ?? []) scope.add(q); // (the sketch it was made from)
+    if (typeof step?.params.holes === "string") for (const q of step.params.holes.split(",")) scope.add(q as Ref);
+  }
+  for (const r of [...scope]) { // (a line is held by what holds its ends, a circle by its centre)
+    const p = scene.parts[r];
+    if (p?.kind === "line") [p.a, p.b, ...(p.center ? [p.center] : [])].forEach((c) => scope.add(c));
+    else if (p?.kind === "circle") scope.add(p.center);
+  }
+  const everywhere = bodies === null;
+  const rels = scene.relations.filter((rel) => rel.kind !== "arcEnds" && rel.kind !== "mate" && (everywhere || rel.parts.some((q) => scope.has(q))));
+  const out = rels.map((rel) => annotationOf(scene, rel, [], focus, map)).filter((a): a is Annotation => !!a);
+  const mates = mateAnnotations(scene, everywhere ? [...live, ...scene.relations.flatMap((rel) => rel.parts)] : [...live, ...scope], focus);
+  return [...out, ...mates];
+}
+
 /** The annotations of these relations whether or not their parts are selected (to show what a refused change would have broken). */
 export function annotationsOf(scene: Scene, ids: readonly string[]): Annotation[] {
   const map = buildMap(scene);
@@ -315,10 +343,10 @@ function mateAnnotations(scene: Scene, selection: readonly Ref[], focus: string 
   return out;
 }
 
-/** The parts to show in amber: what the open constraint ties the selection to. */
-export function focusParts(scene: Scene, selection: readonly Ref[], focus: string | null): Ref[] {
+/** The parts to show in amber: everything the open constraint ties. */
+export function focusParts(scene: Scene, focus: string | null): Ref[] {
   const rel = focus ? scene.relations.find((r) => r.id === focus) : undefined;
-  return rel ? rel.parts.filter((p) => !selection.includes(p) && p in scene.parts) : [];
+  return rel ? rel.parts.filter((p) => p in scene.parts) : []; // (every part it ties, the selected ones too: with the pair selected nothing else would light and the constraint would not say what it is for, `in_1129`)
 }
 
 /** A curved face of the body that is part of a cylinder or a sphere (a fillet, a rounded edge) says its radius when it is selected: R and the number, read only. (A full round post or hole shows its diameter, Ø, with its push / pull arrow.) */

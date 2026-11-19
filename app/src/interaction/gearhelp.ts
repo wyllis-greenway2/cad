@@ -56,6 +56,7 @@ export const GEAR_HINTS: Record<GearKey, string> = {
   angle: "Direction the partner stands in, in degrees round the gear (or how far a rack stands turned).",
   hypoid: "Hypoid offset: how far the ring gear's axis misses the pinion's, in mm (0 for a spiral bevel pair). The pinion lies below the ring gear's axis; at most 0.15 of the ring gear's pitch diameter. The spiral angle is the pinion's: the ring gear's follows from it and the offset.",
   offset: "How far along the rack the gear sits, in mm.",
+  distance: "How far apart the two centres stand, in mm: a belt or a chain goes round at any distance that leaves room (the pointer sets it, or type it). Never less than the pitch circles and a millimetre.",
   chain: "Roller chain number: 40 to 120 (ANSI) or 6 to 24 (ISO B series).",
   pitch: "Chain pitch in mm (type your own, or choose a chain).",
   roller: "Roller diameter in mm (type your own, or choose a chain).",

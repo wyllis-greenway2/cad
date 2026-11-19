@@ -51,7 +51,7 @@ export function gizmoOf(s: AppState): Gizmo | null {
   if (s.tool && !s.op) return null; // (a sketch tool is on: what is selected does not offer its handles under it)
   const op = activeOp(s);
   const sec = sectionNow(s);
-  if (sec && !s.op && !s.repeat && !op) return sectionGizmo(sec.centre, s.cam, sec.n, sheetMoveOf(s, sec.ref) === 1); // (the sheet's arrow along its normal, and with its move icon the mover's arrows and rings, `in_392`, `in_459`)
+  if (sec && !s.op && !s.repeat && !op) return sectionGizmo(sec.centre, s.cam, sec.n, sheetMoveOf(s, sec.ref)); // (the mover's arrows or rings, its three panes, and the arrow along the normal of a plane turned off the axes: `in_392`, `in_459`, `in_1129`)
   // looking straight at a plane (orthographic) the push / pull arrow points at you: it goes away (`in_137`)
   if (op && s.cam.straight && (op.kind === "pushpull" || op.kind === "extrude")) return null;
   const g0 = op ? gizmoFor(sceneOf(s.session), op, s.cam, s.moverSphere && hasOrb(op.kind)) : null; // (the sphere selected: its own arrows are there, `in_416`)
@@ -106,7 +106,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     const d = d0 && h ? withScreen(d0, h, pr, i.x - i.dx, i.y - i.dy, env.h) : d0;
     if (!d || h!.id === "mir:orb" || h!.id === "lin:orb") return orbitOrCorner(s, i, env); // (the revolve's orb is dragged to move it, `in_468`)
     if (h!.id.startsWith("mir:") && s.op?.kind === "mirror" && s.op.mirrorAt) { const k = d.axis as 0 | 1 | 2; return { ...s, handleSel: h!.id, op: { ...s.op, auto: false, mirrorAxis: k }, drag: { handle: d, base: 0, mir: { k, from: s.op.mirrorAt[k]! } }, gizmoHover: h!.id }; } // (an arrow of the mirror: it chooses the plane across its axis and moves it, `in_437`) // not on a handle (the revolve's orb is only moved by clicking a line): this drag turns the camera (or drags a corner of a drawing)
-    if (h!.kind === "pane" && h!.plane && !s.repeat) { // a pane of the mover (`in_1127`): the drag is held to its plane (the two axes are held for the drag and let go after it)
+    if (h!.kind === "pane" && h!.plane && !s.repeat) { // a pane of the mover (`in_1174`): the drag is held to its plane (the two axes are held for the drag and let go after it)
       const [held, lockBefore] = [h!.plane as (0 | 1 | 2)[], s.lockAxes];
       const mover = s.op ?? activeOp(s);
       if (!s.op && sectionNow(s) && !mover) { const sec = sectionNow(s)!; return { ...s, lockAxes: held, handleSel: null, drag: { handle: d, base: 0, paneLock: lockBefore, section: { ref: sec.ref, centre: sec.centre, n: sec.n } }, gizmoHover: h!.id }; }
@@ -177,7 +177,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
   }
   if ("handle" in s.drag! && s.drag.section) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
-    if (r && "pivot" in r) { // the blue orb of the plane, taken as every orb is (`in_1127`): held to the axes chosen with Shift, sticking to a place the pointer is near, else lined up with the places
+    if (r && "pivot" in r) { // the blue orb of the plane, taken as every orb is (`in_1174`): held to the axes chosen with Shift, sticking to a place the pointer is near, else lined up with the places
       const placed = orbPlace(s, r.pivot, s.drag.handle.origin, i.x, i.y, env);
       return { ...s, sectionLive: { ref: s.drag.section.ref, centre: placed.at, n: s.drag.section.n }, ...(placed.note ? { session: { ...s.session, message: placed.note } } : {}) };
     }

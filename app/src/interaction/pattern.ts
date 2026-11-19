@@ -109,7 +109,7 @@ export function patternBase(op: Op, id: string): number {
   return 0;
 }
 
-/** What a drag of a pane makes of the numbers (`in_1127`): a circular repeat's pivot goes to the point (the pane is in the plane through it); a linear repeat's spacing along the pane's two axes is how far the pointer is from the start of the arrows along each, so one drag sets both. `rel` is the pointer's place in the pane's plane from the middle of the arrows, `to` the new pivot. */
+/** What a drag of a pane makes of the numbers (`in_1174`): a circular repeat's pivot goes to the point (the pane is in the plane through it); a linear repeat's spacing along the pane's two axes is how far the pointer is from the start of the arrows along each, so one drag sets both. `rel` is the pointer's place in the pane's plane from the middle of the arrows, `to` the new pivot. */
 export function panePattern(op: Op, plane: readonly [0 | 1 | 2, 0 | 1 | 2], rel: Vec3, to: Vec3, axes: readonly Vec3[]): Op {
   const pat = [...op.pat];
   if (op.kind === "circular") { pat[3] = fmtN(to[0]); pat[4] = fmtN(to[1]); pat[5] = fmtN(to[2]); return { ...op, pat }; }

@@ -50,6 +50,7 @@ export type Intent =
   | { type: "escape" }
   | { type: "save" }
   | { type: "open" }
+  | { type: "buildNext" } // (a model that is made a part at a time: the kernel has answered, make the next part, `dec_gear_models`)
   | { type: "runAction"; id: string; /** the part an item of a gear's icon was clicked for: it is selected first when what is selected is not that gear (`in_864`) */ part?: string }
   /** the button on a refused change: delete the constraints that stopped it and do it (`in_366`) */
   | { type: "overrideRefusal" }
@@ -80,6 +81,8 @@ export type Intent =
   | { type: "motionPlay" }
   | { type: "motionKind"; kind: "turn" | "slide" }
   | { type: "motionReverse" }
+  /** the speed of the play as a multiple of what it began at (`in_1169`) */
+  | { type: "motionSpeed"; k: number }
   | { type: "motionLink"; id: string; ratio?: number; kind?: "turn" | "slide"; remove?: true }
   | { type: "motionRest"; ref: string; rest: number | null }
   | { type: "motionKeep" }

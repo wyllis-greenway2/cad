@@ -1,4 +1,4 @@
-// The cross section's orb works as every orb does (`in_1127`, `dec_unified_orb`): Shift on its arrows holds a drag to axes, the blue orb moves the plane (held, sticking to places) instead of turning the view, and a click on it lets a corner, an edge or a face put the plane there.
+// The cross section's orb works as every orb does (`in_1174`, `dec_unified_orb`): Shift on its arrows holds a drag to axes, the blue orb moves the plane (held, sticking to places) instead of turning the view, and a click on it lets a corner, an edge or a face put the plane there.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";
@@ -23,7 +23,7 @@ const box = (): AppState => {
   s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: r.lines, params: { depth: 20 } } });
   return { ...createState(s), cam: homeCamera() };
 };
-const free = (): AppState => reduce(reduce(box(), { type: "runAction", id: "view:section" }, env), { type: "runAction", id: "sheet:move" }, env); // the plane with the mover
+const free = (): AppState => reduce(box(), { type: "runAction", id: "view:section" }, env); // the plane with its mover (the arrows, the sphere and the three panes)
 const px = (st: AppState, p: Vec3) => projector(st.cam, 800, 600).project(p);
 const click = (st: AppState, p: Vec3, shift = false): AppState => { const [x, y] = px(st, p); return reduce(st, { type: "click", x, y, count: 1, shift }, env); };
 const drag = (st: AppState, from: Vec3, to: Vec3, steps = 6): AppState => {
@@ -68,16 +68,16 @@ test("the blue orb moves the plane (the view stays), and held to the XY plane it
   assert.ok(Math.hypot(after[0] - before[0], after[1] - before[1]) > 1, "and it moved in the plane");
 });
 
-test("a click on the blue orb selects it; then a corner clicked puts the plane there, and the orb is let go", () => {
+test("a click on the blue orb selects it; then a corner clicked puts the plane there (the orb stays selected for another place), and a second click on it lets it go", () => {
   let st = free();
   st = click(st, orbAt(st));
   assert.equal(st.moverSphere, true);
-  assert.match(st.session.message ?? "", /click a corner, an edge, a face or a body/);
+  assert.match(st.session.message ?? "", /click a corner, an edge or a face to put the plane there/);
   const corner: Vec3 = [0, 0, 20]; // (a corner on the half that is drawn: the half nearer the eye is not, and cannot be pointed at)
   st = click(st, corner);
-  assert.equal(st.moverSphere, false);
+  assert.equal(st.moverSphere, true, "it stays selected for another place, as on a body");
   const c = sectionNow(st)!.centre;
   assert.ok(Math.hypot(c[0] - corner[0], c[1] - corner[1], c[2] - corner[2]) < 1e-3, `at the corner: ${c}`);
-  const again = click(click(free(), orbAt(free())), orbAt(click(free(), orbAt(free()))));
-  assert.equal(again.moverSphere, false, "a second click lets it go");
+  st = click(st, orbAt(st));
+  assert.equal(st.moverSphere, false, "a second click on it lets it go");
 });

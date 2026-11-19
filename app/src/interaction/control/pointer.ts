@@ -10,6 +10,7 @@ import { normalOfPlane, segmentOf, circleOf } from "../../operation/part.ts";
 import { lookup, nextId } from "../../operation/scene.ts";
 import { gearOfPart, gearOfSelection } from "../../operation/gearscene.ts";
 import { planetaryOfPart } from "../../operation/planetary.ts";
+import { glueOf } from "../../operation/glue.ts";
 import type { Scene } from "../../operation/scene.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { scene as sceneOf, selection as selectionOf, clickOn, hoverOn, run } from "../session.ts";
@@ -39,7 +40,7 @@ import { paneAt } from "../panes.ts";
 import type { WorldName } from "../panes.ts";
 import { isHard, isFixed } from "../hard.ts";
 import { doLook, selectedSurface } from "./viewing.ts";
-import { sectionNow, doSectionClick, placeSection } from "./section.ts";
+import { sectionNow, doSectionClick, doSectionPane, sheetPlaceAt, placeSection } from "./section.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
 import { selectedBodies } from "./bodies.ts";
 import { commitFigure, commitOp, setRepeatAxis, doApply, finishPicking, picksMany, doRunAction, instruction } from "./modal.ts";
@@ -67,10 +68,11 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:disc:parabolic", label: "Parabolic", icon: "cam", tool: "cam" },
   { id: "tool:trim", label: "Trim", icon: "scissors", tool: "trim" },
   { id: "tool:gear", label: "Spur gear", icon: "gear", tool: "gear" },
-  { id: "tool:bevel", label: "Bevel gear", icon: "bevelgear", tool: "gear" },
+  { id: "tool:bevel", label: "Bevel", icon: "bevelgear", tool: "gear" },
   { id: "tool:crown", label: "Crown gear", icon: "crowngear", tool: "gear" },
   { id: "tool:face", label: "Face gear", icon: "facegear", tool: "gear" },
-  { id: "tool:spiral", label: "Spiral hypoid", icon: "spiralbevel", tool: "gear" },
+  { id: "tool:spiral", label: "Spiral bevel", icon: "spiralbevel", tool: "gear" },
+  { id: "tool:hypoid", label: "Hypoid spiral", icon: "hypoidbevel", tool: "gear" }, // (a spiral bevel gear with the pinion's axis below the ring gear's: the spiral tool with a hypoid offset typed in, `in_1129`)
   { id: "tool:worm", label: "Worm", icon: "worm", tool: "gear" },
   { id: "tool:wormwheel", label: "Worm wheel", icon: "wormwheel", tool: "gear" },
   { id: "tool:planetary", label: "Planetary set", icon: "planetary", tool: "gear" },
@@ -92,6 +94,8 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "motion:link", label: "Link joints", icon: "play" },
   { id: "motion:pivot", label: "Pivot", icon: "play" },
   { id: "motion:unpivot", label: "Stop turning", icon: "play" },
+  { id: "motion:glue", label: "Glue", icon: "glue" }, // (bodies that move as one for motion, `in_1146`)
+  { id: "motion:unglue", label: "Unglue", icon: "glue" },
   { id: "gear:helix", label: "Helix", icon: "helical" },
   { id: "gear:mesh", label: "Mesh gear", icon: "meshgear" },
   { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack" },
@@ -113,7 +117,8 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:circular", label: "Round repeat", icon: "circular", op: "circular" },
   { id: "repeat:path", label: "Path repeat", icon: "pathrepeat" }, // (`dec_path_repeat`, `in_841`: a figure repeated along a line, a curve or an outline)
   { id: "model:gearbox", label: "Gearbox", icon: "gearbox" }, // (Shape, Fabricate, Models: a reduction gearbox, `dec_gear_models`)
-  { id: "model:bearing", label: "Bearing", icon: "bearing" }, // (a ball bearing)
+  { id: "model:ballbearing", label: "Catalogue", icon: "bearing" }, // (a bearing picked from the catalogue: simple, `in_1171`)
+  { id: "model:ownbearing", label: "Your own", icon: "bearing" }, // (a bearing of your own numbers: simple or detailed)
   { id: "model:differential", label: "Differential", icon: "differential" }, // (a bevel gear differential)
   { id: "model:cycloidal", label: "Cycloidal drive", icon: "cycloidal" }, // (a cycloidal reducer)
   { id: "fab:material", label: "Material", icon: "models" }, // (Shape, Fabricate: what a body is made of, `in_1083`; it was a row of the ⋯ list)
@@ -133,9 +138,9 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
 /** a submenu: its own icon in the ring that opens another ring of what is in it (`in_588`: every gear tool is in the Gear submenu of Sketch) */
 interface Group { id: string; label: string; icon: string; items: (string | Group)[] }
 const GEARS: Group = {
-  id: "gears", label: "Gear", icon: "gear", items: [
+  id: "gears", label: "Gears", icon: "meshgear", items: [
     "tool:gear", "tool:ring", "tool:rack", "tool:planetary",
-    "tool:bevel", "tool:spiral",
+    { id: "bevels", label: "Bevel", icon: "bevelgear", items: ["tool:bevel", "tool:spiral", "tool:hypoid"] }, // (one bevel gear in the ring: straight, spiral or hypoid spiral, `in_1129`)
     { id: "crowns", label: "Crown", icon: "crowngear", items: ["tool:crown", "tool:face"] }, // (a face gear is a crown gear with a spur pinion, `in_1030`)
     { id: "worms", label: "Worm", icon: "worm", items: ["tool:worm", "tool:wormwheel"] },
     { id: "clockgears", label: "Clock", icon: "clockgear", items: ["tool:clock", "tool:clockring", "tool:clockrack"] },
@@ -144,10 +149,13 @@ const GEARS: Group = {
     // (Edit, Helix and Mesh are not in the ring: they are on the gear's own icon, `in_771`)
   ],
 };
+/** the bearings, by type (`in_1163`): each type opens its box, where a catalogue bearing is picked or one made of numbers, simple or detailed */
+const BEARINGS_MENU: Group = { id: "bearings", label: "Bearings", icon: "bearing", items: [{ id: "deepgroove", label: "Deep groove ball", icon: "bearing", items: ["model:ballbearing", "model:ownbearing"] }] };
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
-  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", GEARS, "tool:trim", "op:offset"] },
-  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "fabricate", label: "Fabricate", icon: "hammer", items: ["fab:material", "tool:fasteners", { id: "models", label: "Models", icon: "models", items: ["tool:geneva:model", "model:gearbox", "model:bearing", "model:differential", "model:cycloidal"] }] }] },
-  { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot"] },
+  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset"] },
+  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "fabricate", label: "Fabricate", icon: "hammer", items: ["fab:material", "tool:fasteners"] }] },
+  { id: "mechanisms", label: "Models", icon: "gear", items: [GEARS, BEARINGS_MENU, "model:gearbox", "model:differential", "model:cycloidal", "tool:geneva:model"] }, // (the gears, and the devices made of them, `in_1145`; the gears were in Sketch and the devices in Shape, Fabricate, Models)
+  { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
 ];
@@ -173,7 +181,7 @@ export function settleAwaiting(s: AppState, now = 0): AppState {
   if (it.enabled) return doRunAction({ ...s, awaiting: null, session: { ...s.session, message: null } }, a.id, now);
   return { ...s, awaiting: { ...a, why: it.why ?? a.why }, session: { ...s.session, message: `${a.label}: ${instruction(it.why ?? a.why)}` } };
 }
-function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean; section: boolean; clip?: boolean; adding?: boolean; touch?: boolean } = { wireframe: false, tape: false, section: false }): AppState["menu"] {
+function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean; section: boolean; clip?: boolean; adding?: boolean; touch?: boolean; constraints?: boolean } = { wireframe: false, tape: false, section: false }): AppState["menu"] {
   const adding = !!view.adding;
   const sc = sceneOf(session);
   const sel = selectionOf(session);
@@ -182,6 +190,8 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     if (repeating && !IN_REPEAT.has(r.id)) return [r.id, { ...base, enabled: false, why: "apply or cancel the repeat that is open first" }];
     if (r.id === "motion:play") { const body = sel.find((x) => sc.parts[x]?.kind === "body"); const m = body ? startPlain(sc, body, "turn") : null; return [r.id, { ...base, enabled: !!m?.ok, why: m?.ok ? null : "select a body on a pin or a rod (the first body of a coaxial mate)" }]; }
     if (r.id === "motion:pivot") { const has = sel.some((x) => { const p = sc.parts[x]; return p?.kind === "body" || (p?.kind === "plane" && p.origin === "body" && !!(p.curved || p.round || p.rounded)); }); return [r.id, { ...base, enabled: has, why: has ? null : "select a body (and a round face of it for the axis), or open Rotate on a body and place the pivot first" }]; }
+    if (r.id === "motion:glue") { const n = sel.filter((x) => sc.parts[x]?.kind === "body").length; return [r.id, { ...base, enabled: n >= 2, why: n >= 2 ? null : "select two bodies or more to glue together" }]; }
+    if (r.id === "motion:unglue") { const has = sel.some((x) => { const b = sc.parts[x]; return b?.kind === "body" && !!b.id && !!glueOf(sc, b.id); }); return [r.id, { ...base, enabled: has, why: has ? null : "select a glued body" }]; }
     if (r.id === "motion:unpivot") { const has = sel.some((x) => !!pivotOfBody(sc, x)); return [r.id, { ...base, enabled: has, why: has ? null : "select a body that was made to turn" }]; }
     if (r.id === "motion:link") { const n = sel.filter((x) => sc.parts[x]?.kind === "body").length; return [r.id, { ...base, enabled: n === 2, why: n === 2 ? null : "select two bodies that each turn on a pin or slide on a rod" }]; }
     if (r.id === "cam:follow") { const has = sel.some((x) => sc.parts[x]?.kind === "body" && !!gearOfBody(sc, x)?.spec.cam); return [r.id, { ...base, enabled: has, why: has ? null : "select a cam with its body, then the rod that rides it" }]; }
@@ -238,6 +248,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
       { id: "view:section", label: "Section", icon: "section", enabled: true, why: null }, // (one item: a new plane, cutting; its icons change that, `in_466`)
       { id: "view:hide", label: "Hide body", icon: "eyeOff", enabled: selectedBodies(sc, sel).length > 0, why: "select a body to hide (a hidden body comes back with its eye or from the Bodies list)" }, // (the eye that hovered on a body is here now, `in_697`)
       { id: "view:wireframe", label: "Wireframe", icon: "wireframe", enabled: true, why: null },
+      { id: "view:constraints", label: view.constraints ? "Hide constraints" : "All constraints", icon: "constraint", enabled: true, why: null }, // (every constraint of the whole world, not only those of what is selected, `in_1157`)
       { id: "tape:measure", label: "Tape measure", icon: "dimension", enabled: true, why: null },
     ]),
     // the actions on what is there: undo and redo, and delete (`in_538`)
@@ -267,7 +278,7 @@ function drawingPlane(sc: Scene, refs: readonly Ref[]): Ref | null {
   return null;
 }
 
-/** What is said when the axes a drag is held to are chosen (`in_652`, `in_1127`): the same words for the orb and for a plane that is moved. */
+/** What is said when the axes a drag is held to are chosen (`in_652`, `in_1174`): the same words for the orb and for a plane that is moved. */
 function heldWords(held: readonly number[], what: string): string {
   return held.length === 0 || held.length === 3 ? `${what} moves freely` : held.length === 1 ? `${what} moves along ${"XYZ"[held[0]!]} only` : `${what} moves in the ${held.map((a) => "XYZ"[a]).join("")} plane only`;
 }
@@ -352,7 +363,7 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
   // (and the line or circle itself is not lit as a whole: only the part that would go is, in the selected blue, and nothing at all where nothing crosses; `in_206`)
   if (s.tool?.kind === "trim") next = { ...withSession(next, hoverOn(next.session, undefined)), hoverPoint: null, tool: { ...s.tool, trimming: trimUnder(sc, pv) } };
   // a circle tool still armed (no plane yet): where the centre would go, and whether it is on another circle's centre; a line or an arc: whether its first end would be on a line or a circle
-  if (s.tool && !s.tool.plane && (s.tool.kind === "circle" || s.tool.kind === "arc" || s.tool.kind === "line" || s.tool.kind === "rect" || s.tool.kind === "gear" || s.tool.kind === "cam")) {
+  if (s.tool && !s.tool.plane && (s.tool.kind === "circle" || s.tool.kind === "arc" || s.tool.kind === "line" || s.tool.kind === "rect" || s.tool.kind === "gear" || s.tool.kind === "cam" || s.tool.kind === "model")) {
     const planeRef = selectedSurface(sc, selectionOf(s.session)) ?? drawingPlane(sc, candidatesAt(sc, pv, pickOpts(s)).map((k) => k.ref)) ?? drawingPlane(sc, selectionOf(s.session));
     const pl = planeRef ? (lookup(sc)(planeRef) as Plane) : null;
     const at = pl ? snapOnPlane(sc, pv, pl) : null;
@@ -381,7 +392,7 @@ function hintFor(sc: Scene, t: Tool, pl: Plane, pv: ReturnType<ReturnType<typeof
   if (t.kind === "line") return lineHint(sc, pl, t.points[0]!, pv, raw);
   if (t.kind === "spline") return pointHint(sc, pl, pv, raw); // (each point of a spline can be on a corner or a line already drawn)
   if (t.kind === "rect") return pointHint(sc, pl, pv, raw); // (the opposite corner)
-  if (t.kind === "gear" || t.kind === "cam") return null; // (the size: the pointer's distance from the centre, or the numbers typed)
+  if (t.kind === "gear" || t.kind === "cam" || t.kind === "model") return null; // (the size: the pointer's distance from the centre, or the numbers typed)
   if (t.kind === "circle") return t.typed[0] === "" ? circleRadiusHint(sc, pl, t.points[0]!, pv, raw) : null; // (the size: a number, or a point on the edge that touches another circle, `in_296`)
   if (t.points.length < 2) return arcEndHint(sc, pl, t.points[0]!, pv, raw); // (an arc's other end: level or upright with the first, `in_381`)
   return t.typed[0] === "" ? arcBulgeHint(sc, pl, t.points[0]!, t.points[1]!, raw) : null;
@@ -487,6 +498,11 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   const hint = flat ? hintFor(sc, t, plane, pv, flat) : null;
   const at = hint ? hint.at : flat;
   if (!at) return base;
+  if (t.kind === "model" && t.points.length) {
+    // a gear assembly model (`dec_gear_models`): the first click after its middle sets the size (the pointer's distance from the middle) and the box stays open for the numbers; the next click, Enter or Create makes it
+    if (!t.sized) return { ...base, tool: { ...t, cursor: at, sized: true } };
+    return commitFigure(base, finish(sc, t));
+  }
   if (t.kind === "cam" && t.points.length) {
     // a cam, a ratchet or a Geneva drive, as a gear (`in_986`): the first click after its centre only sets the scale and the number box stays open to change the numbers; the next click, Enter or Create makes it
     if (!t.sized) return { ...base, tool: { ...t, cursor: at, sized: true } };
@@ -573,7 +589,8 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   if (!s.tool && !s.op && !s.repeat && !s.cut) {
     const top = candidatesAt(sc, projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s))[0];
     const part = top ? sc.parts[top.ref] : undefined;
-    if (part?.kind === "plane" && part.section) return doSectionClick(s, part.ref);
+    const g0 = part?.kind === "plane" && part.section && sectionNow(s) ? gizmoOf(s) : null; // (a handle of the plane's own mover on top of the plane is the handle's click, not the plane's, `in_1129`)
+    if (part?.kind === "plane" && part.section && !(g0 && hitHandle(g0, projector(s.cam, env.w, env.h).project, i.x, i.y, undefined, chosenId(s)))) return doSectionClick(s, part.ref);
   }
   // a click on a little pane turns that world plane on and looks straight at it (the same as its X Y Z button, `in_190`)
   const pane = !s.tool && !s.op ? paneUnder(s, i.x, i.y, env) : null;
@@ -599,7 +616,18 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   // the handles are dragged, so a click on one does nothing (it must not reselect what is under it)
   const g = gizmoOf(s);
   const hit0 = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y, undefined, chosenId(s)) : null;
-  const hit = hit0 && hit0.kind === "pane" && s.moverSphere ? null : hit0; // (with the orb selected a click is for what is clicked, a corner, an edge or a face to put the mover on: a pane under it does not take it, though it still takes a drag)
+  const hit = hit0 && hit0.kind === "pane" && hit0.plane && s.moverSphere ? null : hit0; // (with the orb selected a click is for what is clicked, a corner, an edge or a face to put the mover on: an in-plane pane under it does not take it, though it still takes a drag)
+  // the cross section plane's own mover (`in_1129`): a click on one of its three panes lays the plane across that axis; a click on its sphere selects it (a second lets it go), and with it selected a corner, an edge, a circle or a face clicked puts the plane there
+  if (sectionNow(s) && !s.op && !s.repeat) {
+    if (hit?.id.startsWith("pane:")) return { ...doSectionPane(base, "xyz".indexOf(hit.id[5]!) as 0 | 1 | 2), handleSel: null, gizmoHover: hit.id };
+    if (hit?.id === "pivot") return { ...base, moverSphere: !s.moverSphere, handleSel: null, gizmoHover: hit.id, session: { ...base.session, message: s.moverSphere ? null : "click a corner, an edge or a face to put the plane there (the sphere again to stop)" } };
+    if (!hit && s.moverSphere) {
+      const sec = sectionNow(s)!;
+      const top = cands.find((c) => { const q = sc.parts[c.ref]; return !!q && !(q.kind === "plane" && q.section) && q.origin !== "world"; });
+      const placed = top ? sheetPlaceAt(sc, top.ref, top.rank === 2 ? surfacePoint(pv, top.score) : null, sec.centre, sec.n) : null;
+      if (placed) return { ...placeSection(base, placed.centre, placed.n), moverSphere: true, handleSel: null };
+    }
+  }
   // the sphere at the junction of the mover (`in_416`): a click selects it, a second click lets it go; selected, a vertex, an edge or a face clicked puts the mover there
   // a figure being revolved waits for the line to turn about: a click on a straight line or an axis chooses it (`in_435`)
   if (hit && hit.id.startsWith("mir:") && hit.id !== "mir:orb" && s.op?.kind === "mirror") return { ...base, op: { ...s.op, mirrorAxis: "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2 }, handleSel: hit.id, gizmoHover: hit.id }; // (taking an arrow of the mirror chooses its plane, `in_437`)
@@ -607,15 +635,6 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   // every orb is the mover's orb (`in_440`): the move and turn, the revolve, the mirror and the two repeats; the repeat being set up is not an operation of its own state, its mover is written into it
   const orbHit = !!hit && (hit.id === "pivot" || hit.id === "rev:orb" || hit.id === "mir:orb" || hit.id === "lin:orb");
   const canOrient = !!mover && hasOrb(mover.kind) && (!s.repeat || !s.op);
-  // the blue orb of a sheet is every orb (`in_1127`): a click selects it, a second lets it go; selected, a vertex, an edge, a face or a body clicked puts the plane there (a face: lying on it)
-  const sheet = !s.op && !s.repeat ? sectionNow(s) : null;
-  if (sheet && orbHit) return s.moverSphere ? { ...base, moverSphere: false, handleSel: null, gizmoHover: hit!.id } : { ...base, moverSphere: true, handleSel: null, gizmoHover: hit!.id, session: { ...base.session, message: "the orb is selected: click a corner, an edge, a face or a body to put the plane there" } };
-  if (sheet && !hit && s.moverSphere) {
-    const at = moverPlace(sc, cands[0], pv, { kind: "revolve", pivot: sheet.centre } as unknown as Op);
-    const turned = moverTurned(sc, cands[0]);
-    const kind = cands[0] ? sc.parts[cands[0].ref] : undefined;
-    if (at) return { ...placeSection({ ...base, moverSphere: false }, at, kind?.kind === "plane" && turned ? turned[2] : kind?.kind === "line" && turned ? turned[0] : sheet.n), handleSel: null };
-  }
   // the sphere clicked again while it is selected and the mover has been turned (or was): it goes between true x, y, z and its turned axes, staying where it is (`in_419`)
   if (orbHit && s.moverSphere && canOrient && (mover!.frame || mover!.frameKept)) {
     const { frame, frameKept, ...rest } = mover!;
@@ -642,7 +661,7 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   }
   // a click on a ring of a repeat, or of the turn being set up, makes that the axis, with no drag needed (`in_206`)
   if (hit && hit.id.startsWith("rot:") && s.op?.kind === "rotate") return { ...base, op: { ...s.op, axis: "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2, typed: "" }, gizmoHover: hit.id, handleSel: hit.id };
-  // a click on a pane holds the drag to its plane, as two arrows chosen with Shift do (a second click lets it go, `in_1127`)
+  // a click on a pane holds the drag to its plane, as two arrows chosen with Shift do (a second click lets it go, `in_1174`)
   if (hit && hit.kind === "pane" && hit.plane && !s.repeat) {
     const [a, b] = hit.plane;
     const same = s.lockAxes.length === 2 && s.lockAxes.includes(a) && s.lockAxes.includes(b);
@@ -711,7 +730,8 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
   if ((onePlane || bodyFirst) && count === 2) {
     // two: the whole object (the view does not turn)
     const o = selectable[0] ? objectOf(sc, selectable[0]) : undefined;
-    return o ? withSession(base, { ...sess, click: { selection: [o], spot: sess.click.spot }, message: null }) : base;
+    const took = o ? withSession(base, { ...sess, click: { selection: [o], spot: sess.click.spot }, message: null }) : base;
+    return o && sc.parts[o]?.kind === "body" ? { ...took, consFor: o } : took; // (a double click on a body: its constraints icon is offered in the bar, `in_1160`)
   }
   if (!onePlane && bodyFirst && count >= 3) return withSession(base, { ...sess, click: { selection: [selectable[0]!], spot: sess.click.spot }, message: null }); // three on a point or a line: only that part again (the second click had taken the object)
   if (onePlane && count >= 3) {
@@ -752,7 +772,7 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: E
   }
   // what is under the point (a finger has no hover: a long press must be told what is under it the same way a right click is, or a tool chosen from the ring would not turn the view straight to the plane there, `in_283`)
   const under = i.button ? null : candidatesAt(sceneOf(s.session), projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s))[0]?.ref ?? null;
-  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape, section: !!sectionNow(s), clip: !!s.clipboard?.length, adding: s.adding, touch: i.touch }) };
+  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape, section: !!sectionNow(s), clip: !!s.clipboard?.length, adding: s.adding, touch: i.touch, constraints: s.showAllConstraints }) };
 }
 
 /**

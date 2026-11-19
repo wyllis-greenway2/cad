@@ -1877,10 +1877,11 @@ test("the cross section is a plane put in the part: the menu inserts it through 
   const eye = reduce(st, { type: "runAction", id: `sheet:visible:${sec.ref}` }, env);
   assert.equal(frame(eye).sectionPlanes[0]!.hidden, true);
   assert.equal(frame(eye).sections.length, 1, "an invisible sheet still cuts");
-  // by default the arrow along its normal; the move icon goes to the mover, then across X, Y, Z, then back to where it was
-  assert.deepEqual(gizmoOf(st)!.handles.filter((h) => h.kind !== "pane").map((h) => h.id), ["sheet:n"], "the push / pull arrow of a sheet");
-  const free = reduce(st, { type: "runAction", id: "sheet:move" }, env);
-  assert.deepEqual(gizmoOf(free)!.handles.filter((h) => h.kind !== "pane").map((h) => h.id), ["move:x", "move:y", "move:z", "rot:x", "rot:y", "rot:z", "pivot"], "the very mover a body has: arrows, rings and the sphere (`in_419`), in place of the arrow along the normal (`in_466`)");
+  // by default the mover's arrows, its sphere and its three panes; the move icon goes to the rings and back (`in_1129`)
+  assert.deepEqual(gizmoOf(st)!.handles.map((h) => h.id), ["move:x", "move:y", "move:z", "pivot", "pane:x", "pane:y", "pane:z"], "the mover a body has (`in_419`), with the three panes of the plane");
+  const rings = reduce(st, { type: "runAction", id: "sheet:move" }, env);
+  assert.deepEqual(gizmoOf(rings)!.handles.map((h) => h.id), ["rot:x", "rot:y", "rot:z", "pivot", "pane:x", "pane:y", "pane:z"]);
+  const free = st;
   // an arrow along its own axis moves it, as one step
   const k = sec.n.findIndex((v) => Math.abs(v) > 0.5);
   const [, tip] = gizmoOf(free)!.handles.find((h) => h.id === `move:${"xyz"[k]}`)!.points;
@@ -1931,17 +1932,16 @@ test("what the cross section cuts away cannot be picked: a corner on the cut sid
 test("numbers typed for the cross section: where it is along each axis while the arrows move it, the angle about each axis while the rings turn it (`in_395`)", () => {
   let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
   assert.equal(frame(st).entries.length, 0, "no bubble until an arrow or ring is chosen, as for a body");
-  const along = { ...st, handleSel: "sheet:n" }; // (the sheet's own arrow: how far along its normal the plane stands)
-  assert.equal(frame(along).entries.length, 1);
   const k0 = sectionNow(st)!.n.findIndex((v) => Math.abs(v) > 0.5);
-  const typedAlong = reduce(along, { type: "entry", field: 6, text: "7" }, env);
+  const along = { ...st, handleSel: `move:${"xyz"[k0]}` }; // (the arrow along the plane's normal: how far along it the plane stands; the sheet's own arrow is only there when it is turned off the axes, `in_1129`)
+  assert.equal(frame(along).entries.length, 1);
+  const typedAlong = reduce(along, { type: "entry", field: k0, text: "7" }, env);
   near(Math.abs(sectionNow(typedAlong)!.centre[k0]!), 7, 1e-6);
-  st = reduce(st, { type: "runAction", id: "sheet:move" }, env); // (the move icon: the mover's arrows and rings)
-  st = { ...st, handleSel: "move:y" };
+  st = { ...st, handleSel: "move:y" }; // (the mover's arrows are up by default, the move icon goes to the rings, `in_1129`)
   assert.equal(frame(st).entries.length, 1, "only the chosen arrow's bubble");
   st = reduce(st, { type: "entry", field: 1, text: "12.5" }, env);
   near(sectionNow(st)!.centre[1], 12.5, 1e-6);
-  st = { ...st, handleSel: "rot:x" };
+  st = { ...reduce(st, { type: "runAction", id: "sheet:move" }, env), handleSel: "rot:x" };
   assert.deepEqual(frame(st).entries.map((e) => e.fields[0]!.index), [3], "only the chosen ring's bubble");
   const k = sectionNow(st)!.n.findIndex((v) => Math.abs(v) > 0.5);
   const other = (k + 1) % 3;
@@ -2146,7 +2146,7 @@ test("the mover's place can be typed: with the sphere selected its x, y and z ar
   const chosen = { ...st, handleSel: "piv:x" };
   assert.equal(frame(chosen).entries.length, 1, "the value of the arrow that was clicked");
   const moved = { ...st, orbMovedAt: 0 };
-  assert.equal(frameOf(moved, { w: 800, h: 600 }, 100).entries.length, 0, "the whole orb moved with no axis chosen: no number (`in_1127`)");
+  assert.equal(frameOf(moved, { w: 800, h: 600 }, 100).entries.length, 0, "the whole orb moved with no axis chosen: no number (`in_1174`)");
   assert.equal(frameOf({ ...moved, lockAxes: [0, 1, 2] }, { w: 800, h: 600 }, 100).entries.length, 3, "the axes chosen: one on each arrow of the sphere");
   st = reduce(st, { type: "entry", field: 0, text: "40" }, env);
   st = reduce(st, { type: "entry", field: 1, text: "20" }, env);
@@ -2235,7 +2235,7 @@ test("in the orient mode each of the three bubbles has the mover's position alon
   st = reduce(st, { type: "begin", name: "move" }, env);
   const [bx, by] = px(st, gizmoOf(st)!.centre);
   st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
-  assert.equal(frameOf({ ...st, orbMovedAt: 0 }, { w: 800, h: 600 }, 100).entries.length, 0, "the whole orb just moved with no axis chosen: no number (`in_1127`)");
+  assert.equal(frameOf({ ...st, orbMovedAt: 0 }, { w: 800, h: 600 }, 100).entries.length, 0, "the whole orb just moved with no axis chosen: no number (`in_1174`)");
   const es = frameOf({ ...st, lockAxes: [0, 1, 2], orbMovedAt: 0 }, { w: 800, h: 600 }, 100).entries; // (the axes chosen: theirs show)
   assert.equal(es.length, 3);
   assert.equal(frameOf({ ...st, lockAxes: [2], orbMovedAt: 0 }, { w: 800, h: 600 }, 100).entries.length, 1, "one axis chosen: its number alone");

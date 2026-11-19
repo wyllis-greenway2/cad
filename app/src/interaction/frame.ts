@@ -1,6 +1,6 @@
 // What to draw for the current state: one plain description the view, the chip, the badges and the controls draw from. All the decisions about what is shown
 // (the big axes or the compass, which plane's grid, whether badges give way to a tool or operation) are made here, so the UI only draws.
-import { canFix } from "./fixmotion.ts";
+import { fixOffered } from "./fixmotion.ts";
 import { cutParts, cutStep } from "./cut.ts";
 import { pieceMiddle } from "../operation/trim.ts";
 import type { Ref } from "../shared/ref.ts";
@@ -72,11 +72,14 @@ import type { Toolpath } from "../manufacturing/index.ts";
 let lastPreview: { tp: Toolpath; at: number; view: ToolpathView } | null = null;
 const previewView = (tp: Toolpath, at: number): ToolpathView => (lastPreview && lastPreview.tp === tp && lastPreview.at === at ? lastPreview.view : (lastPreview = { tp, at, view: viewOf(tp, at) }).view);
 import type { Grid } from "./grid.ts";
-import { annotationsFor, annotationsOf, focusParts } from "./annotations.ts";
+import { annotationsFor, annotationsOf, annotationsOfBodies, focusParts } from "./annotations.ts";
 import { suggestionsFor } from "./suggest.ts";
+import { barOf } from "./bar.ts";
+import type { Bar, BarFacts } from "./bar.ts";
 import type { Suggestions } from "./suggest.ts";
 import type { Annotation } from "./annotations.ts";
-import { sectionQuad, sectionNow, cutsNow, modeOf, sheetMoveOf } from "./control/section.ts";
+import { sectionQuad, sectionNow, cutsNow, modeOf, sheetMoveOf, activePane } from "./control/section.ts";
+import { buildingText } from "./modeltool.ts";
 import { inUnits, entryOf, revolveEntries, loftEntries, previewFor, repeatEntries, moveEntries, moverPlaceEntries, mirrorEntries, scaleEntries, sectionEntries } from "./entry.ts";
 import { helperOf } from "./pattern.ts";
 import type { Entry } from "./entry.ts";
@@ -91,7 +94,7 @@ import { partIndex } from "../operation/partindex.ts";
 import type { StandIn } from "./standin.ts";
 
 /** A refused change, while it flashes: how far through it is (0 to 1), the constraints it would have broken (red, fading), the ones that tried (they shake), and the parts of the broken ones. */
-export interface FlashFrame { t: number; victims: string[]; culprits: string[]; parts: Ref[]; /** constraints that already held when asked for again: green, fading (`in_1103`) */ green?: string[]; greenParts?: Ref[] }
+export interface FlashFrame { t: number; victims: string[]; culprits: string[]; parts: Ref[]; /** constraints that already held when asked for again: green, fading (`in_1103`) */ green?: string[]; greenParts?: Ref[]; /** constraints that went with a deleted part: their bubbles pop (`in_1168`) */ popped?: string[]; ghosts?: Annotation[] }
 
 const animatedMemo = new WeakMap<Scene, Map<Ref, Ref>>();
 /** The bodies hooked up to an animation (`gearcouple.ts`), worked out once for each scene. */
@@ -141,9 +144,11 @@ export interface Frame {
   /** the triangles of the places too thin to print, marked in the picture while the Measure tab is open (`in_626`) */
   thin: number[] | null;
   /** the eye on each body (`dec_hidden_bodies`): its box's corners and whether it is hidden; `eyesQuiet`: a tool or an operation is in use, so the eyes of shown bodies stay away */
-  bodyEyes: { ref: string; hidden: boolean; corners: Vec3[]; /** the body is selected (or a face of it): its play button is shown, not only when the pointer is over it (`in_962`) */ selected?: true; /** a body hooked up to an animation has a play button (pause while it plays) beside its eye */ play?: "play" | "pause" }[];
+  bodyEyes: { ref: string; hidden: boolean; corners: Vec3[]; /** the body is selected (or a face of it): its play button is shown, not only when the pointer is over it (`in_962`) */ selected?: true; /** a body hooked up to an animation has a play button (pause while it plays) beside its eye */ play?: "play" | "pause"; /** the body is selected (or a face of it): its constraints icon is shown (`in_1157`) */ chosen?: true; /** the constraints of this body are all shown */ cons?: true }[];
   eyesQuiet: boolean;
   /** the gear's own icon (`in_693`): a gear is selected (its sketch or its body): where it stands (the top of the gear) and what it offers */
+  /** the helpful bar: the icons of what is selected, to the left of the suggested constraints (`in_1166`) */
+  bar: Bar | null;
   gearChip: { /** the part of the gear the icon is for (what is selected or pointed at) */ part: Ref; at: Vec3; items: { id: string; label: string; icon: string; enabled: boolean; why: string | null }[] } | null;
   /** the bodies that move with the one being dragged, each by its own matrix, as its mates take them along (`in_341`) */
   followers: { matrix: number[]; split: NonNullable<Frame["bodySplit"]> }[];
@@ -195,7 +200,7 @@ export interface Frame {
   wireframe: boolean;
   /** the cross section plane (`in_392`) and, while it is being chosen, the three planes offered */
   /** every cross section plane in the part, faint when it is not selected (`in_396`) */
-  sectionPlanes: { ref: Ref; /** a guide drawn for a tool (the mirror's plane), not a sheet: no icons */ guide?: true; selected: boolean; cutting: boolean; /** the mode of its icon (`in_459`): 0 cuts the half its normal points to, 1 the other half, 2 no cut, 3 invisible */ mode: 0 | 1 | 2; /** invisible: it cannot be pointed at (`in_466`) */ hidden: boolean; /** the state of its move icon, for the one that is selected */ move: 0 | 1 | 2 | 3 | 4; corners: Vec3[] }[];
+  sectionPlanes: { ref: Ref; /** a guide drawn for a tool (the mirror's plane), not a sheet: no icons */ guide?: true; selected: boolean; cutting: boolean; /** the mode of its icon (`in_459`): 0 cuts the half its normal points to, 1 the other half, 2 no cut, 3 invisible */ mode: 0 | 1 | 2; /** invisible: it cannot be pointed at (`in_466`) */ hidden: boolean; /** the state of its move icon, for the one that is selected */ move: 0 | 1; corners: Vec3[] }[];
   /** the sheets that are cutting the view (`in_416`, any number: `in_459`); the normal points to the half cut away */
   sections: { at: Vec3; n: Vec3; corners: Vec3[] }[];
   /** the constraints that could be put on the selected parts, as buttons by them (`in_195`) */
@@ -221,11 +226,11 @@ export interface Frame {
   toolpath: ToolpathView | null;
   previewBar: { at: number; label: string } | null;
   /** the bar of a joint that is played or scrubbed: where it stands, its range, what it does and whether it is playing (`dec_mechanism_motion`) */
-  motionBar: { amount: number; lo: number; hi: number; kind: "turn" | "slide"; playing: boolean; reversed: boolean; /** the bodies that yield by contact whose joint can have a rest (a pivot, a coaxial mate): the body, and where it goes back to (degrees), or null: it stays where it was pushed (`in_1020`) */ springs: { ref: string; name: string; rest: number | null }[]; label: string; /** what is to be said about the motion (a jam, a heavy push): in a place of its own above the bar, so its length never changes the bar */ note: string | null; /** the links of the joint played: the ratio, as seen from it, and what the other end does */ links: { id: string; ratio: number; kind: "turn" | "slide" }[]; /** the offer to replace the push by joints (`in_1122`): shown when a body with no joint has been pushed; while the walk is open, the joint offered now and how far through it is */ fix: { offer: boolean; step: { text: string; n: number; of: number; how: string } | null } } | null;
+  motionBar: { amount: number; lo: number; hi: number; kind: "turn" | "slide"; playing: boolean; reversed: boolean; /** the bodies that yield by contact whose joint can have a rest (a pivot, a coaxial mate): the body, and where it goes back to (degrees), or null: it stays where it was pushed (`in_1020`) */ springs: { ref: string; name: string; rest: number | null }[]; label: string; /** what is to be said about the motion (a jam, a heavy push): in a place of its own above the bar, so its length never changes the bar */ note: string | null; /** the speed as a multiple of what the motion began at (`in_1169`) */ speedK: number; /** the links of the joint played: the ratio, as seen from it, and what the other end does */ links: { id: string; ratio: number; kind: "turn" | "slide" }[]; /** the offer to replace the push by joints (`in_1122`): shown when a body with no joint has been pushed; while the walk is open, the joint offered now and how far through it is */ fix: { offer: boolean; step: { text: string; n: number; of: number; how: string } | null } } | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
   modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate" | "linear" | "circular" | "invert"; label: string } | null;
   /** the sketching tool that is on, for the pill at the top (`in_193`) */
-  tool: { kind: "rect" | "circle" | "line" | "arc" | "spline" | "cam" | "trim" | "gear"; label: string; /** figures made while it has been on (the chip flashes at each) */ made: number; /** a figure is half drawn (the chip's cross then cancels it) */ drawing: boolean; /** something is made and nothing is half drawn: the chip shows a check that puts the tool away, in place of the cross (`in_283`) */ done: boolean } | null;
+  tool: { kind: "rect" | "circle" | "line" | "arc" | "spline" | "cam" | "trim" | "gear" | "model"; label: string; /** figures made while it has been on (the chip flashes at each) */ made: number; /** a figure is half drawn (the chip's cross then cancels it) */ drawing: boolean; /** something is made and nothing is half drawn: the chip shows a check that puts the tool away, in place of the cross (`in_283`) */ done: boolean } | null;
   /** a repeat or an operation that is open: the tick (Enter, a right click) and the cross (Esc) are shown for it (`in_244`) */
   confirm: { kind: string; label: string; /** words shown in the bubble beside the buttons */ text?: string } | null;
   /** a cut of bodies being set up: the parts they make, with where the control of each stands and whether it is kept; and whether what is kept is joined (`in_294`) */
@@ -477,6 +482,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
   const hardWhy = noteOp && !gpu && sceneOf(s.session).hard?.length ? hardNote(sceneOf(s.session), noteOp) : null; // (what a repeat, a mirror or a pull that is open runs into, `in_475`)
   const flash: FlashFrame | null = hardWhy?.hit.length ? { t: 0, victims: [], culprits: [], parts: hardWhy.hit } : gpu?.hardHit?.length ? { t: 0, victims: [], culprits: [], parts: gpu.hardHit } : gpu?.blocked?.length ? { t: 0, victims: gpu.blocked, culprits: [], parts: flashParts(sc, gpu.blocked) } : flashOf(s, sc, now);
   const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the constraints
+  const suggest = busy || s.motion?.fix ? null : suggestionsFor(sc, sel, nearTolMm(s.cam), seenIn(s.cam, sc, size));
   const gp = gridPlaneOf(s);
   const annotationsPresent = !busy; // (the bubbles are the only user of `avoid`: none are shown while a tool or operation runs)
   return {
@@ -490,18 +496,19 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     thin: s.panel === "measure" && !outcome.kernel?.stale ? thinPlacesOf(sc, sel) : s.motion?.contact?.jam && s.motion.contact.clash?.length ? s.motion.contact.clash : null, // (the places where bodies are in each other when a motion has stopped: in the red of the thin places)
     bodyEyes: index.bodies.flatMap((p) => { if (!p.bbox) return []; const [lo, hi] = [p.bbox.min, p.bbox.max]; const corners: Vec3[] = []; for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) corners.push([x, y, z]); const drives = animated(sc).get(p.ref); const m = s.motion; return [{ ref: p.ref, hidden: !!sc.hiddenBodies?.includes(p.ref), corners, ...(drives && selBodies.has(p.ref) ? { selected: true as const } : {}), ...(drives ? { play: m && m.body === drives && m.playing ? "pause" as const : "play" as const } : {}) }]; }),
     eyesQuiet: true, // (a body that is shown has no eye of its own now: Hide body is in the View menu, `in_697`; a hidden body keeps its eye)
+    bar: busy || s.drag || s.repeat ? null : barOf(barFacts(s, sc, selBodies, index, gearChipOf(sc, sel)), suggest ? suggest.at : null),
     gearChip: s.tool || s.op || s.drag || s.repeat ? null : gearChipOf(sc, sel), // (the gear's icon is there when the gear is selected, not when the pointer is over it, `in_962`)
     followers: gpu?.followers ?? [],
     selectionMatrix: s.motion ? selectionMatrixOf(s.motion, selBodies) : null,
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
     highlight: { bodyTris: bodyTrisOf(sc, s.session.outcome, [s.session.hover, ...sel]), hover: s.motion ? undefined : s.session.hover, /* (a visible sheet lights the blue hover disc as every surface does, `in_470`) */ hoverPoint: s.motion ? null : s.hoverPoint, selection: s.moverSphere ? [] : [...sel.filter((r) => !isSectionPlane(sc, r)), ...(s.op?.twoDist ? [chosenFace(sceneOf(s.op.made ? undone(s.session) : s.session), s.op)?.ref].filter((r): r is Ref => !!r) : [])], /* (the face the first distance is along is lit like a selected face, `dec_chamfer_two_distances`) */ /* (the object is not what is selected while the mover is oriented: it is only drawn as wireframe, `in_421`) */ // (a cross section plane is drawn by its own faint quad, not lit like a face, `in_396`)
-    amber: [...new Set([...(s.op?.kind === "loft" ? loftStarts(sceneOf(s.session), s.op) : []), ...(s.op?.kind === "sweep" ? sweepStart(sceneOf(s.session), s.op) : []), ...focusParts(sc, sel, s.focus), ...variableStart(sceneOf(s.op?.made ? undone(s.session) : s.session), s.op), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, green: { refs: flash?.greenParts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
+    amber: [...new Set([...(s.op?.kind === "loft" ? loftStarts(sceneOf(s.session), s.op) : []), ...(s.op?.kind === "sweep" ? sweepStart(sceneOf(s.session), s.op) : []), ...focusParts(sc, s.focus), ...variableStart(sceneOf(s.op?.made ? undone(s.session) : s.session), s.op), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, green: { refs: flash?.greenParts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
     preview: withGhost(previewFor(sc, s.tool), s), // (the picture itself moves now: the thin rings that stood in for it are not needed)
     entry: inUnits(movingOp || (shownOp && !s.tool && hasGizmo(shownOp.kind) && !numberShown) ? null : entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp)),
     entries: (s.moverSphere && moverOp(s) && !s.tool && gizmo ? moverPlaceEntries(gizmo, moverOp(s)!.frame, orbShow(s, now), s.lockAxes) : sectionNow(s) && !s.op && !s.repeat && !s.tool && gizmo ? sectionEntries({ at: sectionNow(s)!.centre, n: sectionNow(s)!.n }, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel) : shownOp?.kind === "revolve" && !s.tool ? revolveEntries(shownOp, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel) : shownOp?.kind === "loft" && !s.tool ? loftEntries(sceneOf(s.session), shownOp) : shownOp?.kind === "mirror" ? mirrorEntries(shownOp, gizmo)  : shownOp?.kind === "scale" && shownOp.axes ? scaleEntries(shownOp, gizmo) : s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp && numberShown ? moveEntries(s.handleSel?.startsWith("move:") ? { ...movingOp, axis: "xyz".indexOf(s.handleSel[5]!) as 0 | 1 | 2 } : movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp), s.lockAxes) : []).map((e) => inUnits(e)),
     helper: helperAt(s, gizmo),
-    busy: !!s.session.outcome.kernel?.stale,
-    ...(s.session.outcome.kernel?.partial ? { busyText: `Building ${s.session.outcome.kernel.partial.done} of ${s.session.outcome.kernel.partial.total} parts…` } : {}),
+    busy: !!s.session.outcome.kernel?.stale || !!s.building,
+    ...(s.building ? { busyText: buildingText(s.building) } : s.session.outcome.kernel?.partial ? { busyText: `Building ${s.session.outcome.kernel.partial.done} of ${s.session.outcome.kernel.partial.total} parts…` } : {}),
     standIns: standIns(sc, outcome.kernel),
     lookHint: lookOf(sc, sel, s.cam, s.world).lookHint,
     facing: facingOf(s.cam),
@@ -511,14 +518,14 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     avoid: busy || !annotationsPresent ? { segs: [], pts: [] } : avoidOf(sc),
     hint: s.tool?.hints?.length && s.tool.cursor ? { kinds: s.tool.hints.map((h) => h.kind), at: s.tool.cursor } : s.dragHint ? { kinds: s.dragHint.hints.map((h) => h.kind), at: s.dragHint.at } : null,
     panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors, s.showSketch, s.session.history, s.stepEdit),
-    annotations: busy ? withFlashed([], sc, flash?.t === 0 && gpu?.blocked?.length ? flash : null) : [...withFlashed(annotationsFor(sc, sel, s.focus, s.showAllConstraints || !!s.showSketch), sc, flash), ...(s.tape ? tapeAnnotations(sc, sel) : [])],
+    annotations: busy ? withFlashed([], sc, flash?.t === 0 && gpu?.blocked?.length ? flash : null) : [...withFlashed(shownConstraints(s, sc, sel), sc, flash), ...(s.tape ? tapeAnnotations(sc, sel) : [])],
     flash,
     refusal: flash && (s.flash?.victims.length || s.flash?.soften?.length) ? { text: s.session.message ?? "", beside: s.flash.victims[0] ?? s.flash.soften![0]!, button: `${(s.flash.victims.length + (s.flash.soften?.length ?? 0)) === 1 ? "Delete constraint" : "Delete constraints"}${s.flash.retry ? " to proceed" : ""}` } : null, // (`inv_constraint_uniformity`: a constraint that is violated always flashes and always offers to be deleted: with the change that was refused to go on with, or alone when the change stays)
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // on: the world plane that is on always has its grid (`in_190`)
-    suggest: busy ? null : suggestionsFor(sc, sel, nearTolMm(s.cam), seenIn(s.cam, sc, size)),
+    suggest,
     cut: s.cut ? { parts: cutParts(sceneOf(s.session), s.cut), join: s.cut.join } : null, // (the bodies as they are, not as the preview of the cut shows them)
     confirm: s.awaiting && !s.op && !s.tool && !s.repeat ? { kind: s.awaiting.icon, label: s.awaiting.label, text: s.awaiting.why.charAt(0).toUpperCase() + s.awaiting.why.slice(1) } : s.picking && !s.op && !s.tool && !s.repeat ? { kind: s.picking.kind, label: OPEN_LABELS[s.picking.kind] ?? s.picking.kind, text: s.picking.why ? s.picking.why.charAt(0).toUpperCase() + s.picking.why.slice(1) : "Click what it needs" } : s.moverSphere && moverOp(s) && !s.tool ? { kind: "orient", label: "Orient the mover", text: "Orient the mover" } : s.cut ? { kind: "subtract", label: "Cut" } : s.tool ? null : s.repeat && !s.op ? { kind: s.repeat.op.kind, label: OPEN_LABELS[s.repeat.op.kind] ?? s.repeat.op.kind } : s.op && s.op.kind !== "dimension" ? { kind: s.op.kind, label: OPEN_LABELS[s.op.kind] ?? s.op.kind } : !s.op && !s.picking && !s.repeat && !s.cut && similarOf(s) ? { kind: "similar", label: "Select similar", text: `${similarOf(s)!.count} similar ${similarOf(s)!.noun}${similarOf(s)!.count === 1 ? "" : "s"}` } : null,
-    tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve", spline: "Spline", cam: "Cam", trim: "Trim", gear: "Gear" } as const)[s.tool.kind], made: s.tool.made ?? 0, drawing: s.tool.points.length > 0, done: (s.tool.made ?? 0) > 0 && s.tool.points.length === 0 } : null,
+    tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", line: "Line", arc: "Curve", spline: "Spline", cam: "Cam", trim: "Trim", gear: "Gear", model: "Model" } as const)[s.tool.kind], made: s.tool.made ?? 0, drawing: s.tool.points.length > 0, done: (s.tool.made ?? 0) > 0 && s.tool.points.length === 0 } : null,
     wireframe: s.wireframe || (s.moverSphere && !!moverOp(s)) || s.op?.kind === "revolve" || s.op?.kind === "mirror" || s.op?.kind === "sweep" || s.op?.kind === "loft" || ((s.picking?.kind === "sweep" || s.picking?.kind === "loft") && !!pickingOp(s)) /* (what a sweep would make is drawn as wireframe, not as a made body, `in_529`, `in_530`) */ || /* the object goes wireframe while the mover itself is oriented, `in_421` */ (s.op?.kind === "hollow" && !!s.drag && "handle" in s.drag), // (the body fades to wireframe while the wall is pulled, so the wall can be seen, `in_394`)
     sections: cutsNow(s).map((c) => ({ at: c.centre, n: c.n, corners: sectionQuad(c.centre, c.n, c.extent) })),
     sectionPlanes: [...index.sections.filter((p) => p.extent !== undefined).map((p) => { const pl = p; return { ref: pl.ref, selected: sectionNow(s)?.ref === pl.ref, cutting: !!pl.cut, mode: modeOf(pl), hidden: !!pl.hidden, move: sheetMoveOf(s, pl.ref), corners: s.sectionLive && s.sectionLive.ref === pl.ref ? sectionQuad(s.sectionLive.centre, s.sectionLive.n, pl.extent!) : [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, k]) => add(add(pl.at, scale(pl.u, a! * pl.extent!)), scale(pl.v, k! * pl.extent!)) as Vec3) }; }), ...mirrorGuide(s)],
@@ -535,10 +542,10 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
       return [{ ref: p.ref, at: [at[0] + sh[0], at[1] + sh[1], at[2] + sh[2]] as Vec3, ...over, ...(bump ? { bumps: bump.names } : {}) }];
     }) : [],
     panes: s.cam.straight || s.worldHidden ? [] : WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
-    gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : undefined, /* (only the orient mode pulses, and the revolve's orb that is ready to be oriented; the mirror's and the copies' orbs do not, `in_439`) */ hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "revolve" && !s.moverSphere ? `rev:turn:${"xyz"[s.op.axis]}` : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
+    gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : undefined, /* (only the orient mode pulses, and the revolve's orb that is ready to be oriented; the mirror's and the copies' orbs do not, `in_439`) */ hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "revolve" && !s.moverSphere ? `rev:turn:${"xyz"[s.op.axis]}` : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : [...s.lockAxes.map((k) => `move:${"xyz"[k]}`), ...(activePane(s) ? [activePane(s)!] : [])] } : null,
     similar: similarOf(s),
     toolpath: s.preview ? previewView(s.preview.toolpath, s.preview.at) : null,
-    motionBar: s.motion ? { amount: shownAmount(s.motion), lo: s.motion.lo, hi: s.motion.hi, kind: s.motion.kind, playing: s.motion.playing, reversed: s.motion.speed < 0, springs: springsOf(sc, s.motion), links: s.motion.mate ? linksOf(sc, s.motion.mate, s.motion.kind).map((l) => ({ id: l.id, ratio: l.k, kind: l.kind })) : [], label: `${s.motion.kind === "turn" ? "turned" : "slid"} ${steadyNumber(shownAmount(s.motion))}${s.motion.kind === "turn" ? "°" : " mm"}`, note: motionNote(s.motion), fix: { offer: canFix(s.motion), step: s.motion.fix ? (() => { const f = s.motion.fix!.plan.fixes[s.motion.fix!.i]; return f ? { text: f.text, n: s.motion.fix!.i + 1, of: s.motion.fix!.plan.fixes.length, how: f.how } : null; })() : null } } : null,
+    motionBar: s.motion ? { amount: shownAmount(s.motion), lo: s.motion.lo, hi: s.motion.hi, kind: s.motion.kind, playing: s.motion.playing, speedK: s.motion.speedK ?? 1, reversed: s.motion.speed < 0, springs: springsOf(sc, s.motion), links: s.motion.mate ? linksOf(sc, s.motion.mate, s.motion.kind).map((l) => ({ id: l.id, ratio: l.k, kind: l.kind })) : [], label: `${s.motion.kind === "turn" ? "turned" : "slid"} ${steadyNumber(shownAmount(s.motion))}${s.motion.kind === "turn" ? "°" : " mm"}`, note: motionNote(s.motion), fix: { offer: !s.motion.fix && fixOffered(sceneOf(s.session), s.session.outcome, s.motion), step: s.motion.fix ? (() => { const f = s.motion.fix!.plan.fixes[s.motion.fix!.i]; return f ? { text: f.text, n: s.motion.fix!.i + 1, of: s.motion.fix!.plan.fixes.length, how: f.how } : null; })() : null } } : null,
     previewBar: s.preview ? { at: s.preview.at, label: `${Math.round(s.preview.at * 100)}%${s.preview.toolpath.seconds ? ` of ~${s.preview.toolpath.seconds < 90 ? Math.round(s.preview.toolpath.seconds) + " s" : Math.round(s.preview.toolpath.seconds / 6) / 10 + " min"}` : ""}` } : null,
     adding: s.adding ? "on" : null,
     resetView: !s.anim && !s.tool && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
@@ -558,10 +565,27 @@ function temporaryParts(now: Scene, shown: Scene): Ref[] {
   return Object.values(shown.parts).filter((p) => p.origin === "drawn" && !now.parts[p.ref] && !(p.kind === "corner" && p.derived) && !(p.kind === "line" && p.derived) && (p.kind === "line" || p.kind === "circle" || p.kind === "corner")).map((p) => p.ref);
 }
 const OPEN_LABELS: Record<string, string> = { linear: "Linear repeat", circular: "Circular repeat", copy: "Copy", move: "Move", rotate: "Rotate", scale: "Scale", pushpull: "Push / pull", extrude: "Extrude", loft: "Loft", mirror: "Mirror copy", edge: "Fillet / chamfer", offset: "Offset" };
+/** The constraints on the screen: those of what is selected, those of the bodies whose icon is on, or every one of the world (`in_1157`); each shown once. */
+function shownConstraints(s: AppState, sc: Scene, sel: readonly Ref[]): Annotation[] {
+  const own = annotationsFor(sc, sel, s.focus, s.showAllConstraints || !!s.showSketch);
+  const more = s.showAllConstraints ? annotationsOfBodies(sc, null, s.focus) : s.bodyConstraints.length ? annotationsOfBodies(sc, s.bodyConstraints, s.focus) : [];
+  if (!more.length) return own;
+  const have = new Set(own.map((a) => a.id));
+  return [...own, ...more.filter((a) => !have.has(a.id))];
+}
+/** The facts the bar is made from (`bar.ts`). */
+function barFacts(s: AppState, sc: Scene, selBodies: ReadonlySet<Ref>, index: ReturnType<typeof partIndex>, gear: Frame["gearChip"]): BarFacts {
+  const bodies = index.bodies.filter((p) => selBodies.has(p.ref) && p.bbox).map((p) => ({ ref: p.ref, top: [(p.bbox!.min[0] + p.bbox!.max[0]) / 2, (p.bbox!.min[1] + p.bbox!.max[1]) / 2, p.bbox!.max[2]] as Vec3 }));
+  const drives = bodies.length === 1 ? animated(sc).get(bodies[0]!.ref) : undefined;
+  const sec = sectionNow(s);
+  const sh = sec ? sc.parts[sec.ref] : undefined;
+  const sheet = sec && sh?.kind === "plane" && sh.extent !== undefined ? { ref: sec.ref, mode: modeOf(sh), hidden: !!sh.hidden, move: sheetMoveOf(s, sec.ref), corner: sh.at } : null;
+  return { bodies: sheet ? [] : bodies, play: drives ? { body: bodies[0]!.ref, playing: !!s.motion && s.motion.body === drives && s.motion.playing } : null, consFor: s.consFor, consOn: s.bodyConstraints, sheet, gear: gear ? { part: gear.part, at: gear.at, items: gear.items } : null };
+}
 const withFlashed = (list: Annotation[], sc: Scene, flash: FlashFrame | null): Annotation[] => {
   if (!flash) return list;
   const have = new Set(list.map((a) => a.id));
-  return [...list, ...annotationsOf(sc, [...new Set([...flash.victims, ...flash.culprits, ...(flash.green ?? [])])]).filter((a) => !have.has(a.id))];
+  return [...list, ...annotationsOf(sc, [...new Set([...flash.victims, ...flash.culprits, ...(flash.green ?? [])])]).filter((a) => !have.has(a.id)), ...(flash.ghosts ?? []).filter((a) => !have.has(a.id))]; // (a bubble that pops is of a constraint that is gone: shown as it was)
 };
 /** The small plane drawn for the mirror's chosen arrow (`in_437`): a square across that axis where the plane stands, a little bigger than what is mirrored. */
 function mirrorGuide(s: AppState): Frame["sectionPlanes"] {
@@ -610,7 +634,7 @@ function flashOf(s: AppState, sc: Scene, now: number): FlashFrame | null {
   const t = (now - s.flash.at) / settings.flash.ms;
   if (t < 0 || t >= 1) return null;
   const parts = [...flashParts(sc, s.flash.victims), ...((s.flash.parts ?? []) as Ref[])];
-  return { t, victims: s.flash.victims, culprits: s.flash.culprits, parts, ...(s.flash.green?.length ? { green: s.flash.green, greenParts: flashParts(sc, s.flash.green) } : {}) };
+  return { t, victims: s.flash.victims, culprits: s.flash.culprits, parts, ...(s.flash.green?.length ? { green: s.flash.green, greenParts: flashParts(sc, s.flash.green) } : {}), ...(s.flash.popped?.length ? { popped: s.flash.popped, ghosts: s.flash.ghosts ?? [] } : {}) };
 }
 
 /** Where the value bubble sits: at the tip of the arrow for a push / pull or an extrude and at the edge for a fillet or chamfer (so it is by what it sets), else at the middle of the handles, or by the figure being drawn. */
@@ -700,15 +724,12 @@ function withGhost(base: Preview | null, s: AppState): Preview | null {
 /** What is said about a motion above its bar: a jam (and the pin in a hole that would let a body turn, if there is one), a heavy push, or the pin in a hole when a body with no joint has been moved a good way by the play. */
 function motionNote(m: NonNullable<AppState["motion"]>): string | null {
   const c = m.contact;
-  if (!c) return null;
-  if (c.jam) return `stopped: ${c.jam}${c.tip ? `. ${c.tip}` : ""}`;
-  if (c.note) return c.note;
-  return c.tip && c.pushables.some((p) => p.free && (Math.hypot(...p.free) > 2 || Math.abs(p.spin ?? 0) > 5)) ? c.tip : null;
+  return c?.jam ? `stopped: ${c.jam}` : null; // (only a stop is said here; a heavy push or a pin in a hole is not: the Fix constraints offer is the sign, and its walk has the detail, `in_1131`)
 }
 
 /** The plane a sketch tool is on (the tool's, else the one selected) with its normal turned toward the camera, from wherever the camera is: what is past it is not what is being worked on. */
 function behindPlaneOf(s: AppState): Frame["behindPlane"] {
-  if (!s.tool || s.tool.kind === "trim" || s.tool.kind === "gear" || s.tool.kind === "cam" || s.sectionLive || s.cut) return null;
+  if (!s.tool || s.tool.kind === "trim" || s.tool.kind === "gear" || s.tool.kind === "cam" || s.tool.kind === "model" || s.sectionLive || s.cut) return null;
   const sc = sceneOf(s.session);
   const ref = s.tool.plane ?? selectedSurface(sc, selectionOf(s.session));
   const pl = ref ? sc.parts[ref] : undefined;
@@ -823,12 +844,13 @@ function gearChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
   const plain = canHelix(rec.spec);
   const worm = !!rec.spec.worm || !!rec.spec.wheel;
   const bevel = !!rec.spec.bevel;
+  const belt = !!rec.spec.pulley || !!rec.spec.sprocket;
   if (planetaryOfGear(sc, rec.id)) return { part: part!, at, items: [{ id: "gear:edit", label: "Edit planetary set", icon: "planetary", enabled: true, why: null }] }; // (a gear of a planetary set is edited with the whole set, `dec_planetary_gears`)
   return { part: part!, at, items: [
     { id: "gear:edit", label: "Edit gear", icon: "gear", enabled: true, why: null },
     { id: "gear:helix", label: "Helix", icon: "helical", enabled: plain, why: plain ? null : "a helix goes on a plain gear (not yet a pulley, sprocket, clock gear or worm)" },
     { id: "gear:mesh", label: "Mesh gear", icon: "meshgear", enabled: true, why: null },
-    { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack", enabled: !worm && !bevel, why: worm ? "a rack does not mesh with a worm or its wheel" : bevel ? "a bevel gear meshes with a bevel gear" : null },
-    { id: "gear:meshring", label: "Mesh ring", icon: "meshring", enabled: !worm && !bevel, why: worm ? "a ring does not mesh with a worm or its wheel" : bevel ? "a bevel gear meshes with a bevel gear" : null },
+    { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack", enabled: !worm && !bevel && !belt, why: worm ? "a rack does not mesh with a worm or its wheel" : bevel ? "a bevel gear meshes with a bevel gear" : belt ? "a belt or a chain goes round pulleys or sprockets: Mesh gear makes the other one" : null },
+    { id: "gear:meshring", label: "Mesh ring", icon: "meshring", enabled: !worm && !bevel && !belt, why: worm ? "a ring does not mesh with a worm or its wheel" : bevel ? "a bevel gear meshes with a bevel gear" : belt ? "a belt or a chain goes round pulleys or sprockets: Mesh gear makes the other one" : null },
   ] };
 }

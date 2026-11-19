@@ -20,6 +20,7 @@ import { anglesOf, fromAngles } from "../math/rotation.ts";
 import { OP_FIELD, OP_UNIT, valueOf, turnAngles, sizeShown } from "./operations.ts";
 import { advanceOf } from "./revolve.ts";
 import { loftNumbers, loftGapNumbers } from "./loft.ts";
+import { modelEntry, modelTarget } from "./modeltool.ts";
 
 export interface EntryField { /** the number was just taken back to one that makes a gear: it flashes red (`in_690`) */ bad?: boolean; /** a line that says what the number is (the gear box, `in_685`) */ hint?: string; label: string; value: string; active: boolean; typed: boolean; /** a short name shown in front of the number when there are several (X Y Z) */ short?: string; /** which numbered field of its operation it is, when the operation has several bubbles */ index?: number; /** the unit of this field when it is not the entry's (a position and a rotation in one bubble) */ unit?: string }
 /** `at`: where in the scene the bubble sits (null: no place to attach it to) */
@@ -88,6 +89,12 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
       live.push(Math.abs(ex - ax), Math.abs(ey - ay));
     }
   } else if (tool.kind === "circle") live.push(circleRadius(pl, tool) * 2);
+  else if (tool.kind === "model" && tool.model) { // a gear assembly model (`dec_gear_models`): the size, the turn and its numbers, in the panel of the gear box
+    const e = modelEntry(scene, tool);
+    if (!e) return null;
+    const bad = modelTarget(scene, tool)?.problem;
+    return { panel: e.panel, ...(tool.model.focus ? { focus: true as const } : {}), gearButtons: { edit: false, changed: false }, fields: e.fields, unit: e.unit, followUnits: true, ...(bad ? { warn: bad } : { info: e.note }) };
+  }
   else if (tool.kind === "cam" && tool.cam) {
     const spec = camSpecOf(tool);
     const live = spec ? (spec.kind === "linear" ? [spec.teeth!, spec.pitch!, spec.depth!, spec.hook!, spec.base!, spec.pawl!, spec.width!, spec.turn!] : spec.kind === "geneva" ? [spec.teeth!, spec.crank!, spec.pin!, spec.clearance!, spec.hole >= 0 ? spec.hole : undefined as unknown as number, spec.lock ?? (undefined as unknown as number), ...(spec.layout === "model" ? [spec.layer!, spec.plate!] : [])] : spec.kind === "ratchet" ? [spec.teeth!, spec.diameter, spec.depth!, spec.hook!, spec.hole, spec.pawl!, spec.width!, spec.turn!] : spec.kind === "disc" ? [spec.diameter, spec.lift, spec.rise!, spec.dwell!, spec.ret!, spec.hole, spec.roller ?? 0] : [spec.diameter, spec.lift, spec.hole]) : [];
@@ -234,7 +241,7 @@ export function moverPlaceEntries(g: Gizmo | null, frame: readonly [Vec3, Vec3, 
   }
   // each of the three bubbles has the mover's position along its axis and, beside it, the turn of its axes about that axis (`in_434`)
   return ([0, 1, 2] as const).flatMap((k) => {
-    if (!held.includes(k)) return []; // (only the axes chosen show their numbers, `in_1127`: nothing chosen, nothing shown)
+    if (!held.includes(k)) return []; // (only the axes chosen show their numbers, `in_1174`: nothing chosen, nothing shown)
     const arrow = g.handles.find((h) => h.id === `piv:${"xyz"[k]}`);
     return arrow ? [{ opacity: show.opacity, fields: [
       { label: `Mover's position along ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(g.centre[k]!), active: false, typed: false, index: k, unit: "mm" },
@@ -255,7 +262,7 @@ export function frameOfAngles(angles: [number, number, number]): [Vec3, Vec3, Ve
 }
 export function moveEntries(op: Op, g: Gizmo | null, offset: Vec3, held: readonly number[] = []): Entry[] {
   if (!g || op.kind !== "move") return [];
-  // a body dragged free: the number on the arrow of each axis chosen (held with Shift or a click), as it goes (`in_293`, and `in_1127`: nothing chosen, nothing shown)
+  // a body dragged free: the number on the arrow of each axis chosen (held with Shift or a click), as it goes (`in_293`, and `in_1174`: nothing chosen, nothing shown)
   if (op.free) {
     return ([0, 1, 2] as const).flatMap((k) => {
       if (!held.includes(k)) return [];

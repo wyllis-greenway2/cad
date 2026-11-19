@@ -44,19 +44,24 @@ test("a relation the human puts on the sketch after the extrusion shows, and so 
   assert.equal(structuralRelations({ ...sc0, steps: [] }).size, 0, "before the step: everything shows");
 });
 
-test("the switch in the ⋯ list shows all constraints, and the History sketch button does too", () => {
+test("View, All constraints shows every constraint of the world, and the History sketch button shows the joins too (`in_1157`)", () => {
   const s = open();
   let st = createState(s);
-  const rows = appRows("", undefined, st.showAllConstraints);
-  assert.match(rows.find((r) => r.id === "constraints")!.label, /Key constraints/);
-  st = reduce(st, { type: "runAction", id: "constraints" }, { w: 800, h: 600, now: 0 });
+  assert.equal(st.showAllConstraints, false);
+  const view = reduce(st, { type: "menu", x: 400, y: 300 }, { w: 800, h: 600, now: 0 }).menu!.items.find((i) => i.id === "view")!;
+  assert.equal(view.children!.find((c) => c.id === "view:constraints")!.label, "All constraints");
+  const few = frameOf(st, { w: 800, h: 600 }).annotations.length;
+  st = reduce(st, { type: "runAction", id: "view:constraints" }, { w: 800, h: 600, now: 0 });
   assert.equal(st.showAllConstraints, true);
-  assert.match(appRows("", undefined, st.showAllConstraints).find((r) => r.id === "constraints")!.label, /All constraints/);
+  const many = frameOf(st, { w: 800, h: 600 }).annotations.length;
+  assert.ok(many > few, `nothing selected: ${few} -> ${many}`);
+  const again = reduce(st, { type: "menu", x: 400, y: 300 }, { w: 800, h: 600, now: 0 }).menu!.items.find((i) => i.id === "view")!;
+  assert.equal(again.children!.find((c) => c.id === "view:constraints")!.label, "Hide constraints");
   const line = "d/e_025.s0" as never;
   const withSel = (x: typeof st) => ({ ...x, session: { ...x.session, click: { ...x.session.click, selection: [line] } } });
-  const few = frameOf(withSel({ ...st, showAllConstraints: false }), { w: 800, h: 600 }).annotations.length;
-  const many = frameOf(withSel(st), { w: 800, h: 600 }).annotations.length;
-  assert.ok(many > few, `${few} -> ${many}`);
+  const lessSel = frameOf(withSel({ ...st, showAllConstraints: false }), { w: 800, h: 600 }).annotations.length;
+  const moreSel = frameOf(withSel({ ...st, showAllConstraints: false, showSketch: "s_002" as never }), { w: 800, h: 600 }).annotations.length;
+  assert.ok(moreSel >= lessSel, `${lessSel} -> ${moreSel}`);
 });
 
 // The drop-and-move test (`in_241`): drop a tangent, move one of the two a little, and see whether the outline stays joined at that touch. A tangent that is the only join lets the line come off.

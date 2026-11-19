@@ -2,8 +2,8 @@
 // with a cap at each end, the pin through its wall), an axle through each side gear and, if asked, a spur drive gear round the cage. Pure: numbers in, steps out.
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
-import type { PartSteps } from "./fasteners.ts";
 import { Builder, disc, meshedWith } from "./modelparts.ts";
+import type { Place, ModelBuild } from "./modelparts.ts";
 import type { GearHolder } from "./modelparts.ts";
 import { bevelOf, bevelLayout } from "./bevel.ts";
 import type { GearSpec } from "./gear.ts";
@@ -59,50 +59,70 @@ export function differentialProblem(s: DifferentialSpec): string | null {
 }
 
 /** The steps that make the differential (the problem, if the numbers make none) */
-export function differentialSteps(s: DifferentialSpec): Result<PartSteps> {
+export function differentialSteps(s: DifferentialSpec, place?: Place): Result<ModelBuild> {
   const bad = differentialProblem(s);
   if (bad) return err(bad);
   const g = differentialGeometry(s);
   if (!g.ok) return g;
   const { bigS, inner, outer, half } = g.value;
-  const b = new Builder();
+  const b = new Builder(place);
   const ground = b.plane(0);
   const bore = (d: number) => d + 2 * s.fit;
+  // the placing of the gears: the side gear on -x with its apex at the middle, a spider meshed with it on +y, the other side gear meshed with the spider, and the second spider that of the first turned half a turn about the axle
+  const base = (teeth: number, mate: number, d: number): GearSpec => ({ teeth, module: s.module, bore: bore(d), bevel: { mate } });
+  const x: Vec3 = [1, 0, 0];
+  const s1spec: GearSpec = { ...base(s.side, s.spider, s.axle), bevel: { mate: s.spider, frame: [[0, 1, 0], [0, 0, 1]] } };
+  const s1h: GearHolder = { id: "", plane: ground.ref, at: [-bigS, 0, 0], spec: s1spec, turn: 0 };
+  const p1p = meshedWith(s1h, s.spider, 0);
+  if (typeof p1p === "string") return err(p1p);
+  const p1spec: GearSpec = { ...p1p.spec, bore: bore(s.pin) };
+  const p1h: GearHolder = { id: "", plane: ground.ref, at: p1p.at, spec: p1spec, turn: p1p.turn };
+  const [X2, Y2] = p1spec.bevel!.frame!;
+  const s2p = meshedWith(p1h, s.side, Math.atan2(x[0] * Y2[0] + x[1] * Y2[1] + x[2] * Y2[2], x[0] * X2[0] + x[1] * X2[1] + x[2] * X2[2]));
+  if (typeof s2p === "string") return err(s2p);
+  const turnX = (v: Vec3): Vec3 => [v[0], -v[1], -v[2]]; // (half a turn about the x axis)
+  const stop = s.pin / 2 + 0.5, reach = half + CAP_GAP + s.cap + AXLE_OUT;
   // the cage first, so that the hole for the pin is cut into it alone: a tube along x, and a hole through its wall along y
+  b.part("Cage");
   const across = b.frame([-half, 0, 0], [0, 1, 0], [0, 0, 1]); // (a plane across the axis: its normal is +x)
   b.extrude(across, disc(0, 0, outer), [disc(0, 0, inner)], 2 * half);
   const side = b.frame([0, outer + 1, 0], [1, 0, 0], [0, 0, 1]); // (a plane across the pin: its normal is -y)
   b.extrude(side, disc(0, 0, s.pin / 2 + s.room), [], 2 * outer + 2, { mode: "cut" });
+  // the axles, one through each side gear (they end before the pin), and the pin through the spiders and the cage's wall
+  b.part("Axle 1");
+  b.extrude(b.frame([-reach, 0, 0], [0, 1, 0], [0, 0, 1]), disc(0, 0, s.axle / 2), [], reach - stop);
+  b.part("Axle 2");
+  b.extrude(b.frame([stop, 0, 0], [0, 1, 0], [0, 0, 1]), disc(0, 0, s.axle / 2), [], reach - stop);
+  b.part("Cross pin");
+  b.extrude(b.frame([0, outer, 0], [1, 0, 0], [0, 0, 1]), disc(0, 0, s.pin / 2), [], 2 * outer);
+  // the gears, a side gear and then the spider that meshes with it
+  b.part("Side gear 1");
+  const s1 = b.gear(ground, [-bigS, 0, 0], s1spec);
+  b.part("Spider gear 1");
+  const p1 = b.gear(ground, p1p.at, p1spec, p1p.turn, s1);
+  b.part("Side gear 2");
+  b.gear(ground, s2p.at, { ...s2p.spec, bore: bore(s.axle) }, s2p.turn, p1);
+  b.part("Spider gear 2");
+  b.gear(ground, turnX(p1p.at), { ...p1spec, bevel: { ...p1spec.bevel!, frame: [turnX(X2), turnX(Y2)] } }, p1p.turn, s1);
   // a cap at each end, a little off the tube, with a hole for the axle
   for (const sign of [-1, 1]) {
+    b.part(`Cap ${sign < 0 ? 1 : 2}`);
     const x0 = sign < 0 ? -half - CAP_GAP - s.cap : half + CAP_GAP;
     const pl = b.frame([x0, 0, 0], [0, 1, 0], [0, 0, 1]);
     b.extrude(pl, disc(0, 0, outer), [disc(0, 0, s.axle / 2 + s.room)], s.cap);
   }
-  // the gears: the side gear on -x with its apex at the middle, a spider meshed with it on +y, the other side gear meshed with the spider, and the second spider that of the first turned half a turn about the axle
-  const base = (teeth: number, mate: number, d: number): GearSpec => ({ teeth, module: s.module, bore: bore(d), bevel: { mate } });
-  const x: Vec3 = [1, 0, 0];
-  const s1spec: GearSpec = { ...base(s.side, s.spider, s.axle), bevel: { mate: s.spider, frame: [[0, 1, 0], [0, 0, 1]] } };
-  const s1: GearHolder = b.gear(ground, [-bigS, 0, 0], s1spec);
-  const p1p = meshedWith(s1, s.spider, 0);
-  if (typeof p1p === "string") return err(p1p);
-  const p1spec: GearSpec = { ...p1p.spec, bore: bore(s.pin) };
-  const p1: GearHolder = b.gear(ground, p1p.at, p1spec, p1p.turn, s1);
-  const [X2, Y2] = p1spec.bevel!.frame!;
-  const s2p = meshedWith(p1, s.side, Math.atan2(x[0] * Y2[0] + x[1] * Y2[1] + x[2] * Y2[2], x[0] * X2[0] + x[1] * X2[1] + x[2] * X2[2]));
-  if (typeof s2p === "string") return err(s2p);
-  b.gear(ground, s2p.at, { ...s2p.spec, bore: bore(s.axle) }, s2p.turn, p1);
-  const turnX = (v: Vec3): Vec3 => [v[0], -v[1], -v[2]]; // (half a turn about the x axis)
-  b.gear(ground, turnX(p1p.at), { ...p1spec, bevel: { ...p1spec.bevel!, frame: [turnX(X2), turnX(Y2)] } }, p1p.turn, s1);
-  // the axles, one through each side gear (they end before the pin), and the pin through the spiders and the cage's wall
-  const stop = s.pin / 2 + 0.5;
-  b.extrude(b.frame([-half - CAP_GAP - s.cap - AXLE_OUT, 0, 0], [0, 1, 0], [0, 0, 1]), disc(0, 0, s.axle / 2), [], half + CAP_GAP + s.cap + AXLE_OUT - stop);
-  b.extrude(b.frame([stop, 0, 0], [0, 1, 0], [0, 0, 1]), disc(0, 0, s.axle / 2), [], half + CAP_GAP + s.cap + AXLE_OUT - stop);
-  b.extrude(b.frame([0, outer, 0], [1, 0, 0], [0, 0, 1]), disc(0, 0, s.pin / 2), [], 2 * outer);
   // a drive gear round the cage, in the middle (it covers the ends of the pin and keeps it in)
   if (s.drive !== 0) {
+    b.part("Drive gear");
     const pl = b.frame([-s.driveWidth / 2, 0, 0], [0, 1, 0], [0, 0, 1]);
     b.gear(pl, [-s.driveWidth / 2, 0, 0], { teeth: s.drive, module: s.driveModule, width: s.driveWidth, bore: 2 * outer + 2 * s.fit });
   }
-  return ok(b.steps);
+  return ok(b.build());
+}
+
+/** the cage, the caps and the axles in the model's frame (for the size, the middle and the preview): half the cage's length and its outer radius, how far the axles reach, and the drive gear's radius (0 if none) */
+export function differentialExtent(s: DifferentialSpec): { half: number; outer: number; reach: number; drive: number; bigS: number; bigP: number } | null {
+  const g = differentialGeometry(s);
+  if (!g.ok) return null;
+  return { half: g.value.half, outer: g.value.outer, reach: g.value.half + CAP_GAP + s.cap + AXLE_OUT, drive: s.drive ? (s.drive * s.driveModule) / 2 + s.driveModule : 0, bigS: g.value.bigS, bigP: g.value.bigP };
 }

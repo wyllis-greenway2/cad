@@ -1,6 +1,7 @@
 // The controller: applies one intent to the app state. All behaviour of the pointer, the click grammar, the camera and the menu is decided here, in plain
 // functions (`inv_no_logic_in_ui`): the UI only draws the state and the platform only reports devices. The work is in `control/`, one file per concern:
 // `viewing` (camera), `pointer` (hover, click, menu), `modal` (tools, operations, typing, edits).
+import { droppedBy } from "./dropped.ts";
 import type { Intent } from "../shared/input.ts";
 import { figureRefs } from "../operation/scene.ts";
 import { isLive } from "./operations.ts";
@@ -13,11 +14,11 @@ import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
 import { doBodiesAction } from "./control/bodies.ts";
 import { doMotionKind, doMotionKeep, doMotionLink, doMotionRest, doMotionFix } from "./control/motion.ts";
-import { setPlaying, reverseMotion } from "./motion.ts";
+import { setPlaying, reverseMotion, motionHolds, setSpeed } from "./motion.ts";
 import { solveContact } from "./contact.ts";
 import { doStepGo, doStepEdit, doStepInsert, doStepSet, doStepLink, doParamSet, doParamRemove } from "./control/history.ts";
-import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
-import { hoverOn, run, scene as sceneOf } from "./session.ts";
+import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doBuildNext, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
+import { hoverOn, run, scene as sceneOf, selection as selectionOf } from "./session.ts";
 import { stepOption, activateOption, similarOf } from "./options.ts";
 import { loftChoice } from "./loft.ts";
 import { orientApply, storePose } from "./control/pose.ts";
@@ -51,6 +52,8 @@ const RESUMING = new Set<Intent["type"]>(["hover", "hoverEnd", "click", "orbit",
 export function reduce(s: AppState, i: Intent, env: Env): AppState {
   if (s.adding && i.type === "click" && !i.shift && !s.tool && !s.op && !s.repeat && !s.cut && !s.picking) i = { ...i, shift: true }; // (adding: a tap is a Shift click, `in_539`)
   let next = apply(s, i, env);
+  if (next.consFor && !selectionOf(next.session).includes(next.consFor)) next = { ...next, consFor: null }; // (the constraints icon of a double clicked body goes when it is no longer selected, `in_1166`)
+  if (next.motion && sceneOf(next.session) !== sceneOf(s.session)) { const held = motionHolds(sceneOf(next.session), next.motion); next = held === next.motion ? next : { ...next, motion: held }; } // (what a motion moves is deleted or undone: it stops, `in_1129`)
   if (i.type === "faceKind" || i.type === "sizeKind" || i.type === "loftKind" || i.type === "similarRule" || i.type === "cut") next = { ...next, optionAt: null }; // (an option chosen by the pointer: the keyboard's place in the bar starts from there again, `in_664`)
   if (next.cam !== s.cam || next.session.history.scene !== s.session.history.scene || next.lastSeen === null) next = noteSeen(next, env.w, env.h, projector(next.cam, env.w, env.h).project as (p: Vec3) => [number, number]); // (what was last in view, for Reset camera, `in_303`)
   if (next.awaiting && next.session.click.selection.join("|") !== s.session.click.selection.join("|")) next = settleAwaiting(next, env.now); // (what a pressed, dimmed item waited for is selected: it runs, `in_951`)
@@ -88,7 +91,9 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   const c = next.session.conflict;
   const al = next.session.already; // (a constraint that already held: it flashes green, `in_1103`)
   if (al && al !== s.session.already) return { ...next, flash: { culprits: [], victims: [], green: al, at: env.now } };
-  return c && c !== s.session.conflict ? { ...next, flash: { ...c, at: env.now } } : next;
+  if (c && c !== s.session.conflict) return { ...next, flash: { ...c, at: env.now } };
+  const gone = !c && !al && next.session.history.scene !== s.session.history.scene ? droppedBy(s.session.history.scene, next.session.history.scene) : null; // (constraints that went with a deleted part: the parts that stayed flash and the bubbles pop, `in_1168`)
+  return gone ? { ...next, flash: { culprits: [], victims: [], parts: gone.parts, popped: gone.ids, ghosts: gone.ghosts, at: env.now } } : next;
 }
 
 /** "Delete constraint to proceed" (`in_366`): the constraints that stopped a change are deleted and the change is made, as one step (one undo takes both back). */
@@ -145,6 +150,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "zoom": return doZoom(s, i, env);
     case "look": return doLook(s, i, env);
     case "home": return doHome(s, env);
+    case "buildNext": return doBuildNext(s);
     case "runAction": return doRunAction(i.part && i.id.startsWith("gear:") && !s.session.click.selection.includes(i.part as never) ? { ...s, session: { ...s.session, click: { ...s.session.click, selection: [i.part as never] } } } : s, i.id, env.now); // (the icon of a gear that is only pointed at: its Edit, Helix and Mesh are for that gear, `in_864`)
     case "overrideRefusal": return overrideRefusal(s);
     case "menuTurn": return s; // (game mode's: the menu is turned by the page, `in_467`)
@@ -183,11 +189,12 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "motionAt": return s.motion ? { ...s, motion: solveContact(sceneOf(s.session), { ...s.motion, playing: false, startedAt: null, amount: Math.min(s.motion.hi, Math.max(s.motion.lo, Number.isFinite(i.amount) ? i.amount : 0)) }, s.session.outcome) } : s; // (the scrubber: a hand on it stops the play)
     case "motionPlay": return s.motion ? { ...s, motion: setPlaying(s.motion, !s.motion.playing) } : s;
     case "motionReverse": return s.motion ? { ...s, motion: reverseMotion(s.motion) } : s;
+    case "motionSpeed": return s.motion ? { ...s, motion: setSpeed(s.motion, i.k) } : s;
     case "motionKind": return doMotionKind(s, i.kind);
     case "motionLink": return doMotionLink(s, i);
     case "motionRest": return doMotionRest(s, i);
     case "motionKeep": return doMotionKeep(s);
-    case "motionFix": return doMotionFix(s, i.act);
+    case "motionFix": return doMotionFix(s, i.act, env.now);
     case "motionClose": return { ...s, motion: null };
     case "panel": return doPanel(s, i.name);
     case "panelRow": return doPanelRow(s, i.id, i.act);

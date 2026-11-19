@@ -98,3 +98,13 @@ Read in full from the pages named in the entry (Albany County Fasteners for ISO 
 | Our own derivation: the centre distance `C = a / sin(pi / n)`, the entry at `b = C cos(pi / n)`, the wheel's turn `atan2(a sin(al), C - a cos(al))` over the visit, and the locking disc as the envelope of the turning wheel (`operation/geneva.ts`) | derived, tested by simulation (`test/geneva.test.ts`) | ours | all of the Geneva geometry; no outside source was read for it | `dec_geneva` |
 | Zarebski 2025 (above) worked examples, Methods 1 to 3 (Tables 1 and 2); ANSI/AGMA ISO 23509-B17 preview (7 pages) | read by a subagent (`in_967`) | copyright | the three hypoid examples (pinion and gear pitch angles with offset), no offset equation anywhere; the preview has no equations. Used as a check of `dec_hypoid_gears` (the ring's cone matches, the pinion's differs). The AGMA contents list Methods 0 to 3 and annex B "Pitch cone parameters", not in the preview | `dec_hypoid_gears` "Checked against the sources" |
 | FreeCAD wiki, "File Format FCStd" (wiki.freecad.org/File_Format_FCStd) | searched (`in_1038`): the layout of the zip (Document.xml, GuiDocument.xml, .brp shapes) | open wiki (CC-BY, FreeCAD documentation) | the FCStd reader's layout; the XML details beyond it (the `Part file=` element, `ObjectDeps`, `Visibility`) are from memory and unchecked against a real file | `dec_exchange_gaps` |
+
+## Ball bearings (`dec_bearing_library`)
+
+| Source | Status | Rights | Used for | Recorded in |
+|---|---|---|---|---|
+| igus, ball bearing dimension table (igus.co.uk/ball-bearings/wiki/ball-bearing-dimension-table) | read (`in_1146`, by curl) | copyright (facts: ISO 15 sizes) | bore, outside diameter and width of the 6000 to 6006 and 6200 to 6206 series and the miniatures | `app/src/operation/bearingdata.ts` |
+| NSK, deep groove ball bearing pages (oss.nsk.com, redirecting to nsk.com/engineering) | read (`in_1146`, by curl) | copyright (facts: sizes, ball count and ball diameter) | the balls' count and diameter for the 60 and 62 series | `bearingdata.ts` |
+| Misumi, miniature ball bearing pages (us.misumi-ec.com) | read (`in_1146`) | copyright (facts: sizes) | the miniatures' sizes (623 to 627, 607 to 609) | `bearingdata.ts` |
+| NSK and Misumi PDF catalogues | not readable (no text layer) | copyright | nothing | none |
+

@@ -45,15 +45,15 @@ function buildGizmoLines(group: THREE.Group, g: GizmoView | null, unit: number, 
       group.add(sphereAt(pts[0]!, unit * 0.01 * settings.gizmo.headScale, col));
       continue;
     }
-    if (h.kind === "pane") { // a little square in the plane of two axes: faint, teal under the pointer or while dragged
-      const geom = new THREE.BufferGeometry();
-      geom.setAttribute("position", new THREE.Float32BufferAttribute([...pts[0]!, ...pts[1]!, ...pts[2]!, ...pts[0]!, ...pts[2]!, ...pts[3]!], 3));
-      const quad = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ color: col, depthTest: false, transparent: true, opacity: hot ? 0.45 : 0.18, side: THREE.DoubleSide }));
+    if (h.kind === "pane") { // (a pane of the cross section's mover: a little square, lit when the plane lies across it or the pointer is on it, `in_1129`)
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.Float32BufferAttribute([...pts[0]!, ...pts[1]!, ...pts[2]!, ...pts[0]!, ...pts[2]!, ...pts[3]!], 3));
+      const quad = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: hot ? 0.45 : 0.16, side: THREE.DoubleSide, depthTest: false, depthWrite: false }));
       quad.renderOrder = 5;
       group.add(quad);
-      const edge = pen.line([...pts.flat(), ...pts[0]!], col, settings.gizmo.widthPx, false);
+      const edge = pen.line([...pts, pts[0]!].flat(), col, hot ? settings.gizmo.widthPx + 1 : settings.gizmo.widthPx, false);
       (edge.material as { transparent: boolean; opacity: number }).transparent = true;
-      (edge.material as { opacity: number }).opacity = hot ? 1 : settings.gizmo.opacity;
+      (edge.material as { opacity: number }).opacity = hot ? 1 : 0.55;
       edge.renderOrder = 6;
       group.add(edge);
       continue;

@@ -32,9 +32,10 @@ export interface Handle {
   dir?: Vec3;
   /** a turning ring: which of its points carries the arrowhead */
   head?: number;
-  /** a pane (`in_1127`): the two axes of the plane it moves in, and (in `dir`) the way that plane faces; its four corners are `points` */
+  /** a pane (`in_1174`): the two axes of the plane it moves in, and (in `dir`) the way that plane faces; its four corners are `points` */
   plane?: [0 | 1 | 2, 0 | 1 | 2];
 }
+/** (a pane, `in_1129`: a little square beside the junction of the mover, across the axis `axis`; a click on it puts the cross section plane there; its `points` are its four corners) */
 export interface Gizmo { handles: Handle[]; centre: Vec3 }
 
 /** A point that lies on the handle itself (its middle: an arrow's, the point half way round a ring): a finger that cannot reach a small handle drags a proxy that starts from here (`in_284`). */
@@ -97,7 +98,7 @@ const arrowAlong = (id: string, axis: 0 | 1 | 2 | null, from: Vec3, dir: Vec3, l
 const arrowBoth = (id: string, mid: Vec3, dir: Vec3, half: number): Handle => ({ id, kind: "arrow", both: true, axis: null, points: [add(mid, scale(dir, -half)), add(mid, scale(dir, half))] });
 /** One arrow along each of three axes, named `prefix:x`, `prefix:y`, `prefix:z`. */
 const axisArrows = (prefix: string, ax: readonly Vec3[], from: Vec3, len: number, ratio?: true): Handle[] => ax.map((d, i) => arrowAlong(`${prefix}:${"xyz"[i]}`, i as 0 | 1 | 2, from, d, len, ratio));
-/** The three little panes between the arrows (`in_1127`): each a square in the plane of two of the axes, whose drag always moves in that plane (XY, XZ, YZ). `len` is the length of the arrows. */
+/** The three little panes between the arrows (`in_1174`): each a square in the plane of two of the axes, whose drag always moves in that plane (XY, XZ, YZ). `len` is the length of the arrows. */
 const axisPanes = (ax: readonly Vec3[], centre: Vec3, len: number): Handle[] =>
   ([[0, 1], [0, 2], [1, 2]] as const).map(([a, b]) => {
     const [from, to] = [0.25 * len, 0.5 * len];
@@ -107,14 +108,25 @@ const axisPanes = (ax: readonly Vec3[], centre: Vec3, len: number): Handle[] =>
 /** An orb at a point: drag it to move it about. */
 const orbAt = (id: string, at: Vec3): Handle => ({ id, kind: "orb", axis: null, points: [at] });
 
-export function sectionGizmo(at: Vec3, cam: Camera, n: Vec3 = [0, 0, 1], free = false): Gizmo {
-  // the push / pull arrow of a sheet (`in_459`): it moves the plane along its normal, nothing is made; the mover a body has (the arrows, the rings and the sphere, `in_419`) is there when the sheet's move icon has put it in its free mode
+/**
+ * The handles of the cross section plane that is selected (`in_1129`): the mover a body has (the arrows along x, y, z to move it or the rings about them to turn it, whichever `mode` says: 0 moves, 1 turns; the sphere at the junction is where it is put by clicking a
+ * corner, an edge or a face), the arrow along its own normal when it has been turned off the axes, and three panes (a square across each axis, beside the junction): a click on one makes the plane lie across that axis and cut away on that side.
+ */
+export function sectionGizmo(at: Vec3, cam: Camera, n: Vec3 = [0, 0, 1], mode: 0 | 1 = 0): Gizmo {
   const L = cam.distance * settings.gizmo.sizeOfView;
   const nn = normalize(n);
-  const arrow = arrowBoth("sheet:n", at, nn, HALF * L * 1.2);
-  if (!free) return { centre: at, handles: [arrow] };
-  return moverHandles("both", at, L, false); // (the mover replaces the arrow along the normal while it is there, `in_466`)
+  const aligned = AXES.some((a) => Math.abs(Math.abs(dot(a, nn)) - 1) < 1e-6);
+  const mover = moverHandles(mode === 1 ? "rotate" : "move", at, L, false);
+  const normal = mode === 0 && !aligned ? [arrowBoth("sheet:n", at, nn, HALF * L * 1.2)] : [];
+  return { centre: at, handles: [...mover.handles.filter((h) => !h.plane), ...normal, ...[0, 1, 2].map((k) => paneAt(`pane:${"xyz"[k]}`, at, k as 0 | 1 | 2, L))] }; // (the plane has its own three panes, clicked to lay it across an axis, `in_1129`: the mover's in-plane panes, which are dragged, are left out)
 }
+/** The pane across axis `k`: a square in the quadrant between the other two axes, clear of the arrows and the rings' first strokes. */
+const paneAt = (id: string, at: Vec3, k: 0 | 1 | 2, L: number): Handle => {
+  const [a, b] = [AXES[(k + 1) % 3]!, AXES[(k + 2) % 3]!];
+  const [o, w] = [0.12 * L, 0.26 * L];
+  const corner = (x: number, y: number): Vec3 => add(at, add(scale(a, x), scale(b, y)));
+  return { id, kind: "pane", axis: k, points: [corner(o, o), corner(o + w, o), corner(o + w, o + w), corner(o, o + w)], dir: AXES[k]! };
+};
 
 /**
  * The handles of the mover (`in_416`): arrows along x, y, z for a move, rings about them for a turn, and the sphere at their junction, which is where the mover measures from and turns about. With the sphere selected the
@@ -251,7 +263,7 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
       const slot = add(c, scale(d, sgn * (Math.min(Math.abs(sp) * n, cap) + L * (n > 1 ? 0.35 : 0.6))));
       handles.push(arrowAlong(`cnt:${"xyz"[i]}`, i as 0 | 1 | 2, slot, d, sgn * L * 0.3));
     });
-    handles.push(...axisPanes(ax, c, 2 * HALF * L)); // (a pane sets the spacing along its two axes at once, `in_1127`)
+    handles.push(...axisPanes(ax, c, 2 * HALF * L)); // (a pane sets the spacing along its two axes at once, `in_1174`)
     return { centre: c, handles };
   }
   if (op.target === "shape" && op.kind === "scale" && op.pivot) {
@@ -311,13 +323,22 @@ const segDist = (p: [number, number], a: [number, number], b: [number, number]):
   return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
 };
 /** The handle nearest the pointer within `tolPx`, if any. The orb wins over what is under it. */
+/** Whether a point is inside a polygon of screen points (the even-odd rule). */
+function insidePoly(pts: readonly (readonly [number, number])[], x: number, y: number): boolean {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [p, q] = [pts[i]!, pts[j]!];
+    if ((p[1] > y) !== (q[1] > y) && x < ((q[0] - p[0]) * (y - p[1])) / (q[1] - p[1]) + p[0]) inside = !inside;
+  }
+  return inside;
+}
 export function hitHandle(g: Gizmo, project: (p: Vec3) => [number, number], x: number, y: number, tolPx = settings.gizmo.hitPx, prefer?: string): Handle | null {
   let best: { h: Handle; d: number } | null = null;
   let wanted: Handle | null = null;
   for (const h of g.handles) {
     const pts = h.points.map(project);
-    if (h.kind === "pane") { // inside the square: it takes the touch only where no arrow, ring or orb is nearer (they are tested at their own distance, the pane at the very edge of the tolerance)
-      const inside = (() => { let c = false; for (let a = 0, b = pts.length - 1; a < pts.length; b = a++) { const [pa, pb] = [pts[a]!, pts[b]!]; if ((pa[1] > y) !== (pb[1] > y) && x < ((pb[0] - pa[0]) * (y - pa[1])) / (pb[1] - pa[1]) + pa[0]) c = !c; } return c; })();
+    if (h.kind === "pane") { // a pane is hit anywhere inside it, and only inside it, a little behind the arrows and rings (a handle that is near wins, `in_1127`, `in_1129`)
+      const inside = insidePoly(pts, x, y);
       if (inside && (!best || tolPx < best.d)) best = { h, d: tolPx };
       if (inside && h.id === prefer) wanted = h;
       continue;
@@ -384,7 +405,8 @@ export function startDrag(g: Gizmo, h: Handle, ray: Ray, cam: Camera): Drag | nu
     const p = hitPlane(ray, g.centre, dir);
     return p ? { id: h.id, kind: "ring", axis: h.axis, origin: g.centre, dir, start: angleIn(g.centre, dir, p), offset: null } : null;
   }
-  if (h.kind === "pane") { // a pane moves in its own plane: the pointer's ray meets that plane, and the drag is how far it has gone from where it was taken
+  if (h.kind === "pane") { // a pane moves in its own plane when it has one (`in_1127`): the pointer's ray meets that plane, and the drag is how far it has gone from where it was taken; a pane of the cross section (across an axis) is clicked, not dragged (`in_1129`)
+    if (!h.plane) return null;
     const dir = h.dir ?? AXES[2]!;
     const p = hitPlane(ray, g.centre, dir);
     return p ? { id: h.id, kind: "pane", axis: null, origin: g.centre, dir, start: 0, offset: sub(p, g.centre) } : null;

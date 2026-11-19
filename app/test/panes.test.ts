@@ -1,4 +1,4 @@
-// The little panes of an orb (`in_1127`, `dec_unified_orb`): a pane between two arrows always sends movement in its plane; a click on one holds the drag to that plane.
+// The little panes of an orb (`in_1174`, `dec_unified_orb`): a pane between two arrows always sends movement in its plane; a click on one holds the drag to that plane.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";
@@ -25,7 +25,7 @@ const box = (): AppState => {
   s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: r.lines, params: { depth: 20 } } });
   return { ...createState(s), cam: homeCamera() };
 };
-const free = (): AppState => reduce(reduce(box(), { type: "runAction", id: "view:section" }, env), { type: "runAction", id: "sheet:move" }, env);
+const free = (): AppState => reduce(box(), { type: "runAction", id: "view:section" }, env);
 const mover = (): AppState => {
   const st = box();
   return reduce({ ...st, session: { ...st.session, click: { ...st.session.click, selection: [BODY_OBJECT] } } }, { type: "begin", name: "move" }, env);
@@ -45,7 +45,7 @@ const drag = (st: AppState, from: Vec3, to: Vec3, steps = 6): AppState => {
 const paneMiddle = (st: AppState, id: string): Vec3 => { const pts = gizmoOf(st)!.handles.find((h) => h.id === id)!.points; return [0, 1, 2].map((k) => pts.reduce((a, p) => a + p[k]!, 0) / pts.length) as unknown as Vec3; };
 
 test("an orb has three panes between its arrows, and a pane is under the pointer where no arrow or ring is nearer", () => {
-  for (const st of [free(), mover()]) {
+  for (const st of [mover()]) {
     const g = gizmoOf(st)!;
     assert.deepEqual(g.handles.filter((h) => h.kind === "pane").map((h) => h.id), ["pane:xy", "pane:xz", "pane:yz"]);
     const pr = projector(st.cam, 800, 600);
@@ -59,23 +59,17 @@ test("an orb has three panes between its arrows, and a pane is under the pointer
 });
 
 test("a click on a pane holds the drag to its plane, a second click lets it go", () => {
-  let st = free();
+  let st = mover();
   st = click(st, paneMiddle(st, "pane:xy"));
   assert.deepEqual(st.lockAxes, [0, 1]);
-  assert.match(st.session.message ?? "", /the plane moves in the XY plane only/);
+  assert.match(st.session.message ?? "", /the body moves in the XY plane only/);
   st = click(st, paneMiddle(st, "pane:xy"));
   assert.deepEqual(st.lockAxes, []);
 });
 
-test("a pane of the cross section's mover moves the plane in its plane only, and the axes held before are put back", () => {
-  const st0 = free();
-  const before = sectionNow(st0)!.centre;
-  const from = paneMiddle(st0, "pane:xy");
-  const after = drag(st0, from, add(from, [6, 4, 0]));
-  const c = sectionNow(after)!.centre;
-  assert.ok(Math.abs(c[2] - before[2]) < 1e-6, `z stays (${c[2]} from ${before[2]})`);
-  assert.ok(Math.hypot(c[0] - before[0], c[1] - before[1]) > 1, "and it moved in x and y");
-  assert.deepEqual(after.lockAxes, [], "the two axes were held for the drag only");
+test("the cross section's mover has its own three panes (clicked to lay the plane across an axis), not the in-plane ones that are dragged", () => {
+  const ids = gizmoOf(free())!.handles.filter((h) => h.kind === "pane").map((h) => h.id);
+  assert.deepEqual(ids, ["pane:x", "pane:y", "pane:z"]);
 });
 
 test("a pane of a body's mover moves the body in its plane, as one step, and the mover stays open", () => {

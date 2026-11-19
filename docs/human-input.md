@@ -4848,43 +4848,223 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (asks for the Fix constraints work and the heat fixes to be merged into the testing branch, no full test run)
 
 ## in_1125 — 2026-11-19 — directive
-> check the gearbox again, another claude was working on that and it is important I think
+> okay fix the remaining problems
 
-## in_1126 — 2026-11-19 — question
-> okay what to do now?
+## in_1126 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+(approves the "Fix constraints" offer, the walk through each pushed body, and the heat fixes proposed in answer to in_1110)
 
 ## in_1127 — 2026-11-19 — directive
+> it is quite noisy. and cluttered with overlapping notices. Lets just not show any information we dont need to. It seems like the center message about what could be fixed specifically should only show up after you enter the workflow to fix the constraints one at a time. Also the fix constraints button doesn't work? I think there is an error message below in the screenshot.  Also what is this little thing in the play bar? It says turned, and has a little drop down box ? What is that? should we get rid of it?
+(a screenshot of the motion bar with the offer card, the pin-in-hole note over it, and "nothing here can be made a joint" below; asks for less on screen, the specific text only inside the walk, the button to work, and what "turned" and the box in the bar are)
+
+## in_1128 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the quieter Fix constraints offer to be merged into the testing branch, no full test run)
+
+## in_1129 — 2026-11-19 — approval
+> go ahead in that order, offer both overall size and the numbers
+(approves the plan of in_1120: first click-to-place with a simple preview and a size field and the numbers, then the models built one part at a time with labels, then Play for each; offers both an overall size and the numbers)
+
+## in_1130 — 2026-11-19 — directive
+> lets get rid of "What the bar items are
+>
+> “turned −41.5°”: the joint’s current angle.
+> “turning”: the switch between turning and sliding the joint. It only matters when the body could do either.
+> “x_s_083 back to [ ] °”: a number box, not a dropdown. It sets where a body that gets pushed returns to when nothing holds it away. Empty means it stays where it was pushed. This came from a feature you asked for earlier (in_1020)." also why doesn't it offer to fix this model? it sees like a pretty obvious coaxial solution?
+(asks to take the angle read-out, the turn/slide switch and the "back to" box out of the motion bar, and why a lever plainly on a pin is not offered the coaxial fix)
+
+## in_1131 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests. Then Also this message is very jumpy. Can we just get rid of this entirely? we should just detect issues and go into detail on the fix flow if the user clickes fix.
+(attached a screencast of the motion bar with the "this push is heavy" note and the pin-in-hole note alternating; asks for the merge, then for those notes to go: issues are only detected, and the detail is in the fix flow)
+
+## in_1132 — 2026-11-19 — question
+> Why cant it apply the coaxial mate to the pin and the arm? Also apparently this pin and arm already have a coaxial mate and the animation completely ignores it and uses hard body instead? why?
+(a screenshot of the walk with "not applied: the pivot would jam: x_s_002 against x_s_084 ..." at the foot; asks why the mate cannot be applied and why an existing coaxial mate seems ignored in favour of the hard body)
+
+## in_1133 — 2026-11-19 — directive
+> @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/502e696a-why_jamb.json"
+(the project file asked for in answer to in_1132: the lever, the two gears and the arm; hard body x_s_084, pivot on x_s_083, no mates)
+
+## in_1134 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the fix-walk changes (the refused mate named, the file checked) to be merged into the testing branch, no full test run)
+
+## in_1135 — 2026-11-19 — directive
+> It immediately flashes to a size of 0 and errors on first click. Also it seems like you can set module of 1 which seems reasonable but it doesn't sync other needed values?
+(attached two screenshots of the Differential model being placed: one with a module of 1 typed, the preview red with "the axle is too wide for the side gears" and a size of 312.9; one just after the first click with a size of 0 and "the heel cone is too flat for this module and teeth")
+
+## in_1136 — 2026-11-19 — directive
+> The cycloidal drive doesn't seem to animate properly.
+(attached a screencast of the cycloidal drive being played, three seconds)
+
+## in_1137 — 2026-11-19 — question
+> okay what next?
+
+## in_1138 — 2026-11-19 — directive
+> Lets just have one bevel gear option with sub options of bevel, bevel spiral, and hypoid spiral. lets also have new icons for the bevels. Maybe more 3d like a cone section etc. 
+> You cant select any worm gear with any surface except the ends. 
+> 
+> An animation seems to keep animating in the play bar even after it is deleted. 
+> 
+> Lets make the cross section plane have a more intuitive interface with an xyz thing that has selectable panes just like the world view ones, selecting a pane does cutaway on that pane. you can pull the arrows to adjsut and it should have the ability to swap between xyz mode and rotate mode just like objects do. you should be able to position the orb and the cut plane by clicking on lines and surfaces just like how the mover orb works elsewhere. Also can we have the cut surfaces be darker grey and have the hatch pattern?
+> 
+> also when you click a constraint, it should highlight the parts involved in the constraint. It doesn't seem to do this now and it is really hard to tell what a constraint is even for.
+
+## in_1139 — 2026-11-19 — directive
+> okay one more thing, cross sections of animated parts seem to be special, they dont cut the same, they seem to have trasparent edges at the cut instead of grey and hatch,  and also they seem to continue in the cut space as black edge wireframe. Can we have animations cut just like anything else? Also these notes are from before I tried your most recent edits
+
+## in_1140 — 2026-11-19 — directive
+> on the cycloidial drive, can you attach things to the drive surfaces so I can actually see how it is opearating? the perfectly smooth shafts and plates are not obvious. Maybe a shaft with a key?
+(asks for features on the cycloidal drive's turning parts so its motion can be seen, for example a keyed shaft)
+
+## in_1142 — 2026-11-19 — question
+> @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/d9cc7a9a-why_jamb.json" If I load the file fresh and try to move the arm, it seems an aweful lot like it has a coaxial constraint, it flashes red and shows it to me see.
+(a screenshot of dragging the arm: "that cannot be done without breaking other constraints: the Concentric constraint ... the Tangent constraint (3 flash)"; says the arm looks held by a coaxial constraint)
+
+## in_1143 — 2026-11-19 — approval
+> yes, build the carried joint, but also why do we need that? why isn't the coaxial constraint itself the carried joint?
+(approves building the carried joint; asks why a separate thing is needed and why the coaxial constraint is not itself the carried joint; answered in chat: it is, what was missing is that the motion took its axis where the pin stood at the start)
+
+## in_1144 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the carried joint to be merged into the testing branch, no full test run)
+
+## in_1145 — 2026-11-19 — directive
+> the gear boxes dont animate properl because it appears that the gears are not actually attached to the shafts and the shafts dont rotate. Oh actually nevermind, I see you fixed this problem since my last check, although Does this need a new type of constraint? because technically coaxial wouldn't capture that, Would we need alike a glue constraint or something analogous? And what would it do? treat the bodies as one body for motion? Can we have the bearings actually be a bearing creator similar to the fastener creator? where you can make a bunch of real world bearings? I am not sure these are real world bearings right now, the clearences on the spheres look way off. and can we have them load in with proper constraints so that you can really drive things on them already and animate them? Also lets change the menu again, lets actually just make a root model category in the menu, it should be a gear icon, in that there should be a sub menu of actual gears, and our other devices.
+(asks: whether a new constraint is needed to attach a gear to its shaft (coaxial does not hold it) and what it would do; for the bearing to be a creator like the fastener creator with real-world bearings, whose ball clearances look wrong now, loading with proper constraints so things can be driven on them and animated; and for a root Models category with a gear icon holding a submenu of the gears and the other devices)
+
+## in_1146 — 2026-11-19 — approval
+> yes do all three, glue first
+(approves the glue constraint (with the models using it), both kinds of bearing (catalogue and print-in-place), and the first families (deep-groove ball, the 6xx and 62xx series); glue first)
+
+> @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/622b1069-Screencast_from_2026-11-19_15-51-00.webm" okay now it spins the whole lever arm and completely ignores its hard body constraints, it flys right through other bodies. Also don't you think it should slip on coaxial constraints not drive the whole arm in rotation? I thought we had a rule that if xyz movement satisfies everything then we dont rotate? shouldn't that rule cause it to slip in the coaxial joint?
+(a screencast of the carried lever swinging round with the gear and through the far arm; two faults: the whole arm is turned with the gear, and nothing stops it going through other hard bodies; asks that it slip on the pin, the move-before-turn rule)
+
+## in_1148 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the corrected carried lever to be merged into the testing branch, no full test run)
+
+## in_1149 — 2026-11-19 — question
+> okay so what next?
+(asks what to do after the straddling-constraint audit; the AI recommended running the tests, the drag and typed-number channels, and answering the parallel/perpendicular-to-an-edge question)
+
+## in_1150 — 2026-11-19 — approval
+> go with 1 then 3
+(approves the AI's recommendation of `in_1149`: first run the tests of the merged work properly, then audit the drag and typed-number channels)
+
+## in_1151 — 2026-11-19 — question
+> how are the tests?
+
+## in_1152 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1153 — 2026-11-19 — approval
+> yes build the bearing constraints next
+(approves the last of the three: a bearing that loads with its constraints, so things can be driven on it)
+
+> okay now if I delete the coaxial and it runs on collision, will it suggest a fix and re apply a coaxial to make the animation leaner?
+(asks whether, with the coaxial constraint deleted so the arm is pushed by collision, the Fix constraints offer will suggest the coaxial again)
+
+## in_1156 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the offer of the coaxial mate back for a body on a moving pin to be merged into the testing branch, no full test run)
+
+## in_1157 — 2026-11-19 — directive
+> It can be really hard to find constraints sometimes. Can we have it so that when you select a body, it has an icon that is half eye have lock, and when clicked it shows all the constraints associated with any verticy, edge, surface, or anything to do with that body, or relationships that body shares with other parts. lets also have a show all constraints option under the view part of the menu which turns on all constraints in the whole world.
+
+## in_1158 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1159 — 2026-11-19 — directive
+> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
+
+## in_1160 — 2026-11-19 — directive
+> I think the eye lock icon to see constraints should only show up when a body is double clicked. Also can we have it so that all icons (except the constraints themselves always show up in the same helpful bar? I am thinking they should use the suggested constraints bar. there will be an icon side to the left, and the suggested (if they exist) to the right.
+
+## in_1161 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1162 — 2026-11-19 — directive
+> okay lets get rid of print bearings. Also why does changing the size attribute not change anything? and are these real spec bearings? can I actually go find and buy bearings to these specs? they look odd. How could you even get a ball into a position like that? I thought real bearings had plates on either side and or crimp rings etc?
+(asks for the print-in-place bearing to be removed; why Size does nothing on a catalogue bearing; whether the bearings are real and buyable; how the balls could be put in; whether real bearings have shields and retaining rings)
+
+## in_1163 — 2026-11-19 — directive
+> Lets make them model real bearings. Lets have the menu be bearings. Then bearing types. Lets have it so that within a type, it loads the menu and you can either select calogue bearings or make your own by setting perimeters. It should have a simple or detailed toggle. So simple just gets accurate dimensions of the OD the ID, the thickness, and the OD of the inner ring that rotates in the outer ring, It makes an outer donut, and an inner donut accurate to real specs or what the user says when they make custom bearing. This is all we need for now actually for the catalog bearings. Custom bearings can have the ability to set balls etc in detail mode or simple mode. on a side note for a moment, okay the cycloidial drive markers you made earlier are really weird. Lets just do a normal flat on the output shaft (like for a set screw) and the bottom plate and top plate can just have mounting holes in them.
+(asks for: a Bearings menu with bearing types; within a type, catalogue bearings or custom by parameters; a simple/detailed toggle, simple being two donuts (outer ring and inner ring) at the real OD, ID, thickness and inner ring OD, which is all the catalogue bearings need for now; custom bearings can set balls etc. in detailed or simple mode; and on the cycloidal drive, replace the markers with a flat on the shaft (as for a set screw) and mounting holes in the bottom and top plates)
+
+> Lets have the helpful message say "Slow animation" "Fix Constraints" X. Also the fixes are way to verbose. It should just select the actual parts to constraint, and zoom into them and say Apply X constraint. Then zoom to the next and select parts to constrain and say apply x constraint. Also when it is done, it should go back to its original view, with the animation play button ready to go, or basically however it was before you entered the fix constraints helper.
+(a screenshot of the walk card with a long sentence; asks the offer to be "Slow animation", Fix Constraints, ✕; each step to select the parts, zoom to them and say only "Apply ... constraint"; the end to put the view and the play back as they were)
+
+## in_1164 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the terse Fix walk (select, zoom, apply, view put back) to be merged into the testing branch, no full test run)
+
+## in_1165 — 2026-11-19 — directive
+> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
+(asks for the work to be merged into the testing branch, which was already done, and for a new working branch made from its tip: `claude/intelligent-hawking-next-2`)
+
+## in_1166 — 2026-11-19 — question
+> okay what next?
+
+## in_1167 — 2026-11-19 — approval
+> go with 1 and 2
+(approves the AI's recommendation of `in_1166`: check a typed number a dimension cannot take, and deleting a part a constraint needs, against the rule that a violated constraint flashes red, says so and offers to delete)
+
+## in_1168 — 2026-11-19 — directive
+> lets not have it say, instead lets have it flash red the remaining parts the relied on that constraint, and show their constraint bubble pop.
+(answers the AI's question of `in_1167`: when deleting a part takes constraints with it, it should not say so in words; it flashes red the parts that remained and relied on the constraint, and shows the constraint's bubble pop)
+
+> okay we should probably actually put the model back into its starting position when we go on the fix constraints path because it positions the constraints in the position of the original parts position. Also can we make the fix constraints button inline with the same media player element to the right? can we include a clock icon to the left next to the play and direction swapper that can be clicked on to adjust the speed of the rotation?
+(a screenshot of the zoomed pin drawn where the play had carried it, not where the constraint would be made; asks the walk to start from the model's starting position, the Fix Constraints button to be in the media bar at the right, and a clock icon by play and the direction switch that adjusts the speed)
+
+## in_1170 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the walk that starts from the start, the Fix Constraints button in the bar and the speed clock to be merged into the testing branch, no full test run)
+
+## in_1171 — 2026-11-19 — directive
+> okay I think the menu should have you either go into a catalog selector that is simple bearing only, or go into create your own path with simple or detailed selectable. Right now it kind of seems to be in a hybrid state of both make your own and select from catalog
+(asks for two separate paths under a bearing type: a catalogue selector that makes simple bearings only, and a make-your-own path where simple or detailed can be chosen)
+
+## in_1172 — 2026-11-19 — directive
+> check the gearbox again, another claude was working on that and it is important I think
+
+## in_1173 — 2026-11-19 — question
+> okay what to do now?
+
+## in_1174 — 2026-11-19 — directive
 > okay it seems like we have some duplicate code once again. The move orb for the cross section plane does not work like other orbs. Lets unify all the orbs so they work the same. They should all be a single orb In one or more modes. There should be the xyz arrows that can be selected with shift to select more or less freedom of movement. The little panes always sent movement in that plane, the information bubbles should always be hidden except for the axis selected. Sometimes the xyz arrows can have second arrows that indicate copy direction or twist direction for screws rotate extrude etc. there should always be the swapper to swap from xyz to rotate mode (sometimes it should be in both rotate and xyz mode) selecting the blue orb should always allow smart select based off clicking edges verticies objects faces etc.
 
-## in_1128 — 2026-11-19 — approval
+## in_1175 — 2026-11-19 — approval
 > I will take your recommendation
 (takes the AI's recommendation: the plan of `dec_unified_orb`, beginning with the cross section's orb; the three open questions are left to the AI's defaults)
 
-## in_1129 — 2026-11-19 — approval
+## in_1176 — 2026-11-19 — approval
 > yes go ahead
 (approves the next step of `dec_unified_orb`: the one bubble rule and Shift on the plane's rotate rings)
 
-## in_1130 — 2026-11-19 — approval
+## in_1177 — 2026-11-19 — approval
 > yes do the pane handles next
 (approves the next step of `dec_unified_orb`: the pane handles, little panes that always send movement in their plane)
 
-## in_1131 — 2026-11-19 — approval
+## in_1178 — 2026-11-19 — approval
 > yes go ahead
 
-## in_1132 — 2026-11-19 — approval
+## in_1179 — 2026-11-19 — approval
 > yes go ahead
 (approves the next step of `dec_unified_orb`: the second arrows for circular repeat and sweep)
 
-## in_1133 — 2026-11-19 — directive
+## in_1180 — 2026-11-19 — directive
 > the second arrows shouldn't alway exist. those are special and only for certain operations
 
-## in_1134 — 2026-11-19 — approval
+## in_1181 — 2026-11-19 — approval
 > yes go ahead
 (approves panes on the mirror, scale and repeat orbs)
 
-## in_1135 — 2026-11-19 — directive
+## in_1182 — 2026-11-19 — directive
 > maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
 
-## in_1136 — 2026-11-19 — approval
+## in_1183 — 2026-11-19 — approval
 > Push; new branch claude/hopeful-cannon-8 (Recommended)
 (the answer to the AI's question: permission to push to claude/inspiring-pascal-l342k7, then work on a new branch claude/hopeful-cannon-8 created from it)

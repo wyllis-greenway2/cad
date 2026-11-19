@@ -5,6 +5,8 @@ import type { Vec3 } from "../../math/vec.ts";
 import { add, sub, scale, dot, cross, normalize, centroid } from "../../math/vec.ts";
 import { about } from "../../math/rotation.ts";
 import type { Scene } from "../../operation/scene.ts";
+import { lookup } from "../../operation/scene.ts";
+import { segmentOf, circleOf } from "../../operation/part.ts";
 import { partIndex } from "../../operation/partindex.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { drawnRef } from "../../shared/ref.ts";
@@ -167,29 +169,51 @@ export function typedSection(sec: { centre: Vec3; n: Vec3 }, field: number, valu
   return { ...sec, n: normalize(n) };
 }
 
-/** What the sheet's move icon has it in (`in_459`): 0 the arrow along its normal only, 1 the mover (arrows along x, y, z and the rings), 2 / 3 / 4 the plane across X / Y / Z. */
-export function sheetMoveOf(s: AppState, ref: Ref): 0 | 1 | 2 | 3 | 4 {
+/** What the sheet's move icon has its handles in (`in_1129`): 0 the arrows along x, y, z that move it, 1 the rings about them that turn it. */
+export function sheetMoveOf(s: AppState, ref: Ref): 0 | 1 {
   return s.sheetMove && s.sheetMove.ref === ref ? s.sheetMove.mode : 0;
 }
 
-/** A press on the move icon: the next state; going to a plane across an axis keeps where the sheet was, and coming back from them puts it back where it was (the free place is remembered, `in_459`). */
+/** A press on the move icon: the handles go between the arrows (move) and the rings (turn), as a body's do. */
 export function doSheetMove(s: AppState): AppState {
   const sec = sectionNow(s);
   if (!sec) return s;
-  const sc = sceneOf(s.session);
-  const p = sc.parts[sec.ref];
-  if (p?.kind !== "plane") return s;
-  const from = sheetMoveOf(s, sec.ref);
-  const next = ((from + 1) % 5) as 0 | 1 | 2 | 3 | 4;
-  let free = s.sheetMove && s.sheetMove.ref === sec.ref ? s.sheetMove.free : null;
-  if (next >= 2 && from < 2) free = { at: p.at, u: p.u, v: p.v };
-  let out: AppState = { ...s, sectionLive: null, sheetMove: { ref: sec.ref, mode: next, free: next >= 2 ? free : null } };
-  if (next >= 2) {
-    const k = next - 2;
-    const sign = Math.abs(sec.n[k]!) > 0.5 ? Math.sign(sec.n[k]!) : dot(AXES[k]!, sub(position(s.cam), sec.centre)) >= 0 ? 1 : -1;
-    out = placeSection(out, sec.centre, scale(AXES[k]!, sign) as Vec3);
-  } else if (from >= 2 && free) {
-    out = { ...out, session: run(out.session, { type: "placePlane", ref: sec.ref, at: free.at, u: free.u, v: free.v }) };
+  return { ...s, sectionLive: null, moverSphere: false, sheetMove: { ref: sec.ref, mode: sheetMoveOf(s, sec.ref) === 0 ? 1 : 0 } };
+}
+
+/** A click on one of the three panes of the sheet's mover (`in_1129`): the plane lies across that axis, where its middle is, the half towards the camera (or the half it already faced, if it was already across that axis) cut away. */
+export function doSectionPane(s: AppState, k: 0 | 1 | 2): AppState {
+  const sec = sectionNow(s);
+  if (!sec) return s;
+  const sign = Math.abs(sec.n[k]!) > 0.5 ? Math.sign(sec.n[k]!) : dot(AXES[k]!, sub(position(s.cam), sec.centre)) >= 0 ? 1 : -1;
+  return placeSection({ ...s, moverSphere: false }, sec.centre, scale(AXES[k]!, sign) as Vec3);
+}
+
+/** What a click on the part under the pointer does to the plane while its sphere is selected (`in_1129`, as the mover's sphere goes where a click says): a corner or the centre of a circle is where the middle goes; a straight edge, its middle, and the plane stands across it; a flat face of a body, the place clicked
+ * on it, the plane lying on it (facing out, so moving it in slices that side off); anything else curved, the place clicked. `hit` is where the click lands on a surface, when it lands on one. */
+export function sheetPlaceAt(sc: Scene, ref: Ref, hit: Vec3 | null, centre: Vec3, n: Vec3): { centre: Vec3; n: Vec3 } | null {
+  const p = sc.parts[ref];
+  if (!p) return null;
+  const get = lookup(sc);
+  if (p.kind === "corner") return { centre: p.at, n };
+  if (p.kind === "circle") { const c = circleOf(get, p.ref); return c ? { centre: c.center, n } : null; }
+  if (p.kind === "line") {
+    const sg = segmentOf(get, p.ref);
+    if (!sg) return null;
+    const mid: Vec3 = [(sg[0][0] + sg[1][0]) / 2, (sg[0][1] + sg[1][1]) / 2, (sg[0][2] + sg[1][2]) / 2];
+    return p.circle || p.mid ? { centre: mid, n } : { centre: mid, n: normalize(sub(sg[1], sg[0])) };
   }
-  return out;
+  if (p.kind === "plane" && p.origin === "body") {
+    const axes = surfaceAxes(sc, p);
+    const at = hit ?? centre;
+    return axes ? { centre: at, n: axes[2] } : { centre: at, n };
+  }
+  return null;
+}
+
+/** The pane of the sheet's mover that the plane lies across now (the one that is lit, `in_1129`), or null when the plane has been turned off the axes. */
+export function activePane(s: AppState): string | null {
+  const sec = sectionNow(s);
+  const k = sec ? sectionAxis(sec.n) : null;
+  return k === null ? null : `pane:${"xyz"[k]}`;
 }

@@ -16,7 +16,7 @@ import { gearOutline } from "../src/operation/gear.ts";
 import { loopFaceRef, diskFaceRef } from "../src/operation/loops.ts";
 import { meshWith } from "../src/operation/mesh.ts";
 import { followersOf, bodyOfGear } from "../src/operation/gearcouple.ts";
-import { startMotion, jointMatrix, keepCommand } from "../src/interaction/motion.ts";
+import { startMotion, jointMatrix, keepCommand, motionHolds } from "../src/interaction/motion.ts";
 import { createState, reduce } from "../src/interaction/controller.ts";
 import { homeCamera } from "../src/interaction/camera.ts";
 import { frameOf } from "../src/interaction/frame.ts";
@@ -244,4 +244,22 @@ test("turning the view (a drag of the camera) does not stop the picture of a mot
   const orbiting = frameOf({ ...st, drag: { camera: true } }, { w: 800, h: 600 });
   assert.ok(orbiting.bodyMatrix && orbiting.followers.length === 1, "and still drawn moved while the view is turned");
   near(orbiting.bodyMatrix!, still.bodyMatrix!);
+});
+
+test("a motion stops, and its bar goes, when the body it moves is deleted or undone (`in_1129`)", () => {
+  const a = rec("g_001", [0, 0, 0], G1);
+  const p = partnerOf(a, 30);
+  const s = build([{ id: "g_001", at: a.at, spec: a.spec }, { id: "g_002", at: p.at, spec: p.spec, turn: p.turn, with: "g_001" }]);
+  const bodyA = bodyOfGear(scene(s), scene(s).gears![0]!)!;
+  const st = startMotion(scene(s), bodyA);
+  assert.ok(st.ok);
+  if (!st.ok) return;
+  assert.equal(motionHolds(scene(s), st.motion), st.motion, "nothing changed: the same motion");
+  const sc = structuredClone(scene(s)) as { parts: Record<string, unknown> };
+  const follower = st.motion.follows[0]!.body;
+  delete sc.parts[follower];
+  const less = motionHolds(sc as never, st.motion);
+  assert.ok(less && less.follows.length === 0, "a follower that is gone is let go");
+  delete sc.parts[bodyA];
+  assert.equal(motionHolds(sc as never, st.motion), null, "the body it moves is gone: the motion ends");
 });

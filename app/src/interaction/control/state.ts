@@ -1,9 +1,11 @@
 // The state the controller works on, and the small helpers every handler uses.
+import type { Annotation } from "../annotations.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { worldRef } from "../../shared/ref.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { cutsNow } from "./section.ts";
 import type { Hint } from "../hints.ts";
+import type { Building } from "../modeltool.ts";
 import type { CutState } from "../cut.ts";
 import { add, scale, dot } from "../../math/vec.ts";
 import { settings } from "../../shared/settings.ts";
@@ -37,6 +39,10 @@ export interface AppState {
   menu: { x: number; y: number; items: MenuItem[]; /** the world plane the pointer was over when it opened: a sketch tool chosen from it turns to that plane */ plane?: Ref | null } | null;
   /** every constraint is shown, also the ones that only join the outline of a body's sketch (`in_239`) */
   showAllConstraints: boolean;
+  /** the bodies whose constraints are all shown (the half eye, half lock icon on a selected body, `in_1157`) */
+  bodyConstraints: Ref[];
+  /** the body that was double clicked: its constraints icon is in the bar while it stays selected (`in_1166`) */
+  consFor: Ref | null;
   /** every tap adds to the selection or takes out what it hits, as Shift does: the way to select several with a finger (`in_539`) */
   adding: boolean;
   /** a manufacturing route's toolpath shown over the drawing (`in_570`): the toolpath and how far along it the head is (0 to 1); a scrubber moves it, Esc or the cross ends it */
@@ -64,7 +70,7 @@ export interface AppState {
   /** where a drag of its handles has taken the plane so far; one step is made when it is let go */
   sectionLive: { ref: Ref; centre: Vec3; n: Vec3 } | null;
   /** the sheet's move icon (`in_459`): which state it is in for the sheet, and the free place it came from to go back to */
-  sheetMove: { ref: Ref; mode: 0 | 1 | 2 | 3 | 4; free: { at: Vec3; u: Vec3; v: Vec3 } | null } | null;
+  sheetMove: { ref: Ref; mode: 0 | 1 } | null;
   /** the body (or "sketch") that was last in view: "Reset camera" goes back to it (`in_303`) */
   lastSeen: string | null;
   /** the move arrows chosen with Shift (`in_299`): a body dragged free then moves only along those axes (one: along a line; two: across a plane); none: free in every direction */
@@ -99,7 +105,7 @@ export interface AppState {
   stepEdit: string | null;
   /** a double click turns the view to the plane, but only once the window for a third click has passed: a triple click selects the object and leaves the view alone */
   /** a drag in progress: of the camera, or of a helper handle (`gizmo.ts`) */
-  drag: { camera: true; /** what the view turns about for this drag (`in_291`) */ pivot?: Vec3 } | { handle: Drag; /** the ring of a revolve: the angle it had last and the total turned so far, so the turn goes on past one turn (`dec_spiral_extrude`) */ turned?: { last: number; total: number }; /** a pane dragged (`in_1127`): where the mover's middle was, and the operation that was open before (a body moved by it stays a mover) */ pane?: { centre: Vec3; keep?: Op }; /** the axes held before a pane took its two for the drag: put back when it is let go */ paneLock?: (0 | 1 | 2)[]; /** a handle of the cross section plane (`in_392`): the plane as it was when the drag began */ section?: { ref: Ref; centre: Vec3; n: Vec3 }; /** an arrow of the mirror dragged: which axis, and where its plane stood when the drag began (`in_437`) */ mir?: { k: 0 | 1 | 2; from: number }; /** the mover's sphere dragged along an arrow: where it was, and how far the body has moved since the operation began (`in_416`) */ piv?: { centre: Vec3; offset: Vec3 }; /** a ring of the selected sphere turning the mover's axes: the axes as they were when the drag began (`in_417`) */ frameTurn?: [Vec3, Vec3, Vec3]; /** a joint's handle (`in_323`): which mate, which freedom, and how far it has been taken so far */ joint?: { mate: string; kind: "turn" | "slide"; amount: number; /** the hard bodies it is against (`in_480`) */ hit?: Ref[] }; /** the operation's value when the drag began (the drag adds to it) */ base: number; /** the handle sets the numbers of the repeat being set up */ repeat?: true } | { corner: Ref; base: Session } | { /** a point of a spline taken hold of (`dec_spline_and_cams`): which line, which of its points, and the session as it was when the drag began */ knot: { line: Ref; index: number }; base: Session } | { /** a whole straight line dragged across its plane: where the pointer was on the plane when it began */ line: Ref; base: Session; from: Vec3 } | { /** the edge of a circle dragged to change its size (`in_290`) */ rim: Ref; base: Session } | { /** a selected body dragged free (`in_291`): where the pointer was on the plane through its middle facing the camera when it began */ body: Ref; from: Vec3; centre: Vec3; /** the move or turn that was open (its turned axes and its place): it stays open after the drag, `in_418` */ keep?: Op } | null;
+  drag: { camera: true; /** what the view turns about for this drag (`in_291`) */ pivot?: Vec3 } | { handle: Drag; /** the ring of a revolve: the angle it had last and the total turned so far, so the turn goes on past one turn (`dec_spiral_extrude`) */ turned?: { last: number; total: number }; /** a pane dragged (`in_1174`): where the mover's middle was, and the operation that was open before (a body moved by it stays a mover) */ pane?: { centre: Vec3; keep?: Op }; /** the axes held before a pane took its two for the drag: put back when it is let go */ paneLock?: (0 | 1 | 2)[]; /** a handle of the cross section plane (`in_392`): the plane as it was when the drag began */ section?: { ref: Ref; centre: Vec3; n: Vec3 }; /** an arrow of the mirror dragged: which axis, and where its plane stood when the drag began (`in_437`) */ mir?: { k: 0 | 1 | 2; from: number }; /** the mover's sphere dragged along an arrow: where it was, and how far the body has moved since the operation began (`in_416`) */ piv?: { centre: Vec3; offset: Vec3 }; /** a ring of the selected sphere turning the mover's axes: the axes as they were when the drag began (`in_417`) */ frameTurn?: [Vec3, Vec3, Vec3]; /** a joint's handle (`in_323`): which mate, which freedom, and how far it has been taken so far */ joint?: { mate: string; kind: "turn" | "slide"; amount: number; /** the hard bodies it is against (`in_480`) */ hit?: Ref[] }; /** the operation's value when the drag began (the drag adds to it) */ base: number; /** the handle sets the numbers of the repeat being set up */ repeat?: true } | { corner: Ref; base: Session } | { /** a point of a spline taken hold of (`dec_spline_and_cams`): which line, which of its points, and the session as it was when the drag began */ knot: { line: Ref; index: number }; base: Session } | { /** a whole straight line dragged across its plane: where the pointer was on the plane when it began */ line: Ref; base: Session; from: Vec3 } | { /** the edge of a circle dragged to change its size (`in_290`) */ rim: Ref; base: Session } | { /** a selected body dragged free (`in_291`): where the pointer was on the plane through its middle facing the camera when it began */ body: Ref; from: Vec3; centre: Vec3; /** the move or turn that was open (its turned axes and its place): it stays open after the drag, `in_418` */ keep?: Op } | null;
   /** the world plane that is on (`in_190`): it has the grid, is the one the pointer finds on empty space and the one a tool draws on; the little panes beside the axes and the X Y Z buttons change it */
   world: "XY" | "XZ" | "YZ";
   /** the axes and the little panes put away with the orb at their junction (`in_463`) */
@@ -108,6 +114,8 @@ export interface AppState {
   picking: { kind: OpKind; /** what it still needs, as `startOp` says it ("select a closed figure first"): shown in its bubble (`in_951`) */ why?: string } | null;
   /** a dimmed item of the menu that was pressed (`in_951`): it waits for what it needs to be selected, helping with what to select, and runs by itself when it can; Esc gives it up */
   awaiting: { id: string; label: string; icon: string; why: string } | null;
+  /** a gear assembly model being made a part at a time (`dec_gear_models`): the next part is made when the kernel has answered for the one before */
+  building: Building | null;
   /** looking straight at a plane is a little hard to leave (`in_193`): the drag so far, in pixels, that has been kept from the camera; past `settings.view.leaveStraightPx` the view turns, and goes smoothly into perspective */
   orthoDebt: number;
   /** when the perspective began to come in after leaving a straight view (-1: at the next frame), null when it is all in */
@@ -119,11 +127,11 @@ export interface AppState {
   /** the helper handle under the pointer */
   gizmoHover: string | null;
   /** a command was refused because it could not be done without breaking constraints: they flash red and fade, and the one that tried shakes (`in_120`) */
-  flash: { culprits: string[]; victims: string[]; parts?: string[]; soften?: string[]; /** constraints that already held: they flash green */ green?: string[]; retry?: Command; at: number } | null;
+  flash: { culprits: string[]; victims: string[]; parts?: string[]; soften?: string[]; /** constraints that already held: they flash green */ green?: string[]; /** constraints that went with a deleted part: their bubbles pop and the parts that stayed flash red (`in_1168`) */ popped?: string[]; ghosts?: Annotation[]; retry?: Command; at: number } | null;
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ awaiting: null, motion: null, stepEdit: null, similar: null, optionAt: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, adding: false, preview: null, handleSel: null, tape: false, wireframe: false, moverSphere: false, moverWas: null, moverPose: null, orbMovedAt: null, clipboard: null, sectionLive: null, sheetMove: null, worldHidden: false, picking: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, mixBase: 0.03, paneHover: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ awaiting: null, building: null, motion: null, stepEdit: null, similar: null, optionAt: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, bodyConstraints: [], consFor: null, adding: false, preview: null, handleSel: null, tape: false, wireframe: false, moverSphere: false, moverWas: null, moverPose: null, orbMovedAt: null, clipboard: null, sectionLive: null, sheetMove: null, worldHidden: false, picking: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, mixBase: 0.03, paneHover: null, gizmoHover: null, flash: null });
 
 /**
  * The plane a figure is being drawn on while the view is straight at it (`in_194`): the tool's plane, else (a tool armed, nothing placed yet) the one plane selected that faces the camera.

@@ -108,9 +108,14 @@ export function bodyParts(result: KernelResult, sheets: Sheet[] = [], gears: Gea
     }
     return best;
   };
+  const teeth = new Map<number, { gear: GearShape; mesh: number[] }>();
   for (const f of result.faces ?? []) {
     const gear = reduced.get((f.body as number | undefined) ?? 0);
-    if (gear && !keepsGearFace(f, gear, result.mesh)) continue;
+    if (gear && !keepsGearFace(f, gear, result.mesh)) { // a tooth's face, a flank, a worm's thread: no part of its own (a gear has thousands), but its triangles go into one part for the whole surface of the teeth, so that a click on them picks the body (`in_1129`)
+      const m = result.mesh, key0 = (f.body as number | undefined) ?? 0;
+      if (m) { const into = teeth.get(key0) ?? { gear, mesh: [] as number[] }; for (const r of (f.ranges as { start: number; count: number }[] | undefined) ?? [{ start: f.start, count: f.count }]) for (let i = r.start; i < r.start + r.count; i++) { const ix = m.triangles[i]!; into.mesh.push(m.vertices[ix * 3]!, m.vertices[ix * 3 + 1]!, m.vertices[ix * 3 + 2]!); } teeth.set(key0, into); }
+      continue;
+    }
     if (f.type === "cyl") {
       // a full round face along a world axis: a part you can select and push / pull (its radius changes)
       const axis = f.axis as 0 | 1 | 2;
@@ -150,6 +155,11 @@ export function bodyParts(result: KernelResult, sheets: Sheet[] = [], gears: Gea
       }
     }
     flats.push({ n, d: f.d, u, v, mesh, ...(stableOf(n, f.d, mesh) ? { stable: stableOf(n, f.d, mesh)! } : {}), ...(many && f.body !== undefined ? { body: f.body } : {}) });
+  }
+  for (const [bi, tt] of teeth) { // the teeth of a gear as one face (its surface that no other face of the gear is): named by its centre and radius
+    if (!tt.mesh.length) continue;
+    const g = tt.gear;
+    out.push({ ...base, ref: bodyRef("body", `t@${key([...g.centre, g.radius, bi])}`), kind: "plane", at: g.centre, u: [1, 0, 0], v: [0, 1, 0], rounded: "teeth", mesh: tt.mesh, ...(many ? { of: bodyPart(bi) } : {}) });
   }
   // two separate faces in one plane (a block's end cut in two by a hole) must not share a name, or one hides the other: the ones that share are named by where they are as well
   const same = new Map<string, number>();
