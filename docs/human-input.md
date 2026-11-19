@@ -4659,7 +4659,35 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1076 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for this branch (the moved distance of a hole as a bubble, with its origin marked and snappable) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
+## in_1077 — 2026-11-19 — directive
+> Okay now this is better, but maybe we should have a rule that it doesn't rotate, unless it has no freedom of movement in xyz? because now it doesn't weird stuff and seems to rotate even when it doesn't need to. In fact, maybe we should make this a rule in general for collision and free hand movement of objects? They use xyz space for freedom of movement, unless there is none in which case it uses rotational movement, unless there is none and then it jambs. Also it is extremely slow now, and also the player bar is jumping all around again. How can we make it faster? is our rotational idea stupid and going to make everything really slow now?
+(files `why_jamb.json` and a screencast: the order of freedom for a pushed body (slide, then turn, then jam) as a rule for collision and for moving a body by hand; the slowness; the bar jumping)
+
+## in_1078 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for `claude/adoring-dijkstra-free-order` to be merged into the testing branch, without a full test run; it carries slide-before-turn for a pushed body, the cheaper search and the motion bar's note out of its layout)
+
+## in_1079 — 2026-11-19 — directive
+> I created default face gear and default mesh gear, The teeth clearly have collisions according to the rendering (unless rendering is false somehow?)
+(attached the project file model.cad_64.json, build c7db6782: a 40 tooth face gear and its 14 tooth pinion made with Mesh gear, both with default settings, and a close screenshot of two flanks crossing)
+
+## in_1080 — 2026-11-19 — directive
+> okay the rotation is pretty jumpy, it seems to jump much more than it should each time it detects? that is not how xyz movement, work, they move only as much as they need to and slide along the surface, rotation should be the same. Also it is still way too heavy, how can we make the animation lighter and faster? Also the message about it being heavy should fade in and out stable, right now it flashes so fast you cant even read it.
+(three asks: a turn of a pushed body should be as small as the push needs, as a slide is; the push is too heavy and should be lighter and faster; the "heavy" message should fade in and out and stay long enough to read)
+
+## in_1081 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for `claude/adoring-dijkstra-smooth-faster` to be merged into the testing branch, without a full test run; it carries the smoother turns of a pushed body, the kept places for a play from the start again and the note that fades)
+
+## in_1082 — 2026-11-19 — question
+> why does it still look like my mesh gear collides with the weird flared out tops of the teeth? can you try building the same gear and test for actual collision? because it is clearly colliding at least according to the render. Is the render wrong?
+(asks whether the render is wrong, and for the same gear to be built and tested for a real collision; before it: "should the teeth still be shaped like this? it takes almost 50 seconds to make the default face gear", with a screenshot of one tooth's flanks)
+
 
 ## in_1083 — 2026-11-19 — directive
 > Can we clean up the ... menu? lets just get rid of restore session, instead we will later have an auto save feature and you could open that up just like any file. Also lets not have open save, lets just have import and export which will be used for all files coming in or going out. Also what is clear cache for? Also what is reapply mates for? Also what is clearance for? Also can we have the share state informatin just be put into a save file (now under export which defaults to our json file type) so I dont need to share state and file data with you every time we need to debug? Also lets move laser cut options under a fabricate option under the ... menu. The material options should be moved under shape fabricate which should have a hammer icon. The fastener tool should be a sub menu there next to material.
 (asks to clean up the ... menu: remove restore session (auto save will come later and open like any file); no Open and Save, only Import and Export for every file coming in or going out; asks what clear cache, reapply mates and clearance are for; asks for the share-state information to be put into the saved file (Export, defaulting to the json type) so state and file need not be shared separately for debugging; the laser cut options go under a Fabricate entry in the ... menu; the material options go under Shape, Fabricate (a hammer icon) with the fastener tool as a sub menu next to material)
+
+## in_1084 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for this branch (the ⋯ menu cleanup: Import and Export for every file, a project with the page's state, Fabricate) to be merged into claude/inspiring-pascal-l342k7, with no full test run)

@@ -25,6 +25,9 @@ test("the big gear with the pin turns: the lever, which has no joint, is pushed 
   assert.ok(r.ok);
   if (!r.ok) return;
   assert.ok(r.motion.contact?.pushables.some((p) => p.body === LEVER && p.free), "the lever can be pushed any way");
+  // it slides while a slide clears it: it is turned only where no slide does (here against the other bar), never for its own sake
+  const early = play(s, 30).contact!.pushables.find((p) => p.body === LEVER)!;
+  assert.ok(Math.hypot(...early.free!) > 1 && Math.abs(early.spin ?? 0) < 1e-9, `slid ${early.free} and did not turn (${early.spin})`);
   const half = play(s, 100);
   assert.equal(half.contact?.jam, null, half.contact?.jam ?? "");
   const lever = half.contact!.pushables.find((p) => p.body === LEVER)!;
@@ -82,4 +85,29 @@ test("the picture of a body that slid and turned is the same move as the one the
     const got = at(M, x);
     assert.ok(Math.hypot(got[0]! - want[0]!, got[1]! - want[1]!, got[2]! - want[2]!) < 1e-6, `${got} vs ${want}`);
   }
+});
+
+test("what a body with no joint does is smooth (it moves as little as the push asks, a step at a time) and a play from the start again goes through the places already worked out", () => {
+  const s = open();
+  const run1 = (): { m: ReturnType<typeof play>; ms: number; worstSlide: number; worstTurn: number } => {
+    const r = startMotion(scene(s), GEAR, "turn", s.outcome);
+    if (!r.ok) throw new Error(r.why);
+    let m = r.motion, prev = { f: [0, 0, 0], s: 0 }, worstSlide = 0, worstTurn = 0;
+    const t0 = performance.now();
+    for (let a = 1; a <= 120; a++) {
+      m = solveContact(scene(s), { ...m, playing: true, amount: a }, s.outcome, Infinity);
+      const l = m.contact!.pushables.find((p) => p.body === LEVER)!;
+      worstSlide = Math.max(worstSlide, Math.hypot(l.free![0] - prev.f[0]!, l.free![1] - prev.f[1]!));
+      worstTurn = Math.max(worstTurn, Math.abs((l.spin ?? 0) - prev.s));
+      prev = { f: [...l.free!], s: l.spin ?? 0 };
+    }
+    return { m, ms: performance.now() - t0, worstSlide, worstTurn };
+  };
+  const first = run1();
+  assert.equal(first.m.contact?.jam, null);
+  assert.ok(first.worstSlide < 0.5, `no slide of more than half a millimetre for a degree of the driver: ${first.worstSlide.toFixed(2)}`);
+  assert.ok(first.worstTurn < 1.7, `no turn of more than a degree and a half for a degree of the driver: ${first.worstTurn.toFixed(2)}`);
+  const again = run1();
+  assert.deepEqual(again.m.contact!.pushables.map((p) => [p.free, p.spin]), first.m.contact!.pushables.map((p) => [p.free, p.spin]), "the same places the second time");
+  assert.ok(again.ms < first.ms, `and quicker (${again.ms.toFixed(0)} ms against ${first.ms.toFixed(0)} ms)`);
 });
