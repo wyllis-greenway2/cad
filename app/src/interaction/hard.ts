@@ -30,6 +30,8 @@ const bodiesIn = (scene: Scene): Ref[] => Object.keys(scene.parts).filter((r) =>
 /** Do these two keep out of each other? One hard body is enough: it treats every body it meets as hard (`in_490`). */
 export const meets = (scene: Scene, a: Ref, b: Ref): boolean => isHard(scene, a) || isHard(scene, b);
 /** Is this body hard (no other body goes into it while it, or the other, is moved by hand)? */
+/** A body that stays where it is when pushed (`setFixed`): a wall. */
+export const isFixed = (scene: Scene, ref: Ref): boolean => { const p = scene.parts[ref]; return p?.kind === "body" && !!p.id && !!scene.fixed?.includes(p.id); };
 export const isHard = (scene: Scene, ref: Ref): boolean => { const p = scene.parts[ref]; return p?.kind === "body" && !!p.id && !!scene.hard?.includes(p.id); };
 
 /**

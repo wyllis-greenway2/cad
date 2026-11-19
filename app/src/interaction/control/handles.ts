@@ -352,7 +352,15 @@ function settledWith(s: AppState, base: Session, pins: { ref: Ref; to: Vec3 }[],
   // a point that is fixed in place is not dragged (`in_290`)
   if (pins.some((p) => sc.relations.some((r) => r.kind === "fixed" && r.locked !== false && r.parts.includes(p.ref)))) return { ...s, session: { ...base, message: "this point is fixed in place: remove the lock to move it" } };
   const hold: Command[] = pins.map((p, k) => ({ type: "addRelation", relation: { id: `drag_pin_${k}`, kind: "fixed", parts: [p.ref] } }));
-  const held = run(base, { type: "batch", commands: [...hold, ...pins.map((p): Command => ({ type: "movePart", ref: p.ref, to: p.to }))] });
+  const moveTo = pins.map((p): Command => ({ type: "movePart", ref: p.ref, to: p.to }));
+  let held = run(base, { type: "batch", commands: [...hold, ...moveTo] });
+  // a point the constraints do not let go exactly where the pointer is, but that has room to move (a circle's centre between two tangent lines with its size free: only a curve of centres is allowed) slides to the nearest place they allow;
+  // one they hold in place (nothing moved) is refused as before, and says why
+  if (held.message && pins.length === 1) {
+    const soft = run(base, { type: "batch", commands: [{ type: "addRelation", relation: { id: "drag_soft_0", kind: "fixed", parts: [pins[0]!.ref] } }, ...moveTo] });
+    const [was, now] = [sc.parts[pins[0]!.ref], sceneOf(soft).parts[pins[0]!.ref]];
+    if (!soft.message && was?.kind === "corner" && now?.kind === "corner" && Math.hypot(...sub(now.at, was.at)) > 1e-3) held = soft;
+  }
   // (to go on after its constraints are deleted, the points are simply put where they were taken: the pins were only for settling the rest, `in_366`)
   if (held.message) return { ...s, session: held.conflict?.retry ? { ...held, conflict: { ...held.conflict, retry: { type: "batch", commands: pins.map((p): Command => ({ type: "movePart", ref: p.ref, to: p.to })) } } } : held };
   const after = sceneOf(held).parts;

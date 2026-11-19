@@ -14,6 +14,7 @@ import { consumed } from "../operation/ownership.ts";
 import { solve } from "./solver/solver.mjs";
 import type { SolverConstraint } from "./solver/solver.mjs";
 
+const SOFT_PIN = 0.9; // (how firmly a dragged point that may not go exactly where the pointer is stays near it)
 const REFERENCE_WEIGHT = 0.2; // how firmly the second part of a relation stays where it is (soft: hard relations win)
 
 export interface PlaneReport {
@@ -245,10 +246,12 @@ function solvePlane(get: Lookup, plane: Plane, rels: Relation[], used: ReadonlyS
   const m = newModel(get, plane);
   let soft = 0;
   let hold = 0;
+  const owner: Record<string, string> = {}; // (which relation each hold on a built part is for: a conflict among holds names that relation, never nothing)
   for (const rel of rels) {
     if (rel.locked === false) continue; // an unlocked number is a measurement only (`dec_relations_standard`: measure, then lock)
     const c = constraintFor(m, rel);
-    if (c) m.cons.push({ id: rel.id, ...c } as SolverConstraint);
+    // a point dragged where the constraints do not let it go (a circle's centre between two tangent lines) goes to the nearest place they do: its pin is firm, not absolute (`drag_soft`, `settledWith`)
+    if (c) m.cons.push({ id: rel.id, ...c, ...(rel.id.startsWith("drag_soft") && c.type === "fixed" ? { w: SOFT_PIN } : {}) } as SolverConstraint);
     // a constraint between what built the body and something else (a free drawing, the world, the body) is a constraint of the whole body to that thing: the body's sketch is held where it is, so a move of the body
     // that would break it is refused and the constraint flashes, instead of the sketch being pulled back out of the body (`in_205`)
     if (rel.parts.some((q) => used.has(q)) && rel.parts.some((q) => !used.has(q))) {
@@ -257,8 +260,8 @@ function solvePlane(get: Lookup, plane: Plane, rels: Relation[], used: ReadonlyS
         const line = kind === "line" ? m.get(part) : null;
         const centre = line?.kind === "line" && line.center ? m.cornerId(line.center) : null;
         const pts = kind === "corner" ? [m.cornerId(part)] : kind === "line" ? [...(m.lineIds(part) ?? []), ...(centre ? [centre] : [])] : kind === "circle" ? [m.roundCentre(part)] : [];
-        for (const p of pts) if (p && m.variable.has(p as Ref)) m.cons.push({ id: `~hold${hold++}`, type: "fixed", p, at: m.points[p]! });
-        if (kind === "circle" && part in m.scalars) m.cons.push({ id: `~hold${hold++}`, type: "radius", r: part, value: m.scalars[part]! });
+        for (const p of pts) if (p && m.variable.has(p as Ref)) { owner[`~hold${hold}`] = rel.id; m.cons.push({ id: `~hold${hold++}`, type: "fixed", p, at: m.points[p]! }); }
+        if (kind === "circle" && part in m.scalars) { owner[`~hold${hold}`] = rel.id; m.cons.push({ id: `~hold${hold++}`, type: "radius", r: part, value: m.scalars[part]! }); }
       }
     }
     // the parts after the first are the references: held softly where they are, so the first part (the one selected last) moves
@@ -272,7 +275,7 @@ function solvePlane(get: Lookup, plane: Plane, rels: Relation[], used: ReadonlyS
   }
   // a circle keeps its size unless a relation says otherwise (a weak hold: any relation that sets or ties a radius wins)
   for (const [id, radius] of Object.entries(m.scalars)) m.cons.push({ id: `~size:${id}`, type: "radius", r: id, value: radius, w: 0.3 });
-  return { f: m.frame, result: solve({ points: m.points, scalars: m.scalars }, m.cons), variable: m.variable };
+  return { f: m.frame, result: solve({ points: m.points, scalars: m.scalars }, m.cons), variable: m.variable, owner };
 }
 
 /** Solve every relation in the scene, plane by plane. A conflict leaves that plane unchanged and names the relations involved. */
@@ -291,8 +294,15 @@ export function solveScene(scene: Scene): SolveOutcome {
   let cur = scene;
   for (const [planeRef, rels] of byPlane) {
     const plane = get(planeRef) as Plane;
-    const { f, result, variable } = solvePlane(get, plane, rels, used);
-    const clean = (ids: string[]) => ids.filter((i) => !i.startsWith("~"));
+    const { f, result, variable, owner } = solvePlane(get, plane, rels, used);
+    // (what held the sketch is named by the relations that made it: a hold on a built part, or a constraint to an edge of a body, which the solver knows as `~anchor:` + the edge)
+    const named = (i: string): string[] => {
+      if (!i.startsWith("~")) return [i];
+      if (owner[i]) return [owner[i]!];
+      const edge = i.startsWith("~anchor:") ? i.slice(8).replace(/^(~c:|r:)/, "") : null;
+      return edge ? rels.filter((r) => r.parts.includes(edge as Ref)).map((r) => r.id) : [];
+    };
+    const clean = (ids: string[]) => [...new Set(ids.flatMap(named))];
     // a side that the constraints would shrink to nothing (a side held level and upright at once, or two sides held parallel and square: "solved" by a side of no length) is a conflict, not an answer: the
     // sketch stays as it is and the relations that meet at that side are named (`in_254`: it left a rectangle whose extrusion the kernel reported as "this object has been deleted")
     const collapsed = result.status === "ok" ? Object.values(scene.parts).filter((l): l is Extract<typeof l, { kind: "line" }> => {
@@ -307,7 +317,15 @@ export function solveScene(scene: Scene): SolveOutcome {
       reports.push({ plane: planeRef, status: "conflict", dof: null, conflicts: involved, redundant: [] });
       continue;
     }
-    reports.push({ plane: planeRef, status: result.status, dof: result.dof, conflicts: clean(result.conflicts), redundant: clean(result.redundant) });
+    let conflicts = clean(result.conflicts);
+    // a conflict the solver gave no names for (it did not settle): the relations whose removal lets it settle are named, else every relation that holds, so a refusal always says what would be broken (`in_1045`)
+    if (result.status === "conflict" && !conflicts.length) {
+      const live = rels.filter((r) => r.locked !== false);
+      const fixers = live.filter((r) => solvePlane(get, plane, rels.filter((x) => x !== r), used).result.status !== "conflict").map((r) => r.id);
+      const holds = [...new Set(Object.values(owner))]; // (the constraints that tie what built a body to what did not: the first to blame when the body is moved)
+      conflicts = fixers.length ? fixers : holds.length ? holds : live.map((r) => r.id);
+    }
+    reports.push({ plane: planeRef, status: result.status, dof: result.dof, conflicts, redundant: clean(result.redundant) });
     if (result.status !== "ok") continue;
     for (const ref of variable) {
       const old = pointOf(get, ref)!;

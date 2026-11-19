@@ -4524,6 +4524,44 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > [interrupted the AI's browser timing; attached a screenshot of a face gear drive from outside: the teeth's near ends are wide at the foot, pinched in the middle and wide again at the top, and the pinion's teeth pass through the face gear's teeth] Hang on, also I am pretty sure it is still wrong. Look a meshed gear collides with the teeth. Are you sure that the tooth on the face gear shouldn't taper off at the top instead of flare out like it does? or at least continue and terminate straight?
 (says the face gear is still wrong in the app: the tooth flares at the top and the meshed pinion collides with the teeth; asks whether the tooth should taper off or at least end straight; the AI had just rebuilt the profile to a taper (build 284c6fbf), so the screenshot may be from an older build: to be checked)
 
+## in_1042 — 2026-11-19 — question
+> I am having a sketching bug I think. I cannot trim these lines going past tangent on the circle? if I try to trim it trims past the tangent point where it overlaps on the circle?
+(a trim of two lines tangent to a circle; files `cannot_trim_tangent_extra.json` and `tangent_extra.json` attached; see in_1043)
+
+## in_1043 — 2026-11-19 — directive
+> sorry that was not a bug, it was a body circle not an actual sketch artifact. Okay but I think this might be a bug, I drew an actual circle, and made it tangent, but now it seems the tangent constraints are prefenting me from dragging the circle center down? why? shouldn't it just slide tangent to the lines? or am I missing another constraint?
+(the trim report was a body edge, not a sketch curve: nothing to fix; the new report is a drawn circle tangent to two lines whose centre cannot be dragged; file `model.cad_59.json`)
+
+## in_1044 — 2026-11-19 — directive
+> hang on, I found a seperate and maybe related problem. The circle is not on the same plane at all as the reset of the sketch. When I select a sketch as a closed surface and click circle to sketch more, it creates a world plane in the plane of the closed sketch as it should, I would expect this would mean I sketching on that plane, but I am not, instead it sketches on a different plane.
+(a circle drawn after selecting a closed surface ended on `w/XY`, not on the surface's plane `d/p_008`; screenshot attached; not reproduced, see handoff 924)
+
+## in_1045 — 2026-11-19 — directive
+> when you sketch on a plane, things further behind the plane view can make it very confusing to see which edge is really being worked with. Can we have it so that things further behind (edges etc) are still visible but faded in orther view when sketching on a plane?). Normally when you select two things, it should offer suggested constraints you can do with them. Is this generally true? it seems like there is at least a hole in this logic with selecting two curved surfaces, a hole and a pin, who could be coaxially constrained.
+>
+> Also when you try to break constraints with any operation, it is always always always supposed to tell you which constraint would be voilated, flash it red, and give you the option to delete it. I constantly fine holes in this logic too. Like for example I try to align these coaxially constrained but it says that would voilate another constraint but wont tell me what.
+(three asks, with `model.cad_61.json` and a screenshot: edges behind the sketch plane drawn faintly; two selected round things (a hole and a pin) always offered the coaxial constraint; a refused change always names, flashes and offers to delete the constraint it would break)
+
+## in_1046 — 2026-11-19 — directive
+> why don't you try hitting ctrl z in the file and see if you can isolate why my circle kept ending on the wrong plane. It was the correct plane orientation but the wrong hieght, not inline with the sketch I was working on
+(asks the AI to undo through the file to find why the circle ended on `w/XY`; see handoff 924)
+
+## in_1047 — 2026-11-19 — question
+> When I run this why does it jamb? doesn't our animation system say it should push objects?
+(the file `why_does_it_jamb.json`: the big gear with its pin turns against the lever and stops; the lever has no joint, so nothing yields)
+
+## in_1048 — 2026-11-19 — directive
+> would it be a good idea to let it just move the body as long as it didn't voilate constraints? somewhat like how you can free move a body as long as it doesn't voilate constraints? Or is that a bad idea?
+(proposes that a pushed hard body with no joint just moves wherever its constraints allow)
+
+## in_1049 — 2026-11-19 — approval
+> yes please, I will take your recomendations
+(approves the AI's recommendations for the free push: the default for a hard body with no joint, a cap on how far a pushed body may travel in one play, and an "it stays where it ends up" option next to Keep pose; and asks to write the entry and build it)
+
+## in_1050 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for `claude/adoring-dijkstra-soft-drag` to be merged into the testing branch, without a full test run; it carries the tangent-circle drag, refusals that name constraints, round edges offered mates, faint edges behind the sketch plane and the free push with Fixed body)
+
 ## in_1051 — 2026-11-19 — directive
 > okay it is pretty good, but maybe we should show and let the user input how much distance a single fastener is hand moved by?
 (says it is pretty good; asks that the distance a single fastener has been moved by hand be shown and be typeable)

@@ -75,6 +75,8 @@ export function createView(host: HTMLElement) {
     moversOf = built ? built.movers : null;
     ghoster = built ? built.ghost : null;
     ghoster?.(hiddenOn);
+    behinder = built ? built.behind : null;
+    behinder?.(behindNow);
     splitNow = null;
     if (bodyGroup) { bodyGroup.matrix.fromArray(bodyMatrix ?? IDENTITY); bodyGroup.matrixWorldNeedsUpdate = true; }
     if (moverGroup) moverGroup.matrix.fromArray(IDENTITY);
@@ -82,6 +84,11 @@ export function createView(host: HTMLElement) {
     if (clips.length) applyClip();
   }
   let ghoster: ((on: boolean) => void) | null = null;
+  let behinder: ((p: { n: readonly [number, number, number]; at: readonly [number, number, number] } | null) => void) | null = null;
+  let behindNow: { n: readonly [number, number, number]; at: readonly [number, number, number] } | null = null;
+  const behindKey = (p: typeof behindNow) => (p ? p.n.concat(p.at).map((x) => x.toFixed(4)).join() : "");
+  /** The edges of the body on the far side of the plane being sketched on show faintly, those on it and nearer in full (`in_1045`). */
+  function setBehindPlane(p: typeof behindNow) { if (behindKey(p) === behindKey(behindNow)) return; behindNow = p; behinder?.(p); }
   let hiddenOn = false;
   /** The edges of the body that are behind a face show faintly (while a sketch is being drawn, `in_324`). */
   function setHiddenEdges(on: boolean) { if (on === hiddenOn) return; hiddenOn = on; ghoster?.(on); }
@@ -391,5 +398,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { rebuild, setWorldHidden, setScene, setHiddenBodies, setThin, setStandIns, setHiddenEdges, setBodyMatrix, setHighlight, setPreview, setGizmo, setToolpath, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { rebuild, setWorldHidden, setScene, setHiddenBodies, setThin, setStandIns, setHiddenEdges, setBehindPlane, setBodyMatrix, setHighlight, setPreview, setGizmo, setToolpath, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }
