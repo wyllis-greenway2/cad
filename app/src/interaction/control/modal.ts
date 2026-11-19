@@ -477,6 +477,15 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
   if (id === "tool:eccentric" || id === "tool:snail" || id === "tool:ratchet" || id === "tool:geneva" || id === "tool:linear") return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", id === "tool:snail" ? "snail" : id === "tool:ratchet" ? "ratchet" : id === "tool:geneva" ? "geneva" : id === "tool:linear" ? "linear" : "eccentric"); // (an eccentric cam and a snail cam, `dec_spline_and_cams`)
   if (id === "tool:worm" || id === "tool:wormwheel") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:worm" ? "worm" : "wormwheel"); // (a worm, and the wheel for one, `in_608`)
   if (id === "tool:spiral") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "spiral"); // (a spiral bevel gear, `dec_spiral_bevel_gears`)
+  if (id === "tool:hypoid") { // a hypoid spiral bevel gear: the spiral tool with the offset field already holding a usual offset (3 mm; the tool refuses one too large for the gear, `in_1129`)
+    const r = beginTool(closed, "gear", now, s.menu?.plane ?? null, "spiral");
+    const g = r.tool?.gear;
+    if (!r.tool || !g) return r;
+    const i = gearFields(g).findIndex((f) => f.key === "hypoid");
+    const typed = [...g.typed]; while (typed.length <= i) typed.push("");
+    if (i >= 0) typed[i] = "3";
+    return { ...r, tool: { ...r.tool, gear: { ...g, typed } } };
+  }
   if (id === "tool:face") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "face"); // (a face gear, `dec_crown_gear_set`)
   if (id === "tool:crown") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "crown"); // (a crown gear, `dec_crown_gears`)
   if (id === "tool:bevel") return beginTool(closed, "gear", now, s.menu?.plane ?? null, "bevel"); // (a straight bevel gear, an approximation, `in_735`)

@@ -61,7 +61,7 @@ import { createRing } from "./ui/ring.ts";
 import { createAddChip } from "./ui/addchip.ts";
 import { createPreviewBar } from "./ui/previewbar.ts";
 import { createMotionBar } from "./ui/motionbar.ts";
-import { tickMotion } from "./interaction/motion.ts";
+import { tickMotion, motionHolds } from "./interaction/motion.ts";
 import { solveContact } from "./interaction/contact.ts";
 import { createAhead } from "./contact-ahead.ts";
 import { createChip } from "./ui/chip.ts";
@@ -697,6 +697,7 @@ const ahead = createAhead(() => new Worker(new URL("./contact-worker.ts", import
 let lastPlayFrame = 0;
 const PLAY_FRAME_MS = 26; // (a motion that plays is drawn about 38 times a second, not as fast as the screen refreshes: the play is by the clock, so it is as quick, and the processor and the graphics card work a third less)
 function frame(now: number) {
+  if (state.motion) { const held = motionHolds(scene(state.session), state.motion); if (held !== state.motion) { state = { ...state, motion: held }; dirty = true; } } // (what it moves was deleted or undone: the motion stops and its bar goes, `in_1129`)
   if (state.motion?.playing && now - lastPlayFrame < PLAY_FRAME_MS) { requestAnimationFrame(frame); return; }
   if (state.motion?.playing) lastPlayFrame = now;
   const tStart = performance.now();

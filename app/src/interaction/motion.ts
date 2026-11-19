@@ -202,3 +202,16 @@ function keepJoints(scene: Scene, drives: Drive[]): Command[] {
   }
   return commands;
 }
+
+/**
+ * A motion that is played or scrubbed, after the scene has changed: the same motion if what it moves is still there, without the followers that are gone, or null when its body, its gear or its mate is (deleted, or undone: `in_1129`: an animation went on in the bar after its body was deleted).
+ */
+export function motionHolds(scene: Scene, m: Motion): Motion | null {
+  const body = (r: Ref) => scene.parts[r]?.kind === "body";
+  if (!body(m.body)) return null;
+  if (m.gear && !(scene.gears ?? []).some((g) => g.id === m.gear)) return null;
+  if (m.mate && !scene.relations.some((r) => r.id === m.mate)) return null;
+  const follows = m.follows.filter((f) => body(f.body));
+  const yields = (m.yields ?? []).filter((f) => body(f.body));
+  return follows.length === m.follows.length && yields.length === (m.yields ?? []).length ? m : { ...m, follows, ...(m.yields ? { yields } : {}) };
+}

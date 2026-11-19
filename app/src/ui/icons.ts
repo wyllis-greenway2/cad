@@ -21,8 +21,6 @@ const ICONS: Record<string, string> = {
   sheetCutDown: svg('<path d="M2 6h12"/><path d="M3 10h10M3 12.5h10" stroke-dasharray="1.6 1.4" opacity=".7"/>'),
   sheetPlain: svg('<path d="M2.5 11.5l3-7h8l-3 7z"/>'),
   sheetHidden: svg('<path d="M2.5 11.5l3-7h8l-3 7z" stroke-dasharray="1.6 1.6" opacity=".6"/><path d="M2 2.5l12 11"/>'),
-  sheetArrow: svg('<path d="M8 2v12"/><path d="M5.5 4.5L8 2l2.5 2.5M5.5 11.5L8 14l2.5-2.5"/>'),
-  sheetFree: svg('<circle cx="8" cy="8" r="1.8"/><path d="M8 1.5v3.2M8 11.3v3.2M1.5 8h3.2M11.3 8h3.2"/>'),
   mirror: svg('<path d="M8 1.5v13" stroke-dasharray="1.8 1.4"/><path d="M6.4 4.5L2.5 11.5h3.9z"/><path d="M9.6 4.5l3.9 7h-3.9z" fill="currentColor" fill-opacity=".35"/>'), // (a shape and its reflection across a dashed line: a mirror copy, `in_433`)
   sweep: svg('<circle cx="3.5" cy="12.5" r="2"/><path d="M5.5 12.5C10 12.5 12.5 10 12.5 3.5"/><path d="M10.5 3.5h4" />'), // (a shape carried along a curved path: a sweep, `in_444`)
   loft: svg('<path d="M3 13h10"/><path d="M5.5 3h5"/><path d="M3 13l2.5-10M13 13L10.5 3"/><path d="M4.4 8h7.2" stroke-dasharray="1.6 1.4"/>'), // (two sketches of different sizes joined: a loft, `in_431`)
@@ -83,8 +81,9 @@ Object.assign(ICONS, {
   txt8M: `<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><text x="8" y="11.6" font-size="7.8" font-weight="800" text-anchor="middle" fill="currentColor" font-family="system-ui,sans-serif">8M</text></svg>`, // (the pulley's type written in its icon, `in_709`)
   gear: svg('<path d="M12.71 7.06L14.57 7.42L14.57 8.58L12.71 8.94L11.99 10.67L13.06 12.24L12.24 13.06L10.67 11.99L8.94 12.71L8.58 14.57L7.42 14.57L7.06 12.71L5.33 11.99L3.76 13.06L2.94 12.24L4.01 10.67L3.29 8.94L1.43 8.58L1.43 7.42L3.29 7.06L4.01 5.33L2.94 3.76L3.76 2.94L5.33 4.01L7.06 3.29L7.42 1.43L8.58 1.43L8.94 3.29L10.67 4.01L12.24 2.94L13.06 3.76L11.99 5.33z M6 8a2 2 0 1 0 4 0a2 2 0 1 0 -4 0z"/>'), // (a toothed wheel with its bore: the gear tool, `dec_gear_tool`; drawn by a script from a trapezoid tooth, `in_691`)
   helical: svg('<path d="M3 13.5C3 11.6 13 11.6 13 9.6C13 7.6 3 7.6 3 5.6C3 4.2 7 3.2 10.5 3.2 M8.6 1.2L11 3.2L8.6 5.2"/>'),
-  bevelgear: svg('<path d="M2.5 13.5h9.5l-1.3-2.4 1.1-1-1.5-1.8 1-.9-1.4-1.9H5.2L3.4 8.7 2.5 13.5z"/><path d="M8 13.5v-1.6M6.2 13.5v-1.6" stroke-dasharray="0.1 1.8"/>'),
-  spiralbevel: svg('<path d="M2.5 13.5h9.5l-1.3-2.4 1.1-1-1.5-1.8 1-.9-1.4-1.9H5.2L3.4 8.7 2.5 13.5z"/><path d="M4.2 12.6C6 11.2 6.8 9.6 7.4 7.4M6.6 12.6C8.4 11.2 9.2 9.6 9.8 7.4" fill="none"/>'),
+  bevelgear: svg('<ellipse cx="8" cy="12.2" rx="6" ry="2.1"/><path d="M2 12.2L5.6 4.2M14 12.2L10.4 4.2"/><ellipse cx="8" cy="4.2" rx="2.4" ry="0.9"/><path d="M4 13.9L5.7 6M6.6 14.3L7 5.3M9.4 14.3L9 5.3M12 13.9L10.3 6"/>'),
+  spiralbevel: svg('<ellipse cx="8" cy="12.2" rx="6" ry="2.1"/><path d="M2 12.2L5.6 4.2M14 12.2L10.4 4.2"/><ellipse cx="8" cy="4.2" rx="2.4" ry="0.9"/><path d="M3.8 13.5C5.4 11 5.6 8.2 5.8 5.8M6.5 14.2C7.8 11.4 7.8 8.2 7.4 5.3M9.5 14.2C10.2 11.4 9.4 8.2 8.8 5.2M12.3 13.5C12 11 10.8 8.2 10.2 5.7"/>'),
+  hypoidbevel: svg('<ellipse cx="8" cy="12.2" rx="6" ry="2.1"/><path d="M2 12.2L5.6 4.2M14 12.2L10.4 4.2"/><ellipse cx="8" cy="4.2" rx="2.4" ry="0.9"/><path d="M3.8 13.5C5.4 11 5.6 8.2 5.8 5.8M6.5 14.2C7.8 11.4 7.8 8.2 7.4 5.3M9.5 14.2C10.2 11.4 9.4 8.2 8.8 5.2M12.3 13.5C12 11 10.8 8.2 10.2 5.7"/><path d="M1 8.6h14" stroke-dasharray="1.2 1.2"/><path d="M13.4 6.6v4M12.2 7.8l1.2-1.2 1.2 1.2" />'),
   facegear: svg('<ellipse cx="8" cy="11" rx="6" ry="2.4"/><path d="M2 11v1.5c0 1.3 2.7 2.4 6 2.4s6-1.1 6-2.4V11"/><path d="M4.5 9.6V8M6.5 9V7.5M8.5 8.9V7.4M10.5 9V7.5M12 9.6V8"/><circle cx="8" cy="3.6" r="2"/><path d="M8 5.6v1.6"/>'),
   crowngear: svg('<ellipse cx="8" cy="10.5" rx="6" ry="2.6"/><path d="M2 10.5v1.7c0 1.4 2.7 2.6 6 2.6s6-1.2 6-2.6v-1.7"/><path d="M4.2 9.4V7.6M6.4 8.9V6.8M8.6 8.8V6.6M10.8 9V7M12.4 9.4V7.8" /><path d="M3.8 7.6h1M6 6.8h1M8.2 6.6h1M10.4 7h1M12 7.8h1"/>'),
   worm: svg('<path d="M1.5 8h1.2M13.3 8h1.2 M2.7 5.2l1.5-1.5 1.5 1.5 1.5-1.5 1.5 1.5 1.5-1.5 1.5 1.5 M2.7 10.8l1.5 1.5 1.5-1.5 1.5 1.5 1.5-1.5 1.5 1.5 1.5-1.5 M2.7 5.2v5.6M13.3 5.2v5.6"/>'),

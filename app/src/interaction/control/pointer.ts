@@ -39,7 +39,7 @@ import { paneAt } from "../panes.ts";
 import type { WorldName } from "../panes.ts";
 import { isHard, isFixed } from "../hard.ts";
 import { doLook, selectedSurface } from "./viewing.ts";
-import { sectionNow, doSectionClick } from "./section.ts";
+import { sectionNow, doSectionClick, doSectionPane, sheetPlaceAt, placeSection } from "./section.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
 import { selectedBodies } from "./bodies.ts";
 import { commitFigure, commitOp, setRepeatAxis, doApply, finishPicking, picksMany, doRunAction, instruction } from "./modal.ts";
@@ -67,10 +67,11 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:disc:parabolic", label: "Parabolic", icon: "cam", tool: "cam" },
   { id: "tool:trim", label: "Trim", icon: "scissors", tool: "trim" },
   { id: "tool:gear", label: "Spur gear", icon: "gear", tool: "gear" },
-  { id: "tool:bevel", label: "Bevel gear", icon: "bevelgear", tool: "gear" },
+  { id: "tool:bevel", label: "Bevel", icon: "bevelgear", tool: "gear" },
   { id: "tool:crown", label: "Crown gear", icon: "crowngear", tool: "gear" },
   { id: "tool:face", label: "Face gear", icon: "facegear", tool: "gear" },
-  { id: "tool:spiral", label: "Spiral hypoid", icon: "spiralbevel", tool: "gear" },
+  { id: "tool:spiral", label: "Spiral bevel", icon: "spiralbevel", tool: "gear" },
+  { id: "tool:hypoid", label: "Hypoid spiral", icon: "hypoidbevel", tool: "gear" }, // (a spiral bevel gear with the pinion's axis below the ring gear's: the spiral tool with a hypoid offset typed in, `in_1129`)
   { id: "tool:worm", label: "Worm", icon: "worm", tool: "gear" },
   { id: "tool:wormwheel", label: "Worm wheel", icon: "wormwheel", tool: "gear" },
   { id: "tool:planetary", label: "Planetary set", icon: "planetary", tool: "gear" },
@@ -135,7 +136,7 @@ interface Group { id: string; label: string; icon: string; items: (string | Grou
 const GEARS: Group = {
   id: "gears", label: "Gear", icon: "gear", items: [
     "tool:gear", "tool:ring", "tool:rack", "tool:planetary",
-    "tool:bevel", "tool:spiral",
+    { id: "bevels", label: "Bevel", icon: "bevelgear", items: ["tool:bevel", "tool:spiral", "tool:hypoid"] }, // (one bevel gear in the ring: straight, spiral or hypoid spiral, `in_1129`)
     { id: "crowns", label: "Crown", icon: "crowngear", items: ["tool:crown", "tool:face"] }, // (a face gear is a crown gear with a spur pinion, `in_1030`)
     { id: "worms", label: "Worm", icon: "worm", items: ["tool:worm", "tool:wormwheel"] },
     { id: "clockgears", label: "Clock", icon: "clockgear", items: ["tool:clock", "tool:clockring", "tool:clockrack"] },
@@ -573,7 +574,8 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   if (!s.tool && !s.op && !s.repeat && !s.cut) {
     const top = candidatesAt(sc, projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s))[0];
     const part = top ? sc.parts[top.ref] : undefined;
-    if (part?.kind === "plane" && part.section) return doSectionClick(s, part.ref);
+    const g0 = part?.kind === "plane" && part.section && sectionNow(s) ? gizmoOf(s) : null; // (a handle of the plane's own mover on top of the plane is the handle's click, not the plane's, `in_1129`)
+    if (part?.kind === "plane" && part.section && !(g0 && hitHandle(g0, projector(s.cam, env.w, env.h).project, i.x, i.y, undefined, chosenId(s)))) return doSectionClick(s, part.ref);
   }
   // a click on a little pane turns that world plane on and looks straight at it (the same as its X Y Z button, `in_190`)
   const pane = !s.tool && !s.op ? paneUnder(s, i.x, i.y, env) : null;
@@ -599,6 +601,17 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   // the handles are dragged, so a click on one does nothing (it must not reselect what is under it)
   const g = gizmoOf(s);
   const hit = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y, undefined, chosenId(s)) : null;
+  // the cross section plane's own mover (`in_1129`): a click on one of its three panes lays the plane across that axis; a click on its sphere selects it (a second lets it go), and with it selected a corner, an edge, a circle or a face clicked puts the plane there
+  if (sectionNow(s) && !s.op && !s.repeat) {
+    if (hit?.id.startsWith("pane:")) return { ...doSectionPane(base, "xyz".indexOf(hit.id[5]!) as 0 | 1 | 2), handleSel: null, gizmoHover: hit.id };
+    if (hit?.id === "pivot") return { ...base, moverSphere: !s.moverSphere, handleSel: null, gizmoHover: hit.id, session: { ...base.session, message: s.moverSphere ? null : "click a corner, an edge or a face to put the plane there (the sphere again to stop)" } };
+    if (!hit && s.moverSphere) {
+      const sec = sectionNow(s)!;
+      const top = cands.find((c) => { const q = sc.parts[c.ref]; return !!q && !(q.kind === "plane" && q.section) && q.origin !== "world"; });
+      const placed = top ? sheetPlaceAt(sc, top.ref, top.rank === 2 ? surfacePoint(pv, top.score) : null, sec.centre, sec.n) : null;
+      if (placed) return { ...placeSection(base, placed.centre, placed.n), moverSphere: true, handleSel: null };
+    }
+  }
   // the sphere at the junction of the mover (`in_416`): a click selects it, a second click lets it go; selected, a vertex, an edge or a face clicked puts the mover there
   // a figure being revolved waits for the line to turn about: a click on a straight line or an axis chooses it (`in_435`)
   if (hit && hit.id.startsWith("mir:") && hit.id !== "mir:orb" && s.op?.kind === "mirror") return { ...base, op: { ...s.op, mirrorAxis: "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2 }, handleSel: hit.id, gizmoHover: hit.id }; // (taking an arrow of the mirror chooses its plane, `in_437`)

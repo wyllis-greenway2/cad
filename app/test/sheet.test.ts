@@ -85,8 +85,8 @@ test("the arrow along its normal moves the sheet (no step of the body is made), 
   const steps = scene(st.session).steps.length;
   const k = sec.n.findIndex((v) => Math.abs(v) > 0.5);
   const g = gizmoOf(st)!;
-  assert.deepEqual(g.handles.map((h) => h.id), ["sheet:n"]);
-  const [, tip] = g.handles[0]!.points;
+  assert.deepEqual(g.handles.map((h) => h.id), ["move:x", "move:y", "move:z", "pivot", "pane:x", "pane:y", "pane:z"]);
+  const [, tip] = g.handles.find((h) => h.id === `move:${"xyz"[k]}`)!.points; // (the arrow along the axis the plane is across: it moves it along its normal)
   const dir = [0, 0, 0].map((_, i) => (i === k ? 8 : 0)) as unknown as Vec3;
   const before = sec.centre[k]!;
   const moved = drag(st, tip!, add(tip!, dir), 6);
@@ -96,29 +96,17 @@ test("the arrow along its normal moves the sheet (no step of the body is made), 
   near(Math.abs(sectionNow(typed)!.centre[k]!), 5);
 });
 
-test("the move icon goes arrow, free mover, across X, across Y, across Z, then back to the free place it left", () => {
+test("the move icon goes between the mover's arrows and its rings; the panes lay the plane across an axis and a number typed for the arrow's distance still moves it (`in_1129`)", () => {
   let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
   const ref = sectionNow(st)!.ref;
-  const first = sectionNow(st)!;
-  st = reduce(st, { type: "runAction", id: "sheet:move" }, env); // free
-  assert.equal(sheetMoveOf(st, ref), 1);
-  // a free place: the plane moved off to x = 17 along its normal
-  st = reduce({ ...st, handleSel: "sheet:n" }, { type: "entry", field: 6, text: "17" }, env);
-  const free = sectionNow(st)!;
-  st = reduce(st, { type: "runAction", id: "sheet:move" }, env); // across X
-  assert.equal(sheetMoveOf(st, ref), 2);
-  assert.ok(Math.abs(Math.abs(sectionNow(st)!.n[0]!) - 1) < 1e-9, "across X");
-  st = reduce(st, { type: "runAction", id: "sheet:move" }, env);
-  assert.ok(Math.abs(Math.abs(sectionNow(st)!.n[1]!) - 1) < 1e-9, "across Y");
-  st = reduce(st, { type: "runAction", id: "sheet:move" }, env);
-  assert.ok(Math.abs(Math.abs(sectionNow(st)!.n[2]!) - 1) < 1e-9, "across Z");
-  st = reduce(st, { type: "runAction", id: "sheet:move" }, env); // back
   assert.equal(sheetMoveOf(st, ref), 0);
-  near(sectionNow(st)!.centre[0], free.centre[0]);
-  near(sectionNow(st)!.centre[1], free.centre[1]);
-  near(sectionNow(st)!.centre[2], free.centre[2]);
-  near(sectionNow(st)!.n[0], free.n[0]);
-  void first;
+  st = reduce(st, { type: "runAction", id: "sheet:move" }, env);
+  assert.equal(sheetMoveOf(st, ref), 1);
+  st = reduce(st, { type: "runAction", id: "sheet:move" }, env);
+  assert.equal(sheetMoveOf(st, ref), 0);
+  const k = sectionNow(st)!.n.findIndex((v) => Math.abs(v) > 0.5);
+  st = reduce({ ...st, handleSel: "sheet:n" }, { type: "entry", field: 6, text: "17" }, env);
+  near(Math.abs(sectionNow(st)!.centre[k]!), 17);
 });
 
 test("a sketch can be started on a sheet like on any face, and a sheet is saved with the part (mode and all)", () => {
