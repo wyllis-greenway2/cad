@@ -4296,3 +4296,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_985 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the branch `claude/adoring-dijkstra-follow-select` to be merged into the testing branch; the full suite is not needed)
+
+## in_986 — 2026-11-18 — directive
+> @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/c1c0a943-model.cad_55.json" @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/4eb4a8b3-cad-state-2026-11-18T17-56-04.json" @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/54e9d61a-model.cad_56.json" @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/33bc07d6-cad-state-2026-11-18T17-59-14.json" The geneva plate doesn't work like the gear menu, these things with variable attributes need to all work the same where the first click sets the scale, but the menu is still there to adjust values. The geneva plate gets really messed up in seemingly all slot counts except four.
+(with two projects and two state snapshots (a 24-slot Geneva with a crank of 4 mm, a 3-slot one with a crank of 118 mm): asks that the cam tools work as the gear tool does, the first click after the centre setting the scale and the box staying open to change the numbers; and says the Geneva drive comes out wrong for every slot count but four)
+
+## in_987 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for tests
+(asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 once more, for the cam tools sized like the gear tool and the Geneva drive for every slot count; no tests to be run; gives permission to write to that branch)

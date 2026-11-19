@@ -18,6 +18,7 @@ import { drawClosedSpline } from "../operation/splinering.ts";
 import type { CamKind, CamLaw, CamLayout, CamSpec } from "../operation/cams.ts";
 import { camShapes, camShapesQuick } from "../operation/cams.ts";
 import { camFace } from "../operation/camscene.ts";
+import { genevaDefaultPin } from "../operation/geneva.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
 import { candidatesAt, visibleFrom } from "./picking.ts";
 import { anchorCorners, anchorLines, anchorCutCorners } from "../operation/anchors.ts";
@@ -103,7 +104,9 @@ export function camSpecOf(t: Tool): CamSpec | null {
   }
   if (c.kind === "geneva") {
     const crank = typed(1) ?? (t.cursor ? dist(at, t.cursor) : 0);
-    return { kind: "geneva", teeth: Math.round(degrees(0) ?? 4), diameter: 2 * crank, crank, pin: typed(2) ?? crank / 4, clearance: typed(3) ?? 0.3, hole: typed(4) ?? -1, ...(typed(5) !== null ? { lock: typed(5)! } : {}), ...(c.layout && c.layout !== "apart" ? { layout: c.layout } : {}), ...(c.layout === "model" ? { layer: typed(6) ?? 6, plate: typed(7) ?? 3 } : {}), lift: 0 }; // (a hole left empty is worked out from the room there is, `genevaShapes`)
+    const slots = Math.round(degrees(0) ?? 4);
+    const clearance = typed(3) ?? 0.3;
+    return { kind: "geneva", teeth: slots, diameter: 2 * crank, crank, pin: typed(2) ?? genevaDefaultPin(slots, crank, clearance), clearance, hole: typed(4) ?? -1, ...(typed(5) !== null ? { lock: typed(5)! } : {}), ...(c.layout && c.layout !== "apart" ? { layout: c.layout } : {}), ...(c.layout === "model" ? { layer: typed(6) ?? 6, plate: typed(7) ?? 3 } : {}), lift: 0 }; // (a hole left empty is worked out from the room there is, `genevaShapes`)
   }
   if (c.kind === "ratchet") {
     const teeth = Math.round(degrees(0) ?? 20);
@@ -543,6 +546,16 @@ function gearTarget(scene: Scene, t: Tool): GearTarget | null {
 const canon = (v: unknown): string => JSON.stringify(v, (_k, x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x as Record<string, unknown>).filter(([, y]) => y !== undefined).sort(([a], [b]) => (a < b ? -1 : 1))) : x));
 /** Whether the numbers in the box of a gear (or planetary set) that is being edited are not the ones it has: Update is there only then (`in_919`). */
 export function gearChanged(scene: Scene, t: Tool): boolean {
+  if (t.kind === "cam" && t.cam?.editing) { // a cam, a ratchet or a Geneva drive that is made: the numbers are not those it has
+    const rec = scene.gears?.find((g) => g.id === t.cam!.editing);
+    const full = camSpecOf(t);
+    if (!rec || !rec.spec.cam || !full) return false;
+    const { turn: degrees, ...cam } = full;
+    const turn = cam.kind === "ratchet" || cam.kind === "linear" ? ((degrees ?? 0) * Math.PI) / 180 : rec.turn ?? 0;
+    const shown = (v: unknown): string => canon(v).replace(/-?\d+\.\d{3,}/g, (m) => String(Math.round(Number(m) * 100) / 100)); // (the box shows two decimals: a number it shows rounded is not a change)
+    const whole = (c: CamSpec): CamSpec => (c.layout === "model" ? { ...c, layer: c.layer ?? 6, plate: c.plate ?? 3 } : c); // (the layers of a model have their defaults when the record says nothing)
+    return shown(whole(cam)) !== shown(whole(rec.spec.cam)) || Math.abs(turn - (rec.turn ?? 0)) > 1e-9;
+  }
   const id = t.kind === "gear" && !t.cam ? t.gear?.editing : undefined;
   if (!id) return false;
   const target = gearTarget(scene, t);
