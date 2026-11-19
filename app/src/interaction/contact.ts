@@ -51,6 +51,20 @@ const FREE_STEP = 2.5; // (the most a body with no joint is pushed in one step o
  */
 export const contactOptions = { hints: true, keep: true, blend: true, smooth: true };
 const SPLITS = 3, SPLIT_PUSH = 0.4;
+const BIG_TURN = 1; // (a turn this big, degrees, for the push of one step is a corner catching: the carried body is asked whether it would clear it by less)
+const reachCache = new WeakMap<object, Map<string, number>>();
+/** How far the body reaches from the axis it turns about, mm (the farthest corner of its box): a turn of a degree moves its far end this much times 0.0175. */
+function reachOf(scene: Scene, p: Pushable): number {
+  const memo = reachCache.get(scene) ?? new Map<string, number>();
+  reachCache.set(scene, memo);
+  const hit = memo.get(p.body);
+  if (hit !== undefined) return hit;
+  const b = scene.parts[p.body];
+  let r = 10;
+  if (b?.kind === "body" && b.bbox) { r = 0; for (let i = 0; i < 8; i++) r = Math.max(r, Math.hypot(...[0, 1, 2].map((k) => ((i >> k) & 1 ? b.bbox!.max[k]! : b.bbox!.min[k]!) - p.point[k]!))); }
+  memo.set(p.body, r);
+  return r;
+}
 export const AHEAD_STEPS = 16, RAMP_TURN = 0.3, RAMP_SLIDE = 0.15; // (how far ahead a body on a joint is drawn giving way, in steps; the steepest it is drawn moving to meet a jump: degrees, mm a step)
 export const SMOOTH_STEPS = 8; // (steps of the grid either side that the picture of a body with no joint is averaged over) // (a step that moves a body with no joint more than this, mm, is made again in halves, three times at most)
 const FREE_MAX = 60;
@@ -264,7 +278,21 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
         const hitIx = c.pushables.findIndex((p) => p.body === hit);
         // who yields: a pushable that meets something that does not yield yields itself; a body that moves by its own rule, or a pushable, that meets a pushable makes that one yield
         const [pi, aside] = w >= first && hitIx < 0 ? [w - first, w] : [hitIx, hitIx >= 0 ? first + hitIx : -1];
-        const yielded = pi >= 0 && (work[pi]!.free ? yieldFree(scene, outcome, movers, a, vals, work[pi] as Pushable & { free: [number, number, number] }, ways, pushes, pi, aside, movers[w]!.body, mated, ignore, solid, statics, clearance) : yieldBody(scene, outcome, movers, a, vals, ways, kinds, pushes, pi, aside, movers[w]!.body, mated, ignore, solid, statics, clearance));
+        const armBefore = pi >= 0 ? vals[pi]! : 0;
+        let yielded = pi >= 0 && (work[pi]!.free ? yieldFree(scene, outcome, movers, a, vals, work[pi] as Pushable & { free: [number, number, number] }, ways, pushes, pi, aside, movers[w]!.body, mated, ignore, solid, statics, clearance) : yieldBody(scene, outcome, movers, a, vals, ways, kinds, pushes, pi, aside, movers[w]!.body, mated, ignore, solid, statics, clearance));
+        // a body carried by a pin that meets another on a joint: whichever of the two can clear it by the smaller movement gives way (`in_1204`). The one that was hit gives way first; when that is a big turn for a small push (a corner has caught), the carried body slipping on its pin a little is the smaller movement, and the body that was in contact stays in contact
+        if (yielded && pi >= 0 && w >= first && w - first !== pi && !work[pi]!.free && !!work[w - first]!.after && !work[w - first]!.free) {
+          const before = armBefore;
+          const cost = (ix: number, d: number): number => Math.abs(d) * reachOf(scene, work[ix]!);
+          const armMove = Math.abs(vals[pi]! - before);
+          if (armMove > BIG_TURN) {
+            const keepVals = vals.slice(), keepWays = ways.slice(), keepPushes = pushes.slice();
+            const mine = w - first, mineBefore = vals[mine]!;
+            vals[pi] = before; // (the other body back where it was, to see what the carried one would do instead)
+            if (yieldBody(scene, outcome, movers, a, vals, ways, kinds, pushes, mine, w, hit, mated, ignore, solid, statics, clearance) && cost(mine, vals[mine]! - mineBefore) < 0.7 * cost(pi, armMove)) { next.add(w); continue; }
+            for (let q = 0; q < vals.length; q++) { vals[q] = keepVals[q]!; ways[q] = keepWays[q]!; pushes[q] = keepPushes[q]!; }
+          }
+        }
         // a body with no joint that is against another that yields, and the other cannot get out of its way, goes out of the other's way itself (clear of every body where it stands)
         const retried = !yielded && pi >= 0 && w >= first && w - first !== pi && !!work[w - first]!.free && yieldFree(scene, outcome, movers, a, vals, work[w - first] as Pushable & { free: [number, number, number] }, ways, pushes, w - first, w, movers[w]!.body, mated, ignore, solid, statics, clearance, true);
         if (retried) { pushedNow.add(w - first); next.add(w); continue; }
