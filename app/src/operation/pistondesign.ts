@@ -41,3 +41,17 @@ export function ringBelt(bore: number, rings: number, oil: number, topLand: numb
   const last = grooves[grooves.length - 1];
   return { grooves, depth: bore / 22 + 0.45, length: last ? last.top + last.height : topLand * bore };
 }
+
+export interface Shell {
+  /** the crown's thickness and the wall's (skirt, and the metal under the grooves' floors) (mm) */ crown: number; wall: number;
+  /** the radius of the cavity below the ring belt, and under it (mm) */ inner: number; innerBelt: number;
+  /** how far the pin bosses reach from the pin's axis, down and sideways (mm) */ boss: number;
+}
+/**
+ * The hollow piston's numbers (`dec_piston_hollow`). **ASSUMED**, nothing here is a source's: the crown is the typed proportion of the bore (A6), the wall the typed proportion (half the crown, the human's choice, `in_1246`), the cavity's radius the piston's less the wall,
+ * and under the ring grooves less their depth as well; the pin bosses reach a wall's thickness beyond the pin's hole (A12).
+ */
+export function pistonShell(bore: number, radius: number, depth: number, crown: number, skirtWall: number, pin: number, pinFit: number): Shell {
+  const wall = skirtWall * bore;
+  return { crown: crown * bore, wall, inner: radius - wall, innerBelt: radius - depth - wall, boss: pin / 2 + pinFit / 2 + wall };
+}
