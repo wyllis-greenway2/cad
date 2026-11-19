@@ -4345,3 +4345,6 @@ The human uploaded three Honda GX160 spec sheets (no words with them, so no `hum
 
 ## Handoff 1090 — 2026-11-19 (the cartecc, Caterpillar and Scraba PDFs sent again: identical, checked)
 The human re-sent three PDFs (no words, so no `human-input.md` entry). **md5 identical** to the earlier uploads (cartecc piston dimensions, Caterpillar patent 20160169153, Scraba Part 2). Because I had only a subagent's summary of the Scraba page before, I **checked its numbers against the PDF text**: all matched; added the reasons it gives (lands smaller than the skirt so the skirt takes the thrust and for heat growth; three rings usual, two only in drag racing) to `docs/sources/README.md`. Waiting for the human's answer on drafting the piston parameter list now (a `provisional` entry). Nothing built.
+
+## Handoff 1091 — 2026-11-19 (in_1232: three more documents read; the human suggests looking for real drawings)
+`in_1232`. Read the Engineers Edge and Federal Group sand casting guides and pages 248–255 of the Martin sheave catalogue (sources README). They add draft (2° standard, internal pockets 2–3°), the 2:1 section-change rule with a 1:4 wedge, and show sheaves made solid, web or arm by size. Still no dimensioned section of a cast hub, web and rim. The human suggests real drawings; candidate catalogues listed in the sources README. Nothing built.

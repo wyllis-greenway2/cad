@@ -5244,3 +5244,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1231 — 2026-11-19 — directive
 > what else do you need me to get you? link me to it
 (asks what other documents are still needed for the realistic wheel profile, with links)
+
+## in_1232 — 2026-11-19 — directive
+> @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/7edffb0c-10887_M2_VBelt_p248_324_042216_Final_small.pdf" @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/c3de78be-Design_For_Sand_Casting_Design_Guide_and_Considerations.pdf" @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/44d2997b-Sand_Casting_Design_Guide___Design_for_Manufacturability_Best_Practices.pdf" why don't we see if we can just find some real drawings of cast or machined wheel spokes and hubs and rims?
+(supplied the Martin V-belt sheave catalogue and two sand casting guides; suggests looking for real drawings of cast or machined wheel spokes, hubs and rims instead of rules)
