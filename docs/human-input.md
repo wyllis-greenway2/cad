@@ -4960,9 +4960,13 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1152 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 
+## in_1153 — 2026-11-19 — approval
+> yes build the bearing constraints next
+(approves the last of the three: a bearing that loads with its constraints, so things can be driven on it)
+
 > okay now if I delete the coaxial and it runs on collision, will it suggest a fix and re apply a coaxial to make the animation leaner?
 (asks whether, with the coaxial constraint deleted so the arm is pushed by collision, the Fix constraints offer will suggest the coaxial again)
 
-## in_1154 — 2026-11-19 — directive
+## in_1156 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the offer of the coaxial mate back for a body on a moving pin to be merged into the testing branch, no full test run)

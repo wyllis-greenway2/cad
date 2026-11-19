@@ -113,5 +113,7 @@ export function finishCommand(scene: Scene, b: Building): Command | null {
   const record: ModelPlay = { id: `m_${key}`, title: b.title, driver: b.play.driver, followers: b.play.followers, note: b.play.note, parts: b.ids };
   const bodyId = (part: string): string | null => { const p = b.ids[part]; if (!p) return null; if (p.step) return `x_${p.step}`; const st = scene.steps.find((x) => x.params.gear === p.gear && (x.params.mode === undefined || x.params.mode === "new")); return st ? `x_${st.id}` : null; }; // (a gear's body is named by the step that began it)
   const glue = b.play.glue.map((g) => g.map(bodyId).filter((x): x is string => !!x)).filter((g) => g.length >= 2).map((bodies): Command => ({ type: "glue", bodies }));
-  return { type: "batch", commands: [{ type: "modelPlay", record }, ...glue] };
+  const held = (b.play.hold ?? []).map(bodyId).filter((x): x is string => !!x).map((body): Command => ({ type: "setFixed", body, on: true }));
+  const pivots = (b.play.pivots ?? []).flatMap((pv): Command[] => { const body = bodyId(pv.part); return body ? [{ type: "pivot", body, point: pv.point, dir: pv.dir }] : []; });
+  return { type: "batch", commands: [{ type: "modelPlay", record }, ...glue, ...held, ...pivots] };
 }

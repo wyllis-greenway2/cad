@@ -68,7 +68,7 @@ test("a lever on a pin: the model says so, and the note suggests the coaxial mat
   const env = { w: 800, h: 600, now: 0 };
   assert.equal(frameOf({ ...createState(s), motion: r.motion }, env).motionBar!.note, null, "nothing is said while the lever has not been moved");
   const moved = solveContact(sc, { ...r.motion, playing: true, amount: 60 }, s.outcome, Infinity);
-  // nothing is said over the bar (`in_1131`); the fix is offered (the coaxial mate, carried round by the pin, `in_1153`)
+  // nothing is said over the bar (`in_1131`); the fix is offered (the coaxial mate, carried round by the pin, `in_1155`)
   const fb = frameOf({ ...createState(s), motion: moved }, env).motionBar!;
   assert.equal(fb.fix.offer, true);
   assert.equal(fb.note, null);
