@@ -6,8 +6,8 @@ import type { Ref } from "../shared/ref.ts";
 import { worldRef, drawnRef, formatId } from "../shared/ref.ts";
 import { liftOf } from "../operation/part.ts";
 import type { Plane } from "../operation/part.ts";
-import { parseSvg, parseDxf } from "../compiler/flatparse.ts";
-import { parseStl, parse3mf, weld, shellsOf, MAX_MESH_TRIANGLES } from "../compiler/meshfile.ts";
+import { parseSvg, parseDxf, binaryDxfText } from "../compiler/flatparse.ts";
+import { parseStl, parseObj, parse3mf, weld, shellsOf, MAX_MESH_TRIANGLES } from "../compiler/meshfile.ts";
 import type { Mesh } from "../compiler/meshfile.ts";
 import { encodeMesh } from "../compiler/kernel/occt/meshdata.mjs";
 import type { Piece, V2 } from "../compiler/flatfile.ts";
@@ -21,7 +21,7 @@ import { run, scene as sceneOf } from "./session.ts";
 const MAX_STEP_BYTES = 25e6;
 /** The most faces a mesh body may have once its flat areas are joined: the app lists and draws every face of a body on each change (about 0.7 ms a face). */
 const MAX_MESH_FACES = 6000;
-export const IMPORT_KINDS = ".step,.stp,.svg,.dxf,.stl,.3mf";
+export const IMPORT_KINDS = ".step,.stp,.svg,.dxf,.stl,.3mf,.obj";
 
 /** The choices an import has (`dec_import_export_menu`): the units the numbers in the file are in (`file`: what it says itself; an STL says nothing and is millimetres), a further scale, where it is put, and for a drawing the plane. */
 export interface ImportOptions { units: "file" | "mm" | "cm" | "in" | "m"; scale: number; place: "file" | "center" | "floor"; plane: "selected" | "XY" | "XZ" | "YZ" }
@@ -105,7 +105,7 @@ export function importFile(s: Session, name: string, text: string, o: ImportOpti
     const extra = [...parsed.notes, ...optionNote(o)];
     return { ok: true, session: done, message: `imported ${name}: ${n} piece${n === 1 ? "" : "s"} as a sketch${extra.length ? `; ${extra.join("; ")}` : ""}` };
   }
-  return { ok: false, error: "the app imports STEP (.step, .stp), STL, 3MF, SVG and DXF files" };
+  return { ok: false, error: "the app imports STEP (.step, .stp), STL, 3MF, OBJ, SVG and DXF files" };
 }
 
 /** The cleaned shells of some triangle corners (nine numbers a triangle): joined, closed, turned the right way; or why not. */
@@ -128,10 +128,11 @@ async function importMeshFile(s: Session, name: string, bytes: Uint8Array, o: Im
   const notes: string[] = [];
   // the objects' corners (nine numbers a triangle), turned into millimetres, scaled and placed together
   let objects: { name: string; corners: Float64Array }[];
-  if (ext === "stl") {
-    const p = parseStl(bytes);
+  if (ext === "stl" || ext === "obj") {
+    const p = ext === "stl" ? parseStl(bytes) : parseObj(new TextDecoder().decode(bytes));
     if (!p.ok) return { ok: false, error: p.error };
-    const k = o.units === "file" ? 1 : UNIT_MM[o.units]; // (an STL has no unit of its own: millimetres)
+    notes.push(...p.notes);
+    const k = o.units === "file" ? 1 : UNIT_MM[o.units]; // (an STL or an OBJ has no unit of its own: millimetres)
     objects = [{ name: "", corners: k === 1 ? p.value : p.value.map((x) => x * k) }];
   } else {
     const p = await parse3mf(bytes, { unitMm: unitMmOf(o) });
@@ -151,7 +152,7 @@ async function importMeshFile(s: Session, name: string, bytes: Uint8Array, o: Im
     if (!r.ok) return r;
     shells.push(...r.shells); notes.push(...r.notes);
   }
-  notes.push(...optionNote({ ...o, units: ext === "stl" ? o.units : "file" }));
+  notes.push(...optionNote({ ...o, units: ext === "stl" || ext === "obj" ? o.units : "file" }));
   const triangles = shells.reduce((a, m) => a + m.triangles.length / 3, 0);
   if (triangles > MAX_MESH_TRIANGLES) return { ok: false, error: `this mesh has ${triangles.toLocaleString("en-US")} triangles: the app imports up to ${MAX_MESH_TRIANGLES.toLocaleString("en-US")}` };
   const done = run(s, { type: "addStep", step: { id: nextId(scene, "s"), type: "importMesh", parts: [], params: { data: shells.map(encodeMesh).join("|"), name } } });
@@ -165,6 +166,12 @@ async function importMeshFile(s: Session, name: string, bytes: Uint8Array, o: Im
 /** Import any kind of file the app reads, from its bytes. */
 export async function importAny(s: Session, name: string, bytes: Uint8Array, o: ImportOptions = IMPORT_DEFAULTS): Promise<ImportOutcome> {
   const ext = extOf(name);
-  if (ext === "stl" || ext === "3mf") return importMeshFile(s, name, bytes, o);
+  if (ext === "stl" || ext === "3mf" || ext === "obj") return importMeshFile(s, name, bytes, o);
+  if (ext === "dxf" && new TextDecoder("latin1").decode(bytes.subarray(0, 18)) === "AutoCAD Binary DXF") {
+    const t = binaryDxfText(bytes);
+    if (!t.ok) return { ok: false, error: t.error };
+    const r = importFile(s, name, t.text, o);
+    return r.ok ? { ...r, message: `${r.message}; a binary DXF, read as it stands` } : r;
+  }
   return importFile(s, name, new TextDecoder().decode(bytes), o);
 }

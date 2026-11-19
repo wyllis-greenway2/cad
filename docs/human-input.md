@@ -4304,3 +4304,15 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_987 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for tests
 (asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 once more, for the cam tools sized like the gear tool and the Geneva drive for every slot count; no tests to be run; gives permission to write to that branch)
+
+## in_988 — 2026-11-19 — question
+> okay so next I think we need to offer more file types on import and export in order to be compatible. What set do you think we should build next?
+(asks which import and export formats to build next for compatibility)
+
+## in_989 — 2026-11-19 — question
+> okay I agree, but why not allow IGES export? what if somebody wants it in order to work with some older technology? is there a good reason to limit it?
+(agrees with the proposed order (OBJ and binary DXF, then DXF blocks and layers, then IGES) but asks for IGES to be written as well as read, for older systems)
+
+## in_990 — 2026-11-19 — directive
+> yes, build it please, I will take your recommendations on specifics
+(asks for OBJ and binary DXF, DXF blocks and layers, and IGES both ways to be built, the details left to the AI)

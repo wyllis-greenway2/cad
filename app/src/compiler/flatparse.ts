@@ -40,8 +40,54 @@ const pieceCount = (n: number): string | null => (n > MAX_PIECES ? `this drawing
 const DXF_UNITS: Record<number, number> = { 0: 1, 1: 25.4, 2: 304.8, 4: 1, 5: 10, 6: 1000, 8: 0.0000254, 9: 0.0254, 10: 914.4, 13: 0.001, 14: 100, 15: 10000 };
 
 /** Pieces of an ASCII DXF: LINE, CIRCLE, ARC, LWPOLYLINE and POLYLINE (with bulges), ELLIPSE and SPLINE (flattened); in the file's own units turned into millimetres. Blocks, inserts, text, hatches and 3D entities are left out and said. */
+/** The kind of value a group code carries in a binary DXF (the same ranges as in the ASCII file's documentation): a string ends with a zero byte, the others are 2, 4 or 8 byte numbers or one byte. */
+const binaryKind = (c: number): "str" | "f64" | "i16" | "i32" | "i64" | "u8" | "chunk" => {
+  if (c <= 9 || (c >= 100 && c <= 102) || c === 105 || (c >= 300 && c <= 309) || (c >= 320 && c <= 369) || (c >= 390 && c <= 399) || (c >= 410 && c <= 419) || (c >= 430 && c <= 439) || (c >= 470 && c <= 481) || c === 999 || (c >= 1000 && c <= 1009)) return "str";
+  if ((c >= 10 && c <= 59) || (c >= 110 && c <= 149) || (c >= 210 && c <= 239) || (c >= 460 && c <= 469) || (c >= 1010 && c <= 1059)) return "f64";
+  if ((c >= 60 && c <= 79) || (c >= 170 && c <= 179) || (c >= 270 && c <= 289) || (c >= 370 && c <= 389) || (c >= 400 && c <= 409) || (c >= 1060 && c <= 1070)) return "i16";
+  if ((c >= 90 && c <= 99) || (c >= 420 && c <= 429) || (c >= 440 && c <= 459) || c === 1071) return "i32";
+  if (c >= 160 && c <= 169) return "i64";
+  if (c >= 290 && c <= 299) return "u8";
+  if (c >= 310 && c <= 319) return "chunk";
+  return "i16";
+};
+
+/** The ASCII DXF text of a binary DXF file (the 22 byte sentinel `AutoCAD Binary DXF`, then group codes and values), so that one reader reads both; or why the file cannot be read. */
+export function binaryDxfText(bytes: Uint8Array): { ok: true; text: string } | { ok: false; error: string } {
+  const head = new TextDecoder("latin1").decode(bytes.subarray(0, 18));
+  if (head !== "AutoCAD Binary DXF") return { ok: false, error: "this is not a binary DXF file" };
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const out: string[] = [];
+  const cut = { ok: false as const, error: "this binary DXF file is cut short (it ends in the middle of a value)" };
+  const have = (at: number, n: number): boolean => at + n <= bytes.length;
+  // the version (header variable $ACADVER, "AC1009" is R12) says how a group code is written: R12 one byte (255 and then two bytes for the big ones), R13 and later always two bytes
+  const first = new TextDecoder("latin1").decode(bytes.subarray(22, Math.min(bytes.length, 1024)));
+  const ver = /\$ACADVER\0[\s\S]{1,2}(AC\d{4})/.exec(first)?.[1] ?? "AC1009";
+  const text = new TextDecoder(ver >= "AC1021" ? "utf-8" : "latin1"); // (strings are UTF-8 from 2007 on, else the file's code page: Latin-1 stands for it)
+  let at = 22;
+  while (at < bytes.length) {
+    let code: number;
+    if (ver > "AC1009") { if (!have(at, 2)) return cut; code = view.getUint16(at, true); at += 2; }
+    else { code = bytes[at++]!; if (code === 255) { if (!have(at, 2)) return cut; code = view.getUint16(at, true); at += 2; } }
+    const kind = binaryKind(code);
+    let value: string;
+    if (kind === "str") {
+      let end = at; while (end < bytes.length && bytes[end] !== 0) end++;
+      if (end >= bytes.length) return cut;
+      value = text.decode(bytes.subarray(at, end)); at = end + 1;
+    } else if (kind === "f64") { if (!have(at, 8)) return cut; value = String(view.getFloat64(at, true)); at += 8; }
+    else if (kind === "i16") { if (!have(at, 2)) return cut; value = String(view.getInt16(at, true)); at += 2; }
+    else if (kind === "i32") { if (!have(at, 4)) return cut; value = String(view.getInt32(at, true)); at += 4; }
+    else if (kind === "i64") { if (!have(at, 8)) return cut; value = String(view.getBigInt64(at, true)); at += 8; }
+    else if (kind === "u8") { if (!have(at, 1)) return cut; value = String(bytes[at]); at += 1; }
+    else { if (!have(at, 1)) return cut; const n = bytes[at]!; at += 1; if (!have(at, n)) return cut; value = [...bytes.subarray(at, at + n)].map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase(); at += n; }
+    out.push(String(code), value);
+  }
+  return { ok: true, text: out.join("\n") + "\n" };
+}
+
 export function parseDxf(text: string, opts: { unitMm?: number } = {}): Parsed {
-  if (/^AutoCAD Binary DXF/.test(text)) return { ok: false, error: "this is a binary DXF: save it as an ASCII DXF and import that" };
+  if (/^AutoCAD Binary DXF/.test(text)) return { ok: false, error: "this is a binary DXF: it is read from the file's bytes (Import), not from text" };
   const lines = text.split(/\r?\n/);
   const pairs: [number, string][] = [];
   for (let i = 0; i + 1 < lines.length; i += 2) { const code = Number(lines[i]!.trim()); if (!Number.isFinite(code)) return { ok: false, error: "this is not a DXF file (the pairs of lines are not group codes and values)" }; pairs.push([code, lines[i + 1]!.trim()]); }
