@@ -4417,3 +4417,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > are you sure the odd-looking tooth tops are just the involute shape?
 (challenges the AI's claim that the face gear's pinched-looking tooth tops are the involute shape; the AI measured and found it was wrong: a waist, the tooth wider at the tip than below it)
 
+## in_1016 — 2026-11-19 — question
+> okay what should we work on next?
+(asks what to work on next; the AI recommends, the human decides)
+
