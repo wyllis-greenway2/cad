@@ -45,7 +45,7 @@ export interface Session {
   /** what to do instead if one of those steps could not be made (an edit of the step that made a face, refused late: the prism the old way) */
   readonly fallback?: Command;
   /** the last command that was refused because it could not be done without breaking constraints: who tried (`culprits`: relation ids) and what it would have broken (`victims`) */
-  readonly conflict: { culprits: string[]; victims: string[]; /** what to do once the constraints in `victims` are deleted (the button "Delete constraint to proceed", `in_366`): the refused command itself */ retry?: Command; /** parts of a refused step that are the problem (the edges that cannot take a fillet or chamfer of that size): they flash red (`in_266`) */ parts?: string[] } | null;
+  readonly conflict: { culprits: string[]; victims: string[]; /** what to do once the constraints in `victims` are deleted (the button "Delete constraint to proceed", `in_366`): the refused command itself */ retry?: Command; /** parts of a refused step that are the problem (the edges that cannot take a fillet or chamfer of that size): they flash red (`in_266`) */ parts?: string[]; /** hard or fixed bodies whose hardness stopped the change: the constraint to delete is their hardness (`inv_constraint_uniformity`, `in_1087`): the body names */ soften?: string[] } | null;
   /** the sketch plane whose hidden sketch is shown while a tool sketches in it (`in_211`) */
   readonly reveal?: Ref | null;
 }
@@ -219,7 +219,7 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
     for (const q of [...changed]) { const l = s.history.scene.parts[q]; if (l?.kind === "line") [l.a, l.b, ...(l.center ? [l.center] : [])].forEach((e) => changed.add(e)); } // (a line is held by what holds its ends)
     const own = relationsOf(c);
     const culprits = s.history.scene.relations.filter((rel) => !own.includes(rel.id) && rel.locked !== false && rel.kind !== "arcEnds" && rel.parts.some((q) => changed.has(q))).map((rel) => rel.id);
-    return { ...s, message: opts.watchAll ? `that would break a step made from it (${next.outcome.errors[failed] ?? "it could not be made"})` : next.outcome.errors[failed] ?? "that could not be made", conflict: culprits.length ? { culprits, victims: [] } : stepProblem(s, next, failed) ?? s.conflict };
+    return { ...s, message: opts.watchAll ? `that would break a step made from it (${next.outcome.errors[failed] ?? "it could not be made"})` : next.outcome.errors[failed] ?? "that could not be made", conflict: culprits.length ? { culprits, victims: culprits, retry: c } : stepProblem(s, next, failed) ?? s.conflict }; // (the constraints that hold what the step could not take flash and can be deleted, to go on with the change: `inv_constraint_uniformity`)
   }
   const before = conflictsOf(s.outcome);
   const after = conflictsOf(next.outcome);
@@ -235,7 +235,7 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   if (held.length) return { ...s, message: `that would break ${held.length === 1 ? "a constraint" : "constraints"} (${held.join(", ")}): delete ${held.length === 1 ? "it" : "them"} to go on`, conflict: { culprits: [], victims: held, retry: c } };
   // a constraint to an edge of the body that the change took away, with no edge that looks like it: said, and the constraint flashes; the change stays (`in_309`)
   const lost = (next.outcome.lost ?? []).filter((id) => !(s.outcome.lost ?? []).includes(id));
-  if (lost.length) return { ...next, message: `a constraint to an edge of the body has lost it (${lost.join(", ")}): no edge looks like it now; it holds nothing until the body is as it was`, conflict: { culprits: lost, victims: [] } };
+  if (lost.length) return { ...next, message: `a constraint to an edge of the body has lost it (${lost.join(", ")}): no edge looks like it now; it holds nothing until the body is as it was`, conflict: { culprits: lost, victims: lost } }; // (the constraint holds nothing now: it flashes and can be deleted, `inv_constraint_uniformity`)
   let odds: string[] = []; // (the standing mates that cannot all hold, `in_329`)
   // standing mates (`in_321`): the ones the change broke are put back in the same step, so one undo takes back the change and the corrections together
   if (!next.outcome.kernel?.stale) {
@@ -258,8 +258,8 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   const wasOff = new Set(mateStatus(s.history.scene).filter((m) => m.state !== "ok").map((m) => m.id));
   // (while the kernel is still answering the faces are the older ones, and a mate just made would read as not true: said only when the answer is there)
   const nowOff = next.outcome.kernel?.stale ? [] : mateStatus(next.history.scene).filter((m) => m.state !== "ok" && !wasOff.has(m.id));
-  if (odds.length) return { ...next, conflict: null, message: atOddsMessage(next.history.scene, odds, changeWords(s.history.scene, c)) };
-  if (nowOff.length) return { ...next, conflict: null, message: `${nowOff.length === 1 ? "a mate is" : `${nowOff.length} mates are`} no longer true (${nowOff.map((m) => m.state === "lost" ? "a face is gone" : "the bodies have come apart").join(", ")}): "Put the mates back" in the ⋯ menu makes them again` };
+  if (odds.length) return { ...next, conflict: { culprits: [], victims: odds }, message: atOddsMessage(next.history.scene, odds, changeWords(s.history.scene, c)) }; // (mates that cannot all hold: they flash and can be deleted; the change stays)
+  if (nowOff.length) return { ...next, conflict: { culprits: [], victims: nowOff.map((m) => m.id) }, message: `${nowOff.length === 1 ? "a mate is" : `${nowOff.length} mates are`} no longer true (${nowOff.map((m) => m.state === "lost" ? "a face is gone" : "the bodies have come apart").join(", ")}): "Put the mates back" in the ⋯ menu makes them again` };
   const late = !!next.outcome.kernel?.stale && steps.length > 0;
   const said = steps.map((id) => next.outcome.notes?.[id]).find((n) => !!n); // (a step made in a way that is worth saying: a fillet with the edges at its corner, `in_379`)
   if (said && !late) return { ...next, conflict: null, message: said };

@@ -2359,3 +2359,23 @@ test("an edge behind a face the cross section cuts away is there to point at: th
   }
   assert.ok(opened > 0, "with the near wall cut away, an inside edge can be picked");
 });
+
+// ---------- one rule for a violated constraint (`inv_constraint_uniformity`, `in_1086`) ----------
+test("a violated constraint flashes and offers to be deleted even when the change stays (no change to go on with): the notice has the button, and it deletes the constraint alone", () => {
+  let st = box();
+  const lines = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn");
+  const bottom = lines.find((l) => { if (l.kind !== "line") return false; const [a, b] = [scene(st.session).parts[l.a] as { at: Vec3 }, scene(st.session).parts[l.b] as { at: Vec3 }]; return a.at[1] === 0 && b.at[1] === 0; })!;
+  st = { ...st, session: run(st.session, actionsFor(scene(st.session), [bottom.ref]).find((x) => x.id === "length")!.run(40)) };
+  const id = scene(st.session).relations[0]!.id;
+  // a refusal that names the constraint and carries no change (what an edge constraint that was lost, or mates that cannot all hold, say)
+  st = { ...st, session: { ...st.session, message: "a constraint has lost what it held", conflict: { culprits: [id], victims: [id] } }, flash: { culprits: [id], victims: [id], at: 0 } };
+  const refusal = frame(st).notices.find((n) => n.kind === "refusal");
+  assert.ok(refusal?.action, "the button is there without a change to retry");
+  assert.equal(refusal!.action!.label, "Delete constraint");
+  assert.deepEqual(refusal!.action!.intent, { type: "overrideRefusal" });
+  const steps = st.session.history.cursor;
+  st = reduce(st, refusal!.action!.intent, env);
+  assert.equal(scene(st.session).relations.some((r) => r.id === id), false, "the constraint is deleted");
+  assert.equal(st.flash, null, "the flash is done");
+  assert.ok(st.session.history.cursor > steps, "as a step of its own: one undo brings it back");
+});

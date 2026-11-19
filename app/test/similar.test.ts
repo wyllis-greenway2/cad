@@ -182,5 +182,5 @@ test("select similar is offered as a suggestion button when there are others lik
   assert.ok(all.ok);
   if (all.ok) assert.ok(!suggestionsFor(scene(s), all.refs)?.items.some((i) => i.id === "select:similar"), "all four are selected: nothing more to select");
   const top = Object.values(scene(s).parts).find((p): p is Extract<Part, { kind: "plane" }> => p.kind === "plane" && p.origin === "body" && !!p.mesh && p.mesh.every((_, i) => i % 3 !== 2 || Math.abs(p.mesh![i]! - 20) < 1e-6))!;
-  assert.equal(suggestionsFor(scene(s), [top.ref]), null, "a face alone: not yet");
+  assert.ok(!suggestionsFor(scene(s), [top.ref])?.items.some((i) => i.id === "select:similar"), "a face alone: select similar is not offered yet (the mates with the world that fit it are, `inv_constraint_uniformity`)");
 });

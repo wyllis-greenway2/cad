@@ -4691,3 +4691,19 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1084 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for this branch (the ⋯ menu cleanup: Import and Export for every file, a project with the page's state, Fabricate) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
+
+## in_1085 — 2026-11-19 — directive
+> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
+(asks, again, for the work to be merged into the testing branch and for new work to go on from a new branch that has it: the branch claude/intelligent-hawking-next was made from the testing branch's tip)
+
+## in_1086 — 2026-11-19 — directive
+> @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/af3d00ff-why_jamb.json" Okay can we do an audit of our constraint and suggested constraint system? So attempting to voilate a constraint should always always operate the same. I cosntantly find exceptions. If you attempt to voilate a constraint, it should always flash red, make itself known, and offer to delete the constraint. Also selecting things that can have constraints applied should suggest those constraints in the little suggester just like the select similar suggestion etc. I constantly find exceptions to this rule too. For example, if I select this pin wall and this hole wall, it doesn't offer a coaxial constraint, or any other valid constraint.
+(with a screenshot of a hole's wall and the pin's wall in it both selected, nothing offered, and a project (`why_jamb`): asks for an audit of the constraints and their suggestions, as two rules with no exceptions: a violated constraint always flashes red, says so and offers to be deleted; whatever is selected that can have constraints is always offered them in the suggester)
+
+## in_1087 — 2026-11-19 — directive
+> Lets try flash red and offer to delete the constraint because that keeps it truly universally behaving the same always for all constraints.
+(answers the AI's question in `q_constraint_audit`: a hard body that stops a move, being pushed against another hard body or a wall, is to flash red, say so and offer to delete the constraint (its hardness), like every other violated constraint; this replaces the rule of `in_484`, that a drag against a hard body only stops, with nothing flashing or said)
+
+## in_1088 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for claude/intelligent-hawking-next to be merged into the testing branch, with the constraint rules, the mates in the suggester and the hard stop; no full suite needed)
