@@ -1,4 +1,4 @@
-// A cycloidal drive as a model (`dec_gear_models`): a base plate with N ring pins, a disc with N - 1 lobes on an eccentric on the input shaft, and an output plate with pins that go through holes in the disc. One turn of the input turns the
+// A cycloidal drive as a model (`dec_gear_models`; the shaft has a flat and the plates mounting holes, `in_1163`): a base plate with N ring pins, a disc with N - 1 lobes on an eccentric on the input shaft, and an output plate with pins that go through holes in the disc. One turn of the input turns the
 // output 1 / (N - 1) of a turn the other way. The disc's outline is exact: the curve the ring pins' centres trace on the disc as it rolls (`R e^(it) - E e^(iNt)`), taken in by the pin's radius and the room. Pure: numbers in, steps out.
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
@@ -73,14 +73,14 @@ export function cycloidalSteps(s: CycloidalSpec, place?: Place): Result<ModelBui
   const b = new Builder(place);
   const [T, g, Dt] = [s.plate, s.gap, s.disc];
   const zDisc = T + g, zOut = T + 2 * g + Dt, zTop = zOut + s.plate;
-  const rim = s.circle + s.pin / 2 + 4; // (the plates' radius)
+  const rim = cycloidalRim(s); // (the plates' radius)
+  const mount = Array.from({ length: 4 }, (_, k) => disc(mountRadius(s) * Math.cos(Math.PI / 4 + (Math.PI * k) / 2), mountRadius(s) * Math.sin(Math.PI / 4 + (Math.PI * k) / 2), MOUNT_HOLE / 2)); // (four holes for screws through each plate, out beyond the pins)
   const shaftHole = s.shaft / 2 + s.room;
   const ring = Array.from({ length: s.pins }, (_, k): [number, number] => [s.circle * Math.cos((2 * Math.PI * k) / s.pins), s.circle * Math.sin((2 * Math.PI * k) / s.pins)]);
   // the base plate with the ring pins standing on it (one body)
   const p0 = b.plane(0);
   b.part("Base plate and ring pins");
-  // (a tab on the rim stands still for the others to be seen against: the base is held)
-  b.extrude(p0, disc(0, 0, rim), [disc(0, 0, shaftHole)], T, { also: [...ring.map((c) => ({ outer: disc(c[0], c[1], s.pin / 2), depth: zDisc + Dt })), { outer: box(rim - 1, -1.5, rim + 6, 1.5), depth: T }] });
+  b.extrude(p0, disc(0, 0, rim), [disc(0, 0, shaftHole), ...mount], T, { also: [...ring.map((c) => ({ outer: disc(c[0], c[1], s.pin / 2), depth: zDisc + Dt }))] });
   // the disc, its middle on the eccentric (E, 0), with the hole for the eccentric and the holes for the output pins
   const holeR = s.outPin / 2 + s.ecc + s.gap;
   const holes = Array.from({ length: s.outPins }, (_, k) => disc(s.ecc + s.outCircle * Math.cos((2 * Math.PI * k) / s.outPins), s.outCircle * Math.sin((2 * Math.PI * k) / s.outPins), holeR));
@@ -89,20 +89,20 @@ export function cycloidalSteps(s: CycloidalSpec, place?: Place): Result<ModelBui
   const p1 = b.plane(zDisc);
   b.extrude(p0, disc(0, 0, s.shaft / 2), [], zTop + 10);
   b.extrude(p1, disc(s.ecc, 0, s.cam), [], Dt, { mode: "add" });
-  // so that its turning can be seen: a key along the part of the shaft above the output plate, and a pointer arm near its top (all joined to the shaft: they go with it)
-  const [kw, ko] = [Math.max(1, 0.25 * s.shaft), Math.max(0.8, 0.15 * s.shaft)];
-  b.extrude(b.plane(zTop + 0.5), box(s.shaft / 2 - 1, -kw / 2, s.shaft / 2 + ko, kw / 2), [], 7, { mode: "add" });
-  b.extrude(b.plane(zTop + 8), box(-s.shaft / 2, -kw, 0.55 * rim, kw), [], 2, { mode: "add" });
+  // a flat on the shaft's end that stands above the output plate, as a set screw would bear on (a D shaft)
+  const flat = Math.max(0.6, 0.12 * s.shaft);
+  b.extrude(b.plane(zTop + 2), box(s.shaft / 2 - flat, -s.shaft, s.shaft, s.shaft), [], 8, { mode: "cut" });
   b.part("Cycloidal disc");
   b.extrude(p1, outline(discOutline(s, n).map(([x, y]) => [x + s.ecc, y] as [number, number])), [disc(s.ecc, 0, s.cam + s.gap), ...holes], Dt);
   // the output plate, with its pins reaching down through the disc's holes
   b.part("Output plate and pins");
   const p2 = b.plane(zOut);
   const pinsOut = Array.from({ length: s.outPins }, (_, k): [number, number] => [s.outCircle * Math.cos((2 * Math.PI * k) / s.outPins), s.outCircle * Math.sin((2 * Math.PI * k) / s.outPins)]);
-  b.extrude(p2, disc(0, 0, rim), [disc(0, 0, shaftHole)], s.plate, { also: pinsOut.map(([x, y]) => ({ outer: disc(x, y, s.outPin / 2), depth: -(Dt + g) })) });
-  b.extrude(b.plane(zTop), box(s.shaft / 2 + 4.5, -1.25, rim - 3, 1.25), [], 1.5, { mode: "add" }); // (a marker bar across the output plate, so that its turn can be seen)
+  b.extrude(p2, disc(0, 0, rim), [disc(0, 0, shaftHole), ...mount], s.plate, { also: pinsOut.map(([x, y]) => ({ outer: disc(x, y, s.outPin / 2), depth: -(Dt + g) })) });
   return ok(b.build());
 }
 
 /** the plates' radius (mm) */
-export const cycloidalRim = (s: Pick<CycloidalSpec, "circle" | "pin">): number => s.circle + s.pin / 2 + 4;
+export const cycloidalRim = (s: Pick<CycloidalSpec, "circle" | "pin">): number => s.circle + s.pin / 2 + 8;
+const MOUNT_HOLE = 3.2; // (a hole for an M3 screw, mm)
+const mountRadius = (s: Pick<CycloidalSpec, "circle" | "pin">): number => s.circle + s.pin / 2 + 4;

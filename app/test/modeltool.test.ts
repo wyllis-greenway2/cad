@@ -102,7 +102,7 @@ test("each model lists its parts, bottom up, covering every step once", () => {
     cycloidal: ["Base plate and ring pins", "Input shaft and eccentric", "Cycloidal disc", "Output plate and pins"],
   };
   for (const kind of MODEL_KINDS) {
-    const b = modelBuild(kind, modelStart(kind), AT_ORIGIN_FOR_TESTS);
+    const b = modelBuild(kind, { ...modelStart(kind), ...(kind === "ballbearing" ? { detail: 1 } : {}) }, AT_ORIGIN_FOR_TESTS);
     assert.ok(b.ok, b.ok ? "" : b.error);
     if (!b.ok) continue;
     assert.deepEqual(b.value.parts.map((p) => p.label), want[kind], kind);
@@ -114,7 +114,7 @@ test("each model lists its parts, bottom up, covering every step once", () => {
 test("Create makes the model a part at a time: the first part at once, the next each time the kernel has answered; Esc stops and keeps what is made", () => {
   let st = { ...createState(createSession(kernel)), cam: homeCamera() };
   st = reduce(st, { type: "runAction", id: "model:ballbearing" }, env as never);
-  st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0] } };
+  st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0], model: { ...st.tool!.model!, typed: st.tool!.model!.typed.map((x, i) => (i === 3 ? "1" : x)) } } }; // (field 1 after the size and the turn: the detail)
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env as never);
   assert.ok(st.building, "building");
   assert.equal(st.tool, null);
@@ -139,10 +139,12 @@ test("Create makes the model a part at a time: the first part at once, the next 
 import { startPlain, followMatrix } from "../src/interaction/motion.ts";
 import { animatedBodies, modelBody } from "../src/operation/gearcouple.ts";
 import { discOutline } from "../src/operation/modelcycloidal.ts";
-function buildAll(kind: ModelKind): ReturnType<typeof createState> {
+/** a model made through the tool and every part built; `typed` are the fields typed in the box first (by their keys) */
+function buildAll(kind: ModelKind, typed: Record<string, string> = {}): ReturnType<typeof createState> {
   let st = { ...createState(createSession(kernel)), cam: homeCamera() };
   st = reduce(st, { type: "runAction", id: `model:${kind}` }, env as never);
-  st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0] } };
+  const keys = modelFields(kind).map((f) => f.key);
+  st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0], model: { ...st.tool!.model!, typed: st.tool!.model!.typed.map((x, i) => (i >= 2 && typed[keys[i - 2]!] !== undefined ? typed[keys[i - 2]!]! : x)) } } };
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env as never);
   let n = 0;
   while (st.building && n++ < 40) st = reduce(st, { type: "buildNext" }, env as never);
@@ -174,7 +176,7 @@ test("a finished model keeps how it moves, and Play from any part of it plays th
   assert.ok(Math.abs(byPart["Stage 2 gear"]! - 1 / 9) < 1e-9, "the last gear turns a ninth as fast, the same way");
 });
 test("the bearing's balls go round at about half the speed of the inner race, the outer race held", () => {
-  const st = buildAll("ballbearing");
+  const st = buildAll("ballbearing", { detail: "1" });
   const sc = scene(st.session);
   const rec = sc.models![0]!;
   assert.equal(rec.followers.length, 7);
@@ -236,7 +238,7 @@ test("the cycloidal drive moved by Play: the disc's middle goes round the shaft,
 const wrap = (x: number): number => Math.atan2(Math.sin(x), Math.cos(x));
 test("the Play item of the ring starts the model from whichever of its bodies is selected, and the motion moves the model's own parts", () => {
   for (const [kind, from] of [["ballbearing", "Ball 5"], ["gearbox", "Top plate"], ["differential", "Cap 2"], ["cycloidal", "Output plate and pins"]] as [ModelKind, string][]) {
-    let st = buildAll(kind);
+    let st = buildAll(kind, kind === "ballbearing" ? { detail: "1" } : {});
     const sc = scene(st.session), rec = sc.models![0]!;
     const body = anyBodyOf(sc, rec.parts[from]!);
     st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [body] } } };
@@ -282,7 +284,7 @@ test("whatever size the pointer asks for, from the first moment on, the numbers 
 import { addGlue, removeGlue, glueOf } from "../src/operation/glue.ts";
 import { toJSON, fromJSON } from "../src/operation/scene.ts";
 test("glue: groups grow together, a body leaves its group, a group of one is no group, unknown bodies and a single body are refused, and it is saved with the project", () => {
-  const sc = scene(buildAll("ballbearing").session);
+  const sc = scene(buildAll("ballbearing", { detail: "1" }).session);
   const ids = Object.values(sc.parts).filter((p) => p.kind === "body").map((p) => (p as { id: string }).id);
   const one = addGlue(sc, [ids[0]!, ids[1]!]);
   assert.ok(one.ok);
@@ -333,7 +335,7 @@ test("glue: a body glued to a part that moves moves with it, however it was chos
 // ---- what the human asked (`in_1145`, `in_1153`): a bearing that loads with its constraints, so things can be driven on it ----
 test("a bearing loads with its outer ring held and its inner ring turning about the axis (a pivot), and Play still turns the balls with the inner ring", () => {
   for (const kind of ["ballbearing"] as ModelKind[]) {
-    const st = buildAll(kind), sc = scene(st.session), rec = sc.models![0]!;
+    const st = buildAll(kind, { detail: "1" }), sc = scene(st.session), rec = sc.models![0]!;
     const idOf = (part: string): string => { const b = Object.values(sc.parts).find((p) => p.kind === "body" && p.id !== undefined && (p as { id: string }).id === `x_${rec.parts[part]!.step}`); assert.ok(b, `${kind}: ${part}`); return (b as unknown as { id: string }).id; };
     assert.deepEqual(sc.fixed, [idOf("Outer race")], `${kind}: only the outer ring is held`);
     assert.equal(sc.pivots?.length, 1);

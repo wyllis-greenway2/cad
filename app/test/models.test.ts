@@ -9,6 +9,7 @@ import type { ModelBuild } from "../src/operation/modelparts.ts";
 import type { Result } from "../src/shared/result.ts";
 import { gearboxSteps, GEARBOX_START, gearboxRatio, gearboxProblem } from "../src/operation/modelgearbox.ts";
 import { differentialSteps, DIFFERENTIAL_START, differentialProblem } from "../src/operation/modeldifferential.ts";
+import { cycloidalRim } from "../src/operation/modelcycloidal.ts";
 import { cycloidalSteps, CYCLOIDAL_START, cycloidalProblem, cycloidalRatio, discOutline } from "../src/operation/modelcycloidal.ts";
 import { BEARINGS, bearingRow, bearingShape, ballsOf } from "../src/operation/bearingdata.ts";
 import { modelBuild, modelProblem, modelNumbers } from "../src/operation/modelkinds.ts";
@@ -129,7 +130,7 @@ test("the catalogue bearings: every number in the list makes a bearing; the dime
 });
 test("a catalogue bearing is made to its dimensions, with the rings held apart by their balls and the balls apart from the rings", () => {
   for (const [n, d, D, B] of [[608, 8, 22, 7], [6203, 17, 40, 12]] as const) {
-    const st = modelBuild("ballbearing", modelNumbers("ballbearing", { number: n }), { at: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0], ez: [0, 0, 1] });
+    const st = modelBuild("ballbearing", modelNumbers("ballbearing", { number: n, detail: 1 }), { at: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0], ez: [0, 0, 1] });
     const s = make(st);
     const b = byVolume(s), balls = b.filter((x) => x.volume < 400 && Math.abs(x.bbox.max[2]! - x.bbox.min[2]!) < B * 0.9), rings = b.filter((x) => !balls.includes(x));
     assert.equal(rings.length, 2, `${n}: two rings`);
@@ -140,4 +141,43 @@ test("a catalogue bearing is made to its dimensions, with the rings held apart b
     assert.equal(shared(s, rings[0]!, rings[1]!), 0);
     void d;
   }
+});
+
+const π = Math.PI;
+type Body = ReturnType<typeof bodies>[number];
+test("a simple bearing is two plain rings (the outer ring's hole is wider than the inner ring), a custom one takes its bore, outside diameter, width and inner ring's diameter from the numbers", () => {
+  const r = (b: Body) => [b.bbox.max[0]! - b.bbox.min[0]!, b.bbox.max[2]! - b.bbox.min[2]!];
+  const at = { at: [0, 0, 0] as [number, number, number], ex: [1, 0, 0] as [number, number, number], ey: [0, 1, 0] as [number, number, number], ez: [0, 0, 1] as [number, number, number] };
+  const simple = make(modelBuild("ballbearing", modelNumbers("ballbearing", { number: 6203 }), at));
+  const b = byVolume(simple);
+  assert.equal(b.length, 2, "an inner ring and an outer ring");
+  const [inner, outer] = [b[0]!, b[1]!];
+  assert.ok(Math.abs(r(outer)[0]! - 40) < 0.05 && Math.abs(r(outer)[1]! - 12) < 0.05, `outer ${r(outer)}`);
+  assert.ok(r(inner)[0]! < 40 && r(inner)[0]! > 17 && Math.abs(r(inner)[1]! - 12) < 0.05, `inner ${r(inner)}`);
+  assert.equal(shared(simple, inner, outer), 0);
+  // a bearing of your own: 10 x 30 x 9 with the inner ring 18 across
+  const mine = modelNumbers("ballbearing", { number: 0, bore: 10, outer: 30, width: 9, ring: 18 });
+  assert.equal(modelProblem("ballbearing", mine), null);
+  const m = byVolume(make(modelBuild("ballbearing", mine, at)));
+  assert.equal(m.length, 2);
+  assert.ok(Math.abs(r(m[0]!)[0]! - 18) < 0.05 && Math.abs(r(m[1]!)[0]! - 30) < 0.05 && Math.abs(r(m[1]!)[1]! - 9) < 0.05, `${r(m[0]!)} ${r(m[1]!)}`);
+  // the same in detail: two rings and the balls
+  const det = byVolume(make(modelBuild("ballbearing", { ...mine, detail: 1 }, at)));
+  assert.ok(det.length > 5, `${det.length} bodies`);
+  assert.match(modelProblem("ballbearing", modelNumbers("ballbearing", { number: 0, bore: 10, outer: 8, width: 9 })) ?? "", /more than the bore/);
+  assert.match(modelProblem("ballbearing", modelNumbers("ballbearing", { number: 0, bore: 10, outer: 30, width: 9, ring: 9 })) ?? "", /more than the bore/);
+});
+test("a cycloidal drive has no markers: its plates have four mounting holes each and the shaft a flat above the output plate", () => {
+  const s = make(cycloidalSteps(CYCLOIDAL_START));
+  const b = bodies(s);
+  assert.equal(b.length, 4);
+  const q = CYCLOIDAL_START, rim = cycloidalRim(q), sh = q.shaft / 2 + q.room, T = q.plate;
+  const plate = π * (rim * rim - sh * sh) * T - 4 * π * 1.6 * 1.6 * T + q.pins * π * (q.pin / 2) ** 2 * (q.plate + q.gap + q.disc - T);
+  const base = b.find((x) => Math.abs(x.volume - plate) < 0.01 * plate);
+  assert.ok(base, `the base plate with its holes and pins has the volume ${plate.toFixed(0)}: ${b.map((x) => x.volume.toFixed(0))}`);
+  const out = b.find((x) => x !== base && Math.abs(x.volume - (π * (rim * rim - sh * sh) * T - 4 * π * 1.6 * 1.6 * T + q.outPins * π * (q.outPin / 2) ** 2 * (q.disc + q.gap))) < 0.01 * plate);
+  assert.ok(out, "the output plate has its four holes");
+  const shaft = b.find((x) => x.bbox.max[2]! > rim * 0 + 20 && x !== out && x !== base && x.volume < 4000)!;
+  assert.ok(shaft, "the shaft");
+  assert.ok(shaft.bbox.max[2]! - shaft.bbox.min[2]! > 20);
 });

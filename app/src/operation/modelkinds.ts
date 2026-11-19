@@ -7,7 +7,7 @@ import { gearboxSteps, gearboxProblem, gearboxRatio, gearboxFootprint, GEARBOX_S
 import type { GearboxSpec } from "./modelgearbox.ts";
 import { bearingParts } from "./modelbearing.ts";
 import { Builder } from "./modelparts.ts";
-import { BEARINGS, bearingRow, bearingShape, bearingNumbers } from "./bearingdata.ts";
+import { BEARINGS, bearingRow, bearingFromNums } from "./bearingdata.ts";
 import { differentialSteps, differentialProblem, differentialExtent, DIFFERENTIAL_START } from "./modeldifferential.ts";
 import type { DifferentialSpec } from "./modeldifferential.ts";
 import { cycloidalSteps, cycloidalProblem, cycloidalRatio, cycloidalRim, discOutline, CYCLOIDAL_START } from "./modelcycloidal.ts";
@@ -39,13 +39,7 @@ const circle = (cx: number, cy: number, r: number, count = 40): [number, number]
 const rect = (x0: number, y0: number, x1: number, y1: number): [number, number][] => [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
 const F = (key: string, label: string, hint: string, scaled?: true): ModelField => ({ key, label, hint, ...(scaled ? { scaled } : {}) });
 
-/** the bearing of a catalogue number with its balls, or why not (as the words of a refusal) */
-function catalogueShape(n: Nums): { bore: number; outer: number; width: number; balls: number; pitch: number; rb: number; rg: number; surface: number; half: number; typical: boolean } | string {
-  const row = bearingRow(Math.round(n.number!));
-  if (!row) return `${n.number} is not a bearing in the list: ${bearingNumbers()}`;
-  const sh = bearingShape(row, n.clearance!, { ...(n.balls ? { balls: Math.round(n.balls) } : {}), ...(n.ball ? { ball: n.ball } : {}) });
-  return sh.ok ? { bore: row.d, outer: row.D, width: row.B, balls: sh.value.balls, pitch: sh.value.pitch, rb: sh.value.dw / 2, rg: sh.value.rg, surface: sh.value.surface, half: sh.value.half, typical: sh.value.typical } : sh.error;
-}
+const catalogueShape = bearingFromNums;
 const catalogueProblem = (n: Nums): string | null => { const s = catalogueShape(n); return typeof s === "string" ? s : null; };
 const gb = (n: Nums): GearboxSpec => n as unknown as GearboxSpec;
 const df = (n: Nums): DifferentialSpec => n as unknown as DifferentialSpec;
@@ -67,19 +61,25 @@ const DEFS: Record<ModelKind, Def> = {
     about: (n) => `${gearboxRatio(gb(n)).toFixed(2)} : 1 in all (${(n.gear! / n.pinion!).toFixed(2)} a stage)`,
   },
   ballbearing: {
-    title: "Ball bearing",
-    fields: [F("number", "Bearing number", "a deep groove ball bearing: 623 to 627, 607 to 609, 6000 to 6006, 6200 to 6206"), F("clearance", "Room round a ball", "mm all round it, from nothing: the balls are bodies of their own and must not touch the rings (not from a catalogue)"), F("balls", "Balls", "0: the catalogue's"), F("ball", "Ball diameter", "mm; 0: the catalogue's")],
-    start: { number: 608, clearance: 0.02, balls: 0, ball: 0 },
+    title: "Deep groove ball bearing",
+    fields: [
+      F("number", "Bearing number", "a catalogue deep groove ball bearing: 623 to 627, 607 to 609, 6000 to 6006, 6200 to 6206; 0 makes one of your own from the numbers below"),
+      F("detail", "Detail", "0: simple (two plain rings); 1: detailed (grooves and balls)"),
+      F("bore", "Bore", "mm (a bearing of your own: number 0)"), F("outer", "Outside diameter", "mm (a bearing of your own)"), F("width", "Width", "mm (a bearing of your own)"),
+      F("ring", "Inner ring outside diameter", "mm (a bearing of your own; 0: from the balls)"),
+      F("clearance", "Room round a ball", "mm all round it, detailed only: the balls are bodies of their own and must not touch the rings"),
+      F("balls", "Balls", "detailed only; 0: the catalogue's, or a typical set"), F("ball", "Ball diameter", "mm, detailed only; 0: the catalogue's, or a typical one")],
+    start: { number: 608, detail: 0, bore: 8, outer: 22, width: 7, ring: 0, clearance: 0.02, balls: 0, ball: 0 },
     problem: (n) => catalogueProblem(n),
-    extent: (n) => bearingRow(Math.round(n.number!))?.D ?? 0,
+    extent: (n) => { const sh = catalogueShape(n); return typeof sh === "string" ? 0 : sh.outer; },
     centre: () => [0, 0],
-    build: (n, place) => { const sh = catalogueShape(n); if (typeof sh === "string") return err(sh); const b = new Builder(place); bearingParts(b, sh); return ok(b.build()); },
+    build: (n, place) => { const sh = catalogueShape(n); if (typeof sh === "string") return err(sh); const b = new Builder(place); bearingParts(b, { ...sh, detail: sh.detail }); return ok(b.build()); },
     outline: (n) => {
       const sh = catalogueShape(n);
       if (typeof sh === "string") return [];
-      return [circle(0, 0, sh.outer / 2, 64), circle(0, 0, sh.bore / 2, 48), circle(0, 0, sh.pitch - sh.surface, 48), circle(0, 0, sh.pitch + sh.surface, 48), ...Array.from({ length: sh.balls }, (_, k) => circle(sh.pitch * Math.cos((2 * Math.PI * k) / sh.balls), sh.pitch * Math.sin((2 * Math.PI * k) / sh.balls), sh.rb, 14))];
+      return [circle(0, 0, sh.outer / 2, 64), circle(0, 0, sh.bore / 2, 48), circle(0, 0, sh.pitch - sh.surface, 48), circle(0, 0, sh.pitch + sh.surface, 48), ...Array.from({ length: sh.detail ? sh.balls : 0 }, (_, k) => circle(sh.pitch * Math.cos((2 * Math.PI * k) / sh.balls), sh.pitch * Math.sin((2 * Math.PI * k) / sh.balls), sh.rb, 14))];
     },
-    about: (n) => { const r = bearingRow(Math.round(n.number!)), sh = catalogueShape(n); return r && typeof sh !== "string" ? `${r.number}: ${r.d} x ${r.D} x ${r.B} mm, ${sh.balls} balls of ${(2 * sh.rb).toFixed(2)} mm${sh.typical ? " (a typical set)" : " (the catalogue's)"}; the outer ring is held, the inner turns` : ""; },
+    about: (n) => { const sh = catalogueShape(n); return typeof sh === "string" ? "" : `${sh.number ? sh.number : "your own"}: ${sh.bore} x ${sh.outer} x ${sh.width} mm, inner ring ${(2 * (sh.pitch - sh.surface)).toFixed(1)} mm across${sh.detail ? `, ${sh.balls} balls of ${(2 * sh.rb).toFixed(2)} mm${sh.typical ? " (a typical set)" : ""}` : " (simple: two rings)"}; the outer ring is held, the inner turns`; },
   },
   differential: {
     title: "Differential",
@@ -134,9 +134,13 @@ const tidy = (key: string, v: number): number => (key === "module" || key === "d
  */
 export function modelNumbers(kind: ModelKind, typed: Nums, size?: number): Nums {
   const d = DEFS[kind];
-  if (kind === "ballbearing") { // (a catalogue bearing has the sizes of its number: a size asked for picks the bearing whose outside diameter is nearest, unless a number is typed)
-    if (typed.number === undefined && size !== undefined && size > 0) { const near = [...BEARINGS].sort((x, y) => Math.abs(x.D - size) - Math.abs(y.D - size) || Math.abs(x.number - d.start.number!) - Math.abs(y.number - d.start.number!))[0]!; return { ...d.start, ...typed, number: near.number }; }
-    return { ...d.start, ...typed };
+  if (kind === "ballbearing") { // (a catalogue bearing has the sizes of its number: a size asked for picks the bearing whose outside diameter is nearest; number 0, a bearing of your own, takes the size as its outside diameter; what is typed wins)
+    const n: Nums = { ...d.start, ...typed };
+    if (typed.number === undefined && size !== undefined && size > 0) n.number = [...BEARINGS].sort((x, y) => Math.abs(x.D - size) - Math.abs(y.D - size) || Math.abs(x.number - d.start.number!) - Math.abs(y.number - d.start.number!))[0]!.number;
+    else if (n.number === 0 && typed.outer === undefined && size !== undefined && size > 0) n.outer = size;
+    const row = Math.round(n.number!) === 0 ? undefined : bearingRow(Math.round(n.number!));
+    if (row) { n.bore = row.d; n.outer = row.D; n.width = row.B; n.ring = 0; const sh = catalogueShape(n); if (typeof sh !== "string") n.ring = Math.round(2 * (sh.pitch - sh.surface) * 100) / 100; } // (the numbers shown are the bearing's)
+    return n;
   }
   const at = (f: number): Nums => {
     const n: Nums = { ...d.start };
