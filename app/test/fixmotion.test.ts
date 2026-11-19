@@ -209,7 +209,7 @@ test("two bodies on joints rubbing past each other (`in_1204`): the one that can
     const r = startMotion(sc, "b/x_s_002/o" as never, "turn", s.outcome);
     if (!r.ok) throw new Error(r.why);
     let m = r.motion;
-    const [worked, drawn]: number[][][] = [[], []];
+    const worked: number[][] = [], drawn: number[][] = [];
     for (let a = 1; a <= 190; a++) {
       m = solveContact(sc, { ...m, playing: true, amount: a }, s.outcome, Infinity);
       assert.equal(m.contact?.jam, null, m.contact?.jam ?? "");
