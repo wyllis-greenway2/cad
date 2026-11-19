@@ -65,6 +65,7 @@ import { createPreviewBar } from "./ui/previewbar.ts";
 import { createMotionBar } from "./ui/motionbar.ts";
 import { tickMotion } from "./interaction/motion.ts";
 import { solveContact } from "./interaction/contact.ts";
+import { createAhead } from "./contact-ahead.ts";
 import { createChip } from "./ui/chip.ts";
 import { createSheetChips } from "./ui/sheetchips.ts";
 import { createWorldOrb } from "./ui/worldorb.ts";
@@ -709,6 +710,7 @@ async function boot() {
 addEventListener("pagehide", () => autosave.flush());
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") autosave.flush(); });
 let keptHistory: unknown = null;
+const ahead = createAhead(() => new Worker(new URL("./contact-worker.ts", import.meta.url), { type: "module" })); // (the push worked out ahead of the picture, `in_1096`)
 function frame(now: number) {
   const tStart = performance.now();
   engine.eye = [...position(state.cam)] as [number, number, number]; // (the kernel makes a model of many parts apart nearest the eye first, `dec_progressive_open`)
@@ -716,7 +718,13 @@ function frame(now: number) {
   if (drawnAt !== null) { timing.add("browser: from a drawn frame to the next one (commit, the graphics card, the screen's refresh)", tStart - drawnAt); drawnAt = null; }
   if (state.anim || state.flash || state.mixT0 !== null) { state = advance(state, now); dirty = true; }
   if (state.motion && !state.motion.playing && state.motion.contact?.target != null) { state = { ...state, motion: solveContact(scene(state.session), { ...state.motion, amount: state.motion.contact.target }, state.session.outcome) }; dirty = true; } // (a scrub the time ran out on goes on to where it was asked, a part each frame)
-  if (state.motion?.playing) { state = { ...state, motion: solveContact(scene(state.session), tickMotion(state.motion, now), state.session.outcome) }; dirty = true } // (a joint that is being played: the clock moves it on, and the picture is made again every frame, `dec_mechanism_motion`)
+  if (state.motion?.playing) { // (a joint that is being played: the clock moves it on, and the picture is made again every frame, `dec_mechanism_motion`)
+    // the push is worked out ahead in a thread of its own; the play never goes past the places it has sent back (it goes slower, evenly, when it comes to them), and works its own steps out when there is no thread (`contactahead.ts`)
+    const [sc, oc] = [scene(state.session), state.session.outcome];
+    let mo = tickMotion(state.motion, now);
+    if (mo.contact) { ahead.ensure(sc, oc, state.motion); const reach = ahead.extent(sc, oc, state.motion); if (reach !== null && mo.amount > reach) mo = { ...mo, amount: reach, from: reach, startedAt: null }; }
+    state = { ...state, motion: solveContact(sc, mo, oc) }; dirty = true;
+  } else if (!state.motion) ahead.stop();
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading || state.flash) {
     const size = view.size();

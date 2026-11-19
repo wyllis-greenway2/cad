@@ -11,8 +11,12 @@ import { gearboxSteps, gearboxProblem, gearboxRatio, GEARBOX_START } from "../op
 import type { GearboxSpec } from "../operation/modelgearbox.ts";
 import { bearingSteps, bearingProblem, BEARING_START } from "../operation/modelbearing.ts";
 import type { BearingSpec } from "../operation/modelbearing.ts";
+import { differentialSteps, differentialProblem, DIFFERENTIAL_START } from "../operation/modeldifferential.ts";
+import type { DifferentialSpec } from "../operation/modeldifferential.ts";
+import { cycloidalSteps, cycloidalProblem, cycloidalRatio, CYCLOIDAL_START } from "../operation/modelcycloidal.ts";
+import type { CycloidalSpec } from "../operation/modelcycloidal.ts";
 
-export type ModelKind = "gearbox" | "bearing";
+export type ModelKind = "gearbox" | "bearing" | "differential" | "cycloidal";
 /** what the dialog holds: the numbers as typed */
 export type ModelValues = Record<string, string | number | boolean>;
 const num = (v: ModelValues[string] | undefined, d: number): number => (v === undefined || String(v).trim() === "" ? d : Number(String(v).trim()));
@@ -27,7 +31,65 @@ const gearboxOf = (v: ModelValues): GearboxSpec => ({
 
 const bearingOf = (v: ModelValues): BearingSpec => ({ bore: num(v.bore, BEARING_START.bore), outer: num(v.outer, BEARING_START.outer), width: num(v.width, BEARING_START.width), balls: num(v.balls, BEARING_START.balls), ball: num(v.ball, BEARING_START.ball), gap: num(v.gap, BEARING_START.gap) });
 
+const differentialOf = (v: ModelValues): DifferentialSpec => {
+  const d = DIFFERENTIAL_START;
+  return { side: num(v.side, d.side), spider: num(v.spider, d.spider), module: num(v.module, d.module), axle: num(v.axle, d.axle), pin: num(v.pin, d.pin), fit: num(v.fit, d.fit), room: num(v.room, d.room), wall: num(v.wall, d.wall), cap: num(v.cap, d.cap), drive: num(v.drive, d.drive), driveModule: num(v.driveModule, d.driveModule), driveWidth: num(v.driveWidth, d.driveWidth) };
+};
+
+const cycloidalOf = (v: ModelValues): CycloidalSpec => {
+  const d = CYCLOIDAL_START;
+  return { pins: num(v.pins, d.pins), circle: num(v.circle, d.circle), pin: num(v.pin, d.pin), ecc: num(v.ecc, d.ecc), play: num(v.play, d.play), disc: num(v.disc, d.disc), outPins: num(v.outPins, d.outPins), outCircle: num(v.outCircle, d.outCircle), outPin: num(v.outPin, d.outPin), shaft: num(v.shaft, d.shaft), cam: num(v.cam, d.cam), plate: num(v.plate, d.plate), gap: num(v.gap, d.gap), room: num(v.room, d.room) };
+};
+
 const MODELS: Record<ModelKind, ModelDef> = {
+  cycloidal: {
+    id: "cycloidal", title: "Cycloidal drive", ok: "Make",
+    start: () => ({ ...CYCLOIDAL_START }),
+    fields: (v) => {
+      const s = cycloidalOf(v), bad = cycloidalProblem(s);
+      return [
+        { id: "about", label: "Ratio", type: "text", readonly: true, value: bad ?? `${cycloidalRatio(s)} : 1, output reversed; ${s.pins - 1} lobes`, note: "A base plate with the ring pins, a lobed disc on an eccentric on the input shaft, and an output plate whose pins go through the disc." },
+        f("pins", "Ring pins", s.pins, "the disc has one lobe fewer: the ratio is that number"),
+        f("circle", "Pin circle radius (mm)", s.circle),
+        f("pin", "Ring pin diameter (mm)", s.pin),
+        f("ecc", "Eccentricity (mm)", s.ecc, "how far the disc's middle stands off the shaft's"),
+        f("play", "Disc room (mm)", s.play, "the disc is taken in by this much all round, so it runs free"),
+        f("disc", "Disc thickness (mm)", s.disc),
+        f("outPins", "Output pins", s.outPins),
+        f("outCircle", "Output pin circle radius (mm)", s.outCircle),
+        f("outPin", "Output pin diameter (mm)", s.outPin),
+        f("shaft", "Input shaft diameter (mm)", s.shaft),
+        f("cam", "Eccentric radius (mm)", s.cam),
+        f("plate", "Plate thickness (mm)", s.plate),
+        f("gap", "Layer gap (mm)", s.gap),
+        f("room", "Shaft room in the plates (mm)", s.room),
+      ];
+    },
+    steps: (v) => cycloidalSteps(cycloidalOf(v)),
+  },
+  differential: {
+    id: "differential", title: "Differential", ok: "Make",
+    start: () => ({ ...DIFFERENTIAL_START }),
+    fields: (v) => {
+      const s = differentialOf(v), bad = differentialProblem(s);
+      return [
+        { id: "about", label: "Check", type: "text", readonly: true, value: bad ?? "two side gears, two spider gears on a cross pin, a cage with two caps, two axles and a drive gear round the cage", note: "The side gears turn together with the cage's turn and differ by what the axles are given; a spur gear round the cage drives it. The caps stand 0.2 mm off the cage: screw or glue them." },
+        f("side", "Side gear teeth", s.side, "even"),
+        f("spider", "Spider gear teeth", s.spider),
+        f("module", "Module (mm)", s.module),
+        f("axle", "Axle diameter (mm)", s.axle),
+        f("pin", "Cross pin diameter (mm)", s.pin),
+        f("fit", "Bore room (mm)", s.fit, "between a gear's bore and what is through it"),
+        f("room", "Cage hole room (mm)", s.room, "between a hole in the cage and what is through it"),
+        f("wall", "Cage wall (mm)", s.wall),
+        f("cap", "Cap thickness (mm)", s.cap),
+        f("drive", "Drive gear teeth", s.drive, "0 for none"),
+        f("driveModule", "Drive gear module (mm)", s.driveModule),
+        f("driveWidth", "Drive gear thickness (mm)", s.driveWidth),
+      ];
+    },
+    steps: (v) => differentialSteps(differentialOf(v)),
+  },
   bearing: {
     id: "bearing", title: "Ball bearing", ok: "Make",
     start: () => ({ ...BEARING_START }),
@@ -52,7 +114,7 @@ const MODELS: Record<ModelKind, ModelDef> = {
       const s = gearboxOf(v), bad = gearboxProblem(s);
       const a = (s.module * (s.pinion + s.gear)) / 2;
       return [
-        { id: "about", label: "Ratio", type: "text", readonly: true, value: bad ? bad : `${(gearboxRatio(s)).toFixed(2)} : 1 in all, ${(s.gear / s.pinion).toFixed(2)} : 1 a stage; the rods stand ${a.toFixed(1)} mm apart`, note: "Each stage is a pinion and a gear in a layer of its own; the gear of one stage and the pinion of the next share a rod." },
+        { id: "about", label: "Ratio", type: "text", readonly: true, value: bad ? bad : `${gearboxRatio(s).toFixed(2)} : 1 (${(s.gear / s.pinion).toFixed(2)} a stage), rods ${a.toFixed(1)} mm apart`, note: "Each stage is a pinion and a gear in a layer of its own; the gear of one stage and the pinion of the next share a rod." },
         f("stages", "Stages", s.stages, "1 to 4"),
         f("pinion", "Pinion teeth", s.pinion, "10 or more"),
         f("gear", "Gear teeth", s.gear),

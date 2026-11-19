@@ -505,7 +505,7 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
 }
 /**
  * A mate of two bodies moves the first face selected to the second (`in_229`). When that is refused because the first body is held where it is, the same mate is tried the other way round, the second body moving to the first,
- * and only when neither can move is it refused (`in_1106`, the swap): the faces' bodies are said, so it is clear which one moved. A mate with a world plane has nothing to swap.
+ * and only when neither can move is it refused (`in_1109`, the swap): the faces' bodies are said, so it is clear which one moved. A mate with a world plane has nothing to swap.
  */
 function swapped(s: AppState, a: ReturnType<typeof actionsFor>[number], first: Session): Session {
   const sc = sceneOf(s.session);

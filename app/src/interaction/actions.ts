@@ -65,7 +65,7 @@ function faceOfEdge(scene: Scene, ref: Ref): Ref {
 }
 
 /**
- * The command of a mate that cannot be made: nothing to do, and why (an empty step would be kept in the history with not a word, `in_1106`). When hard bodies stopped it their hardness is the constraint (`inv_constraint_uniformity`):
+ * The command of a mate that cannot be made: nothing to do, and why (an empty step would be kept in the history with not a word, `in_1109`). When hard bodies stopped it their hardness is the constraint (`inv_constraint_uniformity`):
  * it flashes and can be deleted, and the mate is made as asked once it is gone (`again`: the mate worked out with the hard check off).
  */
 function refusal(scene: Scene, r: { why: string; into?: Ref[] }, again: () => { command: Command } | { why: string }): Command {
@@ -157,7 +157,7 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
         measure: measureNow,
         spot: () => faceMiddle(scene, pair[0]),
         run: (value?: number): Command => {
-          const implied = impliedMate(scene, mode, pair[0], pair[1]); // (a sketch constraint that already makes it true: said, not made twice, `in_1108`)
+          const implied = impliedMate(scene, mode, pair[0], pair[1]); // (a sketch constraint that already makes it true: said, not made twice, `in_1111`)
           if (implied.length) return { type: "held", ids: implied };
           const again = fa && fb ? existingMate(scene, mode, fa.body, fb.body) ?? undefined : undefined; // (a mate made again between the same bodies replaces the one there)
           const amount = unit === null ? 0 : degrees ? Math.min(180, Math.max(0, value ?? measureNow() ?? 0)) : Math.max(0, value ?? 0);

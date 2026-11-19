@@ -1,4 +1,4 @@
-// A mate that cannot move the first body moves the second instead (`in_1106`): the user's project, a pin held in an arm's hole by a Concentric.
+// A mate that cannot move the first body moves the second instead (`in_1109`): the user's project, a pin held in an arm's hole by a Concentric.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -65,7 +65,7 @@ test("neither body can move: refused, with the constraint that holds the first f
   assert.ok(st.session.conflict?.victims.includes("r_010"), "the Concentric that holds the pin's body flashes");
 });
 
-test("a mate that hard bodies stop is refused with what it ran into: the hardness flashes and can be deleted, not swallowed as an empty step (`in_1106`)", () => {
+test("a mate that hard bodies stop is refused with what it ran into: the hardness flashes and can be deleted, not swallowed as an empty step (`in_1109`)", () => {
   const s = open();
   const st = pick(s, [FAR_HOLE, PIN]);
   assert.equal(st.session.history, s.history, "no empty step in the history");
@@ -74,7 +74,7 @@ test("a mate that hard bodies stop is refused with what it ran into: the hardnes
   assert.ok(st.session.conflict?.retry, "with the mate to make once it is soft");
 });
 
-// ---------- a mate that a sketch's constraint already makes true (`in_1108`) ----------
+// ---------- a mate that a sketch's constraint already makes true (`in_1111`) ----------
 import { suggestionsFor } from "../src/interaction/suggest.ts";
 import { impliedMate } from "../src/interaction/implied.ts";
 const HOLE_HERE = "b/body/c@2,27.59,25.5,5.4,2.2869,5.4,11.5" as Ref; // the arm's hole round the pin: its circle is held concentric with the pin's rim by the sketch's r_010

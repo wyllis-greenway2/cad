@@ -146,3 +146,33 @@ test("a place between two worked out is blended, close to what working it out gi
     assert.ok(Math.hypot(b.free![0] - w.free![0], b.free![1] - w.free![1]) < 0.35 && Math.abs((b.spin ?? 0) - (w.spin ?? 0)) < 0.8, `at ${a}: blended ${b.free} ${b.spin}, worked out ${w.free} ${w.spin}`);
   }
 });
+
+test("what a body with no joint is drawn at is smooth: the stair of sliding until it is wedged and then turning a little is averaged over the places round it, and only where that is clear", async () => {
+  const { contactOptions } = await import("../src/interaction/contact.ts");
+  const { followMatrix } = await import("../src/interaction/motion.ts");
+  const REF = [27.59, 25.5];
+  const worst = (smooth: boolean): { jerk: number; big: number } => {
+    contactOptions.smooth = smooth;
+    try {
+      const s = open();
+      const r = startMotion(scene(s), GEAR, "turn", s.outcome);
+      if (!r.ok) throw new Error(r.why);
+      let m = r.motion;
+      for (let a = 1; a <= 140; a++) m = solveContact(scene(s), { ...m, playing: true, amount: a }, s.outcome, Infinity); // (the places worked out)
+      const r2 = startMotion(scene(s), GEAR, "turn", s.outcome);
+      if (!r2.ok) throw new Error(r2.why);
+      let mm = r2.motion, prev: [number, number] | null = null, before: [number, number] = [0, 0], jerk = 0, big = 0;
+      for (let a = 1; a <= 100; a++) {
+        mm = solveContact(scene(s), { ...mm, playing: true, amount: a }, s.outcome, Infinity);
+        const f = mm.yields!.find((q) => q.body === LEVER)!, M = followMatrix(f, mm.amount);
+        const at: [number, number] = [M[0]! * REF[0]! + M[4]! * REF[1]! + M[12]!, M[1]! * REF[0]! + M[5]! * REF[1]! + M[13]!];
+        if (prev) { const d: [number, number] = [at[0] - prev[0], at[1] - prev[1]]; if (a > 2) { const j = Math.hypot(d[0] - before[0], d[1] - before[1]); jerk = Math.max(jerk, j); if (j > 0.15) big++; } before = d; }
+        prev = at;
+      }
+      return { jerk, big };
+    } finally { contactOptions.smooth = true; }
+  };
+  const [raw, smooth] = [worst(false), worst(true)];
+  assert.ok(smooth.jerk < raw.jerk && smooth.big <= raw.big, `smoothed: worst change of the step ${smooth.jerk.toFixed(2)} mm, ${smooth.big} over 0.15; as worked out: ${raw.jerk.toFixed(2)} mm, ${raw.big}`);
+  assert.ok(smooth.jerk < 0.3, `the worst change of the step from one degree to the next is under 0.3 mm: ${smooth.jerk.toFixed(2)}`);
+});
