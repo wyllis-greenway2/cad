@@ -16,7 +16,7 @@ The human asked for a really good engine builder starting with real pistons (`in
 
 ## Built so far (`dec_engine_presets`, `in_1241`)
 
-The tier 1 (Honda) numbers: ring heights, the ring side room, the end gaps, the skirt clearance and the pin fit as `operation/pistondesign.ts`; the ring grooves of the engine model follow the ring height; the Honda GX120, GX160 and GX200 are presets of the engine's box; `test/pistonhonda.test.ts` checks the builder against Honda's published table. **One assumed number was built, A5's skirt below the pin (0.27 B), because the test showed the remembered 0.35 B made the real GX160 impossible.** Everything else below, including the other assumptions A1 to A10, is **still a proposal**.
+The tier 1 (Honda) numbers: ring heights, the ring side room, the end gaps, the skirt clearance and the pin fit as `operation/pistondesign.ts`; the ring grooves of the engine model follow the ring height; the Honda GX120, GX160 and GX200 are presets of the engine's box; `test/pistonhonda.test.ts` checks the builder against Honda's published table. **One assumed number was built, A5's skirt below the pin (0.27 B), because the test showed the remembered 0.35 B made the real GX160 impossible.** **Then built (`dec_piston_belt`, `in_1244`):** the assumed rules A1 (lands 1.6 times a ring's height), A2 (top land 0.07 of the bore, a typed number), A3 (groove depth B/22 + 0.45 mm) and A5 (the pin height is the stack, now about 0.41 B for a GX160), and the oil ring groove (0 or 1). **Still not built:** A6 (crown thickness), A7 (skirt oval and taper), A8 (oil drain holes), A9 (groove radii): they need a hollow piston with a skirt wall that no source gives, or are far below what the model draws.
 
 ## How the sources are weighted (a rule, `in_1239`)
 
