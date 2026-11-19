@@ -15,11 +15,11 @@ import type { CycloidalSpec } from "./modelcycloidal.ts";
 import { engineSteps, engineProblem, engineGeometry, engineFootprint, engineDisplacement, ENGINE_START, ENGINE_PRESETS } from "./modelengine.ts";
 import type { EngineSpec } from "./modelengine.ts";
 import { fitNumbers } from "./modelfit.ts";
-import { wheelSteps, wheelProblem, wheelLines, repairWheel, WHEEL_START } from "./modelwheel.ts";
+import { wheelSteps, wheelCutSteps, wheelProblem, wheelLines, repairWheel, WHEEL_START } from "./modelwheel.ts";
 import type { WheelSpec } from "./modelwheel.ts";
 
-export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "wheel";
-export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine", "wheel"];
+export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "wheel" | "wheelcut";
+export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine", "wheel", "wheelcut"];
 /** The numbers of a model, by name */
 export type Nums = Record<string, number>;
 /** One number of a model: what it is called, a line that says what it is, and whether it grows with the overall size (a length of the thing, not a room left for the printer or a count) */
@@ -41,6 +41,8 @@ interface Def {
   sizeKey?: string;
   /** what the box calls the Size (the wheel's is its outer diameter) */
   sizeLabel?: string;
+  /** the Size is not the person's to set: it comes from the body the model is cut into (the box does not list it) */
+  noSize?: true;
   /** the numbers made to fit together: every number not typed (`locked` holds the ones that were) is moved as far as it must for the model to be possible, so that a number typed is met by the others and not refused (the wheel) */
   repair?: (n: Nums, locked: ReadonlySet<string>) => Nums;
   /** a line under the numbers: what the model does */
@@ -61,6 +63,37 @@ const en = (n: Nums): EngineSpec => n as unknown as EngineSpec;
 const wh = (n: Nums): WheelSpec => n as unknown as WheelSpec;
 
 const BEARING_START: Nums = { own: 0, number: 608, detail: 0, bore: 8, outer: 22, width: 7, ring: 0, clearance: 0.02, balls: 0, ball: 0 };
+function wheelDef(cutting: boolean): Def {
+  const def: Def = {
+    title: cutting ? "Cut spokes (rim, web, hub in a round body)" : "Wheel (rim, web, hub)",
+    sizeLabel: "Outer diameter",
+    ...(cutting ? { noSize: true as const } : {}),
+    fields: [
+      { ...F("outer", "Outer diameter", "mm: the whole wheel (the Size)", true), hidden: true },
+      F("rimD", "Rim diameter", "mm: the rim's inside, where the web meets it; the rim is (outer diameter - this) / 2 thick across", true), F("hub", "Hub diameter", "mm: the hub's outside", true), F("bore", "Bore diameter", "mm: the hole for the shaft", true),
+      F("rimT", "Rim thickness", "mm along the axis (the wheel's width at the rim)", true), F("web", "Spoke thickness", "mm along the axis: the web and the spokes are this thick", true), F("hubT", "Hub thickness", "mm along the axis (the hub's length)", true),
+      F("spokes", "Spoke count", "0: a plain web; else the number of cutouts in it (3 to 24)"), F("spokeW", "Spoke width", "mm across a spoke, at the hub end", true), F("taper", "Spoke taper", "how much narrower a spoke is at the rim end, as a share of its width (negative: wider)"), F("spiral", "Spoke spiral", "degrees a spoke turns from the hub to the rim (0: straight)"),
+      F("rimOff", "Spoke rim offset", "mm a cutout stops short of the rim (from its wall): 0 and the spokes run into the rim; less than the join radius and it cuts into the fillet", true), F("hubOff", "Spoke hub offset", "mm a cutout stops short of the hub (from its wall): 0 and the spokes run into the hub", true),
+      { ...F("corner", "Spoke radius", "mm: every corner of a cutout is rounded (or chamfered), at least 0.8", true), toggle: "cornerKind" },
+      { ...F("edge", "Spoke join radius", "mm: the round on the edges where the cutouts meet the web's faces; 0 for none (needs cutouts); a spoke keeps a flat top of at least 0.4 mm", true), toggle: "edgeKind" },
+      { ...F("rimJoin", "Rim join radius", "mm: where the web meets the rim; at least 0.8 (0.030 in), no corner is left square", true), toggle: "rimJoinKind" },
+      { ...F("hubJoin", "Hub join radius", "mm: where the web meets the hub; at least 0.8", true), toggle: "hubJoinKind" },
+      ...(cutting ? [] : [F("draft", "Draft", "degrees the rim's and the hub's walls lean away from the middle: 0 for a machined wheel, 1 to 3 for a cast one")]),
+      ...["cornerKind", "edgeKind", "rimJoinKind", "hubJoinKind"].map((k) => ({ ...F(k, k, ""), choices: ["Fillet", "Chamfer"], hidden: true as const }))],
+    start: cutting ? { ...WHEEL_START, hubT: WHEEL_START.rimT, draft: 0 } : { ...WHEEL_START },
+    sizeKey: "outer",
+    repair: (n, locked) => repairWheel(wh(n), locked, cutting) as unknown as Nums,
+    problem: (n) => wheelProblem(wh(n), cutting),
+    extent: (n) => (wheelProblem(wh(n), cutting) ? 0 : wh(n).outer),
+    centre: () => [0, 0],
+    build: (n, place) => (cutting ? wheelCutSteps(wh(n), place) : wheelSteps(wh(n), place)),
+    outline: (n) => (wheelProblem(wh(n), cutting) ? [] : wheelLines(wh(n))),
+    about: (n) => `${wh(n).outer} mm across, ${Math.round(wh(n).spokes) ? `${Math.round(wh(n).spokes)} cutouts in the web` : "a plain web"}, ${wh(n).bore} mm bore${wh(n).draft ? `, ${wh(n).draft} degrees of draft on the rim and hub` : ", no draft"}`,
+  };
+  if (cutting) def.fields = def.fields.filter((f) => !["bore", "rimT", "hubT"].includes(f.key)); // (the bore and the thickness are the body's)
+  return def;
+}
+
 const DEFS: Record<ModelKind, Def> = {
   gearbox: {
     title: "Reduction gearbox",
@@ -130,31 +163,8 @@ const DEFS: Record<ModelKind, Def> = {
     },
     about: (n) => { const s = en(n), p = ENGINE_PRESETS[Math.round(s.preset) - 1]; return `${p ? p.name + ": " : ""}${engineDisplacement(s).toFixed(1)} cm3, rod ${(s.stroke / 2 / s.ratio).toFixed(1)} mm long; the crank turns the rod and the piston by the exact slider-crank; the ring grooves follow Honda's ring heights, and a preset's bore, stroke and pin are Honda's; the other sizes are rules of thumb, not standards`; },
   },
-  wheel: {
-    title: "Wheel (rim, web, hub)",
-    sizeLabel: "Outer diameter",
-    fields: [
-      { ...F("outer", "Outer diameter", "mm: the whole wheel (the Size)", true), hidden: true },
-      F("rimD", "Rim diameter", "mm: the rim's inside, where the web meets it; the rim is (outer diameter - this) / 2 thick across", true), F("hub", "Hub diameter", "mm: the hub's outside", true), F("bore", "Bore diameter", "mm: the hole for the shaft", true),
-      F("rimT", "Rim thickness", "mm along the axis (the wheel's width at the rim)", true), F("web", "Spoke thickness", "mm along the axis: the web and the spokes are this thick", true), F("hubT", "Hub thickness", "mm along the axis (the hub's length)", true),
-      F("spokes", "Spoke count", "0: a plain web; else the number of cutouts in it (3 to 24)"), F("spokeW", "Spoke width", "mm across a spoke, at the hub end", true), F("taper", "Spoke taper", "how much narrower a spoke is at the rim end, as a share of its width (negative: wider)"), F("spiral", "Spoke spiral", "degrees a spoke turns from the hub to the rim (0: straight)"),
-      F("rimOff", "Spoke rim offset", "mm a cutout stops short of the rim (from its wall): 0 and the spokes run into the rim; less than the join radius and it cuts into the fillet", true), F("hubOff", "Spoke hub offset", "mm a cutout stops short of the hub (from its wall): 0 and the spokes run into the hub", true),
-      { ...F("corner", "Spoke radius", "mm: every corner of a cutout is rounded (or chamfered), at least 0.8", true), toggle: "cornerKind" },
-      { ...F("edge", "Spoke join radius", "mm: the round on the edges where the cutouts meet the web's faces; 0 for none (needs cutouts); a spoke keeps a flat top of at least 0.4 mm", true), toggle: "edgeKind" },
-      { ...F("rimJoin", "Rim join radius", "mm: where the web meets the rim; at least 0.8 (0.030 in), no corner is left square", true), toggle: "rimJoinKind" },
-      { ...F("hubJoin", "Hub join radius", "mm: where the web meets the hub; at least 0.8", true), toggle: "hubJoinKind" },
-      F("draft", "Draft", "degrees the rim's and the hub's walls lean away from the middle: 0 for a machined wheel, 1 to 3 for a cast one"),
-      ...["cornerKind", "edgeKind", "rimJoinKind", "hubJoinKind"].map((k) => ({ ...F(k, k, ""), choices: ["Fillet", "Chamfer"], hidden: true as const }))],
-    start: { ...WHEEL_START },
-    sizeKey: "outer",
-    repair: (n, locked) => repairWheel(wh(n), locked) as unknown as Nums,
-    problem: (n) => wheelProblem(wh(n)),
-    extent: (n) => (wheelProblem(wh(n)) ? 0 : wh(n).outer),
-    centre: () => [0, 0],
-    build: (n, place) => wheelSteps(wh(n), place),
-    outline: (n) => (wheelProblem(wh(n)) ? [] : wheelLines(wh(n))),
-    about: (n) => `${wh(n).outer} mm across, ${Math.round(wh(n).spokes) ? `${Math.round(wh(n).spokes)} cutouts in the web` : "a plain web"}, ${wh(n).bore} mm bore${wh(n).draft ? `, ${wh(n).draft} degrees of draft on the rim and hub` : ", no draft"}`,
-  },
+  wheel: wheelDef(false),
+  wheelcut: wheelDef(true),
   cycloidal: {
     title: "Cycloidal drive",
     fields: [F("pins", "Ring pins", "the disc has one lobe fewer: the ratio is that number"), F("circle", "Pin circle radius", "mm", true), F("pin", "Ring pin diameter", "mm", true), F("ecc", "Eccentricity", "how far the disc's middle stands off the shaft's", true), F("play", "Disc room", "the disc is taken in by this much all round, so it runs free"), F("disc", "Disc thickness", "mm", true), F("outPins", "Output pins", "3 or more"), F("outCircle", "Output pin circle radius", "mm", true), F("outPin", "Output pin diameter", "mm", true), F("shaft", "Input shaft diameter", "mm", true), F("cam", "Eccentric radius", "mm", true), F("plate", "Plate thickness", "mm", true), F("gap", "Layer gap", "mm"), F("room", "Shaft room in the plates", "mm")],
@@ -181,6 +191,7 @@ export const modelExtent = (k: ModelKind, n: Nums): number => DEFS[k].extent(n);
 export const modelCentre = (k: ModelKind, n: Nums): [number, number] => DEFS[k].centre(n);
 export const modelBuild = (k: ModelKind, n: Nums, place: Place): Result<ModelBuild> => DEFS[k].build(n, place);
 export const modelOutline = (k: ModelKind, n: Nums): Lines => DEFS[k].outline(n);
+export const modelNoSize = (k: ModelKind): boolean => !!DEFS[k].noSize;
 export const modelSizeLabel = (k: ModelKind): string => DEFS[k].sizeLabel ?? "Size";
 export const modelSizeKey = (k: ModelKind): string | undefined => DEFS[k].sizeKey;
 export const modelStart = (k: ModelKind): Nums => ({ ...DEFS[k].start });

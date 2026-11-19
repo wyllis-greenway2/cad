@@ -22,7 +22,7 @@ const typeIn = (t: Tool, field: number, text: string): Tool => { let u: Tool = {
 
 test("the overall size grows every length that was not typed, and only those: the usual numbers at the usual size, the size asked for at any other", () => {
   for (const kind of MODEL_KINDS) {
-    if (!modelFields(kind).some((f) => f.scaled)) continue;
+    if (!modelFields(kind).some((f) => f.scaled) || kind === "wheelcut") continue; // (Cut spokes has the size of the body it is cut into)
     const own: Record<string, number> = kind === "ballbearing" ? { own: 1 } : {}; // (a catalogue bearing has the one size of its number: only one of your own grows)
     const usual = modelExtent(kind, modelNumbers(kind, own));
     for (const f of [0.5, 2]) {
@@ -98,6 +98,7 @@ test("each model lists its parts, bottom up, covering every step once", () => {
     cycloidal: ["Base plate and ring pins", "Input shaft and eccentric", "Cycloidal disc", "Output plate and pins"],
     engine: ["Block", "Crankshaft", "Flywheel", "Piston", "Piston pin", "Connecting rod"],
     wheel: ["Wheel", "Edge rounds"],
+    wheelcut: ["Pockets", "Joins", "Cutouts", "Edge rounds"],
   };
   for (const kind of MODEL_KINDS) {
     const b = modelBuild(kind, { ...modelStart(kind), ...(kind === "ballbearing" ? { detail: 1, own: 1, number: 0 } : {}) }, AT_ORIGIN_FOR_TESTS);
@@ -243,7 +244,7 @@ test("the Play item of the ring starts the model from whichever of its bodies is
     const played = reduce(st, { type: "runAction", id: "motion:play" }, env as never);
     assert.ok(played.motion, `${kind}: Play from ${from} starts a motion: ${played.session.message ?? ""}`);
     if (!played.motion) continue;
-    const held: Record<ModelKind, number> = { gearbox: 2, ballbearing: 1, differential: 2, cycloidal: 1, engine: 1, wheel: 0 };
+    const held: Record<ModelKind, number> = { gearbox: 2, ballbearing: 1, differential: 2, cycloidal: 1, engine: 1, wheel: 0, wheelcut: 0 };
     assert.equal(played.motion.follows.length, Object.keys(rec.parts).length - held[kind] - 1, `${kind}: every moving part follows (the followers and what is glued to them)`);
     const driverBody = anyBodyOf(sc, rec.parts[rec.driver.part]!);
     assert.equal(played.motion.body, driverBody, `${kind}: the driver is ${rec.driver.part}`);

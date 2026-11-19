@@ -7,7 +7,7 @@ import { normalOfPlane, localOf } from "../operation/part.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
-import { modelFields, modelSizeKey, modelSizeLabel, modelNumbers, modelStart, modelCentre, modelExtent, modelProblem, modelOutline, modelBuild, modelTitle, modelAbout } from "../operation/modelkinds.ts";
+import { modelFields, modelSizeKey, modelSizeLabel, modelNoSize, modelNumbers, modelStart, modelCentre, modelExtent, modelProblem, modelOutline, modelBuild, modelTitle, modelAbout } from "../operation/modelkinds.ts";
 import type { ModelKind, Nums } from "../operation/modelkinds.ts";
 import { asCommand } from "../operation/modelparts.ts";
 import type { Place, ModelBuild } from "../operation/modelparts.ts";
@@ -45,7 +45,9 @@ export function modelTarget(scene: Scene, t: Tool): ModelTarget | null {
   fields.forEach((f, i) => { const v = numOf(m.typed[i + 1]); if (v !== undefined) typed[f.key] = v; });
   const [mx, my] = localOf(pl, middle), cursor = t.cursor ? localOf(pl, t.cursor) : null;
   const reach = cursor ? 2 * Math.hypot(cursor[0] - mx, cursor[1] - my) : 0; // (the pointer's distance from the middle, both ways)
-  const size = numOf(m.typed[0]) ?? (reach > 1e-6 ? Math.max(MIN_SHARE * modelExtent(m.kind, modelStart(m.kind)), reach) : undefined);
+  const cutFrom = t.fill?.cut; // (Cut spokes: the outside, the bore and the thickness are the body's, and are not moved)
+  if (cutFrom) Object.assign(typed, { bore: 2 * cutFrom.bore, rimT: cutFrom.thickness, hubT: cutFrom.thickness, draft: 0, rimMax: cutFrom.root > 0 ? Math.max(0, 2 * (cutFrom.root - 1.2)) : 0 });
+  const size = cutFrom ? 2 * cutFrom.outer : numOf(m.typed[0]) ?? (reach > 1e-6 ? Math.max(MIN_SHARE * modelExtent(m.kind, modelStart(m.kind)), reach) : undefined);
   const sk = modelSizeKey(m.kind); // (a model whose Size is one of its numbers, the wheel's outside diameter: the Size is that number)
   if (sk && size !== undefined) typed[sk] = size;
   const nums = modelNumbers(m.kind, typed, sk && size !== undefined ? undefined : size);
@@ -97,7 +99,7 @@ export const buildingText = (b: Building): string => `${b.title}: ${b.build.part
 function visibleFields(m: ModelState, nums?: Nums): boolean[] {
   const fields = modelFields(m.kind);
   const n = nums ?? modelNumbers(m.kind, Object.fromEntries(fields.flatMap((f, k) => (numOf(m.typed[k + 1]) !== undefined ? [[f.key, numOf(m.typed[k + 1])!]] : []))));
-  return [true, ...fields.map((f) => !f.hidden && (!f.when || n[f.when.key] === f.when.is))];
+  return [!modelNoSize(m.kind), ...fields.map((f) => !f.hidden && (!f.when || n[f.when.key] === f.when.is))];
 }
 /** The field the Tab key goes to: the next one that is shown */
 export function nextField(m: ModelState): number {

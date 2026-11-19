@@ -63,7 +63,7 @@ export interface Tool {
   typed: [string, string];
   field: 0 | 1;
   /** a model that fills a selected round object (`dec_hub_spoke`): the circle's centre and the direction of its axis; the model stands there and is as wide as the circle, whatever the plane */
-  fill?: { center: Vec3; normal: Vec3 };
+  fill?: { center: Vec3; normal: Vec3; /** Cut spokes: the round body the wheel is cut into, its numbers read (`roundbody.ts`): half the diameter of its outside and of its bore (0: none), how thick it is, and the radius of the roots of its teeth (0: none) */ cut?: { outer: number; bore: number; thickness: number; root: number } };
   /** the constraints the end of the line being drawn is close to (and has taken): a click makes the line with them */
   hints?: Hint[];
   /** a finger holds the cursor at `cursor` (it has no hover): the next tap sets the point there (`in_286`) */

@@ -1,7 +1,9 @@
 // A wheel as a model (`dec_hub_spoke`): a rim, a web and a hub as ONE body, the way a cast or machined wheel is made. The human's own recipe (`in_1236`, named and ordered in `in_1245`): the plainest form is a web joining the rim and the hub, with a
 // fillet or a chamfer of a set size where the web meets each; the spokes are cutouts in that web (their number, how far they stop short of the hub and the rim, the radius of each corner of a cutout, the width of a spoke and how much it tapers, and a
 // spiral). No corner is ever left square. The wheel stands along z with its middle at z = 0. Pure: numbers in, steps out.
-import { Builder, outline } from "./modelparts.ts";
+import { Builder, outline, disc as disc0 } from "./modelparts.ts";
+import type { Scene } from "./scene.ts";
+import type { Vec3 } from "../math/vec.ts";
 import type { Place, ModelBuild, Shape } from "./modelparts.ts";
 import { bulgeOf, arcMid } from "./arcs.ts";
 import type { P } from "./arcs.ts";
@@ -15,8 +17,8 @@ import { ok, err } from "../shared/result.ts";
  * turns from hub to rim, `rimOff` and `hubOff` how far a cutout stops short of the rim's and the hub's walls. Each radius has a kind, 0 a fillet and 1 a chamfer: `corner` the radius of every corner of a cutout, `edge` (0: none) the round on the edges
  * where the cutouts meet the web's faces, `rimJoin` and `hubJoin` where the web meets the rim and the hub. `draft`: degrees the walls of the rim and the hub lean away from the middle (0 for a machined wheel).
  */
-export interface WheelSpec { outer: number; rimD: number; hub: number; bore: number; rimT: number; web: number; hubT: number; spokes: number; spokeW: number; taper: number; spiral: number; rimOff: number; hubOff: number; corner: number; cornerKind: number; edge: number; edgeKind: number; rimJoin: number; rimJoinKind: number; hubJoin: number; hubJoinKind: number; draft: number }
-export const WHEEL_START: WheelSpec = { outer: 80, rimD: 70, hub: 22, bore: 8, rimT: 14, web: 4, hubT: 18, spokes: 5, spokeW: 10, taper: 0.3, spiral: 0, rimOff: 6, hubOff: 6, corner: 3, cornerKind: 0, edge: 1, edgeKind: 0, rimJoin: 3, rimJoinKind: 0, hubJoin: 3, hubJoinKind: 0, draft: 2 };
+export interface WheelSpec { outer: number; rimD: number; hub: number; bore: number; rimT: number; web: number; hubT: number; spokes: number; spokeW: number; taper: number; spiral: number; rimOff: number; hubOff: number; corner: number; cornerKind: number; edge: number; edgeKind: number; rimJoin: number; rimJoinKind: number; hubJoin: number; hubJoinKind: number; draft: number; /** the biggest rim diameter (0: no limit): a wheel cut into a gear keeps its rim inside the roots of the teeth */ rimMax: number }
+export const WHEEL_START: WheelSpec = { outer: 80, rimD: 70, hub: 22, bore: 8, rimT: 14, web: 4, hubT: 18, spokes: 5, spokeW: 10, taper: 0.3, spiral: 0, rimOff: 6, hubOff: 6, corner: 3, cornerKind: 0, edge: 1, edgeKind: 0, rimJoin: 3, rimJoinKind: 0, hubJoin: 3, hubJoinKind: 0, draft: 2, rimMax: 0 };
 /** the least a printed or cast part is thick (mm), and the least fillet or chamfer (0.030 in, the Batesville guide's least radius) */
 const THIN = 1.2, LEAST_JOIN = 0.8;
 /** a cutout that runs right into the hub or the rim (an offset of 0) reaches this far into it: a cut that ends exactly on the wall's own face is not a solid the kernel will make */
@@ -142,9 +144,11 @@ function cutout(s: WheelSpec): Cut | string {
 }
 
 /** Why the numbers make no wheel, or null */
-export function wheelProblem(s: WheelSpec): string | null {
+export function wheelProblem(s: WheelSpec, cutting = false): string | null {
   const g = wheelGeometry(s), n = Math.round(s.spokes), tn = Math.tan((s.draft * Math.PI) / 180);
-  if (![s.outer, s.rimD, s.hub, s.bore, s.rimT, s.web, s.hubT, s.rimJoin, s.hubJoin].every((v) => v > 0)) return "every size must be more than 0";
+  if (![s.outer, s.rimD, s.hub, s.rimT, s.web, s.hubT, s.rimJoin, s.hubJoin].every((v) => v > 0) || (cutting ? s.bore < 0 : !(s.bore > 0))) return "every size must be more than 0";
+  if (s.rimMax > 0 && s.rimD > s.rimMax + 1e-6) return `the rim diameter must stay inside the roots of the teeth: ${s.rimMax.toFixed(1)} mm at most`;
+  if (cutting && (s.hubT !== s.rimT || s.draft !== 0)) return "a wheel cut into a body is as thick as the body and has no draft";
   if (![s.cornerKind, s.edgeKind, s.rimJoinKind, s.hubJoinKind].every((k) => k === 0 || k === 1)) return "a radius is a fillet (0) or a chamfer (1)";
   if (g.rim < THIN) return `the rim must be at least ${THIN} mm thick across: the rim diameter at most ${(s.outer - 2 * THIN).toFixed(1)} mm`;
   if (s.web < THIN) return `the spoke thickness must be at least ${THIN} mm`;
@@ -181,7 +185,7 @@ export function wheelProblem(s: WheelSpec): string | null {
  * The wheel's numbers made to fit together (`in_1240`): the numbers not typed (`locked` holds the typed ones, the outer diameter among them) are moved, as far as they must, so that a number typed is met by the rest and the wheel can be made;
  * where they were not typed the hub and its thickness follow the bore, the joins follow the spoke thickness. The typed numbers are never moved here: when they cannot all be met, `wheelProblem` says so and the box takes the typed number back.
  */
-export function repairWheel(s0: WheelSpec, locked: ReadonlySet<string>): WheelSpec {
+export function repairWheel(s0: WheelSpec, locked: ReadonlySet<string>, cutting = false): WheelSpec {
   const n: WheelSpec = { ...s0 };
   const key = (k: keyof WheelSpec): boolean => !locked.has(k);
   const to = (k: keyof WheelSpec, v: number): void => { if (key(k)) n[k] = Math.round(v * 100) / 100; };
@@ -203,8 +207,9 @@ export function repairWheel(s0: WheelSpec, locked: ReadonlySet<string>): WheelSp
     if (key("spokes")) { const k = Math.round(n.spokes); to("spokes", k === 1 || k === 2 ? 3 : Math.min(24, Math.max(0, k))); }
     for (const kk of ["cornerKind", "edgeKind", "rimJoinKind", "hubJoinKind"] as const) if (key(kk)) to(kk, Math.round(n[kk]) === 1 ? 1 : 0);
     if (key("edge")) to("edge", Math.max(0, n.edge));
-    for (const [k, v] of [["web", THIN], ["rimJoin", LEAST_JOIN], ["hubJoin", LEAST_JOIN], ["corner", LEAST_JOIN], ["spokeW", THIN], ["bore", 1], ["hubOff", 0], ["rimOff", 0]] as [keyof WheelSpec, number][]) if (n[k] < v) to(k, v);
+    for (const [k, v] of [["web", THIN], ["rimJoin", LEAST_JOIN], ["hubJoin", LEAST_JOIN], ["corner", LEAST_JOIN], ["spokeW", THIN], ["bore", n.bore === 0 ? 0 : 1], ["hubOff", 0], ["rimOff", 0]] as [keyof WheelSpec, number][]) if (n[k] < v) to(k, v);
     if (wall() < THIN) { if (key("rimD")) setWall(THIN); }
+    if (n.rimMax > 0 && n.rimD > n.rimMax && key("rimD")) to("rimD", n.rimMax);
     // a spoke edge: the cutouts stop short of the hub and the rim by its size and 0.4 mm, and it is small enough for the web and a spoke's width
     if (cuts0() && n.edge > 0) {
       for (const o of ["hubOff", "rimOff"] as const) if (n[o] < n.edge + 0.4 && key(o)) to(o, n.edge + 0.4);
@@ -250,7 +255,7 @@ export function repairWheel(s0: WheelSpec, locked: ReadonlySet<string>): WheelSp
     if (JSON.stringify(n) === before) break;
   }
   // the corner radii must fit the cutout (a strong spiral or a wide taper makes one corner sharp): smaller radii, then a gentler spiral
-  for (let i = 0; i < 10 && Math.round(n.spokes) > 0 && wheelProblem(n) !== null; i++) {
+  for (let i = 0; i < 10 && Math.round(n.spokes) > 0 && wheelProblem(n, cutting) !== null; i++) {
     const c = cutout(n);
     if (typeof c !== "string") break;
     if (key("corner") && n.corner > LEAST_JOIN) to("corner", Math.max(LEAST_JOIN, n.corner * 0.8));
@@ -259,7 +264,7 @@ export function repairWheel(s0: WheelSpec, locked: ReadonlySet<string>): WheelSp
     else break;
   }
   // a wheel too small for cutouts at all is a plain web
-  if (Math.round(n.spokes) > 0 && key("spokes") && wheelProblem(n) !== null && wheelProblem({ ...n, spokes: 0 }) === null) n.spokes = 0;
+  if (Math.round(n.spokes) > 0 && key("spokes") && wheelProblem(n, cutting) !== null && wheelProblem({ ...n, spokes: 0 }, cutting) === null) n.spokes = 0;
   return n;
 }
 
@@ -346,6 +351,53 @@ export function wheelSteps(s: WheelSpec, place: Place): Result<ModelBuild> {
       const pts = [e.a, e.b, e.mid].map(toModel);
       return pts.every((q) => Math.abs(q[2]) >= t - 0.02 && near(q[0], q[1])) ? [p.ref as Ref] : [];
     }), Math.round(s.edgeKind) === 1 ? "chamfer" : "fillet", s.edge);
+  }
+  return ok(b.build());
+}
+
+/**
+ * The same wheel cut into a round body that is there already (a gear, a disc, a ring: `roundbody.ts`), keeping its bore and its outside edge: the rim and the hub stay as thick as the body, the web between them is cut down from both faces to its own
+ * thickness (a pocket on each face, then the join radii where the pocket's floor meets the hub and the rim), and the cutouts are cut through the web. Parts, made one after another as the kernel answers: the pockets, the joins, the cutouts,
+ * and a round on the cutouts' edges.
+ */
+export function wheelCutSteps(s: WheelSpec, place: Place): Result<ModelBuild> {
+  const bad = wheelProblem(s, true);
+  if (bad) return err(bad);
+  const g = wheelGeometry(s), n = Math.round(s.spokes), T = s.rimT / 2, t = s.web / 2, dip = T - t, b = new Builder(place);
+  const radial = (p: Vec3): number => Math.hypot(p[0], p[1]);
+  /** the circles of the pocket's floors at radius `r`: the corner where the floor meets the wall */
+  const floorEdges = (r: number) => (sc: Scene, toModel: (p: Vec3) => Vec3, edgeAt: (ref: Ref) => { a: Vec3; b: Vec3; mid: Vec3 } | null): Ref[] => Object.values(sc.parts).flatMap((p) => {
+    if (p.kind !== "line" || p.origin !== "body") return [];
+    const e = edgeAt(p.ref);
+    if (!e) return [];
+    const pts = [e.a, e.b, e.mid].map(toModel);
+    return pts.every((q) => Math.abs(Math.abs(q[2]) - t) < 0.02 && Math.abs(radial(q) - r) < 0.03) ? [p.ref as Ref] : [];
+  });
+  b.part("Pockets");
+  if (dip > 0.001) {
+    b.extrude(b.plane(T + 0.5), disc0(0, 0, g.Rin), [disc0(0, 0, g.hubR)], -(dip + 0.5), { mode: "cut" });
+    b.extrude(b.plane(-T - 0.5), disc0(0, 0, g.Rin), [disc0(0, 0, g.hubR)], dip + 0.5, { mode: "cut" });
+    b.part("Joins");
+    b.roundEdges(floorEdges(g.hubR), Math.round(s.hubJoinKind) === 1 ? "chamfer" : "fillet", s.hubJoin);
+    b.roundEdges(floorEdges(g.Rin), Math.round(s.rimJoinKind) === 1 ? "chamfer" : "fillet", s.rimJoin);
+  }
+  if (n > 0) {
+    b.part("Cutouts");
+    const c = cutout(s) as Cut, cuts: Shape[] = Array.from({ length: n }, (_, k) => { const r = rotate(c, (2 * Math.PI * k) / n); return outline(r.pts, r.bulges); });
+    const depth = s.web + 2;
+    b.extrude(b.plane(-t - 1), cuts[0]!, [], depth, { mode: "cut", also: cuts.slice(1).map((o) => ({ outer: o, depth })) });
+    if (s.edge > 0) {
+      const loops = wheelLines(s).slice(4);
+      const near = (x: number, y: number): boolean => loops.some((l) => l.some((p, i) => { const q = l[(i + 1) % l.length]!, [dx, dy] = [q[0] - p[0], q[1] - p[1]], len2 = dx * dx + dy * dy, u = len2 < 1e-12 ? 0 : Math.max(0, Math.min(1, ((x - p[0]) * dx + (y - p[1]) * dy) / len2)); return Math.hypot(x - p[0] - u * dx, y - p[1] - u * dy) < 0.06; }));
+      b.part("Edge rounds");
+      b.roundEdges((sc, toModel, edgeAt) => Object.values(sc.parts).flatMap((p) => {
+        if (p.kind !== "line" || p.origin !== "body") return [];
+        const e = edgeAt(p.ref);
+        if (!e) return [];
+        const pts = [e.a, e.b, e.mid].map(toModel);
+        return pts.every((q) => Math.abs(q[2]) >= t - 0.02 && Math.abs(q[2]) <= t + 0.02 && near(q[0], q[1])) ? [p.ref as Ref] : [];
+      }), Math.round(s.edgeKind) === 1 ? "chamfer" : "fillet", s.edge);
+    }
   }
   return ok(b.build());
 }

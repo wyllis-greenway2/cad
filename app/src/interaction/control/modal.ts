@@ -28,6 +28,7 @@ import { runOp } from "../runop.ts";
 import { lookup, nextId, figuresOf } from "../../operation/scene.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { worldRef } from "../../shared/ref.ts";
+import { bodyOfPart, roundBodyOf } from "../../operation/roundbody.ts";
 import { planeOf } from "../objects.ts";
 import { sketchOfEdge } from "../../operation/edgesource.ts";
 import { sideOf, viewAxes, nearTolMm } from "../camera.ts";
@@ -95,6 +96,13 @@ function fillOf(s: AppState): { center: Vec3; normal: Vec3; radius: number } | n
 function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = null, variant: GearVariant = "gear", cam?: CamKind, law?: CamLaw, layout?: CamLayout, model?: ModelKind): AppState {
   if (s.tool?.kind === kind && s.tool.model?.kind === model && !s.tool.plane && variantOf(s.tool.gear) === (kind === "gear" ? variant : "gear") && s.tool.cam?.kind === cam && s.tool.cam?.law === law && s.tool.cam?.layout === layout) return { ...s, tool: null }; // pressing it again puts it away
   const make = (): Tool => (model ? armModel(model) : cam ? armCam(cam, law, layout) : armTool(kind, variant));
+  if (model === "wheelcut") { // (cut spokes into the round body that is selected: its outside, its bore and its thickness are kept, `dec_hub_spoke`)
+    const sc = sceneOf(s.session), sel = selectionOf(s.session);
+    const body = sel.length ? bodyOfPart(sc, sel[0]!) : null, rb = body ? roundBodyOf(sc, body) : "select a round body first: a gear, a disc or a ring";
+    if (typeof rb === "string") return { ...s, session: { ...s.session, message: `${rb}, then choose Cut spokes` }, menu: null };
+    const cut = { outer: rb.outer, bore: rb.bore, thickness: rb.thickness, root: rb.root };
+    return { ...s, tool: { ...make(), plane: worldRef("XY"), points: [rb.center], cursor: rb.center, sized: true, fill: { center: rb.center, normal: rb.normal, cut } }, op: null, menu: null };
+  }
   const fill = model === "wheel" ? fillOf(s) : null;
   if (fill) return { ...s, tool: { ...make(), plane: worldRef("XY"), points: [fill.center], cursor: fill.center, sized: true, fill, model: { ...armModel("wheel").model!, typed: [String(Math.round(2 * fill.radius * 100) / 100), ...armModel("wheel").model!.typed.slice(1)], focus: true } }, op: null, menu: null }; // (a round object is selected: the wheel fills it, `dec_hub_spoke`)
   const armed: AppState = { ...s, tool: make(), op: null, menu: null };
