@@ -5101,3 +5101,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1193 — 2026-11-19 — approval
 > yes make both fixes
+
+## in_1194 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please, do full tests
