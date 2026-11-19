@@ -154,3 +154,47 @@ for (const p of ENGINE_PRESETS) {
     for (let i = 0; i < b.length; i++) for (let j = i + 1; j < b.length; j++) assert.equal(shared(s, b[i]!, b[j]!), 0, `parts ${i} and ${j} share volume`);
   });
 }
+
+// The hollow piston (`dec_piston_hollow`): the kernel's volume of the piston against one worked out here from the numbers (the outer cylinder, less the grooves and the cavity, plus the two bosses, less the pin's hole).
+const simpson = (f: (x: number) => number, a: number, b: number, n = 2000): number => { const h = (b - a) / n; let s = f(a) + f(b); for (let i = 1; i < n; i++) s += f(a + i * h) * (i % 2 ? 4 : 2); return (s * h) / 3; };
+function pistonVolume(s: typeof ENGINE_START, rm = s.room): number {
+  const g = engineGeometry(s), sh = g.shell, H = g.sk + g.ch, rp = g.rp, bt = g.belt;
+  const wideL = H - Math.max(bt.length, sh.crown), topL = H - sh.crown, zoff = g.w / 2 + rm, rho = s.pin / 2 + s.pinFit / 2;
+  let v = Math.PI * rp * rp * H;
+  for (const gr of bt.grooves) v -= Math.PI * (rp * rp - (rp - bt.depth) ** 2) * gr.height;
+  v -= Math.PI * sh.inner ** 2 * wideL + Math.PI * sh.innerBelt ** 2 * (topL - wideL);
+  const reach = (outer: number, inside: number): number => Math.min(sh.boss, 0.95 * Math.sqrt(Math.max(0, outer * outer - inside * inside))), footB = g.sk - sh.boss;
+  const yw = reach(rp, sh.inner), yn = reach(rp - bt.depth, sh.innerBelt);
+  const area = (R: number, yb: number): number => simpson((y) => Math.max(0, Math.sqrt(Math.max(0, R * R - y * y)) - zoff), -yb, yb); // (a boss's cross section inside a cavity of radius R, as wide as yb)
+  v += 2 * (area(sh.inner, yw) * (wideL - footB) + area(sh.innerBelt, yn) * Math.max(0, topL - wideL));
+  v -= 2 * simpson((y) => 2 * Math.sqrt(Math.max(0, rho * rho - y * y)) * Math.max(0, Math.sqrt(Math.max(0, sh.inner * sh.inner - y * y)) - zoff), -rho, rho); // (the pin's hole through the two bosses, whose far face is the cavity's curved wall)
+  v -= 2 * simpson((y) => 2 * Math.sqrt(Math.max(0, rho * rho - y * y)) * (Math.sqrt(rp * rp - y * y) - Math.sqrt(Math.max(0, sh.inner * sh.inner - y * y))), -rho, rho); // (and through the two walls)
+  return v;
+}
+for (const [name, spec] of [["the usual engine", ENGINE_START], ["Honda GX160", ENGINE_PRESETS[1]!.spec], ["Honda GX120", ENGINE_PRESETS[0]!.spec]] as const) {
+  test(`${name}: the piston is hollow, with a crown and a wall of the numbers' thickness (its volume is the worked-out one)`, () => {
+    const r = engineSteps(spec);
+    assert.ok(r.ok);
+    if (!r.ok) return;
+    const c = asCommand(scene(createSession(kernel)), r.value.steps);
+    assert.ok(c.ok);
+    if (!c.ok) return;
+    const s = run(createSession(kernel), c.value);
+    assert.equal(s.message ?? null, null);
+    const g = engineGeometry(spec), bodies = Object.values(scene(s).parts).filter((x) => x.kind === "body") as unknown as { volume: number; bbox: { min: number[]; max: number[] } }[];
+    const piston = bodies.find((b) => Math.abs(b.bbox.max[0]! - b.bbox.min[0]! - (g.sk + g.ch)) < 0.05 && Math.abs(b.bbox.max[2]! - b.bbox.min[2]! - 2 * g.rp) < 0.05)!;
+    assert.ok(piston, "the piston is found by its size");
+    const solid = Math.PI * g.rp * g.rp * (g.sk + g.ch), expected = pistonVolume(spec);
+    assert.ok(piston.volume < 0.6 * solid, `hollow: ${(piston.volume / solid).toFixed(3)} of a solid cylinder`);
+    assert.ok(Math.abs(piston.volume - expected) / expected < 0.003, `the kernel's ${piston.volume.toFixed(1)} mm3 against the worked out ${expected.toFixed(1)} mm3`);
+  });
+}
+test("the shell: the wall is half the crown, the cavity is narrower under the grooves, and a too thick wall or crown is refused", () => {
+  const g = engineGeometry(ENGINE_START), sh = g.shell;
+  assert.ok(Math.abs(sh.wall - 0.5 * sh.crown) < 1e-9 && Math.abs(sh.crown - 0.08 * 30) < 1e-9, "a wall half the crown, the crown 0.08 of the bore");
+  assert.ok(Math.abs(sh.inner - (g.rp - sh.wall)) < 1e-9 && Math.abs(sh.innerBelt - (g.rp - g.belt.depth - sh.wall)) < 1e-9 && sh.innerBelt < sh.inner, "the cavity's radii");
+  assert.ok(g.ch >= sh.crown + g.rs + 2.5 - 1e-9, "the cavity under the crown holds the rod's eye");
+  assert.match(engineProblem({ ...ENGINE_START, pin: 12, ratio: 0.45, skirtWall: 0.15, flywheel: 90, stroke: 40 }) ?? "", /swings too far for the inside of the piston/, "a thick wall and a big pin leave the rod no room");
+  assert.match(engineProblem({ ...ENGINE_START, crown: 0.5 }) ?? "", /crown/);
+  assert.match(engineProblem({ ...ENGINE_START, skirtWall: 0 }) ?? "", /wall/);
+});
