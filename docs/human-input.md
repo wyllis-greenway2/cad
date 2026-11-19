@@ -4376,3 +4376,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1005 — 2026-11-19 — directive
 > boxes before replay, then extending the pieces
 (asks for the next two steps in order: show the boxes before the project's commands are replayed, then extend the pieces to parts with fillets, holes and moves)
+
+## in_1006 — 2026-11-19 — directive
+> please work on either next
+(asks for the AI to go ahead with either of the two offered next steps: a faster, sliced replay for histories with moves, or gears and revolves as parts)
