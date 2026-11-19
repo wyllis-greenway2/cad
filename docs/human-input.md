@@ -5172,3 +5172,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1212 — 2026-11-19 — directive
 > okay lets work on claude/inspiring-pascal-l342k7 branch, I want you to help me design a really good engine builder starting with pistons. Can you look up how to design real pistions? like the kind I would find in a car or motorcycle engine?
 (restates the aim of in_1209 on this branch: a really good engine builder, starting with real pistons, with the design looked up)
+
+## in_1213 — 2026-11-19 — directive
+> This is all I got, I think it is still pretty thin. Do you think we should look up more piston diagrams or look on machining blogs etc?
+(supplied three saved pages as PDFs: the onallcylinders piston article, the Caterpillar patent application 20160169153 and the kfz-tech "Piston Dimensions" page; asks whether to look up more diagrams or machining blogs)
