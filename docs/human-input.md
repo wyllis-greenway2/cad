@@ -4707,3 +4707,35 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1088 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for claude/intelligent-hawking-next to be merged into the testing branch, with the constraint rules, the mates in the suggester and the hard stop; no full suite needed)
+
+## in_1089 — 2026-11-19 — question
+> what else can we do to make it even smoother and faster?
+(asks for more ways to make the push smoother and faster; the AI listed display blending, solving ahead, a true minimal-motion solver, cheaper tests, longer steps, a coarser mesh)
+
+## in_1090 — 2026-11-19 — directive
+> okay lets potentially do all those things. are we being stupid in our lookup? Are we not listening to things that would help us. Like for example, doesn't the last range of motion tell us our likely next range of motion so we don't need to lookup so much? Like there is a collision window delta and a freedom of movement window delta that are related right and the same over time or at least smoothly change their relationship over time. its not like we need to randomly search for freedom of movement space. Or maybe this is a dumb idea. I dunno. Also why did it get so much slower and chunkier when we included rotation? Also should we calculate ahead of the animation? so it already has the answers by the time it needs to display on the screen?
+(wants the earlier ideas done; proposes using the last window of free movement to narrow the search; asks why rotation made it slower and chunkier, and whether to calculate ahead)
+
+## in_1091 — 2026-11-19 — directive
+> okay this all sounds good, but I feel like we might be missing even simpler more fundamental ways to solve this problem. Like for example, couldn't you just run the animation in a few very very coarse frames to see the general outline of the collision space, then essentially smooth the points along that collision space to have a very fast and pretty accurate preview of your known freedom of movement space? like for example if we did that, we would know that there is a pin in a over-sized hole. We dont need to discover that with a zillion collisions, we would just see in our rough sampling. We could call it the animation scout. Also Is there an even simpler fundamental way? Like dont we already know from the model that there is a pin in a hole, and we don't need to rediscover that fact be feeling for it and mapping out thousands of collisions right? Cant we be smart enough to just an anticipate reliability the shape of our collisions. Would it be helpful to run any of this in 2d only? or at least 2d at first? I am not married to any of these ideas, I am jsut brainstorming. What ideas do you have? I want to make sure we dont invent a super buggy thing.
+(proposes a coarse "animation scout", using what the model already says (a pin in a hole), and doing the work in 2D first; wants no super buggy thing)
+
+## in_1092 — 2026-11-19 — directive
+> Okay so basically we are going to be smart enough to predict what we probably need to do without a thousand collisions, but fundamentally we listen to the live collision feed in order to not get high on our own supply, the key part that makes it faster is the searching space for freedom is much smaller because our prediction meshed with the live collision feed should narrow down the search space? Also when we calculate a full sweep, do we continually recalculate on the animation over and over? once we calculate a complete animation should we basically just reuse our path unless a new collision occurs? how could this model go wrong? and is this model getting too complex or is it actually simpler?
+(the model: prediction narrows the search, the live collision test decides; asks about reusing the path, how it could go wrong, and whether it is simpler)
+
+## in_1093 — 2026-11-19 — question
+> what if a collision occurs from one animation interacting with another in an a harmonic manner? So only X number of rotations of one, have x interactions with other? and what if the harmony is not stable? so every interaction collision is different?
+(asks about harmonic and unstable interactions between motions; the AI found the step size ignores gear ratios)
+
+## in_1094 — 2026-11-19 — directive
+> Would a good model just always listen for collisions and use our stupidest simply model for solving them where it just moves in available freedom or jambs so it is robust and works in any scenario even if it is slow in those situations, and everything else is just speed by basically helping narrow down our best guess starting point for searching for freedom of movement in order to reduce our search time most of the time?
+(the architecture: a plain core that always listens for collisions and moves in free directions or jams; everything else only a hint for where to start looking)
+
+## in_1095 — 2026-11-19 — directive
+> okay build it please, then lets test how much faster it is
+(approves building the core and hints split, the hints-off comparison test, the step size for ratios, the kept places and blending, and then measuring the speed)
+
+## in_1096 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests, then build the rest of the stuff
+(asks for `claude/adoring-dijkstra-core-and-hints` to be merged into the testing branch without a full test run, and then for the rest of the listed work to be built: the background thread, the mate suggestion after a jam, the scout and the nearest-phase lookup, the 2D prototype, the message about the scope)
