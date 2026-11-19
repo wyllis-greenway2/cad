@@ -361,28 +361,6 @@ export function contactNormals(moving: ArrayLike<number>, fixed: Tree, clearance
   return groups.map((g) => { const l = Math.hypot(...g.sum); return [g.sum[0] / l, g.sum[1] / l, g.sum[2] / l] as Vec3; });
 }
 
-/** The triangles of `moving` (nine numbers each, in the frame of `fixed`) that cross the triangles of `fixed` or come within the clearance of them: where two bodies are in each other, to show it (`in_1069`: the red of a jam). At most `most` of them. */
-export function crossingTris(moving: ArrayLike<number>, fixed: Tree, clearance = 0, most = 300): number[] {
-  const nm = Math.floor(moving.length / 9);
-  const c = Math.max(0, clearance);
-  const out: number[] = [];
-  const mv = nudged(moving);
-  for (let i = 0; i < nm && out.length < most * 9; i++) {
-    const a = tri(mv, i);
-    const alo: Vec3 = [Math.min(a[0][0], a[1][0], a[2][0]) - c, Math.min(a[0][1], a[1][1], a[2][1]) - c, Math.min(a[0][2], a[1][2], a[2][2]) - c];
-    const ahi: Vec3 = [Math.max(a[0][0], a[1][0], a[2][0]) + c, Math.max(a[0][1], a[1][1], a[2][1]) + c, Math.max(a[0][2], a[1][2], a[2][2]) + c];
-    const stack = fixed.nodes.length ? [0] : [];
-    let hit = false;
-    while (stack.length && !hit) {
-      const nd = fixed.nodes[stack.pop()!]!;
-      if (ahi[0] < nd.lo[0] || alo[0] > nd.hi[0] || ahi[1] < nd.lo[1] || alo[1] > nd.hi[1] || ahi[2] < nd.lo[2] || alo[2] > nd.hi[2]) continue;
-      if (nd.l < 0) { for (let j = nd.from; j < nd.to && !hit; j++) { const b = tri(fixed.tris, fixed.order[j]!); if (triCross(a, b) || (c > 0 && triDist(a, b, c) < c)) hit = true; } } else stack.push(nd.l, nd.r);
-    }
-    if (hit) for (let k = 0; k < 9; k++) out.push(moving[9 * i + k]!);
-  }
-  return out;
-}
-
 // ---- the way a rigid motion goes: a screw, taken part of the way ----
 /** The motion from nothing (t = 0) to the whole of `r` (t = 1), as a turn about an axis with the slide along it, so a body on the way is where the motion would have it. */
 export function partOf(r: Rigid, t: number): Rigid {

@@ -333,6 +333,23 @@ export function createView(host: HTMLElement) {
     outline.renderOrder = 4;
     thinGroup.add(outline);
   }
+  /** The two bodies of a jam: shaded red all over, at the place where they met, with no lines (`in_1171`). */
+  let clashShown: number[] | null = null;
+  const clashGroup = new THREE.Group();
+  scene3.add(clashGroup);
+  function setClash(tris: number[] | null): void {
+    if (tris === clashShown) return;
+    clashShown = tris;
+    clearGroup(clashGroup);
+    if (!tris || !tris.length) return;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(tris), 3));
+    geo.computeVertexNormals();
+    const mat = new THREE.MeshLambertMaterial({ color: 0xe5484d, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 3;
+    clashGroup.add(mesh);
+  }
   const setWorldHidden = (on: boolean): void => world.setOff(on);
   const setPanes = (p: Parameters<typeof world.setPanes>[0]): boolean => world.setPanes(p);
   const setGizmo = (g: GizmoView | null, cam: Camera) => buildGizmo(gizmo, g, cam.distance, pen);
@@ -411,5 +428,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { rebuild, setWorldHidden, setScene, setHiddenBodies, setThin, setStandIns, setHiddenEdges, setBehindPlane, setBodyMatrix, setHighlight, setPreview, setGizmo, setToolpath, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { rebuild, setWorldHidden, setScene, setHiddenBodies, setThin, setClash, setStandIns, setHiddenEdges, setBehindPlane, setBodyMatrix, setHighlight, setPreview, setGizmo, setToolpath, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

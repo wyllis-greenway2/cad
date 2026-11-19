@@ -5022,3 +5022,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1170 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the walk that starts from the start, the Fix Constraints button in the bar and the speed clock to be merged into the testing branch, no full test run)
+
+## in_1171 — 2026-11-19 — directive
+> Can we make the clock not have options? instead just directly clicking it cycles through the speed options. It should also be that if you click or tap and hold and drag left or right you can smoothly set between percent based speed settings. So tapping goes in speed chunks. dragging smoothly adjusts. And first tap after a while should always just set it back to default. Also for collision, can we have it use shaded red bodies only? not red wireframe?
+(a screenshot of a jam drawn as red slivers with red wire lines; asks the clock to have no list: a tap goes to the next speed, a hold and drag sets it smoothly in percent, the first tap after a while returns to normal; and the jam to be drawn as the bodies shaded red, with no wireframe)

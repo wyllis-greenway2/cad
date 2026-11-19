@@ -7,7 +7,7 @@
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
-import { collidesMoving, buildTree, collides, crossingTris } from "../operation/collide.ts";
+import { collidesMoving, buildTree, collides } from "../operation/collide.ts";
 import type { Tree } from "../operation/collide.ts";
 import { jointOf, compose, inverse, applyPoint } from "../operation/frames.ts";
 import type { Rigid } from "../operation/frames.ts";
@@ -273,7 +273,7 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
           const joint = pi >= 0 && !work[pi]!.free ? ` (${nameOf(scene, work[pi]!.body)} ${work[pi]!.kind === "slide" ? "slides" : "turns"} on its joint but cannot ${work[pi]!.kind === "slide" ? "slide" : "turn"} clear of it)` : "";
           const flat = pi >= 0 && work[pi]!.free ? " (a body with no joint moves only in the flat of the mechanism, across the turning axis: it slides and turns there)" : "";
           jam = stuck ? `${nameOf(scene, movers[w]!.body)} pushes ${nameOf(scene, work[pi]!.body)} against ${nameOf(scene, stuck)}${flat}` : `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)}${joint}${flat}`;
-          clash = clashOf(scene, outcome, movers, a, vals, stuck ? aside : w, stuck ?? hit, clearance);
+          clash = clashOf(scene, outcome, movers, a, vals, stuck ? aside : w, stuck ?? hit);
           break;
         }
         next.add(aside); // (it moved: it is tested again)
@@ -283,7 +283,7 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
       dirty = next;
     }
     if (!settled && !jam) { // the passes ran out with bodies still moving: say so, rather than leave bodies in each other without a word
-      for (let w = 0; w < movers.length && !jam; w++) { const hit = firstHit(scene, outcome, movers, a, vals, w, mated, ignore, solid, statics, clearance); if (hit) { jam = `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)} (the chain is too long to settle)`; clash = clashOf(scene, outcome, movers, a, vals, w, hit, clearance); } }
+      for (let w = 0; w < movers.length && !jam; w++) { const hit = firstHit(scene, outcome, movers, a, vals, w, mated, ignore, solid, statics, clearance); if (hit) { jam = `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)} (the chain is too long to settle)`; clash = clashOf(scene, outcome, movers, a, vals, w, hit); } }
     }
     // a body with no joint goes back toward where it is drawn as far as it is clear to, a millimetre a step (it was only pushed while something was in its way)
     for (let pi = 0; pi < work.length && !jam; pi++) {
@@ -568,16 +568,14 @@ function stepFor(scene: Scene, outcome: CompileOutcome | undefined, movers: Move
   return rate > 0 ? Math.min(base, Math.max(base / 4, MOVE_MM / rate)) : base;
 }
 
-/** Where two bodies are in each other at a pose, in space (the triangles of each that cross the other), to show a jam in red. */
-function clashOf(scene: Scene, outcome: CompileOutcome | undefined, movers: Mover[], a: number, vals: number[], w: number, hit: Ref, clearance: number): number[] {
+/** The two bodies of a jam, whole, at the pose where they met (the triangles of each, in space), to show them shaded red (`in_1171`). */
+function clashOf(scene: Scene, outcome: CompileOutcome | undefined, movers: Mover[], a: number, vals: number[], w: number, hit: Ref): number[] {
   const me = movers[w]!;
   const [rMe, rOther] = [me.pose(a, vals), movers.find((q) => q.body === hit)?.pose(a, vals) ?? IDENT];
   const [m1, o1] = [bodyMesh(scene, outcome, me.body), bodyMesh(scene, outcome, hit)];
   if (!m1 || !o1) return [];
   const pose = (tris: ArrayLike<number>, r: Rigid): number[] => { const out: number[] = new Array(tris.length); for (let i = 0; i + 2 < tris.length; i += 3) { const q = applyPoint(r, [tris[i]!, tris[i + 1]!, tris[i + 2]!]); out[i] = q[0]; out[i + 1] = q[1]; out[i + 2] = q[2]; } return out; };
-  const toOther = compose(rMe, inverse(rOther)), toMe = compose(rOther, inverse(rMe)); // (each body's triangles in the frame of the other, as the mesh test puts them)
-  const mine = crossingTris(pose(m1.tris, toOther), o1.tree, clearance, 150), theirs = crossingTris(pose(o1.tris, toMe), m1.tree, clearance, 150);
-  return [...pose(mine, rOther), ...pose(theirs, rMe)];
+  return [...pose(m1.tris, rMe), ...pose(o1.tris, rOther)];
 }
 
 /** The follower of each body that yields: where it stands now, as the drawing of it needs. */
