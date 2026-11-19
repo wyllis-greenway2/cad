@@ -4448,3 +4448,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > okay do 1 2 and 4, I am not so sure we want to split the menu onspiral and hypoid. What exactly is the difference between a spiral and hypoid gear and what are each used for?
 (of the AI's list: do the numeric tooth-width checks on the other gear kinds (1), the spiral crown's browser time (2), and meshed pairs rendered in contact (4); the menu split is not wanted for now; and a question: the difference between a spiral and a hypoid gear and what each is used for)
 
+## in_1023 — 2026-11-19 — question
+> okay so is it all done?
+(asks whether the work of the last plan is finished; the AI answers with what is verified and what is still running)
+
