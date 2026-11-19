@@ -1,4 +1,5 @@
 // The state the controller works on, and the small helpers every handler uses.
+import type { Annotation } from "../annotations.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { worldRef } from "../../shared/ref.ts";
 import type { Vec3 } from "../../math/vec.ts";
@@ -124,7 +125,7 @@ export interface AppState {
   /** the helper handle under the pointer */
   gizmoHover: string | null;
   /** a command was refused because it could not be done without breaking constraints: they flash red and fade, and the one that tried shakes (`in_120`) */
-  flash: { culprits: string[]; victims: string[]; parts?: string[]; soften?: string[]; /** constraints that already held: they flash green */ green?: string[]; retry?: Command; at: number } | null;
+  flash: { culprits: string[]; victims: string[]; parts?: string[]; soften?: string[]; /** constraints that already held: they flash green */ green?: string[]; /** constraints that went with a deleted part: their bubbles pop and the parts that stayed flash red (`in_1162`) */ popped?: string[]; ghosts?: Annotation[]; retry?: Command; at: number } | null;
 }
 export interface Env { w: number; h: number; now: number }
 

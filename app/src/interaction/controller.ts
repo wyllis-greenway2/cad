@@ -1,6 +1,7 @@
 // The controller: applies one intent to the app state. All behaviour of the pointer, the click grammar, the camera and the menu is decided here, in plain
 // functions (`inv_no_logic_in_ui`): the UI only draws the state and the platform only reports devices. The work is in `control/`, one file per concern:
 // `viewing` (camera), `pointer` (hover, click, menu), `modal` (tools, operations, typing, edits).
+import { droppedBy } from "./dropped.ts";
 import type { Intent } from "../shared/input.ts";
 import { figureRefs } from "../operation/scene.ts";
 import { isLive } from "./operations.ts";
@@ -89,7 +90,9 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   const c = next.session.conflict;
   const al = next.session.already; // (a constraint that already held: it flashes green, `in_1103`)
   if (al && al !== s.session.already) return { ...next, flash: { culprits: [], victims: [], green: al, at: env.now } };
-  return c && c !== s.session.conflict ? { ...next, flash: { ...c, at: env.now } } : next;
+  if (c && c !== s.session.conflict) return { ...next, flash: { ...c, at: env.now } };
+  const gone = !c && !al && next.session.history.scene !== s.session.history.scene ? droppedBy(s.session.history.scene, next.session.history.scene) : null; // (constraints that went with a deleted part: the parts that stayed flash and the bubbles pop, `in_1162`)
+  return gone ? { ...next, flash: { culprits: [], victims: [], parts: gone.parts, popped: gone.ids, ghosts: gone.ghosts, at: env.now } } : next;
 }
 
 /** "Delete constraint to proceed" (`in_366`): the constraints that stopped a change are deleted and the change is made, as one step (one undo takes both back). */
