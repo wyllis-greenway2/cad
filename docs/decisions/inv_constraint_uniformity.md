@@ -19,3 +19,6 @@ The human (`in_1086`: "I constantly find exceptions"): **1. A violated constrain
 ## Rationale
 
 The human's own words. A rule with exceptions has to be learnt case by case; one without needs nothing remembered.
+
+## Built: a refusal has no words (`in_1196`)
+The refusal of a change that a constraint holds back says nothing: the constraint flashes red and the button (*Delete constraint to proceed*, or *Delete constraint* when the change stays) stands beside its bubble. The sentence that used to be in the pill ("that cannot be done without breaking other constraints: the Coincident constraint (it flashes) holds what it would move") is still the session's message (kept for the history and the tests) but is not shown with a refusal (`Frame.refusal.text` is empty; `ui/notices.ts` shows the button alone).
