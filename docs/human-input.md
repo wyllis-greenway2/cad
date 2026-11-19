@@ -4946,8 +4946,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the corrected carried lever to be merged into the testing branch, no full test run)
 
-## in_1149 — 2026-11-19 — directive
+## in_1153 — 2026-11-19 — directive
 > It can be really hard to find constraints sometimes. Can we have it so that when you select a body, it has an icon that is half eye have lock, and when clicked it shows all the constraints associated with any verticy, edge, surface, or anything to do with that body, or relationships that body shares with other parts. lets also have a show all constraints option under the view part of the menu which turns on all constraints in the whole world.
 
-## in_1150 — 2026-11-19 — directive
+## in_1154 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
