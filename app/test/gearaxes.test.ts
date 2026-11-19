@@ -154,3 +154,38 @@ test("a partner that cannot be turned along says why when the motion starts, and
   const st = startMotion(sc, "b/x_s_90/o" as never);
   assert.ok(st.ok && st.motion.follows.length === 0 && /stays where it is: a worm meshes with a worm wheel/.test(st.motion.note ?? ""), st.ok ? (st.motion.note ?? "") : st.why);
 });
+
+test("a belt (or a chain): the other pulley or sprocket stands where the pointer or the distance says, and both turn the same way by the ratio of the teeth", () => {
+  for (const spec of [{ teeth: 20, module: 2, pulley: "2GT" }, { teeth: 18, module: 1, sprocket: { chain: 40 } }] as GearSpec[]) {
+    const src = { id: "g_001", plane: XY, at: [0, 0, 0] as Vec3, spec } as GearRecord;
+    const near = meshWith(src, U, V, { teeth: 30, distance: 1 }, 0);
+    assert.ok(near.ok && near.value.at[0] > 0, "never closer than the pitch circles");
+    const far = meshWith(src, U, V, { teeth: 30, distance: 200 }, Math.PI / 2);
+    assert.ok(far.ok && Math.abs(far.value.at[1] - 200) < 1e-9 && Math.abs(far.value.at[0]) < 1e-9, "the distance asked, in the direction asked");
+    assert.equal(meshWith(src, U, V, { teeth: 30, rack: true }, 0).ok, false);
+    const sc = pair(spec, (s) => meshWith(s, U, V, { teeth: 30 }, 0));
+    const f = followersOf(sc, sc.gears![0]!);
+    assert.equal(f.why, undefined);
+    assert.ok(Math.abs(f.followers[0]!.k - Math.round(spec.teeth) / 30) < 1e-9, `k ${f.followers[0]!.k}`);
+    assert.deepEqual(f.followers[0]!.dir, [0, 0, 1]);
+  }
+  // two belts of different pitch are not one belt
+  const sc = pair({ teeth: 20, module: 2, pulley: "2GT" }, (s) => meshWith(s, U, V, { teeth: 30 }, 0));
+  (sc.gears![1] as { spec: GearSpec }).spec = { ...sc.gears![1]!.spec, module: 3, pulley: "3GT" };
+  assert.match(followersOf(sc, sc.gears![0]!).why ?? "", /own pitch/);
+});
+
+test("played from the other gear every pair gives the reciprocal ratio about the first gear's own shaft (a crown played from its pinion, a face gear from its pinion)", () => {
+  const sets: Scene[] = [
+    pair({ teeth: 40, module: 2, bore: 5, bevel: { mate: 18, shaft: crownShaft(40, 18) } }, (src) => meshBevel(src, U, V, { teeth: 18 }, 0)),
+    pair({ teeth: 40, module: 2, bore: 5, bevel: { mate: 14, facegear: "gear" } }, (src) => meshFace(src, U, V, { teeth: 14 }, 0)),
+    pair({ teeth: 20, module: 2, backlash: 0.15, bevel: { mate: 30 } }, (src) => meshBevel(src, U, V, { teeth: 30 }, 0)),
+  ];
+  for (const sc of sets) {
+    const [g1, g2] = sc.gears!;
+    const fwd = followersOf(sc, g1!).followers[0]!, back = followersOf(sc, g2!).followers[0]!;
+    assert.ok(Math.abs(fwd.k * back.k - 1) < 1e-9, `${fwd.k} and ${back.k}`);
+    assert.ok(Math.abs(dot(back.dir, axisOf(sc, g1!)!) - 1) < 1e-9, "the crown or the first gear turns about its own shaft");
+    assert.ok(len(sub(back.point, g1!.at)) < 1e-9);
+  }
+});

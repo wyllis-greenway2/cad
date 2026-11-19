@@ -10,6 +10,7 @@ import { isMade } from "./gearscene.ts";
 import { gearOutline } from "./gear.ts";
 import { normalOfPlane } from "./part.ts";
 import { bevelFrame } from "./bevel.ts";
+import { chainOf } from "./chains.ts";
 import { camShapes } from "./cams.ts";
 import { mateStatus } from "./mates.ts";
 
@@ -144,11 +145,24 @@ function wormEdge(a: GearRecord, b: GearRecord, na: Vec3, nb: Vec3): { k: number
   const kw = sign * (starts / z);
   return { k: wheel === b ? kw : 1 / kw, kind: "turn" };
 }
+/** The belt or chain a pulley or sprocket runs on, as one text to compare: a pulley's belt kind and pitch, a sprocket's chain pitch and roller; null for anything else. */
+function chainOf2(g: GearRecord): string | null {
+  if (g.spec.pulley) return `${g.spec.pulley}:${g.spec.module}`;
+  if (g.spec.sprocket) { const c = chainOf(g.spec.sprocket); return c ? `chain:${c.pitch.toFixed(4)}:${c.roller.toFixed(4)}` : null; }
+  return null;
+}
 /** The motion of gear `b` for a degree (or mm) of gear `a`, when `b` was meshed with `a` (either way round): `k` in b's own axis, or null when this kind of pair is not worked out yet. */
 function edge(s: Scene, a: GearRecord, b: GearRecord): { k: number; kind: "turn" | "slide" } | { why: string } {
   const [na, nb] = [axisOf(s, a), axisOf(s, b)];
   if (!na || !nb) return { why: "a gear's plane is gone" };
-  for (const g of [a, b]) if (g.spec.pulley || g.spec.sprocket || g.spec.cam) return { why: "pulleys, sprockets and cams are not coupled yet" };
+  for (const g of [a, b]) if (g.spec.cam) return { why: "cams are not coupled to gears" };
+  if (a.spec.pulley || b.spec.pulley || a.spec.sprocket || b.spec.sprocket) { // a belt or a chain: both turn the same way by the ratio of the teeth, if it is the same belt or chain (`in_1120`)
+    const [ca, cb] = [chainOf2(a), chainOf2(b)];
+    if (!ca || !cb || ca !== cb) return { why: "a belt or a chain goes round pulleys or sprockets of its own pitch" };
+    const [za, zb] = [Math.round(a.spec.teeth), Math.round(b.spec.teeth)];
+    if (!(za > 0 && zb > 0)) return { why: "the gears have no teeth to count" };
+    return { k: (za / zb) * (dot(na, nb) >= 0 ? 1 : -1), kind: "turn" };
+  }
   if (a.spec.worm || b.spec.worm || a.spec.wheel || b.spec.wheel) return wormEdge(a, b, na, nb);
   const [ba, bb] = [a.spec.bevel, b.spec.bevel];
   if (ba || bb) {

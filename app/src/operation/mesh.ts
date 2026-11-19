@@ -9,6 +9,7 @@ import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import type { GearRecord } from "./gearscene.ts";
 import type { GearSpec } from "./gear.ts";
+import { gearOutline } from "./gear.ts";
 import { wormOf, wheelOf, wormLayout } from "./worm.ts";
 import { bevelOf, bevelFrame } from "./bevel.ts";
 import { spiralRole, CONTACT } from "./spiral.ts";
@@ -25,7 +26,7 @@ const norm = (a: number): number => { const t = ((a % TAU) + TAU) % TAU; return 
  * of the partner from its centre (radians from `u` towards `v`); for a rack as the source, how far along the rack (mm from the middle of its pitch line) the partner stands. Refused, with the reason, for a gear
  * with a profile shift (its centre distance is not the plain one), for the tooth counts that make no mesh (a gear in a ring needs fewer teeth than the ring) and for a rack against a ring.
  */
-export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; offset?: number; width?: number; land?: number; /** a ring that goes round the gear (`in_686`) */ ring?: boolean }, where: number): Result<Placement> {
+export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; offset?: number; width?: number; land?: number; /** a ring that goes round the gear (`in_686`) */ ring?: boolean; /** a pulley or a sprocket: how far apart the centres stand, mm (a belt or a chain goes round, so any distance that leaves room) */ distance?: number }, where: number): Result<Placement> {
   const s = src.spec;
   if (s.bevel?.facegear !== undefined) return meshFace(src, u, v, partner, where);
   if (s.bevel) return meshBevel(src, u, v, partner, where);
@@ -33,7 +34,7 @@ export function meshWith(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: nu
   if (s.worm) return meshWormWheel(src, u, v, partner, where);
   if (s.wheel) return meshWheelWorm(src, u, v, partner, where);
   const z2 = Math.round(partner.teeth);
-  if (s.pulley || s.sprocket) return err("a pulley or a sprocket meshes with a belt or a chain, not with a gear");
+  if (s.pulley || s.sprocket) return meshBelt(src, u, v, partner, where);
   if ((s.shift ?? 0) !== 0) return err("a gear with a profile shift is not meshed yet");
   if (!Number.isFinite(z2) || z2 < 1) return err("the partner needs teeth");
   const helical = s.helix !== undefined;
@@ -149,6 +150,26 @@ function meshWheelWorm(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: numb
   const [qx, qy] = [cx * off - sx * side * w.value.cd, sx * off + cx * side * w.value.cd];
   const at: Vec3 = [src.at[0] - (u[0] * qx + v[0] * qy), src.at[1] - (u[1] * qx + v[1] * qy), src.at[2] - (u[2] * qx + v[2] * qy)];
   return ok({ at, turn: t, spec });
+}
+
+/**
+ * The other pulley (or sprocket) of a belt (or chain) that goes round `src` (`in_1120`): the same belt or chain, `partner.teeth` teeth, its centre in the direction `where` (radians from the plane's first direction) at `partner.distance` (the pitch radii and the larger radius
+ * again, if none; never closer than the pitch circles and a millimetre): nothing locks the distance, a belt goes round at any, so it is the pointer's or typed. Both turn the same way, by the ratio of the teeth (`gearcouple.ts`).
+ */
+function meshBelt(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; ring?: boolean; distance?: number }, where: number): Result<Placement> {
+  if (partner.rack || partner.ring) return err("a belt or a chain goes round pulleys or sprockets: not a rack or a ring");
+  const z2 = Math.round(partner.teeth);
+  if (!Number.isFinite(z2) || z2 < 1) return err("the partner needs teeth");
+  const spec: GearSpec = { ...src.spec, teeth: z2 };
+  delete (spec as { bore?: number }).bore;
+  const [a, b] = [gearOutline(src.spec), gearOutline(spec)];
+  if (!a.ok) return a;
+  if (!b.ok) return b;
+  const [r1, r2] = [a.value.pitchRadius, b.value.pitchRadius];
+  const d = Math.max(partner.distance ?? r1 + r2 + Math.max(r1, r2, 10), r1 + r2 + 1);
+  const [c, sn] = [Math.cos(where), Math.sin(where)];
+  const at: Vec3 = [src.at[0] + (u[0] * c + v[0] * sn) * d, src.at[1] + (u[1] * c + v[1] * sn) * d, src.at[2] + (u[2] * c + v[2] * sn) * d];
+  return ok({ at, turn: 0, spec });
 }
 
 const [dot3, cross3, norm3] = [(a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], (a: Vec3): Vec3 => { const l = Math.hypot(...a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; }];

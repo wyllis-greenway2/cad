@@ -136,7 +136,7 @@ export interface GearState {
   /** a planetary set (`dec_planetary_gears`): the numbers of a sun, planets, ring and carrier; when its numbers are being changed, the set as it is now */ planetary?: true; planetaryBase?: PlanetarySpec;
   /** a gear or a rack made to mesh with `src` (`in_672`); `rack`: the partner is a rack */ mesh?: { src: GearRecord; rack: boolean; ring?: boolean };
 }
-export type GearKey = "teeth" | "module" | "pressure" | "shift" | "backlash" | "rim" | "bore" | "ratio" | "angle" | "offset" | "hypoid" | "clearance" | "chain" | "pitch" | "roller" | "circle" | "addendum" | "dedendum" | "fit" | "flat" | "key" | "keydepth" | "fillet" | "helix" | "width" | "edge" | "land" | "diameter" | "length" | "starts" | "journal" | "runout" | "mate" | "shaft" | "face" | "sun" | "planet" | "planets" | "pin" | "pingap" | "carrier" | "chamfer" | "inner" | "outer" | "plategap" | "spacing" | "housing" | "cap" | "housingfit" | "spiral";
+export type GearKey = "teeth" | "module" | "pressure" | "shift" | "backlash" | "rim" | "bore" | "ratio" | "angle" | "distance" | "offset" | "hypoid" | "clearance" | "chain" | "pitch" | "roller" | "circle" | "addendum" | "dedendum" | "fit" | "flat" | "key" | "keydepth" | "fillet" | "helix" | "width" | "edge" | "land" | "diameter" | "length" | "starts" | "journal" | "runout" | "mate" | "shaft" | "face" | "sun" | "planet" | "planets" | "pin" | "pingap" | "carrier" | "chamfer" | "inner" | "outer" | "plategap" | "spacing" | "housing" | "cap" | "housingfit" | "spiral";
 /** The numbers of a gear in the order the number box shows them (a ring has a wall where a gear has a shift; a rack has the bar under its teeth; a partner has its tooth count, ratio and the direction it stands in). */
 export const gearFields = (g: { planetary?: true; internal: boolean; worm?: true; wheel?: true; bevel?: true; crown?: true; spiral?: true; face?: "gear" | "pinion"; rack?: boolean; pulley?: PulleyKind; sprocket?: true; iso?: true; cycloidal?: true; mesh?: { src: GearRecord; rack: boolean; ring?: boolean } }): { key: GearKey; label: string }[] => {
   const f = (key: GearKey, label: string) => ({ key, label });
@@ -158,6 +158,7 @@ const gearFieldsBase = (g: { internal: boolean; worm?: true; wheel?: true; bevel
   if (g.wheel) return [f("teeth", "Teeth"), f("starts", "Starts"), f("module", "Module"), f("pressure", "Pressure"), f("diameter", "Worm diameter"), f("width", "Width"), f("land", "Land"), f("bore", "Bore"), f("chamfer", "Chamfer"), f("edge", "Edge chamfer")]; // (the chamfer last, as a gear's, `in_923`)
   if (g.mesh?.src.spec.worm) return [f("teeth", "Teeth"), f("offset", "Offset"), f("width", "Width"), f("land", "Land"), f("bore", "Bore")]; // (the wheel for a worm: how many teeth, how far along the worm, how wide)
   if (g.mesh?.src.spec.wheel) return [f("teeth", "Starts"), f("offset", "Offset"), f("length", "Length"), f("bore", "Bore")]; // (the worm for a worm wheel, `in_697`)
+  if (g.mesh && (g.mesh.src.spec.pulley || g.mesh.src.spec.sprocket)) return [f("teeth", "Teeth"), f("angle", "Angle"), f("distance", "Distance"), f("bore", "Bore")]; // (the other pulley or sprocket of a belt or chain: a belt goes round at any distance, `in_1120`)
   if (g.mesh) return g.mesh.src.spec.rack ? [f("teeth", "Teeth"), f("offset", "Offset"), f("bore", "Bore")] : g.mesh.rack ? [f("teeth", "Teeth"), f("angle", "Angle")] : g.mesh.ring ? [f("teeth", "Teeth"), f("ratio", "Ratio"), f("angle", "Angle")] : [f("teeth", "Teeth"), f("ratio", "Ratio"), f("angle", "Angle"), f("bore", "Bore")]; // (a gear made to mesh can have its bore at once, `in_588`)
   if (g.pulley) return [f("teeth", "Teeth"), f("clearance", "Clearance"), f("bore", "Bore")];
   if (g.cycloidal) return [f("teeth", "Teeth"), f("module", "Module"), f("backlash", "Backlash"), f("circle", "Circle"), f("addendum", "Addendum"), f("dedendum", "Dedendum"), g.internal ? f("rim", "Wall") : g.rack ? f("rim", "Base") : f("bore", "Bore")];
@@ -531,7 +532,9 @@ function gearMade(scene: Scene, t: Tool): Result<GearTarget> | null {
   }
   const [wOff, wWidth] = [typed("offset") ?? 0, src.spec.wheel ? typed("length") : typed("width")];
   const wLand = typed("land");
-  const r = meshWith(src, pl.u, pl.v, { teeth, rack, ring, ...(src.spec.worm || src.spec.wheel ? { offset: wOff, ...(wWidth ? { width: wWidth } : {}), ...(wLand !== null ? { land: wLand } : {}) } : {}) }, where);
+  const belt = !!(src.spec.pulley || src.spec.sprocket);
+  const distance = belt ? typed("distance") ?? (t.cursor && Math.hypot(px - cx, py - cy) > 1e-6 ? Math.hypot(px - cx, py - cy) : undefined) : undefined; // (typed, or where the pointer is)
+  const r = meshWith(src, pl.u, pl.v, { teeth, rack, ring, ...(distance !== undefined && distance !== null ? { distance } : {}), ...(src.spec.worm || src.spec.wheel ? { offset: wOff, ...(wWidth ? { width: wWidth } : {}), ...(wLand !== null ? { land: wLand } : {}) } : {}) }, where);
   if (!r.ok) return err(r.error);
   const bore = rack ? null : typed("bore") ?? (src.spec.wheel ? null : defaultBore(teeth, r.value.spec.module) || null); // (a partner has a bore too, `in_691`)
   const spec = bore ? { ...r.value.spec, bore, ...shapeOf(typed, undefined, fields[g.field]?.key) } : r.value.spec;
