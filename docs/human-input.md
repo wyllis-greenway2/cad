@@ -5192,3 +5192,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1217 — 2026-11-19 — directive
 > okay its still really pretty thin, arent there any real engineering diagrams online we could get? humans have been making engines for over a hundred years
 (says the supplied piston sources are still thin and asks for real engineering diagrams of engines; the question before it, asking me to link documents he could get, was not steering and is not recorded)
+
+## in_1218 — 2026-11-19 — approval
+> Yes, those styles are good, go ahead and build it
+(approves the proposed spoke styles of the hub and spoke tool (tapered spokes, tapered flat bars, straight bars, solid web with round holes) and asks for it to be built)

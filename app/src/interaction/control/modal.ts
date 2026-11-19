@@ -27,6 +27,7 @@ import type { Part } from "../../operation/part.ts";
 import { runOp } from "../runop.ts";
 import { lookup, nextId, figuresOf } from "../../operation/scene.ts";
 import type { Ref } from "../../shared/ref.ts";
+import { worldRef } from "../../shared/ref.ts";
 import { planeOf } from "../objects.ts";
 import { sketchOfEdge } from "../../operation/edgesource.ts";
 import { sideOf, viewAxes, nearTolMm } from "../camera.ts";
@@ -34,7 +35,7 @@ import { seenIn } from "../picking.ts";
 import { putMatesBack, setMateValue } from "../mate.ts";
 import { mateStatus } from "../../operation/mates.ts";
 import { moveOffset } from "../gizmo.ts";
-import { normalOfPlane } from "../../operation/part.ts";
+import { normalOfPlane, roundOf } from "../../operation/part.ts";
 import type { Plane } from "../../operation/part.ts";
 import { doBodyEye, doDeleteBody, doHideBodies, selectedBodies } from "./bodies.ts";
 import { doParamRemove } from "./history.ts";
@@ -79,9 +80,23 @@ function facePlane(s: AppState, over: Ref | null, now: number): AppState {
   return plane && sideOf(s.cam, normalOfPlane(plane)) === 0 ? animateTo(s, planeView(s.cam, plane, false), now) : s;
 }
 
+/** The round object the selection is, for a model that fills it (`dec_hub_spoke`): a drawn circle, a round face of a body or a circular edge of one: its centre, the direction of its axis and its radius */
+function fillOf(s: AppState): { center: Vec3; normal: Vec3; radius: number } | null {
+  const sc = sceneOf(s.session), sel = selectionOf(s.session);
+  if (sel.length !== 1) return null;
+  const get = (r: Ref) => sc.parts[r];
+  const r = roundOf(get, sel[0]!);
+  if (!r) return null;
+  const part = get(sel[0]!);
+  let normal = r.normal ?? null;
+  if (!normal && part && part.plane) { const pl = get(part.plane); if (pl?.kind === "plane") normal = normalOfPlane(pl); }
+  return normal ? { center: r.center, normal, radius: r.radius } : null;
+}
 function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = null, variant: GearVariant = "gear", cam?: CamKind, law?: CamLaw, layout?: CamLayout, model?: ModelKind): AppState {
   if (s.tool?.kind === kind && s.tool.model?.kind === model && !s.tool.plane && variantOf(s.tool.gear) === (kind === "gear" ? variant : "gear") && s.tool.cam?.kind === cam && s.tool.cam?.law === law && s.tool.cam?.layout === layout) return { ...s, tool: null }; // pressing it again puts it away
   const make = (): Tool => (model ? armModel(model) : cam ? armCam(cam, law, layout) : armTool(kind, variant));
+  const fill = model === "wheel" ? fillOf(s) : null;
+  if (fill) return { ...s, tool: { ...make(), plane: worldRef("XY"), points: [fill.center], cursor: fill.center, sized: true, fill, model: { ...armModel("wheel").model!, typed: [String(Math.round(2 * fill.radius * 100) / 100), ...armModel("wheel").model!.typed.slice(1)], focus: true } }, op: null, menu: null }; // (a round object is selected: the wheel fills it, `dec_hub_spoke`)
   const armed: AppState = { ...s, tool: make(), op: null, menu: null };
   const { plane, onSketch } = sketchPlane(s, over);
   if (plane && onSketch) return animateTo({ ...armed, tool: { ...make(), plane: plane.ref, reveal: true } }, planeView(s.cam, plane, false), now);

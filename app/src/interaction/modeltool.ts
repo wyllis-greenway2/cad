@@ -15,6 +15,15 @@ import type { Command } from "../operation/commands.ts";
 import { playPlan } from "../operation/modelplay.ts";
 import type { PlayPlan, ModelPlay } from "../operation/modelplay.ts";
 
+/** The plane a model that fills a round object stands in: through its centre, across its axis (a stand-in made from the circle, not a part of the scene) */
+function fillPlane(f: { center: Vec3; normal: Vec3 }): Plane {
+  const n = normalizeV(f.normal), a: Vec3 = Math.abs(n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+  const u = normalizeV(crossV(a, n)), v = crossV(n, u);
+  return { ref: "fill" as Plane["ref"], kind: "plane", origin: "drawn", plane: null, movable: false, at: f.center, u, v } as Plane;
+}
+const crossV = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const normalizeV = (a: Vec3): Vec3 => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+
 /** What the tool holds: which model, the text typed in each field of the box (the overall size, the turn, then the model's numbers) and the field being typed in */
 export interface ModelState { kind: ModelKind; typed: string[]; field: number; /** the box takes the keyboard when it opens */ focus?: true }
 const LEAD = ["Size", "Turn"];
@@ -29,7 +38,8 @@ const MIN_SHARE = 0.25;
 export interface ModelTarget { kind: ModelKind; nums: Nums; size: number; turn: number; place: Place; problem: string | null; middle: Vec3 }
 /** The model the tool would make: its numbers, where it stands and why not, if it cannot be made. Null before the first click. */
 export function modelTarget(scene: Scene, t: Tool): ModelTarget | null {
-  const m = t.model, pl = t.plane ? (scene.parts[t.plane] as Plane | undefined) : undefined;
+  const m = t.model, pl0 = t.plane ? (scene.parts[t.plane] as Plane | undefined) : undefined;
+  const pl = t.fill && m ? fillPlane(t.fill) : pl0;
   if (!m || !pl || pl.kind !== "plane" || !t.points.length) return null;
   const middle = t.points[0]!, fields = modelFields(m.kind);
   const typed: Nums = {};

@@ -14,9 +14,11 @@ import { cycloidalSteps, cycloidalProblem, cycloidalRatio, cycloidalRim, discOut
 import type { CycloidalSpec } from "./modelcycloidal.ts";
 import { engineSteps, engineProblem, engineGeometry, engineFootprint, engineDisplacement, ENGINE_START } from "./modelengine.ts";
 import type { EngineSpec } from "./modelengine.ts";
+import { wheelSteps, wheelProblem, wheelLines, WHEEL_START, WHEEL_STYLES } from "./modelwheel.ts";
+import type { WheelSpec } from "./modelwheel.ts";
 
-export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine";
-export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine"];
+export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "wheel";
+export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine", "wheel"];
 /** The numbers of a model, by name */
 export type Nums = Record<string, number>;
 /** One number of a model: what it is called, a line that says what it is, and whether it grows with the overall size (a length of the thing, not a room left for the printer or a count) */
@@ -47,6 +49,7 @@ const gb = (n: Nums): GearboxSpec => n as unknown as GearboxSpec;
 const df = (n: Nums): DifferentialSpec => n as unknown as DifferentialSpec;
 const cy = (n: Nums): CycloidalSpec => n as unknown as CycloidalSpec;
 const en = (n: Nums): EngineSpec => n as unknown as EngineSpec;
+const wh = (n: Nums): WheelSpec => n as unknown as WheelSpec;
 
 const BEARING_START: Nums = { own: 0, number: 608, detail: 0, bore: 8, outer: 22, width: 7, ring: 0, clearance: 0.02, balls: 0, ball: 0 };
 const DEFS: Record<ModelKind, Def> = {
@@ -117,6 +120,21 @@ const DEFS: Record<ModelKind, Def> = {
       return [rect(f.x0, -f.hy, f.x1, f.hy), rect(g.x0, -g.ro, g.x1 + s.wall, g.ro), rect(g.x0, -s.bore / 2, g.x1, s.bore / 2), circle(0, 0, g.rweb, 40), circle(0, 0, s.flywheel / 2, 48), circle(g.r, 0, g.cp / 2, 16), circle(g.r + g.l, 0, s.pin / 2, 16), [[g.r, 0], [g.r + g.l, 0]]];
     },
     about: (n) => { const s = en(n); return `${engineDisplacement(s).toFixed(1)} cm3, rod ${(s.stroke / 2 / s.ratio).toFixed(1)} mm long; the crank turns the rod and the piston by the exact slider-crank; the sizes are rules of thumb, not standards`; },
+  },
+  wheel: {
+    title: "Wheel (hub and spokes)",
+    fields: [
+      { ...F("style", "Spoke style", "tapered (cast look, fillets into hub and rim), flat taper, straight bars, or a solid web with round holes"), choices: [...WHEEL_STYLES] },
+      F("outer", "Outside diameter", "mm: the whole wheel", true), F("spokes", "Spokes", "2 to 16; for a web, the number of round holes (3 to 16)"), F("width", "Rim width", "mm: along the axis", true), F("rim", "Rim thickness", "mm: across, at least 1.2", true),
+      F("hub", "Hub diameter", "mm", true), F("hubLen", "Hub length", "mm: along the axis", true), F("bore", "Bore", "mm: the hole for the shaft", true),
+      F("spokeW", "Spoke width", "mm at the hub; not for a web", true), F("spokeT", "Spoke thickness", "mm along the axis; a web's thickness", true)],
+    start: { ...WHEEL_START },
+    problem: (n) => wheelProblem(wh(n)),
+    extent: (n) => (wheelProblem(wh(n)) ? 0 : wh(n).outer),
+    centre: () => [0, 0],
+    build: (n, place) => wheelSteps(wh(n), place),
+    outline: (n) => (wheelProblem(wh(n)) ? [] : wheelLines(wh(n))),
+    about: (n) => `${wh(n).outer} mm across, ${Math.round(wh(n).spokes)} ${Math.round(wh(n).style) === 3 ? "holes in a web" : WHEEL_STYLES[Math.round(wh(n).style)]!.toLowerCase() + " spokes"}, ${wh(n).bore} mm bore; the proportions are rules of thumb`,
   },
   cycloidal: {
     title: "Cycloidal drive",

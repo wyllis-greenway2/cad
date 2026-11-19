@@ -62,6 +62,8 @@ export interface Tool {
   /** typed sizes: rectangle width and height; circle diameter (field 0); line length (field 0) */
   typed: [string, string];
   field: 0 | 1;
+  /** a model that fills a selected round object (`dec_hub_spoke`): the circle's centre and the direction of its axis; the model stands there and is as wide as the circle, whatever the plane */
+  fill?: { center: Vec3; normal: Vec3 };
   /** the constraints the end of the line being drawn is close to (and has taken): a click makes the line with them */
   hints?: Hint[];
   /** a finger holds the cursor at `cursor` (it has no hover): the next tap sets the point there (`in_286`) */

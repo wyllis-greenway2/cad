@@ -42,6 +42,7 @@ export function playPlan(kind: ModelKind, n: Nums, place: Place): PlayPlan {
     });
     return { driver: { part: "Inner race", point: o, dir: ez }, followers, glue: [], hold: ["Outer race"], pivots: [{ part: "Inner race", point: o, dir: ez }], note: "the inner race turns, the outer is held, the balls go round at about half its speed" };
   }
+  if (kind === "wheel") return { driver: { part: "Wheel", point: o, dir: ez }, followers: [], glue: [], pivots: [{ part: "Wheel", point: o, dir: ez }], note: "the wheel turns about its axis" };
   if (kind === "engine") {
     const s = n as unknown as EngineSpec, g = engineGeometry(s), r4 = (v: number): number => Math.round(v * 1e4) / 1e4;
     const deg = Array.from({ length: 360 }, (_, i) => i);

@@ -64,7 +64,7 @@ test("the engine is made: six bodies, each where the numbers put it, and Play pu
   // the followers carry the rod and piston: at each angle the rod's two eyes are on the crank pin and on the cylinder's axis
   const rodF = rec.followers.find((f) => f.part === "Connecting rod")!, pistonF = rec.followers.find((f) => f.part === "Piston")!;
   for (const a of [0, 50, 90, 140, 180, 220, 300]) {
-    const m = followMatrix({ gear: "", body: "", kind: "turn", ...rodF }, a), mp = followMatrix({ gear: "", body: "", kind: "slide", ...pistonF }, a);
+    const m = followMatrix({ gear: "" as never, body: "" as never, kind: "turn", ...rodF }, a), mp = followMatrix({ gear: "" as never, body: "" as never, kind: "slide", ...pistonF }, a);
     const at = (M: number[], p: number[]): number[] => [M[0]! * p[0]! + M[4]! * p[1]! + M[8]! * p[2]! + M[12]!, M[1]! * p[0]! + M[5]! * p[1]! + M[9]! * p[2]! + M[13]!];
     const big = at(m, [g.r + ox, 0, g.zc]), small = at(m, [xp0, 0, g.zc]), pin = at(mp, [xp0, 0, g.zc]), th = (a * Math.PI) / 180;
     assert.ok(Math.hypot(big[0]! - (ox + g.r * Math.cos(th)), big[1]! - g.r * Math.sin(th)) < 1e-3, `the big eye is on the crank pin at ${a}`);

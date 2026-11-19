@@ -105,6 +105,7 @@ test("each model lists its parts, bottom up, covering every step once", () => {
     differential: ["Cage", "Axle 1", "Axle 2", "Cross pin", "Side gear 1", "Spider gear 1", "Side gear 2", "Spider gear 2", "Cap 1", "Cap 2", "Drive gear"],
     cycloidal: ["Base plate and ring pins", "Input shaft and eccentric", "Cycloidal disc", "Output plate and pins"],
     engine: ["Block", "Crankshaft", "Flywheel", "Piston", "Piston pin", "Connecting rod"],
+    wheel: ["Wheel"],
   };
   for (const kind of MODEL_KINDS) {
     const b = modelBuild(kind, { ...modelStart(kind), ...(kind === "ballbearing" ? { detail: 1, own: 1, number: 0 } : {}) }, AT_ORIGIN_FOR_TESTS);
@@ -250,7 +251,7 @@ test("the Play item of the ring starts the model from whichever of its bodies is
     const played = reduce(st, { type: "runAction", id: "motion:play" }, env as never);
     assert.ok(played.motion, `${kind}: Play from ${from} starts a motion: ${played.session.message ?? ""}`);
     if (!played.motion) continue;
-    const held: Record<ModelKind, number> = { gearbox: 2, ballbearing: 1, differential: 2, cycloidal: 1, engine: 1 };
+    const held: Record<ModelKind, number> = { gearbox: 2, ballbearing: 1, differential: 2, cycloidal: 1, engine: 1, wheel: 0 };
     assert.equal(played.motion.follows.length, Object.keys(rec.parts).length - held[kind] - 1, `${kind}: every moving part follows (the followers and what is glued to them)`);
     const driverBody = anyBodyOf(sc, rec.parts[rec.driver.part]!);
     assert.equal(played.motion.body, driverBody, `${kind}: the driver is ${rec.driver.part}`);
