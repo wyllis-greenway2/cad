@@ -4963,3 +4963,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1153 — 2026-11-19 — approval
 > yes build the bearing constraints next
 (approves the last of the three: a bearing that loads with its constraints, so things can be driven on it)
+
+## in_1154 — 2026-11-19 — directive
+> okay lets get rid of print bearings. Also why does changing the size attribute not change anything? and are these real spec bearings? can I actually go find and buy bearings to these specs? they look odd. How could you even get a ball into a position like that? I thought real bearings had plates on either side and or crimp rings etc?
+(asks for the print-in-place bearing to be removed; why Size does nothing on a catalogue bearing; whether the bearings are real and buyable; how the balls could be put in; whether real bearings have shields and retaining rings)

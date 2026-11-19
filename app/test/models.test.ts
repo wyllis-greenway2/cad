@@ -12,7 +12,6 @@ import { differentialSteps, DIFFERENTIAL_START, differentialProblem } from "../s
 import { cycloidalSteps, CYCLOIDAL_START, cycloidalProblem, cycloidalRatio, discOutline } from "../src/operation/modelcycloidal.ts";
 import { BEARINGS, bearingRow, bearingShape, ballsOf } from "../src/operation/bearingdata.ts";
 import { modelBuild, modelProblem, modelNumbers } from "../src/operation/modelkinds.ts";
-import { bearingSteps, BEARING_START, bearingProblem } from "../src/operation/modelbearing.ts";
 await kernel.init();
 type B = { ref: string; id: string; volume: number; bbox: { min: number[]; max: number[] } };
 const bodies = (s: Session) => Object.values(scene(s).parts).filter((p) => p.kind === "body") as unknown as B[];
@@ -46,21 +45,6 @@ test("a gearbox's refusals say why", () => {
   assert.match(gearboxProblem({ ...GEARBOX_START, gear: 14 }) ?? "", /reduces/);
   assert.match(gearboxProblem({ ...GEARBOX_START, rod: 20 }) ?? "", /too wide for the pinion/);
   assert.equal(gearboxProblem(GEARBOX_START), null);
-});
-test("a ball bearing: two races and seven balls, the balls free in their grooves", () => {
-  const s = make(bearingSteps(BEARING_START));
-  const b = byVolume(s);
-  assert.equal(b.length, 9);
-  const balls = b.slice(0, 7), races = b.slice(7);
-  for (const x of balls) assert.ok(Math.abs(x.volume - (4 / 3) * Math.PI * 2 ** 3) < 2, `a ball's volume ${x.volume}`);
-  for (const x of balls) for (const r of races) assert.equal(shared(s, x, r), 0, "a ball touches a race");
-  assert.equal(shared(s, races[0]!, races[1]!), 0);
-});
-test("a ball bearing's refusals say why", () => {
-  assert.match(bearingProblem({ ...BEARING_START, balls: 2 }) ?? "", /3 or more balls/);
-  assert.match(bearingProblem({ ...BEARING_START, ball: 9 }) ?? "", /too thin/);
-  assert.match(bearingProblem({ ...BEARING_START, balls: 20 }) ?? "", /do not fit/);
-  assert.equal(bearingProblem(BEARING_START), null);
 });
 
 test("a differential: four bevel gears that mesh, a cage, two caps, two axles, a pin and a drive gear, the rest apart", () => {

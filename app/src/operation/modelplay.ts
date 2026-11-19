@@ -6,9 +6,7 @@ import type { Place } from "./modelparts.ts";
 import type { ModelKind, Nums } from "./modelkinds.ts";
 import { gearboxFootprint } from "./modelgearbox.ts";
 import type { GearboxSpec } from "./modelgearbox.ts";
-import { bearingGeometry } from "./modelbearing.ts";
 import { bearingRow, bearingShape } from "./bearingdata.ts";
-import type { BearingSpec } from "./modelbearing.ts";
 import type { DifferentialSpec } from "./modeldifferential.ts";
 import type { CycloidalSpec } from "./modelcycloidal.ts";
 
@@ -31,10 +29,9 @@ export function playPlan(kind: ModelKind, n: Nums, place: Place): PlayPlan {
     const glue = f.rods.map((_, j) => [`Rod ${j + 1}`, ...(j < s.stages ? [`Stage ${j + 1} pinion`] : []), ...(j > 0 ? [`Stage ${j} gear`] : [])]);
     return { driver: { part: "Stage 1 pinion", point: P(f.rods[0]!, 0, 0), dir: ez }, followers, glue, note: `the first pinion turns the gears: ${(1 / Math.abs(speed(s.stages))).toFixed(2)} turns of it for one of the last gear` };
   }
-  if (kind === "bearing" || kind === "ballbearing") {
+  if (kind === "ballbearing") {
     let g: { pitch: number; rb: number }, zm: number, count: number;
-    if (kind === "bearing") { const s = n as unknown as BearingSpec; g = bearingGeometry(s); zm = s.width / 2; count = Math.round(s.balls); }
-    else { const row = bearingRow(Math.round(n.number!)), sh = row ? bearingShape(row, n.clearance!, { ...(n.balls ? { balls: Math.round(n.balls) } : {}), ...(n.ball ? { ball: n.ball } : {}) }) : null; if (!row || !sh || !sh.ok) return { driver: { part: "Inner race", point: o, dir: ez }, followers: [], glue: [], note: "" }; g = { pitch: sh.value.pitch, rb: sh.value.dw / 2 }; zm = row.B / 2; count = sh.value.balls; }
+    { const row = bearingRow(Math.round(n.number!)), sh = row ? bearingShape(row, n.clearance!, { ...(n.balls ? { balls: Math.round(n.balls) } : {}), ...(n.ball ? { ball: n.ball } : {}) }) : null; if (!row || !sh || !sh.ok) return { driver: { part: "Inner race", point: o, dir: ez }, followers: [], glue: [], note: "" }; g = { pitch: sh.value.pitch, rb: sh.value.dw / 2 }; zm = row.B / 2; count = sh.value.balls; }
     const orbit = (g.pitch - g.rb) / (2 * g.pitch); // (a ball's middle goes round at half the speed of the surface of the inner race it rolls on, the outer race held)
     const followers: PlayFollower[] = Array.from({ length: count }, (_, k) => {
       const t = (2 * Math.PI * k) / count;

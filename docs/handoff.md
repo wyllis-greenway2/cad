@@ -4121,3 +4121,6 @@ Built `Bearing` in the Models category from a table of 22 real deep-groove beari
 
 ## Handoff 1022 — 2026-11-19 (in_1153: bearings load with their constraints)
 `in_1153`. `PlayPlan.hold` and `pivots` (`modelplay.ts`) say what the bearing models hold and pivot; `finishCommand` (`modeltool.ts`) makes the `setFixed` (outer race) and `pivot` (inner race, the axis) with the model. Test in `modeltool.test.ts` for both bearing kinds; Play unchanged. Not done: a shaft made with the bearing; dragging a glued body; browser look. Subsets tested only.
+
+## Handoff 1023 — 2026-11-19 (in_1154: the print bearing removed; Size picks a catalogue bearing)
+`in_1154`. Removed kind `bearing` (the print-in-place one: `modelbearing.ts` keeps only `bearingParts`, the menu, play plan, tests). Size on *Bearing* did nothing (no scaled lengths): it now picks the listed bearing with the nearest outside diameter. Told the human the dimensions are real but the model has no cage, shields or seals. Subsets tested (123 pass).
