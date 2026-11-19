@@ -539,7 +539,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : undefined, /* (only the orient mode pulses, and the revolve's orb that is ready to be oriented; the mirror's and the copies' orbs do not, `in_439`) */ hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "revolve" && !s.moverSphere ? `rev:turn:${"xyz"[s.op.axis]}` : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
     similar: similarOf(s),
     toolpath: s.preview ? previewView(s.preview.toolpath, s.preview.at) : null,
-    motionBar: s.motion ? { amount: shownAmount(s.motion), lo: s.motion.lo, hi: s.motion.hi, kind: s.motion.kind, playing: s.motion.playing, reversed: s.motion.speed < 0, springs: springsOf(sc, s.motion), links: s.motion.mate ? linksOf(sc, s.motion.mate, s.motion.kind).map((l) => ({ id: l.id, ratio: l.k, kind: l.kind })) : [], label: `${s.motion.kind === "turn" ? "turned" : "slid"} ${steadyNumber(shownAmount(s.motion))}${s.motion.kind === "turn" ? "°" : " mm"}`, note: motionNote(s.motion, fixOffered(sceneOf(s.session), s.session.outcome, s.motion) || !!s.motion.fix), fix: { offer: !s.motion.fix && fixOffered(sceneOf(s.session), s.session.outcome, s.motion), step: s.motion.fix ? (() => { const f = s.motion.fix!.plan.fixes[s.motion.fix!.i]; return f ? { text: f.text, n: s.motion.fix!.i + 1, of: s.motion.fix!.plan.fixes.length, how: f.how } : null; })() : null } } : null,
+    motionBar: s.motion ? { amount: shownAmount(s.motion), lo: s.motion.lo, hi: s.motion.hi, kind: s.motion.kind, playing: s.motion.playing, reversed: s.motion.speed < 0, springs: springsOf(sc, s.motion), links: s.motion.mate ? linksOf(sc, s.motion.mate, s.motion.kind).map((l) => ({ id: l.id, ratio: l.k, kind: l.kind })) : [], label: `${s.motion.kind === "turn" ? "turned" : "slid"} ${steadyNumber(shownAmount(s.motion))}${s.motion.kind === "turn" ? "°" : " mm"}`, note: motionNote(s.motion), fix: { offer: !s.motion.fix && fixOffered(sceneOf(s.session), s.session.outcome, s.motion), step: s.motion.fix ? (() => { const f = s.motion.fix!.plan.fixes[s.motion.fix!.i]; return f ? { text: f.text, n: s.motion.fix!.i + 1, of: s.motion.fix!.plan.fixes.length, how: f.how } : null; })() : null } } : null,
     previewBar: s.preview ? { at: s.preview.at, label: `${Math.round(s.preview.at * 100)}%${s.preview.toolpath.seconds ? ` of ~${s.preview.toolpath.seconds < 90 ? Math.round(s.preview.toolpath.seconds) + " s" : Math.round(s.preview.toolpath.seconds / 6) / 10 + " min"}` : ""}` } : null,
     adding: s.adding ? "on" : null,
     resetView: !s.anim && !s.tool && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
@@ -699,12 +699,9 @@ function withGhost(base: Preview | null, s: AppState): Preview | null {
 }
 
 /** What is said about a motion above its bar: a jam (and the pin in a hole that would let a body turn, if there is one), a heavy push, or the pin in a hole when a body with no joint has been moved a good way by the play. */
-function motionNote(m: NonNullable<AppState["motion"]>, fixing = false): string | null {
+function motionNote(m: NonNullable<AppState["motion"]>): string | null {
   const c = m.contact;
-  if (!c) return null;
-  if (c.jam) return `stopped: ${c.jam}${c.tip ? `. ${c.tip}` : ""}`;
-  if (c.note) return c.note;
-  return !fixing && c.tip && c.pushables.some((p) => p.free && (Math.hypot(...p.free) > 2 || Math.abs(p.spin ?? 0) > 5)) ? c.tip : null;
+  return c?.jam ? `stopped: ${c.jam}` : null; // (only a stop is said here; a heavy push or a pin in a hole is not: the Fix constraints offer is the sign, and its walk has the detail, `in_1131`)
 }
 
 /** The plane a sketch tool is on (the tool's, else the one selected) with its normal turned toward the camera, from wherever the camera is: what is past it is not what is being worked on. */

@@ -4055,3 +4055,6 @@ Branch `claude/adoring-dijkstra-fix` (new, from the testing branch at Handoff 99
 
 ## Handoff 1000 — 2026-11-19 (in_1131: the bar cleared and the pin offered from the model, merged into the testing branch)
 `in_1131`. Merged `claude/adoring-dijkstra-fix`. The testing branch had gone on to `in_1129`, Handoff 998: my `in_1129` is **`in_1130`**, my Handoff 998 is **999**. Only the two record files conflicted. Checked: docs, layers, types, the fix, motion, pivot, jam and free-push tests; no full suite, as asked.
+
+## Handoff 1001 — 2026-11-19 (in_1131: the jumpy notes taken out)
+Branch `claude/adoring-dijkstra-fix`. The screencast showed the bar's note alternating between "this push is heavy: it plays slower than real time" and the pin-in-hole sentence (the build in the video still had the old bar items). **Changed:** `motionNote` (`frame.ts`) says only a stop ("stopped: ..."); a heavy push and the pin-in-hole sentence are no longer said over the bar: the Fix constraints button is the sign, and its walk has the detail. The pushing, `ContactState.note` and `tip` are unchanged (tests read them). Not merged into the testing branch. Tests: jam, free-push, fix, worker, motion, pivot and gear-motion.
