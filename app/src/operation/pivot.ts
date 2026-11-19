@@ -7,16 +7,19 @@ import { normalize } from "../math/vec.ts";
 import type { Scene } from "./scene.ts";
 
 /** `body`: the body's id (`Part` body `id`, kept through the history); the body turns about the line through `point` along `dir`. */
-export interface Pivot { body: string; point: Vec3; dir: Vec3 }
+export interface Pivot { body: string; point: Vec3; dir: Vec3; /** where it goes back to (degrees from where it is drawn) when a body that pushes lets it, as a spring would; none: it stays where it was pushed (`dec_contact_push`, `in_1019`) */ rest?: number }
 const pivotsOf = (s: Scene): readonly Pivot[] => s.pivots ?? [];
 const hasBody = (s: Scene, id: string): boolean => Object.values(s.parts).some((p) => p.kind === "body" && p.id === id);
 
 /** A pivot for a body, replacing the one it had. */
-export function setPivot(s: Scene, body: string, point: Vec3, dir: Vec3): Result<Scene> {
+export function setPivot(s: Scene, body: string, point: Vec3, dir: Vec3, rest?: number | null): Result<Scene> {
   if (!hasBody(s, body)) return err(`body ${body} does not exist`);
   const l = Math.hypot(dir[0], dir[1], dir[2]);
   if (!(l > 1e-9) || !point.every(Number.isFinite)) return err("the pivot needs a point and a direction");
-  const p: Pivot = { body, point: [...point] as unknown as Vec3, dir: normalize(dir) };
+  if (rest !== undefined && rest !== null && !Number.isFinite(rest)) return err("the rest needs a number");
+  const had = pivotsOf(s).find((q) => q.body === body);
+  const keep = rest === undefined ? had?.rest : rest ?? undefined; // (not given: what it had; null: none)
+  const p: Pivot = { body, point: [...point] as unknown as Vec3, dir: normalize(dir), ...(keep !== undefined ? { rest: keep } : {}) };
   return ok({ ...s, pivots: [...pivotsOf(s).filter((q) => q.body !== body), p] });
 }
 export function deletePivot(s: Scene, body: string): Result<Scene> {

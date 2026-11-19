@@ -81,7 +81,7 @@ export type Command =
   | { type: "setCoupling"; id: string; ratio?: number; ka?: "turn" | "slide"; kb?: "turn" | "slide" }
   | { type: "deleteCoupling"; id: string }
   /** a body that turns about an axis of its own (`pivot.ts`): the body's id, a point of the axis and its direction; `deletePivot` makes it still again */
-  | { type: "pivot"; body: string; point: Vec3; dir: Vec3 }
+  | { type: "pivot"; body: string; point: Vec3; dir: Vec3; /** where it goes back to (degrees from where it is drawn); null: none; not given: as it was */ rest?: number | null }
   | { type: "deletePivot"; body: string }
   /** a planetary set that keeps its numbers (`planetary.ts`, `dec_planetary_gears`): a sun, planets and a ring (gear records of their own) and an optional carrier; `setPlanetary` gives it new numbers (and a new centre or turn), `deletePlanetary` takes it all away */
   | { type: "planetary"; id: string; plane: Ref; at: Vec3; spec: PlanetarySpec; /** radians */ turn?: number }
@@ -335,7 +335,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
     case "couple": return addCoupling(s, c);
     case "setCoupling": return setCoupling(s, c.id, { ...(c.ratio !== undefined ? { ratio: c.ratio } : {}), ...(c.ka ? { ka: c.ka } : {}), ...(c.kb ? { kb: c.kb } : {}) });
     case "deleteCoupling": return deleteCoupling(s, c.id);
-    case "pivot": return setPivot(s, c.body, c.point, c.dir);
+    case "pivot": return setPivot(s, c.body, c.point, c.dir, c.rest);
     case "deletePivot": return deletePivot(s, c.body);
     case "planetary": return addPlanetary(s, { id: c.id, plane: c.plane, at: c.at, spec: c.spec, ...(c.turn ? { turn: c.turn } : {}) });
     case "setPlanetary": return setPlanetary(s, c.id, c.spec, c.at, c.turn);

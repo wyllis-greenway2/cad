@@ -19,8 +19,8 @@ import type { CompileOutcome } from "../compiler/compile.ts";
 import type { Motion } from "./motion.ts";
 
 /** A body that yields: it turns about the axis through `point` with direction `dir` (or slides along `dir`), and stands at `value` degrees (mm) from where it was drawn. `rest`: where it goes back to when nothing holds it away (a spring, gravity: a follower dropping off a cam), as far as it is clear to. */
-export interface Pushable { body: Ref; kind: "turn" | "slide"; point: Vec3; dir: Vec3; value: number; /** the way it last went, so a tie goes on the same way */ way: 1 | -1; /** how far it was pushed the last time it was: the next push is about the same, so the search begins there */ push?: number; rest?: number }
-export interface Candidate { body: Ref; kind?: "turn" | "slide"; point: Vec3; dir: Vec3; rest?: number; way?: 1 | -1 }
+export interface Pushable { body: Ref; kind: "turn" | "slide"; /** the mate whose joint it is (for keeping the pose) */ mate?: string; point: Vec3; dir: Vec3; value: number; /** the way it last went, so a tie goes on the same way */ way: 1 | -1; /** how far it was pushed the last time it was: the next push is about the same, so the search begins there */ push?: number; rest?: number }
+export interface Candidate { body: Ref; kind?: "turn" | "slide"; mate?: string; point: Vec3; dir: Vec3; rest?: number; way?: 1 | -1 }
 export interface ContactState {
   pushables: Pushable[];
   /** the amount of the driver that was last worked out */
@@ -29,37 +29,18 @@ export interface ContactState {
   jam: string | null;
   /** the pairs ("a|b") that were already overlapping where the motion began: left out, so a body can be pulled out of another */
   ignore: string[];
+  /** the amount asked for when the call ran out of time and stopped short of it: the next frame goes on to it (a scrub does not play, so nothing else would) */
+  target?: number | null;
+  /** something to say about the mechanism that is not a jam: a chain that goes on past the depth of passed-on hardness */
+  note: string | null;
 }
 const MAX_PUSH = 12.8, STEP = 1, MAX_STEPS = 360, MAX_PASSES = 12;
+/** The time a call may take to work out its steps (ms), a part of a frame: past it the steps left are left for the next frame, so a long scrub or a heavy push plays slower, not frozen (`in_1019`, `dec_contact_push`). */
+const BUDGET_MS = 20;
 const nameOf = (scene: Scene, r: Ref): string => { const p = scene.parts[r]; return p?.kind === "body" && p.id ? p.id : r; };
 
-// ---- the triangles of a body: all of them, from the kernel's mesh ----
-/** The face planes of a body (`meshOf`) leave out the walls of a gear's teeth (a spline's walls are not parts of the scene), so a pair of gears never met. The kernel's own mesh has every face of the body; this reads it by the faces' ranges (the index list, three entries a triangle). */
-const kernelMeshes = new WeakMap<object, Map<Ref, { tris: number[]; tree: Tree } | null>>();
-function bodyMesh(scene: Scene, outcome: CompileOutcome | undefined, ref: Ref): { tris: number[]; tree: Tree } | null {
-  const k = outcome?.kernel;
-  const b = scene.parts[ref];
-  if (!outcome || !k?.mesh || !k.faces || b?.kind !== "body" || !b.id) return meshOf(scene, ref);
-  let per = kernelMeshes.get(outcome);
-  if (!per) { per = new Map(); kernelMeshes.set(outcome, per); }
-  const had = per.get(ref);
-  if (had !== undefined) return had;
-  const index = k.bodies ? k.bodies.findIndex((x) => x.id === b.id) : 0;
-  const several = (k.bodies?.length ?? 1) > 1;
-  let out: { tris: number[]; tree: Tree } | null = null;
-  if (index >= 0) {
-    const { vertices: v, triangles: t } = k.mesh;
-    const tris: number[] = [];
-    for (const f of k.faces) {
-      if (several && f.body !== index) continue;
-      const ranges = (f.ranges as { start: number; count: number }[] | undefined) ?? [{ start: f.start, count: f.count }];
-      for (const r of ranges) for (let i = r.start; i + 2 < r.start + r.count; i += 3) for (let c = 0; c < 3; c++) { const vi = t[i + c]! * 3; tris.push(v[vi]!, v[vi + 1]!, v[vi + 2]!); }
-    }
-    if (tris.length) out = { tris, tree: buildTree(tris) };
-  }
-  per.set(ref, out ?? meshOf(scene, ref));
-  return per.get(ref)!;
-}
+// ---- the triangles of a body: all of them, from the kernel's mesh (`meshOf`, `hard.ts`) ----
+const bodyMesh = (scene: Scene, outcome: CompileOutcome | undefined, ref: Ref): { tris: number[]; tree: Tree } | null => meshOf(scene, ref, outcome);
 
 // ---- the part of two bodies that can meet: their overlap in height along an axis ----
 const layerCache = new WeakMap<object, Map<string, { tris: number[]; tree: Tree } | null>>();
@@ -126,8 +107,25 @@ function apart(a: Tree, ra: Rigid, b: Tree, rb: Rigid, clearance: number): boole
   return false;
 }
 
+const DEPTH = 3; // (`dec_contact_push`, `in_1016`: hardness is passed on to three links)
+/**
+ * Who is solid at a pose of the motion: the bodies that are hard, and the bodies that touch a solid one, to `DEPTH` links from a hard body (touching: their boxes, each where its motion puts it, meet within a few tenths of a millimetre). A pair of the moving and yielding bodies is tested when either of
+ * the two is solid, so a push goes on for as many links as there are solid bodies and one more; a body that touches the last solid one is pushed by it and does not push. The note says when a chain goes on past the depth: a body touched by one at the last link that is not solid.
+ */
+function solidSet(scene: Scene, outcome: CompileOutcome | undefined, movers: Mover[], a: number, vals: number[]): { solid: Set<Ref>; note: string | null } {
+  const level = movers.map((m) => (isHard(scene, m.body) ? 0 : Infinity));
+  const boxes = movers.map((m) => { const mesh = bodyMesh(scene, outcome, m.body); return mesh ? boxUnder(mesh.tree, m.pose(a, vals)) : null; });
+  const touch = (i: number, j: number): boolean => { const [x, y] = [boxes[i], boxes[j]]; if (!x || !y) return false; for (let k = 0; k < 3; k++) if (x[1][k]! + 0.3 < y[0][k]! || y[1][k]! + 0.3 < x[0][k]!) return false; return true; };
+  for (let k = 1; k <= DEPTH; k++) for (let i = 0; i < movers.length; i++) if (level[i] === Infinity) for (let j = 0; j < movers.length; j++) if (level[j] === k - 1 && touch(i, j)) { level[i] = k; break; }
+  const solid = new Set<Ref>(movers.filter((_, i) => level[i]! <= DEPTH).map((m) => m.body));
+  let note: string | null = null;
+  // the chain goes on past the last solid body when the one it pushes touches another that is not solid
+  for (let i = 0; i < movers.length && !note; i++) if (level[i] === Infinity && movers.some((_, m) => m !== i && level[m] === Infinity && touch(i, m))) for (let j = 0; j < movers.length; j++) if (level[j] === DEPTH && touch(i, j)) { note = `${nameOf(scene, movers[j]!.body)} touches ${nameOf(scene, movers[i]!.body)}, past the depth of ${DEPTH}, and the chain goes on: mark a body in the middle hard to carry the push on`; break; }
+  return { solid, note };
+}
+
 /** The first thing a mover at `vals` is in, or null. `skip`: the mover (by index) that is being tried at another place, and the pairs to leave out. */
-function firstHit(scene: Scene, outcome: CompileOutcome | undefined, movers: Mover[], a: number, vals: number[], who: number, mated: Set<string>, ignore: ReadonlySet<string>, anyHard: boolean, statics: Ref[], clearance: number, only?: Ref): Ref | null {
+function firstHit(scene: Scene, outcome: CompileOutcome | undefined, movers: Mover[], a: number, vals: number[], who: number, mated: Set<string>, ignore: ReadonlySet<string>, solid: ReadonlySet<Ref>, statics: Ref[], clearance: number, only?: Ref): Ref | null {
   const me = movers[who]!;
   const rMe = me.pose(a, vals);
   const test = (other: Ref, rOther: Rigid, otherMover: Mover | null): boolean => {
@@ -143,7 +141,7 @@ function firstHit(scene: Scene, outcome: CompileOutcome | undefined, movers: Mov
   for (let j = 0; j < movers.length; j++) {
     if (j === who || movers[j]!.body === me.body) continue;
     if (only !== undefined && movers[j]!.yields && movers[j]!.body !== only) continue; // (a body that yields looks for room away from what does not: another that yields is dealt with when its own turn comes, so a chain is worked out one link at a time)
-    if (!anyHard && !meets(scene, me.body, movers[j]!.body)) continue;
+    if (!solid.has(me.body) && !solid.has(movers[j]!.body)) continue; // (a pair is tested when either is solid: hard, or touched by a solid body to the depth)
     if (test(movers[j]!.body, movers[j]!.pose(a, vals), movers[j]!)) return movers[j]!.body;
   }
   for (const s of statics) if (meets(scene, me.body, s) && test(s, IDENT, null)) return s;
@@ -153,22 +151,23 @@ function firstHit(scene: Scene, outcome: CompileOutcome | undefined, movers: Mov
 /** The pushables for a motion: bodies that can yield (given by the caller: the wheel of a Geneva drive, and the first bodies of coaxial mates that nothing else moves) as they stand at rest. */
 export function startContact(scene: Scene, m: Motion, candidates: Candidate[], outcome?: CompileOutcome): ContactState | null {
   const moving = new Set<Ref>([m.body, ...m.follows.map((f) => f.body)]);
-  const pushables: Pushable[] = candidates.filter((c) => !moving.has(c.body)).slice(0, 16).map((c): Pushable => ({ body: c.body, kind: c.kind ?? "turn", point: c.point, dir: c.dir, value: 0, way: c.way ?? -1, ...(c.rest !== undefined ? { rest: c.rest } : {}) }));
+  const pushables: Pushable[] = candidates.filter((c) => !moving.has(c.body)).slice(0, 16).map((c): Pushable => ({ body: c.body, kind: c.kind ?? "turn", ...(c.mate ? { mate: c.mate } : {}), point: c.point, dir: c.dir, value: 0, way: c.way ?? -1, ...(c.rest !== undefined ? { rest: c.rest } : {}) }));
   const bodies = [...moving, ...pushables.map((p) => p.body)];
   const anyHard = bodies.some((b) => isHard(scene, b));
   const staticsHard = Object.keys(scene.parts).some((r) => { const p = scene.parts[r as Ref]; return p?.kind === "body" && !!p.id && !bodies.includes(r as Ref) && isHard(scene, r as Ref); });
   if (!anyHard && !staticsHard) return null;
-  const contact: ContactState = { pushables, at: 0, jam: null, ignore: [] };
+  const contact: ContactState = { pushables, at: 0, jam: null, ignore: [], note: null };
   // what overlaps where the motion begins is left alone
   const movers = moversOf(m, contact), mated = matedPairs(scene), statics = staticBodies(scene, bodies);
   const vals: number[] = pushables.map(() => 0), ignore: string[] = [];
+  const solid = solidSet(scene, outcome, movers, 0, vals).solid;
   const clearance = scene.clearance ?? 0;
   const eps = m.kind === "turn" ? 0.1 : 0.05; // (a pair that clears when the driver is moved a hair either way is touching, not overlapping: the mesh test counts a touch as a hit)
   const touching: string[] = [];
   for (let i = 0; i < movers.length; i++) {
     for (;;) {
       const skip = new Set([...ignore, ...touching]);
-      const hit = firstHit(scene, outcome, movers, 0, vals, i, mated, skip, anyHard, statics, clearance);
+      const hit = firstHit(scene, outcome, movers, 0, vals, i, mated, skip, solid, statics, clearance);
       if (!hit) break;
       const key = [`${movers[i]!.body}|${hit}`, `${hit}|${movers[i]!.body}`];
       const without = new Set([...skip].filter((k) => !key.includes(k)));
@@ -177,7 +176,7 @@ export function startContact(scene: Scene, m: Motion, candidates: Candidate[], o
         const trial = vals.slice();
         const d = target >= 0 ? contact.pushables[target]!.kind === "slide" ? 0.05 : 0.1 : eps;
         if (target >= 0) trial[target] = vals[target]! + sgn * d;
-        return firstHit(scene, outcome, movers, target >= 0 ? 0 : sgn * d, trial, i, mated, without, anyHard, statics, clearance) !== hit;
+        return firstHit(scene, outcome, movers, target >= 0 ? 0 : sgn * d, trial, i, mated, without, solid, statics, clearance) !== hit;
       });
       const apart = nudge(-1) || (pi >= 0 && nudge(pi)) || (qi >= 0 && nudge(qi));
       (apart ? touching : ignore).push(...key);
@@ -192,21 +191,23 @@ const staticBodies = (scene: Scene, bodies: readonly Ref[]): Ref[] => Object.key
  * The motion worked out for the driver's amount, in steps from where it was last worked out: at each step the driver and what it carries are put where they go, and each body that yields is moved by the smallest amount that clears it. When one
  * cannot be cleared (it has nowhere to go) or a moving body meets a wall, the motion goes back to the last amount that was clear and stops, saying what it was against.
  */
-export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome): Motion {
+export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, budgetMs = BUDGET_MS): Motion {
+  const began = performance.now();
   const c = m.contact;
   if (!c) return m;
   if (Math.abs(m.amount - c.at) < 1e-9 && !c.jam) return m;
   const bodies = [m.body, ...m.follows.map((f) => f.body), ...c.pushables.map((p) => p.body)];
-  const anyHard = bodies.some((b) => isHard(scene, b));
   const movers = moversOf(m, c), mated = matedPairs(scene), statics = staticBodies(scene, bodies), ignore = new Set(c.ignore);
   const clearance = scene.clearance ?? 0;
   const vals = c.pushables.map((p) => p.value), ways = c.pushables.map((p) => p.way), kinds = c.pushables.map((p) => p.kind), pushes = c.pushables.map((p) => p.push ?? 0);
   const step = m.kind === "turn" ? STEP : STEP / 2;
   const from = c.at, n = Math.min(MAX_STEPS, Math.max(1, Math.ceil(Math.abs(m.amount - from) / step)));
-  let good = from, jam: string | null = null;
+  let good = from, jam: string | null = null, note: string | null = null, slow = false;
+  let solid: ReadonlySet<Ref> = new Set();
   for (let i = 1; i <= n && !jam; i++) {
     const a = from + ((m.amount - from) * i) / n;
     const was = vals.slice();
+    ({ solid, note } = solidSet(scene, outcome, movers, a, vals)); // (who is solid at this step: hard, or touched by a solid body to the depth)
     // each moving body against the rest, again until nothing is in anything (a body that yields may come to meet another)
     const first = 1 + m.follows.length;
     let settled = false;
@@ -216,12 +217,12 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome):
       const next = new Set<number>();
       for (const w of dirty) {
         if (jam) break;
-        const hit = firstHit(scene, outcome, movers, a, vals, w, mated, ignore, anyHard, statics, clearance);
+        const hit = firstHit(scene, outcome, movers, a, vals, w, mated, ignore, solid, statics, clearance);
         if (!hit) continue;
         const hitIx = c.pushables.findIndex((p) => p.body === hit);
         // who yields: a pushable that meets something that does not yield yields itself; a body that moves by its own rule, or a pushable, that meets a pushable makes that one yield
         const [pi, aside] = w >= first && hitIx < 0 ? [w - first, w] : [hitIx, hitIx >= 0 ? first + hitIx : -1];
-        if (pi < 0 || !yieldBody(scene, outcome, movers, a, vals, ways, kinds, pushes, pi, aside, movers[w]!.body, mated, ignore, anyHard, statics, clearance)) { jam = `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)}`; break; }
+        if (pi < 0 || !yieldBody(scene, outcome, movers, a, vals, ways, kinds, pushes, pi, aside, movers[w]!.body, mated, ignore, solid, statics, clearance)) { jam = `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)}`; break; }
         next.add(aside); // (it moved: it is tested again)
         if (w >= first) next.add(w); // (a body that yielded itself too)
       }
@@ -229,14 +230,14 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome):
       dirty = next;
     }
     if (!settled && !jam) { // the passes ran out with bodies still moving: say so, rather than leave bodies in each other without a word
-      for (let w = 0; w < movers.length && !jam; w++) { const hit = firstHit(scene, outcome, movers, a, vals, w, mated, ignore, anyHard, statics, clearance); if (hit) jam = `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)} (the chain is too long to settle)`; }
+      for (let w = 0; w < movers.length && !jam; w++) { const hit = firstHit(scene, outcome, movers, a, vals, w, mated, ignore, solid, statics, clearance); if (hit) jam = `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)} (the chain is too long to settle)`; }
     }
     // a body with a rest value goes back toward it as far as it is clear to (found by halving: a follower dropping off a cam, a pawl into the next tooth)
     for (let pi = 0; pi < c.pushables.length && !jam; pi++) {
       const rest = c.pushables[pi]!.rest;
       if (rest === undefined || Math.abs(vals[pi]! - rest) < 1e-9) continue;
       const w = first + pi, here = vals[pi]!;
-      const clearAt = (v: number): boolean => { vals[pi] = v; return firstHit(scene, outcome, movers, a, vals, w, mated, ignore, anyHard, statics, clearance) === null; };
+      const clearAt = (v: number): boolean => { vals[pi] = v; return firstHit(scene, outcome, movers, a, vals, w, mated, ignore, solid, statics, clearance) === null; };
       // a step toward the rest, no more than a body is thick (1 mm, or 4 degrees): so it cannot jump through anything on the way
       const limit = c.pushables[pi]!.kind === "slide" ? 1 : 4;
       const target = here + Math.max(-limit, Math.min(limit, rest - here));
@@ -247,18 +248,20 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome):
     }
     if (jam) { for (let k = 0; k < vals.length; k++) vals[k] = was[k]!; break; }
     good = a;
+    if (i < n && performance.now() - began > budgetMs) { slow = true; break; } // (the rest of the steps wait for the next frame)
   }
+  if (slow && !note) note = "this push is heavy: it plays slower than real time";
   const pushables = c.pushables.map((p, i) => ({ ...p, value: vals[i]!, way: ways[i]!, push: pushes[i]! }));
-  const follows = pushables.map((p): Follower => ({ gear: "", body: p.body, kind: p.kind, point: p.point, dir: p.dir, k: 0, value: p.value }));
-  return { ...m, amount: jam ? good : m.amount, playing: jam ? false : m.playing, from: jam ? good : m.from, startedAt: jam ? null : m.startedAt, contact: { ...c, pushables, at: good, jam }, yields: follows };
+  const follows = pushables.map((p): Follower => ({ gear: "", body: p.body, kind: p.kind, point: p.point, dir: p.dir, k: 0, value: p.value, ...(p.mate ? { mate: p.mate } : {}) }));
+  return { ...m, amount: jam || slow ? good : m.amount, playing: jam ? false : m.playing, from: jam || slow ? good : m.from, startedAt: jam || slow ? null : m.startedAt, contact: { ...c, pushables, at: good, jam, note, target: slow ? m.amount : null }, yields: follows };
 }
 
 /** Move pushable `pi` (mover `w`) by the smallest amount that leaves it clear of everything, trying the way it last went first: doubling the distance until clear, then halving to the nearest. False when there is none. */
-function yieldBody(scene: Scene, outcome: CompileOutcome | undefined, movers: Mover[], a: number, vals: number[], ways: (1 | -1)[], kinds: ("turn" | "slide")[], pushes: number[], pi: number, w: number, pusher: Ref, mated: Set<string>, ignore: ReadonlySet<string>, anyHard: boolean, statics: Ref[], clearance: number): boolean {
+function yieldBody(scene: Scene, outcome: CompileOutcome | undefined, movers: Mover[], a: number, vals: number[], ways: (1 | -1)[], kinds: ("turn" | "slide")[], pushes: number[], pi: number, w: number, pusher: Ref, mated: Set<string>, ignore: ReadonlySet<string>, solid: ReadonlySet<Ref>, statics: Ref[], clearance: number): boolean {
   const base = vals[pi]!;
   const slide = kinds[pi] === "slide";
   const dMax = slide ? MAX_PUSH / 2 : MAX_PUSH;
-  const clear = (v: number): boolean => { vals[pi] = v; return firstHit(scene, outcome, movers, a, vals, w, mated, ignore, anyHard, statics, clearance, pusher) === null; };
+  const clear = (v: number): boolean => { vals[pi] = v; return firstHit(scene, outcome, movers, a, vals, w, mated, ignore, solid, statics, clearance, pusher) === null; };
   // look outward a little at a time (the room between two teeth is a fraction of a degree wide, so a doubling would step over it), then in bigger steps
   const fine = slide ? 0.07 : 0.15, near = slide ? 2 : 4;
   const distances: number[] = [];
