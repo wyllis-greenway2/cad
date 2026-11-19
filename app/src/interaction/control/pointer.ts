@@ -134,7 +134,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
 /** a submenu: its own icon in the ring that opens another ring of what is in it (`in_588`: every gear tool is in the Gear submenu of Sketch) */
 interface Group { id: string; label: string; icon: string; items: (string | Group)[] }
 const GEARS: Group = {
-  id: "gears", label: "Gear", icon: "gear", items: [
+  id: "gears", label: "Gears", icon: "meshgear", items: [
     "tool:gear", "tool:ring", "tool:rack", "tool:planetary",
     { id: "bevels", label: "Bevel", icon: "bevelgear", items: ["tool:bevel", "tool:spiral", "tool:hypoid"] }, // (one bevel gear in the ring: straight, spiral or hypoid spiral, `in_1129`)
     { id: "crowns", label: "Crown", icon: "crowngear", items: ["tool:crown", "tool:face"] }, // (a face gear is a crown gear with a spur pinion, `in_1030`)
@@ -146,8 +146,9 @@ const GEARS: Group = {
   ],
 };
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
-  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", GEARS, "tool:trim", "op:offset"] },
-  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "fabricate", label: "Fabricate", icon: "hammer", items: ["fab:material", "tool:fasteners", { id: "models", label: "Models", icon: "models", items: ["tool:geneva:model", "model:gearbox", "model:bearing", "model:differential", "model:cycloidal"] }] }] },
+  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset"] },
+  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "fabricate", label: "Fabricate", icon: "hammer", items: ["fab:material", "tool:fasteners"] }] },
+  { id: "mechanisms", label: "Models", icon: "gear", items: [GEARS, "model:gearbox", "model:bearing", "model:differential", "model:cycloidal", "tool:geneva:model"] }, // (the gears, and the devices made of them, `in_1145`; the gears were in Sketch and the devices in Shape, Fabricate, Models)
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
