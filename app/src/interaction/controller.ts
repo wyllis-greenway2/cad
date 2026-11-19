@@ -14,7 +14,7 @@ import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
 import { doBodiesAction } from "./control/bodies.ts";
 import { doMotionKind, doMotionKeep, doMotionLink, doMotionRest, doMotionFix } from "./control/motion.ts";
-import { setPlaying, reverseMotion, motionHolds } from "./motion.ts";
+import { setPlaying, reverseMotion, motionHolds, setSpeed } from "./motion.ts";
 import { solveContact } from "./contact.ts";
 import { doStepGo, doStepEdit, doStepInsert, doStepSet, doStepLink, doParamSet, doParamRemove } from "./control/history.ts";
 import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doBuildNext, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
@@ -189,6 +189,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "motionAt": return s.motion ? { ...s, motion: solveContact(sceneOf(s.session), { ...s.motion, playing: false, startedAt: null, amount: Math.min(s.motion.hi, Math.max(s.motion.lo, Number.isFinite(i.amount) ? i.amount : 0)) }, s.session.outcome) } : s; // (the scrubber: a hand on it stops the play)
     case "motionPlay": return s.motion ? { ...s, motion: setPlaying(s.motion, !s.motion.playing) } : s;
     case "motionReverse": return s.motion ? { ...s, motion: reverseMotion(s.motion) } : s;
+    case "motionSpeed": return s.motion ? { ...s, motion: setSpeed(s.motion, i.k) } : s;
     case "motionKind": return doMotionKind(s, i.kind);
     case "motionLink": return doMotionLink(s, i);
     case "motionRest": return doMotionRest(s, i);

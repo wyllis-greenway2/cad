@@ -5015,3 +5015,10 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1168 — 2026-11-19 — directive
 > lets not have it say, instead lets have it flash red the remaining parts the relied on that constraint, and show their constraint bubble pop.
 (answers the AI's question of `in_1167`: when deleting a part takes constraints with it, it should not say so in words; it flashes red the parts that remained and relied on the constraint, and shows the constraint's bubble pop)
+
+> okay we should probably actually put the model back into its starting position when we go on the fix constraints path because it positions the constraints in the position of the original parts position. Also can we make the fix constraints button inline with the same media player element to the right? can we include a clock icon to the left next to the play and direction swapper that can be clicked on to adjust the speed of the rotation?
+(a screenshot of the zoomed pin drawn where the play had carried it, not where the constraint would be made; asks the walk to start from the model's starting position, the Fix Constraints button to be in the media bar at the right, and a clock icon by play and the direction switch that adjusts the speed)
+
+## in_1170 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the walk that starts from the start, the Fix Constraints button in the bar and the speed clock to be merged into the testing branch, no full test run)
