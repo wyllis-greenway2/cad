@@ -4890,3 +4890,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1134 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the fix-walk changes (the refused mate named, the file checked) to be merged into the testing branch, no full test run)
+
+## in_1135 — 2026-11-19 — question
+> @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/d9cc7a9a-why_jamb.json" If I load the file fresh and try to move the arm, it seems an aweful lot like it has a coaxial constraint, it flashes red and shows it to me see.
+(a screenshot of dragging the arm: "that cannot be done without breaking other constraints: the Concentric constraint ... the Tangent constraint (3 flash)"; says the arm looks held by a coaxial constraint)
