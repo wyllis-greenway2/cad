@@ -4275,3 +4275,6 @@ Branch `claude/adoring-dijkstra-carry`. **Message:** "Collision occurred" (the d
 
 ## Handoff 1069 — 2026-11-19 (in_1210: finer, lighter hatch on the cut face)
 `in_1210`. The cut face of a cross section is a lighter mid grey and its hatch has about two and a half times as many lines, lighter than before and still darker than the surface (`ui/view.ts`, the shader's two colours and the pitch; `dec_cross_section.md`). **Seen** in the browser on `why_jamb`; no test (it is the drawing); the numbers are mine. The full suite not run.
+
+## Handoff 1070 — 2026-11-19 (in_1211: the finer cut-face hatch merged into the testing branch)
+`in_1211`. Merged the testing branch's tip (1 commit, up to `in_1209`, Handoff 1068) into this branch and pushed to `claude/inspiring-pascal-l342k7`. **Numbers:** my `in_1209` became `in_1210`. **Conflicts:** `human-input.md` only, theirs first. Checked: the cut-face hatch seen in the browser before; no tests run for this merge, as asked.

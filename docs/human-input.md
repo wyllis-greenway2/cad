@@ -5159,5 +5159,12 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1208 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 
+## in_1209 — 2026-11-19 — directive
+> okay that is not off to a bad start, but lets make it much much more realistic. Lets first start with the piston. Lets make real pistons. Can we look up other designs and specs on how to make them?
+(asks for a much more realistic engine, starting with the piston: real pistons, from other designs and specs looked up)
+
 ## in_1210 — 2026-11-19 — directive
 > lets make the hatch pattern on cut aways be much finer more qty lines that are lighter gray, lets have them still darker then the dark grey of the cutaway surface which itself should also be slightly lighter grey.
+
+## in_1211 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
