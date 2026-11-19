@@ -5252,3 +5252,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1233 — 2026-11-19 — directive
 > yes draft the piston parameter list now
 (answers my offer to draft the piston parameter list as a provisional entry now, with the gaps marked open; approves the drafting, not the numbers in it)
+
+## in_1234 — 2026-11-19 — directive
+> lets try to find the gaps, can you research online more to find out about our gaps?
+(asks me to research online for the gaps listed in dec_piston_parameters: compression height, piston length, ring width and groove depth, pin length, boss spacing, weight)

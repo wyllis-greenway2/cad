@@ -3,7 +3,7 @@ id: dec_piston_parameters
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_1212, in_1215, in_1228, in_1229, in_1233
+human_input: in_1212, in_1215, in_1228, in_1229, in_1233, in_1234
 date: 2026-11-19
 depends_on:
   - dec_engine_model: the piston is a part of the engine model; its master numbers (bore, stroke, rod ratio) and the pin limit 0.18 to 0.4 come from there, and a change to how the engine is built changes what the piston must fit
@@ -18,21 +18,21 @@ The human asked for a really good engine builder starting with real pistons (`in
 
 | Parameter | Proposed rule | Evidence |
 |---|---|---|
-| Pin diameter | 0.265 B default; 0.18 to 0.4 B allowed (as accepted) | S: GX160 18 mm in 68 mm = 0.265 B |
+| Pin diameter | 0.265 B default; 0.18 to 0.4 B allowed (as accepted) | S: GX160 18 mm in 68 mm = 0.265 B; a patent for an opposed piston diesel gives 0.3 to 0.45 B (search summary) |
 | Compression ring height | 0.022 B, never under 1.0 mm | S: GX160 1.5 mm = 0.022 B; MAHLE packs 1.0 and 1.5 mm; NACA 817 0.0114 B |
 | Oil ring height | 0.037 B, never under 2.0 mm | S: GX160 2.5 mm; MAHLE 2.0 and 3.0 mm |
-| Ring radial width | 0.0245 B | S: NACA 817 0.150 in in 6.125 in; **no small engine source** |
+| Ring radial width | 0.045 B (the standard's thicker series D/22) for a cast iron ring; 0.0245 B for a thin steel ring | S: ISO 6622-1 offers cast iron rectangular rings in a regular and a thicker "D/22" radial wall (search summary of the table titles; **the regular value was not seen**); S: NACA 817 thin nitrided steel ring 0.150 in in 6.125 in |
 | Ring side clearance | 0.05 to 0.10 mm (engineered) | S: GX160 0.015 to 0.095 mm; Scraba 0.002 to 0.004 in street, under 0.002 race; NACA 817 0.14 to 0.19 mm (D) |
 | Groove depth | ring radial width + back clearance | S: NACA 817; **D:** back clearance 0.3 to 0.4 mm there; Scraba 0.5 mm (race) to 1.0 to 1.3 mm (production) |
 | Ring end gap | 0.004 B (0.003 to 0.006) | **D** from S: GX160 0.20 to 0.40 mm in 68 mm |
-| Top land | 0.08 B default, 0.03 to 0.12 B | S: Caterpillar 0.03 to 0.045 B (a 170 mm diesel); Scraba top ring 0.3 to 0.4 in (street) down to 0.06 in (drag) below the deck, **D** 0.075 to 0.10 B on an assumed 4 in bore; NACA 817 not resolved (one reading 0.12 B) |
+| Top land | 0.07 B default, **0.04 to 0.10 B for gasoline** | S: a Springer piston design chapter (search summary only) gives 4 to 10 % of the piston diameter for gasoline engines, shrinking to cut crevice emissions; S: Caterpillar 0.03 to 0.045 B (a 170 mm diesel); Scraba top ring 0.3 to 0.4 in (street) down to 0.06 in (drag) below the deck, **D** 0.075 to 0.10 B on an assumed 4 in bore; NACA 817 not resolved (one reading 0.12 B) |
 | Second land | 0.04 B | S: Scraba 0.150 to 0.180 in, **D** on an assumed 4 in bore; an unread MAHLE table summary 0.04 to 0.06 B |
 | Lower lands | 0.025 B | S: Scraba 0.070 to 0.125 in, same assumption |
 | Crown thickness | 0.08 B, 0.04 to 0.15 B | S: NACA 895 (8 to 30 % of the radius, thin crown runs cooler with oil cooling of the underside, thick with none); unread MAHLE summary 0.055 to 0.10 B |
 | Land diameter | smaller than the skirt: diametral clearance to the bore 0.003 B (top land more, 0.2 mm at 70 to 90 mm) | S: Scraba (the skirt takes the thrust, the lands grow hotter); cartecc 0.21 to 0.23 mm; NACA 817 0.0073 to 0.0090 B |
 | Skirt clearance (diametral) | **by class**, see below | S/D |
 | Skirt length | 0.49 B from crown to foot at most | D: NACA 817 3 in of 6.125; **no small single source** |
-| Compression height | **at least the stack:** top land + rings, grooves and lands + the pin's radius + a boss margin; the larger of that and the proportion | S: a textbook summary says the ring count, lands, pin and top land set a minimum; **no professional small piston gives the number**; the present 0.55 B is M |
+| Compression height | **at least the stack:** top land + rings, grooves and lands + the pin's radius + a boss margin; the larger of that and the proportion | S: a textbook summary says the ring count, lands, pin and top land set a minimum. **Modern motorcycle pistons are much lower than 0.55 B:** a maker's catalogue (Wössner, search summary, **mapping of values to bores not confirmed**) shows compression heights such as 23.50 and 25.30 mm, which on a 77 to 78 mm bore would be about 0.30 to 0.33 B; the present 0.55 B is M and probably suits a slow engine |
 
 **Skirt clearance by class (diametral):** cast aluminium 0.015 mm (0.0002 B, S: GX160); forged aluminium 0.05 mm (0.0006 B, S: Wiseco CRF250R, where in the piston it is measured is not stated; the Caterpillar patent 0.0006 B); large forged 0.004 B (S: NACA 817, 1940s); cast iron about 0.13 mm ("five thousandths of an inch", S: Kean, a 1910s text). The skirt is oval (smaller along the pin): cartecc cold clearance 0.2 mm along the pin axis against 0.1 mm across at the top of the skirt, 0.1 against 0.05 mm at the bottom (S, one unnamed engine).
 
@@ -50,7 +50,11 @@ Each is a choice the builder offers, with a source for it, not yet a feature:
 
 ## What is not known (the honest gaps)
 
-Compression height and piston length of a professional small piston; the oil ring's radial width and the groove depth of a car or motorcycle piston; the pin's length and the boss spacing; the weight; whether 0.265 B for the pin holds across makers (one engine); the top land of NACA 817. **I asked for no number to be invented: where there is no source the table says so.** The rod ratio is not a piston number and is left to `dec_engine_model` (its 0.2 to 0.5 limit has no professional evidence either way: the GX160 sheets give no rod length).
+After a second round of searching (`in_1234`, search summaries only: the pages themselves cannot be fetched from this environment):
+
+- **Filled in part:** the standard cast iron ring's radial width (the thicker series is D/22; the regular series not seen), the gasoline top land (4 to 10 % of the diameter, a book summary), the **GX160's rod length** (an aftermarket maker, ARC, sells a stock length billet rod at **3.303 in = 83.9 mm between centres**, which gives a rod ratio of **0.268** with the 45 mm stroke: inside the 0.2 to 0.5 limit and the usual 0.25 to 0.33; one parts vendor lists the OEM rod as 120 mm, which does not fit and is probably an overall length) and the **order of size of a motorcycle piston's compression height** (about 0.30 to 0.33 B in one catalogue).
+- **Still open:** the compression height and piston length of a *named* professional small piston (a Wössner, Wiseco, JE, Vertex or Honda drawing), groove depth, the pin's length and the boss spacing (a patent gives a bearing area rule: twice the pin diameter times each boss's bore length is 13 to 22 % of the bore squared in older pistons and 7 to 14 % in a newer design, which at a pin of 0.265 B would be a boss bore of 0.13 to 0.42 B each; **not yet checked in the patent itself**), the weight, and the top land of NACA 817. The skirt's length: no ratio found.
+- **I asked for no number to be invented:** where there is no source the table says so.
 
 ## Rationale
 
