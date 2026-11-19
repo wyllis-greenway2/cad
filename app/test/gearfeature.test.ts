@@ -30,30 +30,31 @@ test("a spur gear with a bore has its body, its two faces, its bore (a round fac
   const parts = ofBody(s);
   assert.equal(count(parts, "body"), 1);
   const planes = parts.filter((p) => p.kind === "plane");
-  const flat = planes.filter((p) => !(p as { curved?: unknown }).curved);
+  const flat = planes.filter((p) => !(p as { curved?: unknown }).curved && !(p as { rounded?: string }).rounded); // (the teeth are one face of their own, `in_1129`)
   assert.deepEqual(flat.map((p) => (p as { ref: string }).ref).sort(), ["b/body/f@0,0,-1,0", "b/body/f@0,0,1,10"], "its two faces, across the axis");
   const round = planes.filter((p) => (p as { curved?: unknown }).curved) as unknown as { curved: { radius: number; convex: boolean } }[];
   assert.equal(round.length, 1);
   assert.equal(round[0]!.curved.radius, 4, "the bore");
   assert.ok(count(parts, "line") <= 2 && count(parts, "corner") <= 2, `${count(parts, "line")} lines, ${count(parts, "corner")} corners`);
-  assert.ok(parts.length <= 8, `${parts.length} parts of the body (it was 2900)`);
+  assert.ok(parts.length <= 9, `${parts.length} parts of the body (it was 2900)`);
 });
 
 test("an internal gear keeps its two faces and the round wall outside it", () => {
   const parts = ofBody(extruded({ teeth: 40, module: 2, internal: true }));
   const round = parts.filter((p) => p.kind === "plane" && (p as { curved?: unknown }).curved) as unknown as { curved: { radius: number } }[];
   assert.equal(round.length, 1);
+  assert.equal(parts.filter((p) => p.kind === "plane" && (p as { rounded?: string }).rounded === "teeth").length, 1, "and one face for all the teeth (`in_1129`)");
   assert.ok(round[0]!.curved.radius > 40, `${round[0]!.curved.radius}`);
-  assert.ok(parts.length <= 8, `${parts.length}`);
+  assert.ok(parts.length <= 9, `${parts.length}`);
 });
 
 test("a helical gear and a worm wheel are one feature too", () => {
   const helical = ofBody(made({ teeth: 24, module: 2, helix: 15, width: 12, bore: 6 }));
-  assert.ok(helical.length > 0 && helical.length <= 8, `helical: ${helical.length} parts`);
-  assert.equal(helical.filter((p) => p.kind === "plane" && !(p as { curved?: unknown }).curved).length, 2);
+  assert.ok(helical.length > 0 && helical.length <= 9, `helical: ${helical.length} parts`);
+  assert.equal(helical.filter((p) => p.kind === "plane" && !(p as { curved?: unknown }).curved && !(p as { rounded?: string }).rounded).length, 2);
   const wheel = ofBody(made({ teeth: 24, module: 2, bore: 8, wheel: { diameter: 24, starts: 1, width: 10 } }));
-  assert.ok(wheel.length > 0 && wheel.length <= 8, `wheel: ${wheel.length} parts`);
-  assert.equal(wheel.filter((p) => p.kind === "plane" && !(p as { curved?: unknown }).curved).length, 2);
+  assert.ok(wheel.length > 0 && wheel.length <= 9, `wheel: ${wheel.length} parts`);
+  assert.equal(wheel.filter((p) => p.kind === "plane" && !(p as { curved?: unknown }).curved && !(p as { rounded?: string }).rounded).length, 2);
 });
 
 test("a body that is not wholly a gear keeps every part (a gear that has been moved off its record, or joined to something)", () => {
@@ -72,5 +73,5 @@ test("a body that is not wholly a gear keeps every part (a gear that has been mo
 
 test("a gear of a hundred teeth has a few dozen parts in all, not tens of thousands", () => {
   const s = extruded({ teeth: 100, module: 1 });
-  assert.ok(ofBody(s).length <= 8, `${ofBody(s).length}`);
+  assert.ok(ofBody(s).length <= 9, `${ofBody(s).length}`);
 });

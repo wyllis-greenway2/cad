@@ -13,7 +13,7 @@ import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
 import { doBodiesAction } from "./control/bodies.ts";
 import { doMotionKind, doMotionKeep, doMotionLink, doMotionRest, doMotionFix } from "./control/motion.ts";
-import { setPlaying, reverseMotion } from "./motion.ts";
+import { setPlaying, reverseMotion, motionHolds } from "./motion.ts";
 import { solveContact } from "./contact.ts";
 import { doStepGo, doStepEdit, doStepInsert, doStepSet, doStepLink, doParamSet, doParamRemove } from "./control/history.ts";
 import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
@@ -51,6 +51,7 @@ const RESUMING = new Set<Intent["type"]>(["hover", "hoverEnd", "click", "orbit",
 export function reduce(s: AppState, i: Intent, env: Env): AppState {
   if (s.adding && i.type === "click" && !i.shift && !s.tool && !s.op && !s.repeat && !s.cut && !s.picking) i = { ...i, shift: true }; // (adding: a tap is a Shift click, `in_539`)
   let next = apply(s, i, env);
+  if (next.motion && sceneOf(next.session) !== sceneOf(s.session)) { const held = motionHolds(sceneOf(next.session), next.motion); next = held === next.motion ? next : { ...next, motion: held }; } // (what a motion moves is deleted or undone: it stops, `in_1129`)
   if (i.type === "faceKind" || i.type === "sizeKind" || i.type === "loftKind" || i.type === "similarRule" || i.type === "cut") next = { ...next, optionAt: null }; // (an option chosen by the pointer: the keyboard's place in the bar starts from there again, `in_664`)
   if (next.cam !== s.cam || next.session.history.scene !== s.session.history.scene || next.lastSeen === null) next = noteSeen(next, env.w, env.h, projector(next.cam, env.w, env.h).project as (p: Vec3) => [number, number]); // (what was last in view, for Reset camera, `in_303`)
   if (next.awaiting && next.session.click.selection.join("|") !== s.session.click.selection.join("|")) next = settleAwaiting(next, env.now); // (what a pressed, dimmed item waited for is selected: it runs, `in_951`)

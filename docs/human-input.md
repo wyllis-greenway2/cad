@@ -4855,3 +4855,13 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1128 — 2026-11-19 — question
 > okay what next?
+
+## in_1129 — 2026-11-19 — directive
+> Lets just have one bevel gear option with sub options of bevel, bevel spiral, and hypoid spiral. lets also have new icons for the bevels. Maybe more 3d like a cone section etc. 
+> You cant select any worm gear with any surface except the ends. 
+> 
+> An animation seems to keep animating in the play bar even after it is deleted. 
+> 
+> Lets make the cross section plane have a more intuitive interface with an xyz thing that has selectable panes just like the world view ones, selecting a pane does cutaway on that pane. you can pull the arrows to adjsut and it should have the ability to swap between xyz mode and rotate mode just like objects do. you should be able to position the orb and the cut plane by clicking on lines and surfaces just like how the mover orb works elsewhere. Also can we have the cut surfaces be darker grey and have the hatch pattern?
+> 
+> also when you click a constraint, it should highlight the parts involved in the constraint. It doesn't seem to do this now and it is really hard to tell what a constraint is even for.

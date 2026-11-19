@@ -67,10 +67,11 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:disc:parabolic", label: "Parabolic", icon: "cam", tool: "cam" },
   { id: "tool:trim", label: "Trim", icon: "scissors", tool: "trim" },
   { id: "tool:gear", label: "Spur gear", icon: "gear", tool: "gear" },
-  { id: "tool:bevel", label: "Bevel gear", icon: "bevelgear", tool: "gear" },
+  { id: "tool:bevel", label: "Bevel", icon: "bevelgear", tool: "gear" },
   { id: "tool:crown", label: "Crown gear", icon: "crowngear", tool: "gear" },
   { id: "tool:face", label: "Face gear", icon: "facegear", tool: "gear" },
-  { id: "tool:spiral", label: "Spiral hypoid", icon: "spiralbevel", tool: "gear" },
+  { id: "tool:spiral", label: "Spiral bevel", icon: "spiralbevel", tool: "gear" },
+  { id: "tool:hypoid", label: "Hypoid spiral", icon: "hypoidbevel", tool: "gear" }, // (a spiral bevel gear with the pinion's axis below the ring gear's: the spiral tool with a hypoid offset typed in, `in_1129`)
   { id: "tool:worm", label: "Worm", icon: "worm", tool: "gear" },
   { id: "tool:wormwheel", label: "Worm wheel", icon: "wormwheel", tool: "gear" },
   { id: "tool:planetary", label: "Planetary set", icon: "planetary", tool: "gear" },
@@ -135,7 +136,7 @@ interface Group { id: string; label: string; icon: string; items: (string | Grou
 const GEARS: Group = {
   id: "gears", label: "Gear", icon: "gear", items: [
     "tool:gear", "tool:ring", "tool:rack", "tool:planetary",
-    "tool:bevel", "tool:spiral",
+    { id: "bevels", label: "Bevel", icon: "bevelgear", items: ["tool:bevel", "tool:spiral", "tool:hypoid"] }, // (one bevel gear in the ring: straight, spiral or hypoid spiral, `in_1129`)
     { id: "crowns", label: "Crown", icon: "crowngear", items: ["tool:crown", "tool:face"] }, // (a face gear is a crown gear with a spur pinion, `in_1030`)
     { id: "worms", label: "Worm", icon: "worm", items: ["tool:worm", "tool:wormwheel"] },
     { id: "clockgears", label: "Clock", icon: "clockgear", items: ["tool:clock", "tool:clockring", "tool:clockrack"] },
