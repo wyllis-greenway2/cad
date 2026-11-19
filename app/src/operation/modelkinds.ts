@@ -15,7 +15,7 @@ import type { CycloidalSpec } from "./modelcycloidal.ts";
 import { engineSteps, engineProblem, engineGeometry, engineFootprint, engineDisplacement, ENGINE_START, ENGINE_PRESETS } from "./modelengine.ts";
 import type { EngineSpec } from "./modelengine.ts";
 import { fitNumbers } from "./modelfit.ts";
-import { wheelSteps, wheelCutSteps, wheelProblem, wheelLines, repairWheel, WHEEL_START } from "./modelwheel.ts";
+import { wheelSteps, wheelCutSteps, wheelProblem, wheelLines, repairWheel, edgeMade, WHEEL_START } from "./modelwheel.ts";
 import type { WheelSpec } from "./modelwheel.ts";
 
 export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "wheel" | "wheelcut";
@@ -23,7 +23,7 @@ export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "dif
 /** The numbers of a model, by name */
 export type Nums = Record<string, number>;
 /** One number of a model: what it is called, a line that says what it is, and whether it grows with the overall size (a length of the thing, not a room left for the printer or a count) */
-export interface ModelField { key: string; label: string; hint: string; scaled?: true; /** not shown in the box: a number the box's Size sets (`Def.sizeKey`) */ hidden?: true; /** a whole number (teeth, stages, pins): moved a whole step at a time (`modelfit.ts`); `zero`: and 0 is allowed */ whole?: true; zero?: true; /** the key of a fillet-or-chamfer number the box shows as a little toggle beside this one (a radius: 0 a fillet, 1 a chamfer) */ toggle?: string; /** shown only while the number `key` has this value (a bearing's box shows the numbers of the source chosen at its top, `in_1196`) */ when?: { key: string; is: number }; /** shown at the top of the box, above the size and the turn */ top?: true; /** the names of the values of a field that is a toggle button (its value is the place of the one chosen) */ choices?: string[] }
+export interface ModelField { key: string; label: string; hint: string; scaled?: true; /** not shown in the box: a number the box's Size sets (`Def.sizeKey`) */ hidden?: true; /** a whole number (teeth, stages, pins): moved a whole step at a time (`modelfit.ts`); `zero`: and 0 is allowed */ whole?: true; zero?: true; /** the key of a fillet-or-chamfer number the box shows as a little toggle beside this one (a radius: 0 a fillet, 1 a chamfer) */ toggle?: string; /** shown only while the number `key` has this value (a bearing's box shows the numbers of the source chosen at its top, `in_1196`) */ when?: { key: string; is: number; /** shown while the number is NOT this value */ not?: true }; /** shown at the top of the box, above the size and the turn */ top?: true; /** the names of the values of a field that is a toggle button (its value is the place of the one chosen) */ choices?: string[] }
 /** a picture made of lines in the model's plan, each line a list of points (closed ones repeat their first) */
 export type Lines = [number, number][][];
 
@@ -74,10 +74,11 @@ function wheelDef(cutting: boolean): Def {
       F("rimT", "Rim thickness", "mm along the axis (the wheel's width at the rim)", true), F("web", "Spoke thickness", "mm along the axis: the web and the spokes are this thick", true), F("hubT", "Hub thickness", "mm along the axis (the hub's length)", true),
       F("spokes", "Spoke count", "0: a plain web; else the number of cutouts in it (3 to 24)"), F("spokeW", "Spoke width", "mm across a spoke, at the hub end", true), F("taper", "Spoke taper", "how much narrower a spoke is at the rim end, as a share of its width (negative: wider)"), F("spiral", "Spoke spiral", "degrees a spoke turns from the hub to the rim (0: straight)"),
       F("rimOff", "Spoke rim offset", "mm a cutout stops short of the rim (from its wall): 0 and the spokes run into the rim; less than the join radius and it cuts into the fillet", true), F("hubOff", "Spoke hub offset", "mm a cutout stops short of the hub (from its wall): 0 and the spokes run into the hub", true),
-      { ...F("corner", "Spoke radius", "mm: every corner of a cutout is rounded (or chamfered), at least 0.8", true), toggle: "cornerKind" },
-      { ...F("edge", "Spoke join radius", "mm: the round on the edges where the cutouts meet the web's faces; 0 for none (needs cutouts); a spoke keeps a flat top of at least 0.4 mm", true), toggle: "edgeKind" },
-      { ...F("rimJoin", "Rim join radius", "mm: where the web meets the rim; at least 0.8 (0.030 in), no corner is left square", true), toggle: "rimJoinKind" },
-      { ...F("hubJoin", "Hub join radius", "mm: where the web meets the hub; at least 0.8", true), toggle: "hubJoinKind" },
+      { ...F("edge", "Spoke radius", "mm: the radius of the spoke itself, the round on the edges where the cutouts meet the web's faces; 0 for none (a chamfer with the toggle); it is made as big as the web and the spoke allow, and not where a cutout runs into the hub or the rim", true), toggle: "edgeKind" },
+      { ...F("corner", "Spoke join radius", "mm: where a cutout's sides meet the hub and the rim; 0 for square; it is made as big as the room between the spokes allows", true), toggle: "cornerKind" },
+      { ...F("obtuse", "Spoke obtuse radius", "mm: the same at the blunter corner of a cutout, which a spiral makes (it follows the spoke join radius and the spiral while it is not typed)", true), toggle: "cornerKind", when: { key: "spiral", is: 0, not: true } },
+      { ...F("rimJoin", "Rim join radius", "mm: where the web meets the rim; 0 for square", true), toggle: "rimJoinKind" },
+      { ...F("hubJoin", "Hub join radius", "mm: where the web meets the hub; 0 for square", true), toggle: "hubJoinKind" },
       ...(cutting ? [] : [F("draft", "Draft", "degrees the rim's and the hub's walls lean away from the middle: 0 for a machined wheel, 1 to 3 for a cast one")]),
       ...["cornerKind", "edgeKind", "rimJoinKind", "hubJoinKind"].map((k) => ({ ...F(k, k, ""), choices: ["Fillet", "Chamfer"], hidden: true as const }))],
     start: cutting ? { ...WHEEL_START, hubT: WHEEL_START.rimT, draft: 0 } : { ...WHEEL_START },
@@ -88,7 +89,7 @@ function wheelDef(cutting: boolean): Def {
     centre: () => [0, 0],
     build: (n, place) => (cutting ? wheelCutSteps(wh(n), place) : wheelSteps(wh(n), place)),
     outline: (n) => (wheelProblem(wh(n), cutting) ? [] : wheelLines(wh(n))),
-    about: (n) => `${wh(n).outer} mm across, ${Math.round(wh(n).spokes) ? `${Math.round(wh(n).spokes)} cutouts in the web` : "a plain web"}, ${wh(n).bore} mm bore${wh(n).draft ? `, ${wh(n).draft} degrees of draft on the rim and hub` : ", no draft"}`,
+    about: (n) => `${wh(n).outer} mm across, ${Math.round(wh(n).spokes) ? `${Math.round(wh(n).spokes)} cutouts in the web` : "a plain web"}, ${wh(n).bore} mm bore${wh(n).draft ? `, ${wh(n).draft} degrees of draft on the rim and hub` : ", no draft"}${wh(n).edge > 0 && Math.round(wh(n).spokes) > 0 && !edgeMade(wh(n)) ? "; no spoke radius made: it is bigger than the web and the spoke allow, or a cutout runs into the hub or the rim, or is pointed or narrow" : ""}`,
   };
   if (cutting) def.fields = def.fields.filter((f) => !["bore", "rimT", "hubT"].includes(f.key)); // (the bore and the thickness are the body's)
   return def;

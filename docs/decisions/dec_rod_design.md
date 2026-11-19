@@ -3,7 +3,7 @@ id: dec_rod_design
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1249
+human_input: in_1250
 date: 2026-11-19
 depends_on:
   - dec_engine_model: the rod is a part of the engine and keeps its length, eyes and motion (the slider crank); a change to how the rod moves changes the cap's follower
@@ -13,7 +13,7 @@ alternative_to:
 ---
 # The connecting rod: an I-beam, and a big end split into rod and cap with two bolt holes
 
-The human chose the connecting rod as the next part (`in_1249`). What the sources give is little (Honda: the eyes' sizes 18.002 and 30.02 mm, the length 83.8 to 84.4 mm, 140 g, bolt torque 12 N m for a GX160; Kean: I-section rods, a removable cap on the crank end, a bored beam): **every shape number below is ASSUMED**, and marked so in the code and the engine's box.
+The human chose the connecting rod as the next part (`in_1250`). What the sources give is little (Honda: the eyes' sizes 18.002 and 30.02 mm, the length 83.8 to 84.4 mm, 140 g, bolt torque 12 N m for a GX160; Kean: I-section rods, a removable cap on the crank end, a bored beam): **every shape number below is ASSUMED**, and marked so in the code and the engine's box.
 
 - **The beam is an I-section:** a pocket cut into each flat face of the beam, between the eyes, leaving a web of **0.3 of the rod's thickness** in the middle and flanges at the edges **0.3 of the small end's half width** wide (at least 0.8 mm).
 - **The big end is split** at the crank pin's centre, across the rod: the half toward the crank is a **separate body, the Rod cap**, the other half is the rod's. Each half has a lug either side, and a **bolt hole** along the rod's axis through both lugs (bolt diameter 0.09 of the bore, at least 2 mm, lugs 1.5 bolt diameters long). The bolts themselves are not modelled.

@@ -5314,5 +5314,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (approves building the oil drain holes, A8 of dec_piston_parameters, the last of the assumed rules with a visible effect)
 
 ## in_1249 — 2026-11-19 — directive
+> the spokes seem to fail much too soon when the hub diameter and hub offset get small. The spokes could merge with each other if needed. I really dont see why they should ever fail at all over this. The spoke width seems to fail for similar reasons when you make it fatter. Just move the spoke radius up between the tangents of the spoke lines. dont fail it. The spoke taper also sees to fail too easily. Also the spoke radius and join raidus are swapped from what I intended. Also they seem way to sensitive to failure too. Also as it spirals more and more, I think we need to add a special bigger radius to the more obtuse connection in order to make it look right. Maybe open that up as a new perameter when a spiral exists and also set it larger as others are set to try to keep it looking natural. Also we should probably allow users to go all the way to 0 radius even though it is not really manufacturable, because generally modeling is supposed to be manufacturing agnostic.
+(with a screenshot of a spiral spoke's cutout, a banana shape with a rounded point; says the spokes fail too soon when the hub and hub offset are small, when the spoke width or taper is big, and the radii are too sensitive; spokes may merge; a radius too big is to be made as big as the room between the spoke lines allows, not refused; the spoke radius and the spoke join radius are swapped; a spiral needs a bigger radius at the blunter corner, as a new number shown while there is a spiral and following the others; and every radius may go to 0, since modelling is manufacturing agnostic)
+
+## in_1250 — 2026-11-19 — directive
 > do the connecting rod next
 (chooses the connecting rod as the next part of the engine builder to make realistic)
