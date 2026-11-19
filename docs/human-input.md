@@ -4465,3 +4465,15 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1026 — 2026-11-19 — directive
 > why don't you try hitting ctrl z in the file and see if you can isolate why my circle kept ending on the wrong plane. It was the correct plane orientation but the wrong hieght, not inline with the sketch I was working on
 (asks the AI to undo through the file to find why the circle ended on `w/XY`; see handoff 915)
+
+## in_1027 — 2026-11-19 — question
+> When I run this why does it jamb? doesn't our animation system say it should push objects?
+(the file `why_does_it_jamb.json`: the big gear with its pin turns against the lever and stops; the lever has no joint, so nothing yields)
+
+## in_1028 — 2026-11-19 — directive
+> would it be a good idea to let it just move the body as long as it didn't voilate constraints? somewhat like how you can free move a body as long as it doesn't voilate constraints? Or is that a bad idea?
+(proposes that a pushed hard body with no joint just moves wherever its constraints allow)
+
+## in_1029 — 2026-11-19 — approval
+> yes please, I will take your recomendations
+(approves the AI's recommendations for the free push: the default for a hard body with no joint, a cap on how far a pushed body may travel in one play, and an "it stays where it ends up" option next to Keep pose; and asks to write the entry and build it)
