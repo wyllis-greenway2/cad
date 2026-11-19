@@ -4783,3 +4783,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1107 — 2026-11-19 — directive
 > okay why don't you try it and tell me what you think? It still seems a bit chunky and bouncy when it gets to situations where it needs to rotate
 (asks the AI to try it itself; the push is chunky and bouncy where a body needs to turn)
+
+## in_1108 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for `claude/adoring-dijkstra-worker` to be merged into the testing branch without a full test run; it carries the thread that works the push ahead, the pin-in-hole suggestion, the flat-scope message, the smoothed picture of a body with no joint, and the 2D prototype)
