@@ -3,7 +3,7 @@ id: dec_piston_parameters
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_1212, in_1215, in_1228, in_1229, in_1233, in_1234
+human_input: in_1212, in_1215, in_1228, in_1229, in_1233, in_1235
 date: 2026-11-19
 depends_on:
   - dec_engine_model: the piston is a part of the engine model; its master numbers (bore, stroke, rod ratio) and the pin limit 0.18 to 0.4 come from there, and a change to how the engine is built changes what the piston must fit
@@ -50,7 +50,7 @@ Each is a choice the builder offers, with a source for it, not yet a feature:
 
 ## What is not known (the honest gaps)
 
-After a second round of searching (`in_1234`, search summaries only: the pages themselves cannot be fetched from this environment):
+After a second round of searching (`in_1235`, search summaries only: the pages themselves cannot be fetched from this environment):
 
 - **Filled in part:** the standard cast iron ring's radial width (the thicker series is D/22; the regular series not seen), the gasoline top land (4 to 10 % of the diameter, a book summary), the **GX160's rod length** (an aftermarket maker, ARC, sells a stock length billet rod at **3.303 in = 83.9 mm between centres**, which gives a rod ratio of **0.268** with the 45 mm stroke: inside the 0.2 to 0.5 limit and the usual 0.25 to 0.33; one parts vendor lists the OEM rod as 120 mm, which does not fit and is probably an overall length) and the **order of size of a motorcycle piston's compression height** (about 0.30 to 0.33 B in one catalogue).
 - **Still open:** the compression height and piston length of a *named* professional small piston (a Wössner, Wiseco, JE, Vertex or Honda drawing), groove depth, the pin's length and the boss spacing (a patent gives a bearing area rule: twice the pin diameter times each boss's bore length is 13 to 22 % of the bore squared in older pistons and 7 to 14 % in a newer design, which at a pin of 0.265 B would be a boss bore of 0.13 to 0.42 B each; **not yet checked in the patent itself**), the weight, and the top land of NACA 817. The skirt's length: no ratio found.
