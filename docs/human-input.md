@@ -4945,3 +4945,17 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1148 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the corrected carried lever to be merged into the testing branch, no full test run)
+
+## in_1149 — 2026-11-19 — question
+> okay so what next?
+(asks what to do after the straddling-constraint audit; the AI recommended running the tests, the drag and typed-number channels, and answering the parallel/perpendicular-to-an-edge question)
+
+## in_1150 — 2026-11-19 — approval
+> go with 1 then 3
+(approves the AI's recommendation of `in_1149`: first run the tests of the merged work properly, then audit the drag and typed-number channels)
+
+## in_1151 — 2026-11-19 — question
+> how are the tests?
+
+## in_1152 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
