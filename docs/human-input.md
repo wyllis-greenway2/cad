@@ -4866,3 +4866,15 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1129 — 2026-11-19 — approval
 > go ahead in that order, offer both overall size and the numbers
 (approves the plan of in_1120: first click-to-place with a simple preview and a size field and the numbers, then the models built one part at a time with labels, then Play for each; offers both an overall size and the numbers)
+
+## in_1130 — 2026-11-19 — directive
+> lets get rid of "What the bar items are
+>
+> “turned −41.5°”: the joint’s current angle.
+> “turning”: the switch between turning and sliding the joint. It only matters when the body could do either.
+> “x_s_083 back to [ ] °”: a number box, not a dropdown. It sets where a body that gets pushed returns to when nothing holds it away. Empty means it stays where it was pushed. This came from a feature you asked for earlier (in_1020)." also why doesn't it offer to fix this model? it sees like a pretty obvious coaxial solution?
+(asks to take the angle read-out, the turn/slide switch and the "back to" box out of the motion bar, and why a lever plainly on a pin is not offered the coaxial fix)
+
+## in_1131 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests. Then Also this message is very jumpy. Can we just get rid of this entirely? we should just detect issues and go into detail on the fix flow if the user clickes fix.
+(attached a screencast of the motion bar with the "this push is heavy" note and the pin-in-hole note alternating; asks for the merge, then for those notes to go: issues are only detected, and the detail is in the fix flow)

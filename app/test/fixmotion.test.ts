@@ -112,3 +112,19 @@ test("too little played: it asks for more play first", () => {
   const st = doMotionFix({ ...createState(s), motion: m }, "open");
   assert.match(st.session.message ?? "", /play the motion a little first/);
 });
+
+test("the lever on the gear's pin (it slides and turns by what it meets, so no one axis fits): the model still says it is on a pin, and the mate is offered", () => {
+  const s = (openSession(kernel, readFileSync(new URL("./fixtures/lever-pin-jam.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+  const sc = scene(s);
+  const r = startMotion(sc, "b/x_s_002/o" as never, "turn", s.outcome);
+  if (!r.ok) throw new Error(r.why);
+  const m = solveContact(sc, { ...r.motion, playing: true, amount: 120 }, s.outcome, Infinity);
+  let st: AppState = { ...createState(s), motion: m };
+  st = doMotionFix(st, "open");
+  const plan = st.motion?.fix?.plan;
+  assert.ok(plan && plan.fixes.length === 1, st.session.message ?? "");
+  assert.equal(plan!.fixes[0]!.how, "mate");
+  assert.match(plan!.fixes[0]!.text, /is on a pin of x_s_002/);
+  st = doMotionFix(st, "apply");
+  console.log("pin file apply:", st.session.message);
+});
