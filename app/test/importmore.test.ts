@@ -13,6 +13,7 @@ import { importAny } from "../src/interaction/importfile.ts";
 import { exportDialog, importDialog, KIND_OF } from "../src/interaction/transfer.ts";
 import { parseDxf, binaryDxfText } from "../src/compiler/flatparse.ts";
 import { parseObj } from "../src/compiler/meshfile.ts";
+import { boundsOf } from "../src/compiler/flatfile.ts";
 import { objBytes } from "../src/compiler/obj.ts";
 
 await kernel.init();
@@ -141,4 +142,46 @@ test("the dialogs offer OBJ: Export lists it, Import knows .obj and says an OBJ 
   assert.equal(KIND_OF("a.OBJ"), "obj");
   const i = importDialog("a.obj", {});
   assert.match(JSON.stringify(i.fields), /no units of its own/);
+});
+
+// ---------- DXF blocks, inserts and layers ----------
+test("DXF blocks: inserts (plain, turned and doubled, mirrored, an array of 3 by 2, nested, uneven scale) come in where ezdxf puts them: the same extents and the same circles", () => {
+  const r = parseDxf(text(fixture("ezdxf-blocks.dxf")));
+  assert.ok(r.ok);
+  assert.deepEqual(boundsOf(r.pieces), { min: [-5, -5], max: [345, 305] }); // ezdxf: (-5, -5) to (345, 305)
+  const circles = r.pieces.flatMap((p) => (p.k === "circle" ? [[...p.c.map((x) => +x.toFixed(3)), +p.r.toFixed(3)]] : []));
+  const want = [[0, 205, 3], [105, 0, 3], [108.66, 55, 6], [205, 0, 3], [205, 40, 3], [265, 0, 3], [265, 40, 3], [325, 0, 3], [325, 40, 3], [95, 100, 3]]; // (ezdxf's circles; the mirrored one is at x 95 in the world, -95 in its own mirrored frame)
+  assert.deepEqual(circles.sort(), want.sort());
+  assert.equal(r.pieces.filter((p) => p.k === "arc").length, 10);
+});
+
+test("DXF blocks: 12 inserts are placed and said; the uneven scale turns a circle and an arc into short lines and says so; nothing is left out for want of the block", () => {
+  const r = parseDxf(text(fixture("ezdxf-blocks.dxf")));
+  assert.ok(r.ok);
+  assert.ok(r.notes.some((n) => /12 block inserts placed/.test(n)));
+  assert.ok(r.notes.some((n) => /^2 curves/.test(n)));
+  assert.ok(!r.notes.some((n) => /left out: .*INSERT/.test(n)));
+});
+
+test("DXF layers: what is on a layer that is off or frozen is left out, and said", () => {
+  const r = parseDxf(text(fixture("ezdxf-blocks.dxf")));
+  assert.ok(r.ok);
+  assert.ok(r.notes.some((n) => /2 pieces on switched-off or frozen layers left out/.test(n)));
+  assert.ok(r.pieces.some((p) => p.k === "seg" && p.p[1] === 10 && p.q[1] === 10), "the line on the layer that is on stays");
+  assert.ok(!r.pieces.some((p) => p.k === "seg" && p.p[1] === 0 && p.q[0] === 10 && p.p[0] === 0), "the line on the off layer does not");
+  assert.ok(!r.pieces.some((p) => p.k === "seg" && p.p[1] === 5 && p.q[1] === 5 && p.p[0] === 0), "nor the one on the frozen layer");
+});
+
+test("DXF blocks: an insert of a block that is not in the file is left out and said", () => {
+  const t = "0\nSECTION\n2\nENTITIES\n0\nLINE\n8\n0\n10\n0\n20\n0\n11\n5\n21\n0\n0\nINSERT\n8\n0\n2\nGONE\n10\n0\n20\n0\n0\nENDSEC\n0\nEOF\n";
+  const r = parseDxf(t);
+  assert.ok(r.ok);
+  assert.ok(r.notes.some((n) => /left out: 1 INSERT/.test(n)));
+});
+
+test("DXF blocks: a block that inserts itself stops, not loops", () => {
+  const t = "0\nSECTION\n2\nBLOCKS\n0\nBLOCK\n2\nA\n10\n0\n20\n0\n0\nLINE\n8\n0\n10\n0\n20\n0\n11\n1\n21\n0\n0\nINSERT\n8\n0\n2\nA\n10\n1\n20\n0\n0\nENDBLK\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n0\nINSERT\n8\n0\n2\nA\n10\n0\n20\n0\n0\nENDSEC\n0\nEOF\n";
+  const r = parseDxf(t);
+  assert.ok(r.ok);
+  assert.ok(r.notes.some((n) => /nested too deep/.test(n)));
 });

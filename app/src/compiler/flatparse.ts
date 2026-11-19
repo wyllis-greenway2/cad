@@ -98,21 +98,65 @@ export function parseDxf(text: string, opts: { unitMm?: number } = {}): Parsed {
   // the entities section only
   const start = pairs.findIndex(([c, v], i) => c === 0 && v === "SECTION" && pairs[i + 1]?.[0] === 2 && pairs[i + 1]?.[1] === "ENTITIES");
   if (start < 0) return { ok: false, error: "this DXF has no ENTITIES section" };
-  const ents: { type: string; g: [number, string][] }[] = [];
+  type Ent = { type: string; g: [number, string][] };
+  const ents: Ent[] = [];
   for (let i = start + 2; i < pairs.length; i++) {
     const [c, v] = pairs[i]!;
     if (c === 0 && v === "ENDSEC") break;
     if (c === 0) ents.push({ type: v, g: [] }); else ents.at(-1)?.g.push([c, v]);
   }
+  // blocks (BLOCKS section): each with the base point the inserts put at their own point
+  const blocks = new Map<string, { base: V2; ents: Ent[] }>();
+  const bstart = pairs.findIndex(([c, v], i) => c === 0 && v === "SECTION" && pairs[i + 1]?.[0] === 2 && pairs[i + 1]?.[1] === "BLOCKS");
+  if (bstart >= 0) {
+    let cur: { name: string; base: V2; ents: Ent[] } | null = null;
+    let head: Ent | null = null;
+    for (let i = bstart + 2; i < pairs.length; i++) {
+      const [c, v] = pairs[i]!;
+      if (c === 0 && v === "ENDSEC") break;
+      if (c === 0 && v === "BLOCK") { head = { type: v, g: [] }; cur = null; continue; }
+      if (c === 0 && v === "ENDBLK") { if (cur) blocks.set(cur.name, cur); cur = null; head = null; continue; }
+      if (head && !cur) {
+        if (c === 0) { cur = { name: String(head.g.find(([k]) => k === 2)?.[1] ?? ""), base: [Number(head.g.find(([k]) => k === 10)?.[1] ?? 0), Number(head.g.find(([k]) => k === 20)?.[1] ?? 0)], ents: [] }; cur.ents.push({ type: v, g: [] }); }
+        else head.g.push([c, v]);
+      } else if (cur) { if (c === 0) cur.ents.push({ type: v, g: [] }); else cur.ents.at(-1)?.g.push([c, v]); }
+    }
+  }
+  // layers that are switched off or frozen (the LAYER table: 70 bit 1 is frozen, a negative colour 62 is off): what is on them is not drawn, so it is not imported
+  const hiddenLayers = new Set<string>();
+  for (let i = 0; i < pairs.length; i++) {
+    if (pairs[i]![0] !== 0 || pairs[i]![1] !== "LAYER") continue;
+    let [name, flags, color] = ["", 0, 1];
+    for (let j = i + 1; j < pairs.length && pairs[j]![0] !== 0; j++) { const [c, v] = pairs[j]!; if (c === 2) name = v; else if (c === 70) flags = Number(v); else if (c === 62) color = Number(v); }
+    if (name && ((flags & 1) === 1 || color < 0)) hiddenLayers.add(name);
+  }
   const notes: string[] = [];
-  const pieces: Piece[] = [];
   const left: Record<string, number> = {};
   const S = (p: V2): V2 => [p[0] * unit, p[1] * unit];
   const num = (e: { g: [number, string][] }, code: number, d = 0): number => { const f = e.g.find(([c]) => c === code); return f ? Number(f[1]) : d; };
   const all = (e: { g: [number, string][] }, code: number): number[] => e.g.filter(([c]) => c === code).map(([, v]) => Number(v));
-  let flattened = 0;
-  for (let i = 0; i < ents.length; i++) {
-    const e = ents[i]!;
+  void all;
+  let flattened = 0, hidden = 0, placed = 0;
+  /** A piece moved by a matrix (a b c d e f, x' = a x + c y + e): arcs and circles stay so under a turn, a mirror and an even scale; under an uneven scale they would be ellipses, so they are flattened into short lines. */
+  const mapPiece = (pc: Piece, m: M): Piece[] => {
+    const [u, w] = [Math.hypot(m[0], m[1]), Math.hypot(m[2], m[3])];
+    const similar = Math.abs(u - w) < 1e-9 * Math.max(u, w, 1) && Math.abs(m[0] * m[2] + m[1] * m[3]) < 1e-9 * Math.max(u * w, 1);
+    const ap = (p: V2): V2 => apply(m, p);
+    if (pc.k === "seg") return [{ k: "seg", p: ap(pc.p), q: ap(pc.q) }];
+    if (similar) return pc.k === "circle" ? [{ k: "circle", c: ap(pc.c), r: pc.r * u }] : [{ k: "arc", c: ap(pc.c), r: pc.r * u, p: ap(pc.p), q: ap(pc.q), ccw: m[0] * m[3] - m[1] * m[2] > 0 ? pc.ccw : !pc.ccw }];
+    flattened++;
+    const [a0, a1] = pc.k === "circle" ? [0, TAU] : [Math.atan2(pc.p[1] - pc.c[1], pc.p[0] - pc.c[0]), Math.atan2(pc.q[1] - pc.c[1], pc.q[0] - pc.c[0])];
+    let sweep = a1 - a0;
+    if (pc.k === "circle") sweep = TAU; else if (pc.ccw) { while (sweep <= 1e-12) sweep += TAU; } else { while (sweep >= -1e-12) sweep -= TAU; }
+    const n = Math.max(12, Math.min(720, Math.ceil(Math.abs(sweep) / (2 * Math.acos(Math.max(0, 1 - 0.01 / Math.max(pc.r * Math.max(u, w), 0.02)))))));
+    const pts = Array.from({ length: n + 1 }, (_, i) => ap([pc.c[0] + pc.r * Math.cos(a0 + (sweep * i) / n), pc.c[1] + pc.r * Math.sin(a0 + (sweep * i) / n)]));
+    return polyline(pts, pc.k === "circle");
+  };
+  const emit = (list: Ent[], depth: number): Piece[] => {
+  const pieces: Piece[] = [];
+  for (let i = 0; i < list.length; i++) {
+    const e = list[i]!;
+    if (hiddenLayers.size && hiddenLayers.has(String(e.g.find(([c]) => c === 8)?.[1] ?? ""))) { if (e.type !== "VERTEX" && e.type !== "SEQEND") hidden++; continue; }
     if (e.type === "LINE") { const [p, q] = [S([num(e, 10), num(e, 20)]), S([num(e, 11), num(e, 21)])]; if (Math.hypot(p[0] - q[0], p[1] - q[1]) > 1e-9) pieces.push({ k: "seg", p, q }); }
     else if (e.type === "CIRCLE") pieces.push({ k: "circle", c: S([num(e, 10), num(e, 20)]), r: num(e, 40) * unit });
     else if (e.type === "ARC") {
@@ -128,11 +172,11 @@ export function parseDxf(text: string, opts: { unitMm?: number } = {}): Parsed {
     } else if (e.type === "POLYLINE") {
       const verts: { p: V2; b: number }[] = [];
       let j = i + 1;
-      while (j < ents.length && ents[j]!.type === "VERTEX") { verts.push({ p: S([num(ents[j]!, 10), num(ents[j]!, 20)]), b: num(ents[j]!, 42) }); j++; }
+      while (j < list.length && list[j]!.type === "VERTEX") { verts.push({ p: S([num(list[j]!, 10), num(list[j]!, 20)]), b: num(list[j]!, 42) }); j++; }
       const closed = (num(e, 70) & 1) === 1;
       const n = closed ? verts.length : verts.length - 1;
       for (let k = 0; k < n; k++) pieces.push(bulgeArc(verts[k]!.p, verts[(k + 1) % verts.length]!.p, verts[k]!.b));
-      i = j - (ents[j]?.type === "SEQEND" ? 0 : 1);
+      i = j - (list[j]?.type === "SEQEND" ? 0 : 1);
     } else if (e.type === "VERTEX" || e.type === "SEQEND") continue;
     else if (e.type === "ELLIPSE") {
       const [c, major, ratio, t0, t1] = [S([num(e, 10), num(e, 20)]), S([num(e, 11), num(e, 21)]), num(e, 40, 1), num(e, 41, 0), num(e, 42, TAU)];
@@ -142,12 +186,39 @@ export function parseDxf(text: string, opts: { unitMm?: number } = {}): Parsed {
     } else if (e.type === "SPLINE") {
       const pts = splinePoints(e.g, unit);
       if (pts) { pieces.push(...polyline(pts, false)); flattened++; } else left.SPLINE = (left.SPLINE ?? 0) + 1;
-    } else left[e.type] = (left[e.type] ?? 0) + 1;
+    }
+    else if (e.type === "INSERT") {
+      const def = blocks.get(String(e.g.find(([c]) => c === 2)?.[1] ?? ""));
+      const [cols, rows] = [Math.max(1, Math.round(num(e, 70, 1))), Math.max(1, Math.round(num(e, 71, 1)))];
+      if (!def) left.INSERT = (left.INSERT ?? 0) + 1;
+      else if (depth >= 8 || cols * rows > 10000) left["INSERT (nested too deep, or an array too large)"] = (left["INSERT (nested too deep, or an array too large)"] ?? 0) + 1;
+      else {
+        const inner = emit(def.ents, depth + 1);
+        const [sx, sy, r] = [num(e, 41, 1), num(e, 42, 1), (num(e, 50) * Math.PI) / 180];
+        const [co, si] = [Math.cos(r), Math.sin(r)];
+        const [a, b, c, d] = [co * sx, si * sx, -si * sy, co * sy];
+        const [bx, by] = S(def.base);
+        for (let rr = 0; rr < rows; rr++) for (let cc = 0; cc < cols; cc++) {
+          const off = [cc * num(e, 44), rr * num(e, 45)] as V2; // (spacing is in the insert's own turned frame)
+          const pos = S([num(e, 10) + co * off[0] - si * off[1], num(e, 20) + si * off[0] + co * off[1]]);
+          const m: M = [a, b, c, d, pos[0] - (a * bx + c * by), pos[1] - (b * bx + d * by)];
+          for (const pc of inner) pieces.push(...mapPiece(pc, m));
+          placed++;
+          if (pieces.length > MAX_PIECES) break;
+        }
+      }
+    }
+    else left[e.type] = (left[e.type] ?? 0) + 1;
     if (pieces.length > MAX_PIECES) break;
   }
+  return pieces;
+  };
+  const pieces = emit(ents, 0);
   const big = pieceCount(pieces.length);
   if (big) return { ok: false, error: big };
   if (flattened) notes.push(`${flattened} curve${flattened === 1 ? "" : "s"} (ellipses, splines) turned into short lines: the app has no such curves yet`);
+  if (placed) notes.push(`${placed} block insert${placed === 1 ? "" : "s"} placed where the file puts ${placed === 1 ? "it" : "them"}`);
+  if (hidden) notes.push(`${hidden} piece${hidden === 1 ? "" : "s"} on switched-off or frozen layers left out`);
   const skipped = Object.entries(left).map(([k, n]) => `${n} ${k}`).join(", ");
   if (skipped) notes.push(`left out: ${skipped}`);
   if (opts.unitMm) unit = opts.unitMm;
