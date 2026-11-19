@@ -45,6 +45,19 @@ function buildGizmoLines(group: THREE.Group, g: GizmoView | null, unit: number, 
       group.add(sphereAt(pts[0]!, unit * 0.01 * settings.gizmo.headScale, col));
       continue;
     }
+    if (h.kind === "pane") { // a little square in the plane of two axes: faint, teal under the pointer or while dragged
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute("position", new THREE.Float32BufferAttribute([...pts[0]!, ...pts[1]!, ...pts[2]!, ...pts[0]!, ...pts[2]!, ...pts[3]!], 3));
+      const quad = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ color: col, depthTest: false, transparent: true, opacity: hot ? 0.45 : 0.18, side: THREE.DoubleSide }));
+      quad.renderOrder = 5;
+      group.add(quad);
+      const edge = pen.line([...pts.flat(), ...pts[0]!], col, settings.gizmo.widthPx, false);
+      (edge.material as { transparent: boolean; opacity: number }).transparent = true;
+      (edge.material as { opacity: number }).opacity = hot ? 1 : settings.gizmo.opacity;
+      edge.renderOrder = 6;
+      group.add(edge);
+      continue;
+    }
     const line = pen.line(pts.flat(), col, hot ? settings.gizmo.widthPx + 1 : settings.gizmo.widthPx, false);
     (line.material as { transparent: boolean; opacity: number }).transparent = true;
     (line.material as { opacity: number }).opacity = hot ? 1 : settings.gizmo.opacity;

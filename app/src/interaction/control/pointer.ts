@@ -598,7 +598,8 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   if (s.op && !hasGizmo(s.op.kind)) return commitOp(base); // the dimension number chip: a click finishes it
   // the handles are dragged, so a click on one does nothing (it must not reselect what is under it)
   const g = gizmoOf(s);
-  const hit = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y, undefined, chosenId(s)) : null;
+  const hit0 = g ? hitHandle(g, projector(s.cam, env.w, env.h).project, i.x, i.y, undefined, chosenId(s)) : null;
+  const hit = hit0 && hit0.kind === "pane" && s.moverSphere ? null : hit0; // (with the orb selected a click is for what is clicked, a corner, an edge or a face to put the mover on: a pane under it does not take it, though it still takes a drag)
   // the sphere at the junction of the mover (`in_416`): a click selects it, a second click lets it go; selected, a vertex, an edge or a face clicked puts the mover there
   // a figure being revolved waits for the line to turn about: a click on a straight line or an axis chooses it (`in_435`)
   if (hit && hit.id.startsWith("mir:") && hit.id !== "mir:orb" && s.op?.kind === "mirror") return { ...base, op: { ...s.op, mirrorAxis: "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2 }, handleSel: hit.id, gizmoHover: hit.id }; // (taking an arrow of the mirror chooses its plane, `in_437`)
@@ -641,6 +642,13 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   }
   // a click on a ring of a repeat, or of the turn being set up, makes that the axis, with no drag needed (`in_206`)
   if (hit && hit.id.startsWith("rot:") && s.op?.kind === "rotate") return { ...base, op: { ...s.op, axis: "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2, typed: "" }, gizmoHover: hit.id, handleSel: hit.id };
+  // a click on a pane holds the drag to its plane, as two arrows chosen with Shift do (a second click lets it go, `in_1127`)
+  if (hit && hit.kind === "pane" && hit.plane && !s.repeat) {
+    const [a, b] = hit.plane;
+    const same = s.lockAxes.length === 2 && s.lockAxes.includes(a) && s.lockAxes.includes(b);
+    const lock = same ? [] : ([a, b].sort() as (0 | 1 | 2)[]);
+    return { ...base, lockAxes: lock, handleSel: null, gizmoHover: hit.id, session: { ...base.session, message: heldWords(lock, sectionNow(s) && !s.op ? "the plane" : s.moverSphere ? "the orb" : "the body") } };
+  }
   // Shift on a move arrow chooses it with the others already chosen: a body dragged free then moves only along those axes (`in_299`)
   if (hit && i.shift && hit.id.startsWith("move:") && (!s.op || s.op.kind === "move") && !s.repeat) {
     const k = "xyz".indexOf(hit.id[5]!) as 0 | 1 | 2;

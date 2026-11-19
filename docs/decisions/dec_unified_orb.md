@@ -3,7 +3,7 @@ id: dec_unified_orb
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1127, in_1128, in_1129
+human_input: in_1127, in_1128, in_1129, in_1130, in_1131
 date: 2026-11-19
 depends_on:
   - dec_orb_positioning: its rules (Shift holds the drag to one, two or three axes; the orb sticks to places; a click on a plane puts it there) are the ones every orb is to have
@@ -28,6 +28,8 @@ alternative_to:
 **Built (stage 1a, `in_1128`):** on the sheet's mover, **Shift or a click on an arrow** holds a drag to axes with the orb's own words (`heldWords`: "the plane moves in the XY plane only"); **the blue orb is dragged to move the plane** (it turned the view before), held to the axes, sticking to the places `orbsnap.ts` knows and lining up with them (`orbPlace`); **a click on the blue orb selects it, and a corner, an edge midpoint or a face clicked then puts the plane there** (a face: lying on it, the normal outward; an edge: across it), a second click lets it go. `test/sectionorb.test.ts` (3). **Not yet:** the section's bubbles still follow `sectionEntries` (not the one rule), the plane's rotate rings do not take Shift, the orb is not drawn lit while selected, no pane handle, no second arrows for circular repeat or sweep, the other tools' orbs (mirror, scale, repeats) not moved onto the shared code. Not seen in the browser.
 
 **Built (stage 1b, `in_1129`): one rule for the bubbles.** Only the axis chosen shows its number, nothing chosen shows nothing: a body dragged free shows the numbers of the axes held with Shift or a click (it showed all three, `in_293`), and the whole orb moved shows those of the axes held (it showed all three and their turns, fading, `in_434`, `in_439`); the arrow or ring clicked or dragged already showed its own alone (the section, the revolve, the mirror, the scale, the repeats). **The AI's reading, to be changed on a word:** a drag with no axis held shows no number. `test/orbbubbles.test.ts`; two tests of `gizmo.test.ts` that asked for all three now ask for none when nothing is held and for the held ones. **Not built:** Shift on the rings: holding two rotation axes at once has no clear meaning (a turn is about one axis at a time), so the rings are left as they are until the human says what it should do.
+
+**Built (stage 1c, `in_1130`, `in_1131`): the panes.** A `pane` handle kind (`gizmo.ts`): three little squares between the arrows (XY, XZ, YZ; the mover's own axes when it is turned), drawn faint and teal when under the pointer or dragged (`ui/view/gizmo.ts`), taking a touch only where no arrow, ring or orb is nearer. A drag on one always moves in its plane: the **cross section's plane** (the two axes are held for the drag and the axes held before are put back, `paneLock`), a **body's mover** (one move step by what the pointer went in the plane, the mover stays open), and the **orb in orient mode** (held to the plane, sticking to places). A **click** on a pane holds the drag to its plane as two arrows chosen with Shift do, a second click lets it go; with the orb selected a click on a pane is left to what is clicked (a corner, edge or face puts the mover there). `test/panes.test.ts` (4); the tests that listed a mover's handles exactly now leave the panes out of the list. Looked at in the browser (the body's mover: three squares between the arrows, no errors). **Not yet:** panes on the mirror, scale and repeats' orbs, the orb drawn lit when selected, second arrows for circular repeat and sweep, those tools on the shared code.
 
 ## Rationale
 

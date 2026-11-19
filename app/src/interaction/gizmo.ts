@@ -17,7 +17,7 @@ import { axisOf, revolveCentre } from "./revolve.ts";
 import { mirrorCentre } from "./mirror.ts";
 
 /** THREE KINDS OF HANDLE (`in_593`, `dec_ui_unification`): an arrow (pulled along a line), a ring (turned about an axis) and an orb (moved about). What used to be a double arrow is an arrow with `both`, and a scale handle an arrow with `ratio`. */
-export type HandleKind = "arrow" | "ring" | "orb";
+export type HandleKind = "arrow" | "ring" | "orb" | "pane";
 export interface Handle {
   id: string;
   kind: HandleKind;
@@ -32,6 +32,8 @@ export interface Handle {
   dir?: Vec3;
   /** a turning ring: which of its points carries the arrowhead */
   head?: number;
+  /** a pane (`in_1127`): the two axes of the plane it moves in, and (in `dir`) the way that plane faces; its four corners are `points` */
+  plane?: [0 | 1 | 2, 0 | 1 | 2];
 }
 export interface Gizmo { handles: Handle[]; centre: Vec3 }
 
@@ -95,6 +97,13 @@ const arrowAlong = (id: string, axis: 0 | 1 | 2 | null, from: Vec3, dir: Vec3, l
 const arrowBoth = (id: string, mid: Vec3, dir: Vec3, half: number): Handle => ({ id, kind: "arrow", both: true, axis: null, points: [add(mid, scale(dir, -half)), add(mid, scale(dir, half))] });
 /** One arrow along each of three axes, named `prefix:x`, `prefix:y`, `prefix:z`. */
 const axisArrows = (prefix: string, ax: readonly Vec3[], from: Vec3, len: number, ratio?: true): Handle[] => ax.map((d, i) => arrowAlong(`${prefix}:${"xyz"[i]}`, i as 0 | 1 | 2, from, d, len, ratio));
+/** The three little panes between the arrows (`in_1127`): each a square in the plane of two of the axes, whose drag always moves in that plane (XY, XZ, YZ). `len` is the length of the arrows. */
+const axisPanes = (ax: readonly Vec3[], centre: Vec3, len: number): Handle[] =>
+  ([[0, 1], [0, 2], [1, 2]] as const).map(([a, b]) => {
+    const [from, to] = [0.25 * len, 0.5 * len];
+    const at = (u: number, v: number): Vec3 => add(centre, add(scale(ax[a]!, u), scale(ax[b]!, v)));
+    return { id: `pane:${"xyz"[a]}${"xyz"[b]}`, kind: "pane", axis: null, points: [at(from, from), at(to, from), at(to, to), at(from, to)], dir: normalize(cross(ax[a]!, ax[b]!)), plane: [a, b] } as Handle;
+  });
 /** An orb at a point: drag it to move it about. */
 const orbAt = (id: string, at: Vec3): Handle => ({ id, kind: "orb", axis: null, points: [at] });
 
@@ -118,9 +127,10 @@ function moverHandles(kind: "move" | "rotate" | "both", centre: Vec3, L: number,
   const rings = (): Handle[] => ax.map((d, i) => ring(`rot:${"xyz"[i]}`, centre, d, L * 0.8, i as 0 | 1 | 2));
   // with the sphere selected both sets are up and they work on the mover itself: the arrows move it, the rings turn its axes
   // move and turn are two tools, each with its own handles, acting on the object (`in_421`); the cross section plane has both, as it has no tool to be in
-  if (sphere) return { centre, handles: [...arrows("piv"), ...rings(), ball] };
-  if (kind === "both") return { centre, handles: [...arrows("move"), ...rings(), ball] };
-  return { centre, handles: kind === "move" ? [...arrows("move"), ball] : [...rings(), ball] };
+  const panes = (): Handle[] => axisPanes(ax, centre, 2 * HALF * L);
+  if (sphere) return { centre, handles: [...arrows("piv"), ...rings(), ball, ...panes()] };
+  if (kind === "both") return { centre, handles: [...arrows("move"), ...rings(), ball, ...panes()] };
+  return { centre, handles: kind === "move" ? [...arrows("move"), ball, ...panes()] : [...rings(), ball] };
 }
 
 /** A full circle round `axis` through `centre`, so which plane it turns in is plain to see; the arrowhead sits a little way round. */
@@ -305,6 +315,12 @@ export function hitHandle(g: Gizmo, project: (p: Vec3) => [number, number], x: n
   let wanted: Handle | null = null;
   for (const h of g.handles) {
     const pts = h.points.map(project);
+    if (h.kind === "pane") { // inside the square: it takes the touch only where no arrow, ring or orb is nearer (they are tested at their own distance, the pane at the very edge of the tolerance)
+      const inside = (() => { let c = false; for (let a = 0, b = pts.length - 1; a < pts.length; b = a++) { const [pa, pb] = [pts[a]!, pts[b]!]; if ((pa[1] > y) !== (pb[1] > y) && x < ((pb[0] - pa[0]) * (y - pa[1])) / (pb[1] - pa[1]) + pa[0]) c = !c; } return c; })();
+      if (inside && (!best || tolPx < best.d)) best = { h, d: tolPx };
+      if (inside && h.id === prefer) wanted = h;
+      continue;
+    }
     const d = (h.kind === "orb" ? Math.hypot(x - pts[0]![0], y - pts[0]![1]) - 4 : Math.min(...pts.slice(1).map((q, i) => segDist([x, y], pts[i]!, q)))) - (h.id.startsWith("joint:") ? 3 : 0); // (a joint's handle wins over a move arrow along the same axis, `in_323`)
     if (d <= tolPx && (!best || d < best.d)) best = { h, d };
     if (d <= tolPx && h.id === prefer) wanted = h;
@@ -366,6 +382,11 @@ export function startDrag(g: Gizmo, h: Handle, ray: Ray, cam: Camera): Drag | nu
     const dir = h.dir ?? AXES[h.axis!]!;
     const p = hitPlane(ray, g.centre, dir);
     return p ? { id: h.id, kind: "ring", axis: h.axis, origin: g.centre, dir, start: angleIn(g.centre, dir, p), offset: null } : null;
+  }
+  if (h.kind === "pane") { // a pane moves in its own plane: the pointer's ray meets that plane, and the drag is how far it has gone from where it was taken
+    const dir = h.dir ?? AXES[2]!;
+    const p = hitPlane(ray, g.centre, dir);
+    return p ? { id: h.id, kind: "pane", axis: null, origin: g.centre, dir, start: 0, offset: sub(p, g.centre) } : null;
   }
   const dir = basis(cam).forward;
   const p = hitPlane(ray, g.centre, dir);
