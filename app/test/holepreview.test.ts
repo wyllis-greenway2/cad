@@ -162,3 +162,25 @@ test("a hole moved by hand snaps to the line it is meant to be on when the point
   assert.ok(held && Math.abs(held[0] - nx) < 1e-9, "no snap asked for: free");
   assert.equal(rowOf(plan(s, vals({ place: "picked" })), 0), -1, "places picked follow no line");
 });
+
+import { movedBy, movedTarget } from "../src/interaction/holemove.ts";
+test("how far a hole is moved by hand is shown along and across its line, and typed distances move it (`in_1029`)", () => {
+  const s = block();
+  const v = vals({ place: "outline", by: "count", value: "6", corners: "ignore", offset: "10" });
+  const base = plan(s, v);
+  const i = 1;
+  const none = movedBy(base, i)!;
+  assert.ok(Math.abs(none.along) < 1e-9 && Math.abs(none.across) < 1e-9, "not moved: nothing");
+  assert.deepEqual(base.base[i], base.spots[i]!.centre);
+  const t = movedTarget(base, i, 3, 2)!;
+  const moved = plan(s, { ...v, moved: { [i]: t } });
+  const m = movedBy(moved, i)!;
+  assert.ok(Math.abs(m.along - 3) < 1e-6 && Math.abs(m.across - 2) < 1e-6, `${m.along} ${m.across}`);
+  assert.deepEqual(moved.base[i]!.map((x) => Math.round(x * 1e6)), base.base[i]!.map((x) => Math.round(x * 1e6)), "where the rules put it does not move with it");
+  // across is toward the inside of the outline: the bottom row (y = 10) moved across 2 stands at y = 12
+  const row0 = plan(s, v).spots[0]!.centre;
+  const inward = plan(s, { ...v, moved: { 0: movedTarget(base, 0, 0, 2)! } }).spots[0]!.centre;
+  assert.ok(Math.hypot(inward[0] - row0[0], inward[1] - row0[1]) > 1.99 && inward[0] >= 0);
+  const back = plan(s, { ...v, moved: {} });
+  assert.deepEqual(back.spots[i]!.centre, base.spots[i]!.centre);
+});

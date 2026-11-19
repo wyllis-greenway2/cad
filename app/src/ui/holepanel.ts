@@ -7,8 +7,8 @@ import type { Row } from "./panelkit.ts";
 
 export interface HolePanelValues { kind: string; size: string; by: string; value: string; ends: string; corners: string; offset: string; shift: string; depth: string; far: string; drill: string; insert: string; length: string; rows: string; rowCount: string; rowGap: string; washer: string }
 /** What the panel shows: the choices of the receiver and the size, the values, which surface is selected (a face, a line, or none yet), and a line of words (how many holes, or why none). */
-export interface HolePanelView { kinds: { id: string; label: string }[]; sizes: string[]; values: HolePanelValues; mode: "face" | "line" | "picked" | "none"; /** the surface is a round face (`in_946`) */ round?: boolean; /** how thick the body of the face is, and how far everything in the way reaches (`in_949`) */ reach?: { body: number; stack: number }; note: string; problem: string | null }
-export interface HolePanelHandlers { change(values: HolePanelValues): void; commit(): void; close(): void; /** make points of the holes, to move with the move tools (`in_980`) */ points(): void }
+export interface HolePanelView { kinds: { id: string; label: string }[]; sizes: string[]; values: HolePanelValues; mode: "face" | "line" | "picked" | "none"; /** the hole picked up in the view: its number, and how far it is moved from where the rules put it (`in_1029`) */ picked?: { number: number; along: string; across: string; moved: boolean }; /** the surface is a round face (`in_946`) */ round?: boolean; /** how thick the body of the face is, and how far everything in the way reaches (`in_949`) */ reach?: { body: number; stack: number }; note: string; problem: string | null }
+export interface HolePanelHandlers { change(values: HolePanelValues): void; commit(): void; close(): void; /** the hole picked is moved `along` the line and `across` it from where the rules put it, mm (`in_1029`) */ moveBy(along: string, across: string): void; /** the hole picked goes back to where the rules put it */ putBack(): void; /** make points of the holes, to move with the move tools (`in_980`) */ points(): void }
 
 export function createHolePanel(host: HTMLElement, h: HolePanelHandlers) {
   const el = panelShell(host);
@@ -43,6 +43,20 @@ export function createHolePanel(host: HTMLElement, h: HolePanelHandlers) {
   pointsHint.style.cssText = "font-size:11.5px;color:#777;margin-top:4px;line-height:1.35";
   pointsRow.append(pointsBtn, pointsHint);
   el.append(pointsRow);
+  const holeTitle = sectionTitle("The hole picked");
+  const along = num("0"), across = num("0");
+  const alongRow = panelRow("Along the line", along, "mm");
+  const acrossRow = panelRow("Across the line", across, "mm");
+  alongRow.hint.textContent = "how far it is moved from where the rules put it, along the line the row follows";
+  acrossRow.hint.textContent = "and across it (positive: toward the inside)";
+  const putBackBtn = textButton("Put it back", { click: () => h.putBack() });
+  const putBackRow = document.createElement("div");
+  putBackRow.style.cssText = "padding:6px 0";
+  putBackRow.append(putBackBtn);
+  const apply = (): void => h.moveBy(along.value, across.value);
+  along.addEventListener("input", apply);
+  across.addEventListener("input", apply);
+  el.append(holeTitle, alongRow.el, acrossRow.el, putBackRow);
   el.append(sectionTitle("Hardware"), rows.insert.el, rows.washer.el, rows.length.el);
   el.append(panelButtons({ label: "Close", click: () => h.close() }, { label: "Cut", click: () => h.commit() }));
   read = (): HolePanelValues => ({ kind: kind.value, size: size.value, by: by.value, value: value.value, ends: ends.value, corners: corners.value, offset: offset.value, shift: shift.value, depth: depth.value, far: far.value, rows: rowsFrom.value, rowCount: rowCount.value, rowGap: rowGap.value, washer: washer.value, drill: drill.value, insert: insert.value, length: length.value });
@@ -86,6 +100,9 @@ export function createHolePanel(host: HTMLElement, h: HolePanelHandlers) {
       rows.corners.hint.textContent = "a hole at each corner (the number counts them), or none";
       rows.ends.hint.textContent = "how the row meets the line's ends";
       const path = v.mode === "face" || v.mode === "line"; // (the spacing and the rest are for a path)
+      const pk = v.picked;
+      for (const e of [holeTitle, alongRow.el, acrossRow.el, putBackRow]) e.style.display = pk ? "" : "none";
+      if (pk) { holeTitle.textContent = `The hole picked (${pk.number + 1})${pk.moved ? ", moved by hand" : ""}`; setText(along, pk.along); setText(across, pk.across); putBackBtn.style.display = pk.moved ? "" : "none"; }
       pointsRow.style.display = v.mode === "none" ? "none" : "";
       show(rows.by, path); show(rows.value, path); show(rows.shift, path);
       show(rows.rowsFrom, v.mode === "face");

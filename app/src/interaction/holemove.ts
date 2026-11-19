@@ -38,8 +38,9 @@ export function rowOf(plan: ReceiverPlan, index: number): number {
   return best;
 }
 /** The point of a polyline nearest to `p`, and how far it is. */
-export function nearestOnLine(line: readonly Vec3[], p: Vec3): { at: Vec3; dist: number } {
+export function nearestOnLine(line: readonly Vec3[], p: Vec3): { at: Vec3; dist: number; /** the way the line runs there (unit) */ dir: Vec3 } {
   let at: Vec3 = line[0]!;
+  let dir: Vec3 = [1, 0, 0];
   let best = Infinity;
   for (let i = 0; i + 1 < line.length; i++) {
     const [a, b] = [line[i]!, line[i + 1]!];
@@ -48,7 +49,35 @@ export function nearestOnLine(line: readonly Vec3[], p: Vec3): { at: Vec3; dist:
     const t = Math.max(0, Math.min(1, dot([p[0] - a[0], p[1] - a[1], p[2] - a[2]], d) / l2));
     const q: Vec3 = [a[0] + d[0] * t, a[1] + d[1] * t, a[2] + d[2] * t];
     const dist = Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
-    if (dist < best) { best = dist; at = q; }
+    if (dist < best) { best = dist; at = q; const l = Math.sqrt(l2); dir = [d[0] / l, d[1] / l, d[2] / l]; }
   }
-  return { at, dist: best };
+  return { at, dist: best, dir };
+}
+
+const unit3 = (a: readonly number[]): Vec3 => { const l = Math.hypot(a[0]!, a[1]!, a[2]!) || 1; return [a[0]! / l, a[1]! / l, a[2]! / l]; };
+/** The two ways a hole is moved in (`in_1029`): along the line it follows (`t`) and across it (`a`, to the left of the way the line runs, which is inward round a face's outline), at the place the rules put it; with no line, the face's own two ways. */
+function holeFrame(plan: ReceiverPlan, pos: number): { t: Vec3; a: Vec3 } | null {
+  const sp = plan.spots[pos];
+  const base = plan.base[pos];
+  if (!sp || !base) return null;
+  const n = unit3([sp.u[1] * sp.v[2] - sp.u[2] * sp.v[1], sp.u[2] * sp.v[0] - sp.u[0] * sp.v[2], sp.u[0] * sp.v[1] - sp.u[1] * sp.v[0]]);
+  const row = rowOf({ ...plan, spots: plan.spots.map((x, i) => (i === pos ? { ...x, centre: base } : x)) }, pos);
+  const t = row >= 0 ? nearestOnLine(plan.guide[row]!, base).dir : unit3(sp.u);
+  const tn = unit3([t[0] - n[0] * dot(t, n), t[1] - n[1] * dot(t, n), t[2] - n[2] * dot(t, n)]); // (on the surface)
+  return { t: tn, a: unit3([n[1] * tn[2] - n[2] * tn[1], n[2] * tn[0] - n[0] * tn[2], n[0] * tn[1] - n[1] * tn[0]]) };
+}
+/** How far the hole has been moved from the place the rules put it, along the line and across it, mm. */
+export function movedBy(plan: ReceiverPlan, pos: number): { along: number; across: number } | null {
+  const f = holeFrame(plan, pos);
+  const [c, b] = [plan.spots[pos]?.centre, plan.base[pos]];
+  if (!f || !c || !b) return null;
+  const d: Vec3 = [c[0] - b[0], c[1] - b[1], c[2] - b[2]];
+  return { along: dot(d, f.t), across: dot(d, f.a) };
+}
+/** Where the hole stands when it is moved `along` the line and `across` it from the place the rules put it. */
+export function movedTarget(plan: ReceiverPlan, pos: number, along: number, across: number): Vec3 | null {
+  const f = holeFrame(plan, pos);
+  const b = plan.base[pos];
+  if (!f || !b) return null;
+  return [b[0] + f.t[0] * along + f.a[0] * across, b[1] + f.t[1] * along + f.a[1] * across, b[2] + f.t[2] * along + f.a[2] * across];
 }

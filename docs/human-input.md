@@ -4471,3 +4471,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1028 — 2026-11-19 — directive
 > maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
 (asks for this branch to be merged into claude/inspiring-pascal-l342k7 and for further work to be started on a new branch made from the updated testing branch)
+
+## in_1029 — 2026-11-19 — directive
+> okay it is pretty good, but maybe we should show and let the user input how much distance a single fastener is hand moved by?
+(says it is pretty good; asks that the distance a single fastener has been moved by hand be shown and be typeable)

@@ -273,7 +273,7 @@ export const placesPicked = (session: Session): number => { const f = selectedFa
 
 /** Cut the receiver into the body whose flat face is selected: the steps, one after another from the scene each leaves. */
 /** What the answers would cut: the receiver, the size and fit, how deep, the thread engagement, the face's spot (for its two ways and its normal) and the centre of each hole. The cut and the preview are both made from it. */
-export interface ReceiverPlan { /** the number in the row of each hole left (a hole taken out leaves a gap in the numbers, `in_1013`) */ index: number[]; /** the counterbore is made for a washer under the head (`in_1013`) */ washer: boolean; /** how the depth was chosen when it was not typed (`in_1011`) */ depthNote?: string; kind: ReceiverKind; size: FastenerSize; fit: ClearanceFit; depth: number; engagement: number | undefined; spot: FaceSpot; places: Vec3[]; /** a nut pocket is cut on the far side of the body too */ far: boolean; /** the spacing the holes stand at when they follow a path (the adjusted one, for a fit), else null */ spacing: number | null; /** what the automatic rules chose, in words (`in_980`) */ auto?: string; /** the inset the rows were made with when it was cut down because the face is too small for what was asked (`in_965`) */ insetUsed?: number; /** the lines the holes follow, each as a polyline on the surface (none when they do not follow one) */ guide: Vec3[][]; /** how far the body reaches through, along the face's inward normal */ reach: number; /** how far everything in the way reaches from the face (the body and whatever is under it, `in_949`) */ stack: number; /** a drill then tap: how deep the clearance part goes */ drill: number | undefined; /** the spot of each place, with its own way in (the same on a flat face; each its own on a curved one, `in_929`) */ spots: FaceSpot[]; /** the surface is curved */ curved: boolean; /** the hardware put into the holes (`in_910`), or null */ insert: { screw: { family: "countersunk" | "socketHead"; length: number; seat: number; /** how much room the hole has for it, mm */ room: number } | null; nut: "near" | "far" | null; /** a washer under the head, `in_1013` */ washer: boolean } | null }
+export interface ReceiverPlan { /** where the rules put each hole, before any was moved by hand (`in_1029`) */ base: Vec3[]; /** the number in the row of each hole left (a hole taken out leaves a gap in the numbers, `in_1013`) */ index: number[]; /** the counterbore is made for a washer under the head (`in_1013`) */ washer: boolean; /** how the depth was chosen when it was not typed (`in_1011`) */ depthNote?: string; kind: ReceiverKind; size: FastenerSize; fit: ClearanceFit; depth: number; engagement: number | undefined; spot: FaceSpot; places: Vec3[]; /** a nut pocket is cut on the far side of the body too */ far: boolean; /** the spacing the holes stand at when they follow a path (the adjusted one, for a fit), else null */ spacing: number | null; /** what the automatic rules chose, in words (`in_980`) */ auto?: string; /** the inset the rows were made with when it was cut down because the face is too small for what was asked (`in_965`) */ insetUsed?: number; /** the lines the holes follow, each as a polyline on the surface (none when they do not follow one) */ guide: Vec3[][]; /** how far the body reaches through, along the face's inward normal */ reach: number; /** how far everything in the way reaches from the face (the body and whatever is under it, `in_949`) */ stack: number; /** a drill then tap: how deep the clearance part goes */ drill: number | undefined; /** the spot of each place, with its own way in (the same on a flat face; each its own on a curved one, `in_929`) */ spots: FaceSpot[]; /** the surface is curved */ curved: boolean; /** the hardware put into the holes (`in_910`), or null */ insert: { screw: { family: "countersunk" | "socketHead"; length: number; seat: number; /** how much room the hole has for it, mm */ room: number } | null; nut: "near" | "far" | null; /** a washer under the head, `in_1013` */ washer: boolean } | null }
 /**
  * How far everything in the way reaches from the face, along the way the holes go (`in_949`): from each place a ray goes into the model, and the farthest a body's box lets it go is how far the cut can matter (a lid on an object: the lid and the object under it). Never less than
  * the body of the face itself (`reach`). The boxes are the bodies' boxes, so a body whose box is in the way but whose shape is not is counted: the far end of the preview may be long.
@@ -403,6 +403,7 @@ export function receiverPlan(session: Session, v: ReceiverValues): Result<Receiv
     spots = got.value.places; guide = got.value.guide; spacing = got.value.spacing; insetUsed = got.value.insetUsed; autoNote = got.value.auto;
     along = true;
   } else spots = (where === "picked" ? fv.points : [sp.centre]).map((c): FaceSpot => ({ ...sp, centre: c })); // (the places picked, or the middle of the face)
+  const baseAll = spots.map((q) => q.centre);
   for (const [i, t] of Object.entries(v.moved ?? {})) { // (a hole the pointer moved: onto the face at the place it was put)
     const k = Number(i);
     if (!spots[k]) continue;
@@ -413,13 +414,14 @@ export function receiverPlan(session: Session, v: ReceiverValues): Result<Receiv
   const keep = spots.map((_, i) => i).filter((i) => !(v.removed ?? []).includes(i)); // (holes taken out by hand)
   if (!keep.length) return err("every hole has been taken out");
   spots = keep.map((i) => spots[i]!);
+  const base = keep.map((i) => baseAll[i]!);
   const [ox, oy] = along ? [0, 0] : [dx, dy]; // (the offsets are from each place; along a line the line's own offset is the way in)
   const places = spots.map((q): Vec3 => [q.centre[0] + sp.u[0] * ox + sp.v[0] * oy, q.centre[1] + sp.u[1] * ox + sp.v[1] * oy, q.centre[2] + sp.u[2] * ox + sp.v[2] * oy]);
   const stack = stackReach(scene(session), face.value.spot, places, face.value.reach);
   const hw = hardwareOf(v, face.value.through, face.value.reach, stack, false);
   if (!hw.ok) return hw;
   const { kind, depth, engagement, drill, far, insert, depthNote, washer } = hw.value;
-  return ok({ index: keep, washer, ...(depthNote ? { depthNote } : {}), kind, size: v.size as FastenerSize, fit: fitOf(v.fit), depth, engagement, spot: sp, places, far, spacing, guide, reach: face.value.reach, stack, drill, insert, spots: places.map((c, i) => ({ ...spots[i]!, centre: c })), curved: false, ...(insetUsed !== undefined ? { insetUsed } : {}), ...(autoNote ? { auto: autoNote } : {}) });
+  return ok({ base, index: keep, washer, ...(depthNote ? { depthNote } : {}), kind, size: v.size as FastenerSize, fit: fitOf(v.fit), depth, engagement, spot: sp, places, far, spacing, guide, reach: face.value.reach, stack, drill, insert, spots: places.map((c, i) => ({ ...spots[i]!, centre: c })), curved: false, ...(insetUsed !== undefined ? { insetUsed } : {}), ...(autoNote ? { auto: autoNote } : {}) });
 }
 
 /** The radius the hardware takes at the surface: the head, the countersink, the counterbore or the nut pocket, whichever is widest (`in_980`). */
@@ -612,15 +614,17 @@ function curvedPlan(session: Session, v: ReceiverValues, r: Round): Result<Recei
     ({ places: spots, guide, spacing } = got.value);
     insetUsed = got.value.insetUsed;
   } else return err("select the round face, and a line, or corners and circles on it");
+  const baseAll = spots.map((q) => q.centre);
   for (const [i, t] of Object.entries(v.moved ?? {})) { const k = Number(i); const m = spots[k] ? spotOnRound(r, t) : null; if (m && m.ok) spots[k] = m.value; } // (a hole the pointer moved: back onto the surface, straight out from the axis)
   const keep = spots.map((_, i) => i).filter((i) => !(v.removed ?? []).includes(i));
   if (!keep.length) return err("the rules leave no hole");
   spots = keep.map((i) => spots[i]!);
+  const base = keep.map((i) => baseAll[i]!);
   const reachR = v.depth.trim() === "" ? 2 * r.radius : r.through;
   const shaft = isFastenerSize(v.size) ? clearanceHole(v.size, fitOf(v.fit)) + 1.5 : 6; // (the hole and a wall of 1.5 mm between two)
   const hw = hardwareOf(v, r.through, reachR, reachR, true, meetLimit(spots, shaft, 2 * r.radius));
   if (!hw.ok) return hw;
-  return ok({ index: keep, washer: hw.value.washer, ...(hw.value.depthNote ? { depthNote: hw.value.depthNote } : {}), kind: hw.value.kind, size: v.size as FastenerSize, fit: fitOf(v.fit), depth: hw.value.depth, engagement: hw.value.engagement, spot: spots[0]!, places: spots.map((s) => s.centre), far: false, spacing, guide, reach: v.depth.trim() === "" ? 2 * r.radius : hw.value.depth, stack: v.depth.trim() === "" ? 2 * r.radius : hw.value.depth, drill: hw.value.drill, insert: hw.value.insert, spots, curved: true, ...(insetUsed !== undefined ? { insetUsed } : {}), ...(autoNote ? { auto: autoNote } : {}) });
+  return ok({ base, index: keep, washer: hw.value.washer, ...(hw.value.depthNote ? { depthNote: hw.value.depthNote } : {}), kind: hw.value.kind, size: v.size as FastenerSize, fit: fitOf(v.fit), depth: hw.value.depth, engagement: hw.value.engagement, spot: spots[0]!, places: spots.map((s) => s.centre), far: false, spacing, guide, reach: v.depth.trim() === "" ? 2 * r.radius : hw.value.depth, stack: v.depth.trim() === "" ? 2 * r.radius : hw.value.depth, drill: hw.value.drill, insert: hw.value.insert, spots, curved: true, ...(insetUsed !== undefined ? { insetUsed } : {}), ...(autoNote ? { auto: autoNote } : {}) });
 }
 /**
  * Points for the holes (`in_980`): a corner is made on the face at each place the rules (and the pointer) give, and they are selected with the face. Points are parts like any others, so every tool that moves a point moves them (drag, the

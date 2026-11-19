@@ -1,5 +1,6 @@
 // The composition root: wires the layers together and nothing else. Device events (platform) become intents (interaction), the controller changes the state,
 // and the view and the menu (ui) draw it. No behaviour decisions live here (`inv_no_logic_in_ui`).
+import { typedLength } from "./shared/units.ts";
 import { createBus } from "./shared/events.ts";
 import type { RawInput } from "./shared/input.ts";
 import type { Intent } from "./shared/input.ts";
@@ -10,7 +11,7 @@ import { mateStatus } from "./operation/mates.ts";
 import { createSession, openSession, saveText, run, scene, selection, refresh } from "./interaction/session.ts";
 import type { Session } from "./interaction/session.ts";
 import type { ReceiverValues, ReceiverPlan } from "./interaction/addpart.ts";
-import { pickPlace, dragTarget, rowOf } from "./interaction/holemove.ts";
+import { pickPlace, dragTarget, rowOf, movedBy, movedTarget } from "./interaction/holemove.ts";
 import { canExport } from "./interaction/exportstl.ts";
 import { canExportFlat } from "./interaction/exportsketch.ts";
 import { laserDialog, runLaser, findingsDialog, machineChoices, machineDialog, startValues, projectMachines, recordCommands, tableRows, rowFrom, tableDialog, layersDialog, layersCommand, whyNoLayers, marksSummary } from "./interaction/manufacture.ts";
@@ -325,6 +326,21 @@ const holeBar = createHolePanel(document.body, {
   commit() { holesCut(); },
   close() { holesClose(); },
   points() { holesPoints(); },
+  moveBy(along, across) { // the hole picked moved by typed distances from where the rules put it (`in_1029`)
+    if (!hardware || !holesPlan || holesPicked === null) return;
+    const pos = holesPlan.index.indexOf(holesPicked);
+    const [a, c] = [along.trim() === "" ? 0 : typedLength(along), across.trim() === "" ? 0 : typedLength(across)];
+    if (pos < 0 || a === null || c === null) return;
+    const t = movedTarget(holesPlan, pos, a, c);
+    if (t) { hardware = { values: { ...hardware.values, moved: { ...(hardware.values.moved ?? {}), [holesPicked]: t } } }; holesKey = ""; dirty = true; }
+  },
+  putBack() {
+    if (!hardware || holesPicked === null) return;
+    const moved = { ...(hardware.values.moved ?? {}) };
+    delete moved[holesPicked];
+    hardware = { values: { ...hardware.values, moved } };
+    holesKey = ""; dirty = true;
+  },
 });
 function holesOpen(): void {
   if (hardware) return;
@@ -382,8 +398,14 @@ function holesOptions(): { bar: HolePanelView; view: ToolpathView | null } {
   const none = receiverContext(session)?.curved ? "Select a line drawn across the round face, or corners and circles on it, for the next holes." : "Select a flat face of a body (or a line drawn on one) for the next holes.";
   const note = mode === "none" ? none : plan?.ok ? `${plan.value.places.length} hole${plan.value.places.length === 1 ? "" : "s"}${plan.value.spacing !== null ? `, ${Math.round(plan.value.spacing * 100) / 100} mm apart` : ""}${plan.value.auto ? `. Automatic: ${plan.value.auto}` : plan.value.insetUsed !== undefined ? `. The inset is cut down to ${plan.value.insetUsed} mm: the face is too small for ${values.offset} mm` : ""}${plan.value.depthNote ? `. Depth: ${plan.value.depthNote}` : ""}${plan.value.insert?.screw ? `. Screw ${values.size} x ${plan.value.insert.screw.length} mm: ${plan.value.insert.screw.length > plan.value.insert.screw.room + 1e-9 ? "the shortest standard length that reaches through" : "the longest standard length that fits"} the ${plan.value.insert.screw.room} mm the hole has` : ""}` : "";
   const v = hardware!.values;
+  let pickedInfo: HolePanelView["picked"];
+  if (plan?.ok && holesPicked !== null) { // the hole picked up: how far it is moved from where the rules put it
+    const pos = plan.value.index.indexOf(holesPicked);
+    const mv = pos >= 0 ? movedBy(plan.value, pos) : null;
+    if (mv) { const r2 = (x: number): string => String(Math.round(x * 100) / 100); pickedInfo = { number: holesPicked, along: r2(mv.along), across: r2(mv.across), moved: Math.hypot(mv.along, mv.across) > 1e-6 }; }
+  }
   holesNow = {
-    bar: { kinds: receiverKinds(), sizes: receiverSizes(), values: { kind: v.kind, size: v.size, by: v.by ?? "distance", value: v.value ?? "30", ends: v.ends ?? "fit", corners: v.corners ?? "each", offset: v.offset ?? "10", shift: v.shift ?? "0", depth: v.depth, far: v.far ?? "none", rows: v.rows ?? "auto", rowCount: v.rowCount ?? "1", rowGap: v.rowGap ?? "8", washer: v.washer ?? "none", drill: v.drill ?? "", insert: v.insert ?? "none", length: v.length ?? "" }, mode, round: !!receiverContext(session)?.curved, ...(plan?.ok ? { reach: { body: plan.value.reach, stack: plan.value.stack } } : {}), note, problem },
+    bar: { ...(pickedInfo ? { picked: pickedInfo } : {}), kinds: receiverKinds(), sizes: receiverSizes(), values: { kind: v.kind, size: v.size, by: v.by ?? "distance", value: v.value ?? "30", ends: v.ends ?? "fit", corners: v.corners ?? "each", offset: v.offset ?? "10", shift: v.shift ?? "0", depth: v.depth, far: v.far ?? "none", rows: v.rows ?? "auto", rowCount: v.rowCount ?? "1", rowGap: v.rowGap ?? "8", washer: v.washer ?? "none", drill: v.drill ?? "", insert: v.insert ?? "none", length: v.length ?? "" }, mode, round: !!receiverContext(session)?.curved, ...(plan?.ok ? { reach: { body: plan.value.reach, stack: plan.value.stack } } : {}), note, problem },
     view: plan?.ok ? holesView(plan.value, holesPicked !== null ? plan.value.index.indexOf(holesPicked) : -1) : null,
   };
   holesKey = key;
