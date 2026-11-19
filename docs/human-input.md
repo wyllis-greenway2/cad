@@ -4399,3 +4399,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1011 — 2026-11-19 — directive
 > option 1
 (chooses option 1 of `q_working_and_settled`: while a depth is being set the tool is drawn beside the unchanged body, and the fuse is done when the value is accepted, marked as a preview)
+
+## in_1012 — 2026-11-19 — directive
+> do the next step please
+(asks for the next step after the preview without the boolean; the AI had named keeping the page's parts per body as the biggest remaining lever, and settle on deselect as the other)
