@@ -19,6 +19,7 @@ export function writeStepFile(shapes, { unit = "MM", modelUnit = "MM", schema = 
     // (no colour is set: a part with none opens in the viewer's own colour)
   }
   tool.UpdateAssemblies();
+  new oc.STEPCAFControl_Writer().delete(); // (a writer sets up OCCT's STEP parameters when it is made, so the unit is set after one, not before: replicad does the same)
   oc.Interface_Static.SetCVal("xstep.cascade.unit", modelUnit.toUpperCase());
   oc.Interface_Static.SetCVal("write.step.unit", unit.toUpperCase());
   const session = new oc.XSControl_WorkSession();
