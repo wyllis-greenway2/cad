@@ -4372,3 +4372,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1004 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks to merge this branch's work into claude/inspiring-pascal-l342k7: the explicit permission to write to that branch for this merge)
+
+## in_1005 — 2026-11-19 — question
+> okay what next?
+(asks what to work on next; the AI recommends, the human decides)
+
