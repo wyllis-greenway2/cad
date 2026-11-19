@@ -116,5 +116,24 @@ export function guideLines(guide: readonly Vec3[], dash = 4, gap = 3): number[] 
 export function holesView(plan: ReceiverPlan, picked = -1): ToolpathView | null {
   if (!plan.places.length) return null;
   const one = picked >= 0 && plan.spots[picked] ? holeLines({ ...plan, spots: [plan.spots[picked]!] }) : []; // (the hole picked up, to be moved or taken out, drawn in the cut colour)
-  return { surfaces: holeSurfaces(plan), done: { wire: holeLines(plan), ...(one.length ? { cut: one } : {}), ...(plan.guide.length ? { travel: plan.guide.flatMap((g) => guideLines(g)) } : {}) }, rest: {}, head: null, stock: [] };
+  const origin = picked >= 0 && plan.spots[picked] && plan.base[picked] ? originMark(plan, picked) : []; // (where the rules put it, to be snapped back to, `in_1075`)
+  return { surfaces: holeSurfaces(plan), done: { wire: holeLines(plan), ...(one.length ? { cut: one } : {}), ...(origin.length ? { score: origin } : {}), ...(plan.guide.length ? { travel: plan.guide.flatMap((g) => guideLines(g)) } : {}) }, rest: {}, head: null, stock: [] };
+}
+
+/** The place the rules put a hole, marked (a ring and a cross on the surface) with a dashed line from it to where the hole stands now. */
+function originMark(plan: ReceiverPlan, pos: number): number[] {
+  const sp = plan.spots[pos]!;
+  const base = plan.base[pos]!;
+  const e1 = unit(sp.u);
+  const n = unit(cross(sp.u, sp.v));
+  const e2 = cross(n, e1);
+  const r = 1.8;
+  const out: number[] = [];
+  const seg = (a: Vec3, b: Vec3): void => { out.push(a[0], a[1], a[2], b[0], b[1], b[2]); };
+  for (let i = 0; i < RING; i++) { const [a0, a1] = [(i / RING) * 2 * Math.PI, ((i + 1) / RING) * 2 * Math.PI]; seg(at(base, e1, e2, n, r * Math.cos(a0), r * Math.sin(a0), 0.05), at(base, e1, e2, n, r * Math.cos(a1), r * Math.sin(a1), 0.05)); }
+  seg(at(base, e1, e2, n, -r * 1.5, 0, 0.05), at(base, e1, e2, n, r * 1.5, 0, 0.05));
+  seg(at(base, e1, e2, n, 0, -r * 1.5, 0.05), at(base, e1, e2, n, 0, r * 1.5, 0.05));
+  const c = sp.centre;
+  if (Math.hypot(c[0] - base[0], c[1] - base[1], c[2] - base[2]) > 1e-6) out.push(...guideLines([base, c], 2, 1.5));
+  return out;
 }

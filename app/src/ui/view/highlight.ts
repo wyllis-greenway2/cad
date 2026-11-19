@@ -21,16 +21,19 @@ export interface Highlight {
   amber?: readonly Ref[];
   /** what a refused change would have broken: mild red, fading */
   red?: { refs: readonly Ref[]; alpha: number };
+  /** what already held when it was asked for again: green, fading (`in_1103`) */
+  green?: { refs: readonly Ref[]; alpha: number };
   /** the copies a repeat that is open would make: they do not exist yet, so they pulse in a soft blue (`in_244`) */
   temp?: readonly Ref[];
   /** the last selected surface spreads its colour from where it was clicked */
   spread: { ref: Ref; point: Vec3; startMs: number } | null;
 }
-type Kind = "select" | "hover" | "amber" | "red" | "temp";
+type Kind = "select" | "hover" | "amber" | "red" | "green" | "temp";
 
 const AXIS_LEN = 30; // the world axes are lines too: pointing at one highlights it to that length
 const AMBER = 0xf2c14e;
 const RED = 0xe46a6a;
+const GREEN = 0x3fae6a;
 const TEMP = 0x4f8cf0;
 const teal = settings.orb.color;
 const ringRgb = selectedLook(teal, settings.orb.selectOpacity, [0.8, 0.8, 0.82]);
@@ -128,7 +131,7 @@ export function buildHighlight(overlay: THREE.Group, marks: THREE.Group, s: Scen
  * same the highlight that was built is still right, so turning the view (which changes none of it) does not build it again. `stamp` is what the view says of its own scene, picture and sections; `unit` the distance of the camera, which sizes the balls.
  */
 export function highlightKey(h: Highlight, nowMs: number, unit: number, stamp: string): string | null {
-  if (h.temp?.length || h.red?.refs.length) return null;
+  if (h.temp?.length || h.red?.refs.length || h.green?.refs.length) return null;
   const spreading = !!h.spread && nowMs - h.spread.startMs < settings.orb.fillMs + 50;
   if (spreading) return null;
   return JSON.stringify([stamp, unit, h.hover ?? null, h.hoverPoint, h.selection, h.amber ?? [], h.spread ? [h.spread.ref, h.spread.point] : null]);
@@ -174,16 +177,16 @@ function buildParts(overlay: THREE.Group, marks: THREE.Group, s: Scene | null, b
       }
       return;
     }
-    if (kind === "red" && (p.kind === "face" || p.kind === "body" || (p.kind === "plane" && p.origin !== "world"))) {
+    if ((kind === "red" || kind === "green") && (p.kind === "face" || p.kind === "body" || (p.kind === "plane" && p.origin !== "world"))) {
       // a surface a refused change would have broken flashes red all over, as an edge does, with its constraint's bubble (`in_434`)
       const ft = fillTriangles(s, ref, "select", body, h.bodyTris?.[ref]);
       if (ft && ft.length) {
-        const a = h.red?.alpha ?? 1;
-        overlay.add(trisMesh(ft, new THREE.MeshBasicMaterial({ color: RED, transparent: true, opacity: 0.5 * a, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })));
+        const a = (kind === "green" ? h.green?.alpha : h.red?.alpha) ?? 1;
+        overlay.add(trisMesh(ft, new THREE.MeshBasicMaterial({ color: kind === "green" ? GREEN : RED, transparent: true, opacity: 0.5 * a, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })));
         return;
       }
     }
-    const tris = kind === "amber" || kind === "red" || kind === "temp" ? null : fillTriangles(s, ref, kind, body, h.bodyTris?.[ref]);
+    const tris = kind === "amber" || kind === "red" || kind === "green" || kind === "temp" ? null : fillTriangles(s, ref, kind, body, h.bodyTris?.[ref]);
     if (!tris && p.origin === "world" && p.kind === "plane") return; // nothing to draw for a picked world plane (its tint is the pulse below)
     if (tris && kind === "hover" && p.kind === "face" && p.origin === "drawn") {
       // a closed sketch under the pointer fills with teal all over: it is closed and can be extruded (`in_194`); the ring still follows the pointer on it
@@ -200,9 +203,9 @@ function buildParts(overlay: THREE.Group, marks: THREE.Group, s: Scene | null, b
     if (tris) return void overlay.add(surfaceOrb(kind, ref, tris, h, unit, nowMs));
     const o = outlineOf(get, p);
     const w = kind === "select" ? settings.pick.edgeWidthPx : settings.pick.edgeHoverWidthPx;
-    const col = kind === "amber" ? AMBER : kind === "red" ? RED : kind === "temp" ? TEMP : tealHex;
-    const alpha = kind === "red" ? h.red?.alpha ?? 1 : kind === "temp" ? 0.5 + 0.4 * Math.sin(nowMs / 280) : 1; // (the copies breathe: they are not there yet)
-    const wide = kind === "red" || kind === "temp" ? 3.4 : w;
+    const col = kind === "amber" ? AMBER : kind === "red" ? RED : kind === "green" ? GREEN : kind === "temp" ? TEMP : tealHex;
+    const alpha = kind === "red" ? h.red?.alpha ?? 1 : kind === "green" ? h.green?.alpha ?? 1 : kind === "temp" ? 0.5 + 0.4 * Math.sin(nowMs / 280) : 1; // (the copies breathe: they are not there yet)
+    const wide = kind === "red" || kind === "green" || kind === "temp" ? 3.4 : w;
     const b = batchFor(kind, col, wide, true, alpha);
     if (o.shape === "point") batchFor(kind, col, 0, true, alpha).balls.push({ at: o.at, radius: unit * settings.pick.vertexScale * (kind === "select" ? settings.pick.vertexSelectScale : 1) });
     else if (o.shape === "polyline") b.segs.push(...pairsOf(o.pts));
@@ -215,6 +218,7 @@ function buildParts(overlay: THREE.Group, marks: THREE.Group, s: Scene | null, b
   if (dots.length) marks.add(spheresAt(dots.map((at) => ({ at, radius: unit * settings.pick.vertexScale * 0.7 })), 0x2b2b2d, true));
   for (const r of h.amber ?? []) mark(r, "amber");
   for (const r of h.red?.refs ?? []) mark(r, "red");
+  for (const r of h.green?.refs ?? []) mark(r, "green");
   for (const r of h.temp ?? []) mark(r, "temp");
   for (const r of h.selection) mark(r, "select");
   // a selected arc or circle shows its centre vertex too, so it can be picked to line the curve up with other things (`in_143`)

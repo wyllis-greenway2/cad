@@ -440,20 +440,6 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
     const next = run(s.session, back.command);
     return { ...closed, session: next.message ? next : { ...next, message: "the mate was put back" } };
   }
-  if (id === "mate:reapply") { // the mates that are no longer true are made again, one at a time (each may move what the next rests on, `in_315`)
-    let session = closed.session;
-    let made = 0;
-    for (let k = 0; k < 20; k++) {
-      const back = putMatesBack(sceneOf(session));
-      if (!back) break;
-      const next = run(session, back.command);
-      if (next.message && next === session) break;
-      if (next.message) return { ...closed, session: next };
-      session = next;
-      made++;
-    }
-    return { ...closed, session: { ...session, message: made ? `${made === 1 ? "the mate was" : `${made} mates were`} put back` : "every mate is true" } };
-  }
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
   if (id.startsWith("tool:disc:")) return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", "disc", id.slice(10) as CamLaw); // (a disc cam of this law, `dec_spline_and_cams`)
   if (id === "tool:geneva:assembled" || id === "tool:geneva:model") return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", "geneva", undefined, id === "tool:geneva:model" ? "model" : "assembled"); // (a Geneva drive drawn in place, as a sketch or as bodies, `dec_geneva`)
@@ -513,7 +499,25 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
   const acts = actionsFor(sceneOf(s.session), selectionOf(s.session));
   const entry = CONSTRAINT_ENTRIES.find((e) => e.id === id); // (an entry of the constraints list stands for the action the selection fits, `in_975`)
   const a = entry ? resolveEntry(entry, acts) : acts.find((x) => x.id === id);
-  return a && a.enabled ? { ...withSession(s, run(s.session, a.run())), menu: null } : closed;
+  if (!a || !a.enabled) return closed;
+  const done = run(s.session, a.run());
+  return { ...withSession(s, a.id.startsWith("mate:") ? swapped(s, a, done) : done), menu: null };
+}
+/**
+ * A mate of two bodies moves the first face selected to the second (`in_229`). When that is refused because the first body is held where it is, the same mate is tried the other way round, the second body moving to the first,
+ * and only when neither can move is it refused (`in_1109`, the swap): the faces' bodies are said, so it is clear which one moved. A mate with a world plane has nothing to swap.
+ */
+function swapped(s: AppState, a: ReturnType<typeof actionsFor>[number], first: Session): Session {
+  const sc = sceneOf(s.session);
+  const sel = selectionOf(s.session);
+  const refused = first.history === s.session.history && !!first.message && !first.already; // (nothing was made, and it says why)
+  if (!refused || a.parts.length !== 2 || sel.length !== 2 || a.parts.some((r) => sc.parts[r]?.origin === "world")) return first;
+  const back = actionsFor(sc, [...sel].reverse()).find((x) => x.id === a.id && x.enabled);
+  if (!back) return first;
+  const other = run(s.session, back.run());
+  const bodyOf = (r: Ref): string => { const p = sc.parts[r] as { of?: string; id?: string } | undefined; return p?.of ? `${(sc.parts[p.of as Ref] as { id?: string } | undefined)?.id ?? "the body"}` : "the body"; };
+  if (other.history !== s.session.history && !other.message) return { ...other, message: `${bodyOf(a.parts[0]!)} is held where it is, so ${bodyOf(a.parts[1]!)} moved to it` };
+  return { ...first, message: `${first.message}; the other way round (${bodyOf(a.parts[1]!)} moving to ${bodyOf(a.parts[0]!)}) it cannot be done either` };
 }
 export function doDelete(s: AppState): AppState {
   if (s.tool || s.op || s.repeat) return s;

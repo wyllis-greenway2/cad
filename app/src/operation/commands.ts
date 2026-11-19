@@ -53,6 +53,10 @@ export type Command =
   /** group things (parts, or groups made before) so that selecting one selects all; `id` is a new group id (`in_257`) */
   | { type: "group"; id: string; items: string[] }
   /** a body made hard or soft (`dec_hard_bodies`): `body` is the name it keeps through the history */
+  /** nothing to do and why: what an action that cannot make its command hands over, so the refusal is said and shown, not swallowed as an empty step (`in_1109`); `soften`: hard or fixed bodies whose hardness stopped it, `into` the bodies it ran into, `retry` the command once their hardness is gone */
+  /** nothing to do, because constraints that are there already make it true: they are named and flash green (`in_1111`) */
+  | { type: "held"; ids: string[] }
+  | { type: "refuse"; why: string; soften?: string[]; into?: string[]; retry?: Command }
   | { type: "setHard"; body: string; on: boolean }
   | { type: "setFixed"; body: string; on: boolean }
   /** what a body is made of (`in_565`): `body` is the name it keeps through the history, `material` a material id (empty takes the tag off) */
@@ -285,6 +289,8 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       const { hiddenBodies: _old, ...rest } = s;
       return ok(now.size ? { ...rest, hiddenBodies: [...now].sort() } : rest);
     }
+    case "held": return ok(s);
+    case "refuse": return ok(s); // (the session says it and does not keep it as a step)
     case "setHard": { const hard = (s.hard ?? []).filter((b) => b !== c.body); return ok({ ...s, ...(c.on ? { hard: [...hard, c.body] } : hard.length ? { hard } : { hard: undefined }) }); }
     case "setFixed": { const fixed = (s.fixed ?? []).filter((b) => b !== c.body); return ok({ ...s, ...(c.on ? { fixed: [...fixed, c.body] } : fixed.length ? { fixed } : { fixed: undefined }) }); }
     case "useDefinition": {

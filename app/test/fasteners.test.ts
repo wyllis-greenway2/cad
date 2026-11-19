@@ -465,12 +465,14 @@ type Item = { id: string; label: string; enabled: boolean; why: string | null; c
 const ringOf = (session: Session): Item[] => reduce({ ...createState(session) }, { type: "menu", x: 400, y: 300, button: true }, { w: 800, h: 600, now: 0 }).menu!.items as unknown as Item[];
 const find = (items: Item[], id: string): Item | undefined => { for (const i of items) { if (i.id === id) return i; const f = i.children ? find(i.children, id) : undefined; if (f) return f; } return undefined; };
 
-test("the right-click ring has the Fastener tool directly under Shape, with the screw icon, and no Models", () => {
+test("the right-click ring has the Fastener tool under Shape, Fabricate (the hammer), next to Material and Models", () => {
   const items = ringOf(createSession(kernel));
   const shape = items.find((i) => i.id === "shape")!;
-  const tool = shape.children!.find((i) => i.id === "tool:fasteners")!;
+  const fab = shape.children!.find((i) => i.id === "fabricate")!; // (Shape, Fabricate: the material and the fastener tool, `in_1083`)
+  assert.equal(fab.label, "Fabricate");
+  const tool = fab.children!.find((i) => i.id === "tool:fasteners")!;
   assert.equal(tool.label, "Fastener tool");
-  assert.equal(find(items, "models"), undefined);
+  assert.deepEqual(fab.children!.map((c) => c.id), ["fab:material", "tool:fasteners", "models"]);
 });
 test("Fastener Holes is always in the ring: it opens a panel that says what to select", () => {
   const none = find(ringOf(createSession(kernel)), "tool:fasteners")!;
@@ -499,4 +501,14 @@ test("a file made before this, with a drawn plane that says it is infinite, open
   const out = apply(emptyScene(), { type: "addPart", part: { ref: "d/e_040.pl", kind: "plane", origin: "drawn", plane: null, movable: false, at: [0, 0, 0], u: [1, 0, 0], v: [0, 0, 1], infinite: true } as never });
   assert.ok(out.ok);
   assert.equal((out.value.parts["d/e_040.pl" as never] as { infinite?: boolean }).infinite, undefined);
+});
+test("Sketch has no Cam category any more; Models under Shape, Fabricate has the Geneva plate first, the 3D model version only (`in_1098`)", () => {
+  const items = ringOf(createSession(kernel));
+  const sketch = items.find((i) => i.id === "sketch")!;
+  assert.ok(!sketch.children!.some((c) => c.id === "cams"), "no Cam category");
+  assert.ok(find(items, "tool:eccentric") === undefined && find(items, "tool:geneva") === undefined && find(items, "tool:disc:harmonic") === undefined && find(items, "cam:edit") === undefined && find(items, "cam:follow") === undefined, "none of the cam options");
+  const models = find(items, "models")!;
+  assert.equal(models.label, "Models");
+  assert.deepEqual(models.children!.map((c) => [c.id, c.label]), [["tool:geneva:model", "Geneva plate"], ["model:gearbox", "Gearbox"], ["model:bearing", "Bearing"], ["model:differential", "Differential"], ["model:cycloidal", "Cycloidal drive"]]);
+  assert.ok(find(items, "fabricate")!.children!.some((c) => c.id === "models"));
 });

@@ -20,7 +20,9 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
   let linkKey = "";
   const springs = document.createElement("span"); springs.style.cssText = "display:flex;gap:8px;align-items:center"; // (the bodies that yield by contact, each with where it goes back to)
   let springKey = "";
-  bar.append(play, rev, slider, label, kind, links, springs, keep, close);
+  const note = document.createElement("div"); // (what is said about the motion: above the bar and out of its layout, so a long message does not move the bar)
+  note.style.cssText = "position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);max-width:min(80vw,640px);padding:4px 12px;border-radius:12px;background:rgba(34,37,41,.92);color:#fff;font-size:12.5px;white-space:normal;text-align:center;opacity:0;transition:opacity .35s ease;pointer-events:none";
+  bar.append(note, play, rev, slider, label, kind, links, springs, keep, close);
   host.appendChild(bar);
   play.addEventListener("pointerup", (e) => { e.stopPropagation(); send({ type: "motionPlay" }); });
   slider.addEventListener("input", () => send({ type: "motionAt", amount: Number(slider.value) }));
@@ -32,6 +34,7 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
   close.addEventListener("pointerup", (e) => { e.stopPropagation(); send({ type: "motionClose" }); });
   for (const ev of ["pointerdown", "pointerup", "pointermove", "wheel"]) bar.addEventListener(ev, (e) => e.stopPropagation()); // (the page behind does not take them)
   let shown = false;
+  let noteSince = 0, noteSeen = 0, noteLast = "", noteOn = false; // (the note's own clock: what it said last, when it began, when it was last said, whether it shows)
   return {
     update(v: Frame["motionBar"]) {
       if (!v) { if (shown) { bar.style.display = "none"; shown = false; } return; }
@@ -42,6 +45,14 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
       if (document.activeElement !== slider) slider.value = String(v.amount);
       rev.style.opacity = v.reversed ? "1" : ".6"; rev.style.textDecoration = v.reversed ? "underline" : "none";
       label.textContent = v.label;
+      // the note fades in once it has been there a moment (a heavy push comes and goes from one frame to the next) and fades out a good while after it was last said, so it can be read; a jam is shown at once
+      const clock = performance.now();
+      if (v.note) { if (!noteSince) noteSince = clock; noteLast = v.note; noteSeen = clock; } else noteSince = 0;
+      const show = !!noteLast && (((!!v.note && (v.note.startsWith("stopped") || clock - noteSince >= 600))) || clock - noteSeen < 3000 && noteOn);
+      noteOn = show;
+      if (noteLast) note.textContent = noteLast;
+      note.style.opacity = show ? "1" : "0";
+      if (!show && noteLast && clock - noteSeen > 3500) noteLast = "";
       const sKey = JSON.stringify(v.springs);
       if (sKey !== springKey && !springs.contains(document.activeElement)) { // (made again only when they change, so a number being typed is not lost)
         springKey = sKey; springs.replaceChildren();

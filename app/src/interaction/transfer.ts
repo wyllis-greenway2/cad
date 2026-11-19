@@ -31,9 +31,10 @@ export interface Field {
 export interface Dialog { title: string; ok: string; fields: Field[] }
 
 // ---------- export ----------
-export type ExportKind = ExportFormat | "svg" | "dxf";
+/** `project`: the model and its history as one file to open again, with what the page knew when it was saved (`in_1083`: a file to send when something is to be looked into). */
+export type ExportKind = ExportFormat | "svg" | "dxf" | "project";
 export interface ExportOptions { format: ExportKind; what: "all" | "selected"; units: Units; quality: Quality; perBody: boolean; /** a DXF with the pieces that meet joined into one path each */ joined: boolean; /** a STEP file's schema */ schema: StepSchema; /** an IGES file's faces as surfaces or solids */ iges: "surfaces" | "solids"; name: string }
-export const EXPORT_DEFAULTS: ExportOptions = { format: "stl", what: "all", units: "mm", quality: "fine", perBody: false, joined: true, schema: "ap214", iges: "surfaces", name: "" };
+export const EXPORT_DEFAULTS: ExportOptions = { format: "project", what: "all", units: "mm", quality: "fine", perBody: false, joined: true, schema: "ap214", iges: "surfaces", name: "" };
 const FLAT_KINDS = new Set<ExportKind>(["svg", "dxf"]);
 const NOTHING_3D = "nothing to export yet: make a body";
 const NOTHING_FLAT = "nothing to export yet: draw something, or select a sketch or a flat face of a body";
@@ -44,11 +45,11 @@ const bodyIds = (s: Session): string[] => Object.values(sceneOf(s).parts).flatMa
 /** The options made to fit what there is: a format that has nothing to export is not kept, `selected` only with a selection, the file name has no path in it. */
 export function fitExport(s: Session, given: Partial<ExportOptions>): ExportOptions {
   const o: ExportOptions = { ...EXPORT_DEFAULTS, ...given }; // (what is not given, or was never kept, is the usual)
-  const ok = (k: ExportKind): boolean => (FLAT_KINDS.has(k) ? canExportFlat(s) : canExport(s));
-  const format = ok(o.format) ? o.format : (["stl", "3mf", "obj", "step", "iges", "brep", "svg", "dxf"] as const).find(ok) ?? o.format;
+  const ok = (k: ExportKind): boolean => (k === "project" ? true : FLAT_KINDS.has(k) ? canExportFlat(s) : canExport(s));
+  const format = ok(o.format) ? o.format : (["stl", "3mf", "obj", "step", "iges", "brep", "svg", "dxf", "project"] as const).find(ok) ?? o.format;
   const what = o.what === "selected" && selectedBodies(s) ? "selected" : "all";
   const count = what === "selected" ? selectedBodies(s)!.length : bodyIds(s).length;
-  return { ...o, format, what, perBody: o.perBody && count > 1 && !FLAT_KINDS.has(format), name: o.name.trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\.[A-Za-z0-9]{1,5}$/, "") };
+  return { ...o, format, what, perBody: o.perBody && count > 1 && !FLAT_KINDS.has(format) && format !== "project", name: o.name.trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\.[A-Za-z0-9]{1,5}$/, "") };
 }
 
 export function exportDialog(s: Session, o0: Partial<ExportOptions>): Dialog {
@@ -58,6 +59,7 @@ export function exportDialog(s: Session, o0: Partial<ExportOptions>): Dialog {
   const sel = selectedBodies(s);
   const fields: Field[] = [
     { id: "format", label: "Format", type: "choice", value: o.format, choices: [
+      { value: "project", label: "Project (.json): the whole model, to open again, and what is needed to look into a problem" },
       { value: "stl", label: "STL: for slicers and printers", ...(can3d ? {} : { disabled: NOTHING_3D }) },
       { value: "3mf", label: "3MF: for slicers (units, one file)", ...(can3d ? {} : { disabled: NOTHING_3D }) },
       { value: "obj", label: "OBJ: a mesh, for Blender and other mesh programs", ...(can3d ? {} : { disabled: NOTHING_3D }) },
@@ -68,6 +70,10 @@ export function exportDialog(s: Session, o0: Partial<ExportOptions>): Dialog {
       { value: "dxf", label: "DXF: a flat drawing, for CAD and CNC", ...(canFlat ? {} : { disabled: NOTHING_FLAT }) },
     ] },
   ];
+  if (o.format === "project") {
+    fields.push({ id: "name", label: "File name", type: "text", value: o.name || "model", note: ".json is added. It holds the model's history and the state of the page (the view, the selection, what the kernel answered, the last things done), so a problem can be looked into from this one file" });
+    return { title: "Export", ok: "Export", fields };
+  }
   if (!flat) {
     const total = bodyIds(s).length;
     fields.push({ id: "what", label: "What", type: "choice", value: o.what, choices: [
@@ -95,6 +101,7 @@ export function exportDialog(s: Session, o0: Partial<ExportOptions>): Dialog {
 export async function exportWith(s: Session, kernel: Kernel, o0: Partial<ExportOptions>): Promise<FileOutcome> {
   const o = fitExport(s, o0);
   const base = o.name || (FLAT_KINDS.has(o.format) ? "sketch" : "model");
+  if (o.format === "project") return { ok: false, error: "a project is written by the page, which knows its own state" } as FileOutcome;
   if (o.format === "svg" || o.format === "dxf") return exportFlat(s, o.format, `${base}.${o.format}`, o.units, o.joined);
   const format = o.format as ExportFormat;
   const only = o.what === "selected" ? selectedBodies(s) : undefined;

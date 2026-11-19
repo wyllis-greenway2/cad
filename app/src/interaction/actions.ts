@@ -20,6 +20,7 @@ import { worldRef } from "../shared/ref.ts";
 import type { MateMode } from "../operation/mates.ts";
 import { featureOf, existingMate, faceMiddle, isFlatMode, mateStatus, isWorldPlane } from "../operation/mates.ts";
 import { ordered } from "./selection.ts";
+import { impliedMate } from "./implied.ts";
 import { ROWS, REFERENCES_ONLY, same } from "./rows.ts";
 import type { Ctx } from "./rows.ts";
 
@@ -61,6 +62,17 @@ function faceOfEdge(scene: Scene, ref: Ref): Ref {
     return Math.hypot(d[0] - n[0] * along, d[1] - n[1] * along, d[2] - n[2] * along) < 1e-3;
   });
   return f ? f.ref : ref;
+}
+
+/**
+ * The command of a mate that cannot be made: nothing to do, and why (an empty step would be kept in the history with not a word, `in_1109`). When hard bodies stopped it their hardness is the constraint (`inv_constraint_uniformity`):
+ * it flashes and can be deleted, and the mate is made as asked once it is gone (`again`: the mate worked out with the hard check off).
+ */
+function refusal(scene: Scene, r: { why: string; into?: Ref[] }, again: () => { command: Command } | { why: string }): Command {
+  const names = (rs: readonly Ref[]): string[] => rs.flatMap((q) => { const p = scene.parts[q]; return p?.kind === "body" && p.id ? [p.id] : []; });
+  const soften = names(r.into ?? []).filter((id) => !!scene.hard?.includes(id) || !!scene.fixed?.includes(id));
+  const retry = soften.length ? again() : null;
+  return { type: "refuse", why: r.why, ...(soften.length ? { soften, into: [...(r.into ?? [])] as string[] } : {}), ...(retry && "command" in retry ? { retry: retry.command } : {}) };
 }
 
 /** Every relation and operation that applies to the selection, relations first, in the order of the table. */
@@ -145,10 +157,12 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
         measure: measureNow,
         spot: () => faceMiddle(scene, pair[0]),
         run: (value?: number): Command => {
+          const implied = impliedMate(scene, mode, pair[0], pair[1]); // (a sketch constraint that already makes it true: said, not made twice, `in_1111`)
+          if (implied.length) return { type: "held", ids: implied };
           const again = fa && fb ? existingMate(scene, mode, fa.body, fb.body) ?? undefined : undefined; // (a mate made again between the same bodies replaces the one there)
           const amount = unit === null ? 0 : degrees ? Math.min(180, Math.max(0, value ?? measureNow() ?? 0)) : Math.max(0, value ?? 0);
           const r = mateCommand(scene, mode, pair[0], pair[1], amount, again, mode !== "parallel" || value !== undefined, true); // (parallel faces are only turned unless a distance is typed)
-          return "command" in r ? r.command : { type: "batch", commands: [] };
+          return "command" in r ? r.command : refusal(scene, r, () => mateCommand(scene, mode, pair[0], pair[1], amount, again, mode !== "parallel" || value !== undefined, true, true));
         },
       });
     }
@@ -168,7 +182,7 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
         run: (): Command => {
           const again = fa ? existingMate(scene, mode, fa.body, world) ?? undefined : undefined;
           const r = mateCommand(scene, mode, sel[0]!, world, 0, again, false, true);
-          return "command" in r ? r.command : { type: "batch", commands: [] };
+          return "command" in r ? r.command : refusal(scene, r, () => mateCommand(scene, mode, sel[0]!, world, 0, again, false, true, true));
         },
       });
     }

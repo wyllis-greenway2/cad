@@ -68,6 +68,7 @@ test("a moving body that meets a hard wall it cannot push stops there, and says 
   s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 6, mode: "new" } } });
   const post = Object.values(scene(s).parts).find((p) => p.kind === "body" && ![b.wheel, b.disc, b.crank].includes(p.ref) && p.ref !== "b/body/o")!;
   s = run(s, { type: "setHard", body: (post as { id: string }).id, on: true });
+  s = run(s, { type: "setFixed", body: (post as { id: string }).id, on: true }); // (a hard body with no joint is pushed aside, `in_1029`: a wall is marked fixed)
   const r = startMotion(scene(s), b.crank!);
   assert.ok(r.ok);
   if (!r.ok) return;
@@ -205,7 +206,7 @@ test("hardness is passed on to three links: a train of six gears with the first 
     const stripped: typeof r.motion = { ...r.motion, follows: [] as typeof r.motion.follows };
     const contact = startContact(scene(s), stripped, scene(s).gears!.slice(1).map((g, i) => { const ax = gearAxis(scene(s), g)!; return { body: bodies[i + 1]!, point: ax.point, dir: ax.dir }; }), s.outcome)!;
     let m: typeof r.motion = { ...stripped, contact };
-    for (let deg = 1; deg <= 45; deg++) { m = solveContact(scene(s), { ...m, amount: deg }, s.outcome); assert.ok(!m.contact!.jam, `jam at ${deg}: ${m.contact!.jam}`); }
+    for (let deg = 1; deg <= 45; deg++) { m = solveContact(scene(s), { ...m, amount: deg }, s.outcome, Infinity); assert.ok(!m.contact!.jam, `jam at ${deg}: ${m.contact!.jam}`); }
     return m;
   };
   const err = (m: NonNullable<ReturnType<typeof play>>, i: number) => Math.abs(followAmount(m.yields![i - 1]!, 45) - ratio[i]! * 45);

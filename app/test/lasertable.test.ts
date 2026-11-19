@@ -11,7 +11,7 @@ import { emptyLibrary, saveMachine, saveSettings, removeSettings, removeMachine,
 import type { PersonalLibrary } from "../src/interaction/library.ts";
 import { laserDefaults, laserDialog, machineFrom, tableRows, rowLabel, rowFrom, tableDialog, runLaser, recordCommands, TABLE_KEYS, NO_ROW, planFor, LASER_ROUTE } from "../src/interaction/manufacture.ts";
 import type { LaserValues } from "../src/interaction/manufacture.ts";
-import { appRows } from "../src/interaction/appmenu.ts";
+import { fabricateRows } from "../src/interaction/appmenu.ts";
 import type { SettingsDefinition } from "../src/manufacturing/index.ts";
 
 await kernel.init();
@@ -128,7 +128,7 @@ test("the table dialog lists the rows and takes one out; the ⋯ menu shows Lase
   assert.equal(d.title, "Your laser table"); assert.equal(d.ok, "Done");
   assert.equal(tableDialog([r0], { row: r0.id, remove: true }).ok, "Take it out");
   assert.deepEqual(d.fields[0]!.choices!.map((c) => c.value), [r0.id]);
-  const rows = (can: boolean) => appRows("", { laserTable: can }).filter((x) => x.id === "laserTable");
+  const rows = (can: boolean) => fabricateRows({ laserTable: can }).filter((x) => x.id === "laserTable");
   assert.deepEqual(rows(true).map((x) => [x.label, x.enabled]), [["Laser table…", true]]);
   assert.deepEqual(rows(false), []);
 });

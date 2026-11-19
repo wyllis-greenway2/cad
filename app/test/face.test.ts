@@ -36,7 +36,7 @@ test("the gear command makes a face gear: one body (the loft cut to the blank, j
   const b = bodies(s);
   assert.equal(b.length, 1);
   const { min, max } = b[0]!.bbox;
-  assert.ok(Math.abs(max[2]! - 2) < 0.05, `the tips stand a module above the pitch plane: ${max[2]}`);
+  assert.ok(Math.abs(max[2]! - 1.5) < 0.05, `the tips stand three quarters of a module above the pitch plane (a full module made the neighbouring tooth cut the pinion, in_1082): ${max[2]}`);
   assert.ok(Math.abs(min[2]! + 6.5) < 0.05, `the plate's foot a root and a thickness under it: ${min[2]}`);
 });
 

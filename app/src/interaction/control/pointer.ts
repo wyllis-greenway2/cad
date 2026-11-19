@@ -1,5 +1,6 @@
 // The pointer intents: hover, click (selecting, or drawing when a tool is armed, or finishing an operation) and the menu.
 import { CONSTRAINT_ENTRIES, resolveEntry } from "../constraintlist.ts";
+import { whyNoMaterial } from "../material.ts";
 import { whyNoPathRepeat } from "../pathrepeat.ts";
 import type { Intent } from "../../shared/input.ts";
 import type { Ref } from "../../shared/ref.ts";
@@ -59,7 +60,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:ratchet", label: "Ratchet", icon: "cam", tool: "cam" },
   { id: "tool:geneva", label: "Apart", icon: "cam", tool: "cam" },
   { id: "tool:geneva:assembled", label: "Assembled", icon: "cam", tool: "cam" },
-  { id: "tool:geneva:model", label: "3D model", icon: "cam", tool: "cam" },
+  { id: "tool:geneva:model", label: "Geneva plate", icon: "cam", tool: "cam" }, // (Shape, Fabricate, Models: the 3D model of the Geneva drive, the only way to it now, `in_1098`)
   { id: "tool:linear", label: "Linear ratchet", icon: "cam", tool: "cam" },
   { id: "tool:disc:cycloidal", label: "Cycloidal", icon: "cam", tool: "cam" },
   { id: "tool:disc:harmonic", label: "Harmonic", icon: "cam", tool: "cam" },
@@ -111,6 +112,11 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:linear", label: "Line repeat", icon: "linear", op: "linear" },
   { id: "op:circular", label: "Round repeat", icon: "circular", op: "circular" },
   { id: "repeat:path", label: "Path repeat", icon: "pathrepeat" }, // (`dec_path_repeat`, `in_841`: a figure repeated along a line, a curve or an outline)
+  { id: "model:gearbox", label: "Gearbox", icon: "gearbox" }, // (Shape, Fabricate, Models: a reduction gearbox, `dec_gear_models`)
+  { id: "model:bearing", label: "Bearing", icon: "bearing" }, // (a ball bearing)
+  { id: "model:differential", label: "Differential", icon: "differential" }, // (a bevel gear differential)
+  { id: "model:cycloidal", label: "Cycloidal drive", icon: "cycloidal" }, // (a cycloidal reducer)
+  { id: "fab:material", label: "Material", icon: "models" }, // (Shape, Fabricate: what a body is made of, `in_1083`; it was a row of the ⋯ list)
   { id: "tool:fasteners", label: "Fastener tool", icon: "fastener" }, // (Shape: the hole for a fastener cut into the face selected, with the hardware inserted if asked, `in_813`, `in_912`)
   { id: "body:hard", label: "Hard body", icon: "hard", select: "hard" }, // (a constraint: no other body goes into it while one or the other is moved by hand, `in_473`, `in_490`)
   { id: "body:fixed", label: "Fixed body", icon: "hard", select: "fixed" }, // (a body that stays where it is when a played body pushes on it: a wall; a hard body with no joint is otherwise pushed aside, `dec_contact_push`, `in_1049`)
@@ -139,8 +145,8 @@ const GEARS: Group = {
   ],
 };
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
-  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", { id: "cams", label: "Cam", icon: "cam", items: ["tool:eccentric", "tool:snail", "tool:ratchet", "tool:linear", { id: "genevas", label: "Geneva", icon: "cam", items: ["tool:geneva", "tool:geneva:assembled", "tool:geneva:model"] }, { id: "disccams", label: "Disc cam", icon: "cam", items: ["tool:disc:cycloidal", "tool:disc:harmonic", "tool:disc:parabolic"] }, "cam:edit", "cam:follow"] }, GEARS, "tool:trim", "op:offset"] },
-  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", "tool:fasteners"] },
+  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", GEARS, "tool:trim", "op:offset"] },
+  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "fabricate", label: "Fabricate", icon: "hammer", items: ["fab:material", "tool:fasteners", { id: "models", label: "Models", icon: "models", items: ["tool:geneva:model", "model:gearbox", "model:bearing", "model:differential", "model:cycloidal"] }] }] },
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
@@ -187,6 +193,8 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     }
     if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfSelection(sc, x) || (r.id === "gear:edit" && !!planetaryOfPart(sc, x))); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
     if (r.id === "repeat:path") { const why = whyNoPathRepeat(session); return [r.id, { ...base, enabled: !why, why }]; }
+    if (r.id.startsWith("model:")) return [r.id, { ...base, enabled: true, why: null }]; // (a dialog for the numbers, `dec_gear_models`)
+    if (r.id === "fab:material") { const why = whyNoMaterial(session); return [r.id, { ...base, enabled: !why, why }]; }
     if (r.id === "tool:fasteners") return [r.id, { ...base, enabled: true, why: null }]; // (it opens a panel that says what to select, `dec_parts_tool`)
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }

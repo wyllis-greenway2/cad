@@ -11,6 +11,8 @@ import { nextId } from "../src/operation/scene.ts";
 import { selectedBodies, materialOf, whyNoMaterial, materialStart, materialDialog, materialCommand } from "../src/interaction/material.ts";
 import { panelOf } from "../src/interaction/panels.ts";
 import { appRows } from "../src/interaction/appmenu.ts";
+import { createState, reduce } from "../src/interaction/controller.ts";
+import { homeCamera } from "../src/interaction/camera.ts";
 import { MATERIAL_MAX } from "../src/operation/commands.ts";
 
 await kernel.init();
@@ -101,8 +103,16 @@ test("a name that is too long or has control characters is refused; nothing sele
   assert.ok(ctl.message, "and says why");
 });
 
-test("the ⋯ menu has a Material… row, live with a body selected and dimmed with the reason without one", () => {
-  const rows = (can: boolean) => appRows("", { material: can }).filter((r) => r.id === "material");
-  assert.deepEqual(rows(true).map((r) => [r.label, r.enabled]), [["Material…", true]]);
-  assert.deepEqual(rows(false).map((r) => [r.enabled, r.why]), [[false, "select a body first"]]);
+test("Material is under Shape, Fabricate in the ring (with the fastener tool), live with a body selected and dimmed with the reason without one (`in_1083`)", () => {
+  const ring = (sess: Session) => reduce({ ...createState(sess), cam: homeCamera() }, { type: "menu", x: 400, y: 300, button: true }, { w: 800, h: 600, now: 0 }).menu!.items;
+  const shape = ring(createSession(kernel)).find((i) => i.id === "shape")!;
+  const fab = shape.children!.find((i) => i.id === "fabricate")!;
+  assert.equal(fab.label, "Fabricate");
+  assert.deepEqual(fab.children!.map((c) => c.id), ["fab:material", "tool:fasteners", "models"]);
+  const none = fab.children!.find((c) => c.id === "fab:material")!;
+  assert.deepEqual([none.enabled, none.why], [false, "select a body first"]);
+  const b = twoBodies();
+  const withBody = ring(select(b, [bodyRefs(b)[0]!])).find((i) => i.id === "shape")!.children!.find((i) => i.id === "fabricate")!.children!.find((c) => c.id === "fab:material")!;
+  assert.equal(withBody.enabled, true);
+  assert.ok(!appRows().some((r) => r.id === "material"), "no longer a row of the ⋯ list");
 });

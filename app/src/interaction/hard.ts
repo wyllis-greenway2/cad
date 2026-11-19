@@ -267,22 +267,22 @@ function hardMotionNow(scene: Scene, group: readonly Ref[], rigidOf: (b: Ref) =>
  * What releasing a drag of hard bodies makes (`in_473`): the operation taken only as far as it can go (a move's numbers, or a turn's angle, times the part that is free), or the reason it is refused (a number
  * typed for it would run into another hard body, or it is against one already). Null when nothing hard is in the way.
  */
-export function limitedOp(scene: Scene, op: Op): { op: Op } | { why: string } | null {
+export function limitedOp(scene: Scene, op: Op): { op: Op; /** the bodies it ran into: a drag that was taken only as far as it could go */ hit?: Ref[] } | { why: string; /** the bodies it ran into */ hit?: Ref[] } | null {
   // copies a repeat or a mirror would make: refused with the reason (`in_475`)
   const copies = hardCopies(scene, op);
-  if (copies) return { why: copies.why };
+  if (copies) return { why: copies.why, hit: copies.hit };
   // a sweep that would run into a hard body is refused with the reason (`in_482`)
   const swept = sweepRuns(scene, op);
-  if (swept) return { why: swept.why };
+  if (swept) return { why: swept.why, hit: swept.hit };
   // a hard body's face pulled out into another hard body: taken as far as it goes, or refused when typed
   const grown = growth(scene, op);
   if (grown) {
     const names = grown.hit.map((r) => nameOf(scene, r)).join(", ");
-    if (op.typed !== "") return { why: `it would grow into ${names || "another hard body"}: hard bodies do not go into each other` };
+    if (op.typed !== "") return { why: `it would grow into ${names || "another hard body"}: hard bodies do not go into each other`, hit: grown.hit };
     const d = valueOf(op) ?? 0; // (signed: a sketch is extruded either way)
-    if (Math.abs(grown.t * d) < 1e-3) return { why: `it is against ${names || "another hard body"}: hard bodies do not go into each other` };
+    if (Math.abs(grown.t * d) < 1e-3) return { why: `it is against ${names || "another hard body"}: hard bodies do not go into each other`, hit: grown.hit };
     const value = Math.round(grown.t * d * 1e4) / 1e4;
-    return { op: { ...op, value, ...(op.kind === "revolve" ? { advTyped: "", advValue: advanceOf(op) * grown.t } : {}) } }; // (a turn that stops short advances as far as the same part of its pitch)
+    return { op: { ...op, value, ...(op.kind === "revolve" ? { advTyped: "", advValue: advanceOf(op) * grown.t } : {}) }, hit: grown.hit }; // (a turn that stops short advances as far as the same part of its pitch)
   }
   const asked = bodyMotion(scene, op);
   const group = op.parts.filter((r) => scene.parts[r]?.kind === "body");
@@ -291,11 +291,11 @@ export function limitedOp(scene: Scene, op: Op): { op: Op } | { why: string } | 
   if (!lim) return null;
   const names = lim.hit.map((r) => { const p = scene.parts[r]; return p?.kind === "body" && p.id ? p.id : r; }).join(", ");
   const typed = op.typed !== "" || op.rot.some((x) => x !== "");
-  if (typed) return { why: `it would run into ${names || "another hard body"}: hard bodies do not go into each other (or take the clearance, ${scene.clearance ?? 0} mm, from it)` };
+  if (typed) return { why: `it would run into ${names || "another hard body"}: hard bodies do not go into each other (or take the clearance, ${scene.clearance ?? 0} mm, from it)`, hit: lim.hit };
   // (a drag is never refused: it goes as far as it can and slides, and against a wall it simply stays, `in_484`)
   const k = Math.round(lim.t * 1e6) / 1e6;
   const scaled: Op = op.kind === "move" && op.free && lim.shift ? { ...op, free: lim.shift.map((v) => Math.round(v * 1e3) / 1e3) as unknown as Vec3 } : op.kind === "move" && op.free ? { ...op, free: op.free.map((v) => Math.round(v * k * 1e3) / 1e3) as unknown as Vec3 } : { ...op, ...(op.value !== null && op.value !== undefined ? { value: Math.round(op.value * k * 1e4) / 1e4 } : {}) };
-  return { op: settled(scene, group, scaled) };
+  return { op: settled(scene, group, scaled), hit: lim.hit };
 }
 
 /**

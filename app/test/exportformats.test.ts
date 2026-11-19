@@ -112,13 +112,14 @@ test("nothing to export is said, for every format; the file names follow the for
 });
 
 test("the menu has one Export… (greyed out with the reason when there is nothing to export) and one Import…", () => {
-  const rows = (can: Parameters<typeof appRows>[1]) => appRows("", can, false, 0);
+  const rows = (can: Parameters<typeof appRows>[1]) => appRows("", can, false);
   const ids = rows({ export: true }).map((r) => r.id);
-  assert.ok(["save", "open", "import", "export"].every((i) => ids.includes(i)));
+  assert.ok(["import", "export"].every((i) => ids.includes(i)) && !["save", "open", "restore", "share"].some((i) => ids.includes(i)), "Import and Export take every file in and out: no Save, Open, Restore session or Share state (`in_1083`)");
   assert.ok(!ids.some((i) => /^export.+/.test(i)), "no row for each format any more");
   const none = rows({ export: false }).find((r) => r.id === "export")!;
   assert.equal(none.enabled, false);
   assert.match(none.why ?? "", /nothing to export yet/);
+  assert.equal(rows({}).find((r) => r.id === "export")!.enabled, true, "a project can always be exported (`in_1083`)");
 });
 
 test("a STEP export goes through the worker's queue like a mesh, and is answered as bytes (`dec_export_formats`)", async () => {
