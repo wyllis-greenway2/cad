@@ -440,7 +440,8 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
     const next = run(s.session, back.command);
     return { ...closed, session: next.message ? next : { ...next, message: "the mate was put back" } };
   }
-  if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
+  if (id === "view:constraints") return { ...closed, showAllConstraints: !s.showAllConstraints }; // (View: every constraint of the whole world, `in_1131`)
+  if (id.startsWith("body:constraints:")) { const r = id.slice(17) as Ref; return { ...closed, bodyConstraints: s.bodyConstraints.includes(r) ? s.bodyConstraints.filter((x) => x !== r) : [...s.bodyConstraints, r] }; } // (the half eye, half lock icon on a body: all the constraints that have to do with it, `in_1131`)
   if (id.startsWith("tool:disc:")) return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", "disc", id.slice(10) as CamLaw); // (a disc cam of this law, `dec_spline_and_cams`)
   if (id === "tool:geneva:assembled" || id === "tool:geneva:model") return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", "geneva", undefined, id === "tool:geneva:model" ? "model" : "assembled"); // (a Geneva drive drawn in place, as a sketch or as bodies, `dec_geneva`)
   if (id === "tool:eccentric" || id === "tool:snail" || id === "tool:ratchet" || id === "tool:geneva" || id === "tool:linear") return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", id === "tool:snail" ? "snail" : id === "tool:ratchet" ? "ratchet" : id === "tool:geneva" ? "geneva" : id === "tool:linear" ? "linear" : "eccentric"); // (an eccentric cam and a snail cam, `dec_spline_and_cams`)

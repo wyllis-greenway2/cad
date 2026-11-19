@@ -174,7 +174,7 @@ export function settleAwaiting(s: AppState, now = 0): AppState {
   if (it.enabled) return doRunAction({ ...s, awaiting: null, session: { ...s.session, message: null } }, a.id, now);
   return { ...s, awaiting: { ...a, why: it.why ?? a.why }, session: { ...s.session, message: `${a.label}: ${instruction(it.why ?? a.why)}` } };
 }
-function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean; section: boolean; clip?: boolean; adding?: boolean; touch?: boolean } = { wireframe: false, tape: false, section: false }): AppState["menu"] {
+function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean; section: boolean; clip?: boolean; adding?: boolean; touch?: boolean; constraints?: boolean } = { wireframe: false, tape: false, section: false }): AppState["menu"] {
   const adding = !!view.adding;
   const sc = sceneOf(session);
   const sel = selectionOf(session);
@@ -239,6 +239,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
       { id: "view:section", label: "Section", icon: "section", enabled: true, why: null }, // (one item: a new plane, cutting; its icons change that, `in_466`)
       { id: "view:hide", label: "Hide body", icon: "eyeOff", enabled: selectedBodies(sc, sel).length > 0, why: "select a body to hide (a hidden body comes back with its eye or from the Bodies list)" }, // (the eye that hovered on a body is here now, `in_697`)
       { id: "view:wireframe", label: "Wireframe", icon: "wireframe", enabled: true, why: null },
+      { id: "view:constraints", label: view.constraints ? "Hide constraints" : "All constraints", icon: "constraint", enabled: true, why: null }, // (every constraint of the whole world, not only those of what is selected, `in_1131`)
       { id: "tape:measure", label: "Tape measure", icon: "dimension", enabled: true, why: null },
     ]),
     // the actions on what is there: undo and redo, and delete (`in_538`)
@@ -743,7 +744,7 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: E
   }
   // what is under the point (a finger has no hover: a long press must be told what is under it the same way a right click is, or a tool chosen from the ring would not turn the view straight to the plane there, `in_283`)
   const under = i.button ? null : candidatesAt(sceneOf(s.session), projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s))[0]?.ref ?? null;
-  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape, section: !!sectionNow(s), clip: !!s.clipboard?.length, adding: s.adding, touch: i.touch }) };
+  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape, section: !!sectionNow(s), clip: !!s.clipboard?.length, adding: s.adding, touch: i.touch, constraints: s.showAllConstraints }) };
 }
 
 /**

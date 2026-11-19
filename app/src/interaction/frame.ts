@@ -72,7 +72,7 @@ import type { Toolpath } from "../manufacturing/index.ts";
 let lastPreview: { tp: Toolpath; at: number; view: ToolpathView } | null = null;
 const previewView = (tp: Toolpath, at: number): ToolpathView => (lastPreview && lastPreview.tp === tp && lastPreview.at === at ? lastPreview.view : (lastPreview = { tp, at, view: viewOf(tp, at) }).view);
 import type { Grid } from "./grid.ts";
-import { annotationsFor, annotationsOf, focusParts } from "./annotations.ts";
+import { annotationsFor, annotationsOf, annotationsOfBodies, focusParts } from "./annotations.ts";
 import { suggestionsFor } from "./suggest.ts";
 import type { Suggestions } from "./suggest.ts";
 import type { Annotation } from "./annotations.ts";
@@ -141,7 +141,7 @@ export interface Frame {
   /** the triangles of the places too thin to print, marked in the picture while the Measure tab is open (`in_626`) */
   thin: number[] | null;
   /** the eye on each body (`dec_hidden_bodies`): its box's corners and whether it is hidden; `eyesQuiet`: a tool or an operation is in use, so the eyes of shown bodies stay away */
-  bodyEyes: { ref: string; hidden: boolean; corners: Vec3[]; /** the body is selected (or a face of it): its play button is shown, not only when the pointer is over it (`in_962`) */ selected?: true; /** a body hooked up to an animation has a play button (pause while it plays) beside its eye */ play?: "play" | "pause" }[];
+  bodyEyes: { ref: string; hidden: boolean; corners: Vec3[]; /** the body is selected (or a face of it): its play button is shown, not only when the pointer is over it (`in_962`) */ selected?: true; /** a body hooked up to an animation has a play button (pause while it plays) beside its eye */ play?: "play" | "pause"; /** the body is selected (or a face of it): its constraints icon is shown (`in_1131`) */ chosen?: true; /** the constraints of this body are all shown */ cons?: true }[];
   eyesQuiet: boolean;
   /** the gear's own icon (`in_693`): a gear is selected (its sketch or its body): where it stands (the top of the gear) and what it offers */
   gearChip: { /** the part of the gear the icon is for (what is selected or pointed at) */ part: Ref; at: Vec3; items: { id: string; label: string; icon: string; enabled: boolean; why: string | null }[] } | null;
@@ -488,7 +488,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     bodySplit,
     hiddenBodies: hiddenItemsOf(sc, outcome),
     thin: s.panel === "measure" && !outcome.kernel?.stale ? thinPlacesOf(sc, sel) : s.motion?.contact?.jam && s.motion.contact.clash?.length ? s.motion.contact.clash : null, // (the places where bodies are in each other when a motion has stopped: in the red of the thin places)
-    bodyEyes: index.bodies.flatMap((p) => { if (!p.bbox) return []; const [lo, hi] = [p.bbox.min, p.bbox.max]; const corners: Vec3[] = []; for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) corners.push([x, y, z]); const drives = animated(sc).get(p.ref); const m = s.motion; return [{ ref: p.ref, hidden: !!sc.hiddenBodies?.includes(p.ref), corners, ...(drives && selBodies.has(p.ref) ? { selected: true as const } : {}), ...(drives ? { play: m && m.body === drives && m.playing ? "pause" as const : "play" as const } : {}) }]; }),
+    bodyEyes: index.bodies.flatMap((p) => { if (!p.bbox) return []; const [lo, hi] = [p.bbox.min, p.bbox.max]; const corners: Vec3[] = []; for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) corners.push([x, y, z]); const drives = animated(sc).get(p.ref); const m = s.motion; return [{ ref: p.ref, hidden: !!sc.hiddenBodies?.includes(p.ref), corners, ...(selBodies.has(p.ref) ? { chosen: true as const } : {}), ...(s.bodyConstraints.includes(p.ref) ? { cons: true as const } : {}), ...(drives && selBodies.has(p.ref) ? { selected: true as const } : {}), ...(drives ? { play: m && m.body === drives && m.playing ? "pause" as const : "play" as const } : {}) }]; }),
     eyesQuiet: true, // (a body that is shown has no eye of its own now: Hide body is in the View menu, `in_697`; a hidden body keeps its eye)
     gearChip: s.tool || s.op || s.drag || s.repeat ? null : gearChipOf(sc, sel), // (the gear's icon is there when the gear is selected, not when the pointer is over it, `in_962`)
     followers: gpu?.followers ?? [],
@@ -511,7 +511,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     avoid: busy || !annotationsPresent ? { segs: [], pts: [] } : avoidOf(sc),
     hint: s.tool?.hints?.length && s.tool.cursor ? { kinds: s.tool.hints.map((h) => h.kind), at: s.tool.cursor } : s.dragHint ? { kinds: s.dragHint.hints.map((h) => h.kind), at: s.dragHint.at } : null,
     panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors, s.showSketch, s.session.history, s.stepEdit),
-    annotations: busy ? withFlashed([], sc, flash?.t === 0 && gpu?.blocked?.length ? flash : null) : [...withFlashed(annotationsFor(sc, sel, s.focus, s.showAllConstraints || !!s.showSketch), sc, flash), ...(s.tape ? tapeAnnotations(sc, sel) : [])],
+    annotations: busy ? withFlashed([], sc, flash?.t === 0 && gpu?.blocked?.length ? flash : null) : [...withFlashed(shownConstraints(s, sc, sel), sc, flash), ...(s.tape ? tapeAnnotations(sc, sel) : [])],
     flash,
     refusal: flash && (s.flash?.victims.length || s.flash?.soften?.length) ? { text: s.session.message ?? "", beside: s.flash.victims[0] ?? s.flash.soften![0]!, button: `${(s.flash.victims.length + (s.flash.soften?.length ?? 0)) === 1 ? "Delete constraint" : "Delete constraints"}${s.flash.retry ? " to proceed" : ""}` } : null, // (`inv_constraint_uniformity`: a constraint that is violated always flashes and always offers to be deleted: with the change that was refused to go on with, or alone when the change stays)
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // on: the world plane that is on always has its grid (`in_190`)
@@ -558,6 +558,14 @@ function temporaryParts(now: Scene, shown: Scene): Ref[] {
   return Object.values(shown.parts).filter((p) => p.origin === "drawn" && !now.parts[p.ref] && !(p.kind === "corner" && p.derived) && !(p.kind === "line" && p.derived) && (p.kind === "line" || p.kind === "circle" || p.kind === "corner")).map((p) => p.ref);
 }
 const OPEN_LABELS: Record<string, string> = { linear: "Linear repeat", circular: "Circular repeat", copy: "Copy", move: "Move", rotate: "Rotate", scale: "Scale", pushpull: "Push / pull", extrude: "Extrude", loft: "Loft", mirror: "Mirror copy", edge: "Fillet / chamfer", offset: "Offset" };
+/** The constraints on the screen: those of what is selected, those of the bodies whose icon is on, or every one of the world (`in_1131`); each shown once. */
+function shownConstraints(s: AppState, sc: Scene, sel: readonly Ref[]): Annotation[] {
+  const own = annotationsFor(sc, sel, s.focus, s.showAllConstraints || !!s.showSketch);
+  const more = s.showAllConstraints ? annotationsOfBodies(sc, null, s.focus) : s.bodyConstraints.length ? annotationsOfBodies(sc, s.bodyConstraints, s.focus) : [];
+  if (!more.length) return own;
+  const have = new Set(own.map((a) => a.id));
+  return [...own, ...more.filter((a) => !have.has(a.id))];
+}
 const withFlashed = (list: Annotation[], sc: Scene, flash: FlashFrame | null): Annotation[] => {
   if (!flash) return list;
   const have = new Set(list.map((a) => a.id));

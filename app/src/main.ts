@@ -599,7 +599,7 @@ function dispatch(i: Intent, again = false) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menuAt = [i.x, i.y]; menu.show(i.x, i.y, [], appRows(typeof __BUILD__ === "string" ? __BUILD__ : "", { clearAnswers: !!resultStore }, state.showAllConstraints)); }
+    if (i.button) { ring.hide(); menuAt = [i.x, i.y]; menu.show(i.x, i.y, [], appRows(typeof __BUILD__ === "string" ? __BUILD__ : "", { clearAnswers: !!resultStore })); }
     else {
       menu.hide();
       if (state.menu && inGame()) { // game mode: the ring stands in the world, ahead of the eye, where it was opened (`in_463`, `in_471`)
