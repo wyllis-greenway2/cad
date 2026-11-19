@@ -117,7 +117,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:circular", label: "Round repeat", icon: "circular", op: "circular" },
   { id: "repeat:path", label: "Path repeat", icon: "pathrepeat" }, // (`dec_path_repeat`, `in_841`: a figure repeated along a line, a curve or an outline)
   { id: "model:gearbox", label: "Gearbox", icon: "gearbox" }, // (Shape, Fabricate, Models: a reduction gearbox, `dec_gear_models`)
-  { id: "model:ballbearing", label: "Deep groove ball", icon: "bearing" }, // (a ball bearing: the box has Catalogue or Your own at its top, `in_1194`)
+  { id: "model:ballbearing", label: "Deep groove ball", icon: "bearing" }, // (a ball bearing: the box has Catalogue or Your own at its top, `in_1196`)
   { id: "model:differential", label: "Differential", icon: "differential" }, // (a bevel gear differential)
   { id: "model:cycloidal", label: "Cycloidal drive", icon: "cycloidal" }, // (a cycloidal reducer)
   { id: "fab:material", label: "Material", icon: "models" }, // (Shape, Fabricate: what a body is made of, `in_1083`; it was a row of the ⋯ list)

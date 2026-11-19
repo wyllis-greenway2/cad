@@ -5105,5 +5105,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (asks for an icon for the Geneva plate, a new cycloidal drive icon that looks less like a gear, and a new bearing icon)
 
 ## in_1194 — 2026-11-19 — directive
+> can we make the world orb and z y z not show through objects? Every time I try to make a spring it fails. Why does it do this? Also can we setup some more helpful defaults so it always previews some sort of thing when you select the circular extrude? also can we have a better icon for that tool? It seems to default okay for objects that have flat edges, but for ones without maybe it should set the origin out in space on plane a certain amount, probably some multiple of the plane size etc, and then select the axis that starts extruding normal to the plane?
+(a screenshot of the Revolve tool on a circle in a plane, its mover and rings at an orb, a number bubble 1.6 and the message "the figure is 9.51 mm wide along the axis and the advance is 6.4 mm a turn: the turns would overlap"; the saved model 4d055877-model_1.json; "the world orb and z y z" is the world axes and the orb at the origin)
+
+## in_1195 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
 > I didn't want bearing of your own or catalog as an icon option, I just wanted it in the menu as an option at the top. changing it would change the menu and what it has on it.
 (asks that Catalogue / Your own is not two icons in the ring but a choice at the top of the bearing's box, and that changing it changes what the box shows)

@@ -19,7 +19,7 @@ export interface RevAxis { p: Vec3; d: Vec3; label: string }
  * Where the orb starts (`in_438`): on the longest straight line of the first figure (a line selected with it is the one), really on it, its middle; the mover's axes with X along that line and Z across the figure's
  * plane. A figure with no straight side (a circle) starts at its middle with the plane's own axes. `chosen` is a line selected with the figures.
  */
-export function revolveStart(scene: Scene, faces: readonly Extract<Part, { kind: "face" }>[], chosen: readonly Extract<Part, { kind: "line" }>[]): { pivot: Vec3; frame: [Vec3, Vec3, Vec3] } | null {
+export function revolveStart(scene: Scene, faces: readonly Extract<Part, { kind: "face" }>[], chosen: readonly Extract<Part, { kind: "line" }>[]): { pivot: Vec3; frame: [Vec3, Vec3, Vec3]; /** the orb stands out in space beside the figure (it has no straight side) */ beside?: true } | null {
   const get = lookup(scene);
   const face = faces[0];
   const pl = face?.plane ? get(face.plane) : undefined;
@@ -35,9 +35,30 @@ export function revolveStart(scene: Scene, faces: readonly Extract<Part, { kind:
     const len = Math.hypot(...sub(b, a));
     if (!best || len > best.len) best = { a, b, len };
   }
-  if (!best || best.len < 1e-9) { const m = middleOf(scene, face); return m ? { pivot: m, frame: [normalize(pl.u), normalize(pl.v), n] } : null; }
+  if (!best || best.len < 1e-9) {
+    // no straight side (a circle): the orb stands out in space in the figure's plane, beside it by twice its size (so a gap as wide as the figure's reach lies between), the axis along the plane's second direction, in the plane: the figure
+    // is turned out of its plane, round the line, normal to the plane where it starts (`in_1194`); the middle of the figure was the old place, which is across the figure and made nothing
+    const m = middleOf(scene, face);
+    if (!m) return null;
+    const [u, v] = [normalize(pl.u), normalize(pl.v)];
+    const reach = Math.max(1e-6, ...figurePoints(scene, face).map((q) => Math.hypot(...sub(q, m))));
+    return { pivot: add(m, scale(u, 2 * reach)), frame: [v, cross3(n, v), n], beside: true };
+  }
   const d = normalize(sub(best.b, best.a));
   return { pivot: scale(add(best.a, best.b), 0.5), frame: [d, cross3(n, d), n] };
+}
+/** The points of the outline of a drawn figure: 64 round a circle, else its corners (with the bends of its arcs, `loopPoints`). */
+function figurePoints(scene: Scene, face: Extract<Part, { kind: "face" }>): Vec3[] {
+  const get = lookup(scene);
+  const pl = face.plane ? get(face.plane) : undefined;
+  const disk = face.disk ? get(face.disk) : undefined;
+  if (disk?.kind === "circle" && pl?.kind === "plane") {
+    const c = pointOf(get, disk.center);
+    if (!c) return [];
+    const [u, v] = [normalize(pl.u), normalize(pl.v)];
+    return Array.from({ length: 64 }, (_, i) => { const a = (i / 64) * Math.PI * 2; return add(c, add(scale(u, Math.cos(a) * disk.radius), scale(v, Math.sin(a) * disk.radius))); });
+  }
+  return loopPoints(get, face.loop, face.corners);
 }
 /** The middle of a drawn figure: a circle's centre, else the mean of its corners. */
 export function middleOf(scene: Scene, face: Extract<Part, { kind: "face" }>): Vec3 | null {
@@ -51,11 +72,38 @@ const cross3 = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[
 
 /** The line being turned about. */
 export const axisOf = (op: Op): RevAxis | null => (op.pivot && op.frame ? { p: op.pivot, d: op.frame[op.axis], label: "the mover's axis" } : null); // (the orb's place and the axis of its frame the person chose, `in_438`)
-/** The advance along the axis over the whole turn: what is typed, else what the arrow was dragged to, else none. */
+/** The advance along the axis over the whole angle: what is typed, else what the arrow was dragged to, else none. */
 export const advanceOf = (op: Op): number => { const t = typedLength(op.advTyped ?? ""); return t !== null ? t : op.advValue ?? 0; };
+/**
+ * The least advance over `angle` degrees at which the turns of a spiral do not run into each other (`in_1194`): the figure is as wide along the axis as it is, and one turn must advance at least that. The advance is
+ * the distance over the whole angle (not a turn), so 1.6 mm over 90 degrees is 6.4 mm a turn: the cause of "the turns would overlap" for a spring. Null when there is no advance, or the axis is across the plane (a twist is judged by the kernel).
+ */
+function advanceFloor(scene: Scene, op: Op, angle: number): { floor: number; width: number } | null {
+  const a = axisOf(op);
+  if (!a || advanceOf(op) === 0 || angle === 0) return null;
+  const faces = Object.values(scene.parts).filter((q): q is Extract<Part, { kind: "face" }> => q.kind === "face" && q.origin === "drawn" && (op.revFigs?.length ? op.revFigs : [{ fig: { outer: op.parts } }]).some((f) => (q.disk ? f.fig.outer.length === 1 && q.disk === f.fig.outer[0] : q.loop.length === f.fig.outer.length && f.fig.outer.every((r) => q.loop.includes(r)))));
+  const d = normalize(a.d);
+  let width = 0;
+  for (const f of faces) {
+    const along = figurePoints(scene, f).map((q) => dot(q, d));
+    if (along.length) width = Math.max(width, Math.max(...along) - Math.min(...along));
+  }
+  return width > 0 ? { floor: Math.ceil(width * (Math.abs(angle) / 360) * 100 + 1) / 100, width } : null; // (a hundredth over, so the kernel's check passes)
+}
+/** What is said while the advance has been raised to that floor (`in_1194`), or null. */
+export function advanceNote(scene: Scene, op: Op): string | null {
+  const f = advanceFloor(scene, op, op.value ?? 0);
+  if (!f || Math.abs(advanceOf(op)) >= f.floor) return null;
+  return `the advance is the distance over the whole angle: the figure is ${Math.round(f.width * 100) / 100} mm wide along the axis, so over ${Math.round(Math.abs(op.value ?? 0) * 100) / 100} degrees it is raised to ${f.floor} mm so the turns do not run into each other`;
+}
 /** Where the ring and the arrow stand: the orb, on the axis. */
 export const revolveCentre = (op: Op): Vec3 | null => op.pivot ?? null;
 
+/** The advance the step is made with: what was asked, raised to the floor where the turns would run into each other (`advanceFloor`). */
+const raised = (scene: Scene, op: Op, angle: number): number => {
+  const adv = advanceOf(op), f = advanceFloor(scene, op, angle);
+  return f && Math.abs(adv) < f.floor ? Math.sign(adv) * f.floor : adv;
+};
 /**
  * The step: the figure, the line it turns about (as numbers), the angle and the advance. Null with no angle yet. Several figures selected together are a step each, and so a body each, as for an extrusion (`in_353`),
  * all turned the same; about "each figure's middle" each turns about its own.
@@ -69,7 +117,7 @@ export function revolveCommand(scene: Scene, op: Op, angle: number): Command | n
   const one = (f: (typeof figs)[number], i: number): Command => {
     const twist = !!op.normal && Math.abs(Math.abs(dot(a.d, op.normal)) - 1) < 1e-9 && !!op.origin && Math.hypot(...sub(a.p, op.origin)) < 1e-6; // (about the plane's normal through the first figure's middle: each figure about its own middle, a twist)
     const at = twist ? f.middle : a.p;
-    return { type: "addStep", step: { id: figs.length > 1 ? formatId("s", first + i) : id, type: "revolve", parts: f.fig.outer, params: { ...figureParams([f.fig]), angle, advance: advanceOf(op), ax: at[0], ay: at[1], az: at[2], dx: a.d[0], dy: a.d[1], dz: a.d[2] } } };
+    return { type: "addStep", step: { id: figs.length > 1 ? formatId("s", first + i) : id, type: "revolve", parts: f.fig.outer, params: { ...figureParams([f.fig]), angle, advance: raised(scene, op, angle), ax: at[0], ay: at[1], az: at[2], dx: a.d[0], dy: a.d[1], dz: a.d[2] } } };
   };
   return figs.length > 1 ? { type: "batch", commands: figs.map(one) } : one(figs[0]!, 0);
 }

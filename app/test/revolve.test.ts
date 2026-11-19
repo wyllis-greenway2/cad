@@ -6,12 +6,13 @@ import { kernel } from "../src/compiler/kernel/index.ts";
 import { createSession, scene, run } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";
 import { drawRectangle } from "../src/operation/build.ts";
-import { loopFaceRef } from "../src/operation/loops.ts";
+import { loopFaceRef, diskFaceRef } from "../src/operation/loops.ts";
 import { startOp } from "../src/interaction/operations.ts";
 import type { Op } from "../src/interaction/operations.ts";
 import { runOp } from "../src/interaction/runop.ts";
+import { advanceNote, axisAcross } from "../src/interaction/revolve.ts";
 import type { Vec3 } from "../src/math/vec.ts";
-import { cross, normalize } from "../src/math/vec.ts";
+import { cross, normalize, dot } from "../src/math/vec.ts";
 
 await kernel.init();
 const XZ = worldRef("XZ");
@@ -62,12 +63,18 @@ test("past one turn with no advance it is refused; with an advance it spirals, t
   assert.equal(step.params.advance, 10);
 });
 
-test("an advance that is less than the figure is wide along the axis is refused with the reason", () => {
+test("an advance that is less than the figure is wide along the axis is raised so the turns do not overlap, and the reason is said (`in_1194`)", () => {
   const { s, face } = figure();
   const op = begin(s, face);
-  const r = runOp(s, { ...Z(op), value: 720, advValue: 2 })!;
-  const msg = r.session.message ?? Object.values(r.session.outcome.errors).join(" ");
-  assert.match(msg, /would overlap/);
+  const r = runOp(s, { ...Z(op), value: 720, advValue: 2 })!; // (2 mm over two turns is 1 mm a turn, the figure is 1.5 mm wide along the axis)
+  assert.equal(r.session.message, null);
+  assert.deepEqual(r.session.outcome.errors, {});
+  const step = scene(r.session).steps.at(-1)!;
+  assert.equal(step.type, "revolve");
+  assert.ok(Number(step.params.advance) >= 3 && Number(step.params.advance) < 3.1, `advance ${step.params.advance}: the width 1.5 times two turns`);
+  const note = advanceNote(scene(s), { ...Z(op), value: 720, advValue: 2 } as Op);
+  assert.match(note ?? "", /distance over the whole angle/);
+  assert.equal(advanceNote(scene(s), { ...Z(op), value: 720, advValue: 4 } as Op), null, "enough: nothing is said");
 });
 
 import { createState, reduce } from "../src/interaction/controller.ts";
@@ -560,4 +567,20 @@ test("a click on a world plane puts the orb into that plane, where it was across
   assert.ok(hitAt, "a world plane can be pointed at");
   st = reduce(st, { type: "click", x: hitAt![0], y: hitAt![1], count: 1, shift: false } as never, env);
   assert.deepEqual(st.op!.pivot, [9, 4, 0], "into the XY plane: x and y as they were, z in the plane");
+});
+
+test("a circle has no straight side: the orb starts out in its plane, beside it, the axis along the plane in that line, so the first preview is a ring that makes a body (`in_1194`)", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XZ, [0, 0, 0], 4.75);
+  s = run(s, c.command);
+  const op = begin(s, diskFaceRef(c.circle));
+  assert.ok(op.pivot && op.frame);
+  const gap = Math.hypot(op.pivot![0], op.pivot![1], op.pivot![2]);
+  assert.ok(Math.abs(gap - 9.5) < 1e-6, `the orb is twice the figure's reach from its middle: ${gap}`);
+  assert.ok(Math.abs(dot(op.frame![0], op.normal!)) < 1e-9, "the axis lies in the figure's plane");
+  assert.equal(axisAcross(scene(s), op), null, "and does not cross the figure");
+  const r = runOp(s, op)!;
+  assert.equal(r.session.message, null);
+  assert.deepEqual(r.session.outcome.errors, {});
+  assert.ok(volume(r.session) > 100, `a body is made: ${volume(r.session)}`);
 });
