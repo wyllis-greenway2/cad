@@ -52,7 +52,7 @@ export function gearRefs(rec: GearRecord): { lines: Ref[]; wall?: Ref; bore?: st
   const o = outlineOf(rec.spec);
   if (!o.ok) return { lines: [] };
   if (rec.spec.bevel?.facegear !== undefined) { const b = faceRefs(rec); return { lines: b.lines.length ? b.lines : b.sections[0] ?? [], ...((b.bore ?? b.plateBore) ? { bore: (b.bore ?? b.plateBore)! } : {}) }; } // (a face gear drive: the pinion's outline, the face gear's tip section)
-  if (rec.spec.bevel?.spiral !== undefined) { const b = spiralRefs(rec); return { lines: b.sections[0] ?? [], ...(b.bores[0] ? { bore: b.bores[0] } : {}) }; } // (a spiral bevel gear: the heel's first plane)
+  if (rec.spec.bevel?.spiral !== undefined && !isCrown(rec.spec)) { const b = spiralRefs(rec); return { lines: b.sections[0] ?? [], ...(b.bores[0] ? { bore: b.bores[0] } : {}) }; } // (a spiral bevel gear: the heel's first plane)
   if (rec.spec.bevel && isCrown(rec.spec)) { const c = crownRefs(rec); return { lines: c.sections[0]!, ...(c.plateBore ? { bore: c.plateBore } : {}) }; } // (a crown gear: the tip's section)
   if (rec.spec.bevel) { const b = bevelRefs(rec); return { lines: b.sections[0]!, ...(b.bores[0] ? { bore: b.bores[0] } : {}) }; } // (the big end)
   if (rec.spec.worm) return { lines: wormRefs(rec).threads[0]! }; // (the thread's figure)
@@ -69,7 +69,7 @@ function boreGroup(rec: GearRecord): string {
 /** The parts of a gear: the corners and sides of its outline and, for a ring, its wall's circle. Locked. Empty if its plane is not there or the numbers make no gear. */
 function partsOf(s: Scene, rec: GearRecord): Part[] {
   if (rec.spec.bevel?.facegear !== undefined) return faceParts(s, rec);
-  if (rec.spec.bevel?.spiral !== undefined) return spiralParts(s, rec);
+  if (rec.spec.bevel?.spiral !== undefined && !isCrown(rec.spec)) return spiralParts(s, rec);
   if (rec.spec.bevel) return isCrown(rec.spec) ? crownParts(s, rec) : bevelParts(s, rec);
   if (rec.spec.cam) return camParts(s, rec);
   if (rec.spec.worm) return wormParts(s, rec);
@@ -178,7 +178,7 @@ function bodyParams(s: Scene, rec: GearRecord): { step: Omit<Step, "id"> } | nul
 function ownedSpecs(s: Scene, rec: GearRecord): Omit<Step, "id">[] {
   if (rec.spec.cam) return camSteps(s, rec) ?? []; // (a Geneva drive that comes as a model, `camscene.ts`)
   if (rec.spec.bevel?.facegear !== undefined) return faceSteps(s, rec) ?? [];
-  if (rec.spec.bevel?.spiral !== undefined) return spiralSteps(s, rec) ?? [];
+  if (rec.spec.bevel?.spiral !== undefined && !isCrown(rec.spec)) return spiralSteps(s, rec) ?? [];
   if (rec.spec.bevel) return (isCrown(rec.spec) ? crownSteps(s, rec) : bevelSteps(s, rec)) ?? [];
   if (rec.spec.worm) return wormSteps(s, rec) ?? [];
   if (rec.spec.wheel) return wheelSteps(s, rec) ?? [];

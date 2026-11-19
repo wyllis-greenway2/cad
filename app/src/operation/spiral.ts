@@ -18,7 +18,7 @@ const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[
 const rot = (p: V3, ax: V3, a: number): V3 => { const [c, s] = [Math.cos(a), Math.sin(a)], d = dot(ax, p), cr = cross(ax, p); return [p[0] * c + cr[0] * s + ax[0] * d * (1 - c), p[1] * c + cr[1] * s + ax[1] * d * (1 - c), p[2] * c + cr[2] * s + ax[2] * d * (1 - c)]; };
 
 /** the limits of a spiral bevel pair */
-export const SPIRAL = { /** the offset of a hypoid pair as a fraction of the ring's pitch diameter, at most */ maxOffset: 0.15, minPinion: 16, maxTotal: 80, maxRatio: 2.55, minAngle: 15, maxAngle: 45, defaultAngle: 30, face: 0.3, cutter: 0.88, backlash: 0.05, shifts: [-0.67, -0.9, -1.3, 0.9, 1.3, -0.4] } as const;
+export const SPIRAL = { /** the offset of a hypoid pair as a fraction of the ring's pitch diameter, at most */ maxOffset: 0.15, /** a spiral crown gear has at most this many times its pinion's teeth (`dec_spiral_crown`) */ maxCrownRatio: 3, minPinion: 16, maxTotal: 80, maxRatio: 2.55, minAngle: 15, maxAngle: 45, defaultAngle: 30, face: 0.3, cutter: 0.88, backlash: 0.05, shifts: [-0.67, -0.9, -1.3, 0.9, 1.3, -0.4] } as const;
 /** (the cones' positions, in modules along the axis: the kernel cannot always cut where the cones pass through the corners of the teeth, and where it can depends on the gear's place: each is tried in turn, `spiralretry.ts`) */
 
 export interface SpiralGear { axis: V3; /** a point of the axis: the planes across the gear are measured from it (the pinion's the apex, the ring's the foot of the common perpendicular) */ origin: V3; /** its mean cone distance from that point */ rho: number; /** its pitch angle */ gamma: number; z: number; /** the addendum and dedendum of the crown's tooth that generates it, mm */ hK: number; hF: number }
@@ -29,6 +29,7 @@ export interface SpiralPair {
   /** half the pinion's slot widening, mm (backlash) */ bl: number;
   /** which cone position (`SPIRAL.shifts`) */ cone: number;
   /** the tooth chamfer at the heel and the toe, mm (`dec_bevel_chamfer`) */ cham: number;
+  /** the ring gear is a crown gear (`dec_spiral_crown`): its pitch angle 90 degrees, the pinion's the arcsine of z1 / z2 */ crown?: true;
   /** the ring's axis passes this far from the pinion's (mm; the pinion below it; 0 is the spiral bevel pair) and the ratio of roll of the ring to the pinion, z1 / z2 (`dec_hypoid_gears`) */ E: number; kk: number;
 }
 /** The pair for a pinion of `z1` teeth and a ring gear of `z2` (z2 at least z1), the normal module, the mean spiral angle (degrees; the pinion's), the backlash (mm) and the hypoid offset (mm, 0 for none), or why there is none. */
@@ -59,6 +60,20 @@ export function spiralPairOf(z1: number, z2: number, mn: number, betaDeg: number
   if (flo * F(hi) > 0) return err(`no pinion pitch angle fits the offset ${offset} mm: a smaller offset`);
   for (let i = 0; i < 60; i++) { const mid = (lo + hi) / 2, fm = F(mid); if (fm * flo > 0) { lo = mid; flo = fm; } else hi = mid; }
   return ok({ ...pairAt(z1, z2, mn, beta, E, (lo + hi) / 2, backlash, cone), cham: chamfer });
+}
+/** The pair of a spiral pinion of `z1` teeth and a spiral crown gear of `zc` (`dec_spiral_crown`): the pinion is the envelope of the crown's cone-band teeth, its pitch angle the arcsine of z1 / zc; or why there is none. */
+export function spiralCrownPairOf(z1: number, zc: number, mn: number, betaDeg: number, backlash: number, cone = 0, chamfer = 0): Result<SpiralPair> {
+  if (!(Number.isInteger(z1) && Number.isInteger(zc))) return err("the tooth counts must be whole numbers");
+  if (z1 < SPIRAL.minPinion) return err(`the pinion of a spiral crown gear needs ${SPIRAL.minPinion} or more teeth`);
+  if (!(zc > z1)) return err("a crown gear has more teeth than its pinion");
+  if (z1 + zc > SPIRAL.maxTotal) return err(`a spiral pair is made for ${SPIRAL.maxTotal} teeth at most between the two gears: ${z1} and ${zc} make ${z1 + zc}`);
+  if (zc / z1 > SPIRAL.maxCrownRatio) return err(`a spiral crown gear has at most ${SPIRAL.maxCrownRatio} times its pinion's teeth: the pinion needs at least ${Math.ceil(zc / SPIRAL.maxCrownRatio)} teeth for this crown gear`);
+  if (!(mn > 0)) return err("the module must be above zero");
+  if (!(betaDeg >= SPIRAL.minAngle && betaDeg <= SPIRAL.maxAngle)) return err(`the spiral angle must be from ${SPIRAL.minAngle} to ${SPIRAL.maxAngle} degrees`);
+  if (!(backlash >= 0 && backlash <= 0.5 * mn)) return err("the backlash must be from 0 to half a module");
+  if (!(chamfer >= 0 && chamfer <= mn)) return err("the chamfer is from 0 to 1 module deep");
+  const pr = pairAt(z1, zc, mn, (betaDeg * Math.PI) / 180, 0, Math.asin(z1 / zc), backlash, cone);
+  return ok({ ...pr, ring: { axis: [0, 1, 0], origin: [0, 0, 0], rho: pr.RM, gamma: Math.PI / 2, z: zc, hK: mn, hF: 1.25 * mn }, crown: true, cham: chamfer });
 }
 /** the pair with the pinion's pitch angle g1 and the offset E (negative: the ring's axis through (E, 0, 0), the pinion's through the apex, the shafts at 90 degrees) */
 function pairAt(z1: number, z2: number, mn: number, beta: number, E: number, g1: number, bl: number, cone: number): SpiralPair {
@@ -359,6 +374,13 @@ export const spiralRole = (spec: GearSpec): "pinion" | "ring" => (spec.teeth < s
 export function spiralFor(spec: GearSpec): Result<{ pair: SpiralPair; which: "pinion" | "ring" }> {
   const b = spec.bevel;
   if (!b || b.spiral === undefined) return err("not a spiral bevel gear");
+  const [z0, m0] = [Math.round(spec.teeth), Math.round(b.mate)];
+  if (z0 < m0 && b.shaft !== undefined && Math.abs(b.shaft - (90 + (Math.asin(z0 / m0) * 180) / Math.PI)) < 1e-6) { // the pinion of a spiral crown gear (`dec_spiral_crown`): the shafts are 90 degrees plus its pitch angle apart
+    if ((spec.pressure ?? 20) !== 20) return err("a spiral pair is made for a pressure angle of 20 degrees only");
+    if ((b.offset ?? 0) > 0) return err("a spiral crown gear has no hypoid offset");
+    const pc = spiralCrownPairOf(z0, m0, spec.module, b.spiral, spec.backlash ?? SPIRAL.backlash, b.cone ?? 0, (spec.chamfer ?? 0) * spec.module);
+    return pc.ok ? ok({ pair: pc.value, which: "pinion" as const }) : pc;
+  }
   if ((b.shaft ?? 90) !== 90) return err("a spiral bevel pair is made for shafts at 90 degrees only");
   if ((spec.pressure ?? 20) !== 20) return err("a spiral bevel pair is made for a pressure angle of 20 degrees only");
   const [z, mate] = [Math.round(spec.teeth), Math.round(b.mate)];

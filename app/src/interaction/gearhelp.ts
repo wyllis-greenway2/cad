@@ -77,7 +77,7 @@ export const GEAR_HINTS: Record<GearKey, string> = {
   face: "Bevel gear: the width of the teeth along the cone as a fraction of the cone distance. A third is the usual limit (0.1 to 0.5).",
   inner: "Crown gear: the radius where the teeth start, mm. The teeth are thinnest here (their flanks are planes through the axis' radial lines), so they come to a point if it is too small. The pitch radius less 15% of it by default.",
   outer: "Crown gear: the radius where the teeth end, mm; the pitch radius (module times teeth over 2) by default.",
-  spiral: "Spiral bevel gear: the mean spiral angle of the teeth, degrees, from 15 to 45 (30 is usual). The pair is made for each other (the ring gear's tooth is worked out from the pinion's), for shafts at 90 degrees and a 20 degree pressure angle, the pinion at least 16 teeth, the two gears together at most 80 teeth (30 and 50, say; not 30 and 51) and the ring gear at most 2.5 times the pinion's teeth.",
+  spiral: "Spiral bevel gear: the mean spiral angle of the teeth, degrees, from 15 to 45 (30 is usual). The pair is made for each other (the ring gear's tooth is worked out from the pinion's), for shafts at 90 degrees and a 20 degree pressure angle, the pinion at least 16 teeth, the two gears together at most 80 teeth (30 and 50, say; not 30 and 51) and the ring gear at most 2.5 times the pinion's teeth. On a crown gear: 0 (or empty) for straight radial teeth, or the spiral angle for teeth curved as a spiral bevel gear's, which mesh with a spiral pinion (the pinion has 16 or more teeth and the crown gear at most 3 times as many)",
   starts: "How many threads the worm has (1 to 4). The wheel turns this many teeth for each turn of the worm, so more starts is a faster, steeper drive.",
 };
 

@@ -3,6 +3,7 @@
 import type { Scene } from "./scene.ts";
 import type { Command } from "./commands.ts";
 import { SPIRAL } from "./spiral.ts";
+import { isCrown } from "./bevel.ts";
 
 /** the kernel's answers for a cut it cannot make */
 const CUT = /nothing in common|invalid solid|memory access|pass through itself|nothing was left|upstream/;
@@ -10,7 +11,7 @@ const CUT = /nothing in common|invalid solid|memory access|pass through itself|n
 export function coneRetry(scene: Scene, c: Command, failed: string, error: string): Command | null {
   const gid = scene.steps.find((st) => st.id === failed)?.params.gear;
   const rec = typeof gid === "string" ? scene.gears?.find((g) => g.id === gid) : undefined;
-  if (!rec || rec.spec.bevel?.spiral === undefined || !CUT.test(error)) return null;
+  if (!rec || rec.spec.bevel?.spiral === undefined || isCrown(rec.spec) || !CUT.test(error)) return null; // (a spiral crown gear has no cone cut)
   const cone = rec.spec.bevel.cone ?? 0;
   if (cone + 1 >= SPIRAL.shifts.length) return null;
   const spec = { ...rec.spec, bevel: { ...rec.spec.bevel, cone: cone + 1 } };
