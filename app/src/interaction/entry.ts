@@ -225,7 +225,7 @@ export function scaleEntries(op: Op, g: Gizmo | null): Entry[] {
   });
 }
 /** The mover's own place as three numbers (world x, y, z), one on each of the sphere's arrows, while the sphere is selected (`in_418`). */
-export function moverPlaceEntries(g: Gizmo | null, frame: readonly [Vec3, Vec3, Vec3] | undefined, show: { all: false; handle: string | null } | { all: true; opacity: number }): Entry[] {
+export function moverPlaceEntries(g: Gizmo | null, frame: readonly [Vec3, Vec3, Vec3] | undefined, show: { all: false; handle: string | null } | { all: true; opacity: number }, held: readonly number[] = []): Entry[] {
   if (!g) return [];
   const turned = frameAngles(frame);
   // the whole orb being moved: all three positions and turns, which fade out; else only the value of the arrow or ring that was clicked (`in_439`)
@@ -241,6 +241,7 @@ export function moverPlaceEntries(g: Gizmo | null, frame: readonly [Vec3, Vec3, 
   }
   // each of the three bubbles has the mover's position along its axis and, beside it, the turn of its axes about that axis (`in_434`)
   return ([0, 1, 2] as const).flatMap((k) => {
+    if (!held.includes(k)) return []; // (only the axes chosen show their numbers, `in_1181`: nothing chosen, nothing shown)
     const arrow = g.handles.find((h) => h.id === `piv:${"xyz"[k]}`);
     return arrow ? [{ opacity: show.opacity, fields: [
       { label: `Mover's position along ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(g.centre[k]!), active: false, typed: false, index: k, unit: "mm" },
@@ -259,11 +260,12 @@ export function frameOfAngles(angles: [number, number, number]): [Vec3, Vec3, Ve
   const r = fromAngles(angles);
   return [[r[0], r[3], r[6]], [r[1], r[4], r[7]], [r[2], r[5], r[8]]];
 }
-export function moveEntries(op: Op, g: Gizmo | null, offset: Vec3): Entry[] {
+export function moveEntries(op: Op, g: Gizmo | null, offset: Vec3, held: readonly number[] = []): Entry[] {
   if (!g || op.kind !== "move") return [];
-  // a body dragged free: all three numbers, one on each arrow, as it goes (`in_293`)
+  // a body dragged free: the number on the arrow of each axis chosen (held with Shift or a click), as it goes (`in_293`, and `in_1181`: nothing chosen, nothing shown)
   if (op.free) {
     return ([0, 1, 2] as const).flatMap((k) => {
+      if (!held.includes(k)) return [];
       const arrow = g.handles.find((h) => h.id === `move:${"xyz"[k]}`);
       return arrow ? [{ fields: [{ label: `Move along ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(offset[k]!), active: false, typed: false, index: k }], unit: "mm", at: arrow.points.at(-1)!, from: g.centre }] : [];
     });
