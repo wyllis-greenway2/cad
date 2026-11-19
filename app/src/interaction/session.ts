@@ -216,6 +216,9 @@ function heldBy(before: Scene, c: Command, after: Scene): string[] {
 export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback?: Command; /** the caller checks for moves that were held back itself (a body moved whole) */ ownHold?: boolean } = {}): Session {
   // `watchAll`: the command changes a step already in the history, so any step after it may stop working: those that worked before are watched too
   let steps = opts.watchAll ? s.history.scene.steps.map((x) => x.id).filter((id) => !s.outcome.errors[id]) : stepsOf(c);
+  // a command that is only a refusal (an action that could not make its command): said, shown, and never kept as a step (`in_1105`)
+  const refuse = (function find(x: Command): Extract<Command, { type: "refuse" }> | null { return x.type === "refuse" ? x : x.type === "batch" ? x.commands.map(find).find((y) => !!y) ?? null : null; })(c);
+  if (refuse) return { ...s, message: refuse.why, already: undefined, conflict: refuse.soften?.length ? { culprits: [], victims: [], soften: refuse.soften, parts: refuse.into ?? [], ...(refuse.retry ? { retry: refuse.retry } : {}) } : null };
   // a constraint that already holds as asked is not made again: it is said, and it flashes green (`in_1103`)
   if (!opts.watchAll) { const held = alreadyApplied(s.history.scene, c); if (held.length) return { ...s, message: `that is already applied: ${wordsOf(s.history.scene, held, "green")}`, already: held, conflict: null }; }
   // a step is built on what is shown: while the kernel is still answering for the last change what is shown is the older model, and a step made now could mean something else (`in_142`)

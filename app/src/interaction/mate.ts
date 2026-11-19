@@ -73,7 +73,7 @@ function eulerXYZ(m: Mat): { axis: 0 | 1 | 2; angle: number }[] {
  * The command that puts the first face's body against the second's: turns and a move, with the body's sketches carried, and the mate recorded as a relation (`in_315`); or why not. `gap`: how far apart the flat faces are left (mm).
  * `again`: the id of a mate that is made again after a change: the old record goes and the new one takes its id.
  */
-export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref, gap = 0, again?: string, counts = true, standing = false): { command: Command } | { why: string } {
+export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref, gap = 0, again?: string, counts = true, standing = false, ignoreHard = false): { command: Command } | { why: string; into?: Ref[] } {
   const why = whyNotMate(scene, mode, mover, other);
   if (why) return { why };
   const [a, b] = [featureOf(scene, mover, mode)!, featureOf(scene, other, mode)!];
@@ -117,12 +117,12 @@ export function mateCommand(scene: Scene, mode: MateMode, mover: Ref, other: Ref
   const translate = r6(move);
   const own = turns.length + (length(translate) > 1e-9 ? 1 : 0); // (the steps the mate makes before it is recorded: it is true after them)
   // a mate that would put a hard body into another (or, with a clearance, closer to it than that) is not made (`in_477`)
-  if (scene.hard?.length && (turns.length || length(translate) > 1e-9)) {
+  if (!ignoreHard && scene.hard?.length && (turns.length || length(translate) > 1e-9)) {
     const R9 = [R[0][0], R[0][1], R[0][2], R[1][0], R[1][1], R[1][2], R[2][0], R[2][1], R[2][2]] as unknown as Rigid["turn"];
     const rp: Vec3 = [R9[0] * pivot[0] + R9[1] * pivot[1] + R9[2] * pivot[2], R9[3] * pivot[0] + R9[4] * pivot[1] + R9[5] * pivot[2], R9[6] * pivot[0] + R9[7] * pivot[1] + R9[8] * pivot[2]];
     const rigid: Rigid = { turn: R9, shift: [pivot[0] - rp[0] + translate[0], pivot[1] - rp[1] + translate[1], pivot[2] - rp[2] + translate[2]], k: 1 };
     const into = hardCollision(scene, [a.body], () => rigid);
-    if (into.length) return { why: `the mate would put this body into ${hardNames(scene, into)}: hard bodies do not go into each other${(scene.clearance ?? 0) > 0 ? ` (or nearer than the clearance, ${scene.clearance} mm: give the mate a gap of at least that)` : ""}` };
+    if (into.length) return { why: `the mate would put this body into ${hardNames(scene, into)}: hard bodies do not go into each other${(scene.clearance ?? 0) > 0 ? ` (or nearer than the clearance, ${scene.clearance} mm: give the mate a gap of at least that)` : ""}`, into };
   }
   const made = mateRelation(again ?? nextId(scene, "r"), mode, mode === "tangent" ? tangentSide : gap, a, b, { mover: { point: moverWhenTrue, dir: turnOnly(mode) || mode === "tangent" ? rotate(R, a.dir) : want }, other: { point: b.point, dir: b.dir } }, counts, standing, scene.steps.length + own);
   const kept = again ? scene.relations.find((r) => r.id === again)?.params : undefined; // (the drive values and limits of a joint stay when the mate is put back)
