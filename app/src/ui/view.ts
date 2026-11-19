@@ -334,6 +334,8 @@ export function createView(host: HTMLElement) {
     thinGroup.add(outline);
   }
   const setWorldHidden = (on: boolean): void => world.setOff(on);
+  /** Is the junction of the world axes (where its orb is) behind the model from this eye? The orb is a dot of the page, so it asks (`in_1191`). */
+  const originHidden = (cam: Camera): boolean => !!occluders?.length && world.hiddenAt(cam, [0, 0, 0], occluders);
   const setPanes = (p: Parameters<typeof world.setPanes>[0]): boolean => world.setPanes(p);
   const setGizmo = (g: GizmoView | null, cam: Camera) => buildGizmo(gizmo, g, cam.distance, pen);
   /** The toolpath preview (`in_570`): what is done in full colour, what is still to come faint, travel pale grey, the head a dot. Drawn again only when the view of it changes. */
@@ -411,5 +413,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { rebuild, setWorldHidden, setScene, setHiddenBodies, setThin, setStandIns, setHiddenEdges, setBehindPlane, setBodyMatrix, setHighlight, setPreview, setGizmo, setToolpath, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { rebuild, setWorldHidden, originHidden, setScene, setHiddenBodies, setThin, setStandIns, setHiddenEdges, setBehindPlane, setBodyMatrix, setHighlight, setPreview, setGizmo, setToolpath, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

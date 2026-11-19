@@ -115,7 +115,7 @@ function beginOp(s0: AppState, kind: OpKind, now = 0, over: Ref | null = null): 
   const r = startOp(sceneOf(s.session), selectionOf(s.session), kind, viewAxes(s.cam));
   // what it needs is not selected: it waits for what is clicked next, and says what that is (`in_464`)
   if (!r.ok) return { ...s, picking: s.repeat ? null : { kind, why: r.why }, session: { ...s.session, message: s.repeat ? r.why : `${r.why}: click it now (Esc to leave)` }, menu: null };
-  const started: AppState = { ...s, picking: null, op: withPose(s, r.op), tool: null, menu: null, session: { ...s.session, message: r.op.kind === "revolve" ? "turning about the longest straight line: click another line, a point or a face to move the orb there, or click the orb to turn it any way" : null } };
+  const started: AppState = { ...s, picking: null, op: withPose(s, r.op), tool: null, menu: null, session: { ...s.session, message: r.op.kind === "revolve" ? `${r.op.revBeside ? "turning about a line beside the figure, out of its plane" : "turning about the longest straight line"}: click another line, a point or a face to move the orb there, or click the orb to turn it any way` : null } };
   return IS_SKETCH_OP[kind] ? facePlane(started, over, now) : started;
 }
 export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["name"], now = 0): AppState {

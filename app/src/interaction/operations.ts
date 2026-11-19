@@ -94,6 +94,8 @@ export interface Op {
   rot: [string, string, string];
   /** a scale of a body: the factor along each axis when an axis arrow has been pulled (`dec_scale_axes`); absent for the same factor every way */
   axes?: [number, number, number];
+  /** revolve: the orb began out in space beside the figure, which has no straight side (`in_1191`) */
+  revBeside?: true;
   /** revolve: each figure selected (its outer sides or circle and the figures inside it) and its middle */
   revFigs?: { fig: Figure; middle: Vec3 }[];
   /** loft (`dec_loft_sketches`): the sketches in the order picked (each its outer sides or circle and the figures inside it), how they are joined, and for each its start point (corners moved on) and direction */
@@ -383,7 +385,7 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     const start = revolveStart(scene, faces, lines);
     if (!start) return { ok: false, why: "the figure is not on a plane" };
     const revFigs = faces.map((f) => ({ fig: figureOf(scene, f), middle: middleOf(scene, f) ?? [0, 0, 0] as Vec3 }));
-    return { ok: true, op: { ...base, parts: revFigs[0]!.fig.outer, origin: revFigs[0]!.middle, normal: normalOfPlane(pl), plane: face.plane, revFigs, pivot: start.pivot, frame: start.frame, axis: 0, value: 90, advTyped: "", advValue: null, revField: 0 } };
+    return { ok: true, op: { ...base, parts: revFigs[0]!.fig.outer, origin: revFigs[0]!.middle, normal: normalOfPlane(pl), plane: face.plane, revFigs, pivot: start.pivot, frame: start.frame, ...(start.beside ? { revBeside: true as const } : {}), axis: 0, value: 90, advTyped: "", advValue: null, revField: 0 } };
   }
   if (kind === "pushpull" && drawnFaces(scene, parts).length) return startOp(scene, selection, "extrude"); // a sketch plane is pushed or pulled by extruding it: the same operation
   if (kind === "pushpull" && parts.length > 1) {

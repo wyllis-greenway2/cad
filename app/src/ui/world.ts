@@ -136,5 +136,5 @@ export function createWorld(scene3: THREE.Scene, host: HTMLElement) {
       d.style.top = `${p[1]}px`;
     });
   }
-  return { update, setGrid, setPanes, setOff: (on: boolean) => { off = on; } };
+  return { update, setGrid, setPanes, setOff: (on: boolean) => { off = on; }, hiddenAt: hidden };
 }

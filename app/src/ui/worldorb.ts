@@ -23,8 +23,8 @@ export function createWorldOrb(host: HTMLElement, toggle: () => void) {
   el.addEventListener("click", (e) => { e.stopPropagation(); toggle(); });
   return {
     /** `at`: the page position of the origin, or null when it is not in view. */
-    update(at: [number, number] | null, hidden: boolean): void {
-      if (!at) { el.style.display = "none"; return; }
+    update(at: [number, number] | null, hidden: boolean, behind = false): void {
+      if (!at || (behind && !hovering)) { el.style.display = "none"; return; } // (behind the model it is not shown through it, `in_1191`)
       el.style.display = "flex";
       el.style.left = `${Math.round(at[0])}px`;
       el.style.top = `${Math.round(at[1])}px`;
