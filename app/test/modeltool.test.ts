@@ -44,6 +44,9 @@ test("a model's numbers that make none are said, with the reason, whatever the s
   assert.equal(modelProblem("ballbearing", modelNumbers("ballbearing", {}, 40)), null);
   assert.match(modelProblem("ballbearing", modelNumbers("ballbearing", { number: 6007 })) ?? "", /not a bearing in the list/);
   assert.equal(modelProblem("cycloidal", modelNumbers("cycloidal", {}, 150)), null);
+  assert.equal(modelProblem("engine", modelNumbers("engine", {}, 150)), null);
+  assert.match(modelProblem("engine", modelNumbers("engine", { ratio: 0.6 })) ?? "", /rod ratio/);
+  assert.match(modelProblem("engine", modelNumbers("engine", { ratio: 0.45 })) ?? "", /rod is too short|rod would hit|swings too far/);
 });
 
 test("the tool: armed from the ring item; after the first click a picture of the model stands there, sized by the box; Create makes it with its middle on the click, turned as asked", () => {
@@ -101,6 +104,7 @@ test("each model lists its parts, bottom up, covering every step once", () => {
     ballbearing: ["Inner race", "Outer race", ...Array.from({ length: 7 }, (_, i) => `Ball ${i + 1}`)], // (detailed, 8 x 22 x 7: seven balls)
     differential: ["Cage", "Axle 1", "Axle 2", "Cross pin", "Side gear 1", "Spider gear 1", "Side gear 2", "Spider gear 2", "Cap 1", "Cap 2", "Drive gear"],
     cycloidal: ["Base plate and ring pins", "Input shaft and eccentric", "Cycloidal disc", "Output plate and pins"],
+    engine: ["Block", "Crankshaft", "Flywheel", "Piston", "Piston pin", "Connecting rod"],
   };
   for (const kind of MODEL_KINDS) {
     const b = modelBuild(kind, { ...modelStart(kind), ...(kind === "ballbearing" ? { detail: 1, own: 1, number: 0 } : {}) }, AT_ORIGIN_FOR_TESTS);
@@ -238,7 +242,7 @@ test("the cycloidal drive moved by Play: the disc's middle goes round the shaft,
 });
 const wrap = (x: number): number => Math.atan2(Math.sin(x), Math.cos(x));
 test("the Play item of the ring starts the model from whichever of its bodies is selected, and the motion moves the model's own parts", () => {
-  for (const [kind, from] of [["ballbearing", "Ball 5"], ["gearbox", "Top plate"], ["differential", "Cap 2"], ["cycloidal", "Output plate and pins"]] as [ModelKind, string][]) {
+  for (const [kind, from] of [["ballbearing", "Ball 5"], ["gearbox", "Top plate"], ["differential", "Cap 2"], ["cycloidal", "Output plate and pins"], ["engine", "Piston pin"]] as [ModelKind, string][]) {
     let st = buildAll(kind, kind === "ballbearing" ? { own: "1", detail: "1" } : {});
     const sc = scene(st.session), rec = sc.models![0]!;
     const body = anyBodyOf(sc, rec.parts[from]!);
@@ -246,7 +250,7 @@ test("the Play item of the ring starts the model from whichever of its bodies is
     const played = reduce(st, { type: "runAction", id: "motion:play" }, env as never);
     assert.ok(played.motion, `${kind}: Play from ${from} starts a motion: ${played.session.message ?? ""}`);
     if (!played.motion) continue;
-    const held: Record<ModelKind, number> = { gearbox: 2, ballbearing: 1, differential: 2, cycloidal: 1 };
+    const held: Record<ModelKind, number> = { gearbox: 2, ballbearing: 1, differential: 2, cycloidal: 1, engine: 1 };
     assert.equal(played.motion.follows.length, Object.keys(rec.parts).length - held[kind] - 1, `${kind}: every moving part follows (the followers and what is glued to them)`);
     const driverBody = anyBodyOf(sc, rec.parts[rec.driver.part]!);
     assert.equal(played.motion.body, driverBody, `${kind}: the driver is ${rec.driver.part}`);
