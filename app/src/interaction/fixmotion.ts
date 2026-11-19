@@ -87,6 +87,9 @@ export interface Fix {
   how: "mate" | "pivot";
   /** the pin it hangs on goes round in this motion: only a coaxial mate is right (it is carried by the pin, `dec_carried_joint`), not a pivot at the pin's place now */
   carried?: true;
+  /** what the walk selects and looks at for this fix: the hole and the pin it would make coaxial (or the body, for a pivot), and the middle and the size of the view that shows them */
+  select: Ref[];
+  focus: { centre: Vec3; radius: number };
   /** where the push left the body at the end of the play it was fitted from: the driver's amount, and how far the body had turned (degrees); the joint made is played to the same amount and has to be there too (`FIT_DEG`) */
   expect: { amount: number; spin: number };
 }
@@ -94,6 +97,13 @@ export interface Unfixed { body: Ref; name: string; why: string }
 export interface FixPlan { fixes: Fix[]; left: Unfixed[]; steps: number }
 
 const nameOf = (scene: Scene, r: Ref): string => { const p = scene.parts[r]; return p?.kind === "body" && p.id ? p.id : r; };
+/** The middle and the size of a view that shows a body (the point it turns about, when its box is not known). */
+const bodyFocus = (scene: Scene, body: Ref, fallback: Vec3): { centre: Vec3; radius: number } => {
+  const b = scene.parts[body];
+  if (b?.kind !== "body" || !b.bbox) return { centre: fallback, radius: 20 };
+  const [lo, hi] = [b.bbox.min, b.bbox.max];
+  return { centre: [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2], radius: Math.max(5, Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) / 2) };
+};
 const fmt = (x: number): string => String(Math.round(x * 100) / 100);
 
 /**
@@ -125,14 +135,14 @@ export function planFixes(scene: Scene, outcome: CompileOutcome | undefined, m: 
       const on = holeAndPin(scene, p.body);
       const rides = !!on && (on.on === m.body || m.follows.some((f) => f.body === on.on) || c.pushables.some((q) => q.body === on.on)); // (the pin is on a body that moves in this motion: its axis goes round with it)
       if (on && rides && !carriedByMotion(m, on.on)) { left.push({ body: p.body, name, why: `${name} hangs on a pin of ${nameOf(scene, on.on)}, which is carried by something that is itself moved (a planet, a cam, a table): no joint is made for it; it stays with the push` }); return; }
-      if (on) { fixes.push({ body: p.body, name, joint: { kind: "turn", point: on.center, dir: on.axis, err: 0, ratio: null, ratioErr: 0 }, how: "mate", expect, ...(rides ? { carried: true as const } : {}), text: rides ? `${name} hangs on a pin of ${nameOf(scene, on.on)}, which goes round: mate its hole to the pin, coaxial (the pin carries it round and it turns on the pin only where something stops it)` : `${name} is on a pin of ${nameOf(scene, on.on)}: mate its hole to the pin, coaxial (the push also slid it${j.kind === "none" ? "" : " along a line"}, which the mate will not)` }); return; }
+      if (on) { fixes.push({ body: p.body, name, joint: { kind: "turn", point: on.center, dir: on.axis, err: 0, ratio: null, ratioErr: 0 }, how: "mate", expect, select: [on.hole, on.pin], focus: { centre: on.center, radius: Math.max(on.radius * 4, 10) }, ...(rides ? { carried: true as const } : {}), text: rides ? `${name} hangs on a pin of ${nameOf(scene, on.on)}, which goes round: mate its hole to the pin, coaxial (the pin carries it round and it turns on the pin only where something stops it)` : `${name} is on a pin of ${nameOf(scene, on.on)}: mate its hole to the pin, coaxial (the push also slid it${j.kind === "none" ? "" : " along a line"}, which the mate will not)` }); return; }
       left.push({ body: p.body, name, why: j.kind === "none" ? j.why : `${name} slides along one line, but a slider needs a rod to slide on: make a rod, or leave it to the push` });
       return;
     }
     const found = holeAndPin(scene, p.body, j.point, j.dir);
     fixes.push(found
-      ? { body: p.body, name, joint: j, how: "mate", expect, text: `${name} turns about one axis (it fits within ${fmt(j.err)} mm): mate its hole to the pin, coaxial (the pin is the axis; the hole moves to it)` }
-      : { body: p.body, name, joint: j, how: "pivot", expect, text: `${name} turns about one axis (it fits within ${fmt(j.err)} mm): make it a pivot about that axis` });
+      ? { body: p.body, name, joint: j, how: "mate", expect, select: [found.hole, found.pin], focus: { centre: found.center, radius: Math.max(found.radius * 4, 10) }, text: `${name} turns about one axis (it fits within ${fmt(j.err)} mm): mate its hole to the pin, coaxial (the pin is the axis; the hole moves to it)` }
+      : { body: p.body, name, joint: j, how: "pivot", expect, select: [p.body], focus: bodyFocus(scene, p.body, j.point), text: `${name} turns about one axis (it fits within ${fmt(j.err)} mm): make it a pivot about that axis` });
   });
   return any ? { fixes, left, steps: top } : null;
 }

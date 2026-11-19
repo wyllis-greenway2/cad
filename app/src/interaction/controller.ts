@@ -1,6 +1,7 @@
 // The controller: applies one intent to the app state. All behaviour of the pointer, the click grammar, the camera and the menu is decided here, in plain
 // functions (`inv_no_logic_in_ui`): the UI only draws the state and the platform only reports devices. The work is in `control/`, one file per concern:
 // `viewing` (camera), `pointer` (hover, click, menu), `modal` (tools, operations, typing, edits).
+import { droppedBy } from "./dropped.ts";
 import type { Intent } from "../shared/input.ts";
 import { figureRefs } from "../operation/scene.ts";
 import { isLive } from "./operations.ts";
@@ -51,7 +52,7 @@ const RESUMING = new Set<Intent["type"]>(["hover", "hoverEnd", "click", "orbit",
 export function reduce(s: AppState, i: Intent, env: Env): AppState {
   if (s.adding && i.type === "click" && !i.shift && !s.tool && !s.op && !s.repeat && !s.cut && !s.picking) i = { ...i, shift: true }; // (adding: a tap is a Shift click, `in_539`)
   let next = apply(s, i, env);
-  if (next.consFor && !selectionOf(next.session).includes(next.consFor)) next = { ...next, consFor: null }; // (the constraints icon of a double clicked body goes when it is no longer selected, `in_1160`)
+  if (next.consFor && !selectionOf(next.session).includes(next.consFor)) next = { ...next, consFor: null }; // (the constraints icon of a double clicked body goes when it is no longer selected, `in_1166`)
   if (next.motion && sceneOf(next.session) !== sceneOf(s.session)) { const held = motionHolds(sceneOf(next.session), next.motion); next = held === next.motion ? next : { ...next, motion: held }; } // (what a motion moves is deleted or undone: it stops, `in_1129`)
   if (i.type === "faceKind" || i.type === "sizeKind" || i.type === "loftKind" || i.type === "similarRule" || i.type === "cut") next = { ...next, optionAt: null }; // (an option chosen by the pointer: the keyboard's place in the bar starts from there again, `in_664`)
   if (next.cam !== s.cam || next.session.history.scene !== s.session.history.scene || next.lastSeen === null) next = noteSeen(next, env.w, env.h, projector(next.cam, env.w, env.h).project as (p: Vec3) => [number, number]); // (what was last in view, for Reset camera, `in_303`)
@@ -90,7 +91,9 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   const c = next.session.conflict;
   const al = next.session.already; // (a constraint that already held: it flashes green, `in_1103`)
   if (al && al !== s.session.already) return { ...next, flash: { culprits: [], victims: [], green: al, at: env.now } };
-  return c && c !== s.session.conflict ? { ...next, flash: { ...c, at: env.now } } : next;
+  if (c && c !== s.session.conflict) return { ...next, flash: { ...c, at: env.now } };
+  const gone = !c && !al && next.session.history.scene !== s.session.history.scene ? droppedBy(s.session.history.scene, next.session.history.scene) : null; // (constraints that went with a deleted part: the parts that stayed flash and the bubbles pop, `in_1168`)
+  return gone ? { ...next, flash: { culprits: [], victims: [], parts: gone.parts, popped: gone.ids, ghosts: gone.ghosts, at: env.now } } : next;
 }
 
 /** "Delete constraint to proceed" (`in_366`): the constraints that stopped a change are deleted and the change is made, as one step (one undo takes both back). */
@@ -190,7 +193,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "motionLink": return doMotionLink(s, i);
     case "motionRest": return doMotionRest(s, i);
     case "motionKeep": return doMotionKeep(s);
-    case "motionFix": return doMotionFix(s, i.act);
+    case "motionFix": return doMotionFix(s, i.act, env.now);
     case "motionClose": return { ...s, motion: null };
     case "panel": return doPanel(s, i.name);
     case "panelRow": return doPanelRow(s, i.id, i.act);

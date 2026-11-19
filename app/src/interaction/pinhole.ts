@@ -41,7 +41,7 @@ export function pinInHole(scene: Scene, a: Ref, b: Ref): string | null {
  * The round faces to mate for a body that sits on a pin: a hole of the body (`body`) on a pin of another body. With `point` and `dir` (a body found to turn about that axis) the pin's axis must be parallel to `dir` and within the room the hole leaves
  * (and `slack`) of `point`; with neither, any pin that the hole is on (the model says so, whatever the motion did). The hole moves to the pin when they are mated, so the pin is the axis. `center` and `axis` are the pin's. Null when there is none.
  */
-export function holeAndPin(scene: Scene, body: Ref, point?: Vec3, dir?: Vec3, slack = 1): { hole: Ref; pin: Ref; center: Vec3; axis: Vec3; on: Ref } | null {
+export function holeAndPin(scene: Scene, body: Ref, point?: Vec3, dir?: Vec3, slack = 1): { hole: Ref; pin: Ref; center: Vec3; axis: Vec3; on: Ref; radius: number } | null {
   const d = dir ? normalize(dir) : null;
   for (const hole of roundsOf(scene, body).filter((r) => !r.convex)) {
     if (d && Math.abs(dot(hole.axis, d)) < 0.999) continue;
@@ -53,7 +53,7 @@ export function holeAndPin(scene: Scene, body: Ref, point?: Vec3, dir?: Vec3, sl
         const off = (a: Vec3, from: Vec3): number => { const w = sub(from, a), al = dot(w, hole.axis); return Math.hypot(w[0] - hole.axis[0] * al, w[1] - hole.axis[1] * al, w[2] - hole.axis[2] * al); };
         if (off(pin.center, hole.center) > room + 0.05 || (point && off(pin.center, point) > room + slack)) continue;
         if (pin.ax === hole.ax && (pin.hi < hole.lo || hole.hi < pin.lo)) continue;
-        return { hole: hole.ref, pin: pin.ref, center: pin.center, axis: pin.axis, on: other.ref };
+        return { hole: hole.ref, pin: pin.ref, center: pin.center, axis: pin.axis, on: other.ref, radius: hole.radius };
       }
     }
   }

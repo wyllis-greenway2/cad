@@ -94,7 +94,7 @@ import { partIndex } from "../operation/partindex.ts";
 import type { StandIn } from "./standin.ts";
 
 /** A refused change, while it flashes: how far through it is (0 to 1), the constraints it would have broken (red, fading), the ones that tried (they shake), and the parts of the broken ones. */
-export interface FlashFrame { t: number; victims: string[]; culprits: string[]; parts: Ref[]; /** constraints that already held when asked for again: green, fading (`in_1103`) */ green?: string[]; greenParts?: Ref[] }
+export interface FlashFrame { t: number; victims: string[]; culprits: string[]; parts: Ref[]; /** constraints that already held when asked for again: green, fading (`in_1103`) */ green?: string[]; greenParts?: Ref[]; /** constraints that went with a deleted part: their bubbles pop (`in_1168`) */ popped?: string[]; ghosts?: Annotation[] }
 
 const animatedMemo = new WeakMap<Scene, Map<Ref, Ref>>();
 /** The bodies hooked up to an animation (`gearcouple.ts`), worked out once for each scene. */
@@ -147,7 +147,7 @@ export interface Frame {
   bodyEyes: { ref: string; hidden: boolean; corners: Vec3[]; /** the body is selected (or a face of it): its play button is shown, not only when the pointer is over it (`in_962`) */ selected?: true; /** a body hooked up to an animation has a play button (pause while it plays) beside its eye */ play?: "play" | "pause"; /** the body is selected (or a face of it): its constraints icon is shown (`in_1157`) */ chosen?: true; /** the constraints of this body are all shown */ cons?: true }[];
   eyesQuiet: boolean;
   /** the gear's own icon (`in_693`): a gear is selected (its sketch or its body): where it stands (the top of the gear) and what it offers */
-  /** the helpful bar: the icons of what is selected, to the left of the suggested constraints (`in_1160`) */
+  /** the helpful bar: the icons of what is selected, to the left of the suggested constraints (`in_1166`) */
   bar: Bar | null;
   gearChip: { /** the part of the gear the icon is for (what is selected or pointed at) */ part: Ref; at: Vec3; items: { id: string; label: string; icon: string; enabled: boolean; why: string | null }[] } | null;
   /** the bodies that move with the one being dragged, each by its own matrix, as its mates take them along (`in_341`) */
@@ -482,7 +482,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
   const hardWhy = noteOp && !gpu && sceneOf(s.session).hard?.length ? hardNote(sceneOf(s.session), noteOp) : null; // (what a repeat, a mirror or a pull that is open runs into, `in_475`)
   const flash: FlashFrame | null = hardWhy?.hit.length ? { t: 0, victims: [], culprits: [], parts: hardWhy.hit } : gpu?.hardHit?.length ? { t: 0, victims: [], culprits: [], parts: gpu.hardHit } : gpu?.blocked?.length ? { t: 0, victims: gpu.blocked, culprits: [], parts: flashParts(sc, gpu.blocked) } : flashOf(s, sc, now);
   const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the constraints
-  const suggest = busy ? null : suggestionsFor(sc, sel, nearTolMm(s.cam), seenIn(s.cam, sc, size));
+  const suggest = busy || s.motion?.fix ? null : suggestionsFor(sc, sel, nearTolMm(s.cam), seenIn(s.cam, sc, size));
   const gp = gridPlaneOf(s);
   const annotationsPresent = !busy; // (the bubbles are the only user of `avoid`: none are shown while a tool or operation runs)
   return {
@@ -585,7 +585,7 @@ function barFacts(s: AppState, sc: Scene, selBodies: ReadonlySet<Ref>, index: Re
 const withFlashed = (list: Annotation[], sc: Scene, flash: FlashFrame | null): Annotation[] => {
   if (!flash) return list;
   const have = new Set(list.map((a) => a.id));
-  return [...list, ...annotationsOf(sc, [...new Set([...flash.victims, ...flash.culprits, ...(flash.green ?? [])])]).filter((a) => !have.has(a.id))];
+  return [...list, ...annotationsOf(sc, [...new Set([...flash.victims, ...flash.culprits, ...(flash.green ?? [])])]).filter((a) => !have.has(a.id)), ...(flash.ghosts ?? []).filter((a) => !have.has(a.id))]; // (a bubble that pops is of a constraint that is gone: shown as it was)
 };
 /** The small plane drawn for the mirror's chosen arrow (`in_437`): a square across that axis where the plane stands, a little bigger than what is mirrored. */
 function mirrorGuide(s: AppState): Frame["sectionPlanes"] {
@@ -634,7 +634,7 @@ function flashOf(s: AppState, sc: Scene, now: number): FlashFrame | null {
   const t = (now - s.flash.at) / settings.flash.ms;
   if (t < 0 || t >= 1) return null;
   const parts = [...flashParts(sc, s.flash.victims), ...((s.flash.parts ?? []) as Ref[])];
-  return { t, victims: s.flash.victims, culprits: s.flash.culprits, parts, ...(s.flash.green?.length ? { green: s.flash.green, greenParts: flashParts(sc, s.flash.green) } : {}) };
+  return { t, victims: s.flash.victims, culprits: s.flash.culprits, parts, ...(s.flash.green?.length ? { green: s.flash.green, greenParts: flashParts(sc, s.flash.green) } : {}), ...(s.flash.popped?.length ? { popped: s.flash.popped, ghosts: s.flash.ghosts ?? [] } : {}) };
 }
 
 /** Where the value bubble sits: at the tip of the arrow for a push / pull or an extrude and at the edge for a fillet or chamfer (so it is by what it sets), else at the middle of the handles, or by the figure being drawn. */
