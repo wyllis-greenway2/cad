@@ -4372,3 +4372,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1004 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks to merge this branch's work into claude/inspiring-pascal-l342k7: the explicit permission to write to that branch for this merge)
+
+## in_1005 — 2026-11-19 — directive
+> boxes before replay, then extending the pieces
+(asks for the next two steps in order: show the boxes before the project's commands are replayed, then extend the pieces to parts with fillets, holes and moves)

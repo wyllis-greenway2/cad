@@ -3,7 +3,7 @@ id: dec_progressive_open
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1001, in_1002
+human_input: in_1001, in_1002, in_1005
 date: 2026-11-18
 depends_on:
   - dec_per_body_checks: bodies are kept and described one at a time by their own solid; a model made in pieces uses that, and the history and answers it leaves are the ones that decision bounds
@@ -27,7 +27,11 @@ depends_on:
 
 **Tests:** `pieces.test.ts` (the plan, the pieces' bodies and volumes, the answers put together, buffers), `kernelpieces.test.ts` (the order, the first part at once, stopping, the page's handling of an answer so far, a newer question, the limit restarted), `pieceghosts.test.ts` (the boxes, the working sign).
 
-**Not done (and why):** ghosts **before** the replay (the boxes can be had from the saved text in 6 to 22 ms, `prototypes/progressive-load`: they would need a state of the page that shows them before a scene exists); parts that touch (one piece: a long chain is made as one); parts with fillets, holes, moves, gears and other kinds (the table `docs/progressive-levels.md` and the harness say what has to be known about each first); picking a ghost; the memory over thousands of pieces (the answers are kept as made until the last); the page taking in each answer so far costs the page about as much as a frame (not separated).
+**Not done (and why):** the replay in slices; parts that touch (one piece: a long chain is made as one); parts with fillets, holes, moves, gears and other kinds (the table `docs/progressive-levels.md` and the harness say what has to be known about each first); picking a ghost; the memory over thousands of pieces (the answers are kept as made until the last); the page taking in each answer so far costs the page about as much as a frame (not separated).
+
+## Boxes before the replay (`in_1005`)
+
+A project opened from a file (the Open row, Restore session) is read for its parts **before** its commands are replayed: `operation/projectghosts.ts` `ghostsFromProject` (the saved text in, a box for each part out, in 6 ms for 300 parts and 22 ms for 1000, nothing derived or solved); the boxes are set as the view's ghosts, **one frame is painted**, and then the commands are replayed (`main.ts` `openProjectText`), which takes 0.6 s for 300 parts and 3.4 s for 1000 and freezes the page while it does; `adopt` puts the scene's own ghosts in their place. Only for a project of at least 24 pushes of sketches on the base plane with nothing else in it (a move, a delete, a fillet, a sketch on another plane, an arc or a spline side: no boxes, since they could be wrong). Checked in the built app with the browser's own screencast: **a frame with the boxes was on the screen 121 ms after the call to open a 1000 part project; the replay then held the page 3.4 s**; the boxes are the scene's later ghosts part by part (`test/projectghosts.test.ts`). **Not done:** the replay itself in slices between frames, so that the page also answers the person while it is replayed.
 
 ## Rationale
 
