@@ -1,4 +1,4 @@
-// A wheel as a model (`dec_hub_spoke`): a rim, a web and a hub as ONE body, the way a cast or machined wheel is made. The human's own recipe (`in_1236`, named and ordered in `in_1245`, loosened in `in_1248`): the plainest form is a web joining
+// A wheel as a model (`dec_hub_spoke`): a rim, a web and a hub as ONE body, the way a cast or machined wheel is made. The human's own recipe (`in_1236`, named and ordered in `in_1245`, loosened in `in_1249`): the plainest form is a web joining
 // the rim and the hub, with a fillet or a chamfer of a set size where the web meets each; the spokes are cutouts in that web (their number, how far they stop short of the hub and the rim, the radius where each cutout's corner meets the hub and the rim,
 // the width of a spoke and how much it tapers, and a spiral). Modelling is manufacturing agnostic: nothing here fails over a size that is hard to make (a radius may be 0, spokes may merge); a number too big for the room is made as big as the room
 // allows. The wheel stands along z with its middle at z = 0. Pure: numbers in, steps out.
@@ -37,7 +37,7 @@ export function wheelGeometry(s: WheelSpec): { R: number; Rin: number; hubR: num
 }
 
 /**
- * The numbers the wheel is made with: the ones that are too big for the room made as big as the room allows, none refused (`in_1248`). The joins no bigger than the rim and the hub stand proud of the web and the two together no bigger than the web
+ * The numbers the wheel is made with: the ones that are too big for the room made as big as the room allows, none refused (`in_1249`). The joins no bigger than the rim and the hub stand proud of the web and the two together no bigger than the web
  * is wide; a cutout that would end within 0.4 mm of where a join ends is moved off it; the edge round no bigger than the web and the spoke can carry, and none where a cutout runs into the hub or the rim (the kernel cannot round that).
  */
 export function effective(s: WheelSpec): WheelSpec {
