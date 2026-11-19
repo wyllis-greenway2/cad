@@ -293,8 +293,8 @@ function touchHelperOf(s: AppState, gizmo: { handles: Handle[] } | null): Frame[
   if (!gizmo || (s.drag && !("handle" in s.drag))) return !s.op && !s.repeat ? partHelperOf(s) : null;
   const chosen = s.handleSel ? gizmo.handles.find((h) => h.id === s.handleSel) : (s.op || s.repeat) && gizmo.handles.length === 1 ? gizmo.handles[0] : undefined;
   // an operation is open and no arrow has been chosen: no drag icon yet, but a tap on an arrow selects it and a tap anywhere else is a right click, as with one chosen (`in_292`)
-  if (!chosen) return s.op || s.repeat ? { kind: "handle", points: [], handles: gizmo.handles.map((h) => h.points), applies: true } : null;
-  return chosen ? { kind: "handle", points: [{ at: handleMiddle(chosen), index: -1 }], handles: gizmo.handles.map((h) => h.points), applies: !!(s.op || s.repeat) } : null;
+  if (!chosen) return s.op || s.repeat ? { kind: "handle", points: [], handles: gizmo.handles.filter((h) => h.kind !== "pane").map((h) => h.points), applies: true } : null; // (a pane is big enough to touch itself: a finger needs no proxy for it)
+  return chosen ? { kind: "handle", points: [{ at: handleMiddle(chosen), index: -1 }], handles: gizmo.handles.filter((h) => h.kind !== "pane").map((h) => h.points), applies: !!(s.op || s.repeat) } : null;
 }
 
 /** The body moved only on the graphics card (`in_216`): the matrix, and the scene and result as they are without this step. Null when the kernel has to work it out. */
