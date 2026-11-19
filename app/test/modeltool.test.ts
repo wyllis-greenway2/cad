@@ -330,7 +330,7 @@ test("glue: a body glued to a part that moves moves with it, however it was chos
   assert.ok(!glueOf(scene(un.session), idPlate), "Unglue took the plate out");
 });
 
-// ---- what the human asked (`in_1145`, `in_1149`): a bearing that loads with its constraints, so things can be driven on it ----
+// ---- what the human asked (`in_1145`, `in_1153`): a bearing that loads with its constraints, so things can be driven on it ----
 test("a bearing loads with its outer ring held and its inner ring turning about the axis (a pivot), and Play still turns the balls with the inner ring", () => {
   for (const kind of ["ballbearing", "bearing"] as ModelKind[]) {
     const st = buildAll(kind), sc = scene(st.session), rec = sc.models![0]!;
