@@ -116,7 +116,7 @@ export function guideLines(guide: readonly Vec3[], dash = 4, gap = 3): number[] 
 export function holesView(plan: ReceiverPlan, picked = -1): ToolpathView | null {
   if (!plan.places.length) return null;
   const one = picked >= 0 && plan.spots[picked] ? holeLines({ ...plan, spots: [plan.spots[picked]!] }) : []; // (the hole picked up, to be moved or taken out, drawn in the cut colour)
-  const origin = picked >= 0 && plan.spots[picked] && plan.base[picked] ? originMark(plan, picked) : []; // (where the rules put it, to be snapped back to, `in_1053`)
+  const origin = picked >= 0 && plan.spots[picked] && plan.base[picked] ? originMark(plan, picked) : []; // (where the rules put it, to be snapped back to, `in_1073`)
   return { surfaces: holeSurfaces(plan), done: { wire: holeLines(plan), ...(one.length ? { cut: one } : {}), ...(origin.length ? { score: origin } : {}), ...(plan.guide.length ? { travel: plan.guide.flatMap((g) => guideLines(g)) } : {}) }, rest: {}, head: null, stock: [] };
 }
 
