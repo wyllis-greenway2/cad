@@ -213,16 +213,19 @@ export function doMotionFix(s: AppState, act: "open" | "apply" | "skip" | "close
     // each joint that can be made is played to where the fit ended; the one that does not jam and turns the body nearest to where the push left it is made (the mate holds the hole on the pin; the push could also slide off it, which a joint cannot)
     let chosen: { c: ReturnType<typeof fixCommands>[number]; next: ReturnType<typeof run>; off: number } | null = null;
     const reasons: string[] = [];
+    let stale = false;
     const word = (h: string): string => (h === "mate" ? "the coaxial mate" : "the pivot");
     for (const c of fixCommands(sceneOf(s.session), f)) {
       if (c.why) reasons.push(`the coaxial mate cannot be made: ${c.why}`); // (the mate was wanted and refused: the pivot that is tried after it is not the whole story)
       const next = run(s.session, c.command);
       if (next.message) { reasons.push(`${word(c.how)} is refused: ${next.message}`); continue; }
+      // in the app the kernel answers a moment after a change: the mesh is still the one before it, so a motion played now would be on bodies where they were; the joint is then made without the play-through, and the motion is closed for the person to play again on the new mesh
+      if (next.outcome.kernel?.stale) { chosen = { c, next, off: 0 }; stale = true; break; }
       const r = startMotion(sceneOf(next), m.body, m.kind, next.outcome);
       if (!r.ok) continue;
       const there = solveContact(sceneOf(next), { ...r.motion, playing: true, amount: f.expect.amount }, next.outcome, Infinity);
       if (there.contact?.jam) { reasons.push(`${word(c.how)} would jam: ${there.contact.jam}`); continue; }
-      const off = Math.abs(Math.abs(there.yields?.find((x) => x.body === f.body)?.value ?? 0) - Math.abs(f.expect.spin));
+      const off = f.carried ? 0 : Math.abs(Math.abs(there.yields?.find((x) => x.body === f.body)?.value ?? 0) - Math.abs(f.expect.spin)); // (a body carried by a pin turns about the pin, not about its own middle as the push's number was: no comparison)
       if (!chosen || off < chosen.off - 1e-9) chosen = { c, next, off };
     }
     if (!chosen) return say(`not applied: ${reasons.join("; ") || "no joint fits"}. Skip it, or leave it to the push`);
@@ -232,6 +235,7 @@ export function doMotionFix(s: AppState, act: "open" | "apply" | "skip" | "close
     const fresh = sceneOf(next).relations.filter((r) => !before.has(r.id)).map((r) => r.id);
     const r = startMotion(sceneOf(next), m.body, m.kind, next.outcome);
     made = [...made, `${f.name} (${c.how === "mate" ? "coaxial mate" : "pivot"})`];
+    if (stale) return { ...s, session: { ...next, message: `made the ${c.how === "mate" ? "coaxial mate" : "pivot"} on ${f.name}: the model is rebuilding, so it was not played through yet. Play again to see it run on the joint` }, flash: { culprits: [], victims: [], green: [...sceneOf(next).relations.map((r) => r.id).filter((id) => !sceneOf(s.session).relations.some((r) => r.id === id))], at: performance.now() }, motion: null };
     state = { ...s, session: { ...next, message: note || null }, flash: { culprits: [], victims: [], green: fresh, at: performance.now() }, motion: r.ok ? { ...r.motion, amount: m.amount, playing: false, from: m.amount, startedAt: null, speed: m.speed } : null };
     if (!r.ok) return state;
   }

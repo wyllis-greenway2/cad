@@ -260,7 +260,7 @@ export function motionHolds(scene: Scene, m: Motion): Motion | null {
 }
 
 /** The turn that carries what is on a body of this motion: the driver's own (a turn), or a gear it turns by a plain ratio; null for a body that does not move, or a carrier that is itself carried or drawn by a table (a joint on such a pin is not made). */
-function carriedBy(m: Motion, body: Ref): { point: Vec3; dir: Vec3; k: number; slip: true } | null {
+export function carriedBy(m: Motion, body: Ref): { point: Vec3; dir: Vec3; k: number; slip: true } | null {
   if (body === m.body) return m.kind === "turn" ? { point: m.point, dir: m.dir, k: 1, slip: true } : null;
   const f = m.follows.find((x) => x.body === body);
   return f && f.kind === "turn" && !f.after && !f.table && !f.geneva && f.value === undefined ? { point: f.point, dir: f.dir, k: f.k, slip: true } : null;
