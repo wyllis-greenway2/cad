@@ -160,9 +160,9 @@ function faceBodyMade(pr: FacePair): Result<FaceBody> {
     } else last = [fa, fb];
     curves.push([fa, fb]);
   }
-  { // the tip: the section under it with the tooth 0.6 as wide (the same middle), so that the tooth tapers on up to its top
+  { // the tip: the section under it with the tooth 0.45 as wide (the same middle), so that the tooth tapers on up to its top
     const [fa, fb] = curves[1]!;
-    const narrow = (a: number, i: number): [number, number] => { const [w, c] = [pitch + fb[i]! - a, (a + pitch + fb[i]!) / 2]; return [c - (0.6 * w) / 2, c + (0.6 * w) / 2 - pitch]; };
+    const narrow = (a: number, i: number): [number, number] => { const [w, c] = [pitch + fb[i]! - a, (a + pitch + fb[i]!) / 2]; return [c - (0.45 * w) / 2, c + (0.45 * w) / 2 - pitch]; };
     curves[0] = [fa.map((a, i) => narrow(a, i)[0]), fa.map((a, i) => narrow(a, i)[1])];
   }
   // the tooth gets no wider as it goes up (`in_1015`): where the pinion's flank is below its base circle (the tooth's top, a module up on a 14 tooth pinion) the involute formula, carried on, flares the tooth out, wider at the tip than a little under it; the tooth keeps its middle and the width of the

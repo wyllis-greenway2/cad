@@ -4589,3 +4589,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1057 — 2026-11-19 — approval
 > I will take your recommendation
 (takes the AI's recommendation: keep the gear chains as the narrow exception they are, and do not make them a general rule; the general fix for plain bodies waits for a measurement of whether they are slow)
+
+## in_1058 — 2026-11-19 — directive
+> it took 29 seconds and looks like this
+(attached the project file model.cad_63.json, a 40 tooth face gear at module 2 with a 14 tooth mate, saved by build 589c0e2e, and a screenshot of its teeth: a flared foot, a concave neck and a straight-sided cap; the browser took 29 seconds to make the face gear)
