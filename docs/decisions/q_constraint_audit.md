@@ -52,3 +52,7 @@ Besides a violated constraint (red, says so, offers to delete) and a made one, *
 **The other direction** (a mate that already holds, and a sketch constraint asked for between the same things): not implied: the sketch constraint ties the sketch to the body in the history, and the mate does not. Asked for exactly as it stands it is "already applied" (`in_1102`); that is all.
 
 **Open:** parallel and perpendicular to a body's straight edge (above); and a **relation made to a rim that has since been named another way** keeps its circle (`relation.anchors`): the detection uses it, a relation without one cannot be checked.
+
+## The drag channel, looked at (not yet closed)
+
+**Read, not newly tested:** a gizmo or handle drag that is let go runs through `runOp` and so `session.run`, the one place a refusal is made; a refusal there keeps the arrow or ring where it was (`control/handles.ts`) and gets the same flash and button as any other change. `gizmo.test.ts` already holds the two cases for a sketch side held by a locked length (`in_208`, `in_665`). **Tried:** moving the bodies of the jamb project with `movePart`: they are references there, refused with "is a reference and cannot move", which names no constraint (it is not one). **Still not checked:** a body *made from a sketch* dragged while a mate or sketch constraint holds it (needs a project whose bodies are not references), the held-back preview of a drag, a typed number a dimension cannot take, gears and cams against mates, deleting a part a constraint needs, contact pushes in animations.
