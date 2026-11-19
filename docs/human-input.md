@@ -4980,3 +4980,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1159 — 2026-11-19 — directive
 > Lets have the helpful message say "Slow animation" "Fix Constraints" X. Also the fixes are way to verbose. It should just select the actual parts to constraint, and zoom into them and say Apply X constraint. Then zoom to the next and select parts to constrain and say apply x constraint. Also when it is done, it should go back to its original view, with the animation play button ready to go, or basically however it was before you entered the fix constraints helper.
 (a screenshot of the walk card with a long sentence; asks the offer to be "Slow animation", Fix Constraints, ✕; each step to select the parts, zoom to them and say only "Apply ... constraint"; the end to put the view and the play back as they were)
+
+## in_1160 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the terse Fix walk (select, zoom, apply, view put back) to be merged into the testing branch, no full test run)
