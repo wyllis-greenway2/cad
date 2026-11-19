@@ -3,7 +3,7 @@
 import type { Scene } from "./operation/scene.ts";
 import type { CompileOutcome } from "./compiler/compile.ts";
 import type { Motion } from "./interaction/motion.ts";
-import { pathPlaces, placesExtent, SMOOTH_STEPS } from "./interaction/contact.ts";
+import { pathPlaces, placesExtent, SMOOTH_STEPS, AHEAD_STEPS } from "./interaction/contact.ts";
 import type { AheadReply, AheadStart } from "./contact-worker.ts";
 
 export interface AheadWorker { postMessage(m: unknown): void; addEventListener(type: "message" | "error", f: (e: any) => void): void; terminate?(): void } // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -41,7 +41,7 @@ export function createAhead(make: () => AheadWorker, send: (scene: Scene, outcom
     extent(scene: Scene, outcome: CompileOutcome | undefined, m: Motion): number | null {
       if (!cur || cur.scene !== scene || cur.outcome !== outcome || !same(cur.motion, m) || cur.failed || cur.done) return null;
       const kept = pathPlaces(scene, outcome, m);
-      return kept ? Math.max(0, placesExtent(kept) - SMOOTH_STEPS * kept.step) : null; // (the picture of a body with no joint is averaged over the places either side: the play stays that far behind what the thread has sent)
+      return kept ? Math.max(0, placesExtent(kept) - Math.max(SMOOTH_STEPS, AHEAD_STEPS) * kept.step) : null; // (the picture of a body with no joint is averaged over the places either side: the play stays that far behind what the thread has sent)
     },
     stop,
   };

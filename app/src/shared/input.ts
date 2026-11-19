@@ -81,6 +81,8 @@ export type Intent =
   | { type: "motionPlay" }
   | { type: "motionKind"; kind: "turn" | "slide" }
   | { type: "motionReverse" }
+  /** take the view to the collision that stopped the motion (`in_1191`) */
+  | { type: "motionShowClash" }
   /** the speed of the play as a multiple of what it began at (`in_1169`) */
   | { type: "motionSpeed"; k: number }
   | { type: "motionLink"; id: string; ratio?: number; kind?: "turn" | "slide"; remove?: true }
