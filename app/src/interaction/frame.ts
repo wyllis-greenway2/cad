@@ -141,7 +141,7 @@ export interface Frame {
   /** the triangles of the places too thin to print, marked in the picture while the Measure tab is open (`in_626`) */
   thin: number[] | null;
   /** the eye on each body (`dec_hidden_bodies`): its box's corners and whether it is hidden; `eyesQuiet`: a tool or an operation is in use, so the eyes of shown bodies stay away */
-  bodyEyes: { ref: string; hidden: boolean; corners: Vec3[]; /** the body is selected (or a face of it): its play button is shown, not only when the pointer is over it (`in_962`) */ selected?: true; /** a body hooked up to an animation has a play button (pause while it plays) beside its eye */ play?: "play" | "pause"; /** the body is selected (or a face of it): its constraints icon is shown (`in_1131`) */ chosen?: true; /** the constraints of this body are all shown */ cons?: true }[];
+  bodyEyes: { ref: string; hidden: boolean; corners: Vec3[]; /** the body is selected (or a face of it): its play button is shown, not only when the pointer is over it (`in_962`) */ selected?: true; /** a body hooked up to an animation has a play button (pause while it plays) beside its eye */ play?: "play" | "pause"; /** the body is selected (or a face of it): its constraints icon is shown (`in_1149`) */ chosen?: true; /** the constraints of this body are all shown */ cons?: true }[];
   eyesQuiet: boolean;
   /** the gear's own icon (`in_693`): a gear is selected (its sketch or its body): where it stands (the top of the gear) and what it offers */
   gearChip: { /** the part of the gear the icon is for (what is selected or pointed at) */ part: Ref; at: Vec3; items: { id: string; label: string; icon: string; enabled: boolean; why: string | null }[] } | null;
@@ -558,7 +558,7 @@ function temporaryParts(now: Scene, shown: Scene): Ref[] {
   return Object.values(shown.parts).filter((p) => p.origin === "drawn" && !now.parts[p.ref] && !(p.kind === "corner" && p.derived) && !(p.kind === "line" && p.derived) && (p.kind === "line" || p.kind === "circle" || p.kind === "corner")).map((p) => p.ref);
 }
 const OPEN_LABELS: Record<string, string> = { linear: "Linear repeat", circular: "Circular repeat", copy: "Copy", move: "Move", rotate: "Rotate", scale: "Scale", pushpull: "Push / pull", extrude: "Extrude", loft: "Loft", mirror: "Mirror copy", edge: "Fillet / chamfer", offset: "Offset" };
-/** The constraints on the screen: those of what is selected, those of the bodies whose icon is on, or every one of the world (`in_1131`); each shown once. */
+/** The constraints on the screen: those of what is selected, those of the bodies whose icon is on, or every one of the world (`in_1149`); each shown once. */
 function shownConstraints(s: AppState, sc: Scene, sel: readonly Ref[]): Annotation[] {
   const own = annotationsFor(sc, sel, s.focus, s.showAllConstraints || !!s.showSketch);
   const more = s.showAllConstraints ? annotationsOfBodies(sc, null, s.focus) : s.bodyConstraints.length ? annotationsOfBodies(sc, s.bodyConstraints, s.focus) : [];

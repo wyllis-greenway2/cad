@@ -4869,8 +4869,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1130 — 2026-11-19 — directive
 > okay one more thing, cross sections of animated parts seem to be special, they dont cut the same, they seem to have trasparent edges at the cut instead of grey and hatch,  and also they seem to continue in the cut space as black edge wireframe. Can we have animations cut just like anything else? Also these notes are from before I tried your most recent edits
 
-## in_1131 — 2026-11-19 — directive
+## in_1149 — 2026-11-19 — directive
 > It can be really hard to find constraints sometimes. Can we have it so that when you select a body, it has an icon that is half eye have lock, and when clicked it shows all the constraints associated with any verticy, edge, surface, or anything to do with that body, or relationships that body shares with other parts. lets also have a show all constraints option under the view part of the menu which turns on all constraints in the whole world.
 
-## in_1132 — 2026-11-19 — directive
+## in_1150 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests

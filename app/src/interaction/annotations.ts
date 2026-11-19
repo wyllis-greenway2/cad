@@ -262,7 +262,7 @@ function annotationsOf0(scene: Scene, selection: readonly Ref[], focus: string |
 }
 
 /**
- * Every constraint that has to do with these bodies (`in_1131`), whether or not anything is selected: the ones on the body's own corners, edges, circles and faces, on the sketch it was made from, and the mates and other relations it shares with other parts.
+ * Every constraint that has to do with these bodies (`in_1149`), whether or not anything is selected: the ones on the body's own corners, edges, circles and faces, on the sketch it was made from, and the mates and other relations it shares with other parts.
  * `null` for every constraint of the whole scene.
  */
 export function annotationsOfBodies(scene: Scene, bodies: readonly Ref[] | null, focus: string | null): Annotation[] {
