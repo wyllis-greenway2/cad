@@ -4289,3 +4289,6 @@ Branch `claude/adoring-dijkstra-carry`. **Message:** "Collision occurred" (the d
 
 ## Handoff 1075 — 2026-11-19 (in_1215: the two failing tests fixed)
 `in_1215` (the human said to make both fixes). **`tools.test.ts`:** the ring's expected list now has `view:constraints` (the "All constraints" entry another session added). **`menutips.test.ts`:** the bearings entry is labelled *Deep groove* (it was *Deep groove ball*, three words, against the ring's one-or-two-words rule); `fasteners.test.ts` and `dec_bearing_library` follow. The three files pass (46, 11, 50). Next: `in_1216`, Handoff 1055.
+
+## Handoff 1076 — 2026-11-19 (in_1216: merged into the testing branch, the full tests)
+`in_1216` (the human's permission to merge into `claude/inspiring-pascal-l342k7` and to run the full tests). Merged its tip (its `in_1212`, Handoff 1073; 42 commits): the bearings menu is the other session's new design (one entry with a Catalogue | Your own toggle: the "Deep groove" rename of Handoff 1075 is theirs now), the ring's test lists the engine and All constraints, `engine.test.ts` has a cast for its types. **Full tests, by file, on the merged tree: 265 files, 1998 tests pass, none fail**; typecheck, layers, unused and docs pass. Next: `in_1217`, Handoff 1077.
