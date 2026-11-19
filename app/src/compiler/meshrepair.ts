@@ -168,9 +168,15 @@ export function decimate(mesh: Mesh, target: number): Mesh {
     const l = Math.hypot(n[0], n[1], n[2]);
     return l < 1e-15 ? null : [n[0] / l, n[1] / l, n[2] / l];
   };
-  while (live > target) {
+  // past the target the reduction goes on while it costs nothing (a collapse that moves the surface by about a hundred-thousandth of the part's size or less): the flat and straight parts of a boxy mesh become a few clean triangles, not a heap of slivers that will not sew into a solid
+  const [lo, hi] = [[Infinity, Infinity, Infinity], [-Infinity, -Infinity, -Infinity]];
+  for (let i = 0; i < nv; i++) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k]!, pos[3 * i + k]!); hi[k] = Math.max(hi[k]!, pos[3 * i + k]!); }
+  const diag = Math.hypot(hi[0]! - lo[0]!, hi[1]! - lo[1]!, hi[2]! - lo[2]!);
+  const free = 1e-14 * diag ** 4;
+  while (live > 4) {
     const e = pop();
     if (!e) break;
+    if (live <= target && e.cost > free) break;
     const { u, w } = e;
     if (gone[u] || gone[w] || e.vu !== version[u] || e.vw !== version[w]) continue; // (stale)
     // the triangles on the edge, and the corners opposite
