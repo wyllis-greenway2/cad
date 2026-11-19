@@ -4707,3 +4707,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1088 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for claude/intelligent-hawking-next to be merged into the testing branch, with the constraint rules, the mates in the suggester and the hard stop; no full suite needed)
+
+## in_1089 — 2026-11-19 — question
+> @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/c1e54897-why_jamb.json" Why cant I apply a coaxial mate here? it seems to say one already exists I guess?
+(with a screenshot of a refusal, "that cannot be done without breaking other constraints", with the button "Delete constraints to proceed", a red Concentric bubble and a ring flashing round the pin, the suggester's five buttons below; asks why the coaxial mate is refused and whether one already exists)

@@ -22,6 +22,7 @@ test("a mate that the sketch of the moved body cannot follow names the constrain
   assert.ok(act.enabled);
   const r = run(s, act.run(0));
   assert.match(r.message ?? "", /cannot be done without breaking other constraints/);
+  assert.match(r.message ?? "", /: the .* (constraint|mate) .*(holds|hold) what it would move/, "it says which kind of constraint holds it, so the flash is not a mystery");
   assert.ok(r.conflict && r.conflict.victims.length > 0, "the constraints in the way are named");
   assert.ok(r.conflict!.retry, "and can be deleted to go on");
   // deleting them and making the mate again goes through

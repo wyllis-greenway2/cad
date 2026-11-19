@@ -1,6 +1,7 @@
 // A session: the history of the scene (every scene already compiled: solved, with body parts and derived faces), the selection, and what the pointer is over.
 // This is the one object the app holds. Commands are checked against the whole scene, so a relation to a body corner or a drawing on a body face is valid
 // (the gap noted in Handoff 084).
+import { ROWS } from "./rows.ts";
 import { mateStatus } from "../operation/mates.ts";
 import { putMatesBack, solveStanding, projectOnMates, mateHolders } from "./mate.ts";
 import { changeWords } from "./changewords.ts";
@@ -150,6 +151,11 @@ function standingFixes(h: History, stale: (h: History) => boolean): { fixes: Com
  * Do a command. A command that cannot be done is refused and changes nothing: its reason is in `message`; and one that cannot be done without breaking constraints that were
  * holding says which (`conflict`): the ones it tried to change, and the ones it would have broken, so the view can show them.
  */
+/** What the constraints named in a refusal are, in words: their kinds (a mate, Concentric, Tangent...) and how many, so the refusal says what flashes (`inv_constraint_uniformity`: it always makes itself known). */
+function wordsOf(scene: Scene, ids: readonly string[]): string {
+  const names = [...new Set(ids.map((id) => { const r = scene.relations.find((x) => x.id === id); return !r ? "a constraint" : r.kind === "mate" ? "the mate" : `the ${ROWS.find((q) => q.id === r.kind)?.label ?? r.kind} constraint`; }))];
+  return `${names.slice(0, 3).join(", ")}${ids.length > 1 ? ` (${ids.length} flash)` : " (it flashes)"}`;
+}
 /** The ids of the steps a command adds. */
 const stepsOf = (c: Command): string[] => (c.type === "addStep" ? [c.step.id] : c.type === "batch" ? c.commands.flatMap(stepsOf) : []);
 
@@ -228,7 +234,7 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
     const culprits = relationsOf(c);
     const fresher = after.ids.filter((id) => !culprits.includes(id) && !before.ids.includes(id));
     const victims = fresher.length ? fresher : after.ids.filter((id) => !culprits.includes(id)); // (a sketch that was already in conflict moves to a new plane with the body: its conflicting constraints are named all the same, `in_1045`)
-    return { ...s, message: "that cannot be done without breaking other constraints", conflict: { culprits, victims, ...(victims.length ? { retry: c } : {}) } };
+    return { ...s, message: `that cannot be done without breaking other constraints${victims.length ? `: ${wordsOf(s.history.scene, victims)} ${victims.length === 1 ? "holds" : "hold"} what it would move` : ""}`, conflict: { culprits, victims, ...(victims.length ? { retry: c } : {}) } };
   }
   // a move the solver quietly undid (a corner or circle held where it was by a constraint to something that stays) is refused the same way (`in_366`)
   const held = opts.ownHold ? [] : heldBy(s.history.scene, c, next.history.scene);
