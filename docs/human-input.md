@@ -4407,3 +4407,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1013 — 2026-11-19 — directive
 > Option 2
 (chooses option 2: settle on deselect with a visible mark, from `q_working_and_settled`)
+
+## in_1014 — 2026-11-19 — directive
+> I will take your recommendation
+(takes the AI's recommendation: spend the effort on the floor of the preview, the page's derive and the kernel's prism, rather than the narrow Preview-mark version)
