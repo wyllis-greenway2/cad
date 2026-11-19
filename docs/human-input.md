@@ -4524,10 +4524,10 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > [interrupted the AI's browser timing; attached a screenshot of a face gear drive from outside: the teeth's near ends are wide at the foot, pinched in the middle and wide again at the top, and the pinion's teeth pass through the face gear's teeth] Hang on, also I am pretty sure it is still wrong. Look a meshed gear collides with the teeth. Are you sure that the tooth on the face gear shouldn't taper off at the top instead of flare out like it does? or at least continue and terminate straight?
 (says the face gear is still wrong in the app: the tooth flares at the top and the meshed pinion collides with the teeth; asks whether the tooth should taper off or at least end straight; the AI had just rebuilt the profile to a taper (build 284c6fbf), so the screenshot may be from an older build: to be checked)
 
-## in_1042 — 2026-11-19 — directive
+## in_1051 — 2026-11-19 — directive
 > okay it is pretty good, but maybe we should show and let the user input how much distance a single fastener is hand moved by?
 (says it is pretty good; asks that the distance a single fastener has been moved by hand be shown and be typeable)
 
-## in_1043 — 2026-11-19 — directive
+## in_1052 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for this branch (how far a hole is hand moved, shown and typed) to be merged into claude/inspiring-pascal-l342k7, with no full test run)

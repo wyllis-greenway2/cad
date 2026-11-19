@@ -55,7 +55,7 @@ export function nearestOnLine(line: readonly Vec3[], p: Vec3): { at: Vec3; dist:
 }
 
 const unit3 = (a: readonly number[]): Vec3 => { const l = Math.hypot(a[0]!, a[1]!, a[2]!) || 1; return [a[0]! / l, a[1]! / l, a[2]! / l]; };
-/** The two ways a hole is moved in (`in_1042`): along the line it follows (`t`) and across it (`a`, to the left of the way the line runs, which is inward round a face's outline), at the place the rules put it; with no line, the face's own two ways. */
+/** The two ways a hole is moved in (`in_1051`): along the line it follows (`t`) and across it (`a`, to the left of the way the line runs, which is inward round a face's outline), at the place the rules put it; with no line, the face's own two ways. */
 function holeFrame(plan: ReceiverPlan, pos: number): { t: Vec3; a: Vec3 } | null {
   const sp = plan.spots[pos];
   const base = plan.base[pos];

@@ -164,7 +164,7 @@ test("a hole moved by hand snaps to the line it is meant to be on when the point
 });
 
 import { movedBy, movedTarget } from "../src/interaction/holemove.ts";
-test("how far a hole is moved by hand is shown along and across its line, and typed distances move it (`in_1042`)", () => {
+test("how far a hole is moved by hand is shown along and across its line, and typed distances move it (`in_1051`)", () => {
   const s = block();
   const v = vals({ place: "outline", by: "count", value: "6", corners: "ignore", offset: "10" });
   const base = plan(s, v);
