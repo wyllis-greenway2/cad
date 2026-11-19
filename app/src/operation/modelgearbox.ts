@@ -5,7 +5,6 @@ import { ok, err } from "../shared/result.ts";
 import type { PartSteps } from "./fasteners.ts";
 import { Builder, disc, box, meshedWith } from "./modelparts.ts";
 import type { GearHolder } from "./modelparts.ts";
-import type { Vec3 } from "../math/vec.ts";
 
 export interface GearboxSpec {
   /** how many pinion and gear pairs in a row */ stages: number;
@@ -19,7 +18,7 @@ export interface GearboxSpec {
   /** the room between a layer and the next, and between the end layers and the plates (mm) */ gap: number;
 }
 export const GEARBOX_START: GearboxSpec = { stages: 2, pinion: 12, gear: 36, module: 1.5, width: 6, rod: 5, fit: 0.1, bearing: 0.2, plate: 3, gap: 1 };
-export const GEARBOX_LIMITS = { stages: [1, 4], pinion: 10, ratio: [1.5, 6], module: [0.5, 5] } as const;
+const GEARBOX_LIMITS = { stages: [1, 4], pinion: 10, ratio: [1.5, 6], module: [0.5, 5] } as const;
 /** the speed ratio, input over output, of the whole train */
 export const gearboxRatio = (s: Pick<GearboxSpec, "stages" | "pinion" | "gear">): number => (s.gear / s.pinion) ** s.stages;
 
@@ -80,11 +79,4 @@ export function gearboxSteps(s: GearboxSpec): Result<PartSteps> {
   const lid = b.plane(top);
   b.extrude(lid, box(x0, -hy, x1, hy), [...rodHoles, ...corners.map(([x, y]) => disc(x, y, SCREW / 2))], T);
   return ok(b.steps);
-}
-
-/** The centre of each rod and the box of the plates (for a preview and the tests) */
-export function gearboxPlaces(s: GearboxSpec): { rods: Vec3[]; box: [number, number, number, number] } {
-  const a = (s.module * (s.pinion + s.gear)) / 2;
-  const tip = (z: number) => s.module * (z / 2 + 1);
-  return { rods: Array.from({ length: s.stages + 1 }, (_, k) => [k * a, 0, 0] as Vec3), box: [-tip(s.pinion) - MARGIN, -(tip(s.gear) + MARGIN), s.stages * a + tip(s.gear) + MARGIN, tip(s.gear) + MARGIN] };
 }

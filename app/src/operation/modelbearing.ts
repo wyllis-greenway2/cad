@@ -17,7 +17,7 @@ const SHOULDER = 0.4; // (how far a ball stands out of the race's surface, as a 
 const WALL = 0.8; // (the least wall under a groove and on a shoulder, mm)
 
 /** the geometry of the races from the numbers */
-export function bearingGeometry(s: BearingSpec): { pitch: number; rb: number; rg: number; inner: number; outerR: number; half: number } {
+function bearingGeometry(s: BearingSpec): { pitch: number; rb: number; rg: number; inner: number; outerR: number; half: number } {
   const pitch = (s.bore + s.outer) / 4, rb = s.ball / 2, rg = rb + s.gap;
   const surface = SHOULDER * rb; // (a race's surface is this far from the ball's centre circle)
   return { pitch, rb, rg, inner: pitch - surface, outerR: pitch + surface, half: Math.sqrt(Math.max(0, rg * rg - surface * surface)) };

@@ -23,7 +23,7 @@ const CAP_GAP = 0.2; // (a cap stands this far off the tube: the two stay separa
 const AXLE_OUT = 10; // (how far an axle stands out of the cap)
 
 /** the numbers the layout follows from (mm): the side and spider gears' distances from the middle to their big ends, and the cage's inner radius */
-export function differentialGeometry(s: DifferentialSpec): Result<{ bigS: number; bigP: number; inner: number; outer: number; half: number }> {
+function differentialGeometry(s: DifferentialSpec): Result<{ bigS: number; bigP: number; inner: number; outer: number; half: number }> {
   const side: GearSpec = { teeth: s.side, module: s.module, bevel: { mate: s.spider } }, spider: GearSpec = { teeth: s.spider, module: s.module, bevel: { mate: s.side } };
   const [ls, lp] = [bevelLayout(side), bevelLayout(spider)];
   if (!ls.ok) return ls;
