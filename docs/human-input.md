@@ -4863,3 +4863,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1129 — 2026-11-19 — approval
 > yes go ahead
 (approves the next step of `dec_unified_orb`: the one bubble rule and Shift on the plane's rotate rings)
+
+## in_1130 — 2026-11-19 — approval
+> yes do the pane handles next
+(approves the next step of `dec_unified_orb`: the pane handles, little panes that always send movement in their plane)
