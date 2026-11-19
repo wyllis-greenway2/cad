@@ -5220,3 +5220,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1225 — 2026-11-19 — directive
 > Try these documents instead, I have a lot more too when you are done with these
 (supplied PDFs of NACA Report 895 and NACA Report 817 in place of the Rathbun scans; has more documents to send afterwards)
+
+## in_1226 — 2026-11-19 — directive
+> we want to replace all of yours and try again, they need to be more realistic. Real parts that could actually be machined or cast. This means they need proper joins bevels fillets etc. Lets just start with one, lets research a bit before we build anything
+(asks for all four spoke styles of the Wheel to be replaced by more realistic ones, parts that could really be machined or cast, with proper joins, bevels and fillets; start with one profile; research first, build nothing yet)

@@ -3,7 +3,7 @@ id: dec_hub_spoke
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1214, in_1216, in_1222
+human_input: in_1214, in_1216, in_1222, in_1223, in_1226
 date: 2026-11-19
 depends_on:
   - dec_gear_models: the tool would be one more model in the Models menu, with the same box, edit and Size rules
@@ -24,6 +24,9 @@ depends_on:
 
 **Approved (`in_1222`):** the styles above and the build. **Built (first step):** `operation/modelwheel.ts`, the Models item "Wheel". One body: rim, spokes and hub. Styles: **Tapered** (spokes taper hub to rim, with fillet flares into hub and rim), **Flat taper** (trapezoid bars), **Straight** bars, **Web** (a disc with round lightening holes). Numbers: outside diameter (Size), rim width and thickness, hub diameter and length, bore, spoke count, spoke width at the hub and thickness. With a round object selected (a round face, a circular edge or a drawn circle) the tool starts filled: its diameter is the Size, centred on it and standing along its axis (Fill); with none, the first click places it.
 **Honest limits:** the spoke section is a rectangle (axial thickness), not the oval a casting pattern has: the taper and the fillet flares are in the plan view only; no draft; Fill makes a **new body** on the circle and does not cut the disc it was selected on away (delete or hide that disc); no pulley grooves (`q_timing_pulleys`); proportions are rules of thumb and the print-size refusals are ones I chose.
+
+## Second direction (`in_1223`, `in_1226`): replace the four styles with realistic profiles
+The human says the first styles (plain bars, a web with holes) are not realistic and wants all of them **replaced**, one real profile first: a part that could be cast or machined, with proper joins, bevels and fillets, in the manner of the Chirico flywheel drawing (stepped section: rim and hub proud, thin web recessed, swept windows, bore, set screws; sources README). **Research comes first; nothing is built or removed until the human approves the profile** (the styles above stay as built until then). The rules found so far are in the sources README ("Casting and machining design rules").
 
 ## Rationale
 The human approved the proposal and the styles (`in_1222`), and chose Fill (`in_1216`); the rest were my choices, listed above.
