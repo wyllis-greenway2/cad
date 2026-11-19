@@ -12,7 +12,7 @@ import { differentialSteps, differentialProblem, differentialExtent, DIFFERENTIA
 import type { DifferentialSpec } from "./modeldifferential.ts";
 import { cycloidalSteps, cycloidalProblem, cycloidalRatio, cycloidalRim, discOutline, CYCLOIDAL_START } from "./modelcycloidal.ts";
 import type { CycloidalSpec } from "./modelcycloidal.ts";
-import { engineSteps, engineProblem, engineGeometry, engineFootprint, engineDisplacement, ENGINE_START } from "./modelengine.ts";
+import { engineSteps, engineProblem, engineGeometry, engineFootprint, engineDisplacement, ENGINE_START, ENGINE_PRESETS } from "./modelengine.ts";
 import type { EngineSpec } from "./modelengine.ts";
 import { wheelSteps, wheelProblem, wheelLines, WHEEL_START } from "./modelwheel.ts";
 import type { WheelSpec } from "./modelwheel.ts";
@@ -107,7 +107,7 @@ const DEFS: Record<ModelKind, Def> = {
   },
   engine: {
     title: "Piston engine",
-    fields: [F("bore", "Bore", "mm: the cylinder's diameter", true), F("stroke", "Stroke", "mm: twice the crank's radius", true), F("ratio", "Rod ratio", "the crank's radius over the rod's length: 0.25 to 0.33 is usual"), F("pin", "Piston pin diameter", "mm: 0.25 to 0.3 of the bore is usual", true), F("shaft", "Shaft diameter", "mm", true), F("wall", "Wall", "mm: the floor and the cylinder's wall", true), F("flywheel", "Flywheel diameter", "mm", true), F("rings", "Ring grooves", "0 to 3"), F("room", "Room", "mm all round the moving parts")],
+    fields: [{ ...F("preset", "Engine", "a real engine's bore, stroke and pin (the Honda service manual) to start from, or your own numbers; a number you type replaces the preset's"), choices: ["Your own", ...ENGINE_PRESETS.map((e) => e.name)], top: true }, F("bore", "Bore", "mm: the cylinder's diameter", true), F("stroke", "Stroke", "mm: twice the crank's radius", true), F("ratio", "Rod ratio", "the crank's radius over the rod's length: 0.25 to 0.33 is usual"), F("pin", "Piston pin diameter", "mm: 0.25 to 0.3 of the bore is usual", true), F("shaft", "Shaft diameter", "mm", true), F("wall", "Wall", "mm: the floor and the cylinder's wall", true), F("flywheel", "Flywheel diameter", "mm", true), F("rings", "Ring grooves", "0 to 3"), F("room", "Room", "mm all round the moving parts")],
     start: { ...ENGINE_START },
     problem: (n) => engineProblem(en(n)),
     extent: (n) => { if (engineProblem(en(n))) return 0; const f = engineFootprint(en(n)); return Math.max(f.x1 - f.x0, 2 * f.hy); },
@@ -119,7 +119,7 @@ const DEFS: Record<ModelKind, Def> = {
       const g = engineGeometry(s), f = engineFootprint(s);
       return [rect(f.x0, -f.hy, f.x1, f.hy), rect(g.x0, -g.ro, g.x1 + s.wall, g.ro), rect(g.x0, -s.bore / 2, g.x1, s.bore / 2), circle(0, 0, g.rweb, 40), circle(0, 0, s.flywheel / 2, 48), circle(g.r, 0, g.cp / 2, 16), circle(g.r + g.l, 0, s.pin / 2, 16), [[g.r, 0], [g.r + g.l, 0]]];
     },
-    about: (n) => { const s = en(n); return `${engineDisplacement(s).toFixed(1)} cm3, rod ${(s.stroke / 2 / s.ratio).toFixed(1)} mm long; the crank turns the rod and the piston by the exact slider-crank; the sizes are rules of thumb, not standards`; },
+    about: (n) => { const s = en(n), p = ENGINE_PRESETS[Math.round(s.preset) - 1]; return `${p ? p.name + ": " : ""}${engineDisplacement(s).toFixed(1)} cm3, rod ${(s.stroke / 2 / s.ratio).toFixed(1)} mm long; the crank turns the rod and the piston by the exact slider-crank; the ring grooves follow Honda's ring heights, and a preset's bore, stroke and pin are Honda's; the other sizes are rules of thumb, not standards`; },
   },
   wheel: {
     title: "Wheel (rim, web, hub)",
@@ -183,15 +183,17 @@ export function modelNumbers(kind: ModelKind, typedIn: Nums, size?: number): Num
     if (row) { n.bore = row.d; n.outer = row.D; n.width = row.B; n.ring = 0; const sh = catalogueShape(n); if (typeof sh !== "string") n.ring = Math.round(2 * (sh.pitch - sh.surface) * 100) / 100; } // (the numbers shown are the bearing's)
     return n;
   }
+  const preset = kind === "engine" ? ENGINE_PRESETS[Math.round(typedIn.preset ?? 0) - 1] : undefined; // (a preset engine is another start: its numbers scale as the usual ones do, `dec_engine_presets`)
+  const base: Nums = preset ? { ...d.start, ...(preset.spec as unknown as Nums) } : d.start;
   const at = (f: number): Nums => {
-    const n: Nums = { ...d.start };
-    for (const fl of d.fields) if (fl.scaled) n[fl.key] = tidy(fl.key, d.start[fl.key]! * f);
+    const n: Nums = { ...base };
+    for (const fl of d.fields) if (fl.scaled) n[fl.key] = tidy(fl.key, base[fl.key]! * f);
     return { ...n, ...typed };
   };
   const free = d.fields.some((fl) => fl.scaled && typed[fl.key] === undefined);
   if (size === undefined || !(size > 0) || !free) {
-    const lead = d.fields.find((fl) => fl.scaled && typed[fl.key]! > 0 && d.start[fl.key]! > 0); // (a number typed as 0, an offset that is none, sets no scale)
-    return lead ? at(typed[lead.key]! / d.start[lead.key]!) : at(1);
+    const lead = d.fields.find((fl) => fl.scaled && typed[fl.key]! > 0 && base[fl.key]! > 0); // (a number typed as 0, an offset that is none, sets no scale)
+    return lead ? at(typed[lead.key]! / base[lead.key]!) : at(1);
   }
   const reach = (f: number): number => d.extent(at(f)); // (0 where the model cannot be made)
   let [lo, hi] = [0.02, 200];

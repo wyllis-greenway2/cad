@@ -3,16 +3,17 @@ id: q_clearance_profile
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_1233
+human_input: in_1233, in_1239
 date: 2026-11-19
 depends_on:
-  - dec_engine_model: the engine model's own running clearance ("room", 0.15 mm a side by default) is the printable one; a real engine's clearances are 5 to 10 times smaller
+  - dec_engine_model: the engine model's own running clearance ("room", 0.15 mm a side by default) is a plain number the person types; Honda's nominal fits are 5 to 10 times smaller
+  - prin_manufacture_agnostic: the principle bars printing clearances and route presets from the modeler; a "printable profile" would be one, so it is not an option
 alternative_to:
 ---
-# Should the engine builder make real engineering clearances or printable ones?
+# Which clearance defaults should the engine take: Honda's nominal fits or the model's 0.15 mm room?
 
-A real small engine runs its piston in the bore with a skirt clearance of 0.015 mm (GX160) to 0.05 mm (a forged kit), ring side clearances of 0.015 to 0.1 mm and ring end gaps of 0.2 to 0.4 mm. A 3D printer (and the project's purpose, functional printing) cannot make that: its running clearance is of the order of 0.2 mm a side, which is what `dec_engine_model` uses today. Offering both would give the same engine as a **drawing to engineering numbers** or as a **printable model**. **Options:** (1) one profile, printable (what exists); (2) two profiles, the human picks per engine, default printable; (3) two profiles, default engineering. I have no source for printable clearances and would not invent them: the human or a printing guide would have to give them. **Recommendation, not a decision:** option 2.
+**Corrected, `in_1239`'s session:** I first proposed an "engineering" and a "printable" clearance profile. **That conflicts with the accepted `prin_manufacture_agnostic`** (no printing clearance, no route presets in the modeler), so it is withdrawn: compensating a model for a printer belongs to the separate manufacturing module. What remains is a plain geometry question. A real engine's nominal fits are tiny (Honda: piston to bore 0.015 to 0.050 mm, ring side 0.015 to 0.045, pin 0.002 to 0.014); the engine model's own `room` is 0.15 mm, a number the person types. **Options:** (1) keep `room` at 0.15 mm and use Honda's numbers only where the model has a place for them (the ring grooves, built); (2) make Honda's nominal fits the defaults (a gap of 0.015 mm is thin to see and may need the kernel's tolerance checked; `room` would be typed by the person); (3) keep both as two typed numbers (`room` for the moving parts, the piston's fits from Honda). **Recommendation, not a decision:** option 3 for now.
 
 ## Rationale
 
-Every clearance in `dec_piston_parameters` has an engineering value from a source, and the printable value is a different number; the parameter list cannot be finished until it is known which the builder makes by default.
+The piston parameter list carries Honda's nominal fits as sourced numbers; the engine model has one room number for every moving part. Which of them the builder shows as its defaults decides how the piston looks in the model, and the human's principle decides what may not be offered.

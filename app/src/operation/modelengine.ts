@@ -7,14 +7,27 @@ import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import { Builder, disc, outline, box } from "./modelparts.ts";
 import type { Place, ModelBuild } from "./modelparts.ts";
+import { pistonFit } from "./pistondesign.ts";
 
 export interface EngineSpec {
   /** the cylinder's bore, the stroke (mm) and the rod ratio: the crank's radius over the rod's length (0.25 to 0.33 is usual) */ bore: number; stroke: number; ratio: number;
   /** the gudgeon (piston) pin's diameter, the crankshaft's diameter, the thickness of the walls and the flywheel's diameter (mm) */ pin: number; shaft: number; wall: number; flywheel: number;
   /** the compression rings' grooves (0 to 3) */ rings: number;
   /** the room all round the moving parts (mm): the piston in the bore, the pin in its eyes */ room: number;
+  /** which engine the numbers are: 0 your own, 1 to 3 a preset of `ENGINE_PRESETS` (the box starts from its numbers; a number typed replaces one) */ preset: number;
 }
-export const ENGINE_START: EngineSpec = { bore: 30, stroke: 30, ratio: 0.27, pin: 8, shaft: 8, wall: 4, flywheel: 50, rings: 2, room: 0.15 };
+export const ENGINE_START: EngineSpec = { bore: 30, stroke: 30, ratio: 0.27, pin: 8, shaft: 8, wall: 4, flywheel: 50, rings: 2, room: 0.15, preset: 0 };
+
+/** Real engines as starting numbers (`dec_engine_presets`): the bore, stroke and pin of the Honda GX120, GX160 and GX200 (the service manual), two compression ring grooves, and the GX160's rod ratio from its rod length (83.8 to 84.4 mm between centres, the crank's radius 22.5 mm). **Assumed, not Honda's:** the GX120's and GX200's rod ratio (the model's usual) and every preset's shaft, wall and flywheel (the model's own proportions at the preset's bore). */
+const honda = (preset: number, bore: number, stroke: number, pin: number, ratio: number): EngineSpec => {
+  const f = bore / ENGINE_START.bore, tidy = (v: number): number => Math.round(v * 10) / 10;
+  return { ...ENGINE_START, bore, stroke, pin, ratio, shaft: tidy(ENGINE_START.shaft * f), wall: tidy(ENGINE_START.wall * f), flywheel: tidy(ENGINE_START.flywheel * f), rings: 2, preset };
+};
+export const ENGINE_PRESETS: readonly { name: string; spec: EngineSpec }[] = [
+  { name: "Honda GX120", spec: honda(1, 60, 42, 13, ENGINE_START.ratio) },
+  { name: "Honda GX160", spec: honda(2, 68, 45, 18, 0.268) },
+  { name: "Honda GX200", spec: honda(3, 68, 54, 18, ENGINE_START.ratio) },
+];
 
 /** every length the parts are made from (mm), worked out from the numbers (proportions are rules of thumb) */
 export interface EngineGeometry {
@@ -28,7 +41,8 @@ export interface EngineGeometry {
 export function engineGeometry(s: EngineSpec): EngineGeometry {
   const r = s.stroke / 2, l = r / s.ratio, B = s.bore, rp = B / 2 - s.room;
   const cp = Math.round(s.pin * 1.25 * 10) / 10, rb = cp / 2 + 2.5, rs = s.pin / 2 + 1.5, w = Math.max(3, Math.round(s.pin * 0.75 * 10) / 10);
-  const ch = 0.55 * B, sk = 0.35 * B, gh = Math.max(1, 0.05 * B), gd = Math.max(1.2, 0.06 * B), gp = gh + Math.max(1, 0.04 * B), land = 0.12 * B;
+  // the ring grooves are a Honda ring's height and its side room (`dec_engine_presets`); the rest of the piston is a remembered proportion until `dec_piston_parameters` is approved, except the skirt below the pin: 0.27 of the bore is ASSUMED (rule A5, NACA 817's reading), because the remembered 0.35 made a real GX160 (rod 84 mm, stroke 45) impossible (its skirt would hit the crank disc at the bottom of the stroke; it must be under 0.32)
+  const fit = pistonFit(B), ch = 0.55 * B, sk = 0.27 * B, gh = fit.compressionRing + fit.ringSide, gd = Math.max(1.2, 0.06 * B), gp = gh + Math.max(1, 0.04 * B), land = 0.12 * B;
   const ro = B / 2 + s.wall, tb = s.wall, tw = Math.max(3, s.wall), tf = Math.max(4, s.wall + 2);
   const rweb = r + cp / 2 + 3, zc = tb + ro - 0.5;
   const x0 = l - r - sk - 1, x1 = r + l + ch + 1;

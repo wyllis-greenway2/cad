@@ -5276,3 +5276,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1239 — 2026-11-19 — preference
 > how can we mitigate the risks of using 6⅛ in aircraft piston from 1945? maybe we should weight the honda data more?
 (asks how to reduce the risk of the NACA 817 aircraft piston numbers in the assumed design rules, and suggests weighting the Honda data more)
+
+## in_1240 — 2026-11-19 — approval
+> approve the Honda preset test and go ahead
+(approves the proposed test of the builder's defaults against the three Honda engines, with the Honda GX120, GX160 and GX200 as presets, and says to go ahead with the build)
