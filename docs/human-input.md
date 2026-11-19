@@ -4420,3 +4420,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1016 — 2026-11-19 — question
 > it still seems kind of odd for curved surfaces, why does it put one in diagonal corners?
 (asks why the tool puts one hole in each of two diagonal corners on a curved face: a screenshot of the round wall of the lid (R 28.22) with a countersunk hole near each of two opposite corners of the wall, and the saved model)
+
+## in_1017 — 2026-11-19 — directive
+> okay do you want to test it in different situations and see how it performs?
+(asks for the automatic fastener choice to be tried in many different situations to see how it performs)

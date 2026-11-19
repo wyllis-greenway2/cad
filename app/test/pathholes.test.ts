@@ -604,3 +604,26 @@ test("automatic: a wall too short for a loop of heads is not a loop with one hol
   const q = receiverPlan(wide.s, vals({ kind: "countersunk", size: "M3", place: "auto", offset: "10" }));
   assert.ok(q.ok && String(q.value.auto).includes("edges stepped in"), q.ok ? String(q.value.auto) : q.error);
 });
+
+// ---- a sweep of faces and hardware: whatever the automatic choice gives, no two heads touch and none hangs over an edge (`in_1017`) ----
+import { countersink as csOf, counterbore as cbOf, clearanceHole as clOf } from "../src/operation/fasteners.ts";
+test("automatic, over many faces and sizes: no two heads closer than a head and a gap, none nearer an edge than its radius and a margin, or the face is said to be too small", () => {
+  let checked = 0, refused = 0;
+  for (const [w, h] of [[10, 6], [16, 10], [24, 16], [40, 10], [40, 24], [100, 60], [300, 20], [8, 8]] as const) for (const size of ["M3", "M4", "M6"] as const) for (const kind of ["countersunk", "counterbore", "clearance"] as const) for (const by of ["distance", "count"] as const) {
+    const { s } = small(w, h);
+    const p = receiverPlan(s, vals({ kind, size, place: "auto", by, value: by === "count" ? "6" : "30" }));
+    const hr = Math.max(clOf(size, "medium") / 2, kind === "countersunk" ? csOf(size).diameter / 2 : kind === "counterbore" ? cbOf(size).diameter / 2 : 0);
+    if (!p.ok) { refused++; assert.ok(p.error.includes("no room"), `${w}x${h} ${size} ${kind}: ${p.error}`); continue; }
+    checked++;
+    const ps = p.value.places as unknown as number[][];
+    if (ps.length > 1) assert.ok(minDist(ps) >= 2 * hr + 2 - 1e-6, `${w}x${h} ${size} ${kind} ${by}: heads ${minDist(ps)} apart`);
+    for (const c of ps) assert.ok(Math.min(c[0]!, w - c[0]!, c[1]!, h - c[1]!) >= hr + 1 - 1e-6, `${w}x${h} ${size} ${kind} ${by}: a head ${Math.min(c[0]!, w - c[0]!, c[1]!, h - c[1]!)} from the edge`);
+  }
+  assert.ok(checked > 100 && refused > 10, `${checked} made, ${refused} refused`);
+});
+test("a face with room for one hole only gets it in the middle, not a hole at each end hanging over the edge", () => {
+  const { s } = small(10, 6);
+  const p = receiverPlan(s, vals({ kind: "clearance", size: "M3", place: "auto" }));
+  assert.ok(p.ok, p.ok ? "" : p.error);
+  if (p.ok) { assert.equal(p.value.places.length, 1); near(p.value.places[0]![0], 5, 1e-6); near(p.value.places[0]![1], 3, 1e-6); }
+});

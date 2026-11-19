@@ -15,7 +15,7 @@ export interface RowSurface {
   map(q: Pt): Result<FaceSpot>;
   loop?: { radius: number; lo: number; hi: number; at(phi: number, a: number): Result<FaceSpot> };
 }
-export interface RowsMade { /** what the automatic rules chose, in words (`in_980`) */ auto?: string; /** the inset the rows were made with, when it was less than asked for (the face was too small for it, `in_965`) */ insetUsed?: number; places: FaceSpot[]; /** each row as a polyline on the surface, for the guide drawn in the view */ guide: Vec3[][]; /** the spacing of the first row's places, when it has one */ spacing: number | null }
+export interface RowsMade { /** how many holes the automatic choice left out for being too near the edge */ left?: number; /** each place in the surface's own two directions (for the checks of the automatic choice) */ uv?: Pt[]; /** what the automatic rules chose, in words (`in_980`) */ auto?: string; /** the inset the rows were made with, when it was less than asked for (the face was too small for it, `in_965`) */ insetUsed?: number; places: FaceSpot[]; /** each row as a polyline on the surface, for the guide drawn in the view */ guide: Vec3[][]; /** the spacing of the first row's places, when it has one */ spacing: number | null }
 const MAX_HOLES = 200;
 
 /** The longest side of an outline as a path of its own (the first when two are as long); the way it runs is the way the outline runs, so the inside is on its left. */
@@ -38,25 +38,25 @@ function acrossOf(outline: Path, edge: Path): number {
 const sample = (path: Path, n: number): Pt[] => { const t = lengthOf(path); return Array.from({ length: n + 1 }, (_, i) => pointAt(path, (t * i) / n).at); };
 
 /** Place along one line (already stepped in by `rules.offset`), mapped onto the surface. */
-function alongLine(path: Path, rules: Rules, map: (q: Pt) => Result<FaceSpot>): Result<{ spots: FaceSpot[]; guide: Vec3[]; spacing: number | null }> {
+function alongLine(path: Path, rules: Rules, map: (q: Pt) => Result<FaceSpot>): Result<{ spots: FaceSpot[]; uv: Pt[]; guide: Vec3[]; spacing: number | null }> {
   const placed = placeAlong(path, rules);
   if (!placed.ok) return placed;
   const spots: FaceSpot[] = [];
   for (const f of placed.value.frames) { const s = map(f.at); if (!s.ok) return s; spots.push(s.value); }
   const guide: Vec3[] = [];
   for (const q of sample(placed.value.path, Math.min(400, Math.max(24, Math.ceil(lengthOf(placed.value.path) / 2))))) { const s = map(q); if (s.ok) guide.push(s.value.centre); }
-  return ok({ spots, guide, spacing: placed.value.spacing });
+  return ok({ spots, uv: placed.value.frames.map((f) => f.at), guide, spacing: placed.value.spacing });
 }
 /** The offsets of each row: the first at `first`, the rest `gap` further in (from the middle, as many on each side, when `centred`). */
 const offsets = (first: number, count: number, gap: number, centred: boolean): number[] => Array.from({ length: count }, (_, k) => first + (centred ? k - (count - 1) / 2 : k) * gap);
 
 /** The rows along a line that is given (a line drawn on the surface, in the surface's own two directions): each row stepped in `gap` more than the one before. */
 export function rowsAlongLine(path: Path, map: (q: Pt) => Result<FaceSpot>, rules: Rules, count: number, gap: number): Result<RowsMade> {
-  const out: RowsMade = { places: [], guide: [], spacing: null };
+  const out: RowsMade = { places: [], uv: [], guide: [], spacing: null };
   for (const [k, off] of offsets(rules.offset ?? 0, count, gap, false).entries()) {
     const r = alongLine(path, { ...rules, offset: off }, map);
     if (!r.ok) return r;
-    out.places.push(...r.value.spots); out.guide.push(r.value.guide);
+    out.places.push(...r.value.spots); out.uv!.push(...r.value.uv); out.guide.push(r.value.guide);
     if (k === 0) out.spacing = r.value.spacing;
   }
   return out.places.length > MAX_HOLES ? err(`that is more than ${MAX_HOLES} holes`) : ok(out);
@@ -76,7 +76,7 @@ export function rowsFromEdges(surf: RowSurface, mode: RowMode, edge: Path | null
   return first;
 }
 function rowsFromEdgesAt(surf: RowSurface, mode: RowMode, edge: Path | null, rules: Rules, count: number, gap: number): Result<RowsMade> {
-  const out: RowsMade = { places: [], guide: [], spacing: null };
+  const out: RowsMade = { places: [], uv: [], guide: [], spacing: null };
   const inset = rules.offset ?? 0;
   if (surf.loop) { // (a whole turn round: the lines are the circles at the two ends, stepped in along the axis)
     const { radius, lo, hi, at } = surf.loop;
@@ -90,7 +90,7 @@ function rowsFromEdgesAt(surf: RowSurface, mode: RowMode, edge: Path | null, rul
     for (const [k, a] of rowsAt.entries()) {
       const r = alongLine(ring, { ...rules, offset: 0, corners: "ignore" }, mapAt(a));
       if (!r.ok) return r;
-      out.places.push(...r.value.spots); out.guide.push(r.value.guide);
+      out.places.push(...r.value.spots); out.uv!.push(...r.value.uv); out.guide.push(r.value.guide);
       if (k === 0) out.spacing = r.value.spacing;
     }
     return out.places.length > MAX_HOLES ? err(`that is more than ${MAX_HOLES} holes`) : ok(out);
@@ -101,11 +101,11 @@ function rowsFromEdgesAt(surf: RowSurface, mode: RowMode, edge: Path | null, rul
   const side = edge ?? longestSide(outline);
   if (!side) return err("the face has no edge to follow");
   const first = mode === "midline" ? acrossOf(outline, side) / 2 : inset;
-  const out2: RowsMade = { places: [], guide: [], spacing: null };
+  const out2: RowsMade = { places: [], uv: [], guide: [], spacing: null };
   for (const [k, off] of offsets(first, count, gap, mode === "midline").entries()) {
     const r = alongLine(side, { ...rules, offset: off, corners: "ignore" }, surf.map);
     if (!r.ok) return r;
-    out2.places.push(...r.value.spots); out2.guide.push(r.value.guide);
+    out2.places.push(...r.value.spots); out2.uv!.push(...r.value.uv); out2.guide.push(r.value.guide);
     if (k === 0) out2.spacing = r.value.spacing;
   }
   return out2.places.length > MAX_HOLES ? err(`that is more than ${MAX_HOLES} holes`) : ok(out2);
@@ -142,14 +142,39 @@ export function autoRows(surf: RowSurface, rules: Rules, count: number, gap: num
       const tries: Rules["spacing"][] = rules.spacing.by === "distance"
         ? [1, 1.15, 1.3, 1.5, 1.75, 2, 2.5, 3, 4, 6].map((f) => ({ by: "distance" as const, distance: Math.max(Math.min(rules.spacing.by === "distance" ? rules.spacing.distance : 30, farSp), minSp) * f }))
         : Array.from({ length: Math.max(1, asked) }, (_, k) => ({ by: "count" as const, count: asked - k }));
+      if (mode === "midline" && rules.spacing.by === "distance") tries.push({ by: "count", count: 1 }); // (a face with room for one hole only: it goes in the middle)
       for (const sp of tries) {
-        const r = rowsFromEdgesAt(surf, mode, null, { ...rules, offset: inset, corners: c, spacing: sp }, count, gap);
+        const r = rowsFromEdgesAt(surf, mode, null, { ...rules, offset: inset, corners: c, spacing: sp, ...(mode === "midline" ? { startInset: minInset, endInset: minInset } : {}) }, count, gap); // (a line along the middle ends a head's radius and a margin short of the ends of the face)
         if (r.ok && r.value.places.length >= 1 && (r.value.places.length === 1 || minPair(r.value.places) >= minSp * 0.999)) return r;
       }
     }
     return null;
   };
-  const withNote = (r: Result<RowsMade> | null, note: (n: RowsMade) => string, inset: number): Result<RowsMade> | null => (r && r.ok ? ok({ ...r.value, auto: note(r.value), ...(Math.abs(inset - pref) > 1e-6 ? { insetUsed: Math.round(inset * 100) / 100 } : {}) }) : r);
+  // a hole whose head would come nearer the edge than a margin, or fall outside the face (a middle line of a face that narrows, a corner), is left out
+  const clear = (r0: Result<RowsMade> | null): Result<RowsMade> | null => {
+    if (!r0 || !r0.ok || !surf.outline.ok || !r0.value.uv) return r0;
+    const outline = surf.outline.value;
+    const poly = Array.from({ length: 721 }, (_, i) => pointAt(outline, (lengthOf(outline) * i) / 720).at);
+    const margin = headR + 1;
+    const near = (q: Pt): { d: number; inside: boolean } => {
+      let d = Infinity;
+      let inside = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const [a, b] = [poly[j]!, poly[i]!];
+        const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+        const t = Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / (dx * dx + dy * dy || 1)));
+        d = Math.min(d, Math.hypot(q[0] - a[0] - dx * t, q[1] - a[1] - dy * t));
+        if ((a[1] > q[1]) !== (b[1] > q[1]) && q[0] < ((b[0] - a[0]) * (q[1] - a[1])) / (b[1] - a[1]) + a[0]) inside = !inside;
+      }
+      return { d, inside };
+    };
+    const keep = r0.value.uv.map((q) => { const n = near(q); return n.inside && n.d >= margin - 1e-6; });
+    if (keep.every(Boolean)) return r0;
+    const places = r0.value.places.filter((_, i) => keep[i]);
+    if (!places.length) return null;
+    return ok({ ...r0.value, places, uv: r0.value.uv.filter((_, i) => keep[i]), left: (r0.value.left ?? 0) + keep.filter((k) => !k).length });
+  };
+  const withNote = (r1: Result<RowsMade> | null, note: (n: RowsMade) => string, inset: number): Result<RowsMade> | null => { const r = clear(r1); return r && r.ok ? ok({ ...r.value, auto: note(r.value) + (r.value.left ? `; ${r.value.left} left out for being too near the edge` : ""), ...(Math.abs(inset - pref) > 1e-6 ? { insetUsed: Math.round(inset * 100) / 100 } : {}) }) : r; };
   const rd = (x: number): string => String(Math.round(x * 10) / 10);
   if (surf.loop) { // a wall all the way round: a loop at each end, or one round the middle
     const room = (surf.loop.hi - surf.loop.lo) / 2 - 0.5;
@@ -159,8 +184,8 @@ export function autoRows(surf: RowSurface, rules: Rules, count: number, gap: num
       const r = withNote(fitSpacing("outline", inset, ["ignore"]), (n) => `a loop at each end, ${rd(inset)} mm in, ${n.places.length / 2} holes each`, inset);
       if (r && r.ok) return r;
     }
-    const m = withNote(fitSpacing("midline", 0, ["ignore"]), (n) => `one line round the middle (no room for two): ${n.places.length} holes`, 0);
-    return m ?? err("there is no room for the hardware on this face");
+    const m = withNote(fitSpacing("midline", 0, ["ignore"]), (n) => `one line round the middle (no room for two): ${n.places.length} hole${n.places.length === 1 ? "" : "s"}`, 0);
+    return m ?? err(`there is no room on this face for ${Math.round(headR * 20) / 10} mm heads`);
   }
   if (!surf.outline.ok) return surf.outline;
   const room = roomIn(surf.outline.value);
@@ -168,9 +193,9 @@ export function autoRows(surf: RowSurface, rules: Rules, count: number, gap: num
   const cap = room - minSp * 0.75; // (across the loop at least one and a half head widths)
   if (room >= minInset + 0.5 && cap >= minInset) {
     const inset = Math.min(Math.max(pref, minInset), room * 0.85, cap);
-    const r = withNote(fitSpacing("outline", inset, ["each", "ignore"]), (n) => `edges stepped in ${rd(inset)} mm, ${n.places.length} holes${n.spacing !== null ? `, about ${rd(n.spacing)} mm apart` : ""}`, inset);
+    const r = withNote(fitSpacing("outline", inset, ["each", "ignore"]), (n) => `edges stepped in ${rd(inset)} mm, ${n.places.length} hole${n.places.length === 1 ? "" : "s"}${n.spacing !== null ? `, about ${rd(n.spacing)} mm apart` : ""}`, inset);
     if (r && r.ok && r.value.places.length >= 2) return r;
   }
-  const m = withNote(fitSpacing("midline", 0, ["ignore"]), (n) => `one line along the middle: the face has no room for a loop of ${rd(headR * 2)} mm heads (${n.places.length} holes)`, 0);
-  return m ?? err("there is no room for the hardware on this face");
+  const m = withNote(fitSpacing("midline", 0, ["ignore"]), (n) => `one line along the middle: the face has no room for a loop of ${rd(headR * 2)} mm heads (${n.places.length} hole${n.places.length === 1 ? "" : "s"})`, 0);
+  return m ?? err(`there is no room on this face for ${Math.round(headR * 20) / 10} mm heads`);
 }
