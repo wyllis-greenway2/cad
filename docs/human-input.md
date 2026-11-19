@@ -4515,3 +4515,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1039 — 2026-11-19 — directive
 > maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
 (asks for the branch with the exchange work (OBJ, DXF, 3MF, STEP, BREP, FreeCAD, drop, meshes, IGES) to be merged into the testing branch, and for work to go on from a branch that has it)
+
+## in_1040 — 2026-11-19 — directive
+> okay but now it takes literally forever to make a face agear
+(reports that making a face gear is now very slow; the AI measures it in the browser and finds why)
+
