@@ -5168,3 +5168,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1211 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1212 — 2026-11-19 — directive
+> okay lets work on claude/inspiring-pascal-l342k7 branch, I want you to help me design a really good engine builder starting with pistons. Can you look up how to design real pistions? like the kind I would find in a car or motorcycle engine?
+(restates the aim of in_1209 on this branch: a really good engine builder, starting with real pistons, with the design looked up)
