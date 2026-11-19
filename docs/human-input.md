@@ -4452,3 +4452,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > okay so is it all done?
 (asks whether the work of the last plan is finished; the AI answers with what is verified and what is still running)
 
+## in_1024 — 2026-11-19 — directive
+> okay lets put the ISO 23509 on our to do list, we will do it later. So are we pretty sure that the hypoid gears will still work though? Also what do you mean that hypoid is different then spiral bevel because the shafts dont meet? does this mean the cone tips of the extended gear cones wouldn't meet?
+(a directive: ISO 23509 goes on the to-do list for later; and two questions: whether the hypoid gears still work, and whether the pitch cones' apexes of a hypoid pair do not meet)
+
