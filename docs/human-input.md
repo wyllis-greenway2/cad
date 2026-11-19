@@ -5159,5 +5159,5 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1208 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 
-## in_1209 — 2026-11-19 — directive
+## in_1210 — 2026-11-19 — directive
 > lets make the hatch pattern on cut aways be much finer more qty lines that are lighter gray, lets have them still darker then the dark grey of the cutaway surface which itself should also be slightly lighter grey.
