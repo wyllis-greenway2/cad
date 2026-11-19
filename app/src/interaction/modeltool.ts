@@ -83,7 +83,7 @@ export function nextPartCommand(scene: Scene, b: Building): Result<Command> {
 export const buildingText = (b: Building): string => `${b.title}: ${b.build.parts[Math.max(0, b.next - 1)]?.label ?? ""} (${Math.min(b.next, b.build.parts.length)} of ${b.build.parts.length})`;
 
 /** The title of the box and the fields it shows: each number as typed, else the number it has now */
-export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { label: string; value: string; active: boolean; typed: boolean; hint: string; short?: string }[]; unit: string; note: string } | null {
+export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { label: string; value: string; active: boolean; typed: boolean; hint: string; short?: string; choices?: string[] }[]; unit: string; note: string } | null {
   const m = t.model;
   if (!m) return null;
   const g = modelTarget(scene, t), fields = modelFields(m.kind), round = (v: number): string => String(Math.round(v * 100) / 100);
@@ -92,7 +92,7 @@ export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { la
   const labels = modelLabels(m.kind);
   return {
     panel: modelTitle(m.kind),
-    fields: labels.map((label, i) => ({ label, value: m.typed[i] !== "" ? m.typed[i]! : live[i] !== undefined ? round(live[i]!) : "", active: m.field === i, typed: m.typed[i] !== "", hint: hints[i]! })),
+    fields: labels.map((label, i) => ({ label, value: m.typed[i] !== "" ? m.typed[i]! : live[i] !== undefined ? round(live[i]!) : "", active: m.field === i, typed: m.typed[i] !== "", hint: hints[i]!, ...(i >= 2 && fields[i - 2]!.choices ? { choices: fields[i - 2]!.choices } : {}) })),
     unit: "mm",
     note: g ? (g.problem ?? modelAbout(m.kind, g.nums)) : "click where the middle of it goes",
   };

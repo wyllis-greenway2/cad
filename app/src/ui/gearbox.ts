@@ -10,6 +10,7 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
   const el = panelShell(host);
   let sig = "";
   let inputs: HTMLInputElement[] = [];
+  let toggles: (HTMLButtonElement[] | null)[] = [];
   let hints: HTMLElement[] = [];
   let warn: HTMLElement | null = null;
   let suggest: HTMLElement | null = null;
@@ -21,7 +22,7 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
     /** `entry`: the panel to show (null hides it). */
     update(entry: Entry | null) {
       if (!entry || !entry.panel) { el.style.display = "none"; sig = ""; focusedFor = ""; inputs = []; return; }
-      const now = JSON.stringify([entry.panel, entry.fields.map((f) => [f.label, f.unit ?? entry.unit])]);
+      const now = JSON.stringify([entry.panel, entry.fields.map((f) => [f.label, f.unit ?? entry.unit, f.choices ?? null])]);
       if (now !== sig) {
         sig = now;
         el.replaceChildren();
@@ -33,7 +34,21 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
         el.appendChild(panelTitle(entry.panel));
         info = noteBox("info");
         el.appendChild(info);
+        toggles = [];
         inputs = entry.fields.map((f, i) => {
+          if (f.choices) { // (a toggle button: one button for each value, the chosen one filled, `in_1175`)
+            const group = document.createElement("div");
+            group.style.cssText = "display:flex;gap:0";
+            const buttons = f.choices.map((name, k) => { const b = textButton(name, { click: () => h.entry(f.index ?? i, String(k)) }); b.style.cssText += ";padding:6px 12px;border-radius:" + (k === 0 ? "8px 0 0 8px" : k === f.choices!.length - 1 ? "0 8px 8px 0" : "0"); return b; });
+            group.append(...buttons);
+            toggles[i] = buttons;
+            const row = panelRow(f.label, group);
+            hints[i] = row.hint;
+            row.hint.textContent = f.hint ?? "";
+            el.appendChild(row.el);
+            return document.createElement("input"); // (not shown: keeps the places of the fields)
+          }
+          toggles[i] = null;
           const input = numberInput({ onInput: (t) => h.entry(f.index ?? i, t), onEnter: () => h.enter(), onEscape: () => h.cancel() });
           const u = f.unit ?? entry.unit;
           const row = panelRow(f.label, input, u === "°" || u === "deg" ? "°" : "");
@@ -57,6 +72,10 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
       if (suggest) setNote(suggest, entry.suggest); // (a click that makes it mesh with the gear beside it, `in_709`)
       if (info) setNote(info, entry.info); // (a planetary set: the ratio for each part held)
       if (warn) setNote(warn, entry.warn); // (numbers that make no gear: why, in red)
+      entry.fields.forEach((f, i) => {
+        const bs = toggles[i];
+        if (bs && f.choices) bs.forEach((b, k) => { const on = Number(f.value) === k; b.style.background = on ? "#1ab8b3" : "#fff"; b.style.borderColor = on ? "#1d7f84" : "#cfd0d4"; b.style.color = on ? "#fff" : "#222"; });
+      });
       entry.fields.forEach((f, i) => { // (a number just taken back to one that makes a gear flashes red, `in_690`)
         const input = inputs[i]!;
         if (hints[i] && hints[i]!.textContent !== (f.hint ?? "")) hints[i]!.textContent = f.hint ?? ""; // (the line for a bore's standard key follows the bore typed)

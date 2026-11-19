@@ -5038,6 +5038,10 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the held-back drag's flash and the gear and mate checks to be merged into the testing branch, no full test run)
 
+## in_1175 — 2026-11-19 — approval
+> yes make it a real toggle button
+(approves making the bearing's Detail a real simple/detailed toggle button instead of a number field)
+
 ## in_1176 — 2026-11-19 — question
 > okay what next?
 
