@@ -4411,3 +4411,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1014 — 2026-11-19 — directive
 > I will take your recommendation
 (takes the AI's recommendation: spend the effort on the floor of the preview, the page's derive and the kernel's prism, rather than the narrow Preview-mark version)
+
+## in_1015 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(the explicit permission to write to that branch for this merge; the full test run is waived)
