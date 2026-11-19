@@ -6,7 +6,7 @@ import { placeBubbles } from "../interaction/bubbleplace.ts";
 import type { Memory } from "../interaction/bubbleplace.ts";
 import type { BarIcon, BarGear } from "../interaction/bar.ts";
 
-/** A button that was pressed pops: it grows and settles back (`in_1176`). */
+/** A button that was pressed pops: it grows and settles back (`in_1177`). */
 const pop = (el: HTMLElement): void => { el.animate([{ transform: "scale(1)" }, { transform: "scale(1.4)" }, { transform: "scale(1)" }], { duration: 260, easing: "ease-out" }); };
 
 export function createSuggest(host: HTMLElement, run: (id: string, part?: string) => void) {
@@ -22,7 +22,7 @@ export function createSuggest(host: HTMLElement, run: (id: string, part?: string
   iconsBox.style.cssText = "display:flex;align-items:center;gap:5px";
   const sep = document.createElement("div");
   sep.style.cssText = "width:1px;align-self:stretch;margin:3px 1px;background:#cfd0d4";
-  const seg = document.createElement("div"); // (the suggested constraints: on the right, in a dashed outline of their own, `in_1176`)
+  const seg = document.createElement("div"); // (the suggested constraints: on the right, in a dashed outline of their own, `in_1177`)
   seg.style.cssText = "display:none;align-items:center;gap:5px;padding:2px;border-radius:16px;border:1px dashed #1ab8b3";
   row.append(iconsBox, sep, seg, list);
   const offered = new Map<string, HTMLElement>();
@@ -69,7 +69,7 @@ export function createSuggest(host: HTMLElement, run: (id: string, part?: string
         iconsBox.replaceChildren(...kids);
         iconsBox.style.display = kids.length ? "flex" : "none";
       }
-      // the suggested constraints: each stays as it is while it is on offer, comes in fading up, and goes out fading when it is applied (or no longer fits), `in_1176`
+      // the suggested constraints: each stays as it is while it is on offer, comes in fading up, and goes out fading when it is applied (or no longer fits), `in_1177`
       const want = new Set(offers.map((o) => o.id));
       for (const o of offers) {
         if (offered.has(o.id)) continue;

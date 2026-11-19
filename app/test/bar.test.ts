@@ -59,7 +59,7 @@ test("a plane that is selected has its four icons in the bar, and not the ones o
   assert.equal(frame(st).bar!.icons[2]!.icon, "rotate");
 });
 
-test("a face that is selected has the lock for its constraints too, and the constraints of a body or a face go back off when it is no longer selected (`in_1176`)", () => {
+test("a face that is selected has the lock for its constraints too, and the constraints of a body or a face go back off when it is no longer selected (`in_1177`)", () => {
   let st = box();
   const b = bodyOf(st);
   const top = "b/body/f@0,0,1,20";

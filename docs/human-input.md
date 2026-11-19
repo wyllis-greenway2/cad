@@ -5038,11 +5038,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the held-back drag's flash and the gear and mate checks to be merged into the testing branch, no full test run)
 
-## in_1175 — 2026-11-19 — question
+## in_1176 — 2026-11-19 — question
 > okay what next?
 
-## in_1176 — 2026-11-19 — directive
+## in_1177 — 2026-11-19 — directive
 > Can we have the show constraints option turn back off when a body is deselected? Can we have the show constraints icon show up for faces too. Can we have it just be a lock icon please. Can we have the bubble that holds the icons be solid line except the parts that go around suggested can be dashed. Clicking a suggested should pop and add it visually then fade or not depending on the normal state. Can we have the icons for interacting with the body always be in this holder thing? Right now the eye icon pops out and goes by itself when a body is hidden. It should stay in the same holder thing but become the only icon and show up when the eye normally does for hidden bodies.
 
-## in_1177 — 2026-11-19 — directive
+## in_1178 — 2026-11-19 — directive
 > maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
