@@ -509,6 +509,6 @@ test("Sketch has no Cam category any more; Models under Shape, Fabricate has the
   assert.ok(find(items, "tool:eccentric") === undefined && find(items, "tool:geneva") === undefined && find(items, "tool:disc:harmonic") === undefined && find(items, "cam:edit") === undefined && find(items, "cam:follow") === undefined, "none of the cam options");
   const models = find(items, "models")!;
   assert.equal(models.label, "Models");
-  assert.deepEqual(models.children!.map((c) => [c.id, c.label]), [["tool:geneva:model", "Geneva plate"]]);
+  assert.deepEqual(models.children!.map((c) => [c.id, c.label]), [["tool:geneva:model", "Geneva plate"], ["model:gearbox", "Gearbox"], ["model:bearing", "Bearing"], ["model:differential", "Differential"], ["model:cycloidal", "Cycloidal drive"]]);
   assert.ok(find(items, "fabricate")!.children!.some((c) => c.id === "models"));
 });

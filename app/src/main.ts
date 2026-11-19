@@ -22,6 +22,8 @@ import type { LaserValues } from "./interaction/manufacture.ts";
 import { pathRepeatTarget, pathRepeatDialog, pathRepeatCommand, pathRepeatStart, pathRepeatValuesFor } from "./interaction/pathrepeat.ts";
 import { receiverStart, receiverKinds, receiverSizes, receiverContext, receiverPlan, cutReceiver, makeHolePoints, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
 import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
+import { modelStart, modelDialog, addModel, modelKinds } from "./interaction/addmodel.ts";
+import type { ModelKind, ModelValues } from "./interaction/addmodel.ts";
 import { nameFor } from "./interaction/sniff.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
 import type { ExportOptions } from "./interaction/transfer.ts";
@@ -199,6 +201,7 @@ const ring = createRing(document.body, (id) => {
   ring.hide();
   if (id === "view:game") { input.toggleGame(); return; }
   if (id === "repeat:path") { void pathRepeatFlow(); return; } // (`dec_path_repeat`)
+  if (id.startsWith("model:")) { void modelDialogFlow(id.slice(6) as ModelKind); return; } // (Shape, Fabricate, Models: a gear assembly, `dec_gear_models`)
   if (id === "fab:material") { void materialDialogFlow(); return; } // (Shape, Fabricate, `in_1083`)
   if (id === "tool:fasteners") { holesOpen(); return; } // (the tool is a panel and a preview in the model view, `dec_parts_tool`)
   dispatch({ type: "runAction", id });
@@ -460,6 +463,20 @@ async function materialDialogFlow() {
   if (!c.ok) return say(c.error);
   state = { ...state, session: run(state.session, c.value) };
   say(String(answers.material ?? "").trim() ? `material set: ${String(answers.material).trim()}` : "material tag taken off");
+}
+/** A gear assembly as a model (`dec_gear_models`): a dialog for its numbers (the last ones kept), and the model made in one step. */
+const MODEL_KEY = "cad.modelOptions";
+async function modelDialogFlow(kind: ModelKind) {
+  if (!modelKinds().includes(kind)) return say("that model is not built yet");
+  const saved = (() => { try { return (JSON.parse(localStorage.getItem(MODEL_KEY) ?? "{}") as Record<string, Values>)[kind]; } catch { return undefined; } })();
+  const answers = await dialog.open((v) => modelDialog(kind, v as unknown as ModelValues), { ...modelStart(kind), ...(saved ?? {}) } as unknown as Values);
+  if (!answers) return;
+  const made = addModel(state.session, kind, answers as unknown as ModelValues);
+  if (!made.ok) return say(made.error);
+  try { localStorage.setItem(MODEL_KEY, JSON.stringify({ ...(JSON.parse(localStorage.getItem(MODEL_KEY) ?? "{}") as object), [kind]: answers })); } catch { /* (no storage: the numbers are not kept) */ }
+  state = { ...state, session: made.value };
+  dirty = true;
+  say(`${modelDialog(kind, answers as unknown as ModelValues).title} made`);
 }
 const LASER_KEY = "cad.laserOptions";
 const LIB_KEY = "cad.library";

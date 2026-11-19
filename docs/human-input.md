@@ -4771,3 +4771,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1104 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for claude/intelligent-hawking-next to be merged into the testing branch, with the refusal that names the constraint and the already-applied green flash; no full suite needed)
+
+## in_1105 — 2026-11-19 — directive
+> okay build all those things. Lets put them under shape fabrication models.
+(approves the four gear assemblies recommended (a reduction gearbox, a bearing, a differential, a cycloidal drive; not a multi-speed transmission) and asks for them under Shape, Fabricate, Models)
