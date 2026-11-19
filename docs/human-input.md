@@ -5095,3 +5095,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1191 — 2026-11-19 — directive
 > run the full tests
+
+## in_1192 — 2026-11-19 — question
+> how should we fix the failing problems?
