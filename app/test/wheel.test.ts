@@ -7,7 +7,7 @@ import { createState, reduce } from "../src/interaction/controller.ts";
 import { homeCamera } from "../src/interaction/camera.ts";
 import { worldRef } from "../src/shared/ref.ts";
 import { drawCircle } from "../src/operation/build.ts";
-import { WHEEL_START, wheelProblem, wheelGeometry, wheelLines } from "../src/operation/modelwheel.ts";
+import { WHEEL_START, wheelProblem, wheelGeometry, wheelLines, wheelSection } from "../src/operation/modelwheel.ts";
 import type { WheelSpec } from "../src/operation/modelwheel.ts";
 import { modelFields } from "../src/operation/modelkinds.ts";
 import { modelTarget } from "../src/interaction/modeltool.ts";
@@ -47,7 +47,7 @@ function placed(typed: Record<string, string>, fill?: boolean) {
 const area = (l: [number, number][]): number => Math.abs(l.slice(0, -1).reduce((s, p, i) => s + p[0] * l[i + 1]![1] - l[i + 1]![0] * p[1], 0)) / 2;
 const bodyOf = (st: ReturnType<typeof placed>): B[] => Object.values(scene(st.session).parts).filter((p) => p.kind === "body") as unknown as B[];
 test("a plain web is one body of the rim's height with its hub and bore; cutouts take away what their outlines enclose, in the web's thickness", () => {
-  const s = S(), plain = bodyOf(placed({ spokes: "0" }));
+  const s = S({ draft: 0 }), plain = bodyOf(placed({ spokes: "0", draft: "0" }));
   assert.equal(plain.length, 1, "one body");
   assert.ok(Math.abs(plain[0]!.bbox.max[2]! - plain[0]!.bbox.min[2]! - Math.max(s.width, s.hubLen)) < 1e-3, "as high as the longer of rim and hub");
   assert.ok(Math.abs(plain[0]!.bbox.max[0]! - plain[0]!.bbox.min[0]! - s.outer) < 0.2, "as wide as the outside diameter");
@@ -55,8 +55,8 @@ test("a plain web is one body of the rim's height with its hub and bore; cutouts
   const g = wheelGeometry(s), box = Math.PI * ((g.R ** 2 - g.Rin ** 2) * s.width + (g.hubR ** 2 - (s.bore / 2) ** 2) * s.hubLen + (g.Rin ** 2 - g.hubR ** 2) * s.web);
   assert.ok(plain[0]!.volume > box && plain[0]!.volume < box * 1.06, `volume ${plain[0]!.volume} is the plain section's ${box.toFixed(0)} and the fillets`);
   for (const o of [{} as Record<string, string>, { spiral: "15" }, { spokeW: "6", taper: "-0.2", hubOff: "0", rimOff: "0" }, { joinKind: "1", spokes: "6", corner: "2", spokeW: "6" }]) {
-    const st = placed(o), made = bodyOf(st), sp = { ...s, ...Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Number(v)])) } as WheelSpec;
-    const plainSp = bodyOf(placed({ ...o, spokes: "0" }))[0]!.volume;
+    const st = placed({ draft: "0", ...o }), made = bodyOf(st), sp = { ...s, ...Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Number(v)])) } as WheelSpec;
+    const plainSp = bodyOf(placed({ draft: "0", ...o, spokes: "0" }))[0]!.volume;
     assert.equal(made.length, 1, `${JSON.stringify(o)}: one body`);
     const cuts = wheelLines(sp).slice(4).reduce((a, l) => a + area(l), 0) * sp.web;
     const drop = plainSp - made[0]!.volume, exact = sp.hubOff > sp.join + 0.4 && sp.rimOff > sp.join + 0.4; // (a cutout that reaches into a fillet takes the fillet's metal too)
@@ -92,4 +92,16 @@ test("a round object that is selected is filled: the wheel is as wide as the cir
   const wheel = (Object.values(scene(st.session).parts).filter((p) => p.kind === "body") as unknown as B[])[0]!;
   assert.ok(Math.abs((wheel.bbox.min[0]! + wheel.bbox.max[0]!) / 2 - 10) < 0.1 && Math.abs((wheel.bbox.min[1]! + wheel.bbox.max[1]!) / 2 - 20) < 0.1, "centred on the circle");
   assert.ok(Math.abs(wheel.bbox.max[0]! - wheel.bbox.min[0]! - 50) < 0.2, "50 mm across");
+});
+test("draft leans the rim's and the hub's walls away from the middle: the same wheel is as wide, lighter, and refused when it leaves the rim or the hub too thin", () => {
+  const flat = bodyOf(placed({ spokes: "0", draft: "0" }))[0]!, cast = bodyOf(placed({ spokes: "0", draft: "3" }))[0]!;
+  assert.ok(Math.abs(cast.bbox.max[0]! - cast.bbox.min[0]! - 80) < 0.2, "as wide at the middle plane as the outside diameter says");
+  assert.ok(cast.volume < flat.volume * 0.995 && cast.volume > flat.volume * 0.9, `the cast wheel ${cast.volume.toFixed(0)} is a little lighter than the machined one ${flat.volume.toFixed(0)}`);
+  assert.equal(wheelProblem(S({ draft: 0 })), null);
+  assert.match(wheelProblem(S({ draft: 11 })) ?? "", /0 \(machined\) to 10/);
+  assert.match(wheelProblem(S({ draft: 10, rim: 2 })) ?? "", /rim is thinner/);
+  assert.match(wheelProblem(S({ draft: 10, hub: 13, bore: 8, hubLen: 40 })) ?? "", /hub is thinner/);
+  const lean = wheelSection(S({ draft: 3 })), straight = wheelSection(S({ draft: 0 }));
+  const xs = (sec: { pts: [number, number][] }): number[] => sec.pts.filter((p) => Math.abs(p[1]) > 6.9).map((p) => p[0]);
+  assert.ok(Math.max(...xs(lean)) < Math.max(...xs(straight)) - 0.3, "the rim's outside is smaller at its faces");
 });

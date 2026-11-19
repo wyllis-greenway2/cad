@@ -5268,3 +5268,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1237 — 2026-11-19 — directive
 > propose design rules from the NACA data, mark them as assumptions
 (answers my offer for the gaps no source fills, piston length, groove depth and weight: derive design rules from NACA 817 and 895 and mark each as an assumption)
+
+## in_1238 — 2026-11-19 — directive
+> add draft to the walls as a variable too. Machined hubs wont have draft, cast ones will
+(asks for a draft angle on the walls as one more number of the wheel: 0 for a machined wheel, some for a cast one)

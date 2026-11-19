@@ -9,9 +9,9 @@ import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 
 /** The numbers of a wheel (mm): `joinKind` 0 a fillet, 1 a chamfer, at the four places the web meets the rim and the hub; `spokes` 0 a plain web, else the number of cutouts; `rimOff` and `hubOff` how far a cutout stops short of the rim's
- * and the hub's walls; `corner` the fillet in each corner of a cutout; `spokeW` the width of a spoke at the hub end; `taper` how much narrower it is at the rim end (a share, negative: wider); `spiral` degrees a spoke turns from hub to rim */
-export interface WheelSpec { outer: number; width: number; rim: number; hub: number; hubLen: number; bore: number; web: number; joinKind: number; join: number; spokes: number; rimOff: number; hubOff: number; corner: number; spokeW: number; taper: number; spiral: number }
-export const WHEEL_START: WheelSpec = { outer: 80, width: 14, rim: 5, hub: 22, hubLen: 18, bore: 8, web: 4, joinKind: 0, join: 3, spokes: 5, rimOff: 6, hubOff: 6, corner: 3, spokeW: 10, taper: 0.3, spiral: 0 };
+ * and the hub's walls; `corner` the fillet in each corner of a cutout; `spokeW` the width of a spoke at the hub end; `taper` how much narrower it is at the rim end (a share, negative: wider); `spiral` degrees a spoke turns from hub to rim; `draft` degrees the walls of the rim and the hub lean away from the middle (0 for a machined wheel, 1 to 3 for a cast one, `in_1238`) */
+export interface WheelSpec { outer: number; width: number; rim: number; hub: number; hubLen: number; bore: number; web: number; joinKind: number; join: number; spokes: number; rimOff: number; hubOff: number; corner: number; spokeW: number; taper: number; spiral: number; draft: number }
+export const WHEEL_START: WheelSpec = { outer: 80, width: 14, rim: 5, hub: 22, hubLen: 18, bore: 8, web: 4, joinKind: 0, join: 3, spokes: 5, rimOff: 6, hubOff: 6, corner: 3, spokeW: 10, taper: 0.3, spiral: 0, draft: 2 };
 /** the least a printed or cast part is thick (mm), and the least fillet or chamfer (0.030 in, the Batesville guide's least radius) */
 const THIN = 1.2, LEAST_JOIN = 0.8;
 /** a cutout that runs right into the hub or the rim (an offset of 0) reaches this far into it: a cut that ends exactly on the wall's own face is not a solid the kernel will make */
@@ -106,6 +106,9 @@ export function wheelProblem(s: WheelSpec): string | null {
   if ((s.width - s.web) / 2 < s.join) return "the rim must stand proud of the web by at least the size of the join: a wider rim, a thinner web or a smaller join";
   if ((s.hubLen - s.web) / 2 < s.join) return "the hub must stand proud of the web by at least the size of the join: a longer hub, a thinner web or a smaller join";
   if (g.Rin - g.hubR < 2 * s.join + THIN) return "the hub is too big for the rim: there is no room for the web between them and the two joins";
+  if (!(s.draft >= 0 && s.draft <= 10)) return "the draft is 0 (machined) to 10 degrees";
+  if (s.rim - Math.tan((s.draft * Math.PI) / 180) * (s.width - s.web / 2) < THIN) return `the rim is thinner than ${THIN} mm at its faces once the draft has leaned its walls: less draft, a thicker rim or a narrower rim`;
+  if (s.hub / 2 - Math.tan((s.draft * Math.PI) / 180) * (s.hubLen - s.web) / 2 - s.bore / 2 < 2) return "the hub is thinner than 2 mm at its faces once the draft has leaned its wall: less draft, a bigger hub or a shorter hub";
   if (n < 0 || n === 1 || n === 2 || n > 24) return "0 spokes is a plain web; otherwise 3 to 24 spokes";
   if (n === 0) return null;
   if (s.rimOff < 0 || s.hubOff < 0) return "the offsets are 0 or more";
@@ -153,25 +156,29 @@ export function wheelLines(s: WheelSpec): [number, number][][] {
   return lines;
 }
 
-/** The section of the rim, web and hub (x out from the axis, y along it), the four places the web meets them joined by a fillet or a chamfer: the points and the bulges of the sides */
+/** The section of the rim, web and hub (x out from the axis, y along it), the four places the web meets them joined by a fillet or a chamfer: the points and the bulges of the sides. The walls of the rim and of the hub lean by the draft away from the
+ * middle plane (a cast wheel's pattern is split there): the rim's outside is smaller at the faces, its inside bigger, the hub's outside smaller; the nominal radii are those at the middle plane, at the web's faces for the walls beside it */
 export function wheelSection(s: WheelSpec): { pts: P[]; bulges: number[] } {
   const g = wheelGeometry(s), b = s.bore / 2, H = s.hubLen / 2, W = s.width / 2, t = s.web / 2, f = s.join, fillet = Math.round(s.joinKind) === 0;
+  const dr = (s.draft * Math.PI) / 180, [sn, cs, tn] = [Math.sin(dr), Math.cos(dr), Math.tan(dr)];
+  const rimOutFace = g.R - tn * W, rimInFace = g.Rin + tn * (W - t), hubFace = g.hubR - tn * (H - t);
   const pts: P[] = [], bulges: number[] = [];
   const add = (p: P, k = 0): void => { pts.push(p); bulges.push(k); };
-  /** a concave corner at `c`, reached going `d1` and left going `d2`: the two points either side of it, and a fillet's bulge between them */
+  /** a concave corner at `c`, reached going `d1` and left going `d2` (a right turn): the two points either side of it, and a fillet's bulge between them */
   const corner = (c: P, d1: P, d2: P): void => {
-    const t1: P = [c[0] - d1[0] * f, c[1] - d1[1] * f], t2: P = [c[0] + d2[0] * f, c[1] + d2[1] * f];
+    const tau = Math.acos(Math.max(-1, Math.min(1, d1[0] * d2[0] + d1[1] * d2[1]))), L = fillet ? f * Math.tan(tau / 2) : f;
+    const t1: P = [c[0] - d1[0] * L, c[1] - d1[1] * L], t2: P = [c[0] + d2[0] * L, c[1] + d2[1] * L];
     if (!fillet) { add(t1); add(t2); return; }
-    const o: P = [t1[0] + d2[0] * f, t1[1] + d2[1] * f], toC = unit([c[0] - o[0], c[1] - o[1]]);
+    const o: P = [t1[0] + d1[1] * f, t1[1] - d1[0] * f], toC = unit([c[0] - o[0], c[1] - o[1]]);
     add(t1, bulgeOf(t1, [o[0] + toC[0] * f, o[1] + toC[1] * f], t2)); add(t2);
   };
-  add([b, -H]); add([g.hubR, -H]);
-  corner([g.hubR, -t], [0, 1], [1, 0]);
-  corner([g.Rin, -t], [1, 0], [0, -1]);
-  add([g.Rin, -W]); add([g.R, -W]); add([g.R, W]); add([g.Rin, W]);
-  corner([g.Rin, t], [0, -1], [-1, 0]);
-  corner([g.hubR, t], [-1, 0], [0, 1]);
-  add([g.hubR, H]); add([b, H]);
+  add([b, -H]); add([hubFace, -H]);
+  corner([g.hubR, -t], [sn, cs], [1, 0]);
+  corner([g.Rin, -t], [1, 0], [sn, -cs]);
+  add([rimInFace, -W]); add([rimOutFace, -W]); if (tn > 0) add([g.R, 0]); add([rimOutFace, W]); add([rimInFace, W]);
+  corner([g.Rin, t], [-sn, -cs], [-1, 0]);
+  corner([g.hubR, t], [-1, 0], [-sn, cs]);
+  add([hubFace, H]); add([b, H]);
   return { pts, bulges };
 }
 
