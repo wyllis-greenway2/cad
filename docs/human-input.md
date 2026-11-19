@@ -4008,3 +4008,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_915 — 2026-11-18 — approval
 > yes
 (approves writing the decision and building the smallest slice of Phase 1 in the app: ghosts drawn at once from the commands, and the kernel asked for one group at a time in camera order, measured in the browser first)
+
+## in_916 — 2026-11-19 — question
+> okay what next?
+(asks what the AI recommends doing next)
