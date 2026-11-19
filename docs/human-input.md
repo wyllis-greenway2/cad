@@ -4471,3 +4471,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1028 — 2026-11-19 — directive
 > maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
 (asks for this branch to be merged into claude/inspiring-pascal-l342k7 and for further work to be started on a new branch made from the updated testing branch)
+
+## in_1029 — 2026-11-19 — directive
+> can you draw me a picture of how and why this works?
+(asks for a picture of how and why a hypoid gear pair works: the offset axes and cones, and why the teeth mesh; the AI drew a diagram)
+
