@@ -4569,3 +4569,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1052 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for this branch (how far a hole is hand moved, shown and typed) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
+
+## in_1053 — 2026-11-19 — directive
+> okay I think the precision settings to set certain distance on hand moved fastener should show up like a distance constraint bubble like it does on diameters etc. It should show the origin point, and also have that point be snappable so the user can put it back, and show distance moved from origin point.
+(asks for the precise distance of a hand-moved fastener to appear as a distance bubble in the view like the one on diameters; showing the origin point, which is snappable so the person can put the hole back, and showing the distance moved from it)

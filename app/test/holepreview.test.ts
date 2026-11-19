@@ -184,3 +184,21 @@ test("how far a hole is moved by hand is shown along and across its line, and ty
   const back = plan(s, { ...v, moved: {} });
   assert.deepEqual(back.spots[i]!.centre, base.spots[i]!.centre);
 });
+
+test("a hole picked has its origin marked, and dragging it back near the origin snaps to it (`in_1053`)", () => {
+  const s = block();
+  const v = vals({ place: "outline", by: "count", value: "6", corners: "ignore", offset: "10" });
+  const base = plan(s, v);
+  const i = 2;
+  const o = base.base[i]!;
+  const view = holesView(base, i)!;
+  assert.ok(view.done.score && view.done.score.length > 30, "a ring and a cross at the origin");
+  // the pointer's ray comes down 2 mm from the origin: back on it; 20 mm away: not
+  const near = dragTarget(base, i, { o: [o[0] + 2, o[1] + 1, 100], d: [0, 0, -1] }, { row: -1, mm: -1, origin: o, originMm: 5 });
+  assert.deepEqual(near, o, "snapped back to where the rules put it");
+  const far = dragTarget(base, i, { o: [o[0] + 20, o[1] + 1, 100], d: [0, 0, -1] }, { row: -1, mm: -1, origin: o, originMm: 5 });
+  assert.ok(far && Math.abs(far[0] - (o[0] + 20)) < 1e-9, "free away from it");
+  const moved = plan(s, { ...v, moved: { [i]: [o[0] + 4, o[1] + 3, o[2]] } });
+  const withLine = holesView(moved, i)!;
+  assert.ok(withLine.done.score!.length > view.done.score!.length, "a dashed line from the origin to the hole once it is moved");
+});

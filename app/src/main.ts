@@ -12,6 +12,7 @@ import { createSession, openSession, saveText, run, scene, selection, refresh } 
 import type { Session } from "./interaction/session.ts";
 import type { ReceiverValues, ReceiverPlan } from "./interaction/addpart.ts";
 import { pickPlace, dragTarget, rowOf, movedBy, movedTarget } from "./interaction/holemove.ts";
+import type { Annotation } from "./interaction/annotations.ts";
 import { canExport } from "./interaction/exportstl.ts";
 import { canExportFlat } from "./interaction/exportsketch.ts";
 import { laserDialog, runLaser, findingsDialog, machineChoices, machineDialog, startValues, projectMachines, recordCommands, tableRows, rowFrom, tableDialog, layersDialog, layersCommand, whyNoLayers, marksSummary } from "./interaction/manufacture.ts";
@@ -108,7 +109,7 @@ const bubbles = createBubbles(document.body, {
   remove: (id) => dispatch({ type: "relation", act: "remove", id }),
   lock: (id) => dispatch({ type: "relation", act: "lock", id }),
   set: (id, value) => dispatch({ type: "relation", act: "set", id, value }),
-  measure: (value, id) => dispatch({ type: "relation", act: "measure", id: id ?? null, value }),
+  measure: (value, id) => (id === "hole:moved" ? holesSetDistance(value) : dispatch({ type: "relation", act: "measure", id: id ?? null, value })),
 });
 installTouchTips(); // (a held press shows the title of a button, for a finger has no hover, `in_300`)
 const bus = createBus<{ input: RawInput }>();
@@ -373,6 +374,27 @@ function holesPoints(): void {
   dirty = true;
   say("points made at the holes: move them with the move tools, and the holes follow them");
 }
+/** The bubble of the distance the hole picked is moved by hand from where the rules put it, like the one on a diameter (`in_1053`): its number can be typed over, and the hole then stands that far from its origin in the way it was moved. */
+function holeNotes(): Annotation[] {
+  if (!hardware || !holesPlan || holesPicked === null) return [];
+  const pos = holesPlan.index.indexOf(holesPicked);
+  const [b, c] = [holesPlan.base[pos], holesPlan.spots[pos]?.centre];
+  if (pos < 0 || !b || !c) return [];
+  const d = Math.hypot(c[0] - b[0], c[1] - b[1], c[2] - b[2]);
+  if (d < 1e-6) return [];
+  return [{ id: "hole:moved", relationId: null, kind: "tape", label: "distance moved by hand", at: [(b[0] + c[0]) / 2, (b[1] + c[1]) / 2, (b[2] + c[2]) / 2], value: d, unit: "mm", locked: false, editable: true, readOnly: false, broken: false, open: false, measureId: "hole:moved", tag: "moved", others: [], lines: [] }];
+}
+function holesSetDistance(d: number): void {
+  if (!hardware || !holesPlan || holesPicked === null || !(d > 0)) return;
+  const pos = holesPlan.index.indexOf(holesPicked);
+  const [b, c] = [holesPlan.base[pos], holesPlan.spots[pos]?.centre];
+  if (pos < 0 || !b || !c) return;
+  const now = Math.hypot(c[0] - b[0], c[1] - b[1], c[2] - b[2]);
+  if (now < 1e-9) return; // (not moved: no way to go in)
+  const t: Vec3 = [b[0] + ((c[0] - b[0]) / now) * d, b[1] + ((c[1] - b[1]) / now) * d, b[2] + ((c[2] - b[2]) / now) * d];
+  hardware = { values: { ...hardware.values, moved: { ...(hardware.values.moved ?? {}), [holesPicked]: t } } };
+  holesKey = ""; dirty = true;
+}
 function holesCut(): void {
   if (!hardware) return;
   const { values } = holesValues();
@@ -598,7 +620,8 @@ function holesPointer(raw: { kind: string; x?: number; y?: number; mods?: { alt:
   if (holesDrag === null) return false;
   if (raw.kind === "move") {
     const mmPerPx = (pj.halfH * 2) / Math.max(1, view.size().h);
-    const snap = holesDrag.row >= 0 && !raw.mods?.alt ? { row: holesDrag.row, mm: 22 * mmPerPx } : undefined; // (drawn to its line within 22 px; Alt holds it free)
+    const base = holesPlan.base[holesDrag.index];
+    const snap = !raw.mods?.alt ? { row: holesDrag.row, mm: holesDrag.row >= 0 ? 22 * mmPerPx : -1, ...(base ? { origin: base, originMm: 14 * mmPerPx } : {}) } : undefined; // (drawn to its line within 22 px, and back to where the rules put it within 14; Alt holds it free)
     const t = dragTarget(holesPlan, holesDrag.index, pj.ray(x, y), snap);
     if (t) { hardware = { values: { ...hardware.values, moved: { ...(hardware.values.moved ?? {}), [holesPlan.index[holesDrag.index] ?? holesDrag.index]: t } } }; holesKey = ""; dirty = true; }
     return true;
@@ -766,7 +789,7 @@ function frame(now: number) {
     const project = projector(state.cam, size.w, size.h).project;
     // what comes before the constraint bubbles: the ring, and the number bubbles (and the helper bubble, the suggestions and the hint icons), as they stood on the last frame
     const inFront = [ring.rect(), ...chips.map((c) => c.rect()), notices.helpRect(), hintIcons.rect(), ...touchRects].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : []));
-    if (bubbles.update(f.annotations, (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid, inFront)) dirty = true; // (a bubble still sliding to its place: another frame)
+    if (bubbles.update([...f.annotations, ...holeNotes()], (p) => { const q = project(p); return [q[0] + page.left, q[1] + page.top]; }, f.flash, f.avoid, inFront)) dirty = true; // (a bubble still sliding to its place: another frame)
     view.setNotes(f.annotations.flatMap((a) => a.lines), f.annotations.flatMap((a) => a.dashed ?? []), state.cam.distance * 0.012);
     { // the Measure tab with two overlapping bodies selected asks the kernel for the volume they share, once; the answer is drawn when it comes (`dec_measure_report`, `in_622`)
       const sc = scene(state.session);

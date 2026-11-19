@@ -12,7 +12,7 @@ export function pickPlace(plan: ReceiverPlan, project: (p: Vec3) => [number, num
   return best;
 }
 /** Where the pointer's ray meets the surface the hole `index` stands on (taken as the plane that touches it there: a round face brings the point back onto itself when the plan is made), or null when the ray runs alongside it. */
-export function dragTarget(plan: ReceiverPlan, index: number, ray: { o: Vec3; d: Vec3 }, snap?: { row: number; mm: number }): Vec3 | null {
+export function dragTarget(plan: ReceiverPlan, index: number, ray: { o: Vec3; d: Vec3 }, snap?: { row: number; mm: number; /** the place the rules put the hole: it snaps back to it within `originMm` (`in_1053`) */ origin?: Vec3; originMm?: number }): Vec3 | null {
   const s = plan.spots[index];
   if (!s) return null;
   const n: Vec3 = [s.u[1] * s.v[2] - s.u[2] * s.v[1], s.u[2] * s.v[0] - s.u[0] * s.v[2], s.u[0] * s.v[1] - s.u[1] * s.v[0]];
@@ -23,6 +23,7 @@ export function dragTarget(plan: ReceiverPlan, index: number, ray: { o: Vec3; d:
   const t = dot([s.centre[0] - ray.o[0], s.centre[1] - ray.o[1], s.centre[2] - ray.o[2]], nn) / den;
   if (!(t > 0)) return null;
   const hit: Vec3 = [ray.o[0] + ray.d[0] * t, ray.o[1] + ray.d[1] * t, ray.o[2] + ray.d[2] * t];
+  if (snap?.origin && snap.originMm !== undefined && Math.hypot(hit[0] - snap.origin[0], hit[1] - snap.origin[1], hit[2] - snap.origin[2]) <= snap.originMm) return snap.origin; // (back where the rules put it)
   const line = snap ? plan.guide[snap.row] : undefined;
   if (!snap || !line || line.length < 2) return hit;
   const near = nearestOnLine(line, hit); // (free hand, but drawn to the line the hole is meant to be on when the pointer is near it)
