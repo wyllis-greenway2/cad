@@ -52,7 +52,7 @@ const RESUMING = new Set<Intent["type"]>(["hover", "hoverEnd", "click", "orbit",
 export function reduce(s: AppState, i: Intent, env: Env): AppState {
   if (s.adding && i.type === "click" && !i.shift && !s.tool && !s.op && !s.repeat && !s.cut && !s.picking) i = { ...i, shift: true }; // (adding: a tap is a Shift click, `in_539`)
   let next = apply(s, i, env);
-  if (next.bodyConstraints.length) { // (the constraints of a body or a face that is no longer selected go back off, `in_1163`)
+  if (next.bodyConstraints.length) { // (the constraints of a body or a face that is no longer selected go back off, `in_1176`)
     const sel = selectionOf(next.session), bodies = bodiesOfSelection(sceneOf(next.session), sel);
     const kept = next.bodyConstraints.filter((r) => bodies.has(r) || sel.includes(r));
     if (kept.length !== next.bodyConstraints.length) next = { ...next, bodyConstraints: kept };

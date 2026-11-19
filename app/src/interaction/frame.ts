@@ -569,7 +569,7 @@ const OPEN_LABELS: Record<string, string> = { linear: "Linear repeat", circular:
 /** The constraints on the screen: those of what is selected, those of the bodies whose icon is on, or every one of the world (`in_1157`); each shown once. */
 function shownConstraints(s: AppState, sc: Scene, sel: readonly Ref[]): Annotation[] {
   const own = annotationsFor(sc, sel, s.focus, s.showAllConstraints || !!s.showSketch);
-  const bodies = bodiesOfSelection(sc, sel), held = s.bodyConstraints.filter((r) => bodies.has(r) || sel.includes(r)); // (the constraints of a body or a face that is no longer selected are off, `in_1163`)
+  const bodies = bodiesOfSelection(sc, sel), held = s.bodyConstraints.filter((r) => bodies.has(r) || sel.includes(r)); // (the constraints of a body or a face that is no longer selected are off, `in_1176`)
   const more = s.showAllConstraints ? annotationsOfBodies(sc, null, s.focus) : held.length ? annotationsOfBodies(sc, held, s.focus) : [];
   if (!more.length) return own;
   const have = new Set(own.map((a) => a.id));

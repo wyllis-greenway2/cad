@@ -74,7 +74,7 @@ export function figurePartsOf(scene: Scene, face: Extract<Part, { kind: "face" }
   return [...new Set([...face.corners, ...centres, ...face.loop])];
 }
 
-/** The bodies that are selected, or have a face, an edge or a corner selected (`in_1163`). */
+/** The bodies that are selected, or have a face, an edge or a corner selected (`in_1176`). */
 export function bodiesOfSelection(sc: Scene, sel: readonly Ref[]): Set<Ref> {
   const single = Object.values(sc.parts).filter((p) => p.kind === "body").length <= 1;
   const out = new Set<Ref>();

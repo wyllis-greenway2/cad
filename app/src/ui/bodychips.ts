@@ -1,4 +1,4 @@
-// The eye of a hidden body (`dec_hidden_bodies`, `in_489`, `in_1163`): a body that is hidden takes no pick, so it cannot be selected; while the pointer is over it on the screen (or on the way up to where its icon is) the helpful bar (`suggest.ts`) shows
+// The eye of a hidden body (`dec_hidden_bodies`, `in_489`, `in_1176`): a body that is hidden takes no pick, so it cannot be selected; while the pointer is over it on the screen (or on the way up to where its icon is) the helpful bar (`suggest.ts`) shows
 // with the eye as its only icon, and a click on it brings the body back. This only finds which hidden body the pointer is over and where the bar goes (above its top edge on the screen); the bar is drawn by `suggest.ts`.
 import type { Vec3 } from "../interaction/api.ts";
 

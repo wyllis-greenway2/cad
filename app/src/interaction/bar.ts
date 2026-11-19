@@ -18,7 +18,7 @@ export interface BarFacts {
   /** the body that was double clicked, and the bodies whose constraints are all shown */
   consFor: Ref | null;
   consOn: readonly Ref[];
-  /** the one face of a body that is selected: it has the lock for its constraints too (`in_1163`) */
+  /** the one face of a body that is selected: it has the lock for its constraints too (`in_1176`) */
   face: Ref | null;
   /** the sheet that is selected: its mode, whether it is invisible, what its move icon has the handles in, and its first corner */
   sheet: { ref: Ref; mode: 0 | 1 | 2; hidden: boolean; move: 0 | 1; corner: Vec3 } | null;

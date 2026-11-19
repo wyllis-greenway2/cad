@@ -268,7 +268,7 @@ function annotationsOf0(scene: Scene, selection: readonly Ref[], focus: string |
  */
 export function annotationsOfBodies(scene: Scene, bodies: readonly Ref[] | null, focus: string | null): Annotation[] {
   const map = buildMap(scene);
-  const live = bodies === null ? Object.values(scene.parts).filter((p) => p.kind === "body").map((p) => p.ref) : bodies.filter((r) => scene.parts[r]?.kind === "body"); // (the refs may be faces too: their constraints, `in_1163`)
+  const live = bodies === null ? Object.values(scene.parts).filter((p) => p.kind === "body").map((p) => p.ref) : bodies.filter((r) => scene.parts[r]?.kind === "body"); // (the refs may be faces too: their constraints, `in_1176`)
   const scope = new Set<Ref>();
   const single = Object.values(scene.parts).filter((p) => p.kind === "body").length <= 1;
   for (const p of Object.values(scene.parts)) if (p.origin === "body" && p.kind !== "body" && (p.of ? live.includes(p.of) : single)) scope.add(p.ref); // (what the kernel made of it: its corners, edges, circles, faces)
@@ -278,7 +278,7 @@ export function annotationsOfBodies(scene: Scene, bodies: readonly Ref[] | null,
     for (const q of step?.parts ?? []) scope.add(q); // (the sketch it was made from)
     if (typeof step?.params.holes === "string") for (const q of step.params.holes.split(",")) scope.add(q as Ref);
   }
-  for (const r of (bodies ?? [])) { // (a face: the face itself and its edges and corners, `in_1163`)
+  for (const r of (bodies ?? [])) { // (a face: the face itself and its edges and corners, `in_1176`)
     const f = scene.parts[r];
     if (f?.kind === "plane" && f.origin === "body") { scope.add(r); for (const e of faceEdges(scene, f)) scope.add(e); }
   }
