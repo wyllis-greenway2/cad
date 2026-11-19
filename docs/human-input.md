@@ -4515,3 +4515,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1039 — 2026-11-19 — directive
 > maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
 (asks for the branch with the exchange work (OBJ, DXF, 3MF, STEP, BREP, FreeCAD, drop, meshes, IGES) to be merged into the testing branch, and for work to go on from a branch that has it)
+
+## in_1040 — 2026-11-19 — question
+> @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/97b271ad-rebuilt_gear_after_deletion.json" @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/66ce796a-rebuilt_gear_after_deletion_state.json" okay can you help fix a bug? why when I delete this crown gear did it have to rebuild the meshed gear?
+(with a project and a state snapshot of a spiral crown gear of 40 teeth and its meshed pinion of 18: asks why deleting the crown gear made the pinion be built again (the snapshot shows 18 of 28 steps made, 14.7 s, a 12 s boolean), and for it to be fixed)

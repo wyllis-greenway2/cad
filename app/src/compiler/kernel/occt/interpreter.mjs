@@ -1039,6 +1039,21 @@ const OPS = {
     return { kind: "solid", shape: t.intersect(makeBox(op.min, op.max)) };
   },
 
+  /**
+   * The bodies of chains that were made apart, standing beside each other (`dec_gear_islands`): the target's and each of `others`'. What a gear is made of is its own numbers, so its steps are a chain of their own and do not depend on the gears before it
+   * (deleting or changing one gear did not make the next ones again); here they meet. A chain that failed is left out (its own step says why). Nothing is worked out: the solids are put in one compound.
+   */
+  join(op, ctx) {
+    const solids = [];
+    for (const id of [op.target, ...(op.others ?? [])]) {
+      let v;
+      try { v = ctx.peek(id, "solid"); } catch { continue; }
+      solids.push(...(v.shape.solids ?? [v.shape]));
+    }
+    if (!solids.length) throw new Error("none of the chains that were to be joined has a body");
+    return { kind: "solid", shape: solids.length === 1 ? solids[0] : makeCompound(solids), checked: true, noCross: true };
+  },
+
   /** Delete the whole body: later steps start a new one. */
   clear() {
     return { kind: "empty" };
@@ -2482,7 +2497,7 @@ export function compile(graph, quick = false) {
   const pj = JSON.stringify([params, !!graph.names]);
   for (const op of graph.ops) {
     const t0 = performance.now();
-    const key = fingerprint(JSON.stringify([op, pj, [op.target, op.profile, ...(op.holes ?? []), ...(op.also ?? []).flatMap((f) => [f.profile, ...f.holes]), ...(op.sections ?? []).flatMap((s) => [s.profile, ...(s.holes ?? [])])].map((d) => (d ? keys.get(d) ?? null : null))]));
+    const key = fingerprint(JSON.stringify([op, pj, [op.target, op.profile, ...(op.holes ?? []), ...(op.others ?? []), ...(op.also ?? []).flatMap((f) => [f.profile, ...f.holes]), ...(op.sections ?? []).flatMap((s) => [s.profile, ...(s.holes ?? [])])].map((d) => (d ? keys.get(d) ?? null : null))]));
     keys.set(op.id, key);
     const kept = memo.get(key);
     if (kept && !(kept.unchecked && !quick)) {
@@ -2504,11 +2519,13 @@ export function compile(graph, quick = false) {
         // which bodies the result has, by the markers of the body it was made from (moved with it if this was a move)
         const from = op.target ? results.get(op.target)?.value : null;
         let prev = value.tf ? moveMarkers(from?.markers ?? [], value.tf) : from?.markers ?? [];
+        const extras = (op.others ?? []).map((id) => results.get(id)).filter((r) => r && !r.error && r.value.kind === "solid").map((r) => r.value); // (a join: the bodies of the other chains keep their names and their faces' names)
+        if (extras.length) prev = [...prev, ...extras.flatMap((v) => v.markers ?? [])];
         if (value.first) prev = [...prev.filter((m) => m.id === value.first), ...prev.filter((m) => m.id !== value.first)]; // (the body that stays keeps its name when bodies are combined)
         const tM = performance.now();
         value.markers = trackBodies(prev, value.shape, op.id);
         markMs = performance.now() - tM;
-        if (graph.names) { const named = nameFaces(from?.faceNames, value.tf, value.shape, op.id, (op.type === "extrude" || op.type === "revolve" || op.type === "loft" || op.type === "sweep") && ctx.roleFigs ? [...ctx.roleFigs.values()].flat() : op.type === "edgeMod" ? edgeRoles(op, from?.edgeNames) : null); value.faceNames = named.faces; Object.defineProperty(value, "edgeNames", { get: () => named.edges, enumerable: true, configurable: true }); } // (the names of the flat faces, carried from the body it was made from)
+        if (graph.names) { const named = nameFaces(extras.length ? [...(from?.faceNames ?? []), ...extras.flatMap((v) => v.faceNames ?? [])] : from?.faceNames, value.tf, value.shape, op.id, (op.type === "extrude" || op.type === "revolve" || op.type === "loft" || op.type === "sweep") && ctx.roleFigs ? [...ctx.roleFigs.values()].flat() : op.type === "edgeMod" ? edgeRoles(op, from?.edgeNames) : null); value.faceNames = named.faces; Object.defineProperty(value, "edgeNames", { get: () => named.edges, enumerable: true, configurable: true }); } // (the names of the flat faces, carried from the body it was made from)
       }
       const rigid = op.type === "transform" && (op.mode === "move" || op.mode === "rotate"); // (moving a valid body cannot make it invalid: the check is skipped, it costs as much as the move)
       const tC = performance.now();
