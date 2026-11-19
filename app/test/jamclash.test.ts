@@ -67,5 +67,9 @@ test("a lever on a pin: the model says so, and the note suggests the coaxial mat
   const env = { w: 800, h: 600, now: 0 };
   assert.equal(frameOf({ ...createState(s), motion: r.motion }, env).motionBar!.note, null, "nothing is said while the lever has not been moved");
   const moved = solveContact(sc, { ...r.motion, playing: true, amount: 60 }, s.outcome, Infinity);
-  assert.match(frameOf({ ...createState(s), motion: moved }, env).motionBar!.note ?? "", /Mate: coaxial/);
+  // the offer to fix it (a button, the same thing said as a joint) takes the place of the note: it is not said twice
+  const fb = frameOf({ ...createState(s), motion: moved }, env).motionBar!;
+  assert.ok(fb.fix.offer, "the fix is offered");
+  assert.equal(fb.note, null, "and the note that said the same is not shown");
+  assert.match(moved.contact!.tip ?? "", /Mate: coaxial/);
 });

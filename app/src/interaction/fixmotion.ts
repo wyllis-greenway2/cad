@@ -116,10 +116,14 @@ export function planFixes(scene: Scene, outcome: CompileOutcome | undefined, m: 
     if (!samples.some((s) => Math.hypot(...s.t) > MOVED_MM || Math.abs(s.spin) > MOVED_DEG)) return; // (it stayed where it was: nothing to fix)
     any = true;
     const name = nameOf(scene, p.body);
-    const j = fitJoint(samples, p.point, across);
-    if (j.kind === "none") { left.push({ body: p.body, name, why: j.why }); return; }
-    if (j.kind === "slide") { left.push({ body: p.body, name, why: `${name} slides along one line, but a slider needs a rod to slide on: make a rod, or leave it to the push` }); return; }
+    const j: Joint = fitJoint(samples, p.point, across);
     if (!(scene.parts[p.body] as { id?: string } | undefined)?.id) { left.push({ body: p.body, name, why: "it is not a body of the model" }); return; }
+    if (j.kind !== "turn") { // the push's own path is not one axis (it slides and turns by what it meets), but the model may still say what holds it: a hole of the body on a pin of another
+      const on = holeAndPin(scene, p.body);
+      if (on) { fixes.push({ body: p.body, name, joint: { kind: "turn", point: on.center, dir: on.axis, err: 0, ratio: null, ratioErr: 0 }, how: "mate", expect, text: `${name} is on a pin of ${nameOf(scene, on.on)}: mate its hole to the pin, coaxial (the push also slid it${j.kind === "none" ? "" : " along a line"}, which the mate will not)` }); return; }
+      left.push({ body: p.body, name, why: j.kind === "none" ? j.why : `${name} slides along one line, but a slider needs a rod to slide on: make a rod, or leave it to the push` });
+      return;
+    }
     const found = holeAndPin(scene, p.body, j.point, j.dir);
     fixes.push(found
       ? { body: p.body, name, joint: j, how: "mate", expect, text: `${name} turns about one axis (it fits within ${fmt(j.err)} mm): mate its hole to the pin, coaxial (the pin is the axis; the hole moves to it)` }
