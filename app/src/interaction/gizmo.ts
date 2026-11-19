@@ -99,7 +99,7 @@ const arrowBoth = (id: string, mid: Vec3, dir: Vec3, half: number): Handle => ({
 /** One arrow along each of three axes, named `prefix:x`, `prefix:y`, `prefix:z`. */
 const axisArrows = (prefix: string, ax: readonly Vec3[], from: Vec3, len: number, ratio?: true): Handle[] => ax.map((d, i) => arrowAlong(`${prefix}:${"xyz"[i]}`, i as 0 | 1 | 2, from, d, len, ratio));
 /** The three little panes between the arrows (`in_1181`): each a square in the plane of two of the axes, whose drag always moves in that plane (XY, XZ, YZ). `len` is the length of the arrows. */
-const axisPanes = (ax: readonly Vec3[], centre: Vec3, len: number): Handle[] =>
+export const axisPanes = (ax: readonly Vec3[], centre: Vec3, len: number): Handle[] =>
   ([[0, 1], [0, 2], [1, 2]] as const).map(([a, b]) => {
     const [from, to] = [0.25 * len, 0.5 * len];
     const at = (u: number, v: number): Vec3 => add(centre, add(scale(ax[a]!, u), scale(ax[b]!, v)));
@@ -139,10 +139,9 @@ function moverHandles(kind: "move" | "rotate" | "both", centre: Vec3, L: number,
   const rings = (): Handle[] => ax.map((d, i) => ring(`rot:${"xyz"[i]}`, centre, d, L * 0.8, i as 0 | 1 | 2));
   // with the sphere selected both sets are up and they work on the mover itself: the arrows move it, the rings turn its axes
   // move and turn are two tools, each with its own handles, acting on the object (`in_421`); the cross section plane has both, as it has no tool to be in
-  const panes = (): Handle[] => axisPanes(ax, centre, 2 * HALF * L);
-  if (sphere) return { centre, handles: [...arrows("piv"), ...rings(), ball, ...panes()] };
-  if (kind === "both") return { centre, handles: [...arrows("move"), ...rings(), ball, ...panes()] };
-  return { centre, handles: kind === "move" ? [...arrows("move"), ball, ...panes()] : [...rings(), ball] };
+  if (sphere) return { centre, handles: [...arrows("piv"), ...rings(), ball] };
+  if (kind === "both") return { centre, handles: [...arrows("move"), ...rings(), ball] };
+  return { centre, handles: kind === "move" ? [...arrows("move"), ball] : [...rings(), ball] };
 }
 
 /** A full circle round `axis` through `centre`, so which plane it turns in is plain to see; the arrowhead sits a little way round. */

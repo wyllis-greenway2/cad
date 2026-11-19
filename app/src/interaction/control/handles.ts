@@ -26,7 +26,7 @@ import { draggedSection, sectionNow, placeSection, sheetMoveOf } from "./section
 import { withPose, hasOrb, moverOp, putMover } from "./pose.ts";
 import { patternBase, dragPattern, panePattern, liveRepeat, advanceHelp } from "../pattern.ts";
 import type { Op } from "../operations.ts";
-import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed, jointHandles, moveOffset } from "../gizmo.ts";
+import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed, jointHandles, moveOffset, axisPanes } from "../gizmo.ts";
 import { jointOfBody, jointRoom, driveCommand, hardDrive } from "../mate.ts";
 import type { Gizmo } from "../gizmo.ts";
 import { candidatesAt } from "../picking.ts";
@@ -101,7 +101,19 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
     const g = gizmoOf(s);
     if (!g) return orbitOrCorner(s, i, env);
     // the first move of a drag: where did it begin? (the pointer is at (x, y) now and has moved (dx, dy) since the press)
-    const h = hitHandle(g, pr.project, i.x - i.dx, i.y - i.dy, undefined, chosenId(s));
+    let h = hitHandle(g, pr.project, i.x - i.dx, i.y - i.dy, undefined, chosenId(s));
+    // two arrows chosen with Shift: taking either of them moves freely in the plane of the two, as the plane of a pane did (`in_1204`)
+    if (h && h.kind === "arrow" && h.axis !== null && s.lockAxes.length === 2 && s.lockAxes.includes(h.axis) && /^(move|piv):/.test(h.id) && !s.repeat) {
+      const [a, b] = s.lockAxes as [0 | 1 | 2, 0 | 1 | 2];
+      const arrows = ([a, b] as const).map((k) => g.handles.find((q) => q.kind === "arrow" && q.axis === k && /^(move|piv):/.test(q.id)));
+      if (arrows[0] && arrows[1]) {
+        const dirOf = (q: typeof arrows[0]): Vec3 => normalize(sub(q!.points[1]!, q!.points[0]!));
+        const ax: Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+        ax[a] = dirOf(arrows[0]); ax[b] = dirOf(arrows[1]);
+        const len = Math.hypot(...sub(arrows[0].points[1]!, arrows[0].points[0]!));
+        h = axisPanes(ax, g.centre, len).find((q) => q.plane && q.plane[0] === a && q.plane[1] === b) ?? h;
+      }
+    }
     const d0 = h ? startDrag(g, h, pr.ray(i.x - i.dx, i.y - i.dy), s.cam) : null;
     const d = d0 && h ? withScreen(d0, h, pr, i.x - i.dx, i.y - i.dy, env.h) : d0;
     if (!d || h!.id === "mir:orb" || h!.id === "lin:orb") return orbitOrCorner(s, i, env); // (the revolve's orb is dragged to move it, `in_468`)
@@ -110,7 +122,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
       const [held, lockBefore] = [h!.plane as (0 | 1 | 2)[], s.lockAxes];
       const mover = s.op ?? activeOp(s);
       if (!s.op && sectionNow(s) && !mover) { const sec = sectionNow(s)!; return { ...s, lockAxes: held, handleSel: null, drag: { handle: d, base: 0, paneLock: lockBefore, section: { ref: sec.ref, centre: sec.centre, n: sec.n } }, gizmoHover: h!.id }; }
-      if (mover && mover.kind === "move" && mover.target === "body" && !s.moverSphere) return { ...s, handleSel: null, op: { ...mover, auto: false, free: [0, 0, 0] }, drag: { handle: d, base: 0, pane: { centre: g.centre, keep: s.op ?? mover } }, gizmoHover: h!.id };
+      if (mover && mover.kind === "move" && mover.target === "body" && !s.moverSphere) return { ...s, handleSel: null, lockAxes: held, op: { ...mover, auto: false, free: [0, 0, 0] }, drag: { handle: d, base: 0, paneLock: lockBefore, pane: { centre: g.centre, keep: s.op ?? mover } }, gizmoHover: h!.id }; // (the two axes are held for the drag, so their numbers show, and let go after it, `in_1204`)
       if (s.moverSphere && moverOp(s)) { const started = moverOp(s)!; return { ...putMover(s, { ...started, auto: false }), lockAxes: held, handleSel: null, drag: { handle: d, base: 0, paneLock: lockBefore, piv: { centre: g.centre, offset: started.kind === "move" ? moveOffset(sceneOf(s.session), started) : [0, 0, 0] } }, gizmoHover: h!.id }; }
       if (!(mover && mover.kind === "scale")) return orbitOrCorner(s, i, env); // (the scale's pane goes on in the way of the arrows below)
     }
@@ -259,8 +271,25 @@ function withScreen(d: Drag, h: Handle, pr: ReturnType<typeof projector>, x0: nu
 
 /** A selected whole body dragged free (`in_291`): it goes where the pointer goes on the plane through its middle that faces the camera, as one move step that is made when it is let go (the picture of it moving is the graphics card's). */
 function moveBody(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env): AppState {
-  const d = s.drag as { body: Ref; from: Vec3; centre: Vec3 };
+  const d = s.drag as { body: Ref; from: Vec3; centre: Vec3; planar?: true };
   if (!s.op) return s;
+  if (s.lockAxes.length === 2) { // two axes chosen: the body goes freely in the plane of the two, where the pointer's ray meets that plane (not the picture plane: the third axis never moves), `in_1204`
+    const c = [0, 1, 2].find((k) => !s.lockAxes.includes(k as 0 | 1 | 2)) as 0 | 1 | 2;
+    const f0 = s.op.frame;
+    const n: Vec3 = f0 ? f0[c] : [c === 0 ? 1 : 0, c === 1 ? 1 : 0, c === 2 ? 1 : 0];
+    const ray = projector(s.cam, env.w, env.h).ray(i.x, i.y);
+    const den = ray ? n[0] * ray.d[0] + n[1] * ray.d[1] + n[2] * ray.d[2] : 0;
+    if (ray && Math.abs(den) > 1e-6) {
+      const t = (n[0] * (d.centre[0] - ray.o[0]) + n[1] * (d.centre[1] - ray.o[1]) + n[2] * (d.centre[2] - ray.o[2])) / den;
+      if (t > 0) {
+        const hit: Vec3 = [ray.o[0] + ray.d[0] * t, ray.o[1] + ray.d[1] * t, ray.o[2] + ray.d[2] * t];
+        if (!d.planar) return { ...s, drag: { ...d, from: hit, planar: true }, op: { ...s.op, free: [0, 0, 0], grab: hit } };
+        const r0 = (v: number) => Math.round(v * 1000) / 1000;
+        const delta = sub(hit, d.from);
+        return { ...s, op: { ...s.op, free: [r0(delta[0]), r0(delta[1]), r0(delta[2])], grab: d.from } };
+      }
+    }
+  }
   const now = onViewPlane(s.cam, d.centre, projector(s.cam, env.w, env.h).ray(i.x, i.y));
   if (!now) return s;
   const r = (v: number) => Math.round(v * 1000) / 1000;
