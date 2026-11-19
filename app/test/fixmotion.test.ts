@@ -172,3 +172,29 @@ test("the carried lever (`in_1147`) is moved with the pin and not turned with th
   assert.ok(Math.abs(lever!.value) > 5 && Math.abs(lever!.value) < 90, `the lever slipped on the pin by a part of a turn, not the gear's: ${lever!.value}`);
   assert.ok(m.yields!.find((f) => f.body === lever!.body)!.after?.slip, "drawn moved by the pin, not turned by it");
 });
+
+test("the walk begins from the start (`in_1165`): the model is put back where it starts, paused, so the parts to be constrained are drawn where they are; at the end it is playing as it was", async () => {
+  const { setSpeed } = await import("../src/interaction/motion.ts");
+  const s = open();
+  const sc = scene(s);
+  const driver = Object.values(sc.parts).find((p) => p.kind === "body" && p.id === "x_s_083")!.ref;
+  const r = startMotion(sc, driver, "turn", s.outcome);
+  if (!r.ok) throw new Error(r.why);
+  const m = solveContact(sc, { ...r.motion, playing: true, amount: 90 }, s.outcome, Infinity);
+  assert.equal(m.amount, 90);
+  let st: AppState = { ...createState(s), motion: m };
+  st = doMotionFix(st, "open");
+  assert.equal(st.motion!.amount, 0, "at the start");
+  assert.equal(st.motion!.playing, false, "paused");
+  assert.ok(st.motion!.contact!.pushables.every((p) => !p.free || Math.hypot(...p.free) < 1e-9), "every body where it is drawn at the start");
+  st = doMotionFix(st, "close");
+  assert.equal(st.motion!.playing, true, "playing again as it was");
+  assert.equal(st.motion!.fix, null);
+  // the speed: a multiple of where it began, the direction kept, the clock restarted where it stands
+  const a = setSpeed({ ...r.motion, playing: true, amount: 30, speed: 60 }, 2);
+  assert.equal(a.speed, 120);
+  assert.equal(a.from, 30);
+  const b = setSpeed({ ...a, speed: -120 }, 0.5);
+  assert.equal(b.speed, -30, "the way it goes is kept");
+  assert.equal(b.speedK, 0.5);
+});

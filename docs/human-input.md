@@ -4996,3 +4996,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1164 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the terse Fix walk (select, zoom, apply, view put back) to be merged into the testing branch, no full test run)
+
+## in_1165 — 2026-11-19 — directive
+> okay we should probably actually put the model back into its starting position when we go on the fix constraints path because it positions the constraints in the position of the original parts position. Also can we make the fix constraints button inline with the same media player element to the right? can we include a clock icon to the left next to the play and direction swapper that can be clicked on to adjust the speed of the rotation?
+(a screenshot of the zoomed pin drawn where the play had carried it, not where the constraint would be made; asks the walk to start from the model's starting position, the Fix Constraints button to be in the media bar at the right, and a clock icon by play and the direction switch that adjusts the speed)
