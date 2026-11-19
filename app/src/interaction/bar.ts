@@ -18,6 +18,8 @@ export interface BarFacts {
   /** the body that was double clicked, and the bodies whose constraints are all shown */
   consFor: Ref | null;
   consOn: readonly Ref[];
+  /** the one face of a body that is selected: it has the lock for its constraints too (`in_1163`) */
+  face: Ref | null;
   /** the sheet that is selected: its mode, whether it is invisible, what its move icon has the handles in, and its first corner */
   sheet: { ref: Ref; mode: 0 | 1 | 2; hidden: boolean; move: 0 | 1; corner: Vec3 } | null;
   gear: { part: Ref; at: Vec3; items: BarGear["items"] } | null;
@@ -49,7 +51,11 @@ export function barOf(f: BarFacts, suggestAt: Vec3 | null): Bar | null {
     if (f.play && f.play.body === b.ref) icons.push({ id: `body:play:${b.ref}`, icon: f.play.playing ? "pause" : "play", title: f.play.playing ? "Pause the animation" : "Play the animation" });
     if (f.consFor === b.ref) {
       const on = f.consOn.includes(b.ref);
-      icons.push({ id: `body:constraints:${b.ref}`, icon: "eyelock", title: on ? "Constraints of this body are shown: hide them" : "Show every constraint that has to do with this body", ...(on ? { on: true as const } : {}) });
+      icons.push({ id: `body:constraints:${b.ref}`, icon: on ? "lock" : "unlock", title: on ? "Constraints of this body are shown: hide them" : "Show every constraint that has to do with this body", ...(on ? { on: true as const } : {}) });
+    }
+    if (f.face) {
+      const on = f.consOn.includes(f.face);
+      icons.push({ id: `body:constraints:${f.face}`, icon: on ? "lock" : "unlock", title: on ? "Constraints of this face are shown: hide them" : "Show every constraint that has to do with this face", ...(on ? { on: true as const } : {}) });
     }
   } else if (f.bodies.length > 1) icons.push({ id: "view:hide", icon: "eye", title: "Hide these bodies" });
   const gear = f.gear ? { part: f.gear.part, items: f.gear.items } : null;
