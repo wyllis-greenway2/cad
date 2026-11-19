@@ -4678,3 +4678,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1081 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for `claude/adoring-dijkstra-smooth-faster` to be merged into the testing branch, without a full test run; it carries the smoother turns of a pushed body, the kept places for a play from the start again and the note that fades)
+
+## in_1082 — 2026-11-19 — question
+> why does it still look like my mesh gear collides with the weird flared out tops of the teeth? can you try building the same gear and test for actual collision? because it is clearly colliding at least according to the render. Is the render wrong?
+(asks whether the render is wrong, and for the same gear to be built and tested for a real collision; before it: "should the teeth still be shaped like this? it takes almost 50 seconds to make the default face gear", with a screenshot of one tooth's flanks)

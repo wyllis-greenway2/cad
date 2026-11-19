@@ -35,7 +35,7 @@ function facePairOf(z1: number, z2: number, m: number, bl: number, inner?: numbe
   const t = thick ?? FACE.plate * m;
   if (!(t >= 0.5 * m)) return err("the plate must be at least half a module thick");
   const r1 = (m * z1) / 2;
-  return ok({ z1, z2, m, alpha: (20 * Math.PI) / 180, bl, inner: i, outer: o, r1, R2, rb: r1 * Math.cos((20 * Math.PI) / 180), hK: m, hF: 1.25 * m, thick: t, cham });
+  return ok({ z1, z2, m, alpha: (20 * Math.PI) / 180, bl, inner: i, outer: o, r1, R2, rb: r1 * Math.cos((20 * Math.PI) / 180), hK: 0.75 * m, hF: 1.25 * m, thick: t, cham });
 }
 /** Which of the pair a face gear record is and its pair, or why there is none: `bevel.facegear` is "gear" (the record has the face gear's teeth) or "pinion"; `crown` has the radii and `width` the plate's thickness. */
 export function faceFor(spec: GearSpec): Result<{ pair: FacePair; role: "gear" | "pinion" }> {
@@ -146,7 +146,7 @@ function faceBodyMade(pr: FacePair): Result<FaceBody> {
   // the heights (modules above the pitch plane): the pinion's involute flank makes the tooth exactly from the pinion's tip (a module below the plane) up to its base circle (0.42 module up on a 14 tooth pinion); there the tooth is as the envelope has it, widening
   // steadily downwards. Above the base circle the pinion's flank is the radial line of its root, which the envelope turns into a flare (`in_1015`), and below its tip it does not reach: in those two parts of the tooth, which nothing touches, it is a smooth
   // continuation: above, a taper to 0.6 of the width at the base circle's height (never pointed); below, the walls straight down to the root. (Five sections with straight necks above and below made an S: the human asked if real face gears look like that, `in_1030`.)
-  const hs = [1, 0.4, 0, -0.4, -0.7, -1, -1.55].map((k) => k * m);
+  const hs = [0.75, 0.4, 0, -0.4, -0.7, -1, -1.55].map((k) => k * m);
   const xy = (r: number, th: number): P => [r * Math.cos(th), r * Math.sin(th)];
   const sections: FaceBody["sections"] = [];
   let last: [number[], number[]] | null = null;
