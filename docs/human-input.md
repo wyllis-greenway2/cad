@@ -5212,3 +5212,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1223 — 2026-11-19 — directive
 > @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/30a56b5a-Flywheel.pdf" no no no, we want real profiles. More like this . Lets look up real engineering specs to get some inspiration for properties that make for a good hub, things that are machinable, or castable, and have high strength profiles etc
 (supplied a flywheel drawing (Chirico Engine Works, a 4.5 inch cast zinc flywheel with a recessed web, curved windows, a reamed bore and set screws) as the kind of profile wanted instead of plain bars; asks for real engineering specs to be looked up for what makes a good hub: machinable, castable, strong)
+
+## in_1224 — 2026-11-19 — directive
+> why don't you cancel it, and me give you specific pieces I think you'll need
+(about my OCR of the four Rathbun PDF parts: cancel it; the human will supply the specific pages wanted)
