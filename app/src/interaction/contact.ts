@@ -20,7 +20,7 @@ import type { CompileOutcome } from "../compiler/compile.ts";
 import type { Motion } from "./motion.ts";
 
 /** A body that yields: it turns about the axis through `point` with direction `dir` (or slides along `dir`), and stands at `value` degrees (mm) from where it was drawn. `rest`: where it goes back to when nothing holds it away (a spring, gravity: a follower dropping off a cam), as far as it is clear to. */
-export interface Pushable { body: Ref; kind: "turn" | "slide"; /** the mate whose joint it is (for keeping the pose) */ mate?: string; point: Vec3; dir: Vec3; value: number; /** the way it last went, so a tie goes on the same way */ way: 1 | -1; /** how far it was pushed the last time it was: the next push is about the same, so the search begins there */ push?: number; rest?: number; /** a body with no joint (`dec_contact_push`, free push): where it has been pushed to, as a move from where it is drawn; it goes any way in the plane across the turning axis */ free?: [number, number, number]; /** how far it has turned about its own middle (`point`), degrees, as well: a body with no joint has three freedoms in the plane, two of sliding and one of turning */ spin?: number; /** how far its outline reaches from its middle in the plane, mm: a turn of a degree is that much of a slide */ reach?: number; /** the way it was last slid (its place in the list of ways) and the way it was last turned, which the next push of that kind tries first; whether it was turning at the last push, and how many pushes ago it last looked for a slide */ dirSlide?: number; dirTurn?: [number, number]; turning?: boolean; since?: number; /** what a push could not go on because of: the body this one is against */ blockedBy?: Ref }
+export interface Pushable { body: Ref; kind: "turn" | "slide"; /** the mate whose joint it is (for keeping the pose) */ mate?: string; point: Vec3; dir: Vec3; value: number; /** the way it last went, so a tie goes on the same way */ way: 1 | -1; /** how far it was pushed the last time it was: the next push is about the same, so the search begins there */ push?: number; rest?: number; /** a body with no joint (`dec_contact_push`, free push): where it has been pushed to, as a move from where it is drawn; it goes any way in the plane across the turning axis */ free?: [number, number, number]; /** how far it has turned about its own middle (`point`), degrees, as well: a body with no joint has three freedoms in the plane, two of sliding and one of turning */ spin?: number; /** how far its outline reaches from its middle in the plane, mm: a turn of a degree is that much of a slide */ reach?: number; /** the way it was last slid (its place in the list of ways) and the way it was last turned, which the next push of that kind tries first; whether it was turning at the last push, and how many pushes ago it last looked for a slide */ dirSlide?: number; dirTurn?: [number, number]; turning?: boolean; since?: number; /** how many steps it has gone without being pushed */ still?: number; /** what a push could not go on because of: the body this one is against */ blockedBy?: Ref }
 export interface Candidate { body: Ref; kind?: "turn" | "slide"; mate?: string; point: Vec3; dir: Vec3; rest?: number; way?: 1 | -1; /** a body with no joint: pushed aside by what it meets */ free?: true; reach?: number }
 export interface ContactState {
   pushables: Pushable[];
@@ -38,6 +38,7 @@ export interface ContactState {
   clash?: number[] | null;
 }
 const FREE_STEP = 2.5; // (the most a body with no joint is pushed in one step of the driver, mm)
+const SPLITS = 3, SPLIT_PUSH = 0.4; // (a step that moves a body with no joint more than this, mm, is made again in halves, three times at most)
 const FREE_MAX = 60;
 const FREE_SPIN = 120; // (how far a body with no joint may be turned in one play, degrees) // (how far a body with no joint may be pushed in one play, mm: past it the push stops and says so)
 const MAX_PUSH = 12.8, STEP = 1, MAX_STEPS = 360, MAX_PASSES = 12;
@@ -198,6 +199,8 @@ const staticBodies = (scene: Scene, bodies: readonly Ref[]): Ref[] => Object.key
  * The motion worked out for the driver's amount, in steps from where it was last worked out: at each step the driver and what it carries are put where they go, and each body that yields is moved by the smallest amount that clears it. When one
  * cannot be cleared (it has nowhere to go) or a moving body meets a wall, the motion goes back to the last amount that was clear and stops, saying what it was against.
  */
+/** What was worked out at each whole degree of a motion (a place of the grid), for the scene it was worked out in: a change to the scene is a new scene and starts again. */
+const placesOf = new WeakMap<object, Map<string, Map<number, { vals: number[]; ways: (1 | -1)[]; pushes: number[]; work: Pushable[] }>>>();
 export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, budgetMs = BUDGET_MS): Motion {
   const began = performance.now();
   const c = m.contact;
@@ -212,13 +215,19 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
   const from = c.at, n = Math.min(MAX_STEPS, Math.max(1, Math.ceil(Math.abs(m.amount - from) / step)));
   let good = from, jam: string | null = null, note: string | null = null, slow = false, clash: number[] | null = null;
   let solid: ReadonlySet<Ref> = new Set();
-  for (let i = 1; i <= n && !jam; i++) {
-    const a = from + ((m.amount - from) * i) / n;
-    const was = vals.slice();
+  const first = 1 + m.follows.length;
+  // what a step changes can be put back: the bodies' places, as they stood before it (a step that jams, or that moves a body with no joint further than the driver's own move asks, is made again in halves)
+  const snap = () => ({ vals: vals.slice(), ways: ways.slice(), pushes: pushes.slice(), work: work.map((q) => ({ ...q, ...(q.free ? { free: [...q.free] as [number, number, number] } : {}) })) });
+  const restore = (s: ReturnType<typeof snap>): void => {
+    for (let q = 0; q < vals.length; q++) { vals[q] = s.vals[q]!; ways[q] = s.ways[q]!; pushes[q] = s.pushes[q]!; }
+    s.work.forEach((q, ix) => { const w = work[ix]!; Object.assign(w, q); if (q.free) w.free = [...q.free] as [number, number, number]; });
+  };
+  const pushOf = (s: ReturnType<typeof snap>): number => work.reduce((most, q, ix) => { const b = s.work[ix]!; return q.free && b.free ? Math.max(most, Math.hypot(q.free[0] - b.free[0], q.free[1] - b.free[1], q.free[2] - b.free[2], (((q.spin ?? 0) - (b.spin ?? 0)) * Math.PI * (q.reach ?? 10)) / 180)) : most; }, 0);
+  const solveStep = (a: number): void => {
     ({ solid, note } = solidSet(scene, outcome, movers, a, vals)); // (who is solid at this step: hard, or touched by a solid body to the depth)
     // each moving body against the rest, again until nothing is in anything (a body that yields may come to meet another)
-    const first = 1 + m.follows.length;
     let settled = false;
+    const pushedNow = new Set<number>(); // (the bodies with no joint that were pushed in this step: they do not go back while something is pushing them)
     // only the bodies that moved since they were last tested are tested again: what did not move meets what did not move as it did before (the driver moved at the start of the step, then each body that yielded, one pass at a time: a chain is a walk along it, not a test of every body again at every link)
     let dirty = new Set<number>(movers.map((_, w) => w).filter((w) => w < first));
     for (let pass = 0; pass < MAX_PASSES && !jam; pass++) {
@@ -233,7 +242,8 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
         const yielded = pi >= 0 && (work[pi]!.free ? yieldFree(scene, outcome, movers, a, vals, work[pi] as Pushable & { free: [number, number, number] }, ways, pushes, pi, aside, movers[w]!.body, mated, ignore, solid, statics, clearance) : yieldBody(scene, outcome, movers, a, vals, ways, kinds, pushes, pi, aside, movers[w]!.body, mated, ignore, solid, statics, clearance));
         // a body with no joint that is against another that yields, and the other cannot get out of its way, goes out of the other's way itself (clear of every body where it stands)
         const retried = !yielded && pi >= 0 && w >= first && w - first !== pi && !!work[w - first]!.free && yieldFree(scene, outcome, movers, a, vals, work[w - first] as Pushable & { free: [number, number, number] }, ways, pushes, w - first, w, movers[w]!.body, mated, ignore, solid, statics, clearance, true);
-        if (retried) { next.add(w); continue; }
+        if (retried) { pushedNow.add(w - first); next.add(w); continue; }
+        if (yielded && pi >= 0) pushedNow.add(pi);
         if (!yielded) {
           const stuck = pi >= 0 ? work[pi]!.blockedBy : undefined; // (a body with no joint that is against another: say which)
           const joint = pi >= 0 && !work[pi]!.free ? ` (${nameOf(scene, work[pi]!.body)} ${work[pi]!.kind === "slide" ? "slides" : "turns"} on its joint but cannot ${work[pi]!.kind === "slide" ? "slide" : "turn"} clear of it)` : "";
@@ -257,9 +267,12 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
       const reach = work[pi]!.reach ?? 10, here: [number, number, number] = [f[0], f[1], f[2]], spin0 = work[pi]!.spin ?? 0;
       const len = Math.hypot(f[0], f[1], f[2], (spin0 * Math.PI * reach) / 180);
       if (len < 1e-9) continue;
+      if (pushedNow.has(pi)) { work[pi]!.still = 0; continue; }
+      work[pi]!.still = (work[pi]!.still ?? 0) + 1;
+      if (work[pi]!.still! < 3) continue; // (not at once: a body that was just pushed and is touching its pusher does not go back and forth with it)
       const w = first + pi;
       const clearAt = (k: number): boolean => { for (let q = 0; q < 3; q++) f[q] = here[q]! * k; work[pi]!.spin = spin0 * k; return firstHit(scene, outcome, movers, a, vals, w, mated, ignore, solid, statics, clearance) === null; };
-      const target = Math.max(0, 1 - 1 / len); // (a step of a millimetre, or all the way)
+      const target = Math.max(0, 1 - 0.6 / len); // (a step of six tenths of a millimetre, or all the way: it drifts back, it does not jump)
       if (clearAt(target)) continue;
       let [lo, hi] = [target, 1]; // (the share of its place that is clear)
       for (let k = 0; k < 9; k++) { const mid = (lo + hi) / 2; if (clearAt(mid)) hi = mid; else lo = mid; }
@@ -279,12 +292,45 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
       for (let k = 0; k < 9; k++) { const mid = (lo + hi) / 2; if (clearAt(here + (target - here) * mid)) lo = mid; else hi = mid; }
       vals[pi] = here + (target - here) * lo;
     }
-    if (jam) { for (let k = 0; k < vals.length; k++) vals[k] = was[k]!; break; }
-    good = a;
-    if (i < n && performance.now() - began > budgetMs) { slow = true; break; } // (the rest of the steps wait for the next frame)
+  };
+  let cur = from;
+  const advance = (a: number, depth: number): void => {
+    const before = snap();
+    solveStep(a);
+    if (jam) { restore(before); return; }
+    // a body with no joint moved further than a step of the driver can ask (a body squeezed between two others moves a lot for a little): the step is made again in halves, so it moves as little as the motion needs
+    if (depth < SPLITS && pushOf(before) > SPLIT_PUSH) { restore(before); advance((cur + a) / 2, depth + 1); if (!jam) advance(a, depth + 1); return; }
+    cur = a; good = a;
+  };
+  // the steps are the whole degrees (the places of a grid) between where it is and where it goes, then the end: what was worked out at a place of the grid is kept for the scene as it is, so playing again, or scrubbing, goes through
+  // places already worked out at once, and the first play is the only one that costs (`in_1080`)
+  const sign = m.amount >= from ? 1 : -1;
+  const targets: number[] = [];
+  for (let g = sign > 0 ? Math.floor(from / step + 1e-9) + 1 : Math.ceil(from / step - 1e-9) - 1; sign > 0 ? g * step < m.amount - 1e-9 : g * step > m.amount + 1e-9; g += sign) targets.push(g * step);
+  targets.push(m.amount);
+  const cacheKey = `${m.body}|${m.kind}|${m.mate ?? ""}|${m.follows.map((f) => f.body).join(",")}`;
+  let places = placesOf.get(scene)?.get(cacheKey);
+  if (!places) { places = new Map(); const all = placesOf.get(scene) ?? new Map(); all.set(cacheKey, places); placesOf.set(scene, all); }
+  const gridAt = (a: number): number | null => { const g = Math.round(a / step); return Math.abs(g * step - a) < 1e-9 ? g : null; };
+  if (targets.length > MAX_STEPS) { targets.length = 0; for (let i = 1; i <= n; i++) targets.push(from + ((m.amount - from) * i) / n); } // (a long scrub in one go: equal steps, nothing kept)
+  // the kept places are the path of a play from the start: used going forward from a place on that path (or from the start, with every body where it is drawn); going back, or from a state that is not on the path (a body left where it was
+  // pushed by an earlier scrub), the steps are worked out as before
+  const same = (x: ReturnType<typeof snap>, y: ReturnType<typeof snap>): boolean => x.vals.every((v, q) => Math.abs(v - y.vals[q]!) < 1e-9) && x.work.every((w, q) => !w.free || (y.work[q]!.free !== undefined && w.free.every((v, k) => Math.abs(v - y.work[q]!.free![k]!) < 1e-9) && Math.abs((w.spin ?? 0) - (y.work[q]!.spin ?? 0)) < 1e-9));
+  const here = snap();
+  const gFrom = gridAt(from);
+  const atRest = here.vals.every((v) => Math.abs(v) < 1e-9) && here.work.every((w) => !w.free || (w.free.every((v) => Math.abs(v) < 1e-9) && Math.abs(w.spin ?? 0) < 1e-9));
+  const onPath = sign > 0 && (from === 0 ? atRest : gFrom !== null && !!places.get(gFrom) && same(places.get(gFrom)!, here));
+  const keep = onPath && targets.length <= MAX_STEPS && places !== undefined;
+  for (let i = 0; i < targets.length && !jam; i++) {
+    const a = targets[i]!, g = keep ? gridAt(a) : null;
+    const known = g !== null ? places.get(g) : undefined;
+    if (known) { restore(known); cur = a; good = a; continue; }
+    advance(a, 0);
+    if (!jam && g !== null && Math.abs(cur - a) < 1e-9) places.set(g, snap());
+    if (!jam && i < targets.length - 1 && performance.now() - began > budgetMs) { slow = true; break; } // (the rest of the steps wait for the next frame)
   }
   if (slow && !note) note = "this push is heavy: it plays slower than real time";
-  const pushables = c.pushables.map((p, i) => ({ ...p, value: vals[i]!, way: ways[i]!, push: pushes[i]!, ...(work[i]!.free ? { free: work[i]!.free, spin: work[i]!.spin ?? 0 } : {}), ...(work[i]!.dirSlide !== undefined ? { dirSlide: work[i]!.dirSlide } : {}), ...(work[i]!.dirTurn ? { dirTurn: work[i]!.dirTurn } : {}), turning: !!work[i]!.turning, since: work[i]!.since ?? 0, ...(work[i]!.blockedBy ? { blockedBy: work[i]!.blockedBy } : {}) }));
+  const pushables = c.pushables.map((p, i) => ({ ...p, value: vals[i]!, way: ways[i]!, push: pushes[i]!, ...(work[i]!.free ? { free: work[i]!.free, spin: work[i]!.spin ?? 0 } : {}), ...(work[i]!.dirSlide !== undefined ? { dirSlide: work[i]!.dirSlide } : {}), ...(work[i]!.dirTurn ? { dirTurn: work[i]!.dirTurn } : {}), turning: !!work[i]!.turning, since: work[i]!.since ?? 0, still: work[i]!.still ?? 0, ...(work[i]!.blockedBy ? { blockedBy: work[i]!.blockedBy } : {}) }));
   const follows = yieldsOf(pushables, movers.find((q) => q.turns)?.axis ?? [0, 0, 1]);
   return { ...m, amount: jam || slow ? good : m.amount, playing: jam ? false : m.playing, from: jam || slow ? good : m.from, startedAt: jam || slow ? null : m.startedAt, contact: { ...c, pushables, at: good, jam, note, clash: jam ? clash : null, target: slow ? m.amount : null }, yields: follows };
 }
@@ -383,17 +429,18 @@ function yieldFree(scene: Scene, outcome: CompileOutcome | undefined, movers: Mo
   const turning = !!p.turning, since = p.since ?? 0;
   // a body that is turning looks for a slide again only every few steps: the search that finds there is none is the costly part
   const slideNow = !turning || since >= 5;
+  const rings = (es: number[]): void => { for (const e of es) for (let k = 0; k < PHI; k++) tryWay(k, e); };
   const search = (): void => {
     if (slideNow) {
       if (p.dirSlide !== undefined) warm(around(p.dirSlide, 0));
-      if (!best) for (let k = 0; k < PHI; k++) tryWay(k, 0);
+      if (!best) rings([0]);
     }
     if (!best) {
       if (p.dirTurn) warm(around(p.dirTurn[0], p.dirTurn[1]));
       if (!best) { tryWay(0, 99); tryWay(1, 99); } // (a turn alone)
-      if (!best) for (let e = 1; e < ELS.length; e++) for (let k = 0; k < PHI; k++) tryWay(k, e);
+      if (!best) rings([1, 2, 3, 4]);
     }
-    if (!best && !slideNow) for (let k = 0; k < PHI; k++) tryWay(k, 0); // (it had not looked for a slide for a few steps: the last way to look before a jam)
+    if (!best && !slideNow) rings([0]); // (it had not looked for a slide for a few steps: the last way to look before a jam)
   };
   search();
   if (!best) { fine = true; search(); }
@@ -454,6 +501,6 @@ function yieldsOf(pushables: Pushable[], across: Vec3 = [0, 0, 1]): Follower[] {
 
 /** The motion started again from the beginning (pressing play after a jam): the driver at nothing, every body that yielded back where it is drawn, no jam. */
 export function restartContact(c: ContactState, across: Vec3 = [0, 0, 1]): { contact: ContactState; yields: Follower[] } {
-  const pushables = c.pushables.map((p): Pushable => { const { push: _p, dirSlide: _s, dirTurn: _t, turning: _u, since: _n, blockedBy: _b, ...rest } = p; return { ...rest, value: 0, way: p.way, ...(p.free ? { free: [0, 0, 0] as [number, number, number], spin: 0 } : {}) }; });
+  const pushables = c.pushables.map((p): Pushable => { const { push: _p, dirSlide: _s, dirTurn: _t, turning: _u, since: _n, still: _z, blockedBy: _b, ...rest } = p; return { ...rest, value: 0, way: p.way, ...(p.free ? { free: [0, 0, 0] as [number, number, number], spin: 0 } : {}) }; });
   return { contact: { ...c, pushables, at: 0, jam: null, note: null, clash: null, target: null }, yields: yieldsOf(pushables, across) };
 }

@@ -80,7 +80,7 @@ function constraintsFor(scene: Scene, selection: readonly Ref[], tol = 0, seen?:
   if (selection.length < 1 || selection.length > 2) return null;
   const get = lookup(scene);
   const parts = selection.map((r) => scene.parts[r]);
-  if (!parts.every((p) => p && p.origin === "drawn" && p.movable && (p.kind === "corner" || p.kind === "line" || p.kind === "circle"))) return matesFor(scene, selection); // (faces and edges of bodies, and the world's planes, are offered the mates that fit them: `dec_constraint_uniformity`)
+  if (!parts.every((p) => p && p.origin === "drawn" && p.movable && (p.kind === "corner" || p.kind === "line" || p.kind === "circle"))) return matesFor(scene, selection); // (faces and edges of bodies, and the world's planes, are offered the mates that fit them: `inv_constraint_uniformity`)
   const have = (id: string, refs: readonly Ref[]) => scene.relations.some((r) => r.kind === id && r.parts.length === refs.length && refs.every((x) => r.parts.includes(x)));
   const items = actionsFor(scene, selection).filter((a) => a.group === "relation" && !a.dimensional && a.enabled && !have(a.id, a.parts)).map((a) => ({ id: a.id, label: a.label }));
   items.push(...nearItems(scene, selection, tol, seen).map((n) => ({ id: n.id, label: n.label })));
@@ -98,7 +98,7 @@ function constraintsFor(scene: Scene, selection: readonly Ref[], tol = 0, seen?:
   return { at, items };
 }
 
-/** Faces and circular edges of bodies, and the world's planes: the mates that fit the selection and are not made yet, as the Constraints ring offers them (`in_1074`: a pin's wall and a hole's wall offered no coaxial mate, nor any other). A mate with an angle is not offered here: its number is asked for on its bubble. */
+/** Faces and circular edges of bodies, and the world's planes: the mates that fit the selection and are not made yet, as the Constraints ring offers them (`in_1083`: a pin's wall and a hole's wall offered no coaxial mate, nor any other). A mate with an angle is not offered here: its number is asked for on its bubble. */
 function matesFor(scene: Scene, selection: readonly Ref[]): Suggestions | null {
   const mateable = selection.every((r) => { const p = scene.parts[r]; return !!p && ((p.kind === "plane" && (p.origin === "body" || p.origin === "world")) || (p.kind === "line" && p.origin === "body" && !!p.circle)); });
   if (!mateable) return null;

@@ -1,4 +1,4 @@
-// The suggester offers the mates that fit faces and edges of bodies, as it offers constraints for the parts of a drawing (`dec_constraint_uniformity`, `in_1074`).
+// The suggester offers the mates that fit faces and edges of bodies, as it offers constraints for the parts of a drawing (`inv_constraint_uniformity`, `in_1083`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

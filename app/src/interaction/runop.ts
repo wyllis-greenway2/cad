@@ -18,7 +18,7 @@ export function runOp(sess: Session, op0: Op): { session: Session; cmd: Command 
   const r = runOpCore(sess, op0);
   const sc = sceneOf(sess);
   if (!r || !(sc.hard?.length || sc.fixed?.length)) return r;
-  // a change that hard bodies stopped (refused when typed, or a drag taken only as far as it could go) is a violated constraint like any other: the bodies flash, it says so, and the button deletes their hardness and makes the change as asked (`dec_constraint_uniformity`, `in_1082`)
+  // a change that hard bodies stopped (refused when typed, or a drag taken only as far as it could go) is a violated constraint like any other: the bodies flash, it says so, and the button deletes their hardness and makes the change as asked (`inv_constraint_uniformity`, `in_1082`)
   const limit = limitedOp(sc, op0);
   if (!limit || !limit.hit?.length || (r.session.conflict && r.session.conflict !== sess.conflict)) return r;
   // what the button does once the hardness is gone: a refusal made nothing, so the change as asked; a drag that was cut short made the part that was free, so the rest of the move (a turn that was cut short is not continued: the hardness alone is deleted)
@@ -72,7 +72,7 @@ function runOpCore(sess: Session, op0: Op): { session: Session; cmd: Command } |
     // a size that is nothing, or less (a radius of zero, a fillet of nothing): said, not ignored
     const v = valueOf(op);
     const why = op.edit?.kind === "radius" && op.edit.arc ? (isTangentArc(sceneOf(sess), op.edit.circle) ? "the lines tangent to this arc cannot stay tangent at that radius (a locked size or angle holds them)" : "the lines on both ends of this arc do not reach that radius (they would have to move)") : "it would be zero or less";
-    // (the constraints that hold it flash and can be deleted: a refusal that blames a constraint always says which, `dec_constraint_uniformity`)
+    // (the constraints that hold it flash and can be deleted: a refusal that blames a constraint always says which, `inv_constraint_uniformity`)
     const holders = op.edit && v !== null && v !== 0 ? holdingPart(sceneOf(sess), op.edit.kind === "radius" ? [op.edit.circle] : op.parts) : [];
     return op.edit && v !== null && v !== 0 ? { session: { ...sess, message: `that size is not possible: ${why}`, ...(holders.length ? { conflict: { culprits: holders, victims: holders } } : {}) }, cmd: { type: "batch", commands: [] } } : null;
   }

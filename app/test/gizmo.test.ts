@@ -2360,7 +2360,7 @@ test("an edge behind a face the cross section cuts away is there to point at: th
   assert.ok(opened > 0, "with the near wall cut away, an inside edge can be picked");
 });
 
-// ---------- one rule for a violated constraint (`dec_constraint_uniformity`, `in_1074`) ----------
+// ---------- one rule for a violated constraint (`inv_constraint_uniformity`, `in_1083`) ----------
 test("a violated constraint flashes and offers to be deleted even when the change stays (no change to go on with): the notice has the button, and it deletes the constraint alone", () => {
   let st = box();
   const lines = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn");

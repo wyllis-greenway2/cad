@@ -4672,9 +4672,21 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (attached the project file model.cad_64.json, build c7db6782: a 40 tooth face gear and its 14 tooth pinion made with Mesh gear, both with default settings, and a close screenshot of two flanks crossing)
 
 ## in_1080 — 2026-11-19 — directive
+> okay the rotation is pretty jumpy, it seems to jump much more than it should each time it detects? that is not how xyz movement, work, they move only as much as they need to and slide along the surface, rotation should be the same. Also it is still way too heavy, how can we make the animation lighter and faster? Also the message about it being heavy should fade in and out stable, right now it flashes so fast you cant even read it.
+(three asks: a turn of a pushed body should be as small as the push needs, as a slide is; the push is too heavy and should be lighter and faster; the "heavy" message should fade in and out and stay long enough to read)
+
+## in_1081 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for `claude/adoring-dijkstra-smooth-faster` to be merged into the testing branch, without a full test run; it carries the smoother turns of a pushed body, the kept places for a play from the start again and the note that fades)
+
+## in_1082 — 2026-11-19 — directive
 > maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
 (asks, again, for the work to be merged into the testing branch and for new work to go on from a new branch that has it: the branch claude/intelligent-hawking-next was made from the testing branch's tip)
 
-## in_1081 — 2026-11-19 — directive
+## in_1083 — 2026-11-19 — directive
 > @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/af3d00ff-why_jamb.json" Okay can we do an audit of our constraint and suggested constraint system? So attempting to voilate a constraint should always always operate the same. I cosntantly find exceptions. If you attempt to voilate a constraint, it should always flash red, make itself known, and offer to delete the constraint. Also selecting things that can have constraints applied should suggest those constraints in the little suggester just like the select similar suggestion etc. I constantly find exceptions to this rule too. For example, if I select this pin wall and this hole wall, it doesn't offer a coaxial constraint, or any other valid constraint.
 (with a screenshot of a hole's wall and the pin's wall in it both selected, nothing offered, and a project (`why_jamb`): asks for an audit of the constraints and their suggestions, as two rules with no exceptions: a violated constraint always flashes red, says so and offers to be deleted; whatever is selected that can have constraints is always offered them in the suggester)
+
+## in_1084 — 2026-11-19 — directive
+> Lets try flash red and offer to delete the constraint because that keeps it truly universally behaving the same always for all constraints.
+(answers the AI's question in `q_constraint_audit`: a hard body that stops a move, being pushed against another hard body or a wall, is to flash red, say so and offer to delete the constraint (its hardness), like every other violated constraint; this replaces the rule of `in_484`, that a drag against a hard body only stops, with nothing flashing or said)

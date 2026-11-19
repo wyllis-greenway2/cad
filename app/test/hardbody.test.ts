@@ -49,7 +49,7 @@ test("hard bodies stop against each other: the block pushed at the other stops w
   const s = hardOf(two(), [A, B]);
   assert.deepEqual([...scene(s).hard!].sort(), ["x_s_100", "x_s_101"]);
   const r = moveBy(s, [40, 0, 0])!;
-  assert.match(r.session.message ?? "", /taken as far as it could go/, "it says what stopped it (`dec_constraint_uniformity`)");
+  assert.match(r.session.message ?? "", /taken as far as it could go/, "it says what stopped it (`inv_constraint_uniformity`)");
   const b = box(r.session, A);
   assert.ok(Math.abs(b.max[0]! - 30) < 0.05, `it stops against the other: ${b.max[0]}`);
   assert.ok(Math.abs(box(r.session, B).min[0]! - 30) < 1e-6, "the other did not move");
@@ -504,7 +504,7 @@ test("a pin in a hole of the same size, dragged about for a long time: it collid
     assert.ok(!lim || "op" in lim, `a drag is cut short, not refused: ${JSON.stringify(lim)}`);
     const made = runOp(s, { ...(st as { op: Op }).op, free });
     if (!made) continue; // (against the wall: nothing to make)
-    assert.ok(!made.session.message || /taken as far as it could go/.test(made.session.message), `${made.session.message}`); // (cut short and said, never refused: `dec_constraint_uniformity`)
+    assert.ok(!made.session.message || /taken as far as it could go/.test(made.session.message), `${made.session.message}`); // (cut short and said, never refused: `inv_constraint_uniformity`)
     s = made.session; moved++;
     assert.deepEqual(hardOverlaps(scene(s)), [], `still clear after drag ${i}`);
   }
@@ -607,7 +607,7 @@ test("the Hard body item is in the Constraints section of the menu, not under Sh
   assert.ok(!under(none).some((c) => c.id === "body:hard" && c.enabled), "with nothing selected it is not offered");
 });
 
-// ---------- a hard stop is a violated constraint like any other (`dec_constraint_uniformity`, `in_1082`) ----------
+// ---------- a hard stop is a violated constraint like any other (`inv_constraint_uniformity`, `in_1082`) ----------
 test("a drag that hard bodies stopped flashes the body it ran into, says so, and offers to delete the hardness and make the move as asked", () => {
   const s = hardOf(hardOf(two(), [A]), [B]);
   const made = moveBy(s, [60, 0, 0]);

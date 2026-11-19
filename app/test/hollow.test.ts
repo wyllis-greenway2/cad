@@ -96,7 +96,7 @@ test("the sketch behind a body edge stays a regular sketch (`in_210`): its radiu
   const smaller = run(s, radius.run(radius.measure()! - 1), { watchAll: true });
   assert.ok(smaller.message, "the lines tangent to the arc cannot follow a smaller radius: refused");
   assert.deepEqual(smaller.conflict?.culprits.sort(), ["r_016", "r_017"], "the constraints that hold the arc flash");
-  assert.deepEqual(smaller.conflict?.victims.sort(), ["r_016", "r_017"], "and can be deleted: a violated constraint always offers it (`dec_constraint_uniformity`)");
+  assert.deepEqual(smaller.conflict?.victims.sort(), ["r_016", "r_017"], "and can be deleted: a violated constraint always offers it (`inv_constraint_uniformity`)");
   assert.ok(smaller.conflict?.retry, "with the change to go on with");
   assert.equal(scene(smaller).parts["d/e_015.s0"]?.kind, "line");
   // a sketch tool, with that edge selected, starts on the sketch's own plane
