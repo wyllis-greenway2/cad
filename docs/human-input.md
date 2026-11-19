@@ -4651,3 +4651,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1073 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please do the full suite tests
 (asks for the branch to be merged into the testing branch, with the whole suite run)
+
+## in_1074 — 2026-11-19 — directive
+> Okay now this is better, but maybe we should have a rule that it doesn't rotate, unless it has no freedom of movement in xyz? because now it doesn't weird stuff and seems to rotate even when it doesn't need to. In fact, maybe we should make this a rule in general for collision and free hand movement of objects? They use xyz space for freedom of movement, unless there is none in which case it uses rotational movement, unless there is none and then it jambs. Also it is extremely slow now, and also the player bar is jumping all around again. How can we make it faster? is our rotational idea stupid and going to make everything really slow now?
+(files `why_jamb.json` and a screencast: the order of freedom for a pushed body (slide, then turn, then jam) as a rule for collision and for moving a body by hand; the slowness; the bar jumping)
