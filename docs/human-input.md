@@ -4751,3 +4751,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1099 — 2026-11-19 — directive
 > Okay merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for this branch (Reapply mates removed, Clearance under Fabricate, the cams out of Sketch, Models under Fabricate with the Geneva plate) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
+
+## in_1100 — 2026-11-19 — question
+> If this pin has a coaxial constraint to the hole, then why does it immediately violate that when I start the animation?
+(asks why a pin that has a coaxial constraint to its hole immediately violates it when the animation starts: a screenshot of a gear's pin through the hole of a lever with the message "that cannot be done without breaking other constraints" and "Delete constraints to proceed", and the saved model)
