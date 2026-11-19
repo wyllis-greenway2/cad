@@ -76,7 +76,7 @@ import { annotationsFor, annotationsOf, focusParts } from "./annotations.ts";
 import { suggestionsFor } from "./suggest.ts";
 import type { Suggestions } from "./suggest.ts";
 import type { Annotation } from "./annotations.ts";
-import { sectionQuad, sectionNow, cutsNow, modeOf, sheetMoveOf } from "./control/section.ts";
+import { sectionQuad, sectionNow, cutsNow, modeOf, sheetMoveOf, activePane } from "./control/section.ts";
 import { inUnits, entryOf, revolveEntries, loftEntries, previewFor, repeatEntries, moveEntries, moverPlaceEntries, mirrorEntries, scaleEntries, sectionEntries } from "./entry.ts";
 import { helperOf } from "./pattern.ts";
 import type { Entry } from "./entry.ts";
@@ -195,7 +195,7 @@ export interface Frame {
   wireframe: boolean;
   /** the cross section plane (`in_392`) and, while it is being chosen, the three planes offered */
   /** every cross section plane in the part, faint when it is not selected (`in_396`) */
-  sectionPlanes: { ref: Ref; /** a guide drawn for a tool (the mirror's plane), not a sheet: no icons */ guide?: true; selected: boolean; cutting: boolean; /** the mode of its icon (`in_459`): 0 cuts the half its normal points to, 1 the other half, 2 no cut, 3 invisible */ mode: 0 | 1 | 2; /** invisible: it cannot be pointed at (`in_466`) */ hidden: boolean; /** the state of its move icon, for the one that is selected */ move: 0 | 1 | 2 | 3 | 4; corners: Vec3[] }[];
+  sectionPlanes: { ref: Ref; /** a guide drawn for a tool (the mirror's plane), not a sheet: no icons */ guide?: true; selected: boolean; cutting: boolean; /** the mode of its icon (`in_459`): 0 cuts the half its normal points to, 1 the other half, 2 no cut, 3 invisible */ mode: 0 | 1 | 2; /** invisible: it cannot be pointed at (`in_466`) */ hidden: boolean; /** the state of its move icon, for the one that is selected */ move: 0 | 1; corners: Vec3[] }[];
   /** the sheets that are cutting the view (`in_416`, any number: `in_459`); the normal points to the half cut away */
   sections: { at: Vec3; n: Vec3; corners: Vec3[] }[];
   /** the constraints that could be put on the selected parts, as buttons by them (`in_195`) */
@@ -535,7 +535,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
       return [{ ref: p.ref, at: [at[0] + sh[0], at[1] + sh[1], at[2] + sh[2]] as Vec3, ...over, ...(bump ? { bumps: bump.names } : {}) }];
     }) : [],
     panes: s.cam.straight || s.worldHidden ? [] : WORLD_NAMES.map((name) => ({ name, corners: paneCorners(name), active: name === s.world, hover: name === s.paneHover })),
-    gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : undefined, /* (only the orient mode pulses, and the revolve's orb that is ready to be oriented; the mirror's and the copies' orbs do not, `in_439`) */ hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "revolve" && !s.moverSphere ? `rev:turn:${"xyz"[s.op.axis]}` : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
+    gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : undefined, /* (only the orient mode pulses, and the revolve's orb that is ready to be oriented; the mirror's and the copies' orbs do not, `in_439`) */ hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "revolve" && !s.moverSphere ? `rev:turn:${"xyz"[s.op.axis]}` : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : [...s.lockAxes.map((k) => `move:${"xyz"[k]}`), ...(activePane(s) ? [activePane(s)!] : [])] } : null,
     similar: similarOf(s),
     toolpath: s.preview ? previewView(s.preview.toolpath, s.preview.at) : null,
     motionBar: s.motion ? { amount: shownAmount(s.motion), lo: s.motion.lo, hi: s.motion.hi, kind: s.motion.kind, playing: s.motion.playing, reversed: s.motion.speed < 0, springs: springsOf(sc, s.motion), links: s.motion.mate ? linksOf(sc, s.motion.mate, s.motion.kind).map((l) => ({ id: l.id, ratio: l.k, kind: l.kind })) : [], label: `${s.motion.kind === "turn" ? "turned" : "slid"} ${steadyNumber(shownAmount(s.motion))}${s.motion.kind === "turn" ? "°" : " mm"}`, note: motionNote(s.motion), fix: { offer: canFix(s.motion), step: s.motion.fix ? (() => { const f = s.motion.fix!.plan.fixes[s.motion.fix!.i]; return f ? { text: f.text, n: s.motion.fix!.i + 1, of: s.motion.fix!.plan.fixes.length, how: f.how } : null; })() : null } } : null,
