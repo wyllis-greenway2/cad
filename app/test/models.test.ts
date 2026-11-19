@@ -130,7 +130,7 @@ test("the catalogue bearings: every number in the list makes a bearing; the dime
 });
 test("a catalogue bearing is made to its dimensions, with the rings held apart by their balls and the balls apart from the rings", () => {
   for (const [n, d, D, B] of [[608, 8, 22, 7], [6203, 17, 40, 12]] as const) {
-    const st = modelBuild("ballbearing", modelNumbers("ballbearing", { number: n, detail: 1 }), { at: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0], ez: [0, 0, 1] });
+    const st = modelBuild("ballbearing", { ...modelNumbers("ballbearing", { number: n }), detail: 1 }, { at: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0], ez: [0, 0, 1] });
     const s = make(st);
     const b = byVolume(s), balls = b.filter((x) => x.volume < 400 && Math.abs(x.bbox.max[2]! - x.bbox.min[2]!) < B * 0.9), rings = b.filter((x) => !balls.includes(x));
     assert.equal(rings.length, 2, `${n}: two rings`);
@@ -156,16 +156,16 @@ test("a simple bearing is two plain rings (the outer ring's hole is wider than t
   assert.ok(r(inner)[0]! < 40 && r(inner)[0]! > 17 && Math.abs(r(inner)[1]! - 12) < 0.05, `inner ${r(inner)}`);
   assert.equal(shared(simple, inner, outer), 0);
   // a bearing of your own: 10 x 30 x 9 with the inner ring 18 across
-  const mine = modelNumbers("ballbearing", { number: 0, bore: 10, outer: 30, width: 9, ring: 18 });
-  assert.equal(modelProblem("ballbearing", mine), null);
-  const m = byVolume(make(modelBuild("ballbearing", mine, at)));
+  const mine = modelNumbers("ownbearing", { bore: 10, outer: 30, width: 9, ring: 18 });
+  assert.equal(modelProblem("ownbearing", mine), null);
+  const m = byVolume(make(modelBuild("ownbearing", mine, at)));
   assert.equal(m.length, 2);
   assert.ok(Math.abs(r(m[0]!)[0]! - 18) < 0.05 && Math.abs(r(m[1]!)[0]! - 30) < 0.05 && Math.abs(r(m[1]!)[1]! - 9) < 0.05, `${r(m[0]!)} ${r(m[1]!)}`);
   // the same in detail: two rings and the balls
-  const det = byVolume(make(modelBuild("ballbearing", { ...mine, detail: 1 }, at)));
+  const det = byVolume(make(modelBuild("ownbearing", { ...mine, detail: 1 }, at)));
   assert.ok(det.length > 5, `${det.length} bodies`);
-  assert.match(modelProblem("ballbearing", modelNumbers("ballbearing", { number: 0, bore: 10, outer: 8, width: 9 })) ?? "", /more than the bore/);
-  assert.match(modelProblem("ballbearing", modelNumbers("ballbearing", { number: 0, bore: 10, outer: 30, width: 9, ring: 9 })) ?? "", /more than the bore/);
+  assert.match(modelProblem("ownbearing", modelNumbers("ownbearing", { bore: 10, outer: 8, width: 9 })) ?? "", /more than the bore/);
+  assert.match(modelProblem("ownbearing", modelNumbers("ownbearing", { bore: 10, outer: 30, width: 9, ring: 9 })) ?? "", /more than the bore/);
 });
 test("a cycloidal drive has no markers: its plates have four mounting holes each and the shaft a flat above the output plate", () => {
   const s = make(cycloidalSteps(CYCLOIDAL_START));

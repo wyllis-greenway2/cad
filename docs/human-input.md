@@ -5015,3 +5015,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1168 — 2026-11-19 — directive
 > lets not have it say, instead lets have it flash red the remaining parts the relied on that constraint, and show their constraint bubble pop.
 (answers the AI's question of `in_1167`: when deleting a part takes constraints with it, it should not say so in words; it flashes red the parts that remained and relied on the constraint, and shows the constraint's bubble pop)
+
+## in_1169 — 2026-11-19 — directive
+> okay I think the menu should have you either go into a catalog selector that is simple bearing only, or go into create your own path with simple or detailed selectable. Right now it kind of seems to be in a hybrid state of both make your own and select from catalog
+(asks for two separate paths under a bearing type: a catalogue selector that makes simple bearings only, and a make-your-own path where simple or detailed can be chosen)
