@@ -193,18 +193,19 @@ export function doMotionFix(s: AppState, act: "open" | "apply" | "skip" | "close
   if (act === "apply" && f) {
     // each joint that can be made is played to where the fit ended; the one that does not jam and turns the body nearest to where the push left it is made (the mate holds the hole on the pin; the push could also slide off it, which a joint cannot)
     let chosen: { c: ReturnType<typeof fixCommands>[number]; next: ReturnType<typeof run>; off: number } | null = null;
-    let refused: string | null = null, jammed = "";
+    const reasons: string[] = [];
+    const word = (h: string): string => (h === "mate" ? "the coaxial mate" : "the pivot");
     for (const c of fixCommands(sceneOf(s.session), f)) {
       const next = run(s.session, c.command);
-      if (next.message) { refused = next.message; if (c.how === "pivot") return say(next.message, { session: next }); continue; }
+      if (next.message) { reasons.push(`${word(c.how)} is refused: ${next.message}`); continue; }
       const r = startMotion(sceneOf(next), m.body, m.kind, next.outcome);
       if (!r.ok) continue;
       const there = solveContact(sceneOf(next), { ...r.motion, playing: true, amount: f.expect.amount }, next.outcome, Infinity);
-      if (there.contact?.jam) { jammed = `the ${c.how === "mate" ? "coaxial mate" : "pivot"} would jam: ${there.contact.jam}`; continue; }
+      if (there.contact?.jam) { reasons.push(`${word(c.how)} would jam: ${there.contact.jam}`); continue; }
       const off = Math.abs(Math.abs(there.yields?.find((x) => x.body === f.body)?.value ?? 0) - Math.abs(f.expect.spin));
       if (!chosen || off < chosen.off - 1e-9) chosen = { c, next, off };
     }
-    if (!chosen) return say(`not applied: ${jammed || refused || "no joint fits"}. Skip it, or leave it to the push`);
+    if (!chosen) return say(`not applied: ${reasons.join("; ") || "no joint fits"}. Skip it, or leave it to the push`);
     const { c, next } = chosen;
     const note = [c.how === "pivot" && f.how === "mate" ? `made a pivot, not the mate${c.why ? ` (${c.why})` : ""}` : "", chosen.off > FIT_DEG ? `at ${Math.round(f.expect.amount)} degrees it turns ${chosen.off.toFixed(1)} degrees differently from the push (the push could slide off what the joint cannot): undo to take it back` : ""].filter(Boolean).join("; ");
     const before = new Set(sceneOf(s.session).relations.map((r) => r.id));
