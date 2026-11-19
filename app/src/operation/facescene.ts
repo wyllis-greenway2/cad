@@ -17,10 +17,8 @@ import type { GearSpec } from "./gear.ts";
 import { boreLoop } from "./bore.ts";
 
 const ref = (id: string, name: string): Ref => drawnRef(`${id}.${name}`);
-/** how far the pinion's plane is out from where the axes cross, in front of the teeth's inner end (mm): the pinion is a millimetre longer than the face at each end */
-export const PINION_OVERHANG = 1;
-/** the pinion's width: the face and the overhang at each end */
-export const pinionWidth = (pr: FacePair): number => pr.outer - pr.inner + 2 * PINION_OVERHANG;
+export { PINION_OVERHANG, pinionWidth } from "./face.ts";
+import { pinionWidth } from "./face.ts";
 /** the pair and the body of a face gear record, or null if it makes none */
 export function faceGearOf(rec: GearRecord): { pair: FacePair; body: FaceBody } | null {
   const f = faceFor(rec.spec);
