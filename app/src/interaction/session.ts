@@ -45,7 +45,7 @@ export interface Session {
   /** what to do instead if one of those steps could not be made (an edit of the step that made a face, refused late: the prism the old way) */
   readonly fallback?: Command;
   /** the last command that was refused because it could not be done without breaking constraints: who tried (`culprits`: relation ids) and what it would have broken (`victims`) */
-  readonly conflict: { culprits: string[]; victims: string[]; /** what to do once the constraints in `victims` are deleted (the button "Delete constraint to proceed", `in_366`): the refused command itself */ retry?: Command; /** parts of a refused step that are the problem (the edges that cannot take a fillet or chamfer of that size): they flash red (`in_266`) */ parts?: string[] } | null;
+  readonly conflict: { culprits: string[]; victims: string[]; /** what to do once the constraints in `victims` are deleted (the button "Delete constraint to proceed", `in_366`): the refused command itself */ retry?: Command; /** parts of a refused step that are the problem (the edges that cannot take a fillet or chamfer of that size): they flash red (`in_266`) */ parts?: string[]; /** hard or fixed bodies whose hardness stopped the change: the constraint to delete is their hardness (`dec_constraint_uniformity`, `in_1082`): the body names */ soften?: string[] } | null;
   /** the sketch plane whose hidden sketch is shown while a tool sketches in it (`in_211`) */
   readonly reveal?: Ref | null;
 }

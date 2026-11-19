@@ -3,6 +3,7 @@
 import type { Session } from "./session.ts";
 import { scene as sceneOf, run } from "./session.ts";
 import type { Command } from "../operation/commands.ts";
+import type { Ref } from "../shared/ref.ts";
 import { apply } from "../operation/commands.ts";
 import type { Op } from "./operations.ts";
 import { opCommand, valueOf, bodyMotion } from "./operations.ts";
@@ -14,6 +15,34 @@ import { limitedOp, hardCollision, hardNames } from "./hard.ts";
 
 /** Run the step of `op` on `sess`. Returns the new session and whether it fell back to a prism; null when the operation has no step yet. */
 export function runOp(sess: Session, op0: Op): { session: Session; cmd: Command } | null {
+  const r = runOpCore(sess, op0);
+  const sc = sceneOf(sess);
+  if (!r || !(sc.hard?.length || sc.fixed?.length)) return r;
+  // a change that hard bodies stopped (refused when typed, or a drag taken only as far as it could go) is a violated constraint like any other: the bodies flash, it says so, and the button deletes their hardness and makes the change as asked (`dec_constraint_uniformity`, `in_1082`)
+  const limit = limitedOp(sc, op0);
+  if (!limit || !limit.hit?.length || (r.session.conflict && r.session.conflict !== sess.conflict)) return r;
+  // what the button does once the hardness is gone: a refusal made nothing, so the change as asked; a drag that was cut short made the part that was free, so the rest of the move (a turn that was cut short is not continued: the hardness alone is deleted)
+  let again: Command | null = null;
+  if ("why" in limit) again = opCommand(sc, op0);
+  else if (op0.kind === "move" && op0.free && limit.op.free) again = opCommand(sceneOf(r.session), { ...op0, free: op0.free.map((v, i) => Math.round((v - limit.op.free![i]!) * 1e3) / 1e3) as unknown as typeof op0.free });
+  const conflict = hardConflict(sess, limit.hit, op0.parts.filter((q) => sc.parts[q]?.kind === "body"), again);
+  if (!conflict) return r;
+  const named = hardNames(sc, limit.hit);
+  return { ...r, session: { ...r.session, conflict, message: "why" in limit ? r.session.message : `it was taken as far as it could go: it ran into ${named || "another hard body"} (hard bodies do not go into each other)` } };
+}
+
+/** The conflict of a change that hard bodies stopped: the hardness of the bodies it ran into is the constraint (of the bodies that moved when none of those is hard), and it can be deleted to make the change as asked. Null when no body is hard. */
+function hardConflict(sess: Session, hit: readonly Ref[] | undefined, group: readonly Ref[], asked: Command | null): Session["conflict"] {
+  const sc = sceneOf(sess);
+  const names = (rs: readonly Ref[]): string[] => rs.flatMap((r) => { const p = sc.parts[r]; return p?.kind === "body" && p.id ? [p.id] : []; });
+  const hard = (id: string): boolean => !!sc.hard?.includes(id) || !!sc.fixed?.includes(id);
+  let soften = names(hit ?? []).filter(hard);
+  if (!soften.length) soften = names(group).filter(hard);
+  if (!soften.length) return null;
+  return { culprits: [], victims: [], soften, parts: [...(hit ?? [])] as string[], ...(asked ? { retry: asked } : {}) };
+}
+
+function runOpCore(sess: Session, op0: Op): { session: Session; cmd: Command } | null {
   // hard bodies do not go into each other (`dec_hard_bodies`, `in_473`): a drag is taken as far as it can go, a typed number that would run into one is refused with the reason
   const limit = limitedOp(sceneOf(sess), op0);
   if (limit && "why" in limit) return { session: { ...sess, message: limit.why }, cmd: { type: "batch", commands: [] } };
@@ -27,7 +56,7 @@ export function runOp(sess: Session, op0: Op): { session: Session; cmd: Command 
     const group = op.parts.filter((r) => sceneOf(sess).parts[r]?.kind === "body");
     const settled = constrainedMotion(sceneOf(sess), group, asked, op.grab);
     const into = settled ? hardCollision(sceneOf(sess), group, (b) => settled.rigids.find((q) => q.body === b)?.rigid ?? null) : [];
-    if (into.length) return { session: { ...sess, message: `the mates of this body would take it into ${hardNames(sceneOf(sess), into)}: hard bodies do not go into each other` }, cmd: { type: "batch", commands: [] } };
+    if (into.length) { const conflict = hardConflict(sess, into, group, opCommand(sceneOf(sess), op)); return { session: { ...sess, message: `the mates of this body would take it into ${hardNames(sceneOf(sess), into)}: hard bodies do not go into each other`, ...(conflict ? { conflict } : {}) }, cmd: { type: "batch", commands: [] } }; }
   }
   if (held && held.type === "batch" && !held.commands.length) {
     // refused by the mates that hold it: they flash (with the faces they are between) and a button offers to delete them and make the move as asked (`in_366`, `in_436`)

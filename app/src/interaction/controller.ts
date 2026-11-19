@@ -95,6 +95,11 @@ function overrideRefusal(s: AppState): AppState {
   if (!f) return s;
   const there = new Set(sceneOf(s.session).relations.map((r) => r.id));
   const drop: Command[] = f.victims.filter((id) => there.has(id)).map((id): Command => ({ type: "removeRelation", id }));
+  const sc = sceneOf(s.session);
+  for (const b of f.soften ?? []) { // (the hardness that stopped it is the constraint: a hard and a fixed body are each made soft)
+    if (sc.hard?.includes(b)) drop.push({ type: "setHard", body: b, on: false });
+    if (sc.fixed?.includes(b)) drop.push({ type: "setFixed", body: b, on: false });
+  }
   if (!drop.length) return { ...s, flash: null };
   const done = run(s.session, f.retry ? { type: "batch", commands: [...drop, f.retry] } : { type: "batch", commands: drop }); // (no change to go on with: the constraint alone is deleted)
   if (done.message) return { ...s, session: done, flash: null };

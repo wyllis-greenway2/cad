@@ -49,7 +49,7 @@ test("hard bodies stop against each other: the block pushed at the other stops w
   const s = hardOf(two(), [A, B]);
   assert.deepEqual([...scene(s).hard!].sort(), ["x_s_100", "x_s_101"]);
   const r = moveBy(s, [40, 0, 0])!;
-  assert.equal(r.session.message, null);
+  assert.match(r.session.message ?? "", /taken as far as it could go/, "it says what stopped it (`dec_constraint_uniformity`)");
   const b = box(r.session, A);
   assert.ok(Math.abs(b.max[0]! - 30) < 0.05, `it stops against the other: ${b.max[0]}`);
   assert.ok(Math.abs(box(r.session, B).min[0]! - 30) < 1e-6, "the other did not move");
@@ -111,7 +111,7 @@ test("while a hard body is dragged at another the picture stops where it meets i
 test("a hard body pushed at the face of another slides along it: it goes the way the pointer went along the surface and no further into it (`in_474`)", () => {
   const s = hardOf(two(), [A, B]);
   const r = moveBy(s, [40, 5, 0])!;
-  assert.equal(r.session.message, null);
+  assert.match(r.session.message ?? "", /taken as far as it could go/);
   const b = box(r.session, A);
   assert.ok(Math.abs(b.max[0]! - 30) < 0.05, `against the face: ${b.max[0]}`);
   assert.ok(Math.abs(b.min[1]! - 5) < 0.05, `and along it, the 5 of the way across: ${b.min[1]}`);
@@ -457,7 +457,7 @@ test("the face of a chamfer pulled out (the chamfer made smaller, the corner fil
   assert.equal(limitedOp(scene(s), { ...op, value: -2 }), null, "pushed in, the chamfer is bigger: it goes away from the body in the notch");
   assert.equal(limitedOp(scene(run(run(s, { type: "setHard", body: "x_s_200", on: false }), { type: "setHard", body: h.id ? "x_s_100" : "x_s_100", on: false })), { ...op, value: 3 }), null, "both soft");
   const made = runOp(s, { ...op, value: 3 })!;
-  assert.equal(made.session.message, null, `${made.session.message}`);
+  assert.ok(!made.session.message || /taken as far as it could go/.test(made.session.message), `${made.session.message}`);
   assert.deepEqual(hardOverlaps(scene(made.session)), [], "what was made does not overlap");
 });
 
@@ -488,7 +488,7 @@ test("the round face of a fillet pulled out stops where it meets a hard body sta
 import { readFileSync } from "node:fs";
 const pinInHole = (): Session => { const r = openSession(kernel, readFileSync(new URL("./fixtures/hard-body-pin-in-hole-in_484.json", import.meta.url), "utf8")); assert.ok(r.ok); return (r as { value: Session }).value; };
 
-test("a pin in a hole of the same size, dragged about for a long time: it collides and slides, never ends inside the wall, and a drag is never refused or flashed (`in_484`)", () => {
+test("a pin in a hole of the same size, dragged about for a long time: it collides and slides, never ends inside the wall, and a drag is cut short and said, never refused (`in_484`, `in_1082`)", () => {
   let s = pinInHole();
   assert.deepEqual(hardOverlaps(scene(s)), [], "it starts clear");
   let seed = 11;
@@ -504,7 +504,7 @@ test("a pin in a hole of the same size, dragged about for a long time: it collid
     assert.ok(!lim || "op" in lim, `a drag is cut short, not refused: ${JSON.stringify(lim)}`);
     const made = runOp(s, { ...(st as { op: Op }).op, free });
     if (!made) continue; // (against the wall: nothing to make)
-    assert.ok(!made.session.message, `${made.session.message}`);
+    assert.ok(!made.session.message || /taken as far as it could go/.test(made.session.message), `${made.session.message}`); // (cut short and said, never refused: `dec_constraint_uniformity`)
     s = made.session; moved++;
     assert.deepEqual(hardOverlaps(scene(s)), [], `still clear after drag ${i}`);
   }
@@ -605,4 +605,39 @@ test("the Hard body item is in the Constraints section of the menu, not under Sh
   st = { ...createState({ ...s, click: { ...s.click, selection: [] as never } }), cam: homeCamera() };
   const none = reduce(st, { type: "menu", x: 400, y: 300 }, env).menu!.items.find((c) => c.id === "constraints")!;
   assert.ok(!under(none).some((c) => c.id === "body:hard" && c.enabled), "with nothing selected it is not offered");
+});
+
+// ---------- a hard stop is a violated constraint like any other (`dec_constraint_uniformity`, `in_1082`) ----------
+test("a drag that hard bodies stopped flashes the body it ran into, says so, and offers to delete the hardness and make the move as asked", () => {
+  const s = hardOf(hardOf(two(), [A]), [B]);
+  const made = moveBy(s, [60, 0, 0]);
+  assert.ok(made);
+  assert.ok(Math.abs(box(made!.session, A).max[0]! - 30) < 0.01, "it stopped with its face on the other");
+  const c = made!.session.conflict;
+  assert.ok(c, "a violated constraint always flashes");
+  assert.deepEqual(c!.soften, ["x_s_101"], "the hardness of the body it ran into is what is offered for deletion");
+  assert.ok(c!.parts?.includes(B), "the body it ran into flashes");
+  assert.ok(c!.retry, "with the move as it was asked");
+  assert.match(made!.session.message ?? "", /ran into x_s_101/);
+  // the button: the hardness goes and the move is made as asked, through the other body
+  const st = reduce({ ...createState(made!.session), flash: { ...c!, at: 0 } }, { type: "overrideRefusal" }, env);
+  assert.equal(st.session.message, null);
+  assert.ok(!(scene(st.session).hard ?? []).includes("x_s_101"), "the body is soft now");
+  assert.ok(Math.abs(box(st.session, A).min[0]! - 60) < 0.01, `the move was made as asked: ${box(st.session, A).min[0]}`);
+  assert.equal(st.session.history.cursor, made!.session.history.cursor + 1, "the hardness off and the rest of the move are one step: one undo takes both back");
+});
+
+test("a number typed that would run into a hard body is refused with the same: the body flashes and the button offers to delete its hardness", () => {
+  const s = hardOf(two(), [B]);
+  const made = moveBy(s, [60, 0, 0], "60");
+  assert.ok(made);
+  assert.match(made!.session.message ?? "", /would run into/);
+  assert.deepEqual(made!.session.conflict?.soften, ["x_s_101"]);
+  assert.ok(made!.session.conflict?.retry);
+});
+
+test("nothing hard in the way: no conflict, the move is made", () => {
+  const s = two();
+  const made = moveBy(s, [60, 0, 0]);
+  assert.ok(made && !made.session.conflict && !made.session.message);
 });
