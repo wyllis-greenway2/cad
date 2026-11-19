@@ -4635,3 +4635,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1069 — 2026-11-19 — question
 > okay what else to do?
+
+## in_1070 — 2026-11-19 — directive
+> yes please start
+(approves starting with the full tests on the merged tree, then gears as lazy parts)
