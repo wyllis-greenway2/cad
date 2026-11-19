@@ -32,8 +32,8 @@ export interface Dialog { title: string; ok: string; fields: Field[] }
 
 // ---------- export ----------
 export type ExportKind = ExportFormat | "svg" | "dxf";
-export interface ExportOptions { format: ExportKind; what: "all" | "selected"; units: Units; quality: Quality; perBody: boolean; name: string }
-export const EXPORT_DEFAULTS: ExportOptions = { format: "stl", what: "all", units: "mm", quality: "fine", perBody: false, name: "" };
+export interface ExportOptions { format: ExportKind; what: "all" | "selected"; units: Units; quality: Quality; perBody: boolean; /** a DXF with the pieces that meet joined into one path each */ joined: boolean; name: string }
+export const EXPORT_DEFAULTS: ExportOptions = { format: "stl", what: "all", units: "mm", quality: "fine", perBody: false, joined: true, name: "" };
 const FLAT_KINDS = new Set<ExportKind>(["svg", "dxf"]);
 const NOTHING_3D = "nothing to export yet: make a body";
 const NOTHING_FLAT = "nothing to export yet: draw something, or select a sketch or a flat face of a body";
@@ -77,6 +77,7 @@ export function exportDialog(s: Session, o0: Partial<ExportOptions>): Dialog {
     fields.push({ id: "about", label: "What", type: "text", readonly: true, value: r.ok ? `${r.what}: ${r.pieces.length} piece${r.pieces.length === 1 ? "" : "s"}` : "", note: "the selected sketch or flat face; with nothing selected, the whole drawing (when it is on one plane)" });
   }
   fields.push({ id: "units", label: "Units", type: "choice", value: o.units, choices: [{ value: "mm", label: "Millimetres" }, { value: "in", label: "Inches" }] });
+  if (o.format === "dxf") fields.push({ id: "joined", label: "Outlines", type: "check", value: o.joined, note: "joined into one path each (a cutter or router follows it without lifting); off: separate lines and arcs" });
   if (o.format === "stl" || o.format === "3mf" || o.format === "obj") fields.push({ id: "quality", label: "Mesh quality", type: "choice", value: o.quality, choices: [{ value: "fine", label: "Fine (0.01 mm from the true surface)" }, { value: "medium", label: "Medium (0.05 mm)" }, { value: "coarse", label: "Coarse (0.2 mm: small files)" }] });
   if (!flat) {
     const count = o.what === "selected" ? sel?.length ?? 0 : bodyIds(s).length;
@@ -90,7 +91,7 @@ export function exportDialog(s: Session, o0: Partial<ExportOptions>): Dialog {
 export async function exportWith(s: Session, kernel: Kernel, o0: Partial<ExportOptions>): Promise<FileOutcome> {
   const o = fitExport(s, o0);
   const base = o.name || (FLAT_KINDS.has(o.format) ? "sketch" : "model");
-  if (o.format === "svg" || o.format === "dxf") return exportFlat(s, o.format, `${base}.${o.format}`, o.units);
+  if (o.format === "svg" || o.format === "dxf") return exportFlat(s, o.format, `${base}.${o.format}`, o.units, o.joined);
   const format = o.format as ExportFormat;
   const only = o.what === "selected" ? selectedBodies(s) : undefined;
   const choices = { units: o.units, quality: o.quality };

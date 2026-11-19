@@ -4417,3 +4417,10 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > are you sure the odd-looking tooth tops are just the involute shape?
 (challenges the AI's claim that the face gear's pinched-looking tooth tops are the involute shape; the AI measured and found it was wrong: a waist, the tooth wider at the tip than below it)
 
+## in_1016 — 2026-11-19 — question
+> okay while we are waiting for that, what other file types should we support?
+(asks which further file types to support, while the IGES kernel build is being run)
+
+## in_1017 — 2026-11-19 — directive
+> lets do 1 and 2 together
+(chooses the first two of the AI's list: a 3MF with names and an object for each body, and a DXF with a choice of version)

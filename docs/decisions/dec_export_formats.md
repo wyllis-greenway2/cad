@@ -18,7 +18,7 @@ alternative_to:
 - **STEP** (for other CAD programs and shops): made by the kernel (`exportStep` in the kernel interface; replicad's `blobSTEP`, which `in_523` found works: a filleted block with a hole came back with the same faces and volume) from the exact solid, not a mesh, millimetres, as modelled; the bodies chosen as for the others.
 - **Menu:** `Export 3MF…` and `Export STEP…` beside `Export STL…`, and the same two for the selected body when there is a choice (the ⋯ menu's rows: `appmenu.ts`).
 
-**Not built:** colours, names and several objects in a 3MF; STEP names and colours; the options of `dec_import_export_menu` point 4 (units other than mm, quality, a file for each body); Import.
+**Not built:** colours and given names in a 3MF (several objects came after: `dec_export_more`); STEP names and colours; the options of `dec_import_export_menu` point 4 (units other than mm, quality, a file for each body); Import.
 
 ## Rationale
 

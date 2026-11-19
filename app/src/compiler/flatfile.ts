@@ -126,7 +126,7 @@ export function svgText(pieces0: readonly Piece[], title: string, units: "mm" | 
 }
 
 /** The DXF: the old plain form (AC1009) that every program reads, millimetres, one LINE, ARC or CIRCLE for each piece; an arc always runs counter-clockwise in DXF, so a clockwise one is written from its other end. */
-export function dxfText(pieces0: readonly Piece[], units: "mm" | "in" = "mm"): string {
+export function dxfText(pieces0: readonly Piece[], units: "mm" | "in" = "mm", joined = false): string {
   const pieces = units === "in" ? scaledPieces(pieces0, 1 / 25.4) : pieces0;
   const g: string[] = [];
   const add = (code: number, value: string | number) => { g.push(String(code), typeof value === "number" ? num(value) : value); };
@@ -142,7 +142,25 @@ export function dxfText(pieces0: readonly Piece[], units: "mm" | "in" = "mm"): s
   }
   add(0, "SECTION"); add(2, "ENTITIES");
   const deg = (r: number): number => ((r * 180) / Math.PI + 360) % 360;
-  for (const raw of pieces) {
+  // joined: the pieces that meet end to end are one POLYLINE (the old R12 kind: VERTEX lines, a bulge for an arc, a flag for closed), so a cutter or a router follows an outline without lifting at every corner; a run of one piece, and circles, are written as before. Each layer's runs are joined on their own.
+  let single: readonly Piece[] = pieces;
+  if (joined) {
+    single = [];
+    for (const l of layered ? LAYERS.map((x) => x.name) : [undefined]) {
+      const group = layered ? pieces.filter((p) => (p.layer ?? "cut") === l) : pieces;
+      const layer = layered ? (l as string).toUpperCase() : "0";
+      for (const run of runsOf(group)) {
+        if (run.items.length < 2) { (single as Piece[]).push(...run.items.map((it) => ({ ...it, ...(layered ? { layer: l } : {}) }) as Piece)); continue; }
+        add(0, "POLYLINE"); add(8, layer); add(66, 1); add(10, 0); add(20, 0); add(30, 0); add(70, run.closed ? 1 : 0);
+        const vertex = (q: V2, bulge: number) => { add(0, "VERTEX"); add(8, layer); add(10, q[0]); add(20, q[1]); add(30, 0); if (bulge) add(42, String(+bulge.toPrecision(12))); }; // (the bulge in full: the arc is rebuilt from it, and a rounded one would move the arc)
+        for (const it of run.items) vertex(it.p, it.k === "arc" ? Math.tan(sweepOf(it) / 4) : 0);
+        if (!run.closed) vertex(run.items[run.items.length - 1]!.q, 0);
+        add(0, "SEQEND"); add(8, layer);
+      }
+      for (const p of group) if (p.k === "circle" || (p.k === "arc" && asCircle(p, 1e-4).k === "circle")) (single as Piece[]).push(p);
+    }
+  }
+  for (const raw of single) {
     const p = raw.k === "arc" ? asCircle(raw, 1e-4) : raw;
     add(0, p.k === "seg" ? "LINE" : p.k === "circle" ? "CIRCLE" : "ARC"); add(8, layered ? (p.layer ?? "cut").toUpperCase() : "0");
     if (p.k === "seg") { add(10, p.p[0]); add(20, p.p[1]); add(30, 0); add(11, p.q[0]); add(21, p.q[1]); add(31, 0); }

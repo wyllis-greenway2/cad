@@ -3,7 +3,7 @@ import type { Kernel } from "../compiler/kernel/adapter.ts";
 import { graphOf } from "../compiler/compile.ts";
 import { stlBytes, openEdges } from "../compiler/stl.ts";
 import { objBytes } from "../compiler/obj.ts";
-import { threeMfBytes, zipStored } from "../compiler/threemf.ts";
+import { threeMfBytes, threeMfObjects, zipStored } from "../compiler/threemf.ts";
 import type { Session } from "./session.ts";
 import { EXPORT_QUALITY, EXPORT_NOTHING, canExport } from "./exportstl.ts";
 
@@ -39,6 +39,8 @@ export async function exportFile(s: Session, kernel: Kernel, format: ExportForma
     return { ok: true, name, bytes: r.bytes, mime: FORMATS.step.mime, message: `exported ${name}: the exact body (not a mesh), ${dims} ${units}, ${kb(r.bytes.length)}` };
   }
   const q = QUALITY[choices.quality ?? "fine"];
+  const ids = only ?? Object.values(s.history.scene.parts).flatMap((p) => (p.kind === "body" && p.id ? [p.id] : []));
+  if (format === "3mf" && ids.length > 1) return exportObjects3mf(s, kernel, ids, q, name, units, k);
   const m = await kernel.exportMesh(graphOf(s.history.scene), only ? { ...q, bodies: only } : q);
   if (!m.ok) return { ok: false, error: m.error };
   const triangles = m.triangles.length / 3;
@@ -49,4 +51,24 @@ export async function exportFile(s: Session, kernel: Kernel, format: ExportForma
   const bytes = format === "stl" ? stlBytes(vertices, m.triangles, title, units) : format === "obj" ? objBytes(vertices, m.triangles, title, units) : threeMfBytes(vertices, m.triangles, title, units);
   const dims = [0, 1, 2].map((i) => +((m.bbox.max[i]! - m.bbox.min[i]!) * k).toFixed(units === "in" ? 3 : 2)).join(" × ");
   return { ok: true, name, bytes, mime: FORMATS[format].mime, message: `exported ${name} (${label}): ${triangles.toLocaleString("en-US")} triangles, ${dims} ${units}, ${kb(bytes.length)}${open ? `; the mesh has ${open} open edge${open === 1 ? "" : "s"}: check it in the slicer` : ""}` };
+}
+
+/** A 3MF of several bodies: an object for each, named for the body (`dec_export_more_3mf`), so a slicer lists them apart; the mesh of each is made on its own and they stand where they are in the model. */
+async function exportObjects3mf(s: Session, kernel: Kernel, ids: string[], q: { tolerance: number; angular: number }, name: string, units: Units, k: number): Promise<FileOutcome> {
+  const objects: { name: string; vertices: ArrayLike<number>; triangles: ArrayLike<number> }[] = [];
+  const box = { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
+  let triangles = 0, open = 0;
+  for (const id of ids) {
+    const m = await kernel.exportMesh(graphOf(s.history.scene), { ...q, bodies: [id] });
+    if (!m.ok) return { ok: false, error: `${id}: ${m.error}` };
+    if (!m.triangles.length) continue; // (a body with nothing to show: left out)
+    objects.push({ name: id, vertices: k === 1 ? m.vertices : m.vertices.map((x) => x * k), triangles: m.triangles });
+    triangles += m.triangles.length / 3;
+    open += openEdges(m.vertices, m.triangles);
+    for (let i = 0; i < 3; i++) { box.min[i] = Math.min(box.min[i]!, m.bbox.min[i]!); box.max[i] = Math.max(box.max[i]!, m.bbox.max[i]!); }
+  }
+  if (!objects.length) return { ok: false, error: EXPORT_NOTHING };
+  const bytes = threeMfObjects(objects, name.replace(/\.[^.]*$/, ""), units);
+  const dims = [0, 1, 2].map((i) => +((box.max[i]! - box.min[i]!) * k).toFixed(units === "in" ? 3 : 2)).join(" × ");
+  return { ok: true, name, bytes, mime: FORMATS["3mf"].mime, message: `exported ${name} (3MF): ${objects.length} objects (${objects.map((o) => o.name).join(", ")}), ${triangles.toLocaleString("en-US")} triangles, ${dims} ${units}, ${kb(bytes.length)}${open ? `; ${open} open edge${open === 1 ? "" : "s"} in the meshes: check them in the slicer` : ""}` };
 }
