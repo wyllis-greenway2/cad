@@ -5123,13 +5123,20 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > Hmm, I know it is a large project, but would it make sense to just have a whole engine builder? since all these parts need to relate perfectly? Or is that too large of a project?
 (asks whether a whole engine builder, since the parts must relate exactly, makes sense or is too large)
 
+## in_1199 — 2026-11-19 — directive
+> When you try to voilate a constraint the message is way way too long. I think it should just flash it red, like it already does, and offer button to delete constraints
+(a screenshot: a pill reading "that cannot be done without breaking other constraints: the Coincident constraint (it flashes) holds what it would move" with the button "Delete constraint to proceed")
+
+## in_1200 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
 > lets have the collision message just say collision occurred, and clicking it takes you to the collision. Also if you get close to a red model it appears the camera or something else cuts away some red?
 (a screenshot of a jam: two bodies shaded red close up, the lever's red covering only part of it, with a long "stopped: ... cannot turn clear of it" message; asks the message to say only that a collision occurred and a click to go to it, and why red is cut away close up)
 
-## in_1200 — 2026-11-19 — directive
+## in_1202 — 2026-11-19 — directive
 > @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/4f661d14-wobbly_collisions.webm" Can we have the rotation collision work a little smoother? See in this video, it seems to over correct and it rotates too far away like it shoots from the surface. I would expect when these two rotatable bodies interact that they would essentially adjust their angles to slide their surfaces smooth with the edges keeping more or less parallel while sliding, not because of parallel constraint, but because that is the minimal movement lazy collision path for them to follow. Right now it is kind of jittery. See the video.
 (a screencast of the carried lever and the far arm pushing each other, the far arm shooting away in jumps; asks the two turning bodies to give way smoothly, sliding along each other by the minimal movement, not jittering)
 
-## in_1201 — 2026-11-19 — directive
+## in_1203 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the short collision message that goes to the place, the red bodies drawn where the bodies are, and the smoother giving way of two turning bodies to be merged into the testing branch, no full test run)

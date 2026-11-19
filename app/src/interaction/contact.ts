@@ -382,7 +382,7 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
       for (let j = -w; j <= w; j++) { const pl = places.get(i + j)!, e = pl.work[ix]!, k = w + 1 - Math.abs(j); sv += (pl.vals[ix] ?? 0) * k; if (!e.free) { sw += k; continue; } sx += e.free[0] * k; sy += e.free[1] * k; sz += e.free[2] * k; ss += (e.spin ?? 0) * k; sw += k; }
       return { free: [sx / sw, sy / sw, sz / sw], spin: ss / sw, value: sv / sw };
     };
-    // a body that turns or slides on a joint is drawn giving way ahead of its push (`in_1200`): the worked-out places jump (a corner of the body it meets catches, and it is pushed clear in one step), and a jump is drawn as a ramp that begins a few steps before it, at a
+    // a body that turns or slides on a joint is drawn giving way ahead of its push (`in_1202`): the worked-out places jump (a corner of the body it meets catches, and it is pushed clear in one step), and a jump is drawn as a ramp that begins a few steps before it, at a
     // steady rate: always on the side it is pushed to, so it is clear of what is pushing it. Two of them that take turns, a degree at a time, are each drawn giving way a little every step.
     const early = (i: number, ix: number): number => {
       const kind = kinds[ix]!, rate = kind === "slide" ? RAMP_SLIDE : RAMP_TURN;

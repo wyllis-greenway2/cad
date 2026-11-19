@@ -199,7 +199,7 @@ test("the walk begins from the start (`in_1169`): the model is put back where it
   assert.equal(b.speedK, 0.5);
 });
 
-test("two bodies on joints that give way to each other are drawn smoothly (`in_1200`): the worked-out places jump a couple of degrees in one step and take turns, and what is drawn ramps up to the jump at a steady rate, a little for each of them every step", async () => {
+test("two bodies on joints that give way to each other are drawn smoothly (`in_1202`): the worked-out places jump a couple of degrees in one step and take turns, and what is drawn ramps up to the jump at a steady rate, a little for each of them every step", async () => {
   const { contactOptions } = await import("../src/interaction/contact.ts");
   let s = (openSession(kernel, readFileSync(new URL("./fixtures/lever-pin-held.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
   s = run(s, { type: "setHard", body: "x_s_083", on: true });
