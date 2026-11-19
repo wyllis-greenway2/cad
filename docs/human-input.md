@@ -5050,6 +5050,3 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1178 — 2026-11-19 — directive
 > maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
-
-## in_1179 — 2026-11-19 — directive
-> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
