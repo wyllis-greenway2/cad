@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { kernel } from "../src/compiler/kernel/index.ts";
 import { openSession, scene, run } from "../src/interaction/session.ts";
+import { reduce } from "../src/interaction/controller.ts";
 import type { Session } from "../src/interaction/session.ts";
 import { startMotion, setPlaying } from "../src/interaction/motion.ts";
 import { solveContact } from "../src/interaction/contact.ts";
@@ -25,14 +26,16 @@ test("the motion stops at the collision, says what is against what, and keeps th
   const { m } = jammed();
   assert.match(m.contact?.jam ?? "", /x_s_002 against x_s_084/);
   assert.equal(m.playing, false);
-  assert.ok((m.contact?.clash?.length ?? 0) >= 9 && m.contact!.clash!.length % 9 === 0, "triangles of the two bodies where they cross");
+  assert.ok((m.contact?.clash?.length ?? 0) >= 9 && m.contact!.clash!.length % 9 === 0, "the two bodies, whole, where they met");
 });
 
-test("the frame gives the places to draw in red while the motion is stopped by a jam, and nothing otherwise", () => {
+test("the frame gives the two bodies to draw shaded red while the motion is stopped by a jam (no lines, `in_1191`), and nothing otherwise", () => {
   const { s, m } = jammed();
   const env = { w: 800, h: 600, now: 0 };
-  assert.ok(frameOf({ ...createState(s), motion: m }, env).thin?.length, "red where they meet");
-  assert.equal(frameOf({ ...createState(s), motion: setPlaying(m, true) }, env).thin, null, "gone when it plays again");
+  const fr = frameOf({ ...createState(s), motion: m }, env);
+  assert.ok(fr.clash?.length, "the bodies are red");
+  assert.equal(fr.thin, null, "and the thin-places marks are not used for it");
+  assert.equal(frameOf({ ...createState(s), motion: setPlaying(m, true) }, env).clash, null, "gone when it plays again");
 });
 
 test("play pressed after a jam begins the motion again from the start, with every body that yielded back where it is drawn", () => {
@@ -73,4 +76,17 @@ test("a lever on a pin: the model says so, and the note suggests the coaxial mat
   assert.equal(fb.fix.offer, true);
   assert.equal(fb.note, null);
   assert.match(moved.contact!.tip ?? "", /Mate: coaxial/);
+});
+
+test("a collision is said shortly, with the detail in the tooltip, and the view can be taken to where it is (`in_1191`); the red bodies are where the bodies are drawn", () => {
+  const { s, m } = jammed();
+  const env = { w: 800, h: 600, now: 0 };
+  const fb = frameOf({ ...createState(s), motion: m }, env).motionBar!;
+  assert.equal(fb.note, "Collision occurred");
+  assert.match(fb.noteDetail ?? "", /x_s_002 against x_s_084.*click to see where/);
+  const at = m.contact!.clashAt!;
+  assert.ok(at && Number.isFinite(at.radius) && at.radius >= 8, "the place is known");
+  const st = reduce({ ...createState(s), motion: m }, { type: "motionShowClash" }, { ...env, now: 100 } as never);
+  assert.ok(st.anim, "the view goes there");
+  assert.deepEqual(st.anim!.to.target, at.centre);
 });

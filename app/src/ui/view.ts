@@ -170,10 +170,10 @@ export function createView(host: HTMLElement) {
     const u = new THREE.Vector3().crossVectors(Math.abs(n.z) < 0.9 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0), n).normalize();
     const v = new THREE.Vector3().crossVectors(n, u);
     const cut = new THREE.Mesh(new THREE.PlaneGeometry(1e4, 1e4), new THREE.ShaderMaterial({
-      uniforms: { cl: { value: Array.from({ length: 8 }, (_, i) => { const q = others[i]; return q ? new THREE.Vector4(q.normal.x, q.normal.y, q.normal.z, q.constant) : new THREE.Vector4(); }) }, cc: { value: Math.min(8, others.length) }, u: { value: u }, v: { value: v }, at: { value: new THREE.Vector3(...secNow.at) }, pitch: { value: Math.max(0.3, bodySize() / 50) } },
+      uniforms: { cl: { value: Array.from({ length: 8 }, (_, i) => { const q = others[i]; return q ? new THREE.Vector4(q.normal.x, q.normal.y, q.normal.z, q.constant) : new THREE.Vector4(); }) }, cc: { value: Math.min(8, others.length) }, u: { value: u }, v: { value: v }, at: { value: new THREE.Vector3(...secNow.at) }, pitch: { value: Math.max(0.12, bodySize() / 120) } },
       vertexShader: "varying vec3 w; void main(){ vec4 p = modelMatrix * vec4(position, 1.0); w = p.xyz; gl_Position = projectionMatrix * viewMatrix * p; }",
-      // solid dark grey (well darker than a face of the part: `in_1129`), with slanting parallel lines close together, bolder (45 degrees, as a cut part is hatched in a drawing, `in_680`)
-      fragmentShader: "uniform vec4 cl[8]; uniform int cc; uniform vec3 u; uniform vec3 v; uniform vec3 at; uniform float pitch; varying vec3 w; void main(){ for(int i=0;i<8;i++){ if(i>=cc) break; if(dot(cl[i].xyz, w) + cl[i].w < 0.0) discard; } vec3 d = w - at; float a = (dot(d, u) + dot(d, v)) / pitch; float line = smoothstep(0.39, 0.43, abs(fract(a) - 0.5)); gl_FragColor = vec4(mix(vec3(0.46, 0.48, 0.53), vec3(0.16, 0.17, 0.20), line), 1.0); }",
+      // solid mid grey (darker than a face of the part, a little lighter than it was, `in_1210`), with many fine slanting parallel lines, lighter than they were but still darker than the surface (45 degrees, as a cut part is hatched in a drawing, `in_680`)
+      fragmentShader: "uniform vec4 cl[8]; uniform int cc; uniform vec3 u; uniform vec3 v; uniform vec3 at; uniform float pitch; varying vec3 w; void main(){ for(int i=0;i<8;i++){ if(i>=cc) break; if(dot(cl[i].xyz, w) + cl[i].w < 0.0) discard; } vec3 d = w - at; float a = (dot(d, u) + dot(d, v)) / pitch; float line = smoothstep(0.39, 0.43, abs(fract(a) - 0.5)); gl_FragColor = vec4(mix(vec3(0.56, 0.58, 0.63), vec3(0.40, 0.42, 0.47), line), 1.0); }",
       side: THREE.DoubleSide, depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6, // (a face of the part like any other: what is in front of it hides it, `in_396`)
       stencilWrite: true, stencilRef: 0, stencilFunc: THREE.NotEqualStencilFunc, stencilFail: THREE.ReplaceStencilOp, stencilZFail: THREE.ReplaceStencilOp, stencilZPass: THREE.ReplaceStencilOp,
     }));
@@ -333,7 +333,26 @@ export function createView(host: HTMLElement) {
     outline.renderOrder = 4;
     thinGroup.add(outline);
   }
+  /** The two bodies of a jam: shaded red all over, at the place where they met, with no lines (`in_1191`). */
+  let clashShown: number[] | null = null;
+  const clashGroup = new THREE.Group();
+  scene3.add(clashGroup);
+  function setClash(tris: number[] | null): void {
+    if (tris === clashShown) return;
+    clashShown = tris;
+    clearGroup(clashGroup);
+    if (!tris || !tris.length) return;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(tris), 3));
+    geo.computeVertexNormals();
+    const mat = new THREE.MeshLambertMaterial({ color: 0xe5484d, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 3;
+    clashGroup.add(mesh);
+  }
   const setWorldHidden = (on: boolean): void => world.setOff(on);
+  /** Is the junction of the world axes (where its orb is) behind the model from this eye? The orb is a dot of the page, so it asks (`in_1194`). */
+  const originHidden = (cam: Camera): boolean => !!occluders?.length && world.hiddenAt(cam, [0, 0, 0], occluders);
   const setPanes = (p: Parameters<typeof world.setPanes>[0]): boolean => world.setPanes(p);
   const setGizmo = (g: GizmoView | null, cam: Camera) => buildGizmo(gizmo, g, cam.distance, pen);
   /** The toolpath preview (`in_570`): what is done in full colour, what is still to come faint, travel pale grey, the head a dot. Drawn again only when the view of it changes. */
@@ -411,5 +430,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { rebuild, setWorldHidden, setScene, setHiddenBodies, setThin, setStandIns, setHiddenEdges, setBehindPlane, setBodyMatrix, setHighlight, setPreview, setGizmo, setToolpath, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { rebuild, setWorldHidden, originHidden, setScene, setHiddenBodies, setThin, setClash, setStandIns, setHiddenEdges, setBehindPlane, setBodyMatrix, setHighlight, setPreview, setGizmo, setToolpath, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

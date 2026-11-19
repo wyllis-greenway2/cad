@@ -61,7 +61,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:ratchet", label: "Ratchet", icon: "cam", tool: "cam" },
   { id: "tool:geneva", label: "Apart", icon: "cam", tool: "cam" },
   { id: "tool:geneva:assembled", label: "Assembled", icon: "cam", tool: "cam" },
-  { id: "tool:geneva:model", label: "Geneva plate", icon: "cam", tool: "cam" }, // (Shape, Fabricate, Models: the 3D model of the Geneva drive, the only way to it now, `in_1098`)
+  { id: "tool:geneva:model", label: "Geneva plate", icon: "genevaplate", tool: "cam" }, // (Shape, Fabricate, Models: the 3D model of the Geneva drive, the only way to it now, `in_1098`)
   { id: "tool:linear", label: "Linear ratchet", icon: "cam", tool: "cam" },
   { id: "tool:disc:cycloidal", label: "Cycloidal", icon: "cam", tool: "cam" },
   { id: "tool:disc:harmonic", label: "Harmonic", icon: "cam", tool: "cam" },
@@ -117,9 +117,9 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:circular", label: "Round repeat", icon: "circular", op: "circular" },
   { id: "repeat:path", label: "Path repeat", icon: "pathrepeat" }, // (`dec_path_repeat`, `in_841`: a figure repeated along a line, a curve or an outline)
   { id: "model:gearbox", label: "Gearbox", icon: "gearbox" }, // (Shape, Fabricate, Models: a reduction gearbox, `dec_gear_models`)
-  { id: "model:ballbearing", label: "Catalogue", icon: "bearing" }, // (a bearing picked from the catalogue: simple, `in_1171`)
-  { id: "model:ownbearing", label: "Your own", icon: "bearing" }, // (a bearing of your own numbers: simple or detailed)
+  { id: "model:ballbearing", label: "Deep groove", icon: "bearing" }, // (a ball bearing: the box has Catalogue or Your own at its top, `in_1196`)
   { id: "model:differential", label: "Differential", icon: "differential" }, // (a bevel gear differential)
+  { id: "model:engine", label: "Piston engine", icon: "engine" }, // (a single cylinder engine with the exact slider crank)
   { id: "model:cycloidal", label: "Cycloidal drive", icon: "cycloidal" }, // (a cycloidal reducer)
   { id: "fab:material", label: "Material", icon: "models" }, // (Shape, Fabricate: what a body is made of, `in_1083`; it was a row of the ⋯ list)
   { id: "tool:fasteners", label: "Fastener tool", icon: "fastener" }, // (Shape: the hole for a fastener cut into the face selected, with the hardware inserted if asked, `in_813`, `in_912`)
@@ -150,11 +150,11 @@ const GEARS: Group = {
   ],
 };
 /** the bearings, by type (`in_1163`): each type opens its box, where a catalogue bearing is picked or one made of numbers, simple or detailed */
-const BEARINGS_MENU: Group = { id: "bearings", label: "Bearings", icon: "bearing", items: [{ id: "deepgroove", label: "Deep groove", icon: "bearing", items: ["model:ballbearing", "model:ownbearing"] }] };
+const BEARINGS_MENU: Group = { id: "bearings", label: "Bearings", icon: "bearing", items: ["model:ballbearing"] };
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "fabricate", label: "Fabricate", icon: "hammer", items: ["fab:material", "tool:fasteners"] }] },
-  { id: "mechanisms", label: "Models", icon: "gear", items: [GEARS, BEARINGS_MENU, "model:gearbox", "model:differential", "model:cycloidal", "tool:geneva:model"] }, // (the gears, and the devices made of them, `in_1145`; the gears were in Sketch and the devices in Shape, Fabricate, Models)
+  { id: "mechanisms", label: "Models", icon: "gear", items: [GEARS, BEARINGS_MENU, "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "tool:geneva:model"] }, // (the gears, and the devices made of them, `in_1145`; the gears were in Sketch and the devices in Shape, Fabricate, Models)
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },

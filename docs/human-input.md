@@ -5093,14 +5093,94 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > Push; new branch claude/hopeful-cannon-8 (Recommended)
 (the answer to the AI's question: permission to push to claude/inspiring-pascal-l342k7, then work on a new branch claude/hopeful-cannon-8 created from it)
 
-## in_1191 — 2026-11-19 — directive
-> run the full tests
+> Can we make the clock not have options? instead just directly clicking it cycles through the speed options. It should also be that if you click or tap and hold and drag left or right you can smoothly set between percent based speed settings. So tapping goes in speed chunks. dragging smoothly adjusts. And first tap after a while should always just set it back to default. Also for collision, can we have it use shaded red bodies only? not red wireframe?
+(a screenshot of a jam drawn as red slivers with red wire lines; asks the clock to have no list: a tap goes to the next speed, a hold and drag sets it smoothly in percent, the first tap after a while returns to normal; and the jam to be drawn as the bodies shaded red, with no wireframe)
 
-## in_1192 — 2026-11-19 — question
-> how should we fix the failing problems?
+## in_1192 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the tap-and-drag speed clock and the shaded red jam to be merged into the testing branch, no full test run)
 
-## in_1193 — 2026-11-19 — approval
-> yes make both fixes
+## in_1193 — 2026-11-19 — directive
+> can we have a little geneva plate icon for the geneva plate? Can we havea  new icon for cucloidal drive that looks less like a gear. Can we have a new icon for bearings?
+(asks for an icon for the Geneva plate, a new cycloidal drive icon that looks less like a gear, and a new bearing icon)
 
 ## in_1194 — 2026-11-19 — directive
+> can we make the world orb and z y z not show through objects? Every time I try to make a spring it fails. Why does it do this? Also can we setup some more helpful defaults so it always previews some sort of thing when you select the circular extrude? also can we have a better icon for that tool? It seems to default okay for objects that have flat edges, but for ones without maybe it should set the origin out in space on plane a certain amount, probably some multiple of the plane size etc, and then select the axis that starts extruding normal to the plane?
+(a screenshot of the Revolve tool on a circle in a plane, its mover and rings at an orb, a number bubble 1.6 and the message "the figure is 9.51 mm wide along the axis and the advance is 6.4 mm a turn: the turns would overlap"; the saved model 4d055877-model_1.json; "the world orb and z y z" is the world axes and the orb at the origin)
+
+## in_1195 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1196 — 2026-11-19 — directive
+> I didn't want bearing of your own or catalog as an icon option, I just wanted it in the menu as an option at the top. changing it would change the menu and what it has on it.
+(asks that Catalogue / Your own is not two icons in the ring but a choice at the top of the bearing's box, and that changing it changes what the box shows)
+
+## in_1197 — 2026-11-19 — question
+> Okay what should we make next? What about a piston maker? This could have a lot of useful variables. How can we make it real and according to standards? I know that the size and shape of the piston head has a relationship to the length of the piston arm and the diameter of the flywheel or cam shaft it operates on. How can we make it so that it makes real pistons according to official specs if there are official specs? or at least real pistons that would really work if fabricated.
+(asks what to make next, proposes a piston maker, and asks how to make it real: to official specs where there are any, otherwise a piston that would work if made)
+
+## in_1198 — 2026-11-19 — question
+> Hmm, I know it is a large project, but would it make sense to just have a whole engine builder? since all these parts need to relate perfectly? Or is that too large of a project?
+(asks whether a whole engine builder, since the parts must relate exactly, makes sense or is too large)
+
+## in_1199 — 2026-11-19 — directive
+> When you try to voilate a constraint the message is way way too long. I think it should just flash it red, like it already does, and offer button to delete constraints
+(a screenshot: a pill reading "that cannot be done without breaking other constraints: the Coincident constraint (it flashes) holds what it would move" with the button "Delete constraint to proceed")
+
+## in_1200 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+> lets have the collision message just say collision occurred, and clicking it takes you to the collision. Also if you get close to a red model it appears the camera or something else cuts away some red?
+(a screenshot of a jam: two bodies shaded red close up, the lever's red covering only part of it, with a long "stopped: ... cannot turn clear of it" message; asks the message to say only that a collision occurred and a click to go to it, and why red is cut away close up)
+
+## in_1202 — 2026-11-19 — directive
+> @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/4f661d14-wobbly_collisions.webm" Can we have the rotation collision work a little smoother? See in this video, it seems to over correct and it rotates too far away like it shoots from the surface. I would expect when these two rotatable bodies interact that they would essentially adjust their angles to slide their surfaces smooth with the edges keeping more or less parallel while sliding, not because of parallel constraint, but because that is the minimal movement lazy collision path for them to follow. Right now it is kind of jittery. See the video.
+(a screencast of the carried lever and the far arm pushing each other, the far arm shooting away in jumps; asks the two turning bodies to give way smoothly, sliding along each other by the minimal movement, not jittering)
+
+## in_1203 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the short collision message that goes to the place, the red bodies drawn where the bodies are, and the smoother giving way of two turning bodies to be merged into the testing branch, no full test run)
+
+## in_1204 — 2026-11-19 — question
+> @"/root/.claude/uploads/ee27e567-54ab-5652-83f9-eee04af99ec7/50ed3d5f-Screencast_from_2026-11-19_20-03-28.webm" It still seems kind of jumpy and overshoots?
+(a second screencast of the carried lever and the far arm rubbing past each other: still jumpy and overshooting after the drawn ramp)
+
+## in_1205 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the smaller-movement-gives-way fix to be merged into the testing branch, no full test run)
+## in_1206 — 2026-11-19 — directive
+> okay are you read to make the engine builder?
+(asks me to go ahead with the engine builder, after the proposal of stage 1: a single cylinder engine, with the sources read first and a decision entry)
+
+
+## in_1207 — 2026-11-19 — directive
+> okay lets get rid of the little panes in the xyz thing unless it is in the cross section plane, it will be special just for that. Also if you select two axis with shift it is supposed to let you freely move on both those axis, kind of like how plane select works now, but it doesn't seem to work like that, and it should also show you the x y z value of the axis you are moving in that mode.
+
+## in_1208 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1209 — 2026-11-19 — directive
+> okay that is not off to a bad start, but lets make it much much more realistic. Lets first start with the piston. Lets make real pistons. Can we look up other designs and specs on how to make them?
+(asks for a much more realistic engine, starting with the piston: real pistons, from other designs and specs looked up)
+
+## in_1210 — 2026-11-19 — directive
+> lets make the hatch pattern on cut aways be much finer more qty lines that are lighter gray, lets have them still darker then the dark grey of the cutaway surface which itself should also be slightly lighter grey.
+
+## in_1211 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1212 — 2026-11-19 — directive
+> okay lets work on claude/inspiring-pascal-l342k7 branch, I want you to help me design a really good engine builder starting with pistons. Can you look up how to design real pistions? like the kind I would find in a car or motorcycle engine?
+(restates the aim of in_1209 on this branch: a really good engine builder, starting with real pistons, with the design looked up)
+
+## in_1213 — 2026-11-19 — directive
+> run the full tests
+
+## in_1214 — 2026-11-19 — question
+> how should we fix the failing problems?
+
+## in_1215 — 2026-11-19 — approval
+> yes make both fixes
+
+## in_1216 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please, do full tests

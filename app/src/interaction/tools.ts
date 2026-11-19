@@ -44,7 +44,7 @@ import type { GearRecord } from "../operation/gearscene.ts";
 import { problemsOf, fromRatio, layoutOf, ratios as planetaryRatios, defaultPin } from "../operation/planetary.ts";
 import type { PlanetarySpec, PlanetaryRecord, Problem, Hold } from "../operation/planetary.ts";
 import { meshWith } from "../operation/mesh.ts";
-import { armedModel, modelTyped, modelPreview, modelCommand } from "./modeltool.ts";
+import { armedModel, modelTyped, modelPreview, modelCommand, nextField } from "./modeltool.ts";
 import type { ModelState } from "./modeltool.ts";
 import type { ModelKind } from "../operation/modelkinds.ts";
 
@@ -273,7 +273,7 @@ export function typeKey(t: Tool, key: string): Tool {
     return typed === null ? t : { ...t, gear: { ...g, typed: Array.from({ length: 24 }, (_, i) => (i === g.field ? typed : g.typed[i] ?? "")) } };
   }
   if (t.kind === "model" && t.model) {
-    if (key === "Tab") return { ...t, model: { ...t.model, field: (t.model.field + 1) % t.model.typed.length } };
+    if (key === "Tab") return { ...t, model: { ...t.model, field: nextField(t.model) } };
     const typed = typeInto(t.model.typed[t.model.field] ?? "", key);
     return typed === null ? t : { ...t, model: modelTyped(t.model, t.model.field, typed) };
   }

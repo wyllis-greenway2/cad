@@ -44,27 +44,10 @@ const drag = (st: AppState, from: Vec3, to: Vec3, steps = 6): AppState => {
 };
 const paneMiddle = (st: AppState, id: string): Vec3 => { const pts = gizmoOf(st)!.handles.find((h) => h.id === id)!.points; return [0, 1, 2].map((k) => pts.reduce((a, p) => a + p[k]!, 0) / pts.length) as unknown as Vec3; };
 
-test("an orb has three panes between its arrows, and a pane is under the pointer where no arrow or ring is nearer", () => {
-  for (const st of [mover()]) {
-    const g = gizmoOf(st)!;
-    assert.deepEqual(g.handles.filter((h) => h.kind === "pane").map((h) => h.id), ["pane:xy", "pane:xz", "pane:yz"]);
-    const pr = projector(st.cam, 800, 600);
-    const mid = paneMiddle(st, "pane:xy");
-    const [x, y] = pr.project(mid);
-    assert.equal(hitHandle(g, (p) => pr.project(p), x, y)?.id, "pane:xy");
-    const tip = g.handles.find((h) => h.id === "move:x")!.points[1]!;
-    const [tx, ty] = pr.project(tip);
-    assert.equal(hitHandle(g, (p) => pr.project(p), tx, ty)?.id, "move:x", "the arrow wins at its own tip");
-  }
-});
-
-test("a click on a pane holds the drag to its plane, a second click lets it go", () => {
-  let st = mover();
-  st = click(st, paneMiddle(st, "pane:xy"));
-  assert.deepEqual(st.lockAxes, [0, 1]);
-  assert.match(st.session.message ?? "", /the body moves in the XY plane only/);
-  st = click(st, paneMiddle(st, "pane:xy"));
-  assert.deepEqual(st.lockAxes, []);
+test("the mover has no little panes (they are the cross section plane's alone, `in_1207`): its handles are the arrows, the sphere and the rings", () => {
+  const ids = gizmoOf(mover())!.handles.map((h) => h.id);
+  assert.equal(ids.filter((id) => id.startsWith("pane")).length, 0, ids.join());
+  assert.deepEqual(ids.filter((id) => id.startsWith("move:")), ["move:x", "move:y", "move:z"]);
 });
 
 test("the cross section's mover has its own three panes (clicked to lay the plane across an axis), not the in-plane ones that are dragged", () => {
@@ -72,17 +55,47 @@ test("the cross section's mover has its own three panes (clicked to lay the plan
   assert.deepEqual(ids, ["pane:x", "pane:y", "pane:z"]);
 });
 
-test("a pane of a body's mover moves the body in its plane, as one step, and the mover stays open", () => {
-  const st0 = mover();
+const arrowMiddle = (st: AppState, id: string): Vec3 => { const pts = gizmoOf(st)!.handles.find((h) => h.id === id)!.points; return [0, 1, 2].map((k) => (pts[0]![k]! + pts[1]![k]!) / 2) as unknown as Vec3; };
+
+test("two arrows chosen with Shift: taking either moves the body freely in the plane of the two, as one step, the third axis does not move, and their numbers show while it goes (`in_1207`)", async () => {
+  const { frameOf } = await import("../src/interaction/frame.ts");
+  let st0 = mover();
+  st0 = click(st0, arrowMiddle(st0, "move:x"), false);
+  st0 = click(st0, arrowMiddle(st0, "move:z"), true);
+  assert.deepEqual(st0.lockAxes, [0, 2]);
   const steps = scene(st0.session).steps.length;
-  const from = paneMiddle(st0, "pane:xz");
-  const after = drag(st0, from, add(from, [5, 0, 4]));
-  assert.equal(scene(after.session).steps.length, steps + 1, "one move step");
-  const body = Object.values(scene(after.session).parts).find((p) => p.kind === "body")!;
+  const from = arrowMiddle(st0, "move:x");
+  const [x0, y0] = px(st0, from);
+  const [x1, y1] = px(st0, add(from, [5, 0, 4]));
+  let st = st0, [lx, ly] = [x0, y0];
+  for (let k = 1; k <= 6; k++) {
+    const x = x0 + ((x1 - x0) * k) / 6, y = y0 + ((y1 - y0) * k) / 6;
+    st = reduce(st, { type: "orbit", dx: x - lx, dy: y - ly, x, y }, env);
+    [lx, ly] = [x, y];
+    if (k === 4) {
+      const es = frameOf(st, { w: 800, h: 600 }, 0).entries;
+      assert.deepEqual(es.map((e) => e.fields[0]!.short).sort(), ["X", "Z"], "the numbers of the two axes it moves along show as it goes");
+    }
+  }
+  st = reduce(st, { type: "dragEnd" }, env);
+  assert.equal(scene(st.session).steps.length, steps + 1, "one move step");
+  const body = Object.values(scene(st.session).parts).find((p) => p.kind === "body")!;
   const [lo, hi] = [(body as { bbox: { min: Vec3 } }).bbox.min, (body as { bbox: { max: Vec3 } }).bbox.max];
   assert.ok(Math.abs(lo[1]) < 1e-6 && Math.abs(hi[1] - 20) < 1e-6, `y did not change (${lo[1]}..${hi[1]})`);
-  assert.ok(lo[0] > 1 || lo[2] > 1, `it moved in x or z (${lo})`);
-  assert.equal(after.op?.kind, "move", "the mover stays open");
+  assert.ok(lo[0] > 1 && lo[2] > 1, `it moved in x and z (${lo})`);
+  assert.deepEqual(st.lockAxes, [0, 2], "the two axes stay chosen for the next drag");
+});
+
+test("two axes chosen: the body itself dragged goes where the pointer's ray meets the plane of the two, so the third never moves", () => {
+  let st = mover();
+  st = click(st, arrowMiddle(st, "move:x"), false);
+  st = click(st, arrowMiddle(st, "move:y"), true);
+  assert.deepEqual(st.lockAxes, [0, 1]);
+  const on: Vec3 = [30, 5, 20];
+  st = drag(st, on, add(on, [-8, 5, 0]));
+  const { min: lo, max: hi } = bodyBox(st);
+  assert.ok(Math.abs(lo[2]) < 1e-6 && Math.abs(hi[2] - 20) < 1e-6, `z did not change (${lo[2]}..${hi[2]})`);
+  assert.ok(Math.abs(lo[0]) > 2 || Math.abs(lo[1]) > 1, `it moved in x or y (${lo})`);
 });
 
 import { patternValues } from "../src/interaction/pattern.ts";

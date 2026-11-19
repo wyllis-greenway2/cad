@@ -108,3 +108,17 @@ Read in full from the pages named in the entry (Albany County Fasteners for ISO 
 | Misumi, miniature ball bearing pages (us.misumi-ec.com) | read (`in_1146`) | copyright (facts: sizes) | the miniatures' sizes (623 to 627, 607 to 609) | `bearingdata.ts` |
 | NSK and Misumi PDF catalogues | not readable (no text layer) | copyright | nothing | none |
 
+
+## Piston engine (`dec_engine_model`)
+
+| Source | Status | Rights | Used for | Recorded in |
+|---|---|---|---|---|
+| Slider-crank kinematics (piston position r cos a + sqrt(l² - r² sin² a), rod angle asin(r sin a / l)) | derived from geometry in the session, checked by test (`test/engine.test.ts`) | none (mathematics) | the piston's and the rod's motion | `modelengine.ts` |
+| EngineLabs, "Three's Company: Rod Length, Compression Height, And Crank Stroke" (enginelabs.com/?p=6828) | searched (`in_1206`), the search summary only | copyright | the definition of compression height (crown to pin axis) and the sum half the stroke + rod + compression height | `dec_engine_model` |
+| ISO 6621 (piston rings), ISO 18669 (piston pins; 8 to 100 mm) | searched (`in_1206`); the standards are paid, **not read** | copyright | nothing: no dimension of them is used | `dec_engine_model` |
+| Proportions of a piston (compression height about 0.55 of the bore, skirt 0.35, pin 0.18 to 0.4 of the bore, ring groove sizes) and the usual rod ratio 0.25 to 0.33 | **from memory of engine design practice, not read in a source** | n/a | defaults and limits of the engine model; said so in the model's box | `dec_engine_model` |
+| Wayne Scraba, "Part 2: Power-Packed Piston Tech You Can Use!" (onallcylinders.com, 2021-08-04; MAHLE Motorsports PowerPak) | read in full (`in_1212`) | copyright (facts only) | race and high-performance V8 numbers: top ring 0.300 to 0.400 in below the deck (street V8), 0.125 to 0.150 (endurance), 0.060 to 0.100 (drag); second land 0.150 to 0.180 in; third land 0.070 to 0.125 in; ring side clearance 0.002 to 0.004 in (street), at most 0.002 (race); ring back clearance 0.040 to 0.050 in (production), 0.020 or less (race); ring packs 1.0/1.0/2.0, 1.5/1.5/3.0 mm and 1/16, 1/16, 3/16 in; gas ports 12 to 16 vertical holes of 0.040 to 0.060 in | not built yet |
+| Caterpillar piston patent application US 2016/0169153 (patents.justia.com, uspto.report) | searched, summary only (`in_1212`); page not readable (host blocked) | patent text | top land height 3 % to 4.5 % of the bore (one example about 6 mm) | not built yet |
+| Springer, piston design guidelines chapter (a university mirror's copy of a book chapter) | searched, summary only; **fetch refused by the permission classifier, not tried again** | copyright, paid book | the definition of compression height (pin axis to top of the top land) and that ring count, land heights, pin size and top land set a minimum compression height | not built yet |
+| University lecture notes, ocw.ump.edu.my piston design (with visible errors per the search summary) | searched, summary only | copyright | ring land height 0.75 to 1.0 of the ring thickness; top land about 1 to 1.2 of the crown thickness; skirt sized from side thrust. **Treat as unreliable until checked** | not built yet |
+| kfz-tech.de "Kolbenmasse" (piston dimensions), enginelabs.com (skirt ovality, `?p=203747`, `?p=7001`, `?p=6904`), racingjunk.com piston primer | named in search results; **fetch failed (host not in the environment's allowed hosts)** | copyright | nothing yet | none |

@@ -30,7 +30,7 @@ import { linksOf } from "../operation/coupling.ts";
 import { animatedBodies } from "../operation/gearcouple.ts";
 import { pivotOfBody } from "../operation/pivot.ts";
 import { jointOf as jointOfMate } from "./mate.ts";
-import { axisAcross } from "./revolve.ts";
+import { axisAcross, advanceNote } from "./revolve.ts";
 import { gearOfPart, gearOfSelection } from "../operation/gearscene.ts";
 import { planetaryOfGear } from "../operation/planetary.ts";
 import { canHelix, finish as finishTool } from "./tools.ts";
@@ -144,6 +144,8 @@ export interface Frame {
   hiddenBodies: { tris: [number, number][] }[] | null;
   /** the triangles of the places too thin to print, marked in the picture while the Measure tab is open (`in_626`) */
   thin: number[] | null;
+  /** the two bodies of a jam, whole and in the pose where they met (nine numbers a triangle): drawn shaded red (`in_1191`) */
+  clash: number[] | null;
   /** the eye on each body (`dec_hidden_bodies`): its box's corners and whether it is hidden; `eyesQuiet`: a tool or an operation is in use, so the eyes of shown bodies stay away */
   bodyEyes: { ref: string; hidden: boolean; corners: Vec3[]; /** the body is selected (or a face of it): its play button is shown, not only when the pointer is over it (`in_962`) */ selected?: true; /** a body hooked up to an animation has a play button (pause while it plays) beside its eye */ play?: "play" | "pause"; /** the body is selected (or a face of it): its constraints icon is shown (`in_1157`) */ chosen?: true; /** the constraints of this body are all shown */ cons?: true }[];
   eyesQuiet: boolean;
@@ -227,7 +229,7 @@ export interface Frame {
   toolpath: ToolpathView | null;
   previewBar: { at: number; label: string } | null;
   /** the bar of a joint that is played or scrubbed: where it stands, its range, what it does and whether it is playing (`dec_mechanism_motion`) */
-  motionBar: { amount: number; lo: number; hi: number; kind: "turn" | "slide"; playing: boolean; reversed: boolean; /** the bodies that yield by contact whose joint can have a rest (a pivot, a coaxial mate): the body, and where it goes back to (degrees), or null: it stays where it was pushed (`in_1020`) */ springs: { ref: string; name: string; rest: number | null }[]; label: string; /** what is to be said about the motion (a jam, a heavy push): in a place of its own above the bar, so its length never changes the bar */ note: string | null; /** the speed as a multiple of what the motion began at (`in_1172`) */ speedK: number; /** the links of the joint played: the ratio, as seen from it, and what the other end does */ links: { id: string; ratio: number; kind: "turn" | "slide" }[]; /** the offer to replace the push by joints (`in_1122`): shown when a body with no joint has been pushed; while the walk is open, the joint offered now and how far through it is */ fix: { offer: boolean; step: { text: string; n: number; of: number; how: string } | null } } | null;
+  motionBar: { amount: number; lo: number; hi: number; kind: "turn" | "slide"; playing: boolean; reversed: boolean; /** the bodies that yield by contact whose joint can have a rest (a pivot, a coaxial mate): the body, and where it goes back to (degrees), or null: it stays where it was pushed (`in_1020`) */ springs: { ref: string; name: string; rest: number | null }[]; label: string; /** what is to be said about the motion (a jam, a heavy push): in a place of its own above the bar, so its length never changes the bar */ note: string | null; /** the speed as a multiple of what the motion began at (`in_1172`) */ speedK: number; /** the collision that stopped it, in full, for the tooltip of the note; null when it did not (`in_1191`) */ noteDetail: string | null; /** the links of the joint played: the ratio, as seen from it, and what the other end does */ links: { id: string; ratio: number; kind: "turn" | "slide" }[]; /** the offer to replace the push by joints (`in_1122`): shown when a body with no joint has been pushed; while the walk is open, the joint offered now and how far through it is */ fix: { offer: boolean; step: { text: string; n: number; of: number; how: string } | null } } | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
   modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate" | "linear" | "circular" | "invert"; label: string } | null;
   /** the sketching tool that is on, for the pill at the top (`in_193`) */
@@ -481,7 +483,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
   // the number of an operation's arrow shows only when that arrow is selected (clicked or taken), or a number is being typed for it: the arrows alone stay clean (`in_238`)
   const armed = !!s.handleSel && !!gizmo && gizmo.handles.some((h) => h.id === s.handleSel);
   const typing = !!shownOp && (shownOp.typed !== "" || shownOp.rot.some((t) => t !== ""));
-  const numberShown = armed || typing || !!(s.drag && "handle" in s.drag); // (a body dragged free shows no position bubbles while it is dragged: it is the picture that is moved, `in_489`)
+  const numberShown = armed || typing || !!(s.drag && "handle" in s.drag) || !!(s.drag && "body" in s.drag && s.lockAxes.length > 0); // (a body dragged free along the axes chosen shows their numbers as it goes, `in_1207`) // (a body dragged free shows no position bubbles while it is dragged: it is the picture that is moved, `in_489`)
   // a body dragged against its mates: they are red while it is held back, as a refused change shows what it would have broken (`in_338`)
   const noteOp = s.op ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
   const hardWhy = noteOp && !gpu && sceneOf(s.session).hard?.length ? hardNote(sceneOf(s.session), noteOp) : null; // (what a repeat, a mirror or a pull that is open runs into, `in_475`)
@@ -498,7 +500,8 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     behindPlane: hasBody ? behindPlaneOf(s) : null,
     bodySplit,
     hiddenBodies: hiddenItemsOf(sc, outcome),
-    thin: s.panel === "measure" && !outcome.kernel?.stale ? thinPlacesOf(sc, sel) : s.motion?.contact?.jam && s.motion.contact.clash?.length ? s.motion.contact.clash : null, // (the places where bodies are in each other when a motion has stopped: in the red of the thin places)
+    thin: s.panel === "measure" && !outcome.kernel?.stale ? thinPlacesOf(sc, sel) : null,
+    clash: s.motion?.contact?.jam && s.motion.contact.clash?.length ? s.motion.contact.clash : null, // (the two bodies of a jam, whole, shaded red, `in_1191`) // (the places where bodies are in each other when a motion has stopped: in the red of the thin places)
     bodyEyes: index.bodies.flatMap((p) => { if (!p.bbox) return []; const [lo, hi] = [p.bbox.min, p.bbox.max]; const corners: Vec3[] = []; for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) corners.push([x, y, z]); const drives = animated(sc).get(p.ref); const m = s.motion; return [{ ref: p.ref, hidden: !!sc.hiddenBodies?.includes(p.ref), corners, ...(drives && selBodies.has(p.ref) ? { selected: true as const } : {}), ...(drives ? { play: m && m.body === drives && m.playing ? "pause" as const : "play" as const } : {}) }]; }),
     eyesQuiet: true, // (a body that is shown has no eye of its own now: Hide body is in the View menu, `in_697`; a hidden body keeps its eye)
     bar: busy || s.drag || s.repeat ? null : barOf(barFacts(s, sc, sel, selBodies, index, gearChipOf(sc, sel)), suggest ? suggest.at : null),
@@ -525,7 +528,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors, s.showSketch, s.session.history, s.stepEdit),
     annotations: busy ? withFlashed([], sc, flash?.t === 0 && (gpu?.blocked?.length || (s.op && previewHeld.length)) ? flash : null) : [...withFlashed(shownConstraints(s, sc, sel), sc, flash), ...(s.tape ? tapeAnnotations(sc, sel) : [])],
     flash,
-    refusal: flash && (s.flash?.victims.length || s.flash?.soften?.length) ? { text: s.session.message ?? "", beside: s.flash.victims[0] ?? s.flash.soften![0]!, button: `${(s.flash.victims.length + (s.flash.soften?.length ?? 0)) === 1 ? "Delete constraint" : "Delete constraints"}${s.flash.retry ? " to proceed" : ""}` } : null, // (`inv_constraint_uniformity`: a constraint that is violated always flashes and always offers to be deleted: with the change that was refused to go on with, or alone when the change stays)
+    refusal: flash && (s.flash?.victims.length || s.flash?.soften?.length) ? { text: "", /* (no words: the constraint flashes red, beside it is the button, `in_1199`) */ beside: s.flash.victims[0] ?? s.flash.soften![0]!, button: `${(s.flash.victims.length + (s.flash.soften?.length ?? 0)) === 1 ? "Delete constraint" : "Delete constraints"}${s.flash.retry ? " to proceed" : ""}` } : null, // (`inv_constraint_uniformity`: a constraint that is violated always flashes and always offers to be deleted: with the change that was refused to go on with, or alone when the change stays)
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // on: the world plane that is on always has its grid (`in_190`)
     suggest,
     cut: s.cut ? { parts: cutParts(sceneOf(s.session), s.cut), join: s.cut.join } : null, // (the bodies as they are, not as the preview of the cut shows them)
@@ -550,7 +553,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : undefined, /* (only the orient mode pulses, and the revolve's orb that is ready to be oriented; the mirror's and the copies' orbs do not, `in_439`) */ hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "revolve" && !s.moverSphere ? `rev:turn:${"xyz"[s.op.axis]}` : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : [...s.lockAxes.map((k) => `move:${"xyz"[k]}`), ...(activePane(s) ? [activePane(s)!] : [])] } : null,
     similar: similarOf(s),
     toolpath: s.preview ? previewView(s.preview.toolpath, s.preview.at) : null,
-    motionBar: s.motion ? { amount: shownAmount(s.motion), lo: s.motion.lo, hi: s.motion.hi, kind: s.motion.kind, playing: s.motion.playing, speedK: s.motion.speedK ?? 1, reversed: s.motion.speed < 0, springs: springsOf(sc, s.motion), links: s.motion.mate ? linksOf(sc, s.motion.mate, s.motion.kind).map((l) => ({ id: l.id, ratio: l.k, kind: l.kind })) : [], label: `${s.motion.kind === "turn" ? "turned" : "slid"} ${steadyNumber(shownAmount(s.motion))}${s.motion.kind === "turn" ? "°" : " mm"}`, note: motionNote(s.motion), fix: { offer: !s.motion.fix && fixOffered(sceneOf(s.session), s.session.outcome, s.motion), step: s.motion.fix ? (() => { const f = s.motion.fix!.plan.fixes[s.motion.fix!.i]; return f ? { text: f.text, n: s.motion.fix!.i + 1, of: s.motion.fix!.plan.fixes.length, how: f.how } : null; })() : null } } : null,
+    motionBar: s.motion ? { amount: shownAmount(s.motion), lo: s.motion.lo, hi: s.motion.hi, kind: s.motion.kind, playing: s.motion.playing, speedK: s.motion.speedK ?? 1, noteDetail: s.motion.contact?.jam ? `${s.motion.contact.jam}: click to see where` : null, reversed: s.motion.speed < 0, springs: springsOf(sc, s.motion), links: s.motion.mate ? linksOf(sc, s.motion.mate, s.motion.kind).map((l) => ({ id: l.id, ratio: l.k, kind: l.kind })) : [], label: `${s.motion.kind === "turn" ? "turned" : "slid"} ${steadyNumber(shownAmount(s.motion))}${s.motion.kind === "turn" ? "°" : " mm"}`, note: motionNote(s.motion), fix: { offer: !s.motion.fix && fixOffered(sceneOf(s.session), s.session.outcome, s.motion), step: s.motion.fix ? (() => { const f = s.motion.fix!.plan.fixes[s.motion.fix!.i]; return f ? { text: f.text, n: s.motion.fix!.i + 1, of: s.motion.fix!.plan.fixes.length, how: f.how } : null; })() : null } } : null,
     previewBar: s.preview ? { at: s.preview.at, label: `${Math.round(s.preview.at * 100)}%${s.preview.toolpath.seconds ? ` of ~${s.preview.toolpath.seconds < 90 ? Math.round(s.preview.toolpath.seconds) + " s" : Math.round(s.preview.toolpath.seconds / 6) / 10 + " min"}` : ""}` } : null,
     adding: s.adding ? "on" : null,
     resetView: !s.anim && !s.tool && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
@@ -561,7 +564,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     loftKinds: s.op?.kind === "loft" ? loftChips(sceneOf(s.session), s.op) : null,
     sizeKinds: sizeKinds(s),
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
-    message: (s.op?.kind === "revolve" ? axisAcross(sceneOf(s.op.made ? undone(s.session) : s.session), s.op) : null) ?? s.session.message ?? hardWhy?.why ?? hardOverlapMessage(sc) ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? (s.op ? Object.values(outcome.notes ?? {}).at(-1) : undefined) ?? "",
+    message: (s.op?.kind === "revolve" ? axisAcross(sceneOf(s.op.made ? undone(s.session) : s.session), s.op) ?? advanceNote(sceneOf(s.op.made ? undone(s.session) : s.session), s.op) : null) ?? s.session.message ?? hardWhy?.why ?? hardOverlapMessage(sc) ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? (s.op ? Object.values(outcome.notes ?? {}).at(-1) : undefined) ?? "",
   };
 }
 
@@ -730,7 +733,7 @@ function withGhost(base: Preview | null, s: AppState): Preview | null {
 /** What is said about a motion above its bar: a jam (and the pin in a hole that would let a body turn, if there is one), a heavy push, or the pin in a hole when a body with no joint has been moved a good way by the play. */
 function motionNote(m: NonNullable<AppState["motion"]>): string | null {
   const c = m.contact;
-  return c?.jam ? `stopped: ${c.jam}` : null; // (only a stop is said here; a heavy push or a pin in a hole is not: the Fix constraints offer is the sign, and its walk has the detail, `in_1131`)
+  return c?.jam ? "Collision occurred" : null; // (the words are short, the detail is in the tooltip and a click goes to it, `in_1191`; only a stop is said here; a heavy push or a pin in a hole is not: the Fix constraints offer is the sign, and its walk has the detail, `in_1131`)
 }
 
 /** The plane a sketch tool is on (the tool's, else the one selected) with its normal turned toward the camera, from wherever the camera is: what is past it is not what is being worked on. */

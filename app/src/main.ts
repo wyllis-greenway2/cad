@@ -728,6 +728,7 @@ function frame(now: number) {
     view.setScene(f.scene, f.mesh);
     view.setHiddenBodies(f.hiddenBodies);
     view.setThin(f.thin);
+    view.setClash(f.clash);
     const standShown = staleSince !== null && performance.now() - staleSince >= STANDIN_MS; // (the discs for gear bodies the kernel has not made: after a short wait, `dec_gear_standin`)
     view.setStandIns(openingGhosts ?? f.standIns, standShown || !!openingGhosts || f.standIns.some((d) => d.box)); // (the parts of a model made in pieces are drawn at once: there is nothing to wait for, `dec_progressive_open`)
     const pageAt = projector(state.cam, size.w, size.h).project;
@@ -749,7 +750,7 @@ function frame(now: number) {
     view.setSection(f.sections);
     view.setWorldHidden(f.worldHidden);
     { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); hardMarks.update(f.hardMarks, (q) => { const c = pr.project(q); return c && c[0] > -10 && c[1] > -10 && c[0] < size.w + 10 && c[1] < size.h + 10 ? [c[0] + pg.left, c[1] + pg.top] : null; }); }
-    { const pg = host.getBoundingClientRect(); const c = projector(state.cam, size.w, size.h).project([0, 0, 0]); worldOrb.update(c && c[0] > -20 && c[1] > -20 && c[0] < size.w + 20 && c[1] < size.h + 20 ? [c[0] + pg.left, c[1] + pg.top] : null, f.worldHidden); }
+    { const pg = host.getBoundingClientRect(); const c = projector(state.cam, size.w, size.h).project([0, 0, 0]); worldOrb.update(c && c[0] > -20 && c[1] > -20 && c[0] < size.w + 20 && c[1] < size.h + 20 ? [c[0] + pg.left, c[1] + pg.top] : null, f.worldHidden, view.originHidden(state.cam)); }
     { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); sheetChips.update(f.sectionPlanes.filter((p) => !p.guide && p.hidden && !p.selected).map((p) => ({ ref: p.ref, mode: p.mode, hidden: p.hidden, move: p.move, selected: p.selected, corners: p.corners })), (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null); }
     const pgE = host.getBoundingClientRect(), prE = projector(state.cam, size.w, size.h);
     const eyeOver = hiddenBodyUnder(f.bodyEyes, (q) => { const c = prE.project(q); return c ? [c[0] + pgE.left, c[1] + pgE.top] : null; }, pointer ? [pointer.x + pgE.left, pointer.y + pgE.top] : null); // (a hidden body the pointer is over: its eye is in the bar, `in_1177`)

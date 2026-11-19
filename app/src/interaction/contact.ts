@@ -7,7 +7,7 @@
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
-import { collidesMoving, buildTree, collides, crossingTris } from "../operation/collide.ts";
+import { collidesMoving, buildTree, collides } from "../operation/collide.ts";
 import type { Tree } from "../operation/collide.ts";
 import { jointOf, compose, inverse, applyPoint } from "../operation/frames.ts";
 import type { Rigid } from "../operation/frames.ts";
@@ -37,6 +37,8 @@ export interface ContactState {
   note: string | null;
   /** where the bodies of a jam are in each other, in space, to show it: the triangles (nine numbers each) of the two that cross; null when there is no jam */
   clash?: number[] | null;
+  /** where the jam is: the middle and the size of a view of the place (`in_1191`) */
+  clashAt?: { centre: Vec3; radius: number } | null;
   /** the state is one on the path of a play from the start (every body where it is drawn at the start, and since then only forward): the places worked out along it are kept and used */
   path?: boolean;
   /** a pin in a hole found among what moves and what is pushed (`pinhole.ts`): the suggestion to mate them, said when the body has been moved far or the motion has stopped */
@@ -49,6 +51,21 @@ const FREE_STEP = 2.5; // (the most a body with no joint is pushed in one step o
  */
 export const contactOptions = { hints: true, keep: true, blend: true, smooth: true };
 const SPLITS = 3, SPLIT_PUSH = 0.4;
+const BIG_TURN = 1; // (a turn this big, degrees, for the push of one step is a corner catching: the carried body is asked whether it would clear it by less)
+const reachCache = new WeakMap<object, Map<string, number>>();
+/** How far the body reaches from the axis it turns about, mm (the farthest corner of its box): a turn of a degree moves its far end this much times 0.0175. */
+function reachOf(scene: Scene, p: Pushable): number {
+  const memo = reachCache.get(scene) ?? new Map<string, number>();
+  reachCache.set(scene, memo);
+  const hit = memo.get(p.body);
+  if (hit !== undefined) return hit;
+  const b = scene.parts[p.body];
+  let r = 10;
+  if (b?.kind === "body" && b.bbox) { r = 0; for (let i = 0; i < 8; i++) r = Math.max(r, Math.hypot(...[0, 1, 2].map((k) => ((i >> k) & 1 ? b.bbox!.max[k]! : b.bbox!.min[k]!) - p.point[k]!))); }
+  memo.set(p.body, r);
+  return r;
+}
+export const AHEAD_STEPS = 16, RAMP_TURN = 0.3, RAMP_SLIDE = 0.15; // (how far ahead a body on a joint is drawn giving way, in steps; the steepest it is drawn moving to meet a jump: degrees, mm a step)
 export const SMOOTH_STEPS = 8; // (steps of the grid either side that the picture of a body with no joint is averaged over) // (a step that moves a body with no joint more than this, mm, is made again in halves, three times at most)
 const FREE_MAX = 60;
 const FREE_SPIN = 120; // (how far a body with no joint may be turned in one play, degrees) // (how far a body with no joint may be pushed in one play, mm: past it the push stops and says so)
@@ -234,7 +251,8 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
   const vals = c.pushables.map((p) => p.value), ways = c.pushables.map((p) => p.way), kinds = c.pushables.map((p) => p.kind), pushes = c.pushables.map((p) => p.push ?? 0);
   const step = stepFor(scene, outcome, movers, m);
   const from = c.at, n = Math.min(MAX_STEPS, Math.max(1, Math.ceil(Math.abs(m.amount - from) / step)));
-  let good = from, jam: string | null = null, note: string | null = null, slow = false, clash: number[] | null = null;
+  let good = from, jam: string | null = null, note: string | null = null, slow = false, clash: number[] | null = null, clashAt: { centre: Vec3; radius: number } | null = null;
+  let clashPair = null as { w: number; hit: Ref } | null;
   let solid: ReadonlySet<Ref> = new Set();
   const first = 1 + m.follows.length;
   // what a step changes can be put back: the bodies' places, as they stood before it (a step that jams, or that moves a body with no joint further than the driver's own move asks, is made again in halves)
@@ -260,7 +278,21 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
         const hitIx = c.pushables.findIndex((p) => p.body === hit);
         // who yields: a pushable that meets something that does not yield yields itself; a body that moves by its own rule, or a pushable, that meets a pushable makes that one yield
         const [pi, aside] = w >= first && hitIx < 0 ? [w - first, w] : [hitIx, hitIx >= 0 ? first + hitIx : -1];
-        const yielded = pi >= 0 && (work[pi]!.free ? yieldFree(scene, outcome, movers, a, vals, work[pi] as Pushable & { free: [number, number, number] }, ways, pushes, pi, aside, movers[w]!.body, mated, ignore, solid, statics, clearance) : yieldBody(scene, outcome, movers, a, vals, ways, kinds, pushes, pi, aside, movers[w]!.body, mated, ignore, solid, statics, clearance));
+        const armBefore = pi >= 0 ? vals[pi]! : 0;
+        let yielded = pi >= 0 && (work[pi]!.free ? yieldFree(scene, outcome, movers, a, vals, work[pi] as Pushable & { free: [number, number, number] }, ways, pushes, pi, aside, movers[w]!.body, mated, ignore, solid, statics, clearance) : yieldBody(scene, outcome, movers, a, vals, ways, kinds, pushes, pi, aside, movers[w]!.body, mated, ignore, solid, statics, clearance));
+        // a body carried by a pin that meets another on a joint: whichever of the two can clear it by the smaller movement gives way (`in_1204`). The one that was hit gives way first; when that is a big turn for a small push (a corner has caught), the carried body slipping on its pin a little is the smaller movement, and the body that was in contact stays in contact
+        if (yielded && pi >= 0 && w >= first && w - first !== pi && !work[pi]!.free && !!work[w - first]!.after && !work[w - first]!.free) {
+          const before = armBefore;
+          const cost = (ix: number, d: number): number => Math.abs(d) * reachOf(scene, work[ix]!);
+          const armMove = Math.abs(vals[pi]! - before);
+          if (armMove > BIG_TURN) {
+            const keepVals = vals.slice(), keepWays = ways.slice(), keepPushes = pushes.slice();
+            const mine = w - first, mineBefore = vals[mine]!;
+            vals[pi] = before; // (the other body back where it was, to see what the carried one would do instead)
+            if (yieldBody(scene, outcome, movers, a, vals, ways, kinds, pushes, mine, w, hit, mated, ignore, solid, statics, clearance) && cost(mine, vals[mine]! - mineBefore) < 0.7 * cost(pi, armMove)) { next.add(w); continue; }
+            for (let q = 0; q < vals.length; q++) { vals[q] = keepVals[q]!; ways[q] = keepWays[q]!; pushes[q] = keepPushes[q]!; }
+          }
+        }
         // a body with no joint that is against another that yields, and the other cannot get out of its way, goes out of the other's way itself (clear of every body where it stands)
         const retried = !yielded && pi >= 0 && w >= first && w - first !== pi && !!work[w - first]!.free && yieldFree(scene, outcome, movers, a, vals, work[w - first] as Pushable & { free: [number, number, number] }, ways, pushes, w - first, w, movers[w]!.body, mated, ignore, solid, statics, clearance, true);
         if (retried) { pushedNow.add(w - first); next.add(w); continue; }
@@ -273,7 +305,8 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
           const joint = pi >= 0 && !work[pi]!.free ? ` (${nameOf(scene, work[pi]!.body)} ${work[pi]!.kind === "slide" ? "slides" : "turns"} on its joint but cannot ${work[pi]!.kind === "slide" ? "slide" : "turn"} clear of it)` : "";
           const flat = pi >= 0 && work[pi]!.free ? " (a body with no joint moves only in the flat of the mechanism, across the turning axis: it slides and turns there)" : "";
           jam = stuck ? `${nameOf(scene, movers[w]!.body)} pushes ${nameOf(scene, work[pi]!.body)} against ${nameOf(scene, stuck)}${flat}` : `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)}${joint}${flat}`;
-          clash = clashOf(scene, outcome, movers, a, vals, stuck ? aside : w, stuck ?? hit, clearance);
+          clashPair = { w: stuck ? aside : w, hit: stuck ?? hit };
+          clashAt = clashOf(scene, outcome, movers, a, vals, clashPair.w, clashPair.hit).at;
           break;
         }
         next.add(aside); // (it moved: it is tested again)
@@ -283,7 +316,7 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
       dirty = next;
     }
     if (!settled && !jam) { // the passes ran out with bodies still moving: say so, rather than leave bodies in each other without a word
-      for (let w = 0; w < movers.length && !jam; w++) { const hit = firstHit(scene, outcome, movers, a, vals, w, mated, ignore, solid, statics, clearance); if (hit) { jam = `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)} (the chain is too long to settle)`; clash = clashOf(scene, outcome, movers, a, vals, w, hit, clearance); } }
+      for (let w = 0; w < movers.length && !jam; w++) { const hit = firstHit(scene, outcome, movers, a, vals, w, mated, ignore, solid, statics, clearance); if (hit) { jam = `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)} (the chain is too long to settle)`; clashPair = { w, hit }; clashAt = clashOf(scene, outcome, movers, a, vals, w, hit).at; } }
     }
     // a body with no joint goes back toward where it is drawn as far as it is clear to, a millimetre a step (it was only pushed while something was in its way)
     for (let pi = 0; pi < work.length && !jam; pi++) {
@@ -366,31 +399,54 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
   const shownYields = (): Follower[] | null => {
     if (!contactOptions.smooth || !keep || !places || jam) return null;
     const free = work.map((q, ix) => (q.free ? ix : -1)).filter((ix) => ix >= 0);
-    if (!free.length) return null;
+    if (!work.length) return null;
     let top = 0;
     while (places.has(top + 1)) top++;
     const g = good / step, i0 = Math.floor(g + 1e-9), f = g - i0;
     if (g > top + 1e-9 || !places.has(0) || i0 < 0) return null;
-    const at = (i: number, ix: number): { free: [number, number, number]; spin: number } => {
+    const at = (i: number, ix: number): { free: [number, number, number]; spin: number; value: number } => {
       const w = Math.min(SMOOTH_STEPS, i, top - i);
-      let [sx, sy, sz, ss, sw] = [0, 0, 0, 0, 0];
-      for (let j = -w; j <= w; j++) { const e = places.get(i + j)!.work[ix]!, k = w + 1 - Math.abs(j); if (!e.free) continue; sx += e.free[0] * k; sy += e.free[1] * k; sz += e.free[2] * k; ss += (e.spin ?? 0) * k; sw += k; }
-      return { free: [sx / sw, sy / sw, sz / sw], spin: ss / sw };
+      let [sx, sy, sz, ss, sv, sw] = [0, 0, 0, 0, 0, 0];
+      for (let j = -w; j <= w; j++) { const pl = places.get(i + j)!, e = pl.work[ix]!, k = w + 1 - Math.abs(j); sv += (pl.vals[ix] ?? 0) * k; if (!e.free) { sw += k; continue; } sx += e.free[0] * k; sy += e.free[1] * k; sz += e.free[2] * k; ss += (e.spin ?? 0) * k; sw += k; }
+      return { free: [sx / sw, sy / sw, sz / sw], spin: ss / sw, value: sv / sw };
     };
+    // a body that turns or slides on a joint is drawn giving way ahead of its push (`in_1202`): the worked-out places jump (a corner of the body it meets catches, and it is pushed clear in one step), and a jump is drawn as a ramp that begins a few steps before it, at a
+    // steady rate: always on the side it is pushed to, so it is clear of what is pushing it. Two of them that take turns, a degree at a time, are each drawn giving way a little every step.
+    const early = (i: number, ix: number): number => {
+      const kind = kinds[ix]!, rate = kind === "slide" ? RAMP_SLIDE : RAMP_TURN;
+      const v = (j: number): number => places.get(j)?.vals[ix] ?? 0;
+      const last = Math.min(top, i + AHEAD_STEPS);
+      let far = 0;
+      for (let j = i; j <= last; j++) if (Math.abs(v(j) - v(i)) > Math.abs(far)) far = v(j) - v(i);
+      const dirn = far < 0 ? -1 : 1; // (the way it is going to be pushed)
+      let best = dirn * v(i);
+      for (let j = i + 1; j <= last; j++) best = Math.max(best, dirn * v(j) - rate * (j - i));
+      return dirn * best;
+    };
+    const valsShown = vals.slice();
     const shown = pushables.map((p, ix) => {
-      if (!free.includes(ix)) return p;
       const [a0, a1] = [at(i0, ix), at(Math.min(top, i0 + 1), ix)];
       const k = i0 + 1 > top ? 0 : f;
+      if (!free.includes(ix)) { const [e0, e1] = [early(i0, ix), early(Math.min(top, i0 + 1), ix)]; valsShown[ix] = e0 + (e1 - e0) * k; return { ...p, value: valsShown[ix]! }; }
       return { ...p, free: [0, 1, 2].map((q) => a0.free[q]! + (a1.free[q]! - a0.free[q]!) * k) as [number, number, number], spin: a0.spin + (a1.spin - a0.spin) * k };
     });
     // clear where it is drawn? (against everything: the driver, what yields, the walls). Where the average cuts a corner into what the body hugs, it is only taken as far toward the average as is clear (found by halving, from the worked-out place, which
     // is clear): it follows the average everywhere else and keeps to the surface where it cannot.
     const m2 = moversOf(m, { ...c, pushables: shown });
-    const solid2 = solidSet(scene, outcome, m2, good, vals).solid;
-    for (const ix of free) {
+    const solid2 = solidSet(scene, outcome, m2, good, valsShown).solid;
+    for (let ix = 0; ix < shown.length; ix++) {
+      if (!free.includes(ix)) {
+        const [avgV, wasV] = [valsShown[ix]!, vals[ix]!];
+        const putV = (k: number): boolean => { valsShown[ix] = wasV + (avgV - wasV) * k; (shown[ix] as { value: number }).value = valsShown[ix]!; return firstHit(scene, outcome, m2, good, valsShown, first + ix, mated, ignore, solid2, statics, clearance) === null; };
+        if (putV(1)) continue;
+        let [lo, hi] = [0, 1];
+        for (let k = 0; k < 6; k++) { const mid = (lo + hi) / 2; if (putV(mid)) lo = mid; else hi = mid; }
+        putV(lo);
+        continue;
+      }
       const [s, w0] = [shown[ix] as Pushable & { free: [number, number, number] }, work[ix]!];
       const [avg, was, spinAvg, spinWas] = [[...s.free] as [number, number, number], [...w0.free!] as [number, number, number], s.spin ?? 0, w0.spin ?? 0];
-      const put = (k: number): boolean => { for (let q = 0; q < 3; q++) s.free[q] = was[q]! + (avg[q]! - was[q]!) * k; s.spin = spinWas + (spinAvg - spinWas) * k; return firstHit(scene, outcome, m2, good, vals, first + ix, mated, ignore, solid2, statics, clearance) === null; };
+      const put = (k: number): boolean => { for (let q = 0; q < 3; q++) s.free[q] = was[q]! + (avg[q]! - was[q]!) * k; s.spin = spinWas + (spinAvg - spinWas) * k; return firstHit(scene, outcome, m2, good, valsShown, first + ix, mated, ignore, solid2, statics, clearance) === null; };
       if (put(1)) continue;
       let [lo, hi] = [0, 1];
       for (let k = 0; k < 6; k++) { const mid = (lo + hi) / 2; if (put(mid)) lo = mid; else hi = mid; }
@@ -402,7 +458,8 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
   const pushables = c.pushables.map((p, i) => ({ ...p, value: vals[i]!, way: ways[i]!, push: pushes[i]!, ...(work[i]!.free ? { free: work[i]!.free, spin: work[i]!.spin ?? 0 } : {}), ...(work[i]!.dirSlide !== undefined ? { dirSlide: work[i]!.dirSlide } : {}), ...(work[i]!.dirTurn ? { dirTurn: work[i]!.dirTurn } : {}), turning: !!work[i]!.turning, since: work[i]!.since ?? 0, still: work[i]!.still ?? 0, ...(work[i]!.blockedBy ? { blockedBy: work[i]!.blockedBy } : {}) }));
   const across = movers.find((q) => q.turns)?.axis ?? [0, 0, 1];
   const follows = shownYields() ?? yieldsOf(pushables, across);
-  return { ...m, amount: jam || slow ? good : m.amount, playing: jam ? false : m.playing, from: jam || slow ? good : m.from, startedAt: jam || slow ? null : m.startedAt, contact: { ...c, pushables, at: good, jam, note, clash: jam ? clash : null, target: slow ? m.amount : null, path: onPath }, yields: follows };
+  if (jam && clashPair) clash = clashOf(scene, outcome, movers, good, vals, clashPair.w, clashPair.hit).tris; // (the two bodies drawn red are where the bodies are drawn: the last clear place, not the step that met)
+  return { ...m, amount: jam || slow ? good : m.amount, playing: jam ? false : m.playing, from: jam || slow ? good : m.from, startedAt: jam || slow ? null : m.startedAt, contact: { ...c, pushables, at: good, jam, note, clash: jam ? clash : null, clashAt: jam ? clashAt : null, target: slow ? m.amount : null, path: onPath }, yields: follows };
 }
 
 /** Move pushable `pi` (mover `w`) by the smallest amount that leaves it clear of everything, trying the way it last went first: doubling the distance until clear, then halving to the nearest. False when there is none. */
@@ -568,16 +625,19 @@ function stepFor(scene: Scene, outcome: CompileOutcome | undefined, movers: Move
   return rate > 0 ? Math.min(base, Math.max(base / 4, MOVE_MM / rate)) : base;
 }
 
-/** Where two bodies are in each other at a pose, in space (the triangles of each that cross the other), to show a jam in red. */
-function clashOf(scene: Scene, outcome: CompileOutcome | undefined, movers: Mover[], a: number, vals: number[], w: number, hit: Ref, clearance: number): number[] {
+/** The two bodies of a jam, whole, at a pose (the triangles of each, in space), to show them shaded red (`in_1191`), and where they meet: the middle and the size of a view that shows the place (the box where their boxes overlap, or lie closest). */
+function clashOf(scene: Scene, outcome: CompileOutcome | undefined, movers: Mover[], a: number, vals: number[], w: number, hit: Ref): { tris: number[]; at: { centre: Vec3; radius: number } } {
   const me = movers[w]!;
   const [rMe, rOther] = [me.pose(a, vals), movers.find((q) => q.body === hit)?.pose(a, vals) ?? IDENT];
   const [m1, o1] = [bodyMesh(scene, outcome, me.body), bodyMesh(scene, outcome, hit)];
-  if (!m1 || !o1) return [];
+  if (!m1 || !o1) return { tris: [], at: { centre: [0, 0, 0], radius: 20 } };
   const pose = (tris: ArrayLike<number>, r: Rigid): number[] => { const out: number[] = new Array(tris.length); for (let i = 0; i + 2 < tris.length; i += 3) { const q = applyPoint(r, [tris[i]!, tris[i + 1]!, tris[i + 2]!]); out[i] = q[0]; out[i + 1] = q[1]; out[i + 2] = q[2]; } return out; };
-  const toOther = compose(rMe, inverse(rOther)), toMe = compose(rOther, inverse(rMe)); // (each body's triangles in the frame of the other, as the mesh test puts them)
-  const mine = crossingTris(pose(m1.tris, toOther), o1.tree, clearance, 150), theirs = crossingTris(pose(o1.tris, toMe), m1.tree, clearance, 150);
-  return [...pose(mine, rOther), ...pose(theirs, rMe)];
+  const [t1, t2] = [pose(m1.tris, rMe), pose(o1.tris, rOther)];
+  const box = (t: number[]): [number[], number[]] => { const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity]; for (let i = 0; i + 2 < t.length; i += 3) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k]!, t[i + k]!); hi[k] = Math.max(hi[k]!, t[i + k]!); } return [lo, hi]; };
+  const [b1, b2] = [box(t1), box(t2)];
+  const lo = [0, 1, 2].map((k) => Math.max(b1[0][k]!, b2[0][k]!)), hi = [0, 1, 2].map((k) => Math.min(b1[1][k]!, b2[1][k]!));
+  const mid = [0, 1, 2].map((k) => (lo[k]! + hi[k]!) / 2) as unknown as Vec3; // (where the boxes overlap; when they only come close the numbers cross over, and the middle is still between them)
+  return { tris: [...t1, ...t2], at: { centre: mid, radius: Math.max(8, Math.hypot(...[0, 1, 2].map((k) => Math.abs(hi[k]! - lo[k]!))) * 1.2) } };
 }
 
 /** The follower of each body that yields: where it stands now, as the drawing of it needs. */
@@ -606,7 +666,7 @@ function yieldsOf(pushables: Pushable[], across: Vec3 = [0, 0, 1]): Follower[] {
 /** The motion started again from the beginning (pressing play after a jam): the driver at nothing, every body that yielded back where it is drawn, no jam. */
 export function restartContact(c: ContactState, across: Vec3 = [0, 0, 1]): { contact: ContactState; yields: Follower[] } {
   const pushables = c.pushables.map((p): Pushable => { const { push: _p, dirSlide: _s, dirTurn: _t, turning: _u, since: _n, still: _z, blockedBy: _b, ...rest } = p; return { ...rest, value: 0, way: p.way, ...(p.free ? { free: [0, 0, 0] as [number, number, number], spin: 0 } : {}) }; });
-  return { contact: { ...c, pushables, at: 0, jam: null, note: null, clash: null, target: null, path: true }, yields: yieldsOf(pushables, across) };
+  return { contact: { ...c, pushables, at: 0, jam: null, note: null, clash: null, clashAt: null, target: null, path: true }, yields: yieldsOf(pushables, across) };
 }
 
 /**

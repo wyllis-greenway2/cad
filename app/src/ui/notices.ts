@@ -71,6 +71,7 @@ export function createNotices(host: HTMLElement, status: HTMLElement, send: (i: 
           refusalShown = sig;
           refusal.style.display = "flex";
           rText.textContent = r.text;
+          rText.style.display = r.text ? "" : "none"; // (a refusal with no words is the button alone, beside the constraint that flashes, `in_1199`)
           choiceRow(rButtons, act ? [{ id: "go", text: act.label, title: act.title, on: true }] : [], () => send(act!.intent));
         }
       }

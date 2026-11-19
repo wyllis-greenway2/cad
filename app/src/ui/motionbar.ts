@@ -3,7 +3,7 @@
 import { PILL } from "./look.ts";
 import type { Frame } from "../interaction/frame.ts";
 
-export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt"; amount: number } | { type: "motionPlay" } | { type: "motionKind"; kind: "turn" | "slide" } | { type: "motionKeep" } | { type: "motionFix"; act: "open" | "apply" | "skip" | "close" } | { type: "motionReverse" } | { type: "motionSpeed"; k: number } | { type: "motionRest"; ref: string; rest: number | null } | { type: "motionLink"; id: string; ratio?: number; kind?: "turn" | "slide"; remove?: true } | { type: "motionClose" }) => void) {
+export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt"; amount: number } | { type: "motionPlay" } | { type: "motionKind"; kind: "turn" | "slide" } | { type: "motionKeep" } | { type: "motionFix"; act: "open" | "apply" | "skip" | "close" } | { type: "motionReverse" } | { type: "motionSpeed"; k: number } | { type: "motionShowClash" } | { type: "motionRest"; ref: string; rest: number | null } | { type: "motionLink"; id: string; ratio?: number; kind?: "turn" | "slide"; remove?: true } | { type: "motionClose" }) => void) {
   const bar = document.createElement("div");
   bar.style.cssText = PILL + ";bottom:60px;left:50%;transform:translateX(-50%);pointer-events:auto;gap:10px;display:none";
   bar.setAttribute("data-motion-bar", "");
@@ -32,14 +32,38 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
   const fixB = btn("Fix Constraints", "Slow animation: it is worked out by collision. Find which pushed bodies could be joints (they cost nothing) and walk through them one at a time");
   fixB.style.cssText += ";border:1px solid #2b8a3e;background:#2b8a3e;border-radius:6px;padding:1px 8px;display:none";
   fixB.addEventListener("pointerup", (e) => { e.stopPropagation(); send({ type: "motionFix", act: "open" }); });
-  // the speed of the play: a clock by the play button; it opens a few speeds to choose from
-  const clock = btn("", "Speed of the play");
+  // the speed of the play: a clock by the play button (`in_1191`). A tap goes to the next of a few speeds (the first tap after a while sets it back to the normal speed); held and dragged left or right it sets the speed smoothly, as a percent
+  const clock = btn("", "Speed: tap for the next speed (the first tap after a while: normal), or hold and drag left or right");
   clock.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="display:block"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.4V8l2.4 1.6"/></svg>';
-  const speeds = document.createElement("div");
-  speeds.style.cssText = "position:absolute;bottom:calc(100% + 8px);left:0;display:none;gap:4px;align-items:center;padding:4px 6px;border-radius:12px;background:rgba(34,37,41,.95);color:#fff;font-size:12.5px";
-  const chips = [0.25, 0.5, 1, 2, 4].map((k) => { const c = btn(`${k}×`, `Play at ${k} times the speed`); c.style.cssText += ";border-radius:6px;padding:1px 6px"; c.addEventListener("pointerup", (e) => { e.stopPropagation(); speeds.style.display = "none"; send({ type: "motionSpeed", k }); }); speeds.appendChild(c); return { k, c }; });
-  clock.addEventListener("pointerup", (e) => { e.stopPropagation(); speeds.style.display = speeds.style.display === "none" ? "flex" : "none"; });
-  bar.append(note, card, speeds, play, rev, clock, slider, links, keep, fixB, close);
+  clock.style.touchAction = "none";
+  const pct = document.createElement("span"); pct.style.cssText = "display:inline-block;min-width:38px;text-align:left;font-variant-numeric:tabular-nums;font-size:12.5px;visibility:hidden"; // (the percent, shown while it is not the normal speed or is being set)
+  const STEPS = [0.25, 0.5, 1, 2, 4], STALE_MS = 4000;
+  let curK = 1, lastAdjust = -Infinity, drag: { x: number; k: number; moved: boolean } | null = null;
+  const setK = (k: number): void => { const kk = Math.max(0.1, Math.min(4, Math.round(k * 100) / 100)); curK = kk; showPct(true); send({ type: "motionSpeed", k: kk }); };
+  const showPct = (force = false): void => { pct.textContent = `${Math.round(curK * 100)}%`; pct.style.visibility = force || Math.abs(curK - 1) > 0.005 ? "visible" : "hidden"; }; // (it keeps its room: the bar does not shift under the finger)
+  clock.addEventListener("pointerdown", (e) => { e.stopPropagation(); drag = { x: e.clientX, k: curK, moved: false }; try { clock.setPointerCapture(e.pointerId); } catch { /* (no capture: the move still arrives while over it) */ } });
+  clock.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    lastAdjust = performance.now();
+    const dx = e.clientX - drag.x;
+    if (!drag.moved && Math.abs(dx) < 5) return;
+    drag.moved = true;
+    setK(drag.k * Math.pow(2, dx / 90)); // (a hundred or so pixels doubles or halves it)
+  });
+  clock.addEventListener("pointerup", (e) => {
+    e.stopPropagation();
+    const was = drag; drag = null;
+    const now = performance.now();
+    if (was && !was.moved) { // a tap: back to normal when it has been a while, else the next speed
+      if (now - lastAdjust > STALE_MS) setK(1);
+      else setK(STEPS.find((k) => k > curK + 0.005) ?? STEPS[0]!);
+    }
+    lastAdjust = now;
+    showPct();
+  });
+  clock.addEventListener("pointercancel", () => { drag = null; });
+  note.addEventListener("pointerup", (e) => { e.stopPropagation(); send({ type: "motionShowClash" }); });
+  bar.append(note, card, play, rev, clock, pct, slider, links, keep, fixB, close);
   host.appendChild(bar);
   play.addEventListener("pointerup", (e) => { e.stopPropagation(); send({ type: "motionPlay" }); });
   slider.addEventListener("input", () => send({ type: "motionAt", amount: Number(slider.value) }));
@@ -61,8 +85,10 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
       // the note fades in once it has been there a moment (a heavy push comes and goes from one frame to the next) and fades out a good while after it was last said, so it can be read; a jam is shown at once
       const clock = performance.now();
       if (v.note) { if (!noteSince) noteSince = clock; noteLast = v.note; noteSeen = clock; } else noteSince = 0;
-      const show = !!noteLast && (((!!v.note && (v.note.startsWith("stopped") || clock - noteSince >= 600))) || clock - noteSeen < 3000 && noteOn);
+      const show = !!noteLast && (((!!v.note && (v.note.startsWith("Collision") || clock - noteSince >= 600))) || clock - noteSeen < 3000 && noteOn);
       noteOn = show;
+      const clash = !!v.noteDetail; // (a collision stopped it: the note is a button that goes to it)
+      note.style.pointerEvents = clash ? "auto" : "none"; note.style.cursor = clash ? "pointer" : "default"; note.title = v.noteDetail ?? "";
       if (noteLast) note.textContent = noteLast;
       note.style.opacity = show ? "1" : "0";
       if (!show && noteLast && clock - noteSeen > 3500) noteLast = "";
@@ -88,7 +114,7 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
         applyB.textContent = step.how === "mate" ? "Apply coaxial mate" : "Apply pivot";
       }
       fixB.style.display = v.fix.offer && !step ? "" : "none";
-      for (const c of chips) c.c.style.background = Math.abs(c.k - v.speedK) < 1e-6 ? "rgba(255,255,255,.25)" : "transparent";
+      if (!drag && performance.now() - lastAdjust > 600) { curK = v.speedK; showPct(); } // (what the frame says, except while it is being set: the frame may be a little behind the last touch)
     },
   };
 }
