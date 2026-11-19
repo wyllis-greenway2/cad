@@ -326,7 +326,7 @@ const holeBar = createHolePanel(document.body, {
   commit() { holesCut(); },
   close() { holesClose(); },
   points() { holesPoints(); },
-  moveBy(along, across) { // the hole picked moved by typed distances from where the rules put it (`in_1029`)
+  moveBy(along, across) { // the hole picked moved by typed distances from where the rules put it (`in_1042`)
     if (!hardware || !holesPlan || holesPicked === null) return;
     const pos = holesPlan.index.indexOf(holesPicked);
     const [a, c] = [along.trim() === "" ? 0 : typedLength(along), across.trim() === "" ? 0 : typedLength(across)];
