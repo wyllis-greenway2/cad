@@ -4581,3 +4581,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1055 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 once more, with the gear chains change; the full suite is not needed)
+
+## in_1056 — 2026-11-19 — question
+> also why does this one jamb? does the body have a constraint that makes it so that it cannot rotate? Can we make it so that it pauses at collision, and flashes red the collision area, and that hitting play again restarts the animation.
+(the file `why_jamb.json`: the gear with the pin pushes the lever, a hard body, into the bar that turns on a pivot; asks why the bar does not turn out of the way, and for a pause at the collision, the area in red, and play after it to restart)

@@ -16,6 +16,7 @@ import { startContact } from "./contact.ts";
 import { pivotOfBody, pivotsOf } from "../operation/pivot.ts";
 import { isHard, isFixed } from "./hard.ts";
 import type { Candidate } from "./contact.ts";
+import { restartContact } from "./contact.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
 import { followAmount } from "../operation/gearcouple.ts";
 import { linkFollowers } from "../operation/coupling.ts";
@@ -134,6 +135,8 @@ export function reverseMotion(m: Motion): Motion {
 }
 /** Playing stops where it is (and a stopped one starts from where it stands). */
 export function setPlaying(m: Motion, on: boolean): Motion {
+  // play pressed after a jam: the motion begins again from the start (the same jam would come at once from where it stopped)
+  if (on && m.contact?.jam) { const r = restartContact(m.contact); return { ...m, amount: 0, from: 0, playing: true, startedAt: null, contact: r.contact, yields: r.yields }; }
   return on ? { ...m, playing: true, startedAt: null, from: m.amount } : { ...m, playing: false, startedAt: null };
 }
 

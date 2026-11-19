@@ -7,7 +7,7 @@
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
-import { collidesMoving, buildTree, collides } from "../operation/collide.ts";
+import { collidesMoving, buildTree, collides, crossingTris } from "../operation/collide.ts";
 import type { Tree } from "../operation/collide.ts";
 import { jointOf, compose, inverse, applyPoint } from "../operation/frames.ts";
 import type { Rigid } from "../operation/frames.ts";
@@ -34,6 +34,8 @@ export interface ContactState {
   target?: number | null;
   /** something to say about the mechanism that is not a jam: a chain that goes on past the depth of passed-on hardness */
   note: string | null;
+  /** where the bodies of a jam are in each other, in space, to show it: the triangles (nine numbers each) of the two that cross; null when there is no jam */
+  clash?: number[] | null;
 }
 const FREE_STEP = 2.5; // (the most a body with no joint is pushed in one step of the driver, mm)
 const FREE_MAX = 60; // (how far a body with no joint may be pushed in one play, mm: past it the push stops and says so)
@@ -206,7 +208,7 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
   const vals = c.pushables.map((p) => p.value), ways = c.pushables.map((p) => p.way), kinds = c.pushables.map((p) => p.kind), pushes = c.pushables.map((p) => p.push ?? 0);
   const step = m.kind === "turn" ? STEP : STEP / 2;
   const from = c.at, n = Math.min(MAX_STEPS, Math.max(1, Math.ceil(Math.abs(m.amount - from) / step)));
-  let good = from, jam: string | null = null, note: string | null = null, slow = false;
+  let good = from, jam: string | null = null, note: string | null = null, slow = false, clash: number[] | null = null;
   let solid: ReadonlySet<Ref> = new Set();
   for (let i = 1; i <= n && !jam; i++) {
     const a = from + ((m.amount - from) * i) / n;
@@ -229,7 +231,9 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
         const yielded = pi >= 0 && (work[pi]!.free ? yieldFree(scene, outcome, movers, a, vals, work[pi] as Pushable & { free: [number, number, number] }, ways, pushes, pi, aside, movers[w]!.body, mated, ignore, solid, statics, clearance) : yieldBody(scene, outcome, movers, a, vals, ways, kinds, pushes, pi, aside, movers[w]!.body, mated, ignore, solid, statics, clearance));
         if (!yielded) {
           const stuck = pi >= 0 ? work[pi]!.blockedBy : undefined; // (a body with no joint that is against another: say which)
-          jam = stuck ? `${nameOf(scene, movers[w]!.body)} pushes ${nameOf(scene, work[pi]!.body)} against ${nameOf(scene, stuck)}` : `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)}`;
+          const joint = pi >= 0 && !work[pi]!.free ? ` (${nameOf(scene, work[pi]!.body)} ${work[pi]!.kind === "slide" ? "slides" : "turns"} on its joint but cannot ${work[pi]!.kind === "slide" ? "slide" : "turn"} clear of it)` : "";
+          jam = stuck ? `${nameOf(scene, movers[w]!.body)} pushes ${nameOf(scene, work[pi]!.body)} against ${nameOf(scene, stuck)}` : `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)}${joint}`;
+          clash = clashOf(scene, outcome, movers, a, vals, stuck ? aside : w, stuck ?? hit, clearance);
           break;
         }
         next.add(aside); // (it moved: it is tested again)
@@ -239,7 +243,7 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
       dirty = next;
     }
     if (!settled && !jam) { // the passes ran out with bodies still moving: say so, rather than leave bodies in each other without a word
-      for (let w = 0; w < movers.length && !jam; w++) { const hit = firstHit(scene, outcome, movers, a, vals, w, mated, ignore, solid, statics, clearance); if (hit) jam = `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)} (the chain is too long to settle)`; }
+      for (let w = 0; w < movers.length && !jam; w++) { const hit = firstHit(scene, outcome, movers, a, vals, w, mated, ignore, solid, statics, clearance); if (hit) { jam = `${nameOf(scene, movers[w]!.body)} against ${nameOf(scene, hit)} (the chain is too long to settle)`; clash = clashOf(scene, outcome, movers, a, vals, w, hit, clearance); } }
     }
     // a body with no joint goes back toward where it is drawn as far as it is clear to, a millimetre a step (it was only pushed while something was in its way)
     for (let pi = 0; pi < work.length && !jam; pi++) {
@@ -275,11 +279,8 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
   }
   if (slow && !note) note = "this push is heavy: it plays slower than real time";
   const pushables = c.pushables.map((p, i) => ({ ...p, value: vals[i]!, way: ways[i]!, push: pushes[i]!, ...(work[i]!.free ? { free: work[i]!.free } : {}), ...(work[i]!.dirAt ? { dirAt: work[i]!.dirAt } : {}), ...(work[i]!.blockedBy ? { blockedBy: work[i]!.blockedBy } : {}) }));
-  const follows = pushables.map((p): Follower => {
-    if (p.free) { const len = Math.hypot(...p.free); return { gear: "", body: p.body, kind: "slide", point: p.point, dir: len > 1e-9 ? [p.free[0] / len, p.free[1] / len, p.free[2] / len] : [1, 0, 0], k: 0, value: len }; } // (a move any way: a slide along the way it went)
-    return { gear: "", body: p.body, kind: p.kind, point: p.point, dir: p.dir, k: 0, value: p.value, ...(p.mate ? { mate: p.mate } : {}) };
-  });
-  return { ...m, amount: jam || slow ? good : m.amount, playing: jam ? false : m.playing, from: jam || slow ? good : m.from, startedAt: jam || slow ? null : m.startedAt, contact: { ...c, pushables, at: good, jam, note, target: slow ? m.amount : null }, yields: follows };
+  const follows = yieldsOf(pushables);
+  return { ...m, amount: jam || slow ? good : m.amount, playing: jam ? false : m.playing, from: jam || slow ? good : m.from, startedAt: jam || slow ? null : m.startedAt, contact: { ...c, pushables, at: good, jam, note, clash: jam ? clash : null, target: slow ? m.amount : null }, yields: follows };
 }
 
 /** Move pushable `pi` (mover `w`) by the smallest amount that leaves it clear of everything, trying the way it last went first: doubling the distance until clear, then halving to the nearest. False when there is none. */
@@ -368,4 +369,30 @@ function yieldFree(scene: Scene, outcome: CompileOutcome | undefined, movers: Mo
   pushes[pi] = best.t;
   ways[pi] = 1;
   return true;
+}
+
+/** Where two bodies are in each other at a pose, in space (the triangles of each that cross the other), to show a jam in red. */
+function clashOf(scene: Scene, outcome: CompileOutcome | undefined, movers: Mover[], a: number, vals: number[], w: number, hit: Ref, clearance: number): number[] {
+  const me = movers[w]!;
+  const [rMe, rOther] = [me.pose(a, vals), movers.find((q) => q.body === hit)?.pose(a, vals) ?? IDENT];
+  const [m1, o1] = [bodyMesh(scene, outcome, me.body), bodyMesh(scene, outcome, hit)];
+  if (!m1 || !o1) return [];
+  const pose = (tris: ArrayLike<number>, r: Rigid): number[] => { const out: number[] = new Array(tris.length); for (let i = 0; i + 2 < tris.length; i += 3) { const q = applyPoint(r, [tris[i]!, tris[i + 1]!, tris[i + 2]!]); out[i] = q[0]; out[i + 1] = q[1]; out[i + 2] = q[2]; } return out; };
+  const toOther = compose(rMe, inverse(rOther)), toMe = compose(rOther, inverse(rMe)); // (each body's triangles in the frame of the other, as the mesh test puts them)
+  const mine = crossingTris(pose(m1.tris, toOther), o1.tree, clearance, 150), theirs = crossingTris(pose(o1.tris, toMe), m1.tree, clearance, 150);
+  return [...pose(mine, rOther), ...pose(theirs, rMe)];
+}
+
+/** The follower of each body that yields: where it stands now, as the drawing of it needs. */
+function yieldsOf(pushables: Pushable[]): Follower[] {
+  return pushables.map((p): Follower => {
+    if (p.free) { const len = Math.hypot(...p.free); return { gear: "", body: p.body, kind: "slide", point: p.point, dir: len > 1e-9 ? [p.free[0] / len, p.free[1] / len, p.free[2] / len] : [1, 0, 0], k: 0, value: len }; } // (a move any way: a slide along the way it went)
+    return { gear: "", body: p.body, kind: p.kind, point: p.point, dir: p.dir, k: 0, value: p.value, ...(p.mate ? { mate: p.mate } : {}) };
+  });
+}
+
+/** The motion started again from the beginning (pressing play after a jam): the driver at nothing, every body that yielded back where it is drawn, no jam. */
+export function restartContact(c: ContactState): { contact: ContactState; yields: Follower[] } {
+  const pushables = c.pushables.map((p): Pushable => { const { push: _p, dirAt: _d, blockedBy: _b, ...rest } = p; return { ...rest, value: 0, way: p.way, ...(p.free ? { free: [0, 0, 0] as [number, number, number] } : {}) }; });
+  return { contact: { ...c, pushables, at: 0, jam: null, note: null, clash: null, target: null }, yields: yieldsOf(pushables) };
 }
