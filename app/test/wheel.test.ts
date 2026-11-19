@@ -30,7 +30,11 @@ test("numbers that make no wheel are said", () => {
   assert.match(wheelProblem(S({ spokes: 2 })) ?? "", /3 to 24/);
   assert.match(wheelProblem(S({ spokes: 24, spokeW: 14 })) ?? "", /too wide|too small/);
   assert.match(wheelProblem(S({ corner: 7 })) ?? "", /too short|too small/);
-  assert.match(wheelProblem(S({ taper: 0.95 })) ?? "", /taper/);
+  assert.match(wheelProblem(S({ edge: 2.5 })) ?? "", /too big for the web/);
+  assert.match(wheelProblem(S({ edge: 1.9, web: 5, spokeW: 4 })) ?? "", /too big for the spoke/);
+  assert.match(wheelProblem(S({ edge: 1, hubOff: 0.5 })) ?? "", /stop short/);
+  assert.match(wheelProblem(S({ edge: 0.1 })) ?? "", /at least 0.3/);
+  assert.match(wheelProblem(S({ taper: 0.95, edge: 0 })) ?? "", /taper/);
 });
 function placed(typed: Record<string, string>, fill?: boolean) {
   typed = { outer: "80", ...typed }; // (the first number typed, if it is a size, sets the scale of the rest: the outside diameter is kept as it is)
@@ -47,7 +51,7 @@ function placed(typed: Record<string, string>, fill?: boolean) {
 const area = (l: [number, number][]): number => Math.abs(l.slice(0, -1).reduce((s, p, i) => s + p[0] * l[i + 1]![1] - l[i + 1]![0] * p[1], 0)) / 2;
 const bodyOf = (st: ReturnType<typeof placed>): B[] => Object.values(scene(st.session).parts).filter((p) => p.kind === "body") as unknown as B[];
 test("a plain web is one body of the rim's height with its hub and bore; cutouts take away what their outlines enclose, in the web's thickness", () => {
-  const s = S({ draft: 0 }), plain = bodyOf(placed({ spokes: "0", draft: "0" }));
+  const s = S({ draft: 0, edge: 0 }), plain = bodyOf(placed({ spokes: "0", draft: "0", edge: "0" }));
   assert.equal(plain.length, 1, "one body");
   assert.ok(Math.abs(plain[0]!.bbox.max[2]! - plain[0]!.bbox.min[2]! - Math.max(s.width, s.hubLen)) < 1e-3, "as high as the longer of rim and hub");
   assert.ok(Math.abs(plain[0]!.bbox.max[0]! - plain[0]!.bbox.min[0]! - s.outer) < 0.2, "as wide as the outside diameter");
@@ -55,8 +59,8 @@ test("a plain web is one body of the rim's height with its hub and bore; cutouts
   const g = wheelGeometry(s), box = Math.PI * ((g.R ** 2 - g.Rin ** 2) * s.width + (g.hubR ** 2 - (s.bore / 2) ** 2) * s.hubLen + (g.Rin ** 2 - g.hubR ** 2) * s.web);
   assert.ok(plain[0]!.volume > box && plain[0]!.volume < box * 1.06, `volume ${plain[0]!.volume} is the plain section's ${box.toFixed(0)} and the fillets`);
   for (const o of [{} as Record<string, string>, { spiral: "15" }, { spokeW: "6", taper: "-0.2", hubOff: "0", rimOff: "0" }, { joinKind: "1", spokes: "6", corner: "2", spokeW: "6" }]) {
-    const st = placed({ draft: "0", ...o }), made = bodyOf(st), sp = { ...s, ...Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Number(v)])) } as WheelSpec;
-    const plainSp = bodyOf(placed({ draft: "0", ...o, spokes: "0" }))[0]!.volume;
+    const st = placed({ draft: "0", edge: "0", ...o }), made = bodyOf(st), sp = { ...s, ...Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Number(v)])) } as WheelSpec;
+    const plainSp = bodyOf(placed({ draft: "0", edge: "0", ...o, spokes: "0" }))[0]!.volume;
     assert.equal(made.length, 1, `${JSON.stringify(o)}: one body`);
     const cuts = wheelLines(sp).slice(4).reduce((a, l) => a + area(l), 0) * sp.web;
     const drop = plainSp - made[0]!.volume, exact = sp.hubOff > sp.join + 0.4 && sp.rimOff > sp.join + 0.4; // (a cutout that reaches into a fillet takes the fillet's metal too)
@@ -119,7 +123,7 @@ test("the Size is the outside diameter, listed once; typing the number a field a
   assert.equal(modelEntry(sc, t)!.fields.some((f) => f.label === "Outside diameter"), false);
   assert.equal(modelEntry(sc, t)!.fields[0]!.label, "Size");
   const base = modelTarget(sc, toolWith({}, "80"))!.nums;
-  for (const k of ["width", "rim", "hub", "hubLen", "bore", "web", "join", "spokes", "hubOff", "rimOff", "corner", "spokeW", "taper", "spiral", "draft"]) {
+  for (const k of ["width", "rim", "hub", "hubLen", "bore", "web", "join", "spokes", "hubOff", "rimOff", "corner", "spokeW", "taper", "spiral", "draft", "edge"]) {
     const g = modelTarget(sc, toolWith({ [k]: String(base[k]) }, "80"))!;
     assert.equal(g.problem, null, `${k} typed as it already is: ${g.problem}`);
     assert.deepEqual(g.nums, base, `${k}: nothing else moves`);
@@ -134,11 +138,11 @@ test("a number typed is met by the others: a small bore gives a small hub, a big
   assert.ok(at({ web: "10" }).nums.width! >= 10 + 2 * at({ web: "10" }).nums.join!, "and a rim that stands proud of it");
   // random single numbers, random sizes: always a wheel, with no number taken back unless it is the one typed
   let seed = 7; const rnd = (): number => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-  const keys = modelFields("wheel").map((f) => f.key).filter((k) => k !== "outer" && k !== "joinKind");
+  const keys = modelFields("wheel").map((f) => f.key).filter((k) => k !== "outer" && k !== "joinKind" && k !== "edgeKind");
   let taken = 0;
   for (let i = 0; i < 400; i++) {
     const size = String(Math.round(10 ** (1.2 + rnd() * 1.7))), typed: Record<string, string> = {};
-    const sz = Number(size), range: Record<string, [number, number, number]> = { width: [0.05, 0.3, 1], rim: [0.02, 0.12, 1], hub: [0.06, 0.4, 1], hubLen: [0.05, 0.35, 1], bore: [0.02, 0.2, 1], web: [0.02, 0.1, 1], join: [0.01, 0.08, 1], hubOff: [0, 0.12, 1], rimOff: [0, 0.12, 1], corner: [0.01, 0.08, 1], spokeW: [0.02, 0.2, 1] };
+    const sz = Number(size), range: Record<string, [number, number, number]> = { width: [0.05, 0.3, 1], rim: [0.02, 0.12, 1], hub: [0.06, 0.4, 1], hubLen: [0.05, 0.35, 1], bore: [0.02, 0.2, 1], web: [0.02, 0.1, 1], join: [0.01, 0.08, 1], hubOff: [0, 0.12, 1], rimOff: [0, 0.12, 1], edge: [0, 0.03, 1], corner: [0.01, 0.08, 1], spokeW: [0.02, 0.2, 1] };
     for (let j = 0, n = 1 + Math.floor(rnd() * 3); j < n; j++) {
       const k = keys[Math.floor(rnd() * keys.length)]!, r = range[k];
       typed[k] = k === "spokes" ? String(rnd() < 0.15 ? 0 : 3 + Math.floor(rnd() * 22)) : k === "taper" ? String(Math.round((rnd() - 0.3) * 80) / 100) : k === "spiral" ? String(Math.round((rnd() - 0.5) * 60)) : k === "draft" ? String(Math.round(rnd() * 80) / 10) : String(Math.round(sz * (r![0] + rnd() * (r![1] - r![0])) * 10) / 10);
@@ -168,13 +172,34 @@ test("Enter with a number that cannot be met takes it back and marks it, and the
     const keys = modelFields("wheel").map((f) => f.key);
     return { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]] as [number, number, number][], cursor: [0, 0, 0] as [number, number, number], sized: true as const, model: { ...st.tool!.model!, field: 2 + keys.findIndex((k) => typed[k] !== undefined), typed: st.tool!.model!.typed.map((x, i) => (i === 0 ? "80" : i >= 2 && typed[keys[i - 2]!] !== undefined ? typed[keys[i - 2]!]! : x)) } } };
   };
-  let st = reduce(open({ hub: "70" }), { type: "typed", key: "Enter", shift: false }, env);
+  let st = reduce(open({ hub: "79" }), { type: "typed", key: "Enter", shift: false }, env);
   assert.ok(st.tool?.model?.bad, "the tool stays open with the number marked");
   assert.equal(bodyOf(st).length, 0, "nothing is made yet");
-  assert.match(st.session.message ?? "", /Hub diameter 70 is taken back to/);
+  assert.match(st.session.message ?? "", /Hub diameter 79 is taken back to/);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   let n = 0; while (st.building && n++ < 10) st = reduce(st, { type: "buildNext" }, env);
   assert.equal(bodyOf(st).length, 1, "the next Enter makes it");
   const same = reduce(open({ width: "14" }), { type: "typed", key: "Enter", shift: false }, env);
   assert.ok(!same.tool?.model?.bad && (same.building || same.tool === null), "the rim width it already had is no trouble");
+});
+
+test("a fillet or a chamfer on the edges of the cutouts is a second part made once the wheel is: it takes the metal its profile says, round every cutout, top and bottom", () => {
+  const flat = bodyOf(placed({ edge: "0", draft: "0" }))[0]!.volume;
+  const [a, b] = [wheelLines(S({ draft: 0 })).slice(4).reduce((s, l) => s + l.slice(0, -1).reduce((q, p, i) => q + Math.hypot(l[i + 1]![0] - p[0], l[i + 1]![1] - p[1]), 0), 0), 1];
+  for (const [kind, per] of [["0", 1 - Math.PI / 4], ["1", 0.5]] as const) {
+    const st = placed({ edge: String(b), edgeKind: kind, draft: "0" }), made = bodyOf(st);
+    assert.equal(made.length, 1, `one body (${kind})`);
+    assert.ok(!st.session.message, `no complaint: ${st.session.message}`);
+    const took = flat - made[0]!.volume, expect = per * b * b * a * 2;
+    assert.ok(Math.abs(took - expect) < 0.12 * expect, `the ${kind === "0" ? "fillet" : "chamfer"} takes ${took.toFixed(0)} mm3 and its profile says ${expect.toFixed(0)}`);
+  }
+  // an edge with the cutouts running into the hub is met by moving the offsets, not by failing
+  const g = modelTarget(scene(createSession(kernel)), toolWith({ hubOff: "0", rimOff: "0", edge: "1" }, "80"))!;
+  assert.equal(g.problem, null);
+});
+test("a spoke with a spiral has smooth faces (three arcs a side) and takes a fillet", () => {
+  const st = placed({ spiral: "12", edge: "0.8", draft: "0" }), made = bodyOf(st);
+  assert.equal(made.length, 1);
+  assert.ok(!st.session.message, `no complaint: ${st.session.message}`);
+  assert.ok(wheelLines(S({ spiral: 12 })).slice(4)[0]!.length < 70, "few points");
 });

@@ -147,7 +147,7 @@ export function modelFix(scene: Scene, t0: Tool): { tool: Tool; field: number; m
       if (typedV === undefined) continue;
       const home = modelTarget(scene, withTyped(t, i, ""));
       if (!home || home.problem) continue; // (this number is not alone to blame)
-      const key = i >= 2 ? fields[i - 2]!.key : "", whole = key === "spokes" || key === "balls" || key === "stages" || key === "teeth";
+      const key = i >= 2 ? fields[i - 2]!.key : "", whole = !!(i >= 2 && fields[i - 2]!.whole);
       let [good, bad] = [i === 0 ? home.size : home.nums[key]!, typedV];
       if (whole) { good = Math.round(good); bad = Math.round(bad); while (Math.abs(bad - good) > 1) { const mid = Math.round((good + bad) / 2); if (valid(withTyped(t, i, String(mid)))) good = mid; else bad = mid; } }
       else for (let k = 0; k < 30; k++) { const mid = (good + bad) / 2; if (valid(withTyped(t, i, text(mid)))) good = mid; else bad = mid; }

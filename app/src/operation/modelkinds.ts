@@ -14,6 +14,7 @@ import { cycloidalSteps, cycloidalProblem, cycloidalRatio, cycloidalRim, discOut
 import type { CycloidalSpec } from "./modelcycloidal.ts";
 import { engineSteps, engineProblem, engineGeometry, engineFootprint, engineDisplacement, ENGINE_START } from "./modelengine.ts";
 import type { EngineSpec } from "./modelengine.ts";
+import { fitNumbers } from "./modelfit.ts";
 import { wheelSteps, wheelProblem, wheelLines, repairWheel, WHEEL_START } from "./modelwheel.ts";
 import type { WheelSpec } from "./modelwheel.ts";
 
@@ -22,7 +23,7 @@ export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "dif
 /** The numbers of a model, by name */
 export type Nums = Record<string, number>;
 /** One number of a model: what it is called, a line that says what it is, and whether it grows with the overall size (a length of the thing, not a room left for the printer or a count) */
-export interface ModelField { key: string; label: string; hint: string; scaled?: true; /** not shown in the box: a number the box's Size sets (`Def.sizeKey`) */ hidden?: true; /** shown only while the number `key` has this value (a bearing's box shows the numbers of the source chosen at its top, `in_1196`) */ when?: { key: string; is: number }; /** shown at the top of the box, above the size and the turn */ top?: true; /** the names of the values of a field that is a toggle button (its value is the place of the one chosen) */ choices?: string[] }
+export interface ModelField { key: string; label: string; hint: string; scaled?: true; /** not shown in the box: a number the box's Size sets (`Def.sizeKey`) */ hidden?: true; /** a whole number (teeth, stages, pins): moved a whole step at a time (`modelfit.ts`); `zero`: and 0 is allowed */ whole?: true; zero?: true; /** shown only while the number `key` has this value (a bearing's box shows the numbers of the source chosen at its top, `in_1196`) */ when?: { key: string; is: number }; /** shown at the top of the box, above the size and the turn */ top?: true; /** the names of the values of a field that is a toggle button (its value is the place of the one chosen) */ choices?: string[] }
 /** a picture made of lines in the model's plan, each line a list of points (closed ones repeat their first) */
 export type Lines = [number, number][][];
 
@@ -45,7 +46,9 @@ interface Def {
 }
 const circle = (cx: number, cy: number, r: number, count = 40): [number, number][] => Array.from({ length: count + 1 }, (_, i) => [cx + r * Math.cos((2 * Math.PI * i) / count), cy + r * Math.sin((2 * Math.PI * i) / count)] as [number, number]);
 const rect = (x0: number, y0: number, x1: number, y1: number): [number, number][] => [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
-const F = (key: string, label: string, hint: string, scaled?: true): ModelField => ({ key, label, hint, ...(scaled ? { scaled } : {}) });
+/** the numbers that count things (teeth, stages, pins, rings): moved a whole step at a time when the numbers are made to fit; those that may be 0 for none */
+const WHOLE = new Set(["stages", "pinion", "gear", "side", "spider", "drive", "pins", "outPins", "rings", "spokes", "balls"]), ZERO = new Set(["drive", "rings", "spokes", "balls"]);
+const F = (key: string, label: string, hint: string, scaled?: true): ModelField => ({ key, label, hint, ...(scaled ? { scaled } : {}), ...(WHOLE.has(key) ? { whole: true as const } : {}), ...(ZERO.has(key) ? { zero: true as const } : {}) });
 
 const catalogueShape = bearingFromNums;
 const catalogueProblem = (n: Nums): string | null => { const s = catalogueShape(n); return typeof s === "string" ? s : null; };
@@ -133,7 +136,8 @@ const DEFS: Record<ModelKind, Def> = {
       F("web", "Web (spoke) thickness", "mm along the axis: the web and the spokes are this thick", true),
       { ...F("joinKind", "Join", "where the web meets the rim and the hub: a fillet or a chamfer"), choices: ["Fillet", "Chamfer"] }, F("join", "Join size", "mm: at least 0.8 (0.030 in); no corner is left square", true),
       F("draft", "Draft", "degrees the rim's and the hub's walls lean away from the middle: 0 for a machined wheel, 1 to 3 for a cast one"), F("spokes", "Spokes", "0: a plain web; else the number of cutouts in it (3 to 24)"), F("hubOff", "Hub offset", "mm a cutout stops short of the hub (from its wall): 0 and the spokes run into the hub; less than the join and it cuts into the fillet", true), F("rimOff", "Rim offset", "mm a cutout stops short of the rim (from its wall): 0 and the spokes run into the rim; less than the join and it cuts into the fillet", true),
-      F("corner", "Cutout corner fillet", "mm: every corner of a cutout is rounded, at least 0.8", true), F("spokeW", "Spoke width", "mm at the hub end", true), F("taper", "Spoke taper", "how much narrower a spoke is at the rim end, as a share of its width (negative: wider)"), F("spiral", "Spiral", "degrees a spoke turns from the hub to the rim (0: straight)")],
+      F("corner", "Cutout corner fillet", "mm: every corner of a cutout is rounded, at least 0.8", true), F("spokeW", "Spoke width", "mm at the hub end", true), F("taper", "Spoke taper", "how much narrower a spoke is at the rim end, as a share of its width (negative: wider)"), F("spiral", "Spiral", "degrees a spoke turns from the hub to the rim (0: straight)"),
+      { ...F("edgeKind", "Spoke edge", "the edges where the cutouts meet the web's faces: a fillet or a chamfer"), choices: ["Fillet", "Chamfer"] }, F("edge", "Spoke edge size", "mm: 0 for none (needs cutouts); a spoke keeps a flat top of at least 0.4 mm", true)],
     start: { ...WHEEL_START },
     sizeKey: "outer",
     repair: (n, locked) => repairWheel(wh(n), locked) as unknown as Nums,
@@ -190,18 +194,20 @@ export function modelNumbers(kind: ModelKind, typedIn: Nums, size?: number): Num
     if (row) { n.bore = row.d; n.outer = row.D; n.width = row.B; n.ring = 0; const sh = catalogueShape(n); if (typeof sh !== "string") n.ring = Math.round(2 * (sh.pitch - sh.surface) * 100) / 100; } // (the numbers shown are the bearing's)
     return n;
   }
-  const at = (f: number): Nums => {
+  const raw = (f: number): Nums => {
     const n: Nums = { ...d.start };
     for (const fl of d.fields) if (fl.scaled) n[fl.key] = tidy(fl.key, d.start[fl.key]! * f);
-    const all: Nums = { ...n, ...typed };
-    return d.repair ? d.repair(all, new Set(Object.keys(typed))) : all;
+    return { ...n, ...typed };
   };
+  const locked = new Set(Object.keys(typed));
+  /** the numbers made to fit together: the model's own following (the wheel's hub follows the bore), then the same search for every model for what is still wrong (`modelfit.ts`) */
+  const at = (f: number): Nums => { const n = d.repair ? d.repair(raw(f), locked) : raw(f); return fitNumbers(d.problem, n, locked, d.fields); };
   const free = d.fields.some((fl) => fl.scaled && typed[fl.key] === undefined);
   if (size === undefined || !(size > 0) || !free) {
     const lead = d.fields.find((fl) => fl.scaled && typed[fl.key]! > 0 && d.start[fl.key]! > 0); // (a number typed as 0, an offset that is none, sets no scale)
     return lead ? at(typed[lead.key]! / d.start[lead.key]!) : at(1);
   }
-  const reach = (f: number): number => d.extent(at(f)); // (0 where the model cannot be made)
+  const reach = (f: number): number => d.extent(raw(f)); // (0 where the model cannot be made)
   let [lo, hi] = [0.02, 200];
   for (let i = 0; i < 60; i++) { const mid = Math.sqrt(lo * hi); if (reach(mid) < size) lo = mid; else hi = mid; }
   for (const f of [Math.sqrt(lo * hi), hi, lo * 1.5, 1]) if (reach(f) > 0 && !d.problem(at(f))) return at(f);

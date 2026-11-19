@@ -105,7 +105,7 @@ test("each model lists its parts, bottom up, covering every step once", () => {
     differential: ["Cage", "Axle 1", "Axle 2", "Cross pin", "Side gear 1", "Spider gear 1", "Side gear 2", "Spider gear 2", "Cap 1", "Cap 2", "Drive gear"],
     cycloidal: ["Base plate and ring pins", "Input shaft and eccentric", "Cycloidal disc", "Output plate and pins"],
     engine: ["Block", "Crankshaft", "Flywheel", "Piston", "Piston pin", "Connecting rod"],
-    wheel: ["Wheel"],
+    wheel: ["Wheel", "Edge rounds"],
   };
   for (const kind of MODEL_KINDS) {
     const b = modelBuild(kind, { ...modelStart(kind), ...(kind === "ballbearing" ? { detail: 1, own: 1, number: 0 } : {}) }, AT_ORIGIN_FOR_TESTS);

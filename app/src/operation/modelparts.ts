@@ -4,6 +4,7 @@ import type { Ref } from "../shared/ref.ts";
 import { drawnRef, worldRef } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "./scene.ts";
+import { decodeEdge } from "../compiler/body.ts";
 import { nextId, figureParams } from "./scene.ts";
 import type { Command } from "./commands.ts";
 import { apply } from "./commands.ts";
@@ -106,6 +107,19 @@ export class Builder {
     this.draw(pl, outline(profile, bulges), out);
     const [A, D] = [pointIn(this.place, axisAt), dirIn(this.place, axisDir)];
     this.steps.push((s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "revolve", parts: out.refs, params: { ...figureParams([{ outer: out.refs, holes: [] }]), angle: 360, advance: 0, ax: A[0], ay: A[1], az: A[2], dx: D[0], dy: D[1], dz: D[2] } } }) as Command);
+  }
+  /**
+   * A fillet or a chamfer on edges of the body that an earlier part made (so the part that holds this step is made after the kernel has answered for it): `pick` is given the scene, and a way from the world to the model's own frame, and says
+   * which edges (their refs); no edge picked, no step. `size` mm.
+   */
+  roundEdges(pick: (s: Scene, toModel: (p: Vec3) => Vec3, edgeAt: (ref: Ref) => { a: Vec3; b: Vec3; mid: Vec3 } | null) => Ref[], mode: "fillet" | "chamfer", size: number): void {
+    const pl = this.place, local = (p: Vec3): Vec3 => { const d: Vec3 = [p[0] - pl.at[0], p[1] - pl.at[1], p[2] - pl.at[2]]; return [d[0] * pl.ex[0] + d[1] * pl.ex[1] + d[2] * pl.ex[2], d[0] * pl.ey[0] + d[1] * pl.ey[1] + d[2] * pl.ey[2], d[0] * pl.ez[0] + d[1] * pl.ez[1] + d[2] * pl.ez[2]]; };
+    this.steps.push((s) => {
+      const refs = pick(s, local, decodeEdge);
+      if (!refs.length) return { type: "batch", commands: [] } as Command;
+      const names = refs.map((r) => { const p = s.parts[r]; return p?.kind === "line" && p.stable ? p.stable : ""; });
+      return { type: "addStep", step: { id: nextId(s, "s"), type: "edgeMod", parts: refs, params: { mode, value: size, ...(names.some(Boolean) ? { enames: names.join(";") } : {}) } } } as Command;
+    });
   }
   /** a gear made with the gear tool on a plane (it keeps its numbers: it can be edited and meshed as any gear); `partner`: the gear it meshes with, whose place (and the tooth phase) this gear's `at` and `turn` came from */
   gear(pl: PlaneHolder, at: Vec3, spec: GearSpec, turn = 0, partner?: GearHolder): GearHolder {
