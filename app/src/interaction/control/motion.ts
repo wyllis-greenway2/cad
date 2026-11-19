@@ -21,7 +21,7 @@ export function doMotionPlay(s: AppState): AppState {
   if (!body) return { ...s, session: { ...s.session, message: "select a body that turns on a pin or slides on a rod, then Play" } };
   const r = startMotion(sceneOf(s.session), body, "turn", s.session.outcome);
   if (!r.ok) return { ...s, session: { ...s.session, message: r.why } };
-  return { ...s, motion: setPlaying(r.motion, true), menu: null, session: { ...s.session, message: null } };
+  return { ...s, motion: setPlaying(r.motion, true), menu: null, session: { ...s.session, message: r.motion.note ?? null } }; // (a partner that is not turned along says why, `in_1117`)
 }
 /** The body turns or slides (what the bar's switch says): the same joint, from rest. */
 export function doMotionKind(s: AppState, kind: JointKind): AppState {
@@ -104,7 +104,7 @@ export function doBodyPlay(s: AppState, ref: import("../../shared/ref.ts").Ref):
   if (!target) return { ...s, session: { ...s.session, message: "this body is not hooked up to an animation" } };
   if (s.motion && s.motion.body === target) return { ...s, motion: setPlaying(s.motion, !s.motion.playing) };
   const r = startMotion(sc, target, "turn", s.session.outcome);
-  return r.ok ? { ...s, motion: setPlaying(r.motion, true), session: { ...s.session, message: null } } : { ...s, session: { ...s.session, message: r.why } };
+  return r.ok ? { ...s, motion: setPlaying(r.motion, true), session: { ...s.session, message: r.motion.note ?? null } } : { ...s, session: { ...s.session, message: r.why } };
 }
 
 /**

@@ -101,3 +101,56 @@ test("played from the worm, the wheel is drawn turned and the pose is not kept (
   assert.ok(st.motion.follows.length === 1 && Math.abs(Math.abs(st.motion.follows[0]!.k) - 2 / 30) < 1e-9);
   assert.equal(typeof jointMatrix, "function");
 });
+
+test("the pair rolls: turning the source by an angle moves the partner's placed turn by k times it, whatever the kind of pair (modulo a tooth)", () => {
+  const cases: { name: string; spec: GearSpec; z2: number; place: (src: GearRecord, z2: number) => { ok: boolean; value?: { at: Vec3; turn: number; spec: GearSpec } } }[] = [
+    { name: "bevel", spec: { teeth: 20, module: 2, backlash: 0.15, bevel: { mate: 30 } }, z2: 30, place: (src, z2) => meshBevel(src, U, V, { teeth: z2 }, 0) },
+    { name: "crown", spec: { teeth: 40, module: 2, bore: 5, bevel: { mate: 18, shaft: crownShaft(40, 18) } }, z2: 18, place: (src, z2) => meshBevel(src, U, V, { teeth: z2 }, 0) },
+    { name: "spiral", spec: { teeth: 20, module: 2, bore: 5, bevel: { mate: 30, spiral: 30 } }, z2: 30, place: (src, z2) => meshBevel(src, U, V, { teeth: z2 }, 0) },
+    { name: "face", spec: { teeth: 40, module: 2, bore: 5, bevel: { mate: 14, facegear: "gear" } }, z2: 14, place: (src, z2) => meshFace(src, U, V, { teeth: z2 }, 0) },
+    { name: "spur", spec: { teeth: 20, module: 2, backlash: 0.15 }, z2: 30, place: (src, z2) => meshWith(src, U, V, { teeth: z2 }, 0) },
+  ];
+  const wrap = (x: number, period: number) => ((x % period) + period + period / 2) % period - period / 2;
+  for (const c of cases) {
+    const sc = pair(c.spec, (src) => c.place(src, c.z2));
+    const k = followersOf(sc, sc.gears![0]!).followers[0]!.k; // (degrees of the partner for a degree of the source)
+    const at = (turn: number) => { const src = { id: "g_001", plane: XY, at: [0, 0, 0] as Vec3, spec: c.spec, ...(turn ? { turn } : {}) } as GearRecord; const p = c.place(src, c.z2); assert.ok(p.ok, c.name); return p.value!.turn; };
+    const base = at(0);
+    for (const d of [0.1, 0.37]) {
+      const moved = wrap(at(d) - base, (2 * Math.PI) / c.z2);
+      const want = wrap(k * d, (2 * Math.PI) / c.z2);
+      assert.ok(Math.abs(wrap(moved - want, (2 * Math.PI) / c.z2)) < 1e-6, `${c.name}: source turned ${d}, partner placed turned ${moved}, k says ${want}`);
+    }
+  }
+});
+test("a hypoid pair (axes that do not meet) turns by the teeth the other way round, each about its own shaft", () => {
+  const sc = pair({ teeth: 20, module: 2, backlash: 0.15, bevel: { mate: 30, offset: 5 } }, (src) => meshBevel(src, U, V, { teeth: 30 }, 0));
+  const f = followersOf(sc, sc.gears![0]!).followers[0]!;
+  assert.ok(Math.abs(f.k + 20 / 30) < 1e-9);
+  assert.ok(Math.abs(dot(f.dir, axisOf(sc, sc.gears![1]!)!) - 1) < 1e-9);
+  const axis = axisOf(sc, sc.gears![1]!)!, rel = sub(sc.gears![1]!.at, f.point);
+  assert.ok(len(rel) < 1e-9 && len(axis) > 0.99, "the turn is about a line through the partner's own centre");
+});
+
+test("a worm and its wheel roll: moving the wheel along the worm by the advance of a right-handed thread for a turn turns the wheel placed by the ratio the coupling says, on either side", () => {
+  const spec: GearSpec = { teeth: 2, module: 2, worm: { diameter: 18, length: 30 } };
+  const wrap = (x: number, period: number) => ((x % period) + period + period / 2) % period - period / 2;
+  for (const where of [Math.PI / 2, -Math.PI / 2]) {
+    const sc = pair(spec, (src) => meshWith(src, U, V, { teeth: 30 }, where));
+    const k = followersOf(sc, sc.gears![0]!).followers[0]!.k; // (degrees of the wheel for a degree of the worm)
+    const lead = 2 * Math.PI * 2 * 2 / 2; // (starts 2, axial pitch pi m: the lead is starts x pi x module = 4 pi mm... here 2 x pi x 2)
+    const at = (off: number) => { const src = { id: "g_001", plane: XY, at: [0, 0, 0] as Vec3, spec } as GearRecord; const p = meshWith(src, U, V, { teeth: 30, offset: off }, where); assert.ok(p.ok); return p.value!.turn; };
+    const phi = 0.2; // (radians of the worm's turn; the thread stands as if the wheel were `lead phi / 2 pi` further along the worm's axis on the other side of the same turn: the worm's surface moves the opposite way)
+    const moved = wrap(at(lead * phi / (2 * Math.PI)) - at(0), (2 * Math.PI) / 30);
+    const want = wrap(k * phi, (2 * Math.PI) / 30);
+    assert.ok(Math.abs(wrap(moved - want, (2 * Math.PI) / 30)) < 1e-6, `${where}: placed ${moved}, k says ${want}`);
+  }
+});
+
+test("a partner that cannot be turned along says why when the motion starts, and the bar's message shows it", async () => {
+  const { startMotion } = await import("../src/interaction/motion.ts");
+  const sc = pair({ teeth: 20, module: 2, backlash: 0.15 }, (src) => meshWith(src, U, V, { teeth: 30 }, 0));
+  (sc.gears![1] as { spec: GearSpec }).spec = { ...sc.gears![1]!.spec, worm: { diameter: 18, length: 30 } };
+  const st = startMotion(sc, "b/x_s_90/o" as never);
+  assert.ok(st.ok && st.motion.follows.length === 0 && /stays where it is: a worm meshes with a worm wheel/.test(st.motion.note ?? ""), st.ok ? (st.motion.note ?? "") : st.why);
+});
