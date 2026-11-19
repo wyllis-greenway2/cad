@@ -4585,3 +4585,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1056 — 2026-11-19 — question
 > also why does this one jamb? does the body have a constraint that makes it so that it cannot rotate? Can we make it so that it pauses at collision, and flashes red the collision area, and that hitting play again restarts the animation.
 (the file `why_jamb.json`: the gear with the pin pushes the lever, a hard body, into the bar that turns on a pivot; asks why the bar does not turn out of the way, and for a pause at the collision, the area in red, and play after it to restart)
+
+## in_1057 — 2026-11-19 — question
+> okay but why cant the body just rotate on its own even without a coaxial mate? it is just moving in directions that are free of collision as long as they dont violate constraints? why is that limited to pure xyz movement only?
+(asks why the free push only slides: a body with no joint should move any way that is clear, turning as well; the AI had given the cost and a wrong reason, "a guess of the turning centre": a plane's motion is a slide and a turn about the body's own middle, no guess needed)
