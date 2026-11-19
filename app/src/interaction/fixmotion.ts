@@ -120,6 +120,8 @@ export function planFixes(scene: Scene, outcome: CompileOutcome | undefined, m: 
     if (!(scene.parts[p.body] as { id?: string } | undefined)?.id) { left.push({ body: p.body, name, why: "it is not a body of the model" }); return; }
     if (j.kind !== "turn") { // the push's own path is not one axis (it slides and turns by what it meets), but the model may still say what holds it: a hole of the body on a pin of another
       const on = holeAndPin(scene, p.body);
+      const rides = on && (on.on === m.body || m.follows.some((f) => f.body === on.on) || c.pushables.some((q) => q.body === on.on)); // (the pin is on a body that moves in this motion: its axis goes round with it, so a joint on the axis where it stands now would be wrong)
+      if (on && rides) { left.push({ body: p.body, name, why: `${name} hangs on a pin of ${nameOf(scene, on.on)}, which moves in this motion: the pin carries it round as well as letting it turn, and a joint on the pin where it stands now would not; it stays with the push` }); return; }
       if (on) { fixes.push({ body: p.body, name, joint: { kind: "turn", point: on.center, dir: on.axis, err: 0, ratio: null, ratioErr: 0 }, how: "mate", expect, text: `${name} is on a pin of ${nameOf(scene, on.on)}: mate its hole to the pin, coaxial (the push also slid it${j.kind === "none" ? "" : " along a line"}, which the mate will not)` }); return; }
       left.push({ body: p.body, name, why: j.kind === "none" ? j.why : `${name} slides along one line, but a slider needs a rod to slide on: make a rod, or leave it to the push` });
       return;

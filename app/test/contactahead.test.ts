@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { kernel } from "../src/compiler/kernel/index.ts";
-import { openSession, scene } from "../src/interaction/session.ts";
+import { openSession, scene, run } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";
 import { startMotion } from "../src/interaction/motion.ts";
 import { solveContact, pathPlaces, placesExtent } from "../src/interaction/contact.ts";
@@ -15,7 +15,8 @@ import type { AheadStart } from "../src/contact-worker.ts";
 import type { Ref } from "../src/shared/ref.ts";
 
 await kernel.init();
-const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/lever-pin-jam.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+const openHeld = () => (openSession(kernel, readFileSync(new URL("./fixtures/lever-pin-jam.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value; // (the sketch's Concentric on the pin holds the arm on it: the motion plays it as a carried joint, `in_1143`)
+const open = () => run(openHeld(), { type: "removeRelation", id: "r_010" }); // (a lever that nothing holds: the free push is what these test)
 const GEAR = "b/x_s_002/o" as Ref, LEVER = "b/x_s_084/o" as Ref;
 
 /** A thread that is a function on a copy: it works when asked to and sends what it has by the same messages. */
