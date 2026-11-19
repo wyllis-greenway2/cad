@@ -5181,6 +5181,10 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > I think another helpful tool would be the hub and spoke tool. I am not sure exactly how it would work, but the idea is that it could make different hubs and spokes to go into wheels or pullies or any circular object. It should probably be the case that it could be made alone, or if you select a circular object it could be made into the object.
 (asks for a hub and spoke tool that makes hubs and spokes for wheels, pulleys or any round object; it works alone, or on a selected round object, making it into that object)
 
-## in_1215 — 2026-11-19 — preference
+## in_1215 — 2026-11-19 — directive
+> lets do a four stroke single piston gasoline engine
+(answers my question: the engine builder's first engine is a four-stroke, single-cylinder gasoline engine)
+
+## in_1216 — 2026-11-19 — preference
 > When a round object is selected, what should the hub and spoke tool do with it? = "Fill it (Recommended)". Which spoke styles should the first version have? = "I don't really know, why dont we research spoke designs? I was thinking originally of designs that would cast well,"
 (chose Fill for a selected round object; wants spoke designs researched, with casting-friendly designs in mind, before choosing the styles)
