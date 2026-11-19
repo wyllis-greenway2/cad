@@ -3962,3 +3962,6 @@ Merged `claude/adoring-dijkstra-core-and-hints`: the core and its hints (a plain
 
 ## Handoff 968 — 2026-11-19 (in_1099: the menu and ring changes merged into the testing branch)
 `in_1099`. Merged the testing branch's tip (10 commits, up to `in_1096`, Handoff 965) into this branch (`claude/cool-einstein-odsxco-fasteners2`), then pushed to it. **Numbers:** this branch's `in_1085` and `in_1086` became **`in_1097` and `in_1098`** and its Handoffs 960 and 961 became **966 and 967**, in a commit of their own before the merge. **Conflicts:** `human-input.md` and `handoff.md` only (theirs first, then ours); the code merged without one (`main.ts` auto-merged). **Checks:** types, unused, layers, docs and the ring, menu, export, mate, laser, cam, Geneva, fastener and kernel body tests (below). No full suite, as asked.
+
+## Handoff 971 — 2026-11-19 (in_1100: which gear assemblies to offer; a recommendation, nothing built)
+`in_1100` asked which gear assemblies to offer after the planetary set. Answered with a recommendation (reduction gearbox, then a bearing, then the differential, then a cycloidal drive; no multi-speed transmission); no entry written yet, the human has not chosen.

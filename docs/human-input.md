@@ -4751,3 +4751,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1099 — 2026-11-19 — directive
 > Okay merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for this branch (Reapply mates removed, Clearance under Fabricate, the cams out of Sketch, Models under Fabricate with the Geneva plate) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
+
+## in_1100 — 2026-11-19 — question
+> okay lets move on, should we offer some new things? like different parts that use gear assemblies like the planetary system does? and if so, what? should we offer differentials? a basic transmission? Other things? what do you recommend?
+(asks whether to offer new gear-assembly parts like the planetary set, which ones (differential, a basic transmission, others), and for the AI's recommendation; before it: "lets skip that, try other stuff", skipping the face gear build time)
