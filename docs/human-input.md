@@ -4982,3 +4982,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1160 — 2026-11-19 — directive
 > I think the eye lock icon to see constraints should only show up when a body is double clicked. Also can we have it so that all icons (except the constraints themselves always show up in the same helpful bar? I am thinking they should use the suggested constraints bar. there will be an icon side to the left, and the suggested (if they exist) to the right.
+
+## in_1161 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
