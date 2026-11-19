@@ -111,3 +111,46 @@ test("Keep pose for a body made to turn: the turn is written as ordinary steps a
   const cb2 = centre(both, bodies(both).find((x) => x.id === b!.id)!.ref);
   assert.ok(Math.abs(cb2[0]! - 70) < 1e-3 && Math.abs(cb2[1]! - 10) < 1e-3, `the second turned 90 degrees about (60, 10), (60, 0) to (70, 10): ${cb2}`);
 });
+
+test("a rest on a pivot: the body that was pushed goes back to it when the pusher lets go; with none it stays where it was pushed; the bar offers it and the field sets it (`in_992`)", async () => {
+  const { solveContact } = await import("../src/interaction/contact.ts");
+  const { followAmount } = await import("../src/operation/gearcouple.ts");
+  const make2 = (rest: number | null) => {
+    let s = cylinder(cylinder(createSession(kernel), 0, 0, 10), 22, 0, 10);
+    const [a, b] = bodies(s);
+    s = run(s, { type: "pivot", body: a!.id as string, point: [0, 15, 0], dir: [0, 0, 1] }); // (A swings its middle to the right)
+    s = run(s, { type: "pivot", body: b!.id as string, point: [22, 30, 0], dir: [0, 0, 1], ...(rest !== null ? { rest } : {}) });
+    s = run(s, { type: "setHard", body: a!.id as string, on: true });
+    assert.ok(!s.message, s.message ?? "");
+    return { s, a: bodies(s).find((x) => x.id === a!.id)!, b: bodies(s).find((x) => x.id === b!.id)! };
+  };
+  const swing = (rest: number | null) => {
+    const { s, a, b } = make2(rest);
+    const r = startMotion(scene(s), a.ref, "turn", s.outcome);
+    assert.ok(r.ok);
+    if (!r.ok) return null;
+    assert.equal(r.motion.contact!.pushables[0]!.rest, rest === null ? undefined : rest, "the rest reaches the solver");
+    let m = r.motion;
+    for (let d = 1; d <= 30; d++) m = solveContact(scene(s), { ...m, amount: d }, s.outcome);
+    const pushed = followAmount(m.yields![0]!, 0);
+    for (let d = 29; d >= 0; d--) m = solveContact(scene(s), { ...m, amount: d }, s.outcome);
+    return { pushed, back: followAmount(m.yields![0]!, 0), s, a, b, m };
+  };
+  const spring = swing(0)!, free = swing(null)!;
+  assert.ok(Math.abs(spring.pushed) > 3, `A swung into B and pushed it ${spring.pushed.toFixed(1)} degrees`);
+  assert.ok(Math.abs(spring.back) < 0.5, `with a rest of 0 it is back: ${spring.back.toFixed(2)}`);
+  assert.ok(Math.abs(free.back - free.pushed) < 0.5 && Math.abs(free.back) > 3, `with none it stays where it was pushed: ${free.pushed.toFixed(1)} then ${free.back.toFixed(1)}`);
+  // the bar offers the field, and the field sets the rest
+  const { createState, reduce } = await import("../src/interaction/controller.ts");
+  const { homeCamera } = await import("../src/interaction/camera.ts");
+  const { frameOf } = await import("../src/interaction/frame.ts");
+  let st = { ...createState(free.s), cam: homeCamera() };
+  st = { ...st, motion: free.m } as typeof st;
+  const springs = frameOf(st, { w: 800, h: 600 }).motionBar!.springs;
+  assert.deepEqual(springs.map((x) => [x.ref, x.rest]), [[free.b.ref, null]], "the bar offers a field for the body that yields, empty");
+  st = reduce(st, { type: "motionRest", ref: free.b.ref, rest: 0 }, { w: 800, h: 600, now: 0 } as never);
+  assert.equal(scene(st.session).pivots!.find((q) => q.body === free.b.id)!.rest, 0, "the pivot has it");
+  assert.equal(st.motion!.contact!.pushables[0]!.rest, 0, "and the motion that goes on is a spring");
+  st = reduce(st, { type: "motionRest", ref: free.b.ref, rest: null }, { w: 800, h: 600, now: 0 } as never);
+  assert.equal(scene(st.session).pivots!.find((q) => q.body === free.b.id)!.rest, undefined, "empty takes it away");
+});

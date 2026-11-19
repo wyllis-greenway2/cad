@@ -81,6 +81,7 @@ export type Intent =
   | { type: "motionKind"; kind: "turn" | "slide" }
   | { type: "motionReverse" }
   | { type: "motionLink"; id: string; ratio?: number; kind?: "turn" | "slide"; remove?: true }
+  | { type: "motionRest"; ref: string; rest: number | null }
   | { type: "motionKeep" }
   | { type: "motionClose" }
   | { type: "previewClose" }

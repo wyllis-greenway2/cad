@@ -71,6 +71,10 @@ function bodyPartsOf(result: KernelResult, sheets: Sheet[], gears: GearShape[]):
   return parts;
 }
 
+/** The outcome each derived scene came from (kept while the scene is), so what only the outcome has (the kernel's mesh, with the walls of a gear's teeth) can be found from the scene alone (`in_992`). */
+const outcomes = new WeakMap<Scene, CompileOutcome>();
+export const registerOutcome = (o: CompileOutcome): void => { outcomes.set(o.scene, o); };
+export const outcomeOfScene = (s: Scene): CompileOutcome | undefined => outcomes.get(s);
 export function compile(scene: Scene, kernel: Kernel): CompileOutcome {
   const T0 = performance.now();
   const known = settled.get(scene);

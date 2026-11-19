@@ -4321,3 +4321,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_991 — 2026-11-19 — directive
 > okay start on the next item
 (asks for the next item of the agreed order: the depth rule for the contact push)
+
+## in_992 — 2026-11-19 — directive
+> okay lets work on the still not built stuff
+(asks for the three things still not built for the contact push: the time budget, a settable rest value on a joint, and the switch of the hard bodies' drag to the mesh test)

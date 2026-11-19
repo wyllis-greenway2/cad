@@ -29,39 +29,18 @@ export interface ContactState {
   jam: string | null;
   /** the pairs ("a|b") that were already overlapping where the motion began: left out, so a body can be pulled out of another */
   ignore: string[];
+  /** the amount asked for when the call ran out of time and stopped short of it: the next frame goes on to it (a scrub does not play, so nothing else would) */
+  target?: number | null;
   /** something to say about the mechanism that is not a jam: a chain that goes on past the depth of passed-on hardness */
   note: string | null;
 }
 const MAX_PUSH = 12.8, STEP = 1, MAX_STEPS = 360, MAX_PASSES = 12;
+/** The time a call may take to work out its steps (ms), a part of a frame: past it the steps left are left for the next frame, so a long scrub or a heavy push plays slower, not frozen (`in_992`, `dec_contact_push`). */
+const BUDGET_MS = 20;
 const nameOf = (scene: Scene, r: Ref): string => { const p = scene.parts[r]; return p?.kind === "body" && p.id ? p.id : r; };
 
-// ---- the triangles of a body: all of them, from the kernel's mesh ----
-/** The face planes of a body (`meshOf`) leave out the walls of a gear's teeth (a spline's walls are not parts of the scene), so a pair of gears never met. The kernel's own mesh has every face of the body; this reads it by the faces' ranges (the index list, three entries a triangle). */
-const kernelMeshes = new WeakMap<object, Map<Ref, { tris: number[]; tree: Tree } | null>>();
-function bodyMesh(scene: Scene, outcome: CompileOutcome | undefined, ref: Ref): { tris: number[]; tree: Tree } | null {
-  const k = outcome?.kernel;
-  const b = scene.parts[ref];
-  if (!outcome || !k?.mesh || !k.faces || b?.kind !== "body" || !b.id) return meshOf(scene, ref);
-  let per = kernelMeshes.get(outcome);
-  if (!per) { per = new Map(); kernelMeshes.set(outcome, per); }
-  const had = per.get(ref);
-  if (had !== undefined) return had;
-  const index = k.bodies ? k.bodies.findIndex((x) => x.id === b.id) : 0;
-  const several = (k.bodies?.length ?? 1) > 1;
-  let out: { tris: number[]; tree: Tree } | null = null;
-  if (index >= 0) {
-    const { vertices: v, triangles: t } = k.mesh;
-    const tris: number[] = [];
-    for (const f of k.faces) {
-      if (several && f.body !== index) continue;
-      const ranges = (f.ranges as { start: number; count: number }[] | undefined) ?? [{ start: f.start, count: f.count }];
-      for (const r of ranges) for (let i = r.start; i + 2 < r.start + r.count; i += 3) for (let c = 0; c < 3; c++) { const vi = t[i + c]! * 3; tris.push(v[vi]!, v[vi + 1]!, v[vi + 2]!); }
-    }
-    if (tris.length) out = { tris, tree: buildTree(tris) };
-  }
-  per.set(ref, out ?? meshOf(scene, ref));
-  return per.get(ref)!;
-}
+// ---- the triangles of a body: all of them, from the kernel's mesh (`meshOf`, `hard.ts`) ----
+const bodyMesh = (scene: Scene, outcome: CompileOutcome | undefined, ref: Ref): { tris: number[]; tree: Tree } | null => meshOf(scene, ref, outcome);
 
 // ---- the part of two bodies that can meet: their overlap in height along an axis ----
 const layerCache = new WeakMap<object, Map<string, { tris: number[]; tree: Tree } | null>>();
@@ -212,7 +191,8 @@ const staticBodies = (scene: Scene, bodies: readonly Ref[]): Ref[] => Object.key
  * The motion worked out for the driver's amount, in steps from where it was last worked out: at each step the driver and what it carries are put where they go, and each body that yields is moved by the smallest amount that clears it. When one
  * cannot be cleared (it has nowhere to go) or a moving body meets a wall, the motion goes back to the last amount that was clear and stops, saying what it was against.
  */
-export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome): Motion {
+export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, budgetMs = BUDGET_MS): Motion {
+  const began = performance.now();
   const c = m.contact;
   if (!c) return m;
   if (Math.abs(m.amount - c.at) < 1e-9 && !c.jam) return m;
@@ -222,7 +202,7 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome):
   const vals = c.pushables.map((p) => p.value), ways = c.pushables.map((p) => p.way), kinds = c.pushables.map((p) => p.kind), pushes = c.pushables.map((p) => p.push ?? 0);
   const step = m.kind === "turn" ? STEP : STEP / 2;
   const from = c.at, n = Math.min(MAX_STEPS, Math.max(1, Math.ceil(Math.abs(m.amount - from) / step)));
-  let good = from, jam: string | null = null, note: string | null = null;
+  let good = from, jam: string | null = null, note: string | null = null, slow = false;
   let solid: ReadonlySet<Ref> = new Set();
   for (let i = 1; i <= n && !jam; i++) {
     const a = from + ((m.amount - from) * i) / n;
@@ -268,10 +248,12 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome):
     }
     if (jam) { for (let k = 0; k < vals.length; k++) vals[k] = was[k]!; break; }
     good = a;
+    if (i < n && performance.now() - began > budgetMs) { slow = true; break; } // (the rest of the steps wait for the next frame)
   }
+  if (slow && !note) note = "this push is heavy: it plays slower than real time";
   const pushables = c.pushables.map((p, i) => ({ ...p, value: vals[i]!, way: ways[i]!, push: pushes[i]! }));
   const follows = pushables.map((p): Follower => ({ gear: "", body: p.body, kind: p.kind, point: p.point, dir: p.dir, k: 0, value: p.value, ...(p.mate ? { mate: p.mate } : {}) }));
-  return { ...m, amount: jam ? good : m.amount, playing: jam ? false : m.playing, from: jam ? good : m.from, startedAt: jam ? null : m.startedAt, contact: { ...c, pushables, at: good, jam, note }, yields: follows };
+  return { ...m, amount: jam || slow ? good : m.amount, playing: jam ? false : m.playing, from: jam || slow ? good : m.from, startedAt: jam || slow ? null : m.startedAt, contact: { ...c, pushables, at: good, jam, note, target: slow ? m.amount : null }, yields: follows };
 }
 
 /** Move pushable `pi` (mover `w`) by the smallest amount that leaves it clear of everything, trying the way it last went first: doubling the distance until clear, then halving to the nearest. False when there is none. */

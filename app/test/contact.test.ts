@@ -54,7 +54,7 @@ test("a scrub jumps many degrees at once and the wheel is still where it should 
   const r = startMotion(scene(s), b.crank!);
   assert.ok(r.ok);
   if (!r.ok) return;
-  const m = solveContact(scene(s), { ...r.motion, amount: 300 });
+  const m = solveContact(scene(s), { ...r.motion, amount: 300 }, undefined, Infinity);
   assert.ok(!m.contact!.jam);
   assert.ok(Math.abs(followAmount(m.yields!.find((f) => f.body === b.wheel)!, 300) - genevaTurn(N, A, 300)) < 3);
 });
@@ -216,4 +216,22 @@ test("hardness is passed on to three links: a train of six gears with the first 
   const two = play([0, 3])!;
   assert.ok([1, 2, 3, 4, 5].every((i) => err(two, i) < 3.5), "with the fourth hard too, all six are driven");
   assert.equal(two.contact!.note, null, "and nothing to say");
+});
+
+test("a call has a budget of time: a long scrub that cannot be worked out in it is done in parts, the amount stops where it got to and the bar says the push plays slower (`in_992`)", () => {
+  const { s, b } = make(true);
+  const r = startMotion(scene(s), b.crank!, "turn", s.outcome);
+  assert.ok(r.ok);
+  if (!r.ok) return;
+  let m = solveContact(scene(s), { ...r.motion, playing: true, amount: 300 }, s.outcome, 0.5); // (half a millisecond: a step or two)
+  assert.ok(m.amount > 0 && m.amount < 300, `stopped at ${m.amount} of 300`);
+  assert.match(m.contact!.note ?? "", /plays slower/);
+  assert.equal(m.playing, true, "it is still playing");
+  assert.equal(m.startedAt, null, "and starts again from where it got to");
+  assert.equal(m.contact!.target, 300, "a scrub that is cut short remembers where it was asked to go (the next frame goes on)");
+  // call after call it gets there, with no jam, and the wheel where the formula has it
+  let calls = 1;
+  while (Math.abs(m.amount - 300) > 1e-9 && calls < 400) { m = solveContact(scene(s), { ...m, amount: 300 }, s.outcome, 0.5); calls++; assert.ok(!m.contact!.jam, `jam: ${m.contact!.jam}`); }
+  assert.ok(calls > 1 && Math.abs(m.amount - 300) < 1e-9, `got there in ${calls} calls`);
+  assert.ok(Math.abs(followAmount(m.yields!.find((f) => f.body === b.wheel)!, 300) - genevaTurn(N, A, 300)) < 3);
 });
