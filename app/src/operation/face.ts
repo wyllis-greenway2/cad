@@ -147,12 +147,23 @@ function faceBodyMade(pr: FacePair): Result<FaceBody> {
   const xy = (r: number, th: number): P => [r * Math.cos(th), r * Math.sin(th)];
   const sections: FaceBody["sections"] = [];
   let last: [number[], number[]] | null = null;
+  const curves: [number[], number[]][] = [];
   for (const h of hs) {
     let fa = curveAt(contourAt(pr, A, h), radii), fb = curveAt(contourAt(pr, B, h), radii);
     if (!fa || !fb) {
       if (!last || h > -m) return err("the pinion cannot generate this face gear's tooth between these radii (inside about the pitch radius less a module there is none): a larger inner radius");
       [fa, fb] = last; // (below the pinion's tip: the slot's walls stand straight down to the root)
     } else last = [fa, fb];
+    curves.push([fa, fb]);
+  }
+  // the tooth gets no wider as it goes up (`in_1015`): where the pinion's flank is below its base circle (the tooth's top, a module up on a 14 tooth pinion) the involute formula, carried on, flares the tooth out, wider at the tip than a little under it; the tooth keeps its middle and the width of the
+  // height below it there (the pinion does not touch that part of the tooth: a pair still fits)
+  for (let k = curves.length - 2; k >= 0; k--) {
+    const [fa, fb] = curves[k]!, [ga, gb] = curves[k + 1]!;
+    curves[k] = [fa.map((a, i) => { const [w, wb, c] = [pitch + fb[i]! - a, pitch + gb[i]! - ga[i]!, (a + pitch + fb[i]!) / 2]; return c - Math.min(w, wb) / 2; }), fa.map((a, i) => { const [w, wb, c] = [pitch + fb[i]! - a, pitch + gb[i]! - ga[i]!, (a + pitch + fb[i]!) / 2]; return c + Math.min(w, wb) / 2 - pitch; })];
+  }
+  for (const [q, h] of hs.entries()) {
+    const [fa, fb] = curves[q]!;
     if (h === pr.hK && (pitch - (fa[NR]! - fb[NR]!)) * outer < 0.25 * m) return err("the teeth come to a point at the outer radius: a smaller outer radius");
     const points: P[] = [], bulges: number[] = [];
     const side = (a: P, via: P, b: P) => { points.push(a); bulges.push(bulgeOf(a, via, b)); };
