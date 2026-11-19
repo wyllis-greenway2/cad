@@ -4484,3 +4484,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > okay but before we do that, are we done with gears? did we finish the crown gear work? also what happens if I need a crown gear with 90 degree angle? is that just not possible?
 (asks whether the gear work is finished, whether the crown gear work is, and how to get a crown gear drive with the shafts at 90 degrees)
 
+## in_1032 — 2026-11-19 — question
+> so should we make this option of a 90 degree crown gear for users? or would they just have to make this on their own?
+(asks whether the app should offer a 90 degree crown gear drive as an option for users, or whether they must find the Face gear tool themselves)
+
