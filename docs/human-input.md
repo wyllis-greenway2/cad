@@ -4674,3 +4674,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1080 — 2026-11-19 — directive
 > okay the rotation is pretty jumpy, it seems to jump much more than it should each time it detects? that is not how xyz movement, work, they move only as much as they need to and slide along the surface, rotation should be the same. Also it is still way too heavy, how can we make the animation lighter and faster? Also the message about it being heavy should fade in and out stable, right now it flashes so fast you cant even read it.
 (three asks: a turn of a pushed body should be as small as the push needs, as a slide is; the push is too heavy and should be lighter and faster; the "heavy" message should fade in and out and stay long enough to read)
+
+## in_1081 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for `claude/adoring-dijkstra-smooth-faster` to be merged into the testing branch, without a full test run; it carries the smoother turns of a pushed body, the kept places for a play from the start again and the note that fades)
