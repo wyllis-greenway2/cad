@@ -83,6 +83,8 @@ export type Intent =
   | { type: "motionLink"; id: string; ratio?: number; kind?: "turn" | "slide"; remove?: true }
   | { type: "motionRest"; ref: string; rest: number | null }
   | { type: "motionKeep" }
+  /** the walk that replaces what the push does with joints (`in_1110`): open it (the fit is made), make the joint offered, leave it, or stop */
+  | { type: "motionFix"; act: "open" | "apply" | "skip" | "close" }
   | { type: "motionClose" }
   | { type: "previewClose" }
   /** open or close a list from the ⋯ menu (the bodies, the history) */

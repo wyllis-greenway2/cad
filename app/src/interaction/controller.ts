@@ -12,7 +12,7 @@ import { doPan, doWalk, doSwivel, doZoom, doLook, doHome, doResetView } from "./
 import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
 import { doBodiesAction } from "./control/bodies.ts";
-import { doMotionKind, doMotionKeep, doMotionLink, doMotionRest } from "./control/motion.ts";
+import { doMotionKind, doMotionKeep, doMotionLink, doMotionRest, doMotionFix } from "./control/motion.ts";
 import { setPlaying, reverseMotion } from "./motion.ts";
 import { solveContact } from "./contact.ts";
 import { doStepGo, doStepEdit, doStepInsert, doStepSet, doStepLink, doParamSet, doParamRemove } from "./control/history.ts";
@@ -187,6 +187,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "motionLink": return doMotionLink(s, i);
     case "motionRest": return doMotionRest(s, i);
     case "motionKeep": return doMotionKeep(s);
+    case "motionFix": return doMotionFix(s, i.act);
     case "motionClose": return { ...s, motion: null };
     case "panel": return doPanel(s, i.name);
     case "panelRow": return doPanelRow(s, i.id, i.act);
