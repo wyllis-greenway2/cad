@@ -13,6 +13,7 @@ import { bevelFrame } from "./bevel.ts";
 import { chainOf } from "./chains.ts";
 import { camShapes } from "./cams.ts";
 import { mateStatus } from "./mates.ts";
+import type { ModelPlay } from "./modelplay.ts";
 
 export interface Follower {
   gear: string;
@@ -315,6 +316,28 @@ export function carrierPlay(s: Scene, body: Ref): { driver: { point: Vec3; dir: 
   return { driver: { point: q.at, dir: n }, followers };
 }
 
+/** the body that is a part of a gear assembly model that can be played (`modelplay.ts`): the one the step made, or the gear's; null when it has gone */
+export const modelBody = (s: Scene, m: ModelPlay, part: string): Ref | null => {
+  const p = m.parts[part];
+  if (!p) return null;
+  if (p.step) return bodyOfStep(s, p.step);
+  const first = p.gear ? s.steps.find((st) => st.params.gear === p.gear && (st.params.mode === undefined || st.params.mode === "new")) : undefined; // (the body of a gear is named by the step that began it: a bevel gear's is a loft that is later cut, `combine`)
+  return first ? bodyOfStep(s, first.id) : null;
+};
+/** A model played from any of its bodies: the driver (its own body), and every part that turns with it or about it; null when this body is not a part of one */
+export function modelPlay(s: Scene, body: Ref): { driver: { point: Vec3; dir: Vec3; body: Ref }; followers: Follower[]; note: string } | null {
+  for (const m of s.models ?? []) {
+    const bodies = Object.keys(m.parts).map((p) => [p, modelBody(s, m, p)] as const);
+    if (!bodies.some(([, b]) => b === body)) continue;
+    const db = modelBody(s, m, m.driver.part);
+    if (!db) return null;
+    const followers: Follower[] = [];
+    for (const f of m.followers) { const b = modelBody(s, m, f.part); if (b) followers.push({ gear: m.id, body: b, kind: "turn", point: f.point, dir: f.dir, k: f.k, ...(f.after ? { after: f.after } : {}) }); }
+    return { driver: { point: m.driver.point, dir: m.driver.dir, body: db }, followers, note: m.note };
+  }
+  return null;
+}
+
 /**
  * The bodies that are hooked up to an animation, each with the body whose Play moves it: a pin or a rod on a joint, a gear and the gears meshed with it, the crank and disc of a Geneva drive (the wheel, which they drive, goes with its crank), a planetary
  * set's carrier, and a cam with its follower (the rod goes with the cam). Cheap enough for every change of the scene: one look at the mates and one at each record.
@@ -331,5 +354,6 @@ export function animatedBodies(s: Scene): Map<Ref, Ref> {
   }
   for (const pv of s.pivots ?? []) { const b = Object.values(s.parts).find((p) => p.kind === "body" && p.id === pv.body); if (b) out.set(b.ref, b.ref); } // (a body made to turn)
   for (const q of s.planetaries ?? []) { const c = q.carrierStep ? bodyOfStep(s, q.carrierStep) : null; if (c) out.set(c, c); }
+  for (const m of s.models ?? []) { const d = modelBody(s, m, m.driver.part); if (d) for (const p of Object.keys(m.parts)) { const b = modelBody(s, m, p); if (b) out.set(b, d); } } // (a model: playing any part of it plays it from its driver)
   return out;
 }

@@ -10,7 +10,7 @@ import { CONSTRAINT_ENTRIES, resolveEntry } from "../constraintlist.ts";
 import type { ToolKind, Tool } from "../tools.ts";
 import { gearFields, armTool, armModel, typeKey, finish, lineNext, gearTyped, editGearTool, editPlanetaryTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf, editCamTool , gearChanged } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
-import { modelTyped, modelCommand, modelBuilding, nextPartCommand } from "../modeltool.ts";
+import { modelTyped, modelCommand, modelBuilding, nextPartCommand, partIds, playRecord } from "../modeltool.ts";
 import type { ModelKind } from "../../operation/modelkinds.ts";
 /** why the model of a tool is not made (the words of its refusal), or null */
 const modelWhy = (sc: ReturnType<typeof sceneOf>, t: Tool): string | null => { const c = modelCommand(sc, t); return c.ok ? null : c.error; };
@@ -140,7 +140,10 @@ function makeNextPart(s: AppState): AppState {
   const next = run(s.session, c.value);
   if (next.message) return { ...s, building: null, session: next };
   const last = b.next + 1 >= b.build.parts.length;
-  return { ...s, session: { ...next, click: { ...next.click, selection: [] } }, building: last ? null : { ...b, next: b.next + 1 } };
+  const grown: typeof b = { ...b, next: b.next + 1, ids: { ...b.ids, [b.build.parts[b.next]!.label]: partIds(c.value) } };
+  const rec = last ? playRecord(grown) : null; // (the whole model is made: how it moves is kept, so that Play can move it)
+  const kept = rec ? run(next, { type: "modelPlay", record: rec }) : next;
+  return { ...s, session: { ...(kept.message ? next : kept), click: { ...next.click, selection: [] } }, building: last ? null : grown };
 }
 /** The kernel has answered: the next part of the model being made */
 export function doBuildNext(s: AppState): AppState {

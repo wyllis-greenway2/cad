@@ -12,6 +12,8 @@ import type { ModelKind, Nums } from "../operation/modelkinds.ts";
 import { asCommand } from "../operation/modelparts.ts";
 import type { Place, ModelBuild } from "../operation/modelparts.ts";
 import type { Command } from "../operation/commands.ts";
+import { playPlan } from "../operation/modelplay.ts";
+import type { PlayPlan, ModelPlay } from "../operation/modelplay.ts";
 
 /** What the tool holds: which model, the text typed in each field of the box (the overall size, the turn, then the model's numbers) and the field being typed in */
 export interface ModelState { kind: ModelKind; typed: string[]; field: number; /** the box takes the keyboard when it opens */ focus?: true }
@@ -63,14 +65,14 @@ export function modelCommand(scene: Scene, t: Tool): Result<Command> {
   return c.ok ? ok(c.value) : c;
 }
 /** A model that is being built a part at a time (`dec_gear_models`): its title, its steps and parts, and how many parts are made */
-export interface Building { title: string; build: ModelBuild; next: number }
+export interface Building { title: string; build: ModelBuild; next: number; /** how the model moves when played, and the body each part made (found as the parts are made) */ play: PlayPlan; ids: Record<string, { step?: string; gear?: string }> }
 /** The model the tool would make, with its parts, or why not */
 export function modelBuilding(scene: Scene, t: Tool): Result<Building> {
   const g = modelTarget(scene, t);
   if (!g) return err("click where the model goes first");
   if (g.problem) return err(g.problem);
   const built = modelBuild(g.kind, g.nums, g.place);
-  return built.ok ? ok({ title: modelTitle(g.kind), build: built.value, next: 0 }) : built;
+  return built.ok ? ok({ title: modelTitle(g.kind), build: built.value, next: 0, play: playPlan(g.kind, g.nums, g.place), ids: {} }) : built;
 }
 /** The command that makes the next part of a model being built (from the scene as it is now), or why not */
 export function nextPartCommand(scene: Scene, b: Building): Result<Command> {
@@ -94,4 +96,18 @@ export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { la
     unit: "mm",
     note: g ? (g.problem ?? modelAbout(m.kind, g.nums)) : "click where the middle of it goes",
   };
+}
+
+/** The step (or gear) that made the body of the part a command makes: the first extrude or turn that starts a body, or the gear */
+export function partIds(c: Command): { step?: string; gear?: string } {
+  if (c.type === "gear") return { gear: c.id };
+  if (c.type === "addStep" && (c.step.type === "extrude" || c.step.type === "revolve") && (c.step.params.mode === undefined || c.step.params.mode === "new")) return { step: c.step.id };
+  if (c.type === "batch") for (const x of c.commands) { const r = partIds(x); if (r.step || r.gear) return r; }
+  return {};
+}
+/** The record that lets the finished model be played: how it moves, and the body each of its parts is */
+export function playRecord(b: Building): ModelPlay | null {
+  const first = b.ids[b.build.parts[0]?.label ?? ""];
+  const key = first?.step ?? first?.gear;
+  return key ? { id: `m_${key}`, title: b.title, ...b.play, parts: b.ids } : null;
 }

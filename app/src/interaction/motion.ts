@@ -9,7 +9,7 @@ import { mateStatus } from "../operation/mates.ts";
 import { jointRoom, driveCommand, pivotTurnCommand, jointOf as mateJoint } from "./mate.ts";
 import type { Command } from "../operation/commands.ts";
 import { apply } from "../operation/commands.ts";
-import { followersOf, gearAxis, gearOfBody, genevaPlay, carrierPlay } from "../operation/gearcouple.ts";
+import { followersOf, gearAxis, gearOfBody, genevaPlay, carrierPlay, modelPlay } from "../operation/gearcouple.ts";
 import type { Follower } from "../operation/gearcouple.ts";
 import type { ContactState } from "./contact.ts";
 import { startContact } from "./contact.ts";
@@ -64,6 +64,8 @@ const FREE_TURN = 180, FREE_SLIDE = 30;
 /** The motion of the joint that the body is the first of (a true coaxial mate), or the reason there is none. */
 export function startPlain(scene: Scene, body: Ref, kind: JointKind = "turn"): { ok: true; motion: Motion } | { ok: false; why: string } {
   const m = mateStatus(scene).find((x) => x.state === "ok" && x.mode === "coaxial" && x.mover?.body === body);
+  const mp = m?.mover ? null : modelPlay(scene, body);
+  if (mp) return { ok: true, motion: { mate: "", gear: "", follows: mp.followers, kind: "turn", body: mp.driver.body, point: mp.driver.point, dir: mp.driver.dir, amount: 0, lo: -FREE_TURN, hi: FREE_TURN, free: true, playing: false, from: 0, startedAt: null, speed: 30, noKeep: "a model is played as one picture: its pose is not kept", note: mp.note } }; // (a gear assembly model, `dec_gear_models`)
   const cp = m?.mover ? null : carrierPlay(scene, body);
   if (cp) return { ok: true, motion: { mate: "", gear: "", follows: cp.followers, kind: "turn", body, point: cp.driver.point, dir: cp.driver.dir, amount: 0, lo: -FREE_TURN, hi: FREE_TURN, free: true, playing: false, from: 0, startedAt: null, speed: 30, noKeep: "a turning carrier is a pose of the whole set: turn the set with Edit (its Turn field) instead" } };
   if (!m?.mover) { // not a pin or a rod: a gear that was made with its body, which turns (or a rack, which slides) and takes the gears meshed with it along

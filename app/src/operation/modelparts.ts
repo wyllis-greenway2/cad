@@ -33,8 +33,8 @@ const ground: Ref = worldRef("XY");
 export interface Place { at: Vec3; ex: Vec3; ey: Vec3; ez: Vec3 }
 const AT_ORIGIN: Place = { at: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0], ez: [0, 0, 1] };
 const isHome = (p: Place): boolean => p === AT_ORIGIN || (p.at.every((v) => v === 0) && p.ex[0] === 1 && p.ex[1] === 0 && p.ex[2] === 0 && p.ey[0] === 0 && p.ey[1] === 1 && p.ey[2] === 0 && p.ez[0] === 0 && p.ez[1] === 0 && p.ez[2] === 1);
-const dirIn = (p: Place, v: Vec3): Vec3 => [p.ex[0] * v[0] + p.ey[0] * v[1] + p.ez[0] * v[2], p.ex[1] * v[0] + p.ey[1] * v[1] + p.ez[1] * v[2], p.ex[2] * v[0] + p.ey[2] * v[1] + p.ez[2] * v[2]];
-const pointIn = (p: Place, v: Vec3): Vec3 => { const d = dirIn(p, v); return [p.at[0] + d[0], p.at[1] + d[1], p.at[2] + d[2]]; };
+export const dirIn = (p: Place, v: Vec3): Vec3 => [p.ex[0] * v[0] + p.ey[0] * v[1] + p.ez[0] * v[2], p.ex[1] * v[0] + p.ey[1] * v[1] + p.ez[1] * v[2], p.ex[2] * v[0] + p.ey[2] * v[1] + p.ez[2] * v[2]];
+export const pointIn = (p: Place, v: Vec3): Vec3 => { const d = dirIn(p, v); return [p.at[0] + d[0], p.at[1] + d[1], p.at[2] + d[2]]; };
 
 /** The steps of a model, built up one call at a time. Heights are along the ground plane's normal (up). */
 /** A model as its steps, and the parts they make one after another: each with its name (the steps from `from` up to `to`), so a model can be built one part at a time and say which */

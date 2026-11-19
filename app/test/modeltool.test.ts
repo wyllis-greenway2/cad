@@ -131,3 +131,97 @@ test("Create makes the model a part at a time: the first part at once, the next 
   assert.equal(bodies(st.session).length, 9);
   assert.equal(st.session.message ?? null, null);
 });
+
+// ---- Play ----
+import { startPlain, followMatrix } from "../src/interaction/motion.ts";
+import { animatedBodies, modelBody } from "../src/operation/gearcouple.ts";
+import { playPlan } from "../src/operation/modelplay.ts";
+function buildAll(kind: ModelKind): ReturnType<typeof createState> {
+  let st = { ...createState(createSession(kernel)), cam: homeCamera() };
+  st = reduce(st, { type: "runAction", id: `model:${kind}` }, env as never);
+  st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0] } };
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env as never);
+  let n = 0;
+  while (st.building && n++ < 40) st = reduce(st, { type: "buildNext" }, env as never);
+  assert.equal(st.building, null, `${kind} is built`);
+  return st;
+}
+const apply4 = (m: number[], p: readonly number[]): number[] => [m[0]! * p[0]! + m[4]! * p[1]! + m[8]! * p[2]! + m[12]!, m[1]! * p[0]! + m[5]! * p[1]! + m[9]! * p[2]! + m[13]!, m[2]! * p[0]! + m[6]! * p[1]! + m[10]! * p[2]! + m[14]!];
+test("a finished model keeps how it moves, and Play from any part of it plays the whole: the gearbox's stages turn the other way by the teeth", () => {
+  const st = buildAll("gearbox");
+  const sc = scene(st.session);
+  assert.equal(sc.models?.length, 1);
+  const rec = sc.models![0]!;
+  assert.deepEqual(Object.keys(rec.parts).length, 9);
+  const anim = animatedBodies(sc);
+  const all = Object.values(sc.parts).filter((p) => p.kind === "body").map((p) => p.ref);
+  const driverBody = anyBodyOf(sc, rec.parts["Rod 1"]!);
+  assert.ok(all.every((b) => anim.get(b) !== undefined), "every body of the model has a Play");
+  // played from the top plate, or a gear on the far rod: it is the first pinion that is the driver, and everything that turns turns
+  for (const part of ["Top plate", "Stage 2 gear", "Rod 3"]) {
+    const from = rec.parts[part]!;
+    const r = startPlain(sc, from.gear ? (Object.values(sc.parts).find((b) => b.kind === "body" && anim.get(b.ref) !== undefined && b.ref !== driverBody && anyBodyOf(sc, from) === b.ref) ?? { ref: all[0]! }).ref : anyBodyOf(sc, from));
+    assert.ok(r.ok, r.ok ? "" : r.why);
+    if (r.ok) assert.equal(r.motion.follows.length, rec.followers.length, `${part}: every follower has its body`);
+  }
+  const byPart = Object.fromEntries(rec.followers.map((f) => [f.part, f.k]));
+  assert.ok(Math.abs(byPart["Stage 1 gear"]! - -1 / 3) < 1e-9, "the first gear turns a third as fast the other way");
+  assert.ok(Math.abs(byPart["Stage 2 pinion"]! - -1 / 3) < 1e-9, "the next pinion is on its rod");
+  assert.ok(Math.abs(byPart["Stage 2 gear"]! - 1 / 9) < 1e-9, "the last gear turns a ninth as fast, the same way");
+});
+test("the bearing's balls go round at about half the speed of the inner race, the outer race held", () => {
+  const st = buildAll("bearing");
+  const sc = scene(st.session);
+  const rec = sc.models![0]!;
+  assert.equal(rec.followers.length, 7);
+  const f = rec.followers[0]!;
+  assert.ok(f.after && f.after.k > 0.3 && f.after.k < 0.5, `${f.after?.k}`);
+  assert.ok(!rec.followers.some((x) => x.part === "Outer race"), "the outer race is held");
+  // a quarter turn of the inner race: the first ball's middle goes round by that times the orbit
+  const mot = startPlain(sc, anyBodyOf(sc, rec.parts["Ball 1"]!))!;
+  assert.ok(mot.ok);
+  if (!mot.ok) return;
+  const ball = mot.motion.follows[0]!;
+  const to = apply4(followMatrix(ball, 90), ball.point);
+  const ang = Math.atan2(to[1]! - ball.after!.point[1], to[0]! - ball.after!.point[0]) - Math.atan2(ball.point[1] - ball.after!.point[1], ball.point[0] - ball.after!.point[0]);
+  assert.ok(Math.abs(ang - (ball.after!.k * Math.PI) / 2) < 1e-6, `${ang}`);
+});
+const anyBodyOf = (sc: ReturnType<typeof scene>, p: { step?: string; gear?: string }) => { const rec = sc.models!.find((m) => Object.values(m.parts).includes(p))!; const part = Object.keys(rec.parts).find((k) => rec.parts[k] === p)!; return modelBody(sc, rec, part)!; };
+test("the differential: with axle 2 held and the cage turned, axle 1 turns twice as fast and each spider spins as the bevel pair's no-slip condition says", () => {
+  const sc = scene(buildAll("differential").session);
+  const rec = sc.models![0]!, k = Object.fromEntries(rec.followers.map((f) => [f.part, f]));
+  assert.equal(k["Side gear 1"]!.k + 0, 2);
+  assert.ok(!k["Side gear 2"], "side gear 2 is held");
+  const spin = k["Spider gear 1"]!.k;
+  assert.ok(Math.abs(spin - 16 / 10) < 1e-9 && Math.abs(k["Spider gear 2"]!.k + 16 / 10) < 1e-9);
+  // the contact line of the side gear on -x and the spider on +y runs from the apex at the angle delta of the side gear's cone from its axis; the difference of the two turns, as vectors, lies along it
+  const delta = Math.atan2(16, 10);
+  const w = 1, rel1 = [w, 0], relSpider = [0, spin * w]; // (the side gear's turn about x and the spider's about y, relative to the cage, for a turn w of the cage)
+  const diff = [rel1[0]! - relSpider[0]!, rel1[1]! - relSpider[1]!], line = [-Math.cos(delta), Math.sin(delta)];
+  assert.ok(Math.abs(diff[0]! * line[1]! - diff[1]! * line[0]!) < 1e-9, "no slip at the contact line");
+});
+test("the cycloidal drive: the disc goes round on its eccentric and turns the other way a ninth as fast; the output turns with the disc", () => {
+  const sc = scene(buildAll("cycloidal").session);
+  const rec = sc.models![0]!, disc = rec.followers.find((f) => f.part === "Cycloidal disc")!;
+  assert.ok(Math.abs(disc.k + 1 / 9) < 1e-12 && disc.after!.k === 1);
+  assert.ok(Math.abs(rec.followers.find((f) => f.part === "Output plate and pins")!.k + 1 / 9) < 1e-12);
+  assert.ok(!rec.followers.some((f) => f.part === "Base plate and ring pins"), "the base is held");
+  const p = playPlan("cycloidal", modelStart("cycloidal"), { at: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0], ez: [0, 0, 1] });
+  const f = p.followers[0]!;
+  const to = apply4(followMatrix({ gear: "", body: "d/x" as never, kind: "turn", ...f }, 90), f.point);
+  assert.ok(Math.abs(to[0]!) < 1e-9 && Math.abs(to[1]! - 1.5) < 1e-9, `the disc's middle at a quarter turn: ${to}`);
+});
+test("the Play item of the ring starts the model from whichever of its bodies is selected, and the motion moves the model's own parts", () => {
+  for (const [kind, from] of [["bearing", "Ball 3"], ["gearbox", "Top plate"], ["differential", "Cap 2"], ["cycloidal", "Output plate and pins"]] as [ModelKind, string][]) {
+    let st = buildAll(kind);
+    const sc = scene(st.session), rec = sc.models![0]!;
+    const body = anyBodyOf(sc, rec.parts[from]!);
+    st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [body] } } };
+    const played = reduce(st, { type: "runAction", id: "motion:play" }, env as never);
+    assert.ok(played.motion, `${kind}: Play from ${from} starts a motion: ${played.session.message ?? ""}`);
+    if (!played.motion) continue;
+    assert.equal(played.motion.follows.length, rec.followers.length, `${kind}: every moving part follows`);
+    const driverBody = anyBodyOf(sc, rec.parts[rec.driver.part]!);
+    assert.equal(played.motion.body, driverBody, `${kind}: the driver is ${rec.driver.part}`);
+  }
+});
