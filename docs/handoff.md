@@ -4139,3 +4139,6 @@ Built `Bearing` in the Models category from a table of 22 real deep-groove beari
 
 ## Handoff 1027 — 2026-11-19 (in_1159: new working branch)
 `in_1159`. Everything on `claude/intelligent-hawking-next` was already in the testing branch, so nothing to merge; created `claude/intelligent-hawking-next-2` from the testing branch's tip (which had moved on to `in_1158`, Handoff 1026). Work goes on there. Next: `in_1160`, Handoff 1028.
+
+## Handoff 1028 — 2026-11-19 (in_1160, in_1161: a typed number checked, a deleted part found not uniform)
+`in_1161` approved checking a typed number a dimension cannot take, and deleting a part a constraint needs. **Typed number:** uniform; `test/typedconflict.test.ts` (2 tests, pass). **Deleting a part:** the constraints that name it go with it in silence (probe: 6 constraints to 4, no message, no flash); recorded in `q_constraint_audit` with a recommendation (say which went, flash them once) and nothing built, since it is a decision for the human. Next: `in_1162`, Handoff 1029.
