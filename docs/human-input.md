@@ -5216,3 +5216,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1224 — 2026-11-19 — directive
 > why don't you cancel it, and me give you specific pieces I think you'll need
 (about my OCR of the four Rathbun PDF parts: cancel it; the human will supply the specific pages wanted)
+
+## in_1225 — 2026-11-19 — directive
+> Try these documents instead, I have a lot more too when you are done with these
+(supplied PDFs of NACA Report 895 and NACA Report 817 in place of the Rathbun scans; has more documents to send afterwards)
