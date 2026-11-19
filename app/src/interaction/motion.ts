@@ -171,7 +171,12 @@ const mul4 = (a: number[], b: number[]): number[] => Array.from({ length: 16 }, 
 /** The matrix of a follower when the driver is at `a`: its own turn or slide (`followAmount`), and for a planet on a turning carrier the orbit after it. */
 export function followMatrix(f: Follower, a: number): number[] {
   const first = jointMatrix(f, followAmount(f, a));
-  return f.after ? mul4(jointMatrix({ kind: "turn", point: f.after.point, dir: f.after.dir }, f.after.k * a), first) : first;
+  if (!f.after) return first;
+  const orbit = jointMatrix({ kind: "turn", point: f.after.point, dir: f.after.dir }, f.after.k * a);
+  if (!f.after.slip) return mul4(orbit, first);
+  const [x, y, z] = f.point; // (a body on a pin that goes round: moved by what the turn moves the pin, not turned with it)
+  const at: Vec3 = [orbit[0]! * x + orbit[4]! * y + orbit[8]! * z + orbit[12]!, orbit[1]! * x + orbit[5]! * y + orbit[9]! * z + orbit[13]!, orbit[2]! * x + orbit[6]! * y + orbit[10]! * z + orbit[14]!];
+  return mul4([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, at[0] - x, at[1] - y, at[2] - z, 1], first);
 }
 /** The other way round: the speed changes sign, and a motion that is playing goes on from where it stands. */
 export function reverseMotion(m: Motion): Motion {
@@ -255,8 +260,8 @@ export function motionHolds(scene: Scene, m: Motion): Motion | null {
 }
 
 /** The turn that carries what is on a body of this motion: the driver's own (a turn), or a gear it turns by a plain ratio; null for a body that does not move, or a carrier that is itself carried or drawn by a table (a joint on such a pin is not made). */
-function carriedBy(m: Motion, body: Ref): { point: Vec3; dir: Vec3; k: number } | null {
-  if (body === m.body) return m.kind === "turn" ? { point: m.point, dir: m.dir, k: 1 } : null;
+function carriedBy(m: Motion, body: Ref): { point: Vec3; dir: Vec3; k: number; slip: true } | null {
+  if (body === m.body) return m.kind === "turn" ? { point: m.point, dir: m.dir, k: 1, slip: true } : null;
   const f = m.follows.find((x) => x.body === body);
-  return f && f.kind === "turn" && !f.after && !f.table && !f.geneva && f.value === undefined ? { point: f.point, dir: f.dir, k: f.k } : null;
+  return f && f.kind === "turn" && !f.after && !f.table && !f.geneva && f.value === undefined ? { point: f.point, dir: f.dir, k: f.k, slip: true } : null;
 }
