@@ -138,3 +138,39 @@ test("the dialogs offer BREP and know .brep, .brp and .FCStd", () => {
   assert.equal(KIND_OF("a.FCStd"), "fcstd");
   assert.match(JSON.stringify(importDialog("a.FCStd", {}).fields), /FreeCAD keeps millimetres/);
 });
+
+// ---------- packed shape text ----------
+import { pack, unpack } from "../src/compiler/kernel/occt/pack.mjs";
+import { importFile } from "../src/interaction/importfile.ts";
+import { openSession, saveText } from "../src/interaction/session.ts";
+
+test("packed text: it comes back as it was (text with accents and a million characters), and is much smaller", () => {
+  const t = "ISO-10303-21;\n" + "#1 = CARTESIAN_POINT('Fräsen ∅12',(0.,0.,0.));\n".repeat(20000);
+  const p = pack(t);
+  assert.ok(p.startsWith("z:"));
+  assert.equal(unpack(p), t);
+  assert.ok(p.length < t.length / 10, `${p.length} of ${t.length}`);
+  assert.equal(unpack("plain text, never packed"), "plain text, never packed");
+});
+
+test("a STEP import keeps its text packed in the project, builds the same body, and saves and opens again; a project with the text as it was saved before still builds", async () => {
+  const exported = await exportFile(block(), kernel, "step");
+  assert.ok(exported.ok);
+  const stepText = new TextDecoder().decode(exported.bytes);
+  const s0 = createSession(kernel);
+  const done = importFile(s0, "b.step", stepText);
+  assert.ok(done.ok, done.ok ? "" : done.error);
+  const step = scene(done.session).steps.find((x) => x.type === "import")!;
+  assert.ok(String(step.params.data).startsWith("z:"), "packed");
+  assert.ok(String(step.params.data).length < stepText.length / 3);
+  assert.ok(Math.abs(volume(done.session) - 16000) < 1e-6);
+  const reopened = openSession(kernel, saveText(done.session));
+  assert.ok(reopened.ok);
+  assert.ok(Math.abs(volume(reopened.value) - 16000) < 1e-6);
+  const packed = String(step.params.data);
+  const old = saveText(done.session).replace(JSON.stringify(packed), JSON.stringify(stepText)); // (how a project saved before the packing has it)
+  assert.ok(old.includes("ISO-10303-21"), "the text is in it as it was");
+  const older = openSession(kernel, old);
+  assert.ok(older.ok, older.ok ? "" : older.error);
+  assert.ok(Math.abs(volume(older.value) - 16000) < 1e-6);
+});

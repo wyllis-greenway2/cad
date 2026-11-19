@@ -4424,3 +4424,15 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1017 — 2026-11-19 — directive
 > lets do 1 and 2 together
 (chooses the first two of the AI's list: a 3MF with names and an object for each body, and a DXF with a choice of version)
+
+## in_1018 — 2026-11-19 — directive
+> we will hold off on the merge for now, what else should we build?
+(asks the branch not to be merged into claude/inspiring-pascal-l342k7 yet; asks what to build next)
+
+## in_1019 — 2026-11-19 — clarification
+> no I mean what else should we work on for import export and compatability
+(says the question was about import, export and compatibility, not other features)
+
+## in_1020 — 2026-11-19 — directive
+> okay lets do all those except 4, we want to work on a drawing view and pdf export seperatly
+(chooses the AI's list: big and imperfect meshes, drag and drop with detection by content, STEP size limit and schema and names, SVG strokes and text, FreeCAD and BREP; not the 1:1 PDF export, which is for a drawing view built separately)

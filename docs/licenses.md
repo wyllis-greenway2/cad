@@ -20,6 +20,7 @@ planned licensing review).
 |---|---|---|---|---|
 | replicad | 1.2.0 | MIT | `prototypes/kernel-slice`, `prototypes/sketch-extrude`, `prototypes/cad-ui`, `app/` | Friendly API over OCCT. Prototype only; we may call OCCT directly instead. |
 | replicad-opencascadejs | 1.1.0 | **LGPL-2.1-only** | `prototypes/kernel-slice`, `prototypes/sketch-extrude`, `prototypes/cad-ui`, `app/` | OCCT compiled to WASM (about 23 MB, 7 MB gzipped). The LGPL obligations below apply. |
+| fflate | 0.8.3 | MIT | `app/` | Deflate and inflate in plain code, for the packed text of an imported STEP or BREP (`compiler/kernel/occt/pack.mjs`). It was already there as a dependency of three; direct since 2026-11-19 (`in_1020`). |
 | three | 0.187.0 | MIT | `prototypes/kernel-slice`, `prototypes/sketch-extrude`, `prototypes/cad-ui`, `prototypes/cad-ui`, `app/` | Rendering. |
 | vite | 8.3.5 | MIT | `prototypes/kernel-slice`, `prototypes/sketch-extrude`, `prototypes/cad-ui`, `prototypes/cad-ui`, `app/` | Dev server and bundler; build time only. |
 | typescript | 5.x (dev only) | Apache-2.0 | `app/` | Type checking only (`tsc --noEmit`); nothing of it ships. Tests run TypeScript directly with Node's built-in type stripping, so no other tool is needed. Added 2026-11-05 (`in_099`). |

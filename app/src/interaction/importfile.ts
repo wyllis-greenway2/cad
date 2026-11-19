@@ -11,6 +11,7 @@ import { parseFcstd } from "../compiler/fcstd.ts";
 import { parseStl, parseObj, parse3mf, weld, shellsOf, MAX_MESH_TRIANGLES } from "../compiler/meshfile.ts";
 import type { Mesh } from "../compiler/meshfile.ts";
 import { encodeMesh } from "../compiler/kernel/occt/meshdata.mjs";
+import { pack } from "../compiler/kernel/occt/pack.mjs";
 import type { Piece, V2 } from "../compiler/flatfile.ts";
 import { scaledPieces, movedPieces, boundsOf } from "../compiler/flatfile.ts";
 import { planeForDrawing } from "./tools.ts";
@@ -18,8 +19,8 @@ import { apply } from "../operation/commands.ts";
 import type { Session } from "./session.ts";
 import { run, scene as sceneOf } from "./session.ts";
 
-/** The most of a STEP file kept in a project: its text travels with every save and every evaluation of the model. */
-const MAX_STEP_BYTES = 25e6;
+/** The most of a STEP or BREP file the app takes: the text is kept packed in the project (about a fifth of its size) and unpacked for every build of the model; a faceted body of 5,000 faces (13 MB) reads in 4 s, so this is minutes at its largest. */
+const MAX_STEP_BYTES = 100e6;
 /** The most faces a mesh body may have once its flat areas are joined: the app lists and draws every face of a body on each change (about 0.7 ms a face). */
 const MAX_MESH_FACES = 6000;
 export const IMPORT_KINDS = ".step,.stp,.svg,.dxf,.stl,.3mf,.obj,.brep,.brp,.fcstd";
@@ -87,7 +88,7 @@ export function importFile(s: Session, name: string, text: string, o: ImportOpti
   if (ext === "step" || ext === "stp") {
     if (text.length > MAX_STEP_BYTES) return { ok: false, error: `this STEP file is ${(text.length / 1e6).toFixed(0)} MB: the app keeps the file inside the project and takes up to ${MAX_STEP_BYTES / 1e6} MB` };
     if (!/^\s*ISO-10303-21/.test(text)) return { ok: false, error: "this is not a STEP file (it does not start with ISO-10303-21)" };
-    const done = run(s, { type: "addStep", step: { id: nextId(scene, "s"), type: "import", parts: [], params: { data: text, name, ...(o.scale !== 1 ? { scale: o.scale } : {}), ...(o.place !== "file" ? { place: o.place } : {}) } } });
+    const done = run(s, { type: "addStep", step: { id: nextId(scene, "s"), type: "import", parts: [], params: { data: pack(text), name, ...(o.scale !== 1 ? { scale: o.scale } : {}), ...(o.place !== "file" ? { place: o.place } : {}) } } });
     if (sceneOf(done).steps.length === scene.steps.length) return { ok: false, error: done.message ?? "the STEP file could not be imported" };
     const bodies = Object.values(sceneOf(done).parts).filter((p) => p.kind === "body").length - Object.values(scene.parts).filter((p) => p.kind === "body").length;
     return { ok: true, session: done, message: `imported ${name}: ${bodies > 1 ? `${bodies} bodies` : "a body"} with no history (push, pull, cut, fillet and mate it; it cannot be edited as a recipe)${optionNote({ ...o, units: "file" }).length ? `; ${optionNote({ ...o, units: "file" }).join(", ")}` : ""}` };
@@ -169,7 +170,7 @@ function importBrepData(s: Session, name: string, data: string, o: ImportOptions
   const scene = sceneOf(s);
   if (data.length > MAX_STEP_BYTES) return { ok: false, error: `this file is ${(data.length / 1e6).toFixed(0)} MB of shape data: the app keeps it inside the project and takes up to ${MAX_STEP_BYTES / 1e6} MB` };
   const k = (o.units === "file" ? 1 : UNIT_MM[o.units]) * o.scale;
-  const done = run(s, { type: "addStep", step: { id: nextId(scene, "s"), type: "import", parts: [], params: { data, name, format: "brep", ...(k !== 1 ? { scale: k } : {}), ...(o.place !== "file" ? { place: o.place } : {}) } } });
+  const done = run(s, { type: "addStep", step: { id: nextId(scene, "s"), type: "import", parts: [], params: { data: pack(data), name, format: "brep", ...(k !== 1 ? { scale: k } : {}), ...(o.place !== "file" ? { place: o.place } : {}) } } });
   if (sceneOf(done).steps.length === scene.steps.length) return { ok: false, error: done.message ?? `the ${what} could not be imported` };
   const bodies = Object.values(sceneOf(done).parts).filter((p) => p.kind === "body").length - Object.values(scene.parts).filter((p) => p.kind === "body").length;
   const extra = [...notes, ...optionNote(o)];
