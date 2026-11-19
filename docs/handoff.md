@@ -3707,3 +3707,6 @@ Merged `claude/intelligent-hawking-8j1lyr` (its in_819-827 are in_916-924, Hando
 
 ## Handoff 887 — 2026-11-19 (in_987: the cam tools and the Geneva fix merged into inspiring-pascal)
 `in_987` asked for it, without tests. Merged `claude/intelligent-hawking-8j1lyr` (its in_979 is in_986, its Handoff 880 is 886). The only conflicts were the two record files; pascal had moved to in_985 and Handoff 885. Checked: types and the docs, layer, unused and kernel-boundary checks; the tests were not run, as asked (they passed on the branch before the merge: 1738).
+
+## Handoff 888 — 2026-11-19 (in_989: `dec_contact_push` accepted)
+`in_989`. The human took the AI's recommendations for the three open questions of `dec_contact_push`; the entry is now **accepted** (origin `ai-proposed-human-approved`, `human_input` cites `in_989`) with the answers written in: spreading depth 3, ghost not built until a case needs it (a setting of the body), the rest value a number on the joint, the mesh test for interaction and the exact boolean for the final answer in steps behind `hardCollision` (with the finding that `meshOf` leaves out a gear's teeth walls). **Not built (the next changes to `contact.ts`):** the depth rule, a settable rest value on a joint, Keep pose for a pose found by contact, switching the hard bodies' drag to the mesh test. Docs only; no code changed.

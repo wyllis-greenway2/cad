@@ -4309,3 +4309,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > lets do 2 3 and 4
 (of the AI's list: Mesh gear carries the chamfer to the partner (2); cut the kernel time of big spiral pairs (3); the spiral crown gear (4); the menu split (1) and ISO 23509 (5) stay out)
 
+
+## in_989 — 2026-11-19 — approval
+> okay lets do 1, I will take your reccomendations
+(approves the AI's recommendations for the three open questions of `dec_contact_push`, which the AI then wrote into the entry as answers: spreading depth 3, ghost not built until a case needs it, the rest value a number on the joint, the mesh test for interaction with the exact boolean for the final answer, in steps behind the existing seam)
