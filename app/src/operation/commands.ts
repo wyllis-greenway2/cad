@@ -53,8 +53,8 @@ export type Command =
   /** group things (parts, or groups made before) so that selecting one selects all; `id` is a new group id (`in_257`) */
   | { type: "group"; id: string; items: string[] }
   /** a body made hard or soft (`dec_hard_bodies`): `body` is the name it keeps through the history */
-  /** nothing to do and why: what an action that cannot make its command hands over, so the refusal is said and shown, not swallowed as an empty step (`in_1105`); `soften`: hard or fixed bodies whose hardness stopped it, `into` the bodies it ran into, `retry` the command once their hardness is gone */
-  /** nothing to do, because constraints that are there already make it true: they are named and flash green (`in_1106`) */
+  /** nothing to do and why: what an action that cannot make its command hands over, so the refusal is said and shown, not swallowed as an empty step (`in_1106`); `soften`: hard or fixed bodies whose hardness stopped it, `into` the bodies it ran into, `retry` the command once their hardness is gone */
+  /** nothing to do, because constraints that are there already make it true: they are named and flash green (`in_1108`) */
   | { type: "held"; ids: string[] }
   | { type: "refuse"; why: string; soften?: string[]; into?: string[]; retry?: Command }
   | { type: "setHard"; body: string; on: boolean }

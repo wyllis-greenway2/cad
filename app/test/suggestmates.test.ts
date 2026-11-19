@@ -75,7 +75,7 @@ test("a mate that is made and true is not offered again, by the ring either (it 
   assert.equal(scene(once).relations.filter((r) => r.kind === "mate").length, 1);
 });
 
-// ---------- a mate that a sketch's tangent already makes true (`in_1106`) ----------
+// ---------- a mate that a sketch's tangent already makes true (`in_1108`) ----------
 import { impliedMate } from "../src/interaction/implied.ts";
 import { drawSquaredRectangle } from "../src/operation/build.ts";
 test("a sketch line held tangent to a post's rim: the wall made from the line is already tangent to the post, so the tangent mate between them is said to hold, and one between other faces is not", () => {

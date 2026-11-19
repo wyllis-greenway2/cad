@@ -1,4 +1,4 @@
-// A mate that the constraints of a sketch already make true (`inv_constraint_uniformity`, `in_1106`): a sketch circle held concentric with the rim of a body (or tangent to it) already makes the body made from the circle's wall coaxial (or tangent) with that body.
+// A mate that the constraints of a sketch already make true (`inv_constraint_uniformity`, `in_1108`): a sketch circle held concentric with the rim of a body (or tangent to it) already makes the body made from the circle's wall coaxial (or tangent) with that body.
 // So asking for the mate says so, and shows the constraint (it flashes green), instead of adding a second constraint that says the same. Pure: the scene in, the ids of the relations out.
 import type { Scene } from "../operation/scene.ts";
 import { lookup } from "../operation/scene.ts";

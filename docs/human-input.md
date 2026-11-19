@@ -4773,5 +4773,17 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (asks for claude/intelligent-hawking-next to be merged into the testing branch, with the refusal that names the constraint and the already-applied green flash; no full suite needed)
 
 ## in_1105 — 2026-11-19 — directive
+> okay build all those things. Lets put them under shape fabrication models.
+(approves the four gear assemblies recommended (a reduction gearbox, a bearing, a differential, a cycloidal drive; not a multi-speed transmission) and asks for them under Shape, Fabricate, Models)
+
+## in_1106 — 2026-11-19 — directive
 > okay lets build the swap, where a mate moves the other body when the first can’t move
 (approves the AI's recommendation of `in_1101`: a mate whose first selected body cannot move is made by moving the second body to it, and refused only when neither can)
+
+## in_1107 — 2026-11-19 — question
+> @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/219d536c-why_jamb.json" okay if the sketch has a constraint to keep the circle coaxial with the hole, should that operate on the body too? since the body is part of the sketch? or should it need a separate body coaxial constraint?
+(with a screenshot of the same refusal, "that cannot be done without breaking other constraints" with a red Concentric bubble and the ring round the pin, in an older build; asks whether a sketch's constraint that keeps a circle coaxial with a hole should also hold for the body made from the sketch, or whether a separate coaxial constraint of the bodies is needed)
+
+## in_1108 — 2026-11-19 — directive
+> yes, and check if we need to extend this logic to other constraints straddling bodies and edges
+(approves the AI's recommendation of `in_1107`: a sketch's Concentric that already makes two bodies coaxial counts as the mate, said and flashed green, not added a second time; and asks for the same question to be looked at for the other constraints that straddle sketches and bodies or edges)
