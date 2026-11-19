@@ -5228,3 +5228,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1227 — 2026-11-19 — directive
 > why dont you link me to any documents you need and I will see if I can get them for you
 (offers to fetch documents: asks me to list the documents I need, with links, and they will try to get them)
+
+## in_1228 — 2026-11-19 — directive
+> lets keep researching our engine builder should be able to make a range of variations of engines.
+(supplied a zip of the "home model engines" plans, the Chirico Tee Head four stroke; says to keep researching and that the engine builder must be able to make a range of variations of engines, not one engine)
