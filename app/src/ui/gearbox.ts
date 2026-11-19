@@ -54,7 +54,7 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
           const input = numberInput({ onInput: (t) => h.entry(f.index ?? i, t), onEnter: () => h.enter(), onEscape: () => h.cancel() });
           const u = f.unit ?? entry.unit;
           const row = panelRow(f.label, input, u === "°" || u === "deg" ? "°" : "");
-          if (f.toggle) { // (a radius has a little toggle beside it to make it a chamfer, `in_1244`)
+          if (f.toggle) { // (a radius has a little toggle beside it to make it a chamfer, `in_1245`)
             const tg = f.toggle, group = document.createElement("div");
             group.style.cssText = "display:flex;gap:0;flex:none";
             const buttons = tg.choices.map((name, k) => { const b = textButton(name.slice(0, 1), { click: () => h.entry(tg.index, String(k)) }); b.title = name; b.style.cssText += ";padding:4px 7px;font-size:12px;border-radius:" + (k === 0 ? "7px 0 0 7px" : k === tg.choices.length - 1 ? "0 7px 7px 0" : "0"); return b; });
@@ -97,7 +97,7 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
         input.style.background = f.bad ? "#fde8e8" : "";
         const wasBad = input.dataset.bad === "1";
         input.dataset.bad = f.bad ? "1" : "0";
-        if (f.bad) input.style.borderColor = "#e5484d"; else if (wasBad || document.activeElement !== input) input.style.borderColor = document.activeElement === input ? "#1ab8b3" : "#cfd0d4"; // (a box that is happy again is not left red, `in_1244`)
+        if (f.bad) input.style.borderColor = "#e5484d"; else if (wasBad || document.activeElement !== input) input.style.borderColor = document.activeElement === input ? "#1ab8b3" : "#cfd0d4"; // (a box that is happy again is not left red, `in_1245`)
       });
       if (primaryButton) primaryButton.textContent = !entry.gearButtons?.edit ? "Create" : entry.gearButtons.changed ? "Update" : "Done";
       el.style.display = "block";

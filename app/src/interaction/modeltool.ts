@@ -26,7 +26,7 @@ const normalizeV = (a: Vec3): Vec3 => { const l = Math.hypot(a[0], a[1], a[2]) |
 
 /** What the tool holds: which model, the text typed in each field of the box (the overall size, then the model's numbers) and the field being typed in */
 export interface ModelState { kind: ModelKind; typed: string[]; field: number; /** the box takes the keyboard when it opens */ focus?: true; /** the number that was taken back to a value that makes the model (`in_1240`): its field, and when (the box flashes red for a moment) */ bad?: { field: number; at: number } }
-const modelLabels = (kind: ModelKind): string[] => [modelSizeLabel(kind), ...modelFields(kind).map((f) => f.label)]; // (the Size, then the model's own numbers: no turn, `in_1244`)
+const modelLabels = (kind: ModelKind): string[] => [modelSizeLabel(kind), ...modelFields(kind).map((f) => f.label)]; // (the Size, then the model's own numbers: no turn, `in_1245`)
 export const armedModel = (kind: ModelKind): ModelState => ({ kind, typed: modelLabels(kind).map(() => ""), field: 0 });
 export const modelTyped = (m: ModelState, field: number, text: string): ModelState => { const { bad: _gone, ...rest } = m; void _gone; return { ...rest, field, typed: m.typed.map((x, i) => (i === field ? text : x)) }; };
 

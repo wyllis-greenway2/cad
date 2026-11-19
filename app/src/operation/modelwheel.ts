@@ -1,4 +1,4 @@
-// A wheel as a model (`dec_hub_spoke`): a rim, a web and a hub as ONE body, the way a cast or machined wheel is made. The human's own recipe (`in_1236`, named and ordered in `in_1244`): the plainest form is a web joining the rim and the hub, with a
+// A wheel as a model (`dec_hub_spoke`): a rim, a web and a hub as ONE body, the way a cast or machined wheel is made. The human's own recipe (`in_1236`, named and ordered in `in_1245`): the plainest form is a web joining the rim and the hub, with a
 // fillet or a chamfer of a set size where the web meets each; the spokes are cutouts in that web (their number, how far they stop short of the hub and the rim, the radius of each corner of a cutout, the width of a spoke and how much it tapers, and a
 // spiral). No corner is ever left square. The wheel stands along z with its middle at z = 0. Pure: numbers in, steps out.
 import { Builder, outline } from "./modelparts.ts";
