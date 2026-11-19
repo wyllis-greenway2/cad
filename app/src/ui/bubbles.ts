@@ -26,7 +26,7 @@ export interface BubbleHandlers {
 
 interface Entry { el: HTMLElement; sig: string; editing: boolean; a: Annotation; tinted: boolean; /** the thin line back to its spot, once it has moved far */ leader?: HTMLElement; /** where it is from the spot it belongs to, on its way to where it should stand */ off?: [number, number] }
 /** A refused change while it flashes: how far through it is, what it would have broken (red, fading) and what tried it (it shakes). */
-export interface Flash { t: number; victims: readonly string[]; culprits: readonly string[]; /** constraints that already held when asked for again: mild green, fading (`in_1090`) */ green?: readonly string[] }
+export interface Flash { t: number; victims: readonly string[]; culprits: readonly string[]; /** constraints that already held when asked for again: mild green, fading (`in_1102`) */ green?: readonly string[] }
 
 export function createBubbles(host: HTMLElement, h: BubbleHandlers) {
   const root = document.createElement("div");

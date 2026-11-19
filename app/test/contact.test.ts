@@ -206,7 +206,7 @@ test("hardness is passed on to three links: a train of six gears with the first 
     const stripped: typeof r.motion = { ...r.motion, follows: [] as typeof r.motion.follows };
     const contact = startContact(scene(s), stripped, scene(s).gears!.slice(1).map((g, i) => { const ax = gearAxis(scene(s), g)!; return { body: bodies[i + 1]!, point: ax.point, dir: ax.dir }; }), s.outcome)!;
     let m: typeof r.motion = { ...stripped, contact };
-    for (let deg = 1; deg <= 45; deg++) { m = solveContact(scene(s), { ...m, amount: deg }, s.outcome); assert.ok(!m.contact!.jam, `jam at ${deg}: ${m.contact!.jam}`); }
+    for (let deg = 1; deg <= 45; deg++) { m = solveContact(scene(s), { ...m, amount: deg }, s.outcome, Infinity); assert.ok(!m.contact!.jam, `jam at ${deg}: ${m.contact!.jam}`); }
     return m;
   };
   const err = (m: NonNullable<ReturnType<typeof play>>, i: number) => Math.abs(followAmount(m.yields![i - 1]!, 45) - ratio[i]! * 45);

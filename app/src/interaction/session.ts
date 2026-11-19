@@ -46,7 +46,7 @@ export interface Session {
   /** what to do instead if one of those steps could not be made (an edit of the step that made a face, refused late: the prism the old way) */
   readonly fallback?: Command;
   /** the last command that was refused because it could not be done without breaking constraints: who tried (`culprits`: relation ids) and what it would have broken (`victims`) */
-  /** constraints that already held when the same one was asked for: they flash green (`inv_constraint_uniformity`, `in_1090`) */
+  /** constraints that already held when the same one was asked for: they flash green (`inv_constraint_uniformity`, `in_1102`) */
   readonly already?: string[];
   readonly conflict: { culprits: string[]; victims: string[]; /** what to do once the constraints in `victims` are deleted (the button "Delete constraint to proceed", `in_366`): the refused command itself */ retry?: Command; /** parts of a refused step that are the problem (the edges that cannot take a fillet or chamfer of that size): they flash red (`in_266`) */ parts?: string[]; /** hard or fixed bodies whose hardness stopped the change: the constraint to delete is their hardness (`inv_constraint_uniformity`, `in_1087`): the body names */ soften?: string[] } | null;
   /** the sketch plane whose hidden sketch is shown while a tool sketches in it (`in_211`) */
@@ -159,7 +159,7 @@ function wordsOf(scene: Scene, ids: readonly string[], colour = ""): string {
   return `${names.slice(0, 3).join(", ")}${ids.length > 1 ? ` (${ids.length} flash${colour ? ` ${colour}` : ""})` : ` (it flashes${colour ? ` ${colour}` : ""})`}`;
 }
 /**
- * The constraints a command would add that already hold exactly as asked (`inv_constraint_uniformity`, `in_1090`): the same kind between the same parts with the same number, or a mate that is made and true. Nothing is added a second time: it is said, and the constraint that is there flashes green.
+ * The constraints a command would add that already hold exactly as asked (`inv_constraint_uniformity`, `in_1102`): the same kind between the same parts with the same number, or a mate that is made and true. Nothing is added a second time: it is said, and the constraint that is there flashes green.
  * Empty when the command is anything else, or does anything more than add them.
  */
 function alreadyApplied(scene: Scene, c: Command): string[] {
@@ -216,7 +216,7 @@ function heldBy(before: Scene, c: Command, after: Scene): string[] {
 export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback?: Command; /** the caller checks for moves that were held back itself (a body moved whole) */ ownHold?: boolean } = {}): Session {
   // `watchAll`: the command changes a step already in the history, so any step after it may stop working: those that worked before are watched too
   let steps = opts.watchAll ? s.history.scene.steps.map((x) => x.id).filter((id) => !s.outcome.errors[id]) : stepsOf(c);
-  // a constraint that already holds as asked is not made again: it is said, and it flashes green (`in_1090`)
+  // a constraint that already holds as asked is not made again: it is said, and it flashes green (`in_1102`)
   if (!opts.watchAll) { const held = alreadyApplied(s.history.scene, c); if (held.length) return { ...s, message: `that is already applied: ${wordsOf(s.history.scene, held, "green")}`, already: held, conflict: null }; }
   // a step is built on what is shown: while the kernel is still answering for the last change what is shown is the older model, and a step made now could mean something else (`in_142`)
   if (steps.length && !opts.watchAll && s.outcome.kernel?.stale) return { ...s, message: "the model is still being worked out: try again in a moment" };

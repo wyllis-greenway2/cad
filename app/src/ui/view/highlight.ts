@@ -21,7 +21,7 @@ export interface Highlight {
   amber?: readonly Ref[];
   /** what a refused change would have broken: mild red, fading */
   red?: { refs: readonly Ref[]; alpha: number };
-  /** what already held when it was asked for again: green, fading (`in_1090`) */
+  /** what already held when it was asked for again: green, fading (`in_1102`) */
   green?: { refs: readonly Ref[]; alpha: number };
   /** the copies a repeat that is open would make: they do not exist yet, so they pulse in a soft blue (`in_244`) */
   temp?: readonly Ref[];

@@ -1,4 +1,4 @@
-// A constraint that already holds is not made again: it is said, and it flashes green (`inv_constraint_uniformity`, `in_1090`).
+// A constraint that already holds is not made again: it is said, and it flashes green (`inv_constraint_uniformity`, `in_1102`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

@@ -440,20 +440,6 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
     const next = run(s.session, back.command);
     return { ...closed, session: next.message ? next : { ...next, message: "the mate was put back" } };
   }
-  if (id === "mate:reapply") { // the mates that are no longer true are made again, one at a time (each may move what the next rests on, `in_315`)
-    let session = closed.session;
-    let made = 0;
-    for (let k = 0; k < 20; k++) {
-      const back = putMatesBack(sceneOf(session));
-      if (!back) break;
-      const next = run(session, back.command);
-      if (next.message && next === session) break;
-      if (next.message) return { ...closed, session: next };
-      session = next;
-      made++;
-    }
-    return { ...closed, session: { ...session, message: made ? `${made === 1 ? "the mate was" : `${made} mates were`} put back` : "every mate is true" } };
-  }
   if (id === "constraints") return { ...closed, showAllConstraints: !s.showAllConstraints };
   if (id.startsWith("tool:disc:")) return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", "disc", id.slice(10) as CamLaw); // (a disc cam of this law, `dec_spline_and_cams`)
   if (id === "tool:geneva:assembled" || id === "tool:geneva:model") return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", "geneva", undefined, id === "tool:geneva:model" ? "model" : "assembled"); // (a Geneva drive drawn in place, as a sketch or as bodies, `dec_geneva`)
