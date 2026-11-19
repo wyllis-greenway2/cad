@@ -4826,3 +4826,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1119 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests, then fix the remaining problems please
+
+## in_1120 — 2026-11-19 — question
+> okay can we have it so that things build one part at a time? would that appear to be faster for the user? so if there are a lot of parts in an assembly, they build one at a time and the user can see how it is put together. Can we make it so that these things work more like the gear menu? Where you can click on the screen and it builds a preview of the object (simple view like the gear profiles) so you can set scale and get an idea of how it is oriented and sized before you create? Also can we give abilities to set the size? like maybe if it has gears we would want to set gear module? Or how else would we want to let users specify and build these things? Can we have all of our assemblies animated? So the user can click the play button and watch how they work?
+(asks for the assembly models to be built one part at a time so the user sees how they go together and they feel faster; to work like the gear tool, with a click on the screen and a simple preview to set scale, orientation and size before they are made; for ways to set the size (the gear module, and how else); and for all of them to be animated with Play)

@@ -4013,3 +4013,6 @@ Finished `in_1105`: **differential** (`modeldifferential.ts`: four bevel gears m
 
 ## Handoff 987 — 2026-11-19 (in_1119: the gear audit merged into the testing branch)
 `in_1119`. Merged the testing branch's tip (Handoffs 975-981, `in_1105`-`in_1111`) into this branch and pushed the result to `claude/inspiring-pascal-l342k7`. **Numbers:** my `in_1100`-`in_1103` became `in_1116`-`in_1119` and Handoffs 969-970 became 982-983, in a commit of their own before the merge. **Conflicts:** `human-input.md` and `handoff.md` only, theirs first. Checked: types, layers and the gear tests (unused flags pascal's `gearboxPlaces` in `modelgearbox.ts`, not mine); the full suite was not run, as asked.
+
+## Handoff 988 — 2026-11-19 (in_1120: how the gear models should grow; asked, nothing built)
+`in_1120` asked for four things: the models built one part at a time, a click-to-place preview like the gear tool, ways to set size, and Play for all of them. Answered with a plan and an order and asked the human to confirm before building (each touches the gear tool's placement, the motion system or the build path).
