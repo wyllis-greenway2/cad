@@ -49,18 +49,20 @@ function made(): ReturnType<typeof createState> {
   assert.equal(st.session.message ?? null, null);
   return st;
 }
-test("the engine is made: six bodies, each where the numbers put it, and Play puts the rod's eyes on the pins", () => {
+test("the engine is made: seven bodies, each where the numbers put it, and Play puts the rod's eyes on the pins", () => {
   const st = made(), sc = scene(st.session), g = engineGeometry(S()), rec = sc.models![0]!;
   const body = (p: string): B => Object.values(sc.parts).find((x) => x.kind === "body" && x.ref === modelBody(sc, rec, p)) as unknown as B;
   const bs = Object.values(sc.parts).filter((p) => p.kind === "body");
-  assert.equal(bs.length, 6, "six bodies: none merged");
+  assert.equal(bs.length, 7, "seven bodies (the rod and its cap are two): none merged");
   const piston = body("Piston"), rod = body("Connecting rod"), crank = body("Crankshaft"), block = body("Block");
   assert.ok(piston.volume > 0 && rod.volume > 0 && block.volume > 0 && crank.volume > 0);
   const f = engineFootprint(S()), ox = -(f.x0 + f.x1) / 2; // (the model stands with the middle of its footprint on the click)
   const xp0 = g.r + g.l + ox;
   assert.ok(Math.abs(piston.bbox.max[0]! - (xp0 + g.ch)) < 0.05 && Math.abs(piston.bbox.min[0]! - (xp0 - g.sk)) < 0.05, `the piston stands from ${piston.bbox.min[0]} to ${piston.bbox.max[0]}`);
   assert.ok(Math.abs(piston.bbox.max[2]! - piston.bbox.min[2]! - 2 * g.rp) < 0.05 && Math.abs((piston.bbox.max[2]! + piston.bbox.min[2]!) / 2 - g.zc) < 0.05, "centred on the cylinder's axis");
-  assert.ok(Math.abs(rod.bbox.max[0]! - (xp0 + g.rs)) < 0.05 && Math.abs(rod.bbox.min[0]! - (g.r + ox - g.rb)) < 0.05, "the rod's eyes at the pins");
+  const cap = body("Rod cap"), e = S().room / 2; // (the big end is split at the crank pin's middle: the rod has the half toward the piston, the cap the other, their parting faces half the room either side)
+  assert.ok(Math.abs(rod.bbox.max[0]! - (xp0 + g.rs)) < 0.05 && Math.abs(rod.bbox.min[0]! - (g.r + ox + e)) < 0.05, "the rod's small eye at the piston pin and its half of the big end from the parting face");
+  assert.ok(Math.abs(cap.bbox.min[0]! - (g.r + ox - g.rb)) < 0.05 && Math.abs(cap.bbox.max[0]! - (g.r + ox - e)) < 0.05 && cap.volume > 0, "the cap is the other half of the big end");
   // the followers carry the rod and piston: at each angle the rod's two eyes are on the crank pin and on the cylinder's axis
   const rodF = rec.followers.find((f) => f.part === "Connecting rod")!, pistonF = rec.followers.find((f) => f.part === "Piston")!;
   for (const a of [0, 50, 90, 140, 180, 220, 300]) {
@@ -90,6 +92,6 @@ test("at rest no two parts share any volume (the piston in the bore, the pin in 
   const s = run(createSession(kernel), c.value);
   assert.equal(s.message ?? null, null);
   const b = (Object.values(scene(s).parts).filter((p) => p.kind === "body") as unknown as B[]);
-  assert.equal(b.length, 6);
+  assert.equal(b.length, 7);
   for (let i = 0; i < b.length; i++) for (let j = i + 1; j < b.length; j++) assert.equal(shared(s, b[i]!, b[j]!), 0, `parts ${i} and ${j} share volume`);
 });

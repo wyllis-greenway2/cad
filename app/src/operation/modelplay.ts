@@ -52,7 +52,7 @@ export function playPlan(kind: ModelKind, n: Nums, place: Place): PlayPlan {
     const followers: PlayFollower[] = [
       { part: "Connecting rod", point: P(g.r, 0, g.zc), dir: ez, k: 0, table: rod, after: { point: o, dir: ez, k: 1, slip: true } },
       { part: "Piston", point: P(g.r + g.l, 0, g.zc), dir: D(1, 0, 0), kind: "slide", k: 0, table: piston }];
-    return { driver: { part: "Crankshaft", point: o, dir: ez }, followers, glue: [["Crankshaft", "Flywheel"], ["Piston", "Piston pin"]], hold: ["Block"], pivots: [{ part: "Crankshaft", point: o, dir: ez }], note: "the crank turns: the rod leans and the piston slides by the exact slider crank (the block is held)" };
+    return { driver: { part: "Crankshaft", point: o, dir: ez }, followers, glue: [["Crankshaft", "Flywheel"], ["Piston", "Piston pin"], ["Connecting rod", "Rod cap"]], hold: ["Block"], pivots: [{ part: "Crankshaft", point: o, dir: ez }], note: "the crank turns: the rod leans and the piston slides by the exact slider crank (the block is held)" };
   }
   if (kind === "differential") {
     const s = n as unknown as DifferentialSpec, ex = D(1, 0, 0), ey = D(0, 1, 0), spin = s.side / s.spider;

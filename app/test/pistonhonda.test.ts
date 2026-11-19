@@ -140,7 +140,7 @@ const shared = (s: ReturnType<typeof createSession>, a: B, b: B): number => {
   return /nothing in common/.test(done.message ?? "") ? 0 : (Object.values(scene(done).parts).filter((p) => p.kind === "body") as unknown as B[]).map((x) => x.volume).sort((x, y) => y - x)[0] ?? 0;
 };
 for (const p of ENGINE_PRESETS) {
-  test(`${p.name} is built at rest: six bodies and no two share any volume`, () => {
+  test(`${p.name} is built at rest: seven bodies and no two share any volume`, () => {
     const r = engineSteps(p.spec);
     assert.ok(r.ok, r.ok ? "" : r.error);
     if (!r.ok) return;
@@ -150,7 +150,7 @@ for (const p of ENGINE_PRESETS) {
     const s = run(createSession(kernel), c.value);
     assert.equal(s.message ?? null, null);
     const b = Object.values(scene(s).parts).filter((x) => x.kind === "body") as unknown as B[];
-    assert.equal(b.length, 6);
+    assert.equal(b.length, 7);
     for (let i = 0; i < b.length; i++) for (let j = i + 1; j < b.length; j++) assert.equal(shared(s, b[i]!, b[j]!), 0, `parts ${i} and ${j} share volume`);
   });
 }
@@ -227,4 +227,56 @@ test("the oil drain holes are 0 to 4 a side, whole", () => {
   assert.equal(engineProblem({ ...ENGINE_START, drain: 0 }), null);
   assert.match(engineProblem({ ...ENGINE_START, drain: 5 }) ?? "", /drain holes/);
   assert.match(engineProblem({ ...ENGINE_START, drain: 1.5 }) ?? "", /drain holes/);
+});
+
+// The connecting rod (`dec_rod_design`): the kernel's volume of the rod and of the cap against volumes worked out from the numbers (areas by integration), the cap a body of its own, and the glue.
+type Iv = [number, number];
+const measure = (iv: Iv[]): number => { const s = iv.filter((v) => v[1] > v[0]).sort((a, b) => a[0] - b[0]); let m = 0, end = -Infinity; for (const [a, b] of s) { if (a > end) { m += b - a; end = b; } else if (b > end) { m += b - end; end = b; } } return m; };
+const annulusAt = (dx: number, ri: number, ro: number): Iv[] => { const o = ro * ro - dx * dx, i = ri * ri - dx * dx; if (o <= 0) return []; const yo = Math.sqrt(o); return i <= 0 ? [[-yo, yo]] : [[-yo, -Math.sqrt(i)], [Math.sqrt(i), yo]]; };
+function rodVolumes(s: typeof ENGINE_START): { rod: number; cap: number } {
+  const g = engineGeometry(s), rd = g.rod, rm = s.room, e = rm / 2, ri = g.cp / 2 + rm, xp0 = g.r + g.l;
+  const hb = 0.6 * g.rb, hs = 0.6 * g.rs, xa = g.r + g.rb - 1, xb = xp0 - g.rs + 1, at = (x: number): number => hb + ((hs - hb) * (x - g.r)) / g.l;
+  const lugY0 = ri + 0.3, lugY1 = g.rb + rd.bolt + 0.6, rin = s.pin / 2 + rm;
+  const area = (sign: 1 | -1): number => {
+    const x0 = sign > 0 ? g.r + e : g.r - Math.max(g.rb, rd.lug), x1 = sign > 0 ? xp0 + g.rs : g.r - e;
+    return simpson((x) => {
+      const iv: Iv[] = [];
+      const d = x - g.r;
+      if (sign * d >= e) iv.push(...annulusAt(d, ri, g.rb)); // (the half ring: beyond its parting face)
+      if (sign * d >= e && sign * d <= rd.lug) iv.push([lugY0, lugY1], [-lugY1, -lugY0]);
+      if (sign > 0 && x >= xa && x <= xb) iv.push([-at(x), at(x)]);
+      if (sign > 0) iv.push(...annulusAt(x - xp0, rin, g.rs));
+      return measure(iv);
+    }, x0, x1, 40000);
+  };
+  const pocket = simpson((x) => 2 * (at(x) - rd.flange), g.r + g.rb + 1.5, xp0 - g.rs - 1.5, 4000), deep = (g.w - rd.web) / 2;
+  const bolts = 2 * Math.PI * (rd.bolt / 2) ** 2 * (rd.lug - e);
+  return { rod: g.w * area(1) - 2 * deep * pocket - bolts, cap: g.w * area(-1) - bolts };
+}
+for (const [name, spec] of [["the usual engine", ENGINE_START], ["Honda GX160", ENGINE_PRESETS[1]!.spec]] as const) {
+  test(`${name}: the rod is an I-beam with a split big end: its volume and its cap's are the worked-out ones, and the cap is a body of its own`, () => {
+    const r = engineSteps(spec);
+    assert.ok(r.ok);
+    if (!r.ok) return;
+    const c = asCommand(scene(createSession(kernel)), r.value.steps);
+    assert.ok(c.ok);
+    if (!c.ok) return;
+    const s = run(createSession(kernel), c.value);
+    assert.equal(s.message ?? null, null);
+    const bodies = Object.values(scene(s).parts).filter((x) => x.kind === "body") as unknown as { volume: number; bbox: { min: number[]; max: number[] } }[];
+    const g = engineGeometry(spec), want = rodVolumes(spec);
+    const thick = (b: { bbox: { min: number[]; max: number[] } }): number => b.bbox.max[2]! - b.bbox.min[2]!;
+    const mine = bodies.filter((b) => Math.abs(thick(b) - g.w) < 0.05 && Math.abs(b.bbox.min[2]! - (g.zc - g.w / 2)) < 0.05).sort((a, b) => b.volume - a.volume); // (the flywheel is as thick but not at the rod's height)
+    const rodBody = mine.find((b) => b.bbox.max[0]! - b.bbox.min[0]! > g.l * 0.9)!, capBody = mine.find((b) => b !== rodBody && b.bbox.max[0]! - b.bbox.min[0]! < g.rb + 1)!;
+    assert.ok(rodBody && capBody, "the rod and the cap are two bodies of the rod's thickness");
+    assert.ok(Math.abs(rodBody.volume - want.rod) / want.rod < 0.005, `the rod: kernel ${rodBody.volume.toFixed(1)} mm3, worked out ${want.rod.toFixed(1)} mm3`);
+    assert.ok(Math.abs(capBody.volume - want.cap) / want.cap < 0.005, `the cap: kernel ${capBody.volume.toFixed(1)} mm3, worked out ${want.cap.toFixed(1)} mm3`);
+    const rd = g.rod;
+    assert.ok(rd.web === 0.3 * g.w && rd.flange >= 0.8 && rd.bolt >= 2 && rd.lug === 1.5 * rd.bolt, "the assumed rod numbers");
+  });
+}
+test("the cap goes with the rod in Play", async () => {
+  const { playPlan } = await import("../src/operation/modelplay.ts");
+  const plan = playPlan("engine", ENGINE_START as never, { at: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0], ez: [0, 0, 1] });
+  assert.ok(plan.glue.some((gl: string[]) => gl.includes("Connecting rod") && gl.includes("Rod cap")), "glued");
 });

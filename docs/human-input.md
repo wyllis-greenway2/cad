@@ -5312,3 +5312,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1248 — 2026-11-19 — directive
 > build the oil drain holes next
 (approves building the oil drain holes, A8 of dec_piston_parameters, the last of the assumed rules with a visible effect)
+
+## in_1249 — 2026-11-19 — directive
+> do the connecting rod next
+(chooses the connecting rod as the next part of the engine builder to make realistic)

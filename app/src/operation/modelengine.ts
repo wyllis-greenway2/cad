@@ -6,9 +6,10 @@
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import { Builder, disc, outline, box } from "./modelparts.ts";
-import type { Place, ModelBuild } from "./modelparts.ts";
-import { pistonFit, ringBelt, pistonShell } from "./pistondesign.ts";
-import type { RingBelt, Shell } from "./pistondesign.ts";
+import type { Place, ModelBuild, Shape } from "./modelparts.ts";
+import { pistonFit, ringBelt, pistonShell, rodDesign } from "./pistondesign.ts";
+import type { RingBelt, Shell, RodDesign } from "./pistondesign.ts";
+import { bulgeOf } from "./arcs.ts";
 
 export interface EngineSpec {
   /** the cylinder's bore, the stroke (mm) and the rod ratio: the crank's radius over the rod's length (0.25 to 0.33 is usual) */ bore: number; stroke: number; ratio: number;
@@ -39,6 +40,7 @@ export const ENGINE_PRESETS: readonly { name: string; spec: EngineSpec }[] = [
 export interface EngineGeometry {
   /** the crank's radius and the rod's length (centre to centre) */ r: number; l: number;
   /** the piston: its radius, the distance from the pin's axis to the crown and to the foot of the skirt, and the ring belt (the grooves from the crown down) */ rp: number; ch: number; sk: number; belt: RingBelt; shell: Shell;
+  /** the rod's I-beam and split big end (ASSUMED, `dec_rod_design`) */ rod: RodDesign;
   /** the crank pin's diameter, the radius of the crank disc, the rod's big and small eye outer radii, the rod's thickness */ cp: number; rweb: number; rb: number; rs: number; w: number;
   /** the height of the cylinder's axis, the floor's thickness, the thickness of the crank disc and the flywheel */ zc: number; tb: number; tw: number; tf: number;
   /** where the cylinder's tube begins and ends along x, and the outer radius of the tube */ x0: number; x1: number; ro: number;
@@ -54,7 +56,8 @@ export function engineGeometry(s: EngineSpec): EngineGeometry {
   const x0 = l - r - sk - 1, x1 = r + l + ch + 1;
   const phi = Math.asin(Math.min(0.99, s.ratio));
   const slot = Math.max(rs + 1, sk * Math.tan(phi) + 0.6 * rs + 1);
-  return { r, l, rp, ch, sk, belt, shell, cp, rweb, rb, rs, w, zc, tb, tw, tf, x0, x1, ro, slot, rf: rweb + 3 };
+  const rod = rodDesign(B, w, rb, 0.6 * rs);
+  return { r, l, rp, ch, sk, belt, shell, rod, cp, rweb, rb, rs, w, zc, tb, tw, tf, x0, x1, ro, slot, rf: rweb + 3 };
 }
 /** the distance from the crank's axis to the piston pin when the crank has turned `deg` degrees from top dead centre: the slider crank, exactly */
 export const pistonX = (r: number, l: number, deg: number): number => { const a = (deg * Math.PI) / 180; return r * Math.cos(a) + Math.sqrt(l * l - r * r * Math.sin(a) ** 2); };
@@ -149,12 +152,27 @@ export function engineSteps(s: EngineSpec, place?: Place): Result<ModelBuild> {
   b.part("Piston pin");
   const half = Math.sqrt(g.rp * g.rp - (s.pin / 2 + 1) ** 2) - 0.3;
   b.extrude(b.plane(g.zc - half), disc(xp0, 0, s.pin / 2), [], 2 * half);
-  // the connecting rod: two eyes and a tapered beam between them, in the rod's own plane
+  // the connecting rod (`dec_rod_design`): the small eye, an I-beam (a pocket in each face, a web and flanges between), and the upper half of the split big end with its two lugs; the cap is the lower half, a body of its own; the bolt holes go through both lugs
   b.part("Connecting rod");
   const hb = 0.6 * g.rb, hs = 0.6 * g.rs, xa = g.r + g.rb - 1, xb = xp0 - g.rs + 1, at = (x: number): number => hb + ((hs - hb) * (x - g.r)) / g.l;
+  const ri = g.cp / 2 + rm, rd = g.rod, lugY0 = ri + 0.3, lugY1 = g.rb + rd.bolt + 0.6;
+  const e = rm / 2; // (the two halves are two bodies: their parting faces stand half the room either side of the crank pin's middle)
+  const ringHalf = (sign: 1 | -1): Shape => { // (the half ring on one side of the split, `sign` toward the piston: its flat face at the parting face, its arcs about the crank pin)
+    const xs = g.r + sign * e, yo = Math.sqrt(g.rb * g.rb - e * e), yi = Math.sqrt(ri * ri - e * e);
+    const A: [number, number] = [xs, -yo], B: [number, number] = [xs, yo], C: [number, number] = [xs, yi], D: [number, number] = [xs, -yi];
+    return outline([A, B, C, D], [bulgeOf(A, [g.r + sign * g.rb, 0], B), 0, bulgeOf(C, [g.r + sign * ri, 0], D), 0]);
+  };
+  const lug = (sign: 1 | -1, side: 1 | -1): Shape => { const xs = g.r + sign * e, xe = g.r + sign * rd.lug, y0 = side * lugY0, y1 = side * lugY1; return box(Math.min(xs, xe), Math.min(y0, y1), Math.max(xs, xe), Math.max(y0, y1)); };
   b.extrude(b.plane(g.zc - g.w / 2), outline([[xa, -at(xa)], [xb, -at(xb)], [xb, at(xb)], [xa, at(xa)]]), [], g.w, { also: [
-    { outer: disc(g.r, 0, g.rb), holes: [disc(g.r, 0, g.cp / 2 + rm)], depth: g.w },
+    { outer: ringHalf(1), depth: g.w }, { outer: lug(1, 1), depth: g.w }, { outer: lug(1, -1), depth: g.w },
     { outer: disc(xp0, 0, g.rs), holes: [disc(xp0, 0, s.pin / 2 + rm)], depth: g.w }] });
+  const pocket = (): Shape => { const x0 = g.r + g.rb + 1.5, x1 = xp0 - g.rs - 1.5, y = (x: number): number => at(x) - rd.flange; return outline([[x0, -y(x0)], [x1, -y(x1)], [x1, y(x1)], [x0, y(x0)]]); };
+  const deep = (g.w - rd.web) / 2;
+  b.extrude(b.plane(g.zc + g.w / 2), pocket(), [], -deep, { mode: "cut" });
+  b.extrude(b.plane(g.zc - g.w / 2), pocket(), [], deep, { mode: "cut" });
+  b.part("Rod cap");
+  b.extrude(b.plane(g.zc - g.w / 2), ringHalf(-1), [], g.w, { also: [{ outer: lug(-1, 1), depth: g.w }, { outer: lug(-1, -1), depth: g.w }] });
+  for (const side of [1, -1]) b.extrude(b.frame([g.r - rd.lug - 1, 0, g.zc], [0, 1, 0], [0, 0, 1]), disc(side * rd.boltY, 0, rd.bolt / 2), [], 2 * rd.lug + 2, { mode: "cut" });
   return ok(b.build());
 }
 

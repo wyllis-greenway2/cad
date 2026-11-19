@@ -55,3 +55,13 @@ export function pistonShell(bore: number, radius: number, depth: number, crown: 
   const wall = skirtWall * bore;
   return { crown: crown * bore, wall, inner: radius - wall, innerBelt: radius - depth - wall, boss: pin / 2 + pinFit / 2 + wall };
 }
+
+export interface RodDesign {
+  /** the web left between the two pockets of the I-beam, and the flanges' width (mm) */ web: number; flange: number;
+  /** the cap bolts' diameter, how far each lug runs either side of the split, and how far the lug's bolt sits from the rod's middle line (mm) */ bolt: number; lug: number; boltY: number;
+}
+/** The connecting rod's shape numbers (`dec_rod_design`). **ASSUMED**: no source gives them. The web is 0.3 of the rod's thickness, the flanges 0.3 of the small end's half width (at least 0.8 mm), the bolts 0.09 of the bore (at least 2 mm), the lugs 1.5 bolts long. */
+export function rodDesign(bore: number, thickness: number, bigRadius: number, smallHalf: number): RodDesign {
+  const bolt = Math.max(2, 0.09 * bore);
+  return { web: 0.3 * thickness, flange: Math.max(0.8, 0.3 * smallHalf), bolt, lug: 1.5 * bolt, boltY: bigRadius + bolt / 2 + 0.3 };
+}
