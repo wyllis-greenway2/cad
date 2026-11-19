@@ -165,3 +165,55 @@ test("a train of three gears, all by contact: the chain gives way link by link, 
   }
   assert.ok(worst < 1.5, `within ${worst} degrees of the ratios`);
 });
+
+test("hardness is passed on to three links: a train of six gears with the first one hard carries the push to the fifth and says the chain goes on; marking the fourth hard too carries it to the sixth (`in_991`)", async () => {
+  const { startOp } = await import("../src/interaction/operations.ts");
+  const { runOp } = await import("../src/interaction/runop.ts");
+  const { gearRefs } = await import("../src/operation/gearscene.ts");
+  const { loopFaceRef, diskFaceRef } = await import("../src/operation/loops.ts");
+  const { meshWith } = await import("../src/operation/mesh.ts");
+  const { bodyOfGear, gearAxis } = await import("../src/operation/gearcouple.ts");
+  const { startContact } = await import("../src/interaction/contact.ts");
+  const teeth = [20, 30, 24, 36, 20, 30];
+  type Rec = { id: string; plane: typeof XY; at: [number, number, number]; spec: import("../src/operation/gear.ts").GearSpec; turn?: number };
+  let prev: Rec = { id: "g_001", plane: XY, at: [0, 0, 0], spec: { teeth: 20, module: 2, backlash: 0.15 } };
+  const recs: Rec[] = [prev];
+  for (let i = 1; i < 6; i++) {
+    const p = meshWith(prev as never, [1, 0, 0], [0, 1, 0], { teeth: teeth[i]! }, 0);
+    assert.ok(p.ok);
+    if (!p.ok) return;
+    prev = { id: `g_00${i + 1}`, plane: XY, at: [...p.value.at] as [number, number, number], spec: p.value.spec, turn: p.value.turn };
+    recs.push(prev);
+  }
+  let s0 = createSession(kernel);
+  for (const r of recs) {
+    s0 = run(s0, { type: "gear", id: r.id, plane: XY, at: r.at, spec: r.spec, ...(r.turn ? { turn: r.turn } : {}) });
+    const refs = gearRefs(r as never);
+    const op = startOp(scene(s0), [(refs.wall ? diskFaceRef(refs.wall) : loopFaceRef(refs.lines)) as never], "extrude");
+    assert.ok(op.ok);
+    s0 = runOp(s0, { ...(op as { op: import("../src/interaction/operations.ts").Op }).op, value: 5 })!.session;
+  }
+  const bodies = scene(s0).gears!.map((g) => bodyOfGear(scene(s0), g)!);
+  assert.equal(new Set(bodies).size, 6);
+  const ratio = [1]; for (let i = 1; i < 6; i++) ratio.push(ratio[i - 1]! * -teeth[i - 1]! / teeth[i]!);
+  const play = (hard: number[]) => {
+    let s = s0;
+    for (const k of hard) s = run(s, { type: "setHard", body: (scene(s).parts[bodies[k]!] as { id: string }).id, on: true });
+    const r = startMotion(scene(s), bodies[0]!, "turn", s.outcome);
+    assert.ok(r.ok);
+    if (!r.ok) return null;
+    const stripped: typeof r.motion = { ...r.motion, follows: [] as typeof r.motion.follows };
+    const contact = startContact(scene(s), stripped, scene(s).gears!.slice(1).map((g, i) => { const ax = gearAxis(scene(s), g)!; return { body: bodies[i + 1]!, point: ax.point, dir: ax.dir }; }), s.outcome)!;
+    let m: typeof r.motion = { ...stripped, contact };
+    for (let deg = 1; deg <= 45; deg++) { m = solveContact(scene(s), { ...m, amount: deg }, s.outcome); assert.ok(!m.contact!.jam, `jam at ${deg}: ${m.contact!.jam}`); }
+    return m;
+  };
+  const err = (m: NonNullable<ReturnType<typeof play>>, i: number) => Math.abs(followAmount(m.yields![i - 1]!, 45) - ratio[i]! * 45);
+  const one = play([0])!;
+  assert.ok([1, 2, 3, 4].every((i) => err(one, i) < 3), "gears two to five are driven");
+  assert.ok(err(one, 5) > 20, `the sixth is past the depth and stays (it is ${err(one, 5).toFixed(0)} degrees from its ratio)`);
+  assert.match(one.contact!.note ?? "", /past the depth of 3/, "and the bar says so");
+  const two = play([0, 3])!;
+  assert.ok([1, 2, 3, 4, 5].every((i) => err(two, i) < 3.5), "with the fourth hard too, all six are driven");
+  assert.equal(two.contact!.note, null, "and nothing to say");
+});

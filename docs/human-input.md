@@ -4317,3 +4317,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_990 — 2026-11-19 — directive
 > yes
 (answers the AI's question: start on Keep pose for pivots and contact motions)
+
+## in_991 — 2026-11-19 — directive
+> okay start on the next item
+(asks for the next item of the agreed order: the depth rule for the contact push)
