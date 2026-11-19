@@ -14,7 +14,7 @@ import { pivotOfBody } from "../../operation/pivot.ts";
 import { axisVec } from "../operations.ts";
 import type { Intent } from "../../shared/input.ts";
 import type { JointKind } from "../motion.ts";
-import { planFixes, fixCommands, FIT_DEG } from "../fixmotion.ts";
+import { planFixes, fixCommands, canFix, FIT_DEG } from "../fixmotion.ts";
 import { solveContact } from "../contact.ts";
 
 /** Play the joint of the selected body: it starts turning (a pin) at once; the bar has the scrubber, the turn or slide, keep and close. */
@@ -180,7 +180,7 @@ export function doMotionFix(s: AppState, act: "open" | "apply" | "skip" | "close
   };
   if (act === "open") {
     const plan = planFixes(sceneOf(s.session), s.session.outcome, m);
-    if (!plan) return say("play the motion a little first (twenty degrees or so): the joints are worked out from what the push did");
+    if (!plan) return say(canFix(m) ? "play the motion a little first (twenty degrees or so): the joints are worked out from what the push did" : "nothing is pushed without a joint any more");
     const why = plan.left.map((u) => `${u.name}: ${u.why}`).join("; ");
     if (!plan.fixes.length) return say(`nothing here can be made a joint${why ? ` (${why})` : ""}`, { motion: { ...m, playing: false, startedAt: null } });
     const mo = { ...m, playing: false, startedAt: null, fix: { plan, i: 0, made: [] } };
@@ -196,6 +196,7 @@ export function doMotionFix(s: AppState, act: "open" | "apply" | "skip" | "close
     const reasons: string[] = [];
     const word = (h: string): string => (h === "mate" ? "the coaxial mate" : "the pivot");
     for (const c of fixCommands(sceneOf(s.session), f)) {
+      if (c.why) reasons.push(`the coaxial mate cannot be made: ${c.why}`); // (the mate was wanted and refused: the pivot that is tried after it is not the whole story)
       const next = run(s.session, c.command);
       if (next.message) { reasons.push(`${word(c.how)} is refused: ${next.message}`); continue; }
       const r = startMotion(sceneOf(next), m.body, m.kind, next.outcome);
