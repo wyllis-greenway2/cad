@@ -4877,3 +4877,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1133 — 2026-11-19 — directive
 > the second arrows shouldn't alway exist. those are special and only for certain operations
+
+## in_1134 — 2026-11-19 — approval
+> yes go ahead
+(approves panes on the mirror, scale and repeat orbs)

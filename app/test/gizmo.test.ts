@@ -314,10 +314,10 @@ test("Scale has an all-together arrow at the same angle to X, Y and Z: pull it o
   assert.deepEqual(g.handles.filter((h) => h.kind !== "pane").map((h) => h.id), ["scale:x", "scale:y", "scale:z", "scale"], "an arrow for each axis and the ball for all together (`in_387`)");
   const [c, corner] = g.handles.find((h) => h.id === "scale")!.points;
   nearV(c!, [20, 10, 10]);
-  const dirs = g.handles.filter((h) => h.id !== "scale").map((h) => normalize(sub(h.points[1]!, h.points[0]!)));
+  const dirs = g.handles.filter((h) => h.id !== "scale" && h.kind !== "pane").map((h) => normalize(sub(h.points[1]!, h.points[0]!)));
   const all = normalize(sub(corner!, c!));
   for (const d of dirs) near(dot(d, all), 1 / Math.sqrt(3), 1e-6); // (45-degree-style: the same angle to each axis)
-  for (const h of g.handles) nearV(h.points[0]!, c!); // (every handle stands at the middle, none is tied to the body's corner)
+  for (const h of g.handles.filter((q) => q.kind !== "pane")) nearV(h.points[0]!, c!); // (every handle stands at the middle, none is tied to the body's corner)
   const out: Vec3 = add(c!, scale(sub(corner!, c!), 2)); // twice as far from the centre
   st = drag(st, corner!, out, 6);
   near(Number(scene(st.session).steps.at(-1)!.params.value), 2, 0.02);

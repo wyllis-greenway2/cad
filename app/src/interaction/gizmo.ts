@@ -235,7 +235,7 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
       const pivot: Vec3 = [v[3]!, v[4]!, v[5]!];
       // the rings choose the axis; short arrows along x, y and z move the pivot point (its vertex in the scene), so it can be placed or typed exactly (`in_384`)
       const arrows = axisArrows("piv", ax, pivot, L * 0.45);
-      return { centre: pivot, handles: [...ax.map((d, i) => ring(`rot:${"xyz"[i]}`, pivot, d, L * 0.8, i as 0 | 1 | 2)), ...arrows, orbAt("pivot", pivot)] }; // (the orb, as on the mover: drag it to place the point the copies turn about, `in_437`)
+      return { centre: pivot, handles: [...ax.map((d, i) => ring(`rot:${"xyz"[i]}`, pivot, d, L * 0.8, i as 0 | 1 | 2)), ...arrows, orbAt("pivot", pivot), ...axisPanes(ax, pivot, L * 0.45)] }; // (the orb, as on the mover: drag it to place the point the copies turn about, `in_437`)
     }
     // an arrow along each axis whose end is where the next copy goes (pull it for the distance between them), and a short arrow past the last copy (pull it for how many)
     const c = op.pivot ?? patternCentre(scene, op);
@@ -251,6 +251,7 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
       const slot = add(c, scale(d, sgn * (Math.min(Math.abs(sp) * n, cap) + L * (n > 1 ? 0.35 : 0.6))));
       handles.push(arrowAlong(`cnt:${"xyz"[i]}`, i as 0 | 1 | 2, slot, d, sgn * L * 0.3));
     });
+    handles.push(...axisPanes(ax, c, 2 * HALF * L)); // (a pane sets the spacing along its two axes at once, `in_1127`)
     return { centre: c, handles };
   }
   if (op.target === "shape" && op.kind === "scale" && op.pivot) {
@@ -289,7 +290,7 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
     // (all of them stand at the middle and are as long as the mover's, not tied to the body's own size: on a thin body they stay apart and clear of it; the all-together arrow runs out at the same angle to the three)
     const len = 2 * HALF * L;
     const arrows = axisArrows("scale", AXES, centre, len, true);
-    return { centre, handles: [...arrows, arrowAlong("scale", null, centre, normalize([1, 1, 1]), len, true)] };
+    return { centre, handles: [...arrows, arrowAlong("scale", null, centre, normalize([1, 1, 1]), len, true), ...axisPanes(AXES, centre, len)] };
   }
   return null;
 }

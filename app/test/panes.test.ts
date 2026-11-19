@@ -90,3 +90,41 @@ test("a pane of a body's mover moves the body in its plane, as one step, and the
   assert.ok(lo[0] > 1 || lo[2] > 1, `it moved in x or z (${lo})`);
   assert.equal(after.op?.kind, "move", "the mover stays open");
 });
+
+import { patternValues } from "../src/interaction/pattern.ts";
+const withBody = (): AppState => { const st = box(); return { ...st, session: { ...st.session, click: { ...st.session.click, selection: [BODY_OBJECT] } } }; };
+const bodyBox = (st: AppState) => { const b = Object.values(scene(st.session).parts).find((p) => p.kind === "body") as { bbox: { min: Vec3; max: Vec3 } }; return b.bbox; };
+
+test("a pane of the scale takes both its axes by the same factor: twice as far from the middle is twice as big in that plane", () => {
+  let st = reduce(withBody(), { type: "begin", name: "scale" }, env);
+  assert.ok(gizmoOf(st)!.handles.some((h) => h.id === "pane:xy"));
+  const from = paneMiddle(st, "pane:xy");
+  const c = gizmoOf(st)!.centre;
+  const out = add(c, [2 * (from[0] - c[0]), 2 * (from[1] - c[1]), 2 * (from[2] - c[2])]) as Vec3; // twice as far
+  st = drag(st, from, out);
+  const b = bodyBox(st);
+  assert.ok(Math.abs(b.max[0] - b.min[0] - 80) < 1, `x doubled (${b.max[0] - b.min[0]})`);
+  assert.ok(Math.abs(b.max[1] - b.min[1] - 40) < 1, `y doubled (${b.max[1] - b.min[1]})`);
+  assert.ok(Math.abs(b.max[2] - b.min[2] - 20) < 1e-6, "z is not touched");
+});
+
+test("a pane of a linear repeat sets the spacing along its two axes at once", () => {
+  let st = reduce(withBody(), { type: "runAction", id: "op:linear" }, env);
+  const c = gizmoOf(st)!.centre;
+  const from = paneMiddle(st, "pane:xy");
+  st = drag(st, from, [c[0] + 50, c[1] + 30, c[2]] as Vec3);
+  const v = patternValues(st.repeat!.op);
+  assert.ok(Math.abs(v[1]! - 50) < 3, `spacing along x ${v[1]}`);
+  assert.ok(Math.abs(v[3]! - 30) < 3, `spacing along y ${v[3]}`);
+  assert.ok(st.repeat, "the repeat is still open");
+});
+
+test("a pane of a circular repeat takes the pivot point in its plane", () => {
+  let st = reduce(withBody(), { type: "runAction", id: "op:circular" }, env);
+  const before = patternValues(st.repeat!.op).slice(3, 6);
+  const from = paneMiddle(st, "pane:xy");
+  st = drag(st, from, add(from, [5, 3, 0]));
+  const after = patternValues(st.repeat!.op).slice(3, 6);
+  assert.ok(Math.abs(after[2]! - before[2]!) < 1e-6, "the pivot stays at its height");
+  assert.ok(Math.hypot(after[0]! - before[0]!, after[1]! - before[1]!) > 1, `and goes in the plane: ${before} to ${after}`);
+});

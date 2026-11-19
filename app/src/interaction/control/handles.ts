@@ -24,7 +24,7 @@ import { runOp } from "../runop.ts";
 import { sectionGizmo } from "../gizmo.ts";
 import { draggedSection, sectionNow, placeSection, sheetMoveOf } from "./section.ts";
 import { withPose, hasOrb, moverOp, putMover } from "./pose.ts";
-import { patternBase, dragPattern, liveRepeat, advanceHelp } from "../pattern.ts";
+import { patternBase, dragPattern, panePattern, liveRepeat, advanceHelp } from "../pattern.ts";
 import type { Op } from "../operations.ts";
 import { gizmoFor, hasGizmo, hitHandle, startDrag, dragTo, followed, jointHandles, moveOffset } from "../gizmo.ts";
 import { jointOfBody, jointRoom, driveCommand, hardDrive } from "../mate.ts";
@@ -112,7 +112,7 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
       if (!s.op && sectionNow(s) && !mover) { const sec = sectionNow(s)!; return { ...s, lockAxes: held, handleSel: null, drag: { handle: d, base: 0, paneLock: lockBefore, section: { ref: sec.ref, centre: sec.centre, n: sec.n } }, gizmoHover: h!.id }; }
       if (mover && mover.kind === "move" && mover.target === "body" && !s.moverSphere) return { ...s, handleSel: null, op: { ...mover, auto: false, free: [0, 0, 0] }, drag: { handle: d, base: 0, pane: { centre: g.centre, keep: s.op ?? mover } }, gizmoHover: h!.id };
       if (s.moverSphere && moverOp(s)) { const started = moverOp(s)!; return { ...putMover(s, { ...started, auto: false }), lockAxes: held, handleSel: null, drag: { handle: d, base: 0, paneLock: lockBefore, piv: { centre: g.centre, offset: started.kind === "move" ? moveOffset(sceneOf(s.session), started) : [0, 0, 0] } }, gizmoHover: h!.id }; }
-      return orbitOrCorner(s, i, env);
+      if (!(mover && mover.kind === "scale")) return orbitOrCorner(s, i, env); // (the scale's pane goes on in the way of the arrows below)
     }
     if (!s.op && !s.repeat && sectionNow(s) && !activeOp(s)) { const sec = sectionNow(s)!; return { ...s, handleSel: h!.id, drag: { handle: d, base: 0, section: { ref: sec.ref, centre: sec.centre, n: sec.n } }, gizmoHover: h!.id }; } // (a handle of the cross section plane, `in_392`)
     if (h!.id.startsWith("joint:")) { // the ring or the arrow of a joint: the amount is the drag; the step is made when it is let go (`in_323`)
@@ -200,6 +200,13 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
   if ("body" in s.drag!) return moveBody(s, i, env);
   if ("handle" in s.drag! && s.drag.repeat && s.repeat) {
     const r = dragTo(s.drag.handle, pr.ray(i.x, i.y), [i.x, i.y]);
+    if (r && "pivot" in r && s.drag.handle.kind === "pane" && s.drag.handle.offset) { // a pane of a repeat's orb: the pivot, or the spacing along its two axes
+      const hd = s.drag.handle;
+      const ax: readonly Vec3[] = s.repeat.op.frame ?? [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+      const rel = sub(add(r.pivot, hd.offset!), hd.origin);
+      const plane: [0 | 1 | 2, 0 | 1 | 2] = [hd.id[5] === "x" ? 0 : 1, hd.id[6] === "y" ? 1 : 2];
+      return { ...s, repeat: advanceHelp({ ...s.repeat, op: panePattern(s.repeat.op, plane, rel, r.pivot, ax) }) };
+    }
     if (r && "value" in r && s.drag.handle.id.startsWith("piv:") && s.repeat.pivot) return movePivot(s, "xyz".indexOf(s.drag.handle.id[4]!), Math.round((s.drag.base + r.value) * 1e3) / 1e3); // (the pivot point goes where the arrow is taken)
     return r && "value" in r ? { ...s, repeat: advanceHelp({ ...s.repeat, op: dragPattern(s.repeat.op, s.drag.handle.id, r, s.drag.base) }) } : s;
   }
@@ -225,6 +232,15 @@ export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, e
   }
   if ("value" in r && s.op.kind === "scale") return { ...s, op: { ...s.op, axes: undefined, value: Math.round((s.drag.base + r.value) * 1e6) / 1e6, typed: "", rot: ["", "", ""] as [string, string, string] } }; // (the diagonal: all together again)
   if ("value" in r) return { ...s, op: { ...s.op, value: Math.round((s.drag.base + r.value) * 1e6) / 1e6, typed: "", rot: ["", "", ""] as [string, string, string], ...(s.drag.handle.axis !== null ? { axis: s.drag.handle.axis } : {}) } };
+  if (s.drag.handle.kind === "pane" && s.op.kind === "scale" && s.drag.handle.offset) { // a pane of the scale: both its axes by the same factor, how many times as far from the middle as where it was taken
+    const hd = s.drag.handle;
+    const far = Math.hypot(...add(r.pivot, hd.offset!).map((v, k) => v - hd.origin[k]!) as [number, number, number]);
+    const factor = Math.round(Math.max(0.05, Math.min(20, far / Math.max(1e-6, Math.hypot(...hd.offset!)))) * 100) / 100;
+    const axes: [number, number, number] = [...(s.op.axes ?? [1, 1, 1])] as [number, number, number];
+    const [a0, b0] = [hd.id[5] === "x" ? 0 : 1, hd.id[6] === "y" ? 1 : 2];
+    axes[a0] = factor; axes[b0] = factor;
+    return { ...s, op: { ...s.op, axes, axis: a0 as 0 | 1 | 2, value: factor, typed: "" } };
+  }
   const placed = orbPlace(s, r.pivot, s.drag.handle.origin, i.x, i.y, env);
   return { ...s, op: { ...s.op, pivot: placed.at }, session: placed.note ? { ...s.session, message: placed.note } : s.session };
 }
