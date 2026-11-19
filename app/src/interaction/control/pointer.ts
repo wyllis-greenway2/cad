@@ -150,7 +150,7 @@ const GEARS: Group = {
   ],
 };
 /** the bearings, by type (`in_1163`): each type opens its box, where a catalogue bearing is picked or one made of numbers, simple or detailed */
-const BEARINGS_MENU: Group = { id: "bearings", label: "Bearings", icon: "bearing", items: [{ id: "deepgroove", label: "Deep groove ball", icon: "bearing", items: ["model:ballbearing", "model:ownbearing"] }] };
+const BEARINGS_MENU: Group = { id: "bearings", label: "Bearings", icon: "bearing", items: [{ id: "deepgroove", label: "Deep groove", icon: "bearing", items: ["model:ballbearing", "model:ownbearing"] }] };
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "fabricate", label: "Fabricate", icon: "hammer", items: ["fab:material", "tool:fasteners"] }] },

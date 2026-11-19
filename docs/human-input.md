@@ -5098,3 +5098,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1192 — 2026-11-19 — question
 > how should we fix the failing problems?
+
+## in_1193 — 2026-11-19 — approval
+> yes make both fixes
