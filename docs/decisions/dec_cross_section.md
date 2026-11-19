@@ -25,3 +25,6 @@ Recorded because production code needs an entry (`CLAUDE.md` rule 9); the form i
 ## Built: what moves is cut like what stands (`in_1130`)
 A body that moves on its own (a motion that plays, a body being dragged) is drawn from meshes of its own (`ui/view/content.ts`, `split`), made after the clip was set up, so they were not clipped (their edges went on in the cut-away space) and the passes that count the faces behind the plane, which make the grey hatched cut face, did not include them or follow their matrices (the cut showed through). Now (`ui/view.ts`): when bodies begin or stop moving on their own the clip is set up again (`applyClip`, which also takes the moving meshes), and every frame the counting passes copy the matrices of the meshes they stand for. Seen in the browser on a playing gear and lever; no automated test (it is the drawing).
 
+
+## Changed: finer, lighter hatch on the cut face (`in_1209`)
+The cut face is a mid grey a little lighter than before (0.56, 0.58, 0.63), still darker than a face of the part; its hatch is about two and a half times as many lines (the pitch is a hundred and twentieth of the model, not a fiftieth, never under 0.12 mm), each lighter than before (0.40, 0.42, 0.47) but darker than the surface. Looked at in the browser on a gear and a lever; the numbers are mine, for review (`ui/view.ts`).

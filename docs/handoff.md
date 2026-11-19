@@ -4272,3 +4272,6 @@ Branch `claude/adoring-dijkstra-carry`. **Message:** "Collision occurred" (the d
 
 ## Handoff 1068 — 2026-11-19 (in_1208: the mover without panes merged into the testing branch)
 `in_1208`. Merged the testing branch's tip (2 commits, up to `in_1206`, Handoff 1066) into this branch and pushed to `claude/inspiring-pascal-l342k7`. **Numbers:** my `in_1206` became `in_1207` and my Handoff 1066 became 1067. **Conflicts:** `human-input.md` and `handoff.md` only, theirs first. Checked: types and the panes, gizmo, independent and hard body tests before the merge; the type check after it shows one error in `test/engine.test.ts` that is in the testing branch's own commits (not mine); the full suite not run, as asked.
+
+## Handoff 1069 — 2026-11-19 (in_1209: finer, lighter hatch on the cut face)
+`in_1209`. The cut face of a cross section is a lighter mid grey and its hatch has about two and a half times as many lines, lighter than before and still darker than the surface (`ui/view.ts`, the shader's two colours and the pitch; `dec_cross_section.md`). **Seen** in the browser on `why_jamb`; no test (it is the drawing); the numbers are mine. The full suite not run.
