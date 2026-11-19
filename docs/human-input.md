@@ -4755,3 +4755,19 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1100 — 2026-11-19 — question
 > okay lets move on, should we offer some new things? like different parts that use gear assemblies like the planetary system does? and if so, what? should we offer differentials? a basic transmission? Other things? what do you recommend?
 (asks whether to offer new gear-assembly parts like the planetary set, which ones (differential, a basic transmission, others), and for the AI's recommendation; before it: "lets skip that, try other stuff", skipping the face gear build time)
+
+## in_1101 — 2026-11-19 — question
+> @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/c1e54897-why_jamb.json" Why cant I apply a coaxial mate here? it seems to say one already exists I guess?
+(with a screenshot of a refusal, "that cannot be done without breaking other constraints", with the button "Delete constraints to proceed", a red Concentric bubble and a ring flashing round the pin, the suggester's five buttons below; asks why the coaxial mate is refused and whether one already exists)
+
+## in_1102 — 2026-11-19 — question
+> what do you recommend?
+(asks the AI's recommendation on the two things left open after the coaxial refusal: trying the other body when the first cannot move, and offering mates that are already true)
+
+## in_1103 — 2026-11-19 — directive
+> So if the constraint is already true, then why does it fail? shouldn't we just say constraint already applied? and show it? possibly flashed in green?
+(asks that a constraint that is already applied be said to be, and shown, possibly flashed in green, instead of failing or being added again)
+
+## in_1104 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for claude/intelligent-hawking-next to be merged into the testing branch, with the refusal that names the constraint and the already-applied green flash; no full suite needed)

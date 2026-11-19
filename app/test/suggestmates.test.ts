@@ -65,3 +65,12 @@ test("one round face alone, and one flat face, are offered the mates with the wo
   const one = suggestionsFor(scene(s), [pin]);
   assert.ok(one && one.items.some((i) => i.id === "mate:horizontal" || i.id === "mate:vertical"), JSON.stringify(one?.items));
 });
+
+test("a mate that is made and true is not offered again, by the ring either (it is applied: nothing to ask for twice)", () => {
+  const { s, hole, pin } = pinAndHole();
+  const once = run(s, actionsFor(scene(s), [pin, hole]).find((a) => a.id === "mate:coaxial")!.run());
+  assert.ok(!once.message, once.message ?? "");
+  const again = actionsFor(scene(once), [pin, hole]).find((a) => a.id === "mate:coaxial");
+  assert.ok(!again || !again.enabled, "not offered as a thing to do");
+  assert.equal(scene(once).relations.filter((r) => r.kind === "mate").length, 1);
+});
