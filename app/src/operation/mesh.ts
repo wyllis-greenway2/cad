@@ -153,7 +153,7 @@ function meshWheelWorm(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: numb
 }
 
 /**
- * The other pulley (or sprocket) of a belt (or chain) that goes round `src` (`in_1120`): the same belt or chain, `partner.teeth` teeth, its centre in the direction `where` (radians from the plane's first direction) at `partner.distance` (the pitch radii and the larger radius
+ * The other pulley (or sprocket) of a belt (or chain) that goes round `src` (`in_1125`): the same belt or chain, `partner.teeth` teeth, its centre in the direction `where` (radians from the plane's first direction) at `partner.distance` (the pitch radii and the larger radius
  * again, if none; never closer than the pitch circles and a millimetre): nothing locks the distance, a belt goes round at any, so it is the pointer's or typed. Both turn the same way, by the ratio of the teeth (`gearcouple.ts`).
  */
 function meshBelt(src: GearRecord, u: Vec3, v: Vec3, partner: { teeth: number; rack?: boolean; ring?: boolean; distance?: number }, where: number): Result<Placement> {

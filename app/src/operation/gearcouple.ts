@@ -156,7 +156,7 @@ function edge(s: Scene, a: GearRecord, b: GearRecord): { k: number; kind: "turn"
   const [na, nb] = [axisOf(s, a), axisOf(s, b)];
   if (!na || !nb) return { why: "a gear's plane is gone" };
   for (const g of [a, b]) if (g.spec.cam) return { why: "cams are not coupled to gears" };
-  if (a.spec.pulley || b.spec.pulley || a.spec.sprocket || b.spec.sprocket) { // a belt or a chain: both turn the same way by the ratio of the teeth, if it is the same belt or chain (`in_1120`)
+  if (a.spec.pulley || b.spec.pulley || a.spec.sprocket || b.spec.sprocket) { // a belt or a chain: both turn the same way by the ratio of the teeth, if it is the same belt or chain (`in_1125`)
     const [ca, cb] = [chainOf2(a), chainOf2(b)];
     if (!ca || !cb || ca !== cb) return { why: "a belt or a chain goes round pulleys or sprockets of its own pitch" };
     const [za, zb] = [Math.round(a.spec.teeth), Math.round(b.spec.teeth)];
