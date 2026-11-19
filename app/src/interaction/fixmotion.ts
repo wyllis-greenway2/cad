@@ -10,6 +10,7 @@ import type { CompileOutcome } from "../compiler/compile.ts";
 import { pathPlaces, placesExtent } from "./contact.ts";
 import type { Motion } from "./motion.ts";
 import { mateCommand } from "./mate.ts";
+import { carriedBy as carriedByMotion } from "./motion.ts";
 import { holeAndPin } from "./pinhole.ts";
 
 /** How far a body may be from the joint's own path, mm, and how far a turn may be from a constant ratio, degrees: the joint has to be the push to within these, or it is not offered. */
@@ -84,6 +85,8 @@ export interface Fix {
   text: string;
   /** what is made: a pin and its hole made coaxial, or a pivot about the axis found */
   how: "mate" | "pivot";
+  /** the pin it hangs on goes round in this motion: only a coaxial mate is right (it is carried by the pin, `dec_carried_joint`), not a pivot at the pin's place now */
+  carried?: true;
   /** where the push left the body at the end of the play it was fitted from: the driver's amount, and how far the body had turned (degrees); the joint made is played to the same amount and has to be there too (`FIT_DEG`) */
   expect: { amount: number; spin: number };
 }
@@ -120,9 +123,9 @@ export function planFixes(scene: Scene, outcome: CompileOutcome | undefined, m: 
     if (!(scene.parts[p.body] as { id?: string } | undefined)?.id) { left.push({ body: p.body, name, why: "it is not a body of the model" }); return; }
     if (j.kind !== "turn") { // the push's own path is not one axis (it slides and turns by what it meets), but the model may still say what holds it: a hole of the body on a pin of another
       const on = holeAndPin(scene, p.body);
-      const rides = on && (on.on === m.body || m.follows.some((f) => f.body === on.on) || c.pushables.some((q) => q.body === on.on)); // (the pin is on a body that moves in this motion: its axis goes round with it, so a joint on the axis where it stands now would be wrong)
-      if (on && rides) { left.push({ body: p.body, name, why: `${name} hangs on a pin of ${nameOf(scene, on.on)}, which moves in this motion: the pin carries it round as well as letting it turn, and a joint on the pin where it stands now would not; it stays with the push` }); return; }
-      if (on) { fixes.push({ body: p.body, name, joint: { kind: "turn", point: on.center, dir: on.axis, err: 0, ratio: null, ratioErr: 0 }, how: "mate", expect, text: `${name} is on a pin of ${nameOf(scene, on.on)}: mate its hole to the pin, coaxial (the push also slid it${j.kind === "none" ? "" : " along a line"}, which the mate will not)` }); return; }
+      const rides = !!on && (on.on === m.body || m.follows.some((f) => f.body === on.on) || c.pushables.some((q) => q.body === on.on)); // (the pin is on a body that moves in this motion: its axis goes round with it)
+      if (on && rides && !carriedByMotion(m, on.on)) { left.push({ body: p.body, name, why: `${name} hangs on a pin of ${nameOf(scene, on.on)}, which is carried by something that is itself moved (a planet, a cam, a table): no joint is made for it; it stays with the push` }); return; }
+      if (on) { fixes.push({ body: p.body, name, joint: { kind: "turn", point: on.center, dir: on.axis, err: 0, ratio: null, ratioErr: 0 }, how: "mate", expect, ...(rides ? { carried: true as const } : {}), text: rides ? `${name} hangs on a pin of ${nameOf(scene, on.on)}, which goes round: mate its hole to the pin, coaxial (the pin carries it round and it turns on the pin only where something stops it)` : `${name} is on a pin of ${nameOf(scene, on.on)}: mate its hole to the pin, coaxial (the push also slid it${j.kind === "none" ? "" : " along a line"}, which the mate will not)` }); return; }
       left.push({ body: p.body, name, why: j.kind === "none" ? j.why : `${name} slides along one line, but a slider needs a rod to slide on: make a rod, or leave it to the push` });
       return;
     }
@@ -148,6 +151,7 @@ export function fixCommands(scene: Scene, f: Fix): { command: Command; how: "mat
     const found = holeAndPin(scene, f.body, f.joint.point, f.joint.dir);
     if (found) { const made = mateCommand(scene, "coaxial", found.hole, found.pin); if ("command" in made) out.push({ command: made.command, how: "mate" }); else why = made.why; }
   }
+  if (f.carried) { if (!out.length && why) out.push({ command: { type: "pivot", body: id, point: f.joint.point, dir: f.joint.dir }, how: "pivot", why }); return out.filter((o) => o.how === "mate"); } // (a pivot at the pin's place now would be left behind by the pin)
   out.push({ command: { type: "pivot", body: id, point: f.joint.point, dir: f.joint.dir }, how: "pivot", ...(why ? { why } : {}) });
   return out;
 }
