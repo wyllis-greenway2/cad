@@ -26,7 +26,7 @@ alternative_to:
 
 **Not built here, and why:**
 
-- **IGES (both ways).** The kernel build (`replicad-opencascadejs`) has the IGES code inside it but does not expose the reader or writer classes, so IGES needs a rebuilt kernel (OpenCASCADE compiled to WASM with those classes bound). That build needs a toolchain and sources downloaded that the session's environment refused, so **it is waiting for the human to say how to proceed** (a person builds the kernel on their machine, or the environment is allowed the downloads). Once the build exists, import and export are the same plumbing as STEP; there is no reason to leave export out (`in_989`).
+- **IGES (both ways).** The kernel build (`replicad-opencascadejs`) has the IGES code inside it but does not expose the reader or writer classes, so IGES needs a rebuilt kernel (OpenCASCADE compiled to WASM with those classes bound). That build needs a toolchain and sources downloaded that the session's environment refused, so **it is waiting for the human to run the build** (`tools/kernel-build/`: the recipe of the installed `replicad-opencascadejs` 1.1.0 with the three IGES symbols added, and `build.sh`; the image comes from `ghcr.io`, whose blob host the session's network refuses) (a person builds the kernel on their machine, or the environment is allowed the downloads). Once the build exists, import and export are the same plumbing as STEP; there is no reason to leave export out (`in_989`).
 
 ## Rationale
 
