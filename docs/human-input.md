@@ -4964,6 +4964,28 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > yes build the bearing constraints next
 (approves the last of the three: a bearing that loads with its constraints, so things can be driven on it)
 
-## in_1154 — 2026-11-19 — directive
+> okay now if I delete the coaxial and it runs on collision, will it suggest a fix and re apply a coaxial to make the animation leaner?
+(asks whether, with the coaxial constraint deleted so the arm is pushed by collision, the Fix constraints offer will suggest the coaxial again)
+
+## in_1156 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the offer of the coaxial mate back for a body on a moving pin to be merged into the testing branch, no full test run)
+
+## in_1157 — 2026-11-19 — directive
+> It can be really hard to find constraints sometimes. Can we have it so that when you select a body, it has an icon that is half eye have lock, and when clicked it shows all the constraints associated with any verticy, edge, surface, or anything to do with that body, or relationships that body shares with other parts. lets also have a show all constraints option under the view part of the menu which turns on all constraints in the whole world.
+
+## in_1158 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1159 — 2026-11-19 — directive
+> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
+
+## in_1160 — 2026-11-19 — directive
+> I think the eye lock icon to see constraints should only show up when a body is double clicked. Also can we have it so that all icons (except the constraints themselves always show up in the same helpful bar? I am thinking they should use the suggested constraints bar. there will be an icon side to the left, and the suggested (if they exist) to the right.
+
+## in_1161 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1162 — 2026-11-19 — directive
 > okay lets get rid of print bearings. Also why does changing the size attribute not change anything? and are these real spec bearings? can I actually go find and buy bearings to these specs? they look odd. How could you even get a ball into a position like that? I thought real bearings had plates on either side and or crimp rings etc?
 (asks for the print-in-place bearing to be removed; why Size does nothing on a catalogue bearing; whether the bearings are real and buyable; how the balls could be put in; whether real bearings have shields and retaining rings)

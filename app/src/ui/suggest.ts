@@ -1,28 +1,67 @@
-// The suggested constraints (`in_195`): a little row of round buttons by the selected parts, each an icon with its name as a tooltip; a click applies that constraint.
-import { iconKey } from "./icons.ts";
+// The helpful bar (`in_195`, `in_1160`): one little row of round buttons by what is selected. The icons that belong to it (a body's eye and play button, the icon of its constraints, a sheet's four, the gear's) are on the left, the suggested
+// constraints on the right, each an icon with its name as a tooltip; a click runs it. The constraints themselves keep their bubbles on the parts.
+import { iconKey, iconSvg } from "./icons.ts";
 import { roundButton } from "./look.ts";
 import { placeBubbles } from "../interaction/bubbleplace.ts";
 import type { Memory } from "../interaction/bubbleplace.ts";
+import type { BarIcon, BarGear } from "../interaction/bar.ts";
 
-export function createSuggest(host: HTMLElement, run: (id: string) => void) {
+export function createSuggest(host: HTMLElement, run: (id: string, part?: string) => void) {
   const row = document.createElement("div");
-  row.style.cssText = "position:fixed;left:0;top:0;z-index:8;display:none;gap:5px;padding:4px;border-radius:18px;background:rgba(255,255,255,.92);border:1px dashed #1ab8b3;box-shadow:0 1px 6px rgba(0,0,0,.12);user-select:none;-webkit-user-select:none;touch-action:manipulation;transform:translate(-50%,0)";
+  row.style.cssText = "position:fixed;left:0;top:0;z-index:8;display:none;align-items:center;gap:5px;padding:4px;border-radius:18px;background:rgba(255,255,255,.92);border:1px dashed #1ab8b3;box-shadow:0 1px 6px rgba(0,0,0,.12);user-select:none;-webkit-user-select:none";
   host.appendChild(row);
-  let sig = "";
+  for (const ev of ["pointerdown", "pointerup", "wheel", "contextmenu"]) row.addEventListener(ev, (e) => { e.stopPropagation(); if (ev === "contextmenu") e.preventDefault(); });
+  const list = document.createElement("div"); // (the gear's short list, under the row)
+  list.style.cssText = "display:none;position:absolute;left:0;top:100%;margin-top:4px;flex-direction:column;background:#fff;border:1px solid #cfd0d4;border-radius:10px;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.2);min-width:150px;z-index:9";
+  row.appendChild(list);
+  let open = false, sig = "";
+  document.addEventListener("pointerdown", (e) => { if (open && !row.contains(e.target as Node)) { open = false; list.style.display = "none"; } }); // (a click elsewhere closes the list)
   const memory: Memory = new Map();
   return {
-    /** The constraints on offer and where (a screen point) to put the row, or null to hide it. */
-    /** `inFront`: boxes of what comes before the row (the ring, the number bubbles, the constraint bubbles): it slides out of their way, or fades if there is no room (`in_264`). */
-    update(items: { id: string; label: string }[] | null, at: [number, number] | null, inFront: [number, number, number, number][] = []) {
-      if (!items || !items.length || !at) { row.style.display = "none"; sig = ""; return; }
-      const now = items.map((i) => i.id).join(",");
+    /** The rect the bar fills while it shows (the bubbles keep off it). */
+    rect(): DOMRect | null { return row.style.display === "none" ? null : row.getBoundingClientRect(); },
+    /**
+     * `bar`: the icons of what is selected (left); `items`: the constraints on offer (right); `at`: where (a screen point) to put the row, or null to hide it.
+     * `inFront`: boxes of what comes before the row (the ring, the number bubbles, the constraint bubbles): it slides out of their way, or fades if there is no room (`in_264`).
+     */
+    update(bar: { icons: BarIcon[]; gear: BarGear | null } | null, items: { id: string; label: string }[] | null, at: [number, number] | null, inFront: [number, number, number, number][] = []) {
+      const icons = bar?.icons ?? [], gear = bar?.gear ?? null, offers = items ?? [];
+      if ((!icons.length && !gear && !offers.length) || !at) { row.style.display = "none"; sig = ""; open = false; list.style.display = "none"; return; }
+      const now = JSON.stringify([icons, gear, offers]);
       if (now !== sig) {
         sig = now;
-        row.replaceChildren(...items.map((it) => {
+        const kids: HTMLElement[] = [];
+        for (const ic of icons) {
+          const b = roundButton({ icon: ic.icon, size: 28, title: ic.title });
+          if (ic.on) { b.style.background = "#d6e8ff"; b.style.borderColor = "#2f6fe0"; }
+          b.addEventListener("click", (e) => { e.stopPropagation(); run(ic.id); });
+          kids.push(b);
+        }
+        if (gear) {
+          const g = roundButton({ icon: "gear", size: 28, title: "This is a gear: edit it or make one that meshes with it" });
+          g.addEventListener("click", (e) => { e.stopPropagation(); open = !open; list.style.display = open ? "flex" : "none"; });
+          kids.push(g);
+          list.replaceChildren();
+          for (const it of gear.items) {
+            const item = document.createElement("div");
+            item.style.cssText = `display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font:13px system-ui,sans-serif;white-space:nowrap;${it.enabled ? "cursor:pointer;color:#222" : "color:#999;cursor:default"}`;
+            item.innerHTML = `${iconSvg(it.icon)}<span>${it.label}</span>`;
+            item.title = it.enabled ? "" : it.why ?? "";
+            if (it.enabled) {
+              item.addEventListener("mouseenter", () => { item.style.background = "#eef7f7"; });
+              item.addEventListener("mouseleave", () => { item.style.background = ""; });
+              item.addEventListener("click", (e) => { e.stopPropagation(); open = false; list.style.display = "none"; run(it.id, gear.part); });
+            }
+            list.appendChild(item);
+          }
+        } else { open = false; list.style.display = "none"; }
+        if ((icons.length || gear) && offers.length) { const bar0 = document.createElement("div"); bar0.style.cssText = "width:1px;align-self:stretch;margin:3px 1px;background:#cfd0d4"; kids.push(bar0); } // (the icons to the left, the constraints to the right)
+        for (const it of offers) {
           const b = roundButton({ icon: it.id === "fixed" ? "unlock" : iconKey(it.id), size: 28, title: it.label }); // (Fix in place offered: an open padlock to close; once it is made its bubble shows the closed one, `in_292`)
           b.addEventListener("click", (e) => { e.stopPropagation(); run(it.id); });
-          return b;
-        }));
+          kids.push(b);
+        }
+        row.replaceChildren(...kids, list);
       }
       row.style.display = "flex";
       // below the number bubble that sits on the part, unless something in front is there: placed like a bubble whose own place is that one

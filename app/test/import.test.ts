@@ -85,7 +85,7 @@ test("a file that is not STEP, a damaged STEP and a file of another kind are ref
 });
 
 test("STEP: the menu has Import…", () => {
-  assert.ok(appRows("", {}, false).some((r) => r.id === "import" && r.enabled));
+  assert.ok(appRows("", {}).some((r) => r.id === "import" && r.enabled));
 });
 
 // ---------- SVG ----------

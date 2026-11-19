@@ -1,5 +1,5 @@
-// The icons on the sheets (`in_459`): each sheet has one that goes through its four modes (cuts the half its normal points to, the other half, does not cut, invisible) and the sheet that is selected has a second, its move icon
-// (the mover's arrows to move it, or its rings to turn it, `in_1129`). They only show and report the click. An invisible sheet takes no pointer pick: its icon fades in while the pointer is over it.
+// The icons on the sheets that are invisible (`in_459`, `in_1160`): an invisible sheet cannot be pointed at or selected, so its icons cannot be in the helpful bar (`suggest.ts`, where the icons of a sheet that is selected are); they fade in while the pointer is over the sheet.
+// They only show and report the click.
 import { iconSvg } from "./icons.ts";
 import { roundButton, onPress } from "./look.ts";
 import type { Vec3 } from "../interaction/api.ts";

@@ -115,15 +115,22 @@ test("too little played: it asks for more play first", () => {
 });
 
 const pinFile = () => (openSession(kernel, readFileSync(new URL("./fixtures/lever-pin-jam.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
-test("the lever hangs on the pin of the gear that is played but nothing holds it: it is pushed, no joint on the pin's resting axis is offered, and the walk says why", () => {
+test("the lever hangs on the pin of the gear that is played but nothing holds it (the sketch constraint deleted): it is pushed, and the walk offers the coaxial mate, which is carried round by the pin; no pivot at the pin's place now", () => {
   const s = run(pinFile(), { type: "removeRelation", id: "r_010" });
   const sc = scene(s);
   const r = startMotion(sc, "b/x_s_002/o" as never, "turn", s.outcome);
   if (!r.ok) throw new Error(r.why);
   const m = solveContact(sc, { ...r.motion, playing: true, amount: 120 }, s.outcome, Infinity);
-  const st = doMotionFix({ ...createState(s), motion: m }, "open");
-  assert.equal(st.motion?.fix ?? null, null);
-  assert.match(st.session.message ?? "", /hangs on a pin of x_s_002, which moves in this motion/);
+  assert.ok(m.contact!.pushables.some((p) => p.free), "pushed with no joint");
+  let st = doMotionFix({ ...createState(s), motion: m }, "open");
+  const fix = st.motion?.fix?.plan.fixes[0];
+  assert.ok(fix && fix.how === "mate" && fix.carried, st.session.message ?? "");
+  assert.match(fix!.text, /goes round: mate its hole to the pin/);
+  st = doMotionFix(st, "apply");
+  assert.match(st.session.message ?? "", /^fixed: x_s_084 \(coaxial mate\)/);
+  const r2 = startMotion(scene(st.session), "b/x_s_002/o" as never, "turn", st.session.outcome);
+  if (!r2.ok) throw new Error(r2.why);
+  assert.ok(r2.motion.contact!.pushables.some((p) => p.after && !p.free), "now a carried joint, not pushed");
 });
 test("the lever held on the pin by the sketch's Concentric is a joint carried round by the pin (`in_1143`): not pushed about, no search, turns about the pin as the gear carries it", () => {
   const s = pinFile();
