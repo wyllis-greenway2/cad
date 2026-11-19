@@ -52,7 +52,7 @@ export function gearRefs(rec: GearRecord): { lines: Ref[]; wall?: Ref; bore?: st
   const o = outlineOf(rec.spec);
   if (!o.ok) return { lines: [] };
   if (rec.spec.bevel?.facegear !== undefined) { const b = faceRefs(rec); return { lines: b.lines.length ? b.lines : b.sections[0] ?? [], ...((b.bore ?? b.plateBore) ? { bore: (b.bore ?? b.plateBore)! } : {}) }; } // (a face gear drive: the pinion's outline, the face gear's tip section)
-  if (rec.spec.bevel?.spiral !== undefined) { const b = spiralRefs(rec); return { lines: b.sections[0] ?? [], ...(b.bores[0] ? { bore: b.bores[0] } : {}) }; } // (a spiral bevel gear: the heel's first plane)
+  if (rec.spec.bevel?.spiral !== undefined && !isCrown(rec.spec)) { const b = spiralRefs(rec); return { lines: b.sections[0] ?? [], ...(b.bores[0] ? { bore: b.bores[0] } : {}) }; } // (a spiral bevel gear: the heel's first plane)
   if (rec.spec.bevel && isCrown(rec.spec)) { const c = crownRefs(rec); return { lines: c.sections[0]!, ...(c.plateBore ? { bore: c.plateBore } : {}) }; } // (a crown gear: the tip's section)
   if (rec.spec.bevel) { const b = bevelRefs(rec); return { lines: b.sections[0]!, ...(b.bores[0] ? { bore: b.bores[0] } : {}) }; } // (the big end)
   if (rec.spec.worm) return { lines: wormRefs(rec).threads[0]! }; // (the thread's figure)
@@ -69,7 +69,7 @@ function boreGroup(rec: GearRecord): string {
 /** The parts of a gear: the corners and sides of its outline and, for a ring, its wall's circle. Locked. Empty if its plane is not there or the numbers make no gear. */
 function partsOf(s: Scene, rec: GearRecord): Part[] {
   if (rec.spec.bevel?.facegear !== undefined) return faceParts(s, rec);
-  if (rec.spec.bevel?.spiral !== undefined) return spiralParts(s, rec);
+  if (rec.spec.bevel?.spiral !== undefined && !isCrown(rec.spec)) return spiralParts(s, rec);
   if (rec.spec.bevel) return isCrown(rec.spec) ? crownParts(s, rec) : bevelParts(s, rec);
   if (rec.spec.cam) return camParts(s, rec);
   if (rec.spec.worm) return wormParts(s, rec);
@@ -111,9 +111,11 @@ function chamferSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] {
     return [{ type: "chamferEnds", parts: ["@s0"] as Ref[], params: { gear: rec.id, size: tips ? rec.spec.chamfer! * rec.spec.module : rec.spec.edge!, width: rec.spec.width!, cx: rec.at[0], cy: rec.at[1], cz: rec.at[2], dx: n[0] / len, dy: n[1] / len, dz: n[2] / len, ...(tips ? { tx: up[0], ty: up[1], tz: up[2], tip: o.value.tipRadius } : {}) } }];
   }
   if (!plane || plane.kind !== "plane" || !o.ok || !ch) return [];
-  const n = cross3(plane.u, plane.v), len = Math.hypot(...n) || 1;
+  const pin = rec.spec.bevel?.facegear === "pinion" && rec.spec.bevel.frame; // (a face gear drive's pinion stands in the frame its pair gave it: its axis the normal of that, its tooth 0 along the first direction turned by its turn, `facescene.ts`)
+  const [pu, pv] = pin ? pin : [plane.u, plane.v];
+  const n = cross3(pu, pv), len = Math.hypot(...n) || 1;
   const [c, sn] = [Math.cos(rec.turn ?? 0), Math.sin(rec.turn ?? 0)];
-  const first: Vec3 = [plane.u[0] * c + plane.v[0] * sn, plane.u[1] * c + plane.v[1] * sn, plane.u[2] * c + plane.v[2] * sn]; // (tooth 0)
+  const first: Vec3 = [pu[0] * c + pv[0] * sn, pu[1] * c + pv[1] * sn, pu[2] * c + pv[2] * sn]; // (tooth 0)
   const twist = ((helixTwist(rec.spec) ?? 0) * Math.PI) / 180;
   return [{ type: "toothChamfer", parts: ["@s0"] as Ref[], params: { gear: rec.id, teeth: Math.round(rec.spec.teeth), tip: o.value.tipRadius, depth: ch.depth, width: ch.width, side: ch.side, twist, cx: rec.at[0], cy: rec.at[1], cz: rec.at[2], dx: n[0] / len, dy: n[1] / len, dz: n[2] / len, ux: first[0], uy: first[1], uz: first[2] } }];
 }
@@ -177,8 +179,9 @@ function bodyParams(s: Scene, rec: GearRecord): { step: Omit<Step, "id"> } | nul
 /** The steps that make the body of a gear that has one made with it (a helical gear's twist, a worm's core and threads, a worm wheel's loft), without their names; none for a plain gear. */
 function ownedSpecs(s: Scene, rec: GearRecord): Omit<Step, "id">[] {
   if (rec.spec.cam) return camSteps(s, rec) ?? []; // (a Geneva drive that comes as a model, `camscene.ts`)
+  if (rec.spec.bevel?.facegear === "pinion") { const f = faceSteps(s, rec); return f ? [...f, ...chamferSteps(s, rec)] : []; } // (the spur pinion of a face gear drive: its body, then its tooth chamfer if it has one, `dec_bevel_chamfer`)
   if (rec.spec.bevel?.facegear !== undefined) return faceSteps(s, rec) ?? [];
-  if (rec.spec.bevel?.spiral !== undefined) return spiralSteps(s, rec) ?? [];
+  if (rec.spec.bevel?.spiral !== undefined && !isCrown(rec.spec)) return spiralSteps(s, rec) ?? [];
   if (rec.spec.bevel) return (isCrown(rec.spec) ? crownSteps(s, rec) : bevelSteps(s, rec)) ?? [];
   if (rec.spec.worm) return wormSteps(s, rec) ?? [];
   if (rec.spec.wheel) return wheelSteps(s, rec) ?? [];
@@ -280,6 +283,14 @@ function noOffset(offset: number | undefined, spec: GearSpec): GearSpec {
   const { offset: _o, ...bevel } = spec.bevel;
   return { ...spec, bevel };
 }
+/** the partner of a bevel, spiral or crown gear has the edited gear's tooth chamfer too (`dec_bevel_chamfer`): none when it has none; a face gear's spur pinion has none of its own */
+function withChamfer(chamfer: number | undefined, spec: GearSpec): GearSpec {
+  if (spec.bevel?.facegear !== undefined) return spec;
+  if (chamfer) return { ...spec, chamfer };
+  if (spec.chamfer === undefined) return spec;
+  const { chamfer: _c, ...rest } = spec;
+  return rest;
+}
 export function setGear(s: Scene, id: string, spec0: GearSpec, at?: Vec3, turn?: number, link?: GearRecord["follower"] | null): Result<Scene> {
   const rec = gearsOf(s).find((g) => g.id === id);
   let spec = spec0;
@@ -293,7 +304,7 @@ export function setGear(s: Scene, id: string, spec0: GearSpec, at?: Vec3, turn?:
   if (!rec || !bv || !other || !other.spec.bevel || other.spec.bevel.with !== id) return setGearCore(s, id, spec, at, turn, link);
   const edited: GearRecord = { ...rec, spec, ...(at ? { at } : {}), ...(turn !== undefined ? { turn } : {}) };
   const follower = bv.dir !== undefined ? edited : other, anchor = bv.dir !== undefined ? other : edited;
-  const fresh = (g: GearRecord): GearSpec => noOffset(bv.offset, { ...g.spec, teeth: g === edited ? spec.teeth : bv.mate, module: spec.module, ...(spec.pressure !== undefined ? { pressure: spec.pressure } : {}), bevel: { ...g.spec.bevel!, mate: g === edited ? bv.mate : spec.teeth, ...(bv.shaft !== undefined ? { shaft: bv.shaft } : {}), ...(bv.face !== undefined ? { face: bv.face } : {}), ...(bv.spiral !== undefined ? { spiral: bv.spiral } : {}), ...(bv.offset ? { offset: bv.offset } : {}) }, ...((bv.spiral !== undefined || bv.facegear !== undefined) && spec.backlash !== undefined ? { backlash: spec.backlash } : {}), ...(bv.facegear !== undefined && spec.crown ? { crown: spec.crown } : {}) });
+  const fresh = (g: GearRecord): GearSpec => withChamfer(spec.chamfer, noOffset(bv.offset, { ...g.spec, teeth: g === edited ? spec.teeth : bv.mate, module: spec.module, ...(spec.pressure !== undefined ? { pressure: spec.pressure } : {}), bevel: { ...g.spec.bevel!, mate: g === edited ? bv.mate : spec.teeth, ...(bv.shaft !== undefined ? { shaft: bv.shaft } : {}), ...(bv.face !== undefined ? { face: bv.face } : {}), ...(bv.spiral !== undefined ? { spiral: bv.spiral } : {}), ...(bv.offset ? { offset: bv.offset } : {}) }, ...((bv.spiral !== undefined || bv.facegear !== undefined) && spec.backlash !== undefined ? { backlash: spec.backlash } : {}), ...(bv.facegear !== undefined && spec.crown ? { crown: spec.crown } : {}) }));
   const a2: GearRecord = { ...anchor, spec: fresh(anchor) };
   const pl = s.parts[a2.plane];
   if (!pl || pl.kind !== "plane") return setGearCore(s, id, spec, at, turn);

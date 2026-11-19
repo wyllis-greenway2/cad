@@ -17,10 +17,8 @@ import type { GearSpec } from "./gear.ts";
 import { boreLoop } from "./bore.ts";
 
 const ref = (id: string, name: string): Ref => drawnRef(`${id}.${name}`);
-/** how far the pinion's plane is out from where the axes cross, in front of the teeth's inner end (mm): the pinion is a millimetre longer than the face at each end */
-export const PINION_OVERHANG = 1;
-/** the pinion's width: the face and the overhang at each end */
-export const pinionWidth = (pr: FacePair): number => pr.outer - pr.inner + 2 * PINION_OVERHANG;
+export { PINION_OVERHANG, pinionWidth } from "./face.ts";
+import { pinionWidth } from "./face.ts";
 /** the pair and the body of a face gear record, or null if it makes none */
 export function faceGearOf(rec: GearRecord): { pair: FacePair; body: FaceBody } | null {
   const f = faceFor(rec.spec);
@@ -117,7 +115,7 @@ export function faceSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] | null 
   if (!g) return null;
   const figs: Figure[] = r.sections.map((lines) => ({ outer: lines, holes: [] }));
   return [
-    { type: "loft", parts: r.sections[0]!, params: { ...figureParams(figs), mode: "new", gear: rec.id } },
+    { type: "loft", parts: r.sections[0]!, params: { ...figureParams(figs), mode: "new", maxDegree: 3, gear: rec.id } },
     { type: "revolve", parts: r.blank, params: { angle: 360, advance: 0, ax: rec.at[0], ay: rec.at[1], az: rec.at[2], dx: f.n[0], dy: f.n[1], dz: f.n[2], mode: "new", gear: rec.id } },
     { type: "combine", parts: ["b/x_$0/o" as Ref, "b/x_$1/o" as Ref], params: { mode: "intersect", gear: rec.id } },
     { type: "extrude", parts: [r.plate], params: { depth: g.pair.thick, ...(r.plateBore ? { holes: r.plateBore } : {}), mode: "new", gear: rec.id } },

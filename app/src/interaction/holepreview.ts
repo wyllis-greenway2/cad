@@ -16,7 +16,7 @@ export function holeLines(plan: ReceiverPlan): number[] {
   const { kind, size, fit } = plan;
   const depth = Math.max(0.1, Math.min(plan.depth, plan.stack)); // (a hole right through is drawn to the far side of the body)
   // the profile as the cut makes it, from the face down: the half a millimetre the cut starts above the face is not drawn
-  const prof = receiverProfile(kind, size, fit, depth, plan.engagement, plan.drill).map(([x, y]) => [x, Math.min(y, 0)] as const);
+  const prof = receiverProfile(kind, size, fit, depth, plan.engagement, plan.drill, plan.washer).map(([x, y]) => [x, Math.min(y, 0)] as const);
   const out: number[] = [];
   const seg = (a: Vec3, b: Vec3): void => { out.push(a[0], a[1], a[2], b[0], b[1], b[2]); };
   const rings = new Set<string>();
@@ -65,7 +65,7 @@ export function holeLines(plan: ReceiverPlan): number[] {
 function holeSurfaces(plan: ReceiverPlan): number[] {
   const { kind, size, fit } = plan;
   const depth = Math.max(0.1, Math.min(plan.depth, plan.stack));
-  const prof = receiverProfile(kind, size, fit, depth, plan.engagement, plan.drill).map(([x, y]) => [x, Math.min(y, 0)] as const);
+  const prof = receiverProfile(kind, size, fit, depth, plan.engagement, plan.drill, plan.washer).map(([x, y]) => [x, Math.min(y, 0)] as const);
   const out: number[] = [];
   const tri = (a: Vec3, b: Vec3, c: Vec3): void => { out.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]); };
   for (const spot of plan.spots) {
@@ -113,7 +113,8 @@ export function guideLines(guide: readonly Vec3[], dash = 4, gap = 3): number[] 
   return out;
 }
 /** The holes as the view's overlay (the same form as a toolpath's lines: the holes in the cut colour, the path they follow dashed and pale), or null for a plan with no place. */
-export function holesView(plan: ReceiverPlan): ToolpathView | null {
+export function holesView(plan: ReceiverPlan, picked = -1): ToolpathView | null {
   if (!plan.places.length) return null;
-  return { surfaces: holeSurfaces(plan), done: { wire: holeLines(plan), ...(plan.guide.length ? { travel: plan.guide.flatMap((g) => guideLines(g)) } : {}) }, rest: {}, head: null, stock: [] };
+  const one = picked >= 0 && plan.spots[picked] ? holeLines({ ...plan, spots: [plan.spots[picked]!] }) : []; // (the hole picked up, to be moved or taken out, drawn in the cut colour)
+  return { surfaces: holeSurfaces(plan), done: { wire: holeLines(plan), ...(one.length ? { cut: one } : {}), ...(plan.guide.length ? { travel: plan.guide.flatMap((g) => guideLines(g)) } : {}) }, rest: {}, head: null, stock: [] };
 }

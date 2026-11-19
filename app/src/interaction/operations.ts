@@ -719,7 +719,7 @@ function forBody(cmd: Command | null, id: string, carries: boolean): Command | n
   const { follow: _f, ...rest } = cmd.step.params;
   return { ...cmd, step: { ...cmd.step, params: { ...rest, ...(carries && _f !== undefined ? { follow: _f } : {}), body: id } } };
 }
-/** A preview of an extrusion is marked so that the kernel may draw it without the boolean (`in_1011`): the picture of a figure beside a body is the picture of it fused; the step made for good is not marked. */
+/** A preview of an extrusion is marked so that the kernel may draw it without the boolean (`in_1064`): the picture of a figure beside a body is the picture of it fused; the step made for good is not marked. */
 function markedPreview(c: Command | null): Command | null {
   if (c?.type !== "addStep" || c.step.type !== "extrude") return c;
   return { ...c, step: { ...c.step, params: { ...c.step.params, preview: 1 } } };

@@ -1,5 +1,5 @@
 // Tools and operations that take typing: starting them, typed keys, finishing, cancelling; and the edits that do not depend on the pointer (delete, undo, relations).
-import { isHard, hardCopies } from "../hard.ts";
+import { isHard, isFixed, hardCopies } from "../hard.ts";
 import type { Command } from "../../operation/commands.ts";
 import type { Intent } from "../../shared/input.ts";
 import { scene as sceneOf, selection as selectionOf, run, undoLast, redoLast, clearSelection } from "../session.ts";
@@ -393,6 +393,14 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
     const on = !bodies.every((r) => isHard(sc, r));
     const session = run(closed.session, { type: "batch", commands: bodies.map((r): Command => ({ type: "setHard", body: (sc.parts[r] as { id: string }).id, on })) });
     return { ...closed, session: { ...session, message: on ? `hard: ${bodies.length === 1 ? "this body" : "these bodies"} will not go into other hard bodies when moved by hand` : null } };
+  }
+  if (id === "body:fixed") { // a body made fixed or free (`in_1049`): all the bodies selected, to fixed unless every one already is
+    const sc = sceneOf(closed.session);
+    const bodies = selectionOf(closed.session).filter((r) => sc.parts[r]?.kind === "body" && !!(sc.parts[r] as { id?: string }).id);
+    if (!bodies.length) return { ...closed, session: { ...closed.session, message: "select a body" } };
+    const on = !bodies.every((r) => isFixed(sc, r));
+    const session = run(closed.session, { type: "batch", commands: bodies.map((r): Command => ({ type: "setFixed", body: (sc.parts[r] as { id: string }).id, on })) });
+    return { ...closed, session: { ...session, message: on ? `fixed: ${bodies.length === 1 ? "this body" : "these bodies"} stay where they are when a moving body pushes on them` : null } };
   }
   if (id === "hard:clearance") { // the clearance of the whole model, round a few values (`in_473`)
     const sc = sceneOf(closed.session);

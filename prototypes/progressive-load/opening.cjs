@@ -1,4 +1,4 @@
-// Prototype (thrown away, `in_1005`): the boxes of a project drawn before its commands are replayed. When the boxes are set and painted, when the replay is done, when the last part is made.
+// Prototype (thrown away, `in_1058`): the boxes of a project drawn before its commands are replayed. When the boxes are set and painted, when the replay is done, when the last part is made.
 // Run (from app/, after `npm run build` and `npx vite preview --port 5198`): node ../prototypes/progressive-load/opening.cjs /tmp/synth-300.cad.json
 const { chromium } = require("playwright");
 const fs = require("fs");

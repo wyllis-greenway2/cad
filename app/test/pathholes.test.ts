@@ -7,7 +7,7 @@ import { createSession, run, scene } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";
 import { drawChain, drawCircle, drawSquaredRectangle } from "../src/operation/build.ts";
 import { nextId, figureParams } from "../src/operation/scene.ts";
-import { cutReceiver, receiverContext, receiverDialog, receiverStart, receiverStartFor, selectedFace, receiverPlan } from "../src/interaction/addpart.ts";
+import { cutReceiver, makeHolePoints, receiverContext, receiverDialog, receiverStart, receiverStartFor, selectedFace, receiverPlan } from "../src/interaction/addpart.ts";
 import type { ReceiverValues } from "../src/interaction/addpart.ts";
 import { readFaceOutline } from "../src/operation/pathmaps.ts";
 import { faceEdges } from "../src/interaction/offsetbody.ts";
@@ -427,10 +427,10 @@ test("automatic: an inset too small for the head is made bigger, one the face ca
   const { s } = block();
   const tight = receiverPlan(s, vals({ kind: "countersunk", size: "M3", place: "auto", offset: "1" }));
   assert.ok(tight.ok && tight.value.places.every((c) => c[0] >= 4.86 - 1e-6 && c[1] >= 4.86 - 1e-6), tight.ok ? "" : tight.error);
-  const { s: narrow } = small(40, 20); // (room for 10 in: the inset is kept to 85% of that)
+  const { s: narrow } = small(40, 24); // (room for 12 in: the loop is kept one and a half head widths across, so the inset is cut to 5.46)
   const p = receiverPlan(narrow, vals({ kind: "countersunk", size: "M3", place: "auto", offset: "10" }));
   assert.ok(p.ok, p.ok ? "" : p.error);
-  if (p.ok) assert.ok(p.value.insetUsed !== undefined && p.value.insetUsed <= 10 * 0.85 + 1e-6 && p.value.insetUsed >= 4.86 - 1e-6, `${p.value.insetUsed} ${p.value.auto}`);
+  if (p.ok) assert.ok(p.value.insetUsed !== undefined && p.value.insetUsed <= 5.5 && p.value.insetUsed >= 4.86 - 1e-6, `${p.value.insetUsed} ${p.value.auto}`);
 });
 test("automatic: too cramped means fewer holes, too little room means one line along the middle", () => {
   const { s } = block();
@@ -468,7 +468,7 @@ test("points at the holes: corners on the face at each place, selected with it, 
   assert.ok(after.ok);
   if (after.ok) assert.deepEqual(after.value.places.map((c) => c.map((x) => Math.round(x * 1e4) / 1e4)).sort(), before.value.places.map((c) => c.map((x) => Math.round(x * 1e4) / 1e4)).sort());
   const round = post();
-  assert.ok(!makeHolePoints(select(round.s, [round.face]), vals({ place: "midline" })).ok);
+  assert.ok(makeHolePoints(select(round.s, [round.face]), vals({ place: "midline" })).ok, "a round face has points too (`in_1013`)");
 });
 test("the plan says how much room the screw had, so the length chosen can be explained (`in_981`)", () => {
   const { s } = block();
@@ -492,4 +492,138 @@ test("a screw through a hole open at the far end is the shortest standard length
   assert.ok(blind.ok && blind.value.insert?.screw?.length === 20, "a blind hole keeps to what fits");
   const tap = receiverPlan(sel, vals({ kind: "drillTap", size: "M3", place: "centre", insert: "screw" }));
   assert.ok(tap.ok && (tap.value.insert?.screw?.length ?? 99) <= (tap.value.insert?.screw?.room ?? 0), "a tapped pilot is blind too");
+});
+
+// ---- the depth is chosen for the part, not right through whatever is in the way (`in_1011`) ----
+test("an empty depth: through when that is not much further than a screw's length, else a screw's length", () => {
+  const thin = receiverPlan(block().s, vals({ kind: "countersunk", size: "M3", place: "centre" }));
+  assert.ok(thin.ok && thin.value.depthNote?.includes("right through"), thin.ok ? String(thin.value.depthNote) : thin.error);
+  let s = createSession(kernel);
+  const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [60, 40, 0], [1, 0, 0], [0, 1, 0]);
+  s = run(s, r.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: r.lines, params: { depth: 80 } } });
+  const top = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.ref.endsWith("0,0,1,80"))!.ref;
+  const thick = receiverPlan(select(s, [top]), vals({ kind: "countersunk", size: "M3", place: "centre" }));
+  assert.ok(thick.ok, thick.ok ? "" : thick.error);
+  if (thick.ok) { near(thick.value.depth, 20, 1e-9); assert.ok(thick.value.depthNote?.includes("20 mm screw"), String(thick.value.depthNote)); }
+  const typed = receiverPlan(select(s, [top]), vals({ kind: "countersunk", size: "M3", place: "centre", depth: "50" }));
+  assert.ok(typed.ok && typed.value.depth === 50 && typed.value.depthNote === undefined, "a typed depth is kept");
+  const nut = receiverPlan(select(s, [top]), vals({ kind: "clearance", size: "M3", place: "centre", far: "nut" }));
+  assert.ok(nut.ok && nut.value.depth > 80, "a nut on the far side needs the hole right through");
+});
+test("on a curve the holes are not so deep that they meet toward the middle", () => {
+  const { s: s0, face } = post();
+  const ring = receiverPlan(select(s0, [face]), vals({ kind: "clearance", size: "M3", place: "midline", by: "count", value: "8" }));
+  assert.ok(ring.ok, ring.ok ? "" : ring.error);
+  if (!ring.ok) return;
+  assert.ok(ring.value.depth < 20, `${ring.value.depth} deep, the post is 20 across`);
+  // no two holes closer than the hole and a wall, along their whole depth
+  const axes = ring.value.spots.map((sp) => { const l = Math.hypot(sp.centre[0], sp.centre[1]); return [-sp.centre[0] / l, -sp.centre[1] / l]; });
+  const at = (i: number, z: number) => [ring.value.spots[i]!.centre[0] + axes[i]![0]! * z, ring.value.spots[i]!.centre[1] + axes[i]![1]! * z];
+  for (let i = 0; i < 8; i++) for (let j = i + 1; j < 8; j++) assert.ok(Math.hypot(at(i, ring.value.depth)[0]! - at(j, ring.value.depth)[0]!, at(i, ring.value.depth)[1]! - at(j, ring.value.depth)[1]!) >= 3.4 + 1.5 - 1e-6 || ring.value.depthNote?.includes("close"), `${i} ${j}`);
+  // holes along the axis are side by side and can go as deep as a flat face's
+  const column = receiverPlan(select(s0, [face]), vals({ kind: "clearance", size: "M3", place: "edge", by: "count", value: "3" }));
+  assert.ok(column.ok, column.ok ? "" : column.error);
+});
+
+// ---- a washer under the head (`in_1013`) ----
+test("a washer under the head: its own body, the counterbore made wide and deep enough, the screw seated on it", () => {
+  const { s } = block();
+  const none = receiverPlan(s, vals({ kind: "counterbore", size: "M4", place: "centre", insert: "screw" }));
+  const wash = receiverPlan(s, vals({ kind: "counterbore", size: "M4", place: "centre", insert: "screw", washer: "yes" }));
+  assert.ok(none.ok && wash.ok);
+  if (!none.ok || !wash.ok) return;
+  assert.equal(none.value.washer, false);
+  assert.equal(wash.value.washer, true);
+  assert.ok(wash.value.insert?.washer);
+  const [a, b] = [bodies(cutReceiver(s, vals({ kind: "counterbore", size: "M4", place: "centre", insert: "screw" })).ok ? (cutReceiver(s, vals({ kind: "counterbore", size: "M4", place: "centre", insert: "screw" })) as { ok: true; value: Session }).value : s).length, 0];
+  void b;
+  const r = cutReceiver(s, vals({ kind: "counterbore", size: "M4", place: "centre", insert: "screw", washer: "yes" }));
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  if (r.ok) assert.equal(bodies(r.value).length, a + 1, "the block, the screw and the washer");
+  // on the surface (a plain clearance hole) the head is lifted by the washer: the screw is seated above the face
+  const flat = receiverPlan(s, vals({ kind: "clearance", size: "M4", place: "centre", insert: "screw", washer: "yes" }));
+  assert.ok(flat.ok && flat.value.insert?.screw && flat.value.insert.screw.seat < 0, flat.ok ? "" : flat.error);
+  // a countersunk head takes no washer
+  const cs = receiverPlan(s, vals({ kind: "countersunk", size: "M4", place: "centre", insert: "screw", washer: "yes" }));
+  assert.ok(cs.ok && cs.value.washer === false && cs.value.insert?.washer === false);
+  // no insert, no washer
+  assert.equal(receiverPlan(s, vals({ kind: "counterbore", size: "M4", place: "centre", washer: "yes" })).ok && (receiverPlan(s, vals({ kind: "counterbore", size: "M4", place: "centre", washer: "yes" })) as { value: { washer: boolean } }).value.washer, false);
+});
+
+// ---- the smaller gaps (`in_1013`) ----
+test("a hole taken out of the row: the rest keep their numbers, and every hole gone is refused", () => {
+  const { s } = block();
+  const v = vals({ kind: "countersunk", size: "M3", place: "outline", by: "count", value: "6", corners: "ignore", offset: "10" });
+  const all = receiverPlan(s, v);
+  const less = receiverPlan(s, { ...v, removed: [1, 4] });
+  assert.ok(all.ok && less.ok);
+  if (!all.ok || !less.ok) return;
+  assert.equal(all.value.places.length, 6);
+  assert.equal(less.value.places.length, 4);
+  assert.deepEqual(less.value.index, [0, 2, 3, 5]);
+  assert.deepEqual(less.value.places[1], all.value.places[2]);
+  const moved = receiverPlan(s, { ...v, removed: [1], moved: { 2: [50, 30, 8] } });
+  assert.ok(moved.ok && moved.value.places[1]![0] === 50 && moved.value.index[1] === 2, "a moved hole is found by its number in the whole row");
+  assert.ok(!receiverPlan(s, { ...v, removed: [0, 1, 2, 3, 4, 5] }).ok);
+  const cut = cutReceiver(s, { ...v, removed: [1, 4] });
+  assert.ok(cut.ok);
+});
+test("automatic: holes further apart than the hardware needs get more holes between them", () => {
+  const { s } = block();
+  const p = receiverPlan(s, vals({ kind: "countersunk", size: "M3", place: "auto", by: "count", value: "2" }));
+  assert.ok(p.ok, p.ok ? "" : p.error);
+  if (p.ok) { assert.ok(p.value.places.length > 2, `${p.value.places.length} holes`); assert.ok((p.value.spacing ?? 0) <= 50 + 1e-6, `${p.value.spacing} apart`); }
+  const asked = receiverPlan(s, vals({ kind: "countersunk", size: "M3", place: "auto", by: "distance", value: "200" }));
+  assert.ok(asked.ok && (asked.value.spacing ?? 0) <= 50 + 1e-6, "a spacing asked for that is too far is brought in");
+});
+test("points on a round face: each stands on a plane touching the surface, and the tool follows them back onto the surface", () => {
+  const { s: s0, face } = post();
+  const v = vals({ kind: "clearance", size: "M3", place: "midline", by: "count", value: "6" });
+  const sel = select(s0, [face]);
+  const before = receiverPlan(sel, v);
+  assert.ok(before.ok);
+  const r = makeHolePoints(sel, v);
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  if (!r.ok || !before.ok) return;
+  const ctx = receiverContext(r.value)!;
+  assert.ok(ctx.curved && ctx.places === 6);
+  const after = receiverPlan(r.value, { ...v, place: "picked" });
+  assert.ok(after.ok, after.ok ? "" : after.error);
+  if (after.ok) assert.deepEqual(after.value.places.map((c) => c.map((x) => Math.round(x * 1e3) / 1e3)).sort(), before.value.places.map((c) => c.map((x) => Math.round(x * 1e3) / 1e3)).sort());
+});
+
+test("automatic: a wall too short for a loop of heads is not a loop with one hole at each of two opposite corners (`in_1026`)", () => {
+  const { s: narrow } = small(40, 20); // (a loop here would be 3 across: the holes zigzag between its long sides)
+  const p = receiverPlan(narrow, vals({ kind: "countersunk", size: "M3", place: "auto", offset: "10" }));
+  assert.ok(p.ok, p.ok ? "" : p.error);
+  if (!p.ok) return;
+  assert.ok(String(p.value.auto).includes("middle"), String(p.value.auto));
+  for (const c of p.value.places) near(c[1], 10, 1e-6);
+  const wide = small(40, 24);
+  const q = receiverPlan(wide.s, vals({ kind: "countersunk", size: "M3", place: "auto", offset: "10" }));
+  assert.ok(q.ok && String(q.value.auto).includes("edges stepped in"), q.ok ? String(q.value.auto) : q.error);
+});
+
+// ---- a sweep of faces and hardware: whatever the automatic choice gives, no two heads touch and none hangs over an edge (`in_1027`) ----
+import { countersink as csOf, counterbore as cbOf, clearanceHole as clOf } from "../src/operation/fasteners.ts";
+test("automatic, over many faces and sizes: no two heads closer than a head and a gap, none nearer an edge than its radius and a margin, or the face is said to be too small", () => {
+  let checked = 0, refused = 0;
+  for (const [w, h] of [[10, 6], [16, 10], [24, 16], [40, 10], [40, 24], [100, 60], [300, 20], [8, 8]] as const) for (const size of ["M3", "M4", "M6"] as const) for (const kind of ["countersunk", "counterbore", "clearance"] as const) for (const by of ["distance", "count"] as const) {
+    const { s } = small(w, h);
+    const p = receiverPlan(s, vals({ kind, size, place: "auto", by, value: by === "count" ? "6" : "30" }));
+    const hr = Math.max(clOf(size, "medium") / 2, kind === "countersunk" ? csOf(size).diameter / 2 : kind === "counterbore" ? cbOf(size).diameter / 2 : 0);
+    if (!p.ok) { refused++; assert.ok(p.error.includes("no room"), `${w}x${h} ${size} ${kind}: ${p.error}`); continue; }
+    checked++;
+    const ps = p.value.places as unknown as number[][];
+    if (ps.length > 1) assert.ok(minDist(ps) >= 2 * hr + 2 - 1e-6, `${w}x${h} ${size} ${kind} ${by}: heads ${minDist(ps)} apart`);
+    for (const c of ps) assert.ok(Math.min(c[0]!, w - c[0]!, c[1]!, h - c[1]!) >= hr + 1 - 1e-6, `${w}x${h} ${size} ${kind} ${by}: a head ${Math.min(c[0]!, w - c[0]!, c[1]!, h - c[1]!)} from the edge`);
+  }
+  assert.ok(checked > 100 && refused > 10, `${checked} made, ${refused} refused`);
+});
+test("a face with room for one hole only gets it in the middle, not a hole at each end hanging over the edge", () => {
+  const { s } = small(10, 6);
+  const p = receiverPlan(s, vals({ kind: "clearance", size: "M3", place: "auto" }));
+  assert.ok(p.ok, p.ok ? "" : p.error);
+  if (p.ok) { assert.equal(p.value.places.length, 1); near(p.value.places[0]![0], 5, 1e-6); near(p.value.places[0]![1], 3, 1e-6); }
 });

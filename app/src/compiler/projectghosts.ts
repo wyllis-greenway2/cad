@@ -1,4 +1,4 @@
-// A box for every part of a saved project, from its commands alone (`dec_progressive_open`, `in_1005`): the boxes are drawn while the commands are being replayed (which takes 0.8 s for 300 parts and 4 s for 1000), so that the model is on the screen
+// A box for every part of a saved project, from its commands alone (`dec_progressive_open`, `in_1058`): the boxes are drawn while the commands are being replayed (which takes 0.8 s for 300 parts and 4 s for 1000), so that the model is on the screen
 // at once. Pure: the text of a project in, the parts out; nothing is derived, solved or made. A project that is anything but pushes of sketches on the base plane, with fillets and holes (a move, a delete, a sketch on another plane, anything that may change where a part stands) has no boxes: they could be wrong.
 import type { Vec } from "./kernel/adapter.ts";
 import { MIN_PIECES } from "./kernel/pieces.ts";

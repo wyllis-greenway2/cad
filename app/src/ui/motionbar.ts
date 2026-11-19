@@ -3,7 +3,7 @@
 import { PILL } from "./look.ts";
 import type { Frame } from "../interaction/frame.ts";
 
-export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt"; amount: number } | { type: "motionPlay" } | { type: "motionKind"; kind: "turn" | "slide" } | { type: "motionKeep" } | { type: "motionReverse" } | { type: "motionLink"; id: string; ratio?: number; kind?: "turn" | "slide"; remove?: true } | { type: "motionClose" }) => void) {
+export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt"; amount: number } | { type: "motionPlay" } | { type: "motionKind"; kind: "turn" | "slide" } | { type: "motionKeep" } | { type: "motionReverse" } | { type: "motionRest"; ref: string; rest: number | null } | { type: "motionLink"; id: string; ratio?: number; kind?: "turn" | "slide"; remove?: true } | { type: "motionClose" }) => void) {
   const bar = document.createElement("div");
   bar.style.cssText = PILL + ";bottom:60px;left:50%;transform:translateX(-50%);pointer-events:auto;gap:10px;display:none";
   bar.setAttribute("data-motion-bar", "");
@@ -18,7 +18,9 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
   const close = btn("✕", "Stop: the joint goes back to where it was"); close.style.opacity = ".8";
   const links = document.createElement("span"); links.style.cssText = "display:flex;gap:8px;align-items:center";
   let linkKey = "";
-  bar.append(play, rev, slider, label, kind, links, keep, close);
+  const springs = document.createElement("span"); springs.style.cssText = "display:flex;gap:8px;align-items:center"; // (the bodies that yield by contact, each with where it goes back to)
+  let springKey = "";
+  bar.append(play, rev, slider, label, kind, links, springs, keep, close);
   host.appendChild(bar);
   play.addEventListener("pointerup", (e) => { e.stopPropagation(); send({ type: "motionPlay" }); });
   slider.addEventListener("input", () => send({ type: "motionAt", amount: Number(slider.value) }));
@@ -40,6 +42,19 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
       if (document.activeElement !== slider) slider.value = String(v.amount);
       rev.style.opacity = v.reversed ? "1" : ".6"; rev.style.textDecoration = v.reversed ? "underline" : "none";
       label.textContent = v.label;
+      const sKey = JSON.stringify(v.springs);
+      if (sKey !== springKey && !springs.contains(document.activeElement)) { // (made again only when they change, so a number being typed is not lost)
+        springKey = sKey; springs.replaceChildren();
+        for (const sp of v.springs) {
+          const box = document.createElement("span"); box.style.cssText = "display:flex;gap:4px;align-items:center"; box.title = `Where ${sp.name} goes back to when nothing holds it away: degrees from where it is drawn; empty: it stays where it was pushed`;
+          const word = document.createElement("span"); word.textContent = `${sp.name} back to`;
+          const num = document.createElement("input"); num.type = "number"; num.step = "any"; num.placeholder = "–"; num.value = sp.rest === null ? "" : String(Math.round(sp.rest * 1e6) / 1e6); num.style.cssText = "width:56px;background:transparent;color:inherit;border:1px solid rgba(255,255,255,.3);border-radius:4px;padding:1px 4px";
+          num.addEventListener("change", () => { const x = Number(num.value); send({ type: "motionRest", ref: sp.ref, rest: num.value.trim() === "" || !Number.isFinite(x) ? null : x }); });
+          for (const ev of ["keydown", "keyup", "keypress"]) num.addEventListener(ev, (e) => e.stopPropagation());
+          const unit = document.createElement("span"); unit.textContent = "°";
+          box.append(word, num, unit); springs.appendChild(box);
+        }
+      }
       const key = JSON.stringify(v.links);
       if (key !== linkKey && !links.contains(document.activeElement)) { // (the links of this joint, each with its ratio, what the other end does and a way to take it away; made again only when they change, so a number being typed is not lost)
         linkKey = key; links.replaceChildren();

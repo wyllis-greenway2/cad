@@ -1,4 +1,4 @@
-// The boxes of a saved project from its commands alone, before anything is replayed (`dec_progressive_open`, `in_1005`).
+// The boxes of a saved project from its commands alone, before anything is replayed (`dec_progressive_open`, `in_1058`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { openSession, scene } from "../src/interaction/session.ts";

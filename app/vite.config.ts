@@ -16,6 +16,7 @@ const kernelStamp = (): string => {
     const walk = (d: string): string[] => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(`${d}/${e.name}`) : [`${d}/${e.name}`])).sort();
     for (const f of walk(dir)) h.update(f).update(readFileSync(f));
     for (const f of ["src/kernel-worker.ts", "src/kernel-async.ts"]) h.update(readFileSync(f));
+    h.update(readFileSync("vendor/occt/replicad_single.wasm")); // (the kernel's own WebAssembly build: a new one never finds an old answer)
     for (const lib of ["replicad", "replicad-opencascadejs"]) h.update(lib).update(JSON.parse(readFileSync(`node_modules/${lib}/package.json`, "utf8")).version);
     return h.digest("hex").slice(0, 16);
   } catch { return "unstamped"; }

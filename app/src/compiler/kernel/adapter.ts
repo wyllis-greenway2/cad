@@ -40,7 +40,11 @@ export interface KernelResult {
   stale?: boolean;
 }
 /** How fine an exported mesh is: the most a facet may be from the true surface (mm), and the most a curve may turn across one facet (radians). */
-export interface ExportQuality { tolerance: number; angular: number; /** ask for the exact solid as a STEP file (`exportStep`), not a mesh: the worker takes both through the one queue of exports (`dec_export_formats`) */ step?: boolean; /** with `step`: the file's unit, inches (the model is in millimetres either way) */ unit?: "in"; /** only these bodies (their names, `KernelResult.bodies`); absent: all of them, which is what the export does unless it is told otherwise (`in_271`) */ bodies?: string[] }
+/** The STEP schemas a file can be written in: AP203 (the oldest, shapes only: legacy CAM), AP214 (the one nearly every program reads), AP242 (the current one). */
+export type StepSchema = "ap203" | "ap214" | "ap242";
+/** What the exact solid can be written as: a STEP schema, or `brep` (OpenCASCADE's own text format, for FreeCAD and other OpenCASCADE programs), or IGES: `iges` the faces as trimmed surfaces (nearly every program that reads IGES), `iges-solids` the solids as B-rep solids (only the better ones). */
+export type ExactFormat = StepSchema | "brep" | "iges" | "iges-solids";
+export interface ExportQuality { tolerance: number; angular: number; /** ask for the exact solid as a STEP file (`exportStep`), not a mesh: the worker takes both through the one queue of exports (`dec_export_formats`) */ step?: boolean; /** with `step`: the file's unit, inches (the model is in millimetres either way) */ unit?: "in"; /** with `step`: the STEP schema (`dec_export_more`) */ schema?: ExactFormat; /** only these bodies (their names, `KernelResult.bodies`); absent: all of them, which is what the export does unless it is told otherwise (`in_271`) */ bodies?: string[] }
 /** The body as a closed triangle mesh for a file (`dec_export_stl`): plain numbers, millimetres, in the world as modelled. */
 export type ExportResult =
   | { ok: true; vertices: Float32Array; triangles: Uint32Array; volume: number; bbox: { min: Vec; max: Vec } }
@@ -58,7 +62,7 @@ export interface Kernel {
   /** the final body of the graph as a mesh made for a file at the given quality (not the screen's coarse one); answers later when the kernel works on its own thread */
   exportMesh(graph: KernelGraph, quality: ExportQuality): Promise<ExportResult>;
   /** the final body (or only the bodies named) as a STEP file; answers later when the kernel works on its own thread */
-  exportStep(graph: KernelGraph, bodies?: string[], unit?: "in"): Promise<StepResult>;
+  exportStep(graph: KernelGraph, bodies?: string[], unit?: "in", schema?: ExactFormat): Promise<StepResult>;
   /** where the eye is (the kernel on its own thread makes a model of many parts apart nearest the eye first, `dec_progressive_open`); it is not part of the question: the same answer comes whichever it is */
   eye?: Vec;
   /** nothing is being made now (a scene with no steps): the picture the kernel last gave is not the picture of what comes next, so it is forgotten (`in_951`: deleted gears showed for a moment while new ones were made); a kernel that keeps no last picture ignores it */

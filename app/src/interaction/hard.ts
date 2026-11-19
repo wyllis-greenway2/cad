@@ -17,6 +17,8 @@ import { about, aboutDir } from "../math/rotation.ts";
 import { NONE } from "../operation/frames.ts";
 import { buildTree, collides, collidesMoving, moved, partOf, freePart, contactNormals } from "../operation/collide.ts";
 import type { Tree } from "../operation/collide.ts";
+import type { CompileOutcome } from "../compiler/compile.ts";
+import { outcomeOfScene } from "../compiler/compile.ts";
 
 export interface Mesh { tris: number[]; tree: Tree }
 const cache = new WeakMap<Scene, Map<Ref, Mesh>>();
@@ -28,24 +30,59 @@ const bodiesIn = (scene: Scene): Ref[] => Object.keys(scene.parts).filter((r) =>
 /** Do these two keep out of each other? One hard body is enough: it treats every body it meets as hard (`in_490`). */
 export const meets = (scene: Scene, a: Ref, b: Ref): boolean => isHard(scene, a) || isHard(scene, b);
 /** Is this body hard (no other body goes into it while it, or the other, is moved by hand)? */
+/** A body that stays where it is when pushed (`setFixed`): a wall. */
+export const isFixed = (scene: Scene, ref: Ref): boolean => { const p = scene.parts[ref]; return p?.kind === "body" && !!p.id && !!scene.fixed?.includes(p.id); };
 export const isHard = (scene: Scene, ref: Ref): boolean => { const p = scene.parts[ref]; return p?.kind === "body" && !!p.id && !!scene.hard?.includes(p.id); };
 
-/** The triangles of a body, from the meshes of its faces, and the tree over them (kept for the scene: a drag tests many places against the same bodies). */
-export function meshOf(scene: Scene, body: Ref): Mesh | null {
+/**
+ * The triangles of a body and the tree over them (kept for the scene: a drag tests many places against the same bodies). From **the kernel's mesh** when the scene has its outcome (`in_1020`), by the faces' ranges: it has every face of the body, the
+ * walls of a gear's teeth too, which the face planes of the scene do not (a hard gear was tested on its top and bottom only); else, and for a model of one body that has no name, from the meshes of the face planes.
+ */
+export function meshOf(scene: Scene, body: Ref, outcome?: CompileOutcome): Mesh | null {
   let by = cache.get(scene);
   if (!by) {
     by = new Map();
-    const groups = new Map<Ref, number[]>();
-    for (const p of Object.values(scene.parts)) {
-      if (p.kind !== "plane" || p.origin !== "body" || !p.mesh || !p.of) continue;
-      const list = groups.get(p.of) ?? [];
-      for (let i = 0; i < p.mesh.length; i++) list.push(p.mesh[i]!);
-      groups.set(p.of, list);
-    }
-    for (const [ref, tris] of groups) by.set(ref, { tris, tree: buildTree(tris) });
     cache.set(scene, by);
   }
-  return by.get(body) ?? null;
+  const had = by.get(body);
+  if (had) return had;
+  const k = (outcome ?? outcomeOfScene(scene))?.kernel;
+  const b = scene.parts[body];
+  if (k?.mesh && k.faces && b?.kind === "body" && b.id) {
+    const index = k.bodies ? k.bodies.findIndex((x) => x.id === b.id) : 0;
+    const several = (k.bodies?.length ?? 1) > 1;
+    if (index >= 0) {
+      const { vertices: v, triangles: t } = k.mesh;
+      const tris: number[] = [];
+      for (const f of k.faces) {
+        if (several && f.body !== index) continue;
+        const ranges = (f.ranges as { start: number; count: number }[] | undefined) ?? [{ start: f.start, count: f.count }];
+        for (const r of ranges) for (let i = r.start; i + 2 < r.start + r.count; i += 3) for (let c = 0; c < 3; c++) { const vi = t[i + c]! * 3; tris.push(v[vi]!, v[vi + 1]!, v[vi + 2]!); }
+      }
+      if (tris.length) { const mesh = { tris, tree: buildTree(tris) }; by.set(body, mesh); return mesh; }
+    }
+  }
+  const groups = bodyFaceMeshes(scene);
+  const tris = groups.get(body);
+  if (!tris) return null;
+  const mesh = { tris, tree: buildTree(tris) };
+  by.set(body, mesh);
+  return mesh;
+}
+const faceGroups = new WeakMap<Scene, Map<Ref, number[]>>();
+/** The meshes of the face planes of each body (the other source of a body's triangles). */
+function bodyFaceMeshes(scene: Scene): Map<Ref, number[]> {
+  let groups = faceGroups.get(scene);
+  if (groups) return groups;
+  groups = new Map();
+  for (const p of Object.values(scene.parts)) {
+    if (p.kind !== "plane" || p.origin !== "body" || !p.mesh || !p.of) continue;
+    const list = groups.get(p.of) ?? [];
+    for (let i = 0; i < p.mesh.length; i++) list.push(p.mesh[i]!);
+    groups.set(p.of, list);
+  }
+  faceGroups.set(scene, groups);
+  return groups;
 }
 
 export interface HardMotion {

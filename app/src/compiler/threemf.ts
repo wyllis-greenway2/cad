@@ -54,7 +54,20 @@ export function zipStored(files: readonly { name: string; data: Uint8Array }[]):
 
 /** The file for a mesh: `vertices` x y z for each corner, `triangles` three corner numbers for each triangle (counter-clockwise seen from outside, as 3MF wants). */
 export function threeMfBytes(vertices: ArrayLike<number>, triangles: ArrayLike<number>, title: string, units: "mm" | "in" = "mm"): Uint8Array {
-  // the kernel's mesh has its own corners for each face; the file joins the ones at the same place (to a millionth of a mm), so the mesh is one connected piece and the file is smaller
+  return threeMfObjects([{ name: "", vertices, triangles }], title, units);
+}
+
+/** The file for several bodies (`dec_export_more_3mf`): an object for each, named, all built where they stand (slicers list them apart, each can be moved, set up or left out of the print on its own). One body is one unnamed object, as before. */
+export function threeMfObjects(objects: readonly { name: string; vertices: ArrayLike<number>; triangles: ArrayLike<number> }[], title: string, units: "mm" | "in" = "mm"): Uint8Array {
+  const parts = objects.map((o, n) => meshXml(o.vertices, o.triangles, n + 1, o.name));
+  const model = `<?xml version="1.0" encoding="UTF-8"?>\n<model unit="${units === "in" ? "inch" : "millimeter"}" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n<metadata name="Title">${escape(title)}</metadata>\n<metadata name="Application">CAD</metadata>\n<resources>\n${parts.join("\n")}\n</resources>\n<build>\n${objects.map((_, n) => `<item objectid="${n + 1}"/>`).join("\n")}\n</build>\n</model>\n`;
+  const types = `<?xml version="1.0" encoding="UTF-8"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\n<Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>\n</Types>\n`;
+  const rels = `<?xml version="1.0" encoding="UTF-8"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n<Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>\n</Relationships>\n`;
+  return zipStored([{ name: "[Content_Types].xml", data: te.encode(types) }, { name: "_rels/.rels", data: te.encode(rels) }, { name: "3D/3dmodel.model", data: te.encode(model) }]);
+}
+
+/** One `<object>` of a mesh. The kernel's mesh has its own corners for each face; the file joins the ones at the same place (to a millionth of a mm), so the mesh is one connected piece and the file is smaller. */
+function meshXml(vertices: ArrayLike<number>, triangles: ArrayLike<number>, id: number, name: string): string {
   const v: string[] = [];
   const at = new Map<string, number>();
   const renumber = new Map<number, number>();
@@ -73,8 +86,5 @@ export function threeMfBytes(vertices: ArrayLike<number>, triangles: ArrayLike<n
     const [a, b, c] = [corner(triangles[i]!), corner(triangles[i + 1]!), corner(triangles[i + 2]!)];
     if (a !== b && b !== c && a !== c) t.push(`<triangle v1="${a}" v2="${b}" v3="${c}"/>`); // (a sliver that has become a line is left out)
   }
-  const model = `<?xml version="1.0" encoding="UTF-8"?>\n<model unit="${units === "in" ? "inch" : "millimeter"}" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n<metadata name="Title">${escape(title)}</metadata>\n<metadata name="Application">CAD</metadata>\n<resources>\n<object id="1" type="model">\n<mesh>\n<vertices>\n${v.join("\n")}\n</vertices>\n<triangles>\n${t.join("\n")}\n</triangles>\n</mesh>\n</object>\n</resources>\n<build>\n<item objectid="1"/>\n</build>\n</model>\n`;
-  const types = `<?xml version="1.0" encoding="UTF-8"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\n<Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>\n</Types>\n`;
-  const rels = `<?xml version="1.0" encoding="UTF-8"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n<Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>\n</Relationships>\n`;
-  return zipStored([{ name: "[Content_Types].xml", data: te.encode(types) }, { name: "_rels/.rels", data: te.encode(rels) }, { name: "3D/3dmodel.model", data: te.encode(model) }]);
+  return `<object id="${id}"${name ? ` name="${escape(name)}"` : ""} type="model">\n<mesh>\n<vertices>\n${v.join("\n")}\n</vertices>\n<triangles>\n${t.join("\n")}\n</triangles>\n</mesh>\n</object>`;
 }

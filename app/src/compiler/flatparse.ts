@@ -40,8 +40,54 @@ const pieceCount = (n: number): string | null => (n > MAX_PIECES ? `this drawing
 const DXF_UNITS: Record<number, number> = { 0: 1, 1: 25.4, 2: 304.8, 4: 1, 5: 10, 6: 1000, 8: 0.0000254, 9: 0.0254, 10: 914.4, 13: 0.001, 14: 100, 15: 10000 };
 
 /** Pieces of an ASCII DXF: LINE, CIRCLE, ARC, LWPOLYLINE and POLYLINE (with bulges), ELLIPSE and SPLINE (flattened); in the file's own units turned into millimetres. Blocks, inserts, text, hatches and 3D entities are left out and said. */
+/** The kind of value a group code carries in a binary DXF (the same ranges as in the ASCII file's documentation): a string ends with a zero byte, the others are 2, 4 or 8 byte numbers or one byte. */
+const binaryKind = (c: number): "str" | "f64" | "i16" | "i32" | "i64" | "u8" | "chunk" => {
+  if (c <= 9 || (c >= 100 && c <= 102) || c === 105 || (c >= 300 && c <= 309) || (c >= 320 && c <= 369) || (c >= 390 && c <= 399) || (c >= 410 && c <= 419) || (c >= 430 && c <= 439) || (c >= 470 && c <= 481) || c === 999 || (c >= 1000 && c <= 1009)) return "str";
+  if ((c >= 10 && c <= 59) || (c >= 110 && c <= 149) || (c >= 210 && c <= 239) || (c >= 460 && c <= 469) || (c >= 1010 && c <= 1059)) return "f64";
+  if ((c >= 60 && c <= 79) || (c >= 170 && c <= 179) || (c >= 270 && c <= 289) || (c >= 370 && c <= 389) || (c >= 400 && c <= 409) || (c >= 1060 && c <= 1070)) return "i16";
+  if ((c >= 90 && c <= 99) || (c >= 420 && c <= 429) || (c >= 440 && c <= 459) || c === 1071) return "i32";
+  if (c >= 160 && c <= 169) return "i64";
+  if (c >= 290 && c <= 299) return "u8";
+  if (c >= 310 && c <= 319) return "chunk";
+  return "i16";
+};
+
+/** The ASCII DXF text of a binary DXF file (the 22 byte sentinel `AutoCAD Binary DXF`, then group codes and values), so that one reader reads both; or why the file cannot be read. */
+export function binaryDxfText(bytes: Uint8Array): { ok: true; text: string } | { ok: false; error: string } {
+  const head = new TextDecoder("latin1").decode(bytes.subarray(0, 18));
+  if (head !== "AutoCAD Binary DXF") return { ok: false, error: "this is not a binary DXF file" };
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const out: string[] = [];
+  const cut = { ok: false as const, error: "this binary DXF file is cut short (it ends in the middle of a value)" };
+  const have = (at: number, n: number): boolean => at + n <= bytes.length;
+  // the version (header variable $ACADVER, "AC1009" is R12) says how a group code is written: R12 one byte (255 and then two bytes for the big ones), R13 and later always two bytes
+  const first = new TextDecoder("latin1").decode(bytes.subarray(22, Math.min(bytes.length, 1024)));
+  const ver = /\$ACADVER\0[\s\S]{1,2}(AC\d{4})/.exec(first)?.[1] ?? "AC1009";
+  const text = new TextDecoder(ver >= "AC1021" ? "utf-8" : "latin1"); // (strings are UTF-8 from 2007 on, else the file's code page: Latin-1 stands for it)
+  let at = 22;
+  while (at < bytes.length) {
+    let code: number;
+    if (ver > "AC1009") { if (!have(at, 2)) return cut; code = view.getUint16(at, true); at += 2; }
+    else { code = bytes[at++]!; if (code === 255) { if (!have(at, 2)) return cut; code = view.getUint16(at, true); at += 2; } }
+    const kind = binaryKind(code);
+    let value: string;
+    if (kind === "str") {
+      let end = at; while (end < bytes.length && bytes[end] !== 0) end++;
+      if (end >= bytes.length) return cut;
+      value = text.decode(bytes.subarray(at, end)); at = end + 1;
+    } else if (kind === "f64") { if (!have(at, 8)) return cut; value = String(view.getFloat64(at, true)); at += 8; }
+    else if (kind === "i16") { if (!have(at, 2)) return cut; value = String(view.getInt16(at, true)); at += 2; }
+    else if (kind === "i32") { if (!have(at, 4)) return cut; value = String(view.getInt32(at, true)); at += 4; }
+    else if (kind === "i64") { if (!have(at, 8)) return cut; value = String(view.getBigInt64(at, true)); at += 8; }
+    else if (kind === "u8") { if (!have(at, 1)) return cut; value = String(bytes[at]); at += 1; }
+    else { if (!have(at, 1)) return cut; const n = bytes[at]!; at += 1; if (!have(at, n)) return cut; value = [...bytes.subarray(at, at + n)].map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase(); at += n; }
+    out.push(String(code), value);
+  }
+  return { ok: true, text: out.join("\n") + "\n" };
+}
+
 export function parseDxf(text: string, opts: { unitMm?: number } = {}): Parsed {
-  if (/^AutoCAD Binary DXF/.test(text)) return { ok: false, error: "this is a binary DXF: save it as an ASCII DXF and import that" };
+  if (/^AutoCAD Binary DXF/.test(text)) return { ok: false, error: "this is a binary DXF: it is read from the file's bytes (Import), not from text" };
   const lines = text.split(/\r?\n/);
   const pairs: [number, string][] = [];
   for (let i = 0; i + 1 < lines.length; i += 2) { const code = Number(lines[i]!.trim()); if (!Number.isFinite(code)) return { ok: false, error: "this is not a DXF file (the pairs of lines are not group codes and values)" }; pairs.push([code, lines[i + 1]!.trim()]); }
@@ -52,21 +98,65 @@ export function parseDxf(text: string, opts: { unitMm?: number } = {}): Parsed {
   // the entities section only
   const start = pairs.findIndex(([c, v], i) => c === 0 && v === "SECTION" && pairs[i + 1]?.[0] === 2 && pairs[i + 1]?.[1] === "ENTITIES");
   if (start < 0) return { ok: false, error: "this DXF has no ENTITIES section" };
-  const ents: { type: string; g: [number, string][] }[] = [];
+  type Ent = { type: string; g: [number, string][] };
+  const ents: Ent[] = [];
   for (let i = start + 2; i < pairs.length; i++) {
     const [c, v] = pairs[i]!;
     if (c === 0 && v === "ENDSEC") break;
     if (c === 0) ents.push({ type: v, g: [] }); else ents.at(-1)?.g.push([c, v]);
   }
+  // blocks (BLOCKS section): each with the base point the inserts put at their own point
+  const blocks = new Map<string, { base: V2; ents: Ent[] }>();
+  const bstart = pairs.findIndex(([c, v], i) => c === 0 && v === "SECTION" && pairs[i + 1]?.[0] === 2 && pairs[i + 1]?.[1] === "BLOCKS");
+  if (bstart >= 0) {
+    let cur: { name: string; base: V2; ents: Ent[] } | null = null;
+    let head: Ent | null = null;
+    for (let i = bstart + 2; i < pairs.length; i++) {
+      const [c, v] = pairs[i]!;
+      if (c === 0 && v === "ENDSEC") break;
+      if (c === 0 && v === "BLOCK") { head = { type: v, g: [] }; cur = null; continue; }
+      if (c === 0 && v === "ENDBLK") { if (cur) blocks.set(cur.name, cur); cur = null; head = null; continue; }
+      if (head && !cur) {
+        if (c === 0) { cur = { name: String(head.g.find(([k]) => k === 2)?.[1] ?? ""), base: [Number(head.g.find(([k]) => k === 10)?.[1] ?? 0), Number(head.g.find(([k]) => k === 20)?.[1] ?? 0)], ents: [] }; cur.ents.push({ type: v, g: [] }); }
+        else head.g.push([c, v]);
+      } else if (cur) { if (c === 0) cur.ents.push({ type: v, g: [] }); else cur.ents.at(-1)?.g.push([c, v]); }
+    }
+  }
+  // layers that are switched off or frozen (the LAYER table: 70 bit 1 is frozen, a negative colour 62 is off): what is on them is not drawn, so it is not imported
+  const hiddenLayers = new Set<string>();
+  for (let i = 0; i < pairs.length; i++) {
+    if (pairs[i]![0] !== 0 || pairs[i]![1] !== "LAYER") continue;
+    let [name, flags, color] = ["", 0, 1];
+    for (let j = i + 1; j < pairs.length && pairs[j]![0] !== 0; j++) { const [c, v] = pairs[j]!; if (c === 2) name = v; else if (c === 70) flags = Number(v); else if (c === 62) color = Number(v); }
+    if (name && ((flags & 1) === 1 || color < 0)) hiddenLayers.add(name);
+  }
   const notes: string[] = [];
-  const pieces: Piece[] = [];
   const left: Record<string, number> = {};
   const S = (p: V2): V2 => [p[0] * unit, p[1] * unit];
   const num = (e: { g: [number, string][] }, code: number, d = 0): number => { const f = e.g.find(([c]) => c === code); return f ? Number(f[1]) : d; };
   const all = (e: { g: [number, string][] }, code: number): number[] => e.g.filter(([c]) => c === code).map(([, v]) => Number(v));
-  let flattened = 0;
-  for (let i = 0; i < ents.length; i++) {
-    const e = ents[i]!;
+  void all;
+  let flattened = 0, hidden = 0, placed = 0;
+  /** A piece moved by a matrix (a b c d e f, x' = a x + c y + e): arcs and circles stay so under a turn, a mirror and an even scale; under an uneven scale they would be ellipses, so they are flattened into short lines. */
+  const mapPiece = (pc: Piece, m: M): Piece[] => {
+    const [u, w] = [Math.hypot(m[0], m[1]), Math.hypot(m[2], m[3])];
+    const similar = Math.abs(u - w) < 1e-9 * Math.max(u, w, 1) && Math.abs(m[0] * m[2] + m[1] * m[3]) < 1e-9 * Math.max(u * w, 1);
+    const ap = (p: V2): V2 => apply(m, p);
+    if (pc.k === "seg") return [{ k: "seg", p: ap(pc.p), q: ap(pc.q) }];
+    if (similar) return pc.k === "circle" ? [{ k: "circle", c: ap(pc.c), r: pc.r * u }] : [{ k: "arc", c: ap(pc.c), r: pc.r * u, p: ap(pc.p), q: ap(pc.q), ccw: m[0] * m[3] - m[1] * m[2] > 0 ? pc.ccw : !pc.ccw }];
+    flattened++;
+    const [a0, a1] = pc.k === "circle" ? [0, TAU] : [Math.atan2(pc.p[1] - pc.c[1], pc.p[0] - pc.c[0]), Math.atan2(pc.q[1] - pc.c[1], pc.q[0] - pc.c[0])];
+    let sweep = a1 - a0;
+    if (pc.k === "circle") sweep = TAU; else if (pc.ccw) { while (sweep <= 1e-12) sweep += TAU; } else { while (sweep >= -1e-12) sweep -= TAU; }
+    const n = Math.max(12, Math.min(720, Math.ceil(Math.abs(sweep) / (2 * Math.acos(Math.max(0, 1 - 0.01 / Math.max(pc.r * Math.max(u, w), 0.02)))))));
+    const pts = Array.from({ length: n + 1 }, (_, i) => ap([pc.c[0] + pc.r * Math.cos(a0 + (sweep * i) / n), pc.c[1] + pc.r * Math.sin(a0 + (sweep * i) / n)]));
+    return polyline(pts, pc.k === "circle");
+  };
+  const emit = (list: Ent[], depth: number): Piece[] => {
+  const pieces: Piece[] = [];
+  for (let i = 0; i < list.length; i++) {
+    const e = list[i]!;
+    if (hiddenLayers.size && hiddenLayers.has(String(e.g.find(([c]) => c === 8)?.[1] ?? ""))) { if (e.type !== "VERTEX" && e.type !== "SEQEND") hidden++; continue; }
     if (e.type === "LINE") { const [p, q] = [S([num(e, 10), num(e, 20)]), S([num(e, 11), num(e, 21)])]; if (Math.hypot(p[0] - q[0], p[1] - q[1]) > 1e-9) pieces.push({ k: "seg", p, q }); }
     else if (e.type === "CIRCLE") pieces.push({ k: "circle", c: S([num(e, 10), num(e, 20)]), r: num(e, 40) * unit });
     else if (e.type === "ARC") {
@@ -82,11 +172,11 @@ export function parseDxf(text: string, opts: { unitMm?: number } = {}): Parsed {
     } else if (e.type === "POLYLINE") {
       const verts: { p: V2; b: number }[] = [];
       let j = i + 1;
-      while (j < ents.length && ents[j]!.type === "VERTEX") { verts.push({ p: S([num(ents[j]!, 10), num(ents[j]!, 20)]), b: num(ents[j]!, 42) }); j++; }
+      while (j < list.length && list[j]!.type === "VERTEX") { verts.push({ p: S([num(list[j]!, 10), num(list[j]!, 20)]), b: num(list[j]!, 42) }); j++; }
       const closed = (num(e, 70) & 1) === 1;
       const n = closed ? verts.length : verts.length - 1;
       for (let k = 0; k < n; k++) pieces.push(bulgeArc(verts[k]!.p, verts[(k + 1) % verts.length]!.p, verts[k]!.b));
-      i = j - (ents[j]?.type === "SEQEND" ? 0 : 1);
+      i = j - (list[j]?.type === "SEQEND" ? 0 : 1);
     } else if (e.type === "VERTEX" || e.type === "SEQEND") continue;
     else if (e.type === "ELLIPSE") {
       const [c, major, ratio, t0, t1] = [S([num(e, 10), num(e, 20)]), S([num(e, 11), num(e, 21)]), num(e, 40, 1), num(e, 41, 0), num(e, 42, TAU)];
@@ -96,12 +186,39 @@ export function parseDxf(text: string, opts: { unitMm?: number } = {}): Parsed {
     } else if (e.type === "SPLINE") {
       const pts = splinePoints(e.g, unit);
       if (pts) { pieces.push(...polyline(pts, false)); flattened++; } else left.SPLINE = (left.SPLINE ?? 0) + 1;
-    } else left[e.type] = (left[e.type] ?? 0) + 1;
+    }
+    else if (e.type === "INSERT") {
+      const def = blocks.get(String(e.g.find(([c]) => c === 2)?.[1] ?? ""));
+      const [cols, rows] = [Math.max(1, Math.round(num(e, 70, 1))), Math.max(1, Math.round(num(e, 71, 1)))];
+      if (!def) left.INSERT = (left.INSERT ?? 0) + 1;
+      else if (depth >= 8 || cols * rows > 10000) left["INSERT (nested too deep, or an array too large)"] = (left["INSERT (nested too deep, or an array too large)"] ?? 0) + 1;
+      else {
+        const inner = emit(def.ents, depth + 1);
+        const [sx, sy, r] = [num(e, 41, 1), num(e, 42, 1), (num(e, 50) * Math.PI) / 180];
+        const [co, si] = [Math.cos(r), Math.sin(r)];
+        const [a, b, c, d] = [co * sx, si * sx, -si * sy, co * sy];
+        const [bx, by] = S(def.base);
+        for (let rr = 0; rr < rows; rr++) for (let cc = 0; cc < cols; cc++) {
+          const off = [cc * num(e, 44), rr * num(e, 45)] as V2; // (spacing is in the insert's own turned frame)
+          const pos = S([num(e, 10) + co * off[0] - si * off[1], num(e, 20) + si * off[0] + co * off[1]]);
+          const m: M = [a, b, c, d, pos[0] - (a * bx + c * by), pos[1] - (b * bx + d * by)];
+          for (const pc of inner) pieces.push(...mapPiece(pc, m));
+          placed++;
+          if (pieces.length > MAX_PIECES) break;
+        }
+      }
+    }
+    else left[e.type] = (left[e.type] ?? 0) + 1;
     if (pieces.length > MAX_PIECES) break;
   }
+  return pieces;
+  };
+  const pieces = emit(ents, 0);
   const big = pieceCount(pieces.length);
   if (big) return { ok: false, error: big };
   if (flattened) notes.push(`${flattened} curve${flattened === 1 ? "" : "s"} (ellipses, splines) turned into short lines: the app has no such curves yet`);
+  if (placed) notes.push(`${placed} block insert${placed === 1 ? "" : "s"} placed where the file puts ${placed === 1 ? "it" : "them"}`);
+  if (hidden) notes.push(`${hidden} piece${hidden === 1 ? "" : "s"} on switched-off or frozen layers left out`);
   const skipped = Object.entries(left).map(([k, n]) => `${n} ${k}`).join(", ");
   if (skipped) notes.push(`left out: ${skipped}`);
   if (opts.unitMm) unit = opts.unitMm;
@@ -198,17 +315,31 @@ export function parseSvg(text: string, opts: { unitMm?: number } = {}): Parsed {
   const pieces: Piece[] = [];
   const left: Record<string, number> = {};
   let flattened = 0;
-  const stack: { name: string; m: M; skip: boolean }[] = [];
   let unit = 25.4 / 96;
-  for (const tag of text.matchAll(/<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<!\w[^>]*>|<(\/?)([\w:-]+)((?:[^>"']|"[^"]*"|'[^']*')*?)(\/?)>/g)) {
+  const byId = (id: string): string | null => { // the text of the element with this id (its whole extent, children included), for <use>
+    const open = new RegExp(`<([\\w:-]+)\\b[^>]*\\bid\\s*=\\s*(?:"${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"|'${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}')[^>]*>`).exec(text);
+    if (!open) return null;
+    if (open[0].endsWith("/>")) return open[0];
+    const tagName = open[1]!;
+    let depth = 1;
+    for (const t of text.slice(open.index + open[0].length).matchAll(new RegExp(`<(/?)${tagName}\\b[^>]*?(/?)>`, "g"))) {
+      if (t[1] === "/") depth--; else if (t[2] !== "/") depth++;
+      if (depth === 0) return text.slice(open.index, open.index + open[0].length + t.index! + t[0].length);
+    }
+    return null;
+  };
+  let uses = 0;
+  const walk = (src: string, base: M, depth: number): void => {
+  const stack: { name: string; m: M; skip: boolean }[] = [];
+  for (const tag of src.matchAll(/<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<!\w[^>]*>|<(\/?)([\w:-]+)((?:[^>"']|"[^"]*"|'[^']*')*?)(\/?)>/g)) {
     if (tag[2] === undefined) continue;
     const [closing, name, rest, selfClose] = [tag[1] === "/", tag[2].toLowerCase().replace(/^svg:/, ""), tag[3] ?? "", tag[4] === "/"];
     if (closing) { stack.pop(); continue; }
     const at = attrsOf(rest);
     const parent = stack.at(-1);
-    let m = parent ? parent.m : I;
+    let m = parent ? parent.m : base;
     let skip = parent?.skip ?? false;
-    if (name === "svg" && !parent) {
+    if (name === "svg" && !parent && depth === 0) {
       const [w, h] = [lengthMm(at.width), lengthMm(at.height)];
       const vb = nums(at.viewBox ?? "");
       if (vb.length === 4 && w && h && vb[2]! > 0 && vb[3]! > 0) unit = Math.min(w / vb[2]!, h / vb[3]!);
@@ -217,8 +348,9 @@ export function parseSvg(text: string, opts: { unitMm?: number } = {}): Parsed {
     }
     if (["defs", "clippath", "mask", "symbol", "pattern", "marker", "style", "script", "title", "desc", "metadata", "text", "image", "foreignobject"].includes(name)) { skip = true; if (["text", "image"].includes(name)) left[name] = (left[name] ?? 0) + 1; }
     if (at.transform) m = mul(m, transformOf(at.transform));
+    if (at.display === "none" || /display\s*:\s*none/i.test(at.style ?? "") || at.visibility === "hidden" || /visibility\s*:\s*hidden/i.test(at.style ?? "")) skip = true; // (hidden: the element and everything in it)
     if (!selfClose) stack.push({ name, m, skip });
-    if (skip || at.display === "none") continue;
+    if (skip) continue;
     const f = (k: string): number => Number(at[k] ?? 0) || 0;
     // user space to millimetres, y up: a scale and a turn over of y, after the element's own transform
     const to: M = mul([unit, 0, 0, -unit, 0, 0], m);
@@ -253,9 +385,21 @@ export function parseSvg(text: string, opts: { unitMm?: number } = {}): Parsed {
       const r = pathPieces(at.d ?? "", to, sim, flip, scaleBy);
       pieces.push(...r.pieces);
       flattened += r.flattened;
-    } else if (name === "use") left.use = (left.use ?? 0) + 1;
+    } else if (name === "use") {
+      // a copy of another element (or a symbol's content), at x and y further, under the use's own transform
+      const id = (at.href ?? at["xlink:href"] ?? "").replace(/^#/, "");
+      const target = id && depth < 8 && ++uses <= 2000 ? byId(id) : null; // (a use of a use of a use… is bounded in depth and in how many are followed)
+      if (!target) left.use = (left.use ?? 0) + 1;
+      else {
+        const inner = /^<symbol\b/i.test(target) ? target.replace(/^<symbol\b[^>]*>/i, "").replace(/<\/symbol>\s*$/i, "") : target;
+        walk(inner.replace(/\bid\s*=\s*("[^"]*"|'[^']*')/, ""), mul(m, [1, 0, 0, 1, f("x"), f("y")]), depth + 1);
+        if (pieces.length > MAX_PIECES) return;
+      }
+    }
     if (pieces.length > MAX_PIECES) break;
   }
+  };
+  walk(text, I, 0);
   const big = pieceCount(pieces.length);
   if (big) return { ok: false, error: big };
   if (flattened) notes.push(`${flattened} curve${flattened === 1 ? "" : "s"} (curves that are not circular arcs) turned into short lines: the app has no such curves yet`);

@@ -1,6 +1,8 @@
 // THROWAWAY prototype: compiles a JSON operation graph into OCCT solids via replicad.
 // Every op runs in a try/catch so one failure is local: independent ops still build,
 // dependents report "upstream failed" (blueprint: failures are non-fatal).
+import { unpack } from "./pack.mjs";
+import { readIgesSolids } from "./igesio.mjs";
 import {
   drawRectangle,
   drawRoundedRectangle,
@@ -120,6 +122,24 @@ export function readStep(text) {
   gc();
   if (!solids.length) throw new Error("this STEP file has no solid bodies in it (only surfaces or curves): the app imports solids");
   solids.forEach((sd, i) => { if (!isValidSolid(sd)) throw new Error(`body ${i + 1} of the STEP file is not a valid solid (it has gaps or folds)`); });
+  return solids;
+}
+
+/** The solids in the text of a BREP file (OpenCASCADE's own format, also what FreeCAD keeps its shapes in), or in several, joined by a NUL: BREP has no unit, so the numbers are millimetres. Each is checked. Throws with the reason when there is none or one is not valid. */
+export function readBrep(text) {
+  const oc = getOC();
+  const [r, gc] = localGC();
+  const solids = [];
+  let bad = 0;
+  for (const part of String(text).split("\0")) {
+    if (!part.trim()) continue;
+    let shape;
+    try { const raw = oc.BRepToolsWrapper.Read(part); if (raw.IsNull()) throw new Error("null"); shape = cast(r(raw)); } catch { bad++; continue; }
+    solids.push(...(shape.solids ?? []));
+  }
+  gc();
+  if (!solids.length) throw new Error(bad ? "this BREP data could not be read (it may be damaged)" : "this BREP data has no solid bodies in it (only surfaces or curves): the app imports solids");
+  solids.forEach((sd, i) => { if (!isValidSolid(sd)) throw new Error(`body ${i + 1} of the BREP data is not a valid solid (it has gaps or folds)`); });
   return solids;
 }
 
@@ -648,7 +668,7 @@ const OPS = {
       // a worm wheel (`op.matched`): only its two end faces are named by their roles; its thousand flank faces get the names of new faces (the gear is one feature, `dec_gear_feature`, and the roles of a thousand sides cost 1 s of a 100 tooth wheel: a box for each side, every face looked against every box)
       if (ctx.roleFigs) { try { ctx.roleFigs.set(key, op.matched ? loftRoles([0, ids.length - 1].map((k) => ({ ends: edgeEnds(sk[k]), sides: [] })), key === "main", false, true) : loftRoles(ids.map((id, k) => ({ ends: edgeEnds(sk[k]), sides: ctx.get(id, "sketch").sides })), key === "main", !!op.smooth)); } catch { ctx.roleFigs.set(key, []); } } // (the roles of its faces by the sketches' own edges, read before they are used up: `dec_stable_reference_mechanism`)
       // sections that are known to match edge for edge (a worm wheel's: one gap turned, `op.matched`) need not be checked for it: that check is the larger half of the loft's time (100 teeth: 7.3 s to 3.7 s, the same solid to every digit)
-      const made = as.matched && as.smooth ? matchedLoft(sk) : sk[0].loftWith(sk.slice(1), { ruled: !as.smooth });
+      const made = as.matched && as.smooth ? matchedLoft(sk) : as.maxDegree && as.smooth ? limitedLoft(sk, as.maxDegree) : sk[0].loftWith(sk.slice(1), { ruled: !as.smooth });
       // a smooth loft through many sections can leave an edge whose 3D curve and whose curves on its two faces do not run at the same pace; the validity check refuses the whole solid for that (a wheel of 24 teeth was refused, one of 40 was not), though the
       // solid is whole and has the same volume to every digit. Making the edges run at the same pace again (`BRepLib.SameParameter`) is what the check asks for.
       if (op.smooth) getOC().BRepLib.SameParameter(made.wrapped, 1e-5, false);
@@ -675,7 +695,7 @@ const OPS = {
 
   /** The solids of a STEP file, as bodies of their own beside the ones already there (`dec_import`): read here, on this thread, from the text kept in the step. A file with no solid in it (only surfaces or curves) is refused with that. */
   import(op, ctx) {
-    return importedSolids(op, ctx, placedSolids(readStep(String(op.data)), op));
+    return importedSolids(op, ctx, placedSolids(op.format === "brep" ? readBrep(unpack(op.data)) : op.format === "iges" ? readIgesSolids(unpack(op.data), isValidSolid) : readStep(unpack(op.data)), op));
   },
   /** The closed meshes of a step (`dec_import_mesh`): each is sewn into a solid whose faces are its triangles, the flat ones that lie in one plane joined, as a body of its own beside the ones already there. */
   importMesh(op, ctx) {
@@ -1017,6 +1037,21 @@ const OPS = {
   cropBox(op, ctx) {
     const t = ctx.get(op.target, "solid").shape;
     return { kind: "solid", shape: t.intersect(makeBox(op.min, op.max)) };
+  },
+
+  /**
+   * The bodies of chains that were made apart, standing beside each other (`dec_gear_islands`): the target's and each of `others`'. What a gear is made of is its own numbers, so its steps are a chain of their own and do not depend on the gears before it
+   * (deleting or changing one gear did not make the next ones again); here they meet. A chain that failed is left out (its own step says why). Nothing is worked out: the solids are put in one compound.
+   */
+  join(op, ctx) {
+    const solids = [];
+    for (const id of [op.target, ...(op.others ?? [])]) {
+      let v;
+      try { v = ctx.peek(id, "solid"); } catch { continue; }
+      solids.push(...(v.shape.solids ?? [v.shape]));
+    }
+    if (!solids.length) throw new Error("none of the chains that were to be joined has a body");
+    return { kind: "solid", shape: solids.length === 1 ? solids[0] : makeCompound(solids), checked: true, noCross: true };
   },
 
   /** Delete the whole body: later steps start a new one. */
@@ -1529,7 +1564,7 @@ function keptBoolean(kind, lumps, tool, make) {
 /**
  * Whether two shapes are certainly apart: their surfaces meet nowhere (no point or curve of one is on the other), and neither lies in the box of the other so that one could be inside the other. Exact where it says yes; any doubt (touching,
  * a failed section, a box inside a box) says no and the real boolean is made. A figure drawn beside a body in the open, or over it with clearance (an arm round a pin), is apart: the boolean would give the two as they stand, and costs
- * as much as the whole body has faces (`in_1011`).
+ * as much as the whole body has faces (`in_1064`).
  */
 const apartKept = new Map();
 let apartOk = false; // (set while a marked preview of an extrusion is made: the made shape then has the pieces beside each other, whose edges are not those the boolean leaves, so a step made for good is not given it)
@@ -2447,7 +2482,7 @@ const LOCAL = {
   cylDraft: (op) => [op.ref?.center],
   edgeMod: (op) => [].concat(op.ref ?? []).map((r) => r.mid),
 };
-// a preview of an extrusion (`in_1011`) may leave out the boolean for a figure that is apart from the bodies it is near
+// a preview of an extrusion (`in_1064`) may leave out the boolean for a figure that is apart from the bodies it is near
 {
   const extrude0 = OPS.extrude;
   OPS.extrude = (op, ctx) => { apartOk = !!op.preview; try { return extrude0(op, ctx); } finally { apartOk = false; } };
@@ -2505,7 +2540,7 @@ export function compile(graph, quick = false) {
   const pj = JSON.stringify([params, !!graph.names]);
   for (const op of graph.ops) {
     const t0 = performance.now();
-    const key = fingerprint(JSON.stringify([op, pj, [op.target, op.profile, ...(op.holes ?? []), ...(op.also ?? []).flatMap((f) => [f.profile, ...f.holes]), ...(op.sections ?? []).flatMap((s) => [s.profile, ...(s.holes ?? [])])].map((d) => (d ? keys.get(d) ?? null : null))]));
+    const key = fingerprint(JSON.stringify([op, pj, [op.target, op.profile, ...(op.holes ?? []), ...(op.others ?? []), ...(op.also ?? []).flatMap((f) => [f.profile, ...f.holes]), ...(op.sections ?? []).flatMap((s) => [s.profile, ...(s.holes ?? [])])].map((d) => (d ? keys.get(d) ?? null : null))]));
     keys.set(op.id, key);
     const kept = memo.get(key);
     if (kept && !(kept.unchecked && !quick)) {
@@ -2527,11 +2562,13 @@ export function compile(graph, quick = false) {
         // which bodies the result has, by the markers of the body it was made from (moved with it if this was a move)
         const from = op.target ? results.get(op.target)?.value : null;
         let prev = value.tf ? moveMarkers(from?.markers ?? [], value.tf) : from?.markers ?? [];
+        const extras = (op.others ?? []).map((id) => results.get(id)).filter((r) => r && !r.error && r.value.kind === "solid").map((r) => r.value); // (a join: the bodies of the other chains keep their names and their faces' names)
+        if (extras.length) prev = [...prev, ...extras.flatMap((v) => v.markers ?? [])];
         if (value.first) prev = [...prev.filter((m) => m.id === value.first), ...prev.filter((m) => m.id !== value.first)]; // (the body that stays keeps its name when bodies are combined)
         const tM = performance.now();
         value.markers = trackBodies(prev, value.shape, op.id);
         markMs = performance.now() - tM;
-        if (graph.names) { const named = nameFaces(from?.faceNames, value.tf, value.shape, op.id, (op.type === "extrude" || op.type === "revolve" || op.type === "loft" || op.type === "sweep") && ctx.roleFigs ? [...ctx.roleFigs.values()].flat() : op.type === "edgeMod" ? edgeRoles(op, from?.edgeNames) : null); value.faceNames = named.faces; Object.defineProperty(value, "edgeNames", { get: () => named.edges, enumerable: true, configurable: true }); } // (the names of the flat faces, carried from the body it was made from)
+        if (graph.names) { const named = nameFaces(extras.length ? [...(from?.faceNames ?? []), ...extras.flatMap((v) => v.faceNames ?? [])] : from?.faceNames, value.tf, value.shape, op.id, (op.type === "extrude" || op.type === "revolve" || op.type === "loft" || op.type === "sweep") && ctx.roleFigs ? [...ctx.roleFigs.values()].flat() : op.type === "edgeMod" ? edgeRoles(op, from?.edgeNames) : null); value.faceNames = named.faces; Object.defineProperty(value, "edgeNames", { get: () => named.edges, enumerable: true, configurable: true }); } // (the names of the flat faces, carried from the body it was made from)
       }
       const rigid = op.type === "transform" && (op.mode === "move" || op.mode === "rotate"); // (moving a valid body cannot make it invalid: the check is skipped, it costs as much as the move)
       const tC = performance.now();
@@ -2561,6 +2598,17 @@ export function finalSolid(graph, results) {
   return null;
 }
 
+/** A smooth loft whose surfaces are of at most this degree (`op.maxDegree`): the kernel's own goes up to a degree one under the number of sections, and a boolean with a surface of degree six takes four times as long as with one of degree three (a spiral bevel ring gear of 42 teeth: 40 s to 16 s, the same fit, `in_988`). */
+function limitedLoft(sk, maxDegree) {
+  const oc = getOC();
+  const b = new oc.BRepOffsetAPI_ThruSections(true, false, 1e-6);
+  try {
+    b.SetMaxDegree(maxDegree);
+    for (const s of sk) b.AddWire(s.wire.wrapped);
+    b.Build();
+    return cast(b.Shape());
+  } finally { b.delete(); }
+}
 export function volume(shape) {
   return measureVolume(shape);
 }

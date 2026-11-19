@@ -141,3 +141,46 @@ test("a previewed hole can be picked up and moved: it stays where it was put unt
   assert.equal(moved.places.length, base.places.length);
   assert.equal(moved.spots[2]!.centre[0], 50, "the cut is made at the moved place too");
 });
+
+import { rowOf, nearestOnLine } from "../src/interaction/holemove.ts";
+test("a hole moved by hand snaps to the line it is meant to be on when the pointer is near it, and is free when it is not (`in_1012`)", () => {
+  const s = block();
+  const base = plan(s, vals({ place: "outline", by: "count", value: "6", corners: "ignore", offset: "10" }));
+  const i = 1;
+  const row = rowOf(base, i);
+  assert.equal(row, 0, "the one line round the face");
+  const c = base.spots[i]!.centre;
+  // the pointer's ray comes down on the face 2 mm from the line, and 25 mm from it
+  const onLine = (extra: number): [number, number] => { const q = nearestOnLine(base.guide[0]!, [c[0] + extra, c[1] + extra, c[2]]).at; return [q[0] + extra, q[1] + extra]; };
+  const [nx, ny] = onLine(2);
+  const near = dragTarget(base, i, { o: [nx, ny, 100], d: [0, 0, -1] }, { row, mm: 6 });
+  assert.ok(near && nearestOnLine(base.guide[0]!, near).dist < 1e-6, "snapped onto the line");
+  const [fx, fy] = onLine(25);
+  const far = dragTarget(base, i, { o: [fx, fy, 100], d: [0, 0, -1] }, { row, mm: 6 });
+  assert.ok(far && Math.abs(far[0] - fx) < 1e-9 && Math.abs(far[1] - fy) < 1e-9, "free when the pointer is away from it");
+  const held = dragTarget(base, i, { o: [nx, ny, 100], d: [0, 0, -1] });
+  assert.ok(held && Math.abs(held[0] - nx) < 1e-9, "no snap asked for: free");
+  assert.equal(rowOf(plan(s, vals({ place: "picked" })), 0), -1, "places picked follow no line");
+});
+
+import { movedBy, movedTarget } from "../src/interaction/holemove.ts";
+test("how far a hole is moved by hand is shown along and across its line, and typed distances move it (`in_1051`)", () => {
+  const s = block();
+  const v = vals({ place: "outline", by: "count", value: "6", corners: "ignore", offset: "10" });
+  const base = plan(s, v);
+  const i = 1;
+  const none = movedBy(base, i)!;
+  assert.ok(Math.abs(none.along) < 1e-9 && Math.abs(none.across) < 1e-9, "not moved: nothing");
+  assert.deepEqual(base.base[i], base.spots[i]!.centre);
+  const t = movedTarget(base, i, 3, 2)!;
+  const moved = plan(s, { ...v, moved: { [i]: t } });
+  const m = movedBy(moved, i)!;
+  assert.ok(Math.abs(m.along - 3) < 1e-6 && Math.abs(m.across - 2) < 1e-6, `${m.along} ${m.across}`);
+  assert.deepEqual(moved.base[i]!.map((x) => Math.round(x * 1e6)), base.base[i]!.map((x) => Math.round(x * 1e6)), "where the rules put it does not move with it");
+  // across is toward the inside of the outline: the bottom row (y = 10) moved across 2 stands at y = 12
+  const row0 = plan(s, v).spots[0]!.centre;
+  const inward = plan(s, { ...v, moved: { 0: movedTarget(base, 0, 0, 2)! } }).spots[0]!.centre;
+  assert.ok(Math.hypot(inward[0] - row0[0], inward[1] - row0[1]) > 1.99 && inward[0] >= 0);
+  const back = plan(s, { ...v, moved: {} });
+  assert.deepEqual(back.spots[i]!.centre, base.spots[i]!.centre);
+});

@@ -64,7 +64,8 @@ test("a revolve (a helical gear's twist) is kept like an extrude: an early edit 
   const [built, reused] = [kernelStats.prismsBuilt, kernelStats.prismsReused];
   const edited = run(s, { type: "setGear", id: "g_000", spec: helicalSpec, turn: 0.05 });
   assert.equal(kernelStats.prismsBuilt - built, 1, "the gear that changed is built again, the others are not");
-  assert.ok(kernelStats.prismsReused - reused >= 2, `${kernelStats.prismsReused - reused} kept solids found again`);
+  // (the others' steps are kept whole since each gear has a chain of its own, `dec_gear_islands`: their solids are not even asked for, so no kept solid is "found again" at this level)
+  assert.ok(kernelStats.prismsReused - reused >= 0 && kernelStats.prismsBuilt - built === 1, `${kernelStats.prismsReused - reused} kept solids found again`);
   assert.equal(Object.values(scene(edited).parts).filter((p) => p.kind === "body").length, 3);
 });
 
@@ -100,7 +101,7 @@ test("a worm wheel's loft is kept: an edit to the first of two wheels builds onl
   const s = two();
   const [built, reused] = [kernelStats.prismsBuilt, kernelStats.prismsReused];
   const edited = run(s, { type: "setGear", id: "g_000", spec, turn: 0.05 });
-  assert.equal(kernelStats.prismsBuilt - built, 1, "the wheel that changed is built again");
-  assert.ok(kernelStats.prismsReused - reused >= 1, "the other wheel's solid is found again");
+  assert.equal(kernelStats.prismsBuilt - built, 1, "the wheel that changed is built again, and not the other (its steps are kept whole, `dec_gear_islands`)");
+  assert.ok(kernelStats.prismsReused - reused >= 0);
   assert.equal(Object.values(scene(edited).parts).filter((p) => p.kind === "body").length, 2);
 });

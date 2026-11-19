@@ -16,7 +16,7 @@ import { wormOf, wheelOf } from "./worm.ts";
 import type { WormSpec, WheelSpec } from "./worm.ts";
 import { bevelPoints, bevelLayout, isCrown, bevelOf } from "./bevel.ts";
 import { spiralFor, spiralBody } from "./spiral.ts";
-import { faceFor, faceBody } from "./face.ts";
+import { faceFor, faceBody, pinionWidth } from "./face.ts";
 import { crownOf, crownSection } from "./crown.ts";
 import type { BevelSpec } from "./bevel.ts";
 
@@ -151,6 +151,10 @@ export const hasBody = (spec: GearSpec): boolean => spec.helix !== undefined || 
 export function chamferOf(spec: GearSpec): { depth: number; side: 1 | -1; width: number } | null {
   const c = (spec.chamfer ?? 0) * spec.module;
   if (spec.wheel) return c > 0 ? { depth: c, side: 1, width: spec.wheel.width + 2 * (spec.wheel.land ?? 0) } : null; // (a worm wheel: its throated part and a land at each face, `in_923`)
+  if (spec.bevel?.facegear === "pinion") { // a face gear drive's spur pinion (`dec_bevel_chamfer`): a spur gear of the width of the pair's pinion
+    const f = faceFor(spec);
+    return c > 0 && f.ok ? { depth: c, side: 1, width: pinionWidth(f.value.pair) } : null;
+  }
   const w = spec.width ?? 0;
   if (!(c > 0) || !(w > 0) || spec.rack || spec.pulley || spec.sprocket || spec.cycloidal || spec.worm || spec.bevel) return null;
   return { depth: c, side: spec.internal ? -1 : 1, width: w };
@@ -205,7 +209,7 @@ function bevelOutline(spec: GearSpec): Result<GearOutline> {
     const s0 = body.value.sections[0]!, p = f.value.pair;
     return ok({ points: s0.points, bulges: s0.bulges, pitchRadius: p.R2, baseRadius: p.R2, tipRadius: p.outer, rootRadius: p.inner, warnings: ["a face gear: the tooth is the envelope of its spur pinion's involute, for a pinion at 90 degrees"] });
   }
-  if (spec.bevel?.spiral !== undefined) { // a spiral bevel gear: the pair must make (`spiral.ts`): the outline is the heel's first plane
+  if (spec.bevel?.spiral !== undefined && !isCrown(spec)) { // a spiral bevel gear: the pair must make (`spiral.ts`): the outline is the heel's first plane
     const sp = spiralFor(spec);
     if (!sp.ok) return sp;
     const body = spiralBody(sp.value.pair, sp.value.which);

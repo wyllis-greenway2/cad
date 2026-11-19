@@ -1,5 +1,6 @@
 // The composition root: wires the layers together and nothing else. Device events (platform) become intents (interaction), the controller changes the state,
 // and the view and the menu (ui) draw it. No behaviour decisions live here (`inv_no_logic_in_ui`).
+import { typedLength } from "./shared/units.ts";
 import { createBus } from "./shared/events.ts";
 import type { RawInput } from "./shared/input.ts";
 import type { Intent } from "./shared/input.ts";
@@ -10,7 +11,7 @@ import { mateStatus } from "./operation/mates.ts";
 import { createSession, openSession, saveText, run, scene, selection, refresh } from "./interaction/session.ts";
 import type { Session } from "./interaction/session.ts";
 import type { ReceiverValues, ReceiverPlan } from "./interaction/addpart.ts";
-import { pickPlace, dragTarget } from "./interaction/holemove.ts";
+import { pickPlace, dragTarget, rowOf, movedBy, movedTarget } from "./interaction/holemove.ts";
 import { canExport } from "./interaction/exportstl.ts";
 import { canExportFlat } from "./interaction/exportsketch.ts";
 import { laserDialog, runLaser, findingsDialog, machineChoices, machineDialog, startValues, projectMachines, recordCommands, tableRows, rowFrom, tableDialog, layersDialog, layersCommand, whyNoLayers, marksSummary } from "./interaction/manufacture.ts";
@@ -20,6 +21,7 @@ import type { LaserValues } from "./interaction/manufacture.ts";
 import { pathRepeatTarget, pathRepeatDialog, pathRepeatCommand, pathRepeatStart, pathRepeatValuesFor } from "./interaction/pathrepeat.ts";
 import { receiverStart, receiverKinds, receiverSizes, receiverContext, receiverPlan, cutReceiver, makeHolePoints, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
 import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
+import { nameFor } from "./interaction/sniff.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
 import type { ExportOptions } from "./interaction/transfer.ts";
 import type { ImportOptions } from "./interaction/importfile.ts";
@@ -246,7 +248,7 @@ async function restoreLast() {
   const r = await openProjectText(kept.text);
   if (r.ok) { adopt(r.value); say(`restored: ${kept.steps} steps`); } else { openingGhosts = null; state = { ...state, session: { ...state.session, message: r.error } }; dirty = true; }
 }
-/** The boxes of the parts of a project that is being opened, drawn while its commands are replayed (`dec_progressive_open`, `in_1005`); null when nothing is being opened or the project has none. */
+/** The boxes of the parts of a project that is being opened, drawn while its commands are replayed (`dec_progressive_open`, `in_1058`); null when nothing is being opened or the project has none. */
 let openingGhosts: StandIn[] | null = null;
 const nextPaint = () => new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
 /** Open a project's text: a box for each of its parts at once (from the commands alone, in a few milliseconds), the picture drawn, and then the commands are replayed, which takes seconds for a big project and freezes the page while it does. */
@@ -289,7 +291,7 @@ async function exportDialogFlow() {
   const answers = await dialog.open((v) => exportDialog(state.session, v as unknown as ExportOptions), (({ name: _name, ...rest }) => rest)(fitExport(state.session, { ...saved, name: "" })) as unknown as Values); // (the file name is not asked as an answer to begin with: the dialog offers its own)
   if (!answers) return;
   const o = fitExport(state.session, answers as unknown as ExportOptions);
-  webStore.set(EXPORT_KEY, JSON.stringify({ format: o.format, quality: o.quality, what: "all", perBody: o.perBody, name: "" }));
+  webStore.set(EXPORT_KEY, JSON.stringify({ format: o.format, quality: o.quality, what: "all", perBody: o.perBody, joined: o.joined, schema: o.schema, iges: o.iges, name: "" }));
   say(`making the ${FLAT_OR_NOT(o.format)} file…`);
   const r = await exportWith(state.session, engine, o);
   if (!r.ok) return say(r.error);
@@ -319,7 +321,8 @@ let hardware: { values: ReceiverValues } | null = null;
 let holesKey = "";
 let holesNow: { bar: HolePanelView; view: ToolpathView | null } | null = null;
 let holesPlan: ReceiverPlan | null = null; // (the holes the pointer can pick up and move, `in_965`)
-let holesDrag: number | null = null;
+let holesPicked: number | null = null; // (the number in the row of the hole last picked: Delete takes it out, `in_1013`)
+let holesDrag: { index: number; row: number } | null = null; // (the hole picked up and the line it is meant to be on, `in_1012`)
 let holesMovesFor = ""; // (the selection the moved holes belong to)
 let lastHolesScene: ReturnType<typeof scene> | null = null;
 const holeBar = createHolePanel(document.body, {
@@ -328,12 +331,28 @@ const holeBar = createHolePanel(document.body, {
     const before = hardware.values as unknown as Record<string, unknown>;
     const rowKeys = ["by", "value", "ends", "corners", "offset", "shift", "rows", "rowCount", "rowGap"]; // (what makes the row: a hole moved by hand is kept only while it stays)
     const changed = rowKeys.some((k) => k in v && (v as unknown as Record<string, unknown>)[k] !== before[k]);
-    hardware = { values: { ...hardware.values, ...v, ...(changed ? { moved: {} } : {}) } };
+    hardware = { values: { ...hardware.values, ...v, ...(changed ? { moved: {}, removed: [] } : {}) } };
+    if (changed) holesPicked = null;
     holesKey = ""; dirty = true;
   },
   commit() { holesCut(); },
   close() { holesClose(); },
   points() { holesPoints(); },
+  moveBy(along, across) { // the hole picked moved by typed distances from where the rules put it (`in_1051`)
+    if (!hardware || !holesPlan || holesPicked === null) return;
+    const pos = holesPlan.index.indexOf(holesPicked);
+    const [a, c] = [along.trim() === "" ? 0 : typedLength(along), across.trim() === "" ? 0 : typedLength(across)];
+    if (pos < 0 || a === null || c === null) return;
+    const t = movedTarget(holesPlan, pos, a, c);
+    if (t) { hardware = { values: { ...hardware.values, moved: { ...(hardware.values.moved ?? {}), [holesPicked]: t } } }; holesKey = ""; dirty = true; }
+  },
+  putBack() {
+    if (!hardware || holesPicked === null) return;
+    const moved = { ...(hardware.values.moved ?? {}) };
+    delete moved[holesPicked];
+    hardware = { values: { ...hardware.values, moved } };
+    holesKey = ""; dirty = true;
+  },
 });
 function holesOpen(): void {
   if (hardware) return;
@@ -380,20 +399,26 @@ function holesCut(): void {
 function holesOptions(): { bar: HolePanelView; view: ToolpathView | null } {
   const session = state.session;
   const sc = scene(session);
-  const key = `${selection(session).join(",")}|${JSON.stringify(hardware?.values)}`;
+  const key = `${selection(session).join(",")}|${JSON.stringify(hardware?.values)}|${holesPicked}`;
   if (holesNow && key === holesKey && lastHolesScene === sc) return holesNow;
   const { values, mode } = holesValues();
   const sel = selection(session).join(",");
-  if (hardware && holesMovesFor !== sel) { holesMovesFor = sel; if (Object.keys(hardware.values.moved ?? {}).length) hardware = { values: { ...hardware.values, moved: {} } }; } // (another selection: the holes moved by hand are let go)
-  const plan = mode === "none" ? null : receiverPlan(session, { ...values, ...(hardware ? { moved: hardware.values.moved } : {}) });
+  if (hardware && holesMovesFor !== sel) { holesMovesFor = sel; holesPicked = null; if (Object.keys(hardware.values.moved ?? {}).length || (hardware.values.removed ?? []).length) hardware = { values: { ...hardware.values, moved: {}, removed: [] } }; } // (another selection: the holes moved by hand are let go)
+  const plan = mode === "none" ? null : receiverPlan(session, { ...values, ...(hardware ? { moved: hardware.values.moved, removed: hardware.values.removed } : {}) });
   holesPlan = plan?.ok ? plan.value : null;
   const problem = mode !== "none" && plan && !plan.ok ? plan.error : null; // (nothing selected is not an error: it is said in the plain line below)
   const none = receiverContext(session)?.curved ? "Select a line drawn across the round face, or corners and circles on it, for the next holes." : "Select a flat face of a body (or a line drawn on one) for the next holes.";
-  const note = mode === "none" ? none : plan?.ok ? `${plan.value.places.length} hole${plan.value.places.length === 1 ? "" : "s"}${plan.value.spacing !== null ? `, ${Math.round(plan.value.spacing * 100) / 100} mm apart` : ""}${plan.value.auto ? `. Automatic: ${plan.value.auto}` : plan.value.insetUsed !== undefined ? `. The inset is cut down to ${plan.value.insetUsed} mm: the face is too small for ${values.offset} mm` : ""}${plan.value.insert?.screw ? `. Screw ${values.size} x ${plan.value.insert.screw.length} mm: ${plan.value.insert.screw.length > plan.value.insert.screw.room + 1e-9 ? "the shortest standard length that reaches through" : "the longest standard length that fits"} the ${plan.value.insert.screw.room} mm the hole has` : ""}` : "";
+  const note = mode === "none" ? none : plan?.ok ? `${plan.value.places.length} hole${plan.value.places.length === 1 ? "" : "s"}${plan.value.spacing !== null ? `, ${Math.round(plan.value.spacing * 100) / 100} mm apart` : ""}${plan.value.auto ? `. Automatic: ${plan.value.auto}` : plan.value.insetUsed !== undefined ? `. The inset is cut down to ${plan.value.insetUsed} mm: the face is too small for ${values.offset} mm` : ""}${plan.value.depthNote ? `. Depth: ${plan.value.depthNote}` : ""}${plan.value.insert?.screw ? `. Screw ${values.size} x ${plan.value.insert.screw.length} mm: ${plan.value.insert.screw.length > plan.value.insert.screw.room + 1e-9 ? "the shortest standard length that reaches through" : "the longest standard length that fits"} the ${plan.value.insert.screw.room} mm the hole has` : ""}` : "";
   const v = hardware!.values;
+  let pickedInfo: HolePanelView["picked"];
+  if (plan?.ok && holesPicked !== null) { // the hole picked up: how far it is moved from where the rules put it
+    const pos = plan.value.index.indexOf(holesPicked);
+    const mv = pos >= 0 ? movedBy(plan.value, pos) : null;
+    if (mv) { const r2 = (x: number): string => String(Math.round(x * 100) / 100); pickedInfo = { number: holesPicked, along: r2(mv.along), across: r2(mv.across), moved: Math.hypot(mv.along, mv.across) > 1e-6 }; }
+  }
   holesNow = {
-    bar: { kinds: receiverKinds(), sizes: receiverSizes(), values: { kind: v.kind, size: v.size, by: v.by ?? "distance", value: v.value ?? "30", ends: v.ends ?? "fit", corners: v.corners ?? "each", offset: v.offset ?? "10", shift: v.shift ?? "0", depth: v.depth, far: v.far ?? "none", rows: v.rows ?? "auto", rowCount: v.rowCount ?? "1", rowGap: v.rowGap ?? "8", drill: v.drill ?? "", insert: v.insert ?? "none", length: v.length ?? "" }, mode, round: !!receiverContext(session)?.curved, ...(plan?.ok ? { reach: { body: plan.value.reach, stack: plan.value.stack } } : {}), note, problem },
-    view: plan?.ok ? holesView(plan.value) : null,
+    bar: { ...(pickedInfo ? { picked: pickedInfo } : {}), kinds: receiverKinds(), sizes: receiverSizes(), values: { kind: v.kind, size: v.size, by: v.by ?? "distance", value: v.value ?? "30", ends: v.ends ?? "fit", corners: v.corners ?? "each", offset: v.offset ?? "10", shift: v.shift ?? "0", depth: v.depth, far: v.far ?? "none", rows: v.rows ?? "auto", rowCount: v.rowCount ?? "1", rowGap: v.rowGap ?? "8", washer: v.washer ?? "none", drill: v.drill ?? "", insert: v.insert ?? "none", length: v.length ?? "" }, mode, round: !!receiverContext(session)?.curved, ...(plan?.ok ? { reach: { body: plan.value.reach, stack: plan.value.stack } } : {}), note, problem },
+    view: plan?.ok ? holesView(plan.value, holesPicked !== null ? plan.value.index.indexOf(holesPicked) : -1) : null,
   };
   holesKey = key;
   lastHolesScene = sc;
@@ -405,6 +430,11 @@ window.addEventListener("keydown", (e) => {
   const typing = e.target instanceof HTMLInputElement && !holeBar.contains(e.target);
   if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); holesClose(); }
   else if (e.key === "Enter" && !typing) { e.preventDefault(); e.stopPropagation(); holesCut(); }
+  else if ((e.key === "Delete" || e.key === "Backspace") && !typing && holesPicked !== null) { // the hole picked is taken out of the row (not a part of the model)
+    e.preventDefault(); e.stopPropagation();
+    hardware = { values: { ...hardware.values, removed: [...(hardware.values.removed ?? []), holesPicked] } };
+    holesPicked = null; holesKey = ""; dirty = true;
+  }
 }, true);
 /** What a body is made of (`in_565`): a dialog asks for the name, and the selected bodies are tagged with it (one step to undo). */
 async function materialDialogFlow() {
@@ -482,16 +512,30 @@ async function laserTableFlow() {
   webStore.set(LIB_KEY, libraryText(lib));
   say("the row is out of your table");
 }
+// Dropping files on the page imports them, one after the other, each asking its own options (`dec_exchange_gaps`).
+let dropping = false;
+window.addEventListener("dragover", (e) => { if (e.dataTransfer?.types.includes("Files")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } });
+window.addEventListener("drop", (e) => {
+  const files = Array.from(e.dataTransfer?.files ?? []);
+  if (!files.length) return;
+  e.preventDefault();
+  if (dropping) return say("a file is being imported: drop the next one when its dialog is done");
+  dropping = true;
+  void (async () => {
+    try { for (const f of files) await importDialogFlow({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) }); } finally { dropping = false; }
+  })();
+});
 const FLAT_OR_NOT = (f: string): string => (f === "3mf" ? "3MF" : f.toUpperCase());
 /** Import (`dec_import`, `dec_import_mesh`, `dec_import_export_menu`): choose a file, say how it is to come in (units, scale, where), and it is added as one step to undo. */
-async function importDialogFlow() {
-  const picked = await webFiles.pick(IMPORT_KINDS);
+async function importDialogFlow(given?: { name: string; bytes: Uint8Array }) {
+  const picked = given ?? (await webFiles.pick(IMPORT_KINDS));
   if (!picked) return;
-  if (!KIND_OF(picked.name)) return say("the app imports STEP (.step, .stp), STL, 3MF, SVG and DXF files");
-  const answers = await dialog.open((v) => importDialog(picked.name, v as unknown as ImportOptions), { ...IMPORT_DEFAULTS } as unknown as Values);
+  const name = await nameFor(picked.name, picked.bytes, KIND_OF); // (a file with no ending, or a wrong one, is read as what is in it, `dec_exchange_gaps`)
+  if (!KIND_OF(name)) return say(`${picked.name} is not a file the app reads: it imports STEP (.step, .stp), IGES (.igs, .iges), BREP (.brep), FreeCAD (.FCStd), STL, 3MF, OBJ, SVG and DXF`);
+  const answers = await dialog.open((v) => importDialog(name, v as unknown as ImportOptions), { ...IMPORT_DEFAULTS } as unknown as Values);
   if (!answers) return;
-  say(`reading ${picked.name}…`);
-  const r = await importWith(state.session, picked.name, picked.bytes, answers as unknown as ImportOptions);
+  say(`reading ${name}…`);
+  const r = await importWith(state.session, name, picked.bytes, answers as unknown as ImportOptions);
   state = { ...state, session: r.ok ? { ...r.session, message: r.message } : { ...state.session, message: r.error } };
   dirty = true;
 }
@@ -548,20 +592,24 @@ function dispatch(i: Intent, again = false) {
 // which kind of device was used last: a laptop can have a mouse and a touch screen, so it is the event itself that says, not the machine (`in_160`)
 let lastDevice: "mouse" | "touch" | "pen" = "mouse";
 /** A hole of the fastener tool's preview picked up with the pointer and moved over the surface (`in_965`); true when the pointer's event was for it and the view is not to have it. */
-function holesPointer(raw: { kind: string; x?: number; y?: number }): boolean {
+function holesPointer(raw: { kind: string; x?: number; y?: number; mods?: { alt: boolean } }): boolean {
   if (!hardware || !holesPlan || dialog.isOpen) return false;
   const [x, y] = [raw.x ?? 0, raw.y ?? 0];
   const pj = projector(state.cam, view.size().w, view.size().h);
   if (raw.kind === "down") {
     const i = pickPlace(holesPlan, pj.project, x, y);
     if (i < 0) return false;
-    holesDrag = i;
+    holesDrag = { index: i, row: rowOf(holesPlan, i) };
+    holesPicked = holesPlan.index[i] ?? null;
+    holesKey = ""; dirty = true;
     return true;
   }
   if (holesDrag === null) return false;
   if (raw.kind === "move") {
-    const t = dragTarget(holesPlan, holesDrag, pj.ray(x, y));
-    if (t) { hardware = { values: { ...hardware.values, moved: { ...(hardware.values.moved ?? {}), [holesDrag]: t } } }; holesKey = ""; dirty = true; }
+    const mmPerPx = (pj.halfH * 2) / Math.max(1, view.size().h);
+    const snap = holesDrag.row >= 0 && !raw.mods?.alt ? { row: holesDrag.row, mm: 22 * mmPerPx } : undefined; // (drawn to its line within 22 px; Alt holds it free)
+    const t = dragTarget(holesPlan, holesDrag.index, pj.ray(x, y), snap);
+    if (t) { hardware = { values: { ...hardware.values, moved: { ...(hardware.values.moved ?? {}), [holesPlan.index[holesDrag.index] ?? holesDrag.index]: t } } }; holesKey = ""; dirty = true; }
     return true;
   }
   if (raw.kind === "up" || raw.kind === "cancel") { holesDrag = null; return true; }
@@ -637,6 +685,7 @@ function frame(now: number) {
   if (state.session.history !== keptHistory) { keptHistory = state.session.history; const h = state.session.history; autosave.remember(() => saveText(state.session), h.commands.length, (why) => say(why)); } // (a moment after the last change, `in_997`)
   if (drawnAt !== null) { timing.add("browser: from a drawn frame to the next one (commit, the graphics card, the screen's refresh)", tStart - drawnAt); drawnAt = null; }
   if (state.anim || state.flash || state.mixT0 !== null) { state = advance(state, now); dirty = true; }
+  if (state.motion && !state.motion.playing && state.motion.contact?.target != null) { state = { ...state, motion: solveContact(scene(state.session), { ...state.motion, amount: state.motion.contact.target }, state.session.outcome) }; dirty = true; } // (a scrub the time ran out on goes on to where it was asked, a part each frame)
   if (state.motion?.playing) { state = { ...state, motion: solveContact(scene(state.session), tickMotion(state.motion, now), state.session.outcome) }; dirty = true; } // (a joint that is being played: the clock moves it on, and the picture is made again every frame, `dec_mechanism_motion`)
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading || state.flash) {
@@ -666,6 +715,7 @@ function frame(now: number) {
     if (buildStats.runs !== buildsBefore) { timing.add("geometry: built again (buildContent)", buildStats.totalMs); timing.add("geometry: of it the sharp edges (cornerEdges)", buildStats.cornersMs); timing.add("geometry: triangles built", buildStats.triangles); }
     view.setBodyMatrix(f.bodyMatrix, f.selectionMoves, f.bodySplit, f.followers.map((q) => ({ matrix: q.matrix, only: q.split })), f.selectionMatrix);
     view.setHiddenEdges(f.hiddenEdges);
+    view.setBehindPlane(f.behindPlane);
     view.setHighlight(f.highlight, state.cam, now);
     view.setPreview(f.preview, state.cam);
     view.setGizmo(f.gizmo, state.cam);

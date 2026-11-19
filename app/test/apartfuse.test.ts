@@ -1,4 +1,4 @@
-// The picture of an extrusion while its depth is set is made without the boolean when the figure is apart from the bodies it is near (`in_1011`): it must be what the step made for good gives (bodies, volumes, boxes); the step made for good keeps the boolean.
+// The picture of an extrusion while its depth is set is made without the boolean when the figure is apart from the bodies it is near (`in_1064`): it must be what the step made for good gives (bodies, volumes, boxes); the step made for good keeps the boolean.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -24,7 +24,7 @@ const picture = (s: Session) => { const k = s.outcome.kernel!; return (k.bodies 
 const settle = (s: Session) => { assert.ok(s.outcome.kernel && !s.outcome.kernel.stale); return s; };
 const opOf = (s: Session, ref: string): Op => (startOp(scene(s), [ref as never], "extrude") as { op: Op }).op;
 const ARM = "d/loop@arc@e_023.s0@e_019.p0@e_021.p0+e_019.s0+e_021.s0+e_049.s0";
-const arm = () => { const o = openSession(kernel, readFileSync(new URL("./fixtures/arm-clearance-in_1007.cad.json", import.meta.url), "utf8")); assert.ok(o.ok); return o.ok ? o.value : (undefined as never); };
+const arm = () => { const o = openSession(kernel, readFileSync(new URL("./fixtures/arm-clearance-in_1060.cad.json", import.meta.url), "utf8")); assert.ok(o.ok); return o.ok ? o.value : (undefined as never); };
 /** the preview of an op as the page asks for it, and the step made for good */
 const both = (s: Session, op: Op) => ({ preview: previewCommand(s, opCommand(scene(s), op, { preview: true })!), real: runOp(s, op)!.session });
 

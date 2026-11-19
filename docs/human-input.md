@@ -4373,45 +4373,262 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please
 (asks to merge this branch's work into claude/inspiring-pascal-l342k7: the explicit permission to write to that branch for this merge)
 
-## in_1005 — 2026-11-19 — directive
+## in_1005 — 2026-11-19 — question
+> okay what next?
+(asks what to work on next; the AI recommends, the human decides)
+
+## in_1006 — 2026-11-19 — directive
+> do 3 and 4
+(of the AI's list: the spur pinion's chamfer for the face gear drive (3), and a rendering sweep over the whole bevel gear family to look for defects the overlap numbers miss (4))
+
+## in_1007 — 2026-11-19 — question
+> okay so next I think we need to offer more file types on import and export in order to be compatible. What set do you think we should build next?
+(asks which import and export formats to build next for compatibility)
+
+## in_1008 — 2026-11-19 — question
+> okay I agree, but why not allow IGES export? what if somebody wants it in order to work with some older technology? is there a good reason to limit it?
+(agrees with the proposed order (OBJ and binary DXF, then DXF blocks and layers, then IGES) but asks for IGES to be written as well as read, for older systems)
+
+## in_1009 — 2026-11-19 — directive
+> yes, build it please, I will take your recommendations on specifics
+(asks for OBJ and binary DXF, DXF blocks and layers, and IGES both ways to be built, the details left to the AI)
+
+## in_1010 — 2026-11-19 — directive
+> instead of doing a new checkout, why not just merge into claude/inspiring-pascal-l342k7 please?
+(asks for the branch with the kernel build kit, OBJ and the DXF work to be merged into claude/inspiring-pascal-l342k7, so the build can be run from there)
+
+## in_1011 — 2026-11-18 — directive
+> okay the fastener layout is much better, But still seems a little weird on curves, We might want to switch to limited depth on curves to prevent crowding that is actually just long bolts all reaching each other toward the center. In fact we probably shouldn't default to through at all, maybe a certain screw screw length or through if through isn't too far.
+(says the layout is much better but weird on curves: holes should have a limited depth on curves so that long bolts do not reach each other toward the centre; and the default should not be through at all: a certain screw length, or through when through is not too far; a saved model is attached)
+
+## in_1012 — 2026-11-19 — directive
+> We should probably have the movement of the fasteners free hand snap to the line they want to live on in order to help the user.
+(asks for a fastener dragged by hand in the preview to snap to the line it is meant to be on, to help the person)
+
+## in_1013 — 2026-11-19 — directive
+> lets do 4 and 5, I will take your recommendations
+(asks for items 4 and 5 of the list of what is next: washers (the optional washer under the head), and the smaller fastener gaps (points on round faces, adding holes when they are too far apart, moving a hole by typed numbers, deleting a single hole); and takes my recommendations for the numbers listed in item 6 for review)
+
+## in_1014 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for this branch (the washer, taking a hole out, more holes when too far apart, points on round faces, the depth chosen for the part, snapping a moved hole to its line) to be merged into claude/inspiring-pascal-l342k7)
+
+## in_1015 — 2026-11-19 — question
+> are you sure the odd-looking tooth tops are just the involute shape?
+(challenges the AI's claim that the face gear's pinched-looking tooth tops are the involute shape; the AI measured and found it was wrong: a waist, the tooth wider at the tip than below it)
+
+## in_1016 — 2026-11-19 — question
+> okay what should we work on next?
+(asks what to work on next; the AI recommends, the human decides)
+
+
+
+
+## in_1017 — 2026-11-19 — approval
+> okay lets do 1, I will take your reccomendations
+(approves the AI's recommendations for the three open questions of `dec_contact_push`, which the AI then wrote into the entry as answers: spreading depth 3, ghost not built until a case needs it, the rest value a number on the joint, the mesh test for interaction with the exact boolean for the final answer, in steps behind the existing seam)
+
+## in_1018 — 2026-11-19 — directive
+> yes
+(answers the AI's question: start on Keep pose for pivots and contact motions)
+
+## in_1019 — 2026-11-19 — directive
+> okay start on the next item
+(asks for the next item of the agreed order: the depth rule for the contact push)
+
+## in_1020 — 2026-11-19 — directive
+> okay lets work on the still not built stuff
+(asks for the three things still not built for the contact push: the time budget, a settable rest value on a joint, and the switch of the hard bodies' drag to the mesh test)
+
+## in_1021 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for the branch `claude/adoring-dijkstra-contact-rest` to be merged into the testing branch; it carries `dec_contact_push` accepted, Keep pose for a pivot and a pose found by contact, the depth rule, the hard bodies reading the kernel's mesh, the time budget and the settable rest)
+
+## in_1022 — 2026-11-19 — directive
+> okay do 1 2 and 4, I am not so sure we want to split the menu onspiral and hypoid. What exactly is the difference between a spiral and hypoid gear and what are each used for?
+(of the AI's list: do the numeric tooth-width checks on the other gear kinds (1), the spiral crown's browser time (2), and meshed pairs rendered in contact (4); the menu split is not wanted for now; and a question: the difference between a spiral and a hypoid gear and what each is used for)
+
+## in_1023 — 2026-11-19 — question
+> okay so is it all done?
+(asks whether the work of the last plan is finished; the AI answers with what is verified and what is still running)
+
+## in_1024 — 2026-11-19 — directive
+> okay lets put the ISO 23509 on our to do list, we will do it later. So are we pretty sure that the hypoid gears will still work though? Also what do you mean that hypoid is different then spiral bevel because the shafts dont meet? does this mean the cone tips of the extended gear cones wouldn't meet?
+(a directive: ISO 23509 goes on the to-do list for later; and two questions: whether the hypoid gears still work, and whether the pitch cones' apexes of a hypoid pair do not meet)
+
+## in_1025 — 2026-11-19 — directive
+> no need for full suite testing on this one
+(says the full suite is not needed on the merge into the testing branch)
+
+## in_1026 — 2026-11-19 — question
+> it still seems kind of odd for curved surfaces, why does it put one in diagonal corners?
+(asks why the tool puts one hole in each of two diagonal corners on a curved face: a screenshot of the round wall of the lid (R 28.22) with a countersunk hole near each of two opposite corners of the wall, and the saved model)
+
+## in_1027 — 2026-11-19 — directive
+> okay do you want to test it in different situations and see how it performs?
+(asks for the automatic fastener choice to be tried in many different situations to see how it performs)
+
+## in_1028 — 2026-11-19 — directive
+> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
+(asks for this branch to be merged into claude/inspiring-pascal-l342k7 and for further work to be started on a new branch made from the updated testing branch)
+
+## in_1029 — 2026-11-19 — directive
+> can you draw me a picture of how and why this works?
+(asks for a picture of how and why a hypoid gear pair works: the offset axes and cones, and why the teeth mesh; the AI drew a diagram)
+
+## in_1030 — 2026-11-19 — question
+> okay that is pretty cool, so what should we work on next?
+(asks what to work on next after the hypoid picture; the AI recommends, the human decides)
+
+## in_1031 — 2026-11-19 — question
+> okay but before we do that, are we done with gears? did we finish the crown gear work? also what happens if I need a crown gear with 90 degree angle? is that just not possible?
+(asks whether the gear work is finished, whether the crown gear work is, and how to get a crown gear drive with the shafts at 90 degrees)
+
+## in_1032 — 2026-11-19 — question
+> so should we make this option of a 90 degree crown gear for users? or would they just have to make this on their own?
+(asks whether the app should offer a 90 degree crown gear drive as an option for users, or whether they must find the Face gear tool themselves)
+
+## in_1033 — 2026-11-19 — question
+> [attached a screenshot of the face gear's teeth: tall teeth whose sides are twisted into S-shaped curves, wider at the tip and at the foot than in the middle] okay why does the teeth look so odd for face gear? are you sure this is how real face gears are? seems like it would be really really hard to machine line that. Also isn't a face gear a type of crown gear? why don't we put them both under the same sub menu?
+(asks why the face gear's teeth look so odd, whether real face gears look like that and could be machined, and whether the face gear and the crown gear should be under one submenu)
+
+## in_1034 — 2026-11-19 — question
+> okay while we are waiting for that, what other file types should we support?
+(asks which further file types to support, while the IGES kernel build is being run)
+
+## in_1035 — 2026-11-19 — directive
+> lets do 1 and 2 together
+(chooses the first two of the AI's list: a 3MF with names and an object for each body, and a DXF with a choice of version)
+
+## in_1036 — 2026-11-19 — directive
+> we will hold off on the merge for now, what else should we build?
+(asks the branch not to be merged into claude/inspiring-pascal-l342k7 yet; asks what to build next)
+
+## in_1037 — 2026-11-19 — question
+> no I mean what else should we work on for import export and compatability
+(says the question was about import, export and compatibility, not other features)
+
+## in_1038 — 2026-11-19 — directive
+> okay lets do all those except 4, we want to work on a drawing view and pdf export seperatly
+(chooses the AI's list: big and imperfect meshes, drag and drop with detection by content, STEP size limit and schema and names, SVG strokes and text, FreeCAD and BREP; not the 1:1 PDF export, which is for a drawing view built separately)
+
+## in_1039 — 2026-11-19 — directive
+> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
+(asks for the branch with the exchange work (OBJ, DXF, 3MF, STEP, BREP, FreeCAD, drop, meshes, IGES) to be merged into the testing branch, and for work to go on from a branch that has it)
+
+## in_1040 — 2026-11-19 — directive
+> okay but now it takes literally forever to make a face agear
+(reports that making a face gear is now very slow; the AI measures it in the browser and finds why)
+
+## in_1041 — 2026-11-19 — question
+> [interrupted the AI's browser timing; attached a screenshot of a face gear drive from outside: the teeth's near ends are wide at the foot, pinched in the middle and wide again at the top, and the pinion's teeth pass through the face gear's teeth] Hang on, also I am pretty sure it is still wrong. Look a meshed gear collides with the teeth. Are you sure that the tooth on the face gear shouldn't taper off at the top instead of flare out like it does? or at least continue and terminate straight?
+(says the face gear is still wrong in the app: the tooth flares at the top and the meshed pinion collides with the teeth; asks whether the tooth should taper off or at least end straight; the AI had just rebuilt the profile to a taper (build 284c6fbf), so the screenshot may be from an older build: to be checked)
+
+## in_1042 — 2026-11-19 — question
+> I am having a sketching bug I think. I cannot trim these lines going past tangent on the circle? if I try to trim it trims past the tangent point where it overlaps on the circle?
+(a trim of two lines tangent to a circle; files `cannot_trim_tangent_extra.json` and `tangent_extra.json` attached; see in_1043)
+
+## in_1043 — 2026-11-19 — directive
+> sorry that was not a bug, it was a body circle not an actual sketch artifact. Okay but I think this might be a bug, I drew an actual circle, and made it tangent, but now it seems the tangent constraints are prefenting me from dragging the circle center down? why? shouldn't it just slide tangent to the lines? or am I missing another constraint?
+(the trim report was a body edge, not a sketch curve: nothing to fix; the new report is a drawn circle tangent to two lines whose centre cannot be dragged; file `model.cad_59.json`)
+
+## in_1044 — 2026-11-19 — directive
+> hang on, I found a seperate and maybe related problem. The circle is not on the same plane at all as the reset of the sketch. When I select a sketch as a closed surface and click circle to sketch more, it creates a world plane in the plane of the closed sketch as it should, I would expect this would mean I sketching on that plane, but I am not, instead it sketches on a different plane.
+(a circle drawn after selecting a closed surface ended on `w/XY`, not on the surface's plane `d/p_008`; screenshot attached; not reproduced, see handoff 924)
+
+## in_1045 — 2026-11-19 — directive
+> when you sketch on a plane, things further behind the plane view can make it very confusing to see which edge is really being worked with. Can we have it so that things further behind (edges etc) are still visible but faded in orther view when sketching on a plane?). Normally when you select two things, it should offer suggested constraints you can do with them. Is this generally true? it seems like there is at least a hole in this logic with selecting two curved surfaces, a hole and a pin, who could be coaxially constrained.
+>
+> Also when you try to break constraints with any operation, it is always always always supposed to tell you which constraint would be voilated, flash it red, and give you the option to delete it. I constantly fine holes in this logic too. Like for example I try to align these coaxially constrained but it says that would voilate another constraint but wont tell me what.
+(three asks, with `model.cad_61.json` and a screenshot: edges behind the sketch plane drawn faintly; two selected round things (a hole and a pin) always offered the coaxial constraint; a refused change always names, flashes and offers to delete the constraint it would break)
+
+## in_1046 — 2026-11-19 — directive
+> why don't you try hitting ctrl z in the file and see if you can isolate why my circle kept ending on the wrong plane. It was the correct plane orientation but the wrong hieght, not inline with the sketch I was working on
+(asks the AI to undo through the file to find why the circle ended on `w/XY`; see handoff 924)
+
+## in_1047 — 2026-11-19 — question
+> When I run this why does it jamb? doesn't our animation system say it should push objects?
+(the file `why_does_it_jamb.json`: the big gear with its pin turns against the lever and stops; the lever has no joint, so nothing yields)
+
+## in_1048 — 2026-11-19 — directive
+> would it be a good idea to let it just move the body as long as it didn't voilate constraints? somewhat like how you can free move a body as long as it doesn't voilate constraints? Or is that a bad idea?
+(proposes that a pushed hard body with no joint just moves wherever its constraints allow)
+
+## in_1049 — 2026-11-19 — approval
+> yes please, I will take your recomendations
+(approves the AI's recommendations for the free push: the default for a hard body with no joint, a cap on how far a pushed body may travel in one play, and an "it stays where it ends up" option next to Keep pose; and asks to write the entry and build it)
+
+## in_1050 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for `claude/adoring-dijkstra-soft-drag` to be merged into the testing branch, without a full test run; it carries the tangent-circle drag, refusals that name constraints, round edges offered mates, faint edges behind the sketch plane and the free push with Fixed body)
+
+## in_1051 — 2026-11-19 — directive
+> okay it is pretty good, but maybe we should show and let the user input how much distance a single fastener is hand moved by?
+(says it is pretty good; asks that the distance a single fastener has been moved by hand be shown and be typeable)
+
+## in_1052 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for this branch (how far a hole is hand moved, shown and typed) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
+
+## in_1053 — 2026-11-19 — question
+> my teeth still have that weird profile, how to check in my terminal if I have the right code?
+(says the face gear teeth still look wrong in the app and asks how to check in the terminal that the right code is in their checkout; the AI gives commands)
+
+## in_1054 — 2026-11-19 — question
+> @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/97b271ad-rebuilt_gear_after_deletion.json" @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/66ce796a-rebuilt_gear_after_deletion_state.json" okay can you help fix a bug? why when I delete this crown gear did it have to rebuild the meshed gear?
+(with a project and a state snapshot of a spiral crown gear of 40 teeth and its meshed pinion of 18: asks why deleting the crown gear made the pinion be built again (the snapshot shows 18 of 28 steps made, 14.7 s, a 12 s boolean), and for it to be fixed)
+
+## in_1055 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 once more, with the gear chains change; the full suite is not needed)
+
+## in_1056 — 2026-11-19 — question
+> Okay is this a good generic root cause fix? Or an exception that should either be a general exception or new rule or we should not do in order to keep history intact?
+(asks whether the gear chains are a general root-cause fix, or an exception that should be generalised, made a rule, or left out so that the model's history stays intact)
+
+## in_1057 — 2026-11-19 — approval
+> I will take your recommendation
+(takes the AI's recommendation: keep the gear chains as the narrow exception they are, and do not make them a general rule; the general fix for plain bodies waits for a measurement of whether they are slow)
+
+## in_1058 — 2026-11-19 — directive
 > boxes before replay, then extending the pieces
 (asks for the next two steps in order: show the boxes before the project's commands are replayed, then extend the pieces to parts with fillets, holes and moves)
 
-## in_1006 — 2026-11-19 — directive
+## in_1059 — 2026-11-19 — directive
 > please work on either next
 (asks for the AI to go ahead with either of the two offered next steps: a faster, sliced replay for histories with moves, or gears and revolves as parts)
 
-## in_1007 — 2026-11-19 — question
+## in_1060 — 2026-11-19 — question
 > Why does it take literally forever to extrude this plane? it seems like a really simple shape
 (attached: the project `model.cad_59.json`: two meshed gears, a pin, and a drawn arm outline on a plane at z 11.5; a screenshot of the arm profile and one of the extrude preview showing "Working…" at -3.2)
 
-## in_1008 — 2026-11-19 — question
+## in_1061 — 2026-11-19 — question
 > What is the root cause here? and how can we make this as fast as possible given the fact that it didn't interact with complex geometry?
 
-## in_1009 — 2026-11-19 — directive
+## in_1062 — 2026-11-19 — directive
 > okay so what do you reccomend? it sounds like we should do all these things but how do we know when we can safely do them or when we need to re calc things? Like for example wouldn't body collision (we already have a collision system) tell us a lot about which parts need recalc when? also how about the difference beteween a selected  face line verticy body etc and deslected? so if it is under constant selection maybe the user is still working on it, and the preview is the most important, including showing interactions with other bodies if collisions happen (like cut away extrusions etc) and maybe the true final result and other recalc needs to happen on deselect which is interpereted as the user saying this is the final state they really want, no longer a preview.
 (asks for a recommendation on doing the speed-ups; proposes that the existing collision system say which bodies need recalculating, and that selection mean "still working, preview first" with the full recalculation on deselect)
 
-## in_1010 — 2026-11-19 — directive
+## in_1063 — 2026-11-19 — directive
 > yes please start
 (approves starting on the two changes that alter no behaviour: per-body keeping of parts and descriptions, and re-matching a constraint's named part only for relations that name a changed body)
 
-## in_1011 — 2026-11-19 — directive
+## in_1064 — 2026-11-19 — directive
 > option 1
 (chooses option 1 of `q_working_and_settled`: while a depth is being set the tool is drawn beside the unchanged body, and the fuse is done when the value is accepted, marked as a preview)
 
-## in_1012 — 2026-11-19 — directive
+## in_1065 — 2026-11-19 — directive
 > do the next step please
 (asks for the next step after the preview without the boolean; the AI had named keeping the page's parts per body as the biggest remaining lever, and settle on deselect as the other)
 
-## in_1013 — 2026-11-19 — directive
+## in_1066 — 2026-11-19 — directive
 > Option 2
 (chooses option 2: settle on deselect with a visible mark, from `q_working_and_settled`)
 
-## in_1014 — 2026-11-19 — directive
+## in_1067 — 2026-11-19 — directive
 > I will take your recommendation
 (takes the AI's recommendation: spend the effort on the floor of the preview, the page's derive and the kernel's prism, rather than the narrow Preview-mark version)
 
-## in_1015 — 2026-11-19 — directive
+## in_1068 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (the explicit permission to write to that branch for this merge; the full test run is waived)

@@ -13,7 +13,7 @@ export function projectText(n: number, at: (k: number) => [number, number] = (k)
   return JSON.stringify({ format: "cad-project", version: 1, base: { version: 1, counter: 0, parts: [], relations: [], steps: [] }, commands: cmds, cursor: cmds.length });
 }
 
-// ---- an assembly made with the app's own operations: parts apart, some rounded, some with a hole, some moved (for the tests of pieces with modifying steps, `in_1005`) ----
+// ---- an assembly made with the app's own operations: parts apart, some rounded, some with a hole, some moved (for the tests of pieces with modifying steps, `in_1058`) ----
 import { kernel } from "../src/compiler/kernel/index.ts";
 import { createSession, run, scene } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";

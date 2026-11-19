@@ -15,7 +15,7 @@ import { normalOfPlane } from "../operation/part.ts";
 import { planeOf } from "./objects.ts";
 import type { Plane } from "../operation/part.ts";
 import type { Camera } from "./camera.ts";
-import { offsetOf, sideOf, nearTolMm, projector } from "./camera.ts";
+import { offsetOf, sideOf, nearTolMm, projector, eyeDistance } from "./camera.ts";
 import { dot, cross, normalize, add, sub, scale } from "../math/vec.ts";
 import { apply } from "../operation/commands.ts";
 import { outlineOf } from "../operation/part.ts";
@@ -27,6 +27,8 @@ import { jointRigid, constrainedMotion } from "./mate.ts";
 import { jointMatrix, followMatrix } from "./motion.ts";
 import { linksOf } from "../operation/coupling.ts";
 import { animatedBodies } from "../operation/gearcouple.ts";
+import { pivotOfBody } from "../operation/pivot.ts";
+import { jointOf as jointOfMate } from "./mate.ts";
 import { axisAcross } from "./revolve.ts";
 import { gearOfPart, gearOfSelection } from "../operation/gearscene.ts";
 import { planetaryOfGear } from "../operation/planetary.ts";
@@ -55,7 +57,7 @@ import type { Command } from "../operation/commands.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
 import type { AppState } from "./control/state.ts";
 import { sketchPlaneOf } from "./control/state.ts";
-import { gridPlaneOf } from "./control/viewing.ts";
+import { gridPlaneOf, selectedSurface } from "./control/viewing.ts";
 import { nothingInView } from "./lastseen.ts";
 import { gridFor } from "./grid.ts";
 import { WORLD_NAMES, paneCorners } from "./panes.ts";
@@ -93,6 +95,17 @@ export interface FlashFrame { t: number; victims: string[]; culprits: string[]; 
 const animatedMemo = new WeakMap<Scene, Map<Ref, Ref>>();
 /** The bodies hooked up to an animation (`gearcouple.ts`), worked out once for each scene. */
 const animated = (sc: Scene): Map<Ref, Ref> => { let m = animatedMemo.get(sc); if (!m) { m = animatedBodies(sc); animatedMemo.set(sc, m); } return m; };
+/** The bodies that yield by contact whose rest can be set: a pivoted body (`Pivot.rest`) or the first body of a coaxial mate (the joint's `turnRest`), that turn. */
+const springsOf = (sc: Scene, m: NonNullable<AppState["motion"]>): { ref: string; name: string; rest: number | null }[] =>
+  (m.contact?.pushables ?? []).flatMap((p) => {
+    if (p.kind !== "turn") return [];
+    const body = sc.parts[p.body];
+    const name = body?.kind === "body" && body.id ? body.id : p.body;
+    const pv = pivotOfBody(sc, p.body);
+    if (pv) return [{ ref: p.body, name, rest: pv.rest ?? null }];
+    const j = p.mate ? jointOfMate(sc, p.mate)?.turn : undefined;
+    return j ? [{ ref: p.body, name, rest: j.rest ?? null }] : [];
+  });
 const IDENTITY16 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 /** The matrix a motion draws a body by: the driver's, or a follower's (a gear it turns, a rod it slides, a body that yields); null for a body that stays. */
 const motionMatrixOf = (m: NonNullable<AppState["motion"]>, body: Ref): number[] | null => {
@@ -118,6 +131,8 @@ export interface Frame {
   bodyMatrix: number[] | null;
   /** the edges of a body that are behind a face are drawn faintly: while a sketch tool is on and there is a body to draw on or against (`in_324`) */
   hiddenEdges: boolean;
+  /** the plane being sketched on, as a point of it and its normal toward the camera: the body's edges past it are drawn faintly (`in_1045`) */
+  behindPlane: { n: [number, number, number]; at: [number, number, number] } | null;
   /** when the matrix moves one body of several: the triangles (ranges of the mesh's index list) and the box of that body, so only it is moved (`in_273`) */
   bodySplit: { tris: [number, number][]; box: { min: Vec3; max: Vec3 } } | null;
   /** the bodies that are hidden (`dec_hidden_bodies`), each as its triangles (ranges of the mesh's index list): drawn very faintly, not part of the body that is drawn in full */
@@ -205,7 +220,7 @@ export interface Frame {
   toolpath: ToolpathView | null;
   previewBar: { at: number; label: string } | null;
   /** the bar of a joint that is played or scrubbed: where it stands, its range, what it does and whether it is playing (`dec_mechanism_motion`) */
-  motionBar: { amount: number; lo: number; hi: number; kind: "turn" | "slide"; playing: boolean; reversed: boolean; label: string; /** the links of the joint played: the ratio, as seen from it, and what the other end does */ links: { id: string; ratio: number; kind: "turn" | "slide" }[] } | null;
+  motionBar: { amount: number; lo: number; hi: number; kind: "turn" | "slide"; playing: boolean; reversed: boolean; /** the bodies that yield by contact whose joint can have a rest (a pivot, a coaxial mate): the body, and where it goes back to (degrees), or null: it stays where it was pushed (`in_1020`) */ springs: { ref: string; name: string; rest: number | null }[]; label: string; /** the links of the joint played: the ratio, as seen from it, and what the other end does */ links: { id: string; ratio: number; kind: "turn" | "slide" }[] } | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
   modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate" | "linear" | "circular" | "invert"; label: string } | null;
   /** the sketching tool that is on, for the pill at the top (`in_193`) */
@@ -468,6 +483,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     mesh: outcome.kernel?.mesh ?? null,
     bodyMatrix,
     hiddenEdges: !!s.tool && hasBody,
+    behindPlane: hasBody ? behindPlaneOf(s) : null,
     bodySplit,
     hiddenBodies: hiddenItemsOf(sc, outcome),
     thin: s.panel === "measure" && !outcome.kernel?.stale ? thinPlacesOf(sc, sel) : null,
@@ -521,7 +537,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : undefined, /* (only the orient mode pulses, and the revolve's orb that is ready to be oriented; the mirror's and the copies' orbs do not, `in_439`) */ hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "revolve" && !s.moverSphere ? `rev:turn:${"xyz"[s.op.axis]}` : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : s.lockAxes.map((k) => `move:${"xyz"[k]}`) } : null,
     similar: similarOf(s),
     toolpath: s.preview ? previewView(s.preview.toolpath, s.preview.at) : null,
-    motionBar: s.motion ? { amount: shownAmount(s.motion), lo: s.motion.lo, hi: s.motion.hi, kind: s.motion.kind, playing: s.motion.playing, reversed: s.motion.speed < 0, links: s.motion.mate ? linksOf(sc, s.motion.mate, s.motion.kind).map((l) => ({ id: l.id, ratio: l.k, kind: l.kind })) : [], label: `${s.motion.contact?.jam ? "stopped: " + s.motion.contact.jam + ", " : ""}${s.motion.kind === "turn" ? "turned" : "slid"} ${steadyNumber(shownAmount(s.motion))}${s.motion.kind === "turn" ? "°" : " mm"}` } : null,
+    motionBar: s.motion ? { amount: shownAmount(s.motion), lo: s.motion.lo, hi: s.motion.hi, kind: s.motion.kind, playing: s.motion.playing, reversed: s.motion.speed < 0, springs: springsOf(sc, s.motion), links: s.motion.mate ? linksOf(sc, s.motion.mate, s.motion.kind).map((l) => ({ id: l.id, ratio: l.k, kind: l.kind })) : [], label: `${s.motion.contact?.jam ? "stopped: " + s.motion.contact.jam + ", " : s.motion.contact?.note ? s.motion.contact.note + ", " : ""}${s.motion.kind === "turn" ? "turned" : "slid"} ${steadyNumber(shownAmount(s.motion))}${s.motion.kind === "turn" ? "°" : " mm"}` } : null,
     previewBar: s.preview ? { at: s.preview.at, label: `${Math.round(s.preview.at * 100)}%${s.preview.toolpath.seconds ? ` of ~${s.preview.toolpath.seconds < 90 ? Math.round(s.preview.toolpath.seconds) + " s" : Math.round(s.preview.toolpath.seconds / 6) / 10 + " min"}` : ""}` } : null,
     adding: s.adding ? "on" : null,
     resetView: !s.anim && !s.tool && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
@@ -678,6 +694,19 @@ function withGhost(base: Preview | null, s: AppState): Preview | null {
   for (let k = 0; k < N; k++) for (const h of [c.lo, c.hi]) segments.push([at((k / N) * Math.PI * 2, h), at(((k + 1) / N) * Math.PI * 2, h)]);
   for (let k = 0; k < 12; k++) segments.push([at((k / 12) * Math.PI * 2, c.lo), at((k / 12) * Math.PI * 2, c.hi)]);
   return { segments: [...(base?.segments ?? []), ...segments], circle: base?.circle ?? null, cursor: base?.cursor ?? null };
+}
+
+/** The plane a sketch tool is on (the tool's, else the one selected) with its normal turned toward the camera, from wherever the camera is: what is past it is not what is being worked on. */
+function behindPlaneOf(s: AppState): Frame["behindPlane"] {
+  if (!s.tool || s.tool.kind === "trim" || s.tool.kind === "gear" || s.tool.kind === "cam" || s.sectionLive || s.cut) return null;
+  const sc = sceneOf(s.session);
+  const ref = s.tool.plane ?? selectedSurface(sc, selectionOf(s.session));
+  const pl = ref ? sc.parts[ref] : undefined;
+  if (pl?.kind !== "plane") return null;
+  const n = normalOfPlane(pl);
+  const eye = add(s.cam.target, scale(offsetOf(s.cam), eyeDistance(s.cam)));
+  const side = dot(sub(eye, pl.at), n) >= 0 ? 1 : -1;
+  return { n: [n[0] * side, n[1] * side, n[2] * side], at: [pl.at[0], pl.at[1], pl.at[2]] };
 }
 
 /** Does any of the body lie between the camera and the plane being sketched on? (Only when looking straight at that plane: in 3D it is all as it was.) */

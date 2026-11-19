@@ -19,6 +19,7 @@
     "typescript": "^5.6.0"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
     "replicad": "^1.2.0",
     "replicad-opencascadejs": "^1.1.0",
     "three": "^0.187.0",

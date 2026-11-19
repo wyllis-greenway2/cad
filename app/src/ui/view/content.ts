@@ -17,7 +17,7 @@ export interface BodyMesh { vertices: Float32Array; normals: Float32Array; trian
  */
 /** How long the last build took, and the part of it that found the body's sharp edges (`cornerEdges`): read by the page's timing (`in_494`). */
 export const buildStats = { runs: 0, totalMs: 0, cornersMs: 0, triangles: 0 };
-export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): { material: THREE.MeshPhysicalMaterial; body: THREE.Group; /** the body's edges that lie behind a face, drawn faintly or not (`in_324`) */ ghost: (on: boolean) => void; split: (items: { tris: [number, number][]; box: { min: readonly number[]; max: readonly number[] } }[] | null) => void; mover: THREE.Group; /** the group of each body that moves on its own, in the order of the items last given to `split` */ movers: () => THREE.Group[]; /** the bodies that are hidden (`dec_hidden_bodies`): their triangles and outline lines are drawn very faintly in a group of their own and are left out of the body; null or none brings them back */ hide: (items: { tris: [number, number][] }[] | null) => void } | null {
+export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | null, pen: Pen, envMap: THREE.Texture): { material: THREE.MeshPhysicalMaterial; body: THREE.Group; /** the body's edges that lie behind a face, drawn faintly or not (`in_324`) */ ghost: (on: boolean) => void; /** the edges on the far side of the plane being sketched on drawn faintly, those on it and in front in full (`in_1045`); null puts them back */ behind: (plane: { n: readonly [number, number, number]; at: readonly [number, number, number] } | null) => void; split: (items: { tris: [number, number][]; box: { min: readonly number[]; max: readonly number[] } }[] | null) => void; mover: THREE.Group; /** the group of each body that moves on its own, in the order of the items last given to `split` */ movers: () => THREE.Group[]; /** the bodies that are hidden (`dec_hidden_bodies`): their triangles and outline lines are drawn very faintly in a group of their own and are left out of the body; null or none brings them back */ hide: (items: { tris: [number, number][] }[] | null) => void } | null {
   const tBuild = performance.now();
   clearGroup(content);
   pen.reset();
@@ -54,18 +54,24 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
   let edgePos: THREE.BufferAttribute | null = null; // (the outline of what is drawn in full: all of it, less the hidden bodies')
   let edgeLines: THREE.LineSegments | null = null;
   let ghostLines: THREE.LineSegments | null = null;
+  let farLines: THREE.LineSegments | null = null;
+  const edgeNear = new THREE.LineBasicMaterial({ color: settings.theme.bodyEdge }); // (its own, so the plane being sketched on can clip it)
+  const edgeFar = new THREE.LineBasicMaterial({ color: settings.theme.bodyEdge, transparent: true, opacity: settings.theme.behindEdgeOpacity, depthWrite: false });
   const edgeOrig = Float32Array.from(corners);
   if (corners.length) {
     const eg = new THREE.BufferGeometry();
     edgePos = new THREE.Float32BufferAttribute(Float32Array.from(corners), 3);
     eg.setAttribute("position", edgePos);
-    edgeLines = new THREE.LineSegments(eg, edge);
+    edgeLines = new THREE.LineSegments(eg, edgeNear);
     edgeLines.visible = settings.theme.outlines;
     body.add(edgeLines);
     // the same edges again, only where a face of the body is in front of them, faint: while a sketch is drawn they show where the edges are that cannot be pointed at (`in_324`)
     ghostLines = new THREE.LineSegments(eg, new THREE.LineBasicMaterial({ color: settings.theme.bodyEdge, transparent: true, opacity: settings.theme.hiddenEdgeOpacity, depthFunc: THREE.GreaterDepth, depthWrite: false }));
     ghostLines.visible = false;
     body.add(ghostLines);
+    farLines = new THREE.LineSegments(eg, edgeFar);
+    farLines.visible = false;
+    body.add(farLines);
   }
   const material = new THREE.MeshPhysicalMaterial({ color: settings.theme.bodyColor, roughness: settings.light.roughness, metalness: 0, clearcoat: settings.light.sheen, clearcoatRoughness: settings.light.sheenRoughness, envMap, envMapIntensity: settings.light.reflect, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
   body.add(new THREE.Mesh(g, material));
@@ -156,5 +162,14 @@ export function buildContent(content: THREE.Group, s: Scene, mesh: BodyMesh | nu
     if (edgeLines && edgePos) edgeLines.geometry.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(remaining), 3));
   };
   buildStats.runs++; buildStats.totalMs = performance.now() - tBuild;
-  return { material, body, split, hide, mover, movers: () => kids, ghost: (on: boolean) => { if (ghostLines) ghostLines.visible = on; } };
+  return { material, body, split, hide, mover, movers: () => kids, ghost: (on: boolean) => { if (ghostLines) ghostLines.visible = on; }, behind: (plane) => {
+    if (!edgeLines) return;
+    if (!plane) { edgeNear.clippingPlanes = null; edgeFar.clippingPlanes = null; if (farLines) farLines.visible = false; edgeNear.needsUpdate = true; return; }
+    const [n, c] = [new THREE.Vector3(...plane.n), plane.n[0] * plane.at[0] + plane.n[1] * plane.at[1] + plane.n[2] * plane.at[2]];
+    // `n` points to the camera's side: what is on the plane or toward the camera stays in full (a hair of slack), what is past it is drawn again, faint
+    edgeNear.clippingPlanes = [new THREE.Plane(n.clone(), -c + 1e-3)];
+    edgeFar.clippingPlanes = [new THREE.Plane(n.clone().negate(), c - 1e-3)];
+    if (farLines) farLines.visible = true;
+    edgeNear.needsUpdate = true; edgeFar.needsUpdate = true;
+  } };
 }
