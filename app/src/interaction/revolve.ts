@@ -37,7 +37,7 @@ export function revolveStart(scene: Scene, faces: readonly Extract<Part, { kind:
   }
   if (!best || best.len < 1e-9) {
     // no straight side (a circle): the orb stands out in space in the figure's plane, beside it by twice its size (so a gap as wide as the figure's reach lies between), the axis along the plane's second direction, in the plane: the figure
-    // is turned out of its plane, round the line, normal to the plane where it starts (`in_1191`); the middle of the figure was the old place, which is across the figure and made nothing
+    // is turned out of its plane, round the line, normal to the plane where it starts (`in_1194`); the middle of the figure was the old place, which is across the figure and made nothing
     const m = middleOf(scene, face);
     if (!m) return null;
     const [u, v] = [normalize(pl.u), normalize(pl.v)];
@@ -75,7 +75,7 @@ export const axisOf = (op: Op): RevAxis | null => (op.pivot && op.frame ? { p: o
 /** The advance along the axis over the whole angle: what is typed, else what the arrow was dragged to, else none. */
 export const advanceOf = (op: Op): number => { const t = typedLength(op.advTyped ?? ""); return t !== null ? t : op.advValue ?? 0; };
 /**
- * The least advance over `angle` degrees at which the turns of a spiral do not run into each other (`in_1191`): the figure is as wide along the axis as it is, and one turn must advance at least that. The advance is
+ * The least advance over `angle` degrees at which the turns of a spiral do not run into each other (`in_1194`): the figure is as wide along the axis as it is, and one turn must advance at least that. The advance is
  * the distance over the whole angle (not a turn), so 1.6 mm over 90 degrees is 6.4 mm a turn: the cause of "the turns would overlap" for a spring. Null when there is no advance, or the axis is across the plane (a twist is judged by the kernel).
  */
 function advanceFloor(scene: Scene, op: Op, angle: number): { floor: number; width: number } | null {
@@ -90,7 +90,7 @@ function advanceFloor(scene: Scene, op: Op, angle: number): { floor: number; wid
   }
   return width > 0 ? { floor: Math.ceil(width * (Math.abs(angle) / 360) * 100 + 1) / 100, width } : null; // (a hundredth over, so the kernel's check passes)
 }
-/** What is said while the advance has been raised to that floor (`in_1191`), or null. */
+/** What is said while the advance has been raised to that floor (`in_1194`), or null. */
 export function advanceNote(scene: Scene, op: Op): string | null {
   const f = advanceFloor(scene, op, op.value ?? 0);
   if (!f || Math.abs(advanceOf(op)) >= f.floor) return null;

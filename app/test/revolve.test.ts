@@ -63,7 +63,7 @@ test("past one turn with no advance it is refused; with an advance it spirals, t
   assert.equal(step.params.advance, 10);
 });
 
-test("an advance that is less than the figure is wide along the axis is raised so the turns do not overlap, and the reason is said (`in_1191`)", () => {
+test("an advance that is less than the figure is wide along the axis is raised so the turns do not overlap, and the reason is said (`in_1194`)", () => {
   const { s, face } = figure();
   const op = begin(s, face);
   const r = runOp(s, { ...Z(op), value: 720, advValue: 2 })!; // (2 mm over two turns is 1 mm a turn, the figure is 1.5 mm wide along the axis)
@@ -569,7 +569,7 @@ test("a click on a world plane puts the orb into that plane, where it was across
   assert.deepEqual(st.op!.pivot, [9, 4, 0], "into the XY plane: x and y as they were, z in the plane");
 });
 
-test("a circle has no straight side: the orb starts out in its plane, beside it, the axis along the plane in that line, so the first preview is a ring that makes a body (`in_1191`)", () => {
+test("a circle has no straight side: the orb starts out in its plane, beside it, the axis along the plane in that line, so the first preview is a ring that makes a body (`in_1194`)", () => {
   let s = createSession(kernel);
   const c = drawCircle(scene(s), XZ, [0, 0, 0], 4.75);
   s = run(s, c.command);

@@ -46,7 +46,7 @@ const ICONS: Record<string, string> = {
 };
 
 Object.assign(ICONS, {
-  revolve: svg('<path d="M4 1.5v10.5" stroke-dasharray="1.6 1.3"/><path d="M4 2.8c5.2 0 7.6 2.2 6.4 4.4S8.2 9.6 11.2 11.6H4z" fill="currentColor" fill-opacity=".2"/><path d="M1.6 13.6c3.2 1.8 9.4 1.6 12.6-.8"/><path d="M11.8 11.6l2.5 1.3-1.9 2"/>'), // (a profile beside its axis turned round it: the arc under it with its head is the turn, `in_427`, `in_1191`)
+  revolve: svg('<path d="M4 1.5v10.5" stroke-dasharray="1.6 1.3"/><path d="M4 2.8c5.2 0 7.6 2.2 6.4 4.4S8.2 9.6 11.2 11.6H4z" fill="currentColor" fill-opacity=".2"/><path d="M1.6 13.6c3.2 1.8 9.4 1.6 12.6-.8"/><path d="M11.8 11.6l2.5 1.3-1.9 2"/>'), // (a profile beside its axis turned round it: the arc under it with its head is the turn, `in_427`, `in_1194`)
   wireframe: svg('<path d="M2.5 5.5l5.5-3 5.5 3v6l-5.5 3-5.5-3z"/><path d="M2.5 5.5L8 8.5l5.5-3M8 8.5v6" stroke-dasharray="1.6 1.4"/>'), // (a block seen through, `in_386`)
   hollow: svg('<path d="M2.5 5.5l5.5-3 5.5 3v6l-5.5 3-5.5-3z"/><path d="M5.5 7.2L8 5.8l2.5 1.4v3L8 11.6 5.5 10.2z" fill="currentColor" fill-opacity=".18"/>'), // (a block with a cavity inside, `in_391`)
   invert: svg('<path d="M3 5.5h8.5"/><path d="M9.5 3.2L12 5.5 9.5 7.8"/><path d="M13 10.5H4.5"/><path d="M6.5 8.2L4 10.5 6.5 12.8"/>'), // (swap: the other way round, `in_393`)

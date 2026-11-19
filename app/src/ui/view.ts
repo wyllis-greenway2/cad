@@ -334,7 +334,7 @@ export function createView(host: HTMLElement) {
     thinGroup.add(outline);
   }
   const setWorldHidden = (on: boolean): void => world.setOff(on);
-  /** Is the junction of the world axes (where its orb is) behind the model from this eye? The orb is a dot of the page, so it asks (`in_1191`). */
+  /** Is the junction of the world axes (where its orb is) behind the model from this eye? The orb is a dot of the page, so it asks (`in_1194`). */
   const originHidden = (cam: Camera): boolean => !!occluders?.length && world.hiddenAt(cam, [0, 0, 0], occluders);
   const setPanes = (p: Parameters<typeof world.setPanes>[0]): boolean => world.setPanes(p);
   const setGizmo = (g: GizmoView | null, cam: Camera) => buildGizmo(gizmo, g, cam.distance, pen);

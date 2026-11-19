@@ -94,7 +94,7 @@ export interface Op {
   rot: [string, string, string];
   /** a scale of a body: the factor along each axis when an axis arrow has been pulled (`dec_scale_axes`); absent for the same factor every way */
   axes?: [number, number, number];
-  /** revolve: the orb began out in space beside the figure, which has no straight side (`in_1191`) */
+  /** revolve: the orb began out in space beside the figure, which has no straight side (`in_1194`) */
   revBeside?: true;
   /** revolve: each figure selected (its outer sides or circle and the figures inside it) and its middle */
   revFigs?: { fig: Figure; middle: Vec3 }[];
