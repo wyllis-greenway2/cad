@@ -22,6 +22,8 @@ import type { LaserValues } from "./interaction/manufacture.ts";
 import { pathRepeatTarget, pathRepeatDialog, pathRepeatCommand, pathRepeatStart, pathRepeatValuesFor } from "./interaction/pathrepeat.ts";
 import { receiverStart, receiverKinds, receiverSizes, receiverContext, receiverPlan, cutReceiver, makeHolePoints, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
 import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
+import { modelStart, modelDialog, addModel, modelKinds } from "./interaction/addmodel.ts";
+import type { ModelKind, ModelValues } from "./interaction/addmodel.ts";
 import { nameFor } from "./interaction/sniff.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
 import type { ExportOptions } from "./interaction/transfer.ts";
@@ -63,6 +65,7 @@ import { createPreviewBar } from "./ui/previewbar.ts";
 import { createMotionBar } from "./ui/motionbar.ts";
 import { tickMotion } from "./interaction/motion.ts";
 import { solveContact } from "./interaction/contact.ts";
+import { createAhead } from "./contact-ahead.ts";
 import { createChip } from "./ui/chip.ts";
 import { createSheetChips } from "./ui/sheetchips.ts";
 import { createWorldOrb } from "./ui/worldorb.ts";
@@ -199,6 +202,7 @@ const ring = createRing(document.body, (id) => {
   ring.hide();
   if (id === "view:game") { input.toggleGame(); return; }
   if (id === "repeat:path") { void pathRepeatFlow(); return; } // (`dec_path_repeat`)
+  if (id.startsWith("model:")) { void modelDialogFlow(id.slice(6) as ModelKind); return; } // (Shape, Fabricate, Models: a gear assembly, `dec_gear_models`)
   if (id === "fab:material") { void materialDialogFlow(); return; } // (Shape, Fabricate, `in_1083`)
   if (id === "tool:fasteners") { holesOpen(); return; } // (the tool is a panel and a preview in the model view, `dec_parts_tool`)
   dispatch({ type: "runAction", id });
@@ -461,6 +465,20 @@ async function materialDialogFlow() {
   state = { ...state, session: run(state.session, c.value) };
   say(String(answers.material ?? "").trim() ? `material set: ${String(answers.material).trim()}` : "material tag taken off");
 }
+/** A gear assembly as a model (`dec_gear_models`): a dialog for its numbers (the last ones kept), and the model made in one step. */
+const MODEL_KEY = "cad.modelOptions";
+async function modelDialogFlow(kind: ModelKind) {
+  if (!modelKinds().includes(kind)) return say("that model is not built yet");
+  const saved = (() => { try { return (JSON.parse(localStorage.getItem(MODEL_KEY) ?? "{}") as Record<string, Values>)[kind]; } catch { return undefined; } })();
+  const answers = await dialog.open((v) => modelDialog(kind, v as unknown as ModelValues), { ...modelStart(kind), ...(saved ?? {}) } as unknown as Values);
+  if (!answers) return;
+  const made = addModel(state.session, kind, answers as unknown as ModelValues);
+  if (!made.ok) return say(made.error);
+  try { localStorage.setItem(MODEL_KEY, JSON.stringify({ ...(JSON.parse(localStorage.getItem(MODEL_KEY) ?? "{}") as object), [kind]: answers })); } catch { /* (no storage: the numbers are not kept) */ }
+  state = { ...state, session: made.value };
+  dirty = true;
+  say(`${modelDialog(kind, answers as unknown as ModelValues).title} made`);
+}
 const LASER_KEY = "cad.laserOptions";
 const LIB_KEY = "cad.library";
 /** Laser cut (`in_569`, `in_571`, `dec_laser_outline_route`): which machine (the project's copy of the last one used, the user's own, or a new one), a dialog made from the route's own settings and started from the last plan for this drawing, the route run, the findings read before the file is saved; the project keeps a copy of the machine and the plan, the library keeps the machine. */
@@ -692,6 +710,7 @@ async function boot() {
 addEventListener("pagehide", () => autosave.flush());
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") autosave.flush(); });
 let keptHistory: unknown = null;
+const ahead = createAhead(() => new Worker(new URL("./contact-worker.ts", import.meta.url), { type: "module" })); // (the push worked out ahead of the picture, `in_1096`)
 function frame(now: number) {
   const tStart = performance.now();
   engine.eye = [...position(state.cam)] as [number, number, number]; // (the kernel makes a model of many parts apart nearest the eye first, `dec_progressive_open`)
@@ -699,7 +718,13 @@ function frame(now: number) {
   if (drawnAt !== null) { timing.add("browser: from a drawn frame to the next one (commit, the graphics card, the screen's refresh)", tStart - drawnAt); drawnAt = null; }
   if (state.anim || state.flash || state.mixT0 !== null) { state = advance(state, now); dirty = true; }
   if (state.motion && !state.motion.playing && state.motion.contact?.target != null) { state = { ...state, motion: solveContact(scene(state.session), { ...state.motion, amount: state.motion.contact.target }, state.session.outcome) }; dirty = true; } // (a scrub the time ran out on goes on to where it was asked, a part each frame)
-  if (state.motion?.playing) { state = { ...state, motion: solveContact(scene(state.session), tickMotion(state.motion, now), state.session.outcome) }; dirty = true } // (a joint that is being played: the clock moves it on, and the picture is made again every frame, `dec_mechanism_motion`)
+  if (state.motion?.playing) { // (a joint that is being played: the clock moves it on, and the picture is made again every frame, `dec_mechanism_motion`)
+    // the push is worked out ahead in a thread of its own; the play never goes past the places it has sent back (it goes slower, evenly, when it comes to them), and works its own steps out when there is no thread (`contactahead.ts`)
+    const [sc, oc] = [scene(state.session), state.session.outcome];
+    let mo = tickMotion(state.motion, now);
+    if (mo.contact) { ahead.ensure(sc, oc, state.motion); const reach = ahead.extent(sc, oc, state.motion); if (reach !== null && mo.amount > reach) mo = { ...mo, amount: reach, from: reach, startedAt: null }; }
+    state = { ...state, motion: solveContact(sc, mo, oc) }; dirty = true;
+  } else if (!state.motion) ahead.stop();
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading || state.flash) {
     const size = view.size();

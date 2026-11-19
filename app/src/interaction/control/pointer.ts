@@ -112,6 +112,10 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:linear", label: "Line repeat", icon: "linear", op: "linear" },
   { id: "op:circular", label: "Round repeat", icon: "circular", op: "circular" },
   { id: "repeat:path", label: "Path repeat", icon: "pathrepeat" }, // (`dec_path_repeat`, `in_841`: a figure repeated along a line, a curve or an outline)
+  { id: "model:gearbox", label: "Gearbox", icon: "gearbox" }, // (Shape, Fabricate, Models: a reduction gearbox, `dec_gear_models`)
+  { id: "model:bearing", label: "Bearing", icon: "bearing" }, // (a ball bearing)
+  { id: "model:differential", label: "Differential", icon: "differential" }, // (a bevel gear differential)
+  { id: "model:cycloidal", label: "Cycloidal drive", icon: "cycloidal" }, // (a cycloidal reducer)
   { id: "fab:material", label: "Material", icon: "models" }, // (Shape, Fabricate: what a body is made of, `in_1083`; it was a row of the ⋯ list)
   { id: "tool:fasteners", label: "Fastener tool", icon: "fastener" }, // (Shape: the hole for a fastener cut into the face selected, with the hardware inserted if asked, `in_813`, `in_912`)
   { id: "body:hard", label: "Hard body", icon: "hard", select: "hard" }, // (a constraint: no other body goes into it while one or the other is moved by hand, `in_473`, `in_490`)
@@ -142,7 +146,7 @@ const GEARS: Group = {
 };
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", GEARS, "tool:trim", "op:offset"] },
-  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "fabricate", label: "Fabricate", icon: "hammer", items: ["fab:material", "tool:fasteners", { id: "models", label: "Models", icon: "models", items: ["tool:geneva:model"] }] }] },
+  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "fabricate", label: "Fabricate", icon: "hammer", items: ["fab:material", "tool:fasteners", { id: "models", label: "Models", icon: "models", items: ["tool:geneva:model", "model:gearbox", "model:bearing", "model:differential", "model:cycloidal"] }] }] },
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
@@ -189,6 +193,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     }
     if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfSelection(sc, x) || (r.id === "gear:edit" && !!planetaryOfPart(sc, x))); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
     if (r.id === "repeat:path") { const why = whyNoPathRepeat(session); return [r.id, { ...base, enabled: !why, why }]; }
+    if (r.id.startsWith("model:")) return [r.id, { ...base, enabled: true, why: null }]; // (a dialog for the numbers, `dec_gear_models`)
     if (r.id === "fab:material") { const why = whyNoMaterial(session); return [r.id, { ...base, enabled: !why, why }]; }
     if (r.id === "tool:fasteners") return [r.id, { ...base, enabled: true, why: null }]; // (it opens a panel that says what to select, `dec_parts_tool`)
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];

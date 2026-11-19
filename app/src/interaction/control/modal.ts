@@ -499,7 +499,25 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
   const acts = actionsFor(sceneOf(s.session), selectionOf(s.session));
   const entry = CONSTRAINT_ENTRIES.find((e) => e.id === id); // (an entry of the constraints list stands for the action the selection fits, `in_975`)
   const a = entry ? resolveEntry(entry, acts) : acts.find((x) => x.id === id);
-  return a && a.enabled ? { ...withSession(s, run(s.session, a.run())), menu: null } : closed;
+  if (!a || !a.enabled) return closed;
+  const done = run(s.session, a.run());
+  return { ...withSession(s, a.id.startsWith("mate:") ? swapped(s, a, done) : done), menu: null };
+}
+/**
+ * A mate of two bodies moves the first face selected to the second (`in_229`). When that is refused because the first body is held where it is, the same mate is tried the other way round, the second body moving to the first,
+ * and only when neither can move is it refused (`in_1109`, the swap): the faces' bodies are said, so it is clear which one moved. A mate with a world plane has nothing to swap.
+ */
+function swapped(s: AppState, a: ReturnType<typeof actionsFor>[number], first: Session): Session {
+  const sc = sceneOf(s.session);
+  const sel = selectionOf(s.session);
+  const refused = first.history === s.session.history && !!first.message && !first.already; // (nothing was made, and it says why)
+  if (!refused || a.parts.length !== 2 || sel.length !== 2 || a.parts.some((r) => sc.parts[r]?.origin === "world")) return first;
+  const back = actionsFor(sc, [...sel].reverse()).find((x) => x.id === a.id && x.enabled);
+  if (!back) return first;
+  const other = run(s.session, back.run());
+  const bodyOf = (r: Ref): string => { const p = sc.parts[r] as { of?: string; id?: string } | undefined; return p?.of ? `${(sc.parts[p.of as Ref] as { id?: string } | undefined)?.id ?? "the body"}` : "the body"; };
+  if (other.history !== s.session.history && !other.message) return { ...other, message: `${bodyOf(a.parts[0]!)} is held where it is, so ${bodyOf(a.parts[1]!)} moved to it` };
+  return { ...first, message: `${first.message}; the other way round (${bodyOf(a.parts[1]!)} moving to ${bodyOf(a.parts[0]!)}) it cannot be done either` };
 }
 export function doDelete(s: AppState): AppState {
   if (s.tool || s.op || s.repeat) return s;

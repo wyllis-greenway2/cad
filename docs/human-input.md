@@ -4752,6 +4752,54 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > Okay merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for this branch (Reapply mates removed, Clearance under Fabricate, the cams out of Sketch, Models under Fabricate with the Geneva plate) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
 
+## in_1100 — 2026-11-19 — question
+> okay lets move on, should we offer some new things? like different parts that use gear assemblies like the planetary system does? and if so, what? should we offer differentials? a basic transmission? Other things? what do you recommend?
+(asks whether to offer new gear-assembly parts like the planetary set, which ones (differential, a basic transmission, others), and for the AI's recommendation; before it: "lets skip that, try other stuff", skipping the face gear build time)
+
+## in_1101 — 2026-11-19 — question
+> @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/c1e54897-why_jamb.json" Why cant I apply a coaxial mate here? it seems to say one already exists I guess?
+(with a screenshot of a refusal, "that cannot be done without breaking other constraints", with the button "Delete constraints to proceed", a red Concentric bubble and a ring flashing round the pin, the suggester's five buttons below; asks why the coaxial mate is refused and whether one already exists)
+
+## in_1102 — 2026-11-19 — question
+> what do you recommend?
+(asks the AI's recommendation on the two things left open after the coaxial refusal: trying the other body when the first cannot move, and offering mates that are already true)
+
+## in_1103 — 2026-11-19 — directive
+> So if the constraint is already true, then why does it fail? shouldn't we just say constraint already applied? and show it? possibly flashed in green?
+(asks that a constraint that is already applied be said to be, and shown, possibly flashed in green, instead of failing or being added again)
+
+## in_1104 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for claude/intelligent-hawking-next to be merged into the testing branch, with the refusal that names the constraint and the already-applied green flash; no full suite needed)
+
+## in_1105 — 2026-11-19 — directive
+> okay build all those things. Lets put them under shape fabrication models.
+(approves the four gear assemblies recommended (a reduction gearbox, a bearing, a differential, a cycloidal drive; not a multi-speed transmission) and asks for them under Shape, Fabricate, Models)
+
+## in_1106 — 2026-11-19 — question
+> okay should it be faster and smoother now if I test it?
+(asks whether the work so far should feel faster and smoother; the AI said the thread that works ahead was on a branch not yet merged, so the testing branch had the quicker search but not the thread)
+
+## in_1107 — 2026-11-19 — directive
+> okay why don't you try it and tell me what you think? It still seems a bit chunky and bouncy when it gets to situations where it needs to rotate
+(asks the AI to try it itself; the push is chunky and bouncy where a body needs to turn)
+
+## in_1108 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for `claude/adoring-dijkstra-worker` to be merged into the testing branch without a full test run; it carries the thread that works the push ahead, the pin-in-hole suggestion, the flat-scope message, the smoothed picture of a body with no joint, and the 2D prototype)
+
+## in_1109 — 2026-11-19 — directive
+> okay lets build the swap, where a mate moves the other body when the first can’t move
+(approves the AI's recommendation of `in_1101`: a mate whose first selected body cannot move is made by moving the second body to it, and refused only when neither can)
+
+## in_1110 — 2026-11-19 — question
+> @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/219d536c-why_jamb.json" okay if the sketch has a constraint to keep the circle coaxial with the hole, should that operate on the body too? since the body is part of the sketch? or should it need a separate body coaxial constraint?
+(with a screenshot of the same refusal, "that cannot be done without breaking other constraints" with a red Concentric bubble and the ring round the pin, in an older build; asks whether a sketch's constraint that keeps a circle coaxial with a hole should also hold for the body made from the sketch, or whether a separate coaxial constraint of the bodies is needed)
+
+## in_1111 — 2026-11-19 — directive
+> yes, and check if we need to extend this logic to other constraints straddling bodies and edges
+(approves the AI's recommendation of `in_1107`: a sketch's Concentric that already makes two bodies coaxial counts as the mate, said and flashed green, not added a second time; and asks for the same question to be looked at for the other constraints that straddle sketches and bodies or edges)
+
 ## in_1112 — 2026-11-19 — question
 > If this pin has a coaxial constraint to the hole, then why does it immediately violate that when I start the animation?
 (asks why a pin that has a coaxial constraint to its hole immediately violates it when the animation starts: a screenshot of a gear's pin through the hole of a lever with the message "that cannot be done without breaking other constraints" and "Delete constraints to proceed", and the saved model)
