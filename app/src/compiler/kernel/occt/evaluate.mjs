@@ -4,6 +4,7 @@ import { loadOC } from "./oc.mjs";
 import { compile, finalSolid, volume } from "./interpreter.mjs";
 import { makeCompound, getOC } from "replicad";
 import { writeStepFile } from "./stepout.mjs";
+import { writeIgesFile } from "./igesio.mjs";
 import { facesOf, edgesOf } from "./topo.mjs";
 import { lumpsOf, lumpsByName, solidKey, box as boxOf } from "./bodies.mjs";
 import { cornerEdges } from "../../../shared/sharp.mjs";
@@ -373,6 +374,7 @@ export async function exportStep(graph, bodies, unit, schema) {
     // (the unit is a setting of the whole kernel that stays as it was left: it is set every time, millimetres too, or one export in inches would make all the next ones inches; the model is in millimetres either way)
     // (with several bodies, a product for each, named for the body, in one assembly; no colour: `stepout.mjs`)
     if (schema === "brep") return { ok: true, bytes: new TextEncoder().encode(getOC().BRepToolsWrapper.Write(shape.wrapped)), volume: volume(shape), bbox: { min: [...box[0]], max: [...box[1]] } };
+    if (schema === "iges" || schema === "iges-solids") return { ok: true, bytes: new Uint8Array(writeIgesFile(named ?? [{ shape, name: "model" }], { unit: unit === "in" ? "IN" : "MM", solids: schema === "iges-solids" })), volume: volume(shape), bbox: { min: [...box[0]], max: [...box[1]] } };
     const bytes = new Uint8Array(writeStepFile(named ?? [{ shape, name: "model" }], { unit: unit === "in" ? "INCH" : "MM", modelUnit: "MM", schema }));
     return { ok: true, bytes, volume: volume(shape), bbox: { min: [...box[0]], max: [...box[1]] } };
   } catch (e) {

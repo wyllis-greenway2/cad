@@ -279,7 +279,7 @@ async function exportDialogFlow() {
   const answers = await dialog.open((v) => exportDialog(state.session, v as unknown as ExportOptions), (({ name: _name, ...rest }) => rest)(fitExport(state.session, { ...saved, name: "" })) as unknown as Values); // (the file name is not asked as an answer to begin with: the dialog offers its own)
   if (!answers) return;
   const o = fitExport(state.session, answers as unknown as ExportOptions);
-  webStore.set(EXPORT_KEY, JSON.stringify({ format: o.format, quality: o.quality, what: "all", perBody: o.perBody, joined: o.joined, schema: o.schema, name: "" }));
+  webStore.set(EXPORT_KEY, JSON.stringify({ format: o.format, quality: o.quality, what: "all", perBody: o.perBody, joined: o.joined, schema: o.schema, iges: o.iges, name: "" }));
   say(`making the ${FLAT_OR_NOT(o.format)} file…`);
   const r = await exportWith(state.session, engine, o);
   if (!r.ok) return say(r.error);
@@ -498,7 +498,7 @@ async function importDialogFlow(given?: { name: string; bytes: Uint8Array }) {
   const picked = given ?? (await webFiles.pick(IMPORT_KINDS));
   if (!picked) return;
   const name = await nameFor(picked.name, picked.bytes, KIND_OF); // (a file with no ending, or a wrong one, is read as what is in it, `dec_exchange_gaps`)
-  if (!KIND_OF(name)) return say(`${picked.name} is not a file the app reads: it imports STEP (.step, .stp), BREP (.brep), FreeCAD (.FCStd), STL, 3MF, OBJ, SVG and DXF`);
+  if (!KIND_OF(name)) return say(`${picked.name} is not a file the app reads: it imports STEP (.step, .stp), IGES (.igs, .iges), BREP (.brep), FreeCAD (.FCStd), STL, 3MF, OBJ, SVG and DXF`);
   const answers = await dialog.open((v) => importDialog(name, v as unknown as ImportOptions), { ...IMPORT_DEFAULTS } as unknown as Values);
   if (!answers) return;
   say(`reading ${name}…`);

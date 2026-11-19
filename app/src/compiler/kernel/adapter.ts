@@ -42,8 +42,8 @@ export interface KernelResult {
 /** How fine an exported mesh is: the most a facet may be from the true surface (mm), and the most a curve may turn across one facet (radians). */
 /** The STEP schemas a file can be written in: AP203 (the oldest, shapes only: legacy CAM), AP214 (the one nearly every program reads), AP242 (the current one). */
 export type StepSchema = "ap203" | "ap214" | "ap242";
-/** What the exact solid can be written as: a STEP schema, or `brep` (OpenCASCADE's own text format, for FreeCAD and other OpenCASCADE programs). */
-export type ExactFormat = StepSchema | "brep";
+/** What the exact solid can be written as: a STEP schema, or `brep` (OpenCASCADE's own text format, for FreeCAD and other OpenCASCADE programs), or IGES: `iges` the faces as trimmed surfaces (nearly every program that reads IGES), `iges-solids` the solids as B-rep solids (only the better ones). */
+export type ExactFormat = StepSchema | "brep" | "iges" | "iges-solids";
 export interface ExportQuality { tolerance: number; angular: number; /** ask for the exact solid as a STEP file (`exportStep`), not a mesh: the worker takes both through the one queue of exports (`dec_export_formats`) */ step?: boolean; /** with `step`: the file's unit, inches (the model is in millimetres either way) */ unit?: "in"; /** with `step`: the STEP schema (`dec_export_more`) */ schema?: ExactFormat; /** only these bodies (their names, `KernelResult.bodies`); absent: all of them, which is what the export does unless it is told otherwise (`in_271`) */ bodies?: string[] }
 /** The body as a closed triangle mesh for a file (`dec_export_stl`): plain numbers, millimetres, in the world as modelled. */
 export type ExportResult =

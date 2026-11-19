@@ -2,6 +2,7 @@
 // Every op runs in a try/catch so one failure is local: independent ops still build,
 // dependents report "upstream failed" (blueprint: failures are non-fatal).
 import { unpack } from "./pack.mjs";
+import { readIgesSolids } from "./igesio.mjs";
 import {
   drawRectangle,
   drawRoundedRectangle,
@@ -694,7 +695,7 @@ const OPS = {
 
   /** The solids of a STEP file, as bodies of their own beside the ones already there (`dec_import`): read here, on this thread, from the text kept in the step. A file with no solid in it (only surfaces or curves) is refused with that. */
   import(op, ctx) {
-    return importedSolids(op, ctx, placedSolids(op.format === "brep" ? readBrep(unpack(op.data)) : readStep(unpack(op.data)), op));
+    return importedSolids(op, ctx, placedSolids(op.format === "brep" ? readBrep(unpack(op.data)) : op.format === "iges" ? readIgesSolids(unpack(op.data), isValidSolid) : readStep(unpack(op.data)), op));
   },
   /** The closed meshes of a step (`dec_import_mesh`): each is sewn into a solid whose faces are its triangles, the flat ones that lie in one plane joined, as a body of its own beside the ones already there. */
   importMesh(op, ctx) {

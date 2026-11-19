@@ -1,8 +1,8 @@
 // What a file is, by what is in it (`dec_exchange_gaps`): a file dropped on the page or chosen may have no ending, a wrong one (`.txt`, `.dat`) or one an e-mail program added; the program reads it as what it is. Pure bytes in, a kind out.
 import { unzip } from "../compiler/meshfile.ts";
 
-export type FileKind = "step" | "stl" | "3mf" | "obj" | "brep" | "fcstd" | "svg" | "dxf";
-const ENDING: Record<FileKind, string> = { step: "step", stl: "stl", "3mf": "3mf", obj: "obj", brep: "brep", fcstd: "FCStd", svg: "svg", dxf: "dxf" };
+export type FileKind = "step" | "iges" | "stl" | "3mf" | "obj" | "brep" | "fcstd" | "svg" | "dxf";
+const ENDING: Record<FileKind, string> = { step: "step", iges: "igs", stl: "stl", "3mf": "3mf", obj: "obj", brep: "brep", fcstd: "FCStd", svg: "svg", dxf: "dxf" };
 
 /** The kind of file these bytes are, or null when they are none the app reads. */
 export async function sniffKind(bytes: Uint8Array): Promise<FileKind | null> {
@@ -19,6 +19,7 @@ export async function sniffKind(bytes: Uint8Array): Promise<FileKind | null> {
   if (head.startsWith("AutoCAD Binary DXF")) return "dxf";
   if (/^0\r?\n\s*SECTION\r?\n\s*2\r?\n/.test(lead)) return "dxf";
   if (/^CASCADE Topology/.test(lead)) return "brep";
+  if (/^.{72}S\s*0*1\s*\r?\n/.test(head.slice(0, 200))) return "iges";
   if (/^(<\?xml[^>]*\?>\s*)?(<!--[\s\S]*?-->\s*)?(<!DOCTYPE[^>]*>\s*)?<svg[\s>]/i.test(lead) || (/^<\?xml/i.test(lead) && /<svg[\s>]/i.test(head))) return "svg";
   if (bytes.length >= 84) { // a binary STL says its triangle count, and the file is exactly that long (its header may begin with "solid" all the same)
     const n = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(80, true);

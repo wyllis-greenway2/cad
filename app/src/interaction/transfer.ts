@@ -32,8 +32,8 @@ export interface Dialog { title: string; ok: string; fields: Field[] }
 
 // ---------- export ----------
 export type ExportKind = ExportFormat | "svg" | "dxf";
-export interface ExportOptions { format: ExportKind; what: "all" | "selected"; units: Units; quality: Quality; perBody: boolean; /** a DXF with the pieces that meet joined into one path each */ joined: boolean; /** a STEP file's schema */ schema: StepSchema; name: string }
-export const EXPORT_DEFAULTS: ExportOptions = { format: "stl", what: "all", units: "mm", quality: "fine", perBody: false, joined: true, schema: "ap214", name: "" };
+export interface ExportOptions { format: ExportKind; what: "all" | "selected"; units: Units; quality: Quality; perBody: boolean; /** a DXF with the pieces that meet joined into one path each */ joined: boolean; /** a STEP file's schema */ schema: StepSchema; /** an IGES file's faces as surfaces or solids */ iges: "surfaces" | "solids"; name: string }
+export const EXPORT_DEFAULTS: ExportOptions = { format: "stl", what: "all", units: "mm", quality: "fine", perBody: false, joined: true, schema: "ap214", iges: "surfaces", name: "" };
 const FLAT_KINDS = new Set<ExportKind>(["svg", "dxf"]);
 const NOTHING_3D = "nothing to export yet: make a body";
 const NOTHING_FLAT = "nothing to export yet: draw something, or select a sketch or a flat face of a body";
@@ -45,7 +45,7 @@ const bodyIds = (s: Session): string[] => Object.values(sceneOf(s).parts).flatMa
 export function fitExport(s: Session, given: Partial<ExportOptions>): ExportOptions {
   const o: ExportOptions = { ...EXPORT_DEFAULTS, ...given }; // (what is not given, or was never kept, is the usual)
   const ok = (k: ExportKind): boolean => (FLAT_KINDS.has(k) ? canExportFlat(s) : canExport(s));
-  const format = ok(o.format) ? o.format : (["stl", "3mf", "obj", "step", "brep", "svg", "dxf"] as const).find(ok) ?? o.format;
+  const format = ok(o.format) ? o.format : (["stl", "3mf", "obj", "step", "iges", "brep", "svg", "dxf"] as const).find(ok) ?? o.format;
   const what = o.what === "selected" && selectedBodies(s) ? "selected" : "all";
   const count = what === "selected" ? selectedBodies(s)!.length : bodyIds(s).length;
   return { ...o, format, what, perBody: o.perBody && count > 1 && !FLAT_KINDS.has(format), name: o.name.trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\.[A-Za-z0-9]{1,5}$/, "") };
@@ -62,6 +62,7 @@ export function exportDialog(s: Session, o0: Partial<ExportOptions>): Dialog {
       { value: "3mf", label: "3MF: for slicers (units, one file)", ...(can3d ? {} : { disabled: NOTHING_3D }) },
       { value: "obj", label: "OBJ: a mesh, for Blender and other mesh programs", ...(can3d ? {} : { disabled: NOTHING_3D }) },
       { value: "step", label: "STEP: for other CAD programs and shops (exact)", ...(can3d ? {} : { disabled: NOTHING_3D }) },
+      { value: "iges", label: "IGES: for older CAD, CAM and CNC systems", ...(can3d ? {} : { disabled: NOTHING_3D }) },
       { value: "brep", label: "BREP: exact, for FreeCAD and other OpenCASCADE programs", ...(can3d ? {} : { disabled: NOTHING_3D }) },
       { value: "svg", label: "SVG: a flat drawing, for laser and vinyl", ...(canFlat ? {} : { disabled: NOTHING_FLAT }) },
       { value: "dxf", label: "DXF: a flat drawing, for CAD and CNC", ...(canFlat ? {} : { disabled: NOTHING_FLAT }) },
@@ -78,6 +79,7 @@ export function exportDialog(s: Session, o0: Partial<ExportOptions>): Dialog {
     fields.push({ id: "about", label: "What", type: "text", readonly: true, value: r.ok ? `${r.what}: ${r.pieces.length} piece${r.pieces.length === 1 ? "" : "s"}` : "", note: "the selected sketch or flat face; with nothing selected, the whole drawing (when it is on one plane)" });
   }
   if (o.format !== "brep") fields.push({ id: "units", label: "Units", type: "choice", value: o.units, choices: [{ value: "mm", label: "Millimetres" }, { value: "in", label: "Inches" }] }); // (a BREP has no unit)
+  if (o.format === "iges") fields.push({ id: "iges", label: "IGES body as", type: "choice", value: o.iges, choices: [{ value: "surfaces", label: "Trimmed surfaces: nearly every program reads them" }, { value: "solids", label: "B-rep solids: only the better programs read them" }] });
   if (o.format === "step") fields.push({ id: "schema", label: "STEP version", type: "choice", value: o.schema, choices: [{ value: "ap214", label: "AP214: the one nearly every program reads" }, { value: "ap203", label: "AP203: the oldest, for old CAM and CAD" }, { value: "ap242", label: "AP242: the current one" }] });
   if (o.format === "dxf") fields.push({ id: "joined", label: "Outlines", type: "check", value: o.joined, note: "joined into one path each (a cutter or router follows it without lifting); off: separate lines and arcs" });
   if (o.format === "stl" || o.format === "3mf" || o.format === "obj") fields.push({ id: "quality", label: "Mesh quality", type: "choice", value: o.quality, choices: [{ value: "fine", label: "Fine (0.01 mm from the true surface)" }, { value: "medium", label: "Medium (0.05 mm)" }, { value: "coarse", label: "Coarse (0.2 mm: small files)" }] });
@@ -96,7 +98,7 @@ export async function exportWith(s: Session, kernel: Kernel, o0: Partial<ExportO
   if (o.format === "svg" || o.format === "dxf") return exportFlat(s, o.format, `${base}.${o.format}`, o.units, o.joined);
   const format = o.format as ExportFormat;
   const only = o.what === "selected" ? selectedBodies(s) : undefined;
-  const choices = { units: o.units, quality: o.quality, schema: o.schema };
+  const choices = { units: o.units, quality: o.quality, schema: o.schema, iges: o.iges };
   if (!o.perBody) return exportFile(s, kernel, format, only, `${base}.${FORMATS[format].ext}`, choices);
   const ids = only ?? bodyIds(s);
   const files: { name: string; data: Uint8Array }[] = [];
@@ -110,9 +112,9 @@ export async function exportWith(s: Session, kernel: Kernel, o0: Partial<ExportO
 }
 
 // ---------- import ----------
-export const KIND_OF = (name: string): "step" | "stl" | "3mf" | "obj" | "brep" | "fcstd" | "svg" | "dxf" | null => {
+export const KIND_OF = (name: string): "step" | "iges" | "stl" | "3mf" | "obj" | "brep" | "fcstd" | "svg" | "dxf" | null => {
   const e = /\.([^.]+)$/.exec(name)?.[1]?.toLowerCase();
-  return e === "step" || e === "stp" ? "step" : e === "brp" ? "brep" : e === "stl" || e === "3mf" || e === "obj" || e === "brep" || e === "fcstd" || e === "svg" || e === "dxf" ? e : null;
+  return e === "step" || e === "stp" ? "step" : e === "igs" || e === "iges" ? "iges" : e === "brp" ? "brep" : e === "stl" || e === "3mf" || e === "obj" || e === "brep" || e === "fcstd" || e === "svg" || e === "dxf" ? e : null;
 };
 
 /** Fit a number the person typed: more than nothing. */

@@ -7,11 +7,12 @@ import { threeMfBytes, threeMfObjects, zipStored } from "../compiler/threemf.ts"
 import type { Session } from "./session.ts";
 import { EXPORT_QUALITY, EXPORT_NOTHING, canExport } from "./exportstl.ts";
 
-export type ExportFormat = "stl" | "3mf" | "obj" | "step" | "brep";
+export type ExportFormat = "stl" | "3mf" | "obj" | "step" | "iges" | "brep";
 export const FORMATS: Record<ExportFormat, { ext: string; mime: string; label: string }> = {
   stl: { ext: "stl", mime: "model/stl", label: "STL" },
   "3mf": { ext: "3mf", mime: "model/3mf", label: "3MF" },
   obj: { ext: "obj", mime: "model/obj", label: "OBJ" },
+  iges: { ext: "igs", mime: "model/iges", label: "IGES" },
   brep: { ext: "brep", mime: "application/octet-stream", label: "BREP" },
   step: { ext: "step", mime: "model/step", label: "STEP" },
 };
@@ -19,7 +20,7 @@ export const FORMATS: Record<ExportFormat, { ext: string; mime: string; label: s
 export type Units = "mm" | "in";
 export type Quality = "fine" | "medium" | "coarse";
 const QUALITY: Record<Quality, { tolerance: number; angular: number }> = { fine: EXPORT_QUALITY, medium: { tolerance: 0.05, angular: 0.25 }, coarse: { tolerance: 0.2, angular: 0.5 } };
-export interface ExportChoices { units?: Units; quality?: Quality; /** a STEP file's schema (`dec_export_more`) */ schema?: StepSchema }
+export interface ExportChoices { units?: Units; quality?: Quality; /** an IGES file: the faces as trimmed surfaces (the usual: nearly every program reads them), or the solids as B-rep solids (the better programs only) */ iges?: "surfaces" | "solids"; /** a STEP file's schema (`dec_export_more`) */ schema?: StepSchema }
 export type FileOutcome = { ok: true; name: string; bytes: Uint8Array; mime: string; message: string } | { ok: false; error: string };
 
 const kb = (n: number) => (n < 1e6 ? `${(n / 1e3).toFixed(1)} KB` : `${(n / 1e6).toFixed(1)} MB`);
@@ -33,12 +34,13 @@ export async function exportFile(s: Session, kernel: Kernel, format: ExportForma
   const k = units === "in" ? 1 / 25.4 : 1;
   if (!canExport(s)) return { ok: false, error: EXPORT_NOTHING };
   const label = FORMATS[format].label;
-  if (format === "step" || format === "brep") {
-    const r = await kernel.exportStep(graphOf(s.history.scene), only, format === "brep" ? undefined : units === "in" ? "in" : undefined, format === "brep" ? "brep" : choices.schema);
+  if (format === "step" || format === "brep" || format === "iges") {
+    const exact = format === "brep" ? "brep" : format === "iges" ? (choices.iges === "solids" ? "iges-solids" : "iges") : choices.schema;
+    const r = await kernel.exportStep(graphOf(s.history.scene), only, format === "brep" ? undefined : units === "in" ? "in" : undefined, exact);
     if (!r.ok) return { ok: false, error: r.error };
     const kk = format === "brep" ? 1 : k; // (a BREP has no unit: millimetres)
     const dims = [0, 1, 2].map((i) => +((r.bbox.max[i]! - r.bbox.min[i]!) * kk).toFixed(units === "in" && format !== "brep" ? 3 : 2)).join(" × ");
-    return { ok: true, name, bytes: r.bytes, mime: FORMATS[format].mime, message: `exported ${name}: the exact body (not a mesh), ${dims} ${format === "brep" ? "mm (a BREP has no unit)" : units}, ${format === "brep" ? "OpenCASCADE BREP" : (choices.schema ?? "ap214").toUpperCase()}, ${kb(r.bytes.length)}` };
+    return { ok: true, name, bytes: r.bytes, mime: FORMATS[format].mime, message: `exported ${name}: the exact body (not a mesh), ${dims} ${format === "brep" ? "mm (a BREP has no unit)" : units}, ${format === "brep" ? "OpenCASCADE BREP" : format === "iges" ? (choices.iges === "solids" ? "IGES, B-rep solids" : "IGES, trimmed surfaces") : (choices.schema ?? "ap214").toUpperCase()}, ${kb(r.bytes.length)}` };
   }
   const q = QUALITY[choices.quality ?? "fine"];
   const ids = only ?? Object.values(s.history.scene.parts).flatMap((p) => (p.kind === "body" && p.id ? [p.id] : []));
