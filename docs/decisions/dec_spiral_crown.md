@@ -20,3 +20,7 @@ alternative_to:
 
 ## Rationale
 The crown gear is the flat limit of the bevel gear, and the spiral tooth's generating gear is one: the human asked for a good set of crown gears (`in_878`, `dec_crown_gear_set`) and this is the curved-tooth one.
+
+## The browser's time (`in_1022`)
+Measured in Chromium here with the built app (both gears of the pair, one job; the limit is 60 s): 40 / 18 module 2 14.8 s, 54 / 18 (ratio 3) 17.6 s, 48 / 20 module 3 at 40 degrees 19.9 s, 60 / 20 (80 teeth in all) 20.7 s, 45 / 16 at 45 degrees 17.9 s. Well inside the minute.
+
