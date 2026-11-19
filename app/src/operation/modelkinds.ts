@@ -12,9 +12,11 @@ import { differentialSteps, differentialProblem, differentialExtent, DIFFERENTIA
 import type { DifferentialSpec } from "./modeldifferential.ts";
 import { cycloidalSteps, cycloidalProblem, cycloidalRatio, cycloidalRim, discOutline, CYCLOIDAL_START } from "./modelcycloidal.ts";
 import type { CycloidalSpec } from "./modelcycloidal.ts";
+import { engineSteps, engineProblem, engineGeometry, engineFootprint, engineDisplacement, ENGINE_START } from "./modelengine.ts";
+import type { EngineSpec } from "./modelengine.ts";
 
-export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal";
-export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal"];
+export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine";
+export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine"];
 /** The numbers of a model, by name */
 export type Nums = Record<string, number>;
 /** One number of a model: what it is called, a line that says what it is, and whether it grows with the overall size (a length of the thing, not a room left for the printer or a count) */
@@ -44,6 +46,7 @@ const catalogueProblem = (n: Nums): string | null => { const s = catalogueShape(
 const gb = (n: Nums): GearboxSpec => n as unknown as GearboxSpec;
 const df = (n: Nums): DifferentialSpec => n as unknown as DifferentialSpec;
 const cy = (n: Nums): CycloidalSpec => n as unknown as CycloidalSpec;
+const en = (n: Nums): EngineSpec => n as unknown as EngineSpec;
 
 const BEARING_START: Nums = { own: 0, number: 608, detail: 0, bore: 8, outer: 22, width: 7, ring: 0, clearance: 0.02, balls: 0, ball: 0 };
 const DEFS: Record<ModelKind, Def> = {
@@ -98,6 +101,22 @@ const DEFS: Record<ModelKind, Def> = {
       return [rect(-e.half, -e.outer, e.half, e.outer), rect(-e.reach, -s.axle / 2, e.reach, s.axle / 2), [[-e.bigS, -tipS], [-e.bigS, tipS], [0, 0], [-e.bigS, -tipS]], [[e.bigS, -tipS], [e.bigS, tipS], [0, 0], [e.bigS, -tipS]], [[-tipP, e.bigP], [tipP, e.bigP], [0, 0], [-tipP, e.bigP]], [[-tipP, -e.bigP], [tipP, -e.bigP], [0, 0], [-tipP, -e.bigP]], ...(e.drive ? [rect(-s.driveWidth / 2, -e.drive, s.driveWidth / 2, e.drive)] : [])];
     },
     about: () => "two side gears, two spiders on a cross pin, a cage, two axles and a drive gear",
+  },
+  engine: {
+    title: "Piston engine",
+    fields: [F("bore", "Bore", "mm: the cylinder's diameter", true), F("stroke", "Stroke", "mm: twice the crank's radius", true), F("ratio", "Rod ratio", "the crank's radius over the rod's length: 0.25 to 0.33 is usual"), F("pin", "Piston pin diameter", "mm: 0.25 to 0.3 of the bore is usual", true), F("shaft", "Shaft diameter", "mm", true), F("wall", "Wall", "mm: the floor and the cylinder's wall", true), F("flywheel", "Flywheel diameter", "mm", true), F("rings", "Ring grooves", "0 to 3"), F("room", "Room", "mm all round the moving parts")],
+    start: { ...ENGINE_START },
+    problem: (n) => engineProblem(en(n)),
+    extent: (n) => { if (engineProblem(en(n))) return 0; const f = engineFootprint(en(n)); return Math.max(f.x1 - f.x0, 2 * f.hy); },
+    centre: (n) => { if (engineProblem(en(n))) return [0, 0]; const f = engineFootprint(en(n)); return [(f.x0 + f.x1) / 2, 0]; },
+    build: (n, place) => engineSteps(en(n), place),
+    outline: (n) => {
+      const s = en(n);
+      if (engineProblem(s)) return [];
+      const g = engineGeometry(s), f = engineFootprint(s);
+      return [rect(f.x0, -f.hy, f.x1, f.hy), rect(g.x0, -g.ro, g.x1 + s.wall, g.ro), rect(g.x0, -s.bore / 2, g.x1, s.bore / 2), circle(0, 0, g.rweb, 40), circle(0, 0, s.flywheel / 2, 48), circle(g.r, 0, g.cp / 2, 16), circle(g.r + g.l, 0, s.pin / 2, 16), [[g.r, 0], [g.r + g.l, 0]]];
+    },
+    about: (n) => { const s = en(n); return `${engineDisplacement(s).toFixed(1)} cm3, rod ${(s.stroke / 2 / s.ratio).toFixed(1)} mm long; the crank turns the rod and the piston by the exact slider-crank; the sizes are rules of thumb, not standards`; },
   },
   cycloidal: {
     title: "Cycloidal drive",

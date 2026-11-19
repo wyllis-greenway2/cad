@@ -108,3 +108,12 @@ Read in full from the pages named in the entry (Albany County Fasteners for ISO 
 | Misumi, miniature ball bearing pages (us.misumi-ec.com) | read (`in_1146`) | copyright (facts: sizes) | the miniatures' sizes (623 to 627, 607 to 609) | `bearingdata.ts` |
 | NSK and Misumi PDF catalogues | not readable (no text layer) | copyright | nothing | none |
 
+
+## Piston engine (`dec_engine_model`)
+
+| Source | Status | Rights | Used for | Recorded in |
+|---|---|---|---|---|
+| Slider-crank kinematics (piston position r cos a + sqrt(l² - r² sin² a), rod angle asin(r sin a / l)) | derived from geometry in the session, checked by test (`test/engine.test.ts`) | none (mathematics) | the piston's and the rod's motion | `modelengine.ts` |
+| EngineLabs, "Three's Company: Rod Length, Compression Height, And Crank Stroke" (enginelabs.com/?p=6828) | searched (`in_1201`), the search summary only | copyright | the definition of compression height (crown to pin axis) and the sum half the stroke + rod + compression height | `dec_engine_model` |
+| ISO 6621 (piston rings), ISO 18669 (piston pins; 8 to 100 mm) | searched (`in_1201`); the standards are paid, **not read** | copyright | nothing: no dimension of them is used | `dec_engine_model` |
+| Proportions of a piston (compression height about 0.55 of the bore, skirt 0.35, pin 0.18 to 0.4 of the bore, ring groove sizes) and the usual rod ratio 0.25 to 0.33 | **from memory of engine design practice, not read in a source** | n/a | defaults and limits of the engine model; said so in the model's box | `dec_engine_model` |

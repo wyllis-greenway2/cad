@@ -332,7 +332,7 @@ export function modelPlay(s: Scene, body: Ref): { driver: { point: Vec3; dir: Ve
     const db = modelBody(s, m, m.driver.part);
     if (!db) return null;
     const followers: Follower[] = [];
-    for (const f of m.followers) { const b = modelBody(s, m, f.part); if (b) followers.push({ gear: m.id, body: b, kind: "turn", point: f.point, dir: f.dir, k: f.k, ...(f.after ? { after: f.after } : {}) }); }
+    for (const f of m.followers) { const b = modelBody(s, m, f.part); if (b) followers.push({ gear: m.id, body: b, kind: f.kind ?? "turn", point: f.point, dir: f.dir, k: f.k, ...(f.table ? { table: f.table } : {}), ...(f.after ? { after: f.after } : {}) }); }
     return { driver: { point: m.driver.point, dir: m.driver.dir, body: db }, followers, note: m.note };
   }
   return null;
