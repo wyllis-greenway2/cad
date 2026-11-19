@@ -1,4 +1,4 @@
-// A model of many parts apart, made in pieces (`dec_progressive_open`, `in_999`, `q_progressive_load`): which graphs can be, how they are cut, and the ghost of each part. Pure: a graph in, a plan out; nothing of the kernel is used.
+// A model of many parts apart, made in pieces (`dec_progressive_open`, `in_1002`, `q_progressive_load`): which graphs can be, how they are cut, and the ghost of each part. Pure: a graph in, a plan out; nothing of the kernel is used.
 // The class is the one whose independence the differential test (`prototypes/progressive`) has shown: every solid step is a push of a sketch of its own into a body of its own (`extrude`, mode new), and the bodies' boxes do not meet.
 // A graph with anything else in it (a fillet, a move, a cut, a revolve, a gear) is not planned: it is made whole, as it always was.
 import type { KernelGraph, KernelOp, Vec } from "./adapter.ts";

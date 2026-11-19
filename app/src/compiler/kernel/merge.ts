@@ -1,4 +1,4 @@
-// The answers of parts made apart, put together into one answer as the kernel gives for a model of many bodies (`dec_progressive_open`, `in_999`): the vertices and triangles one after the other, a face's place in the triangles and a corner's number moved on by what came
+// The answers of parts made apart, put together into one answer as the kernel gives for a model of many bodies (`dec_progressive_open`, `in_1002`): the vertices and triangles one after the other, a face's place in the triangles and a corner's number moved on by what came
 // before, each face and edge saying which body it is of (`body`, its place in `bodies`), the volumes added and the boxes joined. The same arrangement `evaluate.mjs` makes of the bodies of one shape; here the bodies were made one piece at a time.
 import type { KernelResult, Vec } from "./adapter.ts";
 

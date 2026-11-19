@@ -3,7 +3,7 @@ id: q_limits_and_failures
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_989
+human_input: in_992
 date: 2026-11-18
 depends_on:
   - dec_per_body_checks: the costs of many bodies are recorded there (items 10 to 13); the limits below are what those costs add up to
@@ -12,7 +12,7 @@ alternative_to:
 ---
 # How big a model the app takes, how it fails, and what to do about the hard failures
 
-**Measured (`in_989`, the built app in headless Chromium, 1x, `prototypes/limits`)**
+**Measured (`in_992`, the built app in headless Chromium, 1x, `prototypes/limits`)**
 
 *Parts that are separate steps (a sketch and a push each), the project opened from a file:* 10 parts 0.4 s; 50 1.6 s; 100 3.6 s; 150 6.0 s; 200 8.3 s (the page frozen 2.2 s); 300 17.5 s (frozen 4.4 s, kernel 12.7 s): about the square of the parts, so **about 600 is where the kernel's 60 s limit is met**. 1000 parts: the history alone froze the page **33 s** and held 441 MB before the kernel began. Building by hand one part at a time is quicker per step (an add costs 0.1 s at 40 parts, 0.3 s at 100, about 1.5 s at 300: 257 s for 300), so a model that cannot be opened again can still be built.
 

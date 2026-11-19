@@ -1,4 +1,4 @@
-// A copy of the project kept in the browser as it is worked (`in_994`, `q_limits_and_failures`): a page that crashes (the kernel's memory above 4 GB killed the tab after 46 s) or is closed by mistake lost everything not saved to a file.
+// A copy of the project kept in the browser as it is worked (`in_997`, `q_limits_and_failures`): a page that crashes (the kernel's memory above 4 GB killed the tab after 46 s) or is closed by mistake lost everything not saved to a file.
 // Two places: the copy of this session (written a moment after each change) and the copy of the session before it (found when the page was opened, kept until another session has something of its own to put there): so a crash, then a
 // reload that is only looked at, then another reload, still has the work. A copy that does not fit in the browser's storage is not kept and the person is told once.
 import type { Result } from "../shared/result.ts";

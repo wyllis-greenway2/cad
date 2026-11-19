@@ -1230,7 +1230,7 @@ const OPS = {
     axis[op.axis] = 1;
     const again = (moved) => (one ? makeCompound([...one.rest, moved]) : moved);
     const only = one ? op.body : null;
-    const was = one ? quickBox(t) : undefined; // (where the body stood: the names of its faces move with it and no other body's do, `in_996`)
+    const was = one ? quickBox(t) : undefined; // (where the body stood: the names of its faces move with it and no other body's do, `in_999`)
     // (a move by a vector, from dragging the body free, `in_291`: `op.vec`; else along one axis)
     if (op.mode === "move") { const by = op.vec ?? axis.map((a) => a * v); return { kind: "solid", shape: again(t.translate(by)), tf: { mode: "move", axis: op.axis, v, vec: op.vec, only, box: was } }; }
     if (op.mode === "rotate") { const pivot = op.pivot ?? middle(); const about = op.dir ?? axis; return { kind: "solid", shape: again(t.rotate(v, pivot, about)), tf: { mode: "rotate", axis: op.axis, dir: op.dir, v, pivot, only, box: was } }; } // (`op.dir`: a turn about any axis, `in_417`)
@@ -2470,7 +2470,7 @@ export function compile(graph, quick = false) {
       results.set(op.id, { value: kept.value, ms: 0, key, cached: true, faces: kept.faces });
       continue;
     }
-    // the kernel's memory is nearly its 4 GB: a step that went on would be the end of the page's tab (a model of 1100 bodies killed it after 46 s, `in_994`); this step and the ones after it say so and nothing more is made
+    // the kernel's memory is nearly its 4 GB: a step that went on would be the end of the page's tab (a model of 1100 bodies killed it after 46 s, `in_997`); this step and the ones after it say so and nothing more is made
     if (memoryStopMb > 0) { const mb = heapMegabytes(); if (mb > memoryStopMb) { results.set(op.id, { error: `the model is too big for the kernel's memory (${mb} MB of 4096 used): use fewer or simpler parts, or save it and open it in pieces`, ms: 0 }); continue; } }
     let markMs = 0;
     let checkMs = 0;

@@ -1,4 +1,4 @@
-# Prototype (thrown away, `in_998`): a project of N boxes apart, each a sketch and a push in "new" mode, as the app saves them. Usage: python3 make.py N out.json
+# Prototype (thrown away, `in_1001`): a project of N boxes apart, each a sketch and a push in "new" mode, as the app saves them. Usage: python3 make.py N out.json
 import json, sys
 n, out = int(sys.argv[1]), sys.argv[2]
 cols = int(n ** 0.5) + 1

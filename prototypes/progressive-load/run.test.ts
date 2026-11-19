@@ -1,4 +1,4 @@
-// Prototype (thrown away, `in_998`): Phase 1 of `q_progressive_load` on a project of many parts apart.
+// Prototype (thrown away, `in_1001`): Phase 1 of `q_progressive_load` on a project of many parts apart.
 // Open the project, make a ghost (a box) of every part from the commands alone, group the parts by where their boxes are, then build each group alone in the order of its distance from a camera, and see
 // when the first picture, the nearest parts and the last part are there, against the whole project built in one go.
 // Run (from app/): FILE=/tmp/synth-300.cad.json [WHOLE=1] node --test ../prototypes/progressive-load/run.test.ts

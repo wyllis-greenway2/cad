@@ -1,4 +1,4 @@
-// Prototype (thrown away, `in_989`): what the person sees when a step is more than the kernel can do in 60 s, after a model that worked.
+// Prototype (thrown away, `in_992`): what the person sees when a step is more than the kernel can do in 60 s, after a model that worked.
 const { chromium } = require("playwright");
 const fs = require("fs");
 const base = JSON.parse(fs.readFileSync("test/fixtures/grid-12x12.cad.json", "utf8"));

@@ -139,7 +139,7 @@ function hullArea(pts: readonly Vec3[]): number {
   return Math.abs(a) / 2;
 }
 
-// ---- the parts of a model made in pieces that are not made yet (`dec_progressive_open`, `in_999`) ----
+// ---- the parts of a model made in pieces that are not made yet (`dec_progressive_open`, `in_1002`) ----
 const ghostMemo = new WeakMap<Scene, Ghost[] | null>();
 let lastPieces: { scene: Scene; built: number; list: StandIn[] } | null = null;
 const NONE: Vec3 = [0, 0, 0];

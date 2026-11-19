@@ -5,7 +5,7 @@ import type { ExportQuality, ExportResult, Kernel, KernelGraph, KernelResult, St
 import type { ResultStore as Store } from "./platform/result-store.ts";
 type ResultStore = Store<KernelResult>; // (the store is made for the kernel's answer without knowing it: the platform layer does not import the compiler)
 
-/** The size (MB) of its memory above which the kernel makes no more steps (`memoryStopMb` in `interpreter.mjs`): a thread this big is restarted before the next job, whatever it was at its first answer (`in_994`). */
+/** The size (MB) of its memory above which the kernel makes no more steps (`memoryStopMb` in `interpreter.mjs`): a thread this big is restarted before the next job, whatever it was at its first answer (`in_997`). */
 const KERNEL_MEMORY_STOP_MB = 3300;
 const EMPTY: KernelResult = { ops: [], finalId: null, volume: null, bbox: null, mesh: null, faces: null, edges: null, vertices: null, totalMs: 0 };
 const KEEP = 24; // results kept, newest last
@@ -24,7 +24,7 @@ const takeEarlyKernel = (): WorkerLike | null => { const w = (globalThis as unkn
 const spawn = (): WorkerLike => takeEarlyKernel() ?? new Worker(new URL("./kernel-worker.ts", import.meta.url), { type: "module" });
 
 /** What the kernel says when a job cannot be answered: an error on the last operation of the graph, so the step that asked for it is the one that is reported (and is taken back). */
-/** The answer to a job that could not be made: the step that asked has the error. What was drawn before stays drawn (`shown`: the last answer that was made; a model of hundreds of parts whose newest step cannot be made was a blank screen, `in_994`). */
+/** The answer to a job that could not be made: the step that asked has the error. What was drawn before stays drawn (`shown`: the last answer that was made; a model of hundreds of parts whose newest step cannot be made was a blank screen, `in_997`). */
 const failedResult = (graph: KernelGraph, error: string, ms = 0, shown: KernelResult = EMPTY): KernelResult => ({ ...shown, stale: undefined, ops: graph.ops.map((o, i) => ({ id: o.id, type: o.type, error: i === graph.ops.length - 1 ? error : null, ms: i === graph.ops.length - 1 ? ms : 0 })) });
 
 /**

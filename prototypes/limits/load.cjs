@@ -1,4 +1,4 @@
-// Prototype (thrown away, `in_989`): load a saved model of many bodies in the built app and see how it answers or fails.
+// Prototype (thrown away, `in_992`): load a saved model of many bodies in the built app and see how it answers or fails.
 // Run (from app/, after `npm run build` and `npx vite preview --port 5198`): node ../prototypes/limits/load.cjs /tmp/boxes-100.cad.json ...
 const { chromium } = require("playwright");
 const fs = require("fs");

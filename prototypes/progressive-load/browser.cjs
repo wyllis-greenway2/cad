@@ -1,4 +1,4 @@
-// Prototype (thrown away, `in_999`): the project of many parts in the built app: when the boxes, the first parts and the last part are drawn.
+// Prototype (thrown away, `in_1002`): the project of many parts in the built app: when the boxes, the first parts and the last part are drawn.
 // Run (from app/, after `npm run build` and `npx vite preview --port 5198`): node ../prototypes/progressive-load/browser.cjs /tmp/synth-300.cad.json
 const { chromium } = require("playwright");
 const fs = require("fs");

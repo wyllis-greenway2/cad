@@ -1,4 +1,4 @@
-// The parts of a model made in pieces that are not made yet are drawn as boxes at once, from the scene's steps alone, and go as the kernel makes them (`dec_progressive_open`, `in_999`).
+// The parts of a model made in pieces that are not made yet are drawn as boxes at once, from the scene's steps alone, and go as the kernel makes them (`dec_progressive_open`, `in_1002`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { openSession, scene } from "../src/interaction/session.ts";

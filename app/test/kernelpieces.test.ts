@@ -1,4 +1,4 @@
-// A model of many parts apart is made in pieces, with the answer so far sent as it goes, and stopped when the page asks (`dec_progressive_open`, `in_999`).
+// A model of many parts apart is made in pieces, with the answer so far sent as it goes, and stopped when the page asks (`dec_progressive_open`, `in_1002`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

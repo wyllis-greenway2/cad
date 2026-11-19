@@ -46,7 +46,7 @@ test("undo and redo through a long history keep the same bodies at each step", (
   assert.equal(bodies(u), 20);
 });
 
-test("a scene of many parts keeps fewer snapshots whole: the budget is in parts, not only in steps (`in_997`)", async () => {
+test("a scene of many parts keeps fewer snapshots whole: the budget is in parts, not only in steps (`in_1000`)", async () => {
   const { setWholeBudget } = await import("../src/operation/history.ts");
   let s = createSession(kernel);
   setWholeBudget(300); // (a scene of this model's size is 40 parts a box: seven or eight snapshots)

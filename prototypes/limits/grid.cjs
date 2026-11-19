@@ -1,4 +1,4 @@
-// Prototype (thrown away, `in_989`): how big a model of many bodies the built app takes, and how it fails.
+// Prototype (thrown away, `in_992`): how big a model of many bodies the built app takes, and how it fails.
 // Run (from app/, after `npm run build` and `npx vite preview --port 5198`): COUNTS=100,400,1000 node ../prototypes/limits/grid.cjs
 // The 12 by 12 grid of posts (test/fixtures/grid-12x12.cad.json: one push, one linear pattern) with the pattern's counts changed.
 const { chromium } = require("playwright");

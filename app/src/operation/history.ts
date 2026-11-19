@@ -34,7 +34,7 @@ const lean = (s: Scene): Scene => {
   return { ...s, parts, lean: true };
 };
 /**
- * The most parts the whole snapshots may hold together (`in_997`): thirty whole snapshots of a scene of a hundred thousand parts (ten spur gears: 290 faces each) were 400 MB, and thirty gears 1.7 GB; the newest two are always whole,
+ * The most parts the whole snapshots may hold together (`in_1000`): thirty whole snapshots of a scene of a hundred thousand parts (ten spur gears: 290 faces each) were 400 MB, and thirty gears 1.7 GB; the newest two are always whole,
  * and the others while they are within the number of snapshots and of parts.
  */
 let WHOLE_PARTS = 150000;
@@ -125,7 +125,7 @@ export const goTo = (h: History, cursor: number): History => { const c = Math.ma
  * Rebuild a history from its saved commands (the file format stores the base and the command list).
  * The scene is derived (solved, its faces found, its bodies asked for) after every command by `exec`, which for a long history is most of the time of opening it (300 parts: 4.4 s, 1000: 33 s, the page frozen): here
  * the commands are applied one after another and the scene is derived only now and then and for the last few (`REPLAY_STEP`, `KEEP_WHOLE`); the snapshots between are lean and are derived when gone back to (`sceneAt`).
- * If a command does not apply to a scene that is not derived (it may name a part only the derivation makes) the whole is done again as it always was, so that nothing is refused that was not refused before (`in_994`).
+ * If a command does not apply to a scene that is not derived (it may name a part only the derivation makes) the whole is done again as it always was, so that nothing is refused that was not refused before (`in_997`).
  */
 const REPLAY_STEP = 64;
 /** The commands that add what they are given to a scene and read nothing the derivation makes (the faces, the derived lines): a history of nothing else can be applied without deriving after each. A scene derived afresh is not always what one derived step by step is for the others (a fixture's undo gave other faces), so any other command in the history takes the slow way. */
