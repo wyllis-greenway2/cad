@@ -5176,3 +5176,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1213 — 2026-11-19 — directive
 > This is all I got, I think it is still pretty thin. Do you think we should look up more piston diagrams or look on machining blogs etc?
 (supplied three saved pages as PDFs: the onallcylinders piston article, the Caterpillar patent application 20160169153 and the kfz-tech "Piston Dimensions" page; asks whether to look up more diagrams or machining blogs)
+
+## in_1214 — 2026-11-19 — directive
+> lets do a four stroke single piston gasoline engine
+(answers my question: the engine builder's first engine is a four-stroke, single-cylinder gasoline engine)
