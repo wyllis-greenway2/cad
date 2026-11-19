@@ -29,7 +29,7 @@ import type { ExportFormat } from "./interaction/exportfile.ts";
 import { aboutOf } from "./operation/file.ts";
 import { webFiles, webStore } from "./platform/web-files.ts";
 import { createAutosave } from "./platform/autosave.ts";
-import { ghostsFromProject } from "./operation/projectghosts.ts";
+import { ghostsFromProject } from "./compiler/projectghosts.ts";
 import type { StandIn } from "./interaction/standin.ts";
 import { createState, reduce, advance, stopView, afterTakenBack } from "./interaction/controller.ts";
 import { frameOf } from "./interaction/frame.ts";

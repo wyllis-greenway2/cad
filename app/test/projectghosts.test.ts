@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { openSession, scene } from "../src/interaction/session.ts";
 import { standIns } from "../src/interaction/standin.ts";
-import { ghostsFromProject } from "../src/operation/projectghosts.ts";
+import { ghostsFromProject } from "../src/compiler/projectghosts.ts";
 import type { Kernel } from "../src/compiler/kernel/adapter.ts";
 import { projectText } from "./pieceshelp.ts";
 
