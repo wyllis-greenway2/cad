@@ -14,7 +14,7 @@ import { cycloidalSteps, cycloidalProblem, cycloidalRatio, cycloidalRim, discOut
 import type { CycloidalSpec } from "./modelcycloidal.ts";
 import { engineSteps, engineProblem, engineGeometry, engineFootprint, engineDisplacement, ENGINE_START } from "./modelengine.ts";
 import type { EngineSpec } from "./modelengine.ts";
-import { wheelSteps, wheelProblem, wheelLines, WHEEL_START } from "./modelwheel.ts";
+import { wheelSteps, wheelProblem, wheelLines, repairWheel, WHEEL_START } from "./modelwheel.ts";
 import type { WheelSpec } from "./modelwheel.ts";
 
 export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "wheel";
@@ -22,7 +22,7 @@ export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "dif
 /** The numbers of a model, by name */
 export type Nums = Record<string, number>;
 /** One number of a model: what it is called, a line that says what it is, and whether it grows with the overall size (a length of the thing, not a room left for the printer or a count) */
-export interface ModelField { key: string; label: string; hint: string; scaled?: true; /** shown only while the number `key` has this value (a bearing's box shows the numbers of the source chosen at its top, `in_1196`) */ when?: { key: string; is: number }; /** shown at the top of the box, above the size and the turn */ top?: true; /** the names of the values of a field that is a toggle button (its value is the place of the one chosen) */ choices?: string[] }
+export interface ModelField { key: string; label: string; hint: string; scaled?: true; /** not shown in the box: a number the box's Size sets (`Def.sizeKey`) */ hidden?: true; /** shown only while the number `key` has this value (a bearing's box shows the numbers of the source chosen at its top, `in_1196`) */ when?: { key: string; is: number }; /** shown at the top of the box, above the size and the turn */ top?: true; /** the names of the values of a field that is a toggle button (its value is the place of the one chosen) */ choices?: string[] }
 /** a picture made of lines in the model's plan, each line a list of points (closed ones repeat their first) */
 export type Lines = [number, number][][];
 
@@ -36,6 +36,10 @@ interface Def {
   centre: (n: Nums) => [number, number];
   build: (n: Nums, place: Place) => Result<ModelBuild>;
   outline: (n: Nums) => Lines;
+  /** the number that is the model's Size (the longest way across): typing the Size or sizing with the pointer sets it, and the box does not list it twice (the wheel's outside diameter) */
+  sizeKey?: string;
+  /** the numbers made to fit together: every number not typed (`locked` holds the ones that were) is moved as far as it must for the model to be possible, so that a number typed is met by the others and not refused (the wheel) */
+  repair?: (n: Nums, locked: ReadonlySet<string>) => Nums;
   /** a line under the numbers: what the model does */
   about: (n: Nums) => string;
 }
@@ -124,13 +128,15 @@ const DEFS: Record<ModelKind, Def> = {
   wheel: {
     title: "Wheel (rim, web, hub)",
     fields: [
-      F("outer", "Outside diameter", "mm: the whole wheel", true), F("width", "Rim width", "mm: along the axis", true), F("rim", "Rim thickness", "mm: across, at least 1.2", true),
+      { ...F("outer", "Outside diameter", "mm: the whole wheel (the Size)", true), hidden: true }, F("width", "Rim width", "mm: along the axis", true), F("rim", "Rim thickness", "mm: across, at least 1.2", true),
       F("hub", "Hub diameter", "mm", true), F("hubLen", "Hub length", "mm: along the axis", true), F("bore", "Bore", "mm: the hole for the shaft", true),
       F("web", "Web (spoke) thickness", "mm along the axis: the web and the spokes are this thick", true),
       { ...F("joinKind", "Join", "where the web meets the rim and the hub: a fillet or a chamfer"), choices: ["Fillet", "Chamfer"] }, F("join", "Join size", "mm: at least 0.8 (0.030 in); no corner is left square", true),
       F("draft", "Draft", "degrees the rim's and the hub's walls lean away from the middle: 0 for a machined wheel, 1 to 3 for a cast one"), F("spokes", "Spokes", "0: a plain web; else the number of cutouts in it (3 to 24)"), F("hubOff", "Hub offset", "mm a cutout stops short of the hub (from its wall): 0 and the spokes run into the hub; less than the join and it cuts into the fillet", true), F("rimOff", "Rim offset", "mm a cutout stops short of the rim (from its wall): 0 and the spokes run into the rim; less than the join and it cuts into the fillet", true),
       F("corner", "Cutout corner fillet", "mm: every corner of a cutout is rounded, at least 0.8", true), F("spokeW", "Spoke width", "mm at the hub end", true), F("taper", "Spoke taper", "how much narrower a spoke is at the rim end, as a share of its width (negative: wider)"), F("spiral", "Spiral", "degrees a spoke turns from the hub to the rim (0: straight)")],
     start: { ...WHEEL_START },
+    sizeKey: "outer",
+    repair: (n, locked) => repairWheel(wh(n), locked) as unknown as Nums,
     problem: (n) => wheelProblem(wh(n)),
     extent: (n) => (wheelProblem(wh(n)) ? 0 : wh(n).outer),
     centre: () => [0, 0],
@@ -164,6 +170,7 @@ export const modelExtent = (k: ModelKind, n: Nums): number => DEFS[k].extent(n);
 export const modelCentre = (k: ModelKind, n: Nums): [number, number] => DEFS[k].centre(n);
 export const modelBuild = (k: ModelKind, n: Nums, place: Place): Result<ModelBuild> => DEFS[k].build(n, place);
 export const modelOutline = (k: ModelKind, n: Nums): Lines => DEFS[k].outline(n);
+export const modelSizeKey = (k: ModelKind): string | undefined => DEFS[k].sizeKey;
 export const modelStart = (k: ModelKind): Nums => ({ ...DEFS[k].start });
 
 const tidy = (key: string, v: number): number => (key === "module" || key === "driveModule" ? Math.round(v * 20) / 20 : Math.round(v * 100) / 100);
@@ -186,7 +193,8 @@ export function modelNumbers(kind: ModelKind, typedIn: Nums, size?: number): Num
   const at = (f: number): Nums => {
     const n: Nums = { ...d.start };
     for (const fl of d.fields) if (fl.scaled) n[fl.key] = tidy(fl.key, d.start[fl.key]! * f);
-    return { ...n, ...typed };
+    const all: Nums = { ...n, ...typed };
+    return d.repair ? d.repair(all, new Set(Object.keys(typed))) : all;
   };
   const free = d.fields.some((fl) => fl.scaled && typed[fl.key] === undefined);
   if (size === undefined || !(size > 0) || !free) {

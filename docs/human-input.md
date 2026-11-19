@@ -5276,3 +5276,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1239 — 2026-11-19 — preference
 > how can we mitigate the risks of using 6⅛ in aircraft piston from 1945? maybe we should weight the honda data more?
 (asks how to reduce the risk of the NACA 817 aircraft piston numbers in the assumed design rules, and suggests weighting the Honda data more)
+
+## in_1240 — 2026-11-19 — directive
+> what is the difference between size and outside diameter? Also everything breaks it. For example if I hand type in the value of the rim width that it already had, it breaks. Also valid failure states are not very graceful. See the gear builder, it helps guide the user to input valid things and doesn't fail, but marks red and goes back to a valid value or sets assocated related values to make it function. Also it seems to have really silly limits, like a huge hub diameter no matter how small the bore is and even with a really large outer diameter.
+(asks what the difference between Size and Outside diameter is; says the wheel breaks on nearly any typed number, even the value a field already had; wants failures handled as the gear builder does (mark red and go back to a valid value, or set the related numbers so it works); and says the limits are silly, e.g. a huge hub whatever the bore or the outer diameter)
