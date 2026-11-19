@@ -45,10 +45,11 @@ export interface ContactState {
 const FREE_STEP = 2.5; // (the most a body with no joint is pushed in one step of the driver, mm)
 /**
  * The accelerators of the solver (`dec_contact_push`, the core and its hints): none of them may change what is true, only how soon it is found. `hints` off: every way is looked at in full, with no memory of the last (the plain solver the hints are checked
- * against); `keep` off: nothing is kept between calls; `blend` off: a place between two kept ones is worked out, not blended. Tests set them; the app leaves them on.
+ * against); `keep` off: nothing is kept between calls; `blend` off: a place between two kept ones is worked out, not blended. `smooth` off: the picture of a body with no joint is its worked-out places as they are, not averaged over the places round them. Tests set them; the app leaves them on.
  */
-export const contactOptions = { hints: true, keep: true, blend: true };
-const SPLITS = 3, SPLIT_PUSH = 0.4; // (a step that moves a body with no joint more than this, mm, is made again in halves, three times at most)
+export const contactOptions = { hints: true, keep: true, blend: true, smooth: true };
+const SPLITS = 3, SPLIT_PUSH = 0.4;
+export const SMOOTH_STEPS = 8; // (steps of the grid either side that the picture of a body with no joint is averaged over) // (a step that moves a body with no joint more than this, mm, is made again in halves, three times at most)
 const FREE_MAX = 60;
 const FREE_SPIN = 120; // (how far a body with no joint may be turned in one play, degrees) // (how far a body with no joint may be pushed in one play, mm: past it the push stops and says so)
 const MAX_PUSH = 12.8, STEP = 1, MAX_STEPS = 360, MAX_PASSES = 12;
@@ -348,9 +349,49 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
     if (!jam && g !== null && Math.abs(cur - a) < 1e-9) places.set(g, snap());
     if (!jam && i < targets.length - 1 && performance.now() - began > budgetMs) { slow = true; break; } // (the rest of the steps wait for the next frame)
   }
+  /**
+   * What a body with no joint is drawn at (`in_1107`): where it was worked out to be, averaged over the places round it (a triangle of eight whole degrees either side, less near the ends of what is worked out), so the stair of a body that slides until
+   * it is wedged and then turns a little, and slides again, is a smooth curve; and only if that place is clear (tested against everything where it stands); else the worked-out place as it is. The solver's own state is not touched.
+   */
+  const shownYields = (): Follower[] | null => {
+    if (!contactOptions.smooth || !keep || !places || jam) return null;
+    const free = work.map((q, ix) => (q.free ? ix : -1)).filter((ix) => ix >= 0);
+    if (!free.length) return null;
+    let top = 0;
+    while (places.has(top + 1)) top++;
+    const g = good / step, i0 = Math.floor(g + 1e-9), f = g - i0;
+    if (g > top + 1e-9 || !places.has(0) || i0 < 0) return null;
+    const at = (i: number, ix: number): { free: [number, number, number]; spin: number } => {
+      const w = Math.min(SMOOTH_STEPS, i, top - i);
+      let [sx, sy, sz, ss, sw] = [0, 0, 0, 0, 0];
+      for (let j = -w; j <= w; j++) { const e = places.get(i + j)!.work[ix]!, k = w + 1 - Math.abs(j); if (!e.free) continue; sx += e.free[0] * k; sy += e.free[1] * k; sz += e.free[2] * k; ss += (e.spin ?? 0) * k; sw += k; }
+      return { free: [sx / sw, sy / sw, sz / sw], spin: ss / sw };
+    };
+    const shown = pushables.map((p, ix) => {
+      if (!free.includes(ix)) return p;
+      const [a0, a1] = [at(i0, ix), at(Math.min(top, i0 + 1), ix)];
+      const k = i0 + 1 > top ? 0 : f;
+      return { ...p, free: [0, 1, 2].map((q) => a0.free[q]! + (a1.free[q]! - a0.free[q]!) * k) as [number, number, number], spin: a0.spin + (a1.spin - a0.spin) * k };
+    });
+    // clear where it is drawn? (against everything: the driver, what yields, the walls). Where the average cuts a corner into what the body hugs, it is only taken as far toward the average as is clear (found by halving, from the worked-out place, which
+    // is clear): it follows the average everywhere else and keeps to the surface where it cannot.
+    const m2 = moversOf(m, { ...c, pushables: shown });
+    const solid2 = solidSet(scene, outcome, m2, good, vals).solid;
+    for (const ix of free) {
+      const [s, w0] = [shown[ix] as Pushable & { free: [number, number, number] }, work[ix]!];
+      const [avg, was, spinAvg, spinWas] = [[...s.free] as [number, number, number], [...w0.free!] as [number, number, number], s.spin ?? 0, w0.spin ?? 0];
+      const put = (k: number): boolean => { for (let q = 0; q < 3; q++) s.free[q] = was[q]! + (avg[q]! - was[q]!) * k; s.spin = spinWas + (spinAvg - spinWas) * k; return firstHit(scene, outcome, m2, good, vals, first + ix, mated, ignore, solid2, statics, clearance) === null; };
+      if (put(1)) continue;
+      let [lo, hi] = [0, 1];
+      for (let k = 0; k < 6; k++) { const mid = (lo + hi) / 2; if (put(mid)) lo = mid; else hi = mid; }
+      put(lo);
+    }
+    return yieldsOf(shown, movers.find((q) => q.turns)?.axis ?? [0, 0, 1]);
+  };
   if (slow && !note) note = "this push is heavy: it plays slower than real time";
   const pushables = c.pushables.map((p, i) => ({ ...p, value: vals[i]!, way: ways[i]!, push: pushes[i]!, ...(work[i]!.free ? { free: work[i]!.free, spin: work[i]!.spin ?? 0 } : {}), ...(work[i]!.dirSlide !== undefined ? { dirSlide: work[i]!.dirSlide } : {}), ...(work[i]!.dirTurn ? { dirTurn: work[i]!.dirTurn } : {}), turning: !!work[i]!.turning, since: work[i]!.since ?? 0, still: work[i]!.still ?? 0, ...(work[i]!.blockedBy ? { blockedBy: work[i]!.blockedBy } : {}) }));
-  const follows = yieldsOf(pushables, movers.find((q) => q.turns)?.axis ?? [0, 0, 1]);
+  const across = movers.find((q) => q.turns)?.axis ?? [0, 0, 1];
+  const follows = shownYields() ?? yieldsOf(pushables, across);
   return { ...m, amount: jam || slow ? good : m.amount, playing: jam ? false : m.playing, from: jam || slow ? good : m.from, startedAt: jam || slow ? null : m.startedAt, contact: { ...c, pushables, at: good, jam, note, clash: jam ? clash : null, target: slow ? m.amount : null, path: onPath }, yields: follows };
 }
 
