@@ -74,7 +74,8 @@ export function startPlain(scene: Scene, body: Ref, kind: JointKind = "turn"): {
     const { followers, why } = followersOf(scene, g);
     const [lo, hi] = ax.kind === "turn" ? [-FREE_TURN, FREE_TURN] : [-FREE_SLIDE, FREE_SLIDE];
     void why;
-    return { ok: true, motion: { mate: "", gear: g.id, follows: followers, kind: ax.kind, body, point: ax.point, dir: ax.dir, amount: 0, lo, hi, free: true, playing: false, from: 0, startedAt: null, speed: ax.kind === "turn" ? 45 : 8 } };
+    const hasWorm = [g.id, ...followers.map((f) => f.gear)].some((id) => scene.gears?.find((q) => q.id === id)?.spec.worm); // (a worm's record has no turn about its own length: the pose of the thread cannot be written, `in_1101`)
+    return { ok: true, motion: { mate: "", gear: g.id, follows: followers, kind: ax.kind, body, point: ax.point, dir: ax.dir, amount: 0, lo, hi, free: true, playing: false, from: 0, startedAt: null, speed: ax.kind === "turn" ? 45 : 8, ...(hasWorm ? { noKeep: "a worm's pose is the phase of its thread, which is not kept: the worm and its wheel stay as they were drawn" } : {}) } };
   }
   const room = jointRoom(scene, m.id, kind);
   const free = !Number.isFinite(room.down) || !Number.isFinite(room.up);
