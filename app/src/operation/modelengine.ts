@@ -16,12 +16,13 @@ export interface EngineSpec {
   /** the compression rings' grooves (0 to 3), and whether there is a groove for an oil ring (0 or 1; Honda's pack is two compression rings and an oil ring) */ rings: number; oil: number;
   /** the land above the top ring groove, as a proportion of the bore (ASSUMED, `dec_piston_belt`: 0.04 to 0.10 is usual) */ topLand: number;
   /** the piston is hollow (`dec_piston_hollow`, ASSUMED): the crown's thickness and the wall's (the skirt, and under the grooves), as proportions of the bore; the wall is half the crown */ crown: number; skirtWall: number;
+  /** oil drain holes through the oil ring's groove floor into the cavity, per thrust side (0 to 4; `dec_piston_drain`, ASSUMED) */ drain: number;
   /** the room all round the moving parts that are not the piston's own fits (mm): the shaft in the block, the rod's eyes on the pins, the slot for the rod */ room: number;
   /** the piston's own fits (mm; `dec_clearance_defaults`, Honda's nominal middles): the piston's room in the bore (across, so half a side), the pin's room in its bore in the piston (across) and a ring's room above and below it in its groove */ skirtFit: number; pinFit: number; ringSide: number;
   /** which engine the numbers are: 0 your own, 1 to 3 a preset of `ENGINE_PRESETS` (the box starts from its numbers; a number typed replaces one) */ preset: number;
 }
 const NOMINAL = pistonFit(30); // (the fits do not follow the bore)
-export const ENGINE_START: EngineSpec = { bore: 30, stroke: 30, ratio: 0.27, pin: 8, shaft: 8, wall: 4, flywheel: 50, rings: 2, oil: 1, topLand: 0.07, crown: 0.08, skirtWall: 0.04, room: 0.15, skirtFit: NOMINAL.skirtClearance, pinFit: NOMINAL.pinFit, ringSide: NOMINAL.ringSide, preset: 0 };
+export const ENGINE_START: EngineSpec = { bore: 30, stroke: 30, ratio: 0.27, pin: 8, shaft: 8, wall: 4, flywheel: 50, rings: 2, oil: 1, topLand: 0.07, crown: 0.08, skirtWall: 0.04, drain: 2, room: 0.15, skirtFit: NOMINAL.skirtClearance, pinFit: NOMINAL.pinFit, ringSide: NOMINAL.ringSide, preset: 0 };
 
 /** Real engines as starting numbers (`dec_engine_presets`): the bore, stroke and pin of the Honda GX120, GX160 and GX200 (the service manual), two compression ring grooves, and the GX160's rod ratio from its rod length (83.8 to 84.4 mm between centres, the crank's radius 22.5 mm). **Assumed, not Honda's:** the GX120's and GX200's rod ratio (the model's usual) and every preset's shaft, wall and flywheel (the model's own proportions at the preset's bore). */
 const honda = (preset: number, bore: number, stroke: number, pin: number, ratio: number): EngineSpec => {
@@ -68,6 +69,7 @@ export function engineProblem(s: EngineSpec): string | null {
   if (![s.bore, s.stroke, s.pin, s.shaft, s.wall, s.flywheel].every((v) => v > 0)) return "the sizes must be more than 0";
   if (!Number.isInteger(s.rings) || s.rings < 0 || s.rings > 3) return "the rings are 0 to 3";
   if (s.oil !== 0 && s.oil !== 1) return "the oil ring groove is 0 (none) or 1";
+  if (!Number.isInteger(s.drain) || s.drain < 0 || s.drain > 4) return "the oil drain holes are 0 to 4 on each side";
   if (s.crown < 0.02 || s.crown > 0.3) return "the crown is 0.02 to 0.3 of the bore thick (0.04 to 0.15 is usual)";
   if (s.skirtWall < 0.01 || s.skirtWall > 0.15) return "the piston's wall is 0.01 to 0.15 of the bore (half the crown is the usual)";
   if (s.topLand < 0.02 || s.topLand > 0.3) return "the land above the top ring groove is 0.02 to 0.3 of the bore (0.04 to 0.10 is usual)";
@@ -135,6 +137,15 @@ export function engineSteps(s: EngineSpec, place?: Place): Result<ModelBuild> {
     b.extrude(up(wideTop), box(-yn, -sh.innerBelt, yn, -zoff), [], top - wideTop, { mode: "add" });
   }
   b.extrude(b.plane(g.zc - g.rp - 1), disc(xp0, 0, s.pin / 2 + s.pinFit / 2), [], 2 * g.rp + 2, { mode: "cut" });
+  // the oil drain holes (`dec_piston_drain`): radial holes through the oil groove's floor into the cavity, on the two thrust sides, in the groove's middle
+  const oilGroove = g.belt.grooves.find((x) => x.oil);
+  if (oilGroove && s.drain > 0) {
+    const xh = xp0 + g.ch - oilGroove.top - oilGroove.height / 2, rh = Math.min(0.03 * s.bore, 0.8 * oilGroove.height) / 2, r0 = g.shell.innerBelt - 0.5, r1 = g.rp - g.belt.depth + 0.5;
+    for (const side of [1, -1]) for (let k = 0; k < s.drain; k++) {
+      const a = ((s.drain === 1 ? 90 : 45 + (90 * k) / (s.drain - 1)) * Math.PI) / 180, dy = side * Math.sin(a), dz = Math.cos(a); // (the angle is from the pin's axis, which lies along z)
+      b.extrude(b.frame([xh, r0 * dy, g.zc + r0 * dz], [1, 0, 0], [0, dz, -dy]), disc(0, 0, rh), [], r1 - r0, { mode: "cut" });
+    }
+  }
   b.part("Piston pin");
   const half = Math.sqrt(g.rp * g.rp - (s.pin / 2 + 1) ** 2) - 0.3;
   b.extrude(b.plane(g.zc - half), disc(xp0, 0, s.pin / 2), [], 2 * half);

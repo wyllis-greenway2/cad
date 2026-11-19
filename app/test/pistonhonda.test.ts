@@ -198,3 +198,33 @@ test("the shell: the wall is half the crown, the cavity is narrower under the gr
   assert.match(engineProblem({ ...ENGINE_START, crown: 0.5 }) ?? "", /crown/);
   assert.match(engineProblem({ ...ENGINE_START, skirtWall: 0 }) ?? "", /wall/);
 });
+
+// The oil drain holes (`dec_piston_drain`): each hole takes out about pi r^2 times the wall between the groove's floor and the cavity.
+function pistonKernelVolume(spec: typeof ENGINE_START): number {
+  const r = engineSteps(spec);
+  assert.ok(r.ok);
+  if (!r.ok) return 0;
+  const c = asCommand(scene(createSession(kernel)), r.value.steps);
+  assert.ok(c.ok);
+  if (!c.ok) return 0;
+  const s = run(createSession(kernel), c.value);
+  assert.equal(s.message ?? null, null);
+  const g = engineGeometry(spec), bodies = Object.values(scene(s).parts).filter((x) => x.kind === "body") as unknown as { volume: number; bbox: { min: number[]; max: number[] } }[];
+  return bodies.find((b) => Math.abs(b.bbox.max[0]! - b.bbox.min[0]! - (g.sk + g.ch)) < 0.05 && Math.abs(b.bbox.max[2]! - b.bbox.min[2]! - 2 * g.rp) < 0.05)!.volume;
+}
+for (const [name, spec] of [["the usual engine", ENGINE_START], ["Honda GX160", ENGINE_PRESETS[1]!.spec]] as const) {
+  test(`${name}: the oil drain holes take out their own volume, two sides of 0 to 4 holes, none without an oil ring groove`, () => {
+    const g = engineGeometry(spec), gr = g.belt.grooves.find((x) => x.oil)!, rh = Math.min(0.03 * spec.bore, 0.8 * gr.height) / 2, wall = g.rp - g.belt.depth - g.shell.innerBelt;
+    const v0 = pistonKernelVolume({ ...spec, drain: 0 });
+    for (const n of [1, 2, 4]) {
+      const taken = v0 - pistonKernelVolume({ ...spec, drain: n }), expect = 2 * n * Math.PI * rh * rh * wall;
+      assert.ok(Math.abs(taken - expect) / expect < 0.15, `${n} a side: the kernel took out ${taken.toFixed(2)} mm3, the holes' ${expect.toFixed(2)} mm3`);
+    }
+    assert.equal(pistonKernelVolume({ ...spec, oil: 0, drain: 0 }), pistonKernelVolume({ ...spec, oil: 0, drain: 3 }), "no oil ring groove: no holes");
+  });
+}
+test("the oil drain holes are 0 to 4 a side, whole", () => {
+  assert.equal(engineProblem({ ...ENGINE_START, drain: 0 }), null);
+  assert.match(engineProblem({ ...ENGINE_START, drain: 5 }) ?? "", /drain holes/);
+  assert.match(engineProblem({ ...ENGINE_START, drain: 1.5 }) ?? "", /drain holes/);
+});
