@@ -4520,3 +4520,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > okay but now it takes literally forever to make a face agear
 (reports that making a face gear is now very slow; the AI measures it in the browser and finds why)
 
+## in_1041 — 2026-11-19 — question
+> [interrupted the AI's browser timing; attached a screenshot of a face gear drive from outside: the teeth's near ends are wide at the foot, pinched in the middle and wide again at the top, and the pinion's teeth pass through the face gear's teeth] Hang on, also I am pretty sure it is still wrong. Look a meshed gear collides with the teeth. Are you sure that the tooth on the face gear shouldn't taper off at the top instead of flare out like it does? or at least continue and terminate straight?
+(says the face gear is still wrong in the app: the tooth flares at the top and the meshed pinion collides with the teeth; asks whether the tooth should taper off or at least end straight; the AI had just rebuilt the profile to a taper (build 284c6fbf), so the screenshot may be from an older build: to be checked)
+
