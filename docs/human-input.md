@@ -5232,3 +5232,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1228 — 2026-11-19 — directive
 > lets keep researching our engine builder should be able to make a range of variations of engines.
 (supplied a zip of the "home model engines" plans, the Chirico Tee Head four stroke; says to keep researching and that the engine builder must be able to make a range of variations of engines, not one engine)
+
+## in_1229 — 2026-11-19 — preference
+> I think we shouldn't learn too much from that last engine design, it was a home made one, not to professional spec
+(supplied a Wiseco CRF250R piston kit page, the Webster Engine Works plans in millimetres and Kean's "The Petrol Engine" as PDFs; says the Chirico T-head design is home made and not to professional spec, so it should not teach us much)
