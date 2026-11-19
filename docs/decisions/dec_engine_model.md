@@ -3,7 +3,7 @@ id: dec_engine_model
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1197, in_1198, in_1201
+human_input: in_1197, in_1198, in_1206
 date: 2026-11-19
 depends_on:
   - dec_gear_models: the engine is one of the models (the same placement tool, parts built one at a time, Play); a change to how models are built or played changes it
@@ -13,7 +13,7 @@ alternative_to:
 ---
 # A piston engine as a model, built from master numbers (stage 1: one cylinder)
 
-The human asked for a piston maker and then, because the parts must relate exactly, a whole engine builder (`in_1197`, `in_1198`), and told me to go ahead (`in_1201`). **Stage 1 is one cylinder**: *Models > Piston engine*. Later stages (not approved yet): inline 2 to 4 cylinders with the crank throws phased, a valve train, V and boxer layouts, rings fitted into the grooves, a pneumatic or hydraulic cylinder as a catalogue path.
+The human asked for a piston maker and then, because the parts must relate exactly, a whole engine builder (`in_1197`, `in_1198`), and told me to go ahead (`in_1206`). **Stage 1 is one cylinder**: *Models > Piston engine*. Later stages (not approved yet): inline 2 to 4 cylinders with the crank throws phased, a valve train, V and boxer layouts, rings fitted into the grooves, a pneumatic or hydraulic cylinder as a catalogue path.
 
 - **Master numbers:** bore, stroke and rod ratio (crank radius over rod length). The rest are the pin's diameter, the shaft's, the wall, the flywheel's, ring grooves (0 to 3) and the room round moving parts. The Size box grows every length (not the ratio, the count or the room).
 - **Parts (six bodies):** Block (floor, cylinder tube and closed head), Crankshaft (shaft, crank disc, crank pin), Flywheel (glued), Piston (grooves, a slot for the rod, a pin hole), Piston pin (glued to the piston), Connecting rod (two eyes and a tapered beam).

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { kernel } from "../src/compiler/kernel/index.ts";
 import { openSession, scene, run } from "../src/interaction/session.ts";
+import { reduce } from "../src/interaction/controller.ts";
 import type { Session } from "../src/interaction/session.ts";
 import { startMotion, setPlaying } from "../src/interaction/motion.ts";
 import { solveContact } from "../src/interaction/contact.ts";
@@ -75,4 +76,17 @@ test("a lever on a pin: the model says so, and the note suggests the coaxial mat
   assert.equal(fb.fix.offer, true);
   assert.equal(fb.note, null);
   assert.match(moved.contact!.tip ?? "", /Mate: coaxial/);
+});
+
+test("a collision is said shortly, with the detail in the tooltip, and the view can be taken to where it is (`in_1191`); the red bodies are where the bodies are drawn", () => {
+  const { s, m } = jammed();
+  const env = { w: 800, h: 600, now: 0 };
+  const fb = frameOf({ ...createState(s), motion: m }, env).motionBar!;
+  assert.equal(fb.note, "Collision occurred");
+  assert.match(fb.noteDetail ?? "", /x_s_002 against x_s_084.*click to see where/);
+  const at = m.contact!.clashAt!;
+  assert.ok(at && Number.isFinite(at.radius) && at.radius >= 8, "the place is known");
+  const st = reduce({ ...createState(s), motion: m }, { type: "motionShowClash" }, { ...env, now: 100 } as never);
+  assert.ok(st.anim, "the view goes there");
+  assert.deepEqual(st.anim!.to.target, at.centre);
 });
