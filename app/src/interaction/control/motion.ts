@@ -96,7 +96,7 @@ export function doMotionLink(s: AppState, i: Extract<Intent, { type: "motionLink
   const next = run(s.session, command);
   if (next.message) return { ...s, session: next };
   const r = startMotion(sceneOf(next), m.body, m.kind, next.outcome);
-  return { ...s, session: next, motion: r.ok ? { ...r.motion, amount: m.amount, playing: m.playing, from: m.amount, startedAt: null, speed: m.speed } : null };
+  return { ...s, session: next, motion: r.ok ? { ...r.motion, amount: m.amount, playing: m.playing, from: m.amount, startedAt: null, speed: m.speed, ...(m.speedK ? { speedK: m.speedK } : {}) } : null };
 }
 
 /**
@@ -181,7 +181,7 @@ export function doMotionRest(s: AppState, i: Extract<Intent, { type: "motionRest
   const next = run(s.session, command);
   if (next.message) return { ...s, session: next };
   const r = startMotion(sceneOf(next), m.body, m.kind, next.outcome);
-  return { ...s, session: next, motion: r.ok ? { ...r.motion, amount: m.amount, playing: m.playing, from: m.amount, startedAt: null, speed: m.speed } : null };
+  return { ...s, session: next, motion: r.ok ? { ...r.motion, amount: m.amount, playing: m.playing, from: m.amount, startedAt: null, speed: m.speed, ...(m.speedK ? { speedK: m.speedK } : {}) } : null };
 }
 
 /**
@@ -214,7 +214,10 @@ export function doMotionFix(s: AppState, act: "open" | "apply" | "skip" | "close
     const why = plan.left.map((u) => `${u.name}: ${u.why}`).join("; ");
     if (!plan.fixes.length) return say(`nothing here can be made a joint${why ? ` (${why})` : ""}`, { motion: { ...m, playing: false, startedAt: null } });
     const before = { cam: s.cam, selection: s.session.click.selection, playing: m.playing };
-    const mo = { ...m, playing: false, startedAt: null, fix: { plan, i: 0, made: [], before } };
+    // the model goes back to where it starts (the parts to be constrained are drawn where the constraint would be made, not where the play had carried them)
+    const r0 = startMotion(sceneOf(s.session), m.body, m.kind, s.session.outcome);
+    const home = r0.ok ? { ...r0.motion, amount: 0, from: 0, speed: m.speed, ...(m.speedK ? { speedK: m.speedK } : {}) } : { ...m, amount: 0, from: 0 };
+    const mo = { ...home, playing: false, startedAt: null, fix: { plan, i: 0, made: [], before } };
     const shown = show(s, mo, 0);
     return { ...shown, session: { ...shown.session, message: why ? `left to the push: ${why}` : null } };
   }
@@ -253,7 +256,7 @@ export function doMotionFix(s: AppState, act: "open" | "apply" | "skip" | "close
       return { ...done, flash, motion: null };
     }
     const r = startMotion(sceneOf(next), m.body, m.kind, next.outcome);
-    state = { ...s, session: { ...next, message: note || null }, flash, motion: r.ok ? { ...r.motion, amount: m.amount, playing: false, from: m.amount, startedAt: null, speed: m.speed, fix: walk } : null };
+    state = { ...s, session: { ...next, message: note || null }, flash, motion: r.ok ? { ...r.motion, amount: m.amount, playing: false, from: m.amount, startedAt: null, speed: m.speed, ...(m.speedK ? { speedK: m.speedK } : {}), fix: walk } : null };
     if (!r.ok) return finish({ ...state, motion: { ...m, fix: walk } }, `Applied ${made.join(", ")}`);
   }
   const i = walk.i + 1;

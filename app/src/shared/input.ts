@@ -81,6 +81,8 @@ export type Intent =
   | { type: "motionPlay" }
   | { type: "motionKind"; kind: "turn" | "slide" }
   | { type: "motionReverse" }
+  /** the speed of the play as a multiple of what it began at (`in_1169`) */
+  | { type: "motionSpeed"; k: number }
   | { type: "motionLink"; id: string; ratio?: number; kind?: "turn" | "slide"; remove?: true }
   | { type: "motionRest"; ref: string; rest: number | null }
   | { type: "motionKeep" }
