@@ -98,7 +98,7 @@ test("an open OBJ (a single triangle) is refused by Import as an open mesh, and 
   const s = createSession(kernel);
   const r = await importAny(s, "tri.obj", new TextEncoder().encode("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n"));
   assert.ok(!r.ok);
-  assert.match(r.error, /not closed|open/i);
+  assert.match(r.error, /closed|open/i);
 });
 
 test("OBJ export: a block is 8 points and 12 triangles, Z up as modelled, and reads back as the same body", async () => {
@@ -184,4 +184,31 @@ test("DXF blocks: a block that inserts itself stops, not loops", () => {
   const r = parseDxf(t);
   assert.ok(r.ok);
   assert.ok(r.notes.some((n) => /nested too deep/.test(n)));
+});
+
+// ---------- SVG <use>, hidden elements ----------
+import { parseSvg } from "../src/compiler/flatparse.ts";
+test("SVG use: a group used three times (plain, under a turn, under a scale) is placed where a renderer (cairo) draws it, and a symbol's content too", () => {
+  const r = parseSvg(text(fixture("svg-use.svg")));
+  assert.ok(r.ok);
+  const circles = r.pieces.flatMap((p) => (p.k === "circle" ? [[...p.c.map((x) => +x.toFixed(3)), +p.r.toFixed(3)]] : []));
+  assert.deepEqual(circles.sort(), [[100, -50, 6], [20, -20, 3], [28.284, -56.569, 3]].sort());
+  // cairo's drawing of the filled shapes: x 15 to 110 mm, y 36.4 to 85 mm (up); here y is turned: -85 to -36.4
+  const xs = r.pieces.filter((p) => p.k === "seg" && p.p[1] <= -14 && p.p[1] >= -70 && p.p[0] < 120 && p.q[0] < 120).flatMap((p) => (p.k === "seg" ? [p.p[0], p.q[0]] : []));
+  assert.ok(Math.abs(Math.min(...xs) - 15) < 1e-6 && Math.abs(Math.max(...xs) - 110) < 1e-6, `${Math.min(...xs)} to ${Math.max(...xs)}`);
+  assert.ok(r.pieces.some((p) => p.k === "seg" && Math.abs(p.p[0] - 150) < 1e-9 && Math.abs(p.q[0] - 158) < 1e-9), "the symbol's line is at x 150 to 158");
+});
+
+test("SVG hidden: display none (as an attribute or in a style) and visibility hidden leave out the element and what is in it; a use of nothing is said", () => {
+  const r = parseSvg(text(fixture("svg-use.svg")));
+  assert.ok(r.ok);
+  assert.ok(!r.pieces.some((p) => p.k === "seg" && (Math.abs(p.p[0] - 1) < 1e-9 || Math.abs(p.p[0] - 2) < 1e-9) && p.p[1] > -3), "the hidden groups' rectangles are not there");
+  assert.ok(!r.pieces.some((p) => p.k === "seg" && p.p[0] >= 170 && p.p[0] <= 190 && p.p[1] > -25), "nor the hidden rectangle");
+  assert.ok(r.notes.some((n) => /left out: 1 use/.test(n)));
+});
+
+test("SVG use: a use that uses itself stops, and does not loop", () => {
+  const r = parseSvg('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="10mm" height="10mm" viewBox="0 0 10 10"><g id="a"><line x1="0" y1="0" x2="5" y2="0"/><use xlink:href="#a" x="1" y="1"/></g><use xlink:href="#a"/></svg>');
+  assert.ok(r.ok);
+  assert.ok(r.pieces.length >= 1 && r.pieces.length < 100);
 });

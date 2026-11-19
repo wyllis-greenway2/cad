@@ -12,7 +12,7 @@ depends_on:
   - dec_export_formats: an OBJ is written from the same fine mesh as the STL and 3MF
 alternative_to:
 ---
-# More formats for compatibility: OBJ both ways, binary DXF in, DXF blocks and layers; IGES waits for a kernel build
+# More formats for compatibility: OBJ both ways, binary DXF in, DXF blocks and layers (IGES: see `dec_exchange_gaps`)
 
 `in_1007` asked which formats to add; the AI proposed OBJ and binary DXF, then DXF blocks and layers, then IGES; `in_1008` asked for IGES to be written as well as read (for older systems); `in_1009` asked for all of it, details left to the AI.
 
@@ -26,7 +26,7 @@ alternative_to:
 
 **Not built here, and why:**
 
-- **IGES (both ways).** The kernel build (`replicad-opencascadejs`) has the IGES code inside it but does not expose the reader or writer classes, so IGES needs a rebuilt kernel (OpenCASCADE compiled to WASM with those classes bound). That build needs a toolchain and sources downloaded that the session's environment refused, so **it is waiting for the human to run the build** (`tools/kernel-build/`: the recipe of the installed `replicad-opencascadejs` 1.1.0 with the three IGES symbols added, and `build.sh`; the image comes from `ghcr.io`, whose blob host the session's network refuses) (a person builds the kernel on their machine, or the environment is allowed the downloads). Once the build exists, import and export are the same plumbing as STEP; there is no reason to leave export out (`in_1008`).
+- **IGES (both ways): built after the kernel was rebuilt** (`dec_exchange_gaps`: the human ran `tools/kernel-build/build.sh`, the new WebAssembly is `app/vendor/occt/replicad_single.wasm`).
 
 ## Rationale
 

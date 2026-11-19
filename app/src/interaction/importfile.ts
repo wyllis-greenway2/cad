@@ -7,9 +7,12 @@ import { worldRef, drawnRef, formatId } from "../shared/ref.ts";
 import { liftOf } from "../operation/part.ts";
 import type { Plane } from "../operation/part.ts";
 import { parseSvg, parseDxf, binaryDxfText } from "../compiler/flatparse.ts";
+import { parseFcstd } from "../compiler/fcstd.ts";
 import { parseStl, parseObj, parse3mf, weld, shellsOf, MAX_MESH_TRIANGLES } from "../compiler/meshfile.ts";
+import { fillHoles, decimate, meshVolume } from "../compiler/meshrepair.ts";
 import type { Mesh } from "../compiler/meshfile.ts";
 import { encodeMesh } from "../compiler/kernel/occt/meshdata.mjs";
+import { pack } from "../compiler/kernel/occt/pack.mjs";
 import type { Piece, V2 } from "../compiler/flatfile.ts";
 import { scaledPieces, movedPieces, boundsOf } from "../compiler/flatfile.ts";
 import { planeForDrawing } from "./tools.ts";
@@ -17,15 +20,15 @@ import { apply } from "../operation/commands.ts";
 import type { Session } from "./session.ts";
 import { run, scene as sceneOf } from "./session.ts";
 
-/** The most of a STEP file kept in a project: its text travels with every save and every evaluation of the model. */
-const MAX_STEP_BYTES = 25e6;
+/** The most of a STEP or BREP file the app takes: the text is kept packed in the project (about a fifth of its size) and unpacked for every build of the model; a faceted body of 5,000 faces (13 MB) reads in 4 s, so this is minutes at its largest. */
+const MAX_STEP_BYTES = 100e6;
 /** The most faces a mesh body may have once its flat areas are joined: the app lists and draws every face of a body on each change (about 0.7 ms a face). */
 const MAX_MESH_FACES = 6000;
-export const IMPORT_KINDS = ".step,.stp,.svg,.dxf,.stl,.3mf,.obj";
+export const IMPORT_KINDS = ".step,.stp,.igs,.iges,.svg,.dxf,.stl,.3mf,.obj,.brep,.brp,.fcstd";
 
 /** The choices an import has (`dec_import_export_menu`): the units the numbers in the file are in (`file`: what it says itself; an STL says nothing and is millimetres), a further scale, where it is put, and for a drawing the plane. */
-export interface ImportOptions { units: "file" | "mm" | "cm" | "in" | "m"; scale: number; place: "file" | "center" | "floor"; plane: "selected" | "XY" | "XZ" | "YZ" }
-export const IMPORT_DEFAULTS: ImportOptions = { units: "file", scale: 1, place: "file", plane: "selected" };
+export interface ImportOptions { units: "file" | "mm" | "cm" | "in" | "m"; scale: number; place: "file" | "center" | "floor"; plane: "selected" | "XY" | "XZ" | "YZ"; /** a mesh: fill small holes in its surface (`dec_exchange_gaps`) */ repair: boolean; /** a mesh of more triangles than the app builds: reduce it to fit, the shape changing a little */ reduce: boolean }
+export const IMPORT_DEFAULTS: ImportOptions = { units: "file", scale: 1, place: "file", plane: "selected", repair: true, reduce: true };
 const UNIT_MM = { mm: 1, cm: 10, in: 25.4, m: 1000 } as const;
 const unitMmOf = (o: ImportOptions): number | undefined => (o.units === "file" ? undefined : UNIT_MM[o.units]);
 const optionNote = (o: ImportOptions): string[] => [...(o.units !== "file" ? [`read as ${o.units}`] : []), ...(o.scale !== 1 ? [`scaled by ${o.scale}`] : []), ...(o.place === "center" ? ["its middle put at the origin"] : o.place === "floor" ? ["put on the XY plane, centred"] : [])];
@@ -86,7 +89,7 @@ export function importFile(s: Session, name: string, text: string, o: ImportOpti
   if (ext === "step" || ext === "stp") {
     if (text.length > MAX_STEP_BYTES) return { ok: false, error: `this STEP file is ${(text.length / 1e6).toFixed(0)} MB: the app keeps the file inside the project and takes up to ${MAX_STEP_BYTES / 1e6} MB` };
     if (!/^\s*ISO-10303-21/.test(text)) return { ok: false, error: "this is not a STEP file (it does not start with ISO-10303-21)" };
-    const done = run(s, { type: "addStep", step: { id: nextId(scene, "s"), type: "import", parts: [], params: { data: text, name, ...(o.scale !== 1 ? { scale: o.scale } : {}), ...(o.place !== "file" ? { place: o.place } : {}) } } });
+    const done = run(s, { type: "addStep", step: { id: nextId(scene, "s"), type: "import", parts: [], params: { data: pack(text), name, ...(o.scale !== 1 ? { scale: o.scale } : {}), ...(o.place !== "file" ? { place: o.place } : {}) } } });
     if (sceneOf(done).steps.length === scene.steps.length) return { ok: false, error: done.message ?? "the STEP file could not be imported" };
     const bodies = Object.values(sceneOf(done).parts).filter((p) => p.kind === "body").length - Object.values(scene.parts).filter((p) => p.kind === "body").length;
     return { ok: true, session: done, message: `imported ${name}: ${bodies > 1 ? `${bodies} bodies` : "a body"} with no history (push, pull, cut, fillet and mate it; it cannot be edited as a recipe)${optionNote({ ...o, units: "file" }).length ? `; ${optionNote({ ...o, units: "file" }).join(", ")}` : ""}` };
@@ -105,15 +108,21 @@ export function importFile(s: Session, name: string, text: string, o: ImportOpti
     const extra = [...parsed.notes, ...optionNote(o)];
     return { ok: true, session: done, message: `imported ${name}: ${n} piece${n === 1 ? "" : "s"} as a sketch${extra.length ? `; ${extra.join("; ")}` : ""}` };
   }
-  return { ok: false, error: "the app imports STEP (.step, .stp), STL, 3MF, OBJ, SVG and DXF files" };
+  return { ok: false, error: "the app imports STEP (.step, .stp), IGES (.igs, .iges), BREP (.brep), FreeCAD (.FCStd), STL, 3MF, OBJ, SVG and DXF files" };
 }
 
 /** The cleaned shells of some triangle corners (nine numbers a triangle): joined, closed, turned the right way; or why not. */
-function shellsFrom(corners: ArrayLike<number>, label: string): { ok: true; shells: Mesh[]; notes: string[] } | { ok: false; error: string } {
+function shellsFrom(corners: ArrayLike<number>, label: string, repair = false): { ok: true; shells: Mesh[]; notes: string[] } | { ok: false; error: string } {
   const w = weld(corners);
-  const r = shellsOf(w.mesh);
-  if (!r.ok) return { ok: false, error: label ? `${label}: ${r.error}` : r.error };
   const notes: string[] = [];
+  let mesh = w.mesh;
+  if (repair) { // small holes in the surface filled before it is checked (a hole bigger than 64 edges, or a tangle, stays and is refused below)
+    const f = fillHoles(mesh);
+    mesh = f.mesh;
+    if (f.filled) notes.push(`${f.filled} hole${f.filled === 1 ? "" : "s"} in the surface filled (each of 64 edges or fewer, flat as its edge is)`);
+  }
+  const r = shellsOf(mesh);
+  if (!r.ok) return { ok: false, error: `${label ? `${label}: ` : ""}${r.error}${repair ? "; holes of 64 edges or fewer are filled for you, the ones in this mesh are bigger or not simple" : ""}` };
   if (w.dropped) notes.push(`${w.dropped} triangle${w.dropped === 1 ? "" : "s"} with no area left out`);
   if (r.value.turned) notes.push(`${r.value.turned} triangle${r.value.turned === 1 ? "" : "s"} turned to face the same way as their neighbours`);
   if (r.value.insideOut) notes.push(`${r.value.insideOut === 1 ? "a body that was" : `${r.value.insideOut} bodies that were`} inside out turned the right way`);
@@ -148,13 +157,25 @@ async function importMeshFile(s: Session, name: string, bytes: Uint8Array, o: Im
     for (const ob of objects) ob.corners = ob.corners.map((x, i) => x + by[i % 3]!);
   }
   for (const ob of objects) {
-    const r = shellsFrom(ob.corners, ob.name);
+    const r = shellsFrom(ob.corners, ob.name, o.repair);
     if (!r.ok) return r;
     shells.push(...r.shells); notes.push(...r.notes);
   }
   notes.push(...optionNote({ ...o, units: ext === "stl" || ext === "obj" ? o.units : "file" }));
-  const triangles = shells.reduce((a, m) => a + m.triangles.length / 3, 0);
-  if (triangles > MAX_MESH_TRIANGLES) return { ok: false, error: `this mesh has ${triangles.toLocaleString("en-US")} triangles: the app imports up to ${MAX_MESH_TRIANGLES.toLocaleString("en-US")}` };
+  let triangles = shells.reduce((a, m) => a + m.triangles.length / 3, 0);
+  if (triangles > MAX_MESH_TRIANGLES) {
+    if (!o.reduce) return { ok: false, error: `this mesh has ${triangles.toLocaleString("en-US")} triangles: the app builds up to ${MAX_MESH_TRIANGLES.toLocaleString("en-US")} as they are. Turn on "Reduce big meshes" in the import options (the shape changes a little), or reduce it first in a mesh program (Decimate in Blender, Simplify in MeshLab or PrusaSlicer)` };
+    // reduced to a number whose faces the app handles (a curved body has a face for each triangle: `MAX_MESH_FACES`), each shell in its share; the flat areas of a boxy part cost nothing to reduce and are joined into single faces
+    const before = triangles, volBefore = shells.reduce((a, m) => a + Math.abs(meshVolume(m)), 0);
+    const goal = Math.floor(MAX_MESH_FACES * 0.9);
+    const cut = shells.map((m) => decimate(m, Math.max(4, Math.floor((goal * m.triangles.length) / 3 / before))));
+    const verdict = cut.map((m) => shellsOf(m));
+    if (verdict.some((v) => !v.ok)) return { ok: false, error: "this mesh could not be reduced without breaking its surface: reduce it first in a mesh program (Decimate in Blender, Simplify in MeshLab or PrusaSlicer)" };
+    shells.splice(0, shells.length, ...cut);
+    triangles = shells.reduce((a, m) => a + m.triangles.length / 3, 0);
+    const volAfter = shells.reduce((a, m) => a + Math.abs(meshVolume(m)), 0);
+    notes.push(`reduced from ${before.toLocaleString("en-US")} to ${triangles.toLocaleString("en-US")} triangles to fit (its volume changed by ${(Math.abs(volAfter - volBefore) / Math.max(volBefore, 1e-9) * 100).toFixed(2)} %: the shape is close, not the same: for a part to be printed as it was, keep the original file)`);
+  }
   const done = run(s, { type: "addStep", step: { id: nextId(scene, "s"), type: "importMesh", parts: [], params: { data: shells.map(encodeMesh).join("|"), name } } });
   if (sceneOf(done).steps.length === scene.steps.length) return { ok: false, error: done.message ?? "the mesh could not be imported" };
   const made = Object.values(sceneOf(done).parts).filter((p) => p.kind === "body").length - Object.values(scene.parts).filter((p) => p.kind === "body").length;
@@ -163,10 +184,29 @@ async function importMeshFile(s: Session, name: string, bytes: Uint8Array, o: Im
   return { ok: true, session: done, message: `imported ${name}: ${made > 1 ? `${made} bodies` : "a body"} made of ${triangles.toLocaleString("en-US")} triangles (flat areas joined into single faces), with no history: it can be moved, cut, mated and exported; its curved parts are many small flat faces, so they cannot be filleted${notes.length ? `; ${[...new Set(notes)].join("; ")}` : ""}` };
 }
 
+/** Solids from BREP text (OpenCASCADE's own format, no unit: millimetres unless the person says otherwise), kept in the step like a STEP file's text; several BREP texts are joined by a NUL. */
+function importBrepData(s: Session, name: string, data: string, o: ImportOptions, what: string, notes: string[] = [], format: "brep" | "iges" = "brep"): ImportOutcome {
+  const scene = sceneOf(s);
+  if (data.length > MAX_STEP_BYTES) return { ok: false, error: `this file is ${(data.length / 1e6).toFixed(0)} MB of shape data: the app keeps it inside the project and takes up to ${MAX_STEP_BYTES / 1e6} MB` };
+  const k = (o.units === "file" ? 1 : UNIT_MM[o.units]) * o.scale;
+  const done = run(s, { type: "addStep", step: { id: nextId(scene, "s"), type: "import", parts: [], params: { data: pack(data), name, format, ...(k !== 1 ? { scale: k } : {}), ...(o.place !== "file" ? { place: o.place } : {}) } } });
+  if (sceneOf(done).steps.length === scene.steps.length) return { ok: false, error: done.message ?? `the ${what} could not be imported` };
+  const bodies = Object.values(sceneOf(done).parts).filter((p) => p.kind === "body").length - Object.values(scene.parts).filter((p) => p.kind === "body").length;
+  const extra = [...notes, ...optionNote(o)];
+  return { ok: true, session: done, message: `imported ${name}: ${bodies > 1 ? `${bodies} bodies` : "a body"} with no history (push, pull, cut, fillet and mate it; it cannot be edited as a recipe)${extra.length ? `; ${extra.join("; ")}` : ""}` };
+}
+
 /** Import any kind of file the app reads, from its bytes. */
 export async function importAny(s: Session, name: string, bytes: Uint8Array, o: ImportOptions = IMPORT_DEFAULTS): Promise<ImportOutcome> {
   const ext = extOf(name);
   if (ext === "stl" || ext === "3mf" || ext === "obj") return importMeshFile(s, name, bytes, o);
+  if (ext === "igs" || ext === "iges") return importBrepData(s, name, new TextDecoder("latin1").decode(bytes), o, "IGES file", [], "iges");
+  if (ext === "brep" || ext === "brp") return importBrepData(s, name, new TextDecoder().decode(bytes), o, "BREP file");
+  if (ext === "fcstd") {
+    const p = await parseFcstd(bytes);
+    if (!p.ok) return { ok: false, error: p.error };
+    return importBrepData(s, name, p.value.map((x) => x.brep).join("\0"), o, "FreeCAD file", p.notes);
+  }
   if (ext === "dxf" && new TextDecoder("latin1").decode(bytes.subarray(0, 18)) === "AutoCAD Binary DXF") {
     const t = binaryDxfText(bytes);
     if (!t.ok) return { ok: false, error: t.error };
