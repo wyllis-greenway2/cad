@@ -5103,3 +5103,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1193 — 2026-11-19 — directive
 > can we have a little geneva plate icon for the geneva plate? Can we havea  new icon for cucloidal drive that looks less like a gear. Can we have a new icon for bearings?
 (asks for an icon for the Geneva plate, a new cycloidal drive icon that looks less like a gear, and a new bearing icon)
+
+## in_1194 — 2026-11-19 — directive
+> I didn't want bearing of your own or catalog as an icon option, I just wanted it in the menu as an option at the top. changing it would change the menu and what it has on it.
+(asks that Catalogue / Your own is not two icons in the ring but a choice at the top of the bearing's box, and that changing it changes what the box shows)

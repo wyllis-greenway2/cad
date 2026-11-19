@@ -510,8 +510,6 @@ test("Sketch has no Cam category and no Gear icon any more; the Models category 
   const models = items.find((i) => i.id === "mechanisms")!;
   assert.equal(models.label, "Models");
   assert.deepEqual(models.children!.map((c) => [c.id, c.label]), [["gears", "Gears"], ["bearings", "Bearings"], ["model:gearbox", "Gearbox"], ["model:differential", "Differential"], ["model:cycloidal", "Cycloidal drive"], ["tool:geneva:model", "Geneva plate"]]);
-  const deep = find(items, "bearings")!.children!;
-  assert.deepEqual(deep.map((c) => [c.id, c.label]), [["deepgroove", "Deep groove ball"]]);
-  assert.deepEqual(deep[0]!.children!.map((c) => [c.id, c.label]), [["model:ballbearing", "Catalogue"], ["model:ownbearing", "Your own"]]);
+  assert.deepEqual(find(items, "bearings")!.children!.map((c) => [c.id, c.label]), [["model:ballbearing", "Deep groove ball"]]);
   assert.ok(!find(items, "fabricate")!.children!.some((c) => c.id === "models"), "Fabricate no longer holds the models");
 });

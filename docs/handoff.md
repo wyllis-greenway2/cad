@@ -4228,3 +4228,6 @@ Branch `claude/adoring-dijkstra-carry`. **Clock:** no list. A tap goes to the ne
 
 ## Handoff 1055 — 2026-11-19 (in_1193: icons for the Geneva plate, the cycloidal drive and bearings)
 `in_1193`. `ui/icons.ts`: new `genevaplate` (a slotted wheel with its hole, used by *Geneva plate*), `cycloidal` redrawn (a ring of pins round a smooth lobed disc with its eccentric hub, no teeth), `bearing` redrawn (outer ring, bore and seven balls). Looked at in a real browser at 64 px (Playwright screenshot); not at 15 px in the ring itself.
+
+## Handoff 1056 — 2026-11-19 (in_1194: Catalogue / Your own is a toggle at the top of the bearing's box, not two ring items)
+`in_1194`. Undid the two ring entries (`model:ownbearing` is gone; one kind `ballbearing`, one ring item *Deep groove ball*). Its box starts with *Source* (toggle: Catalogue / Your own, `ModelField.top`), and `ModelField.when` shows only the fields of the chosen source (`visibleFields` in `modeltool.ts`; Tab skips the hidden ones: `nextField`). Own bearing = number 0 inside `modelNumbers`. Tests: modeltool, models, fasteners, tools (the old `view:constraints` failure remains). Not seen in the browser.
