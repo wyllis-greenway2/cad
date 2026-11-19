@@ -4980,3 +4980,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1159 — 2026-11-19 — directive
 > maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
 (asks for the work to be merged into the testing branch, which was already done, and for a new working branch made from its tip: `claude/intelligent-hawking-next-2`)
+
+## in_1160 — 2026-11-19 — question
+> okay what next?
