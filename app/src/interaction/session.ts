@@ -221,7 +221,8 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   const fresh = after.planes.filter((p) => !before.planes.includes(p));
   if (fresh.length) {
     const culprits = relationsOf(c);
-    const victims = after.ids.filter((id) => !culprits.includes(id) && !before.ids.includes(id));
+    const fresher = after.ids.filter((id) => !culprits.includes(id) && !before.ids.includes(id));
+    const victims = fresher.length ? fresher : after.ids.filter((id) => !culprits.includes(id)); // (a sketch that was already in conflict moves to a new plane with the body: its conflicting constraints are named all the same, `in_1025`)
     return { ...s, message: "that cannot be done without breaking other constraints", conflict: { culprits, victims, ...(victims.length ? { retry: c } : {}) } };
   }
   // a move the solver quietly undid (a corner or circle held where it was by a constraint to something that stays) is refused the same way (`in_366`)

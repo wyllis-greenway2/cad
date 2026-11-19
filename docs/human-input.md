@@ -4455,3 +4455,13 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1024 — 2026-11-19 — directive
 > hang on, I found a seperate and maybe related problem. The circle is not on the same plane at all as the reset of the sketch. When I select a sketch as a closed surface and click circle to sketch more, it creates a world plane in the plane of the closed sketch as it should, I would expect this would mean I sketching on that plane, but I am not, instead it sketches on a different plane.
 (a circle drawn after selecting a closed surface ended on `w/XY`, not on the surface's plane `d/p_008`; screenshot attached; not reproduced, see handoff 915)
+
+## in_1025 — 2026-11-19 — directive
+> when you sketch on a plane, things further behind the plane view can make it very confusing to see which edge is really being worked with. Can we have it so that things further behind (edges etc) are still visible but faded in orther view when sketching on a plane?). Normally when you select two things, it should offer suggested constraints you can do with them. Is this generally true? it seems like there is at least a hole in this logic with selecting two curved surfaces, a hole and a pin, who could be coaxially constrained.
+>
+> Also when you try to break constraints with any operation, it is always always always supposed to tell you which constraint would be voilated, flash it red, and give you the option to delete it. I constantly fine holes in this logic too. Like for example I try to align these coaxially constrained but it says that would voilate another constraint but wont tell me what.
+(three asks, with `model.cad_61.json` and a screenshot: edges behind the sketch plane drawn faintly; two selected round things (a hole and a pin) always offered the coaxial constraint; a refused change always names, flashes and offers to delete the constraint it would break)
+
+## in_1026 — 2026-11-19 — directive
+> why don't you try hitting ctrl z in the file and see if you can isolate why my circle kept ending on the wrong plane. It was the correct plane orientation but the wrong hieght, not inline with the sketch I was working on
+(asks the AI to undo through the file to find why the circle ended on `w/XY`; see handoff 915)
