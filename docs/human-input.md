@@ -4292,3 +4292,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_984 — 2026-11-18 — directive
 > okay the fastener layout is much better, But still seems a little weird on curves, We might want to switch to limited depth on curves to prevent crowding that is actually just long bolts all reaching each other toward the center. In fact we probably shouldn't default to through at all, maybe a certain screw screw length or through if through isn't too far.
 (says the layout is much better but weird on curves: holes should have a limited depth on curves so that long bolts do not reach each other toward the centre; and the default should not be through at all: a certain screw length, or through when through is not too far; a saved model is attached)
+
+## in_985 — 2026-11-19 — directive
+> We should probably have the movement of the fasteners free hand snap to the line they want to live on in order to help the user.
+(asks for a fastener dragged by hand in the preview to snap to the line it is meant to be on, to help the person)

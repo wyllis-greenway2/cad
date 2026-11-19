@@ -10,7 +10,7 @@ import { mateStatus } from "./operation/mates.ts";
 import { createSession, openSession, saveText, run, scene, selection, refresh } from "./interaction/session.ts";
 import type { Session } from "./interaction/session.ts";
 import type { ReceiverValues, ReceiverPlan } from "./interaction/addpart.ts";
-import { pickPlace, dragTarget } from "./interaction/holemove.ts";
+import { pickPlace, dragTarget, rowOf } from "./interaction/holemove.ts";
 import { canExport } from "./interaction/exportstl.ts";
 import { canExportFlat } from "./interaction/exportsketch.ts";
 import { laserDialog, runLaser, findingsDialog, machineChoices, machineDialog, startValues, projectMachines, recordCommands, tableRows, rowFrom, tableDialog, layersDialog, layersCommand, whyNoLayers, marksSummary } from "./interaction/manufacture.ts";
@@ -288,7 +288,7 @@ let hardware: { values: ReceiverValues } | null = null;
 let holesKey = "";
 let holesNow: { bar: HolePanelView; view: ToolpathView | null } | null = null;
 let holesPlan: ReceiverPlan | null = null; // (the holes the pointer can pick up and move, `in_965`)
-let holesDrag: number | null = null;
+let holesDrag: { index: number; row: number } | null = null; // (the hole picked up and the line it is meant to be on, `in_985`)
 let holesMovesFor = ""; // (the selection the moved holes belong to)
 let lastHolesScene: ReturnType<typeof scene> | null = null;
 const holeBar = createHolePanel(document.body, {
@@ -519,20 +519,22 @@ function dispatch(i: Intent, again = false) {
 // which kind of device was used last: a laptop can have a mouse and a touch screen, so it is the event itself that says, not the machine (`in_160`)
 let lastDevice: "mouse" | "touch" | "pen" = "mouse";
 /** A hole of the fastener tool's preview picked up with the pointer and moved over the surface (`in_965`); true when the pointer's event was for it and the view is not to have it. */
-function holesPointer(raw: { kind: string; x?: number; y?: number }): boolean {
+function holesPointer(raw: { kind: string; x?: number; y?: number; mods?: { alt: boolean } }): boolean {
   if (!hardware || !holesPlan || dialog.isOpen) return false;
   const [x, y] = [raw.x ?? 0, raw.y ?? 0];
   const pj = projector(state.cam, view.size().w, view.size().h);
   if (raw.kind === "down") {
     const i = pickPlace(holesPlan, pj.project, x, y);
     if (i < 0) return false;
-    holesDrag = i;
+    holesDrag = { index: i, row: rowOf(holesPlan, i) };
     return true;
   }
   if (holesDrag === null) return false;
   if (raw.kind === "move") {
-    const t = dragTarget(holesPlan, holesDrag, pj.ray(x, y));
-    if (t) { hardware = { values: { ...hardware.values, moved: { ...(hardware.values.moved ?? {}), [holesDrag]: t } } }; holesKey = ""; dirty = true; }
+    const mmPerPx = (pj.halfH * 2) / Math.max(1, view.size().h);
+    const snap = holesDrag.row >= 0 && !raw.mods?.alt ? { row: holesDrag.row, mm: 22 * mmPerPx } : undefined; // (drawn to its line within 22 px; Alt holds it free)
+    const t = dragTarget(holesPlan, holesDrag.index, pj.ray(x, y), snap);
+    if (t) { hardware = { values: { ...hardware.values, moved: { ...(hardware.values.moved ?? {}), [holesDrag.index]: t } } }; holesKey = ""; dirty = true; }
     return true;
   }
   if (raw.kind === "up" || raw.kind === "cancel") { holesDrag = null; return true; }

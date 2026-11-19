@@ -505,7 +505,7 @@ test("an empty depth: through when that is not much further than a screw's lengt
   const top = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.ref.endsWith("0,0,1,80"))!.ref;
   const thick = receiverPlan(select(s, [top]), vals({ kind: "countersunk", size: "M3", place: "centre" }));
   assert.ok(thick.ok, thick.ok ? "" : thick.error);
-  if (thick.ok) { near(thick.value.depth, 20, 1e-9); assert.ok(thick.value.depthNote?.includes("20 mm screw"), thick.value.depthNote); }
+  if (thick.ok) { near(thick.value.depth, 20, 1e-9); assert.ok(thick.value.depthNote?.includes("20 mm screw"), String(thick.value.depthNote)); }
   const typed = receiverPlan(select(s, [top]), vals({ kind: "countersunk", size: "M3", place: "centre", depth: "50" }));
   assert.ok(typed.ok && typed.value.depth === 50 && typed.value.depthNote === undefined, "a typed depth is kept");
   const nut = receiverPlan(select(s, [top]), vals({ kind: "clearance", size: "M3", place: "centre", far: "nut" }));
