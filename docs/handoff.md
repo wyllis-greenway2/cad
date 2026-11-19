@@ -3852,3 +3852,5 @@ Merged `claude/adoring-dijkstra-soft-drag`: the circle between two tangent lines
 
 ## Handoff 931 — 2026-11-19 (in_1055: the gear chains merged into the testing branch)
 `in_1055` asked for it, without the full suite. Merged `claude/intelligent-hawking-8j1lyr` (the gear chains: `dec_gear_islands`; its `in_1040` is now **`in_1054`**, its Handoff 923 is **930**); the testing branch had gone on to `in_1053`, Handoff 929 (a first push was refused because it moved again while this was checked). Only the two record files conflicted. Checked: docs, layers, unused, kernel boundary, types, `gearislands.test.ts` and the gear, spiral and export tests nearest it; the whole suite was started on the branch before the merge and is not part of this.
+
+**Full suite after the gear chains** (run on the branch, not for the merge): two failures, both in `prismkept.test.ts`, both asking that the unchanged gears' kept prism solids be "found again"; with a chain of its own the unchanged gears' whole steps are kept, so their solids are not asked for. The tests now say that (the changed gear is built once, the others not at all). Everything else passed.
