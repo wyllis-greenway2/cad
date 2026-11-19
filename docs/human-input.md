@@ -4413,14 +4413,14 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for this branch (the washer, taking a hole out, more holes when too far apart, points on round faces, the depth chosen for the part, snapping a moved hole to its line) to be merged into claude/inspiring-pascal-l342k7)
 
-## in_1015 — 2026-11-19 — directive
+## in_1025 — 2026-11-19 — directive
 > no need for full suite testing on this one
 (says the full suite is not needed on the merge into the testing branch)
 
-## in_1016 — 2026-11-19 — question
+## in_1026 — 2026-11-19 — question
 > it still seems kind of odd for curved surfaces, why does it put one in diagonal corners?
 (asks why the tool puts one hole in each of two diagonal corners on a curved face: a screenshot of the round wall of the lid (R 28.22) with a countersunk hole near each of two opposite corners of the wall, and the saved model)
 
-## in_1017 — 2026-11-19 — directive
+## in_1027 — 2026-11-19 — directive
 > okay do you want to test it in different situations and see how it performs?
 (asks for the automatic fastener choice to be tried in many different situations to see how it performs)

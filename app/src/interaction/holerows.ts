@@ -189,7 +189,7 @@ export function autoRows(surf: RowSurface, rules: Rules, count: number, gap: num
   }
   if (!surf.outline.ok) return surf.outline;
   const room = roomIn(surf.outline.value);
-  // the loop is stepped in no further than leaves it a head and a gap across: a thinner one has the holes zigzag between its two long sides, one at each of two opposite corners (`in_1016`), and the middle line is the better line
+  // the loop is stepped in no further than leaves it a head and a gap across: a thinner one has the holes zigzag between its two long sides, one at each of two opposite corners (`in_1026`), and the middle line is the better line
   const cap = room - minSp * 0.75; // (across the loop at least one and a half head widths)
   if (room >= minInset + 0.5 && cap >= minInset) {
     const inset = Math.min(Math.max(pref, minInset), room * 0.85, cap);

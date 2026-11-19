@@ -593,7 +593,7 @@ test("points on a round face: each stands on a plane touching the surface, and t
   if (after.ok) assert.deepEqual(after.value.places.map((c) => c.map((x) => Math.round(x * 1e3) / 1e3)).sort(), before.value.places.map((c) => c.map((x) => Math.round(x * 1e3) / 1e3)).sort());
 });
 
-test("automatic: a wall too short for a loop of heads is not a loop with one hole at each of two opposite corners (`in_1016`)", () => {
+test("automatic: a wall too short for a loop of heads is not a loop with one hole at each of two opposite corners (`in_1026`)", () => {
   const { s: narrow } = small(40, 20); // (a loop here would be 3 across: the holes zigzag between its long sides)
   const p = receiverPlan(narrow, vals({ kind: "countersunk", size: "M3", place: "auto", offset: "10" }));
   assert.ok(p.ok, p.ok ? "" : p.error);
@@ -605,7 +605,7 @@ test("automatic: a wall too short for a loop of heads is not a loop with one hol
   assert.ok(q.ok && String(q.value.auto).includes("edges stepped in"), q.ok ? String(q.value.auto) : q.error);
 });
 
-// ---- a sweep of faces and hardware: whatever the automatic choice gives, no two heads touch and none hangs over an edge (`in_1017`) ----
+// ---- a sweep of faces and hardware: whatever the automatic choice gives, no two heads touch and none hangs over an edge (`in_1027`) ----
 import { countersink as csOf, counterbore as cbOf, clearanceHole as clOf } from "../src/operation/fasteners.ts";
 test("automatic, over many faces and sizes: no two heads closer than a head and a gap, none nearer an edge than its radius and a margin, or the face is said to be too small", () => {
   let checked = 0, refused = 0;
