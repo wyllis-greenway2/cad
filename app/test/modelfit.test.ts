@@ -15,7 +15,7 @@ const XY = worldRef("XY");
 const sc = scene(createSession(kernel));
 const toolWith = (kind: ModelKind, typed: Record<string, string>, size = ""): ReturnType<typeof armModel> => {
   const t = armModel(kind), keys = modelFields(kind).map((f) => f.key);
-  return { ...t, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0], fill: { center: [0, 0, 0], normal: [0, 0, 1] }, model: { ...t.model!, typed: t.model!.typed.map((x, i) => (i === 0 ? size : i >= 2 && typed[keys[i - 2]!] !== undefined ? typed[keys[i - 2]!]! : x)) } } as ReturnType<typeof armModel>;
+  return { ...t, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0], fill: { center: [0, 0, 0], normal: [0, 0, 1] }, model: { ...t.model!, typed: t.model!.typed.map((x, i) => (i === 0 ? size : i >= 1 && typed[keys[i - 1]!] !== undefined ? typed[keys[i - 1]!]! : x)) } } as ReturnType<typeof armModel>;
 };
 const BEARING_OWN = { own: "1", detail: "1" };
 const base = (kind: ModelKind): Record<string, string> => (kind === "ballbearing" ? { ...BEARING_OWN } : {});

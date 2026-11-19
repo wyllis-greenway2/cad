@@ -1,5 +1,5 @@
 // The tool that places a gear assembly model (`dec_gear_models`): armed, the first click is the middle of the model on a surface, and a simple picture of it follows (its outlines in the plane, as a gear's does) while its numbers are set in the box:
-// the overall size first (or the distance of the pointer from the middle, until a click sets it), the turn, and then its own numbers. A number typed is kept; the ones not typed come from the usual numbers grown or shrunk to the size. Pure.
+// the overall size first (or the distance of the pointer from the middle, until a click sets it), and then its own numbers. A number typed is kept; the ones not typed come from the usual numbers grown or shrunk to the size. Pure.
 import type { Tool, Preview } from "./tools.ts";
 import type { Scene } from "../operation/scene.ts";
 import type { Plane } from "../operation/part.ts";
@@ -7,7 +7,7 @@ import { normalOfPlane, localOf } from "../operation/part.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
-import { modelFields, modelSizeKey, modelNumbers, modelStart, modelCentre, modelExtent, modelProblem, modelOutline, modelBuild, modelTitle, modelAbout } from "../operation/modelkinds.ts";
+import { modelFields, modelSizeKey, modelSizeLabel, modelNumbers, modelStart, modelCentre, modelExtent, modelProblem, modelOutline, modelBuild, modelTitle, modelAbout } from "../operation/modelkinds.ts";
 import type { ModelKind, Nums } from "../operation/modelkinds.ts";
 import { asCommand } from "../operation/modelparts.ts";
 import type { Place, ModelBuild } from "../operation/modelparts.ts";
@@ -24,10 +24,9 @@ function fillPlane(f: { center: Vec3; normal: Vec3 }): Plane {
 const crossV = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const normalizeV = (a: Vec3): Vec3 => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 
-/** What the tool holds: which model, the text typed in each field of the box (the overall size, the turn, then the model's numbers) and the field being typed in */
+/** What the tool holds: which model, the text typed in each field of the box (the overall size, then the model's numbers) and the field being typed in */
 export interface ModelState { kind: ModelKind; typed: string[]; field: number; /** the box takes the keyboard when it opens */ focus?: true; /** the number that was taken back to a value that makes the model (`in_1240`): its field, and when (the box flashes red for a moment) */ bad?: { field: number; at: number } }
-const LEAD = ["Size", "Turn"];
-const modelLabels = (kind: ModelKind): string[] => [...LEAD, ...modelFields(kind).map((f) => f.label)];
+const modelLabels = (kind: ModelKind): string[] => [modelSizeLabel(kind), ...modelFields(kind).map((f) => f.label)]; // (the Size, then the model's own numbers: no turn, `in_1244`)
 export const armedModel = (kind: ModelKind): ModelState => ({ kind, typed: modelLabels(kind).map(() => ""), field: 0 });
 export const modelTyped = (m: ModelState, field: number, text: string): ModelState => { const { bad: _gone, ...rest } = m; void _gone; return { ...rest, field, typed: m.typed.map((x, i) => (i === field ? text : x)) }; };
 
@@ -43,14 +42,14 @@ export function modelTarget(scene: Scene, t: Tool): ModelTarget | null {
   if (!m || !pl || pl.kind !== "plane" || !t.points.length) return null;
   const middle = t.points[0]!, fields = modelFields(m.kind);
   const typed: Nums = {};
-  fields.forEach((f, i) => { const v = numOf(m.typed[i + 2]); if (v !== undefined) typed[f.key] = v; });
+  fields.forEach((f, i) => { const v = numOf(m.typed[i + 1]); if (v !== undefined) typed[f.key] = v; });
   const [mx, my] = localOf(pl, middle), cursor = t.cursor ? localOf(pl, t.cursor) : null;
   const reach = cursor ? 2 * Math.hypot(cursor[0] - mx, cursor[1] - my) : 0; // (the pointer's distance from the middle, both ways)
   const size = numOf(m.typed[0]) ?? (reach > 1e-6 ? Math.max(MIN_SHARE * modelExtent(m.kind, modelStart(m.kind)), reach) : undefined);
   const sk = modelSizeKey(m.kind); // (a model whose Size is one of its numbers, the wheel's outside diameter: the Size is that number)
   if (sk && size !== undefined) typed[sk] = size;
   const nums = modelNumbers(m.kind, typed, sk && size !== undefined ? undefined : size);
-  const turn = ((numOf(m.typed[1]) ?? 0) * Math.PI) / 180;
+  const turn = 0;
   const [u, v, n] = [pl.u, pl.v, normalOfPlane(pl)];
   const [c, s] = [Math.cos(turn), Math.sin(turn)];
   const ex: Vec3 = [u[0] * c + v[0] * s, u[1] * c + v[1] * s, u[2] * c + v[2] * s], ey: Vec3 = [-u[0] * s + v[0] * c, -u[1] * s + v[1] * c, -u[2] * s + v[2] * c];
@@ -97,8 +96,8 @@ export const buildingText = (b: Building): string => `${b.title}: ${b.build.part
 /** Which of the box's fields (the size and the turn, then the model's) are shown: a field with a condition is shown while the number it names has that value, the model's numbers being the live ones or, before the first click, those typed */
 function visibleFields(m: ModelState, nums?: Nums): boolean[] {
   const fields = modelFields(m.kind);
-  const n = nums ?? modelNumbers(m.kind, Object.fromEntries(fields.flatMap((f, k) => (numOf(m.typed[k + 2]) !== undefined ? [[f.key, numOf(m.typed[k + 2])!]] : []))));
-  return [true, true, ...fields.map((f) => !f.hidden && (!f.when || n[f.when.key] === f.when.is))];
+  const n = nums ?? modelNumbers(m.kind, Object.fromEntries(fields.flatMap((f, k) => (numOf(m.typed[k + 1]) !== undefined ? [[f.key, numOf(m.typed[k + 1])!]] : []))));
+  return [true, ...fields.map((f) => !f.hidden && (!f.when || n[f.when.key] === f.when.is))];
 }
 /** The field the Tab key goes to: the next one that is shown */
 export function nextField(m: ModelState): number {
@@ -108,20 +107,25 @@ export function nextField(m: ModelState): number {
 }
 
 /** The title of the box and the fields it shows: each number as typed, else the number it has now */
-export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { bad?: true; label: string; value: string; active: boolean; typed: boolean; hint: string; short?: string; choices?: string[]; index: number }[]; unit: string; note: string } | null {
+export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { bad?: true; label: string; value: string; active: boolean; typed: boolean; hint: string; short?: string; choices?: string[]; index: number; /** a radius's little fillet-or-chamfer toggle: the field that holds the kind, the kind it has, and the names */ toggle?: { index: number; value: number; choices: string[] } }[]; unit: string; note: string } | null {
   const m = t.model;
   if (!m) return null;
   const g = modelTarget(scene, t), fields = modelFields(m.kind), round = (v: number): string => String(Math.round(v * 100) / 100);
-  const live = g ? [g.size, (g.turn * 180) / Math.PI, ...fields.map((f) => g.nums[f.key]!)] : [];
-  const hints = [modelSizeKey(m.kind) ? "the way across (mm): the outside diameter; the pointer sets it until you click; what is not typed follows it, and follows the numbers that are typed" : "the way across the longest side (mm); the pointer sets it until you click; what is not typed grows to fit", "degrees about the surface's normal", ...fields.map((f) => f.hint)];
+  const live = g ? [g.size, ...fields.map((f) => g.nums[f.key]!)] : [];
+  const hints = [modelSizeKey(m.kind) ? "the way across (mm): the outside diameter; the pointer sets it until you click; what is not typed follows it, and follows the numbers that are typed" : "the way across the longest side (mm); the pointer sets it until you click; what is not typed grows to fit", ...fields.map((f) => f.hint)];
   const labels = modelLabels(m.kind);
   const guard = modelGuard(scene, t), vis = visibleFields(m, g?.nums);
   const shown = (i: number): boolean => vis[i]!;
-  const order = labels.map((_, i) => i).filter(shown).sort((a, b) => Number(!(a >= 2 && fields[a - 2]!.top)) - Number(!(b >= 2 && fields[b - 2]!.top)) || a - b);
+  const order = labels.map((_, i) => i).filter(shown).sort((a, b) => Number(!(a >= 1 && fields[a - 1]!.top)) - Number(!(b >= 1 && fields[b - 1]!.top)) || a - b);
+  /** the little toggle beside a radius: the field that holds its kind (a hidden one), the kind it has now, and the names of the two */
+  const toggleOf = (i: number): { toggle: { index: number; value: number; choices: string[] } } | Record<string, never> => {
+    const j = fields.findIndex((f) => f.key === fields[i - 1]!.toggle) + 1;
+    return j > 0 ? { toggle: { index: j, value: numOf(m.typed[j]) ?? g?.nums[fields[j - 1]!.key] ?? 0, choices: fields[j - 1]!.choices ?? ["Fillet", "Chamfer"] } } : {};
+  };
   const hintSize = m.kind === "ballbearing" && g?.nums.own === 0 ? "the outside diameter (mm): picks the listed bearing nearest to it (a number typed wins); the pointer sets it until you click" : hints[0]!;
   return {
     panel: modelTitle(m.kind),
-    fields: order.map((i) => ({ ...(m.bad?.field === i || guard?.field === i ? { bad: true as const } : {}), index: i, label: labels[i]!, value: m.typed[i] !== "" ? m.typed[i]! : live[i] !== undefined ? round(live[i]!) : "", active: m.field === i, typed: m.typed[i] !== "", hint: i === 0 ? hintSize : hints[i]!, ...(i >= 2 && fields[i - 2]!.choices ? { choices: fields[i - 2]!.choices } : {}) })),
+    fields: order.map((i) => ({ ...(m.bad?.field === i || guard?.field === i ? { bad: true as const } : {}), index: i, label: labels[i]!, value: m.typed[i] !== "" ? m.typed[i]! : live[i] !== undefined ? round(live[i]!) : "", active: m.field === i, typed: m.typed[i] !== "", hint: i === 0 ? hintSize : hints[i]!, ...(i >= 1 && fields[i - 1]!.choices ? { choices: fields[i - 1]!.choices } : {}), ...(i >= 1 && fields[i - 1]!.toggle ? toggleOf(i) : {}) })),
     unit: "mm",
     note: g ? (g.problem ?? modelAbout(m.kind, g.nums)) : "click where the middle of it goes",
   };
@@ -141,13 +145,13 @@ export function modelFix(scene: Scene, t0: Tool): { tool: Tool; field: number; m
   /** the one typed number that, taken back alone, makes the model: its field, the tool and what it was taken back to */
   const alone = (t: Tool): { tool: Tool; field: number; to: string } | null => {
     const m = t.model!;
-    const order = labels.map((_, i) => i).filter((i) => i !== 1 && (m.typed[i] ?? "") !== "" && !(i >= 2 && fields[i - 2]!.choices)).sort((a, b) => (a === m.field ? -2 : a === 0 ? 1 : 0) - (b === m.field ? -2 : b === 0 ? 1 : 0)); // (the one being typed first, the Size last: it is what the rest is made to fit)
+    const order = labels.map((_, i) => i).filter((i) => (m.typed[i] ?? "") !== "" && !(i >= 1 && fields[i - 1]!.choices)).sort((a, b) => (a === m.field ? -2 : a === 0 ? 1 : 0) - (b === m.field ? -2 : b === 0 ? 1 : 0)); // (the one being typed first, the Size last: it is what the rest is made to fit)
     for (const i of order) {
       const typedV = typedNum(m.typed[i]);
       if (typedV === undefined) continue;
       const home = modelTarget(scene, withTyped(t, i, ""));
       if (!home || home.problem) continue; // (this number is not alone to blame)
-      const key = i >= 2 ? fields[i - 2]!.key : "", whole = !!(i >= 2 && fields[i - 2]!.whole);
+      const key = i >= 1 ? fields[i - 1]!.key : "", whole = !!(i >= 1 && fields[i - 1]!.whole);
       let [good, bad] = [i === 0 ? home.size : home.nums[key]!, typedV];
       if (whole) { good = Math.round(good); bad = Math.round(bad); while (Math.abs(bad - good) > 1) { const mid = Math.round((good + bad) / 2); if (valid(withTyped(t, i, String(mid)))) good = mid; else bad = mid; } }
       else for (let k = 0; k < 30; k++) { const mid = (good + bad) / 2; if (valid(withTyped(t, i, text(mid)))) good = mid; else bad = mid; }
@@ -165,8 +169,8 @@ export function modelFix(scene: Scene, t0: Tool): { tool: Tool; field: number; m
       const was = t0.model!.typed[one.field];
       return { tool: one.tool, field: one.field, message: `${first.problem}: ${labels[one.field]} ${was} is taken back to ${one.to}${given.length ? `, and ${given.join(", ")} given up` : ""}` };
     }
-    const m = cur.model!, i = labels.map((_, k) => k).filter((k) => k !== 1 && (m.typed[k] ?? "") !== "" && !(k >= 2 && fields[k - 2]!.choices)).find((k) => k !== m.field) ?? m.field;
-    if ((m.typed[i] ?? "") === "" || (m.typed[1] ?? "") === "x") return null;
+    const m = cur.model!, i = labels.map((_, k) => k).filter((k) => (m.typed[k] ?? "") !== "" && !(k >= 1 && fields[k - 1]!.choices)).find((k) => k !== m.field) ?? m.field;
+    if ((m.typed[i] ?? "") === "") return null;
     given.push(labels[i]!);
     cur = withTyped(cur, i, "");
     if (valid(cur)) return { tool: { ...cur, model: { ...cur.model!, field: i } }, field: i, message: `${first.problem}: ${given.join(" and ")} could not be met and ${given.length > 1 ? "are" : "is"} given up` };

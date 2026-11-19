@@ -70,16 +70,8 @@ test("the tool: armed from the ring item; after the first click a picture of the
   assert.ok(Math.abs(lo![1]! - lo![0]! - 40) < 1, `40 across: ${lo![1]! - lo![0]!}`);
   assert.ok(Math.abs(bb.reduce((m, b) => Math.min(m, b.min[2]!), 99)) < 1e-6, "it stands on the plane");
 });
-test("the tool: a gearbox turned 90 degrees stands with its long side along the plane's second direction; on an upright plane it stands out from it", () => {
+test("the tool: on an upright plane the model stands out from it (there is no turn: the box has the size and the model's numbers)", () => {
   const sc = scene(createSession(kernel));
-  let t: Tool = { ...armed("gearbox"), plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0] };
-  t = typeIn(typeIn(t, 0, "80"), 1, "90");
-  const g = modelTarget(sc, t)!;
-  assert.ok(Math.abs(g.place.ex[1] - 1) < 1e-9 && Math.abs(g.place.ey[0] + 1) < 1e-9, "x along y, y along -x");
-  const made = run(createSession(kernel), finish(sc, t)!.command);
-  assert.ok(!made.message, made.message ?? "");
-  const wide = (k: number) => Math.max(...bodies(made).map((b) => b.bbox.max[k]!)) - Math.min(...bodies(made).map((b) => b.bbox.min[k]!));
-  assert.ok(wide(1) > wide(0) * 1.3, `longer along y (${wide(1)}) than x (${wide(0)})`);
   // a bearing on the XZ plane: its axis is the plane's normal, so it is a few mm thick along y and its diameter along x and z
   const up = typeIn({ ...armed("ballbearing"), plane: XZ, points: [[0, 0, 0]], cursor: [0, 0, 0] }, 0, "22");
   const m2 = run(createSession(kernel), finish(sc, up)!.command);
@@ -89,7 +81,7 @@ test("the tool: a gearbox turned 90 degrees stands with its long side along the 
 });
 test("the tool: numbers that make no model show the picture in red and say why in the box, and Create refuses with the same words", () => {
   const sc = scene(createSession(kernel));
-  const t = typeIn({ ...armed("gearbox"), plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0] }, 2, "9");
+  const t = typeIn({ ...armed("gearbox"), plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0] }, 1, "9");
   assert.ok(previewOf(sc, t)!.red);
   assert.match(modelTarget(sc, t)!.problem ?? "", /stages/);
   assert.equal(finish(sc, t), null);
@@ -120,7 +112,7 @@ test("each model lists its parts, bottom up, covering every step once", () => {
 test("Create makes the model a part at a time: the first part at once, the next each time the kernel has answered; Esc stops and keeps what is made", () => {
   let st = { ...createState(createSession(kernel)), cam: homeCamera() };
   st = reduce(st, { type: "runAction", id: "model:ballbearing" }, env as never);
-  st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0], model: { ...st.tool!.model!, typed: st.tool!.model!.typed.map((x, i) => (i === 2 || i === 4 ? "1" : x)) } } }; // (the first field after the size and the turn: the detail)
+  st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0], model: { ...st.tool!.model!, typed: st.tool!.model!.typed.map((x, i) => (i === 1 || i === 3 ? "1" : x)) } } }; // (the first field after the size: the detail)
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env as never);
   assert.ok(st.building, "building");
   assert.equal(st.tool, null);
@@ -150,7 +142,7 @@ function buildAll(kind: ModelKind, typed: Record<string, string> = {}): ReturnTy
   let st = { ...createState(createSession(kernel)), cam: homeCamera() };
   st = reduce(st, { type: "runAction", id: `model:${kind}` }, env as never);
   const keys = modelFields(kind).map((f) => f.key);
-  st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0], model: { ...st.tool!.model!, typed: st.tool!.model!.typed.map((x, i) => (i >= 2 && typed[keys[i - 2]!] !== undefined ? typed[keys[i - 2]!]! : x)) } } };
+  st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0], model: { ...st.tool!.model!, typed: st.tool!.model!.typed.map((x, i) => (i >= 1 && typed[keys[i - 1]!] !== undefined ? typed[keys[i - 1]!]! : x)) } } };
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env as never);
   let n = 0;
   while (st.building && n++ < 40) st = reduce(st, { type: "buildNext" }, env as never);
@@ -362,16 +354,16 @@ test("a bearing's box has Catalogue or Your own at its top, and the choice chang
   const sc = scene(createSession(kernel));
   let t: Tool = { ...armed("ballbearing"), plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0] };
   const names = (u: Tool): string[] => modelEntry(sc, u)!.fields.map((f) => f.label);
-  assert.deepEqual(names(t), ["Source", "Size", "Turn", "Bearing number"], "the catalogue: the number only");
+  assert.deepEqual(names(t), ["Source", "Size", "Bearing number"], "the catalogue: the number only");
   assert.deepEqual(modelEntry(sc, t)!.fields[0]!.choices, ["Catalogue", "Your own"]);
-  t = typeIn(t, 2, "1");
-  assert.deepEqual(names(t), ["Source", "Size", "Turn", "Detail", "Bore", "Outside diameter", "Width", "Inner ring outside diameter", "Room round a ball", "Balls", "Ball diameter"]);
+  t = typeIn(t, 1, "1");
+  assert.deepEqual(names(t), ["Source", "Size", "Detail", "Bore", "Outside diameter", "Width", "Inner ring outside diameter", "Room round a ball", "Balls", "Ball diameter"]);
   assert.deepEqual(modelEntry(sc, t)!.fields.find((f) => f.label === "Detail")!.choices, ["Simple", "Detailed"]);
   assert.equal(modelEntry(sc, t)!.fields.find((f) => f.label === "Detail")!.value, "0");
-  assert.equal(modelEntry(sc, typeIn(t, 4, "1"))!.fields.find((f) => f.label === "Detail")!.value, "1");
-  assert.equal(modelTarget(sc, typeIn(t, 4, "1"))!.nums.detail, 1);
+  assert.equal(modelEntry(sc, typeIn(t, 3, "1"))!.fields.find((f) => f.label === "Detail")!.value, "1");
+  assert.equal(modelTarget(sc, typeIn(t, 3, "1"))!.nums.detail, 1);
   // Tab goes by the fields that are shown: from the last of them back to the first, never to the number of a catalogue
-  const hidden = nextField({ ...t.model!, field: 11 });
+  const hidden = nextField({ ...t.model!, field: 10 });
   assert.equal(hidden, 0, "the first field is the size");
-  assert.notEqual(nextField({ ...armed("ballbearing").model!, field: 2 }), 4, "the detail is not shown for a catalogue bearing");
+  assert.notEqual(nextField({ ...armed("ballbearing").model!, field: 1 }), 3, "the detail is not shown for a catalogue bearing");
 });
