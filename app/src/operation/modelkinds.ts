@@ -5,17 +5,16 @@ import { ok, err } from "../shared/result.ts";
 import type { Place, ModelBuild } from "./modelparts.ts";
 import { gearboxSteps, gearboxProblem, gearboxRatio, gearboxFootprint, GEARBOX_START } from "./modelgearbox.ts";
 import type { GearboxSpec } from "./modelgearbox.ts";
-import { bearingSteps, bearingProblem, bearingGeometry, bearingParts, BEARING_START } from "./modelbearing.ts";
+import { bearingParts } from "./modelbearing.ts";
 import { Builder } from "./modelparts.ts";
-import { bearingRow, bearingShape, bearingNumbers } from "./bearingdata.ts";
-import type { BearingSpec } from "./modelbearing.ts";
+import { BEARINGS, bearingRow, bearingShape, bearingNumbers } from "./bearingdata.ts";
 import { differentialSteps, differentialProblem, differentialExtent, DIFFERENTIAL_START } from "./modeldifferential.ts";
 import type { DifferentialSpec } from "./modeldifferential.ts";
 import { cycloidalSteps, cycloidalProblem, cycloidalRatio, cycloidalRim, discOutline, CYCLOIDAL_START } from "./modelcycloidal.ts";
 import type { CycloidalSpec } from "./modelcycloidal.ts";
 
-export type ModelKind = "gearbox" | "ballbearing" | "bearing" | "differential" | "cycloidal";
-export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "bearing", "differential", "cycloidal"];
+export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal";
+export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal"];
 /** The numbers of a model, by name */
 export type Nums = Record<string, number>;
 /** One number of a model: what it is called, a line that says what it is, and whether it grows with the overall size (a length of the thing, not a room left for the printer or a count) */
@@ -49,7 +48,6 @@ function catalogueShape(n: Nums): { bore: number; outer: number; width: number; 
 }
 const catalogueProblem = (n: Nums): string | null => { const s = catalogueShape(n); return typeof s === "string" ? s : null; };
 const gb = (n: Nums): GearboxSpec => n as unknown as GearboxSpec;
-const br = (n: Nums): BearingSpec => n as unknown as BearingSpec;
 const df = (n: Nums): DifferentialSpec => n as unknown as DifferentialSpec;
 const cy = (n: Nums): CycloidalSpec => n as unknown as CycloidalSpec;
 
@@ -82,20 +80,6 @@ const DEFS: Record<ModelKind, Def> = {
       return [circle(0, 0, sh.outer / 2, 64), circle(0, 0, sh.bore / 2, 48), circle(0, 0, sh.pitch - sh.surface, 48), circle(0, 0, sh.pitch + sh.surface, 48), ...Array.from({ length: sh.balls }, (_, k) => circle(sh.pitch * Math.cos((2 * Math.PI * k) / sh.balls), sh.pitch * Math.sin((2 * Math.PI * k) / sh.balls), sh.rb, 14))];
     },
     about: (n) => { const r = bearingRow(Math.round(n.number!)), sh = catalogueShape(n); return r && typeof sh !== "string" ? `${r.number}: ${r.d} x ${r.D} x ${r.B} mm, ${sh.balls} balls of ${(2 * sh.rb).toFixed(2)} mm${sh.typical ? " (a typical set)" : " (the catalogue's)"}; the outer ring is held, the inner turns` : ""; },
-  },
-  bearing: {
-    title: "Print-in-place ball bearing",
-    fields: [F("bore", "Bore", "mm", true), F("outer", "Outside diameter", "mm", true), F("width", "Width", "mm", true), F("balls", "Balls", "3 or more"), F("ball", "Ball diameter", "mm", true), F("gap", "Room round a ball", "all round it, in its groove: the balls and races print apart")],
-    start: { ...BEARING_START },
-    problem: (n) => bearingProblem(br(n)),
-    extent: (n) => n.outer!,
-    centre: () => [0, 0],
-    build: (n, place) => bearingSteps(br(n), place),
-    outline: (n) => {
-      const s = br(n), g = bearingGeometry(s);
-      return [circle(0, 0, s.outer / 2, 64), circle(0, 0, s.bore / 2, 48), circle(0, 0, g.inner, 48), circle(0, 0, g.outerR, 48), ...Array.from({ length: Math.max(0, Math.round(s.balls)) }, (_, k) => circle(g.pitch * Math.cos((2 * Math.PI * k) / s.balls), g.pitch * Math.sin((2 * Math.PI * k) / s.balls), g.rb, 14))];
-    },
-    about: (n) => `an inner race, an outer race and ${Math.round(n.balls!)} balls, each its own body`,
   },
   differential: {
     title: "Differential",
@@ -150,6 +134,10 @@ const tidy = (key: string, v: number): number => (key === "module" || key === "d
  */
 export function modelNumbers(kind: ModelKind, typed: Nums, size?: number): Nums {
   const d = DEFS[kind];
+  if (kind === "ballbearing") { // (a catalogue bearing has the sizes of its number: a size asked for picks the bearing whose outside diameter is nearest, unless a number is typed)
+    if (typed.number === undefined && size !== undefined && size > 0) { const near = [...BEARINGS].sort((x, y) => Math.abs(x.D - size) - Math.abs(y.D - size) || Math.abs(x.number - d.start.number!) - Math.abs(y.number - d.start.number!))[0]!; return { ...d.start, ...typed, number: near.number }; }
+    return { ...d.start, ...typed };
+  }
   const at = (f: number): Nums => {
     const n: Nums = { ...d.start };
     for (const fl of d.fields) if (fl.scaled) n[fl.key] = tidy(fl.key, d.start[fl.key]! * f);

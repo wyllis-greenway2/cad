@@ -4978,9 +4978,21 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 
 ## in_1159 — 2026-11-19 — directive
+> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
+
+## in_1160 — 2026-11-19 — directive
+> I think the eye lock icon to see constraints should only show up when a body is double clicked. Also can we have it so that all icons (except the constraints themselves always show up in the same helpful bar? I am thinking they should use the suggested constraints bar. there will be an icon side to the left, and the suggested (if they exist) to the right.
+
+## in_1161 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1162 — 2026-11-19 — directive
+> okay lets get rid of print bearings. Also why does changing the size attribute not change anything? and are these real spec bearings? can I actually go find and buy bearings to these specs? they look odd. How could you even get a ball into a position like that? I thought real bearings had plates on either side and or crimp rings etc?
+(asks for the print-in-place bearing to be removed; why Size does nothing on a catalogue bearing; whether the bearings are real and buyable; how the balls could be put in; whether real bearings have shields and retaining rings)
+
 > Lets have the helpful message say "Slow animation" "Fix Constraints" X. Also the fixes are way to verbose. It should just select the actual parts to constraint, and zoom into them and say Apply X constraint. Then zoom to the next and select parts to constrain and say apply x constraint. Also when it is done, it should go back to its original view, with the animation play button ready to go, or basically however it was before you entered the fix constraints helper.
 (a screenshot of the walk card with a long sentence; asks the offer to be "Slow animation", Fix Constraints, ✕; each step to select the parts, zoom to them and say only "Apply ... constraint"; the end to put the view and the play back as they were)
 
-## in_1160 — 2026-11-19 — directive
+## in_1164 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the terse Fix walk (select, zoom, apply, view put back) to be merged into the testing branch, no full test run)

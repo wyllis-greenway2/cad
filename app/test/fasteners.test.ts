@@ -509,6 +509,6 @@ test("Sketch has no Cam category and no Gear icon any more; the Models category 
   assert.ok(find(items, "tool:eccentric") === undefined && find(items, "tool:geneva") === undefined && find(items, "tool:disc:harmonic") === undefined && find(items, "cam:edit") === undefined && find(items, "cam:follow") === undefined, "none of the cam options is in the ring");
   const models = items.find((i) => i.id === "mechanisms")!;
   assert.equal(models.label, "Models");
-  assert.deepEqual(models.children!.map((c) => [c.id, c.label]), [["gears", "Gears"], ["model:gearbox", "Gearbox"], ["model:ballbearing", "Bearing"], ["model:bearing", "Print bearing"], ["model:differential", "Differential"], ["model:cycloidal", "Cycloidal drive"], ["tool:geneva:model", "Geneva plate"]]);
+  assert.deepEqual(models.children!.map((c) => [c.id, c.label]), [["gears", "Gears"], ["model:gearbox", "Gearbox"], ["model:ballbearing", "Bearing"], ["model:differential", "Differential"], ["model:cycloidal", "Cycloidal drive"], ["tool:geneva:model", "Geneva plate"]]);
   assert.ok(!find(items, "fabricate")!.children!.some((c) => c.id === "models"), "Fabricate no longer holds the models");
 });
