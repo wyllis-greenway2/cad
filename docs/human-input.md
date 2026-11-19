@@ -4304,3 +4304,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_987 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for tests
 (asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 once more, for the cam tools sized like the gear tool and the Geneva drive for every slot count; no tests to be run; gives permission to write to that branch)
+
+## in_988 — 2026-11-19 — directive
+> lets do 2 3 and 4
+(of the AI's list: Mesh gear carries the chamfer to the partner (2); cut the kernel time of big spiral pairs (3); the spiral crown gear (4); the menu split (1) and ISO 23509 (5) stay out)
+
