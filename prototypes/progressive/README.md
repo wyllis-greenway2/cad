@@ -1,4 +1,4 @@
-# progressive (prototype, `in_908`)
+# progressive (prototype, `in_992`)
 
 **Meant to learn:** whether a model can be made in pieces (a group of steps built alone, in any order) and give the same bodies as the whole model: the claim that the safe-interaction rule of `q_progressive_load` rests on.
 
@@ -10,7 +10,7 @@
 
 **Not tried:** groups that include modifying steps (fillets of a body of the group): the grouping would have to know which body a step changes (it does not: a fillet names an edge by its place); revolves, lofts and sweeps in assemblies; a body that moves; random edits in the middle (the fuzz of `q_progressive_load`).
 
-## Version 2 (`in_912`): parts with modifying steps, and what the page can know without the kernel
+## Version 2 (`in_996`): parts with modifying steps, and what the page can know without the kernel
 
 **Added:** assemblies of boxes with their tops rounded, a hole, one slid; ten fixtures of several bodies; for every step that changes a body (a fillet, a push, a move, a turn, a scale) **what it changes is found by taking it out** (the truth), and a **rule the page could use without the kernel** is tried against that truth: a body named by the step (`params.body`, `b/x_..`) is the body; a place (`b/body/e@x,y,z~..` an edge's points, `b/body/f@..` with `px,py,pz`) is the bodies whose boxes hold it; anything not understood is every body before it; bodies tied by a relation (a mate holds a part of one to a part of another, through the sketch the part belongs to), hard bodies, and bodies whose boxes meet (a moved body's taken where it began and where it ends) are one thing.
 

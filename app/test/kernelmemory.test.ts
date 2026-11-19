@@ -86,7 +86,7 @@ test("a model that needs more than the limit from the start does not have its th
   assert.equal(workers.length, 2, "grown by more than two fifths of its first answer: restarted");
 });
 
-test("the thread the page started while the app was still loading is the one the kernel uses, once (`in_903`)", () => {
+test("the thread the page started while the app was still loading is the one the kernel uses, once (`in_987`)", () => {
   const listeners: ((e: { data: unknown }) => void)[] = [];
   const posted: unknown[] = [];
   const early: WorkerLike = { postMessage: (m) => { posted.push(m); }, addEventListener: (t, f) => { if (t === "message") listeners.push(f); } };
@@ -98,7 +98,7 @@ test("the thread the page started while the app was still loading is the one the
   assert.equal(posted.length, 1, "its first job went to the early thread");
 });
 
-test("a step the kernel cannot make leaves the picture of the model as it was, with the error on the step (`in_910`)", () => {
+test("a step the kernel cannot make leaves the picture of the model as it was, with the error on the step (`in_994`)", () => {
   const listeners: ((e: { data: unknown }) => void)[] = [];
   const posted: { id: number }[] = [];
   const w: WorkerLike = { postMessage: (m) => { posted.push(m as { id: number }); }, addEventListener: (t, f) => { if (t === "message") listeners.push(f); } };
@@ -117,7 +117,7 @@ test("a step the kernel cannot make leaves the picture of the model as it was, w
   assert.equal(failed.ops.at(-1)?.error, "out of memory", "the error is on the step");
 });
 
-test("the kernel's steps stop when its memory is full, and say so, instead of going on until the page dies (`in_910`)", async () => {
+test("the kernel's steps stop when its memory is full, and say so, instead of going on until the page dies (`in_994`)", async () => {
   const { kernel } = await import("../src/compiler/kernel/index.ts");
   const { setMemoryStop, clearKernelCaches } = await import("../src/compiler/kernel/occt/interpreter.mjs");
   await kernel.init();
@@ -134,7 +134,7 @@ test("the kernel's steps stop when its memory is full, and say so, instead of go
   } finally { setMemoryStop(3300); clearKernelCaches(); }
 });
 
-test("a thread at the kernel's own stop size is restarted even when it was that big at its first answer (`in_910`)", () => {
+test("a thread at the kernel's own stop size is restarted even when it was that big at its first answer (`in_994`)", () => {
   const { k, workers } = rig({ restartMb: 1000, hardMb: 3000 });
   k.evaluate(graph(1));
   workers[0]!.answer(3400); // (its first answer, above what the kernel makes steps at)

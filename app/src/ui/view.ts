@@ -100,7 +100,7 @@ export function createView(host: HTMLElement) {
   const IDENTITY = new Array<number>(16).fill(0).map((_, i) => (i % 5 === 0 ? 1 : 0));
   overlay.matrixAutoUpdate = false;
   /** The body (and, when what is selected is the body, its highlight) drawn moved by a matrix: a body being dragged is not worked out again by the kernel for every move of the pointer (`in_216`). */
-  function setBodyMatrix(m: number[] | null, withOverlay: boolean, only: Part | null = null, followers: { matrix: number[]; only: Part }[] = []) {
+  function setBodyMatrix(m: number[] | null, withOverlay: boolean, only: Part | null = null, followers: { matrix: number[]; only: Part }[] = [], overlayMatrix: number[] | null = null) {
     bodyMatrix = m;
     // bodies of several that move on their own (the one dragged, and those that follow it, `in_341`): only their triangles and outline move, each by its own matrix; else the whole body does
     splitNow = m && only ? [only, ...followers.map((f) => f.only)] : null;
@@ -109,7 +109,7 @@ export function createView(host: HTMLElement) {
     if (moverGroup) { moverGroup.matrix.fromArray(IDENTITY); moverGroup.matrixWorldNeedsUpdate = true; }
     const matrices = [m, ...followers.map((f) => f.matrix)];
     (moversOf?.() ?? []).forEach((kid, k) => { kid.matrix.fromArray(matrices[k] ?? IDENTITY); kid.matrixWorldNeedsUpdate = true; });
-    overlay.matrix.fromArray(m && withOverlay ? m : IDENTITY);
+    overlay.matrix.fromArray(overlayMatrix ?? (m && withOverlay ? m : IDENTITY)); // (a motion gives the matrix of the selected body itself, `in_984`)
     overlay.matrixWorldNeedsUpdate = true;
   }
   let fade = false;
@@ -326,16 +326,24 @@ export function createView(host: HTMLElement) {
     clearGroup(toolpath);
     pen.build("toolpath", () => {
     if (!v) return;
-    const colourOf = (layer: string): number => (layer === "travel" ? settings.theme.previewTravel : layer === "score" ? settings.theme.markScore : layer === "engrave" ? settings.theme.markEngrave : settings.theme.previewCut);
+    const colourOf = (layer: string): number => (layer === "travel" ? settings.theme.previewTravel : layer === "wire" ? settings.theme.previewWire : layer === "score" ? settings.theme.markScore : layer === "engrave" ? settings.theme.markEngrave : settings.theme.previewCut);
     for (const [lines, faint] of [[v.rest, true], [v.done, false]] as const) {
       for (const [layer, pairs] of Object.entries(lines)) {
         if (!pairs.length) continue;
-        const m = pen.segments(pairs, colourOf(layer), layer === "travel" ? 1 : 2.2, false);
+        const m = pen.segments(pairs, colourOf(layer), layer === "travel" ? 1 : layer === "wire" ? 1.3 : 2.2, false);
         m.renderOrder = faint ? 3 : 4;
         m.raycast = () => {}; // (not something the axis labels hide behind)
         if (faint) { const mat = m.material as import("three/addons/lines/LineMaterial.js").LineMaterial; mat.transparent = true; mat.opacity = layer === "travel" ? 0.35 : 0.28; }
         toolpath.add(m);
       }
+    }
+    if (v.surfaces?.length) { // (as a part looks in wireframe: nearly clear and dark, `in_383`)
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.Float32BufferAttribute(v.surfaces, 3));
+      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x14161a, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide }));
+      m.renderOrder = 2;
+      m.raycast = () => {};
+      toolpath.add(m);
     }
     if (v.stock.length) { const m = pen.segments(v.stock, settings.theme.previewSheet, 1.4, false); m.renderOrder = 2; m.raycast = () => {}; toolpath.add(m); } // (the sheet's edge, so a layout can be seen against it)
     if (v.head) { const dot = sphereAt(v.head, cam.distance * 0.006, settings.theme.previewCut, false); dot.raycast = () => {}; toolpath.add(dot); }

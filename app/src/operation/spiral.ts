@@ -4,13 +4,13 @@
 // A gear's body is a prism of its tooth sections (the outline in planes across its axis, `outlineAt`) cut by the blank of its two back cones (`blankFor`), as the straight bevel gear's is (`bevelscene.ts`).
 // All in one frame, the pair's at its place: the apex the origin, the contact line the z axis, the pinion's axis (0, -sin g1, cos g1), the ring's (0, sin g2, cos g2), each axis pointing from the apex into its gear; a gear's azimuth is measured
 // from x round its axis (CCW seen from the axis' tip); the pinion's contact line is at azimuth pi/2, the ring's at -pi/2.
-// Limits (measured by the prototype, `dec_spiral_bevel_gears`): shafts at 90 degrees, a 20 degree pressure angle, the face 0.3 of the mean cone distance, the cutter 0.88 of it; seven pairs of 16 to 56 teeth in all mesh to within 4 mm3; a ring cone steeper than
-// about 65 degrees and more than about 56 teeth in all failed in the kernel.
+// Limits (measured by the prototype, `dec_spiral_bevel_gears`): shafts at 90 degrees, a 20 degree pressure angle, the face 0.3 of the mean cone distance, the cutter 0.88 of it; pairs of 33 to 100 teeth in all and a ratio up to 2.53 mesh to within 6 mm3 (`prototypes/cone-cut`); a ratio of 3 and offsets over 0.2 of the ring's pitch diameter make no tooth outline, so 2.55 and 0.15 are the limits; the browser's job (both gears) took 25 to 28 s up to 60 teeth in all and 33 to 57 s at 70 to 75, so the total is at most 64 (`in_967`).
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import { bulgeOf } from "./arcs.ts";
 import type { P } from "./arcs.ts";
 import type { GearSpec } from "./gear.ts";
+import { chamferedBlank } from "./blankchamfer.ts";
 
 type V3 = [number, number, number];
 const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -18,31 +18,69 @@ const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[
 const rot = (p: V3, ax: V3, a: number): V3 => { const [c, s] = [Math.cos(a), Math.sin(a)], d = dot(ax, p), cr = cross(ax, p); return [p[0] * c + cr[0] * s + ax[0] * d * (1 - c), p[1] * c + cr[1] * s + ax[1] * d * (1 - c), p[2] * c + cr[2] * s + ax[2] * d * (1 - c)]; };
 
 /** the limits of a spiral bevel pair */
-export const SPIRAL = { minPinion: 16, maxTotal: 56, maxRatio: 2.05, minAngle: 15, maxAngle: 45, defaultAngle: 30, face: 0.3, cutter: 0.88, backlash: 0.05, shifts: [-0.67, -0.9, -1.3, 0.9, 1.3, -0.4] } as const;
+export const SPIRAL = { /** the offset of a hypoid pair as a fraction of the ring's pitch diameter, at most */ maxOffset: 0.15, minPinion: 16, maxTotal: 64, maxRatio: 2.55, minAngle: 15, maxAngle: 45, defaultAngle: 30, face: 0.3, cutter: 0.88, backlash: 0.05, shifts: [-0.67, -0.9, -1.3, 0.9, 1.3, -0.4] } as const;
 /** (the cones' positions, in modules along the axis: the kernel cannot always cut where the cones pass through the corners of the teeth, and where it can depends on the gear's place: each is tried in turn, `spiralretry.ts`) */
 
-export interface SpiralGear { axis: V3; /** its pitch angle */ gamma: number; z: number; /** the addendum and dedendum of the crown's tooth that generates it, mm */ hK: number; hF: number }
+export interface SpiralGear { axis: V3; /** a point of the axis: the planes across the gear are measured from it (the pinion's the apex, the ring's the foot of the common perpendicular) */ origin: V3; /** its mean cone distance from that point */ rho: number; /** its pitch angle */ gamma: number; z: number; /** the addendum and dedendum of the crown's tooth that generates it, mm */ hK: number; hF: number }
 export interface SpiralPair {
   pinion: SpiralGear; ring: SpiralGear;
   z1: number; z2: number; mn: number; alpha: number;
   /** the mean cone distance, the cutter radius, the mean spiral angle (radians), the face width along the cone (all mm but the angle) */ RM: number; RW: number; beta: number; b: number;
   /** half the pinion's slot widening, mm (backlash) */ bl: number;
   /** which cone position (`SPIRAL.shifts`) */ cone: number;
+  /** the tooth chamfer at the heel and the toe, mm (`dec_bevel_chamfer`) */ cham: number;
+  /** the ring's axis passes this far from the pinion's (mm; the pinion below it; 0 is the spiral bevel pair) and the ratio of roll of the ring to the pinion, z1 / z2 (`dec_hypoid_gears`) */ E: number; kk: number;
 }
-/** The pair for a pinion of `z1` teeth and a ring gear of `z2` (z2 at least z1), the normal module, the mean spiral angle (degrees) and the backlash (mm), or why there is none. */
-export function spiralPairOf(z1: number, z2: number, mn: number, betaDeg: number, backlash: number, cone = 0): Result<SpiralPair> {
+/** The pair for a pinion of `z1` teeth and a ring gear of `z2` (z2 at least z1), the normal module, the mean spiral angle (degrees; the pinion's), the backlash (mm) and the hypoid offset (mm, 0 for none), or why there is none. */
+export function spiralPairOf(z1: number, z2: number, mn: number, betaDeg: number, backlash: number, cone = 0, offset = 0, chamfer = 0): Result<SpiralPair> {
   if (!(Number.isInteger(z1) && Number.isInteger(z2))) return err("the tooth counts must be whole numbers");
   if (z1 < SPIRAL.minPinion) return err(`a spiral bevel pinion needs ${SPIRAL.minPinion} or more teeth`);
   if (z2 < z1) return err("the ring gear has at least as many teeth as the pinion");
-  if (z1 + z2 > SPIRAL.maxTotal) return err(`a spiral bevel pair is made for ${SPIRAL.maxTotal} teeth at most between the two gears: ${z1} and ${z2} make ${z1 + z2} (with ${z1} teeth the other can have up to ${SPIRAL.maxTotal - z1}; the kernel runs out of memory cutting more)`);
-  if (z2 / z1 > SPIRAL.maxRatio) return err(`a spiral bevel pair of more than ${SPIRAL.maxRatio} to 1 is not made yet (the ring's cone is too steep for the kernel to cut): the pinion needs at least ${Math.ceil(z2 / SPIRAL.maxRatio)} teeth for this ring gear`);
+  if (z1 + z2 > SPIRAL.maxTotal) return err(`a spiral bevel pair is made for ${SPIRAL.maxTotal} teeth at most between the two gears: ${z1} and ${z2} make ${z1 + z2} (with ${z1} teeth the other can have up to ${SPIRAL.maxTotal - z1}; both gears would take the browser more than about 40 s of its minute)`);
+  if (z2 / z1 > SPIRAL.maxRatio) return err(`a spiral bevel pair of more than ${SPIRAL.maxRatio} to 1 is not made (the ring's teeth are cut off at the root; 17 and 43 is the largest measured): the pinion needs at least ${Math.ceil(z2 / SPIRAL.maxRatio)} teeth for this ring gear`);
   if (!(mn > 0)) return err("the module must be above zero");
   if (!(betaDeg >= SPIRAL.minAngle && betaDeg <= SPIRAL.maxAngle)) return err(`the spiral angle must be from ${SPIRAL.minAngle} to ${SPIRAL.maxAngle} degrees`);
   if (!(backlash >= 0 && backlash <= 0.5 * mn)) return err("the backlash must be from 0 to half a module");
-  const g1 = Math.atan(z1 / z2), g2 = Math.PI / 2 - g1, beta = (betaDeg * Math.PI) / 180;
-  const RM = (mn / Math.cos(beta) * z2) / (2 * Math.sin(g2));
+  const beta = (betaDeg * Math.PI) / 180;
+  if (!(chamfer >= 0 && chamfer <= mn)) return err("the chamfer is from 0 to 1 module deep");
+  if (!(offset >= 0)) return err("the offset must be 0 or more (the pinion lies below the ring gear's axis)");
+  const maxE = SPIRAL.maxOffset * ((z2 * mn) / Math.cos(beta));
+  if (offset > maxE) return err(`the offset can be ${SPIRAL.maxOffset} of the ring gear's pitch diameter at most: ${maxE.toFixed(1)} mm for ${z2} teeth of module ${mn} at ${betaDeg} degrees`);
+  const E = -offset;
+  if (E === 0) {
+    const g1 = Math.atan(z1 / z2);
+    return ok({ ...pairAt(z1, z2, mn, beta, 0, g1, backlash, cone), cham: chamfer });
+  }
+  // the pinion's pitch angle: found so that the contact lines of the two flanks lie either side of the mean point
+  const g0 = Math.atan(z1 / z2);
+  let [lo, hi] = [g0 * 0.6, Math.min(g0 * 1.9, 1.2)];
+  const F = (g: number) => residual(pairAt(z1, z2, mn, beta, E, g, backlash, cone));
+  let flo = F(lo);
+  if (flo * F(hi) > 0) return err(`no pinion pitch angle fits the offset ${offset} mm: a smaller offset`);
+  for (let i = 0; i < 60; i++) { const mid = (lo + hi) / 2, fm = F(mid); if (fm * flo > 0) { lo = mid; flo = fm; } else hi = mid; }
+  return ok({ ...pairAt(z1, z2, mn, beta, E, (lo + hi) / 2, backlash, cone), cham: chamfer });
+}
+/** the pair with the pinion's pitch angle g1 and the offset E (negative: the ring's axis through (E, 0, 0), the pinion's through the apex, the shafts at 90 degrees) */
+function pairAt(z1: number, z2: number, mn: number, beta: number, E: number, g1: number, bl: number, cone: number): SpiralPair {
+  const [s1, c1] = [Math.sin(g1), Math.cos(g1)];
+  const RM = (z1 * mn) / (2 * s1 * Math.cos(beta));
+  const radius = Math.hypot(E, RM * c1), g2 = Math.atan2(radius, RM * s1);
   const [hK, hF] = [mn, 1.2 * mn];
-  return ok({ pinion: { axis: [0, -Math.sin(g1), Math.cos(g1)], gamma: g1, z: z1, hK, hF }, ring: { axis: [0, Math.sin(g2), Math.cos(g2)], gamma: g2, z: z2, hK, hF }, z1, z2, mn, alpha: (20 * Math.PI) / 180, RM, RW: SPIRAL.cutter * RM, beta, b: SPIRAL.face * RM, bl: backlash, cone });
+  return { pinion: { axis: [0, -s1, c1], origin: [0, 0, 0], rho: RM, gamma: g1, z: z1, hK, hF }, ring: { axis: [0, c1, s1], origin: [E, 0, 0], rho: Math.hypot(radius, RM * s1), gamma: g2, z: z2, hK, hF }, z1, z2, mn, alpha: (20 * Math.PI) / 180, RM, RW: SPIRAL.cutter * RM, beta, b: SPIRAL.face * RM, bl, cone, E, kk: z1 / z2, cham: 0 };
+}
+/** the sum over the two flanks of the gearing law's residual at their pitch points: zero when the contact lines of the flanks lie either side of the mean point */
+function residual(pr: SpiralPair): number {
+  const [a1, a2, o2] = [pr.pinion.axis, pr.ring.axis, pr.ring.origin];
+  const t = Math.tan(pr.alpha);
+  let s = 0;
+  for (const f of ["A", "B"] as const) {
+    const r = f === "A" ? pr.RW - (Math.PI * pr.mn) / 4 : pr.RW + (Math.PI * pr.mn) / 4;
+    const ct = -(pr.RW * Math.cos(pr.beta)) / r, st = Math.sqrt(1 - ct * ct);
+    const p: V3 = [0, 0, pr.RM - pr.RW * Math.sin(pr.beta) + r * st], n: V3 = [ct, f === "A" ? t : -t, st];
+    const v1 = cross(a1, p), v2 = cross(a2, [p[0] - o2[0], p[1] - o2[1], p[2] - o2[2]]);
+    s += dot(n, [v1[0] + pr.kk * v2[0], v1[1] + pr.kk * v2[1], v1[2] + pr.kk * v2[2]]);
+  }
+  return s;
 }
 
 /** A point of the pinion's flank `f` (A the inside flank of the crown's tooth, B the outside), at the angle `th` round the cutter axis and the height `y` above the crown's pitch plane, with its normal, in the pair's frame; `widen` makes the pinion's slot wider by this much on each side */
@@ -61,17 +99,19 @@ function pinionPoint(pr: SpiralPair, f: "A" | "B", th: number, y: number, widen:
 /** The point of the ring gear's flank that the pinion's point `q` with normal `n` generates: the pinion turned by t, the ring by kk t about its axis (kk the ratio of the sines of the pitch angles), the contact where the relative motion has no part along the normal: P0 + P1 cos t + P2 sin t = 0 */
 function ringPoint(pr: SpiralPair, q: V3, n: V3): V3 {
   const [a1, a2] = [pr.pinion.axis, pr.ring.axis];
-  const kk = Math.sin(pr.pinion.gamma) / Math.sin(pr.ring.gamma);
+  const kk = pr.kk, o2 = pr.ring.origin;
   const c12 = cross(a1, a2), d12 = dot(a1, a2);
-  const P0 = dot(n, cross(a1, q)) + kk * d12 * dot(n, cross(a1, q));
-  const P1 = kk * (dot(n, cross(a2, q)) - d12 * dot(n, cross(a1, q)));
-  const P2 = -kk * dot(n, cross(c12, q));
+  const w = cross(a2, o2), na1 = dot(n, a1), a1w = dot(a1, w); // (the ring's axis through o2 adds the term -kk n . (a2 x o2), turned back by the pinion's turn)
+  const P0 = dot(n, cross(a1, q)) + kk * d12 * dot(n, cross(a1, q)) - kk * na1 * a1w;
+  const P1 = kk * (dot(n, cross(a2, q)) - d12 * dot(n, cross(a1, q))) - kk * (dot(n, w) - na1 * a1w);
+  const P2 = -kk * dot(n, cross(c12, q)) + kk * dot(n, cross(a1, w));
   const R = Math.hypot(P1, P2), ratio = -P0 / R;
   if (!(Math.abs(ratio) <= 1)) return [NaN, NaN, NaN]; // (no contact for this point)
   const [t0, d] = [Math.atan2(P2, P1), Math.acos(ratio)];
   const cand = [t0 + d, t0 - d].map((t) => ((((t + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) - Math.PI);
   const t = Math.abs(cand[0]!) < Math.abs(cand[1]!) ? cand[0]! : cand[1]!;
-  return rot(rot(q, a1, t), a2, kk * t);
+  const r1 = rot(q, a1, t), r2 = rot([r1[0] - o2[0], r1[1] - o2[1], r1[2] - o2[2]], a2, kk * t);
+  return [r2[0] + o2[0], r2[1] + o2[1], r2[2] + o2[2]];
 }
 type Grid = V3[][];
 /** The surface of one flank of a gear on a grid over the angle round the cutter axis and the height above the crown's pitch plane. */
@@ -94,16 +134,17 @@ function flankGrid(pr: SpiralPair, which: "pinion" | "ring", f: "A" | "B", nth =
 }
 const basis = (axis: V3): [V3, V3] => [[1, 0, 0], cross(axis, [1, 0, 0])];
 /** the points of the surface in the plane across the axis at the distance X from the apex, as (radius, azimuth) */
-function contourAt(grid: Grid, axis: V3, X: number): [number, number][] {
+function contourAt(grid: Grid, axis: V3, X: number, o: V3): [number, number][] {
   const [e1, e2] = basis(axis);
   const out: [number, number][] = [];
-  const s = (p: V3) => dot(p, axis) - X;
+  const s = (p: V3) => dot(p, axis) - dot(o, axis) - X;
   const add = (a: V3, b: V3) => {
     const [sa, sb] = [s(a), s(b)];
     if (!Number.isFinite(sa) || !Number.isFinite(sb) || sa * sb > 0 || sa === sb) return;
     const u = sa / (sa - sb);
     const p: V3 = [a[0] + u * (b[0] - a[0]), a[1] + u * (b[1] - a[1]), a[2] + u * (b[2] - a[2])];
-    out.push([Math.hypot(dot(p, e1), dot(p, e2)), Math.atan2(dot(p, e2), dot(p, e1))]);
+    const d: V3 = [p[0] - o[0], p[1] - o[1], p[2] - o[2]];
+    out.push([Math.hypot(dot(d, e1), dot(d, e2)), Math.atan2(dot(d, e2), dot(d, e1))]);
   };
   for (let i = 0; i < grid.length; i++) for (let j = 0; j < grid[i]!.length; j++) { if (i + 1 < grid.length) add(grid[i]![j]!, grid[i + 1]![j]!); if (j + 1 < grid[i]!.length) add(grid[i]![j]!, grid[i]![j + 1]!); }
   return out;
@@ -115,7 +156,7 @@ const rootRadius = (g: SpiralGear, X: number): number => (X - g.hF / Math.sin(g.
  * A flank curve as the azimuth at each of the radii: the points inside the radii (a little beyond), the branch of the contour that is the flank (from the point at the middle radius outward each way, a point is taken if its azimuth is within a quarter
  * of a pitch of the last one taken: the contour of the whole surface has other branches), linear between them; below the lowest radius straight down to the root; null if the curve does not reach the tip.
  */
-function curveOf(pts: [number, number][], radii: number[], pitch: number): number[] | null {
+function curveOf(pts: [number, number][], radii: number[], pitch: number, lean = false): number[] | null {
   const [lo, hi] = [radii[0]! - 1.5, radii[radii.length - 1]! + 1.5];
   const inside = pts.filter(([r]) => r >= lo && r <= hi);
   if (inside.length < 4) return null;
@@ -130,6 +171,13 @@ function curveOf(pts: [number, number][], radii: number[], pitch: number): numbe
   const q = taken.sort((a, b) => a[0] - b[0]);
   if (q.length < 4 || q[q.length - 1]![0] < radii[radii.length - 1]! - 0.3) return null;
   return radii.map((r) => {
+    if (r <= q[0]![0] && lean) { // (below the lowest point the flank goes on along its own lean: the offset ring gear's flank stops short of the root, up to a few mm, `in_956`; straight down at the same azimuth made a ragged tooth)
+      let k = 1;
+      while (k < q.length - 1 && q[k]![0] - q[0]![0] < 1.5) k++;
+      const dr = q[k]![0] - q[0]![0];
+      const slope = dr > 1e-6 ? (q[k]![1] - q[0]![1]) / dr : 0;
+      return q[0]![1] + slope * (r - q[0]![0]) + ref0;
+    }
     if (r <= q[0]![0]) return q[0]![1] + ref0;
     let i = 1;
     while (i < q.length - 1 && q[i]![0] < r) i++;
@@ -142,11 +190,11 @@ function curveOf(pts: [number, number][], radii: number[], pitch: number): numbe
 const THIN = 0.15;
 const NF = 8; // (radii of a flank curve: eight steps)
 /** The outline of a gear in the plane at X: z teeth, each two flank curves, a tip arc and a root arc; polar points (radius, azimuth), `NF + 1 + 2 + NF + 1 + 2` for each tooth; null if the surfaces do not make one here. */
-function outlineAt(g: SpiralGear, which: "pinion" | "ring", A: [number, number][], B: [number, number][], X: number): [number, number][] | null {
+function outlineAt(g: SpiralGear, which: "pinion" | "ring", A: [number, number][], B: [number, number][], X: number, lean = false): [number, number][] | null {
   const [rt0, rr] = [tipRadius(g, X), rootRadius(g, X)];
   const pitch = (2 * Math.PI) / g.z;
   const fine = Array.from({ length: 41 }, (_, i) => rr + ((rt0 - rr) * i) / 40);
-  const [fa, fb] = [curveOf(A, fine, pitch), curveOf(B, fine, pitch)];
+  const [fa, fb] = [curveOf(A, fine, pitch, lean), curveOf(B, fine, pitch, lean)];
   if (!fa || !fb) return null;
   const mid0 = 20;
   const swap = fa[mid0]! > fb[mid0]!;
@@ -163,7 +211,7 @@ function outlineAt(g: SpiralGear, which: "pinion" | "ring", A: [number, number][
   if (top - bot < 6) return null;
   const [rt, rrr] = [fine[top]!, fine[bot]!];
   const radii = Array.from({ length: NF + 1 }, (_, i) => rrr + ((rt - rrr) * i) / NF);
-  const [ca, cb] = [curveOf(A, radii, pitch), curveOf(B, radii, pitch)];
+  const [ca, cb] = [curveOf(A, radii, pitch, lean), curveOf(B, radii, pitch, lean)];
   if (!ca || !cb) return null;
   let [lo, hi] = ca[NF >> 1]! < cb[NF >> 1]! ? [ca, cb] : [cb, ca];
   if (hi[NF >> 1]! - lo[NF >> 1]! > Math.PI) [lo, hi] = [hi, lo.map((v) => v + 2 * Math.PI)]; // (the pair straddles the branch cut)
@@ -195,7 +243,7 @@ const cache = new Map<string, Result<SpiralBody>>();
  * The body of the pinion (`which` = "pinion") or the ring gear of a pair. The sections' corners are taken from the outline at every second sample of a flank (four arcs through nine points) and one arc across each tip and root.
  */
 export function spiralBody(pr: SpiralPair, which: "pinion" | "ring"): Result<SpiralBody> {
-  const key = JSON.stringify([pr.z1, pr.z2, pr.mn, pr.beta, pr.bl, pr.cone, which]);
+  const key = JSON.stringify([pr.z1, pr.z2, pr.mn, pr.beta, pr.bl, pr.cone, pr.E, pr.cham, which]);
   const hit = cache.get(key);
   if (hit) return hit;
   const r = spiralBodyMade(pr, which);
@@ -232,14 +280,14 @@ function splitOf(flanks: P[][]): number {
 function spiralBodyMade(pr: SpiralPair, which: "pinion" | "ring"): Result<SpiralBody> {
   const g = which === "pinion" ? pr.pinion : pr.ring;
   const m = pr.mn, dx = (SPIRAL.shifts[pr.cone] ?? SPIRAL.shifts[0]) * m;
-  const bl = blankFor(g, pr.RM - pr.b / 2, pr.RM + pr.b / 2, m, dx);
+  const bl = blankFor(g, g.rho - pr.b / 2, g.rho + pr.b / 2, m, dx, pr.cham);
   if (typeof bl === "string") return err(bl);
   const [A, B] = [flankGrid(pr, which, "A"), flankGrid(pr, which, "B")];
   const mirror = ([r, th]: [number, number]): P => [r * Math.cos(th), -r * Math.sin(th)]; // (the axis towards the apex: the azimuth turns the other way)
   const outlines: { x: number; o: [number, number][] }[] = [];
   for (let i = 0; i < SECTIONS; i++) {
     const X = bl.xS + ((bl.xB - bl.xS) * i) / (SECTIONS - 1);
-    const o = outlineAt(g, which, contourAt(A, g.axis, X), contourAt(B, g.axis, X), X);
+    const o = outlineAt(g, which, contourAt(A, g.axis, X, g.origin), contourAt(B, g.axis, X, g.origin), X, which === "ring" && pr.E !== 0);
     if (!o) return err(`the tooth surfaces make no outline at ${X.toFixed(1)} mm from the apex: other tooth counts or a smaller module`);
     outlines.push({ x: X, o });
   }
@@ -247,8 +295,8 @@ function spiralBodyMade(pr: SpiralPair, which: "pinion" | "ring"): Result<Spiral
   // one tooth's samples: the flank going up (0 to NF), the tip's two inner points, the flank coming down (NF + 3 to 2 NF + 3), the root's two
   const upOf = (o: [number, number][]): P[] => Array.from({ length: NF + 1 }, (_, k) => mirror(o[k]!));
   const downOf = (o: [number, number][]): P[] => Array.from({ length: NF + 1 }, (_, k) => mirror(o[NF + 3 + k]!));
-  const [ku, kd] = [splitOf(outlines.map(({ o }) => upOf(o))), splitOf(outlines.map(({ o }) => downOf(o)))];
   const sections: SpiralBody["sections"] = [];
+  const [ku, kd] = [splitOf(outlines.map(({ o }) => upOf(o))), splitOf(outlines.map(({ o }) => downOf(o)))];
   for (const { x: X, o } of outlines) {
     const points: P[] = [], bulges: number[] = [];
     const at = (j: number, k: number): [number, number] => o[(j * per + k) % o.length]!;
@@ -271,7 +319,7 @@ function spiralBodyMade(pr: SpiralPair, which: "pinion" | "ring"): Result<Spiral
 }
 /** the heel's cone distance and what follows from it for the gear: the pitch radius there and the tip and root radii on the back cone (the pitch radius plus the addendum, less the dedendum, each times cos delta) */
 function geometryOf(pr: SpiralPair, g: SpiralGear): { delta: number; R: number; big: number; pitchRadius: number; tip: number; root: number } {
-  const R = pr.RM + pr.b / 2, pitchRadius = R * Math.sin(g.gamma), c = Math.cos(g.gamma);
+  const R = g.rho + pr.b / 2, pitchRadius = R * Math.sin(g.gamma), c = Math.cos(g.gamma);
   return { delta: g.gamma, R, big: R * c, pitchRadius, tip: pitchRadius + g.hK * c, root: pitchRadius - g.hF * c };
 }
 
@@ -281,7 +329,7 @@ export interface Blank { xS: number; xB: number; polygon: [number, number][] }
  * each end, and the range of planes across the axis the prism of the teeth must cover to hold every tooth up to the cones. Coordinates (x along the axis from the apex, radius r). `dx` moves both cones along the axis: the kernel cannot always cut
  * where the cones pass through the corners of the teeth (`SPIRAL.shift`).
  */
-function blankFor(g: SpiralGear, rhoToe: number, rhoHeel: number, m: number, dx: number): Blank | string {
+function blankFor(g: SpiralGear, rhoToe: number, rhoHeel: number, m: number, dx: number, cham = 0): Blank | string {
   const [sg, cg, tg] = [Math.sin(g.gamma), Math.cos(g.gamma), Math.tan(g.gamma)];
   const [x0t, x0h] = [rhoToe / cg + dx, rhoHeel / cg + dx];
   const rRootH = (x0h - g.hF / sg) * sg * cg, xRootH = x0h - rRootH * tg;
@@ -298,7 +346,8 @@ function blankFor(g: SpiralGear, rhoToe: number, rhoHeel: number, m: number, dx:
   if (!(xLow > 0.5)) return "the toe is too near the apex for this gear";
   const [rmaxH, rT1] = [(x0h - xLow) / tg, (x0t - xLow) / tg];
   if (!(rmaxH > rT1 + 1)) return "the heel cone is too steep for this gear";
-  return { xS, xB, polygon: [[xFar, 0], [xFar, rA], [xLow, rmaxH], [xLow, rT1], [Lt(rT), rT], [Lt(rT), 0]] };
+  // (the tooth chamfer: the heel's and the toe's corners where the back cones meet the tip cone, `blankchamfer.ts`)
+  return { xS, xB, polygon: chamferedBlank([xFar, 0], [xFar, rA], [xLow, rmaxH], [xLow, rT1], [Lt(rT), rT], [Lt(rT), 0], { a: tg, b: g.hK / cg }, cham, m) };
 }
 
 /** the azimuth of the pair's contact line in a gear's own frame at the pair's place (the frame of `spiralBody`, mirrored): the pinion's -pi/2, the ring gear's +pi/2 */
@@ -314,13 +363,13 @@ export function spiralFor(spec: GearSpec): Result<{ pair: SpiralPair; which: "pi
   if ((spec.pressure ?? 20) !== 20) return err("a spiral bevel pair is made for a pressure angle of 20 degrees only");
   const [z, mate] = [Math.round(spec.teeth), Math.round(b.mate)];
   const which = spiralRole({ ...spec, teeth: z, bevel: { ...b, mate } });
-  const pair = which === "pinion" ? spiralPairOf(z, mate, spec.module, b.spiral, spec.backlash ?? SPIRAL.backlash, b.cone ?? 0) : spiralPairOf(mate, z, spec.module, b.spiral, spec.backlash ?? SPIRAL.backlash, b.cone ?? 0);
+  const pair = which === "pinion" ? spiralPairOf(z, mate, spec.module, b.spiral, spec.backlash ?? SPIRAL.backlash, b.cone ?? 0, b.offset ?? 0, (spec.chamfer ?? 0) * spec.module) : spiralPairOf(mate, z, spec.module, b.spiral, spec.backlash ?? SPIRAL.backlash, b.cone ?? 0, b.offset ?? 0, (spec.chamfer ?? 0) * spec.module);
   return pair.ok ? ok({ pair: pair.value, which }) : pair;
 }
 /** The numbers of the gear that the placing, the preview and the checks need, without making its sections. */
 export function spiralGeometry(pr: SpiralPair, which: "pinion" | "ring") {
   const g = which === "pinion" ? pr.pinion : pr.ring;
   const geo = geometryOf(pr, g);
-  const toe = (pr.RM - pr.b / 2) * Math.cos(g.gamma);
+  const toe = (g.rho - pr.b / 2) * Math.cos(g.gamma);
   return { ...geo, face: pr.b, small: toe, k: toe / geo.big, addendum: g.hK, dedendum: g.hF, zv: g.z / Math.cos(g.gamma) };
 }

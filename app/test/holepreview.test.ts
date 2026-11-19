@@ -74,19 +74,19 @@ import { selectedFace } from "../src/interaction/addpart.ts";
 
 test("holes along the outline carry the path they follow: the outline moved in by the inset, as a closed line on the face, and the spacing", () => {
   const p = plan(block(), vals({ place: "outline", by: "distance", value: "30", corners: "each", offset: "10" }));
-  assert.ok(p.guide.length > 20);
-  assert.ok(p.guide.every((q) => Math.abs(q[2] - 8) < 1e-6), "on the face");
-  const xs = p.guide.map((q) => q[0]), ys = p.guide.map((q) => q[1]);
+  assert.ok(p.guide[0]!.length > 20);
+  assert.ok(p.guide[0]!.every((q) => Math.abs(q[2] - 8) < 1e-6), "on the face");
+  const xs = p.guide[0]!.map((q) => q[0]), ys = p.guide[0]!.map((q) => q[1]);
   assert.deepEqual([Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)].map((x) => Math.round(x * 1e6) / 1e6), [10, 90, 10, 50]);
   assert.ok(p.spacing !== null && p.spacing <= 30 + 1e-9 && p.spacing >= 20 - 1e-9);
   assert.deepEqual(plan(block(), vals()).guide, [], "no path for a hole in the middle");
   assert.equal(plan(block(), vals()).spacing, null);
 });
 test("a different inset moves the guide with it, and the preview draws it dashed and pale next to the holes", () => {
-  const at = (inset: string) => { const g = plan(block(), vals({ place: "outline", by: "count", value: "4", corners: "ignore", offset: inset })).guide.map((q) => q[0]); return Math.min(...g); };
+  const at = (inset: string) => { const g = plan(block(), vals({ place: "outline", by: "count", value: "4", corners: "ignore", offset: inset })).guide[0]!.map((q) => q[0]); return Math.min(...g); };
   assert.ok(Math.abs(at("5") - 5) < 1e-6 && Math.abs(at("15") - 15) < 1e-6);
   const view = holesView(plan(block(), vals({ place: "outline", by: "count", value: "4", corners: "ignore", offset: "10" })))!;
-  assert.ok(view.done.travel!.length > 0 && view.done.cut!.length > 0);
+  assert.ok(view.done.travel!.length > 0 && view.done.wire!.length > 0);
   assert.equal(holesView(plan(block(), vals()))!.done.travel, undefined);
 });
 test("a dashed line: dashes and gaps by turns along the polyline, a dash a fifth of the way when the dash is 4 and the gap 3 and the line 20 long", () => {
@@ -105,4 +105,39 @@ test("a line drawn on a face is enough: it stands for the face, and the holes fo
   const p = plan(s, vals({ place: "lines", by: "count", value: "5", corners: "ignore" }));
   assert.equal(p.places.length, 5);
   assert.deepEqual(p.places.map((q) => Math.round(q[0])), [10, 30, 50, 70, 90]);
+});
+
+test("a nut pocket on the far side adds its hexagon at the far face and at its floor, and its corners, for each hole: 18 more lines", () => {
+  const s = block();
+  const one = holeLines(plan(s, vals())).length / 6;
+  const far = holeLines(plan(s, vals({ far: "nut" })));
+  assert.equal(far.length / 6, one + 18);
+  const z = points(far).map((q) => q[2]);
+  assert.ok(Math.min(...z) >= -1e-6 && Math.max(...z) <= 8 + 1e-6, "all within the body");
+  assert.ok(points(far).some((q) => Math.abs(q[2] - 3.2 * 0) < 1e-6), "the hexagon is at the far face (z = 0)");
+});
+
+test("the holes also have surfaces, as triangles, to draw them nearly clear and dark like a part in wireframe (`in_965`)", () => {
+  const view = holesView(plan(block(), vals({ kind: "countersunk" })))!;
+  assert.ok(view.surfaces && view.surfaces.length > 0 && view.surfaces.length % 9 === 0);
+  const pocket = holesView(plan(block(), vals({ kind: "nutPocket" })))!;
+  assert.ok(pocket.surfaces!.length > view.surfaces!.length / 2);
+});
+
+import { pickPlace, dragTarget } from "../src/interaction/holemove.ts";
+test("a previewed hole can be picked up and moved: it stays where it was put until the rules of the row change (`in_965`)", () => {
+  const s = block();
+  const base = plan(s, vals({ place: "outline", by: "count", value: "4", corners: "ignore" }));
+  const flatTop = (p: readonly [number, number, number]): [number, number] => [p[0] * 4, p[1] * 4]; // (a stand-in screen: the plan's x and y, scaled)
+  const i = pickPlace(base, flatTop, base.spots[2]!.centre[0] * 4 + 3, base.spots[2]!.centre[1] * 4 - 2);
+  assert.equal(i, 2);
+  assert.equal(pickPlace(base, flatTop, -500, -500), -1);
+  // a ray straight down onto the face at (50, 30)
+  const t = dragTarget(base, 2, { o: [50, 30, 100], d: [0, 0, -1] });
+  assert.ok(t && Math.abs(t[0] - 50) < 1e-9 && Math.abs(t[1] - 30) < 1e-9 && Math.abs(t[2] - 8) < 1e-9);
+  const moved = plan(s, vals({ place: "outline", by: "count", value: "4", corners: "ignore", moved: { 2: t! } }));
+  assert.deepEqual(moved.places[2]!.map((x) => Math.round(x * 1e6) / 1e6), [50, 30, 8]);
+  assert.deepEqual(moved.places[0], base.places[0], "the others stay");
+  assert.equal(moved.places.length, base.places.length);
+  assert.equal(moved.spots[2]!.centre[0], 50, "the cut is made at the moved place too");
 });

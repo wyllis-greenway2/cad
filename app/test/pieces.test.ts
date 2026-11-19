@@ -1,4 +1,4 @@
-// A model of many parts apart is cut into pieces that are made alone (`dec_progressive_open`, `in_915`).
+// A model of many parts apart is cut into pieces that are made alone (`dec_progressive_open`, `in_999`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

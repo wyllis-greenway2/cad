@@ -109,8 +109,8 @@ test("the menu offers the mates for two selected faces of two bodies, and choosi
   st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: pick } } };
   const menu = reduce(st, { type: "menu", x: 5, y: 5, button: true }, env).menu!;
   const items = menu.items.flatMap((i) => (i.children ?? [i]).flatMap((c) => c.children ?? [c]));
-  assert.ok(items.some((i) => i.id === "mate:flush" && i.enabled), `the menu has Mate: flush: ${items.map((i) => i.id).filter((i) => i.startsWith("mate") || i === "tangent")}`);
-  const done = reduce(st, { type: "runAction", id: "mate:flush" }, env);
+  assert.ok(items.some((i) => i.id === "c:coincident" && i.enabled), `the menu has Coincident (the flush mate of two flat faces, `+"`in_975`"+`): ${items.map((i) => i.id).filter((i) => i.startsWith("c:"))}`);
+  const done = reduce(st, { type: "runAction", id: "c:coincident" }, env);
   assert.ok(Math.abs(bodies(done.session).find((x) => x.id === b!.id)!.bbox!.min[0] - 10) < 1e-3, "choosing it moved B against A");
 });
 

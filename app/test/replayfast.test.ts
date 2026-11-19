@@ -1,4 +1,4 @@
-// Opening a project derives the scene now and then, not after every command (`in_910`): what comes out must be what the slow way gives, for every scene that can be gone back to.
+// Opening a project derives the scene now and then, not after every command (`in_994`): what comes out must be what the slow way gives, for every scene that can be gone back to.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";

@@ -360,8 +360,8 @@ test("the right-click ring offers all the operations around the click; nothing o
   const f = frameOf(st, { w: 800, h: 600 });
   assert.ok(!f.annotations.some((a) => ["pushpull", "sketch", "edge", "rect"].includes(a.kind)), "a left click shows constraints and dimensions only");
   const ring = flat(reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items.filter((i) => i.id !== "constraints")); // (the constraints have their own test: they are all always there, `in_666`)
-  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", "tool:eccentric", "tool:snail", "tool:ratchet", "tool:linear", "tool:geneva", "tool:geneva:assembled", "tool:geneva:model", "tool:disc:cycloidal", "tool:disc:harmonic", "tool:disc:parabolic", "cam:edit", "cam:follow", "tool:gear", "tool:ring", "tool:rack", "tool:planetary", "tool:bevel", "tool:spiral", "tool:crown", "tool:face", "tool:worm", "tool:wormwheel", "tool:clock", "tool:clockring", "tool:clockrack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "tool:trim", "op:offset", "op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", "models:fasteners", "models:holes", "op:move", "op:rotate", "motion:play", "motion:link", "op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup", "look", "view:game", "view:section", "view:hide", "view:wireframe", "tape:measure", "undo", "redo", "delete"]);
-  assert.deepEqual(ring.filter((i) => !i.enabled).map((i) => i.id), ["cam:edit", "cam:follow", "combine:parts", "motion:play", "motion:link", "clipboard:paste", "repeat:path", "select:group", "select:ungroup", "redo", "delete"], "an operation that needs more than a face is still offered and waits for it (`in_464`); one face is nothing to group and is no group to break; Path repeat needs a figure or a body and a path (`in_841`) while Fastener Holes works on a flat face (`in_813`); a face cannot be deleted (fillet / chamfer takes a flat face too now, `in_257`, as offset does, `in_199`)");
+  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", "tool:eccentric", "tool:snail", "tool:ratchet", "tool:linear", "tool:geneva", "tool:geneva:assembled", "tool:geneva:model", "tool:disc:cycloidal", "tool:disc:harmonic", "tool:disc:parabolic", "cam:edit", "cam:follow", "tool:gear", "tool:ring", "tool:rack", "tool:planetary", "tool:bevel", "tool:spiral", "tool:crown", "tool:face", "tool:worm", "tool:wormwheel", "tool:clock", "tool:clockring", "tool:clockrack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "tool:trim", "op:offset", "op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", "tool:fasteners", "op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup", "look", "view:game", "view:section", "view:hide", "view:wireframe", "tape:measure", "undo", "redo", "delete"]);
+  assert.deepEqual(ring.filter((i) => !i.enabled).map((i) => i.id), ["cam:edit", "cam:follow", "combine:parts", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "clipboard:paste", "repeat:path", "select:group", "select:ungroup", "redo", "delete"], "an operation that needs more than a face is still offered and waits for it (`in_464`); one face is nothing to group and is no group to break; Path repeat needs a figure or a body and a path (`in_841`) while Fastener Holes works on a flat face (`in_813`); a face cannot be deleted (fillet / chamfer takes a flat face too now, `in_257`, as offset does, `in_199`)");
   assert.ok(ring.every((i) => i.icon));
   const drawing = reduce(st, { type: "runAction", id: "tool:circle" }, env);
   assert.equal(drawing.tool!.kind, "circle");
@@ -863,4 +863,15 @@ test("a turn step about any axis (a direction in the step) turns the body about 
   const b = made.outcome.kernel!.bbox!;
   // a 40 x 20 x 20 block turned a quarter about a diagonal in the floor's plane no longer lies along the axes: its box is wider than 40 in Z
   assert.ok(b.max[2] - b.min[2] > 30, `${JSON.stringify(b)}`);
+});
+
+test("the wireframe stays on through a right click (it opens the menu) until it is taken out (`in_965`)", () => {
+  let st: AppState = createState(createSession(kernel));
+  st = reduce(st, { type: "runAction", id: "view:wireframe" }, env);
+  assert.equal(st.wireframe, true);
+  st = reduce(st, { type: "menu", x: 400, y: 300, button: false }, env);
+  assert.equal(st.wireframe, true, "still wireframe after the right click");
+  assert.ok(st.menu, "and the right click opened the menu");
+  st = reduce(st, { type: "runAction", id: "view:wireframe" }, env);
+  assert.equal(st.wireframe, false);
 });

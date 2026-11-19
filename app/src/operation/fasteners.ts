@@ -205,21 +205,23 @@ export function makeCountersunk(size: string, length: number): Result<PartSteps>
 }
 
 // ---- the receivers cut into a body ----
-export type ReceiverKind = "clearance" | "countersunk" | "counterbore" | "tapped" | "nutPocket";
+export type ReceiverKind = "clearance" | "countersunk" | "counterbore" | "tapped" | "nutPocket" | "drillTap";
 export const RECEIVER_KINDS: readonly { id: ReceiverKind; label: string; /** a short name for a card */ short: string }[] = [
   { id: "clearance", label: "Clearance hole", short: "Clearance hole" },
   { id: "countersunk", label: "Countersunk clearance hole (for a countersunk screw)", short: "Countersunk" },
   { id: "counterbore", label: "Counterbored clearance hole (for a socket head screw)", short: "Counterbored" },
   { id: "tapped", label: "Hole to tap (the tap drill)", short: "Hole to tap" },
   { id: "nutPocket", label: "Nut pocket with its clearance hole", short: "Nut pocket" },
+  { id: "drillTap", label: "Clearance hole to a depth, tapped past it (the tap drill)", short: "Drill + tap" }, // (`in_910`, `in_911`)
 ];
 /** Where a receiver goes: a flat face of a body, as the plane the face lies on (`at` a point on it, `u` and `v` across it, the normal `u` x `v` pointing out of the body), and the point on it the hole is centred on. */
-export interface FaceSpot { plane: Ref; centre: Vec3; u: Vec3; v: Vec3 }
+export interface FaceSpot { plane: Ref; centre: Vec3; u: Vec3; v: Vec3; /** on a curved surface (`in_929`): `plane` is not the plane of the spot, so a plane touching the surface at `centre` (`u`, `v` across it, the normal `u` x `v` out of the body) is made for what has to be drawn on it */ own?: boolean }
 const cross3 = (a: readonly number[], b: readonly number[]): [number, number, number] => [a[1]! * b[2]! - a[2]! * b[1]!, a[2]! * b[0]! - a[0]! * b[2]!, a[0]! * b[1]! - a[1]! * b[0]!];
 const along = (p: readonly number[], d: readonly number[], t: number): [number, number, number] => [p[0]! + d[0]! * t, p[1]! + d[1]! * t, p[2]! + d[2]! * t];
 const BIT = 0.5; // (a cut starts this far outside the face, so it never ends exactly on it)
 /** The side view of a round receiver as a closed outline about its axis (x out from it, y along the outward normal, the face at 0): a plain hole, or one with the 90 degree countersink at its mouth. Null for a countersink wider than the hole it opens (never for the sizes here). */
-export function receiverProfile(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number, engagement?: number): [number, number][] {
+export function receiverProfile(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number, engagement?: number, drill?: number): [number, number][] {
+  if (kind === "drillTap") { const rc = clearanceHole(size, fit) / 2, rt = tapHole(size, engagement) / 2, d = drill ?? depth / 2; return [[0, BIT], [rc, BIT], [rc, -d], [rt, -d], [rt, -depth], [0, -depth]]; }
   const r = (kind === "tapped" ? tapHole(size, engagement) : clearanceHole(size, fit)) / 2;
   if (kind === "countersunk") {
     const big = countersink(size).diameter / 2;
@@ -232,9 +234,10 @@ export function receiverProfile(kind: ReceiverKind, size: FastenerSize, fit: Cle
   return [[0, BIT], [r, BIT], [r, -depth], [0, -depth]];
 }
 /** Why this receiver cannot be cut with these numbers, or null. A countersink has to be shallower than the hole. */
-export function receiverProblem(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number, engagement?: number): string | null {
+export function receiverProblem(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number, engagement?: number, drill?: number): string | null {
   if (!(depth > 0) || !Number.isFinite(depth)) return "the depth must be a number above zero";
-  if (kind === "tapped" && engagement !== undefined && !(engagement >= ENGAGEMENT_RANGE[0] && engagement <= ENGAGEMENT_RANGE[1])) return `the thread engagement is between ${ENGAGEMENT_RANGE[0] * 100}% and ${ENGAGEMENT_RANGE[1] * 100}%`;
+  if (kind === "drillTap" && !(drill !== undefined && drill > 0 && drill < depth)) return "the drilled part must be above zero and less deep than the whole hole";
+  if ((kind === "tapped" || kind === "drillTap") && engagement !== undefined && !(engagement >= ENGAGEMENT_RANGE[0] && engagement <= ENGAGEMENT_RANGE[1])) return `the thread engagement is between ${ENGAGEMENT_RANGE[0] * 100}% and ${ENGAGEMENT_RANGE[1] * 100}%`;
   const hole = kind === "tapped" ? tapHole(size, engagement) : clearanceHole(size, fit);
   const cone = kind === "countersunk" ? countersink(size).diameter / 2 - hole / 2 : 0;
   if (cone >= depth) return `the countersink goes ${round3(cone)} mm deep: the hole must be deeper than that`;
@@ -243,7 +246,7 @@ export function receiverProblem(kind: ReceiverKind, size: FastenerSize, fit: Cle
   return null;
 }
 /** The steps that cut a receiver into a body at a spot on a face; `depth` is how far the hole goes (a pocket's own depth is the nut's thickness). */
-export function receiverSteps(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number, spot: FaceSpot, engagement?: number): PartSteps {
+export function receiverSteps(kind: ReceiverKind, size: FastenerSize, fit: ClearanceFit, depth: number, spot: FaceSpot, engagement?: number, drill?: number): PartSteps {
   const n = cross3(spot.u, spot.v);
   const len = Math.hypot(...n) || 1;
   const out: [number, number, number] = [n[0] / len, n[1] / len, n[2] / len];
@@ -254,14 +257,16 @@ export function receiverSteps(kind: ReceiverKind, size: FastenerSize, fit: Clear
   steps.push((s) => { // (a plane through the axis, across the face: x along the face, y along the normal)
     const ref: Ref = `d/${nextId(s, "e")}.pl` as Ref;
     axisPlane = ref;
-    return { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: spot.centre, u: t, v: out, infinite: true } };
+    return { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: spot.centre, u: t, v: out } }; // (not an infinite plane: that is a world plane, hit anywhere and drawn across the whole view; this one only holds the hole's side view)
   });
-  steps.push((s) => { const r = drawChain(s, axisPlane!, receiverProfile(kind, size, fit, depth, engagement).map(([x, y]) => along(along(spot.centre, t, x), out, y)), true); outline = r.lines; return r.command; });
+  steps.push((s) => { const r = drawChain(s, axisPlane!, receiverProfile(kind, size, fit, depth, engagement, drill).map(([x, y]) => along(along(spot.centre, t, x), out, y)), true); outline = r.lines; return r.command; });
   steps.push((s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "revolve", parts: outline, params: { ...figureParams([{ outer: outline, holes: [] }]), mode: "cut", angle: 360, advance: 0, ax: spot.centre[0], ay: spot.centre[1], az: spot.centre[2], dx: out[0], dy: out[1], dz: out[2] } } }));
   if (kind === "nutPocket") {
     const trap = nutTrap(size);
     let hex: Ref[] = [];
-    steps.push((s) => { const r = drawChain(s, spot.plane, hexagon(trap.acrossFlats).map(([x, y]) => along(along(spot.centre, spot.u, x), spot.v, y)), true); hex = r.lines; return r.command; });
+    let hexPlane: Ref = spot.plane;
+    if (spot.own) steps.push((s) => { const ref: Ref = `d/${nextId(s, "e")}.pl` as Ref; hexPlane = ref; return { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: spot.centre, u: spot.u, v: spot.v } }; });
+    steps.push((s) => { const r = drawChain(s, hexPlane, hexagon(trap.acrossFlats).map(([x, y]) => along(along(spot.centre, spot.u, x), spot.v, y)), true); hex = r.lines; return r.command; });
     steps.push((s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "extrude", parts: hex, params: { depth: -trap.depth, mode: "cut", ...figureParams([{ outer: hex, holes: [] }]) } } }));
   }
   return steps;
@@ -308,4 +313,97 @@ export function makeSocketHead(size: string, length: number, smooth = false): Re
   if (!isFastenerSize(size)) return err(`${size} is not a size this family has`);
   const bad = socketLengthProblem(size, length);
   return bad ? err(bad) : ok(socketHeadSteps(size, length, smooth));
+}
+
+/**
+ * The nut pocket on the other side of a body (`in_909`): the hexagon of the nut cut into the far face of the body round the same axis, as deep as the nut is thick. `spot.centre` is where the hole is on the near face, `reach` how far
+ * the body goes from that face to the far one along the hole. The pocket's plane stands on the far face, facing out of the body, so the cut goes into it as one made from the near face does.
+ */
+export function farNutSteps(size: FastenerSize, spot: FaceSpot, reach: number): PartSteps {
+  const trap = nutTrap(size);
+  const n0 = cross3(spot.u, spot.v);
+  const l = Math.hypot(...n0) || 1;
+  const n: Vec3 = [n0[0] / l, n0[1] / l, n0[2] / l];
+  const lu = Math.hypot(...spot.u) || 1;
+  const e1: Vec3 = [spot.u[0] / lu, spot.u[1] / lu, spot.u[2] / lu];
+  const v = cross3(e1, n); // (e1 x v = -n: the plane faces out of the far side)
+  const far = along(spot.centre, n, -reach);
+  let plane: Ref | null = null;
+  let hex: Ref[] = [];
+  return [
+    (s) => { const ref: Ref = `d/${nextId(s, "e")}.pl` as Ref; plane = ref; return { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: far, u: e1, v } }; },
+    (s) => { const r = drawChain(s, plane!, hexagon(trap.acrossFlats).map(([x, y]) => along(along(far, e1, x), v, y)), true); hex = r.lines; return r.command; },
+    (s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "extrude", parts: hex, params: { depth: -trap.depth, mode: "cut", ...figureParams([{ outer: hex, holes: [] }]) } } }),
+  ];
+}
+
+// ---- the hardware inserted into the holes (`in_910`, `in_911`) ----
+/** The longest standard length that fits in `room` mm, or null when none does. */
+/** The shortest standard length that is at least `room` mm (a screw that reaches through a hole whose far end is open), or null when none is. */
+export const shortestStandard = (room: number): number | null => { const l = STANDARD_LENGTHS.filter((x) => x >= room - 1e-9); return l.length ? l[0]! : null; };
+export const longestStandard = (room: number): number | null => { const l = STANDARD_LENGTHS.filter((x) => x <= room + 1e-9); return l.length ? l[l.length - 1]! : null; };
+/** How far under the face the head of the screw sits: a countersunk head is flush (0), a socket head sits in its counterbore, or on the face (and stands above it). */
+export const seatDepth = (kind: ReceiverKind, size: FastenerSize): number => (kind === "counterbore" ? counterbore(size).depth : 0);
+/** The screw a receiver takes: countersunk for a countersunk hole, else the socket head; none for a nut pocket (its screw comes from the other side). */
+export const screwFor = (kind: ReceiverKind): "countersunk" | "socketHead" | null => (kind === "countersunk" ? "countersunk" : kind === "nutPocket" ? null : "socketHead");
+/** A drawn plane facing `n` through `at` (u along `e1`), for a figure that is not on a face. */
+const standingPlane = (at: Vec3, e1: Vec3, n: Vec3): { ref: (s: Scene) => Ref; command: (ref: Ref) => Command } => ({
+  ref: (s) => `d/${nextId(s, "e")}.pl` as Ref,
+  command: (ref) => ({ type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at, u: e1, v: cross3(n, e1) } }),
+});
+const unit = (a: readonly number[]): Vec3 => { const l = Math.hypot(a[0]!, a[1]!, a[2]!) || 1; return [a[0]! / l, a[1]! / l, a[2]! / l]; };
+/** A screw as its own body in a hole: its side view turned about the hole's axis, and the hexagon socket cut down from the top of its head. `length` counts as the screw's own (from the top of a countersunk head, under the head of a socket head). */
+export function screwInPlace(family: "countersunk" | "socketHead", size: FastenerSize, length: number, spot: FaceSpot, seat: number, smooth = false): PartSteps {
+  const out = unit(cross3(spot.u, spot.v));
+  const t = unit(spot.u);
+  const d = family === "countersunk" ? COUNTERSUNK[size] : SOCKET_HEAD[size];
+  const k = family === "countersunk" ? COUNTERSUNK[size].headHeight : SOCKET_HEAD[size].headHeight.max;
+  const lift = family === "countersunk" ? 0 : k - seat; // (the profile has the top of the head at 0, the socket head's under-side at -k)
+  const profile = family === "countersunk" ? countersunkProfile(size, length) : socketHeadProfile(size, length, smooth);
+  const socket = family === "countersunk" ? COUNTERSUNK[size].socket : SOCKET_HEAD[size].socket;
+  void d;
+  let axis: Ref | null = null;
+  let outline: Ref[] = [];
+  let top: Ref | null = null;
+  let hex: Ref[] = [];
+  const topAt = along(spot.centre, out, lift);
+  const flat = standingPlane(topAt, t, out);
+  return [
+    (s) => { const ref = `d/${nextId(s, "e")}.pl` as Ref; axis = ref; return { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: spot.centre, u: t, v: out } }; },
+    (s) => { const r = drawChain(s, axis!, profile.map(([x, y]) => along(along(spot.centre, t, x), out, y + lift)), true); outline = r.lines; return r.command; },
+    (s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "revolve", parts: outline, params: { ...figureParams([{ outer: outline, holes: [] }]), mode: "new", angle: 360, advance: 0, ax: spot.centre[0], ay: spot.centre[1], az: spot.centre[2], dx: out[0], dy: out[1], dz: out[2] } } }),
+    (s) => { const ref = flat.ref(s); top = ref; return flat.command(ref); },
+    (s) => { const r = drawChain(s, top!, hexagon(socket.acrossFlats).map(([x, y]) => along(along(topAt, t, x), cross3(out, t), y)), true); hex = r.lines; return r.command; },
+    (s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "extrude", parts: hex, params: { depth: -socket.depthMin, mode: "cut", ...figureParams([{ outer: hex, holes: [] }]) } } }),
+  ];
+}
+/** A hex nut as its own body standing in its pocket: the plane is the face the pocket is cut from (facing out of the body), `centre` the hole's axis on it. */
+export function nutInPlace(size: FastenerSize, plane0: Ref, centre: Vec3, u: Vec3, v: Vec3, own = false): PartSteps {
+  const d = NUTS[size];
+  let circle: Ref | null = null;
+  let hex: Ref[] = [];
+  let plane: Ref = plane0;
+  return [
+    ...(own ? [(s: Scene): Command => { const ref: Ref = `d/${nextId(s, "e")}.pl` as Ref; plane = ref; return { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: centre, u, v } }; }] : []),
+    (s) => { const r = drawChain(s, plane, hexagon(d.acrossFlats.max).map(([x, y]) => along(along(centre, u, x), v, y)), true); hex = r.lines; return r.command; },
+    (s) => { const r = drawCircle(s, plane, centre, nominalDiameter(size) / 2); circle = r.circle; return r.command; },
+    (s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "extrude", parts: hex, params: { depth: -d.thickness.max, mode: "new", ...figureParams([{ outer: hex, holes: circle ? [[circle]] : [] }]) } } }),
+  ];
+}
+/** The nut as its own body in the pocket on the far side (`farNutSteps` cuts the pocket). */
+export function farNutInPlace(size: FastenerSize, spot: FaceSpot, reach: number): PartSteps {
+  const d = NUTS[size];
+  const n = unit(cross3(spot.u, spot.v));
+  const e1 = unit(spot.u);
+  const v = cross3(e1, n);
+  const far = along(spot.centre, n, -reach);
+  let plane: Ref | null = null;
+  let hex: Ref[] = [];
+  let circle: Ref | null = null;
+  return [
+    (s) => { const ref: Ref = `d/${nextId(s, "e")}.pl` as Ref; plane = ref; return { type: "addPart", part: { ref, kind: "plane", origin: "drawn", plane: null, movable: false, at: far, u: e1, v } }; },
+    (s) => { const r = drawChain(s, plane!, hexagon(d.acrossFlats.max).map(([x, y]) => along(along(far, e1, x), v, y)), true); hex = r.lines; return r.command; },
+    (s) => { const r = drawCircle(s, plane!, far, nominalDiameter(size) / 2); circle = r.circle; return r.command; },
+    (s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "extrude", parts: hex, params: { depth: -d.thickness.max, mode: "new", ...figureParams([{ outer: hex, holes: circle ? [[circle]] : [] }]) } } }),
+  ];
 }

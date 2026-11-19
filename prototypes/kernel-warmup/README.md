@@ -1,4 +1,4 @@
-# kernel-warmup (prototype, `in_904`)
+# kernel-warmup (prototype, `in_988`)
 
 **Meant to learn:** how much of the first model's delay a warm-up of the kernel (making a few models before the person's first) removes, and what it costs.
 

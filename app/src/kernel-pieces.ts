@@ -1,4 +1,4 @@
-// A model of many parts apart made in pieces, nearest the eye first, with the answer so far sent as it goes (`dec_progressive_open`, `in_915`). Used by the kernel's thread (`kernel-worker.ts`); the kernel, the way to send an answer and the way to tell it
+// A model of many parts apart made in pieces, nearest the eye first, with the answer so far sent as it goes (`dec_progressive_open`, `in_999`). Used by the kernel's thread (`kernel-worker.ts`); the kernel, the way to send an answer and the way to tell it
 // has been asked to stop come in, so that it is the same code in a test.
 import type { Kernel, KernelGraph, KernelResult, Vec } from "./compiler/kernel/adapter.ts";
 import { planPieces } from "./compiler/kernel/pieces.ts";

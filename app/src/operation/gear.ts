@@ -149,8 +149,10 @@ export const hasBody = (spec: GearSpec): boolean => spec.helix !== undefined || 
  * that has none. The kernel cuts one flat wedge off each tooth tip at each face (`toothChamfer`).
  */
 export function chamferOf(spec: GearSpec): { depth: number; side: 1 | -1; width: number } | null {
-  const [c, w] = [(spec.chamfer ?? 0) * spec.module, spec.width ?? 0];
-  if (!(c > 0) || !(w > 0) || spec.rack || spec.pulley || spec.sprocket || spec.cycloidal || spec.worm || spec.wheel || spec.bevel) return null;
+  const c = (spec.chamfer ?? 0) * spec.module;
+  if (spec.wheel) return c > 0 ? { depth: c, side: 1, width: spec.wheel.width + 2 * (spec.wheel.land ?? 0) } : null; // (a worm wheel: its throated part and a land at each face, `in_923`)
+  const w = spec.width ?? 0;
+  if (!(c > 0) || !(w > 0) || spec.rack || spec.pulley || spec.sprocket || spec.cycloidal || spec.worm || spec.bevel) return null;
   return { depth: c, side: spec.internal ? -1 : 1, width: w };
 }
 /**
@@ -235,8 +237,20 @@ export function gearOutline(spec: GearSpec): Result<GearOutline> {
   const why = boreProblem(spec, r.value.rootRadius);
   return why ? err(why) : r;
 }
+/** What is wrong with the chamfers of a rack or a worm wheel (`in_924`): they are made by the kernel at the faces (the tip of each tooth for a rack's Chamfer, the whole perimeter for the Edge chamfer), one of them at a time. */
+function endChamferProblem(spec: GearSpec): string | null {
+  const [c, e] = [spec.chamfer ?? 0, spec.edge ?? 0];
+  if (c === 0 && e === 0) return null;
+  const thick = spec.wheel ? spec.wheel.width + 2 * (spec.wheel.land ?? 0) : spec.width ?? 0;
+  if (c !== 0 && e !== 0) return "a chamfer of the tips of the teeth and one of the whole edge are not made together: one of them";
+  if (!(thick > 0)) return "a chamfer needs a thickness: give it a thickness";
+  if (c !== 0) { if (!(c > 0 && c <= 1)) return "the chamfer is from 0 to 1 module deep"; if (!(c * spec.module * 2 < thick)) return "the chamfer is deeper than half the thickness"; }
+  if (e !== 0) { if (!(e > 0 && e <= 3)) return "the edge chamfer is from 0 to 3 mm"; if (!(e * 2 < thick)) return "the edge chamfer is deeper than half the thickness"; if (spec.wheel) { if (!((spec.wheel.land ?? 0) >= e)) return "the edge chamfer of a worm wheel is made in its land (the straight part at each face): give it a land at least as long as the chamfer"; if (spec.flat || spec.key) return "an edge chamfer is not made for a bore with a flat or a keyway yet"; } }
+  return null;
+}
 function outlineOf(spec: GearSpec): Result<GearOutline> {
   if (!spec.pulley && !spec.sprocket && !spec.cycloidal && spec.clearance !== undefined && !(spec.clearance >= 0 && spec.clearance <= 1)) return err("the clearance is from 0 to 1 module");
+  if (spec.rack || spec.wheel) { const why = endChamferProblem(spec); if (why) return err(why); }
   if (spec.bevel) return bevelOutline(spec);
   if (spec.worm) return wormOutline(spec);
   if (spec.wheel) return wheelOutline(spec);

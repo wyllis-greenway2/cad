@@ -6,11 +6,12 @@ import { scene as sceneOf, selection as selectionOf, run, undoLast, redoLast, cl
 import type { Session } from "../session.ts";
 import { nearCommand } from "../suggest.ts";
 import { actionsFor, measureAction } from "../actions.ts";
+import { CONSTRAINT_ENTRIES, resolveEntry } from "../constraintlist.ts";
 import type { ToolKind, Tool } from "../tools.ts";
-import { gearFields, armTool, typeKey, finish, lineNext, gearTyped, editGearTool, editPlanetaryTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf, editCamTool } from "../tools.ts";
+import { gearFields, armTool, typeKey, finish, lineNext, gearTyped, editGearTool, editPlanetaryTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf, editCamTool , gearChanged } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
 import type { CamKind, CamLaw, CamLayout } from "../../operation/cams.ts";
-import { doMotionPlay, doCamFollow, doLink, doBodyPlay } from "./motion.ts";
+import { doMotionPlay, doCamFollow, doLink, doBodyPlay, doMakeTurn, doStopTurning } from "./motion.ts";
 import { gearOfPart, gearOfSelection } from "../../operation/gearscene.ts";
 import { planetaryOfPart } from "../../operation/planetary.ts";
 import type { OpKind } from "../operations.ts";
@@ -109,7 +110,7 @@ function beginOp(s0: AppState, kind: OpKind, now = 0, over: Ref | null = null): 
   }
   const r = startOp(sceneOf(s.session), selectionOf(s.session), kind, viewAxes(s.cam));
   // what it needs is not selected: it waits for what is clicked next, and says what that is (`in_464`)
-  if (!r.ok) return { ...s, picking: s.repeat ? null : { kind }, session: { ...s.session, message: s.repeat ? r.why : `${r.why}: click it now (Esc to leave)` }, menu: null };
+  if (!r.ok) return { ...s, picking: s.repeat ? null : { kind, why: r.why }, session: { ...s.session, message: s.repeat ? r.why : `${r.why}: click it now (Esc to leave)` }, menu: null };
   const started: AppState = { ...s, picking: null, op: withPose(s, r.op), tool: null, menu: null, session: { ...s.session, message: r.op.kind === "revolve" ? "turning about the longest straight line: click another line, a point or a face to move the orb there, or click the orb to turn it any way" : null } };
   return IS_SKETCH_OP[kind] ? facePlane(started, over, now) : started;
 }
@@ -119,28 +120,7 @@ export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["n
 
 /** Put a finished figure into the scene and hand back to normal selection with the figure selected. */
 /** The tool stays on after a figure is made, ready on the same plane for the next, until a right click or the cancel icon at the top puts it away (`in_193`). */
-const stays = (t: AppState["tool"]): AppState["tool"] => (t && !t.gear?.editing && !t.gear?.mesh && !t.cam?.editing ? { ...armTool(t.kind, variantOf(t.gear)), plane: t.plane, made: (t.made ?? 0) + 1, ...(t.reveal ? { reveal: true as const } : {}) } : null);
-
-/**
- * After a gear (or a planetary set) is made or changed from its box, the box stays open on it (`in_871`): the tool becomes the Edit tool of that gear, so that the numbers can go on being changed with the preview showing; Done or Esc lets it go
- * and goes back to the tool that made it, armed for the next gear (a box that was opened to edit goes back to nothing).
- */
-function keptOpen(s: AppState, next: Session, command: Command): Tool | null {
-  const t = s.tool;
-  if (!t || t.kind !== "gear" || t.cam) return null;
-  const sc = sceneOf(next);
-  const id = (command as { id?: string }).id;
-  const back = t.back !== undefined ? t.back : stays(t);
-  if (command.type === "planetary" || command.type === "setPlanetary") {
-    const set = sc.planetaries?.find((p) => p.id === id);
-    return set ? { ...editPlanetaryTool(set), gear: { ...editPlanetaryTool(set).gear!, kept: true }, back } : null;
-  }
-  if (command.type !== "gear" && command.type !== "setGear") return null;
-  const rec = sc.gears?.find((g) => g.id === id);
-  if (!rec) return null;
-  const open = editGearTool(rec);
-  return { ...open, gear: { ...open.gear!, kept: true }, back };
-}
+const stays = (t: AppState["tool"]): AppState["tool"] => (t && t.kind !== "gear" && !t.cam?.editing ? { ...armTool(t.kind, variantOf(t.gear)), plane: t.plane, made: (t.made ?? 0) + 1, ...(t.reveal ? { reveal: true as const } : {}) } : null);
 
 export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppState {
   if (!fin) {
@@ -152,8 +132,7 @@ export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppSt
   const next = run(s.session, fin.command);
   if (next.message) return { ...s, session: next };
   const sel = fin.select.filter((r) => r in sceneOf(next).parts);
-  const kept = keptOpen(s, next, fin.command);
-  if (kept) return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: kept, resume: null, spread: null };
+  if (s.tool?.kind === "gear" && !s.tool.cam) return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: null, resume: null, spread: null }; // (a gear that is made is made: the tool is over, `in_822`)
   // a circle drawn about another circle's centre is concentric with it
   const circle = fin.select[0]?.startsWith("d/disk@") ? (`d/${fin.select[0].slice(7)}` as Ref) : null;
   if (s.tool?.kind === "circle" && s.tool.concentric && circle && circle in sceneOf(next).parts) {
@@ -232,6 +211,7 @@ export function doTyped(s: AppState, key: string): AppState {
   const t = s.tool;
   if (!t || !t.plane || !t.points.length) return s;
   if (key !== "Enter") return { ...s, tool: typeKey(t, key) };
+  if (t.kind === "gear" && t.gear?.editing && !t.cam && !gearChanged(sceneOf(s.session), t)) return { ...s, tool: null }; // (nothing was changed: Done only lets go, `in_919`)
   const next = t.kind === "line" && t.typed[0] !== "" ? lineNext(t) : null; // a typed length gives the line's end
   return commitFigure(s, finish(sceneOf(s.session), next ? { ...t, points: [t.points[0]!, next] } : t));
 }
@@ -327,6 +307,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
 export function doEscape(s: AppState): AppState {
   if (s.menu) return { ...s, menu: null };
   if (s.motion) return { ...s, motion: null }; // (a joint that is being played goes back to rest)
+  if (s.awaiting) return { ...s, awaiting: null, session: { ...s.session, message: null } }; // (the item that waited for a selection is given up, `in_951`)
   if (s.picking && !s.op) return { ...s, picking: null, session: { ...s.session, message: null } }; // (the operation that was waiting for what to click is given up, `in_464`)
   if (s.moverSphere) return cancelOrient(s); // (the mover is put back as it was, `in_421`)
   if (sectionNow(s) && !s.tool && !s.op && !s.repeat) return { ...s, sectionLive: null, session: { ...s.session, click: { ...s.session.click, selection: [] }, message: null } }; // (the plane is let go, as a tool is put away: it stays as a plane in the part, `in_394`, `in_396`)
@@ -336,7 +317,7 @@ export function doEscape(s: AppState): AppState {
   if (s.box) return { ...s, box: null };
   if (s.repeat && !s.op) return doRepeatCancel(s); // (the repeat that is open is given up, as the pill's cross used to)
   if (s.op) return cancelOp(s);
-  if (s.tool) return { ...s, tool: s.tool.gear?.kept ? s.tool.back ?? null : null, op: null, drag: null, gizmoHover: null }; // (a gear box kept open lets go: to the tool that made it, `in_871`)
+  if (s.tool) return { ...s, tool: null, op: null, drag: null, gizmoHover: null };
   if (s.preview && !s.tool && !s.op) return { ...s, preview: null }; // (the toolpath preview is put away, `in_570`)
   if (s.adding) return { ...s, adding: false, session: { ...s.session, message: null } }; // (adding to the selection is left, what is selected stays; the next Esc clears it, `in_540`)
   return withSession(s, clearSelection(s.session));
@@ -354,10 +335,12 @@ function cancelOp(s: AppState): AppState {
  * what its drags made as it is; a tool that has a figure under way makes it, else it is put away.
  */
 /** What is selected now is given to the operation that was waiting for it: it begins if that is what it needed; else it says what is missing and goes on waiting. */
+/** What a dimmed item needs, said as what to do now: "select a gear" -> "Select a gear: click it". */
+export const instruction = (why: string): string => { const t = why.charAt(0).toUpperCase() + why.slice(1); return /^select/i.test(why) ? `${t}: click it (Esc to leave)` : `${t} (Esc to leave)`; };
 export function finishPicking(s: AppState, now = 0): AppState {
   if (!s.picking) return s;
   const r = startOp(sceneOf(s.session), selectionOf(s.session), s.picking.kind, viewAxes(s.cam));
-  if (!r.ok) return { ...s, session: { ...s.session, message: `${r.why}: click it now (Esc to leave)` } };
+  if (!r.ok) return { ...s, picking: { ...s.picking, why: r.why }, session: { ...s.session, message: `${r.why}: click it now (Esc to leave)` } };
   return beginOp({ ...s, picking: null }, s.picking.kind, now);
 }
 
@@ -373,12 +356,15 @@ export function doApply(s: AppState): AppState {
   return s;
 }
 
-export function doRunAction(s: AppState, id: string, now = 0): AppState {
+export function doRunAction(s0: AppState, id: string, now = 0): AppState {
+  const s = s0.awaiting && !id.startsWith("why:") ? { ...s0, awaiting: null } : s0; // (another choice gives up the one that waited, `in_951`)
   if (id.startsWith("say:")) return { ...s, session: { ...s.session, message: id.slice(4) } }; // (a dimmed row of the ⋯ list pressed: what is said, `in_541`)
-  if (id.startsWith("why:")) { // a dimmed option of the ring pressed: what it needs is said, the ring stays (`in_538`)
-    const find = (items: readonly { id: string; label: string; why: string | null; children?: readonly unknown[] }[]): { label: string; why: string | null } | undefined => { for (const it of items) { if (it.id === id.slice(4)) return it; const k = it.children ? find(it.children as never) : undefined; if (k) return k; } return undefined; };
+  if (id.startsWith("why:")) { // a dimmed option of the menu pressed (`in_538`): it can be chosen; what it needs is said as what to select, and it runs by itself once that is selected (`in_951`)
+    const find = (items: readonly { id: string; label: string; icon?: string; why: string | null; children?: readonly unknown[] }[]): { id: string; label: string; icon?: string; why: string | null } | undefined => { for (const it of items) { if (it.id === id.slice(4)) return it; const k = it.children ? find(it.children as never) : undefined; if (k) return k; } return undefined; };
     const hit = s.menu ? find(s.menu.items) : undefined;
-    return hit?.why ? { ...s, session: { ...s.session, message: `${hit.label}: ${hit.why}` } } : s;
+    if (!hit?.why) return s;
+    if (!/^select/i.test(hit.why)) return { ...s, session: { ...s.session, message: `${hit.label}: ${hit.why}` } }; // (nothing to select: the reason is said and the ring stays, as before)
+    return { ...s, menu: null, picking: null, awaiting: { id: hit.id, label: hit.label, icon: hit.icon ?? hit.id, why: hit.why }, session: { ...s.session, message: `${hit.label}: ${instruction(hit.why)}` } };
   }
   const closed = { ...s, menu: null };
   if (id === "look") {
@@ -480,6 +466,8 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     const rec = selectionOf(s.session).map((r) => gearOfSelection(sc, r)).find((g) => !!g);
     return rec ? { ...closed, tool: meshGearTool(rec, id === "gear:meshrack", id === "gear:meshring"), op: null } : { ...closed, session: { ...s.session, message: "select a gear first" } };
   }
+  if (id === "motion:pivot") return doMakeTurn(closed); // (any body made to turn about an axis of its own, `in_912`)
+  if (id === "motion:unpivot") return doStopTurning(closed);
   if (id === "motion:link") return doLink(closed); // (a ratio between two joints, `in_838`)
   if (id === "cam:follow") return doCamFollow(closed); // (the rod that rides the cam, `dec_mechanism_motion` stage 3)
   if (id === "motion:play") return doMotionPlay(closed); // (the joint of the selected body played, `dec_mechanism_motion`)
@@ -514,7 +502,9 @@ export function doRunAction(s: AppState, id: string, now = 0): AppState {
     const cmd = nearCommand(sceneOf(s.session), selectionOf(s.session), id, nearTolMm(s.cam), seenIn(s.cam, sceneOf(s.session), { w: 800, h: 600 }));
     return cmd ? { ...withSession(s, run(s.session, cmd)), menu: null } : closed;
   }
-  const a = actionsFor(sceneOf(s.session), selectionOf(s.session)).find((x) => x.id === id);
+  const acts = actionsFor(sceneOf(s.session), selectionOf(s.session));
+  const entry = CONSTRAINT_ENTRIES.find((e) => e.id === id); // (an entry of the constraints list stands for the action the selection fits, `in_975`)
+  const a = entry ? resolveEntry(entry, acts) : acts.find((x) => x.id === id);
   return a && a.enabled ? { ...withSession(s, run(s.session, a.run())), menu: null } : closed;
 }
 export function doDelete(s: AppState): AppState {

@@ -1,4 +1,4 @@
-// Prototype (thrown away, `in_904`): how much of the first model's delay does a warm-up of the kernel remove?
+// Prototype (thrown away, `in_988`): how much of the first model's delay does a warm-up of the kernel remove?
 // Run (from app/, after `npm run build` and `npx vite preview --port 5198`): node ../prototypes/kernel-warmup/run.cjs
 // For each target model, in a fresh page: (A) load it as soon as the kernel is up; (B) first load the warm-up models one after another (each waited for), then the target.
 const { chromium } = require("playwright");

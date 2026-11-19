@@ -88,3 +88,38 @@ test("a rod that does not lie in the cam's plane is not followed, and says why",
   assert.match(f.why ?? "", /plane/);
   void keepCommand; void startMotion;
 });
+
+test("with the cam hard the rod rides its edge by contact: pushed along as the lobe comes round, and following it back as it goes", async () => {
+  const { camShapes } = await import("../src/operation/cams.ts");
+  const { solveContact } = await import("../src/interaction/contact.ts");
+  const { followAmount } = await import("../src/operation/gearcouple.ts");
+  const cam = { kind: "eccentric" as const, diameter: 40, lift: 5, hole: 8 };
+  const sh = camShapes(cam);
+  assert.ok(sh.ok);
+  if (!sh.ok) return;
+  const disc = sh.value.circles.find((c) => !c.hole)!;
+  const at = 10 - disc.c[0] + disc.r; // (the cam to the right of the rod, its left edge touching the rod's end, x = 10)
+  let s = run(createSession(kernel), { type: "gear", id: "g_001", plane: XY, at: [at, 0, 0], spec: { teeth: 1, module: 1, cam } });
+  const op = startOp(scene(s), [camFace(scene(s).gears![0]!)! as never], "extrude");
+  assert.ok(op.ok);
+  s = runOp(s, { ...(op as { op: Op }).op, value: 5 })!.session;
+  for (const [r, depth] of [[6, -10], [3, 10]] as const) { const c = drawCircle(scene(s), YZ, [0, 0, 0], r); s = run(s, c.command); s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth, mode: "new" } } }); }
+  const [camBody, guide, rod] = bodies(s);
+  s = run(s, actionsFor(scene(s), [roundOfBody(s, rod!), roundOfBody(s, guide!)]).find((x) => x.id === "mate:coaxial")!.run());
+  const mate = mateStatus(scene(s)).find((x) => x.state === "ok" && x.mode === "coaxial")!;
+  s = run(s, { type: "setGear", id: "g_001", spec: scene(s).gears![0]!.spec, follower: { mate: mate.id, side: -1 } });
+  s = run(s, { type: "setHard", body: (camBody as { id: string }).id, on: true });
+  assert.ok(!s.message, s.message ?? "");
+  const r = startMotion(scene(s), camBody!.ref, "turn", s.outcome);
+  assert.ok(r.ok, r.ok ? "" : r.why);
+  if (!r.ok) return;
+  let m = r.motion;
+  assert.ok(m.contact?.pushables[0]?.kind === "slide", "the rod can yield by sliding");
+  assert.ok(!m.follows.some((f) => f.table), "its table is not used");
+  const rodValue = (mm: typeof m) => followAmount(mm.yields![0]!, 0);
+  let top = -1e9, bottom = 1e9;
+  const seen: number[] = [];
+  for (let deg = 1; deg <= 360; deg++) { m = solveContact(scene(s), { ...m, amount: deg }, s.outcome); assert.ok(!m.contact!.jam, `jam at ${deg}: ${m.contact!.jam}`); top = Math.max(top, rodValue(m)); bottom = Math.min(bottom, rodValue(m)); if (deg % 45 === 0) seen.push(+rodValue(m).toFixed(2)); }
+  assert.ok(top - bottom > 9 && top - bottom < 10.6, `the rod travels ${top - bottom} mm (twice the offset, 10): ${seen}`);
+  assert.ok(Math.abs(rodValue(m)) < 0.3, `and is back where it began after a turn: ${rodValue(m)}; seen ${seen}`);
+});

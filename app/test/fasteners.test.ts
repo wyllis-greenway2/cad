@@ -465,23 +465,38 @@ type Item = { id: string; label: string; enabled: boolean; why: string | null; c
 const ringOf = (session: Session): Item[] => reduce({ ...createState(session) }, { type: "menu", x: 400, y: 300, button: true }, { w: 800, h: 600, now: 0 }).menu!.items as unknown as Item[];
 const find = (items: Item[], id: string): Item | undefined => { for (const i of items) { if (i.id === id) return i; const f = i.children ? find(i.children, id) : undefined; if (f) return f; } return undefined; };
 
-test("the right-click ring has Models under Shape, with Fasteners and Fastener Holes in it", () => {
+test("the right-click ring has the Fastener tool directly under Shape, with the screw icon, and no Models", () => {
   const items = ringOf(createSession(kernel));
   const shape = items.find((i) => i.id === "shape")!;
-  const models = shape.children!.find((i) => i.id === "models")!;
-  assert.equal(models.label, "Models");
-  assert.deepEqual(models.children!.map((c) => [c.id, c.label]), [["models:fasteners", "Fasteners"], ["models:holes", "Fastener Holes"]]);
-  assert.equal(find(items, "models:fasteners")!.enabled, true, "Fasteners is always there to use");
+  const tool = shape.children!.find((i) => i.id === "tool:fasteners")!;
+  assert.equal(tool.label, "Fastener tool");
+  assert.equal(find(items, "models"), undefined);
 });
 test("Fastener Holes is always in the ring: it opens a panel that says what to select", () => {
-  const none = find(ringOf(createSession(kernel)), "models:holes")!;
+  const none = find(ringOf(createSession(kernel)), "tool:fasteners")!;
   assert.equal(none.enabled, true);
   assert.equal(none.why, null);
   const { s } = block();
-  assert.equal(find(ringOf(s), "models:holes")!.enabled, true);
+  assert.equal(find(ringOf(s), "tool:fasteners")!.enabled, true);
 });
 test("the ⋯ list no longer holds Add part or Fastener hole: they are in the ring", async () => {
   const { appRows } = await import("../src/interaction/appmenu.ts");
   const ids = appRows().map((r) => r.id);
   assert.ok(!ids.includes("addPart") && !ids.includes("fastenerHole"));
+});
+
+// ---- no plane left across the view ----
+test("a hole leaves no infinite plane behind: the planes it made are ordinary ones, so nothing tints the view or is picked anywhere", () => {
+  const r = cutReceiver(block().s, { ...base, kind: "clearance", size: "M4", fit: "medium" });
+  assert.ok(r.ok);
+  const infinite = Object.values(scene(r.value).parts).filter((p) => p.kind === "plane" && p.infinite && p.origin !== "world");
+  assert.deepEqual(infinite.map((p) => p.ref), []);
+  assert.ok(Object.values(scene(r.value).parts).some((p) => p.kind === "plane" && p.origin === "drawn" && p.ref.endsWith(".pl")), "the plane for the hole's side view is still there");
+});
+test("a file made before this, with a drawn plane that says it is infinite, opens with an ordinary plane", async () => {
+  const { apply } = await import("../src/operation/commands.ts");
+  const { emptyScene } = await import("../src/operation/scene.ts");
+  const out = apply(emptyScene(), { type: "addPart", part: { ref: "d/e_040.pl", kind: "plane", origin: "drawn", plane: null, movable: false, at: [0, 0, 0], u: [1, 0, 0], v: [0, 0, 1], infinite: true } as never });
+  assert.ok(out.ok);
+  assert.equal((out.value.parts["d/e_040.pl" as never] as { infinite?: boolean }).infinite, undefined);
 });

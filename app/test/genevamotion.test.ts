@@ -70,3 +70,43 @@ test("a body hooked up to an animation has a play button: the crank, the disc an
   const none = reduce(st, { type: "runAction", id: "body:play:b/nope/o" }, env as never);
   assert.match(none.session.message ?? "", /not hooked up/);
 });
+
+test("the play button of an animated body is for the body that is selected (or has a face selected), not for the one the pointer is over; the pause button stays while it plays (`in_962`)", async () => {
+  const { createState } = await import("../src/interaction/controller.ts");
+  const { homeCamera } = await import("../src/interaction/camera.ts");
+  const { frameOf } = await import("../src/interaction/frame.ts");
+  const s = make();
+  const b = genevaBodies(scene(s), scene(s).gears![0]!);
+  const base = { ...createState(s), cam: homeCamera() };
+  const eyes = (st: typeof base) => Object.fromEntries(frameOf(st, { w: 800, h: 600 }).bodyEyes.map((e) => [e.ref, e.selected ?? false]));
+  assert.deepEqual([eyes(base)[b.wheel!], eyes(base)[b.crank!]], [false, false], "nothing selected: no button");
+  const hovered = { ...base, session: { ...base.session, hover: b.crank } };
+  assert.equal(eyes(hovered as typeof base)[b.crank!], false, "pointed at: still no button");
+  const sel = { ...base, session: { ...base.session, click: { ...base.session.click, selection: [b.crank!] } } };
+  assert.equal(eyes(sel as typeof base)[b.crank!], true, "selected: the button");
+  assert.equal(eyes(sel as typeof base)[b.wheel!], false, "and only for that body");
+});
+
+test("while a motion plays what is selected is drawn by the matrix of its own body, not the driver's: the wheel's highlight goes with the wheel (`in_984`)", async () => {
+  const { createState, reduce } = await import("../src/interaction/controller.ts");
+  const { homeCamera } = await import("../src/interaction/camera.ts");
+  const { frameOf } = await import("../src/interaction/frame.ts");
+  const { jointMatrix, followMatrix } = await import("../src/interaction/motion.ts");
+  const s = make();
+  const b = genevaBodies(scene(s), scene(s).gears![0]!);
+  const env = { w: 800, h: 600, now: 0 };
+  let st = { ...createState(s), cam: homeCamera() };
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [b.crank!] } } } as typeof st;
+  st = reduce(st, { type: "runAction", id: "motion:play" }, env as never);
+  st = reduce(st, { type: "motionAt", amount: 120 }, env as never);
+  const near = (x: number[], y: number[]) => x.every((v, i) => Math.abs(v - y[i]!) < 1e-9);
+  const driver = jointMatrix(st.motion!, 120);
+  const wheelFollower = st.motion!.follows.find((f) => f.body === b.wheel)!;
+  const wheel = followMatrix(wheelFollower, 120);
+  assert.ok(!near(driver, wheel), "the two bodies are drawn by different matrices");
+  const sel = (r: typeof b.wheel) => frameOf({ ...st, session: { ...st.session, click: { ...st.session.click, selection: [r!] } } } as typeof st, { w: 800, h: 600 }).selectionMatrix!;
+  assert.ok(near(sel(b.crank), driver), "the driver's selection goes by the driver's matrix");
+  assert.ok(near(sel(b.wheel), wheel), "the wheel's selection goes by the wheel's");
+  const none = frameOf({ ...st, motion: null } as typeof st, { w: 800, h: 600 });
+  assert.equal(none.selectionMatrix, null, "no motion: nothing");
+});

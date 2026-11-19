@@ -3,7 +3,7 @@ id: q_progressive_load
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_906, in_907, in_908, in_912, in_914, in_915
+human_input: in_990, in_991, in_992, in_996, in_998, in_999
 date: 2026-11-18
 depends_on:
   - q_limits_and_failures: the measured limits (a project of 300 separate parts 17 s to open, 1000 parts a 33 s freeze, about 961 bodies at the kernel's 4 GB) are what this is meant to remove
@@ -13,7 +13,7 @@ depends_on:
 ---
 # Open a big model by showing the whole of it at once as ghosts and filling in detail from the camera outwards
 
-**The human's idea (`in_906`):** do not load everything at once; put the person in the scene at once; fill in models and data from the camera backwards; keep the interface smooth after the load; draw what is near in full and the rest as ghosts (as a gear is a ghost disc while it is made); give detail and fidelity by camera position and selection.
+**The human's idea (`in_990`):** do not load everything at once; put the person in the scene at once; fill in models and data from the camera backwards; keep the interface smooth after the load; draw what is near in full and the rest as ghosts (as a gear is a ghost disc while it is made); give detail and fidelity by camera position and selection.
 
 **What it costs now (measured, `q_limits_and_failures`):** opening replays every command and derives the whole scene after each (the page frozen 4.4 s at 300 parts, 33 s at 1000, 441 MB); the kernel then builds all bodies in one answer (12.7 s at 300 parts, over 60 s past about 600, 3.8 GB at 961 bodies); the page then holds about 10 scene parts for every face of every body (104 thousand parts for four wheels), and the kernel describes every body in full. Nothing of the model is drawn until the one answer comes.
 
@@ -29,7 +29,7 @@ depends_on:
 
 **What is not simple:** a change to an early step still invalidates every later one (the quadratic edit cost: it is only as cheap as the independent bodies are independent); bodies that touch (joins, cuts, fillets between them) must be made together; picking, measuring and clearance checks need the true shape and wait for the body (as they wait for the kernel now); the draw-call and triangle limits of a phone are not measured here. **Recommendation (the AI's):** Phase 0 now (small and certain), then Phase 1 as a prototype in `prototypes/` on the 300 and 1000 part projects to see how much of the time to the first picture and to the last body it takes.
 
-## Safe interaction while it is loading, caching, and layers (`in_907`)
+## Safe interaction while it is loading, caching, and layers (`in_991`)
 
 **The rule that makes it safe: the history is the truth, and what is drawn is a cache of it.** Every command is kept as it is whatever has been built; saving, undo, redo and every number the person changes act on the commands and on the page's own solver (sketches, constraints, dimensions, patterns, gear numbers: all worked out in the page, not in the kernel). Only what needs the **true shape** waits for it. So interacting early cannot change what the model *is*, only what is drawn of it now.
 
@@ -47,16 +47,16 @@ depends_on:
 
 **Recommended first steps (nothing built):** (1) write the table of operations and their levels from the code (a document, a day's reading); (2) the **differential test harness** with the kernel as it is (a project built in pieces in random orders must equal the one-shot: this tells how independent the bodies really are, before any screen is touched); (3) Phase 0 of the first section; (4) then the ghost layer and the gating, on a branch.
 
-## First steps done (`in_908`)
+## First steps done (`in_992`)
 
 1. **The table of what each thing needs** is written: `docs/progressive-levels.md` (every command, what the person does with the view, what a ghost needs, from the code).
 2. **The differential harness** is built (`prototypes/progressive`) and run: groups of independent steps built alone and in other orders give the same bodies, volumes, boxes and face names (17 groups, 17 bodies, 6 other orders, no difference on five made assemblies; the two pattern grids among the 70 fixtures are one group once a pattern is seen to use its source: the first, wrong grouping built the pattern without its source and the harness found that at once: 162 differences). **Not covered yet:** groups with modifying steps, revolves, lofts and sweeps, a body that moves, edits in the middle of a load. Still open: the rest.
 
-**Extended (`in_912`):** parts with fillets, holes and moves, and ten fixtures of several bodies, built in groups alone and in other orders: **no difference** (20 groups, 27 orders, 30 bodies) after a fix the test found (a body moved among others lost the names of the faces across its motion: `facenames.mjs` `carried`, `movenames.test.ts`). A page-side rule for what a step changes (by name, by place, by relation, by box) covered 52 of 65 steps (48 exactly, 4 by saying "every body so far"); the 13 it missed were one fixture in which a body is moved through another's place: **until the ghost keeps every body's box at every step, a project with moves of that kind is one group**, and the rule is a check of the harness rather than a promise. **Phase 0 is built** (`dec_open_and_survive`).
+**Extended (`in_996`):** parts with fillets, holes and moves, and ten fixtures of several bodies, built in groups alone and in other orders: **no difference** (20 groups, 27 orders, 30 bodies) after a fix the test found (a body moved among others lost the names of the faces across its motion: `facenames.mjs` `carried`, `movenames.test.ts`). A page-side rule for what a step changes (by name, by place, by relation, by box) covered 52 of 65 steps (48 exactly, 4 by saying "every body so far"); the 13 it missed were one fixture in which a body is moved through another's place: **until the ghost keeps every body's box at every step, a project with moves of that kind is one group**, and the rule is a check of the harness rather than a promise. **Phase 0 is built** (`dec_open_and_survive`).
 
-**Phase 1 prototyped (`in_914`, `prototypes/progressive-load`, Node, the real kernel, parts apart):** ghosts of every part **from the saved commands alone** after **6 ms (300 parts) and 22 ms (1000)**, where the replay of the commands into a scene is 1.3 s and 6.3 s; the nearest parts made in 0.1 to 0.3 s whatever the size; **piece by piece the cost is a line** (about 12 ms a part): 100 parts 1.6 s (the whole 2.6 s), 300 parts 4.3 s (the whole **21 s**), **1000 parts 12 s where the whole in one go is past the 60 s limit**; bodies and volumes are the whole's. Not yet measured: the page taking each answer into the scene, the memory over a thousand pieces, parts that touch (one group), the browser with the thread beside the page. **Recommendation (the AI's):** the numbers say Phase 1 is worth building; the next step is a decision entry and the smallest piece of it in the app (the ghost layer drawn from the commands at once, the kernel asked for one group at a time in the camera's order), measured in the browser first.
+**Phase 1 prototyped (`in_998`, `prototypes/progressive-load`, Node, the real kernel, parts apart):** ghosts of every part **from the saved commands alone** after **6 ms (300 parts) and 22 ms (1000)**, where the replay of the commands into a scene is 1.3 s and 6.3 s; the nearest parts made in 0.1 to 0.3 s whatever the size; **piece by piece the cost is a line** (about 12 ms a part): 100 parts 1.6 s (the whole 2.6 s), 300 parts 4.3 s (the whole **21 s**), **1000 parts 12 s where the whole in one go is past the 60 s limit**; bodies and volumes are the whole's. Not yet measured: the page taking each answer into the scene, the memory over a thousand pieces, parts that touch (one group), the browser with the thread beside the page. **Recommendation (the AI's):** the numbers say Phase 1 is worth building; the next step is a decision entry and the smallest piece of it in the app (the ghost layer drawn from the commands at once, the kernel asked for one group at a time in the camera's order), measured in the browser first.
 
-**Phase 1, the smallest slice, built (`in_915`, `dec_progressive_open`):** a model of 24 or more pushes of sketches of their own, apart, is made in pieces nearest the eye first with a box for each part not made yet and "Building N of M parts…"; in the built app 300 parts 4.4 s (12.9 to 17.5 s before), 1000 parts 14.6 s (past the limit before); an edit during the build stops it and is made. **Still open:** ghosts before the replay, touching parts, parts with modifying steps, gears, picking a ghost, the memory over thousands of pieces, lazy faces and edges (Phase 2), the kernel that does not hold everything (Phase 3).
+**Phase 1, the smallest slice, built (`in_999`, `dec_progressive_open`):** a model of 24 or more pushes of sketches of their own, apart, is made in pieces nearest the eye first with a box for each part not made yet and "Building N of M parts…"; in the built app 300 parts 4.4 s (12.9 to 17.5 s before), 1000 parts 14.6 s (past the limit before); an edit during the build stops it and is made. **Still open:** ghosts before the replay, touching parts, parts with modifying steps, gears, picking a ghost, the memory over thousands of pieces, lazy faces and edges (Phase 2), the kernel that does not hold everything (Phase 3).
 
 ## Rationale
 

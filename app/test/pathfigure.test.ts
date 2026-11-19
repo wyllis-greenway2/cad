@@ -130,7 +130,7 @@ test("a path that cannot be read, or rules that make no copy, are refused with t
   assert.ok(t.ok);
   assert.ok(!pathRepeatCommand(s, t.value, vals({ value: "0" })).ok);
   assert.ok(!pathRepeatCommand(s, t.value, vals({ by: "count", value: "2.5" })).ok);
-  const e = pathRepeatCommand(s, t.value, vals({ by: "count", value: "3", corners: "each" }));
+  const e = pathRepeatCommand(s, t.value, vals({ by: "count", value: "3", corners: "inward" }));
   assert.ok(!e.ok && e.error.includes("distance"));
   assert.ok(!pathRepeatCommand(s, t.value, vals({ value: "abc" })).ok);
   assert.ok(!pathRepeatCommand(s, t.value, vals({ by: "distance", value: "20", startInset: "50", endInset: "50" })).ok);
@@ -153,7 +153,7 @@ test("the dialog says how many places and how far apart, draws the path and the 
   const t = pathRepeatTarget(s);
   assert.ok(t.ok);
   const d = pathRepeatDialog(s, t.value, vals({ by: "distance", value: "20" }));
-  assert.deepEqual(d.fields.map((f) => f.id), ["picture", "by", "value", "ends", "corners", "startInset", "endInset", "offset", "turn", "reverse"]);
+  assert.deepEqual(d.fields.map((f) => f.id), ["picture", "by", "value", "ends", "corners", "startInset", "endInset", "offset", "shift", "turn", "reverse"]);
   const pic = d.fields[0]!;
   assert.equal(pic.type, "picture");
   assert.ok(String(pic.value).startsWith("<svg") && String(pic.value).includes("<circle") && String(pic.value).includes("<path"));
@@ -161,7 +161,7 @@ test("the dialog says how many places and how far apart, draws the path and the 
   assert.ok(!pathRepeatDialog(s, t.value, vals({ by: "count", value: "3" })).fields.some((f) => f.id === "ends"), "no end rule for a count");
   assert.ok(!pathRepeatDialog(s, t.value, vals({ corners: "each" })).fields.some((f) => f.id === "startInset"), "no insets when the corners decide");
   assert.ok(pathRepeatDialog(s, t.value, vals({ value: "abc" })).fields[0]!.note?.includes("number"));
-  assert.ok(pathRepeatDialog(s, t.value, vals({ by: "count", value: "3", corners: "each" })).fields.find((f) => f.id === "corners")!.note?.includes("needs a distance"));
+  assert.ok(pathRepeatDialog(s, t.value, vals({ by: "count", value: "3", corners: "inward" })).fields.find((f) => f.id === "corners")!.note?.includes("needs a distance"));
 });
 test("the Path repeat item is in the Repeat group of the ring, dimmed with its reason until a figure and a path are selected", async () => {
   const { createState, reduce } = await import("../src/interaction/controller.ts");

@@ -3,7 +3,7 @@ id: dec_progressive_open
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_914, in_915
+human_input: in_998, in_999
 date: 2026-11-18
 depends_on:
   - dec_per_body_checks: bodies are kept and described one at a time by their own solid; a model made in pieces uses that, and the history and answers it leaves are the ones that decision bounds
@@ -13,7 +13,7 @@ depends_on:
 ---
 # A model of many parts apart is made in pieces, nearest the eye first, with a box for each part not made yet
 
-**Approved (`in_914`, `in_915`):** the smallest slice of Phase 1 of `q_progressive_load`.
+**Approved (`in_998`, `in_999`):** the smallest slice of Phase 1 of `q_progressive_load`.
 
 **The class.** A graph is made in pieces only when it has at least 24 solid steps and **every one is a push of a sketch of its own into a body of its own** (`extrude`, mode `new`, the first `add`, with its holes; a plain polygon or circle sketch with a frame and a number for its depth) and in the chain the graph makes. Anything else in it (a fillet, a move, a cut, a revolve, a loft, a sweep, a gear, a pattern, a draft or a sibling figure) means **the whole graph is made whole, as it always was** (`compiler/kernel/pieces.ts` `planPieces`, `ghostsOf`). The independence of such parts is what `prototypes/progressive` has shown (groups built alone and in other orders give the same bodies, volumes, boxes and face names).
 

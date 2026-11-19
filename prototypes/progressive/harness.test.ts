@@ -1,4 +1,4 @@
-// Prototype (thrown away, `in_908`): the differential test for building a model in pieces (`q_progressive_load`).
+// Prototype (thrown away, `in_992`): the differential test for building a model in pieces (`q_progressive_load`).
 // The claim to test: **a group of steps that no other step depends on and whose bodies touch no other group's can be built alone, and gives the very bodies, volumes, boxes and face names it gives in the whole model.**
 // For each project: the whole model is built; its steps are grouped (by what they use and by where their bodies are); each group is built alone (the other steps taken out of the scene); the bodies are compared.
 // Run (from app/): node --test ../prototypes/progressive/harness.test.ts      (PROJECTS=a,b to name fixtures)
@@ -142,7 +142,7 @@ test("assemblies: the bodies of a group built alone are the bodies of the whole 
   for (const m of verdict.mismatches.slice(0, 20)) console.log("# DIFF", m);
 });
 
-// ---------- v2 (`in_912`): parts with modifying steps (fillets, holes, moves): which body does a step change, and do the groups still build alone? ----------
+// ---------- v2 (`in_996`): parts with modifying steps (fillets, holes, moves): which body does a step change, and do the groups still build alone? ----------
 import { opCommand } from "../../app/src/interaction/operations.ts";
 import { drawCircle } from "../../app/src/operation/build.ts";
 

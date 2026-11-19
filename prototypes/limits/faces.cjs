@@ -1,4 +1,4 @@
-// Prototype (thrown away, `in_905`): how many faces and triangles the built app draws. Adds N worm wheels of 200 teeth (about 2600 faces, 58 thousand triangles each) and times the page's own work per frame.
+// Prototype (thrown away, `in_989`): how many faces and triangles the built app draws. Adds N worm wheels of 200 teeth (about 2600 faces, 58 thousand triangles each) and times the page's own work per frame.
 // (A headless browser draws in software: the picture's own time here is not a graphics card's; the page's JavaScript per frame is.)
 const { chromium } = require("playwright");
 (async () => {

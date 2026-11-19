@@ -18,8 +18,8 @@ const err = (s: GearSpec) => { const r = gearOutline(s); return r.ok ? "" : r.er
 test("the limits of a spiral pair say why: a small pinion, a big pair, a steep ring, the angle, the shafts", () => {
   assert.equal(err(pinion()), "");
   assert.match(err(pinion({ teeth: 12 })), /16 or more teeth/);
-  assert.match(err({ ...pinion(), teeth: 30, bevel: { mate: 40, spiral: 30 } }), /56 teeth at most between the two gears/);
-  assert.match(err({ ...pinion({ teeth: 16 }), bevel: { mate: 34, spiral: 30 } }), /2.05 to 1/);
+  assert.match(err({ ...pinion(), teeth: 30, bevel: { mate: 36, spiral: 30 } }), /64 teeth at most between the two gears/);
+  assert.match(err({ ...pinion({ teeth: 16 }), bevel: { mate: 42, spiral: 30 } }), /2.55 to 1/);
   assert.match(err({ ...pinion(), bevel: { mate: 30, spiral: 5 } }), /spiral angle must be/);
   assert.match(err({ ...pinion(), bevel: { mate: 30, spiral: 30, shaft: 80 } }), /90 degrees only/);
   assert.match(err(pinion({ pressure: 25 })), /20 degrees only/);
@@ -39,21 +39,7 @@ test("the gear command makes a spiral bevel gear: one body (the prism cut to the
   assert.equal(bodies(s).length, 1);
 });
 
-const overlapOf = (z1: number, z2: number, mod: number, turn: number, angle = 30): number => {
-  const spec = { teeth: z1, module: mod, bevel: { mate: z2, spiral: angle } } as GearSpec;
-  const src = { id: "g_001", plane: worldRef("XY"), at: [0, 0, 0] as [number, number, number], spec };
-  const p = meshWith(src, [1, 0, 0], [0, 1, 0], { teeth: z2 }, 0.3);
-  assert.ok(p.ok, p.ok ? "" : p.error);
-  const pv = p.ok ? p.value : null!;
-  let s = run(createSession(kernel), { type: "gear", id: "g_001", plane: worldRef("XY"), at: src.at, spec });
-  s = run(s, { type: "gear", id: "g_002", plane: worldRef("XY"), at: pv.at, turn: pv.turn + turn, spec: pv.spec });
-  assert.ok(!s.message, s.message ?? "");
-  const b = bodies(s);
-  assert.equal(b.length, 2);
-  const done = run(s, { type: "addStep", step: { id: "s_900", type: "combine", parts: b.map((x) => x.ref), params: { mode: "intersect" } } } as never);
-  if (/nothing in common/.test(done.message ?? "")) return 0;
-  return bodies(done).map((x) => x.volume).sort((x, y) => y - x)[0] ?? 0;
-};
+import { overlapOf } from "./helpers/spiralpair.ts";
 test("a spiral pair made by Mesh gear fits at its place and not half a pitch round (20 / 30, module 3)", () => {
   const [fit, wrong] = [overlapOf(20, 30, 3, 0), overlapOf(20, 30, 3, Math.PI / 30)];
   console.log("SPIRAL overlap", fit, wrong);
@@ -112,3 +98,4 @@ test("the user's gear (16 teeth, mate 30, module 2, 30 degrees, bore 5) is made"
   assert.deepEqual(s.outcome.errors, {});
   assert.equal(bodies(s).length, 1);
 });
+

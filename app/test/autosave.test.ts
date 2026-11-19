@@ -1,4 +1,4 @@
-// A copy of the project is kept in the browser as it is worked, and the copy of the session before is kept for a restore (`in_910`).
+// A copy of the project is kept in the browser as it is worked, and the copy of the session before is kept for a restore (`in_994`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createAutosave } from "../src/platform/autosave.ts";

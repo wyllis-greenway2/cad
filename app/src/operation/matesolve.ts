@@ -4,10 +4,12 @@
 import type { Vec3 } from "../math/vec.ts";
 import { add, sub, dot, cross, length } from "../math/vec.ts";
 import type { MateMode } from "./mates.ts";
+import type { Shape } from "./tangent.ts";
+import { tangentResiduals } from "./tangent.ts";
 import type { Rigid } from "./frames.ts";
 
 /** What a mate is about on one body: the face as a point on it and a direction (a flat face's outward normal, a round face's axis). */
-export interface SolveFeature { point: Vec3; dir: Vec3 }
+export interface SolveFeature { point: Vec3; dir: Vec3; /** a round face's radius (0: a flat one): a tangent mate needs it */ radius?: number; shape?: Shape; semi?: number }
 export interface SolveMate { id: string; mode: MateMode; gap: number; /** whether the distance counts (a parallel mate with a distance) */ counts: boolean; mover: string; other: string; a: SolveFeature; b: SolveFeature }
 export interface SolveBody { id: string; /** the point its turns are about (its middle) */ pivot: Vec3; /** the order it was made in: of bodies that only move each other the first stays */ order: number }
 /** A pose: turn (a rotation vector, radians) about the pivot, then shift. */
@@ -37,6 +39,7 @@ function residuals(m: SolveMate, a: SolveFeature, b: SolveFeature): number[] {
     case "parallel": { const c = cross(da, db); return m.counts ? [c[0], c[1], c[2], Math.abs(along) - m.gap] : [c[0], c[1], c[2]]; }
     case "parallelAxes": case "axisToFace": { const c = cross(da, db); return [c[0], c[1], c[2]]; }
     case "perpendicular": case "perpendicularAxes": return [dot(da, db)];
+    case "tangent": return tangentResiduals({ point: a.point, dir: a.dir, radius: a.radius ?? 0, ...(a.shape ? { shape: a.shape } : {}), ...(a.semi !== undefined ? { semi: a.semi } : {}) }, { point: b.point, dir: b.dir, radius: b.radius ?? 0, ...(b.shape ? { shape: b.shape } : {}), ...(b.semi !== undefined ? { semi: b.semi } : {}) }, m.gap); // (a face on another, `in_976`, `in_977`)
     case "angle": case "angleAxes": {
       const want = (m.gap * Math.PI) / 180;
       return m.gap > 90 ? [dot(da, db) - Math.cos(want)] : [dot(da, db) ** 2 - Math.cos(want) ** 2]; // (as lines up to 90, between the directions past it, `in_326`)
@@ -47,7 +50,7 @@ function residuals(m: SolveMate, a: SolveFeature, b: SolveFeature): number[] {
 const posed = (f: SolveFeature, pivot: Vec3, p: Pose | undefined): SolveFeature => {
   if (!p) return f;
   const R = rotationOf(p.turn);
-  return { point: add(add(pivot, mul(R, sub(f.point, pivot))), p.shift), dir: mul(R, f.dir) };
+  return { ...f, point: add(add(pivot, mul(R, sub(f.point, pivot))), p.shift), dir: mul(R, f.dir) };
 };
 
 /** Solve the linear system A x = b (small, dense) by Gaussian elimination with a pivot; null if singular. */

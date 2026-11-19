@@ -239,7 +239,7 @@ export function buildGraph(scene: Scene): GraphResult {
         const one = p.body ? { body: String(p.body) } : {}; // (one body of several is repeated, `in_271`)
         const turned = p.f0x !== undefined ? { frame: [[p.f0x, p.f0y, p.f0z], [p.f1x, p.f1y, p.f1z], [p.f2x, p.f2y, p.f2z]].map((r) => r.map(Number)) } : {}; // (the mover was turned: the copies run along its axes, `in_440`)
         if (p.mode === "path") { // a body repeated along a path (`dec_path_repeat`, step (c)): the places are worked out here from the path's lines, and the kernel is given them
-          const found = bodyPlaces(scene, { path: String(p.path ?? "").split(",").filter(Boolean) as Ref[], params: Array.from({ length: PATH_NUMBERS }, (_, i) => Number(p[`pr${i}`])) });
+          const found = bodyPlaces(scene, { path: String(p.path ?? "").split(",").filter(Boolean) as Ref[], params: Array.from({ length: PATH_NUMBERS }, (_, i) => Number(p[`pr${i}`] ?? 0)) });
           if (!found.ok) { errors[st.id] = found.error; break; }
           if (found.value.places.length > 200) { errors[st.id] = "that is more than 200 copies"; break; }
           ops.push({ id: xid, type: "pattern", target: prev, mode: "placed", places: found.value.places.map((q) => ({ move: q.move.map(r9), ...(q.turn ? { turn: { angle: r9(q.turn.angle), pivot: [...q.turn.pivot].map(r9), dir: [...q.turn.dir].map(r9) } } : {}) })), ...one });
@@ -291,7 +291,16 @@ export function buildGraph(scene: Scene): GraphResult {
       case "chamferBody": {
         // a gear body with its whole perimeter chamfered (`in_866`): a ruled loft through the outline inset at each face and the full outline a chamfer in, made by the kernel from the two outlines in the step (numbers: x, y and the bulge of each side, `;` between sides), a piece of its own
         const p = st.params;
-        ops.push({ id: xid, type: "chamferBody", full: String(p.full), inset: String(p.inset), edge: Number(p.edge), width: Number(p.width), bore: Number(p.bore ?? 0), wall: Number(p.wall ?? 0), origin: [Number(p.cx), Number(p.cy), Number(p.cz)], axis: [Number(p.dx), Number(p.dy), Number(p.dz)], first: [Number(p.ux), Number(p.uy), Number(p.uz)], ...(prev ? { target: prev, mode: "new" } : {}) });
+        ops.push({ id: xid, type: "chamferBody", full: String(p.full), inset: String(p.inset), edge: Number(p.edge), width: Number(p.width), bore: Number(p.bore ?? 0), wall: Number(p.wall ?? 0), origin: [Number(p.cx), Number(p.cy), Number(p.cz)], axis: [Number(p.dx), Number(p.dy), Number(p.dz)], first: [Number(p.ux), Number(p.uy), Number(p.uz)], ...(p.one !== undefined ? { one: Number(p.one) } : {}), ...(prev ? { target: prev, mode: "new" } : {}) });
+        prev = xid;
+        break;
+      }
+      case "chamferEnds": {
+        // the edges of the two end faces of a gear's body chamfered by the kernel (`in_924`): for a gear with a flat outline and teeth that are straight (a rack, a worm wheel); with `tipDir` only the edges along the tips of the teeth
+        const body = (st.parts[0] ?? "").startsWith("b/") ? st.parts[0]!.split("/")[1] : "";
+        if (!prev || !body || body === "body") { errors[st.id] = "there is no body to chamfer"; break; }
+        const p = st.params;
+        ops.push({ id: xid, type: "chamferEnds", target: prev, body, size: Number(p.size), width: Number(p.width), centre: [Number(p.cx), Number(p.cy), Number(p.cz)], axis: [Number(p.dx), Number(p.dy), Number(p.dz)], ...(p.tipDir !== undefined ? { tipDir: [Number(p.tx), Number(p.ty), Number(p.tz)], tip: Number(p.tip) } : {}) });
         prev = xid;
         break;
       }

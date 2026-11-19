@@ -9,7 +9,8 @@ import { createRecognizer } from "./interaction/recognizer.ts";
 import { mateStatus } from "./operation/mates.ts";
 import { createSession, openSession, saveText, run, scene, selection, refresh } from "./interaction/session.ts";
 import type { Session } from "./interaction/session.ts";
-import type { ReceiverValues } from "./interaction/addpart.ts";
+import type { ReceiverValues, ReceiverPlan } from "./interaction/addpart.ts";
+import { pickPlace, dragTarget } from "./interaction/holemove.ts";
 import { canExport } from "./interaction/exportstl.ts";
 import { canExportFlat } from "./interaction/exportsketch.ts";
 import { laserDialog, runLaser, findingsDialog, machineChoices, machineDialog, startValues, projectMachines, recordCommands, tableRows, rowFrom, tableDialog, layersDialog, layersCommand, whyNoLayers, marksSummary } from "./interaction/manufacture.ts";
@@ -17,7 +18,7 @@ import { parseLibrary, libraryText, saveMachine, removeMachine, saveSettings, re
 import { flatSnapshot } from "./interaction/partsnapshot.ts";
 import type { LaserValues } from "./interaction/manufacture.ts";
 import { pathRepeatTarget, pathRepeatDialog, pathRepeatCommand, pathRepeatStart, pathRepeatValuesFor } from "./interaction/pathrepeat.ts";
-import { addPartStart, addPartDialog, addPart, familyName, lengthAdviceOf, receiverStart, receiverKinds, receiverSizes, receiverContext, receiverPlan, cutReceiver, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
+import { receiverStart, receiverKinds, receiverSizes, receiverContext, receiverPlan, cutReceiver, makeHolePoints, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
 import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
 import type { ExportOptions } from "./interaction/transfer.ts";
@@ -56,6 +57,7 @@ import { createAddChip } from "./ui/addchip.ts";
 import { createPreviewBar } from "./ui/previewbar.ts";
 import { createMotionBar } from "./ui/motionbar.ts";
 import { tickMotion } from "./interaction/motion.ts";
+import { solveContact } from "./interaction/contact.ts";
 import { createChip } from "./ui/chip.ts";
 import { createSheetChips } from "./ui/sheetchips.ts";
 import { createWorldOrb } from "./ui/worldorb.ts";
@@ -65,8 +67,8 @@ import { createBodyChips } from "./ui/bodychips.ts";
 import { createGearChip } from "./ui/gearchip.ts";
 import { createControls } from "./ui/controls.ts";
 import { createGearBox } from "./ui/gearbox.ts";
-import { createHoleBar } from "./ui/holebar.ts";
-import type { HoleBarView } from "./ui/holebar.ts";
+import { createHolePanel } from "./ui/holepanel.ts";
+import type { HolePanelView } from "./ui/holepanel.ts";
 import { holesView } from "./interaction/holepreview.ts";
 import type { ToolpathView } from "./interaction/toolpathview.ts";
 import { createToolChip } from "./ui/toolchip.ts";
@@ -137,7 +139,7 @@ const notReady: Kernel = {
   exportMesh: async () => ({ ok: false, error: "the kernel has not started yet" }),
   exportStep: async () => ({ ok: false, error: "the kernel has not started yet" }),
 };
-let engine: Kernel = notReady; // the kernel in use: on its own thread when that could start (`boot`), else the one in this page (loaded only then: it is most of the app's code, `in_903`)
+let engine: Kernel = notReady; // the kernel in use: on its own thread when that could start (`boot`), else the one in this page (loaded only then: it is most of the app's code, `in_987`)
 let dirty = true;
 
 const SCROLL_KEY = "cad.scrollMode";
@@ -193,13 +195,12 @@ const ring = createRing(document.body, (id) => {
   ring.hide();
   if (id === "view:game") { input.toggleGame(); return; }
   if (id === "repeat:path") { void pathRepeatFlow(); return; } // (`dec_path_repeat`)
-  if (id === "models:fasteners") { void addPartFlow(); return; } // (Shape, Models: the dialogs are the page's, `in_812`, `in_813`)
-  if (id === "models:holes") { holesOpen(); return; } // (the tool is a panel and a preview in the model view, `dec_parts_tool`)
+  if (id === "tool:fasteners") { holesOpen(); return; } // (the tool is a panel and a preview in the model view, `dec_parts_tool`)
   dispatch({ type: "runAction", id });
 }, (id) => dispatch({ type: "runAction", id: `why:${id}` })); // (a dimmed option pressed: its reason is said and the ring stays, `in_538`)
 
 const hintIcons = createHints(document.body);
-const autosave = createAutosave(typeof localStorage === "undefined" ? null : localStorage); // (a copy of the project as it is worked, and of the session before: a crash does not lose it, `in_910`)
+const autosave = createAutosave(typeof localStorage === "undefined" ? null : localStorage); // (a copy of the project as it is worked, and of the session before: a crash does not lose it, `in_994`)
 const sections = createWarmer(); // (a wheel's sections are worked out in a thread of their own, `in_899`)
 const standLabels = createStandInLabels(document.body); // (the words on the discs that stand for gear bodies not made yet, `in_847`)
 let lastStandSecs: number | null = null;
@@ -236,7 +237,7 @@ let tilt: [number, number] = [0, 0]; // (how far the view has been tilted to loo
 let ringAnchor: Vec3 | null = null; // (where a ring opened in game mode stands in the world)
 const inGame = (): boolean => recognizer.game && document.pointerLockElement !== null;
 let panesFading = false; // (the world panes are fading in or out: keep drawing, `in_442`)
-/** Bring back the copy of the session before this one (`in_910`). */
+/** Bring back the copy of the session before this one (`in_994`). */
 async function restoreLast() {
   const kept = autosave.previous();
   if (!kept) return say("no copy of an earlier session was kept in this browser");
@@ -284,16 +285,6 @@ async function exportDialogFlow() {
   webFiles.saveBytes(r.name, r.bytes, r.mime);
   say(r.message);
 }
-/** Add part (`dec_parts_interface`, `in_745`): the family, size and length asked for; the part is drawn at the origin as ordinary steps (a hex nut, a countersunk screw), one step to undo. */
-async function addPartFlow() {
-  const answers = await dialog.open((v) => addPartDialog(v as unknown as ReturnType<typeof addPartStart>), addPartStart() as unknown as Values);
-  if (!answers) return;
-  const r = addPart(state.session, answers as unknown as ReturnType<typeof addPartStart>);
-  if (!r.ok) return say(r.error);
-  state = { ...state, session: r.value };
-  dirty = true;
-  say(`added: ${answers.size} ${familyName(String(answers.family))}, at the origin${lengthAdviceOf(answers as unknown as ReturnType<typeof addPartStart>) ? ` (${lengthAdviceOf(answers as unknown as ReturnType<typeof addPartStart>)})` : ""}`);
-}
 /** Path repeat (`dec_path_repeat`, `in_843`): the figure and the lines of the path selected, a dialog for the rules (with a picture of where the copies stand), and the repeat made (or the rules of the one selected changed). */
 async function pathRepeatFlow() {
   const t = pathRepeatTarget(state.session);
@@ -315,28 +306,53 @@ async function pathRepeatFlow() {
  */
 let hardware: { values: ReceiverValues } | null = null;
 let holesKey = "";
-let holesNow: { bar: HoleBarView; view: ToolpathView | null } | null = null;
+let holesNow: { bar: HolePanelView; view: ToolpathView | null } | null = null;
+let holesPlan: ReceiverPlan | null = null; // (the holes the pointer can pick up and move, `in_965`)
+let holesDrag: number | null = null;
+let holesMovesFor = ""; // (the selection the moved holes belong to)
 let lastHolesScene: ReturnType<typeof scene> | null = null;
-const holeBar = createHoleBar(document.body, {
-  change(v) { if (hardware) { hardware = { values: { ...hardware.values, ...v } }; holesKey = ""; dirty = true; } },
+const holeBar = createHolePanel(document.body, {
+  change(v) {
+    if (!hardware) return;
+    const before = hardware.values as unknown as Record<string, unknown>;
+    const rowKeys = ["by", "value", "ends", "corners", "offset", "shift", "rows", "rowCount", "rowGap"]; // (what makes the row: a hole moved by hand is kept only while it stays)
+    const changed = rowKeys.some((k) => k in v && (v as unknown as Record<string, unknown>)[k] !== before[k]);
+    hardware = { values: { ...hardware.values, ...v, ...(changed ? { moved: {} } : {}) } };
+    holesKey = ""; dirty = true;
+  },
   commit() { holesCut(); },
   close() { holesClose(); },
+  points() { holesPoints(); },
 });
 function holesOpen(): void {
   if (hardware) return;
   hardware = { values: receiverStart() };
   holesKey = "";
+  holesPlan = null; holesDrag = null;
   dirty = true;
 }
-function holesClose(): void { hardware = null; holesKey = ""; holesNow = null; holeBar.update(null); dirty = true; }
+function holesClose(): void { hardware = null; holesPlan = null; holesDrag = null; holesKey = ""; holesNow = null; holeBar.update(null); dirty = true; }
 /** What the selection says for the holes: a line (or lines) selected: along them; a face: along its outline moved in by the inset; corners or circles picked: at them; nothing usable yet: say what to select. */
-function holesValues(): { values: ReceiverValues; mode: HoleBarView["mode"] } {
+function holesValues(): { values: ReceiverValues; mode: HolePanelView["mode"] } {
   const ctx = receiverContext(state.session);
-  const v = hardware!.values;
+  const v = hardware!.values.kind === "tapped" || hardware!.values.kind === "nutPocket" || hardware!.values.kind === "drillTap" ? { ...hardware!.values, far: "none" } : hardware!.values; // (a nut on the far side goes with a hole right through)
   if (!ctx) return { values: v, mode: "none" };
   if (ctx.places) return { values: { ...v, place: "picked" }, mode: "picked" };
   if (ctx.lines) return { values: { ...v, place: "lines", corners: "ignore" }, mode: "line" }; // (a line has no corners to keep: its ends are its ends)
-  return { values: { ...v, place: "outline" }, mode: "face" };
+  // a face: the lines its edges give (`in_958`): the edges stepped in, or one edge stepped in (an edge selected with the face, else the longest), or that edge stepped in to the middle of the face
+  const rows = v.rows === "edge" || v.rows === "midline" || v.rows === "outline" ? v.rows : ctx.edges ? "edge" : "auto";
+  return { values: { ...v, place: rows, ...(v.by === "count" && v.corners === "inward" ? { corners: "each" } : {}) }, mode: "face" }; // (counting the holes with a hole at every corner: the corners are some of the count; working in from the corners needs a distance)
+}
+/** Points at the holes, selected with the face, so that the move tools can place them exactly (`in_980`). */
+function holesPoints(): void {
+  if (!hardware) return;
+  const { values } = holesValues();
+  const r = makeHolePoints(state.session, values);
+  if (!r.ok) return say(r.error);
+  state = { ...state, session: r.value };
+  holesKey = "";
+  dirty = true;
+  say("points made at the holes: move them with the move tools, and the holes follow them");
 }
 function holesCut(): void {
   if (!hardware) return;
@@ -350,18 +366,22 @@ function holesCut(): void {
   say(`cut: ${values.size} ${String(values.kind)}${places > 1 ? ` at ${places} places` : ""}`);
 }
 /** The bar and the preview for the selection and the numbers as they are, made again only when one of them changes. */
-function holesOptions(): { bar: HoleBarView; view: ToolpathView | null } {
+function holesOptions(): { bar: HolePanelView; view: ToolpathView | null } {
   const session = state.session;
   const sc = scene(session);
   const key = `${selection(session).join(",")}|${JSON.stringify(hardware?.values)}`;
   if (holesNow && key === holesKey && lastHolesScene === sc) return holesNow;
   const { values, mode } = holesValues();
-  const plan = mode === "none" ? null : receiverPlan(session, values);
-  const problem = mode === "none" ? "select a flat face of a body, or a line drawn on one" : plan && !plan.ok ? plan.error : null;
-  const note = plan?.ok ? `${plan.value.places.length} hole${plan.value.places.length === 1 ? "" : "s"}${plan.value.spacing !== null ? `, ${Math.round(plan.value.spacing * 100) / 100} mm apart` : ""}` : "";
+  const sel = selection(session).join(",");
+  if (hardware && holesMovesFor !== sel) { holesMovesFor = sel; if (Object.keys(hardware.values.moved ?? {}).length) hardware = { values: { ...hardware.values, moved: {} } }; } // (another selection: the holes moved by hand are let go)
+  const plan = mode === "none" ? null : receiverPlan(session, { ...values, ...(hardware ? { moved: hardware.values.moved } : {}) });
+  holesPlan = plan?.ok ? plan.value : null;
+  const problem = mode !== "none" && plan && !plan.ok ? plan.error : null; // (nothing selected is not an error: it is said in the plain line below)
+  const none = receiverContext(session)?.curved ? "Select a line drawn across the round face, or corners and circles on it, for the next holes." : "Select a flat face of a body (or a line drawn on one) for the next holes.";
+  const note = mode === "none" ? none : plan?.ok ? `${plan.value.places.length} hole${plan.value.places.length === 1 ? "" : "s"}${plan.value.spacing !== null ? `, ${Math.round(plan.value.spacing * 100) / 100} mm apart` : ""}${plan.value.auto ? `. Automatic: ${plan.value.auto}` : plan.value.insetUsed !== undefined ? `. The inset is cut down to ${plan.value.insetUsed} mm: the face is too small for ${values.offset} mm` : ""}${plan.value.insert?.screw ? `. Screw ${values.size} x ${plan.value.insert.screw.length} mm: ${plan.value.insert.screw.length > plan.value.insert.screw.room + 1e-9 ? "the shortest standard length that reaches through" : "the longest standard length that fits"} the ${plan.value.insert.screw.room} mm the hole has` : ""}` : "";
   const v = hardware!.values;
   holesNow = {
-    bar: { kinds: receiverKinds(), sizes: receiverSizes(), values: { kind: v.kind, size: v.size, by: v.by ?? "distance", value: v.value ?? "30", ends: v.ends ?? "fit", corners: v.corners ?? "each", offset: v.offset ?? "10", depth: v.depth }, mode, note, problem },
+    bar: { kinds: receiverKinds(), sizes: receiverSizes(), values: { kind: v.kind, size: v.size, by: v.by ?? "distance", value: v.value ?? "30", ends: v.ends ?? "fit", corners: v.corners ?? "each", offset: v.offset ?? "10", shift: v.shift ?? "0", depth: v.depth, far: v.far ?? "none", rows: v.rows ?? "auto", rowCount: v.rowCount ?? "1", rowGap: v.rowGap ?? "8", drill: v.drill ?? "", insert: v.insert ?? "none", length: v.length ?? "" }, mode, round: !!receiverContext(session)?.curved, ...(plan?.ok ? { reach: { body: plan.value.reach, stack: plan.value.stack } } : {}), note, problem },
     view: plan?.ok ? holesView(plan.value) : null,
   };
   holesKey = key;
@@ -518,8 +538,29 @@ function dispatch(i: Intent, again = false) {
 }
 // which kind of device was used last: a laptop can have a mouse and a touch screen, so it is the event itself that says, not the machine (`in_160`)
 let lastDevice: "mouse" | "touch" | "pen" = "mouse";
+/** A hole of the fastener tool's preview picked up with the pointer and moved over the surface (`in_965`); true when the pointer's event was for it and the view is not to have it. */
+function holesPointer(raw: { kind: string; x?: number; y?: number }): boolean {
+  if (!hardware || !holesPlan || dialog.isOpen) return false;
+  const [x, y] = [raw.x ?? 0, raw.y ?? 0];
+  const pj = projector(state.cam, view.size().w, view.size().h);
+  if (raw.kind === "down") {
+    const i = pickPlace(holesPlan, pj.project, x, y);
+    if (i < 0) return false;
+    holesDrag = i;
+    return true;
+  }
+  if (holesDrag === null) return false;
+  if (raw.kind === "move") {
+    const t = dragTarget(holesPlan, holesDrag, pj.ray(x, y));
+    if (t) { hardware = { values: { ...hardware.values, moved: { ...(hardware.values.moved ?? {}), [holesDrag]: t } } }; holesKey = ""; dirty = true; }
+    return true;
+  }
+  if (raw.kind === "up" || raw.kind === "cancel") { holesDrag = null; return true; }
+  return false;
+}
 bus.on("input", (raw) => {
   if ("device" in raw && raw.device !== lastDevice) { lastDevice = raw.device; dirty = true; }
+  if ((raw.kind === "down" || raw.kind === "move" || raw.kind === "up" || raw.kind === "cancel") && holesPointer(raw)) return; // (a previewed hole moved by hand is not a click or a drag of the view)
   const escRing = raw.kind === "key" && raw.key === "Escape" && raw.down && ring.open;
   for (const i of recognizer.feed(raw)) dispatch(i);
   // Esc ends the ring too: in game mode the key leaves the game and sends no intent of its own, so the ring would stay up (`in_542`)
@@ -558,7 +599,7 @@ async function boot() {
     session = run(session, { type: "addStep", step: { id: nextId(scene(session), "s"), type: "extrude", parts: r.lines, params: { depth: 20 } } });
   }
   state = createState(session);
-  { const kept = autosave.previous(); if (kept) say(`a copy of your last session was kept (${kept.steps} steps, ${Math.max(1, Math.round((Date.now() - kept.savedAt) / 60000))} min ago): ⋯ then Restore session`); } // (`in_910`)
+  { const kept = autosave.previous(); if (kept) say(`a copy of your last session was kept (${kept.steps} steps, ${Math.max(1, Math.round((Date.now() - kept.savedAt) / 60000))} min ago): ⋯ then Restore session`); } // (`in_994`)
   // a hook for scripted checks in a browser (not used by the app)
   (window as unknown as { __cad: unknown }).__cad = {
     get state() { return state; },
@@ -582,10 +623,10 @@ let keptHistory: unknown = null;
 function frame(now: number) {
   const tStart = performance.now();
   engine.eye = [...position(state.cam)] as [number, number, number]; // (the kernel makes a model of many parts apart nearest the eye first, `dec_progressive_open`)
-  if (state.session.history !== keptHistory) { keptHistory = state.session.history; const h = state.session.history; autosave.remember(() => saveText(state.session), h.commands.length, (why) => say(why)); } // (a moment after the last change, `in_910`)
+  if (state.session.history !== keptHistory) { keptHistory = state.session.history; const h = state.session.history; autosave.remember(() => saveText(state.session), h.commands.length, (why) => say(why)); } // (a moment after the last change, `in_994`)
   if (drawnAt !== null) { timing.add("browser: from a drawn frame to the next one (commit, the graphics card, the screen's refresh)", tStart - drawnAt); drawnAt = null; }
   if (state.anim || state.flash || state.mixT0 !== null) { state = advance(state, now); dirty = true; }
-  if (state.motion?.playing) { state = { ...state, motion: tickMotion(state.motion, now) }; dirty = true; } // (a joint that is being played: the clock moves it on, and the picture is made again every frame, `dec_mechanism_motion`)
+  if (state.motion?.playing) { state = { ...state, motion: solveContact(scene(state.session), tickMotion(state.motion, now), state.session.outcome) }; dirty = true; } // (a joint that is being played: the clock moves it on, and the picture is made again every frame, `dec_mechanism_motion`)
   const spreading = state.spread && now - state.spread.startMs < settings.orb.fillMs + 50;
   if (dirty || spreading || state.flash) {
     const size = view.size();
@@ -612,7 +653,7 @@ function frame(now: number) {
     const shownSecs = standLabels.update(f.standIns.filter((d) => !d.box).map((d) => onPageAt([d.centre[0] + d.normal[0] * d.depth / 2, d.centre[1] + d.normal[1] * d.depth / 2, d.centre[2] + d.normal[2] * d.depth / 2])), waitSecs, standShown); // (the label on each disc, and its seconds, `in_847`)
     if (shownSecs !== null && shownSecs !== lastStandSecs) { lastStandSecs = shownSecs; dirty = true; }
     if (buildStats.runs !== buildsBefore) { timing.add("geometry: built again (buildContent)", buildStats.totalMs); timing.add("geometry: of it the sharp edges (cornerEdges)", buildStats.cornersMs); timing.add("geometry: triangles built", buildStats.triangles); }
-    view.setBodyMatrix(f.bodyMatrix, f.selectionMoves, f.bodySplit, f.followers.map((q) => ({ matrix: q.matrix, only: q.split })));
+    view.setBodyMatrix(f.bodyMatrix, f.selectionMoves, f.bodySplit, f.followers.map((q) => ({ matrix: q.matrix, only: q.split })), f.selectionMatrix);
     view.setHiddenEdges(f.hiddenEdges);
     view.setHighlight(f.highlight, state.cam, now);
     view.setPreview(f.preview, state.cam);

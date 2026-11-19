@@ -131,7 +131,7 @@ test("bad numbers are refused with a reason", () => {
   assert.ok(!placeAlong(line(100), { spacing: { by: "count", count: 0 } }).ok);
   assert.ok(!placeAlong(line(100), { spacing: { by: "count", count: 2.5 } }).ok);
   assert.ok(!placeAlong(line(100), { spacing: { by: "distance", distance: NaN } }).ok);
-  const e = placeAlong(rect(100, 60), { spacing: { by: "count", count: 3 }, corners: "each" });
+  const e = placeAlong(rect(100, 60), { spacing: { by: "count", count: 3 }, corners: "inward" });
   assert.ok(!e.ok && e.error.includes("distance"));
   assert.ok(!placeAlong({ segs: [{ a: [0, 0], b: [10, 0], bulge: 0 }, { a: [11, 0], b: [20, 0], bulge: 0 }], closed: false }, { spacing: { by: "count", count: 2 } }).ok, "sides that do not meet");
   assert.ok(!placeAlong({ segs: [], closed: false }, { spacing: { by: "count", count: 2 } }).ok);
@@ -143,4 +143,53 @@ test("a frame lifted onto a plane in space carries the point and the two ways", 
   assert.deepEqual(l.at.map((x) => Math.round(x * 1e6) / 1e6), [5, 15, 5]);
   assert.deepEqual(l.along.map((x) => Math.round(x * 1e6) / 1e6), [0, 1, 0]);
   assert.deepEqual(l.across.map((x) => Math.round(x * 1e6) / 1e6), [0, 0, 1]);
+});
+
+// ---- walking the row along the path (`in_909`) ----
+test("a shift walks the whole row along an open line: the places move together, and those that go past an end are left out", () => {
+  const base = placeAlong(line(100), { spacing: { by: "distance", distance: 20 }, ends: "remainder" });
+  assert.deepEqual(ss(base), [0, 20, 40, 60, 80, 100]);
+  assert.deepEqual(ss(placeAlong(line(100), { spacing: { by: "distance", distance: 20 }, ends: "remainder", shift: 7 })), [7, 27, 47, 67, 87]);
+  assert.deepEqual(ss(placeAlong(line(100), { spacing: { by: "distance", distance: 20 }, ends: "remainder", shift: -7 })), [13, 33, 53, 73, 93]);
+  assert.ok(!placeAlong(line(100), { spacing: { by: "count", count: 2 }, shift: 500 }).ok);
+  assert.ok(!placeAlong(line(100), { spacing: { by: "count", count: 2 }, shift: NaN }).ok);
+});
+test("on a closed loop a shift turns the places round it, none is lost, and the spacing stays", () => {
+  const closed = placeAlong(rect(100, 60), { spacing: { by: "count", count: 8 }, shift: 10 });
+  assert.ok(closed.ok);
+  assert.deepEqual(closed.value.frames.map((f) => Math.round(f.s)), [10, 50, 90, 130, 170, 210, 250, 290]);
+  const round = placeAlong(rect(100, 60), { spacing: { by: "count", count: 8 }, shift: 315 });
+  assert.ok(round.ok);
+  assert.deepEqual(round.value.frames.map((f) => Math.round(f.s)), [315, 35, 75, 115, 155, 195, 235, 275]);
+  assert.equal(round.value.frames.length, 8);
+  // a circle: the first place moves round by the angle of the shift
+  const c = placeAlong(circlePath([0, 0], 10), { spacing: { by: "count", count: 4 }, shift: (Math.PI * 10) / 2 });
+  assert.ok(c.ok);
+  nearPt(c.value.frames[0]!.at, [0, 10], 1e-6);
+});
+test("the shift is one of the numbers a repeat keeps, and a record made before it reads as no shift", async () => {
+  const { numbersOf, rulesFrom, PATH_NUMBERS } = await import("../src/operation/pathrepeat.ts");
+  assert.equal(PATH_NUMBERS, 10);
+  const n = numbersOf({ rules: { spacing: { by: "distance", distance: 20 }, ends: "fit", corners: "each", offset: 3, shift: 4 }, turn: true, reverse: false });
+  assert.equal(n.length, 10);
+  assert.equal(n[9], 4);
+  const back = rulesFrom(n);
+  assert.ok(back.ok && back.value.rules.shift === 4);
+  const old = rulesFrom(n.slice(0, 9));
+  assert.ok(old.ok && old.value.rules.shift === 0);
+});
+
+// ---- a count with a hole at every corner (`in_945`) ----
+test("a count with every corner: the corners are part of the count and the rest are shared out between the sides by their length", () => {
+  const rect: Path = { closed: true, segs: [{ a: [0, 0], b: [40, 0], bulge: 0 }, { a: [40, 0], b: [40, 20], bulge: 0 }, { a: [40, 20], b: [0, 20], bulge: 0 }, { a: [0, 20], b: [0, 0], bulge: 0 }] };
+  const r = placeAlong(rect, { spacing: { by: "count", count: 10 }, corners: "each" });
+  assert.ok(r.ok, r.ok ? "" : r.error);
+  if (!r.ok) return;
+  assert.equal(r.value.frames.length, 10); // (4 corners and 6 more: the long sides take two each, the short ones one each)
+  const at = (x: number, y: number) => r.value.frames.some((f) => Math.hypot(f.at[0] - x, f.at[1] - y) < 1e-6);
+  for (const [x, y] of [[0, 0], [40, 0], [40, 20], [0, 20]] as const) assert.ok(at(x, y));
+  assert.ok(at(40 / 3, 0) && at(80 / 3, 0) && at(40, 10) && at(0, 10));
+  const few = placeAlong(rect, { spacing: { by: "count", count: 3 }, corners: "each" });
+  assert.ok(!few.ok && few.error.includes("at least"));
+  assert.ok(!placeAlong(rect, { spacing: { by: "count", count: 8 }, corners: "inward" }).ok);
 });

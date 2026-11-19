@@ -1,4 +1,4 @@
-// A body moved among others keeps the names of all its faces and the others keep theirs (`in_912`): the names were left where they were whenever one body of several was moved, so the faces that stand across the motion lost theirs.
+// A body moved among others keeps the names of all its faces and the others keep theirs (`in_996`): the names were left where they were whenever one body of several was moved, so the faces that stand across the motion lost theirs.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

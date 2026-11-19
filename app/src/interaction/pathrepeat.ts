@@ -21,8 +21,8 @@ import { scene as sceneOf, selection as selectionOf } from "./session.ts";
 import type { Dialog, Field } from "./transfer.ts";
 import { pathPicture } from "./pathdrawing.ts";
 
-export interface PathRepeatValues { by: string; value: string; ends: string; startInset: string; endInset: string; corners: string; offset: string; turn: string; reverse: string }
-export const pathRepeatStart = (): PathRepeatValues => ({ by: "distance", value: "20", ends: "fit", startInset: "0", endInset: "0", corners: "ignore", offset: "0", turn: "keep", reverse: "start" });
+export interface PathRepeatValues { by: string; value: string; ends: string; startInset: string; endInset: string; corners: string; offset: string; turn: string; reverse: string; /** the whole row walked along the path (`in_909`), mm */ shift?: string }
+export const pathRepeatStart = (): PathRepeatValues => ({ by: "distance", value: "20", ends: "fit", startInset: "0", endInset: "0", corners: "ignore", offset: "0", turn: "keep", reverse: "start", shift: "0" });
 const fmt = (n: number): string => String(Math.round(n * 1000) / 1000);
 
 /** What the selection says: the figure to repeat (the parts of the faces selected), the lines and arcs of the path (selected lines that are not the figure's own), the plane, and, when a repeat that is there is selected, that one to change. */
@@ -74,7 +74,7 @@ export function pathRepeatValuesOf(rec: { params: readonly number[] }): PathRepe
   const n = rulesFrom(rec.params);
   if (!n.ok) return pathRepeatStart();
   const r = n.value.rules;
-  return { by: r.spacing.by, value: fmt(r.spacing.by === "count" ? r.spacing.count : r.spacing.distance), ends: r.ends ?? "fit", startInset: fmt(r.startInset ?? 0), endInset: fmt(r.endInset ?? 0), corners: r.corners ?? "ignore", offset: fmt(r.offset ?? 0), turn: n.value.turn ? "turn" : "keep", reverse: n.value.reverse ? "other" : "start" };
+  return { by: r.spacing.by, value: fmt(r.spacing.by === "count" ? r.spacing.count : r.spacing.distance), ends: r.ends ?? "fit", startInset: fmt(r.startInset ?? 0), endInset: fmt(r.endInset ?? 0), corners: r.corners ?? "ignore", offset: fmt(r.offset ?? 0), shift: fmt(r.shift ?? 0), turn: n.value.turn ? "turn" : "keep", reverse: n.value.reverse ? "other" : "start" };
 }
 
 /** The rules typed, or why they are not any. */
@@ -82,11 +82,12 @@ export function pathRepeatNumbers(v: PathRepeatValues): Result<RepeatNumbers> {
   const by = v.by === "count" ? "count" : "distance";
   const value = by === "count" ? typedNumber(v.value) : typedLength(v.value);
   const [i0, i1, off] = [typedLength(v.startInset === "" ? "0" : v.startInset), typedLength(v.endInset === "" ? "0" : v.endInset), typedLength(v.offset === "" ? "0" : v.offset)];
+  const shift = typedLength((v.shift ?? "") === "" ? "0" : v.shift!);
   if (value === null) return err(by === "count" ? "type how many copies, a whole number" : "type the distance between copies as a number");
-  if (i0 === null || i1 === null || off === null) return err("type the insets and the offset as numbers");
+  if (i0 === null || i1 === null || off === null || shift === null) return err("type the insets, the offset and the shift as numbers");
   const ends = v.ends === "remainder" || v.ends === "centre" ? v.ends : "fit";
   const corners = v.corners === "each" || v.corners === "inward" ? v.corners : "ignore";
-  const rules: Rules = { spacing: by === "count" ? { by, count: value } : { by, distance: value }, ends, startInset: i0, endInset: i1, corners, offset: off };
+  const rules: Rules = { spacing: by === "count" ? { by, count: value } : { by, distance: value }, ends, startInset: i0, endInset: i1, corners, offset: off, shift };
   return ok({ rules, turn: v.turn === "turn", reverse: v.reverse === "other" });
 }
 
@@ -108,9 +109,10 @@ export function pathRuleFields(v: PathRepeatValues, path: Result<Path> | null, w
       { id: "by", label: "Spacing", type: "choice", layout: "chips", value: by, choices: [{ value: "distance", label: "A distance apart" }, { value: "count", label: what === "hole" ? "A number, equally divided" : "A number, equally divided" }] },
       { id: "value", label: by === "count" ? (what === "hole" ? "How many holes" : `How many (the ${what} itself is one)`) : (what === "hole" ? "Distance between holes (mm)" : "Distance between copies (mm)"), type: "text", value: v.value },
       ...(by === "distance" && v.corners === "ignore" ? [{ id: "ends", label: "At the end of the path", type: "choice" as const, layout: "chips" as const, value: v.ends === "remainder" || v.ends === "centre" ? v.ends : "fit", choices: [{ value: "fit", label: "Adjust the spacing to land on the end" }, { value: "remainder", label: "Leave the rest at the end" }, { value: "centre", label: "Centre them" }] }] : []),
-      { id: "corners", label: "Corners", type: "choice", layout: "chips", value: v.corners === "each" || v.corners === "inward" ? v.corners : "ignore", choices: [{ value: "ignore", label: "Not special" }, { value: "each", label: what === "hole" ? "A hole at every corner, each side divided" : "A copy at every corner, each side divided" }, { value: "inward", label: "Work in from each corner" }], note: by === "count" && v.corners !== "ignore" ? "a rule for the corners needs a distance, not a number" : "" },
+      { id: "corners", label: "Corners", type: "choice", layout: "chips", value: v.corners === "each" || v.corners === "inward" ? v.corners : "ignore", choices: [{ value: "ignore", label: "Not special" }, { value: "each", label: what === "hole" ? "A hole at every corner, each side divided" : "A copy at every corner, each side divided" }, { value: "inward", label: "Work in from each corner" }], note: by === "count" && v.corners === "inward" ? "working in from the corners needs a distance, not a number" : "" },
       ...(!closed && v.corners === "ignore" ? [{ id: "startInset", label: what === "hole" ? "First hole this far from the start (mm)" : "First copy this far from the start (mm)", type: "text" as const, value: v.startInset }, { id: "endInset", label: what === "hole" ? "Last hole this far from the end (mm)" : "Last copy this far from the end (mm)", type: "text" as const, value: v.endInset }] : []),
       { id: "offset", label: what === "hole" ? "Move the path in from the edge (mm; a negative number goes out)" : "Offset the path sideways (mm; to its left, a negative number to the right)", type: "text", value: v.offset, note: "for an outline drawn counter-clockwise, the left is the inside" },
+      { id: "shift", label: closed ? "Walk them round the loop (mm)" : "Shift them along the line (mm)", type: "text", value: v.shift ?? "0", note: closed ? "turns every place round the path, as far as typed" : "moves the whole row along the line; a place that goes past an end is left out" },
     ],
   };
 }

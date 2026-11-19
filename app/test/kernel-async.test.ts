@@ -109,3 +109,23 @@ test("an export is asked of the worker apart from the screen's jobs, each is ans
   f.say({ id: f.sent[2]!.id, failed: "boom" });
   assert.deepEqual(await two, { ok: false, error: "boom" });
 });
+
+test("what is shown while the answer is awaited is not a picture of what was deleted (`in_951`): the body of a step the new graph no longer has is not shown, and a scene with no steps makes the next picture start empty", async () => {
+  const f = fake();
+  const k = createAsyncKernel(() => {}, f.w);
+  f.say({ ready: true });
+  await k.init();
+  const two = { params: {}, ops: [{ id: "x_s_1", type: "x" }, { id: "x_s_2", type: "x" }] } as KernelGraph;
+  const withBodies = (volume: number, ids: string[]): KernelResult => ({ ...result(volume), bodies: ids.map((id) => ({ id })) as never });
+  k.evaluate(two);
+  f.say({ id: f.sent[0]!.id, result: withBodies(7, ["x_s_1", "x_s_2"]) });
+  const one = { params: {}, ops: [{ id: "x_s_1", type: "x" }] } as KernelGraph;
+  const during = k.evaluate(one);
+  assert.equal(during.stale, true);
+  assert.equal(during.volume, null, "the second gear was deleted: its body is not drawn while the answer is awaited");
+  f.say({ id: f.sent[1]!.id, result: withBodies(3, ["x_s_1"]) });
+  const more = { params: {}, ops: [{ id: "x_s_1", type: "x" }, { id: "x_s_9", type: "x" }] } as KernelGraph;
+  assert.equal(k.evaluate(more).volume, 3, "a body that is still made is shown, as before");
+  k.clear?.();
+  assert.equal(k.evaluate({ params: {}, ops: [{ id: "x_s_20", type: "x" }] } as KernelGraph).volume, null, "after nothing was made, the last picture is forgotten");
+});

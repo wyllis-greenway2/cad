@@ -1230,7 +1230,7 @@ const OPS = {
     axis[op.axis] = 1;
     const again = (moved) => (one ? makeCompound([...one.rest, moved]) : moved);
     const only = one ? op.body : null;
-    const was = one ? quickBox(t) : undefined; // (where the body stood: the names of its faces move with it and no other body's do, `in_912`)
+    const was = one ? quickBox(t) : undefined; // (where the body stood: the names of its faces move with it and no other body's do, `in_996`)
     // (a move by a vector, from dragging the body free, `in_291`: `op.vec`; else along one axis)
     if (op.mode === "move") { const by = op.vec ?? axis.map((a) => a * v); return { kind: "solid", shape: again(t.translate(by)), tf: { mode: "move", axis: op.axis, v, vec: op.vec, only, box: was } }; }
     if (op.mode === "rotate") { const pivot = op.pivot ?? middle(); const about = op.dir ?? axis; return { kind: "solid", shape: again(t.rotate(v, pivot, about)), tf: { mode: "rotate", axis: op.axis, dir: op.dir, v, pivot, only, box: was } }; } // (`op.dir`: a turn about any axis, `in_417`)
@@ -1340,19 +1340,24 @@ const OPS = {
       return makeThreePointArc(at(a[0], a[1], h), at((a[0] + b[0]) / 2 - dy * k, (a[1] + b[1]) / 2 + dx * k, h), at(b[0], b[1], h));
     }));
     const circle = (r, h) => assembleWire([makeCircle(r, at(0, 0, h), n)]);
-    const heights = [0, c, W - c, W];
     const [full, inset] = [parse(op.full), parse(op.inset)];
-    const sections = [inset, full, full, inset];
+    // `one`: 1 chamfers only the top face and -1 only the bottom one (a worm wheel's land: its other face is where it joins the throated part, `in_935`); 0 both
+    const one = op.one ?? 0;
+    const [botC, topC] = [one <= 0, one >= 0];
+    const marks = [...(botC ? [[0, true], [c, false]] : [[0, false]]), ...(topC ? [[W - c, false], [W, true]] : [[W, false]])]; // (the height of each section and whether it is the inset one)
+    const heights = marks.map((m) => m[0]);
+    const sections = marks.map((m) => (m[1] ? inset : full));
+    const last = heights.length - 1;
     const ring = op.wall > 0;
-    const outer = ring ? loft([op.wall - c, op.wall, op.wall, op.wall - c].map((r, i) => circle(r, heights[i])), { ruled: true }, true) : loft(sections.map((s, i) => wireOf(s, heights[i])), { ruled: true }, true);
-    const holes = ring ? sections.map((s, i) => wireOf(s, heights[i])) : op.bore > 0 ? [op.bore / 2 + c, op.bore / 2, op.bore / 2, op.bore / 2 + c].map((r, i) => circle(r, heights[i])) : null;
-    const capOuter = (k) => (ring ? circle(op.wall - c, heights[k]) : wireOf(inset, heights[k]));
+    const outer = ring ? loft(marks.map((m, i) => circle(m[1] ? op.wall - c : op.wall, heights[i])), { ruled: true }, true) : loft(sections.map((s, i) => wireOf(s, heights[i])), { ruled: true }, true);
+    const holes = ring ? sections.map((s, i) => wireOf(s, heights[i])) : op.bore > 0 ? marks.map((m, i) => circle(op.bore / 2 + (m[1] ? c : 0), heights[i])) : null;
+    const capOuter = (k) => (ring ? circle(marks[k][1] ? op.wall - c : op.wall, heights[k]) : wireOf(sections[k], heights[k]));
     const faces = [outer];
     if (holes) {
       const inner = loft(holes, { ruled: true }, true);
       faces.push(cast(inner.wrapped.Reversed()));
-      for (const k of [0, 3]) faces.push(addHolesInFace(makeFace(capOuter(k)), [ring ? wireOf(inset, heights[k]) : holes[k]]));
-    } else for (const k of [0, 3]) faces.push(makeFace(capOuter(k)));
+      for (const k of [0, last]) faces.push(addHolesInFace(makeFace(capOuter(k)), [ring ? wireOf(sections[k], heights[k]) : holes[k]]));
+    } else for (const k of [0, last]) faces.push(makeFace(capOuter(k)));
     const solid = makeSolid(faces);
     if (!isValidSolid(solid) || !(volume(solid) > 1e-9)) throw new Error("the edge chamfer could not be made at this size: a smaller chamfer");
     const targetValue = op.target ? ctx.peek(op.target, "solid") : null;
@@ -1389,6 +1394,28 @@ const OPS = {
       }
     }
     const made = body.cut(makeCompound(pieces));
+    return { kind: "solid", shape: found ? makeCompound([...found.rest, ...lumpsOf(made)]) : made, first: op.body };
+  },
+
+  /**
+   * The edges of the two end faces of a gear's body chamfered by the kernel (`in_924`): the faces across `axis`, the first at `centre` and the second `width` along it. With `tipDir` and `tip`, only the edges that lie along the tips of the
+   * teeth (all their points `tip` from `centre` in that direction: a rack's). The kernel's chamfer takes a time that grows faster than the number of faces (`prototypes/perimeter-chamfer`): it is for a few teeth (a rack), or the wheel's end faces.
+   */
+  chamferEnds(op, ctx) {
+    const t = ctx.get(op.target, "solid");
+    const found = (t.markers?.length ?? 0) > 1 ? lumpsByName(t.shape, t.markers, [op.body]) : null;
+    const body = found ? found.picked[0] : t.shape;
+    const l = Math.hypot(...op.axis) || 1;
+    const n = op.axis.map((x) => x / l);
+    const along = (p, d) => (p.x - op.centre[0]) * d[0] + (p.y - op.centre[1]) * d[1] + (p.z - op.centre[2]) * d[2];
+    const td = op.tipDir ? (() => { const m = Math.hypot(...op.tipDir) || 1; return op.tipDir.map((x) => x / m); })() : null;
+    const wanted = (e) => {
+      const pts = [e.startPoint, e.endPoint];
+      if (!(pts.every((p) => Math.abs(along(p, n)) < 1e-3) || pts.every((p) => Math.abs(along(p, n) - op.width) < 1e-3))) return false;
+      return !td || pts.every((p) => Math.abs(along(p, td) - op.tip) < 1e-3);
+    };
+    const made = body.chamfer(op.size, (ef) => ef.when(({ element }) => wanted(element)));
+    if (!isValidSolid(made) || !(measureVolume(made) > 1e-9) || measureVolume(made) >= measureVolume(body)) throw new Error("the kernel could not chamfer the edges of the faces");
     return { kind: "solid", shape: found ? makeCompound([...found.rest, ...lumpsOf(made)]) : made, first: op.body };
   },
 
@@ -2443,7 +2470,7 @@ export function compile(graph, quick = false) {
       results.set(op.id, { value: kept.value, ms: 0, key, cached: true, faces: kept.faces });
       continue;
     }
-    // the kernel's memory is nearly its 4 GB: a step that went on would be the end of the page's tab (a model of 1100 bodies killed it after 46 s, `in_910`); this step and the ones after it say so and nothing more is made
+    // the kernel's memory is nearly its 4 GB: a step that went on would be the end of the page's tab (a model of 1100 bodies killed it after 46 s, `in_994`); this step and the ones after it say so and nothing more is made
     if (memoryStopMb > 0) { const mb = heapMegabytes(); if (mb > memoryStopMb) { results.set(op.id, { error: `the model is too big for the kernel's memory (${mb} MB of 4096 used): use fewer or simpler parts, or save it and open it in pieces`, ms: 0 }); continue; } }
     let markMs = 0;
     let checkMs = 0;

@@ -11,6 +11,8 @@ import { figureParams } from "./scene.ts";
 import type { Part } from "./part.ts";
 import type { GearRecord } from "./gearscene.ts";
 import { wormOf, wormLayout, wheelOf } from "./worm.ts";
+import { chamferOf } from "./gear.ts";
+import { wheelEnds } from "./wheelinset.ts";
 import { boreLoop } from "./bore.ts";
 import { wheelSections, SECTIONS } from "./wheelsections.ts";
 
@@ -133,15 +135,34 @@ export function wheelSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] | null
     const f = frameOf(s, rec)!;
     const own = { gear: rec.id };
     // the pieces first joined by sewing their faces (the end sections are the same outlines: no boolean), then the worm's envelope cut out of the whole (`in_869`: the fuse of the lands took eleven seconds)
+    // an edge chamfer (`in_935`): each land is a body of the kernel's own, a ruled loft from the section pulled in by the chamfer at the face to the full section a chamfer in, and the rest straight
+    const ends = (rec.spec.edge ?? 0) > 0 ? wheelEnds(rec.spec) : null;
+    if (ends && !ends.ok) return null;
+    const text = (o: { points: [number, number][]; bulges: number[] }) => o.points.map((p, i) => `${+p[0].toFixed(7)} ${+p[1].toFixed(7)} ${+(o.bulges[i] ?? 0).toFixed(9)}`).join(";");
+    const chamfered = (end: "lo" | "hi"): Omit<Step, "id"> => {
+      const e = ends!.ok ? ends!.value[end] : null!;
+      const o = along(rec.at, f, 0, 0, end === "lo" ? -g.value.width / 2 - land : g.value.width / 2);
+      return { type: "chamferBody", parts: sections[end === "lo" ? 0 : SECTIONS - 1]!, params: { full: text(e.full), inset: text(e.inset), edge: rec.spec.edge!, width: land, one: end === "lo" ? -1 : 1, bore: rec.spec.bore ?? 0, wall: 0, cx: o[0], cy: o[1], cz: o[2], dx: f.n[0], dy: f.n[1], dz: f.n[2], ux: f.X[0], uy: f.X[1], uz: f.X[2], ...(bores[end === "lo" ? 0 : SECTIONS - 1] ? { holes: bores[end === "lo" ? 0 : SECTIONS - 1]! } : {}), ...own } };
+    };
     steps.push(
-      { type: "extrude", parts: sections[0]!, params: { depth: -land, ...(bores[0] ? { holes: bores[0]! } : {}), mode: "new", ...own } },
-      { type: "extrude", parts: sections[SECTIONS - 1]!, params: { depth: land, ...(bores[SECTIONS - 1] ? { holes: bores[SECTIONS - 1]! } : {}), mode: "new", ...own } },
+      ends ? chamfered("lo") : { type: "extrude", parts: sections[0]!, params: { depth: -land, ...(bores[0] ? { holes: bores[0]! } : {}), mode: "new", ...own } },
+      ends ? chamfered("hi") : { type: "extrude", parts: sections[SECTIONS - 1]!, params: { depth: land, ...(bores[SECTIONS - 1] ? { holes: bores[SECTIONS - 1]! } : {}), mode: "new", ...own } },
       { type: "sewBodies", parts: ["@s0", "@s1", "@s2"] as Ref[], params: { cx: rec.at[0], cy: rec.at[1], cz: rec.at[2], dx: f.n[0], dy: f.n[1], dz: f.n[2], heights: `${-g.value.width / 2},${g.value.width / 2}`, ...own } },
       { type: "extrude", parts: lo.lines, params: { depth: 2 * lo.ext, mode: "new", ...own } },
       { type: "extrude", parts: hi.lines, params: { depth: 2 * hi.ext, mode: "new", ...own } },
       { type: "combine", parts: ["@s0", "@s4"] as Ref[], params: { mode: "subtract", ...own } },
       { type: "combine", parts: ["@s0", "@s5"] as Ref[], params: { mode: "subtract", ...own } },
     );
+  }
+  const ch = chamferOf(rec.spec), w = wheelOf(rec.spec), secs = wheelSections(rec.spec);
+  if (ch && w.ok && secs.ok) { // the tips of the teeth broken at both faces (`in_923`): the kernel's wedge for each tooth, as for a gear; the tooth 0 stands where the sections' first tooth does, the tip circle is the throat's at the faces of the throated part
+    const f = frameOf(s, rec)!;
+    const pts = secs.value[0]!.points, per = pts.length / Math.round(rec.spec.teeth);
+    const [a1, a2] = [Math.atan2(pts[per - 1]![1], pts[per - 1]![0]), Math.atan2(pts[per % pts.length]![1], pts[per % pts.length]![0])];
+    const mid = a1 + Math.atan2(Math.sin(a2 - a1), Math.cos(a2 - a1)) / 2; // (the middle of the first tooth's tip: the arc after the gap's last point)
+    const first: Vec3 = [f.X[0] * Math.cos(mid) + f.Y[0] * Math.sin(mid), f.X[1] * Math.cos(mid) + f.Y[1] * Math.sin(mid), f.X[2] * Math.cos(mid) + f.Y[2] * Math.sin(mid)];
+    const c0 = along(rec.at, f, 0, 0, -ch.width / 2);
+    steps.push({ type: "toothChamfer", parts: ["@s0"] as Ref[], params: { gear: rec.id, teeth: Math.round(rec.spec.teeth), tip: w.value.tipAt(w.value.width / 2), depth: ch.depth, width: ch.width, side: 1, twist: 0, cx: c0[0], cy: c0[1], cz: c0[2], dx: f.n[0], dy: f.n[1], dz: f.n[2], ux: first[0], uy: first[1], uz: first[2] } });
   }
   return steps;
 }

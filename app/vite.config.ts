@@ -21,7 +21,7 @@ const kernelStamp = (): string => {
   } catch { return "unstamped"; }
 };
 /**
- * Starts the kernel's thread at once (`in_903`): the built page gets a small script of its own, ahead of the app's two megabytes, that asks for the thread (which then fetches and compiles the kernel's 23 MB of WebAssembly while
+ * Starts the kernel's thread at once (`in_987`): the built page gets a small script of its own, ahead of the app's two megabytes, that asks for the thread (which then fetches and compiles the kernel's 23 MB of WebAssembly while
  * the app is still being read). `kernel-async.ts` takes the thread from `window.__earlyKernel`. Only in a build: the bundler's own server has no such file name.
  */
 const earlyKernel = (): Plugin => {

@@ -1,5 +1,5 @@
 // The pointer intents: hover, click (selecting, or drawing when a tool is armed, or finishing an operation) and the menu.
-import { CONSTRAINT_GROUPS, fits } from "../constraintlist.ts";
+import { CONSTRAINT_ENTRIES, resolveEntry } from "../constraintlist.ts";
 import { whyNoPathRepeat } from "../pathrepeat.ts";
 import type { Intent } from "../../shared/input.ts";
 import type { Ref } from "../../shared/ref.ts";
@@ -14,15 +14,16 @@ import type { Vec3 } from "../../math/vec.ts";
 import { scene as sceneOf, selection as selectionOf, clickOn, hoverOn, run } from "../session.ts";
 import type { Session } from "../session.ts";
 import { candidatesAt } from "../picking.ts";
-import { actionsFor, relationKinds } from "../actions.ts";
+import { actionsFor } from "../actions.ts";
 import type { ToolKind, Tool } from "../tools.ts";
 import { diskFaceRef } from "../../operation/loops.ts";
 import { lineHint, arcEndHint, hintRelations, circleCentredAt, anchorCentreAt, pointHint, arcBulgeHint, circleRadiusHint, tangentCentre } from "../hints.ts";
 import type { Hint } from "../hints.ts";
-import { snapOnPlane, guidesOf, finish, planeForDrawing, armTool, pointOnPlane, canHelix, meshSuggestion, snapToMesh } from "../tools.ts";
+import { snapOnPlane, guidesOf, concentricGuides, finish, planeForDrawing, armTool, pointOnPlane, canHelix, meshSuggestion, snapToMesh } from "../tools.ts";
 import { splineEdit } from "../splineedit.ts";
-import { startMotion } from "../motion.ts";
+import { startPlain } from "../motion.ts";
 import { gearOfBody } from "../../operation/gearcouple.ts";
+import { pivotOfBody } from "../../operation/pivot.ts";
 import { trimAt } from "../../operation/trim.ts";
 import type { Command } from "../../operation/commands.ts";
 import type { OpKind, Op } from "../operations.ts";
@@ -40,7 +41,7 @@ import { doLook, selectedSurface } from "./viewing.ts";
 import { sectionNow, doSectionClick } from "./section.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
 import { selectedBodies } from "./bodies.ts";
-import { commitFigure, commitOp, setRepeatAxis, doApply, finishPicking, picksMany } from "./modal.ts";
+import { commitFigure, commitOp, setRepeatAxis, doApply, finishPicking, picksMany, doRunAction, instruction } from "./modal.ts";
 import { doGizmoHover, gizmoOf, chosenId, activeOp, movePivotTo } from "./handles.ts";
 import { orientApply, hasOrb, putMover } from "./pose.ts";
 import { patternValues } from "../pattern.ts";
@@ -68,7 +69,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:bevel", label: "Bevel gear", icon: "bevelgear", tool: "gear" },
   { id: "tool:crown", label: "Crown gear", icon: "crowngear", tool: "gear" },
   { id: "tool:face", label: "Face gear", icon: "facegear", tool: "gear" },
-  { id: "tool:spiral", label: "Spiral bevel", icon: "spiralbevel", tool: "gear" },
+  { id: "tool:spiral", label: "Spiral hypoid", icon: "spiralbevel", tool: "gear" },
   { id: "tool:worm", label: "Worm", icon: "worm", tool: "gear" },
   { id: "tool:wormwheel", label: "Worm wheel", icon: "wormwheel", tool: "gear" },
   { id: "tool:planetary", label: "Planetary set", icon: "planetary", tool: "gear" },
@@ -88,6 +89,8 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "cam:follow", label: "Follower", icon: "cam" },
   { id: "motion:play", label: "Play", icon: "play" },
   { id: "motion:link", label: "Link joints", icon: "play" },
+  { id: "motion:pivot", label: "Pivot", icon: "play" },
+  { id: "motion:unpivot", label: "Stop turning", icon: "play" },
   { id: "gear:helix", label: "Helix", icon: "helical" },
   { id: "gear:mesh", label: "Mesh gear", icon: "meshgear" },
   { id: "gear:meshrack", label: "Mesh rack", icon: "meshrack" },
@@ -108,8 +111,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:linear", label: "Line repeat", icon: "linear", op: "linear" },
   { id: "op:circular", label: "Round repeat", icon: "circular", op: "circular" },
   { id: "repeat:path", label: "Path repeat", icon: "pathrepeat" }, // (`dec_path_repeat`, `in_841`: a figure repeated along a line, a curve or an outline)
-  { id: "models:fasteners", label: "Fasteners", icon: "fastener" }, // (Shape, then Models: a dialog with drawings, `dec_parts_interface`, `in_812`)
-  { id: "models:holes", label: "Fastener Holes", icon: "fastenerHole" }, // (the hole for a fastener cut into the face selected, `in_813`)
+  { id: "tool:fasteners", label: "Fastener tool", icon: "fastener" }, // (Shape: the hole for a fastener cut into the face selected, with the hardware inserted if asked, `in_813`, `in_912`)
   { id: "body:hard", label: "Hard body", icon: "hard", select: "hard" }, // (a constraint: no other body goes into it while one or the other is moved by hand, `in_473`, `in_490`)
   { id: "combine:parts", label: "Combine", icon: "subtract", select: "combine" }, // (add, cut and what is left of both: the parts the bodies make are each kept or tossed, `in_298`)
   { id: "select:similar", label: "Select similar", icon: "similar", select: "similar" },
@@ -136,8 +138,8 @@ const GEARS: Group = {
 };
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", { id: "cams", label: "Cam", icon: "cam", items: ["tool:eccentric", "tool:snail", "tool:ratchet", "tool:linear", { id: "genevas", label: "Geneva", icon: "cam", items: ["tool:geneva", "tool:geneva:assembled", "tool:geneva:model"] }, { id: "disccams", label: "Disc cam", icon: "cam", items: ["tool:disc:cycloidal", "tool:disc:harmonic", "tool:disc:parabolic"] }, "cam:edit", "cam:follow"] }, GEARS, "tool:trim", "op:offset"] },
-  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "models", label: "Models", icon: "models", items: ["models:fasteners", "models:holes"] }] },
-  { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link"] },
+  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", "tool:fasteners"] },
+  { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
 ];
@@ -147,6 +149,22 @@ const category = (id: string, label: string, icon: string, kids: MenuItem[]): Me
   const first = kids.find((k) => k.enabled);
   return { id, label, icon, enabled: true, why: null, children: kids, ...(first ? {} : { dim: true as const }) }; // (always opens, so every ring can be looked through: dimmed when nothing in it applies now, `in_538`)
 };
+/** The item of the menu with this id as it stands now: whether it can be used and, if not, what it needs (`in_951`). */
+function menuItemNow(session: Session, id: string): { enabled: boolean; why: string | null } | null {
+  const m = menuFor(session, 0, 0, false, null);
+  const find = (items: readonly MenuItem[]): MenuItem | undefined => { for (const it of items) { if (it.id === id) return it; const k = it.children ? find(it.children) : undefined; if (k) return k; } return undefined; };
+  const it = m ? find(m.items) : undefined;
+  return it ? { enabled: it.enabled, why: it.why } : null;
+}
+/** The item that was waiting for a selection runs once it can, else says again what it needs (`in_951`). */
+export function settleAwaiting(s: AppState, now = 0): AppState {
+  const a = s.awaiting;
+  if (!a) return s;
+  const it = menuItemNow(s.session, a.id);
+  if (!it) return { ...s, awaiting: null };
+  if (it.enabled) return doRunAction({ ...s, awaiting: null, session: { ...s.session, message: null } }, a.id, now);
+  return { ...s, awaiting: { ...a, why: it.why ?? a.why }, session: { ...s.session, message: `${a.label}: ${instruction(it.why ?? a.why)}` } };
+}
 function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean; section: boolean; clip?: boolean; adding?: boolean; touch?: boolean } = { wireframe: false, tape: false, section: false }): AppState["menu"] {
   const adding = !!view.adding;
   const sc = sceneOf(session);
@@ -154,7 +172,9 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   const leaf = new Map<string, MenuItem>(LEAVES.map((r) => {
     const base = { id: r.id, label: r.label, icon: r.icon };
     if (repeating && !IN_REPEAT.has(r.id)) return [r.id, { ...base, enabled: false, why: "apply or cancel the repeat that is open first" }];
-    if (r.id === "motion:play") { const body = sel.find((x) => sc.parts[x]?.kind === "body"); const m = body ? startMotion(sc, body, "turn") : null; return [r.id, { ...base, enabled: !!m?.ok, why: m?.ok ? null : "select a body on a pin or a rod (the first body of a coaxial mate)" }]; }
+    if (r.id === "motion:play") { const body = sel.find((x) => sc.parts[x]?.kind === "body"); const m = body ? startPlain(sc, body, "turn") : null; return [r.id, { ...base, enabled: !!m?.ok, why: m?.ok ? null : "select a body on a pin or a rod (the first body of a coaxial mate)" }]; }
+    if (r.id === "motion:pivot") { const has = sel.some((x) => { const p = sc.parts[x]; return p?.kind === "body" || (p?.kind === "plane" && p.origin === "body" && !!(p.curved || p.round || p.rounded)); }); return [r.id, { ...base, enabled: has, why: has ? null : "select a body (and a round face of it for the axis), or open Rotate on a body and place the pivot first" }]; }
+    if (r.id === "motion:unpivot") { const has = sel.some((x) => !!pivotOfBody(sc, x)); return [r.id, { ...base, enabled: has, why: has ? null : "select a body that was made to turn" }]; }
     if (r.id === "motion:link") { const n = sel.filter((x) => sc.parts[x]?.kind === "body").length; return [r.id, { ...base, enabled: n === 2, why: n === 2 ? null : "select two bodies that each turn on a pin or slide on a rod" }]; }
     if (r.id === "cam:follow") { const has = sel.some((x) => sc.parts[x]?.kind === "body" && !!gearOfBody(sc, x)?.spec.cam); return [r.id, { ...base, enabled: has, why: has ? null : "select a cam with its body, then the rod that rides it" }]; }
     if (r.id === "cam:edit") { const has = sel.some((x) => !!gearOfPart(sc, x)?.spec.cam); return [r.id, { ...base, enabled: has, why: has ? null : "select a cam" }]; }
@@ -165,8 +185,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     }
     if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfSelection(sc, x) || (r.id === "gear:edit" && !!planetaryOfPart(sc, x))); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
     if (r.id === "repeat:path") { const why = whyNoPathRepeat(session); return [r.id, { ...base, enabled: !why, why }]; }
-    if (r.id === "models:fasteners") return [r.id, { ...base, enabled: true, why: null }];
-    if (r.id === "models:holes") return [r.id, { ...base, enabled: true, why: null }]; // (it opens a panel that says what to select, `dec_parts_tool`)
+    if (r.id === "tool:fasteners") return [r.id, { ...base, enabled: true, why: null }]; // (it opens a panel that says what to select, `dec_parts_tool`)
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }
     if (r.select === "combine") { const why = whyNotCombine(session); return [r.id, { ...base, enabled: !why, why }]; }
@@ -185,22 +204,17 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
   }));
   const build = (i: string | Group): MenuItem => (typeof i === "string" ? leaf.get(i)! : category(i.id, i.label, i.icon, i.items.map(build)));
   const acts = actionsFor(sc, sel);
+  // every constraint and mate once, in one flat list by what a person means (`in_975`): Parallel is two lines or two faces; the ring never changes shape with the selection; an entry that nothing selected fits is dimmed and says what to select (`in_666`)
   const live = acts.filter((a) => a.group === "relation");
-  const selKinds = relationKinds(sc, sel);
-  // every constraint and mate there is, in groups by what they apply to: the ring never changes shape with the selection; one that does not fit it is dimmed and says what to select (`in_666`)
-  const groups: MenuItem[] = CONSTRAINT_GROUPS.map((g) => category(g.id, g.label, g.items[0]!.id, g.items.map((it): MenuItem => {
-    const a = live.find((x) => x.id === it.id);
-    const fit = fits(g, selKinds);
-    return { id: it.id, label: it.label, icon: it.id, enabled: fit && !!a && a.enabled, why: !fit || !a ? `select ${g.what} first` : a.why };
-  })));
-  groups.push(category("group:bodies", "Bodies", "hard", [leaf.get("body:hard")!]));
+  const entries: MenuItem[] = CONSTRAINT_ENTRIES.map((e): MenuItem => { const a = resolveEntry(e, live); return { id: e.id, label: e.label, icon: e.icon, enabled: !!a, why: a ? null : `select ${e.what} first` }; });
+  const groups: MenuItem[] = [...entries, leaf.get("body:hard")!];
   const del = acts.find((a) => a.id === "delete");
   // looking straight at the selected plane or face, or at the one the click was on (`in_171`: the eye lives here, not on the screen)
   const clicked = over ? planeOf(lookup(sc), over) : null; // (the surface the right click was on: a face, a sketch's plane, a world plane; a sketch tool chosen from the ring turns to it when the selection does not say which plane)
   const target = lookTarget(sc, sel, over);
   const items: MenuItem[] = [
     ...CATEGORIES.slice(0, 1).map((c) => category(c.id, c.label, c.icon, c.items.filter((i) => i !== "select:add" || view.touch || adding).map(build))),
-    category("constraints", "Constraints", "constraint", groups), // (a hard body is a constraint on every body that meets it, `in_490`)
+    category("constraints", "Constraints", "constraint", groups), // (a hard body is a constraint on every body that meets it, `in_490`; the constraints are one flat list, `in_969`)
     ...CATEGORIES.slice(1).map((c) => category(c.id, c.label, c.icon, c.items.filter((i) => i !== "select:add" || view.touch || adding).map(build))),
     // the eye: how the model is looked at (`in_386`): straight at a surface, as wireframe, and the tape measure
     category("view", "View", "eye", [
@@ -311,7 +325,7 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
     const h = raw && pl && pl.kind === "plane" ? hintFor(sc, s.tool, pl, pv, raw) : null; // (the end of a line, an end of an arc, the bow of an arc: each takes a constraint it is close to)
     // a circle's centre on another circle's centre: it will be made concentric
     const about = raw && pl && pl.kind === "plane" && s.tool.kind === "circle" && !s.tool.points.length ? circleCentredAt(sc, pl, raw) : (s.tool.concentric ?? null);
-    const hints: Hint[] = h ? h.hints : about ? [{ kind: "concentric", ref: about }] : [];
+    const hints: Hint[] = anc || (about && !h?.hints.length) ? [{ kind: "concentric", ref: (anc?.ref ?? about)! }] : h ? h.hints : []; // (the centre of a circle's edge the pointer is at wins: the cursor is there, `in_921`)
     if (raw && !s.tool.sized) next = { ...next, tool: { ...s.tool, cursor: h ? h.at : raw, hints } }; // (a gear whose size a click has set keeps it, `in_688`)
   }
   // trim: the part of the line or circle under the pointer that a click would cut off
@@ -333,7 +347,8 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
       const anc = at && pl ? anchorCentreAt(sc, pl, pv) : null;
       const about = anc?.ref ?? (at && pl ? circleCentredAt(sc, pl, at) : null);
       const h = !about && at && pl ? pointHint(sc, pl, pv, at) : null; // (a circle's centre on another circle's edge or on a line, `in_294`)
-      next = { ...next, tool: { ...s.tool, hints: about ? [{ kind: "concentric", ref: about }] : h?.hints ?? [], cursor: anc ? anc.at : about ? at : h?.hints.length ? h.at : s.tool.held ? at : null } };
+      const hs: Hint[] = about ? [{ kind: "concentric", ref: about }] : h?.hints ?? [];
+      next = { ...next, tool: { ...s.tool, guides: pl ? [...lined, ...concentricGuides(sc, pl, hs)] : lined, hints: hs, cursor: anc ? anc.at : about ? at : h?.hints.length ? h.at : s.tool.held ? at : null } }; // (the dashed guides across the circle it would be concentric with, `in_921`)
     }
   }
   return doGizmoHover(next, i.x, i.y, env);
@@ -683,8 +698,8 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: E
   // an operation that is open: a right click accepts it and leaves it, as Enter does (`in_244`)
   if (!i.button && s.op) return doApply(s);
   if (!i.button && s.picking && !s.tool) return doApply(s); // (a right click starts what was clicked for it, as Enter does, `in_464`)
-  // the views (the cross section, the wireframe) are put away by a right click as a tool is (`in_394`); the ⋯ button still opens the menu
-  if (!i.button && !s.tool && !s.op && !s.repeat && !s.cut && (sectionNow(s) || s.wireframe)) return { ...s, sectionLive: null, wireframe: false, menu: null, session: { ...s.session, click: { ...s.session.click, selection: sectionNow(s) ? [] : s.session.click.selection }, message: null } };
+  // the cross section is put away by a right click as a tool is (`in_394`); the wireframe stays until it is taken out (`in_965`), so a right click opens the menu with it on; the ⋯ button still opens the menu
+  if (!i.button && !s.tool && !s.op && !s.repeat && !s.cut && sectionNow(s)) return { ...s, sectionLive: null, menu: null, session: { ...s.session, click: { ...s.session.click, selection: sectionNow(s) ? [] : s.session.click.selection }, message: null } };
   // while a sketching tool is on, a right click puts it away (the ⋯ button still opens the menu): the tool stays on until then or the cancel icon (`in_193`)
   if (s.tool && !i.button) return { ...s, tool: null, resume: null, menu: null };
   // a long press on a move arrow chooses the arrow with the others, as Shift does: a phone has no Shift (`in_300`)

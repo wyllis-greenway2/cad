@@ -11,7 +11,7 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
   const play = btn("⏸", "Play or pause the motion");
   const slider = document.createElement("input");
   slider.type = "range"; slider.step = "any"; slider.style.cssText = "width:min(30vw,220px);accent-color:#2b8a3e"; slider.title = "Move the joint by hand";
-  const label = document.createElement("span"); label.style.cssText = "width:104px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums";
+  const label = document.createElement("span"); label.style.cssText = "min-width:104px;text-align:left;white-space:pre;font-variant-numeric:tabular-nums";
   const kind = btn("turn / slide", "Switch between turning and sliding"); kind.style.opacity = ".85"; kind.style.minWidth = "58px"; kind.style.textAlign = "center";
   const rev = btn("⇄", "Play the other way round"); 
   const keep = btn("Keep pose", "Make this pose the joint's value (one step, one undo); until then nothing is written");

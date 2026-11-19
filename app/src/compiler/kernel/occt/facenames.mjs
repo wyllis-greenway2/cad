@@ -130,7 +130,7 @@ const cloneFacts = (e) => Object.fromEntries(Object.entries(e).map(([k, v]) => [
 /** A name moved with the body: the point and the end of its normal are carried by the same motion (`tf`, as `moveMarkers` takes it). */
 function carried(names, tf) {
   if (!tf) return names;
-  // one body of several was moved, turned or scaled (`tf.only`, and `tf.box` where it stood): the names of its faces go with it and the names of the other bodies' faces stay. (The motion is told the body's name and a name is not a body's name: every name was left where it was, and the faces of the moved body that stand across the motion lost theirs, `in_912`.)
+  // one body of several was moved, turned or scaled (`tf.only`, and `tf.box` where it stood): the names of its faces go with it and the names of the other bodies' faces stay. (The motion is told the body's name and a name is not a body's name: every name was left where it was, and the faces of the moved body that stand across the motion lost theirs, `in_996`.)
   const mine = (m) => !tf.only || !tf.box || [0, 1, 2].every((i) => m.c[i] >= tf.box.min[i] - 1e-6 && m.c[i] <= tf.box.max[i] + 1e-6);
   const go = tf.only && tf.box ? { ...tf, only: null } : tf;
   const at = moveMarkers(names.map((m) => ({ id: m.name, at: m.c })), go);

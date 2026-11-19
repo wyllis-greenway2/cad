@@ -1,4 +1,4 @@
-// A model of many parts apart is made in pieces, with the answer so far sent as it goes, and stopped when the page asks (`dec_progressive_open`, `in_915`).
+// A model of many parts apart is made in pieces, with the answer so far sent as it goes, and stopped when the page asks (`dec_progressive_open`, `in_999`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";
@@ -63,7 +63,7 @@ test("the page shows the parts made so far while the job goes on, asks it to sto
   assert.equal(k.evaluate(g1).stale, true);
   const id1 = f.posted[0]!.id as number;
   assert.deepEqual(f.posted[0]!.eye, [1, 2, 3], "the eye goes with the job");
-  f.say({ id: id1, partial: true, result: { ...EMPTY, mesh: mesh(), bodies: [{ id: "x_a", min: [0, 0, 0], max: [1, 1, 1], volume: 1 }], partial: { done: 1, total: 9 } } });
+  f.say({ id: id1, partial: true, result: { ...EMPTY, mesh: mesh(), bodies: [{ id: "x_s_002", min: [0, 0, 0], max: [1, 1, 1], volume: 1 }], partial: { done: 1, total: 9 } } });
   const shown = k.evaluate(g1);
   assert.equal(shown.stale, true);
   assert.equal(shown.partial?.done, 1);

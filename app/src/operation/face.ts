@@ -2,6 +2,7 @@
 // of the pinion's involute flank (the gearing law, as `spiral.ts`'s). Frame: the origin where the axes cross, the pinion's axis x, the face gear's axis z (its pitch plane is z = -r1, the teeth stand up from it towards the pinion), the contact line the x axis at height -r1; the face gear's
 // azimuth is measured from x about z, its slot 0 centred on x at the pair's place; the pinion's tooth 0 points down (-z) there. A face gear and its pinion are bevel records (`BevelSpec.facegear`, `"gear"` or `"pinion"`) so that the pair's linking and placing are the bevel gear's.
 // Limits (measured by the prototype): a 20 degree pressure angle, 12 or more pinion teeth, the face gear 2 to 3.1 times the pinion's, up to 64 teeth, the teeth from the pitch radius less a module to the pitch radius plus 4 modules.
+import { END_REACH, shortestFor } from "./blankchamfer.ts";
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import { bulgeOf } from "./arcs.ts";
@@ -15,9 +16,9 @@ const rot = (p: V3, ax: V3, a: number): V3 => { const [c, s] = [Math.cos(a), Mat
 const A1: V3 = [1, 0, 0], A2: V3 = [0, 0, 1];
 
 export const FACE = { minPinion: 12, maxFace: 64, minRatio: 2, maxRatio: 3.1, outer: 3, innerBelow: 1, outerLimit: 4, plate: 2, backlash: 0.05 } as const;
-export interface FacePair { z1: number; z2: number; m: number; alpha: number; bl: number; inner: number; outer: number; r1: number; R2: number; rb: number; hK: number; hF: number; /** the plate's thickness under the root, mm */ thick: number }
+export interface FacePair { z1: number; z2: number; m: number; alpha: number; bl: number; inner: number; outer: number; r1: number; R2: number; rb: number; hK: number; hF: number; /** the plate's thickness under the root, mm */ thick: number; /** the tooth chamfer at the two ends, mm (`dec_bevel_chamfer`) */ cham: number }
 /** The pair for a pinion of `z1` teeth and a face gear of `z2`, or why there is none. */
-function facePairOf(z1: number, z2: number, m: number, bl: number, inner?: number, outer?: number, thick?: number): Result<FacePair> {
+function facePairOf(z1: number, z2: number, m: number, bl: number, inner?: number, outer?: number, thick?: number, cham = 0): Result<FacePair> {
   if (!(Number.isInteger(z1) && Number.isInteger(z2))) return err("the tooth counts must be whole numbers");
   if (z1 < FACE.minPinion) return err(`a face gear's pinion needs ${FACE.minPinion} or more teeth`);
   if (z2 > FACE.maxFace) return err(`a face gear of more than ${FACE.maxFace} teeth is not made yet`);
@@ -32,7 +33,7 @@ function facePairOf(z1: number, z2: number, m: number, bl: number, inner?: numbe
   const t = thick ?? FACE.plate * m;
   if (!(t >= 0.5 * m)) return err("the plate must be at least half a module thick");
   const r1 = (m * z1) / 2;
-  return ok({ z1, z2, m, alpha: (20 * Math.PI) / 180, bl, inner: i, outer: o, r1, R2, rb: r1 * Math.cos((20 * Math.PI) / 180), hK: m, hF: 1.25 * m, thick: t });
+  return ok({ z1, z2, m, alpha: (20 * Math.PI) / 180, bl, inner: i, outer: o, r1, R2, rb: r1 * Math.cos((20 * Math.PI) / 180), hK: m, hF: 1.25 * m, thick: t, cham });
 }
 /** Which of the pair a face gear record is and its pair, or why there is none: `bevel.facegear` is "gear" (the record has the face gear's teeth) or "pinion"; `crown` has the radii and `width` the plate's thickness. */
 export function faceFor(spec: GearSpec): Result<{ pair: FacePair; role: "gear" | "pinion" }> {
@@ -43,17 +44,20 @@ export function faceFor(spec: GearSpec): Result<{ pair: FacePair; role: "gear" |
   const [z, mate] = [Math.round(spec.teeth), Math.round(b.mate)];
   const [z1, z2] = b.facegear === "gear" ? [mate, z] : [z, mate];
   const bl = spec.backlash ?? FACE.backlash, thick = b.facegear === "gear" ? spec.width : undefined;
+  const ch = b.facegear === "gear" ? (spec.chamfer ?? 0) : 0; // (the face gear's tooth chamfer, in modules, `dec_bevel_chamfer`)
+  if (!(ch >= 0 && ch <= 1)) return err("the chamfer is from 0 to 1 module deep");
   if (spec.crown?.outer === undefined) { // no outer radius given: the longest tooth the pair can have, the usual three modules out less a quarter module at a time (the tooth is thinnest at its outer end and more so for a bigger pinion)
     let last: Result<FacePair> = err("no outer radius");
     for (const k of [3, 2.75, 2.5, 2.25, 2, 1.75, 1.5]) {
-      last = facePairOf(z1, z2, spec.module, bl, spec.crown?.inner, (spec.module * z2) / 2 + k * spec.module, thick);
+      last = facePairOf(z1, z2, spec.module, bl, spec.crown?.inner, (spec.module * z2) / 2 + k * spec.module, thick, ch * spec.module);
       if (!last.ok) return last;
       if (faceBody(last.value).ok) return ok({ pair: last.value, role: b.facegear });
     }
     const why = faceBody((last as { value: FacePair }).value);
     return why.ok ? err("no face gear tooth for these numbers") : why;
   }
-  const p = facePairOf(z1, z2, spec.module, bl, spec.crown?.inner, spec.crown?.outer, thick);
+  const p = facePairOf(z1, z2, spec.module, bl, spec.crown?.inner, spec.crown?.outer, thick, ch * spec.module);
+  if (p.ok && ch > 0 && !(p.value.outer - p.value.inner >= shortestFor(ch * spec.module, spec.module))) return err(`the chamfer is too deep for teeth ${(p.value.outer - p.value.inner).toFixed(1)} mm long: at most ${Math.max(0, (p.value.outer - p.value.inner - 0.1 * spec.module) / 2 - 0.25 * spec.module).toFixed(1)} mm`);
   return p.ok ? ok({ pair: p.value, role: b.facegear }) : p;
 }
 
@@ -131,7 +135,8 @@ export function faceBody(pr: FacePair): Result<FaceBody> {
   return r;
 }
 function faceBodyMade(pr: FacePair): Result<FaceBody> {
-  const { m, z2, outer } = pr, pitch = (2 * Math.PI) / z2, ri = pr.inner - FACE_INSET;
+  const { m, z2 } = pr, pitch = (2 * Math.PI) / z2, ri = pr.inner - FACE_INSET;
+  const outer = pr.outer + (pr.cham > 0 ? END_REACH : 0); // (with a chamfer the loft goes a little past the outer radius, where the blank's wall cuts the ends: `blankchamfer.ts`)
   const [A, B] = [faceGrid(pr, 1), faceGrid(pr, -1)];
   const radii = Array.from({ length: NR + 1 }, (_, i) => ri + ((outer - ri) * i) / NR);
   const hs = [1, 0.4, -0.3, -1, -1.55].map((k) => k * m); // (five heights: six gave the same fit, four a worse one; the last is a little under the root)

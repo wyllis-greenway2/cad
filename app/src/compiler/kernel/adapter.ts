@@ -61,6 +61,8 @@ export interface Kernel {
   exportStep(graph: KernelGraph, bodies?: string[], unit?: "in"): Promise<StepResult>;
   /** where the eye is (the kernel on its own thread makes a model of many parts apart nearest the eye first, `dec_progressive_open`); it is not part of the question: the same answer comes whichever it is */
   eye?: Vec;
+  /** nothing is being made now (a scene with no steps): the picture the kernel last gave is not the picture of what comes next, so it is forgotten (`in_951`: deleted gears showed for a moment while new ones were made); a kernel that keeps no last picture ignores it */
+  clear?(): void;
   /** ask for rough meshes (set while a size is being dragged, cleared when it is let go); a kernel that does not know it ignores it */
   draft?: boolean;
   /** ask for the mesh only, no faces, edges or corners: for a preview, a quarter of the time (`in_358`) */

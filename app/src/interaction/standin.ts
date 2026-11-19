@@ -42,7 +42,8 @@ export function standIns(sc: Scene, kernel: KernelSeen | null | undefined): Stan
 }
 
 function standInOf(sc: Scene, st: Step): StandIn | null {
-  const g = gearShapeOf(sc, st);
+  const shape = gearShapeOf(sc, st);
+  const g = shape && sc.gears?.find((r) => r.id === shape.gear)?.spec.worm ? null : shape; // (a worm has a shape for its parts, and its stand-in at its thread, `in_849`, `in_827`)
   if (!g) return st.type === "sweep" ? sweepStandInOf(sc, st) : wormStandInOf(sc, st);
   return { step: g.step, centre: g.centre, normal: g.normal, depth: g.depth, radius: g.radius, hole: g.hole };
 }
@@ -138,7 +139,7 @@ function hullArea(pts: readonly Vec3[]): number {
   return Math.abs(a) / 2;
 }
 
-// ---- the parts of a model made in pieces that are not made yet (`dec_progressive_open`, `in_915`) ----
+// ---- the parts of a model made in pieces that are not made yet (`dec_progressive_open`, `in_999`) ----
 const ghostMemo = new WeakMap<Scene, Ghost[] | null>();
 let lastPieces: { scene: Scene; built: number; list: StandIn[] } | null = null;
 const NONE: Vec3 = [0, 0, 0];
