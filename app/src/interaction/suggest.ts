@@ -13,6 +13,8 @@ import { formatId } from "../shared/ref.ts";
 import { actionsFor } from "./actions.ts";
 import { similarTo } from "./similar.ts";
 import { breakable, topItems } from "../operation/groups.ts";
+import type { MateMode } from "../operation/mates.ts";
+import { featureOf, existingMate, mateStatus } from "../operation/mates.ts";
 
 export interface Suggestions { at: Vec3; items: { id: string; label: string }[] }
 
@@ -78,7 +80,7 @@ function constraintsFor(scene: Scene, selection: readonly Ref[], tol = 0, seen?:
   if (selection.length < 1 || selection.length > 2) return null;
   const get = lookup(scene);
   const parts = selection.map((r) => scene.parts[r]);
-  if (!parts.every((p) => p && p.origin === "drawn" && p.movable && (p.kind === "corner" || p.kind === "line" || p.kind === "circle"))) return null;
+  if (!parts.every((p) => p && p.origin === "drawn" && p.movable && (p.kind === "corner" || p.kind === "line" || p.kind === "circle"))) return matesFor(scene, selection); // (faces and edges of bodies, and the world's planes, are offered the mates that fit them: `inv_constraint_uniformity`)
   const have = (id: string, refs: readonly Ref[]) => scene.relations.some((r) => r.kind === id && r.parts.length === refs.length && refs.every((x) => r.parts.includes(x)));
   const items = actionsFor(scene, selection).filter((a) => a.group === "relation" && !a.dimensional && a.enabled && !have(a.id, a.parts)).map((a) => ({ id: a.id, label: a.label }));
   items.push(...nearItems(scene, selection, tol, seen).map((n) => ({ id: n.id, label: n.label })));
@@ -94,6 +96,20 @@ function constraintsFor(scene: Scene, selection: readonly Ref[], tol = 0, seen?:
   if (!spots.length) return null;
   const at: Vec3 = [spots.reduce((a, q) => a + q[0], 0) / spots.length, spots.reduce((a, q) => a + q[1], 0) / spots.length, spots.reduce((a, q) => a + q[2], 0) / spots.length];
   return { at, items };
+}
+
+/** Faces and circular edges of bodies, and the world's planes: the mates that fit the selection and are not made yet, as the Constraints ring offers them (`in_1086`: a pin's wall and a hole's wall offered no coaxial mate, nor any other). A mate with an angle is not offered here: its number is asked for on its bubble. */
+function matesFor(scene: Scene, selection: readonly Ref[]): Suggestions | null {
+  const mateable = selection.every((r) => { const p = scene.parts[r]; return !!p && ((p.kind === "plane" && (p.origin === "body" || p.origin === "world")) || (p.kind === "line" && p.origin === "body" && !!p.circle)); });
+  if (!mateable) return null;
+  const items = actionsFor(scene, selection).filter((a) => a.id.startsWith("mate:") && a.enabled && a.id !== "mate:angle" && a.id !== "mate:angleAxes" && !mateMade(scene, a.id.slice(5) as MateMode, a.parts)).map((a) => ({ id: a.id, label: a.label }));
+  const at = items.length ? spotOf(scene, selection) : null;
+  return at ? { at, items } : null;
+}
+/** Whether a mate of this kind already holds between the bodies of these parts (a second one would only replace it). */
+function mateMade(scene: Scene, mode: MateMode, parts: readonly Ref[]): boolean {
+  const [a, b] = parts.length === 2 ? [featureOf(scene, parts[0]!, mode), featureOf(scene, parts[1]!, mode)] : [null, null];
+  return !!(a && b && existingMate(scene, mode, a.body, b.body) && mateStatus(scene).some((m) => m.mode === mode && m.state === "ok" && [m.mover?.body, m.other?.body].includes(a.body) && [m.mover?.body, m.other?.body].includes(b.body)));
 }
 
 /**

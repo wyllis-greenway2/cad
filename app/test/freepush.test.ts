@@ -111,3 +111,38 @@ test("what a body with no joint does is smooth (it moves as little as the push a
   assert.deepEqual(again.m.contact!.pushables.map((p) => [p.free, p.spin]), first.m.contact!.pushables.map((p) => [p.free, p.spin]), "the same places the second time");
   assert.ok(again.ms < first.ms, `and quicker (${again.ms.toFixed(0)} ms against ${first.ms.toFixed(0)} ms)`);
 });
+
+test("the hints change only how soon the answer is found: with them off, every way looked at in full, the lever file plays the same turn within a millimetre and a few degrees", async () => {
+  const { contactOptions } = await import("../src/interaction/contact.ts");
+  const lever = (m: ReturnType<typeof play>) => m.contact!.pushables.find((p) => p.body === LEVER)!;
+  try {
+    contactOptions.hints = true;
+    const on = lever(play(open(), 90));
+    contactOptions.hints = false;
+    const off = lever(play(open(), 90));
+    assert.ok(Math.hypot(on.free![0] - off.free![0], on.free![1] - off.free![1]) < 1.5, `slides ${on.free} against ${off.free}`);
+    assert.ok(Math.abs((on.spin ?? 0) - (off.spin ?? 0)) < 3, `turns ${on.spin} against ${off.spin}`);
+  } finally { contactOptions.hints = true; }
+});
+
+test("a place between two worked out is blended, close to what working it out gives, and the places kept are used again", async () => {
+  const { contactOptions } = await import("../src/interaction/contact.ts");
+  const lever = (m: ReturnType<typeof play>) => m.contact!.pushables.find((p) => p.body === LEVER)!;
+  const s = open();
+  const start = startMotion(scene(s), GEAR, "turn", s.outcome);
+  if (!start.ok) throw new Error(start.why);
+  let m = start.motion;
+  for (let a = 1; a <= 70; a++) m = solveContact(scene(s), { ...m, playing: true, amount: a }, s.outcome, Infinity); // (the path, worked out and kept)
+  const at = (blend: boolean, a: number): ReturnType<typeof play> => {
+    contactOptions.blend = blend;
+    try {
+      const r = startMotion(scene(s), GEAR, "turn", s.outcome);
+      if (!r.ok) throw new Error(r.why);
+      return solveContact(scene(s), { ...r.motion, playing: true, amount: a }, s.outcome, Infinity);
+    } finally { contactOptions.blend = true; }
+  };
+  for (const a of [43.5, 55.25, 61.75]) {
+    const [b, w] = [lever(at(true, a)), lever(at(false, a))];
+    assert.ok(Math.hypot(b.free![0] - w.free![0], b.free![1] - w.free![1]) < 0.35 && Math.abs((b.spin ?? 0) - (w.spin ?? 0)) < 0.8, `at ${a}: blended ${b.free} ${b.spin}, worked out ${w.free} ${w.spin}`);
+  }
+});
