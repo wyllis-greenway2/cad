@@ -16,6 +16,7 @@ import { startContact } from "./contact.ts";
 import { pivotOfBody, pivotsOf } from "../operation/pivot.ts";
 import { isHard, isFixed } from "./hard.ts";
 import type { Candidate } from "./contact.ts";
+import { restartContact } from "./contact.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
 import { followAmount } from "../operation/gearcouple.ts";
 import { linkFollowers } from "../operation/coupling.ts";
@@ -98,7 +99,7 @@ export function startMotion(scene: Scene, body: Ref, kind: JointKind = "turn", o
   const jointed = new Set<Ref>([m.body, ...m.follows.map((f) => f.body), ...candidates.map((c) => c.body)]);
   for (const b of Object.values(scene.parts)) {
     if (b.kind !== "body" || !b.id || !isHard(scene, b.ref) || isFixed(scene, b.ref) || jointed.has(b.ref) || mated.has(b.ref) || pivotOfBody(scene, b.ref) || !b.bbox) continue;
-    candidates.push({ body: b.ref, point: [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2], dir: [0, 0, 1], free: true });
+    candidates.push({ body: b.ref, point: [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2], dir: [0, 0, 1], free: true, reach: Math.hypot(b.bbox.max[0] - b.bbox.min[0], b.bbox.max[1] - b.bbox.min[1], b.bbox.max[2] - b.bbox.min[2]) / 2 }); // (how far its outline reaches from its middle: half the diagonal of its box)
   }
   const stripped: Motion = wheel || camRod ? { ...m, follows: m.follows.filter((f) => f !== wheel && f !== camRod) } : m;
   const contact = startContact(scene, stripped, candidates, outcome);
@@ -134,6 +135,8 @@ export function reverseMotion(m: Motion): Motion {
 }
 /** Playing stops where it is (and a stopped one starts from where it stands). */
 export function setPlaying(m: Motion, on: boolean): Motion {
+  // play pressed after a jam: the motion begins again from the start (the same jam would come at once from where it stopped)
+  if (on && m.contact?.jam) { const r = restartContact(m.contact, m.kind === "turn" ? m.dir : undefined); return { ...m, amount: 0, from: 0, playing: true, startedAt: null, contact: r.contact, yields: r.yields }; }
   return on ? { ...m, playing: true, startedAt: null, from: m.amount } : { ...m, playing: false, startedAt: null };
 }
 
