@@ -5240,3 +5240,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1230 — 2026-11-19 — directive
 > @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/17b0b661-Keyway_Size_Reference_Guide.pdf" @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/51986f1f-SCI-Standard-Metric-and-Inch-Bores-and-Keyway.pdf" @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/8515c5ce-Design-Guide-for-permanent-mold-aluminum-casting.pdf" @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/658d6d78-s3.pdf" @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/5a77115d-Part_B_Machinerys_Handbook_31st_Edition_Pages_1484-2979.pdf"
 (supplied five of the documents asked for in `in_1227`: the Hamilton keyway guide, the SCI bores and keyways sheet, the Batesville aluminum permanent mold guide, SFSA Supplement 3 and a Machinery's Handbook extract)
+
+## in_1231 — 2026-11-19 — directive
+> what else do you need me to get you? link me to it
+(asks what other documents are still needed for the realistic wheel profile, with links)
