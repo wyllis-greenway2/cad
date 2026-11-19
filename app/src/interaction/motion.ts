@@ -59,7 +59,7 @@ export interface Motion {
   contact?: ContactState;
   yields?: Follower[];
   /** the walk through the joints that would take the place of the push (`fixmotion.ts`): the offers, the one shown, and what has been made so far */
-  fix?: { plan: FixPlan; i: number; made: string[] } | null;
+  fix?: { plan: FixPlan; i: number; made: string[]; /** how it all stood when the walk began, put back when it ends: the view, what was selected, whether it was playing (`in_1157`) */ before: { cam: import("./camera.ts").Camera; selection: readonly Ref[]; playing: boolean } } | null;
 }
 /** The span a joint with no stops is scrubbed and swung over: a turn goes right round either way, a slide as far as the body is wide again. */
 const FREE_TURN = 180, FREE_SLIDE = 30;

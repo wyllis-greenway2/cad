@@ -189,7 +189,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "motionLink": return doMotionLink(s, i);
     case "motionRest": return doMotionRest(s, i);
     case "motionKeep": return doMotionKeep(s);
-    case "motionFix": return doMotionFix(s, i.act);
+    case "motionFix": return doMotionFix(s, i.act, env.now);
     case "motionClose": return { ...s, motion: null };
     case "panel": return doPanel(s, i.name);
     case "panelRow": return doPanelRow(s, i.id, i.act);
