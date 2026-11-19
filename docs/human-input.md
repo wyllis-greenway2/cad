@@ -4574,3 +4574,10 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > my teeth still have that weird profile, how to check in my terminal if I have the right code?
 (says the face gear teeth still look wrong in the app and asks how to check in the terminal that the right code is in their checkout; the AI gives commands)
 
+## in_1054 — 2026-11-19 — question
+> @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/97b271ad-rebuilt_gear_after_deletion.json" @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/66ce796a-rebuilt_gear_after_deletion_state.json" okay can you help fix a bug? why when I delete this crown gear did it have to rebuild the meshed gear?
+(with a project and a state snapshot of a spiral crown gear of 40 teeth and its meshed pinion of 18: asks why deleting the crown gear made the pinion be built again (the snapshot shows 18 of 28 steps made, 14.7 s, a 12 s boolean), and for it to be fixed)
+
+## in_1055 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 once more, with the gear chains change; the full suite is not needed)

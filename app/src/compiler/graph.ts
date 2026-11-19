@@ -59,8 +59,30 @@ export function buildGraph(scene: Scene): GraphResult {
     return { id, type: "sketch", shape: "polygon", points: steps.map((p) => to2d(plane, p.at, back.k)), sides: steps.map((p) => (p.line ? (p.piece ? `${p.line}~${p.piece}` : p.line) : "")), ...(steps.some((p) => p.mid) ? { mids: steps.map((p) => (p.mid ? to2d(plane, p.mid, back.k) : null)) } : {}), plane: "XY", origin: 0, frame: frameOf(plane, back) };
   };
 
+  // Each gear's steps are a chain of their own, joined where a step that is not a gear's comes and at the end (`dec_gear_islands`): a gear is made of its own numbers and stands beside the other bodies, so what is worked out for it must not
+  // depend on the gears before it (deleting or changing one made every gear after it again: 15 s for a spiral bevel pinion). A gear whose steps are not all of that kind (one that cuts another body) is made in the one chain, as before.
+  const island = new Map<string, string>(); // a gear: the last step of its chain
+  const pending: string[] = []; // the gears whose chains are not joined yet, in order
+  const joined = new Set<string>(); // the gears that were: any step of theirs after that is made in the main chain, where their bodies are
+  const flush = (): void => {
+    if (!pending.length) return;
+    const outs = pending.map((g) => island.get(g)).filter((x): x is string => !!x);
+    for (const g of pending) { joined.add(g); island.delete(g); }
+    pending.length = 0;
+    if (!outs.length) return;
+    if (!prev && outs.length === 1) { prev = outs[0]!; return; } // (one gear and nothing else: no join, as before)
+    const first = prev ?? outs[0]!;
+    ops.push({ id: `j_${first}`, type: "join", target: first, others: prev ? outs : outs.slice(1) });
+    prev = `j_${first}`;
+  };
+  const APART = new Set(["extrude", "revolve", "loft", "sweep"]), ON_ITS_OWN = new Set(["combine", "sewBodies", "chamferBody", "chamferEnds", "toothChamfer"]);
   for (const st of scene.steps) {
     const xid = `x_${st.id}`;
+    const gear = typeof st.params.gear === "string" && scene.gears?.some((g) => g.id === st.params.gear) ? (st.params.gear as string) : null;
+    const apart = !!gear && !joined.has(gear) && ((APART.has(st.type) && st.params.mode === "new") || (ON_ITS_OWN.has(st.type) && island.has(gear)));
+    if (!apart) flush(); // (a step that is not a gear's own chain is made after all the chains are joined)
+    const outer: string | null = prev;
+    if (apart) prev = island.get(gear!) ?? null;
     switch (st.type) {
       case "extrude": {
         const depths = figureDepths(st);
@@ -336,7 +358,13 @@ export function buildGraph(scene: Scene): GraphResult {
         break;
       }
     }
+    if (apart) { // (the step is in its gear's chain; the main chain is as it was)
+      if (prev && prev !== island.get(gear!)) island.set(gear!, prev);
+      prev = outer;
+      if (island.has(gear!) && !pending.includes(gear!)) pending.push(gear!);
+    }
   }
+  flush();
   return { graph: { params: {}, ops, names: true }, errors };
 }
 
