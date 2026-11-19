@@ -427,10 +427,10 @@ test("automatic: an inset too small for the head is made bigger, one the face ca
   const { s } = block();
   const tight = receiverPlan(s, vals({ kind: "countersunk", size: "M3", place: "auto", offset: "1" }));
   assert.ok(tight.ok && tight.value.places.every((c) => c[0] >= 4.86 - 1e-6 && c[1] >= 4.86 - 1e-6), tight.ok ? "" : tight.error);
-  const { s: narrow } = small(40, 20); // (room for 10 in: the inset is kept to 85% of that)
+  const { s: narrow } = small(40, 24); // (room for 12 in: the loop is kept one and a half head widths across, so the inset is cut to 5.46)
   const p = receiverPlan(narrow, vals({ kind: "countersunk", size: "M3", place: "auto", offset: "10" }));
   assert.ok(p.ok, p.ok ? "" : p.error);
-  if (p.ok) assert.ok(p.value.insetUsed !== undefined && p.value.insetUsed <= 10 * 0.85 + 1e-6 && p.value.insetUsed >= 4.86 - 1e-6, `${p.value.insetUsed} ${p.value.auto}`);
+  if (p.ok) assert.ok(p.value.insetUsed !== undefined && p.value.insetUsed <= 5.5 && p.value.insetUsed >= 4.86 - 1e-6, `${p.value.insetUsed} ${p.value.auto}`);
 });
 test("automatic: too cramped means fewer holes, too little room means one line along the middle", () => {
   const { s } = block();
@@ -591,4 +591,16 @@ test("points on a round face: each stands on a plane touching the surface, and t
   const after = receiverPlan(r.value, { ...v, place: "picked" });
   assert.ok(after.ok, after.ok ? "" : after.error);
   if (after.ok) assert.deepEqual(after.value.places.map((c) => c.map((x) => Math.round(x * 1e3) / 1e3)).sort(), before.value.places.map((c) => c.map((x) => Math.round(x * 1e3) / 1e3)).sort());
+});
+
+test("automatic: a wall too short for a loop of heads is not a loop with one hole at each of two opposite corners (`in_1016`)", () => {
+  const { s: narrow } = small(40, 20); // (a loop here would be 3 across: the holes zigzag between its long sides)
+  const p = receiverPlan(narrow, vals({ kind: "countersunk", size: "M3", place: "auto", offset: "10" }));
+  assert.ok(p.ok, p.ok ? "" : p.error);
+  if (!p.ok) return;
+  assert.ok(String(p.value.auto).includes("middle"), String(p.value.auto));
+  for (const c of p.value.places) near(c[1], 10, 1e-6);
+  const wide = small(40, 24);
+  const q = receiverPlan(wide.s, vals({ kind: "countersunk", size: "M3", place: "auto", offset: "10" }));
+  assert.ok(q.ok && String(q.value.auto).includes("edges stepped in"), q.ok ? String(q.value.auto) : q.error);
 });

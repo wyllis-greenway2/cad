@@ -153,8 +153,9 @@ export function autoRows(surf: RowSurface, rules: Rules, count: number, gap: num
   const rd = (x: number): string => String(Math.round(x * 10) / 10);
   if (surf.loop) { // a wall all the way round: a loop at each end, or one round the middle
     const room = (surf.loop.hi - surf.loop.lo) / 2 - 0.5;
-    if (room >= minInset) {
-      const inset = Math.min(Math.max(pref, minInset), room * 0.9);
+    const cap = (surf.loop.hi - surf.loop.lo) / 2 - minSp * 0.75; // (the two loops at least one and a half head widths apart)
+    if (room >= minInset && cap >= minInset) {
+      const inset = Math.min(Math.max(pref, minInset), room * 0.9, cap);
       const r = withNote(fitSpacing("outline", inset, ["ignore"]), (n) => `a loop at each end, ${rd(inset)} mm in, ${n.places.length / 2} holes each`, inset);
       if (r && r.ok) return r;
     }
@@ -163,8 +164,10 @@ export function autoRows(surf: RowSurface, rules: Rules, count: number, gap: num
   }
   if (!surf.outline.ok) return surf.outline;
   const room = roomIn(surf.outline.value);
-  if (room >= minInset + 0.5) {
-    const inset = Math.min(Math.max(pref, minInset), room * 0.85);
+  // the loop is stepped in no further than leaves it a head and a gap across: a thinner one has the holes zigzag between its two long sides, one at each of two opposite corners (`in_1016`), and the middle line is the better line
+  const cap = room - minSp * 0.75; // (across the loop at least one and a half head widths)
+  if (room >= minInset + 0.5 && cap >= minInset) {
+    const inset = Math.min(Math.max(pref, minInset), room * 0.85, cap);
     const r = withNote(fitSpacing("outline", inset, ["each", "ignore"]), (n) => `edges stepped in ${rd(inset)} mm, ${n.places.length} holes${n.spacing !== null ? `, about ${rd(n.spacing)} mm apart` : ""}`, inset);
     if (r && r.ok && r.value.places.length >= 2) return r;
   }
