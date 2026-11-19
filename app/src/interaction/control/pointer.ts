@@ -246,7 +246,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
       { id: "view:section", label: "Section", icon: "section", enabled: true, why: null }, // (one item: a new plane, cutting; its icons change that, `in_466`)
       { id: "view:hide", label: "Hide body", icon: "eyeOff", enabled: selectedBodies(sc, sel).length > 0, why: "select a body to hide (a hidden body comes back with its eye or from the Bodies list)" }, // (the eye that hovered on a body is here now, `in_697`)
       { id: "view:wireframe", label: "Wireframe", icon: "wireframe", enabled: true, why: null },
-      { id: "view:constraints", label: view.constraints ? "Hide constraints" : "All constraints", icon: "constraint", enabled: true, why: null }, // (every constraint of the whole world, not only those of what is selected, `in_1153`)
+      { id: "view:constraints", label: view.constraints ? "Hide constraints" : "All constraints", icon: "constraint", enabled: true, why: null }, // (every constraint of the whole world, not only those of what is selected, `in_1154`)
       { id: "tape:measure", label: "Tape measure", icon: "dimension", enabled: true, why: null },
     ]),
     // the actions on what is there: undo and redo, and delete (`in_538`)
