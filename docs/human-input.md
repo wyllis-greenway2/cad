@@ -4412,3 +4412,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1014 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for this branch (the washer, taking a hole out, more holes when too far apart, points on round faces, the depth chosen for the part, snapping a moved hole to its line) to be merged into claude/inspiring-pascal-l342k7)
+
+## in_1015 — 2026-11-19 — question
+> are you sure the odd-looking tooth tops are just the involute shape?
+(challenges the AI's claim that the face gear's pinched-looking tooth tops are the involute shape; the AI measured and found it was wrong: a waist, the tooth wider at the tip than below it)
+
