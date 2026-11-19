@@ -5178,5 +5178,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (supplied three saved pages as PDFs: the onallcylinders piston article, the Caterpillar patent application 20160169153 and the kfz-tech "Piston Dimensions" page; asks whether to look up more diagrams or machining blogs)
 
 ## in_1214 — 2026-11-19 — directive
+> I think another helpful tool would be the hub and spoke tool. I am not sure exactly how it would work, but the idea is that it could make different hubs and spokes to go into wheels or pullies or any circular object. It should probably be the case that it could be made alone, or if you select a circular object it could be made into the object.
+(asks for a hub and spoke tool that makes hubs and spokes for wheels, pulleys or any round object; it works alone, or on a selected round object, making it into that object)
+
 > lets do a four stroke single piston gasoline engine
 (answers my question: the engine builder's first engine is a four-stroke, single-cylinder gasoline engine)
