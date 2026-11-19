@@ -3,7 +3,7 @@ id: dec_piston_parameters
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_1212, in_1215, in_1228, in_1229, in_1233, in_1235, in_1237
+human_input: in_1212, in_1215, in_1228, in_1229, in_1233, in_1235, in_1237, in_1239
 date: 2026-11-19
 depends_on:
   - dec_engine_model: the piston is a part of the engine model; its master numbers (bore, stroke, rod ratio) and the pin limit 0.18 to 0.4 come from there, and a change to how the engine is built changes what the piston must fit
@@ -13,6 +13,27 @@ alternative_to:
 # The piston's parameter list (a proposal, nothing built)
 
 The human asked for a really good engine builder starting with real pistons (`in_1209`, `in_1212`), a four-stroke single-cylinder gasoline engine first (`in_1215`), able to make **a range of engines** (`in_1228`), and said the home made designs teach little (`in_1229`). `in_1233` asked for this list. **It replaces the piston's proportions that `dec_engine_model` took from memory** (`ch = 0.55 B`, skirt `0.35 B`, groove `0.05 B`, land `0.12 B`) **once the human approves it**; until then the code is unchanged. Every number says where it comes from (`docs/sources/README.md`): **S** = a source read, **D** = my arithmetic from sources, **M** = from memory, no source. B is the bore. Weights: Honda GX160 (OEM data, professional), NACA 817 and 895 (public, real, large 1940s aircraft pistons), Scraba / MAHLE and the Caterpillar patent (professional practice, other bore sizes) count most; the J & E, Chirico and Webster hobby designs count least.
+
+## How the sources are weighted (a rule, `in_1239`)
+
+The human asked how to reduce the risk of leaning on a 1945 aircraft piston and suggested weighting the Honda data more. **Proposed, with the measurement behind it:**
+
+| Tier | Source | Used for |
+|---|---|---|
+| 1 | **Honda GX120 / GX160 / GX200 service manual** (OEM data, 60 and 68 mm bores: the size class of the builder's default engine) | every number it gives: pin, pin fit, ring heights, side clearance, end gap, skirt clearance and where it is measured, ring materials, rod and crank fits |
+| 2 | Other professional practice: Scraba / MAHLE, Wiseco, Caterpillar patent, EngineLabs / Diamond, ISO 6622, a Springer chapter summary | rules, ranges and the variation axes; each with its own bore size noted |
+| 3 | **NACA 817 and 895** (an aircraft piston of 1945, 155.6 mm bore, forged aluminium) | **only** what tiers 1 and 2 do not give, as an *assumption*, and **never as a ratio of the bore for a quantity that does not scale** |
+| 4 | the J & E, Chirico and Webster hobby designs | a cross-check only |
+
+**Why quantities must not be scaled from NACA (measured, my arithmetic):** the Honda ring height is the same 1.5 mm in a 60 mm and a 68 mm bore (0.025 and 0.022 B), so ring heights do not follow the bore; NACA's 1.78 mm ring is only 1.2 times Honda's in a bore 2.3 times larger; its clearances are far larger (ring side clearance 0.14 to 0.19 mm against 0.015 to 0.045, skirt clearance 0.6 to 0.7 mm against 0.015 to 0.050, 12 to 46 times). Scaling NACA's land ratio 0.025 B to 68 mm gives 1.7 mm, barely above a 1.5 mm ring. **So: lengths and clearances that are set by the ring, the pin or a fit come from Honda in millimetres; only layout proportions with no other source (a belt stack, where the skirt ends) may come from NACA.**
+
+**Other protections:**
+
+- **Fail-safe side.** Where a number is assumed, the default errs on the side that costs weight or looks, not function: a longer skirt and a taller pin height cost weight; a clearance that is too small seizes, so clearances take the larger Honda value; a crown that is too thin fails, so the crown takes the thicker end.
+- **An assumed number never refuses a design.** Only sourced rules and plain geometry (two parts occupying the same space) may refuse (as in `dec_engine_model`); an assumed value is a default the human can override.
+- **What matters for a printed engine is fit and motion** (clearances, the pin, the rings, the exact slider crank), which tier 1 decides; the NACA assumptions drive proportions (look) and the heat and strength a printed part never has.
+- **A check against the real engine (proposed, not built):** the three Honda engines are presets of the builder (60 x 42, 68 x 45 with its 83.8 to 84.4 mm rod, 68 x 54), and a test compares every default the builder makes for them with Honda's published number (pin, ring heights, side clearance, end gaps, skirt clearance); a default outside Honda's range is changed. This also gives the "range of engines" three real examples. It needs the human's approval (new code and tests), so it is listed under what comes next.
+- **Expiry.** Each assumption (A1 to A10) is deleted when a tier 1 or 2 source arrives for it; the section shows what each replaces.
 
 ## The master and derived numbers
 
@@ -44,10 +65,10 @@ Nothing read gives a small gasoline piston's length, skirt, groove positions or 
 | # | Assumed rule | NACA reading | Why it is only an assumption |
 |---|---|---|---|
 | A1 | **The ring belt is a stack:** top land, then each ring's groove, with a land between rings of **1.5 to 2.0 times the ring height** (floor: 2.3 mm for a 1.5 mm ring) | Lands between rings 0.155, 0.125 and 0.100 in (0.025, 0.020 and 0.016 B) beside grooves of 0.076 and 0.073 in: 2.0, 1.6 and 1.4 times the groove | One piston; Scraba gives 0.04 B and 0.02 to 0.03 B for race pistons on an assumed bore |
-| A2 | **Top land 0.07 B** (above; 0.04 to 0.10 B), longer when the crown runs hot | NACA 817's is 0.755 in = **0.123 B**, and the report puts the ring belt "as far from the crown as practicable" | 0.123 B is for an aircraft piston at high output; the book range for gasoline is 0.04 to 0.10 B |
+| A2 | **Top land 0.07 B** (above; 0.04 to 0.10 B), longer when the crown runs hot. **Taken from the book range, not from NACA** | NACA 817's is 0.755 in = **0.123 B** (shown only as the upper end: the report puts the ring belt "as far from the crown as practicable") | 0.123 B is for an aircraft piston at high output; the book range for gasoline is 0.04 to 0.10 B (a summary only) |
 | A3 | **Groove depth = ring radial width + a back clearance of 0.4 to 0.5 mm** | Root diameters 5.749 and 5.715 against land 6.080 in: depth 0.166 and 0.183 in, rings 0.150 and 0.170 in: back clearance 0.39 and 0.32 mm (D) | Scraba gives 0.5 mm (race) to 1.0 to 1.3 mm (production); the rule takes the NACA end |
-| A4 | **Pin hole 0.26 B** (a check on the Honda 0.265 B) | The pin hole in figure 8 measures about 1.58 in on a 6.125 in piston = 0.26 B (scaled from the picture, **plus or minus 0.02 B**) | Scaled off a drawing, not a dimension |
-| A5 | **Pin height 0.44 B and piston length 0.71 B**, skirt foot **0.27 B** below the pin axis; **but the builder takes the larger of this and the stack**: pin height at least belt + the pin's radius + a margin of 0.05 B | The belt is 1.433 in (0.234 B) and the pin axis 2.69 in (0.44 B) below the crown, the foot 4.35 in (0.71 B), all scaled from figure 8 (**plus or minus 0.1 in**); a 3 ring GX160 like stack gives 27 mm (0.40 B) | A motorcycle catalogue (unconfirmed) shows 0.30 to 0.33 B; the NACA piston is long |
+| A4 | **Pin hole 0.265 B from Honda (13.0 mm in 60 mm is 0.217 B): this row is only a cross-check, NACA is not the source** | The pin hole in figure 8 measures about 1.58 in on a 6.125 in piston = 0.26 B (scaled from the picture, **plus or minus 0.02 B**) | Scaled off a drawing, not a dimension |
+| A5 | **The pin height is the stack, built from Honda sizes:** top land + each ring's Honda height (1.5, 1.5 and 2.5 mm) and the lands of A1 + the pin's radius + a margin of 0.05 B: **about 27 mm = 0.40 B for a 68 mm bore** (my arithmetic). **NACA's 0.44 B and 0.71 B piston length are only the ceiling it must stay under**, and the skirt foot 0.27 B below the pin is NACA's alone (the one number with no other source) | The belt is 1.433 in (0.234 B) and the pin axis 2.69 in (0.44 B) below the crown, the foot 4.35 in (0.71 B), all scaled from figure 8 (**plus or minus 0.1 in**); a 3 ring GX160 like stack gives 27 mm (0.40 B) | A motorcycle catalogue (unconfirmed) shows 0.30 to 0.33 B; the NACA piston is long |
 | A6 | **Crown thickness 0.08 B** | NACA 895 compares 8 % and 30 % of the radius (0.04 and 0.15 B) | The study is of temperature, not of strength; no gas pressure rule was read |
 | A7 | **Skirt oval 0.001 B and a foot 0.0005 B larger than the top** | Skirt 6.098 and 6.092 across and along the pin (0.006 in) and 6.101 at the foot (0.003 in) | Which diameter is which axis was not certain; cartecc's 0.1 mm gives 0.001 B |
 | A8 | **Oil drain holes below the oil ring: 0.03 B diameter, four to eight, spaced 30 and 45 degrees from the pin axis** | Eight 3/16 in holes in the oil grooves | The drilling of figure 8 only; a real car piston may use slots |

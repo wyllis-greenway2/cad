@@ -5272,3 +5272,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1238 — 2026-11-19 — directive
 > add draft to the walls as a variable too. Machined hubs wont have draft, cast ones will
 (asks for a draft angle on the walls as one more number of the wheel: 0 for a machined wheel, some for a cast one)
+
+## in_1239 — 2026-11-19 — preference
+> how can we mitigate the risks of using 6⅛ in aircraft piston from 1945? maybe we should weight the honda data more?
+(asks how to reduce the risk of the NACA 817 aircraft piston numbers in the assumed design rules, and suggests weighting the Honda data more)
