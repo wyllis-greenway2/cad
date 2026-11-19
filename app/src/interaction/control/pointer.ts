@@ -278,7 +278,7 @@ function drawingPlane(sc: Scene, refs: readonly Ref[]): Ref | null {
   return null;
 }
 
-/** What is said when the axes a drag is held to are chosen (`in_652`, `in_1174`): the same words for the orb and for a plane that is moved. */
+/** What is said when the axes a drag is held to are chosen (`in_652`, `in_1181`): the same words for the orb and for a plane that is moved. */
 function heldWords(held: readonly number[], what: string): string {
   return held.length === 0 || held.length === 3 ? `${what} moves freely` : held.length === 1 ? `${what} moves along ${"XYZ"[held[0]!]} only` : `${what} moves in the ${held.map((a) => "XYZ"[a]).join("")} plane only`;
 }
@@ -661,7 +661,7 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   }
   // a click on a ring of a repeat, or of the turn being set up, makes that the axis, with no drag needed (`in_206`)
   if (hit && hit.id.startsWith("rot:") && s.op?.kind === "rotate") return { ...base, op: { ...s.op, axis: "xyz".indexOf(hit.id[4]!) as 0 | 1 | 2, typed: "" }, gizmoHover: hit.id, handleSel: hit.id };
-  // a click on a pane holds the drag to its plane, as two arrows chosen with Shift do (a second click lets it go, `in_1174`)
+  // a click on a pane holds the drag to its plane, as two arrows chosen with Shift do (a second click lets it go, `in_1181`)
   if (hit && hit.kind === "pane" && hit.plane && !s.repeat) {
     const [a, b] = hit.plane;
     const same = s.lockAxes.length === 2 && s.lockAxes.includes(a) && s.lockAxes.includes(b);

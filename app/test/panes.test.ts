@@ -1,4 +1,4 @@
-// The little panes of an orb (`in_1174`, `dec_unified_orb`): a pane between two arrows always sends movement in its plane; a click on one holds the drag to that plane.
+// The little panes of an orb (`in_1181`, `dec_unified_orb`): a pane between two arrows always sends movement in its plane; a click on one holds the drag to that plane.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";

@@ -5027,44 +5027,68 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > okay I think the menu should have you either go into a catalog selector that is simple bearing only, or go into create your own path with simple or detailed selectable. Right now it kind of seems to be in a hybrid state of both make your own and select from catalog
 (asks for two separate paths under a bearing type: a catalogue selector that makes simple bearings only, and a make-your-own path where simple or detailed can be chosen)
 
-## in_1172 — 2026-11-19 — directive
-> check the gearbox again, another claude was working on that and it is important I think
+## in_1172 — 2026-11-19 — question
+> okay what next?
 
-## in_1173 — 2026-11-19 — question
-> okay what to do now?
+## in_1173 — 2026-11-19 — approval
+> go with 1 and 2
+(approves the AI's recommendation of `in_1172`: check a gear or a cam edited against a mate, and the held-back preview of a drag, against the rule that a violated constraint flashes red, says so and offers to delete)
 
 ## in_1174 — 2026-11-19 — directive
-> okay it seems like we have some duplicate code once again. The move orb for the cross section plane does not work like other orbs. Lets unify all the orbs so they work the same. They should all be a single orb In one or more modes. There should be the xyz arrows that can be selected with shift to select more or less freedom of movement. The little panes always sent movement in that plane, the information bubbles should always be hidden except for the axis selected. Sometimes the xyz arrows can have second arrows that indicate copy direction or twist direction for screws rotate extrude etc. there should always be the swapper to swap from xyz to rotate mode (sometimes it should be in both rotate and xyz mode) selecting the blue orb should always allow smart select based off clicking edges verticies objects faces etc.
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the held-back drag's flash and the gear and mate checks to be merged into the testing branch, no full test run)
 
 ## in_1175 — 2026-11-19 — approval
+> yes make it a real toggle button
+(approves making the bearing's Detail a real simple/detailed toggle button instead of a number field)
+
+## in_1176 — 2026-11-19 — question
+> okay what next?
+
+## in_1177 — 2026-11-19 — directive
+> Can we have the show constraints option turn back off when a body is deselected? Can we have the show constraints icon show up for faces too. Can we have it just be a lock icon please. Can we have the bubble that holds the icons be solid line except the parts that go around suggested can be dashed. Clicking a suggested should pop and add it visually then fade or not depending on the normal state. Can we have the icons for interacting with the body always be in this holder thing? Right now the eye icon pops out and goes by itself when a body is hidden. It should stay in the same holder thing but become the only icon and show up when the eye normally does for hidden bodies.
+
+## in_1178 — 2026-11-19 — directive
+> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
+
+## in_1179 — 2026-11-19 — directive
+> check the gearbox again, another claude was working on that and it is important I think
+
+## in_1180 — 2026-11-19 — question
+> okay what to do now?
+
+## in_1181 — 2026-11-19 — directive
+> okay it seems like we have some duplicate code once again. The move orb for the cross section plane does not work like other orbs. Lets unify all the orbs so they work the same. They should all be a single orb In one or more modes. There should be the xyz arrows that can be selected with shift to select more or less freedom of movement. The little panes always sent movement in that plane, the information bubbles should always be hidden except for the axis selected. Sometimes the xyz arrows can have second arrows that indicate copy direction or twist direction for screws rotate extrude etc. there should always be the swapper to swap from xyz to rotate mode (sometimes it should be in both rotate and xyz mode) selecting the blue orb should always allow smart select based off clicking edges verticies objects faces etc.
+
+## in_1182 — 2026-11-19 — approval
 > I will take your recommendation
 (takes the AI's recommendation: the plan of `dec_unified_orb`, beginning with the cross section's orb; the three open questions are left to the AI's defaults)
 
-## in_1176 — 2026-11-19 — approval
+## in_1183 — 2026-11-19 — approval
 > yes go ahead
 (approves the next step of `dec_unified_orb`: the one bubble rule and Shift on the plane's rotate rings)
 
-## in_1177 — 2026-11-19 — approval
+## in_1184 — 2026-11-19 — approval
 > yes do the pane handles next
 (approves the next step of `dec_unified_orb`: the pane handles, little panes that always send movement in their plane)
 
-## in_1178 — 2026-11-19 — approval
+## in_1185 — 2026-11-19 — approval
 > yes go ahead
 
-## in_1179 — 2026-11-19 — approval
+## in_1186 — 2026-11-19 — approval
 > yes go ahead
 (approves the next step of `dec_unified_orb`: the second arrows for circular repeat and sweep)
 
-## in_1180 — 2026-11-19 — directive
+## in_1187 — 2026-11-19 — directive
 > the second arrows shouldn't alway exist. those are special and only for certain operations
 
-## in_1181 — 2026-11-19 — approval
+## in_1188 — 2026-11-19 — approval
 > yes go ahead
 (approves panes on the mirror, scale and repeat orbs)
 
-## in_1182 — 2026-11-19 — directive
+## in_1189 — 2026-11-19 — directive
 > maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
 
-## in_1183 — 2026-11-19 — approval
+## in_1190 — 2026-11-19 — approval
 > Push; new branch claude/hopeful-cannon-8 (Recommended)
 (the answer to the AI's question: permission to push to claude/inspiring-pascal-l342k7, then work on a new branch claude/hopeful-cannon-8 created from it)

@@ -69,7 +69,7 @@ import { createSheetChips } from "./ui/sheetchips.ts";
 import { createWorldOrb } from "./ui/worldorb.ts";
 import { createHardMarks } from "./ui/hardmarks.ts";
 import { createPanel } from "./ui/panel.ts";
-import { createBodyChips } from "./ui/bodychips.ts";
+import { hiddenBodyUnder } from "./ui/bodychips.ts";
 import { createControls } from "./ui/controls.ts";
 import { createGearBox } from "./ui/gearbox.ts";
 import { createHolePanel } from "./ui/holepanel.ts";
@@ -219,7 +219,6 @@ const crosshair = createCrosshair(document.body);
 const hardMarks = createHardMarks(document.body, (id) => dispatch({ type: "runAction", id }));
 const worldOrb = createWorldOrb(document.body, () => dispatch({ type: "runAction", id: "world:toggle" }));
 const sheetChips = createSheetChips(document.body, (id) => dispatch({ type: "runAction", id }));
-const bodyChips = createBodyChips(document.body, (id) => dispatch({ type: "runAction", id }));
 const resetView = createResetView(document.body, () => dispatch({ type: "resetView" }));
 const notices = createNotices(document.body, statusEl, (i) => dispatch(i)); // (every message, refusal, help and the working sign, `in_665`)
 const previewBar = createPreviewBar(document.body, (at) => dispatch({ type: "previewAt", at }), () => dispatch({ type: "previewClose" }));
@@ -752,7 +751,8 @@ function frame(now: number) {
     { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); hardMarks.update(f.hardMarks, (q) => { const c = pr.project(q); return c && c[0] > -10 && c[1] > -10 && c[0] < size.w + 10 && c[1] < size.h + 10 ? [c[0] + pg.left, c[1] + pg.top] : null; }); }
     { const pg = host.getBoundingClientRect(); const c = projector(state.cam, size.w, size.h).project([0, 0, 0]); worldOrb.update(c && c[0] > -20 && c[1] > -20 && c[0] < size.w + 20 && c[1] < size.h + 20 ? [c[0] + pg.left, c[1] + pg.top] : null, f.worldHidden); }
     { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); sheetChips.update(f.sectionPlanes.filter((p) => !p.guide && p.hidden && !p.selected).map((p) => ({ ref: p.ref, mode: p.mode, hidden: p.hidden, move: p.move, selected: p.selected, corners: p.corners })), (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null); }
-    { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); bodyChips.update(f.bodyEyes.filter((e) => e.hidden), (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null, f.eyesQuiet); }
+    const pgE = host.getBoundingClientRect(), prE = projector(state.cam, size.w, size.h);
+    const eyeOver = hiddenBodyUnder(f.bodyEyes, (q) => { const c = prE.project(q); return c ? [c[0] + pgE.left, c[1] + pgE.top] : null; }, pointer ? [pointer.x + pgE.left, pointer.y + pgE.top] : null); // (a hidden body the pointer is over: its eye is in the bar, `in_1177`)
     toolChip.update(f.tool, f.confirm, lastDevice === "touch", f.options, f.undoRedo);
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null); }
     { const h = hardware ? holesOptions() : null; holeBar.update(h ? h.bar : null); view.setToolpath(h && h.view ? h.view : f.toolpath, state.cam); } // (the holes the panel would cut are drawn over the model, `dec_parts_tool`)
@@ -811,7 +811,7 @@ function frame(now: number) {
     const onPage = (p: Vec3 | null | undefined): [number, number] | null => { if (!p) return null; const q = project(p); return [q[0] + page.left, q[1] + page.top]; };
     // the icon stands at the upper left of the handles, out of the way of the arrows and rings (`in_215`)
     const corner = f.modeSwitch ? f.modeSwitch.pts.map((p) => onPage(p)!).reduce<[number, number]>((c, q) => [Math.min(c[0], q[0]), Math.min(c[1], q[1])], [Infinity, Infinity]) : null;
-    suggest.update(f.bar, f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : f.bar?.at ? ((q) => (q ? [q[0], q[1] - 112] as [number, number] : null))(onPage(f.bar.at)) : null, [ring.rect(), ...chips.map((c) => c.rect()), notices.helpRect(), ...touchRects, ...bubbles.rects()].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : [])));
+    suggest.update(eyeOver ? { icons: [...(f.bar?.icons ?? []), { id: `body:eye:${eyeOver.ref}`, icon: "eyeOff", title: "Hidden: show this body" }], gear: f.bar?.gear ?? null } : f.bar, f.suggest ? f.suggest.items : null, f.suggest ? onPage(f.suggest.at) : f.bar?.at ? ((q) => (q ? [q[0], q[1] - 112] as [number, number] : null))(onPage(f.bar.at)) : eyeOver ? [eyeOver.at[0], eyeOver.at[1] - 88] : null, [ring.rect(), ...chips.map((c) => c.rect()), notices.helpRect(), ...touchRects, ...bubbles.rects()].flatMap((r) => (r ? [[r.left, r.top, r.right, r.bottom] as [number, number, number, number]] : [])));
     gearBox.update(f.entry?.panel ? f.entry : null);
     const valueBubbles = (f.entries.length ? f.entries : f.entry ? [f.entry] : []).filter((e) => !e.panel);
     valueBubbles.forEach((e, i) => chipAt(i).update(e.fields, e.unit || "mm", onPage(e.at), onPage(e.from), !!state.tool && lastDevice !== "touch", lastDevice === "touch", !!e.constraint, e.opacity ?? 1)); // (a mouse draws through the bubble: a finger can tap into it to type a size, `in_289`)

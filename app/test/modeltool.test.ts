@@ -352,3 +352,16 @@ test("the size of a catalogue bearing picks the listed bearing whose outside dia
   assert.equal(modelNumbers("ballbearing", { number: 6000 }, 40).number, 6000);
   assert.equal(modelExtent("ballbearing", modelNumbers("ballbearing", {}, 62)), 62);
 });
+
+test("the detail of a bearing of your own is a toggle button: the box says so, and 1 typed on it (what the button sends) makes the detailed bearing", () => {
+  const sc = scene(createSession(kernel));
+  let t: Tool = { ...armed("ownbearing"), plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0] };
+  const f = modelEntry(sc, t)!.fields;
+  assert.deepEqual(f[2]!.choices, ["Simple", "Detailed"]);
+  assert.equal(f[2]!.value, "0");
+  assert.ok(f.every((x, i) => i === 2 || !x.choices));
+  t = typeIn(t, 2, "1");
+  assert.equal(modelEntry(sc, t)!.fields[2]!.value, "1");
+  assert.equal(modelTarget(sc, t)!.nums.detail, 1);
+  assert.equal(modelFields("ballbearing").some((x) => x.choices), false, "the catalogue has no toggle: it is simple");
+});

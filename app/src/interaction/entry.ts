@@ -22,7 +22,7 @@ import { advanceOf } from "./revolve.ts";
 import { loftNumbers, loftGapNumbers } from "./loft.ts";
 import { modelEntry, modelTarget } from "./modeltool.ts";
 
-export interface EntryField { /** the number was just taken back to one that makes a gear: it flashes red (`in_690`) */ bad?: boolean; /** a line that says what the number is (the gear box, `in_685`) */ hint?: string; label: string; value: string; active: boolean; typed: boolean; /** a short name shown in front of the number when there are several (X Y Z) */ short?: string; /** which numbered field of its operation it is, when the operation has several bubbles */ index?: number; /** the unit of this field when it is not the entry's (a position and a rotation in one bubble) */ unit?: string }
+export interface EntryField { /** the number was just taken back to one that makes a gear: it flashes red (`in_690`) */ bad?: boolean; /** a line that says what the number is (the gear box, `in_685`) */ hint?: string; label: string; value: string; active: boolean; typed: boolean; /** a short name shown in front of the number when there are several (X Y Z) */ short?: string; /** which numbered field of its operation it is, when the operation has several bubbles */ index?: number; /** the unit of this field when it is not the entry's (a position and a rotation in one bubble) */ unit?: string; /** a field with a few named values is a toggle button, not a number: the names, and `value` is the place of the one chosen (`in_1175`) */ choices?: string[] }
 /** `at`: where in the scene the bubble sits (null: no place to attach it to) */
 export interface Entry { /** the gear box's buttons (`in_919`): `edit` is for a gear that exists (the blue button says Done, not Create); `changed`: there is something to Update */ gearButtons?: { edit: boolean; changed: boolean }; /** the box takes the keyboard in the number that is active, and scrolls to it, when it opens (`in_771`) */ focus?: true; /** a planetary set: the ratio for each part held and what is worth a warning (`dec_planetary_gears`) */ info?: string; /** a gear being sized next to one it would mesh with: the click that makes it mesh (`in_709`) */ suggest?: string; /** a gear whose numbers make none: why, in red (`in_694`) */ warn?: string; /** shown as a labelled panel that stands still, not a bubble that follows the pointer: a box of many numbers to click into (the gear tool, `in_685`) */ panel?: string; /** the panel's lengths follow the number system (a cam: free-form sizes; a gear's follow the standards) */ followUnits?: true; fields: EntryField[]; unit: string; /** how plainly it shows: less than 1 while it fades out (`in_439`) */ opacity?: number; /** the number typed is also a constraint (a size of a figure): a lock shows by it, closed once typed (`in_384`) */ constraint?: boolean; at?: Vec3 | null; /** the other end of the arrow the bubble is at the tip of: the bubble stands out past the tip, away from it, so it does not cover the arrow */ from?: Vec3 | null }
 
@@ -241,7 +241,7 @@ export function moverPlaceEntries(g: Gizmo | null, frame: readonly [Vec3, Vec3, 
   }
   // each of the three bubbles has the mover's position along its axis and, beside it, the turn of its axes about that axis (`in_434`)
   return ([0, 1, 2] as const).flatMap((k) => {
-    if (!held.includes(k)) return []; // (only the axes chosen show their numbers, `in_1174`: nothing chosen, nothing shown)
+    if (!held.includes(k)) return []; // (only the axes chosen show their numbers, `in_1181`: nothing chosen, nothing shown)
     const arrow = g.handles.find((h) => h.id === `piv:${"xyz"[k]}`);
     return arrow ? [{ opacity: show.opacity, fields: [
       { label: `Mover's position along ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(g.centre[k]!), active: false, typed: false, index: k, unit: "mm" },
@@ -262,7 +262,7 @@ export function frameOfAngles(angles: [number, number, number]): [Vec3, Vec3, Ve
 }
 export function moveEntries(op: Op, g: Gizmo | null, offset: Vec3, held: readonly number[] = []): Entry[] {
   if (!g || op.kind !== "move") return [];
-  // a body dragged free: the number on the arrow of each axis chosen (held with Shift or a click), as it goes (`in_293`, and `in_1174`: nothing chosen, nothing shown)
+  // a body dragged free: the number on the arrow of each axis chosen (held with Shift or a click), as it goes (`in_293`, and `in_1181`: nothing chosen, nothing shown)
   if (op.free) {
     return ([0, 1, 2] as const).flatMap((k) => {
       if (!held.includes(k)) return [];

@@ -2146,7 +2146,7 @@ test("the mover's place can be typed: with the sphere selected its x, y and z ar
   const chosen = { ...st, handleSel: "piv:x" };
   assert.equal(frame(chosen).entries.length, 1, "the value of the arrow that was clicked");
   const moved = { ...st, orbMovedAt: 0 };
-  assert.equal(frameOf(moved, { w: 800, h: 600 }, 100).entries.length, 0, "the whole orb moved with no axis chosen: no number (`in_1174`)");
+  assert.equal(frameOf(moved, { w: 800, h: 600 }, 100).entries.length, 0, "the whole orb moved with no axis chosen: no number (`in_1181`)");
   assert.equal(frameOf({ ...moved, lockAxes: [0, 1, 2] }, { w: 800, h: 600 }, 100).entries.length, 3, "the axes chosen: one on each arrow of the sphere");
   st = reduce(st, { type: "entry", field: 0, text: "40" }, env);
   st = reduce(st, { type: "entry", field: 1, text: "20" }, env);
@@ -2235,7 +2235,7 @@ test("in the orient mode each of the three bubbles has the mover's position alon
   st = reduce(st, { type: "begin", name: "move" }, env);
   const [bx, by] = px(st, gizmoOf(st)!.centre);
   st = reduce(st, { type: "click", x: bx, y: by, count: 1, shift: false }, env);
-  assert.equal(frameOf({ ...st, orbMovedAt: 0 }, { w: 800, h: 600 }, 100).entries.length, 0, "the whole orb just moved with no axis chosen: no number (`in_1174`)");
+  assert.equal(frameOf({ ...st, orbMovedAt: 0 }, { w: 800, h: 600 }, 100).entries.length, 0, "the whole orb just moved with no axis chosen: no number (`in_1181`)");
   const es = frameOf({ ...st, lockAxes: [0, 1, 2], orbMovedAt: 0 }, { w: 800, h: 600 }, 100).entries; // (the axes chosen: theirs show)
   assert.equal(es.length, 3);
   assert.equal(frameOf({ ...st, lockAxes: [2], orbMovedAt: 0 }, { w: 800, h: 600 }, 100).entries.length, 1, "one axis chosen: its number alone");

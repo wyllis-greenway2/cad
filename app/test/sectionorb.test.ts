@@ -1,4 +1,4 @@
-// The cross section's orb works as every orb does (`in_1174`, `dec_unified_orb`): Shift on its arrows holds a drag to axes, the blue orb moves the plane (held, sticking to places) instead of turning the view, and a click on it lets a corner, an edge or a face put the plane there.
+// The cross section's orb works as every orb does (`in_1181`, `dec_unified_orb`): Shift on its arrows holds a drag to axes, the blue orb moves the plane (held, sticking to places) instead of turning the view, and a click on it lets a corner, an edge or a face put the plane there.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";

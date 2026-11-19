@@ -32,7 +32,7 @@ export interface Handle {
   dir?: Vec3;
   /** a turning ring: which of its points carries the arrowhead */
   head?: number;
-  /** a pane (`in_1174`): the two axes of the plane it moves in, and (in `dir`) the way that plane faces; its four corners are `points` */
+  /** a pane (`in_1181`): the two axes of the plane it moves in, and (in `dir`) the way that plane faces; its four corners are `points` */
   plane?: [0 | 1 | 2, 0 | 1 | 2];
 }
 /** (a pane, `in_1129`: a little square beside the junction of the mover, across the axis `axis`; a click on it puts the cross section plane there; its `points` are its four corners) */
@@ -98,7 +98,7 @@ const arrowAlong = (id: string, axis: 0 | 1 | 2 | null, from: Vec3, dir: Vec3, l
 const arrowBoth = (id: string, mid: Vec3, dir: Vec3, half: number): Handle => ({ id, kind: "arrow", both: true, axis: null, points: [add(mid, scale(dir, -half)), add(mid, scale(dir, half))] });
 /** One arrow along each of three axes, named `prefix:x`, `prefix:y`, `prefix:z`. */
 const axisArrows = (prefix: string, ax: readonly Vec3[], from: Vec3, len: number, ratio?: true): Handle[] => ax.map((d, i) => arrowAlong(`${prefix}:${"xyz"[i]}`, i as 0 | 1 | 2, from, d, len, ratio));
-/** The three little panes between the arrows (`in_1174`): each a square in the plane of two of the axes, whose drag always moves in that plane (XY, XZ, YZ). `len` is the length of the arrows. */
+/** The three little panes between the arrows (`in_1181`): each a square in the plane of two of the axes, whose drag always moves in that plane (XY, XZ, YZ). `len` is the length of the arrows. */
 const axisPanes = (ax: readonly Vec3[], centre: Vec3, len: number): Handle[] =>
   ([[0, 1], [0, 2], [1, 2]] as const).map(([a, b]) => {
     const [from, to] = [0.25 * len, 0.5 * len];
@@ -263,7 +263,7 @@ export function gizmoFor(scene: Scene, op: Op, cam: Camera, sphere = false): Giz
       const slot = add(c, scale(d, sgn * (Math.min(Math.abs(sp) * n, cap) + L * (n > 1 ? 0.35 : 0.6))));
       handles.push(arrowAlong(`cnt:${"xyz"[i]}`, i as 0 | 1 | 2, slot, d, sgn * L * 0.3));
     });
-    handles.push(...axisPanes(ax, c, 2 * HALF * L)); // (a pane sets the spacing along its two axes at once, `in_1174`)
+    handles.push(...axisPanes(ax, c, 2 * HALF * L)); // (a pane sets the spacing along its two axes at once, `in_1181`)
     return { centre: c, handles };
   }
   if (op.target === "shape" && op.kind === "scale" && op.pivot) {
