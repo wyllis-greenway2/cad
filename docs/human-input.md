@@ -4870,3 +4870,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1131 — 2026-11-19 — approval
 > yes go ahead
+
+## in_1132 — 2026-11-19 — approval
+> yes go ahead
+(approves the next step of `dec_unified_orb`: the second arrows for circular repeat and sweep)
