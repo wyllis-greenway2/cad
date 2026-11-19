@@ -12,7 +12,8 @@ import { frameOf } from "../src/interaction/frame.ts";
 import type { Ref } from "../src/shared/ref.ts";
 
 await kernel.init();
-const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/lever-pivot-jam.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+const openHeld = () => (openSession(kernel, readFileSync(new URL("./fixtures/lever-pivot-jam.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value; // (the sketch's Concentric on the pin holds the arm on it: the motion plays it as a carried joint, `in_1143`)
+const open = () => run(openHeld(), { type: "removeRelation", id: "r_010" }); // (a lever that nothing holds: the free push is what these test)
 const jammed = () => {
   const s = run(open(), { type: "setFixed", body: "x_s_084", on: true }); // (the lever stays where it is: the pin comes against it)
   const r = startMotion(scene(s), "b/x_s_002/o" as Ref, "turn", s.outcome);
@@ -67,5 +68,9 @@ test("a lever on a pin: the model says so, and the note suggests the coaxial mat
   const env = { w: 800, h: 600, now: 0 };
   assert.equal(frameOf({ ...createState(s), motion: r.motion }, env).motionBar!.note, null, "nothing is said while the lever has not been moved");
   const moved = solveContact(sc, { ...r.motion, playing: true, amount: 60 }, s.outcome, Infinity);
-  assert.match(frameOf({ ...createState(s), motion: moved }, env).motionBar!.note ?? "", /Mate: coaxial/);
+  // nothing is said over the bar (`in_1131`), and no fix is offered: the pin goes round with the gear, so a joint on its axis would be wrong
+  const fb = frameOf({ ...createState(s), motion: moved }, env).motionBar!;
+  assert.equal(fb.fix.offer, false);
+  assert.equal(fb.note, null);
+  assert.match(moved.contact!.tip ?? "", /Mate: coaxial/);
 });

@@ -16,7 +16,7 @@ import { doMotionKind, doMotionKeep, doMotionLink, doMotionRest, doMotionFix } f
 import { setPlaying, reverseMotion, motionHolds } from "./motion.ts";
 import { solveContact } from "./contact.ts";
 import { doStepGo, doStepEdit, doStepInsert, doStepSet, doStepLink, doParamSet, doParamRemove } from "./control/history.ts";
-import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
+import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doBuildNext, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
 import { hoverOn, run, scene as sceneOf } from "./session.ts";
 import { stepOption, activateOption, similarOf } from "./options.ts";
 import { loftChoice } from "./loft.ts";
@@ -146,6 +146,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "zoom": return doZoom(s, i, env);
     case "look": return doLook(s, i, env);
     case "home": return doHome(s, env);
+    case "buildNext": return doBuildNext(s);
     case "runAction": return doRunAction(i.part && i.id.startsWith("gear:") && !s.session.click.selection.includes(i.part as never) ? { ...s, session: { ...s.session, click: { ...s.session.click, selection: [i.part as never] } } } : s, i.id, env.now); // (the icon of a gear that is only pointed at: its Edit, Helix and Mesh are for that gear, `in_864`)
     case "overrideRefusal": return overrideRefusal(s);
     case "menuTurn": return s; // (game mode's: the menu is turned by the page, `in_467`)

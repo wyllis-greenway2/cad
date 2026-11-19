@@ -44,8 +44,11 @@ import type { GearRecord } from "../operation/gearscene.ts";
 import { problemsOf, fromRatio, layoutOf, ratios as planetaryRatios, defaultPin } from "../operation/planetary.ts";
 import type { PlanetarySpec, PlanetaryRecord, Problem, Hold } from "../operation/planetary.ts";
 import { meshWith } from "../operation/mesh.ts";
+import { armedModel, modelTyped, modelPreview, modelCommand } from "./modeltool.ts";
+import type { ModelState } from "./modeltool.ts";
+import type { ModelKind } from "../operation/modelkinds.ts";
 
-export type ToolKind = "rect" | "circle" | "line" | "arc" | "spline" | "cam" | "trim" | "gear";
+export type ToolKind = "rect" | "circle" | "line" | "arc" | "spline" | "cam" | "trim" | "gear" | "model";
 export interface Tool {
   kind: ToolKind;
   /** null while armed (waiting for the first click on a surface) */
@@ -79,6 +82,8 @@ export interface Tool {
   gear?: GearState;
   /** a cam (`dec_spline_and_cams`): which, and the numbers typed (diameter, lift or offset, the shaft's hole) and the one being typed in */
   cam?: CamState;
+  /** a gear assembly model being placed (`dec_gear_models`): which, and the numbers typed in its box */
+  model?: ModelState;
 }
 export interface CamState { kind: CamKind; typed: string[]; field: number; /** a disc cam: the law of its follower's motion */ law?: CamLaw; /** a Geneva drive: how it is drawn (`dec_geneva`) */ layout?: CamLayout; /** its numbers are being changed: the record (`gearscene.ts`) of the cam */ editing?: string }
 /** the numbers of each cam, in the order the box shows them (the rise, dwell and return are degrees) */
@@ -86,6 +91,8 @@ export const CAM_FIELDS: Record<CamKind, string[]> = { eccentric: ["Diameter", "
 /** A tool armed to draw a cam: the first click is the shaft, the pointer's distance from it sets the diameter, and numbers can be typed for the rest. */
 /** the numbers a cam's box shows: a Geneva drive that comes as a model has the thickness of its layers too */
 export const camFieldsOf = (kind: CamKind, layout?: CamLayout): string[] => (kind === "geneva" && layout === "model" ? [...CAM_FIELDS.geneva, "Layer", "Plate"] : CAM_FIELDS[kind]);
+/** A tool armed to place a model: the first click is where its middle goes, and the pointer then sets the size until a click */
+export const armModel = (kind: ModelKind): Tool => ({ ...armTool("model"), model: armedModel(kind) });
 export const armCam = (kind: CamKind, law?: CamLaw, layout?: CamLayout): Tool => ({ ...armTool("cam"), cam: { kind, typed: camFieldsOf(kind, layout).map(() => ""), field: 0, ...(law ? { law } : {}), ...(layout ? { layout } : {}) } });
 export function camTyped(t: Tool, field: number, text: string): Tool { const c = t.cam!; return { ...t, cam: { ...c, field, typed: c.typed.map((x, i) => (i === field ? text : x)) } }; }
 /** The cam being drawn: each number as typed, else the diameter from the pointer's distance from the shaft, the lift or offset a quarter of the radius (an eighth for an offset: the follower moves twice it), the hole a fifth of the diameter. */
@@ -190,7 +197,7 @@ export function editCamTool(rec: { id: string; plane: Ref; at: Vec3; spec: GearS
 /** The tool opened on a gear that is already made, to change its numbers (`focus`: the number the box starts at, as the helix item does, `in_693`): its plane and centre, and its numbers as they are. */
 export const editGearTool = (rec: { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }, focus?: GearKey): Tool => ({ ...armTool("gear", variantOf(rec.spec)), plane: rec.plane, points: [rec.at], cursor: rec.at, gear: { internal: !!rec.spec.internal, ...(rec.spec.bevel ? { bevel: true as const } : {}), ...(isCrown(rec.spec) ? { crown: true as const } : {}), ...(rec.spec.bevel?.spiral !== undefined ? { spiral: true as const } : {}), ...(rec.spec.bevel?.facegear !== undefined ? { face: rec.spec.bevel.facegear } : {}), ...(rec.spec.worm ? { worm: true as const } : {}), ...(rec.spec.wheel ? { wheel: true as const } : {}), ...(rec.spec.rack ? { rack: true } : {}), ...(rec.spec.pulley ? { pulley: rec.spec.pulley } : {}), ...(rec.spec.sprocket ? { sprocket: true as const } : {}), ...(rec.spec.sprocket?.iso ? { iso: true as const } : {}), ...(rec.spec.cycloidal ? { cycloidal: true as const } : {}), typed: ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], field: Math.max(0, gearFields({ internal: !!rec.spec.internal, ...(rec.spec.bevel ? { bevel: true as const } : {}), ...(isCrown(rec.spec) ? { crown: true as const } : {}), ...(rec.spec.bevel?.spiral !== undefined ? { spiral: true as const } : {}), ...(rec.spec.bevel?.facegear !== undefined ? { face: rec.spec.bevel.facegear } : {}), ...(rec.spec.worm ? { worm: true as const } : {}), ...(rec.spec.wheel ? { wheel: true as const } : {}), ...(rec.spec.rack ? { rack: true } : {}), ...(rec.spec.pulley ? { pulley: rec.spec.pulley } : {}), ...(rec.spec.sprocket ? { sprocket: true as const } : {}), ...(rec.spec.sprocket?.iso ? { iso: true as const } : {}), ...(rec.spec.cycloidal ? { cycloidal: true as const } : {}) }).findIndex((f) => f.key === focus)), editing: rec.id, base: rec.spec, ...(focus ? { focus: true as const } : {}), ...(rec.turn ? { turn: rec.turn } : {}) } });
 
-export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"], spline: [], cam: [], trim: [], gear: ["Teeth", "Module"] };
+export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"], spline: [], cam: [], trim: [], gear: ["Teeth", "Module"], model: [] };
 
 // ---- points on a plane ----
 export function pointOnPlane(pv: PointerView, pl: Plane): Vec3 | null {
@@ -264,6 +271,11 @@ export function typeKey(t: Tool, key: string): Tool {
     if (key === "Tab") return { ...t, gear: { ...g, field: (g.field + 1) % gearFields(g).length } };
     const typed = typeInto(g.typed[g.field] ?? "", key);
     return typed === null ? t : { ...t, gear: { ...g, typed: Array.from({ length: 24 }, (_, i) => (i === g.field ? typed : g.typed[i] ?? "")) } };
+  }
+  if (t.kind === "model" && t.model) {
+    if (key === "Tab") return { ...t, model: { ...t.model, field: (t.model.field + 1) % t.model.typed.length } };
+    const typed = typeInto(t.model.typed[t.model.field] ?? "", key);
+    return typed === null ? t : { ...t, model: modelTyped(t.model, t.model.field, typed) };
   }
   if (t.kind === "cam" && t.cam) {
     if (key === "Tab") return { ...t, cam: { ...t.cam, field: (t.cam.field + 1) % t.cam.typed.length } };
@@ -724,6 +736,7 @@ export function concentricGuides(scene: Scene, pl: Plane, hints: Hint[] | undefi
   return out;
 }
 export function previewOf(scene: Scene, t: Tool): Preview | null {
+  if (t.kind === "model") return modelPreview(scene, t);
   if (t.kind === "trim") return t.trimming ? { segments: t.trimming.span.slice(1).map((p, i): [Vec3, Vec3] => [t.trimming!.span[i]!, p]), circle: null, cursor: null } : null; // the part that would be cut off
   const pl = t.plane ? (scene.parts[t.plane] as Plane | undefined) : undefined;
   if (!pl || pl.kind !== "plane" || !t.points.length) {
@@ -1041,6 +1054,7 @@ export function finish(scene: Scene, t: Tool): Finished | null {
     const d = drawArc(scene, pl.ref, arc.a, arc.mid, arc.b, normalOfPlane(pl));
     return d ? { command: joinedAtCorners(scene, pl.ref, d.command), select: [d.line] } : null;
   }
+  if (t.kind === "model") { const c = modelCommand(scene, t); return c.ok ? { command: c.value, select: [] } : null; }
   if (t.kind === "cam") {
     const full = camSpecOf(t);
     if (!full) return null;

@@ -9,7 +9,8 @@ import { mateStatus } from "../operation/mates.ts";
 import { jointRoom, driveCommand, pivotTurnCommand, jointOf as mateJoint } from "./mate.ts";
 import type { Command } from "../operation/commands.ts";
 import { apply } from "../operation/commands.ts";
-import { followersOf, gearAxis, gearOfBody, genevaPlay, carrierPlay } from "../operation/gearcouple.ts";
+import { glueOf, glueGroups } from "../operation/glue.ts";
+import { followersOf, gearAxis, gearOfBody, genevaPlay, carrierPlay, modelPlay } from "../operation/gearcouple.ts";
 import type { Follower } from "../operation/gearcouple.ts";
 import type { ContactState } from "./contact.ts";
 import { startContact } from "./contact.ts";
@@ -20,6 +21,8 @@ import { restartContact } from "./contact.ts";
 import type { CompileOutcome } from "../compiler/compile.ts";
 import { followAmount } from "../operation/gearcouple.ts";
 import type { FixPlan } from "./fixmotion.ts";
+import { holeAndPin } from "./pinhole.ts";
+import { impliedMate } from "./implied.ts";
 import { linkFollowers } from "../operation/coupling.ts";
 
 export type JointKind = "turn" | "slide";
@@ -63,7 +66,39 @@ const FREE_TURN = 180, FREE_SLIDE = 30;
 
 /** The motion of the joint that the body is the first of (a true coaxial mate), or the reason there is none. */
 export function startPlain(scene: Scene, body: Ref, kind: JointKind = "turn"): { ok: true; motion: Motion } | { ok: false; why: string } {
+  // a body glued to others (`glue.ts`) is played from whichever of its group can be, and the glued bodies go along with what moves
+  const id = (scene.parts[body] as { id?: string } | undefined)?.id;
+  const group = id ? glueOf(scene, id) : undefined;
+  const refOf = (bid: string): Ref | undefined => Object.values(scene.parts).find((p) => p.kind === "body" && p.id === bid)?.ref;
+  const order = group ? [body, ...group.bodies.map(refOf).filter((r): r is Ref => !!r && r !== body)] : [body];
+  let last: { ok: false; why: string } = { ok: false, why: "nothing to play" };
+  for (const b of order) {
+    const r = startBare(scene, b, kind);
+    if (r.ok) return { ok: true, motion: withGlue(scene, r.motion) };
+    if (b === body) last = r;
+  }
+  return last;
+}
+/** The bodies glued to a body that moves go with it: the same turn or slide, as the body they are glued to makes it */
+function withGlue(scene: Scene, m: Motion): Motion {
+  const groups = glueGroups(scene);
+  if (!groups.length) return m;
+  const idOf = (r: Ref): string | undefined => (scene.parts[r] as { id?: string } | undefined)?.id;
+  const refOf = (bid: string): Ref | undefined => Object.values(scene.parts).find((p) => p.kind === "body" && p.id === bid)?.ref;
+  const have = new Set<Ref>([m.body, ...m.follows.map((f) => f.body)]);
+  const extra: Follower[] = [];
+  const carry = (from: Ref, make: (to: Ref) => Follower): void => {
+    const g = groups.find((x) => x.bodies.includes(idOf(from) ?? ""));
+    for (const bid of g?.bodies ?? []) { const to = refOf(bid); if (to && !have.has(to)) { have.add(to); extra.push(make(to)); } }
+  };
+  carry(m.body, (to) => ({ gear: "glue", body: to, kind: m.kind, point: m.point, dir: m.dir, k: 1 }));
+  for (const f of m.follows) carry(f.body, (to) => ({ ...f, body: to }));
+  return extra.length ? { ...m, follows: [...m.follows, ...extra] } : m;
+}
+function startBare(scene: Scene, body: Ref, kind: JointKind): { ok: true; motion: Motion } | { ok: false; why: string } {
   const m = mateStatus(scene).find((x) => x.state === "ok" && x.mode === "coaxial" && x.mover?.body === body);
+  const mp = m?.mover ? null : modelPlay(scene, body);
+  if (mp) return { ok: true, motion: { mate: "", gear: "", follows: mp.followers, kind: "turn", body: mp.driver.body, point: mp.driver.point, dir: mp.driver.dir, amount: 0, lo: -FREE_TURN, hi: FREE_TURN, free: true, playing: false, from: 0, startedAt: null, speed: 30, noKeep: "a model is played as one picture: its pose is not kept", note: mp.note } }; // (a gear assembly model, `dec_gear_models`)
   const cp = m?.mover ? null : carrierPlay(scene, body);
   if (cp) return { ok: true, motion: { mate: "", gear: "", follows: cp.followers, kind: "turn", body, point: cp.driver.point, dir: cp.driver.dir, amount: 0, lo: -FREE_TURN, hi: FREE_TURN, free: true, playing: false, from: 0, startedAt: null, speed: 30, noKeep: "a turning carrier is a pose of the whole set: turn the set with Edit (its Turn field) instead" } };
   if (!m?.mover) { // not a pin or a rod: a gear that was made with its body, which turns (or a rack, which slides) and takes the gears meshed with it along
@@ -98,18 +133,23 @@ export function startMotion(scene: Scene, body: Ref, kind: JointKind = "turn", o
   const candidates: Candidate[] = wheel ? [{ body: wheel.body, point: wheel.point, dir: wheel.dir }] : [];
   if (camRod) { const way: 1 | -1 = camRod.table!.reduce((a, b) => (Math.abs(b) > Math.abs(a) ? b : a), 0) < 0 ? -1 : 1; candidates.push({ body: camRod.body, kind: "slide", ...(camRod.mate ? { mate: camRod.mate } : {}), point: camRod.point, dir: camRod.dir, rest: -way * 50, way }); } // (the way the cam pushes it, and the rest: toward the cam, as far as it is clear to)
   for (const pv of pivotsOf(scene)) { const b = Object.values(scene.parts).find((p) => p.kind === "body" && p.id === pv.body); if (b && b.ref !== m.body && !candidates.some((c) => c.body === b.ref)) candidates.push({ body: b.ref, point: pv.point, dir: pv.dir, ...(pv.rest !== undefined ? { rest: pv.rest } : {}) }); } // (a body made to turn can yield)
-  for (const j of mateStatus(scene)) if (j.state === "ok" && j.mode === "coaxial" && j.mover && j.mover.body !== m.body && !candidates.some((c) => c.body === j.mover!.body)) { const jr = mateJoint(scene, j.id)?.turn; candidates.push({ body: j.mover.body, mate: j.id, point: j.mover.point, dir: normalize(j.mover.dir), ...(jr?.rest !== undefined ? { rest: jr.rest - jr.now } : {}) }); } // (a joint's rest, where the joint counts from: the body is drawn where it stands now)
+  for (const j of mateStatus(scene)) if (j.state === "ok" && j.mode === "coaxial" && j.mover && j.mover.body !== m.body && !candidates.some((c) => c.body === j.mover!.body)) { const jr = mateJoint(scene, j.id)?.turn; const after = j.other ? carriedBy(m, j.other.body) : null; candidates.push({ body: j.mover.body, mate: j.id, point: j.mover.point, dir: normalize(j.mover.dir), ...(jr?.rest !== undefined ? { rest: jr.rest - jr.now } : {}), ...(after ? { after } : {}) }); } // (a joint's rest, where the joint counts from: the body is drawn where it stands now)
   // a hard body with no joint, no mate and no mark of being fixed is pushed aside by what it meets (`dec_contact_push`, free push); a fixed one, or one with a mate, stays a wall
   const mated = new Set<Ref>(); for (const j of mateStatus(scene)) { if (j.mover) mated.add(j.mover.body); if (j.other) mated.add(j.other.body); }
   const jointed = new Set<Ref>([m.body, ...m.follows.map((f) => f.body), ...candidates.map((c) => c.body)]);
   for (const b of Object.values(scene.parts)) {
+    // a body held on a pin that goes round with the motion (by a sketch constraint that makes it coaxial, which a drag honours): a joint about the pin, carried round by what the pin is on (`in_1143`), not a body that is pushed about
+    if (b.kind === "body" && b.id && isHard(scene, b.ref) && !isFixed(scene, b.ref) && !jointed.has(b.ref) && !mated.has(b.ref) && !pivotOfBody(scene, b.ref)) {
+      const on = holeAndPin(scene, b.ref), after = on ? carriedBy(m, on.on) : null;
+      if (on && after && impliedMate(scene, "coaxial", on.hole, on.pin).length) { candidates.push({ body: b.ref, kind: "turn", point: on.center, dir: on.axis, after }); continue; }
+    }
     if (b.kind !== "body" || !b.id || !isHard(scene, b.ref) || isFixed(scene, b.ref) || jointed.has(b.ref) || mated.has(b.ref) || pivotOfBody(scene, b.ref) || !b.bbox) continue;
     candidates.push({ body: b.ref, point: [(b.bbox.min[0] + b.bbox.max[0]) / 2, (b.bbox.min[1] + b.bbox.max[1]) / 2, (b.bbox.min[2] + b.bbox.max[2]) / 2], dir: [0, 0, 1], free: true, reach: Math.hypot(b.bbox.max[0] - b.bbox.min[0], b.bbox.max[1] - b.bbox.min[1], b.bbox.max[2] - b.bbox.min[2]) / 2 }); // (how far its outline reaches from its middle: half the diagonal of its box)
   }
   const stripped: Motion = wheel || camRod ? { ...m, follows: m.follows.filter((f) => f !== wheel && f !== camRod) } : m;
   const contact = startContact(scene, stripped, candidates, outcome);
-  const keepable = !!contact && contact.pushables.every((p) => !!p.mate || !!pivotOfBody(scene, p.body)); // (a pose by contact is kept for yielders that are joints: a mate's or a pivot's; not the wheel of a Geneva drive, which is one drawing)
-  return { ok: true, motion: contact ? { ...stripped, contact, ...(m.noKeep ? { noKeep: m.noKeep } : keepable ? {} : { noKeep: "a pose found by contact is kept only when every body that yields turns on a pin or a pivot or slides on a rod" }),  yields: contact.pushables.map((p): Follower => ({ gear: "", body: p.body, kind: p.kind, point: p.point, dir: p.dir, k: 0, value: 0, ...(camRod && p.body === camRod.body && camRod.mate ? { mate: camRod.mate } : {}) })) } : m };
+  const keepable = !!contact && contact.pushables.every((p) => !p.after && (!!p.mate || !!pivotOfBody(scene, p.body))); // (a pose by contact is kept for yielders that are joints: a mate's or a pivot's; not the wheel of a Geneva drive, which is one drawing)
+  return { ok: true, motion: contact ? { ...stripped, contact, ...(m.noKeep ? { noKeep: m.noKeep } : keepable ? {} : { noKeep: "a pose found by contact is kept only when every body that yields turns on a pin or a pivot or slides on a rod, and none is carried round by a pin that moves" }),  yields: contact.pushables.map((p): Follower => ({ gear: "", body: p.body, kind: p.kind, point: p.point, dir: p.dir, k: 0, value: 0, ...(camRod && p.body === camRod.body && camRod.mate ? { mate: camRod.mate } : {}) })) } : m };
 }
 
 /** The amount at a time (ms): a joint with no stops that turns goes on turning; any other swings from stop to stop and back. */
@@ -131,7 +171,12 @@ const mul4 = (a: number[], b: number[]): number[] => Array.from({ length: 16 }, 
 /** The matrix of a follower when the driver is at `a`: its own turn or slide (`followAmount`), and for a planet on a turning carrier the orbit after it. */
 export function followMatrix(f: Follower, a: number): number[] {
   const first = jointMatrix(f, followAmount(f, a));
-  return f.after ? mul4(jointMatrix({ kind: "turn", point: f.after.point, dir: f.after.dir }, f.after.k * a), first) : first;
+  if (!f.after) return first;
+  const orbit = jointMatrix({ kind: "turn", point: f.after.point, dir: f.after.dir }, f.after.k * a);
+  if (!f.after.slip) return mul4(orbit, first);
+  const [x, y, z] = f.point; // (a body on a pin that goes round: moved by what the turn moves the pin, not turned with it)
+  const at: Vec3 = [orbit[0]! * x + orbit[4]! * y + orbit[8]! * z + orbit[12]!, orbit[1]! * x + orbit[5]! * y + orbit[9]! * z + orbit[13]!, orbit[2]! * x + orbit[6]! * y + orbit[10]! * z + orbit[14]!];
+  return mul4([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, at[0] - x, at[1] - y, at[2] - z, 1], first);
 }
 /** The other way round: the speed changes sign, and a motion that is playing goes on from where it stands. */
 export function reverseMotion(m: Motion): Motion {
@@ -212,4 +257,11 @@ export function motionHolds(scene: Scene, m: Motion): Motion | null {
   const follows = m.follows.filter((f) => body(f.body));
   const yields = (m.yields ?? []).filter((f) => body(f.body));
   return follows.length === m.follows.length && yields.length === (m.yields ?? []).length ? m : { ...m, follows, ...(m.yields ? { yields } : {}) };
+}
+
+/** The turn that carries what is on a body of this motion: the driver's own (a turn), or a gear it turns by a plain ratio; null for a body that does not move, or a carrier that is itself carried or drawn by a table (a joint on such a pin is not made). */
+function carriedBy(m: Motion, body: Ref): { point: Vec3; dir: Vec3; k: number; slip: true } | null {
+  if (body === m.body) return m.kind === "turn" ? { point: m.point, dir: m.dir, k: 1, slip: true } : null;
+  const f = m.follows.find((x) => x.body === body);
+  return f && f.kind === "turn" && !f.after && !f.table && !f.geneva && f.value === undefined ? { point: f.point, dir: f.dir, k: f.k, slip: true } : null;
 }

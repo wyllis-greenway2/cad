@@ -5,18 +5,20 @@ import { kernel } from "../src/compiler/kernel/index.ts";
 import { createSession, run, scene } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";
 import { asCommand } from "../src/operation/modelparts.ts";
-import type { PartSteps } from "../src/operation/fasteners.ts";
+import type { ModelBuild } from "../src/operation/modelparts.ts";
 import type { Result } from "../src/shared/result.ts";
 import { gearboxSteps, GEARBOX_START, gearboxRatio, gearboxProblem } from "../src/operation/modelgearbox.ts";
 import { differentialSteps, DIFFERENTIAL_START, differentialProblem } from "../src/operation/modeldifferential.ts";
 import { cycloidalSteps, CYCLOIDAL_START, cycloidalProblem, cycloidalRatio, discOutline } from "../src/operation/modelcycloidal.ts";
+import { BEARINGS, bearingRow, bearingShape, ballsOf } from "../src/operation/bearingdata.ts";
+import { modelBuild, modelProblem, modelNumbers } from "../src/operation/modelkinds.ts";
 import { bearingSteps, BEARING_START, bearingProblem } from "../src/operation/modelbearing.ts";
 await kernel.init();
 type B = { ref: string; id: string; volume: number; bbox: { min: number[]; max: number[] } };
 const bodies = (s: Session) => Object.values(scene(s).parts).filter((p) => p.kind === "body") as unknown as B[];
-function make(st: Result<PartSteps>): Session {
+function make(st: Result<ModelBuild>): Session {
   if (!st.ok) throw new Error(st.error);
-  const c = asCommand(scene(createSession(kernel)), st.value);
+  const c = asCommand(scene(createSession(kernel)), st.value.steps);
   if (!c.ok) throw new Error(c.error);
   const s = run(createSession(kernel), c.value);
   assert.equal(s.message ?? null, null);
@@ -129,4 +131,29 @@ test("a cycloidal drive's refusals say why", () => {
   assert.match(cycloidalProblem({ ...CYCLOIDAL_START, outCircle: 20 }) ?? "", /edge/);
   assert.match(cycloidalProblem({ ...CYCLOIDAL_START, cam: 3 }) ?? "", /too small for the shaft/);
   assert.equal(cycloidalProblem(CYCLOIDAL_START), null);
+});
+
+test("the catalogue bearings: every number in the list makes a bearing; the dimensions are the two sources' (spot checks), the balls NSK's where it gives them", () => {
+  assert.equal(BEARINGS.length, 22);
+  for (const n of [623, 608, 6000, 6203, 6206]) assert.ok(bearingRow(n), `${n} is listed`);
+  assert.deepEqual([bearingRow(608)!.d, bearingRow(608)!.D, bearingRow(608)!.B], [8, 22, 7]);
+  assert.deepEqual([bearingRow(6203)!.d, bearingRow(6203)!.D, bearingRow(6203)!.B, ballsOf(bearingRow(6203)!).balls, ballsOf(bearingRow(6203)!).ball], [17, 40, 12, 8, 6.747]);
+  assert.equal(ballsOf(bearingRow(608)!).typical, true, "no catalogue read gives the 608's balls");
+  assert.equal(bearingRow(6007), undefined, "6007 is in one source only");
+  for (const b of BEARINGS) { const sh = bearingShape(b, 0.02); assert.ok(sh.ok, `${b.number}: ${sh.ok ? "" : sh.error}`); }
+  assert.match(modelProblem("ballbearing", modelNumbers("ballbearing", { number: 6007 })) ?? "", /not a bearing in the list/);
+});
+test("a catalogue bearing is made to its dimensions, with the rings held apart by their balls and the balls apart from the rings", () => {
+  for (const [n, d, D, B] of [[608, 8, 22, 7], [6203, 17, 40, 12]] as const) {
+    const st = modelBuild("ballbearing", modelNumbers("ballbearing", { number: n }), { at: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0], ez: [0, 0, 1] });
+    const s = make(st);
+    const b = byVolume(s), balls = b.filter((x) => x.volume < 400 && Math.abs(x.bbox.max[2]! - x.bbox.min[2]!) < B * 0.9), rings = b.filter((x) => !balls.includes(x));
+    assert.equal(rings.length, 2, `${n}: two rings`);
+    assert.ok(balls.length >= 7, `${n}: ${balls.length} balls`);
+    const box = (k: number) => Math.max(...rings.map((x) => x.bbox.max[k]!)) - Math.min(...rings.map((x) => x.bbox.min[k]!));
+    assert.ok(Math.abs(box(0) - D) < 0.05 && Math.abs(box(2) - B) < 0.05, `${n}: ${D} across and ${B} wide: ${box(0)} ${box(2)}`);
+    for (const x of balls.slice(0, 3)) for (const r of rings) assert.equal(shared(s, x, r), 0, `${n}: a ball touches a ring`);
+    assert.equal(shared(s, rings[0]!, rings[1]!), 0);
+    void d;
+  }
 });

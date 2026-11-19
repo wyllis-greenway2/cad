@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { kernel } from "../src/compiler/kernel/index.ts";
-import { openSession, scene } from "../src/interaction/session.ts";
+import { openSession, scene, run } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";
 import { startMotion } from "../src/interaction/motion.ts";
 import { solveContact } from "../src/interaction/contact.ts";
@@ -15,7 +15,8 @@ import { doMotionFix } from "../src/interaction/control/motion.ts";
 import type { Vec3 } from "../src/math/vec.ts";
 
 await kernel.init();
-const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/lever-pivot-jam.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+const openHeld = () => (openSession(kernel, readFileSync(new URL("./fixtures/lever-pivot-jam.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value; // (the sketch's Concentric on the pin holds the arm on it: the motion plays it as a carried joint, `in_1143`)
+const open = () => run(openHeld(), { type: "removeRelation", id: "r_010" }); // (a lever that nothing holds: the free push is what these test)
 const turnSamples = (about: [number, number], k: number, n = 60, wobble = 0): Sample[] => Array.from({ length: n }, (_, i) => {
   const spin = k * i, r = (spin * Math.PI) / 180, [c, s] = [Math.cos(r), Math.sin(r)];
   return { a: i, spin, t: [(1 - c) * about[0] + s * about[1] + (i % 2 ? wobble : 0), -s * about[0] + (1 - c) * about[1], 0] as Vec3 };
@@ -111,4 +112,51 @@ test("too little played: it asks for more play first", () => {
   const m = solveContact(sc, { ...r.motion, playing: true, amount: 5 }, s.outcome, Infinity);
   const st = doMotionFix({ ...createState(s), motion: m }, "open");
   assert.match(st.session.message ?? "", /play the motion a little first/);
+});
+
+const pinFile = () => (openSession(kernel, readFileSync(new URL("./fixtures/lever-pin-jam.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+test("the lever hangs on the pin of the gear that is played but nothing holds it: it is pushed, no joint on the pin's resting axis is offered, and the walk says why", () => {
+  const s = run(pinFile(), { type: "removeRelation", id: "r_010" });
+  const sc = scene(s);
+  const r = startMotion(sc, "b/x_s_002/o" as never, "turn", s.outcome);
+  if (!r.ok) throw new Error(r.why);
+  const m = solveContact(sc, { ...r.motion, playing: true, amount: 120 }, s.outcome, Infinity);
+  const st = doMotionFix({ ...createState(s), motion: m }, "open");
+  assert.equal(st.motion?.fix ?? null, null);
+  assert.match(st.session.message ?? "", /hangs on a pin of x_s_002, which moves in this motion/);
+});
+test("the lever held on the pin by the sketch's Concentric is a joint carried round by the pin (`in_1143`): not pushed about, no search, turns about the pin as the gear carries it", () => {
+  const s = pinFile();
+  const sc = scene(s);
+  const r = startMotion(sc, "b/x_s_002/o" as never, "turn", s.outcome);
+  if (!r.ok) throw new Error(r.why);
+  const lever = r.motion.contact!.pushables.find((p) => p.body === ("b/x_s_084/o" as never))!;
+  assert.ok(lever && !lever.free && lever.after, "a joint with a carrier");
+  assert.equal(lever.after!.k, 1);
+  const t0 = performance.now();
+  const m = solveContact(sc, { ...r.motion, playing: true, amount: 360 }, s.outcome, Infinity);
+  const ms = performance.now() - t0;
+  assert.equal(m.contact?.jam, null, m.contact?.jam ?? "");
+  const f = m.yields!.find((x) => x.body === lever.body)!;
+  assert.ok(f.after && f.kind === "turn", "drawn as a turn about the pin, then carried round");
+  assert.ok(!canFix(m), "nothing is pushed with no joint: no offer");
+  console.log(`carried lever, gear to 360: ${ms.toFixed(0)} ms`);
+  assert.ok(ms < 3000);
+});
+
+test("the carried lever (`in_1147`) is moved with the pin and not turned with the gear, and where it meets the far arm, which is hard and turns on its pivot, the far arm gives way and then the lever slips on the pin: nothing goes through anything", () => {
+  let s = (openSession(kernel, readFileSync(new URL("./fixtures/lever-pin-held.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
+  s = run(s, { type: "setHard", body: "x_s_083", on: true });
+  const sc = scene(s);
+  const r = startMotion(sc, "b/x_s_002/o" as never, "turn", s.outcome);
+  if (!r.ok) throw new Error(r.why);
+  const early = solveContact(sc, { ...r.motion, playing: true, amount: 20 }, s.outcome, Infinity);
+  const lever0 = early.contact!.pushables.find((p) => p.body === ("b/x_s_084/o" as never))!;
+  assert.ok(Math.abs(lever0.value) < 1, `not turned with the gear: ${lever0.value} degrees after 20 of the gear's`);
+  const m = solveContact(sc, { ...r.motion, playing: true, amount: 360 }, s.outcome, Infinity);
+  assert.equal(m.contact?.jam, null, m.contact?.jam ?? "");
+  const [lever, arm] = ["b/x_s_084/o", "b/x_s_083/o"].map((b) => m.contact!.pushables.find((p) => p.body === (b as never))!);
+  assert.ok(Math.abs(arm!.value) > 5, `the far arm gave way: ${arm!.value}`);
+  assert.ok(Math.abs(lever!.value) > 5 && Math.abs(lever!.value) < 90, `the lever slipped on the pin by a part of a turn, not the gear's: ${lever!.value}`);
+  assert.ok(m.yields!.find((f) => f.body === lever!.body)!.after?.slip, "drawn moved by the pin, not turned by it");
 });
