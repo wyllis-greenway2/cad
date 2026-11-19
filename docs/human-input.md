@@ -4787,3 +4787,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1109 — 2026-11-19 — question
 > okay and how is it performing? is it fast and lean?
 (asks how the push performs: speed and weight)
+
+## in_1110 — 2026-11-19 — question, directive
+> Okay it seems to soak up the juice on my laptop pretty fast, my fan turns on and it gets hot. is this normal and expected? or does it mean we should try to get it leaner?  Also do you think we could make it smart enough to just offer to apply constraints to make it a fully constraint driven automation that is really lean with no collision constraints or at least minimal collision constraints? Basically turn it into an animated model like we would normally make ourselves like the animated geneva plate or planetary gear system. This is a million times leaner, and helps the user not use collision when they don't need to. Is this something we can do? Maybe a popup that says, Collision constraints are slow,  fix constraints. The fix constraints is a button that just automatically fixes the constraints for the user. It should highlight and flash what it did, maybe walking through each constraint one at a time with a fix button that replaces the collision constraint with a coaxial or surface constraint etc etc.
+(asks whether the heat is expected or the push should be leaner; asks for a "fix constraints" offer that turns a collision-driven motion into a constraint-driven one, step by step, with flashes)
