@@ -4846,3 +4846,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1124 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the Fix constraints work and the heat fixes to be merged into the testing branch, no full test run)
+
+## in_1125 — 2026-11-19 — directive
+> check the gearbox again, another claude was working on that and it is important I think
