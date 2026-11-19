@@ -141,3 +141,24 @@ test("a previewed hole can be picked up and moved: it stays where it was put unt
   assert.equal(moved.places.length, base.places.length);
   assert.equal(moved.spots[2]!.centre[0], 50, "the cut is made at the moved place too");
 });
+
+import { rowOf, nearestOnLine } from "../src/interaction/holemove.ts";
+test("a hole moved by hand snaps to the line it is meant to be on when the pointer is near it, and is free when it is not (`in_1012`)", () => {
+  const s = block();
+  const base = plan(s, vals({ place: "outline", by: "count", value: "6", corners: "ignore", offset: "10" }));
+  const i = 1;
+  const row = rowOf(base, i);
+  assert.equal(row, 0, "the one line round the face");
+  const c = base.spots[i]!.centre;
+  // the pointer's ray comes down on the face 2 mm from the line, and 25 mm from it
+  const onLine = (extra: number): [number, number] => { const q = nearestOnLine(base.guide[0]!, [c[0] + extra, c[1] + extra, c[2]]).at; return [q[0] + extra, q[1] + extra]; };
+  const [nx, ny] = onLine(2);
+  const near = dragTarget(base, i, { o: [nx, ny, 100], d: [0, 0, -1] }, { row, mm: 6 });
+  assert.ok(near && nearestOnLine(base.guide[0]!, near).dist < 1e-6, "snapped onto the line");
+  const [fx, fy] = onLine(25);
+  const far = dragTarget(base, i, { o: [fx, fy, 100], d: [0, 0, -1] }, { row, mm: 6 });
+  assert.ok(far && Math.abs(far[0] - fx) < 1e-9 && Math.abs(far[1] - fy) < 1e-9, "free when the pointer is away from it");
+  const held = dragTarget(base, i, { o: [nx, ny, 100], d: [0, 0, -1] });
+  assert.ok(held && Math.abs(held[0] - nx) < 1e-9, "no snap asked for: free");
+  assert.equal(rowOf(plan(s, vals({ place: "picked" })), 0), -1, "places picked follow no line");
+});
