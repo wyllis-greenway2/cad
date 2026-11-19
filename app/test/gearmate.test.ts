@@ -1,4 +1,4 @@
-// A gear edited while a mate holds it (`inv_constraint_uniformity`, `in_1170`): its numbers (teeth, bore) leave a coaxial mate true; moving it off the mate's axis is put back, and said.
+// A gear edited while a mate holds it (`inv_constraint_uniformity`, `in_1173`): its numbers (teeth, bore) leave a coaxial mate true; moving it off the mate's axis is put back, and said.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

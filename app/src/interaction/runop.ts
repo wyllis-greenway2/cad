@@ -139,7 +139,7 @@ function holdingPart(scene: ReturnType<typeof sceneOf>, refs: readonly string[])
   for (const q of Object.values(scene.parts)) if (q.kind === "line" && tied.has(q.ref)) { tied.add(q.a); tied.add(q.b); }
   return scene.relations.filter((r) => r.locked !== false && r.kind !== "arcEnds" && r.parts.some((x) => tied.has(x))).map((r) => r.id);
 }
-/** A side of a sketch moved, and the constraints put its corners back (a locked length): the constraints that hold it (maybe none named), or null when the corners went where they were asked to (`in_208`; also asked of the drag while it is made, `in_1170`). */
+/** A side of a sketch moved, and the constraints put its corners back (a locked length): the constraints that hold it (maybe none named), or null when the corners went where they were asked to (`in_208`; also asked of the drag while it is made, `in_1173`). */
 export function sideHeldBack(before: ReturnType<typeof sceneOf>, after: ReturnType<typeof sceneOf>, cmd: Command): string[] | null {
   if (cmd.type !== "batch") return null;
   const held = cmd.commands.every((c) => { if (c.type !== "movePart") return true; const q = after.parts[c.ref]; return q?.kind === "corner" && Math.hypot(q.at[0] - c.to[0], q.at[1] - c.to[1], q.at[2] - c.to[2]) < 1e-6; });

@@ -1,4 +1,4 @@
-// A drag that a constraint holds back follows the one rule while it is made and when it is let go (`inv_constraint_uniformity`, `in_1170`).
+// A drag that a constraint holds back follows the one rule while it is made and when it is let go (`inv_constraint_uniformity`, `in_1173`).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

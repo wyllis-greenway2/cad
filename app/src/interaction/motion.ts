@@ -58,6 +58,8 @@ export interface Motion {
   /** contact push (`contact.ts`): the bodies that yield and where the motion stands; the followers they make this frame */
   contact?: ContactState;
   yields?: Follower[];
+  /** the speed as a multiple of what the motion began at (1 when never changed): the bar's clock (`in_1169`) */
+  speedK?: number;
   /** the walk through the joints that would take the place of the push (`fixmotion.ts`): the offers, the one shown, and what has been made so far */
   fix?: { plan: FixPlan; i: number; made: string[]; /** how it all stood when the walk began, put back when it ends: the view, what was selected, whether it was playing (`in_1163`) */ before: { cam: import("./camera.ts").Camera; selection: readonly Ref[]; playing: boolean } } | null;
 }
@@ -264,4 +266,12 @@ export function carriedBy(m: Motion, body: Ref): { point: Vec3; dir: Vec3; k: nu
   if (body === m.body) return m.kind === "turn" ? { point: m.point, dir: m.dir, k: 1, slip: true } : null;
   const f = m.follows.find((x) => x.body === body);
   return f && f.kind === "turn" && !f.after && !f.table && !f.geneva && f.value === undefined ? { point: f.point, dir: f.dir, k: f.k, slip: true } : null;
+}
+
+/** The play at another speed: the multiple of the speed the motion began at (the direction stays); a motion that is playing goes on from where it stands. */
+export function setSpeed(m: Motion, k: number): Motion {
+  const was = m.speedK ?? 1;
+  if (!(k > 0) || !Number.isFinite(k)) return m;
+  const r = { ...m, speed: (m.speed * k) / was, speedK: k };
+  return m.playing ? { ...r, from: m.amount, startedAt: null } : r;
 }
