@@ -156,16 +156,16 @@ test("a simple bearing is two plain rings (the outer ring's hole is wider than t
   assert.ok(r(inner)[0]! < 40 && r(inner)[0]! > 17 && Math.abs(r(inner)[1]! - 12) < 0.05, `inner ${r(inner)}`);
   assert.equal(shared(simple, inner, outer), 0);
   // a bearing of your own: 10 x 30 x 9 with the inner ring 18 across
-  const mine = modelNumbers("ownbearing", { bore: 10, outer: 30, width: 9, ring: 18 });
-  assert.equal(modelProblem("ownbearing", mine), null);
-  const m = byVolume(make(modelBuild("ownbearing", mine, at)));
+  const mine = modelNumbers("ballbearing", { own: 1, bore: 10, outer: 30, width: 9, ring: 18 });
+  assert.equal(modelProblem("ballbearing", mine), null);
+  const m = byVolume(make(modelBuild("ballbearing", mine, at)));
   assert.equal(m.length, 2);
   assert.ok(Math.abs(r(m[0]!)[0]! - 18) < 0.05 && Math.abs(r(m[1]!)[0]! - 30) < 0.05 && Math.abs(r(m[1]!)[1]! - 9) < 0.05, `${r(m[0]!)} ${r(m[1]!)}`);
   // the same in detail: two rings and the balls
-  const det = byVolume(make(modelBuild("ownbearing", { ...mine, detail: 1 }, at)));
+  const det = byVolume(make(modelBuild("ballbearing", { ...mine, detail: 1 }, at)));
   assert.ok(det.length > 5, `${det.length} bodies`);
-  assert.match(modelProblem("ownbearing", modelNumbers("ownbearing", { bore: 10, outer: 8, width: 9 })) ?? "", /more than the bore/);
-  assert.match(modelProblem("ownbearing", modelNumbers("ownbearing", { bore: 10, outer: 30, width: 9, ring: 9 })) ?? "", /more than the bore/);
+  assert.match(modelProblem("ballbearing", modelNumbers("ballbearing", { own: 1, bore: 10, outer: 8, width: 9 })) ?? "", /more than the bore/);
+  assert.match(modelProblem("ballbearing", modelNumbers("ballbearing", { own: 1, bore: 10, outer: 30, width: 9, ring: 9 })) ?? "", /more than the bore/);
 });
 test("a cycloidal drive has no markers: its plates have four mounting holes each and the shaft a flat above the output plate", () => {
   const s = make(cycloidalSteps(CYCLOIDAL_START));

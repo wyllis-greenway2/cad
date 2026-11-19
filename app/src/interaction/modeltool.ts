@@ -82,17 +82,34 @@ export function nextPartCommand(scene: Scene, b: Building): Result<Command> {
 /** What the notice says while a part is being made: the model, the part and its place in the list */
 export const buildingText = (b: Building): string => `${b.title}: ${b.build.parts[Math.max(0, b.next - 1)]?.label ?? ""} (${Math.min(b.next, b.build.parts.length)} of ${b.build.parts.length})`;
 
+/** Which of the box's fields (the size and the turn, then the model's) are shown: a field with a condition is shown while the number it names has that value, the model's numbers being the live ones or, before the first click, those typed */
+function visibleFields(m: ModelState, nums?: Nums): boolean[] {
+  const fields = modelFields(m.kind);
+  const n = nums ?? modelNumbers(m.kind, Object.fromEntries(fields.flatMap((f, k) => (numOf(m.typed[k + 2]) !== undefined ? [[f.key, numOf(m.typed[k + 2])!]] : []))));
+  return [true, true, ...fields.map((f) => !f.when || n[f.when.key] === f.when.is)];
+}
+/** The field the Tab key goes to: the next one that is shown */
+export function nextField(m: ModelState): number {
+  const vis = visibleFields(m);
+  for (let k = 1; k <= vis.length; k++) { const i = (m.field + k) % vis.length; if (vis[i]) return i; }
+  return m.field;
+}
+
 /** The title of the box and the fields it shows: each number as typed, else the number it has now */
-export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { label: string; value: string; active: boolean; typed: boolean; hint: string; short?: string; choices?: string[] }[]; unit: string; note: string } | null {
+export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { label: string; value: string; active: boolean; typed: boolean; hint: string; short?: string; choices?: string[]; index: number }[]; unit: string; note: string } | null {
   const m = t.model;
   if (!m) return null;
   const g = modelTarget(scene, t), fields = modelFields(m.kind), round = (v: number): string => String(Math.round(v * 100) / 100);
   const live = g ? [g.size, (g.turn * 180) / Math.PI, ...fields.map((f) => g.nums[f.key]!)] : [];
-  const hints = [m.kind === "ballbearing" ? "the outside diameter (mm): picks the listed bearing nearest to it (a number typed wins); the pointer sets it until you click" : "the way across the longest side (mm); the pointer sets it until you click; what is not typed grows to fit", "degrees about the surface's normal", ...fields.map((f) => f.hint)];
+  const hints = ["the way across the longest side (mm); the pointer sets it until you click; what is not typed grows to fit", "degrees about the surface's normal", ...fields.map((f) => f.hint)];
   const labels = modelLabels(m.kind);
+  const vis = visibleFields(m, g?.nums);
+  const shown = (i: number): boolean => vis[i]!;
+  const order = labels.map((_, i) => i).filter(shown).sort((a, b) => Number(!(a >= 2 && fields[a - 2]!.top)) - Number(!(b >= 2 && fields[b - 2]!.top)) || a - b);
+  const hintSize = m.kind === "ballbearing" && g?.nums.own === 0 ? "the outside diameter (mm): picks the listed bearing nearest to it (a number typed wins); the pointer sets it until you click" : hints[0]!;
   return {
     panel: modelTitle(m.kind),
-    fields: labels.map((label, i) => ({ label, value: m.typed[i] !== "" ? m.typed[i]! : live[i] !== undefined ? round(live[i]!) : "", active: m.field === i, typed: m.typed[i] !== "", hint: hints[i]!, ...(i >= 2 && fields[i - 2]!.choices ? { choices: fields[i - 2]!.choices } : {}) })),
+    fields: order.map((i) => ({ index: i, label: labels[i]!, value: m.typed[i] !== "" ? m.typed[i]! : live[i] !== undefined ? round(live[i]!) : "", active: m.field === i, typed: m.typed[i] !== "", hint: i === 0 ? hintSize : hints[i]!, ...(i >= 2 && fields[i - 2]!.choices ? { choices: fields[i - 2]!.choices } : {}) })),
     unit: "mm",
     note: g ? (g.problem ?? modelAbout(m.kind, g.nums)) : "click where the middle of it goes",
   };

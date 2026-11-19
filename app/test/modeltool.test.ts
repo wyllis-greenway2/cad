@@ -8,7 +8,7 @@ import { createState, reduce } from "../src/interaction/controller.ts";
 import { homeCamera } from "../src/interaction/camera.ts";
 import { typeKey, finish, previewOf } from "../src/interaction/tools.ts";
 import type { Tool } from "../src/interaction/tools.ts";
-import { modelEntry, modelTarget } from "../src/interaction/modeltool.ts";
+import { modelEntry, modelTarget, nextField } from "../src/interaction/modeltool.ts";
 import { MODEL_KINDS, modelNumbers, modelExtent, modelStart, modelFields, modelProblem } from "../src/operation/modelkinds.ts";
 import type { ModelKind } from "../src/operation/modelkinds.ts";
 
@@ -22,15 +22,16 @@ const typeIn = (t: Tool, field: number, text: string): Tool => { let u: Tool = {
 
 test("the overall size grows every length that was not typed, and only those: the usual numbers at the usual size, the size asked for at any other", () => {
   for (const kind of MODEL_KINDS) {
-    if (!modelFields(kind).some((f) => f.scaled)) continue; // (a catalogue bearing has one size: its number's)
-    const usual = modelExtent(kind, modelStart(kind));
+    if (!modelFields(kind).some((f) => f.scaled)) continue;
+    const own: Record<string, number> = kind === "ballbearing" ? { own: 1 } : {}; // (a catalogue bearing has the one size of its number: only one of your own grows)
+    const usual = modelExtent(kind, modelNumbers(kind, own));
     for (const f of [0.5, 2]) {
-      const n = modelNumbers(kind, {}, usual * f);
+      const n = modelNumbers(kind, own, usual * f);
       const got = modelExtent(kind, n); // (a size too small for the rooms the printer needs is taken up to the nearest that can be made: never under)
-      assert.ok(got >= usual * f * 0.98 && (got < usual * f * 1.02 || modelProblem(kind, modelNumbers(kind, {}, usual * f * 0.9)) === null || f < 1), `${kind}: the size ${usual * f} is ${got}`);
-      for (const fl of modelFields(kind)) if (!fl.scaled) assert.equal(n[fl.key], modelStart(kind)[fl.key], `${kind}: ${fl.key} is not a length of the thing and stays`);
+      assert.ok(got >= usual * f * 0.98 && (got < usual * f * 1.02 || modelProblem(kind, modelNumbers(kind, own, usual * f * 0.9)) === null || f < 1), `${kind}: the size ${usual * f} is ${got}`);
+      for (const fl of modelFields(kind)) if (!fl.scaled && !(fl.key in own) && !(kind === "ballbearing" && fl.key === "number")) assert.equal(n[fl.key], modelStart(kind)[fl.key], `${kind}: ${fl.key} is not a length of the thing and stays`);
     }
-    assert.deepEqual(modelNumbers(kind, {}, undefined), modelStart(kind));
+    assert.deepEqual(modelNumbers(kind, own, undefined), { ...modelStart(kind), ...(kind === "ballbearing" ? { own: 1, number: 0 } : {}) });
   }
   // a number typed is kept, and the others fit round it
   const n = modelNumbers("gearbox", { rod: 8 }, 100);
@@ -54,7 +55,7 @@ test("the tool: armed from the ring item; after the first click a picture of the
   const usual = previewOf(sc, t)!;
   assert.ok(usual.segments.length > 100 && !usual.red, "the picture of the usual bearing");
   t = typeIn(t, 0, "40");
-  assert.equal(modelEntry(sc, t)!.fields[0]!.value, "40");
+  assert.equal(modelEntry(sc, t)!.fields.find((f) => f.label === "Size")!.value, "40");
   assert.ok(Math.abs(modelTarget(sc, t)!.size - 40) < 1, "the size typed is the size");
   const fin = finish(sc, t);
   assert.ok(fin);
@@ -97,13 +98,12 @@ import { AT_ORIGIN_FOR_TESTS } from "./helpers/modelplace.ts";
 test("each model lists its parts, bottom up, covering every step once", () => {
   const want: Record<ModelKind, string[]> = {
     gearbox: ["Base plate and posts", "Rod 1", "Rod 2", "Rod 3", "Stage 1 pinion", "Stage 1 gear", "Stage 2 pinion", "Stage 2 gear", "Top plate"],
-    ballbearing: ["Inner race", "Outer race"], // (a catalogue bearing is simple)
-    ownbearing: ["Inner race", "Outer race", ...Array.from({ length: 7 }, (_, i) => `Ball ${i + 1}`)], // (detailed, 8 x 22 x 7: seven balls)
+    ballbearing: ["Inner race", "Outer race", ...Array.from({ length: 7 }, (_, i) => `Ball ${i + 1}`)], // (detailed, 8 x 22 x 7: seven balls)
     differential: ["Cage", "Axle 1", "Axle 2", "Cross pin", "Side gear 1", "Spider gear 1", "Side gear 2", "Spider gear 2", "Cap 1", "Cap 2", "Drive gear"],
     cycloidal: ["Base plate and ring pins", "Input shaft and eccentric", "Cycloidal disc", "Output plate and pins"],
   };
   for (const kind of MODEL_KINDS) {
-    const b = modelBuild(kind, { ...modelStart(kind), ...(kind === "ownbearing" ? { detail: 1 } : {}) }, AT_ORIGIN_FOR_TESTS);
+    const b = modelBuild(kind, { ...modelStart(kind), ...(kind === "ballbearing" ? { detail: 1, own: 1, number: 0 } : {}) }, AT_ORIGIN_FOR_TESTS);
     assert.ok(b.ok, b.ok ? "" : b.error);
     if (!b.ok) continue;
     assert.deepEqual(b.value.parts.map((p) => p.label), want[kind], kind);
@@ -114,8 +114,8 @@ test("each model lists its parts, bottom up, covering every step once", () => {
 });
 test("Create makes the model a part at a time: the first part at once, the next each time the kernel has answered; Esc stops and keeps what is made", () => {
   let st = { ...createState(createSession(kernel)), cam: homeCamera() };
-  st = reduce(st, { type: "runAction", id: "model:ownbearing" }, env as never);
-  st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0], model: { ...st.tool!.model!, typed: st.tool!.model!.typed.map((x, i) => (i === 2 ? "1" : x)) } } }; // (the first field after the size and the turn: the detail)
+  st = reduce(st, { type: "runAction", id: "model:ballbearing" }, env as never);
+  st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0], model: { ...st.tool!.model!, typed: st.tool!.model!.typed.map((x, i) => (i === 2 || i === 4 ? "1" : x)) } } }; // (the first field after the size and the turn: the detail)
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env as never);
   assert.ok(st.building, "building");
   assert.equal(st.tool, null);
@@ -177,7 +177,7 @@ test("a finished model keeps how it moves, and Play from any part of it plays th
   assert.ok(Math.abs(byPart["Stage 2 gear"]! - 1 / 9) < 1e-9, "the last gear turns a ninth as fast, the same way");
 });
 test("the bearing's balls go round at about half the speed of the inner race, the outer race held", () => {
-  const st = buildAll("ownbearing", { detail: "1" });
+  const st = buildAll("ballbearing", { own: "1", detail: "1" });
   const sc = scene(st.session);
   const rec = sc.models![0]!;
   assert.equal(rec.followers.length, 7);
@@ -238,15 +238,15 @@ test("the cycloidal drive moved by Play: the disc's middle goes round the shaft,
 });
 const wrap = (x: number): number => Math.atan2(Math.sin(x), Math.cos(x));
 test("the Play item of the ring starts the model from whichever of its bodies is selected, and the motion moves the model's own parts", () => {
-  for (const [kind, from] of [["ownbearing", "Ball 5"], ["ballbearing", "Inner race"], ["gearbox", "Top plate"], ["differential", "Cap 2"], ["cycloidal", "Output plate and pins"]] as [ModelKind, string][]) {
-    let st = buildAll(kind, kind === "ownbearing" ? { detail: "1" } : {});
+  for (const [kind, from] of [["ballbearing", "Ball 5"], ["gearbox", "Top plate"], ["differential", "Cap 2"], ["cycloidal", "Output plate and pins"]] as [ModelKind, string][]) {
+    let st = buildAll(kind, kind === "ballbearing" ? { own: "1", detail: "1" } : {});
     const sc = scene(st.session), rec = sc.models![0]!;
     const body = anyBodyOf(sc, rec.parts[from]!);
     st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [body] } } };
     const played = reduce(st, { type: "runAction", id: "motion:play" }, env as never);
     assert.ok(played.motion, `${kind}: Play from ${from} starts a motion: ${played.session.message ?? ""}`);
     if (!played.motion) continue;
-    const held: Record<ModelKind, number> = { gearbox: 2, ballbearing: 1, ownbearing: 1, differential: 2, cycloidal: 1 };
+    const held: Record<ModelKind, number> = { gearbox: 2, ballbearing: 1, differential: 2, cycloidal: 1 };
     assert.equal(played.motion.follows.length, Object.keys(rec.parts).length - held[kind] - 1, `${kind}: every moving part follows (the followers and what is glued to them)`);
     const driverBody = anyBodyOf(sc, rec.parts[rec.driver.part]!);
     assert.equal(played.motion.body, driverBody, `${kind}: the driver is ${rec.driver.part}`);
@@ -285,7 +285,7 @@ test("whatever size the pointer asks for, from the first moment on, the numbers 
 import { addGlue, removeGlue, glueOf } from "../src/operation/glue.ts";
 import { toJSON, fromJSON } from "../src/operation/scene.ts";
 test("glue: groups grow together, a body leaves its group, a group of one is no group, unknown bodies and a single body are refused, and it is saved with the project", () => {
-  const sc = scene(buildAll("ownbearing", { detail: "1" }).session);
+  const sc = scene(buildAll("ballbearing", { own: "1", detail: "1" }).session);
   const ids = Object.values(sc.parts).filter((p) => p.kind === "body").map((p) => (p as { id: string }).id);
   const one = addGlue(sc, [ids[0]!, ids[1]!]);
   assert.ok(one.ok);
@@ -335,7 +335,7 @@ test("glue: a body glued to a part that moves moves with it, however it was chos
 
 // ---- what the human asked (`in_1145`, `in_1153`): a bearing that loads with its constraints, so things can be driven on it ----
 test("a bearing loads with its outer ring held and its inner ring turning about the axis (a pivot), and Play still turns the balls with the inner ring", () => {
-  for (const kind of ["ballbearing", "ownbearing"] as ModelKind[]) {
+  for (const kind of ["ballbearing"] as ModelKind[]) {
     const st = buildAll(kind, { detail: "1" }), sc = scene(st.session), rec = sc.models![0]!;
     const idOf = (part: string): string => { const b = Object.values(sc.parts).find((p) => p.kind === "body" && p.id !== undefined && (p as { id: string }).id === `x_${rec.parts[part]!.step}`); assert.ok(b, `${kind}: ${part}`); return (b as unknown as { id: string }).id; };
     assert.deepEqual(sc.fixed, [idOf("Outer race")], `${kind}: only the outer ring is held`);
@@ -353,15 +353,20 @@ test("the size of a catalogue bearing picks the listed bearing whose outside dia
   assert.equal(modelExtent("ballbearing", modelNumbers("ballbearing", {}, 62)), 62);
 });
 
-test("the detail of a bearing of your own is a toggle button: the box says so, and 1 typed on it (what the button sends) makes the detailed bearing", () => {
+test("a bearing's box has Catalogue or Your own at its top, and the choice changes what the box shows (a toggle button each); the detail is one too", () => {
   const sc = scene(createSession(kernel));
-  let t: Tool = { ...armed("ownbearing"), plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0] };
-  const f = modelEntry(sc, t)!.fields;
-  assert.deepEqual(f[2]!.choices, ["Simple", "Detailed"]);
-  assert.equal(f[2]!.value, "0");
-  assert.ok(f.every((x, i) => i === 2 || !x.choices));
+  let t: Tool = { ...armed("ballbearing"), plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0] };
+  const names = (u: Tool): string[] => modelEntry(sc, u)!.fields.map((f) => f.label);
+  assert.deepEqual(names(t), ["Source", "Size", "Turn", "Bearing number"], "the catalogue: the number only");
+  assert.deepEqual(modelEntry(sc, t)!.fields[0]!.choices, ["Catalogue", "Your own"]);
   t = typeIn(t, 2, "1");
-  assert.equal(modelEntry(sc, t)!.fields[2]!.value, "1");
-  assert.equal(modelTarget(sc, t)!.nums.detail, 1);
-  assert.equal(modelFields("ballbearing").some((x) => x.choices), false, "the catalogue has no toggle: it is simple");
+  assert.deepEqual(names(t), ["Source", "Size", "Turn", "Detail", "Bore", "Outside diameter", "Width", "Inner ring outside diameter", "Room round a ball", "Balls", "Ball diameter"]);
+  assert.deepEqual(modelEntry(sc, t)!.fields.find((f) => f.label === "Detail")!.choices, ["Simple", "Detailed"]);
+  assert.equal(modelEntry(sc, t)!.fields.find((f) => f.label === "Detail")!.value, "0");
+  assert.equal(modelEntry(sc, typeIn(t, 4, "1"))!.fields.find((f) => f.label === "Detail")!.value, "1");
+  assert.equal(modelTarget(sc, typeIn(t, 4, "1"))!.nums.detail, 1);
+  // Tab goes by the fields that are shown: from the last of them back to the first, never to the number of a catalogue
+  const hidden = nextField({ ...t.model!, field: 11 });
+  assert.equal(hidden, 0, "the first field is the size");
+  assert.notEqual(nextField({ ...armed("ballbearing").model!, field: 2 }), 4, "the detail is not shown for a catalogue bearing");
 });

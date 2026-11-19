@@ -29,7 +29,7 @@ export function playPlan(kind: ModelKind, n: Nums, place: Place): PlayPlan {
     const glue = f.rods.map((_, j) => [`Rod ${j + 1}`, ...(j < s.stages ? [`Stage ${j + 1} pinion`] : []), ...(j > 0 ? [`Stage ${j} gear`] : [])]);
     return { driver: { part: "Stage 1 pinion", point: P(f.rods[0]!, 0, 0), dir: ez }, followers, glue, note: `the first pinion turns the gears: ${(1 / Math.abs(speed(s.stages))).toFixed(2)} turns of it for one of the last gear` };
   }
-  if (kind === "ballbearing" || kind === "ownbearing") {
+  if (kind === "ballbearing") {
     const sh = bearingFromNums(n);
     if (typeof sh === "string") return { driver: { part: "Inner race", point: o, dir: ez }, followers: [], glue: [], note: "" };
     const g = { pitch: sh.pitch, rb: sh.rb }, zm = sh.width / 2, count = sh.detail ? sh.balls : 0; // (a simple bearing has two rings and no balls)
