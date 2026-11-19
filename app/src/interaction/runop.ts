@@ -43,7 +43,9 @@ export function runOp(sess: Session, op0: Op): { session: Session; cmd: Command 
     // a size that is nothing, or less (a radius of zero, a fillet of nothing): said, not ignored
     const v = valueOf(op);
     const why = op.edit?.kind === "radius" && op.edit.arc ? (isTangentArc(sceneOf(sess), op.edit.circle) ? "the lines tangent to this arc cannot stay tangent at that radius (a locked size or angle holds them)" : "the lines on both ends of this arc do not reach that radius (they would have to move)") : "it would be zero or less";
-    return op.edit && v !== null && v !== 0 ? { session: { ...sess, message: `that size is not possible: ${why}` }, cmd: { type: "batch", commands: [] } } : null;
+    // (the constraints that hold it flash and can be deleted: a refusal that blames a constraint always says which, `dec_constraint_uniformity`)
+    const holders = op.edit && v !== null && v !== 0 ? holdingPart(sceneOf(sess), op.edit.kind === "radius" ? [op.edit.circle] : op.parts) : [];
+    return op.edit && v !== null && v !== 0 ? { session: { ...sess, message: `that size is not possible: ${why}`, ...(holders.length ? { conflict: { culprits: holders, victims: holders } } : {}) }, cmd: { type: "batch", commands: [] } } : null;
   }
   if (!op.edit || op.noEdit || (op.faceKind && op.faceKind !== "move")) {
     const corner = op.kind === "edge" ? withCorner(cmd) : null; // (a fillet or chamfer the kernel cannot make on the edge alone is made with the edges that meet it at a corner, `in_379`)
@@ -79,7 +81,7 @@ export function runOp(sess: Session, op0: Op): { session: Session; cmd: Command 
   if (!edited.message && cmd.type === "batch") {
     const after = sceneOf(edited).parts;
     const held = cmd.commands.every((c) => { if (c.type !== "movePart") return true; const q = after[c.ref]; return q?.kind === "corner" && Math.hypot(q.at[0] - c.to[0], q.at[1] - c.to[1], q.at[2] - c.to[2]) < 1e-6; });
-    if (!held) edited = { ...sess, message: "the constraints on the sketch would put it back" };
+    if (!held) { const holders = holdingSide(sceneOf(sess), cmd.commands.flatMap((c) => (c.type === "movePart" ? [c.ref] : []))); edited = { ...sess, message: "the constraints on the sketch would put it back", ...(holders.length ? { conflict: { culprits: holders, victims: holders, retry: cmd } } : {}) }; }
   }
   if (!edited.message) return { session: edited, cmd };
   // the side of a sketch that cannot move: no prism is added in its place (`in_208`); the constraints that hold it flash and the sketch stays as it was
@@ -100,6 +102,15 @@ export function withCorner(cmd: Command): Command | null {
 }
 
 /** The constraints that tie the corners of a sketch side to the rest of the sketch. */
+/** The constraints that hold a part: the ones that name it or a line or corner of it, or a line that is tangent to it. */
+function holdingPart(scene: ReturnType<typeof sceneOf>, refs: readonly string[]): string[] {
+  const own = new Set<string>(refs);
+  for (const r of refs) { const p = scene.parts[r as never]; if (p?.kind === "circle") own.add(p.center); }
+  const tied = new Set<string>(own);
+  for (const r of scene.relations) if (r.kind === "tangent" && r.parts.some((x) => own.has(x))) for (const x of r.parts) tied.add(x); // (a line tangent to the arc is held by what holds the line)
+  for (const q of Object.values(scene.parts)) if (q.kind === "line" && tied.has(q.ref)) { tied.add(q.a); tied.add(q.b); }
+  return scene.relations.filter((r) => r.locked !== false && r.kind !== "arcEnds" && r.parts.some((x) => tied.has(x))).map((r) => r.id);
+}
 function holdingSide(scene: ReturnType<typeof sceneOf>, corners: readonly string[]): string[] {
   const own = new Set<string>(corners);
   const near = new Set<string>(own);
