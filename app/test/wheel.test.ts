@@ -105,3 +105,76 @@ test("draft leans the rim's and the hub's walls away from the middle: the same w
   const xs = (sec: { pts: [number, number][] }): number[] => sec.pts.filter((p) => Math.abs(p[1]) > 6.9).map((p) => p[0]);
   assert.ok(Math.max(...xs(lean)) < Math.max(...xs(straight)) - 0.3, "the rim's outside is smaller at its faces");
 });
+
+// ---- numbers typed in the box (`in_1240`): never break the wheel; the rest follows, or the number is taken back ----
+import { armModel } from "../src/interaction/tools.ts";
+import { modelFix, modelEntry } from "../src/interaction/modeltool.ts";
+const toolWith = (typed: Record<string, string>, size = ""): ReturnType<typeof armModel> => {
+  const t = armModel("wheel"), keys = modelFields("wheel").map((f) => f.key);
+  return { ...t, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0], fill: { center: [0, 0, 0], normal: [0, 0, 1] }, model: { ...t.model!, typed: t.model!.typed.map((x, i) => (i === 0 ? size : i >= 2 && typed[keys[i - 2]!] !== undefined ? typed[keys[i - 2]!]! : x)) } } as ReturnType<typeof armModel>;
+};
+test("the Size is the outside diameter, listed once; typing the number a field already has changes nothing", () => {
+  const sc = scene(createSession(kernel)), t = toolWith({}, "100");
+  assert.equal(modelTarget(sc, t)!.nums.outer, 100);
+  assert.equal(modelEntry(sc, t)!.fields.some((f) => f.label === "Outside diameter"), false);
+  assert.equal(modelEntry(sc, t)!.fields[0]!.label, "Size");
+  const base = modelTarget(sc, toolWith({}, "80"))!.nums;
+  for (const k of ["width", "rim", "hub", "hubLen", "bore", "web", "join", "spokes", "hubOff", "rimOff", "corner", "spokeW", "taper", "spiral", "draft"]) {
+    const g = modelTarget(sc, toolWith({ [k]: String(base[k]) }, "80"))!;
+    assert.equal(g.problem, null, `${k} typed as it already is: ${g.problem}`);
+    assert.deepEqual(g.nums, base, `${k}: nothing else moves`);
+  }
+});
+test("a number typed is met by the others: a small bore gives a small hub, a big hub a big bore, a thick web a bigger join, and any single number typed makes a wheel", () => {
+  const sc = scene(createSession(kernel)), at = (typed: Record<string, string>, size = "80") => modelTarget(sc, toolWith(typed, size))!;
+  assert.ok(at({ bore: "3" }).nums.hub! < 12, `a 3 mm bore has a hub of ${at({ bore: "3" }).nums.hub} mm`);
+  assert.ok(at({ bore: "3" }, "400").nums.hub! < 12, "and so does a hub on a big wheel");
+  assert.ok(at({ hub: "50" }, "200").nums.bore! > 12, "a big hub has a big bore");
+  assert.ok(at({ web: "10" }).nums.join! > 5, "a thick web has a bigger join");
+  assert.ok(at({ web: "10" }).nums.width! >= 10 + 2 * at({ web: "10" }).nums.join!, "and a rim that stands proud of it");
+  // random single numbers, random sizes: always a wheel, with no number taken back unless it is the one typed
+  let seed = 7; const rnd = (): number => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const keys = modelFields("wheel").map((f) => f.key).filter((k) => k !== "outer" && k !== "joinKind");
+  let taken = 0;
+  for (let i = 0; i < 400; i++) {
+    const size = String(Math.round(10 ** (1.2 + rnd() * 1.7))), typed: Record<string, string> = {};
+    const sz = Number(size), range: Record<string, [number, number, number]> = { width: [0.05, 0.3, 1], rim: [0.02, 0.12, 1], hub: [0.06, 0.4, 1], hubLen: [0.05, 0.35, 1], bore: [0.02, 0.2, 1], web: [0.02, 0.1, 1], join: [0.01, 0.08, 1], hubOff: [0, 0.12, 1], rimOff: [0, 0.12, 1], corner: [0.01, 0.08, 1], spokeW: [0.02, 0.2, 1] };
+    for (let j = 0, n = 1 + Math.floor(rnd() * 3); j < n; j++) {
+      const k = keys[Math.floor(rnd() * keys.length)]!, r = range[k];
+      typed[k] = k === "spokes" ? String(rnd() < 0.15 ? 0 : 3 + Math.floor(rnd() * 22)) : k === "taper" ? String(Math.round((rnd() - 0.3) * 80) / 100) : k === "spiral" ? String(Math.round((rnd() - 0.5) * 60)) : k === "draft" ? String(Math.round(rnd() * 80) / 10) : String(Math.round(sz * (r![0] + rnd() * (r![1] - r![0])) * 10) / 10);
+    }
+    const t = toolWith(typed, size), g = modelTarget(sc, t)!;
+    if (!g.problem) continue;
+    taken++;
+    const fx = modelFix(sc, t);
+    assert.ok(fx, `${JSON.stringify(typed)} at ${size}: ${g.problem}, and no number is taken back`);
+    assert.equal(modelTarget(sc, fx!.tool)!.problem, null, `${JSON.stringify(typed)} at ${size}: taken back to something that makes a wheel`);
+  }
+  assert.ok(taken < 160, `${taken} of 400 random numbers had to be taken back (the others met them)`);
+  for (const size of [15, 20, 40, 80, 150, 300, 600, 1500]) { const g = modelTarget(sc, toolWith({}, String(size)))!; assert.equal(g.problem, null, `a ${size} mm wheel with nothing typed: ${g.problem}`); }
+});
+test("a Size too small for any wheel is taken back to the least that makes one, and the box marks the Size", () => {
+  const sc = scene(createSession(kernel)), t = toolWith({}, "8"), fx = modelFix(sc, t)!;
+  assert.ok(fx && fx.field === 0, "the Size is the number to blame");
+  const g = modelTarget(sc, fx.tool)!;
+  assert.equal(g.problem, null);
+  assert.ok(g.nums.outer! >= 13 && g.nums.outer! < 20, `the least wheel is ${g.nums.outer} mm across`);
+  assert.equal(modelEntry(sc, t)!.fields[0]!.bad, true);
+});
+test("Enter with a number that cannot be met takes it back and marks it, and the next Enter makes the wheel; the rim width it already had changes nothing", () => {
+  const open = (typed: Record<string, string>) => {
+    let st = { ...createState(createSession(kernel)), cam: homeCamera() };
+    st = reduce(st, { type: "runAction", id: "model:wheel" }, env);
+    const keys = modelFields("wheel").map((f) => f.key);
+    return { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]] as [number, number, number][], cursor: [0, 0, 0] as [number, number, number], sized: true as const, model: { ...st.tool!.model!, field: 2 + keys.findIndex((k) => typed[k] !== undefined), typed: st.tool!.model!.typed.map((x, i) => (i === 0 ? "80" : i >= 2 && typed[keys[i - 2]!] !== undefined ? typed[keys[i - 2]!]! : x)) } } };
+  };
+  let st = reduce(open({ hub: "70" }), { type: "typed", key: "Enter", shift: false }, env);
+  assert.ok(st.tool?.model?.bad, "the tool stays open with the number marked");
+  assert.equal(bodyOf(st).length, 0, "nothing is made yet");
+  assert.match(st.session.message ?? "", /Hub diameter 70 is taken back to/);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  let n = 0; while (st.building && n++ < 10) st = reduce(st, { type: "buildNext" }, env);
+  assert.equal(bodyOf(st).length, 1, "the next Enter makes it");
+  const same = reduce(open({ width: "14" }), { type: "typed", key: "Enter", shift: false }, env);
+  assert.ok(!same.tool?.model?.bad && (same.building || same.tool === null), "the rim width it already had is no trouble");
+});

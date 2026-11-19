@@ -124,6 +124,80 @@ export function wheelProblem(s: WheelSpec): string | null {
   return typeof c === "string" ? c : null;
 }
 
+/**
+ * The wheel's numbers made to fit together (`in_1240`): the numbers not typed (`locked` holds the typed ones, the Size among them) are moved, as far as they must, so that a number typed is met by the rest and the wheel can be made;
+ * where they were not typed the hub and the hub's length follow the bore, the join follows the web. The typed numbers are never moved here: when they cannot all be met, `wheelProblem` says so and the box takes the typed number back.
+ */
+export function repairWheel(s0: WheelSpec, locked: ReadonlySet<string>): WheelSpec {
+  const n: WheelSpec = { ...s0 };
+  const key = (k: keyof WheelSpec): boolean => !locked.has(k);
+  const to = (k: keyof WheelSpec, v: number): void => { if (key(k)) n[k] = Math.round(v * 100) / 100; };
+  const R = (): number => n.outer / 2, rin = (): number => R() - n.rim, hubR = (): number => n.hub / 2;
+  const tn = (): number => Math.tan((n.draft * Math.PI) / 180);
+  // what follows what, while it is not typed: a hub is about 2.75 bores across and 2.25 long (the start's proportions), a join 3/4 of the web
+  if (locked.has("bore") && key("hub")) to("hub", 2.75 * n.bore);
+  if (locked.has("hub") && key("bore")) to("bore", n.hub / 2.75);
+  if (locked.has("bore") && key("hubLen")) to("hubLen", 2.25 * n.bore);
+  if (locked.has("web") && key("join")) to("join", 0.75 * n.web);
+  for (let pass = 0; pass < 8; pass++) {
+    const before = JSON.stringify(n);
+    // ranges and floors
+    if (key("draft")) to("draft", Math.min(10, Math.max(0, n.draft)));
+    if (key("taper")) to("taper", Math.min(0.7, Math.max(-0.5, n.taper)));
+    if (key("spokes")) { const k = Math.round(n.spokes); to("spokes", k === 1 || k === 2 ? 3 : Math.min(24, Math.max(0, k))); }
+    if (key("joinKind")) to("joinKind", Math.round(n.joinKind) === 1 ? 1 : 0);
+    for (const [k, v] of [["rim", THIN], ["web", THIN], ["join", LEAST_JOIN], ["corner", LEAST_JOIN], ["spokeW", THIN], ["bore", 1], ["hubOff", 0], ["rimOff", 0]] as [keyof WheelSpec, number][]) if (n[k] < v) to(k, v);
+    // the hub's wall round the bore
+    if (n.hub < n.bore + 4) { if (key("hub")) to("hub", n.bore + 4); else if (key("bore")) to("bore", Math.max(1, n.hub - 4)); }
+    // the rim and the hub stand proud of the web by the join
+    for (const [k, other] of [["width", "web"], ["hubLen", "web"]] as [keyof WheelSpec, keyof WheelSpec][]) {
+      const need = n[other] + 2 * n.join + 0.01;
+      if (n[k] < need) { if (key(k)) to(k, need); else if (key(other)) to(other, Math.max(THIN, n[k] - 2 * n.join - 0.01)); else if (key("join")) to("join", Math.max(LEAST_JOIN, (n[k] - n[other]) / 2 - 0.01)); }
+    }
+    // room between the hub and the rim for the web, the two joins and (with cutouts) a cutout and its corner fillets
+    const cuts = Math.round(n.spokes) > 0;
+    const need = (): number => Math.max(2 * n.join + THIN, cuts ? 2 * n.corner + THIN + n.hubOff + n.rimOff : 0);
+    const room = (): number => rin() - hubR();
+    if (room() < need()) {
+      if (cuts) for (const k of ["hubOff", "rimOff"] as const) if (room() < need() && key(k)) to(k, Math.max(0, n[k] - (need() - room())));
+      if (room() < need() && key("hub")) to("hub", Math.max(n.bore + 4, 2 * (rin() - need())));
+      if (room() < need() && key("rim")) to("rim", Math.max(THIN, R() - hubR() - need()));
+      if (room() < need() && key("join")) to("join", Math.max(LEAST_JOIN, (room() - THIN) / 2));
+      if (room() < need() && cuts && key("corner")) to("corner", Math.max(LEAST_JOIN, (room() - THIN - n.hubOff - n.rimOff) / 2));
+      if (room() < need() && key("bore") && n.hub - n.bore > 4) to("bore", Math.max(1, n.hub - 4));
+    }
+    // the draft leaves the rim and the hub thick enough at their faces
+    const W = n.width / 2, H = n.hubLen / 2, t = n.web / 2;
+    if (n.rim - tn() * (W + W - t) < THIN) { if (key("draft")) to("draft", (Math.atan(Math.max(0, n.rim - THIN) / (2 * W - t)) * 180) / Math.PI); else if (key("rim")) to("rim", THIN + tn() * (2 * W - t)); }
+    if (n.hub / 2 - tn() * (H - t) - n.bore / 2 < 2) { if (key("draft")) to("draft", (Math.atan(Math.max(0, n.hub / 2 - n.bore / 2 - 2) / (H - t)) * 180) / Math.PI); else if (key("hub")) to("hub", n.bore + 4 + 2 * tn() * (H - t)); }
+    // the cutouts: a spoke at least THIN wide at both ends and room between two for the corner fillets
+    if (cuts) {
+      if (n.spokeW * (1 - n.taper) < THIN) { if (key("taper")) to("taper", 1 - THIN / n.spokeW); else if (key("spokeW")) to("spokeW", THIN / (1 - n.taper)); }
+      const g = wheelGeometry(n), k = Math.round(n.spokes);
+      const gapIn = (2 * Math.PI * g.rIn) / k - 2 * n.corner - THIN, gapOut = (2 * Math.PI * g.rOut) / k - 2 * n.corner - THIN;
+      if (n.spokeW > gapIn || n.spokeW * (1 - n.taper) > gapOut) {
+        if (key("spokeW")) to("spokeW", Math.max(THIN, Math.min(gapIn, gapOut / Math.max(0.1, 1 - n.taper))));
+        else if (key("corner")) to("corner", Math.max(LEAST_JOIN, Math.min((2 * Math.PI * g.rIn) / k - n.spokeW - THIN, (2 * Math.PI * g.rOut) / k - n.spokeW * (1 - n.taper) - THIN) / 2));
+        else if (key("spokes") && k > 3) to("spokes", k - 1);
+      }
+      // an offset that ends within 0.4 mm of where a join ends leaves a sliver: it goes a little short of it, or a little past
+      for (const o of ["hubOff", "rimOff"] as const) if (Math.abs(n[o] - n.join) < 0.4 && key(o)) to(o, n.join >= 0.9 ? n.join - 0.5 : n.join + 0.4);
+    }
+  }
+  // the corner fillets must fit the cutout (a strong spiral or a wide taper makes one corner sharp): smaller fillets, then a gentler spiral
+  for (let i = 0; i < 10 && Math.round(n.spokes) > 0 && wheelProblem(n) !== null; i++) {
+    const c = cutout(n);
+    if (typeof c !== "string") break;
+    if (key("corner") && n.corner > LEAST_JOIN) to("corner", Math.max(LEAST_JOIN, n.corner * 0.8));
+    else if (key("spiral") && n.spiral !== 0) to("spiral", Math.abs(n.spiral) < 4 ? 0 : n.spiral * 0.8);
+    else if (key("spokeW")) to("spokeW", Math.max(THIN, n.spokeW * 0.9));
+    else break;
+  }
+  // a wheel too small for cutouts at all is a plain web
+  if (Math.round(n.spokes) > 0 && key("spokes") && wheelProblem(n) !== null && wheelProblem({ ...n, spokes: 0 }) === null) n.spokes = 0;
+  return n;
+}
+
 /** an arc side as points: from `a` to `b` with the kernel's bulge */
 function flatten(pts: P[], bulges: number[], per = 8): P[] {
   const out: P[] = [];

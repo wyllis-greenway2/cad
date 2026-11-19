@@ -7,7 +7,7 @@ import { normalOfPlane, localOf } from "../operation/part.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
-import { modelFields, modelNumbers, modelStart, modelCentre, modelExtent, modelProblem, modelOutline, modelBuild, modelTitle, modelAbout } from "../operation/modelkinds.ts";
+import { modelFields, modelSizeKey, modelNumbers, modelStart, modelCentre, modelExtent, modelProblem, modelOutline, modelBuild, modelTitle, modelAbout } from "../operation/modelkinds.ts";
 import type { ModelKind, Nums } from "../operation/modelkinds.ts";
 import { asCommand } from "../operation/modelparts.ts";
 import type { Place, ModelBuild } from "../operation/modelparts.ts";
@@ -25,11 +25,11 @@ const crossV = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[
 const normalizeV = (a: Vec3): Vec3 => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 
 /** What the tool holds: which model, the text typed in each field of the box (the overall size, the turn, then the model's numbers) and the field being typed in */
-export interface ModelState { kind: ModelKind; typed: string[]; field: number; /** the box takes the keyboard when it opens */ focus?: true }
+export interface ModelState { kind: ModelKind; typed: string[]; field: number; /** the box takes the keyboard when it opens */ focus?: true; /** the number that was taken back to a value that makes the model (`in_1240`): its field, and when (the box flashes red for a moment) */ bad?: { field: number; at: number } }
 const LEAD = ["Size", "Turn"];
 const modelLabels = (kind: ModelKind): string[] => [...LEAD, ...modelFields(kind).map((f) => f.label)];
 export const armedModel = (kind: ModelKind): ModelState => ({ kind, typed: modelLabels(kind).map(() => ""), field: 0 });
-export const modelTyped = (m: ModelState, field: number, text: string): ModelState => ({ ...m, field, typed: m.typed.map((x, i) => (i === field ? text : x)) });
+export const modelTyped = (m: ModelState, field: number, text: string): ModelState => { const { bad: _gone, ...rest } = m; void _gone; return { ...rest, field, typed: m.typed.map((x, i) => (i === field ? text : x)) }; };
 
 const numOf = (s: string | undefined): number | undefined => { if (s === undefined || s === "" || s === "-" || s === "0.") return undefined; const n = Number(s); return Number.isFinite(n) ? n : undefined; };
 /** the least size the pointer sets, as a share of the usual size of the model (a model much smaller than that is a point on the screen, and its teeth and rooms do not fit) */
@@ -47,7 +47,9 @@ export function modelTarget(scene: Scene, t: Tool): ModelTarget | null {
   const [mx, my] = localOf(pl, middle), cursor = t.cursor ? localOf(pl, t.cursor) : null;
   const reach = cursor ? 2 * Math.hypot(cursor[0] - mx, cursor[1] - my) : 0; // (the pointer's distance from the middle, both ways)
   const size = numOf(m.typed[0]) ?? (reach > 1e-6 ? Math.max(MIN_SHARE * modelExtent(m.kind, modelStart(m.kind)), reach) : undefined);
-  const nums = modelNumbers(m.kind, typed, size);
+  const sk = modelSizeKey(m.kind); // (a model whose Size is one of its numbers, the wheel's outside diameter: the Size is that number)
+  if (sk && size !== undefined) typed[sk] = size;
+  const nums = modelNumbers(m.kind, typed, sk && size !== undefined ? undefined : size);
   const turn = ((numOf(m.typed[1]) ?? 0) * Math.PI) / 180;
   const [u, v, n] = [pl.u, pl.v, normalOfPlane(pl)];
   const [c, s] = [Math.cos(turn), Math.sin(turn)];
@@ -96,7 +98,7 @@ export const buildingText = (b: Building): string => `${b.title}: ${b.build.part
 function visibleFields(m: ModelState, nums?: Nums): boolean[] {
   const fields = modelFields(m.kind);
   const n = nums ?? modelNumbers(m.kind, Object.fromEntries(fields.flatMap((f, k) => (numOf(m.typed[k + 2]) !== undefined ? [[f.key, numOf(m.typed[k + 2])!]] : []))));
-  return [true, true, ...fields.map((f) => !f.when || n[f.when.key] === f.when.is)];
+  return [true, true, ...fields.map((f) => !f.hidden && (!f.when || n[f.when.key] === f.when.is))];
 }
 /** The field the Tab key goes to: the next one that is shown */
 export function nextField(m: ModelState): number {
@@ -106,23 +108,81 @@ export function nextField(m: ModelState): number {
 }
 
 /** The title of the box and the fields it shows: each number as typed, else the number it has now */
-export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { label: string; value: string; active: boolean; typed: boolean; hint: string; short?: string; choices?: string[]; index: number }[]; unit: string; note: string } | null {
+export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { bad?: true; label: string; value: string; active: boolean; typed: boolean; hint: string; short?: string; choices?: string[]; index: number }[]; unit: string; note: string } | null {
   const m = t.model;
   if (!m) return null;
   const g = modelTarget(scene, t), fields = modelFields(m.kind), round = (v: number): string => String(Math.round(v * 100) / 100);
   const live = g ? [g.size, (g.turn * 180) / Math.PI, ...fields.map((f) => g.nums[f.key]!)] : [];
-  const hints = ["the way across the longest side (mm); the pointer sets it until you click; what is not typed grows to fit", "degrees about the surface's normal", ...fields.map((f) => f.hint)];
+  const hints = [modelSizeKey(m.kind) ? "the way across (mm): the outside diameter; the pointer sets it until you click; what is not typed follows it, and follows the numbers that are typed" : "the way across the longest side (mm); the pointer sets it until you click; what is not typed grows to fit", "degrees about the surface's normal", ...fields.map((f) => f.hint)];
   const labels = modelLabels(m.kind);
-  const vis = visibleFields(m, g?.nums);
+  const guard = modelGuard(scene, t), vis = visibleFields(m, g?.nums);
   const shown = (i: number): boolean => vis[i]!;
   const order = labels.map((_, i) => i).filter(shown).sort((a, b) => Number(!(a >= 2 && fields[a - 2]!.top)) - Number(!(b >= 2 && fields[b - 2]!.top)) || a - b);
   const hintSize = m.kind === "ballbearing" && g?.nums.own === 0 ? "the outside diameter (mm): picks the listed bearing nearest to it (a number typed wins); the pointer sets it until you click" : hints[0]!;
   return {
     panel: modelTitle(m.kind),
-    fields: order.map((i) => ({ index: i, label: labels[i]!, value: m.typed[i] !== "" ? m.typed[i]! : live[i] !== undefined ? round(live[i]!) : "", active: m.field === i, typed: m.typed[i] !== "", hint: i === 0 ? hintSize : hints[i]!, ...(i >= 2 && fields[i - 2]!.choices ? { choices: fields[i - 2]!.choices } : {}) })),
+    fields: order.map((i) => ({ ...(m.bad?.field === i || guard?.field === i ? { bad: true as const } : {}), index: i, label: labels[i]!, value: m.typed[i] !== "" ? m.typed[i]! : live[i] !== undefined ? round(live[i]!) : "", active: m.field === i, typed: m.typed[i] !== "", hint: i === 0 ? hintSize : hints[i]!, ...(i >= 2 && fields[i - 2]!.choices ? { choices: fields[i - 2]!.choices } : {}) })),
     unit: "mm",
     note: g ? (g.problem ?? modelAbout(m.kind, g.nums)) : "click where the middle of it goes",
   };
+}
+
+const typedNum = (s: string | undefined): number | undefined => numOf(s);
+const withTyped = (t: Tool, i: number, text: string): Tool => ({ ...t, model: { ...t.model!, typed: t.model!.typed.map((x, k) => (k === i ? text : x)) } });
+/**
+ * A model that cannot be made while its numbers are typed (`in_1240`, as a gear's, `gearFix`): the number that spoils it is taken back to the nearest value that works (found by halving between the value the model has without it and the one
+ * typed); the field and the reason come back so the box can mark it red and say. Null when nothing is wrong or no one number is to blame.
+ */
+export function modelFix(scene: Scene, t0: Tool): { tool: Tool; field: number; message: string } | null {
+  const first = modelTarget(scene, t0);
+  if (!t0.model || !first || !first.problem) return null;
+  const fields = modelFields(t0.model.kind), labels = modelLabels(t0.model.kind), valid = (x: Tool): boolean => { const r = modelTarget(scene, x); return !!r && !r.problem; };
+  const text = (v: number): string => String(Number(v.toFixed(3)));
+  /** the one typed number that, taken back alone, makes the model: its field, the tool and what it was taken back to */
+  const alone = (t: Tool): { tool: Tool; field: number; to: string } | null => {
+    const m = t.model!;
+    const order = labels.map((_, i) => i).filter((i) => i !== 1 && (m.typed[i] ?? "") !== "" && !(i >= 2 && fields[i - 2]!.choices)).sort((a, b) => (a === m.field ? -2 : a === 0 ? 1 : 0) - (b === m.field ? -2 : b === 0 ? 1 : 0)); // (the one being typed first, the Size last: it is what the rest is made to fit)
+    for (const i of order) {
+      const typedV = typedNum(m.typed[i]);
+      if (typedV === undefined) continue;
+      const home = modelTarget(scene, withTyped(t, i, ""));
+      if (!home || home.problem) continue; // (this number is not alone to blame)
+      const key = i >= 2 ? fields[i - 2]!.key : "", whole = key === "spokes" || key === "balls" || key === "stages" || key === "teeth";
+      let [good, bad] = [i === 0 ? home.size : home.nums[key]!, typedV];
+      if (whole) { good = Math.round(good); bad = Math.round(bad); while (Math.abs(bad - good) > 1) { const mid = Math.round((good + bad) / 2); if (valid(withTyped(t, i, String(mid)))) good = mid; else bad = mid; } }
+      else for (let k = 0; k < 30; k++) { const mid = (good + bad) / 2; if (valid(withTyped(t, i, text(mid)))) good = mid; else bad = mid; }
+      const to = whole ? String(good) : text(good), fixed = withTyped(t, i, to);
+      if (valid(fixed)) return { tool: { ...fixed, model: { ...fixed.model!, field: i } }, field: i, to };
+    }
+    return null;
+  };
+  // no one number to blame (two typed numbers spoil it together): the numbers typed are given up one at a time, the one being typed last, until one is alone to blame
+  let cur = t0;
+  const given: string[] = [];
+  for (let round = 0; round <= labels.length; round++) {
+    const one = alone(cur);
+    if (one) {
+      const was = t0.model!.typed[one.field];
+      return { tool: one.tool, field: one.field, message: `${first.problem}: ${labels[one.field]} ${was} is taken back to ${one.to}${given.length ? `, and ${given.join(", ")} given up` : ""}` };
+    }
+    const m = cur.model!, i = labels.map((_, k) => k).filter((k) => k !== 1 && (m.typed[k] ?? "") !== "" && !(k >= 2 && fields[k - 2]!.choices)).find((k) => k !== m.field) ?? m.field;
+    if ((m.typed[i] ?? "") === "" || (m.typed[1] ?? "") === "x") return null;
+    given.push(labels[i]!);
+    cur = withTyped(cur, i, "");
+    if (valid(cur)) return { tool: { ...cur, model: { ...cur.model!, field: i } }, field: i, message: `${first.problem}: ${given.join(" and ")} could not be met and ${given.length > 1 ? "are" : "is"} given up` };
+  }
+  return null;
+}
+const guardMemo = new WeakMap<Scene, Map<string, ReturnType<typeof modelFix>>>();
+/** The number a model's box marks red while the model cannot be made (what Enter would do about it): worked out once for each set of numbers. Null while the model can be made. */
+export function modelGuard(scene: Scene, t: Tool): { field: number; why: string; tool: Tool } | null {
+  if (t.kind !== "model" || !t.model) return null;
+  const key = JSON.stringify([t.model.typed, t.cursor, t.points, t.fill, t.plane]);
+  const memo = guardMemo.get(scene) ?? new Map<string, ReturnType<typeof modelFix>>();
+  guardMemo.set(scene, memo);
+  if (!memo.has(key)) memo.set(key, modelFix(scene, t));
+  const fx = memo.get(key);
+  return fx ? { field: fx.field, why: modelTarget(scene, t)?.problem ?? fx.message, tool: fx.tool } : null;
 }
 
 /** The step (or gear) that made the body of the part a command makes: the first extrude or turn that starts a body, or the gear */

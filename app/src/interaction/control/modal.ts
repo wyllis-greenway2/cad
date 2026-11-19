@@ -10,7 +10,7 @@ import { CONSTRAINT_ENTRIES, resolveEntry } from "../constraintlist.ts";
 import type { ToolKind, Tool } from "../tools.ts";
 import { gearFields, armTool, armModel, typeKey, finish, lineNext, gearTyped, editGearTool, editPlanetaryTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf, editCamTool , gearChanged } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
-import { modelTyped, modelCommand, modelBuilding, nextPartCommand, partIds, finishCommand } from "../modeltool.ts";
+import { modelTyped, modelCommand, modelFix, modelBuilding, nextPartCommand, partIds, finishCommand } from "../modeltool.ts";
 import type { ModelKind } from "../../operation/modelkinds.ts";
 /** why the model of a tool is not made (the words of its refusal), or null */
 const modelWhy = (sc: ReturnType<typeof sceneOf>, t: Tool): string | null => { const c = modelCommand(sc, t); return c.ok ? null : c.error; };
@@ -170,6 +170,7 @@ export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppSt
     const fix = s.tool?.kind === "gear" ? gearFix(sceneOf(s.session), s.tool) : null; // (the number that spoils it is taken back to the nearest that makes a gear, and flashes, `in_690`)
     if (fix) return { ...s, tool: { ...fix.tool, gear: { ...fix.tool.gear!, bad: { field: fix.field, at: performance.now() } } }, session: { ...s.session, message: fix.message } };
     const why = s.tool?.kind === "gear" ? gearProblem(sceneOf(s.session), s.tool) : s.tool?.kind === "cam" ? camProblemOf(s.tool) : s.tool?.kind === "model" ? modelWhy(sceneOf(s.session), s.tool) : null; // (a gear, a rack or a partner that is not made says why, `in_580`)
+    if (s.tool?.kind === "model") { const fx = modelFix(sceneOf(s.session), s.tool); if (fx) return { ...s, tool: { ...fx.tool, model: { ...fx.tool.model!, bad: { field: fx.field, at: performance.now() } } }, session: { ...s.session, message: fx.message } }; } // (the number that spoils the model is taken back to one that works, and flashes, `in_1240`)
     return why ? { ...s, session: { ...s.session, message: why } } : s;
   }
   if (s.tool?.kind === "model") return startBuilding(s);

@@ -3,7 +3,7 @@ id: dec_engine_presets
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1239, in_1240
+human_input: in_1239, in_1241
 date: 2026-11-19
 depends_on:
   - dec_engine_model: the presets are master numbers of the engine model and the piston's fit numbers shape its ring grooves; a change to how the engine is made changes them
@@ -13,7 +13,7 @@ alternative_to:
 ---
 # The Honda GX120, GX160 and GX200 as presets, and a test of the builder against them
 
-The human approved (`in_1240`) the test proposed in `dec_piston_parameters` (after asking to weight the Honda data more, `in_1239`) and said to go ahead. **Built, and only this:**
+The human approved (`in_1241`) the test proposed in `dec_piston_parameters` (after asking to weight the Honda data more, `in_1239`) and said to go ahead. **Built, and only this:**
 
 - **The piston's fit numbers from Honda's service manual** (a pure module, `operation/pistondesign.ts`): compression ring height 1.5 mm and oil ring 2.5 mm for the Honda bores (60 and 68 mm), clamped to 1.0 and 2.0 mm for small bores (`dec_piston_parameters`: MAHLE packs); the defaults for the ring side clearance (0.03 mm), the end gaps (0.30 and 0.25 mm), the skirt clearance (0.03 mm diametral, measured 10 mm above the foot and at 90 degrees to the pin) and the pin's fit (0.008 mm), each the middle of Honda's range; the pin 0.265 of the bore, to the nearest half millimetre. In the model the ring grooves are the ring's height plus the side clearance (before: 5 % of the bore, a remembered number).
 - **Three presets in the engine's box** ("Engine: Your own / Honda GX120 / GX160 / GX200"): bore, stroke and pin from the manual (60 x 42 and 13 mm, 68 x 45 and 18 mm, 68 x 54 and 18 mm), two compression ring grooves, the GX160's rod ratio 0.268 (from the tech procedure's rod length, `docs/sources/README.md`); **the other numbers are assumed, not Honda's**: the rod ratio of the GX120 and GX200 (the usual 0.27), and the shaft, wall and flywheel, which follow the model's own proportions at the preset's bore. A number the person types replaces the preset's, and the others follow the scale as before.

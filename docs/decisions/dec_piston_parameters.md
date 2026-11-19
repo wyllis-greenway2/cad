@@ -14,7 +14,7 @@ alternative_to:
 
 The human asked for a really good engine builder starting with real pistons (`in_1209`, `in_1212`), a four-stroke single-cylinder gasoline engine first (`in_1215`), able to make **a range of engines** (`in_1228`), and said the home made designs teach little (`in_1229`). `in_1233` asked for this list. **It replaces the piston's proportions that `dec_engine_model` took from memory** (`ch = 0.55 B`, skirt `0.35 B`, groove `0.05 B`, land `0.12 B`) **once the human approves it**; until then the code is unchanged. Every number says where it comes from (`docs/sources/README.md`): **S** = a source read, **D** = my arithmetic from sources, **M** = from memory, no source. B is the bore. Weights: Honda GX160 (OEM data, professional), NACA 817 and 895 (public, real, large 1940s aircraft pistons), Scraba / MAHLE and the Caterpillar patent (professional practice, other bore sizes) count most; the J & E, Chirico and Webster hobby designs count least.
 
-## Built so far (`dec_engine_presets`, `in_1240`)
+## Built so far (`dec_engine_presets`, `in_1241`)
 
 The tier 1 (Honda) numbers: ring heights, the ring side room, the end gaps, the skirt clearance and the pin fit as `operation/pistondesign.ts`; the ring grooves of the engine model follow the ring height; the Honda GX120, GX160 and GX200 are presets of the engine's box; `test/pistonhonda.test.ts` checks the builder against Honda's published table. **One assumed number was built, A5's skirt below the pin (0.27 B), because the test showed the remembered 0.35 B made the real GX160 impossible.** Everything else below, including the other assumptions A1 to A10, is **still a proposal**.
 
