@@ -4783,3 +4783,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1107 — 2026-11-19 — directive
 > okay why don't you try it and tell me what you think? It still seems a bit chunky and bouncy when it gets to situations where it needs to rotate
 (asks the AI to try it itself; the push is chunky and bouncy where a body needs to turn)
+
+## in_1109 — 2026-11-19 — question
+> okay and how is it performing? is it fast and lean?
+(asks how the push performs: speed and weight)
