@@ -4986,6 +4986,58 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1161 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 
+## in_1162 — 2026-11-19 — directive
+> okay lets get rid of print bearings. Also why does changing the size attribute not change anything? and are these real spec bearings? can I actually go find and buy bearings to these specs? they look odd. How could you even get a ball into a position like that? I thought real bearings had plates on either side and or crimp rings etc?
+(asks for the print-in-place bearing to be removed; why Size does nothing on a catalogue bearing; whether the bearings are real and buyable; how the balls could be put in; whether real bearings have shields and retaining rings)
+
+## in_1163 — 2026-11-19 — directive
+> Lets make them model real bearings. Lets have the menu be bearings. Then bearing types. Lets have it so that within a type, it loads the menu and you can either select calogue bearings or make your own by setting perimeters. It should have a simple or detailed toggle. So simple just gets accurate dimensions of the OD the ID, the thickness, and the OD of the inner ring that rotates in the outer ring, It makes an outer donut, and an inner donut accurate to real specs or what the user says when they make custom bearing. This is all we need for now actually for the catalog bearings. Custom bearings can have the ability to set balls etc in detail mode or simple mode. on a side note for a moment, okay the cycloidial drive markers you made earlier are really weird. Lets just do a normal flat on the output shaft (like for a set screw) and the bottom plate and top plate can just have mounting holes in them.
+(asks for: a Bearings menu with bearing types; within a type, catalogue bearings or custom by parameters; a simple/detailed toggle, simple being two donuts (outer ring and inner ring) at the real OD, ID, thickness and inner ring OD, which is all the catalogue bearings need for now; custom bearings can set balls etc. in detailed or simple mode; and on the cycloidal drive, replace the markers with a flat on the shaft (as for a set screw) and mounting holes in the bottom and top plates)
+
+> Lets have the helpful message say "Slow animation" "Fix Constraints" X. Also the fixes are way to verbose. It should just select the actual parts to constraint, and zoom into them and say Apply X constraint. Then zoom to the next and select parts to constrain and say apply x constraint. Also when it is done, it should go back to its original view, with the animation play button ready to go, or basically however it was before you entered the fix constraints helper.
+(a screenshot of the walk card with a long sentence; asks the offer to be "Slow animation", Fix Constraints, ✕; each step to select the parts, zoom to them and say only "Apply ... constraint"; the end to put the view and the play back as they were)
+
+## in_1164 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the terse Fix walk (select, zoom, apply, view put back) to be merged into the testing branch, no full test run)
+
+## in_1165 — 2026-11-19 — directive
+> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
+(asks for the work to be merged into the testing branch, which was already done, and for a new working branch made from its tip: `claude/intelligent-hawking-next-2`)
+
+## in_1166 — 2026-11-19 — question
+> okay what next?
+
+## in_1167 — 2026-11-19 — approval
+> go with 1 and 2
+(approves the AI's recommendation of `in_1166`: check a typed number a dimension cannot take, and deleting a part a constraint needs, against the rule that a violated constraint flashes red, says so and offers to delete)
+
+## in_1168 — 2026-11-19 — directive
+> lets not have it say, instead lets have it flash red the remaining parts the relied on that constraint, and show their constraint bubble pop.
+(answers the AI's question of `in_1167`: when deleting a part takes constraints with it, it should not say so in words; it flashes red the parts that remained and relied on the constraint, and shows the constraint's bubble pop)
+
+> okay we should probably actually put the model back into its starting position when we go on the fix constraints path because it positions the constraints in the position of the original parts position. Also can we make the fix constraints button inline with the same media player element to the right? can we include a clock icon to the left next to the play and direction swapper that can be clicked on to adjust the speed of the rotation?
+(a screenshot of the zoomed pin drawn where the play had carried it, not where the constraint would be made; asks the walk to start from the model's starting position, the Fix Constraints button to be in the media bar at the right, and a clock icon by play and the direction switch that adjusts the speed)
+
+## in_1170 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the walk that starts from the start, the Fix Constraints button in the bar and the speed clock to be merged into the testing branch, no full test run)
+
+## in_1171 — 2026-11-19 — directive
+> okay I think the menu should have you either go into a catalog selector that is simple bearing only, or go into create your own path with simple or detailed selectable. Right now it kind of seems to be in a hybrid state of both make your own and select from catalog
+(asks for two separate paths under a bearing type: a catalogue selector that makes simple bearings only, and a make-your-own path where simple or detailed can be chosen)
+
+## in_1172 — 2026-11-19 — question
+> okay what next?
+
+## in_1173 — 2026-11-19 — approval
+> go with 1 and 2
+(approves the AI's recommendation of `in_1172`: check a gear or a cam edited against a mate, and the held-back preview of a drag, against the rule that a violated constraint flashes red, says so and offers to delete)
+
+## in_1174 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the held-back drag's flash and the gear and mate checks to be merged into the testing branch, no full test run)
+
 ## in_1175 — 2026-11-19 — question
 > okay what next?
 

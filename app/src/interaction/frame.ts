@@ -37,7 +37,7 @@ import { canHelix, finish as finishTool } from "./tools.ts";
 import { hasBody } from "../operation/gear.ts";
 import { hardMotion, hardNote, limitedOp, hardCollision, hardOverlaps, hardNames } from "./hard.ts";
 import type { KernelResult } from "../compiler/kernel/adapter.ts";
-import { withCorner } from "./runop.ts";
+import { withCorner, sideHeldBack } from "./runop.ts";
 import { scene as sceneOf, selection as selectionOf, previewCommand, previewRefusal, undoLast } from "./session.ts";
 import type { Session } from "./session.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
@@ -95,7 +95,7 @@ import { partIndex } from "../operation/partindex.ts";
 import type { StandIn } from "./standin.ts";
 
 /** A refused change, while it flashes: how far through it is (0 to 1), the constraints it would have broken (red, fading), the ones that tried (they shake), and the parts of the broken ones. */
-export interface FlashFrame { t: number; victims: string[]; culprits: string[]; parts: Ref[]; /** constraints that already held when asked for again: green, fading (`in_1103`) */ green?: string[]; greenParts?: Ref[] }
+export interface FlashFrame { t: number; victims: string[]; culprits: string[]; parts: Ref[]; /** constraints that already held when asked for again: green, fading (`in_1103`) */ green?: string[]; greenParts?: Ref[]; /** constraints that went with a deleted part: their bubbles pop (`in_1168`) */ popped?: string[]; ghosts?: Annotation[] }
 
 const animatedMemo = new WeakMap<Scene, Map<Ref, Ref>>();
 /** The bodies hooked up to an animation (`gearcouple.ts`), worked out once for each scene. */
@@ -148,7 +148,7 @@ export interface Frame {
   bodyEyes: { ref: string; hidden: boolean; corners: Vec3[]; /** the body is selected (or a face of it): its play button is shown, not only when the pointer is over it (`in_962`) */ selected?: true; /** a body hooked up to an animation has a play button (pause while it plays) beside its eye */ play?: "play" | "pause"; /** the body is selected (or a face of it): its constraints icon is shown (`in_1157`) */ chosen?: true; /** the constraints of this body are all shown */ cons?: true }[];
   eyesQuiet: boolean;
   /** the gear's own icon (`in_693`): a gear is selected (its sketch or its body): where it stands (the top of the gear) and what it offers */
-  /** the helpful bar: the icons of what is selected, to the left of the suggested constraints (`in_1160`) */
+  /** the helpful bar: the icons of what is selected, to the left of the suggested constraints (`in_1166`) */
   bar: Bar | null;
   gearChip: { /** the part of the gear the icon is for (what is selected or pointed at) */ part: Ref; at: Vec3; items: { id: string; label: string; icon: string; enabled: boolean; why: string | null }[] } | null;
   /** the bodies that move with the one being dragged, each by its own matrix, as its mates take them along (`in_341`) */
@@ -227,7 +227,7 @@ export interface Frame {
   toolpath: ToolpathView | null;
   previewBar: { at: number; label: string } | null;
   /** the bar of a joint that is played or scrubbed: where it stands, its range, what it does and whether it is playing (`dec_mechanism_motion`) */
-  motionBar: { amount: number; lo: number; hi: number; kind: "turn" | "slide"; playing: boolean; reversed: boolean; /** the bodies that yield by contact whose joint can have a rest (a pivot, a coaxial mate): the body, and where it goes back to (degrees), or null: it stays where it was pushed (`in_1020`) */ springs: { ref: string; name: string; rest: number | null }[]; label: string; /** what is to be said about the motion (a jam, a heavy push): in a place of its own above the bar, so its length never changes the bar */ note: string | null; /** the links of the joint played: the ratio, as seen from it, and what the other end does */ links: { id: string; ratio: number; kind: "turn" | "slide" }[]; /** the offer to replace the push by joints (`in_1122`): shown when a body with no joint has been pushed; while the walk is open, the joint offered now and how far through it is */ fix: { offer: boolean; step: { text: string; n: number; of: number; how: string } | null } } | null;
+  motionBar: { amount: number; lo: number; hi: number; kind: "turn" | "slide"; playing: boolean; reversed: boolean; /** the bodies that yield by contact whose joint can have a rest (a pivot, a coaxial mate): the body, and where it goes back to (degrees), or null: it stays where it was pushed (`in_1020`) */ springs: { ref: string; name: string; rest: number | null }[]; label: string; /** what is to be said about the motion (a jam, a heavy push): in a place of its own above the bar, so its length never changes the bar */ note: string | null; /** the speed as a multiple of what the motion began at (`in_1172`) */ speedK: number; /** the links of the joint played: the ratio, as seen from it, and what the other end does */ links: { id: string; ratio: number; kind: "turn" | "slide" }[]; /** the offer to replace the push by joints (`in_1122`): shown when a body with no joint has been pushed; while the walk is open, the joint offered now and how far through it is */ fix: { offer: boolean; step: { text: string; n: number; of: number; how: string } | null } } | null;
   similar: { rules: { id: string; label: string; title: string; on: boolean }[]; count: number; noun: string } | null;
   modeSwitch: { at: Vec3; /** every point of the handles, so the icon can stand at the upper left of them (`in_215`) */ pts: Vec3[]; to: "move" | "rotate" | "linear" | "circular" | "invert"; label: string } | null;
   /** the sketching tool that is on, for the pill at the top (`in_193`) */
@@ -251,6 +251,8 @@ export interface Frame {
 
 /** While an operation's number is being set, the scene as it would be after it: the real result (a gray body, a cut, a round) and not a sketch of it. Remembered for the same command. */
 let previewProblem: string | null = null;
+/** The constraints a drag that is held back runs into, while it is held: they flash red as for a drag against mates (`in_338`, `in_1173`). */
+let previewHeld: string[] = [];
 /**
  * The session as it was before the step the open operation made (the operation's value is the whole of what it did, so it is shown on that). Taking the step back can mean solving the sketch's constraints again,
  * so it is done once for a session and not once for every picture while the view is turned with the arrow still open (`in_247`: 100 ms a picture on a sketch of a hundred constraints).
@@ -428,8 +430,10 @@ function operationResult(s: AppState): { scene: Scene; outcome: CompileOutcome }
     if (again && !again.outcome.kernel?.stale && !Object.entries(again.outcome.errors).some(([id]) => !(id in base.outcome.errors))) { value = again; }
   }
   const stillBad = value && !value.outcome.kernel?.stale ? Object.entries(value.outcome.errors).find(([id]) => !(id in base.outcome.errors)) : undefined;
-  const refused = !stillBad && value ? previewRefusal(base, cmd, value) : null; // (a move the solver would undo: what is there stays, and the constraint is named, `in_366`)
-  if (stillBad) { previewProblem = stillBad[1]; value = null; } else if (refused) { previewProblem = refused; value = null; } else previewProblem = null;
+  const putBack = !stillBad && value && s.op?.kind === "pushpull" && s.op.edit?.kind === "side" ? sideHeldBack(sceneOf(base), value.scene, cmd) : null; // (a side the constraints put back: refused as when it is let go, `in_208`, `in_1173`)
+  const refused = !stillBad && value ? (putBack ? { why: "the constraints on the sketch would put it back", ids: putBack } : previewRefusal(base, cmd, value)) : null; // (a move the solver would undo: what is there stays, and the constraint is named, `in_366`)
+  previewHeld = refused?.ids ?? [];
+  if (stillBad) { previewProblem = stillBad[1]; value = null; } else if (refused) { previewProblem = refused.why; value = null; } else previewProblem = null;
   memo = { history: s.session.history, outcome: s.session.outcome, key, value };
   return value;
 }
@@ -481,9 +485,9 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
   // a body dragged against its mates: they are red while it is held back, as a refused change shows what it would have broken (`in_338`)
   const noteOp = s.op ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
   const hardWhy = noteOp && !gpu && sceneOf(s.session).hard?.length ? hardNote(sceneOf(s.session), noteOp) : null; // (what a repeat, a mirror or a pull that is open runs into, `in_475`)
-  const flash: FlashFrame | null = hardWhy?.hit.length ? { t: 0, victims: [], culprits: [], parts: hardWhy.hit } : gpu?.hardHit?.length ? { t: 0, victims: [], culprits: [], parts: gpu.hardHit } : gpu?.blocked?.length ? { t: 0, victims: gpu.blocked, culprits: [], parts: flashParts(sc, gpu.blocked) } : flashOf(s, sc, now);
+  const flash: FlashFrame | null = hardWhy?.hit.length ? { t: 0, victims: [], culprits: [], parts: hardWhy.hit } : gpu?.hardHit?.length ? { t: 0, victims: [], culprits: [], parts: gpu.hardHit } : gpu?.blocked?.length ? { t: 0, victims: gpu.blocked, culprits: [], parts: flashParts(sc, gpu.blocked) } : s.op && previewHeld.length ? { t: 0, victims: previewHeld, culprits: [], parts: flashParts(sc, previewHeld) } : flashOf(s, sc, now); // (a pull held back by constraints of a sketch: they are red while it is held, `in_1173`)
   const busy = !!(s.tool || s.op); // while a tool or operation is running its number chip is shown, not the constraints
-  const suggest = busy ? null : suggestionsFor(sc, sel, nearTolMm(s.cam), seenIn(s.cam, sc, size));
+  const suggest = busy || s.motion?.fix ? null : suggestionsFor(sc, sel, nearTolMm(s.cam), seenIn(s.cam, sc, size));
   const gp = gridPlaneOf(s);
   const annotationsPresent = !busy; // (the bubbles are the only user of `avoid`: none are shown while a tool or operation runs)
   return {
@@ -519,7 +523,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     avoid: busy || !annotationsPresent ? { segs: [], pts: [] } : avoidOf(sc),
     hint: s.tool?.hints?.length && s.tool.cursor ? { kinds: s.tool.hints.map((h) => h.kind), at: s.tool.cursor } : s.dragHint ? { kinds: s.dragHint.hints.map((h) => h.kind), at: s.dragHint.at } : null,
     panel: panelOf(s.panel, sceneOf(s.session), sel, s.session.outcome.errors, s.showSketch, s.session.history, s.stepEdit),
-    annotations: busy ? withFlashed([], sc, flash?.t === 0 && gpu?.blocked?.length ? flash : null) : [...withFlashed(shownConstraints(s, sc, sel), sc, flash), ...(s.tape ? tapeAnnotations(sc, sel) : [])],
+    annotations: busy ? withFlashed([], sc, flash?.t === 0 && (gpu?.blocked?.length || (s.op && previewHeld.length)) ? flash : null) : [...withFlashed(shownConstraints(s, sc, sel), sc, flash), ...(s.tape ? tapeAnnotations(sc, sel) : [])],
     flash,
     refusal: flash && (s.flash?.victims.length || s.flash?.soften?.length) ? { text: s.session.message ?? "", beside: s.flash.victims[0] ?? s.flash.soften![0]!, button: `${(s.flash.victims.length + (s.flash.soften?.length ?? 0)) === 1 ? "Delete constraint" : "Delete constraints"}${s.flash.retry ? " to proceed" : ""}` } : null, // (`inv_constraint_uniformity`: a constraint that is violated always flashes and always offers to be deleted: with the change that was refused to go on with, or alone when the change stays)
     grid: gp && settings.grid.show ? gridFor(s.cam, gp, size.w, size.h) : null, // on: the world plane that is on always has its grid (`in_190`)
@@ -546,7 +550,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     gizmo: gizmo ? { handles: gizmo.handles, pulse: s.moverSphere ? "pivot" : s.op?.kind === "revolve" ? "rev:orb" : undefined, /* (only the orient mode pulses, and the revolve's orb that is ready to be oriented; the mirror's and the copies' orbs do not, `in_439`) */ hover: s.gizmoHover, active: s.drag && "handle" in s.drag ? s.drag.handle.id : null, chosen: armed ? s.handleSel! : s.op?.kind === "revolve" && !s.moverSphere ? `rev:turn:${"xyz"[s.op.axis]}` : s.op?.kind === "rotate" ? `rot:${"xyz"[s.op.axis]}` : s.op?.kind === "move" && !s.op.free ? `move:${"xyz"[s.op.axis]}` : null, locked: s.repeat && !s.op && s.repeat.op.kind === "linear" && s.repeat.chosen ? [`lin:${s.repeat.chosen.slice(4, 5)}`, `cnt:${s.repeat.chosen.slice(4, 5)}`] : [...s.lockAxes.map((k) => `move:${"xyz"[k]}`), ...(activePane(s) ? [activePane(s)!] : [])] } : null,
     similar: similarOf(s),
     toolpath: s.preview ? previewView(s.preview.toolpath, s.preview.at) : null,
-    motionBar: s.motion ? { amount: shownAmount(s.motion), lo: s.motion.lo, hi: s.motion.hi, kind: s.motion.kind, playing: s.motion.playing, reversed: s.motion.speed < 0, springs: springsOf(sc, s.motion), links: s.motion.mate ? linksOf(sc, s.motion.mate, s.motion.kind).map((l) => ({ id: l.id, ratio: l.k, kind: l.kind })) : [], label: `${s.motion.kind === "turn" ? "turned" : "slid"} ${steadyNumber(shownAmount(s.motion))}${s.motion.kind === "turn" ? "°" : " mm"}`, note: motionNote(s.motion), fix: { offer: !s.motion.fix && fixOffered(sceneOf(s.session), s.session.outcome, s.motion), step: s.motion.fix ? (() => { const f = s.motion.fix!.plan.fixes[s.motion.fix!.i]; return f ? { text: f.text, n: s.motion.fix!.i + 1, of: s.motion.fix!.plan.fixes.length, how: f.how } : null; })() : null } } : null,
+    motionBar: s.motion ? { amount: shownAmount(s.motion), lo: s.motion.lo, hi: s.motion.hi, kind: s.motion.kind, playing: s.motion.playing, speedK: s.motion.speedK ?? 1, reversed: s.motion.speed < 0, springs: springsOf(sc, s.motion), links: s.motion.mate ? linksOf(sc, s.motion.mate, s.motion.kind).map((l) => ({ id: l.id, ratio: l.k, kind: l.kind })) : [], label: `${s.motion.kind === "turn" ? "turned" : "slid"} ${steadyNumber(shownAmount(s.motion))}${s.motion.kind === "turn" ? "°" : " mm"}`, note: motionNote(s.motion), fix: { offer: !s.motion.fix && fixOffered(sceneOf(s.session), s.session.outcome, s.motion), step: s.motion.fix ? (() => { const f = s.motion.fix!.plan.fixes[s.motion.fix!.i]; return f ? { text: f.text, n: s.motion.fix!.i + 1, of: s.motion.fix!.plan.fixes.length, how: f.how } : null; })() : null } } : null,
     previewBar: s.preview ? { at: s.preview.at, label: `${Math.round(s.preview.at * 100)}%${s.preview.toolpath.seconds ? ` of ~${s.preview.toolpath.seconds < 90 ? Math.round(s.preview.toolpath.seconds) + " s" : Math.round(s.preview.toolpath.seconds / 6) / 10 + " min"}` : ""}` } : null,
     adding: s.adding ? "on" : null,
     resetView: !s.anim && !s.tool && nothingInView(s, size.w, size.h, projector(s.cam, size.w, size.h).project as (p: Vec3) => [number, number]),
@@ -587,7 +591,7 @@ function barFacts(s: AppState, sc: Scene, sel: readonly Ref[], selBodies: Readon
 const withFlashed = (list: Annotation[], sc: Scene, flash: FlashFrame | null): Annotation[] => {
   if (!flash) return list;
   const have = new Set(list.map((a) => a.id));
-  return [...list, ...annotationsOf(sc, [...new Set([...flash.victims, ...flash.culprits, ...(flash.green ?? [])])]).filter((a) => !have.has(a.id))];
+  return [...list, ...annotationsOf(sc, [...new Set([...flash.victims, ...flash.culprits, ...(flash.green ?? [])])]).filter((a) => !have.has(a.id)), ...(flash.ghosts ?? []).filter((a) => !have.has(a.id))]; // (a bubble that pops is of a constraint that is gone: shown as it was)
 };
 /** The small plane drawn for the mirror's chosen arrow (`in_437`): a square across that axis where the plane stands, a little bigger than what is mirrored. */
 function mirrorGuide(s: AppState): Frame["sectionPlanes"] {
@@ -636,7 +640,7 @@ function flashOf(s: AppState, sc: Scene, now: number): FlashFrame | null {
   const t = (now - s.flash.at) / settings.flash.ms;
   if (t < 0 || t >= 1) return null;
   const parts = [...flashParts(sc, s.flash.victims), ...((s.flash.parts ?? []) as Ref[])];
-  return { t, victims: s.flash.victims, culprits: s.flash.culprits, parts, ...(s.flash.green?.length ? { green: s.flash.green, greenParts: flashParts(sc, s.flash.green) } : {}) };
+  return { t, victims: s.flash.victims, culprits: s.flash.culprits, parts, ...(s.flash.green?.length ? { green: s.flash.green, greenParts: flashParts(sc, s.flash.green) } : {}), ...(s.flash.popped?.length ? { popped: s.flash.popped, ghosts: s.flash.ghosts ?? [] } : {}) };
 }
 
 /** Where the value bubble sits: at the tip of the arrow for a push / pull or an extrude and at the edge for a fillet or chamfer (so it is by what it sets), else at the middle of the handles, or by the figure being drawn. */

@@ -3,7 +3,7 @@
 import { PILL } from "./look.ts";
 import type { Frame } from "../interaction/frame.ts";
 
-export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt"; amount: number } | { type: "motionPlay" } | { type: "motionKind"; kind: "turn" | "slide" } | { type: "motionKeep" } | { type: "motionFix"; act: "open" | "apply" | "skip" | "close" } | { type: "motionReverse" } | { type: "motionRest"; ref: string; rest: number | null } | { type: "motionLink"; id: string; ratio?: number; kind?: "turn" | "slide"; remove?: true } | { type: "motionClose" }) => void) {
+export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt"; amount: number } | { type: "motionPlay" } | { type: "motionKind"; kind: "turn" | "slide" } | { type: "motionKeep" } | { type: "motionFix"; act: "open" | "apply" | "skip" | "close" } | { type: "motionReverse" } | { type: "motionSpeed"; k: number } | { type: "motionRest"; ref: string; rest: number | null } | { type: "motionLink"; id: string; ratio?: number; kind?: "turn" | "slide"; remove?: true } | { type: "motionClose" }) => void) {
   const bar = document.createElement("div");
   bar.style.cssText = PILL + ";bottom:60px;left:50%;transform:translateX(-50%);pointer-events:auto;gap:10px;display:none";
   bar.setAttribute("data-motion-bar", "");
@@ -23,14 +23,23 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
   card.style.cssText = "position:absolute;bottom:calc(100% + 46px);left:50%;transform:translateX(-50%);display:none;gap:10px;align-items:center;padding:6px 12px;border-radius:12px;background:rgba(34,37,41,.95);color:#fff;font-size:12.5px;width:max-content;max-width:min(86vw,720px);white-space:normal";
   card.setAttribute("data-fix-card", "");
   const cardText = document.createElement("span");
-  const cardBtn = (text: string, title: string, act: "open" | "apply" | "skip" | "close", strong = false): HTMLSpanElement => { const b = btn(text, title); b.style.cssText += `;border:1px solid rgba(255,255,255,.45);border-radius:6px;padding:1px 8px;${strong ? "background:#2b8a3e;border-color:#2b8a3e" : ""}`; b.addEventListener("pointerup", (e) => { e.stopPropagation(); if (act === "close") dismissed = true; send({ type: "motionFix", act }); }); return b; };
-  let dismissed = false;
-  const fixB = cardBtn("Fix constraints", "Collision constraints are slow. Work out which pushed bodies could be joints (they cost nothing), and walk through them one at a time", "open", true);
+  const cardBtn = (text: string, title: string, act: "open" | "apply" | "skip" | "close", strong = false): HTMLSpanElement => { const b = btn(text, title); b.style.cssText += `;border:1px solid rgba(255,255,255,.45);border-radius:6px;padding:1px 8px;${strong ? "background:#2b8a3e;border-color:#2b8a3e" : ""}`; b.addEventListener("pointerup", (e) => { e.stopPropagation(); send({ type: "motionFix", act }); }); return b; };
   const applyB = cardBtn("Apply", "Make this joint; the motion then runs on it", "apply", true);
   const skipB = cardBtn("Skip", "Leave this one to the push", "skip");
-  const closeB = cardBtn("✕", "Not now", "close");
-  card.append(cardText, fixB, applyB, skipB, closeB);
-  bar.append(note, card, play, rev, slider, links, keep, close);
+  const closeB = cardBtn("✕", "Leave this", "close");
+  card.append(cardText, applyB, skipB, closeB);
+  // the offer to replace the push by joints: a button in the bar itself, at the right (`in_1169`)
+  const fixB = btn("Fix Constraints", "Slow animation: it is worked out by collision. Find which pushed bodies could be joints (they cost nothing) and walk through them one at a time");
+  fixB.style.cssText += ";border:1px solid #2b8a3e;background:#2b8a3e;border-radius:6px;padding:1px 8px;display:none";
+  fixB.addEventListener("pointerup", (e) => { e.stopPropagation(); send({ type: "motionFix", act: "open" }); });
+  // the speed of the play: a clock by the play button; it opens a few speeds to choose from
+  const clock = btn("", "Speed of the play");
+  clock.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="display:block"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.4V8l2.4 1.6"/></svg>';
+  const speeds = document.createElement("div");
+  speeds.style.cssText = "position:absolute;bottom:calc(100% + 8px);left:0;display:none;gap:4px;align-items:center;padding:4px 6px;border-radius:12px;background:rgba(34,37,41,.95);color:#fff;font-size:12.5px";
+  const chips = [0.25, 0.5, 1, 2, 4].map((k) => { const c = btn(`${k}×`, `Play at ${k} times the speed`); c.style.cssText += ";border-radius:6px;padding:1px 6px"; c.addEventListener("pointerup", (e) => { e.stopPropagation(); speeds.style.display = "none"; send({ type: "motionSpeed", k }); }); speeds.appendChild(c); return { k, c }; });
+  clock.addEventListener("pointerup", (e) => { e.stopPropagation(); speeds.style.display = speeds.style.display === "none" ? "flex" : "none"; });
+  bar.append(note, card, speeds, play, rev, clock, slider, links, keep, fixB, close);
   host.appendChild(bar);
   play.addEventListener("pointerup", (e) => { e.stopPropagation(); send({ type: "motionPlay" }); });
   slider.addEventListener("input", () => send({ type: "motionAt", amount: Number(slider.value) }));
@@ -72,15 +81,14 @@ export function createMotionBar(host: HTMLElement, send: (i: { type: "motionAt";
         }
       }
       const step = v.fix.step;
-      const want = !!step || (v.fix.offer && !dismissed);
-      card.style.display = want ? "flex" : "none";
-      if (want) {
-        cardText.textContent = step ? `${step.n} of ${step.of}: ${step.text}` : "";
-        cardText.style.display = step ? "" : "none";
-        fixB.style.display = step ? "none" : ""; applyB.style.display = skipB.style.display = step ? "" : "none";
-        applyB.textContent = step?.how === "mate" ? "Apply mate" : "Apply pivot";
+      card.style.display = step ? "flex" : "none";
+      if (step) {
+        cardText.textContent = step.of > 1 ? `${step.n}/${step.of}` : "";
+        cardText.style.display = cardText.textContent ? "" : "none";
+        applyB.textContent = step.how === "mate" ? "Apply coaxial mate" : "Apply pivot";
       }
-      if (!v.fix.offer) dismissed = false;
+      fixB.style.display = v.fix.offer && !step ? "" : "none";
+      for (const c of chips) c.c.style.background = Math.abs(c.k - v.speedK) < 1e-6 ? "rgba(255,255,255,.25)" : "transparent";
     },
   };
 }

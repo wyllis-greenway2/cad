@@ -67,11 +67,15 @@ test("the lever on the pin: after a play the offer is made, Apply makes a joint 
   const plan = st.motion!.fix!.plan;
   assert.equal(plan.fixes.length, 1, JSON.stringify(plan.left));
   assert.equal(plan.fixes[0]!.joint.kind, "turn");
-  assert.deepEqual(st.session.click.selection, [lever.body], "the body offered is lit");
+  assert.equal(st.session.click.selection.length, 2, "the two round faces to be made coaxial are selected (the hole and the pin)");
+  assert.ok(st.anim && st.anim.to.distance < createState(s).cam.distance, "and the view goes in to them");
+  const homeCam = createState(s).cam;
   assert.equal(st.motion!.playing, false);
   st = doMotionFix(st, "apply");
   assert.equal(st.motion!.fix, null, `the walk is over after the only one: ${st.session.message}`);
-  assert.match(st.session.message ?? "", /^fixed: x_s_084/);
+  assert.match(st.session.message ?? "", /^Applied coaxial mate on x_s_084|^Applied pivot on x_s_084/);
+  assert.deepEqual(st.anim?.to, homeCam, "the view goes back to where it was");
+  assert.deepEqual(st.session.click.selection, [], "and so does the selection");
   const reported = st.session.message ?? "";
   const made = st.session;
   const r2 = startMotion(scene(made), driver, "turn", made.outcome);
@@ -84,7 +88,7 @@ test("the lever on the pin: after a play the offer is made, Apply makes a joint 
   assert.equal(m2.contact?.jam, null, m2.contact?.jam ?? "");
   const y = m2.yields?.find((f) => f.body === lever.body);
   const off = Math.abs(Math.abs(y!.value ?? 0) - Math.abs(lever.spin ?? 0));
-  if (off > 3) assert.match(reported, /differently from the push/, "a difference from the push is said, not hidden");
+  if (off > 3) assert.match(reported, /differs from the push by/, "a difference from the push is said, not hidden");
   console.log(`play to 120: ${pushMs.toFixed(0)} ms by the push, ${ms.toFixed(0)} ms on the joint; lever ${lever.spin?.toFixed(1)} / ${y!.value?.toFixed(1)} deg`);
 });
 test("a refused offer is skipped, and close leaves the walk", () => {
@@ -99,7 +103,8 @@ test("a refused offer is skipped, and close leaves the walk", () => {
   assert.ok(st.motion!.fix);
   st = doMotionFix(st, "skip");
   assert.equal(st.motion!.fix, null);
-  assert.match(st.session.message ?? "", /nothing was changed/);
+  assert.equal(st.session.message, null);
+  assert.deepEqual(st.anim?.to, createState(s).cam, "left as it was");
   st = doMotionFix(doMotionFix(st, "open"), "close");
   assert.equal(st.motion!.fix, null);
 });
@@ -127,7 +132,7 @@ test("the lever hangs on the pin of the gear that is played but nothing holds it
   assert.ok(fix && fix.how === "mate" && fix.carried, st.session.message ?? "");
   assert.match(fix!.text, /goes round: mate its hole to the pin/);
   st = doMotionFix(st, "apply");
-  assert.match(st.session.message ?? "", /^fixed: x_s_084 \(coaxial mate\)/);
+  assert.match(st.session.message ?? "", /^Applied coaxial mate on x_s_084/);
   const r2 = startMotion(scene(st.session), "b/x_s_002/o" as never, "turn", st.session.outcome);
   if (!r2.ok) throw new Error(r2.why);
   assert.ok(r2.motion.contact!.pushables.some((p) => p.after && !p.free), "now a carried joint, not pushed");
@@ -166,4 +171,30 @@ test("the carried lever (`in_1147`) is moved with the pin and not turned with th
   assert.ok(Math.abs(arm!.value) > 5, `the far arm gave way: ${arm!.value}`);
   assert.ok(Math.abs(lever!.value) > 5 && Math.abs(lever!.value) < 90, `the lever slipped on the pin by a part of a turn, not the gear's: ${lever!.value}`);
   assert.ok(m.yields!.find((f) => f.body === lever!.body)!.after?.slip, "drawn moved by the pin, not turned by it");
+});
+
+test("the walk begins from the start (`in_1169`): the model is put back where it starts, paused, so the parts to be constrained are drawn where they are; at the end it is playing as it was", async () => {
+  const { setSpeed } = await import("../src/interaction/motion.ts");
+  const s = open();
+  const sc = scene(s);
+  const driver = Object.values(sc.parts).find((p) => p.kind === "body" && p.id === "x_s_083")!.ref;
+  const r = startMotion(sc, driver, "turn", s.outcome);
+  if (!r.ok) throw new Error(r.why);
+  const m = solveContact(sc, { ...r.motion, playing: true, amount: 90 }, s.outcome, Infinity);
+  assert.equal(m.amount, 90);
+  let st: AppState = { ...createState(s), motion: m };
+  st = doMotionFix(st, "open");
+  assert.equal(st.motion!.amount, 0, "at the start");
+  assert.equal(st.motion!.playing, false, "paused");
+  assert.ok(st.motion!.contact!.pushables.every((p) => !p.free || Math.hypot(...p.free) < 1e-9), "every body where it is drawn at the start");
+  st = doMotionFix(st, "close");
+  assert.equal(st.motion!.playing, true, "playing again as it was");
+  assert.equal(st.motion!.fix, null);
+  // the speed: a multiple of where it began, the direction kept, the clock restarted where it stands
+  const a = setSpeed({ ...r.motion, playing: true, amount: 30, speed: 60 }, 2);
+  assert.equal(a.speed, 120);
+  assert.equal(a.from, 30);
+  const b = setSpeed({ ...a, speed: -120 }, 0.5);
+  assert.equal(b.speed, -30, "the way it goes is kept");
+  assert.equal(b.speedK, 0.5);
 });

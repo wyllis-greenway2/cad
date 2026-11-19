@@ -1,6 +1,7 @@
 // The controller: applies one intent to the app state. All behaviour of the pointer, the click grammar, the camera and the menu is decided here, in plain
 // functions (`inv_no_logic_in_ui`): the UI only draws the state and the platform only reports devices. The work is in `control/`, one file per concern:
 // `viewing` (camera), `pointer` (hover, click, menu), `modal` (tools, operations, typing, edits).
+import { droppedBy } from "./dropped.ts";
 import type { Intent } from "../shared/input.ts";
 import { figureRefs } from "../operation/scene.ts";
 import { isLive } from "./operations.ts";
@@ -13,7 +14,7 @@ import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
 import { doBodiesAction } from "./control/bodies.ts";
 import { doMotionKind, doMotionKeep, doMotionLink, doMotionRest, doMotionFix } from "./control/motion.ts";
-import { setPlaying, reverseMotion, motionHolds } from "./motion.ts";
+import { setPlaying, reverseMotion, motionHolds, setSpeed } from "./motion.ts";
 import { solveContact } from "./contact.ts";
 import { doStepGo, doStepEdit, doStepInsert, doStepSet, doStepLink, doParamSet, doParamRemove } from "./control/history.ts";
 import { doBegin, doTyped, doEntry, doPanel, doPanelRow, doRepeatApply, doRepeatCancel, doEscape, doBuildNext, doRunAction, doDelete, doUndo, doRedo, doRelation } from "./control/modal.ts";
@@ -96,7 +97,9 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   const c = next.session.conflict;
   const al = next.session.already; // (a constraint that already held: it flashes green, `in_1103`)
   if (al && al !== s.session.already) return { ...next, flash: { culprits: [], victims: [], green: al, at: env.now } };
-  return c && c !== s.session.conflict ? { ...next, flash: { ...c, at: env.now } } : next;
+  if (c && c !== s.session.conflict) return { ...next, flash: { ...c, at: env.now } };
+  const gone = !c && !al && next.session.history.scene !== s.session.history.scene ? droppedBy(s.session.history.scene, next.session.history.scene) : null; // (constraints that went with a deleted part: the parts that stayed flash and the bubbles pop, `in_1168`)
+  return gone ? { ...next, flash: { culprits: [], victims: [], parts: gone.parts, popped: gone.ids, ghosts: gone.ghosts, at: env.now } } : next;
 }
 
 /** "Delete constraint to proceed" (`in_366`): the constraints that stopped a change are deleted and the change is made, as one step (one undo takes both back). */
@@ -192,11 +195,12 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "motionAt": return s.motion ? { ...s, motion: solveContact(sceneOf(s.session), { ...s.motion, playing: false, startedAt: null, amount: Math.min(s.motion.hi, Math.max(s.motion.lo, Number.isFinite(i.amount) ? i.amount : 0)) }, s.session.outcome) } : s; // (the scrubber: a hand on it stops the play)
     case "motionPlay": return s.motion ? { ...s, motion: setPlaying(s.motion, !s.motion.playing) } : s;
     case "motionReverse": return s.motion ? { ...s, motion: reverseMotion(s.motion) } : s;
+    case "motionSpeed": return s.motion ? { ...s, motion: setSpeed(s.motion, i.k) } : s;
     case "motionKind": return doMotionKind(s, i.kind);
     case "motionLink": return doMotionLink(s, i);
     case "motionRest": return doMotionRest(s, i);
     case "motionKeep": return doMotionKeep(s);
-    case "motionFix": return doMotionFix(s, i.act);
+    case "motionFix": return doMotionFix(s, i.act, env.now);
     case "motionClose": return { ...s, motion: null };
     case "panel": return doPanel(s, i.name);
     case "panelRow": return doPanelRow(s, i.id, i.act);
