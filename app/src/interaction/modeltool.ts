@@ -99,7 +99,7 @@ export const buildingText = (b: Building): string => `${b.title}: ${b.build.part
 function visibleFields(m: ModelState, nums?: Nums): boolean[] {
   const fields = modelFields(m.kind);
   const n = nums ?? modelNumbers(m.kind, Object.fromEntries(fields.flatMap((f, k) => (numOf(m.typed[k + 1]) !== undefined ? [[f.key, numOf(m.typed[k + 1])!]] : []))));
-  return [!modelNoSize(m.kind), ...fields.map((f) => !f.hidden && (!f.when || n[f.when.key] === f.when.is))];
+  return [!modelNoSize(m.kind), ...fields.map((f) => !f.hidden && (!f.when || (n[f.when.key] === f.when.is) !== !!f.when.not))];
 }
 /** The field the Tab key goes to: the next one that is shown */
 export function nextField(m: ModelState): number {

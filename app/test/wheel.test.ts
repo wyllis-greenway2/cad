@@ -18,23 +18,16 @@ const XY = worldRef("XY");
 const S = (o: Partial<WheelSpec> = {}): WheelSpec => ({ ...WHEEL_START, ...o });
 type B = { ref: string; id: string; volume: number; bbox: { min: number[]; max: number[] } };
 
-test("numbers that make no wheel are said", () => {
+test("only what is no solid at all is refused; every other number is met (a radius may be 0, spokes may merge, a radius too big is made as big as the room allows)", () => {
   assert.equal(wheelProblem(S()), null);
   assert.equal(wheelProblem(S({ spokes: 0 })), null);
-  assert.match(wheelProblem(S({ rimD: 79 })) ?? "", /rim must be at least/);
-  assert.match(wheelProblem(S({ bore: 19 })) ?? "", /hub must be/);
-  assert.match(wheelProblem(S({ rimJoin: 0.5 })) ?? "", /not castable/);
-  assert.match(wheelProblem(S({ corner: 0.5 })) ?? "", /not castable/);
-  assert.match(wheelProblem(S({ web: 12, rimT: 14 })) ?? "", /stand proud/);
-  assert.match(wheelProblem(S({ hub: 60 })) ?? "", /too big for the rim/);
-  assert.match(wheelProblem(S({ spokes: 2 })) ?? "", /3 to 24/);
-  assert.match(wheelProblem(S({ spokes: 24, spokeW: 14 })) ?? "", /too wide|too small/);
-  assert.match(wheelProblem(S({ corner: 7 })) ?? "", /too short|too small/);
-  assert.match(wheelProblem(S({ edge: 2.5 })) ?? "", /spoke join radius is too big for the spoke thickness/);
-  assert.match(wheelProblem(S({ edge: 1.9, web: 5, spokeW: 4 })) ?? "", /too big for the spoke:/);
-  assert.match(wheelProblem(S({ edge: 1, hubOff: 0.5 })) ?? "", /stop short/);
-  assert.match(wheelProblem(S({ edge: 0.1 })) ?? "", /at least 0.3/);
-  assert.match(wheelProblem(S({ taper: 0.95, edge: 0 })) ?? "", /taper/);
+  assert.match(wheelProblem(S({ rimD: 80 })) ?? "", /rim diameter must be less/);
+  assert.match(wheelProblem(S({ bore: 25 })) ?? "", /hub diameter must be more than the bore/);
+  assert.match(wheelProblem(S({ hub: 75 })) ?? "", /hub diameter must be less than the rim/);
+  assert.match(wheelProblem(S({ web: 15 })) ?? "", /thinnest/);
+  assert.match(wheelProblem(S({ spokes: 2 })) ?? "", /3 to 60/);
+  assert.match(wheelProblem(S({ draft: 20 })) ?? "", /0 \(machined\) to 15/);
+  for (const o of [{ rimJoin: 0 }, { hubJoin: 0 }, { corner: 0 }, { edge: 0 }, { obtuse: 0 }, { spokeW: 200 }, { taper: 5 }, { taper: -5 }, { corner: 100 }, { rimJoin: 50 }, { hubJoin: 50 }, { web: 13.9 }, { spiral: 150 }, { rimOff: 0, hubOff: 0 }, { hub: 9, bore: 8.5, draft: 0 }, { edge: 3 }, { spokes: 60, spokeW: 30 }, { rimOff: 0.2, hubOff: 0.2 }]) assert.equal(wheelProblem(S(o)), null, JSON.stringify(o));
 });
 function placed(typed: Record<string, string>, fill?: boolean) {
   typed = { outer: "80", ...typed }; // (the first number typed, if it is a size, sets the scale of the rest: the outside diameter is kept as it is)
@@ -102,9 +95,9 @@ test("draft leans the rim's and the hub's walls away from the middle: the same w
   assert.ok(Math.abs(cast.bbox.max[0]! - cast.bbox.min[0]! - 80) < 0.2, "as wide at the middle plane as the outside diameter says");
   assert.ok(cast.volume < flat.volume * 0.995 && cast.volume > flat.volume * 0.9, `the cast wheel ${cast.volume.toFixed(0)} is a little lighter than the machined one ${flat.volume.toFixed(0)}`);
   assert.equal(wheelProblem(S({ draft: 0 })), null);
-  assert.match(wheelProblem(S({ draft: 11 })) ?? "", /0 \(machined\) to 10/);
-  assert.match(wheelProblem(S({ draft: 10, rimD: 76 })) ?? "", /rim is thinner/);
-  assert.match(wheelProblem(S({ draft: 10, hub: 13, bore: 8, hubT: 40 })) ?? "", /hub is thinner/);
+  assert.match(wheelProblem(S({ draft: 20 })) ?? "", /0 \(machined\) to 15/);
+  assert.match(wheelProblem(S({ draft: 10, rimD: 76 })) ?? "", /rim is too thin/);
+  assert.match(wheelProblem(S({ draft: 10, hub: 13, bore: 8, hubT: 40 })) ?? "", /hub is too thin/);
   const lean = wheelSection(S({ draft: 3 })), straight = wheelSection(S({ draft: 0 }));
   const xs = (sec: { pts: [number, number][] }): number[] => sec.pts.filter((p) => Math.abs(p[1]) > 6.9).map((p) => p[0]);
   assert.ok(Math.max(...xs(lean)) < Math.max(...xs(straight)) - 0.3, "the rim's outside is smaller at its faces");
@@ -123,8 +116,10 @@ test("the Size is the outside diameter, listed once; typing the number a field a
   assert.equal(modelEntry(sc, t)!.fields.filter((f) => f.label === "Outer diameter").length, 1, "listed once");
   const labels = modelEntry(sc, t)!.fields.map((f) => f.label);
   assert.deepEqual(labels.slice(0, 14), ["Outer diameter", "Rim diameter", "Hub diameter", "Bore diameter", "Rim thickness", "Spoke thickness", "Hub thickness", "Spoke count", "Spoke width", "Spoke taper", "Spoke spiral", "Spoke rim offset", "Spoke hub offset", "Spoke radius"], "the diameters, then the thicknesses, then the spoke numbers");
-  assert.deepEqual(labels.slice(14), ["Spoke join radius", "Rim join radius", "Hub join radius", "Draft"]);
+  assert.deepEqual(labels.slice(14), ["Spoke join radius", "Rim join radius", "Hub join radius", "Draft"], "the obtuse radius is not there while the spokes are straight");
   assert.equal(modelEntry(sc, t)!.fields.filter((f) => f.toggle).length, 4, "four radii have the fillet or chamfer toggle");
+  const sp = modelEntry(sc, toolWith({ spiral: "30" }, "80"))!.fields.map((f) => f.label);
+  assert.deepEqual(sp.slice(14, 17), ["Spoke join radius", "Spoke obtuse radius", "Rim join radius"], "with a spiral the obtuse radius is next to the spoke join radius");
   assert.equal(modelEntry(sc, toolWith({ rimJoinKind: "1" }, "80"))!.fields.find((f) => f.label === "Rim join radius")!.toggle!.value, 1, "and it shows the kind it has");
   assert.equal(modelEntry(sc, t)!.fields[0]!.label, "Outer diameter");
   const base = modelTarget(sc, toolWith({}, "80"))!.nums;
@@ -140,14 +135,14 @@ test("a number typed is met by the others: a small bore gives a small hub, a big
   assert.ok(at({ bore: "3" }, "400").nums.hub! < 12, "and so does a hub on a big wheel");
   assert.ok(at({ hub: "50" }, "200").nums.bore! > 12, "a big hub has a big bore");
   assert.ok(at({ web: "10" }).nums.rimJoin! > 5, "a thick web has a bigger join");
-  assert.ok(at({ web: "10" }).nums.rimT! >= 10 + 2 * at({ web: "10" }).nums.rimJoin!, "and a rim that stands proud of it");
+  assert.ok(at({ web: "10" }).nums.rimT! >= 10, "and a rim at least as thick");
   // random single numbers, random sizes: always a wheel, with no number taken back unless it is the one typed
   let seed = 7; const rnd = (): number => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   const keys = modelFields("wheel").map((f) => f.key).filter((k) => k !== "outer" && !k.endsWith("Kind"));
   let taken = 0;
   for (let i = 0; i < 400; i++) {
     const size = String(Math.round(10 ** (1.2 + rnd() * 1.7))), typed: Record<string, string> = {};
-    const sz = Number(size), range: Record<string, [number, number, number]> = { rimT: [0.05, 0.3, 1], rimD: [0.6, 0.97, 1], hub: [0.06, 0.4, 1], hubT: [0.05, 0.35, 1], bore: [0.02, 0.2, 1], web: [0.02, 0.1, 1], rimJoin: [0.01, 0.08, 1], hubJoin: [0.01, 0.08, 1], hubOff: [0, 0.12, 1], rimOff: [0, 0.12, 1], edge: [0, 0.03, 1], corner: [0.01, 0.08, 1], spokeW: [0.02, 0.2, 1] };
+    const sz = Number(size), range: Record<string, [number, number, number]> = { rimT: [0.05, 0.3, 1], rimD: [0.6, 0.97, 1], hub: [0.06, 0.4, 1], hubT: [0.05, 0.35, 1], bore: [0.02, 0.2, 1], web: [0.02, 0.1, 1], rimJoin: [0.01, 0.08, 1], hubJoin: [0.01, 0.08, 1], hubOff: [0, 0.12, 1], rimOff: [0, 0.12, 1], edge: [0, 0.03, 1], obtuse: [0.01, 0.08, 1], corner: [0.01, 0.08, 1], spokeW: [0.02, 0.2, 1] };
     for (let j = 0, n = 1 + Math.floor(rnd() * 3); j < n; j++) {
       const k = keys[Math.floor(rnd() * keys.length)]!, r = range[k];
       typed[k] = k === "spokes" ? String(rnd() < 0.15 ? 0 : 3 + Math.floor(rnd() * 22)) : k === "taper" ? String(Math.round((rnd() - 0.3) * 80) / 100) : k === "spiral" ? String(Math.round((rnd() - 0.5) * 60)) : k === "draft" ? String(Math.round(rnd() * 80) / 10) : String(Math.round(sz * (r![0] + rnd() * (r![1] - r![0])) * 10) / 10);
@@ -162,12 +157,12 @@ test("a number typed is met by the others: a small bore gives a small hub, a big
   assert.ok(taken < 160, `${taken} of 400 random numbers had to be taken back (the others met them)`);
   for (const size of [15, 20, 40, 80, 150, 300, 600, 1500]) { const g = modelTarget(sc, toolWith({}, String(size)))!; assert.equal(g.problem, null, `a ${size} mm wheel with nothing typed: ${g.problem}`); }
 });
-test("a Size too small for any wheel is taken back to the least that makes one, and the box marks the Size", () => {
-  const sc = scene(createSession(kernel)), t = toolWith({}, "8"), fx = modelFix(sc, t)!;
+test("a Size that is no wheel at all (0 or less) is taken back to one that is, and the box marks the Size", () => {
+  const sc = scene(createSession(kernel)), t = toolWith({}, "-5"), fx = modelFix(sc, t)!;
   assert.ok(fx && fx.field === 0, "the Size is the number to blame");
   const g = modelTarget(sc, fx.tool)!;
   assert.equal(g.problem, null);
-  assert.ok(g.nums.outer! >= 13 && g.nums.outer! < 20, `the least wheel is ${g.nums.outer} mm across`);
+  assert.ok(g.nums.outer! > 0, `a wheel of ${g.nums.outer} mm across`);
   assert.equal(modelEntry(sc, t)!.fields[0]!.bad, true);
 });
 test("Enter with a number that cannot be met takes it back and marks it, and the next Enter makes the wheel; the rim width it already had changes nothing", () => {
@@ -177,10 +172,10 @@ test("Enter with a number that cannot be met takes it back and marks it, and the
     const keys = modelFields("wheel").map((f) => f.key);
     return { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]] as [number, number, number][], cursor: [0, 0, 0] as [number, number, number], sized: true as const, model: { ...st.tool!.model!, field: 1 + keys.findIndex((k) => typed[k] !== undefined), typed: st.tool!.model!.typed.map((x, i) => (i === 0 ? "80" : i >= 1 && typed[keys[i - 1]!] !== undefined ? typed[keys[i - 1]!]! : x)) } } };
   };
-  let st = reduce(open({ hub: "79" }), { type: "typed", key: "Enter", shift: false }, env);
+  let st = reduce(open({ hub: "90" }), { type: "typed", key: "Enter", shift: false }, env);
   assert.ok(st.tool?.model?.bad, "the tool stays open with the number marked");
   assert.equal(bodyOf(st).length, 0, "nothing is made yet");
-  assert.match(st.session.message ?? "", /Hub diameter 79 is taken back to/);
+  assert.match(st.session.message ?? "", /Hub diameter 90 is taken back to/);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   let n = 0; while (st.building && n++ < 10) st = reduce(st, { type: "buildNext" }, env);
   assert.equal(bodyOf(st).length, 1, "the next Enter makes it");
@@ -215,4 +210,24 @@ test("a chamfer in place of a radius: the corners of a cutout cut straight, and 
   const st = placed({ cornerKind: "1", edge: "0", draft: "0" });
   assert.equal(bodyOf(st).length, 1);
   assert.ok(!st.session.message, `no complaint: ${st.session.message}`);
+});
+
+test("spokes that run into each other merge; a spoke join radius too big for the room is the biggest the room allows; none of it fails", () => {
+  assert.equal(wheelLines(S({ spokeW: 200 })).length, 4, "spokes that fill the web leave no cutout, and that is no failure");
+  const big = wheelLines(S({ corner: 100 })).slice(4)[0]!, small = wheelLines(S({ corner: 3 })).slice(4)[0]!;
+  assert.ok(area(big) < area(small), "a bigger radius takes more off the corners");
+  const pinched = wheelLines(S({ hub: 14, bore: 4, hubOff: 0, spokeW: 12 })).slice(4);
+  assert.equal(pinched.length, 5, "spokes that meet before the hub leave a cutout that ends in a point");
+  const st = placed({ hub: "14", bore: "4", hubOff: "0", spokeW: "12", edge: "0" });
+  assert.equal(bodyOf(st).length, 1);
+  assert.ok(!st.session.message, `no complaint: ${st.session.message}`);
+  for (const o of [{ taper: "0.9" }, { taper: "-3" }, { corner: "0", rimJoin: "0", hubJoin: "0", edge: "0" }] as Record<string, string>[]) { const r = placed({ edge: "0", ...o }); assert.equal(bodyOf(r).length, 1, JSON.stringify(o)); assert.ok(!r.session.message, `${JSON.stringify(o)}: ${r.session.message}`); }
+});
+test("a spiral gets a bigger obtuse radius that follows the spoke join radius and the spiral while it is not typed", () => {
+  const at = (typed: Record<string, string>): Record<string, number> => modelTarget(scene(createSession(kernel)), toolWith(typed, "80"))!.nums;
+  assert.ok(at({ spiral: "30" }).obtuse! > at({ spiral: "30" }).corner! * 2, "the more the spiral, the bigger");
+  assert.ok(at({ spiral: "30", corner: "5" }).obtuse! > at({ spiral: "30" }).obtuse!, "and the bigger the spoke join radius, the bigger it follows");
+  assert.equal(at({ spiral: "30", obtuse: "4" }).obtuse, 4, "a number typed is kept");
+  const flat = wheelLines(S({ spiral: 40, obtuse: 3 })).slice(4)[0]!, round = wheelLines(S({ spiral: 40, obtuse: 12 })).slice(4)[0]!;
+  assert.notEqual(Math.round(area(round) * 10), Math.round(area(flat) * 10), "a bigger obtuse radius changes the outline");
 });
