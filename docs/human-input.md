@@ -4756,5 +4756,5 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > If this pin has a coaxial constraint to the hole, then why does it immediately violate that when I start the animation?
 (asks why a pin that has a coaxial constraint to its hole immediately violates it when the animation starts: a screenshot of a gear's pin through the hole of a lever with the message "that cannot be done without breaking other constraints" and "Delete constraints to proceed", and the saved model)
 
-## in_1101 — 2026-11-19 — request
+## in_1101 — 2026-11-19 — directive
 > can you audit our gear animations? they seem pretty messed up sometimes. Especially the crown gear and worm gears.
