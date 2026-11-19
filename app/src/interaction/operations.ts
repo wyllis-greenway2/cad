@@ -719,7 +719,13 @@ function forBody(cmd: Command | null, id: string, carries: boolean): Command | n
   const { follow: _f, ...rest } = cmd.step.params;
   return { ...cmd, step: { ...cmd.step, params: { ...rest, ...(carries && _f !== undefined ? { follow: _f } : {}), body: id } } };
 }
+/** A preview of an extrusion is marked so that the kernel may draw it without the boolean (`in_1011`): the picture of a figure beside a body is the picture of it fused; the step made for good is not marked. */
+function markedPreview(c: Command | null): Command | null {
+  if (c?.type !== "addStep" || c.step.type !== "extrude") return c;
+  return { ...c, step: { ...c.step, params: { ...c.step.params, preview: 1 } } };
+}
 export function opCommand(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Command | null {
+  if (opts.preview && op.kind === "extrude") return markedPreview(opCommand(scene, op));
   // several bodies dragged together (`in_345`): each is moved by the same, one after another, so each step has its own number and its own sketches carried
   if (op.target === "body" && op.kind === "move" && op.free && op.parts.length > 1 && op.parts.every((r) => scene.parts[r]?.kind === "body")) {
     let sc = scene;

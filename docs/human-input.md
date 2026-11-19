@@ -4395,3 +4395,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1010 — 2026-11-19 — directive
 > yes please start
 (approves starting on the two changes that alter no behaviour: per-body keeping of parts and descriptions, and re-matching a constraint's named part only for relations that name a changed body)
+
+## in_1011 — 2026-11-19 — directive
+> option 1
+(chooses option 1 of `q_working_and_settled`: while a depth is being set the tool is drawn beside the unchanged body, and the fuse is done when the value is accepted, marked as a preview)
