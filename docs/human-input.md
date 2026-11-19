@@ -4313,3 +4313,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_989 — 2026-11-19 — approval
 > okay lets do 1, I will take your reccomendations
 (approves the AI's recommendations for the three open questions of `dec_contact_push`, which the AI then wrote into the entry as answers: spreading depth 3, ghost not built until a case needs it, the rest value a number on the joint, the mesh test for interaction with the exact boolean for the final answer, in steps behind the existing seam)
+
+## in_990 — 2026-11-19 — directive
+> yes
+(answers the AI's question: start on Keep pose for pivots and contact motions)

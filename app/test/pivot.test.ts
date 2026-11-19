@@ -39,7 +39,7 @@ test("a round face of a body selected, Pivot: the body turns about that face's a
   assert.ok(Math.abs(pv!.point[0] - 30) < 1e-6 && Math.abs(pv!.point[1]) < 1e-6, `through the axis of the cylinder: ${pv!.point}`);
   assert.ok(Math.abs(Math.abs(pv!.dir[2]) - 1) < 1e-9, `along z: ${pv!.dir}`);
   assert.ok(st.motion?.playing && st.motion.body === b!.ref, "playing");
-  assert.ok(st.motion!.noKeep);
+  assert.ok(!st.motion!.noKeep, "and its pose can be kept (`in_990`)");
   const f = frameOf(st, { w: 800, h: 600 });
   assert.equal(f.bodyEyes.find((e) => e.ref === b!.ref)?.play, "pause", "its button is a pause button while it plays");
   assert.deepEqual(fromJSON(toJSON(scene(st.session))).pivots, scene(st.session).pivots, "the file keeps it");
@@ -77,4 +77,37 @@ test("a body made to turn can yield to a hard body that pushes it", () => {
   assert.ok(r.ok, r.ok ? "" : r.why);
   if (!r.ok) return;
   assert.ok(r.motion.contact?.pushables.some((p) => p.body === b!.ref), "the other can yield");
+});
+
+test("Keep pose for a body made to turn: the turn is written as ordinary steps about the pivot's axis, and so are the bodies that yielded to it (`in_990`)", async () => {
+  const { keepCommand } = await import("../src/interaction/motion.ts");
+  let s = cylinder(cylinder(createSession(kernel), 0, 0, 5), 60, 0, 3);
+  const [a, b] = bodies(s);
+  s = run(s, { type: "pivot", body: a!.id as string, point: [3, 4, 0], dir: [0, 0, 1] }); // (off the middle: the body goes round it)
+  s = run(s, { type: "pivot", body: b!.id as string, point: [60, 10, 0], dir: [0, 0, 1] });
+  assert.ok(!s.message, s.message ?? "");
+  const centre = (ss: Session, ref: Ref) => { const bb = (scene(ss).parts[ref] as Body).bbox!; return [(bb.min[0] + bb.max[0]) / 2, (bb.min[1] + bb.max[1]) / 2]; };
+  const [ca, cb] = [centre(s, a!.ref), centre(s, b!.ref)];
+  const r = startMotion(scene(s), a!.ref, "turn", s.outcome);
+  assert.ok(r.ok);
+  if (!r.ok) return;
+  assert.ok(!r.motion.noKeep, "a pivot can be kept now");
+  // the body turned 90 degrees about (3, 4): (0, 0) goes to (7, 1)
+  const c1 = keepCommand(scene(s), { ...r.motion, amount: 90 });
+  assert.ok(c1, "a command");
+  const kept = run(s, c1!);
+  assert.ok(!kept.message, kept.message ?? "");
+  const after = centre(kept, bodies(kept).find((x) => x.id === a!.id)!.ref);
+  assert.ok(Math.abs(after[0]! - 7) < 1e-3 && Math.abs(after[1]! - 1) < 1e-3, `to (7, 1): ${after}`);
+  assert.deepEqual(centre(kept, bodies(kept).find((x) => x.id === b!.id)!.ref).map((v) => Math.round(v * 1e3) / 1e3), cb.map((v) => Math.round(v * 1e3) / 1e3), "the other did not move");
+  assert.ok(scene(kept).steps.some((st) => st.type === "rotate"), "as rotate steps");
+  void ca;
+  // a body that yielded to it is kept where it stands, in the same step
+  const yielded = { ...r.motion, amount: 90, yields: [{ gear: "", body: b!.ref, kind: "turn" as const, point: [60, 10, 0] as [number, number, number], dir: [0, 0, 1] as [number, number, number], k: 0, value: 90 }] };
+  const c2 = keepCommand(scene(s), yielded);
+  assert.ok(c2 && c2.type === "batch");
+  const both = run(s, c2!);
+  assert.ok(!both.message, both.message ?? "");
+  const cb2 = centre(both, bodies(both).find((x) => x.id === b!.id)!.ref);
+  assert.ok(Math.abs(cb2[0]! - 70) < 1e-3 && Math.abs(cb2[1]! - 10) < 1e-3, `the second turned 90 degrees about (60, 10), (60, 0) to (70, 10): ${cb2}`);
 });

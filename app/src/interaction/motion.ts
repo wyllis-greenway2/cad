@@ -6,7 +6,7 @@ import type { Vec3 } from "../math/vec.ts";
 import { normalize } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
 import { mateStatus } from "../operation/mates.ts";
-import { jointRoom, driveCommand } from "./mate.ts";
+import { jointRoom, driveCommand, pivotTurnCommand } from "./mate.ts";
 import type { Command } from "../operation/commands.ts";
 import { apply } from "../operation/commands.ts";
 import { followersOf, gearAxis, gearOfBody, genevaPlay, carrierPlay } from "../operation/gearcouple.ts";
@@ -66,7 +66,7 @@ export function startPlain(scene: Scene, body: Ref, kind: JointKind = "turn"): {
     if (gp) return "why" in gp ? { ok: false, why: gp.why } : { ok: true, motion: { mate: "", gear: g!.id, follows: gp.followers, kind: "turn", body, point: gp.driver.point, dir: gp.driver.dir, amount: 0, lo: -FREE_TURN, hi: FREE_TURN, free: true, playing: false, from: 0, startedAt: null, speed: 60, noKeep: "a Geneva drive is one drawing: turn it with Edit cam instead" } };
     if (!g || !ax) {
       const pv = pivotOfBody(scene, body); // (a body made to turn: about an axis of its own, with no partner)
-      if (pv) return { ok: true, motion: { mate: "", gear: "", follows: [], kind: "turn", body, point: pv.point, dir: pv.dir, amount: 0, lo: -FREE_TURN, hi: FREE_TURN, free: true, playing: false, from: 0, startedAt: null, speed: 45, noKeep: "a body that is made to turn is not kept at a pose yet: it stays where it is drawn" } };
+      if (pv) return { ok: true, motion: { mate: "", gear: "", follows: [], kind: "turn", body, point: pv.point, dir: pv.dir, amount: 0, lo: -FREE_TURN, hi: FREE_TURN, free: true, playing: false, from: 0, startedAt: null, speed: 45 } };
       return { ok: false, why: "select a body that turns on a pin or slides on a rod (the first body of a coaxial mate), a gear with its body, or any body after Pivot" };
     }
     const { followers, why } = followersOf(scene, g);
@@ -89,12 +89,13 @@ export function startMotion(scene: Scene, body: Ref, kind: JointKind = "turn", o
   const wheel = m.follows.find((f) => f.geneva);
   const camRod = m.follows.find((f) => f.table); // (a cam's follower: with a hard body here it rides the cam by contact, going back to where it began when the cam lets it)
   const candidates: Candidate[] = wheel ? [{ body: wheel.body, point: wheel.point, dir: wheel.dir }] : [];
-  if (camRod) { const way: 1 | -1 = camRod.table!.reduce((a, b) => (Math.abs(b) > Math.abs(a) ? b : a), 0) < 0 ? -1 : 1; candidates.push({ body: camRod.body, kind: "slide", point: camRod.point, dir: camRod.dir, rest: -way * 50, way }); } // (the way the cam pushes it, and the rest: toward the cam, as far as it is clear to)
+  if (camRod) { const way: 1 | -1 = camRod.table!.reduce((a, b) => (Math.abs(b) > Math.abs(a) ? b : a), 0) < 0 ? -1 : 1; candidates.push({ body: camRod.body, kind: "slide", ...(camRod.mate ? { mate: camRod.mate } : {}), point: camRod.point, dir: camRod.dir, rest: -way * 50, way }); } // (the way the cam pushes it, and the rest: toward the cam, as far as it is clear to)
   for (const pv of pivotsOf(scene)) { const b = Object.values(scene.parts).find((p) => p.kind === "body" && p.id === pv.body); if (b && b.ref !== m.body && !candidates.some((c) => c.body === b.ref)) candidates.push({ body: b.ref, point: pv.point, dir: pv.dir }); } // (a body made to turn can yield)
-  for (const j of mateStatus(scene)) if (j.state === "ok" && j.mode === "coaxial" && j.mover && j.mover.body !== m.body && !candidates.some((c) => c.body === j.mover!.body)) candidates.push({ body: j.mover.body, point: j.mover.point, dir: normalize(j.mover.dir) });
+  for (const j of mateStatus(scene)) if (j.state === "ok" && j.mode === "coaxial" && j.mover && j.mover.body !== m.body && !candidates.some((c) => c.body === j.mover!.body)) candidates.push({ body: j.mover.body, mate: j.id, point: j.mover.point, dir: normalize(j.mover.dir) });
   const stripped: Motion = wheel || camRod ? { ...m, follows: m.follows.filter((f) => f !== wheel && f !== camRod) } : m;
   const contact = startContact(scene, stripped, candidates, outcome);
-  return { ok: true, motion: contact ? { ...stripped, contact, noKeep: "a pose found by contact cannot be kept yet",  yields: contact.pushables.map((p): Follower => ({ gear: "", body: p.body, kind: p.kind, point: p.point, dir: p.dir, k: 0, value: 0, ...(camRod && p.body === camRod.body && camRod.mate ? { mate: camRod.mate } : {}) })) } : m };
+  const keepable = !!contact && contact.pushables.every((p) => !!p.mate || !!pivotOfBody(scene, p.body)); // (a pose by contact is kept for yielders that are joints: a mate's or a pivot's; not the wheel of a Geneva drive, which is one drawing)
+  return { ok: true, motion: contact ? { ...stripped, contact, ...(m.noKeep ? { noKeep: m.noKeep } : keepable ? {} : { noKeep: "a pose found by contact is kept only when every body that yields turns on a pin or a pivot or slides on a rod" }),  yields: contact.pushables.map((p): Follower => ({ gear: "", body: p.body, kind: p.kind, point: p.point, dir: p.dir, k: 0, value: 0, ...(camRod && p.body === camRod.body && camRod.mate ? { mate: camRod.mate } : {}) })) } : m };
 }
 
 /** The amount at a time (ms): a joint with no stops that turns goes on turning; any other swings from stop to stop and back. */
@@ -144,20 +145,14 @@ export function jointMatrix(m: Pick<Motion, "kind" | "point" | "dir">, amount: n
 
 /** The command that keeps the pose: a joint's drive step; or, for a gear played, each gear (and the racks) set to where it stands, as `setGear` does (the record's turn or its centre), in one batch so one undo. Null when there is nothing to keep. */
 export function keepCommand(scene: Scene, m: Motion): Command | null {
-  if (Math.abs(m.amount) < 1e-9 || m.noKeep) return null;
-  if (!m.gear) {
-    const commands: Command[] = [];
-    let cur = scene; // (each drive is worked out on the scene the one before it leaves, so the steps have their own names)
-    const drives: { mate: string; kind: JointKind; by: number }[] = [{ mate: m.mate, kind: m.kind, by: m.amount }, ...m.follows.flatMap((f) => (f.mate ? [{ mate: f.mate, kind: f.kind, by: followAmount(f, m.amount) }] : []))]; // (the joints linked to it, by their ratios)
-    for (const d of drives) {
-      const c = driveCommand(cur, d.mate, d.kind, d.by);
-      if (!c) continue;
-      commands.push(c);
-      const next = apply(cur, c);
-      if (next.ok) cur = next.value;
-    }
-    return commands.length > 1 ? { type: "batch", commands } : commands[0] ?? null;
-  }
+  const yielded = (m.yields ?? []).some((f) => Math.abs(f.value ?? 0) > 1e-9);
+  if ((Math.abs(m.amount) < 1e-9 && !yielded) || m.noKeep) return null;
+  const drives = (from: Scene): Drive[] => [
+    ...(m.mate ? [{ mate: m.mate, kind: m.kind, by: m.amount }] : !m.gear && pivotOfBody(from, m.body) ? [{ pivot: m.body, kind: "turn" as const, by: m.amount }] : []), // (a joint, or a body made to turn)
+    ...m.follows.flatMap((f) => (f.mate ? [{ mate: f.mate, kind: f.kind, by: followAmount(f, m.amount) }] : [])), // (the joints linked to it, by their ratios; a cam's follower)
+    ...(m.yields ?? []).flatMap((f): Drive[] => (f.mate ? [{ mate: f.mate, kind: f.kind, by: f.value ?? 0 }] : pivotOfBody(from, f.body) ? [{ pivot: f.body, kind: "turn", by: f.value ?? 0 }] : [])), // (the bodies that yielded by contact, where they stand)
+  ];
+  if (!m.gear) return batchOf(keepJoints(scene, drives(scene)));
   const moves: { gear: string; kind: "turn" | "slide"; dir: Vec3; k: number }[] = [{ gear: m.gear, kind: m.kind, dir: m.dir, k: 1 }, ...m.follows.filter((f) => !f.mate).map((f) => ({ gear: f.gear, kind: f.kind, dir: f.dir, k: f.k }))];
   const commands: Command[] = [];
   for (const mv of moves) {
@@ -167,10 +162,25 @@ export function keepCommand(scene: Scene, m: Motion): Command | null {
     if (mv.kind === "turn") commands.push({ type: "setGear", id: rec.id, spec: rec.spec, turn: (rec.turn ?? 0) + (by * Math.PI) / 180 });
     else commands.push({ type: "setGear", id: rec.id, spec: rec.spec, at: [rec.at[0] + mv.dir[0] * by, rec.at[1] + mv.dir[1] * by, rec.at[2] + mv.dir[2] * by] });
   }
-  for (const f of m.follows) { // (a cam's follower: its slider mate is driven to where the cam's edge has put it)
-    if (!f.mate) continue;
-    const c = driveCommand(scene, f.mate, f.kind, followAmount(f, m.amount));
-    if (c) commands.push(c);
+  let cur = scene;
+  for (const c of commands) { const next = apply(cur, c); if (next.ok) cur = next.value; }
+  const rest = drives(cur).filter((d) => !(d.mate === m.mate && m.mate)); // (a gear's joints: a cam's follower rod, what yielded)
+  return batchOf([...commands, ...keepJoints(cur, rest)]);
+}
+interface Drive { mate?: string; pivot?: Ref; kind: JointKind; by: number }
+const batchOf = (commands: Command[]): Command | null => (commands.length > 1 ? { type: "batch", commands } : commands[0] ?? null);
+/** The steps that drive each joint (a mate's, or a pivot's body) by its amount, one after the other, each worked out on the scene the one before leaves (so the steps have their own names and a body that carries another goes with it). */
+function keepJoints(scene: Scene, drives: Drive[]): Command[] {
+  const commands: Command[] = [];
+  let cur = scene;
+  for (const d of drives) {
+    let c: Command | null = null;
+    if (d.mate) c = driveCommand(cur, d.mate, d.kind, d.by);
+    else if (d.pivot) { const pv = pivotOfBody(cur, d.pivot); c = pv ? pivotTurnCommand(cur, d.pivot, pv.point, pv.dir, d.by) : null; }
+    if (!c) continue;
+    commands.push(c);
+    const next = apply(cur, c);
+    if (next.ok) cur = next.value;
   }
-  return commands.length ? { type: "batch", commands } : null;
+  return commands;
 }

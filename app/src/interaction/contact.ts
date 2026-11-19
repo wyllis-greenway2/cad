@@ -19,8 +19,8 @@ import type { CompileOutcome } from "../compiler/compile.ts";
 import type { Motion } from "./motion.ts";
 
 /** A body that yields: it turns about the axis through `point` with direction `dir` (or slides along `dir`), and stands at `value` degrees (mm) from where it was drawn. `rest`: where it goes back to when nothing holds it away (a spring, gravity: a follower dropping off a cam), as far as it is clear to. */
-export interface Pushable { body: Ref; kind: "turn" | "slide"; point: Vec3; dir: Vec3; value: number; /** the way it last went, so a tie goes on the same way */ way: 1 | -1; /** how far it was pushed the last time it was: the next push is about the same, so the search begins there */ push?: number; rest?: number }
-export interface Candidate { body: Ref; kind?: "turn" | "slide"; point: Vec3; dir: Vec3; rest?: number; way?: 1 | -1 }
+export interface Pushable { body: Ref; kind: "turn" | "slide"; /** the mate whose joint it is (for keeping the pose) */ mate?: string; point: Vec3; dir: Vec3; value: number; /** the way it last went, so a tie goes on the same way */ way: 1 | -1; /** how far it was pushed the last time it was: the next push is about the same, so the search begins there */ push?: number; rest?: number }
+export interface Candidate { body: Ref; kind?: "turn" | "slide"; mate?: string; point: Vec3; dir: Vec3; rest?: number; way?: 1 | -1 }
 export interface ContactState {
   pushables: Pushable[];
   /** the amount of the driver that was last worked out */
@@ -153,7 +153,7 @@ function firstHit(scene: Scene, outcome: CompileOutcome | undefined, movers: Mov
 /** The pushables for a motion: bodies that can yield (given by the caller: the wheel of a Geneva drive, and the first bodies of coaxial mates that nothing else moves) as they stand at rest. */
 export function startContact(scene: Scene, m: Motion, candidates: Candidate[], outcome?: CompileOutcome): ContactState | null {
   const moving = new Set<Ref>([m.body, ...m.follows.map((f) => f.body)]);
-  const pushables: Pushable[] = candidates.filter((c) => !moving.has(c.body)).slice(0, 16).map((c): Pushable => ({ body: c.body, kind: c.kind ?? "turn", point: c.point, dir: c.dir, value: 0, way: c.way ?? -1, ...(c.rest !== undefined ? { rest: c.rest } : {}) }));
+  const pushables: Pushable[] = candidates.filter((c) => !moving.has(c.body)).slice(0, 16).map((c): Pushable => ({ body: c.body, kind: c.kind ?? "turn", ...(c.mate ? { mate: c.mate } : {}), point: c.point, dir: c.dir, value: 0, way: c.way ?? -1, ...(c.rest !== undefined ? { rest: c.rest } : {}) }));
   const bodies = [...moving, ...pushables.map((p) => p.body)];
   const anyHard = bodies.some((b) => isHard(scene, b));
   const staticsHard = Object.keys(scene.parts).some((r) => { const p = scene.parts[r as Ref]; return p?.kind === "body" && !!p.id && !bodies.includes(r as Ref) && isHard(scene, r as Ref); });
@@ -249,7 +249,7 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome):
     good = a;
   }
   const pushables = c.pushables.map((p, i) => ({ ...p, value: vals[i]!, way: ways[i]!, push: pushes[i]! }));
-  const follows = pushables.map((p): Follower => ({ gear: "", body: p.body, kind: p.kind, point: p.point, dir: p.dir, k: 0, value: p.value }));
+  const follows = pushables.map((p): Follower => ({ gear: "", body: p.body, kind: p.kind, point: p.point, dir: p.dir, k: 0, value: p.value, ...(p.mate ? { mate: p.mate } : {}) }));
   return { ...m, amount: jam ? good : m.amount, playing: jam ? false : m.playing, from: jam ? good : m.from, startedAt: jam ? null : m.startedAt, contact: { ...c, pushables, at: good, jam }, yields: follows };
 }
 

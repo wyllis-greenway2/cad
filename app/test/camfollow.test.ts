@@ -116,10 +116,18 @@ test("with the cam hard the rod rides its edge by contact: pushed along as the l
   let m = r.motion;
   assert.ok(m.contact?.pushables[0]?.kind === "slide", "the rod can yield by sliding");
   assert.ok(!m.follows.some((f) => f.table), "its table is not used");
+  assert.ok(!m.noKeep, "the pose by contact can be kept: the rod is a slider on a mate (`in_990`)");
   const rodValue = (mm: typeof m) => followAmount(mm.yields![0]!, 0);
   let top = -1e9, bottom = 1e9;
   const seen: number[] = [];
-  for (let deg = 1; deg <= 360; deg++) { m = solveContact(scene(s), { ...m, amount: deg }, s.outcome); assert.ok(!m.contact!.jam, `jam at ${deg}: ${m.contact!.jam}`); top = Math.max(top, rodValue(m)); bottom = Math.min(bottom, rodValue(m)); if (deg % 45 === 0) seen.push(+rodValue(m).toFixed(2)); }
+  let midway: typeof m | null = null;
+  for (let deg = 1; deg <= 360; deg++) { m = solveContact(scene(s), { ...m, amount: deg }, s.outcome); if (deg === 180) midway = m; assert.ok(!m.contact!.jam, `jam at ${deg}: ${m.contact!.jam}`); top = Math.max(top, rodValue(m)); bottom = Math.min(bottom, rodValue(m)); if (deg % 45 === 0) seen.push(+rodValue(m).toFixed(2)); }
   assert.ok(top - bottom > 9 && top - bottom < 10.6, `the rod travels ${top - bottom} mm (twice the offset, 10): ${seen}`);
   assert.ok(Math.abs(rodValue(m)) < 0.3, `and is back where it began after a turn: ${rodValue(m)}; seen ${seen}`);
+  // the pose half way round is kept: the cam's turn and the rod's slide, in one command, that the scene takes
+  const kept = keepCommand(scene(s), midway!);
+  assert.ok(kept, "a command");
+  const after = run(s, kept!);
+  assert.ok(!after.message, after.message ?? "");
+  assert.ok(Math.abs((scene(after).gears![0]!.turn ?? 0) - Math.PI) < 0.05, "the cam was turned half way round");
 });

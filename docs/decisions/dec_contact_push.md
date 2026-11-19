@@ -40,7 +40,7 @@ The Geneva drive's wheel, with **no formula**, moved by the rule alone (the pin 
 - **Touching counts as a hit** in the mesh test (a tangent line or a face on a face, by the direction of its nudge), so a pair touching where the motion begins is a *touch*, not an *overlap*: only a pair that still hits when either body is moved a hair either way is left out as already overlapping.
 - **The height of a layer is along a turning body's axis** (a slider moves across the layers: its own axis would make a rod and a cam never share a height).
 - **A rest value moves a step at a time**: jumping to a far rest passed through the cam (the target was clear on the far side).
-- Keep pose is refused for a pose found by contact. **Not tried:** a ratchet (the ratchet comes as two sketches, a wheel and a pawl; it has no 3D model layout with the pawl on a pivot as the Geneva has, so it needs that first), passing hardness on to a depth, the time budget.
+- Keep pose for a pose found by contact is kept (`in_990`) when every body that yields is a mate's first body, a cam's follower rod or a pivoted body (not the wheel of a Geneva drive). **Not tried:** a ratchet (the ratchet comes as two sketches, a wheel and a pawl; it has no 3D model layout with the pawl on a pivot as the Geneva has, so it needs that first), passing hardness on to a depth, the time budget.
 
 ## Built, third slice (`in_937`: chains, and what it costs)
 

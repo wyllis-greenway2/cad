@@ -207,6 +207,19 @@ export function driveCommand(scene: Scene, mateId: string, kind: "turn" | "slide
 }
 
 /**
+ * A body that was made to turn (`pivot.ts`, `in_912`) turned by `degrees` about its axis, as ordinary steps (the same turns and carried sketches as a joint driven), for keeping the pose of a motion. Null when the body is not there or the turn is nothing.
+ */
+export function pivotTurnCommand(scene: Scene, body: Ref, point: Vec3, dir: Vec3, degrees: number): Command | null {
+  const p = scene.parts[body];
+  if (p?.kind !== "body" || !p.id || !Number.isFinite(degrees) || Math.abs(degrees) < 1e-9) return null;
+  let id = nextId(scene, "s");
+  while (scene.steps.some((st) => st.id.startsWith(id))) id = `${id}_`;
+  const turns = eulerXYZ(turnAbout(normalize(dir), (degrees * Math.PI) / 180));
+  const steps = turns.map((t, k): Command => ({ type: "addStep", step: { id: `${id}${"xyz"[t.axis]}${k}`, type: "rotate", parts: [body], params: { axis: t.axis, value: t.angle, px: point[0], py: point[1], pz: point[2], follow: 1, body: p.id as string } } }));
+  return { type: "batch", commands: [...steps, ...carrySketches(scene, turns, [0, 0, 0], point, 1, p.id as string)] };
+}
+
+/**
  * How far driving a joint by `amount` may go before its body meets a hard body (`in_480`): the amount it can make, and the hard bodies it is against at the next step beyond (all of it, and none, when nothing is in the way).
  * Tested along the way, so a thin wall is not stepped over; a pair already overlapping is left out, so a body can be driven out of another.
  */
