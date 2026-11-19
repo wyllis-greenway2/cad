@@ -4670,3 +4670,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1079 — 2026-11-19 — directive
 > I created default face gear and default mesh gear, The teeth clearly have collisions according to the rendering (unless rendering is false somehow?)
 (attached the project file model.cad_64.json, build c7db6782: a 40 tooth face gear and its 14 tooth pinion made with Mesh gear, both with default settings, and a close screenshot of two flanks crossing)
+
+## in_1080 — 2026-11-19 — directive
+> okay the rotation is pretty jumpy, it seems to jump much more than it should each time it detects? that is not how xyz movement, work, they move only as much as they need to and slide along the surface, rotation should be the same. Also it is still way too heavy, how can we make the animation lighter and faster? Also the message about it being heavy should fade in and out stable, right now it flashes so fast you cant even read it.
+(three asks: a turn of a pushed body should be as small as the push needs, as a slide is; the push is too heavy and should be lighter and faster; the "heavy" message should fade in and out and stay long enough to read)
