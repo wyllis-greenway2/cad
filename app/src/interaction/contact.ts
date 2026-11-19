@@ -207,7 +207,7 @@ const staticBodies = (scene: Scene, bodies: readonly Ref[]): Ref[] => Object.key
  * cannot be cleared (it has nowhere to go) or a moving body meets a wall, the motion goes back to the last amount that was clear and stops, saying what it was against.
  */
 /** What was worked out at each whole degree of a motion (a place of the grid), for the scene it was worked out in: a change to the scene is a new scene and starts again. */
-type Place = { vals: number[]; ways: (1 | -1)[]; pushes: number[]; work: Pushable[] };
+export type Place = { vals: number[]; ways: (1 | -1)[]; pushes: number[]; work: Pushable[] };
 const NO_OUTCOME = {};
 const placesOf = new WeakMap<object, WeakMap<object, Map<string, Map<number, Place>>>>(); // (by the scene and by the answer of the kernel it was worked out with: a better mesh for the same scene starts again)
 export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, budgetMs = BUDGET_MS): Motion {
@@ -317,13 +317,8 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
   const targets: number[] = [];
   for (let g = sign > 0 ? Math.floor(from / step + 1e-9) + 1 : Math.ceil(from / step - 1e-9) - 1; sign > 0 ? g * step < m.amount - 1e-9 : g * step > m.amount + 1e-9; g += sign) targets.push(g * step);
   targets.push(m.amount);
-  const cacheKey = `${m.body}|${m.kind}|${m.mate ?? ""}|${m.follows.map((f) => f.body).join(",")}|${step.toFixed(5)}`;
-  const byOutcome = placesOf.get(scene) ?? new WeakMap<object, Map<string, Map<number, Place>>>();
-  placesOf.set(scene, byOutcome);
-  const all = byOutcome.get(outcome ?? NO_OUTCOME) ?? new Map<string, Map<number, Place>>();
-  byOutcome.set(outcome ?? NO_OUTCOME, all);
-  let places = all.get(cacheKey);
-  if (!places) { places = new Map(); all.set(cacheKey, places); }
+  const kept = pathPlaces(scene, outcome, m, step);
+  const places = kept!.places;
   const gridAt = (a: number): number | null => { const g = Math.round(a / step); return Math.abs(g * step - a) < 1e-9 ? g : null; };
   if (targets.length > MAX_STEPS) { targets.length = 0; for (let i = 1; i <= n; i++) targets.push(from + ((m.amount - from) * i) / n); } // (a long scrub in one go: equal steps, nothing kept)
   // the kept places are the path of a play from the start: used going forward from a place on that path (or from the start, with every body where it is drawn); going back, or from a state that is not on the path (a body left where it was
@@ -556,4 +551,29 @@ function yieldsOf(pushables: Pushable[], across: Vec3 = [0, 0, 1]): Follower[] {
 export function restartContact(c: ContactState, across: Vec3 = [0, 0, 1]): { contact: ContactState; yields: Follower[] } {
   const pushables = c.pushables.map((p): Pushable => { const { push: _p, dirSlide: _s, dirTurn: _t, turning: _u, since: _n, still: _z, blockedBy: _b, ...rest } = p; return { ...rest, value: 0, way: p.way, ...(p.free ? { free: [0, 0, 0] as [number, number, number], spin: 0 } : {}) }; });
   return { contact: { ...c, pushables, at: 0, jam: null, note: null, clash: null, target: null, path: true }, yields: yieldsOf(pushables, across) };
+}
+
+/**
+ * The places kept for a motion (`placesOf`): the map from the whole degrees (the places of the grid, by their number) to what was worked out there, and the step of the grid. It is what a thread that works ahead hands over (`contactahead.ts`): the
+ * places it has worked out are put in the map of the page's own scene, and the play, coming to them, takes them as they are.
+ */
+export function pathPlaces(scene: Scene, outcome: CompileOutcome | undefined, m: Motion, stepKnown?: number): { places: Map<number, Place>; step: number } | null {
+  const c = m.contact;
+  if (!c) return null;
+  const step = stepKnown ?? stepFor(scene, outcome, moversOf(m, c), m);
+  const byOutcome = placesOf.get(scene) ?? new WeakMap<object, Map<string, Map<number, Place>>>();
+  placesOf.set(scene, byOutcome);
+  const all = byOutcome.get(outcome ?? NO_OUTCOME) ?? new Map<string, Map<number, Place>>();
+  byOutcome.set(outcome ?? NO_OUTCOME, all);
+  const key = `${m.body}|${m.kind}|${m.mate ?? ""}|${m.follows.map((f) => f.body).join(",")}|${step.toFixed(5)}`;
+  let places = all.get(key);
+  if (!places) { places = new Map(); all.set(key, places); }
+  return { places, step };
+}
+
+/** How far the kept places go without a gap from the start of the path, in the driver's own unit. */
+export function placesExtent(kept: { places: Map<number, Place>; step: number }): number {
+  let g = 0;
+  while (kept.places.has(g + 1)) g++;
+  return kept.places.has(0) ? g * kept.step : 0;
 }
