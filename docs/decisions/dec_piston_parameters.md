@@ -3,7 +3,7 @@ id: dec_piston_parameters
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_1212, in_1215, in_1228, in_1229, in_1233, in_1235
+human_input: in_1212, in_1215, in_1228, in_1229, in_1233, in_1235, in_1237
 date: 2026-11-19
 depends_on:
   - dec_engine_model: the piston is a part of the engine model; its master numbers (bore, stroke, rod ratio) and the pin limit 0.18 to 0.4 come from there, and a change to how the engine is built changes what the piston must fit
@@ -32,10 +32,29 @@ The human asked for a really good engine builder starting with real pistons (`in
 | Crown thickness | 0.08 B, 0.04 to 0.15 B | S: NACA 895 (8 to 30 % of the radius, thin crown runs cooler with oil cooling of the underside, thick with none); unread MAHLE summary 0.055 to 0.10 B |
 | Land diameter | smaller than the skirt: diametral clearance to the bore 0.003 B (top land more, 0.2 mm at 70 to 90 mm) | S: Scraba (the skirt takes the thrust, the lands grow hotter); cartecc 0.21 to 0.23 mm; NACA 817 0.0073 to 0.0090 B |
 | Skirt clearance (diametral) | **by class**, see below; **measured 10 mm above the foot of the skirt, 90 degrees to the pin bore** | S: Honda's service manual |
-| Skirt length | 0.49 B from crown to foot at most | D: NACA 817 3 in of 6.125; **no small single source** |
+| Piston length and skirt below the pin | **assumed** (see A5): length 0.71 B, skirt foot 0.27 B below the pin axis | A: scaled from NACA 817's figure 8; **no small engine source** |
 | Compression height (the pin height) | **derived, not a ratio of the bore:** deck height = half the stroke + rod length + pin height, so the pin height is what is left once the stroke, the rod and the deck are fixed; for the builder: the **smallest pin height** that holds the ring pack (top land + rings, grooves and lands + the pin's radius + a boss margin), and then the deck follows; the crown stops 0.9 mm or more under the head (S: 0.035 in with steel rods; the compressed head gasket 0.039 to 0.042 in) | S: EngineLabs / Diamond (read); a longer rod makes the pin height shorter and eventually cuts the oil ring groove (a support rail is the fix); a boosted engine wants the ring pack lower. **A motorcycle catalogue (Wössner, search summary) shows 23.5 and 25.3 mm, about 0.30 to 0.33 B on a 77 to 78 mm bore (mapping unconfirmed): the present 0.55 B (M) is probably too tall** |
 
 **Skirt clearance by class (diametral):** cast aluminium 0.015 to 0.050 mm (0.0002 to 0.0007 B, S: Honda's service manual for the GX120, GX160 and GX200, limit 0.12 mm; the skirt is 59.985 in a 60.0 sleeve and 67.985 in a 68.0 sleeve); forged aluminium 0.05 mm (0.0006 B, S: Wiseco CRF250R, where in the piston it is measured is not stated; the Caterpillar patent 0.0006 B); large forged 0.004 B (S: NACA 817, 1940s); cast iron about 0.13 mm ("five thousandths of an inch", S: Kean, a 1910s text). The skirt is oval (smaller along the pin): cartecc cold clearance 0.2 mm along the pin axis against 0.1 mm across at the top of the skirt, 0.1 against 0.05 mm at the bottom (S, one unnamed engine).
+
+## Assumed design rules from NACA 817 and 895 (**assumptions, to be replaced by a small engine source**)
+
+Nothing read gives a small gasoline piston's length, skirt, groove positions or lands. These rules come from **one** piston: NACA 817's final design (6 1/8 in bore, forged aluminium, an aircraft engine of 1945, four rings), read from its dimensioned figure 8 and expressed as ratios of the bore B, plus NACA 895's thermal study. **Each is an assumption.** The risk common to all: a 1940s aircraft piston is built long and heavy for heat and endurance, so these ratios are probably **conservative (too long, too thick) for a small modern engine**. They keep the builder from producing a piston that cannot work until a better number is found; they are not the right numbers.
+
+| # | Assumed rule | NACA reading | Why it is only an assumption |
+|---|---|---|---|
+| A1 | **The ring belt is a stack:** top land, then each ring's groove, with a land between rings of **1.5 to 2.0 times the ring height** (floor: 2.3 mm for a 1.5 mm ring) | Lands between rings 0.155, 0.125 and 0.100 in (0.025, 0.020 and 0.016 B) beside grooves of 0.076 and 0.073 in: 2.0, 1.6 and 1.4 times the groove | One piston; Scraba gives 0.04 B and 0.02 to 0.03 B for race pistons on an assumed bore |
+| A2 | **Top land 0.07 B** (above; 0.04 to 0.10 B), longer when the crown runs hot | NACA 817's is 0.755 in = **0.123 B**, and the report puts the ring belt "as far from the crown as practicable" | 0.123 B is for an aircraft piston at high output; the book range for gasoline is 0.04 to 0.10 B |
+| A3 | **Groove depth = ring radial width + a back clearance of 0.4 to 0.5 mm** | Root diameters 5.749 and 5.715 against land 6.080 in: depth 0.166 and 0.183 in, rings 0.150 and 0.170 in: back clearance 0.39 and 0.32 mm (D) | Scraba gives 0.5 mm (race) to 1.0 to 1.3 mm (production); the rule takes the NACA end |
+| A4 | **Pin hole 0.26 B** (a check on the Honda 0.265 B) | The pin hole in figure 8 measures about 1.58 in on a 6.125 in piston = 0.26 B (scaled from the picture, **plus or minus 0.02 B**) | Scaled off a drawing, not a dimension |
+| A5 | **Pin height 0.44 B and piston length 0.71 B**, skirt foot **0.27 B** below the pin axis; **but the builder takes the larger of this and the stack**: pin height at least belt + the pin's radius + a margin of 0.05 B | The belt is 1.433 in (0.234 B) and the pin axis 2.69 in (0.44 B) below the crown, the foot 4.35 in (0.71 B), all scaled from figure 8 (**plus or minus 0.1 in**); a 3 ring GX160 like stack gives 27 mm (0.40 B) | A motorcycle catalogue (unconfirmed) shows 0.30 to 0.33 B; the NACA piston is long |
+| A6 | **Crown thickness 0.08 B** | NACA 895 compares 8 % and 30 % of the radius (0.04 and 0.15 B) | The study is of temperature, not of strength; no gas pressure rule was read |
+| A7 | **Skirt oval 0.001 B and a foot 0.0005 B larger than the top** | Skirt 6.098 and 6.092 across and along the pin (0.006 in) and 6.101 at the foot (0.003 in) | Which diameter is which axis was not certain; cartecc's 0.1 mm gives 0.001 B |
+| A8 | **Oil drain holes below the oil ring: 0.03 B diameter, four to eight, spaced 30 and 45 degrees from the pin axis** | Eight 3/16 in holes in the oil grooves | The drilling of figure 8 only; a real car piston may use slots |
+| A9 | **Edge and groove radii** 0.1 to 0.25 mm in the groove corners; groove sides flat and square to the axis | 0.005 to 0.010 in corner radii, flat sides | The edge radius of a printed part will be larger |
+| A10 | **Weight: no rule.** The builder computes it from the geometry and the material's density | none | No source gives a weight in terms of B; stating one would be invention |
+
+**How the builder uses them:** A1 to A3 and A8 place the rings and grooves; A2 and A5 fix the top land and the pin height; A4, A6, A7 and A9 are defaults the human can override; each default carries an "assumed" mark in the model's box (as `dec_engine_model` already marks its remembered proportions) until a source replaces it.
 
 ## The variation axes (the "range of engines")
 
@@ -57,7 +76,7 @@ After two rounds of searching and the documents the human supplied (`in_1235` an
 
 - **Now sourced (the whole Honda GX120K1 / GX160K1 / GX200 service manual, supplied by the human, read):** the pin and its fit, the ring heights, side clearances and end gaps, the skirt clearance and where it is measured, the rod ends and oil clearance, plus the **rod of the GX160** (the racing class tech procedure page: **3.301 to 3.3225 in between centres** by my arithmetic, ARC's 3.303 in agrees, **rod ratio 0.268**, 140 g). **The T2 spec sheet's 13 mm pin is the GX120's value**: the manual gives the GX160 and GX200 pin as 18.0 mm. **The compression height is derived** from the stack (the row above, from EngineLabs / Diamond).
 - **Filled in part, unconfirmed (search summaries):** the standard ring's radial width (the thicker D/22 series; the regular one not seen: the free ISO sample does not include its dimension tables), the gasoline top land (4 to 10 % of the diameter), a motorcycle pin height of about 0.30 to 0.33 B.
-- **Still open:** the piston length, skirt length and weight of a *named* professional small piston, the pin's length and the boss spacing (a patent's bearing area rule is unchecked), the groove depth, the top land of NACA 817. **The Honda service manual gives none of these** (no piston length, pin height, groove depth or weight); the GX160 tech procedure's engine block pages (cylinder, head) are a lead for the compression volume only.
+- **Still open (assumed from NACA 817 in the section above, A1 to A10):** the piston length, skirt length and weight of a *named* professional small piston, the pin's length and the boss spacing (a patent's bearing area rule is unchecked), the groove depth, the top land of NACA 817. **The Honda service manual gives none of these** (no piston length, pin height, groove depth or weight); the GX160 tech procedure's engine block pages (cylinder, head) are a lead for the compression volume only.
 - **I asked for no number to be invented:** where there is no source the table says so.
 
 ## Rationale
