@@ -20,6 +20,7 @@ import type { LaserValues } from "./interaction/manufacture.ts";
 import { pathRepeatTarget, pathRepeatDialog, pathRepeatCommand, pathRepeatStart, pathRepeatValuesFor } from "./interaction/pathrepeat.ts";
 import { receiverStart, receiverKinds, receiverSizes, receiverContext, receiverPlan, cutReceiver, makeHolePoints, whyNoReceiver, placesPicked } from "./interaction/addpart.ts";
 import { materialStart, materialDialog, materialCommand, whyNoMaterial } from "./interaction/material.ts";
+import { nameFor } from "./interaction/sniff.ts";
 import { exportDialog, exportWith, fitExport, importDialog, importWith, KIND_OF, EXPORT_DEFAULTS, IMPORT_DEFAULTS, IMPORT_KINDS } from "./interaction/transfer.ts";
 import type { ExportOptions } from "./interaction/transfer.ts";
 import type { ImportOptions } from "./interaction/importfile.ts";
@@ -278,7 +279,7 @@ async function exportDialogFlow() {
   const answers = await dialog.open((v) => exportDialog(state.session, v as unknown as ExportOptions), (({ name: _name, ...rest }) => rest)(fitExport(state.session, { ...saved, name: "" })) as unknown as Values); // (the file name is not asked as an answer to begin with: the dialog offers its own)
   if (!answers) return;
   const o = fitExport(state.session, answers as unknown as ExportOptions);
-  webStore.set(EXPORT_KEY, JSON.stringify({ format: o.format, quality: o.quality, what: "all", perBody: o.perBody, name: "" }));
+  webStore.set(EXPORT_KEY, JSON.stringify({ format: o.format, quality: o.quality, what: "all", perBody: o.perBody, joined: o.joined, schema: o.schema, iges: o.iges, name: "" }));
   say(`making the ${FLAT_OR_NOT(o.format)} file…`);
   const r = await exportWith(state.session, engine, o);
   if (!r.ok) return say(r.error);
@@ -478,16 +479,30 @@ async function laserTableFlow() {
   webStore.set(LIB_KEY, libraryText(lib));
   say("the row is out of your table");
 }
+// Dropping files on the page imports them, one after the other, each asking its own options (`dec_exchange_gaps`).
+let dropping = false;
+window.addEventListener("dragover", (e) => { if (e.dataTransfer?.types.includes("Files")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } });
+window.addEventListener("drop", (e) => {
+  const files = Array.from(e.dataTransfer?.files ?? []);
+  if (!files.length) return;
+  e.preventDefault();
+  if (dropping) return say("a file is being imported: drop the next one when its dialog is done");
+  dropping = true;
+  void (async () => {
+    try { for (const f of files) await importDialogFlow({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) }); } finally { dropping = false; }
+  })();
+});
 const FLAT_OR_NOT = (f: string): string => (f === "3mf" ? "3MF" : f.toUpperCase());
 /** Import (`dec_import`, `dec_import_mesh`, `dec_import_export_menu`): choose a file, say how it is to come in (units, scale, where), and it is added as one step to undo. */
-async function importDialogFlow() {
-  const picked = await webFiles.pick(IMPORT_KINDS);
+async function importDialogFlow(given?: { name: string; bytes: Uint8Array }) {
+  const picked = given ?? (await webFiles.pick(IMPORT_KINDS));
   if (!picked) return;
-  if (!KIND_OF(picked.name)) return say("the app imports STEP (.step, .stp), STL, 3MF, SVG and DXF files");
-  const answers = await dialog.open((v) => importDialog(picked.name, v as unknown as ImportOptions), { ...IMPORT_DEFAULTS } as unknown as Values);
+  const name = await nameFor(picked.name, picked.bytes, KIND_OF); // (a file with no ending, or a wrong one, is read as what is in it, `dec_exchange_gaps`)
+  if (!KIND_OF(name)) return say(`${picked.name} is not a file the app reads: it imports STEP (.step, .stp), IGES (.igs, .iges), BREP (.brep), FreeCAD (.FCStd), STL, 3MF, OBJ, SVG and DXF`);
+  const answers = await dialog.open((v) => importDialog(name, v as unknown as ImportOptions), { ...IMPORT_DEFAULTS } as unknown as Values);
   if (!answers) return;
-  say(`reading ${picked.name}…`);
-  const r = await importWith(state.session, picked.name, picked.bytes, answers as unknown as ImportOptions);
+  say(`reading ${name}…`);
+  const r = await importWith(state.session, name, picked.bytes, answers as unknown as ImportOptions);
   state = { ...state, session: r.ok ? { ...r.session, message: r.message } : { ...state.session, message: r.error } };
   dirty = true;
 }
