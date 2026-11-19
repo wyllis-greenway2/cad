@@ -88,7 +88,7 @@ export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { la
   if (!m) return null;
   const g = modelTarget(scene, t), fields = modelFields(m.kind), round = (v: number): string => String(Math.round(v * 100) / 100);
   const live = g ? [g.size, (g.turn * 180) / Math.PI, ...fields.map((f) => g.nums[f.key]!)] : [];
-  const hints = ["the way across the longest side (mm); the pointer sets it until you click; what is not typed grows to fit", "degrees about the surface's normal", ...fields.map((f) => f.hint)];
+  const hints = [m.kind === "ballbearing" ? "the outside diameter (mm): picks the listed bearing nearest to it (a number typed wins); the pointer sets it until you click" : "the way across the longest side (mm); the pointer sets it until you click; what is not typed grows to fit", "degrees about the surface's normal", ...fields.map((f) => f.hint)];
   const labels = modelLabels(m.kind);
   return {
     panel: modelTitle(m.kind),

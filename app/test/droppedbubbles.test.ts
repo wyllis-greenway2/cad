@@ -1,4 +1,4 @@
-// Deleting a part takes the constraints that name it with it, and says nothing in words (`in_1162`): the parts that stayed and leaned on them flash red, and their bubbles pop.
+// Deleting a part takes the constraints that name it with it, and says nothing in words (`in_1168`): the parts that stayed and leaned on them flash red, and their bubbles pop.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

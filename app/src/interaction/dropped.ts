@@ -1,4 +1,4 @@
-// Constraints that went with a part (`inv_constraint_uniformity`, `in_1162`): deleting a part takes with it every constraint that names it, and that is not said in words: the parts
+// Constraints that went with a part (`inv_constraint_uniformity`, `in_1168`): deleting a part takes with it every constraint that names it, and that is not said in words: the parts
 // that stayed and leaned on the constraint flash red, and the constraint's bubble pops where it was. A constraint whose parts are all gone has nothing left to show.
 import type { Scene } from "../operation/scene.ts";
 import type { Ref } from "../shared/ref.ts";

@@ -1,4 +1,4 @@
-// A number typed on a dimension that something else already fixes follows the one rule (`inv_constraint_uniformity`, `in_1161`): it is refused, the constraints in the way flash and can be deleted.
+// A number typed on a dimension that something else already fixes follows the one rule (`inv_constraint_uniformity`, `in_1167`): it is refused, the constraints in the way flash and can be deleted.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

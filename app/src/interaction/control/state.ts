@@ -41,6 +41,8 @@ export interface AppState {
   showAllConstraints: boolean;
   /** the bodies whose constraints are all shown (the half eye, half lock icon on a selected body, `in_1157`) */
   bodyConstraints: Ref[];
+  /** the body that was double clicked: its constraints icon is in the bar while it stays selected (`in_1166`) */
+  consFor: Ref | null;
   /** every tap adds to the selection or takes out what it hits, as Shift does: the way to select several with a finger (`in_539`) */
   adding: boolean;
   /** a manufacturing route's toolpath shown over the drawing (`in_570`): the toolpath and how far along it the head is (0 to 1); a scrubber moves it, Esc or the cross ends it */
@@ -125,11 +127,11 @@ export interface AppState {
   /** the helper handle under the pointer */
   gizmoHover: string | null;
   /** a command was refused because it could not be done without breaking constraints: they flash red and fade, and the one that tried shakes (`in_120`) */
-  flash: { culprits: string[]; victims: string[]; parts?: string[]; soften?: string[]; /** constraints that already held: they flash green */ green?: string[]; /** constraints that went with a deleted part: their bubbles pop and the parts that stayed flash red (`in_1162`) */ popped?: string[]; ghosts?: Annotation[]; retry?: Command; at: number } | null;
+  flash: { culprits: string[]; victims: string[]; parts?: string[]; soften?: string[]; /** constraints that already held: they flash green */ green?: string[]; /** constraints that went with a deleted part: their bubbles pop and the parts that stayed flash red (`in_1168`) */ popped?: string[]; ghosts?: Annotation[]; retry?: Command; at: number } | null;
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ awaiting: null, building: null, motion: null, stepEdit: null, similar: null, optionAt: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, bodyConstraints: [], adding: false, preview: null, handleSel: null, tape: false, wireframe: false, moverSphere: false, moverWas: null, moverPose: null, orbMovedAt: null, clipboard: null, sectionLive: null, sheetMove: null, worldHidden: false, picking: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, mixBase: 0.03, paneHover: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ awaiting: null, building: null, motion: null, stepEdit: null, similar: null, optionAt: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, bodyConstraints: [], consFor: null, adding: false, preview: null, handleSel: null, tape: false, wireframe: false, moverSphere: false, moverWas: null, moverPose: null, orbMovedAt: null, clipboard: null, sectionLive: null, sheetMove: null, worldHidden: false, picking: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, mixBase: 0.03, paneHover: null, gizmoHover: null, flash: null });
 
 /**
  * The plane a figure is being drawn on while the view is straight at it (`in_194`): the tool's plane, else (a tool armed, nothing placed yet) the one plane selected that faces the camera.

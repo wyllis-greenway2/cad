@@ -17,6 +17,8 @@ import type { Intent } from "../../shared/input.ts";
 import type { JointKind } from "../motion.ts";
 import { planFixes, fixCommands, canFix, FIT_DEG } from "../fixmotion.ts";
 import { solveContact } from "../contact.ts";
+import { animateTo } from "./state.ts";
+import { frame } from "../camera.ts";
 
 /** Play the joint of the selected body: it starts turning (a pin) at once; the bar has the scrubber, the turn or slide, keep and close. */
 export function doMotionPlay(s: AppState): AppState {
@@ -187,23 +189,34 @@ export function doMotionRest(s: AppState, i: Extract<Intent, { type: "motionRest
  * lit); `apply` makes the joint (the coaxial mate of its hole and its pin, else a pivot), flashes what was made green, runs the motion again from where it stands on the new scene and shows the next; `skip` goes to the next; `close` leaves the walk.
  * What cannot be a joint is said, not hidden.
  */
-export function doMotionFix(s: AppState, act: "open" | "apply" | "skip" | "close"): AppState {
+export function doMotionFix(s: AppState, act: "open" | "apply" | "skip" | "close", now = 0): AppState {
   const m = s.motion;
   if (!m) return s;
   const say = (message: string | null, rest: Partial<AppState> = {}): AppState => ({ ...s, ...rest, session: { ...(rest.session ?? s.session), message } });
-  if (act === "close") return { ...s, motion: { ...m, fix: null } };
-  const show = (state: AppState, mo: NonNullable<AppState["motion"]>, i: number, made: string[]): AppState => {
-    const f = mo.fix?.plan.fixes[i];
-    if (!f) return state;
-    return { ...state, motion: mo, session: { ...state.session, click: { ...state.session.click, selection: [f.body] } } };
+  // the walk ends (done, or left): the view, the selection and the play are put back as they were when it began
+  const finish = (state: AppState, message: string | null): AppState => {
+    const before = (state.motion?.fix ?? m.fix)?.before;
+    const back = before ? animateTo({ ...state, session: { ...state.session, click: { ...state.session.click, selection: before.selection } } }, before.cam, now) : state;
+    const mo = back.motion ? { ...back.motion, fix: null } : null;
+    return { ...back, motion: mo ? (before ? setPlaying(mo, before.playing) : mo) : null, session: { ...back.session, message } };
   };
+  // one fix shown: its parts selected and the view brought to them
+  const show = (state: AppState, mo: NonNullable<AppState["motion"]>, i: number): AppState => {
+    const f = mo.fix?.plan.fixes[i];
+    if (!f) return { ...state, motion: mo };
+    const near = animateTo({ ...state, motion: mo, session: { ...state.session, click: { ...state.session.click, selection: f.select } } }, frame(state.cam, f.focus.centre, f.focus.radius), now);
+    return near;
+  };
+  if (act === "close") return finish(s, null);
   if (act === "open") {
     const plan = planFixes(sceneOf(s.session), s.session.outcome, m);
     if (!plan) return say(canFix(m) ? "play the motion a little first (twenty degrees or so): the joints are worked out from what the push did" : "nothing is pushed without a joint any more");
     const why = plan.left.map((u) => `${u.name}: ${u.why}`).join("; ");
     if (!plan.fixes.length) return say(`nothing here can be made a joint${why ? ` (${why})` : ""}`, { motion: { ...m, playing: false, startedAt: null } });
-    const mo = { ...m, playing: false, startedAt: null, fix: { plan, i: 0, made: [] } };
-    return { ...show(s, mo, 0, []), session: { ...s.session, message: why ? `left to the push: ${why}` : null, click: { ...s.session.click, selection: [plan.fixes[0]!.body] } } };
+    const before = { cam: s.cam, selection: s.session.click.selection, playing: m.playing };
+    const mo = { ...m, playing: false, startedAt: null, fix: { plan, i: 0, made: [], before } };
+    const shown = show(s, mo, 0);
+    return { ...shown, session: { ...shown.session, message: why ? `left to the push: ${why}` : null } };
   }
   const walk = m.fix;
   if (!walk) return s;
@@ -228,19 +241,23 @@ export function doMotionFix(s: AppState, act: "open" | "apply" | "skip" | "close
       const off = f.carried ? 0 : Math.abs(Math.abs(there.yields?.find((x) => x.body === f.body)?.value ?? 0) - Math.abs(f.expect.spin)); // (a body carried by a pin turns about the pin, not about its own middle as the push's number was: no comparison)
       if (!chosen || off < chosen.off - 1e-9) chosen = { c, next, off };
     }
-    if (!chosen) return say(`not applied: ${reasons.join("; ") || "no joint fits"}. Skip it, or leave it to the push`);
+    if (!chosen) return say(`not applied: ${reasons.join("; ") || "no joint fits"}`);
     const { c, next } = chosen;
-    const note = [c.how === "pivot" && f.how === "mate" ? `made a pivot, not the mate${c.why ? ` (${c.why})` : ""}` : "", chosen.off > FIT_DEG ? `at ${Math.round(f.expect.amount)} degrees it turns ${chosen.off.toFixed(1)} degrees differently from the push (the push could slide off what the joint cannot): undo to take it back` : ""].filter(Boolean).join("; ");
+    const note = [c.how === "pivot" && f.how === "mate" ? "a pivot, not the mate" : "", chosen.off > FIT_DEG ? `differs from the push by ${chosen.off.toFixed(0)}°` : ""].filter(Boolean).join("; ");
     const before = new Set(sceneOf(s.session).relations.map((r) => r.id));
     const fresh = sceneOf(next).relations.filter((r) => !before.has(r.id)).map((r) => r.id);
+    made = [...made, `${c.how === "mate" ? "coaxial mate" : "pivot"} on ${f.name}`];
+    const flash = { culprits: [], victims: [], green: fresh, at: performance.now() };
+    if (stale) { // (the walk ends here: the motion is closed, to be played again)
+      const done = finish({ ...s, session: next, motion: { ...m, fix: walk } }, `Applied ${made.join(", ")}. The model is rebuilding: press play again`);
+      return { ...done, flash, motion: null };
+    }
     const r = startMotion(sceneOf(next), m.body, m.kind, next.outcome);
-    made = [...made, `${f.name} (${c.how === "mate" ? "coaxial mate" : "pivot"})`];
-    if (stale) return { ...s, session: { ...next, message: `made the ${c.how === "mate" ? "coaxial mate" : "pivot"} on ${f.name}: the model is rebuilding, so it was not played through yet. Play again to see it run on the joint` }, flash: { culprits: [], victims: [], green: [...sceneOf(next).relations.map((r) => r.id).filter((id) => !sceneOf(s.session).relations.some((r) => r.id === id))], at: performance.now() }, motion: null };
-    state = { ...s, session: { ...next, message: note || null }, flash: { culprits: [], victims: [], green: fresh, at: performance.now() }, motion: r.ok ? { ...r.motion, amount: m.amount, playing: false, from: m.amount, startedAt: null, speed: m.speed } : null };
-    if (!r.ok) return state;
+    state = { ...s, session: { ...next, message: note || null }, flash, motion: r.ok ? { ...r.motion, amount: m.amount, playing: false, from: m.amount, startedAt: null, speed: m.speed, fix: walk } : null };
+    if (!r.ok) return finish({ ...state, motion: { ...m, fix: walk } }, `Applied ${made.join(", ")}`);
   }
   const i = walk.i + 1;
   const mo = state.motion!;
-  if (i >= walk.plan.fixes.length) return { ...state, motion: { ...mo, fix: null }, session: { ...state.session, message: made.length ? `fixed: ${made.join(", ")}. Play to see it run on joints${state.session.message ? `. ${state.session.message}` : ""}` : "nothing was changed" } };
-  return show(state, { ...mo, fix: { plan: walk.plan, i, made } }, i, made);
+  if (i >= walk.plan.fixes.length) return finish({ ...state, motion: { ...mo, fix: walk } }, made.length ? `Applied ${made.join(", ")}${state.session.message ? ` (${state.session.message})` : ""}` : null);
+  return show(state, { ...mo, fix: { plan: walk.plan, i, made, before: walk.before } }, i);
 }
