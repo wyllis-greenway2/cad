@@ -4443,3 +4443,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1021 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for the branch `claude/adoring-dijkstra-contact-rest` to be merged into the testing branch; it carries `dec_contact_push` accepted, Keep pose for a pivot and a pose found by contact, the depth rule, the hard bodies reading the kernel's mesh, the time budget and the settable rest)
+
+## in_1022 — 2026-11-19 — directive
+> okay do 1 2 and 4, I am not so sure we want to split the menu onspiral and hypoid. What exactly is the difference between a spiral and hypoid gear and what are each used for?
+(of the AI's list: do the numeric tooth-width checks on the other gear kinds (1), the spiral crown's browser time (2), and meshed pairs rendered in contact (4); the menu split is not wanted for now; and a question: the difference between a spiral and a hypoid gear and what each is used for)
+
