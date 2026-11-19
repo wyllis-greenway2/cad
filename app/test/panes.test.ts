@@ -44,7 +44,7 @@ const drag = (st: AppState, from: Vec3, to: Vec3, steps = 6): AppState => {
 };
 const paneMiddle = (st: AppState, id: string): Vec3 => { const pts = gizmoOf(st)!.handles.find((h) => h.id === id)!.points; return [0, 1, 2].map((k) => pts.reduce((a, p) => a + p[k]!, 0) / pts.length) as unknown as Vec3; };
 
-test("the mover has no little panes (they are the cross section plane's alone, `in_1204`): its handles are the arrows, the sphere and the rings", () => {
+test("the mover has no little panes (they are the cross section plane's alone, `in_1206`): its handles are the arrows, the sphere and the rings", () => {
   const ids = gizmoOf(mover())!.handles.map((h) => h.id);
   assert.equal(ids.filter((id) => id.startsWith("pane")).length, 0, ids.join());
   assert.deepEqual(ids.filter((id) => id.startsWith("move:")), ["move:x", "move:y", "move:z"]);
@@ -57,7 +57,7 @@ test("the cross section's mover has its own three panes (clicked to lay the plan
 
 const arrowMiddle = (st: AppState, id: string): Vec3 => { const pts = gizmoOf(st)!.handles.find((h) => h.id === id)!.points; return [0, 1, 2].map((k) => (pts[0]![k]! + pts[1]![k]!) / 2) as unknown as Vec3; };
 
-test("two arrows chosen with Shift: taking either moves the body freely in the plane of the two, as one step, the third axis does not move, and their numbers show while it goes (`in_1204`)", async () => {
+test("two arrows chosen with Shift: taking either moves the body freely in the plane of the two, as one step, the third axis does not move, and their numbers show while it goes (`in_1206`)", async () => {
   const { frameOf } = await import("../src/interaction/frame.ts");
   let st0 = mover();
   st0 = click(st0, arrowMiddle(st0, "move:x"), false);

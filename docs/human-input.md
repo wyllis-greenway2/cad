@@ -5148,3 +5148,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1205 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the smaller-movement-gives-way fix to be merged into the testing branch, no full test run)
+
+## in_1206 — 2026-11-19 — directive
+> okay lets get rid of the little panes in the xyz thing unless it is in the cross section plane, it will be special just for that. Also if you select two axis with shift it is supposed to let you freely move on both those axis, kind of like how plane select works now, but it doesn't seem to work like that, and it should also show you the x y z value of the axis you are moving in that mode.
