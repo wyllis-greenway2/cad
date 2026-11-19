@@ -4771,3 +4771,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1104 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for claude/intelligent-hawking-next to be merged into the testing branch, with the refusal that names the constraint and the already-applied green flash; no full suite needed)
+
+## in_1105 — 2026-11-19 — directive
+> okay lets build the swap, where a mate moves the other body when the first can’t move
+(approves the AI's recommendation of `in_1101`: a mate whose first selected body cannot move is made by moving the second body to it, and refused only when neither can)
