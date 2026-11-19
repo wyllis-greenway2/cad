@@ -5,7 +5,7 @@ import { kernel } from "../src/compiler/kernel/index.ts";
 import { createSession, run, scene } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";
 import { asCommand } from "../src/operation/modelparts.ts";
-import type { PartSteps } from "../src/operation/fasteners.ts";
+import type { ModelBuild } from "../src/operation/modelparts.ts";
 import type { Result } from "../src/shared/result.ts";
 import { gearboxSteps, GEARBOX_START, gearboxRatio, gearboxProblem } from "../src/operation/modelgearbox.ts";
 import { differentialSteps, DIFFERENTIAL_START, differentialProblem } from "../src/operation/modeldifferential.ts";
@@ -14,9 +14,9 @@ import { bearingSteps, BEARING_START, bearingProblem } from "../src/operation/mo
 await kernel.init();
 type B = { ref: string; id: string; volume: number; bbox: { min: number[]; max: number[] } };
 const bodies = (s: Session) => Object.values(scene(s).parts).filter((p) => p.kind === "body") as unknown as B[];
-function make(st: Result<PartSteps>): Session {
+function make(st: Result<ModelBuild>): Session {
   if (!st.ok) throw new Error(st.error);
-  const c = asCommand(scene(createSession(kernel)), st.value);
+  const c = asCommand(scene(createSession(kernel)), st.value.steps);
   if (!c.ok) throw new Error(c.error);
   const s = run(createSession(kernel), c.value);
   assert.equal(s.message ?? null, null);

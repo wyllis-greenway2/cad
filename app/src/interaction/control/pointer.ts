@@ -347,7 +347,7 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
   // (and the line or circle itself is not lit as a whole: only the part that would go is, in the selected blue, and nothing at all where nothing crosses; `in_206`)
   if (s.tool?.kind === "trim") next = { ...withSession(next, hoverOn(next.session, undefined)), hoverPoint: null, tool: { ...s.tool, trimming: trimUnder(sc, pv) } };
   // a circle tool still armed (no plane yet): where the centre would go, and whether it is on another circle's centre; a line or an arc: whether its first end would be on a line or a circle
-  if (s.tool && !s.tool.plane && (s.tool.kind === "circle" || s.tool.kind === "arc" || s.tool.kind === "line" || s.tool.kind === "rect" || s.tool.kind === "gear" || s.tool.kind === "cam")) {
+  if (s.tool && !s.tool.plane && (s.tool.kind === "circle" || s.tool.kind === "arc" || s.tool.kind === "line" || s.tool.kind === "rect" || s.tool.kind === "gear" || s.tool.kind === "cam" || s.tool.kind === "model")) {
     const planeRef = selectedSurface(sc, selectionOf(s.session)) ?? drawingPlane(sc, candidatesAt(sc, pv, pickOpts(s)).map((k) => k.ref)) ?? drawingPlane(sc, selectionOf(s.session));
     const pl = planeRef ? (lookup(sc)(planeRef) as Plane) : null;
     const at = pl ? snapOnPlane(sc, pv, pl) : null;
@@ -376,7 +376,7 @@ function hintFor(sc: Scene, t: Tool, pl: Plane, pv: ReturnType<ReturnType<typeof
   if (t.kind === "line") return lineHint(sc, pl, t.points[0]!, pv, raw);
   if (t.kind === "spline") return pointHint(sc, pl, pv, raw); // (each point of a spline can be on a corner or a line already drawn)
   if (t.kind === "rect") return pointHint(sc, pl, pv, raw); // (the opposite corner)
-  if (t.kind === "gear" || t.kind === "cam") return null; // (the size: the pointer's distance from the centre, or the numbers typed)
+  if (t.kind === "gear" || t.kind === "cam" || t.kind === "model") return null; // (the size: the pointer's distance from the centre, or the numbers typed)
   if (t.kind === "circle") return t.typed[0] === "" ? circleRadiusHint(sc, pl, t.points[0]!, pv, raw) : null; // (the size: a number, or a point on the edge that touches another circle, `in_296`)
   if (t.points.length < 2) return arcEndHint(sc, pl, t.points[0]!, pv, raw); // (an arc's other end: level or upright with the first, `in_381`)
   return t.typed[0] === "" ? arcBulgeHint(sc, pl, t.points[0]!, t.points[1]!, raw) : null;
@@ -482,6 +482,11 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   const hint = flat ? hintFor(sc, t, plane, pv, flat) : null;
   const at = hint ? hint.at : flat;
   if (!at) return base;
+  if (t.kind === "model" && t.points.length) {
+    // a gear assembly model (`dec_gear_models`): the first click after its middle sets the size (the pointer's distance from the middle) and the box stays open for the numbers; the next click, Enter or Create makes it
+    if (!t.sized) return { ...base, tool: { ...t, cursor: at, sized: true } };
+    return commitFigure(base, finish(sc, t));
+  }
   if (t.kind === "cam" && t.points.length) {
     // a cam, a ratchet or a Geneva drive, as a gear (`in_986`): the first click after its centre only sets the scale and the number box stays open to change the numbers; the next click, Enter or Create makes it
     if (!t.sized) return { ...base, tool: { ...t, cursor: at, sized: true } };

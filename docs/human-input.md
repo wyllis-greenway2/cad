@@ -4862,3 +4862,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1128 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the quieter Fix constraints offer to be merged into the testing branch, no full test run)
+
+## in_1129 — 2026-11-19 — approval
+> go ahead in that order, offer both overall size and the numbers
+(approves the plan of in_1120: first click-to-place with a simple preview and a size field and the numbers, then the models built one part at a time with labels, then Play for each; offers both an overall size and the numbers)

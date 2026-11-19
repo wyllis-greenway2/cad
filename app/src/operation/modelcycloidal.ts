@@ -2,8 +2,8 @@
 // output 1 / (N - 1) of a turn the other way. The disc's outline is exact: the curve the ring pins' centres trace on the disc as it rolls (`R e^(it) - E e^(iNt)`), taken in by the pin's radius and the room. Pure: numbers in, steps out.
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
-import type { PartSteps } from "./fasteners.ts";
 import { Builder, disc, outline } from "./modelparts.ts";
+import type { Place, ModelBuild } from "./modelparts.ts";
 
 export interface CycloidalSpec {
   /** the ring pins (the disc has one lobe fewer) */ pins: number;
@@ -67,10 +67,10 @@ export function cycloidalProblem(s: CycloidalSpec): string | null {
 export const cycloidalRatio = (s: Pick<CycloidalSpec, "pins">): number => s.pins - 1;
 
 /** The steps that make the drive (the problem, if the numbers make none) */
-export function cycloidalSteps(s: CycloidalSpec): Result<PartSteps> {
+export function cycloidalSteps(s: CycloidalSpec, place?: Place): Result<ModelBuild> {
   const bad = cycloidalProblem(s);
   if (bad) return err(bad);
-  const b = new Builder();
+  const b = new Builder(place);
   const [T, g, Dt] = [s.plate, s.gap, s.disc];
   const zDisc = T + g, zOut = T + 2 * g + Dt, zTop = zOut + s.plate;
   const rim = s.circle + s.pin / 2 + 4; // (the plates' radius)
@@ -78,19 +78,25 @@ export function cycloidalSteps(s: CycloidalSpec): Result<PartSteps> {
   const ring = Array.from({ length: s.pins }, (_, k): [number, number] => [s.circle * Math.cos((2 * Math.PI * k) / s.pins), s.circle * Math.sin((2 * Math.PI * k) / s.pins)]);
   // the base plate with the ring pins standing on it (one body)
   const p0 = b.plane(0);
+  b.part("Base plate and ring pins");
   b.extrude(p0, disc(0, 0, rim), [disc(0, 0, shaftHole)], T, { also: ring.map(([x, y]) => ({ outer: disc(x, y, s.pin / 2), depth: zDisc + Dt })) });
   // the disc, its middle on the eccentric (E, 0), with the hole for the eccentric and the holes for the output pins
-  const p1 = b.plane(zDisc);
   const holeR = s.outPin / 2 + s.ecc + s.gap;
   const holes = Array.from({ length: s.outPins }, (_, k) => disc(s.ecc + s.outCircle * Math.cos((2 * Math.PI * k) / s.outPins), s.outCircle * Math.sin((2 * Math.PI * k) / s.outPins), holeR));
   const n = PER_LOBE * (s.pins - 1);
-  b.extrude(p1, outline(discOutline(s, n).map(([x, y]) => [x + s.ecc, y] as [number, number])), [disc(s.ecc, 0, s.cam + s.gap), ...holes], Dt);
-  // the input shaft, from under the base plate to above the output plate, with the eccentric joined to it inside the disc
+  b.part("Input shaft and eccentric");
+  const p1 = b.plane(zDisc);
   b.extrude(p0, disc(0, 0, s.shaft / 2), [], zTop + 10);
   b.extrude(p1, disc(s.ecc, 0, s.cam), [], Dt, { mode: "add" });
+  b.part("Cycloidal disc");
+  b.extrude(p1, outline(discOutline(s, n).map(([x, y]) => [x + s.ecc, y] as [number, number])), [disc(s.ecc, 0, s.cam + s.gap), ...holes], Dt);
   // the output plate, with its pins reaching down through the disc's holes
+  b.part("Output plate and pins");
   const p2 = b.plane(zOut);
   const pinsOut = Array.from({ length: s.outPins }, (_, k): [number, number] => [s.outCircle * Math.cos((2 * Math.PI * k) / s.outPins), s.outCircle * Math.sin((2 * Math.PI * k) / s.outPins)]);
   b.extrude(p2, disc(0, 0, rim), [disc(0, 0, shaftHole)], s.plate, { also: pinsOut.map(([x, y]) => ({ outer: disc(x, y, s.outPin / 2), depth: -(Dt + g) })) });
-  return ok(b.steps);
+  return ok(b.build());
 }
+
+/** the plates' radius (mm) */
+export const cycloidalRim = (s: Pick<CycloidalSpec, "circle" | "pin">): number => s.circle + s.pin / 2 + 4;
