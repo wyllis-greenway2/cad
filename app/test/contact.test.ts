@@ -166,7 +166,7 @@ test("a train of three gears, all by contact: the chain gives way link by link, 
   assert.ok(worst < 1.5, `within ${worst} degrees of the ratios`);
 });
 
-test("hardness is passed on to three links: a train of six gears with the first one hard carries the push to the fifth and says the chain goes on; marking the fourth hard too carries it to the sixth (`in_1018`)", async () => {
+test("hardness is passed on to three links: a train of six gears with the first one hard carries the push to the fifth and says the chain goes on; marking the fourth hard too carries it to the sixth (`in_1019`)", async () => {
   const { startOp } = await import("../src/interaction/operations.ts");
   const { runOp } = await import("../src/interaction/runop.ts");
   const { gearRefs } = await import("../src/operation/gearscene.ts");
@@ -218,7 +218,7 @@ test("hardness is passed on to three links: a train of six gears with the first 
   assert.equal(two.contact!.note, null, "and nothing to say");
 });
 
-test("a call has a budget of time: a long scrub that cannot be worked out in it is done in parts, the amount stops where it got to and the bar says the push plays slower (`in_1019`)", () => {
+test("a call has a budget of time: a long scrub that cannot be worked out in it is done in parts, the amount stops where it got to and the bar says the push plays slower (`in_1020`)", () => {
   const { s, b } = make(true);
   const r = startMotion(scene(s), b.crank!, "turn", s.outcome);
   assert.ok(r.ok);

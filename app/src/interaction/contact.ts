@@ -35,7 +35,7 @@ export interface ContactState {
   note: string | null;
 }
 const MAX_PUSH = 12.8, STEP = 1, MAX_STEPS = 360, MAX_PASSES = 12;
-/** The time a call may take to work out its steps (ms), a part of a frame: past it the steps left are left for the next frame, so a long scrub or a heavy push plays slower, not frozen (`in_1019`, `dec_contact_push`). */
+/** The time a call may take to work out its steps (ms), a part of a frame: past it the steps left are left for the next frame, so a long scrub or a heavy push plays slower, not frozen (`in_1020`, `dec_contact_push`). */
 const BUDGET_MS = 20;
 const nameOf = (scene: Scene, r: Ref): string => { const p = scene.parts[r]; return p?.kind === "body" && p.id ? p.id : r; };
 
@@ -107,7 +107,7 @@ function apart(a: Tree, ra: Rigid, b: Tree, rb: Rigid, clearance: number): boole
   return false;
 }
 
-const DEPTH = 3; // (`dec_contact_push`, `in_1016`: hardness is passed on to three links)
+const DEPTH = 3; // (`dec_contact_push`, `in_1017`: hardness is passed on to three links)
 /**
  * Who is solid at a pose of the motion: the bodies that are hard, and the bodies that touch a solid one, to `DEPTH` links from a hard body (touching: their boxes, each where its motion puts it, meet within a few tenths of a millimetre). A pair of the moving and yielding bodies is tested when either of
  * the two is solid, so a push goes on for as many links as there are solid bodies and one more; a body that touches the last solid one is pushed by it and does not push. The note says when a chain goes on past the depth: a body touched by one at the last link that is not solid.

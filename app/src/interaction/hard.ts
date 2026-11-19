@@ -33,7 +33,7 @@ export const meets = (scene: Scene, a: Ref, b: Ref): boolean => isHard(scene, a)
 export const isHard = (scene: Scene, ref: Ref): boolean => { const p = scene.parts[ref]; return p?.kind === "body" && !!p.id && !!scene.hard?.includes(p.id); };
 
 /**
- * The triangles of a body and the tree over them (kept for the scene: a drag tests many places against the same bodies). From **the kernel's mesh** when the scene has its outcome (`in_1019`), by the faces' ranges: it has every face of the body, the
+ * The triangles of a body and the tree over them (kept for the scene: a drag tests many places against the same bodies). From **the kernel's mesh** when the scene has its outcome (`in_1020`), by the faces' ranges: it has every face of the body, the
  * walls of a gear's teeth too, which the face planes of the scene do not (a hard gear was tested on its top and bottom only); else, and for a model of one body that has no name, from the meshes of the face planes.
  */
 export function meshOf(scene: Scene, body: Ref, outcome?: CompileOutcome): Mesh | null {

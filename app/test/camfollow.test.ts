@@ -116,7 +116,7 @@ test("with the cam hard the rod rides its edge by contact: pushed along as the l
   let m = r.motion;
   assert.ok(m.contact?.pushables[0]?.kind === "slide", "the rod can yield by sliding");
   assert.ok(!m.follows.some((f) => f.table), "its table is not used");
-  assert.ok(!m.noKeep, "the pose by contact can be kept: the rod is a slider on a mate (`in_1017`)");
+  assert.ok(!m.noKeep, "the pose by contact can be kept: the rod is a slider on a mate (`in_1018`)");
   const rodValue = (mm: typeof m) => followAmount(mm.yields![0]!, 0);
   let top = -1e9, bottom = 1e9;
   const seen: number[] = [];

@@ -61,6 +61,6 @@ Three more things were tried:
 
 Together (medians, Node on a shared sandbox CPU, which is noisy to about 15 per cent): a train of 4 gears 10 to 13 ms a degree before, now 6.6; 6 gears 17, now 12 to 15; 8 gears 28, now 18 to 22; the Geneva in the app 0.41, now 0.36 (the slowest step 13 ms, was 16). The accuracy is the same (0.3 to 2.2 degrees). What is left is the narrow phase: placing the moving triangles and walking the two trees (about 90 per cent of the profile), so more speed needs fewer tests (a step worked out from the contact's geometry rather than searched) or a cheaper test.
 
-## The depth rule (`in_1018`)
+## The depth rule (`in_1019`)
 
 Hardness is passed on to three links (`dec_contact_push`): with only the first gear hard a train of six has its first five driven and the sixth stays, with a note in the bar; `HARD=1,4 node prototypes/contact-push/chain.ts` (`N=8`) marks the fourth gear hard too and all eight are driven within 2.2 degrees, at 16 ms a degree. Five gears with the first hard: 8 ms a degree (the pairs beyond the depth are no longer tested).

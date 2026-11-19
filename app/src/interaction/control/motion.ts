@@ -145,7 +145,7 @@ export function doStopTurning(s: AppState): AppState {
   return { ...s, menu: null, motion: s.motion?.body === body ? null : s.motion, session: made };
 }
 
-/** Set (or take away, with null) where a body that yields by contact goes back to when nothing holds it away: the rest of its pivot, or of the joint of its mate (`in_1019`). The motion starts again from where it stands. */
+/** Set (or take away, with null) where a body that yields by contact goes back to when nothing holds it away: the rest of its pivot, or of the joint of its mate (`in_1020`). The motion starts again from where it stands. */
 export function doMotionRest(s: AppState, i: Extract<Intent, { type: "motionRest" }>): AppState {
   const m = s.motion;
   const p = m?.contact?.pushables.find((x) => x.body === i.ref);

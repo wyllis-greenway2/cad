@@ -4417,24 +4417,29 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > are you sure the odd-looking tooth tops are just the involute shape?
 (challenges the AI's claim that the face gear's pinched-looking tooth tops are the involute shape; the AI measured and found it was wrong: a waist, the tooth wider at the tip than below it)
 
+## in_1016 — 2026-11-19 — question
+> okay what should we work on next?
+(asks what to work on next; the AI recommends, the human decides)
 
 
-## in_1016 — 2026-11-19 — approval
+
+
+## in_1017 — 2026-11-19 — approval
 > okay lets do 1, I will take your reccomendations
 (approves the AI's recommendations for the three open questions of `dec_contact_push`, which the AI then wrote into the entry as answers: spreading depth 3, ghost not built until a case needs it, the rest value a number on the joint, the mesh test for interaction with the exact boolean for the final answer, in steps behind the existing seam)
 
-## in_1017 — 2026-11-19 — directive
+## in_1018 — 2026-11-19 — directive
 > yes
 (answers the AI's question: start on Keep pose for pivots and contact motions)
 
-## in_1018 — 2026-11-19 — directive
+## in_1019 — 2026-11-19 — directive
 > okay start on the next item
 (asks for the next item of the agreed order: the depth rule for the contact push)
 
-## in_1019 — 2026-11-19 — directive
+## in_1020 — 2026-11-19 — directive
 > okay lets work on the still not built stuff
 (asks for the three things still not built for the contact push: the time budget, a settable rest value on a joint, and the switch of the hard bodies' drag to the mesh test)
 
-## in_1020 — 2026-11-19 — directive
+## in_1021 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 (asks for the branch `claude/adoring-dijkstra-contact-rest` to be merged into the testing branch; it carries `dec_contact_push` accepted, Keep pose for a pivot and a pose found by contact, the depth rule, the hard bodies reading the kernel's mesh, the time budget and the settable rest)

@@ -68,7 +68,7 @@ The **play button** of an animated body (the one beside where its eye would be) 
 
 While a motion plays, what is **selected** is drawn by the matrix of **its own body** (`Frame.selectionMatrix`: the driver's, a follower's, the identity for a body that stays; the identity when the selected bodies differ), not by the driver's matrix as before: the highlight of a gear turned by another floated away, turned about the wrong axis. The **pause button on a body is gone**: the play button shows for a selected body, and the bar's pause is the one while it plays. Not done: the drawn sketch that made a body (its figure) is not moved with it during a motion.
 
-## Built: Keep pose for a pivot and for a pose found by contact (`in_1017`)
+## Built: Keep pose for a pivot and for a pose found by contact (`in_1018`)
 
 **Keep pose** now works for a body made to turn (**Pivot**): the turn is written as ordinary rotate steps about the pivot's axis (`pivotTurnCommand` in `mate.ts`, the same turns and carried sketches as a joint driven), and for a pose found by **contact**: every body that yielded is kept where it stands, in the same command, each worked out on the scene the one before leaves (`keepJoints` in `motion.ts`): the first body of a coaxial mate and a cam's follower rod by the joint's drive step, a pivoted body by a turn. Still refused, with the reason: the **wheel of a Geneva drive** (one drawing: turn it with Edit cam) and a planetary carrier; a contact pose where a body that yields is neither a mate's body nor a pivoted one. A kept pose of a body written to the model changes nothing else: the pivot stays.
 

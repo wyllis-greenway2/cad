@@ -160,7 +160,7 @@ const withParams = (scene: Scene, mateId: string, set: Partial<Record<JointKey, 
   return [{ type: "removeRelation", id: mateId }, { type: "addRelation", relation: { ...rel, params } }];
 };
 /** The limits of a joint as numbers (or none) and where it stands. */
-export function jointOf(scene: Scene, mateId: string): Record<"turn" | "slide", { now: number; min?: number; max?: number; /** where it goes back to when nothing holds it away, `in_1019` */ rest?: number }> | null {
+export function jointOf(scene: Scene, mateId: string): Record<"turn" | "slide", { now: number; min?: number; max?: number; /** where it goes back to when nothing holds it away, `in_1020` */ rest?: number }> | null {
   const p = scene.relations.find((r) => r.id === mateId)?.params;
   if (!p) return null;
   const of = (k: "turn" | "slide") => ({ now: p[k] ?? 0, ...(p[`${k}Min`] !== undefined ? { min: p[`${k}Min`]! } : {}), ...(p[`${k}Max`] !== undefined ? { max: p[`${k}Max`]! } : {}), ...(p[`${k}Rest`] !== undefined ? { rest: p[`${k}Rest`]! } : {}) });
@@ -174,7 +174,7 @@ export function limitCommand(scene: Scene, mateId: string, kind: "turn" | "slide
   return { type: "batch", commands: withParams(scene, mateId, { [`${kind}${side}`]: value }) };
 }
 
-/** The command that sets where a joint goes back to when nothing holds it away (degrees or mm, as the joint counts them; null takes it away): a spring, a pawl dropping into the next tooth (`dec_contact_push`, `in_1019`). */
+/** The command that sets where a joint goes back to when nothing holds it away (degrees or mm, as the joint counts them; null takes it away): a spring, a pawl dropping into the next tooth (`dec_contact_push`, `in_1020`). */
 export function restCommand(scene: Scene, mateId: string, kind: "turn" | "slide", rest: number | null): Command | null {
   if (!jointOf(scene, mateId) || (rest !== null && !Number.isFinite(rest))) return null;
   return { type: "batch", commands: withParams(scene, mateId, { [`${kind}Rest`]: rest }) };

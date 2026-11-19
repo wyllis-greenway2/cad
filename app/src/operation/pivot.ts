@@ -7,7 +7,7 @@ import { normalize } from "../math/vec.ts";
 import type { Scene } from "./scene.ts";
 
 /** `body`: the body's id (`Part` body `id`, kept through the history); the body turns about the line through `point` along `dir`. */
-export interface Pivot { body: string; point: Vec3; dir: Vec3; /** where it goes back to (degrees from where it is drawn) when a body that pushes lets it, as a spring would; none: it stays where it was pushed (`dec_contact_push`, `in_1019`) */ rest?: number }
+export interface Pivot { body: string; point: Vec3; dir: Vec3; /** where it goes back to (degrees from where it is drawn) when a body that pushes lets it, as a spring would; none: it stays where it was pushed (`dec_contact_push`, `in_1020`) */ rest?: number }
 const pivotsOf = (s: Scene): readonly Pivot[] => s.pivots ?? [];
 const hasBody = (s: Scene, id: string): boolean => Object.values(s.parts).some((p) => p.kind === "body" && p.id === id);
 

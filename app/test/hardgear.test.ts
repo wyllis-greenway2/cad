@@ -1,4 +1,4 @@
-// A hard gear is tested on all of its body, the walls of its teeth too (`in_1019`): the kernel's mesh, not the face planes of the scene (a gear body has two of those, its top and bottom).
+// A hard gear is tested on all of its body, the walls of its teeth too (`in_1020`): the kernel's mesh, not the face planes of the scene (a gear body has two of those, its top and bottom).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";

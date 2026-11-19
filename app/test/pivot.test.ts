@@ -39,7 +39,7 @@ test("a round face of a body selected, Pivot: the body turns about that face's a
   assert.ok(Math.abs(pv!.point[0] - 30) < 1e-6 && Math.abs(pv!.point[1]) < 1e-6, `through the axis of the cylinder: ${pv!.point}`);
   assert.ok(Math.abs(Math.abs(pv!.dir[2]) - 1) < 1e-9, `along z: ${pv!.dir}`);
   assert.ok(st.motion?.playing && st.motion.body === b!.ref, "playing");
-  assert.ok(!st.motion!.noKeep, "and its pose can be kept (`in_1017`)");
+  assert.ok(!st.motion!.noKeep, "and its pose can be kept (`in_1018`)");
   const f = frameOf(st, { w: 800, h: 600 });
   assert.equal(f.bodyEyes.find((e) => e.ref === b!.ref)?.play, "pause", "its button is a pause button while it plays");
   assert.deepEqual(fromJSON(toJSON(scene(st.session))).pivots, scene(st.session).pivots, "the file keeps it");
@@ -79,7 +79,7 @@ test("a body made to turn can yield to a hard body that pushes it", () => {
   assert.ok(r.motion.contact?.pushables.some((p) => p.body === b!.ref), "the other can yield");
 });
 
-test("Keep pose for a body made to turn: the turn is written as ordinary steps about the pivot's axis, and so are the bodies that yielded to it (`in_1017`)", async () => {
+test("Keep pose for a body made to turn: the turn is written as ordinary steps about the pivot's axis, and so are the bodies that yielded to it (`in_1018`)", async () => {
   const { keepCommand } = await import("../src/interaction/motion.ts");
   let s = cylinder(cylinder(createSession(kernel), 0, 0, 5), 60, 0, 3);
   const [a, b] = bodies(s);
@@ -112,7 +112,7 @@ test("Keep pose for a body made to turn: the turn is written as ordinary steps a
   assert.ok(Math.abs(cb2[0]! - 70) < 1e-3 && Math.abs(cb2[1]! - 10) < 1e-3, `the second turned 90 degrees about (60, 10), (60, 0) to (70, 10): ${cb2}`);
 });
 
-test("a rest on a pivot: the body that was pushed goes back to it when the pusher lets go; with none it stays where it was pushed; the bar offers it and the field sets it (`in_1019`)", async () => {
+test("a rest on a pivot: the body that was pushed goes back to it when the pusher lets go; with none it stays where it was pushed; the bar offers it and the field sets it (`in_1020`)", async () => {
   const { solveContact } = await import("../src/interaction/contact.ts");
   const { followAmount } = await import("../src/operation/gearcouple.ts");
   const make2 = (rest: number | null) => {
