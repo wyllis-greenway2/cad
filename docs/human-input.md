@@ -4480,3 +4480,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > okay that is pretty cool, so what should we work on next?
 (asks what to work on next after the hypoid picture; the AI recommends, the human decides)
 
+## in_1031 — 2026-11-19 — question
+> okay but before we do that, are we done with gears? did we finish the crown gear work? also what happens if I need a crown gear with 90 degree angle? is that just not possible?
+(asks whether the gear work is finished, whether the crown gear work is, and how to get a crown gear drive with the shafts at 90 degrees)
+
