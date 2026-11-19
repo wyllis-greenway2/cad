@@ -18,7 +18,7 @@ export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "own
 /** The numbers of a model, by name */
 export type Nums = Record<string, number>;
 /** One number of a model: what it is called, a line that says what it is, and whether it grows with the overall size (a length of the thing, not a room left for the printer or a count) */
-export interface ModelField { key: string; label: string; hint: string; scaled?: true }
+export interface ModelField { key: string; label: string; hint: string; scaled?: true; /** the names of the values of a field that is a toggle button (its value is the place of the one chosen) */ choices?: string[] }
 /** a picture made of lines in the model's plan, each line a list of points (closed ones repeat their first) */
 export type Lines = [number, number][][];
 
@@ -79,7 +79,7 @@ const DEFS: Record<ModelKind, Def> = {
   ownbearing: {
     title: "Bearing of your own (deep groove ball)",
     fields: [
-      F("detail", "Detail", "0: simple (two plain rings); 1: detailed (grooves and balls)"),
+      { ...F("detail", "Detail", "simple: two plain rings; detailed: the grooves and the balls"), choices: ["Simple", "Detailed"] },
       F("bore", "Bore", "mm", true), F("outer", "Outside diameter", "mm", true), F("width", "Width", "mm", true),
       F("ring", "Inner ring outside diameter", "mm; 0: from the balls", true),
       F("clearance", "Room round a ball", "mm all round it, detailed only: the balls are bodies of their own and must not touch the rings"),

@@ -4175,3 +4175,6 @@ Branch `claude/adoring-dijkstra-carry`. **Offer:** "Slow animation", **Fix Const
 
 ## Handoff 1038 — 2026-11-19 (in_1171: two bearing paths, Catalogue and Your own)
 `in_1171`. The one hybrid bearing kind became two (`modelkinds.ts`): `ballbearing` (Catalogue: only the number, always simple) and `ownbearing` (Your own: detail 0/1, bore, outside diameter, width, inner ring diameter, room, balls, ball; lengths scale with Size). Menu: Models > Bearings > Deep groove ball > Catalogue / Your own. Detailed catalogue bearings are no longer offered (the catalogue builder still takes detail 1 below the tool; tests use it). Tests: modeltool, models, fasteners, tools (one old failure: `view:constraints` missing from the right-click ring list, from another branch, left alone).
+
+## Handoff 1039 — 2026-11-19 (in_1172: Detail is a toggle button)
+`in_1172`. `ModelField.choices` / `EntryField.choices` (`modelkinds.ts`, `entry.ts`, `modeltool.ts`): a field with named values is drawn by the gear box (`ui/gearbox.ts`) as a row of buttons (the chosen one filled); the click sends the place of the value as the typed text, so the model code did not change. Used by *Detail* of the bearing of your own. Checked in a real browser (Playwright: the button sends 1 and the fill moves; screenshot) and by a test in `modeltool.test.ts`.
