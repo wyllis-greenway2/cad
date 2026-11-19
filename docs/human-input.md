@@ -4852,3 +4852,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1126 — 2026-11-19 — question
 > okay what to do now?
+
+## in_1127 — 2026-11-19 — directive
+> okay it seems like we have some duplicate code once again. The move orb for the cross section plane does not work like other orbs. Lets unify all the orbs so they work the same. They should all be a single orb In one or more modes. There should be the xyz arrows that can be selected with shift to select more or less freedom of movement. The little panes always sent movement in that plane, the information bubbles should always be hidden except for the axis selected. Sometimes the xyz arrows can have second arrows that indicate copy direction or twist direction for screws rotate extrude etc. there should always be the swapper to swap from xyz to rotate mode (sometimes it should be in both rotate and xyz mode) selecting the blue orb should always allow smart select based off clicking edges verticies objects faces etc.
