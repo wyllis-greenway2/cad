@@ -4387,3 +4387,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1008 — 2026-11-19 — question
 > What is the root cause here? and how can we make this as fast as possible given the fact that it didn't interact with complex geometry?
+
+## in_1009 — 2026-11-19 — directive
+> okay so what do you reccomend? it sounds like we should do all these things but how do we know when we can safely do them or when we need to re calc things? Like for example wouldn't body collision (we already have a collision system) tell us a lot about which parts need recalc when? also how about the difference beteween a selected  face line verticy body etc and deslected? so if it is under constant selection maybe the user is still working on it, and the preview is the most important, including showing interactions with other bodies if collisions happen (like cut away extrusions etc) and maybe the true final result and other recalc needs to happen on deselect which is interpereted as the user saying this is the final state they really want, no longer a preview.
+(asks for a recommendation on doing the speed-ups; proposes that the existing collision system say which bodies need recalculating, and that selection mean "still working, preview first" with the full recalculation on deselect)
