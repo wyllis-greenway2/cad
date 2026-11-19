@@ -4647,3 +4647,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1072 — 2026-11-19 — directive
 > it took 29 seconds and looks like this
 (attached the project file model.cad_63.json, a 40 tooth face gear at module 2 with a 14 tooth mate, saved by build 589c0e2e, and a screenshot of its teeth: a flared foot, a concave neck and a straight-sided cap; the browser took 29 seconds to make the face gear)
+
+## in_1073 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please do the full suite tests
+(asks for the branch to be merged into the testing branch, with the whole suite run)
