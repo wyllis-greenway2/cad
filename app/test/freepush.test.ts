@@ -25,6 +25,9 @@ test("the big gear with the pin turns: the lever, which has no joint, is pushed 
   assert.ok(r.ok);
   if (!r.ok) return;
   assert.ok(r.motion.contact?.pushables.some((p) => p.body === LEVER && p.free), "the lever can be pushed any way");
+  // it slides while a slide clears it: it is turned only where no slide does (here against the other bar), never for its own sake
+  const early = play(s, 30).contact!.pushables.find((p) => p.body === LEVER)!;
+  assert.ok(Math.hypot(...early.free!) > 1 && Math.abs(early.spin ?? 0) < 1e-9, `slid ${early.free} and did not turn (${early.spin})`);
   const half = play(s, 100);
   assert.equal(half.contact?.jam, null, half.contact?.jam ?? "");
   const lever = half.contact!.pushables.find((p) => p.body === LEVER)!;
