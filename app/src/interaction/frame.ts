@@ -486,7 +486,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     behindPlane: hasBody ? behindPlaneOf(s) : null,
     bodySplit,
     hiddenBodies: hiddenItemsOf(sc, outcome),
-    thin: s.panel === "measure" && !outcome.kernel?.stale ? thinPlacesOf(sc, sel) : null,
+    thin: s.panel === "measure" && !outcome.kernel?.stale ? thinPlacesOf(sc, sel) : s.motion?.contact?.jam && s.motion.contact.clash?.length ? s.motion.contact.clash : null, // (the places where bodies are in each other when a motion has stopped: in the red of the thin places)
     bodyEyes: index.bodies.flatMap((p) => { if (!p.bbox) return []; const [lo, hi] = [p.bbox.min, p.bbox.max]; const corners: Vec3[] = []; for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) corners.push([x, y, z]); const drives = animated(sc).get(p.ref); const m = s.motion; return [{ ref: p.ref, hidden: !!sc.hiddenBodies?.includes(p.ref), corners, ...(drives && selBodies.has(p.ref) ? { selected: true as const } : {}), ...(drives ? { play: m && m.body === drives && m.playing ? "pause" as const : "play" as const } : {}) }]; }),
     eyesQuiet: true, // (a body that is shown has no eye of its own now: Hide body is in the View menu, `in_697`; a hidden body keeps its eye)
     gearChip: s.tool || s.op || s.drag || s.repeat ? null : gearChipOf(sc, sel), // (the gear's icon is there when the gear is selected, not when the pointer is over it, `in_962`)

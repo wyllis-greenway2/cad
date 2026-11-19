@@ -4632,7 +4632,18 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1068 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (the explicit permission to write to that branch for this merge; the full test run is waived)
+> also why does this one jamb? does the body have a constraint that makes it so that it cannot rotate? Can we make it so that it pauses at collision, and flashes red the collision area, and that hitting play again restarts the animation.
+(the file `why_jamb.json`: the gear with the pin pushes the lever, a hard body, into the bar that turns on a pivot; asks why the bar does not turn out of the way, and for a pause at the collision, the area in red, and play after it to restart)
 
-## in_1069 — 2026-11-19 — directive
+## in_1070 — 2026-11-19 — question
+> okay but why cant the body just rotate on its own even without a coaxial mate? it is just moving in directions that are free of collision as long as they dont violate constraints? why is that limited to pure xyz movement only?
+(asks why the free push only slides: a body with no joint should move any way that is clear, turning as well; the AI had given the cost and a wrong reason, "a guess of the turning centre": a plane's motion is a slide and a turn about the body's own middle, no guess needed)
+
+## in_1071 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for `claude/adoring-dijkstra-jam-clash` to be merged into the testing branch, without a full test run; it carries the red jam area, play restarting after a jam, the Pivot project-file fix and the free push that turns as well as slides)
+
+
+## in_1072 — 2026-11-19 — directive
 > it took 29 seconds and looks like this
 (attached the project file model.cad_63.json, a 40 tooth face gear at module 2 with a 14 tooth mate, saved by build 589c0e2e, and a screenshot of its teeth: a flared foot, a concave neck and a straight-sided cap; the browser took 29 seconds to make the face gear)
