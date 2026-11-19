@@ -21,8 +21,8 @@ import type { CompileOutcome } from "../compiler/compile.ts";
 import type { Motion } from "./motion.ts";
 
 /** A body that yields: it turns about the axis through `point` with direction `dir` (or slides along `dir`), and stands at `value` degrees (mm) from where it was drawn. `rest`: where it goes back to when nothing holds it away (a spring, gravity: a follower dropping off a cam), as far as it is clear to. */
-export interface Pushable { body: Ref; kind: "turn" | "slide"; /** the mate whose joint it is (for keeping the pose) */ mate?: string; point: Vec3; dir: Vec3; value: number; /** the way it last went, so a tie goes on the same way */ way: 1 | -1; /** how far it was pushed the last time it was: the next push is about the same, so the search begins there */ push?: number; rest?: number; /** a body with no joint (`dec_contact_push`, free push): where it has been pushed to, as a move from where it is drawn; it goes any way in the plane across the turning axis */ free?: [number, number, number]; /** how far it has turned about its own middle (`point`), degrees, as well: a body with no joint has three freedoms in the plane, two of sliding and one of turning */ spin?: number; /** how far its outline reaches from its middle in the plane, mm: a turn of a degree is that much of a slide */ reach?: number; /** the way it was last slid (its place in the list of ways) and the way it was last turned, which the next push of that kind tries first; whether it was turning at the last push, and how many pushes ago it last looked for a slide */ dirSlide?: number; dirTurn?: [number, number]; turning?: boolean; since?: number; /** how many steps it has gone without being pushed */ still?: number; /** what a push could not go on because of: the body this one is against */ blockedBy?: Ref; /** a joint whose axis is carried: the body hangs on a pin of what moves (the driver or a gear it turns), so after it has turned about the pin where it stands at the start it is taken round by the carrier, about the carrier's axis, `k` times the driver's amount (`in_1143`) */ after?: { point: Vec3; dir: Vec3; k: number } }
-export interface Candidate { body: Ref; kind?: "turn" | "slide"; mate?: string; point: Vec3; dir: Vec3; rest?: number; way?: 1 | -1; /** a body with no joint: pushed aside by what it meets */ free?: true; reach?: number; /** a joint carried by a pin that moves (`Pushable.after`) */ after?: { point: Vec3; dir: Vec3; k: number } }
+export interface Pushable { body: Ref; kind: "turn" | "slide"; /** the mate whose joint it is (for keeping the pose) */ mate?: string; point: Vec3; dir: Vec3; value: number; /** the way it last went, so a tie goes on the same way */ way: 1 | -1; /** how far it was pushed the last time it was: the next push is about the same, so the search begins there */ push?: number; rest?: number; /** a body with no joint (`dec_contact_push`, free push): where it has been pushed to, as a move from where it is drawn; it goes any way in the plane across the turning axis */ free?: [number, number, number]; /** how far it has turned about its own middle (`point`), degrees, as well: a body with no joint has three freedoms in the plane, two of sliding and one of turning */ spin?: number; /** how far its outline reaches from its middle in the plane, mm: a turn of a degree is that much of a slide */ reach?: number; /** the way it was last slid (its place in the list of ways) and the way it was last turned, which the next push of that kind tries first; whether it was turning at the last push, and how many pushes ago it last looked for a slide */ dirSlide?: number; dirTurn?: [number, number]; turning?: boolean; since?: number; /** how many steps it has gone without being pushed */ still?: number; /** what a push could not go on because of: the body this one is against */ blockedBy?: Ref; /** a joint whose axis is carried: the body hangs on a pin of what moves (the driver or a gear it turns), so after it has turned about the pin where it stands at the start it is taken round by the carrier, about the carrier's axis, `k` times the driver's amount (`in_1143`) */ after?: { point: Vec3; dir: Vec3; k: number; slip?: true } }
+export interface Candidate { body: Ref; kind?: "turn" | "slide"; mate?: string; point: Vec3; dir: Vec3; rest?: number; way?: 1 | -1; /** a body with no joint: pushed aside by what it meets */ free?: true; reach?: number; /** a joint carried by a pin that moves (`Pushable.after`) */ after?: { point: Vec3; dir: Vec3; k: number; slip?: true } }
 export interface ContactState {
   pushables: Pushable[];
   /** the amount of the driver that was last worked out */
@@ -97,8 +97,15 @@ function moversOf(m: Motion, contact: ContactState): Mover[] {
   const out: Mover[] = [{ body: m.body, pose: (a) => jointOf(m.kind, m.point, m.dir, a), axis: m.dir, turns: m.kind === "turn" }];
   for (const f of m.follows) out.push({ body: f.body, axis: f.dir, turns: f.kind === "turn", pose: (a) => { const first = jointOf(f.kind, f.point, f.dir, followAmount(f, a)); return f.after ? compose(first, jointOf("turn", f.after.point, f.after.dir, f.after.k * a)) : first; } });
   const across = normalize(out.find((q) => q.turns)?.axis ?? [0, 0, 1]); // (the way a body with no joint turns: about the axis of what turns here)
-  contact.pushables.forEach((p, i) => out.push({ body: p.body, axis: p.dir, turns: p.kind === "turn" && !p.free, yields: true, pose: p.free ? () => compose(jointOf("turn", p.point, across, p.spin ?? 0), { turn: IDENT.turn, shift: p.free!, k: 1 }) : p.after ? (a, vals) => compose(jointOf(p.kind, p.point, p.dir, vals[i]!), jointOf("turn", p.after!.point, p.after!.dir, p.after!.k * a)) : (_a, vals) => jointOf(p.kind, p.point, p.dir, vals[i]!) }));
+  contact.pushables.forEach((p, i) => out.push({ body: p.body, axis: p.dir, turns: p.kind === "turn" && !p.free, yields: true, pose: p.free ? () => compose(jointOf("turn", p.point, across, p.spin ?? 0), { turn: IDENT.turn, shift: p.free!, k: 1 }) : p.after ? (a, vals) => compose(jointOf(p.kind, p.point, p.dir, vals[i]!), carryOf(p.after!, p.point, a)) : (_a, vals) => jointOf(p.kind, p.point, p.dir, vals[i]!) }));
   return out;
+}
+/** What carries a body that hangs on a pin at `point`, when the driver is at `a`: the carrier's turn about its axis, or, for a body that slips on the pin (`after.slip`), only the shift that turn gives the pin: the body is moved with the pin and is not turned with it. */
+function carryOf(after: { point: Vec3; dir: Vec3; k: number; slip?: true }, point: Vec3, a: number): Rigid {
+  const orbit = jointOf("turn", after.point, after.dir, after.k * a);
+  if (!after.slip) return orbit;
+  const q = applyPoint(orbit, point);
+  return { turn: IDENT.turn, shift: [q[0] - point[0], q[1] - point[1], q[2] - point[2]], k: 1 };
 }
 const IDENT: Rigid = { turn: [1, 0, 0, 0, 1, 0, 0, 0, 1], shift: [0, 0, 0], k: 1 };
 
@@ -243,7 +250,7 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
     let settled = false;
     const pushedNow = new Set<number>(); // (the bodies with no joint that were pushed in this step: they do not go back while something is pushing them)
     // only the bodies that moved since they were last tested are tested again: what did not move meets what did not move as it did before (the driver moved at the start of the step, then each body that yielded, one pass at a time: a chain is a walk along it, not a test of every body again at every link)
-    let dirty = new Set<number>(movers.map((_, w) => w).filter((w) => w < first));
+    let dirty = new Set<number>(movers.map((_, w) => w).filter((w) => w < first || !!work[w - first]!.after)); // (and a body carried by a pin: the driver moves it too)
     for (let pass = 0; pass < MAX_PASSES && !jam; pass++) {
       const next = new Set<number>();
       for (const w of dirty) {
@@ -257,6 +264,9 @@ export function solveContact(scene: Scene, m: Motion, outcome?: CompileOutcome, 
         // a body with no joint that is against another that yields, and the other cannot get out of its way, goes out of the other's way itself (clear of every body where it stands)
         const retried = !yielded && pi >= 0 && w >= first && w - first !== pi && !!work[w - first]!.free && yieldFree(scene, outcome, movers, a, vals, work[w - first] as Pushable & { free: [number, number, number] }, ways, pushes, w - first, w, movers[w]!.body, mated, ignore, solid, statics, clearance, true);
         if (retried) { pushedNow.add(w - first); next.add(w); continue; }
+        // a body carried by a pin that meets another that cannot get out of its way slips on the pin: it turns about it, the one freedom its constraint leaves (`in_1147`)
+        const slipped = !yielded && !retried && pi >= 0 && w >= first && w - first !== pi && !!work[w - first]!.after && yieldBody(scene, outcome, movers, a, vals, ways, kinds, pushes, w - first, w, hit, mated, ignore, solid, statics, clearance);
+        if (slipped) { next.add(w); continue; }
         if (yielded && pi >= 0) pushedNow.add(pi);
         if (!yielded) {
           const stuck = pi >= 0 ? work[pi]!.blockedBy : undefined; // (a body with no joint that is against another: say which)
