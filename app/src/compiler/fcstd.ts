@@ -1,4 +1,4 @@
-// Reading a FreeCAD document (`dec_exchange_gaps`): an `.FCStd` is a zip with `Document.xml` (the objects and, for those with a shape, the name of the `.brp` file that holds it), `GuiDocument.xml` (what is shown) and the `.brp` files (OpenCASCADE BREP text).
+// Reading a FreeCAD file (`dec_exchange_gaps`): an `.FCStd` is a zip with `Document.xml` (the objects and, for those with a shape, the name of the `.brp` file that holds it), `GuiDocument.xml` (what is shown) and the `.brp` files (OpenCASCADE BREP text).
 // Only the finished shapes are taken, not the sketches and the intermediate steps of a recipe: the shapes shown, or when the file says nothing about that, the ones no other object is made from. FreeCAD's recipe itself (its sketches and constraints) is not read.
 import { unzip } from "./meshfile.ts";
 import type { Parsed } from "./meshfile.ts";
@@ -37,7 +37,7 @@ export async function parseFcstd(bytes: Uint8Array): Promise<Parsed<FcShape[]>> 
   const withShape = objects.filter((o) => o.file && z.value.has(o.file));
   let chosen = said ? withShape.filter((o) => shown.has(o.name)) : withShape.filter((o) => !madeFrom.has(o.name));
   if (!chosen.length) chosen = withShape.filter((o) => !madeFrom.has(o.name)); // (everything hidden: the finished ones anyway)
-  if (!chosen.length) return { ok: false, error: withShape.length ? "this FreeCAD document has no finished shape to import" : "this FreeCAD document has no shapes in it (no .brp files)" };
-  const notes = [`${chosen.length} shape${chosen.length === 1 ? "" : "s"} of ${withShape.length} in the document (${said ? "the ones shown" : "the finished ones"}); the document's recipe, sketches and constraints are not read`];
+  if (!chosen.length) return { ok: false, error: withShape.length ? "this FreeCAD file has no finished shape to import" : "this FreeCAD file has no shapes in it (no .brp files)" };
+  const notes = [`${chosen.length} shape${chosen.length === 1 ? "" : "s"} of ${withShape.length} in the file (${said ? "the ones shown" : "the finished ones"}); the file's recipe, sketches and constraints are not read`];
   return { ok: true, value: chosen.map((o) => ({ name: o.name, label: o.label, brep: decode(z.value.get(o.file!)!) })), notes };
 }

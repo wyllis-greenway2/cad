@@ -185,7 +185,7 @@ export async function importAny(s: Session, name: string, bytes: Uint8Array, o: 
   if (ext === "fcstd") {
     const p = await parseFcstd(bytes);
     if (!p.ok) return { ok: false, error: p.error };
-    return importBrepData(s, name, p.value.map((x) => x.brep).join("\0"), o, "FreeCAD document", p.notes);
+    return importBrepData(s, name, p.value.map((x) => x.brep).join("\0"), o, "FreeCAD file", p.notes);
   }
   if (ext === "dxf" && new TextDecoder("latin1").decode(bytes.subarray(0, 18)) === "AutoCAD Binary DXF") {
     const t = binaryDxfText(bytes);
