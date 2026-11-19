@@ -4381,3 +4381,18 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > do 3 and 4
 (of the AI's list: the spur pinion's chamfer for the face gear drive (3), and a rendering sweep over the whole bevel gear family to look for defects the overlap numbers miss (4))
 
+## in_1007 — 2026-11-19 — question
+> okay so next I think we need to offer more file types on import and export in order to be compatible. What set do you think we should build next?
+(asks which import and export formats to build next for compatibility)
+
+## in_1008 — 2026-11-19 — question
+> okay I agree, but why not allow IGES export? what if somebody wants it in order to work with some older technology? is there a good reason to limit it?
+(agrees with the proposed order (OBJ and binary DXF, then DXF blocks and layers, then IGES) but asks for IGES to be written as well as read, for older systems)
+
+## in_1009 — 2026-11-19 — directive
+> yes, build it please, I will take your recommendations on specifics
+(asks for OBJ and binary DXF, DXF blocks and layers, and IGES both ways to be built, the details left to the AI)
+
+## in_1010 — 2026-11-19 — directive
+> instead of doing a new checkout, why not just merge into claude/inspiring-pascal-l342k7 please?
+(asks for the branch with the kernel build kit, OBJ and the DXF work to be merged into claude/inspiring-pascal-l342k7, so the build can be run from there)

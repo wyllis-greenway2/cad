@@ -2,14 +2,16 @@
 import type { Kernel } from "../compiler/kernel/adapter.ts";
 import { graphOf } from "../compiler/compile.ts";
 import { stlBytes, openEdges } from "../compiler/stl.ts";
+import { objBytes } from "../compiler/obj.ts";
 import { threeMfBytes, zipStored } from "../compiler/threemf.ts";
 import type { Session } from "./session.ts";
 import { EXPORT_QUALITY, EXPORT_NOTHING, canExport } from "./exportstl.ts";
 
-export type ExportFormat = "stl" | "3mf" | "step";
+export type ExportFormat = "stl" | "3mf" | "obj" | "step";
 export const FORMATS: Record<ExportFormat, { ext: string; mime: string; label: string }> = {
   stl: { ext: "stl", mime: "model/stl", label: "STL" },
   "3mf": { ext: "3mf", mime: "model/3mf", label: "3MF" },
+  obj: { ext: "obj", mime: "model/obj", label: "OBJ" },
   step: { ext: "step", mime: "model/step", label: "STEP" },
 };
 /** The choices every export has (`dec_import_export_menu`): the units the numbers are in and, for the meshes, how fine they are. */
@@ -44,7 +46,7 @@ export async function exportFile(s: Session, kernel: Kernel, format: ExportForma
   const title = name.replace(/\.[^.]*$/, "");
   const open = openEdges(m.vertices, m.triangles);
   const vertices = k === 1 ? m.vertices : m.vertices.map((x) => x * k); // (in inches the numbers are the millimetres over 25.4)
-  const bytes = format === "stl" ? stlBytes(vertices, m.triangles, title, units) : threeMfBytes(vertices, m.triangles, title, units);
+  const bytes = format === "stl" ? stlBytes(vertices, m.triangles, title, units) : format === "obj" ? objBytes(vertices, m.triangles, title, units) : threeMfBytes(vertices, m.triangles, title, units);
   const dims = [0, 1, 2].map((i) => +((m.bbox.max[i]! - m.bbox.min[i]!) * k).toFixed(units === "in" ? 3 : 2)).join(" × ");
   return { ok: true, name, bytes, mime: FORMATS[format].mime, message: `exported ${name} (${label}): ${triangles.toLocaleString("en-US")} triangles, ${dims} ${units}, ${kb(bytes.length)}${open ? `; the mesh has ${open} open edge${open === 1 ? "" : "s"}: check it in the slicer` : ""}` };
 }

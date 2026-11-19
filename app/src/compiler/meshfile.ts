@@ -222,3 +222,34 @@ export function shellsOf(mesh: Mesh): Parsed<{ shells: Mesh[]; turned: number; i
   }
   return shells.length ? { ok: true, value: { shells, turned, insideOut }, notes: [] } : { ok: false, error: "this mesh has no closed body in it" };
 }
+
+// ---------- OBJ ----------
+/** The corners (nine numbers for each triangle) of a Wavefront OBJ: `v` points and `f` faces (corner numbers counted from 1, or back from the last point when negative, with texture and normal numbers ignored); a face of more than three corners is cut into triangles from its first corner (right for the flat convex faces other programs write; a concave one is cut wrongly); lines, points, groups, materials and curved surfaces are left out and said. An OBJ has no units. */
+export function parseObj(text: string): Parsed<Float64Array> {
+  const pts: number[] = [];
+  const out: number[] = [];
+  const notes: string[] = [];
+  const left = new Set<string>();
+  let bad = 0;
+  for (const raw of text.replace(/\\\r?\n/g, " ").split(/\r?\n/)) {
+    const line = raw.replace(/#.*/, "").trim();
+    if (!line) continue;
+    const [key, ...rest] = line.split(/\s+/);
+    if (key === "v") {
+      const [x, y, z] = rest.map(Number);
+      if (![x, y, z].every((n) => Number.isFinite(n))) return { ok: false, error: `this OBJ file has a point that is not three numbers ("${line.slice(0, 40)}")` };
+      pts.push(x!, y!, z!);
+    } else if (key === "f") {
+      const n = pts.length / 3;
+      const ix = rest.map((w) => { const i = Number(w.split("/")[0]); return Number.isInteger(i) && i !== 0 ? (i > 0 ? i - 1 : n + i) : -1; });
+      if (ix.length < 3 || ix.some((i) => i < 0 || i >= n)) { bad++; continue; }
+      for (let k = 1; k + 1 < ix.length; k++) for (const i of [ix[0]!, ix[k]!, ix[k + 1]!]) out.push(pts[3 * i]!, pts[3 * i + 1]!, pts[3 * i + 2]!);
+      if (out.length / 9 > MAX_MESH_TRIANGLES) return { ok: false, error: tooMany(Math.floor(out.length / 9)) };
+    } else if (key === "l" || key === "p") left.add(key === "l" ? "lines" : "points");
+    else if (key && ["curv", "curv2", "surf", "cstype", "deg"].includes(key)) left.add("curved surfaces");
+  }
+  if (bad) return { ok: false, error: `this OBJ file has ${bad} face${bad === 1 ? "" : "s"} that name a point that is not there (or fewer than three corners)` };
+  if (!out.length) return { ok: false, error: pts.length ? "this OBJ file has points but no faces (f lines)" : "this is not an OBJ file (no v or f lines in it)" };
+  if (left.size) notes.push(`${[...left].join(" and ")} in the file left out`);
+  return { ok: true, value: Float64Array.from(out), notes };
+}

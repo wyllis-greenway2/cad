@@ -45,7 +45,7 @@ const bodyIds = (s: Session): string[] => Object.values(sceneOf(s).parts).flatMa
 export function fitExport(s: Session, given: Partial<ExportOptions>): ExportOptions {
   const o: ExportOptions = { ...EXPORT_DEFAULTS, ...given }; // (what is not given, or was never kept, is the usual)
   const ok = (k: ExportKind): boolean => (FLAT_KINDS.has(k) ? canExportFlat(s) : canExport(s));
-  const format = ok(o.format) ? o.format : (["stl", "3mf", "step", "svg", "dxf"] as const).find(ok) ?? o.format;
+  const format = ok(o.format) ? o.format : (["stl", "3mf", "obj", "step", "svg", "dxf"] as const).find(ok) ?? o.format;
   const what = o.what === "selected" && selectedBodies(s) ? "selected" : "all";
   const count = what === "selected" ? selectedBodies(s)!.length : bodyIds(s).length;
   return { ...o, format, what, perBody: o.perBody && count > 1 && !FLAT_KINDS.has(format), name: o.name.trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\.[A-Za-z0-9]{1,5}$/, "") };
@@ -60,6 +60,7 @@ export function exportDialog(s: Session, o0: Partial<ExportOptions>): Dialog {
     { id: "format", label: "Format", type: "choice", value: o.format, choices: [
       { value: "stl", label: "STL: for slicers and printers", ...(can3d ? {} : { disabled: NOTHING_3D }) },
       { value: "3mf", label: "3MF: for slicers (units, one file)", ...(can3d ? {} : { disabled: NOTHING_3D }) },
+      { value: "obj", label: "OBJ: a mesh, for Blender and other mesh programs", ...(can3d ? {} : { disabled: NOTHING_3D }) },
       { value: "step", label: "STEP: for other CAD programs and shops (exact)", ...(can3d ? {} : { disabled: NOTHING_3D }) },
       { value: "svg", label: "SVG: a flat drawing, for laser and vinyl", ...(canFlat ? {} : { disabled: NOTHING_FLAT }) },
       { value: "dxf", label: "DXF: a flat drawing, for CAD and CNC", ...(canFlat ? {} : { disabled: NOTHING_FLAT }) },
@@ -76,7 +77,7 @@ export function exportDialog(s: Session, o0: Partial<ExportOptions>): Dialog {
     fields.push({ id: "about", label: "What", type: "text", readonly: true, value: r.ok ? `${r.what}: ${r.pieces.length} piece${r.pieces.length === 1 ? "" : "s"}` : "", note: "the selected sketch or flat face; with nothing selected, the whole drawing (when it is on one plane)" });
   }
   fields.push({ id: "units", label: "Units", type: "choice", value: o.units, choices: [{ value: "mm", label: "Millimetres" }, { value: "in", label: "Inches" }] });
-  if (o.format === "stl" || o.format === "3mf") fields.push({ id: "quality", label: "Mesh quality", type: "choice", value: o.quality, choices: [{ value: "fine", label: "Fine (0.01 mm from the true surface)" }, { value: "medium", label: "Medium (0.05 mm)" }, { value: "coarse", label: "Coarse (0.2 mm: small files)" }] });
+  if (o.format === "stl" || o.format === "3mf" || o.format === "obj") fields.push({ id: "quality", label: "Mesh quality", type: "choice", value: o.quality, choices: [{ value: "fine", label: "Fine (0.01 mm from the true surface)" }, { value: "medium", label: "Medium (0.05 mm)" }, { value: "coarse", label: "Coarse (0.2 mm: small files)" }] });
   if (!flat) {
     const count = o.what === "selected" ? sel?.length ?? 0 : bodyIds(s).length;
     if (count > 1) fields.push({ id: "perBody", label: "Files", type: "check", value: o.perBody, note: `a file for each of the ${count} bodies, together in one zip` }); // (with one body there is nothing to choose)
@@ -106,9 +107,9 @@ export async function exportWith(s: Session, kernel: Kernel, o0: Partial<ExportO
 }
 
 // ---------- import ----------
-export const KIND_OF = (name: string): "step" | "stl" | "3mf" | "svg" | "dxf" | null => {
+export const KIND_OF = (name: string): "step" | "stl" | "3mf" | "obj" | "svg" | "dxf" | null => {
   const e = /\.([^.]+)$/.exec(name)?.[1]?.toLowerCase();
-  return e === "step" || e === "stp" ? "step" : e === "stl" || e === "3mf" || e === "svg" || e === "dxf" ? e : null;
+  return e === "step" || e === "stp" ? "step" : e === "stl" || e === "3mf" || e === "obj" || e === "svg" || e === "dxf" ? e : null;
 };
 
 /** Fit a number the person typed: more than nothing. */
@@ -119,7 +120,7 @@ export function importDialog(name: string, o0: Partial<ImportOptions>): Dialog {
   const kind = KIND_OF(name);
   const fields: Field[] = [{ id: "file", label: "File", type: "text", readonly: true, value: name }];
   const units = (fileSays: string): Field => ({ id: "units", label: "Units", type: "choice", value: o.units, choices: [{ value: "file", label: fileSays }, { value: "mm", label: "Millimetres" }, { value: "cm", label: "Centimetres" }, { value: "in", label: "Inches" }, { value: "m", label: "Metres" }] });
-  if (kind === "stl") fields.push({ id: "units", label: "Units", type: "choice", value: o.units === "file" ? numberSystem.system : o.units, choices: [{ value: "mm", label: "Millimetres (an STL has no units of its own)" }, { value: "cm", label: "Centimetres" }, { value: "in", label: "Inches" }, { value: "m", label: "Metres" }] });
+  if (kind === "stl" || kind === "obj") fields.push({ id: "units", label: "Units", type: "choice", value: o.units === "file" ? numberSystem.system : o.units, choices: [{ value: "mm", label: "Millimetres (an STL or OBJ has no units of its own)" }, { value: "cm", label: "Centimetres" }, { value: "in", label: "Inches" }, { value: "m", label: "Metres" }] });
   else if (kind === "3mf") fields.push(units("As the file says"));
   else if (kind === "svg") fields.push(units("As the file says (its size, or 96 to the inch)"));
   else if (kind === "dxf") fields.push(units("As the file says (its INSUNITS, else millimetres)"));
