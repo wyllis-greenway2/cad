@@ -5111,5 +5111,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1195 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 
+## in_1196 — 2026-11-19 — directive
 > I didn't want bearing of your own or catalog as an icon option, I just wanted it in the menu as an option at the top. changing it would change the menu and what it has on it.
 (asks that Catalogue / Your own is not two icons in the ring but a choice at the top of the bearing's box, and that changing it changes what the box shows)
