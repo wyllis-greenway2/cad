@@ -4648,6 +4648,10 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > it took 29 seconds and looks like this
 (attached the project file model.cad_63.json, a 40 tooth face gear at module 2 with a 14 tooth mate, saved by build 589c0e2e, and a screenshot of its teeth: a flared foot, a concave neck and a straight-sided cap; the browser took 29 seconds to make the face gear)
 
+## in_1073 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please do the full suite tests
+(asks for the branch to be merged into the testing branch, with the whole suite run)
+
 ## in_1075 — 2026-11-19 — directive
 > okay I think the precision settings to set certain distance on hand moved fastener should show up like a distance constraint bubble like it does on diameters etc. It should show the origin point, and also have that point be snappable so the user can put it back, and show distance moved from origin point.
 (asks for the precise distance of a hand-moved fastener to appear as a distance bubble in the view like the one on diameters; showing the origin point, which is snappable so the person can put the hole back, and showing the distance moved from it)
