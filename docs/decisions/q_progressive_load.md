@@ -60,6 +60,9 @@ depends_on:
 
 **Boxes before the replay and pieces with fillets, holes and moves built (`in_1058`, `dec_progressive_open`):** a frame with the boxes of 1000 parts is on the screen 121 ms after a project is opened (the replay then holds the page 3.4 s); fillets, holes and moves of a named body are parts' own steps: 250 parts with them 28 s whole, 4.3 s in pieces (6.6 times), in the built app 14 s with the page's 4 s replay. **Still open:** the replay in slices and quick for histories with moves, turns and scales, revolves, lofts, sweeps and gears as parts, touching parts, picking a ghost, lazy faces and edges (Phase 2), a kernel that does not hold everything (Phase 3).
 
+## Gears as lazy parts, measured before building (`in_1070`)
+The arm project (two meshed gears, one with a pin fused on) has 2234 parts: 724 are the gears' outline sketches (a side and a corner for every arc, named by the extrude step) and **1464 are the parts of the gear-and-pin body**, which keeps all its faces and edges because it is more than a gear (`dec_gear_feature` rule 2: its box is no longer the gear's). A throw-away experiment (the rule relaxed to a gear with additions along its axis, which also drops the pin's own faces: more than a real rule would) cut the parts from 2234 to 785 and gave: a preview 119 to 103 ms (-13%), opening 2.87 to 2.47 s (-14%). So the parts are not what a preview waits for; the saving is mostly memory and the frame. Not built: a real rule would have to keep the pin's faces and take only the teeth's (parts in the gear's slab and beyond its roots), and know that no step reached the teeth; and it overturns rule 2 of an accepted decision for 13% of a preview.
+
 ## Rationale
 
 The human asked how to make big models fast and tolerant of their size; this records the direction and its parts so that the order is theirs to choose. Nothing is built.

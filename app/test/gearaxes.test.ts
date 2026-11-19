@@ -1,4 +1,4 @@
-// Gears that turn each other about their own shafts (`in_1101`): a bevel, crown, spiral or face gear that was meshed stands on its own frame (not on the plane it shares with the gear it was made from), and a worm turns about its own length and turns its wheel.
+// Gears that turn each other about their own shafts (`in_1117`): a bevel, crown, spiral or face gear that was meshed stands on its own frame (not on the plane it shares with the gear it was made from), and a worm turns about its own length and turns its wheel.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";
