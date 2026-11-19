@@ -83,7 +83,7 @@ export function openSession(kernel: Kernel, text: string): Result<Session> {
   const h = fromText(text, c.derive);
   return h.ok ? ok(wrap(h.value, c.outcomeOf, !!kernel.lagging)) : h;
 }
-/** The project as text. `extra` is written beside the model under its own names (`in_1077`: what the page knew when it was saved, for a file to send when something is to be looked into); opening a project ignores it. */
+/** The project as text. `extra` is written beside the model under its own names (`in_1083`: what the page knew when it was saved, for a file to send when something is to be looked into); opening a project ignores it. */
 export const saveText = (s: Session, about?: About, extra?: Record<string, unknown>): string => {
   const text = toText(s.history, about);
   if (!extra) return text;

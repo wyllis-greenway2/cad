@@ -31,7 +31,7 @@ export interface Field {
 export interface Dialog { title: string; ok: string; fields: Field[] }
 
 // ---------- export ----------
-/** `project`: the model and its history as one file to open again, with what the page knew when it was saved (`in_1077`: a file to send when something is to be looked into). */
+/** `project`: the model and its history as one file to open again, with what the page knew when it was saved (`in_1083`: a file to send when something is to be looked into). */
 export type ExportKind = ExportFormat | "svg" | "dxf" | "project";
 export interface ExportOptions { format: ExportKind; what: "all" | "selected"; units: Units; quality: Quality; perBody: boolean; /** a DXF with the pieces that meet joined into one path each */ joined: boolean; /** a STEP file's schema */ schema: StepSchema; /** an IGES file's faces as surfaces or solids */ iges: "surfaces" | "solids"; name: string }
 export const EXPORT_DEFAULTS: ExportOptions = { format: "project", what: "all", units: "mm", quality: "fine", perBody: false, joined: true, schema: "ap214", iges: "surfaces", name: "" };

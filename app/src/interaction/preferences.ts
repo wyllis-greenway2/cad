@@ -8,7 +8,7 @@ export const KEY_ACTIONS: { id: string; label: string; group: string }[] = [
   { id: "undo", label: "Undo", group: "Edit" }, { id: "redo", label: "Redo", group: "Edit" }, { id: "delete", label: "Delete", group: "Edit" },
   { id: "copy", label: "Copy", group: "Edit" }, { id: "paste", label: "Paste", group: "Edit" }, { id: "group", label: "Group", group: "Edit" }, { id: "ungroup", label: "Ungroup", group: "Edit" },
   { id: "cancel", label: "Cancel / close", group: "Edit" },
-  { id: "save", label: "Export", group: "File" }, { id: "open", label: "Import", group: "File" }, // (Save and Open are Export and Import, `in_1077`: the keys stay)
+  { id: "save", label: "Export", group: "File" }, { id: "open", label: "Import", group: "File" }, // (Save and Open are Export and Import, `in_1083`: the keys stay)
   { id: "toolRect", label: "Rectangle", group: "Sketch" }, { id: "toolCircle", label: "Circle", group: "Sketch" }, { id: "toolLine", label: "Line", group: "Sketch" }, { id: "dimension", label: "Dimension", group: "Sketch" },
   { id: "extrude", label: "Push pull", group: "Shape" }, { id: "edge", label: "Fillet chamfer", group: "Shape" }, { id: "move", label: "Move", group: "Shape" }, { id: "rotate", label: "Rotate", group: "Shape" }, { id: "scale", label: "Scale", group: "Shape" },
   { id: "home", label: "Home view", group: "View" }, { id: "lookX", label: "Look along X", group: "View" }, { id: "lookY", label: "Look along Y", group: "View" }, { id: "lookZ", label: "Look along Z", group: "View" }, { id: "lookN", label: "Look at the selection", group: "View" },

@@ -183,7 +183,7 @@ const menu = createMenu(document.body, (id) => {
   else if (id === "constraints") dispatch({ type: "runAction", id: "constraints" });
   else if (id === "export") void exportDialogFlow();
   else if (id === "import") void importDialogFlow();
-  else if (id === "fabricate") { menu.show(menuAt[0], menuAt[1], [], fabricateList()); } // (a list of its own, in the same place: Fabricate, `in_1077`)
+  else if (id === "fabricate") { menu.show(menuAt[0], menuAt[1], [], fabricateList()); } // (a list of its own, in the same place: Fabricate, `in_1083`)
   else if (id === "laser") void laserDialogFlow();
   else if (id === "laserTable") void laserTableFlow();
   else if (id === "laserLayers") void laserLayersFlow();
@@ -199,7 +199,7 @@ const ring = createRing(document.body, (id) => {
   ring.hide();
   if (id === "view:game") { input.toggleGame(); return; }
   if (id === "repeat:path") { void pathRepeatFlow(); return; } // (`dec_path_repeat`)
-  if (id === "fab:material") { void materialDialogFlow(); return; } // (Shape, Fabricate, `in_1077`)
+  if (id === "fab:material") { void materialDialogFlow(); return; } // (Shape, Fabricate, `in_1083`)
   if (id === "tool:fasteners") { holesOpen(); return; } // (the tool is a panel and a preview in the model view, `dec_parts_tool`)
   dispatch({ type: "runAction", id });
 }, (id) => dispatch({ type: "runAction", id: `why:${id}` })); // (a dimmed option pressed: its reason is said and the ring stays, `in_538`)
@@ -266,7 +266,7 @@ function logIntent(i: Intent) {
   if (intentLog.length > 400) intentLog.shift();
 }
 /** A file of everything about the state of the page, to send for a bug report (the project in it can be opened again). */
-/** The project as the text of a file: the model and its history (`saveText`) and, under `state`, what the page knew when it was saved (the view, the selection, what the kernel answered, the last things done): one file to send when something is to be looked into (`in_1077`). */
+/** The project as the text of a file: the model and its history (`saveText`) and, under `state`, what the page knew when it was saved (the view, the selection, what the kernel answered, the last things done): one file to send when something is to be looked into (`in_1083`). */
 function projectText(): string {
   const at = new Date();
   const snap = snapshotOf(state, { intents: intentLog, viewport: { w: view.size().w, h: view.size().h, dpr: window.devicePixelRatio }, device: lastDevice, userAgent: navigator.userAgent, build: typeof __BUILD__ === "string" ? __BUILD__ : "", scrollMode: recognizer.scrollMode, timing: timing.summary(), at: at.toISOString(), pointer });
@@ -279,7 +279,7 @@ const say = (message: string) => { state = { ...state, session: { ...state.sessi
 async function exportDialogFlow() {
   let saved = EXPORT_DEFAULTS;
   try { saved = { ...EXPORT_DEFAULTS, ...JSON.parse(webStore.get(EXPORT_KEY) ?? "{}") }; } catch { /* not kept, or not readable: the usual */ }
-  saved = { ...saved, units: units.system, format: "project" }; // (the units start from the number system of the settings page; a different choice here is for this file only, `in_677`; the first format is the project: what is saved most, `in_1077`)
+  saved = { ...saved, units: units.system, format: "project" }; // (the units start from the number system of the settings page; a different choice here is for this file only, `in_677`; the first format is the project: what is saved most, `in_1083`)
   const answers = await dialog.open((v) => exportDialog(state.session, v as unknown as ExportOptions), (({ name: _name, ...rest }) => rest)(fitExport(state.session, { ...saved, name: "" })) as unknown as Values); // (the file name is not asked as an answer to begin with: the dialog offers its own)
   if (!answers) return;
   const o = fitExport(state.session, answers as unknown as ExportOptions);
@@ -544,7 +544,7 @@ const FLAT_OR_NOT = (f: string): string => (f === "3mf" ? "3MF" : f.toUpperCase(
 async function importDialogFlow(given?: { name: string; bytes: Uint8Array }) {
   const picked = given ?? (await webFiles.pick(IMPORT_KINDS));
   if (!picked) return;
-  if (/\.json$/i.test(picked.name) || new TextDecoder().decode(picked.bytes.slice(0, 40)).includes("cad-project")) { // a project (what Export writes first): opened as it was, with the state it carries ignored (`in_1077`)
+  if (/\.json$/i.test(picked.name) || new TextDecoder().decode(picked.bytes.slice(0, 40)).includes("cad-project")) { // a project (what Export writes first): opened as it was, with the state it carries ignored (`in_1083`)
     const text = new TextDecoder().decode(picked.bytes);
     const r = await openProjectText(text);
     if (r.ok) { adopt(r.value); const a = aboutOf(text); say(a ? `opened a project saved by ${a.app}${a.build ? ` build ${a.build}` : ""} on ${a.saved.slice(0, 10)}` : "opened the project"); } else { openingGhosts = null; say(r.error); }
@@ -561,7 +561,7 @@ async function importDialogFlow(given?: { name: string; bytes: Uint8Array }) {
 }
 function dispatch(i: Intent, again = false) {
   if (!again) logIntent(i);
-  if (i.type === "save") { void exportDialogFlow(); return; } // (Save and Open are Export and Import: every file going out or coming in, `in_1077`)
+  if (i.type === "save") { void exportDialogFlow(); return; } // (Save and Open are Export and Import: every file going out or coming in, `in_1083`)
   if (i.type === "open") { void importDialogFlow(); return; }
   if (i.type === "menuTurn") { if (ring.open) ring.turn(i.dx, i.dy); dirty = true; return; }
   if (ring.open && recognizer.game) {

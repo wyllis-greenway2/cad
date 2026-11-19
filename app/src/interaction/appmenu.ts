@@ -6,16 +6,16 @@ export const appRows = (build = "", can: { export?: boolean; /** how many mates 
   { id: "bodies", label: "Bodies", enabled: true, why: null },
   { id: "history", label: "History", enabled: true, why: null },
   { id: "groups", label: "Groups", enabled: true, why: null },
-  { id: "import", label: "Import…", enabled: true, why: null }, // (every file coming in, a project too; Open is gone, `in_1077`)
-  { id: "export", label: "Export…", enabled: can.export ?? true, why: "nothing to export yet" }, // (every file going out, a project first; Save and Share state are gone, `in_1077`)
-  { id: "fabricate", label: "Fabricate", enabled: true, why: null }, // (a list of its own: the laser, `in_1077`)
+  { id: "import", label: "Import…", enabled: true, why: null }, // (every file coming in, a project too; Open is gone, `in_1083`)
+  { id: "export", label: "Export…", enabled: can.export ?? true, why: "nothing to export yet" }, // (every file going out, a project first; Save and Share state are gone, `in_1083`)
+  { id: "fabricate", label: "Fabricate", enabled: true, why: null }, // (a list of its own: the laser, `in_1083`)
   { id: "clearAnswers", label: "Clear cache", enabled: !!can.clearAnswers, why: "no kept answers in this page" },
   { id: "constraints", label: allConstraints ? "All constraints" : "Key constraints", enabled: true, why: null },
   { id: "hard:clearance", label: `Clearance ${lengthText(clearance)}`, enabled: true, why: null },
   { id: "settings", label: "Settings…", enabled: true, why: null }, // (the options of the view, the mouse and the keyboard, and the number system are on their own page, `in_661`)
   { id: "build", label: build ? `Build ${build}` : "Build", enabled: false, why: "which version of the app this page is running" },
 ];
-/** The list under Fabricate in the ⋯ list: what is made from a drawing with a laser (`in_1077`; the material and the fastener tool are in the ring, Shape, Fabricate). */
+/** The list under Fabricate in the ⋯ list: what is made from a drawing with a laser (`in_1083`; the material and the fastener tool are in the ring, Shape, Fabricate). */
 export const fabricateRows = (can: { laser?: boolean; laserLayers?: boolean; laserTable?: boolean } = {}): AppRow[] => [
   { id: "laser", label: "Laser cut…", enabled: can.laser ?? true, why: "draw something, or select a sketch first" },
   { id: "laserLayers", label: "Laser layers…", enabled: can.laserLayers ?? true, why: "select lines or a figure of the drawing first" },

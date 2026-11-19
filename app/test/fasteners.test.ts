@@ -468,7 +468,7 @@ const find = (items: Item[], id: string): Item | undefined => { for (const i of 
 test("the right-click ring has the Fastener tool under Shape, Fabricate (the hammer), next to Material, and no Models", () => {
   const items = ringOf(createSession(kernel));
   const shape = items.find((i) => i.id === "shape")!;
-  const fab = shape.children!.find((i) => i.id === "fabricate")!; // (Shape, Fabricate: the material and the fastener tool, `in_1077`)
+  const fab = shape.children!.find((i) => i.id === "fabricate")!; // (Shape, Fabricate: the material and the fastener tool, `in_1083`)
   assert.equal(fab.label, "Fabricate");
   const tool = fab.children!.find((i) => i.id === "tool:fasteners")!;
   assert.equal(tool.label, "Fastener tool");

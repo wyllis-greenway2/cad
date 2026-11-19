@@ -103,7 +103,7 @@ test("a name that is too long or has control characters is refused; nothing sele
   assert.ok(ctl.message, "and says why");
 });
 
-test("Material is under Shape, Fabricate in the ring (with the fastener tool), live with a body selected and dimmed with the reason without one (`in_1077`)", () => {
+test("Material is under Shape, Fabricate in the ring (with the fastener tool), live with a body selected and dimmed with the reason without one (`in_1083`)", () => {
   const ring = (sess: Session) => reduce({ ...createState(sess), cam: homeCamera() }, { type: "menu", x: 400, y: 300, button: true }, { w: 800, h: 600, now: 0 }).menu!.items;
   const shape = ring(createSession(kernel)).find((i) => i.id === "shape")!;
   const fab = shape.children!.find((i) => i.id === "fabricate")!;

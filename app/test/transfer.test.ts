@@ -56,7 +56,7 @@ test("a project file says at its top what made it and when; a file saved before 
 // ---------- the Export dialog ----------
 test("with nothing to export every format is greyed out with its reason; with a body the 3D ones are on and the quality is asked only for the meshes", () => {
   const empty = exportDialog(createSession(kernel), opts());
-  assert.ok(field(empty, "format")!.choices!.filter((c) => c.value !== "project").every((c) => /nothing to export yet/.test(c.disabled ?? "")), "every format but a project (which is always there, `in_1077`)");
+  assert.ok(field(empty, "format")!.choices!.filter((c) => c.value !== "project").every((c) => /nothing to export yet/.test(c.disabled ?? "")), "every format but a project (which is always there, `in_1083`)");
   const s = block();
   const stl = exportDialog(s, opts({ format: "stl" }));
   assert.deepEqual(field(stl, "format")!.choices!.map((c) => [c.value, !c.disabled]), [["project", true], ["stl", true], ["3mf", true], ["obj", true], ["step", true], ["iges", true], ["brep", true], ["svg", true], ["dxf", true]]);
@@ -95,7 +95,7 @@ test("the options are made to fit: a format with nothing to export gives way to 
   assert.equal(fitExport(drawn, opts({ format: "stl" })).format, "svg", "a drawing and no body: a flat format");
   assert.equal(fitExport(block(), opts({ name: " a/b:c.stl " })).name, "a-b-c");
   assert.equal(fitExport(block(), opts({ name: "plain" })).name, "plain");
-  assert.equal(fitExport(createSession(kernel), {}).format, "project", "the project is what is exported first: it needs nothing to be there (`in_1077`)");
+  assert.equal(fitExport(createSession(kernel), {}).format, "project", "the project is what is exported first: it needs nothing to be there (`in_1083`)");
   // options that are not all there (nothing kept yet, or only some of it) are the usual for what is missing: the dialog opens with them
   assert.deepEqual(fitExport(block(), {}), { ...EXPORT_DEFAULTS, format: "project", name: "" });
   assert.doesNotThrow(() => exportDialog(block(), { format: "3mf" }));

@@ -112,7 +112,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "op:linear", label: "Line repeat", icon: "linear", op: "linear" },
   { id: "op:circular", label: "Round repeat", icon: "circular", op: "circular" },
   { id: "repeat:path", label: "Path repeat", icon: "pathrepeat" }, // (`dec_path_repeat`, `in_841`: a figure repeated along a line, a curve or an outline)
-  { id: "fab:material", label: "Material", icon: "models" }, // (Shape, Fabricate: what a body is made of, `in_1077`; it was a row of the ⋯ list)
+  { id: "fab:material", label: "Material", icon: "models" }, // (Shape, Fabricate: what a body is made of, `in_1083`; it was a row of the ⋯ list)
   { id: "tool:fasteners", label: "Fastener tool", icon: "fastener" }, // (Shape: the hole for a fastener cut into the face selected, with the hardware inserted if asked, `in_813`, `in_912`)
   { id: "body:hard", label: "Hard body", icon: "hard", select: "hard" }, // (a constraint: no other body goes into it while one or the other is moved by hand, `in_473`, `in_490`)
   { id: "body:fixed", label: "Fixed body", icon: "hard", select: "fixed" }, // (a body that stays where it is when a played body pushes on it: a wall; a hard body with no joint is otherwise pushed aside, `dec_contact_push`, `in_1049`)
