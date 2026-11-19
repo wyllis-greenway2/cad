@@ -4849,3 +4849,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1125 — 2026-11-19 — directive
 > check the gearbox again, another claude was working on that and it is important I think
+
+## in_1126 — 2026-11-19 — question
+> okay what to do now?
