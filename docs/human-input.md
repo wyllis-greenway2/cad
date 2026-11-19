@@ -5111,9 +5111,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1195 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 
-## in_1196 — 2026-11-19 — directive
+## in_1199 — 2026-11-19 — directive
 > When you try to voilate a constraint the message is way way too long. I think it should just flash it red, like it already does, and offer button to delete constraints
 (a screenshot: a pill reading "that cannot be done without breaking other constraints: the Coincident constraint (it flashes) holds what it would move" with the button "Delete constraint to proceed")
 
-## in_1197 — 2026-11-19 — directive
+## in_1200 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests

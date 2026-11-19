@@ -1315,7 +1315,7 @@ test("a side that a locked length holds is refused like any other change: the no
   assert.ok(refusal?.action, "a refusal by a constraint has the button");
   assert.deepEqual(refusal!.action!.intent, { type: "overrideRefusal" });
   assert.ok(refusal!.beside, "it stands by the constraint that stopped it");
-  assert.equal(frame(st).refusal?.text, "", "no words: the constraint flashes and the button is beside it (`in_1196`)");
+  assert.equal(frame(st).refusal?.text, "", "no words: the constraint flashes and the button is beside it (`in_1199`)");
   const before = scene(st.session).relations.length;
   st = reduce(st, refusal!.action!.intent, env);
   assert.ok(scene(st.session).relations.length < before, "the constraint that held it is deleted");
