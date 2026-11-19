@@ -4189,3 +4189,6 @@ Branch `claude/adoring-dijkstra-carry`. **Offer:** "Slow animation", **Fix Const
 
 ## Handoff 1042 — 2026-11-19 (in_1178: the bar's finish merged into the testing branch; a new working branch)
 `in_1178`. Merged the testing branch's tip (up to `in_1175`, Handoff 1040, after a second look) into this branch and pushed to `claude/inspiring-pascal-l342k7`; a new working branch, `claude/cool-einstein-odsxco-gears6`, starts from the result. **Numbers:** my `in_1162`-`in_1164` became `in_1176`-`in_1178` and my Handoff 1030 became 1040, in a commit of their own before the merge. **Conflicts:** `human-input.md` and `handoff.md` (theirs first) and `controller.ts` (my block that turns the constraints of a deselected body off, beside the line the testing branch already had). Checked: types, layers, unused and the bar, hidden body, selection, sheet and gear tests; the full suite was not run.
+
+## Handoff 1043 — 2026-11-19 (in_1179: a new working branch from the testing branch)
+`in_1179` (the same words as `in_1177`, said again after the merge was made). Started `claude/cool-einstein-odsxco-gears6` from the tip of `claude/inspiring-pascal-l342k7` (`1ccddf27`). Work goes on it from here; `claude/cool-einstein-odsxco-gears5` is left as it was.
