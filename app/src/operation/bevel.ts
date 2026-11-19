@@ -67,7 +67,7 @@ export function bevelOf(spec: GearSpec): Result<BevelGeometry> {
       ? ok({ delta: Math.PI / 2, R: p.R2, face: p.outer - p.inner, big: 0, small: 0, k: 1, pitchRadius: p.R2, tipRadius: p.outer, rootRadius: p.inner, addendum: p.hK, dedendum: p.hF, zv: Infinity })
       : ok({ delta: 0, R: p.r1, face: p.outer - p.inner, big: 0, small: 0, k: 1, pitchRadius: p.r1, tipRadius: p.r1 + p.hK, rootRadius: p.r1 - p.hF, addendum: p.hK, dedendum: p.hF, zv: z });
   }
-  if (b.spiral !== undefined) { // a spiral bevel gear: its pair's numbers (`spiral.ts`)
+  if (b.spiral !== undefined && !isCrown(spec)) { // a spiral bevel gear: its pair's numbers (`spiral.ts`); a spiral crown gear is a crown gear below
     const sp = spiralFor(spec);
     if (!sp.ok) return sp;
     const g = spiralGeometry(sp.value.pair, sp.value.which);
@@ -81,7 +81,7 @@ export function bevelOf(spec: GearSpec): Result<BevelGeometry> {
   if (!(alpha > 0 && alpha < (35 * Math.PI) / 180)) return err("the pressure angle must be between 0 and 35 degrees");
   const delta = pitchAngle(z, mate, shaft);
   if (isCrown(spec)) { // a crown gear: flat, the pitch point on the plane of its face (`crown.ts`); the numbers the pair and the mesh use are these
-    const R = (m * z) / 2, fc = b.face ?? 0.15; // (CROWN_FACE of `crown.ts`)
+    const R = (m * z) / 2 / Math.cos(((b.spiral ?? 0) * Math.PI) / 180), fc = b.face ?? 0.15; // (CROWN_FACE of `crown.ts`; with a spiral the module is the normal one at the middle of the face)
     return ok({ delta, R, face: R * fc, big: 0, small: 0, k: 1, pitchRadius: R, tipRadius: R, rootRadius: R * (1 - fc), addendum: m, dedendum: 1.25 * m, zv: Infinity });
   }
   const deltaMate = (shaft * Math.PI) / 180 - delta;

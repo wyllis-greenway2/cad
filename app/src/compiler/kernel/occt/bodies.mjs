@@ -27,7 +27,7 @@ export const box = (s) => {
   return { min: [...made.min], max: [...made.max] };
 };
 /** A box round a solid that is quick to find (a little roomier than the exact one for freeform faces). */
-function quickBox(s) {
+export function quickBox(s) {
   const oc = getOC();
   const b = new oc.Bnd_Box();
   try { oc.BRepBndLib.Add(s.wrapped, b, false); const [a, z] = [b.CornerMin(), b.CornerMax()]; const out = { min: [a.X(), a.Y(), a.Z()], max: [z.X(), z.Y(), z.Z()] }; a.delete(); z.delete(); return out; } finally { b.delete(); }

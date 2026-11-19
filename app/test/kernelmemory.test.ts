@@ -85,3 +85,58 @@ test("a model that needs more than the limit from the start does not have its th
   workers[0]!.answer(2200);
   assert.equal(workers.length, 2, "grown by more than two fifths of its first answer: restarted");
 });
+
+test("the thread the page started while the app was still loading is the one the kernel uses, once (`in_990`)", () => {
+  const listeners: ((e: { data: unknown }) => void)[] = [];
+  const posted: unknown[] = [];
+  const early: WorkerLike = { postMessage: (m) => { posted.push(m); }, addEventListener: (t, f) => { if (t === "message") listeners.push(f); } };
+  (globalThis as unknown as { __earlyKernel?: WorkerLike }).__earlyKernel = early;
+  const k = createAsyncKernel(() => {});
+  assert.equal((globalThis as unknown as { __earlyKernel?: WorkerLike }).__earlyKernel, undefined, "taken: a restart does not get it again");
+  for (const f of listeners) f({ data: { ready: true } });
+  k.evaluate(graph(1));
+  assert.equal(posted.length, 1, "its first job went to the early thread");
+});
+
+test("a step the kernel cannot make leaves the picture of the model as it was, with the error on the step (`in_997`)", () => {
+  const listeners: ((e: { data: unknown }) => void)[] = [];
+  const posted: { id: number }[] = [];
+  const w: WorkerLike = { postMessage: (m) => { posted.push(m as { id: number }); }, addEventListener: (t, f) => { if (t === "message") listeners.push(f); } };
+  const k = createAsyncKernel(() => {}, w);
+  for (const f of listeners) f({ data: { ready: true } });
+  const mesh = { vertices: new Float32Array([0, 0, 0]), normals: new Float32Array([0, 0, 1]), triangles: new Uint32Array([0, 0, 0]) };
+  k.evaluate(graph(1));
+  for (const f of listeners) f({ data: { id: posted.shift()!.id, result: { ...EMPTY, mesh, bodies: [{ id: "x_a", min: [0, 0, 0], max: [1, 1, 1], volume: 1 }] } } });
+  const good = k.evaluate(graph(1));
+  assert.ok(good.mesh && !good.stale);
+  k.evaluate(graph(2));
+  for (const f of listeners) f({ data: { id: posted.shift()!.id, failed: "out of memory" } });
+  const failed = k.evaluate(graph(2));
+  assert.equal(failed.mesh, mesh, "the picture is the one before");
+  assert.equal(failed.bodies?.length, 1);
+  assert.equal(failed.ops.at(-1)?.error, "out of memory", "the error is on the step");
+});
+
+test("the kernel's steps stop when its memory is full, and say so, instead of going on until the page dies (`in_997`)", async () => {
+  const { kernel } = await import("../src/compiler/kernel/index.ts");
+  const { setMemoryStop, clearKernelCaches } = await import("../src/compiler/kernel/occt/interpreter.mjs");
+  await kernel.init();
+  const sk = (id: string, x: number) => ({ id, type: "sketch", shape: "rect", w: 4, d: 4, at: [x, 0], plane: "XY", origin: 0 });
+  const g = { params: {}, ops: [sk("s_a", 0), { id: "x_a", type: "extrude", profile: "s_a", distance: 3, mode: "add" }, sk("s_b", 20), { id: "x_b", type: "extrude", profile: "s_b", distance: 3, target: "x_a", mode: "new" }] };
+  clearKernelCaches();
+  const fine = kernel.evaluate(g as never) as unknown as { ops: { error: string | null }[] };
+  assert.deepEqual(fine.ops.map((o) => o.error), [null, null, null, null]);
+  clearKernelCaches();
+  setMemoryStop(1); // (any memory is too much)
+  try {
+    const full = kernel.evaluate(g as never) as unknown as { ops: { id: string; error: string | null }[] };
+    assert.ok(full.ops.every((o) => o.error && /too big for the kernel's memory/.test(o.error)), JSON.stringify(full.ops.map((o) => o.error)));
+  } finally { setMemoryStop(3300); clearKernelCaches(); }
+});
+
+test("a thread at the kernel's own stop size is restarted even when it was that big at its first answer (`in_997`)", () => {
+  const { k, workers } = rig({ restartMb: 1000, hardMb: 3000 });
+  k.evaluate(graph(1));
+  workers[0]!.answer(3400); // (its first answer, above what the kernel makes steps at)
+  assert.equal(workers.length, 2, "restarted: otherwise every step after it says the memory is full");
+});

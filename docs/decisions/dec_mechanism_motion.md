@@ -64,6 +64,10 @@ The motion bar has a **⇄ switch**: the speed changes sign and a motion that is
 
 The **play button** of an animated body (the one beside where its eye would be) and the **gear icon** are shown for a body that is **selected** (or has a face selected), **not when the pointer is over it** (`in_962` took back the hover icon of `in_864`; Edit, Helix and Mesh by the icon on a part still select the gear first). The **pause button** stays shown for the body whose motion is playing, selected or not. `Frame.bodyEyes[].selected`; `gearChipOf` takes the selection only.
 
+## Built: what is selected goes with its body; no pause icons on the bodies (`in_984`)
+
+While a motion plays, what is **selected** is drawn by the matrix of **its own body** (`Frame.selectionMatrix`: the driver's, a follower's, the identity for a body that stays; the identity when the selected bodies differ), not by the driver's matrix as before: the highlight of a gear turned by another floated away, turned about the wrong axis. The **pause button on a body is gone**: the play button shows for a selected body, and the bar's pause is the one while it plays. Not done: the drawn sketch that made a body (its figure) is not moved with it during a motion.
+
 ## The five choices (approved at `in_824`)
 
 1. **The pose is view only** (nothing written until **keep this pose**), not a committed motion.

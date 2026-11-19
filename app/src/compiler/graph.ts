@@ -126,7 +126,7 @@ export function buildGraph(scene: Scene): GraphResult {
         if (!matched.ok) { errors[st.id] = matched.why; break; }
         matched.sketches.forEach((s) => ops.push(s));
         sections.forEach((s) => s.holes.forEach((h) => ops.push(h)));
-        ops.push({ id: xid, type: "loft", sections: sections.map((s, i) => ({ profile: matched.sketches[i]!.id, holes: s.holes.map((h) => h.id) })), smooth: st.params.ruled ? false : true, ...(typeof st.params.gear === "string" && scene.gears?.some((g) => g.id === st.params.gear && g.spec.wheel) ? { matched: true } : {}), ...(typeof st.params.gear === "string" ? { trusted: true } : {}), ...(prev ? { target: prev } : {}), mode: !prev ? "add" : st.params.mode === "add" || st.params.mode === "cut" || st.params.mode === "new" ? String(st.params.mode) : "cutOrAdd" });
+        ops.push({ id: xid, type: "loft", sections: sections.map((s, i) => ({ profile: matched.sketches[i]!.id, holes: s.holes.map((h) => h.id) })), smooth: st.params.ruled ? false : true, ...(Number(st.params.maxDegree) > 0 ? { maxDegree: Number(st.params.maxDegree) } : {}), ...(typeof st.params.gear === "string" && scene.gears?.some((g) => g.id === st.params.gear && g.spec.wheel) ? { matched: true } : {}), ...(typeof st.params.gear === "string" ? { trusted: true } : {}), ...(prev ? { target: prev } : {}), mode: !prev ? "add" : st.params.mode === "add" || st.params.mode === "cut" || st.params.mode === "new" ? String(st.params.mode) : "cutOrAdd" });
         prev = xid;
         break;
       }

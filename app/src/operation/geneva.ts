@@ -14,7 +14,21 @@ import { bulgeOf } from "./arcs.ts";
 /** how far apart the shafts are for this many slots and this crank radius */
 export const genevaCentres = (slots: number, crank: number): number => crank / Math.sin(Math.PI / slots);
 const polar = (r: number, a: number): V2 => [r * Math.cos(a), r * Math.sin(a)];
+const MIN_ROOM = 0.5; // mm the wheel's rim stands short of the crank's shaft, over the clearance, at least, when there is a locking disc (less and the wheel's rim, turning, takes all of the locking disc)
+const lockOnAtAll = (s: CamSpec): boolean => s.lock === undefined || s.lock > 0;
 const MIN_WALL = 1; // mm of wheel kept between two slots at the foot of their ends, and of disc round the shaft's hole
+/**
+ * The pin's diameter when none is typed: a quarter of the crank's radius for the slot counts that have room for it, less for the others (`in_986`): the wheel's rim stands a pin's width and a clearance beyond where the pin enters, and the rim
+ * must stay clear of the crank's shaft (a distance of `a tan(pi / 2n)` from where the pin enters), or the locking disc has no room left and is cut to nothing; with few slots the slot's end must stay clear of the middle and of its neighbours.
+ */
+export function genevaDefaultPin(slots: number, crank: number, clearance = 0.3): number {
+  const n = Math.round(slots);
+  if (!(n >= 3 && n <= 24) || !(crank > 0)) return crank / 4;
+  const half = Math.PI / n;
+  const sc = genevaCentres(n, crank) - crank; // (the slot's end, from the wheel's centre)
+  const room = Math.min(2 * (sc - clearance - MIN_WALL - 0.5), 2 * sc * Math.sin(half) - 2 * clearance - MIN_WALL - 0.5, 0.8 * crank * Math.tan(half / 2));
+  return room > 0 ? Math.min(crank / 4, room) : crank / 4; // (no room at all: a quarter, and the numbers say why they make no drive)
+}
 /** the wheel's radius: the pin enters at b; the rim stands a little beyond the pin's far side */
 export const genevaWheelRadius = (slots: number, crank: number, pin: number, clearance: number): number => genevaCentres(slots, crank) * Math.cos(Math.PI / slots) + pin / 2 + clearance + 0.6;
 
@@ -134,6 +148,7 @@ export function genevaShapes(s: CamSpec, quick = false): Result<{ polys: { point
   const sc = c - a; // the pin's nearest approach: the middle of the slot's rounded end
   const delta = Math.asin(w / 2 / rw); // half the slot's mouth, as an angle
   const half = Math.PI / n;
+  if (lockOnAtAll(s) && c - rw < clr + MIN_ROOM) return err("the wheel's rim would reach the crank's shaft, leaving no room for the locking disc: use fewer slots, a smaller pin or clearance, or a bigger crank (or Lock 0 for no locking disc)");
   if (sc - w / 2 < MIN_WALL) return err("a slot would reach the middle of the wheel: use more slots, or a smaller pin or clearance");
   if (2 * sc * Math.sin(half) - w < MIN_WALL) return err("two slots would meet at their ends: use a smaller pin or clearance, or more slots");
   // the locking arcs: a circle about the disc's centre, `clearance` bigger than the disc, meets the rim at an angle gamma either side of the middle of the stretch between two slots
@@ -173,6 +188,7 @@ export function genevaShapes(s: CamSpec, quick = false): Result<{ polys: { point
   const hy = -(rw + 6 + Math.max(p, 4));
   const layout = s.layout ?? "apart";
   let hole = s.hole;
+  let discHole = -1; // (-1: the same as the wheel's)
   let discOutline: ((t: number) => V2) | null = null;
   let radii: number[] | null = null;
   const COUNT = 720;
@@ -181,7 +197,8 @@ export function genevaShapes(s: CamSpec, quick = false): Result<{ polys: { point
   } else if (lockOn) {
     radii = smoothUnder(discRadii(outlinePoints(wheel.points, wheel.bulges), c, a, Math.PI / 2 - half, clr, rl, COUNT), 8);
     const smallest = Math.min(...radii);
-    if (hole < 0) hole = Math.max(0, Math.min(a / 4, 2 * (smallest - MIN_WALL), 2 * (sc - w / 2 - MIN_WALL)));
+    if (!(smallest > 0.05)) return err("the wheel, as it turns, leaves no room for the locking disc: use fewer slots, a smaller pin or clearance, or a bigger crank (or Lock 0 for no locking disc)");
+    if (hole < 0) { hole = Math.max(0, Math.min(a / 4, 2 * (sc - w / 2 - MIN_WALL))); discHole = Math.max(0, Math.min(hole, 2 * (smallest - MIN_WALL))); } // (the disc's own hole is as big as its notch's narrowest part allows; the wheel's and the crank's do not wait on it, `in_986`)
     else if (hole / 2 > smallest - MIN_WALL + 1e-9) return err("the locking disc's notch comes too near the shaft's hole (the wheel's rim passes close to the disc's shaft): use a smaller hole, a bigger crank, or fewer slots");
   } else if (hole < 0) hole = Math.max(0, Math.min(a / 4, 2 * (sc - w / 2 - MIN_WALL)));
   if (hole / 2 > sc - w / 2 - MIN_WALL + 1e-9) return err("a slot would reach the shaft's hole: use more slots, a smaller pin or clearance, or a smaller hole");
@@ -207,7 +224,7 @@ export function genevaShapes(s: CamSpec, quick = false): Result<{ polys: { point
   const [kx, ky] = crankAt;
   const q2: V2 = [kx + xh, ky - rp], t2: V2 = [kx + a, ky - rp], t1: V2 = [kx + a, ky + rp], q1: V2 = [kx + xh, ky + rp];
   const crank = { points: [q2, t2, t1, q1], bulges: [0, bulgeOf(t2, [kx + a + rp, ky], t1), 0, bulgeOf(q1, [kx - rh, ky], q2)] };
-  const circles: CamShapes["circles"] = hole > 0 ? [{ c: [0, 0], r: hole / 2, hole: true }, { c: crankAt, r: hole / 2, hole: true }, ...(lockOn ? [{ c: discAt, r: hole / 2, hole: true as const }] : [])] : [];
+  const circles: CamShapes["circles"] = hole > 0 ? [{ c: [0, 0], r: hole / 2, hole: true }, { c: crankAt, r: hole / 2, hole: true }, ...(lockOn && (discHole < 0 ? hole : discHole) > 0 ? [{ c: discAt, r: (discHole < 0 ? hole : discHole) / 2, hole: true as const }] : [])] : [];
   if (layout === "model") circles.push({ c: [kx + a, ky], r: rp }); // (the pin: a body of its own, joined to the crank plate, that stands up into the wheel's slot)
   // assembled, the wheel stands in the pose it is locked in: turned half a step, so a locking arc, not a slot, faces the disc (the disc's notch was worked out with a slot toward it: the middle of the pin's visit)
   const wheelOut = layout === "apart" ? wheel : { points: wheel.points.map(([x, y]): V2 => [x * Math.cos(half) - y * Math.sin(half), x * Math.sin(half) + y * Math.cos(half)]), bulges: wheel.bulges };

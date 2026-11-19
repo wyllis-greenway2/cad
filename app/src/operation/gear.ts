@@ -205,7 +205,7 @@ function bevelOutline(spec: GearSpec): Result<GearOutline> {
     const s0 = body.value.sections[0]!, p = f.value.pair;
     return ok({ points: s0.points, bulges: s0.bulges, pitchRadius: p.R2, baseRadius: p.R2, tipRadius: p.outer, rootRadius: p.inner, warnings: ["a face gear: the tooth is the envelope of its spur pinion's involute, for a pinion at 90 degrees"] });
   }
-  if (spec.bevel?.spiral !== undefined) { // a spiral bevel gear: the pair must make (`spiral.ts`): the outline is the heel's first plane
+  if (spec.bevel?.spiral !== undefined && !isCrown(spec)) { // a spiral bevel gear: the pair must make (`spiral.ts`): the outline is the heel's first plane
     const sp = spiralFor(spec);
     if (!sp.ok) return sp;
     const body = spiralBody(sp.value.pair, sp.value.which);

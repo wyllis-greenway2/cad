@@ -41,7 +41,7 @@ import { findCrossing } from "./selfcross.mjs";
 import { stage, beginStages, endStages } from "./stages.mjs";
 import "./booleans.mjs"; // (the library's fuse, cut and intersect, made once instead of twice)
 import { clearNameCaches, nameFaces, refOfName, namedEdgeRefs, figureRoles, edgeEnds, edgeRoles, revolveRoles, loftRoles, sweepRoles, endTangent, creaseOf } from "./facenames.mjs";
-import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf, solidKey } from "./bodies.mjs";
+import { lumpsOf, lumpAt, lumpOf, lumpsByName, trackBodies, moveMarkers, box as boxOf, quickBox, solidKey } from "./bodies.mjs";
 
 /** The imported solids scaled about the origin by `op.scale` and then placed: `op.place` "center" brings the middle of their box to the origin, "floor" brings the middle of the box to the z axis and the bottom to z = 0 (a part that sits on the build plate). */
 function placedSolids(solids, op) {
@@ -648,7 +648,7 @@ const OPS = {
       // a worm wheel (`op.matched`): only its two end faces are named by their roles; its thousand flank faces get the names of new faces (the gear is one feature, `dec_gear_feature`, and the roles of a thousand sides cost 1 s of a 100 tooth wheel: a box for each side, every face looked against every box)
       if (ctx.roleFigs) { try { ctx.roleFigs.set(key, op.matched ? loftRoles([0, ids.length - 1].map((k) => ({ ends: edgeEnds(sk[k]), sides: [] })), key === "main", false, true) : loftRoles(ids.map((id, k) => ({ ends: edgeEnds(sk[k]), sides: ctx.get(id, "sketch").sides })), key === "main", !!op.smooth)); } catch { ctx.roleFigs.set(key, []); } } // (the roles of its faces by the sketches' own edges, read before they are used up: `dec_stable_reference_mechanism`)
       // sections that are known to match edge for edge (a worm wheel's: one gap turned, `op.matched`) need not be checked for it: that check is the larger half of the loft's time (100 teeth: 7.3 s to 3.7 s, the same solid to every digit)
-      const made = as.matched && as.smooth ? matchedLoft(sk) : sk[0].loftWith(sk.slice(1), { ruled: !as.smooth });
+      const made = as.matched && as.smooth ? matchedLoft(sk) : as.maxDegree && as.smooth ? limitedLoft(sk, as.maxDegree) : sk[0].loftWith(sk.slice(1), { ruled: !as.smooth });
       // a smooth loft through many sections can leave an edge whose 3D curve and whose curves on its two faces do not run at the same pace; the validity check refuses the whole solid for that (a wheel of 24 teeth was refused, one of 40 was not), though the
       // solid is whole and has the same volume to every digit. Making the edges run at the same pace again (`BRepLib.SameParameter`) is what the check asks for.
       if (op.smooth) getOC().BRepLib.SameParameter(made.wrapped, 1e-5, false);
@@ -1230,15 +1230,16 @@ const OPS = {
     axis[op.axis] = 1;
     const again = (moved) => (one ? makeCompound([...one.rest, moved]) : moved);
     const only = one ? op.body : null;
+    const was = one ? quickBox(t) : undefined; // (where the body stood: the names of its faces move with it and no other body's do, `in_999`)
     // (a move by a vector, from dragging the body free, `in_291`: `op.vec`; else along one axis)
-    if (op.mode === "move") { const by = op.vec ?? axis.map((a) => a * v); return { kind: "solid", shape: again(t.translate(by)), tf: { mode: "move", axis: op.axis, v, vec: op.vec, only } }; }
-    if (op.mode === "rotate") { const pivot = op.pivot ?? middle(); const about = op.dir ?? axis; return { kind: "solid", shape: again(t.rotate(v, pivot, about)), tf: { mode: "rotate", axis: op.axis, dir: op.dir, v, pivot, only } }; } // (`op.dir`: a turn about any axis, `in_417`)
+    if (op.mode === "move") { const by = op.vec ?? axis.map((a) => a * v); return { kind: "solid", shape: again(t.translate(by)), tf: { mode: "move", axis: op.axis, v, vec: op.vec, only, box: was } }; }
+    if (op.mode === "rotate") { const pivot = op.pivot ?? middle(); const about = op.dir ?? axis; return { kind: "solid", shape: again(t.rotate(v, pivot, about)), tf: { mode: "rotate", axis: op.axis, dir: op.dir, v, pivot, only, box: was } }; } // (`op.dir`: a turn about any axis, `in_417`)
     if (op.mode === "scale") {
       if (!(v > 1e-6)) throw new Error("scale must be positive");
       // (a body made a hundred metres long or more is a slip of the keys, and the kernel does not come back from meshing it: `in_255`)
       if (v > 100) { const b = bounds(t); if (Math.max(...[0, 1, 2].map((i) => b.max[i] - b.min[i])) * v > 1e5) throw new Error("that scale would make the body more than 100 metres long"); }
       const pivot = op.pivot ?? middle();
-      return { kind: "solid", shape: again(t.scale(v, pivot)), tf: { mode: "scale", axis: 0, v, pivot, only } };
+      return { kind: "solid", shape: again(t.scale(v, pivot)), tf: { mode: "scale", axis: 0, v, pivot, only, box: was } };
     }
     throw new Error(`unknown transform ${op.mode}`);
   },
@@ -2364,6 +2365,10 @@ function ownSolid(ctx, op, kind, ids, build) {
 export const kernelStats = { prismsBuilt: 0, prismsReused: 0, partialBooleans: 0, booleansKept: 0 };
 /** Forget what is kept of bodies, so that the next answer is worked out from nothing (for the tests: the kept and the worked-out answers are to be the same). */
 export function clearKernelCaches() { prisms.clear(); booleans.clear(); validSolids.clear(); uncrossed.clear(); memo.clear(); clearNameCaches(); }
+/** The size (MB) of the kernel's memory above which no step is made (`KERNEL_MEMORY_STOP_MB` in `kernel-async.ts` is the same number: a thread above it is restarted). */
+let memoryStopMb = 3300;
+export function setMemoryStop(mb) { memoryStopMb = mb; }
+const heapMegabytes = () => { try { return Math.round((getOC().wasmMemory?.buffer.byteLength ?? 0) / 1048576); } catch { return 0; } };
 const memo = new Map(); // key -> { value, own }
 /**
  * The answers kept for the steps, the oldest forgotten first once they hold more than `MEMO_FACES` faces of their own (a step's own are the faces its answer has beyond its target's, the answers of a row of steps
@@ -2465,6 +2470,8 @@ export function compile(graph, quick = false) {
       results.set(op.id, { value: kept.value, ms: 0, key, cached: true, faces: kept.faces });
       continue;
     }
+    // the kernel's memory is nearly its 4 GB: a step that went on would be the end of the page's tab (a model of 1100 bodies killed it after 46 s, `in_997`); this step and the ones after it say so and nothing more is made
+    if (memoryStopMb > 0) { const mb = heapMegabytes(); if (mb > memoryStopMb) { results.set(op.id, { error: `the model is too big for the kernel's memory (${mb} MB of 4096 used): use fewer or simpler parts, or save it and open it in pieces`, ms: 0 }); continue; } }
     let markMs = 0;
     let checkMs = 0;
     try {
@@ -2511,6 +2518,17 @@ export function finalSolid(graph, results) {
   return null;
 }
 
+/** A smooth loft whose surfaces are of at most this degree (`op.maxDegree`): the kernel's own goes up to a degree one under the number of sections, and a boolean with a surface of degree six takes four times as long as with one of degree three (a spiral bevel ring gear of 42 teeth: 40 s to 16 s, the same fit, `in_988`). */
+function limitedLoft(sk, maxDegree) {
+  const oc = getOC();
+  const b = new oc.BRepOffsetAPI_ThruSections(true, false, 1e-6);
+  try {
+    b.SetMaxDegree(maxDegree);
+    for (const s of sk) b.AddWire(s.wire.wrapped);
+    b.Build();
+    return cast(b.Shape());
+  } finally { b.delete(); }
+}
 export function volume(shape) {
   return measureVolume(shape);
 }

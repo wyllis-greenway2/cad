@@ -28,6 +28,7 @@ import type { Values } from "./ui/dialog.ts";
 import type { ExportFormat } from "./interaction/exportfile.ts";
 import { aboutOf } from "./operation/file.ts";
 import { webFiles, webStore } from "./platform/web-files.ts";
+import { createAutosave } from "./platform/autosave.ts";
 import { createState, reduce, advance, stopView, afterTakenBack } from "./interaction/controller.ts";
 import { frameOf } from "./interaction/frame.ts";
 import { requestOverlap } from "./interaction/overlap.ts";
@@ -47,7 +48,7 @@ import { createAsyncKernel } from "./kernel-async.ts";
 import { createWarmer } from "./sections-warm.ts";
 import { openResultStore } from "./platform/result-store.ts";
 import type { Kernel, KernelResult } from "./compiler/kernel/adapter.ts";
-import { kernel, initKernelWeb, drawRectangle, nextId, STANDIN_MS } from "./interaction/api.ts";
+import { drawRectangle, nextId, STANDIN_MS } from "./interaction/api.ts";
 import type { Ref, Command, Vec3 } from "./interaction/api.ts";
 import { createView } from "./ui/view.ts";
 import { createMenu } from "./ui/menu.ts";
@@ -130,7 +131,15 @@ let lastFrame: ReturnType<typeof frameOf> | null = null;
 const timing = createTiming();
 let drawnAt: number | null = null; // (when the last frame that drew was done: the next frame starts after the browser has handed it to the graphics card, `in_498`)
 let staleSince: number | null = null; // (when the picture began to wait for the kernel's answer: the time until that answer is drawn is what an edit makes you wait)
-let engine: Kernel = kernel; // the kernel in use: on its own thread when that could start (`boot`), else the one in this page
+/** What stands in for the kernel until `boot` has one (nothing asks it anything before). */
+const notReady: Kernel = {
+  name: "not started",
+  init: async () => undefined,
+  evaluate: () => { throw new Error("the kernel has not started yet"); },
+  exportMesh: async () => ({ ok: false, error: "the kernel has not started yet" }),
+  exportStep: async () => ({ ok: false, error: "the kernel has not started yet" }),
+};
+let engine: Kernel = notReady; // the kernel in use: on its own thread when that could start (`boot`), else the one in this page (loaded only then: it is most of the app's code, `in_990`)
 let dirty = true;
 
 const SCROLL_KEY = "cad.scrollMode";
@@ -173,6 +182,7 @@ const menu = createMenu(document.body, (id) => {
   else if (id === "laserTable") void laserTableFlow();
   else if (id === "laserLayers") void laserLayersFlow();
   else if (id === "clearAnswers") void resultStore?.clear();
+  else if (id === "restore") void restoreLast();
   else if (id === "save" || id === "open") dispatch({ type: id });
   else if (id === "bodies" || id === "history" || id === "groups") dispatch({ type: "panel", name: id });
   else if (id === "undo" || id === "redo") dispatch({ type: id });
@@ -190,6 +200,7 @@ const ring = createRing(document.body, (id) => {
 }, (id) => dispatch({ type: "runAction", id: `why:${id}` })); // (a dimmed option pressed: its reason is said and the ring stays, `in_538`)
 
 const hintIcons = createHints(document.body);
+const autosave = createAutosave(typeof localStorage === "undefined" ? null : localStorage); // (a copy of the project as it is worked, and of the session before: a crash does not lose it, `in_997`)
 const sections = createWarmer(); // (a wheel's sections are worked out in a thread of their own, `in_899`)
 const standLabels = createStandInLabels(document.body); // (the words on the discs that stand for gear bodies not made yet, `in_847`)
 let lastStandSecs: number | null = null;
@@ -226,6 +237,15 @@ let tilt: [number, number] = [0, 0]; // (how far the view has been tilted to loo
 let ringAnchor: Vec3 | null = null; // (where a ring opened in game mode stands in the world)
 const inGame = (): boolean => recognizer.game && document.pointerLockElement !== null;
 let panesFading = false; // (the world panes are fading in or out: keep drawing, `in_442`)
+/** Bring back the copy of the session before this one (`in_997`). */
+async function restoreLast() {
+  const kept = autosave.previous();
+  if (!kept) return say("no copy of an earlier session was kept in this browser");
+  let tried = sections.attempt(() => openSession(engine, kept.text));
+  while (!tried.ok) { say("working out the wheel…"); await tried.ready; tried = sections.attempt(() => openSession(engine, kept.text)); }
+  const r = tried.value;
+  if (r.ok) { adopt(r.value); say(`restored: ${kept.steps} steps`); } else state = { ...state, session: { ...state.session, message: r.error } }, (dirty = true);
+}
 function adopt(session: Session) { state = { ...createState(session), cam: state.cam }; menu.hide(); ring.hide(); dirty = true; }
 // the last things done, kept so that a snapshot can show them (`in_200`): hovering is only kept as its last position
 const intentLog: unknown[] = [];
@@ -503,7 +523,7 @@ function dispatch(i: Intent, again = false) {
   if (i.type === "menu") {
     // the ⋯ button opens the settings and options; a right click or a long press opens the ring of operations round the pointer (`in_133`)
     // (the ⋯ list holds only what the ring does not: the app's own things; the operations are the ring's, a right click or a long press, `in_291`)
-    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(typeof __BUILD__ === "string" ? __BUILD__ : "", { export: canExport(state.session) || canExportFlat(state.session), material: !whyNoMaterial(state.session), laser: canExportFlat(state.session), laserLayers: !whyNoLayers(state.session), laserTable: parseLibrary(webStore.get("cad.library")).library.settings.length > 0, clearAnswers: !!resultStore, matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, scene(state.session).clearance ?? 0)); }
+    if (i.button) { ring.hide(); menu.show(i.x, i.y, [], appRows(typeof __BUILD__ === "string" ? __BUILD__ : "", { export: canExport(state.session) || canExportFlat(state.session), material: !whyNoMaterial(state.session), laser: canExportFlat(state.session), laserLayers: !whyNoLayers(state.session), laserTable: parseLibrary(webStore.get("cad.library")).library.settings.length > 0, clearAnswers: !!resultStore, restore: !!autosave.previous(), matesOff: mateStatus(scene(state.session)).filter((m) => m.state !== "ok").length }, state.showAllConstraints, scene(state.session).clearance ?? 0)); }
     else {
       menu.hide();
       if (state.menu && inGame()) { // game mode: the ring stands in the world, ahead of the eye, where it was opened (`in_463`, `in_471`)
@@ -578,7 +598,9 @@ async function boot() {
     await worked.init();
     engine = worked;
   } catch {
-    await initKernelWeb();
+    const web = await import("./compiler/kernel/web.ts"); // (the kernel in this page: not in the app's own code, which does not need it when the thread starts)
+    await web.initKernelWeb();
+    engine = web.kernel;
   }
   notices.say("");
   let session = createSession(engine);
@@ -588,6 +610,7 @@ async function boot() {
     session = run(session, { type: "addStep", step: { id: nextId(scene(session), "s"), type: "extrude", parts: r.lines, params: { depth: 20 } } });
   }
   state = createState(session);
+  { const kept = autosave.previous(); if (kept) say(`a copy of your last session was kept (${kept.steps} steps, ${Math.max(1, Math.round((Date.now() - kept.savedAt) / 60000))} min ago): ⋯ then Restore session`); } // (`in_997`)
   // a hook for scripted checks in a browser (not used by the app)
   (window as unknown as { __cad: unknown }).__cad = {
     get state() { return state; },
@@ -605,8 +628,13 @@ async function boot() {
   };
   requestAnimationFrame(frame);
 }
+addEventListener("pagehide", () => autosave.flush());
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") autosave.flush(); });
+let keptHistory: unknown = null;
 function frame(now: number) {
   const tStart = performance.now();
+  engine.eye = [...position(state.cam)] as [number, number, number]; // (the kernel makes a model of many parts apart nearest the eye first, `dec_progressive_open`)
+  if (state.session.history !== keptHistory) { keptHistory = state.session.history; const h = state.session.history; autosave.remember(() => saveText(state.session), h.commands.length, (why) => say(why)); } // (a moment after the last change, `in_997`)
   if (drawnAt !== null) { timing.add("browser: from a drawn frame to the next one (commit, the graphics card, the screen's refresh)", tStart - drawnAt); drawnAt = null; }
   if (state.anim || state.flash || state.mixT0 !== null) { state = advance(state, now); dirty = true; }
   if (state.motion?.playing) { state = { ...state, motion: solveContact(scene(state.session), tickMotion(state.motion, now), state.session.outcome) }; dirty = true; } // (a joint that is being played: the clock moves it on, and the picture is made again every frame, `dec_mechanism_motion`)
@@ -629,14 +657,14 @@ function frame(now: number) {
     view.setHiddenBodies(f.hiddenBodies);
     view.setThin(f.thin);
     const standShown = staleSince !== null && performance.now() - staleSince >= STANDIN_MS; // (the discs for gear bodies the kernel has not made: after a short wait, `dec_gear_standin`)
-    view.setStandIns(f.standIns, standShown);
+    view.setStandIns(f.standIns, standShown || f.standIns.some((d) => d.box)); // (the parts of a model made in pieces are drawn at once: there is nothing to wait for, `dec_progressive_open`)
     const pageAt = projector(state.cam, size.w, size.h).project;
     const onPageAt = (p: Vec3): [number, number] | null => { const q = pageAt(p); return q && q[0] > -50 && q[1] > -50 && q[0] < size.w + 50 && q[1] < size.h + 50 ? [q[0] + page.left, q[1] + page.top] : null; };
     const waitSecs = staleSince === null ? 0 : Math.floor((performance.now() - staleSince) / 1000);
-    const shownSecs = standLabels.update(f.standIns.map((d) => onPageAt([d.centre[0] + d.normal[0] * d.depth / 2, d.centre[1] + d.normal[1] * d.depth / 2, d.centre[2] + d.normal[2] * d.depth / 2])), waitSecs, standShown); // (the label on each disc, and its seconds, `in_847`)
+    const shownSecs = standLabels.update(f.standIns.filter((d) => !d.box).map((d) => onPageAt([d.centre[0] + d.normal[0] * d.depth / 2, d.centre[1] + d.normal[1] * d.depth / 2, d.centre[2] + d.normal[2] * d.depth / 2])), waitSecs, standShown); // (the label on each disc, and its seconds, `in_847`)
     if (shownSecs !== null && shownSecs !== lastStandSecs) { lastStandSecs = shownSecs; dirty = true; }
     if (buildStats.runs !== buildsBefore) { timing.add("geometry: built again (buildContent)", buildStats.totalMs); timing.add("geometry: of it the sharp edges (cornerEdges)", buildStats.cornersMs); timing.add("geometry: triangles built", buildStats.triangles); }
-    view.setBodyMatrix(f.bodyMatrix, f.selectionMoves, f.bodySplit, f.followers.map((q) => ({ matrix: q.matrix, only: q.split })));
+    view.setBodyMatrix(f.bodyMatrix, f.selectionMoves, f.bodySplit, f.followers.map((q) => ({ matrix: q.matrix, only: q.split })), f.selectionMatrix);
     view.setHiddenEdges(f.hiddenEdges);
     view.setHighlight(f.highlight, state.cam, now);
     view.setPreview(f.preview, state.cam);

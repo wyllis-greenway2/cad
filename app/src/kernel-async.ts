@@ -1,10 +1,12 @@
 // The kernel as the app sees it, but worked out on its own thread (`in_132`). `evaluate` stays the same call: it answers at once with the result for this graph if it is known
 // (the cache), else with the last result there was (the picture lags a little) and asks the worker, newest request first, one at a time. When an answer comes `onChange` is called
 // so the app compiles again and picks the new result up from the cache. A heavy model therefore never freezes the page; it just takes a moment to appear.
-import type { ExportQuality, ExportResult, Kernel, KernelGraph, KernelResult, StepResult } from "./compiler/kernel/adapter.ts";
+import type { ExportQuality, ExportResult, Kernel, KernelGraph, KernelResult, StepResult, Vec } from "./compiler/kernel/adapter.ts";
 import type { ResultStore as Store } from "./platform/result-store.ts";
 type ResultStore = Store<KernelResult>; // (the store is made for the kernel's answer without knowing it: the platform layer does not import the compiler)
 
+/** The size (MB) of its memory above which the kernel makes no more steps (`memoryStopMb` in `interpreter.mjs`): a thread this big is restarted before the next job, whatever it was at its first answer (`in_997`). */
+const KERNEL_MEMORY_STOP_MB = 3300;
 const EMPTY: KernelResult = { ops: [], finalId: null, volume: null, bbox: null, mesh: null, faces: null, edges: null, vertices: null, totalMs: 0 };
 const KEEP = 24; // results kept, newest last
 
@@ -17,10 +19,13 @@ export interface AsyncKernel extends Kernel {
 
 /** The part of a worker this needs (so a test can stand in for it). */
 export interface WorkerLike { postMessage(m: unknown): void; addEventListener(type: "message" | "error", f: (e: any) => void): void; /** stop it at once (a real worker can; a stand-in need not) */ terminate?(): void } // eslint-disable-line @typescript-eslint/no-explicit-any
-const spawn = (): WorkerLike => new Worker(new URL("./kernel-worker.ts", import.meta.url), { type: "module" });
+/** The thread `early.ts` started while the app was still loading, once (a restart makes its own). */
+const takeEarlyKernel = (): WorkerLike | null => { const w = (globalThis as unknown as { __earlyKernel?: WorkerLike }).__earlyKernel ?? null; (globalThis as unknown as { __earlyKernel?: WorkerLike }).__earlyKernel = undefined; return w; };
+const spawn = (): WorkerLike => takeEarlyKernel() ?? new Worker(new URL("./kernel-worker.ts", import.meta.url), { type: "module" });
 
 /** What the kernel says when a job cannot be answered: an error on the last operation of the graph, so the step that asked for it is the one that is reported (and is taken back). */
-const failedResult = (graph: KernelGraph, error: string, ms = 0): KernelResult => ({ ...EMPTY, ops: graph.ops.map((o, i) => ({ id: o.id, type: o.type, error: i === graph.ops.length - 1 ? error : null, ms: i === graph.ops.length - 1 ? ms : 0 })) });
+/** The answer to a job that could not be made: the step that asked has the error. What was drawn before stays drawn (`shown`: the last answer that was made; a model of hundreds of parts whose newest step cannot be made was a blank screen, `in_997`). */
+const failedResult = (graph: KernelGraph, error: string, ms = 0, shown: KernelResult = EMPTY): KernelResult => ({ ...shown, stale: undefined, ops: graph.ops.map((o, i) => ({ id: o.id, type: o.type, error: i === graph.ops.length - 1 ? error : null, ms: i === graph.ops.length - 1 ? ms : 0 })) });
 
 /**
  * `limitMs`: how long a job may take (`in_255`: a body scaled to half a million times its size did not come back from the kernel, and with the worker stuck on it nothing after it was ever answered). A job that
@@ -40,9 +45,9 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   let timer: ReturnType<typeof setTimeout> | null = null;
   const cache = new Map<string, KernelResult>();
   let last: KernelResult = EMPTY;
-  let busy: { id: number; key: string; graph: KernelGraph; asked?: { resolve: (r: ExportResult | StepResult) => void }; at?: number; posted?: number } | null = null;
+  let busy: { id: number; key: string; graph: KernelGraph; asked?: { resolve: (r: ExportResult | StepResult) => void }; at?: number; posted?: number; /** the answers so far of a model made in pieces have begun to come (`dec_progressive_open`) */ pieces?: boolean; /** and the thread has been asked to stop (a newer question is waiting) */ stopping?: boolean } | null = null;
   const exports: { graph: KernelGraph; quality: ExportQuality; resolve: (r: ExportResult | StepResult) => void }[] = []; // (the exports waiting: each is answered, none is dropped for a newer one)
-  let queued: { key: string; graph: KernelGraph; draft: boolean; lite: boolean; at: number } | null = null;
+  let queued: { key: string; graph: KernelGraph; draft: boolean; lite: boolean; at: number; eye?: Vec } | null = null;
   let counter = 0;
   /** A thread whose memory has grown big is stopped and a new one started (the memory of a kernel only grows: a heavy model leaves it big for the rest of the session, and the next edits add to it until the browser stops it). What it kept is lost: the next answer is worked out from nothing, and the answers the page has kept (the last few) are still shown. */
   const restart = (why: string) => {
@@ -56,7 +61,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   };
   const pump = () => {
     if (busy) return;
-    if (heapMb > hardMb && grown() && up) { restart("too big to go on"); return; } // (the jobs wait for the new thread: it says when it is ready, and the next pump posts them)
+    if ((heapMb > KERNEL_MEMORY_STOP_MB || (heapMb > hardMb && grown())) && up) { restart("too big to go on"); return; } // (the jobs wait for the new thread: it says when it is ready, and the next pump posts them)
     if (!up) return;
     const wanted = exports.shift();
     if (wanted) {
@@ -68,11 +73,11 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
       return;
     }
     if (!queued) return;
-    const { key, graph, draft, lite, at } = queued;
+    const { key, graph, draft, lite, at, eye } = queued;
     queued = null;
     const job = { id: ++counter, key, graph, at, posted: performance.now() };
     busy = job;
-    worker.postMessage({ id: job.id, graph, draft, lite });
+    worker.postMessage({ id: job.id, graph, draft, lite, ...(eye ? { eye } : {}) });
     timer = setTimeout(() => stuck(job.id), limit);
     (timer as { unref?: () => void }).unref?.(); // (a timer must not keep a process alive that has nothing else to do)
   };
@@ -84,7 +89,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     try { worker.terminate?.(); } catch { /* (already gone) */ }
     console.error(`the kernel's thread was stopped after ${Math.round(limit / 1000)} seconds on a job`);
     if (job.asked) { job.asked.resolve({ ok: false, error: `the kernel was still working on the export after ${Math.round(limit / 1000)} seconds and was stopped` }); worker = respawn(); attach(worker); pump(); return; }
-    cache.set(job.key, failedResult(job.graph, `the kernel was still working on that after ${Math.round(limit / 1000)} seconds and was stopped: it cannot be made (try something smaller)`, limit));
+    cache.set(job.key, failedResult(job.graph, `the kernel was still working on that after ${Math.round(limit / 1000)} seconds and was stopped: it cannot be made (try something smaller)`, limit, last));
     worker = respawn();
     attach(worker);
     onChange();
@@ -92,14 +97,24 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   let resolveReady: () => void = () => {};
   let rejectReady: (e: Error) => void = () => {};
   const ready = new Promise<void>((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
-  const onMessage = (e: MessageEvent<{ ready?: boolean; failed?: string; id?: number; heapMB?: number; result?: KernelResult; exported?: ExportResult | StepResult; at?: { started: number; sent: number } }>) => {
+  const onMessage = (e: MessageEvent<{ ready?: boolean; failed?: string; id?: number; heapMB?: number; partial?: boolean; cancelled?: boolean; result?: KernelResult; exported?: ExportResult | StepResult; at?: { started: number; sent: number } }>) => {
     const received = performance.timeOrigin + performance.now();
     const m = e.data;
     if (m.ready) { up = true; resolveReady(); pump(); return; }
     if (m.id === undefined) return void rejectReady(new Error(m.failed ?? "the kernel could not start"));
     const job = busy;
     if (!job || job.id !== m.id) return; // (the answer to a job that was given up)
+    if (m.partial && m.result) { // the parts made so far of a model made in pieces: shown at once, the job goes on (`dec_progressive_open`); each answer is a sign that it is alive, so its time starts again
+      job.pieces = true;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => stuck(job.id), limit);
+      (timer as { unref?: () => void }).unref?.();
+      last = { ...m.result, stale: true };
+      onChange();
+      return;
+    }
     busy = null;
+    if (m.cancelled) { if (timer) clearTimeout(timer); if (typeof m.heapMB === "number") heapMb = m.heapMB; pump(); return; } // (stopped for a newer question: what was made stays on the screen)
     if (timer) clearTimeout(timer);
     if (typeof m.heapMB === "number") { heapMb = m.heapMB; if (!baseMb) baseMb = heapMb; }
     if (job.asked) {
@@ -109,7 +124,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     }
     if (m.failed) {
       console.error("the kernel's thread failed on a job:", m.failed);
-      cache.set(job.key, failedResult(job.graph, m.failed)); // (an answer, so what waits for it is not held up for ever, and the step that asked is reported)
+      cache.set(job.key, failedResult(job.graph, m.failed, 0, last)); // (an answer, so what waits for it is not held up for ever, and the step that asked is reported)
       onChange();
     }
     if (m.result) {
@@ -120,7 +135,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
       last = m.result;
       onChange();
     }
-    if (heapMb > restartMb && grown() && !queued && exports.length === 0) { restart("nothing is waiting"); return; }
+    if ((heapMb > KERNEL_MEMORY_STOP_MB || (heapMb > restartMb && grown())) && !queued && exports.length === 0) { restart("nothing is waiting"); return; }
     pump();
   };
   const attach = (w: WorkerLike) => {
@@ -133,6 +148,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     lagging: true,
     draft: false,
     lite: false,
+    eye: undefined as Vec | undefined,
     init: () => ready,
     clear() { last = EMPTY; },
     get pending() { return busy !== null || queued !== null || exports.length > 0; },
@@ -157,7 +173,8 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
       // what is shown meanwhile is the last finished result, unless it has a body that this graph no longer makes (a gear that was deleted): that one is not shown, nothing is, until the answer comes (`in_951`)
       const shown = (): KernelResult => (last.bodies?.some((b) => !graph.ops.some((o) => o.id === b.id)) ? EMPTY : last);
       if (busy?.key === key) return { ...shown(), stale: true }; // already being worked out
-      queued = { key, graph, draft, lite, at: performance.now() }; // only the newest request is kept: what was asked before it is no longer wanted
+      queued = { key, graph, draft, lite, at: performance.now(), ...(self.eye ? { eye: self.eye } : {}) }; // only the newest request is kept: what was asked before it is no longer wanted
+      if (busy?.pieces && !busy.stopping) { busy.stopping = true; worker.postMessage({ cancel: busy.id }); } // (a model being made in pieces is not finished for a question that has been overtaken: the parts made are kept)
       pump();
       return { ...shown(), stale: true }; // (what is shown meanwhile is marked, so nothing is built on it)
     },

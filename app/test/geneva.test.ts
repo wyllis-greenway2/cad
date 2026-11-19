@@ -9,7 +9,7 @@ import type { Op } from "../src/interaction/operations.ts";
 import { loopPoints } from "../src/operation/part.ts";
 import type { CamSpec } from "../src/operation/cams.ts";
 import { camShapes } from "../src/operation/cams.ts";
-import { genevaCentres, genevaWheelRadius, outlinePoints, smoothUnder } from "../src/operation/geneva.ts";
+import { genevaCentres, genevaDefaultPin, genevaWheelRadius, outlinePoints, smoothUnder } from "../src/operation/geneva.ts";
 import { splinePoints } from "../src/operation/spline.ts";
 import { camFace, camRefs } from "../src/operation/camscene.ts";
 import { loopFaceRef } from "../src/operation/loops.ts";
@@ -121,7 +121,7 @@ test("the tool: slots, crank, pin, clearance, hole and lock; the title says how 
   const { editCamTool } = await import("../src/interaction/tools.ts");
   const rec = scene(made).gears![0]!;
   const et = editCamTool(rec);
-  assert.deepEqual(et.cam!.typed, ["6", "12", "3", "0.3", "", ""]);
+  assert.deepEqual(et.cam!.typed, ["6", "12", String(Math.round(genevaDefaultPin(6, 12) * 100) / 100), "0.3", "", ""]);
   void loopFaceRef;
 });
 
@@ -191,7 +191,7 @@ import { camShapesQuick } from "../src/operation/cams.ts";
 import { previewOf } from "../src/interaction/tools.ts";
 
 test("the quick shapes have the same wheel and crank as the real ones, a plain circle for the locking disc, and take a fraction of the time", () => {
-  const sp = spec({ teeth: 8, crank: 20, pin: 5, diameter: 40, hole: -1, lock: undefined, clearance: 0.31 }); // (numbers no other test used: nothing is kept for them yet)
+  const sp = spec({ teeth: 8, crank: 20, pin: 3, diameter: 40, hole: -1, lock: undefined, clearance: 0.31 }); // (numbers no other test used: nothing is kept for them yet)
   const t0 = performance.now();
   const quick = camShapesQuick(sp);
   const tq = performance.now() - t0;
@@ -253,7 +253,7 @@ test("the real locking disc's outline has no ridges: the second difference of it
 
 // ---- the three layouts (`in_820`)
 import { createState, reduce } from "../src/interaction/controller.ts";
-import { homeCamera } from "../src/interaction/camera.ts";
+import { homeCamera, projector } from "../src/interaction/camera.ts";
 import { editCamTool } from "../src/interaction/tools.ts";
 
 const base5 = (over: Partial<CamSpec> = {}): CamSpec => spec({ teeth: 5, crank: 20, pin: 5, diameter: 40, hole: -1, lock: undefined, ...over });
@@ -316,4 +316,63 @@ test("the layouts are in the Geneva submenu; the model's box has Layer and Plate
   assert.deepEqual(et.cam!.typed.slice(6), ["8", "4"]);
   const apart = camSpecOf({ ...armCam("geneva"), plane: XY, points: [[0, 0, 0]], cursor: [10, 0, 0] })!;
   assert.equal(apart.layout, undefined, "the apart sketch is the default and keeps no layout");
+});
+
+// ---- every slot count makes a drive (`in_986`)
+test("with the pin left to the box, every slot count has a drive: a locking disc with room, holes in the wheel and the crank, and nothing overlapping the wheel", () => {
+  for (const n of [3, 4, 5, 6, 8, 10, 12, 16, 24]) {
+    const a = 60; // (a crank big enough for every count: the rim is kept 0.8 mm off the crank's shaft)
+    const pin = genevaDefaultPin(n, a);
+    const sh = camShapes({ kind: "geneva", teeth: n, diameter: 2 * a, crank: a, pin, clearance: 0.3, hole: -1, lift: 0, layout: "model" });
+    assert.ok(sh.ok, `${n} slots: ${sh.ok ? "" : (sh as { error: string }).error}`);
+    const wheel = outlinePoints(sh.value.polys![0]!.points, sh.value.polys![0]!.bulges) as Pt[];
+    const disc = sh.value.rings![0]!;
+    assert.ok(area(disc) > 0.01 * Math.PI * a * a / 25, `${n} slots: the locking disc is not cut away to nothing`);
+    assert.ok(!disc.some((q) => inside(wheel, [q[0]!, q[1]!])), `${n} slots: the disc is clear of the wheel`);
+    const holes = sh.value.circles.filter((c) => c.hole);
+    assert.ok(holes.length >= 2 && holes.slice(0, 2).every((c) => c.r > 0), `${n} slots: the wheel and the crank have the shaft's hole`);
+  }
+  assert.equal(genevaDefaultPin(4, 10), 2.5, "four slots: a quarter, as before");
+  assert.ok(genevaDefaultPin(12, 60) < 60 / 4, "many slots: a smaller pin, so the rim stays off the crank's shaft");
+});
+
+test("a wheel whose rim would reach the crank's shaft says so instead of drawing a locking disc cut to nothing", () => {
+  const sh = camShapes({ kind: "geneva", teeth: 24, diameter: 8, crank: 4, pin: 1, clearance: 0.3, hole: -1, lift: 0, layout: "model" });
+  assert.ok(!sh.ok);
+  assert.match((sh as { error: string }).error, /rim would reach the crank's shaft/);
+  const noLock = camShapes({ kind: "geneva", teeth: 24, diameter: 8, crank: 4, pin: 1, clearance: 0.1, hole: -1, lock: 0, lift: 0, layout: "model" });
+  assert.ok(noLock.ok || !/rim would reach/.test((noLock as { error: string }).error), "with no locking disc the rim does not matter");
+});
+
+test("a cam tool is sized by a click as a gear is: the first click after the centre sets the scale, the box stays, the next click makes it and the tool is over", () => {
+  const env = { w: 800, h: 600, now: 0 };
+  let st = { ...createState(createSession(kernel)), cam: homeCamera() };
+  st = reduce(st, { type: "runAction", id: "tool:geneva" }, env as never);
+  st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0] } };
+  const pr = projector(st.cam, env.w, env.h);
+  const [x0, y0] = pr.project([30, 0, 0]);
+  st = reduce(st, { type: "hover", x: x0, y: y0 }, env as never);
+  st = reduce(st, { type: "click", x: x0, y: y0, count: 1, shift: false } as never, env as never);
+  assert.ok(st.tool?.sized, "the click set the scale");
+  assert.equal(Object.values(scene(st.session).parts).filter((p) => p.kind === "face").length, 0, "nothing is made yet");
+  const sized = camSpecOf(st.tool!)!;
+  st = { ...st, tool: typeKey(st.tool!, "6") }; // (the box stays open to change the numbers)
+  const [x1, y1] = pr.project([5, 0, 0]);
+  st = reduce(st, { type: "hover", x: x1, y: y1 }, env as never);
+  assert.equal(camSpecOf(st.tool!)!.crank, sized.crank, "the pointer no longer changes the scale");
+  assert.equal(camSpecOf(st.tool!)!.teeth, 6);
+  st = reduce(st, { type: "click", x: x1, y: y1, count: 1, shift: false } as never, env as never);
+  assert.equal(st.tool, null, "made, and the tool is over");
+  assert.ok(scene(st.session).gears?.[0]?.spec.cam?.teeth === 6);
+});
+
+test("Edit cam: Done when nothing was changed, Update when a number was; either lets go of the tool", async () => {
+  const { entryOf } = await import("../src/interaction/entry.ts");
+  const { editCamTool } = await import("../src/interaction/tools.ts");
+  const made = run(createSession(kernel), { type: "gear", id: "g_001", plane: XY, at: [0, 0, 0], spec: { teeth: 1, module: 1, cam: spec({ teeth: 5, crank: 30, diameter: 60, pin: 4, hole: -1, lock: undefined }) } });
+  assert.ok(!made.message, made.message ?? "");
+  let t = editCamTool(scene(made).gears![0]!);
+  assert.deepEqual(entryOf(scene(made), t, null)!.gearButtons, { edit: true, changed: false });
+  t = typeKey(t, "7");
+  assert.equal(entryOf(scene(made), t, null)!.gearButtons!.changed, true);
 });

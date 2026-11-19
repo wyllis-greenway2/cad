@@ -70,7 +70,7 @@ export function createBodyChips(host: HTMLElement, run: (id: string) => void) {
           const beside = b.hidden || !quiet ? 34 : 0; // (a shown body has no eye now, `in_697`: the play button takes its place)
           chip.play.style.transform = `translate(${Math.round(at[0] - 15 + beside)}px, ${Math.round(at[1] - 15)}px)`;
           chip.play.style.display = "flex";
-          const showPlay = !!b.selected || chip.play.matches(":hover") || b.play === "pause"; // (shown for a body that is selected, `in_962`, not for one the pointer is over; a motion that plays keeps its pause button)
+          const showPlay = !!b.selected || chip.play.matches(":hover"); // (shown for a body that is selected, `in_962`, not for one the pointer is over; the pause button of the bar is enough while it plays, so none stays on the bodies, `in_984`)
           chip.play.style.opacity = showPlay ? "1" : "0";
           chip.play.style.pointerEvents = showPlay ? "auto" : "none";
         } else { chip.play.style.display = "none"; chip.playSig = ""; }

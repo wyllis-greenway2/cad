@@ -467,6 +467,11 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   const hint = flat ? hintFor(sc, t, plane, pv, flat) : null;
   const at = hint ? hint.at : flat;
   if (!at) return base;
+  if (t.kind === "cam" && t.points.length) {
+    // a cam, a ratchet or a Geneva drive, as a gear (`in_986`): the first click after its centre only sets the scale and the number box stays open to change the numbers; the next click, Enter or Create makes it
+    if (!t.sized) return { ...base, tool: { ...t, cursor: at, sized: true } };
+    return commitFigure(base, finish(sc, t));
+  }
   if (t.kind === "gear" && t.points.length) {
     // a gear: the first click after its centre only sets the size and the number box stays open; the next click in space makes it and starts the next gear (`in_688`)
     const sug = !t.sized && !i.shift ? meshSuggestion(sc, t) : null; // (next to a gear it would mesh with: the click makes the gear that meshes, Shift leaves it, `in_709`)

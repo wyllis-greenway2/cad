@@ -4289,6 +4289,114 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for this branch (the automatic line choice, Make points, screws rounded up for a through hole, a body keeping its name when pushed thinner) to be merged into claude/inspiring-pascal-l342k7, with no full test run)
 
+## in_984 — 2026-11-19 — directive
+> In an animation, if you click an animated part, it sketch or highlight doesn't actually follow the part, it floats out in space as a rotated version of the flat static one. Also lets get rid of the persistent pause icons. The pause button in media player is enough.
+(with a screenshot of a Geneva wheel: the selection's teal fill floats away from the animated body, turned about the wrong axis; and the pause icons that stay on animated bodies are to go)
+
+## in_985 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the branch `claude/adoring-dijkstra-follow-select` to be merged into the testing branch; the full suite is not needed)
+
+## in_986 — 2026-11-18 — directive
+> @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/c1c0a943-model.cad_55.json" @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/4eb4a8b3-cad-state-2026-11-18T17-56-04.json" @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/54e9d61a-model.cad_56.json" @"/root/.claude/uploads/f2e632b9-1c8b-5c2e-b21a-80e7657e7854/33bc07d6-cad-state-2026-11-18T17-59-14.json" The geneva plate doesn't work like the gear menu, these things with variable attributes need to all work the same where the first click sets the scale, but the menu is still there to adjust values. The geneva plate gets really messed up in seemingly all slot counts except four.
+(with two projects and two state snapshots (a 24-slot Geneva with a crank of 4 mm, a 3-slot one with a crank of 118 mm): asks that the cam tools work as the gear tool does, the first click after the centre setting the scale and the box staying open to change the numbers; and says the Geneva drive comes out wrong for every slot count but four)
+
+## in_987 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for tests
+(asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 once more, for the cam tools sized like the gear tool and the Geneva drive for every slot count; no tests to be run; gives permission to write to that branch)
+
+## in_988 — 2026-11-19 — directive
+> lets do 2 3 and 4
+(of the AI's list: Mesh gear carries the chamfer to the partner (2); cut the kernel time of big spiral pairs (3); the spiral crown gear (4); the menu split (1) and ISO 23509 (5) stay out)
+
+## in_989 — 2026-11-18 — question
+> okay what else should we work on to make things fast and efficient?
+(asks for the AI's view of what else to work on for speed and efficiency)
+
+## in_990 — 2026-11-18 — directive
+> yes please
+(approves starting with the startup time work: starting the kernel earlier, caching the kernel file, splitting rarely used code)
+
+## in_991 — 2026-11-18 — directive
+> Yes prototype the warm-up
+(approves a prototype of the kernel warm-up: measuring how much of the first model's delay a warm-up removes)
+
+## in_992 — 2026-11-18 — directive
+> Okay, now I want to test the limits and fail states. How big of an assembly can I make? 10 parts? 100 parts? 1000 parts? how many faces can I render? also how does it fail? just freeze and explode? or fail in silent errors?
+(asks to test the limits and the fail states: how many parts an assembly can have (10, 100, 1000), how many faces can be rendered, and how the app fails: freezing, crashing, or silent errors)
+
+## in_993 — 2026-11-18 — question
+> how can we make it way faster and tolerant? Can we not even try to load it all at once, put the user in the environment, and prevent interface from freezing or feeling frozen while we populate models and data from the camera backwards? How can we have the interface still operate smoothly even after load? should we only render the objects closest to camera and ghost render the other? sort of like how the gear works where it is just a donut while rendering while it is being built? How can we give the user the detail and fidelity they need intelligently? maybe based off camera position and selection?
+(asks how to make large models much faster and more tolerant: not loading everything at once, putting the user in the scene at once, never freezing, filling in models and data from the camera backwards, keeping the interface smooth after load, drawing near objects in full and the others as ghosts like the gear's stand-in disc, and giving detail and fidelity by camera position and selection)
+
+## in_994 — 2026-11-18 — question
+> how can we be sure letting the user interact before it is fully loaded doesn't break or do weird stuff? should we load in relationships first to know what could break and what the user should safely be allowed to touch? Also should we uses caching for speed? and how about layering it so everything gets loaded as quickly as possible? Maybe load via dependency from relationship information at least in really rough mesh or coarse ghost / donut etc, and also relative to closeness to the camera etc?
+(asks how to be sure that interacting before a model is fully loaded does not break anything: loading the relationships first to know what can break and what the user may safely touch; whether to use caching; and layering the load, by dependency and by closeness to the camera, with rough meshes or ghosts first)
+
+## in_995 — 2026-11-18 — directive
+> okay build it please
+(approves building the first steps of the progressive loading plan: the table of what each operation needs, and the differential test harness)
+
+## in_996 — 2026-11-18 — approval
+> I approve
+(approves the last proposal; which of the two offered next steps it means is asked)
+
+## in_997 — 2026-11-18 — approval
+> Phase 0 (Recommended)
+(the answer chosen to the question which next step the approval covers: Phase 0, building the scene once when opening a project, keeping the last good picture when a step fails, keeping an automatic copy of the project in the browser, and stopping a step before the kernel's memory crashes the tab)
+
+## in_998 — 2026-11-18 — question
+> what do you reccomend?
+(asks which of the offered next steps the AI recommends)
+
+## in_999 — 2026-11-18 — approval
+> yes
+(approves extending the differential test to parts with modifying steps (fillets, holes, moves), revolves, lofts and sweeps, as recommended)
+
+## in_1000 — 2026-11-18 — question
+> okay so how are we looking? do we have a fast system that can handle lots of complex parts like gears etc?
+(asks for the state of the speed work: whether the system is fast and can handle many complex parts such as gears)
+
+## in_1001 — 2026-11-18 — approval
+> yes start
+(approves starting the Phase 1 prototype: ghosts from the commands and piecewise building of independent parts in camera order, measured on the 300 and 1000 part projects)
+
+## in_1002 — 2026-11-18 — approval
+> yes
+(approves writing the decision and building the smallest slice of Phase 1 in the app: ghosts drawn at once from the commands, and the kernel asked for one group at a time in camera order, measured in the browser first)
+
+## in_1003 — 2026-11-19 — question
+> okay what next?
+(asks what the AI recommends doing next)
+
+## in_1004 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks to merge this branch's work into claude/inspiring-pascal-l342k7: the explicit permission to write to that branch for this merge)
+
+## in_1005 — 2026-11-19 — question
+> okay what next?
+(asks what to work on next; the AI recommends, the human decides)
+
+## in_1006 — 2026-11-19 — directive
+> do 3 and 4
+(of the AI's list: the spur pinion's chamfer for the face gear drive (3), and a rendering sweep over the whole bevel gear family to look for defects the overlap numbers miss (4))
+
+## in_1007 — 2026-11-19 — question
+> okay so next I think we need to offer more file types on import and export in order to be compatible. What set do you think we should build next?
+(asks which import and export formats to build next for compatibility)
+
+## in_1008 — 2026-11-19 — question
+> okay I agree, but why not allow IGES export? what if somebody wants it in order to work with some older technology? is there a good reason to limit it?
+(agrees with the proposed order (OBJ and binary DXF, then DXF blocks and layers, then IGES) but asks for IGES to be written as well as read, for older systems)
+
+## in_1009 — 2026-11-19 — directive
+> yes, build it please, I will take your recommendations on specifics
+(asks for OBJ and binary DXF, DXF blocks and layers, and IGES both ways to be built, the details left to the AI)
+
+## in_1010 — 2026-11-19 — directive
+> instead of doing a new checkout, why not just merge into claude/inspiring-pascal-l342k7 please?
+(asks for the branch with the kernel build kit, OBJ and the DXF work to be merged into claude/inspiring-pascal-l342k7, so the build can be run from there)
+
 ## in_1011 — 2026-11-18 — directive
 > okay the fastener layout is much better, But still seems a little weird on curves, We might want to switch to limited depth on curves to prevent crowding that is actually just long bolts all reaching each other toward the center. In fact we probably shouldn't default to through at all, maybe a certain screw screw length or through if through isn't too far.
 (says the layout is much better but weird on curves: holes should have a limited depth on curves so that long bolts do not reach each other toward the centre; and the default should not be through at all: a certain screw length, or through when through is not too far; a saved model is attached)
@@ -4300,3 +4408,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1013 — 2026-11-19 — directive
 > lets do 4 and 5, I will take your recommendations
 (asks for items 4 and 5 of the list of what is next: washers (the optional washer under the head), and the smaller fastener gaps (points on round faces, adding holes when they are too far apart, moving a hole by typed numbers, deleting a single hole); and takes my recommendations for the numbers listed in item 6 for review)
+
+## in_1014 — 2026-11-19 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+(asks for this branch (the washer, taking a hole out, more holes when too far apart, points on round faces, the depth chosen for the part, snapping a moved hole to its line) to be merged into claude/inspiring-pascal-l342k7)

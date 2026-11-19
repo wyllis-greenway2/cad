@@ -100,7 +100,7 @@ export function createView(host: HTMLElement) {
   const IDENTITY = new Array<number>(16).fill(0).map((_, i) => (i % 5 === 0 ? 1 : 0));
   overlay.matrixAutoUpdate = false;
   /** The body (and, when what is selected is the body, its highlight) drawn moved by a matrix: a body being dragged is not worked out again by the kernel for every move of the pointer (`in_216`). */
-  function setBodyMatrix(m: number[] | null, withOverlay: boolean, only: Part | null = null, followers: { matrix: number[]; only: Part }[] = []) {
+  function setBodyMatrix(m: number[] | null, withOverlay: boolean, only: Part | null = null, followers: { matrix: number[]; only: Part }[] = [], overlayMatrix: number[] | null = null) {
     bodyMatrix = m;
     // bodies of several that move on their own (the one dragged, and those that follow it, `in_341`): only their triangles and outline move, each by its own matrix; else the whole body does
     splitNow = m && only ? [only, ...followers.map((f) => f.only)] : null;
@@ -109,7 +109,7 @@ export function createView(host: HTMLElement) {
     if (moverGroup) { moverGroup.matrix.fromArray(IDENTITY); moverGroup.matrixWorldNeedsUpdate = true; }
     const matrices = [m, ...followers.map((f) => f.matrix)];
     (moversOf?.() ?? []).forEach((kid, k) => { kid.matrix.fromArray(matrices[k] ?? IDENTITY); kid.matrixWorldNeedsUpdate = true; });
-    overlay.matrix.fromArray(m && withOverlay ? m : IDENTITY);
+    overlay.matrix.fromArray(overlayMatrix ?? (m && withOverlay ? m : IDENTITY)); // (a motion gives the matrix of the selected body itself, `in_984`)
     overlay.matrixWorldNeedsUpdate = true;
   }
   let fade = false;
@@ -258,12 +258,31 @@ export function createView(host: HTMLElement) {
   let standKey = "";
   /** The discs for gear bodies still being made, drawn translucent and ghosted so they read as place holders (`dec_gear_standin`); `show` is false until the wait has lasted a little. */
   function setStandIns(list: StandIn[], show: boolean): void {
-    const key = show ? JSON.stringify(list) : "";
+    const boxed = list.filter((d) => d.box); // (the parts of a model made in pieces that are not made yet: hundreds, so they are one mesh, `dec_progressive_open`)
+    const key = show ? JSON.stringify(list.filter((d) => !d.box)) + `|${boxed.length}:${boxed[0]?.step ?? ""}:${boxed.at(-1)?.step ?? ""}` : "";
     if (key === standKey) return;
     standKey = key;
     clearGroup(standGroup);
     if (!show) return;
+    if (boxed.length) {
+      const pos = new Float32Array(boxed.length * 24), tri: number[] = [], line: number[] = [];
+      const FACES = [[0, 1, 3, 2], [4, 6, 7, 5], [0, 4, 5, 1], [2, 3, 7, 6], [0, 2, 6, 4], [1, 5, 7, 3]]; // (corners by bits x, y, z: 0..7)
+      boxed.forEach((d, bi) => {
+        const { min, max } = d.box!;
+        for (let c = 0; c < 8; c++) pos.set([c & 1 ? max[0] : min[0], c & 2 ? max[1] : min[1], c & 4 ? max[2] : min[2]], bi * 24 + c * 3);
+        const o = bi * 8;
+        for (const [a, b, c2, e] of FACES) tri.push(o + a!, o + b!, o + c2!, o + a!, o + c2!, o + e!);
+        for (const [a, b] of [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]]) line.push(o + a!, o + b!);
+      });
+      const attr = new THREE.BufferAttribute(pos, 3);
+      const faces = new THREE.BufferGeometry(); faces.setAttribute("position", attr); faces.setIndex(tri);
+      const edges = new THREE.BufferGeometry(); edges.setAttribute("position", attr); edges.setIndex(line);
+      const body = new THREE.Mesh(faces, new THREE.MeshBasicMaterial({ color: 0x9aa0a6, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false }));
+      const rim = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x6b7280, transparent: true, opacity: 0.55 }));
+      for (const o of [body, rim]) { o.renderOrder = 2; o.frustumCulled = false; standGroup.add(o); }
+    }
     for (const d of list) {
+      if (d.box) continue;
       if (d.path) { // a swept body: a tube along its path (`in_850`)
         const curve = new THREE.CatmullRomCurve3(d.path.map((q) => new THREE.Vector3(...q)), false, "centripetal");
         const geo = new THREE.TubeGeometry(curve, Math.min(400, d.path.length * 6), d.radius, 16, false);

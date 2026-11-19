@@ -117,7 +117,7 @@ export function faceSteps(s: Scene, rec: GearRecord): Omit<Step, "id">[] | null 
   if (!g) return null;
   const figs: Figure[] = r.sections.map((lines) => ({ outer: lines, holes: [] }));
   return [
-    { type: "loft", parts: r.sections[0]!, params: { ...figureParams(figs), mode: "new", gear: rec.id } },
+    { type: "loft", parts: r.sections[0]!, params: { ...figureParams(figs), mode: "new", maxDegree: 3, gear: rec.id } },
     { type: "revolve", parts: r.blank, params: { angle: 360, advance: 0, ax: rec.at[0], ay: rec.at[1], az: rec.at[2], dx: f.n[0], dy: f.n[1], dz: f.n[2], mode: "new", gear: rec.id } },
     { type: "combine", parts: ["b/x_$0/o" as Ref, "b/x_$1/o" as Ref], params: { mode: "intersect", gear: rec.id } },
     { type: "extrude", parts: [r.plate], params: { depth: g.pair.thick, ...(r.plateBore ? { holes: r.plateBore } : {}), mode: "new", gear: rec.id } },

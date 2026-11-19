@@ -33,11 +33,26 @@ const lean = (s: Scene): Scene => {
   for (const p of Object.values(s.parts)) if (p.origin !== "body") parts[p.ref] = p;
   return { ...s, parts, lean: true };
 };
-/** The snapshots with the one that has just left the whole ones made lean. */
+/**
+ * The most parts the whole snapshots may hold together (`in_1000`): thirty whole snapshots of a scene of a hundred thousand parts (ten spur gears: 290 faces each) were 400 MB, and thirty gears 1.7 GB; the newest two are always whole,
+ * and the others while they are within the number of snapshots and of parts.
+ */
+let WHOLE_PARTS = 150000;
+/** (for tests) the budget of parts for the whole snapshots */
+export function setWholeBudget(n: number): void { WHOLE_PARTS = n; }
+const partsKept = new WeakMap<Scene, number>();
+const partsIn = (s: Scene): number => { let n = partsKept.get(s); if (n === undefined) { n = Object.keys(s.parts).length; partsKept.set(s, n); } return n; };
+/** The snapshots with the ones that have left the whole ones (by their number or by the parts they hold) made lean. */
 const thin = (snapshots: readonly Scene[]): Scene[] => {
   const out = [...snapshots];
-  const m = out.length - 1 - KEEP_WHOLE;
-  if (m > 0 && out[m]) out[m] = lean(out[m]!);
+  let held = 0;
+  for (let i = out.length - 1; i > 0; i--) {
+    const sc = out[i]!;
+    if (sc.lean) break; // (all the older ones are lean already)
+    const fromEnd = out.length - 1 - i;
+    held += partsIn(sc);
+    if (fromEnd >= 2 && (fromEnd > KEEP_WHOLE || held > WHOLE_PARTS)) out[i] = lean(sc);
+  }
   return out;
 };
 /** The scene after the first `i` commands, whole: a lean one has its body parts made again. */
@@ -106,8 +121,36 @@ export const redo = (h: History): History => { if (!canRedo(h)) return h; const 
 /** The cursor moved to any point: the scene there is the one kept for it (`dec_history_navigation`); nothing is removed, so redo goes forward again. */
 export const goTo = (h: History, cursor: number): History => { const c = Math.max(0, Math.min(h.commands.length, Math.round(cursor))); if (c === h.cursor) return h; const n = { ...h, cursor: c, ...(c >= h.commands.length ? { inserting: false } : {}) }; return { ...n, scene: shown(n, sceneAt(h, c)) }; };
 
-/** Rebuild a history from its saved commands (the file format stores the base and the command list). */
-export function replay(base: Scene, commands: readonly Command[], cursor = commands.length, derive?: (s: Scene) => Scene): Result<History> {
+/**
+ * Rebuild a history from its saved commands (the file format stores the base and the command list).
+ * The scene is derived (solved, its faces found, its bodies asked for) after every command by `exec`, which for a long history is most of the time of opening it (300 parts: 4.4 s, 1000: 33 s, the page frozen): here
+ * the commands are applied one after another and the scene is derived only now and then and for the last few (`REPLAY_STEP`, `KEEP_WHOLE`); the snapshots between are lean and are derived when gone back to (`sceneAt`).
+ * If a command does not apply to a scene that is not derived (it may name a part only the derivation makes) the whole is done again as it always was, so that nothing is refused that was not refused before (`in_997`).
+ */
+const REPLAY_STEP = 64;
+/** The commands that add what they are given to a scene and read nothing the derivation makes (the faces, the derived lines): a history of nothing else can be applied without deriving after each. A scene derived afresh is not always what one derived step by step is for the others (a fixture's undo gave other faces), so any other command in the history takes the slow way. */
+const ADDING = new Set(["addPart", "addRelation", "addStep"]);
+const adding = (c: Command): boolean => (c.type === "batch" ? c.commands.every(adding) : ADDING.has(c.type));
+export function replay(base: Scene, commands: readonly Command[], cursor = commands.length, derive?: (s: Scene) => Scene, every = REPLAY_STEP): Result<History> {
+  if (!derive || commands.length <= every || !commands.every(adding)) return replayEachStep(base, commands, cursor, derive);
+  const d = derive;
+  const first = newHistory(base, d);
+  let scene = first.scene;
+  const n = commands.length;
+  const snapshots: Scene[] = [scene];
+  for (let i = 0; i < n; i++) {
+    const r = apply(scene, commands[i]!);
+    if (!r.ok) return replayEachStep(base, commands, cursor, derive);
+    const whole = i >= n - KEEP_WHOLE - 1, derived = whole || (i + 1) % every === 0;
+    scene = derived ? d(r.value) : r.value;
+    snapshots.push(whole ? scene : derived ? lean(scene) : { ...scene, lean: true }); // (a scene not derived has no body parts to take out)
+  }
+  let cur: History = { derive: d, base, commands: [...commands], cursor: n, scene, snapshots: thin(snapshots) };
+  while (cur.cursor > cursor) cur = undo(cur);
+  return ok(cur);
+}
+/** Every command made and the scene derived after each: what a history does as it is worked, and what `replay` falls back to. */
+export function replayEachStep(base: Scene, commands: readonly Command[], cursor = commands.length, derive?: (s: Scene) => Scene): Result<History> {
   let h = newHistory(base, derive);
   for (const c of commands) {
     const r = exec(h, c);
