@@ -1,4 +1,4 @@
-// Every model meets the numbers typed in its box the same way (`in_1241`): the numbers not typed are moved to fit (`modelfit.ts`), a number that cannot be met is taken back to the nearest that works and marked (`modelFix`), and typing a number as it already is
+// Every model meets the numbers typed in its box the same way (`in_1243`): the numbers not typed are moved to fit (`modelfit.ts`), a number that cannot be met is taken back to the nearest that works and marked (`modelFix`), and typing a number as it already is
 // changes nothing. One test for all the models, not one for each.
 import test from "node:test";
 import assert from "node:assert/strict";

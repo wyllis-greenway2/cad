@@ -3,16 +3,20 @@ id: dec_piston_parameters
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_1212, in_1215, in_1228, in_1229, in_1233, in_1235, in_1237, in_1239
+human_input: in_1212, in_1215, in_1228, in_1229, in_1233, in_1235, in_1237, in_1239, in_1242
 date: 2026-11-19
 depends_on:
   - dec_engine_model: the piston is a part of the engine model; its master numbers (bore, stroke, rod ratio) and the pin limit 0.18 to 0.4 come from there, and a change to how the engine is built changes what the piston must fit
-  - q_clearance_profile: every clearance below has an engineered value and a printable one; which the builder makes by default is that question
+  - dec_clearance_defaults: the piston's fits below are typed numbers with Honda's nominal middles as defaults, beside the engine's own room for the moving parts; no fit is shaped by how the engine is made
 alternative_to:
 ---
 # The piston's parameter list (a proposal, nothing built)
 
 The human asked for a really good engine builder starting with real pistons (`in_1209`, `in_1212`), a four-stroke single-cylinder gasoline engine first (`in_1215`), able to make **a range of engines** (`in_1228`), and said the home made designs teach little (`in_1229`). `in_1233` asked for this list. **It replaces the piston's proportions that `dec_engine_model` took from memory** (`ch = 0.55 B`, skirt `0.35 B`, groove `0.05 B`, land `0.12 B`) **once the human approves it**; until then the code is unchanged. Every number says where it comes from (`docs/sources/README.md`): **S** = a source read, **D** = my arithmetic from sources, **M** = from memory, no source. B is the bore. Weights: Honda GX160 (OEM data, professional), NACA 817 and 895 (public, real, large 1940s aircraft pistons), Scraba / MAHLE and the Caterpillar patent (professional practice, other bore sizes) count most; the J & E, Chirico and Webster hobby designs count least.
+
+## Built so far (`dec_engine_presets`, `in_1241`)
+
+The tier 1 (Honda) numbers: ring heights, the ring side room, the end gaps, the skirt clearance and the pin fit as `operation/pistondesign.ts`; the ring grooves of the engine model follow the ring height; the Honda GX120, GX160 and GX200 are presets of the engine's box; `test/pistonhonda.test.ts` checks the builder against Honda's published table. **One assumed number was built, A5's skirt below the pin (0.27 B), because the test showed the remembered 0.35 B made the real GX160 impossible.** Everything else below, including the other assumptions A1 to A10, is **still a proposal**.
 
 ## How the sources are weighted (a rule, `in_1239`)
 
@@ -31,7 +35,7 @@ The human asked how to reduce the risk of leaning on a 1945 aircraft piston and 
 
 - **Fail-safe side.** Where a number is assumed, the default errs on the side that costs weight or looks, not function: a longer skirt and a taller pin height cost weight; a clearance that is too small seizes, so clearances take the larger Honda value; a crown that is too thin fails, so the crown takes the thicker end.
 - **An assumed number never refuses a design.** Only sourced rules and plain geometry (two parts occupying the same space) may refuse (as in `dec_engine_model`); an assumed value is a default the human can override.
-- **What matters for a printed engine is fit and motion** (clearances, the pin, the rings, the exact slider crank), which tier 1 decides; the NACA assumptions drive proportions (look) and the heat and strength a printed part never has.
+- **What matters for the model is fit and motion** (the pin, the rings, the exact slider crank), which tier 1 decides; the NACA assumptions drive proportions and the heat and strength the model does not check.
 - **A check against the real engine (proposed, not built):** the three Honda engines are presets of the builder (60 x 42, 68 x 45 with its 83.8 to 84.4 mm rod, 68 x 54), and a test compares every default the builder makes for them with Honda's published number (pin, ring heights, side clearance, end gaps, skirt clearance); a default outside Honda's range is changed. This also gives the "range of engines" three real examples. It needs the human's approval (new code and tests), so it is listed under what comes next.
 - **Expiry.** Each assumption (A1 to A10) is deleted when a tier 1 or 2 source arrives for it; the section shows what each replaces.
 
@@ -41,10 +45,10 @@ The human asked how to reduce the risk of leaning on a 1945 aircraft piston and 
 |---|---|---|
 | Pin diameter | 0.265 B default; 0.18 to 0.4 B allowed (as accepted) | S: Honda's service manual: GX160 and GX200 18.0 mm in 68 mm = 0.265 B, **GX120 13.0 mm in 60 mm = 0.217 B**; a patent for an opposed piston diesel gives 0.3 to 0.45 B (search summary) |
 | Pin fit | pin O.D. = pin bore I.D. less 0.002 to 0.014 mm (a floating pin, held by circlips); pin bore 0.002 mm over the pin | S: Honda's service manual (GX120, GX160, GX200: pin 18.0 / bore 18.002 mm, clearance 0.002 to 0.014, limit 0.06 to 0.08); rod small end 18.002 mm too |
-| Compression ring height | **1.5 mm for bores 60 to 68 mm (0.022 to 0.025 B)**; 0.95 mm for a thin ring (the "rammer" type); never under 1.0 mm in a printed ring | S: Honda's service manual (top and second rings 1.5 mm on the GX120, GX160 and GX200, the thin ones 0.95 to 0.97 and 0.94 to 0.96 mm; wear limit 1.37 mm); MAHLE packs 1.0 and 1.5 mm; NACA 817 0.0114 B. **The height does not scale with the bore across these engines** |
+| Compression ring height | **1.5 mm for bores 60 to 68 mm (0.022 to 0.025 B)**; 0.95 mm for a thin ring (the "rammer" type); never under 1.0 mm (the smallest ring a maker offers) | S: Honda's service manual (top and second rings 1.5 mm on the GX120, GX160 and GX200, the thin ones 0.95 to 0.97 and 0.94 to 0.96 mm; wear limit 1.37 mm); MAHLE packs 1.0 and 1.5 mm; NACA 817 0.0114 B. **The height does not scale with the bore across these engines** |
 | Oil ring height | 2.5 mm for 60 to 68 mm bores (0.037 to 0.042 B); never under 2.0 mm | S: Honda's service manual (2.5 mm; wear limit 2.37 mm; a one piece or a three piece oil ring); MAHLE 2.0 and 3.0 mm |
 | Ring radial width | 0.045 B (the standard's thicker series D/22) for a cast iron ring; 0.0245 B for a thin steel ring | S: ISO 6622-1 offers cast iron rectangular rings in a regular and a thicker "D/22" radial wall (search summary of the table titles; **the regular value was not seen**); S: NACA 817 thin nitrided steel ring 0.150 in in 6.125 in |
-| Ring side clearance | 0.015 to 0.045 mm for the standard ring, 0.035 to 0.080 mm for the thin one; service limit 0.15 mm (engineered) | S: Honda's service manual (top and second 0.015 to 0.045, the thin rings 0.035 to 0.070 and 0.045 to 0.080, oil 0.015 to 0.045); Scraba 0.002 to 0.004 in street, under 0.002 race; NACA 817 0.14 to 0.19 mm (D) |
+| Ring side clearance | 0.015 to 0.045 mm for the standard ring, 0.035 to 0.080 mm for the thin one; service limit 0.15 mm (nominal) | S: Honda's service manual (top and second 0.015 to 0.045, the thin rings 0.035 to 0.070 and 0.045 to 0.080, oil 0.015 to 0.045); Scraba 0.002 to 0.004 in street, under 0.002 race; NACA 817 0.14 to 0.19 mm (D) |
 | Groove depth | ring radial width + back clearance | S: NACA 817; **D:** back clearance 0.3 to 0.4 mm there; Scraba 0.5 mm (race) to 1.0 to 1.3 mm (production) |
 | Ring end gap | 0.2 to 0.4 mm for 60 to 68 mm bores (0.003 to 0.007 B); oil ring 0.15 to 0.35 mm; a worn ring is out at 1.0 mm; **gaps spaced 120 degrees apart and never over the pin bore** | S: Honda's service manual (the thin top ring 0.2 to 0.35, the thin second 0.35 to 0.50, its oil ring 0.2 to 0.7) |
 | Top land | 0.07 B default, **0.04 to 0.10 B for gasoline** | S: a Springer piston design chapter (search summary only) gives 4 to 10 % of the piston diameter for gasoline engines, shrinking to cut crevice emissions; S: Caterpillar 0.03 to 0.045 B (a 170 mm diesel); Scraba top ring 0.3 to 0.4 in (street) down to 0.06 in (drag) below the deck, **D** 0.075 to 0.10 B on an assumed 4 in bore; NACA 817 not resolved (one reading 0.12 B) |
@@ -72,7 +76,7 @@ Nothing read gives a small gasoline piston's length, skirt, groove positions or 
 | A6 | **Crown thickness 0.08 B** | NACA 895 compares 8 % and 30 % of the radius (0.04 and 0.15 B) | The study is of temperature, not of strength; no gas pressure rule was read |
 | A7 | **Skirt oval 0.001 B and a foot 0.0005 B larger than the top** | Skirt 6.098 and 6.092 across and along the pin (0.006 in) and 6.101 at the foot (0.003 in) | Which diameter is which axis was not certain; cartecc's 0.1 mm gives 0.001 B |
 | A8 | **Oil drain holes below the oil ring: 0.03 B diameter, four to eight, spaced 30 and 45 degrees from the pin axis** | Eight 3/16 in holes in the oil grooves | The drilling of figure 8 only; a real car piston may use slots |
-| A9 | **Edge and groove radii** 0.1 to 0.25 mm in the groove corners; groove sides flat and square to the axis | 0.005 to 0.010 in corner radii, flat sides | The edge radius of a printed part will be larger |
+| A9 | **Edge and groove radii** 0.1 to 0.25 mm in the groove corners; groove sides flat and square to the axis | 0.005 to 0.010 in corner radii, flat sides | The radii a made part gets depend on how it is made, which the modeler does not know |
 | A10 | **Weight: no rule.** The builder computes it from the geometry and the material's density | none | No source gives a weight in terms of B; stating one would be invention |
 
 **How the builder uses them:** A1 to A3 and A8 place the rings and grooves; A2 and A5 fix the top land and the pin height; A4, A6, A7 and A9 are defaults the human can override; each default carries an "assumed" mark in the model's box (as `dec_engine_model` already marks its remembered proportions) until a source replaces it.

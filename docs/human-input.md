@@ -5281,6 +5281,14 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > what is the difference between size and outside diameter? Also everything breaks it. For example if I hand type in the value of the rim width that it already had, it breaks. Also valid failure states are not very graceful. See the gear builder, it helps guide the user to input valid things and doesn't fail, but marks red and goes back to a valid value or sets assocated related values to make it function. Also it seems to have really silly limits, like a huge hub diameter no matter how small the bore is and even with a really large outer diameter.
 (asks what the difference between Size and Outside diameter is; says the wheel breaks on nearly any typed number, even the value a field already had; wants failures handled as the gear builder does (mark red and go back to a valid value, or set the related numbers so it works); and says the limits are silly, e.g. a huge hub whatever the bore or the outer diameter)
 
-## in_1241 — 2026-11-19 — directive
+## in_1241 — 2026-11-19 — approval
+> approve the Honda preset test and go ahead
+(approves the proposed test of the builder's defaults against the three Honda engines, with the Honda GX120, GX160 and GX200 as presets, and says to go ahead with the build)
+
+## in_1242 — 2026-11-19 — directive
+> option 3 for the clearance question, go ahead, we dont want to design this for 3d printing. it could be machined, cast etc, it is not specifically for 3d printing and should be manufacturing agnostic
+(answers q_clearance_profile with option 3: two typed numbers, the model's room for the moving parts and the piston's own fits from Honda; says to go ahead; the engine builder is not for 3D printing in particular, it could be machined or cast, and must be manufacturing agnostic)
+
+## in_1243 — 2026-11-19 — directive
 > okay we want to be able to have a fillet or chamfer on the edges of the cutouts that make the spokes as well. Also yes we want all menus to be standardized in their error handling. We want unified code. the other models (bearings, gearbox, engine, differential, cycloidal). They should help guide the user ideally without failing.
 (asks for a fillet or chamfer on the edges of the cutouts that make the spokes; and for every model box (bearings, gearbox, engine, differential, cycloidal as well) to handle bad numbers the same way, with one shared code, guiding the user without failing)

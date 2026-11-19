@@ -1,4 +1,4 @@
-// One way for every model to meet the numbers a person types (`in_1241`): the numbers that were not typed are moved, as little as they can be, until the model can be made; the numbers typed are never moved here (when they cannot all be met
+// One way for every model to meet the numbers a person types (`in_1243`): the numbers that were not typed are moved, as little as they can be, until the model can be made; the numbers typed are never moved here (when they cannot all be met
 // the box takes the one being typed back to the nearest value that works, `modeltool.ts`). The model says only what it cannot be made with (`Def.problem`); the search is the same for all. Pure.
 import type { ModelField, Nums } from "./modelkinds.ts";
 
