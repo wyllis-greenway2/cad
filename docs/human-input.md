@@ -4429,7 +4429,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > we will hold off on the merge for now, what else should we build?
 (asks the branch not to be merged into claude/inspiring-pascal-l342k7 yet; asks what to build next)
 
-## in_1019 — 2026-11-19 — clarification
+## in_1019 — 2026-11-19 — question
 > no I mean what else should we work on for import export and compatability
 (says the question was about import, export and compatibility, not other features)
 
