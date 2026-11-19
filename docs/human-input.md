@@ -4581,3 +4581,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1055 — 2026-11-19 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for claude/intelligent-hawking-8j1lyr to be merged into claude/inspiring-pascal-l342k7 once more, with the gear chains change; the full suite is not needed)
+
+## in_1056 — 2026-11-19 — question
+> Okay is this a good generic root cause fix? Or an exception that should either be a general exception or new rule or we should not do in order to keep history intact?
+(asks whether the gear chains are a general root-cause fix, or an exception that should be generalised, made a rule, or left out so that the model's history stays intact)
+
+## in_1057 — 2026-11-19 — approval
+> I will take your recommendation
+(takes the AI's recommendation: keep the gear chains as the narrow exception they are, and do not make them a general rule; the general fix for plain bodies waits for a measurement of whether they are slow)

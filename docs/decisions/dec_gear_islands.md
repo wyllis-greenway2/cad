@@ -1,9 +1,9 @@
 ---
 id: dec_gear_islands
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_1054
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_1054, in_1056, in_1057
 date: 2026-11-19
 depends_on:
   - dec_gear_tool: a gear is made from its own record, so what is made for it needs nothing of the other bodies; a gear that was made to cut another body would need the one chain
@@ -15,7 +15,9 @@ alternative_to:
 
 **Asked (`in_1054`):** with a spiral crown gear and its meshed pinion, deleting the crown gear made the pinion be built again (the snapshot: 18 of 28 steps made, 14.7 s, a 12 s boolean). **Why:** the kernel keeps the answer of each step under a key made of the step and of the answers it works on, and the steps were one chain (each a `target` of the next): the pinion's first step stood beside the crown gear's body (`mode: "new"`, target the crown gear's last step), so when the crown gear's steps went the pinion's first step was a different step (no target, `mode: "add"`), and so was every step after it. A gear is made of its own numbers and needs nothing of the other bodies. The same thing happened at every change to a gear: all the gears after it were made again.
 
-**Built (provisional: it changes how the model is compiled, and the AI chose it): the graph** (`compiler/graph.ts`) **gives each gear's own steps** (the ones that stand beside the others: `mode: "new"` extrude, revolve, loft and sweep, and the combine, sew and chamfer steps on its bodies) **a chain of its own, and a `join` step** (`compiler/kernel/occt/interpreter.mjs`: the bodies of the chains in one compound, nothing worked out) **stands them together** where a step that is not a gear's comes and at the end. The join carries the names of the bodies and of the faces of every chain, so what refers to them is as before. A gear that has a step of another kind (one that cuts or fuses into another body) is made in the one chain from there on, as before; one gear alone, or one and nothing else, has no join and the same steps as before. A chain that fails is left out of the join (its own step says why).
+**Accepted (`in_1057`): the human asked whether this is a general root-cause fix or an exception (`in_1056`); the AI answered that it is a narrow exception (a gear is made from its own numbers and always stands beside the others), that the model's history (the steps, their order, undo and redo, the saved file) is untouched (only the list the kernel works from differs, and two overlapping gears behave as before: same volume, no new error), and recommended keeping it as it is; the human took that. The general fix (a key for each body, or a chain for every body that stands beside the others) is not built and is not a rule: it needs every later step to say which body it acts on, and waits for a measurement of a model of many plain bodies (`in_1057`).**
+
+**Built: the graph** (`compiler/graph.ts`) **gives each gear's own steps** (the ones that stand beside the others: `mode: "new"` extrude, revolve, loft and sweep, and the combine, sew and chamfer steps on its bodies) **a chain of its own, and a `join` step** (`compiler/kernel/occt/interpreter.mjs`: the bodies of the chains in one compound, nothing worked out) **stands them together** where a step that is not a gear's comes and at the end. The join carries the names of the bodies and of the faces of every chain, so what refers to them is as before. A gear that has a step of another kind (one that cuts or fuses into another body) is made in the one chain from there on, as before; one gear alone, or one and nothing else, has no join and the same steps as before. A chain that fails is left out of the join (its own step says why).
 
 **Checked:** on the human's project, deleting the crown gear after both were made: **4.1 s before, 1 ms now** (every step of what is left is found as it was made; the snapshot's 12 s boolean is the pinion's); the volumes are the same (49,154 mm3 with both, 16,603 with the pinion); changing the first gear makes only its own steps and the join again. `test/gearislands.test.ts` (4 tests: the two that matter fail on the old code); the whole suite.
 
@@ -23,4 +25,4 @@ alternative_to:
 
 ## Rationale
 
-The kernel's reuse of an answer is by what it was worked out from, which is right for steps that work on a body; a step that does not work on the others has nothing to share with them, and a chain made it share their keys. Giving each gear its own chain puts the dependence where it is. It is `provisional` because it is the AI's own change to the compile path, kept narrow (gears only) so that the rest of the model is made as before.
+The kernel's reuse of an answer is by what it was worked out from, which is right for steps that work on a body; a step that does not work on the others has nothing to share with them, and a chain made it share their keys. Giving each gear its own chain puts the dependence where it is. It is kept narrow (gears only) so that the rest of the model is made as before; a wider rule is a separate decision.
