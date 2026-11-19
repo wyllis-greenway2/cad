@@ -4377,3 +4377,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > okay what next?
 (asks what to work on next; the AI recommends, the human decides)
 
+## in_1006 — 2026-11-19 — directive
+> do 3 and 4
+(of the AI's list: the spur pinion's chamfer for the face gear drive (3), and a rendering sweep over the whole bevel gear family to look for defects the overlap numbers miss (4))
+
