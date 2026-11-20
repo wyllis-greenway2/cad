@@ -5532,3 +5532,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1306 — 2026-11-20 — question
 > I cannot seem to cut this profile through? it seems to only grab one half of the selected enclosed sketches to extrude?
 (a screenshot of a body with a ring (two concentric circles) drawn on a flat wall that is split by a vertical line; the saved model c9442ef0-cannot-through.json)
+
+## in_1307 — 2026-11-20 — directive
+> Also this helper set of icons shows up directly under my click sometimes. it is super annoying. Can we have it offset from the body further?
+(a screenshot: the helpful bar with the eye, the lock and two suggested constraints standing over a face that was clicked)
