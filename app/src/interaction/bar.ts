@@ -23,6 +23,8 @@ export interface BarFacts {
   /** the sheet that is selected: its mode, whether it is invisible, what its move icon has the handles in, and its first corner */
   sheet: { ref: Ref; mode: 0 | 1 | 2; hidden: boolean; move: 0 | 1; corner: Vec3 } | null;
   gear: { part: Ref; at: Vec3; items: BarGear["items"] } | null;
+  /** the figure of a cut is selected (its ghost was clicked): the step, whether it goes both ways, and where its row stands (`dec_cut_tools`, `in_1348`) */
+  cut?: { step: string; both: boolean; at: Vec3 } | null;
 }
 
 const MODE_ICON = ["sheetCutUp", "sheetCutDown", "sheetPlain"] as const;
@@ -58,8 +60,9 @@ export function barOf(f: BarFacts, suggestAt: Vec3 | null): Bar | null {
       icons.push({ id: `body:constraints:${f.face}`, icon: on ? "lock" : "unlock", title: on ? "Constraints of this face are shown: hide them" : "Show every constraint that has to do with this face", ...(on ? { on: true as const } : {}) });
     }
   } else if (f.bodies.length > 1) icons.push({ id: "view:hide", icon: "eye", title: "Hide these bodies" });
+  if (f.cut) icons.push({ id: `cut:both:${f.cut.step}`, icon: "cutBoth", title: f.cut.both ? "This cut goes through both ways from its plane: tap to cut one way again" : "This cut goes one way from its plane: tap to cut through both ways", ...(f.cut.both ? { on: true as const } : {}) });
   const gear = f.gear ? { part: f.gear.part, items: f.gear.items } : null;
   if (!icons.length && !gear) return null;
-  const at = suggestAt ?? (f.sheet ? f.sheet.corner : f.gear ? f.gear.at : f.bodies[0]?.top ?? null);
+  const at = suggestAt ?? (f.sheet ? f.sheet.corner : f.gear ? f.gear.at : f.bodies[0]?.top ?? f.cut?.at ?? null);
   return { at, icons, gear };
 }

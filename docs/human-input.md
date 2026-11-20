@@ -5646,7 +5646,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1336 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 
-## in_1337 — 2026-11-20 — question
+## in_1340 — 2026-11-20 — question
 > does boolean add work only on two bodies? Also why do we have these limits at all? Why cant boolean add just add all bodies? and why cant boolean subtract just let you select the cutter bodies and the bodies to cut? Similar to how intsersect allows you to select kept portions and non kept portions
 (asks why the booleans are limited to two bodies, and for Add on all bodies and a Subtract that picks the bodies to cut and the cutters)
 
@@ -5657,3 +5657,45 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1339 — 2026-11-20 — question
 > Why cant I seem to hollow this object?
 (with the saved model `1ae09511-cant_hollow.json`, kept as `app/test/fixtures/hollow-pockets.cad.json`)
+
+> why can I not extend this chamfer all the way? it wants to keep this little sliver of flat or it fails.
+(two screenshots: a chamfer being made along an edge of a flat cut on a round body, the size 4.4 and Constant / Variable; and the edge selected with its arrows, a thin sliver of the flat left beside the chamfered edge; the saved model bdaeea8e-model_2.json)
+
+## in_1341 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1342 — 2026-11-20 — directive
+> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
+(the same suggestion as `in_1135` and `in_1309`; the testing branch was already at this branch's tip, so the merge was done and the new branch is `claude/cool-einstein-odsxco-gears8`)
+
+## in_1343 — 2026-11-20 — directive
+> spiral rotate extrude still doesn't work. Any value I put in here or any amount I pull the extra arrow doesn't modify how much it moves in the screw direction over rotation.
+(two screenshots of the Revolve with a spiral: the box shows 1000 degrees and an advance of 3, then the arrow pulled to 4.3; the body does not change)
+
+## in_1344 — 2026-11-20 — question
+> why not just allow overlap? it could be a boolean merge into a single body I guess?
+(asks why a spiral whose turns overlap is not allowed, and suggests making it as a boolean merge into one body)
+
+## in_1345 — 2026-11-20 — directive
+> Okay now the suggested icons thing is really annoying. I cant click on it at all. It gets out of the way of the cursor. I wanted it to not cover the model so I can click on the model, and also never open directly underneath a click, but if already open, I should be able to hover over it and click it.
+(a screenshot of the suggestions bar below a selected plane; it moves away from the pointer so it cannot be clicked; asks that it not cover the model and never open under a click, but that an open one can be hovered and clicked)
+
+## in_1346 — 2026-11-20 — question
+> okay why can't I drag both these holes down with the mover tool? I can only select one of them and it moves both down. Also why is it that one cuts through the chamfer and the other doesn? is this because the origin of the cutting was on the face and so it basically moved a negative body down? If so, can we try having it so that you can just see the negative body and move the entire negative body as if it were a positive body?
+(no picture or file came with this message; asks why two holes cannot be moved separately with the mover, why one cuts through a chamfer and the other does not, and whether a cut can be shown and moved as a negative body)
+
+## in_1347 — 2026-11-20 — directive
+> (no words: two screenshots of a cylinder with a chamfered slot and two holes, one cutting through the slot's wall and one not, and the file `holes.json`, sent with the question in in_1346)
+(the model for in_1346: why the holes cannot be moved separately, why one cuts through the chamfer and the other not, and whether a cut can be moved as a negative body)
+
+## in_1348 — 2026-11-20 — approval
+> do both, through both ways and the ghost negative body
+(approves both proposals made after in_1347: a cut that goes through both ways from its plane, and a cut shown as a ghost negative body that can be picked and moved like a positive body)
+
+## in_1349 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the cut-both-ways and ghost cut work, the bar fix, the spiral overlap and the earlier work to be merged into the testing branch, no full test run)
+
+## in_1350 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the cut-both-ways and ghost cut work, the bar fix, the spiral overlap and the earlier work to be merged into the testing branch, no full test run; the same words as in_1349)

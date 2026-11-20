@@ -48,7 +48,7 @@ export function revolveStart(scene: Scene, faces: readonly Extract<Part, { kind:
   return { pivot: scale(add(best.a, best.b), 0.5), frame: [d, cross3(n, d), n] };
 }
 /** The points of the outline of a drawn figure: 64 round a circle, else its corners (with the bends of its arcs, `loopPoints`). */
-function figurePoints(scene: Scene, face: Extract<Part, { kind: "face" }>): Vec3[] {
+export function figurePoints(scene: Scene, face: Extract<Part, { kind: "face" }>): Vec3[] {
   const get = lookup(scene);
   const pl = face.plane ? get(face.plane) : undefined;
   const disk = face.disk ? get(face.disk) : undefined;
@@ -74,34 +74,8 @@ const cross3 = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[
 export const axisOf = (op: Op): RevAxis | null => (op.pivot && op.frame ? { p: op.pivot, d: op.frame[op.axis], label: "the mover's axis" } : null); // (the orb's place and the axis of its frame the person chose, `in_438`)
 /** The advance along the axis for each full turn (the spiral's pitch, mm or the system in use): what is typed, else what the arrow was dragged to, else none (`in_1298`: it was the distance over the whole angle, which is nothing to read off a bubble). */
 export const advanceOf = (op: Op): number => { const t = typedLength(op.advTyped ?? ""); return t !== null ? t : op.advValue ?? 0; };
-/**
- * The least advance a turn at which the turns of a spiral do not run into each other (`in_1298`): the figure is as wide along the axis as it is, and one turn must advance at least that. The advance is the distance for each full turn,
- * whatever the angle; the step is made with it times the turns. Null when there is no advance.
- */
-function advanceFloor(scene: Scene, op: Op): { floor: number; width: number } | null {
-  const a = axisOf(op);
-  if (!a || advanceOf(op) === 0) return null;
-  const faces = Object.values(scene.parts).filter((q): q is Extract<Part, { kind: "face" }> => q.kind === "face" && q.origin === "drawn" && (op.revFigs?.length ? op.revFigs : [{ fig: { outer: op.parts } }]).some((f) => (q.disk ? f.fig.outer.length === 1 && q.disk === f.fig.outer[0] : q.loop.length === f.fig.outer.length && f.fig.outer.every((r) => q.loop.includes(r)))));
-  const d = normalize(a.d);
-  let width = 0;
-  for (const f of faces) {
-    const along = figurePoints(scene, f).map((q) => dot(q, d));
-    if (along.length) width = Math.max(width, Math.max(...along) - Math.min(...along));
-  }
-  return width > 0 ? { floor: Math.ceil(width * 100 + 1) / 100, width } : null; // (a hundredth over, so the kernel's check passes)
-}
-/** What is said while the advance a turn has been raised to that floor (`in_1298`), or null. */
-export function advanceNote(scene: Scene, op: Op): string | null {
-  const f = advanceFloor(scene, op);
-  if (!f || Math.abs(advanceOf(op)) >= f.floor) return null;
-  return `the figure is ${Math.round(f.width * 100) / 100} mm wide along the axis, so the advance for each turn is raised to ${f.floor} mm: the turns would run into each other`;
-}
-/** The advance the step is made with, over the whole angle: the advance for a turn (raised to the floor where the turns would run into each other) times the turns (`in_1298`). */
-const raised = (scene: Scene, op: Op, angle: number): number => {
-  const per = advanceOf(op), f = advanceFloor(scene, op);
-  const pitch = f && Math.abs(per) < f.floor ? Math.sign(per) * f.floor : per;
-  return pitch * (Math.abs(angle) / 360);
-};
+/** The advance the step is made with, over the whole angle: the advance for a turn times the turns (`in_1298`). Turns that overlap (a pitch less than the figure is wide along the axis, as in a tight spring) are allowed: the kernel joins them into one body (`in_1344`). */
+const raised = (_scene: Scene, op: Op, angle: number): number => advanceOf(op) * (Math.abs(angle) / 360);
 /** Where the ring and the arrow stand: the orb, on the axis. */
 export const revolveCentre = (op: Op): Vec3 | null => op.pivot ?? null;
 
