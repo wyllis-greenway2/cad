@@ -12,7 +12,7 @@ import type { Scene } from "../operation/scene.ts";
 import { nextId, lookup } from "../operation/scene.ts";
 import { live } from "../operation/ownership.ts";
 import type { Command } from "../operation/commands.ts";
-import { drawSquaredRectangle, drawCircle, drawChain, drawArc, drawSpline, joinedAtCorners } from "../operation/build.ts";
+import { drawSquaredRectangle, drawPolygon, drawCircle, drawChain, drawArc, drawSpline, joinedAtCorners } from "../operation/build.ts";
 import { distinctPoints, splinePoints } from "../operation/spline.ts";
 import { drawClosedSpline } from "../operation/splinering.ts";
 import type { CamKind, CamLaw, CamLayout, CamSpec } from "../operation/cams.ts";
@@ -48,7 +48,7 @@ import { armedModel, modelTyped, modelPreview, modelCommand, nextField } from ".
 import type { ModelState } from "./modeltool.ts";
 import type { ModelKind } from "../operation/modelkinds.ts";
 
-export type ToolKind = "rect" | "circle" | "line" | "arc" | "spline" | "cam" | "trim" | "gear" | "model";
+export type ToolKind = "rect" | "circle" | "polygon" | "line" | "arc" | "spline" | "cam" | "trim" | "gear" | "model";
 export interface Tool {
   kind: ToolKind;
   /** null while armed (waiting for the first click on a surface) */
@@ -178,7 +178,7 @@ const gearState = (t: Tool): GearState => t.gear ?? { internal: false, typed: []
 /** A tool that waits for its first click on a surface. */
 export type GearVariant = "planetary" | "gear" | "bevel" | "crown" | "spiral" | "face" | "facepinion" | "worm" | "wormwheel" | "ring" | "rack" | "gt2" | "gt3" | "htd5" | "htd8" | "sprocket" | "isosprocket" | "clock" | "clockring" | "clockrack";
 export const variantOf = (g: { teeth?: number; crown?: unknown; spiral?: unknown; face?: unknown; planetary?: true; bevel?: unknown; internal?: boolean; rack?: boolean; pulley?: PulleyKind; sprocket?: unknown; iso?: unknown; cycloidal?: unknown } | undefined): GearVariant => (g?.planetary ? "planetary" : g?.bevel ? ((g.face ?? (g.bevel as { facegear?: string }).facegear) === "pinion" ? "facepinion" : (g.face ?? (g.bevel as { facegear?: string }).facegear) === "gear" ? "face" : g.spiral || (g.bevel as { spiral?: number }).spiral !== undefined ? "spiral" : g.crown || (g.teeth !== undefined && isCrown(g as GearSpec)) ? "crown" : "bevel") : g?.cycloidal ? (g.internal ? "clockring" : g.rack ? "clockrack" : "clock") : g?.sprocket ? (g.iso ? "isosprocket" : "sprocket") : g?.pulley === "2GT" ? "gt2" : g?.pulley === "3GT" ? "gt3" : g?.internal ? "ring" : g?.rack ? "rack" : "gear");
-export const armTool = (kind: ToolKind, variant: GearVariant = "gear"): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: 0, ...(kind === "gear" ? { gear: { internal: variant === "ring" || variant === "clockring", ...(variant === "planetary" ? { planetary: true as const } : {}), ...(variant === "worm" ? { worm: true as const } : {}), ...(variant === "bevel" || variant === "crown" || variant === "spiral" || variant === "face" || variant === "facepinion" ? { bevel: true as const } : {}), ...(variant === "spiral" ? { spiral: true as const } : {}), ...(variant === "face" ? { face: "gear" as const } : variant === "facepinion" ? { face: "pinion" as const } : {}), ...(variant === "crown" ? { crown: true as const } : {}), ...(variant === "wormwheel" ? { wheel: true as const } : {}), typed: ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], field: 0, ...(variant === "rack" || variant === "clockrack" ? { rack: true } : {}), ...(variant === "gt2" ? { pulley: "2GT" as const } : variant === "gt3" ? { pulley: "3GT" as const } : variant === "htd5" ? { pulley: "HTD5M" as const } : variant === "htd8" ? { pulley: "HTD8M" as const } : {}), ...(variant === "sprocket" || variant === "isosprocket" ? { sprocket: true as const } : {}), ...(variant === "isosprocket" ? { iso: true as const } : {}), ...(variant === "clock" || variant === "clockring" || variant === "clockrack" ? { cycloidal: true as const } : {}) } } : {}) });
+export const armTool = (kind: ToolKind, variant: GearVariant = "gear"): Tool => ({ kind, plane: null, points: [], cursor: null, typed: ["", ""], field: kind === "polygon" ? 1 : 0, ...(kind === "gear" ? { gear: { internal: variant === "ring" || variant === "clockring", ...(variant === "planetary" ? { planetary: true as const } : {}), ...(variant === "worm" ? { worm: true as const } : {}), ...(variant === "bevel" || variant === "crown" || variant === "spiral" || variant === "face" || variant === "facepinion" ? { bevel: true as const } : {}), ...(variant === "spiral" ? { spiral: true as const } : {}), ...(variant === "face" ? { face: "gear" as const } : variant === "facepinion" ? { face: "pinion" as const } : {}), ...(variant === "crown" ? { crown: true as const } : {}), ...(variant === "wormwheel" ? { wheel: true as const } : {}), typed: ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], field: 0, ...(variant === "rack" || variant === "clockrack" ? { rack: true } : {}), ...(variant === "gt2" ? { pulley: "2GT" as const } : variant === "gt3" ? { pulley: "3GT" as const } : variant === "htd5" ? { pulley: "HTD5M" as const } : variant === "htd8" ? { pulley: "HTD8M" as const } : {}), ...(variant === "sprocket" || variant === "isosprocket" ? { sprocket: true as const } : {}), ...(variant === "isosprocket" ? { iso: true as const } : {}), ...(variant === "clock" || variant === "clockring" || variant === "clockrack" ? { cycloidal: true as const } : {}) } } : {}) });
 /** Whether a gear can have a helix put on it (`in_692`): a plain outside spur gear, or one that has it already; the other kinds (rings, racks, pulleys, sprockets, clock gears, worms) have none yet. */
 export const canHelix = (spec: GearSpec): boolean => !spec.bevel && !spec.pulley && !spec.sprocket && !spec.cycloidal && !spec.worm && !spec.wheel;
 /** The tool opened to make a gear or a rack that meshes with `src`: its centre is the gear's, the pointer says where the partner goes. */
@@ -198,7 +198,7 @@ export function editCamTool(rec: { id: string; plane: Ref; at: Vec3; spec: GearS
 /** The tool opened on a gear that is already made, to change its numbers (`focus`: the number the box starts at, as the helix item does, `in_693`): its plane and centre, and its numbers as they are. */
 export const editGearTool = (rec: { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn?: number }, focus?: GearKey): Tool => ({ ...armTool("gear", variantOf(rec.spec)), plane: rec.plane, points: [rec.at], cursor: rec.at, gear: { internal: !!rec.spec.internal, ...(rec.spec.bevel ? { bevel: true as const } : {}), ...(isCrown(rec.spec) ? { crown: true as const } : {}), ...(rec.spec.bevel?.spiral !== undefined ? { spiral: true as const } : {}), ...(rec.spec.bevel?.facegear !== undefined ? { face: rec.spec.bevel.facegear } : {}), ...(rec.spec.worm ? { worm: true as const } : {}), ...(rec.spec.wheel ? { wheel: true as const } : {}), ...(rec.spec.rack ? { rack: true } : {}), ...(rec.spec.pulley ? { pulley: rec.spec.pulley } : {}), ...(rec.spec.sprocket ? { sprocket: true as const } : {}), ...(rec.spec.sprocket?.iso ? { iso: true as const } : {}), ...(rec.spec.cycloidal ? { cycloidal: true as const } : {}), typed: ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""], field: Math.max(0, gearFields({ internal: !!rec.spec.internal, ...(rec.spec.bevel ? { bevel: true as const } : {}), ...(isCrown(rec.spec) ? { crown: true as const } : {}), ...(rec.spec.bevel?.spiral !== undefined ? { spiral: true as const } : {}), ...(rec.spec.bevel?.facegear !== undefined ? { face: rec.spec.bevel.facegear } : {}), ...(rec.spec.worm ? { worm: true as const } : {}), ...(rec.spec.wheel ? { wheel: true as const } : {}), ...(rec.spec.rack ? { rack: true } : {}), ...(rec.spec.pulley ? { pulley: rec.spec.pulley } : {}), ...(rec.spec.sprocket ? { sprocket: true as const } : {}), ...(rec.spec.sprocket?.iso ? { iso: true as const } : {}), ...(rec.spec.cycloidal ? { cycloidal: true as const } : {}) }).findIndex((f) => f.key === focus)), editing: rec.id, base: rec.spec, ...(focus ? { focus: true as const } : {}), ...(rec.turn ? { turn: rec.turn } : {}) } });
 
-export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], line: ["Length"], arc: ["Height"], spline: [], cam: [], trim: [], gear: ["Teeth", "Module"], model: [] };
+export const FIELDS: Record<ToolKind, string[]> = { rect: ["Width", "Height"], circle: ["Diameter"], polygon: ["Diameter", "Edges"], line: ["Length"], arc: ["Height"], spline: [], cam: [], trim: [], gear: ["Teeth", "Module"], model: [] };
 
 // ---- points on a plane ----
 export function pointOnPlane(pv: PointerView, pl: Plane): Vec3 | null {
@@ -327,6 +327,20 @@ export function circleRadius(pl: Plane, t: Tool): number {
   const a = t.points[0];
   const c = t.cursor;
   return a && c ? dist(a, c) : 0;
+}
+/** The number of edges of the polygon being drawn: as typed, else six; whole, from three to sixty-four (`dec_polygon_tool`). */
+function polygonSides(t: Tool): number {
+  const n = t.typed[1] !== "" ? Math.round(Number(t.typed[1])) : 6;
+  return Number.isFinite(n) ? Math.max(3, Math.min(64, n)) : 6;
+}
+/** The corners of the polygon from its middle, the cursor and the typed numbers: the size is the typed diameter (corner to corner) or the distance to the cursor, and the first corner is on the way the cursor lies. */
+function polygonCorners(pl: Plane, t: Tool): { centre: Vec3; radius: number; first: number; sides: number } | null {
+  const a = t.points[0];
+  const c = t.cursor ?? a;
+  if (!a || !c) return null;
+  const [ax, ay] = localOf(pl, a), [cx, cy] = localOf(pl, c);
+  const radius = circleRadius(pl, t);
+  return radius < 1e-9 ? null : { centre: a, radius, first: Math.atan2(cy - ay, cx - ax), sides: polygonSides(t) };
 }
 /** The numbers of the gear being drawn or changed: each as typed, else as the gear has it now, else the default (20 teeth, 20 degrees, no shift or backlash, a wall or a bar of 2 modules); with no module typed and none to start from, the one (to the nearest 0.05) that makes the outside as wide as the pointer is from the centre (a rack: as long as twice that). Null while there is no size. */
 /** The bore's shape as typed (or as the gear had it): a flat, a keyway and its depth. */
@@ -766,6 +780,13 @@ function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
     const c = [liftOf(pl, [ax, ay]), liftOf(pl, [ex, ay]), liftOf(pl, [ex, ey]), liftOf(pl, [ax, ey])] as Vec3[];
     return { segments: c.map((p, i): [Vec3, Vec3] => [p, c[(i + 1) % 4]!]), circle: null, cursor: t.cursor };
   }
+  if (t.kind === "polygon") {
+    const g = polygonCorners(pl, t);
+    if (!g) return null;
+    const [cx, cy] = localOf(pl, g.centre);
+    const pts = Array.from({ length: g.sides }, (_, k): Vec3 => liftOf(pl, [cx + g.radius * Math.cos(g.first + (2 * Math.PI * k) / g.sides), cy + g.radius * Math.sin(g.first + (2 * Math.PI * k) / g.sides)]));
+    return { segments: pts.map((q, i): [Vec3, Vec3] => [q, pts[(i + 1) % pts.length]!]), circle: null, cursor: t.cursor };
+  }
   if (t.kind === "circle") return { segments: [], circle: { center: t.points[0]!, radius: circleRadius(pl, t), normal: n }, cursor: t.cursor };
   if (t.kind === "gear") {
     const sug = meshSuggestion(scene, t); // (a gear that would mesh: it is drawn as that gear, in orange, with a dashed line to the one it meshes with, `in_770`)
@@ -1030,6 +1051,12 @@ export function finish(scene: Scene, t: Tool): Finished | null {
     const [ex, ey] = localOf(pl, e);
     if (Math.abs(ex - ax) < 1e-6 || Math.abs(ey - ay) < 1e-6) return null;
     const r = drawSquaredRectangle(scene, pl.ref, a, e, pl.u, pl.v);
+    return { command: joinedAtCorners(scene, pl.ref, r.command), select: [loopFaceRef(r.lines)] };
+  }
+  if (t.kind === "polygon") {
+    const g = polygonCorners(pl, t);
+    if (!g) return null;
+    const r = drawPolygon(scene, pl.ref, g.centre, g.radius, g.sides, g.first, pl.u, pl.v);
     return { command: joinedAtCorners(scene, pl.ref, r.command), select: [loopFaceRef(r.lines)] };
   }
   if (t.kind === "circle") {

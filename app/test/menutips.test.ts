@@ -47,28 +47,27 @@ test("every tooltip of the ring is one or two words, in every state, and every r
   }
 });
 
-test("the Actions area holds undo, redo and delete; the Delete bubble is gone from the top of the ring (`in_538`)", () => {
+test("Delete is one item of the ring with no list under it, and undo and redo are in the ⋯ list (`in_1281`)", () => {
   const { st } = states().find((x) => x.name === "figure")!;
   const items = reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as Item[];
-  assert.ok(!items.some((i) => i.id === "delete"), "not at the top");
-  const actions = items.find((i) => i.id === "actions")!;
-  assert.equal(actions.label, "Actions");
-  assert.deepEqual(actions.children!.map((i) => i.id), ["undo", "redo", "delete"]);
-  assert.ok(actions.children!.find((i) => i.id === "undo")!.enabled, "there is something to undo");
-  assert.ok(!actions.children!.find((i) => i.id === "redo")!.enabled);
-  // undo and redo work from the ring
+  assert.ok(!items.some((i) => i.id === "actions"), "no Actions list");
+  const del = items.find((i) => i.id === "delete")!;
+  assert.ok(del && !del.children && del.icon === "trash", "a trash bubble that does it at once");
+  assert.ok(!every(items).some((i) => i.id === "undo" || i.id === "redo"), "undo and redo are not in the ring");
+  const rows = appRows("", { undo: true, redo: false });
+  assert.deepEqual(rows.slice(0, 2).map((r) => [r.id, r.enabled]), [["undo", true], ["redo", false]]);
+  // undo and redo still work as actions
   const gone = reduce(st, { type: "runAction", id: "undo" }, env);
   assert.ok(scene(gone.session).steps.length === 0);
   const again = reduce(gone, { type: "runAction", id: "redo" }, env);
   assert.ok(again.session.history.cursor > gone.session.history.cursor);
 });
 
-test("a dimmed bubble is pressed and says why, the ring stays open (`in_538`)", () => {
+test("a dimmed bubble is pressed and says why (`in_538`; Delete now waits for what to click, `in_951`)", () => {
   const { st } = states().find((x) => x.name === "empty")!;
   const open = reduce(st, { type: "menu", x: 400, y: 300, button: true }, env);
-  const said = reduce(open, { type: "runAction", id: "why:undo" }, env);
-  assert.match(said.session.message ?? "", /nothing to undo/);
-  assert.ok(said.menu, "the ring is still open");
+  const said = reduce(open, { type: "runAction", id: "why:delete" }, env);
+  assert.match(said.session.message ?? "", /[Ss]elect something to delete/);
 });
 
 test("Select has All bodies: every body is selected; with none it says so (`in_538`)", () => {
