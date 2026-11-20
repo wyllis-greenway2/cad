@@ -5646,3 +5646,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1336 — 2026-11-20 — directive
 > Okay now the suggested icons thing is really annoying. I cant click on it at all. It gets out of the way of the cursor. I wanted it to not cover the model so I can click on the model, and also never open directly underneath a click, but if already open, I should be able to hover over it and click it.
 (a screenshot of the suggestions bar below a selected plane; it moves away from the pointer so it cannot be clicked; asks that it not cover the model and never open under a click, but that an open one can be hovered and clicked)
+
+## in_1337 — 2026-11-20 — question
+> okay why can't I drag both these holes down with the mover tool? I can only select one of them and it moves both down. Also why is it that one cuts through the chamfer and the other doesn? is this because the origin of the cutting was on the face and so it basically moved a negative body down? If so, can we try having it so that you can just see the negative body and move the entire negative body as if it were a positive body?
+(no picture or file came with this message; asks why two holes cannot be moved separately with the mover, why one cuts through a chamfer and the other does not, and whether a cut can be shown and moved as a negative body)
