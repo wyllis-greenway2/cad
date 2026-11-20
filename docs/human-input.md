@@ -5630,3 +5630,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1332 — 2026-11-20 — directive
 > We get an explosion of constraints showing up when you select multiple lines. Can we have it so that lines work the same as faces or bodies. Lets try if you select one line it shows its constraints, if you select two lines, it shows their related constraints. Otherwise it hides constraints.
 (asks that one selected line shows its constraints, two show the ones that relate them, more show none)
+
+## in_1333 — 2026-11-20 — directive
+> I cannot select the boolean operation tool unless I have more than one body. Again this feels like factured or duplicate code. All our tools should follow a unified method. I think you should be able to select them anytime and they should guide you to select what they need to do the operation. it should let me select it and then I can select the bodies involved.
+(asks that the boolean tools can be chosen at any time and then wait for the bodies to be picked, as every tool does)
