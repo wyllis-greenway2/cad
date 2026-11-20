@@ -22,7 +22,9 @@ export type OffsetSource =
   /** a flat face of the body with holes: every loop of it, the outer one first; they are offset together (`in_228`) */
   | { kind: "outlines"; plane: Ref; origin: Vec3; normal: Vec3; loops: Outline[] }
   /** several straight lines that are not chained (two parallel lines): each moves by the same distance to the side of its own arrow, the arrows turned to agree with the first (`in_1323`) */
-  | { kind: "set"; plane: Ref; origin: Vec3; normal: Vec3; lines: { a: Vec3; b: Vec3; normal: Vec3 }[] };
+  | { kind: "set"; plane: Ref; origin: Vec3; normal: Vec3; lines: { a: Vec3; b: Vec3; normal: Vec3 }[] }
+  /** several enclosed sketches (closed figures, disks) on one plane: each is offset by the same distance, out of itself, and the arrow stands on the one nearest the click (`in_1374`) */
+  | { kind: "group"; plane: Ref; origin: Vec3; normal: Vec3; items: OffsetSource[] };
 
 type V2 = [number, number];
 const area2 = (p: V2[]): number => p.reduce((s, a, i) => { const b = p[(i + 1) % p.length]!; return s + (a[0] * b[1] - b[0] * a[1]); }, 0);
@@ -40,6 +42,15 @@ export function offsetSource(scene: Scene, parts: Part[]): OffsetSource | null {
       return { kind: "outlines", plane: loops[0]!.plane, origin: loops[0]!.origin, normal: loops[0]!.normal, loops };
     }
     return bodyOutline(scene, parts);
+  }
+  // several enclosed sketches selected (each a face, perhaps with its sides and corners): each is offset, all together (`in_1374`)
+  if (parts.length > 1 && parts.every((p) => p.origin === "drawn")) {
+    const figs = parts.filter((p): p is Extract<Part, { kind: "face" }> => p.kind === "face");
+    const mine = new Set<Ref>(figs.flatMap((f) => [f.ref, ...f.loop, ...f.corners, ...(f.disk ? [f.disk] : [])]));
+    if (figs.length > 1 && parts.every((p) => mine.has(p.ref))) {
+      const items = figs.map((f) => offsetSource(scene, [f]));
+      if (items.every((it): it is OffsetSource => !!it && it.kind !== "group") && items.every((it) => it.plane === items[0]!.plane)) return { kind: "group", plane: items[0]!.plane, items, origin: items[0]!.origin, normal: items[0]!.normal };
+    }
   }
   // what is picked of a drawn figure is often more than one part: a face is picked with its sides and corners, or a few sides, or a chain of lines and arcs. They are one outline (`in_232`)
   if (parts.length && parts.every((p) => p.origin === "drawn")) {
@@ -111,6 +122,19 @@ export function offsetCommand(scene: Scene, src: OffsetSource, v: number): Comma
   const pl = lookup(scene)(src.plane);
   if (!pl || pl.kind !== "plane" || Math.abs(v) < 1e-9) return null;
   if (src.kind === "outline") return outlineCommand(scene, src, v);
+  if (src.kind === "group") {
+    // each figure on the scene the ones before it left (the names do not collide); one that cannot be offset by this much (an inward offset past its middle) is left out
+    let sc = scene;
+    const commands: Command[] = [];
+    for (const it of src.items) {
+      const c = offsetCommand(sc, it, v);
+      const next = c ? apply(sc, c) : null;
+      if (!c || !next || !next.ok) continue;
+      commands.push(c);
+      sc = next.value;
+    }
+    return commands.length ? { type: "batch", commands } : null;
+  }
   if (src.kind === "set") {
     let sc = scene;
     const commands: Command[] = [];
@@ -185,6 +209,15 @@ export function offsetNear(scene: Scene, src: OffsetSource, p: Vec3): OffsetSour
     if (l < 1e-9) return src;
     const dir = scale(w, 1 / l);
     return { ...src, origin: add(src.centre, scale(dir, src.radius)), normal: dir };
+  }
+  if (src.kind === "group") {
+    let best: { item: OffsetSource; d: number } | null = null;
+    for (const it of src.items) {
+      const near = offsetNear(scene, it, p);
+      const d = Math.hypot(...sub(near.origin, q));
+      if (!best || d < best.d) best = { item: near, d };
+    }
+    return best ? { ...src, origin: best.item.origin, normal: best.item.normal } : src;
   }
   if (src.kind === "set") {
     let best: { at: Vec3; n: Vec3; d: number } | null = null;

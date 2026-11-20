@@ -75,9 +75,15 @@ const SKETCHING = new Set(["rect", "circle", "polygon", "line", "arc", "spline"]
  */
 function sketchCut(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; extent: number } | null {
   const t = s.tool;
-  if (!t || !SKETCHING.has(t.kind)) return null;
   const sc = sceneOf(s.session);
-  const ref = t.plane ?? selectionOf(s.session).find((r) => { const q = sc.parts[r]; return q?.kind === "plane" && q.origin !== "world" && !q.section; });
+  let ref: Ref | undefined;
+  if (t && SKETCHING.has(t.kind)) ref = t.plane ?? selectionOf(s.session).find((r) => { const q = sc.parts[r]; return q?.kind === "plane" && q.origin !== "world" && !q.section; });
+  else if (!t && (!s.op || s.op.kind === "offset")) {
+    // the sketch goes on after a figure is drawn (the tool is put away, the figure is selected, and it may be offset): the cut stays while what is selected is drawn on that plane (`in_1374`)
+    const planes = new Set<Ref | null | undefined>(selectionOf(s.session).map((r) => sc.parts[r] as { plane?: Ref | null; origin?: string } | undefined).map((q) => (q && q.origin === "drawn" ? q.plane : null)));
+    const only = planes.size === 1 ? [...planes][0] : null;
+    if (only) ref = only;
+  }
   const p = ref ? sc.parts[ref] : undefined;
   if (!p || p.kind !== "plane" || p.origin === "world" || p.section || p.cap) return null;
   if (p.origin === "body") {

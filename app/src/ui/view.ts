@@ -75,9 +75,8 @@ export function createView(host: HTMLElement) {
     moverGroup = built ? built.mover : null;
     moversOf = built ? built.movers : null;
     ghoster = built ? built.ghost : null;
-    ghoster?.(hiddenOn);
+    syncHidden();
     behinder = built ? built.behind : null;
-    behinder?.(behindNow);
     splitNow = null;
     lastSplitKey = ""; // (the pieces that moved on their own are gone with the old picture)
     if (bodyGroup) { bodyGroup.matrix.fromArray(bodyMatrix ?? IDENTITY); bodyGroup.matrixWorldNeedsUpdate = true; }
@@ -90,10 +89,12 @@ export function createView(host: HTMLElement) {
   let behindNow: { n: readonly [number, number, number]; at: readonly [number, number, number] } | null = null;
   const behindKey = (p: typeof behindNow) => (p ? p.n.concat(p.at).map((x) => x.toFixed(4)).join() : "");
   /** The edges of the body on the far side of the plane being sketched on show faintly, those on it and nearer in full (`in_1045`). */
-  function setBehindPlane(p: typeof behindNow) { if (behindKey(p) === behindKey(behindNow)) return; behindNow = p; behinder?.(p); }
+  function setBehindPlane(p: typeof behindNow) { if (behindKey(p) === behindKey(behindNow)) return; behindNow = p; syncHidden(); }
+  /** The edges that are out of sight (those behind a face, and those behind the sketch's plane) are drawn faint, except in a cross section: there nothing shows through the part (`in_1374`). */
+  function syncHidden() { ghoster?.(hiddenOn && !clips.length); behinder?.(clips.length ? null : behindNow); }
   let hiddenOn = false;
   /** The edges of the body that are behind a face show faintly (while a sketch is being drawn, `in_324`). */
-  function setHiddenEdges(on: boolean) { if (on === hiddenOn) return; hiddenOn = on; ghoster?.(on); }
+  function setHiddenEdges(on: boolean) { if (on === hiddenOn) return; hiddenOn = on; syncHidden(); }
   let bodyMat: import("three").MeshPhysicalMaterial | null = null;
   let bodyGroup: import("three").Group | null = null;
   let bodyMatrix: number[] | null = null;
@@ -147,6 +148,7 @@ export function createView(host: HTMLElement) {
   }
   function applyClip() {
     raiseLines();
+    syncHidden();
     content.traverse((o) => {
       const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
       for (const mat of Array.isArray(m) ? m : m ? [m] : []) { mat.clippingPlanes = clips.length ? clips : null; if (mat instanceof THREE.MeshBasicMaterial || mat instanceof THREE.MeshPhysicalMaterial || mat instanceof THREE.MeshStandardMaterial) { if (clips.length) { mat.userData.side ??= mat.side; mat.side = THREE.DoubleSide; } else if (mat.userData.side !== undefined) mat.side = mat.userData.side as THREE.Side; } mat.needsUpdate = true; }

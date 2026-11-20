@@ -5789,3 +5789,10 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1373 — 2026-11-20 — question
 > How important is it for the casting of a piston head to be about the same thickness everywhere? can some spots be much thicker than others? it seems like it would need to be much thicker in spots around the wrist pin in order to not have undercuts under the pin parts? Or do they have undercuts in order to achieve the same thickness of metal almost everywhere?
 (asks how much a cast piston's wall thickness has to be even, whether some places can be much thicker, and whether the pin bosses are thick to avoid undercuts or the piston has undercuts to keep the metal even)
+
+## in_1374 — 2026-11-20 — directive
+> it switches out of the cut cross section plane view on the sketch right after I make my first enclosed sketch. I think it should stay as long as you are sketching on a plane.
+> Lets have it so that you can offset more than one enclosed sketch at a time. Can we have it so that you cannot see the edge lines wireframe through the model in cross section cut mode? Edges that would normallly be hidden are shown in that view.
+>
+> There is a kind of annoying feature in the snapper in sketch where it stays snapped to horizontal or virtical untill you reach a perpendicular line, then the snap is lost. Also there is another kind of annoying feature. if I am snapped to the center of a circle, then move to the edge of the circle, it doesn't snap coincidient online on the edge.
+(five requests: the temporary cut stays while sketching on a plane; offset of several enclosed sketches; no hidden edges shown in the cut view; the level or upright snap kept on reaching another line; the edge of a circle snapped to from its middle)
