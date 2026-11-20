@@ -14,7 +14,7 @@ const env = { w: 900, h: 700, now: 0 };
 const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/sketch-on-face.cad.json", import.meta.url), "utf8")) as unknown as { value: Parameters<typeof createState>[0] }).value;
 const TOP = "b/body/f@0,0,1,20";
 
-test("with a face selected and a sketch tool on, the face cuts the view: the half it looks out to is cut away, and it goes when the tool does", () => {
+test("with a face selected and a sketch tool on, the face cuts the view: the half it looks out to is cut away, and it stays until Exit sketch", () => {
   const s = open();
   let st = createState({ ...s, click: { ...s.click, selection: [TOP] as never } });
   const sections0 = cutsNow(st).length;
@@ -26,7 +26,9 @@ test("with a face selected and a sketch tool on, the face cuts the view: the hal
   assert.ok(Math.abs(temp.centre[2] - 20) < 1e-6);
   assert.equal(frameOf(st, { w: 900, h: 700 }).sections.length, sections0 + 1, "the picture is cut too");
   st = reduce(st, { type: "escape" }, env);
-  assert.equal(cutsNow(st).length, sections0, "the tool is put away: the view is whole again");
+  assert.equal(cutsNow(st).length, sections0 + 1, "the tool is put away: the cut stays until Exit sketch (`in_1375`)");
+  st = reduce(st, { type: "exitSketch" }, env);
+  assert.equal(cutsNow(st).length, sections0, "Exit sketch: the view is whole again");
   assert.equal(scene(st.session).steps.length, scene(s).steps.length, "nothing is made in the model");
 });
 
@@ -58,7 +60,7 @@ test("zoomed out, a rectangle on a small face is made: its second click is not s
   assert.equal(after - before, 4, `${st.session.message}`);
 });
 
-test("the cut stays after the first enclosed sketch is drawn (the tool is put away, the figure is selected), and goes when it is let go (`in_1374`)", () => {
+test("the cut stays after the first enclosed sketch is drawn and after the tool is put away, until Exit sketch (`in_1375`)", () => {
   const s = open();
   const f = scene(s).parts[TOP as never] as unknown as { mesh: number[] };
   const m = f.mesh;
@@ -70,14 +72,31 @@ test("the cut stays after the first enclosed sketch is drawn (the tool is put aw
   const pr = projector(st.cam, env.w, env.h);
   const corners: [number, number][] = [[-2, -2], [2, -2], [0, 2], [-2, -2]];
   for (const [dx, dy] of corners) { const [x, y] = pr.project([c[0]! + dx, c[1]! + dy, c[2]!] as never); st = reduce(st, { type: "hover", x, y } as never, env); st = reduce(st, { type: "click", x, y, count: 1, shift: false }, env); }
-  const faces = Object.values(scene(st.session).parts).filter((p) => p.kind === "face" && p.origin === "drawn");
-  assert.ok(faces.length >= 1, "a closed sketch was made");
+  assert.ok(Object.values(scene(st.session).parts).some((p) => p.kind === "face" && p.origin === "drawn"), "a closed sketch was made");
   const temp = () => cutsNow(st).filter((q) => (q.ref as string) === "sketch:cut").length;
-  assert.equal(temp(), 1, `the cut is still there: tool ${st.tool?.kind}, selection ${st.session.click.selection.length}`);
-  st = reduce(st, { type: "escape" }, env); // (the tool is put away)
+  assert.equal(temp(), 1);
+  st = reduce(st, { type: "escape" }, env);
   if (st.tool) st = reduce(st, { type: "escape" }, env);
-  assert.equal(st.tool, null, "the tool is away");
-  assert.equal(temp(), st.session.click.selection.length ? 1 : 0, "what is selected is drawn on the plane: the cut stays while it is selected");
   st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [] } } };
-  assert.equal(temp(), 0, "nothing selected, no tool: the view is whole");
+  assert.equal(st.tool, null);
+  assert.equal(temp(), 1, "no tool and nothing selected: still sketching on the plane");
+  assert.equal(frameOf(st, { w: 900, h: 700 }).sketching, true, "the bar offers Exit sketch");
+  st = reduce(st, { type: "exitSketch" }, env);
+  assert.equal(temp(), 0, "Exit sketch");
+  assert.equal(frameOf(st, { w: 900, h: 700 }).sketching, false);
+});
+
+test("going normal to a selected face, or to a selected world plane, cuts the view along it until Exit sketch", () => {
+  const s = open();
+  let st = createState({ ...s, click: { ...s.click, selection: [TOP] as never } });
+  st = reduce(st, { type: "runAction", id: "look" }, env);
+  const temp = (t: typeof st) => cutsNow(t).filter((q) => (q.ref as string) === "sketch:cut");
+  assert.equal(temp(st).length, 1, "a face looked at straight");
+  assert.deepEqual(temp(st)[0]!.n.map((x) => Math.round(x) || 0), [0, 0, 1], "the half it looks out to");
+  st = reduce(st, { type: "exitSketch" }, env);
+  assert.equal(temp(st).length, 0);
+  let w = createState({ ...s, click: { ...s.click, selection: ["w/XY"] as never } });
+  w = reduce(w, { type: "runAction", id: "look" }, env);
+  assert.equal(temp(w).length, 1, "a world plane looked at straight");
+  assert.equal(temp(w)[0]!.n[2] !== 0, true, "across z");
 });

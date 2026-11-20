@@ -5796,3 +5796,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 >
 > There is a kind of annoying feature in the snapper in sketch where it stays snapped to horizontal or virtical untill you reach a perpendicular line, then the snap is lost. Also there is another kind of annoying feature. if I am snapped to the center of a circle, then move to the edge of the circle, it doesn't snap coincidient online on the edge.
 (five requests: the temporary cut stays while sketching on a plane; offset of several enclosed sketches; no hidden edges shown in the cut view; the level or upright snap kept on reaching another line; the edge of a circle snapped to from its middle)
+
+## in_1375 — 2026-11-20 — directive
+> I thought we decided to always cut to the sketch plane when going normal to a sketch? Lets have it so that selecting a plane and going normal to it cuts to that plane too. Lets have it so that the sketch plane , the cut stays active untill you click exit sketch which is a button at the top in the tool selection thing.
+(the view is cut along the plane when going normal to a sketch or a selected plane; the cut stays until an Exit sketch button in the bar at the top is pressed)

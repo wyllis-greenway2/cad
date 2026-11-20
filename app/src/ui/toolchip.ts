@@ -4,7 +4,7 @@ import { iconSvg } from "./icons.ts";
 import { choiceRow, roundButton, onPress } from "./look.ts";
 import type { Option } from "../interaction/options.ts";
 
-export function createToolChip(host: HTMLElement, cancel: () => void, apply: () => void, pick: (o: Option) => void = () => {}, undo: () => void = () => {}, redo: () => void = () => {}) {
+export function createToolChip(host: HTMLElement, cancel: () => void, apply: () => void, pick: (o: Option) => void = () => {}, undo: () => void = () => {}, redo: () => void = () => {}, exitSketch: () => void = () => {}) {
   const chip = document.createElement("div");
   chip.style.cssText = "position:fixed;z-index:7;top:12px;left:50%;transform:translateX(-50%);display:none;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;min-height:40px;max-width:calc(100vw - 16px);padding:4px 6px 4px 14px;border-radius:20px;background:#34363b;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.25);user-select:none;-webkit-user-select:none;touch-action:manipulation";
   const icon = document.createElement("span");
@@ -21,7 +21,14 @@ export function createToolChip(host: HTMLElement, cancel: () => void, apply: () 
   const round = (name: string, title: string, fire: () => void): HTMLElement => { const b = roundButton({ icon: name, size: 36, tone: "dark", title }); onPress(b, fire); return b; };
   const undoB = round("undo", "Undo", undo);
   const redoB = round("redo", "Redo", redo);
-  chip.append(undoB, redoB, icon, words, options, tick, x);
+  // Exit sketch (`in_1375`): while the view is cut along the plane being sketched on, this leaves it (the cut goes with the tool)
+  const leave = document.createElement("button");
+  leave.type = "button";
+  leave.textContent = "Exit sketch";
+  leave.title = "Exit sketch: the view is whole again";
+  leave.style.cssText = "display:none;border:0;border-radius:14px;padding:5px 12px;font:600 13px system-ui,sans-serif;background:#2f3136;color:#fff;cursor:pointer;white-space:nowrap";
+  leave.addEventListener("click", (e) => { e.stopPropagation(); exitSketch(); });
+  chip.append(undoB, redoB, icon, words, options, tick, x, leave);
   host.appendChild(chip);
   const tickBase = tick.style.background;
   /** green, fading out: "this is there to press" (`in_283`) */
@@ -37,7 +44,7 @@ export function createToolChip(host: HTMLElement, cancel: () => void, apply: () 
   let madeSeen = 0;
   return {
     /** The tool that is on (its icon key and the words for the tooltip; `made` figures so far, `drawing` one half drawn), or an operation open that is applied with the check; or null. */
-    update(tool: { kind: string; label: string; made?: number; drawing?: boolean; done?: boolean } | null, confirm: { kind: string; label: string; text?: string } | null = null, touch = false, opts: readonly Option[] = [], can: { undo: boolean; redo: boolean } = { undo: false, redo: false }): boolean {
+    update(tool: { kind: string; label: string; made?: number; drawing?: boolean; done?: boolean } | null, confirm: { kind: string; label: string; text?: string } | null = null, touch = false, opts: readonly Option[] = [], can: { undo: boolean; redo: boolean } = { undo: false, redo: false }, sketching = false): boolean {
       // a finger: at the bottom with undo and redo; else at the top
       chip.style.top = touch ? "auto" : "12px";
       chip.style.bottom = touch ? "40px" : "";
@@ -45,7 +52,8 @@ export function createToolChip(host: HTMLElement, cancel: () => void, apply: () 
       undoB.style.opacity = can.undo ? "1" : "0.35";
       redoB.style.opacity = can.redo ? "1" : "0.35";
       const on = confirm ?? tool;
-      chip.style.display = on || touch ? "flex" : "none";
+      leave.style.display = sketching ? "inline-block" : "none";
+      chip.style.display = on || touch || sketching ? "flex" : "none";
       if (!on) { madeSeen = 0; shown = ""; optionsShown = ""; icon.style.display = "none"; tick.style.display = x.style.display = "none"; options.style.display = "none"; words.style.display = "none"; return touch; } // (a finger always has the bar: undo and redo are in it)
       icon.style.display = "inline-flex";
       const done = !confirm && !!tool?.done; // (the interaction layer says: a figure is made and nothing is half drawn, so the tool can be put away with the check)

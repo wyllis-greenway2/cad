@@ -60,6 +60,7 @@ import type { Op } from "../operations.ts";
 import { BODY_OBJECT } from "../../compiler/body.ts";
 import { setLineLength } from "../lengths.ts";
 import { withSession, animateTo, planeView } from "./state.ts";
+import { planeCutOf } from "./section.ts";
 import { doSimilar, doSelectAll, doSelectBodies, doGroup, doUngroup, doCutBegin, doCombine, startSubtract, advanceSubtract, applyCut } from "./select.ts";
 import { groupsOf, membersOf } from "../../operation/groups.ts";
 
@@ -457,7 +458,9 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
     const planes = [...new Map(selectionOf(s.session).flatMap((r) => { const p = planeOf(get, r); return p ? [[p.ref, p] as const] : []; })).values()];
     const pl = planes.length === 1 ? planes[0]! : s.menu?.plane ? planeOf(get, s.menu.plane) : null;
     if (!pl) return { ...closed, session: { ...closed.session, message: "select a plane or a face first" } };
-    return animateTo(closed, planeView(s.cam, pl, true), now); // (pressed again: the back)
+    const looked = animateTo(closed, planeView(s.cam, pl, true), now); // (pressed again: the back)
+    const on = planeCutOf(closed, pl.ref); // (going normal to a plane, a face or a sketch cuts the view along it until Exit sketch, `in_1375`)
+    return on ? { ...looked, sketchOn: on } : looked;
   }
   if (id === "select:similar") return doSimilar(closed);
   if (id === "select:group") return doGroup(closed);

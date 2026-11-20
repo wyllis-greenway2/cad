@@ -69,33 +69,38 @@ export function cutsNow(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; extent:
 }
 
 const SKETCHING = new Set(["rect", "circle", "polygon", "line", "arc", "spline"]);
-/**
- * A cross section made for the surface being sketched on (`in_1351`), only while the sketch tool is on: a flat face of the body, or the plane a sketch on one stands on, cuts the view along itself, so what stands in front of it
- * (the walls of a pocket the face is the floor of) does not hide it. The half the face looks out to is the half cut away. It is no part of the model and goes with the tool; a face that is a cut's own cap has its section already.
- */
-function sketchCut(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; extent: number } | null {
+/** The plane a sketch tool is on: the plane it has, else the surface selected (a face, or a plane). */
+export function planeOfTool(s: AppState): Ref | null {
   const t = s.tool;
+  if (!t || !SKETCHING.has(t.kind)) return null;
   const sc = sceneOf(s.session);
-  let ref: Ref | undefined;
-  if (t && SKETCHING.has(t.kind)) ref = t.plane ?? selectionOf(s.session).find((r) => { const q = sc.parts[r]; return q?.kind === "plane" && q.origin !== "world" && !q.section; });
-  else if (!t && (!s.op || s.op.kind === "offset")) {
-    // the sketch goes on after a figure is drawn (the tool is put away, the figure is selected, and it may be offset): the cut stays while what is selected is drawn on that plane (`in_1374`)
-    const planes = new Set<Ref | null | undefined>(selectionOf(s.session).map((r) => sc.parts[r] as { plane?: Ref | null; origin?: string } | undefined).map((q) => (q && q.origin === "drawn" ? q.plane : null)));
-    const only = planes.size === 1 ? [...planes][0] : null;
-    if (only) ref = only;
-  }
-  const p = ref ? sc.parts[ref] : undefined;
-  if (!p || p.kind !== "plane" || p.origin === "world" || p.section || p.cap) return null;
+  return t.plane ?? selectionOf(s.session).find((r) => { const q = sc.parts[r]; return q?.kind === "plane" && !q.section && !q.cap; }) ?? null;
+}
+/**
+ * The cut along a plane, for sketching on it (`in_1351`, `in_1375`): the plane or face, and the middle of it and the way it looks out (the half it looks out to is cut away: a face of the body outward; any other plane,
+ * a world plane or a sheet, towards the camera, so the cut is seen from where the view is). Null for a sheet that cuts already, a cut's own cap, or a round face, which has no plane to cut along.
+ */
+export function planeCutOf(s: AppState, ref: Ref | null, world = true): { ref: Ref; centre: Vec3; n: Vec3 } | null {
+  if (!ref) return null;
+  const sc = sceneOf(s.session);
+  const p = sc.parts[ref];
+  if (!p || p.kind !== "plane" || p.section || p.cap || (!world && p.origin === "world")) return null; // (a sketch tool begun with a world plane selected draws on whatever is clicked: it does not cut by that plane; only going normal to the plane does)
   if (p.origin === "body") {
     const m = p.mesh;
     const ax = surfaceAxes(sc, p);
-    if (!m || m.length < 9 || !ax) return null; // (a round face has no plane to cut along)
+    if (!m || m.length < 9 || !ax) return null;
     let [x, y, z, k] = [0, 0, 0, 0];
     for (let i = 0; i + 2 < m.length; i += 3) { x += m[i]!; y += m[i + 1]!; z += m[i + 2]!; k++; }
-    return { ref: "sketch:cut" as Ref, centre: [x / k, y / k, z / k], n: ax[2], extent: 60 };
+    return { ref, centre: [x / k, y / k, z / k], n: ax[2] };
   }
-  if (!p.onBody) return null;
-  return { ref: "sketch:cut" as Ref, centre: p.at, n: normalize(cross(p.u, p.v)), extent: 60 };
+  const n = normalize(cross(p.u, p.v));
+  if (p.onBody) return { ref, centre: p.at, n };
+  const toCamera = dot(sub(position(s.cam), p.at), n) >= 0 ? 1 : -1; // (a plane that is no face: the half the camera is on)
+  return { ref, centre: p.at, n: toCamera > 0 ? n : (scale(n, -1) as Vec3) };
+}
+/** The cut made for the surface being sketched on (`in_1351`): it stays until Exit sketch is pressed (`in_1375`). It is no part of the model. */
+function sketchCut(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; extent: number } | null {
+  return s.sketchOn ? { ref: "sketch:cut" as Ref, centre: s.sketchOn.centre, n: s.sketchOn.n, extent: 60 } : null;
 }
 
 /** A press on a sheet's delete icon (`in_470`): the plane goes (one step; what was drawn on it stays as it is). */

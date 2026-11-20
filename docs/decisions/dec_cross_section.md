@@ -3,7 +3,7 @@ id: dec_cross_section
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_683, in_682, in_681, in_680, in_392, in_394, in_395, in_396, in_397, in_398, in_416, in_1351, in_1374
+human_input: in_683, in_682, in_681, in_680, in_392, in_394, in_395, in_396, in_397, in_398, in_416, in_1351, in_1374, in_1375
 date: 2026-11-15
 depends_on:
 alternative_to:
@@ -19,6 +19,8 @@ alternative_to:
 **Sketching on a face (`in_1351`).** While a sketch tool is on and a flat face of the body (or the plane a sketch on one stands on) is the surface being sketched on, that surface cuts the view along itself, the half it looks out to being cut away (`sketchCut` in `control/section.ts`, listed with the sheets in `cutsNow`). It is no part of the model: no sheet is made, and it goes with the tool. Where a cutting plane lies exactly on a face of the part, the triangles of the part in the plane are drawn again over the hatch with the part's own material (`view.ts`), so only what is really cut looks like the cut.
 
 **The temporary cut stays while sketching on a plane, and nothing shows through (`in_1374`).** The cut made for the surface being sketched on (`sketchCut`) stays after the tool is put away while what is selected is drawn on that plane (the figure just made), and while an offset of it is open; it goes when the selection leaves the plane. While any cut is on, the edges that are out of sight (the faint ones behind a face, and those behind the sketch's plane) are not drawn (`syncHidden` in `view.ts`).
+
+**Sketch mode (`in_1375`).** The cut along the plane being sketched on is a state (`AppState.sketchOn`: the plane, its middle, the way it looks out), not a reading of the tool or the selection (which replaces what `in_1374` did). It is taken when the view goes normal to a plane, a face or a sketch (the Look action: a face looks out, any other plane, a world plane too, towards the camera) and when a sketch tool begins on a face or a plane of a body (a world plane does not: the tool draws where it is clicked), and it stays, the tool or no tool, selection or none, until **Exit sketch** (a button in the bar at the top, shown while the state is on; the intent `exitSketch`, which also puts the tool away). It goes too when its plane is gone (undone). The edges out of sight are not drawn while it is on (`in_1374`).
 
 ## Rationale
 

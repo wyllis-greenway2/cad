@@ -71,6 +71,8 @@ export interface AppState {
   moverWas: { pivot: Vec3 | null; frame?: [Vec3, Vec3, Vec3]; frameKept?: [Vec3, Vec3, Vec3] } | null;
   /** where a drag of its handles has taken the plane so far; one step is made when it is let go */
   sectionLive: { ref: Ref; centre: Vec3; n: Vec3 } | null;
+  /** sketching on a plane (`in_1375`): the view is cut along it, the half it looks out to cut away, until Exit sketch is pressed; it is taken when the view goes normal to a plane or a sketch, or a sketch tool begins on one */
+  sketchOn: { ref: Ref; centre: Vec3; n: Vec3 } | null;
   /** the sheet's move icon (`in_459`): which state it is in for the sheet, and the free place it came from to go back to */
   sheetMove: { ref: Ref; mode: 0 | 1 } | null;
   /** the body (or "sketch") that was last in view: "Reset camera" goes back to it (`in_303`) */
@@ -135,7 +137,7 @@ export interface AppState {
 }
 export interface Env { w: number; h: number; now: number }
 
-export const createState = (session: Session): AppState => ({ awaiting: null, building: null, motion: null, stepEdit: null, similar: null, optionAt: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, showCuts: false, bodyConstraints: [], consFor: null, adding: false, preview: null, handleSel: null, tape: false, wireframe: false, moverSphere: false, moverWas: null, moverPose: null, orbMovedAt: null, clipboard: null, sectionLive: null, sheetMove: null, worldHidden: false, picking: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, mixBase: 0.03, paneHover: null, gizmoHover: null, flash: null });
+export const createState = (session: Session): AppState => ({ sketchOn: null, awaiting: null, building: null, motion: null, stepEdit: null, similar: null, optionAt: null, opBase: null, session, cam: homeCamera(), anim: null, spread: null, hoverPoint: null, menu: null, box: null, showAllConstraints: false, showCuts: false, bodyConstraints: [], consFor: null, adding: false, preview: null, handleSel: null, tape: false, wireframe: false, moverSphere: false, moverWas: null, moverPose: null, orbMovedAt: null, clipboard: null, sectionLive: null, sheetMove: null, worldHidden: false, picking: null, lastSeen: null, lockAxes: [], cut: null, dragHint: null, panel: null, repeat: null, resume: null, tool: null, op: null, focus: null, showSketch: null, drag: null, world: "XY", orthoDebt: 0, mixT0: null, mixBase: 0.03, paneHover: null, gizmoHover: null, flash: null });
 
 /**
  * The plane a figure is being drawn on while the view is straight at it (`in_194`): the tool's plane, else (a tool armed, nothing placed yet) the one plane selected that faces the camera.

@@ -227,7 +227,7 @@ const addChip = createAddChip(document.body, () => dispatch({ type: "runAction",
 const modeSwitch = createModeSwitch(document.body, (to) => dispatch(to === "invert" ? { type: "runAction", id: "hollow:invert" } : to === "linear" || to === "circular" ? { type: "runAction", id: `op:${to}` } : { type: "begin", name: to }));
 const toolCursor = createToolCursor(document.body);
 const cutParts = createCutParts(document.body, (mask) => dispatch({ type: "cut", act: "toggle", mask }));
-const toolChip = createToolChip(document.body, () => dispatch({ type: "escape" }), () => dispatch({ type: "typed", key: "Enter", shift: false }), (o) => dispatch(o.intent), () => dispatch({ type: "undo" }), () => dispatch({ type: "redo" }));
+const toolChip = createToolChip(document.body, () => dispatch({ type: "escape" }), () => dispatch({ type: "typed", key: "Enter", shift: false }), (o) => dispatch(o.intent), () => dispatch({ type: "undo" }), () => dispatch({ type: "redo" }), () => dispatch({ type: "exitSketch" }));
 const controls = createControls(document.body, {
   menu: (x, y) => dispatch({ type: "menu", x, y, button: true }),
   look: (plane) => dispatch({ type: "look", plane }),
@@ -755,7 +755,7 @@ function frame(now: number) {
     { const pg = host.getBoundingClientRect(); const pr = projector(state.cam, size.w, size.h); sheetChips.update(f.sectionPlanes.filter((p) => !p.guide && p.hidden && !p.selected).map((p) => ({ ref: p.ref, mode: p.mode, hidden: p.hidden, move: p.move, selected: p.selected, corners: p.corners })), (q) => { const c = pr.project(q); return c ? [c[0] + pg.left, c[1] + pg.top] : null; }, pointer ? [pointer.x + pg.left, pointer.y + pg.top] : null); }
     const pgE = host.getBoundingClientRect(), prE = projector(state.cam, size.w, size.h);
     const eyeOver = hiddenBodyUnder(f.bodyEyes, (q) => { const c = prE.project(q); return c ? [c[0] + pgE.left, c[1] + pgE.top] : null; }, pointer ? [pointer.x + pgE.left, pointer.y + pgE.top] : null); // (a hidden body the pointer is over: its eye is in the bar, `in_1177`)
-    toolChip.update(f.tool, f.confirm, lastDevice === "touch", f.options, f.undoRedo);
+    toolChip.update(f.tool, f.confirm, lastDevice === "touch", f.options, f.undoRedo, f.sketching);
     { const pg = host.getBoundingClientRect(); const pj = projector(state.cam, size.w, size.h).project; cutParts.update(f.cut ? f.cut.parts.map((p) => { const q = pj(p.at); return { ...p, at: [q[0] + pg.left, q[1] + pg.top] as [number, number] }; }) : null); }
     { const h = hardware ? holesOptions() : null; holeBar.update(h ? h.bar : null); view.setToolpath(h && h.view ? h.view : f.toolpath, state.cam); } // (the holes the panel would cut are drawn over the model, `dec_parts_tool`)
     previewBar.update(f.previewBar);
