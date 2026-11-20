@@ -5741,3 +5741,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1361 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1362 — 2026-11-20 — directive
+> it doesn't seem fixed. The lines are white? or not visible?
+(a screenshot: a line drawn on the top of the cylinder with the line tool on, only faint white dashes where it crosses the pointer's disc)

@@ -4692,3 +4692,6 @@ Branch `claude/adoring-dijkstra-carry`. `in_1280` asked for a polygon tool that 
 
 ## Handoff 1201 — 2026-11-20 (in_1361: brought up to the testing branch)
 `in_1361`. Merged the testing branch (up to `in_1358`, Handoff 1199). My `in_1343`, `in_1344` and Handoff 1189 (any curves in one plane make regions) became `in_1359`, `in_1360` and Handoff 1200.
+
+## Handoff 1202 — 2026-11-20 (in_1362: the line just drawn was still hidden; selected lines are drawn by the overlay)
+`in_1362`. The fix of `in_1358` raised only the content's lines. A line that has just been drawn is selected, and a selected part is drawn by the overlay (`buildHighlight`), not by the content, so the face drawn again over the cut still covered it: white on the white face, with specks where it crossed the pointer's disc. `raiseLines` (`view.ts`) now raises the overlay and the marks too, and runs after each highlight is built. Looked at in the browser with the line tool on, the user's cylinder, a line drawn: teal while selected, black when not (the rectangle of the earlier check was not selected as a line, which is why it passed). No node test (a drawing order). Open: I looked at lines on a face that is in the plane; other things the overlay draws (the faces' teal, balls) are not raised unless they are lines.
