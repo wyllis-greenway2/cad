@@ -5419,3 +5419,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1276 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please do full suite tests
+
+## in_1277 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
