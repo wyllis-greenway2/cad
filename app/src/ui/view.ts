@@ -287,6 +287,7 @@ export function createView(host: HTMLElement) {
       for (const [a, b] of p.segments) preview.add(pen.line([...a, ...b], colour, 2, false));
       for (const [a, b] of p.guides ?? []) preview.add(pen.dashed([...a, ...b], TEAL, 1.5, cam.distance * 0.012)); // (alignment guides are dashed so they read differently from the figure, `in_381`)
       if (p.circle) preview.add(pen.line(ringOf(p.circle.center, p.circle.radius, p.circle.normal), TEAL, 2, false));
+      preview.traverse((o) => { o.renderOrder = 5; }); // (after the part, the cut and the faces drawn over its hatch: the guides and the figure lie in the surface being drawn on and must not go behind it, `in_1352`)
     });
   }
 
