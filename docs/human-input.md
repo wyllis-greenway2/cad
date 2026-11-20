@@ -5707,3 +5707,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1352 — 2026-11-20 — question
 > Also maybe you already fixed it but I have the same problem here where I cannot pull this face. Is this because it does not actually consider the edges of the model participating in the sketch as actual part of the sketch?
 (sent while the pull failure of in_1351 was being looked at: a second file `cannot_pull_face_1.json` and a screenshot of a disk's top with a chord drawn across it, one of the two segments selected, and its pull arrow; asks whether the cause is that the body's own edges that take part in a sketch are not counted as part of it)
+
+## in_1353 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the pull-face fix to be merged into the testing branch, no full test run)
