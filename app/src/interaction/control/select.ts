@@ -132,7 +132,7 @@ export function doCutBegin(s: AppState): AppState {
 }
 /** Add, subtract or intersect: the first body chosen is the one that stays; the others are used up (`in_1320`). */
 /** The bodies a boolean works on: the ones selected when there are two or more, else every body of the model (`in_1337`). */
-export function booleanBodies(session: Session): Ref[] {
+function booleanBodies(session: Session): Ref[] {
   const sc = sceneOf(session);
   const picked = selectionOf(session).filter((r) => sc.parts[r]?.kind === "body");
   return picked.length >= 2 ? picked : Object.values(sc.parts).filter((p) => p.kind === "body").map((p) => p.ref);
