@@ -3,7 +3,7 @@ id: dec_piston_maker
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1255, in_1257
+human_input: in_1255, in_1258
 date: 2026-11-20
 depends_on:
   - dec_piston_parameters: the variables here are that entry's numbers and rules made into typed fields; its sources and assumptions are the presets' and defaults' evidence
@@ -33,6 +33,6 @@ The human asked (`in_1255`) for a piston maker whose menu holds **every variable
 
 The human wants every variable of the build in the menu, with spec values as presets only. Listing them by group with their status today shows what is already a field (T), what is a hidden rule that must become a field (H) and what the model cannot do yet (N). It is provisional until the human reviews the list.
 
-## Stage 1, built (`in_1257`)
+## Stage 1, built (`in_1258`)
 
 The human approved building the hard-coded variables first and giving the piston its own maker box. **Built:** a model kind **Piston** (*Models > Piston*, `model:piston`) with its own box: a standalone piston and its pin, crown up, from every variable of the piston that is typed or now typed; the engine builds its piston by the same code (`operation/modelpiston.ts`), so the two cannot differ. The **H variables are now typed fields, each `0` = auto** (the assumed rule works it out): pin height, skirt length below the pin, pin length, compression ring height, oil ring height, ring radial width, the land between rings, groove back room, drain hole diameter, the boss gap (the room between the bosses) and the boss reach. With every one at 0 the piston is exactly the engine's of before (a test holds the volumes). Presets: Honda GX120, GX160 and GX200 (bore, pin, rings). **Not built (the N variables):** material, crown shapes and valve reliefs, ring types, land relief, circlip grooves and a hollow pin, skirt oval, taper and style, ribs, edges. **The engine's box does not show the new fields** (they are auto there): a later step is to let the engine take its piston from the maker's numbers.
