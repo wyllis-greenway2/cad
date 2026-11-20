@@ -5727,3 +5727,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1357 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the pull-face fix to be merged into the testing branch, no full test run; the same words as in_1356)
+
+## in_1358 — 2026-11-20 — question
+> Also the sketches on this face are totally invisible after I apply them, it shows the blue preview, then when applied there is no visible black line. Is this related to our rule we made where we do a cross cut plane to cut away things blocking the camera from faces we are sketching on?
+(a screenshot of the top of a cylinder with the line tool on, no sketch visible)

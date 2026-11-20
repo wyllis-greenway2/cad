@@ -138,7 +138,7 @@ export function createView(host: HTMLElement) {
   scene3.add(sectionGroup);
   /** The cross section (`in_392`, `in_394`): the part of the body and its lines on the normal's side of the plane is not drawn; both faces of what is cut are shown; where the plane cuts a solid the cut face is drawn
    * solid and hatched with parallel lines, as a cut part is in an engineering drawing (the stencil counts, along each pixel's line of sight, how many faces of the body lie behind the plane: odd is inside the solid). */
-  /** The lines drawn on a face that lies in a cutting plane come after the cut and the face drawn again over it, or they would be covered by them (`in_1354`); built again with the scene, so this is done then too. */
+  /** The lines drawn on a face that lies in a cutting plane come after the cut and the face drawn again over it, or they would be covered by them (`in_1358`); built again with the scene, so this is done then too. */
   function raiseLines() {
     content.traverse((o) => {
       const l = o as THREE.Object3D & { isLine?: boolean; isLine2?: boolean; isLineSegments2?: boolean };
@@ -215,7 +215,7 @@ export function createView(host: HTMLElement) {
       const mat = (mesh.material as THREE.Material).clone();
       mat.clippingPlanes = [clip];
       mat.polygonOffset = true; mat.polygonOffsetFactor = -12; mat.polygonOffsetUnits = -12;
-      mat.depthWrite = false; mat.depthTest = true; mat.transparent = false; mat.stencilWrite = false; // (no depth written: the lines drawn on the face come after and must show over it, `in_1354`)
+      mat.depthWrite = false; mat.depthTest = true; mat.transparent = false; mat.stencilWrite = false; // (no depth written: the lines drawn on the face come after and must show over it, `in_1358`)
       mat.side = THREE.DoubleSide;
       const face = new THREE.Mesh(g, mat);
       face.matrixAutoUpdate = false;
