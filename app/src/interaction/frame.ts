@@ -31,7 +31,8 @@ import { linksOf } from "../operation/coupling.ts";
 import { animatedBodies } from "../operation/gearcouple.ts";
 import { pivotOfBody } from "../operation/pivot.ts";
 import { jointOf as jointOfMate } from "./mate.ts";
-import { axisAcross, advanceNote } from "./revolve.ts";
+import { axisAcross } from "./revolve.ts";
+import { cutGhosts } from "./cutghost.ts";
 import { gearOfPart, gearOfSelection } from "../operation/gearscene.ts";
 import { planetaryOfGear } from "../operation/planetary.ts";
 import { canHelix, finish as finishTool } from "./tools.ts";
@@ -147,6 +148,8 @@ export interface Frame {
   thin: number[] | null;
   /** the two bodies of a jam, whole and in the pose where they met (nine numbers a triangle): drawn shaded red (`in_1191`) */
   clash: number[] | null;
+  /** the tools of cuts drawn as ghost bodies: all of them when View, Show cuts is on, else the one whose figure is selected (`dec_cut_tools`, `in_1348`) */
+  cutGhosts: number[] | null;
   /** the eye on each body (`dec_hidden_bodies`): its box's corners and whether it is hidden; `eyesQuiet`: a tool or an operation is in use, so the eyes of shown bodies stay away */
   bodyEyes: { ref: string; hidden: boolean; corners: Vec3[]; /** the body is selected (or a face of it): its play button is shown, not only when the pointer is over it (`in_962`) */ selected?: true; /** a body hooked up to an animation has a play button (pause while it plays) beside its eye */ play?: "play" | "pause"; /** the body is selected (or a face of it): its constraints icon is shown (`in_1157`) */ chosen?: true; /** the constraints of this body are all shown */ cons?: true }[];
   eyesQuiet: boolean;
@@ -502,6 +505,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     bodySplit,
     hiddenBodies: hiddenItemsOf(sc, outcome),
     thin: s.panel === "measure" && !outcome.kernel?.stale ? thinPlacesOf(sc, sel) : null,
+    cutGhosts: shownGhosts(s, sc, sel),
     clash: s.motion?.contact?.jam && s.motion.contact.clash?.length ? s.motion.contact.clash : null, // (the two bodies of a jam, whole, shaded red, `in_1191`) // (the places where bodies are in each other when a motion has stopped: in the red of the thin places)
     bodyEyes: index.bodies.flatMap((p) => { if (!p.bbox) return []; const [lo, hi] = [p.bbox.min, p.bbox.max]; const corners: Vec3[] = []; for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) corners.push([x, y, z]); const drives = animated(sc).get(p.ref); const m = s.motion; return [{ ref: p.ref, hidden: !!sc.hiddenBodies?.includes(p.ref), corners, ...(drives && selBodies.has(p.ref) ? { selected: true as const } : {}), ...(drives ? { play: m && m.body === drives && m.playing ? "pause" as const : "play" as const } : {}) }]; }),
     eyesQuiet: true, // (a body that is shown has no eye of its own now: Hide body is in the View menu, `in_697`; a hidden body keeps its eye)
@@ -565,7 +569,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     loftKinds: s.op?.kind === "loft" ? loftChips(sceneOf(s.session), s.op) : null,
     sizeKinds: sizeKinds(s),
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
-    message: (s.op?.kind === "revolve" ? axisAcross(sceneOf(s.op.made ? undone(s.session) : s.session), s.op) ?? advanceNote(sceneOf(s.op.made ? undone(s.session) : s.session), s.op) : null) ?? s.session.message ?? hardWhy?.why ?? hardOverlapMessage(sc) ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? (s.op ? Object.values(outcome.notes ?? {}).at(-1) : undefined) ?? "",
+    message: (s.op?.kind === "revolve" ? axisAcross(sceneOf(s.op.made ? undone(s.session) : s.session), s.op) : null) ?? s.session.message ?? hardWhy?.why ?? hardOverlapMessage(sc) ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? (s.op ? Object.values(outcome.notes ?? {}).at(-1) : undefined) ?? "",
   };
 }
 
@@ -584,13 +588,26 @@ function shownConstraints(s: AppState, sc: Scene, sel: readonly Ref[]): Annotati
   return [...own, ...more.filter((a) => !have.has(a.id))];
 }
 /** The facts the bar is made from (`bar.ts`). */
+/** The ghosts of the cuts to draw: every one when Show cuts is on, else those whose figure is selected. */
+function shownGhosts(s: AppState, sc: Scene, sel: readonly Ref[]): number[] | null {
+  const all = cutGhosts(sc);
+  const mine = s.showCuts ? all : all.filter((g) => g.parts.length > 0 && g.parts.every((p) => sel.includes(p)));
+  if (!mine.length) return null;
+  const key = mine.map((g) => g.step).join();
+  if (ghostSoup && ghostSoup.sc === sc && ghostSoup.key === key) return ghostSoup.tris; // (the same array while nothing changed, so the view does not build it again)
+  ghostSoup = { sc, key, tris: mine.flatMap((g) => g.tris) };
+  return ghostSoup.tris;
+}
+let ghostSoup: { sc: Scene; key: string; tris: number[] } | null = null;
 function barFacts(s: AppState, sc: Scene, sel: readonly Ref[], selBodies: ReadonlySet<Ref>, index: ReturnType<typeof partIndex>, gear: Frame["gearChip"]): BarFacts {
   const bodies = index.bodies.filter((p) => selBodies.has(p.ref) && p.bbox).map((p) => ({ ref: p.ref, top: [(p.bbox!.min[0] + p.bbox!.max[0]) / 2, (p.bbox!.min[1] + p.bbox!.max[1]) / 2, p.bbox!.max[2]] as Vec3 }));
   const drives = bodies.length === 1 ? animated(sc).get(bodies[0]!.ref) : undefined;
   const sec = sectionNow(s);
   const sh = sec ? sc.parts[sec.ref] : undefined;
   const sheet = sec && sh?.kind === "plane" && sh.extent !== undefined ? { ref: sec.ref, mode: modeOf(sh), hidden: !!sh.hidden, move: sheetMoveOf(s, sec.ref), corner: sh.at } : null;
-  return { bodies: sheet ? [] : bodies, play: drives ? { body: bodies[0]!.ref, playing: !!s.motion && s.motion.body === drives && s.motion.playing } : null, consFor: s.consFor, consOn: s.bodyConstraints, face: sel.length === 1 && sc.parts[sel[0]!]?.kind === "plane" && sc.parts[sel[0]!]?.origin === "body" ? sel[0]! : null, sheet, gear: gear ? { part: gear.part, at: gear.at, items: gear.items } : null };
+  const cutOf = cutGhosts(sc).find((g) => g.parts.length > 0 && g.parts.every((p) => sel.includes(p)));
+  const cutAt = cutOf ? ((): Vec3 => { const t = cutOf.tris; let [x, y, z, hi] = [0, 0, 0, -Infinity]; for (let i = 0; i + 2 < t.length; i += 3) { x += t[i]!; y += t[i + 1]!; z += t[i + 2]!; hi = Math.max(hi, t[i + 2]!); } const n = t.length / 3; return [x / n, y / n, hi]; })() : null;
+  return { cut: cutOf && cutAt ? { step: cutOf.step, both: cutOf.both, at: cutAt } : null, bodies: sheet ? [] : bodies, play: drives ? { body: bodies[0]!.ref, playing: !!s.motion && s.motion.body === drives && s.motion.playing } : null, consFor: s.consFor, consOn: s.bodyConstraints, face: sel.length === 1 && sc.parts[sel[0]!]?.kind === "plane" && sc.parts[sel[0]!]?.origin === "body" ? sel[0]! : null, sheet, gear: gear ? { part: gear.part, at: gear.at, items: gear.items } : null };
 }
 const withFlashed = (list: Annotation[], sc: Scene, flash: FlashFrame | null): Annotation[] => {
   if (!flash) return list;

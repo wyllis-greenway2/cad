@@ -10,7 +10,7 @@ import { loopFaceRef, diskFaceRef } from "../src/operation/loops.ts";
 import { startOp } from "../src/interaction/operations.ts";
 import type { Op } from "../src/interaction/operations.ts";
 import { runOp } from "../src/interaction/runop.ts";
-import { advanceNote, axisAcross } from "../src/interaction/revolve.ts";
+import { axisAcross } from "../src/interaction/revolve.ts";
 import type { Vec3 } from "../src/math/vec.ts";
 import { cross, normalize, dot } from "../src/math/vec.ts";
 
@@ -63,18 +63,18 @@ test("past one turn with no advance it is refused; with an advance it spirals, t
   assert.equal(step.params.advance, 25, "10 a turn over two and a half turns (`in_1298`)");
 });
 
-test("an advance that is less than the figure is wide along the axis is raised so the turns do not overlap, and the reason is said (`in_1194`)", () => {
+test("an advance less than the figure is wide along the axis is allowed: the overlapping turns are fused into one body (`in_1344`)", () => {
   const { s, face } = figure();
   const op = begin(s, face);
   const r = runOp(s, { ...Z(op), value: 720, advValue: 1 })!; // (1 mm a turn, the figure is 1.5 mm wide along the axis)
   assert.equal(r.session.message, null);
   assert.deepEqual(r.session.outcome.errors, {});
   const step = scene(r.session).steps.at(-1)!;
-  assert.equal(step.type, "revolve");
-  assert.ok(Number(step.params.advance) >= 3 && Number(step.params.advance) < 3.1, `advance ${step.params.advance}: the width 1.5 times two turns`);
-  const note = advanceNote(scene(s), { ...Z(op), value: 720, advValue: 1 } as Op);
-  assert.match(note ?? "", /the advance for each turn is raised to 1\.51 mm/);
-  assert.equal(advanceNote(scene(s), { ...Z(op), value: 720, advValue: 2 } as Op), null, "enough: nothing is said");
+  assert.equal(step.params.advance, 2, "the advance typed, two turns: not raised");
+  const bodies = Object.values(scene(r.session).parts).filter((p) => p.kind === "body");
+  assert.equal(bodies.length, 1, "one body");
+  const expected = Math.PI * 36 * (2 * 1 + (1.5 - 1)); // (the turns cover a ring 36 pi across each pitch: two pitches and the half that sticks out)
+  assert.ok(Math.abs(volume(r.session) - expected) < 0.01 * expected, `volume ${volume(r.session)} against ${expected}`);
 });
 
 import { createState, reduce } from "../src/interaction/controller.ts";

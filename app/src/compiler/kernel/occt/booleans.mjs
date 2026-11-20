@@ -14,6 +14,7 @@ function made(kind, a, b, options = {}) {
     tools.Append(b.wrapped);
     builder.SetArguments(args);
     builder.SetTools(tools);
+    if (options.fuzzy) builder.SetFuzzyValue(options.fuzzy); // (shapes that share a surface to within this: the turns of a spiral that overlap, `in_1344`)
     if (options.optimisation === "commonFace") builder.SetGlue(oc.BOPAlgo_GlueEnum.BOPAlgo_GlueShift);
     if (options.optimisation === "sameFace") builder.SetGlue(oc.BOPAlgo_GlueEnum.BOPAlgo_GlueFull);
     stage(`${kind}: the boolean`, () => builder.Build());
