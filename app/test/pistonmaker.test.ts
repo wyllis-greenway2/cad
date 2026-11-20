@@ -164,7 +164,7 @@ test("the pin is held by circlips: a groove in the pin bore near each face, a ri
 });
 
 // The material and the hollow pin (`dec_piston_material`).
-import { MATERIALS, pistonVolumes, pistonWeight } from "../src/operation/modelpiston.ts";
+import { MATERIALS, pistonVolumes, pistonWeight, pistonExtent } from "../src/operation/modelpiston.ts";
 test("the material gives the room in the bore (0 = auto): cast aluminium Honda's 0.03, forged 0.05, cast iron 0.13; a typed room replaces it", () => {
   const fit = (o: Partial<typeof PISTON_START>): number => pistonGeometry(P({ bore: 68, pin: 18, ...o })).fit;
   assert.equal(fit({}), 0.03);
@@ -284,4 +284,48 @@ test("a section through each ring groove at the thrust sides: the cavity's wall 
     assert.ok(Math.abs(h[0]! - g.shell.innerBelt) < 0.05 && Math.abs(h[1]! - (g.rp - g.belt.depth)) < 0.05, `the wall runs from ${g.shell.innerBelt.toFixed(2)} to the floor at ${(g.rp - g.belt.depth).toFixed(2)}: ${h.map((v) => v.toFixed(2))}`);
     assert.ok(Math.abs(h[1]! - h[0]! - g.shell.wall) < 0.1, "the wall under the floor is the wall asked for");
   }
+});
+
+// The crown (`dec_piston_crown`): flat, dome, dish, bowl, the edge chamfer, the valve reliefs.
+test("the crown: a dome rises above the flat crown, a dish and a bowl go down into it; the pin height stays the distance to the flat edge; the volumes are the worked-out ones", () => {
+  const base = P({ bore: 68, pin: 18 }), g = pistonGeometry(base), flat = bodies(pistonSteps(base)).sort((a, b) => b.volume - a.volume)[0]!;
+  assert.equal(g.cr.shape, 0);
+  assert.ok(Math.abs(flat.bbox.max[2]! - (g.sk + g.ch)) < 0.01, "flat: the top is at the pin height above the foot");
+  assert.ok(Math.abs(g.cr.edge - 0.272) < 1e-9, "the edge chamfer: 0.004 of the bore");
+  for (const shape of [1, 2, 3]) {
+    const spec = { ...base, crownShape: shape }, gs = pistonGeometry(spec), cup = bodies(pistonSteps(spec)).sort((a, b) => b.volume - a.volume)[0]!;
+    const want = pistonVolumes(spec, gs).cup;
+    assert.ok(Math.abs(cup.volume - want) / want < 0.0015, `shape ${shape}: the kernel's ${cup.volume.toFixed(1)} mm3, worked out ${want.toFixed(1)}`);
+    const top = g.sk + g.ch;
+    if (shape === 1) { assert.ok(Math.abs(cup.bbox.max[2]! - (top + gs.cr.height)) < 0.02 && Math.abs(gs.cr.height - 0.04 * 68) < 1e-9, `a dome ${gs.cr.height.toFixed(2)} mm high`); assert.ok(cup.volume > flat.volume, "more metal"); }
+    else { assert.ok(Math.abs(cup.bbox.max[2]! - top) < 0.02, "the dish and the bowl stay under the flat edge"); assert.ok(cup.volume < flat.volume, "less metal"); }
+  }
+  assert.ok(Math.abs(pistonGeometry({ ...base, crownShape: 2 }).cr.height - 0.03 * 68) < 1e-9 && Math.abs(pistonGeometry({ ...base, crownShape: 3 }).cr.height - 0.04 * 68) < 1e-9 && Math.abs(pistonGeometry({ ...base, crownShape: 3 }).cr.radius - 0.3 * 68) < 1e-9, "the auto sizes");
+  assert.equal(pistonGeometry({ ...base, crownShape: 1, crownHeight: 4, crownDia: 40 }).cr.height, 4, "typed");
+  assert.equal(pistonExtent({ ...base, crownShape: 1 }).height, g.sk + g.ch + 0.04 * 68, "the extent counts the dome");
+});
+test("the valve reliefs: round pockets in a flat crown; each takes pi r^2 times its depth; refused with a shaped crown, too deep, too big or overlapping", () => {
+  const base = P({ bore: 68, pin: 18 }), g1 = pistonGeometry({ ...base, valveReliefs: 2 });
+  const v0 = bodies(pistonSteps(base)).sort((a, b) => b.volume - a.volume)[0]!.volume;
+  for (const n of [1, 2]) {
+    const v = bodies(pistonSteps({ ...base, valveReliefs: n })).sort((a, b) => b.volume - a.volume)[0]!.volume, expect = n * Math.PI * g1.cr.reliefs.r ** 2 * g1.cr.reliefs.depth;
+    assert.ok(Math.abs((v0 - v) - expect) / expect < 0.01, `${n} pocket(s): the kernel took ${(v0 - v).toFixed(1)} mm3, the pockets are ${expect.toFixed(1)}`);
+  }
+  assert.ok(Math.abs(g1.cr.reliefs.r - 0.15 * 68) < 1e-9 && Math.abs(g1.cr.reliefs.depth - 0.02 * 68) < 1e-9 && Math.abs(g1.cr.reliefs.off - 0.25 * 68) < 1e-9, "the auto sizes");
+  assert.match(pistonProblem({ ...base, valveReliefs: 1, crownShape: 1 }) ?? "", /valve reliefs go in a flat crown/);
+  assert.match(pistonProblem({ ...base, valveReliefs: 1, reliefDepth: 6 }) ?? "", /valve relief is .* deep or less/);
+  assert.match(pistonProblem({ ...base, valveReliefs: 1, reliefDia: 40 }) ?? "", /too far out or too big/);
+  assert.match(pistonProblem({ ...base, valveReliefs: 2, reliefDia: 30, reliefOffset: 14 }) ?? "", /overlap/);
+  assert.match(pistonProblem({ ...base, valveReliefs: 3 }) ?? "", /valve reliefs are 0 to 2/);
+  assert.match(pistonProblem({ ...base, crownShape: 4 }) ?? "", /flat \(0\), a dome/);
+  assert.match(pistonProblem({ ...base, crownShape: 2, crownHeight: 5 }) ?? "", /dish is .* deep or less/);
+  assert.match(pistonProblem({ ...base, crownShape: 1, crownHeight: 30 }) ?? "", /dome is .* high or less/);
+  assert.match(pistonProblem({ ...base, crownShape: 1, crownDia: 68 }) ?? "", /crown shape is .* across or less/);
+  assert.match(pistonProblem({ ...base, crownChamfer: 5 }) ?? "", /edge chamfer is/);
+  assert.match(pistonProblem({ ...base, reliefDia: -1 }) ?? "", /relief's diameter is 0 \(auto\)/);
+});
+test("the engine's head clears a dome: the cylinder is taller by the dome's height, and the engine builds with it", () => {
+  const eng = { ...ENGINE_PRESETS[1]!.spec, crownShape: 1 }, g = engineGeometry(eng), g0 = engineGeometry(ENGINE_PRESETS[1]!.spec);
+  assert.ok(Math.abs(g.x1 - g0.x1 - g.pg.cr.height) < 1e-9 && g.pg.cr.height > 2, `the cylinder reaches ${(g.x1 - g0.x1).toFixed(2)} mm further`);
+  assert.equal(bodies(engineSteps(eng)).length, 9, "nine bodies");
 });

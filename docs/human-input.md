@@ -5384,3 +5384,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1266 — 2026-11-20 — question
 > Is this supposed to be cut like this? it looks like the oil ring cuts all the way through the wall except the bosses hold it together?
 (with a screenshot of the piston seen from the side and above: the ring grooves show as white bands, a small drain hole in the oil groove, and the pin bore with a jagged ring round it; asks whether the oil ring groove cuts through the wall)
+
+## in_1267 — 2026-11-20 — directive
+> do the crown next
+(approves the next piston maker variables: the crown's shape (flat, dome, dish, bowl), its edge chamfer and the valve reliefs)

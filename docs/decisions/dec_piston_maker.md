@@ -48,3 +48,7 @@ The material (density, weight, the default room in the bore) and a hollow pin. *
 ## Stage 4, built (`dec_piston_skirt`)
 
 The skirt's shape: oval, taper, a chamfered foot, and a full or two-pad style. **Still not built:** crown shapes and valve reliefs, ring types, the other pin retentions, a barrel profile, boss ribs, skirt windows and lightening holes, other edges.
+
+## Stage 5, built (`dec_piston_crown`)
+
+The crown: flat, dome, dish or bowl, its edge chamfer and valve reliefs. **Still not built:** ring types, the other pin retentions, a barrel profile, boss ribs, skirt windows and lightening holes, the other edges.
