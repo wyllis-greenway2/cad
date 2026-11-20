@@ -68,6 +68,7 @@ export function createView(host: HTMLElement) {
     const built = buildContent(content, s, mesh, pen, envMap);
     bodyMat = built ? built.material : null;
     bodyGroup = built ? built.body : null;
+    if (clips.length) raiseLines();
     splitter = built ? built.split : null;
     hider = built ? built.hide : null;
     hider?.(hiddenNow);
@@ -137,7 +138,15 @@ export function createView(host: HTMLElement) {
   scene3.add(sectionGroup);
   /** The cross section (`in_392`, `in_394`): the part of the body and its lines on the normal's side of the plane is not drawn; both faces of what is cut are shown; where the plane cuts a solid the cut face is drawn
    * solid and hatched with parallel lines, as a cut part is in an engineering drawing (the stencil counts, along each pixel's line of sight, how many faces of the body lie behind the plane: odd is inside the solid). */
+  /** The lines drawn on a face that lies in a cutting plane come after the cut and the face drawn again over it, or they would be covered by them (`in_1358`); built again with the scene, so this is done then too. */
+  function raiseLines() {
+    content.traverse((o) => {
+      const l = o as THREE.Object3D & { isLine?: boolean; isLine2?: boolean; isLineSegments2?: boolean };
+      if (l.isLine || l.isLine2 || l.isLineSegments2) { l.userData.order ??= l.renderOrder; l.renderOrder = clips.length ? Math.max(l.userData.order as number, 2) : (l.userData.order as number); }
+    });
+  }
   function applyClip() {
+    raiseLines();
     content.traverse((o) => {
       const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
       for (const mat of Array.isArray(m) ? m : m ? [m] : []) { mat.clippingPlanes = clips.length ? clips : null; if (mat instanceof THREE.MeshBasicMaterial || mat instanceof THREE.MeshPhysicalMaterial || mat instanceof THREE.MeshStandardMaterial) { if (clips.length) { mat.userData.side ??= mat.side; mat.side = THREE.DoubleSide; } else if (mat.userData.side !== undefined) mat.side = mat.userData.side as THREE.Side; } mat.needsUpdate = true; }
@@ -181,6 +190,39 @@ export function createView(host: HTMLElement) {
     cut.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(u, v, n));
     cut.renderOrder = 1.1 + idx * 0.2;
     sectionGroup.add(cut);
+    // where the plane lies exactly on a face of the part, that face looks as it does anywhere else: only what is really cut looks like the cut (`in_1351`). The triangles of the part that lie in the plane are drawn again, with their own material, over the cut face
+    const planeAt = new THREE.Vector3(...secNow.at);
+    const nrm = n.clone();
+    const side = (p: THREE.Vector3) => (p.x - planeAt.x) * nrm.x + (p.y - planeAt.y) * nrm.y + (p.z - planeAt.z) * nrm.z;
+    body.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh || Array.isArray(mesh.material) || !mesh.geometry.getAttribute("position")) return;
+      const pos = mesh.geometry.getAttribute("position");
+      const index = mesh.geometry.getIndex();
+      const count = index ? index.count : pos.count;
+      mesh.updateWorldMatrix(true, false);
+      const w = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+      const keep: number[] = [];
+      for (let t = 0; t + 2 < count; t += 3) {
+        const ids = [0, 1, 2].map((k) => (index ? index.getX(t + k) : t + k));
+        ids.forEach((id, k) => w[k]!.fromBufferAttribute(pos, id).applyMatrix4(mesh.matrixWorld));
+        if (w.every((p) => Math.abs(side(p)) < 2e-3)) keep.push(...ids);
+      }
+      if (!keep.length) return;
+      const g = mesh.geometry.clone();
+      g.setIndex(keep);
+      g.clearGroups();
+      const mat = (mesh.material as THREE.Material).clone();
+      mat.clippingPlanes = [clip];
+      mat.polygonOffset = true; mat.polygonOffsetFactor = -12; mat.polygonOffsetUnits = -12;
+      mat.depthWrite = false; mat.depthTest = true; mat.transparent = false; mat.stencilWrite = false; // (no depth written: the lines drawn on the face come after and must show over it, `in_1358`)
+      mat.side = THREE.DoubleSide;
+      const face = new THREE.Mesh(g, mat);
+      face.matrixAutoUpdate = false;
+      face.matrix.copy(mesh.matrixWorld);
+      face.renderOrder = 1.15 + idx * 0.2;
+      sectionGroup.add(face);
+    });
     });
   }
   const planesGroup = new THREE.Group(); // (the cross section planes in the part: faint when not selected, fainter still when they are cutting, `in_396`)
@@ -254,6 +296,7 @@ export function createView(host: HTMLElement) {
       for (const [a, b] of p.segments) preview.add(pen.line([...a, ...b], colour, 2, false));
       for (const [a, b] of p.guides ?? []) preview.add(pen.dashed([...a, ...b], TEAL, 1.5, cam.distance * 0.012)); // (alignment guides are dashed so they read differently from the figure, `in_381`)
       if (p.circle) preview.add(pen.line(ringOf(p.circle.center, p.circle.radius, p.circle.normal), TEAL, 2, false));
+      preview.traverse((o) => { o.renderOrder = 5; }); // (after the part, the cut and the faces drawn over its hatch: the guides and the figure lie in the surface being drawn on and must not go behind it, `in_1352`)
     });
   }
 
@@ -337,6 +380,8 @@ export function createView(host: HTMLElement) {
   let clashShown: number[] | null = null;
   const clashGroup = new THREE.Group();
   scene3.add(clashGroup);
+  const ghostGroup = new THREE.Group();
+  scene3.add(ghostGroup);
   function setClash(tris: number[] | null): void {
     if (tris === clashShown) return;
     clashShown = tris;
@@ -349,6 +394,21 @@ export function createView(host: HTMLElement) {
     const mesh = new THREE.Mesh(geo, mat);
     mesh.renderOrder = 3;
     clashGroup.add(mesh);
+  }
+  /** The tools of the cuts as translucent ghosts (`dec_cut_tools`, `in_1348`): one triangle soup, drawn over the model, not written to the depth buffer. */
+  let ghostShown: number[] | null = null;
+  function setCutGhosts(tris: number[] | null): void {
+    if (tris === ghostShown) return;
+    ghostShown = tris;
+    clearGroup(ghostGroup);
+    if (!tris || !tris.length) return;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(tris), 3));
+    geo.computeVertexNormals();
+    const mat = new THREE.MeshLambertMaterial({ color: 0xe5484d, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 3;
+    ghostGroup.add(mesh);
   }
   const setWorldHidden = (on: boolean): void => world.setOff(on);
   /** Is the junction of the world axes (where its orb is) behind the model from this eye? The orb is a dot of the page, so it asks (`in_1194`). */
@@ -430,5 +490,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { rebuild, setWorldHidden, originHidden, setScene, setHiddenBodies, setThin, setClash, setStandIns, setHiddenEdges, setBehindPlane, setBodyMatrix, setHighlight, setPreview, setGizmo, setToolpath, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { rebuild, setWorldHidden, originHidden, setScene, setHiddenBodies, setThin, setClash, setCutGhosts, setStandIns, setHiddenEdges, setBehindPlane, setBodyMatrix, setHighlight, setPreview, setGizmo, setToolpath, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

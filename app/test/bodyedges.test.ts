@@ -62,3 +62,16 @@ test("a piece of the face can be extruded: a quarter of the post's top rises", (
   const post = Math.PI * 400 * 10;
   assert.ok(Math.abs(vol - (post + (Math.PI * 400 * 5) / 4)) < 30, `volume ${vol} vs ${post + (Math.PI * 400 * 5) / 4}`);
 });
+
+import { guidesOf } from "../src/interaction/tools.ts";
+import { localOf, liftOf } from "../src/operation/part.ts";
+test("the pointer on the middle of the rim of a post gets the cross through it, across the circle (`in_1353`)", () => {
+  const { s, plane } = sketched();
+  const sc = scene(s);
+  const pl = sc.parts[plane] as never;
+  const at = liftOf(pl, [0, 0]);
+  const g = guidesOf(sc, pl, at);
+  const long = g.filter(([a, b]) => Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) > 40);
+  assert.equal(long.length, 2, "a line along each axis, as long as the circle across");
+  void localOf;
+});

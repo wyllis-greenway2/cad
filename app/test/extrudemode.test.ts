@@ -52,7 +52,7 @@ test("an extrusion that goes into the body is stored as a cut, and the body is s
   const a = sketch(s, 0, 0); s = pull(a.s, a.face); // (a box 10 by 10 by 10)
   const volume = (x: Session) => Object.values(scene(x).parts).reduce((t, p) => t + (p.kind === "body" ? (p.volume ?? 0) : 0), 0);
   const before = volume(s);
-  // a second figure on the same plane, half on the body: the body's edges cut it into the piece that is on the body and the piece beside it (`in_1344`); the piece on the body is pulled into it
+  // a second figure on the same plane, half on the body: the body's edges cut it into the piece that is on the body and the piece beside it (`in_1360`); the piece on the body is pulled into it
   const b = sketch(s, 5, 5);
   const piece = Object.values(scene(b.s).parts).find((p) => p.kind === "face" && p.origin === "drawn" && !!p.pieces && !consumedSet(b.s).has(p.ref) && inside(p as never, b.s));
   assert.ok(piece, "a piece of the second figure lies on the body");

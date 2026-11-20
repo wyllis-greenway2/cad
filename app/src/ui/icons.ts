@@ -135,6 +135,8 @@ Object.assign(ICONS, {
   check: svg('<path d="M3 8.5l3.2 3.2L13 4.5"/>'),
   cross: svg('<path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>'),
   // the mates between faces and axes of two bodies (`in_338`): what each one does, drawn as the faces or axes it joins; not the measure stick
+  cutghost: svg('<rect x="3.2" y="3.2" width="9.6" height="9.6" rx="1.6" stroke-dasharray="2.2 1.6"/><path d="M5.6 8h4.8M8 5.6v4.8"/>'), // (the tool of a cut as a ghost body, `in_1348`)
+  cutBoth: svg('<path d="M8 1.6v12.8" stroke-dasharray="2.4 1.6"/><path d="M4.6 5L8 1.6 11.4 5M4.6 11L8 14.4 11.4 11"/><rect x="5" y="6.6" width="6" height="2.8" rx="1"/>'), // (a cut that goes through both ways from its plane, `in_1348`)
   "mate:flush": svg('<rect x="3" y="2.2" width="10" height="5.3" rx=".8"/><rect x="3" y="8.5" width="10" height="5.3" rx=".8"/><path d="M1.4 8h13.2" stroke-width="1.9"/>'),
   "mate:coaxial": svg('<circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/>'),
   "mate:parallel": svg('<path d="M2.5 6.2l3.2-3h8l-3.2 3z"/><path d="M2.5 12.7l3.2-3h8l-3.2 3z"/>'),

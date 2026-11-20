@@ -38,7 +38,7 @@ export function buildGraph(scene: Scene): GraphResult {
   let chain: { base: string | null; mode: string; mods: { ref: unknown; value: number }[] } | null = null;
 
   const profile = (st: Step, refs: readonly Ref[] = st.parts, sid = `s_${st.id}`): KernelOp | string => {
-    const first = refs.map((r) => get(r)).find((p) => p?.plane) ?? get(refs[0]!); // (a side that is an edge of the body has no plane of its own: the first that has one says where the shape is, `in_1344`)
+    const first = refs.map((r) => get(r)).find((p) => p?.plane) ?? get(refs[0]!); // (a side that is an edge of the body has no plane of its own: the first that has one says where the shape is, `in_1360`)
     if (!first) return "a part of this step is gone";
     const plane = first.plane ? get(first.plane) : undefined;
     if (!plane || plane.kind !== "plane") return "the shape is not on a plane";
@@ -105,7 +105,8 @@ export function buildGraph(scene: Scene): GraphResult {
         if (bad) { errors[st.id] = bad; break; }
         if (!prev && st.params.mode === "cut") { errors[st.id] = "there is nothing to cut from (the body it cut is gone)"; break; }
         const [first, ...more] = made;
-        ops.push({ id: xid, type: "extrude", profile: first!.profile, ...(first!.holes.length ? { holes: first!.holes } : {}), ...(more.length ? { also: more.map((m, i) => (depths[i + 1] !== distance ? { ...m, distance: depths[i + 1] } : m)) } : {}), distance, ...(st.params.slantx !== undefined || st.params.slanty !== undefined ? { slant: [Number(st.params.slantx ?? 0), Number(st.params.slanty ?? 0)] } : {}), ...(prev ? { target: prev } : {}), ...(st.params.preview ? { preview: true } : {}), mode: !prev ? "add" : st.params.mode === "add" || st.params.mode === "cut" || st.params.mode === "new" ? String(st.params.mode) : "cutOrAdd" }); // (onto a body: a new piece while it only touches the body or stands apart, a cut as soon as it goes into it: `in_193`; the step says which when it was made, so that a body that grows later does not turn a piece into a cut: `in_295`)
+        const both = Number(st.params.both ?? 0) === 1; // (`dec_cut_tools`: the tool goes the depth one way and the depth the other from the same plane, `in_1348`)
+        ops.push({ id: xid, type: "extrude", profile: first!.profile, ...(first!.holes.length ? { holes: first!.holes } : {}), ...(more.length || both ? { also: [...more.map((m, i) => (depths[i + 1] !== distance ? { ...m, distance: depths[i + 1] } : m)), ...(both ? made.map((m, i) => ({ ...m, distance: -depths[i]! })) : [])] } : {}), distance, ...(st.params.slantx !== undefined || st.params.slanty !== undefined ? { slant: [Number(st.params.slantx ?? 0), Number(st.params.slanty ?? 0)] } : {}), ...(prev ? { target: prev } : {}), ...(st.params.preview ? { preview: true } : {}), mode: !prev ? "add" : st.params.mode === "add" || st.params.mode === "cut" || st.params.mode === "new" ? String(st.params.mode) : "cutOrAdd" }); // (onto a body: a new piece while it only touches the body or stands apart, a cut as soon as it goes into it: `in_193`; the step says which when it was made, so that a body that grows later does not turn a piece into a cut: `in_295`)
         prev = xid;
         break;
       }

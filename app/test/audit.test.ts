@@ -138,7 +138,7 @@ test("a chamfer made now on the top rim of a post goes up with the top when the 
   }
 });
 
-test("a circle drawn across the rim of a body that stands on the plane is cut by it into pieces; one that touches no rim is one disk (`in_1344`: any lines exactly in one plane take part)", () => {
+test("a circle drawn across the rim of a body that stands on the plane is cut by it into pieces; one that touches no rim is one disk (`in_1360`: any lines exactly in one plane take part)", () => {
   const s = rod();
   const faces = parts(s).filter((p) => p.kind === "face" && !consumed(scene(s)).has(p.ref));
   assert.ok(faces.length > 1, `${faces.length} faces: the new circle crosses the rim of the first body`);

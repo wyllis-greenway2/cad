@@ -1,4 +1,4 @@
-// Lines drawn on the world plane a round body stands on cut the base into pieces up to the body's rim (`in_1343`): two upright lines and one across the middle of a cylinder's base are four closed regions, not one disk.
+// Lines drawn on the world plane a round body stands on cut the base into pieces up to the body's rim (`in_1359`): two upright lines and one across the middle of a cylinder's base are four closed regions, not one disk.
 // The model is the user's (`lines-across-base.cad.json`).
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -25,7 +25,7 @@ test("a region cut by the rim can be extruded", async () => {
   const { runOp } = await import("../src/interaction/runop.ts");
   const st = startOp(scene(s), [pieces[0]!.ref], "extrude");
   assert.ok(st.ok, st.ok ? "" : st.why);
-  const out = runOp(s, { ...(st as { op: never }).op, value: 8 });
+  const out = runOp(s, { ...(st as unknown as { op: Record<string, unknown> }).op, value: 8 });
   assert.ok(out && !out.session.message, out ? String(out.session.message) : "no run");
   assert.deepEqual(out!.session.outcome.errors, {});
 });

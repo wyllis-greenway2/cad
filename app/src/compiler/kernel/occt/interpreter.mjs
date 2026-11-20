@@ -828,16 +828,31 @@ const OPS = {
         const turns = Math.abs(angle) / 360;
         const pitch = Math.abs(advance) / turns;
         const lo = Math.min(...along), hi = Math.max(...along);
-        if (hi - lo > pitch + 1e-4) throw new Error(`the figure is ${Math.round((hi - lo) * 100) / 100} mm wide along the axis and the advance is ${Math.round(pitch * 100) / 100} mm a turn: the turns would overlap`);
+        const overlap = hi - lo > pitch + 1e-4; // (the turns lie on each other, as a tight spring's do: made in short pieces that are fused, `in_1344`)
         const [mid, r] = [(lo + hi) / 2, Math.max(...side)];
         // the helix runs through the middle of the figure, at its far side, about the axis; the figure is carried along it as one rigid screw motion (the kernel's frame of a helix does exactly that)
         const dir = advance > 0 ? D : D.map((x) => -x);
         const helixCcw = (angle > 0) === (advance > 0); // (a right hand helix turns counter-clockwise about its own direction)
         const centre = [A[0] + D[0] * mid, A[1] + D[1] * mid, A[2] + D[2] * mid];
+        // a spiral whose turns overlap cannot be one sweep (it would cross itself): it is made in pieces of at most 120 degrees, each the first turned about the axis and moved along it by its share, and fused into one body (`in_1344`)
+        const pieces = overlap ? Math.ceil(Math.abs(angle) / 180 - 1e-9) : 1;
         make = (sk) => {
-          const solid = genericSweep(sk.wire, helix(pitch, pitch * turns, r, centre, dir, U, !helixCcw), { frenet: true });
-          if (!isValidSolid(solid)) throw new Error("the spiral could not be made at this size");
-          return solid;
+          const part = turns / pieces; // (each piece but the last runs a little past its share, so two pieces share some volume and not a face: the kernel joins those far more surely)
+          const more = Math.min(part, 3 / 360);
+          const sweepOf = (len) => { const w = genericSweep(sk.wire, helix(pitch, pitch * len, r, centre, dir, U, !helixCcw), { frenet: true }); if (!isValidSolid(w)) throw new Error("the spiral could not be made at this size"); return w; };
+          const placed = (w, k) => w.clone().rotate((helixCcw ? 1 : -1) * 360 * part * k, centre, dir).translate(dir.map((x) => x * pitch * part * k));
+          if (pieces === 1) return sweepOf(turns);
+          const long = sweepOf(part + more), last = sweepOf(part);
+          let layer = [];
+          for (let k = 0; k < pieces; k++) layer.push(k === pieces - 1 ? placed(last, k) : placed(long, k));
+          while (layer.length > 1) { // (fused two by two, so the solids joined stay small)
+            const next = [];
+            for (let k = 0; k < layer.length; k += 2) next.push(k + 1 < layer.length ? layer[k].fuse(layer[k + 1], { fuzzy: 1e-3, simplify: false }) : layer[k]);
+            layer = next;
+          }
+          const all = layer[0];
+          if (!isValidSolid(all) || !(measureVolume(all) > 1e-9)) throw new Error("the overlapping turns of the spiral could not be joined into one body at this size");
+          return all;
         };
       }
     }

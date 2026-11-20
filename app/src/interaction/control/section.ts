@@ -59,12 +59,37 @@ const MODE_FLAGS: Record<SheetMode, { cut: boolean; flip: boolean }> = { 0: { cu
 /** Every sheet that is cutting the view (`in_416`, `in_459`: any number at once): its middle, and the normal that points to the half cut away (the place a drag has taken it to while its handles are dragged). */
 export function cutsNow(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; extent: number }[] {
   const sc = sceneOf(s.session);
-  return partIndex(sc).sections.flatMap((p) => {
+  const temp = sketchCut(s);
+  return [...(temp ? [temp] : []), ...partIndex(sc).sections.flatMap((p) => {
     if (!p.cut || p.extent === undefined) return [];
     const live = s.sectionLive && s.sectionLive.ref === p.ref ? s.sectionLive : null;
     const n = live ? live.n : normalize(cross(p.u, p.v));
     return [{ ref: p.ref, centre: live ? live.centre : (add(p.at, scale(add(p.u, p.v), p.extent / 2)) as Vec3), n: p.flip ? (scale(n, -1) as Vec3) : n, extent: p.extent }];
-  });
+  })];
+}
+
+const SKETCHING = new Set(["rect", "circle", "polygon", "line", "arc", "spline"]);
+/**
+ * A cross section made for the surface being sketched on (`in_1351`), only while the sketch tool is on: a flat face of the body, or the plane a sketch on one stands on, cuts the view along itself, so what stands in front of it
+ * (the walls of a pocket the face is the floor of) does not hide it. The half the face looks out to is the half cut away. It is no part of the model and goes with the tool; a face that is a cut's own cap has its section already.
+ */
+function sketchCut(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; extent: number } | null {
+  const t = s.tool;
+  if (!t || !SKETCHING.has(t.kind)) return null;
+  const sc = sceneOf(s.session);
+  const ref = t.plane ?? selectionOf(s.session).find((r) => { const q = sc.parts[r]; return q?.kind === "plane" && q.origin !== "world" && !q.section; });
+  const p = ref ? sc.parts[ref] : undefined;
+  if (!p || p.kind !== "plane" || p.origin === "world" || p.section || p.cap) return null;
+  if (p.origin === "body") {
+    const m = p.mesh;
+    const ax = surfaceAxes(sc, p);
+    if (!m || m.length < 9 || !ax) return null; // (a round face has no plane to cut along)
+    let [x, y, z, k] = [0, 0, 0, 0];
+    for (let i = 0; i + 2 < m.length; i += 3) { x += m[i]!; y += m[i + 1]!; z += m[i + 2]!; k++; }
+    return { ref: "sketch:cut" as Ref, centre: [x / k, y / k, z / k], n: ax[2], extent: 60 };
+  }
+  if (!p.onBody) return null;
+  return { ref: "sketch:cut" as Ref, centre: p.at, n: normalize(cross(p.u, p.v)), extent: 60 };
 }
 
 /** A press on a sheet's delete icon (`in_470`): the plane goes (one step; what was drawn on it stays as it is). */
