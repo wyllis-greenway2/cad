@@ -31,7 +31,7 @@ test("the piston stands crown up: four bodies, the piston, its pin and two circl
     assert.equal(bs.length, 4, "the piston, the pin and the two circlips");
     const cup = bs.sort((a, b) => b.volume - a.volume)[0]!;
     assert.ok(Math.abs(cup.bbox.min[2]!) < 0.01 && Math.abs(cup.bbox.max[2]! - (g.sk + g.ch)) < 0.01, `from the foot (0) to the crown (${(g.sk + g.ch).toFixed(2)}): ${cup.bbox.min[2]} to ${cup.bbox.max[2]}`);
-    assert.ok(Math.abs(cup.bbox.max[0]! - cup.bbox.min[0]! - 2 * g.rp) < 0.01 && Math.abs((cup.bbox.max[0]! + cup.bbox.min[0]!) / 2) < 0.01, "centred on the click, as wide as the bore less the room");
+    assert.ok(Math.abs(cup.bbox.max[1]! - cup.bbox.min[1]! - 2 * g.rp) < 0.01 && Math.abs(cup.bbox.max[0]! - cup.bbox.min[0]! - (2 * g.rp - g.oval)) < 0.01 && Math.abs((cup.bbox.max[0]! + cup.bbox.min[0]!) / 2) < 0.01, "centred on the click, as wide across the thrust as the bore less the room, narrower along the pin by the oval");
   }
 });
 
@@ -39,7 +39,7 @@ test("with the engine's numbers the piston maker's piston is the engine's piston
   for (const eng of [ENGINE_START, ENGINE_PRESETS[1]!.spec, ENGINE_PRESETS[0]!.spec]) {
     const r = engineSteps(eng);
     const g = engineGeometry(eng);
-    const inEngine = bodies(r).filter((b) => Math.abs(b.bbox.max[0]! - b.bbox.min[0]! - (g.sk + g.ch)) < 0.05 && Math.abs(b.bbox.max[2]! - b.bbox.min[2]! - 2 * g.rp) < 0.05 || (Math.abs(b.bbox.max[2]! - b.bbox.min[2]! - 2 * g.pg.pinHalf) < 0.05 && Math.abs(b.bbox.max[1]! - b.bbox.min[1]! - eng.pin) < 0.05))
+    const inEngine = bodies(r).filter((b) => Math.abs(b.bbox.max[0]! - b.bbox.min[0]! - (g.sk + g.ch)) < 0.05 && Math.abs(b.bbox.max[1]! - b.bbox.min[1]! - 2 * g.rp) < 0.05 && b.bbox.max[2]! - b.bbox.min[2]! > 2 * g.rp - 0.5 || (Math.abs(b.bbox.max[2]! - b.bbox.min[2]! - 2 * g.pg.pinHalf) < 0.05 && Math.abs(b.bbox.max[1]! - b.bbox.min[1]! - eng.pin) < 0.05))
       .map((b) => b.volume).sort((a, b) => b - a);
     const alone = volumes(pistonSteps(pistonOf(eng)));
     assert.equal(inEngine.length, 2, "the engine's piston and pin are found");
@@ -124,7 +124,7 @@ test("the Piston model is made from the Models menu: the action, a click and Ent
 test("the lands are cut smaller than the skirt: the top land 0.003 and the others 0.002 of the bore across, and a typed relief changes the volume by the ring it takes", () => {
   const base = P({ bore: 68, pin: 18 }), g = pistonGeometry(base);
   assert.equal(g.lands.length, 3, "the top land and the two lands between the three grooves");
-  assert.ok(Math.abs(g.lands[0]!.radius - (g.rp - 0.003 * 68 / 2)) < 1e-9 && Math.abs(g.lands[1]!.radius - (g.rp - 0.002 * 68 / 2)) < 1e-9 && Math.abs(g.lands[2]!.radius - (g.rp - 0.002 * 68 / 2)) < 1e-9, "auto");
+  assert.ok(Math.abs(g.lands[0]!.radius - (g.rt - 0.003 * 68 / 2)) < 1e-9 && Math.abs(g.lands[1]!.radius - (g.rt - 0.002 * 68 / 2)) < 1e-9 && Math.abs(g.lands[2]!.radius - (g.rt - 0.002 * 68 / 2)) < 1e-9, "auto: smaller than the skirt's top radius");
   assert.ok(g.lands[0]!.top === 0 && Math.abs(g.lands[0]!.bottom - g.belt.grooves[0]!.top) < 1e-9 && Math.abs(g.lands[1]!.top - (g.belt.grooves[0]!.top + g.belt.grooves[0]!.height)) < 1e-9 && Math.abs(g.lands[1]!.bottom - g.belt.grooves[1]!.top) < 1e-9, "each land runs from the groove above to the groove below");
   const cup = (o: Partial<typeof PISTON_START>): number => volumes(pistonSteps({ ...base, ...o }))[0]!;
   const v0 = cup({}), big = cup({ topLandRelief: 1.0 }), gg = pistonGeometry({ ...base, topLandRelief: 1.0 });
@@ -138,7 +138,7 @@ test("the lands are cut smaller than the skirt: the top land 0.003 and the other
 test("the pin is held by circlips: a groove in the pin bore near each face, a ring in each, the pin ends short of them", () => {
   const base = P({ bore: 68, pin: 18 }), g = pistonGeometry(base), c = g.clip!;
   assert.ok(c, "circlips are the default");
-  assert.ok(Math.abs(c.width - 1.08) < 1e-9 && Math.abs(c.depth - 0.504) < 1e-9 && Math.abs(c.z - (g.rp - 1 - 1.08)) < 1e-9, "the groove: 0.06 and 0.028 of the pin, 1 mm from the face");
+  assert.ok(Math.abs(c.width - 1.08) < 1e-9 && Math.abs(c.depth - 0.504) < 1e-9 && Math.abs(c.z - (g.rzPin - 1 - 1.08)) < 1e-9, "the groove: 0.06 and 0.028 of the pin, 1 mm from the face (the outer face at the pin)");
   assert.ok(Math.abs(g.pinHalf - (c.z - 0.1)) < 1e-9, "the pin ends 0.1 mm short of the groove");
   assert.ok(c.inner < 9 && c.outer < c.bore + c.depth, "the circlip reaches in over the pin's end and stays inside its groove");
   const bs = bodies(pistonSteps(base)).sort((a, b) => b.volume - a.volume);
@@ -204,4 +204,50 @@ test("the pin is hollow by default (0.55 of the pin), solid when asked; a typed 
   assert.match(pistonProblem({ ...base, pinBore: 17 }) ?? "", /leaves too thin a wall/);
   assert.match(pistonProblem({ ...base, pinKind: 2 }) ?? "", /solid \(0\) or hollow \(1\)/);
   assert.match(pistonProblem({ ...base, pinBore: -1 }) ?? "", /bore is 0 \(auto\) or more/);
+});
+
+// The skirt (`dec_piston_skirt`): oval, taper, foot chamfer, two pads.
+test("the skirt is oval and tapered by default: narrower along the pin and at the top, the foot's radius is the sized one, and Round is the plain cylinder", () => {
+  const base = P({ bore: 68, pin: 18 }), g = pistonGeometry(base);
+  assert.ok(Math.abs(g.oval - 0.068) < 1e-9 && Math.abs(g.taper - 0.0007 * 68) < 1e-9 && Math.abs(g.chamfer - 0.272) < 1e-9, "auto: 0.001, 0.0007 and 0.004 of the bore");
+  assert.ok(Math.abs(g.rt - (g.rp - g.taper / 2)) < 1e-9 && g.rt < g.rp, "the top of the skirt is narrower than the foot, whose radius is the bore less the room");
+  assert.ok(g.radiusAt(-g.sk) === g.rp && Math.abs(g.radiusAt(g.ch - g.belt.length) - g.rt) < 1e-9, "the radius runs from the foot's to the top's");
+  assert.ok(g.rzPin <= g.rp - g.oval / 2 + 1e-12 && g.rzPin > g.rt - 1e-9 - g.oval, "the skirt's outer face at the pin");
+  const round = pistonGeometry({ ...base, skirtShape: 0 });
+  assert.ok(round.oval === 0 && round.taper === 0 && round.rt === round.rp && round.rzPin === round.rp, "Round: no oval, no taper");
+  // the kernel: the piston is narrower along the pin by the oval and as wide as the bore across the thrust
+  const b1 = bodies(pistonSteps(base)).sort((a, b) => b.volume - a.volume)[0]!, b0 = bodies(pistonSteps({ ...base, skirtShape: 0 })).sort((a, b) => b.volume - a.volume)[0]!;
+  assert.ok(Math.abs(b1.bbox.max[1]! - b1.bbox.min[1]! - 2 * g.rp) < 0.005 && Math.abs(b0.bbox.max[1]! - b0.bbox.min[1]! - 2 * g.rp) < 0.005, "across the thrust: the bore less the room, both");
+  assert.ok(Math.abs(b1.bbox.max[0]! - b1.bbox.min[0]! - (2 * g.rp - g.oval)) < 0.005 && Math.abs(b0.bbox.max[0]! - b0.bbox.min[0]! - 2 * g.rp) < 0.005, "along the pin: narrower by the oval (the pin lies along the model's z, the world's x here)");
+  assert.ok(b1.volume < b0.volume, "less metal");
+  const v = pistonVolumes(base, g).cup, v0 = pistonVolumes({ ...base, skirtShape: 0 }).cup;
+  assert.ok(Math.abs(b1.volume - v) / v < 0.0015 && Math.abs(b0.volume - v0) / v0 < 0.0015, `the worked-out volumes: ${b1.volume.toFixed(1)} against ${v.toFixed(1)}, round ${b0.volume.toFixed(1)} against ${v0.toFixed(1)}`);
+  assert.ok(Math.abs((v0 - v) - (b0.volume - b1.volume)) < 6, `what oval and taper take off: ${(v0 - v).toFixed(2)} worked out, ${(b0.volume - b1.volume).toFixed(2)} in the kernel (mm3)`);
+});
+test("typed oval, taper and chamfer are used; the foot chamfer takes metal off the foot; they are refused when absurd", () => {
+  const base = P({ bore: 68, pin: 18 });
+  assert.equal(pistonGeometry({ ...base, oval: 0.2 }).oval, 0.2);
+  assert.equal(pistonGeometry({ ...base, taper: 0.1 }).taper, 0.1);
+  assert.equal(pistonGeometry({ ...base, footChamfer: 1 }).chamfer, 1);
+  const c1 = bodies(pistonSteps({ ...base, footChamfer: 0.2 })).sort((a, b) => b.volume - a.volume)[0]!.volume, c2 = bodies(pistonSteps({ ...base, footChamfer: 2 })).sort((a, b) => b.volume - a.volume)[0]!.volume;
+  const rp = pistonGeometry(base).rp, ring = (c: number): number => Math.PI * (rp - c / 3) * c * c; // (a chamfer's triangle turned about the axis: its area c^2/2 times 2 pi times its centroid's radius)
+  assert.ok(Math.abs((c1 - c2) - (ring(2) - ring(0.2))) / (ring(2) - ring(0.2)) < 0.03, `a 2 mm chamfer takes ${(ring(2) - ring(0.2)).toFixed(1)} mm3 more than a 0.2 mm one: the kernel's ${(c1 - c2).toFixed(1)}`);
+  assert.match(pistonProblem({ ...base, oval: 2 }) ?? "", /oval and taper are 0.68 mm across or less/);
+  assert.match(pistonProblem({ ...base, footChamfer: 40 }) ?? "", /chamfer is .* mm or less/);
+  assert.match(pistonProblem({ ...base, skirtShape: 2 }) ?? "", /skirt shape is 0/);
+  assert.match(pistonProblem({ ...base, oval: -1 }) ?? "", /oval is 0 \(auto\)/);
+});
+test("two pads: the skirt is cut away at the sides of the pin below the bosses, each pad spanning the typed angle (80 degrees by default)", () => {
+  const base = P({ bore: 68, pin: 18, skirtShape: 0, skirtLen: 40 }), g = pistonGeometry({ ...base, skirtStyle: 1 });
+  assert.ok(Math.abs(g.wedge - (50 * Math.PI) / 180) < 1e-9, "90 - 40 degrees from the pin axis");
+  assert.ok(Math.abs(pistonGeometry({ ...base, skirtStyle: 1, padAngle: 70 }).wedge - (55 * Math.PI) / 180) < 1e-9, "typed 70");
+  const full = bodies(pistonSteps(base)).sort((a, b) => b.volume - a.volume)[0]!.volume, pads = bodies(pistonSteps({ ...base, skirtStyle: 1 })).sort((a, b) => b.volume - a.volume)[0]!.volume;
+  const expect = pistonVolumes(pistonGeometry({ ...base }) && base).cup - pistonVolumes({ ...base, skirtStyle: 1 }).cup;
+  assert.ok(Math.abs((full - pads) - expect) / expect < 0.03, `the wedges take ${(full - pads).toFixed(1)} mm3 in the kernel, ${expect.toFixed(1)} worked out`);
+  assert.ok(full - pads > 1000, "a real cut");
+  const g1 = pistonGeometry(base);
+  assert.equal(g1.wedge, 0, "full: no wedge");
+  assert.match(pistonProblem({ ...base, skirtStyle: 1, skirtLen: 10 }) ?? "", /two pads needs the skirt to reach/);
+  assert.match(pistonProblem({ ...base, skirtStyle: 1, padAngle: 10 }) ?? "", /a pad spans 30 to 150 degrees/);
+  assert.match(pistonProblem({ ...base, skirtStyle: 2 }) ?? "", /full \(0\) or two pads \(1\)/);
 });

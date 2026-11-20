@@ -5369,9 +5369,24 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > When you delete a wheel, it doesn't delete its profile for rotational extrude. Can we have all gears default to at least some thickness if they currently have none.
 (asks for the blue preview lines to be drawn in 3D wherever the thing has 3D information, the piston maker's box on a model that is made being the example; says that deleting a wheel leaves its profile for the revolve behind; asks that every gear that has no thickness is given at least some by default)
 
-## in_1263 — 2026-11-20 — question
+## in_1263 — 2026-11-20 — directive
+> if you set a key value, it just fails, you have to set a key and depth value together. Can we make this not fail so much? so instead of failing it shuold just allow a key of zero depth, or put a depth value automatically at least a little then remain still for the user to adjust.
+(says a key width alone is refused for want of a depth; asks that it not fail: a depth is put in automatically, or zero depth is allowed, and the person adjusts it)
+
+## in_1264 — 2026-11-20 — directive
+> do the skirt shape next
+(approves the next piston maker variables: the skirt's shape: oval, taper, style (full or pads), foot chamfer)
+
+## in_1265 — 2026-11-20 — directive
+> the wireframe drawing seems to be rotated 90 degrees to the actual model for piston heads and maybe other things I haven't checked?
+(with a screenshot of the blue wireframe of the piston lying on its side beside the piston that stands; reports the wireframe turned 90 degrees to the model for piston heads, and maybe for other things)
+
+## in_1266 — 2026-11-20 — question
 > okay, look at this, pull the face of this gear up to make it thicker didn't respect the the gear helix. Is this normal expected behavior with the face pull type? or is this a bug? also it took exactly one billion years, and half the time I try to do these operations it fails.
 (with the saved model 06451bcb-gear.json)
 
-## in_1264 — 2026-11-20 — directive
+## in_1267 — 2026-11-20 — directive
 > yes do the experiment and free the shapes
+
+## in_1268 — 2026-11-20 — question
+> so did we figure out why it is so slow?

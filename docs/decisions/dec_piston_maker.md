@@ -44,3 +44,7 @@ Land relief (two typed numbers) and circlip retention (a typed Pin retention, th
 ## Stage 3, built (`dec_piston_material`)
 
 The material (density, weight, the default room in the bore) and a hollow pin. **Still not built:** crown shapes and valve reliefs, ring types, the other pin retentions, skirt oval, taper and style, boss ribs, edges.
+
+## Stage 4, built (`dec_piston_skirt`)
+
+The skirt's shape: oval, taper, a chamfered foot, and a full or two-pad style. **Still not built:** crown shapes and valve reliefs, ring types, the other pin retentions, a barrel profile, boss ribs, skirt windows and lightening holes, other edges.

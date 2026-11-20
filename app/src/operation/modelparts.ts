@@ -50,7 +50,7 @@ export class Builder {
   part(label: string): void { this.marks.push({ label, at: this.steps.length }); }
   build(): ModelBuild {
     const parts = this.marks.map((m, i) => ({ label: m.label, from: i === 0 ? 0 : m.at, to: i + 1 < this.marks.length ? this.marks[i + 1]!.at : this.steps.length }));
-    return { steps: this.steps, parts, wires: this.wires };
+    return { steps: this.steps, parts, wires: this.wires.map((w) => w.map((q) => pointIn(this.place, q))) }; // (the lines in the frame the builder stands in, as the steps are: a model that stands up in its own turned frame, as the piston does, is drawn standing up, `in_1265`)
   }
   /** the lines of the picture of the model, in its own frame (`ModelBuild.wires`) */
   readonly wires: Vec3[][] = [];

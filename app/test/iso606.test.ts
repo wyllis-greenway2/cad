@@ -1,5 +1,6 @@
 // ISO 606 sprockets (`dec_gear_tool`, `in_588`): the chain table, the limits of the tooth form, a roller in every gap, the kernel, the tool, and the menu that holds the gear tools.
 import test from "node:test";
+import { gearFields, gearTyped } from "../src/interaction/tools.ts";
 import assert from "node:assert/strict";
 import { gearOutline } from "../src/operation/gear.ts";
 import type { GearSpec, GearOutline } from "../src/operation/gear.ts";
@@ -177,7 +178,8 @@ test("ISO sprocket tool: Teeth, Chain (the B series number), Pitch, Roller, Fit 
 
 test("a gear made by Mesh gear can have its bore at once (a Bore field after Angle); a rack partner has none; Edit gear still changes it (`in_588`)", () => {
   let st = reduce(top(), { type: "begin", name: "gear" }, env);
-  st = click(st, C); st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2"); st = key(st, "Enter");
+  st = click(st, C); { const k = gearFields(st.tool!.gear!).findIndex((f) => f.key === "width"), tl = gearTyped(st.tool!, k, "0"); st = { ...st, tool: { ...tl, gear: { ...tl.gear!, field: 0 } } }; } // (flat: a new gear has a thickness, `in_1262`, and this is about the drawn bore)
+  st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2"); st = key(st, "Enter");
   const rec0 = scene(st.session).gears![0]!;
   const face = scene(st.session).parts[loopFaceRef(gearRefs(rec0).lines) as never]!;
   const sel = { ...reduce(st, { type: "escape" }, env), tool: null, session: { ...st.session, click: { ...st.session.click, selection: [face.ref] as never } } };
