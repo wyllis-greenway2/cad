@@ -5380,3 +5380,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1265 — 2026-11-20 — directive
 > the wireframe drawing seems to be rotated 90 degrees to the actual model for piston heads and maybe other things I haven't checked?
 (with a screenshot of the blue wireframe of the piston lying on its side beside the piston that stands; reports the wireframe turned 90 degrees to the model for piston heads, and maybe for other things)
+
+## in_1266 — 2026-11-20 — question
+> Is this supposed to be cut like this? it looks like the oil ring cuts all the way through the wall except the bosses hold it together?
+(with a screenshot of the piston seen from the side and above: the ring grooves show as white bands, a small drain hole in the oil groove, and the pin bore with a jagged ring round it; asks whether the oil ring groove cuts through the wall)
