@@ -69,7 +69,7 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   if (next.tool) { // (a tool on another plane than the one the cut is along takes the cut to its plane: the cut follows what is being drawn on, `in_1377`)
     const on = planeCutOf(next, planeOfTool(next), false);
     const same = (a: { centre: Vec3; n: Vec3 }, b: { centre: Vec3; n: Vec3 }) => Math.abs(dot(a.n, b.n)) > 1 - 1e-6 && Math.abs(dot(sub(a.centre, b.centre), b.n)) < 1e-4;
-    if (on && (!next.sketchOn || !same(next.sketchOn, on))) next = { ...next, sketchOn: on };
+    if (on && (!next.sketchOn || !same(next.sketchOn, on))) next = { ...next, sketchOn: next.sketchOn?.off ? { ...on, off: true } : on }; // (the choice of the cut icon is kept, `in_1378`)
   }
   if (next.sketchOn && !(next.sketchOn.ref in sceneOf(next.session).parts)) next = { ...next, sketchOn: null }; // (the plane is gone: undone or deleted)
   if (next.resume && !RESUMING.has(i.type)) next = { ...next, resume: null }; // only a click, or moving the view, keeps "sketching goes on" waiting for a vertex

@@ -5808,3 +5808,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1377 — 2026-11-20 — directive
 > Look I just sketched on this surface, it has not exited the sketch, and it still isn't cut to the sketch plane. Which btw, an we just add a cut to view icon (same icon as the cross section plane icon) in that top tool bar area up there? so you can switch the cut view on and off.
 (the cut follows the surface the sketch tool is on; a cross-section icon in the tool bar switches the cut view on and off)
+
+## in_1378 — 2026-11-20 — directive
+> also double click on a surface used to normal to it and set it as the plane. it doesn't do that anymore? Why are we having these regressions? Lets try to standardize and unify our code better. Lets just have a simply rule, that anytime you go normal to a surface, cut to that surface is also possible, default on, and turn on and off with icon in the tool area at top. Also lets try to unify our visuals, we seem to have a zillion different modes parts can go into, partly wireframed, partly shaded, differently shaded, different colors etc. Lets standardize and simplify it with just a few modes that are reused. See here is another mode right here, I applly a mirror in a sketch and the whole part gets stuck semi transparent dark.
+(a screenshot of a cylinder whose top is dark and see-through in sketch mode; one rule for going normal to a surface: the cut is on by default and the bar's icon switches it; the looks of parts in the view to be standardized to a few reused modes)

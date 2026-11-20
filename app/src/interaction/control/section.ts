@@ -14,6 +14,8 @@ import { nextId } from "../../operation/scene.ts";
 import { basis, position } from "../camera.ts";
 import { scene as sceneOf, selection as selectionOf, run } from "../session.ts";
 import type { AppState } from "./state.ts";
+import { animateTo, planeView } from "./state.ts";
+import type { Plane } from "../../operation/part.ts";
 import { surfaceAxes } from "../operations.ts";
 
 const AXES: Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
@@ -97,6 +99,15 @@ export function planeCutOf(s: AppState, ref: Ref | null, world = true): { ref: R
   if (p.onBody) return { ref, centre: p.at, n };
   const toCamera = dot(sub(position(s.cam), p.at), n) >= 0 ? 1 : -1; // (a plane that is no face: the half the camera is on)
   return { ref, centre: p.at, n: toCamera > 0 ? n : (scale(n, -1) as Vec3) };
+}
+/**
+ * The one way the view goes normal to a surface (`in_1378`): the camera turns straight to it (`alternate`: pressed again, the back) and the view is cut along it, unless the cut was switched off with the
+ * bar's icon (that choice is kept from one surface to the next). Double click, the Look action, N and a sketch tool begun on a surface all come here; X, Y, Z are views of the world and leave sketch mode.
+ */
+export function turnToPlane(s: AppState, pl: Plane, alternate: boolean, now: number): AppState {
+  const turned = animateTo(s, planeView(s.cam, pl, alternate), now);
+  const on = planeCutOf(s, pl.ref);
+  return on ? { ...turned, sketchOn: s.sketchOn?.off ? { ...on, off: true } : on } : turned;
 }
 /** The cut made for the surface being sketched on (`in_1351`): it stays until Exit sketch is pressed (`in_1375`). It is no part of the model. */
 function sketchCut(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; extent: number } | null {

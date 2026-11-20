@@ -46,6 +46,7 @@ import { paneAt } from "../panes.ts";
 import type { WorldName } from "../panes.ts";
 import { isHard, isFixed } from "../hard.ts";
 import { doLook, selectedSurface } from "./viewing.ts";
+import { turnToPlane } from "./section.ts";
 import { sectionNow, doSectionClick, doSectionPane, sheetPlaceAt, placeSection } from "./section.ts";
 import { sketchPlaneOf, pickOpts, withSession, surfacePoint, planeView, animateTo } from "./state.ts";
 import { selectedBodies } from "./bodies.ts";
@@ -801,14 +802,14 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
   if (count >= 2 && refs[0] && !selectable.length && isWorldPlane(sc, refs[0])) {
     // a world plane under the clicks and nothing else: it is selected and the view turns straight to it, from the side you are on (`in_159`)
     const pl = planeOf(get, refs[0]);
-    if (pl) return animateTo(withSession(base, { ...sess, click: { selection: [refs[0]], spot: sess.click.spot }, message: null }), planeView(base.cam, pl, false), env.now);
+    if (pl) return turnToPlane(withSession(base, { ...sess, click: { selection: [refs[0]], spot: sess.click.spot }, message: null }), pl, false, env.now);
   }
   // (a point or a line of the body under the double click is a part of the body too: two clicks take the whole object from any part of it, `in_186`)
   const bodyFirst = selectable.length > 0 && selectable.every((r) => sc.parts[r]?.origin === "body"); // (all of them: where a drawn thing lies on the same spot, repeated clicks cycle through them instead)
   // a sketch on its own (a drawn closed figure with no body under it): there is no body for a double click to take, so it goes straight to it, as for a world plane (`in_235`)
   if (count === 2 && onePlane && selectable.length > 0 && selectable.every((r) => sc.parts[r]?.origin === "drawn" && sc.parts[r]?.kind === "face")) {
     const pl = planeOf(get, selectable[0]!);
-    if (pl) return animateTo(withSession(base, { ...sess, click: { selection: [selectable[0]!], spot: sess.click.spot }, message: null }), planeView(base.cam, pl, false), env.now);
+    if (pl) return turnToPlane(withSession(base, { ...sess, click: { selection: [selectable[0]!], spot: sess.click.spot }, message: null }), pl, false, env.now);
   }
   if ((onePlane || bodyFirst) && count === 2) {
     // two: the whole object (the view does not turn)
@@ -822,7 +823,7 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
     const pl = refs[0] ? planeOf(get, refs[0]) : null;
     if (!pl) return base;
     const only = selectable[0] ? withSession(base, { ...sess, click: { selection: [selectable[0]], spot: sess.click.spot }, message: null }) : base;
-    return animateTo(only, planeView(base.cam, pl, false), env.now);
+    return turnToPlane(only, pl, false, env.now);
   }
   // Shift on bodies adds or takes out the whole body: when what is selected are whole bodies, a click on a body (any face of it) is that body, not the face (`in_291`)
   const whole = i.shift && selectionOf(sess).length > 0 && selectionOf(sess).every((r) => sc.parts[r]?.kind === "body");

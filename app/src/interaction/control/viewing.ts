@@ -1,5 +1,5 @@
 // The camera intents: orbit, pan, zoom, look at a plane (X Y Z N), home, the animation, and which plane's grid to show.
-import { planeCutOf } from "./section.ts";
+import { turnToPlane } from "./section.ts";
 import type { Intent } from "../../shared/input.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { sub } from "../../math/vec.ts";
@@ -76,12 +76,13 @@ export function doZoom(s: AppState, i: Extract<Intent, { type: "zoom" }>, env: E
 /** X, Y, Z select that axis's plane and look along it; N looks at the plane of the selection; while a move or rotate is being set up they choose its axis. */
 /** Look at a world plane (X, Y, Z) or normal to what is selected (N). Looking along an axis leaves sketch mode; going normal to a plane or a sketch takes it (`in_1376`, `in_1375`). */
 export function doLook(s: AppState, i: Extract<Intent, { type: "look" }>, env: Env): AppState {
+  if (i.plane === "N" && !(s.op && (s.op.kind === "move" || s.op.kind === "rotate"))) {
+    const pl = selectionOf(s.session).map((q) => planeOf(lookup(sceneOf(s.session)), q)).find((p) => p);
+    return pl ? turnToPlane(s, pl, true, env.now) : doLook0(s, i, env);
+  }
   const r = doLook0(s, i, env);
   if (s.op && (s.op.kind === "move" || s.op.kind === "rotate") && i.plane !== "N") return r; // (those buttons pick the axis of the move or turn)
-  if (i.plane !== "N") return r.sketchOn ? { ...r, sketchOn: null } : r;
-  const pl = selectionOf(s.session).map((q) => planeOf(lookup(sceneOf(s.session)), q)).find((p) => p);
-  const on = pl ? planeCutOf(s, pl.ref) : null;
-  return on ? { ...r, sketchOn: on } : r;
+  return i.plane !== "N" && r.sketchOn ? { ...r, sketchOn: null } : r; // (X, Y, Z: views of the world, `in_1376`)
 }
 function doLook0(s: AppState, i: Extract<Intent, { type: "look" }>, env: Env): AppState {
   const get = lookup(sceneOf(s.session));

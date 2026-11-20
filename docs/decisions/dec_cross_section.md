@@ -3,7 +3,7 @@ id: dec_cross_section
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_683, in_682, in_681, in_680, in_392, in_394, in_395, in_396, in_397, in_398, in_416, in_1351, in_1374, in_1375, in_1376
+human_input: in_683, in_682, in_681, in_680, in_392, in_394, in_395, in_396, in_397, in_398, in_416, in_1351, in_1374, in_1375, in_1376, in_1377, in_1378
 date: 2026-11-15
 depends_on:
 alternative_to:
@@ -37,3 +37,6 @@ The cut face is a mid grey a little lighter than before (0.56, 0.58, 0.63), stil
 
 ## `in_1377`: the cut follows the sketch tool's plane; the cut-view icon
 The cut of sketch mode follows the plane of the sketch tool that is on (a tool begun on another surface moves the cut there). An icon (the cross-section one) in the tool chip switches the cut view on and off without leaving sketch mode.
+
+## `in_1378`: one rule for going normal to a surface
+Whatever turns the view straight to a surface (a double or triple click on a plane or a face, the Look action of the ring, N, a sketch tool begun on a surface) goes through one function, `turnToPlane` (`control/section.ts`): the camera turns and the view is cut along that surface, on by default; the bar's cut icon switches it off and the choice is kept from one surface to the next. X, Y and Z are views of the world: they leave sketch mode (`in_1376`). The face of the body that lies on the cut is drawn from the body's own solid material, not from whatever the material was when it was made (it had been taken while a mirror made the body wireframe, and stayed dark and see-through).

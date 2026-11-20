@@ -214,7 +214,8 @@ export function createView(host: HTMLElement) {
       const g = mesh.geometry.clone();
       g.setIndex(keep);
       g.clearGroups();
-      const mat = (mesh.material as THREE.Material).clone();
+      const mat = (mesh.material as THREE.MeshStandardMaterial).clone();
+      if (mesh.material === bodyMat) { mat.color.setHex((bodyMat!.userData.base as number | undefined) ?? bodyMat!.color.getHex()); mat.opacity = 1; } // (the surface as it is solid: the body's own material may be faded or wireframe just now, and this face is kept after, `in_1378`)
       mat.clippingPlanes = [clip];
       mat.polygonOffset = true; mat.polygonOffsetFactor = -12; mat.polygonOffsetUnits = -12;
       mat.depthWrite = false; mat.depthTest = true; mat.transparent = false; mat.stencilWrite = false; // (no depth written: the lines drawn on the face come after and must show over it, `in_1362`)

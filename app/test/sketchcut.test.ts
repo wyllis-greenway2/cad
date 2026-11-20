@@ -144,3 +144,35 @@ test("the cut follows the surface being sketched on, and the bar's cut icon swit
   st = reduce(st, { type: "sketchCut" }, env);
   assert.ok(cut(st), "on again");
 });
+
+test("every way of going normal to a surface cuts to it, and the icon's choice is kept (`in_1378`)", () => {
+  const s = (openSession(kernel, readFileSync(new URL("./fixtures/sketch-two-faces.cad.json", import.meta.url), "utf8")) as unknown as { value: Parameters<typeof createState>[0] }).value;
+  const top = "b/body/f@0,0,1,25";
+  const cutN = (t: ReturnType<typeof createState>) => cutsNow(t).find((q) => (q.ref as string) === "sketch:cut")?.n.map((x) => Math.round(x) || 0);
+  const sel = (t: ReturnType<typeof createState>, r: string) => ({ ...t, session: { ...t.session, click: { ...t.session.click, selection: [r] as never } } });
+  // N
+  let st = reduce(sel(createState(s), top), { type: "look", plane: "N" }, env);
+  assert.deepEqual(cutN(st), [0, 0, 1], "N");
+  // the icon off: going normal to another surface keeps it off
+  st = reduce(st, { type: "sketchCut" }, env);
+  st = reduce(sel(st, "b/body/f@1,0,0,28.75"), { type: "look", plane: "N" }, env);
+  assert.equal(cutN(st), undefined, "off stays off");
+  st = reduce(st, { type: "sketchCut" }, env);
+  assert.deepEqual(cutN(st), [1, 0, 0], "on again, at the new surface");
+  // the Look action of the ring
+  st = reduce(sel(createState(s), top), { type: "runAction", id: "look" }, env);
+  assert.deepEqual(cutN(st), [0, 0, 1], "the ring");
+});
+
+test("three clicks on a face turn the view to it and cut along it (`in_1378`)", () => {
+  const s = (openSession(kernel, readFileSync(new URL("./fixtures/sketch-two-faces.cad.json", import.meta.url), "utf8")) as unknown as { value: Parameters<typeof createState>[0] }).value;
+  let st = createState(s);
+  st = { ...st, cam: { ...st.cam, ...{} } };
+  const top = scene(st.session).parts["b/body/f@0,0,1,25" as never] as unknown as { mesh: Float32Array };
+  let x = 0, y = 0, z = 0, k = 0;
+  for (let i = 0; i + 2 < top.mesh.length; i += 3) { x += top.mesh[i]!; y += top.mesh[i + 1]!; z += top.mesh[i + 2]!; k++; }
+  const [px, py] = projector(st.cam, 900, 700).project([x / k, y / k, z / k]);
+  for (const count of [1, 2, 3]) st = reduce(st, { type: "click", x: px, y: py, count, shift: false }, env);
+  assert.ok(st.sketchOn, "the cut is on after the third click");
+  assert.deepEqual(st.sketchOn!.n.map((v) => Math.round(v) || 0), [0, 0, 1]);
+});
