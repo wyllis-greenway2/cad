@@ -5824,3 +5824,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1381 — 2026-11-20 — directive
 > yes run the prototype test
 (the prototype of sending a rim corner to the kernel at full precision, as proposed, is approved to run)
+
+## in_1382 — 2026-11-20 — directive
+> yes do step 1 and the engine-rod check
+(step 1: read how a corner snapped to a body's rim is stored today; and the engine-rod check: whether the retry of `in_1368` changes the rod's volume)
