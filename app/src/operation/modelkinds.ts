@@ -15,7 +15,7 @@ import type { CycloidalSpec } from "./modelcycloidal.ts";
 import { engineSteps, engineProblem, engineGeometry, engineFootprint, engineDisplacement, ENGINE_START, ENGINE_PRESETS } from "./modelengine.ts";
 import type { EngineSpec } from "./modelengine.ts";
 import { fitNumbers } from "./modelfit.ts";
-import { wheelSteps, wheelCutSteps, wheelProblem, wheelLines, repairWheel, edgeMade, WHEEL_START } from "./modelwheel.ts";
+import { wheelSteps, wheelCutSteps, wheelProblem, wheelLines, wheelLines3, repairWheel, edgeMade, WHEEL_START } from "./modelwheel.ts";
 import type { WheelSpec } from "./modelwheel.ts";
 
 export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "wheel" | "wheelcut";
@@ -23,7 +23,7 @@ export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "dif
 /** The numbers of a model, by name */
 export type Nums = Record<string, number>;
 /** One number of a model: what it is called, a line that says what it is, and whether it grows with the overall size (a length of the thing, not a room left for the printer or a count) */
-export interface ModelField { key: string; label: string; hint: string; scaled?: true; /** not shown in the box: a number the box's Size sets (`Def.sizeKey`) */ hidden?: true; /** a whole number (teeth, stages, pins): moved a whole step at a time (`modelfit.ts`); `zero`: and 0 is allowed */ whole?: true; zero?: true; /** the key of a fillet-or-chamfer number the box shows as a little toggle beside this one (a radius: 0 a fillet, 1 a chamfer) */ toggle?: string; /** shown only while the number `key` has this value (a bearing's box shows the numbers of the source chosen at its top, `in_1196`) */ when?: { key: string; is: number; /** shown while the number is NOT this value */ not?: true }; /** shown at the top of the box, above the size and the turn */ top?: true; /** the names of the values of a field that is a toggle button (its value is the place of the one chosen) */ choices?: string[] }
+export interface ModelField { key: string; label: string; hint: string; scaled?: true; /** not shown in the box: a number the box's Size sets (`Def.sizeKey`) */ hidden?: true; /** a whole number (teeth, stages, pins): moved a whole step at a time (`modelfit.ts`); `zero`: and 0 is allowed */ whole?: true; zero?: true; /** shown but not the person's to set: it comes from the body the model is cut into (the box shows it dimmed) */ fixed?: true; /** the key of a fillet-or-chamfer number the box shows as a little toggle beside this one (a radius: 0 a fillet, 1 a chamfer) */ toggle?: string; /** shown only while the number `key` has this value (a bearing's box shows the numbers of the source chosen at its top, `in_1196`) */ when?: { key: string; is: number; /** shown while the number is NOT this value */ not?: true }; /** shown at the top of the box, above the size and the turn */ top?: true; /** the names of the values of a field that is a toggle button (its value is the place of the one chosen) */ choices?: string[] }
 /** a picture made of lines in the model's plan, each line a list of points (closed ones repeat their first) */
 export type Lines = [number, number][][];
 
@@ -41,10 +41,12 @@ interface Def {
   sizeKey?: string;
   /** what the box calls the Size (the wheel's is its outer diameter) */
   sizeLabel?: string;
-  /** the Size is not the person's to set: it comes from the body the model is cut into (the box does not list it) */
-  noSize?: true;
+  /** the Size is not the person's to set: it comes from the body the model is cut into (the box shows it dimmed) */
+  fixedSize?: true;
   /** the numbers made to fit together: every number not typed (`locked` holds the ones that were) is moved as far as it must for the model to be possible, so that a number typed is met by the others and not refused (the wheel) */
   repair?: (n: Nums, locked: ReadonlySet<string>) => Nums;
+  /** the picture of the model in space, when it has one: lines of points (x, y, z) of its own frame (`in_1250`) */
+  outline3?: (n: Nums) => [number, number, number][][];
   /** a line under the numbers: what the model does */
   about: (n: Nums) => string;
 }
@@ -67,7 +69,7 @@ function wheelDef(cutting: boolean): Def {
   const def: Def = {
     title: cutting ? "Cut spokes (rim, web, hub in a round body)" : "Wheel (rim, web, hub)",
     sizeLabel: "Outer diameter",
-    ...(cutting ? { noSize: true as const } : {}),
+    ...(cutting ? { fixedSize: true as const } : {}),
     fields: [
       { ...F("outer", "Outer diameter", "mm: the whole wheel (the Size)", true), hidden: true },
       F("rimD", "Rim diameter", "mm: the rim's inside, where the web meets it; the rim is (outer diameter - this) / 2 thick across", true), F("hub", "Hub diameter", "mm: the hub's outside", true), F("bore", "Bore diameter", "mm: the hole for the shaft", true),
@@ -79,7 +81,7 @@ function wheelDef(cutting: boolean): Def {
       { ...F("obtuse", "Spoke obtuse radius", "mm: the same at the blunter corner of a cutout, which a spiral makes (it follows the spoke join radius and the spiral while it is not typed)", true), toggle: "cornerKind", when: { key: "spiral", is: 0, not: true } },
       { ...F("rimJoin", "Rim join radius", "mm: where the web meets the rim; 0 for square", true), toggle: "rimJoinKind" },
       { ...F("hubJoin", "Hub join radius", "mm: where the web meets the hub; 0 for square", true), toggle: "hubJoinKind" },
-      ...(cutting ? [] : [F("draft", "Draft", "degrees the rim's and the hub's walls lean away from the middle: 0 for a machined wheel, 1 to 3 for a cast one")]),
+      F("draft", "Draft", "degrees the rim's and the hub's walls lean away from the middle: 0 for a machined wheel, 1 to 3 for a cast one"),
       ...["cornerKind", "edgeKind", "rimJoinKind", "hubJoinKind"].map((k) => ({ ...F(k, k, ""), choices: ["Fillet", "Chamfer"], hidden: true as const }))],
     start: cutting ? { ...WHEEL_START, hubT: WHEEL_START.rimT, draft: 0 } : { ...WHEEL_START },
     sizeKey: "outer",
@@ -89,9 +91,10 @@ function wheelDef(cutting: boolean): Def {
     centre: () => [0, 0],
     build: (n, place) => (cutting ? wheelCutSteps(wh(n), place) : wheelSteps(wh(n), place)),
     outline: (n) => (wheelProblem(wh(n), cutting) ? [] : wheelLines(wh(n))),
+    outline3: (n) => (wheelProblem(wh(n), cutting) ? [] : wheelLines3(wh(n))),
     about: (n) => `${wh(n).outer} mm across, ${Math.round(wh(n).spokes) ? `${Math.round(wh(n).spokes)} cutouts in the web` : "a plain web"}, ${wh(n).bore} mm bore${wh(n).draft ? `, ${wh(n).draft} degrees of draft on the rim and hub` : ", no draft"}${wh(n).edge > 0 && Math.round(wh(n).spokes) > 0 && !edgeMade(wh(n)) ? "; no spoke radius made: it is bigger than the web and the spoke allow, or a cutout runs into the hub or the rim, or is pointed or narrow" : ""}`,
   };
-  if (cutting) def.fields = def.fields.filter((f) => !["bore", "rimT", "hubT"].includes(f.key)); // (the bore and the thickness are the body's)
+  if (cutting) def.fields = def.fields.map((f) => (["bore", "rimT", "hubT", "draft"].includes(f.key) ? { ...f, fixed: true as const } : f)); // (the bore, the thickness and the draft are the body's: shown, not set)
   return def;
 }
 
@@ -192,7 +195,8 @@ export const modelExtent = (k: ModelKind, n: Nums): number => DEFS[k].extent(n);
 export const modelCentre = (k: ModelKind, n: Nums): [number, number] => DEFS[k].centre(n);
 export const modelBuild = (k: ModelKind, n: Nums, place: Place): Result<ModelBuild> => DEFS[k].build(n, place);
 export const modelOutline = (k: ModelKind, n: Nums): Lines => DEFS[k].outline(n);
-export const modelNoSize = (k: ModelKind): boolean => !!DEFS[k].noSize;
+export const modelOutline3 = (k: ModelKind, n: Nums): [number, number, number][][] => DEFS[k].outline3?.(n) ?? [];
+export const modelFixedSize = (k: ModelKind): boolean => !!DEFS[k].fixedSize;
 export const modelSizeLabel = (k: ModelKind): string => DEFS[k].sizeLabel ?? "Size";
 export const modelSizeKey = (k: ModelKind): string | undefined => DEFS[k].sizeKey;
 export const modelStart = (k: ModelKind): Nums => ({ ...DEFS[k].start });
