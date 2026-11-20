@@ -75,7 +75,7 @@ export function rolledOf(p: SpacePath): Path {
 }
 
 /** The point `s` along the path (wrapped round a closed one, held at the ends of an open one) and the way it runs there. */
-export function spaceAt(p: SpacePath, s: number): { at: Vec3; along: Vec3 } {
+function spaceAt(p: SpacePath, s: number): { at: Vec3; along: Vec3 } {
   let u = p.closed ? ((s % p.total) + p.total) % p.total : Math.min(Math.max(s, 0), p.total);
   for (const [i, x] of p.pieces.entries()) {
     if (u <= x.length + 1e-9 || i === p.pieces.length - 1) {

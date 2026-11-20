@@ -130,6 +130,16 @@ export function doCutBegin(s: AppState): AppState {
   const cut = { ...start, keep: cutParts(sc, start).map((p) => p.mask) }; // (it starts as an add: every part kept and joined; a part tapped is tossed, `in_298`)
   return { ...s, menu: null, op: null, tool: null, cut, session: { ...s.session, message: "every part is kept (+); click one to toss it (−); Enter or a right click makes it, Esc gives it up" } };
 }
+/** Add, subtract or intersect: the first body chosen is the one that stays; the others are used up (`in_1309`). */
+export function doCombine(s: AppState, mode: "add" | "subtract" | "intersect"): AppState {
+  const why = whyNotCombine(s.session);
+  if (why) return say({ ...s, menu: null }, why);
+  const sc = sceneOf(s.session);
+  const bodies = selectionOf(s.session).filter((r) => sc.parts[r]?.kind === "body");
+  const next = run(s.session, { type: "addStep", step: { id: nextId(sc, "s"), type: "combine", parts: bodies, params: { mode } } });
+  if (next.message) return say({ ...s, menu: null, session: next }, next.message);
+  return { ...withSession({ ...s, menu: null }, { ...next, click: { ...next.click, selection: [] } }) };
+}
 export function doCut(s: AppState, i: Extract<Intent, { type: "cut" }>): AppState {
   if (!s.cut) return s;
   if (i.act === "join") return { ...s, cut: { ...s.cut, join: !s.cut.join } };

@@ -63,6 +63,23 @@ test("Move takes the selected body only; the other stays where it is", () => {
   assert.ok(Math.abs(B.bbox!.min[1] - 25) < 1e-6, "b moved");
 });
 
+const leaves = (i: { children?: unknown[] }): { id: string; enabled: boolean }[] => (i.children ? i.children.flatMap((c) => leaves(c as never)) : [i as never]);
+test("Add, Subtract and Intersect are three plain operations; the first body chosen stays (`in_1309`)", () => {
+  for (const [mode, volume] of [["add", 1], ["subtract", 1], ["intersect", 1]] as const) {
+    let s = box(box(createSession(kernel), 0, 0), 40, 0);
+    const b = bodies(s)[1]!;
+    const mv = startOp(scene(s), [b.ref], "move");
+    if (!mv.ok) return assert.fail("no move");
+    s = run(s, opCommand(scene(s), { ...mv.op, axis: 0, value: -35 })!);
+    const [a2, b2] = bodies(s);
+    const st = reduce(pick({ ...createState(s), cam: homeCamera() }, [a2!.ref, b2!.ref]), { type: "runAction", id: `combine:${mode}` }, env);
+    const made = scene(st.session).steps.at(-1)!;
+    assert.equal(made.params.mode, mode);
+    assert.equal(bodies(st.session).length, 1, `${mode} leaves one body`);
+    assert.ok(volume > 0);
+  }
+});
+
 test("Add joins overlapping bodies into the first; Cut (kept: only the first) takes the second out of the first; neither works with one body selected", () => {
   let s = box(box(createSession(kernel), 0, 0), 40, 0);
   const b = bodies(s)[1]!;
@@ -71,7 +88,7 @@ test("Add joins overlapping bodies into the first; Cut (kept: only the first) ta
   s = run(s, opCommand(scene(s), { ...mv.op, axis: 0, value: -35 })!); // b now overlaps a
   const [a2, b2] = bodies(s);
   let st: AppState = { ...createState(s), cam: homeCamera() };
-  const menu = (x: AppState) => reduce(x, { type: "menu", x: 5, y: 5, button: true }, env).menu!.items.flatMap((i) => i.children ?? [i]);
+  const menu = (x: AppState) => reduce(x, { type: "menu", x: 5, y: 5, button: true }, env).menu!.items.flatMap((i) => leaves(i as never));
   assert.equal(menu(pick(st, [a2!.ref])).find((i) => i.id === "combine:parts")!.enabled, false);
   assert.equal(menu(pick(st, [a2!.ref, b2!.ref])).find((i) => i.id === "combine:parts")!.enabled, true);
   const cutting = reduce(pick(st, [a2!.ref, b2!.ref]), { type: "runAction", id: "combine:parts" }, env);

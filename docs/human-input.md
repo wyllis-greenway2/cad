@@ -5539,3 +5539,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1308 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1309 — 2026-11-20 — directive
+> Also why cant I delete this body after an intersect operation? Also can we just seperate out into three types, boolean, add, subtract, and intersect?
+(a screenshot of a body with a selected pin and lug, the bar showing the eye and the lock; the saved model 0437ab74-why_cant_delete.json)

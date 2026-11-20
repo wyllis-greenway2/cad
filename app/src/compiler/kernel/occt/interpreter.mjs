@@ -1317,6 +1317,7 @@ const OPS = {
       if (!parts.length) throw new Error("nothing would be left of the parts chosen");
       let result = parts;
       if (op.join && parts.length > 1) { let f = parts[0]; for (const p of parts.slice(1)) f = f.fuse(p); result = lumpsOf(f); }
+      if (op.skip && op.skip.length) { const gone = new Set(op.skip); result = result.filter((_, i) => !gone.has(i)); if (!result.length && !found.rest.length) throw new Error("nothing would be left of the parts chosen"); } // (a part of the result that was deleted since: its number in the result, `in_1309`)
       return { kind: "solid", shape: makeCompound([...found.rest, ...result]), first: op.bodies[0] };
     }
     const [first, ...others] = found.picked;
