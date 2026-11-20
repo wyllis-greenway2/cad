@@ -98,7 +98,10 @@ export function compile(scene: Scene, kernel: Kernel): CompileOutcome {
     const step = solved.scene.steps.find((s) => `x_${s.id}` === op.id || `s_${s.id}` === op.id);
     if (step) { errors[step.id] ??= op.error; if (op.culprits?.length) problems[step.id] = op.culprits.flatMap((i) => (step.parts[i] ? [step.parts[i]!] : [])); }
   }
-  const placed = withBody(solved.scene, bodyPartsOf(result, cuttingSheets(solved.scene), gearShapes(solved.scene)));
+  // an answer that is not the answer for this graph (the browser: the last one shown while the new one is made) would give the body parts of another model: the figure of a step just made, taken from the face it was drawn on, loses its
+  // pieces named after the body's edges and the step is "gone" (`in_1351`: an arrow pulled, then a number typed). While the answer is awaited the parts the scene has are kept; the answer's parts come with it.
+  const keep = !!result.stale && Object.values(solved.scene.parts).some((p) => p.origin === "body");
+  const placed = keep ? solved.scene : withBody(solved.scene, bodyPartsOf(result, cuttingSheets(solved.scene), gearShapes(solved.scene)));
   const bound = rebindAnchors(placed); // (a relation to an edge of the body that the change took away is moved to the edge that looks most like it, `in_309`)
   // the drawn parts held to such an edge are solved again against the edge as it is now (the first solve was made before the body was)
   const again = bound.scene !== placed ? solveScene(bound.scene) : null;

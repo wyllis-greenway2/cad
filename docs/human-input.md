@@ -5699,3 +5699,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1350 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the cut-both-ways and ghost cut work, the bar fix, the spiral overlap and the earlier work to be merged into the testing branch, no full test run; the same words as in_1349)
+
+## in_1351 — 2026-11-20 — directive
+> For some reason I kept pulling this face and it kept failing? Saying that a step was missing? I would pull and type 15 and hit enter
+(two screenshots: a disk with a ring-shaped face selected and the message "a part of this step is gone"; the file `cannot_pull_face.json`; pulling the face and typing 15 fails)
+
+## in_1352 — 2026-11-20 — question
+> Also maybe you already fixed it but I have the same problem here where I cannot pull this face. Is this because it does not actually consider the edges of the model participating in the sketch as actual part of the sketch?
+(sent while the pull failure of in_1351 was being looked at: a second file `cannot_pull_face_1.json` and a screenshot of a disk's top with a chord drawn across it, one of the two segments selected, and its pull arrow; asks whether the cause is that the body's own edges that take part in a sketch are not counted as part of it)
