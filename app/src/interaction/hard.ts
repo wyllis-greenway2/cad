@@ -282,7 +282,7 @@ export function limitedOp(scene: Scene, op: Op): { op: Op; /** the bodies it ran
     const d = valueOf(op) ?? 0; // (signed: a sketch is extruded either way)
     if (Math.abs(grown.t * d) < 1e-3) return { why: `it is against ${names || "another hard body"}: hard bodies do not go into each other`, hit: grown.hit };
     const value = Math.round(grown.t * d * 1e4) / 1e4;
-    return { op: { ...op, value, ...(op.kind === "revolve" ? { advTyped: "", advValue: advanceOf(op) * grown.t } : {}) }, hit: grown.hit }; // (a turn that stops short advances as far as the same part of its pitch)
+    return { op: { ...op, value }, hit: grown.hit }; // (a turn that stops short advances as far as the same part of its pitch: the advance is a distance per turn, so it is the same, `in_1298`)
   }
   const asked = bodyMotion(scene, op);
   const group = op.parts.filter((r) => scene.parts[r]?.kind === "body");
@@ -426,7 +426,7 @@ function growth(scene: Scene, op: Op): { t: number; hit: Ref[]; owners: Ref[] } 
     owners = ownersOnFace(scene, cap.tris, op.kind === "extrude" ? dir : null);
     const axis = op.kind === "revolve" ? axisOf(op) : null;
     if (op.kind === "revolve" && !axis) return null;
-    const adv = op.kind === "revolve" ? advanceOf(op) : 0;
+    const adv = op.kind === "revolve" ? (advanceOf(op) * d) / 360 : 0; // (the advance asked for is per turn: over the whole angle it is that much of it, `in_1298`)
     const rigid = (u: number): Rigid => {
       if (!axis) return { turn: [1, 0, 0, 0, 1, 0, 0, 0, 1], shift: [dir[0] * d * u, dir[1] * d * u, dir[2] * d * u], k: 1 };
       const ad = unit(axis.d);

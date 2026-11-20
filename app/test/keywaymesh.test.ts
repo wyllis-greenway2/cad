@@ -1,4 +1,4 @@
-// Mesh for the keyway maker (`dec_keyway_maker`, `in_1279`): a keyed hole selected gets the shaft that fits it, a shaft the hub that fits it, from scratch or cut into the round geometry that is clicked.
+// Mesh for the keyway maker (`dec_keyway_maker`, `in_1305`): a keyed hole selected gets the shaft that fits it, a shaft the hub that fits it, from scratch or cut into the round geometry that is clicked.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";
@@ -168,7 +168,7 @@ test("a keyed hole is remembered in the command that made it (one undo takes bot
   assert.ok(bodies(m).find((b) => b.id === rod.id)!.volume < before - 20, "the keyway is cut into the rod");
 });
 
-test("Make the key: a body of its own that fills the keyway, standing on the shaft's slot floor, round or square ended; a flat or a spline has no key (`in_1298`)", () => {
+test("Make the key: a body of its own that fills the keyway, standing on the shaft's slot floor, round or square ended; a flat or a spline has no key (`in_1305`)", () => {
   // a keyed shaft: 12 across, a key of the standard width (4) and the usual depth, 30 long
   let st = state(createSession(kernel));
   st = reduce(st, { type: "runAction", id: "model:keyshaft" }, env);

@@ -1,4 +1,4 @@
-// The keyway maker (`dec_keyway_maker`, `in_1267`, `in_1279`): a key, a flat or a spline made on the round hole of a body, on a shaft, or on both so that they fit. Four tools share these numbers: the keyed HOLE cut into a round body, the
+// The keyway maker (`dec_keyway_maker`, `in_1267`, `in_1305`): a key, a flat or a spline made on the round hole of a body, on a shaft, or on both so that they fit. Four tools share these numbers: the keyed HOLE cut into a round body, the
 // keyed SHAFT made on its own, the keyed HUB (a disc with a keyed bore, made from scratch) and the keyed FIT (the same keyway cut into a round shaft that is there). The gear and the wheel make a round hole; this is what keys it to a
 // shaft, and Mesh makes the one that fits the other. Keys: the DIN 6885 widths and hub depths by bore that `bore.ts` holds (a bore outside the table gets a quarter of its diameter and 0.45 of the width); flats: as typed, else 0.15 of the
 // diameter; splines: the straight-sided splines of ISO 14, light and medium (`splines.ts`). `play` is the room of a fit: a hole is made `play` mm wider than the nominal, a shaft `play` mm narrower. Pure: numbers in, steps out.
@@ -88,7 +88,7 @@ function keyedRanges(n: KeywaySpec, lo: number, hi: number): [number, number][] 
 }
 
 /** What a made hole or shaft is, for Mesh (`in_1279`): the shape with its automatic numbers filled in (the key's width and depth, the flat's depth, the spline's series and minor diameter), where it stands and how far it runs along its axis */
-export interface KeywayRecord { id: string; role: "hole" | "shaft"; /** the id of the body it is on (`x_<step>`) */ host: string; at: Vec3; dir: Vec3; /** the direction of its x axis (where the first spline or the key stands) */ ex: Vec3; /** the run along the axis from `at` (mm): from, to */ span: [number, number]; nums: { kind: number; bore: number; key: number; keyDepth: number; flat: number; series: number; size: number; /** a key's slot in the shaft and in the hub (mm): what the key is made to fill (`in_1298`) */ shaftDepth?: number; hubDepth?: number } }
+export interface KeywayRecord { id: string; role: "hole" | "shaft"; /** the id of the body it is on (`x_<step>`) */ host: string; at: Vec3; dir: Vec3; /** the direction of its x axis (where the first spline or the key stands) */ ex: Vec3; /** the run along the axis from `at` (mm): from, to */ span: [number, number]; nums: { kind: number; bore: number; key: number; keyDepth: number; flat: number; series: number; size: number; /** a key's slot in the shaft and in the hub (mm): what the key is made to fill (`in_1305`) */ shaftDepth?: number; hubDepth?: number } }
 /** the record of what the numbers make, in the world where it stands (`host` is filled in when the body is known) */
 export function keywayMeta(n: KeywaySpec, mode: KeywayMode, place: Place): Omit<KeywayRecord, "id" | "host"> | null {
   const r = keywayResolve(n, mode);
@@ -214,7 +214,7 @@ export function keyfitSteps(n: KeywaySpec, place: Place): Result<ModelBuild> {
 }
 
 /**
- * The key itself, as a body of its own (`in_1298`): a parallel key of width `key` and height `h` standing on the floor of the shaft's slot (`base` from the axis), `len` long along the axis, its middle on the origin and its width across y. `ends` 0 round
+ * The key itself, as a body of its own (`in_1305`): a parallel key of width `key` and height `h` standing on the floor of the shaft's slot (`base` from the axis), `len` long along the axis, its middle on the origin and its width across y. `ends` 0 round
  * (the form with round ends: a half circle of the key's width at each end, as long as it is longer than it is wide) or 1 square. The key is made `play` narrower than the slot's nominal width, as the shaft's slot is.
  */
 export interface KeySpec { key: number; h: number; len: number; ends: number; base: number; play: number; outer: number }

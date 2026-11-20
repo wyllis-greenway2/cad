@@ -51,7 +51,7 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
     const on = op.revField ?? 0;
     return { fields: [
       { label: "Angle", short: "°", value: op.typed !== "" ? op.typed : roundedText(angle ?? 0), active: on === 0, typed: op.typed !== "", index: 0, unit: "°" },
-      { label: "Advance", short: "↔", value: (op.advTyped ?? "") !== "" ? op.advTyped! : roundedText(advanceOf(op)), active: on === 1, typed: (op.advTyped ?? "") !== "", index: 1, unit: "mm" },
+      { label: "Advance a turn", short: "↔", value: (op.advTyped ?? "") !== "" ? op.advTyped! : roundedText(advanceOf(op)), active: on === 1, typed: (op.advTyped ?? "") !== "", index: 1, unit: "mm" },
     ], unit: "mm" };
   }
   if (op) {
@@ -217,7 +217,7 @@ export function revolveEntries(op: Op, g: Gizmo | null, chosen: string | null): 
   }
   if (/^rev:adv:[xyz]$/.test(chosen)) {
     const typed = (op.advTyped ?? "") !== "";
-    return [{ fields: [{ label: `The spiral advance along ${"XYZ"["xyz".indexOf(chosen[8]!)]}`, short: "↔", value: typed ? op.advTyped! : roundedText(advanceOf(op)), active: false, typed, index: 1, unit: "mm" }], unit: "mm", at: h.points.at(-1)!, from: h.points[0]! }];
+    return [{ fields: [{ label: `The spiral advance for each turn along ${"XYZ"["xyz".indexOf(chosen[8]!)]}`, short: "↔", value: typed ? op.advTyped! : roundedText(advanceOf(op)), active: false, typed, index: 1, unit: "mm" }], unit: "mm", at: h.points.at(-1)!, from: h.points[0]! }];
   }
   return [];
 }

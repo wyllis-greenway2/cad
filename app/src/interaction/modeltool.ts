@@ -28,7 +28,7 @@ const crossV = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[
 const normalizeV = (a: Vec3): Vec3 => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 
 /** What the tool holds: which model, the text typed in each field of the box (the overall size, then the model's numbers) and the field being typed in */
-export interface ModelState { kind: ModelKind; typed: string[]; field: number; /** the box takes the keyboard when it opens */ focus?: true; /** a tool made by Mesh from a keyed hole or shaft (`in_1279`): the id of its keyway record; a click on a round body cuts the matching keyway into it */ meshed?: string; /** the number that was taken back to a value that makes the model (`in_1240`): its field, and when (the box flashes red for a moment) */ bad?: { field: number; at: number }; /** the model is made and its box stays open (`in_1259`): the history's cursor before its first part, what the box held when it was made (to tell an Update from a Done), and the cursor after its last part (set when it is all made) */ made?: { from: number; held: string; to?: number } }
+export interface ModelState { kind: ModelKind; typed: string[]; field: number; /** the box takes the keyboard when it opens */ focus?: true; /** a tool made by Mesh from a keyed hole or shaft (`in_1298`): the id of its keyway record; a click on a round body cuts the matching keyway into it */ meshed?: string; /** the number that was taken back to a value that makes the model (`in_1240`): its field, and when (the box flashes red for a moment) */ bad?: { field: number; at: number }; /** the model is made and its box stays open (`in_1259`): the history's cursor before its first part, what the box held when it was made (to tell an Update from a Done), and the cursor after its last part (set when it is all made) */ made?: { from: number; held: string; to?: number } }
 const modelLabels = (kind: ModelKind): string[] => [modelSizeLabel(kind), ...modelFields(kind).map((f) => f.label)]; // (the Size, then the model's own numbers: no turn, `in_1245`)
 export const armedModel = (kind: ModelKind): ModelState => ({ kind, typed: modelLabels(kind).map(() => ""), field: 0 });
 export const modelTyped = (m: ModelState, field: number, text: string): ModelState => { const { bad: _gone, ...rest } = m; void _gone; return { ...rest, field, typed: m.typed.map((x, i) => (i === field ? text : x)) }; };
@@ -93,7 +93,7 @@ export function modelCommand(scene: Scene, t: Tool): Result<Command> {
   return c.ok ? ok(c.value) : c;
 }
 /** A model that is being built a part at a time (`dec_gear_models`): its title, its steps and parts, and how many parts are made */
-export interface Building { title: string; build: ModelBuild; next: number; /** how the model moves when played, and the body each part made (found as the parts are made) */ play: PlayPlan; ids: Record<string, { step?: string; gear?: string }>; /** a keyed hole or shaft: what Mesh needs to know of it (`in_1279`), made a record when the whole is made */ keyway?: Omit<KeywayRecord, "id" | "host"> & { host?: string } }
+export interface Building { title: string; build: ModelBuild; next: number; /** how the model moves when played, and the body each part made (found as the parts are made) */ play: PlayPlan; ids: Record<string, { step?: string; gear?: string }>; /** a keyed hole or shaft: what Mesh needs to know of it (`in_1298`), made a record when the whole is made */ keyway?: Omit<KeywayRecord, "id" | "host"> & { host?: string } }
 /** The model the tool would make, with its parts, or why not */
 export function modelBuilding(scene: Scene, t: Tool): Result<Building> {
   const g = modelTarget(scene, t);
@@ -216,7 +216,7 @@ export function partIds(c: Command): { step?: string; gear?: string } {
   if (c.type === "batch") for (const x of c.commands) { const r = partIds(x); if (r.step || r.gear) return r; }
   return {};
 }
-/** The record of what the keyway maker made, for Mesh (`in_1279`): where it stands, its shape and the body it is on; none for a model that is not a keyed hole or shaft. A one part model carries it in the command of its part. */
+/** The record of what the keyway maker made, for Mesh (`in_1298`): where it stands, its shape and the body it is on; none for a model that is not a keyed hole or shaft. A one part model carries it in the command of its part. */
 export function keywayCommand(scene: Scene, b: Building): Command[] {
   const first = b.ids[b.build.parts[0]?.label ?? ""], kw = b.keyway, host = kw?.host ?? (first?.step ? `x_${first.step}` : "");
   return kw && host ? [{ type: "keyway", record: { ...kw, id: `k_${first?.step ?? scene.counter}`, host } }] : [];

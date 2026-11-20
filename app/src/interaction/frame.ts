@@ -484,7 +484,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
   // the number of an operation's arrow shows only when that arrow is selected (clicked or taken), or a number is being typed for it: the arrows alone stay clean (`in_238`)
   const armed = !!s.handleSel && !!gizmo && gizmo.handles.some((h) => h.id === s.handleSel);
   const typing = !!shownOp && (shownOp.typed !== "" || shownOp.rot.some((t) => t !== ""));
-  const numberShown = armed || typing || !!(s.drag && "handle" in s.drag) || !!(s.drag && "body" in s.drag && s.lockAxes.length > 0); // (a body dragged free along the axes chosen shows their numbers as it goes, `in_1207`) // (a body dragged free shows no position bubbles while it is dragged: it is the picture that is moved, `in_489`)
+  const numberShown = armed || typing || shownOp?.kind === "revolve" || !!(s.drag && "handle" in s.drag) || !!(s.drag && "body" in s.drag && s.lockAxes.length > 0); // (a body dragged free along the axes chosen shows their numbers as it goes, `in_1207`) // (a body dragged free shows no position bubbles while it is dragged: it is the picture that is moved, `in_489`)
   // a body dragged against its mates: they are red while it is held back, as a refused change shows what it would have broken (`in_338`)
   const noteOp = s.op ?? (s.repeat ? liveRepeat(sceneOf(s.session), s.repeat) : null);
   const hardWhy = noteOp && !gpu && sceneOf(s.session).hard?.length ? hardNote(sceneOf(s.session), noteOp) : null; // (what a repeat, a mirror or a pull that is open runs into, `in_475`)

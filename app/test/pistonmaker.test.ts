@@ -303,6 +303,19 @@ test("the flat with a ramp: its top angles out to the skirt's face before the ri
   assert.ok(vr > vs && Math.abs((vr - vs) - expect) / expect < 0.1, `the ramp leaves ${(vr - vs).toFixed(1)} mm3 more in the kernel, ${expect.toFixed(1)} worked out`);
   assert.match(pistonProblem({ ...ramp, flatRamp: 85 }) ?? "", /ramp's angle/);
 });
+test("the scoop: a flat floor round the pin with a curved end above and below that runs out to the skirt's face; the volume is the worked-out one", () => {
+  const base = P({ bore: 68, pin: 18, skirtStyle: 0, pinFlat: 0 }), sq = { ...base, pinFlat: 1 }, sc = { ...base, pinFlat: 3 }, g = pistonGeometry(sc);
+  assert.ok(g.flat.on && g.flat.scoop && g.flat.x1 > 11 && -g.flat.x0 > 11, `the scoop runs from ${g.flat.x0.toFixed(1)} to ${g.flat.x1.toFixed(1)}`);
+  assert.equal(pistonProblem(sc), null);
+  const sS = section(sc), floor = sS(g.sk + 9 + 0.5, 0).slice(-1)[0]!, mid = sS(g.sk + (9 + 1 + g.flat.x1) / 2, 0).slice(-1)[0]!, lowMid = sS(g.sk - (9 + 1 + -g.flat.x0) / 2, 0).slice(-1)[0]!;
+  assert.ok(Math.abs(floor - g.flat.z) < 0.05 && mid > g.flat.z + 0.1 && mid < g.rzPin + 0.05 && lowMid > g.flat.z + 0.1 && lowMid < g.rzPin + 0.05, `floor ${floor.toFixed(2)}, up ${mid.toFixed(2)}, down ${lowMid.toFixed(2)}, flat ${g.flat.z.toFixed(2)}`);
+  const vs = bodies(pistonSteps(sq)).sort((a, b) => b.volume - a.volume)[0]!.volume, vc = bodies(pistonSteps(sc)).sort((a, b) => b.volume - a.volume)[0]!.volume;
+  const expect = pistonVolumes(sq).cup - pistonVolumes(sc).cup;
+  assert.ok(expect > 100 && Math.abs((vs - vc) - expect) / expect < 0.03, `the scoop's volume against the flat: kernel ${(vs - vc).toFixed(1)}, worked out ${expect.toFixed(1)}`);
+  const all = { ...P({ bore: 68, pin: 18 }), pinFlat: 3 }, bs = bodies(pistonSteps(all));
+  assert.ok(pistonGeometry(all).arch.on && pistonGeometry(all).round.on && bs.length >= 1 && bs.every((b) => b.volume > 0), "the scoop builds with the arch and the round bosses");
+  assert.match(pistonProblem({ ...sc, scoopRun: 40 }) ?? "", /scoop's run/);
+});
 test("the flats round the pin: the skirt's face ends on a flat at each side of the pin; the circlip groove is placed from the flat; the volume is the worked-out one", () => {
   const base = P({ bore: 68, pin: 18, skirtStyle: 0, pinFlat: 0 }), flat = { ...base, pinFlat: 1 }, g0 = pistonGeometry(base), g = pistonGeometry(flat);
   assert.ok(g.flat.on && !g0.flat.on && Math.abs(g.flat.z - (g.rzPin - 0.02 * 68)) < 1e-9 && Math.abs(g.flat.yf - (g.shell.boss + 1)) < 1e-9, "the auto flat: 0.02 of the bore deep, the boss and a millimetre wide");
@@ -322,7 +335,7 @@ test("the flats round the pin: the skirt's face ends on a flat at each side of t
   assert.equal(pistonGeometry({ ...flat, flatWidth: 30 }).flat.yf, 15, "typed width");
   assert.match(pistonProblem({ ...flat, flatDepth: 30 }) ?? "", /flat is too deep/);
   assert.match(pistonProblem({ ...flat, flatWidth: 12 }) ?? "", /narrower than the pin bore/);
-  assert.match(pistonProblem({ ...base, pinFlat: 3 }) ?? "", /flats are 0 \(none\), 1 \(flat\) or 2/);
+  assert.match(pistonProblem({ ...base, pinFlat: 4 }) ?? "", /flats are 0 \(none\), 1 \(flat\) or 2 \(flat with a ramp\) or 3/);
   assert.match(pistonProblem({ ...flat, flatDepth: -1 }) ?? "", /flat's depth is 0 \(auto\)/);
 });
 
