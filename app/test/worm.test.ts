@@ -145,7 +145,7 @@ test("the Worm and Worm wheel tools: in the Worm submenu of the Gear submenu; a 
   const ids = (reduce(top(), { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: { id: string }[] }[]).flatMap(function walk(i: any): string[] { return [i.id, ...(i.children ?? []).flatMap(walk)]; });
   assert.ok(ids.includes("tool:worm") && ids.includes("tool:wormwheel"));
   let st = open("tool:worm");
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Starts", "Module", "Pressure", "Diameter", "Length", "Journal", "Run-out", "Bore", "Flat", "Key", "Key depth"]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Starts", "Module", "Pressure", "Diameter", "Length", "Journal", "Run-out", "Bore"]);
   assert.ok(previewFor(scene(st.session), st.tool)!.segments.length >= 6, "the box of its length is drawn");
   st = typeText(st, "2"); st = key(st, "Enter");
   const rec = scene(st.session).gears![0]!;
@@ -157,7 +157,7 @@ test("the Worm and Worm wheel tools: in the Worm submenu of the Gear submenu; a 
   let bad = open("tool:worm"); bad = typeText(bad, "9"); bad = key(bad, "Enter");
   assert.match(bad.session.message ?? "", /1 to 4 starts/);
   const w = open("tool:wormwheel");
-  assert.deepEqual(entryOf(scene(w.session), w.tool, w.op)!.fields.map((f) => f.label), ["Teeth", "Starts", "Module", "Pressure", "Worm diameter", "Width", "Land", "Bore", "Flat", "Key", "Key depth", "Chamfer", "Edge chamfer"]);
+  assert.deepEqual(entryOf(scene(w.session), w.tool, w.op)!.fields.map((f) => f.label), ["Teeth", "Starts", "Module", "Pressure", "Worm diameter", "Width", "Land", "Bore", "Chamfer", "Edge chamfer"]);
 });
 
 test("Mesh gear on a worm makes its wheel: Teeth, Offset, Width and Bore are its fields; the pointer says which side of the worm; one undo takes the wheel away", () => {
@@ -168,7 +168,7 @@ test("Mesh gear on a worm makes its wheel: Teeth, Offset, Width and Bore are its
   let m: AppState = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [body.ref] as never } } } as AppState;
   m = reduce(m, { type: "runAction", id: "gear:mesh" }, env);
   assert.ok(m.tool?.gear?.mesh, "the mesh tool is open");
-  assert.deepEqual(entryOf(scene(m.session), m.tool, m.op)!.fields.map((f) => f.label), ["Teeth", "Offset", "Width", "Land", "Bore", "Flat", "Key", "Key depth"]);
+  assert.deepEqual(entryOf(scene(m.session), m.tool, m.op)!.fields.map((f) => f.label), ["Teeth", "Offset", "Width", "Land", "Bore"]);
 });
 
 test("a worm and a wheel have a D flat or a keyway bore as any gear does (`in_693`): the worm's is cut along its axis, the wheel's is a hole in each section; the flat takes less out than the round bore and the keyway more", () => {

@@ -66,19 +66,19 @@ test("a body with a bore of its own: the bore is its, locked; the key, flat and 
   const spline = keyed(body(8), { kind: "2" });
   assert.equal(spline.problem, null, spline.problem ?? "");
   assert.equal(spline.count, 1);
-  assert.ok(keywayAbout(K({ kind: 2, bore: 8, boreOwned: 1, bodyR: 20 }), true).includes("ISO 14"), "named by the standard");
+  assert.ok(keywayAbout(K({ kind: 2, bore: 8, boreOwned: 1, bodyR: 20 }), "hole").includes("ISO 14"), "named by the standard");
 });
 
 test("the numbers that make no keyway say why, and never fail where a number can be put in: a key needs only the diameter, a bore too big for the spline or a spline too big for the body is refused with the reason", () => {
-  assert.equal(keywayProblem(K({ kind: 0, key: 0, keyDepth: 0, bore: 10 }), true), null, "a key alone: the standard's width and depth");
-  assert.equal(keywayProblem(K({ kind: 0, key: 3, bore: 5 }), true), null, "a bore outside the table: a depth is put in");
-  assert.equal(keywayProblem(K({ kind: 1, bore: 10 }), true), null, "a flat of no depth: a usual one");
-  assert.match(keywayProblem(K({ kind: 0, bore: 0 }), true) ?? "", /needs a bore/);
-  assert.match(keywayProblem(K({ kind: 0, bore: 10, key: 10 }), true) ?? "", /as wide as the bore/);
-  assert.match(keywayProblem(K({ kind: 2, bore: 30, boreOwned: 1, size: 11, bodyR: 40 }), true) ?? "", /bigger than the spline's minor diameter/);
-  assert.match(keywayProblem(K({ kind: 2, size: 112, bodyR: 20 }), true) ?? "", /choose a smaller size/);
-  assert.match(keywayProblem(K({ kind: 0, bore: 10, keyDepth: 30, bodyR: 20 }), true) ?? "", /reach the body's wall/);
-  const std = keywayResolve(K({ kind: 0, bore: 10 }), true);
+  assert.equal(keywayProblem(K({ kind: 0, key: 0, keyDepth: 0, bore: 10 }), "hole"), null, "a key alone: the standard's width and depth");
+  assert.equal(keywayProblem(K({ kind: 0, key: 3, bore: 5 }), "hole"), null, "a bore outside the table: a depth is put in");
+  assert.equal(keywayProblem(K({ kind: 1, bore: 10 }), "hole"), null, "a flat of no depth: a usual one");
+  assert.match(keywayProblem(K({ kind: 0, bore: 0 }), "hole") ?? "", /needs a bore/);
+  assert.match(keywayProblem(K({ kind: 0, bore: 10, key: 10 }), "hole") ?? "", /as wide as the bore/);
+  assert.match(keywayProblem(K({ kind: 2, bore: 30, boreOwned: 1, size: 11, bodyR: 40 }), "hole") ?? "", /bigger than the spline's minor diameter/);
+  assert.match(keywayProblem(K({ kind: 2, size: 112, bodyR: 20 }), "hole") ?? "", /choose a smaller size/);
+  assert.match(keywayProblem(K({ kind: 0, bore: 10, keyDepth: 30, bodyR: 20 }), "hole") ?? "", /reach the body's wall/);
+  const std = keywayResolve(K({ kind: 0, bore: 10 }), "hole");
   assert.ok(std.ok && std.value.kind === 0 && std.value.w === 3 && std.value.depth === 1.4, "DIN 6885: 3 x 1.4 for a bore of 10");
 });
 

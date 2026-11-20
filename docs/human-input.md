@@ -5426,3 +5426,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1278 — 2026-11-20 — directive
 > build the keyway tool next
 (asks for the keyway tool to be built next, as designed in `dec_keyway_maker`)
+
+## in_1279 — 2026-11-20 — directive
+> take the bore numbers out of the gear and wheel makers, the gear and wheel can define a bore, but it is just a smooth hole, the keyway maker can apply splines flats, keys etc to the holes or joining shafts. The keyway maker should have a mesh tool kind of like how gears work. If you select a keyed bore, it meshes a shaft to it, if you select a shaft, it could mesh a bore to it. It could work by either making a shaft or bore donut from scratch that meshes, or if you select geometry it could cut it in. For example you could select a splined shaft and make mesh, then click on bore hole surface or vise versa.
+(asks for Bore flat, Key width and Key depth to come out of the gear, wheel and Cut spokes makers, which keep a smooth bore; and for the keyway maker to get a Mesh tool as gears have: a keyed bore selected meshes a shaft to it, a shaft selected meshes a bore to it, either made from scratch (a shaft or a bore donut) or cut into geometry that is clicked, for example a splined shaft selected, Mesh, then a click on the bore surface, or the other way round)

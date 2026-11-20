@@ -1,4 +1,5 @@
 // The pointer intents: hover, click (selecting, or drawing when a tool is armed, or finishing an operation) and the menu.
+import { keywayOf, meshConvert } from "../keywaymesh.ts";
 import { modelCutsBody } from "../../operation/modelkinds.ts";
 import { CONSTRAINT_ENTRIES, resolveEntry } from "../constraintlist.ts";
 import { whyNoMaterial } from "../material.ts";
@@ -126,7 +127,8 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "model:piston", label: "Piston", icon: "piston" }, // (the piston maker: every number of a piston in a box of its own, `dec_piston_maker`)
   { id: "model:wheel", label: "Wheel", icon: "wheel" }, // (hub, spokes and rim: alone, or filling a selected round object, `dec_hub_spoke`)
   { id: "model:keyhole", label: "Keyed hole", icon: "keyhole" }, // (a key, a flat or a spline cut into the hole of a round body, `dec_keyway_maker`)
-  { id: "model:keyshaft", label: "Keyed shaft", icon: "keyshaft" }, // (a shaft with a keyway, a flat or a spline)
+  { id: "model:keyshaft", label: "Keyed shaft", icon: "keyshaft" },
+  { id: "keyway:mesh", label: "Mesh keyway", icon: "keyshaft" }, // (the shaft that fits a keyed hole, or the hub that fits a shaft, `in_1279`) // (a shaft with a keyway, a flat or a spline)
   { id: "model:wheelcut", label: "Cut spokes", icon: "wheelcut" }, // (the wheel cut into a round body that is selected: its bore and outside edge kept, `dec_hub_spoke`)
   { id: "model:cycloidal", label: "Cycloidal drive", icon: "cycloidal" }, // (a cycloidal reducer)
   { id: "fab:material", label: "Material", icon: "models" }, // (Shape, Fabricate: what a body is made of, `in_1083`; it was a row of the ⋯ list)
@@ -162,7 +164,7 @@ const BEARINGS_MENU: Group = { id: "bearings", label: "Bearings", icon: "bearing
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "fabricate", label: "Fabricate", icon: "hammer", items: ["fab:material", "tool:fasteners"] }] },
-  { id: "mechanisms", label: "Models", icon: "gear", items: [GEARS, BEARINGS_MENU, "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "model:piston", "model:wheel", "model:wheelcut", "model:keyhole", "model:keyshaft", "tool:geneva:model"] }, // (the gears, and the devices made of them, `in_1145`; the gears were in Sketch and the devices in Shape, Fabricate, Models)
+  { id: "mechanisms", label: "Models", icon: "gear", items: [GEARS, BEARINGS_MENU, "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "model:piston", "model:wheel", "model:wheelcut", "model:keyhole", "model:keyshaft", "keyway:mesh", "tool:geneva:model"] }, // (the gears, and the devices made of them, `in_1145`; the gears were in Sketch and the devices in Shape, Fabricate, Models)
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
@@ -211,6 +213,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     }
     if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfSelection(sc, x) || (r.id === "gear:edit" && !!planetaryOfPart(sc, x))); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
     if (r.id === "repeat:path") { const why = whyNoPathRepeat(session); return [r.id, { ...base, enabled: !why, why }]; }
+    if (r.id === "keyway:mesh") { const has = sel.some((x) => !!keywayOf(sc, x)); return [r.id, { ...base, enabled: has, why: has ? null : "select a keyed hole or a keyed shaft" }]; }
     if (r.id.startsWith("model:")) return [r.id, { ...base, enabled: true, why: null }]; // (a dialog for the numbers, `dec_gear_models`)
     if (r.id === "fab:material") { const why = whyNoMaterial(session); return [r.id, { ...base, enabled: !why, why }]; }
     if (r.id === "tool:fasteners") return [r.id, { ...base, enabled: true, why: null }]; // (it opens a panel that says what to select, `dec_parts_tool`)
@@ -512,6 +515,10 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   const hint = flat ? hintFor(sc, t, plane, pv, flat) : null;
   const at = hint ? hint.at : flat;
   if (!at) return base;
+  if (t.kind === "model" && t.model?.meshed && !t.model.made) { // (a tool made by Mesh: a click on a round body that is there cuts the matching keyway into it, `dec_keyway_maker`)
+    const rec = (sc.keyways ?? []).find((k) => k.id === t.model!.meshed);
+    if (rec) for (const r of refs) { const got = cutFillOf(sc, r); if (typeof got === "string" || got.cut.host === rec.host) continue; const conv = meshConvert(t, rec, got); if (conv) return { ...base, session: { ...sess, message: null }, tool: conv }; }
+  }
   if (t.kind === "model" && t.points.length) {
     // a gear assembly model (`dec_gear_models`): the first click after its middle sets the size (the pointer's distance from the middle) and the box stays open for the numbers; the next click, Enter or Create makes it
     if (!t.sized) return { ...base, tool: { ...t, cursor: at, sized: true } };

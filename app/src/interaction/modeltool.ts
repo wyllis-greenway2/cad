@@ -10,22 +10,25 @@ import { ok, err } from "../shared/result.ts";
 import { modelFields, modelSizeKey, modelSizeLabel, modelFixedSize, modelNumbers, modelStart, modelCentre, modelExtent, modelProblem, modelOutline, modelOutline3, modelBuild, modelTitle, modelAbout } from "../operation/modelkinds.ts";
 import type { ModelKind, Nums } from "../operation/modelkinds.ts";
 import { asCommand } from "../operation/modelparts.ts";
+import { keywayMeta } from "../operation/modelkeyway.ts";
+import type { KeywayRecord, KeywaySpec } from "../operation/modelkeyway.ts";
 import type { Place, ModelBuild } from "../operation/modelparts.ts";
 import type { Command } from "../operation/commands.ts";
 import { playPlan } from "../operation/modelplay.ts";
 import type { PlayPlan, ModelPlay } from "../operation/modelplay.ts";
 
 /** The plane a model that fills a round object stands in: through its centre, across its axis (a stand-in made from the circle, not a part of the scene) */
-function fillPlane(f: { center: Vec3; normal: Vec3 }): Plane {
+function fillPlane(f: { center: Vec3; normal: Vec3; u?: Vec3 }): Plane {
   const n = normalizeV(f.normal), a: Vec3 = Math.abs(n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
-  const u = normalizeV(crossV(a, n)), v = crossV(n, u);
+  const dot = f.u ? f.u[0] * n[0] + f.u[1] * n[1] + f.u[2] * n[2] : 0, across: Vec3 | null = f.u ? [f.u[0] - dot * n[0], f.u[1] - dot * n[1], f.u[2] - dot * n[2]] : null; // (the x axis asked for, made square to the axis)
+  const u = across && Math.hypot(...across) > 1e-6 ? normalizeV(across) : normalizeV(crossV(a, n)), v = crossV(n, u);
   return { ref: "fill" as Plane["ref"], kind: "plane", origin: "drawn", plane: null, movable: false, at: f.center, u, v } as Plane;
 }
 const crossV = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const normalizeV = (a: Vec3): Vec3 => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 
 /** What the tool holds: which model, the text typed in each field of the box (the overall size, then the model's numbers) and the field being typed in */
-export interface ModelState { kind: ModelKind; typed: string[]; field: number; /** the box takes the keyboard when it opens */ focus?: true; /** the number that was taken back to a value that makes the model (`in_1240`): its field, and when (the box flashes red for a moment) */ bad?: { field: number; at: number }; /** the model is made and its box stays open (`in_1259`): the history's cursor before its first part, what the box held when it was made (to tell an Update from a Done), and the cursor after its last part (set when it is all made) */ made?: { from: number; held: string; to?: number } }
+export interface ModelState { kind: ModelKind; typed: string[]; field: number; /** the box takes the keyboard when it opens */ focus?: true; /** a tool made by Mesh from a keyed hole or shaft (`in_1279`): the id of its keyway record; a click on a round body cuts the matching keyway into it */ meshed?: string; /** the number that was taken back to a value that makes the model (`in_1240`): its field, and when (the box flashes red for a moment) */ bad?: { field: number; at: number }; /** the model is made and its box stays open (`in_1259`): the history's cursor before its first part, what the box held when it was made (to tell an Update from a Done), and the cursor after its last part (set when it is all made) */ made?: { from: number; held: string; to?: number } }
 const modelLabels = (kind: ModelKind): string[] => [modelSizeLabel(kind), ...modelFields(kind).map((f) => f.label)]; // (the Size, then the model's own numbers: no turn, `in_1245`)
 export const armedModel = (kind: ModelKind): ModelState => ({ kind, typed: modelLabels(kind).map(() => ""), field: 0 });
 export const modelTyped = (m: ModelState, field: number, text: string): ModelState => { const { bad: _gone, ...rest } = m; void _gone; return { ...rest, field, typed: m.typed.map((x, i) => (i === field ? text : x)) }; };
@@ -54,6 +57,7 @@ export function modelTarget(scene: Scene, t: Tool): ModelTarget | null {
   const reach = cursor ? 2 * Math.hypot(cursor[0] - mx, cursor[1] - my) : 0; // (the pointer's distance from the middle, both ways)
   const cutFrom = t.fill?.cut; // (Cut spokes: the outside, the bore and the thickness are the body's, and are not moved)
   if (cutFrom && m.kind === "keyhole") Object.assign(typed, cutFrom.bore > 0 ? { bore: 2 * cutFrom.bore, boreOwned: 1 } : { boreOwned: 0 }, { thick: cutFrom.thickness, bodyR: cutFrom.root > 0 ? cutFrom.root : cutFrom.outer }); // (a keyed hole: the body's thickness and how far from the axis the hole may reach, `dec_keyway_maker`)
+  else if (cutFrom && m.kind === "keyfit") Object.assign(typed, { bore: 2 * cutFrom.outer, thick: cutFrom.thickness, bodyR: cutFrom.outer }); // (a keyway cut into a shaft that is there: its diameter and length, `dec_keyway_maker`)
   else if (cutFrom) Object.assign(typed, cutFrom.bore > 0 ? { bore: 2 * cutFrom.bore, boreOwned: 1 } : { boreOwned: 0, bore: typed.bore ?? 0 }, { rimT: cutFrom.thickness, hubT: cutFrom.thickness, draft: 0, rimMax: cutFrom.root > 0 ? Math.max(0, 2 * (cutFrom.root - 1.2)) : 0 });
   const size = cutFrom ? 2 * cutFrom.outer : numOf(m.typed[0]) ?? (reach > 1e-6 ? Math.max(MIN_SHARE * modelExtent(m.kind, modelStart(m.kind)), reach) : undefined);
   const sk = modelSizeKey(m.kind); // (a model whose Size is one of its numbers, the wheel's outside diameter: the Size is that number)
@@ -89,14 +93,16 @@ export function modelCommand(scene: Scene, t: Tool): Result<Command> {
   return c.ok ? ok(c.value) : c;
 }
 /** A model that is being built a part at a time (`dec_gear_models`): its title, its steps and parts, and how many parts are made */
-export interface Building { title: string; build: ModelBuild; next: number; /** how the model moves when played, and the body each part made (found as the parts are made) */ play: PlayPlan; ids: Record<string, { step?: string; gear?: string }> }
+export interface Building { title: string; build: ModelBuild; next: number; /** how the model moves when played, and the body each part made (found as the parts are made) */ play: PlayPlan; ids: Record<string, { step?: string; gear?: string }>; /** a keyed hole or shaft: what Mesh needs to know of it (`in_1279`), made a record when the whole is made */ keyway?: Omit<KeywayRecord, "id" | "host"> & { host?: string } }
 /** The model the tool would make, with its parts, or why not */
 export function modelBuilding(scene: Scene, t: Tool): Result<Building> {
   const g = modelTarget(scene, t);
   if (!g) return err("click where the model goes first");
   if (g.problem) return err(g.problem);
   const built = modelBuild(g.kind, g.nums, g.place);
-  return built.ok ? ok({ title: modelTitle(g.kind), build: built.value, next: 0, play: playPlan(g.kind, g.nums, g.place), ids: {} }) : built;
+  const kmode = ({ keyhole: "hole", keyshaft: "shaft", keyhub: "hub", keyfit: "fit" } as const)[g.kind as "keyhole"];
+  const meta = kmode ? keywayMeta(g.nums as unknown as KeywaySpec, kmode, g.place) : null;
+  return built.ok ? ok({ title: modelTitle(g.kind), build: built.value, next: 0, play: playPlan(g.kind, g.nums, g.place), ids: {}, ...(meta ? { keyway: { ...meta, ...(t.fill?.cut?.host ? { host: t.fill.cut.host } : {}) } } : {}) }) : built;
 }
 /** The command that makes the next part of a model being built (from the scene as it is now), or why not */
 export function nextPartCommand(scene: Scene, b: Building): Result<Command> {
@@ -141,7 +147,7 @@ export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { ba
     panel: modelTitle(m.kind),
     fields: order.map((i) => ({ ...(m.bad?.field === i || guard?.field === i ? { bad: true as const } : {}), ...((i === 0 ? modelFixedSize(m.kind) : lockedNum(fields[i - 1]!, g?.nums)) ? { locked: true as const } : {}), index: i, ...(i >= 1 && fields[i - 1]!.section ? { section: fields[i - 1]!.section } : {}), label: labels[i]!, value: m.typed[i] !== "" ? m.typed[i]! : live[i] !== undefined ? round(live[i]!) : "", active: m.field === i, typed: m.typed[i] !== "", hint: i === 0 ? hintSize : hints[i]!, ...(i >= 1 && fields[i - 1]!.choices ? { choices: fields[i - 1]!.choices } : {}), ...(i >= 1 && fields[i - 1]!.toggle ? toggleOf(i) : {}) })),
     unit: "mm",
-    note: g ? (g.problem ?? modelAbout(m.kind, g.nums)) : m.kind === "wheelcut" ? "click the round body to cut spokes into" : m.kind === "keyhole" ? "click the round body to key the hole of: a gear, a disc, a cylinder or a ring" : "click where the middle of it goes",
+    note: g ? (g.problem ?? modelAbout(m.kind, g.nums)) : m.kind === "wheelcut" ? "click the round body to cut spokes into" : m.kind === "keyhole" ? "click the round body to key the hole of: a gear, a disc, a cylinder or a ring" : m.kind === "keyfit" ? "click the round shaft to cut the keyway into" : "click where the middle of it goes",
   };
 }
 
@@ -214,11 +220,13 @@ export function partIds(c: Command): { step?: string; gear?: string } {
 export function finishCommand(scene: Scene, b: Building): Command | null {
   const first = b.ids[b.build.parts[0]?.label ?? ""];
   const key = first?.step ?? first?.gear;
-  if (!key) return null;
+  const kw = b.keyway, host = kw?.host ?? (first?.step ? `x_${first.step}` : "");
+  const keyRecord: Command[] = kw && host ? [{ type: "keyway", record: { ...kw, id: `k_${first?.step ?? scene.counter}`, host } }] : []; // (what the keyway maker made, for Mesh)
+  if (!key) return keyRecord.length ? { type: "batch", commands: keyRecord } : null;
   const record: ModelPlay = { id: `m_${key}`, title: b.title, driver: b.play.driver, followers: b.play.followers, note: b.play.note, parts: b.ids };
   const bodyId = (part: string): string | null => { const p = b.ids[part]; if (!p) return null; if (p.step) return `x_${p.step}`; const st = scene.steps.find((x) => x.params.gear === p.gear && (x.params.mode === undefined || x.params.mode === "new")); return st ? `x_${st.id}` : null; }; // (a gear's body is named by the step that began it)
   const glue = b.play.glue.map((g) => g.map(bodyId).filter((x): x is string => !!x)).filter((g) => g.length >= 2).map((bodies): Command => ({ type: "glue", bodies }));
   const held = (b.play.hold ?? []).map(bodyId).filter((x): x is string => !!x).map((body): Command => ({ type: "setFixed", body, on: true }));
   const pivots = (b.play.pivots ?? []).flatMap((pv): Command[] => { const body = bodyId(pv.part); return body ? [{ type: "pivot", body, point: pv.point, dir: pv.dir }] : []; });
-  return { type: "batch", commands: [{ type: "modelPlay", record }, ...glue, ...held, ...pivots] };
+  return { type: "batch", commands: [{ type: "modelPlay", record }, ...keyRecord, ...glue, ...held, ...pivots] };
 }
