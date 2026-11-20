@@ -5528,3 +5528,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1305 — 2026-11-20 — directive
 > also just to be clear, this is sketching on the surface of a 3d disk. when it is just a sketch circle it has the center verticy. Sketching on surfaces should offer snapping points as well based off the edges of that surface.
 (the missing centre guides are on the face of a body: a circular edge has no centre corner, so the centre and its level and upright lines are not offered; asks that sketching on a surface offer snapping points from that surface's edges)
+
+## in_1306 — 2026-11-20 — directive
+> Selecting coincident here hanged up. Also why are the face constraints only in the suggested constraints area?
+(a screenshot and the file `cannot_mate_face.json`: two faces selected with the constraint ring open; choosing Coincident hung the program; asks why the face constraints are only offered in the suggested constraints area)

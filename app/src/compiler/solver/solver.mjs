@@ -423,7 +423,25 @@ function joinResults(results, system) {
   return out;
 }
 
+// The same group solved again (a model is compiled many times with a sketch that did not change, and a mate that cannot be made tries it many ways): what was found is kept, so a group that conflicts is not searched for its culprit again
+// (that search is up to `CONFLICT_SEARCH_MS`, and a refused mate on a model with a conflicting sketch took 14 s, `in_1306`). The key is the numbers themselves, so a changed group is never answered from here.
+const kept = new Map();
+// The search for the culprit of a conflict is a luxury (it only names the constraint in the message): a model with many conflicting sketches that is solved again and again (a mate that cannot be made tries every pose) spends no more than
+// `SEARCH_BUDGET_MS` of it in any `SEARCH_WINDOW_MS`, and the rest are reported without naming (`in_1306`: 34 groups at 0.4 s each froze a refused mate for 14 s).
+const SEARCH_BUDGET_MS = 800, SEARCH_WINDOW_MS = 4000;
+let windowStart = 0, windowSpent = 0;
+const searchAllowed = () => { const now = Date.now(); if (now - windowStart > SEARCH_WINDOW_MS) { windowStart = now; windowSpent = 0; } return windowSpent < SEARCH_BUDGET_MS; };
+const KEPT_MAX = 400;
 function solveOne(system, constraints) {
+  const key = JSON.stringify([system.points, system.scalars ?? {}, constraints]);
+  const hit = kept.get(key);
+  if (hit) return structuredClone(hit);
+  const r = solveGroup(system, constraints);
+  if (kept.size >= KEPT_MAX) kept.delete(kept.keys().next().value);
+  kept.set(key, structuredClone(r));
+  return r;
+}
+function solveGroup(system, constraints) {
   const { index, x: x0, n } = layout(system);
   const toResult = (x) => {
     const points = {};
@@ -449,13 +467,14 @@ function solveOne(system, constraints) {
   if (maxAbs(hardOnly) > 1e-6) {
     // conflict: find which single constraint, once left out, lets the rest be satisfied
     const conflicts = [];
-    if (hard.length <= 80) {
+    if (hard.length <= 80 && searchAllowed()) {
       const started = Date.now();
       for (const c of hard) {
         if (Date.now() - started > CONFLICT_SEARCH_MS) break; // (a big conflicting sketch: name what was found in the time, not freeze the page while trying every one)
         const r = lm(hard.filter((k) => k !== c), x0, index, 80);
         if (maxAbs(residuals(hard.filter((k) => k !== c), r.x, index)) <= 1e-6) conflicts.push(c.id);
       }
+      windowSpent += Date.now() - started;
     }
     return { status: "conflict", ...toResult(x0), dof: null, redundant: [], conflicts, residual: maxAbs(hardOnly), iterations: first.iterations };
   }
