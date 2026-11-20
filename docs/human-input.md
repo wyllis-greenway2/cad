@@ -5332,3 +5332,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1253 — 2026-11-20 — directive
 > lets focus on getting each part correct first. So is the piston head a real piston head in all the details?
 (sets the direction: make each part correct before going on to the block; asks whether the piston is a real piston in all its details)
+
+## in_1254 — 2026-11-20 — directive
+> okay applying cut spokes to a cylinder doesn't bring up the wheel menu
+(says that Cut spokes applied to a cylinder does not bring up the wheel's box)
