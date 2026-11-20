@@ -717,6 +717,13 @@ export function guidesOf(spent: Scene, pl: Plane, cursor: Vec3 | null): [Vec3, V
     const same = (Math.abs(qx - cx) < 1e-6 ? 1 : 0) + (Math.abs(qy - cy) < 1e-6 ? 1 : 0);
     if (same === 1) out.push([at, cursor]);
   }
+  // the pointer on the middle of a round edge of the body: the cross through it, across the circle, so it is seen to be in line with the middle on both axes (`in_1353`)
+  for (const r of anchorRounds(scene, pl)) {
+    const [qx, qy] = localOf(pl, r.center);
+    if (Math.abs(qx - cx) > 1e-6 || Math.abs(qy - cy) > 1e-6) continue;
+    const reach = r.radius * 1.25;
+    for (const d of [pl.u, pl.v]) out.push([[r.center[0] - d[0] * reach, r.center[1] - d[1] * reach, r.center[2] - d[2] * reach], [r.center[0] + d[0] * reach, r.center[1] + d[1] * reach, r.center[2] + d[2] * reach]]);
+  }
   return out;
 }
 /** Dashed lines across the circle that the point is suggested to be concentric with, through its centre, as far as a little past its rim (`in_921`): the suggestion is seen, as the guides to a corner are. */
