@@ -5396,3 +5396,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1269 — 2026-11-20 — directive
 > do the crown next
 (approves the next piston maker variables: the crown's shape (flat, dome, dish, bowl), its edge chamfer and the valve reliefs)
+
+## in_1270 — 2026-11-20 — directive
+> @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/5048a163-ISO-14-1978.pdf" @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/6b625d8d-preview_ISO14-1982.pdf" @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/bec5a8ee-norelem_Catalogue_2022_-_Book_2.pdf" @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/c7ec588a-Straight_Sided_Spline_Dimensions___Ilmu_Teknik_dot_info.pdf"
+(sends four files: ISO 14:1978 (nominal dimensions, one page), the ISO 14:1982 preview (dimensions, designation), the norelem catalogue page 694 (splined shafts similar to DIN ISO 14), and a web page of straight sided spline dimensions and tolerances (BS 5686:1986, ISO 14-1982))

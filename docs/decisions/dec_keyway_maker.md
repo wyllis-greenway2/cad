@@ -3,7 +3,7 @@ id: dec_keyway_maker
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1267, in_1268
+human_input: in_1267, in_1268, in_1270
 date: 2026-11-20
 depends_on:
   - dec_gear_tool: the gear's bore, flat and keyway (`bore.ts`) would move out of it into the new tool
@@ -27,3 +27,9 @@ alternative_to:
 ## Rationale
 
 It is a change of where a feature lives and of what data the program holds, and the data is the hard part (real standards, not numbers made up), so it is asked before anything is built, as `dec_piston_maker` was.
+
+## Built so far (`in_1270`: the human sent ISO 14 and two copies of its table)
+**Data in hand:** the whole nominal table of ISO 14 (light 15 rows, medium 20 rows, d 11 to 112 mm: N, D, B), read from ISO 14:1978 and ISO 14:1982 table 1 (the two agree in every row), checked against the norelem catalogue (medium 11 to 46) and a web copy (whose medium d=56 designation, 8 x 56 x 66, is a slip: the standard has 8 x 56 x 65, D 65). The fits of the web copy (hole B H9, D H10, d H7; shaft sliding d10/a11/f7, close f9/a11/g7, fixed h10/a11/h7; symmetry t 0.010 to 0.018 by B) are one source (after roymech) and are **not used yet**. The standard centres on the minor diameter d (internal centering) and gives no corner radii in what was read.
+**Code (`operation/splines.ts`, `test/splines.test.ts`):** the table (`ISO14`, `iso14("8 x 56 x 65")`, `splineName`), `splineProblem`, and `splineOutline`: the minor circle with N lugs of width B out to the outside circle, as corners and bulges (a shaft is it extruded, a hub is it cut). Tested: the area of the outline against the exact area for three sizes, and in the kernel a splined shaft and a hub cut from a cylinder have the volumes the profile says.
+**Still missing data:** the SAE 4/6/10/16 and the involute splines (ISO 4156 / ANSI B92.1 / DIN 5480), the parallel keys of DIN 6885-1 as a full table (only the bores 6 to 38 already in `bore.ts`, from earlier sources), ANSI B17.1 and Woodruff keys. **Not built:** the tool itself (select a round hole or shaft, choose key, flat or spline), the catalogue boxes, and taking the bore numbers out of the gear and the wheel.
+
