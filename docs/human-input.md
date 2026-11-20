@@ -5450,6 +5450,14 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/17adf08e-model2.json" I can't seem to do a keyed shaft. I select the rod surface, or the entire rod, and select keyed shaft, and it just keeps saying select surface.
 (sends a project file; says that with the rod's surface or the whole rod selected, Keyed shaft only keeps saying to select a surface)
 
-## in_1284 — 2026-11-20 — directive
+## in_1285 — 2026-11-20 — directive
+> the polygon tool doesn't have good suggested snapping, I can't snap the origin and mouse end point in horizontal or vertical spots. Also when I try to draw on a polygon, like draw a circle in a hexagon, it doesn't help me snap to center.
+(two faults of the polygon tool: its size point does not snap level or upright with the middle, and nothing snaps to the middle of a polygon that is drawn)
+
+## in_1286 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the polygon snapping to be merged into the testing branch, no full test run)
+
+## in_1287 — 2026-11-20 — directive
 > now if I select a surface of the splined bore, I don't have the option to create a meshed shaft fitting to it, which sould either jsut directly create a shaft, or let me select the outer surface of a rod or double click a culinder body to apply the mesh attributes there. Also what if I dont want the whole shaft splined? what if I only want the end splined? are shafts ever like that in real life?
 (says that with a surface of the splined bore selected there is no option to make a meshed shaft that fits it, which should either make a shaft directly, or let the outer surface of a rod be selected, or a cylinder body double clicked, to apply the mesh attributes there; and asks, if only the end of a shaft is to be splined and not the whole shaft, whether shafts are ever like that in real life)

@@ -360,8 +360,8 @@ test("the right-click ring offers all the operations around the click; nothing o
   const f = frameOf(st, { w: 800, h: 600 });
   assert.ok(!f.annotations.some((a) => ["pushpull", "sketch", "edge", "rect"].includes(a.kind)), "a left click shows constraints and dimensions only");
   const ring = flat(reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items.filter((i) => i.id !== "constraints")); // (the constraints have their own test: they are all always there, `in_666`)
-  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:polygon", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset", "op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", "fab:material", "tool:fasteners", "tool:gear", "tool:ring", "tool:rack", "tool:planetary", "tool:bevel", "tool:spiral", "tool:hypoid", "tool:crown", "tool:face", "tool:worm", "tool:wormwheel", "tool:clock", "tool:clockring", "tool:clockrack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "model:ballbearing", "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "model:piston", "model:wheel", "model:wheelcut", "model:keyhole", "model:keyshaft", "tool:geneva:model", "op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue", "op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup", "look", "view:game", "view:section", "view:hide", "view:wireframe", "view:constraints", "tape:measure", "delete"]);
-  assert.deepEqual(ring.filter((i) => !i.enabled).map((i) => i.id), ["combine:parts", "fab:material", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue", "clipboard:paste", "repeat:path", "select:group", "select:ungroup", "delete"], "an operation that needs more than a face is still offered and waits for it (`in_464`); one face is nothing to group and is no group to break; Path repeat needs a figure or a body and a path (`in_841`) while Fastener Holes works on a flat face (`in_813`); a face cannot be deleted (fillet / chamfer takes a flat face too now, `in_257`, as offset does, `in_199`)");
+  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:polygon", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset", "op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", "fab:material", "tool:fasteners", "tool:gear", "tool:ring", "tool:rack", "tool:planetary", "tool:bevel", "tool:spiral", "tool:hypoid", "tool:crown", "tool:face", "tool:worm", "tool:wormwheel", "tool:clock", "tool:clockring", "tool:clockrack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "model:ballbearing", "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "model:piston", "model:wheel", "model:wheelcut", "model:keyhole", "model:keyshaft", "keyway:mesh", "tool:geneva:model", "op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue", "op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup", "look", "view:game", "view:section", "view:hide", "view:wireframe", "view:constraints", "tape:measure", "delete"]);
+  assert.deepEqual(ring.filter((i) => !i.enabled).map((i) => i.id), ["combine:parts", "fab:material", "keyway:mesh", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue", "clipboard:paste", "repeat:path", "select:group", "select:ungroup", "delete"], "an operation that needs more than a face is still offered and waits for it (`in_464`); one face is nothing to group and is no group to break; Path repeat needs a figure or a body and a path (`in_841`) while Fastener Holes works on a flat face (`in_813`); a face cannot be deleted (fillet / chamfer takes a flat face too now, `in_257`, as offset does, `in_199`)");
   assert.ok(ring.every((i) => i.icon));
   const drawing = reduce(st, { type: "runAction", id: "tool:circle" }, env);
   assert.equal(drawing.tool!.kind, "circle");
@@ -994,4 +994,29 @@ test("drag select from the menu of a finger (`in_1281`): it is offered only to a
   // Esc gives it up
   const armed = reduce(reduce(st, { type: "menu", x: 400, y: 300, touch: true }, env), { type: "runAction", id: "select:drag" }, env);
   assert.ok(reduce(armed, { type: "escape" }, env).dragSelect === false);
+});
+
+test("polygon snapping (`in_1285`): a corner near level or upright with the middle is taken there and says so; and the middle of a polygon that is drawn is snapped to, as a corner is, by any tool and in line with it", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "polygon" }, env);
+  st = click(st, [20, 15, 0]); // the middle
+  // the pointer a little above level with the middle: the corner is taken level, the number of the length is the pointer's
+  st = move(st, [32, 15.6, 0]);
+  near(st.tool!.cursor![1], 15, 1e-6);
+  assert.ok(st.tool!.hints?.some((h) => h.kind === "horizontal"), "level, and it says so");
+  // a little to the side of upright
+  let up = reduce(top(), { type: "begin", name: "polygon" }, env);
+  up = click(up, [20, 15, 0]);
+  up = move(up, [20.5, 28, 0]);
+  near(up.tool!.cursor![0], 20, 1e-6);
+  assert.ok(up.tool!.hints?.some((h) => h.kind === "vertical"), "upright");
+  // make a hexagon with a level first corner, then a circle on its middle
+  st = click(st, [32, 15, 0]);
+  st = stays(st);
+  st = reduce(st, { type: "begin", name: "circle" }, env);
+  st = click(st, [20.4, 15.3, 0]); // (near the middle of the hexagon, which is no corner: the first point is taken there)
+  st = click(st, [24, 15, 0]);
+  const circle = Object.values(scene(st.session).parts).find((p) => p.kind === "circle") as { center: string; radius: number };
+  const centre = (scene(st.session).parts[circle.center as never] as { at: Vec3 }).at;
+  near(centre[0], 20, 1e-6); near(centre[1], 15, 1e-6);
 });

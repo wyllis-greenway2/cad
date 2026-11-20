@@ -7,6 +7,7 @@ import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, dist, cross } from "../math/vec.ts";
 import type { PointerView, Plane } from "../operation/part.ts";
+import { regularCentres } from "./polygoncentre.ts";
 import { normalOfPlane, pointOf, segmentOf, arcPoints, localOf, liftOf, roundOf } from "../operation/part.ts";
 import type { Scene } from "../operation/scene.ts";
 import { nextId, lookup } from "../operation/scene.ts";
@@ -224,6 +225,9 @@ export function snapOnPlane(spent: Scene, pv: PointerView, pl: Plane, skip?: Ref
     const q = pointOf((r) => scene.parts[r], c.ref);
     if (q && Math.abs(dot(sub(q, pl.at), normalOfPlane(pl))) < 1e-3) return q;
   }
+  // the middle of a regular polygon that is drawn: taken like a corner, so a circle can be drawn on the middle of a hexagon (`in_1285`)
+  const centres = regularCentres(scene, pl);
+  for (const c of centres) { const [qx, qy] = pv.project(c); if (Math.hypot(qx - pv.x, qy - pv.y) <= settings.sketch.snapPx) return c; }
   // a corner of the body that is not in the plane but falls on it (the bottom of a wall, the far end of an edge): the pointer near where it falls is taken there (`in_311`)
   for (const c of anchorCorners(scene, pl, { seen: (q) => visibleFrom(scene, pv, q, { at: pl.at, n: normalOfPlane(pl) }) })) { // (the ones out of sight are not offered, `in_312`)
     if (Math.abs(c.offset) <= 1e-3) continue;
@@ -254,10 +258,8 @@ export function snapOnPlane(spent: Scene, pv: PointerView, pl: Plane, skip?: Ref
   // in line with a corner of the scene (level or upright on the plane) within the snap distance on the screen: the pointer takes that line (the guide is drawn by `previewOf`)
   const near = (p: Vec3): boolean => { const [a, b] = pv.project(p); return Math.hypot(a - pv.x, b - pv.y) <= settings.sketch.alignPx; };
   let [ax, ay] = [false, false];
-  for (const p of Object.values(scene.parts)) {
-    if (p.kind !== "corner" || p.ref === skip) continue;
-    if (Math.abs(dot(sub(p.at, pl.at), normalOfPlane(pl))) > 1e-3) continue;
-    const [qx, qy] = localOf(pl, p.at);
+  for (const at of [...Object.values(scene.parts).flatMap((p) => (p.kind === "corner" && p.ref !== skip && Math.abs(dot(sub(p.at, pl.at), normalOfPlane(pl))) <= 1e-3 ? [p.at] : [])), ...centres]) { // (the corners, and the middles of regular polygons)
+    const [qx, qy] = localOf(pl, at);
     if (!ax && near(liftOf(pl, [qx, y]))) { sx = qx; ax = true; }
     if (!ay && near(liftOf(pl, [x, qy]))) { sy = qy; ay = true; }
   }
@@ -738,11 +740,11 @@ export function guidesOf(spent: Scene, pl: Plane, cursor: Vec3 | null): [Vec3, V
   const scene = live(spent);
   const [cx, cy] = localOf(pl, cursor);
   const out: [Vec3, Vec3][] = [];
-  for (const p of Object.values(scene.parts)) {
-    if (p.kind !== "corner" || Math.abs(dot(sub(p.at, pl.at), normalOfPlane(pl))) > 1e-3) continue;
-    const [qx, qy] = localOf(pl, p.at);
+  const there = [...Object.values(scene.parts).flatMap((p) => (p.kind === "corner" && Math.abs(dot(sub(p.at, pl.at), normalOfPlane(pl))) <= 1e-3 ? [p.at] : [])), ...regularCentres(scene, pl)]; // (the corners, and the middles of regular polygons)
+  for (const at of there) {
+    const [qx, qy] = localOf(pl, at);
     const same = (Math.abs(qx - cx) < 1e-6 ? 1 : 0) + (Math.abs(qy - cy) < 1e-6 ? 1 : 0);
-    if (same === 1) out.push([p.at, cursor]);
+    if (same === 1) out.push([at, cursor]);
   }
   return out;
 }

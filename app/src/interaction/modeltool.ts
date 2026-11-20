@@ -225,7 +225,7 @@ export function keywayCommand(scene: Scene, b: Building): Command[] {
 export function finishCommand(scene: Scene, b: Building): Command | null {
   const first = b.ids[b.build.parts[0]?.label ?? ""];
   const key = first?.step ?? first?.gear;
-  const keyRecord: Command[] = b.build.parts.length === 1 ? [] : keywayCommand(scene, b); // (a one part model has its record in the command of its part, so that one undo takes both: `in_1284`)
+  const keyRecord: Command[] = b.build.parts.length === 1 ? [] : keywayCommand(scene, b); // (a one part model has its record in the command of its part, so that one undo takes both: `in_1287`)
   if (!key) return keyRecord.length ? { type: "batch", commands: keyRecord } : null;
   const record: ModelPlay = { id: `m_${key}`, title: b.title, driver: b.play.driver, followers: b.play.followers, note: b.play.note, parts: b.ids };
   const bodyId = (part: string): string | null => { const p = b.ids[part]; if (!p) return null; if (p.step) return `x_${p.step}`; const st = scene.steps.find((x) => x.params.gear === p.gear && (x.params.mode === undefined || x.params.mode === "new")); return st ? `x_${st.id}` : null; }; // (a gear's body is named by the step that began it)

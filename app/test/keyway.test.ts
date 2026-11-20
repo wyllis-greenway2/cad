@@ -136,7 +136,7 @@ test("Keyed shaft with a round shaft selected (its surface or the whole rod) key
   assert.equal(none.tool?.model?.kind, "keyshaft");
 });
 
-test("a shaft can be keyed at an end only: the far end, the near end or both; round and as wide as the spline elsewhere (`in_1284`)", () => {
+test("a shaft can be keyed at an end only: the far end, the near end or both; round and as wide as the spline elsewhere (`in_1287`)", () => {
   const make = (typed: Record<string, string>) => {
     let st: ReturnType<typeof createState> = { ...createState(createSession(kernel)), cam: homeCamera() };
     st = reduce(st, { type: "runAction", id: "model:keyshaft" }, env);

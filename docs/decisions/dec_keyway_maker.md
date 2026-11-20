@@ -3,7 +3,7 @@ id: dec_keyway_maker
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1267, in_1268, in_1270, in_1278, in_1279, in_1283, in_1284
+human_input: in_1267, in_1268, in_1270, in_1278, in_1279, in_1283, in_1287
 date: 2026-11-20
 depends_on:
   - dec_gear_tool: the gear's bore, flat and keyway (`bore.ts`) would move out of it into the new tool
@@ -45,7 +45,7 @@ It is a change of where a feature lives and of what data the program holds, and 
 
 **Keyed shaft on a rod that is there (`in_1283`):** with a round shaft selected (its surface or the whole body, no bore) the Keyed shaft item keys that shaft where it stands, as the keyed fit does, instead of waiting for a surface to make a new one (the human could not key a rod in their project: the tool kept saying to select a surface). With nothing selected, or a body that has a bore, it still makes a new shaft on a surface. Test: `test/keyway.test.ts`; checked on the human's file (the rod's volume 109427 to 104056 with a key).
 
-## Mesh on a selected surface, and a shaft keyed at its end (`in_1284`)
+## Mesh on a selected surface, and a shaft keyed at its end (`in_1287`)
 **Mesh where the human looks for it:** a selected keyed hole or shaft (a surface of its bore, the rod, the whole body) now shows the icon the gears have (`Frame.gearChip`, `keywayChipOf` in `frame.ts`) with the one item, Mesh keyway; with a round shaft or body **selected too**, Mesh does not open a box to make a new part but cuts the keyway into it at once (a hole's shape into a rod, a shaft's into a body); a **click on round geometry** after Mesh does the same, as before. **The record is in the command of its part** (the human's file had the cut but not its record: a one command Undo had taken only the record, and Mesh had nothing to find): a one part model has its keyway record in the same batch as its part, so one Undo takes both; a file saved in that state needs its Redo.
 **Keyed at an end** (shafts are, in real life: a splined stub where a gear or coupling goes, a keyseat only as long as its hub, splines at both ends of a drive shaft, a shoulder wider than the spline, sometimes a runout): the Keyed shaft and the keyed fit have **Keyed part** (All, Far end, Near end, Both ends: the far end is the one the axis points to) and **Keyed length** (0: one and a half diameters, at most half the shaft); the shaft is round and as wide as the diameter or the spline outside it, and the key's slot, the flat or the spline's profile is cut over that length only (`shaftCuts`, `keyedRanges` in `modelkeyway.ts`). The record keeps the keyed end, so Mesh makes the hub there. **Not built:** a runout, the key's closed end (the slot is open at the shaft's end), keyed lengths on a hub's bore, a keyed part in the middle only. Tests: `keyway.test.ts`, `keywaymesh.test.ts`.
 

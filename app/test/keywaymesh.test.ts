@@ -141,7 +141,7 @@ test("without a keyed hole or shaft selected Mesh says so, and the menu item is 
   assert.equal(out.tool, null);
 });
 
-test("a keyed hole is remembered in the command that made it (one undo takes both), the chip offers Mesh on a selected keyed body, and Mesh with a round shaft selected too cuts the keyway into it at once (`in_1284`)", async () => {
+test("a keyed hole is remembered in the command that made it (one undo takes both), the chip offers Mesh on a selected keyed body, and Mesh with a round shaft selected too cuts the keyway into it at once (`in_1287`)", async () => {
   const base = cylinder(20, 15);
   let st = select(state(base), bodies({ session: base })[0]!.ref);
   st = reduce(st, { type: "runAction", id: "model:keyhole" }, env);

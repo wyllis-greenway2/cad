@@ -550,7 +550,7 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
   if (id === "keyway:mesh") { // the shaft that fits a keyed hole that is selected, or the hub that fits a shaft (`dec_keyway_maker`, `in_1279`)
     const sc = sceneOf(s.session), rec = selectionOf(s.session).map((r) => keywayOf(sc, r)).find((k) => !!k);
     if (!rec) return { ...closed, session: { ...s.session, message: "select a keyed hole or a keyed shaft made with the keyway maker first" } };
-    for (const r of selectionOf(s.session)) { // (a round body selected too: the keyway is cut into it at once: the hole's shape into a rod, the shaft's into a body, `in_1284`)
+    for (const r of selectionOf(s.session)) { // (a round body selected too: the keyway is cut into it at once: the hole's shape into a rod, the shaft's into a body, `in_1287`)
       const got = cutFillOf(sc, r);
       if (typeof got === "string" || got.cut.host === rec.host || (rec.role === "hole" && got.cut.bore > 0)) continue;
       const conv = meshConvert(meshTool(rec), rec, got);

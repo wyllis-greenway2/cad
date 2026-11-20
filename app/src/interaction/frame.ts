@@ -843,7 +843,7 @@ function bodySplitOf(sc: Scene, outcome: CompileOutcome, op: Op): Frame["bodySpl
   return tris.length ? { tris, box: { min: body.bbox.min, max: body.bbox.max } } : null;
 }
 
-/** The icon of a keyed hole or shaft that is selected (a surface of its bore, the rod, the whole body) and what a click on it offers: Mesh keyway (`in_1284`); null when none is selected. */
+/** The icon of a keyed hole or shaft that is selected (a surface of its bore, the rod, the whole body) and what a click on it offers: Mesh keyway (`in_1287`); null when none is selected. */
 function keywayChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
   const part = sel.find((r) => !!keywayOf(sc, r)), rec = part ? keywayOf(sc, part) : null;
   if (!part || !rec) return null;
