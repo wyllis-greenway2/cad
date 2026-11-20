@@ -7,6 +7,7 @@ import { kernel } from "../src/compiler/kernel/index.ts";
 import { openSession, scene } from "../src/interaction/session.ts";
 import type { Session } from "../src/interaction/session.ts";
 import type { Part } from "../src/operation/part.ts";
+import type { Op } from "../src/interaction/operations.ts";
 
 await kernel.init();
 test("lines across the base of a cylinder make four regions with its rim", () => {
@@ -25,7 +26,7 @@ test("a region cut by the rim can be extruded", async () => {
   const { runOp } = await import("../src/interaction/runop.ts");
   const st = startOp(scene(s), [pieces[0]!.ref], "extrude");
   assert.ok(st.ok, st.ok ? "" : st.why);
-  const out = runOp(s, { ...(st as unknown as { op: Record<string, unknown> }).op, value: 8 });
+  const out = runOp(s, { ...(st as { ok: true; op: Op }).op, value: 8 });
   assert.ok(out && !out.session.message, out ? String(out.session.message) : "no run");
   assert.deepEqual(out!.session.outcome.errors, {});
 });
