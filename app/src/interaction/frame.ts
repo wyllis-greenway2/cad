@@ -475,7 +475,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
   const m = settling && !s.op && lastDrag?.matrix && activeOp(s)?.kind === "move" ? lastDrag.matrix : null;
   const gizmo = followedGizmo && m ? { centre: add(followedGizmo.centre, [m[12]!, m[13]!, m[14]!]), handles: followedGizmo.handles.map((h) => ({ ...h, points: h.points.map((q) => add(q, [m[12]!, m[13]!, m[14]!])) })) } : followedGizmo;
   // the arrow of a push / pull, an extrude or a fillet / chamfer that showed up by itself has its bubble too, ready for a typed size
-  const auto = s.op || s.tool?.kind === "gear" ? null : activeOp(s); // (a gear's number box is not pushed aside by the size bubble of the face that is selected, `in_864`)
+  const auto = s.op || s.tool?.kind === "gear" || s.tool?.kind === "cam" || s.tool?.kind === "model" ? null : activeOp(s); // (a gear's, a cam's or a model's number box is not pushed aside by the size bubble of the face that is selected, `in_864`, `in_1256`)
   const shownOp = s.op ?? (auto && !(s.cam.straight && auto.kind !== "edge") && (auto.kind === "pushpull" || auto.kind === "extrude" || auto.kind === "edge") ? auto : null);
   // the arrows of a move have a number bubble on each, there as long as the arrows are (`in_215`)
   const mo = !s.tool && !s.repeat ? (s.op ?? auto) : null;

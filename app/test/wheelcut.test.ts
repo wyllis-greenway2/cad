@@ -168,3 +168,16 @@ test("Cut spokes in a thin disc is a flat wheel with the spokes cut out: no rati
     assert.ok(Math.abs(after[0]!.bbox.max[2]! - after[0]!.bbox.min[2]! - thick) < 1e-3, "as thick as it was");
   }
 });
+
+test("with a face of a cylinder selected, Cut spokes shows its own number box, not the face's size bubble", async () => {
+  const { frameOf } = await import("../src/interaction/frame.ts");
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 20); s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 15, ...figureParams([{ outer: [c.circle], holes: [] }]) } } } as Command);
+  let st: ReturnType<typeof createState> = { ...createState(s), cam: homeCamera() };
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: ["b/body/f@0,0,1,15" as never] } } };
+  st = reduce(st, { type: "runAction", id: "model:wheelcut" }, env);
+  assert.equal(st.tool?.kind, "model", st.session.message ?? "");
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.ok(f.entry?.panel?.startsWith("Cut spokes"), `the box is the wheel's: ${JSON.stringify(f.entry)}`);
+});

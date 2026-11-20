@@ -4423,3 +4423,6 @@ No words from the human with the upload (one 135 page PDF), so no `human-input.m
 
 ## Handoff 1116 — 2026-11-20 (in_1255: the piston maker's variable list, a proposal)
 `in_1255`. The human asked for a piston maker with every variable in the builder menu and real engines as presets only. Wrote `docs/decisions/dec_piston_maker.md` (provisional): about 50 variables in nine groups (interface and material, overall size, crown, ring belt, oil control, skirt, pin and bosses, interior, edges), each marked **T** (typed now), **H** (hard-coded, must become a field) or **N** (not in the model), the outputs to show, and a typed-or-auto rule per field. Nothing built.
+
+## Handoff 1117 — 2026-11-20 (in_1256: Cut spokes with a face selected shows its box)
+`in_1256`. With a cylinder's top face selected, Cut spokes armed (3D preview drawn) but no box showed: `frame.ts` computed the face's automatic push/pull entry for every tool but the gear, and it replaced the tool's entry. **Fixed:** model and cam tools suppress it too (`frame.ts`). Reproduced and verified in a real browser with Playwright; regression test in `test/wheelcut.test.ts`. The earlier tests had missed it because they checked the tool state, not the frame's entry.
