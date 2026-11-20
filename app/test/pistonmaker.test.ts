@@ -160,3 +160,48 @@ test("the pin is held by circlips: a groove in the pin bore near each face, a ri
   assert.match(pistonProblem({ ...base, clipEdge: 0.2 }) ?? "", /0.5 mm or more/);
   assert.match(pistonProblem({ ...base, clipWidth: 26 }) ?? "", /no room for the pin between the bosses/);
 });
+
+// The material and the hollow pin (`dec_piston_material`).
+import { MATERIALS, pistonVolumes, pistonWeight } from "../src/operation/modelpiston.ts";
+test("the material gives the room in the bore (0 = auto): cast aluminium Honda's 0.03, forged 0.05, cast iron 0.13; a typed room replaces it", () => {
+  const fit = (o: Partial<typeof PISTON_START>): number => pistonGeometry(P({ bore: 68, pin: 18, ...o })).fit;
+  assert.equal(fit({}), 0.03);
+  assert.equal(fit({ material: 1 }), 0.03);
+  assert.equal(fit({ material: 2 }), 0.05);
+  assert.equal(fit({ material: 3 }), 0.13);
+  assert.equal(fit({ material: 4 }), 0.13);
+  assert.equal(fit({ material: 3, skirtFit: 0.07 }), 0.07, "a number typed replaces the material's");
+  const r = (m: number): number => pistonGeometry(P({ bore: 68, pin: 18, material: m })).rp;
+  assert.ok(r(3) < r(2) && r(2) < r(0), "more room, a smaller piston");
+  assert.ok(Math.abs(r(2) - (34 - 0.025)) < 1e-9 && Math.abs(r(3) - (34 - 0.065)) < 1e-9);
+  assert.deepEqual(MATERIALS.map((m) => m.name), ["Cast aluminium", "Hypereutectic aluminium", "Forged aluminium", "Cast iron", "Steel"]);
+  assert.match(pistonProblem(P({ material: 5 })) ?? "", /the material is 0 to 4/);
+  assert.match(pistonProblem(P({ material: 1.5 })) ?? "", /the material is 0 to 4/);
+});
+test("the weight: the piston's, the pin's and the circlips' worked-out volumes agree with the kernel's, and the material scales it", () => {
+  for (const spec of [P(), P({ bore: 68, pin: 18 }), P({ bore: 60, pin: 13 })]) {
+    const g = pistonGeometry(spec), v = pistonVolumes(spec, g), bs = bodies(pistonSteps(spec)).sort((a, b) => b.volume - a.volume);
+    assert.equal(bs.length, 4);
+    assert.ok(Math.abs(bs[0]!.volume - v.cup) / v.cup < 0.003, `the cup: kernel ${bs[0]!.volume.toFixed(1)}, worked out ${v.cup.toFixed(1)}`);
+    assert.ok(Math.abs(bs[1]!.volume - v.pin) / v.pin < 0.001, `the pin: kernel ${bs[1]!.volume.toFixed(1)}, worked out ${v.pin.toFixed(1)}`);
+    assert.ok(Math.abs(bs[2]!.volume + bs[3]!.volume - v.clips) / v.clips < 0.001, "the circlips");
+    const w = pistonWeight(spec, g);
+    assert.ok(Math.abs(w.total - (w.piston + w.pin + w.clips)) < 1e-9 && Math.abs(w.piston - (v.cup * 2.7) / 1000) < 1e-9 && Math.abs(w.pin - (v.pin * 7.85) / 1000) < 1e-9, "the piston in its material, the pin and circlips in steel");
+  }
+  const al = pistonWeight(P({ bore: 68, pin: 18 })), iron = pistonWeight(P({ bore: 68, pin: 18, material: 3 }));
+  assert.ok(iron.piston > 2.5 * al.piston, `cast iron is heavier: ${iron.piston.toFixed(1)} g against ${al.piston.toFixed(1)} g`);
+  assert.ok(al.total > 40 && al.total < 400, `a GX160-sized piston weighs ${al.total.toFixed(1)} g in this model (no source gives a real one)`);
+});
+test("the pin is hollow by default (0.55 of the pin), solid when asked; a typed bore is used; too thin a wall is refused", () => {
+  const base = P({ bore: 68, pin: 18 }), g = pistonGeometry(base);
+  assert.ok(Math.abs(g.pinBore - 0.55 * 18) < 1e-9, "auto: 0.55 of the pin");
+  assert.equal(pistonGeometry({ ...base, pinKind: 0 }).pinBore, 0, "solid");
+  assert.equal(pistonGeometry({ ...base, pinBore: 8 }).pinBore, 8, "typed");
+  const solid = pistonVolumes({ ...base, pinKind: 0 }).pin, hollow = pistonVolumes(base).pin;
+  assert.ok(Math.abs(hollow / solid - (1 - 0.55 * 0.55)) < 1e-9, "the pin's volume is the ring's");
+  const bs = bodies(pistonSteps({ ...base, pinKind: 0 })).sort((a, b) => b.volume - a.volume), bh = bodies(pistonSteps(base)).sort((a, b) => b.volume - a.volume);
+  assert.ok(Math.abs(bs[1]!.volume - solid) / solid < 0.001 && Math.abs(bh[1]!.volume - hollow) / hollow < 0.001, "the kernel's pins");
+  assert.match(pistonProblem({ ...base, pinBore: 17 }) ?? "", /leaves too thin a wall/);
+  assert.match(pistonProblem({ ...base, pinKind: 2 }) ?? "", /solid \(0\) or hollow \(1\)/);
+  assert.match(pistonProblem({ ...base, pinBore: -1 }) ?? "", /bore is 0 \(auto\) or more/);
+});

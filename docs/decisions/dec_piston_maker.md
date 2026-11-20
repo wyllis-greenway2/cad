@@ -40,3 +40,7 @@ The human approved building the hard-coded variables first and giving the piston
 ## Stage 2, built (`in_1260`, `dec_piston_lands_clips`)
 
 Land relief (two typed numbers) and circlip retention (a typed Pin retention, the groove's width, depth and distance from the face, the pin's end float, and two circlip bodies) are built, and the engine has them too (nine bodies). **Still not built:** material, crown shapes and valve reliefs, ring types, hollow pin, the other pin retentions, skirt oval, taper and style, boss ribs, edges.
+
+## Stage 3, built (`dec_piston_material`)
+
+The material (density, weight, the default room in the bore) and a hollow pin. **Still not built:** crown shapes and valve reliefs, ring types, the other pin retentions, skirt oval, taper and style, boss ribs, edges.

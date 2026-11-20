@@ -5359,3 +5359,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1260 — 2026-11-20 — directive
 > do land relief and circlip grooves next
 (approves the next two piston maker variables: relieved ring lands, and circlip grooves in the pin bore with the circlips)
+
+## in_1261 — 2026-11-20 — directive
+> do the material and hollow pin next
+(approves the next two piston maker variables: the piston's material, which gives its weight and its default fit in the bore, and a hollow pin)
