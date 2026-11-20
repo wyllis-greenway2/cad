@@ -141,7 +141,7 @@ test("a thread at the kernel's own stop size is restarted even when it was that 
   assert.equal(workers.length, 2, "restarted: otherwise every step after it says the memory is full");
 });
 
-test("a thread is restarted before a job it has no room for, not refused in the middle of it: the room a job needs is what the last ones grew it by (`in_1269`)", () => {
+test("a thread is restarted before a job it has no room for, not refused in the middle of it: the room a job needs is what the last ones grew it by (`in_1275`)", () => {
   const { k, workers } = rig({ restartMb: 5000, hardMb: 5000 });
   k.evaluate(graph(0));
   workers[0]!.answer(1000); // (its first answer)
@@ -154,7 +154,7 @@ test("a thread is restarted before a job it has no room for, not refused in the 
   assert.equal(workers[1]!.posted.length, 1, "the waiting job goes to the new thread");
 });
 
-test("a job that was refused for want of memory is not shown as refused: the thread is restarted and the job is made again once; refused again, it is shown (`in_1269`)", () => {
+test("a job that was refused for want of memory is not shown as refused: the thread is restarted and the job is made again once; refused again, it is shown (`in_1275`)", () => {
   const { k, workers } = rig({ restartMb: 5000, hardMb: 5000 });
   const refused = (n: number): KernelResult => ({ ...EMPTY, ops: [{ id: `o${n}`, type: "box", error: "the model is too big for the kernel's memory (3563 MB of 4096 used): use fewer or simpler parts", ms: 0 }] } as unknown as KernelResult);
   k.evaluate(graph(1));
@@ -173,7 +173,7 @@ test("a job that was refused for want of memory is not shown as refused: the thr
   assert.match(k.evaluate(graph(2)).ops[0]?.error ?? "", /too big for the kernel's memory/);
 });
 
-test("a new thread makes the last whole answer again at once, with nothing asked, so the model is warm for the next edit; a model over the limit from its start is not made again for ever (`in_1269`)", () => {
+test("a new thread makes the last whole answer again at once, with nothing asked, so the model is warm for the next edit; a model over the limit from its start is not made again for ever (`in_1275`)", () => {
   const { k, workers } = rig({ restartMb: 1000 });
   k.evaluate(graph(0));
   workers[0]!.answer(300);

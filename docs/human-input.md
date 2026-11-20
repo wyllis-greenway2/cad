@@ -5385,17 +5385,37 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > Is this supposed to be cut like this? it looks like the oil ring cuts all the way through the wall except the bosses hold it together?
 (with a screenshot of the piston seen from the side and above: the ring grooves show as white bands, a small drain hole in the oil groove, and the pin bore with a jagged ring round it; asks whether the oil ring groove cuts through the wall)
 
+## in_1267 — 2026-11-20 — directive
+> Also can we offer splined shafts and bores? can we do real spline profiles (I mean gear shaft splines or flutes not drafting line splines)? Can we mix it with the bore maker? and can we pop off the bore maker as its own seperate thing? right now it is build duplicate into the gear maker and the wheel maker. Instead I think the gear or wheel maker can just make smooth round holes, and the bore maker (or probably called keyway maker) is a specialized tool for keying shafts to holes? It should have keys, flats, and splines. The users should be able to select real spline tooth profiles just like how the gears have real teeth profiles. (assuming there are standard profiles?) The keys and flats could be user defined but with catalog options for selecting standards you could actually buy (key sizes etc)
+(asks for a separate keyway maker tool, taken out of the gear and wheel makers, which would only make smooth round holes: it keys shafts to holes with keys, flats and real splines (shaft splines and flutes, not drafting splines), with real standard spline tooth profiles chosen as the gears choose theirs, and keys and flats user defined or from catalogues of standard sizes that can be bought)
+
+## in_1268 — 2026-11-20 — directive
+> Approve the design, and I'll upload the standards tables as files.. Link me to the files you think you need
+(approves the design of the keyway maker in `q_keyway_maker`, and says the standards tables will be uploaded as files; asks for links to the files that are needed)
+
+## in_1269 — 2026-11-20 — directive
+> do the crown next
+(approves the next piston maker variables: the crown's shape (flat, dome, dish, bowl), its edge chamfer and the valve reliefs)
+
+## in_1270 — 2026-11-20 — directive
+> @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/5048a163-ISO-14-1978.pdf" @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/6b625d8d-preview_ISO14-1982.pdf" @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/bec5a8ee-norelem_Catalogue_2022_-_Book_2.pdf" @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/c7ec588a-Straight_Sided_Spline_Dimensions___Ilmu_Teknik_dot_info.pdf"
+(sends four files: ISO 14:1978 (nominal dimensions, one page), the ISO 14:1982 preview (dimensions, designation), the norelem catalogue page 694 (splined shafts similar to DIN ISO 14), and a web page of straight sided spline dimensions and tolerances (BS 5686:1986, ISO 14-1982))
+
+## in_1271 — 2026-11-20 — directive
+> group the fields into sections first
+(answers my offer to group the piston maker's fields into sections before adding more variables)
+
 > okay, look at this, pull the face of this gear up to make it thicker didn't respect the the gear helix. Is this normal expected behavior with the face pull type? or is this a bug? also it took exactly one billion years, and half the time I try to do these operations it fails.
 (with the saved model 06451bcb-gear.json)
 
-## in_1267 — 2026-11-20 — directive
+## in_1273 — 2026-11-20 — directive
 > yes do the experiment and free the shapes
 
-## in_1268 — 2026-11-20 — question
+## in_1274 — 2026-11-20 — question
 > so did we figure out why it is so slow?
 
-## in_1269 — 2026-11-20 — directive
+## in_1275 — 2026-11-20 — directive
 > can we make it faster and not fail so much?
 
-## in_1272 — 2026-11-20 — directive
+## in_1276 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please do full suite tests

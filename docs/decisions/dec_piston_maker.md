@@ -3,7 +3,7 @@ id: dec_piston_maker
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1255, in_1258
+human_input: in_1255, in_1258, in_1271
 date: 2026-11-20
 depends_on:
   - dec_piston_parameters: the variables here are that entry's numbers and rules made into typed fields; its sources and assumptions are the presets' and defaults' evidence
@@ -48,3 +48,11 @@ The material (density, weight, the default room in the bore) and a hollow pin. *
 ## Stage 4, built (`dec_piston_skirt`)
 
 The skirt's shape: oval, taper, a chamfered foot, and a full or two-pad style. **Still not built:** crown shapes and valve reliefs, ring types, the other pin retentions, a barrel profile, boss ribs, skirt windows and lightening holes, other edges.
+
+## Stage 5, built (`dec_piston_crown`)
+
+The crown: flat, dome, dish or bowl, its edge chamfer and valve reliefs. **Still not built:** ring types, the other pin retentions, a barrel profile, boss ribs, skirt windows and lightening holes, the other edges.
+
+## The box's groups (`in_1271`)
+
+The Piston's and the Engine's boxes list their numbers in **groups under headings**, each heading showing how many numbers it holds and folding its rows when clicked (a group stays folded or open as the person left it; it opens by itself when the typing moves into it or when one of its numbers is the one that spoils the model). **Piston:** Size and material, Crown, Ring belt, Oil drain holes, Skirt, Pin and bosses, Pin retention. **Engine:** Engine, Piston, Piston fits. A field left out of every group stops the module from loading, so none can be lost from the box. **Seen in a browser:** the box, the headings, folding and unfolding, and the long choice lists (Material, Crown) wrapping inside the panel instead of running out of it; two things the browser showed were fixed: the preset row was labelled "Engine" (now "Start from", with the Honda names shortened) and a line about a partner gear, which belongs to the gear box, showed under every model's numbers.

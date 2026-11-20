@@ -120,7 +120,7 @@ export function nextField(m: ModelState, nums?: Nums): number {
 }
 
 /** The title of the box and the fields it shows: each number as typed, else the number it has now */
-export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { bad?: true; /** the number comes from the body the model is cut into: shown, not set */ locked?: true; label: string; value: string; active: boolean; typed: boolean; hint: string; short?: string; choices?: string[]; index: number; /** a radius's little fillet-or-chamfer toggle: the field that holds the kind, the kind it has, and the names */ toggle?: { index: number; value: number; choices: string[] } }[]; unit: string; note: string } | null {
+export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { bad?: true; /** the number comes from the body the model is cut into: shown, not set */ locked?: true; label: string; value: string; active: boolean; typed: boolean; hint: string; /** the group the number is listed under */ section?: string; short?: string; choices?: string[]; index: number; /** a radius's little fillet-or-chamfer toggle: the field that holds the kind, the kind it has, and the names */ toggle?: { index: number; value: number; choices: string[] } }[]; unit: string; note: string } | null {
   const m = t.model;
   if (!m) return null;
   const g = modelTarget(scene, t), fields = modelFields(m.kind), round = (v: number): string => String(Math.round(v * 100) / 100);
@@ -138,7 +138,7 @@ export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { ba
   const hintSize = m.kind === "ballbearing" && g?.nums.own === 0 ? "the outside diameter (mm): picks the listed bearing nearest to it (a number typed wins); the pointer sets it until you click" : hints[0]!;
   return {
     panel: modelTitle(m.kind),
-    fields: order.map((i) => ({ ...(m.bad?.field === i || guard?.field === i ? { bad: true as const } : {}), ...((i === 0 ? modelFixedSize(m.kind) : lockedNum(fields[i - 1]!, g?.nums)) ? { locked: true as const } : {}), index: i, label: labels[i]!, value: m.typed[i] !== "" ? m.typed[i]! : live[i] !== undefined ? round(live[i]!) : "", active: m.field === i, typed: m.typed[i] !== "", hint: i === 0 ? hintSize : hints[i]!, ...(i >= 1 && fields[i - 1]!.choices ? { choices: fields[i - 1]!.choices } : {}), ...(i >= 1 && fields[i - 1]!.toggle ? toggleOf(i) : {}) })),
+    fields: order.map((i) => ({ ...(m.bad?.field === i || guard?.field === i ? { bad: true as const } : {}), ...((i === 0 ? modelFixedSize(m.kind) : lockedNum(fields[i - 1]!, g?.nums)) ? { locked: true as const } : {}), index: i, ...(i >= 1 && fields[i - 1]!.section ? { section: fields[i - 1]!.section } : {}), label: labels[i]!, value: m.typed[i] !== "" ? m.typed[i]! : live[i] !== undefined ? round(live[i]!) : "", active: m.field === i, typed: m.typed[i] !== "", hint: i === 0 ? hintSize : hints[i]!, ...(i >= 1 && fields[i - 1]!.choices ? { choices: fields[i - 1]!.choices } : {}), ...(i >= 1 && fields[i - 1]!.toggle ? toggleOf(i) : {}) })),
     unit: "mm",
     note: g ? (g.problem ?? modelAbout(m.kind, g.nums)) : m.kind === "wheelcut" ? "click the round body to cut spokes into" : "click where the middle of it goes",
   };

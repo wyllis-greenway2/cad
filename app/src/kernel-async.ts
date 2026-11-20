@@ -40,11 +40,11 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   let heapMb = 0; // (how big the thread's memory has grown, as its last answer said)
   let baseMb = 0; // (how big it was at its first answer: what making the model from nothing takes. A thread is restarted only when it has grown well beyond this: a model that needs more than the limit would otherwise be restarted after every answer and made again from nothing each time, `in_857`)
   const grown = () => heapMb > baseMb * 1.4;
-  // how much the memory has grown by a job after the first (the biggest lately, a little over): a job begun with less room than that would be refused part way, so the thread is restarted before it, not in the middle of it (`in_1269`)
+  // how much the memory has grown by a job after the first (the biggest lately, a little over): a job begun with less room than that would be refused part way, so the thread is restarted before it, not in the middle of it (`in_1275`)
   let jobStartMb = 0, maxGrow = 0;
   const headroom = (): number => Math.min(1500, Math.round(maxGrow * 1.25));
   const tooFull = (): boolean => baseMb > 0 && maxGrow > 0 && heapMb > baseMb * 1.2 && heapMb + headroom() > KERNEL_MEMORY_STOP_MB;
-  let lastDone: { key: string; graph: KernelGraph } | null = null; // (the last whole answer: a new thread makes it again at once when it has nothing else to do, so the model is warm for the next edit, `in_1269`)
+  let lastDone: { key: string; graph: KernelGraph } | null = null; // (the last whole answer: a new thread makes it again at once when it has nothing else to do, so the model is warm for the next edit, `in_1275`)
   let warm: { key: string; graph: KernelGraph } | null = null;
   const retried = new Set<string>(); // (the jobs that were refused for want of memory and are made again once on a new thread)
   let worker = first;
@@ -144,7 +144,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
       cache.set(job.key, failedResult(job.graph, m.failed, 0, last)); // (an answer, so what waits for it is not held up for ever, and the step that asked is reported)
       onChange();
     }
-    if (m.result && !job.asked && !retried.has(job.key) && m.result.ops.some((o) => /too big for the kernel's memory/.test(o.error ?? ""))) { // a step was refused for want of memory: not shown; the thread is restarted and the job made again once (`in_1269`)
+    if (m.result && !job.asked && !retried.has(job.key) && m.result.ops.some((o) => /too big for the kernel's memory/.test(o.error ?? ""))) { // a step was refused for want of memory: not shown; the thread is restarted and the job made again once (`in_1275`)
       retried.add(job.key);
       if (!queued) queued = { key: job.key, graph: job.graph, draft: job.key.startsWith("draft:"), lite: job.key.startsWith("lite:"), at: performance.now() };
       restart("a step was refused for want of memory");
