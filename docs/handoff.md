@@ -4599,3 +4599,6 @@ Branch `claude/adoring-dijkstra-carry`. `in_1280` asked for a polygon tool that 
 
 ## Handoff 1170 — 2026-11-20 (in_1321: brought up to the testing branch)
 `in_1321`. Merged the testing branch (up to `in_1319`, Handoff 1168); this branch's `in_1309` and Handoff 1161 became `in_1320` and Handoff 1169; the ring test lists Add, Subtract and Intersect.
+
+## Handoff 1171 — 2026-11-20 (in_1322: mirror about a clicked line or face; delete a mirror's copy)
+`in_1322`. With the mirror open a click on a line or face puts the plane there (`mirrorAcross` in `interaction/mirror.ts`, the click in `control/pointer.ts`; world planes under the pointer are ignored); Delete on the copy of a mirrored sketch breaks the mirror and deletes its copies (`mirrorOfCopy` in `repeat.ts`, `actions.ts`). Tests in `mirror.test.ts`. Open: a mirrored body fused to its original is one body (deleting takes both); linear and circular repeat copies still need Break first; the line click on a body edge uses the vertical as reference. `tools.test.ts` "right-click ring" fails on the merged branch before this change (not mine).

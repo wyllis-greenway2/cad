@@ -5586,3 +5586,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1321 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1322 — 2026-11-20 — directive
+> okay lets work on some other stuff. it seems like you cannot delete the mirrored copy of a mirror sketch and  maybe 3d body too? I think you should be able to. Also the mirror tool doesn't work as I would expect. If I select something to mirror, then click a line, I would expect it to mirror from that line, or face ( I only tried mirroring sketch on line and it didn't work) face might work.
+(asks that the copy of a mirror can be deleted, and that with the mirror open a click on a line or a face sets the plane)
