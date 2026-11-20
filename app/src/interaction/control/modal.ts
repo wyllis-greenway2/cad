@@ -376,6 +376,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
 export function doEscape(s: AppState): AppState {
   if (s.building) return { ...s, building: null, tool: madeTo(s.tool, s.session), session: { ...s.session, message: "stopped: the parts made so far stay (Undo takes them back, one at a time)" } }; // (a model made a part at a time)
   if (s.menu) return { ...s, menu: null };
+  if (s.dragSelect) return { ...s, dragSelect: false, session: { ...s.session, message: null } };
   if (s.motion) return { ...s, motion: null }; // (a joint that is being played goes back to rest)
   if (s.awaiting) return { ...s, awaiting: null, session: { ...s.session, message: null } }; // (the item that waited for a selection is given up, `in_951`)
   if (s.picking && !s.op) return { ...s, picking: null, session: { ...s.session, message: null } }; // (the operation that was waiting for what to click is given up, `in_464`)
@@ -427,6 +428,8 @@ export function doApply(s: AppState): AppState {
 }
 
 export function doRunAction(s0: AppState, id: string, now = 0): AppState {
+  // Delete in the ring: what is selected, or, with nothing selected, the thing the right click was on (`in_1268`)
+  if (id === "delete" && s0.menu?.over && !selectionOf(s0.session).length) return doDelete({ ...s0, session: { ...s0.session, click: { ...s0.session.click, selection: [s0.menu.over] } } });
   const s = s0.awaiting && !id.startsWith("why:") ? { ...s0, awaiting: null } : s0; // (another choice gives up the one that waited, `in_951`)
   if (id.startsWith("say:")) return { ...s, session: { ...s.session, message: id.slice(4) } }; // (a dimmed row of the ⋯ list pressed: what is said, `in_541`)
   if (id.startsWith("why:")) { // a dimmed option of the menu pressed (`in_538`): it can be chosen; what it needs is said as what to select, and it runs by itself once that is selected (`in_951`)
@@ -446,6 +449,7 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
   }
   if (id === "select:similar") return doSimilar(closed);
   if (id === "select:group") return doGroup(closed);
+  if (id === "select:drag") return { ...closed, dragSelect: !s.dragSelect, session: { ...closed.session, message: s.dragSelect ? null : "drag across the model to select what is in the rectangle (it is for one drag)" } }; // (a finger's drag select, `in_1268`)
   if (id === "select:add") return { ...closed, adding: !s.adding, session: { ...closed.session, message: s.adding ? "adding is off" : "adding is on: a tap adds to the selection, or takes out what is selected" } }; // (the way to select several with a finger, `in_539`)
   if (id === "select:bodies") return doSelectBodies(closed);
   if (id === "undo") return doUndo(closed); // (undo, redo and delete are the Actions of the ring, `in_538`)

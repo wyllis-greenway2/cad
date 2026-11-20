@@ -1,7 +1,9 @@
 import { lengthText } from "../shared/units.ts";
 // The rows of the ⋯ list, always all there and dimmed when one cannot be used (`in_661`): the lists, import, export, Fabricate, and the settings page (the view, the mouse and the keyboard are there, `dec_settings_page`).
 export interface AppRow { id: string; label: string; enabled: boolean; why: string | null }
-export const appRows = (build = "", can: { export?: boolean; /** the kernel's answers are kept between sessions (`dec_description_cache`): a row to forget them */ clearAnswers?: boolean } = {}): AppRow[] => [
+export const appRows = (build = "", can: { undo?: boolean; redo?: boolean; export?: boolean; /** the kernel's answers are kept between sessions (`dec_description_cache`): a row to forget them */ clearAnswers?: boolean } = {}): AppRow[] => [
+  { id: "undo", label: "Undo", enabled: can.undo ?? true, why: "nothing to undo" }, // (they are here and not in the ring, `in_1268`)
+  { id: "redo", label: "Redo", enabled: can.redo ?? true, why: "nothing to redo" },
   { id: "bodies", label: "Bodies", enabled: true, why: null },
   { id: "history", label: "History", enabled: true, why: null },
   { id: "groups", label: "Groups", enabled: true, why: null },

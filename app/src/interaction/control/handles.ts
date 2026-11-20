@@ -95,6 +95,8 @@ export const chosenId = (s: AppState): string | undefined => (s.op?.kind === "ro
 /** The pointer moves while the button is down: it works a handle if the drag began on one, else it turns the camera. */
 export function doDragMove(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env): AppState {
   if (s.box) return { ...s, box: { ...s.box, x: i.x, y: i.y } }; // the rectangle of a drag select (`in_235`)
+  // drag select was chosen in the menu (a finger): this drag draws the rectangle, from where it began, instead of turning the view, and drag select is over (`in_1268`)
+  if (s.dragSelect && !s.drag && !s.tool && !s.op && !s.repeat && !i.view) return { ...s, dragSelect: false, menu: null, session: { ...s.session, message: null }, box: { x0: i.x - i.dx, y0: i.y - i.dy, x: i.x, y: i.y, shift: !!s.adding } };
   const pr = projector(s.cam, env.w, env.h);
   if (i.view && !s.drag) return doOrbit({ ...s, drag: { camera: true } }, i); // the right button only turns the view
   if (!s.drag) {

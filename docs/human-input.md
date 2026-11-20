@@ -5388,3 +5388,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1267 — 2026-11-20 — directive
 > can we have a polygon sketch tool? It should just ask you the number of edges and draws a polygon based off that.
 (asks for a polygon tool among the sketch tools: it asks for the number of edges and draws a polygon from that)
+
+## in_1268 — 2026-11-20 — directive
+> can we put a drag select option under the finger menu? When you are drawing a spline, a right click out in space should apply it not cancel it. I also think clicking down both mouse buttons at the same time should initiate it. Also lets change the trash icon, lets have it not have a sub menu at all. lets put undo and redo in the ... menu for now, and that trash icon just immedietly deletes whatever it is clicked on.
+(four changes: drag select in the finger's menu; a right click applies a spline being drawn; both mouse buttons down at once begin the drag select; the trash item has no list, Undo and Redo go to the ⋯ menu, and the trash deletes what is clicked on)

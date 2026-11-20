@@ -360,8 +360,8 @@ test("the right-click ring offers all the operations around the click; nothing o
   const f = frameOf(st, { w: 800, h: 600 });
   assert.ok(!f.annotations.some((a) => ["pushpull", "sketch", "edge", "rect"].includes(a.kind)), "a left click shows constraints and dimensions only");
   const ring = flat(reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items.filter((i) => i.id !== "constraints")); // (the constraints have their own test: they are all always there, `in_666`)
-  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:polygon", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset", "op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", "fab:material", "tool:fasteners", "tool:gear", "tool:ring", "tool:rack", "tool:planetary", "tool:bevel", "tool:spiral", "tool:hypoid", "tool:crown", "tool:face", "tool:worm", "tool:wormwheel", "tool:clock", "tool:clockring", "tool:clockrack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "model:ballbearing", "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "model:piston", "model:wheel", "model:wheelcut", "tool:geneva:model", "op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue", "op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup", "look", "view:game", "view:section", "view:hide", "view:wireframe", "view:constraints", "tape:measure", "undo", "redo", "delete"]);
-  assert.deepEqual(ring.filter((i) => !i.enabled).map((i) => i.id), ["combine:parts", "fab:material", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue", "clipboard:paste", "repeat:path", "select:group", "select:ungroup", "redo", "delete"], "an operation that needs more than a face is still offered and waits for it (`in_464`); one face is nothing to group and is no group to break; Path repeat needs a figure or a body and a path (`in_841`) while Fastener Holes works on a flat face (`in_813`); a face cannot be deleted (fillet / chamfer takes a flat face too now, `in_257`, as offset does, `in_199`)");
+  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:polygon", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset", "op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", "fab:material", "tool:fasteners", "tool:gear", "tool:ring", "tool:rack", "tool:planetary", "tool:bevel", "tool:spiral", "tool:hypoid", "tool:crown", "tool:face", "tool:worm", "tool:wormwheel", "tool:clock", "tool:clockring", "tool:clockrack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "model:ballbearing", "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "model:piston", "model:wheel", "model:wheelcut", "tool:geneva:model", "op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue", "op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup", "look", "view:game", "view:section", "view:hide", "view:wireframe", "view:constraints", "tape:measure", "delete"]);
+  assert.deepEqual(ring.filter((i) => !i.enabled).map((i) => i.id), ["combine:parts", "fab:material", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue", "clipboard:paste", "repeat:path", "select:group", "select:ungroup", "delete"], "an operation that needs more than a face is still offered and waits for it (`in_464`); one face is nothing to group and is no group to break; Path repeat needs a figure or a body and a path (`in_841`) while Fastener Holes works on a flat face (`in_813`); a face cannot be deleted (fillet / chamfer takes a flat face too now, `in_257`, as offset does, `in_199`)");
   assert.ok(ring.every((i) => i.icon));
   const drawing = reduce(st, { type: "runAction", id: "tool:circle" }, env);
   assert.equal(drawing.tool!.kind, "circle");
@@ -926,4 +926,72 @@ test("polygon: Tab goes to the other number; a typed diameter sets the size; the
   many = typeText(many, "200");
   many = click(many, [20, 15, 0]); many = move(many, [30, 15, 0]);
   assert.equal(previewFor(scene(many.session), many.tool)!.segments.length, 64, "not more than sixty-four");
+});
+
+test("a right click out in space applies a spline that is being drawn instead of putting it away (`in_1268`); with too few points it only puts it away", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "spline" }, env);
+  st = click(st, [5, 5, 0]);
+  st = click(st, [15, 12, 0]);
+  st = click(st, [28, 4, 0]);
+  assert.equal(st.tool!.points.length, 3);
+  const lines0 = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn").length;
+  st = reduce(st, { type: "menu", x: 5, y: 5, button: false }, env);
+  const lines = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn") as { spline?: unknown }[];
+  assert.equal(lines.length, lines0 + 1, "a spline was made");
+  assert.ok(lines.some((l) => l.spline), "and it is one");
+  // one point only: nothing to apply
+  let one = reduce(top(), { type: "begin", name: "spline" }, env);
+  one = click(one, [5, 5, 0]);
+  one = reduce(one, { type: "menu", x: 5, y: 5, button: false }, env);
+  assert.equal(one.tool, null);
+  assert.equal(Object.values(scene(one.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn").length, 0);
+});
+
+test("Delete in the ring takes what is selected at once, or, with nothing selected, what the right click was on (`in_1268`)", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "circle" }, env);
+  st = click(st, [20, 15, 0]);
+  st = click(st, [26, 15, 0]);
+  st = stays(st);
+  const circles = () => Object.values(scene(st.session).parts).filter((p) => p.kind === "circle").length;
+  assert.equal(circles(), 1);
+  // nothing selected, a right click on the circle's edge: Delete is offered and takes it
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [] } } };
+  const [x, y] = px(st, [26, 15, 0]);
+  st = reduce(st, { type: "menu", x, y }, env);
+  const del = flat(st.menu!.items).find((i) => i.id === "delete")!;
+  assert.ok(del.enabled && st.menu!.over, "it can delete what was clicked on");
+  st = reduce(st, { type: "runAction", id: "delete" }, env);
+  assert.equal(circles(), 0);
+  assert.equal(st.menu, null);
+  // right click on nothing, nothing selected: dimmed
+  const [ex, ey] = px(st, [5, 40, 0]);
+  const empty = reduce(st, { type: "menu", x: ex, y: ey }, env);
+  assert.ok(!flat(empty.menu!.items).find((i) => i.id === "delete")!.enabled);
+});
+
+test("drag select from the menu of a finger (`in_1268`): it is offered only to a finger, the next drag draws the rectangle instead of turning the view, and it is for one drag", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "circle" }, env);
+  st = click(st, [20, 15, 0]); st = click(st, [26, 15, 0]);
+  st = stays(st);
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [] } } };
+  const mouse = reduce(st, { type: "menu", x: 400, y: 300 }, env);
+  assert.ok(!flat(mouse.menu!.items).some((i) => i.id === "select:drag"), "not in a mouse's menu");
+  const finger = reduce(st, { type: "menu", x: 400, y: 300, touch: true }, env);
+  assert.ok(flat(finger.menu!.items).find((i) => i.id === "select:drag")!.enabled, "in a finger's");
+  st = reduce(finger, { type: "runAction", id: "select:drag" }, env);
+  assert.ok(st.dragSelect && st.menu === null);
+  const [x0, y0] = px(st, [10, 5, 0]), [x1, y1] = px(st, [34, 25, 0]);
+  const cam0 = JSON.stringify(st.cam);
+  st = reduce(st, { type: "orbit", dx: x1 - x0, dy: y1 - y0, x: x1, y: y1 }, env);
+  assert.equal(JSON.stringify(st.cam), cam0, "the view did not turn");
+  assert.ok(st.box && !st.dragSelect, "a rectangle, and drag select is over");
+  assert.ok(Math.abs(st.box!.x0 - x0) < 1e-9 && Math.abs(st.box!.y0 - y0) < 1e-9, "from where the drag began");
+  st = reduce(st, { type: "dragEnd" }, env);
+  assert.ok(selection(st.session).length > 0, "what was in the rectangle is selected");
+  // Esc gives it up
+  const armed = reduce(reduce(st, { type: "menu", x: 400, y: 300, touch: true }, env), { type: "runAction", id: "select:drag" }, env);
+  assert.ok(reduce(armed, { type: "escape" }, env).dragSelect === false);
 });

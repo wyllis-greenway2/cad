@@ -36,7 +36,7 @@ export interface AppState {
   spread: { ref: Ref; point: Vec3; startMs: number } | null;
   /** the point under the pointer on the hovered surface (for the ring) */
   hoverPoint: Vec3 | null;
-  menu: { x: number; y: number; items: MenuItem[]; /** the world plane the pointer was over when it opened: a sketch tool chosen from it turns to that plane */ plane?: Ref | null } | null;
+  menu: { x: number; y: number; items: MenuItem[]; /** the part the right click was on: Delete takes it when nothing is selected (`in_1268`) */ over?: Ref | null; /** the world plane the pointer was over when it opened: a sketch tool chosen from it turns to that plane */ plane?: Ref | null } | null;
   /** every constraint is shown, also the ones that only join the outline of a body's sketch (`in_239`) */
   showAllConstraints: boolean;
   /** the bodies whose constraints are all shown (the half eye, half lock icon on a selected body, `in_1157`) */
@@ -80,6 +80,8 @@ export interface AppState {
   /** the constraint a point being dragged is close to (it has taken it, and a release keeps it), lit while the drag goes on (`in_290`) */
   dragHint: { hints: Hint[]; at: Vec3 } | null;
   /** the rectangle of a drag select (`in_230`, `in_235`): the left button was held still, then dragged without letting up */
+  /** drag select is on (a finger's menu): the next drag draws a rectangle and selects what is in it, once (`in_1268`) */
+  dragSelect?: boolean;
   box: { x0: number; y0: number; x: number; y: number; shift: boolean; remove?: boolean } | null;
   /** the list open from the ⋯ menu (`in_132`) */
   panel: "bodies" | "history" | "groups" | "sketches" | "parameters" | "constraints" | "measure" | null;

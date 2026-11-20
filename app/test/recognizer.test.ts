@@ -223,3 +223,15 @@ test("an operation is open and no arrow is chosen: there is no drag icon, a tap 
   assert.deepEqual(types(run(r, [T("down", 200, 205), T("up", 200, 205)])), ["click"], "on an arrow: select it");
   assert.deepEqual(run(r, [T("down", 100, 400), T("up", 100, 400)]), [{ type: "menu", x: 100, y: 400, touch: true }], "in free space: a right click");
 });
+
+test("mouse: both buttons down together begin a drag select at once (`in_1268`): a hold, the drag is the rectangle, letting up ends it; no click and no menu after; a press that never moves picks nothing", () => {
+  for (const [first, second] of [[0, 2], [2, 0]] as const) {
+    const r = createRecognizer();
+    const out = run(r, [ev("down", 100, 100, { button: first }), ev("down", 100, 100, { button: second }), ev("move", 140, 120, { button: second }), ev("move", 180, 150, { button: second }), ev("up", 180, 150, { button: second }), ev("up", 180, 150, { button: first })]);
+    assert.deepEqual(types(out), ["hold", "orbit", "orbit", "dragEnd"], `a hold, the rectangle, its end: nothing after (${first} then ${second})`);
+    const still = run(createRecognizer(), [ev("down", 100, 100, { button: first }), ev("down", 100, 100, { button: second }), ev("up", 100, 100, { button: second }), ev("up", 100, 100, { button: first })]);
+    assert.deepEqual(types(still), ["hold", "dragEnd"], "it began and ended with no drag: the end lets the empty rectangle go");
+  }
+  // one button alone is as it was
+  assert.deepEqual(types(run(createRecognizer(), [ev("down", 10, 10, { button: 2 }), ev("up", 10, 10, { button: 2 })])), ["menu"]);
+});

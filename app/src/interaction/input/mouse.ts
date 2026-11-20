@@ -5,7 +5,7 @@ import { settings } from "../../shared/settings.ts";
 import type { ClickCounter } from "./clicks.ts";
 
 type Pointer = Extract<RawInput, { kind: "down" | "move" | "up" | "cancel" }>;
-type Action = "orbit" | "pan" | "click" | "menu";
+type Action = "orbit" | "pan" | "click" | "menu" | "chord";
 interface Drag { button: number; x0: number; y0: number; x: number; y: number; t0: number; moved: boolean; held: boolean; action: Action; shift: boolean; /** Ctrl or Cmd held (without Shift): a click adds like Shift, a rectangle takes out (`in_257`) */ ctrl: boolean }
 
 export function createMouse(countClick: ClickCounter, spaceHeld: () => boolean, slopPx: () => number = () => settings.view.clickMovePx, holdMs: () => number = () => settings.input.boxHoldMs) {
@@ -19,6 +19,11 @@ export function createMouse(countClick: ClickCounter, spaceHeld: () => boolean, 
   };
   const feed = (e: Pointer): Intent[] => {
     if (e.kind === "down") {
+      // both the left and the right button down together (one pressed while the other is held, still): a drag select begins at once, as a held left button does (`in_1268`); neither button then clicks or opens the menu
+      if (g && !g.moved && g.action !== "chord" && g.button !== e.button && (g.button === 0 || g.button === 2) && (e.button === 0 || e.button === 2) && !spaceHeld()) {
+        g = { ...g, button: 0, x0: e.x, y0: e.y, x: e.x, y: e.y, action: "chord", held: true, shift: e.mods.shift, ctrl: e.mods.ctrl && !e.mods.shift };
+        return [{ type: "hold", x: e.x, y: e.y, shift: e.mods.shift, ...(e.mods.ctrl && !e.mods.shift ? { remove: true } : {}) }];
+      }
       const lost = g?.moved && g.action !== "pan" ? [{ type: "dragEnd" } as Intent] : []; // a press while one is still down: the release of the first never came
       g = { button: e.button, x0: e.x, y0: e.y, x: e.x, y: e.y, t0: e.t, moved: false, held: false, action: actionOf(e.button, e.mods), shift: e.mods.shift, ctrl: e.mods.ctrl && !e.mods.shift };
       return lost;
@@ -34,6 +39,7 @@ export function createMouse(countClick: ClickCounter, spaceHeld: () => boolean, 
     }
     const cur = g;
     g = null;
+    if (cur?.action === "chord") return [{ type: "dragEnd" }]; // the rectangle is let go (a press that never moved picks nothing)
     if (cur?.moved && cur.action !== "pan") return [{ type: "dragEnd" }]; // the drag (of the camera, of a handle or of a rectangle) is over
     if (e.kind === "cancel" || !cur || cur.moved) return [];
     if (cur.action === "menu") return [{ type: "menu", x: e.x, y: e.y }];
