@@ -5536,3 +5536,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1307 — 2026-11-20 — directive
 > Also this helper set of icons shows up directly under my click sometimes. it is super annoying. Can we have it offset from the body further?
 (a screenshot: the helpful bar with the eye, the lock and two suggested constraints standing over a face that was clicked)
+
+## in_1308 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests

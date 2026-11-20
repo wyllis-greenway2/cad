@@ -4566,3 +4566,6 @@ Branch `claude/adoring-dijkstra-carry`. `in_1280` asked for a polygon tool that 
 
 ## Handoff 1159 — 2026-11-20 (in_1307: the helpful bar kept off the click)
 `in_1307`. The bar's base offset is 104 px (was 77) and a box round the pointer is an obstacle it slides away from (`main.ts` passes it with the other boxes in front; `placeBubbles` does the sliding). **Seen** in the browser on three clicks of the lever and the gear (the bar 89 to 112 px from the click, never under it). No test (it is the page's drawing); types. **Not done:** the touch layout (a finger covers more than that box), the bar where the pointer is near the bottom of the page (it may have no room and fade, as the bubbles do).
+
+## Handoff 1160 — 2026-11-20 (in_1308: the touching-regions fix and the bar's offset merged into the testing branch)
+`in_1308`. The testing branch had not moved (up to `in_1305`, Handoff 1157), so this is a fast-forward and nothing was renumbered. Checked before: the extrude, region, piece, boolean and revolve tests (120) for the touching regions; the bar's offset in the browser; types, layers and the record check; the full suite not run, as asked. The unused check flags `spaceAt` in `operation/spacepath.ts`, a file of the testing branch, not mine.
