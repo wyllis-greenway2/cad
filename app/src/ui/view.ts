@@ -1,5 +1,6 @@
 // The three.js view (`dec_clean_engine_design` section 8): it reads the scene, the selection and the camera, and draws. It never changes them.
 // The pieces are in `view/`: `content` (the scene), `highlight` (ring, teal, amber), `pen` (thick lines and shapes); the world dressing is `world.ts`.
+import { setLook, solidCopy, seeThroughMaterial, seeThroughLine, markMaterial, MARK, RED } from "./looks.ts";
 import * as THREE from "three";
 import { studio } from "./view/studio.ts";
 import type { Scene, Vec3, StandIn } from "../interaction/api.ts";
@@ -81,7 +82,7 @@ export function createView(host: HTMLElement) {
     lastSplitKey = ""; // (the pieces that moved on their own are gone with the old picture)
     if (bodyGroup) { bodyGroup.matrix.fromArray(bodyMatrix ?? IDENTITY); bodyGroup.matrixWorldNeedsUpdate = true; }
     if (moverGroup) moverGroup.matrix.fromArray(IDENTITY);
-    applyFade();
+    applyLook();
     if (clips.length) applyClip();
   }
   let ghoster: ((on: boolean) => void) | null = null;
@@ -214,8 +215,7 @@ export function createView(host: HTMLElement) {
       const g = mesh.geometry.clone();
       g.setIndex(keep);
       g.clearGroups();
-      const mat = (mesh.material as THREE.MeshStandardMaterial).clone();
-      if (mesh.material === bodyMat) { mat.color.setHex((bodyMat!.userData.base as number | undefined) ?? bodyMat!.color.getHex()); mat.opacity = 1; } // (the surface as it is solid: the body's own material may be faded or wireframe just now, and this face is kept after, `in_1378`)
+      const mat = mesh.material === bodyMat ? solidCopy(bodyMat!) : (mesh.material as THREE.Material).clone(); // (a face on the cut is solid, `in_1378`)
       mat.clippingPlanes = [clip];
       mat.polygonOffset = true; mat.polygonOffsetFactor = -12; mat.polygonOffsetUnits = -12;
       mat.depthWrite = false; mat.depthTest = true; mat.transparent = false; mat.stencilWrite = false; // (no depth written: the lines drawn on the face come after and must show over it, `in_1362`)
@@ -266,20 +266,10 @@ export function createView(host: HTMLElement) {
     clips.slice(0, 8).forEach((q, i) => sectionClip.clPlanes.value[i]!.set(q.normal.x, q.normal.y, q.normal.z, q.constant)); // (the teal and the ring of the pointer are cut where the part is, `in_680`)
     applyClip();
   };
-  /** The body see-through (the sketch plane is looked at straight and the body is between it and the camera) or as it was (`in_194`). */
-  function applyFade() {
-    if (!bodyMat) return;
-    bodyMat.userData.base ??= bodyMat.color.getHex(); // (its own colour, put back after a wireframe)
-    // wireframe (`in_383`, `in_386`): the surfaces are nearly clear and dark, not gone, so the edges and the sketches inside show through them
-    bodyMat.transparent = fade || wire;
-    bodyMat.opacity = wire ? 0.14 : fade ? settings.theme.bodyFadeOpacity : 1;
-    bodyMat.depthWrite = !fade && !wire;
-    bodyMat.color.setHex(wire ? 0x14161a : (bodyMat.userData.base as number));
-    bodyMat.visible = true;
-    bodyMat.needsUpdate = true;
-  }
-  const setWireframe = (on: boolean) => { if (on !== wire) { wire = on; applyFade(); } };
-  const setBodyFade = (on: boolean) => { if (on !== fade) { fade = on; applyFade(); } };
+  /** The body in the see-through look (a wireframe, a sketch plane looked at straight with the body between, a cut being made) or solid (`in_1379`). */
+  function applyLook() { if (bodyMat) setLook(bodyMat, fade || wire ? "seeThrough" : "solid"); }
+  const setWireframe = (on: boolean) => { if (on !== wire) { wire = on; applyLook(); } };
+  const setBodyFade = (on: boolean) => { if (on !== fade) { fade = on; applyLook(); } };
   const setHighlight = (h: Highlight, cam: Camera, nowMs: number) => {
     // turning the view changes nothing the highlight is made from (only a zoom does, by the size of its balls): it is not built again while it is the same
     const key = highlightKey(h, nowMs, cam.distance, `${sceneStamp}|${sectionKey}`);
@@ -295,7 +285,7 @@ export function createView(host: HTMLElement) {
     clearGroup(preview);
     pen.build("preview", () => {
       if (!p) return;
-      const colour = p.red ? 0xe5484d : p.orange ? 0xf59e0b : TEAL; // (a gear whose number was just put right flashes red, `in_690`)
+      const colour = p.red ? RED : p.orange ? 0xf59e0b : TEAL; // (a gear whose number was just put right flashes red, `in_690`)
       if (p.cursor) preview.add(sphereAt(p.cursor, cam.distance * settings.pick.vertexScale, TEAL));
       for (const [a, b] of p.segments) preview.add(pen.line([...a, ...b], colour, 2, false));
       for (const [a, b] of p.guides ?? []) preview.add(pen.dashed([...a, ...b], TEAL, 1.5, cam.distance * 0.012)); // (alignment guides are dashed so they read differently from the figure, `in_381`)
@@ -340,8 +330,8 @@ export function createView(host: HTMLElement) {
       const attr = new THREE.BufferAttribute(pos, 3);
       const faces = new THREE.BufferGeometry(); faces.setAttribute("position", attr); faces.setIndex(tri);
       const edges = new THREE.BufferGeometry(); edges.setAttribute("position", attr); edges.setIndex(line);
-      const body = new THREE.Mesh(faces, new THREE.MeshBasicMaterial({ color: 0x9aa0a6, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false }));
-      const rim = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x6b7280, transparent: true, opacity: 0.55 }));
+      const body = new THREE.Mesh(faces, seeThroughMaterial());
+      const rim = new THREE.LineSegments(edges, seeThroughLine());
       for (const o of [body, rim]) { o.renderOrder = 2; o.frustumCulled = false; standGroup.add(o); }
     }
     for (const d of list) {
@@ -349,7 +339,7 @@ export function createView(host: HTMLElement) {
       if (d.path) { // a swept body: a tube along its path (`in_850`)
         const curve = new THREE.CatmullRomCurve3(d.path.map((q) => new THREE.Vector3(...q)), false, "centripetal");
         const geo = new THREE.TubeGeometry(curve, Math.min(400, d.path.length * 6), d.radius, 16, false);
-        const body = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x9aa0a6, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false }));
+        const body = new THREE.Mesh(geo, seeThroughMaterial());
         body.renderOrder = 2;
         standGroup.add(body);
         continue;
@@ -359,8 +349,8 @@ export function createView(host: HTMLElement) {
       if (d.hole > 0) { const h = new THREE.Path(); h.absarc(0, 0, d.hole, 0, Math.PI * 2, true); shape.holes.push(h); }
       const geo = new THREE.ExtrudeGeometry(shape, { depth: Math.abs(d.depth), bevelEnabled: false, curveSegments: 64 });
       if (d.depth < 0) geo.translate(0, 0, d.depth);
-      const body = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x9aa0a6, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false }));
-      const rim = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), new THREE.LineBasicMaterial({ color: 0x6b7280, transparent: true, opacity: 0.55 }));
+      const body = new THREE.Mesh(geo, seeThroughMaterial());
+      const rim = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), seeThroughLine());
       for (const o of [body, rim]) { o.position.set(...d.centre); o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(...d.normal)); o.renderOrder = 2; standGroup.add(o); }
     }
   }
@@ -371,12 +361,12 @@ export function createView(host: HTMLElement) {
     if (!tris || !tris.length) return;
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(tris), 3));
-    const mat = new THREE.MeshBasicMaterial({ color: settings.measure.thinColor, transparent: true, opacity: settings.measure.thinOpacity, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const mat = markMaterial(MARK.thin, false, true);
     const mesh = new THREE.Mesh(geo, mat);
     mesh.renderOrder = 3;
     thinGroup.add(mesh);
     // the outline of each in full red, seen through what is in front of it: the places are small slivers, and a sliver behind a face is not seen
-    const outline = new THREE.LineSegments(new THREE.WireframeGeometry(geo), new THREE.LineBasicMaterial({ color: settings.measure.thinColor, depthTest: false, transparent: true, opacity: 0.95 }));
+    const outline = new THREE.LineSegments(new THREE.WireframeGeometry(geo), new THREE.LineBasicMaterial({ color: RED, depthTest: false, transparent: true, opacity: 0.95 }));
     outline.renderOrder = 4;
     thinGroup.add(outline);
   }
@@ -394,7 +384,7 @@ export function createView(host: HTMLElement) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(tris), 3));
     geo.computeVertexNormals();
-    const mat = new THREE.MeshLambertMaterial({ color: 0xe5484d, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const mat = markMaterial(MARK.strong, true, true);
     const mesh = new THREE.Mesh(geo, mat);
     mesh.renderOrder = 3;
     clashGroup.add(mesh);
@@ -409,7 +399,7 @@ export function createView(host: HTMLElement) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(tris), 3));
     geo.computeVertexNormals();
-    const mat = new THREE.MeshLambertMaterial({ color: 0xe5484d, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false });
+    const mat = markMaterial(MARK.fill, true);
     const mesh = new THREE.Mesh(geo, mat);
     mesh.renderOrder = 3;
     ghostGroup.add(mesh);
@@ -443,7 +433,7 @@ export function createView(host: HTMLElement) {
     if (v.surfaces?.length) { // (as a part looks in wireframe: nearly clear and dark, `in_383`)
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.Float32BufferAttribute(v.surfaces, 3));
-      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x14161a, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide }));
+      const m = new THREE.Mesh(g, seeThroughMaterial());
       m.renderOrder = 2;
       m.raycast = () => {};
       toolpath.add(m);
