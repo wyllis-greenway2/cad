@@ -33,6 +33,7 @@ import { pivotOfBody } from "../../operation/pivot.ts";
 import { trimAt } from "../../operation/trim.ts";
 import type { Command } from "../../operation/commands.ts";
 import type { OpKind, Op } from "../operations.ts";
+import { mirrorAcross } from "../mirror.ts";
 import { startOp, surfaceAxes, canPickFor } from "../operations.ts";
 import { similarTo } from "../similar.ts";
 import { whyNotGroup, whyNotUngroup, whyNotCombine, applyCut } from "./select.ts";
@@ -714,6 +715,23 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
   }
   // a click on an arrow selects it: it shows its number then (`in_238`)
   if (hit) return s.repeat && !s.op ? { ...(hit.id.startsWith("rot:") ? setRepeatAxis(base, "xyz".indexOf(hit.id[4]!)) : { ...base, repeat: { ...s.repeat, chosen: hit.id } }), handleSel: hit.id } : { ...base, handleSel: hit.id };
+  // a mirror waits for its plane: a click on a line (the hinge, across the drawing's sheet) or on a face or sheet puts the plane there (`in_1306`)
+  const aimed = cands.find((c) => sc.parts[c.ref]?.origin !== "world"); // (a world plane under the pointer is the background, not a thing)
+  if (!hit && s.op?.kind === "mirror" && aimed) {
+    const c = aimed, q = sc.parts[c.ref];
+    let across: Parameters<typeof mirrorAcross>[1] | null = null;
+    if (q?.kind === "line" && !q.circle && !q.mid) {
+      const sg = segmentOf(lookup(sc), q.ref);
+      const sheet = s.op.plane ? sc.parts[s.op.plane] : undefined;
+      if (sg) across = { kind: "line", a: sg[0], b: sg[1], ...(sheet?.kind === "plane" ? { sheet: normalOfPlane(sheet) } : {}) };
+    } else if (q?.kind === "plane" && !q.section) {
+      const at = moverPlace(sc, c, pv, s.op);
+      const n = q.origin === "body" ? surfaceAxes(sc, q)?.[2] : normalOfPlane(q);
+      if (at && n) across = { kind: "face", at, n };
+    }
+    const placed = across ? mirrorAcross(s.op, across) : null;
+    if (placed) return { ...putMover(base, placed), handleSel: null, session: { ...base.session, message: null } };
+  }
   // a click anywhere else, blank space too, leaves an operation you started, and then acts as a normal click
   // (an operation that is open is applied by it, as the check and Enter do, not dropped: a sweep, a loft or a mirror that was not given its check was lost, `in_463`)
   const left = s.op ? { ...doApply(base), drag: null, gizmoHover: null } : base;
