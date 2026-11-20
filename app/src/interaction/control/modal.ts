@@ -103,6 +103,10 @@ function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = 
     if (typeof got === "string") return { ...s, tool: { ...make(), plane: worldRef("XY") }, op: null, menu: null, session: { ...s.session, message: got } };
     return { ...s, tool: { ...make(), plane: worldRef("XY"), points: [got.center], cursor: got.center, sized: true, fill: { center: got.center, normal: got.normal, cut: got.cut } }, op: null, menu: null };
   }
+  if (model === "keyshaft") { // (a round shaft that is selected is keyed where it stands: the keyway is cut into it, as the keyed fit does; with none selected a shaft is made, on a surface, `in_1283`)
+    const sc = sceneOf(s.session), sel = selectionOf(s.session), got = sel.length ? cutFillOf(sc, sel[0]!) : "none";
+    if (typeof got !== "string" && got.cut.bore === 0) return { ...s, tool: { ...armModel("keyfit"), plane: worldRef("XY"), points: [got.center], cursor: got.center, sized: true, fill: { center: got.center, normal: got.normal, cut: got.cut } }, op: null, menu: null };
+  }
   const fill = model === "wheel" ? fillOf(s) : null;
   if (fill) return { ...s, tool: { ...make(), plane: worldRef("XY"), points: [fill.center], cursor: fill.center, sized: true, fill, model: { ...armModel("wheel").model!, typed: [String(Math.round(2 * fill.radius * 100) / 100), ...armModel("wheel").model!.typed.slice(1)], focus: true } }, op: null, menu: null }; // (a round object is selected: the wheel fills it, `dec_hub_spoke`)
   const armed: AppState = { ...s, tool: make(), op: null, menu: null };

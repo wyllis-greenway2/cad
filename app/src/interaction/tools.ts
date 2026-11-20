@@ -225,7 +225,7 @@ export function snapOnPlane(spent: Scene, pv: PointerView, pl: Plane, skip?: Ref
     const q = pointOf((r) => scene.parts[r], c.ref);
     if (q && Math.abs(dot(sub(q, pl.at), normalOfPlane(pl))) < 1e-3) return q;
   }
-  // the middle of a regular polygon that is drawn: taken like a corner, so a circle can be drawn on the middle of a hexagon (`in_1283`)
+  // the middle of a regular polygon that is drawn: taken like a corner, so a circle can be drawn on the middle of a hexagon (`in_1285`)
   const centres = regularCentres(scene, pl);
   for (const c of centres) { const [qx, qy] = pv.project(c); if (Math.hypot(qx - pv.x, qy - pv.y) <= settings.sketch.snapPx) return c; }
   // a corner of the body that is not in the plane but falls on it (the bottom of a wall, the far end of an edge): the pointer near where it falls is taken there (`in_311`)

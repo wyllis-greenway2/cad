@@ -5447,9 +5447,13 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (asks for Bore flat, Key width and Key depth to come out of the gear, wheel and Cut spokes makers, which keep a smooth bore; and for the keyway maker to get a Mesh tool as gears have: a keyed bore selected meshes a shaft to it, a shaft selected meshes a bore to it, either made from scratch (a shaft or a bore donut) or cut into geometry that is clicked, for example a splined shaft selected, Mesh, then a click on the bore surface, or the other way round)
 
 ## in_1283 — 2026-11-20 — directive
+> @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/17adf08e-model2.json" I can't seem to do a keyed shaft. I select the rod surface, or the entire rod, and select keyed shaft, and it just keeps saying select surface.
+(sends a project file; says that with the rod's surface or the whole rod selected, Keyed shaft only keeps saying to select a surface)
+
+## in_1285 — 2026-11-20 — directive
 > the polygon tool doesn't have good suggested snapping, I can't snap the origin and mouse end point in horizontal or vertical spots. Also when I try to draw on a polygon, like draw a circle in a hexagon, it doesn't help me snap to center.
 (two faults of the polygon tool: its size point does not snap level or upright with the middle, and nothing snaps to the middle of a polygon that is drawn)
 
-## in_1284 — 2026-11-20 — directive
+## in_1286 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the polygon snapping to be merged into the testing branch, no full test run)

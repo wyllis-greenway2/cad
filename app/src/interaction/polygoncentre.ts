@@ -1,4 +1,4 @@
-// The middle of a regular polygon that is drawn (`dec_polygon_tool`, `in_1283`): a closed figure of straight sides of one length with every corner the same distance from the middle has a middle that tools snap to, as they do to a corner, so a circle can be drawn in a
+// The middle of a regular polygon that is drawn (`dec_polygon_tool`, `in_1285`): a closed figure of straight sides of one length with every corner the same distance from the middle has a middle that tools snap to, as they do to a corner, so a circle can be drawn in a
 // hexagon on its middle. The middle is worked out from the figure each time (it is no part of the drawing: nothing to keep in step when the polygon is moved or changed). Pure: a scene and a plane in; points out.
 import type { Scene } from "../operation/scene.ts";
 import type { Plane } from "../operation/part.ts";

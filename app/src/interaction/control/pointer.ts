@@ -403,7 +403,7 @@ function hintFor(sc: Scene, t: Tool, pl: Plane, pv: ReturnType<ReturnType<typeof
   if (t.kind === "line") return lineHint(sc, pl, t.points[0]!, pv, raw);
   if (t.kind === "spline") return pointHint(sc, pl, pv, raw); // (each point of a spline can be on a corner or a line already drawn)
   if (t.kind === "rect") return pointHint(sc, pl, pv, raw); // (the opposite corner)
-  if (t.kind === "polygon") return lineHint(sc, pl, t.points[0]!, pv, raw); // (a corner of the polygon: level or upright with the middle, parallel to a line, on a line or a circle: it takes the place and says so, `in_1283`)
+  if (t.kind === "polygon") return lineHint(sc, pl, t.points[0]!, pv, raw); // (a corner of the polygon: level or upright with the middle, parallel to a line, on a line or a circle: it takes the place and says so, `in_1285`)
   if (t.kind === "gear" || t.kind === "cam" || t.kind === "model") return null; // (the size: the pointer's distance from the centre, or the numbers typed)
   if (t.kind === "circle") return t.typed[0] === "" ? circleRadiusHint(sc, pl, t.points[0]!, pv, raw) : null; // (the size: a number, or a point on the edge that touches another circle, `in_296`)
   if (t.points.length < 2) return arcEndHint(sc, pl, t.points[0]!, pv, raw); // (an arc's other end: level or upright with the first, `in_381`)
