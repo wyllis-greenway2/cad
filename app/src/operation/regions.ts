@@ -146,10 +146,21 @@ export function regionsOf(s: Scene): Regions {
     const cut = st.params.cut !== undefined || refs.some((r) => r.includes("@"));
     return cut ? refs.filter((r) => s.parts[r]?.kind === "circle") : refs;
   }));
+  // a plane where an extrude of pieces was made before the body's edges cut the drawing (no `rim` in its step) keeps its pieces as they were named: the edges are left out there, or the step would lose its parts (`in_1338`)
+  const oldPieces = new Set<Ref>();
+  for (const st of s.steps) {
+    if (!usesFigures(st) || st.params.rim === "1") continue;
+    for (const r of figureRefs(st)) {
+      const m = /^d\/(?:seg|arc)@([^@]+)@/.exec(r);
+      const src = m ? s.parts[`d/${m[1]}` as Ref] : undefined;
+      const pl = src && "plane" in src ? src.plane : null;
+      if (pl) oldPieces.add(pl);
+    }
+  }
   const planes = new Set<Ref>();
   for (const p of Object.values(s.parts)) if ((p.kind === "line" || p.kind === "circle") && p.origin === "drawn" && p.plane && !(p.kind === "line" && p.derived)) planes.add(p.plane);
   for (const plRef of planes) {
-    const built = curvesOn(s, plRef, spent, true);
+    const built = curvesOn(s, plRef, spent, !oldPieces.has(plRef));
     if (!built) continue;
     const { curves, flat, pl, extra } = built;
     if (curves.length < 2) continue;

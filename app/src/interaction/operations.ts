@@ -321,7 +321,7 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     if (!pl || pl.kind !== "plane") return { ok: false, why: "the figure is not on a plane" };
     const pts = face.corners.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p);
     const merged = mergedFigures(scene, faces); // (regions that touch along a side are one figure, `in_1306`)
-    return { ok: true, op: { ...base, parts: merged[0]!.outer, figs: { ...figureParams(merged), ...(faces.some((f) => f.pieces) ? { cut: "1" } : {}) }, origin: centroid(pts), normal: normalOfPlane(pl), dim: { base: 0, scale: 1 } } };
+    return { ok: true, op: { ...base, parts: merged[0]!.outer, figs: { ...figureParams(merged), ...(faces.some((f) => f.pieces) ? { cut: "1", rim: "1" } : {}) }, origin: centroid(pts), normal: normalOfPlane(pl), dim: { base: 0, scale: 1 } } };
   }
   if (kind === "mirror") {
     // a drawn figure or a body copied as its reflection in a plane (`in_433`); with a body, a flat face selected too is the plane

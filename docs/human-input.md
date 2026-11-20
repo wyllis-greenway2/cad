@@ -5653,3 +5653,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1338 — 2026-11-20 — question
 > Can we have it so that edges just are lines and they would participate in the sketch just like any other lines? why can't I sketch on a face like this and now have four completed sketch sections?
 (a screenshot of two lines drawn across the round top of a post: the rim is not part of the sketch, so no sections are made)
+
+## in_1339 — 2026-11-20 — question
+> Why cant I seem to hollow this object?
+(with the saved model `1ae09511-cant_hollow.json`, kept as `app/test/fixtures/hollow-pockets.cad.json`)

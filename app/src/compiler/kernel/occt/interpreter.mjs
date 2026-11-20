@@ -1506,7 +1506,7 @@ const OPS = {
     else if (op.closed) open = [];
     else open = (op.refs ?? []).map((r) => findFace(t, r));
     // the corners stay sharp whichever way the wall goes: the join is made by meeting the offset faces, not by rounding them
-    const offset = thickSolid(t, open, th);
+    const offset = thickSolidChecked(t, open, th);
     if (!op.closed) return { kind: "solid", shape: offset };
     // no face open: the kernel's shell with nothing removed gives the offset solid alone, so the wall is what lies between that and the body
     // an outward offset of some bodies comes back turned inside out (a negative volume): turned right again before it is used
@@ -1678,16 +1678,35 @@ function helix(pitch, height, radius, centre, dir, xDir, left) {
 }
 
 /** The solid thickened by `th` (inward when positive) with the faces `open` removed; the faces' offsets meet at sharp corners (`in_394`). */
-function thickSolid(t, open, th) {
+function thickSolid(t, open, th, join = "Intersection", inter = false) {
   const oc = getOC();
   const list = new oc.NCollection_List_TopoDS_Shape();
   for (const f of open) list.Append(f.wrapped);
   const builder = new oc.BRepOffsetAPI_MakeThickSolid();
-  builder.MakeThickSolidByJoin(t.wrapped, list, -th, 1e-3, oc.BRepOffset_Mode.BRepOffset_Skin, false, false, oc.GeomAbs_JoinType.GeomAbs_Intersection, false);
-  const out = cast(builder.Shape());
-  builder.delete();
-  list.delete();
-  return out;
+  try {
+    builder.MakeThickSolidByJoin(t.wrapped, list, -th, 1e-3, oc.BRepOffset_Mode.BRepOffset_Skin, inter, false, oc.GeomAbs_JoinType[`GeomAbs_${join}`], false);
+    return cast(builder.Shape());
+  } finally {
+    builder.delete();
+    list.delete();
+  }
+}
+/**
+ * The wall's offset solid: by the way whose corners are sharp, and where the kernel cannot make that (a body with rounds and pockets comes back as a sliver of no volume, or "this shape has no type") by the other ways it has
+ * (rounded corners, the intersection of the offset faces checked): the first that is a solid of the right size is the one. An inward offset stands inside the body's box and is not narrower than the box less a wall each side.
+ */
+function thickSolidChecked(t, open, th) {
+  const tb = bounds(t);
+  const fits = (o) => {
+    if (!isValidSolid(o) || !(Math.abs(measureVolume(o)) > 1e-9)) return false;
+    if (th <= 0) return true;
+    const ob = bounds(o);
+    return [0, 1, 2].every((i) => ob.min[i] >= tb.min[i] - 1e-3 && ob.max[i] <= tb.max[i] + 1e-3 && ob.max[i] - ob.min[i] >= tb.max[i] - tb.min[i] - 2 * th - 1e-3 - (open.length ? th : 0));
+  };
+  for (const [join, inter] of [["Intersection", false], ["Arc", true], ["Intersection", true], ["Arc", false]]) {
+    try { const o = thickSolid(t, open, th, join, inter); if (fits(o)) return o; } catch { /* the next way */ }
+  }
+  return thickSolid(t, open, th);
 }
 
 /** The value at x of the curve through the points [x, y] that goes through them all and does not overshoot between them (a monotone cubic: Fritsch and Carlson); beyond the first and last it goes on in a straight line. */
