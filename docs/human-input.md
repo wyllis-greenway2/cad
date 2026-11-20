@@ -5731,3 +5731,13 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1358 — 2026-11-20 — question
 > Also the sketches on this face are totally invisible after I apply them, it shows the blue preview, then when applied there is no visible black line. Is this related to our rule we made where we do a cross cut plane to cut away things blocking the camera from faces we are sketching on?
 (a screenshot of the top of a cylinder with the line tool on, no sketch visible)
+
+## in_1359 — 2026-11-20 — question
+> Normally when you sketch on a plane, it merges the lines with the plane lines, so this would be four sections of closed sketches on this cylinder surface but it is not. Why?
+(a screenshot of the flat top of a round body with three lines drawn across it, two parallel and one crossing them, the top face selected as one surface; the saved model 2d6fd416-model_not_four_closed_sketches.json)
+
+## in_1360 — 2026-11-20 — question
+> should't it simply be that any lines exactly on the same plane can interact to make closed sketches?
+
+## in_1361 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests

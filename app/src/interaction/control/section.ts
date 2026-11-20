@@ -73,7 +73,7 @@ const SKETCHING = new Set(["rect", "circle", "polygon", "line", "arc", "spline"]
  * A cross section made for the surface being sketched on (`in_1351`), only while the sketch tool is on: a flat face of the body, or the plane a sketch on one stands on, cuts the view along itself, so what stands in front of it
  * (the walls of a pocket the face is the floor of) does not hide it. The half the face looks out to is the half cut away. It is no part of the model and goes with the tool; a face that is a cut's own cap has its section already.
  */
-export function sketchCut(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; extent: number } | null {
+function sketchCut(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; extent: number } | null {
   const t = s.tool;
   if (!t || !SKETCHING.has(t.kind)) return null;
   const sc = sceneOf(s.session);
