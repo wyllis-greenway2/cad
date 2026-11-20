@@ -5727,3 +5727,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1357 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the pull-face fix to be merged into the testing branch, no full test run; the same words as in_1356)
+
+## in_1358 — 2026-11-20 — directive
+> It still doesn't work. I still cant pull both these faces down
+(a screenshot and the file `model_5.json`: a cylinder whose top has two lines across it, the two end pieces of the top selected with the pull arrow; they cannot be pulled down together; sent after the question whether the fix reached the root cause)

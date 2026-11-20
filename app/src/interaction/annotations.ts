@@ -8,7 +8,7 @@ import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, cross, normalize, mid, length } from "../math/vec.ts";
 import type { Scene } from "../operation/scene.ts";
-import { lookup } from "../operation/scene.ts";
+import { lookup, splitRefs } from "../operation/scene.ts";
 import { buildMap, structuralRelations } from "../operation/ownership.ts";
 import { sketchOfEdge } from "../operation/edgesource.ts";
 import type { Lookup } from "../operation/part.ts";
@@ -281,7 +281,7 @@ export function annotationsOfBodies(scene: Scene, bodies: readonly Ref[] | null,
     const b = scene.parts[r];
     const step = b?.kind === "body" ? scene.steps.find((st) => `x_${st.id}` === b.id) : undefined;
     for (const q of step?.parts ?? []) scope.add(q); // (the sketch it was made from)
-    if (typeof step?.params.holes === "string") for (const q of step.params.holes.split(",")) scope.add(q as Ref);
+    if (typeof step?.params.holes === "string") for (const q of splitRefs(step.params.holes)) scope.add(q as Ref);
   }
   for (const r of (bodies ?? [])) { // (a face: the face itself and its edges and corners, `in_1177`)
     const f = scene.parts[r];

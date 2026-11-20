@@ -22,6 +22,9 @@ Rules:
 
 Built in part (`dec_stable_reference_mechanism`, `in_625`): the flat faces of a body have lasting names and a push or pull keeps the name of its face. Not built yet: edges, curved faces and the other steps that name faces or edges (hollow, fillet, chamfer, repeat); they stay geometric (a step fails with "face not found" when an earlier edit moves its face).
 
+## Found: figures written into a step's numbers were cut at the commas in their names (`in_1358`)
+Several figures extruded together are written into the step's numbers as lists of refs (`also`, `holes`), joined by commas. A piece named after a body's edge has commas in its name (`d/arc@body/e@33.53,22.14,25~...`), so the second figure of two faces pulled together was cut to pieces at them and the step was "a part of this step is gone": one face worked (its refs are the step's `parts`, not a joined string), two did not. **Now** `joinRefs` / `splitRefs` (`operation/scene.ts`): a list with a comma in a ref is joined by the unit separator, which no name has; a list without is written as before and an old file reads as it did. Test: `test/figurerefs.test.ts` with the human's file (`test/fixtures/two-faces-pull-in_1358.cad.json`; the test fails without the change).
+
 ## Rationale
 
 Editing an earlier step is the point of a parametric model. Geometric references break on the first height change; names built into our own operations survive it, work the same on any kernel, and
