@@ -100,6 +100,7 @@ test("each model lists its parts, bottom up, covering every step once", () => {
     cycloidal: ["Base plate and ring pins", "Input shaft and eccentric", "Cycloidal disc", "Output plate and pins"],
     engine: ["Block", "Crankshaft", "Flywheel", "Piston", "Piston pin", "Circlip 1", "Circlip 2", "Connecting rod", "Rod cap"],
     piston: ["Piston", "Piston pin", "Circlip 1", "Circlip 2"],
+    rod: ["Connecting rod", "Rod cap", "Small end bush", "Bearing shell 1", "Bearing shell 2", "Cap bolt 1", "Cap bolt 2"],
     wheel: ["Wheel", "Edge rounds"],
     wheelcut: ["Bore", "Pockets", "Joins", "Cutouts", "Edge rounds"],
     keyhole: ["Keyway"],
@@ -280,7 +281,7 @@ test("the Play item of the ring starts the model from whichever of its bodies is
     const played = reduce(st, { type: "runAction", id: "motion:play" }, env as never);
     assert.ok(played.motion, `${kind}: Play from ${from} starts a motion: ${played.session.message ?? ""}`);
     if (!played.motion) continue;
-    const held: Record<ModelKind, number> = { gearbox: 2, ballbearing: 1, differential: 2, cycloidal: 1, engine: 1, piston: 0, wheel: 0, wheelcut: 0, keyhole: 0, keyshaft: 0, keyhub: 0, keyfit: 0 };
+    const held: Record<ModelKind, number> = { gearbox: 2, ballbearing: 1, differential: 2, cycloidal: 1, engine: 1, piston: 0, rod: 0, wheel: 0, wheelcut: 0, keyhole: 0, keyshaft: 0, keyhub: 0, keyfit: 0 };
     assert.equal(played.motion.follows.length, Object.keys(rec.parts).length - held[kind] - 1, `${kind}: every moving part follows (the followers and what is glued to them)`);
     const driverBody = anyBodyOf(sc, rec.parts[rec.driver.part]!);
     assert.equal(played.motion.body, driverBody, `${kind}: the driver is ${rec.driver.part}`);

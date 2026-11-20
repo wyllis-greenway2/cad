@@ -11,7 +11,7 @@ import { pistonFit, rodDesign, crankPinFor } from "./pistondesign.ts";
 import type { RingBelt, Shell, RodDesign } from "./pistondesign.ts";
 import { pistonGeometry, pistonProblem, buildPiston, PISTON_START } from "./modelpiston.ts";
 import type { PistonSpec } from "./modelpiston.ts";
-import { bulgeOf } from "./arcs.ts";
+import { buildRod } from "./modelrod.ts";
 
 export interface EngineSpec {
   /** the cylinder's bore, the stroke (mm) and the rod ratio: the crank's radius over the rod's length (0.25 to 0.33 is usual) */ bore: number; stroke: number; ratio: number;
@@ -22,11 +22,11 @@ export interface EngineSpec {
   /** oil drain holes through the oil ring's groove floor into the cavity, per thrust side (0 to 4; `dec_piston_drain`, ASSUMED) */ drain: number;
   /** the room all round the moving parts that are not the piston's own fits (mm): the shaft in the block, the rod's eyes on the pins, the slot for the rod */ room: number;
   /** the piston's own fits (mm; `dec_clearance_defaults`, Honda's nominal middles): the piston's room in the bore (across, so half a side), the pin's room in its bore in the piston (across) and a ring's room above and below it in its groove */ skirtFit: number; pinFit: number; ringSide: number;
-  /** the rest of the piston's numbers (`dec_piston_maker`), **0 = auto**: the engine's box does not show them; the Piston model does */ pinHeight: number; skirtLen: number; pinLen: number; ringHeight: number; oilRingHeight: number; ringRadial: number; land: number; backRoom: number; drainDia: number; bossGap: number; bossReach: number; archHeight: number; pinFlat: number; flatDepth: number; flatWidth: number; bossShape: number; ribWidth: number; crownShape: number; crownHeight: number; crownDia: number; crownChamfer: number; valveReliefs: number; reliefDia: number; reliefDepth: number; reliefOffset: number; skirtShape: number; oval: number; taper: number; footChamfer: number; skirtStyle: number; padAngle: number; material: number; pinKind: number; pinBore: number; topLandRelief: number; landRelief: number; retention: number; clipWidth: number; clipDepth: number; clipEdge: number; pinFloat: number;
+  /** the rest of the piston's numbers (`dec_piston_maker`), **0 = auto**: the engine's box does not show them; the Piston model does */ pinHeight: number; skirtLen: number; pinLen: number; ringHeight: number; oilRingHeight: number; ringRadial: number; land: number; backRoom: number; drainDia: number; bossGap: number; bossReach: number; archHeight: number; pinFlat: number; flatRamp: number; flatDepth: number; flatWidth: number; bossShape: number; ribWidth: number; crownShape: number; crownHeight: number; crownDia: number; crownChamfer: number; valveReliefs: number; reliefDia: number; reliefDepth: number; reliefOffset: number; skirtShape: number; oval: number; taper: number; footChamfer: number; skirtStyle: number; padAngle: number; material: number; pinKind: number; pinBore: number; topLandRelief: number; landRelief: number; retention: number; clipWidth: number; clipDepth: number; clipEdge: number; pinFloat: number;
   /** which engine the numbers are: 0 your own, 1 to 3 a preset of `ENGINE_PRESETS` (the box starts from its numbers; a number typed replaces one) */ preset: number;
 }
 const NOMINAL = pistonFit(30); // (the fits do not follow the bore)
-export const ENGINE_START: EngineSpec = { bore: 30, stroke: 30, ratio: 0.27, pin: 8, shaft: 8, wall: 4, flywheel: 50, rings: 2, oil: 1, topLand: 0.07, crown: 0.08, skirtWall: 0.04, drain: 2, room: 0.15, skirtFit: 0, pinFit: NOMINAL.pinFit, ringSide: NOMINAL.ringSide, pinHeight: 0, skirtLen: 0, pinLen: 0, ringHeight: 0, oilRingHeight: 0, ringRadial: 0, land: 0, backRoom: 0, drainDia: 0, bossGap: 0, bossReach: 0, archHeight: 0, pinFlat: 1, flatDepth: 0, flatWidth: 0, bossShape: 1, ribWidth: 0, crownShape: 0, crownHeight: 0, crownDia: 0, crownChamfer: 0, valveReliefs: 0, reliefDia: 0, reliefDepth: 0, reliefOffset: 0, skirtShape: 1, oval: 0, taper: 0, footChamfer: 0, skirtStyle: 1, padAngle: 0, material: 0, pinKind: 1, pinBore: 0, topLandRelief: 0, landRelief: 0, retention: 1, clipWidth: 0, clipDepth: 0, clipEdge: 0, pinFloat: 0, preset: 0 };
+export const ENGINE_START: EngineSpec = { bore: 30, stroke: 30, ratio: 0.27, pin: 8, shaft: 8, wall: 4, flywheel: 50, rings: 2, oil: 1, topLand: 0.07, crown: 0.08, skirtWall: 0.04, drain: 2, room: 0.15, skirtFit: 0, pinFit: NOMINAL.pinFit, ringSide: NOMINAL.ringSide, pinHeight: 0, skirtLen: 0, pinLen: 0, ringHeight: 0, oilRingHeight: 0, ringRadial: 0, land: 0, backRoom: 0, drainDia: 0, bossGap: 0, bossReach: 0, archHeight: 0, pinFlat: 2, flatRamp: 0, flatDepth: 0, flatWidth: 0, bossShape: 1, ribWidth: 0, crownShape: 0, crownHeight: 0, crownDia: 0, crownChamfer: 0, valveReliefs: 0, reliefDia: 0, reliefDepth: 0, reliefOffset: 0, skirtShape: 1, oval: 0, taper: 0, footChamfer: 0, skirtStyle: 1, padAngle: 0, material: 0, pinKind: 1, pinBore: 0, topLandRelief: 0, landRelief: 0, retention: 1, clipWidth: 0, clipDepth: 0, clipEdge: 0, pinFloat: 0, preset: 0 };
 /** the piston's numbers of an engine's */
 export const pistonOf = (s: EngineSpec): PistonSpec => { const o = {} as Record<string, number>; for (const k of Object.keys(PISTON_START)) o[k] = (s as unknown as Record<string, number>)[k]!; return o as unknown as PistonSpec; };
 
@@ -124,26 +124,9 @@ export function engineSteps(s: EngineSpec, place?: Place): Result<ModelBuild> {
   // the piston and its pin (`modelpiston.ts`, the piston maker's own code)
   buildPiston(b, pistonOf(s), g.pg, xp0, g.zc);
   // the connecting rod (`dec_rod_design`): the small eye, an I-beam (a pocket in each face, a web and flanges between), and the upper half of the split big end with its two lugs; the cap is the lower half, a body of its own; the bolt holes go through both lugs
-  b.part("Connecting rod");
-  const hb = 0.6 * g.rb, hs = 0.6 * g.rs, xa = g.r + g.rb - 1, xb = xp0 - g.rs + 1, at = (x: number): number => hb + ((hs - hb) * (x - g.r)) / g.l;
-  const ri = g.cp / 2 + rm, rd = g.rod, lugY0 = ri + 0.3, lugY1 = g.rb + rd.bolt + 0.6;
-  const e = rm / 2; // (the two halves are two bodies: their parting faces stand half the room either side of the crank pin's middle)
-  const ringHalf = (sign: 1 | -1): Shape => { // (the half ring on one side of the split, `sign` toward the piston: its flat face at the parting face, its arcs about the crank pin)
-    const xs = g.r + sign * e, yo = Math.sqrt(g.rb * g.rb - e * e), yi = Math.sqrt(ri * ri - e * e);
-    const A: [number, number] = [xs, -yo], B: [number, number] = [xs, yo], C: [number, number] = [xs, yi], D: [number, number] = [xs, -yi];
-    return outline([A, B, C, D], [bulgeOf(A, [g.r + sign * g.rb, 0], B), 0, bulgeOf(C, [g.r + sign * ri, 0], D), 0]);
-  };
-  const lug = (sign: 1 | -1, side: 1 | -1): Shape => { const xs = g.r + sign * e, xe = g.r + sign * rd.lug, y0 = side * lugY0, y1 = side * lugY1; return box(Math.min(xs, xe), Math.min(y0, y1), Math.max(xs, xe), Math.max(y0, y1)); };
-  b.extrude(b.plane(g.zc - g.w / 2), outline([[xa, -at(xa)], [xb, -at(xb)], [xb, at(xb)], [xa, at(xa)]]), [], g.w, { also: [
-    { outer: ringHalf(1), depth: g.w }, { outer: lug(1, 1), depth: g.w }, { outer: lug(1, -1), depth: g.w },
-    { outer: disc(xp0, 0, g.rs), holes: [disc(xp0, 0, s.pin / 2 + rm)], depth: g.w }] });
-  const pocket = (): Shape => { const x0 = g.r + g.rb + 1.5, x1 = xp0 - g.rs - 1.5, y = (x: number): number => at(x) - rd.flange; return outline([[x0, -y(x0)], [x1, -y(x1)], [x1, y(x1)], [x0, y(x0)]]); };
-  const deep = (g.w - rd.web) / 2;
-  b.extrude(b.plane(g.zc + g.w / 2), pocket(), [], -deep, { mode: "cut" });
-  b.extrude(b.plane(g.zc - g.w / 2), pocket(), [], deep, { mode: "cut" });
-  b.part("Rod cap");
-  b.extrude(b.plane(g.zc - g.w / 2), ringHalf(-1), [], g.w, { also: [{ outer: lug(-1, 1), depth: g.w }, { outer: lug(-1, -1), depth: g.w }] });
-  for (const side of [1, -1]) b.extrude(b.frame([g.r - rd.lug - 1, 0, g.zc], [0, 1, 0], [0, 0, 1]), disc(side * rd.boltY, 0, rd.bolt / 2), [], 2 * rd.lug + 2, { mode: "cut" });
+  // the connecting rod and its cap (`dec_rod_design`, `modelrod.ts`: the rod maker's own code; the sleeve, shells and bolts are off here)
+  const rd = g.rod;
+  buildRod(b, { l: g.l, pin: s.pin, rm, w: g.w, ws: g.w, rb: g.rb, ri: g.cp / 2 + rm, rs: g.rs, eye: s.pin / 2 + rm, web: rd.web, flange: rd.flange, bolt: rd.bolt, lug: rd.lug, boltY: rd.boltY, pockets: 1, bush: 0, shell: 0, bolts: 0, cpR: g.cp / 2 }, g.r, g.zc);
   return ok(b.build());
 }
 

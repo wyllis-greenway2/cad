@@ -16,14 +16,16 @@ import { engineSteps, engineProblem, engineGeometry, engineFootprint, engineDisp
 import type { EngineSpec } from "./modelengine.ts";
 import { pistonSteps, pistonProblem, pistonExtent, pistonGeometry, pistonWeight, PISTON_START, PISTON_PRESETS, MATERIALS } from "./modelpiston.ts";
 import type { PistonSpec } from "./modelpiston.ts";
+import { rodSteps, rodProblem, rodExtent, rodAbout, rodGeometry, ROD_START, ROD_PRESETS } from "./modelrod.ts";
+import type { RodSpec } from "./modelrod.ts";
 import { fitNumbers } from "./modelfit.ts";
 import { wheelSteps, wheelCutSteps, wheelProblem, wheelLines, wheelLines3, repairWheel, edgeMade, WHEEL_START } from "./modelwheel.ts";
 import { keyholeSteps, keyshaftSteps, keyfitSteps, keywayProblem, keywayAbout, KEYWAY_START } from "./modelkeyway.ts";
 import type { KeywaySpec, KeywayMode } from "./modelkeyway.ts";
 import type { WheelSpec } from "./modelwheel.ts";
 
-export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "piston" | "wheel" | "wheelcut" | "keyhole" | "keyshaft" | "keyhub" | "keyfit";
-export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine", "piston", "wheel", "wheelcut", "keyhole", "keyshaft", "keyhub", "keyfit"];
+export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "piston" | "rod" | "wheel" | "wheelcut" | "keyhole" | "keyshaft" | "keyhub" | "keyfit";
+export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine", "piston", "rod", "wheel", "wheelcut", "keyhole", "keyshaft", "keyhub", "keyfit"];
 /** The numbers of a model, by name */
 export type Nums = Record<string, number>;
 /** One number of a model: what it is called, a line that says what it is, and whether it grows with the overall size (a length of the thing, not a room left for the printer or a count) */
@@ -84,8 +86,14 @@ const GROUPS_PISTON = (f: ModelField[]): ModelField[] => grouped(f, [
   ["Ring belt", ["rings", "oil", "topLand", "ringHeight", "oilRingHeight", "ringRadial", "land", "backRoom", "ringSide", "topLandRelief", "landRelief"]],
   ["Oil drain holes", ["drain", "drainDia"]],
   ["Skirt", ["skirtWall", "skirtFit", "skirtShape", "oval", "taper", "footChamfer", "skirtStyle", "padAngle", "archHeight"]],
-  ["Pin and bosses", ["pinKind", "pinBore", "pinLen", "pinFit", "bossShape", "ribWidth", "bossGap", "bossReach", "room", "pinFlat", "flatDepth", "flatWidth"]],
+  ["Pin and bosses", ["pinKind", "pinBore", "pinLen", "pinFit", "bossShape", "ribWidth", "bossGap", "bossReach", "room", "pinFlat", "flatRamp", "flatDepth", "flatWidth"]],
   ["Pin retention", ["retention", "clipWidth", "clipDepth", "clipEdge", "pinFloat"]]]);
+
+const GROUPS_ROD = (f: ModelField[]): ModelField[] => grouped(f, [
+  ["Size", ["length", "pin", "crankPin", "thick", "smallThick", "room"]],
+  ["Beam", ["pockets"]],
+  ["Small end", ["bush", "bushWall"]],
+  ["Big end", ["shells", "shellWall", "bolts", "bolt"]]]);
 
 const catalogueShape = bearingFromNums;
 const catalogueProblem = (n: Nums): string | null => { const s = catalogueShape(n); return typeof s === "string" ? s : null; };
@@ -94,6 +102,7 @@ const df = (n: Nums): DifferentialSpec => n as unknown as DifferentialSpec;
 const cy = (n: Nums): CycloidalSpec => n as unknown as CycloidalSpec;
 const en = (n: Nums): EngineSpec => n as unknown as EngineSpec;
 const pi = (n: Nums): PistonSpec => n as unknown as PistonSpec;
+const rd = (n: Nums): RodSpec => n as unknown as RodSpec;
 const wh = (n: Nums): WheelSpec => n as unknown as WheelSpec;
 
 const BEARING_START: Nums = { own: 0, number: 608, detail: 0, bore: 8, outer: 22, width: 7, ring: 0, clearance: 0.02, balls: 0, ball: 0 };
@@ -261,7 +270,7 @@ const DEFS: Record<ModelKind, Def> = {
       F("pinHeight", "Pin height", "mm from the pin's axis to the crown; 0: the ring belt and what the rod's eye needs", true), F("skirtLen", "Skirt below the pin", "mm; 0: 0.27 of the bore (assumed)", true), F("pinLen", "Pin length", "mm; 0: the longest the walls allow", true),
       F("ringHeight", "Compression ring height", "mm; 0: Honda's 1.5 (1.0 for a small bore)", true), F("oilRingHeight", "Oil ring height", "mm; 0: Honda's 2.5 (2.0 for a small bore)", true), F("ringRadial", "Ring radial width", "mm; 0: the bore over 22 (ISO 6622-1's thicker series)", true),
       F("land", "Land between rings", "mm; 0: 1.6 times a compression ring (assumed)", true), F("backRoom", "Groove back room", "mm behind a ring; 0: 0.45 (assumed)"), F("drainDia", "Drain hole diameter", "mm; 0: 0.03 of the bore (assumed)", true),
-      F("topLandRelief", "Top land relief", "mm across, smaller than the skirt; 0: 0.003 of the bore (assumed)", true), F("landRelief", "Land relief", "mm across, the other lands; 0: 0.002 of the bore (assumed)", true), { ...F("retention", "Pin retention", "none, or a circlip in a groove at each end of the pin (Honda's)"), choices: ["None", "Circlips"] }, F("clipWidth", "Circlip groove width", "mm; 0: 0.06 of the pin, at least 0.8 (assumed)", true), F("clipDepth", "Circlip groove depth", "mm; 0: 0.028 of the pin, at least 0.4 (assumed)", true), F("clipEdge", "Circlip groove from the face", "mm; 0: 1.0 (assumed)", true), F("pinFloat", "Pin end float", "mm between the pin and the circlip; 0: 0.1 (assumed)"), { ...F("skirtShape", "Skirt shape", "a plain cylinder, or narrower along the pin (oval) and at the top (taper)"), choices: ["Round", "Oval, tapered"] }, F("oval", "Skirt oval", "mm across, narrower along the pin; 0: 0.001 of the bore (assumed)", true), F("taper", "Skirt taper", "mm across, narrower at the top of the skirt; 0: 0.0007 of the bore (assumed)", true), F("footChamfer", "Foot chamfer", "mm; 0: 0.004 of the bore (assumed)", true), { ...F("skirtStyle", "Skirt style", "a full skirt, or arched pads: the skirt cut away at each side of the pin in an arch, leaving ears on the thrust sides (a piston too small for it has a full skirt)"), choices: ["Full", "Arched pads"] }, F("padAngle", "Pad angle", "degrees each pad spans; 0: 80 (the Caterpillar patent: 70 to 90)"), { ...F("crownShape", "Crown", "flat, a dome up, a dish down, or a bowl (the pin height stays the distance to the flat edge)"), choices: ["Flat", "Dome", "Dish", "Bowl"] }, F("crownHeight", "Crown height", "mm: a dome's rise, a dish's or bowl's depth; 0: 0.04, 0.03 or 0.04 of the bore (assumed)", true), F("crownDia", "Crown shape diameter", "mm across; 0: 0.75 of the bore, a bowl 0.6 (assumed)", true), F("crownChamfer", "Crown edge chamfer", "mm; 0: 0.004 of the bore (assumed)", true), F("valveReliefs", "Valve reliefs", "0 to 2 round pockets in a flat crown, along the pin's axis"), F("reliefDia", "Relief diameter", "mm; 0: 0.3 of the bore (assumed)", true), F("reliefDepth", "Relief depth", "mm; 0: 0.02 of the bore (assumed)", true), F("reliefOffset", "Relief distance from the axis", "mm; 0: 0.25 of the bore (assumed)", true), { ...F("bossShape", "Pin bosses", "block pads (a rectangular block either side of the rod), or round (a boss round the pin, braced to the crown by a rib)"), choices: ["Block", "Round, ribbed"] }, F("ribWidth", "Rib thickness", "mm; 0: 0.8 of the wall (assumed)", true), F("archHeight", "Arch height", "mm above the foot: the arched cutaway of a two-pad skirt; 0: up to just below the bosses", true), { ...F("pinFlat", "Pin flats", "none, or a flat face round the pin bore at each side (the skirt's round face is cut away there; a piston too small for it has none)"), choices: ["None", "Flat"] }, F("flatDepth", "Flat depth", "mm below the skirt's face; 0: 0.02 of the bore (assumed)", true), F("flatWidth", "Flat width", "mm across the thrust; 0: the boss and a millimetre either side", true), F("bossGap", "Gap between the pin bosses", "mm; 0: the rod's thickness and its room each side", true), F("bossReach", "Boss reach", "mm beyond the pin's hole; 0: the wall's thickness (assumed)", true)]),
+      F("topLandRelief", "Top land relief", "mm across, smaller than the skirt; 0: 0.003 of the bore (assumed)", true), F("landRelief", "Land relief", "mm across, the other lands; 0: 0.002 of the bore (assumed)", true), { ...F("retention", "Pin retention", "none, or a circlip in a groove at each end of the pin (Honda's)"), choices: ["None", "Circlips"] }, F("clipWidth", "Circlip groove width", "mm; 0: 0.06 of the pin, at least 0.8 (assumed)", true), F("clipDepth", "Circlip groove depth", "mm; 0: 0.028 of the pin, at least 0.4 (assumed)", true), F("clipEdge", "Circlip groove from the face", "mm; 0: 1.0 (assumed)", true), F("pinFloat", "Pin end float", "mm between the pin and the circlip; 0: 0.1 (assumed)"), { ...F("skirtShape", "Skirt shape", "a plain cylinder, or narrower along the pin (oval) and at the top (taper)"), choices: ["Round", "Oval, tapered"] }, F("oval", "Skirt oval", "mm across, narrower along the pin; 0: 0.001 of the bore (assumed)", true), F("taper", "Skirt taper", "mm across, narrower at the top of the skirt; 0: 0.0007 of the bore (assumed)", true), F("footChamfer", "Foot chamfer", "mm; 0: 0.004 of the bore (assumed)", true), { ...F("skirtStyle", "Skirt style", "a full skirt, or arched pads: the skirt cut away at each side of the pin in an arch, leaving ears on the thrust sides (a piston too small for it has a full skirt)"), choices: ["Full", "Arched pads"] }, F("padAngle", "Pad angle", "degrees each pad spans; 0: 80 (the Caterpillar patent: 70 to 90)"), { ...F("crownShape", "Crown", "flat, a dome up, a dish down, or a bowl (the pin height stays the distance to the flat edge)"), choices: ["Flat", "Dome", "Dish", "Bowl"] }, F("crownHeight", "Crown height", "mm: a dome's rise, a dish's or bowl's depth; 0: 0.04, 0.03 or 0.04 of the bore (assumed)", true), F("crownDia", "Crown shape diameter", "mm across; 0: 0.75 of the bore, a bowl 0.6 (assumed)", true), F("crownChamfer", "Crown edge chamfer", "mm; 0: 0.004 of the bore (assumed)", true), F("valveReliefs", "Valve reliefs", "0 to 2 round pockets in a flat crown, along the pin's axis"), F("reliefDia", "Relief diameter", "mm; 0: 0.3 of the bore (assumed)", true), F("reliefDepth", "Relief depth", "mm; 0: 0.02 of the bore (assumed)", true), F("reliefOffset", "Relief distance from the axis", "mm; 0: 0.25 of the bore (assumed)", true), { ...F("bossShape", "Pin bosses", "block pads (a rectangular block either side of the rod), or round (a boss round the pin, braced to the crown by a rib)"), choices: ["Block", "Round, ribbed"] }, F("ribWidth", "Rib thickness", "mm; 0: 0.8 of the wall (assumed)", true), F("archHeight", "Arch height", "mm above the foot: the arched cutaway of a two-pad skirt; 0: up to just below the bosses", true), { ...F("pinFlat", "Pin flats", "none, or a flat face round the pin bore at each side (the skirt's round face is cut away there; a piston too small for it has none)"), choices: ["None", "Flat", "Flat with ramp"] }, F("flatRamp", "Flat ramp angle", "degrees to the piston's axis, for a flat with a ramp (its top angles out to the skirt before the ring belt); 0: 30 (assumed)", true), F("flatDepth", "Flat depth", "mm below the skirt's face; 0: 0.02 of the bore (assumed)", true), F("flatWidth", "Flat width", "mm across the thrust; 0: the boss and a millimetre either side", true), F("bossGap", "Gap between the pin bosses", "mm; 0: the rod's thickness and its room each side", true), F("bossReach", "Boss reach", "mm beyond the pin's hole; 0: the wall's thickness (assumed)", true)]),
     start: { ...PISTON_START, preset: 0 },
     problem: (n) => pistonProblem(pi(n)),
     extent: (n) => { if (pistonProblem(pi(n))) return 0; const e = pistonExtent(pi(n)); return Math.max(e.diameter, e.height); },
@@ -269,6 +278,23 @@ const DEFS: Record<ModelKind, Def> = {
     build: (n, place) => pistonSteps(pi(n), place),
     outline: (n) => { const s = pi(n); if (pistonProblem(s)) return []; const g = pistonGeometry(s); return [circle(0, 0, g.rp, 48), circle(0, 0, g.shell.inner, 48), circle(0, 0, g.rp - g.belt.depth, 48), rect(-g.pinHalf, -s.pin / 2, g.pinHalf, s.pin / 2)]; },
     about: (n) => { const s = pi(n), p = PISTON_PRESETS[Math.round((n.preset ?? 0)) - 1], e = pistonExtent(s), g = pistonGeometry(s); const w = pistonWeight(s, g); return `${p ? p.name + ": " : ""}${e.diameter.toFixed(1)} mm across, ${e.height.toFixed(1)} mm tall, ${w.total.toFixed(1)} g (piston ${w.piston.toFixed(1)}, pin ${w.pin.toFixed(1)}, circlips ${w.clips.toFixed(2)}), pin ${g.ch.toFixed(1)} mm below the crown; every number of 0 is worked out by a rule (Honda's numbers, or assumed ones: the field says which)`; },
+  },
+  rod: {
+    title: "Connecting rod",
+    fields: GROUPS_ROD([{ ...F("preset", "Start from", "the Honda GX160's rod (its length, pins and bolts: the service and tech manuals), or your own numbers; a number you type replaces the preset's"), choices: ["Your own", ...ROD_PRESETS.map((e) => e.name.replace("Honda ", ""))], top: true },
+      F("length", "Length", "mm between the centres of the big and the small bore", true), F("pin", "Piston pin diameter", "mm: the small bore, before the sleeve", true), F("crankPin", "Crank pin diameter", "mm: the big bore, before the shells", true),
+      F("thick", "Thickness", "mm of the beam and the big end; 0: 0.75 of the pin, at least 3 (assumed)", true), F("smallThick", "Small end thickness", "mm; 0: the same as the beam (a narrower small end saves weight: the lower side carries the load)", true), F("room", "Room round the pins", "mm: the pins' running room in the bores (half of it is also left between rod and cap)"),
+      { ...F("pockets", "Beam pockets", "an I-beam: none, one long pocket in each face, or two (assumed proportions)"), choices: ["None", "One long", "Two"] },
+      { ...F("bush", "Small end sleeve", "none (the pin runs on the bore), or a bush pressed into the eye (most four-strokes)"), choices: ["None", "Bush"] }, F("bushWall", "Sleeve wall", "mm; 0: 0.06 of the pin, at least 1 (assumed)", true),
+      { ...F("shells", "Big end bearing", "none (the crank pin runs on the bore), or two half shells held in the rod and the cap (the usual plain bearing)"), choices: ["None", "Shells"] }, F("shellWall", "Shell wall", "mm; 0: 0.029 of the crank pin (from one worksheet, assumed)", true),
+      { ...F("bolts", "Cap bolts", "holes only, or two bolts as bodies (a socket head, threaded into the rod)"), choices: ["Holes only", "Bolts"] }, F("bolt", "Bolt diameter", "mm; 0: 0.2 of the crank pin, at least 2 (assumed)", true)]),
+    start: { ...(ROD_START as unknown as Nums) },
+    problem: (n) => rodProblem(rd(n)),
+    extent: (n) => (rodProblem(rd(n)) ? 0 : rodExtent(rd(n))),
+    centre: (n) => [rodProblem(rd(n)) ? 0 : rd(n).length / 2, 0],
+    build: (n, place) => rodSteps(rd(n), place),
+    outline: (n) => { const s = rd(n); if (rodProblem(s)) return []; const g = rodGeometry(s), xp = g.l, hb = 0.6 * g.rb, hs = 0.6 * g.rs; return [circle(0, 0, g.rb, 48), circle(0, 0, g.ri, 40), circle(xp, 0, g.rs, 40), circle(xp, 0, g.eye, 32), [[g.rb - 1, -hb], [xp - g.rs + 1, -hs], [xp - g.rs + 1, hs], [g.rb - 1, hb], [g.rb - 1, -hb]]]; },
+    about: (n) => rodAbout(rd(n)),
   },
   cycloidal: {
     title: "Cycloidal drive",
@@ -334,7 +360,7 @@ export function modelNumbers(kind: ModelKind, typedIn: Nums, size?: number): Num
     if (row) { n.bore = row.d; n.outer = row.D; n.width = row.B; n.ring = 0; const sh = catalogueShape(n); if (typeof sh !== "string") n.ring = Math.round(2 * (sh.pitch - sh.surface) * 100) / 100; } // (the numbers shown are the bearing's)
     return n;
   }
-  const preset = kind === "engine" ? ENGINE_PRESETS[Math.round(typedIn.preset ?? 0) - 1] : kind === "piston" ? PISTON_PRESETS[Math.round(typedIn.preset ?? 0) - 1] : undefined; // (a preset engine is another start: its numbers scale as the usual ones do, `dec_engine_presets`)
+  const preset = kind === "engine" ? ENGINE_PRESETS[Math.round(typedIn.preset ?? 0) - 1] : kind === "piston" ? PISTON_PRESETS[Math.round(typedIn.preset ?? 0) - 1] : kind === "rod" ? ROD_PRESETS[Math.round(typedIn.preset ?? 0) - 1] : undefined; // (a preset engine is another start: its numbers scale as the usual ones do, `dec_engine_presets`)
   const base: Nums = preset ? { ...d.start, ...(preset.spec as unknown as Nums) } : d.start;
   const raw = (f: number): Nums => {
     const n: Nums = { ...base };

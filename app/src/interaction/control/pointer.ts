@@ -125,7 +125,8 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "model:ballbearing", label: "Deep groove", icon: "bearing" }, // (a ball bearing: the box has Catalogue or Your own at its top, `in_1196`)
   { id: "model:differential", label: "Differential", icon: "differential" }, // (a bevel gear differential)
   { id: "model:engine", label: "Piston engine", icon: "engine" }, // (a single cylinder engine with the exact slider crank)
-  { id: "model:piston", label: "Piston", icon: "piston" }, // (the piston maker: every number of a piston in a box of its own, `dec_piston_maker`)
+  { id: "model:piston", label: "Piston", icon: "piston" },
+  { id: "model:rod", label: "Connecting rod", icon: "rod" }, // (the rod maker: a rod, its cap, shells, sleeve and bolts, `dec_rod_maker`) // (the piston maker: every number of a piston in a box of its own, `dec_piston_maker`)
   { id: "model:wheel", label: "Wheel", icon: "wheel" }, // (hub, spokes and rim: alone, or filling a selected round object, `dec_hub_spoke`)
   { id: "model:keyhole", label: "Keyed hole", icon: "keyhole" }, // (a key, a flat or a spline cut into the hole of a round body, `dec_keyway_maker`)
   { id: "model:keyshaft", label: "Keyed shaft", icon: "keyshaft" },
@@ -166,7 +167,7 @@ const BEARINGS_MENU: Group = { id: "bearings", label: "Bearings", icon: "bearing
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:polygon", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "fabricate", label: "Fabricate", icon: "hammer", items: ["fab:material", "tool:fasteners"] }] },
-  { id: "mechanisms", label: "Models", icon: "gear", items: [GEARS, BEARINGS_MENU, "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "model:piston", "model:wheel", "model:wheelcut", "model:keyhole", "model:keyshaft", "keyway:mesh", "tool:geneva:model"] }, // (the gears, and the devices made of them, `in_1145`; the gears were in Sketch and the devices in Shape, Fabricate, Models)
+  { id: "mechanisms", label: "Models", icon: "gear", items: [GEARS, BEARINGS_MENU, "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "model:piston", "model:rod", "model:wheel", "model:wheelcut", "model:keyhole", "model:keyshaft", "keyway:mesh", "tool:geneva:model"] }, // (the gears, and the devices made of them, `in_1145`; the gears were in Sketch and the devices in Shape, Fabricate, Models)
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:drag", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
