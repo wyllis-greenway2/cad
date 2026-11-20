@@ -160,7 +160,7 @@ test("a bubble opens and closes: focusing twice closes it; the number can be typ
   assert.equal(scene(st.session).relations.length, 1);
 });
 
-test("one line shows its constraints, two show only what joins them, more show none (`in_1324`)", () => {
+test("one line shows its constraints, two show only what joins them, more show none (`in_1332`)", () => {
   let s = createSession(kernel);
   const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [30, 20, 0], [1, 0, 0], [0, 1, 0]);
   s = run(s, r.command);

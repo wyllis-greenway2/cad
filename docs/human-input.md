@@ -5626,3 +5626,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1331 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the disk-middle snapping, the mate-speed fix and the place-only snapping to be merged into the testing branch, no full test run; the same words as in_1330)
+
+## in_1332 — 2026-11-20 — directive
+> We get an explosion of constraints showing up when you select multiple lines. Can we have it so that lines work the same as faces or bodies. Lets try if you select one line it shows its constraints, if you select two lines, it shows their related constraints. Otherwise it hides constraints.
+(asks that one selected line shows its constraints, two show the ones that relate them, more show none)

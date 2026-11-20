@@ -256,7 +256,7 @@ function annotationsOf0(scene: Scene, selection: readonly Ref[], focus: string |
   }
   const arcs = sel.length === 1 ? scene.parts[sel[0]!] : undefined;
   const arcAngle = arcs?.kind === "line" && arcs.center && !scene.relations.some((rel) => rel.kind === "arcAngle" && rel.parts.includes(arcs.ref)) ? arcAngleMeasure(scene, arcs.ref) : null; // (an arc says how far round it goes as well as its radius, `in_463`)
-  // one thing selected shows what it has; two show what joins the two; more show none (a box of lines would bring up every constraint in it, `in_1324`)
+  // one thing selected shows what it has; two show what joins the two; more show none (a box of lines would bring up every constraint in it, `in_1332`)
   const items = sel.filter((r) => { const k = scene.parts[r]?.kind; return k === "line" || k === "circle" || k === "corner"; });
   const own = (r: Ref): Set<Ref> => { const q = scene.parts[r]; const set = new Set<Ref>([r]); if (q?.kind === "line") [q.a, q.b, ...(q.center ? [q.center] : [])].forEach((c) => set.add(c)); else if (q?.kind === "circle") set.add(q.center); return set; };
   const owns = items.length === 2 ? items.map(own) : [];
