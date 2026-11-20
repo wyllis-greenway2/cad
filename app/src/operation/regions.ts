@@ -110,24 +110,29 @@ export function curvesOn(s: Scene, plRef: Ref, spent: ReadonlySet<Ref> = new Set
   }
   // a sketch on a face of the body: the edges of the body that lie in the plane are lines like any other (`in_1338`), so what is drawn across the face cuts it into faces up to its edge
   const extra = new Map<Ref, Part>();
-  if (withBody && pl.onBody) {
+  const bodyCurves: Curve[] = [];
+  if (withBody) {
     for (const p of Object.values(s.parts)) {
       if (p.kind !== "line" || p.origin !== "body" || spent.has(p.ref) || p.path || p.spline || p.bulge) continue;
       const [a, b] = [pos(p.a), pos(p.b)];
       if (!a || !b) continue;
-      if (!p.circle) { if (p.a !== p.b && dist(a, b) > TOL) curves.push({ k: "seg", ref: p.ref, a: p.a, b: p.b, p: a, q: b }); continue; }
+      if (!p.circle) { if (p.a !== p.b && dist(a, b) > TOL) bodyCurves.push({ k: "seg", ref: p.ref, a: p.a, b: p.b, p: a, q: b }); continue; }
       const cen = flat(p.circle.center);
       if (Math.abs(dot(sub(p.circle.center, pl.at), n)) > 1e-6 || Math.abs(Math.abs(dot(p.circle.normal, n)) - 1) > 1e-6) continue; // (a round edge that is not across this plane's facing)
       const centre = mkRef(`d/rimc@${p.ref.slice(2)}`);
       extra.set(centre, { origin: "drawn", movable: false, plane: plRef, derived: true, ref: centre, kind: "corner", at: p.circle.center } as Corner);
-      if (p.a === p.b || dist(a, b) < TOL) { curves.push({ k: "circle", ref: p.ref, centre, c: cen, r: p.circle.radius }); continue; }
+      if (p.a === p.b || dist(a, b) < TOL) { bodyCurves.push({ k: "circle", ref: p.ref, centre, c: cen, r: p.circle.radius }); continue; }
       const mid = p.mid ? flat(p.mid) : null;
       if (!mid) continue;
       const [a0, a1] = [ang(cen, a), ang(cen, b)];
       const ccw = mod(ang(cen, mid) - a0) < mod(a1 - a0);
-      curves.push({ k: "arc", ref: p.ref, a: p.a, b: p.b, centre, c: cen, r: p.circle.radius, a0, sweep: ccw ? mod(a1 - a0) : -mod(a0 - a1), p: a, q: b });
+      bodyCurves.push({ k: "arc", ref: p.ref, a: p.a, b: p.b, centre, c: cen, r: p.circle.radius, a0, sweep: ccw ? mod(a1 - a0) : -mod(a0 - a1), p: a, q: b });
     }
   }
+  // a plane of the world that a body stands on (the base of an extruded circle) is cut by the body's round edges only where a line drawn on it really crosses one (a line across the base cuts it into pieces up to the rim, `in_1343`);
+  // a curve that meets an edge only at an end, or lies along it (a circle drawn over the one that was extruded), leaves the drawing as it was
+  const interior = (c: Curve, q: V2): boolean => { const t = along(c, q); return t !== null && (c.k === "circle" || (t > 1e-6 && t < 1 - 1e-6)); };
+  if (bodyCurves.length && (pl.onBody || curves.some((c) => c.k === "seg" && bodyCurves.some((b) => b.k !== "seg" && meet(c, b).some((q) => interior(c, q) && interior(b, q)))))) curves.push(...bodyCurves);
   curves.sort((x, y) => (x.ref < y.ref ? -1 : 1));
   return { curves, pl, flat, extra };
 }

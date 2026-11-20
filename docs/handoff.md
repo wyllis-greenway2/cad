@@ -4653,3 +4653,6 @@ Branch `claude/adoring-dijkstra-carry`. `in_1280` asked for a polygon tool that 
 
 ## Handoff 1188 — 2026-11-20 (in_1342: a new branch from the testing branch)
 `in_1342`. The testing branch was at this branch's tip (nothing to merge, up to `in_1341`, Handoff 1187); work continues on `claude/cool-einstein-odsxco-gears8`, made from it.
+
+## Handoff 1189 — 2026-11-20 (in_1343: lines across the base of a cylinder)
+`in_1343`. Why it was one disk: the body's edges cut a sketch's pieces only on a plane made on a body face (`onBody`, `regions.ts` `curvesOn`); the lines were on the world plane XY (the cylinder's base) where the circle they would have closed against is used up by the extrude. Now a world plane takes the body's round edges in the plane when a line drawn on it crosses one (`bodyCurves`). Straight rims are left as before (the `in_298` test needs the second square whole): flagged for review in `dec_anchor_geometry.md`. Test `linesacrossbase.test.ts`. Region and sketch tests: see the run.
