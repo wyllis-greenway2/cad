@@ -5642,3 +5642,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1335 — 2026-11-20 — question
 > why not just allow overlap? it could be a boolean merge into a single body I guess?
 (asks why a spiral whose turns overlap is not allowed, and suggests making it as a boolean merge into one body)
+
+## in_1336 — 2026-11-20 — directive
+> Okay now the suggested icons thing is really annoying. I cant click on it at all. It gets out of the way of the cursor. I wanted it to not cover the model so I can click on the model, and also never open directly underneath a click, but if already open, I should be able to hover over it and click it.
+(a screenshot of the suggestions bar below a selected plane; it moves away from the pointer so it cannot be clicked; asks that it not cover the model and never open under a click, but that an open one can be hovered and clicked)

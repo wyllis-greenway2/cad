@@ -35,10 +35,11 @@ export function createSuggest(host: HTMLElement, run: (id: string, part?: string
      * `bar`: the icons of what is selected (left); `items`: the constraints on offer (right); `at`: where (a screen point) to put the row, or null to hide it.
      * `inFront`: boxes of what comes before the row (the ring, the number bubbles, the constraint bubbles): it slides out of their way, or fades if there is no room (`in_264`).
      */
-    update(bar: { icons: BarIcon[]; gear: BarGear | null } | null, items: { id: string; label: string }[] | null, at: [number, number] | null, inFront: [number, number, number, number][] = []) {
+    update(bar: { icons: BarIcon[]; gear: BarGear | null } | null, items: { id: string; label: string }[] | null, at: [number, number] | null, inFront: [number, number, number, number][] = [], underPointer: [number, number, number, number] | null = null) {
       const icons = bar?.icons ?? [], gear = bar?.gear ?? null, offers = items ?? [];
       if ((!icons.length && !gear && !offers.length) || !at) { row.style.display = "none"; sig = ""; open = false; list.style.display = "none"; for (const el of offered.values()) el.remove(); offered.clear(); seg.style.display = "none"; return; }
       const now = JSON.stringify([icons, gear]);
+      const fresh = row.style.display === "none" || now !== sig; // (it is just opening, or what is selected has changed: that is when it keeps off the pointer, and not while it is open, `in_1336`)
       if (now !== sig) {
         sig = now;
         const kids: HTMLElement[] = [];
@@ -96,7 +97,7 @@ export function createSuggest(host: HTMLElement, run: (id: string, part?: string
       row.style.display = "flex";
       // below the number bubble that sits on the part, unless something in front is there: placed like a bubble whose own place is that one
       const w = row.offsetWidth || 40;
-      const p = placeBubbles([{ id: "row", x: at[0] + w / 2 - 20, y: at[1] + 104, w }], { lines: [], dots: [], rects: inFront }, memory)[0]!;
+      const p = placeBubbles([{ id: "row", x: at[0] + w / 2 - 20, y: at[1] + 104, w }], { lines: [], dots: [], rects: fresh && underPointer ? [...inFront, underPointer] : inFront }, memory)[0]!;
       row.style.left = `${Math.round(p.left)}px`;
       row.style.top = `${Math.round(p.top)}px`;
       row.style.opacity = p.faded ? "0.3" : "";

@@ -3,7 +3,7 @@ id: dec_sheet_planes
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_459, in_460, in_466
+human_input: in_459, in_460, in_466, in_1336
 date: 2026-11-15
 depends_on:
   - dec_cross_section: a sheet is the cross section plane made generic; its saved part, its handles and its cut face are that entry's
@@ -35,3 +35,6 @@ The icons that stood on the bodies, the sheets and the gear (a body's eye and pl
 
 ## Changed: the bar keeps clear of the pointer (`in_1307`)
 The helpful bar stood under the click that selected what it belongs to. It now stands 104 px below its anchor (it was 77) and treats a box round the pointer (90 px each side, 60 above, 70 below) as something in front of it, so it slides out of the way as it does for the ring and the bubbles (`main.ts`, `ui/suggest.ts`). Seen in the browser on three clicks: the bar stood 89 to 112 px away from each.
+
+**Only while it opens (`in_1336`):** the box round the pointer made the bar slide away from a pointer that came to it, so it could not be clicked. Now the box counts only the moment the bar opens or what it belongs to changes (`fresh` in `ui/suggest.ts`): it never opens under the click. Once open it keeps its place (the bubbles' memory holds it while the way is clear), so it can be hovered and clicked. It still slides out of the way of the ring and the bubbles. Not seen in the browser.
+
