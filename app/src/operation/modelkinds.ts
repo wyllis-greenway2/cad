@@ -19,7 +19,7 @@ import type { PistonSpec } from "./modelpiston.ts";
 import { rodSteps, rodProblem, rodExtent, rodAbout, rodGeometry, ROD_START, ROD_PRESETS } from "./modelrod.ts";
 import type { RodSpec } from "./modelrod.ts";
 import { fitNumbers } from "./modelfit.ts";
-import { wheelSteps, wheelCutSteps, wheelProblem, wheelLines, wheelLines3, repairWheel, edgeMade, WHEEL_START } from "./modelwheel.ts";
+import { wheelSteps, wheelCutSteps, wheelProblem, wheelLines, wheelLines3, wheelMarks3, repairWheel, edgeMade, WHEEL_START } from "./modelwheel.ts";
 import { keyholeSteps, keyshaftSteps, keyfitSteps, keywayProblem, keywayAbout, KEYWAY_START, keySteps, keyProblem, KEY_START } from "./modelkeyway.ts";
 import type { KeywaySpec, KeywayMode, KeySpec } from "./modelkeyway.ts";
 import type { WheelSpec } from "./modelwheel.ts";
@@ -53,6 +53,8 @@ interface Def {
   repair?: (n: Nums, locked: ReadonlySet<string>) => Nums;
   /** the picture of the model in space, when it has one: lines of points (x, y, z) of its own frame (`in_1251`) */
   outline3?: (n: Nums) => [number, number, number][][];
+  /** the lines of that picture that one number is, to light while it is edited (`in_1380`) */
+  marks3?: (n: Nums, key: string) => [number, number, number][][];
   /** a line under the numbers: what the model does */
   about: (n: Nums) => string;
 }
@@ -134,6 +136,7 @@ function wheelDef(cutting: boolean): Def {
     build: (n, place) => (cutting ? wheelCutSteps(wh(n), place) : wheelSteps(wh(n), place)),
     outline: (n) => (wheelProblem(wh(n), cutting) ? [] : wheelLines(wh(n))),
     outline3: (n) => (wheelProblem(wh(n), cutting) ? [] : wheelLines3(wh(n))),
+    marks3: (n, key) => (wheelProblem(wh(n), cutting) ? [] : wheelMarks3(wh(n), key)),
     about: (n) => `${wh(n).outer} mm across, ${Math.round(wh(n).spokes) ? `${Math.round(wh(n).spokes)} cutouts in the web` : "a plain web"}, ${wh(n).bore} mm bore${wh(n).draft ? `, ${wh(n).draft} degrees of draft on the rim and hub` : ", no draft"}${wh(n).edge > 0 && Math.round(wh(n).spokes) > 0 && !edgeMade(wh(n)) ? "; no spoke radius made: it is bigger than the web and the spoke allow, or a cutout runs into the hub or the rim, or is pointed or narrow" : ""}`,
   };
   if (cutting) def.fields = def.fields.map((f) => (["bore", "rimT", "hubT", "draft"].includes(f.key) ? { ...f, fixed: true as const, ...(f.key === "bore" ? { unless: { key: "boreOwned", is: 0 } } : {}) } : f)); // (the bore, the thickness and the draft are the body's: shown, not set; a body with no bore is given one: its bore is free, `in_1259`)
@@ -354,6 +357,8 @@ export const modelOutline = (k: ModelKind, n: Nums): Lines => DEFS[k].outline(n)
 const HOME: Place = { at: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0], ez: [0, 0, 1] };
 const wireMemo = new Map<string, [number, number, number][][]>();
 /** The picture of a model in space (`in_1262`): its own, if it has one, else the lines its steps make (the loops of what is extruded at both ends, a turned body's section and rings, a gear's circles), so every model's blue preview is in 3D. Empty when the numbers make no model. */
+/** The lines of a model's picture that the number `key` is (none when the model has no such lines, `in_1380`). */
+export const modelMarks3 = (k: ModelKind, n: Nums, key: string): [number, number, number][][] => DEFS[k].marks3?.(n, key) ?? [];
 export const modelOutline3 = (k: ModelKind, n: Nums): [number, number, number][][] => {
   const own = DEFS[k].outline3?.(n);
   if (own) return own;

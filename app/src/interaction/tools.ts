@@ -698,6 +698,8 @@ export interface Preview {
   /** dashed lines from the cursor to what it lines up with (not part of the figure, `in_381`) */
   guides?: [Vec3, Vec3][];
   circle: { center: Vec3; radius: number; normal: Vec3 } | null;
+  /** the lines of the number being edited, lit over the rest (`in_1380`) */
+  marks?: [Vec3, Vec3][];
   /** a gear whose number was just put right (`in_690`): drawn red for a moment */
   red?: true;
   /** a gear being sized that would mesh with the one beside it, drawn as that meshed gear (`in_770`) */
@@ -746,8 +748,29 @@ export function previewOf(scene: Scene, t: Tool): Preview | null {
     const guides = pl && pl.kind === "plane" ? [...guidesOf(scene, pl, t.cursor), ...concentricGuides(scene, pl, t.hints)] : t.guides ?? []; // (nothing placed yet: only what the pointer lines up with, and the circle it is concentric with)
     return guides.length ? { segments: [], guides, circle: null, cursor: t.cursor } : null;
   }
-  const p = previewShape(scene, t, pl);
+  const p0 = previewShape(scene, t, pl);
+  const marks = p0 && t.kind === "gear" ? gearMarks(scene, t, pl) : [];
+  const p = p0 && marks.length ? { ...p0, marks } : p0;
   return p ? { ...p, guides: [...(t.gear?.editing || t.gear?.planetary ? [] : guidesOf(scene, pl, t.cursor)), ...concentricGuides(scene, pl, t.hints)] } : p; // (a gear being changed, or a planetary set, has no pointer to line up: its cursor is its own centre, which lines up with its own corners)
+}
+/**
+ * The circle of a gear that the number being edited is, lit while it is typed (`in_1380`): the bore for the bore; the wall (a ring gear's outside) for the wall; the pitch circle for the teeth and the module;
+ * the tips for the shift and the addendum; the root for the dedendum, the clearance and the fillet. A gear that is not a plain one has none yet.
+ */
+function gearMarks(scene: Scene, t: Tool, pl: Plane): [Vec3, Vec3][] {
+  const g = t.gear;
+  if (!g || g.planetary) return [];
+  const key = gearFields(gearState(t))[g.field]?.key;
+  const target = gearTarget(scene, t);
+  if (!key || !target || target.planetary || target.spec.worm || target.spec.wheel || target.spec.bevel || target.spec.rack) return [];
+  const o = gearOutline(target.spec);
+  if (!o.ok) return [];
+  const r = key === "bore" ? (target.spec.bore ?? 0) / 2
+    : key === "rim" ? o.value.outerRadius ?? 0
+    : key === "teeth" || key === "module" || key === "pressure" ? o.value.pitchRadius
+    : key === "shift" || key === "addendum" ? o.value.tipRadius
+    : key === "dedendum" || key === "clearance" || key === "fillet" ? o.value.rootRadius : 0;
+  return r > 1e-9 ? circleSegments(pl, target.at, r) : [];
 }
 function previewShape(scene: Scene, t: Tool, pl: Plane): Preview | null {
   const n = normalOfPlane(pl);

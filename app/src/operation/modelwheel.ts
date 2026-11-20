@@ -353,6 +353,34 @@ export function wheelLines3(s0: WheelSpec): [number, number, number][][] {
   return lines;
 }
 
+/**
+ * The lines of the wheel's picture that the number being edited is (`in_1380`): the outside and the inside of the rim, the hub and the bore as circles on both faces, the rim's and the hub's thickness as the lines along the axis,
+ * the web's as its floors, and every spoke number as the outlines of the cutouts. Nothing for a number that has no line of its own.
+ */
+export function wheelMarks3(s0: WheelSpec, key: string): [number, number, number][][] {
+  const s = effective(s0), g = wheelGeometry(s), n = Math.round(s.spokes), zr = s.rimT / 2, zh = s.hubT / 2, zw = s.web / 2;
+  const ring = (r: number, z: number, k = 64): [number, number, number][] => Array.from({ length: k + 1 }, (_, i) => [r * Math.cos((2 * Math.PI * i) / k), r * Math.sin((2 * Math.PI * i) / k), z]);
+  const both = (r: number, z: number): [number, number, number][][] => [ring(r, -z), ring(r, z)];
+  const along = (r: number, z: number): [number, number, number][][] => Array.from({ length: 8 }, (_, k) => { const a = (2 * Math.PI * k) / 8; return [[r * Math.cos(a), r * Math.sin(a), -z], [r * Math.cos(a), r * Math.sin(a), z]] as [number, number, number][]; });
+  switch (key) {
+    case "outer": return both(g.R, zr);
+    case "rimD": return both(g.Rin, zr);
+    case "hub": return both(g.hubR, zh);
+    case "bore": return s.bore > 0 ? both(s.bore / 2, zh) : [];
+    case "rimT": return along(g.R, zr);
+    case "hubT": return along(g.hubR, zh);
+    case "web": return [ring(g.Rin, -zw), ring(g.Rin, zw), ring(g.hubR, -zw), ring(g.hubR, zw)];
+    default: {
+      if (!["spokes", "spokeW", "taper", "spiral", "rimOff", "hubOff", "edge", "corner", "obtuse"].includes(key) || n <= 0) return [];
+      const c = cutout(s);
+      if (!c) return [];
+      const out: [number, number, number][][] = [];
+      for (let k = 0; k < n; k++) { const r = rotate(c, (2 * Math.PI * k) / n), f = flatten(r.pts, r.bulges); for (const sg of [-1, 1]) out.push([...f, f[0]!].map(([x, y]) => [x, y, sg * zw] as [number, number, number])); }
+      return out;
+    }
+  }
+}
+
 /** The section of the rim, web and hub (x out from the axis, y along it), the four places the web meets them joined by a fillet or a chamfer: the points and the bulges of the sides. The walls of the rim and of the hub lean by the draft away from the
  * middle plane (a cast wheel's pattern is split there): the rim's outside is smaller at the faces, its inside bigger, the hub's outside smaller; the nominal radii are those at the middle plane, at the web's faces for the walls beside it */
 export function wheelSection(s0: WheelSpec): { pts: P[]; bulges: number[] } {

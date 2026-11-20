@@ -20,7 +20,7 @@ import type { GizmoView } from "./view/gizmo.ts";
 import type { Highlight } from "./view/highlight.ts";
 
 export type { Highlight };
-type Preview = { segments: [Vec3, Vec3][]; guides?: [Vec3, Vec3][]; circle: { center: Vec3; radius: number; normal: Vec3 } | null; cursor: Vec3 | null; red?: true; orange?: true };
+type Preview = { segments: [Vec3, Vec3][]; guides?: [Vec3, Vec3][]; circle: { center: Vec3; radius: number; normal: Vec3 } | null; cursor: Vec3 | null; red?: true; orange?: true; marks?: [Vec3, Vec3][] };
 
 export function createView(host: HTMLElement) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, stencil: true });
@@ -289,6 +289,7 @@ export function createView(host: HTMLElement) {
       if (p.cursor) preview.add(sphereAt(p.cursor, cam.distance * settings.pick.vertexScale, TEAL));
       for (const [a, b] of p.segments) preview.add(pen.line([...a, ...b], colour, 2, false));
       for (const [a, b] of p.guides ?? []) preview.add(pen.dashed([...a, ...b], TEAL, 1.5, cam.distance * 0.012)); // (alignment guides are dashed so they read differently from the figure, `in_381`)
+      for (const [a, b] of p.marks ?? []) preview.add(pen.line([...a, ...b], TEAL, 5, false)); // (the lines of the number being edited, lit over the rest: the Marked look, `in_1380`)
       if (p.circle) preview.add(pen.line(ringOf(p.circle.center, p.circle.radius, p.circle.normal), TEAL, 2, false));
       preview.traverse((o) => { o.renderOrder = 5; }); // (after the part, the cut and the faces drawn over its hatch: the guides and the figure lie in the surface being drawn on and must not go behind it, `in_1352`)
     });

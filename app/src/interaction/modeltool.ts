@@ -7,7 +7,7 @@ import { normalOfPlane, localOf } from "../operation/part.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
-import { modelFields, modelSizeKey, modelSizeLabel, modelFixedSize, modelNumbers, modelStart, modelCentre, modelExtent, modelProblem, modelOutline, modelOutline3, modelBuild, modelTitle, modelAbout } from "../operation/modelkinds.ts";
+import { modelFields, modelSizeKey, modelSizeLabel, modelFixedSize, modelNumbers, modelStart, modelCentre, modelExtent, modelProblem, modelOutline, modelOutline3, modelMarks3, modelBuild, modelTitle, modelAbout } from "../operation/modelkinds.ts";
 import type { ModelKind, Nums } from "../operation/modelkinds.ts";
 import { asCommand } from "../operation/modelparts.ts";
 import { keywayMeta } from "../operation/modelkeyway.ts";
@@ -82,7 +82,11 @@ export function modelPreview(scene: Scene, t: Tool): Preview | null {
   const solid = modelOutline3(g.kind, g.nums); // (a model with a picture in space shows that: the faces and the depth, `in_1251`)
   if (solid.length) for (const line of solid) for (let i = 0; i + 1 < line.length; i++) segments.push([P3(line[i]![0], line[i]![1], line[i]![2]), P3(line[i + 1]![0], line[i + 1]![1], line[i + 1]![2])]);
   else for (const line of modelOutline(g.kind, g.nums)) for (let i = 0; i + 1 < line.length; i++) segments.push([P(line[i]![0], line[i]![1]), P(line[i + 1]![0], line[i + 1]![1])]);
-  return { segments, circle: null, cursor: t.cursor, ...(g.problem ? { red: true as const } : {}) };
+  const fields = modelFields(g.kind), at = t.model?.field ?? 0;
+  const key = at === 0 ? modelSizeKey(g.kind) : fields[at - 1]?.key; // (the number being edited: its own lines are lit, `in_1380`)
+  const marks: [Vec3, Vec3][] = [];
+  if (key) for (const line of modelMarks3(g.kind, g.nums, key)) for (let i = 0; i + 1 < line.length; i++) marks.push([P3(line[i]![0], line[i]![1], line[i]![2]), P3(line[i + 1]![0], line[i + 1]![1], line[i + 1]![2])]);
+  return { segments, ...(marks.length ? { marks } : {}), circle: null, cursor: t.cursor, ...(g.problem ? { red: true as const } : {}) };
 }
 
 /** The command that makes the model, or why not */
