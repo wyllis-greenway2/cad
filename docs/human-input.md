@@ -5773,3 +5773,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1369 — 2026-11-20 — question
 > what is the root cause? how do we have it possible for the surfaces to get out of sync and how can we fix it?
 (asks for the root cause of the undrawn faces after the pull, how the surfaces can get out of step, and the real fix)
+
+## in_1370 — 2026-11-20 — directive
+> build the first two fixes if you think they will be good root cause fixes
+(asks for the two real fixes of `in_1369`, placing a snapped corner on the body's own curve and building a figure's side from the body's edge, if they are good root fixes)
