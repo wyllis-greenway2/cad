@@ -5430,3 +5430,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1279 — 2026-11-20 — directive
 > How about we finish making the overall structure and shape of the piston head itself. I noticed that piston heads quite often have a curved bottom edge sometimes with ears that go quite a bit further down. I noticed that the edges of the pin quite often have flats or other cut aways and don't go to the outer radius of the bore edge, I noticed that they are designed for casting and have interior shapes, they are designed to have machined and cast surfaces.
 (with five pictures of real pistons: an exploded drawing of a piston, pin, rings and rod; a piston on its rod seen from the pin side; the underside of a forged piston with ribs under the crown; a wireframe with two valve pockets; a slipper skirt with an arched cutaway at the pin; asks to finish the piston head's overall structure and shape: a curved lower edge with ears, flats and cutaways round the pin bore, interior shapes for casting, machined and cast surfaces)
+
+## in_1280 — 2026-11-20 — directive
+> can we have skirts and flats on by default? 1 yes lets build this next. 2 correct I think we should keep manufacturing agnostic for now.
+(answers my questions after the arched skirt and flats: wants the arched skirt and the pin flats on by default; 1: yes, build the interior shapes (rounded bosses, ribs to the crown) next; 2: keep the cast and machined surfaces out of the modeler, manufacturing agnostic for now)
