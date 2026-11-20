@@ -1,7 +1,7 @@
 // The gear box (`in_685`): the numbers of a gear as a labelled panel that stands still on the left of the page, every number named, with its unit and a line that says what it is, instead of a row of bare numbers
 // that followed the pointer and let it through. It displays what the interaction layer says (`Entry.panel`) and reports typing, Enter and Esc as the number bubble does.
 import type { Entry } from "../interaction/entry.ts";
-import { panelShell, noteBox, setNote, panelTitle, panelRow, numberInput } from "./panelkit.ts";
+import { panelShell, noteBox, setNote, panelTitle, panelRow, numberInput, sectionTitle } from "./panelkit.ts";
 import { textButton } from "./look.ts";
 
 export interface GearBoxHandlers { entry(field: number, text: string): void; enter(): void; cancel(): void }
@@ -18,6 +18,17 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
   let info: HTMLElement | null = null;
   let focusedFor = "";
   let primaryButton: HTMLButtonElement | null = null;
+  // the groups of a box with many numbers (`dec_piston_maker`): each has a heading that folds its rows; a group stays folded or open as the person left it, and one with the number being typed in opens when the typing moves into it
+  const folded = new Set<string>();
+  let rowsOf = new Map<string, { head: HTMLDivElement; rows: HTMLElement[] }>();
+  let lastActive = "";
+  const fold = (key: string, shut: boolean): void => {
+    const g = rowsOf.get(key);
+    if (!g) return;
+    if (shut) folded.add(key); else folded.delete(key);
+    g.rows.forEach((r) => { r.style.display = shut ? "none" : ""; });
+    g.head.textContent = `${shut ? "▸" : "▾"} ${key.split("|")[1]} (${g.rows.length})`;
+  };
   return {
     rect(): DOMRect | null { return el.style.display === "none" ? null : el.getBoundingClientRect(); },
     /** `entry`: the panel to show (null hides it). */
@@ -37,17 +48,32 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
         el.appendChild(info);
         toggles = [];
         smallToggles = [];
+        rowsOf = new Map();
+        let lastSection = "";
+        const place = (rowEl: HTMLElement, section: string | undefined): void => { // (a heading when the group changes, then the row in it)
+          if (section && section !== lastSection) {
+            lastSection = section;
+            const key = `${entry.panel}|${section}`, head = sectionTitle(section);
+            head.style.cssText += ";cursor:pointer;user-select:none;margin-top:12px";
+            head.addEventListener("click", () => fold(key, !folded.has(key)));
+            el.appendChild(head);
+            rowsOf.set(key, { head, rows: [] });
+          }
+          if (section) rowsOf.get(`${entry.panel}|${section}`)!.rows.push(rowEl);
+          el.appendChild(rowEl);
+        };
         inputs = entry.fields.map((f, i) => {
           if (f.choices) { // (a toggle button: one button for each value, the chosen one filled, `in_1175`)
             const group = document.createElement("div");
-            group.style.cssText = "display:flex;gap:0";
-            const buttons = f.choices.map((name, k) => { const b = textButton(name, { click: () => h.entry(f.index ?? i, String(k)) }); b.style.cssText += ";padding:6px 12px;border-radius:" + (k === 0 ? "8px 0 0 8px" : k === f.choices!.length - 1 ? "0 8px 8px 0" : "0"); return b; });
+            const many = f.choices.length > 3; // (a long list of names wraps, each its own button, instead of running out of the panel)
+            group.style.cssText = many ? "display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;min-width:0" : "display:flex;gap:0";
+            const buttons = f.choices.map((name, k) => { const b = textButton(name, { click: () => h.entry(f.index ?? i, String(k)) }); b.style.cssText += ";padding:6px 12px;border-radius:" + (many ? "8px" : k === 0 ? "8px 0 0 8px" : k === f.choices!.length - 1 ? "0 8px 8px 0" : "0"); return b; });
             group.append(...buttons);
             toggles[i] = buttons;
             const row = panelRow(f.label, group);
             hints[i] = row.hint;
             row.hint.textContent = f.hint ?? "";
-            el.appendChild(row.el);
+            place(row.el, f.section);
             return document.createElement("input"); // (not shown: keeps the places of the fields)
           }
           toggles[i] = null;
@@ -65,13 +91,14 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
           }
           hints[i] = row.hint;
           row.hint.textContent = f.hint ?? "";
-          el.appendChild(row.el);
+          place(row.el, f.section);
           return input;
         });
+        for (const key of rowsOf.keys()) fold(key, folded.has(key)); // (the headings say how many numbers; a group folded stays folded)
         const note = document.createElement("div");
         note.textContent = entry.panel.startsWith("Planetary") ? "A sun, planets and a ring, each a body of its own, and an optional carrier. Select any of its gears and choose Edit gear to change the whole set." : entry.panel.includes("meshing") ? "Made to fit the gear it was started from: the module, pressure angle and spacing are taken from it." : "A partner that fits: select this gear, then Gear, Mesh gear (or Mesh rack).";
         note.style.cssText = "font-size:11.5px;color:#555;margin-top:8px;padding-top:8px;border-top:1px solid #f0f1f3;line-height:1.35";
-        el.appendChild(note);
+        if (!entry.model) el.appendChild(note); // (the line about a partner gear is a gear box's: a model's box has none)
         const bar = document.createElement("div");
         bar.style.cssText = "display:flex;gap:8px;justify-content:flex-end;margin-top:10px;position:sticky;bottom:-12px;padding:8px 0 4px;background:#fff;border-top:1px solid #f0f1f3"; // (the buttons stay at the bottom of the panel while its long list of numbers is scrolled, `in_871`)
         // Cancel, and one button that makes or changes the gear and puts the tool away (`in_951`): Create for a gear to be made, Update when a gear that is made has numbers not yet applied, Done when it has none
@@ -100,6 +127,10 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
         input.dataset.bad = f.bad ? "1" : "0";
         if (f.bad) input.style.borderColor = "#e5484d"; else if (wasBad || document.activeElement !== input) input.style.borderColor = document.activeElement === input ? "#1ab8b3" : "#cfd0d4"; // (a box that is happy again is not left red, `in_1245`)
       });
+      // a folded group opens when the typing moves into it, or when one of its numbers is the one that spoils the model (red)
+      const activeAt = entry.fields.findIndex((f) => f.active), activeNow = activeAt >= 0 ? `${entry.panel}|${entry.fields[activeAt]!.section ?? ""}|${activeAt}` : "";
+      if (activeNow !== lastActive) { lastActive = activeNow; const s = activeAt >= 0 ? entry.fields[activeAt]!.section : undefined; if (s && folded.has(`${entry.panel}|${s}`)) fold(`${entry.panel}|${s}`, false); }
+      for (const f of entry.fields) if (f.bad && f.section && folded.has(`${entry.panel}|${f.section}`)) fold(`${entry.panel}|${f.section}`, false);
       if (primaryButton) primaryButton.textContent = !entry.gearButtons?.edit ? "Create" : entry.gearButtons.changed ? "Update" : "Done";
       el.style.display = "block";
       if (entry.focus && focusedFor !== sig) { // (the box was opened on a number, as the Helix item of a gear's icon does: it takes the keyboard there and scrolls to it, `in_771`)

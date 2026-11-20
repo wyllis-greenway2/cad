@@ -329,3 +329,31 @@ test("the engine's head clears a dome: the cylinder is taller by the dome's heig
   assert.ok(Math.abs(g.x1 - g0.x1 - g.pg.cr.height) < 1e-9 && g.pg.cr.height > 2, `the cylinder reaches ${(g.x1 - g0.x1).toFixed(2)} mm further`);
   assert.equal(bodies(engineSteps(eng)).length, 9, "nine bodies");
 });
+
+// The box's groups (`dec_piston_maker`): every number of the Piston and the Engine is in a group; the groups are in runs.
+import { modelEntry } from "../src/interaction/modeltool.ts";
+test("the Piston's and the Engine's numbers are grouped under headings, each group in one run, none lost; the box's entry carries the heading", () => {
+  for (const kind of ["piston", "engine"] as const) {
+    const fs = modelFields(kind);
+    const runs: string[] = [];
+    for (const f of fs) if (f.section && runs[runs.length - 1] !== f.section) runs.push(f.section);
+    assert.equal(new Set(runs).size, runs.length, `${kind}: each group is one run: ${runs.join(", ")}`);
+    for (const f of fs) assert.ok(f.top || f.section, `${kind}: ${f.key} is in a group`);
+    assert.ok(runs.length >= 3, `${kind}: ${runs.length} groups`);
+  }
+  assert.deepEqual([...new Set(modelFields("piston").filter((f) => f.section).map((f) => f.section))], ["Size and material", "Crown", "Ring belt", "Oil drain holes", "Skirt", "Pin and bosses", "Pin retention"]);
+  assert.deepEqual([...new Set(modelFields("engine").filter((f) => f.section).map((f) => f.section))], ["Engine", "Piston", "Piston fits"]);
+  // every key of the piston's spec has a field (so none is lost from the box)
+  const keys = new Set(modelFields("piston").map((f) => f.key));
+  for (const k of Object.keys(PISTON_START)) assert.ok(keys.has(k), `the box has ${k}`);
+  // the box's entry (the tool as the Models menu makes it) carries the heading of each number
+  const env = { w: 800, h: 600, now: 0 };
+  let st = { ...createState(createSession(kernel)), cam: homeCamera() };
+  st = reduce(st, { type: "runAction", id: "model:piston" }, env as never);
+  st = { ...st, tool: { ...st.tool!, plane: worldRef("XY"), points: [[0, 0, 0]], cursor: [0, 0, 0] } };
+  const e = modelEntry(scene(st.session), st.tool!);
+  assert.ok(e, "the entry");
+  const secs = e!.fields.map((f) => f.section);
+  assert.ok(secs.slice(0, 2).every((s) => s === undefined) && secs.includes("Crown") && secs.includes("Pin retention"), `the first numbers (the start, the size) have no heading: ${secs.slice(0, 3)}`);
+  assert.ok(e!.fields.find((f) => f.label === "Crown thickness")!.section === "Crown");
+});
