@@ -25,10 +25,10 @@ function bodies(r: Result<ModelBuild>): Body[] {
 const P = (o: Partial<typeof PISTON_START> = {}): typeof PISTON_START => ({ ...PISTON_START, ...o });
 const volumes = (r: Result<ModelBuild>): number[] => bodies(r).map((b) => b.volume).sort((a, b) => b - a);
 
-test("the piston stands crown up: two bodies, the piston and its pin, the height and the width the numbers give", () => {
+test("the piston stands crown up: four bodies, the piston, its pin and two circlips, the height and the width the numbers give", () => {
   for (const spec of [P(), ...PISTON_PRESETS.map((p) => p.spec)]) {
     const g = pistonGeometry(spec), bs = bodies(pistonSteps(spec));
-    assert.equal(bs.length, 2, "the piston and the pin");
+    assert.equal(bs.length, 4, "the piston, the pin and the two circlips");
     const cup = bs.sort((a, b) => b.volume - a.volume)[0]!;
     assert.ok(Math.abs(cup.bbox.min[2]!) < 0.01 && Math.abs(cup.bbox.max[2]! - (g.sk + g.ch)) < 0.01, `from the foot (0) to the crown (${(g.sk + g.ch).toFixed(2)}): ${cup.bbox.min[2]} to ${cup.bbox.max[2]}`);
     assert.ok(Math.abs(cup.bbox.max[0]! - cup.bbox.min[0]! - 2 * g.rp) < 0.01 && Math.abs((cup.bbox.max[0]! + cup.bbox.min[0]!) / 2) < 0.01, "centred on the click, as wide as the bore less the room");
@@ -104,7 +104,7 @@ test("the Piston model's box: the Honda presets, a typed number stays, the other
 import { createState, reduce } from "../src/interaction/controller.ts";
 import { homeCamera } from "../src/interaction/camera.ts";
 import { worldRef } from "../src/shared/ref.ts";
-test("the Piston model is made from the Models menu: the action, a click and Enter make the piston and its pin", () => {
+test("the Piston model is made from the Models menu: the action, a click and Enter make the piston, its pin and two circlips", () => {
   const env = { w: 800, h: 600, now: 0 };
   let st = { ...createState(createSession(kernel)), cam: homeCamera() };
   st = reduce(st, { type: "runAction", id: "model:piston" }, env as never);
@@ -116,6 +116,92 @@ test("the Piston model is made from the Models menu: the action, a click and Ent
   assert.equal(st.building, null);
   assert.equal(st.session.message ?? null, null);
   const sc = scene(st.session);
-  assert.equal(Object.values(sc.parts).filter((p) => p.kind === "body").length, 2, "the piston and the pin");
+  assert.equal(Object.values(sc.parts).filter((p) => p.kind === "body").length, 4, "the piston, the pin and the two circlips");
   assert.equal(sc.models?.length, 1);
+});
+
+// Land relief and circlips (`dec_piston_lands_clips`).
+test("the lands are cut smaller than the skirt: the top land 0.003 and the others 0.002 of the bore across, and a typed relief changes the volume by the ring it takes", () => {
+  const base = P({ bore: 68, pin: 18 }), g = pistonGeometry(base);
+  assert.equal(g.lands.length, 3, "the top land and the two lands between the three grooves");
+  assert.ok(Math.abs(g.lands[0]!.radius - (g.rp - 0.003 * 68 / 2)) < 1e-9 && Math.abs(g.lands[1]!.radius - (g.rp - 0.002 * 68 / 2)) < 1e-9 && Math.abs(g.lands[2]!.radius - (g.rp - 0.002 * 68 / 2)) < 1e-9, "auto");
+  assert.ok(g.lands[0]!.top === 0 && Math.abs(g.lands[0]!.bottom - g.belt.grooves[0]!.top) < 1e-9 && Math.abs(g.lands[1]!.top - (g.belt.grooves[0]!.top + g.belt.grooves[0]!.height)) < 1e-9 && Math.abs(g.lands[1]!.bottom - g.belt.grooves[1]!.top) < 1e-9, "each land runs from the groove above to the groove below");
+  const cup = (o: Partial<typeof PISTON_START>): number => volumes(pistonSteps({ ...base, ...o }))[0]!;
+  const v0 = cup({}), big = cup({ topLandRelief: 1.0 }), gg = pistonGeometry({ ...base, topLandRelief: 1.0 });
+  const expect = Math.PI * ((g.lands[0]!.radius) ** 2 - gg.lands[0]!.radius ** 2) * (g.lands[0]!.bottom - g.lands[0]!.top);
+  assert.ok(Math.abs((v0 - big) - expect) / expect < 0.02, `the kernel took ${(v0 - big).toFixed(2)} mm3 more, the ring is ${expect.toFixed(2)} mm3`);
+  const same = cup({ topLandRelief: 0.003 * 68, landRelief: 0.002 * 68 });
+  assert.ok(Math.abs(same - v0) < 1e-6, "the auto value typed is auto");
+  assert.match(pistonProblem(P({ bore: 68, pin: 18, topLandRelief: 8 })) ?? "", /cut too far below the skirt/);
+  assert.match(pistonProblem(P({ landRelief: -1 })) ?? "", /relief is 0/);
+});
+test("the pin is held by circlips: a groove in the pin bore near each face, a ring in each, the pin ends short of them", () => {
+  const base = P({ bore: 68, pin: 18 }), g = pistonGeometry(base), c = g.clip!;
+  assert.ok(c, "circlips are the default");
+  assert.ok(Math.abs(c.width - 1.08) < 1e-9 && Math.abs(c.depth - 0.504) < 1e-9 && Math.abs(c.z - (g.rp - 1 - 1.08)) < 1e-9, "the groove: 0.06 and 0.028 of the pin, 1 mm from the face");
+  assert.ok(Math.abs(g.pinHalf - (c.z - 0.1)) < 1e-9, "the pin ends 0.1 mm short of the groove");
+  assert.ok(c.inner < 9 && c.outer < c.bore + c.depth, "the circlip reaches in over the pin's end and stays inside its groove");
+  const bs = bodies(pistonSteps(base)).sort((a, b) => b.volume - a.volume);
+  assert.equal(bs.length, 4);
+  const clipVol = Math.PI * (c.outer ** 2 - c.inner ** 2) * c.thick;
+  assert.ok(Math.abs(bs[2]!.volume - clipVol) / clipVol < 0.001 && Math.abs(bs[3]!.volume - clipVol) / clipVol < 0.001, `each circlip is ${clipVol.toFixed(2)} mm3: ${bs[2]!.volume.toFixed(2)}, ${bs[3]!.volume.toFixed(2)}`);
+  const pin = bs[1]!;
+  assert.ok(Math.abs(pin.bbox.max[0]! - pin.bbox.min[0]! - 2 * g.pinHalf) < 0.01, "the pin's length is the shorter one (the pin lies along the model's x here)");
+  // without circlips: two bodies, the longer pin, and more metal in the piston (no grooves)
+  const none = pistonGeometry({ ...base, retention: 0 });
+  assert.equal(none.clip, null);
+  assert.ok(none.pinHalf > g.pinHalf, "no circlips: the pin runs the whole way");
+  const bn = bodies(pistonSteps({ ...base, retention: 0 })).sort((a, b) => b.volume - a.volume);
+  assert.equal(bn.length, 2, "no circlips, no ring bodies");
+  const grooves = 2 * Math.PI * ((c.bore + c.depth) ** 2 - c.bore ** 2) * c.width;
+  assert.ok(Math.abs((bn[0]!.volume - bs[0]!.volume) - grooves) / grooves < 0.05, `the grooves take ${grooves.toFixed(2)} mm3 out of the piston: ${(bn[0]!.volume - bs[0]!.volume).toFixed(2)}`);
+  assert.match(pistonProblem(P({ retention: 2 })) ?? "", /retention is 0/);
+  assert.match(pistonProblem({ ...base, pinLen: 2 * c.z + 4 }) ?? "", /too long for the circlips/);
+  assert.match(pistonProblem({ ...base, clipEdge: 0.2 }) ?? "", /0.5 mm or more/);
+  assert.match(pistonProblem({ ...base, clipWidth: 26 }) ?? "", /no room for the pin between the bosses/);
+});
+
+// The material and the hollow pin (`dec_piston_material`).
+import { MATERIALS, pistonVolumes, pistonWeight } from "../src/operation/modelpiston.ts";
+test("the material gives the room in the bore (0 = auto): cast aluminium Honda's 0.03, forged 0.05, cast iron 0.13; a typed room replaces it", () => {
+  const fit = (o: Partial<typeof PISTON_START>): number => pistonGeometry(P({ bore: 68, pin: 18, ...o })).fit;
+  assert.equal(fit({}), 0.03);
+  assert.equal(fit({ material: 1 }), 0.03);
+  assert.equal(fit({ material: 2 }), 0.05);
+  assert.equal(fit({ material: 3 }), 0.13);
+  assert.equal(fit({ material: 4 }), 0.13);
+  assert.equal(fit({ material: 3, skirtFit: 0.07 }), 0.07, "a number typed replaces the material's");
+  const r = (m: number): number => pistonGeometry(P({ bore: 68, pin: 18, material: m })).rp;
+  assert.ok(r(3) < r(2) && r(2) < r(0), "more room, a smaller piston");
+  assert.ok(Math.abs(r(2) - (34 - 0.025)) < 1e-9 && Math.abs(r(3) - (34 - 0.065)) < 1e-9);
+  assert.deepEqual(MATERIALS.map((m) => m.name), ["Cast aluminium", "Hypereutectic aluminium", "Forged aluminium", "Cast iron", "Steel"]);
+  assert.match(pistonProblem(P({ material: 5 })) ?? "", /the material is 0 to 4/);
+  assert.match(pistonProblem(P({ material: 1.5 })) ?? "", /the material is 0 to 4/);
+});
+test("the weight: the piston's, the pin's and the circlips' worked-out volumes agree with the kernel's, and the material scales it", () => {
+  for (const spec of [P(), P({ bore: 68, pin: 18 }), P({ bore: 60, pin: 13 })]) {
+    const g = pistonGeometry(spec), v = pistonVolumes(spec, g), bs = bodies(pistonSteps(spec)).sort((a, b) => b.volume - a.volume);
+    assert.equal(bs.length, 4);
+    assert.ok(Math.abs(bs[0]!.volume - v.cup) / v.cup < 0.003, `the cup: kernel ${bs[0]!.volume.toFixed(1)}, worked out ${v.cup.toFixed(1)}`);
+    assert.ok(Math.abs(bs[1]!.volume - v.pin) / v.pin < 0.001, `the pin: kernel ${bs[1]!.volume.toFixed(1)}, worked out ${v.pin.toFixed(1)}`);
+    assert.ok(Math.abs(bs[2]!.volume + bs[3]!.volume - v.clips) / v.clips < 0.001, "the circlips");
+    const w = pistonWeight(spec, g);
+    assert.ok(Math.abs(w.total - (w.piston + w.pin + w.clips)) < 1e-9 && Math.abs(w.piston - (v.cup * 2.7) / 1000) < 1e-9 && Math.abs(w.pin - (v.pin * 7.85) / 1000) < 1e-9, "the piston in its material, the pin and circlips in steel");
+  }
+  const al = pistonWeight(P({ bore: 68, pin: 18 })), iron = pistonWeight(P({ bore: 68, pin: 18, material: 3 }));
+  assert.ok(iron.piston > 2.5 * al.piston, `cast iron is heavier: ${iron.piston.toFixed(1)} g against ${al.piston.toFixed(1)} g`);
+  assert.ok(al.total > 40 && al.total < 400, `a GX160-sized piston weighs ${al.total.toFixed(1)} g in this model (no source gives a real one)`);
+});
+test("the pin is hollow by default (0.55 of the pin), solid when asked; a typed bore is used; too thin a wall is refused", () => {
+  const base = P({ bore: 68, pin: 18 }), g = pistonGeometry(base);
+  assert.ok(Math.abs(g.pinBore - 0.55 * 18) < 1e-9, "auto: 0.55 of the pin");
+  assert.equal(pistonGeometry({ ...base, pinKind: 0 }).pinBore, 0, "solid");
+  assert.equal(pistonGeometry({ ...base, pinBore: 8 }).pinBore, 8, "typed");
+  const solid = pistonVolumes({ ...base, pinKind: 0 }).pin, hollow = pistonVolumes(base).pin;
+  assert.ok(Math.abs(hollow / solid - (1 - 0.55 * 0.55)) < 1e-9, "the pin's volume is the ring's");
+  const bs = bodies(pistonSteps({ ...base, pinKind: 0 })).sort((a, b) => b.volume - a.volume), bh = bodies(pistonSteps(base)).sort((a, b) => b.volume - a.volume);
+  assert.ok(Math.abs(bs[1]!.volume - solid) / solid < 0.001 && Math.abs(bh[1]!.volume - hollow) / hollow < 0.001, "the kernel's pins");
+  assert.match(pistonProblem({ ...base, pinBore: 17 }) ?? "", /leaves too thin a wall/);
+  assert.match(pistonProblem({ ...base, pinKind: 2 }) ?? "", /solid \(0\) or hollow \(1\)/);
+  assert.match(pistonProblem({ ...base, pinBore: -1 }) ?? "", /bore is 0 \(auto\) or more/);
 });

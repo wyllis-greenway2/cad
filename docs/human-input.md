@@ -5355,3 +5355,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1259 — 2026-11-20 — directive
 > Also can it be smart enough to allow the user to set a bore using the same bore variables as the gear maker if it detects that there is no bore? if there is a bore then that part can be left out or greyed locked. Also can we make these menus (gear, spoke, all of them as a unified menu workflow) operate such that they stay open while you are creating or editing a part. It has two stages, create part, and update part, otherwise it is a done button. So create part makes the first model from inputs but the menu stays open. If you edit any variables there is a button to update part and the menu stays open. The menu should close when you click cancel or done.
 (asks for Cut spokes on a body with no bore to take the gear maker's bore variables, locked when the body has a bore; and for every tool box, gear, spoke and the rest, to be one workflow: Create makes the part and the box stays open, Update appears when a number is changed and the box stays open, Done and Cancel close it)
+
+## in_1260 — 2026-11-20 — directive
+> do land relief and circlip grooves next
+(approves the next two piston maker variables: relieved ring lands, and circlip grooves in the pin bore with the circlips)
+
+## in_1261 — 2026-11-20 — directive
+> do the material and hollow pin next
+(approves the next two piston maker variables: the piston's material, which gives its weight and its default fit in the bore, and a hollow pin)

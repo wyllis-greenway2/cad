@@ -36,3 +36,11 @@ The human wants every variable of the build in the menu, with spec values as pre
 ## Stage 1, built (`in_1258`)
 
 The human approved building the hard-coded variables first and giving the piston its own maker box. **Built:** a model kind **Piston** (*Models > Piston*, `model:piston`) with its own box: a standalone piston and its pin, crown up, from every variable of the piston that is typed or now typed; the engine builds its piston by the same code (`operation/modelpiston.ts`), so the two cannot differ. The **H variables are now typed fields, each `0` = auto** (the assumed rule works it out): pin height, skirt length below the pin, pin length, compression ring height, oil ring height, ring radial width, the land between rings, groove back room, drain hole diameter, the boss gap (the room between the bosses) and the boss reach. With every one at 0 the piston is exactly the engine's of before (a test holds the volumes). Presets: Honda GX120, GX160 and GX200 (bore, pin, rings). **Not built (the N variables):** material, crown shapes and valve reliefs, ring types, land relief, circlip grooves and a hollow pin, skirt oval, taper and style, ribs, edges. **The engine's box does not show the new fields** (they are auto there): a later step is to let the engine take its piston from the maker's numbers.
+
+## Stage 2, built (`in_1260`, `dec_piston_lands_clips`)
+
+Land relief (two typed numbers) and circlip retention (a typed Pin retention, the groove's width, depth and distance from the face, the pin's end float, and two circlip bodies) are built, and the engine has them too (nine bodies). **Still not built:** material, crown shapes and valve reliefs, ring types, hollow pin, the other pin retentions, skirt oval, taper and style, boss ribs, edges.
+
+## Stage 3, built (`dec_piston_material`)
+
+The material (density, weight, the default room in the bore) and a hollow pin. **Still not built:** crown shapes and valve reliefs, ring types, the other pin retentions, skirt oval, taper and style, boss ribs, edges.

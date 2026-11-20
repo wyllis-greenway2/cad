@@ -97,8 +97,8 @@ test("each model lists its parts, bottom up, covering every step once", () => {
     ballbearing: ["Inner race", "Outer race", ...Array.from({ length: 7 }, (_, i) => `Ball ${i + 1}`)], // (detailed, 8 x 22 x 7: seven balls)
     differential: ["Cage", "Axle 1", "Axle 2", "Cross pin", "Side gear 1", "Spider gear 1", "Side gear 2", "Spider gear 2", "Cap 1", "Cap 2", "Drive gear"],
     cycloidal: ["Base plate and ring pins", "Input shaft and eccentric", "Cycloidal disc", "Output plate and pins"],
-    engine: ["Block", "Crankshaft", "Flywheel", "Piston", "Piston pin", "Connecting rod", "Rod cap"],
-    piston: ["Piston", "Piston pin"],
+    engine: ["Block", "Crankshaft", "Flywheel", "Piston", "Piston pin", "Circlip 1", "Circlip 2", "Connecting rod", "Rod cap"],
+    piston: ["Piston", "Piston pin", "Circlip 1", "Circlip 2"],
     wheel: ["Wheel", "Edge rounds"],
     wheelcut: ["Bore", "Pockets", "Joins", "Cutouts", "Edge rounds"],
   };

@@ -49,11 +49,11 @@ function made(): ReturnType<typeof createState> {
   assert.equal(st.session.message ?? null, null);
   return st;
 }
-test("the engine is made: seven bodies, each where the numbers put it, and Play puts the rod's eyes on the pins", () => {
+test("the engine is made: nine bodies, each where the numbers put it, and Play puts the rod's eyes on the pins", () => {
   const st = made(), sc = scene(st.session), g = engineGeometry(S()), rec = sc.models![0]!;
   const body = (p: string): B => Object.values(sc.parts).find((x) => x.kind === "body" && x.ref === modelBody(sc, rec, p)) as unknown as B;
   const bs = Object.values(sc.parts).filter((p) => p.kind === "body");
-  assert.equal(bs.length, 7, "seven bodies (the rod and its cap are two): none merged");
+  assert.equal(bs.length, 9, "nine bodies (the rod and its cap, the pin's two circlips): none merged");
   const piston = body("Piston"), rod = body("Connecting rod"), crank = body("Crankshaft"), block = body("Block");
   assert.ok(piston.volume > 0 && rod.volume > 0 && block.volume > 0 && crank.volume > 0);
   const f = engineFootprint(S()), ox = -(f.x0 + f.x1) / 2; // (the model stands with the middle of its footprint on the click)
@@ -92,6 +92,6 @@ test("at rest no two parts share any volume (the piston in the bore, the pin in 
   const s = run(createSession(kernel), c.value);
   assert.equal(s.message ?? null, null);
   const b = (Object.values(scene(s).parts).filter((p) => p.kind === "body") as unknown as B[]);
-  assert.equal(b.length, 7);
+  assert.equal(b.length, 9);
   for (let i = 0; i < b.length; i++) for (let j = i + 1; j < b.length; j++) assert.equal(shared(s, b[i]!, b[j]!), 0, `parts ${i} and ${j} share volume`);
 });
