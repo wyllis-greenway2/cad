@@ -116,7 +116,7 @@ test("GT2 pulley tool: Teeth, Clearance and Bore are its numbers; click the cent
   st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
   st = click(st, C);
   assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Clearance", "Bore"]);
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.value), ["20", "0", "0", "0", "0", "0"]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.value), ["20", "0", "0"]);
   st = typeText(st, "24"); st = key(st, "Tab"); st = typeText(st, "0.05"); st = key(st, "Tab"); st = typeText(st, "5");
   st = key(st, "Enter");
   const rec = scene(st.session).gears![0]!;
