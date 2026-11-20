@@ -335,7 +335,7 @@ test("the flats round the pin: the skirt's face ends on a flat at each side of t
   assert.equal(pistonGeometry({ ...flat, flatWidth: 30 }).flat.yf, 15, "typed width");
   assert.match(pistonProblem({ ...flat, flatDepth: 30 }) ?? "", /flat is too deep/);
   assert.match(pistonProblem({ ...flat, flatWidth: 12 }) ?? "", /narrower than the pin bore/);
-  assert.match(pistonProblem({ ...base, pinFlat: 4 }) ?? "", /flats are 0 \(none\), 1 \(flat\) or 2 \(flat with a ramp\) or 3/);
+  assert.match(pistonProblem({ ...base, pinFlat: 4 }) ?? "", /flats are 0 \(none\), 1 \(flat\) 2 \(flat with a ramp\) or 3 \(scoop\)/);
   assert.match(pistonProblem({ ...flat, flatDepth: -1 }) ?? "", /flat's depth is 0 \(auto\)/);
 });
 
