@@ -68,6 +68,7 @@ export function createView(host: HTMLElement) {
     const built = buildContent(content, s, mesh, pen, envMap);
     bodyMat = built ? built.material : null;
     bodyGroup = built ? built.body : null;
+    if (clips.length) raiseLines();
     splitter = built ? built.split : null;
     hider = built ? built.hide : null;
     hider?.(hiddenNow);
@@ -137,7 +138,15 @@ export function createView(host: HTMLElement) {
   scene3.add(sectionGroup);
   /** The cross section (`in_392`, `in_394`): the part of the body and its lines on the normal's side of the plane is not drawn; both faces of what is cut are shown; where the plane cuts a solid the cut face is drawn
    * solid and hatched with parallel lines, as a cut part is in an engineering drawing (the stencil counts, along each pixel's line of sight, how many faces of the body lie behind the plane: odd is inside the solid). */
+  /** The lines drawn on a face that lies in a cutting plane come after the cut and the face drawn again over it, or they would be covered by them (`in_1354`); built again with the scene, so this is done then too. */
+  function raiseLines() {
+    content.traverse((o) => {
+      const l = o as THREE.Object3D & { isLine?: boolean; isLine2?: boolean; isLineSegments2?: boolean };
+      if (l.isLine || l.isLine2 || l.isLineSegments2) { l.userData.order ??= l.renderOrder; l.renderOrder = clips.length ? Math.max(l.userData.order as number, 2) : (l.userData.order as number); }
+    });
+  }
   function applyClip() {
+    raiseLines();
     content.traverse((o) => {
       const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
       for (const mat of Array.isArray(m) ? m : m ? [m] : []) { mat.clippingPlanes = clips.length ? clips : null; if (mat instanceof THREE.MeshBasicMaterial || mat instanceof THREE.MeshPhysicalMaterial || mat instanceof THREE.MeshStandardMaterial) { if (clips.length) { mat.userData.side ??= mat.side; mat.side = THREE.DoubleSide; } else if (mat.userData.side !== undefined) mat.side = mat.userData.side as THREE.Side; } mat.needsUpdate = true; }
@@ -206,7 +215,7 @@ export function createView(host: HTMLElement) {
       const mat = (mesh.material as THREE.Material).clone();
       mat.clippingPlanes = [clip];
       mat.polygonOffset = true; mat.polygonOffsetFactor = -12; mat.polygonOffsetUnits = -12;
-      mat.depthWrite = true; mat.depthTest = true; mat.transparent = false; mat.stencilWrite = false;
+      mat.depthWrite = false; mat.depthTest = true; mat.transparent = false; mat.stencilWrite = false; // (no depth written: the lines drawn on the face come after and must show over it, `in_1354`)
       mat.side = THREE.DoubleSide;
       const face = new THREE.Mesh(g, mat);
       face.matrixAutoUpdate = false;
