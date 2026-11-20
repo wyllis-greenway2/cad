@@ -766,7 +766,7 @@ const OPS = {
     }
     // "new" (`in_295`): a piece that stood apart when it was made stays a body of its own, however the others grow later: no join, one compound
     if (op.mode === "new") { if (!isValidSolid(solid)) throw new Error("kernel returned an invalid solid"); return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]), checked: true }; } // (the bodies it stands beside were checked when they were made: only the new piece is)
-    if (op.mode === "cut") { const tool = toolOf(back); return { kind: "solid", shape: cutFrom(target, tool.clone()), cutInto: cutInto(targetValue, tool) }; }
+    if (op.mode === "cut") { const tool = toolOf(back); return { kind: "solid", shape: cutChecked(target, tool, op.fuzzy ?? 0), cutInto: cutInto(targetValue, tool) }; }
     return { kind: "solid", shape: fuseInto(target, solid) };
   },
 
@@ -1635,10 +1635,34 @@ function fuseInto(target, solid) {
   return putBack(t.rest, t.hit.length ? keptBoolean("fuse", t.hit, solid, () => partMet(target, solid).fuse(solid)) : solid);
 }
 /** `target` with `tool` cut out of it, on the bodies the tool meets only (one that meets none cuts nothing). */
-function cutFrom(target, tool) {
+/** Does every face of the solid come out of the mesher (a coarse mesh: only the count is looked at)? A boolean can leave a face of a body that is valid and has its volume, but that cannot be meshed, so it is not drawn (`in_1368`). */
+function allFacesMesh(shape) {
+  try {
+    const faces = facesOf(shape);
+    if (faces.length > 400) return true; // (a gear: not looked at, the cost is the mesh)
+    const b = shape.boundingBox.bounds;
+    const diag = Math.hypot(b[1][0] - b[0][0], b[1][1] - b[0][1], b[1][2] - b[0][2]);
+    const m = shape.mesh({ tolerance: Math.max(0.05, diag * 0.01), angularTolerance: 0.5 });
+    const got = new Set(m.faceGroups.map((g) => g.faceId));
+    const ok = faces.every((f) => got.has(f.hashCode));
+    try { getOC().BRepTools.Clean(shape.wrapped, true); } catch { /* nothing to free */ }
+    return ok;
+  } catch { return true; }
+}
+/** A cut of an extruded figure: made as it is, and if a face of the result cannot be meshed, made again with the surfaces that lie on one another taken as one to within a ten thousandth of a mm. */
+function cutChecked(target, tool, fuzzy) {
+  const first = cutFrom(target, tool.clone(), fuzzy);
+  if (fuzzy || allFacesMesh(first)) return first;
+  const again = cutFrom(target, tool.clone(), 1e-4);
+  return isValidSolid(again) && allFacesMesh(again) ? again : first;
+}
+function cutFrom(target, tool, fuzzy = 0) {
+  // `fuzzy`: the tool has a surface that lies on the body's (the piece of a face cut out along the rim of the body, `in_1368`): the surfaces are taken as one to within this, or the boolean leaves faces it cannot mesh
+  const opts = fuzzy ? { fuzzy } : {};
+  const kind = fuzzy ? `cut${fuzzy}` : "cut";
   const t = touching(target, tool);
-  if (!t) return keptBoolean("cut", target.solids, tool, () => target.cut(tool));
-  return t.hit.length ? putBack(t.rest, keptBoolean("cut", t.hit, tool, () => (t.hit.length === 1 ? t.hit[0] : makeCompound(t.hit)).cut(tool))) : target;
+  if (!t) return keptBoolean(kind, target.solids, tool, () => target.cut(tool, opts));
+  return t.hit.length ? putBack(t.rest, keptBoolean(kind, t.hit, tool, () => (t.hit.length === 1 ? t.hit[0] : makeCompound(t.hit)).cut(tool, opts))) : target;
 }
 /** A figure pulled out in the open or into the body: cut when it takes material from the bodies it meets, else added (a body of its own when it meets none). `cut` says which. */
 function cutOrAdd(target, tool) {
