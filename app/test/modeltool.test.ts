@@ -10,6 +10,7 @@ import { typeKey, finish, previewOf } from "../src/interaction/tools.ts";
 import type { Tool } from "../src/interaction/tools.ts";
 import { modelEntry, modelTarget, nextField, modelPreview, modelTyped } from "../src/interaction/modeltool.ts";
 import { entryOf } from "../src/interaction/entry.ts";
+import { modelOutline3 } from "../src/operation/modelkinds.ts";
 import { MODEL_KINDS, modelNumbers, modelExtent, modelStart, modelFields, modelProblem } from "../src/operation/modelkinds.ts";
 import type { ModelKind } from "../src/operation/modelkinds.ts";
 
@@ -410,4 +411,10 @@ test("every model's blue preview is in space: lines that rise out of the plane, 
     const zs = pv!.segments.flatMap(([a, b]) => [a[2], b[2]]);
     assert.ok(Math.max(...zs) - Math.min(...zs) > 0.5, `${kind}: the picture has depth (${Math.min(...zs)} to ${Math.max(...zs)})`);
   }
+});
+
+test("a model that stands up in its own frame (the piston) has its picture standing up too, not on its side (`in_1265`)", () => {
+  const w = modelOutline3("piston", modelStart("piston")).flat();
+  const span = (i: number) => Math.max(...w.map((p) => p[i]!)) - Math.min(...w.map((p) => p[i]!));
+  assert.ok(span(2) > 20 && span(0) < 40 && span(1) < 40, `the piston is tall along z: ${span(0).toFixed(1)} x ${span(1).toFixed(1)} x ${span(2).toFixed(1)}`);
 });

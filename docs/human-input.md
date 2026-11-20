@@ -5376,3 +5376,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1264 — 2026-11-20 — directive
 > do the skirt shape next
 (approves the next piston maker variables: the skirt's shape: oval, taper, style (full or pads), foot chamfer)
+
+## in_1265 — 2026-11-20 — directive
+> the wireframe drawing seems to be rotated 90 degrees to the actual model for piston heads and maybe other things I haven't checked?
+(with a screenshot of the blue wireframe of the piston lying on its side beside the piston that stands; reports the wireframe turned 90 degrees to the model for piston heads, and maybe for other things)
