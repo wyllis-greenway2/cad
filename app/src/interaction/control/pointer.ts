@@ -55,6 +55,7 @@ import { hasGizmo, hitHandle, moveOffset } from "../gizmo.ts";
 const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: ToolKind; /** a way of selecting more (`in_257`) */ select?: "fixed" | "similar" | "group" | "ungroup" | "combine" | "faces" | "edges" | "vertices" | "paste" | "hard" | "bodies" | "add" }[] = [
   { id: "tool:rect", label: "Rectangle", icon: "rect", tool: "rect" },
   { id: "tool:circle", label: "Circle", icon: "circle", tool: "circle" },
+  { id: "tool:polygon", label: "Polygon", icon: "polygon", tool: "polygon" },
   { id: "tool:line", label: "Line", icon: "line", tool: "line" },
   { id: "tool:arc", label: "Curve", icon: "arc", tool: "arc" },
   { id: "tool:spline", label: "Spline", icon: "spline", tool: "spline" },
@@ -157,7 +158,7 @@ const GEARS: Group = {
 /** the bearings, by type (`in_1163`): each type opens its box, where a catalogue bearing is picked or one made of numbers, simple or detailed */
 const BEARINGS_MENU: Group = { id: "bearings", label: "Bearings", icon: "bearing", items: ["model:ballbearing"] };
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
-  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset"] },
+  { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:polygon", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "fabricate", label: "Fabricate", icon: "hammer", items: ["fab:material", "tool:fasteners"] }] },
   { id: "mechanisms", label: "Models", icon: "gear", items: [GEARS, BEARINGS_MENU, "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "model:piston", "model:wheel", "model:wheelcut", "tool:geneva:model"] }, // (the gears, and the devices made of them, `in_1145`; the gears were in Sketch and the devices in Shape, Fabricate, Models)
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue"] },
@@ -165,7 +166,7 @@ const CATEGORIES: { id: string; label: string; icon: string; items: (string | Gr
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
 ];
 /** While a repeat is open only drawing, Move and Rotate (and constraints) are offered (the rest could change what is being repeated or the pivot's parts). */
-const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", "tool:eccentric", "tool:snail", "tool:ratchet", "tool:linear", "tool:geneva", "tool:geneva:assembled", "tool:geneva:model", "tool:disc:cycloidal", "tool:disc:harmonic", "tool:disc:parabolic", "tool:gear", "tool:worm", "tool:wormwheel", "tool:ring", "tool:rack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "tool:clock", "tool:clockring", "tool:clockrack", "tool:trim", "op:move", "op:rotate", "op:copy", "op:mirror", "op:linear", "op:circular"]);
+const IN_REPEAT = new Set(["tool:rect", "tool:circle", "tool:polygon", "tool:line", "tool:arc", "tool:spline", "tool:eccentric", "tool:snail", "tool:ratchet", "tool:linear", "tool:geneva", "tool:geneva:assembled", "tool:geneva:model", "tool:disc:cycloidal", "tool:disc:harmonic", "tool:disc:parabolic", "tool:gear", "tool:worm", "tool:wormwheel", "tool:ring", "tool:rack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "tool:clock", "tool:clockring", "tool:clockrack", "tool:trim", "op:move", "op:rotate", "op:copy", "op:mirror", "op:linear", "op:circular"]);
 const category = (id: string, label: string, icon: string, kids: MenuItem[]): MenuItem => {
   const first = kids.find((k) => k.enabled);
   return { id, label, icon, enabled: true, why: null, children: kids, ...(first ? {} : { dim: true as const }) }; // (always opens, so every ring can be looked through: dimmed when nothing in it applies now, `in_538`)
@@ -368,7 +369,7 @@ export function doHover(s: AppState, i: Extract<Intent, { type: "hover" }>, env:
   // (and the line or circle itself is not lit as a whole: only the part that would go is, in the selected blue, and nothing at all where nothing crosses; `in_206`)
   if (s.tool?.kind === "trim") next = { ...withSession(next, hoverOn(next.session, undefined)), hoverPoint: null, tool: { ...s.tool, trimming: trimUnder(sc, pv) } };
   // a circle tool still armed (no plane yet): where the centre would go, and whether it is on another circle's centre; a line or an arc: whether its first end would be on a line or a circle
-  if (s.tool && !s.tool.plane && (s.tool.kind === "circle" || s.tool.kind === "arc" || s.tool.kind === "line" || s.tool.kind === "rect" || s.tool.kind === "gear" || s.tool.kind === "cam" || s.tool.kind === "model")) {
+  if (s.tool && !s.tool.plane && (s.tool.kind === "circle" || s.tool.kind === "polygon" || s.tool.kind === "arc" || s.tool.kind === "line" || s.tool.kind === "rect" || s.tool.kind === "gear" || s.tool.kind === "cam" || s.tool.kind === "model")) {
     const planeRef = selectedSurface(sc, selectionOf(s.session)) ?? drawingPlane(sc, candidatesAt(sc, pv, pickOpts(s)).map((k) => k.ref)) ?? drawingPlane(sc, selectionOf(s.session));
     const pl = planeRef ? (lookup(sc)(planeRef) as Plane) : null;
     const at = pl ? snapOnPlane(sc, pv, pl) : null;
@@ -397,7 +398,7 @@ function hintFor(sc: Scene, t: Tool, pl: Plane, pv: ReturnType<ReturnType<typeof
   if (t.kind === "line") return lineHint(sc, pl, t.points[0]!, pv, raw);
   if (t.kind === "spline") return pointHint(sc, pl, pv, raw); // (each point of a spline can be on a corner or a line already drawn)
   if (t.kind === "rect") return pointHint(sc, pl, pv, raw); // (the opposite corner)
-  if (t.kind === "gear" || t.kind === "cam" || t.kind === "model") return null; // (the size: the pointer's distance from the centre, or the numbers typed)
+  if (t.kind === "gear" || t.kind === "cam" || t.kind === "model" || t.kind === "polygon") return null; // (the size: the pointer's distance from the centre, or the numbers typed)
   if (t.kind === "circle") return t.typed[0] === "" ? circleRadiusHint(sc, pl, t.points[0]!, pv, raw) : null; // (the size: a number, or a point on the edge that touches another circle, `in_296`)
   if (t.points.length < 2) return arcEndHint(sc, pl, t.points[0]!, pv, raw); // (an arc's other end: level or upright with the first, `in_381`)
   return t.typed[0] === "" ? arcBulgeHint(sc, pl, t.points[0]!, t.points[1]!, raw) : null;
@@ -502,7 +503,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
     const about = t.kind === "circle" ? anc?.ref ?? circleCentredAt(sceneOf(session), lookup(sceneOf(session))(plane) as Plane, at) : null;
     const first = pointHint(sc, pl, pv, at); // (the first end of a line or an arc on a line or a circle says so, `in_280`, `in_281`)
     const from = first ? first.at : at;
-    return { ...base, session: { ...session, message: null }, tool: { ...t, plane, points: [from], cursor: from, ...(first ? { ends: [first.hints] } : {}), ...(about ? { concentric: about } : {}) } };
+    return { ...base, session: { ...session, message: null }, tool: { ...t, plane, points: [from], cursor: from, ...(t.kind === "polygon" ? { field: 0 as const } : {}), ...(first ? { ends: [first.hints] } : {}), ...(about ? { concentric: about } : {}) } }; // (a polygon: the size is next; the number of edges asked for is kept, Tab goes back to it)
   }
   const plane = sc.parts[t.plane!] as Plane;
   const flat = snapOnPlane(sc, pv, plane);

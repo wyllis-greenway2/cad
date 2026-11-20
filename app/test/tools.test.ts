@@ -360,7 +360,7 @@ test("the right-click ring offers all the operations around the click; nothing o
   const f = frameOf(st, { w: 800, h: 600 });
   assert.ok(!f.annotations.some((a) => ["pushpull", "sketch", "edge", "rect"].includes(a.kind)), "a left click shows constraints and dimensions only");
   const ring = flat(reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items.filter((i) => i.id !== "constraints")); // (the constraints have their own test: they are all always there, `in_666`)
-  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset", "op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", "fab:material", "tool:fasteners", "tool:gear", "tool:ring", "tool:rack", "tool:planetary", "tool:bevel", "tool:spiral", "tool:hypoid", "tool:crown", "tool:face", "tool:worm", "tool:wormwheel", "tool:clock", "tool:clockring", "tool:clockrack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "model:ballbearing", "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "model:piston", "model:wheel", "model:wheelcut", "tool:geneva:model", "op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue", "op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup", "look", "view:game", "view:section", "view:hide", "view:wireframe", "view:constraints", "tape:measure", "undo", "redo", "delete"]);
+  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:polygon", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset", "op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", "fab:material", "tool:fasteners", "tool:gear", "tool:ring", "tool:rack", "tool:planetary", "tool:bevel", "tool:spiral", "tool:hypoid", "tool:crown", "tool:face", "tool:worm", "tool:wormwheel", "tool:clock", "tool:clockring", "tool:clockrack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "model:ballbearing", "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "model:piston", "model:wheel", "model:wheelcut", "tool:geneva:model", "op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue", "op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup", "look", "view:game", "view:section", "view:hide", "view:wireframe", "view:constraints", "tape:measure", "undo", "redo", "delete"]);
   assert.deepEqual(ring.filter((i) => !i.enabled).map((i) => i.id), ["combine:parts", "fab:material", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue", "clipboard:paste", "repeat:path", "select:group", "select:ungroup", "redo", "delete"], "an operation that needs more than a face is still offered and waits for it (`in_464`); one face is nothing to group and is no group to break; Path repeat needs a figure or a body and a path (`in_841`) while Fastener Holes works on a flat face (`in_813`); a face cannot be deleted (fillet / chamfer takes a flat face too now, `in_257`, as offset does, `in_199`)");
   assert.ok(ring.every((i) => i.icon));
   const drawing = reduce(st, { type: "runAction", id: "tool:circle" }, env);
@@ -874,4 +874,56 @@ test("the wireframe stays on through a right click (it opens the menu) until it 
   assert.ok(st.menu, "and the right click opened the menu");
   st = reduce(st, { type: "runAction", id: "view:wireframe" }, env);
   assert.equal(st.wireframe, false);
+});
+
+test("polygon (`dec_polygon_tool`): it asks for the number of edges as soon as it is armed (six until another is typed); the middle, then the size and the turn from the pointer; every side equal; one undo", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "polygon" }, env);
+  assert.ok(st.tool && !st.tool.plane);
+  const ask = entryOf(scene(st.session), st.tool, null)!;
+  assert.deepEqual(ask.fields.map((f) => [f.label, f.value, f.active]), [["Edges", "6", true]], "the number of edges is asked for first");
+  st = typeText(st, "5");
+  assert.equal(entryOf(scene(st.session), st.tool, null)!.fields[0]!.value, "5");
+  st = click(st, [20, 15, 0]); // the middle
+  assert.equal(st.tool!.plane, XY);
+  st = move(st, [30, 15, 0]); // a corner 10 out along +x
+  assert.equal(previewFor(scene(st.session), st.tool)!.segments.length, 5, "a pentagon");
+  assert.deepEqual(entryOf(scene(st.session), st.tool, null)!.fields.map((f) => [f.label, f.value]), [["Diameter", "20"], ["Edges", "5"]]);
+  st = click(st, [30, 15, 0]);
+  st = stays(st);
+  const pts = corners(st);
+  assert.equal(pts.length, 5);
+  for (const p of pts) near(Math.hypot(p[0] - 20, p[1] - 15), 10, 1e-6);
+  assert.ok(pts.some((p) => Math.abs(p[0] - 30) < 1e-6 && Math.abs(p[1] - 15) < 1e-6), "a corner is where the pointer was");
+  const rels = scene(st.session).relations;
+  assert.equal(rels.length, 4, "the sides are made equal");
+  assert.ok(rels.every((r) => r.kind === "equalLength"));
+  assert.match(selection(st.session)[0]!, /^d\/loop@/);
+  st = { ...st, session: undoLast(st.session) };
+  assert.equal(corners(st).length, 0, "the whole polygon goes in one undo");
+});
+
+test("polygon: Tab goes to the other number; a typed diameter sets the size; the number of edges is kept for the next; edges are kept from three to sixty-four", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "polygon" }, env);
+  st = typeText(st, "8");
+  st = click(st, [20, 15, 0]);
+  st = move(st, [24, 15, 0]);
+  st = key(st, "Tab"); // (from the size to the edges)
+  st = key(st, "Tab"); // (and back)
+  st = typeText(st, "10");
+  st = key(st, "Enter");
+  const pts = corners(st);
+  assert.equal(pts.length, 8, "eight edges");
+  for (const p of pts) near(Math.hypot(p[0] - 20, p[1] - 15), 5, 1e-6); // (a diameter of 10, the cursor's direction)
+  assert.equal(st.tool!.typed[1], "8", "the next polygon is eight-sided too");
+  // too few and too many
+  let few = reduce(top(), { type: "begin", name: "polygon" }, env);
+  few = typeText(few, "2");
+  few = click(few, [20, 15, 0]); few = move(few, [30, 15, 0]);
+  assert.equal(previewFor(scene(few.session), few.tool)!.segments.length, 3, "not fewer than three");
+  let many = reduce(top(), { type: "begin", name: "polygon" }, env);
+  many = typeText(many, "200");
+  many = click(many, [20, 15, 0]); many = move(many, [30, 15, 0]);
+  assert.equal(previewFor(scene(many.session), many.tool)!.segments.length, 64, "not more than sixty-four");
 });

@@ -27,6 +27,9 @@ export interface EntryField { /** the number was just taken back to one that mak
 export interface Entry { /** the gear box's buttons (`in_919`): `edit` is for a gear that exists (the blue button says Done, not Create); `changed`: there is something to Update */ gearButtons?: { edit: boolean; changed: boolean }; /** the box takes the keyboard in the number that is active, and scrolls to it, when it opens (`in_771`) */ focus?: true; /** a planetary set: the ratio for each part held and what is worth a warning (`dec_planetary_gears`) */ info?: string; /** a gear being sized next to one it would mesh with: the click that makes it mesh (`in_709`) */ suggest?: string; /** a gear whose numbers make none: why, in red (`in_694`) */ warn?: string; /** shown as a labelled panel that stands still, not a bubble that follows the pointer: a box of many numbers to click into (the gear tool, `in_685`) */ panel?: string; /** the panel's lengths follow the number system (a cam: free-form sizes; a gear's follow the standards) */ followUnits?: true; fields: EntryField[]; unit: string; /** how plainly it shows: less than 1 while it fades out (`in_439`) */ opacity?: number; /** the number typed is also a constraint (a size of a figure): a lock shows by it, closed once typed (`in_384`) */ constraint?: boolean; at?: Vec3 | null; /** the other end of the arrow the bubble is at the tip of: the bubble stands out past the tip, away from it, so it does not cover the arrow */ from?: Vec3 | null }
 
 
+/** The field that asks a polygon for its number of edges (a whole number, six until another is typed). */
+const polygonEdges = (tool: Tool, active: boolean): EntryField => ({ label: "Edges", short: "Edges", value: tool.typed[1] !== "" ? tool.typed[1] : "6", active, typed: tool.typed[1] !== "", index: 1, unit: "" });
+
 /** The number chip: for a tool, its fields (what is typed, else the live size); for an operation, its one number. Null when there is nothing to show yet. */
 export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry | null {
   if (op && op.kind === "mirror") return null; // (its numbers are on its arrows, `in_437`)
@@ -80,6 +83,8 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
     const e = modelEntry(scene, tool);
     if (e) return { panel: e.panel, gearButtons: { edit: false, changed: false }, fields: e.fields, unit: e.unit, followUnits: true, info: e.note };
   }
+  // a polygon asks for the number of edges as soon as it is armed (`dec_polygon_tool`); once its middle is placed the size is asked too
+  if (tool && tool.kind === "polygon" && (!tool.points.length || !tool.plane)) return { fields: [polygonEdges(tool, true)], unit: "" };
   if (!tool || !tool.plane || !tool.points.length) return null;
   const pl = scene.parts[tool.plane] as Plane | undefined;
   if (!pl || pl.kind !== "plane") return null;
@@ -92,6 +97,9 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
       const [ex, ey] = localOf(pl, e);
       live.push(Math.abs(ex - ax), Math.abs(ey - ay));
     }
+  } else if (tool.kind === "polygon") {
+    const size = circleRadius(pl, tool) * 2;
+    return { fields: [{ label: "Diameter", short: "Ø", value: tool.typed[0] !== "" ? tool.typed[0] : size > 0 ? roundedText(size) : "", active: tool.field === 0, typed: tool.typed[0] !== "", index: 0 }, polygonEdges(tool, tool.field === 1)], unit: "mm" };
   } else if (tool.kind === "circle") live.push(circleRadius(pl, tool) * 2);
   else if (tool.kind === "model" && tool.model) { // a gear assembly model (`dec_gear_models`): the size, the turn and its numbers, in the panel of the gear box
     const e = modelEntry(scene, tool);

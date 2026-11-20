@@ -61,7 +61,7 @@ import { doSimilar, doSelectAll, doSelectBodies, doGroup, doUngroup, doCutBegin,
 import { groupsOf, membersOf } from "../../operation/groups.ts";
 
 /** The sketch group (`in_229`): the tools that draw on a plane, and the operations that work in one. Every member follows the group's rules below, so a new tool is added here (the records name every kind, so the compiler asks which group it is in) and gets them all. */
-const IS_SKETCH_TOOL: Record<ToolKind, true> = { rect: true, circle: true, line: true, arc: true, spline: true, cam: true, trim: true, gear: true, model: true };
+const IS_SKETCH_TOOL: Record<ToolKind, true> = { rect: true, circle: true, polygon: true, line: true, arc: true, spline: true, cam: true, trim: true, gear: true, model: true };
 const IS_SKETCH_OP: Record<OpKind, boolean> = { offset: true, extrude: false, pushpull: false, edge: false, move: false, rotate: false, scale: false, dimension: false, linear: false, circular: false, copy: false, hollow: false, revolve: false, loft: false, sweep: false, mirror: false };
 const isSketchTool = (name: string): name is ToolKind => name in IS_SKETCH_TOOL;
 
@@ -145,7 +145,7 @@ export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["n
 
 /** Put a finished figure into the scene and hand back to normal selection with the figure selected. */
 /** The tool stays on after a figure is made, ready on the same plane for the next, until a right click or the cancel icon at the top puts it away (`in_193`). */
-const stays = (t: AppState["tool"]): AppState["tool"] => (t && t.kind !== "gear" && t.kind !== "cam" ? { ...armTool(t.kind, variantOf(t.gear)), plane: t.plane, made: (t.made ?? 0) + 1, ...(t.reveal ? { reveal: true as const } : {}) } : null);
+const stays = (t: AppState["tool"]): AppState["tool"] => (t && t.kind !== "gear" && t.kind !== "cam" ? { ...armTool(t.kind, variantOf(t.gear)), ...(t.kind === "polygon" ? { typed: ["", t.typed[1]] as [string, string] } : {}), plane: t.plane, made: (t.made ?? 0) + 1, ...(t.reveal ? { reveal: true as const } : {}) } : null);
 
 /** A model is made a part at a time (`dec_gear_models`): the first part now, and each next one when the kernel has answered for the one before (the page draws between, so the parts are seen going in) */
 function startBuilding(s: AppState): AppState {
@@ -274,6 +274,7 @@ export function doTyped(s: AppState, key: string): AppState {
     return { ...s, op: s.op.kind === "move" && s.op.typed === "" && typed.typed !== "" ? { ...typed, typedBase: moveOffset(sceneOf(s.session), s.op)[s.op.axis]! } : typed };
   }
   const t = s.tool;
+  if (t && t.kind === "polygon" && !t.points.length && key !== "Enter") return { ...s, tool: typeKey(t, key) }; // (the polygon asks for its number of edges as soon as it is armed, `dec_polygon_tool`)
   if (!t || !t.plane || !t.points.length) return s;
   if (key !== "Enter") return { ...s, tool: typeKey(t, key) };
   if (s.building && t.kind === "model") return s; // (the parts are still being made)
