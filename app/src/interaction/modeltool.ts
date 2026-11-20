@@ -192,7 +192,7 @@ export function modelFix(scene: Scene, t0: Tool): { tool: Tool; field: number; m
 }
 const guardMemo = new WeakMap<Scene, Map<string, ReturnType<typeof modelFix>>>();
 /** The number a model's box marks red while the model cannot be made (what Enter would do about it): worked out once for each set of numbers. Null while the model can be made. */
-export function modelGuard(scene: Scene, t: Tool): { field: number; why: string; tool: Tool } | null {
+function modelGuard(scene: Scene, t: Tool): { field: number; why: string; tool: Tool } | null {
   if (t.kind !== "model" || !t.model) return null;
   const key = JSON.stringify([t.model.typed, t.cursor, t.points, t.fill, t.plane]);
   const memo = guardMemo.get(scene) ?? new Map<string, ReturnType<typeof modelFix>>();
