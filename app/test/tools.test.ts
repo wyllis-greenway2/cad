@@ -1027,6 +1027,23 @@ test("polygon snapping (`in_1285`): a corner near level or upright with the midd
   near(centre[0], 20, 1e-6); near(centre[1], 15, 1e-6);
 });
 
+test("hold: a point on a plane above a block lines up with the corners of the block as they fall on it, and is held on their feet (`in_1334`)", async () => {
+  const { holdsAt, alignPoints } = await import("../src/interaction/hold.ts");
+  let st = top();
+  st = drawBox(st, 20); // (a block 40 by 20, 20 high, its top corners at z 20)
+  const sc = scene(st.session);
+  const pl = { kind: "plane", ref: "d/p_test", at: [0, 0, 30], u: [1, 0, 0], v: [0, 1, 0], origin: "drawn" } as never;
+  const corner = [3, 3, 20] as Vec3; // (the top corner of the block falls on the plane at [3, 3, 30])
+  const pr = projector(st.cam, env.w, env.h);
+  const at = pr.project([3, 3, 30]);
+  const pv = { x: at[0], y: at[1], project: (p: Vec3) => pr.project(p) };
+  void corner;
+  assert.ok(alignPoints(sc, pv, pl).some((p) => Math.abs(p[0] - 3) < 1e-6 && Math.abs(p[1] - 3) < 1e-6 && Math.abs(p[2] - 30) < 1e-6), "the foot of the corner is something to line up with");
+  const held = holdsAt(sc, pv, pl);
+  assert.equal(held[0]?.kind, "foot");
+  near(held[0]!.at[2], 30);
+});
+
 test("sketching on the face of a disk (`in_1324`, `in_1325`): the middle of its rim is a point to take and to line up with, level and upright, though the rim has no corner there", () => {
   let st = top();
   const c = drawCircle(scene(st.session), worldRef("XY"), [20, 15, 0], 10);

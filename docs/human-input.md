@@ -5634,3 +5634,14 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1333 — 2026-11-20 — directive
 > I cannot select the boolean operation tool unless I have more than one body. Again this feels like factured or duplicate code. All our tools should follow a unified method. I think you should be able to select them anytime and they should guide you to select what they need to do the operation. it should let me select it and then I can select the bodies involved.
 (asks that the boolean tools can be chosen at any time and then wait for the bodies to be picked, as every tool does)
+
+## in_1334 — 2026-11-20 — directive
+> Sketches vanish on a negative extrude. I dont think they should. 
+> 
+> I cant reliably set dimensions on sketches from perpendicular things. For example if i make a blocks, then sketch on one face of the block, I cant seem to set distance cosntraints to surfaces running perpendicualr to the camera. Can we make it so that you can freely set constraints and also you get snapping suggestions with basically all the lines available in view?  In fact, how can we unify our whole snapping system and setting constraints to system because it seems awfully piece meal?
+
+## in_1335 — 2026-11-20 — approval
+> yes go ahead with step one
+
+## in_1336 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests

@@ -1,5 +1,6 @@
 // Constraint hints while a line is being drawn (`in_152`, `q_snap_suggestions`): when the end of the line is close to being level, upright, parallel or square to another line,
 // on another line, tangent to a circle, or as long as another line, the end takes that exactly and says so; a click then makes the line with that constraint.
+import { holdsAt } from "./hold.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, dist } from "../math/vec.ts";
@@ -107,8 +108,7 @@ export function pointHint(spent: Scene, pl: Plane, pv: PointerView, base: Vec3, 
   const n = normalOfPlane(pl);
   const cc = anchorCutCorners(scene, pl).find((c) => dist(c.at, base) < 1e-6); // (a corner of the cut of the cross section plane: on each of the cut edges that meet there, `in_398`)
   if (cc) return { at: base, hints: cc.refs.map((ref): Hint => ({ kind: "onLine", ref })) };
-  for (const p of Object.values(scene.parts)) if (p.kind === "corner" && Math.abs(dot(sub(p.at, pl.at), n)) < 1e-3 && dist(p.at, base) < 1e-6) return { at: base, hints: [] }; // (at a corner: that is its own constraint)
-  if (anchorCorners(scene, pl).some((c) => dist(c.at, base) < 1e-6)) return { at: base, hints: [] }; // (a corner of the body as it falls on the plane: the same, `in_311`)
+  if (holdsAt(scene, pv, pl).some((h) => h.kind !== "mid" && dist(h.at, base) < 1e-6)) return { at: base, hints: [] }; // (at a corner of the plane, or of the body as it falls on it, `in_311`: that is its own constraint; one reference set, `hold.ts`)
   const snapped = outlineSnap(scene, pl, pv, localOf(pl, base), skip);
   return snapped ? { at: liftOf(pl, snapped.at), hints: [snapped.hint] } : { at: base, hints: [] };
 }

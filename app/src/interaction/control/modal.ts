@@ -418,7 +418,7 @@ function cancelOp(s: AppState): AppState {
 /** What a dimmed item needs, said as what to do now: "select a gear" -> "Select a gear: click it". */
 export const instruction = (why: string): string => { const t = why.charAt(0).toUpperCase() + why.slice(1); return /^select/i.test(why) ? `${t}: click it (Esc to leave)` : `${t} (Esc to leave)`; };
 /** The items that need several things selected (the booleans, glue, link): while one waits, every click adds to the selection (`in_1333`). */
-export const needsMany = (id: string): boolean => id.startsWith("combine:") || id === "motion:glue" || id === "motion:link";
+const needsMany = (id: string): boolean => id.startsWith("combine:") || id === "motion:glue" || id === "motion:link";
 export function finishPicking(s: AppState, now = 0): AppState {
   if (!s.picking) return s;
   const r = startOp(sceneOf(s.session), selectionOf(s.session), s.picking.kind, viewAxes(s.cam));
