@@ -5439,3 +5439,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > yes I think that is on the right track, but lets research a bit first. Go find what you need online or send me links to docs you need and I will see if I can get them for you. So first off, are bearings normally sleeves? are the sleeves mated to the arm itself or the pin they ride on or both? are sleeves normally in two halves? how about normal bearings? do engines use needle or roller or ball bearings to join arms to pins or shafts ever? Also for casting specific features like draft etc, I am unsure if we should include them. normally parts are supposed to be manufacturing agnostic and then specific manufacturing routes would help specify specific manufacturing needs like machine bit radius, or casting draft angles etc. So any work like this should probably be modular in some sense because we know we will use manufacturing specific things later elsewhere that arent intertwined with a specific piston arm tool
 (approves the direction of `q_rod_maker`; asks for research on bearings first; asks that casting draft and similar process features stay out of the rod tool and live in separate, manufacturing-route modules)
 
+## in_1282 — 2026-11-20 — directive
+> can you link me to any documents I may be able to get for you that you need?
+
+## in_1283 — 2026-11-20 — directive
+(no words: the human sent four PDFs for `q_rod_maker`: "Connecting Rod Tech" (Engine Professional, Mavrigian), "Engine Bearings & Hydrodynamic Lubrication Explained" (EPI, Kane), "Explaining Under- And Oversized Engine Bearings With King Bearings" (EngineLabs, Acosta, 2024) and the Wikipedia "Gudgeon pin" article. The files are not kept in the repository.)
+

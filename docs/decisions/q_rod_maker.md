@@ -3,7 +3,7 @@ id: q_rod_maker
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_1280, in_1281
+human_input: in_1280, in_1281, in_1283
 date: 2026-11-20
 depends_on:
   - dec_rod_design: this entry grows that entry's rod (I-beam, split big end, two bolt holes) into a maker with its own box; its shapes are the starting point
@@ -39,6 +39,16 @@ Sourced in the repo: Honda's eyes, length, weight, clearances and torque; Kean (
 - **Small end:** a **one-piece sleeve (a bush, usually bronze)** **pressed into the rod's eye**, reamed to the pin after pressing; the pin turns in it. Fully floating pins (circlips, as Honda's) turn in the bush and in the piston; semi-floating pins are fixed in one part (clamped in the rod, or pressed in the piston) and turn in the other. A rod with no bush (the pin on the bare eye) is common in small cheap engines (aluminium rod).
 - **Rolling bearings:** yes. **Two-strokes** commonly use **caged needle rollers** at the big end and often the small end (hot, little oil); a needle cage needs a one-piece rod and a **built-up (pressed together) crank**, since the rod cannot be split to go on. Some four-strokes do (the Rotax 912's rod has rolling big end, a 1995 SAE paper covers rolling big ends in small motorcycle singles). **Ball bearings** at the rod are rare (they are used on crank mains, not rods), and forums call them less durable.
 - **Not found:** the shell's wall by journal size, its width ratio, the crush height, the tab's size, the bush's wall, and the bolt's size: **no number**.
+
+## Read in full (`in_1283`, four PDFs the human sent; `docs/sources/README.md`)
+What they settle, and what the rod maker takes from it:
+- **Plain shells are the norm** (Kane: almost all piston engines; two halves, one in the rod, one in the cap, **fixed to the housing**, the journal turns inside). A shell has a steel back and soft linings; **crush** holds it, a **tab or pin only positions it**; **no groove across the loaded half** (the loaded half is the half under the cap on the power stroke's thrust side, a plain surface there); oil arrives through a hole in the **journal** (the crank pin); the wall is thickest across the middle and tapers to the split (ovality). **Wall by journal, from one handwritten worksheet in a photo (hard to read):** about 0.029 of the journal diameter (1.56 mm on 2.1 in); **oil clearance** about 0.001 per inch of journal (Honda's 0.040 to 0.063 mm on a 30 mm pin is 0.0013 to 0.0021 of the diameter, in the repo already). Shell sizes: standard, and under or over by 0.001 in steps (each 0.001 in is 0.0005 in a shell).
+- **Small end: a sleeve (bush) pressed into the eye (interference fit, replaceable), or a needle bearing; the wrist pin bearing works by squeeze film** (little rotation). **Three pin arrangements:** *fully floating* (a bearing at both the rod and the piston, circlips, no interference), *semi-floating* (pin pressed in the piston, the rod's bush the only bearing), and the *reverse* (pin pressed in the rod, bearings in the piston). Honda's is fully floating.
+- **Beam shapes:** I-beam (a groove in each flat face), **H-beam** (grooves in the sides, in line with the bolts), X-beam (both). I-beam lighter, H-beam stronger in theory; the maker's choice. **Aluminium rods are I-beams** (a wider beam) with hardened washers under the bolt heads.
+- **Bolts:** 12-point or hex heads, strength classes (ARP 8740 and 2000: 180 to 220 ksi), the rod's bolt a cap screw into a threaded hole in the rod or a bolt with a nut; sizes 5/16 to 7/16 in on the racing rods; the repo's fastener tables carry M3 to M8.
+- **Clearances to model:** side clearance of the rod on the journal **0.3 to 0.5 mm (0.012 to 0.020 in)** for a pair of rods on one journal (Honda's single rod: 0.1 to 0.7 mm); rod to block at least 2 mm (0.080 in); the big end is finished round **with the cap on**, so the typed bore is the finished one (a process fact, kept out of the tool).
+- **Needle bearings** are real (Wikipedia's figure shows a needle sleeve in the small end; two-strokes use them at the big end), but Kane notes **rolling bearings are rare in piston engines**. Needle at the big end needs a one-piece rod and a built-up crank.
+- **Still not found:** a shell width by journal, the crush height, the tab's size, a bush's wall, an oil groove's size: **no number**. The searched hits (ACL, King catalogues) would give them.
 
 ## Questions for the human
 0. **Bearings (new).** Proposed: the rod's **big end bearing type** is a typed choice: *Plain shells* (two shells, the default), *Needle rollers* (a one-piece rod, a cage and rollers, with the crank pin a separate round pin; the cap is dropped), or *None* (a bare bore). The small end the same: *Bush* (a sleeve), *Needle*, *None*. Is that the right set?
