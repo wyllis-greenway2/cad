@@ -16,16 +16,21 @@ export interface PistonSpec {
   /** the piston's own fits (mm): its room in the bore (across), the pin's room in the piston (across), a ring's room above and below it in its groove */ skirtFit: number; pinFit: number; ringSide: number;
   /** **0 = auto** (the rule works it out): the distance from the pin's axis to the crown (the stack), the skirt below the pin (0.27 of the bore, ASSUMED), the pin's length (the longest the walls allow) */ pinHeight: number; skirtLen: number; pinLen: number;
   /** **0 = auto**: a compression ring's height and the oil ring's (Honda's 1.5 and 2.5 mm, down to 1.0 and 2.0 for a small bore), a ring's radial width (the bore over 22, ISO 6622-1's thicker series), the land between rings (1.6 times a compression ring), the groove's back room (0.45 mm) */ ringHeight: number; oilRingHeight: number; ringRadial: number; land: number; backRoom: number;
+  /** the lands are cut smaller than the skirt (`dec_piston_lands_clips`, ASSUMED), **0 = auto**: the top land's and the other lands' diameter less than the skirt's (mm across: 0.003 and 0.002 of the bore) */ topLandRelief: number; landRelief: number;
+  /** the pin's retention: 0 none, 1 circlips (a groove in the pin bore near each outer face and a circlip in it: Honda's); **0 = auto**: the groove's width (0.06 of the pin, at least 0.8 mm) and depth (0.028 of the pin, at least 0.4 mm), its distance from the outer face (1.0 mm), the pin's end float (0.1 mm) */ retention: number; clipWidth: number; clipDepth: number; clipEdge: number; pinFloat: number;
   /** **0 = auto**: an oil drain hole's diameter (0.03 of the bore), the gap between the pin bosses (the rod's thickness and its room each side), how far a boss reaches beyond the pin's hole (a wall's thickness) */ drainDia: number; bossGap: number; bossReach: number;
 }
 const FIT = pistonFit(30); // (the fits do not follow the bore)
-export const PISTON_START: PistonSpec = { bore: 30, pin: 8, rings: 2, oil: 1, topLand: 0.07, crown: 0.08, skirtWall: 0.04, drain: 2, room: 0.15, skirtFit: FIT.skirtClearance, pinFit: FIT.pinFit, ringSide: FIT.ringSide, pinHeight: 0, skirtLen: 0, pinLen: 0, ringHeight: 0, oilRingHeight: 0, ringRadial: 0, land: 0, backRoom: 0, drainDia: 0, bossGap: 0, bossReach: 0 };
+export const PISTON_START: PistonSpec = { bore: 30, pin: 8, rings: 2, oil: 1, topLand: 0.07, crown: 0.08, skirtWall: 0.04, drain: 2, room: 0.15, skirtFit: FIT.skirtClearance, pinFit: FIT.pinFit, ringSide: FIT.ringSide, pinHeight: 0, skirtLen: 0, pinLen: 0, ringHeight: 0, oilRingHeight: 0, ringRadial: 0, land: 0, backRoom: 0, drainDia: 0, bossGap: 0, bossReach: 0, topLandRelief: 0, landRelief: 0, retention: 1, clipWidth: 0, clipDepth: 0, clipEdge: 0, pinFloat: 0 };
+const CLIP_ROOM = 0.05; // (a circlip's room in its groove, mm: two bodies may not share a face)
 
 export interface PistonGeometry {
   /** the piston's radius, the distance from the pin's axis to the crown and to the foot of the skirt */ rp: number; ch: number; sk: number;
   belt: RingBelt; shell: Shell;
   /** the rod's small eye's outer radius, and the rod's thickness (worked out from the pin, as the engine does) */ rs: number; w: number;
   /** half the gap between the pin bosses, half the pin's length, an oil drain hole's radius */ zoff: number; pinHalf: number; drainR: number;
+  /** the relieved lands from the crown down: where each begins and ends (mm from the crown) and its radius */ lands: { top: number; bottom: number; radius: number }[];
+  /** the circlip grooves (none without retention): the groove's width and depth, the distance from the pin's axis to its inner face, the pin bore's radius, the circlip's outer and inner radius and its thickness */ clip: { width: number; depth: number; z: number; bore: number; outer: number; inner: number; thick: number } | null;
 }
 export function pistonGeometry(p: PistonSpec): PistonGeometry {
   const B = p.bore, rp = B / 2 - p.skirtFit / 2, rs = p.pin / 2 + 1.5, w = Math.max(3, Math.round(p.pin * 0.75 * 10) / 10);
@@ -35,9 +40,18 @@ export function pistonGeometry(p: PistonSpec): PistonGeometry {
   // the pin height is the stack (the belt, then the larger of the pin's radius and 0.05 of the bore: ASSUMED, and what the rod's small eye and its slot need); the cavity under the crown must hold the rod's eye too
   const stack = Math.max(belt.length + Math.max(p.pin / 2 + 0.05 * B, rs + 2.5), shell.crown + rs + 2.5);
   const oil = belt.grooves.find((x) => x.oil);
+  // the relieved lands (`dec_piston_lands_clips`): the top land and the lands between grooves, smaller than the skirt by a diameter
+  const reTop = p.topLandRelief > 0 ? p.topLandRelief : 0.003 * B, reLand = p.landRelief > 0 ? p.landRelief : 0.002 * B, lands: PistonGeometry["lands"] = [];
+  const gs = belt.grooves;
+  lands.push({ top: 0, bottom: gs[0]?.top ?? belt.length, radius: rp - reTop / 2 });
+  for (let k = 0; k + 1 < gs.length; k++) lands.push({ top: gs[k]!.top + gs[k]!.height, bottom: gs[k + 1]!.top, radius: rp - reLand / 2 });
+  // the circlip grooves: in the pin bore near each outer face; the pin ends the float short of the circlip
+  const bore = p.pin / 2 + p.pinFit / 2, cw = p.clipWidth > 0 ? p.clipWidth : Math.max(0.8, 0.06 * p.pin), cd = p.clipDepth > 0 ? p.clipDepth : Math.max(0.4, 0.028 * p.pin), edge = p.clipEdge > 0 ? p.clipEdge : 1.0, flt = p.pinFloat > 0 ? p.pinFloat : 0.1;
+  const zIn = rp - edge - cw, outer = bore + cd - CLIP_ROOM;
+  const clip = p.retention === 1 ? { width: cw, depth: cd, z: zIn, bore, outer, inner: outer - 2.8 * cd, thick: cw - 2 * CLIP_ROOM } : null;
   return { rp, ch: p.pinHeight > 0 ? p.pinHeight : stack, sk: p.skirtLen > 0 ? p.skirtLen : 0.27 * B, belt, shell, rs, w,
-    zoff: (p.bossGap > 0 ? p.bossGap : w + 2 * p.room) / 2, pinHalf: p.pinLen > 0 ? p.pinLen / 2 : Math.sqrt(rp * rp - (p.pin / 2 + 1) ** 2) - 0.3,
-    drainR: Math.min(p.drainDia > 0 ? p.drainDia : 0.03 * B, 0.8 * (oil?.height ?? Infinity)) / 2 };
+    zoff: (p.bossGap > 0 ? p.bossGap : w + 2 * p.room) / 2, pinHalf: p.pinLen > 0 ? p.pinLen / 2 : clip ? zIn - flt : Math.sqrt(rp * rp - (p.pin / 2 + 1) ** 2) - 0.3,
+    drainR: Math.min(p.drainDia > 0 ? p.drainDia : 0.03 * B, 0.8 * (oil?.height ?? Infinity)) / 2, lands, clip };
 }
 
 /** Why the numbers make no piston, or null */
@@ -55,9 +69,12 @@ export function pistonProblem(p: PistonSpec): string | null {
   if (p.pinFit < 0.001 || p.pinFit > 0.5) return "the pin's room in the piston is 0.001 to 0.5 mm across (Honda 0.002 to 0.014)";
   if (p.ringSide < 0.005 || p.ringSide > 0.5) return "a ring's room in its groove is 0.005 to 0.5 mm (Honda 0.015 to 0.045)";
   for (const [v, what] of [[p.pinHeight, "the pin height"], [p.skirtLen, "the skirt below the pin"], [p.pinLen, "the pin's length"], [p.ringHeight, "a compression ring's height"], [p.oilRingHeight, "the oil ring's height"], [p.ringRadial, "a ring's radial width"], [p.land, "the land between rings"], [p.backRoom, "the groove's back room"], [p.drainDia, "a drain hole's diameter"], [p.bossGap, "the gap between the bosses"], [p.bossReach, "the boss reach"]] as const) if (v < 0) return `${what} is 0 (auto) or more`;
+  for (const [v, what] of [[p.topLandRelief, "the top land's relief"], [p.landRelief, "the lands' relief"], [p.clipWidth, "the circlip groove's width"], [p.clipDepth, "the circlip groove's depth"], [p.clipEdge, "the circlip groove's distance from the face"], [p.pinFloat, "the pin's end float"]] as const) if (v < 0) return `${what} is 0 (auto) or more`;
+  if (p.retention !== 0 && p.retention !== 1) return "the pin retention is 0 (none) or 1 (circlips)";
   if (p.bore < 12) return "the bore must be 12 mm or more";
   if (p.pin < 0.18 * p.bore || p.pin > 0.4 * p.bore) return `the pin is 0.18 to 0.4 of the bore: ${(0.18 * p.bore).toFixed(1)} to ${(0.4 * p.bore).toFixed(1)} mm (0.25 to 0.3 is usual)`;
   const g = pistonGeometry(p);
+  for (const l of g.lands) if (l.radius < g.rp - g.belt.depth + 0.3) return `the lands are cut too far below the skirt for the groove floors: ${((g.rp - g.belt.depth + 0.3 - l.radius) * 2).toFixed(2)} mm less relief`;
   if (g.shell.innerBelt < 2) return "the walls and the ring grooves leave no room inside the piston: a bigger bore, a thinner wall or fewer rings";
   if (g.belt.depth > g.rp - 2) return "the ring grooves are too deep for the bore: a bigger bore";
   if (p.pinHeight > 0 && g.ch < g.belt.length + p.pin / 2 + 1) return `the pin height is too small for the ring belt: ${(g.belt.length + p.pin / 2 + 1).toFixed(1)} mm or more, or the pin hole would run into a ring groove`;
@@ -65,6 +82,14 @@ export function pistonProblem(p: PistonSpec): string | null {
   if (g.sk < p.pin / 2 + 1) return `the skirt below the pin is too short for the pin: ${(p.pin / 2 + 1).toFixed(1)} mm or more`;
   if (g.zoff < 1 || g.zoff > g.shell.innerBelt - 1) return "the gap between the pin bosses is 2 mm or more and must leave the bosses room inside the piston";
   if (p.pinLen > 0 && (p.pinLen < 2 * g.zoff + 2 || p.pinLen > 2 * g.rp)) return `the pin is ${(2 * g.zoff + 2).toFixed(1)} mm to ${(2 * g.rp).toFixed(1)} mm long (through both bosses, inside the piston's width)`;
+  const c = g.clip;
+  if (c) {
+    const yw = Math.min(g.shell.boss, 0.95 * Math.sqrt(Math.max(0, g.rp * g.rp - g.shell.inner * g.shell.inner)));
+    if (p.clipEdge > 0 && p.clipEdge < 0.5) return "the circlip groove is 0.5 mm or more from the face (0: auto)";
+    if (c.z < g.zoff + 1) return "the circlip grooves leave no room for the pin between the bosses: a bigger bore, a narrower groove or a smaller gap between the bosses";
+    if (c.z < g.shell.inner && c.bore + c.depth + 0.2 > yw) return "the circlip groove is deeper than the pin boss is wide: a shallower groove or a longer boss reach";
+    if (g.pinHalf > c.z) return `the pin is too long for the circlips: ${(2 * c.z).toFixed(1)} mm or less`;
+  }
   return null;
 }
 
@@ -77,6 +102,8 @@ export function buildPiston(b: Builder, p: PistonSpec, g: PistonGeometry, xp0: n
   b.part("Piston");
   b.extrude(up(xp0 - g.sk), disc(0, 0, g.rp), [], g.sk + g.ch);
   for (const gr of g.belt.grooves) b.extrude(up(xp0 + g.ch - gr.top - gr.height), disc(0, 0, g.rp + 1), [disc(0, 0, g.rp - g.belt.depth)], gr.height, { mode: "cut" });
+  // the lands are cut smaller than the skirt (`dec_piston_lands_clips`)
+  for (const l of g.lands) if (l.bottom - l.top > 1e-6) b.extrude(up(xp0 + g.ch - l.bottom), disc(0, 0, g.rp + 1), [disc(0, 0, l.radius)], l.bottom - l.top, { mode: "cut" });
   // the cavity, open at the foot: wide up to the bottom of the ring belt, narrower under it, up to the crown's underside; then the two pin bosses either side of the rod, and the pin's hole through them and the walls
   const sh = g.shell, top = xp0 + g.ch - sh.crown, wideTop = xp0 + g.ch - Math.max(g.belt.length, sh.crown), zoff = g.zoff;
   b.extrude(up(xp0 - g.sk), disc(0, 0, sh.inner), [], wideTop - (xp0 - g.sk), { mode: "cut" });
@@ -91,6 +118,9 @@ export function buildPiston(b: Builder, p: PistonSpec, g: PistonGeometry, xp0: n
     b.extrude(up(wideTop), box(-yn, -sh.innerBelt, yn, -zoff), [], top - wideTop, { mode: "add" });
   }
   b.extrude(b.plane(zc - g.rp - 1), disc(xp0, 0, p.pin / 2 + p.pinFit / 2), [], 2 * g.rp + 2, { mode: "cut" });
+  // the circlip grooves in the pin bore, one near each outer face
+  const c = g.clip;
+  if (c) for (const side of [1, -1]) b.extrude(b.plane(side > 0 ? zc + c.z : zc - c.z - c.width), disc(xp0, 0, c.bore + c.depth), [disc(xp0, 0, c.bore - 0.5)], c.width, { mode: "cut" });
   // the oil drain holes: radial holes through the oil groove's floor into the cavity, on the two thrust sides, in the groove's middle
   const oilGroove = g.belt.grooves.find((x) => x.oil);
   if (oilGroove && p.drain > 0) {
@@ -102,6 +132,8 @@ export function buildPiston(b: Builder, p: PistonSpec, g: PistonGeometry, xp0: n
   }
   b.part("Piston pin");
   b.extrude(b.plane(zc - g.pinHalf), disc(xp0, 0, p.pin / 2), [], 2 * g.pinHalf);
+  // the circlips: a plain ring in each groove, with a little room (no gap or ears: not modelled)
+  if (c) for (const side of [1, -1]) { b.part(side > 0 ? "Circlip 1" : "Circlip 2"); b.extrude(b.plane(side > 0 ? zc + c.z + CLIP_ROOM : zc - c.z - c.width + CLIP_ROOM), disc(xp0, 0, c.outer), [disc(xp0, 0, c.inner)], c.thick); }
 }
 
 /** The piston standing crown up on the plane, its middle on the click (the model's x axis along the piston's, turned to stand up): the steps that make it */

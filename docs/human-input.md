@@ -5351,3 +5351,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1258 — 2026-11-20 — directive
 > build the hard-coded ones first, give the piston its own maker box
 (approves building the piston maker: first the variables that are hard-coded rules today (H in dec_piston_maker) become typed fields, and the piston gets its own maker box)
+
+## in_1259 — 2026-11-20 — directive
+> do land relief and circlip grooves next
+(approves the next two piston maker variables: relieved ring lands, and circlip grooves in the pin bore with the circlips)

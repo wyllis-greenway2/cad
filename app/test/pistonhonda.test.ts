@@ -140,7 +140,7 @@ const shared = (s: ReturnType<typeof createSession>, a: B, b: B): number => {
   return /nothing in common/.test(done.message ?? "") ? 0 : (Object.values(scene(done).parts).filter((p) => p.kind === "body") as unknown as B[]).map((x) => x.volume).sort((x, y) => y - x)[0] ?? 0;
 };
 for (const p of ENGINE_PRESETS) {
-  test(`${p.name} is built at rest: seven bodies and no two share any volume`, () => {
+  test(`${p.name} is built at rest: nine bodies and no two share any volume`, () => {
     const r = engineSteps(p.spec);
     assert.ok(r.ok, r.ok ? "" : r.error);
     if (!r.ok) return;
@@ -150,7 +150,7 @@ for (const p of ENGINE_PRESETS) {
     const s = run(createSession(kernel), c.value);
     assert.equal(s.message ?? null, null);
     const b = Object.values(scene(s).parts).filter((x) => x.kind === "body") as unknown as B[];
-    assert.equal(b.length, 7);
+    assert.equal(b.length, 9);
     for (let i = 0; i < b.length; i++) for (let j = i + 1; j < b.length; j++) assert.equal(shared(s, b[i]!, b[j]!), 0, `parts ${i} and ${j} share volume`);
   });
 }
@@ -162,6 +162,8 @@ function pistonVolume(s: typeof ENGINE_START, rm = s.room): number {
   const wideL = H - Math.max(bt.length, sh.crown), topL = H - sh.crown, zoff = g.w / 2 + rm, rho = s.pin / 2 + s.pinFit / 2;
   let v = Math.PI * rp * rp * H;
   for (const gr of bt.grooves) v -= Math.PI * (rp * rp - (rp - bt.depth) ** 2) * gr.height;
+  for (const l of g.pg.lands) v -= Math.PI * (rp * rp - l.radius ** 2) * (l.bottom - l.top); // (the lands cut smaller than the skirt)
+  if (g.pg.clip) v -= 2 * Math.PI * ((g.pg.clip.bore + g.pg.clip.depth) ** 2 - g.pg.clip.bore ** 2) * g.pg.clip.width; // (the circlip grooves)
   v -= Math.PI * sh.inner ** 2 * wideL + Math.PI * sh.innerBelt ** 2 * (topL - wideL);
   const reach = (outer: number, inside: number): number => Math.min(sh.boss, 0.95 * Math.sqrt(Math.max(0, outer * outer - inside * inside))), footB = g.sk - sh.boss;
   const yw = reach(rp, sh.inner), yn = reach(rp - bt.depth, sh.innerBelt);
