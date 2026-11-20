@@ -15,7 +15,9 @@ export const KEYS: { over: number; upto: number; b: number; t2: number }[] = [
 /** the standard key for a bore of this diameter, if there is one */
 export const standardKey = (bore: number): { b: number; t2: number } | null => KEYS.find((k) => bore > k.over && bore <= k.upto) ?? null;
 /** the depth t2 of the keyway: as typed, else the standard's for the bore, else none */
-export const keyDepthOf = (spec: GearSpec): number | null => spec.keyDepth ?? (spec.bore ? standardKey(spec.bore)?.t2 ?? null : null);
+export const keyDepthOf = (spec: GearSpec): number | null => spec.keyDepth || (spec.bore ? standardKey(spec.bore)?.t2 ?? fallbackDepth(spec.key ?? 0) : null);
+/** the depth of a keyway for a bore the standard has no key for, from the key's width: the standard's depths are 0.33 to 0.5 of the width (2 x 1.0, 3 x 1.4, 5 x 2.3, 8 x 3.3, 10 x 3.3), 0.45 is taken, and the person adjusts it (`in_1263`) */
+const fallbackDepth = (key: number): number | null => (key > 0 ? Math.max(0.1, Math.round(0.45 * key * 10) / 10) : null);
 
 /** Why the bore of this shape cannot be in a gear whose root circle has this radius, or null. */
 export function boreProblem(spec: GearSpec, root: number): string | null {

@@ -3,7 +3,7 @@ id: dec_piston_skirt
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1263
+human_input: in_1264
 date: 2026-11-20
 depends_on:
   - dec_piston_maker: the skirt's shape variables, made typed fields
@@ -13,7 +13,7 @@ alternative_to:
 ---
 # The skirt's shape: oval, tapered, a chamfered foot, and a full or two-pad style
 
-The human approved (`in_1263`). Built, **assumed** except where a source gives the kind of shape:
+The human approved (`in_1264`). Built, **assumed** except where a source gives the kind of shape:
 
 - **Skirt shape** (a typed choice, default **Oval, tapered**; the other, Round, is the plain cylinder): the skirt is **narrower along the pin than across it** (**oval**, 0.001 of the bore across by default: NACA 817 has 0.006 in along the pin on a 6.1 in piston; cartecc's cold clearance along the pin is double that across it) and **narrower at the top than at the foot** (**taper**, 0.0007 of the bore across by default: cartecc's clearance is 0.2 and 0.1 mm at the top of the skirt, 0.1 and 0.05 mm at the bottom). The reference diameter (Honda's skirt O.D., measured 10 mm above the foot across the thrust) is the **foot's** diameter. Both are typed numbers, 0 = auto.
 - **Foot chamfer:** 0.004 of the bore (0 = auto, typed); a break at the skirt's lower edge.

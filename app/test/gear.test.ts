@@ -1,5 +1,6 @@
 // The involute gear outline (`dec_gear_tool`, `in_576`): its numbers, its arcs against the true involute, and that it makes a body.
 import test from "node:test";
+import { gearFields, gearTyped } from "../src/interaction/tools.ts";
 import { frameOf } from "../src/interaction/frame.ts";
 import assert from "node:assert/strict";
 import { gearOutline, bulgeOf, moduleForOutside } from "../src/operation/gear.ts";
@@ -195,6 +196,8 @@ import type { Vec3 } from "../src/math/vec.ts";
 import { undoLast, selection } from "../src/interaction/session.ts";
 
 const env = { w: 800, h: 600, now: 0 };
+/** a new gear has a thickness by default (`in_1262`); these tests are about the flat outline, so 0 is typed for it */
+const flat = (st: AppState): AppState => { const i = gearFields(st.tool!.gear!).findIndex((f) => f.key === "width"); return i < 0 ? st : (() => { const tl = gearTyped(st.tool!, i, "0"); return { ...st, tool: { ...tl, gear: { ...tl.gear!, field: 0 } } }; })(); };
 const top = (): AppState => ({ ...createState(createSession(kernel)), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [10, 10, 0] } });
 const px = (st: AppState, p: Vec3) => projector(st.cam, env.w, env.h).project(p);
 const click = (st: AppState, p: Vec3) => reduce(st, { type: "click", x: px(st, p)[0], y: px(st, p)[1], count: 1, shift: false }, env);
@@ -211,7 +214,7 @@ test("the Gear tool is in the Sketch ring; click the centre, the pointer sets th
   assert.ok(items.includes("tool:gear"));
   st = reduce(st, { type: "begin", name: "gear" }, env);
   assert.equal(st.tool!.kind, "gear");
-  st = click(st, C);
+  st = flat(click(st, C));
   st = move(st, [C[0] + 22, C[1], 0]);
   assert.ok(previewFor(scene(st.session), st.tool)!.segments.length > 100, "the teeth are shown while the size is set");
   const e = entryOf(scene(st.session), st.tool, st.op);
@@ -331,7 +334,7 @@ test("a gear is saved as its numbers (the file holds the command, not the parts)
 test("Edit gear: the number box opens on the selected gear with its numbers; typing teeth and Enter changes it and the box stays open (Apply, Done); Esc leaves it alone", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "gear" }, env);
-  st = click(st, C);
+  st = flat(click(st, C));
   st = typeText(st, "20");
   st = key(st, "Tab");
   st = typeText(st, "2");
@@ -483,7 +486,7 @@ test("Rack tool: click the middle of the pitch line, the pointer sets half its l
   st = reduce(st, { type: "begin", name: "gear" }, env);
   st = reduce(st, { type: "runAction", id: "tool:rack" }, env);
   st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
-  st = click(st, C);
+  st = flat(click(st, C));
   assert.deepEqual(entryOf(scene(st.session), { ...st.tool!, cursor: [C[0] + 30, C[1], 0] }, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Backlash", "Base", "Clearance", "Helix", "Thickness", "Chamfer", "Edge chamfer"]);
   st = typeText(st, "8"); st = key(st, "Tab"); st = typeText(st, "3");
   st = key(st, "Enter");
@@ -499,7 +502,7 @@ test("Rack tool: click the middle of the pitch line, the pointer sets half its l
 
 test("Mesh gear: with a gear selected, the pointer says which way the partner stands, Teeth and Ratio (and Angle) can be typed; it is made at the centre distance, turned to fit, selected, and one undo takes it away", () => {
   let st = top();
-  const made = (st0: AppState) => { let s = reduce(st0, { type: "begin", name: "gear" }, env); s = click(s, C); s = typeText(s, "20"); s = key(s, "Tab"); s = typeText(s, "2"); s = key(s, "Enter"); return reduce(s, { type: "escape" }, env); };
+  const made = (st0: AppState) => { let s = reduce(st0, { type: "begin", name: "gear" }, env); s = flat(click(s, C)); s = typeText(s, "20"); s = key(s, "Tab"); s = typeText(s, "2"); s = key(s, "Enter"); return reduce(s, { type: "escape" }, env); };
   st = made(st);
   const face = faceOf(st, "g_001");
   st = pick({ ...st, tool: null }, [face.ref]);
@@ -533,7 +536,7 @@ test("Mesh gear: with a gear selected, the pointer says which way the partner st
 test("Mesh rack and a gear on a rack: the rack goes where the pointer is, tangent to the pitch circle; a gear goes on a selected rack where the pointer is along it", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "gear" }, env);
-  st = click(st, C); st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2"); st = key(st, "Enter");
+  st = flat(click(st, C)); st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2"); st = key(st, "Enter");
   st = pick({ ...reduce(st, { type: "escape" }, env), tool: null }, [faceOf(st, "g_001").ref]);
   let m = reduce(st, { type: "runAction", id: "gear:meshrack" }, env);
   assert.equal(m.tool!.gear!.mesh!.rack, true);
@@ -763,7 +766,7 @@ test("a gear sized next to a gear of the same kind, its pitch circle all but tou
 test("one box for a gear to be made and one that is made (`in_951`): Cancel, and one button: Create for a new gear, Update when numbers of a gear that is made are not yet applied, Done when none are; it applies and ends the tool; Cancel (Esc) leaves the gear as it was", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "gear" }, env);
-  st = click(st, C); st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2");
+  st = flat(click(st, C)); st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2");
   assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.gearButtons, { edit: false, changed: false }, "a gear to be made: Create");
   st = key(st, "Enter");
   assert.equal(scene(st.session).gears!.length, 1);

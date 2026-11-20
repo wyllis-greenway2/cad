@@ -5370,5 +5370,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (asks for the blue preview lines to be drawn in 3D wherever the thing has 3D information, the piston maker's box on a model that is made being the example; says that deleting a wheel leaves its profile for the revolve behind; asks that every gear that has no thickness is given at least some by default)
 
 ## in_1263 — 2026-11-20 — directive
+> if you set a key value, it just fails, you have to set a key and depth value together. Can we make this not fail so much? so instead of failing it shuold just allow a key of zero depth, or put a depth value automatically at least a little then remain still for the user to adjust.
+(says a key width alone is refused for want of a depth; asks that it not fail: a depth is put in automatically, or zero depth is allowed, and the person adjusts it)
+
+## in_1264 — 2026-11-20 — directive
 > do the skirt shape next
 (approves the next piston maker variables: the skirt's shape: oval, taper, style (full or pads), foot chamfer)
