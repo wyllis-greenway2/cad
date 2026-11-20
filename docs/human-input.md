@@ -5336,3 +5336,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1254 — 2026-11-20 — directive
 > okay applying cut spokes to a cylinder doesn't bring up the wheel menu
 (says that Cut spokes applied to a cylinder does not bring up the wheel's box)
+
+## in_1255 — 2026-11-20 — directive
+> okay why don't we make a piston maker. We can start with the piston head. What are all the variables a piston head maker needs? specific values like from honda can be used to set the variables to standards but a person should be able to make a full engine by having all the variables that build it in a builder menu, then setting them into spec or not is just helpful presets. So what are all the variables of a piston head?
+(asks for a piston maker, starting with the piston, with every variable that builds it in the builder's menu and real engines' values only as presets; asks for the full list of the piston's variables)
