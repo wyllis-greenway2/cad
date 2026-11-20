@@ -1,3 +1,4 @@
+import { settings } from "../src/shared/settings.ts";
 // A drawing is dragged by its parts (`in_290`): a whole straight line across its plane, and the edge of a circle to change its diameter (not when that is locked).
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -10,6 +11,7 @@ import { projector, lookStraight, homeCamera } from "../src/interaction/camera.t
 import { drawChain, drawCircle } from "../src/operation/build.ts";
 import type { Vec3 } from "../src/math/vec.ts";
 
+settings.sketch.hintConstraints = true; // (these test what a taken hint makes: the constraints, `in_1327`; by default it makes none)
 await kernel.init();
 const XY = worldRef("XY");
 const env = { w: 800, h: 600, now: 0 };

@@ -1,3 +1,4 @@
+import { settings } from "../src/shared/settings.ts";
 // An arc being drawn gets the same helpers as a line (`in_280`): its ends snap onto a line or a circle and say so, and its bow snaps to the one that meets a circle smoothly (tangent).
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -10,6 +11,7 @@ import type { AppState } from "../src/interaction/controller.ts";
 import { projector, lookStraight, homeCamera } from "../src/interaction/camera.ts";
 import { drawCircle, drawChain } from "../src/operation/build.ts";
 
+settings.sketch.hintConstraints = true; // (these test what a taken hint makes: the constraints, `in_1327`; by default it makes none)
 await kernel.init();
 const XY = worldRef("XY");
 const env = { w: 800, h: 600, now: 0 };

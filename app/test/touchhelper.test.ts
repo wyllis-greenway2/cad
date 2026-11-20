@@ -1,3 +1,4 @@
+import { settings } from "../src/shared/settings.ts";
 // The touch helper (`in_283`, `in_284`): a finger taps an arrow to select it, then the drag icon drags it as a mouse would and the check applies.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -12,6 +13,7 @@ import { homeCamera, projector } from "../src/interaction/camera.ts";
 import { frameOf } from "../src/interaction/frame.ts";
 import type { Part } from "../src/operation/part.ts";
 
+settings.sketch.hintConstraints = true; // (these test what a taken hint makes: the constraints, `in_1327`; by default it makes none)
 await kernel.init();
 const env = { w: 800, h: 600, now: 0 };
 

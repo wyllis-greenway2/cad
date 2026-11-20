@@ -1,3 +1,4 @@
+import { settings } from "../src/shared/settings.ts";
 // Anchors (`in_308`, `q_body_constraints`): a circular edge of a body is a read-only round that a drawn part can be held to, as to any circle: concentric, equal radius, tangent. The solver reads it and never moves it.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -71,7 +72,8 @@ import { projector, homeCamera } from "../src/interaction/camera.ts";
 import { suggestionsFor, nearCommand } from "../src/interaction/suggest.ts";
 import { anchorRounds } from "../src/operation/anchors.ts";
 
-test("a circle drawn on the face with its centre near the centre of the body's edge goes there and is made concentric with it (`in_308`)", () => {
+test("a circle drawn on the face with its centre near the centre of the body's edge goes there and is made concentric with it (`in_308`)", (t) => {
+  settings.sketch.hintConstraints = true; t.after(() => { settings.sketch.hintConstraints = false; }); // (what a taken hint makes, `in_1327`)
   const s = open();
   const { edge, round } = setup(s);
   const pl = scene(s).parts["d/p_030"] as never;

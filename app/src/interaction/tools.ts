@@ -22,7 +22,7 @@ import { camFace } from "../operation/camscene.ts";
 import { genevaDefaultPin } from "../operation/geneva.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
 import { candidatesAt, visibleFrom } from "./picking.ts";
-import { anchorCorners, anchorLines, anchorCutCorners } from "../operation/anchors.ts";
+import { anchorCorners, anchorLines, anchorCutCorners, anchorRounds } from "../operation/anchors.ts";
 import { settings } from "../shared/settings.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Hint } from "./hints.ts";
@@ -211,6 +211,10 @@ export function pointOnPlane(pv: PointerView, pl: Plane): Vec3 | null {
   return t > 0 ? add(pv.ray.o, scale(pv.ray.d, t)) : null;
 }
 const round = (v: number, step: number) => Math.round(v / step) * step;
+/** The centres of the circular edges and round faces of the body as they fall on the plane (a disk's rim has no corner at its middle, so its middle is found here, `in_1323`): a point to take and to line up with. `seen` leaves out what is out of sight. */
+export function roundCentres(scene: Scene, pl: Plane, seen?: (q: Vec3) => boolean): Vec3[] {
+  return anchorRounds(scene, pl, seen ? { seen } : {}).map((r) => r.center);
+}
 
 /**
  * The point to use for the pointer on a plane: a corner of the scene that is within the snap distance on the screen and on the plane, else the point rounded to
@@ -226,7 +230,8 @@ export function snapOnPlane(spent: Scene, pv: PointerView, pl: Plane, skip?: Ref
     if (q && Math.abs(dot(sub(q, pl.at), normalOfPlane(pl))) < 1e-3) return q;
   }
   // the middle of a regular polygon that is drawn: taken like a corner, so a circle can be drawn on the middle of a hexagon (`in_1285`)
-  const centres = regularCentres(scene, pl);
+  const seenPt = (q: Vec3) => visibleFrom(scene, pv, q, { at: pl.at, n: normalOfPlane(pl) });
+  const centres = [...regularCentres(scene, pl), ...roundCentres(scene, pl, seenPt)]; // (and the centres of the round edges and faces of the body, `in_1323`)
   for (const c of centres) { const [qx, qy] = pv.project(c); if (Math.hypot(qx - pv.x, qy - pv.y) <= settings.sketch.snapPx) return c; }
   // a corner of the body that is not in the plane but falls on it (the bottom of a wall, the far end of an edge): the pointer near where it falls is taken there (`in_311`)
   for (const c of anchorCorners(scene, pl, { seen: (q) => visibleFrom(scene, pv, q, { at: pl.at, n: normalOfPlane(pl) }) })) { // (the ones out of sight are not offered, `in_312`)
@@ -740,7 +745,7 @@ export function guidesOf(spent: Scene, pl: Plane, cursor: Vec3 | null): [Vec3, V
   const scene = live(spent);
   const [cx, cy] = localOf(pl, cursor);
   const out: [Vec3, Vec3][] = [];
-  const there = [...Object.values(scene.parts).flatMap((p) => (p.kind === "corner" && Math.abs(dot(sub(p.at, pl.at), normalOfPlane(pl))) <= 1e-3 ? [p.at] : [])), ...regularCentres(scene, pl)]; // (the corners, and the middles of regular polygons)
+  const there = [...Object.values(scene.parts).flatMap((p) => (p.kind === "corner" && Math.abs(dot(sub(p.at, pl.at), normalOfPlane(pl))) <= 1e-3 ? [p.at] : [])), ...regularCentres(scene, pl), ...roundCentres(scene, pl)]; // (the corners, the middles of regular polygons, and the centres of the round edges and faces of a body)
   for (const at of there) {
     const [qx, qy] = localOf(pl, at);
     const same = (Math.abs(qx - cx) < 1e-6 ? 1 : 0) + (Math.abs(qy - cy) < 1e-6 ? 1 : 0);

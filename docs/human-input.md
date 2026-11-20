@@ -5586,3 +5586,35 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1321 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1322 — 2026-11-20 — directive
+> I am still having trouble sketching in shapes that dont suggest snapping to the center. Like for example even in a circle if I am sketching with line, it seems to offer snap to center in one direction, horizontal in this case, but not a virtical dasshed line allowing me to find the center cross point.
+(a line drawn in a circle offers the dashed level guide from the centre but not the upright one, so the centre cannot be found as a cross point)
+
+## in_1323 — 2026-11-20 — directive
+> also just to be clear, this is sketching on the surface of a 3d disk. when it is just a sketch circle it has the center verticy. Sketching on surfaces should offer snapping points as well based off the edges of that surface.
+(the missing centre guides are on the face of a body: a circular edge has no centre corner, so the centre and its level and upright lines are not offered; asks that sketching on a surface offer snapping points from that surface's edges)
+
+## in_1324 — 2026-11-20 — directive
+> Selecting coincident here hanged up. Also why are the face constraints only in the suggested constraints area?
+(a screenshot and the file `cannot_mate_face.json`: two faces selected with the constraint ring open; choosing Coincident hung the program; asks why the face constraints are only offered in the suggested constraints area)
+
+## in_1325 — 2026-11-20 — question
+> also I couldn't make the faces flush at all?
+(says the two faces in `cannot_mate_face.json` could not be made flush at all, apart from the hang)
+
+## in_1326 — 2026-11-20 — question
+> These sketch constraints are getting out of control. Can we have it so that the suggested positions and snapping arent actually constraints? instead they are just helping the user position properly. A constraint is only added if the user explicitly adds it. Do you think this is correct or could be a bad idea?
+(asks whether snapping and suggested positions should only place things, with a constraint made only when the user adds it explicitly; asks for an opinion)
+
+## in_1327 — 2026-11-20 — approval
+> yes, do that, rectangles keep theirs
+(approves the split proposed after in_1308: snapping and hints only place; a constraint is made only when asked for; tool shapes such as the rectangle keep their built-in constraints)
+
+## in_1328 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the snap and hint change, the mate-speed fix and the disk-middle snapping to be merged into the testing branch, no full test run)
+
+## in_1329 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the disk-middle snapping, the mate-speed fix and the place-only snapping to be merged into the testing branch, no full test run; the same words as in_1328)
