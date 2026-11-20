@@ -7,7 +7,8 @@ import type { Ref } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { add, scale, sub, dot, dist, cross } from "../math/vec.ts";
 import type { PointerView, Plane } from "../operation/part.ts";
-import { holdsAt, alignPoints } from "./hold.ts";
+import { holdsAt, alignPoints, roundCentres } from "./hold.ts";
+export { roundCentres };
 import { regularCentres } from "./polygoncentre.ts";
 import { normalOfPlane, pointOf, segmentOf, arcPoints, localOf, liftOf, roundOf } from "../operation/part.ts";
 import type { Scene } from "../operation/scene.ts";
@@ -23,7 +24,7 @@ import { camFace } from "../operation/camscene.ts";
 import { genevaDefaultPin } from "../operation/geneva.ts";
 import { loopFaceRef, diskFaceRef } from "../operation/loops.ts";
 import { candidatesAt, visibleFrom } from "./picking.ts";
-import { anchorCorners, anchorLines, anchorCutCorners } from "../operation/anchors.ts";
+import { anchorCorners, anchorLines, anchorCutCorners, anchorRounds } from "../operation/anchors.ts";
 import { settings } from "../shared/settings.ts";
 import { drawnRef } from "../shared/ref.ts";
 import type { Hint } from "./hints.ts";
@@ -710,7 +711,7 @@ export function guidesOf(spent: Scene, pl: Plane, cursor: Vec3 | null): [Vec3, V
   const scene = live(spent);
   const [cx, cy] = localOf(pl, cursor);
   const out: [Vec3, Vec3][] = [];
-  const there = [...Object.values(scene.parts).flatMap((p) => (p.kind === "corner" && Math.abs(dot(sub(p.at, pl.at), normalOfPlane(pl))) <= 1e-3 ? [p.at] : [])), ...regularCentres(scene, pl)]; // (the corners, and the middles of regular polygons)
+  const there = [...Object.values(scene.parts).flatMap((p) => (p.kind === "corner" && Math.abs(dot(sub(p.at, pl.at), normalOfPlane(pl))) <= 1e-3 ? [p.at] : [])), ...regularCentres(scene, pl), ...roundCentres(scene, pl)]; // (the corners, the middles of regular polygons, and the centres of the round edges and faces of a body)
   for (const at of there) {
     const [qx, qy] = localOf(pl, at);
     const same = (Math.abs(qx - cx) < 1e-6 ? 1 : 0) + (Math.abs(qy - cy) < 1e-6 ? 1 : 0);

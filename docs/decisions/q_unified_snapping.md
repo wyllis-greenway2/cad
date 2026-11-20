@@ -3,14 +3,14 @@ id: q_unified_snapping
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_1322
+human_input: in_1334
 date: 2026-11-20
 depends_on:
 alternative_to:
 ---
 # One snapping and constraint system instead of six?
 
-The human (`in_1322`): "how can we unify our whole snapping system and setting constraints to system because it seems awfully piece meal?", after finding that distances from a sketch to the faces and edges of the block it is on cannot reliably be set, and asking for "snapping suggestions with basically all the lines available in view".
+The human (`in_1334`): "how can we unify our whole snapping system and setting constraints to system because it seems awfully piece meal?", after finding that distances from a sketch to the faces and edges of the block it is on cannot reliably be set, and asking for "snapping suggestions with basically all the lines available in view".
 
 **What there is now (read in the code, 2026-11-20):** six separate places each decide "what is under the pointer that I can hold on to".
 1. `picking.ts` `candidatesAt`: what a click selects.
@@ -35,7 +35,7 @@ They share nothing but `Scene`; each has its own radius, its own idea of "visibl
 
 ## Rationale
 
-Needed to answer `in_1322`; nothing depends on it. Kept open until the human says whether to go ahead, and in what order.
+Needed to answer `in_1334`; nothing depends on it. Kept open until the human says whether to go ahead, and in what order.
 
-## Step one built (`in_1323`, for review)
+## Step one built (`in_1335`, for review)
 The human: "yes go ahead with step one". `interaction/hold.ts` is the one reference set for a point placed on a plane: `holdsAt` (the corners, polygon middles, the body's corners as they fall on the plane, the corners of a cross section's cut and the middles of straight lines, ranked) and `alignPoints` (what it can line up with). `snapOnPlane` and `pointHint` now ask it instead of each looping over the scene. New: a point lines up (level or upright) with the body's corners where they fall on the plane (the feet of vertical edges). The question stays open for steps two to four (the orb, selection, the bar and ring). Not yet done: pointing at an edge-on face or a vertical edge to select it.

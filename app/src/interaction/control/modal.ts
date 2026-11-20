@@ -1,4 +1,5 @@
 // Tools and operations that take typing: starting them, typed keys, finishing, cancelling; and the edits that do not depend on the pointer (delete, undo, relations).
+import { settings } from "../../shared/settings.ts";
 import { isHard, isFixed, hardCopies } from "../hard.ts";
 import type { Command } from "../../operation/commands.ts";
 import type { Intent } from "../../shared/input.ts";
@@ -207,7 +208,7 @@ export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppSt
   if ((s.tool?.kind === "gear" && !s.tool.cam) || s.tool?.kind === "cam") return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: stayOpen(s.tool, sceneOf(s.session), sceneOf(next)), resume: null, spread: null }; // (a gear that is made keeps its box open, as the Edit tool of that gear: Update changes it, Done lets go, `in_1259`)
   // a circle drawn about another circle's centre is concentric with it
   const circle = fin.select[0]?.startsWith("d/disk@") ? (`d/${fin.select[0].slice(7)}` as Ref) : null;
-  if (s.tool?.kind === "circle" && s.tool.concentric && circle && circle in sceneOf(next).parts) {
+  if (settings.sketch.hintConstraints && s.tool?.kind === "circle" && s.tool.concentric && circle && circle in sceneOf(next).parts) {
     const rel = run(next, { type: "addRelation", relation: { id: nextId(sceneOf(next), "r"), kind: "concentric", parts: [circle, s.tool.concentric] } });
     if (!rel.message) return { ...s, session: { ...rel, click: { ...rel.click, selection: sel } }, tool: stays(s.tool), resume: null, spread: null };
   }
@@ -415,6 +416,8 @@ function cancelOp(s: AppState): AppState {
 /** What is selected now is given to the operation that was waiting for it: it begins if that is what it needed; else it says what is missing and goes on waiting. */
 /** What a dimmed item needs, said as what to do now: "select a gear" -> "Select a gear: click it". */
 export const instruction = (why: string): string => { const t = why.charAt(0).toUpperCase() + why.slice(1); return /^select/i.test(why) ? `${t}: click it (Esc to leave)` : `${t} (Esc to leave)`; };
+/** The items that need several things selected (the booleans, glue, link): while one waits, every click adds to the selection (`in_1333`). */
+const needsMany = (id: string): boolean => id.startsWith("combine:") || id === "motion:glue" || id === "motion:link";
 export function finishPicking(s: AppState, now = 0): AppState {
   if (!s.picking) return s;
   const r = startOp(sceneOf(s.session), selectionOf(s.session), s.picking.kind, viewAxes(s.cam));
@@ -444,7 +447,7 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
     const hit = s.menu ? find(s.menu.items) : undefined;
     if (!hit?.why) return s;
     if (!/^select/i.test(hit.why)) return { ...s, session: { ...s.session, message: `${hit.label}: ${hit.why}` } }; // (nothing to select: the reason is said and the ring stays, as before)
-    return { ...s, menu: null, picking: null, awaiting: { id: hit.id, label: hit.label, icon: hit.icon ?? hit.id, why: hit.why }, session: { ...s.session, message: `${hit.label}: ${instruction(hit.why)}` } };
+    return { ...s, menu: null, picking: null, awaiting: { id: hit.id, label: hit.label, icon: hit.icon ?? hit.id, why: hit.why, ...(needsMany(hit.id) ? { many: true as const } : {}) }, session: { ...s.session, message: `${hit.label}: ${instruction(hit.why)}` } };
   }
   const closed = { ...s, menu: null };
   if (id === "look") {

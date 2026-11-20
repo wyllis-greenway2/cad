@@ -446,7 +446,7 @@ function settledWith(s: AppState, base: Session, pins: { ref: Ref; to: Vec3 }[],
   const moveAll: Command = { type: "batch", commands: moves };
   const settled = apply(sc, moveAll);
   const kept: Command[] = [];
-  if (settled.ok) { let cur = settled.value; for (const r of extra(cur)) { const c: Command = { type: "addRelation", relation: { id: nextId(cur, "r"), kind: r.kind, parts: r.parts } }; const n = apply(cur, c); if (!n.ok) break; kept.push(c); cur = n.value; } }
+  if (settled.ok && settings.sketch.hintConstraints) { let cur = settled.value; for (const r of extra(cur)) { const c: Command = { type: "addRelation", relation: { id: nextId(cur, "r"), kind: r.kind, parts: r.parts } }; const n = apply(cur, c); if (!n.ok) break; kept.push(c); cur = n.value; } }
   return { ...s, session: run(base, { type: "batch", commands: [...moves, ...kept] }) };
 }
 
@@ -523,7 +523,7 @@ function moveRim(s: AppState, i: Extract<Intent, { type: "orbit" }>, env: Env): 
     for (const want of [gap - o.radius, o.radius - gap, o.radius + gap]) if (want > 0.1 && Math.abs(want - radius) < best) { best = Math.abs(want - radius); touch = o.ref; radius = want; }
   }
   const t = touch;
-  const moved = run(d.base, { type: "batch", commands: [{ type: "setRadius", ref: d.rim, radius }, ...(t ? [{ type: "addRelation", relation: { id: nextId(sc, "r"), kind: "tangent", parts: [d.rim, t] } } as Command] : [])] });
+  const moved = run(d.base, { type: "batch", commands: [{ type: "setRadius", ref: d.rim, radius }, ...(t && settings.sketch.hintConstraints ? [{ type: "addRelation", relation: { id: nextId(sc, "r"), kind: "tangent", parts: [d.rim, t] } } as Command] : [])] });
   return { ...s, dragHint: t ? { hints: [{ kind: "tangent", ref: t }], at: now } : null, session: moved };
 }
 

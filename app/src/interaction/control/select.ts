@@ -118,7 +118,7 @@ export function doUngroup(s: AppState): AppState {
 export function whyNotCombine(session: Session): string | null {
   const sc = sceneOf(session);
   const bodies = selectionOf(session).filter((r) => sc.parts[r]?.kind === "body");
-  return bodies.length >= 2 ? null : "select two or more bodies (click a body three times, or choose it in the Bodies list)";
+  return bodies.length >= 2 ? null : "select two or more bodies";
 }
 /** Cut: the selected bodies are shown as the parts they make, to keep or toss (`in_294`). */
 export function doCutBegin(s: AppState): AppState {

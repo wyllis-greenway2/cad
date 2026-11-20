@@ -57,3 +57,29 @@ test("an operation chosen with nothing selected says what it needs, not 'what it
   assert.ok(/^Select /.test(text), text);
   assert.notEqual(text, "Click what it needs");
 });
+
+import { drawRectangle } from "../src/operation/build.ts";
+import { nextId } from "../src/operation/scene.ts";
+const selectionOf = (s: { click: { selection: readonly string[] } }) => s.click.selection;
+
+test("a boolean can be chosen at any time: with one body selected, or none, it waits, and each click adds a body until it can run (`in_1333`)", () => {
+  let s = createSession(kernel);
+  for (const [x0, x1] of [[0, 10], [30, 40]] as const) {
+    const r = drawRectangle(scene(s), "w/XY" as never, [x0, 0, 0], [x1, 10, 0], [1, 0, 0], [0, 1, 0]);
+    s = run(s, r.command);
+    s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: r.lines, params: { depth: 5 } } });
+  }
+  const bodies = Object.values(scene(s).parts).filter((p) => p.kind === "body").map((p) => p.ref);
+  assert.equal(bodies.length, 2);
+  let st: AppState = { ...createState(s), cam: { ...lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), target: [20, 5, 0], distance: 120 } };
+  st = reduce(st, { type: "menu", x: 300, y: 300 }, env);
+  const item = flat(st.menu!.items as never).find((i) => i.id === "combine:add");
+  assert.ok(item && !item.enabled && /^select two or more bodies/.test(item.why ?? ""), `${item?.why}`);
+  st = reduce(st, { type: "runAction", id: "why:combine:add" }, env);
+  assert.equal(st.awaiting?.id, "combine:add");
+  assert.equal(st.awaiting?.many, true);
+  st = click(st, [2, 5, 5]);
+  st = click(st, [35, 5, 5]);
+  assert.equal(st.awaiting, null, `it ran once two bodies were picked: ${selectionOf(st.session)}`);
+  assert.match(st.session.message ?? "", /do not touch or overlap/, "the boolean was tried on the two bodies (these stand apart, so it says so)");
+});

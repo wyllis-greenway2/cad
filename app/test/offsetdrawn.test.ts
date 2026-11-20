@@ -72,3 +72,26 @@ test("a chain of sides (lines and arcs) picked without the face can be inset too
   assert.ok(runOp(s, { ...one.op, value: 1 }));
   run(s, { type: "batch", commands: [] });
 });
+
+import { worldRef } from "../src/shared/ref.ts";
+import { createSession } from "../src/interaction/session.ts";
+import { drawChain } from "../src/operation/build.ts";
+
+test("two lines that are not chained are offset together, by the same distance to the same side, whichever way each was drawn (`in_1323`)", () => {
+  let s = createSession(kernel);
+  const a = drawChain(scene(s), worldRef("XY"), [[0, 0, 0], [10, 0, 0]]);
+  s = run(s, a.command);
+  const b = drawChain(scene(s), worldRef("XY"), [[10, 5, 0], [0, 5, 0]]); // (drawn the other way)
+  s = run(s, b.command);
+  const op = startOp(scene(s), [...a.lines, ...b.lines], "offset");
+  assert.ok(op.ok, op.ok ? "" : op.why);
+  const before = drawnLines(s).length;
+  for (const v of [2, -2]) {
+    const made = runOp(s, { ...op.op, value: v });
+    assert.ok(made && made.session.message === null, `${v}: made`);
+    assert.equal(drawnLines(made!.session).length, before + 2, "a new line for each");
+    const ys = Object.values(scene(made!.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").map((p) => (p as unknown as { at: number[] }).at[1]!);
+    const lo = v > 0 ? [2, 7] : [-2, 3];
+    for (const y of lo) assert.ok(ys.some((q) => Math.abs(q - y) < 1e-9), `y = ${y} in ${ys}`);
+  }
+});

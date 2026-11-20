@@ -110,6 +110,11 @@ export function withPatterns(s: Scene): Scene {
 function patternOf(s: Scene, ref: Ref): PatternRecord | undefined {
   return patternsOf(s).find((r) => r.parts.includes(ref) || isMade(r.id, ref) || ref.includes(`@${r.id}.c`));
 }
+/** The mirror that made a part, if it is one of its copies, with every part it made (`in_1306`: a copy can be deleted, the mirror going with it; the originals stay). */
+export function mirrorOfCopy(s: Scene, ref: Ref): { id: string; made: Ref[] } | null {
+  const rec = patternsOf(s).find((r) => r.kind === "mirror" && (isMade(r.id, ref) || ref.includes(`@${r.id}.c`)));
+  return rec ? { id: rec.id, made: Object.keys(s.parts).filter((r) => isMade(rec.id, r as Ref) || r.includes(`@${rec.id}.c`)) as Ref[] } : null;
+}
 /** The path repeat a part belongs to: as the figure repeated, a copy of it, or a line of the path it follows. */
 export const pathRepeatOf = (s: Scene, ref: Ref): PatternRecord | undefined => patternsOf(s).find((r) => r.kind === "path" && (r.parts.includes(ref) || isMade(r.id, ref) || ref.includes(`@${r.id}.c`) || (r.path ?? []).includes(ref)));
 export function addPattern(s: Scene, rec: PatternRecord): Result<Scene> {

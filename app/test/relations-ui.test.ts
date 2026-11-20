@@ -1,3 +1,4 @@
+import { nextId } from "../src/operation/scene.ts";
 import { settings } from "../src/shared/settings.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -159,18 +160,17 @@ test("a bubble opens and closes: focusing twice closes it; the number can be typ
   assert.equal(scene(st.session).relations.length, 1);
 });
 
-test("several selected parts each show their own: one line shows its constraints, another its, both shows both", () => {
+test("one line shows its constraints, two show only what joins them, more show none (`in_1332`)", () => {
   let s = createSession(kernel);
   const r = drawSquaredRectangle(scene(s), XY, [0, 0, 0], [30, 20, 0], [1, 0, 0], [0, 1, 0]);
   s = run(s, r.command);
-  const st = createState(s);
-  const one = annotationsFor(scene(st.session), [r.lines[0]!], null).filter((x) => x.id !== "measure");
-  const two = annotationsFor(scene(st.session), [r.lines[1]!], null).filter((x) => x.id !== "measure");
-  const both = annotationsFor(scene(st.session), [r.lines[0]!, r.lines[1]!], null).filter((x) => x.id !== "measure");
-  assert.equal(one.length, 1);
-  assert.equal(two.length, 1);
-  assert.equal(both.length, 2);
-  assert.notDeepEqual(one[0]!.at, two[0]!.at, "each is on its own line");
+  s = run(s, { type: "addRelation", relation: { id: nextId(scene(s), "r"), kind: "parallel", parts: [r.lines[0]!, r.lines[2]!] } });
+  const at = (sel: string[]) => annotationsFor(scene(s), sel as never, null).filter((x) => x.id !== "measure" && !x.id.startsWith("measure:"));
+  assert.equal(at([r.lines[1]!]).length, 1, "one line: its own");
+  assert.equal(at([r.lines[0]!, r.lines[1]!]).length, 0, "two lines nothing joins");
+  const joined = at([r.lines[0]!, r.lines[2]!]);
+  assert.deepEqual(joined.map((x) => x.kind), ["parallel"], "two lines: what joins them");
+  assert.equal(at([r.lines[0]!, r.lines[1]!, r.lines[2]!]).length, 0, "three lines: none");
 });
 
 import { frameOf } from "../src/interaction/frame.ts";

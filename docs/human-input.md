@@ -5588,9 +5588,60 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 
 ## in_1322 — 2026-11-20 — directive
+> okay lets work on some other stuff. it seems like you cannot delete the mirrored copy of a mirror sketch and  maybe 3d body too? I think you should be able to. Also the mirror tool doesn't work as I would expect. If I select something to mirror, then click a line, I would expect it to mirror from that line, or face ( I only tried mirroring sketch on line and it didn't work) face might work.
+(asks that the copy of a mirror can be deleted, and that with the mirror open a click on a line or a face sets the plane)
+
+## in_1323 — 2026-11-20 — directive
+> You should be able to select multiple lines to offset even if they arent chained together. For example selecting two parallel lines, to offset both, I think should default to offseting them both, clicking on either one should let you select the offset value and direction + -.
+(asks that several lines that are not chained are offset together, one value and sign for all)
+
+## in_1324 — 2026-11-20 — directive
+> I am still having trouble sketching in shapes that dont suggest snapping to the center. Like for example even in a circle if I am sketching with line, it seems to offer snap to center in one direction, horizontal in this case, but not a virtical dasshed line allowing me to find the center cross point.
+(a line drawn in a circle offers the dashed level guide from the centre but not the upright one, so the centre cannot be found as a cross point)
+
+## in_1325 — 2026-11-20 — directive
+> also just to be clear, this is sketching on the surface of a 3d disk. when it is just a sketch circle it has the center verticy. Sketching on surfaces should offer snapping points as well based off the edges of that surface.
+(the missing centre guides are on the face of a body: a circular edge has no centre corner, so the centre and its level and upright lines are not offered; asks that sketching on a surface offer snapping points from that surface's edges)
+
+## in_1326 — 2026-11-20 — directive
+> Selecting coincident here hanged up. Also why are the face constraints only in the suggested constraints area?
+(a screenshot and the file `cannot_mate_face.json`: two faces selected with the constraint ring open; choosing Coincident hung the program; asks why the face constraints are only offered in the suggested constraints area)
+
+## in_1327 — 2026-11-20 — question
+> also I couldn't make the faces flush at all?
+(says the two faces in `cannot_mate_face.json` could not be made flush at all, apart from the hang)
+
+## in_1328 — 2026-11-20 — question
+> These sketch constraints are getting out of control. Can we have it so that the suggested positions and snapping arent actually constraints? instead they are just helping the user position properly. A constraint is only added if the user explicitly adds it. Do you think this is correct or could be a bad idea?
+(asks whether snapping and suggested positions should only place things, with a constraint made only when the user adds it explicitly; asks for an opinion)
+
+## in_1329 — 2026-11-20 — approval
+> yes, do that, rectangles keep theirs
+(approves the split proposed after in_1308: snapping and hints only place; a constraint is made only when asked for; tool shapes such as the rectangle keep their built-in constraints)
+
+## in_1330 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the snap and hint change, the mate-speed fix and the disk-middle snapping to be merged into the testing branch, no full test run)
+
+## in_1331 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the disk-middle snapping, the mate-speed fix and the place-only snapping to be merged into the testing branch, no full test run; the same words as in_1330)
+
+## in_1332 — 2026-11-20 — directive
+> We get an explosion of constraints showing up when you select multiple lines. Can we have it so that lines work the same as faces or bodies. Lets try if you select one line it shows its constraints, if you select two lines, it shows their related constraints. Otherwise it hides constraints.
+(asks that one selected line shows its constraints, two show the ones that relate them, more show none)
+
+## in_1333 — 2026-11-20 — directive
+> I cannot select the boolean operation tool unless I have more than one body. Again this feels like factured or duplicate code. All our tools should follow a unified method. I think you should be able to select them anytime and they should guide you to select what they need to do the operation. it should let me select it and then I can select the bodies involved.
+(asks that the boolean tools can be chosen at any time and then wait for the bodies to be picked, as every tool does)
+
+## in_1334 — 2026-11-20 — directive
 > Sketches vanish on a negative extrude. I dont think they should. 
 > 
 > I cant reliably set dimensions on sketches from perpendicular things. For example if i make a blocks, then sketch on one face of the block, I cant seem to set distance cosntraints to surfaces running perpendicualr to the camera. Can we make it so that you can freely set constraints and also you get snapping suggestions with basically all the lines available in view?  In fact, how can we unify our whole snapping system and setting constraints to system because it seems awfully piece meal?
 
-## in_1323 — 2026-11-20 — approval
+## in_1335 — 2026-11-20 — approval
 > yes go ahead with step one
+
+## in_1336 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests

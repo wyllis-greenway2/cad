@@ -2,6 +2,7 @@
 // whether it is enabled (or why not), a measure when it has a number, and `run -> command`. The menu, the number chip, the keyboard and the touch
 // long-press all ask this one function. Generalises the prototype's relations table (`relations.mjs`) from sketch parts to any parts.
 // Geometry is read in 3D from the scene, so no plane or sketch is involved in measuring.
+import { mirrorOfCopy } from "../operation/repeat.ts";
 import { arcRadiusCommand } from "./faceedit.ts";
 import { gearOfPart } from "../operation/gearscene.ts";
 import { planetaryOfGear } from "../operation/planetary.ts";
@@ -275,6 +276,16 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
       },
     });
   } else {
+    // the copies of a mirror follow the original and cannot be drawn on, but they can be deleted: the mirror goes (it is broken, its copies being ordinary until they are deleted), the original stays (`in_1306`)
+    const mirrors = new Map<string, Ref[]>();
+    if (!sel.some((r) => get(r)?.movable)) for (const r of sel) { const m = mirrorOfCopy(scene, r); if (m) mirrors.set(m.id, m.made); }
+    if (mirrors.size && sel.every((r) => [...mirrors.values()].some((made) => made.includes(r)))) {
+      out.push({
+        id: "delete", label: "Delete", group: "operation", dimensional: false, unit: null, parts: [...sel],
+        enabled: true, why: null, measure: () => null, spot: () => null,
+        run: (): Command => ({ type: "batch", commands: [...[...mirrors.keys()].map((id): Command => ({ type: "breakPattern", id })), { type: "deleteParts", refs: [...mirrors.values()].flat() }] }),
+      });
+    }
     const drawn = sel.filter((r) => get(r)?.movable);
     const picked = new Set<Ref>(drawn);
     // a whole surface of a sketch cut by crossing curves (`in_285`): its own edges are trimmed off, the edges another surface shares stay; the circles and lines it was cut from remain as far as they are not its own
