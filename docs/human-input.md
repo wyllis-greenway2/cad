@@ -5445,3 +5445,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 > take the bore numbers out of the gear and wheel makers, the gear and wheel can define a bore, but it is just a smooth hole, the keyway maker can apply splines flats, keys etc to the holes or joining shafts. The keyway maker should have a mesh tool kind of like how gears work. If you select a keyed bore, it meshes a shaft to it, if you select a shaft, it could mesh a bore to it. It could work by either making a shaft or bore donut from scratch that meshes, or if you select geometry it could cut it in. For example you could select a splined shaft and make mesh, then click on bore hole surface or vise versa.
 (asks for Bore flat, Key width and Key depth to come out of the gear, wheel and Cut spokes makers, which keep a smooth bore; and for the keyway maker to get a Mesh tool as gears have: a keyed bore selected meshes a shaft to it, a shaft selected meshes a bore to it, either made from scratch (a shaft or a bore donut) or cut into geometry that is clicked, for example a splined shaft selected, Mesh, then a click on the bore surface, or the other way round)
+
+## in_1283 — 2026-11-20 — directive
+> the polygon tool doesn't have good suggested snapping, I can't snap the origin and mouse end point in horizontal or vertical spots. Also when I try to draw on a polygon, like draw a circle in a hexagon, it doesn't help me snap to center.
+(two faults of the polygon tool: its size point does not snap level or upright with the middle, and nothing snaps to the middle of a polygon that is drawn)
+
+## in_1284 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the polygon snapping to be merged into the testing branch, no full test run)

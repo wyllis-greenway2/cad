@@ -995,3 +995,28 @@ test("drag select from the menu of a finger (`in_1281`): it is offered only to a
   const armed = reduce(reduce(st, { type: "menu", x: 400, y: 300, touch: true }, env), { type: "runAction", id: "select:drag" }, env);
   assert.ok(reduce(armed, { type: "escape" }, env).dragSelect === false);
 });
+
+test("polygon snapping (`in_1283`): a corner near level or upright with the middle is taken there and says so; and the middle of a polygon that is drawn is snapped to, as a corner is, by any tool and in line with it", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "polygon" }, env);
+  st = click(st, [20, 15, 0]); // the middle
+  // the pointer a little above level with the middle: the corner is taken level, the number of the length is the pointer's
+  st = move(st, [32, 15.6, 0]);
+  near(st.tool!.cursor![1], 15, 1e-6);
+  assert.ok(st.tool!.hints?.some((h) => h.kind === "horizontal"), "level, and it says so");
+  // a little to the side of upright
+  let up = reduce(top(), { type: "begin", name: "polygon" }, env);
+  up = click(up, [20, 15, 0]);
+  up = move(up, [20.5, 28, 0]);
+  near(up.tool!.cursor![0], 20, 1e-6);
+  assert.ok(up.tool!.hints?.some((h) => h.kind === "vertical"), "upright");
+  // make a hexagon with a level first corner, then a circle on its middle
+  st = click(st, [32, 15, 0]);
+  st = stays(st);
+  st = reduce(st, { type: "begin", name: "circle" }, env);
+  st = click(st, [20.4, 15.3, 0]); // (near the middle of the hexagon, which is no corner: the first point is taken there)
+  st = click(st, [24, 15, 0]);
+  const circle = Object.values(scene(st.session).parts).find((p) => p.kind === "circle") as { center: string; radius: number };
+  const centre = (scene(st.session).parts[circle.center as never] as { at: Vec3 }).at;
+  near(centre[0], 20, 1e-6); near(centre[1], 15, 1e-6);
+});
