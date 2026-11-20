@@ -653,7 +653,7 @@ const OPS = {
       return { kind: "solid", shape: cutOrAdd(target, solid).shape };
     }
     if (op.mode === "new") return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]) };
-    return { kind: "solid", shape: op.mode === "cut" ? cutFrom(target, solid) : fuseInto(target, solid) };
+    return { kind: "solid", shape: op.mode === "cut" ? cutChecked(target, solid, 0) : fuseInto(target, solid) };
   },
 
   /** Sketches joined side to side (`dec_loft_sketches`): smooth through all of them, or ruled (straight between each two); holes are lofted the same way and cut out. */
@@ -690,7 +690,7 @@ const OPS = {
       return { kind: "solid", shape: cutOrAdd(target, solid).shape };
     }
     if (op.mode === "new") { if (!isValidSolid(solid)) throw new Error("kernel returned an invalid solid"); return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]), checked: true, ...trusted }; } // (the bodies it stands beside were checked when they were made: only the new piece is)
-    return { kind: "solid", shape: op.mode === "cut" ? cutFrom(target, solid) : fuseInto(target, solid) };
+    return { kind: "solid", shape: op.mode === "cut" ? cutChecked(target, solid, 0) : fuseInto(target, solid) };
   },
 
   /** The solids of a STEP file, as bodies of their own beside the ones already there (`dec_import`): read here, on this thread, from the text kept in the step. A file with no solid in it (only surfaces or curves) is refused with that. */
@@ -881,7 +881,7 @@ const OPS = {
       return r.cut ? { kind: "solid", shape: r.shape, used: "cut", cutInto: cutInto(targetValue, solid) } : { kind: "solid", shape: r.shape, used: r.used };
     }
     if (op.mode === "new") { if (!isValidSolid(solid)) throw new Error("kernel returned an invalid solid"); return { kind: "solid", shape: makeCompound([...target.solids, ...(solid.solids ?? [solid])]), checked: true }; } // (the bodies it stands beside were checked when they were made: only the new piece is)
-    if (op.mode === "cut") return { kind: "solid", shape: cutFrom(target, solid.clone()), cutInto: cutInto(targetValue, solid) };
+    if (op.mode === "cut") return { kind: "solid", shape: cutChecked(target, solid, 0), cutInto: cutInto(targetValue, solid) };
     return { kind: "solid", shape: fuseInto(target, solid) };
   },
 
@@ -916,10 +916,10 @@ const OPS = {
       if (mine >= 0) {
         const pb = boxOf(prism);
         const near = lumps.some((l, i) => i !== mine && (() => { const lb = boxOf(l); return [0, 1, 2].every((k) => pb.min[k] <= lb.max[k] + 1e-3 && pb.max[k] >= lb.min[k] - 1e-3); })());
-        if (!near) { const made = dist >= 0 ? lumps[mine].fuse(prism) : lumps[mine].cut(prism); return { kind: "solid", shape: makeCompound([...lumps.filter((_, i) => i !== mine), ...made.solids]) }; }
+        if (!near) { const made = dist >= 0 ? lumps[mine].fuse(prism) : meshedCut(lumps[mine], prism); return { kind: "solid", shape: makeCompound([...lumps.filter((_, i) => i !== mine), ...made.solids]) }; }
       }
     }
-    return { kind: "solid", shape: dist >= 0 ? t.fuse(prism, { optimisation: "commonFace" }) : t.cut(prism) }; // (the prism stands on the face and nowhere else: the kernel is told the two only share that face, which spares it looking for every other crossing, `in_449`) // (the prism stands on the face and nowhere else: the kernel is told the two only share that face, which spares it looking for every other crossing, `in_449`)
+    return { kind: "solid", shape: dist >= 0 ? t.fuse(prism, { optimisation: "commonFace" }) : meshedCut(t, prism) }; // (the prism stands on the face and nowhere else: the kernel is told the two only share that face, which spares it looking for every other crossing, `in_449`) // (the prism stands on the face and nowhere else: the kernel is told the two only share that face, which spares it looking for every other crossing, `in_449`)
   },
 
   /**
@@ -1346,8 +1346,11 @@ const OPS = {
     let made = first;
     if (op.mode === "subtract") {
       const cutters = tools.map((o) => o.clone());
-      const cutAll = (b) => { let r = b; for (const o of cutters) r = r.cut(o.clone()); return r; };
-      const done = [...targets.map(cutAll), cutAll(first)];
+      const cutAll = (b, fuzzy) => { let r = b; for (const o of cutters) r = r.cut(o.clone(), fuzzy ? { fuzzy } : {}); return r; };
+      let done = [...targets.map((b) => cutAll(b.clone(), 0)), cutAll(first.clone(), 0)];
+      if (!done.every((d) => allFacesMesh(d))) { // (a face of what is left cannot be meshed: made again with the surfaces taken as one, `in_1371`)
+        try { const again = [...targets.map((b) => cutAll(b.clone(), 1e-4)), cutAll(first.clone(), 1e-4)]; if (again.every((d) => isValidSolid(d) && allFacesMesh(d))) done = again; } catch { /* the first stands */ }
+      }
       const lumps = done.flatMap((d) => lumpsOf(d));
       if (!lumps.length) throw new Error("nothing would be left of the body");
       return { kind: "solid", shape: makeCompound([...found.rest, ...lumps, ...kept]), first: op.bodies[0] };
@@ -1648,6 +1651,12 @@ function allFacesMesh(shape) {
     try { getOC().BRepTools.Clean(shape.wrapped, true); } catch { /* nothing to free */ }
     return ok;
   } catch { return true; }
+}
+/** A plain cut of a shape by a tool, checked as `cutChecked` is: made again with the fuzzy boolean when a face of the result cannot be meshed (`in_1371`). */
+function meshedCut(shape, tool) {
+  const first = shape.cut(tool.clone());
+  if (allFacesMesh(first)) return first;
+  try { const again = shape.cut(tool.clone(), { fuzzy: 1e-4 }); return isValidSolid(again) && allFacesMesh(again) ? again : first; } catch { return first; }
 }
 /** A cut of an extruded figure: made as it is, and if a face of the result cannot be meshed, made again with the surfaces that lie on one another taken as one to within a ten thousandth of a mm. */
 function cutChecked(target, tool, fuzzy) {

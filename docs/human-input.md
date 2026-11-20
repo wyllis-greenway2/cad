@@ -5777,3 +5777,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1370 — 2026-11-20 — directive
 > build the first two fixes if you think they will be good root cause fixes
 (asks for the two real fixes of `in_1369`, placing a snapped corner on the body's own curve and building a figure's side from the body's edge, if they are good root fixes)
+
+## in_1371 — 2026-11-20 — directive
+> run the check on the other booleans too
+(asks that the check for faces the mesher cannot do, `in_1368`, runs on the other booleans, not only the extrude's cut)
