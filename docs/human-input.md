@@ -5735,3 +5735,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1359 — 2026-11-20 — question
 > Lets do the stable naming root fix if you think we need it. also is this model stable in general where we can let body edges be part of sketches as lines? for example if I draw this patten on top a cylinder then extrude down, then increase the diameter such that an earlier enclosed sketch would have no longer been enclosed, then what happens?
 (asks to build the stable naming fix if it is needed, and whether letting a body's edges be lines of a sketch is stable in general: what happens to a figure pulled down when the cylinder's diameter is then changed so that a region that was enclosed no longer is)
+
+## in_1360 — 2026-11-20 — approval
+> Yes I will go with your recommendations
+(approves the recommendation after in_1359: option A of `q_body_edge_pieces` first, the pieces of a figure that use the body's edges copied into the sketch as drawn lines and arcs when the step is made, and the lost-figure error said out loud; C later only if following the diameter is wanted)

@@ -2,7 +2,7 @@
 // what relations touch this part (so they can be shown when it is clicked), what a deletion would take with it, and which relations or steps point at something gone.
 import type { Ref } from "../shared/ref.ts";
 import type { Scene } from "./scene.ts";
-import { hasPart, figureRefs, usesFigures } from "./scene.ts";
+import { hasPart, figureRefs, usesFigures, splitRefs } from "./scene.ts";
 import { anchorsOf } from "./part.ts";
 import { dependentParts } from "./commands.ts";
 
@@ -124,6 +124,12 @@ function consumedFresh(s: Scene): Set<Ref> {
     for (const r of figureRefs(st)) {
       out.add(r);
       const p = s.parts[r];
+      if (p) for (const a of anchorsOf(p)) out.add(a);
+    }
+    // the drawn curves a figure copied from the body's edges was cut from (`used`, `in_1360`): they are used up as they were when the step named the pieces made of them
+    for (const r of splitRefs(String(st.params.used ?? ""))) {
+      out.add(r as Ref);
+      const p = s.parts[r as Ref];
       if (p) for (const a of anchorsOf(p)) out.add(a);
     }
   }

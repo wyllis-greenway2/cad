@@ -82,7 +82,9 @@ function runOpCore(sess: Session, op0: Op): { session: Session; cmd: Command } |
     if (corner && done.message && sceneOf(done).steps.length === sceneOf(sess).steps.length) { const again = run(sess, corner); if (sceneOf(again).steps.length > sceneOf(sess).steps.length) return { session: again, cmd: corner }; }
     // an extrusion onto bodies: whether it adds a piece or cuts is decided now, once, and kept in the step (`in_295`); decided again at every replay, a body that grew later would be cut by a piece that only stood beside it
     // (figures extruded together are steps of their own, `in_353`: they are decided together, below)
-    const extrudes = cmd.type === "batch" ? cmd.commands : [cmd];
+    const every = cmd.type === "batch" ? cmd.commands : [cmd];
+    const drawnParts = every.filter((c) => c.type === "addPart"); // (the lines and arcs a figure made of the body's edges was copied into, `in_1360`)
+    const extrudes = every.filter((c) => c.type !== "addPart");
     if ((op.kind === "extrude" || op.kind === "revolve" || op.kind === "loft" || op.kind === "sweep") && extrudes.length && extrudes.every((c): c is Extract<Command, { type: "addStep" }> => c.type === "addStep" && (c.step.type === "extrude" || c.step.type === "revolve" || c.step.type === "loft" || c.step.type === "sweep")) && !done.message && (sceneOf(sess).steps.length || extrudes.length > 1)) {
       const [volume, count] = [(x: Session): number => Object.values(sceneOf(x).parts).reduce((a, q) => a + (q.kind === "body" ? (q.volume ?? 0) : 0), 0), (x: Session): number => Object.values(sceneOf(x).parts).filter((q) => q.kind === "body").length];
       // (decided from the answer for all of them together, the one the kernel already has from the preview: asking it for each step on its own would ask for lists it has not worked out, and in the browser its answer comes late)
@@ -91,7 +93,7 @@ function runOpCore(sess: Session, op0: Op): { session: Session; cmd: Command } |
       const grown = count(done) - count(sess);
       const mode = volume(done) < volume(sess) - 1e-6 * Math.max(1, volume(sess)) ? "cut" : grown >= extrudes.length ? "new" : "add"; // (a cut, pieces of their own, or joined to a body they touch)
       const tagged: Command[] = (extrudes as Extract<Command, { type: "addStep" }>[]).map((c) => ({ ...c, step: { ...c.step, params: { ...c.step.params, mode } } }));
-      const whole: Command = tagged.length === 1 ? tagged[0]! : { type: "batch", commands: tagged };
+      const whole: Command = tagged.length === 1 && !drawnParts.length ? tagged[0]! : { type: "batch", commands: [...drawnParts, ...tagged] };
       const again = run(sess, whole);
       if (!again.message) return { session: again, cmd: whole };
     }

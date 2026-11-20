@@ -292,6 +292,9 @@ export function run(s: Session, c: Command, opts: { watchAll?: boolean; fallback
   const nowOff = next.outcome.kernel?.stale ? [] : mateStatus(next.history.scene).filter((m) => m.state !== "ok" && !wasOff.has(m.id));
   if (odds.length) return { ...next, conflict: { culprits: [], victims: odds }, message: atOddsMessage(next.history.scene, odds, changeWords(s.history.scene, c)) }; // (mates that cannot all hold: they flash and can be deleted; the change stays)
   if (nowOff.length) return { ...next, conflict: { culprits: [], victims: nowOff.map((m) => m.id) }, message: `${nowOff.length === 1 ? "a mate is" : `${nowOff.length} mates are`} no longer true (${nowOff.map((m) => m.state === "lost" ? "a face is gone" : "the bodies have come apart").join(", ")}): "Put the mates back" in the ⋯ menu makes them again` };
+  // a step made before that this change leaves unable to be made (its figure is gone, a size it needs): said, never silent (`in_1360`); the change stays, and one undo takes it back
+  const broke = next.outcome.kernel?.stale ? [] : Object.keys(next.outcome.errors).filter((id) => !(id in s.outcome.errors) && !steps.includes(id));
+  if (broke.length) return { ...next, conflict: null, message: `${broke.length === 1 ? `step ${broke[0]} cannot be made any more` : `steps ${broke.join(", ")} cannot be made any more`}: ${next.outcome.errors[broke[0]!]}; undo takes the change back` };
   const late = !!next.outcome.kernel?.stale && steps.length > 0;
   const said = steps.map((id) => next.outcome.notes?.[id]).find((n) => !!n); // (a step made in a way that is worth saying: a fillet with the edges at its corner, `in_379`)
   if (said && !late) return { ...next, conflict: null, message: said };
