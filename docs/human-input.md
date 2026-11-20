@@ -5405,6 +5405,24 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > group the fields into sections first
 (answers my offer to group the piston maker's fields into sections before adding more variables)
 
-## in_1272 — 2026-11-20 — directive
+> okay, look at this, pull the face of this gear up to make it thicker didn't respect the the gear helix. Is this normal expected behavior with the face pull type? or is this a bug? also it took exactly one billion years, and half the time I try to do these operations it fails.
+(with the saved model 06451bcb-gear.json)
+
+## in_1273 — 2026-11-20 — directive
+> yes do the experiment and free the shapes
+
+## in_1274 — 2026-11-20 — question
+> so did we figure out why it is so slow?
+
+## in_1275 — 2026-11-20 — directive
+> can we make it faster and not fail so much?
+
+## in_1276 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please do full suite tests
+
+## in_1277 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1278 — 2026-11-20 — directive
 > build the keyway tool next
 (asks for the keyway tool to be built next, as designed in `dec_keyway_maker`)

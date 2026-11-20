@@ -1,4 +1,4 @@
-// The keyway maker (`dec_keyway_maker`, `in_1272`): a key, a flat or an ISO 14 spline cut into the hole of a round body, or made on a shaft.
+// The keyway maker (`dec_keyway_maker`, `in_1278`): a key, a flat or an ISO 14 spline cut into the hole of a round body, or made on a shaft.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

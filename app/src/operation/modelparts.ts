@@ -4,7 +4,7 @@ import type { Ref } from "../shared/ref.ts";
 import { drawnRef, worldRef } from "../shared/ref.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Scene } from "./scene.ts";
-import { decodeEdge } from "../compiler/body.ts";
+import { decodeEdge } from "./edgeref.ts";
 import { nextId, figureParams } from "./scene.ts";
 import type { Command } from "./commands.ts";
 import { apply } from "./commands.ts";
