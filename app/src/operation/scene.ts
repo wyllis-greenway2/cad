@@ -47,13 +47,17 @@ export interface Step {
 }
 /** A figure an extrude uses: the refs of its sides (or its circle), and those of each figure drawn inside it, which are holes. */
 export interface Figure { outer: Ref[]; holes: Ref[][] }
-const group = (t: unknown, sep: string): string[][] => String(t ?? "").split(sep).filter(Boolean).map((g) => g.split(",").filter(Boolean));
+/** A list of refs written as one string for a step's numbers: joined by commas, or, when a ref has a comma in it (a piece named after a body's edge, `body/e@12.2,25.3,5~...`), by the unit separator, which no name has (`in_1363`). */
+export const joinRefs = (refs: readonly string[]): string => (refs.some((r) => r.includes(",")) ? refs.join("\u001f") : refs.join(","));
+/** The refs of a list written by `joinRefs` (one written before, with commas, reads as it did). */
+export const splitRefs = (t: string): string[] => (t.includes("\u001f") ? t.split("\u001f") : t.split(",")).filter(Boolean);
+const group = (t: unknown, sep: string): string[][] => String(t ?? "").split(sep).filter(Boolean).map((g) => splitRefs(g));
 /** The figures an extrude step uses: `parts` with its `holes` (`a,b;c`), then each of `also` (figures joined by `|`, each `outer>hole;hole`): sibling figures extruded together. */
 export function figuresOf(st: Step): Figure[] {
   const out: Figure[] = [{ outer: st.parts, holes: group(st.params.holes, ";") as Ref[][] }];
   for (const f of String(st.params.also ?? "").split("|").filter(Boolean)) {
     const [o, h] = f.split(">");
-    out.push({ outer: (o ?? "").split(",").filter(Boolean) as Ref[], holes: group(h, ";") as Ref[][] });
+    out.push({ outer: splitRefs(o ?? "") as Ref[], holes: group(h, ";") as Ref[][] });
   }
   return out;
 }
@@ -65,10 +69,10 @@ export function figureDepths(st: Step): number[] {
 }
 /** The step's figures as its two params (`holes` for the first, `also` for the rest). */
 export function figureParams(figs: Figure[]): Record<string, string> {
-  const enc = (f: Figure) => f.holes.map((h) => h.join(",")).join(";");
+  const enc = (f: Figure) => f.holes.map((h) => joinRefs(h)).join(";");
   const out: Record<string, string> = {};
   if (figs[0] && figs[0].holes.length) out.holes = enc(figs[0]);
-  if (figs.length > 1) out.also = figs.slice(1).map((f) => f.outer.join(",") + (f.holes.length ? ">" + enc(f) : "")).join("|");
+  if (figs.length > 1) out.also = figs.slice(1).map((f) => joinRefs(f.outer) + (f.holes.length ? ">" + enc(f) : "")).join("|");
   return out;
 }
 /** A step made from drawn figures (an extrude, a revolve): its figures are used up by it. */

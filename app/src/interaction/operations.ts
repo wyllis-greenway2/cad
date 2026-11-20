@@ -22,7 +22,8 @@ import { planetaryOfGear } from "../operation/planetary.ts";
 import type { GearRecord } from "../operation/gearscene.ts";
 import type { Scene } from "../operation/scene.ts";
 import { surfaceTriangles } from "./surfaces.ts";
-import { lookup, nextId, figureParams, figureRefs, figuresOf } from "../operation/scene.ts";
+import { lookup, nextId, figureParams, figureRefs, figuresOf, joinRefs } from "../operation/scene.ts";
+import { materializeFigures } from "../operation/materialize.ts";
 import { rimRanks, edgeSignatures, facesOfEdge } from "../operation/rims.ts";
 import { consumed } from "../operation/ownership.ts";
 import type { Figure } from "../operation/scene.ts";
@@ -727,8 +728,8 @@ function markedPreview(c: Command | null): Command | null {
   if (c?.type !== "addStep" || c.step.type !== "extrude") return c;
   return { ...c, step: { ...c.step, params: { ...c.step.params, preview: 1 } } };
 }
-export function opCommand(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Command | null {
-  if (opts.preview && op.kind === "extrude") return markedPreview(opCommand(scene, op));
+export function opCommand(scene: Scene, op: Op, opts: { preview?: boolean; /** the step as the operation has it, with the pieces of its figure as they are (the picture while a size is set) */ raw?: boolean } = {}): Command | null {
+  if (opts.preview && op.kind === "extrude") return markedPreview(opCommand(scene, op, { raw: true }));
   // several bodies dragged together (`in_345`): each is moved by the same, one after another, so each step has its own number and its own sketches carried
   if (op.target === "body" && op.kind === "move" && op.free && op.parts.length > 1 && op.parts.every((r) => scene.parts[r]?.kind === "body")) {
     let sc = scene;
@@ -747,7 +748,7 @@ export function opCommand(scene: Scene, op: Op, opts: { preview?: boolean } = {}
   // the sketches that made a body go with it, and what is drawn on its faces; the other bodies' stay
   return forBody(opCommandOf(scene, { ...op, carryOnly: which.id }, opts), which.id, true);
 }
-function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Command | null {
+function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean; raw?: boolean } = {}): Command | null {
   // the body dragged free: one move by a vector, with the sketches of the body carried by the same (`in_291`)
   if (op.kind === "move" && op.target === "body" && op.free) {
     const [x, y, z] = op.free;
@@ -790,11 +791,18 @@ function opCommandOf(scene: Scene, op: Op, opts: { preview?: boolean } = {}): Co
   if (op.kind === "extrude") {
     if (v === 0) return null;
     // separate figures selected together are extruded in one go but each is a step, and so a body, of its own, with its own height (`in_353`); a hole inside a figure stays with it
-    const figs = figuresOf({ id, type: "extrude", parts: op.parts, params: op.figs ?? {} });
-    if (figs.length < 2) return { type: "addStep", step: { id, type: "extrude", parts: op.parts, params: { depth: v, ...(op.figs ?? {}) } } };
-    const { holes: _h, also: _a, ...rest } = op.figs ?? {};
+    const figs0 = figuresOf({ id, type: "extrude", parts: op.parts, params: op.figs ?? {} });
+    // a figure made partly of the body's edges is drawn again as lines and arcs of its own when the step is made, so the step does not depend on the body's edges (`dec_body_edge_pieces`, `in_1365`); a preview keeps the pieces
+    const copy = opts.raw ? null : materializeFigures(scene, figs0);
+    const figs = copy ? copy.figs : figs0;
+    const drawnFirst = (c: Command): Command => (copy ? { type: "batch", commands: [...copy.commands, c] } : c);
+    const { holes: _h, also: _a, cut: _c, rim: _r, ...rest00 } = op.figs ?? {};
+    const rest0 = copy && copy.used.length ? { ...rest00, used: joinRefs(copy.used) } : rest00;
+    if (figs.length < 2) return drawnFirst({ type: "addStep", step: { id, type: "extrude", parts: copy ? figs[0]!.outer : op.parts, params: { depth: v, ...(copy ? { ...figureParams(figs), ...rest0 } : (op.figs ?? {})) } } });
+    const rest = copy ? rest0 : (({ holes: _h2, also: _a2, ...r }) => r)(op.figs ?? {});
     const first = Number(id.slice(id.lastIndexOf("_") + 1));
-    return { type: "batch", commands: figs.map((f, i): Command => ({ type: "addStep", step: { id: formatId("s", first + i), type: "extrude", parts: f.outer, params: { depth: v, ...figureParams([f]), ...rest } } })) };
+    const steps = figs.map((f, i): Command => ({ type: "addStep", step: { id: formatId("s", first + i), type: "extrude", parts: f.outer, params: { depth: v, ...figureParams([f]), ...rest } } }));
+    return { type: "batch", commands: [...(copy ? copy.commands : []), ...steps] };
   }
   if (op.kind === "pushpull" && op.faces && op.faces.length > 1) {
     if (v === 0) return null;
