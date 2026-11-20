@@ -3,7 +3,7 @@ id: q_rod_maker
 kind: question
 status: open
 origin: ai-unreviewed
-human_input: in_1280, in_1281, in_1283
+human_input: in_1280, in_1281, in_1283, in_1284
 date: 2026-11-20
 depends_on:
   - dec_rod_design: this entry grows that entry's rod (I-beam, split big end, two bolt holes) into a maker with its own box; its shapes are the starting point
@@ -49,6 +49,13 @@ What they settle, and what the rod maker takes from it:
 - **Clearances to model:** side clearance of the rod on the journal **0.3 to 0.5 mm (0.012 to 0.020 in)** for a pair of rods on one journal (Honda's single rod: 0.1 to 0.7 mm); rod to block at least 2 mm (0.080 in); the big end is finished round **with the cap on**, so the typed bore is the finished one (a process fact, kept out of the tool).
 - **Needle bearings** are real (Wikipedia's figure shows a needle sleeve in the small end; two-strokes use them at the big end), but Kane notes **rolling bearings are rare in piston engines**. Needle at the big end needs a one-piece rod and a built-up crank.
 - **Still not found:** a shell width by journal, the crush height, the tab's size, a bush's wall, an oil groove's size: **no number**. The searched hits (ACL, King catalogues) would give them.
+
+## Read in full, the three patents (`in_1284`)
+- **Beam:** an I-beam is two flanges (legs) and a thinner web; the web may have **pockets** (reduced thickness t) of oblong, round, rectangular or triangular shape, one or several, on one or both faces, to move the centre of gravity and set the rotating to reciprocating mass split. Blends are large. (No dimensions given.) This is the shape the rod has today (one long pocket each face); the tool would offer the pocket's shape, count, position and depth as typed numbers.
+- **Small end:** the **load is on the lower side** (combustion) and the upper side carries little (inertia), so a **stepped or wedge small end** (narrower at the crown side) is a real shape, as is the plain one; the thickness of the small end is not the beam's thickness (the patents' figures show the small end tapering in thickness toward its top).
+- **Bush:** a sleeve pressed into the eye with interference, of a metal unlike the rod's; **end grooves** on its inside for oil. **A floating pin on a second bush** (Fiat) is another real arrangement with no circlips: a bush on the pin and a bush in the rod, the pin's bush longer than the rod's and keeping the pin in the piston. These go in the *small end* group as a typed choice (None, Bush, Bush with a pin sleeve).
+- **Big end:** split, cap on two bolts; the drawings show the beam's shoulders widening into the big end, and a bulge at the cap's bottom.
+- **Process items stay out** (`in_1281`): forging, cracking the cap, the way the bush is pressed (heating or cooling), deburring and the machining order.
 
 ## Questions for the human
 0. **Bearings (new).** Proposed: the rod's **big end bearing type** is a typed choice: *Plain shells* (two shells, the default), *Needle rollers* (a one-piece rod, a cage and rollers, with the crank pin a separate round pin; the cap is dropped), or *None* (a bare bore). The small end the same: *Bush* (a sleeve), *Needle*, *None*. Is that the right set?

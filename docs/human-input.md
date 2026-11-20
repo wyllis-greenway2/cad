@@ -5446,3 +5446,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/b7605131-Connecting_Rod_Tech___Engine_Professional.pdf" @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/ab5490f3-Explaining_Under-_And_Oversized_Engine_Bearings.pdf" @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/d4ee3271-Engine_Bearings__Hydrodynamic_Lubrication_Explained___EPI.pdf" @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/ad5cfe02-Gudgeon_pin_-_Wikipedia.pdf"
 (no words, only the four attached files, in answer to `in_1282`: the human sent four PDFs for `q_rod_maker`: "Connecting Rod Tech" (Engine Professional, Mavrigian), "Engine Bearings & Hydrodynamic Lubrication Explained" (EPI, Kane), "Explaining Under- And Oversized Engine Bearings With King Bearings" (EngineLabs, Acosta, 2024) and the Wikipedia "Gudgeon pin" article. The files are not kept in the repository.)
 
+## in_1284 — 2026-11-20 — directive
+> @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/1d3ff12a-10197091.pdf" @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/468deeed-4738234.pdf" @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/a69d2b9d-7581315.pdf"
+(no words, only three attached files, the patents named in the earlier link list: US 10,197,091, US 4,738,234 and US 7,581,315; the files are not kept in the repository)
+
