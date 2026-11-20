@@ -5443,5 +5443,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > can you link me to any documents I may be able to get for you that you need?
 
 ## in_1283 — 2026-11-20 — directive
-(no words: the human sent four PDFs for `q_rod_maker`: "Connecting Rod Tech" (Engine Professional, Mavrigian), "Engine Bearings & Hydrodynamic Lubrication Explained" (EPI, Kane), "Explaining Under- And Oversized Engine Bearings With King Bearings" (EngineLabs, Acosta, 2024) and the Wikipedia "Gudgeon pin" article. The files are not kept in the repository.)
+> @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/b7605131-Connecting_Rod_Tech___Engine_Professional.pdf" @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/ab5490f3-Explaining_Under-_And_Oversized_Engine_Bearings.pdf" @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/d4ee3271-Engine_Bearings__Hydrodynamic_Lubrication_Explained___EPI.pdf" @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/ad5cfe02-Gudgeon_pin_-_Wikipedia.pdf"
+(no words, only the four attached files, in answer to `in_1282`: the human sent four PDFs for `q_rod_maker`: "Connecting Rod Tech" (Engine Professional, Mavrigian), "Engine Bearings & Hydrodynamic Lubrication Explained" (EPI, Kane), "Explaining Under- And Oversized Engine Bearings With King Bearings" (EngineLabs, Acosta, 2024) and the Wikipedia "Gudgeon pin" article. The files are not kept in the repository.)
 
