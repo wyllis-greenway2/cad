@@ -511,6 +511,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   if (t.kind === "model" && t.points.length) {
     // a gear assembly model (`dec_gear_models`): the first click after its middle sets the size (the pointer's distance from the middle) and the box stays open for the numbers; the next click, Enter or Create makes it
     if (!t.sized) return { ...base, tool: { ...t, cursor: at, sized: true } };
+    if (t.model?.made) return base; // (a model that is made: a click in space does not remake it; the box's Update, Done and Enter do, `in_1257`)
     return commitFigure(base, finish(sc, t));
   }
   if (t.kind === "cam" && t.points.length) {

@@ -8,7 +8,8 @@ import { createState, reduce } from "../src/interaction/controller.ts";
 import { homeCamera } from "../src/interaction/camera.ts";
 import { typeKey, finish, previewOf } from "../src/interaction/tools.ts";
 import type { Tool } from "../src/interaction/tools.ts";
-import { modelEntry, modelTarget, nextField } from "../src/interaction/modeltool.ts";
+import { modelEntry, modelTarget, nextField, modelPreview, modelTyped } from "../src/interaction/modeltool.ts";
+import { entryOf } from "../src/interaction/entry.ts";
 import { MODEL_KINDS, modelNumbers, modelExtent, modelStart, modelFields, modelProblem } from "../src/operation/modelkinds.ts";
 import type { ModelKind } from "../src/operation/modelkinds.ts";
 
@@ -98,7 +99,7 @@ test("each model lists its parts, bottom up, covering every step once", () => {
     cycloidal: ["Base plate and ring pins", "Input shaft and eccentric", "Cycloidal disc", "Output plate and pins"],
     engine: ["Block", "Crankshaft", "Flywheel", "Piston", "Piston pin", "Connecting rod", "Rod cap"],
     wheel: ["Wheel", "Edge rounds"],
-    wheelcut: ["Pockets", "Joins", "Cutouts", "Edge rounds"],
+    wheelcut: ["Bore", "Pockets", "Joins", "Cutouts", "Edge rounds"],
   };
   for (const kind of MODEL_KINDS) {
     const b = modelBuild(kind, { ...modelStart(kind), ...(kind === "ballbearing" ? { detail: 1, own: 1, number: 0 } : {}) }, AT_ORIGIN_FOR_TESTS);
@@ -116,7 +117,7 @@ test("Create makes the model a part at a time: the first part at once, the next 
   st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0], model: { ...st.tool!.model!, typed: st.tool!.model!.typed.map((x, i) => (i === 1 || i === 3 ? "1" : x)) } } }; // (the first field after the size: the detail)
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env as never);
   assert.ok(st.building, "building");
-  assert.equal(st.tool, null);
+  assert.ok(st.tool?.model?.made, "the box stays open on the model being made (`in_1257`)");
   assert.equal(st.building!.next, 1, "the first part is made");
   assert.equal(bodies(st.session).length, 1);
   st = reduce(st, { type: "buildNext" }, env as never);
@@ -132,6 +133,35 @@ test("Create makes the model a part at a time: the first part at once, the next 
   assert.equal(st.building, null);
   assert.equal(bodies(st.session).length, 9);
   assert.equal(st.session.message ?? null, null);
+  assert.ok(st.tool?.model?.made?.to !== undefined, "the box knows where its model ends");
+});
+
+test("a model's box stays open: Create makes it, a changed number offers Update (the model is made again, not added), no change is Done, Esc is Cancel (`in_1257`)", () => {
+  let st = { ...createState(createSession(kernel)), cam: homeCamera() };
+  st = reduce(st, { type: "runAction", id: "model:wheel" }, env as never);
+  st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0], model: { ...st.tool!.model!, typed: st.tool!.model!.typed.map((x, i) => (i === 0 ? "80" : x)) } } };
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.gearButtons, { edit: false, changed: false }, "Create");
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env as never);
+  let n = 0; while (st.building && n++ < 12) st = reduce(st, { type: "buildNext" }, env as never);
+  assert.ok(st.tool, "the box is open");
+  const first = bodies(st.session).length, volume = (bodies(st.session)[0] as unknown as { volume: number }).volume;
+  assert.equal(first, 1);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.gearButtons, { edit: true, changed: false }, "Done");
+  assert.equal(modelPreview(scene(st.session), st.tool!), null, "no picture over the model that is made");
+  // a changed number: Update
+  st = { ...st, tool: { ...st.tool!, model: modelTyped(st.tool!.model!, 1 + modelFields("wheel").findIndex((f) => f.key === "web"), "6") } };
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.gearButtons, { edit: true, changed: true }, "Update");
+  const cmds = st.session.history.commands.length;
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env as never);
+  n = 0; while (st.building && n++ < 12) st = reduce(st, { type: "buildNext" }, env as never);
+  assert.equal(bodies(st.session).length, 1, "made again, not added");
+  assert.ok((bodies(st.session)[0] as unknown as { volume: number }).volume > volume + 1, "with the thicker web");
+  assert.equal(st.session.history.commands.length, cmds, "the same number of commands as before");
+  assert.ok(st.tool, "the box stays open");
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.gearButtons, { edit: true, changed: false });
+  // Done lets go; Esc (Cancel) too
+  assert.equal(reduce(st, { type: "typed", key: "Enter", shift: false }, env as never).tool, null);
+  assert.equal(reduce(st, { type: "escape" }, env as never).tool, null);
 });
 
 // ---- Play ----

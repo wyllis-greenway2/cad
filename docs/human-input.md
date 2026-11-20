@@ -5344,3 +5344,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1256 — 2026-11-20 — directive
 > if I make a cylinder, then select its top surface, then select cut spokes, it still doesn't bring up the menu
 (reports that Cut spokes still shows no box when a cylinder's top face is what is selected)
+
+## in_1257 — 2026-11-20 — directive
+> Also can it be smart enough to allow the user to set a bore using the same bore variables as the gear maker if it detects that there is no bore? if there is a bore then that part can be left out or greyed locked. Also can we make these menus (gear, spoke, all of them as a unified menu workflow) operate such that they stay open while you are creating or editing a part. It has two stages, create part, and update part, otherwise it is a done button. So create part makes the first model from inputs but the menu stays open. If you edit any variables there is a button to update part and the menu stays open. The menu should close when you click cancel or done.
+(asks for Cut spokes on a body with no bore to take the gear maker's bore variables, locked when the body has a bore; and for every tool box, gear, spoke and the rest, to be one workflow: Create makes the part and the box stays open, Update appears when a number is changed and the box stays open, Done and Cancel close it)

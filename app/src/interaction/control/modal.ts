@@ -2,7 +2,7 @@
 import { isHard, isFixed, hardCopies } from "../hard.ts";
 import type { Command } from "../../operation/commands.ts";
 import type { Intent } from "../../shared/input.ts";
-import { scene as sceneOf, selection as selectionOf, run, undoLast, redoLast, clearSelection } from "../session.ts";
+import { scene as sceneOf, selection as selectionOf, run, undoLast, redoLast, clearSelection, goToCursor } from "../session.ts";
 import type { Session } from "../session.ts";
 import { nearCommand } from "../suggest.ts";
 import { actionsFor, measureAction } from "../actions.ts";
@@ -10,7 +10,7 @@ import { CONSTRAINT_ENTRIES, resolveEntry } from "../constraintlist.ts";
 import type { ToolKind, Tool } from "../tools.ts";
 import { gearFields, armTool, armModel, typeKey, finish, lineNext, gearTyped, editGearTool, editPlanetaryTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf, editCamTool , gearChanged } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
-import { modelTyped, modelCommand, modelFix, modelBuilding, nextPartCommand, partIds, finishCommand } from "../modeltool.ts";
+import { modelHeld, modelChanged, modelTyped, modelCommand, modelFix, modelBuilding, nextPartCommand, partIds, finishCommand } from "../modeltool.ts";
 import type { ModelKind } from "../../operation/modelkinds.ts";
 /** why the model of a tool is not made (the words of its refusal), or null */
 const modelWhy = (sc: ReturnType<typeof sceneOf>, t: Tool): string | null => { const c = modelCommand(sc, t); return c.ok ? null : c.error; };
@@ -149,28 +149,42 @@ const stays = (t: AppState["tool"]): AppState["tool"] => (t && t.kind !== "gear"
 
 /** A model is made a part at a time (`dec_gear_models`): the first part now, and each next one when the kernel has answered for the one before (the page draws between, so the parts are seen going in) */
 function startBuilding(s: AppState): AppState {
-  const g = modelBuilding(sceneOf(s.session), s.tool!);
+  const t = s.tool!, m = t.model!;
+  // Update: the model that was made is taken back (nothing came after it) and made again from the numbers in the box; else this is a Create (`in_1257`)
+  const redo = !!m.made && m.made.to !== undefined && s.session.history.cursor === m.made.to && s.session.history.commands.length === m.made.to;
+  const sess = redo ? goToCursor(s.session, m.made!.from) : s.session;
+  const g = modelBuilding(sceneOf(sess), t);
   if (!g.ok) return { ...s, session: { ...s.session, message: g.error } };
-  return makeNextPart({ ...s, tool: null, resume: null, spread: null, building: g.value });
+  const tool: Tool = { ...t, model: { ...m, made: { from: redo ? m.made!.from : sess.history.cursor, held: modelHeld(t) } } }; // (the box stays open on the model that is made)
+  return makeNextPart({ ...s, session: sess, tool, resume: null, spread: null, building: g.value });
 }
+/** the model's box learns where its model ends in the history, once the last part is made (or the making stopped) */
+const madeTo = (t: AppState["tool"], session: AppState["session"]): AppState["tool"] => (t?.model?.made ? { ...t, model: { ...t.model, made: { ...t.model.made, to: session.history.cursor } } } : t);
 function makeNextPart(s: AppState): AppState {
   const b = s.building;
   if (!b) return s;
   const c = nextPartCommand(sceneOf(s.session), b);
-  if (!c.ok) return { ...s, building: null, session: { ...s.session, message: c.error } };
+  if (!c.ok) return { ...s, building: null, tool: madeTo(s.tool, s.session), session: { ...s.session, message: c.error } };
   const next = run(s.session, c.value);
-  if (next.message) return { ...s, building: null, session: next };
+  if (next.message) return { ...s, building: null, tool: madeTo(s.tool, next), session: next };
   const last = b.next + 1 >= b.build.parts.length;
   const grown: typeof b = { ...b, next: b.next + 1, ids: { ...b.ids, [b.build.parts[b.next]!.label]: partIds(c.value) } };
   const fin = last ? finishCommand(sceneOf(next), grown) : null; // (the whole model is made: how it moves is kept, and the parts that are fixed to one another are glued, so that Play can move it)
   const kept = fin ? run(next, fin) : next;
-  return { ...s, session: { ...(kept.message ? next : kept), click: { ...next.click, selection: [] } }, building: last ? null : grown };
+  const after = kept.message ? next : kept;
+  return { ...s, session: { ...after, click: { ...next.click, selection: [] } }, building: last ? null : grown, tool: last ? madeTo(s.tool, after) : s.tool };
 }
 /** The kernel has answered: the next part of the model being made */
 export function doBuildNext(s: AppState): AppState {
   return !s.building || s.session.outcome.kernel?.stale ? s : makeNextPart(s);
 }
 
+/** The tool a gear, a cam or a planetary set that has just been made or updated goes on as: the box open on it, with its numbers as they now are (`in_1257`); null when the record is not found */
+function stayOpen(t: NonNullable<AppState["tool"]>, before: ReturnType<typeof sceneOf>, after: ReturnType<typeof sceneOf>): AppState["tool"] {
+  if (t.kind === "gear" && t.gear?.planetary) { const id = t.gear.editing ?? nextId(before, "q"), set = after.planetaries?.find((p) => p.id === id); return set ? editPlanetaryTool(set) : null; }
+  const id = t.gear?.editing ?? t.cam?.editing ?? nextId(before, "g"), rec = after.gears?.find((g) => g.id === id);
+  return rec ? (rec.spec.cam ? editCamTool(rec) : editGearTool(rec)) : null;
+}
 export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppState {
   if (!fin) {
     const fix = s.tool?.kind === "gear" ? gearFix(sceneOf(s.session), s.tool) : null; // (the number that spoils it is taken back to the nearest that makes a gear, and flashes, `in_690`)
@@ -183,7 +197,7 @@ export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppSt
   const next = run(s.session, fin.command);
   if (next.message) return { ...s, session: next };
   const sel = fin.select.filter((r) => r in sceneOf(next).parts);
-  if ((s.tool?.kind === "gear" && !s.tool.cam) || s.tool?.kind === "cam") return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: null, resume: null, spread: null }; // (a gear that is made is made: the tool is over, `in_822`)
+  if ((s.tool?.kind === "gear" && !s.tool.cam) || s.tool?.kind === "cam") return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: stayOpen(s.tool, sceneOf(s.session), sceneOf(next)), resume: null, spread: null }; // (a gear that is made keeps its box open, as the Edit tool of that gear: Update changes it, Done lets go, `in_1257`)
   // a circle drawn about another circle's centre is concentric with it
   const circle = fin.select[0]?.startsWith("d/disk@") ? (`d/${fin.select[0].slice(7)}` as Ref) : null;
   if (s.tool?.kind === "circle" && s.tool.concentric && circle && circle in sceneOf(next).parts) {
@@ -262,6 +276,8 @@ export function doTyped(s: AppState, key: string): AppState {
   const t = s.tool;
   if (!t || !t.plane || !t.points.length) return s;
   if (key !== "Enter") return { ...s, tool: typeKey(t, key) };
+  if (s.building && t.kind === "model") return s; // (the parts are still being made)
+  if (t.kind === "model" && t.model?.made && !modelChanged(t)) return { ...s, tool: null }; // (nothing was changed: Done, `in_1257`)
   if (((t.kind === "gear" && t.gear?.editing && !t.cam) || (t.kind === "cam" && t.cam?.editing)) && !gearChanged(sceneOf(s.session), t)) return { ...s, tool: null }; // (nothing was changed: Done only lets go, `in_919`)
   const next = t.kind === "line" && t.typed[0] !== "" ? lineNext(t) : null; // a typed length gives the line's end
   return commitFigure(s, finish(sceneOf(s.session), next ? { ...t, points: [t.points[0]!, next] } : t));
@@ -357,7 +373,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
 
 /** Esc lets go in steps: the menu, then an open badge, then the tool or operation, then the selection. */
 export function doEscape(s: AppState): AppState {
-  if (s.building) return { ...s, building: null, session: { ...s.session, message: "stopped: the parts made so far stay (Undo takes them back, one at a time)" } }; // (a model made a part at a time)
+  if (s.building) return { ...s, building: null, tool: madeTo(s.tool, s.session), session: { ...s.session, message: "stopped: the parts made so far stay (Undo takes them back, one at a time)" } }; // (a model made a part at a time)
   if (s.menu) return { ...s, menu: null };
   if (s.motion) return { ...s, motion: null }; // (a joint that is being played goes back to rest)
   if (s.awaiting) return { ...s, awaiting: null, session: { ...s.session, message: null } }; // (the item that waited for a selection is given up, `in_951`)

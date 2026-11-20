@@ -226,7 +226,7 @@ test("the Gear tool is in the Sketch ring; click the centre, the pointer sets th
   st = click(st, [C[0] + 60, C[1] + 40, 0]); // (a click in space makes the gear at the size set, and starts the next one there)
   assert.ok(Math.abs(reach(st) - 22) < 1e-6, `outside radius ${reach(st)}`);
   assert.ok(selection(st.session).length === 1, "the figure is selected");
-  assert.equal(st.tool, null, "a gear made is made: the box is closed and the tool is over (`in_919`)");
+  assert.equal(st.tool?.gear?.editing, "g_001", "a gear made keeps its box open, as the Edit tool of that gear (`in_1257`)");
   assert.equal(drawn(st).length, 20 * 12 + 1, "(and the bore, `in_691`) twelve corners to a tooth: two sides of five points and the two feet below the base circle");
   assert.equal(scene(st.session).gears!.length, 1, "it keeps its numbers");
   st = { ...st, session: undoLast(st.session) };
@@ -350,7 +350,7 @@ test("Edit gear: the number box opens on the selected gear with its numbers; typ
   st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab");
   st = typeText(st, "0.1");
   st = key(st, "Enter");
-  assert.equal(st.tool, null, "Done (Enter) applies the numbers and puts the tool away (`in_919`)");
+  assert.equal(st.tool?.gear?.editing, "g_001", "Update (Enter) applies the numbers and the box stays open (`in_1257`)");
   assert.deepEqual([scene(st.session).gears![0]!.spec.teeth, scene(st.session).gears![0]!.spec.backlash], [30, 0.1]);
   assert.equal(selection(st.session).length, 1, "and the gear is still selected");
   // Esc leaves it alone
@@ -519,7 +519,7 @@ test("Mesh gear: with a gear selected, the pointer says which way the partner st
   assert.equal(b!.spec.teeth, 30);
   assert.ok(Math.abs(Math.hypot(b!.at[0] - a!.at[0], b!.at[1] - a!.at[1]) - 2 * (20 + 30) / 2) < 1e-6, "m (z1 + z2) / 2 apart");
   assert.ok(Math.abs(b!.at[0] - a!.at[0]) < 2 && b!.at[1] > a!.at[1], "up");
-  assert.equal(m.tool, null, "the partner is made and the tool is over (`in_919`)");
+  assert.equal(m.tool?.gear?.editing, "g_002", "the partner is made and its box stays open (`in_1257`)");
   assert.equal(selection(m.session).length, 1);
   assert.equal(gearsOfState({ ...m, session: undoLast(m.session) }).length, 1);
   // a typed angle: 180 degrees puts it to the left
@@ -767,7 +767,10 @@ test("one box for a gear to be made and one that is made (`in_951`): Cancel, and
   assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.gearButtons, { edit: false, changed: false }, "a gear to be made: Create");
   st = key(st, "Enter");
   assert.equal(scene(st.session).gears!.length, 1);
-  assert.equal(st.tool, null, "Create makes the gear and the tool is over: no wireframe left behind");
+  assert.equal(st.tool?.gear?.editing, "g_001", "Create makes the gear and the box stays open on it (`in_1257`)");
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.gearButtons, { edit: true, changed: false }, "and it says Done");
+  st = key(st, "Enter");
+  assert.equal(st.tool, null, "Done lets go");
   // the same box on the gear that is made
   st = pick(st, [...selection(st.session)] as string[]);
   st = reduce(st, { type: "runAction", id: "gear:edit" }, env);
@@ -778,7 +781,10 @@ test("one box for a gear to be made and one that is made (`in_951`): Cancel, and
   const cancelled = reduce(st, { type: "escape" }, env);
   assert.equal(cancelled.tool, null);
   assert.equal(scene(cancelled.session).gears![0]!.spec.teeth, 20, "nothing was applied");
-  // Update: applies and ends the tool
+  // Update: applies and the box stays open; then Done
+  st = key(st, "Enter");
+  assert.equal(st.tool?.gear?.editing, "g_001");
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.gearButtons, { edit: true, changed: false });
   st = key(st, "Enter");
   assert.equal(st.tool, null);
   assert.equal(scene(st.session).gears![0]!.spec.teeth, 24);

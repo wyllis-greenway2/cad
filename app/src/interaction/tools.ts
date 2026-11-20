@@ -275,7 +275,7 @@ export function typeKey(t: Tool, key: string): Tool {
     return typed === null ? t : { ...t, gear: { ...g, typed: Array.from({ length: 24 }, (_, i) => (i === g.field ? typed : g.typed[i] ?? "")) } };
   }
   if (t.kind === "model" && t.model) {
-    if (key === "Tab") { const { bad: _gone, ...rest } = t.model; void _gone; return { ...t, model: { ...rest, field: nextField(t.model) } }; } // (a number that was taken back stops flashing when the next is chosen)
+    if (key === "Tab") { const { bad: _gone, ...rest } = t.model; void _gone; return { ...t, model: { ...rest, field: nextField(t.model, t.fill?.cut ? { boreOwned: t.fill.cut.bore > 0 ? 1 : 0 } : undefined) } }; } // (a number that was taken back stops flashing when the next is chosen)
     const typed = typeInto(t.model.typed[t.model.field] ?? "", key);
     return typed === null ? t : { ...t, model: modelTyped(t.model, t.model.field, typed) };
   }
