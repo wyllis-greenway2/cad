@@ -181,6 +181,39 @@ export function createView(host: HTMLElement) {
     cut.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(u, v, n));
     cut.renderOrder = 1.1 + idx * 0.2;
     sectionGroup.add(cut);
+    // where the plane lies exactly on a face of the part, that face looks as it does anywhere else: only what is really cut looks like the cut (`in_1340`). The triangles of the part that lie in the plane are drawn again, with their own material, over the cut face
+    const planeAt = new THREE.Vector3(...secNow.at);
+    const nrm = n.clone();
+    const side = (p: THREE.Vector3) => (p.x - planeAt.x) * nrm.x + (p.y - planeAt.y) * nrm.y + (p.z - planeAt.z) * nrm.z;
+    body.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh || Array.isArray(mesh.material) || !mesh.geometry.getAttribute("position")) return;
+      const pos = mesh.geometry.getAttribute("position");
+      const index = mesh.geometry.getIndex();
+      const count = index ? index.count : pos.count;
+      mesh.updateWorldMatrix(true, false);
+      const w = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+      const keep: number[] = [];
+      for (let t = 0; t + 2 < count; t += 3) {
+        const ids = [0, 1, 2].map((k) => (index ? index.getX(t + k) : t + k));
+        ids.forEach((id, k) => w[k]!.fromBufferAttribute(pos, id).applyMatrix4(mesh.matrixWorld));
+        if (w.every((p) => Math.abs(side(p)) < 2e-3)) keep.push(...ids);
+      }
+      if (!keep.length) return;
+      const g = mesh.geometry.clone();
+      g.setIndex(keep);
+      g.clearGroups();
+      const mat = (mesh.material as THREE.Material).clone();
+      mat.clippingPlanes = [clip];
+      mat.polygonOffset = true; mat.polygonOffsetFactor = -12; mat.polygonOffsetUnits = -12;
+      mat.depthWrite = true; mat.depthTest = true; mat.transparent = false; mat.stencilWrite = false;
+      mat.side = THREE.DoubleSide;
+      const face = new THREE.Mesh(g, mat);
+      face.matrixAutoUpdate = false;
+      face.matrix.copy(mesh.matrixWorld);
+      face.renderOrder = 1.15 + idx * 0.2;
+      sectionGroup.add(face);
+    });
     });
   }
   const planesGroup = new THREE.Group(); // (the cross section planes in the part: faint when not selected, fainter still when they are cutting, `in_396`)

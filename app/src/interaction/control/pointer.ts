@@ -522,7 +522,12 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   const plane = sc.parts[t.plane!] as Plane;
   const flat = snapOnPlane(sc, pv, plane);
   const hint = flat ? hintFor(sc, t, plane, pv, flat) : null;
-  const at = hint ? hint.at : flat;
+  // a snap that puts the second point on the first would make a figure of no size and nothing at all: the pointer's own place is taken then (`in_1340`)
+  let at = hint ? hint.at : flat;
+  if (at && t.points.length && t.kind !== "polygon" && t.kind !== "spline" && dist(at, t.points[0]!) < 1e-6) { // (a snap that put it where the first is; zoomed out two points are nearer than the snap reaches)
+    const raw = pointOnPlane(pv, plane);
+    if (raw && dist(raw, t.points[0]!) > 1e-6) at = raw;
+  }
   if (!at) return base;
   if (t.kind === "model" && t.model?.meshed && !t.model.made) { // (a tool made by Mesh: a click on a round body that is there cuts the matching keyway into it, `dec_keyway_maker`)
     const rec = (sc.keyways ?? []).find((k) => k.id === t.model!.meshed);
@@ -560,6 +565,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   }
   // a rectangle, a circle, a line: the second click finishes it and the tool is put away (a line is one segment: leave it open, or draw the next to close a shape)
   const fin = t.kind === "line" ? (dist(at, t.points[0]!) < 1e-6 ? null : finish(sc, { ...t, points: [t.points[0]!, at], cursor: at })) : finish(sc, { ...t, cursor: at });
+  if (!fin && (t.kind === "rect" || t.kind === "circle")) return { ...base, session: { ...sess, message: `that makes nothing: the two points are in one place or in one line (zoom in, or put the second point elsewhere)` } }; // (a figure that could not be made said nothing, `in_1340`)
   let done = t.kind === "line" && !fin ? base : commitFigure(base, fin);
   // the line or arc made with the constraints it was close to: its ends on a line or a circle, and the rest (level, upright, parallel, square, as long as, tangent): one way for both (`in_281`)
   const curve = t.kind === "line" || t.kind === "arc" ? fin?.select[0] : undefined;
