@@ -5634,3 +5634,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1333 — 2026-11-20 — directive
 > I cannot select the boolean operation tool unless I have more than one body. Again this feels like factured or duplicate code. All our tools should follow a unified method. I think you should be able to select them anytime and they should guide you to select what they need to do the operation. it should let me select it and then I can select the bodies involved.
 (asks that the boolean tools can be chosen at any time and then wait for the bodies to be picked, as every tool does)
+
+## in_1334 — 2026-11-20 — directive
+> spiral rotate extrude still doesn't work. Any value I put in here or any amount I pull the extra arrow doesn't modify how much it moves in the screw direction over rotation.
+(two screenshots of the Revolve with a spiral: the box shows 1000 degrees and an advance of 3, then the arrow pulled to 4.3; the body does not change)

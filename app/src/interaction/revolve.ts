@@ -90,6 +90,11 @@ function advanceFloor(scene: Scene, op: Op): { floor: number; width: number } | 
   }
   return width > 0 ? { floor: Math.ceil(width * 100 + 1) / 100, width } : null; // (a hundredth over, so the kernel's check passes)
 }
+/** The advance a turn as the step will have it: what was typed or dragged to, raised to the floor where the turns would run into each other (`in_1334`: the number showed what was typed while the shape used the floor, so any number below it seemed to do nothing). */
+export function advanceShown(scene: Scene, op: Op): { value: number; raised: boolean } {
+  const per = advanceOf(op), f = advanceFloor(scene, op);
+  return f && Math.abs(per) < f.floor ? { value: Math.sign(per) * f.floor, raised: true } : { value: per, raised: false };
+}
 /** What is said while the advance a turn has been raised to that floor (`in_1298`), or null. */
 export function advanceNote(scene: Scene, op: Op): string | null {
   const f = advanceFloor(scene, op);

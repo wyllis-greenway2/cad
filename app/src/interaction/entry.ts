@@ -19,7 +19,7 @@ import { settings } from "../shared/settings.ts";
 import { add, sub, scale, dot } from "../math/vec.ts";
 import { anglesOf, fromAngles } from "../math/rotation.ts";
 import { OP_FIELD, OP_UNIT, valueOf, turnAngles, sizeShown } from "./operations.ts";
-import { advanceOf } from "./revolve.ts";
+import { advanceOf, advanceShown } from "./revolve.ts";
 import { loftNumbers, loftGapNumbers } from "./loft.ts";
 import { modelEntry, modelTarget, modelChanged } from "./modeltool.ts";
 
@@ -49,9 +49,11 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
     // the angle (any size: past 360 it goes on round) and the advance along the axis (a spiral if it is not nothing), Tab goes between them (`dec_spiral_extrude`)
     const angle = valueOf(op);
     const on = op.revField ?? 0;
+    const adv = advanceShown(scene, op); // (below the floor the box shows the advance the step really has, and flashes, unless the number is being typed: `in_1334`)
+    const showRaised = adv.raised && on !== 1;
     return { fields: [
       { label: "Angle", short: "°", value: op.typed !== "" ? op.typed : roundedText(angle ?? 0), active: on === 0, typed: op.typed !== "", index: 0, unit: "°" },
-      { label: "Advance a turn", short: "↔", value: (op.advTyped ?? "") !== "" ? op.advTyped! : roundedText(advanceOf(op)), active: on === 1, typed: (op.advTyped ?? "") !== "", index: 1, unit: "mm" },
+      { label: "Advance a turn", short: "↔", value: showRaised ? roundedText(adv.value) : (op.advTyped ?? "") !== "" ? op.advTyped! : roundedText(advanceOf(op)), active: on === 1, typed: (op.advTyped ?? "") !== "" && !showRaised, index: 1, unit: "mm", ...(showRaised ? { bad: true } : {}) },
     ], unit: "mm" };
   }
   if (op) {
@@ -206,7 +208,7 @@ export function sectionEntries(sec: { at: Vec3; n: Vec3 }, g: Gizmo | null, chos
  * The number bubble of a revolve's arrow that is taken (`in_531`): at the tip of a position arrow (`piv:`) the orb's place along that axis (its distance from the origin along that arrow's axis, which is the world coordinate when the orb is not turned; typed to put it: field 10 + the axis), at the tip of a
  * spiral arrow (`rev:adv:`) the advance (field 1, the same number as the chip's). Nothing for an arrow not taken.
  */
-export function revolveEntries(op: Op, g: Gizmo | null, chosen: string | null): Entry[] {
+export function revolveEntries(op: Op, g: Gizmo | null, chosen: string | null, scene?: Scene): Entry[] {
   if (!g || op.kind !== "revolve" || !chosen) return [];
   const h = g.handles.find((x) => x.id === chosen);
   if (!h) return [];
@@ -216,8 +218,9 @@ export function revolveEntries(op: Op, g: Gizmo | null, chosen: string | null): 
     return [{ fields: [{ label: `The orb's place along its ${"XYZ"[k]}`, short: "XYZ"[k]!, value: roundedText(along), active: false, typed: false, index: 10 + k, unit: "mm" }], unit: "mm", at: h.points.at(-1)!, from: g.centre }];
   }
   if (/^rev:adv:[xyz]$/.test(chosen)) {
-    const typed = (op.advTyped ?? "") !== "";
-    return [{ fields: [{ label: `The spiral advance for each turn along ${"XYZ"["xyz".indexOf(chosen[8]!)]}`, short: "↔", value: typed ? op.advTyped! : roundedText(advanceOf(op)), active: false, typed, index: 1, unit: "mm" }], unit: "mm", at: h.points.at(-1)!, from: h.points[0]! }];
+    const adv = scene ? advanceShown(scene, op) : { value: advanceOf(op), raised: false };
+    const typed = (op.advTyped ?? "") !== "" && !adv.raised;
+    return [{ fields: [{ label: `The spiral advance for each turn along ${"XYZ"["xyz".indexOf(chosen[8]!)]}`, short: "↔", value: typed ? op.advTyped! : roundedText(adv.value), active: false, typed, index: 1, unit: "mm", ...(adv.raised ? { bad: true } : {}) }], unit: "mm", at: h.points.at(-1)!, from: h.points[0]! }];
   }
   return [];
 }

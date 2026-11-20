@@ -595,3 +595,24 @@ test("the Revolve operation opens with the bubble of its angle and its advance f
   assert.deepEqual(f.entry?.fields.map((x) => x.label), ["Angle", "Advance a turn"], "both numbers are there to type in");
   assert.equal(f.entry?.fields[0]?.value, "90", "the angle it begins with");
 });
+
+test("an advance below the floor shows the advance it really has (`in_1334`): the box and the arrow say the raised number and flash, so a number that does nothing is not left standing", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  st = { ...st, op: Z(st.op!) };
+  for (const k of "900") st = reduce(st, { type: "typed", key: k, shift: false }, env);
+  st = reduce(st, { type: "typed", key: "Tab", shift: false }, env);
+  st = reduce(st, { type: "typed", key: "1", shift: false }, env);
+  const typing = frameOf(st, { w: 800, h: 600 }).entry!.fields[1]!;
+  assert.equal(typing.value, "1", "while it is being typed it shows the digits");
+  st = reduce(st, { type: "typed", key: "Tab", shift: false }, env);
+  const f = frameOf(st, { w: 800, h: 600 }).entry!.fields[1]!;
+  assert.equal(f.value, "1.51", "after, the figure is 1.5 wide: the pitch is 1.51");
+  assert.equal(f.bad, true, "and it flashes");
+  st = reduce(st, { type: "typed", key: "Tab", shift: false }, env);
+  for (const k of "\b\b") st = reduce(st, { type: "typed", key: "Backspace", shift: false }, env);
+  for (const k of "10") st = reduce(st, { type: "typed", key: k, shift: false }, env);
+  st = reduce(st, { type: "typed", key: "Tab", shift: false }, env);
+  assert.equal(frameOf(st, { w: 800, h: 600 }).entry!.fields[1]!.value, "10", "above the floor it is what was typed");
+});
