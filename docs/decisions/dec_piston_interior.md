@@ -3,7 +3,7 @@ id: dec_piston_interior
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1288, in_1297, in_1304, in_1306
+human_input: in_1288, in_1297, in_1304, in_1319
 date: 2026-11-20
 depends_on:
   - dec_piston_shape: the interior is the second half of the piston's overall shape; the flats, the arch and the defaults are decided there
@@ -31,5 +31,5 @@ The human showed two pistons and said the pin's flats were not right: the first 
 ## The scoop (in_1304)
 The human: "build the scoop next, the arch stays as an option". Pin flats gained a fourth choice, **Scoop**: a flat floor round the pin (the pin's radius and a millimetre, each way) and a curved end above and below, each a circle tangent to the floor, running out to the skirt's face (0.2 mm past it, so no step is left). It returns to the full diameter at the top and the bottom, and the ring belt stays round. Typed: depth (flat depth; auto 0.04 of the bore, assumed), width, and the scoop's run (mm each end runs; 0 = auto, to the ring belt above and the bosses' feet below). The arch is its own option and can be on with the scoop. **Not built yet:** the ears much lower, cut by a curve around the thrust axis (a lower, curved thrust-pad edge); the existing arch is the only ear shape.
 
-## The curved ears (in_1306)
+## The curved ears (in_1319)
 The human: "build the ears next". The skirt style gained a third choice, **Curved ears**: the skirt's foot is cut up at each side of the pin along a curve seen from the thrust side (a cut through across the thrust, its section in the plane of the piston's axis and the pin's), so the thrust pads reach much lower than at the pin's sides. The curve is one circle tangent to the foot (a low ear), or, when the rise is greater than the run, straight up from where it starts and then a quarter circle to the skirt's face (the way the arch has straight sides). Typed: the rise (0 = auto, up to just below the bosses, as the arch) and where the curve starts across the skirt (0 = auto, 0.6 of the radius; assumed). The arch stays as its own choice; the two are not on together.

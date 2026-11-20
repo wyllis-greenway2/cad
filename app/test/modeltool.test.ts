@@ -100,7 +100,7 @@ test("each model lists its parts, bottom up, covering every step once", () => {
     cycloidal: ["Base plate and ring pins", "Input shaft and eccentric", "Cycloidal disc", "Output plate and pins"],
     engine: ["Block", "Crankshaft", "Flywheel", "Piston", "Piston pin", "Circlip 1", "Circlip 2", "Connecting rod", "Rod cap"],
     piston: ["Piston", "Piston pin", "Circlip 1", "Circlip 2"],
-    rod: ["Connecting rod", "Rod cap", "Small end bush", "Bearing shell 1", "Bearing shell 2", "Cap bolt 1", "Cap bolt 2"],
+    rod: ["Connecting rod", "Rod cap", "Small end bush", "Bearing shell 1", "Bearing shell 2", "Cap bolt 1", "Cap bolt 2", "Pocket rounds"],
     wheel: ["Wheel", "Edge rounds"],
     wheelcut: ["Bore", "Pockets", "Joins", "Cutouts", "Edge rounds"],
     keyhole: ["Keyway"],

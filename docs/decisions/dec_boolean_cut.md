@@ -22,3 +22,6 @@ Parts are offered where the bodies' boxes meet; if a part is really empty (the b
 ## Rationale
 
 The human's idea is simpler than four menu items and says more. The case that needs an extra control, touching kept parts that must stay separate bodies, is the join toggle (`q_boolean_regions` before it was built).
+
+## Built: regions that touch are one figure when extruded together (`in_1306`)
+Selected together, regions that share a side (the two halves a line across a ring makes of it) are one figure for an extrude, a push or a cut: their shared sides are taken away and the outline that is left is followed round (the biggest loop is the outside, the others are holes) in `mergedFigures` (`interaction/operations.ts`). Before, each region was a step of its own, and the second had to meet the faces the first one left, which the kernel refused ("kernel returned an invalid solid"): only one half was cut. A group whose outline cannot be followed (a corner where more than two sides meet) is left as separate figures. Test `ringhalves.test.ts`, with the user's model as `fixtures/ring-through.cad.json`.
