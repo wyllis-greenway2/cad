@@ -4599,3 +4599,6 @@ Branch `claude/adoring-dijkstra-carry`. `in_1280` asked for a polygon tool that 
 
 ## Handoff 1170 — 2026-11-20 (in_1321: brought up to the testing branch)
 `in_1321`. Merged the testing branch (up to `in_1319`, Handoff 1168); this branch's `in_1309` and Handoff 1161 became `in_1320` and Handoff 1169; the ring test lists Add, Subtract and Intersect.
+
+## Handoff 1171 — 2026-11-20 (in_1322: sketches and a negative extrude, distances to perpendicular faces, one snapping system)
+`in_1322`. Nothing built; three findings. (1) A sketch is hidden once an extrude has used it up (`ownership.ts` `consumed`), for a positive and a negative depth alike: checked on a circle both ways (`corner:used,circle:used,face:used` for 10 and -10), so I could not reproduce a difference; need the human's model. (2) A circle's centre and a side face, a vertical edge, a vertex or a top edge of the block it stands on all offer Dimension; what fails is reaching them (edge-on faces and vertical edges are not pointable, and the sketch tools do not snap to them). (3) The unification is a proposal: `q_unified_snapping` (open, `ai-unreviewed`), listing the six places that each decide what can be held and a plan in four steps.

@@ -5586,3 +5586,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1321 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1322 — 2026-11-20 — directive
+> Sketches vanish on a negative extrude. I dont think they should. 
+> 
+> I cant reliably set dimensions on sketches from perpendicular things. For example if i make a blocks, then sketch on one face of the block, I cant seem to set distance cosntraints to surfaces running perpendicualr to the camera. Can we make it so that you can freely set constraints and also you get snapping suggestions with basically all the lines available in view?  In fact, how can we unify our whole snapping system and setting constraints to system because it seems awfully piece meal?
