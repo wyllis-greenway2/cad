@@ -256,6 +256,21 @@ export function lineHint(spent: Scene, pl: Plane, start: Vec3, pv: PointerView, 
         if (t !== undefined) return { at: liftOf(pl, [s[0] + dir[0] * t, s[1] + dir[1] * t]), hints: [snapped.hint, ...hints] };
       }
     }
+    // a line that is level, upright, parallel, square or tangent keeps that on reaching another line: the end is where its direction meets the line (a level end moved to a vertical line stayed level, not slid to the pointer's place on it, `in_1374`)
+    const L = snapped.hint.kind === "onLine" ? seg(snapped.hint.ref as Ref) : null;
+    if (L && hints.length) {
+      const ld: V2 = [L[1][0] - L[0][0], L[1][1] - L[0][1]];
+      const den = dir[0] * ld[1] - dir[1] * ld[0];
+      if (Math.abs(den) > 1e-9) {
+        const t = ((L[0][0] - s[0]) * ld[1] - (L[0][1] - s[1]) * ld[0]) / den; // along the direction from the start
+        const u = ((L[0][0] - s[0]) * dir[1] - (L[0][1] - s[1]) * dir[0]) / den; // along the line (0 to 1)
+        if (t > 1e-6 && u >= -1e-9 && u <= 1 + 1e-9) {
+          const hit: V2 = [s[0] + dir[0] * t, s[1] + dir[1] * t];
+          const [hx, hy] = pv.project(liftOf(pl, hit));
+          if (Math.hypot(hx - pv.x, hy - pv.y) <= settings.sketch.snapPx * 2) return { at: liftOf(pl, hit), hints: [snapped.hint, ...hints] };
+        }
+      }
+    }
     return { at: liftOf(pl, snapped.at), hints: [snapped.hint] };
   }
   // as long as another line (within 2 %)

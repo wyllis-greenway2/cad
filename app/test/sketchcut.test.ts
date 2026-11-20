@@ -57,3 +57,27 @@ test("zoomed out, a rectangle on a small face is made: its second click is not s
   const after = Object.values(scene(st.session).parts).filter((p) => p.kind === "line" && p.origin === "drawn" && !(p as { derived?: boolean }).derived).length;
   assert.equal(after - before, 4, `${st.session.message}`);
 });
+
+test("the cut stays after the first enclosed sketch is drawn (the tool is put away, the figure is selected), and goes when it is let go (`in_1374`)", () => {
+  const s = open();
+  const f = scene(s).parts[TOP as never] as unknown as { mesh: number[] };
+  const m = f.mesh;
+  let c: number[] = [0, 0, 0];
+  for (let i = 0; i + 2 < m.length; i += 3) c = [c[0]! + m[i]!, c[1]! + m[i + 1]!, c[2]! + m[i + 2]!];
+  c = c.map((v) => v / (m.length / 3));
+  let st = createState({ ...s, click: { ...s.click, selection: [TOP] as never } });
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  const pr = projector(st.cam, env.w, env.h);
+  const corners: [number, number][] = [[-2, -2], [2, -2], [0, 2], [-2, -2]];
+  for (const [dx, dy] of corners) { const [x, y] = pr.project([c[0]! + dx, c[1]! + dy, c[2]!] as never); st = reduce(st, { type: "hover", x, y } as never, env); st = reduce(st, { type: "click", x, y, count: 1, shift: false }, env); }
+  const faces = Object.values(scene(st.session).parts).filter((p) => p.kind === "face" && p.origin === "drawn");
+  assert.ok(faces.length >= 1, "a closed sketch was made");
+  const temp = () => cutsNow(st).filter((q) => (q.ref as string) === "sketch:cut").length;
+  assert.equal(temp(), 1, `the cut is still there: tool ${st.tool?.kind}, selection ${st.session.click.selection.length}`);
+  st = reduce(st, { type: "escape" }, env); // (the tool is put away)
+  if (st.tool) st = reduce(st, { type: "escape" }, env);
+  assert.equal(st.tool, null, "the tool is away");
+  assert.equal(temp(), st.session.click.selection.length ? 1 : 0, "what is selected is drawn on the plane: the cut stays while it is selected");
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [] } } };
+  assert.equal(temp(), 0, "nothing selected, no tool: the view is whole");
+});
