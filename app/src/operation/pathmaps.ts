@@ -12,6 +12,7 @@ import type { Line, Plane } from "./part.ts";
 import { pointOf, curveMid, normalOfPlane } from "./part.ts";
 import type { Path, Pt, Seg } from "./pathrepeat.ts";
 import { reversedPath, rulesFrom, placeAlong } from "./pathrepeat.ts";
+import { spacePlaces } from "./spacepath.ts";
 
 export interface PathPlane { plane: Plane; u: Vec3; v: Vec3; n: Vec3 }
 const unit = (a: Vec3): Vec3 => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
@@ -161,7 +162,10 @@ export interface BodyPlace { move: Vec3; /** a turn about the point, in degrees,
  */
 export function bodyPlaces(s: Scene, rec: { path: readonly Ref[]; params: readonly number[] }): Result<{ places: BodyPlace[]; spacing: number | null; count: number }> {
   const plane = pathPlaneOf(s, rec.path);
-  if (!plane.ok) return plane;
+  if (!plane.ok) { // (lines on different planes, or edges of a body: a path in space, `in_1288`)
+    const sp = spacePlaces((r) => s.parts[r], rec);
+    return sp.ok ? ok({ places: sp.value.places, spacing: sp.value.spacing, count: sp.value.count }) : sp;
+  }
   const pl = s.parts[plane.value] as Plane;
   const n = rulesFrom(rec.params);
   if (!n.ok) return n;

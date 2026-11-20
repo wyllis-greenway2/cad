@@ -14,6 +14,7 @@ import { pathRepeatOf } from "../operation/repeat.ts";
 import type { Path, Rules, RepeatNumbers } from "../operation/pathrepeat.ts";
 import { placeAlong, numbersOf, rulesFrom, lengthOf, PATH_NUMBERS } from "../operation/pathrepeat.ts";
 import { pathMaps, readPath, bodyPlaces, pathPlaneOf } from "../operation/pathmaps.ts";
+import { readSpacePath, rolledOf } from "../operation/spacepath.ts";
 import { BODY_OBJECT } from "../compiler/body.ts";
 import { figurePartsOf } from "./objects.ts";
 import type { Session } from "./session.ts";
@@ -41,20 +42,18 @@ export function pathRepeatTarget(session: Session): Result<PathRepeatTarget> {
     if (bodies.length > 1) return err("select one body to repeat");
     const body = bodies[0]!;
     const own = body.ref !== BODY_OBJECT && body.id ? body.id : undefined;
-    const lines = sel.filter((p) => p.kind === "line" && p.origin === "drawn").map((p) => p.ref);
+    const lines = sel.filter((p) => p.kind === "line").map((p) => p.ref); // (drawn lines and the edges of bodies, on any planes: a path in space, `in_1288`)
     // (a body the repeat made, or the one it was made from, selected alone: its rules are changed; with lines selected too it is a new repeat)
     const made = lines.length ? undefined : sc.steps.find((st) => st.type === "pattern" && st.params.mode === "path" && (!!body.id && (body.id === `x_${st.id}` || body.id.startsWith(`x_${st.id}.`)) || st.parts.includes(body.ref) || (!!body.id && st.params.src === body.id) || (own !== undefined && st.params.body === own)));
     if (made) {
       const path = String(made.params.path ?? "").split(",").filter(Boolean) as Ref[];
       const plane = pathPlaneOf(sc, path);
-      if (!plane.ok) return plane;
-      return ok({ figure: [], path, plane: plane.value, body: { ref: body.ref, ...(own ? { one: own } : {}), step: made.id, params: Array.from({ length: PATH_NUMBERS }, (_, i) => Number(made.params[`pr${i}`])) } });
+      return ok({ figure: [], path, plane: plane.ok ? plane.value : "" as Ref, body: { ref: body.ref, ...(own ? { one: own } : {}), step: made.id, params: Array.from({ length: PATH_NUMBERS }, (_, i) => Number(made.params[`pr${i}`])) } });
     }
     const path = lines;
     if (!path.length) return err("select the lines or arcs of the path, with the body");
     const plane = pathPlaneOf(sc, path);
-    if (!plane.ok) return plane;
-    return ok({ figure: [], path, plane: plane.value, body: { ref: body.ref, ...(own ? { one: own } : {}), ...(body.id ? { src: body.id } : {}) } });
+    return ok({ figure: [], path, plane: plane.ok ? plane.value : "" as Ref, body: { ref: body.ref, ...(own ? { one: own } : {}), ...(body.id ? { src: body.id } : {}) } });
   }
   const faces = sel.filter((p): p is Extract<Part, { kind: "face" }> => p.kind === "face" && p.origin === "drawn");
   const figure = [...new Set(faces.flatMap((f) => figurePartsOf(sc, f)))];
@@ -122,7 +121,8 @@ export function pathRepeatDialog(session: Session, t: PathRepeatTarget, v: PathR
   const sc = sceneOf(session);
   const what = t.body ? "body" : "figure";
   const plane = sc.parts[t.plane];
-  const path = plane?.kind === "plane" ? readPath(sc, t.path, plane, v.reverse === "other") : null;
+  const space = t.body && plane?.kind !== "plane" ? readSpacePath((r) => sc.parts[r], t.path, v.reverse === "other") : null; // (a path in space is drawn laid straight)
+  const path = plane?.kind === "plane" ? readPath(sc, t.path, plane, v.reverse === "other") : space ? (space.ok ? ok(rolledOf(space.value)) : space) : null;
   const r = pathRuleFields(v, path, what);
   const changing = !!t.edit || !!t.body?.step;
   return {

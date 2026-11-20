@@ -4515,3 +4515,6 @@ Branch `claude/adoring-dijkstra-carry`. `in_1280` asked for a polygon tool that 
 
 ## Handoff 1142 — 2026-11-20 (in_1286: the polygon snapping merged into the testing branch)
 `in_1286`. Merged `claude/adoring-dijkstra-carry` (`in_1285`). The testing branch had a Handoff 1138 of its own: my Handoff 1138 is **1139**. Only the two record files conflicted. Checked: docs, layers, types and the tools, controller, sketch and gizmo tests; no full suite, as asked.
+
+## Handoff 1143 — 2026-11-20 (in_1288: a body repeated along any line path in space)
+`in_1287`, `in_1288`. The "loft repeat" is the existing Path repeat of a body, freed from one plane: with a body selected, any lines, arcs or body edges that touch end to end (open, or a closed perimeter) are the path, on any planes, in space. Checked how loft takes its path: it does not (it takes sketches); the sweep takes chains on any plane, and that is the model. `operation/spacepath.ts` (pure), wired in through `bodyPlaces` and `pathRepeatTarget`/dialog; `Path.rolled`/`Seg.corner` in `pathrepeat.ts`. `spacepath.test.ts`; path tests (99) pass; types, layers, docs OK. **Left:** a figure off its plane, spline lines, the offset in space, a true-shape picture, a browser look (not tried by eye).

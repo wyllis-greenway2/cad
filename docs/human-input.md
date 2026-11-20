@@ -5457,3 +5457,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1286 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the polygon snapping to be merged into the testing branch, no full test run)
+
+## in_1287 — 2026-11-20 — question
+> can we have a loft repeat type? so this would be different then linear or circular repeat, it would follow an edge.
+(asks for a repeat that follows an edge; `dec_path_repeat` already covers a path of drawn lines, and a body's edge only for fastener holes, so what is missing is being asked back)
+
+## in_1288 — 2026-11-20 — directive
+> any line path. Should be the same as loft ( dont know if loft is actually like this we should probably check) but it should be able to follow a lone line in space, the edge of a body as a line in space, etc. It should be able to follow continuous selected touching lines like the perimeter of a complex shape for example or square made of four lines.
+(answer to which gap the loft repeat fills: any line path, in space, a body's edge, or touching selected lines such as a perimeter; asks to check how loft takes its path)
