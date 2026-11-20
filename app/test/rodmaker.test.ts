@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";
 import { createSession, scene, run } from "../src/interaction/session.ts";
-import { ROD_START, ROD_PRESETS, rodGeometry, rodProblem, rodSteps } from "../src/operation/modelrod.ts";
+import { ROD_START, ROD_PRESETS, rodGeometry, rodProblem, rodProfile, rodSteps } from "../src/operation/modelrod.ts";
 import { modelNumbers, modelFields, modelProblem, modelAbout } from "../src/operation/modelkinds.ts";
 import { asCommand } from "../src/operation/modelparts.ts";
 import type { Result } from "../src/shared/result.ts";
@@ -53,6 +53,32 @@ test("each option is a body or a change of the rod, not both: shells, sleeve and
   assert.ok(total({ ...bare, smallThick: 6 }) < total({ ...bare }), "a narrower small end is lighter");
 });
 
+/** the rod made a step at a time with the kernel answering in between (as the model tool does), so that the rounds, which are picked from the bodies the kernel has made, are made too */
+function madeSeq(spec: typeof ROD_START): B[] {
+  const r = rodSteps(spec);
+  if (!r.ok) throw new Error(r.error);
+  let s = createSession(kernel);
+  for (const mk of r.value.steps) { s = run(s, mk(scene(s))); assert.equal(s.message ?? null, null); }
+  return Object.values(scene(s).parts).filter((x) => x.kind === "body") as unknown as B[];
+}
+test("the beam's profile is one smooth outline with blends into the eyes; the eyes' collars stand proud of the beam by the thickness the numbers give", () => {
+  const g = rodGeometry(R({ shells: 0, bush: 0, bolts: 0 })), pr = rodProfile(g, 0)!;
+  assert.ok(pr && pr.q1x > g.rb * 0.5 && pr.q2x < g.l && pr.q1x < pr.q2x, "the blends fit between the eyes");
+  assert.ok(g.wb < g.w && Math.abs(g.wb - 0.8 * g.w) < 0.1, `the beam is thinner than the eyes: ${g.wb} against ${g.w}`);
+  const bs = made(rodSteps(R({ shells: 0, bush: 0, bolts: 0 }))).bs, rod = [...bs].sort((a, b) => b.volume - a.volume)[0]!;
+  assert.ok(Math.abs(rod.bbox.max[2]! - rod.bbox.min[2]! - g.w) < 0.05, "the collars are as thick as the eye");
+  assert.equal(rodProblem(R({ blend: 400 })) === null, false, "a blend too big for the length is refused");
+  assert.match(rodProblem(R({ beamThick: 14 }))!, /proud/);
+});
+test("the oil passage is drilled along the beam from bore to bore (it takes volume off the rod and the shell and the sleeve), and the rounds at the pockets' floors add some back", () => {
+  const bare = { shells: 0, bush: 0, bolts: 0 };
+  assert.ok(total({ ...bare, oil: 1 }) < total({ ...bare, oil: 0 }), "the hole takes metal away");
+  assert.equal(made(rodSteps(R({ oil: 1 }))).bs.length, 7, "a hole is not a body");
+  assert.match(rodProblem(R({ oil: 1, oilDia: 6 }))!, /too thin/);
+  const sum = (o: Partial<typeof ROD_START>): number => madeSeq(R({ ...bare, ...o })).reduce((a, b) => a + b.volume, 0);
+  assert.ok(sum({ pocketRound: 1.5 }) > sum({ pocketRound: 0.05 }), "a bigger round leaves more metal");
+});
+
 test("the shells fit between the crank pin and the big bore, the sleeve between the pin and the small bore: the walls are the numbers", () => {
   const g = rodGeometry(R()), { bs } = made(rodSteps(R()));
   assert.ok(g.shell > 0.8 && g.shell < 0.9, `the shell wall is 0.029 of the crank pin: ${g.shell}`);
@@ -84,7 +110,7 @@ test("numbers that make no rod are refused, with the reason", () => {
 test("the model's box: every number is in a group, a typed number replaces the preset's, and the line under the numbers says what the rod is", () => {
   const keys = modelFields("rod").map((f) => f.key);
   for (const k of Object.keys(ROD_START)) assert.ok(keys.includes(k), `${k} is a field`);
-  assert.deepEqual([...new Set(modelFields("rod").filter((f) => f.section).map((f) => f.section))], ["Size", "Beam", "Small end", "Big end"]);
+  assert.deepEqual([...new Set(modelFields("rod").filter((f) => f.section).map((f) => f.section))], ["Size", "Beam", "Oil", "Small end", "Big end"]);
   assert.equal(modelNumbers("rod", { preset: 1, length: 90 }).length, 90);
   assert.equal(modelProblem("rod", modelNumbers("rod", {})), null);
   assert.match(modelAbout("rod", modelNumbers("rod", { preset: 1 })), /Honda GX160/);

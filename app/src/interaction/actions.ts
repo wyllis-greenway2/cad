@@ -242,7 +242,7 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
           if (ids.has(names[0]!)) lostCombines.add(c.id);
           else { const gone2 = names.slice(1).filter((n) => ids.has(n)); if (gone2.length) dropped.set(c.id, gone2); }
         }
-        // a part a region combine made has no step of its own: it is taken out of the combine (`in_1309`: it could not be deleted)
+        // a part a region combine made has no step of its own: it is taken out of the combine (`in_1320`: it could not be deleted)
         const skips = new Map<string, number[]>();
         for (const id of ids) {
           const m = /^x_(.+?)(?:\.(\d+))?$/.exec(id);

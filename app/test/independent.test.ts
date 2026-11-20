@@ -64,7 +64,7 @@ test("Move takes the selected body only; the other stays where it is", () => {
 });
 
 const leaves = (i: { children?: unknown[] }): { id: string; enabled: boolean }[] => (i.children ? i.children.flatMap((c) => leaves(c as never)) : [i as never]);
-test("Add, Subtract and Intersect are three plain operations; the first body chosen stays (`in_1309`)", () => {
+test("Add, Subtract and Intersect are three plain operations; the first body chosen stays (`in_1320`)", () => {
   for (const [mode, volume] of [["add", 1], ["subtract", 1], ["intersect", 1]] as const) {
     let s = box(box(createSession(kernel), 0, 0), 40, 0);
     const b = bodies(s)[1]!;
