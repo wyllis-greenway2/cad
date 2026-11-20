@@ -67,7 +67,7 @@ export function modelPreview(scene: Scene, t: Tool): Preview | null {
   const P = (x: number, y: number): Vec3 => [g.place.at[0] + g.place.ex[0] * x + g.place.ey[0] * y, g.place.at[1] + g.place.ex[1] * x + g.place.ey[1] * y, g.place.at[2] + g.place.ex[2] * x + g.place.ey[2] * y];
   const P3 = (x: number, y: number, z: number): Vec3 => { const q = P(x, y); return [q[0] + g.place.ez[0] * z, q[1] + g.place.ez[1] * z, q[2] + g.place.ez[2] * z]; };
   const segments: [Vec3, Vec3][] = [];
-  const solid = modelOutline3(g.kind, g.nums); // (a model with a picture in space shows that: the faces and the depth, `in_1250`)
+  const solid = modelOutline3(g.kind, g.nums); // (a model with a picture in space shows that: the faces and the depth, `in_1251`)
   if (solid.length) for (const line of solid) for (let i = 0; i + 1 < line.length; i++) segments.push([P3(line[i]![0], line[i]![1], line[i]![2]), P3(line[i + 1]![0], line[i + 1]![1], line[i + 1]![2])]);
   else for (const line of modelOutline(g.kind, g.nums)) for (let i = 0; i + 1 < line.length; i++) segments.push([P(line[i]![0], line[i]![1]), P(line[i + 1]![0], line[i + 1]![1])]);
   return { segments, circle: null, cursor: t.cursor, ...(g.problem ? { red: true as const } : {}) };

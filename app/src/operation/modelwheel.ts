@@ -42,7 +42,7 @@ export function wheelGeometry(s: WheelSpec): { R: number; Rin: number; hubR: num
  */
 export function effective(s: WheelSpec): WheelSpec {
   const g = wheelGeometry(s), n = Math.round(s.spokes);
-  // the spokes are no thicker than the rim and the hub: where all three are as thick the wheel is flat with the spokes cut out of it (`in_1250`), and it may be as thin as it likes
+  // the spokes are no thicker than the rim and the hub: where all three are as thick the wheel is flat with the spokes cut out of it (`in_1251`), and it may be as thin as it likes
   const web = Math.max(1e-3, Math.min(s.web, s.rimT, s.hubT));
   const proudR = (s.rimT - web) / 2, proudH = (s.hubT - web) / 2, room = Math.max(0, g.Rin - g.hubR);
   let [rimJ, hubJ] = [Math.max(0, Math.min(s.rimJoin, proudR - 0.01)), Math.max(0, Math.min(s.hubJoin, proudH - 0.01))];
@@ -350,7 +350,7 @@ export function wheelLines(s0: WheelSpec): [number, number][][] {
 
 
 /**
- * The picture of the wheel in space (`in_1250`): the rim, the hub and the bore as circles on both faces, the floors of the web, and the cutouts at the web's two faces, with a few lines along the axis between the faces, so that how thick each part is can
+ * The picture of the wheel in space (`in_1251`): the rim, the hub and the bore as circles on both faces, the floors of the web, and the cutouts at the web's two faces, with a few lines along the axis between the faces, so that how thick each part is can
  * be seen. Lines of points (x, y, z) of the wheel's own frame.
  */
 export function wheelLines3(s0: WheelSpec): [number, number, number][][] {

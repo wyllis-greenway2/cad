@@ -45,7 +45,7 @@ interface Def {
   fixedSize?: true;
   /** the numbers made to fit together: every number not typed (`locked` holds the ones that were) is moved as far as it must for the model to be possible, so that a number typed is met by the others and not refused (the wheel) */
   repair?: (n: Nums, locked: ReadonlySet<string>) => Nums;
-  /** the picture of the model in space, when it has one: lines of points (x, y, z) of its own frame (`in_1250`) */
+  /** the picture of the model in space, when it has one: lines of points (x, y, z) of its own frame (`in_1251`) */
   outline3?: (n: Nums) => [number, number, number][][];
   /** a line under the numbers: what the model does */
   about: (n: Nums) => string;

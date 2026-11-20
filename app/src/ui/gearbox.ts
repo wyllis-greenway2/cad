@@ -52,7 +52,7 @@ export function createGearBox(host: HTMLElement, h: GearBoxHandlers) {
           }
           toggles[i] = null;
           const input = numberInput({ onInput: (t) => h.entry(f.index ?? i, t), onEnter: () => h.enter(), onEscape: () => h.cancel() });
-          if (f.locked) { input.disabled = true; input.style.opacity = ".55"; input.style.background = "#f3f4f6"; } // (a number that comes from the body, `in_1250`)
+          if (f.locked) { input.disabled = true; input.style.opacity = ".55"; input.style.background = "#f3f4f6"; } // (a number that comes from the body, `in_1251`)
           const u = f.unit ?? entry.unit;
           const row = panelRow(f.label, input, u === "°" || u === "deg" ? "°" : "");
           if (f.toggle) { // (a radius has a little toggle beside it to make it a chamfer, `in_1245`)
