@@ -5532,3 +5532,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1306 — 2026-11-20 — directive
 > Selecting coincident here hanged up. Also why are the face constraints only in the suggested constraints area?
 (a screenshot and the file `cannot_mate_face.json`: two faces selected with the constraint ring open; choosing Coincident hung the program; asks why the face constraints are only offered in the suggested constraints area)
+
+## in_1307 — 2026-11-20 — question
+> also I couldn't make the faces flush at all?
+(says the two faces in `cannot_mate_face.json` could not be made flush at all, apart from the hang)
