@@ -5785,3 +5785,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1372 — 2026-11-20 — directive
 > dig into the diagnostics and find the actual defect
 (asks to find what is actually wrong with the face the mesher could not do, after the answer to `in_1370` that the check and retry is a stopgap)
+
+## in_1373 — 2026-11-20 — question
+> How important is it for the casting of a piston head to be about the same thickness everywhere? can some spots be much thicker than others? it seems like it would need to be much thicker in spots around the wrist pin in order to not have undercuts under the pin parts? Or do they have undercuts in order to achieve the same thickness of metal almost everywhere?
+(asks how much a cast piston's wall thickness has to be even, whether some places can be much thicker, and whether the pin bosses are thick to avoid undercuts or the piston has undercuts to keep the metal even)
