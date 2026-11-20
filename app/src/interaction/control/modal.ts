@@ -416,6 +416,8 @@ function cancelOp(s: AppState): AppState {
 /** What is selected now is given to the operation that was waiting for it: it begins if that is what it needed; else it says what is missing and goes on waiting. */
 /** What a dimmed item needs, said as what to do now: "select a gear" -> "Select a gear: click it". */
 export const instruction = (why: string): string => { const t = why.charAt(0).toUpperCase() + why.slice(1); return /^select/i.test(why) ? `${t}: click it (Esc to leave)` : `${t} (Esc to leave)`; };
+/** The items that need several things selected (the booleans, glue, link): while one waits, every click adds to the selection (`in_1333`). */
+export const needsMany = (id: string): boolean => id.startsWith("combine:") || id === "motion:glue" || id === "motion:link";
 export function finishPicking(s: AppState, now = 0): AppState {
   if (!s.picking) return s;
   const r = startOp(sceneOf(s.session), selectionOf(s.session), s.picking.kind, viewAxes(s.cam));
@@ -445,7 +447,7 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
     const hit = s.menu ? find(s.menu.items) : undefined;
     if (!hit?.why) return s;
     if (!/^select/i.test(hit.why)) return { ...s, session: { ...s.session, message: `${hit.label}: ${hit.why}` } }; // (nothing to select: the reason is said and the ring stays, as before)
-    return { ...s, menu: null, picking: null, awaiting: { id: hit.id, label: hit.label, icon: hit.icon ?? hit.id, why: hit.why }, session: { ...s.session, message: `${hit.label}: ${instruction(hit.why)}` } };
+    return { ...s, menu: null, picking: null, awaiting: { id: hit.id, label: hit.label, icon: hit.icon ?? hit.id, why: hit.why, ...(needsMany(hit.id) ? { many: true as const } : {}) }, session: { ...s.session, message: `${hit.label}: ${instruction(hit.why)}` } };
   }
   const closed = { ...s, menu: null };
   if (id === "look") {

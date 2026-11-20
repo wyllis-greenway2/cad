@@ -598,6 +598,16 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
 }
 
 export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env: Env): AppState {
+  if (s.awaiting?.many && !s.tool && !s.op && !s.repeat) { // (an item that needs several bodies: each click on a body, or any part of one, adds that body, or takes it out again, `in_1333`)
+    const sc0 = sceneOf(s.session);
+    const top = candidatesAt(sc0, projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s)).find((c) => sc0.parts[c.ref]?.origin !== "world");
+    const body = top ? objectOf(sc0, top.ref) : null;
+    if (body && sc0.parts[body]?.kind === "body") {
+      const was = selectionOf(s.session).filter((r) => sc0.parts[r]?.kind === "body");
+      const now = was.includes(body) ? was.filter((r) => r !== body) : [...was, body];
+      return withSession({ ...s, menu: null }, { ...s.session, click: { selection: now, spot: s.session.click.spot }, message: null });
+    }
+  }
   if (s.box) s = { ...s, box: null }; // (held, but never moved: an ordinary click)
   const sc = sceneOf(s.session);
   // an operation chosen from the menu is waiting for what it needs (`in_464`): what is clicked is given to it; on nothing, what there is starts it (or it is let go)
