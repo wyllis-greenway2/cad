@@ -291,6 +291,18 @@ test("the arched cutaway: the skirt is cut away at the sides of the pin in an ar
   assert.match(pistonProblem({ ...base, skirtStyle: 2 }) ?? "", /full \(0\) or two pads \(1\)/);
   assert.match(pistonProblem({ ...arched, archHeight: -1 }) ?? "", /arch's height is 0 \(auto\)/);
 });
+test("the flat with a ramp: its top angles out to the skirt's face before the ring belt; the volume is the worked-out one", () => {
+  const base = P({ bore: 68, pin: 18, skirtStyle: 0, pinFlat: 0 }), sq = { ...base, pinFlat: 1 }, ramp = { ...base, pinFlat: 2 }, g = pistonGeometry(ramp), gs = pistonGeometry(sq);
+  assert.ok(g.flat.on && g.flat.xa < g.flat.x1 - 1 && Math.abs((g.rzPin - g.flat.z) / (g.flat.x1 - g.flat.xa) - g.flat.tan) < 1e-9, "the ramp is 30 degrees and reaches the face at the flat's end");
+  assert.equal(pistonProblem(ramp), null);
+  const sqS = section(sq), rS = section(ramp), mid = g.sk + (g.flat.xa + g.flat.x1) / 2;
+  assert.ok(sqS(mid, 0).slice(-1)[0]! < gs.flat.z + 0.05 && rS(mid, 0).slice(-1)[0]! > g.flat.z + 0.2 && rS(mid, 0).slice(-1)[0]! < g.rzPin, "half way up the ramp the face is between the flat and the skirt's face");
+  assert.ok(Math.abs(rS(g.sk + g.flat.xa - 0.3, 0).slice(-1)[0]! - g.flat.z) < 0.05, `below the ramp the flat is flat`);
+  const vs = bodies(pistonSteps(sq)).sort((a, b) => b.volume - a.volume)[0]!.volume, vr = bodies(pistonSteps(ramp)).sort((a, b) => b.volume - a.volume)[0]!.volume;
+  const expect = pistonVolumes(sq).cup - pistonVolumes(ramp).cup;
+  assert.ok(vr > vs && Math.abs((vr - vs) - expect) / expect < 0.1, `the ramp leaves ${(vr - vs).toFixed(1)} mm3 more in the kernel, ${expect.toFixed(1)} worked out`);
+  assert.match(pistonProblem({ ...ramp, flatRamp: 85 }) ?? "", /ramp's angle/);
+});
 test("the flats round the pin: the skirt's face ends on a flat at each side of the pin; the circlip groove is placed from the flat; the volume is the worked-out one", () => {
   const base = P({ bore: 68, pin: 18, skirtStyle: 0, pinFlat: 0 }), flat = { ...base, pinFlat: 1 }, g0 = pistonGeometry(base), g = pistonGeometry(flat);
   assert.ok(g.flat.on && !g0.flat.on && Math.abs(g.flat.z - (g.rzPin - 0.02 * 68)) < 1e-9 && Math.abs(g.flat.yf - (g.shell.boss + 1)) < 1e-9, "the auto flat: 0.02 of the bore deep, the boss and a millimetre wide");
@@ -310,7 +322,7 @@ test("the flats round the pin: the skirt's face ends on a flat at each side of t
   assert.equal(pistonGeometry({ ...flat, flatWidth: 30 }).flat.yf, 15, "typed width");
   assert.match(pistonProblem({ ...flat, flatDepth: 30 }) ?? "", /flat is too deep/);
   assert.match(pistonProblem({ ...flat, flatWidth: 12 }) ?? "", /narrower than the pin bore/);
-  assert.match(pistonProblem({ ...base, pinFlat: 2 }) ?? "", /flats are 0 \(none\) or 1/);
+  assert.match(pistonProblem({ ...base, pinFlat: 3 }) ?? "", /flats are 0 \(none\), 1 \(flat\) or 2/);
   assert.match(pistonProblem({ ...flat, flatDepth: -1 }) ?? "", /flat's depth is 0 \(auto\)/);
 });
 
@@ -440,7 +452,7 @@ test("the pin bosses are round and ribbed by default: lighter than block pads; t
 });
 test("the arched skirt and the flats are on by default and left out where there is no room; numbers typed for them are held to", () => {
   const usual = pistonGeometry(P()), gx = pistonGeometry(P({ bore: 68, pin: 18 }));
-  assert.ok(P().skirtStyle === 1 && P().pinFlat === 1, "on by default");
+  assert.ok(P().skirtStyle === 1 && P().pinFlat === 2, "on by default");
   assert.ok(gx.arch.on && gx.flat.on && gx.arch.fits && gx.flat.fits, "a GX160's piston has both");
   assert.ok(usual.arch.on && usual.flat.on, "and the usual small piston");
   const tiny = pistonGeometry(P({ bore: 15, pin: 4 }));

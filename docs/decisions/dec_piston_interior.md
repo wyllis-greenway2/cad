@@ -3,7 +3,7 @@ id: dec_piston_interior
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1288
+human_input: in_1288, in_1297
 date: 2026-11-20
 depends_on:
   - dec_piston_shape: the interior is the second half of the piston's overall shape; the flats, the arch and the defaults are decided there
@@ -24,3 +24,6 @@ The human said (`in_1288`) to build the interior shapes and to have the skirt's 
 ## Rationale
 
 The human asked for the interior and the defaults. The round boss and the rib are the two things the underside pictures show (a boss round the pin, ribs to the crown) and are plain geometry; the arch and the flats are what most real pistons have, so they are the default.
+
+## The flat with a ramp (in_1297)
+The human showed two pistons and said the pin's flats were not right: the first has a flat whose top angles out to the full diameter before the oil ring; the second a deep cutout that returns to the diameter above and below, with ears reaching much lower. **Built first (the human: "go build the ramp flat first"):** Pin flats gained a third choice, "Flat with ramp" (now the default), with a typed ramp angle (0 = auto 30 degrees, assumed). The flat's top angles out and meets the skirt's face at the flat's end, so the flat no longer ends in a square step under the ring belt. **Not built yet:** the scoop (cutout returning to the diameter at top and bottom) and the long ears cut by a curve around the thrust axis; two questions to the human stand (does the scoop close below; does the arch stay as its own option).
