@@ -243,8 +243,16 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
           if (ids.has(names[0]!)) lostCombines.add(c.id);
           else { const gone2 = names.slice(1).filter((n) => ids.has(n)); if (gone2.length) dropped.set(c.id, gone2); }
         }
+        // a part a region combine made has no step of its own: it is taken out of the combine (`in_1320`: it could not be deleted)
+        const skips = new Map<string, number[]>();
+        for (const id of ids) {
+          const m = /^x_(.+?)(?:\.(\d+))?$/.exec(id);
+          const c = m && scene.steps.find((st) => st.id === m[1] && st.type === "combine" && st.params.mode === "regions");
+          if (c) skips.set(c.id, [...(skips.get(c.id) ?? []), Number(m![2] ?? 0)]);
+        }
         const keptTools = new Set([...dropped.values()].flat()); // (their steps stay: the cut they made is made by them)
         const steps = scene.steps.filter((st) => {
+          if (skips.has(st.id)) return false;
           if (lostCombines.has(st.id)) return true;
           if ([...keptTools].some((id) => st.id === id.replace(/^x_/, "") || st.params.body === id)) return false;
           return mine(st) || (st.params.mode === "cut" && onlyHere(st));
@@ -263,7 +271,8 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
         const refs = [...refs0, ...planes]; 
         const mates = scene.relations.filter((r) => r.kind === "mate" && r.parts.some((q) => whole.includes(q))).map((r): Command => ({ type: "removeRelation", id: r.id })); // (a mate of a body that is deleted goes with it, `in_315`)
         const drops = [...dropped].map(([id, tools]): Command => ({ type: "setStepParams", id, params: { drop: [...String(scene.steps.find((x) => x.id === id)?.params.drop ?? "").split(",").filter(Boolean), ...tools].join(",") } }));
-        return { type: "batch", commands: [...mates, ...drops, ...[...steps].reverse().map((st): Command => ({ type: "removeStep", id: st.id })), ...(refs.length ? [{ type: "deleteParts", refs } as Command] : [])] };
+        const skipCmds = [...skips].map(([id, n]): Command => ({ type: "setStepParams", id, params: { skip: [...new Set([...String(scene.steps.find((x) => x.id === id)?.params.skip ?? "").split(",").filter(Boolean).map(Number), ...n])].sort((a, b) => a - b).join(",") } }));
+        return { type: "batch", commands: [...mates, ...drops, ...skipCmds, ...[...steps].reverse().map((st): Command => ({ type: "removeStep", id: st.id })), ...(refs.length ? [{ type: "deleteParts", refs } as Command] : [])] };
       },
     });
   } else {

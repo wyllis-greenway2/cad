@@ -59,7 +59,7 @@ import type { Op } from "../operations.ts";
 import { BODY_OBJECT } from "../../compiler/body.ts";
 import { setLineLength } from "../lengths.ts";
 import { withSession, animateTo, planeView } from "./state.ts";
-import { doSimilar, doSelectAll, doSelectBodies, doGroup, doUngroup, doCutBegin, applyCut } from "./select.ts";
+import { doSimilar, doSelectAll, doSelectBodies, doGroup, doUngroup, doCutBegin, doCombine, applyCut } from "./select.ts";
 import { groupsOf, membersOf } from "../../operation/groups.ts";
 
 /** The sketch group (`in_229`): the tools that draw on a plane, and the operations that work in one. Every member follows the group's rules below, so a new tool is added here (the records name every kind, so the compiler asks which group it is in) and gets them all. */
@@ -491,6 +491,7 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
     return { ...closed, session: run(closed.session, { type: "setClearance", value: next }) };
   }
   if (id === "combine:parts") return doCutBegin(closed);
+  if (id === "combine:add" || id === "combine:subtract" || id === "combine:intersect") return doCombine(closed, id.slice(8) as "add" | "subtract" | "intersect");
   if (id === "select:ungroup") return doUngroup(closed);
   if (id === "hollow:invert" && s.op?.kind === "hollow" && s.op.hollowMode && s.op.hollowMode !== "closed") return { ...s, op: { ...s.op, hollowMode: s.op.hollowMode === "keep" ? "open" : "keep" }, session: { ...s.session, message: null } };
   if (id === "view:section") return doPlaneNew(closed, true);

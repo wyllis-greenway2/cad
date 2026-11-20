@@ -139,7 +139,10 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "tool:fasteners", label: "Fastener tool", icon: "fastener" }, // (Shape: the hole for a fastener cut into the face selected, with the hardware inserted if asked, `in_813`, `in_912`)
   { id: "body:hard", label: "Hard body", icon: "hard", select: "hard" }, // (a constraint: no other body goes into it while one or the other is moved by hand, `in_473`, `in_490`)
   { id: "body:fixed", label: "Fixed body", icon: "hard", select: "fixed" }, // (a body that stays where it is when a played body pushes on it: a wall; a hard body with no joint is otherwise pushed aside, `dec_contact_push`, `in_1049`)
-  { id: "combine:parts", label: "Combine", icon: "subtract", select: "combine" }, // (add, cut and what is left of both: the parts the bodies make are each kept or tossed, `in_298`)
+  { id: "combine:add", label: "Add", icon: "union", select: "combine" }, // (the first body chosen stays and takes the others in; the tools are used up, `in_1320`)
+  { id: "combine:subtract", label: "Subtract", icon: "subtract", select: "combine" }, // (the first body chosen, less the others)
+  { id: "combine:intersect", label: "Intersect", icon: "intersect", select: "combine" }, // (only where all the bodies chosen meet)
+  { id: "combine:parts", label: "Parts", icon: "parts", select: "combine" }, // (add, cut and what is left of both: the parts the bodies make are each kept or tossed, `in_298`)
   { id: "select:similar", label: "Select similar", icon: "similar", select: "similar" },
   { id: "select:faces", label: "All faces", icon: "selfaces", select: "faces" },
   { id: "select:edges", label: "All edges", icon: "seledges", select: "edges" },
@@ -168,7 +171,7 @@ const GEARS: Group = {
 const BEARINGS_MENU: Group = { id: "bearings", label: "Bearings", icon: "bearing", items: ["model:ballbearing"] };
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:polygon", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset"] },
-  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "fabricate", label: "Fabricate", icon: "hammer", items: ["fab:material", "tool:fasteners"] }] },
+  { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", { id: "boolean", label: "Boolean", icon: "union", items: ["combine:add", "combine:subtract", "combine:intersect", "combine:parts"] }, { id: "fabricate", label: "Fabricate", icon: "hammer", items: ["fab:material", "tool:fasteners"] }] },
   { id: "mechanisms", label: "Models", icon: "gear", items: [GEARS, BEARINGS_MENU, "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "model:piston", "model:rod", "model:wheel", "model:wheelcut", "model:keyhole", "model:keyshaft", "keyway:mesh", "keyway:key", "tool:geneva:model"] }, // (the gears, and the devices made of them, `in_1145`; the gears were in Sketch and the devices in Shape, Fabricate, Models)
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path"] },
