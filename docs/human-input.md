@@ -5524,3 +5524,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1304 — 2026-11-20 — directive
 > build the scoop next, the arch stays as an option
 (answers my two questions on the second picture: build the scoop next, and the arch stays as its own option alongside it)
+
+## in_1305 — 2026-11-20 — directive
+> add the key as its own body next
+(asks for the key itself to be made as a body of its own, next, in the keyway maker)

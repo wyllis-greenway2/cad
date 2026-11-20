@@ -1,4 +1,4 @@
-// Mesh for the keyway maker (`dec_keyway_maker`, `in_1298`): a keyed hole selected gets the shaft that fits it, a shaft the hub that fits it, from scratch or cut into the round geometry that is clicked.
+// Mesh for the keyway maker (`dec_keyway_maker`, `in_1305`): a keyed hole selected gets the shaft that fits it, a shaft the hub that fits it, from scratch or cut into the round geometry that is clicked.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";
@@ -166,4 +166,39 @@ test("a keyed hole is remembered in the command that made it (one undo takes bot
   const before = rod.volume;
   m = build(m);
   assert.ok(bodies(m).find((b) => b.id === rod.id)!.volume < before - 20, "the keyway is cut into the rod");
+});
+
+test("Make the key: a body of its own that fills the keyway, standing on the shaft's slot floor, round or square ended; a flat or a spline has no key (`in_1305`)", () => {
+  // a keyed shaft: 12 across, a key of the standard width (4) and the usual depth, 30 long
+  let st = state(createSession(kernel));
+  st = reduce(st, { type: "runAction", id: "model:keyshaft" }, env);
+  st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0] } };
+  st = build(st);
+  const shaft = bodies(st)[0]!, rec = keywayOf(scene(st.session), shaft.ref as never)!;
+  assert.equal(rec.nums.key, 4); assert.ok(rec.nums.shaftDepth! > 0 && rec.nums.hubDepth! > 0, "both slots' depths are kept");
+  let k = select({ ...st, tool: null }, shaft.ref);
+  k = reduce(k, { type: "runAction", id: "keyway:key" }, env);
+  assert.equal(k.tool?.model?.kind, "key", k.session.message ?? "");
+  const g = modelTarget(scene(k.session), k.tool!)!;
+  assert.equal(g.problem, null, g.problem ?? "");
+  const [w, h, L] = [g.nums.key! - g.nums.play!, g.nums.h!, g.nums.len!];
+  assert.ok(Math.abs(h - (rec.nums.shaftDepth! + rec.nums.hubDepth! - 0.1)) < 0.011, `as high as the two slots less 0.1: ${h}`);
+  k = build(k);
+  assert.equal(bodies(k).length, 2, k.session.message ?? "");
+  const key = bodies(k).find((b) => b.id !== shaft.id)!;
+  assert.ok(Math.abs(key.volume - (w * (L - w) + Math.PI * w * w / 4) * h) < 0.01 * w * L * h, `a round ended key: ${key.volume} against ${(w * (L - w) + Math.PI * w * w / 4) * h}`);
+  const bb = (key as unknown as { bbox: { min: number[]; max: number[] } }).bbox;
+  assert.ok(Math.abs(bb.min[0]! - (6 - rec.nums.shaftDepth!)) < 0.1, `it stands on the slot's floor: x from ${bb.min[0]}`);
+  assert.ok(Math.abs(bb.max[1]! - bb.min[1]! - w) < 0.05, "as wide as the slot");
+  // square ends
+  let sq = select({ ...st, tool: null }, shaft.ref);
+  sq = reduce(sq, { type: "runAction", id: "keyway:key" }, env);
+  sq = { ...sq, tool: { ...sq.tool!, model: modelTyped(sq.tool!.model!, 1, "1") } };
+  sq = build(sq);
+  const key2 = bodies(sq).find((b) => b.id !== shaft.id)!;
+  assert.ok(Math.abs(key2.volume - w * L * h) < 0.01 * w * L * h, `a square ended key: ${key2.volume} against ${w * L * h}`);
+  // a spline has no key
+  const spl = splinedShaft(), sel = select({ ...spl, tool: null }, bodies(spl)[0]!.ref), out = reduce(sel, { type: "runAction", id: "keyway:key" }, env);
+  assert.match(out.session.message ?? "", /spline has no key/);
+  assert.equal(out.tool, null);
 });

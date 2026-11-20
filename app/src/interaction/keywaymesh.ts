@@ -1,4 +1,4 @@
-// Mesh for the keyway maker (`dec_keyway_maker`, `in_1298`), as a gear is meshed: a keyed hole that is selected gets the shaft that fits it, a shaft the hub that fits it. Either is made from scratch (a shaft, or a hub: a disc with a
+// Mesh for the keyway maker (`dec_keyway_maker`, `in_1305`), as a gear is meshed: a keyed hole that is selected gets the shaft that fits it, a shaft the hub that fits it. Either is made from scratch (a shaft, or a hub: a disc with a
 // keyed bore) or, with a click on the geometry that is there, cut in: the keyed shaft's keyway into a round shaft, the keyed hole into a round body. Pure.
 import type { Scene } from "../operation/scene.ts";
 import type { Ref } from "../shared/ref.ts";
@@ -52,4 +52,14 @@ export function meshConvert(tool: Tool, rec: KeywayRecord, fill: { center: Vec3;
   const values = shapeTyped(rec, toShaft ? "shaft" : "hole");
   if (!toShaft && rec.nums.kind === 0) delete values.keyDepth;
   return { ...base, plane: worldRef("XY"), points: [fill.center], cursor: fill.center, sized: true, fill: { center: fill.center, normal: fill.normal, u: rec.ex, cut: fill.cut }, model: { ...base.model!, typed: typedFor(kind, "", values), meshed: rec.id } };
+}
+
+/** The tool that makes the key of a keyed hole or shaft as a body of its own (`in_1305`): standing on the floor of the shaft's slot, as high as the two slots together less 0.1 mm, a little shorter than what it runs in; null with the reason when the shape is not a key */
+export function keyTool(rec: KeywayRecord): Tool | string {
+  if (rec.nums.kind !== 0) return rec.nums.kind === 1 ? "a flat has no key: only a keyway takes one" : "a spline has no key: its teeth are the shaft's own";
+  const n = rec.nums, base = armModel("key"), run = rec.span[1] - rec.span[0], mid = (rec.span[0] + rec.span[1]) / 2, centre = along(rec, mid);
+  const sd = n.shaftDepth ?? Math.max(0.1, Math.round(5.5 * n.key) / 10), hd = n.hubDepth ?? Math.max(0.1, Math.round(4.5 * n.key) / 10);
+  const len = Math.max(n.key + 1, Math.min(run - 2, Math.max(10, 1.5 * n.bore))), size = text(Math.round(len));
+  const values = { ends: "0", key: text(n.key), h: text(Math.round((sd + hd - 0.1) * 100) / 100), len: size, play: "0.1", base: text(Math.round((n.bore / 2 - sd) * 100) / 100) };
+  return { ...base, plane: worldRef("XY"), points: [centre], cursor: centre, sized: true, fill: { center: centre, normal: rec.dir, u: rec.ex }, model: { ...base.model!, typed: typedFor("key", size, values), meshed: rec.id } };
 }

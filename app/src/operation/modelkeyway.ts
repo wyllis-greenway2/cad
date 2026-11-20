@@ -1,4 +1,4 @@
-// The keyway maker (`dec_keyway_maker`, `in_1267`, `in_1298`): a key, a flat or a spline made on the round hole of a body, on a shaft, or on both so that they fit. Four tools share these numbers: the keyed HOLE cut into a round body, the
+// The keyway maker (`dec_keyway_maker`, `in_1267`, `in_1305`): a key, a flat or a spline made on the round hole of a body, on a shaft, or on both so that they fit. Four tools share these numbers: the keyed HOLE cut into a round body, the
 // keyed SHAFT made on its own, the keyed HUB (a disc with a keyed bore, made from scratch) and the keyed FIT (the same keyway cut into a round shaft that is there). The gear and the wheel make a round hole; this is what keys it to a
 // shaft, and Mesh makes the one that fits the other. Keys: the DIN 6885 widths and hub depths by bore that `bore.ts` holds (a bore outside the table gets a quarter of its diameter and 0.45 of the width); flats: as typed, else 0.15 of the
 // diameter; splines: the straight-sided splines of ISO 14, light and medium (`splines.ts`). `play` is the room of a fit: a hole is made `play` mm wider than the nominal, a shaft `play` mm narrower. Pure: numbers in, steps out.
@@ -87,8 +87,8 @@ function keyedRanges(n: KeywaySpec, lo: number, hi: number): [number, number][] 
   return [[lo - 1, hi + 1]];
 }
 
-/** What a made hole or shaft is, for Mesh (`in_1298`): the shape with its automatic numbers filled in (the key's width and depth, the flat's depth, the spline's series and minor diameter), where it stands and how far it runs along its axis */
-export interface KeywayRecord { id: string; role: "hole" | "shaft"; /** the id of the body it is on (`x_<step>`) */ host: string; at: Vec3; dir: Vec3; /** the direction of its x axis (where the first spline or the key stands) */ ex: Vec3; /** the run along the axis from `at` (mm): from, to */ span: [number, number]; nums: { kind: number; bore: number; key: number; keyDepth: number; flat: number; series: number; size: number } }
+/** What a made hole or shaft is, for Mesh (`in_1279`): the shape with its automatic numbers filled in (the key's width and depth, the flat's depth, the spline's series and minor diameter), where it stands and how far it runs along its axis */
+export interface KeywayRecord { id: string; role: "hole" | "shaft"; /** the id of the body it is on (`x_<step>`) */ host: string; at: Vec3; dir: Vec3; /** the direction of its x axis (where the first spline or the key stands) */ ex: Vec3; /** the run along the axis from `at` (mm): from, to */ span: [number, number]; nums: { kind: number; bore: number; key: number; keyDepth: number; flat: number; series: number; size: number; /** a key's slot in the shaft and in the hub (mm): what the key is made to fill (`in_1305`) */ shaftDepth?: number; hubDepth?: number } }
 /** the record of what the numbers make, in the world where it stands (`host` is filled in when the body is known) */
 export function keywayMeta(n: KeywaySpec, mode: KeywayMode, place: Place): Omit<KeywayRecord, "id" | "host"> | null {
   const r = keywayResolve(n, mode);
@@ -98,7 +98,7 @@ export function keywayMeta(n: KeywaySpec, mode: KeywayMode, place: Place): Omit<
   const span: [number, number] = (mode === "shaft" || mode === "fit") && part > 0 ? (part === 2 ? [lo, lo + sp] : [hi - sp, hi]) : [lo, hi]; // (a shaft keyed at an end: that end is where its hub goes)
   return {
     role: hole ? "hole" : "shaft", at: pointIn(place, [0, 0, 0]), dir: dirIn(place, [0, 0, 1]), ex: dirIn(place, [1, 0, 0]), span,
-    nums: { kind: v.kind, bore: v.kind === 2 ? v.row.d : n.bore, key: v.kind === 0 ? v.w : 0, keyDepth: v.kind === 0 && hole ? v.depth : 0, flat: v.kind === 1 ? v.flat : 0, series: v.kind === 2 ? (v.row.series === "light" ? 0 : 1) : Math.round(n.series), size: v.kind === 2 ? v.row.d : 0 },
+    nums: { kind: v.kind, bore: v.kind === 2 ? v.row.d : n.bore, key: v.kind === 0 ? v.w : 0, keyDepth: v.kind === 0 && hole ? v.depth : 0, ...(v.kind === 0 ? { shaftDepth: hole ? Math.max(0.1, r1(0.55 * v.w)) : v.depth, hubDepth: hole ? v.depth : keyDepthOf({ bore: n.bore, key: v.w } as GearSpec) ?? Math.max(0.1, r1(0.45 * v.w)) } : {}), flat: v.kind === 1 ? v.flat : 0, series: v.kind === 2 ? (v.row.series === "light" ? 0 : 1) : Math.round(n.series), size: v.kind === 2 ? v.row.d : 0 },
   };
 }
 
@@ -210,5 +210,34 @@ export function keyfitSteps(n: KeywaySpec, place: Place): Result<ModelBuild> {
   const R = res.value, b = new Builder(place);
   b.part(R.kind === 0 ? "Keyway" : R.kind === 1 ? "Flat" : "Spline");
   shaftCuts(b, R, n, n.bore / 2, keyedRanges(n, -n.thick / 2, n.thick / 2));
+  return ok(b.build());
+}
+
+/**
+ * The key itself, as a body of its own (`in_1305`): a parallel key of width `key` and height `h` standing on the floor of the shaft's slot (`base` from the axis), `len` long along the axis, its middle on the origin and its width across y. `ends` 0 round
+ * (the form with round ends: a half circle of the key's width at each end, as long as it is longer than it is wide) or 1 square. The key is made `play` narrower than the slot's nominal width, as the shaft's slot is.
+ */
+export interface KeySpec { key: number; h: number; len: number; ends: number; base: number; play: number; outer: number }
+/** how far the key stands off the floor of its slot (mm) */
+const KEY_GAP = 0.05;
+export const KEY_START: KeySpec = { key: 4, h: 4, len: 20, ends: 0, base: 4, play: 0, outer: 20 };
+export function keyProblem(n: KeySpec): string | null {
+  if (![n.key, n.h, n.len].every((v) => v > 0)) return "the key's width, height and length must be more than 0";
+  if (!(n.play >= 0) || n.play >= n.key) return "the play must be 0 or more and less than the key's width";
+  if (!(n.base > 0)) return "the key stands on the floor of the slot: its distance from the axis must be more than 0";
+  return null;
+}
+export function keySteps(n: KeySpec, place: Place): Result<ModelBuild> {
+  const bad = keyProblem(n);
+  if (bad) return err(bad);
+  const w = n.key - n.play, b = new Builder(place);
+  b.part("Key");
+  // the key's plan (across y, along the axis z) on a plane that stands on the slot's floor and is made up the key's height along x
+  const side = b.frame([n.base + KEY_GAP, 0, 0], [0, 1, 0], [0, 0, 1]); // (0.05 mm above the floor, so that the key and the shaft stay two bodies: bodies that touch on a face are made one)
+  const half = w / 2, L = n.len;
+  if (Math.round(n.ends) === 0 && L > w + 1e-6) {
+    const [p1, p2, p3, p4]: [P, P, P, P] = [[-half, -L / 2 + half], [-half, L / 2 - half], [half, L / 2 - half], [half, -L / 2 + half]];
+    b.extrude(side, outline([p1, p2, p3, p4], [0, bulgeOf(p2, [0, L / 2] as P, p3), 0, bulgeOf(p4, [0, -L / 2] as P, p1)]), [], n.h);
+  } else b.extrude(side, box(-half, -L / 2, half, L / 2), [], n.h);
   return ok(b.build());
 }

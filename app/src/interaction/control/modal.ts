@@ -13,7 +13,7 @@ import type { GearVariant } from "../tools.ts";
 import { keywayCommand, modelHeld, modelChanged, modelTyped, modelCommand, modelFix, modelBuilding, nextPartCommand, partIds, finishCommand } from "../modeltool.ts";
 import type { ModelKind } from "../../operation/modelkinds.ts";
 import { modelCutsBody } from "../../operation/modelkinds.ts";
-import { keywayOf, meshTool, meshConvert } from "../keywaymesh.ts";
+import { keywayOf, meshTool, meshConvert, keyTool } from "../keywaymesh.ts";
 /** why the model of a tool is not made (the words of its refusal), or null */
 const modelWhy = (sc: ReturnType<typeof sceneOf>, t: Tool): string | null => { const c = modelCommand(sc, t); return c.ok ? null : c.error; };
 import type { CamKind, CamLaw, CamLayout } from "../../operation/cams.ts";
@@ -557,6 +557,12 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
       if (conv) return { ...closed, tool: conv, op: null };
     }
     return { ...closed, tool: meshTool(rec), op: null };
+  }
+  if (id === "keyway:key") { // the key of a keyed hole or shaft, as a body of its own (`in_1298`)
+    const sc = sceneOf(s.session), rec = selectionOf(s.session).map((r) => keywayOf(sc, r)).find((k) => !!k);
+    if (!rec) return { ...closed, session: { ...s.session, message: "select a keyed hole or a keyed shaft made with the keyway maker first" } };
+    const tool = keyTool(rec);
+    return typeof tool === "string" ? { ...closed, session: { ...s.session, message: tool } } : { ...closed, tool, op: null };
   }
   if (id === "gear:mesh" || id === "gear:meshrack" || id === "gear:meshring") { // a gear, a rack or a ring round it, that meshes with the one selected (`in_579`, `in_686`)
     const sc = sceneOf(s.session);

@@ -4557,3 +4557,6 @@ Branch `claude/adoring-dijkstra-carry`. `in_1280` asked for a polygon tool that 
 
 ## Handoff 1156 — 2026-11-20 (in_1298: the scoop)
 `in_1304`. Piston pin flats: new choice "Scoop" (floor round the pin, curved ends returning to the skirt face above and below), scoop run field; worked-out volume through the circles; arch stays an option. Ears cut by a curve round the thrust axis are not built.
+
+## Handoff 1157 — 2026-11-20 (in_1305: the key as its own body)
+`in_1305`. Make the key: a round or square ended parallel key as a body of its own, sized from the two slots (`keyTool` in `keywaymesh.ts`, `keySteps`, kind `key`), in the Models list and on the chip. The record keeps both slots' depths. Test in `keywaymesh.test.ts`; the Models list test in `fasteners.test.ts` has the new item. **Not built:** DIN 6885 key heights and lengths (no table), Woodruff keys.
