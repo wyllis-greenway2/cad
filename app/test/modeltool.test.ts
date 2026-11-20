@@ -399,3 +399,15 @@ test("a bearing's box has Catalogue or Your own at its top, and the choice chang
   assert.equal(hidden, 0, "the first field is the size");
   assert.notEqual(nextField({ ...armed("ballbearing").model!, field: 1 }), 3, "the detail is not shown for a catalogue bearing");
 });
+
+test("every model's blue preview is in space: lines that rise out of the plane, not only its outline (`in_1262`)", () => {
+  for (const kind of MODEL_KINDS) {
+    let st = { ...createState(createSession(kernel)), cam: homeCamera() };
+    st = reduce(st, { type: "runAction", id: `model:${kind}` }, env as never);
+    st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0] } };
+    const pv = modelPreview(scene(st.session), st.tool!);
+    assert.ok(pv && pv.segments.length > 0, `${kind}: a picture`);
+    const zs = pv!.segments.flatMap(([a, b]) => [a[2], b[2]]);
+    assert.ok(Math.max(...zs) - Math.min(...zs) > 0.5, `${kind}: the picture has depth (${Math.min(...zs)} to ${Math.max(...zs)})`);
+  }
+});

@@ -252,3 +252,14 @@ test("a wheel's bore has the gear maker's flat and keyway: the flat leaves metal
   assert.match(wheelProblem(S({ bore: 10, flat: 1, key: 3 })) ?? "", /flat or a keyway, not both/);
   assert.match(wheelProblem(S({ key: 3, keyDepth: 40, hub: 22 })) ?? "", /hub's wall/);
 });
+
+test("deleting a wheel takes its profile for the revolve and the planes it was drawn on, and one undo brings it all back (`in_1262`)", () => {
+  let st = placed({ spokes: "5" });
+  const drawn = (s: typeof st) => Object.values(scene(s.session).parts).filter((p) => (p as { origin?: string }).origin === "drawn");
+  assert.ok(drawn(st).length > 0, "the model's sketches are there");
+  const body = bodyOf(st)[0]!;
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [body.ref as never] } } };
+  st = reduce(st, { type: "runAction", id: "delete" }, env);
+  assert.equal(bodyOf(st).length, 0, "the body is gone");
+  assert.equal(drawn(st).length, 0, `its profile and planes go too: ${drawn(st).map((p) => p.ref).slice(0, 4)}`);
+});

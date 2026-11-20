@@ -5363,3 +5363,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1261 — 2026-11-20 — directive
 > do the material and hollow pin next
 (approves the next two piston maker variables: the piston's material, which gives its weight and its default fit in the bore, and a hollow pin)
+
+## in_1262 — 2026-11-20 — directive
+> Can we have the preview blue lines in 3d if they have 3d info? So for example, in the piston maker, if I change attributes on an already existing 3d model, the blue line previews are always only in 2d and it is hard to tell what it is for. 
+> When you delete a wheel, it doesn't delete its profile for rotational extrude. Can we have all gears default to at least some thickness if they currently have none.
+(asks for the blue preview lines to be drawn in 3D wherever the thing has 3D information, the piston maker's box on a model that is made being the example; says that deleting a wheel leaves its profile for the revolve behind; asks that every gear that has no thickness is given at least some by default)

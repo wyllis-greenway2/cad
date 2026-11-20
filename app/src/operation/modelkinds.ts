@@ -220,7 +220,20 @@ export const modelExtent = (k: ModelKind, n: Nums): number => DEFS[k].extent(n);
 export const modelCentre = (k: ModelKind, n: Nums): [number, number] => DEFS[k].centre(n);
 export const modelBuild = (k: ModelKind, n: Nums, place: Place): Result<ModelBuild> => DEFS[k].build(n, place);
 export const modelOutline = (k: ModelKind, n: Nums): Lines => DEFS[k].outline(n);
-export const modelOutline3 = (k: ModelKind, n: Nums): [number, number, number][][] => DEFS[k].outline3?.(n) ?? [];
+const HOME: Place = { at: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0], ez: [0, 0, 1] };
+const wireMemo = new Map<string, [number, number, number][][]>();
+/** The picture of a model in space (`in_1262`): its own, if it has one, else the lines its steps make (the loops of what is extruded at both ends, a turned body's section and rings, a gear's circles), so every model's blue preview is in 3D. Empty when the numbers make no model. */
+export const modelOutline3 = (k: ModelKind, n: Nums): [number, number, number][][] => {
+  const own = DEFS[k].outline3?.(n);
+  if (own) return own;
+  const key = k + JSON.stringify(n), hit = wireMemo.get(key);
+  if (hit) return hit;
+  let wires: [number, number, number][][] = [];
+  try { if (!DEFS[k].problem(n)) { const b = DEFS[k].build(n, HOME); if (b.ok) wires = b.value.wires as unknown as [number, number, number][][]; } } catch { wires = []; }
+  if (wireMemo.size > 12) wireMemo.delete(wireMemo.keys().next().value!);
+  wireMemo.set(key, wires);
+  return wires;
+};
 export const modelFixedSize = (k: ModelKind): boolean => !!DEFS[k].fixedSize;
 export const modelSizeLabel = (k: ModelKind): string => DEFS[k].sizeLabel ?? "Size";
 export const modelSizeKey = (k: ModelKind): string | undefined => DEFS[k].sizeKey;

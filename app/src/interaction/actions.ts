@@ -249,13 +249,17 @@ export function actionsFor(scene: Scene, selection0: readonly Ref[]): Action[] {
           return mine(st) || (st.params.mode === "cut" && onlyHere(st));
         });
         for (const st of steps) {
-          if (st.type !== "extrude") continue;
+          if (st.type !== "extrude" && st.type !== "revolve") continue; // (a turned body's profile goes too, `in_1262`)
           const cut = st.params.cut !== undefined || figureRefs(st).some((r) => r.includes("@")); // (a piece of a cut shape: the sides stay with the other pieces)
           for (const r of figureRefs(st)) { const p = get(r); if (p?.movable && !r.includes("@") && (!cut || p.kind === "circle")) gone.add(r); }
         }
         const corners = [...gone].flatMap((r): Ref[] => { const p = get(r); return p?.kind === "circle" ? [p.center] : p?.kind === "line" ? [p.a, p.b, ...(p.center ? [p.center] : [])] : []; });
         const alone = (c: Ref) => !!get(c)?.movable && !Object.values(scene.parts).some((q) => !gone.has(q.ref) && ((q.kind === "circle" && q.center === c) || (q.kind === "line" && (q.a === c || q.b === c || q.center === c))));
-        const refs = [...gone, ...new Set(corners.filter(alone))].filter((r) => r in scene.parts);
+        const refs0 = [...gone, ...new Set(corners.filter(alone))].filter((r) => r in scene.parts);
+        // a plane a model made for its sketches (a turned body's profile stands on one) goes when nothing is left on it and no step still names it (`in_1262`)
+        const leaving = new Set<Ref>(refs0), keptSteps = scene.steps.filter((st) => !steps.includes(st));
+        const planes = Object.values(scene.parts).filter((q) => q.kind === "plane" && q.origin === "drawn" && !q.movable && !leaving.has(q.ref) && Object.values(scene.parts).some((x) => leaving.has(x.ref) && (x as { plane?: Ref | null }).plane === q.ref) && !Object.values(scene.parts).some((x) => !leaving.has(x.ref) && x.kind !== "face" && (x as { plane?: Ref | null }).plane === q.ref) && !keptSteps.some((st) => JSON.stringify(st).includes(q.ref))).map((q) => q.ref);
+        const refs = [...refs0, ...planes]; 
         const mates = scene.relations.filter((r) => r.kind === "mate" && r.parts.some((q) => whole.includes(q))).map((r): Command => ({ type: "removeRelation", id: r.id })); // (a mate of a body that is deleted goes with it, `in_315`)
         const drops = [...dropped].map(([id, tools]): Command => ({ type: "setStepParams", id, params: { drop: [...String(scene.steps.find((x) => x.id === id)?.params.drop ?? "").split(",").filter(Boolean), ...tools].join(",") } }));
         return { type: "batch", commands: [...mates, ...drops, ...[...steps].reverse().map((st): Command => ({ type: "removeStep", id: st.id })), ...(refs.length ? [{ type: "deleteParts", refs } as Command] : [])] };

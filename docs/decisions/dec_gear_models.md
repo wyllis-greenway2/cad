@@ -3,7 +3,7 @@ id: dec_gear_models
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1105, in_1100, in_1129
+human_input: in_1262, in_1105, in_1100, in_1129
 date: 2026-11-19
 depends_on:
   - dec_gear_tool: the gears of a model are gear records made with the gear tool (they keep their numbers, can be edited and meshed as any gear); a change to how a gear is a record changes the models
@@ -37,3 +37,5 @@ differential, a cycloidal drive; not a multi-speed transmission), in the Models 
 
 The planetary set took a record, a set of editing paths and a long chain of behaviour; a model needs none of that to be useful, and a fastener-style model gets the four assemblies into the person's hands quickly, with every gear still an ordinary gear. A model that
 wants to keep its numbers can be made into a record later (the numbers are already one object each). The numbers come from the person, not from a standard, except where a part has one (the 608 size).
+
+- **Changed (`in_1262`): every model's blue preview is in space.** A model's picture (`modelOutline3`) is its own if it has one (the wheel) and otherwise the lines its steps make: `Builder` records them as the model is built (`ModelBuild.wires`: the loop of every extrusion at both ends with a few lines between, a turned body's section at four turns and a ring at each corner, a gear's tip and bore circles at both faces), memoised by the numbers. So a model that is made and has a number changed, the piston maker included, is drawn with its depth, not as an outline in the plane.

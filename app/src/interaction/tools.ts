@@ -349,7 +349,15 @@ const shapeOf = (typed: (k: string) => number | null, b: GearSpec | undefined, f
   const keep = flatNew && keyNew ? (focus === "flat" ? "flat" : "key") : flatNew ? "flat" : keyNew ? "key" : flat ? "flat" : "key";
   return keep === "flat" ? { ...(flat ? { flat } : {}) } : { ...(key ? { key } : {}), ...(keyDepth ? { keyDepth } : {}) };
 };
+/** The numbers a tool makes a gear from; a new pulley, sprocket or clock gear (whose box has no thickness) is given one: a plain gear has six modules, these a few millimetres by their size (`in_1262`) */
 function gearSpecOf(t: Tool): GearSpec | null {
+  const s = gearSpecRaw(t), g = gearState(t);
+  if (!s || (s.width ?? 0) > 0 || g.mesh || g.planetary) return s;
+  if (g.base?.width) return { ...s, width: g.base.width }; // (a gear that is made keeps the thickness it has)
+  if (g.base || !(s.pulley || s.sprocket || s.cycloidal)) return s;
+  return { ...s, width: Math.round((s.pulley ? 2 * s.module : s.sprocket ? 6 : 4 * s.module) * 10) / 10 };
+}
+function gearSpecRaw(t: Tool): GearSpec | null {
   const g = gearState(t);
   const fields = gearFields(g);
   const typed = (k: string) => { const i = fields.findIndex((f) => f.key === k); return i < 0 ? null : typedNumber(g.typed[i] ?? ""); };
@@ -441,7 +449,6 @@ function gearSpecOf(t: Tool): GearSpec | null {
   const chamfer = typed("chamfer") ?? b?.chamfer; // (the tips of the teeth broken at the faces, in modules, `in_791`)
   const detail = g.internal || g.rack ? undefined : b?.detail;
   const helixAsked = typed("helix") ?? b?.helix ?? 0; // (a gear with a helix is a body: 0 is a plain gear, `in_693`)
-  const thickAsked = typed("width") ?? b?.width ?? 0; // (and so is a gear with a thickness: 0 with no helix is a flat outline, `in_697`)
   const helix = helixAsked || undefined;
   const typedModule = typed("module");
   let module = typedModule !== null && typedModule > 0 ? typedModule : b?.module;
@@ -453,6 +460,7 @@ function gearSpecOf(t: Tool): GearSpec | null {
     module = Math.max(0.1, Math.round(exact / 0.05) * 0.05);
   }
   const bore = boreTyped ?? (g.internal || g.rack || b ? undefined : defaultBore(teeth, module)); // (a new gear has a bore unless 0 is typed, `in_691`)
+  const thickAsked = typed("width") ?? b?.width ?? (b ? 0 : 6 * module); // (a gear with a thickness is a body: a new gear has six modules unless another is typed, 0 typed is a flat outline, `in_697`, `in_1262`)
   const play = backlash ?? (b ? undefined : defaultBacklash(module)); // (and a little play unless 0 is typed, `in_954`: a gear meshed with it is made with the same)
   return { teeth, module, ...(pressure !== undefined ? { pressure } : {}), ...(shift !== undefined ? { shift } : {}), ...(play ? { backlash: play } : {}), ...(clearance !== undefined ? { clearance } : {}), ...(g.internal ? { internal: true as const } : {}), ...(g.rack ? { rack: true as const } : {}), ...(rim !== undefined ? { rim } : {}), ...(fillet ? { fillet } : {}), ...(chamfer ? { chamfer } : {}), ...(edge ? { edge } : {}), ...(detail ? { detail } : {}), ...(helix !== undefined || thickAsked > 0 ? { ...(helix !== undefined ? { helix } : {}), width: thickAsked > 0 ? thickAsked : 6 * module } : {}), ...(bore ? { bore, ...shapeOf(typed, b, fields[g.field]?.key) } : {}) };
 }

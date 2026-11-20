@@ -16,3 +16,25 @@ export const arcMid = (c: P, r: number, a: P, b: P): P => {
   const l = Math.hypot(mx, my);
   return l < 1e-12 ? [c[0] - u[1], c[1] + u[0]] : [c[0] + (mx / l) * r, c[1] + (my / l) * r];
 };
+
+/** an arc side as points: from `a` to `b` with the kernel's bulge */
+export function flatten(pts: P[], bulges: number[], per = 8): P[] {
+  const out: P[] = [];
+  pts.forEach((a, i) => {
+    const b = pts[(i + 1) % pts.length]!, k = bulges[i] ?? 0;
+    out.push(a);
+    if (Math.abs(k) < 1e-9) return;
+    const [dx, dy] = [b[0] - a[0], b[1] - a[1]], len = Math.hypot(dx, dy), sag = k * len;
+    const m: P = [(a[0] + b[0]) / 2 - (dy / len) * sag, (a[1] + b[1]) / 2 + (dx / len) * sag];
+    const [x1, y1, x2, y2, x3, y3] = [a[0], a[1], m[0], m[1], b[0], b[1]];
+    const dd = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
+    if (Math.abs(dd) < 1e-12) return;
+    const cx = ((x1 * x1 + y1 * y1) * (y2 - y3) + (x2 * x2 + y2 * y2) * (y3 - y1) + (x3 * x3 + y3 * y3) * (y1 - y2)) / dd, cy = ((x1 * x1 + y1 * y1) * (x3 - x2) + (x2 * x2 + y2 * y2) * (x1 - x3) + (x3 * x3 + y3 * y3) * (x2 - x1)) / dd;
+    const r = Math.hypot(x1 - cx, y1 - cy), a1 = Math.atan2(y1 - cy, x1 - cx), a3 = Math.atan2(y3 - cy, x3 - cx), a2 = Math.atan2(y2 - cy, x2 - cx);
+    const wrap = (v: number): number => ((v % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    const ccw = wrap(a2 - a1) < wrap(a3 - a1);
+    const sweep = ccw ? wrap(a3 - a1) : -wrap(a1 - a3);
+    for (let j = 1; j < per; j++) out.push([cx + r * Math.cos(a1 + (sweep * j) / per), cy + r * Math.sin(a1 + (sweep * j) / per)]);
+  });
+  return out;
+}
