@@ -729,6 +729,7 @@ function frame(now: number) {
     view.setHiddenBodies(f.hiddenBodies);
     view.setThin(f.thin);
     view.setClash(f.clash);
+    view.setCutGhosts(f.cutGhosts);
     const standShown = staleSince !== null && performance.now() - staleSince >= STANDIN_MS; // (the discs for gear bodies the kernel has not made: after a short wait, `dec_gear_standin`)
     view.setStandIns(openingGhosts ?? f.standIns, standShown || !!openingGhosts || f.standIns.some((d) => d.box)); // (the parts of a model made in pieces are drawn at once: there is nothing to wait for, `dec_progressive_open`)
     const pageAt = projector(state.cam, size.w, size.h).project;

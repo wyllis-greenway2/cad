@@ -39,6 +39,7 @@ import { similarTo } from "../similar.ts";
 import { whyNotGroup, whyNotUngroup, whyNotCombine, applyCut } from "./select.ts";
 import { projector, nearTolMm } from "../camera.ts";
 import { settings } from "../../shared/settings.ts";
+import { cutGhosts, ghostHit } from "../cutghost.ts";
 import { planeOf, objectOf } from "../objects.ts";
 import type { AppState, Env, MenuItem } from "./state.ts";
 import { paneAt } from "../panes.ts";
@@ -199,7 +200,7 @@ export function settleAwaiting(s: AppState, now = 0): AppState {
   if (it.enabled) return doRunAction({ ...s, awaiting: null, session: { ...s.session, message: null } }, a.id, now);
   return { ...s, awaiting: { ...a, why: it.why ?? a.why }, session: { ...s.session, message: `${a.label}: ${instruction(it.why ?? a.why)}` } };
 }
-function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean; section: boolean; clip?: boolean; adding?: boolean; dragSelect?: boolean; touch?: boolean; constraints?: boolean } = { wireframe: false, tape: false, section: false }): AppState["menu"] {
+function menuFor(session: Session, x: number, y: number, repeating = false, over: Ref | null | undefined = null, view: { wireframe: boolean; tape: boolean; section: boolean; clip?: boolean; adding?: boolean; dragSelect?: boolean; touch?: boolean; constraints?: boolean; cuts?: boolean } = { wireframe: false, tape: false, section: false }): AppState["menu"] {
   const adding = !!view.adding;
   const sc = sceneOf(session);
   const sel = selectionOf(session);
@@ -271,6 +272,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
       { id: "view:hide", label: "Hide body", icon: "eyeOff", enabled: selectedBodies(sc, sel).length > 0, why: "select a body to hide (a hidden body comes back with its eye or from the Bodies list)" }, // (the eye that hovered on a body is here now, `in_697`)
       { id: "view:wireframe", label: "Wireframe", icon: "wireframe", enabled: true, why: null },
       { id: "view:constraints", label: view.constraints ? "Hide constraints" : "All constraints", icon: "constraint", enabled: true, why: null }, // (every constraint of the whole world, not only those of what is selected, `in_1157`)
+      { id: "view:cuts", label: view.cuts ? "Hide cuts" : "Show cuts", icon: "cutghost", enabled: true, why: null }, // (the tool of each cut as a ghost body that can be picked and moved, `dec_cut_tools`, `in_1339`)
       { id: "tape:measure", label: "Tape measure", icon: "dimension", enabled: true, why: null },
     ]),
     // delete: one item with no list under it, that deletes what is selected, or the thing the right click was on when nothing is (`in_1281`); undo and redo are in the ⋯ list
@@ -632,6 +634,22 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
     const g0 = part?.kind === "plane" && part.section && sectionNow(s) ? gizmoOf(s) : null; // (a handle of the plane's own mover on top of the plane is the handle's click, not the plane's, `in_1129`)
     if (part?.kind === "plane" && part.section && !(g0 && hitHandle(g0, projector(s.cam, env.w, env.h).project, i.x, i.y, undefined, chosenId(s)))) return doSectionClick(s, part.ref);
   }
+  // a click on a ghost cut (the tool of a cut, drawn while View, Show cuts is on or while its figure is selected) selects the cut's figure: it is then moved as a body is (`dec_cut_tools`, `in_1339`)
+  if (!s.tool && !s.op && !s.repeat && !s.cut) {
+    const ghosts = cutGhosts(sc).filter((g) => s.showCuts || (g.parts.length > 0 && g.parts.every((p) => selectionOf(s.session).includes(p))));
+    if (ghosts.length) {
+      const pj = projector(s.cam, env.w, env.h);
+      const g0 = gizmoOf(s);
+      if (!(g0 && hitHandle(g0, pj.project, i.x, i.y, undefined, chosenId(s)))) {
+        const ray = pj.ray(i.x, i.y);
+        const hit = ghostHit(ghosts, ray.o, ray.d);
+        if (hit) {
+          const now = i.shift ? [...new Set([...selectionOf(s.session), ...hit.ghost.parts])] : [...hit.ghost.parts];
+          return withSession({ ...s, menu: null }, { ...s.session, click: { selection: now, spot: s.session.click.spot }, message: null });
+        }
+      }
+    }
+  }
   // a click on a little pane turns that world plane on and looks straight at it (the same as its X Y Z button, `in_190`)
   const pane = !s.tool && !s.op ? paneUnder(s, i.x, i.y, env) : null;
   if (pane) return doLook({ ...s, menu: null, focus: null, resume: null }, { type: "look", plane: PANE_BUTTON[pane] }, env);
@@ -834,7 +852,7 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: E
   }
   // what is under the point (a finger has no hover: a long press must be told what is under it the same way a right click is, or a tool chosen from the ring would not turn the view straight to the plane there, `in_283`)
   const under = i.button ? null : candidatesAt(sceneOf(s.session), projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s))[0]?.ref ?? null;
-  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape, section: !!sectionNow(s), clip: !!s.clipboard?.length, adding: s.adding, dragSelect: s.dragSelect, touch: i.touch, constraints: s.showAllConstraints }) };
+  return { ...s, menu: menuFor(s.session, i.x, i.y, !!s.repeat, under ?? undefined, { wireframe: s.wireframe, tape: s.tape, section: !!sectionNow(s), clip: !!s.clipboard?.length, adding: s.adding, dragSelect: s.dragSelect, touch: i.touch, constraints: s.showAllConstraints, cuts: s.showCuts }) };
 }
 
 /**

@@ -337,6 +337,8 @@ export function createView(host: HTMLElement) {
   let clashShown: number[] | null = null;
   const clashGroup = new THREE.Group();
   scene3.add(clashGroup);
+  const ghostGroup = new THREE.Group();
+  scene3.add(ghostGroup);
   function setClash(tris: number[] | null): void {
     if (tris === clashShown) return;
     clashShown = tris;
@@ -349,6 +351,21 @@ export function createView(host: HTMLElement) {
     const mesh = new THREE.Mesh(geo, mat);
     mesh.renderOrder = 3;
     clashGroup.add(mesh);
+  }
+  /** The tools of the cuts as translucent ghosts (`dec_cut_tools`, `in_1339`): one triangle soup, drawn over the model, not written to the depth buffer. */
+  let ghostShown: number[] | null = null;
+  function setCutGhosts(tris: number[] | null): void {
+    if (tris === ghostShown) return;
+    ghostShown = tris;
+    clearGroup(ghostGroup);
+    if (!tris || !tris.length) return;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(tris), 3));
+    geo.computeVertexNormals();
+    const mat = new THREE.MeshLambertMaterial({ color: 0xe5484d, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 3;
+    ghostGroup.add(mesh);
   }
   const setWorldHidden = (on: boolean): void => world.setOff(on);
   /** Is the junction of the world axes (where its orb is) behind the model from this eye? The orb is a dot of the page, so it asks (`in_1194`). */
@@ -430,5 +447,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { rebuild, setWorldHidden, originHidden, setScene, setHiddenBodies, setThin, setClash, setStandIns, setHiddenEdges, setBehindPlane, setBodyMatrix, setHighlight, setPreview, setGizmo, setToolpath, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { rebuild, setWorldHidden, originHidden, setScene, setHiddenBodies, setThin, setClash, setCutGhosts, setStandIns, setHiddenEdges, setBehindPlane, setBodyMatrix, setHighlight, setPreview, setGizmo, setToolpath, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }

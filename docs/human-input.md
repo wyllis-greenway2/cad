@@ -5654,3 +5654,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1338 — 2026-11-20 — directive
 > (no words: two screenshots of a cylinder with a chamfered slot and two holes, one cutting through the slot's wall and one not, and the file `holes.json`, sent with the question in in_1337)
 (the model for in_1337: why the holes cannot be moved separately, why one cuts through the chamfer and the other not, and whether a cut can be moved as a negative body)
+
+## in_1339 — 2026-11-20 — approval
+> do both, through both ways and the ghost negative body
+(approves both proposals made after in_1338: a cut that goes through both ways from its plane, and a cut shown as a ghost negative body that can be picked and moved like a positive body)

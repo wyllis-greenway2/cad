@@ -525,6 +525,11 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
     const next = run(s.session, back.command);
     return { ...closed, session: next.message ? next : { ...next, message: "the mate was put back" } };
   }
+  if (id === "view:cuts") return { ...closed, showCuts: !s.showCuts }; // (View: the tools of the cuts as ghost bodies, `dec_cut_tools`)
+  if (id.startsWith("cut:both:")) { // a cut goes through both ways from its plane, or one way again (`dec_cut_tools`, `in_1339`)
+    const st = sceneOf(s.session).steps.find((x) => x.id === id.slice(9));
+    return st ? withSession(closed, run(s.session, { type: "setStepParams", id: st.id, params: { both: Number(st.params.both ?? 0) === 1 ? 0 : 1 } })) : closed;
+  }
   if (id === "view:constraints") return { ...closed, showAllConstraints: !s.showAllConstraints }; // (View: every constraint of the whole world, `in_1157`)
   if (id.startsWith("body:constraints:")) { const r = id.slice(17) as Ref; return { ...closed, bodyConstraints: s.bodyConstraints.includes(r) ? s.bodyConstraints.filter((x) => x !== r) : [...s.bodyConstraints, r] }; } // (the half eye, half lock icon on a body: all the constraints that have to do with it, `in_1157`)
   if (id.startsWith("tool:disc:")) return beginTool(closed, "cam", now, s.menu?.plane ?? null, "gear", "disc", id.slice(10) as CamLaw); // (a disc cam of this law, `dec_spline_and_cams`)

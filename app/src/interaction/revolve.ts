@@ -48,7 +48,7 @@ export function revolveStart(scene: Scene, faces: readonly Extract<Part, { kind:
   return { pivot: scale(add(best.a, best.b), 0.5), frame: [d, cross3(n, d), n] };
 }
 /** The points of the outline of a drawn figure: 64 round a circle, else its corners (with the bends of its arcs, `loopPoints`). */
-function figurePoints(scene: Scene, face: Extract<Part, { kind: "face" }>): Vec3[] {
+export function figurePoints(scene: Scene, face: Extract<Part, { kind: "face" }>): Vec3[] {
   const get = lookup(scene);
   const pl = face.plane ? get(face.plane) : undefined;
   const disk = face.disk ? get(face.disk) : undefined;
