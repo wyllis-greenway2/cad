@@ -5320,3 +5320,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1250 — 2026-11-19 — directive
 > do the connecting rod next
 (chooses the connecting rod as the next part of the engine builder to make realistic)
+
+## in_1251 — 2026-11-20 — directive
+> do the crankshaft next
+(chooses the crankshaft as the next part of the engine builder to make realistic)

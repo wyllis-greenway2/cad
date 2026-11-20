@@ -7,7 +7,7 @@ import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import { Builder, disc, outline, box } from "./modelparts.ts";
 import type { Place, ModelBuild, Shape } from "./modelparts.ts";
-import { pistonFit, ringBelt, pistonShell, rodDesign } from "./pistondesign.ts";
+import { pistonFit, ringBelt, pistonShell, rodDesign, crankPinFor } from "./pistondesign.ts";
 import type { RingBelt, Shell, RodDesign } from "./pistondesign.ts";
 import { bulgeOf } from "./arcs.ts";
 
@@ -41,6 +41,7 @@ export interface EngineGeometry {
   /** the crank's radius and the rod's length (centre to centre) */ r: number; l: number;
   /** the piston: its radius, the distance from the pin's axis to the crown and to the foot of the skirt, and the ring belt (the grooves from the crown down) */ rp: number; ch: number; sk: number; belt: RingBelt; shell: Shell;
   /** the rod's I-beam and split big end (ASSUMED, `dec_rod_design`) */ rod: RodDesign;
+  /** a crank web (ASSUMED, `dec_crankshaft_design`): the hub's radius, the pin boss's radius and the neck's half width between them, the counterweight's radius and how far its middle is from the shaft's axis (opposite the pin) */ cw: { hub: number; boss: number; neck: number; rc: number; c: number };
   /** the crank pin's diameter, the radius of the crank disc, the rod's big and small eye outer radii, the rod's thickness */ cp: number; rweb: number; rb: number; rs: number; w: number;
   /** the height of the cylinder's axis, the floor's thickness, the thickness of the crank disc and the flywheel */ zc: number; tb: number; tw: number; tf: number;
   /** where the cylinder's tube begins and ends along x, and the outer radius of the tube */ x0: number; x1: number; ro: number;
@@ -48,16 +49,17 @@ export interface EngineGeometry {
 }
 export function engineGeometry(s: EngineSpec): EngineGeometry {
   const r = s.stroke / 2, l = r / s.ratio, B = s.bore, rp = B / 2 - s.skirtFit / 2;
-  const cp = Math.round(s.pin * 1.25 * 10) / 10, rb = cp / 2 + 2.5, rs = s.pin / 2 + 1.5, w = Math.max(3, Math.round(s.pin * 0.75 * 10) / 10);
+  const cp = crankPinFor(B), rb = cp / 2 + 2.5, rs = s.pin / 2 + 1.5, w = Math.max(3, Math.round(s.pin * 0.75 * 10) / 10);
   // the ring belt (`dec_piston_belt`: Honda's ring heights and side room, the assumed lands, top land and depth) and the pin height: the stack (the belt, then the larger of the pin's radius and a margin of 0.05 of the bore, ASSUMED, and what the rod's small eye and its slot need); the skirt below the pin 0.27 of the bore is ASSUMED (rule A5, NACA 817): the remembered 0.35 made a real GX160 (rod 84 mm, stroke 45) impossible (its skirt would hit the crank disc at the bottom of the stroke; it must be under 0.32)
   const belt = ringBelt(B, s.rings, s.oil, s.topLand, s.ringSide), shell = pistonShell(B, rp, belt.depth, s.crown, s.skirtWall, s.pin, s.pinFit), ch = Math.max(belt.length + Math.max(s.pin / 2 + 0.05 * B, rs + 2.5), shell.crown + rs + 2.5), sk = 0.27 * B; // (the cavity under the crown must hold the rod's eye too)
   const ro = B / 2 + s.wall, tb = s.wall, tw = Math.max(3, s.wall), tf = Math.max(4, s.wall + 2);
-  const rweb = r + cp / 2 + 3, zc = tb + ro - 0.5;
+  const rweb = r + cp / 2 + 2, zc = tb + ro - 0.5;
   const x0 = l - r - sk - 1, x1 = r + l + ch + 1;
   const phi = Math.asin(Math.min(0.99, s.ratio));
   const slot = Math.max(rs + 1, sk * Math.tan(phi) + 0.6 * rs + 1);
   const rod = rodDesign(B, w, rb, 0.6 * rs);
-  return { r, l, rp, ch, sk, belt, shell, rod, cp, rweb, rb, rs, w, zc, tb, tw, tf, x0, x1, ro, slot, rf: rweb + 3 };
+  const cw = { hub: s.shaft / 2 + 3, boss: cp / 2 + 2, neck: Math.min(s.shaft / 2 + 3, cp / 2 + 2), rc: 0.6 * rweb, c: 0.4 * rweb };
+  return { r, l, rp, ch, sk, belt, shell, rod, cw, cp, rweb, rb, rs, w, zc, tb, tw, tf, x0, x1, ro, slot, rf: rweb + 3 };
 }
 /** the distance from the crank's axis to the piston pin when the crank has turned `deg` degrees from top dead centre: the slider crank, exactly */
 export const pistonX = (r: number, l: number, deg: number): number => { const a = (deg * Math.PI) / 180; return r * Math.cos(a) + Math.sqrt(l * l - r * r * Math.sin(a) ** 2); };
@@ -84,7 +86,7 @@ export function engineProblem(s: EngineSpec): string | null {
   if (s.bore < 12) return "the bore must be 12 mm or more";
   if (s.pin < 0.18 * s.bore || s.pin > 0.4 * s.bore) return `the pin is 0.18 to 0.4 of the bore: ${(0.18 * s.bore).toFixed(1)} to ${(0.4 * s.bore).toFixed(1)} mm (0.25 to 0.3 is usual)`;
   const g = engineGeometry(s);
-  if (g.r < g.cp / 2 + s.shaft / 2 + 1.5) return `the stroke is too short for the shaft and the crank pin: it must be ${(2 * (g.cp / 2 + s.shaft / 2 + 1.5)).toFixed(1)} mm or more`;
+  if (g.r < g.cp / 2 + 1.5) return `the stroke is too short for the crank pin: it must be ${(2 * (g.cp / 2 + 1.5)).toFixed(1)} mm or more`;
   if (s.flywheel < 2 * g.rweb) return `the flywheel must be ${(2 * g.rweb).toFixed(1)} mm across or more (the crank disc is that big)`;
   if (g.shell.innerBelt < 2) return "the walls and the ring grooves leave no room inside the piston: a bigger bore, a thinner wall or fewer rings";
   if (g.slot > g.shell.inner - 1.5) return "the rod swings too far for the inside of the piston: a longer rod (a smaller ratio), a bigger bore, a thinner wall or a smaller pin";
@@ -116,10 +118,13 @@ export function engineSteps(s: EngineSpec, place?: Place): Result<ModelBuild> {
   b.extrude(up(g.x1), disc(0, 0, g.ro), [], s.wall, { mode: "add" });
   // the crankshaft: the shaft, the crank disc and the crank pin the rod's big eye turns on
   b.part("Crankshaft");
-  const zLow = -g.tf - 0.5;
+  // a two web crank (`dec_crankshaft_design`): the shaft, a lower web with a counterweight opposite the pin, the crank pin between the webs (the rod's big end is split so that it goes on between them), an upper web with its counterweight
+  const zLow = -g.tf - 0.5, webTopU = rodTop + 0.4;
+  const web = (z: number): void => { const cw = g.cw; b.extrude(b.plane(z), disc(0, 0, cw.hub), [], g.tw, { mode: "add", also: [{ outer: disc(g.r, 0, cw.boss), depth: g.tw }, { outer: box(0, -cw.neck, g.r, cw.neck), depth: g.tw }, { outer: disc(-cw.c, 0, cw.rc), depth: g.tw }] }); };
   b.extrude(b.plane(zLow), disc(0, 0, s.shaft / 2), [], webTop - zLow);
-  b.extrude(b.plane(webTop - g.tw), disc(0, 0, g.rweb), [], g.tw, { mode: "add" });
-  b.extrude(b.plane(webTop), disc(g.r, 0, g.cp / 2), [], rodTop + 2 - webTop, { mode: "add" });
+  web(webTop - g.tw);
+  b.extrude(b.plane(webTop - 0.0), disc(g.r, 0, g.cp / 2), [], webTopU - webTop + 0.0, { mode: "add" });
+  web(webTopU);
   b.part("Flywheel");
   b.extrude(b.plane(zLow), disc(0, 0, s.flywheel / 2), [disc(0, 0, s.shaft / 2 + rm)], g.tf);
   // the piston: a cylinder with the ring grooves, a slot across for the rod and the hole for the pin (cuts come before the rod, which stands in the slot)

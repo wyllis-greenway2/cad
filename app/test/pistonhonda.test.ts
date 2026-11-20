@@ -280,3 +280,36 @@ test("the cap goes with the rod in Play", async () => {
   const plan = playPlan("engine", ENGINE_START as never, { at: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0], ez: [0, 0, 1] });
   assert.ok(plan.glue.some((gl: string[]) => gl.includes("Connecting rod") && gl.includes("Rod cap")), "glued");
 });
+
+// The crankshaft (`dec_crankshaft_design`): the crank pin is Honda's (0.44 of the bore), two webs with counterweights, the pin between them; the kernel's volume against one worked out from the numbers.
+import { crankPinFor } from "../src/operation/pistondesign.ts";
+test("the crank pin is Honda's: 0.44 of the bore, within 1.5 % of 29.98 mm in 68 mm and 25.98 mm in 60 mm", () => {
+  assert.ok(Math.abs(crankPinFor(68) - 29.98) / 29.98 < 0.015, `${crankPinFor(68)}`);
+  assert.ok(Math.abs(crankPinFor(60) - 25.98) / 25.98 < 0.02, `${crankPinFor(60)}`);
+  for (const p of ENGINE_PRESETS) assert.equal(engineGeometry(p.spec).cp, crankPinFor(p.spec.bore), p.name);
+});
+function crankVolume(s: typeof ENGINE_START): number {
+  const g = engineGeometry(s), cw = g.cw, zLow = -g.tf - 0.5, webTop = g.zc - g.w / 2 - 0.4, webTopU = g.zc + g.w / 2 + 0.4;
+  const web = simpson((x) => { const iv: Iv[] = [...annulusAt(x, 0, cw.hub), ...annulusAt(x - g.r, 0, cw.boss), ...annulusAt(x + cw.c, 0, cw.rc)]; if (x >= 0 && x <= g.r) iv.push([-cw.neck, cw.neck]); return measure(iv); }, -cw.c - cw.rc, g.r + cw.boss, 40000);
+  return Math.PI * (s.shaft / 2) ** 2 * (webTop - g.tw - zLow) + 2 * web * g.tw + Math.PI * (g.cp / 2) ** 2 * (webTopU - webTop);
+}
+for (const [name, spec] of [["the usual engine", ENGINE_START], ["Honda GX160", ENGINE_PRESETS[1]!.spec], ["Honda GX120", ENGINE_PRESETS[0]!.spec]] as const) {
+  test(`${name}: the crankshaft has two webs and the pin between them: its volume is the worked-out one, and its sweep is the model's`, () => {
+    const r = engineSteps(spec);
+    assert.ok(r.ok);
+    if (!r.ok) return;
+    const c = asCommand(scene(createSession(kernel)), r.value.steps);
+    assert.ok(c.ok);
+    if (!c.ok) return;
+    const s = run(createSession(kernel), c.value);
+    assert.equal(s.message ?? null, null);
+    const g = engineGeometry(spec), top = g.zc + g.w / 2 + 0.4 + g.tw;
+    const bodies = Object.values(scene(s).parts).filter((x) => x.kind === "body") as unknown as { volume: number; bbox: { min: number[]; max: number[] } }[];
+    const crank = bodies.find((b) => Math.abs(b.bbox.max[2]! - top) < 0.05 && b.bbox.max[1]! - b.bbox.min[1]! < 2 * g.rweb + 0.1)!;
+    assert.ok(crank, "the crankshaft is found by its top");
+    const want = crankVolume(spec);
+    assert.ok(Math.abs(crank.volume - want) / want < 0.003, `kernel ${crank.volume.toFixed(1)} mm3, worked out ${want.toFixed(1)} mm3`);
+    assert.ok(Math.max(Math.abs(crank.bbox.min[0]!), Math.abs(crank.bbox.max[0]!), Math.abs(crank.bbox.min[1]!), Math.abs(crank.bbox.max[1]!)) <= g.rweb + 0.05, "no part of the crank sweeps beyond the web radius the clearances are checked with");
+    assert.ok(g.cw.rc + g.cw.c <= g.rweb + 1e-9 && g.r + g.cw.boss <= g.rweb + 1e-9, "the counterweight and the pin boss are inside it");
+  });
+}
