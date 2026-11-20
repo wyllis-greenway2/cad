@@ -262,6 +262,23 @@ function section(spec: typeof PISTON_START): (zq: number, deg: number) => number
     return out.sort((a, b) => a - b).filter((v, k, a) => k === 0 || v - a[k - 1]! > 1e-3);
   };
 }
+test("the curved ears: the skirt's foot is cut up at the sides of the pin along a curve seen from the thrust side, leaving the thrust pads reaching down; sections show it; the volume is the worked-out one", () => {
+  const base = P({ bore: 68, pin: 18, skirtShape: 0, skirtLen: 40, skirtStyle: 0, pinFlat: 0 }), ears = { ...base, skirtStyle: 2 }, g = pistonGeometry(ears);
+  assert.ok(g.ear.on && !g.arch.on && Math.abs(g.ear.h - (40 - g.shell.boss - 0.3)) < 1e-9 && Math.abs(g.ear.z0 - 0.6 * g.rp) < 1e-9, "auto: up to just below the bosses, starting 0.6 of the radius from the thrust plane");
+  assert.equal(pistonProblem(ears), null);
+  const full = section(base), cut = section(ears);
+  assert.ok(full(1, 0).length > 0 && cut(1, 0).length === 0 && cut(g.ear.h - 1, 0).length === 0, "on the pin's axis the wall is cut away up to the ears' rise");
+  assert.ok(cut(1, 90).length > 0 && Math.abs(cut(1, 90).slice(-1)[0]! - g.rp) < 0.05 && cut(g.ear.h - 1, 90).length > 0, `the thrust pads reach the foot: ${cut(1, 90)} ${cut(g.ear.h - 1, 90)} rp ${g.rp}`);
+  assert.ok(cut(1, 60).length > 0 && cut(1, 20).length === 0, "the curve leaves the foot between: 60 degrees from the pin's axis is still wall, 20 is cut");
+  assert.ok(cut(g.ear.h + 2, 0).length > 0, "above the ears the wall is there");
+  const fv = bodies(pistonSteps(base)).sort((a, b) => b.volume - a.volume)[0]!.volume, ev = bodies(pistonSteps(ears)).sort((a, b) => b.volume - a.volume)[0]!.volume;
+  const expect = pistonVolumes(base).cup - pistonVolumes(ears).cup;
+  assert.ok(fv - ev > 500 && Math.abs((fv - ev) - expect) / expect < 0.03, `the ears take ${(fv - ev).toFixed(1)} mm3 in the kernel, ${expect.toFixed(1)} worked out`);
+  assert.match(pistonProblem({ ...ears, earRise: 30 }) ?? "", /curved ears reach the pin bosses/);
+  assert.match(pistonProblem({ ...ears, earStart: 40 }) ?? "", /curved ears start/);
+  const low = { ...ears, earRise: 8 }, lv = bodies(pistonSteps(low)).sort((a, b) => b.volume - a.volume)[0]!.volume, wantLow = pistonVolumes(base).cup - pistonVolumes(low).cup;
+  assert.ok(pistonGeometry(low).ear.h === 8 && fv - lv > 100 && Math.abs((fv - lv) - wantLow) / wantLow < 0.03 && cut(1, 0).length > 0 === false && section(low)(10, 0).length > 0, `a low ear (one circle): ${(fv - lv).toFixed(1)} against ${wantLow.toFixed(1)}`);
+});
 test("the arched cutaway: the skirt is cut away at the sides of the pin in an arch and the ears on the thrust sides reach down; a section shows it; the volume is the worked-out one", () => {
   const base = P({ bore: 68, pin: 18, skirtShape: 0, skirtLen: 40, skirtStyle: 0, pinFlat: 0 }), arched = { ...base, skirtStyle: 1 }, g = pistonGeometry(arched);
   assert.ok(Math.abs(g.wedge - (50 * Math.PI) / 180) < 1e-9 && g.arch.on && Math.abs(g.arch.w - g.rp * Math.sin(g.wedge)) < 1e-9, "80 degrees a pad: the arch is as wide at the foot as the pads leave");
@@ -288,7 +305,7 @@ test("the arched cutaway: the skirt is cut away at the sides of the pin in an ar
   assert.equal(pistonProblem({ ...base, skirtStyle: 1, skirtLen: 10 }), null, "on by default and left out where there is no room: a skirt too short for an arch is a full skirt");
   assert.equal(pistonGeometry({ ...base, skirtStyle: 1, skirtLen: 10 }).arch.on, false);
   assert.match(pistonProblem({ ...base, skirtStyle: 1, padAngle: 10 }) ?? "", /a pad spans 30 to 150 degrees/);
-  assert.match(pistonProblem({ ...base, skirtStyle: 2 }) ?? "", /full \(0\) or two pads \(1\)/);
+  assert.match(pistonProblem({ ...base, skirtStyle: 3 }) ?? "", /full \(0\), two arched pads \(1\)/);
   assert.match(pistonProblem({ ...arched, archHeight: -1 }) ?? "", /arch's height is 0 \(auto\)/);
 });
 test("the flat with a ramp: its top angles out to the skirt's face before the ring belt; the volume is the worked-out one", () => {

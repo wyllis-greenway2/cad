@@ -5528,3 +5528,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1305 — 2026-11-20 — directive
 > add the key as its own body next
 (asks for the key itself to be made as a body of its own, next, in the keyway maker)
+
+## in_1306 — 2026-11-20 — directive
+> build the ears next
+(asks for the long, curved ears of the second picture to be built next)

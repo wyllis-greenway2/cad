@@ -4560,3 +4560,6 @@ Branch `claude/adoring-dijkstra-carry`. `in_1280` asked for a polygon tool that 
 
 ## Handoff 1157 — 2026-11-20 (in_1305: the key as its own body)
 `in_1305`. Make the key: a round or square ended parallel key as a body of its own, sized from the two slots (`keyTool` in `keywaymesh.ts`, `keySteps`, kind `key`), in the Models list and on the chip. The record keeps both slots' depths. Test in `keywaymesh.test.ts`; the Models list test in `fasteners.test.ts` has the new item. **Not built:** DIN 6885 key heights and lengths (no table), Woodruff keys.
+
+## Handoff 1158 — 2026-11-20 (in_1306: the curved ears)
+`in_1306`. Piston skirt style gained "Curved ears" (rise and start fields); worked-out volume through the curve; kernel and worked-out agree for a low and a tall ear. Not looked at on screen yet.
