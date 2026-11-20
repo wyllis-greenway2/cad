@@ -16,14 +16,16 @@ import { engineSteps, engineProblem, engineGeometry, engineFootprint, engineDisp
 import type { EngineSpec } from "./modelengine.ts";
 import { pistonSteps, pistonProblem, pistonExtent, pistonGeometry, pistonWeight, PISTON_START, PISTON_PRESETS, MATERIALS } from "./modelpiston.ts";
 import type { PistonSpec } from "./modelpiston.ts";
+import { rodSteps, rodProblem, rodExtent, rodAbout, rodGeometry, ROD_START, ROD_PRESETS } from "./modelrod.ts";
+import type { RodSpec } from "./modelrod.ts";
 import { fitNumbers } from "./modelfit.ts";
 import { wheelSteps, wheelCutSteps, wheelProblem, wheelLines, wheelLines3, repairWheel, edgeMade, WHEEL_START } from "./modelwheel.ts";
 import { keyholeSteps, keyshaftSteps, keywayProblem, keywayAbout, KEYWAY_START } from "./modelkeyway.ts";
 import type { KeywaySpec } from "./modelkeyway.ts";
 import type { WheelSpec } from "./modelwheel.ts";
 
-export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "piston" | "wheel" | "wheelcut" | "keyhole" | "keyshaft";
-export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine", "piston", "wheel", "wheelcut", "keyhole", "keyshaft"];
+export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "piston" | "rod" | "wheel" | "wheelcut" | "keyhole" | "keyshaft";
+export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine", "piston", "rod", "wheel", "wheelcut", "keyhole", "keyshaft"];
 /** The numbers of a model, by name */
 export type Nums = Record<string, number>;
 /** One number of a model: what it is called, a line that says what it is, and whether it grows with the overall size (a length of the thing, not a room left for the printer or a count) */
@@ -87,6 +89,12 @@ const GROUPS_PISTON = (f: ModelField[]): ModelField[] => grouped(f, [
   ["Pin and bosses", ["pinKind", "pinBore", "pinLen", "pinFit", "bossGap", "bossReach", "room"]],
   ["Pin retention", ["retention", "clipWidth", "clipDepth", "clipEdge", "pinFloat"]]]);
 
+const GROUPS_ROD = (f: ModelField[]): ModelField[] => grouped(f, [
+  ["Size", ["length", "pin", "crankPin", "thick", "smallThick", "room"]],
+  ["Beam", ["pockets"]],
+  ["Small end", ["bush", "bushWall"]],
+  ["Big end", ["shells", "shellWall", "bolts", "bolt"]]]);
+
 const catalogueShape = bearingFromNums;
 const catalogueProblem = (n: Nums): string | null => { const s = catalogueShape(n); return typeof s === "string" ? s : null; };
 const gb = (n: Nums): GearboxSpec => n as unknown as GearboxSpec;
@@ -94,6 +102,7 @@ const df = (n: Nums): DifferentialSpec => n as unknown as DifferentialSpec;
 const cy = (n: Nums): CycloidalSpec => n as unknown as CycloidalSpec;
 const en = (n: Nums): EngineSpec => n as unknown as EngineSpec;
 const pi = (n: Nums): PistonSpec => n as unknown as PistonSpec;
+const rd = (n: Nums): RodSpec => n as unknown as RodSpec;
 const wh = (n: Nums): WheelSpec => n as unknown as WheelSpec;
 
 const BEARING_START: Nums = { own: 0, number: 608, detail: 0, bore: 8, outer: 22, width: 7, ring: 0, clearance: 0.02, balls: 0, ball: 0 };
@@ -257,6 +266,23 @@ const DEFS: Record<ModelKind, Def> = {
     outline: (n) => { const s = pi(n); if (pistonProblem(s)) return []; const g = pistonGeometry(s); return [circle(0, 0, g.rp, 48), circle(0, 0, g.shell.inner, 48), circle(0, 0, g.rp - g.belt.depth, 48), rect(-g.pinHalf, -s.pin / 2, g.pinHalf, s.pin / 2)]; },
     about: (n) => { const s = pi(n), p = PISTON_PRESETS[Math.round((n.preset ?? 0)) - 1], e = pistonExtent(s), g = pistonGeometry(s); const w = pistonWeight(s, g); return `${p ? p.name + ": " : ""}${e.diameter.toFixed(1)} mm across, ${e.height.toFixed(1)} mm tall, ${w.total.toFixed(1)} g (piston ${w.piston.toFixed(1)}, pin ${w.pin.toFixed(1)}, circlips ${w.clips.toFixed(2)}), pin ${g.ch.toFixed(1)} mm below the crown; every number of 0 is worked out by a rule (Honda's numbers, or assumed ones: the field says which)`; },
   },
+  rod: {
+    title: "Connecting rod",
+    fields: GROUPS_ROD([{ ...F("preset", "Start from", "the Honda GX160's rod (its length, pins and bolts: the service and tech manuals), or your own numbers; a number you type replaces the preset's"), choices: ["Your own", ...ROD_PRESETS.map((e) => e.name.replace("Honda ", ""))], top: true },
+      F("length", "Length", "mm between the centres of the big and the small bore", true), F("pin", "Piston pin diameter", "mm: the small bore, before the sleeve", true), F("crankPin", "Crank pin diameter", "mm: the big bore, before the shells", true),
+      F("thick", "Thickness", "mm of the beam and the big end; 0: 0.75 of the pin, at least 3 (assumed)", true), F("smallThick", "Small end thickness", "mm; 0: the same as the beam (a narrower small end saves weight: the lower side carries the load)", true), F("room", "Room round the pins", "mm: the pins' running room in the bores (half of it is also left between rod and cap)"),
+      { ...F("pockets", "Beam pockets", "an I-beam: none, one long pocket in each face, or two (assumed proportions)"), choices: ["None", "One long", "Two"] },
+      { ...F("bush", "Small end sleeve", "none (the pin runs on the bore), or a bush pressed into the eye (most four-strokes)"), choices: ["None", "Bush"] }, F("bushWall", "Sleeve wall", "mm; 0: 0.06 of the pin, at least 1 (assumed)", true),
+      { ...F("shells", "Big end bearing", "none (the crank pin runs on the bore), or two half shells held in the rod and the cap (the usual plain bearing)"), choices: ["None", "Shells"] }, F("shellWall", "Shell wall", "mm; 0: 0.029 of the crank pin (from one worksheet, assumed)", true),
+      { ...F("bolts", "Cap bolts", "holes only, or two bolts as bodies (a socket head, threaded into the rod)"), choices: ["Holes only", "Bolts"] }, F("bolt", "Bolt diameter", "mm; 0: 0.2 of the crank pin, at least 2 (assumed)", true)]),
+    start: { ...(ROD_START as unknown as Nums) },
+    problem: (n) => rodProblem(rd(n)),
+    extent: (n) => (rodProblem(rd(n)) ? 0 : rodExtent(rd(n))),
+    centre: (n) => [rodProblem(rd(n)) ? 0 : rd(n).length / 2, 0],
+    build: (n, place) => rodSteps(rd(n), place),
+    outline: (n) => { const s = rd(n); if (rodProblem(s)) return []; const g = rodGeometry(s), xp = g.l, hb = 0.6 * g.rb, hs = 0.6 * g.rs; return [circle(0, 0, g.rb, 48), circle(0, 0, g.ri, 40), circle(xp, 0, g.rs, 40), circle(xp, 0, g.eye, 32), [[g.rb - 1, -hb], [xp - g.rs + 1, -hs], [xp - g.rs + 1, hs], [g.rb - 1, hb], [g.rb - 1, -hb]]]; },
+    about: (n) => rodAbout(rd(n)),
+  },
   cycloidal: {
     title: "Cycloidal drive",
     fields: [F("pins", "Ring pins", "the disc has one lobe fewer: the ratio is that number"), F("circle", "Pin circle radius", "mm", true), F("pin", "Ring pin diameter", "mm", true), F("ecc", "Eccentricity", "how far the disc's middle stands off the shaft's", true), F("play", "Disc room", "the disc is taken in by this much all round, so it runs free"), F("disc", "Disc thickness", "mm", true), F("outPins", "Output pins", "3 or more"), F("outCircle", "Output pin circle radius", "mm", true), F("outPin", "Output pin diameter", "mm", true), F("shaft", "Input shaft diameter", "mm", true), F("cam", "Eccentric radius", "mm", true), F("plate", "Plate thickness", "mm", true), F("gap", "Layer gap", "mm"), F("room", "Shaft room in the plates", "mm")],
@@ -321,7 +347,7 @@ export function modelNumbers(kind: ModelKind, typedIn: Nums, size?: number): Num
     if (row) { n.bore = row.d; n.outer = row.D; n.width = row.B; n.ring = 0; const sh = catalogueShape(n); if (typeof sh !== "string") n.ring = Math.round(2 * (sh.pitch - sh.surface) * 100) / 100; } // (the numbers shown are the bearing's)
     return n;
   }
-  const preset = kind === "engine" ? ENGINE_PRESETS[Math.round(typedIn.preset ?? 0) - 1] : kind === "piston" ? PISTON_PRESETS[Math.round(typedIn.preset ?? 0) - 1] : undefined; // (a preset engine is another start: its numbers scale as the usual ones do, `dec_engine_presets`)
+  const preset = kind === "engine" ? ENGINE_PRESETS[Math.round(typedIn.preset ?? 0) - 1] : kind === "piston" ? PISTON_PRESETS[Math.round(typedIn.preset ?? 0) - 1] : kind === "rod" ? ROD_PRESETS[Math.round(typedIn.preset ?? 0) - 1] : undefined; // (a preset engine is another start: its numbers scale as the usual ones do, `dec_engine_presets`)
   const base: Nums = preset ? { ...d.start, ...(preset.spec as unknown as Nums) } : d.start;
   const raw = (f: number): Nums => {
     const n: Nums = { ...base };

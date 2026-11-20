@@ -11,6 +11,8 @@ import type { DifferentialSpec } from "./modeldifferential.ts";
 import type { CycloidalSpec } from "./modelcycloidal.ts";
 import { engineGeometry, pistonX, rodAngle } from "./modelengine.ts";
 import type { EngineSpec } from "./modelengine.ts";
+import { rodGeometry } from "./modelrod.ts";
+import type { RodSpec } from "./modelrod.ts";
 
 /** A part that turns about an axis by `k` degrees for each degree of the driver; with `after`, the whole is then turned again about another axis by `after.k` times the driver's amount (a ball or a disc that goes round) */
 export interface PlayFollower { part: string; point: Vec3; dir: Vec3; k: number; /** a slide along `dir` (not a turn), and/or an amount for each whole degree of the driver in place of `k` (the slider crank: not a constant ratio) */ kind?: "turn" | "slide"; table?: number[]; after?: { point: Vec3; dir: Vec3; k: number; slip?: true } }
@@ -46,6 +48,7 @@ export function playPlan(kind: ModelKind, n: Nums, place: Place): PlayPlan {
   if (kind === "keyshaft") return { driver: { part: "Shaft", point: o, dir: ez }, followers: [], glue: [], pivots: [{ part: "Shaft", point: o, dir: ez }], note: "the shaft turns about its axis" };
   if (kind === "wheelcut") return { driver: { part: "Pockets", point: o, dir: ez }, followers: [], glue: [], note: "" };
   if (kind === "piston") return { driver: { part: "Piston", point: o, dir: ez }, followers: [], glue: [["Piston", "Piston pin", ...((n as unknown as { retention?: number }).retention === 1 ? ["Circlip 1", "Circlip 2"] : [])]], note: "the piston and its pin" };
+  if (kind === "rod") { const g = rodGeometry(n as unknown as RodSpec); return { driver: { part: "Connecting rod", point: o, dir: ez }, followers: [], glue: [["Connecting rod", "Rod cap", ...(g.bush > 0 ? ["Small end bush"] : []), ...(g.shell > 0 ? ["Bearing shell 1", "Bearing shell 2"] : []), ...(g.bolts === 1 ? ["Cap bolt 1", "Cap bolt 2"] : [])]], note: "the rod with its cap, shells, sleeve and bolts" }; }
   if (kind === "wheel") return { driver: { part: "Wheel", point: o, dir: ez }, followers: [], glue: [], pivots: [{ part: "Wheel", point: o, dir: ez }], note: "the wheel turns about its axis" };
   if (kind === "engine") {
     const s = n as unknown as EngineSpec, g = engineGeometry(s), r4 = (v: number): number => Math.round(v * 1e4) / 1e4;

@@ -103,6 +103,7 @@ Object.assign(ICONS, {
   keyhole: svg('<circle cx="8" cy="8" r="6.4"/><path d="M5.6 8a2.4 2.4 0 1 0 4.8 0 2.4 2.4 0 0 0-4.8 0M7 5.8V4.2h2v1.6"/>'),
   keyshaft: svg('<path d="M2 5.5h12M2 10.5h12M2 5.5v5M14 5.5v5M5.5 5.5V4M5.5 12v-1.5M9 5.5V4M9 12v-1.5"/>'),
   wheelcut: svg('<circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.6"/><path d="M8 2.8l1.6 3.2M13 8l-3.2 1.6M8 13.2L6.4 10M3 8l3.2-1.6" stroke-dasharray="1.6 1.4"/>'),
+  rod: svg('<path d="M2.5 8a2 2 0 1 0 4 0a2 2 0 1 0 -4 0z M11 8a1.2 1.2 0 1 0 2.4 0a1.2 1.2 0 1 0 -2.4 0z M6.4 7h4.6 M6.4 9h4.6"/>'),
   piston: svg('<path d="M4 2.4h8v9H4z M4 5h8 M4 6.8h8 M4 8.6h8 M6.6 9.6a1.4 1.4 0 1 0 2.8 0a1.4 1.4 0 1 0 -2.8 0z"/>'),
   engine: svg('<path d="M4.2 1.6h7.6v7.2H4.2z M4.2 4.2h7.6 M4.2 6h7.6 M8 8.8l-3 4.2 M5 13a1.4 1.4 0 1 0 2.8 0a1.4 1.4 0 1 0 -2.8 0z M8 8.8v.01"/>'),
   differential: svg('<path d="M1.2 8a6.8 6.8 0 1 0 13.6 0a6.8 6.8 0 1 0 -13.6 0z M8 1.4v13.2 M1.4 8h13.2 M9.5 8a1.5 1.5 0 1 0 -3 0a1.5 1.5 0 1 0 3 0z"/>'),

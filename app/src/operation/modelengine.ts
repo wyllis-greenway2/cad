@@ -11,7 +11,7 @@ import { pistonFit, rodDesign, crankPinFor } from "./pistondesign.ts";
 import type { RingBelt, Shell, RodDesign } from "./pistondesign.ts";
 import { pistonGeometry, pistonProblem, buildPiston, PISTON_START } from "./modelpiston.ts";
 import type { PistonSpec } from "./modelpiston.ts";
-import { bulgeOf } from "./arcs.ts";
+import { buildRod } from "./modelrod.ts";
 
 export interface EngineSpec {
   /** the cylinder's bore, the stroke (mm) and the rod ratio: the crank's radius over the rod's length (0.25 to 0.33 is usual) */ bore: number; stroke: number; ratio: number;
@@ -124,26 +124,9 @@ export function engineSteps(s: EngineSpec, place?: Place): Result<ModelBuild> {
   // the piston and its pin (`modelpiston.ts`, the piston maker's own code)
   buildPiston(b, pistonOf(s), g.pg, xp0, g.zc);
   // the connecting rod (`dec_rod_design`): the small eye, an I-beam (a pocket in each face, a web and flanges between), and the upper half of the split big end with its two lugs; the cap is the lower half, a body of its own; the bolt holes go through both lugs
-  b.part("Connecting rod");
-  const hb = 0.6 * g.rb, hs = 0.6 * g.rs, xa = g.r + g.rb - 1, xb = xp0 - g.rs + 1, at = (x: number): number => hb + ((hs - hb) * (x - g.r)) / g.l;
-  const ri = g.cp / 2 + rm, rd = g.rod, lugY0 = ri + 0.3, lugY1 = g.rb + rd.bolt + 0.6;
-  const e = rm / 2; // (the two halves are two bodies: their parting faces stand half the room either side of the crank pin's middle)
-  const ringHalf = (sign: 1 | -1): Shape => { // (the half ring on one side of the split, `sign` toward the piston: its flat face at the parting face, its arcs about the crank pin)
-    const xs = g.r + sign * e, yo = Math.sqrt(g.rb * g.rb - e * e), yi = Math.sqrt(ri * ri - e * e);
-    const A: [number, number] = [xs, -yo], B: [number, number] = [xs, yo], C: [number, number] = [xs, yi], D: [number, number] = [xs, -yi];
-    return outline([A, B, C, D], [bulgeOf(A, [g.r + sign * g.rb, 0], B), 0, bulgeOf(C, [g.r + sign * ri, 0], D), 0]);
-  };
-  const lug = (sign: 1 | -1, side: 1 | -1): Shape => { const xs = g.r + sign * e, xe = g.r + sign * rd.lug, y0 = side * lugY0, y1 = side * lugY1; return box(Math.min(xs, xe), Math.min(y0, y1), Math.max(xs, xe), Math.max(y0, y1)); };
-  b.extrude(b.plane(g.zc - g.w / 2), outline([[xa, -at(xa)], [xb, -at(xb)], [xb, at(xb)], [xa, at(xa)]]), [], g.w, { also: [
-    { outer: ringHalf(1), depth: g.w }, { outer: lug(1, 1), depth: g.w }, { outer: lug(1, -1), depth: g.w },
-    { outer: disc(xp0, 0, g.rs), holes: [disc(xp0, 0, s.pin / 2 + rm)], depth: g.w }] });
-  const pocket = (): Shape => { const x0 = g.r + g.rb + 1.5, x1 = xp0 - g.rs - 1.5, y = (x: number): number => at(x) - rd.flange; return outline([[x0, -y(x0)], [x1, -y(x1)], [x1, y(x1)], [x0, y(x0)]]); };
-  const deep = (g.w - rd.web) / 2;
-  b.extrude(b.plane(g.zc + g.w / 2), pocket(), [], -deep, { mode: "cut" });
-  b.extrude(b.plane(g.zc - g.w / 2), pocket(), [], deep, { mode: "cut" });
-  b.part("Rod cap");
-  b.extrude(b.plane(g.zc - g.w / 2), ringHalf(-1), [], g.w, { also: [{ outer: lug(-1, 1), depth: g.w }, { outer: lug(-1, -1), depth: g.w }] });
-  for (const side of [1, -1]) b.extrude(b.frame([g.r - rd.lug - 1, 0, g.zc], [0, 1, 0], [0, 0, 1]), disc(side * rd.boltY, 0, rd.bolt / 2), [], 2 * rd.lug + 2, { mode: "cut" });
+  // the connecting rod and its cap (`dec_rod_design`, `modelrod.ts`: the rod maker's own code; the sleeve, shells and bolts are off here)
+  const rd = g.rod;
+  buildRod(b, { l: g.l, pin: s.pin, rm, w: g.w, ws: g.w, rb: g.rb, ri: g.cp / 2 + rm, rs: g.rs, eye: s.pin / 2 + rm, web: rd.web, flange: rd.flange, bolt: rd.bolt, lug: rd.lug, boltY: rd.boltY, pockets: 1, bush: 0, shell: 0, bolts: 0, cpR: g.cp / 2 }, g.r, g.zc);
   return ok(b.build());
 }
 

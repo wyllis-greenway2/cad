@@ -1,9 +1,9 @@
 ---
-id: q_rod_maker
-kind: question
-status: open
-origin: ai-unreviewed
-human_input: in_1280, in_1281, in_1283, in_1284
+id: dec_rod_maker
+kind: decision
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_1280, in_1281, in_1283, in_1284, in_1285
 date: 2026-11-20
 depends_on:
   - dec_rod_design: this entry grows that entry's rod (I-beam, split big end, two bolt holes) into a maker with its own box; its shapes are the starting point
@@ -13,7 +13,7 @@ alternative_to:
 ---
 # A connecting rod maker: a cast rod with a bolted cap, bearing shells and a small end bush, whose ends fit the piston maker's pin and the crank pin
 
-The human (`in_1280`) wants a **rod maker**, in the way the piston maker is a maker (a model of its own in *Models*, with every variable of the rod in a box of grouped numbers, real engines as presets), so that the rod and the piston make one assembly, and a rod "that really could work in a real engine, with all the features and details of a real arm". This entry is the design asked for approval. **Nothing is built.**
+The human (`in_1280`) wants a **rod maker**, in the way the piston maker is a maker (a model of its own in *Models*, with every variable of the rod in a box of grouped numbers, real engines as presets), so that the rod and the piston make one assembly, and a rod "that really could work in a real engine, with all the features and details of a real arm". Its first slice is built (below).
 
 ## What the piston maker does (read, and what the rod maker takes from it)
 A model kind (`modelkinds.ts` entry, `modelpiston.ts` builds it, a `Builder` makes steps and bodies), numbers in groups that fold, **0 = auto** (a rule works it out; a number typed is never moved), a *Start from* preset row, about text with weight and what is assumed, a blue wireframe preview, and **the engine builds its piston by the same code**. The rod maker follows all of that. Its inputs from the piston: the pin's diameter, the pin's room, the room between the bosses (the rod's small end width is that less the room each side), the retention (circlips: the small end needs no more room than the bosses give).
@@ -57,12 +57,15 @@ What they settle, and what the rod maker takes from it:
 - **Big end:** split, cap on two bolts; the drawings show the beam's shoulders widening into the big end, and a bulge at the cap's bottom.
 - **Process items stay out** (`in_1281`): forging, cracking the cap, the way the bush is pressed (heating or cooling), deburring and the machining order.
 
-## Questions for the human
-0. **Bearings (new).** Proposed: the rod's **big end bearing type** is a typed choice: *Plain shells* (two shells, the default), *Needle rollers* (a one-piece rod, a cage and rollers, with the crank pin a separate round pin; the cap is dropped), or *None* (a bare bore). The small end the same: *Bush* (a sleeve), *Needle*, *None*. Is that the right set?
-1. **Scope of the first slice.** Suggested: the rod and cap as the engine has them, now with a typed **bearing shell** (two shells), a **small end bush**, a real **bolt** (a body each, from the fasteners table), the beam section choice and fillets and draft, and the Honda presets; then the clamped small end and the oil drilling after.
-2. **Sources.** Can you upload a page or two: a rod's drawing with dimensions (a service or a hobby engine's: Honda's rod drawing is not in the manual), a bearing shell table (any maker's: the wall thickness for a given bore, the width, the crush, the tab), or a book page on rod proportions (Machinery's Handbook, Kean)? Without them the proportions are assumed.
-3. **Where it lives.** A model of its own (*Models > Connecting rod*, standing, small end up), and the engine builds its rod by the same code (as for the piston). Is that right?
-4. **Fit with the piston maker.** The rod takes the pin, the boss gap and the retention from the piston's numbers; in the Rod model alone those three are typed in the Rod's box. Is that enough, or should the two be one model, *Piston and rod*, to start?
+## The first slice, built (`in_1285`: "build the first slice now with assumed proportions")
+**Where the human's answer stops and mine starts:** the human approved the first slice as proposed, with **assumed proportions**. The four open questions were not answered one by one; the choices below are mine, and the human can change any of them:
+- **Model of its own** (*Models > Connecting rod*, `model:rod`, `modelrod.ts`), lying along +x with the big end at the origin, resting on the ground; **the engine builds its rod by the same `buildRod`** with the new parts off (the engine's nine bodies and volumes are unchanged, a test holds them).
+- **Numbers (14, in four groups):** Size (length, piston pin, crank pin, thickness, small end thickness, room round the pins), Beam (pockets: none / one long / two), Small end (sleeve: none / bush; its wall), Big end (bearing: none / two shells; shell wall; bolts: holes only / two bolts; bolt diameter). **0 = auto** where the field says so.
+- **Bodies:** Connecting rod, Rod cap, Small end bush, Bearing shell 1 and 2, Cap bolt 1 and 2 (seven); none shares volume with another (a test intersects every pair). The sleeve, shells and bolts stand a hair clear (0.02 mm radially, 0.05 mm along the bolt) of what they sit in.
+- **Preset:** the Honda GX160's rod only (84.1 mm, pin 18, crank pin 30, two bolts, **no shells and no sleeve**: Honda's 30.02 big end on a 29.98 pin is the 0.040 mm oil clearance Honda states, so the pin runs on the bare bore: my arithmetic). The GX120's and GX200's rod lengths have no source, so there is no preset for them.
+- **Assumed (all proportions):** sleeve wall 0.06 of the pin (at least 1 mm); shell wall 0.029 of the crank pin (one hard-to-read worksheet); eye walls 1.5 mm, big end wall 2.5 mm (the engine's); thickness 0.75 of the pin; web 0.3 of the thickness; flanges 0.18 of the small end's outer radius; bolt 0.2 of the crank pin (an M6 for a GX160: Honda's 12 N m torque suggests it); lugs 1.5 bolts; the two-pocket rib 0.12 of the pocket's length.
+- **Not built (a later slice, still wanted):** the pin arrangements other than fully floating (the second sleeve on the pin, a clamped small end), H and X beams, blend radii, the shells' crush, tabs and oil grooves, the oil hole and drilling, bolt threads and nuts, needle bearings, a stepped small end shape (only a thinner small end is typed), the rod in the engine's box, and the combined Piston and rod model. The engine has no shells, sleeve or bolts yet.
+- **Not in this tool, by design** (`in_1281`): draft, machining allowances, the way a bush is pressed in, deburring: manufacturing routes.
 
 ## Rationale
 The human asked for a rod maker that works with the piston maker and has the details of a real rod. The piston maker's pattern (one code for the maker and the engine, typed numbers with an auto rule, presets only from a source) keeps the two from disagreeing, and the engine's rod is already there to grow. The list is proposed, not approved: most rod proportions have no source in the repo, so each is marked assumed until the human gives a better one.
