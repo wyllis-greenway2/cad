@@ -411,7 +411,7 @@ test("the middle of a line is snapped to, so a point or a corner can be put half
 });
 
 test("an arc's other end is level or upright with its first end when it is near, and the arc is made with that constraint (`in_381`)", (t) => {
-  settings.sketch.hintConstraints = true; t.after(() => { settings.sketch.hintConstraints = false; }); // (what a taken hint makes, `in_1327`)
+  settings.sketch.hintConstraints = true; t.after(() => { settings.sketch.hintConstraints = false; }); // (what a taken hint makes, `in_1328`)
   let st = top();
   st = reduce(st, { type: "begin", name: "arc" }, env);
   st = click(st, [5, 5, 0]);
@@ -474,7 +474,7 @@ test("the tool stays on after a figure, ready on the same plane for the next one
 
 
 test("hints while drawing a line: close to level it becomes level with a horizontal constraint; close to square to a line it becomes perpendicular; on another line it is put on it", (t) => {
-  settings.sketch.hintConstraints = true; t.after(() => { settings.sketch.hintConstraints = false; }); // (what a taken hint makes, `in_1327`)
+  settings.sketch.hintConstraints = true; t.after(() => { settings.sketch.hintConstraints = false; }); // (what a taken hint makes, `in_1328`)
   let st = top();
   st = reduce(st, { type: "begin", name: "line" }, env);
   st = click(st, [5, 5, 0]);
@@ -499,7 +499,7 @@ test("hints while drawing a line: close to level it becomes level with a horizon
 });
 
 test("a line from the centre of a circle to its edge ends exactly on the circle with an 'on circle' constraint; at that spot repeated clicks cycle between the corner and the circle, and both can be constrained", (t) => {
-  settings.sketch.hintConstraints = true; t.after(() => { settings.sketch.hintConstraints = false; }); // (what a taken hint makes, `in_1327`)
+  settings.sketch.hintConstraints = true; t.after(() => { settings.sketch.hintConstraints = false; }); // (what a taken hint makes, `in_1328`)
   let st = top();
   st = reduce(st, { type: "begin", name: "circle" }, env);
   st = click(st, [20, 20, 0]);
@@ -565,7 +565,7 @@ test("a small circle: pointing at its edge a few pixels from its centre point pi
 });
 
 test("a circle drawn about another circle's centre: a concentric hint shows, and the new circle is made concentric; two circles can be made concentric by hand", (t) => {
-  settings.sketch.hintConstraints = true; t.after(() => { settings.sketch.hintConstraints = false; }); // (what a taken hint makes, `in_1327`)
+  settings.sketch.hintConstraints = true; t.after(() => { settings.sketch.hintConstraints = false; }); // (what a taken hint makes, `in_1328`)
   let st = top();
   st = reduce(st, { type: "begin", name: "circle" }, env);
   st = click(st, [20, 20, 0]);
@@ -1027,7 +1027,7 @@ test("polygon snapping (`in_1285`): a corner near level or upright with the midd
   near(centre[0], 20, 1e-6); near(centre[1], 15, 1e-6);
 });
 
-test("sketching on the face of a disk (`in_1322`, `in_1323`): the middle of its rim is a point to take and to line up with, level and upright, though the rim has no corner there", () => {
+test("sketching on the face of a disk (`in_1323`, `in_1324`): the middle of its rim is a point to take and to line up with, level and upright, though the rim has no corner there", () => {
   let st = top();
   const c = drawCircle(scene(st.session), worldRef("XY"), [20, 15, 0], 10);
   st = { ...st, session: run(st.session, c.command) };
@@ -1047,7 +1047,7 @@ test("sketching on the face of a disk (`in_1322`, `in_1323`): the middle of its 
   assert.ok(upright && Math.abs(upright[0] - 20) < 1e-6, `upright: ${JSON.stringify(upright)}`);
 });
 
-test("a snap or a hint only places (`in_1327`): a line close to level is put level and square, and no constraint is made; a rectangle keeps its own; a circle on a circle's edge is placed there, with none", () => {
+test("a snap or a hint only places (`in_1328`): a line close to level is put level and square, and no constraint is made; a rectangle keeps its own; a circle on a circle's edge is placed there, with none", () => {
   let st = top();
   st = reduce(st, { type: "begin", name: "line" }, env);
   st = click(st, [5, 5, 0]);

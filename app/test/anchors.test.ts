@@ -73,7 +73,7 @@ import { suggestionsFor, nearCommand } from "../src/interaction/suggest.ts";
 import { anchorRounds } from "../src/operation/anchors.ts";
 
 test("a circle drawn on the face with its centre near the centre of the body's edge goes there and is made concentric with it (`in_308`)", (t) => {
-  settings.sketch.hintConstraints = true; t.after(() => { settings.sketch.hintConstraints = false; }); // (what a taken hint makes, `in_1327`)
+  settings.sketch.hintConstraints = true; t.after(() => { settings.sketch.hintConstraints = false; }); // (what a taken hint makes, `in_1328`)
   const s = open();
   const { edge, round } = setup(s);
   const pl = scene(s).parts["d/p_030"] as never;

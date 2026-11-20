@@ -1,4 +1,4 @@
-// A mate that cannot be made is refused quickly (`in_1324`): the human's model had 34 sketches in conflict, and each was searched for its culprit (0.4 s each) at every pose the mate tried, so Coincident on two faces hung for 14 s.
+// A mate that cannot be made is refused quickly (`in_1325`): the human's model had 34 sketches in conflict, and each was searched for its culprit (0.4 s each) at every pose the mate tried, so Coincident on two faces hung for 14 s.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -8,7 +8,7 @@ import { actionsFor } from "../src/interaction/actions.ts";
 
 await kernel.init();
 test("two faces that cannot be mated are refused in seconds, with the reason", () => {
-  const o = openSession(kernel, readFileSync(new URL("./fixtures/cannot-mate-face-in_1324.cad.json", import.meta.url), "utf8"));
+  const o = openSession(kernel, readFileSync(new URL("./fixtures/cannot-mate-face-in_1325.cad.json", import.meta.url), "utf8"));
   assert.ok(o.ok);
   const sel = ["b/body/f@1,0,0,57.72", "b/body/f@1,0,0,31.02"];
   const flush = actionsFor(scene(o.value), sel as never).find((a) => a.id === "mate:flush");

@@ -13,7 +13,7 @@ import { homeCamera, projector } from "../src/interaction/camera.ts";
 import { frameOf } from "../src/interaction/frame.ts";
 import type { Part } from "../src/operation/part.ts";
 
-settings.sketch.hintConstraints = true; // (these test what a taken hint makes: the constraints, `in_1327`; by default it makes none)
+settings.sketch.hintConstraints = true; // (these test what a taken hint makes: the constraints, `in_1328`; by default it makes none)
 await kernel.init();
 const env = { w: 800, h: 600, now: 0 };
 

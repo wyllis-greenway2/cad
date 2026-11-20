@@ -106,3 +106,55 @@ test("the Mirror operation has no buttons: three arrows from the middle of the b
   assert.equal(step.params.pz, 6);
   assert.ok(Math.abs(volume(st.session) - 480) < 0.5, `the copy is the block reflected across z = 6: ${volume(st.session)}`);
 });
+
+import { mirrorAcross } from "../src/interaction/mirror.ts";
+import { actionsFor } from "../src/interaction/actions.ts";
+
+test("mirrored across a line of the drawing: the plane holds the line and stands across the sheet; a face is its own plane (`in_1306`)", () => {
+  let s = createSession(kernel);
+  const r = drawChain(scene(s), XY, [[2, 1, 0], [6, 1, 0], [6, 4, 0]]);
+  s = run(s, r.command);
+  const op = begin(s, [...r.corners, ...r.lines] as string[]);
+  const set = mirrorAcross(op, { kind: "line", a: [6, 1, 0], b: [6, 4, 0], sheet: [0, 0, 1] })!;
+  const out = runOp(s, set)!;
+  assert.equal(out.session.message, null);
+  const after = corners(out.session);
+  for (const c of [[10, 1], [6, 1], [6, 4]]) assert.ok(after.some((a) => Math.abs(a[0]! - c[0]!) < 1e-9 && Math.abs(a[1]! - c[1]!) < 1e-9), `a corner at ${c}`);
+  // a body, across a face standing at x = 12
+  const b = block();
+  const bo = begin(b, [BODY_OBJECT]);
+  const across = runOp(b, mirrorAcross(bo, { kind: "face", at: [12, 3, 2], n: [1, 0, 0] })!)!;
+  assert.ok(Math.abs(volume(across.session) - 480) < 0.5, `volume ${volume(across.session)}`);
+  assert.ok(Math.abs(across.session.outcome.kernel!.bbox!.max[0]! - 22) < 1e-6);
+});
+
+test("the copy of a mirrored sketch can be deleted: the copy and its mirror go, the drawing stays (`in_1306`)", () => {
+  let s = createSession(kernel);
+  const r = drawChain(scene(s), XY, [[2, 1, 0], [6, 1, 0], [6, 4, 0]]);
+  s = run(s, r.command);
+  const op = begin(s, [...r.corners, ...r.lines] as string[]);
+  const out = runOp(s, { ...op, mirrorAxis: 0, mirrorAt: [0, 0, 0] })!.session;
+  const before = corners(s).length;
+  const copy = Object.values(scene(out).parts).filter((p) => p.ref.includes(".c") && !p.movable).map((p) => p.ref);
+  assert.ok(copy.length > 0);
+  const del = actionsFor(scene(out), copy).find((a) => a.id === "delete");
+  assert.ok(del, "Delete is offered on the copy");
+  const gone = run(out, del!.run());
+  assert.equal(corners(gone).length, before);
+  assert.equal(scene(gone).patterns?.length ?? 0, 0);
+});
+
+test("with the mirror open, a click on a line of the drawing puts the plane there (`in_1306`)", () => {
+  let s = createSession(kernel);
+  const r = drawChain(scene(s), XY, [[0, 0, 0], [40, 0, 0], [40, 40, 0]]);
+  s = run(s, r.command);
+  let st = { ...createState({ ...s, click: { ...s.click, selection: [...r.corners, ...r.lines] as never } }), cam: homeCamera() };
+  st = reduce(st, { type: "begin", name: "mirror" }, env);
+  assert.equal(st.op?.kind, "mirror");
+  const [x, y] = projector(st.cam, 800, 600).project([40, 35, 0]);
+  st = reduce(st, { type: "click", x, y, count: 1, shift: false }, env);
+  assert.equal(st.op?.kind, "mirror", "the mirror stays open");
+  const n = st.op!.frame![st.op!.mirrorAxis ?? 0]!;
+  assert.ok(Math.abs(Math.abs(n[0]) - 1) < 1e-6, `the plane's normal is along x: ${n}`);
+  assert.ok(Math.abs(st.op!.pivot![0] - 40) < 1e-6, `the plane stands at x = 40: ${st.op!.pivot}`);
+});
