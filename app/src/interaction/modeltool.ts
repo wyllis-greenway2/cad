@@ -216,12 +216,16 @@ export function partIds(c: Command): { step?: string; gear?: string } {
   if (c.type === "batch") for (const x of c.commands) { const r = partIds(x); if (r.step || r.gear) return r; }
   return {};
 }
+/** The record of what the keyway maker made, for Mesh (`in_1279`): where it stands, its shape and the body it is on; none for a model that is not a keyed hole or shaft. A one part model carries it in the command of its part. */
+export function keywayCommand(scene: Scene, b: Building): Command[] {
+  const first = b.ids[b.build.parts[0]?.label ?? ""], kw = b.keyway, host = kw?.host ?? (first?.step ? `x_${first.step}` : "");
+  return kw && host ? [{ type: "keyway", record: { ...kw, id: `k_${first?.step ?? scene.counter}`, host } }] : [];
+}
 /** The commands that finish a model that is made: the record that lets it be played (how it moves and which body is which part) and the glue between the parts that are fixed to one another */
 export function finishCommand(scene: Scene, b: Building): Command | null {
   const first = b.ids[b.build.parts[0]?.label ?? ""];
   const key = first?.step ?? first?.gear;
-  const kw = b.keyway, host = kw?.host ?? (first?.step ? `x_${first.step}` : "");
-  const keyRecord: Command[] = kw && host ? [{ type: "keyway", record: { ...kw, id: `k_${first?.step ?? scene.counter}`, host } }] : []; // (what the keyway maker made, for Mesh)
+  const keyRecord: Command[] = b.build.parts.length === 1 ? [] : keywayCommand(scene, b); // (a one part model has its record in the command of its part, so that one undo takes both: `in_1284`)
   if (!key) return keyRecord.length ? { type: "batch", commands: keyRecord } : null;
   const record: ModelPlay = { id: `m_${key}`, title: b.title, driver: b.play.driver, followers: b.play.followers, note: b.play.note, parts: b.ids };
   const bodyId = (part: string): string | null => { const p = b.ids[part]; if (!p) return null; if (p.step) return `x_${p.step}`; const st = scene.steps.find((x) => x.params.gear === p.gear && (x.params.mode === undefined || x.params.mode === "new")); return st ? `x_${st.id}` : null; }; // (a gear's body is named by the step that began it)

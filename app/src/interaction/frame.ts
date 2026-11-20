@@ -1,5 +1,6 @@
 // What to draw for the current state: one plain description the view, the chip, the badges and the controls draw from. All the decisions about what is shown
 // (the big axes or the compass, which plane's grid, whether badges give way to a tool or operation) are made here, so the UI only draws.
+import { keywayOf } from "./keywaymesh.ts";
 import { fixOffered } from "./fixmotion.ts";
 import { cutParts, cutStep } from "./cut.ts";
 import { pieceMiddle } from "../operation/trim.ts";
@@ -504,8 +505,8 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     clash: s.motion?.contact?.jam && s.motion.contact.clash?.length ? s.motion.contact.clash : null, // (the two bodies of a jam, whole, shaded red, `in_1191`) // (the places where bodies are in each other when a motion has stopped: in the red of the thin places)
     bodyEyes: index.bodies.flatMap((p) => { if (!p.bbox) return []; const [lo, hi] = [p.bbox.min, p.bbox.max]; const corners: Vec3[] = []; for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) corners.push([x, y, z]); const drives = animated(sc).get(p.ref); const m = s.motion; return [{ ref: p.ref, hidden: !!sc.hiddenBodies?.includes(p.ref), corners, ...(drives && selBodies.has(p.ref) ? { selected: true as const } : {}), ...(drives ? { play: m && m.body === drives && m.playing ? "pause" as const : "play" as const } : {}) }]; }),
     eyesQuiet: true, // (a body that is shown has no eye of its own now: Hide body is in the View menu, `in_697`; a hidden body keeps its eye)
-    bar: busy || s.drag || s.repeat ? null : barOf(barFacts(s, sc, sel, selBodies, index, gearChipOf(sc, sel)), suggest ? suggest.at : null),
-    gearChip: s.tool || s.op || s.drag || s.repeat ? null : gearChipOf(sc, sel), // (the gear's icon is there when the gear is selected, not when the pointer is over it, `in_962`)
+    bar: busy || s.drag || s.repeat ? null : barOf(barFacts(s, sc, sel, selBodies, index, gearChipOf(sc, sel) ?? keywayChipOf(sc, sel)), suggest ? suggest.at : null),
+    gearChip: s.tool || s.op || s.drag || s.repeat ? null : gearChipOf(sc, sel) ?? keywayChipOf(sc, sel), // (the gear's icon is there when the gear is selected, not when the pointer is over it, `in_962`)
     followers: gpu?.followers ?? [],
     selectionMatrix: s.motion ? selectionMatrixOf(s.motion, selBodies) : null,
     selectionMoves: !!bodyMatrix && sel.length > 0 && sel.every((r) => { const p = sc.parts[r]; return !!p && (p.kind === "body" || p.origin === "body"); }),
@@ -842,6 +843,14 @@ function bodySplitOf(sc: Scene, outcome: CompileOutcome, op: Op): Frame["bodySpl
   return tris.length ? { tris, box: { min: body.bbox.min, max: body.bbox.max } } : null;
 }
 
+/** The icon of a keyed hole or shaft that is selected (a surface of its bore, the rod, the whole body) and what a click on it offers: Mesh keyway (`in_1284`); null when none is selected. */
+function keywayChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
+  const part = sel.find((r) => !!keywayOf(sc, r)), rec = part ? keywayOf(sc, part) : null;
+  if (!part || !rec) return null;
+  const s1 = rec.span[1], r = rec.nums.kind === 2 ? rec.nums.size / 2 + 4 : rec.nums.bore / 2 + 4;
+  const at: Vec3 = [rec.at[0] + rec.dir[0] * s1 + rec.ex[0] * r, rec.at[1] + rec.dir[1] * s1 + rec.ex[1] * r, rec.at[2] + rec.dir[2] * s1 + rec.ex[2] * r];
+  return { part, at, items: [{ id: "keyway:mesh", label: rec.role === "hole" ? "Mesh a shaft to this keyed hole" : "Mesh a hub to this keyed shaft", icon: "keyshaft", enabled: true, why: null }] };
+}
 /** The gear's icon and what a click on it offers (`in_693`), for the first gear in the selection; null when none is selected. */
 function gearChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
   const part = sel.find((r) => !!gearOfSelection(sc, r));

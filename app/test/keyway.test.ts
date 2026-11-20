@@ -135,3 +135,29 @@ test("Keyed shaft with a round shaft selected (its surface or the whole rod) key
   const none = reduce({ ...createState(s), cam: homeCamera() }, { type: "runAction", id: "model:keyshaft" }, env);
   assert.equal(none.tool?.model?.kind, "keyshaft");
 });
+
+test("a shaft can be keyed at an end only: the far end, the near end or both; round and as wide as the spline elsewhere (`in_1284`)", () => {
+  const make = (typed: Record<string, string>) => {
+    let st: ReturnType<typeof createState> = { ...createState(createSession(kernel)), cam: homeCamera() };
+    st = reduce(st, { type: "runAction", id: "model:keyshaft" }, env);
+    const at = (k: string): number => 1 + modelFields("keyshaft").findIndex((f) => f.key === k);
+    st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0], model: { ...st.tool!.model!, typed: st.tool!.model!.typed.map((x, i) => (i === 0 ? "60" : x)) } } };
+    for (const [k, v] of Object.entries(typed)) st = { ...st, tool: { ...st.tool!, model: modelTyped(st.tool!.model!, at(k), v) } };
+    st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+    let n = 0; while (st.building && n++ < 14) st = reduce(st, { type: "buildNext" }, env);
+    assert.equal(bodies(st).length, 1, `one body: ${st.session.message}`);
+    return { volume: bodies(st)[0]!.volume, st };
+  };
+  const round = (d: number, l: number) => Math.PI * (d / 2) ** 2 * l;
+  const whole = make({ kind: "2", size: "23", bore: "28" });
+  const far = make({ kind: "2", size: "23", bore: "28", part: "1", span: "20" });
+  const both = make({ kind: "2", size: "23", bore: "28", part: "3", span: "20" });
+  assert.ok(far.volume > whole.volume + 3000, `an end only: ${far.volume} against all of it ${whole.volume}`);
+  assert.ok(far.volume < round(28, 60) - 100, "less than the round shaft: the end is splined");
+  assert.ok(both.volume < far.volume - 100 && both.volume > whole.volume, `both ends: ${both.volume}`);
+  // a keyseat under a hub only: the key's slot cut over 20 mm at the far end
+  const seat = make({ kind: "0", bore: "12", part: "1", span: "20" }), full = make({ kind: "0", bore: "12" });
+  assert.ok(seat.volume > full.volume + 100 && seat.volume < round(12, 60), `${seat.volume} against ${full.volume}`);
+  const rec = scene(far.st.session).keyways![0]!;
+  assert.deepEqual(rec.span, [40, 60], "the record keeps the keyed end, where a hub goes");
+});

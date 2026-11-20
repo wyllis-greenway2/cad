@@ -4509,3 +4509,6 @@ Branch `claude/adoring-dijkstra-carry`. `in_1280` asked for a polygon tool that 
 
 ## Handoff 1139 — 2026-11-20 (in_1283: Keyed shaft on a selected rod)
 `in_1283`. Keyed shaft ignored the selection and waited for a surface. Now a selected round shaft (surface or body, no bore) is keyed in place as the keyed fit (`beginTool` in `modal.ts`). Reproduced and checked on the human's `model2.json`; test in `keyway.test.ts`.
+
+## Handoff 1140 — 2026-11-20 (in_1284: Mesh on a selected surface; a shaft keyed at its end)
+`in_1284`. The human's file had a splined hole with no record (the finish command had been undone alone): the record is now in the part's own command. A selected keyed body shows the chip with Mesh keyway; Mesh with a round body selected too cuts the keyway in at once. Keyed shafts and fits can be keyed at an end or both (Keyed part, Keyed length). Tests changed: bevel / crown / spiral / face tool lists (gearbox.test.ts) and the Models menu list (fasteners.test.ts) no longer have the old Flat / Key fields and have the keyway items. **Not built:** a runout, a closed key end, keyed middle.
