@@ -5404,3 +5404,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1271 — 2026-11-20 — directive
 > group the fields into sections first
 (answers my offer to group the piston maker's fields into sections before adding more variables)
+
+## in_1272 — 2026-11-20 — directive
+> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
+(the same suggestion as `in_1135`; this branch had nothing the testing branch lacked, so the merge was the other way: this branch was brought up to its tip, and a new branch cut from it)
