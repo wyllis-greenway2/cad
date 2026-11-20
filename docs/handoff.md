@@ -4542,3 +4542,6 @@ Branch `claude/adoring-dijkstra-carry`. `in_1280` asked for a polygon tool that 
 
 ## Handoff 1151 — 2026-11-20 (in_1297: the ramp flat)
 `in_1297`. Piston pin flats: new choice "Flat with ramp" (default), ramp angle field (assumed 30), the volume worked out through the ramp; kernel and worked-out volumes agree. The scoop and the long ears are not built; see `dec_piston_interior`.
+
+## Handoff 1152 — 2026-11-20 (in_1298: the scoop)
+`in_1298`. Piston pin flats: new choice "Scoop" (floor round the pin, curved ends returning to the skirt face above and below), scoop run field; worked-out volume through the circles; arch stays an option. Ears cut by a curve round the thrust axis are not built.
