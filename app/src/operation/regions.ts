@@ -82,7 +82,7 @@ export function meet(x: Curve, y: Curve): V2[] {
 }
 
 /** The curves drawn on a plane (sides, arcs, circles), in the plane's own coordinates; what is in `spent` is left out. */
-export function curvesOn(s: Scene, plRef: Ref, spent: ReadonlySet<Ref> = new Set()): { curves: Curve[]; pl: Plane; flat: (q: Vec3) => V2 } | null {
+export function curvesOn(s: Scene, plRef: Ref, spent: ReadonlySet<Ref> = new Set(), withBody = false): { curves: Curve[]; pl: Plane; flat: (q: Vec3) => V2; /** the centres of the body's arcs, as parts of their own (the pieces of an arc name their centre) */ extra: Map<Ref, Part> } | null {
   const get: Lookup = (r) => s.parts[r];
   const pl = get(plRef);
   if (!pl || pl.kind !== "plane") return null;
@@ -108,8 +108,28 @@ export function curvesOn(s: Scene, plRef: Ref, spent: ReadonlySet<Ref> = new Set
       curves.push({ k: "arc", ref: p.ref, a: p.a, b: p.b, centre: p.center, c, r: dist(c, a), a0, sweep, p: a, q: b });
     }
   }
+  // a sketch on a face of the body: the edges of the body that lie in the plane are lines like any other (`in_1338`), so what is drawn across the face cuts it into faces up to its edge
+  const extra = new Map<Ref, Part>();
+  if (withBody && pl.onBody) {
+    for (const p of Object.values(s.parts)) {
+      if (p.kind !== "line" || p.origin !== "body" || spent.has(p.ref) || p.path || p.spline || p.bulge) continue;
+      const [a, b] = [pos(p.a), pos(p.b)];
+      if (!a || !b) continue;
+      if (!p.circle) { if (p.a !== p.b && dist(a, b) > TOL) curves.push({ k: "seg", ref: p.ref, a: p.a, b: p.b, p: a, q: b }); continue; }
+      const cen = flat(p.circle.center);
+      if (Math.abs(dot(sub(p.circle.center, pl.at), n)) > 1e-6 || Math.abs(Math.abs(dot(p.circle.normal, n)) - 1) > 1e-6) continue; // (a round edge that is not across this plane's facing)
+      const centre = mkRef(`d/rimc@${p.ref.slice(2)}`);
+      extra.set(centre, { origin: "drawn", movable: false, plane: plRef, derived: true, ref: centre, kind: "corner", at: p.circle.center } as Corner);
+      if (p.a === p.b || dist(a, b) < TOL) { curves.push({ k: "circle", ref: p.ref, centre, c: cen, r: p.circle.radius }); continue; }
+      const mid = p.mid ? flat(p.mid) : null;
+      if (!mid) continue;
+      const [a0, a1] = [ang(cen, a), ang(cen, b)];
+      const ccw = mod(ang(cen, mid) - a0) < mod(a1 - a0);
+      curves.push({ k: "arc", ref: p.ref, a: p.a, b: p.b, centre, c: cen, r: p.circle.radius, a0, sweep: ccw ? mod(a1 - a0) : -mod(a0 - a1), p: a, q: b });
+    }
+  }
   curves.sort((x, y) => (x.ref < y.ref ? -1 : 1));
-  return { curves, pl, flat };
+  return { curves, pl, flat, extra };
 }
 
 export interface Regions { faces: Face[]; parts: Part[]; taken: Set<Ref> }
@@ -126,12 +146,23 @@ export function regionsOf(s: Scene): Regions {
     const cut = st.params.cut !== undefined || refs.some((r) => r.includes("@"));
     return cut ? refs.filter((r) => s.parts[r]?.kind === "circle") : refs;
   }));
+  // a plane where an extrude of pieces was made before the body's edges cut the drawing (no `rim` in its step) keeps its pieces as they were named: the edges are left out there, or the step would lose its parts (`in_1338`)
+  const oldPieces = new Set<Ref>();
+  for (const st of s.steps) {
+    if (!usesFigures(st) || st.params.rim === "1") continue;
+    for (const r of figureRefs(st)) {
+      const m = /^d\/(?:seg|arc)@([^@]+)@/.exec(r);
+      const src = m ? s.parts[`d/${m[1]}` as Ref] : undefined;
+      const pl = src && "plane" in src ? src.plane : null;
+      if (pl) oldPieces.add(pl);
+    }
+  }
   const planes = new Set<Ref>();
   for (const p of Object.values(s.parts)) if ((p.kind === "line" || p.kind === "circle") && p.origin === "drawn" && p.plane && !(p.kind === "line" && p.derived)) planes.add(p.plane);
   for (const plRef of planes) {
-    const built = curvesOn(s, plRef, spent);
+    const built = curvesOn(s, plRef, spent, !oldPieces.has(plRef));
     if (!built) continue;
-    const { curves, flat, pl } = built;
+    const { curves, flat, pl, extra } = built;
     if (curves.length < 2) continue;
     // the nodes: the ends of the curves, the places where curves cross, and the places where an end of one lies on another
     const nodes: Node[] = [];
@@ -259,6 +290,7 @@ export function regionsOf(s: Scene): Regions {
       if (!p.whole) {
         const cu = p.curve;
         made.set(p.ref, { origin: "drawn", movable: false, plane: plRef, derived: true, ref: p.ref, kind: "line", a: p.from, b: p.to, ...(cu.k !== "seg" ? { center: cu.centre, ccw: p.ccw } : {}) } as Line);
+        if (cu.k !== "seg" && extra.has(cu.centre)) made.set(cu.centre, extra.get(cu.centre)!);
       }
       res.taken.add(p.curve.ref);
     }

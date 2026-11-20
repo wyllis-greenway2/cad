@@ -1320,11 +1320,24 @@ const OPS = {
       if (op.skip && op.skip.length) { const gone = new Set(op.skip); result = result.filter((_, i) => !gone.has(i)); if (!result.length && !found.rest.length) throw new Error("nothing would be left of the parts chosen"); } // (a part of the result that was deleted since: its number in the result, `in_1320`)
       return { kind: "solid", shape: makeCompound([...found.rest, ...result]), first: op.bodies[0] };
     }
-    const [first, ...others] = found.picked;
+    // a subtraction can cut several bodies at once (`in_1337`): the first `targets` bodies are each cut by all the others, which are the tools
+    const nt = op.mode === "subtract" ? Math.max(1, Math.min(op.targets ?? 1, found.picked.length - 1)) : 1;
+    const [first, ...others] = op.mode === "subtract" ? found.picked.slice(nt - 1) : found.picked;
+    const targets = op.mode === "subtract" ? found.picked.slice(0, nt - 1) : [];
+    const tools = op.mode === "subtract" ? found.picked.slice(nt) : others;
+    const toolNames = op.mode === "subtract" ? op.bodies.slice(nt) : op.bodies.slice(1);
     const drop = new Set(op.drop ?? []); // (tools that were kept but have been deleted since: the cut they made stays, they do not, `in_436`)
-    const kept = op.keep && op.mode !== "add" ? others.filter((_, i) => !drop.has(op.bodies[i + 1])).map((o) => o.clone()) : []; // (a boolean uses up what it is given: the tools that stay are copied first)
+    const kept = op.keep && op.mode !== "add" ? tools.filter((_, i) => !drop.has(toolNames[i])).map((o) => o.clone()) : []; // (a boolean uses up what it is given: the tools that stay are copied first)
     let made = first;
-    for (const o of others) made = op.mode === "subtract" ? made.cut(o) : op.mode === "intersect" ? made.intersect(o) : made.fuse(o, op.glue && op.mode === "add" ? { optimisation: "commonFace" } : {});
+    if (op.mode === "subtract") {
+      const cutters = tools.map((o) => o.clone());
+      const cutAll = (b) => { let r = b; for (const o of cutters) r = r.cut(o.clone()); return r; };
+      const done = [...targets.map(cutAll), cutAll(first)];
+      const lumps = done.flatMap((d) => lumpsOf(d));
+      if (!lumps.length) throw new Error("nothing would be left of the body");
+      return { kind: "solid", shape: makeCompound([...found.rest, ...lumps, ...kept]), first: op.bodies[0] };
+    }
+    for (const o of others) made = op.mode === "intersect" ? made.intersect(o) : made.fuse(o, op.glue && op.mode === "add" ? { optimisation: "commonFace" } : {});
     const parts = lumpsOf(made);
     if (!parts.length) throw new Error(op.mode === "intersect" ? "those bodies have nothing in common" : "nothing would be left of the body");
     if (op.mode === "add" && parts.length > 1) throw new Error("those bodies do not touch or overlap, so they cannot become one body");
@@ -1493,7 +1506,7 @@ const OPS = {
     else if (op.closed) open = [];
     else open = (op.refs ?? []).map((r) => findFace(t, r));
     // the corners stay sharp whichever way the wall goes: the join is made by meeting the offset faces, not by rounding them
-    const offset = thickSolid(t, open, th);
+    const offset = thickSolidChecked(t, open, th);
     if (!op.closed) return { kind: "solid", shape: offset };
     // no face open: the kernel's shell with nothing removed gives the offset solid alone, so the wall is what lies between that and the body
     // an outward offset of some bodies comes back turned inside out (a negative volume): turned right again before it is used
@@ -1665,16 +1678,35 @@ function helix(pitch, height, radius, centre, dir, xDir, left) {
 }
 
 /** The solid thickened by `th` (inward when positive) with the faces `open` removed; the faces' offsets meet at sharp corners (`in_394`). */
-function thickSolid(t, open, th) {
+function thickSolid(t, open, th, join = "Intersection", inter = false) {
   const oc = getOC();
   const list = new oc.NCollection_List_TopoDS_Shape();
   for (const f of open) list.Append(f.wrapped);
   const builder = new oc.BRepOffsetAPI_MakeThickSolid();
-  builder.MakeThickSolidByJoin(t.wrapped, list, -th, 1e-3, oc.BRepOffset_Mode.BRepOffset_Skin, false, false, oc.GeomAbs_JoinType.GeomAbs_Intersection, false);
-  const out = cast(builder.Shape());
-  builder.delete();
-  list.delete();
-  return out;
+  try {
+    builder.MakeThickSolidByJoin(t.wrapped, list, -th, 1e-3, oc.BRepOffset_Mode.BRepOffset_Skin, inter, false, oc.GeomAbs_JoinType[`GeomAbs_${join}`], false);
+    return cast(builder.Shape());
+  } finally {
+    builder.delete();
+    list.delete();
+  }
+}
+/**
+ * The wall's offset solid: by the way whose corners are sharp, and where the kernel cannot make that (a body with rounds and pockets comes back as a sliver of no volume, or "this shape has no type") by the other ways it has
+ * (rounded corners, the intersection of the offset faces checked): the first that is a solid of the right size is the one. An inward offset stands inside the body's box and is not narrower than the box less a wall each side.
+ */
+function thickSolidChecked(t, open, th) {
+  const tb = bounds(t);
+  const fits = (o) => {
+    if (!isValidSolid(o) || !(Math.abs(measureVolume(o)) > 1e-9)) return false;
+    if (th <= 0) return true;
+    const ob = bounds(o);
+    return [0, 1, 2].every((i) => ob.min[i] >= tb.min[i] - 1e-3 && ob.max[i] <= tb.max[i] + 1e-3 && ob.max[i] - ob.min[i] >= tb.max[i] - tb.min[i] - 2 * th - 1e-3 - (open.length ? th : 0));
+  };
+  for (const [join, inter] of [["Intersection", false], ["Arc", true], ["Intersection", true], ["Arc", false]]) {
+    try { const o = thickSolid(t, open, th, join, inter); if (fits(o)) return o; } catch { /* the next way */ }
+  }
+  return thickSolid(t, open, th);
 }
 
 /** The value at x of the curve through the points [x, y] that goes through them all and does not overshoot between them (a monotone cubic: Fritsch and Carlson); beyond the first and last it goes on in a straight line. */
@@ -2284,7 +2316,7 @@ function regionRound(t, set0, size, mode, stations) {
     } else {
       tool = profile(size, lowest).extrude(len + 2 * margin);
       // concave: what is filled stays above the faces that are there, so where a face is narrower than the fill is wide (the floor of a flat cut on a round body, narrowing to nothing at the ends) the fill follows the
-      // face's outline up and does not stand out past it, and a chamfer or fillet can go all the way across the face (`in_1337`: a chamfer of a flat cut stopped a sliver short of the face's widest part)
+      // face's outline up and does not stand out past it, and a chamfer or fillet can go all the way across the face (`in_1340`: a chamfer of a flat cut stopped a sliver short of the face's widest part)
       if (clipFill) {
         try { for (let i = 0; i < 2; i++) { const h = size * 1.01 + 1e-3; tool = tool.intersect(faceShadow(fs[i], [norm[i][0] * h, norm[i][1] * h, norm[i][2] * h])); } } catch (err) { if (process.env.DBG2) console.log("clip failed", err.message); }
       }

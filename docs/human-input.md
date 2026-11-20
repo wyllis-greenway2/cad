@@ -5646,6 +5646,20 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1336 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 
-## in_1337 — 2026-11-20 — question
+## in_1340 — 2026-11-20 — question
+> does boolean add work only on two bodies? Also why do we have these limits at all? Why cant boolean add just add all bodies? and why cant boolean subtract just let you select the cutter bodies and the bodies to cut? Similar to how intsersect allows you to select kept portions and non kept portions
+(asks why the booleans are limited to two bodies, and for Add on all bodies and a Subtract that picks the bodies to cut and the cutters)
+
+## in_1338 — 2026-11-20 — question
+> Can we have it so that edges just are lines and they would participate in the sketch just like any other lines? why can't I sketch on a face like this and now have four completed sketch sections?
+(a screenshot of two lines drawn across the round top of a post: the rim is not part of the sketch, so no sections are made)
+
+## in_1339 — 2026-11-20 — question
+> Why cant I seem to hollow this object?
+(with the saved model `1ae09511-cant_hollow.json`, kept as `app/test/fixtures/hollow-pockets.cad.json`)
+
 > why can I not extend this chamfer all the way? it wants to keep this little sliver of flat or it fails.
 (two screenshots: a chamfer being made along an edge of a flat cut on a round body, the size 4.4 and Constant / Variable; and the edge selected with its arrows, a thin sliver of the flat left beside the chamfered edge; the saved model bdaeea8e-model_2.json)
+
+## in_1341 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests

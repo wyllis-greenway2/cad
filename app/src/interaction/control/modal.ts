@@ -60,7 +60,7 @@ import type { Op } from "../operations.ts";
 import { BODY_OBJECT } from "../../compiler/body.ts";
 import { setLineLength } from "../lengths.ts";
 import { withSession, animateTo, planeView } from "./state.ts";
-import { doSimilar, doSelectAll, doSelectBodies, doGroup, doUngroup, doCutBegin, doCombine, applyCut } from "./select.ts";
+import { doSimilar, doSelectAll, doSelectBodies, doGroup, doUngroup, doCutBegin, doCombine, startSubtract, advanceSubtract, applyCut } from "./select.ts";
 import { groupsOf, membersOf } from "../../operation/groups.ts";
 
 /** The sketch group (`in_229`): the tools that draw on a plane, and the operations that work in one. Every member follows the group's rules below, so a new tool is added here (the records name every kind, so the compiler asks which group it is in) and gets them all. */
@@ -239,6 +239,7 @@ function cancelOrient(s: AppState): AppState {
 }
 
 export function doTyped(s: AppState, key: string): AppState {
+  if (s.awaiting?.manual && !s.op && !s.tool && key === "Enter") return advanceSubtract(s);
   if (s.picking && !s.op && !s.tool && key === "Enter") return finishPicking(s); // (what is selected starts the operation that waits for it, `in_464`)
   if (s.moverSphere && key === "Enter") return orientApply(s); // (Apply: the mover stays as oriented, `in_421`, and while the part is selected, `in_439`)
   if (s.cut && key === "Enter") return applyCut(s);
@@ -426,6 +427,7 @@ export function finishPicking(s: AppState, now = 0): AppState {
 }
 
 export function doApply(s: AppState): AppState {
+  if (s.awaiting?.manual && !s.op && !s.tool) return advanceSubtract(s);
   if (s.picking && !s.op && !s.tool) return finishPicking(s);
   if (s.repeat && !s.op) { const made = doRepeatApply(s); return made.repeat ? doRepeatCancel(made) : made; }
   if (s.op) {
@@ -494,7 +496,8 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
     return { ...closed, session: run(closed.session, { type: "setClearance", value: next }) };
   }
   if (id === "combine:parts") return doCutBegin(closed);
-  if (id === "combine:add" || id === "combine:subtract" || id === "combine:intersect") return doCombine(closed, id.slice(8) as "add" | "subtract" | "intersect");
+  if (id === "combine:subtract") return startSubtract(closed);
+  if (id === "combine:add" || id === "combine:intersect") return doCombine(closed, id.slice(8) as "add" | "intersect");
   if (id === "select:ungroup") return doUngroup(closed);
   if (id === "hollow:invert" && s.op?.kind === "hollow" && s.op.hollowMode && s.op.hollowMode !== "closed") return { ...s, op: { ...s.op, hollowMode: s.op.hollowMode === "keep" ? "open" : "keep" }, session: { ...s.session, message: null } };
   if (id === "view:section") return doPlaneNew(closed, true);

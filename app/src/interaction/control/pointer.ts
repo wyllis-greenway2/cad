@@ -36,7 +36,7 @@ import type { OpKind, Op } from "../operations.ts";
 import { mirrorAcross } from "../mirror.ts";
 import { startOp, surfaceAxes, canPickFor } from "../operations.ts";
 import { similarTo } from "../similar.ts";
-import { whyNotGroup, whyNotUngroup, whyNotCombine, applyCut } from "./select.ts";
+import { whyNotGroup, whyNotUngroup, whyNotCombine, whyNoBoolean, applyCut } from "./select.ts";
 import { projector, nearTolMm } from "../camera.ts";
 import { settings } from "../../shared/settings.ts";
 import { planeOf, objectOf } from "../objects.ts";
@@ -193,7 +193,7 @@ function menuItemNow(session: Session, id: string): { enabled: boolean; why: str
 /** The item that was waiting for a selection runs once it can, else says again what it needs (`in_951`). */
 export function settleAwaiting(s: AppState, now = 0): AppState {
   const a = s.awaiting;
-  if (!a) return s;
+  if (!a || a.manual) return s;
   const it = menuItemNow(s.session, a.id);
   if (!it) return { ...s, awaiting: null };
   if (it.enabled) return doRunAction({ ...s, awaiting: null, session: { ...s.session, message: null } }, a.id, now);
@@ -228,6 +228,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     if (r.id === "tool:fasteners") return [r.id, { ...base, enabled: true, why: null }]; // (it opens a panel that says what to select, `dec_parts_tool`)
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }
+    if (r.select === "combine" && r.id !== "combine:parts") { const why = whyNoBoolean(session); return [r.id, { ...base, enabled: !why, why }]; } // (every boolean can be chosen whenever the model has two bodies: Add and Intersect take all of them unless some are selected, Subtract asks which cut and which are cut, `in_1337`)
     if (r.select === "combine") { const why = whyNotCombine(session); return [r.id, { ...base, enabled: !why, why }]; }
     if (r.select === "hard") {
       const bodies = sel.filter((x) => sc.parts[x]?.kind === "body" && !!(sc.parts[x] as { id?: string }).id);
@@ -603,6 +604,7 @@ export function doClick(s: AppState, i: Extract<Intent, { type: "click" }>, env:
     const top = candidatesAt(sc0, projector(s.cam, env.w, env.h).view(i.x, i.y), pickOpts(s)).find((c) => sc0.parts[c.ref]?.origin !== "world");
     const body = top ? objectOf(sc0, top.ref) : null;
     if (body && sc0.parts[body]?.kind === "body") {
+      if (s.awaiting.targets?.includes(body)) return { ...s, session: { ...s.session, message: "that body is one to be cut: click a body that cuts" } };
       const was = selectionOf(s.session).filter((r) => sc0.parts[r]?.kind === "body");
       const now = was.includes(body) ? was.filter((r) => r !== body) : [...was, body];
       return withSession({ ...s, menu: null }, { ...s.session, click: { selection: now, spot: s.session.click.spot }, message: null });
@@ -816,7 +818,7 @@ export function doMenu(s: AppState, i: Extract<Intent, { type: "menu" }>, env: E
   if (!i.button && (s.repeat && !s.op)) return doApply(s);
   // an operation that is open: a right click accepts it and leaves it, as Enter does (`in_244`)
   if (!i.button && s.op) return doApply(s);
-  if (!i.button && s.picking && !s.tool) return doApply(s); // (a right click starts what was clicked for it, as Enter does, `in_464`)
+  if (!i.button && (s.picking || s.awaiting?.manual) && !s.tool) return doApply(s); // (a right click starts what was clicked for it, as Enter does, `in_464`)
   // the cross section is put away by a right click as a tool is (`in_394`); the wireframe stays until it is taken out (`in_965`), so a right click opens the menu with it on; the ⋯ button still opens the menu
   if (!i.button && !s.tool && !s.op && !s.repeat && !s.cut && sectionNow(s)) return { ...s, sectionLive: null, menu: null, session: { ...s.session, click: { ...s.session.click, selection: sectionNow(s) ? [] : s.session.click.selection }, message: null } };
   // while a sketching tool is on, a right click puts it away (the ⋯ button still opens the menu): the tool stays on until then or the cancel icon (`in_193`)

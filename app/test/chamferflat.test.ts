@@ -1,4 +1,4 @@
-// A chamfer in the corner of a flat cut on a round body can go all the way across the floor (`in_1337`): the floor narrows to nothing at the ends, and the kernel's chamfer stopped a sliver of it short (4.45 mm
+// A chamfer in the corner of a flat cut on a round body can go all the way across the floor (`in_1340`): the floor narrows to nothing at the ends, and the kernel's chamfer stopped a sliver of it short (4.45 mm
 // of 4.5); the fill the region makes now follows the outline of the floor and the wall. The model is the user's (`chamfer-flat-cut.cad.json`).
 import test from "node:test";
 import assert from "node:assert/strict";

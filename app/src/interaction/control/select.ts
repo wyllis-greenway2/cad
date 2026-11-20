@@ -131,14 +131,43 @@ export function doCutBegin(s: AppState): AppState {
   return { ...s, menu: null, op: null, tool: null, cut, session: { ...s.session, message: "every part is kept (+); click one to toss it (−); Enter or a right click makes it, Esc gives it up" } };
 }
 /** Add, subtract or intersect: the first body chosen is the one that stays; the others are used up (`in_1320`). */
-export function doCombine(s: AppState, mode: "add" | "subtract" | "intersect"): AppState {
-  const why = whyNotCombine(s.session);
+/** The bodies a boolean works on: the ones selected when there are two or more, else every body of the model (`in_1337`). */
+export function booleanBodies(session: Session): Ref[] {
+  const sc = sceneOf(session);
+  const picked = selectionOf(session).filter((r) => sc.parts[r]?.kind === "body");
+  return picked.length >= 2 ? picked : Object.values(sc.parts).filter((p) => p.kind === "body").map((p) => p.ref);
+}
+/** Why a boolean has nothing to work on: the model has fewer than two bodies. */
+export const whyNoBoolean = (session: Session): string | null => (Object.values(sceneOf(session).parts).filter((p) => p.kind === "body").length >= 2 ? null : "a boolean needs two bodies in the model");
+/** Add and Intersect: on the bodies selected, or on all of them when fewer than two are (`in_1337`). */
+export function doCombine(s: AppState, mode: "add" | "intersect"): AppState {
+  const why = whyNoBoolean(s.session);
   if (why) return say({ ...s, menu: null }, why);
   const sc = sceneOf(s.session);
-  const bodies = selectionOf(s.session).filter((r) => sc.parts[r]?.kind === "body");
+  const bodies = booleanBodies(s.session);
   const next = run(s.session, { type: "addStep", step: { id: nextId(sc, "s"), type: "combine", parts: bodies, params: { mode } } });
   if (next.message) return say({ ...s, menu: null, session: next }, next.message);
   return { ...withSession({ ...s, menu: null }, { ...next, click: { ...next.click, selection: [] } }) };
+}
+/** Subtract, step 1: click the bodies to cut (any already selected are the first of them); Enter goes on to the cutters. */
+export function startSubtract(s: AppState): AppState {
+  const why = whyNoBoolean(s.session);
+  if (why) return say({ ...s, menu: null }, why);
+  const sc = sceneOf(s.session);
+  const sel = selectionOf(s.session).filter((r) => sc.parts[r]?.kind === "body");
+  return { ...s, menu: null, picking: null, awaiting: { id: "combine:subtract", label: "Subtract", icon: "subtract", why: "click the bodies to cut, then Enter", many: true, manual: true }, session: { ...s.session, click: { ...s.session.click, selection: sel }, message: "Subtract: click the bodies to cut, then Enter or the check (Esc to leave)" } };
+}
+/** Subtract: Enter takes the bodies selected as the ones to cut, then as the cutters, and then makes it. */
+export function advanceSubtract(s: AppState): AppState {
+  const a = s.awaiting;
+  if (!a?.manual) return s;
+  const sc = sceneOf(s.session);
+  const sel = selectionOf(s.session).filter((r) => sc.parts[r]?.kind === "body");
+  if (!sel.length) return say(s, a.targets ? "click the bodies that cut, then Enter" : "click the bodies to cut, then Enter");
+  if (!a.targets) return { ...s, awaiting: { ...a, targets: sel, why: "click the bodies that cut them, then Enter" }, session: { ...s.session, click: { ...s.session.click, selection: [] }, message: "Subtract: now click the bodies that cut them, then Enter or the check (Esc to leave)" } };
+  const next = run(s.session, { type: "addStep", step: { id: nextId(sc, "s"), type: "combine", parts: [...a.targets, ...sel], params: { mode: "subtract", targets: a.targets.length } } });
+  if (next.message) return say({ ...s, awaiting: null, session: next }, next.message);
+  return { ...withSession({ ...s, awaiting: null, menu: null }, { ...next, click: { ...next.click, selection: [] }, message: null }) };
 }
 export function doCut(s: AppState, i: Extract<Intent, { type: "cut" }>): AppState {
   if (!s.cut) return s;
