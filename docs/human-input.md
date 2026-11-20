@@ -5765,3 +5765,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1367 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the body-edge copy fix, the two-face pull fix and the earlier work to be merged into the testing branch, no full test run; the same words as in_1366)
+
+## in_1368 — 2026-11-20 — question
+> when I try to pull these faces down, really weird things happen to the model.
+(with the saved model `5c8dac63-model_6.json`, kept as `app/test/fixtures/cylinder-pockets.cad.json`, and two screenshots: the top of a cylinder with two lines across it and the two end pieces selected, and the body after the pull, its top face and walls missing)
