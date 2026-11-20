@@ -5324,3 +5324,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1251 — 2026-11-20 — directive
 > Okay I think the cut spokes tool should basically have the same menu and a similar preview (although maybe more 3d?) for cutting spokes into a round object. Also it seems to fail if it doesn't like the diameter to thickness ratio. I think the wheel creator fails for similar reasons. It shouldn't. It should basically accept all the way to the point that there is no thickness difference between the spokes rim and hub, it is just flat with spokes cut out, that could be a valid wheel. And that could also be a very thin wheel too.
 (asks for the Cut spokes box to have the same numbers as the Wheel's and a similar preview, more in 3D; and for neither tool to fail over the ratio of diameter to thickness: it should accept all the way to the spokes, rim and hub being one thickness, a flat wheel with spokes cut out, however thin)
+
+## in_1252 — 2026-11-20 — directive
+> do the crankshaft next
+(chooses the crankshaft as the next part of the engine builder to make realistic)
+
+## in_1253 — 2026-11-20 — directive
+> lets focus on getting each part correct first. So is the piston head a real piston head in all the details?
+(sets the direction: make each part correct before going on to the block; asks whether the piston is a real piston in all its details)

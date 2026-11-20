@@ -65,3 +65,6 @@ export function rodDesign(bore: number, thickness: number, bigRadius: number, sm
   const bolt = Math.max(2, 0.09 * bore);
   return { web: 0.3 * thickness, flange: Math.max(0.8, 0.3 * smallHalf), bolt, lug: 1.5 * bolt, boltY: bigRadius + bolt / 2 + 0.3 };
 }
+
+/** The crank pin's diameter (mm): 0.44 of the bore, from Honda's service manual (29.98 mm in a 68 mm bore, 25.98 mm in a 60 mm bore: 0.441 and 0.433), to a tenth of a millimetre (`dec_crankshaft_design`). */
+export const crankPinFor = (bore: number): number => Math.round(0.44 * bore * 10) / 10;
