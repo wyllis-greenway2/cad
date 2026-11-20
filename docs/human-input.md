@@ -5804,3 +5804,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1376 — 2026-11-20 — directive
 > make escape and the xyz buttons exit sketch mode too
 (Escape and the X, Y, Z view buttons leave sketch mode, as Exit sketch does)
+
+## in_1377 — 2026-11-20 — directive
+> Look I just sketched on this surface, it has not exited the sketch, and it still isn't cut to the sketch plane. Which btw, an we just add a cut to view icon (same icon as the cross section plane icon) in that top tool bar area up there? so you can switch the cut view on and off.
+(the cut follows the surface the sketch tool is on; a cross-section icon in the tool bar switches the cut view on and off)

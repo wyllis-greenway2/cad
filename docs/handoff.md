@@ -4733,3 +4733,6 @@ The full suite (2161 tests) showed 21 failures; 14 of them were there before. Th
 
 ## Handoff 1215 — 2026-11-20 (in_1376: Escape and X, Y, Z leave sketch mode)
 `in_1376`. `doLook` (`control/viewing.ts`) clears `sketchOn` for a view along X, Y or Z (not while a move or turn is open: those buttons choose its axis) and takes it for N, normal to what is selected; `doEscape` (`control/modal.ts`) clears it after the tool and the open operation are let go and before the selection is cleared, so one press puts a tool away and the next leaves sketch mode. Test in `sketchcut.test.ts`. Open: Escape with a tool on does not leave sketch mode in one press (the first press is the tool's); say if one press should do both.
+
+## Handoff 1216 — 2026-11-20 (in_1377: the cut follows the sketch plane; a cut-view icon)
+`in_1377`. The cut was set only when sketch mode began, so a sketch begun on another surface kept the first plane's cut. The controller's epilogue now sets `sketchOn` from the plane of the tool that is on (`planeCutOf(next, planeOfTool(next), false)`), replacing it when the plane differs. A cross-section icon in the tool chip (intent `sketchCut`) toggles `sketchOn.off`: off, the view is whole while sketch mode stays (`frame.sketching` true, `frame.sketchCut` false). Test in `sketchcut.test.ts` with the fixture `sketch-two-faces.cad.json` (the user's model_9).

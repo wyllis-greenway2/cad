@@ -34,3 +34,6 @@ A body that moves on its own (a motion that plays, a body being dragged) is draw
 
 ## Changed: finer, lighter hatch on the cut face (`in_1210`)
 The cut face is a mid grey a little lighter than before (0.56, 0.58, 0.63), still darker than a face of the part; its hatch is about two and a half times as many lines (the pitch is a hundred and twentieth of the model, not a fiftieth, never under 0.12 mm), each lighter than before (0.40, 0.42, 0.47) but darker than the surface. Looked at in the browser on a gear and a lever; the numbers are mine, for review (`ui/view.ts`).
+
+## `in_1377`: the cut follows the sketch tool's plane; the cut-view icon
+The cut of sketch mode follows the plane of the sketch tool that is on (a tool begun on another surface moves the cut there). An icon (the cross-section one) in the tool chip switches the cut view on and off without leaving sketch mode.

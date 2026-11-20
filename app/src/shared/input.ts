@@ -49,6 +49,7 @@ export type Intent =
   | { type: "delete" }
   | { type: "escape" }
   | { type: "exitSketch" }
+  | { type: "sketchCut" }
   | { type: "save" }
   | { type: "open" }
   | { type: "buildNext" } // (a model that is made a part at a time: the kernel has answered, make the next part, `dec_gear_models`)

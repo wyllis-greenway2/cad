@@ -66,7 +66,11 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
   if (next.cam !== s.cam || next.session.history.scene !== s.session.history.scene || next.lastSeen === null) next = noteSeen(next, env.w, env.h, projector(next.cam, env.w, env.h).project as (p: Vec3) => [number, number]); // (what was last in view, for Reset camera, `in_303`)
   if (next.awaiting && next.session.click.selection.join("|") !== s.session.click.selection.join("|")) next = settleAwaiting(next, env.now); // (what a pressed, dimmed item waited for is selected: it runs, `in_951`)
   // a sketch tool begun on a plane takes the plane: the view stays cut along it until Exit sketch (`in_1375`)
-  if (next.tool && !next.sketchOn) { const on = planeCutOf(next, planeOfTool(next), false); if (on) next = { ...next, sketchOn: on }; }
+  if (next.tool) { // (a tool on another plane than the one the cut is along takes the cut to its plane: the cut follows what is being drawn on, `in_1377`)
+    const on = planeCutOf(next, planeOfTool(next), false);
+    const same = (a: { centre: Vec3; n: Vec3 }, b: { centre: Vec3; n: Vec3 }) => Math.abs(dot(a.n, b.n)) > 1 - 1e-6 && Math.abs(dot(sub(a.centre, b.centre), b.n)) < 1e-4;
+    if (on && (!next.sketchOn || !same(next.sketchOn, on))) next = { ...next, sketchOn: on };
+  }
   if (next.sketchOn && !(next.sketchOn.ref in sceneOf(next.session).parts)) next = { ...next, sketchOn: null }; // (the plane is gone: undone or deleted)
   if (next.resume && !RESUMING.has(i.type)) next = { ...next, resume: null }; // only a click, or moving the view, keeps "sketching goes on" waiting for a vertex
   // the hidden sketch of a plane is shown while a tool begun on the edge of a body sketches in it (`in_211`)
@@ -181,6 +185,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "undo": return doUndo(s);
     case "redo": return doRedo(s);
     case "escape": return doEscape(s);
+    case "sketchCut": return s.sketchOn ? { ...s, sketchOn: s.sketchOn.off ? { ref: s.sketchOn.ref, centre: s.sketchOn.centre, n: s.sketchOn.n } : { ...s.sketchOn, off: true } } : s; // (the bar's cut icon: the cut view on and off while sketching, `in_1377`)
     case "exitSketch": return { ...s, sketchOn: null, tool: null, resume: null, session: { ...s.session, message: null } }; // (sketching is left: the cut goes, and the tool with it, `in_1375`)
     case "begin": return doBegin(s, i.name, env.now);
     case "typed": {

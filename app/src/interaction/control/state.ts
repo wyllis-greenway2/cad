@@ -72,7 +72,7 @@ export interface AppState {
   /** where a drag of its handles has taken the plane so far; one step is made when it is let go */
   sectionLive: { ref: Ref; centre: Vec3; n: Vec3 } | null;
   /** sketching on a plane (`in_1375`): the view is cut along it, the half it looks out to cut away, until Exit sketch is pressed; it is taken when the view goes normal to a plane or a sketch, or a sketch tool begins on one */
-  sketchOn: { ref: Ref; centre: Vec3; n: Vec3 } | null;
+  sketchOn: { ref: Ref; centre: Vec3; n: Vec3; /** the cut is switched off with the bar's cut icon: sketch mode goes on without it */ off?: true } | null;
   /** the sheet's move icon (`in_459`): which state it is in for the sheet, and the free place it came from to go back to */
   sheetMove: { ref: Ref; mode: 0 | 1 } | null;
   /** the body (or "sketch") that was last in view: "Reset camera" goes back to it (`in_303`) */

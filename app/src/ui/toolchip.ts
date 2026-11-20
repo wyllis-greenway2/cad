@@ -4,7 +4,7 @@ import { iconSvg } from "./icons.ts";
 import { choiceRow, roundButton, onPress } from "./look.ts";
 import type { Option } from "../interaction/options.ts";
 
-export function createToolChip(host: HTMLElement, cancel: () => void, apply: () => void, pick: (o: Option) => void = () => {}, undo: () => void = () => {}, redo: () => void = () => {}, exitSketch: () => void = () => {}) {
+export function createToolChip(host: HTMLElement, cancel: () => void, apply: () => void, pick: (o: Option) => void = () => {}, undo: () => void = () => {}, redo: () => void = () => {}, exitSketch: () => void = () => {}, cutView: () => void = () => {}) {
   const chip = document.createElement("div");
   chip.style.cssText = "position:fixed;z-index:7;top:12px;left:50%;transform:translateX(-50%);display:none;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;min-height:40px;max-width:calc(100vw - 16px);padding:4px 6px 4px 14px;border-radius:20px;background:#34363b;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.25);user-select:none;-webkit-user-select:none;touch-action:manipulation";
   const icon = document.createElement("span");
@@ -28,7 +28,10 @@ export function createToolChip(host: HTMLElement, cancel: () => void, apply: () 
   leave.title = "Exit sketch: the view is whole again";
   leave.style.cssText = "display:none;border:0;border-radius:14px;padding:5px 12px;font:600 13px system-ui,sans-serif;background:#2f3136;color:#fff;cursor:pointer;white-space:nowrap";
   leave.addEventListener("click", (e) => { e.stopPropagation(); exitSketch(); });
-  chip.append(undoB, redoB, icon, words, options, tick, x, leave);
+  // the cut view on and off while sketching (`in_1377`): the same icon as the cross section plane's
+  const cutB = round("section", "Cut view: on", cutView);
+  cutB.style.display = "none";
+  chip.append(undoB, redoB, icon, words, options, tick, x, cutB, leave);
   host.appendChild(chip);
   const tickBase = tick.style.background;
   /** green, fading out: "this is there to press" (`in_283`) */
@@ -44,7 +47,7 @@ export function createToolChip(host: HTMLElement, cancel: () => void, apply: () 
   let madeSeen = 0;
   return {
     /** The tool that is on (its icon key and the words for the tooltip; `made` figures so far, `drawing` one half drawn), or an operation open that is applied with the check; or null. */
-    update(tool: { kind: string; label: string; made?: number; drawing?: boolean; done?: boolean } | null, confirm: { kind: string; label: string; text?: string } | null = null, touch = false, opts: readonly Option[] = [], can: { undo: boolean; redo: boolean } = { undo: false, redo: false }, sketching = false): boolean {
+    update(tool: { kind: string; label: string; made?: number; drawing?: boolean; done?: boolean } | null, confirm: { kind: string; label: string; text?: string } | null = null, touch = false, opts: readonly Option[] = [], can: { undo: boolean; redo: boolean } = { undo: false, redo: false }, sketching = false, cutOn = true): boolean {
       // a finger: at the bottom with undo and redo; else at the top
       chip.style.top = touch ? "auto" : "12px";
       chip.style.bottom = touch ? "40px" : "";
@@ -53,6 +56,9 @@ export function createToolChip(host: HTMLElement, cancel: () => void, apply: () 
       redoB.style.opacity = can.redo ? "1" : "0.35";
       const on = confirm ?? tool;
       leave.style.display = sketching ? "inline-block" : "none";
+      cutB.style.display = sketching ? "flex" : "none";
+      cutB.style.opacity = cutOn ? "1" : "0.45";
+      cutB.title = cutOn ? "Cut view: on (click to see the whole part)" : "Cut view: off (click to cut along the sketch plane)";
       chip.style.display = on || touch || sketching ? "flex" : "none";
       if (!on) { madeSeen = 0; shown = ""; optionsShown = ""; icon.style.display = "none"; tick.style.display = x.style.display = "none"; options.style.display = "none"; words.style.display = "none"; return touch; } // (a finger always has the bar: undo and redo are in it)
       icon.style.display = "inline-flex";

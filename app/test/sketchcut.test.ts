@@ -121,3 +121,26 @@ test("Escape leaves sketch mode when nothing else is open, and the X, Y, Z butto
   st = reduce(st, { type: "look", plane: "N" } as never, env);
   assert.ok(sketching(st), "going normal to what is selected takes it");
 });
+
+test("the cut follows the surface being sketched on, and the bar's cut icon switches it on and off (`in_1377`)", () => {
+  const s = (openSession(kernel, readFileSync(new URL("./fixtures/sketch-two-faces.cad.json", import.meta.url), "utf8")) as unknown as { value: Parameters<typeof createState>[0] }).value;
+  const SIDE = "b/body/f@1,0,0,28.75";
+  const top = "b/body/f@0,0,1,25";
+  const cut = (t: ReturnType<typeof createState>) => cutsNow(t).find((q) => (q.ref as string) === "sketch:cut");
+  let st = createState({ ...s, click: { ...s.click, selection: [top] as never } });
+  st = reduce(st, { type: "runAction", id: "look" }, env);
+  assert.deepEqual(cut(st)!.n.map((x) => Math.round(x) || 0), [0, 0, 1], "first on the top face");
+  // a tool begun on another face takes the cut to that face
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [SIDE] as never } } };
+  st = reduce(st, { type: "begin", name: "circle" }, env);
+  assert.deepEqual(cut(st)!.n.map((x) => Math.round(x) || 0), [1, 0, 0], "then along the face the circle is drawn on");
+  assert.ok(Math.abs(cut(st)!.centre[0] - 28.75) < 1e-6);
+  // the icon
+  assert.equal(frameOf(st, { w: 900, h: 700 }).sketchCut, true);
+  st = reduce(st, { type: "sketchCut" }, env);
+  assert.equal(cut(st), undefined, "off: the view is whole");
+  assert.equal(frameOf(st, { w: 900, h: 700 }).sketching, true, "and sketch mode goes on");
+  assert.equal(frameOf(st, { w: 900, h: 700 }).sketchCut, false);
+  st = reduce(st, { type: "sketchCut" }, env);
+  assert.ok(cut(st), "on again");
+});

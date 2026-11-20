@@ -100,7 +100,7 @@ export function planeCutOf(s: AppState, ref: Ref | null, world = true): { ref: R
 }
 /** The cut made for the surface being sketched on (`in_1351`): it stays until Exit sketch is pressed (`in_1375`). It is no part of the model. */
 function sketchCut(s: AppState): { ref: Ref; centre: Vec3; n: Vec3; extent: number } | null {
-  return s.sketchOn ? { ref: "sketch:cut" as Ref, centre: s.sketchOn.centre, n: s.sketchOn.n, extent: 60 } : null;
+  return s.sketchOn && !s.sketchOn.off ? { ref: "sketch:cut" as Ref, centre: s.sketchOn.centre, n: s.sketchOn.n, extent: 60 } : null;
 }
 
 /** A press on a sheet's delete icon (`in_470`): the plane goes (one step; what was drawn on it stays as it is). */
