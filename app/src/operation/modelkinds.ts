@@ -146,6 +146,10 @@ function keywayDef(mode: KeywayMode): Def {
     { ...F("flat", "Flat depth", "mm: how far the flat is cut in from the round; 0 takes 0.15 of the diameter (there is no one standard for D flats: measure the shaft)", true), when: when(1) },
     { ...F("series", "Series", "ISO 14 straight-sided splines: the light series is the lighter, the medium the stronger (light starts at 23 mm)"), choices: ["Light", "Medium"], when: when(2) },
     { ...F("size", "Spline size", mode === "fit" ? "mm: the minor diameter; the nearest of the ISO 14 table is taken; 0 takes the biggest that is no wider than the shaft" : "mm: the minor diameter; the nearest of the ISO 14 table is taken; 0 takes the smallest that goes round the bore (or the one nearest the shaft's diameter)"), when: when(2) },
+    ...(mode === "shaft" || mode === "fit" ? [
+      { ...F("part", "Keyed part", "which part of the shaft is keyed: all of it, or only an end (a splined stub, a keyseat under a hub: the far end is the one the axis points to), or both ends"), choices: ["All", "Far end", "Near end", "Both ends"] },
+      { ...F("span", "Keyed length", "mm from the end: 0 takes one and a half diameters, at most half the shaft (the shaft is round, as wide as the diameter or the spline, elsewhere)", true), when: { key: "part", is: 0, not: true as const } },
+    ] : []),
     F("play", "Play", hole ? "mm: how much wider than the standard the hole is made, for a shaft to fit it (0: the nominal)" : "mm: how much narrower than the standard the shaft is made, for it to fit a hole (0: the nominal)", true),
     ...(mode === "hole" ? [{ ...F("thick", "Thickness", "mm: the body's, along its axis", true), fixed: true as const }, { ...F("bodyR", "Reach", "mm: how far from the axis the hole may go (the body's outside, or a gear's roots)", true), hidden: true as const }, { ...F("boreOwned", "Own bore", ""), hidden: true as const }] : []),
     ...(mode === "fit" ? [{ ...F("thick", "Length", "mm: the shaft's, along its axis", true), fixed: true as const }] : []),

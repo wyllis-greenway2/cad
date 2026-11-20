@@ -5459,5 +5459,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (asks for the polygon snapping to be merged into the testing branch, no full test run)
 
 ## in_1287 — 2026-11-20 — directive
+> now if I select a surface of the splined bore, I don't have the option to create a meshed shaft fitting to it, which sould either jsut directly create a shaft, or let me select the outer surface of a rod or double click a culinder body to apply the mesh attributes there. Also what if I dont want the whole shaft splined? what if I only want the end splined? are shafts ever like that in real life?
+(says that with a surface of the splined bore selected there is no option to make a meshed shaft that fits it, which should either make a shaft directly, or let the outer surface of a rod be selected, or a cylinder body double clicked, to apply the mesh attributes there; and asks, if only the end of a shaft is to be splined and not the whole shaft, whether shafts are ever like that in real life)
+
+## in_1288 — 2026-11-20 — directive
 > can we have skirts and flats on by default? 1 yes lets build this next. 2 correct I think we should keep manufacturing agnostic for now.
 (answers my questions after the arched skirt and flats: wants the arched skirt and the pin flats on by default; 1: yes, build the interior shapes (rounded bosses, ribs to the crown) next; 2: keep the cast and machined surfaces out of the modeler, manufacturing agnostic for now)

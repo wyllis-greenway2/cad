@@ -21,10 +21,10 @@ const isHole = (m: KeywayMode): boolean => m === "hole" || m === "hub";
 /**
  * The numbers: `kind` 0 key, 1 flat, 2 spline; `bore` the hole's (or the shaft's) diameter; `boreOwned` 1 when the body has a bore of its own (it is its, not typed); `thick` the body's thickness and `bodyR` the radius a hole may reach
  * (the outside, or a gear's roots); `key` the key's width (0: the standard's for the bore), `keyDepth` its depth (0: the standard's, else the usual), `flat` the depth of a D flat (0: 0.15 of the diameter); `series` 0 light, 1 medium; `size` the
- * minor diameter of the spline (0: the one the bore or shaft takes); `len` a shaft's length and `off` where it starts along the axis; `play` the room of a fit (mm); `outer` a hub's diameter (a body's, for the hole).
+ * minor diameter of the spline (0: the one the bore or shaft takes); `len` a shaft's length and `off` where it starts along the axis; `play` the room of a fit (mm); `outer` a hub's diameter (a body's, for the hole); `part` which part of a shaft is keyed (0 all of it, 1 the end the axis points to, 2 the other end, 3 both ends) and `span` how long that part is (0: one and a half diameters, at most half the shaft).
  */
-export interface KeywaySpec { outer: number; kind: number; bore: number; boreOwned: number; thick: number; bodyR: number; key: number; keyDepth: number; flat: number; series: number; size: number; len: number; off: number; play: number }
-export const KEYWAY_START: KeywaySpec = { outer: 40, kind: 0, bore: 10, boreOwned: 0, thick: 10, bodyR: 20, key: 0, keyDepth: 0, flat: 0, series: 1, size: 0, len: 30, off: 0, play: 0 };
+export interface KeywaySpec { outer: number; kind: number; bore: number; boreOwned: number; thick: number; bodyR: number; key: number; keyDepth: number; flat: number; series: number; size: number; len: number; off: number; play: number; part: number; span: number }
+export const KEYWAY_START: KeywaySpec = { outer: 40, kind: 0, bore: 10, boreOwned: 0, thick: 10, bodyR: 20, key: 0, keyDepth: 0, flat: 0, series: 1, size: 0, len: 30, off: 0, play: 0, part: 0, span: 0 };
 
 type Resolved = { kind: 0; r: number; w: number; depth: number } | { kind: 1; r: number; flat: number } | { kind: 2; r: number; row: SplineRow };
 const r1 = (v: number): number => Math.round(v * 10) / 10;
@@ -76,6 +76,17 @@ export function keywayAbout(n: KeywaySpec, mode: KeywayMode): string {
   return `${splineName(r.value.row)} ISO 14 ${r.value.row.series} series spline: ${r.value.row.n} splines ${r.value.row.B} mm wide, ${r.value.row.d} mm minor, ${r.value.row.D} mm outside${play}`;
 }
 
+/** the keyed length of a shaft from `lo` to `hi` along its axis: the span asked for, else one and a half diameters, never more than half the shaft */
+const spanOf = (n: KeywaySpec, lo: number, hi: number): number => Math.min((hi - lo) / 2, n.span > 0 ? n.span : Math.max(5, 1.5 * Math.max(n.bore, 1)));
+/** the places along the axis a shaft from `lo` to `hi` is keyed: the whole of it, or a length at its far end, its near end or both; each runs a millimetre past the end it reaches, so that a cut leaves no skin */
+function keyedRanges(n: KeywaySpec, lo: number, hi: number): [number, number][] {
+  const part = Math.round(n.part), sp = spanOf(n, lo, hi);
+  if (part === 1) return [[hi - sp, hi + 1]];
+  if (part === 2) return [[lo - 1, lo + sp]];
+  if (part === 3) return [[lo - 1, lo + sp], [hi - sp, hi + 1]];
+  return [[lo - 1, hi + 1]];
+}
+
 /** What a made hole or shaft is, for Mesh (`in_1279`): the shape with its automatic numbers filled in (the key's width and depth, the flat's depth, the spline's series and minor diameter), where it stands and how far it runs along its axis */
 export interface KeywayRecord { id: string; role: "hole" | "shaft"; /** the id of the body it is on (`x_<step>`) */ host: string; at: Vec3; dir: Vec3; /** the direction of its x axis (where the first spline or the key stands) */ ex: Vec3; /** the run along the axis from `at` (mm): from, to */ span: [number, number]; nums: { kind: number; bore: number; key: number; keyDepth: number; flat: number; series: number; size: number } }
 /** the record of what the numbers make, in the world where it stands (`host` is filled in when the body is known) */
@@ -83,7 +94,8 @@ export function keywayMeta(n: KeywaySpec, mode: KeywayMode, place: Place): Omit<
   const r = keywayResolve(n, mode);
   if (!r.ok) return null;
   const v = r.value, hole = isHole(mode);
-  const span: [number, number] = mode === "shaft" ? [n.off, n.off + n.len] : [-n.thick / 2, n.thick / 2];
+  const [lo, hi] = mode === "shaft" ? [n.off, n.off + n.len] : [-n.thick / 2, n.thick / 2], part = Math.round(n.part), sp = spanOf(n, lo, hi);
+  const span: [number, number] = (mode === "shaft" || mode === "fit") && part > 0 ? (part === 2 ? [lo, lo + sp] : [hi - sp, hi]) : [lo, hi]; // (a shaft keyed at an end: that end is where its hub goes)
   return {
     role: hole ? "hole" : "shaft", at: pointIn(place, [0, 0, 0]), dir: dirIn(place, [0, 0, 1]), ex: dirIn(place, [1, 0, 0]), span,
     nums: { kind: v.kind, bore: v.kind === 2 ? v.row.d : n.bore, key: v.kind === 0 ? v.w : 0, keyDepth: v.kind === 0 && hole ? v.depth : 0, flat: v.kind === 1 ? v.flat : 0, series: v.kind === 2 ? (v.row.series === "light" ? 0 : 1) : Math.round(n.series), size: v.kind === 2 ? v.row.d : 0 },
@@ -145,7 +157,25 @@ export function keyholeSteps(n: KeywaySpec, place: Place, mode: "hole" | "hub" =
   return ok(b.build());
 }
 
-/** The keyed shaft: a round shaft of the diameter with a keyway or a flat, or a spline shaft, `len` long from `off` along the axis, made `play` mm narrower than the nominal */
+/** the cuts that key a round shaft of radius `rs` along the given places: a key's slot, a flat, or, for a spline, the metal outside the profile; `z` is the height of the shaft's axis where the first place is measured from the plane of the model */
+function shaftCuts(b: Builder, R: Resolved, n: KeywaySpec, rs: number, ranges: [number, number][]): void {
+  const p = n.play;
+  for (const [a, c] of ranges) {
+    const [pl, depth] = [b.plane(a), c - a];
+    if (R.kind === 2) {
+      const o = splineOutline(looser(R.row, -p));
+      if (o) b.extrude(pl, disc(0, 0, rs + 1), [outline(o.points, o.bulges)], depth, { mode: "cut" }); // (a ring from the spline's profile out beyond the shaft)
+    } else if (R.kind === 0) {
+      const w = R.w - p;
+      b.extrude(pl, box(rs - R.depth, -w / 2, rs + 1, w / 2), [], depth, { mode: "cut" });
+    } else b.extrude(pl, box(rs - R.flat, -rs - 1, rs + 1, rs + 1), [], depth, { mode: "cut" });
+  }
+}
+
+/**
+ * The keyed shaft: a round shaft of the diameter with a keyway or a flat, or a spline shaft, `len` long from `off` along the axis, made `play` mm narrower than the nominal. With `part` the keyed part is a length at one end or both (a stub:
+ * the shaft is round, as wide as the diameter or the spline, and keyed only there).
+ */
 export function keyshaftSteps(n: KeywaySpec, place: Place): Result<ModelBuild> {
   const bad = keywayProblem(n, "shaft");
   if (bad) return err(bad);
@@ -153,6 +183,12 @@ export function keyshaftSteps(n: KeywaySpec, place: Place): Result<ModelBuild> {
   if (!res.ok) return res;
   const R = res.value, b = new Builder(place), p = n.play;
   b.part("Shaft");
+  if (Math.round(n.part) > 0) { // (keyed at an end: the round shaft first, wide enough for the spline, then the keyed length cut at its end)
+    const rs = (R.kind === 2 ? Math.max(n.bore, R.row.D) : n.bore) / 2 - (R.kind === 2 ? 0 : p / 2);
+    b.extrude(b.plane(n.off), disc(0, 0, rs), [], n.len);
+    shaftCuts(b, R, n, rs, keyedRanges(n, n.off, n.off + n.len));
+    return ok(b.build());
+  }
   if (R.kind === 2) {
     const row = looser(R.row, -p), o = splineOutline(row);
     if (!o) return err("the spline has no outline");
@@ -160,27 +196,19 @@ export function keyshaftSteps(n: KeywaySpec, place: Place): Result<ModelBuild> {
   } else {
     const r = R.r - p / 2;
     b.extrude(b.plane(n.off), disc(0, 0, r), [], n.len);
-    if (R.kind === 0) b.extrude(b.plane(n.off - 1), box(r - R.depth, -(R.w - p) / 2, r + 1, (R.w - p) / 2), [], n.len + 2, { mode: "cut" });
-    else b.extrude(b.plane(n.off - 1), box(r - R.flat, -r - 1, r + 1, r + 1), [], n.len + 2, { mode: "cut" });
+    shaftCuts(b, R, n, r, [[n.off - 1, n.off + n.len + 1]]);
   }
   return ok(b.build());
 }
 
-/** The same keyway cut into a round shaft that is there (its middle on the origin, `thick` long, the diameter `bore`): the key's slot, the flat, or, for a spline, the metal outside the spline's profile */
+/** The same keyway cut into a round shaft that is there (its middle on the origin, `thick` long, the diameter `bore`), along the whole of it or at an end: the key's slot, the flat, or, for a spline, the metal outside the profile */
 export function keyfitSteps(n: KeywaySpec, place: Place): Result<ModelBuild> {
   const bad = keywayProblem(n, "fit");
   if (bad) return err(bad);
   const res = keywayResolve(n, "fit");
   if (!res.ok) return res;
-  const R = res.value, T = n.thick / 2, depth = n.thick + 2, b = new Builder(place), p = n.play, rs = n.bore / 2;
+  const R = res.value, b = new Builder(place);
   b.part(R.kind === 0 ? "Keyway" : R.kind === 1 ? "Flat" : "Spline");
-  if (R.kind === 2) {
-    const row = looser(R.row, -p), o = splineOutline(row);
-    if (!o) return err("the spline has no outline");
-    b.extrude(b.plane(-T - 1), disc(0, 0, rs + 1), [outline(o.points, o.bulges)], depth, { mode: "cut" }); // (a ring from the spline's profile out beyond the shaft)
-  } else if (R.kind === 0) {
-    const w = R.w - p;
-    b.extrude(b.plane(-T - 1), box(rs - R.depth, -w / 2, rs + 1, w / 2), [], depth, { mode: "cut" });
-  } else b.extrude(b.plane(-T - 1), box(rs - R.flat, -rs - 1, rs + 1, rs + 1), [], depth, { mode: "cut" });
+  shaftCuts(b, R, n, n.bore / 2, keyedRanges(n, -n.thick / 2, n.thick / 2));
   return ok(b.build());
 }

@@ -140,3 +140,30 @@ test("without a keyed hole or shaft selected Mesh says so, and the menu item is 
   assert.match(out.session.message ?? "", /keyway maker/);
   assert.equal(out.tool, null);
 });
+
+test("a keyed hole is remembered in the command that made it (one undo takes both), the chip offers Mesh on a selected keyed body, and Mesh with a round shaft selected too cuts the keyway into it at once (`in_1287`)", async () => {
+  const base = cylinder(20, 15);
+  let st = select(state(base), bodies({ session: base })[0]!.ref);
+  st = reduce(st, { type: "runAction", id: "model:keyhole" }, env);
+  st = build(st);
+  const n = st.session.history.commands.length;
+  const undone = reduce(st, { type: "undo" }, env);
+  assert.ok(!(scene(undone.session).keyways ?? []).length, "one undo takes the cut and its record");
+  assert.ok(undone.session.history.commands.length === n && undone.session.history.cursor === n - 1, "one command was undone");
+  // the chip of a keyed body
+  const { frameOf } = await import("../src/interaction/frame.ts");
+  const keyed = select({ ...st, tool: null }, bodies(st)[0]!.ref);
+  const chip = frameOf(keyed, { w: 800, h: 600 }).gearChip;
+  assert.ok(chip && chip.items.some((i) => i.id === "keyway:mesh"), "the icon offers Mesh");
+  // a rod next to the keyed body: both selected, Mesh cuts the key into the rod
+  let both = st.session;
+  const c = drawCircle(scene(both), XY, [100, 0, 0], 5); both = run(both, c.command);
+  both = run(both, { type: "addStep", step: { id: nextId(scene(both), "s"), type: "extrude", parts: [c.circle], params: { depth: 30, mode: "new", ...figureParams([{ outer: [c.circle], holes: [] }]) } } } as Command);
+  const [hub, rod] = [bodies({ session: both }).find((b) => b.id === scene(both).keyways![0]!.host)!, bodies({ session: both }).find((b) => b.id !== scene(both).keyways![0]!.host)!];
+  let m: AppState = { ...state(both), session: { ...both, click: { ...both.click, selection: [hub.ref as never, rod.ref as never] } } };
+  m = reduce(m, { type: "runAction", id: "keyway:mesh" }, env);
+  assert.equal(m.tool?.model?.kind, "keyfit", m.session.message ?? "");
+  const before = rod.volume;
+  m = build(m);
+  assert.ok(bodies(m).find((b) => b.id === rod.id)!.volume < before - 20, "the keyway is cut into the rod");
+});
