@@ -5800,3 +5800,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1375 — 2026-11-20 — directive
 > I thought we decided to always cut to the sketch plane when going normal to a sketch? Lets have it so that selecting a plane and going normal to it cuts to that plane too. Lets have it so that the sketch plane , the cut stays active untill you click exit sketch which is a button at the top in the tool selection thing.
 (the view is cut along the plane when going normal to a sketch or a selected plane; the cut stays until an Exit sketch button in the bar at the top is pressed)
+
+## in_1376 — 2026-11-20 — directive
+> make escape and the xyz buttons exit sketch mode too
+(Escape and the X, Y, Z view buttons leave sketch mode, as Exit sketch does)

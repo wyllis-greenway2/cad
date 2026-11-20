@@ -100,3 +100,24 @@ test("going normal to a selected face, or to a selected world plane, cuts the vi
   assert.equal(temp(w).length, 1, "a world plane looked at straight");
   assert.equal(temp(w)[0]!.n[2] !== 0, true, "across z");
 });
+
+test("Escape leaves sketch mode when nothing else is open, and the X, Y, Z buttons leave it at once (`in_1376`)", () => {
+  const s = open();
+  const sketching = (t: ReturnType<typeof createState>) => cutsNow(t).some((q) => (q.ref as string) === "sketch:cut");
+  let st = createState({ ...s, click: { ...s.click, selection: [TOP] as never } });
+  st = reduce(st, { type: "runAction", id: "look" }, env);
+  assert.ok(sketching(st));
+  st = reduce(st, { type: "look", plane: "Z" } as never, env);
+  assert.ok(!sketching(st), "a view along an axis leaves it");
+  st = createState({ ...s, click: { ...s.click, selection: [TOP] as never } });
+  st = reduce(st, { type: "runAction", id: "look" }, env);
+  st = reduce(st, { type: "begin", name: "rect" }, env);
+  st = reduce(st, { type: "escape" }, env);
+  assert.equal(st.tool, null, "the first Escape puts the tool away");
+  assert.ok(sketching(st), "and the sketch mode stays");
+  st = reduce(st, { type: "escape" }, env);
+  assert.ok(!sketching(st), "the next one leaves it");
+  st = createState({ ...s, click: { ...s.click, selection: [TOP] as never } });
+  st = reduce(st, { type: "look", plane: "N" } as never, env);
+  assert.ok(sketching(st), "going normal to what is selected takes it");
+});

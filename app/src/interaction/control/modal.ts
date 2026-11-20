@@ -400,6 +400,7 @@ export function doEscape(s: AppState): AppState {
   if (s.op) return cancelOp(s);
   if (s.tool) return { ...s, tool: null, op: null, drag: null, gizmoHover: null };
   if (s.preview && !s.tool && !s.op) return { ...s, preview: null }; // (the toolpath preview is put away, `in_570`)
+  if (s.sketchOn) return { ...s, sketchOn: null }; // (nothing else is open: sketch mode is left, as Exit sketch does, `in_1376`)
   if (s.adding) return { ...s, adding: false, session: { ...s.session, message: null } }; // (adding to the selection is left, what is selected stays; the next Esc clears it, `in_540`)
   return withSession(s, clearSelection(s.session));
 }
