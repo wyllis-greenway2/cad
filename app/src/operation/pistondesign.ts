@@ -32,14 +32,14 @@ export interface RingBelt {
  * The ring belt, from the crown down (`dec_piston_belt`). **ASSUMED**, the rules A1 to A3 of `dec_piston_parameters`, except the ring heights and the side room, which are Honda's:
  * the land between rings is 1.6 times a compression ring's height (A1); the top land is the typed `topLand` times the bore (A2); the grooves' depth is a ring's radial width, the bore over 22 (the thicker series of ISO 6622-1), plus a back room of 0.45 mm (A3).
  */
-export function ringBelt(bore: number, rings: number, oil: number, topLand: number, ringSide: number): RingBelt {
-  const fit = pistonFit(bore), land = 1.6 * fit.compressionRing, grooves: Groove[] = [];
+export function ringBelt(bore: number, rings: number, oil: number, topLand: number, ringSide: number, typed: { ring?: number; oilRing?: number; land?: number; radial?: number; back?: number } = {}): RingBelt {
+  const fit = pistonFit(bore), ringH = typed.ring ?? fit.compressionRing, oilH = typed.oilRing ?? fit.oilRing, land = typed.land ?? 1.6 * fit.compressionRing, grooves: Groove[] = [];
   let at = topLand * bore;
   const add = (ring: number, isOil: boolean): void => { const height = ring + ringSide; grooves.push({ top: at, height, oil: isOil }); at += height + land; };
-  for (let k = 0; k < rings; k++) add(fit.compressionRing, false);
-  if (oil) add(fit.oilRing, true);
+  for (let k = 0; k < rings; k++) add(ringH, false);
+  if (oil) add(oilH, true);
   const last = grooves[grooves.length - 1];
-  return { grooves, depth: bore / 22 + 0.45, length: last ? last.top + last.height : topLand * bore };
+  return { grooves, depth: (typed.radial ?? bore / 22) + (typed.back ?? 0.45), length: last ? last.top + last.height : topLand * bore };
 }
 
 export interface Shell {
@@ -51,9 +51,9 @@ export interface Shell {
  * The hollow piston's numbers (`dec_piston_hollow`). **ASSUMED**, nothing here is a source's: the crown is the typed proportion of the bore (A6), the wall the typed proportion (half the crown, the human's choice, `in_1246`), the cavity's radius the piston's less the wall,
  * and under the ring grooves less their depth as well; the pin bosses reach a wall's thickness beyond the pin's hole (A12).
  */
-export function pistonShell(bore: number, radius: number, depth: number, crown: number, skirtWall: number, pin: number, pinFit: number): Shell {
+export function pistonShell(bore: number, radius: number, depth: number, crown: number, skirtWall: number, pin: number, pinFit: number, bossReach?: number): Shell {
   const wall = skirtWall * bore;
-  return { crown: crown * bore, wall, inner: radius - wall, innerBelt: radius - depth - wall, boss: pin / 2 + pinFit / 2 + wall };
+  return { crown: crown * bore, wall, inner: radius - wall, innerBelt: radius - depth - wall, boss: pin / 2 + pinFit / 2 + (bossReach ?? wall) };
 }
 
 export interface RodDesign {

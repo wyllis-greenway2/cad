@@ -98,6 +98,7 @@ test("each model lists its parts, bottom up, covering every step once", () => {
     differential: ["Cage", "Axle 1", "Axle 2", "Cross pin", "Side gear 1", "Spider gear 1", "Side gear 2", "Spider gear 2", "Cap 1", "Cap 2", "Drive gear"],
     cycloidal: ["Base plate and ring pins", "Input shaft and eccentric", "Cycloidal disc", "Output plate and pins"],
     engine: ["Block", "Crankshaft", "Flywheel", "Piston", "Piston pin", "Connecting rod", "Rod cap"],
+    piston: ["Piston", "Piston pin"],
     wheel: ["Wheel", "Edge rounds"],
     wheelcut: ["Bore", "Pockets", "Joins", "Cutouts", "Edge rounds"],
   };
@@ -117,7 +118,7 @@ test("Create makes the model a part at a time: the first part at once, the next 
   st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0], model: { ...st.tool!.model!, typed: st.tool!.model!.typed.map((x, i) => (i === 1 || i === 3 ? "1" : x)) } } }; // (the first field after the size: the detail)
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env as never);
   assert.ok(st.building, "building");
-  assert.ok(st.tool?.model?.made, "the box stays open on the model being made (`in_1257`)");
+  assert.ok(st.tool?.model?.made, "the box stays open on the model being made (`in_1259`)");
   assert.equal(st.building!.next, 1, "the first part is made");
   assert.equal(bodies(st.session).length, 1);
   st = reduce(st, { type: "buildNext" }, env as never);
@@ -136,7 +137,7 @@ test("Create makes the model a part at a time: the first part at once, the next 
   assert.ok(st.tool?.model?.made?.to !== undefined, "the box knows where its model ends");
 });
 
-test("a model's box stays open: Create makes it, a changed number offers Update (the model is made again, not added), no change is Done, Esc is Cancel (`in_1257`)", () => {
+test("a model's box stays open: Create makes it, a changed number offers Update (the model is made again, not added), no change is Done, Esc is Cancel (`in_1259`)", () => {
   let st = { ...createState(createSession(kernel)), cam: homeCamera() };
   st = reduce(st, { type: "runAction", id: "model:wheel" }, env as never);
   st = { ...st, tool: { ...st.tool!, plane: XY, points: [[0, 0, 0]], cursor: [0, 0, 0], model: { ...st.tool!.model!, typed: st.tool!.model!.typed.map((x, i) => (i === 0 ? "80" : x)) } } };
@@ -274,7 +275,7 @@ test("the Play item of the ring starts the model from whichever of its bodies is
     const played = reduce(st, { type: "runAction", id: "motion:play" }, env as never);
     assert.ok(played.motion, `${kind}: Play from ${from} starts a motion: ${played.session.message ?? ""}`);
     if (!played.motion) continue;
-    const held: Record<ModelKind, number> = { gearbox: 2, ballbearing: 1, differential: 2, cycloidal: 1, engine: 1, wheel: 0, wheelcut: 0 };
+    const held: Record<ModelKind, number> = { gearbox: 2, ballbearing: 1, differential: 2, cycloidal: 1, engine: 1, piston: 0, wheel: 0, wheelcut: 0 };
     assert.equal(played.motion.follows.length, Object.keys(rec.parts).length - held[kind] - 1, `${kind}: every moving part follows (the followers and what is glued to them)`);
     const driverBody = anyBodyOf(sc, rec.parts[rec.driver.part]!);
     assert.equal(played.motion.body, driverBody, `${kind}: the driver is ${rec.driver.part}`);

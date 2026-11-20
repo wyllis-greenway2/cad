@@ -150,7 +150,7 @@ const stays = (t: AppState["tool"]): AppState["tool"] => (t && t.kind !== "gear"
 /** A model is made a part at a time (`dec_gear_models`): the first part now, and each next one when the kernel has answered for the one before (the page draws between, so the parts are seen going in) */
 function startBuilding(s: AppState): AppState {
   const t = s.tool!, m = t.model!;
-  // Update: the model that was made is taken back (nothing came after it) and made again from the numbers in the box; else this is a Create (`in_1257`)
+  // Update: the model that was made is taken back (nothing came after it) and made again from the numbers in the box; else this is a Create (`in_1259`)
   const redo = !!m.made && m.made.to !== undefined && s.session.history.cursor === m.made.to && s.session.history.commands.length === m.made.to;
   const sess = redo ? goToCursor(s.session, m.made!.from) : s.session;
   const g = modelBuilding(sceneOf(sess), t);
@@ -179,7 +179,7 @@ export function doBuildNext(s: AppState): AppState {
   return !s.building || s.session.outcome.kernel?.stale ? s : makeNextPart(s);
 }
 
-/** The tool a gear, a cam or a planetary set that has just been made or updated goes on as: the box open on it, with its numbers as they now are (`in_1257`); null when the record is not found */
+/** The tool a gear, a cam or a planetary set that has just been made or updated goes on as: the box open on it, with its numbers as they now are (`in_1259`); null when the record is not found */
 function stayOpen(t: NonNullable<AppState["tool"]>, before: ReturnType<typeof sceneOf>, after: ReturnType<typeof sceneOf>): AppState["tool"] {
   if (t.kind === "gear" && t.gear?.planetary) { const id = t.gear.editing ?? nextId(before, "q"), set = after.planetaries?.find((p) => p.id === id); return set ? editPlanetaryTool(set) : null; }
   const id = t.gear?.editing ?? t.cam?.editing ?? nextId(before, "g"), rec = after.gears?.find((g) => g.id === id);
@@ -197,7 +197,7 @@ export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppSt
   const next = run(s.session, fin.command);
   if (next.message) return { ...s, session: next };
   const sel = fin.select.filter((r) => r in sceneOf(next).parts);
-  if ((s.tool?.kind === "gear" && !s.tool.cam) || s.tool?.kind === "cam") return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: stayOpen(s.tool, sceneOf(s.session), sceneOf(next)), resume: null, spread: null }; // (a gear that is made keeps its box open, as the Edit tool of that gear: Update changes it, Done lets go, `in_1257`)
+  if ((s.tool?.kind === "gear" && !s.tool.cam) || s.tool?.kind === "cam") return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: stayOpen(s.tool, sceneOf(s.session), sceneOf(next)), resume: null, spread: null }; // (a gear that is made keeps its box open, as the Edit tool of that gear: Update changes it, Done lets go, `in_1259`)
   // a circle drawn about another circle's centre is concentric with it
   const circle = fin.select[0]?.startsWith("d/disk@") ? (`d/${fin.select[0].slice(7)}` as Ref) : null;
   if (s.tool?.kind === "circle" && s.tool.concentric && circle && circle in sceneOf(next).parts) {
@@ -277,7 +277,7 @@ export function doTyped(s: AppState, key: string): AppState {
   if (!t || !t.plane || !t.points.length) return s;
   if (key !== "Enter") return { ...s, tool: typeKey(t, key) };
   if (s.building && t.kind === "model") return s; // (the parts are still being made)
-  if (t.kind === "model" && t.model?.made && !modelChanged(t)) return { ...s, tool: null }; // (nothing was changed: Done, `in_1257`)
+  if (t.kind === "model" && t.model?.made && !modelChanged(t)) return { ...s, tool: null }; // (nothing was changed: Done, `in_1259`)
   if (((t.kind === "gear" && t.gear?.editing && !t.cam) || (t.kind === "cam" && t.cam?.editing)) && !gearChanged(sceneOf(s.session), t)) return { ...s, tool: null }; // (nothing was changed: Done only lets go, `in_919`)
   const next = t.kind === "line" && t.typed[0] !== "" ? lineNext(t) : null; // a typed length gives the line's end
   return commitFigure(s, finish(sceneOf(s.session), next ? { ...t, points: [t.points[0]!, next] } : t));

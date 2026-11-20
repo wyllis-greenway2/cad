@@ -182,7 +182,7 @@ test("with a face of a cylinder selected, Cut spokes shows its own number box, n
   assert.ok(f.entry?.panel?.startsWith("Cut spokes"), `the box is the wheel's: ${JSON.stringify(f.entry)}`);
 });
 
-test("Cut spokes in a body with no bore offers the gear maker's bore (diameter, flat, key); a body with a bore has it locked and the others left out (`in_1257`)", async () => {
+test("Cut spokes in a body with no bore offers the gear maker's bore (diameter, flat, key); a body with a bore has it locked and the others left out (`in_1259`)", async () => {
   const { modelTyped, modelEntry: entry } = await import("../src/interaction/modeltool.ts");
   const { modelFields } = await import("../src/operation/modelkinds.ts");
   const at = (k: string): number => 1 + modelFields("wheelcut").findIndex((f) => f.key === k);

@@ -244,7 +244,7 @@ test("a wheel may be as flat as the spokes, the rim and the hub being one thickn
   assert.equal(effective(S({ web: 30, rimT: 8, hubT: 8 })).web, 8);
 });
 
-test("a wheel's bore has the gear maker's flat and keyway: the flat leaves metal in the hole, the key cuts a slot, and both are one body (`in_1257`)", () => {
+test("a wheel's bore has the gear maker's flat and keyway: the flat leaves metal in the hole, the key cuts a slot, and both are one body (`in_1259`)", () => {
   const vol = (typed: Record<string, string>) => { const st = placed(typed); const b = bodyOf(st); assert.equal(b.length, 1, "one body"); return b[0]!.volume; };
   const round = vol({ bore: "10", hub: "24", spokes: "0" }), flat = vol({ bore: "10", hub: "24", spokes: "0", flat: "1.2" }), key = vol({ bore: "10", hub: "24", spokes: "0", key: "3" });
   assert.ok(flat > round + 10, `a D flat: ${flat} > ${round}`);
