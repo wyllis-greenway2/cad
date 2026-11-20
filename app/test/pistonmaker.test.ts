@@ -312,8 +312,6 @@ test("the scoop: a flat floor round the pin with a curved end above and below th
   const vs = bodies(pistonSteps(sq)).sort((a, b) => b.volume - a.volume)[0]!.volume, vc = bodies(pistonSteps(sc)).sort((a, b) => b.volume - a.volume)[0]!.volume;
   const expect = pistonVolumes(sq).cup - pistonVolumes(sc).cup;
   assert.ok(expect > 100 && Math.abs((vs - vc) - expect) / expect < 0.03, `the scoop's volume against the flat: kernel ${(vs - vc).toFixed(1)}, worked out ${expect.toFixed(1)}`);
-  const all = { ...P({ bore: 68, pin: 18 }), pinFlat: 3 }, bs = bodies(pistonSteps(all));
-  assert.ok(pistonGeometry(all).arch.on && pistonGeometry(all).round.on && bs.length >= 1 && bs.every((b) => b.volume > 0), "the scoop builds with the arch and the round bosses");
   assert.match(pistonProblem({ ...sc, scoopRun: 40 }) ?? "", /scoop's run/);
 });
 test("the flats round the pin: the skirt's face ends on a flat at each side of the pin; the circlip groove is placed from the flat; the volume is the worked-out one", () => {
@@ -335,7 +333,7 @@ test("the flats round the pin: the skirt's face ends on a flat at each side of t
   assert.equal(pistonGeometry({ ...flat, flatWidth: 30 }).flat.yf, 15, "typed width");
   assert.match(pistonProblem({ ...flat, flatDepth: 30 }) ?? "", /flat is too deep/);
   assert.match(pistonProblem({ ...flat, flatWidth: 12 }) ?? "", /narrower than the pin bore/);
-  assert.match(pistonProblem({ ...base, pinFlat: 4 }) ?? "", /flats are 0 \(none\), 1 \(flat\) 2 \(flat with a ramp\) or 3 \(scoop\)/);
+  assert.match(pistonProblem({ ...base, pinFlat: 4 }) ?? "", /flats are 0 \(none\), 1 \(flat\), 2 \(flat with a ramp\) or 3 \(scoop\)/);
   assert.match(pistonProblem({ ...flat, flatDepth: -1 }) ?? "", /flat's depth is 0 \(auto\)/);
 });
 
@@ -472,4 +470,10 @@ test("the arched skirt and the flats are on by default and left out where there 
   assert.equal(pistonProblem(P({ bore: 15, pin: 4 })), null, "a small piston is made");
   assert.ok(!tiny.arch.on || tiny.arch.fits, "an arch only where it fits");
   assert.equal(pistonProblem(P({ bore: 15, pin: 4, archHeight: 9 })) === null, !(pistonGeometry(P({ bore: 15, pin: 4, archHeight: 9 })).arch.on && !pistonGeometry(P({ bore: 15, pin: 4, archHeight: 9 })).arch.fits), "a typed arch that does not fit is refused");
+});
+
+// (the last test of the file: the kernel's memory grows over a run, and this heavy build placed before the crown's test made its volumes wrong)
+test("the scoop builds with the arch and the round bosses", () => {
+  const all = { ...P({ bore: 68, pin: 18 }), pinFlat: 3 }, bs = bodies(pistonSteps(all));
+  assert.ok(pistonGeometry(all).arch.on && pistonGeometry(all).round.on && bs.length >= 1 && bs.every((b) => b.volume > 0), "the scoop builds with the arch and the round bosses");
 });
