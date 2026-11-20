@@ -129,7 +129,7 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "model:wheel", label: "Wheel", icon: "wheel" }, // (hub, spokes and rim: alone, or filling a selected round object, `dec_hub_spoke`)
   { id: "model:keyhole", label: "Keyed hole", icon: "keyhole" }, // (a key, a flat or a spline cut into the hole of a round body, `dec_keyway_maker`)
   { id: "model:keyshaft", label: "Keyed shaft", icon: "keyshaft" },
-  { id: "keyway:mesh", label: "Mesh keyway", icon: "keyshaft" }, // (the shaft that fits a keyed hole, or the hub that fits a shaft, `in_1289`) // (a shaft with a keyway, a flat or a spline)
+  { id: "keyway:mesh", label: "Mesh keyway", icon: "keyshaft" }, // (the shaft that fits a keyed hole, or the hub that fits a shaft, `in_1298`) // (a shaft with a keyway, a flat or a spline)
   { id: "model:wheelcut", label: "Cut spokes", icon: "wheelcut" }, // (the wheel cut into a round body that is selected: its bore and outside edge kept, `dec_hub_spoke`)
   { id: "model:cycloidal", label: "Cycloidal drive", icon: "cycloidal" }, // (a cycloidal reducer)
   { id: "fab:material", label: "Material", icon: "models" }, // (Shape, Fabricate: what a body is made of, `in_1083`; it was a row of the ⋯ list)

@@ -60,7 +60,7 @@ test("past one turn with no advance it is refused; with an advance it spirals, t
   assert.ok(Math.abs(volume(spiral.session) - pappus(2.5)) < 0.1, `volume ${volume(spiral.session)}`);
   const step = scene(spiral.session).steps.at(-1)!;
   assert.equal(step.type, "revolve");
-  assert.equal(step.params.advance, 25, "10 a turn over two and a half turns (`in_1289`)");
+  assert.equal(step.params.advance, 25, "10 a turn over two and a half turns (`in_1298`)");
 });
 
 test("an advance that is less than the figure is wide along the axis is raised so the turns do not overlap, and the reason is said (`in_1194`)", () => {
@@ -585,7 +585,7 @@ test("a circle has no straight side: the orb starts out in its plane, beside it,
   assert.ok(volume(r.session) > 100, `a body is made: ${volume(r.session)}`);
 });
 
-test("the Revolve operation opens with the bubble of its angle and its advance for each turn already there, nothing chosen first (`in_1289`)", () => {
+test("the Revolve operation opens with the bubble of its angle and its advance for each turn already there, nothing chosen first (`in_1298`)", () => {
   const { s, face } = figure();
   let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
   st = reduce(st, { type: "begin", name: "revolve" }, env);

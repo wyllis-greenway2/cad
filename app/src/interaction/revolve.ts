@@ -72,10 +72,10 @@ const cross3 = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[
 
 /** The line being turned about. */
 export const axisOf = (op: Op): RevAxis | null => (op.pivot && op.frame ? { p: op.pivot, d: op.frame[op.axis], label: "the mover's axis" } : null); // (the orb's place and the axis of its frame the person chose, `in_438`)
-/** The advance along the axis for each full turn (the spiral's pitch, mm or the system in use): what is typed, else what the arrow was dragged to, else none (`in_1289`: it was the distance over the whole angle, which is nothing to read off a bubble). */
+/** The advance along the axis for each full turn (the spiral's pitch, mm or the system in use): what is typed, else what the arrow was dragged to, else none (`in_1298`: it was the distance over the whole angle, which is nothing to read off a bubble). */
 export const advanceOf = (op: Op): number => { const t = typedLength(op.advTyped ?? ""); return t !== null ? t : op.advValue ?? 0; };
 /**
- * The least advance a turn at which the turns of a spiral do not run into each other (`in_1289`): the figure is as wide along the axis as it is, and one turn must advance at least that. The advance is the distance for each full turn,
+ * The least advance a turn at which the turns of a spiral do not run into each other (`in_1298`): the figure is as wide along the axis as it is, and one turn must advance at least that. The advance is the distance for each full turn,
  * whatever the angle; the step is made with it times the turns. Null when there is no advance.
  */
 function advanceFloor(scene: Scene, op: Op): { floor: number; width: number } | null {
@@ -90,13 +90,13 @@ function advanceFloor(scene: Scene, op: Op): { floor: number; width: number } | 
   }
   return width > 0 ? { floor: Math.ceil(width * 100 + 1) / 100, width } : null; // (a hundredth over, so the kernel's check passes)
 }
-/** What is said while the advance a turn has been raised to that floor (`in_1289`), or null. */
+/** What is said while the advance a turn has been raised to that floor (`in_1298`), or null. */
 export function advanceNote(scene: Scene, op: Op): string | null {
   const f = advanceFloor(scene, op);
   if (!f || Math.abs(advanceOf(op)) >= f.floor) return null;
   return `the figure is ${Math.round(f.width * 100) / 100} mm wide along the axis, so the advance for each turn is raised to ${f.floor} mm: the turns would run into each other`;
 }
-/** The advance the step is made with, over the whole angle: the advance for a turn (raised to the floor where the turns would run into each other) times the turns (`in_1289`). */
+/** The advance the step is made with, over the whole angle: the advance for a turn (raised to the floor where the turns would run into each other) times the turns (`in_1298`). */
 const raised = (scene: Scene, op: Op, angle: number): number => {
   const per = advanceOf(op), f = advanceFloor(scene, op);
   const pitch = f && Math.abs(per) < f.floor ? Math.sign(per) * f.floor : per;

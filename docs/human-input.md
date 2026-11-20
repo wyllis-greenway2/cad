@@ -5466,5 +5466,5 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > can we have skirts and flats on by default? 1 yes lets build this next. 2 correct I think we should keep manufacturing agnostic for now.
 (answers my questions after the arched skirt and flats: wants the arched skirt and the pin flats on by default; 1: yes, build the interior shapes (rounded bosses, ribs to the crown) next; 2: keep the cast and machined surfaces out of the modeler, manufacturing agnostic for now)
 
-## in_1289 — 2026-11-20 — directive
+## in_1298 — 2026-11-20 — directive
 > when the rotate extrude tool opens, it defaults to one of its axis selected for rotation but its bubbles arent open to input rotation amount or spiral value. Also what is the spiral tool input even specifying? it seems like nothing? It seems like any value just spirals the amount such that the extruded surface is fully above itself on 1 revolution? I think that it should just be specifying units (mm or whatever system is set to) increment in that direction per full revolution.
