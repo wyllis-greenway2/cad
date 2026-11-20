@@ -5731,3 +5731,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1358 — 2026-11-20 — directive
 > It still doesn't work. I still cant pull both these faces down
 (a screenshot and the file `model_5.json`: a cylinder whose top has two lines across it, the two end pieces of the top selected with the pull arrow; they cannot be pulled down together; sent after the question whether the fix reached the root cause)
+
+## in_1359 — 2026-11-20 — question
+> Lets do the stable naming root fix if you think we need it. also is this model stable in general where we can let body edges be part of sketches as lines? for example if I draw this patten on top a cylinder then extrude down, then increase the diameter such that an earlier enclosed sketch would have no longer been enclosed, then what happens?
+(asks to build the stable naming fix if it is needed, and whether letting a body's edges be lines of a sketch is stable in general: what happens to a figure pulled down when the cylinder's diameter is then changed so that a region that was enclosed no longer is)
