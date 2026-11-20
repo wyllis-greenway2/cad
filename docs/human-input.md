@@ -5650,3 +5650,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1337 — 2026-11-20 — question
 > okay why can't I drag both these holes down with the mover tool? I can only select one of them and it moves both down. Also why is it that one cuts through the chamfer and the other doesn? is this because the origin of the cutting was on the face and so it basically moved a negative body down? If so, can we try having it so that you can just see the negative body and move the entire negative body as if it were a positive body?
 (no picture or file came with this message; asks why two holes cannot be moved separately with the mover, why one cuts through a chamfer and the other does not, and whether a cut can be shown and moved as a negative body)
+
+## in_1338 — 2026-11-20 — directive
+> (no words: two screenshots of a cylinder with a chamfered slot and two holes, one cutting through the slot's wall and one not, and the file `holes.json`, sent with the question in in_1337)
+(the model for in_1337: why the holes cannot be moved separately, why one cuts through the chamfer and the other not, and whether a cut can be moved as a negative body)
