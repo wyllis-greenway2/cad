@@ -4506,3 +4506,6 @@ Branch `claude/adoring-dijkstra-carry`. `in_1280` asked for a polygon tool that 
 
 ## Handoff 1138 — 2026-11-20 (in_1279: the bore out of the gear and wheel; Mesh for the keyway maker)
 `in_1279`. Flat / Key / Key depth are out of the gear, Wheel and Cut spokes boxes (old gears keep their shape). The keyway maker has four tools (hole, shaft, hub, fit) with a Play number, a record of what it made (`Scene.keyways`) and **Mesh keyway**: a keyed hole gets its shaft, a shaft its hub, or a click on round geometry cuts the keyway in. `keywaymesh.ts`, `keywaymesh.test.ts`. **Left:** cuts take material from every body they overlap; the shaft's keyway depth is an assumption; the key as a body; own spline numbers; the other standards (need data); a browser look at Mesh.
+
+## Handoff 1139 — 2026-11-20 (in_1283: Keyed shaft on a selected rod)
+`in_1283`. Keyed shaft ignored the selection and waited for a surface. Now a selected round shaft (surface or body, no bore) is keyed in place as the keyed fit (`beginTool` in `modal.ts`). Reproduced and checked on the human's `model2.json`; test in `keyway.test.ts`.

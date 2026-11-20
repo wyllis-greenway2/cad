@@ -114,3 +114,24 @@ test("the box: the shape is a choice; a key shows its width and depth, a flat it
   const items = (reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as { id: string; children?: unknown[] }[]).flatMap(function walk(i: any): string[] { return [i.id, ...(i.children ?? i.items ?? []).flatMap(walk)]; });
   assert.ok(items.includes("model:keyhole") && items.includes("model:keyshaft"), "both are in the menu");
 });
+
+test("Keyed shaft with a round shaft selected (its surface or the whole rod) keys that shaft where it stands, as the keyed fit: no surface to click (`in_1283`)", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 6); s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 40, ...figureParams([{ outer: [c.circle], holes: [] }]) } } } as Command);
+  const rod = bodies({ session: s })[0]!;
+  for (const pick of [rod.ref, `${rod.ref}/f@0,0,1,40`]) {
+    let st: ReturnType<typeof createState> = { ...createState(s), cam: homeCamera() };
+    st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [pick as never] } } };
+    st = reduce(st, { type: "runAction", id: "model:keyshaft" }, env);
+    assert.equal(st.tool?.model?.kind, "keyfit", `${pick}: ${st.session.message}`);
+    assert.ok(!st.session.message, "nothing to select");
+    st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+    let n = 0; while (st.building && n++ < 12) st = reduce(st, { type: "buildNext" }, env);
+    assert.equal(bodies(st).length, 1, st.session.message ?? "");
+    assert.ok(bodies(st)[0]!.volume < rod.volume - 30, `the keyway is cut into the rod: ${bodies(st)[0]!.volume} of ${rod.volume}`);
+  }
+  // with nothing selected the tool still waits for a surface
+  const none = reduce({ ...createState(s), cam: homeCamera() }, { type: "runAction", id: "model:keyshaft" }, env);
+  assert.equal(none.tool?.model?.kind, "keyshaft");
+});
