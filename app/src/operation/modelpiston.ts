@@ -22,6 +22,7 @@ export interface PistonSpec {
   /** the pin: 0 solid, 1 hollow (the pin's bore, `pinBore`, **0 = auto**: 0.55 of the pin, ASSUMED) */ pinKind: number; pinBore: number;
   /** the skirt (`dec_piston_skirt`): 0 round and straight, 1 oval and tapered; **0 = auto**: the oval (narrower along the pin, mm across: 0.001 of the bore), the taper (narrower at the top, mm across: 0.0007 of the bore), the foot's chamfer (0.004 of the bore); the style 0 full, 1 two pads, each pad's angle (degrees, **0 = auto** 80) */ skirtShape: number; oval: number; taper: number; footChamfer: number; skirtStyle: number; padAngle: number;
   /** the crown (`dec_piston_crown`): the shape 0 flat, 1 dome, 2 dish, 3 bowl; **0 = auto**: the shape's height (a dome's height, a dish's or bowl's depth: 0.04, 0.03, 0.04 of the bore), the shaped part's diameter (0.75 of the bore, a bowl 0.6), the crown's edge chamfer (0.004 of the bore); valve reliefs in a flat crown: how many (0 to 2: not 0 = auto), each one's diameter (0.3 of the bore), depth (0.02) and its distance from the axis along the pin's axis (0.25) */ crownShape: number; crownHeight: number; crownDia: number; crownChamfer: number; valveReliefs: number; reliefDia: number; reliefDepth: number; reliefOffset: number;
+  /** the skirt's arched cutaway and the flats round the pin (`dec_piston_shape`): the arch's height above the foot (mm, **0 = auto**: up to just below the bosses); the pin's flats 0 none, 1 flat, the flat's depth below the skirt's face (**0 = auto** 0.02 of the bore) and its width (**0 = auto**: the boss and a millimetre either side) */ archHeight: number; pinFlat: number; flatDepth: number; flatWidth: number;
   /** the pin's retention: 0 none, 1 circlips (a groove in the pin bore near each outer face and a circlip in it: Honda's); **0 = auto**: the groove's width (0.06 of the pin, at least 0.8 mm) and depth (0.028 of the pin, at least 0.4 mm), its distance from the outer face (1.0 mm, measured where the groove is widest: the face curves away from the pin's axis), the pin's end float (0.1 mm) */ retention: number; clipWidth: number; clipDepth: number; clipEdge: number; pinFloat: number;
   /** **0 = auto**: an oil drain hole's diameter (0.03 of the bore), the gap between the pin bosses (the rod's thickness and its room each side), how far a boss reaches beyond the pin's hole (a wall's thickness) */ drainDia: number; bossGap: number; bossReach: number;
 }
@@ -31,7 +32,7 @@ export const MATERIALS: readonly { name: string; density: number; fit: number }[
   { name: "Cast aluminium", density: 2.7, fit: FIT.skirtClearance }, { name: "Hypereutectic aluminium", density: 2.65, fit: FIT.skirtClearance }, { name: "Forged aluminium", density: 2.76, fit: 0.05 },
   { name: "Cast iron", density: 7.2, fit: 0.13 }, { name: "Steel", density: 7.85, fit: 0.13 }];
 const STEEL = 7.85; // (the pin and the circlips, g/cm3)
-export const PISTON_START: PistonSpec = { bore: 30, pin: 8, rings: 2, oil: 1, topLand: 0.07, crown: 0.08, skirtWall: 0.04, drain: 2, room: 0.15, skirtFit: 0, pinFit: FIT.pinFit, ringSide: FIT.ringSide, pinHeight: 0, skirtLen: 0, pinLen: 0, ringHeight: 0, oilRingHeight: 0, ringRadial: 0, land: 0, backRoom: 0, drainDia: 0, bossGap: 0, bossReach: 0, crownShape: 0, crownHeight: 0, crownDia: 0, crownChamfer: 0, valveReliefs: 0, reliefDia: 0, reliefDepth: 0, reliefOffset: 0, skirtShape: 1, oval: 0, taper: 0, footChamfer: 0, skirtStyle: 0, padAngle: 0, material: 0, pinKind: 1, pinBore: 0, topLandRelief: 0, landRelief: 0, retention: 1, clipWidth: 0, clipDepth: 0, clipEdge: 0, pinFloat: 0 };
+export const PISTON_START: PistonSpec = { bore: 30, pin: 8, rings: 2, oil: 1, topLand: 0.07, crown: 0.08, skirtWall: 0.04, drain: 2, room: 0.15, skirtFit: 0, pinFit: FIT.pinFit, ringSide: FIT.ringSide, pinHeight: 0, skirtLen: 0, pinLen: 0, ringHeight: 0, oilRingHeight: 0, ringRadial: 0, land: 0, backRoom: 0, drainDia: 0, bossGap: 0, bossReach: 0, crownShape: 0, crownHeight: 0, crownDia: 0, crownChamfer: 0, valveReliefs: 0, reliefDia: 0, reliefDepth: 0, reliefOffset: 0, archHeight: 0, pinFlat: 0, flatDepth: 0, flatWidth: 0, skirtShape: 1, oval: 0, taper: 0, footChamfer: 0, skirtStyle: 0, padAngle: 0, material: 0, pinKind: 1, pinBore: 0, topLandRelief: 0, landRelief: 0, retention: 1, clipWidth: 0, clipDepth: 0, clipEdge: 0, pinFloat: 0 };
 const CLIP_ROOM = 0.05; // (a circlip's room in its groove, mm: two bodies may not share a face)
 
 export interface PistonGeometry {
@@ -42,6 +43,7 @@ export interface PistonGeometry {
   /** half the gap between the pin bosses, half the pin's length, an oil drain hole's radius */ zoff: number; pinHalf: number; drainR: number;
   /** the skirt (`dec_piston_skirt`): the radius at the top of the skirt (under the belt; the foot's is `rp`), the oval and the taper across, the foot's chamfer, the skirt's top (mm from the crown), the outer radius along the pin axis at the pin's height, the half angle of the cut-away wedge of a pad skirt (radians from the pin axis; 0 full), and the skirt's radius at a height above the pin's axis */ rt: number; oval: number; taper: number; chamfer: number; skirtTop: number; rzPin: number; wedge: number; radiusAt: (xAbove: number) => number; outerZ: (y: number) => number;
   /** the crown (`dec_piston_crown`): the shape, its height (a dome's rise or a dish's or bowl's depth), the shaped part's radius, the edge chamfer, how far the piston reaches above the flat crown (a dome's height), and the valve reliefs (how many, each one's radius, depth and distance from the axis) */ cr: { shape: number; height: number; radius: number; edge: number; top: number; reliefs: { n: number; r: number; depth: number; off: number } };
+  /** the arched cutaway (none for a full skirt): its half width at the foot, its height above the foot, and the flats round the pin: the plane's distance from the axis, the half width, and where it begins and ends (mm above the pin's axis) */ arch: { on: boolean; w: number; h: number } ; flat: { on: boolean; z: number; yf: number; x0: number; x1: number };
   /** the relieved lands from the crown down: where each begins and ends (mm from the crown) and its radius */ lands: { top: number; bottom: number; radius: number }[];
   /** the circlip grooves (none without retention): the groove's width and depth, the distance from the pin's axis to its inner face, the pin bore's radius, the circlip's outer and inner radius and its thickness */ clip: { width: number; depth: number; z: number; bore: number; outer: number; inner: number; thick: number } | null;
 }
@@ -59,9 +61,12 @@ export function pistonGeometry(p: PistonSpec): PistonGeometry {
   const rAt = (xAbove: number): number => rp - (taper / 2) * Math.min(1, Math.max(0, (xAbove + skL) / Math.max(1e-9, skL + topAbove))); // (the skirt's radius xAbove mm above the pin's axis: the foot's at the foot, rt at the top)
   const rzPin = Math.min(rAt(0), rp - oval / 2);
   // the skirt's outer face at the pin's height, along the pin's axis, y off the axis (across the thrust): the circle of the skirt's radius there or the oval's lens, whichever is nearer
+  // the flats round the pin and the arched cutaway (`dec_piston_shape`)
+  const wedgeA = p.skirtStyle === 1 ? ((90 - (p.padAngle > 0 ? p.padAngle : 80) / 2) * Math.PI) / 180 : 0, bossR = shell.boss;
+  const flat = { on: p.pinFlat === 1, z: rzPin - (p.flatDepth > 0 ? p.flatDepth : 0.02 * B), yf: p.flatWidth > 0 ? p.flatWidth / 2 : bossR + 1, x0: -(bossR + 0.3), x1: chH - belt.length - 0.6 };
+  const arch = { on: wedgeA > 0, w: rp * Math.sin(wedgeA), h: p.archHeight > 0 ? p.archHeight : skL - bossR - 0.3 };
   const wL = rp + 0.05, bzL = rp - oval / 2, RL = (wL * wL + bzL * bzL) / (2 * bzL), dL = RL - bzL;
-  const outerZ = (y: number): number => Math.min(Math.sqrt(Math.max(0, rAt(0) * rAt(0) - y * y)), oval > 0 ? Math.sqrt(Math.max(0, RL * RL - y * y)) - dL : Infinity);
-  const wedge = p.skirtStyle === 1 ? ((90 - (p.padAngle > 0 ? p.padAngle : 80) / 2) * Math.PI) / 180 : 0;
+  const outerZ = (y: number): number => Math.min(Math.sqrt(Math.max(0, rAt(0) * rAt(0) - y * y)), oval > 0 ? Math.sqrt(Math.max(0, RL * RL - y * y)) - dL : Infinity, flat.on && Math.abs(y) <= flat.yf ? flat.z : Infinity);
   const cs = Math.round(p.crownShape), crEdge = p.crownChamfer > 0 ? p.crownChamfer : 0.004 * B, crH = cs === 0 ? 0 : p.crownHeight > 0 ? p.crownHeight : [0, 0.04, 0.03, 0.04][cs]! * B, crR = (p.crownDia > 0 ? p.crownDia : (cs === 3 ? 0.6 : 0.75) * B) / 2;
   const cr = { shape: cs, height: crH, radius: crR, edge: crEdge, top: cs === 1 ? crH : 0, reliefs: { n: Math.round(p.valveReliefs), r: (p.reliefDia > 0 ? p.reliefDia : 0.3 * B) / 2, depth: p.reliefDepth > 0 ? p.reliefDepth : 0.02 * B, off: p.reliefOffset > 0 ? p.reliefOffset : 0.25 * B } };
   // the relieved lands (`dec_piston_lands_clips`): the top land and the lands between grooves, smaller than the skirt's top by a diameter
@@ -73,7 +78,7 @@ export function pistonGeometry(p: PistonSpec): PistonGeometry {
   const bore = p.pin / 2 + p.pinFit / 2, cw = p.clipWidth > 0 ? p.clipWidth : Math.max(0.8, 0.06 * p.pin), cd = p.clipDepth > 0 ? p.clipDepth : Math.max(0.4, 0.028 * p.pin), edge = p.clipEdge > 0 ? p.clipEdge : 1.0, flt = p.pinFloat > 0 ? p.pinFloat : 0.1;
   const zIn = outerZ(bore + cd) - edge - cw, outer = bore + cd - CLIP_ROOM;
   const clip = p.retention === 1 ? { width: cw, depth: cd, z: zIn, bore, outer, inner: outer - 2.8 * cd, thick: cw - 2 * CLIP_ROOM } : null;
-  return { cr, rt, oval, taper, chamfer, skirtTop, rzPin, wedge, radiusAt: rAt, outerZ, fit, density: mat.density, pinBore: p.pinKind === 1 ? (p.pinBore > 0 ? p.pinBore : Math.min(0.55 * p.pin, p.pin - 2 * Math.max(1, 0.08 * p.pin))) : 0, rp, ch: p.pinHeight > 0 ? p.pinHeight : stack, sk: p.skirtLen > 0 ? p.skirtLen : 0.27 * B, belt, shell, rs, w,
+  return { arch, flat, cr, rt, oval, taper, chamfer, skirtTop, rzPin, wedge: wedgeA, radiusAt: rAt, outerZ, fit, density: mat.density, pinBore: p.pinKind === 1 ? (p.pinBore > 0 ? p.pinBore : Math.min(0.55 * p.pin, p.pin - 2 * Math.max(1, 0.08 * p.pin))) : 0, rp, ch: p.pinHeight > 0 ? p.pinHeight : stack, sk: p.skirtLen > 0 ? p.skirtLen : 0.27 * B, belt, shell, rs, w,
     zoff: (p.bossGap > 0 ? p.bossGap : w + 2 * p.room) / 2, pinHalf: p.pinLen > 0 ? p.pinLen / 2 : clip ? zIn - flt : Math.sqrt(rp * rp - (p.pin / 2 + 1) ** 2) - 0.3,
     drainR: Math.min(p.drainDia > 0 ? p.drainDia : 0.03 * B, 0.8 * (oil?.height ?? Infinity)) / 2, lands, clip };
 }
@@ -119,6 +124,15 @@ export function pistonProblem(p: PistonSpec): string | null {
   if (g.pinBore > 0 && g.pinBore > p.pin - 2 * Math.max(1, 0.08 * p.pin)) return `the pin's bore leaves too thin a wall: ${(p.pin - 2 * Math.max(1, 0.08 * p.pin)).toFixed(1)} mm or less`;
   if (g.oval > 0.01 * p.bore || g.taper > 0.01 * p.bore) return `the skirt's oval and taper are ${(0.01 * p.bore).toFixed(2)} mm across or less (0.01 of the bore)`;
   if (g.chamfer > g.sk / 2) return `the foot's chamfer is ${(g.sk / 2).toFixed(1)} mm or less (half the skirt)`;
+  for (const [v, what] of [[p.archHeight, "the arch's height"], [p.flatDepth, "the flat's depth"], [p.flatWidth, "the flat's width"]] as const) if (v < 0) return `${what} is 0 (auto) or more`;
+  if (p.pinFlat !== 0 && p.pinFlat !== 1) return "the pin's flats are 0 (none) or 1 (flat)";
+  if (g.arch.on && g.arch.h > g.sk - g.shell.boss - 0.3 + 1e-9) return `the arch reaches the pin bosses: ${Math.max(0, g.sk - g.shell.boss - 0.3).toFixed(1)} mm high or less`;
+  if (g.arch.on && g.arch.h < 2) return "the arch is 2 mm high or more";
+  if (g.flat.on) {
+    if (g.flat.x1 - g.flat.x0 < 2) return "the flat has no room between the bosses' feet and the ring belt: a shorter belt, a longer pin height or no flat";
+    if (g.flat.z < g.zoff + 3) return "the flat is too deep: it must leave 3 mm of boss beyond the gap between the bosses";
+    if (g.flat.yf < p.pin / 2 + 1) return "the flat is narrower than the pin bore: a wider flat";
+  }
   if (p.skirtStyle === 1 && g.sk < g.shell.boss + 2) return `a skirt of two pads needs the skirt to reach ${(g.shell.boss + 2).toFixed(1)} mm below the pin or more`;
   const cr = g.cr, flatR = g.rt - cr.edge;
   if (cr.edge > g.shell.crown / 2 || cr.edge > g.rt / 4) return `the crown's edge chamfer is ${Math.min(g.shell.crown / 2, g.rt / 4).toFixed(2)} mm or less`;
@@ -170,10 +184,18 @@ export function buildPiston(b: Builder, p: PistonSpec, g: PistonGeometry, xp0: n
     const w = g.rp + 0.05, bz = g.rp - g.oval / 2, A: [number, number] = [-w, 0], B: [number, number] = [w, 0];
     b.extrude(up(xf), disc(0, 0, g.rp + 1), [outline([A, B], [bulgeOf(A, [0, bz], B), bulgeOf(B, [0, -bz], A)])], xs - xf + 0.3, { mode: "cut" }); // (0.3 mm past the skirt's top, into the lowest groove or the land: its top face must not lie in the groove's bottom face)
   }
-  // two pads: the skirt cut away at the two sides of the pin, below the bosses, leaving a pad on each thrust side
-  if (g.wedge > 0) {
-    const q = (g.rp + 2) / Math.cos(g.wedge), s = Math.sin(g.wedge) * q, z = Math.cos(g.wedge) * q, xe = xp0 - g.shell.boss - 0.3;
-    for (const side of [1, -1]) b.extrude(up(xf - 0.5), outline([[0, 0], [s, side * z], [-s, side * z]]), [], xe - (xf - 0.5), { mode: "cut" });
+  // the arched cutaway (`dec_piston_shape`): the skirt cut away at the two sides of the pin in an arch, leaving the ears (pads) on the thrust sides that reach further down: a plane cut along the pin's axis, an arch in (x, y): straight sides and a semicircular top when it is tall, a circular segment when it is low
+  if (g.arch.on) {
+    const w = g.arch.w, xe = xf + g.arch.h, tall = g.arch.h >= w, bx = tall ? xe - w : xf, A: [number, number] = [xf - 1, -w], B: [number, number] = [bx, -w], C: [number, number] = [bx, w], D: [number, number] = [xf - 1, w];
+    const apex: [number, number] = [xe, 0], R = (w * w + g.arch.h * g.arch.h) / (2 * g.arch.h);
+    void R;
+    b.extrude(b.plane(zc - g.rp - 1), outline([A, B, C, D], [0, bulgeOf(B, apex, C), 0, 0]), [], 2 * g.rp + 2, { mode: "cut" });
+  }
+  // the flats round the pin: a plane cut at each side, the skirt's face ending on a flat at the pin's bore
+  if (g.flat.on) {
+    const fl = g.flat, depthCut = g.rp + 1 - fl.z;
+    b.extrude(b.plane(zc + fl.z), box(xp0 + fl.x0, -fl.yf, xp0 + fl.x1, fl.yf), [], depthCut, { mode: "cut" });
+    b.extrude(b.plane(zc - fl.z - depthCut), box(xp0 + fl.x0, -fl.yf, xp0 + fl.x1, fl.yf), [], depthCut, { mode: "cut" });
   }
   for (const gr of g.belt.grooves) b.extrude(up(xp0 + g.ch - gr.top - gr.height), disc(0, 0, g.rp + 1), [disc(0, 0, g.rp - g.belt.depth)], gr.height, { mode: "cut" });
   // the lands are cut smaller than the skirt (`dec_piston_lands_clips`)
@@ -265,8 +287,17 @@ export function pistonVolumes(p: PistonSpec, g: PistonGeometry = pistonGeometry(
   // the pin's hole through the two walls: from the cavity out to the skirt's outer face at the pin (the circle of the skirt's radius there, or the lens, whichever is nearer)
   v -= 2 * simpson((y) => 2 * Math.sqrt(Math.max(0, rho * rho - y * y)) * (g.outerZ(y) - Math.sqrt(Math.max(0, sh.inner * sh.inner - y * y))), -rho, rho);
   if (g.clip) v -= 2 * Math.PI * ((g.clip.bore + g.clip.depth) ** 2 - g.clip.bore ** 2) * g.clip.width;
-  // two pads: the wedges cut away below the bosses (a ring sector of the skirt's wall, over the height cut; the wall is the full radius at the foot: the oval and the taper there are neglected, the chamfer is inside the cut)
-  if (g.wedge > 0) v -= 2 * g.wedge * (rp * rp - sh.inner * sh.inner) * (g.sk - sh.boss - 0.3 + 0.5);
+  // the arched cutaway: the skirt's wall (from the cavity's radius out to the skirt's face) over the arch's area, on the two sides of the pin
+  if (g.arch.on) {
+    const w = g.arch.w, hA = g.arch.h, tall = hA >= w, bx = tall ? hA - w : 0, Rg = (w * w + hA * hA) / (2 * hA), cxA = hA - Rg; // (heights above the foot)
+    const half = (x: number): number => (tall ? (x <= bx ? w : Math.sqrt(Math.max(0, w * w - (x - bx) ** 2))) : Math.min(w, Math.sqrt(Math.max(0, Rg * Rg - (x - cxA) ** 2))));
+    v -= 2 * simpson((x) => { const ya = half(x), r = g.radiusAt(x - g.sk); return simpson((y) => Math.max(0, Math.sqrt(Math.max(0, r * r - y * y)) - Math.sqrt(Math.max(0, sh.inner * sh.inner - y * y))), -ya, ya, 120); }, 0, hA, 80);
+  }
+  // the flats: what is beyond the flat's plane, where it is solid (outside the cavity and the pin's bore), over the flat's area
+  if (g.flat.on) {
+    const fl = g.flat;
+    v -= 2 * simpson((xa) => simpson((y) => { const xr = xa; const r = g.radiusAt(xr), face = Math.sqrt(Math.max(0, r * r - y * y)), cav = Math.sqrt(Math.max(0, sh.inner * sh.inner - y * y)); return xr * xr + y * y <= rho * rho ? 0 : Math.max(0, face - Math.max(fl.z, cav)); }, -fl.yf, fl.yf, 160), fl.x0, fl.x1, 120);
+  }
   const pin = Math.PI * ((p.pin / 2) ** 2 - (g.pinBore / 2) ** 2) * 2 * g.pinHalf;
   return { cup: v, pin, clips: g.clip ? 2 * Math.PI * (g.clip.outer ** 2 - g.clip.inner ** 2) * g.clip.thick : 0 };
 }

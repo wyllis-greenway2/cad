@@ -5426,3 +5426,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1278 — 2026-11-20 — directive
 > build the keyway tool next
 (asks for the keyway tool to be built next, as designed in `dec_keyway_maker`)
+
+## in_1279 — 2026-11-20 — directive
+> How about we finish making the overall structure and shape of the piston head itself. I noticed that piston heads quite often have a curved bottom edge sometimes with ears that go quite a bit further down. I noticed that the edges of the pin quite often have flats or other cut aways and don't go to the outer radius of the bore edge, I noticed that they are designed for casting and have interior shapes, they are designed to have machined and cast surfaces.
+(with five pictures of real pistons: an exploded drawing of a piston, pin, rings and rod; a piston on its rod seen from the pin side; the underside of a forged piston with ribs under the crown; a wireframe with two valve pockets; a slipper skirt with an arched cutaway at the pin; asks to finish the piston head's overall structure and shape: a curved lower edge with ears, flats and cutaways round the pin bore, interior shapes for casting, machined and cast surfaces)
