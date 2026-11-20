@@ -8,8 +8,8 @@ import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 
 export type Pt = readonly [number, number];
-export interface Seg { a: Pt; b: Pt; /** 0: a straight line; else the sagitta over the chord, positive to the left of a to b */ bulge: number }
-export interface Path { segs: readonly Seg[]; closed: boolean }
+export interface Seg { a: Pt; b: Pt; /** 0: a straight line; else the sagitta over the chord, positive to the left of a to b */ bulge: number; /** a path unrolled from space (`rolled`): whether the joint at the start of this side is a corner (else it is read from the turn) */ corner?: boolean }
+export interface Path { segs: readonly Seg[]; closed: boolean; /** a path in space laid out straight (`operation/spacepath.ts`): only its lengths and corners mean anything, so its sides need not meet round a closed loop */ rolled?: boolean }
 /** A place on the path: the point, the unit way the path runs there, the unit way across it (the left), how far along the path it is and whether it is a corner. */
 export interface Frame { at: Pt; along: Pt; across: Pt; s: number; corner: boolean }
 
@@ -67,7 +67,7 @@ export function pathProblem(p: Path): string | null {
     if (![...s.a, ...s.b, s.bulge].every(Number.isFinite)) return "the path has a number that is not one";
     if (len(sub(s.a, s.b)) < EPS) return "a side of the path has no length";
     const next = p.segs[i + 1] ?? (p.closed ? p.segs[0] : undefined);
-    if (next && !near(s.b, next.a)) return "the sides of the path do not meet end to end";
+    if (next && !p.rolled && !near(s.b, next.a)) return "the sides of the path do not meet end to end";
   }
   return null;
 }
@@ -95,6 +95,7 @@ export function cornersOf(p: Path): number[] {
   for (const [i, g] of gs.entries()) {
     const prev = gs[i - 1] ?? (p.closed ? gs[gs.length - 1] : undefined);
     if (!prev) out.push(0); // (the start of an open path is a corner: a place where a side begins)
+    else if (p.segs[i]!.corner !== undefined) { if (p.segs[i]!.corner) out.push(s); }
     else if (Math.acos(Math.min(1, Math.max(-1, dot(endsRun(prev)[1], endsRun(g)[0])))) > TURN) out.push(s);
     s += g.length;
   }

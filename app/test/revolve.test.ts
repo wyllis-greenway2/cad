@@ -60,21 +60,21 @@ test("past one turn with no advance it is refused; with an advance it spirals, t
   assert.ok(Math.abs(volume(spiral.session) - pappus(2.5)) < 0.1, `volume ${volume(spiral.session)}`);
   const step = scene(spiral.session).steps.at(-1)!;
   assert.equal(step.type, "revolve");
-  assert.equal(step.params.advance, 10);
+  assert.equal(step.params.advance, 25, "10 a turn over two and a half turns (`in_1298`)");
 });
 
 test("an advance that is less than the figure is wide along the axis is raised so the turns do not overlap, and the reason is said (`in_1194`)", () => {
   const { s, face } = figure();
   const op = begin(s, face);
-  const r = runOp(s, { ...Z(op), value: 720, advValue: 2 })!; // (2 mm over two turns is 1 mm a turn, the figure is 1.5 mm wide along the axis)
+  const r = runOp(s, { ...Z(op), value: 720, advValue: 1 })!; // (1 mm a turn, the figure is 1.5 mm wide along the axis)
   assert.equal(r.session.message, null);
   assert.deepEqual(r.session.outcome.errors, {});
   const step = scene(r.session).steps.at(-1)!;
   assert.equal(step.type, "revolve");
   assert.ok(Number(step.params.advance) >= 3 && Number(step.params.advance) < 3.1, `advance ${step.params.advance}: the width 1.5 times two turns`);
-  const note = advanceNote(scene(s), { ...Z(op), value: 720, advValue: 2 } as Op);
-  assert.match(note ?? "", /distance over the whole angle/);
-  assert.equal(advanceNote(scene(s), { ...Z(op), value: 720, advValue: 4 } as Op), null, "enough: nothing is said");
+  const note = advanceNote(scene(s), { ...Z(op), value: 720, advValue: 1 } as Op);
+  assert.match(note ?? "", /the advance for each turn is raised to 1\.51 mm/);
+  assert.equal(advanceNote(scene(s), { ...Z(op), value: 720, advValue: 2 } as Op), null, "enough: nothing is said");
 });
 
 import { createState, reduce } from "../src/interaction/controller.ts";
@@ -95,11 +95,11 @@ test("the Revolve operation shows a ring and an arrow on the axis, takes the ang
   st = reduce(st, { type: "typed", key: "Tab", shift: false }, env);
   for (const k of "10") st = reduce(st, { type: "typed", key: k, shift: false }, env);
   const f1 = frameOf(st, { w: 800, h: 600 });
-  assert.deepEqual(f1.entry?.fields.map((x) => [x.label, x.value, x.active]), [["Angle", "900", false], ["Advance", "10", true]]);
+  assert.deepEqual(f1.entry?.fields.map((x) => [x.label, x.value, x.active]), [["Angle", "900", false], ["Advance a turn", "10", true]]);
   st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
   const step = scene(st.session).steps.at(-1)!;
   assert.equal(step.type, "revolve");
-  assert.deepEqual([step.params.angle, step.params.advance], [900, 10]);
+  assert.deepEqual([step.params.angle, step.params.advance], [900, 25]);
   assert.ok(Math.abs(volume(st.session) - pappus(2.5)) < 0.1, `volume ${volume(st.session)}`);
 });
 
@@ -131,7 +131,7 @@ test("twist about the plane's normal: a bar 6 x 2 carried 10 mm up while it turn
   s = run(s, r.command);
   const op = begin(s, loopFaceRef(r.lines));
   for (const [angle, advance] of [[90, 10], [720, 10], [-360, 10], [90, -10]] as const) {
-    const made = runOp(s, { ...twistMid(op), value: angle, advValue: advance })!;
+    const made = runOp(s, { ...twistMid(op), value: angle, advValue: (advance * 360) / Math.abs(angle) })!; // (the advance a turn that carries it `advance` over the whole angle)
     assert.equal(made.session.message, null, `${angle}, ${advance}`);
     assert.deepEqual(made.session.outcome.errors, {});
     assert.ok(Math.abs(volume(made.session) - 120) < 0.05, `volume ${volume(made.session)}`);
@@ -205,7 +205,7 @@ test("two bars twisted about their own middles keep their volumes", () => {
   const b = drawRectangle(scene(s), XY, [10, 0, 0], [14, 2, 0], [1, 0, 0], [0, 1, 0]);
   s = run(s, b.command);
   const st = startOp(scene(s), [loopFaceRef(a.lines), loopFaceRef(b.lines)] as never, "revolve") as { ok: true; op: Op };
-  const made = runOp(s, { ...twistMid(st.op), value: 180, advValue: 10 })!;
+  const made = runOp(s, { ...twistMid(st.op), value: 180, advValue: 20 })!; // (20 a turn: 10 over half a turn)
   assert.equal(made.session.message, null);
   assert.deepEqual(made.session.outcome.errors, {});
   assert.ok(Math.abs(volume(made.session) - (12 + 8) * 10) < 0.1, `volume ${volume(made.session)}`);
@@ -463,7 +463,7 @@ test("a spiral the kernel cannot make says so by the turn and the advance asked 
   assert.ok(st.ok);
   const op = (st as { op: Op }).op;
   // 90 degrees with 0.7 mm of advance (a pitch of 2.8 mm a turn) is one the kernel makes nothing of; 360 at the same pitch it does make
-  const bad = runOp(s, { ...op, pivot: [9, 0, 0], value: 90, advValue: 0.7, auto: false });
+  const bad = runOp(s, { ...op, pivot: [9, 0, 0], value: 90, advValue: 2.8, auto: false });
   assert.ok(bad);
   assert.match(bad.session.message ?? "", /^the kernel could not make a spiral of 90° with an advance of 0\.7 mm/);
   assert.doesNotMatch(bad.session.message ?? "", /holes/);
@@ -479,7 +479,7 @@ test("a twist of many turns in a tiny advance is made as asked (the self-crossin
   s = run(s, r.command);
   const op = begin(s, loopFaceRef(r.lines));
   for (const [angle, advance] of [[-3600, 2], [360, 0.001]] as const) {
-    const made = runOp(s, { ...twistMid(op), value: angle, advValue: advance })!;
+    const made = runOp(s, { ...twistMid(op), value: angle, advValue: (advance * 360) / Math.abs(angle) })!;
     assert.equal(made.session.message, null, `${angle} in ${advance}: ${made.session.message}`);
     assert.deepEqual(made.session.outcome.errors, {});
     assert.ok(Math.abs(volume(made.session) - 12 * advance) < 0.05 * Math.max(1, advance), `${angle} in ${advance}: the bar's volume, ${volume(made.session)}`);
@@ -583,4 +583,15 @@ test("a circle has no straight side: the orb starts out in its plane, beside it,
   assert.equal(r.session.message, null);
   assert.deepEqual(r.session.outcome.errors, {});
   assert.ok(volume(r.session) > 100, `a body is made: ${volume(r.session)}`);
+});
+
+test("the Revolve operation opens with the bubble of its angle and its advance for each turn already there, nothing chosen first (`in_1298`)", () => {
+  const { s, face } = figure();
+  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
+  st = reduce(st, { type: "begin", name: "revolve" }, env);
+  assert.equal(st.op?.kind, "revolve");
+  assert.equal(st.handleSel, null, "no arrow or ring has been taken");
+  const f = frameOf(st, { w: 800, h: 600 });
+  assert.deepEqual(f.entry?.fields.map((x) => x.label), ["Angle", "Advance a turn"], "both numbers are there to type in");
+  assert.equal(f.entry?.fields[0]?.value, "90", "the angle it begins with");
 });

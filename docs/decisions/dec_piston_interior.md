@@ -3,7 +3,7 @@ id: dec_piston_interior
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1288, in_1297, in_1298
+human_input: in_1288, in_1297, in_1304
 date: 2026-11-20
 depends_on:
   - dec_piston_shape: the interior is the second half of the piston's overall shape; the flats, the arch and the defaults are decided there
@@ -28,5 +28,5 @@ The human asked for the interior and the defaults. The round boss and the rib ar
 ## The flat with a ramp (in_1297)
 The human showed two pistons and said the pin's flats were not right: the first has a flat whose top angles out to the full diameter before the oil ring; the second a deep cutout that returns to the diameter above and below, with ears reaching much lower. **Built first (the human: "go build the ramp flat first"):** Pin flats gained a third choice, "Flat with ramp" (now the default), with a typed ramp angle (0 = auto 30 degrees, assumed). The flat's top angles out and meets the skirt's face at the flat's end, so the flat no longer ends in a square step under the ring belt. **Not built yet:** the scoop (cutout returning to the diameter at top and bottom) and the long ears cut by a curve around the thrust axis; two questions to the human stand (does the scoop close below; does the arch stay as its own option).
 
-## The scoop (in_1298)
+## The scoop (in_1304)
 The human: "build the scoop next, the arch stays as an option". Pin flats gained a fourth choice, **Scoop**: a flat floor round the pin (the pin's radius and a millimetre, each way) and a curved end above and below, each a circle tangent to the floor, running out to the skirt's face (0.2 mm past it, so no step is left). It returns to the full diameter at the top and the bottom, and the ring belt stays round. Typed: depth (flat depth; auto 0.04 of the bore, assumed), width, and the scoop's run (mm each end runs; 0 = auto, to the ring belt above and the bosses' feet below). The arch is its own option and can be on with the scoop. **Not built yet:** the ears much lower, cut by a curve around the thrust axis (a lower, curved thrust-pad edge); the existing arch is the only ear shape.
