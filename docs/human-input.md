@@ -5536,3 +5536,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1307 — 2026-11-20 — question
 > also I couldn't make the faces flush at all?
 (says the two faces in `cannot_mate_face.json` could not be made flush at all, apart from the hang)
+
+## in_1308 — 2026-11-20 — question
+> These sketch constraints are getting out of control. Can we have it so that the suggested positions and snapping arent actually constraints? instead they are just helping the user position properly. A constraint is only added if the user explicitly adds it. Do you think this is correct or could be a bad idea?
+(asks whether snapping and suggested positions should only place things, with a constraint made only when the user adds it explicitly; asks for an opinion)
