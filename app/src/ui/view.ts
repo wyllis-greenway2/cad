@@ -181,7 +181,7 @@ export function createView(host: HTMLElement) {
     cut.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(u, v, n));
     cut.renderOrder = 1.1 + idx * 0.2;
     sectionGroup.add(cut);
-    // where the plane lies exactly on a face of the part, that face looks as it does anywhere else: only what is really cut looks like the cut (`in_1340`). The triangles of the part that lie in the plane are drawn again, with their own material, over the cut face
+    // where the plane lies exactly on a face of the part, that face looks as it does anywhere else: only what is really cut looks like the cut (`in_1351`). The triangles of the part that lie in the plane are drawn again, with their own material, over the cut face
     const planeAt = new THREE.Vector3(...secNow.at);
     const nrm = n.clone();
     const side = (p: THREE.Vector3) => (p.x - planeAt.x) * nrm.x + (p.y - planeAt.y) * nrm.y + (p.z - planeAt.z) * nrm.z;

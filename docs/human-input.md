@@ -5699,3 +5699,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1350 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the cut-both-ways and ghost cut work, the bar fix, the spiral overlap and the earlier work to be merged into the testing branch, no full test run; the same words as in_1349)
+
+## in_1351 — 2026-11-20 — question
+> Why can't I sketch on this face? when I click on it, it normals too it and it seems like I am sketching, but the sketches never actually apply or persist. Also can we have it so that if you select a face, then sketch, then it auto cuts with a temporary cross section plane to that sketching surface? and can we make it so that when a cros section surface is exactly on another surface, then it looks like that normal surface, anything else cut looks like the cut surface.
+(with the saved model `2cd7c797-model_3.json`, kept as `app/test/fixtures/sketch-on-face.cad.json`, and two screenshots of a thin face in a wall, with the sketch ring and a cross section plane)

@@ -1,4 +1,4 @@
-// Sketching on a face (`in_1340`): the surface being drawn on cuts the view along itself while the sketch tool is on (nothing is cut in the model); a second click that a snap would put on the first still makes the figure.
+// Sketching on a face (`in_1351`): the surface being drawn on cuts the view along itself while the sketch tool is on (nothing is cut in the model); a second click that a snap would put on the first still makes the figure.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
