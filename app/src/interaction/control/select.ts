@@ -131,7 +131,7 @@ export function doCutBegin(s: AppState): AppState {
   return { ...s, menu: null, op: null, tool: null, cut, session: { ...s.session, message: "every part is kept (+); click one to toss it (−); Enter or a right click makes it, Esc gives it up" } };
 }
 /** Add, subtract or intersect: the first body chosen is the one that stays; the others are used up (`in_1320`). */
-/** The bodies a boolean works on: the ones selected when there are two or more, else every body of the model (`in_1334`). */
+/** The bodies a boolean works on: the ones selected when there are two or more, else every body of the model (`in_1337`). */
 export function booleanBodies(session: Session): Ref[] {
   const sc = sceneOf(session);
   const picked = selectionOf(session).filter((r) => sc.parts[r]?.kind === "body");
@@ -139,7 +139,7 @@ export function booleanBodies(session: Session): Ref[] {
 }
 /** Why a boolean has nothing to work on: the model has fewer than two bodies. */
 export const whyNoBoolean = (session: Session): string | null => (Object.values(sceneOf(session).parts).filter((p) => p.kind === "body").length >= 2 ? null : "a boolean needs two bodies in the model");
-/** Add and Intersect: on the bodies selected, or on all of them when fewer than two are (`in_1334`). */
+/** Add and Intersect: on the bodies selected, or on all of them when fewer than two are (`in_1337`). */
 export function doCombine(s: AppState, mode: "add" | "intersect"): AppState {
   const why = whyNoBoolean(s.session);
   if (why) return say({ ...s, menu: null }, why);

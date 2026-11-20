@@ -1,4 +1,4 @@
-// The booleans take any number of bodies (`in_1334`): Add and Intersect work on every body unless some are selected; Subtract has the bodies to cut and the bodies that cut chosen apart.
+// The booleans take any number of bodies (`in_1337`): Add and Intersect work on every body unless some are selected; Subtract has the bodies to cut and the bodies that cut chosen apart.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { worldRef } from "../src/shared/ref.ts";

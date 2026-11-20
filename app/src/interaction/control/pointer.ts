@@ -228,7 +228,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     if (r.id === "tool:fasteners") return [r.id, { ...base, enabled: true, why: null }]; // (it opens a panel that says what to select, `dec_parts_tool`)
     if (r.tool) return [r.id, { ...base, enabled: true, why: null }];
     if (r.select === "similar") { const q = similarTo(sc, sel); return [r.id, { ...base, enabled: q.ok, why: q.ok ? null : q.why }]; }
-    if (r.select === "combine" && r.id !== "combine:parts") { const why = whyNoBoolean(session); return [r.id, { ...base, enabled: !why, why }]; } // (every boolean can be chosen whenever the model has two bodies: Add and Intersect take all of them unless some are selected, Subtract asks which cut and which are cut, `in_1334`)
+    if (r.select === "combine" && r.id !== "combine:parts") { const why = whyNoBoolean(session); return [r.id, { ...base, enabled: !why, why }]; } // (every boolean can be chosen whenever the model has two bodies: Add and Intersect take all of them unless some are selected, Subtract asks which cut and which are cut, `in_1337`)
     if (r.select === "combine") { const why = whyNotCombine(session); return [r.id, { ...base, enabled: !why, why }]; }
     if (r.select === "hard") {
       const bodies = sel.filter((x) => sc.parts[x]?.kind === "body" && !!(sc.parts[x] as { id?: string }).id);

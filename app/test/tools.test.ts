@@ -1027,7 +1027,7 @@ test("polygon snapping (`in_1285`): a corner near level or upright with the midd
   near(centre[0], 20, 1e-6); near(centre[1], 15, 1e-6);
 });
 
-test("hold: a point on a plane above a block lines up with the corners of the block as they fall on it, and is held on their feet (`in_1334`)", async () => {
+test("hold: a point on a plane above a block lines up with the corners of the block as they fall on it, and is held on their feet (`in_1337`)", async () => {
   const { holdsAt, alignPoints } = await import("../src/interaction/hold.ts");
   let st = top();
   st = drawBox(st, 20); // (a block 40 by 20, 20 high, its top corners at z 20)

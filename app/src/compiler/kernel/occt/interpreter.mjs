@@ -1320,7 +1320,7 @@ const OPS = {
       if (op.skip && op.skip.length) { const gone = new Set(op.skip); result = result.filter((_, i) => !gone.has(i)); if (!result.length && !found.rest.length) throw new Error("nothing would be left of the parts chosen"); } // (a part of the result that was deleted since: its number in the result, `in_1320`)
       return { kind: "solid", shape: makeCompound([...found.rest, ...result]), first: op.bodies[0] };
     }
-    // a subtraction can cut several bodies at once (`in_1334`): the first `targets` bodies are each cut by all the others, which are the tools
+    // a subtraction can cut several bodies at once (`in_1337`): the first `targets` bodies are each cut by all the others, which are the tools
     const nt = op.mode === "subtract" ? Math.max(1, Math.min(op.targets ?? 1, found.picked.length - 1)) : 1;
     const [first, ...others] = op.mode === "subtract" ? found.picked.slice(nt - 1) : found.picked;
     const targets = op.mode === "subtract" ? found.picked.slice(0, nt - 1) : [];
