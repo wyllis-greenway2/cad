@@ -5703,3 +5703,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1351 — 2026-11-20 — question
 > Why can't I sketch on this face? when I click on it, it normals too it and it seems like I am sketching, but the sketches never actually apply or persist. Also can we have it so that if you select a face, then sketch, then it auto cuts with a temporary cross section plane to that sketching surface? and can we make it so that when a cros section surface is exactly on another surface, then it looks like that normal surface, anything else cut looks like the cut surface.
 (with the saved model `2cd7c797-model_3.json`, kept as `app/test/fixtures/sketch-on-face.cad.json`, and two screenshots of a thin face in a wall, with the sketch ring and a cross section plane)
+
+## in_1352 — 2026-11-20 — question
+> In this model, when I sketch on the top of the cylinder surface, it still does not offer the dashed cross lines marking the center of the circle. Or perhaps it is, but it is hidden behind the face itself even though I am sketching on the face.
+(with the saved model `8c0b60d7-model_4.json`, kept as `app/test/fixtures/cylinder-top-guides.cad.json`, and two screenshots: the top of a cylinder with the circle's middle marked by a dot only, and a dashed guide that stops at the rim)
