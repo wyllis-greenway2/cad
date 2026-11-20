@@ -42,7 +42,7 @@ export function pathRepeatTarget(session: Session): Result<PathRepeatTarget> {
     if (bodies.length > 1) return err("select one body to repeat");
     const body = bodies[0]!;
     const own = body.ref !== BODY_OBJECT && body.id ? body.id : undefined;
-    const lines = sel.filter((p) => p.kind === "line").map((p) => p.ref); // (drawn lines and the edges of bodies, on any planes: a path in space, `in_1299`)
+    const lines = sel.filter((p) => p.kind === "line").map((p) => p.ref); // (drawn lines and the edges of bodies, on any planes: a path in space, `in_1301`)
     // (a body the repeat made, or the one it was made from, selected alone: its rules are changed; with lines selected too it is a new repeat)
     const made = lines.length ? undefined : sc.steps.find((st) => st.type === "pattern" && st.params.mode === "path" && (!!body.id && (body.id === `x_${st.id}` || body.id.startsWith(`x_${st.id}.`)) || st.parts.includes(body.ref) || (!!body.id && st.params.src === body.id) || (own !== undefined && st.params.body === own)));
     if (made) {

@@ -1,4 +1,4 @@
-// A path in space (`dec_path_repeat`, `in_1299`): any lines, arcs and edges of bodies that touch end to end, on any planes, open or closed (a square of four lines, the rim of a body, an edge that bends in space). Walked from the parts
+// A path in space (`dec_path_repeat`, `in_1301`): any lines, arcs and edges of bodies that touch end to end, on any planes, open or closed (a square of four lines, the rim of a body, an edge that bends in space). Walked from the parts
 // each time. The path is laid out straight (`rolled`) so the rules of `operation/pathrepeat.ts` (spacing, corners, insets, shift) place the copies by how far along it they stand, and each place is then taken back into space.
 // Pure: a scene's lookup and the names of the lines in, places out.
 import type { Ref } from "../shared/ref.ts";
@@ -106,7 +106,7 @@ function turnBetween(a: Vec3, b: Vec3): { angle: number; dir: Vec3 } | null {
 }
 
 /**
- * Where the copies of a body go along a path in space (`in_1299`): for each place after the first, how far the body is moved from the first and, when the copies turn with the path, the turn about the first place
+ * Where the copies of a body go along a path in space (`in_1301`): for each place after the first, how far the body is moved from the first and, when the copies turn with the path, the turn about the first place
  * (the shortest turn that takes the way the path ran there to the way it runs at the place). The offset needs a path in one plane, so it is refused here. Or why there is none.
  */
 export function spacePlaces(get: Lookup, rec: { path: readonly Ref[]; params: readonly number[] }): Result<{ places: BodyPlace[]; spacing: number | null; count: number; path: SpacePath }> {

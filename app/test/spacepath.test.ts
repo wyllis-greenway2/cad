@@ -1,4 +1,4 @@
-// A path in space (`dec_path_repeat`, `in_1299`): lines on different planes, a closed square, a curved edge, joined end to end.
+// A path in space (`dec_path_repeat`, `in_1301`): lines on different planes, a closed square, a curved edge, joined end to end.
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Part } from "../src/operation/part.ts";

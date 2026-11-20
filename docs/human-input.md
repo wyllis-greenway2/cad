@@ -5498,18 +5498,25 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1297 — 2026-11-20 — rejection
 > no its not quite right. The flats or cutouts where the wrist pin comes through I think should be more like this  with the flat option that stops and angles into the diameter before interrupting the oil ring, or like the other one that is cutout but returns to diameter on the top and bottom. Also some of the ear types seem to go much lower and be cut with curves coming in from a different direction. These two piston types seem to capture both methods of ears and pin flat areas
 (with two pictures: a piston and rod seen from the pin side whose pin face is a flat that ramps out to the full diameter above the oil ring, and a piston whose pin side is a deep curved cutout that returns to the full diameter at the top and bottom, with long ears below; says the flats and cutouts at the pin are not right yet, wants a flat that stops and angles into the diameter before the oil ring, or a cutout that returns to the diameter above and below, and ears that reach much lower, cut by curves coming from a different direction; says these two pistons cover both methods of ears and pin flats)
-## in_1298 — 2026-11-20 — question
+
+## in_1298 — 2026-11-20 — directive
+> when the rotate extrude tool opens, it defaults to one of its axis selected for rotation but its bubbles arent open to input rotation amount or spiral value. Also what is the spiral tool input even specifying? it seems like nothing? It seems like any value just spirals the amount such that the extruded surface is fully above itself on 1 revolution? I think that it should just be specifying units (mm or whatever system is set to) increment in that direction per full revolution.
+
+## in_1299 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1300 — 2026-11-20 — question
 > can we have a loft repeat type? so this would be different then linear or circular repeat, it would follow an edge.
 (asks for a repeat that follows an edge; `dec_path_repeat` already covers a path of drawn lines, and a body's edge only for fastener holes, so what is missing is being asked back)
 
-## in_1299 — 2026-11-20 — directive
+## in_1301 — 2026-11-20 — directive
 > any line path. Should be the same as loft ( dont know if loft is actually like this we should probably check) but it should be able to follow a lone line in space, the edge of a body as a line in space, etc. It should be able to follow continuous selected touching lines like the perimeter of a complex shape for example or square made of four lines.
 (answer to which gap the loft repeat fills: any line path, in space, a body's edge, or touching selected lines such as a perimeter; asks to check how loft takes its path)
 
-## in_1300 — 2026-11-20 — directive
+## in_1302 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the path repeat in space to be merged into the testing branch, no full test run)
 
-## in_1301 — 2026-11-20 — directive
+## in_1303 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
-(asks for the path repeat in space to be merged into the testing branch, no full test run; the same words as in_1300)
+(asks for the path repeat in space to be merged into the testing branch, no full test run; the same words as in_1302)
