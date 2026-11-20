@@ -42,12 +42,17 @@ export function wheelGeometry(s: WheelSpec): { R: number; Rin: number; hubR: num
  */
 export function effective(s: WheelSpec): WheelSpec {
   const g = wheelGeometry(s), n = Math.round(s.spokes);
-  const proudR = (s.rimT - s.web) / 2, proudH = (s.hubT - s.web) / 2, room = Math.max(0, g.Rin - g.hubR);
+  // the spokes are no thicker than the rim and the hub: where all three are as thick the wheel is flat with the spokes cut out of it (`in_1251`), and it may be as thin as it likes
+  const web = Math.max(1e-3, Math.min(s.web, s.rimT, s.hubT));
+  const proudR = (s.rimT - web) / 2, proudH = (s.hubT - web) / 2, room = Math.max(0, g.Rin - g.hubR);
   let [rimJ, hubJ] = [Math.max(0, Math.min(s.rimJoin, proudR - 0.01)), Math.max(0, Math.min(s.hubJoin, proudH - 0.01))];
   if (rimJ + hubJ > room * 0.98 && rimJ + hubJ > 0) { const f = (room * 0.98) / (rimJ + hubJ); rimJ *= f; hubJ *= f; }
-  const out: WheelSpec = { ...s, rimJoin: rimJ, hubJoin: hubJ, corner: Math.max(0, s.corner), obtuse: Math.max(0, s.obtuse), rimOff: Math.max(0, s.rimOff), hubOff: Math.max(0, s.hubOff) };
+  // a draft that would leave the rim or the hub no wall at its faces is the most that leaves one
+  const rimWall = g.rim - 0.05, hubWall = s.hub / 2 - s.bore / 2 - 0.05, reach = Math.max(1e-6, s.rimT - web / 2), hubReach = (s.hubT - web) / 2;
+  const maxTan = Math.min(Math.max(0, rimWall) / reach, hubReach > 1e-6 ? Math.max(0, hubWall) / hubReach : Infinity), draft = Math.min(Math.max(0, s.draft), (Math.atan(maxTan) * 180) / Math.PI);
+  const out: WheelSpec = { ...s, web, draft, rimJoin: rimJ, hubJoin: hubJ, corner: Math.max(0, s.corner), obtuse: Math.max(0, s.obtuse), rimOff: Math.max(0, s.rimOff), hubOff: Math.max(0, s.hubOff) };
   if (n > 0) for (const [o, j] of [["hubOff", "hubJoin"], ["rimOff", "rimJoin"]] as const) if (out[j] > 0 && Math.abs(out[o] - out[j]) < 0.4) out[o] = out[j] + 0.4;
-  let e = Math.min(Math.max(0, s.edge), 0.45 * s.web, 0.4 * Math.max(0, Math.min(s.spokeW, s.spokeW * (1 - s.taper))));
+  let e = Math.min(Math.max(0, s.edge), 0.45 * web, 0.4 * Math.max(0, Math.min(s.spokeW, s.spokeW * (1 - s.taper))));
   if (e < EDGE_LEAST || n === 0 || out.hubOff < e + 0.4 || out.rimOff < e + 0.4) e = 0;
   out.edge = e;
   return out;
@@ -249,9 +254,9 @@ function cutout(s: WheelSpec): Cut | null {
   return pts.length >= 3 ? { pts, bulges, narrow: Math.min(innerArc ? open(rIn) : 0, outerArc ? open(rOut) : 0) } : null;
 }
 
-/** Why the numbers make no wheel, or null: only what is no solid at all (a size that is not more than 0, a hub bigger than the rim); never a size that is hard to make */
+/** Why the numbers make no wheel, or null: only what is no solid at all (a size that is not more than 0, a hub bigger than the rim); never a size that is hard to make, nor a thickness in any ratio to the diameter (the spokes are as thick as the rim and hub at the most, and the wheel may be flat or very thin) */
 export function wheelProblem(s: WheelSpec, cutting = false): string | null {
-  const g = wheelGeometry(s), n = Math.round(s.spokes), tn = Math.tan((s.draft * Math.PI) / 180);
+  const n = Math.round(s.spokes);
   if (![s.outer, s.rimD, s.hub, s.rimT, s.web, s.hubT].every((v) => v > 0) || (cutting ? !(s.bore >= 0) : !(s.bore > 0))) return "every size must be more than 0";
   if (![s.cornerKind, s.edgeKind, s.rimJoinKind, s.hubJoinKind].every((k) => k === 0 || k === 1)) return "a radius is a fillet (0) or a chamfer (1)";
   if (![s.edge, s.corner, s.obtuse, s.rimJoin, s.hubJoin, s.rimOff, s.hubOff, s.spokeW].every((v) => v >= 0)) return "a radius, an offset and a width are 0 or more";
@@ -259,10 +264,7 @@ export function wheelProblem(s: WheelSpec, cutting = false): string | null {
   if (s.rimD > s.outer - 2 * THIN) return `the rim diameter must be less than the outer diameter: ${(s.outer - 2 * THIN).toFixed(1)} mm at most`;
   if (s.hub > s.rimD - 2 * THIN) return "the hub diameter must be less than the rim diameter: the web goes between them";
   if (s.hub < s.bore + 2 * THIN) return "the hub diameter must be more than the bore diameter";
-  if (s.web > s.rimT || s.web > s.hubT) return "the spoke thickness must not be more than the rim thickness and the hub thickness: it is the thinnest part";
   if (!(s.draft >= 0 && s.draft <= 15)) return "the draft is 0 (machined) to 15 degrees";
-  if (g.rim - tn * (s.rimT - s.web / 2) < THIN) return "the rim is too thin at its faces once the draft has leaned its walls: less draft";
-  if (s.hub / 2 - tn * (s.hubT - s.web) / 2 - s.bore / 2 < THIN) return "the hub is too thin at its faces once the draft has leaned its wall: less draft";
   if (n < 0 || n === 1 || n === 2 || n > 60) return "0 spokes is a plain web; otherwise 3 to 60 spokes";
   if (cutting && (s.hubT !== s.rimT || s.draft !== 0)) return "a wheel cut into a body is as thick as the body and has no draft";
   return null;
@@ -279,7 +281,8 @@ export function repairWheel(s0: WheelSpec, locked: ReadonlySet<string>, cutting 
   // what follows what, while it is not typed: a hub is about 2.75 bores across and 2.25 thick (the start's proportions), a join 3/4 of the spoke thickness
   if (locked.has("bore") && key("hub")) to("hub", 2.75 * n.bore);
   if (locked.has("hub") && key("bore")) to("bore", n.hub / 2.75);
-  if (locked.has("bore") && key("hubT")) to("hubT", 2.25 * n.bore);
+  if (locked.has("bore") && key("hubT") && !cutting) to("hubT", 2.25 * n.bore);
+  if (cutting && key("hubT")) to("hubT", n.rimT); // (a wheel cut into a body is as thick at the hub as at the rim)
   if (locked.has("web") && key("rimJoin")) to("rimJoin", 0.75 * n.web);
   if (locked.has("web") && key("hubJoin")) to("hubJoin", 0.75 * n.web);
   for (let pass = 0; pass < 6; pass++) {
@@ -301,6 +304,8 @@ export function repairWheel(s0: WheelSpec, locked: ReadonlySet<string>, cutting 
     if ((rimWall < THIN || hubWall < THIN) && key("draft")) to("draft", Math.max(0, Math.min(15, (Math.atan(Math.max(0, Math.min((n.outer - n.rimD) / 2, n.hub / 2 - n.bore / 2) - THIN) / Math.max(1e-6, Math.max(n.rimT - n.web / 2, (n.hubT - n.web) / 2))) * 180) / Math.PI)));
     if (JSON.stringify(n) === before) break;
   }
+  // a wheel cut into a body: the spokes are 0.4 of its thickness while that is not typed
+  if (cutting && key("web")) to("web", Math.min(n.web, 0.4 * n.rimT));
   // the obtuse radius: while it is not typed it follows the spoke join radius, bigger the more the spokes spiral (a blunt corner needs a bigger radius to look natural)
   if (key("obtuse")) to("obtuse", n.corner * (1 + Math.abs(n.spiral) / 20));
   return n;
@@ -343,6 +348,31 @@ export function wheelLines(s0: WheelSpec): [number, number][][] {
   return lines;
 }
 
+
+/**
+ * The picture of the wheel in space (`in_1251`): the rim, the hub and the bore as circles on both faces, the floors of the web, and the cutouts at the web's two faces, with a few lines along the axis between the faces, so that how thick each part is can
+ * be seen. Lines of points (x, y, z) of the wheel's own frame.
+ */
+export function wheelLines3(s0: WheelSpec): [number, number, number][][] {
+  const s = effective(s0), g = wheelGeometry(s), n = Math.round(s.spokes), zr = s.rimT / 2, zh = s.hubT / 2, zw = s.web / 2;
+  const ring = (r: number, z: number, k = 48): [number, number, number][] => Array.from({ length: k + 1 }, (_, i) => [r * Math.cos((2 * Math.PI * i) / k), r * Math.sin((2 * Math.PI * i) / k), z]);
+  const lines: [number, number, number][][] = [];
+  for (const sg of [-1, 1]) {
+    lines.push(ring(g.R, sg * zr, 64), ring(g.Rin, sg * zr, 64), ring(g.hubR, sg * zh));
+    if (s.bore > 0) lines.push(ring(s.bore / 2, sg * zh, 24));
+    if (zw < zr - 1e-3) lines.push(ring(g.Rin, sg * zw, 64));
+    if (zw < zh - 1e-3) lines.push(ring(g.hubR, sg * zw));
+  }
+  const c = n > 0 ? cutout(s) : null;
+  if (c) for (let k = 0; k < n; k++) { const r = rotate(c, (2 * Math.PI * k) / n), f = flatten(r.pts, r.bulges); for (const sg of [-1, 1]) lines.push([...f, f[0]!].map(([x, y]) => [x, y, sg * zw] as [number, number, number])); }
+  for (let k = 0; k < 8; k++) { // (a few lines along the axis: the rim, the hub and the bore)
+    const a = (2 * Math.PI * k) / 8, [co, si] = [Math.cos(a), Math.sin(a)];
+    lines.push([[g.R * co, g.R * si, -zr], [g.R * co, g.R * si, zr]], [[g.hubR * co, g.hubR * si, -zh], [g.hubR * co, g.hubR * si, zh]]);
+    if (s.bore > 0 && k % 2 === 0) lines.push([[(s.bore / 2) * co, (s.bore / 2) * si, -zh], [(s.bore / 2) * co, (s.bore / 2) * si, zh]]);
+  }
+  return lines;
+}
+
 /** The section of the rim, web and hub (x out from the axis, y along it), the four places the web meets them joined by a fillet or a chamfer: the points and the bulges of the sides. The walls of the rim and of the hub lean by the draft away from the
  * middle plane (a cast wheel's pattern is split there): the rim's outside is smaller at the faces, its inside bigger, the hub's outside smaller; the nominal radii are those at the middle plane, at the web's faces for the walls beside it */
 export function wheelSection(s0: WheelSpec): { pts: P[]; bulges: number[] } {
@@ -350,7 +380,7 @@ export function wheelSection(s0: WheelSpec): { pts: P[]; bulges: number[] } {
   const dr = (s.draft * Math.PI) / 180, [sn, cs, tn] = [Math.sin(dr), Math.cos(dr), Math.tan(dr)];
   const rimOutFace = g.R - tn * W, rimInFace = g.Rin + tn * (W - t), hubFace = g.hubR - tn * (H - t);
   const pts: P[] = [], bulges: number[] = [];
-  const add = (p: P, k = 0): void => { pts.push(p); bulges.push(k); };
+  const add = (p: P, k = 0): void => { const l = pts.length - 1; if (l >= 0 && Math.hypot(pts[l]![0] - p[0], pts[l]![1] - p[1]) < 1e-7) { bulges[l] = k; return; } pts.push(p); bulges.push(k); }; // (a point on the one before is that point)
   /** a concave corner at `c`, reached going `d1` and left going `d2` (a right turn), joined by a fillet or a chamfer of size `f` (0: the corner is square): the two points either side of it, and a fillet's bulge between them */
   const corner = (c: P, d1: P, d2: P, f: number, kind: number): void => {
     if (f < 1e-6) { add(c); return; }
@@ -367,6 +397,12 @@ export function wheelSection(s0: WheelSpec): { pts: P[]; bulges: number[] } {
   corner([g.Rin, t], [-sn, -cs], [-1, 0], s.rimJoin, s.rimJoinKind);
   corner([g.hubR, t], [-1, 0], [-sn, cs], s.hubJoin, s.hubJoinKind);
   add([hubFace, H]); add(b > 0 ? [b, H] : [0, H]);
+  // a wheel as thick at the web as at the rim and the hub has points in a straight line: only the corners are kept
+  if (pts.length > 1 && Math.hypot(pts[0]![0] - pts[pts.length - 1]![0], pts[0]![1] - pts[pts.length - 1]![1]) < 1e-7) { pts.pop(); bulges.pop(); }
+  for (let i = pts.length - 1; i >= 0 && pts.length > 3; i--) {
+    const [a, c, d] = [pts[(i + pts.length - 1) % pts.length]!, pts[i]!, pts[(i + 1) % pts.length]!];
+    if (Math.abs(bulges[i]!) < 1e-9 && Math.abs(bulges[(i + pts.length - 1) % pts.length]!) < 1e-9 && Math.abs((c[0] - a[0]) * (d[1] - c[1]) - (c[1] - a[1]) * (d[0] - c[0])) < 1e-9 && (c[0] - a[0]) * (d[0] - c[0]) + (c[1] - a[1]) * (d[1] - c[1]) > 0) { pts.splice(i, 1); bulges.splice(i, 1); }
+  }
   return { pts, bulges };
 }
 

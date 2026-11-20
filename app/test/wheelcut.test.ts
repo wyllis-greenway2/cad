@@ -8,7 +8,7 @@ import { homeCamera } from "../src/interaction/camera.ts";
 import { worldRef } from "../src/shared/ref.ts";
 import { drawCircle } from "../src/operation/build.ts";
 import { roundBodyOf, bodyOfPart } from "../src/operation/roundbody.ts";
-import { modelTarget } from "../src/interaction/modeltool.ts";
+import { modelTarget, modelEntry, modelPreview } from "../src/interaction/modeltool.ts";
 import { asCommand } from "../src/operation/modelparts.ts";
 import { figureParams, nextId } from "../src/operation/scene.ts";
 import type { Command } from "../src/operation/commands.ts";
@@ -107,4 +107,39 @@ test("Cut spokes in a gear keeps its teeth and its bore: the rim stays inside th
   assert.equal(after.length, 1);
   assert.ok(Math.abs(after[0]!.bbox.max[0]! - body.bbox.max[0]!) < 1e-3 && Math.abs(after[0]!.bbox.min[0]! - body.bbox.min[0]!) < 1e-3, "the teeth are kept: the same width across");
   assert.ok(after[0]!.volume < whole * 0.85, `metal taken: ${after[0]!.volume.toFixed(0)} of ${whole.toFixed(0)}`);
+});
+
+test("the Cut spokes box has the same numbers as the Wheel's, those that come from the body shown dimmed, and its picture is in space", () => {
+  let st: ReturnType<typeof createState> = { ...createState(disc()), cam: homeCamera() };
+  const body = bodiesOf(st)[0]!;
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [body.ref as never] } } };
+  st = reduce(st, { type: "runAction", id: "model:wheelcut" }, env);
+  const fields = modelEntry(scene(st.session), st.tool!)!.fields;
+  assert.deepEqual(fields.map((f) => f.label).slice(0, 7), ["Outer diameter", "Rim diameter", "Hub diameter", "Bore diameter", "Rim thickness", "Spoke thickness", "Hub thickness"]);
+  assert.deepEqual(fields.filter((f) => f.locked).map((f) => f.label), ["Outer diameter", "Bore diameter", "Rim thickness", "Hub thickness", "Draft"], "the body's own numbers are shown, not set");
+  assert.equal(fields.find((f) => f.label === "Outer diameter")!.value, "60");
+  assert.equal(fields.find((f) => f.label === "Bore diameter")!.value, "8");
+  const segs = modelPreview(scene(st.session), st.tool!)!.segments, zs = segs.flatMap(([a, b]) => [a[2], b[2]]);
+  assert.ok(Math.max(...zs) - Math.min(...zs) > 5, "the preview has depth: the faces of the rim and the floors of the web");
+});
+
+test("Cut spokes in a thin disc is a flat wheel with the spokes cut out: no ratio of diameter to thickness is refused", () => {
+  for (const thick of [1, 2.5]) {
+    let s = createSession(kernel);
+    const outer = drawCircle(scene(s), XY, [0, 0, 0], 30); s = run(s, outer.command);
+    const hole = drawCircle(scene(s), XY, [0, 0, 0], 4); s = run(s, hole.command);
+    s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [outer.circle], params: { depth: thick, ...figureParams([{ outer: [outer.circle], holes: [[hole.circle]] }]) } } } as Command);
+    const body = bodiesOf({ session: s })[0]!, whole = body.volume;
+    let st: ReturnType<typeof createState> = { ...createState(s), cam: homeCamera() };
+    st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [body.ref as never] } } };
+    st = reduce(st, { type: "runAction", id: "model:wheelcut" }, env);
+    assert.equal(modelTarget(scene(st.session), st.tool!)!.problem, null, `${thick} thick`);
+    st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+    let n = 0; while (st.building && n++ < 12) st = reduce(st, { type: "buildNext" }, env);
+    assert.ok(!st.session.message, `${thick} thick: ${st.session.message}`);
+    const after = bodiesOf(st);
+    assert.equal(after.length, 1);
+    assert.ok(after[0]!.volume < whole * 0.9, `${thick} thick: the cutouts take metal: ${after[0]!.volume.toFixed(0)} of ${whole.toFixed(0)}`);
+    assert.ok(Math.abs(after[0]!.bbox.max[2]! - after[0]!.bbox.min[2]! - thick) < 1e-3, "as thick as it was");
+  }
 });

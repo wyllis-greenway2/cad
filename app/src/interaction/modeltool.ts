@@ -7,7 +7,7 @@ import { normalOfPlane, localOf } from "../operation/part.ts";
 import type { Vec3 } from "../math/vec.ts";
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
-import { modelFields, modelSizeKey, modelSizeLabel, modelNoSize, modelNumbers, modelStart, modelCentre, modelExtent, modelProblem, modelOutline, modelBuild, modelTitle, modelAbout } from "../operation/modelkinds.ts";
+import { modelFields, modelSizeKey, modelSizeLabel, modelFixedSize, modelNumbers, modelStart, modelCentre, modelExtent, modelProblem, modelOutline, modelOutline3, modelBuild, modelTitle, modelAbout } from "../operation/modelkinds.ts";
 import type { ModelKind, Nums } from "../operation/modelkinds.ts";
 import { asCommand } from "../operation/modelparts.ts";
 import type { Place, ModelBuild } from "../operation/modelparts.ts";
@@ -65,8 +65,11 @@ export function modelPreview(scene: Scene, t: Tool): Preview | null {
   const g = modelTarget(scene, t);
   if (!g) return null;
   const P = (x: number, y: number): Vec3 => [g.place.at[0] + g.place.ex[0] * x + g.place.ey[0] * y, g.place.at[1] + g.place.ex[1] * x + g.place.ey[1] * y, g.place.at[2] + g.place.ex[2] * x + g.place.ey[2] * y];
+  const P3 = (x: number, y: number, z: number): Vec3 => { const q = P(x, y); return [q[0] + g.place.ez[0] * z, q[1] + g.place.ez[1] * z, q[2] + g.place.ez[2] * z]; };
   const segments: [Vec3, Vec3][] = [];
-  for (const line of modelOutline(g.kind, g.nums)) for (let i = 0; i + 1 < line.length; i++) segments.push([P(line[i]![0], line[i]![1]), P(line[i + 1]![0], line[i + 1]![1])]);
+  const solid = modelOutline3(g.kind, g.nums); // (a model with a picture in space shows that: the faces and the depth, `in_1251`)
+  if (solid.length) for (const line of solid) for (let i = 0; i + 1 < line.length; i++) segments.push([P3(line[i]![0], line[i]![1], line[i]![2]), P3(line[i + 1]![0], line[i + 1]![1], line[i + 1]![2])]);
+  else for (const line of modelOutline(g.kind, g.nums)) for (let i = 0; i + 1 < line.length; i++) segments.push([P(line[i]![0], line[i]![1]), P(line[i + 1]![0], line[i + 1]![1])]);
   return { segments, circle: null, cursor: t.cursor, ...(g.problem ? { red: true as const } : {}) };
 }
 
@@ -99,17 +102,18 @@ export const buildingText = (b: Building): string => `${b.title}: ${b.build.part
 function visibleFields(m: ModelState, nums?: Nums): boolean[] {
   const fields = modelFields(m.kind);
   const n = nums ?? modelNumbers(m.kind, Object.fromEntries(fields.flatMap((f, k) => (numOf(m.typed[k + 1]) !== undefined ? [[f.key, numOf(m.typed[k + 1])!]] : []))));
-  return [!modelNoSize(m.kind), ...fields.map((f) => !f.hidden && (!f.when || (n[f.when.key] === f.when.is) !== !!f.when.not))];
+  return [true, ...fields.map((f) => !f.hidden && (!f.when || (n[f.when.key] === f.when.is) !== !!f.when.not))];
 }
 /** The field the Tab key goes to: the next one that is shown */
 export function nextField(m: ModelState): number {
   const vis = visibleFields(m);
-  for (let k = 1; k <= vis.length; k++) { const i = (m.field + k) % vis.length; if (vis[i]) return i; }
+  const fields = modelFields(m.kind);
+  for (let k = 1; k <= vis.length; k++) { const i = (m.field + k) % vis.length; if (vis[i] && !(i === 0 ? modelFixedSize(m.kind) : fields[i - 1]!.fixed)) return i; } // (a number that comes from the body is not stopped at)
   return m.field;
 }
 
 /** The title of the box and the fields it shows: each number as typed, else the number it has now */
-export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { bad?: true; label: string; value: string; active: boolean; typed: boolean; hint: string; short?: string; choices?: string[]; index: number; /** a radius's little fillet-or-chamfer toggle: the field that holds the kind, the kind it has, and the names */ toggle?: { index: number; value: number; choices: string[] } }[]; unit: string; note: string } | null {
+export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { bad?: true; /** the number comes from the body the model is cut into: shown, not set */ locked?: true; label: string; value: string; active: boolean; typed: boolean; hint: string; short?: string; choices?: string[]; index: number; /** a radius's little fillet-or-chamfer toggle: the field that holds the kind, the kind it has, and the names */ toggle?: { index: number; value: number; choices: string[] } }[]; unit: string; note: string } | null {
   const m = t.model;
   if (!m) return null;
   const g = modelTarget(scene, t), fields = modelFields(m.kind), round = (v: number): string => String(Math.round(v * 100) / 100);
@@ -127,7 +131,7 @@ export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { ba
   const hintSize = m.kind === "ballbearing" && g?.nums.own === 0 ? "the outside diameter (mm): picks the listed bearing nearest to it (a number typed wins); the pointer sets it until you click" : hints[0]!;
   return {
     panel: modelTitle(m.kind),
-    fields: order.map((i) => ({ ...(m.bad?.field === i || guard?.field === i ? { bad: true as const } : {}), index: i, label: labels[i]!, value: m.typed[i] !== "" ? m.typed[i]! : live[i] !== undefined ? round(live[i]!) : "", active: m.field === i, typed: m.typed[i] !== "", hint: i === 0 ? hintSize : hints[i]!, ...(i >= 1 && fields[i - 1]!.choices ? { choices: fields[i - 1]!.choices } : {}), ...(i >= 1 && fields[i - 1]!.toggle ? toggleOf(i) : {}) })),
+    fields: order.map((i) => ({ ...(m.bad?.field === i || guard?.field === i ? { bad: true as const } : {}), ...((i === 0 ? modelFixedSize(m.kind) : fields[i - 1]!.fixed) ? { locked: true as const } : {}), index: i, label: labels[i]!, value: m.typed[i] !== "" ? m.typed[i]! : live[i] !== undefined ? round(live[i]!) : "", active: m.field === i, typed: m.typed[i] !== "", hint: i === 0 ? hintSize : hints[i]!, ...(i >= 1 && fields[i - 1]!.choices ? { choices: fields[i - 1]!.choices } : {}), ...(i >= 1 && fields[i - 1]!.toggle ? toggleOf(i) : {}) })),
     unit: "mm",
     note: g ? (g.problem ?? modelAbout(m.kind, g.nums)) : "click where the middle of it goes",
   };
@@ -147,7 +151,7 @@ export function modelFix(scene: Scene, t0: Tool): { tool: Tool; field: number; m
   /** the one typed number that, taken back alone, makes the model: its field, the tool and what it was taken back to */
   const alone = (t: Tool): { tool: Tool; field: number; to: string } | null => {
     const m = t.model!;
-    const order = labels.map((_, i) => i).filter((i) => (m.typed[i] ?? "") !== "" && !(i >= 1 && fields[i - 1]!.choices)).sort((a, b) => (a === m.field ? -2 : a === 0 ? 1 : 0) - (b === m.field ? -2 : b === 0 ? 1 : 0)); // (the one being typed first, the Size last: it is what the rest is made to fit)
+    const order = labels.map((_, i) => i).filter((i) => (m.typed[i] ?? "") !== "" && !(i >= 1 && (fields[i - 1]!.choices || fields[i - 1]!.fixed)) && !(i === 0 && modelFixedSize(t.model!.kind))).sort((a, b) => (a === m.field ? -2 : a === 0 ? 1 : 0) - (b === m.field ? -2 : b === 0 ? 1 : 0)); // (the one being typed first, the Size last: it is what the rest is made to fit)
     for (const i of order) {
       const typedV = typedNum(m.typed[i]);
       if (typedV === undefined) continue;

@@ -3,7 +3,7 @@ id: dec_crankshaft_design
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1251
+human_input: in_1252
 date: 2026-11-20
 depends_on:
   - dec_engine_model: the crank is the engine's driver and sets the stroke; its throw, the rod and the piston keep the exact slider crank
@@ -12,7 +12,7 @@ alternative_to:
 ---
 # The crankshaft: two webs with counterweights, and Honda's crank pin
 
-The human chose the crankshaft as the next part (`in_1251`). Built:
+The human chose the crankshaft as the next part (`in_1252`). Built:
 
 - **The crank pin is Honda's:** 0.44 of the bore (the service manual: 29.98 mm in a 68 mm bore, 25.98 mm in a 60 mm bore; the model's was 1.25 of the piston pin, an assumed proportion; now 30.0 mm for a GX160). The rod's big end follows it (its eye is the pin's radius plus 2.5 mm).
 - **Two webs, the pin held between them** (it was a disc with an overhung pin): a lower web and an upper web, each a hub round the shaft, a boss round the pin, a neck between them and a **counterweight opposite the pin** (a disc 0.6 of the sweep radius across, its middle 0.4 of the sweep from the axis, so it reaches exactly the sweep the clearances are checked with). **ASSUMED**, as is the web thickness (the model's old one): no source gives a web or a counterweight.

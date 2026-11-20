@@ -7,7 +7,7 @@ import { createState, reduce } from "../src/interaction/controller.ts";
 import { homeCamera } from "../src/interaction/camera.ts";
 import { worldRef } from "../src/shared/ref.ts";
 import { drawCircle } from "../src/operation/build.ts";
-import { WHEEL_START, wheelProblem, wheelGeometry, wheelLines, wheelSection } from "../src/operation/modelwheel.ts";
+import { WHEEL_START, wheelProblem, wheelGeometry, wheelLines, wheelSection, effective } from "../src/operation/modelwheel.ts";
 import type { WheelSpec } from "../src/operation/modelwheel.ts";
 import { modelFields } from "../src/operation/modelkinds.ts";
 import { modelTarget } from "../src/interaction/modeltool.ts";
@@ -24,10 +24,9 @@ test("only what is no solid at all is refused; every other number is met (a radi
   assert.match(wheelProblem(S({ rimD: 80 })) ?? "", /rim diameter must be less/);
   assert.match(wheelProblem(S({ bore: 25 })) ?? "", /hub diameter must be more than the bore/);
   assert.match(wheelProblem(S({ hub: 75 })) ?? "", /hub diameter must be less than the rim/);
-  assert.match(wheelProblem(S({ web: 15 })) ?? "", /thinnest/);
   assert.match(wheelProblem(S({ spokes: 2 })) ?? "", /3 to 60/);
   assert.match(wheelProblem(S({ draft: 20 })) ?? "", /0 \(machined\) to 15/);
-  for (const o of [{ rimJoin: 0 }, { hubJoin: 0 }, { corner: 0 }, { edge: 0 }, { obtuse: 0 }, { spokeW: 200 }, { taper: 5 }, { taper: -5 }, { corner: 100 }, { rimJoin: 50 }, { hubJoin: 50 }, { web: 13.9 }, { spiral: 150 }, { rimOff: 0, hubOff: 0 }, { hub: 9, bore: 8.5, draft: 0 }, { edge: 3 }, { spokes: 60, spokeW: 30 }, { rimOff: 0.2, hubOff: 0.2 }]) assert.equal(wheelProblem(S(o)), null, JSON.stringify(o));
+  for (const o of [{ rimJoin: 0 }, { hubJoin: 0 }, { corner: 0 }, { edge: 0 }, { obtuse: 0 }, { spokeW: 200 }, { taper: 5 }, { taper: -5 }, { corner: 100 }, { rimJoin: 50 }, { hubJoin: 50 }, { web: 13.9 }, { spiral: 150 }, { rimOff: 0, hubOff: 0 }, { hub: 9, bore: 8.5, draft: 0 }, { web: 15 }, { web: 20, rimT: 5, hubT: 5 }, { rimT: 0.5, hubT: 0.5, web: 0.5 }, { rimT: 4, hubT: 4, web: 4 }, { draft: 10, rimD: 76 }, { draft: 10, hub: 13, bore: 8, hubT: 40 }, { edge: 3 }, { spokes: 60, spokeW: 30 }, { rimOff: 0.2, hubOff: 0.2 }]) assert.equal(wheelProblem(S(o)), null, JSON.stringify(o));
 });
 function placed(typed: Record<string, string>, fill?: boolean) {
   typed = { outer: "80", ...typed }; // (the first number typed, if it is a size, sets the scale of the rest: the outside diameter is kept as it is)
@@ -96,8 +95,7 @@ test("draft leans the rim's and the hub's walls away from the middle: the same w
   assert.ok(cast.volume < flat.volume * 0.995 && cast.volume > flat.volume * 0.9, `the cast wheel ${cast.volume.toFixed(0)} is a little lighter than the machined one ${flat.volume.toFixed(0)}`);
   assert.equal(wheelProblem(S({ draft: 0 })), null);
   assert.match(wheelProblem(S({ draft: 20 })) ?? "", /0 \(machined\) to 15/);
-  assert.match(wheelProblem(S({ draft: 10, rimD: 76 })) ?? "", /rim is too thin/);
-  assert.match(wheelProblem(S({ draft: 10, hub: 13, bore: 8, hubT: 40 })) ?? "", /hub is too thin/);
+  assert.ok(effective(S({ draft: 10, rimD: 76 })).draft < 10, "a draft that leaves the rim no wall is the most that leaves one");
   const lean = wheelSection(S({ draft: 3 })), straight = wheelSection(S({ draft: 0 }));
   const xs = (sec: { pts: [number, number][] }): number[] => sec.pts.filter((p) => Math.abs(p[1]) > 6.9).map((p) => p[0]);
   assert.ok(Math.max(...xs(lean)) < Math.max(...xs(straight)) - 0.3, "the rim's outside is smaller at its faces");
@@ -230,4 +228,18 @@ test("a spiral gets a bigger obtuse radius that follows the spoke join radius an
   assert.equal(at({ spiral: "30", obtuse: "4" }).obtuse, 4, "a number typed is kept");
   const flat = wheelLines(S({ spiral: 40, obtuse: 3 })).slice(4)[0]!, round = wheelLines(S({ spiral: 40, obtuse: 12 })).slice(4)[0]!;
   assert.notEqual(Math.round(area(round) * 10), Math.round(area(flat) * 10), "a bigger obtuse radius changes the outline");
+});
+
+test("a wheel may be as flat as the spokes, the rim and the hub being one thickness, and as thin as it likes: nothing is refused over the diameter to thickness ratio", () => {
+  const flat = placed({ rimT: "6", hubT: "6", web: "6", edge: "0" }), b = bodyOf(flat);
+  assert.equal(b.length, 1);
+  assert.ok(!flat.session.message, `no complaint: ${flat.session.message}`);
+  assert.ok(Math.abs(b[0]!.bbox.max[2]! - b[0]!.bbox.min[2]! - 6) < 1e-3, "6 thick all over");
+  const full = Math.PI * (40 ** 2 - 4 ** 2) * 6, windows = wheelLines(S({ rimT: 6, hubT: 6, web: 6 })).slice(4).reduce((a, l) => a + area(l), 0) * 6;
+  assert.ok(Math.abs(b[0]!.volume - (full - windows)) < 0.03 * full, `flat: ${b[0]!.volume.toFixed(0)} is the disc ${full.toFixed(0)} less the cutouts ${windows.toFixed(0)}`);
+  for (const th of ["0.5", "1.5"]) { const thin = placed({ rimT: th, hubT: th, web: th, edge: "0", draft: "0" }); assert.equal(bodyOf(thin).length, 1, `${th} thick`); assert.ok(!thin.session.message, `${th}: ${thin.session.message}`); }
+  const fat = placed({ web: "30", rimT: "8", hubT: "8", edge: "0", draft: "0" });
+  assert.equal(bodyOf(fat).length, 1, "spokes thicker than the rim are as thick as it");
+  assert.ok(!fat.session.message, fat.session.message ?? "");
+  assert.equal(effective(S({ web: 30, rimT: 8, hubT: 8 })).web, 8);
 });
