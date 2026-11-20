@@ -62,7 +62,7 @@ import { doSimilar, doSelectAll, doSelectBodies, doGroup, doUngroup, doCutBegin,
 import { groupsOf, membersOf } from "../../operation/groups.ts";
 
 /** The sketch group (`in_229`): the tools that draw on a plane, and the operations that work in one. Every member follows the group's rules below, so a new tool is added here (the records name every kind, so the compiler asks which group it is in) and gets them all. */
-const IS_SKETCH_TOOL: Record<ToolKind, true> = { rect: true, circle: true, line: true, arc: true, spline: true, cam: true, trim: true, gear: true, model: true };
+const IS_SKETCH_TOOL: Record<ToolKind, true> = { rect: true, circle: true, polygon: true, line: true, arc: true, spline: true, cam: true, trim: true, gear: true, model: true };
 const IS_SKETCH_OP: Record<OpKind, boolean> = { offset: true, extrude: false, pushpull: false, edge: false, move: false, rotate: false, scale: false, dimension: false, linear: false, circular: false, copy: false, hollow: false, revolve: false, loft: false, sweep: false, mirror: false };
 const isSketchTool = (name: string): name is ToolKind => name in IS_SKETCH_TOOL;
 
@@ -146,7 +146,7 @@ export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["n
 
 /** Put a finished figure into the scene and hand back to normal selection with the figure selected. */
 /** The tool stays on after a figure is made, ready on the same plane for the next, until a right click or the cancel icon at the top puts it away (`in_193`). */
-const stays = (t: AppState["tool"]): AppState["tool"] => (t && t.kind !== "gear" && t.kind !== "cam" ? { ...armTool(t.kind, variantOf(t.gear)), plane: t.plane, made: (t.made ?? 0) + 1, ...(t.reveal ? { reveal: true as const } : {}) } : null);
+const stays = (t: AppState["tool"]): AppState["tool"] => (t && t.kind !== "gear" && t.kind !== "cam" ? { ...armTool(t.kind, variantOf(t.gear)), ...(t.kind === "polygon" ? { typed: ["", t.typed[1]] as [string, string] } : {}), plane: t.plane, made: (t.made ?? 0) + 1, ...(t.reveal ? { reveal: true as const } : {}) } : null);
 
 /** A model is made a part at a time (`dec_gear_models`): the first part now, and each next one when the kernel has answered for the one before (the page draws between, so the parts are seen going in) */
 function startBuilding(s: AppState): AppState {
@@ -275,6 +275,7 @@ export function doTyped(s: AppState, key: string): AppState {
     return { ...s, op: s.op.kind === "move" && s.op.typed === "" && typed.typed !== "" ? { ...typed, typedBase: moveOffset(sceneOf(s.session), s.op)[s.op.axis]! } : typed };
   }
   const t = s.tool;
+  if (t && t.kind === "polygon" && !t.points.length && key !== "Enter") return { ...s, tool: typeKey(t, key) }; // (the polygon asks for its number of edges as soon as it is armed, `dec_polygon_tool`)
   if (!t || !t.plane || !t.points.length) return s;
   if (key !== "Enter") return { ...s, tool: typeKey(t, key) };
   if (s.building && t.kind === "model") return s; // (the parts are still being made)
@@ -376,6 +377,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
 export function doEscape(s: AppState): AppState {
   if (s.building) return { ...s, building: null, tool: madeTo(s.tool, s.session), session: { ...s.session, message: "stopped: the parts made so far stay (Undo takes them back, one at a time)" } }; // (a model made a part at a time)
   if (s.menu) return { ...s, menu: null };
+  if (s.dragSelect) return { ...s, dragSelect: false, session: { ...s.session, message: null } };
   if (s.motion) return { ...s, motion: null }; // (a joint that is being played goes back to rest)
   if (s.awaiting) return { ...s, awaiting: null, session: { ...s.session, message: null } }; // (the item that waited for a selection is given up, `in_951`)
   if (s.picking && !s.op) return { ...s, picking: null, session: { ...s.session, message: null } }; // (the operation that was waiting for what to click is given up, `in_464`)
@@ -427,6 +429,8 @@ export function doApply(s: AppState): AppState {
 }
 
 export function doRunAction(s0: AppState, id: string, now = 0): AppState {
+  // Delete in the ring: what is selected, or, with nothing selected, the thing the right click was on (`in_1281`)
+  if (id === "delete" && s0.menu?.over && !selectionOf(s0.session).length) return doDelete({ ...s0, session: { ...s0.session, click: { ...s0.session.click, selection: [s0.menu.over] } } });
   const s = s0.awaiting && !id.startsWith("why:") ? { ...s0, awaiting: null } : s0; // (another choice gives up the one that waited, `in_951`)
   if (id.startsWith("say:")) return { ...s, session: { ...s.session, message: id.slice(4) } }; // (a dimmed row of the ⋯ list pressed: what is said, `in_541`)
   if (id.startsWith("why:")) { // a dimmed option of the menu pressed (`in_538`): it can be chosen; what it needs is said as what to select, and it runs by itself once that is selected (`in_951`)
@@ -446,6 +450,7 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
   }
   if (id === "select:similar") return doSimilar(closed);
   if (id === "select:group") return doGroup(closed);
+  if (id === "select:drag") return { ...closed, dragSelect: !s.dragSelect, session: { ...closed.session, message: s.dragSelect ? null : "drag across the model to select what is in the rectangle (it is for one drag)" } }; // (a finger's drag select, `in_1281`)
   if (id === "select:add") return { ...closed, adding: !s.adding, session: { ...closed.session, message: s.adding ? "adding is off" : "adding is on: a tap adds to the selection, or takes out what is selected" } }; // (the way to select several with a finger, `in_539`)
   if (id === "select:bodies") return doSelectBodies(closed);
   if (id === "undo") return doUndo(closed); // (undo, redo and delete are the Actions of the ring, `in_538`)

@@ -70,7 +70,7 @@ export type Intent =
   | { type: "group" }
   | { type: "ungroup" }
   | { type: "similarRule"; rule: "kind" | "size" | "angle" | "direction" }
-  | { type: "begin"; name: "pushpull" | "rect" | "circle" | "line" | "arc" | "spline" | "cam" | "trim" | "gear" | "extrude" | "edge" | "move" | "rotate" | "scale" | "dimension" | "revolve" | "loft" | "sweep" | "mirror" }
+  | { type: "begin"; name: "pushpull" | "rect" | "circle" | "polygon" | "line" | "arc" | "spline" | "cam" | "trim" | "gear" | "extrude" | "edge" | "move" | "rotate" | "scale" | "dimension" | "revolve" | "loft" | "sweep" | "mirror" }
   /** a constraint shown on a selected part: open or close it (its other parts show amber), delete it, lock or unlock its number, give it a new number (`set`), or lock the measure of the selection at a number (`measure`) */
   | { type: "relation"; act: "focus" | "remove" | "lock" | "set" | "measure"; id: string | null; value?: number }
   /** a key for the number being typed (digits, ".", "-", Backspace, Tab, Enter, the arrows) */

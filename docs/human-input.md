@@ -5430,3 +5430,15 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1279 — 2026-11-20 — directive
 > How about we finish making the overall structure and shape of the piston head itself. I noticed that piston heads quite often have a curved bottom edge sometimes with ears that go quite a bit further down. I noticed that the edges of the pin quite often have flats or other cut aways and don't go to the outer radius of the bore edge, I noticed that they are designed for casting and have interior shapes, they are designed to have machined and cast surfaces.
 (with five pictures of real pistons: an exploded drawing of a piston, pin, rings and rod; a piston on its rod seen from the pin side; the underside of a forged piston with ribs under the crown; a wireframe with two valve pockets; a slipper skirt with an arched cutaway at the pin; asks to finish the piston head's overall structure and shape: a curved lower edge with ears, flats and cutaways round the pin bore, interior shapes for casting, machined and cast surfaces)
+
+## in_1280 — 2026-11-20 — directive
+> can we have a polygon sketch tool? It should just ask you the number of edges and draws a polygon based off that.
+(asks for a polygon tool among the sketch tools: it asks for the number of edges and draws a polygon from that)
+
+## in_1281 — 2026-11-20 — directive
+> can we put a drag select option under the finger menu? When you are drawing a spline, a right click out in space should apply it not cancel it. I also think clicking down both mouse buttons at the same time should initiate it. Also lets change the trash icon, lets have it not have a sub menu at all. lets put undo and redo in the ... menu for now, and that trash icon just immedietly deletes whatever it is clicked on.
+(four changes: drag select in the finger's menu; a right click applies a spline being drawn; both mouse buttons down at once begin the drag select; the trash item has no list, Undo and Redo go to the ⋯ menu, and the trash deletes what is clicked on)
+
+## in_1282 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the polygon tool and the drag select, spline right click and Delete / Undo changes to be merged into the testing branch, no full test run)

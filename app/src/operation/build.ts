@@ -57,6 +57,21 @@ export function drawCircle(s: Scene, plane: Ref, centre: Vec3, radius: number): 
 }
 
 /**
+ * A regular polygon (`dec_polygon_tool`): `sides` corners on the circle about `centre`, the first at `first` radians from the plane's u axis, as a closed loop of lines that share their corners, every side made equal in length to the first
+ * (equal-length relations), so moving a corner leaves the sides alike. The relation ids follow the scene's counter.
+ */
+export function drawPolygon(s: Scene, plane: Ref, centre: Vec3, radius: number, sides: number, first: number, u: Vec3, v: Vec3) {
+  const at = (k: number): Vec3 => {
+    const a = first + (2 * Math.PI * k) / sides, [x, y] = [radius * Math.cos(a), radius * Math.sin(a)];
+    return [centre[0] + u[0] * x + v[0] * y, centre[1] + u[1] * x + v[1] * y, centre[2] + u[2] * x + v[2] * y];
+  };
+  const r = drawChain(s, plane, Array.from({ length: sides }, (_, k) => at(k)), true);
+  const base = s.counter + 1 + 2 * sides; // after the parts of the shape the counter is at least this
+  const rels: Command[] = r.lines.slice(1).map((line, i): Command => ({ type: "addRelation", relation: { id: formatId("r", base + i), kind: "equalLength", parts: [r.lines[0]!, line] } }));
+  return { ...r, command: (rels.length ? { type: "batch", commands: [r.command, ...rels] } : r.command) as Command };
+}
+
+/**
  * A rectangle as it is drawn by hand: four corners and lines kept level with the plane's axes (horizontal on the two sides along u, vertical on the two along v),
  * so moving a corner or typing a size keeps it a rectangle. The relation ids follow the scene's counter.
  */
