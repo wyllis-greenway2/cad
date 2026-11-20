@@ -5390,5 +5390,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (asks for a separate keyway maker tool, taken out of the gear and wheel makers, which would only make smooth round holes: it keys shafts to holes with keys, flats and real splines (shaft splines and flutes, not drafting splines), with real standard spline tooth profiles chosen as the gears choose theirs, and keys and flats user defined or from catalogues of standard sizes that can be bought)
 
 ## in_1268 — 2026-11-20 — directive
+> Approve the design, and I'll upload the standards tables as files.. Link me to the files you think you need
+(approves the design of the keyway maker in `q_keyway_maker`, and says the standards tables will be uploaded as files; asks for links to the files that are needed)
+
+## in_1269 — 2026-11-20 — directive
 > do the crown next
 (approves the next piston maker variables: the crown's shape (flat, dome, dish, bowl), its edge chamfer and the valve reliefs)

@@ -3,7 +3,7 @@ id: dec_piston_crown
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1268
+human_input: in_1269
 date: 2026-11-20
 depends_on:
   - dec_piston_maker: the crown's variables, made typed fields
@@ -14,7 +14,7 @@ alternative_to:
 ---
 # The crown: flat, dome, dish or bowl, with an edge chamfer and valve reliefs
 
-The human approved (`in_1268`). Built, **all sizes assumed** (the kinds are sourced: Kean's "flat, curved up or curved down" crowns, EngineLabs on dome and dish, the Caterpillar patent's bowl; no source gives a small gasoline piston's sizes):
+The human approved (`in_1269`). Built, **all sizes assumed** (the kinds are sourced: Kean's "flat, curved up or curved down" crowns, EngineLabs on dome and dish, the Caterpillar patent's bowl; no source gives a small gasoline piston's sizes):
 
 - **Crown shape** (a typed choice, default **Flat**): **Dome** (a spherical cap up), **Dish** (a spherical cap down), **Bowl** (a flat-bottomed bowl with a sloped wall). A **height** (dome height or the dish's or bowl's depth, mm, 0 = auto: 0.04, 0.03 and 0.04 of the bore) and a **diameter of the shaped part** (mm, 0 = auto: 0.75 of the bore for a dome or dish, 0.6 for a bowl); the flat band outside it is the squish band. **The pin height stays the distance to the flat crown** (EngineLabs: "not inclusive of dome or dish").
 - **Crown edge chamfer:** 0.004 of the bore (typed, 0 = auto).
