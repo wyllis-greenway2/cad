@@ -115,8 +115,8 @@ test("GT2 pulley tool: Teeth, Clearance and Bore are its numbers; click the cent
   st = reduce(st, { type: "runAction", id: "tool:gt2" }, env);
   st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
   st = click(st, C);
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Clearance", "Bore", "Flat", "Key", "Key depth"]);
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.value), ["20", "0", "0", "0", "0", "0"]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Clearance", "Bore"]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.value), ["20", "0", "0"]);
   st = typeText(st, "24"); st = key(st, "Tab"); st = typeText(st, "0.05"); st = key(st, "Tab"); st = typeText(st, "5");
   st = key(st, "Enter");
   const rec = scene(st.session).gears![0]!;
@@ -194,7 +194,7 @@ test("HTD 5M tool: the Sketch ring has it; Teeth, Clearance (0.07 shown) and Bor
   st = reduce(st, { type: "runAction", id: "tool:htd5" }, env);
   st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
   st = click(st, C);
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => [f.label, f.value]), [["Teeth", "20"], ["Clearance", "0.07"], ["Bore", "0"], ["Flat", "0"], ["Key", "0"], ["Key depth", "0"]]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => [f.label, f.value]), [["Teeth", "20"], ["Clearance", "0.07"], ["Bore", "0"]]);
   st = typeText(st, "24"); st = key(st, "Enter");
   const rec = scene(st.session).gears![0]!;
   assert.deepEqual([rec.spec.pulley, rec.spec.teeth], ["HTD5M", 24]);

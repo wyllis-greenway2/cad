@@ -157,7 +157,7 @@ test("Clock gear tool: the box has Teeth, Module, Backlash, Circle, Addendum, De
   st = reduce(st, { type: "runAction", id: "tool:clock" }, env);
   st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
   st = click(st, C);
-  assert.deepEqual(entryOf(scene(st.session), { ...st.tool!, cursor: [C[0] + 21, C[1], 0] }, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Backlash", "Circle", "Addendum", "Dedendum", "Bore", "Flat", "Key", "Key depth"]);
+  assert.deepEqual(entryOf(scene(st.session), { ...st.tool!, cursor: [C[0] + 21, C[1], 0] }, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Backlash", "Circle", "Addendum", "Dedendum", "Bore"]);
   st = typeText(st, "24"); st = key(st, "Tab"); st = typeText(st, "1.5");
   st = key(st, "Enter");
   const rec0 = scene(st.session).gears![0]!;

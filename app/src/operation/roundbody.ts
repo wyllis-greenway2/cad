@@ -63,8 +63,8 @@ export function roundBodyOf(scene: Scene, body: Ref): RoundBody | string {
 }
 
 /** What a tool that cuts into a round body needs of the part `ref` (the body, a face or an edge of it): the middle and the axis, and the numbers read from the body, or why it is not a round body */
-export function cutFillOf(scene: Scene, ref: Ref): { center: Vec3; normal: Vec3; cut: { outer: number; bore: number; thickness: number; root: number } } | string {
+export function cutFillOf(scene: Scene, ref: Ref): { center: Vec3; normal: Vec3; cut: { outer: number; bore: number; thickness: number; root: number; /** the id of the body (`x_<step>`): the keyway maker remembers what it keyed */ host?: string } } | string {
   const body = bodyOfPart(scene, ref);
   const rb = body ? roundBodyOf(scene, body) : "select a round body first: a gear, a disc, a cylinder or a ring";
-  return typeof rb === "string" ? rb : { center: rb.center, normal: rb.normal, cut: { outer: rb.outer, bore: rb.bore, thickness: rb.thickness, root: rb.root } };
+  return typeof rb === "string" ? rb : { center: rb.center, normal: rb.normal, cut: { outer: rb.outer, bore: rb.bore, thickness: rb.thickness, root: rb.root, ...(((scene.parts[body!] as { id?: string } | undefined)?.id) ? { host: (scene.parts[body!] as { id: string }).id } : {}) } };
 }

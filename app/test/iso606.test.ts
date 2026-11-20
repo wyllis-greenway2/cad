@@ -138,7 +138,7 @@ type Item = { id: string; label: string; icon: string; enabled: boolean; childre
 test("the Models ring (a gear icon) holds one Gears submenu with every gear tool and the devices after it; the Sketch ring holds none of them (`in_1141`): the Gears submenu has every gear tool (Spur gear, Ring gear, Rack, Planetary set, Clock, Pulley and Sprocket submenus, Edit gear, Mesh gear, Mesh rack); none of them is in the Sketch ring itself", () => {
   const items = reduce(top(), { type: "menu", x: 400, y: 300, button: true }, env).menu!.items as Item[];
   const sketch = items.find((i) => i.id === "sketch")!;
-  assert.deepEqual(sketch.children!.map((i) => i.id), ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset"]);
+  assert.deepEqual(sketch.children!.map((i) => i.id), ["tool:rect", "tool:circle", "tool:polygon", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset"]);
   const mech = items.find((i) => i.id === "mechanisms")!;
   assert.equal(mech.label, "Models");
   const gears = mech.children!.find((i) => i.id === "gears")!;
@@ -164,7 +164,7 @@ test("ISO sprocket tool: Teeth, Chain (the B series number), Pitch, Roller, Fit 
   st = reduce(st, { type: "runAction", id: "tool:isosprocket" }, env);
   st = { ...st, tool: { ...st.tool!, plane: worldRef("XY") } };
   st = click(st, C);
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => [f.label, f.value]), [["Teeth", "20"], ["Chain", "8"], ["Pitch", "12.7"], ["Roller", "8.51"], ["Fit", "0.5"], ["Bore", "0"], ["Flat", "0"], ["Key", "0"], ["Key depth", "0"]]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => [f.label, f.value]), [["Teeth", "20"], ["Chain", "8"], ["Pitch", "12.7"], ["Roller", "8.51"], ["Fit", "0.5"], ["Bore", "0"]]);
   st = typeText(st, "24"); st = key(st, "Tab"); st = typeText(st, "10"); st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab"); st = typeText(st, "0.2"); st = key(st, "Tab"); st = typeText(st, "6");
   st = key(st, "Enter");
   const rec = scene(st.session).gears![0]!;
@@ -185,7 +185,7 @@ test("a gear made by Mesh gear can have its bore at once (a Bore field after Ang
   const sel = { ...reduce(st, { type: "escape" }, env), tool: null, session: { ...st.session, click: { ...st.session.click, selection: [face.ref] as never } } };
   let m = reduce(sel, { type: "runAction", id: "gear:mesh" }, env);
   m = { ...m, tool: { ...m.tool!, cursor: [C[0], C[1] + 40, 0] } };
-  assert.deepEqual(entryOf(scene(m.session), m.tool, m.op)!.fields.map((f) => f.label), ["Teeth", "Ratio", "Angle", "Bore", "Flat", "Key", "Key depth"]);
+  assert.deepEqual(entryOf(scene(m.session), m.tool, m.op)!.fields.map((f) => f.label), ["Teeth", "Ratio", "Angle", "Bore"]);
   m = typeText(m, "30"); m = key(m, "Tab"); m = key(m, "Tab"); m = key(m, "Tab"); m = typeText(m, "5");
   m = key(m, "Enter");
   assert.equal(scene(m.session).gears![1]!.spec.bore, 5);

@@ -5432,5 +5432,32 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (with five pictures of real pistons: an exploded drawing of a piston, pin, rings and rod; a piston on its rod seen from the pin side; the underside of a forged piston with ribs under the crown; a wireframe with two valve pockets; a slipper skirt with an arched cutaway at the pin; asks to finish the piston head's overall structure and shape: a curved lower edge with ears, flats and cutaways round the pin bore, interior shapes for casting, machined and cast surfaces)
 
 ## in_1280 — 2026-11-20 — directive
+> can we have a polygon sketch tool? It should just ask you the number of edges and draws a polygon based off that.
+(asks for a polygon tool among the sketch tools: it asks for the number of edges and draws a polygon from that)
+
+## in_1281 — 2026-11-20 — directive
+> can we put a drag select option under the finger menu? When you are drawing a spline, a right click out in space should apply it not cancel it. I also think clicking down both mouse buttons at the same time should initiate it. Also lets change the trash icon, lets have it not have a sub menu at all. lets put undo and redo in the ... menu for now, and that trash icon just immedietly deletes whatever it is clicked on.
+(four changes: drag select in the finger's menu; a right click applies a spline being drawn; both mouse buttons down at once begin the drag select; the trash item has no list, Undo and Redo go to the ⋯ menu, and the trash deletes what is clicked on)
+
+## in_1282 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the polygon tool and the drag select, spline right click and Delete / Undo changes to be merged into the testing branch, no full test run)
+
+> take the bore numbers out of the gear and wheel makers, the gear and wheel can define a bore, but it is just a smooth hole, the keyway maker can apply splines flats, keys etc to the holes or joining shafts. The keyway maker should have a mesh tool kind of like how gears work. If you select a keyed bore, it meshes a shaft to it, if you select a shaft, it could mesh a bore to it. It could work by either making a shaft or bore donut from scratch that meshes, or if you select geometry it could cut it in. For example you could select a splined shaft and make mesh, then click on bore hole surface or vise versa.
+(asks for Bore flat, Key width and Key depth to come out of the gear, wheel and Cut spokes makers, which keep a smooth bore; and for the keyway maker to get a Mesh tool as gears have: a keyed bore selected meshes a shaft to it, a shaft selected meshes a bore to it, either made from scratch (a shaft or a bore donut) or cut into geometry that is clicked, for example a splined shaft selected, Mesh, then a click on the bore surface, or the other way round)
+
+## in_1283 — 2026-11-20 — directive
+> @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/17adf08e-model2.json" I can't seem to do a keyed shaft. I select the rod surface, or the entire rod, and select keyed shaft, and it just keeps saying select surface.
+(sends a project file; says that with the rod's surface or the whole rod selected, Keyed shaft only keeps saying to select a surface)
+
+## in_1285 — 2026-11-20 — directive
+> the polygon tool doesn't have good suggested snapping, I can't snap the origin and mouse end point in horizontal or vertical spots. Also when I try to draw on a polygon, like draw a circle in a hexagon, it doesn't help me snap to center.
+(two faults of the polygon tool: its size point does not snap level or upright with the middle, and nothing snaps to the middle of a polygon that is drawn)
+
+## in_1286 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the polygon snapping to be merged into the testing branch, no full test run)
+
+## in_1287 — 2026-11-20 — directive
 > can we have skirts and flats on by default? 1 yes lets build this next. 2 correct I think we should keep manufacturing agnostic for now.
 (answers my questions after the arched skirt and flats: wants the arched skirt and the pin flats on by default; 1: yes, build the interior shapes (rounded bosses, ribs to the crown) next; 2: keep the cast and machined surfaces out of the modeler, manufacturing agnostic for now)

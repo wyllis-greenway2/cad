@@ -3,7 +3,7 @@ id: dec_gear_tool
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1263, in_1262, in_1259, in_951, in_935, in_924, in_923, in_920, in_919, in_872, in_871, in_868, in_867, in_866, in_864, in_862, in_858, in_791, in_790, in_783, in_771, in_770, in_686, in_685, in_608, in_598, in_597, in_596, in_595, in_594, in_593, in_592, in_591, in_590, in_589, in_588, in_587, in_586, in_585, in_584, in_583, in_580, in_579, in_578, in_577, in_576, in_575
+human_input: in_1279, in_1263, in_1262, in_1259, in_951, in_935, in_924, in_923, in_920, in_919, in_872, in_871, in_868, in_867, in_866, in_864, in_862, in_858, in_791, in_790, in_783, in_771, in_770, in_686, in_685, in_608, in_598, in_597, in_596, in_595, in_594, in_593, in_592, in_591, in_590, in_589, in_588, in_587, in_586, in_585, in_584, in_583, in_580, in_579, in_578, in_577, in_576, in_575
 date: 2026-11-16
 depends_on:
   - prin_manufacture_agnostic: the gear tool carries no per-route treatment (no kerf, no print backlash, no laser presets)
@@ -62,3 +62,4 @@ The involute is the one profile of machined gears that keeps a constant speed ra
 
 - **Changed (`in_1262`): a new gear has a thickness.** A new gear is six modules thick unless another is typed (0 typed is the flat outline of before, as is a gear that is edited and has none); a new pulley is two modules, a sprocket 6 mm, a clock gear four modules thick (their boxes have no thickness: it is the one number they get, from the gear's step). Not data from a standard: a plain default, to be changed in the box (the plain gear's) or by push/pull.
 - **Changed (`in_1263`): a key width alone is not refused.** For a bore the DIN 6885 table has no key for, the keyway's depth is 0.45 of the key's width (the standard's depths run 0.33 to 0.5 of it) until a depth is typed; a depth of 0 means the same (the standard's or this), not a refusal. The gear maker, the Wheel and Cut spokes share it (`bore.ts`).
+- **Changed (`in_1279`): the gear's bore is a smooth hole.** Flat, Key and Key depth are no longer in the box of any gear (nor the standard-key line); the keyway maker (`dec_keyway_maker`) keys a bore. A gear made with them keeps them (`GearSpec.flat`, `key`, `keyDepth` are read as before).
