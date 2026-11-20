@@ -5649,3 +5649,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1337 — 2026-11-20 — question
 > does boolean add work only on two bodies? Also why do we have these limits at all? Why cant boolean add just add all bodies? and why cant boolean subtract just let you select the cutter bodies and the bodies to cut? Similar to how intsersect allows you to select kept portions and non kept portions
 (asks why the booleans are limited to two bodies, and for Add on all bodies and a Subtract that picks the bodies to cut and the cutters)
+
+## in_1338 — 2026-11-20 — question
+> Can we have it so that edges just are lines and they would participate in the sketch just like any other lines? why can't I sketch on a face like this and now have four completed sketch sections?
+(a screenshot of two lines drawn across the round top of a post: the rim is not part of the sketch, so no sections are made)
