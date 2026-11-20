@@ -208,6 +208,8 @@ function describeSolid(shape, tess0, lite, vol0) {
     const em = shape.meshEdges({ tolerance: tess.tolerance, angularTolerance: tess.angular });
     const byHash = new Map(edgesOf(shape).map((e) => [e.hashCode, e]));
     const r4 = (v) => Math.round(v * 1e4) / 1e4;
+    // the geometry a sketch is held to (the edges' ends and middles, their circles, the vertices) is given as the kernel has it, to a billionth, not to a ten-thousandth: a point put on a rim from the rounded numbers lay up to 0.00005 mm inside the real surface, and a cut by a figure with a corner there left slivers the mesher could not do (`in_1372`)
+    const x9 = (v) => Math.round(v * 1e9) / 1e9 + 0;
     const seen = new Map();
     const edges = [];
     for (const g of em.edgeGroups) {
@@ -222,11 +224,11 @@ function describeSolid(shape, tess0, lite, vol0) {
         try {
           const ci = e._geomAdaptor().Circle();
           const [lc, ax] = [ci.Location(), ci.Axis().Direction()];
-          circle = { center: [r4(lc.X()), r4(lc.Y()), r4(lc.Z())], normal: [r4(ax.X()), r4(ax.Y()), r4(ax.Z())], radius: r4(ci.Radius()) };
+          circle = { center: [x9(lc.X()), x9(lc.Y()), x9(lc.Z())], normal: [x9(ax.X()), x9(ax.Y()), x9(ax.Z())], radius: x9(ci.Radius()) };
         } catch { circle = undefined; }
       }
-      edges.push({ type: e.geomType, pts, a: [r4(a.x), r4(a.y), r4(a.z)], b: [r4(z.x), r4(z.y), r4(z.z)], mid: [r4(mid.x), r4(mid.y), r4(mid.z)], ...(circle ? { circle } : {}) });
-      for (const v of [a, z]) seen.set(`${r4(v.x)},${r4(v.y)},${r4(v.z)}`, [r4(v.x), r4(v.y), r4(v.z)]);
+      edges.push({ type: e.geomType, pts, a: [x9(a.x), x9(a.y), x9(a.z)], b: [x9(z.x), x9(z.y), x9(z.z)], mid: [x9(mid.x), x9(mid.y), x9(mid.z)], ...(circle ? { circle } : {}) });
+      for (const v of [a, z]) if (!seen.has(`${r4(v.x)},${r4(v.y)},${r4(v.z)}`)) seen.set(`${r4(v.x)},${r4(v.y)},${r4(v.z)}`, [x9(v.x), x9(v.y), x9(v.z)]);
     }
     const vertices = [...seen.values()];
     freeTriangles(shape);

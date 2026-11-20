@@ -5781,3 +5781,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1371 — 2026-11-20 — directive
 > run the check on the other booleans too
 (asks that the check for faces the mesher cannot do, `in_1368`, runs on the other booleans, not only the extrude's cut)
+
+## in_1372 — 2026-11-20 — directive
+> dig into the diagnostics and find the actual defect
+(asks to find what is actually wrong with the face the mesher could not do, after the answer to `in_1370` that the check and retry is a stopgap)

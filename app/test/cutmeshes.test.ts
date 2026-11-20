@@ -49,3 +49,29 @@ test("a cut whose corners lie 2 hundred-thousandths of a mm inside the rim (wher
   assert.deepEqual(s.outcome.errors, {});
   assert.ok(Math.abs(enclosed(k as never) - k.volume!) < 0.01 * k.volume!, `the triangles enclose ${enclosed(k as never).toFixed(0)}, the body has ${k.volume!.toFixed(0)}`);
 });
+
+import { anchorRounds } from "../src/operation/anchors.ts";
+test("the root cause (`in_1372`): the rim a sketch is held to has the radius the body really has, and a cut by a figure with corners on it is drawn whole", () => {
+  {
+    for (const R of [12.500019, 12.34567, 7.123457]) {
+      let s = createSession(kernel);
+      const c = drawCircle(scene(s), worldRef("XY"), [16.15, 23.53, 0], R);
+      s = run(s, c.command);
+      s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 25 } } } as never);
+      const top = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.ref.startsWith("b/body/f@0,0,1"))!;
+      const { plane, command } = planeForDrawing(scene(s), top.ref);
+      if (command) s = run(s, command);
+      const rim = anchorRounds(scene(s), scene(s).parts[plane] as never)[0]!;
+      assert.ok(Math.abs(rim.radius - R) < 1e-8, `the rim the sketch is held to has the radius of the body: ${rim.radius} against ${R}`);
+      const a = 0.9;
+      const on = (t: number): [number, number, number] => [rim.center[0] + rim.radius * Math.cos(t), rim.center[1] + rim.radius * Math.sin(t), 25];
+      const pts = [on(0), on(a), on(-a)];
+      const ch = drawChain(scene(s), plane, [...pts, pts[0]!], true);
+      s = run(s, ch.command);
+      s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: ch.lines, params: { depth: -8, mode: "cut" } } } as never);
+      const k = s.outcome.kernel!;
+      assert.deepEqual(s.outcome.errors, {});
+      assert.ok(Math.abs(enclosed(k as never) - k.volume!) < 0.01 * k.volume!, `R ${R}: the triangles enclose ${enclosed(k as never).toFixed(0)}, the body has ${k.volume!.toFixed(0)}`);
+    }
+  }
+});

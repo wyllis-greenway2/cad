@@ -12,7 +12,7 @@ import type { Ref } from "../src/shared/ref.ts";
 await kernel.init();
 const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/hole-pin-coaxial.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
 const PIN = "b/body/c@2,27.59,25.5,4.8,1.7043,4.8,11.5" as Ref;
-const HOLE_FAR = "b/body/c@2,10.5672,58.7191,8.3,1.9482,8.3,11.5" as Ref;
+const HOLE_FAR = "b/body/c@2,10.5676,58.7178,8.3,1.9482,8.3,11.5" as Ref;
 const PIN_RIM = "b/body/e@29.2943,25.5,11.5~29.2943,25.5,11.5~25.8857,25.5,11.5" as Ref;
 const HOLE_RIM = "b/body/e@29.8769,25.5,11.5~29.8769,25.5,11.5~25.3031,25.5,11.5" as Ref;
 
