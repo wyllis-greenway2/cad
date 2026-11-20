@@ -5658,3 +5658,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1339 — 2026-11-20 — approval
 > do both, through both ways and the ghost negative body
 (approves both proposals made after in_1338: a cut that goes through both ways from its plane, and a cut shown as a ghost negative body that can be picked and moved like a positive body)
+
+## in_1340 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the cut-both-ways and ghost cut work, the bar fix, the spiral overlap and the earlier work to be merged into the testing branch, no full test run)
