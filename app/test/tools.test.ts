@@ -1,3 +1,4 @@
+import { roundCentres, guidesOf, snapOnPlane } from "../src/interaction/tools.ts";
 import { drawCircle, drawChain } from "../src/operation/build.ts";
 import { actionsFor } from "../src/interaction/actions.ts";
 import test from "node:test";
@@ -1019,4 +1020,24 @@ test("polygon snapping (`in_1285`): a corner near level or upright with the midd
   const circle = Object.values(scene(st.session).parts).find((p) => p.kind === "circle") as { center: string; radius: number };
   const centre = (scene(st.session).parts[circle.center as never] as { at: Vec3 }).at;
   near(centre[0], 20, 1e-6); near(centre[1], 15, 1e-6);
+});
+
+test("sketching on the face of a disk (`in_1304`, `in_1305`): the middle of its rim is a point to take and to line up with, level and upright, though the rim has no corner there", () => {
+  let st = top();
+  const c = drawCircle(scene(st.session), worldRef("XY"), [20, 15, 0], 10);
+  st = { ...st, session: run(st.session, c.command) };
+  st = { ...st, session: run(st.session, { type: "addStep", step: { id: "s_disk", type: "extrude", parts: [c.circle], params: { depth: 5 } } }) };
+  const face = Object.values(scene(st.session).parts).find((p) => p.kind === "plane" && p.origin === "body" && Math.abs((p as { at: Vec3 }).at[2] - 5) < 1e-6) as never as import("../src/operation/part.ts").Plane;
+  assert.ok(face, "the top face of the disk");
+  const centres = roundCentres(scene(st.session), face);
+  assert.ok(centres.some((q) => Math.hypot(q[0] - 20, q[1] - 15) < 1e-6), "the middle of the rim");
+  const g = guidesOf(scene(st.session), face, [20, 40, 5]); // (a point upright with the middle)
+  assert.ok(g.length > 0, "a guide to the middle");
+  // the pointer: near the middle it takes it; upright with it (a little to the side) it lines up
+  const pj = projector(lookStraight(homeCamera(), [0, 0, 1], [1, 0, 0]), 800, 600);
+  const at = (x: number, y: number) => { const q = pj.project([x, y, 5])!; return pj.view(q[0], q[1]); };
+  const mid = snapOnPlane(scene(st.session), at(20.3, 15.2), face);
+  assert.ok(mid && Math.hypot(mid[0] - 20, mid[1] - 15) < 1e-6, `the middle: ${JSON.stringify(mid)}`);
+  const upright = snapOnPlane(scene(st.session), at(20.1, 40), face);
+  assert.ok(upright && Math.abs(upright[0] - 20) < 1e-6, `upright: ${JSON.stringify(upright)}`);
 });

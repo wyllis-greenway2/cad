@@ -5520,3 +5520,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1303 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the path repeat in space to be merged into the testing branch, no full test run; the same words as in_1302)
+
+## in_1304 — 2026-11-20 — directive
+> I am still having trouble sketching in shapes that dont suggest snapping to the center. Like for example even in a circle if I am sketching with line, it seems to offer snap to center in one direction, horizontal in this case, but not a virtical dasshed line allowing me to find the center cross point.
+(a line drawn in a circle offers the dashed level guide from the centre but not the upright one, so the centre cannot be found as a cross point)
+
+## in_1305 — 2026-11-20 — directive
+> also just to be clear, this is sketching on the surface of a 3d disk. when it is just a sketch circle it has the center verticy. Sketching on surfaces should offer snapping points as well based off the edges of that surface.
+(the missing centre guides are on the face of a body: a circular edge has no centre corner, so the centre and its level and upright lines are not offered; asks that sketching on a surface offer snapping points from that surface's edges)
