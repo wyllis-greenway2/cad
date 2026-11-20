@@ -4602,3 +4602,6 @@ Branch `claude/adoring-dijkstra-carry`. `in_1280` asked for a polygon tool that 
 
 ## Handoff 1171 — 2026-11-20 (in_1322: mirror about a clicked line or face; delete a mirror's copy)
 `in_1322`. With the mirror open a click on a line or face puts the plane there (`mirrorAcross` in `interaction/mirror.ts`, the click in `control/pointer.ts`; world planes under the pointer are ignored); Delete on the copy of a mirrored sketch breaks the mirror and deletes its copies (`mirrorOfCopy` in `repeat.ts`, `actions.ts`). Tests in `mirror.test.ts`. Open: a mirrored body fused to its original is one body (deleting takes both); linear and circular repeat copies still need Break first; the line click on a body edge uses the vertical as reference. `tools.test.ts` "right-click ring" fails on the merged branch before this change (not mine).
+
+## Handoff 1172 — 2026-11-20 (in_1323: offset several unchained lines)
+`in_1323`. `offsetSource` (`interaction/offset.ts`) gains kind `set`: straight lines on one plane that do not make a chain are each offset by the same signed distance, their arrows turned to agree with the first line's; the arrow stands on the line nearest the click. Test in `offsetdrawn.test.ts`. Open: arcs, circles or a mix of chains and loose lines in one selection are still refused.
