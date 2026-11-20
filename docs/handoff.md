@@ -4426,3 +4426,6 @@ No words from the human with the upload (one 135 page PDF), so no `human-input.m
 
 ## Handoff 1117 — 2026-11-20 (in_1256: Cut spokes with a face selected shows its box)
 `in_1256`. With a cylinder's top face selected, Cut spokes armed (3D preview drawn) but no box showed: `frame.ts` computed the face's automatic push/pull entry for every tool but the gear, and it replaced the tool's entry. **Fixed:** model and cam tools suppress it too (`frame.ts`). Reproduced and verified in a real browser with Playwright; regression test in `test/wheelcut.test.ts`. The earlier tests had missed it because they checked the tool state, not the frame's entry.
+
+## Handoff 1118 — 2026-11-20 (in_1257: the testing branch merged in, and a new working branch)
+`in_1257`. Everything of this branch was already in `claude/inspiring-pascal-l342k7`; the testing branch had moved on by 77 commits (up to `in_1256`, Handoff 1117), which merged into this branch without a conflict (no number of mine clashed). Pushed the result to `claude/inspiring-pascal-l342k7`, and started `claude/cool-einstein-odsxco-gears7` from it; work goes on it from here. `claude/cool-einstein-odsxco-gears6` is left as it was. Checked: the type check and the record check only; no tests run.

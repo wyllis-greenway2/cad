@@ -5344,3 +5344,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1256 — 2026-11-20 — directive
 > if I make a cylinder, then select its top surface, then select cut spokes, it still doesn't bring up the menu
 (reports that Cut spokes still shows no box when a cylinder's top face is what is selected)
+
+## in_1257 — 2026-11-20 — directive
+> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
