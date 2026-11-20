@@ -113,11 +113,11 @@ test("the Size is the outside diameter, listed once; typing the number a field a
   assert.equal(modelTarget(sc, t)!.nums.outer, 100);
   assert.equal(modelEntry(sc, t)!.fields.filter((f) => f.label === "Outer diameter").length, 1, "listed once");
   const labels = modelEntry(sc, t)!.fields.map((f) => f.label);
-  assert.deepEqual(labels.slice(0, 14), ["Outer diameter", "Rim diameter", "Hub diameter", "Bore diameter", "Rim thickness", "Spoke thickness", "Hub thickness", "Spoke count", "Spoke width", "Spoke taper", "Spoke spiral", "Spoke rim offset", "Spoke hub offset", "Spoke radius"], "the diameters, then the thicknesses, then the spoke numbers");
-  assert.deepEqual(labels.slice(14), ["Spoke join radius", "Rim join radius", "Hub join radius", "Draft"], "the obtuse radius is not there while the spokes are straight");
+  assert.deepEqual(labels.slice(0, 17), ["Outer diameter", "Rim diameter", "Hub diameter", "Bore diameter", "Bore flat", "Key width", "Key depth", "Rim thickness", "Spoke thickness", "Hub thickness", "Spoke count", "Spoke width", "Spoke taper", "Spoke spiral", "Spoke rim offset", "Spoke hub offset", "Spoke radius"], "the diameters, then the thicknesses, then the spoke numbers");
+  assert.deepEqual(labels.slice(17), ["Spoke join radius", "Rim join radius", "Hub join radius", "Draft"], "the obtuse radius is not there while the spokes are straight");
   assert.equal(modelEntry(sc, t)!.fields.filter((f) => f.toggle).length, 4, "four radii have the fillet or chamfer toggle");
   const sp = modelEntry(sc, toolWith({ spiral: "30" }, "80"))!.fields.map((f) => f.label);
-  assert.deepEqual(sp.slice(14, 17), ["Spoke join radius", "Spoke obtuse radius", "Rim join radius"], "with a spiral the obtuse radius is next to the spoke join radius");
+  assert.deepEqual(sp.slice(17, 20), ["Spoke join radius", "Spoke obtuse radius", "Rim join radius"], "with a spiral the obtuse radius is next to the spoke join radius");
   assert.equal(modelEntry(sc, toolWith({ rimJoinKind: "1" }, "80"))!.fields.find((f) => f.label === "Rim join radius")!.toggle!.value, 1, "and it shows the kind it has");
   assert.equal(modelEntry(sc, t)!.fields[0]!.label, "Outer diameter");
   const base = modelTarget(sc, toolWith({}, "80"))!.nums;
@@ -140,7 +140,7 @@ test("a number typed is met by the others: a small bore gives a small hub, a big
   let taken = 0;
   for (let i = 0; i < 400; i++) {
     const size = String(Math.round(10 ** (1.2 + rnd() * 1.7))), typed: Record<string, string> = {};
-    const sz = Number(size), range: Record<string, [number, number, number]> = { rimT: [0.05, 0.3, 1], rimD: [0.6, 0.97, 1], hub: [0.06, 0.4, 1], hubT: [0.05, 0.35, 1], bore: [0.02, 0.2, 1], web: [0.02, 0.1, 1], rimJoin: [0.01, 0.08, 1], hubJoin: [0.01, 0.08, 1], hubOff: [0, 0.12, 1], rimOff: [0, 0.12, 1], edge: [0, 0.03, 1], obtuse: [0.01, 0.08, 1], corner: [0.01, 0.08, 1], spokeW: [0.02, 0.2, 1] };
+    const sz = Number(size), range: Record<string, [number, number, number]> = { rimT: [0.05, 0.3, 1], rimD: [0.6, 0.97, 1], hub: [0.06, 0.4, 1], hubT: [0.05, 0.35, 1], bore: [0.02, 0.2, 1], flat: [0, 0.08, 1], key: [0.02, 0.1, 1], keyDepth: [0, 0.05, 1], web: [0.02, 0.1, 1], rimJoin: [0.01, 0.08, 1], hubJoin: [0.01, 0.08, 1], hubOff: [0, 0.12, 1], rimOff: [0, 0.12, 1], edge: [0, 0.03, 1], obtuse: [0.01, 0.08, 1], corner: [0.01, 0.08, 1], spokeW: [0.02, 0.2, 1] };
     for (let j = 0, n = 1 + Math.floor(rnd() * 3); j < n; j++) {
       const k = keys[Math.floor(rnd() * keys.length)]!, r = range[k];
       typed[k] = k === "spokes" ? String(rnd() < 0.15 ? 0 : 3 + Math.floor(rnd() * 22)) : k === "taper" ? String(Math.round((rnd() - 0.3) * 80) / 100) : k === "spiral" ? String(Math.round((rnd() - 0.5) * 60)) : k === "draft" ? String(Math.round(rnd() * 80) / 10) : String(Math.round(sz * (r![0] + rnd() * (r![1] - r![0])) * 10) / 10);
@@ -242,4 +242,13 @@ test("a wheel may be as flat as the spokes, the rim and the hub being one thickn
   assert.equal(bodyOf(fat).length, 1, "spokes thicker than the rim are as thick as it");
   assert.ok(!fat.session.message, fat.session.message ?? "");
   assert.equal(effective(S({ web: 30, rimT: 8, hubT: 8 })).web, 8);
+});
+
+test("a wheel's bore has the gear maker's flat and keyway: the flat leaves metal in the hole, the key cuts a slot, and both are one body (`in_1259`)", () => {
+  const vol = (typed: Record<string, string>) => { const st = placed(typed); const b = bodyOf(st); assert.equal(b.length, 1, "one body"); return b[0]!.volume; };
+  const round = vol({ bore: "10", hub: "24", spokes: "0" }), flat = vol({ bore: "10", hub: "24", spokes: "0", flat: "1.2" }), key = vol({ bore: "10", hub: "24", spokes: "0", key: "3" });
+  assert.ok(flat > round + 10, `a D flat: ${flat} > ${round}`);
+  assert.ok(key < round - 10, `a keyway: ${key} < ${round}`);
+  assert.match(wheelProblem(S({ bore: 10, flat: 1, key: 3 })) ?? "", /flat or a keyway, not both/);
+  assert.match(wheelProblem(S({ key: 3, keyDepth: 40, hub: 22 })) ?? "", /hub's wall/);
 });
