@@ -2,11 +2,13 @@
 // the rim and the hub, with a fillet or a chamfer of a set size where the web meets each; the spokes are cutouts in that web (their number, how far they stop short of the hub and the rim, the radius where each cutout's corner meets the hub and the rim,
 // the width of a spoke and how much it tapers, and a spiral). Modelling is manufacturing agnostic: nothing here fails over a size that is hard to make (a radius may be 0, spokes may merge); a number too big for the room is made as big as the room
 // allows. The wheel stands along z with its middle at z = 0. Pure: numbers in, steps out.
+import { boreProblem, boreLoop } from "./bore.ts";
+import type { GearSpec } from "./gear.ts";
 import { Builder, outline, disc as disc0 } from "./modelparts.ts";
 import type { Place, ModelBuild, Shape } from "./modelparts.ts";
 import type { Scene } from "./scene.ts";
 import type { Vec3 } from "../math/vec.ts";
-import { bulgeOf, arcMid } from "./arcs.ts";
+import { bulgeOf, arcMid, flatten } from "./arcs.ts";
 import type { P } from "./arcs.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { Result } from "../shared/result.ts";
@@ -17,10 +19,11 @@ import { ok, err } from "../shared/result.ts";
  * spokes are this thick too) and `hubT`. The spokes are cutouts in the web: `spokes` (0: a plain web), `spokeW` the width of a spoke at the hub end, `taper` how much narrower it is at the rim end (a share, negative: wider), `spiral` the degrees a spoke
  * turns from hub to rim, `rimOff` and `hubOff` how far a cutout stops short of the rim's and the hub's walls. Each radius has a kind, 0 a fillet and 1 a chamfer: `edge` (0: none) the spoke's radius, the round on the edges where the cutouts meet the
  * web's faces; `corner` the spoke join radius, where a cutout's sides meet the hub and the rim; `obtuse` the same where the corner is the blunter one, used while there is a spiral; `rimJoin` and `hubJoin` where the web meets the rim and the hub.
+ * The bore is the gear maker's (`bore.ts`): `flat` a D flat that deep (mm), `key` a keyway of that width with its depth `keyDepth` (0: the DIN 6885 depth for the bore); `boreOwned` is 1 for a wheel cut into a body that has a bore of its own (the bore is the body's and these are left out).
  * `draft`: degrees the walls of the rim and the hub lean away from the middle (0 for a machined wheel). `rimMax`: the biggest rim diameter (0: no limit), a wheel cut into a gear keeps its rim inside the roots of the teeth.
  */
-export interface WheelSpec { outer: number; rimD: number; hub: number; bore: number; rimT: number; web: number; hubT: number; spokes: number; spokeW: number; taper: number; spiral: number; rimOff: number; hubOff: number; edge: number; edgeKind: number; corner: number; cornerKind: number; obtuse: number; rimJoin: number; rimJoinKind: number; hubJoin: number; hubJoinKind: number; draft: number; rimMax: number }
-export const WHEEL_START: WheelSpec = { outer: 80, rimD: 70, hub: 22, bore: 8, rimT: 14, web: 4, hubT: 18, spokes: 5, spokeW: 10, taper: 0.3, spiral: 0, rimOff: 6, hubOff: 6, edge: 1, edgeKind: 0, corner: 3, cornerKind: 0, obtuse: 3, rimJoin: 3, rimJoinKind: 0, hubJoin: 3, hubJoinKind: 0, draft: 2, rimMax: 0 };
+export interface WheelSpec { outer: number; rimD: number; hub: number; bore: number; rimT: number; web: number; hubT: number; spokes: number; spokeW: number; taper: number; spiral: number; rimOff: number; hubOff: number; edge: number; edgeKind: number; corner: number; cornerKind: number; obtuse: number; rimJoin: number; rimJoinKind: number; hubJoin: number; hubJoinKind: number; draft: number; rimMax: number; flat: number; key: number; keyDepth: number; boreOwned: number }
+export const WHEEL_START: WheelSpec = { outer: 80, rimD: 70, hub: 22, bore: 8, rimT: 14, web: 4, hubT: 18, spokes: 5, spokeW: 10, taper: 0.3, spiral: 0, rimOff: 6, hubOff: 6, edge: 1, edgeKind: 0, corner: 3, cornerKind: 0, obtuse: 3, rimJoin: 3, rimJoinKind: 0, hubJoin: 3, hubJoinKind: 0, draft: 2, rimMax: 0, flat: 0, key: 0, keyDepth: 0, boreOwned: 0 };
 /** the least a part is thick (mm): only so that it is a solid at all */
 const THIN = 0.2;
 /** a cutout that runs right into the hub or the rim (an offset of 0) reaches this far into it: a cut that ends exactly on the wall's own face is not a solid the kernel will make */
@@ -264,6 +267,8 @@ export function wheelProblem(s: WheelSpec, cutting = false): string | null {
   if (s.rimD > s.outer - 2 * THIN) return `the rim diameter must be less than the outer diameter: ${(s.outer - 2 * THIN).toFixed(1)} mm at most`;
   if (s.hub > s.rimD - 2 * THIN) return "the hub diameter must be less than the rim diameter: the web goes between them";
   if (s.hub < s.bore + 2 * THIN) return "the hub diameter must be more than the bore diameter";
+  if (!(s.flat >= 0 && s.key >= 0 && s.keyDepth >= 0)) return "a flat, a key and a key depth are 0 or more";
+  if (s.boreOwned !== 1) { const w = boreProblem({ bore: s.bore, flat: s.flat, key: s.key, keyDepth: s.keyDepth || undefined } as GearSpec, s.hub / 2); if (w) return w.replace("the gear's root: a smaller key, a thinner depth or a bigger gear", "the hub's wall: a smaller key, a thinner depth or a bigger hub"); }
   if (!(s.draft >= 0 && s.draft <= 15)) return "the draft is 0 (machined) to 15 degrees";
   if (n < 0 || n === 1 || n === 2 || n > 60) return "0 spokes is a plain web; otherwise 3 to 60 spokes";
   if (cutting && (s.hubT !== s.rimT || s.draft !== 0)) return "a wheel cut into a body is as thick as the body and has no draft";
@@ -311,27 +316,6 @@ export function repairWheel(s0: WheelSpec, locked: ReadonlySet<string>, cutting 
   return n;
 }
 
-/** an arc side as points: from `a` to `b` with the kernel's bulge */
-function flatten(pts: P[], bulges: number[], per = 8): P[] {
-  const out: P[] = [];
-  pts.forEach((a, i) => {
-    const b = pts[(i + 1) % pts.length]!, k = bulges[i] ?? 0;
-    out.push(a);
-    if (Math.abs(k) < 1e-9) return;
-    const [dx, dy] = [b[0] - a[0], b[1] - a[1]], len = Math.hypot(dx, dy), sag = k * len;
-    const m: P = [(a[0] + b[0]) / 2 - (dy / len) * sag, (a[1] + b[1]) / 2 + (dx / len) * sag];
-    const [x1, y1, x2, y2, x3, y3] = [a[0], a[1], m[0], m[1], b[0], b[1]];
-    const dd = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
-    if (Math.abs(dd) < 1e-12) return;
-    const cx = ((x1 * x1 + y1 * y1) * (y2 - y3) + (x2 * x2 + y2 * y2) * (y3 - y1) + (x3 * x3 + y3 * y3) * (y1 - y2)) / dd, cy = ((x1 * x1 + y1 * y1) * (x3 - x2) + (x2 * x2 + y2 * y2) * (x1 - x3) + (x3 * x3 + y3 * y3) * (x2 - x1)) / dd;
-    const r = Math.hypot(x1 - cx, y1 - cy), a1 = Math.atan2(y1 - cy, x1 - cx), a3 = Math.atan2(y3 - cy, x3 - cx), a2 = Math.atan2(y2 - cy, x2 - cx);
-    const wrap = (v: number): number => ((v % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-    const ccw = wrap(a2 - a1) < wrap(a3 - a1);
-    const sweep = ccw ? wrap(a3 - a1) : -wrap(a1 - a3);
-    for (let j = 1; j < per; j++) out.push([cx + r * Math.cos(a1 + (sweep * j) / per), cy + r * Math.sin(a1 + (sweep * j) / per)]);
-  });
-  return out;
-}
 const rotate = (c: Cut, a: number): Cut => ({ pts: c.pts.map(([x, y]) => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)] as P), bulges: c.bulges, narrow: c.narrow });
 /** whether the round on the cutouts' edges is made: there is one, and the cutout is wide enough at both ends for a round on each side of it (a cutout that ends in a point, or is narrow, has none: the kernel cannot round it) */
 export function edgeMade(s0: WheelSpec): boolean {
@@ -420,14 +404,23 @@ function edgeRounds(b: Builder, s: WheelSpec): void {
   }), Math.round(s.edgeKind) === 1 ? "chamfer" : "fillet", s.edge);
 }
 
+/** a bore with a flat or a keyway (`bore.ts`): cut through the hub, not turned with the section */
+const boreShaped = (s: WheelSpec): boolean => s.boreOwned !== 1 && s.bore > 0 && (s.flat > 0 || s.key > 0);
+/** the shape of the bore to cut: a circle, or the gear maker's loop with its flat or keyway */
+function boreShape(s: WheelSpec): Shape {
+  const l = boreLoop({ bore: s.bore, flat: s.flat, key: s.key, keyDepth: s.keyDepth || undefined } as GearSpec);
+  return l ? outline(l.points, l.bulges) : disc0(0, 0, s.bore / 2);
+}
+
 /** The wheel as the steps of one part: the section turned about the axis, then the cutouts (the spokes are what is left between them) cut through the web, then a round on the edges of the cutouts */
 export function wheelSteps(s0: WheelSpec, place: Place): Result<ModelBuild> {
   const bad = wheelProblem(s0);
   if (bad) return err(bad);
-  const s = effective(s0), n = Math.round(s.spokes), b = new Builder(place), sec = wheelSection(s), c = n > 0 ? cutout(s) : null;
+  const s = effective(s0), n = Math.round(s.spokes), b = new Builder(place), shaped = boreShaped(s), sec = wheelSection(shaped ? { ...s, bore: 0 } : s), c = n > 0 ? cutout(s) : null;
   b.part("Wheel");
   const side = b.frame([0, 0, 0], [1, 0, 0], [0, 0, 1]); // (the section across the wheel: x out from the axis, y up it)
   b.turn(side, sec.pts, sec.bulges, [0, 0, 0], [0, 0, 1]);
+  if (shaped) b.extrude(b.plane(-s.hubT / 2 - 1), boreShape(s), [], s.hubT + 2, { mode: "cut" }); // (a bore with a flat or a keyway is cut through the solid hub)
   if (c) {
     const cuts: Shape[] = Array.from({ length: n }, (_, k) => { const r = rotate(c, (2 * Math.PI * k) / n); return outline(r.pts, r.bulges); });
     const depth = s.web + 2;
@@ -455,6 +448,7 @@ export function wheelCutSteps(s0: WheelSpec, place: Place): Result<ModelBuild> {
     const pts = [e.a, e.b, e.mid].map(toModel);
     return pts.every((q) => Math.abs(Math.abs(q[2]) - t) < 0.02 && Math.abs(radial(q) - r) < 0.03) ? [p.ref as Ref] : [];
   });
+  if (s.boreOwned !== 1 && s.bore > 0) { b.part("Bore"); b.extrude(b.plane(-T - 1), boreShape(s), [], 2 * T + 2, { mode: "cut" }); } // (a body with no bore is given one: round, or with the gear maker's flat or keyway)
   b.part("Pockets");
   if (dip > 0.001) {
     b.extrude(b.plane(T + 0.5), disc0(0, 0, g.Rin), [disc0(0, 0, g.hubR)], -(dip + 0.5), { mode: "cut" });

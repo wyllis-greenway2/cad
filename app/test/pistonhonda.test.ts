@@ -118,16 +118,16 @@ test("the pin height is the stack: the belt, then the larger of the pin's radius
   assert.match(engineProblem({ ...ENGINE_START, topLand: 0.5 }) ?? "", /land above the top ring groove/);
 });
 
-test("two kinds of typed room (`dec_clearance_defaults`): the piston's fits default to Honda's nominal middles, and `room` is the moving parts' only", () => {
-  const f = pistonFit(30);
-  assert.ok(ENGINE_START.skirtFit === f.skirtClearance && ENGINE_START.pinFit === f.pinFit && ENGINE_START.ringSide === f.ringSide && ENGINE_START.room === 0.15, "the defaults");
-  assert.ok(within(ENGINE_START.skirtFit, COMMON.skirtClearance) && within(ENGINE_START.pinFit, COMMON.pinFit) && within(ENGINE_START.ringSide, COMMON.ringSide), "inside Honda's ranges");
-  for (const p of ENGINE_PRESETS) assert.ok(p.spec.skirtFit === f.skirtClearance && p.spec.pinFit === f.pinFit && p.spec.ringSide === f.ringSide, `${p.name} has the same fits`);
-  const g0 = engineGeometry(ENGINE_START);
-  assert.ok(Math.abs(g0.rp - (ENGINE_START.bore / 2 - ENGINE_START.skirtFit / 2)) < 1e-12, "the piston stands half the fit inside the bore");
+test("two kinds of typed room (`dec_clearance_defaults`, `dec_piston_material`): the piston's room in the bore is auto (by the material: cast aluminium is Honda's middle), the other fits default to Honda's middles, and `room` is the moving parts' only", () => {
+  const f = pistonFit(30), g0 = engineGeometry(ENGINE_START);
+  assert.ok(ENGINE_START.skirtFit === 0 && g0.pg.fit === f.skirtClearance && ENGINE_START.pinFit === f.pinFit && ENGINE_START.ringSide === f.ringSide && ENGINE_START.room === 0.15, "the defaults");
+  assert.ok(within(g0.pg.fit, COMMON.skirtClearance) && within(ENGINE_START.pinFit, COMMON.pinFit) && within(ENGINE_START.ringSide, COMMON.ringSide), "inside Honda's ranges");
+  for (const p of ENGINE_PRESETS) assert.ok(p.spec.skirtFit === 0 && engineGeometry(p.spec).pg.fit === f.skirtClearance && p.spec.pinFit === f.pinFit && p.spec.ringSide === f.ringSide, `${p.name} has the same fits`);
+  assert.ok(Math.abs(g0.rp - (ENGINE_START.bore / 2 - g0.pg.fit / 2)) < 1e-12, "the piston stands half the fit inside the bore");
   assert.equal(engineGeometry({ ...ENGINE_START, room: 0.4 }).rp, g0.rp, "the room of the moving parts does not move the piston's radius");
   assert.ok(Math.abs(engineGeometry({ ...ENGINE_START, skirtFit: 0.05 }).rp - (15 - 0.025)) < 1e-12, "the piston's fit does");
-  assert.match(engineProblem({ ...ENGINE_START, skirtFit: 0 }) ?? "", /piston's room in the bore/);
+  assert.equal(engineProblem({ ...ENGINE_START, skirtFit: 0 }), null, "0 is auto");
+  assert.match(engineProblem({ ...ENGINE_START, skirtFit: 0.001 }) ?? "", /piston's room in the bore/);
   assert.match(engineProblem({ ...ENGINE_START, pinFit: 0 }) ?? "", /pin's room/);
   assert.match(engineProblem({ ...ENGINE_START, ringSide: 2 }) ?? "", /ring's room/);
   const typed = modelNumbers("engine", { skirtFit: 0.05 });
@@ -140,7 +140,7 @@ const shared = (s: ReturnType<typeof createSession>, a: B, b: B): number => {
   return /nothing in common/.test(done.message ?? "") ? 0 : (Object.values(scene(done).parts).filter((p) => p.kind === "body") as unknown as B[]).map((x) => x.volume).sort((x, y) => y - x)[0] ?? 0;
 };
 for (const p of ENGINE_PRESETS) {
-  test(`${p.name} is built at rest: seven bodies and no two share any volume`, () => {
+  test(`${p.name} is built at rest: nine bodies and no two share any volume`, () => {
     const r = engineSteps(p.spec);
     assert.ok(r.ok, r.ok ? "" : r.error);
     if (!r.ok) return;
@@ -150,7 +150,7 @@ for (const p of ENGINE_PRESETS) {
     const s = run(createSession(kernel), c.value);
     assert.equal(s.message ?? null, null);
     const b = Object.values(scene(s).parts).filter((x) => x.kind === "body") as unknown as B[];
-    assert.equal(b.length, 7);
+    assert.equal(b.length, 9);
     for (let i = 0; i < b.length; i++) for (let j = i + 1; j < b.length; j++) assert.equal(shared(s, b[i]!, b[j]!), 0, `parts ${i} and ${j} share volume`);
   });
 }
@@ -162,6 +162,8 @@ function pistonVolume(s: typeof ENGINE_START, rm = s.room): number {
   const wideL = H - Math.max(bt.length, sh.crown), topL = H - sh.crown, zoff = g.w / 2 + rm, rho = s.pin / 2 + s.pinFit / 2;
   let v = Math.PI * rp * rp * H;
   for (const gr of bt.grooves) v -= Math.PI * (rp * rp - (rp - bt.depth) ** 2) * gr.height;
+  for (const l of g.pg.lands) v -= Math.PI * (rp * rp - l.radius ** 2) * (l.bottom - l.top); // (the lands cut smaller than the skirt)
+  if (g.pg.clip) v -= 2 * Math.PI * ((g.pg.clip.bore + g.pg.clip.depth) ** 2 - g.pg.clip.bore ** 2) * g.pg.clip.width; // (the circlip grooves)
   v -= Math.PI * sh.inner ** 2 * wideL + Math.PI * sh.innerBelt ** 2 * (topL - wideL);
   const reach = (outer: number, inside: number): number => Math.min(sh.boss, 0.95 * Math.sqrt(Math.max(0, outer * outer - inside * inside))), footB = g.sk - sh.boss;
   const yw = reach(rp, sh.inner), yn = reach(rp - bt.depth, sh.innerBelt);

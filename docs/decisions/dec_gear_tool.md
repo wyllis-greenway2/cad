@@ -3,7 +3,7 @@ id: dec_gear_tool
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_951, in_935, in_924, in_923, in_920, in_919, in_872, in_871, in_868, in_867, in_866, in_864, in_862, in_858, in_791, in_790, in_783, in_771, in_770, in_686, in_685, in_608, in_598, in_597, in_596, in_595, in_594, in_593, in_592, in_591, in_590, in_589, in_588, in_587, in_586, in_585, in_584, in_583, in_580, in_579, in_578, in_577, in_576, in_575
+human_input: in_1262, in_1259, in_951, in_935, in_924, in_923, in_920, in_919, in_872, in_871, in_868, in_867, in_866, in_864, in_862, in_858, in_791, in_790, in_783, in_771, in_770, in_686, in_685, in_608, in_598, in_597, in_596, in_595, in_594, in_593, in_592, in_591, in_590, in_589, in_588, in_587, in_586, in_585, in_584, in_583, in_580, in_579, in_578, in_577, in_576, in_575
 date: 2026-11-16
 depends_on:
   - prin_manufacture_agnostic: the gear tool carries no per-route treatment (no kerf, no print backlash, no laser presets)
@@ -58,3 +58,6 @@ A new gear made with the Gear tool has **a very slight backlash by default: 3 pe
 ## Rationale
 
 The involute is the one profile of machined gears that keeps a constant speed ratio and forgives centre-distance error; the rest of the list are the profiles the human named. Drawing the outline as ordinary parts means export, extrude, hole cutting, mirroring and the flat SVG/DXF export all work on it without special cases.
+- **Changed (`in_1259`): the box stays open after Create and Update.** Create makes the gear and the box opens on it as its Edit tool (the blue button now says Done, a changed number says Update); Update applies and keeps the box open; **Done** (nothing changed) and **Cancel** (Esc) close it. The same for cams and planetary sets, and for every model box (`dec_hub_spoke`: a model's parts are taken back and made again on Update). Replaces the end of `in_951`'s "puts the tool away" for Create and Update.
+
+- **Changed (`in_1262`): a new gear has a thickness.** A new gear is six modules thick unless another is typed (0 typed is the flat outline of before, as is a gear that is edited and has none); a new pulley is two modules, a sprocket 6 mm, a clock gear four modules thick (their boxes have no thickness: it is the one number they get, from the gear's step). Not data from a standard: a plain default, to be changed in the box (the plain gear's) or by push/pull.

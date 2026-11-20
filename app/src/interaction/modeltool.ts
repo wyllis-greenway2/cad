@@ -25,16 +25,23 @@ const crossV = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[
 const normalizeV = (a: Vec3): Vec3 => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 
 /** What the tool holds: which model, the text typed in each field of the box (the overall size, then the model's numbers) and the field being typed in */
-export interface ModelState { kind: ModelKind; typed: string[]; field: number; /** the box takes the keyboard when it opens */ focus?: true; /** the number that was taken back to a value that makes the model (`in_1240`): its field, and when (the box flashes red for a moment) */ bad?: { field: number; at: number } }
+export interface ModelState { kind: ModelKind; typed: string[]; field: number; /** the box takes the keyboard when it opens */ focus?: true; /** the number that was taken back to a value that makes the model (`in_1240`): its field, and when (the box flashes red for a moment) */ bad?: { field: number; at: number }; /** the model is made and its box stays open (`in_1259`): the history's cursor before its first part, what the box held when it was made (to tell an Update from a Done), and the cursor after its last part (set when it is all made) */ made?: { from: number; held: string; to?: number } }
 const modelLabels = (kind: ModelKind): string[] => [modelSizeLabel(kind), ...modelFields(kind).map((f) => f.label)]; // (the Size, then the model's own numbers: no turn, `in_1245`)
 export const armedModel = (kind: ModelKind): ModelState => ({ kind, typed: modelLabels(kind).map(() => ""), field: 0 });
 export const modelTyped = (m: ModelState, field: number, text: string): ModelState => { const { bad: _gone, ...rest } = m; void _gone; return { ...rest, field, typed: m.typed.map((x, i) => (i === field ? text : x)) }; };
+
+/** What a model's box holds: the numbers typed, and where it stands and how big (the pointer's reach, until a click) */
+export const modelHeld = (t: Tool): string => JSON.stringify([t.model?.typed, t.points, t.cursor, t.fill ? [t.fill.center, t.fill.normal] : null]);
+/** a model that is made and has numbers changed since (the box's Update) */
+export const modelChanged = (t: Tool): boolean => !!t.model?.made && t.model.made.held !== modelHeld(t);
 
 const numOf = (s: string | undefined): number | undefined => { if (s === undefined || s === "" || s === "-" || s === "0.") return undefined; const n = Number(s); return Number.isFinite(n) ? n : undefined; };
 /** the least size the pointer sets, as a share of the usual size of the model (a model much smaller than that is a point on the screen, and its teeth and rooms do not fit) */
 const MIN_SHARE = 0.25;
 
 export interface ModelTarget { kind: ModelKind; nums: Nums; size: number; turn: number; place: Place; problem: string | null; middle: Vec3 }
+/** a number that comes from the body: shown, not set (the bore of a body that has none is free: `unless`) */
+const lockedNum = (f: { fixed?: true; unless?: { key: string; is: number } }, nums?: Nums): boolean => !!f.fixed && !(f.unless && nums && nums[f.unless.key] === f.unless.is);
 /** The model the tool would make: its numbers, where it stands and why not, if it cannot be made. Null before the first click. */
 export function modelTarget(scene: Scene, t: Tool): ModelTarget | null {
   const m = t.model, pl0 = t.plane ? (scene.parts[t.plane] as Plane | undefined) : undefined;
@@ -46,7 +53,7 @@ export function modelTarget(scene: Scene, t: Tool): ModelTarget | null {
   const [mx, my] = localOf(pl, middle), cursor = t.cursor ? localOf(pl, t.cursor) : null;
   const reach = cursor ? 2 * Math.hypot(cursor[0] - mx, cursor[1] - my) : 0; // (the pointer's distance from the middle, both ways)
   const cutFrom = t.fill?.cut; // (Cut spokes: the outside, the bore and the thickness are the body's, and are not moved)
-  if (cutFrom) Object.assign(typed, { bore: 2 * cutFrom.bore, rimT: cutFrom.thickness, hubT: cutFrom.thickness, draft: 0, rimMax: cutFrom.root > 0 ? Math.max(0, 2 * (cutFrom.root - 1.2)) : 0 });
+  if (cutFrom) Object.assign(typed, cutFrom.bore > 0 ? { bore: 2 * cutFrom.bore, boreOwned: 1 } : { boreOwned: 0, bore: typed.bore ?? 0 }, { rimT: cutFrom.thickness, hubT: cutFrom.thickness, draft: 0, rimMax: cutFrom.root > 0 ? Math.max(0, 2 * (cutFrom.root - 1.2)) : 0 });
   const size = cutFrom ? 2 * cutFrom.outer : numOf(m.typed[0]) ?? (reach > 1e-6 ? Math.max(MIN_SHARE * modelExtent(m.kind, modelStart(m.kind)), reach) : undefined);
   const sk = modelSizeKey(m.kind); // (a model whose Size is one of its numbers, the wheel's outside diameter: the Size is that number)
   if (sk && size !== undefined) typed[sk] = size;
@@ -63,7 +70,7 @@ export function modelTarget(scene: Scene, t: Tool): ModelTarget | null {
 /** The picture of the model: its outlines in the plane (in red when its numbers make no model) */
 export function modelPreview(scene: Scene, t: Tool): Preview | null {
   const g = modelTarget(scene, t);
-  if (!g) return null;
+  if (!g || (t.model?.made && !modelChanged(t))) return null; // (a model that is made and not changed has no picture over it)
   const P = (x: number, y: number): Vec3 => [g.place.at[0] + g.place.ex[0] * x + g.place.ey[0] * y, g.place.at[1] + g.place.ex[1] * x + g.place.ey[1] * y, g.place.at[2] + g.place.ex[2] * x + g.place.ey[2] * y];
   const P3 = (x: number, y: number, z: number): Vec3 => { const q = P(x, y); return [q[0] + g.place.ez[0] * z, q[1] + g.place.ez[1] * z, q[2] + g.place.ez[2] * z]; };
   const segments: [Vec3, Vec3][] = [];
@@ -101,14 +108,14 @@ export const buildingText = (b: Building): string => `${b.title}: ${b.build.part
 /** Which of the box's fields (the size and the turn, then the model's) are shown: a field with a condition is shown while the number it names has that value, the model's numbers being the live ones or, before the first click, those typed */
 function visibleFields(m: ModelState, nums?: Nums): boolean[] {
   const fields = modelFields(m.kind);
-  const n = nums ?? modelNumbers(m.kind, Object.fromEntries(fields.flatMap((f, k) => (numOf(m.typed[k + 1]) !== undefined ? [[f.key, numOf(m.typed[k + 1])!]] : []))));
+  const n = { ...modelNumbers(m.kind, Object.fromEntries(fields.flatMap((f, k) => (numOf(m.typed[k + 1]) !== undefined ? [[f.key, numOf(m.typed[k + 1])!]] : [])))), ...nums };
   return [true, ...fields.map((f) => !f.hidden && (!f.when || (n[f.when.key] === f.when.is) !== !!f.when.not))];
 }
 /** The field the Tab key goes to: the next one that is shown */
-export function nextField(m: ModelState): number {
-  const vis = visibleFields(m);
+export function nextField(m: ModelState, nums?: Nums): number {
+  const vis = visibleFields(m, nums);
   const fields = modelFields(m.kind);
-  for (let k = 1; k <= vis.length; k++) { const i = (m.field + k) % vis.length; if (vis[i] && !(i === 0 ? modelFixedSize(m.kind) : fields[i - 1]!.fixed)) return i; } // (a number that comes from the body is not stopped at)
+  for (let k = 1; k <= vis.length; k++) { const i = (m.field + k) % vis.length; if (vis[i] && !(i === 0 ? modelFixedSize(m.kind) : lockedNum(fields[i - 1]!, nums))) return i; } // (a number that comes from the body is not stopped at)
   return m.field;
 }
 
@@ -131,7 +138,7 @@ export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { ba
   const hintSize = m.kind === "ballbearing" && g?.nums.own === 0 ? "the outside diameter (mm): picks the listed bearing nearest to it (a number typed wins); the pointer sets it until you click" : hints[0]!;
   return {
     panel: modelTitle(m.kind),
-    fields: order.map((i) => ({ ...(m.bad?.field === i || guard?.field === i ? { bad: true as const } : {}), ...((i === 0 ? modelFixedSize(m.kind) : fields[i - 1]!.fixed) ? { locked: true as const } : {}), index: i, label: labels[i]!, value: m.typed[i] !== "" ? m.typed[i]! : live[i] !== undefined ? round(live[i]!) : "", active: m.field === i, typed: m.typed[i] !== "", hint: i === 0 ? hintSize : hints[i]!, ...(i >= 1 && fields[i - 1]!.choices ? { choices: fields[i - 1]!.choices } : {}), ...(i >= 1 && fields[i - 1]!.toggle ? toggleOf(i) : {}) })),
+    fields: order.map((i) => ({ ...(m.bad?.field === i || guard?.field === i ? { bad: true as const } : {}), ...((i === 0 ? modelFixedSize(m.kind) : lockedNum(fields[i - 1]!, g?.nums)) ? { locked: true as const } : {}), index: i, label: labels[i]!, value: m.typed[i] !== "" ? m.typed[i]! : live[i] !== undefined ? round(live[i]!) : "", active: m.field === i, typed: m.typed[i] !== "", hint: i === 0 ? hintSize : hints[i]!, ...(i >= 1 && fields[i - 1]!.choices ? { choices: fields[i - 1]!.choices } : {}), ...(i >= 1 && fields[i - 1]!.toggle ? toggleOf(i) : {}) })),
     unit: "mm",
     note: g ? (g.problem ?? modelAbout(m.kind, g.nums)) : m.kind === "wheelcut" ? "click the round body to cut spokes into" : "click where the middle of it goes",
   };
@@ -151,7 +158,7 @@ export function modelFix(scene: Scene, t0: Tool): { tool: Tool; field: number; m
   /** the one typed number that, taken back alone, makes the model: its field, the tool and what it was taken back to */
   const alone = (t: Tool): { tool: Tool; field: number; to: string } | null => {
     const m = t.model!;
-    const order = labels.map((_, i) => i).filter((i) => (m.typed[i] ?? "") !== "" && !(i >= 1 && (fields[i - 1]!.choices || fields[i - 1]!.fixed)) && !(i === 0 && modelFixedSize(t.model!.kind))).sort((a, b) => (a === m.field ? -2 : a === 0 ? 1 : 0) - (b === m.field ? -2 : b === 0 ? 1 : 0)); // (the one being typed first, the Size last: it is what the rest is made to fit)
+    const order = labels.map((_, i) => i).filter((i) => (m.typed[i] ?? "") !== "" && !(i >= 1 && (fields[i - 1]!.choices || lockedNum(fields[i - 1]!, t.fill?.cut ? { boreOwned: t.fill.cut.bore > 0 ? 1 : 0 } : undefined))) && !(i === 0 && modelFixedSize(t.model!.kind))).sort((a, b) => (a === m.field ? -2 : a === 0 ? 1 : 0) - (b === m.field ? -2 : b === 0 ? 1 : 0)); // (the one being typed first, the Size last: it is what the rest is made to fit)
     for (const i of order) {
       const typedV = typedNum(m.typed[i]);
       if (typedV === undefined) continue;

@@ -3,7 +3,7 @@ id: dec_hub_spoke
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1214, in_1216, in_1222, in_1236, in_1238, in_1240, in_1243, in_1245, in_1247, in_1249, in_1251, in_1254, in_1256
+human_input: in_1262, in_1214, in_1216, in_1222, in_1236, in_1238, in_1240, in_1243, in_1245, in_1247, in_1249, in_1251, in_1254, in_1256, in_1259
 date: 2026-11-19
 depends_on:
   - dec_gear_models: the tool would be one more model in the Models menu, with the same box, edit and Size rules
@@ -35,3 +35,7 @@ depends_on:
 
 ## Rationale
 The human first approved a proposal (`in_1222`) and then replaced it with their own complete list of attributes (`in_1236`), which is the authority for what the tool has; the choices under "What is built" are mine, listed so they can be changed.
+
+**A body with no bore gets the gear maker's bore; the box stays open (`in_1259`):** Cut spokes reads whether the body has a bore. With one, **Bore diameter** is the body's and locked (dimmed) and the new **Bore flat**, **Key width** and **Key depth** are left out (`WheelSpec.boreOwned` 1). With none (a plain cylinder, a disc) the bore is free, 0 until typed, and the three gear-maker numbers show (`bore.ts`: the D flat, the DIN 6885 keyway, the standard depth when Key depth is 0, refused with the gear maker's words where they do not fit the hub); a typed bore is cut through the body first (a part "Bore", round, or the gear maker's loop with its flat or keyway), and the hub follows it as it does in the Wheel. The standalone Wheel has the same three numbers after Bore diameter (a bore with a flat or keyway is cut through a solid hub, not turned with the section). **Unified workflow, all tool boxes (gear, cam, planetary, every model):** Create makes the part and the box **stays open** on it; a changed number turns the button to **Update**, which makes the part again from the numbers (a gear's record is changed, a model's parts are taken back to where they began in the history and made again, so nothing is added twice); with nothing changed the button says **Done**; **Done** and **Cancel** (Esc) close the box. Enter is the blue button. A click in space does not remake a model that is made. If something else was done after the model (Undo, another part), Update makes a new one instead of taking back. Tests: `test/wheelcut.test.ts`, `test/wheel.test.ts`, `test/modeltool.test.ts`, `test/gear.test.ts`. **Not built:** the picture of the bore's flat or keyway in the preview (the preview draws a round bore); a flat or keyway for the body's own bore.
+
+**Deleting a model takes its sketches (`in_1262`):** deleting a body now also takes the profile of a revolve (it was only the extrusions' sketches that went) and the drawn planes the model made for its sketches, when nothing else stands on them; `deleteParts` may take such a plane. One undo brings them back. Test: `test/wheel.test.ts`.

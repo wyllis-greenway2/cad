@@ -181,3 +181,37 @@ test("with a face of a cylinder selected, Cut spokes shows its own number box, n
   const f = frameOf(st, { w: 800, h: 600 });
   assert.ok(f.entry?.panel?.startsWith("Cut spokes"), `the box is the wheel's: ${JSON.stringify(f.entry)}`);
 });
+
+test("Cut spokes in a body with no bore offers the gear maker's bore (diameter, flat, key); a body with a bore has it locked and the others left out (`in_1259`)", async () => {
+  const { modelTyped, modelEntry: entry } = await import("../src/interaction/modeltool.ts");
+  const { modelFields } = await import("../src/operation/modelkinds.ts");
+  const at = (k: string): number => 1 + modelFields("wheelcut").findIndex((f) => f.key === k);
+  const solid = () => {
+    let s = createSession(kernel);
+    const c = drawCircle(scene(s), XY, [0, 0, 0], 20); s = run(s, c.command);
+    return run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 15, ...figureParams([{ outer: [c.circle], holes: [] }]) } } } as Command);
+  };
+  const cut = (s0: ReturnType<typeof createSession>, typed: Record<string, string>) => {
+    const body = bodiesOf({ session: s0 })[0]!;
+    let st: ReturnType<typeof createState> = { ...createState(s0), cam: homeCamera() };
+    st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [body.ref as never] } } };
+    st = reduce(st, { type: "runAction", id: "model:wheelcut" }, env);
+    for (const [k, v] of Object.entries(typed)) st = { ...st, tool: { ...st.tool!, model: modelTyped(st.tool!.model!, at(k), v) } };
+    const fields = entry(scene(st.session), st.tool!)!.fields;
+    st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+    let n = 0; while (st.building && n++ < 12) st = reduce(st, { type: "buildNext" }, env);
+    assert.equal(bodiesOf(st).length, 1, `one body: ${st.session.message}`);
+    return { volume: bodiesOf(st)[0]!.volume, fields, st };
+  };
+  const plain = cut(solid(), { hub: "22" }), round = cut(solid(), { hub: "22", bore: "8" }), keyed = cut(solid(), { hub: "22", bore: "8", key: "3" }), flat = cut(solid(), { hub: "22", bore: "8", flat: "1" });
+  const f = (r: typeof plain, k: string) => r.fields.find((x) => x.label === ({ bore: "Bore diameter", flat: "Bore flat", key: "Key width" } as Record<string, string>)[k]);
+  assert.ok(f(plain, "bore") && !f(plain, "bore")!.locked, "a body with no bore: the bore is free to set");
+  assert.ok(f(plain, "flat") && f(plain, "key"), "with the flat and the key");
+  assert.ok(round.volume < plain.volume - 500, `the bore is cut: ${round.volume} < ${plain.volume}`);
+  assert.ok(keyed.volume < round.volume - 30, `the keyway is cut too: ${keyed.volume} < ${round.volume}`);
+  assert.ok(flat.volume > round.volume + 40, `the D flat leaves metal in the bore: ${flat.volume} > ${round.volume}`);
+  // a body that has a bore: it is the body's, locked, and the flat and key are not offered
+  const d = disc(), owned = cut(d, {});
+  assert.ok(f(owned, "bore")!.locked, "the bore of the body is locked");
+  assert.ok(!f(owned, "flat") && !f(owned, "key"), "the flat and the key are left out");
+});

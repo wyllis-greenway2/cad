@@ -12,6 +12,8 @@ import type { Result } from "../shared/result.ts";
 import { ok } from "../shared/result.ts";
 import { drawChain, drawCircle } from "./build.ts";
 import type { GearSpec } from "./gear.ts";
+import { gearOutline } from "./gear.ts";
+import { flatten } from "./arcs.ts";
 import type { PartSteps } from "./fasteners.ts";
 import { meshWith } from "./mesh.ts";
 import type { GearRecord } from "./gearscene.ts";
@@ -24,7 +26,7 @@ export const outline = (pts: [number, number][], bulges?: number[]): Shape => ({
 export const box = (x0: number, y0: number, x1: number, y1: number): Shape => outline([[x0, y0], [x1, y0], [x1, y1], [x0, y1]]);
 
 /** a plane that is made by a step: its name is known once the step has run */
-export interface PlaneHolder { ref: Ref; /** the height of a horizontal plane (the plane's own point is at this height); a plane standing upright has 0 */ z: number; /** a point (x, y) of the plane as a point of the model */ to3: (x: number, y: number) => Vec3 }
+export interface PlaneHolder { ref: Ref; /** the height of a horizontal plane (the plane's own point is at this height); a plane standing upright has 0 */ z: number; /** a point (x, y) of the plane as a point of the model */ to3: (x: number, y: number) => Vec3; /** the direction the plane's normal points, in the model's own frame (for the picture of what is made on it) */ n: Vec3 }
 /** a gear that is made by a step: its name is known once the step has run */
 export interface GearHolder { id: string; plane: Ref; at: Vec3; spec: GearSpec; turn: number }
 
@@ -39,7 +41,7 @@ export const pointIn = (p: Place, v: Vec3): Vec3 => { const d = dirIn(p, v); ret
 
 /** The steps of a model, built up one call at a time. Heights are along the ground plane's normal (up). */
 /** A model as its steps, and the parts they make one after another: each with its name (the steps from `from` up to `to`), so a model can be built one part at a time and say which */
-export interface ModelBuild { steps: PartSteps; parts: { label: string; from: number; to: number }[] }
+export interface ModelBuild { steps: PartSteps; parts: { label: string; from: number; to: number }[]; /** the picture of what the steps make, as lines of points in the model's own frame (what the blue preview draws in space): the loops of what is extruded at both ends, a turned body's section and rings, a gear's circles */ wires: Vec3[][] }
 
 export class Builder {
   readonly steps: PartSteps = [];
@@ -48,13 +50,26 @@ export class Builder {
   part(label: string): void { this.marks.push({ label, at: this.steps.length }); }
   build(): ModelBuild {
     const parts = this.marks.map((m, i) => ({ label: m.label, from: i === 0 ? 0 : m.at, to: i + 1 < this.marks.length ? this.marks[i + 1]!.at : this.steps.length }));
-    return { steps: this.steps, parts };
+    return { steps: this.steps, parts, wires: this.wires };
+  }
+  /** the lines of the picture of the model, in its own frame (`ModelBuild.wires`) */
+  readonly wires: Vec3[][] = [];
+  private loopOf(pl: PlaneHolder, sh: Shape, off: number): Vec3[] {
+    const pts: [number, number][] = "circle" in sh ? Array.from({ length: 33 }, (_, i) => [sh.circle[0] + sh.r * Math.cos((2 * Math.PI * i) / 32), sh.circle[1] + sh.r * Math.sin((2 * Math.PI * i) / 32)] as [number, number]) : (() => { const f = flatten(sh.outline, sh.bulges ?? [], 6); return [...f, f[0]!]; })();
+    return pts.map(([x, y]) => { const q = pl.to3(x, y); return [q[0] + pl.n[0] * off, q[1] + pl.n[1] * off, q[2] + pl.n[2] * off] as Vec3; });
+  }
+  /** the picture of a shape extruded `depth` from a plane: its loop at both ends, and a few lines between */
+  private wireExtrude(pl: PlaneHolder, sh: Shape, depth: number): void {
+    const a = this.loopOf(pl, sh, 0), b = this.loopOf(pl, sh, depth);
+    this.wires.push(a, b);
+    const step = Math.max(1, Math.floor((a.length - 1) / 8));
+    for (let i = 0; i < a.length - 1; i += step) this.wires.push([a[i]!, b[i]!]);
   }
   private readonly place: Place;
   constructor(place: Place = AT_ORIGIN) { this.place = place; }
   /** a plane `z` mm above the ground plane (the ground plane itself for 0) */
   plane(z: number): PlaneHolder {
-    const h: PlaneHolder = { ref: ground, z, to3: (x, y) => [x, y, z] };
+    const h: PlaneHolder = { ref: ground, z, to3: (x, y) => [x, y, z], n: [0, 0, 1] };
     if (z === 0 && isHome(this.place)) return h;
     const [at, u, v] = [pointIn(this.place, [0, 0, z]), dirIn(this.place, [1, 0, 0]), dirIn(this.place, [0, 1, 0])];
     this.steps.push((s) => {
@@ -66,7 +81,7 @@ export class Builder {
   }
   /** a plane through the point `at` with the directions `u` and `v` (an upright plane to draw a section of a turned body on) */
   frame(at: Vec3, u: Vec3, v: Vec3): PlaneHolder {
-    const h: PlaneHolder = { ref: ground, z: 0, to3: (x, y) => [at[0] + u[0] * x + v[0] * y, at[1] + u[1] * x + v[1] * y, at[2] + u[2] * x + v[2] * y] };
+    const h: PlaneHolder = { ref: ground, z: 0, to3: (x, y) => [at[0] + u[0] * x + v[0] * y, at[1] + u[1] * x + v[1] * y, at[2] + u[2] * x + v[2] * y], n: [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]] };
     const [at2, u2, v2] = [pointIn(this.place, at), dirIn(this.place, u), dirIn(this.place, v)];
     this.steps.push((s) => {
       const ref = drawnRef(`${nextId(s, "e")}.pl`);
@@ -90,6 +105,7 @@ export class Builder {
    */
   extrude(pl: PlaneHolder, outer: Shape, holes: Shape[], depth: number, opt: { mode?: "new" | "add" | "cut"; also?: { outer: Shape; holes?: Shape[]; depth: number }[] } = {}): void {
     const figs = [{ outer, holes, depth }, ...(opt.also ?? []).map((a) => ({ outer: a.outer, holes: a.holes ?? [], depth: a.depth }))];
+    for (const f of figs) { this.wireExtrude(pl, f.outer, f.depth); for (const h of f.holes) this.wireExtrude(pl, h, f.depth); }
     const refs = figs.map(() => ({ outer: { refs: [] as Ref[] }, holes: [] as { refs: Ref[] }[] }));
     figs.forEach((f, i) => { this.draw(pl, f.outer, refs[i]!.outer); f.holes.forEach((h, j) => { refs[i]!.holes[j] = { refs: [] }; this.draw(pl, h, refs[i]!.holes[j]!); }); });
     this.steps.push((s) => {
@@ -103,10 +119,36 @@ export class Builder {
    * A body turned about a line: the closed outline `profile` (points (x, y) of the plane `pl`, which holds the axis; `bulges` the arcs of its sides) turned a full turn about the line through `axisAt` in the direction `axisDir` (both points / directions of the model).
    */
   turn(pl: PlaneHolder, profile: [number, number][], bulges: number[] | undefined, axisAt: Vec3, axisDir: Vec3): void {
+    this.wireTurn(pl, profile, bulges, axisAt, axisDir);
     const out = { refs: [] as Ref[] };
     this.draw(pl, outline(profile, bulges), out);
     const [A, D] = [pointIn(this.place, axisAt), dirIn(this.place, axisDir)];
     this.steps.push((s) => ({ type: "addStep", step: { id: nextId(s, "s"), type: "revolve", parts: out.refs, params: { ...figureParams([{ outer: out.refs, holes: [] }]), angle: 360, advance: 0, ax: A[0], ay: A[1], az: A[2], dx: D[0], dy: D[1], dz: D[2] } } }) as Command);
+  }
+  /** the picture of a turned body: its section at four turns about the axis and a ring at each of the section's corners */
+  private wireTurn(pl: PlaneHolder, profile: [number, number][], bulges: number[] | undefined, axisAt: Vec3, axisDir: Vec3): void {
+    const len = Math.hypot(axisDir[0], axisDir[1], axisDir[2]) || 1, k: Vec3 = [axisDir[0] / len, axisDir[1] / len, axisDir[2] / len];
+    const about = (p: Vec3, a: number): Vec3 => { // (Rodrigues: the point turned `a` about the axis)
+      const d: Vec3 = [p[0] - axisAt[0], p[1] - axisAt[1], p[2] - axisAt[2]], [c, s] = [Math.cos(a), Math.sin(a)], dot = d[0] * k[0] + d[1] * k[1] + d[2] * k[2];
+      const cr: Vec3 = [k[1] * d[2] - k[2] * d[1], k[2] * d[0] - k[0] * d[2], k[0] * d[1] - k[1] * d[0]];
+      return [axisAt[0] + d[0] * c + cr[0] * s + k[0] * dot * (1 - c), axisAt[1] + d[1] * c + cr[1] * s + k[1] * dot * (1 - c), axisAt[2] + d[2] * c + cr[2] * s + k[2] * dot * (1 - c)];
+    };
+    const f = flatten(profile, bulges ?? [], 6), section = [...f, f[0]!].map(([x, y]) => pl.to3(x, y));
+    for (let q = 0; q < 4; q++) this.wires.push(section.map((p) => about(p, (q * Math.PI) / 2)));
+    const corners = profile.map(([x, y]) => pl.to3(x, y)), step = Math.max(1, Math.ceil(corners.length / 14));
+    for (let i = 0; i < corners.length; i += step) { // (a ring where the section has a corner, if the corner is off the axis)
+      const c = corners[i]!, d: Vec3 = [c[0] - axisAt[0], c[1] - axisAt[1], c[2] - axisAt[2]], along = d[0] * k[0] + d[1] * k[1] + d[2] * k[2];
+      if (Math.hypot(d[0] - k[0] * along, d[1] - k[1] * along, d[2] - k[2] * along) < 1e-6) continue;
+      this.wires.push(Array.from({ length: 33 }, (_, j) => about(c, (2 * Math.PI * j) / 32)));
+    }
+  }
+  /** the picture of a gear: its tip circle and its bore at both faces, and a few lines along it */
+  private wireGear(pl: PlaneHolder, at: Vec3, spec: GearSpec): void {
+    const o = (() => { try { return gearOutline(spec); } catch { return null; } })();
+    const tip = o && o.ok ? Math.max(...o.value.points.map(([x, y]) => Math.hypot(x, y))) : (spec.module * spec.teeth) / 2 + spec.module, w = spec.width ?? 0;
+    const o0 = pl.to3(0, 0), u = pl.to3(1, 0).map((v, i) => v - o0[i]!), v = pl.to3(0, 1).map((x, i) => x - o0[i]!); // (the gear's centre is a point of the model; its plane's directions)
+    const ring = (r: number, off: number): Vec3[] => Array.from({ length: 49 }, (_, i) => { const [c, s] = [r * Math.cos((2 * Math.PI * i) / 48), r * Math.sin((2 * Math.PI * i) / 48)]; return [0, 1, 2].map((k) => at[k]! + u[k]! * c + v[k]! * s + pl.n[k]! * off) as unknown as Vec3; });
+    for (const r of [tip, ...((spec.bore ?? 0) > 0 ? [spec.bore! / 2] : [])]) { this.wires.push(ring(r, 0)); if (w > 0) { this.wires.push(ring(r, w)); for (let i = 0; i < 48; i += 12) this.wires.push([ring(r, 0)[i]!, ring(r, w)[i]!]); } }
   }
   /**
    * A fillet or a chamfer on edges of the body that an earlier part made (so the part that holds this step is made after the kernel has answered for it): `pick` is given the scene, and a way from the world to the model's own frame, and says
@@ -126,6 +168,7 @@ export class Builder {
     const h: GearHolder = { id: "", plane: pl.ref, at, spec, turn };
     const frame = spec.bevel?.frame;
     const placed: GearSpec = frame ? { ...spec, bevel: { ...spec.bevel!, frame: [dirIn(this.place, frame[0]), dirIn(this.place, frame[1])] } } : spec; // (a bevel gear that stands across: its directions turn with the model)
+    this.wireGear(pl, at, spec);
     const where = pointIn(this.place, at);
     this.steps.push((s) => {
       h.id = nextId(s, "g");

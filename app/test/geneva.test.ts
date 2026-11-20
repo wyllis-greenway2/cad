@@ -362,7 +362,7 @@ test("a cam tool is sized by a click as a gear is: the first click after the cen
   assert.equal(camSpecOf(st.tool!)!.crank, sized.crank, "the pointer no longer changes the scale");
   assert.equal(camSpecOf(st.tool!)!.teeth, 6);
   st = reduce(st, { type: "click", x: x1, y: y1, count: 1, shift: false } as never, env as never);
-  assert.equal(st.tool, null, "made, and the tool is over");
+  assert.ok(st.tool?.cam?.editing, "made, and the box stays open on it as its Edit tool (`in_1259`)");
   assert.ok(scene(st.session).gears?.[0]?.spec.cam?.teeth === 6);
 });
 

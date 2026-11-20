@@ -20,7 +20,7 @@ import { anglesOf, fromAngles } from "../math/rotation.ts";
 import { OP_FIELD, OP_UNIT, valueOf, turnAngles, sizeShown } from "./operations.ts";
 import { advanceOf } from "./revolve.ts";
 import { loftNumbers, loftGapNumbers } from "./loft.ts";
-import { modelEntry, modelTarget } from "./modeltool.ts";
+import { modelEntry, modelTarget, modelChanged } from "./modeltool.ts";
 
 export interface EntryField { /** the number was just taken back to one that makes a gear: it flashes red (`in_690`) */ bad?: boolean; /** a line that says what the number is (the gear box, `in_685`) */ hint?: string; label: string; value: string; active: boolean; typed: boolean; /** a short name shown in front of the number when there are several (X Y Z) */ short?: string; /** which numbered field of its operation it is, when the operation has several bubbles */ index?: number; /** the unit of this field when it is not the entry's (a position and a rotation in one bubble) */ unit?: string; /** a field with a few named values is a toggle button, not a number: the names, and `value` is the place of the one chosen (`in_1175`) */ choices?: string[]; /** a radius's little fillet-or-chamfer toggle (`in_1245`): the field that holds the kind (the number the toggle types), the kind it has now (0 a fillet, 1 a chamfer) and the names of the two */ toggle?: { index: number; value: number; choices: string[] }; /** the number comes from the body the model is cut into: shown dimmed, not set (`in_1251`) */ locked?: boolean }
 /** `at`: where in the scene the bubble sits (null: no place to attach it to) */
@@ -97,7 +97,7 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
     const e = modelEntry(scene, tool);
     if (!e) return null;
     const bad = modelTarget(scene, tool)?.problem;
-    return { panel: e.panel, ...(tool.model.focus ? { focus: true as const } : {}), gearButtons: { edit: false, changed: false }, fields: e.fields, unit: e.unit, followUnits: true, ...(bad ? { warn: bad } : { info: e.note }) };
+    return { panel: e.panel, ...(tool.model.focus ? { focus: true as const } : {}), gearButtons: { edit: !!tool.model.made, changed: modelChanged(tool) }, fields: e.fields, unit: e.unit, followUnits: true, ...(bad ? { warn: bad } : { info: e.note }) };
   }
   else if (tool.kind === "cam" && tool.cam) {
     const spec = camSpecOf(tool);

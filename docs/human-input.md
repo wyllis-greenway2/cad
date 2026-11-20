@@ -5348,6 +5348,30 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1257 — 2026-11-20 — directive
 > maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
 
-## in_1258 — 2026-11-20 — question
+## in_1258 — 2026-11-20 — directive
+> build the hard-coded ones first, give the piston its own maker box
+(approves building the piston maker: first the variables that are hard-coded rules today (H in dec_piston_maker) become typed fields, and the piston gets its own maker box)
+
+## in_1259 — 2026-11-20 — directive
+> Also can it be smart enough to allow the user to set a bore using the same bore variables as the gear maker if it detects that there is no bore? if there is a bore then that part can be left out or greyed locked. Also can we make these menus (gear, spoke, all of them as a unified menu workflow) operate such that they stay open while you are creating or editing a part. It has two stages, create part, and update part, otherwise it is a done button. So create part makes the first model from inputs but the menu stays open. If you edit any variables there is a button to update part and the menu stays open. The menu should close when you click cancel or done.
+(asks for Cut spokes on a body with no bore to take the gear maker's bore variables, locked when the body has a bore; and for every tool box, gear, spoke and the rest, to be one workflow: Create makes the part and the box stays open, Update appears when a number is changed and the box stays open, Done and Cancel close it)
+
+## in_1260 — 2026-11-20 — directive
+> do land relief and circlip grooves next
+(approves the next two piston maker variables: relieved ring lands, and circlip grooves in the pin bore with the circlips)
+
+## in_1261 — 2026-11-20 — directive
+> do the material and hollow pin next
+(approves the next two piston maker variables: the piston's material, which gives its weight and its default fit in the bore, and a hollow pin)
+
+## in_1262 — 2026-11-20 — directive
+> Can we have the preview blue lines in 3d if they have 3d info? So for example, in the piston maker, if I change attributes on an already existing 3d model, the blue line previews are always only in 2d and it is hard to tell what it is for. 
+> When you delete a wheel, it doesn't delete its profile for rotational extrude. Can we have all gears default to at least some thickness if they currently have none.
+(asks for the blue preview lines to be drawn in 3D wherever the thing has 3D information, the piston maker's box on a model that is made being the example; says that deleting a wheel leaves its profile for the revolve behind; asks that every gear that has no thickness is given at least some by default)
+
+## in_1263 — 2026-11-20 — question
 > okay, look at this, pull the face of this gear up to make it thicker didn't respect the the gear helix. Is this normal expected behavior with the face pull type? or is this a bug? also it took exactly one billion years, and half the time I try to do these operations it fails.
 (with the saved model 06451bcb-gear.json)
+
+## in_1264 — 2026-11-20 — directive
+> yes do the experiment and free the shapes

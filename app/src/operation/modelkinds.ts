@@ -14,16 +14,18 @@ import { cycloidalSteps, cycloidalProblem, cycloidalRatio, cycloidalRim, discOut
 import type { CycloidalSpec } from "./modelcycloidal.ts";
 import { engineSteps, engineProblem, engineGeometry, engineFootprint, engineDisplacement, ENGINE_START, ENGINE_PRESETS } from "./modelengine.ts";
 import type { EngineSpec } from "./modelengine.ts";
+import { pistonSteps, pistonProblem, pistonExtent, pistonGeometry, pistonWeight, PISTON_START, PISTON_PRESETS, MATERIALS } from "./modelpiston.ts";
+import type { PistonSpec } from "./modelpiston.ts";
 import { fitNumbers } from "./modelfit.ts";
 import { wheelSteps, wheelCutSteps, wheelProblem, wheelLines, wheelLines3, repairWheel, edgeMade, WHEEL_START } from "./modelwheel.ts";
 import type { WheelSpec } from "./modelwheel.ts";
 
-export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "wheel" | "wheelcut";
-export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine", "wheel", "wheelcut"];
+export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "piston" | "wheel" | "wheelcut";
+export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine", "piston", "wheel", "wheelcut"];
 /** The numbers of a model, by name */
 export type Nums = Record<string, number>;
 /** One number of a model: what it is called, a line that says what it is, and whether it grows with the overall size (a length of the thing, not a room left for the printer or a count) */
-export interface ModelField { key: string; label: string; hint: string; scaled?: true; /** not shown in the box: a number the box's Size sets (`Def.sizeKey`) */ hidden?: true; /** a whole number (teeth, stages, pins): moved a whole step at a time (`modelfit.ts`); `zero`: and 0 is allowed */ whole?: true; zero?: true; /** shown but not the person's to set: it comes from the body the model is cut into (the box shows it dimmed) */ fixed?: true; /** the key of a fillet-or-chamfer number the box shows as a little toggle beside this one (a radius: 0 a fillet, 1 a chamfer) */ toggle?: string; /** shown only while the number `key` has this value (a bearing's box shows the numbers of the source chosen at its top, `in_1196`) */ when?: { key: string; is: number; /** shown while the number is NOT this value */ not?: true }; /** shown at the top of the box, above the size and the turn */ top?: true; /** the names of the values of a field that is a toggle button (its value is the place of the one chosen) */ choices?: string[] }
+export interface ModelField { key: string; label: string; hint: string; scaled?: true; /** not shown in the box: a number the box's Size sets (`Def.sizeKey`) */ hidden?: true; /** a whole number (teeth, stages, pins): moved a whole step at a time (`modelfit.ts`); `zero`: and 0 is allowed */ whole?: true; zero?: true; /** shown but not the person's to set: it comes from the body the model is cut into (the box shows it dimmed) */ fixed?: true; /** a fixed number is free while this other number has this value (a body with no bore has a bore to set) */ unless?: { key: string; is: number }; /** the key of a fillet-or-chamfer number the box shows as a little toggle beside this one (a radius: 0 a fillet, 1 a chamfer) */ toggle?: string; /** shown only while the number `key` has this value (a bearing's box shows the numbers of the source chosen at its top, `in_1196`) */ when?: { key: string; is: number; /** shown while the number is NOT this value */ not?: true }; /** shown at the top of the box, above the size and the turn */ top?: true; /** the names of the values of a field that is a toggle button (its value is the place of the one chosen) */ choices?: string[] }
 /** a picture made of lines in the model's plan, each line a list of points (closed ones repeat their first) */
 export type Lines = [number, number][][];
 
@@ -62,6 +64,7 @@ const gb = (n: Nums): GearboxSpec => n as unknown as GearboxSpec;
 const df = (n: Nums): DifferentialSpec => n as unknown as DifferentialSpec;
 const cy = (n: Nums): CycloidalSpec => n as unknown as CycloidalSpec;
 const en = (n: Nums): EngineSpec => n as unknown as EngineSpec;
+const pi = (n: Nums): PistonSpec => n as unknown as PistonSpec;
 const wh = (n: Nums): WheelSpec => n as unknown as WheelSpec;
 
 const BEARING_START: Nums = { own: 0, number: 608, detail: 0, bore: 8, outer: 22, width: 7, ring: 0, clearance: 0.02, balls: 0, ball: 0 };
@@ -73,6 +76,7 @@ function wheelDef(cutting: boolean): Def {
     fields: [
       { ...F("outer", "Outer diameter", "mm: the whole wheel (the Size)", true), hidden: true },
       F("rimD", "Rim diameter", "mm: the rim's inside, where the web meets it; the rim is (outer diameter - this) / 2 thick across", true), F("hub", "Hub diameter", "mm: the hub's outside", true), F("bore", "Bore diameter", "mm: the hole for the shaft", true),
+      ...(["flat", "key", "keyDepth"] as const).map((k) => ({ ...F(k, k === "flat" ? "Bore flat" : k === "key" ? "Key width" : "Key depth", k === "flat" ? "mm: a flat cut this deep into the bore for a D shaped shaft; 0 for none (a bore has a flat or a keyway, not both)" : k === "key" ? "mm: the width of a keyway cut into the bore; 0 for none (DIN 6885 keys: 6 to 8 mm bore 2 wide, to 10 mm 3, to 12 mm 4, to 17 mm 5, to 22 mm 6, to 30 mm 8, to 38 mm 10)" : "mm: the depth of the keyway; leave 0 for the DIN 6885 depth for the bore", true), when: { key: "boreOwned", is: 1, not: true as const } })),
       F("rimT", "Rim thickness", "mm along the axis (the wheel's width at the rim)", true), F("web", "Spoke thickness", "mm along the axis: the web and the spokes are this thick", true), F("hubT", "Hub thickness", "mm along the axis (the hub's length)", true),
       F("spokes", "Spoke count", "0: a plain web; else the number of cutouts in it (3 to 24)"), F("spokeW", "Spoke width", "mm across a spoke, at the hub end", true), F("taper", "Spoke taper", "how much narrower a spoke is at the rim end, as a share of its width (negative: wider)"), F("spiral", "Spoke spiral", "degrees a spoke turns from the hub to the rim (0: straight)"),
       F("rimOff", "Spoke rim offset", "mm a cutout stops short of the rim (from its wall): 0 and the spokes run into the rim; less than the join radius and it cuts into the fillet", true), F("hubOff", "Spoke hub offset", "mm a cutout stops short of the hub (from its wall): 0 and the spokes run into the hub", true),
@@ -94,7 +98,7 @@ function wheelDef(cutting: boolean): Def {
     outline3: (n) => (wheelProblem(wh(n), cutting) ? [] : wheelLines3(wh(n))),
     about: (n) => `${wh(n).outer} mm across, ${Math.round(wh(n).spokes) ? `${Math.round(wh(n).spokes)} cutouts in the web` : "a plain web"}, ${wh(n).bore} mm bore${wh(n).draft ? `, ${wh(n).draft} degrees of draft on the rim and hub` : ", no draft"}${wh(n).edge > 0 && Math.round(wh(n).spokes) > 0 && !edgeMade(wh(n)) ? "; no spoke radius made: it is bigger than the web and the spoke allow, or a cutout runs into the hub or the rim, or is pointed or narrow" : ""}`,
   };
-  if (cutting) def.fields = def.fields.map((f) => (["bore", "rimT", "hubT", "draft"].includes(f.key) ? { ...f, fixed: true as const } : f)); // (the bore, the thickness and the draft are the body's: shown, not set)
+  if (cutting) def.fields = def.fields.map((f) => (["bore", "rimT", "hubT", "draft"].includes(f.key) ? { ...f, fixed: true as const, ...(f.key === "bore" ? { unless: { key: "boreOwned", is: 0 } } : {}) } : f)); // (the bore, the thickness and the draft are the body's: shown, not set; a body with no bore is given one: its bore is free, `in_1259`)
   return def;
 }
 
@@ -169,6 +173,27 @@ const DEFS: Record<ModelKind, Def> = {
   },
   wheel: wheelDef(false),
   wheelcut: wheelDef(true),
+  piston: {
+    title: "Piston",
+    fields: [{ ...F("preset", "Engine", "a real engine's bore and pin (the Honda service manual) to start from, or your own numbers; a number you type replaces the preset's"), choices: ["Your own", ...PISTON_PRESETS.map((e) => e.name)], top: true },
+      F("bore", "Bore", "mm: the cylinder's diameter", true), F("pin", "Pin diameter", "mm: 0.25 to 0.3 of the bore is usual", true),
+      { ...F("material", "Material", "the piston's: its density gives the weight and its room in the bore (a number typed in Room in the bore replaces it)"), choices: MATERIALS.map((m) => m.name) }, { ...F("pinKind", "Pin", "solid or hollow (the pin and the circlips are steel)"), choices: ["Solid", "Hollow"] }, F("pinBore", "Pin bore", "mm; 0: 0.55 of the pin (assumed)", true),
+      F("rings", "Ring grooves", "0 to 3 compression rings"), F("oil", "Oil ring groove", "0 or 1: Honda's pack is two compression rings and an oil ring"),
+      F("topLand", "Top land", "of the bore, above the top ring groove (assumed: 0.04 to 0.10 is usual)"), F("crown", "Crown thickness", "of the bore, the piston is hollow (assumed: 0.04 to 0.15)"), F("skirtWall", "Piston wall", "of the bore: the skirt and under the ring grooves (assumed: half the crown)"),
+      F("drain", "Oil drain holes", "per side, through the oil ring groove into the piston (assumed: 0 to 4)"),
+      F("skirtFit", "Room in the bore", "mm across; 0: by the material (Honda 0.015 to 0.050)"), F("pinFit", "Pin room in the piston", "mm across; Honda 0.002 to 0.014"), F("ringSide", "Ring side room", "mm above and below a ring in its groove; Honda 0.015 to 0.045"), F("room", "Room beside the rod", "mm each side of the rod between the pin bosses"),
+      F("pinHeight", "Pin height", "mm from the pin's axis to the crown; 0: the ring belt and what the rod's eye needs", true), F("skirtLen", "Skirt below the pin", "mm; 0: 0.27 of the bore (assumed)", true), F("pinLen", "Pin length", "mm; 0: the longest the walls allow", true),
+      F("ringHeight", "Compression ring height", "mm; 0: Honda's 1.5 (1.0 for a small bore)", true), F("oilRingHeight", "Oil ring height", "mm; 0: Honda's 2.5 (2.0 for a small bore)", true), F("ringRadial", "Ring radial width", "mm; 0: the bore over 22 (ISO 6622-1's thicker series)", true),
+      F("land", "Land between rings", "mm; 0: 1.6 times a compression ring (assumed)", true), F("backRoom", "Groove back room", "mm behind a ring; 0: 0.45 (assumed)"), F("drainDia", "Drain hole diameter", "mm; 0: 0.03 of the bore (assumed)", true),
+      F("topLandRelief", "Top land relief", "mm across, smaller than the skirt; 0: 0.003 of the bore (assumed)", true), F("landRelief", "Land relief", "mm across, the other lands; 0: 0.002 of the bore (assumed)", true), { ...F("retention", "Pin retention", "none, or a circlip in a groove at each end of the pin (Honda's)"), choices: ["None", "Circlips"] }, F("clipWidth", "Circlip groove width", "mm; 0: 0.06 of the pin, at least 0.8 (assumed)", true), F("clipDepth", "Circlip groove depth", "mm; 0: 0.028 of the pin, at least 0.4 (assumed)", true), F("clipEdge", "Circlip groove from the face", "mm; 0: 1.0 (assumed)", true), F("pinFloat", "Pin end float", "mm between the pin and the circlip; 0: 0.1 (assumed)"), F("bossGap", "Gap between the pin bosses", "mm; 0: the rod's thickness and its room each side", true), F("bossReach", "Boss reach", "mm beyond the pin's hole; 0: the wall's thickness (assumed)", true)],
+    start: { ...PISTON_START, preset: 0 },
+    problem: (n) => pistonProblem(pi(n)),
+    extent: (n) => { if (pistonProblem(pi(n))) return 0; const e = pistonExtent(pi(n)); return Math.max(e.diameter, e.height); },
+    centre: () => [0, 0],
+    build: (n, place) => pistonSteps(pi(n), place),
+    outline: (n) => { const s = pi(n); if (pistonProblem(s)) return []; const g = pistonGeometry(s); return [circle(0, 0, g.rp, 48), circle(0, 0, g.shell.inner, 48), circle(0, 0, g.rp - g.belt.depth, 48), rect(-g.pinHalf, -s.pin / 2, g.pinHalf, s.pin / 2)]; },
+    about: (n) => { const s = pi(n), p = PISTON_PRESETS[Math.round((n.preset ?? 0)) - 1], e = pistonExtent(s), g = pistonGeometry(s); const w = pistonWeight(s, g); return `${p ? p.name + ": " : ""}${e.diameter.toFixed(1)} mm across, ${e.height.toFixed(1)} mm tall, ${w.total.toFixed(1)} g (piston ${w.piston.toFixed(1)}, pin ${w.pin.toFixed(1)}, circlips ${w.clips.toFixed(2)}), pin ${g.ch.toFixed(1)} mm below the crown; every number of 0 is worked out by a rule (Honda's numbers, or assumed ones: the field says which)`; },
+  },
   cycloidal: {
     title: "Cycloidal drive",
     fields: [F("pins", "Ring pins", "the disc has one lobe fewer: the ratio is that number"), F("circle", "Pin circle radius", "mm", true), F("pin", "Ring pin diameter", "mm", true), F("ecc", "Eccentricity", "how far the disc's middle stands off the shaft's", true), F("play", "Disc room", "the disc is taken in by this much all round, so it runs free"), F("disc", "Disc thickness", "mm", true), F("outPins", "Output pins", "3 or more"), F("outCircle", "Output pin circle radius", "mm", true), F("outPin", "Output pin diameter", "mm", true), F("shaft", "Input shaft diameter", "mm", true), F("cam", "Eccentric radius", "mm", true), F("plate", "Plate thickness", "mm", true), F("gap", "Layer gap", "mm"), F("room", "Shaft room in the plates", "mm")],
@@ -195,7 +220,20 @@ export const modelExtent = (k: ModelKind, n: Nums): number => DEFS[k].extent(n);
 export const modelCentre = (k: ModelKind, n: Nums): [number, number] => DEFS[k].centre(n);
 export const modelBuild = (k: ModelKind, n: Nums, place: Place): Result<ModelBuild> => DEFS[k].build(n, place);
 export const modelOutline = (k: ModelKind, n: Nums): Lines => DEFS[k].outline(n);
-export const modelOutline3 = (k: ModelKind, n: Nums): [number, number, number][][] => DEFS[k].outline3?.(n) ?? [];
+const HOME: Place = { at: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0], ez: [0, 0, 1] };
+const wireMemo = new Map<string, [number, number, number][][]>();
+/** The picture of a model in space (`in_1262`): its own, if it has one, else the lines its steps make (the loops of what is extruded at both ends, a turned body's section and rings, a gear's circles), so every model's blue preview is in 3D. Empty when the numbers make no model. */
+export const modelOutline3 = (k: ModelKind, n: Nums): [number, number, number][][] => {
+  const own = DEFS[k].outline3?.(n);
+  if (own) return own;
+  const key = k + JSON.stringify(n), hit = wireMemo.get(key);
+  if (hit) return hit;
+  let wires: [number, number, number][][] = [];
+  try { if (!DEFS[k].problem(n)) { const b = DEFS[k].build(n, HOME); if (b.ok) wires = b.value.wires as unknown as [number, number, number][][]; } } catch { wires = []; }
+  if (wireMemo.size > 12) wireMemo.delete(wireMemo.keys().next().value!);
+  wireMemo.set(key, wires);
+  return wires;
+};
 export const modelFixedSize = (k: ModelKind): boolean => !!DEFS[k].fixedSize;
 export const modelSizeLabel = (k: ModelKind): string => DEFS[k].sizeLabel ?? "Size";
 export const modelSizeKey = (k: ModelKind): string | undefined => DEFS[k].sizeKey;
@@ -218,7 +256,7 @@ export function modelNumbers(kind: ModelKind, typedIn: Nums, size?: number): Num
     if (row) { n.bore = row.d; n.outer = row.D; n.width = row.B; n.ring = 0; const sh = catalogueShape(n); if (typeof sh !== "string") n.ring = Math.round(2 * (sh.pitch - sh.surface) * 100) / 100; } // (the numbers shown are the bearing's)
     return n;
   }
-  const preset = kind === "engine" ? ENGINE_PRESETS[Math.round(typedIn.preset ?? 0) - 1] : undefined; // (a preset engine is another start: its numbers scale as the usual ones do, `dec_engine_presets`)
+  const preset = kind === "engine" ? ENGINE_PRESETS[Math.round(typedIn.preset ?? 0) - 1] : kind === "piston" ? PISTON_PRESETS[Math.round(typedIn.preset ?? 0) - 1] : undefined; // (a preset engine is another start: its numbers scale as the usual ones do, `dec_engine_presets`)
   const base: Nums = preset ? { ...d.start, ...(preset.spec as unknown as Nums) } : d.start;
   const raw = (f: number): Nums => {
     const n: Nums = { ...base };

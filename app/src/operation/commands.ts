@@ -249,7 +249,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
       for (const r of c.refs) {
         const p = s.parts[r];
         if (!p) continue;
-        if (!p.movable) return err(`${r} is a reference and cannot be deleted`);
+        if (!p.movable && !(p.kind === "plane" && p.origin === "drawn")) return err(`${r} is a reference and cannot be deleted`); // (a plane a model drew its sketch on goes with the model, `in_1262`)
         asked.push(r);
       }
       // parts that are gone already are not an error, whether some of them or all: a corner left with nothing on it goes with its line now (`strandedCorners`), and a history made before that has later commands that delete it by name
