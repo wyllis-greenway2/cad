@@ -5368,3 +5368,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > Can we have the preview blue lines in 3d if they have 3d info? So for example, in the piston maker, if I change attributes on an already existing 3d model, the blue line previews are always only in 2d and it is hard to tell what it is for. 
 > When you delete a wheel, it doesn't delete its profile for rotational extrude. Can we have all gears default to at least some thickness if they currently have none.
 (asks for the blue preview lines to be drawn in 3D wherever the thing has 3D information, the piston maker's box on a model that is made being the example; says that deleting a wheel leaves its profile for the revolve behind; asks that every gear that has no thickness is given at least some by default)
+
+## in_1263 — 2026-11-20 — directive
+> if you set a key value, it just fails, you have to set a key and depth value together. Can we make this not fail so much? so instead of failing it shuold just allow a key of zero depth, or put a depth value automatically at least a little then remain still for the user to adjust.
+(says a key width alone is refused for want of a depth; asks that it not fail: a depth is put in automatically, or zero depth is allowed, and the person adjusts it)

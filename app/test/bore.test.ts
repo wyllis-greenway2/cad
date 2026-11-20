@@ -95,7 +95,8 @@ test("a bore shape that cannot be is refused with the reason", () => {
   assert.match(msg({ ...base, flat: 1 }), /needs a bore/);
   assert.match(msg({ ...base, bore: 8, flat: 1, key: 2 }), /flat or a keyway, not both/);
   assert.match(msg({ ...base, bore: 8, flat: 20 }), /deep into this bore/);
-  assert.match(msg({ ...base, bore: 5, key: 2 }), /type the keyway's depth/);
+  assert.equal(msg({ ...base, bore: 5, key: 2 }), "", "a key alone is not refused: a bore the standard has no key for gets a depth of 0.45 of the key's width (`in_1263`)");
+  assert.equal(keyDepthOf({ ...base, bore: 5, key: 2 }), 0.9);
   assert.match(msg({ ...base, bore: 8, key: 2, keyDepth: 30 }), /reach the gear's root/);
   assert.equal(msg({ ...base, bore: 8, key: 2 }), "");
 });

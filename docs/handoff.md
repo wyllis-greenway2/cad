@@ -4444,3 +4444,6 @@ No words from the human with the upload (one 135 page PDF), so no `human-input.m
 
 ## Handoff 1121 — 2026-11-20 (in_1262: previews in 3D, a wheel's profile goes with it, gears have a thickness)
 `in_1262`. (1) The blue preview of every model is in space: the builder records wires as it builds (`ModelBuild.wires`), `modelOutline3` uses them when the model has no picture of its own. (2) Deleting a body takes a revolve's profile and the drawn planes of the model (`actions.ts`, `commands.ts`). (3) A new gear is six modules thick unless another is typed (0 stays flat); a new pulley, sprocket or clock gear gets a default thickness too (`gearSpecOf` in `tools.ts`). Tests: `modeltool.test.ts`, `wheel.test.ts`; tests that expected flat gears were changed to say a thickness. **Left:** the gear tool's own preview was already in space for a gear with a thickness; a flat outline (0 typed) is still drawn flat.
+
+## Handoff 1122 — 2026-11-20 (in_1263: a key width alone works)
+`in_1263`. `keyDepthOf` falls back to 0.45 of the key's width when the bore has no standard key, and a typed depth of 0 means "automatic"; the "type the keyway's depth" refusal is gone (`bore.ts`, `bore.test.ts`).
