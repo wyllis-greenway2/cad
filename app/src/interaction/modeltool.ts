@@ -133,7 +133,7 @@ export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { ba
     panel: modelTitle(m.kind),
     fields: order.map((i) => ({ ...(m.bad?.field === i || guard?.field === i ? { bad: true as const } : {}), ...((i === 0 ? modelFixedSize(m.kind) : fields[i - 1]!.fixed) ? { locked: true as const } : {}), index: i, label: labels[i]!, value: m.typed[i] !== "" ? m.typed[i]! : live[i] !== undefined ? round(live[i]!) : "", active: m.field === i, typed: m.typed[i] !== "", hint: i === 0 ? hintSize : hints[i]!, ...(i >= 1 && fields[i - 1]!.choices ? { choices: fields[i - 1]!.choices } : {}), ...(i >= 1 && fields[i - 1]!.toggle ? toggleOf(i) : {}) })),
     unit: "mm",
-    note: g ? (g.problem ?? modelAbout(m.kind, g.nums)) : "click where the middle of it goes",
+    note: g ? (g.problem ?? modelAbout(m.kind, g.nums)) : m.kind === "wheelcut" ? "click the round body to cut spokes into" : "click where the middle of it goes",
   };
 }
 

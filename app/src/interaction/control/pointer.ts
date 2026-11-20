@@ -3,7 +3,9 @@ import { CONSTRAINT_ENTRIES, resolveEntry } from "../constraintlist.ts";
 import { whyNoMaterial } from "../material.ts";
 import { whyNoPathRepeat } from "../pathrepeat.ts";
 import type { Intent } from "../../shared/input.ts";
+import { cutFillOf } from "../../operation/roundbody.ts";
 import type { Ref } from "../../shared/ref.ts";
+import { worldRef } from "../../shared/ref.ts";
 import { dist, dot, sub, cross, normalize } from "../../math/vec.ts";
 import type { Plane } from "../../operation/part.ts";
 import { normalOfPlane, segmentOf, circleOf } from "../../operation/part.ts";
@@ -479,6 +481,12 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
     if (!plan) return { ...base, session: { ...sess, message: "click a line or circle where another crosses it" } };
     const next = run(sess, plan.command);
     return { ...base, session: next.message ? next : { ...next, message: null, click: { ...next.click, selection: [] } }, tool: { ...t, trimming: undefined } };
+  }
+  if (t.kind === "model" && t.model?.kind === "wheelcut" && !t.fill) { // (Cut spokes waits for a click on the round body to cut into: the first thing under the click that is one)
+    let got: ReturnType<typeof cutFillOf> = "click the round body to cut spokes into: a gear, a disc, a cylinder or a ring";
+    for (const r of refs) { got = cutFillOf(sc, r); if (typeof got !== "string") break; }
+    if (typeof got === "string") return { ...base, session: { ...sess, message: got } };
+    return { ...base, session: { ...sess, message: null }, tool: { ...t, plane: worldRef("XY"), points: [got.center], cursor: got.center, sized: true, fill: { center: got.center, normal: got.normal, cut: got.cut } } };
   }
   if (!t.points.length) {
     // the plane chosen from the pencil bubble, else the surface under the click takes the drawing, from wherever the camera is; with none under it, the selected plane does

@@ -279,7 +279,7 @@ export function repairWheel(s0: WheelSpec, locked: ReadonlySet<string>, cutting 
   const key = (k: keyof WheelSpec): boolean => !locked.has(k);
   const to = (k: keyof WheelSpec, v: number): void => { if (key(k)) n[k] = Math.round(v * 100) / 100; };
   // what follows what, while it is not typed: a hub is about 2.75 bores across and 2.25 thick (the start's proportions), a join 3/4 of the spoke thickness
-  if (locked.has("bore") && key("hub")) to("hub", 2.75 * n.bore);
+  if (locked.has("bore") && key("hub") && n.bore > 0) to("hub", 2.75 * n.bore); // (no bore, no rule: a hub is its usual share of the wheel)
   if (locked.has("hub") && key("bore")) to("bore", n.hub / 2.75);
   if (locked.has("bore") && key("hubT") && !cutting) to("hubT", 2.25 * n.bore);
   if (cutting && key("hubT")) to("hubT", n.rimT); // (a wheel cut into a body is as thick at the hub as at the rim)

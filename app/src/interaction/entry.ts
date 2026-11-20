@@ -76,6 +76,10 @@ export function entryOf(scene: Scene, tool: Tool | null, op: Op | null): Entry |
     }
     return { fields: [{ label, ...(op.curved ? { short: "Ø" } : {}), value: op.typed !== "" ? op.typed.replace(/^-/, "") : shown === null ? "0" : roundedText(shown), active: true, typed: op.typed !== "" }], unit: op.unit ?? OP_UNIT[op.kind] };
   }
+  if (tool && tool.kind === "model" && tool.model?.kind === "wheelcut" && !tool.points.length) { // (Cut spokes with no body yet: the box is up, and says to click the round body, `in_1252`)
+    const e = modelEntry(scene, tool);
+    if (e) return { panel: e.panel, gearButtons: { edit: false, changed: false }, fields: e.fields, unit: e.unit, followUnits: true, info: e.note };
+  }
   if (!tool || !tool.plane || !tool.points.length) return null;
   const pl = scene.parts[tool.plane] as Plane | undefined;
   if (!pl || pl.kind !== "plane") return null;

@@ -7,8 +7,9 @@ import { createState, reduce } from "../src/interaction/controller.ts";
 import { homeCamera } from "../src/interaction/camera.ts";
 import { worldRef } from "../src/shared/ref.ts";
 import { drawCircle } from "../src/operation/build.ts";
-import { roundBodyOf, bodyOfPart } from "../src/operation/roundbody.ts";
+import { roundBodyOf, bodyOfPart, cutFillOf } from "../src/operation/roundbody.ts";
 import { modelTarget, modelEntry, modelPreview } from "../src/interaction/modeltool.ts";
+import { entryOf } from "../src/interaction/entry.ts";
 import { asCommand } from "../src/operation/modelparts.ts";
 import { figureParams, nextId } from "../src/operation/scene.ts";
 import type { Command } from "../src/operation/commands.ts";
@@ -71,12 +72,36 @@ test("Cut spokes on a selected disc keeps the bore and the outside edge and take
   assert.ok(edges.some((e) => Math.abs(e.circle.radius - 4) < 0.02), "the bore's circle is still there");
 });
 
-test("a round body is needed: with nothing selected the tool says so and does not arm", () => {
+test("with nothing selected the box still comes up and waits for the round body to be clicked; a part of a round body gives its numbers", () => {
   let st: ReturnType<typeof createState> = { ...createState(disc()), cam: homeCamera() };
   st = reduce(st, { type: "runAction", id: "model:wheelcut" }, env);
-  void asCommand;
-  assert.equal(st.tool?.fill?.cut, undefined);
-  assert.match(st.session.message ?? "", /round body/);
+  assert.ok(st.tool && !st.tool.fill, "the tool is armed, with no body yet");
+  assert.match(st.session.message ?? "", /click the round body/);
+  const e = entryOf(scene(st.session), st.tool!, null);
+  assert.ok(e && e.panel?.startsWith("Cut spokes"), "the box is up");
+  assert.match(e?.info ?? e?.warn ?? "", /round body|click/);
+  const sc = scene(st.session), body = bodiesOf(st)[0]!, face = Object.values(sc.parts).find((p) => p.kind === "plane" && p.origin === "body")!;
+  for (const ref of [body.ref, face.ref]) { const got = cutFillOf(sc, ref as never); assert.ok(typeof got !== "string", String(got)); if (typeof got !== "string") assert.ok(Math.abs(got.cut.outer - 30) < 0.05, `from ${ref}`); }
+  assert.equal(typeof cutFillOf(sc, "w/XY" as never), "object", "with one body in the scene, anything selected means it");
+});
+
+test("Cut spokes in a solid cylinder (no bore): a hub of its usual share of the wheel, and the spokes are cut", () => {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), XY, [0, 0, 0], 20); s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 15, ...figureParams([{ outer: [c.circle], holes: [] }]) } } } as Command);
+  const body = bodiesOf({ session: s })[0]!, whole = body.volume;
+  let st: ReturnType<typeof createState> = { ...createState(s), cam: homeCamera() };
+  st = { ...st, session: { ...st.session, click: { ...st.session.click, selection: [body.ref as never] } } };
+  st = reduce(st, { type: "runAction", id: "model:wheelcut" }, env);
+  const g = modelTarget(scene(st.session), st.tool!)!;
+  assert.equal(g.problem, null);
+  assert.equal(g.nums.bore, 0);
+  assert.ok(g.nums.hub! > 0.15 * g.nums.outer!, `a hub of ${g.nums.hub} mm on a wheel of ${g.nums.outer}`);
+  st = reduce(st, { type: "typed", key: "Enter", shift: false }, env);
+  let n = 0; while (st.building && n++ < 12) st = reduce(st, { type: "buildNext" }, env);
+  assert.ok(!st.session.message, `no complaint: ${st.session.message}`);
+  assert.equal(bodiesOf(st).length, 1);
+  assert.ok(bodiesOf(st)[0]!.volume < whole * 0.8, "metal taken");
 });
 
 test("a gear is read from its teeth and its bore: the tips are the outside, the whole circle inside is the bore, the roots are the limit of the rim", () => {

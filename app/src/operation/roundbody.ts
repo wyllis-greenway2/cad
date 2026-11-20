@@ -61,3 +61,10 @@ export function roundBodyOf(scene: Scene, body: Ref): RoundBody | string {
   const [lowZ, highZ] = [Math.min(...projections), Math.max(...projections)], mid = (lowZ + highZ) / 2, off = mid - dot(big.c, axis);
   return { center: [big.c[0] + axis[0] * off, big.c[1] + axis[1] * off, big.c[2] + axis[2] * off], normal: axis, outer, bore: wholes.length ? Math.min(...wholes) : 0, thickness: highZ - lowZ, root: parts.length && Math.min(...parts) < outer - 1e-3 ? Math.min(...parts) : 0, body };
 }
+
+/** What a tool that cuts into a round body needs of the part `ref` (the body, a face or an edge of it): the middle and the axis, and the numbers read from the body, or why it is not a round body */
+export function cutFillOf(scene: Scene, ref: Ref): { center: Vec3; normal: Vec3; cut: { outer: number; bore: number; thickness: number; root: number } } | string {
+  const body = bodyOfPart(scene, ref);
+  const rb = body ? roundBodyOf(scene, body) : "select a round body first: a gear, a disc, a cylinder or a ring";
+  return typeof rb === "string" ? rb : { center: rb.center, normal: rb.normal, cut: { outer: rb.outer, bore: rb.bore, thickness: rb.thickness, root: rb.root } };
+}
