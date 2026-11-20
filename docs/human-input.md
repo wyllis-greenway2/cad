@@ -5820,3 +5820,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1380 — 2026-11-20 — directive
 > I don't know if we need lines added to the stand in, however it would be nice if it highlited the lines of the attribute you were editing. For example the bore circle edge if you were editing the bore value of a gear. Or the spoke edges if editing the edges of the spokes in the wheel maker etc.
 (while a number of a gear or wheel model is edited, the stand-in or preview highlights the lines of that attribute: the bore's edge for the bore, the spokes' edges for the spokes)
+
+## in_1381 — 2026-11-20 — directive
+> yes run the prototype test
+(the prototype of sending a rim corner to the kernel at full precision, as proposed, is approved to run)
