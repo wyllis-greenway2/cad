@@ -10,9 +10,10 @@ import { CONSTRAINT_ENTRIES, resolveEntry } from "../constraintlist.ts";
 import type { ToolKind, Tool } from "../tools.ts";
 import { gearFields, armTool, armModel, typeKey, finish, lineNext, gearTyped, editGearTool, editPlanetaryTool, meshGearTool, gearProblem, gearFix, variantOf, canHelix, armCam, camTyped, camProblemOf, editCamTool , gearChanged } from "../tools.ts";
 import type { GearVariant } from "../tools.ts";
-import { modelHeld, modelChanged, modelTyped, modelCommand, modelFix, modelBuilding, nextPartCommand, partIds, finishCommand } from "../modeltool.ts";
+import { keywayCommand, modelHeld, modelChanged, modelTyped, modelCommand, modelFix, modelBuilding, nextPartCommand, partIds, finishCommand } from "../modeltool.ts";
 import type { ModelKind } from "../../operation/modelkinds.ts";
 import { modelCutsBody } from "../../operation/modelkinds.ts";
+import { keywayOf, meshTool, meshConvert } from "../keywaymesh.ts";
 /** why the model of a tool is not made (the words of its refusal), or null */
 const modelWhy = (sc: ReturnType<typeof sceneOf>, t: Tool): string | null => { const c = modelCommand(sc, t); return c.ok ? null : c.error; };
 import type { CamKind, CamLaw, CamLayout } from "../../operation/cams.ts";
@@ -62,7 +63,7 @@ import { doSimilar, doSelectAll, doSelectBodies, doGroup, doUngroup, doCutBegin,
 import { groupsOf, membersOf } from "../../operation/groups.ts";
 
 /** The sketch group (`in_229`): the tools that draw on a plane, and the operations that work in one. Every member follows the group's rules below, so a new tool is added here (the records name every kind, so the compiler asks which group it is in) and gets them all. */
-const IS_SKETCH_TOOL: Record<ToolKind, true> = { rect: true, circle: true, line: true, arc: true, spline: true, cam: true, trim: true, gear: true, model: true };
+const IS_SKETCH_TOOL: Record<ToolKind, true> = { rect: true, circle: true, polygon: true, line: true, arc: true, spline: true, cam: true, trim: true, gear: true, model: true };
 const IS_SKETCH_OP: Record<OpKind, boolean> = { offset: true, extrude: false, pushpull: false, edge: false, move: false, rotate: false, scale: false, dimension: false, linear: false, circular: false, copy: false, hollow: false, revolve: false, loft: false, sweep: false, mirror: false };
 const isSketchTool = (name: string): name is ToolKind => name in IS_SKETCH_TOOL;
 
@@ -98,9 +99,13 @@ function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = 
   if (s.tool?.kind === kind && s.tool.model?.kind === model && !s.tool.plane && variantOf(s.tool.gear) === (kind === "gear" ? variant : "gear") && s.tool.cam?.kind === cam && s.tool.cam?.law === law && s.tool.cam?.layout === layout) return { ...s, tool: null }; // pressing it again puts it away
   const make = (): Tool => (model ? armModel(model) : cam ? armCam(cam, law, layout) : armTool(kind, variant));
   if (model && modelCutsBody(model)) { // (cut spokes / a keyed hole into the round body that is selected: its outside, its bore and its thickness are kept, `dec_hub_spoke`; with none selected the box opens and waits for a click on one)
-    const sc = sceneOf(s.session), sel = selectionOf(s.session), got = sel.length ? cutFillOf(sc, sel[0]!) : (model === "keyhole" ? "click the round body to key the hole of: a gear, a disc, a cylinder or a ring" : "click the round body to cut spokes into: a gear, a disc, a cylinder or a ring");
+    const sc = sceneOf(s.session), sel = selectionOf(s.session), got = sel.length ? cutFillOf(sc, sel[0]!) : (model === "keyhole" ? "click the round body to key the hole of: a gear, a disc, a cylinder or a ring" : model === "keyfit" ? "click the round shaft to cut the keyway into" : "click the round body to cut spokes into: a gear, a disc, a cylinder or a ring");
     if (typeof got === "string") return { ...s, tool: { ...make(), plane: worldRef("XY") }, op: null, menu: null, session: { ...s.session, message: got } };
     return { ...s, tool: { ...make(), plane: worldRef("XY"), points: [got.center], cursor: got.center, sized: true, fill: { center: got.center, normal: got.normal, cut: got.cut } }, op: null, menu: null };
+  }
+  if (model === "keyshaft") { // (a round shaft that is selected is keyed where it stands: the keyway is cut into it, as the keyed fit does; with none selected a shaft is made, on a surface, `in_1283`)
+    const sc = sceneOf(s.session), sel = selectionOf(s.session), got = sel.length ? cutFillOf(sc, sel[0]!) : "none";
+    if (typeof got !== "string" && got.cut.bore === 0) return { ...s, tool: { ...armModel("keyfit"), plane: worldRef("XY"), points: [got.center], cursor: got.center, sized: true, fill: { center: got.center, normal: got.normal, cut: got.cut } }, op: null, menu: null };
   }
   const fill = model === "wheel" ? fillOf(s) : null;
   if (fill) return { ...s, tool: { ...make(), plane: worldRef("XY"), points: [fill.center], cursor: fill.center, sized: true, fill, model: { ...armModel("wheel").model!, typed: [String(Math.round(2 * fill.radius * 100) / 100), ...armModel("wheel").model!.typed.slice(1)], focus: true } }, op: null, menu: null }; // (a round object is selected: the wheel fills it, `dec_hub_spoke`)
@@ -146,7 +151,7 @@ export function doBegin(s: AppState, name: Extract<Intent, { type: "begin" }>["n
 
 /** Put a finished figure into the scene and hand back to normal selection with the figure selected. */
 /** The tool stays on after a figure is made, ready on the same plane for the next, until a right click or the cancel icon at the top puts it away (`in_193`). */
-const stays = (t: AppState["tool"]): AppState["tool"] => (t && t.kind !== "gear" && t.kind !== "cam" ? { ...armTool(t.kind, variantOf(t.gear)), plane: t.plane, made: (t.made ?? 0) + 1, ...(t.reveal ? { reveal: true as const } : {}) } : null);
+const stays = (t: AppState["tool"]): AppState["tool"] => (t && t.kind !== "gear" && t.kind !== "cam" ? { ...armTool(t.kind, variantOf(t.gear)), ...(t.kind === "polygon" ? { typed: ["", t.typed[1]] as [string, string] } : {}), plane: t.plane, made: (t.made ?? 0) + 1, ...(t.reveal ? { reveal: true as const } : {}) } : null);
 
 /** A model is made a part at a time (`dec_gear_models`): the first part now, and each next one when the kernel has answered for the one before (the page draws between, so the parts are seen going in) */
 function startBuilding(s: AppState): AppState {
@@ -166,7 +171,8 @@ function makeNextPart(s: AppState): AppState {
   if (!b) return s;
   const c = nextPartCommand(sceneOf(s.session), b);
   if (!c.ok) return { ...s, building: null, tool: madeTo(s.tool, s.session), session: { ...s.session, message: c.error } };
-  const next = run(s.session, c.value);
+  const kwCmd = b.build.parts.length === 1 ? keywayCommand(sceneOf(s.session), { ...b, ids: { [b.build.parts[0]!.label]: partIds(c.value) } }) : []; // (the keyed hole or shaft is remembered in the command that makes it)
+  const next = run(s.session, kwCmd.length ? { type: "batch", commands: [c.value, ...kwCmd] } : c.value);
   if (next.message) return { ...s, building: null, tool: madeTo(s.tool, next), session: next };
   const last = b.next + 1 >= b.build.parts.length;
   const grown: typeof b = { ...b, next: b.next + 1, ids: { ...b.ids, [b.build.parts[b.next]!.label]: partIds(c.value) } };
@@ -275,6 +281,7 @@ export function doTyped(s: AppState, key: string): AppState {
     return { ...s, op: s.op.kind === "move" && s.op.typed === "" && typed.typed !== "" ? { ...typed, typedBase: moveOffset(sceneOf(s.session), s.op)[s.op.axis]! } : typed };
   }
   const t = s.tool;
+  if (t && t.kind === "polygon" && !t.points.length && key !== "Enter") return { ...s, tool: typeKey(t, key) }; // (the polygon asks for its number of edges as soon as it is armed, `dec_polygon_tool`)
   if (!t || !t.plane || !t.points.length) return s;
   if (key !== "Enter") return { ...s, tool: typeKey(t, key) };
   if (s.building && t.kind === "model") return s; // (the parts are still being made)
@@ -376,6 +383,7 @@ export function doEntry(s: AppState, field: number, text: string): AppState {
 export function doEscape(s: AppState): AppState {
   if (s.building) return { ...s, building: null, tool: madeTo(s.tool, s.session), session: { ...s.session, message: "stopped: the parts made so far stay (Undo takes them back, one at a time)" } }; // (a model made a part at a time)
   if (s.menu) return { ...s, menu: null };
+  if (s.dragSelect) return { ...s, dragSelect: false, session: { ...s.session, message: null } };
   if (s.motion) return { ...s, motion: null }; // (a joint that is being played goes back to rest)
   if (s.awaiting) return { ...s, awaiting: null, session: { ...s.session, message: null } }; // (the item that waited for a selection is given up, `in_951`)
   if (s.picking && !s.op) return { ...s, picking: null, session: { ...s.session, message: null } }; // (the operation that was waiting for what to click is given up, `in_464`)
@@ -427,6 +435,8 @@ export function doApply(s: AppState): AppState {
 }
 
 export function doRunAction(s0: AppState, id: string, now = 0): AppState {
+  // Delete in the ring: what is selected, or, with nothing selected, the thing the right click was on (`in_1281`)
+  if (id === "delete" && s0.menu?.over && !selectionOf(s0.session).length) return doDelete({ ...s0, session: { ...s0.session, click: { ...s0.session.click, selection: [s0.menu.over] } } });
   const s = s0.awaiting && !id.startsWith("why:") ? { ...s0, awaiting: null } : s0; // (another choice gives up the one that waited, `in_951`)
   if (id.startsWith("say:")) return { ...s, session: { ...s.session, message: id.slice(4) } }; // (a dimmed row of the ⋯ list pressed: what is said, `in_541`)
   if (id.startsWith("why:")) { // a dimmed option of the menu pressed (`in_538`): it can be chosen; what it needs is said as what to select, and it runs by itself once that is selected (`in_951`)
@@ -446,6 +456,7 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
   }
   if (id === "select:similar") return doSimilar(closed);
   if (id === "select:group") return doGroup(closed);
+  if (id === "select:drag") return { ...closed, dragSelect: !s.dragSelect, session: { ...closed.session, message: s.dragSelect ? null : "drag across the model to select what is in the rectangle (it is for one drag)" } }; // (a finger's drag select, `in_1281`)
   if (id === "select:add") return { ...closed, adding: !s.adding, session: { ...closed.session, message: s.adding ? "adding is off" : "adding is on: a tap adds to the selection, or takes out what is selected" } }; // (the way to select several with a finger, `in_539`)
   if (id === "select:bodies") return doSelectBodies(closed);
   if (id === "undo") return doUndo(closed); // (undo, redo and delete are the Actions of the ring, `in_538`)
@@ -536,6 +547,17 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
   if (id === "tool:clock" || id === "tool:clockring" || id === "tool:clockrack") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:clock" ? "clock" : id === "tool:clockring" ? "clockring" : "clockrack"); // (a cycloidal clock gear, `in_585`)
   if (id === "tool:sprocket" || id === "tool:isosprocket") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:sprocket" ? "sprocket" : "isosprocket"); // (a roller chain sprocket, `in_584`)
   if (id === "tool:gt2" || id === "tool:gt3" || id === "tool:htd5" || id === "tool:htd8") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:gt2" ? "gt2" : id === "tool:gt3" ? "gt3" : id === "tool:htd8" ? "htd8" : "htd5"); // (a timing pulley, `in_583`)
+  if (id === "keyway:mesh") { // the shaft that fits a keyed hole that is selected, or the hub that fits a shaft (`dec_keyway_maker`, `in_1279`)
+    const sc = sceneOf(s.session), rec = selectionOf(s.session).map((r) => keywayOf(sc, r)).find((k) => !!k);
+    if (!rec) return { ...closed, session: { ...s.session, message: "select a keyed hole or a keyed shaft made with the keyway maker first" } };
+    for (const r of selectionOf(s.session)) { // (a round body selected too: the keyway is cut into it at once: the hole's shape into a rod, the shaft's into a body, `in_1287`)
+      const got = cutFillOf(sc, r);
+      if (typeof got === "string" || got.cut.host === rec.host || (rec.role === "hole" && got.cut.bore > 0)) continue;
+      const conv = meshConvert(meshTool(rec), rec, got);
+      if (conv) return { ...closed, tool: conv, op: null };
+    }
+    return { ...closed, tool: meshTool(rec), op: null };
+  }
   if (id === "gear:mesh" || id === "gear:meshrack" || id === "gear:meshring") { // a gear, a rack or a ring round it, that meshes with the one selected (`in_579`, `in_686`)
     const sc = sceneOf(s.session);
     const rec = selectionOf(s.session).map((r) => gearOfSelection(sc, r)).find((g) => !!g);

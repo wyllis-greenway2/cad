@@ -239,19 +239,77 @@ test("typed oval, taper and chamfer are used; the foot chamfer takes metal off t
   assert.match(pistonProblem({ ...base, skirtShape: 2 }) ?? "", /skirt shape is 0/);
   assert.match(pistonProblem({ ...base, oval: -1 }) ?? "", /oval is 0 \(auto\)/);
 });
-test("two pads: the skirt is cut away at the sides of the pin below the bosses, each pad spanning the typed angle (80 degrees by default)", () => {
-  const base = P({ bore: 68, pin: 18, skirtShape: 0, skirtLen: 40 }), g = pistonGeometry({ ...base, skirtStyle: 1 });
-  assert.ok(Math.abs(g.wedge - (50 * Math.PI) / 180) < 1e-9, "90 - 40 degrees from the pin axis");
-  assert.ok(Math.abs(pistonGeometry({ ...base, skirtStyle: 1, padAngle: 70 }).wedge - (55 * Math.PI) / 180) < 1e-9, "typed 70");
-  const full = bodies(pistonSteps(base)).sort((a, b) => b.volume - a.volume)[0]!.volume, pads = bodies(pistonSteps({ ...base, skirtStyle: 1 })).sort((a, b) => b.volume - a.volume)[0]!.volume;
-  const expect = pistonVolumes(pistonGeometry({ ...base }) && base).cup - pistonVolumes({ ...base, skirtStyle: 1 }).cup;
-  assert.ok(Math.abs((full - pads) - expect) / expect < 0.03, `the wedges take ${(full - pads).toFixed(1)} mm3 in the kernel, ${expect.toFixed(1)} worked out`);
-  assert.ok(full - pads > 1000, "a real cut");
-  const g1 = pistonGeometry(base);
-  assert.equal(g1.wedge, 0, "full: no wedge");
-  assert.match(pistonProblem({ ...base, skirtStyle: 1, skirtLen: 10 }) ?? "", /two pads needs the skirt to reach/);
+// a ray in a plane across the piston (the world's z is the piston's axis here) from its axis: where it crosses the surfaces
+function section(spec: typeof PISTON_START): (zq: number, deg: number) => number[] {
+  const r = pistonSteps(spec), c = asCommand(scene(createSession(kernel)), r.ok ? r.value.steps : []);
+  assert.ok(r.ok && c.ok);
+  const s = run(createSession(kernel), c.ok ? c.value : ({} as never));
+  const mesh = (s.outcome.kernel as unknown as { mesh: { vertices: Float32Array; triangles: Uint32Array } }).mesh, V = mesh.vertices, T = mesh.triangles;
+  return (zq, deg) => {
+    const dx = Math.cos((deg * Math.PI) / 180), dy = Math.sin((deg * Math.PI) / 180), out: number[] = [];
+    for (let i = 0; i < T.length; i += 3) {
+      const p = [0, 1, 2].map((k) => [V[3 * T[i + k]!]!, V[3 * T[i + k]! + 1]!, V[3 * T[i + k]! + 2]!]);
+      const lo = p.filter((q) => q[2]! < zq), hi = p.filter((q) => q[2]! >= zq);
+      if (!lo.length || !hi.length) continue;
+      const pts: number[][] = [];
+      for (const a of lo) for (const b of hi) { const u = (zq - a[2]!) / (b[2]! - a[2]!); pts.push([a[0]! + u * (b[0]! - a[0]!), a[1]! + u * (b[1]! - a[1]!)]); }
+      if (pts.length < 2) continue;
+      const [P0, Q] = [pts[0]!, pts[1]!], ex = Q[0]! - P0[0]!, ey = Q[1]! - P0[1]!, den = dx * ey - dy * ex;
+      if (Math.abs(den) < 1e-12) continue;
+      const tt = (P0[0]! * ey - P0[1]! * ex) / den, uu = (P0[0]! * dy - P0[1]! * dx) / den;
+      if (tt > 0 && uu >= 0 && uu <= 1) out.push(tt);
+    }
+    return out.sort((a, b) => a - b).filter((v, k, a) => k === 0 || v - a[k - 1]! > 1e-3);
+  };
+}
+test("the arched cutaway: the skirt is cut away at the sides of the pin in an arch and the ears on the thrust sides reach down; a section shows it; the volume is the worked-out one", () => {
+  const base = P({ bore: 68, pin: 18, skirtShape: 0, skirtLen: 40 }), arched = { ...base, skirtStyle: 1 }, g = pistonGeometry(arched);
+  assert.ok(Math.abs(g.wedge - (50 * Math.PI) / 180) < 1e-9 && g.arch.on && Math.abs(g.arch.w - g.rp * Math.sin(g.wedge)) < 1e-9, "80 degrees a pad: the arch is as wide at the foot as the pads leave");
+  assert.ok(Math.abs(g.arch.h - (40 - g.shell.boss - 0.3)) < 1e-9, "auto height: up to just below the bosses");
+  assert.equal(pistonGeometry({ ...arched, archHeight: 10 }).arch.h, 10);
+  assert.equal(pistonGeometry(base).arch.on, false, "full: no arch");
+  const full = section(base), cut = section(arched);
+  for (const dz of [1, g.arch.h / 2, g.arch.h - 1]) {
+    assert.equal(full(dz, 0).length > 0, true, "full: the wall at the pin's sides");
+    assert.equal(cut(dz, 0).length, 0, `arched, ${dz.toFixed(1)} mm above the foot: nothing on the pin's axis: the wall is cut away`);
+    assert.ok(cut(dz, 90).length > 0 && Math.abs(cut(dz, 90).slice(-1)[0]! - g.rp) < 0.05, "and the ear stands on the thrust side");
+  }
+  const above = g.arch.h + 2;
+  assert.ok(cut(above, 0).length > 0, "above the arch the wall is there");
+  const fv = bodies(pistonSteps(base)).sort((a, b) => b.volume - a.volume)[0]!.volume, av = bodies(pistonSteps(arched)).sort((a, b) => b.volume - a.volume)[0]!.volume;
+  const expect = pistonVolumes(base).cup - pistonVolumes(arched).cup;
+  assert.ok(Math.abs((fv - av) - expect) / expect < 0.03 && fv - av > 1000, `the arch takes ${(fv - av).toFixed(1)} mm3 in the kernel, ${expect.toFixed(1)} worked out`);
+  const tallArch = pistonGeometry({ ...arched, padAngle: 140, archHeight: 22 }), wideV = bodies(pistonSteps({ ...arched, padAngle: 140, archHeight: 22 })).sort((a, b) => b.volume - a.volume)[0]!.volume;
+  const wantTall = pistonVolumes(base).cup - pistonVolumes({ ...arched, padAngle: 140, archHeight: 22 }).cup;
+  assert.ok(tallArch.arch.h >= tallArch.arch.w * 0 && Math.abs((fv - wideV) - wantTall) / wantTall < 0.03, `a narrow tall arch (straight sides, a semicircular top): ${(fv - wideV).toFixed(1)} against ${wantTall.toFixed(1)}`);
+  assert.match(pistonProblem({ ...arched, archHeight: 30 }) ?? "", /the arch reaches the pin bosses/);
+  assert.match(pistonProblem({ ...arched, archHeight: 1 }) ?? "", /the arch is 2 mm high or more/);
+  assert.match(pistonProblem({ ...base, skirtStyle: 1, skirtLen: 10 }) ?? "", /arch is 2 mm high or more|two pads needs the skirt to reach/);
   assert.match(pistonProblem({ ...base, skirtStyle: 1, padAngle: 10 }) ?? "", /a pad spans 30 to 150 degrees/);
   assert.match(pistonProblem({ ...base, skirtStyle: 2 }) ?? "", /full \(0\) or two pads \(1\)/);
+  assert.match(pistonProblem({ ...arched, archHeight: -1 }) ?? "", /arch's height is 0 \(auto\)/);
+});
+test("the flats round the pin: the skirt's face ends on a flat at each side of the pin; the circlip groove is placed from the flat; the volume is the worked-out one", () => {
+  const base = P({ bore: 68, pin: 18 }), flat = { ...base, pinFlat: 1 }, g0 = pistonGeometry(base), g = pistonGeometry(flat);
+  assert.ok(g.flat.on && !g0.flat.on && Math.abs(g.flat.z - (g.rzPin - 0.02 * 68)) < 1e-9 && Math.abs(g.flat.yf - (g.shell.boss + 1)) < 1e-9, "the auto flat: 0.02 of the bore deep, the boss and a millimetre wide");
+  assert.ok(g.clip!.z < g0.clip!.z && Math.abs(g.clip!.z - (Math.min(g.outerZ(g.clip!.bore + g.clip!.depth)) - 1 - g.clip!.width)) < 1e-9 && g.outerZ(0) === g.flat.z, "the circlip groove is placed from the flat, and the pin is shorter");
+  assert.ok(g.pinHalf < g0.pinHalf, "the pin is shorter");
+  const sq = pistonGeometry(flat).pinHalf, zq = g.sk + 18 / 2 + 2.5; // (a plane just above the pin's bore, in the flat's height)
+  const noFlat = section(base), withFlat = section(flat);
+  const out0 = noFlat(zq, 0).slice(-1)[0]!, out1 = withFlat(zq, 0).slice(-1)[0]!;
+  assert.ok(out0 > g.rzPin - 0.2 && Math.abs(out1 - g.flat.z) < 0.05, `along the pin's axis the skirt's face is at ${out0.toFixed(2)} without the flat, at ${out1.toFixed(2)} with it (the flat at ${g.flat.z.toFixed(2)})`);
+  void sq;
+  const above = g.sk + g.ch - g.skirtTop + 1; // (a plane inside the ring belt: the flat does not reach it)
+  assert.ok(Math.abs(withFlat(above, 0).slice(-1)[0]! - noFlat(above, 0).slice(-1)[0]!) < 0.05, "the ring belt is round above the flat");
+  const v0 = bodies(pistonSteps(base)).sort((a, b) => b.volume - a.volume)[0]!.volume, v1 = bodies(pistonSteps(flat)).sort((a, b) => b.volume - a.volume)[0]!.volume;
+  const expect = pistonVolumes(base).cup - pistonVolumes(flat).cup;
+  assert.ok(Math.abs((v0 - v1) - expect) / expect < 0.06 && v0 - v1 > 50, `the flats take ${(v0 - v1).toFixed(1)} mm3 in the kernel, ${expect.toFixed(1)} worked out (the groove moves too)`);
+  assert.equal(pistonGeometry({ ...flat, flatDepth: 3 }).flat.z, g.rzPin - 3, "typed depth");
+  assert.equal(pistonGeometry({ ...flat, flatWidth: 30 }).flat.yf, 15, "typed width");
+  assert.match(pistonProblem({ ...flat, flatDepth: 30 }) ?? "", /flat is too deep/);
+  assert.match(pistonProblem({ ...flat, flatWidth: 12 }) ?? "", /narrower than the pin bore/);
+  assert.match(pistonProblem({ ...base, pinFlat: 2 }) ?? "", /flats are 0 \(none\) or 1/);
+  assert.match(pistonProblem({ ...flat, flatDepth: -1 }) ?? "", /flat's depth is 0 \(auto\)/);
 });
 
 // A section through a ring groove: the wall under its floor is there (the grooves do not cut through the piston).

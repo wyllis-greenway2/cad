@@ -5428,31 +5428,65 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (asks for the keyway tool to be built next, as designed in `dec_keyway_maker`)
 
 ## in_1279 — 2026-11-20 — directive
+> How about we finish making the overall structure and shape of the piston head itself. I noticed that piston heads quite often have a curved bottom edge sometimes with ears that go quite a bit further down. I noticed that the edges of the pin quite often have flats or other cut aways and don't go to the outer radius of the bore edge, I noticed that they are designed for casting and have interior shapes, they are designed to have machined and cast surfaces.
+(with five pictures of real pistons: an exploded drawing of a piston, pin, rings and rod; a piston on its rod seen from the pin side; the underside of a forged piston with ribs under the crown; a wireframe with two valve pockets; a slipper skirt with an arched cutaway at the pin; asks to finish the piston head's overall structure and shape: a curved lower edge with ears, flats and cutaways round the pin bore, interior shapes for casting, machined and cast surfaces)
+
+## in_1280 — 2026-11-20 — directive
+> can we have a polygon sketch tool? It should just ask you the number of edges and draws a polygon based off that.
+(asks for a polygon tool among the sketch tools: it asks for the number of edges and draws a polygon from that)
+
+## in_1281 — 2026-11-20 — directive
+> can we put a drag select option under the finger menu? When you are drawing a spline, a right click out in space should apply it not cancel it. I also think clicking down both mouse buttons at the same time should initiate it. Also lets change the trash icon, lets have it not have a sub menu at all. lets put undo and redo in the ... menu for now, and that trash icon just immedietly deletes whatever it is clicked on.
+(four changes: drag select in the finger's menu; a right click applies a spline being drawn; both mouse buttons down at once begin the drag select; the trash item has no list, Undo and Redo go to the ⋯ menu, and the trash deletes what is clicked on)
+
+## in_1282 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the polygon tool and the drag select, spline right click and Delete / Undo changes to be merged into the testing branch, no full test run)
+
+> take the bore numbers out of the gear and wheel makers, the gear and wheel can define a bore, but it is just a smooth hole, the keyway maker can apply splines flats, keys etc to the holes or joining shafts. The keyway maker should have a mesh tool kind of like how gears work. If you select a keyed bore, it meshes a shaft to it, if you select a shaft, it could mesh a bore to it. It could work by either making a shaft or bore donut from scratch that meshes, or if you select geometry it could cut it in. For example you could select a splined shaft and make mesh, then click on bore hole surface or vise versa.
+(asks for Bore flat, Key width and Key depth to come out of the gear, wheel and Cut spokes makers, which keep a smooth bore; and for the keyway maker to get a Mesh tool as gears have: a keyed bore selected meshes a shaft to it, a shaft selected meshes a bore to it, either made from scratch (a shaft or a bore donut) or cut into geometry that is clicked, for example a splined shaft selected, Mesh, then a click on the bore surface, or the other way round)
+
+## in_1283 — 2026-11-20 — directive
+> @"/root/.claude/uploads/2057ebb7-f514-518b-9e25-03eb02b58a09/17adf08e-model2.json" I can't seem to do a keyed shaft. I select the rod surface, or the entire rod, and select keyed shaft, and it just keeps saying select surface.
+(sends a project file; says that with the rod's surface or the whole rod selected, Keyed shaft only keeps saying to select a surface)
+
+## in_1285 — 2026-11-20 — directive
+> the polygon tool doesn't have good suggested snapping, I can't snap the origin and mouse end point in horizontal or vertical spots. Also when I try to draw on a polygon, like draw a circle in a hexagon, it doesn't help me snap to center.
+(two faults of the polygon tool: its size point does not snap level or upright with the middle, and nothing snaps to the middle of a polygon that is drawn)
+
+## in_1286 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the polygon snapping to be merged into the testing branch, no full test run)
+
+## in_1287 — 2026-11-20 — directive
+> now if I select a surface of the splined bore, I don't have the option to create a meshed shaft fitting to it, which sould either jsut directly create a shaft, or let me select the outer surface of a rod or double click a culinder body to apply the mesh attributes there. Also what if I dont want the whole shaft splined? what if I only want the end splined? are shafts ever like that in real life?
+(says that with a surface of the splined bore selected there is no option to make a meshed shaft that fits it, which should either make a shaft directly, or let the outer surface of a rod be selected, or a cylinder body double clicked, to apply the mesh attributes there; and asks, if only the end of a shaft is to be splined and not the whole shaft, whether shafts are ever like that in real life)
+
+## in_1288 — 2026-11-20 — directive
 > maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
 (the same suggestion as `in_1135`; this branch had nothing the testing branch lacked, so the merge was the other way: this branch was brought up to its tip, and a new branch `claude/hopeful-cannon-9` cut from it)
 
-## in_1280 — 2026-11-20 — directive
+## in_1289 — 2026-11-20 — directive
 > okay I have another claude making a piston head maker tool in claude/inspiring-pascal-l342k7 branch. Can you look at how that works? I want to make a piston arm maker tool that will work later with the piston head maker to make a complete assembly. We already have some spects on the piston arms in our docs in the repo, you may want to review that. Here are a few drawings and pictures of general shape and function of piston arms. You can see they are generally designed to be cast, so they haven arm part, with webbing or rims, and a bottom part designed to bolt to that to hold the crankshaft bearing. The top part can either just have a machined hole with a sleeve or possible another bolt helping to clamp. I am not sure what the standards are for bearings, sleeves, size ratios, etc. But I want to make real arms that really could work in a real engine, with all the features and details of a real arm.
 (four images attached: an exploded drawing of a piston, pin, rings, connecting rod, bearing and rod cap; a photograph of a piston and rod; a labelled exploded piston with washer, clamping bolt, bearing shells, locking plate and set screws; a wireframe of a piston and rod. The images are not kept in the repository.)
 
-## in_1281 — 2026-11-20 — directive
+## in_1290 — 2026-11-20 — directive
 > yes I think that is on the right track, but lets research a bit first. Go find what you need online or send me links to docs you need and I will see if I can get them for you. So first off, are bearings normally sleeves? are the sleeves mated to the arm itself or the pin they ride on or both? are sleeves normally in two halves? how about normal bearings? do engines use needle or roller or ball bearings to join arms to pins or shafts ever? Also for casting specific features like draft etc, I am unsure if we should include them. normally parts are supposed to be manufacturing agnostic and then specific manufacturing routes would help specify specific manufacturing needs like machine bit radius, or casting draft angles etc. So any work like this should probably be modular in some sense because we know we will use manufacturing specific things later elsewhere that arent intertwined with a specific piston arm tool
 (approves the direction of `dec_rod_maker`; asks for research on bearings first; asks that casting draft and similar process features stay out of the rod tool and live in separate, manufacturing-route modules)
 
-## in_1282 — 2026-11-20 — directive
+## in_1291 — 2026-11-20 — directive
 > can you link me to any documents I may be able to get for you that you need?
 
-## in_1283 — 2026-11-20 — directive
+## in_1292 — 2026-11-20 — directive
 > @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/b7605131-Connecting_Rod_Tech___Engine_Professional.pdf" @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/ab5490f3-Explaining_Under-_And_Oversized_Engine_Bearings.pdf" @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/d4ee3271-Engine_Bearings__Hydrodynamic_Lubrication_Explained___EPI.pdf" @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/ad5cfe02-Gudgeon_pin_-_Wikipedia.pdf"
-(no words, only the four attached files, in answer to `in_1282`: the human sent four PDFs for `dec_rod_maker`: "Connecting Rod Tech" (Engine Professional, Mavrigian), "Engine Bearings & Hydrodynamic Lubrication Explained" (EPI, Kane), "Explaining Under- And Oversized Engine Bearings With King Bearings" (EngineLabs, Acosta, 2024) and the Wikipedia "Gudgeon pin" article. The files are not kept in the repository.)
+(no words, only the four attached files, in answer to `in_1291`: the human sent four PDFs for `dec_rod_maker`: "Connecting Rod Tech" (Engine Professional, Mavrigian), "Engine Bearings & Hydrodynamic Lubrication Explained" (EPI, Kane), "Explaining Under- And Oversized Engine Bearings With King Bearings" (EngineLabs, Acosta, 2024) and the Wikipedia "Gudgeon pin" article. The files are not kept in the repository.)
 
-## in_1284 — 2026-11-20 — directive
+## in_1293 — 2026-11-20 — directive
 > @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/1d3ff12a-10197091.pdf" @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/468deeed-4738234.pdf" @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/a69d2b9d-7581315.pdf"
 (no words, only three attached files, the patents named in the earlier link list: US 10,197,091, US 4,738,234 and US 7,581,315; the files are not kept in the repository)
 
-## in_1285 — 2026-11-20 — directive
+## in_1294 — 2026-11-20 — directive
 > build the first slice now with assumed proportions
 
-## in_1286 — 2026-11-20 — directive
+## in_1295 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please
-

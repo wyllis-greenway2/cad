@@ -20,6 +20,7 @@ import { addGear, setGear, deleteGear, ownedSteps } from "./gearscene.ts";
 import { addCoupling, setCoupling, deleteCoupling } from "./coupling.ts";
 import { setPivot, deletePivot } from "./pivot.ts";
 import { addPlanetary, setPlanetary, deletePlanetary } from "./planetary.ts";
+import type { KeywayRecord } from "./modelkeyway.ts";
 import type { ModelPlay } from "./modelplay.ts";
 import { addGlue, removeGlue } from "./glue.ts";
 import type { PlanetarySpec } from "./planetary.ts";
@@ -65,6 +66,7 @@ export type Command =
   | { type: "setMaterial"; body: string; material: string }
   /** a gear assembly model that can be played (`modelplay.ts`): how it moves and which body is which of its parts */
   | { type: "modelPlay"; record: ModelPlay }
+  | { type: "keyway"; record: KeywayRecord }
   /** bodies glued together so that they move as one (`glue.ts`): their ids; `unglue` takes one out of its group */
   | { type: "glue"; bodies: string[] }
   | { type: "unglue"; body: string }
@@ -329,6 +331,7 @@ export function apply(s: Scene, c: Command): Result<Scene> {
     }
     case "glue": return addGlue(s, c.bodies);
     case "unglue": return removeGlue(s, c.body);
+    case "keyway": return (s.keyways ?? []).some((k) => k.id === c.record.id) ? err(`the keyway ${c.record.id} is made already`) : ok({ ...s, keyways: [...(s.keyways ?? []), c.record] });
     case "modelPlay": return (s.models ?? []).some((m) => m.id === c.record.id) ? err(`the model ${c.record.id} is made already`) : ok({ ...s, models: [...(s.models ?? []), c.record] });
     case "setMaterial": {
       const m = c.material.trim();

@@ -195,7 +195,7 @@ test("the frame says what to draw: the cursor, the body, the selection; the smal
 });
 
 test("the ⋯ list always has every row, dimmed when one cannot be used, and ends with the settings page (`in_661`)", () => {
-  assert.deepEqual(appRows().map((r) => r.id), ["bodies", "history", "groups", "import", "export", "fabricate", "clearAnswers", "settings", "build"]); // (no Save, Open, Restore session or Share state: Import and Export take every file in and out, `in_1083`; the laser is under Fabricate)
+  assert.deepEqual(appRows().map((r) => r.id), ["undo", "redo", "bodies", "history", "groups", "import", "export", "fabricate", "clearAnswers", "settings", "build"]); // (no Save, Open, Restore session or Share state: Import and Export take every file in and out, `in_1083`; the laser is under Fabricate)
   assert.deepEqual(appRows().filter((r) => !r.enabled).map((r) => r.id), ["clearAnswers", "build"], "dimmed, not left out");
   assert.ok(appRows().filter((r) => !r.enabled).every((r) => r.why), "each dimmed row says why when it is pressed");
   assert.ok(isScrollMode("zoom") && !isScrollMode("x") && !isScrollMode(null));

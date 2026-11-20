@@ -74,6 +74,7 @@ Object.assign(ICONS, {
   tangent: svg('<circle cx="8" cy="10" r="4"/><path d="M1.5 6h13"/>'),
   rect: svg('<rect x="2.5" y="4" width="11" height="8" rx="0.6"/>'),
   circle: svg('<circle cx="8" cy="8" r="5.5"/>'),
+  polygon: svg('<path d="M8 2.2l5.2 3.8-2 6.2H4.8l-2-6.2z"/>'), // (a regular polygon, `dec_polygon_tool`)
   rack: svg('<path d="M1.5 12.5h13M1.5 12.5V8.5M14.5 12.5V8.5M1.5 8.5h1.6l.8-3.5h1.8l.8 3.5h1.2l.8-3.5h1.8l.8 3.5h1.2l.8-3.5h1.8l.8 3.5h.4"/>'), // (a bar with straight-sided teeth: the rack, `in_579`)
   txtGT2: `<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><text x="8" y="11.3" font-size="7" font-weight="800" text-anchor="middle" fill="currentColor" font-family="system-ui,sans-serif">GT2</text></svg>`, // (the pulley's type written in its icon, `in_709`)
   txtGT3: `<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><text x="8" y="11.3" font-size="7" font-weight="800" text-anchor="middle" fill="currentColor" font-family="system-ui,sans-serif">GT3</text></svg>`, // (the pulley's type written in its icon, `in_709`)

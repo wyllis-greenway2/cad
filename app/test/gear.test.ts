@@ -218,8 +218,8 @@ test("the Gear tool is in the Sketch ring; click the centre, the pointer sets th
   st = move(st, [C[0] + 22, C[1], 0]);
   assert.ok(previewFor(scene(st.session), st.tool)!.segments.length > 100, "the teeth are shown while the size is set");
   const e = entryOf(scene(st.session), st.tool, st.op);
-  assert.deepEqual(e!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Helix", "Thickness", "Bore", "Flat", "Key", "Key depth", "Chamfer", "Edge chamfer"]);
-  assert.deepEqual(e!.fields.map((f) => f.value), ["20", "2", "20", "0", "0.06", "0.25", "0", "0", "0", "5", "0", "0", "0", "0", "0"]);
+  assert.deepEqual(e!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Helix", "Thickness", "Bore", "Chamfer", "Edge chamfer"]);
+  assert.deepEqual(e!.fields.map((f) => f.value), ["20", "2", "20", "0", "0.06", "0.25", "0", "0", "0", "5", "0", "0"]);
   st = click(st, [C[0] + 22, C[1], 0]);
   assert.equal(drawn(st).length, 0, "the click that sets the size makes nothing yet (`in_688`): the number box stays open");
   assert.ok(st.tool!.sized, "the tool is on, the size set");
@@ -348,7 +348,7 @@ test("Edit gear: the number box opens on the selected gear with its numbers; typ
   st = reduce(st, { type: "runAction", id: "gear:edit" }, env);
   assert.equal(st.tool!.gear!.editing, "g_001");
   const e = entryOf(scene(st.session), st.tool, st.op)!;
-  assert.deepEqual(e.fields.map((f) => f.value), ["20", "2", "20", "0", "0.06", "0.25", "0", "0", "0", "5", "0", "0", "0", "0", "0"], "its numbers as they are");
+  assert.deepEqual(e.fields.map((f) => f.value), ["20", "2", "20", "0", "0.06", "0.25", "0", "0", "0", "5", "0", "0"], "its numbers as they are");
   st = typeText(st, "30");
   st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab"); st = key(st, "Tab");
   st = typeText(st, "0.1");
@@ -426,7 +426,7 @@ test("the Gear box has a Bore field; typing it in Edit gear applies it (a ring h
   let st = top();
   st = reduce(st, { type: "begin", name: "gear" }, env);
   st = click(st, C);
-  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Helix", "Thickness", "Bore", "Flat", "Key", "Key depth", "Chamfer", "Edge chamfer"]);
+  assert.deepEqual(entryOf(scene(st.session), st.tool, st.op)!.fields.map((f) => f.label), ["Teeth", "Module", "Pressure", "Shift", "Backlash", "Clearance", "Fillet", "Helix", "Thickness", "Bore", "Chamfer", "Edge chamfer"]);
   st = typeText(st, "20"); st = key(st, "Tab"); st = typeText(st, "2");
   for (let i = 0; i < 8; i++) st = key(st, "Tab");
   st = typeText(st, "6");
@@ -512,7 +512,7 @@ test("Mesh gear: with a gear selected, the pointer says which way the partner st
   let m = reduce(st, { type: "runAction", id: "gear:mesh" }, env);
   assert.equal(m.tool!.gear!.mesh!.rack, false);
   m = move(m, [C[0], C[1] + 50, 0]); // (straight up from the gear)
-  assert.deepEqual(entryOf(scene(m.session), m.tool, m.op)!.fields.map((f) => f.label), ["Teeth", "Ratio", "Angle", "Bore", "Flat", "Key", "Key depth"]);
+  assert.deepEqual(entryOf(scene(m.session), m.tool, m.op)!.fields.map((f) => f.label), ["Teeth", "Ratio", "Angle", "Bore"]);
   const shown = entryOf(scene(m.session), m.tool, m.op)!.fields.map((f) => f.value);
   assert.deepEqual(shown.slice(0, 2), ["20", "1"], "the same teeth, a ratio of 1");
   assert.ok(Math.abs(Number(shown[2]) - 90) < 2, `up is about 90 degrees: ${shown[2]}`);
@@ -550,7 +550,7 @@ test("Mesh rack and a gear on a rack: the rack goes where the pointer is, tangen
   const rackFace = faceOf(m, "g_002");
   let on = pick({ ...m, tool: null }, [rackFace.ref]);
   on = reduce(on, { type: "runAction", id: "gear:mesh" }, env);
-  assert.deepEqual(entryOf(scene(on.session), on.tool, on.op)!.fields.map((f) => f.label), ["Teeth", "Offset", "Bore", "Flat", "Key", "Key depth"]);
+  assert.deepEqual(entryOf(scene(on.session), on.tool, on.op)!.fields.map((f) => f.label), ["Teeth", "Offset", "Bore"]);
   on = typeText(on, "12"); on = key(on, "Tab"); on = typeText(on, "5");
   on = key(on, "Enter");
   const third = gearsOfState(on)[2]!;
@@ -647,65 +647,6 @@ test("a gear's clearance field: the root clearance in modules (0.25 shown), type
   const more = run(s, { type: "setGear", id: "g_001", spec: { teeth: 20, module: 2, clearance: 0.6 } });
   assert.ok(!more.message, more.message ?? "");
   assert.ok(bodyVolume(more) < bodyVolume(s), "a deeper root takes more away");
-});
-
-test("a flat and a keyway typed together: the one typed last wins and the other goes to nothing, not a failed sketch; the preview shows the bore's own shape (`in_689`)", async () => {
-  const { gearTyped, finish } = await import("../src/interaction/tools.ts");
-  let st = top();
-  st = reduce(st, { type: "begin", name: "gear" }, env);
-  st = click(st, C);
-  st = move(st, [C[0] + 22, C[1], 0]);
-  const f = (t: typeof st.tool, field: number, text: string) => gearTyped(t!, field, text);
-  const round = f(st.tool, 9, "10"); // bore 10
-  const plain = previewFor(scene(st.session), round)!;
-  assert.ok(plain.circle, "a round bore is the one circle");
-  let t = f(round, 10, "1"); // and a flat of 1
-  const withFlat = previewFor(scene(st.session), t)!;
-  assert.equal(withFlat.circle, null, "a bore with a flat is drawn as its own outline");
-  assert.ok(withFlat.segments.length > plain.segments.length + 10);
-  t = f(t, 11, "3"); // a key 3 wide with the flat still typed: the key (typed last) wins
-  const fin = finish(scene(st.session), t!)!;
-  assert.ok(fin, "it makes a gear");
-  const spec = (fin.command as { spec: { flat?: number; key?: number } }).spec;
-  assert.equal(spec.flat, undefined, "the flat is dropped");
-  assert.equal(spec.key, 3);
-  const back = finish(scene(st.session), f(t, 10, "1"))!; // the flat typed again: the flat wins
-  const spec2 = (back.command as { spec: { flat?: number; key?: number } }).spec;
-  assert.equal(spec2.key, undefined);
-  assert.equal(spec2.flat, 1);
-});
-
-test("a number that makes no gear is taken back to the nearest that does, and flashes red (`in_690`); the box says what the standard key is for the bore; no Detail field", async () => {
-  const { gearTyped } = await import("../src/interaction/tools.ts");
-  let st = top();
-  st = reduce(st, { type: "begin", name: "gear" }, env);
-  st = click(st, C);
-  st = move(st, [C[0] + 22, C[1], 0]);
-  assert.ok(!entryOf(scene(st.session), st.tool, st.op)!.fields.some((f) => f.label === "Detail"));
-  // too few teeth: Enter takes it up to the least that works and makes nothing yet
-  st = typeText(st, "2");
-  st = key(st, "Enter");
-  assert.equal(drawn(st).length, 0, "nothing made yet");
-  assert.ok(Number(st.tool!.gear!.typed[0]) >= 3 && Number(st.tool!.gear!.typed[0]) <= 8, `2 teeth go up to the least that works (${st.tool!.gear!.typed[0]})`);
-  assert.equal(st.tool!.gear!.bad?.field, 0, "and the field is marked");
-  assert.match(st.session.message ?? "", /Teeth 2 is taken back to \d/);
-  const e = entryOf(scene(st.session), st.tool, st.op)!;
-  assert.equal(e.fields[0]!.bad, true);
-  assert.equal(previewFor(scene(st.session), st.tool)!.red, true, "the drawing is red");
-  // a fillet too large: taken back to the largest that works (field 6)
-  let t = gearTyped(st.tool!, 0, "20");
-  t = gearTyped(t, 6, "50");
-  const sc = scene(st.session);
-  const fix = (await import("../src/interaction/tools.ts")).gearFix(sc, t)!;
-  assert.ok(fix, "a fillet of 50 modules is put right");
-  assert.equal(fix.field, 6);
-  const v = parseFloat(fix.tool.gear!.typed[6]!);
-  assert.ok(v > 0 && v < 50, `fillet ${v}`);
-  assert.equal((await import("../src/interaction/tools.ts")).gearProblem(sc, fix.tool), null, "what it is taken back to makes a gear");
-  // the standard key for the bore
-  const withBore = gearTyped(t, 9, "10");
-  const keyHint = entryOf(sc, withBore, null)!.fields.find((f) => f.label === "Key")!.hint!;
-  assert.match(keyHint, /10 mm bore the standard key is 3 wide and the keyway 1.4 deep/);
 });
 
 test("a gear meshed inside a ring that is made too big does not disappear: the nearest gear that fits is drawn in red, the field is marked and the box says why; the bore it has is shown (`in_694`)", () => {

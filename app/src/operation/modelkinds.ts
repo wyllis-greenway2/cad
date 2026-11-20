@@ -20,12 +20,12 @@ import { rodSteps, rodProblem, rodExtent, rodAbout, rodGeometry, ROD_START, ROD_
 import type { RodSpec } from "./modelrod.ts";
 import { fitNumbers } from "./modelfit.ts";
 import { wheelSteps, wheelCutSteps, wheelProblem, wheelLines, wheelLines3, repairWheel, edgeMade, WHEEL_START } from "./modelwheel.ts";
-import { keyholeSteps, keyshaftSteps, keywayProblem, keywayAbout, KEYWAY_START } from "./modelkeyway.ts";
-import type { KeywaySpec } from "./modelkeyway.ts";
+import { keyholeSteps, keyshaftSteps, keyfitSteps, keywayProblem, keywayAbout, KEYWAY_START } from "./modelkeyway.ts";
+import type { KeywaySpec, KeywayMode } from "./modelkeyway.ts";
 import type { WheelSpec } from "./modelwheel.ts";
 
-export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "piston" | "rod" | "wheel" | "wheelcut" | "keyhole" | "keyshaft";
-export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine", "piston", "rod", "wheel", "wheelcut", "keyhole", "keyshaft"];
+export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "piston" | "rod" | "wheel" | "wheelcut" | "keyhole" | "keyshaft" | "keyhub" | "keyfit";
+export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine", "piston", "rod", "wheel", "wheelcut", "keyhole", "keyshaft", "keyhub", "keyfit"];
 /** The numbers of a model, by name */
 export type Nums = Record<string, number>;
 /** One number of a model: what it is called, a line that says what it is, and whether it grows with the overall size (a length of the thing, not a room left for the printer or a count) */
@@ -85,8 +85,8 @@ const GROUPS_PISTON = (f: ModelField[]): ModelField[] => grouped(f, [
   ["Crown", ["crown", "crownShape", "crownHeight", "crownDia", "crownChamfer", "valveReliefs", "reliefDia", "reliefDepth", "reliefOffset"]],
   ["Ring belt", ["rings", "oil", "topLand", "ringHeight", "oilRingHeight", "ringRadial", "land", "backRoom", "ringSide", "topLandRelief", "landRelief"]],
   ["Oil drain holes", ["drain", "drainDia"]],
-  ["Skirt", ["skirtWall", "skirtFit", "skirtShape", "oval", "taper", "footChamfer", "skirtStyle", "padAngle"]],
-  ["Pin and bosses", ["pinKind", "pinBore", "pinLen", "pinFit", "bossGap", "bossReach", "room"]],
+  ["Skirt", ["skirtWall", "skirtFit", "skirtShape", "oval", "taper", "footChamfer", "skirtStyle", "padAngle", "archHeight"]],
+  ["Pin and bosses", ["pinKind", "pinBore", "pinLen", "pinFit", "bossGap", "bossReach", "room", "pinFlat", "flatDepth", "flatWidth"]],
   ["Pin retention", ["retention", "clipWidth", "clipDepth", "clipEdge", "pinFloat"]]]);
 
 const GROUPS_ROD = (f: ModelField[]): ModelField[] => grouped(f, [
@@ -114,7 +114,6 @@ function wheelDef(cutting: boolean): Def {
     fields: [
       { ...F("outer", "Outer diameter", "mm: the whole wheel (the Size)", true), hidden: true },
       F("rimD", "Rim diameter", "mm: the rim's inside, where the web meets it; the rim is (outer diameter - this) / 2 thick across", true), F("hub", "Hub diameter", "mm: the hub's outside", true), F("bore", "Bore diameter", "mm: the hole for the shaft", true),
-      ...(["flat", "key", "keyDepth"] as const).map((k) => ({ ...F(k, k === "flat" ? "Bore flat" : k === "key" ? "Key width" : "Key depth", k === "flat" ? "mm: a flat cut this deep into the bore for a D shaped shaft; 0 for none (a bore has a flat or a keyway, not both)" : k === "key" ? "mm: the width of a keyway cut into the bore; 0 for none (DIN 6885 keys: 6 to 8 mm bore 2 wide, to 10 mm 3, to 12 mm 4, to 17 mm 5, to 22 mm 6, to 30 mm 8, to 38 mm 10)" : "mm: the depth of the keyway; leave 0 for the DIN 6885 depth for the bore", true), when: { key: "boreOwned", is: 1, not: true as const } })),
       F("rimT", "Rim thickness", "mm along the axis (the wheel's width at the rim)", true), F("web", "Spoke thickness", "mm along the axis: the web and the spokes are this thick", true), F("hubT", "Hub thickness", "mm along the axis (the hub's length)", true),
       F("spokes", "Spoke count", "0: a plain web; else the number of cutouts in it (3 to 24)"), F("spokeW", "Spoke width", "mm across a spoke, at the hub end", true), F("taper", "Spoke taper", "how much narrower a spoke is at the rim end, as a share of its width (negative: wider)"), F("spiral", "Spoke spiral", "degrees a spoke turns from the hub to the rim (0: straight)"),
       F("rimOff", "Spoke rim offset", "mm a cutout stops short of the rim (from its wall): 0 and the spokes run into the rim; less than the join radius and it cuts into the fillet", true), F("hubOff", "Spoke hub offset", "mm a cutout stops short of the hub (from its wall): 0 and the spokes run into the hub", true),
@@ -141,40 +140,54 @@ function wheelDef(cutting: boolean): Def {
 }
 
 const kw = (n: Nums): KeywaySpec => n as unknown as KeywaySpec;
-/** the keyed hole in a round body (`hole`), or the keyed shaft (`dec_keyway_maker`) */
-function keywayDef(hole: boolean): Def {
+/** the four tools of the keyway maker (`dec_keyway_maker`): the keyed hole in a round body, a shaft, a hub (a disc with a keyed bore) and a keyway cut into a shaft that is there */
+function keywayDef(mode: KeywayMode): Def {
+  const hole = mode === "hole" || mode === "hub", onBody = mode === "hole" || mode === "fit";
   const shape: ModelField = { ...F("kind", "Shape", "a key (a keyway cut in the " + (hole ? "hole" : "shaft") + "), a D flat, or a spline of the ISO 14 standard"), choices: ["Key", "Flat", "Spline"], top: true };
   const when = (v: number) => ({ key: "kind", is: v });
+  const diameter = mode === "shaft" || mode === "fit" ? "Shaft diameter" : "Bore diameter";
   const fields: ModelField[] = [
-    ...(hole ? [{ ...F("outer", "Outer diameter", "mm: the body's outside (the Size)", true), hidden: true as const }] : []),
+    ...(onBody ? [{ ...F("outer", "Outer diameter", "mm: the body's outside (the Size)", true), hidden: true as const }] : []),
     shape,
-    { ...F("bore", hole ? "Bore diameter" : "Shaft diameter", hole ? "mm: the hole; the body's own if it has one, else the one that is made" : "mm across the round shaft", true), ...(hole ? { fixed: true as const, unless: { key: "boreOwned", is: 0 } } : {}) },
+    { ...F("bore", diameter, mode === "hole" ? "mm: the hole; the body's own if it has one, else the one that is made" : mode === "fit" ? "mm: the shaft's, from the body" : mode === "hub" ? "mm: the hole in the hub" : "mm across the round shaft", true), ...(mode === "hole" ? { fixed: true as const, unless: { key: "boreOwned", is: 0 } } : mode === "fit" ? { fixed: true as const } : {}) },
     { ...F("key", "Key width", "mm: 0 takes the DIN 6885 width for the diameter (a quarter of it outside the table)", true), when: when(0) },
     { ...F("keyDepth", "Key depth", hole ? "mm: the keyway's depth in the hub, measured past the bore: 0 takes the DIN 6885 depth (0.45 of the key's width outside the table)" : "mm: the keyway's depth in the shaft: 0 takes 0.55 of the key's width (the DIN 6885 shaft depths are not in hand)", true), when: when(0) },
     { ...F("flat", "Flat depth", "mm: how far the flat is cut in from the round; 0 takes 0.15 of the diameter (there is no one standard for D flats: measure the shaft)", true), when: when(1) },
     { ...F("series", "Series", "ISO 14 straight-sided splines: the light series is the lighter, the medium the stronger (light starts at 23 mm)"), choices: ["Light", "Medium"], when: when(2) },
-    { ...F("size", "Spline size", "mm: the minor diameter; the nearest of the ISO 14 table is taken; 0 takes the smallest that goes round the bore" + (hole ? "" : " (the shaft's diameter)")), when: when(2) },
-    ...(hole ? [{ ...F("thick", "Thickness", "mm: the body's, along its axis", true), fixed: true as const }, { ...F("bodyR", "Reach", "mm: how far from the axis the hole may go (the body's outside, or a gear's roots)", true), hidden: true as const }, { ...F("boreOwned", "Own bore", ""), hidden: true as const }] : [F("len", "Length", "mm along the shaft", true)]),
+    { ...F("size", "Spline size", mode === "fit" ? "mm: the minor diameter; the nearest of the ISO 14 table is taken; 0 takes the biggest that is no wider than the shaft" : "mm: the minor diameter; the nearest of the ISO 14 table is taken; 0 takes the smallest that goes round the bore (or the one nearest the shaft's diameter)"), when: when(2) },
+    ...(mode === "shaft" || mode === "fit" ? [
+      { ...F("part", "Keyed part", "which part of the shaft is keyed: all of it, or only an end (a splined stub, a keyseat under a hub: the far end is the one the axis points to), or both ends"), choices: ["All", "Far end", "Near end", "Both ends"] },
+      { ...F("span", "Keyed length", "mm from the end: 0 takes one and a half diameters, at most half the shaft (the shaft is round, as wide as the diameter or the spline, elsewhere)", true), when: { key: "part", is: 0, not: true as const } },
+    ] : []),
+    F("play", "Play", hole ? "mm: how much wider than the standard the hole is made, for a shaft to fit it (0: the nominal)" : "mm: how much narrower than the standard the shaft is made, for it to fit a hole (0: the nominal)", true),
+    ...(mode === "hole" ? [{ ...F("thick", "Thickness", "mm: the body's, along its axis", true), fixed: true as const }, { ...F("bodyR", "Reach", "mm: how far from the axis the hole may go (the body's outside, or a gear's roots)", true), hidden: true as const }, { ...F("boreOwned", "Own bore", ""), hidden: true as const }] : []),
+    ...(mode === "fit" ? [{ ...F("thick", "Length", "mm: the shaft's, along its axis", true), fixed: true as const }] : []),
+    ...(mode === "shaft" ? [F("len", "Length", "mm along the shaft", true), F("off", "Start", "mm: where the shaft starts along its axis from the place it is put (0: there)", true)] : []),
+    ...(mode === "hub" ? [{ ...F("outer", "Hub diameter", "mm: the hub's outside (the Size)", true) }, F("thick", "Thickness", "mm along the axis", true)] : []),
   ];
-  const start: Nums = { ...(KEYWAY_START as unknown as Nums), ...(hole ? {} : { bore: 12 }) };
+  const start: Nums = { ...(KEYWAY_START as unknown as Nums), ...(mode === "shaft" ? { bore: 12 } : {}), ...(mode === "hub" ? { bore: 12, outer: 30, thick: 15 } : {}) };
+  const sizeKey = mode === "shaft" ? "len" : mode === "hub" || onBody ? "outer" : undefined;
   return {
-    title: hole ? "Keyed hole (a key, a flat or a spline in a round body)" : "Keyed shaft (a key, a flat or a spline on a shaft)",
-    sizeLabel: hole ? "Outer diameter" : "Length",
-    ...(hole ? { fixedSize: true as const, sizeKey: "outer" } : { sizeKey: "len" }),
+    title: mode === "hole" ? "Keyed hole (a key, a flat or a spline in a round body)" : mode === "shaft" ? "Keyed shaft (a key, a flat or a spline on a shaft)" : mode === "hub" ? "Keyed hub (a disc with a keyed bore)" : "Keyed shaft cut (a key, a flat or a spline cut into a round shaft)",
+    sizeLabel: onBody || mode === "hub" ? (mode === "hub" ? "Hub diameter" : "Outer diameter") : "Length",
+    ...(onBody ? { fixedSize: true as const } : {}),
+    ...(sizeKey ? { sizeKey } : {}),
     fields,
     start,
-    problem: (n) => keywayProblem(kw(n), hole),
-    extent: (n) => (keywayProblem(kw(n), hole) ? 0 : hole ? kw(n).outer : Math.max(kw(n).len, kw(n).bore)),
+    problem: (n) => keywayProblem(kw(n), mode),
+    extent: (n) => (keywayProblem(kw(n), mode) ? 0 : mode === "shaft" ? Math.max(kw(n).len, kw(n).bore) : kw(n).outer),
     centre: () => [0, 0],
-    build: (n, place) => (hole ? keyholeSteps(kw(n), place) : keyshaftSteps(kw(n), place)),
-    outline: (n) => [circle(0, 0, hole ? kw(n).outer / 2 : kw(n).bore / 2, 48), ...(kw(n).bore > 0 ? [circle(0, 0, kw(n).bore / 2, 32)] : [])],
-    about: (n) => keywayAbout(kw(n), hole),
+    build: (n, place) => (mode === "shaft" ? keyshaftSteps(kw(n), place) : mode === "fit" ? keyfitSteps(kw(n), place) : keyholeSteps(kw(n), place, mode)),
+    outline: (n) => [circle(0, 0, mode === "shaft" ? kw(n).bore / 2 : kw(n).outer / 2, 48), ...(kw(n).bore > 0 && mode !== "shaft" ? [circle(0, 0, kw(n).bore / 2, 32)] : [])],
+    about: (n) => keywayAbout(kw(n), mode),
   };
 }
 
 const DEFS: Record<ModelKind, Def> = {
-  keyhole: keywayDef(true),
-  keyshaft: keywayDef(false),
+  keyhole: keywayDef("hole"),
+  keyshaft: keywayDef("shaft"),
+  keyhub: keywayDef("hub"),
+  keyfit: keywayDef("fit"),
   gearbox: {
     title: "Reduction gearbox",
     fields: [F("stages", "Stages", "1 to 4: a pinion and a gear each, in a layer of its own"), F("pinion", "Pinion teeth", "10 or more"), F("gear", "Gear teeth", "the pinion's teeth times 1.5 to 6"), F("module", "Module", "mm of pitch diameter a tooth", true), F("width", "Gear thickness", "mm", true), F("rod", "Rod diameter", "the rods the gears sit on", true), F("fit", "Bore room", "between a gear's bore and its rod; 0: a press fit"), F("bearing", "Plate room", "between a plate's hole and a rod: the rods turn in them"), F("plate", "Plate thickness", "mm", true), F("gap", "Layer gap", "between the layers and the plates")],
@@ -257,7 +270,7 @@ const DEFS: Record<ModelKind, Def> = {
       F("pinHeight", "Pin height", "mm from the pin's axis to the crown; 0: the ring belt and what the rod's eye needs", true), F("skirtLen", "Skirt below the pin", "mm; 0: 0.27 of the bore (assumed)", true), F("pinLen", "Pin length", "mm; 0: the longest the walls allow", true),
       F("ringHeight", "Compression ring height", "mm; 0: Honda's 1.5 (1.0 for a small bore)", true), F("oilRingHeight", "Oil ring height", "mm; 0: Honda's 2.5 (2.0 for a small bore)", true), F("ringRadial", "Ring radial width", "mm; 0: the bore over 22 (ISO 6622-1's thicker series)", true),
       F("land", "Land between rings", "mm; 0: 1.6 times a compression ring (assumed)", true), F("backRoom", "Groove back room", "mm behind a ring; 0: 0.45 (assumed)"), F("drainDia", "Drain hole diameter", "mm; 0: 0.03 of the bore (assumed)", true),
-      F("topLandRelief", "Top land relief", "mm across, smaller than the skirt; 0: 0.003 of the bore (assumed)", true), F("landRelief", "Land relief", "mm across, the other lands; 0: 0.002 of the bore (assumed)", true), { ...F("retention", "Pin retention", "none, or a circlip in a groove at each end of the pin (Honda's)"), choices: ["None", "Circlips"] }, F("clipWidth", "Circlip groove width", "mm; 0: 0.06 of the pin, at least 0.8 (assumed)", true), F("clipDepth", "Circlip groove depth", "mm; 0: 0.028 of the pin, at least 0.4 (assumed)", true), F("clipEdge", "Circlip groove from the face", "mm; 0: 1.0 (assumed)", true), F("pinFloat", "Pin end float", "mm between the pin and the circlip; 0: 0.1 (assumed)"), { ...F("skirtShape", "Skirt shape", "a plain cylinder, or narrower along the pin (oval) and at the top (taper)"), choices: ["Round", "Oval, tapered"] }, F("oval", "Skirt oval", "mm across, narrower along the pin; 0: 0.001 of the bore (assumed)", true), F("taper", "Skirt taper", "mm across, narrower at the top of the skirt; 0: 0.0007 of the bore (assumed)", true), F("footChamfer", "Foot chamfer", "mm; 0: 0.004 of the bore (assumed)", true), { ...F("skirtStyle", "Skirt style", "a full skirt, or two pads on the thrust sides (the skirt cut away at the pin)"), choices: ["Full", "Two pads"] }, F("padAngle", "Pad angle", "degrees each pad spans; 0: 80 (the Caterpillar patent: 70 to 90)"), { ...F("crownShape", "Crown", "flat, a dome up, a dish down, or a bowl (the pin height stays the distance to the flat edge)"), choices: ["Flat", "Dome", "Dish", "Bowl"] }, F("crownHeight", "Crown height", "mm: a dome's rise, a dish's or bowl's depth; 0: 0.04, 0.03 or 0.04 of the bore (assumed)", true), F("crownDia", "Crown shape diameter", "mm across; 0: 0.75 of the bore, a bowl 0.6 (assumed)", true), F("crownChamfer", "Crown edge chamfer", "mm; 0: 0.004 of the bore (assumed)", true), F("valveReliefs", "Valve reliefs", "0 to 2 round pockets in a flat crown, along the pin's axis"), F("reliefDia", "Relief diameter", "mm; 0: 0.3 of the bore (assumed)", true), F("reliefDepth", "Relief depth", "mm; 0: 0.02 of the bore (assumed)", true), F("reliefOffset", "Relief distance from the axis", "mm; 0: 0.25 of the bore (assumed)", true), F("bossGap", "Gap between the pin bosses", "mm; 0: the rod's thickness and its room each side", true), F("bossReach", "Boss reach", "mm beyond the pin's hole; 0: the wall's thickness (assumed)", true)]),
+      F("topLandRelief", "Top land relief", "mm across, smaller than the skirt; 0: 0.003 of the bore (assumed)", true), F("landRelief", "Land relief", "mm across, the other lands; 0: 0.002 of the bore (assumed)", true), { ...F("retention", "Pin retention", "none, or a circlip in a groove at each end of the pin (Honda's)"), choices: ["None", "Circlips"] }, F("clipWidth", "Circlip groove width", "mm; 0: 0.06 of the pin, at least 0.8 (assumed)", true), F("clipDepth", "Circlip groove depth", "mm; 0: 0.028 of the pin, at least 0.4 (assumed)", true), F("clipEdge", "Circlip groove from the face", "mm; 0: 1.0 (assumed)", true), F("pinFloat", "Pin end float", "mm between the pin and the circlip; 0: 0.1 (assumed)"), { ...F("skirtShape", "Skirt shape", "a plain cylinder, or narrower along the pin (oval) and at the top (taper)"), choices: ["Round", "Oval, tapered"] }, F("oval", "Skirt oval", "mm across, narrower along the pin; 0: 0.001 of the bore (assumed)", true), F("taper", "Skirt taper", "mm across, narrower at the top of the skirt; 0: 0.0007 of the bore (assumed)", true), F("footChamfer", "Foot chamfer", "mm; 0: 0.004 of the bore (assumed)", true), { ...F("skirtStyle", "Skirt style", "a full skirt, or two pads on the thrust sides (the skirt cut away at the pin)"), choices: ["Full", "Two pads"] }, F("padAngle", "Pad angle", "degrees each pad spans; 0: 80 (the Caterpillar patent: 70 to 90)"), { ...F("crownShape", "Crown", "flat, a dome up, a dish down, or a bowl (the pin height stays the distance to the flat edge)"), choices: ["Flat", "Dome", "Dish", "Bowl"] }, F("crownHeight", "Crown height", "mm: a dome's rise, a dish's or bowl's depth; 0: 0.04, 0.03 or 0.04 of the bore (assumed)", true), F("crownDia", "Crown shape diameter", "mm across; 0: 0.75 of the bore, a bowl 0.6 (assumed)", true), F("crownChamfer", "Crown edge chamfer", "mm; 0: 0.004 of the bore (assumed)", true), F("valveReliefs", "Valve reliefs", "0 to 2 round pockets in a flat crown, along the pin's axis"), F("reliefDia", "Relief diameter", "mm; 0: 0.3 of the bore (assumed)", true), F("reliefDepth", "Relief depth", "mm; 0: 0.02 of the bore (assumed)", true), F("reliefOffset", "Relief distance from the axis", "mm; 0: 0.25 of the bore (assumed)", true), F("archHeight", "Arch height", "mm above the foot: the arched cutaway of a two-pad skirt; 0: up to just below the bosses", true), { ...F("pinFlat", "Pin flats", "none, or a flat face round the pin bore at each side (the skirt's round face is cut away there)"), choices: ["None", "Flat"] }, F("flatDepth", "Flat depth", "mm below the skirt's face; 0: 0.02 of the bore (assumed)", true), F("flatWidth", "Flat width", "mm across the thrust; 0: the boss and a millimetre either side", true), F("bossGap", "Gap between the pin bosses", "mm; 0: the rod's thickness and its room each side", true), F("bossReach", "Boss reach", "mm beyond the pin's hole; 0: the wall's thickness (assumed)", true)]),
     start: { ...PISTON_START, preset: 0 },
     problem: (n) => pistonProblem(pi(n)),
     extent: (n) => { if (pistonProblem(pi(n))) return 0; const e = pistonExtent(pi(n)); return Math.max(e.diameter, e.height); },
@@ -324,7 +337,7 @@ export const modelOutline3 = (k: ModelKind, n: Nums): [number, number, number][]
   return wires;
 };
 /** a model that is cut into a round body that is selected, and waits for one to be clicked (`dec_hub_spoke`, `dec_keyway_maker`) */
-export const modelCutsBody = (k: ModelKind): boolean => k === "wheelcut" || k === "keyhole";
+export const modelCutsBody = (k: ModelKind): boolean => k === "wheelcut" || k === "keyhole" || k === "keyfit";
 export const modelFixedSize = (k: ModelKind): boolean => !!DEFS[k].fixedSize;
 export const modelSizeLabel = (k: ModelKind): string => DEFS[k].sizeLabel ?? "Size";
 export const modelSizeKey = (k: ModelKind): string | undefined => DEFS[k].sizeKey;
