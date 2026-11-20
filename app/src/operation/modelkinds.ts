@@ -14,12 +14,14 @@ import { cycloidalSteps, cycloidalProblem, cycloidalRatio, cycloidalRim, discOut
 import type { CycloidalSpec } from "./modelcycloidal.ts";
 import { engineSteps, engineProblem, engineGeometry, engineFootprint, engineDisplacement, ENGINE_START, ENGINE_PRESETS } from "./modelengine.ts";
 import type { EngineSpec } from "./modelengine.ts";
+import { pistonSteps, pistonProblem, pistonExtent, pistonGeometry, PISTON_START, PISTON_PRESETS } from "./modelpiston.ts";
+import type { PistonSpec } from "./modelpiston.ts";
 import { fitNumbers } from "./modelfit.ts";
 import { wheelSteps, wheelCutSteps, wheelProblem, wheelLines, wheelLines3, repairWheel, edgeMade, WHEEL_START } from "./modelwheel.ts";
 import type { WheelSpec } from "./modelwheel.ts";
 
-export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "wheel" | "wheelcut";
-export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine", "wheel", "wheelcut"];
+export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "piston" | "wheel" | "wheelcut";
+export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine", "piston", "wheel", "wheelcut"];
 /** The numbers of a model, by name */
 export type Nums = Record<string, number>;
 /** One number of a model: what it is called, a line that says what it is, and whether it grows with the overall size (a length of the thing, not a room left for the printer or a count) */
@@ -62,6 +64,7 @@ const gb = (n: Nums): GearboxSpec => n as unknown as GearboxSpec;
 const df = (n: Nums): DifferentialSpec => n as unknown as DifferentialSpec;
 const cy = (n: Nums): CycloidalSpec => n as unknown as CycloidalSpec;
 const en = (n: Nums): EngineSpec => n as unknown as EngineSpec;
+const pi = (n: Nums): PistonSpec => n as unknown as PistonSpec;
 const wh = (n: Nums): WheelSpec => n as unknown as WheelSpec;
 
 const BEARING_START: Nums = { own: 0, number: 608, detail: 0, bore: 8, outer: 22, width: 7, ring: 0, clearance: 0.02, balls: 0, ball: 0 };
@@ -169,6 +172,26 @@ const DEFS: Record<ModelKind, Def> = {
   },
   wheel: wheelDef(false),
   wheelcut: wheelDef(true),
+  piston: {
+    title: "Piston",
+    fields: [{ ...F("preset", "Engine", "a real engine's bore and pin (the Honda service manual) to start from, or your own numbers; a number you type replaces the preset's"), choices: ["Your own", ...PISTON_PRESETS.map((e) => e.name)], top: true },
+      F("bore", "Bore", "mm: the cylinder's diameter", true), F("pin", "Pin diameter", "mm: 0.25 to 0.3 of the bore is usual", true),
+      F("rings", "Ring grooves", "0 to 3 compression rings"), F("oil", "Oil ring groove", "0 or 1: Honda's pack is two compression rings and an oil ring"),
+      F("topLand", "Top land", "of the bore, above the top ring groove (assumed: 0.04 to 0.10 is usual)"), F("crown", "Crown thickness", "of the bore, the piston is hollow (assumed: 0.04 to 0.15)"), F("skirtWall", "Piston wall", "of the bore: the skirt and under the ring grooves (assumed: half the crown)"),
+      F("drain", "Oil drain holes", "per side, through the oil ring groove into the piston (assumed: 0 to 4)"),
+      F("skirtFit", "Room in the bore", "mm across; Honda 0.015 to 0.050"), F("pinFit", "Pin room in the piston", "mm across; Honda 0.002 to 0.014"), F("ringSide", "Ring side room", "mm above and below a ring in its groove; Honda 0.015 to 0.045"), F("room", "Room beside the rod", "mm each side of the rod between the pin bosses"),
+      F("pinHeight", "Pin height", "mm from the pin's axis to the crown; 0: the ring belt and what the rod's eye needs", true), F("skirtLen", "Skirt below the pin", "mm; 0: 0.27 of the bore (assumed)", true), F("pinLen", "Pin length", "mm; 0: the longest the walls allow", true),
+      F("ringHeight", "Compression ring height", "mm; 0: Honda's 1.5 (1.0 for a small bore)", true), F("oilRingHeight", "Oil ring height", "mm; 0: Honda's 2.5 (2.0 for a small bore)", true), F("ringRadial", "Ring radial width", "mm; 0: the bore over 22 (ISO 6622-1's thicker series)", true),
+      F("land", "Land between rings", "mm; 0: 1.6 times a compression ring (assumed)", true), F("backRoom", "Groove back room", "mm behind a ring; 0: 0.45 (assumed)"), F("drainDia", "Drain hole diameter", "mm; 0: 0.03 of the bore (assumed)", true),
+      F("bossGap", "Gap between the pin bosses", "mm; 0: the rod's thickness and its room each side", true), F("bossReach", "Boss reach", "mm beyond the pin's hole; 0: the wall's thickness (assumed)", true)],
+    start: { ...PISTON_START, preset: 0 },
+    problem: (n) => pistonProblem(pi(n)),
+    extent: (n) => { if (pistonProblem(pi(n))) return 0; const e = pistonExtent(pi(n)); return Math.max(e.diameter, e.height); },
+    centre: () => [0, 0],
+    build: (n, place) => pistonSteps(pi(n), place),
+    outline: (n) => { const s = pi(n); if (pistonProblem(s)) return []; const g = pistonGeometry(s); return [circle(0, 0, g.rp, 48), circle(0, 0, g.shell.inner, 48), circle(0, 0, g.rp - g.belt.depth, 48), rect(-g.pinHalf, -s.pin / 2, g.pinHalf, s.pin / 2)]; },
+    about: (n) => { const s = pi(n), p = PISTON_PRESETS[Math.round((n.preset ?? 0)) - 1], e = pistonExtent(s), g = pistonGeometry(s); return `${p ? p.name + ": " : ""}${e.diameter.toFixed(1)} mm across, ${e.height.toFixed(1)} mm tall, pin ${g.ch.toFixed(1)} mm below the crown; every number of 0 is worked out by a rule (Honda's numbers, or assumed ones: the field says which)`; },
+  },
   cycloidal: {
     title: "Cycloidal drive",
     fields: [F("pins", "Ring pins", "the disc has one lobe fewer: the ratio is that number"), F("circle", "Pin circle radius", "mm", true), F("pin", "Ring pin diameter", "mm", true), F("ecc", "Eccentricity", "how far the disc's middle stands off the shaft's", true), F("play", "Disc room", "the disc is taken in by this much all round, so it runs free"), F("disc", "Disc thickness", "mm", true), F("outPins", "Output pins", "3 or more"), F("outCircle", "Output pin circle radius", "mm", true), F("outPin", "Output pin diameter", "mm", true), F("shaft", "Input shaft diameter", "mm", true), F("cam", "Eccentric radius", "mm", true), F("plate", "Plate thickness", "mm", true), F("gap", "Layer gap", "mm"), F("room", "Shaft room in the plates", "mm")],
@@ -218,7 +241,7 @@ export function modelNumbers(kind: ModelKind, typedIn: Nums, size?: number): Num
     if (row) { n.bore = row.d; n.outer = row.D; n.width = row.B; n.ring = 0; const sh = catalogueShape(n); if (typeof sh !== "string") n.ring = Math.round(2 * (sh.pitch - sh.surface) * 100) / 100; } // (the numbers shown are the bearing's)
     return n;
   }
-  const preset = kind === "engine" ? ENGINE_PRESETS[Math.round(typedIn.preset ?? 0) - 1] : undefined; // (a preset engine is another start: its numbers scale as the usual ones do, `dec_engine_presets`)
+  const preset = kind === "engine" ? ENGINE_PRESETS[Math.round(typedIn.preset ?? 0) - 1] : kind === "piston" ? PISTON_PRESETS[Math.round(typedIn.preset ?? 0) - 1] : undefined; // (a preset engine is another start: its numbers scale as the usual ones do, `dec_engine_presets`)
   const base: Nums = preset ? { ...d.start, ...(preset.spec as unknown as Nums) } : d.start;
   const raw = (f: number): Nums => {
     const n: Nums = { ...base };
