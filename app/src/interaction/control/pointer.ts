@@ -560,7 +560,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   const ends: Hint[][] = t.kind === "arc" ? (t.ends ?? []) : [t.ends?.[0] ?? [], (hint?.hints ?? []).filter(isOn)];
   const chord = t.kind === "arc" ? (t.ends?.[1] ?? []).filter((h) => h.kind === "horizontal" || h.kind === "vertical") : []; // (the other end was placed level or upright with the first)
   const rest = [...chord, ...(hint?.hints ?? []).filter((h) => t.kind === "line" ? !isOn(h) : true)];
-  if (curve && done !== base && !(done.tool && done.tool.points.length) && !done.session.message && (ends.some((e) => e.length) || rest.length)) {
+  if (settings.sketch.hintConstraints && curve && done !== base && !(done.tool && done.tool.points.length) && !done.session.message && (ends.some((e) => e.length) || rest.length)) { // (a snap or a hint only places the end: its constraint is made when it is asked for, `in_1309`)
     let session = done.session;
     for (const r of hintRelations(sceneOf(session), curve, ends, rest)) {
       session = run(session, { type: "addRelation", relation: { id: nextId(sceneOf(session), "r"), kind: r.kind, parts: r.parts } });
@@ -569,7 +569,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
     done = { ...done, session };
   }
   // a circle's centre and a rectangle's corners that were put on a line or a circle say so, as a line's ends do (`in_294`)
-  if ((t.kind === "rect" || t.kind === "circle") && fin && done !== base && !done.session.message) {
+  if (settings.sketch.hintConstraints && (t.kind === "rect" || t.kind === "circle") && fin && done !== base && !done.session.message) {
     const pairs: [Vec3, Hint[]][] = [[t.points[0]!, t.ends?.[0] ?? []], ...(t.kind === "rect" ? [[at, (hint?.hints ?? []).filter(isOn)] as [Vec3, Hint[]]] : [])];
     let session = done.session;
     for (const [pt, hs] of pairs) {
@@ -579,7 +579,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
     done = { ...done, session };
   }
   // a circle whose edge was taken to where it touches another circle is made tangent to it (`in_296`)
-  if (t.kind === "circle" && fin && done !== base && !done.session.message) {
+  if (settings.sketch.hintConstraints && t.kind === "circle" && fin && done !== base && !done.session.message) {
     const made = fin.select[0] ? Object.values(sceneOf(done.session).parts).find((q) => q.kind === "circle" && diskFaceRef(q.ref) === fin.select[0]) : undefined;
     let session = done.session;
     for (const h of (hint?.hints ?? [])) if (made && h.kind === "tangent" && h.ref) { session = run(session, { type: "addRelation", relation: { id: nextId(sceneOf(session), "r"), kind: "tangent", parts: [made.ref, h.ref] } }); if (session.message) break; }

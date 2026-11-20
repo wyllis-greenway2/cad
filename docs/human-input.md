@@ -5540,3 +5540,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1308 — 2026-11-20 — question
 > These sketch constraints are getting out of control. Can we have it so that the suggested positions and snapping arent actually constraints? instead they are just helping the user position properly. A constraint is only added if the user explicitly adds it. Do you think this is correct or could be a bad idea?
 (asks whether snapping and suggested positions should only place things, with a constraint made only when the user adds it explicitly; asks for an opinion)
+
+## in_1309 — 2026-11-20 — approval
+> yes, do that, rectangles keep theirs
+(approves the split proposed after in_1308: snapping and hints only place; a constraint is made only when asked for; tool shapes such as the rectangle keep their built-in constraints)

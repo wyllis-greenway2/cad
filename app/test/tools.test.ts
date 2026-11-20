@@ -1,3 +1,4 @@
+import { settings } from "../src/shared/settings.ts";
 import { roundCentres, guidesOf, snapOnPlane } from "../src/interaction/tools.ts";
 import { drawCircle, drawChain } from "../src/operation/build.ts";
 import { actionsFor } from "../src/interaction/actions.ts";
@@ -409,7 +410,8 @@ test("the middle of a line is snapped to, so a point or a corner can be put half
   near(st.tool!.cursor![0], 15, 1e-6);
 });
 
-test("an arc's other end is level or upright with its first end when it is near, and the arc is made with that constraint (`in_381`)", () => {
+test("an arc's other end is level or upright with its first end when it is near, and the arc is made with that constraint (`in_381`)", (t) => {
+  settings.sketch.hintConstraints = true; t.after(() => { settings.sketch.hintConstraints = false; }); // (what a taken hint makes, `in_1309`)
   let st = top();
   st = reduce(st, { type: "begin", name: "arc" }, env);
   st = click(st, [5, 5, 0]);
@@ -471,7 +473,8 @@ test("the tool stays on after a figure, ready on the same plane for the next one
 });
 
 
-test("hints while drawing a line: close to level it becomes level with a horizontal constraint; close to square to a line it becomes perpendicular; on another line it is put on it", () => {
+test("hints while drawing a line: close to level it becomes level with a horizontal constraint; close to square to a line it becomes perpendicular; on another line it is put on it", (t) => {
+  settings.sketch.hintConstraints = true; t.after(() => { settings.sketch.hintConstraints = false; }); // (what a taken hint makes, `in_1309`)
   let st = top();
   st = reduce(st, { type: "begin", name: "line" }, env);
   st = click(st, [5, 5, 0]);
@@ -495,7 +498,8 @@ test("hints while drawing a line: close to level it becomes level with a horizon
   assert.ok(Object.values(sc.parts).some((p) => p.kind === "corner" && Math.abs(p.at[0] - 9) < 1e-6 && Math.abs(p.at[1] - 5) < 1e-6), "its end is exactly on the first line");
 });
 
-test("a line from the centre of a circle to its edge ends exactly on the circle with an 'on circle' constraint; at that spot repeated clicks cycle between the corner and the circle, and both can be constrained", () => {
+test("a line from the centre of a circle to its edge ends exactly on the circle with an 'on circle' constraint; at that spot repeated clicks cycle between the corner and the circle, and both can be constrained", (t) => {
+  settings.sketch.hintConstraints = true; t.after(() => { settings.sketch.hintConstraints = false; }); // (what a taken hint makes, `in_1309`)
   let st = top();
   st = reduce(st, { type: "begin", name: "circle" }, env);
   st = click(st, [20, 20, 0]);
@@ -560,7 +564,8 @@ test("a small circle: pointing at its edge a few pixels from its centre point pi
   assert.equal(kind(onCentre), "corner", "on the centre: the centre point");
 });
 
-test("a circle drawn about another circle's centre: a concentric hint shows, and the new circle is made concentric; two circles can be made concentric by hand", () => {
+test("a circle drawn about another circle's centre: a concentric hint shows, and the new circle is made concentric; two circles can be made concentric by hand", (t) => {
+  settings.sketch.hintConstraints = true; t.after(() => { settings.sketch.hintConstraints = false; }); // (what a taken hint makes, `in_1309`)
   let st = top();
   st = reduce(st, { type: "begin", name: "circle" }, env);
   st = click(st, [20, 20, 0]);
@@ -1040,4 +1045,20 @@ test("sketching on the face of a disk (`in_1304`, `in_1305`): the middle of its 
   assert.ok(mid && Math.hypot(mid[0] - 20, mid[1] - 15) < 1e-6, `the middle: ${JSON.stringify(mid)}`);
   const upright = snapOnPlane(scene(st.session), at(20.1, 40), face);
   assert.ok(upright && Math.abs(upright[0] - 20) < 1e-6, `upright: ${JSON.stringify(upright)}`);
+});
+
+test("a snap or a hint only places (`in_1309`): a line close to level is put level and square, and no constraint is made; a rectangle keeps its own; a circle on a circle's edge is placed there, with none", () => {
+  let st = top();
+  st = reduce(st, { type: "begin", name: "line" }, env);
+  st = click(st, [5, 5, 0]);
+  st = click(st, [25, 5.4, 0]);
+  const ys = Object.values(scene(st.session).parts).filter((p) => p.kind === "corner" && p.origin === "drawn").map((p) => (p as { at: Vec3 }).at[1]);
+  assert.deepEqual(ys, [5, 5], "put exactly level");
+  assert.deepEqual(scene(st.session).relations.map((r) => r.kind), [], "and no constraint is made");
+  let r = top();
+  r = reduce(r, { type: "begin", name: "rect" }, env);
+  r = click(r, [5, 5, 0]);
+  r = click(r, [25, 20, 0]);
+  const kinds = scene(r.session).relations.map((x) => x.kind);
+  assert.ok(kinds.includes("horizontal") && kinds.includes("vertical"), `the rectangle's own: ${kinds.join(",")}`);
 });
