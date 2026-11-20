@@ -157,22 +157,7 @@ for (const p of ENGINE_PRESETS) {
 
 // The hollow piston (`dec_piston_hollow`): the kernel's volume of the piston against one worked out here from the numbers (the outer cylinder, less the grooves and the cavity, plus the two bosses, less the pin's hole).
 const simpson = (f: (x: number) => number, a: number, b: number, n = 2000): number => { const h = (b - a) / n; let s = f(a) + f(b); for (let i = 1; i < n; i++) s += f(a + i * h) * (i % 2 ? 4 : 2); return (s * h) / 3; };
-function pistonVolume(s: typeof ENGINE_START, rm = s.room): number {
-  const g = engineGeometry(s), sh = g.shell, H = g.sk + g.ch, rp = g.rp, bt = g.belt;
-  const wideL = H - Math.max(bt.length, sh.crown), topL = H - sh.crown, zoff = g.w / 2 + rm, rho = s.pin / 2 + s.pinFit / 2;
-  let v = Math.PI * rp * rp * H;
-  for (const gr of bt.grooves) v -= Math.PI * (rp * rp - (rp - bt.depth) ** 2) * gr.height;
-  for (const l of g.pg.lands) v -= Math.PI * (rp * rp - l.radius ** 2) * (l.bottom - l.top); // (the lands cut smaller than the skirt)
-  if (g.pg.clip) v -= 2 * Math.PI * ((g.pg.clip.bore + g.pg.clip.depth) ** 2 - g.pg.clip.bore ** 2) * g.pg.clip.width; // (the circlip grooves)
-  v -= Math.PI * sh.inner ** 2 * wideL + Math.PI * sh.innerBelt ** 2 * (topL - wideL);
-  const reach = (outer: number, inside: number): number => Math.min(sh.boss, 0.95 * Math.sqrt(Math.max(0, outer * outer - inside * inside))), footB = g.sk - sh.boss;
-  const yw = reach(rp, sh.inner), yn = reach(rp - bt.depth, sh.innerBelt);
-  const area = (R: number, yb: number): number => simpson((y) => Math.max(0, Math.sqrt(Math.max(0, R * R - y * y)) - zoff), -yb, yb); // (a boss's cross section inside a cavity of radius R, as wide as yb)
-  v += 2 * (area(sh.inner, yw) * (wideL - footB) + area(sh.innerBelt, yn) * Math.max(0, topL - wideL));
-  v -= 2 * simpson((y) => 2 * Math.sqrt(Math.max(0, rho * rho - y * y)) * Math.max(0, Math.sqrt(Math.max(0, sh.inner * sh.inner - y * y)) - zoff), -rho, rho); // (the pin's hole through the two bosses, whose far face is the cavity's curved wall)
-  v -= 2 * simpson((y) => 2 * Math.sqrt(Math.max(0, rho * rho - y * y)) * (Math.sqrt(rp * rp - y * y) - Math.sqrt(Math.max(0, sh.inner * sh.inner - y * y))), -rho, rho); // (and through the two walls)
-  return v;
-}
+function pistonVolume(s: typeof ENGINE_START): number { return pistonVolumes(pistonOf(s), engineGeometry(s).pg).cup; } // (the maker's own worked-out volume: the kernel's must agree)
 for (const [name, spec] of [["the usual engine", ENGINE_START], ["Honda GX160", ENGINE_PRESETS[1]!.spec], ["Honda GX120", ENGINE_PRESETS[0]!.spec]] as const) {
   test(`${name}: the piston is hollow, with a crown and a wall of the numbers' thickness (its volume is the worked-out one)`, () => {
     const r = engineSteps(spec);
@@ -184,11 +169,11 @@ for (const [name, spec] of [["the usual engine", ENGINE_START], ["Honda GX160", 
     const s = run(createSession(kernel), c.value);
     assert.equal(s.message ?? null, null);
     const g = engineGeometry(spec), bodies = Object.values(scene(s).parts).filter((x) => x.kind === "body") as unknown as { volume: number; bbox: { min: number[]; max: number[] } }[];
-    const piston = bodies.find((b) => Math.abs(b.bbox.max[0]! - b.bbox.min[0]! - (g.sk + g.ch)) < 0.05 && Math.abs(b.bbox.max[2]! - b.bbox.min[2]! - 2 * g.rp) < 0.05)!;
+    const piston = bodies.find((b) => Math.abs(b.bbox.max[0]! - b.bbox.min[0]! - (g.sk + g.ch)) < 0.05 && Math.abs(b.bbox.max[1]! - b.bbox.min[1]! - 2 * g.rp) < 0.05 && b.bbox.max[2]! - b.bbox.min[2]! > 2 * g.rp - 0.5)!;
     assert.ok(piston, "the piston is found by its size");
     const solid = Math.PI * g.rp * g.rp * (g.sk + g.ch), expected = pistonVolume(spec);
     assert.ok(piston.volume < 0.6 * solid, `hollow: ${(piston.volume / solid).toFixed(3)} of a solid cylinder`);
-    assert.ok(Math.abs(piston.volume - expected) / expected < 0.003, `the kernel's ${piston.volume.toFixed(1)} mm3 against the worked out ${expected.toFixed(1)} mm3`);
+    assert.ok(Math.abs(piston.volume - expected) / expected < 0.0015, `the kernel's ${piston.volume.toFixed(1)} mm3 against the worked out ${expected.toFixed(1)} mm3`);
   });
 }
 test("the shell: the wall is half the crown, the cavity is narrower under the grooves, and a too thick wall or crown is refused", () => {
@@ -212,7 +197,7 @@ function pistonKernelVolume(spec: typeof ENGINE_START): number {
   const s = run(createSession(kernel), c.value);
   assert.equal(s.message ?? null, null);
   const g = engineGeometry(spec), bodies = Object.values(scene(s).parts).filter((x) => x.kind === "body") as unknown as { volume: number; bbox: { min: number[]; max: number[] } }[];
-  return bodies.find((b) => Math.abs(b.bbox.max[0]! - b.bbox.min[0]! - (g.sk + g.ch)) < 0.05 && Math.abs(b.bbox.max[2]! - b.bbox.min[2]! - 2 * g.rp) < 0.05)!.volume;
+  return bodies.find((b) => Math.abs(b.bbox.max[0]! - b.bbox.min[0]! - (g.sk + g.ch)) < 0.05 && Math.abs(b.bbox.max[1]! - b.bbox.min[1]! - 2 * g.rp) < 0.05 && b.bbox.max[2]! - b.bbox.min[2]! > 2 * g.rp - 0.5)!.volume;
 }
 for (const [name, spec] of [["the usual engine", ENGINE_START], ["Honda GX160", ENGINE_PRESETS[1]!.spec]] as const) {
   test(`${name}: the oil drain holes take out their own volume, two sides of 0 to 4 holes, none without an oil ring groove`, () => {
@@ -285,6 +270,8 @@ test("the cap goes with the rod in Play", async () => {
 
 // The crankshaft (`dec_crankshaft_design`): the crank pin is Honda's (0.44 of the bore), two webs with counterweights, the pin between them; the kernel's volume against one worked out from the numbers.
 import { crankPinFor } from "../src/operation/pistondesign.ts";
+import { pistonVolumes } from "../src/operation/modelpiston.ts";
+import { pistonOf } from "../src/operation/modelengine.ts";
 test("the crank pin is Honda's: 0.44 of the bore, within 1.5 % of 29.98 mm in 68 mm and 25.98 mm in 60 mm", () => {
   assert.ok(Math.abs(crankPinFor(68) - 29.98) / 29.98 < 0.015, `${crankPinFor(68)}`);
   assert.ok(Math.abs(crankPinFor(60) - 25.98) / 25.98 < 0.02, `${crankPinFor(60)}`);

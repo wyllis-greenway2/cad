@@ -59,7 +59,7 @@ test("the engine is made: nine bodies, each where the numbers put it, and Play p
   const f = engineFootprint(S()), ox = -(f.x0 + f.x1) / 2; // (the model stands with the middle of its footprint on the click)
   const xp0 = g.r + g.l + ox;
   assert.ok(Math.abs(piston.bbox.max[0]! - (xp0 + g.ch)) < 0.05 && Math.abs(piston.bbox.min[0]! - (xp0 - g.sk)) < 0.05, `the piston stands from ${piston.bbox.min[0]} to ${piston.bbox.max[0]}`);
-  assert.ok(Math.abs(piston.bbox.max[2]! - piston.bbox.min[2]! - 2 * g.rp) < 0.05 && Math.abs((piston.bbox.max[2]! + piston.bbox.min[2]!) / 2 - g.zc) < 0.05, "centred on the cylinder's axis");
+  assert.ok(Math.abs(piston.bbox.max[2]! - piston.bbox.min[2]! - (2 * g.rp - g.pg.oval)) < 0.05 && Math.abs(piston.bbox.max[1]! - piston.bbox.min[1]! - 2 * g.rp) < 0.05 && Math.abs((piston.bbox.max[2]! + piston.bbox.min[2]!) / 2 - g.zc) < 0.05, "centred on the cylinder's axis (the oval skirt is narrower along the pin)");
   const cap = body("Rod cap"), e = S().room / 2; // (the big end is split at the crank pin's middle: the rod has the half toward the piston, the cap the other, their parting faces half the room either side)
   assert.ok(Math.abs(rod.bbox.max[0]! - (xp0 + g.rs)) < 0.05 && Math.abs(rod.bbox.min[0]! - (g.r + ox + e)) < 0.05, "the rod's small eye at the piston pin and its half of the big end from the parting face");
   assert.ok(Math.abs(cap.bbox.min[0]! - (g.r + ox - g.rb)) < 0.05 && Math.abs(cap.bbox.max[0]! - (g.r + ox - e)) < 0.05 && cap.volume > 0, "the cap is the other half of the big end");
