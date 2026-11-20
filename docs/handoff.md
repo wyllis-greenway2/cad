@@ -4495,3 +4495,6 @@ No words from the human with the upload (one 135 page PDF), so no `human-input.m
 ## Handoff 1134 — 2026-11-20 (in_1279: brought up to the testing branch again)
 `in_1279`. The testing branch had moved on by a few commits (keyway tool, to Handoff 1133); merged into this branch (`claude/hopeful-cannon-9`). Conflicts only in `docs/handoff.md` and `docs/human-input.md`: took theirs, re-added this branch's `in_1272` as `in_1279`. Nothing pushed to the testing branch.
 
+## Handoff 1135 — 2026-11-20 (in_1280: a connecting rod maker, asked and researched, not built)
+`in_1280`. The human asked for a rod maker to work with the piston maker. Read the piston maker (`modelpiston.ts`, its kind in `modelkinds.ts`: typed fields grouped, 0 = auto, presets, the engine building by the same code), the engine's rod (`modelengine.ts`, `dec_rod_design`) and the sources already in the repo (Honda's rod data, Batesville's casting rules). Web search found little (summaries only, recorded in `docs/sources/README.md`). Wrote `q_rod_maker` (open): the variables in groups, what is sourced, a first slice, four questions. **Nothing built.** Waiting for answers and any rod or bearing shell drawings.
+
