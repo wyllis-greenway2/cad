@@ -5769,3 +5769,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1368 — 2026-11-20 — question
 > when I try to pull these faces down, really weird things happen to the model.
 (with the saved model `5c8dac63-model_6.json`, kept as `app/test/fixtures/cylinder-pockets.cad.json`, and two screenshots: the top of a cylinder with two lines across it and the two end pieces selected, and the body after the pull, its top face and walls missing)
+
+## in_1369 — 2026-11-20 — question
+> what is the root cause? how do we have it possible for the surfaces to get out of sync and how can we fix it?
+(asks for the root cause of the undrawn faces after the pull, how the surfaces can get out of step, and the real fix)
