@@ -140,7 +140,7 @@ export function createView(host: HTMLElement) {
    * solid and hatched with parallel lines, as a cut part is in an engineering drawing (the stencil counts, along each pixel's line of sight, how many faces of the body lie behind the plane: odd is inside the solid). */
   /** The lines drawn on a face that lies in a cutting plane come after the cut and the face drawn again over it, or they would be covered by them (`in_1358`); built again with the scene, so this is done then too. */
   function raiseLines() {
-    content.traverse((o) => {
+    for (const group of [content, overlay, marks]) group.traverse((o) => { // (what is selected or pointed at is drawn by the overlay, not by the content: it too must come after the faces drawn again over the cut)
       const l = o as THREE.Object3D & { isLine?: boolean; isLine2?: boolean; isLineSegments2?: boolean };
       if (l.isLine || l.isLine2 || l.isLineSegments2) { l.userData.order ??= l.renderOrder; l.renderOrder = clips.length ? Math.max(l.userData.order as number, 2) : (l.userData.order as number); }
     });
@@ -283,6 +283,7 @@ export function createView(host: HTMLElement) {
     if (key !== null && key === highlightWas) return;
     highlightWas = key;
     buildHighlight(overlay, marks, lastScene, lastMesh, h, cam, pen, nowMs);
+    if (clips.length) raiseLines();
     // what is selected or pointed at is cut where the part is: the teal of a face stops at the section plane, it does not go on into the cut-away space (`in_680`)
     if (clips.length) for (const g of [overlay, marks]) g.traverse((o) => { const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined; for (const mat of Array.isArray(m) ? m : m ? [m] : []) if (!(mat instanceof THREE.ShaderMaterial) || mat.clipping) mat.clippingPlanes = clips; });
   };
