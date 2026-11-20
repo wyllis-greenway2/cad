@@ -5442,3 +5442,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1282 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
 (asks for the polygon tool and the drag select, spline right click and Delete / Undo changes to be merged into the testing branch, no full test run)
+
+## in_1283 — 2026-11-20 — directive
+> the polygon tool doesn't have good suggested snapping, I can't snap the origin and mouse end point in horizontal or vertical spots. Also when I try to draw on a polygon, like draw a circle in a hexagon, it doesn't help me snap to center.
+(two faults of the polygon tool: its size point does not snap level or upright with the middle, and nothing snaps to the middle of a polygon that is drawn)
