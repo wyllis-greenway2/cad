@@ -5495,10 +5495,83 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1296 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please
 
-## in_1297 — 2026-11-20 — directive
+## in_1297 — 2026-11-20 — rejection
+> no its not quite right. The flats or cutouts where the wrist pin comes through I think should be more like this  with the flat option that stops and angles into the diameter before interrupting the oil ring, or like the other one that is cutout but returns to diameter on the top and bottom. Also some of the ear types seem to go much lower and be cut with curves coming in from a different direction. These two piston types seem to capture both methods of ears and pin flat areas
+(with two pictures: a piston and rod seen from the pin side whose pin face is a flat that ramps out to the full diameter above the oil ring, and a piston whose pin side is a deep curved cutout that returns to the full diameter at the top and bottom, with long ears below; says the flats and cutouts at the pin are not right yet, wants a flat that stops and angles into the diameter before the oil ring, or a cutout that returns to the diameter above and below, and ears that reach much lower, cut by curves coming from a different direction; says these two pistons cover both methods of ears and pin flats)
+
+## in_1298 — 2026-11-20 — directive
+> when the rotate extrude tool opens, it defaults to one of its axis selected for rotation but its bubbles arent open to input rotation amount or spiral value. Also what is the spiral tool input even specifying? it seems like nothing? It seems like any value just spirals the amount such that the extruded surface is fully above itself on 1 revolution? I think that it should just be specifying units (mm or whatever system is set to) increment in that direction per full revolution.
+
+## in_1299 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1300 — 2026-11-20 — question
+> can we have a loft repeat type? so this would be different then linear or circular repeat, it would follow an edge.
+(asks for a repeat that follows an edge; `dec_path_repeat` already covers a path of drawn lines, and a body's edge only for fastener holes, so what is missing is being asked back)
+
+## in_1301 — 2026-11-20 — directive
+> any line path. Should be the same as loft ( dont know if loft is actually like this we should probably check) but it should be able to follow a lone line in space, the edge of a body as a line in space, etc. It should be able to follow continuous selected touching lines like the perimeter of a complex shape for example or square made of four lines.
+(answer to which gap the loft repeat fills: any line path, in space, a body's edge, or touching selected lines such as a perimeter; asks to check how loft takes its path)
+
+## in_1302 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the path repeat in space to be merged into the testing branch, no full test run)
+
+## in_1303 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the path repeat in space to be merged into the testing branch, no full test run; the same words as in_1302)
+
+## in_1304 — 2026-11-20 — directive
+> build the scoop next, the arch stays as an option
+(answers my two questions on the second picture: build the scoop next, and the arch stays as its own option alongside it)
+
+## in_1305 — 2026-11-20 — directive
+> add the key as its own body next
+(asks for the key itself to be made as a body of its own, next, in the keyway maker)
+
+## in_1306 — 2026-11-20 — question
+> I cannot seem to cut this profile through? it seems to only grab one half of the selected enclosed sketches to extrude?
+(a screenshot of a body with a ring (two concentric circles) drawn on a flat wall that is split by a vertical line; the saved model c9442ef0-cannot-through.json)
+
+## in_1307 — 2026-11-20 — directive
+> Also this helper set of icons shows up directly under my click sometimes. it is super annoying. Can we have it offset from the body further?
+(a screenshot: the helpful bar with the eye, the lock and two suggested constraints standing over a face that was clicked)
+
+## in_1308 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1309 — 2026-11-20 — directive
+> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
+(the same suggestion as `in_1135`; this branch had nothing the testing branch lacked, so the merge was the other way: this branch was brought up to its tip, and a new branch `claude/hopeful-cannon-9` cut from it)
+
+## in_1310 — 2026-11-20 — directive
+> okay I have another claude making a piston head maker tool in claude/inspiring-pascal-l342k7 branch. Can you look at how that works? I want to make a piston arm maker tool that will work later with the piston head maker to make a complete assembly. We already have some spects on the piston arms in our docs in the repo, you may want to review that. Here are a few drawings and pictures of general shape and function of piston arms. You can see they are generally designed to be cast, so they haven arm part, with webbing or rims, and a bottom part designed to bolt to that to hold the crankshaft bearing. The top part can either just have a machined hole with a sleeve or possible another bolt helping to clamp. I am not sure what the standards are for bearings, sleeves, size ratios, etc. But I want to make real arms that really could work in a real engine, with all the features and details of a real arm.
+(four images attached: an exploded drawing of a piston, pin, rings, connecting rod, bearing and rod cap; a photograph of a piston and rod; a labelled exploded piston with washer, clamping bolt, bearing shells, locking plate and set screws; a wireframe of a piston and rod. The images are not kept in the repository.)
+
+## in_1311 — 2026-11-20 — directive
+> yes I think that is on the right track, but lets research a bit first. Go find what you need online or send me links to docs you need and I will see if I can get them for you. So first off, are bearings normally sleeves? are the sleeves mated to the arm itself or the pin they ride on or both? are sleeves normally in two halves? how about normal bearings? do engines use needle or roller or ball bearings to join arms to pins or shafts ever? Also for casting specific features like draft etc, I am unsure if we should include them. normally parts are supposed to be manufacturing agnostic and then specific manufacturing routes would help specify specific manufacturing needs like machine bit radius, or casting draft angles etc. So any work like this should probably be modular in some sense because we know we will use manufacturing specific things later elsewhere that arent intertwined with a specific piston arm tool
+(approves the direction of `dec_rod_maker`; asks for research on bearings first; asks that casting draft and similar process features stay out of the rod tool and live in separate, manufacturing-route modules)
+
+## in_1312 — 2026-11-20 — directive
+> can you link me to any documents I may be able to get for you that you need?
+
+## in_1313 — 2026-11-20 — directive
+> @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/b7605131-Connecting_Rod_Tech___Engine_Professional.pdf" @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/ab5490f3-Explaining_Under-_And_Oversized_Engine_Bearings.pdf" @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/d4ee3271-Engine_Bearings__Hydrodynamic_Lubrication_Explained___EPI.pdf" @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/ad5cfe02-Gudgeon_pin_-_Wikipedia.pdf"
+(no words, only the four attached files, in answer to `in_1312`: the human sent four PDFs for `dec_rod_maker`: "Connecting Rod Tech" (Engine Professional, Mavrigian), "Engine Bearings & Hydrodynamic Lubrication Explained" (EPI, Kane), "Explaining Under- And Oversized Engine Bearings With King Bearings" (EngineLabs, Acosta, 2024) and the Wikipedia "Gudgeon pin" article. The files are not kept in the repository.)
+
+## in_1314 — 2026-11-20 — directive
+> @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/1d3ff12a-10197091.pdf" @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/468deeed-4738234.pdf" @"/root/.claude/uploads/b3ce4258-7a92-534f-ab35-fc5ea87f1ade/a69d2b9d-7581315.pdf"
+(no words, only three attached files, the patents named in the earlier link list: US 10,197,091, US 4,738,234 and US 7,581,315; the files are not kept in the repository)
+
+## in_1315 — 2026-11-20 — directive
+> build the first slice now with assumed proportions
+
+## in_1316 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please
+
+## in_1317 — 2026-11-20 — directive
 > I got it. Okay so the profile is pretty cartoonish. Also it doesn't merge well with the other bodies. No we need to have it be a real profile that is extruded and then sections inset and stepped in with proper fillets etc. It should look more like this. Notice the smooth curved profile shape. Notice how there is an extended rim thinkess on both bored ends that can be mchined mate flush with the edges of the pins that go through them. Also notice how there are oil holes designed to let oil into the bearing surface. I dont know the standard on these, but I think they need oil holes sometimes or possibly always?
 (an image attached: a photograph of a forged I-beam rod with a bronze-bushed small end, a bolted cap and a smooth curved beam with a long recessed pocket; the image is not kept in the repository)
 
-## in_1298 — 2026-11-20 — directive
+## in_1318 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please
-

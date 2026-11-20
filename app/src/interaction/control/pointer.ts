@@ -130,7 +130,8 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "model:wheel", label: "Wheel", icon: "wheel" }, // (hub, spokes and rim: alone, or filling a selected round object, `dec_hub_spoke`)
   { id: "model:keyhole", label: "Keyed hole", icon: "keyhole" }, // (a key, a flat or a spline cut into the hole of a round body, `dec_keyway_maker`)
   { id: "model:keyshaft", label: "Keyed shaft", icon: "keyshaft" },
-  { id: "keyway:mesh", label: "Mesh keyway", icon: "keyshaft" }, // (the shaft that fits a keyed hole, or the hub that fits a shaft, `in_1279`) // (a shaft with a keyway, a flat or a spline)
+  { id: "keyway:mesh", label: "Mesh keyway", icon: "keyshaft" }, // (the shaft that fits a keyed hole, or the hub that fits a shaft, `in_1279`)
+  { id: "keyway:key", label: "Make the key", icon: "keyshaft" }, // (the key of a keyed hole or shaft, as a body of its own, `in_1305`)
   { id: "model:wheelcut", label: "Cut spokes", icon: "wheelcut" }, // (the wheel cut into a round body that is selected: its bore and outside edge kept, `dec_hub_spoke`)
   { id: "model:cycloidal", label: "Cycloidal drive", icon: "cycloidal" }, // (a cycloidal reducer)
   { id: "fab:material", label: "Material", icon: "models" }, // (Shape, Fabricate: what a body is made of, `in_1083`; it was a row of the ⋯ list)
@@ -167,7 +168,7 @@ const BEARINGS_MENU: Group = { id: "bearings", label: "Bearings", icon: "bearing
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:polygon", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "fabricate", label: "Fabricate", icon: "hammer", items: ["fab:material", "tool:fasteners"] }] },
-  { id: "mechanisms", label: "Models", icon: "gear", items: [GEARS, BEARINGS_MENU, "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "model:piston", "model:rod", "model:wheel", "model:wheelcut", "model:keyhole", "model:keyshaft", "keyway:mesh", "tool:geneva:model"] }, // (the gears, and the devices made of them, `in_1145`; the gears were in Sketch and the devices in Shape, Fabricate, Models)
+  { id: "mechanisms", label: "Models", icon: "gear", items: [GEARS, BEARINGS_MENU, "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "model:piston", "model:rod", "model:wheel", "model:wheelcut", "model:keyhole", "model:keyshaft", "keyway:mesh", "keyway:key", "tool:geneva:model"] }, // (the gears, and the devices made of them, `in_1145`; the gears were in Sketch and the devices in Shape, Fabricate, Models)
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:drag", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
@@ -216,6 +217,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     }
     if (r.id === "gear:edit" || r.id === "gear:mesh" || r.id === "gear:meshrack" || r.id === "gear:meshring") { const has = sel.some((x) => !!gearOfSelection(sc, x) || (r.id === "gear:edit" && !!planetaryOfPart(sc, x))); return [r.id, { ...base, enabled: has, why: has ? null : "select a gear" }]; }
     if (r.id === "repeat:path") { const why = whyNoPathRepeat(session); return [r.id, { ...base, enabled: !why, why }]; }
+    if (r.id === "keyway:key") { const rec = sel.map((x) => keywayOf(sc, x)).find((k) => !!k), why = !rec ? "select a keyed hole or a keyed shaft" : rec.nums.kind !== 0 ? "only a keyway takes a key" : null; return [r.id, { ...base, enabled: !why, why }]; }
     if (r.id === "keyway:mesh") { const has = sel.some((x) => !!keywayOf(sc, x)); return [r.id, { ...base, enabled: has, why: has ? null : "select a keyed hole or a keyed shaft" }]; }
     if (r.id.startsWith("model:")) return [r.id, { ...base, enabled: true, why: null }]; // (a dialog for the numbers, `dec_gear_models`)
     if (r.id === "fab:material") { const why = whyNoMaterial(session); return [r.id, { ...base, enabled: !why, why }]; }

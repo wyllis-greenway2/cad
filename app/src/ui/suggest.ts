@@ -96,7 +96,7 @@ export function createSuggest(host: HTMLElement, run: (id: string, part?: string
       row.style.display = "flex";
       // below the number bubble that sits on the part, unless something in front is there: placed like a bubble whose own place is that one
       const w = row.offsetWidth || 40;
-      const p = placeBubbles([{ id: "row", x: at[0] + w / 2 - 20, y: at[1] + 77, w }], { lines: [], dots: [], rects: inFront }, memory)[0]!;
+      const p = placeBubbles([{ id: "row", x: at[0] + w / 2 - 20, y: at[1] + 104, w }], { lines: [], dots: [], rects: inFront }, memory)[0]!;
       row.style.left = `${Math.round(p.left)}px`;
       row.style.top = `${Math.round(p.top)}px`;
       row.style.opacity = p.faded ? "0.3" : "";

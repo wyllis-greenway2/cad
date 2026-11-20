@@ -13,7 +13,7 @@ import type { GearVariant } from "../tools.ts";
 import { keywayCommand, modelHeld, modelChanged, modelTyped, modelCommand, modelFix, modelBuilding, nextPartCommand, partIds, finishCommand } from "../modeltool.ts";
 import type { ModelKind } from "../../operation/modelkinds.ts";
 import { modelCutsBody } from "../../operation/modelkinds.ts";
-import { keywayOf, meshTool, meshConvert } from "../keywaymesh.ts";
+import { keywayOf, meshTool, meshConvert, keyTool } from "../keywaymesh.ts";
 /** why the model of a tool is not made (the words of its refusal), or null */
 const modelWhy = (sc: ReturnType<typeof sceneOf>, t: Tool): string | null => { const c = modelCommand(sc, t); return c.ok ? null : c.error; };
 import type { CamKind, CamLaw, CamLayout } from "../../operation/cams.ts";
@@ -547,7 +547,7 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
   if (id === "tool:clock" || id === "tool:clockring" || id === "tool:clockrack") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:clock" ? "clock" : id === "tool:clockring" ? "clockring" : "clockrack"); // (a cycloidal clock gear, `in_585`)
   if (id === "tool:sprocket" || id === "tool:isosprocket") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:sprocket" ? "sprocket" : "isosprocket"); // (a roller chain sprocket, `in_584`)
   if (id === "tool:gt2" || id === "tool:gt3" || id === "tool:htd5" || id === "tool:htd8") return beginTool(closed, "gear", now, s.menu?.plane ?? null, id === "tool:gt2" ? "gt2" : id === "tool:gt3" ? "gt3" : id === "tool:htd8" ? "htd8" : "htd5"); // (a timing pulley, `in_583`)
-  if (id === "keyway:mesh") { // the shaft that fits a keyed hole that is selected, or the hub that fits a shaft (`dec_keyway_maker`, `in_1279`)
+  if (id === "keyway:mesh") { // the shaft that fits a keyed hole that is selected, or the hub that fits a shaft (`dec_keyway_maker`, `in_1298`)
     const sc = sceneOf(s.session), rec = selectionOf(s.session).map((r) => keywayOf(sc, r)).find((k) => !!k);
     if (!rec) return { ...closed, session: { ...s.session, message: "select a keyed hole or a keyed shaft made with the keyway maker first" } };
     for (const r of selectionOf(s.session)) { // (a round body selected too: the keyway is cut into it at once: the hole's shape into a rod, the shaft's into a body, `in_1287`)
@@ -557,6 +557,12 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
       if (conv) return { ...closed, tool: conv, op: null };
     }
     return { ...closed, tool: meshTool(rec), op: null };
+  }
+  if (id === "keyway:key") { // the key of a keyed hole or shaft, as a body of its own (`in_1298`)
+    const sc = sceneOf(s.session), rec = selectionOf(s.session).map((r) => keywayOf(sc, r)).find((k) => !!k);
+    if (!rec) return { ...closed, session: { ...s.session, message: "select a keyed hole or a keyed shaft made with the keyway maker first" } };
+    const tool = keyTool(rec);
+    return typeof tool === "string" ? { ...closed, session: { ...s.session, message: tool } } : { ...closed, tool, op: null };
   }
   if (id === "gear:mesh" || id === "gear:meshrack" || id === "gear:meshring") { // a gear, a rack or a ring round it, that meshes with the one selected (`in_579`, `in_686`)
     const sc = sceneOf(s.session);
