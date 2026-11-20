@@ -1,4 +1,4 @@
-// Mesh for the keyway maker (`dec_keyway_maker`, `in_1279`): a keyed hole selected gets the shaft that fits it, a shaft the hub that fits it, from scratch or cut into the round geometry that is clicked.
+// Mesh for the keyway maker (`dec_keyway_maker`, `in_1289`): a keyed hole selected gets the shaft that fits it, a shaft the hub that fits it, from scratch or cut into the round geometry that is clicked.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kernel } from "../src/compiler/kernel/index.ts";

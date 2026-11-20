@@ -64,7 +64,7 @@ export interface Tool {
   typed: [string, string];
   field: 0 | 1;
   /** a model that fills a selected round object (`dec_hub_spoke`): the circle's centre and the direction of its axis; the model stands there and is as wide as the circle, whatever the plane */
-  fill?: { center: Vec3; normal: Vec3; /** the direction of the model's x axis in the plane across the axis (a keyed shaft and its hub stand with their splines alike, `in_1279`) */ u?: Vec3; /** Cut spokes: the round body the wheel is cut into, its numbers read (`roundbody.ts`): half the diameter of its outside and of its bore (0: none), how thick it is, and the radius of the roots of its teeth (0: none) */ cut?: { outer: number; bore: number; thickness: number; root: number; host?: string } };
+  fill?: { center: Vec3; normal: Vec3; /** the direction of the model's x axis in the plane across the axis (a keyed shaft and its hub stand with their splines alike, `in_1289`) */ u?: Vec3; /** Cut spokes: the round body the wheel is cut into, its numbers read (`roundbody.ts`): half the diameter of its outside and of its bore (0: none), how thick it is, and the radius of the roots of its teeth (0: none) */ cut?: { outer: number; bore: number; thickness: number; root: number; host?: string } };
   /** the constraints the end of the line being drawn is close to (and has taken): a click makes the line with them */
   hints?: Hint[];
   /** a finger holds the cursor at `cursor` (it has no hover): the next tap sets the point there (`in_286`) */
@@ -152,7 +152,7 @@ export const gearFields = (g: { planetary?: true; internal: boolean; worm?: true
   const f = (key: GearKey, label: string) => ({ key, label });
   if (g.planetary) return [f("sun", "Sun teeth"), f("planet", "Planet teeth"), f("planets", "Planets"), f("ratio", "Ratio"), f("module", "Module"), f("width", "Width"), f("helix", "Helix"), f("pressure", "Pressure"), f("backlash", "Backlash"), f("clearance", "Clearance"), f("bore", "Sun bore"), f("rim", "Wall"), f("pin", "Pin"), f("pingap", "Pin gap"), f("carrier", "Carrier"), f("plategap", "Plate gap"), f("spacing", "Spacing"), f("housing", "Housing"), f("cap", "Housing cap"), f("housingfit", "Housing fit"), f("chamfer", "Chamfer"), f("edge", "Edge chamfer")]; // (a planetary set, `dec_planetary_gears`)
   const fs = gearFieldsBase(g, f);
-  const withBore = fs; // (a bore is a smooth hole: its flat, key and splines are the keyway maker's, `in_1279`; a gear that was made with a flat or a keyway keeps it)
+  const withBore = fs; // (a bore is a smooth hole: its flat, key and splines are the keyway maker's, `in_1289`; a gear that was made with a flat or a keyway keeps it)
   const plain = !g.worm && !g.wheel && !g.bevel && !g.rack && !g.pulley && !g.sprocket && !g.cycloidal && !g.mesh;
   if (g.rack && !g.mesh && !g.pulley && !g.sprocket && !g.cycloidal) return [...withBore, f("chamfer", "Chamfer"), f("edge", "Edge chamfer")]; // (a rack: the tips of its teeth, or the whole edge of its faces, `in_924`)
   return plain ? [...withBore, f("chamfer", "Chamfer"), f("edge", "Edge chamfer")] : withBore; // (the tips of the teeth broken at the faces, last so that the numbers before it keep their places, `in_791`)

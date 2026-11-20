@@ -1,4 +1,4 @@
-// Mesh for the keyway maker (`dec_keyway_maker`, `in_1279`), as a gear is meshed: a keyed hole that is selected gets the shaft that fits it, a shaft the hub that fits it. Either is made from scratch (a shaft, or a hub: a disc with a
+// Mesh for the keyway maker (`dec_keyway_maker`, `in_1289`), as a gear is meshed: a keyed hole that is selected gets the shaft that fits it, a shaft the hub that fits it. Either is made from scratch (a shaft, or a hub: a disc with a
 // keyed bore) or, with a click on the geometry that is there, cut in: the keyed shaft's keyway into a round shaft, the keyed hole into a round body. Pure.
 import type { Scene } from "../operation/scene.ts";
 import type { Ref } from "../shared/ref.ts";
