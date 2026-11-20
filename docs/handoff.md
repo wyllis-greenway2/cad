@@ -4635,3 +4635,6 @@ Branch `claude/adoring-dijkstra-carry`. `in_1280` asked for a polygon tool that 
 
 ## Handoff 1182 — 2026-11-20 (in_1336: brought up to the testing branch)
 `in_1336`. Merged the testing branch (up to `in_1333`, Handoff 1179). My `in_1322`, `in_1323` and Handoffs 1171, 1172 became `in_1334`, `in_1335` and 1180, 1181. Its `roundCentres` (the middle of a disk's rim, `in_1325`) moved into `hold.ts` so the one reference set holds it too.
+
+## Handoff 1183 — 2026-11-20 (in_1337: a chamfer all the way across a flat cut)
+`in_1337`. Cause: the kernel's chamfer fails past 4.45 mm of a 4.5 mm floor, and the region fallback (`regionRound`) limited a concave fill by the farthest vertex of each face, which is 0 for a floor with a curved side, so it made a zero-size tool ("This object has been deleted" from a degenerate segment) and the step failed. Fix in `interpreter.mjs`: a concave straight edge's fill is full size and clipped to the faces' shadows (`faceShadow`). Test `chamferflat.test.ts` with the model. Chamfer and fillet tests: see the run below.

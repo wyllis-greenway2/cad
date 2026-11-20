@@ -1997,6 +1997,13 @@ function rimTool(e, fs, size, mode, stations, whole = false, ends = null) {
   return { tool: solid, convex, R, length: e.length, partial: !closed, key: String(e.hashCode), capped, tip };
 }
 /** The solid between the planes at `from` and `to` along the unit vector m from the point p, square and `big` wide about it. */
+/** The face pushed out along `v` (a vector of the length it goes): the solid of everything straight above it, to the height of the vector. */
+function faceShadow(face, v) {
+  const oc = getOC();
+  const vec = new oc.gp_Vec(v[0], v[1], v[2]);
+  const mk = new oc.BRepPrimAPI_MakePrism(face.wrapped, vec, false, true);
+  try { return cast(mk.Shape()); } finally { mk.delete(); vec.delete(); }
+}
 function slabSolid(p, m, from, to, big) {
   const pick = Math.abs(m[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
   const xd = [m[1] * pick[2] - m[2] * pick[1], m[2] * pick[0] - m[0] * pick[2], m[0] * pick[1] - m[1] * pick[0]];
@@ -2234,6 +2241,7 @@ function regionRound(t, set0, size, mode, stations) {
     const at = (s) => [A.x + normal[0] * s, A.y + normal[1] * s, A.z + normal[2] * s]; // a point of the line of the edge, `s` along the normal of the profile
     // concave: material added past the end of the faces would stand out from the body as a wing, so it is filled as far as the faces go and no further
     let limit = Infinity;
+    const clipFill = !convex && !stations && size > 0;
     if (!convex) {
       const extent = fs.map((f, i) => { let far = 0; for (const p of faceVertices(f)) far = Math.max(far, dotp(a[i], [p.x - A.x, p.y - A.y, p.z - A.z])); return far; });
       limit = Math.min(extent[0], extent[1]);
@@ -2242,7 +2250,7 @@ function regionRound(t, set0, size, mode, stations) {
     const profile = (sz, where) => {
       let reach = mode === "chamfer" ? sz : sz / Math.tan(alpha / 2); // how far along each face the rounding begins
       let radius = sz;
-      if (reach > limit) { reach = limit; radius = mode === "chamfer" ? sz : limit * Math.tan(alpha / 2); }
+      if (reach > limit && !clipFill) { reach = limit; radius = mode === "chamfer" ? sz : limit * Math.tan(alpha / 2); }
       const t1 = [reach, 0];
       const t2 = [reach * Math.cos(alpha), reach * Math.sin(alpha)];
       // the two lines of the region that lie along the faces are moved a hair out of the body (parallel to the faces), so that the region and the body do not share faces that are not quite the same plane (the
@@ -2275,6 +2283,11 @@ function regionRound(t, set0, size, mode, stations) {
       for (const piece of pieces.slice(1)) extra.push(piece);
     } else {
       tool = profile(size, lowest).extrude(len + 2 * margin);
+      // concave: what is filled stays above the faces that are there, so where a face is narrower than the fill is wide (the floor of a flat cut on a round body, narrowing to nothing at the ends) the fill follows the
+      // face's outline up and does not stand out past it, and a chamfer or fillet can go all the way across the face (`in_1337`: a chamfer of a flat cut stopped a sliver short of the face's widest part)
+      if (clipFill) {
+        try { for (let i = 0; i < 2; i++) { const h = size * 1.01 + 1e-3; tool = tool.intersect(faceShadow(fs[i], [norm[i][0] * h, norm[i][1] * h, norm[i][2] * h])); } } catch (err) { if (process.env.DBG2) console.log("clip failed", err.message); }
+      }
       if (clipped) for (const { V, n } of endPlanes) tool = tool.intersect(slabSolid([V.x, V.y, V.z], n, -reachAll, 1e-3, reachAll)); // (the side of the end face the body is on, and a hair beyond the face)
     }
     tools.push({ tool, convex });

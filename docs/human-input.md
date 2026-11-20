@@ -5645,3 +5645,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1336 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1337 — 2026-11-20 — question
+> why can I not extend this chamfer all the way? it wants to keep this little sliver of flat or it fails.
+(two screenshots: a chamfer being made along an edge of a flat cut on a round body, the size 4.4 and Constant / Variable; and the edge selected with its arrows, a thin sliver of the flat left beside the chamfered edge; the saved model bdaeea8e-model_2.json)
