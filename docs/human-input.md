@@ -5498,3 +5498,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1297 — 2026-11-20 — rejection
 > no its not quite right. The flats or cutouts where the wrist pin comes through I think should be more like this  with the flat option that stops and angles into the diameter before interrupting the oil ring, or like the other one that is cutout but returns to diameter on the top and bottom. Also some of the ear types seem to go much lower and be cut with curves coming in from a different direction. These two piston types seem to capture both methods of ears and pin flat areas
 (with two pictures: a piston and rod seen from the pin side whose pin face is a flat that ramps out to the full diameter above the oil ring, and a piston whose pin side is a deep curved cutout that returns to the full diameter at the top and bottom, with long ears below; says the flats and cutouts at the pin are not right yet, wants a flat that stops and angles into the diameter before the oil ring, or a cutout that returns to the diameter above and below, and ears that reach much lower, cut by curves coming from a different direction; says these two pistons cover both methods of ears and pin flats)
+
+## in_1298 — 2026-11-20 — directive
+> add the key as its own body next
+(asks for the key itself to be made as a body of its own, next, in the keyway maker)

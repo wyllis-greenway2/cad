@@ -20,12 +20,12 @@ import { rodSteps, rodProblem, rodExtent, rodAbout, rodGeometry, ROD_START, ROD_
 import type { RodSpec } from "./modelrod.ts";
 import { fitNumbers } from "./modelfit.ts";
 import { wheelSteps, wheelCutSteps, wheelProblem, wheelLines, wheelLines3, repairWheel, edgeMade, WHEEL_START } from "./modelwheel.ts";
-import { keyholeSteps, keyshaftSteps, keyfitSteps, keywayProblem, keywayAbout, KEYWAY_START } from "./modelkeyway.ts";
-import type { KeywaySpec, KeywayMode } from "./modelkeyway.ts";
+import { keyholeSteps, keyshaftSteps, keyfitSteps, keywayProblem, keywayAbout, KEYWAY_START, keySteps, keyProblem, KEY_START } from "./modelkeyway.ts";
+import type { KeywaySpec, KeywayMode, KeySpec } from "./modelkeyway.ts";
 import type { WheelSpec } from "./modelwheel.ts";
 
-export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "piston" | "rod" | "wheel" | "wheelcut" | "keyhole" | "keyshaft" | "keyhub" | "keyfit";
-export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine", "piston", "rod", "wheel", "wheelcut", "keyhole", "keyshaft", "keyhub", "keyfit"];
+export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "piston" | "rod" | "wheel" | "wheelcut" | "keyhole" | "keyshaft" | "keyhub" | "keyfit" | "key";
+export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine", "piston", "rod", "wheel", "wheelcut", "keyhole", "keyshaft", "keyhub", "keyfit", "key"];
 /** The numbers of a model, by name */
 export type Nums = Record<string, number>;
 /** One number of a model: what it is called, a line that says what it is, and whether it grows with the overall size (a length of the thing, not a room left for the printer or a count) */
@@ -183,7 +183,32 @@ function keywayDef(mode: KeywayMode): Def {
   };
 }
 
+const ky = (n: Nums): KeySpec => n as unknown as KeySpec;
+/** the key as a body of its own (`dec_keyway_maker`, `in_1298`) */
+const keyDef: Def = {
+  title: "Key (a parallel key as a body of its own)",
+  sizeLabel: "Length",
+  sizeKey: "len",
+  fields: [
+    { ...F("ends", "Ends", "round ends (a half circle of the key's width at each end) or square"), choices: ["Round", "Square"], top: true },
+    F("key", "Key width", "mm: across the key; made `Play` narrower than the slot's nominal width", true),
+    F("h", "Key height", "mm: from the floor of the shaft's slot up; the shaft's slot and the hub's together are this deep, less 0.1 mm", true),
+    F("len", "Key length", "mm along the shaft (the Size)", true),
+    F("play", "Play", "mm: how much narrower than the slot's nominal width the key is made (0: the nominal)", true),
+    { ...F("base", "Seat", "mm from the axis to the floor of the shaft's slot", true), hidden: true as const },
+    { ...F("outer", "Outer", "", true), hidden: true as const },
+  ],
+  start: { ...(KEY_START as unknown as Nums) },
+  problem: (n) => keyProblem(ky(n)),
+  extent: (n) => (keyProblem(ky(n)) ? 0 : Math.max(ky(n).len, ky(n).h, ky(n).key)),
+  centre: () => [0, 0],
+  build: (n, place) => keySteps(ky(n), place),
+  outline: (n) => [rect(-ky(n).key / 2, -ky(n).len / 2, ky(n).key / 2, ky(n).len / 2)],
+  about: (n) => `a ${ky(n).key} x ${ky(n).h} mm key, ${ky(n).len} mm long, ${Math.round(ky(n).ends) === 0 ? "round" : "square"} ends`,
+};
+
 const DEFS: Record<ModelKind, Def> = {
+  key: keyDef,
   keyhole: keywayDef("hole"),
   keyshaft: keywayDef("shaft"),
   keyhub: keywayDef("hub"),

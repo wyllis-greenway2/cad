@@ -849,7 +849,7 @@ function keywayChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {
   if (!part || !rec) return null;
   const s1 = rec.span[1], r = rec.nums.kind === 2 ? rec.nums.size / 2 + 4 : rec.nums.bore / 2 + 4;
   const at: Vec3 = [rec.at[0] + rec.dir[0] * s1 + rec.ex[0] * r, rec.at[1] + rec.dir[1] * s1 + rec.ex[1] * r, rec.at[2] + rec.dir[2] * s1 + rec.ex[2] * r];
-  return { part, at, items: [{ id: "keyway:mesh", label: rec.role === "hole" ? "Mesh a shaft to this keyed hole" : "Mesh a hub to this keyed shaft", icon: "keyshaft", enabled: true, why: null }] };
+  return { part, at, items: [{ id: "keyway:mesh", label: rec.role === "hole" ? "Mesh a shaft to this keyed hole" : "Mesh a hub to this keyed shaft", icon: "keyshaft", enabled: true, why: null }, { id: "keyway:key", label: "Make the key", icon: "keyshaft", enabled: rec.nums.kind === 0, why: rec.nums.kind === 0 ? null : "only a keyway takes a key" }] };
 }
 /** The gear's icon and what a click on it offers (`in_693`), for the first gear in the selection; null when none is selected. */
 function gearChipOf(sc: Scene, sel: readonly Ref[]): Frame["gearChip"] {

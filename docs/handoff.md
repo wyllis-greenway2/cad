@@ -4542,3 +4542,6 @@ Branch `claude/adoring-dijkstra-carry`. `in_1280` asked for a polygon tool that 
 
 ## Handoff 1151 — 2026-11-20 (in_1297: the ramp flat)
 `in_1297`. Piston pin flats: new choice "Flat with ramp" (default), ramp angle field (assumed 30), the volume worked out through the ramp; kernel and worked-out volumes agree. The scoop and the long ears are not built; see `dec_piston_interior`.
+
+## Handoff 1152 — 2026-11-20 (in_1298: the key as its own body)
+`in_1298`. Make the key: a round or square ended parallel key as a body of its own, sized from the two slots (`keyTool` in `keywaymesh.ts`, `keySteps`, kind `key`), in the Models list and on the chip. The record keeps both slots' depths. Test in `keywaymesh.test.ts`; the Models list test in `fasteners.test.ts` has the new item. **Not built:** DIN 6885 key heights and lengths (no table), Woodruff keys.
