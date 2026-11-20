@@ -211,7 +211,7 @@ export function pointOnPlane(pv: PointerView, pl: Plane): Vec3 | null {
   return t > 0 ? add(pv.ray.o, scale(pv.ray.d, t)) : null;
 }
 const round = (v: number, step: number) => Math.round(v / step) * step;
-/** The centres of the circular edges and round faces of the body as they fall on the plane (a disk's rim has no corner at its middle, so its middle is found here, `in_1324`): a point to take and to line up with. `seen` leaves out what is out of sight. */
+/** The centres of the circular edges and round faces of the body as they fall on the plane (a disk's rim has no corner at its middle, so its middle is found here, `in_1325`): a point to take and to line up with. `seen` leaves out what is out of sight. */
 export function roundCentres(scene: Scene, pl: Plane, seen?: (q: Vec3) => boolean): Vec3[] {
   return anchorRounds(scene, pl, seen ? { seen } : {}).map((r) => r.center);
 }
@@ -231,7 +231,7 @@ export function snapOnPlane(spent: Scene, pv: PointerView, pl: Plane, skip?: Ref
   }
   // the middle of a regular polygon that is drawn: taken like a corner, so a circle can be drawn on the middle of a hexagon (`in_1285`)
   const seenPt = (q: Vec3) => visibleFrom(scene, pv, q, { at: pl.at, n: normalOfPlane(pl) });
-  const centres = [...regularCentres(scene, pl), ...roundCentres(scene, pl, seenPt)]; // (and the centres of the round edges and faces of the body, `in_1324`)
+  const centres = [...regularCentres(scene, pl), ...roundCentres(scene, pl, seenPt)]; // (and the centres of the round edges and faces of the body, `in_1325`)
   for (const c of centres) { const [qx, qy] = pv.project(c); if (Math.hypot(qx - pv.x, qy - pv.y) <= settings.sketch.snapPx) return c; }
   // a corner of the body that is not in the plane but falls on it (the bottom of a wall, the far end of an edge): the pointer near where it falls is taken there (`in_311`)
   for (const c of anchorCorners(scene, pl, { seen: (q) => visibleFrom(scene, pv, q, { at: pl.at, n: normalOfPlane(pl) }) })) { // (the ones out of sight are not offered, `in_312`)

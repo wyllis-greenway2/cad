@@ -25,7 +25,7 @@ How they would work: a hint shows while the pointer is within a threshold (a few
 
 **One code for the line and the arc (`in_281`):** the straight line and the curved line use the same functions: `pointHint` for a first or second end (on a line, on a circle), `roundsThrough` (which circles a point is on), and `hintRelations` (turns the hints a figure took into its constraints, ends first); only the direction or bow part differs (`lineHint` for a line's end, `arcBulgeHint` for an arc's bow). A straight line that starts on a circle (its first end snapped there or already there) now offers the tangent along the edge there, and is made tangent with its start on the circle, as the arc is. The first end of a straight line snaps onto a line or circle like the arc's. While the arc's bow is set, the circle or line its ends are on stays lit.
 
-**Changed (`in_1327`, `in_1328`, `dec_hints_place_only`):** the hints above no longer make constraints when they are taken: they place the point and show their guide, and a constraint is made only when asked for (a switch in settings brings the old behaviour back).
+**Changed (`in_1328`, `in_1329`, `dec_hints_place_only`):** the hints above no longer make constraints when they are taken: they place the point and show their guide, and a constraint is made only when asked for (a switch in settings brings the old behaviour back).
 
 ## Rationale
 

@@ -11,7 +11,7 @@ import { projector, lookStraight, homeCamera } from "../src/interaction/camera.t
 import { drawChain, drawCircle } from "../src/operation/build.ts";
 import type { Vec3 } from "../src/math/vec.ts";
 
-settings.sketch.hintConstraints = true; // (these test what a taken hint makes: the constraints, `in_1328`; by default it makes none)
+settings.sketch.hintConstraints = true; // (these test what a taken hint makes: the constraints, `in_1329`; by default it makes none)
 await kernel.init();
 const XY = worldRef("XY");
 const env = { w: 800, h: 600, now: 0 };

@@ -20,7 +20,9 @@ export type OffsetSource =
   | { kind: "line"; plane: Ref; a: Vec3; b: Vec3; origin: Vec3; normal: Vec3 }
   | Outline
   /** a flat face of the body with holes: every loop of it, the outer one first; they are offset together (`in_228`) */
-  | { kind: "outlines"; plane: Ref; origin: Vec3; normal: Vec3; loops: Outline[] };
+  | { kind: "outlines"; plane: Ref; origin: Vec3; normal: Vec3; loops: Outline[] }
+  /** several straight lines that are not chained (two parallel lines): each moves by the same distance to the side of its own arrow, the arrows turned to agree with the first (`in_1323`) */
+  | { kind: "set"; plane: Ref; origin: Vec3; normal: Vec3; lines: { a: Vec3; b: Vec3; normal: Vec3 }[] };
 
 type V2 = [number, number];
 const area2 = (p: V2[]): number => p.reduce((s, a, i) => { const b = p[(i + 1) % p.length]!; return s + (a[0] * b[1] - b[0] * a[1]); }, 0);
@@ -50,7 +52,7 @@ export function offsetSource(scene: Scene, parts: Part[]): OffsetSource | null {
     const curvy = picked.some((l) => l.center);
     const usable = picked.length > 0 && (lineRefs || rest) && !picked.some((l) => l.bulge || l.spline);
     if (usable && curvy) return drawnOutline(scene, picked); // arcs in it
-    if (usable && !lineRefs && picked.length > 1) return drawnOutline(scene, picked); // a chain of straight sides picked by its sides
+    if (usable && !lineRefs && picked.length > 1) return drawnOutline(scene, picked) ?? separateLines(scene, picked); // a chain of straight sides picked by its sides; lines that are not one chain, each on its own
     if (usable && lineRefs && parts.length > 1) return offsetSource(scene, [face!]); // a closed figure of straight sides picked with its sides and corners: as the face alone
   }
   if (!first || parts.length !== 1 || first.origin !== "drawn") return null;
@@ -86,11 +88,42 @@ export function offsetSource(scene: Scene, parts: Part[]): OffsetSource | null {
   return null;
 }
 
+/** Straight lines on one plane that do not make a chain: each is offset alone, all to the same side as the first. */
+function separateLines(scene: Scene, lines: Line[]): OffsetSource | null {
+  const get = lookup(scene);
+  if (lines.some((l) => l.center || l.bulge || l.spline || !l.plane || l.plane !== lines[0]!.plane)) return null;
+  const pl = get(lines[0]!.plane!);
+  if (!pl || pl.kind !== "plane") return null;
+  const items: { a: Vec3; b: Vec3; normal: Vec3 }[] = [];
+  for (const l of lines) {
+    const [a, b] = [pointOf(get, l.a), pointOf(get, l.b)];
+    if (!a || !b || dot(sub(b, a), sub(b, a)) < 1e-18) return null;
+    let n = normalize(cross(normalOfPlane(pl), normalize(sub(b, a))));
+    if (items.length && dot(n, items[0]!.normal) < 0) n = scale(n, -1);
+    items.push({ a, b, normal: n });
+  }
+  const f = items[0]!;
+  return { kind: "set", plane: pl.ref, lines: items, origin: scale(add(f.a, f.b), 0.5), normal: f.normal };
+}
+
 /** The command that draws the offset figure `v` out (a negative `v` is in), or null when there is none (an inward offset past the middle, a circle of no size). */
 export function offsetCommand(scene: Scene, src: OffsetSource, v: number): Command | null {
   const pl = lookup(scene)(src.plane);
   if (!pl || pl.kind !== "plane" || Math.abs(v) < 1e-9) return null;
   if (src.kind === "outline") return outlineCommand(scene, src, v);
+  if (src.kind === "set") {
+    let sc = scene;
+    const commands: Command[] = [];
+    for (const l of src.lines) {
+      const shift = scale(l.normal, v);
+      const c = drawChain(sc, src.plane, [add(l.a, shift), add(l.b, shift)]).command;
+      const next = apply(sc, c);
+      if (!next.ok) return null;
+      commands.push(c);
+      sc = next.value;
+    }
+    return { type: "batch", commands };
+  }
   if (src.kind === "outlines") {
     // every loop, one after another (each is made on the scene the one before left, so the names do not collide)
     let sc = scene;
@@ -152,6 +185,17 @@ export function offsetNear(scene: Scene, src: OffsetSource, p: Vec3): OffsetSour
     if (l < 1e-9) return src;
     const dir = scale(w, 1 / l);
     return { ...src, origin: add(src.centre, scale(dir, src.radius)), normal: dir };
+  }
+  if (src.kind === "set") {
+    let best: { at: Vec3; n: Vec3; d: number } | null = null;
+    for (const l of src.lines) {
+      const d = sub(l.b, l.a);
+      const t = Math.min(1, Math.max(0, dot(sub(q, l.a), d) / (dot(d, d) || 1)));
+      const at = add(l.a, scale(d, t));
+      const dist = Math.hypot(...sub(at, q));
+      if (!best || dist < best.d) best = { at, n: l.normal, d: dist };
+    }
+    return best ? { ...src, origin: best.at, normal: best.n } : src;
   }
   if (src.kind === "line") {
     const d = sub(src.b, src.a);

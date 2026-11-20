@@ -566,7 +566,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
   const ends: Hint[][] = t.kind === "arc" ? (t.ends ?? []) : [t.ends?.[0] ?? [], (hint?.hints ?? []).filter(isOn)];
   const chord = t.kind === "arc" ? (t.ends?.[1] ?? []).filter((h) => h.kind === "horizontal" || h.kind === "vertical") : []; // (the other end was placed level or upright with the first)
   const rest = [...chord, ...(hint?.hints ?? []).filter((h) => t.kind === "line" ? !isOn(h) : true)];
-  if (settings.sketch.hintConstraints && curve && done !== base && !(done.tool && done.tool.points.length) && !done.session.message && (ends.some((e) => e.length) || rest.length)) { // (a snap or a hint only places the end: its constraint is made when it is asked for, `in_1328`)
+  if (settings.sketch.hintConstraints && curve && done !== base && !(done.tool && done.tool.points.length) && !done.session.message && (ends.some((e) => e.length) || rest.length)) { // (a snap or a hint only places the end: its constraint is made when it is asked for, `in_1329`)
     let session = done.session;
     for (const r of hintRelations(sceneOf(session), curve, ends, rest)) {
       session = run(session, { type: "addRelation", relation: { id: nextId(sceneOf(session), "r"), kind: r.kind, parts: r.parts } });
