@@ -5528,3 +5528,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1305 — 2026-11-20 — directive
 > add the key as its own body next
 (asks for the key itself to be made as a body of its own, next, in the keyway maker)
+
+## in_1306 — 2026-11-20 — question
+> I cannot seem to cut this profile through? it seems to only grab one half of the selected enclosed sketches to extrude?
+(a screenshot of a body with a ring (two concentric circles) drawn on a flat wall that is split by a vertical line; the saved model c9442ef0-cannot-through.json)

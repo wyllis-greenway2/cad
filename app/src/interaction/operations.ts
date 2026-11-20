@@ -27,7 +27,7 @@ import { rimRanks, edgeSignatures, facesOfEdge } from "../operation/rims.ts";
 import { consumed } from "../operation/ownership.ts";
 import type { Figure } from "../operation/scene.ts";
 import type { Part, Plane, PointerView } from "../operation/part.ts";
-import { normalOfPlane, pointOf, curveMid } from "../operation/part.ts";
+import { normalOfPlane, pointOf, curveMid, loopPoints } from "../operation/part.ts";
 import type { Command } from "../operation/commands.ts";
 import { apply } from "../operation/commands.ts";
 import { solveScene } from "../compiler/solve.ts";
@@ -320,7 +320,8 @@ function startOpBare(scene: Scene, selection: readonly Ref[], kind: OpKind, view
     const pl = face.plane ? get(face.plane) : undefined;
     if (!pl || pl.kind !== "plane") return { ok: false, why: "the figure is not on a plane" };
     const pts = face.corners.map((c) => pointOf(get, c)).filter((p): p is Vec3 => !!p);
-    return { ok: true, op: { ...base, parts: face.disk ? [face.disk] : face.loop, figs: { ...figureParams(faces.map((f) => figureOf(scene, f))), ...(faces.some((f) => f.pieces) ? { cut: "1" } : {}) }, origin: centroid(pts), normal: normalOfPlane(pl), dim: { base: 0, scale: 1 } } };
+    const merged = mergedFigures(scene, faces); // (regions that touch along a side are one figure, `in_1306`)
+    return { ok: true, op: { ...base, parts: merged[0]!.outer, figs: { ...figureParams(merged), ...(faces.some((f) => f.pieces) ? { cut: "1" } : {}) }, origin: centroid(pts), normal: normalOfPlane(pl), dim: { base: 0, scale: 1 } } };
   }
   if (kind === "mirror") {
     // a drawn figure or a body copied as its reflection in a plane (`in_433`); with a body, a flat face selected too is the plane
@@ -956,6 +957,60 @@ function scaleShapeCommand(scene: Scene, op: Op, f: number): Command | null {
 
 /** Operations that make one step and then change it as you drag or type again, until you click away: the value is the total since the operation began. */
 export const isLive = (op: Op): boolean => !op.auto && (op.kind === "extrude" || op.kind === "pushpull" || op.kind === "edge" || op.kind === "offset" || op.kind === "hollow" || op.kind === "revolve" || (op.kind === "scale" && !!op.axes)); // (a stretch along axes: the factors are totals, so a later pull takes the earlier one out and makes it again, not on top of it)
+
+/**
+ * The figures an extrude is made of when several faces are selected (`in_1306`): regions that touch along a side (the halves a line drawn across a circle makes of it) are one figure, their shared sides taken away, so they are cut or pushed together
+ * as one prism and not one after the other (the second would have to meet the faces the first left, and the kernel refused it: "an invalid solid", the half that was never made). A group whose outline cannot be followed is left as it was.
+ */
+function mergedFigures(scene: Scene, faces: readonly Extract<Part, { kind: "face" }>[]): Figure[] {
+  const figs = faces.map((f) => figureOf(scene, f));
+  const get = lookup(scene);
+  const group = faces.map((_, i) => i);
+  const root = (i: number): number => (group[i] === i ? i : (group[i] = root(group[i]!)));
+  for (let i = 0; i < faces.length; i++) for (let j = i + 1; j < faces.length; j++) if (!faces[i]!.disk && !faces[j]!.disk && figs[i]!.outer.some((r) => figs[j]!.outer.includes(r))) group[root(j)] = root(i);
+  const out: Figure[] = [];
+  const done = new Set<number>();
+  for (let i = 0; i < faces.length; i++) {
+    const g = root(i);
+    if (done.has(g)) continue;
+    done.add(g);
+    const members = faces.map((_, k) => k).filter((k) => root(k) === g);
+    if (members.length === 1) { out.push(figs[members[0]!]!); continue; }
+    const count = new Map<Ref, number>();
+    for (const k of members) for (const r of figs[k]!.outer) count.set(r, (count.get(r) ?? 0) + 1);
+    const edges = [...count].filter(([, c]) => c === 1).map(([r]) => r);
+    const ends = (r: Ref): [Ref, Ref] | null => { const e = scene.parts[r]; return e?.kind === "line" ? [e.a, e.b] : null; };
+    const used = new Set<Ref>();
+    const loops: { refs: Ref[]; corners: Ref[] }[] = [];
+    let ok = edges.every((r) => !!ends(r));
+    for (const start of edges) {
+      if (!ok || used.has(start)) continue;
+      const refs: Ref[] = [start], corners: Ref[] = [ends(start)![0]];
+      used.add(start);
+      let at = ends(start)![1];
+      while (at !== corners[0]) {
+        const next = edges.find((r) => !used.has(r) && ends(r)!.includes(at));
+        if (!next) { ok = false; break; }
+        used.add(next);
+        const [a, b] = ends(next)!;
+        corners.push(at);
+        refs.push(next);
+        at = a === at ? b : a;
+      }
+      if (ok) loops.push({ refs, corners });
+    }
+    if (!ok || !loops.length) { for (const k of members) out.push(figs[k]!); continue; }
+    const area = (l: { refs: Ref[]; corners: Ref[] }): number => {
+      const pts = loopPoints(get, l.refs, l.corners);
+      let s: Vec3 = [0, 0, 0];
+      for (let n = 0; n < pts.length; n++) s = add(s, cross(pts[n]!, pts[(n + 1) % pts.length]!));
+      return Math.hypot(...s) / 2;
+    };
+    const sorted = loops.map((l) => ({ l, a: area(l) })).sort((x, y) => y.a - x.a);
+    out.push({ outer: sorted[0]!.l.refs, holes: [...sorted.slice(1).map((x) => x.l.refs), ...members.flatMap((k) => figs[k]!.holes)] });
+  }
+  return out;
+}
 
 /** A face as the figure an extrude uses: its sides (or circle) and those of each figure drawn inside it. */
 function figureOf(scene: Scene, face: Extract<Part, { kind: "face" }>): Figure {
