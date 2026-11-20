@@ -5347,3 +5347,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1257 — 2026-11-20 — directive
 > maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
+
+## in_1258 — 2026-11-20 — question
+> okay, look at this, pull the face of this gear up to make it thicker didn't respect the the gear helix. Is this normal expected behavior with the face pull type? or is this a bug? also it took exactly one billion years, and half the time I try to do these operations it fails.
+(with the saved model 06451bcb-gear.json)
