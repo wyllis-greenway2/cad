@@ -1977,7 +1977,8 @@ test("Look straight at the cross section plane turns the view to it (`in_397`)",
   assert.ok(st.anim, "the view is turning to it");
 });
 
-test("a line started on a cut edge of the cross section plane is made with an on-line constraint to that face's cut, and the sketch stays on the plane (`in_397`)", () => {
+test("a line started on a cut edge of the cross section plane is made with an on-line constraint to that face's cut, and the sketch stays on the plane (`in_397`)", (t) => {
+  settings.sketch.hintConstraints = true; t.after(() => { settings.sketch.hintConstraints = false; }); // (what a taken hint makes, `in_1329`)
   let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
   const sec = sectionNow(st)!;
   const pl = scene(st.session).parts[sec.ref] as unknown as Parameters<typeof anchorLines>[1];
@@ -1993,7 +1994,8 @@ test("a line started on a cut edge of the cross section plane is made with an on
   assert.ok(Object.values(scene(st.session).parts).some((p) => p.kind === "line" && p.origin === "drawn" && p.plane === sec.ref), "drawn on the cross section plane");
 });
 
-test("the corners where the cross section's cut edges meet are anchors: a point snaps to one and is held on each of the two cut edges (`in_398`)", () => {
+test("the corners where the cross section's cut edges meet are anchors: a point snaps to one and is held on each of the two cut edges (`in_398`)", (t) => {
+  settings.sketch.hintConstraints = true; t.after(() => { settings.sketch.hintConstraints = false; }); // (what a taken hint makes, `in_1329`)
   let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
   const sec = sectionNow(st)!;
   const pl = scene(st.session).parts[sec.ref] as unknown as Parameters<typeof anchorLines>[1];

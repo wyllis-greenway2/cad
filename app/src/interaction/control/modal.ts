@@ -1,4 +1,5 @@
 // Tools and operations that take typing: starting them, typed keys, finishing, cancelling; and the edits that do not depend on the pointer (delete, undo, relations).
+import { settings } from "../../shared/settings.ts";
 import { isHard, isFixed, hardCopies } from "../hard.ts";
 import type { Command } from "../../operation/commands.ts";
 import type { Intent } from "../../shared/input.ts";
@@ -207,7 +208,7 @@ export function commitFigure(s: AppState, fin: ReturnType<typeof finish>): AppSt
   if ((s.tool?.kind === "gear" && !s.tool.cam) || s.tool?.kind === "cam") return { ...s, session: { ...next, click: { ...next.click, selection: sel } }, tool: stayOpen(s.tool, sceneOf(s.session), sceneOf(next)), resume: null, spread: null }; // (a gear that is made keeps its box open, as the Edit tool of that gear: Update changes it, Done lets go, `in_1259`)
   // a circle drawn about another circle's centre is concentric with it
   const circle = fin.select[0]?.startsWith("d/disk@") ? (`d/${fin.select[0].slice(7)}` as Ref) : null;
-  if (s.tool?.kind === "circle" && s.tool.concentric && circle && circle in sceneOf(next).parts) {
+  if (settings.sketch.hintConstraints && s.tool?.kind === "circle" && s.tool.concentric && circle && circle in sceneOf(next).parts) {
     const rel = run(next, { type: "addRelation", relation: { id: nextId(sceneOf(next), "r"), kind: "concentric", parts: [circle, s.tool.concentric] } });
     if (!rel.message) return { ...s, session: { ...rel, click: { ...rel.click, selection: sel } }, tool: stays(s.tool), resume: null, spread: null };
   }
