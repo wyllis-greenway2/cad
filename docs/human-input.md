@@ -5663,3 +5663,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1341 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1342 — 2026-11-20 — directive
+> maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
+(the same suggestion as `in_1135` and `in_1309`; the testing branch was already at this branch's tip, so the merge was done and the new branch is `claude/cool-einstein-odsxco-gears8`)

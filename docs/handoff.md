@@ -4650,3 +4650,6 @@ Branch `claude/adoring-dijkstra-carry`. `in_1280` asked for a polygon tool that 
 
 ## Handoff 1187 — 2026-11-20 (in_1341: brought up to the testing branch)
 `in_1341`. Merged the testing branch (up to `in_1339`, Handoff 1185). My `in_1337` and Handoff 1183 (the chamfer across a flat cut) became `in_1340` and Handoff 1186.
+
+## Handoff 1188 — 2026-11-20 (in_1342: a new branch from the testing branch)
+`in_1342`. The testing branch was at this branch's tip (nothing to merge, up to `in_1341`, Handoff 1187); work continues on `claude/cool-einstein-odsxco-gears8`, made from it.
