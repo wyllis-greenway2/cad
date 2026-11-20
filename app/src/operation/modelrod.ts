@@ -1,6 +1,6 @@
 // The connecting rod maker (`dec_rod_maker`): the rod, its cap, and what a real rod has besides: a sleeve (bush) in the small end, two bearing shells in the big end, and two cap bolts. A model of its own (*Models > Connecting rod*, lying along +x with the big end at the
 // origin, its thickness up) and the rod of the engine: `modelengine.ts` builds its rod by `buildRod` here, with the new parts off, so the two cannot differ. **Every proportion is ASSUMED** (no source gives them; `docs/sources/README.md` lists what the sources do
-// say, and the fields say which number is which). Process features (draft, machining, how a bush is pressed in) are not here: they belong to manufacturing routes (`in_1290`). Lengths in mm. Pure: numbers in, steps out.
+// say, and the fields say which number is which). Process features (draft, machining, how a bush is pressed in) are not here: they belong to manufacturing routes (`in_1291`). Lengths in mm. Pure: numbers in, steps out.
 import type { Result } from "../shared/result.ts";
 import { ok, err } from "../shared/result.ts";
 import { Builder, disc, outline, box } from "./modelparts.ts";

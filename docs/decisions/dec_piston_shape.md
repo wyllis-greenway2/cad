@@ -1,9 +1,9 @@
 ---
 id: dec_piston_shape
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_1279
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_1279, in_1288
 date: 2026-11-20
 depends_on:
   - dec_piston_maker: the piston's overall structure and shape, made typed fields
@@ -25,3 +25,7 @@ The human sent five pictures of real pistons (`in_1279`) and asked to finish the
 ## Rationale
 
 The pictures show what a real piston has that this one lacks. The arched skirt and the flats are geometry the modeler can build now; the interior ribs are geometry too, but a larger change (the bosses' shape and the volumes); the cast and machined surfaces are the one request that meets the human's own principle, so it is asked, not built.
+
+## Stage 7 (`in_1288`): on by default, and the interior
+
+The human asked for the arched skirt and the pin flats **on by default** and for the **interior shapes** to be built; and said **cast and machined surfaces stay out of the modeler** (manufacturing agnostic, for now). **Built:** Skirt style defaults to Arched pads and Pin flats to Flat (each is made where the piston has room: a piston too small for an arch or a flat has none, as the box says; a number typed for them is held to, a refusal if it cannot be made); the pin bosses are **round with a rib** by default (a boss round the pin's axis at each side of the rod, braced to the crown by a thin rib; the old block pads are the other choice), the rib's thickness typed (0 = auto, 0.8 of the wall); the pin height leaves room for the boss under the ring belt. See `dec_piston_interior`. **Cast and machined surfaces: not built, by the human's decision** (`prin_manufacture_agnostic`).
