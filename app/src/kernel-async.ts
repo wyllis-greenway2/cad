@@ -40,6 +40,13 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   let heapMb = 0; // (how big the thread's memory has grown, as its last answer said)
   let baseMb = 0; // (how big it was at its first answer: what making the model from nothing takes. A thread is restarted only when it has grown well beyond this: a model that needs more than the limit would otherwise be restarted after every answer and made again from nothing each time, `in_857`)
   const grown = () => heapMb > baseMb * 1.4;
+  // how much the memory has grown by a job after the first (the biggest lately, a little over): a job begun with less room than that would be refused part way, so the thread is restarted before it, not in the middle of it (`in_1275`)
+  let jobStartMb = 0, maxGrow = 0;
+  const headroom = (): number => Math.min(1500, Math.round(maxGrow * 1.25));
+  const tooFull = (): boolean => baseMb > 0 && maxGrow > 0 && heapMb > baseMb * 1.2 && heapMb + headroom() > KERNEL_MEMORY_STOP_MB;
+  let lastDone: { key: string; graph: KernelGraph } | null = null; // (the last whole answer: a new thread makes it again at once when it has nothing else to do, so the model is warm for the next edit, `in_1275`)
+  let warm: { key: string; graph: KernelGraph } | null = null;
+  const retried = new Set<string>(); // (the jobs that were refused for want of memory and are made again once on a new thread)
   let worker = first;
   let up = false; // (the current worker has said it is ready)
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -52,8 +59,11 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   /** A thread whose memory has grown big is stopped and a new one started (the memory of a kernel only grows: a heavy model leaves it big for the rest of the session, and the next edits add to it until the browser stops it). What it kept is lost: the next answer is worked out from nothing, and the answers the page has kept (the last few) are still shown. */
   const restart = (why: string) => {
     console.warn(`the kernel's thread is restarted: its memory has grown to ${heapMb} MB (${why})`);
+    warm = lastDone && baseMb > 0 && baseMb < KERNEL_MEMORY_STOP_MB * 0.8 ? lastDone : null; // (not for a model that is over the limit from its start: that would be made again for ever)
     heapMb = 0;
     baseMb = 0;
+    jobStartMb = 0;
+    maxGrow = 0;
     up = false;
     try { worker.terminate?.(); } catch { /* (already gone) */ }
     worker = respawn();
@@ -61,7 +71,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   };
   const pump = () => {
     if (busy) return;
-    if ((heapMb > KERNEL_MEMORY_STOP_MB || (heapMb > hardMb && grown())) && up) { restart("too big to go on"); return; } // (the jobs wait for the new thread: it says when it is ready, and the next pump posts them)
+    if ((heapMb > KERNEL_MEMORY_STOP_MB || (heapMb > hardMb && grown()) || tooFull()) && up) { restart(tooFull() && heapMb <= KERNEL_MEMORY_STOP_MB ? "no room for the next job" : "too big to go on"); return; } // (the jobs wait for the new thread: it says when it is ready, and the next pump posts them)
     if (!up) return;
     const wanted = exports.shift();
     if (wanted) {
@@ -76,6 +86,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     const { key, graph, draft, lite, at, eye } = queued;
     queued = null;
     const job = { id: ++counter, key, graph, at, posted: performance.now() };
+    jobStartMb = baseMb ? heapMb : 0; // (the first job of a thread makes the whole model: its growth says nothing of what an edit costs)
     busy = job;
     worker.postMessage({ id: job.id, graph, draft, lite, ...(eye ? { eye } : {}) });
     timer = setTimeout(() => stuck(job.id), limit);
@@ -100,7 +111,13 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
   const onMessage = (e: MessageEvent<{ ready?: boolean; failed?: string; id?: number; heapMB?: number; partial?: boolean; cancelled?: boolean; result?: KernelResult; exported?: ExportResult | StepResult; at?: { started: number; sent: number } }>) => {
     const received = performance.timeOrigin + performance.now();
     const m = e.data;
-    if (m.ready) { up = true; resolveReady(); pump(); return; }
+    if (m.ready) {
+      up = true; resolveReady();
+      if (!queued && !busy && warm) { queued = { key: warm.key, graph: warm.graph, draft: false, lite: false, at: performance.now() }; } // (nothing is asked yet: the model is made again while the page is idle, so the next edit finds it warm)
+      warm = null;
+      pump();
+      return;
+    }
     if (m.id === undefined) return void rejectReady(new Error(m.failed ?? "the kernel could not start"));
     const job = busy;
     if (!job || job.id !== m.id) return; // (the answer to a job that was given up)
@@ -116,7 +133,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
     busy = null;
     if (m.cancelled) { if (timer) clearTimeout(timer); if (typeof m.heapMB === "number") heapMb = m.heapMB; pump(); return; } // (stopped for a newer question: what was made stays on the screen)
     if (timer) clearTimeout(timer);
-    if (typeof m.heapMB === "number") { heapMb = m.heapMB; if (!baseMb) baseMb = heapMb; }
+    if (typeof m.heapMB === "number") { if (jobStartMb > 0) maxGrow = Math.max(maxGrow * 0.9, m.heapMB - jobStartMb); heapMb = m.heapMB; if (!baseMb) baseMb = heapMb; }
     if (job.asked) {
       job.asked.resolve(m.exported ?? { ok: false, error: m.failed ?? "the kernel could not make the mesh" });
       pump();
@@ -127,7 +144,15 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
       cache.set(job.key, failedResult(job.graph, m.failed, 0, last)); // (an answer, so what waits for it is not held up for ever, and the step that asked is reported)
       onChange();
     }
+    if (m.result && !job.asked && !retried.has(job.key) && m.result.ops.some((o) => /too big for the kernel's memory/.test(o.error ?? ""))) { // a step was refused for want of memory: not shown; the thread is restarted and the job made again once (`in_1275`)
+      retried.add(job.key);
+      if (!queued) queued = { key: job.key, graph: job.graph, draft: job.key.startsWith("draft:"), lite: job.key.startsWith("lite:"), at: performance.now() };
+      restart("a step was refused for want of memory");
+      return;
+    }
     if (m.result) {
+      retried.delete(job.key);
+      if (!job.key.startsWith("draft:") && !job.key.startsWith("lite:") && !m.result.stale) lastDone = { key: job.key, graph: job.graph };
       if (job.at !== undefined && job.posted !== undefined) { const now = performance.now(); const tripMs = now - job.posted; m.result.trip = { waitMs: job.posted - job.at, tripMs, messageMs: tripMs - (m.result.totalMs ?? 0), ...(m.at ? { toThreadMs: m.at.started - (performance.timeOrigin + job.posted), threadMs: m.at.sent - m.at.started, backMs: received - m.at.sent } : {}) }; }
       cache.set(job.key, m.result);
       if (store && !job.key.startsWith("draft:") && !job.key.startsWith("lite:") && !m.result.stale) store.put(job.key, m.result); // (the whole answers only: a rough one made while a size is dragged is not kept)
@@ -135,7 +160,7 @@ export function createAsyncKernel(onChange: () => void, first: WorkerLike = spaw
       last = m.result;
       onChange();
     }
-    if ((heapMb > KERNEL_MEMORY_STOP_MB || (heapMb > restartMb && grown())) && !queued && exports.length === 0) { restart("nothing is waiting"); return; }
+    if ((heapMb > KERNEL_MEMORY_STOP_MB || (heapMb > restartMb && grown()) || tooFull()) && !queued && exports.length === 0) { restart("nothing is waiting"); return; }
     pump();
   };
   const attach = (w: WorkerLike) => {

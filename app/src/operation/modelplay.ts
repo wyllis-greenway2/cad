@@ -42,6 +42,8 @@ export function playPlan(kind: ModelKind, n: Nums, place: Place): PlayPlan {
     });
     return { driver: { part: "Inner race", point: o, dir: ez }, followers, glue: [], hold: ["Outer race"], pivots: [{ part: "Inner race", point: o, dir: ez }], note: "the inner race turns, the outer is held, the balls go round at about half its speed" };
   }
+  if (kind === "keyhole") return { driver: { part: "Keyway", point: o, dir: ez }, followers: [], glue: [], note: "" };
+  if (kind === "keyshaft") return { driver: { part: "Shaft", point: o, dir: ez }, followers: [], glue: [], pivots: [{ part: "Shaft", point: o, dir: ez }], note: "the shaft turns about its axis" };
   if (kind === "wheelcut") return { driver: { part: "Pockets", point: o, dir: ez }, followers: [], glue: [], note: "" };
   if (kind === "piston") return { driver: { part: "Piston", point: o, dir: ez }, followers: [], glue: [["Piston", "Piston pin", ...((n as unknown as { retention?: number }).retention === 1 ? ["Circlip 1", "Circlip 2"] : [])]], note: "the piston and its pin" };
   if (kind === "wheel") return { driver: { part: "Wheel", point: o, dir: ez }, followers: [], glue: [], pivots: [{ part: "Wheel", point: o, dir: ez }], note: "the wheel turns about its axis" };

@@ -18,10 +18,12 @@ import { pistonSteps, pistonProblem, pistonExtent, pistonGeometry, pistonWeight,
 import type { PistonSpec } from "./modelpiston.ts";
 import { fitNumbers } from "./modelfit.ts";
 import { wheelSteps, wheelCutSteps, wheelProblem, wheelLines, wheelLines3, repairWheel, edgeMade, WHEEL_START } from "./modelwheel.ts";
+import { keyholeSteps, keyshaftSteps, keywayProblem, keywayAbout, KEYWAY_START } from "./modelkeyway.ts";
+import type { KeywaySpec } from "./modelkeyway.ts";
 import type { WheelSpec } from "./modelwheel.ts";
 
-export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "piston" | "wheel" | "wheelcut";
-export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine", "piston", "wheel", "wheelcut"];
+export type ModelKind = "gearbox" | "ballbearing" | "differential" | "cycloidal" | "engine" | "piston" | "wheel" | "wheelcut" | "keyhole" | "keyshaft";
+export const MODEL_KINDS: readonly ModelKind[] = ["gearbox", "ballbearing", "differential", "cycloidal", "engine", "piston", "wheel", "wheelcut", "keyhole", "keyshaft"];
 /** The numbers of a model, by name */
 export type Nums = Record<string, number>;
 /** One number of a model: what it is called, a line that says what it is, and whether it grows with the overall size (a length of the thing, not a room left for the printer or a count) */
@@ -129,7 +131,41 @@ function wheelDef(cutting: boolean): Def {
   return def;
 }
 
+const kw = (n: Nums): KeywaySpec => n as unknown as KeywaySpec;
+/** the keyed hole in a round body (`hole`), or the keyed shaft (`dec_keyway_maker`) */
+function keywayDef(hole: boolean): Def {
+  const shape: ModelField = { ...F("kind", "Shape", "a key (a keyway cut in the " + (hole ? "hole" : "shaft") + "), a D flat, or a spline of the ISO 14 standard"), choices: ["Key", "Flat", "Spline"], top: true };
+  const when = (v: number) => ({ key: "kind", is: v });
+  const fields: ModelField[] = [
+    ...(hole ? [{ ...F("outer", "Outer diameter", "mm: the body's outside (the Size)", true), hidden: true as const }] : []),
+    shape,
+    { ...F("bore", hole ? "Bore diameter" : "Shaft diameter", hole ? "mm: the hole; the body's own if it has one, else the one that is made" : "mm across the round shaft", true), ...(hole ? { fixed: true as const, unless: { key: "boreOwned", is: 0 } } : {}) },
+    { ...F("key", "Key width", "mm: 0 takes the DIN 6885 width for the diameter (a quarter of it outside the table)", true), when: when(0) },
+    { ...F("keyDepth", "Key depth", hole ? "mm: the keyway's depth in the hub, measured past the bore: 0 takes the DIN 6885 depth (0.45 of the key's width outside the table)" : "mm: the keyway's depth in the shaft: 0 takes 0.55 of the key's width (the DIN 6885 shaft depths are not in hand)", true), when: when(0) },
+    { ...F("flat", "Flat depth", "mm: how far the flat is cut in from the round; 0 takes 0.15 of the diameter (there is no one standard for D flats: measure the shaft)", true), when: when(1) },
+    { ...F("series", "Series", "ISO 14 straight-sided splines: the light series is the lighter, the medium the stronger (light starts at 23 mm)"), choices: ["Light", "Medium"], when: when(2) },
+    { ...F("size", "Spline size", "mm: the minor diameter; the nearest of the ISO 14 table is taken; 0 takes the smallest that goes round the bore" + (hole ? "" : " (the shaft's diameter)")), when: when(2) },
+    ...(hole ? [{ ...F("thick", "Thickness", "mm: the body's, along its axis", true), fixed: true as const }, { ...F("bodyR", "Reach", "mm: how far from the axis the hole may go (the body's outside, or a gear's roots)", true), hidden: true as const }, { ...F("boreOwned", "Own bore", ""), hidden: true as const }] : [F("len", "Length", "mm along the shaft", true)]),
+  ];
+  const start: Nums = { ...(KEYWAY_START as unknown as Nums), ...(hole ? {} : { bore: 12 }) };
+  return {
+    title: hole ? "Keyed hole (a key, a flat or a spline in a round body)" : "Keyed shaft (a key, a flat or a spline on a shaft)",
+    sizeLabel: hole ? "Outer diameter" : "Length",
+    ...(hole ? { fixedSize: true as const, sizeKey: "outer" } : { sizeKey: "len" }),
+    fields,
+    start,
+    problem: (n) => keywayProblem(kw(n), hole),
+    extent: (n) => (keywayProblem(kw(n), hole) ? 0 : hole ? kw(n).outer : Math.max(kw(n).len, kw(n).bore)),
+    centre: () => [0, 0],
+    build: (n, place) => (hole ? keyholeSteps(kw(n), place) : keyshaftSteps(kw(n), place)),
+    outline: (n) => [circle(0, 0, hole ? kw(n).outer / 2 : kw(n).bore / 2, 48), ...(kw(n).bore > 0 ? [circle(0, 0, kw(n).bore / 2, 32)] : [])],
+    about: (n) => keywayAbout(kw(n), hole),
+  };
+}
+
 const DEFS: Record<ModelKind, Def> = {
+  keyhole: keywayDef(true),
+  keyshaft: keywayDef(false),
   gearbox: {
     title: "Reduction gearbox",
     fields: [F("stages", "Stages", "1 to 4: a pinion and a gear each, in a layer of its own"), F("pinion", "Pinion teeth", "10 or more"), F("gear", "Gear teeth", "the pinion's teeth times 1.5 to 6"), F("module", "Module", "mm of pitch diameter a tooth", true), F("width", "Gear thickness", "mm", true), F("rod", "Rod diameter", "the rods the gears sit on", true), F("fit", "Bore room", "between a gear's bore and its rod; 0: a press fit"), F("bearing", "Plate room", "between a plate's hole and a rod: the rods turn in them"), F("plate", "Plate thickness", "mm", true), F("gap", "Layer gap", "between the layers and the plates")],
@@ -261,6 +297,8 @@ export const modelOutline3 = (k: ModelKind, n: Nums): [number, number, number][]
   wireMemo.set(key, wires);
   return wires;
 };
+/** a model that is cut into a round body that is selected, and waits for one to be clicked (`dec_hub_spoke`, `dec_keyway_maker`) */
+export const modelCutsBody = (k: ModelKind): boolean => k === "wheelcut" || k === "keyhole";
 export const modelFixedSize = (k: ModelKind): boolean => !!DEFS[k].fixedSize;
 export const modelSizeLabel = (k: ModelKind): string => DEFS[k].sizeLabel ?? "Size";
 export const modelSizeKey = (k: ModelKind): string | undefined => DEFS[k].sizeKey;

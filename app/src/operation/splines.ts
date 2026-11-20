@@ -52,3 +52,10 @@ export function splineOutline(s: { n: number; d: number; D: number; B: number })
   }
   return { points, bulges };
 }
+
+/** the row of a series whose minor diameter is nearest `d` (the smaller on a tie); with `atLeast`, the nearest that is not smaller than `d` (the least spline a bore of `d` can have), else the biggest */
+export function nearestSpline(series: SplineSeries, d: number, atLeast = false): SplineRow {
+  const rows = ISO14.filter((r) => r.series === series);
+  if (atLeast) return rows.find((r) => r.d >= d - 1e-9) ?? rows[rows.length - 1]!;
+  return rows.reduce((best, r) => (Math.abs(r.d - d) < Math.abs(best.d - d) - 1e-9 ? r : best), rows[0]!);
+}

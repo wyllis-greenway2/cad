@@ -9,9 +9,9 @@ const EMPTY: KernelResult = { ops: [], finalId: null, volume: null, bbox: null, 
 const graph = (n: number): KernelGraph => ({ ops: [{ id: `o${n}`, type: "box" }] } as unknown as KernelGraph);
 
 function rig(opts: { restartMb?: number; hardMb?: number } = {}) {
-  const workers: { posted: { id: number }[]; terminated: boolean; listeners: ((e: { data: unknown }) => void)[]; ready(): void; answer(heapMB?: number): void; w: WorkerLike }[] = [];
+  const workers: { posted: { id: number }[]; terminated: boolean; listeners: ((e: { data: unknown }) => void)[]; ready(): void; answer(heapMB?: number, result?: KernelResult): void; w: WorkerLike }[] = [];
   const make = () => {
-    const rec = { posted: [] as { id: number }[], terminated: false, listeners: [] as ((e: { data: unknown }) => void)[], ready() { for (const f of rec.listeners) f({ data: { ready: true } }); }, answer(heapMB?: number) { const job = rec.posted.shift()!; for (const f of rec.listeners) f({ data: { id: job.id, result: { ...EMPTY }, ...(heapMB === undefined ? {} : { heapMB }) } }); }, w: undefined as unknown as WorkerLike };
+    const rec = { posted: [] as { id: number }[], terminated: false, listeners: [] as ((e: { data: unknown }) => void)[], ready() { for (const f of rec.listeners) f({ data: { ready: true } }); }, answer(heapMB?: number, result?: KernelResult) { const job = rec.posted.shift()!; for (const f of rec.listeners) f({ data: { id: job.id, result: result ?? { ...EMPTY }, ...(heapMB === undefined ? {} : { heapMB }) } }); }, w: undefined as unknown as WorkerLike };
     rec.w = { postMessage: (m) => { rec.posted.push(m as { id: number }); }, addEventListener: (t, f) => { if (t === "message") rec.listeners.push(f); }, terminate: () => { rec.terminated = true; } };
     workers.push(rec);
     return rec;
@@ -140,3 +140,54 @@ test("a thread at the kernel's own stop size is restarted even when it was that 
   workers[0]!.answer(3400); // (its first answer, above what the kernel makes steps at)
   assert.equal(workers.length, 2, "restarted: otherwise every step after it says the memory is full");
 });
+
+test("a thread is restarted before a job it has no room for, not refused in the middle of it: the room a job needs is what the last ones grew it by (`in_1275`)", () => {
+  const { k, workers } = rig({ restartMb: 5000, hardMb: 5000 });
+  k.evaluate(graph(0));
+  workers[0]!.answer(1000); // (its first answer)
+  k.evaluate(graph(1));
+  k.evaluate(graph(2)); // (waits)
+  workers[0]!.answer(2100); // (the job grew it by 1100: another would take it past 3300)
+  assert.equal(workers.length, 2, "restarted before the next job");
+  assert.equal(workers[0]!.terminated, true);
+  workers[1]!.ready();
+  assert.equal(workers[1]!.posted.length, 1, "the waiting job goes to the new thread");
+});
+
+test("a job that was refused for want of memory is not shown as refused: the thread is restarted and the job is made again once; refused again, it is shown (`in_1275`)", () => {
+  const { k, workers } = rig({ restartMb: 5000, hardMb: 5000 });
+  const refused = (n: number): KernelResult => ({ ...EMPTY, ops: [{ id: `o${n}`, type: "box", error: "the model is too big for the kernel's memory (3563 MB of 4096 used): use fewer or simpler parts", ms: 0 }] } as unknown as KernelResult);
+  k.evaluate(graph(1));
+  workers[0]!.answer(3500, refused(1));
+  assert.equal(workers.length, 2, "restarted");
+  assert.equal(k.pending, true, "and the job is waiting for the new thread");
+  workers[1]!.ready();
+  assert.equal(workers[1]!.posted.length, 1, "made again");
+  workers[1]!.answer(400);
+  assert.equal(k.evaluate(graph(1)).ops.length, 0, "the answer of the new thread, not the refusal");
+  // refused a second time (a model too big for any thread): shown
+  k.evaluate(graph(2));
+  workers[1]!.answer(3500, refused(2));
+  workers[2]!.ready();
+  workers[2]!.answer(3500, refused(2));
+  assert.match(k.evaluate(graph(2)).ops[0]?.error ?? "", /too big for the kernel's memory/);
+});
+
+test("a new thread makes the last whole answer again at once, with nothing asked, so the model is warm for the next edit; a model over the limit from its start is not made again for ever (`in_1275`)", () => {
+  const { k, workers } = rig({ restartMb: 1000 });
+  k.evaluate(graph(0));
+  workers[0]!.answer(300);
+  k.evaluate(graph(1));
+  workers[0]!.answer(1500); // (grown: restarted, nothing waits)
+  assert.equal(workers.length, 2);
+  workers[1]!.ready();
+  assert.equal(workers[1]!.posted.length, 1, "the last model is asked of the new thread");
+  // a model that is over the limit from its first answer
+  const big = rig({ restartMb: 1000 });
+  big.k.evaluate(graph(0));
+  big.workers[0]!.answer(3400);
+  assert.equal(big.workers.length, 2, "past the limit: restarted");
+  big.workers[1]!.ready();
+  assert.equal(big.workers[1]!.posted.length, 0, "and not warmed: it would be over the limit again, for ever");
+});
+

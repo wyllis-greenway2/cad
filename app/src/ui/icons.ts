@@ -100,6 +100,8 @@ Object.assign(ICONS, {
   genevaplate: svg('<path d="M14.39 6.8A6.5 6.5 0 0 0 9.2 1.61L9.2 4.6L6.8 4.6L6.8 1.61A6.5 6.5 0 0 0 1.61 6.8L4.6 6.8L4.6 9.2L1.61 9.2A6.5 6.5 0 0 0 6.8 14.39L6.8 11.4L9.2 11.4L9.2 14.39A6.5 6.5 0 0 0 14.39 9.2L11.4 9.2L11.4 6.8L14.39 6.8z"/><circle cx="8" cy="8" r="1" stroke-width="1.2"/>'),
   bearing: svg('<circle cx="8" cy="8" r="6.6" stroke-width="1.2"/><circle cx="8" cy="8" r="2.3" stroke-width="1.2"/><circle cx="12.55" cy="8" r=".95" fill="currentColor" stroke="none"/><circle cx="10.84" cy="11.56" r=".95" fill="currentColor" stroke="none"/><circle cx="6.99" cy="12.44" r=".95" fill="currentColor" stroke="none"/><circle cx="3.9" cy="9.97" r=".95" fill="currentColor" stroke="none"/><circle cx="3.9" cy="6.03" r=".95" fill="currentColor" stroke="none"/><circle cx="6.99" cy="3.56" r=".95" fill="currentColor" stroke="none"/><circle cx="10.84" cy="4.44" r=".95" fill="currentColor" stroke="none"/>'),
   wheel: svg('<circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.6"/><path d="M8 1.6V6.4 M8 9.6v4.8 M1.6 8h4.8 M9.6 8h4.8"/>'),
+  keyhole: svg('<circle cx="8" cy="8" r="6.4"/><path d="M5.6 8a2.4 2.4 0 1 0 4.8 0 2.4 2.4 0 0 0-4.8 0M7 5.8V4.2h2v1.6"/>'),
+  keyshaft: svg('<path d="M2 5.5h12M2 10.5h12M2 5.5v5M14 5.5v5M5.5 5.5V4M5.5 12v-1.5M9 5.5V4M9 12v-1.5"/>'),
   wheelcut: svg('<circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.6"/><path d="M8 2.8l1.6 3.2M13 8l-3.2 1.6M8 13.2L6.4 10M3 8l3.2-1.6" stroke-dasharray="1.6 1.4"/>'),
   piston: svg('<path d="M4 2.4h8v9H4z M4 5h8 M4 6.8h8 M4 8.6h8 M6.6 9.6a1.4 1.4 0 1 0 2.8 0a1.4 1.4 0 1 0 -2.8 0z"/>'),
   engine: svg('<path d="M4.2 1.6h7.6v7.2H4.2z M4.2 4.2h7.6 M4.2 6h7.6 M8 8.8l-3 4.2 M5 13a1.4 1.4 0 1 0 2.8 0a1.4 1.4 0 1 0 -2.8 0z M8 8.8v.01"/>'),

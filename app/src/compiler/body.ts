@@ -39,11 +39,7 @@ function pathOf(flat: ArrayLike<number>, a: Vec3, b: Vec3): Vec3[] {
   if (pts.length <= keep) return pts;
   return Array.from({ length: keep }, (_, i) => pts[Math.round((i * (pts.length - 1)) / (keep - 1))]!);
 }
-/** The kernel's reference for a line of the body, read from its name alone (so a step can find its lines again): { a, b, mid }. */
-export function decodeEdge(r: Ref): { a: Vec3; b: Vec3; mid: Vec3; rank?: string; sig?: string } | null {
-  const m = /^b\/body\/e@([^~]+)~([^~]+)~([^~]+)$/.exec(r);
-  return m ? { a: vec(m[1]!), b: vec(m[2]!), mid: vec(m[3]!) } : null;
-}
+export { decodeEdge } from "../operation/edgeref.ts"; // (read from a name alone: it is in the operation layer so that layer can use it too)
 
 /** The unit normal and offset of a flat face of the body, read from its name alone. */
 export function decodeFace(r: Ref): { n: Vec3; d: number } | null {

@@ -5405,6 +5405,33 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > group the fields into sections first
 (answers my offer to group the piston maker's fields into sections before adding more variables)
 
-## in_1272 — 2026-11-20 — directive
+> okay, look at this, pull the face of this gear up to make it thicker didn't respect the the gear helix. Is this normal expected behavior with the face pull type? or is this a bug? also it took exactly one billion years, and half the time I try to do these operations it fails.
+(with the saved model 06451bcb-gear.json)
+
+## in_1273 — 2026-11-20 — directive
+> yes do the experiment and free the shapes
+
+## in_1274 — 2026-11-20 — question
+> so did we figure out why it is so slow?
+
+## in_1275 — 2026-11-20 — directive
+> can we make it faster and not fail so much?
+
+## in_1276 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please do full suite tests
+
+## in_1277 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+
+## in_1278 — 2026-11-20 — directive
+> build the keyway tool next
+(asks for the keyway tool to be built next, as designed in `dec_keyway_maker`)
+
+## in_1279 — 2026-11-20 — directive
 > maybe we should merge into claude/inspiring-pascal-l342k7 and start working off a new branch that is updated with it?
-(the same suggestion as `in_1135`; this branch had nothing the testing branch lacked, so the merge was the other way: this branch was brought up to its tip, and a new branch cut from it)
+(the same suggestion as `in_1135`; this branch had nothing the testing branch lacked, so the merge was the other way: this branch was brought up to its tip, and a new branch `claude/hopeful-cannon-9` cut from it)
+
+## in_1280 — 2026-11-20 — directive
+> okay I have another claude making a piston head maker tool in claude/inspiring-pascal-l342k7 branch. Can you look at how that works? I want to make a piston arm maker tool that will work later with the piston head maker to make a complete assembly. We already have some spects on the piston arms in our docs in the repo, you may want to review that. Here are a few drawings and pictures of general shape and function of piston arms. You can see they are generally designed to be cast, so they haven arm part, with webbing or rims, and a bottom part designed to bolt to that to hold the crankshaft bearing. The top part can either just have a machined hole with a sleeve or possible another bolt helping to clamp. I am not sure what the standards are for bearings, sleeves, size ratios, etc. But I want to make real arms that really could work in a real engine, with all the features and details of a real arm.
+(four images attached: an exploded drawing of a piston, pin, rings, connecting rod, bearing and rod cap; a photograph of a piston and rod; a labelled exploded piston with washer, clamping bolt, bearing shells, locking plate and set screws; a wireframe of a piston and rod. The images are not kept in the repository.)
+
