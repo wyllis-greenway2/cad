@@ -5328,3 +5328,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1252 — 2026-11-20 — directive
 > do the crankshaft next
 (chooses the crankshaft as the next part of the engine builder to make realistic)
+
+## in_1253 — 2026-11-20 — directive
+> lets focus on getting each part correct first. So is the piston head a real piston head in all the details?
+(sets the direction: make each part correct before going on to the block; asks whether the piston is a real piston in all its details)
