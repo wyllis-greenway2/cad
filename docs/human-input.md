@@ -5544,3 +5544,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1309 — 2026-11-20 — approval
 > yes, do that, rectangles keep theirs
 (approves the split proposed after in_1308: snapping and hints only place; a constraint is made only when asked for; tool shapes such as the rectangle keep their built-in constraints)
+
+## in_1310 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the snap and hint change, the mate-speed fix and the disk-middle snapping to be merged into the testing branch, no full test run)
