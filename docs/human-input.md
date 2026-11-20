@@ -5638,3 +5638,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1334 — 2026-11-20 — directive
 > spiral rotate extrude still doesn't work. Any value I put in here or any amount I pull the extra arrow doesn't modify how much it moves in the screw direction over rotation.
 (two screenshots of the Revolve with a spiral: the box shows 1000 degrees and an advance of 3, then the arrow pulled to 4.3; the body does not change)
+
+## in_1335 — 2026-11-20 — question
+> why not just allow overlap? it could be a boolean merge into a single body I guess?
+(asks why a spiral whose turns overlap is not allowed, and suggests making it as a boolean merge into one body)

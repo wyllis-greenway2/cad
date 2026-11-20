@@ -31,7 +31,7 @@ import { linksOf } from "../operation/coupling.ts";
 import { animatedBodies } from "../operation/gearcouple.ts";
 import { pivotOfBody } from "../operation/pivot.ts";
 import { jointOf as jointOfMate } from "./mate.ts";
-import { axisAcross, advanceNote } from "./revolve.ts";
+import { axisAcross } from "./revolve.ts";
 import { gearOfPart, gearOfSelection } from "../operation/gearscene.ts";
 import { planetaryOfGear } from "../operation/planetary.ts";
 import { canHelix, finish as finishTool } from "./tools.ts";
@@ -514,7 +514,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     amber: [...new Set([...(s.op?.kind === "loft" ? loftStarts(sceneOf(s.session), s.op) : []), ...(s.op?.kind === "sweep" ? sweepStart(sceneOf(s.session), s.op) : []), ...focusParts(sc, s.focus), ...variableStart(sceneOf(s.op?.made ? undone(s.session) : s.session), s.op), ...[...(s.tool?.hints ?? []), ...(s.dragHint?.hints ?? []), ...(s.tool && s.tool.points.length === 2 ? (s.tool.ends ?? []).flat() : [])].flatMap((h) => h.ref ? [h.ref] : [])])], red: { refs: flash?.parts ?? [], alpha: flash ? 1 - flash.t : 0 }, green: { refs: flash?.greenParts ?? [], alpha: flash ? 1 - flash.t : 0 }, temp: s.repeat && !s.op ? temporaryParts(sceneOf(s.session), sc) : [], spread: s.spread },
     preview: withGhost(previewFor(sc, s.tool), s), // (the picture itself moves now: the thin rings that stood in for it are not needed)
     entry: inUnits(movingOp || (shownOp && !s.tool && hasGizmo(shownOp.kind) && !numberShown) ? null : entryWhere(entryOf(sc, s.tool, shownOp), s, gizmo, shownOp)),
-    entries: (s.moverSphere && moverOp(s) && !s.tool && gizmo ? moverPlaceEntries(gizmo, moverOp(s)!.frame, orbShow(s, now), s.lockAxes) : sectionNow(s) && !s.op && !s.repeat && !s.tool && gizmo ? sectionEntries({ at: sectionNow(s)!.centre, n: sectionNow(s)!.n }, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel) : shownOp?.kind === "revolve" && !s.tool ? revolveEntries(shownOp, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel, sc) : shownOp?.kind === "loft" && !s.tool ? loftEntries(sceneOf(s.session), shownOp) : shownOp?.kind === "mirror" ? mirrorEntries(shownOp, gizmo)  : shownOp?.kind === "scale" && shownOp.axes ? scaleEntries(shownOp, gizmo) : s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp && numberShown ? moveEntries(s.handleSel?.startsWith("move:") ? { ...movingOp, axis: "xyz".indexOf(s.handleSel[5]!) as 0 | 1 | 2 } : movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp), s.lockAxes) : []).map((e) => inUnits(e)),
+    entries: (s.moverSphere && moverOp(s) && !s.tool && gizmo ? moverPlaceEntries(gizmo, moverOp(s)!.frame, orbShow(s, now), s.lockAxes) : sectionNow(s) && !s.op && !s.repeat && !s.tool && gizmo ? sectionEntries({ at: sectionNow(s)!.centre, n: sectionNow(s)!.n }, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel) : shownOp?.kind === "revolve" && !s.tool ? revolveEntries(shownOp, gizmo, s.drag && "handle" in s.drag ? s.drag.handle.id : s.handleSel) : shownOp?.kind === "loft" && !s.tool ? loftEntries(sceneOf(s.session), shownOp) : shownOp?.kind === "mirror" ? mirrorEntries(shownOp, gizmo)  : shownOp?.kind === "scale" && shownOp.axes ? scaleEntries(shownOp, gizmo) : s.repeat && !s.op ? repeatEntries(liveRepeat(sceneOf(s.session), s.repeat), gizmo, s.cam, s.repeat.chosen ?? null) : movingOp && numberShown ? moveEntries(s.handleSel?.startsWith("move:") ? { ...movingOp, axis: "xyz".indexOf(s.handleSel[5]!) as 0 | 1 | 2 } : movingOp, gizmo, moveOffset(sceneOf(s.session), movingOp), s.lockAxes) : []).map((e) => inUnits(e)),
     helper: helperAt(s, gizmo),
     busy: !!s.session.outcome.kernel?.stale || !!s.building,
     ...(s.building ? { busyText: buildingText(s.building) } : s.session.outcome.kernel?.partial ? { busyText: `Building ${s.session.outcome.kernel.partial.done} of ${s.session.outcome.kernel.partial.total} parts…` } : {}),
@@ -565,7 +565,7 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     loftKinds: s.op?.kind === "loft" ? loftChips(sceneOf(s.session), s.op) : null,
     sizeKinds: sizeKinds(s),
     cursor: s.tool || s.box ? "crosshair" : s.gizmoHover ? "grab" : "", // (held for a drag select: the cursor changes, `in_235`)
-    message: (s.op?.kind === "revolve" ? axisAcross(sceneOf(s.op.made ? undone(s.session) : s.session), s.op) ?? advanceNote(sceneOf(s.op.made ? undone(s.session) : s.session), s.op) : null) ?? s.session.message ?? hardWhy?.why ?? hardOverlapMessage(sc) ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? (s.op ? Object.values(outcome.notes ?? {}).at(-1) : undefined) ?? "",
+    message: (s.op?.kind === "revolve" ? axisAcross(sceneOf(s.op.made ? undone(s.session) : s.session), s.op) : null) ?? s.session.message ?? hardWhy?.why ?? hardOverlapMessage(sc) ?? (s.op && previewProblem ? `that size cannot be made: ${previewProblem}` : null) ?? Object.values(outcome.errors)[0] ?? (s.op ? Object.values(outcome.notes ?? {}).at(-1) : undefined) ?? "",
   };
 }
 

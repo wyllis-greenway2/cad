@@ -10,7 +10,7 @@ import { loopFaceRef, diskFaceRef } from "../src/operation/loops.ts";
 import { startOp } from "../src/interaction/operations.ts";
 import type { Op } from "../src/interaction/operations.ts";
 import { runOp } from "../src/interaction/runop.ts";
-import { advanceNote, axisAcross } from "../src/interaction/revolve.ts";
+import { axisAcross } from "../src/interaction/revolve.ts";
 import type { Vec3 } from "../src/math/vec.ts";
 import { cross, normalize, dot } from "../src/math/vec.ts";
 
@@ -63,18 +63,18 @@ test("past one turn with no advance it is refused; with an advance it spirals, t
   assert.equal(step.params.advance, 25, "10 a turn over two and a half turns (`in_1298`)");
 });
 
-test("an advance that is less than the figure is wide along the axis is raised so the turns do not overlap, and the reason is said (`in_1194`)", () => {
+test("an advance less than the figure is wide along the axis is allowed: the overlapping turns are fused into one body (`in_1335`)", () => {
   const { s, face } = figure();
   const op = begin(s, face);
   const r = runOp(s, { ...Z(op), value: 720, advValue: 1 })!; // (1 mm a turn, the figure is 1.5 mm wide along the axis)
   assert.equal(r.session.message, null);
   assert.deepEqual(r.session.outcome.errors, {});
   const step = scene(r.session).steps.at(-1)!;
-  assert.equal(step.type, "revolve");
-  assert.ok(Number(step.params.advance) >= 3 && Number(step.params.advance) < 3.1, `advance ${step.params.advance}: the width 1.5 times two turns`);
-  const note = advanceNote(scene(s), { ...Z(op), value: 720, advValue: 1 } as Op);
-  assert.match(note ?? "", /the advance for each turn is raised to 1\.51 mm/);
-  assert.equal(advanceNote(scene(s), { ...Z(op), value: 720, advValue: 2 } as Op), null, "enough: nothing is said");
+  assert.equal(step.params.advance, 2, "the advance typed, two turns: not raised");
+  const bodies = Object.values(scene(r.session).parts).filter((p) => p.kind === "body");
+  assert.equal(bodies.length, 1, "one body");
+  const expected = Math.PI * 36 * (2 * 1 + (1.5 - 1)); // (the turns cover a ring 36 pi across each pitch: two pitches and the half that sticks out)
+  assert.ok(Math.abs(volume(r.session) - expected) < 0.01 * expected, `volume ${volume(r.session)} against ${expected}`);
 });
 
 import { createState, reduce } from "../src/interaction/controller.ts";
@@ -594,25 +594,4 @@ test("the Revolve operation opens with the bubble of its angle and its advance f
   const f = frameOf(st, { w: 800, h: 600 });
   assert.deepEqual(f.entry?.fields.map((x) => x.label), ["Angle", "Advance a turn"], "both numbers are there to type in");
   assert.equal(f.entry?.fields[0]?.value, "90", "the angle it begins with");
-});
-
-test("an advance below the floor shows the advance it really has (`in_1334`): the box and the arrow say the raised number and flash, so a number that does nothing is not left standing", () => {
-  const { s, face } = figure();
-  let st = createState({ ...s, click: { ...s.click, selection: [face] as never } });
-  st = reduce(st, { type: "begin", name: "revolve" }, env);
-  st = { ...st, op: Z(st.op!) };
-  for (const k of "900") st = reduce(st, { type: "typed", key: k, shift: false }, env);
-  st = reduce(st, { type: "typed", key: "Tab", shift: false }, env);
-  st = reduce(st, { type: "typed", key: "1", shift: false }, env);
-  const typing = frameOf(st, { w: 800, h: 600 }).entry!.fields[1]!;
-  assert.equal(typing.value, "1", "while it is being typed it shows the digits");
-  st = reduce(st, { type: "typed", key: "Tab", shift: false }, env);
-  const f = frameOf(st, { w: 800, h: 600 }).entry!.fields[1]!;
-  assert.equal(f.value, "1.51", "after, the figure is 1.5 wide: the pitch is 1.51");
-  assert.equal(f.bad, true, "and it flashes");
-  st = reduce(st, { type: "typed", key: "Tab", shift: false }, env);
-  for (const k of "\b\b") st = reduce(st, { type: "typed", key: "Backspace", shift: false }, env);
-  for (const k of "10") st = reduce(st, { type: "typed", key: k, shift: false }, env);
-  st = reduce(st, { type: "typed", key: "Tab", shift: false }, env);
-  assert.equal(frameOf(st, { w: 800, h: 600 }).entry!.fields[1]!.value, "10", "above the floor it is what was typed");
 });
