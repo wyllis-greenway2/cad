@@ -115,7 +115,7 @@ export interface AppState {
   /** an operation chosen from the menu with what it needs not selected (`in_464`): it waits for what is clicked next; the operations that take several things (a loft, a sweep) wait for Enter or the check */
   picking: { kind: OpKind; /** what it still needs, as `startOp` says it ("select a closed figure first"): shown in its bubble (`in_951`) */ why?: string } | null;
   /** a dimmed item of the menu that was pressed (`in_951`): it waits for what it needs to be selected, helping with what to select, and runs by itself when it can; Esc gives it up */
-  awaiting: { id: string; label: string; icon: string; why: string; /** it needs several things: each click adds to the selection, as Shift does (`in_1333`) */ many?: true } | null;
+  awaiting: { id: string; label: string; icon: string; why: string; /** it needs several things: each click adds to the selection, as Shift does (`in_1333`) */ many?: true; /** it is finished with Enter or the check, not by what is selected (Subtract) */ manual?: true; /** Subtract: the bodies to cut, once they are taken */ targets?: Ref[] } | null;
   /** a gear assembly model being made a part at a time (`dec_gear_models`): the next part is made when the kernel has answered for the one before */
   building: Building | null;
   /** looking straight at a plane is a little hard to leave (`in_193`): the drag so far, in pixels, that has been kept from the camera; past `settings.view.leaveStraightPx` the view turns, and goes smoothly into perspective */

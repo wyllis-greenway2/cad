@@ -297,7 +297,7 @@ export function buildGraph(scene: Scene): GraphResult {
         if (!prev) { errors[st.id] = "there is no body yet"; break; }
         const names = st.parts.map((r) => (r.startsWith("b/") ? r.split("/")[1]! : ""));
         if (names.length < 2 || names.some((n) => !n || n === "body")) { errors[st.id] = "select two or more bodies"; break; }
-        ops.push({ id: xid, type: "combine", target: prev, mode: String(st.params.mode ?? "add"), bodies: names, ...(Number(st.params.keep) === 1 ? { keep: 1 } : {}), ...(Number(st.params.glue) === 1 ? { glue: 1 } : {}), ...(st.params.drop ? { drop: String(st.params.drop).split(",").filter(Boolean) } : {}), ...(st.params.mode === "regions" ? { regions: String(st.params.regions ?? "").split(",").filter((x) => x !== "").map(Number), join: Number(st.params.join) === 1, ...(st.params.skip ? { skip: String(st.params.skip).split(",").filter((x) => x !== "").map(Number) } : {}) } : {}) });
+        ops.push({ id: xid, type: "combine", target: prev, mode: String(st.params.mode ?? "add"), bodies: names, ...(Number(st.params.keep) === 1 ? { keep: 1 } : {}), ...(Number(st.params.targets) > 1 ? { targets: Number(st.params.targets) } : {}), ...(Number(st.params.glue) === 1 ? { glue: 1 } : {}), ...(st.params.drop ? { drop: String(st.params.drop).split(",").filter(Boolean) } : {}), ...(st.params.mode === "regions" ? { regions: String(st.params.regions ?? "").split(",").filter((x) => x !== "").map(Number), join: Number(st.params.join) === 1, ...(st.params.skip ? { skip: String(st.params.skip).split(",").filter((x) => x !== "").map(Number) } : {}) } : {}) });
         prev = xid;
         break;
       }

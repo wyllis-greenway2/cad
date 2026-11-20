@@ -1320,11 +1320,24 @@ const OPS = {
       if (op.skip && op.skip.length) { const gone = new Set(op.skip); result = result.filter((_, i) => !gone.has(i)); if (!result.length && !found.rest.length) throw new Error("nothing would be left of the parts chosen"); } // (a part of the result that was deleted since: its number in the result, `in_1320`)
       return { kind: "solid", shape: makeCompound([...found.rest, ...result]), first: op.bodies[0] };
     }
-    const [first, ...others] = found.picked;
+    // a subtraction can cut several bodies at once (`in_1334`): the first `targets` bodies are each cut by all the others, which are the tools
+    const nt = op.mode === "subtract" ? Math.max(1, Math.min(op.targets ?? 1, found.picked.length - 1)) : 1;
+    const [first, ...others] = op.mode === "subtract" ? found.picked.slice(nt - 1) : found.picked;
+    const targets = op.mode === "subtract" ? found.picked.slice(0, nt - 1) : [];
+    const tools = op.mode === "subtract" ? found.picked.slice(nt) : others;
+    const toolNames = op.mode === "subtract" ? op.bodies.slice(nt) : op.bodies.slice(1);
     const drop = new Set(op.drop ?? []); // (tools that were kept but have been deleted since: the cut they made stays, they do not, `in_436`)
-    const kept = op.keep && op.mode !== "add" ? others.filter((_, i) => !drop.has(op.bodies[i + 1])).map((o) => o.clone()) : []; // (a boolean uses up what it is given: the tools that stay are copied first)
+    const kept = op.keep && op.mode !== "add" ? tools.filter((_, i) => !drop.has(toolNames[i])).map((o) => o.clone()) : []; // (a boolean uses up what it is given: the tools that stay are copied first)
     let made = first;
-    for (const o of others) made = op.mode === "subtract" ? made.cut(o) : op.mode === "intersect" ? made.intersect(o) : made.fuse(o, op.glue && op.mode === "add" ? { optimisation: "commonFace" } : {});
+    if (op.mode === "subtract") {
+      const cutters = tools.map((o) => o.clone());
+      const cutAll = (b) => { let r = b; for (const o of cutters) r = r.cut(o.clone()); return r; };
+      const done = [...targets.map(cutAll), cutAll(first)];
+      const lumps = done.flatMap((d) => lumpsOf(d));
+      if (!lumps.length) throw new Error("nothing would be left of the body");
+      return { kind: "solid", shape: makeCompound([...found.rest, ...lumps, ...kept]), first: op.bodies[0] };
+    }
+    for (const o of others) made = op.mode === "intersect" ? made.intersect(o) : made.fuse(o, op.glue && op.mode === "add" ? { optimisation: "commonFace" } : {});
     const parts = lumpsOf(made);
     if (!parts.length) throw new Error(op.mode === "intersect" ? "those bodies have nothing in common" : "nothing would be left of the body");
     if (op.mode === "add" && parts.length > 1) throw new Error("those bodies do not touch or overlap, so they cannot become one body");
