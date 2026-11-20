@@ -5745,3 +5745,23 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1362 — 2026-11-20 — directive
 > it doesn't seem fixed. The lines are white? or not visible?
 (a screenshot: a line drawn on the top of the cylinder with the line tool on, only faint white dashes where it crosses the pointer's disc)
+
+## in_1363 — 2026-11-20 — directive
+> It still doesn't work. I still cant pull both these faces down
+(a screenshot and the file `model_5.json`: a cylinder whose top has two lines across it, the two end pieces of the top selected with the pull arrow; they cannot be pulled down together; sent after the question whether the fix reached the root cause)
+
+## in_1364 — 2026-11-20 — question
+> Lets do the stable naming root fix if you think we need it. also is this model stable in general where we can let body edges be part of sketches as lines? for example if I draw this patten on top a cylinder then extrude down, then increase the diameter such that an earlier enclosed sketch would have no longer been enclosed, then what happens?
+(asks to build the stable naming fix if it is needed, and whether letting a body's edges be lines of a sketch is stable in general: what happens to a figure pulled down when the cylinder's diameter is then changed so that a region that was enclosed no longer is)
+
+## in_1365 — 2026-11-20 — approval
+> Yes I will go with your recommendations
+(approves the recommendation after in_1364: option A of `q_body_edge_pieces` first, the pieces of a figure that use the body's edges copied into the sketch as drawn lines and arcs when the step is made, and the lost-figure error said out loud; C later only if following the diameter is wanted)
+
+## in_1366 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the body-edge copy fix, the two-face pull fix and the earlier work to be merged into the testing branch, no full test run)
+
+## in_1367 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the body-edge copy fix, the two-face pull fix and the earlier work to be merged into the testing branch, no full test run; the same words as in_1366)
