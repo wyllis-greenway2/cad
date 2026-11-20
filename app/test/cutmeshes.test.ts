@@ -24,3 +24,28 @@ test("a cylinder with two notches pulled down across its rim is drawn whole: the
   assert.deepEqual(r.value.outcome.errors, {});
   assert.ok(Math.abs(enclosed(k) - k.volume) < 0.01 * k.volume, `the triangles enclose ${enclosed(k).toFixed(0)}, the body has ${k.volume.toFixed(0)}`);
 });
+
+import { worldRef } from "../src/shared/ref.ts";
+import { createSession, scene, run } from "../src/interaction/session.ts";
+import { drawCircle, drawChain } from "../src/operation/build.ts";
+import { nextId } from "../src/operation/scene.ts";
+import { planeForDrawing } from "../src/interaction/tools.ts";
+
+test("a cut whose corners lie 2 hundred-thousandths of a mm inside the rim (where a snap or a rounding puts them) is drawn whole", () => {
+  let s = createSession(kernel);
+  const R = 12.5;
+  const c = drawCircle(scene(s), worldRef("XY"), [0, 0, 0], R);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 25 } } } as never);
+  const top = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.ref.startsWith("b/body/f@0,0,1"))!;
+  const { plane, command } = planeForDrawing(scene(s), top.ref);
+  if (command) s = run(s, command);
+  const r = R - 2e-5, a = 0.9;
+  const pts: [number, number, number][] = [[r, 0, 25], [r * Math.cos(a), r * Math.sin(a), 25], [r * Math.cos(a), -r * Math.sin(a), 25]];
+  const ch = drawChain(scene(s), plane, [...pts, pts[0]!], true);
+  s = run(s, ch.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: ch.lines, params: { depth: -8, mode: "cut" } } } as never);
+  const k = s.outcome.kernel!;
+  assert.deepEqual(s.outcome.errors, {});
+  assert.ok(Math.abs(enclosed(k as never) - k.volume!) < 0.01 * k.volume!, `the triangles enclose ${enclosed(k as never).toFixed(0)}, the body has ${k.volume!.toFixed(0)}`);
+});
