@@ -1,4 +1,5 @@
 // The pointer intents: hover, click (selecting, or drawing when a tool is armed, or finishing an operation) and the menu.
+import { modelCutsBody } from "../../operation/modelkinds.ts";
 import { CONSTRAINT_ENTRIES, resolveEntry } from "../constraintlist.ts";
 import { whyNoMaterial } from "../material.ts";
 import { whyNoPathRepeat } from "../pathrepeat.ts";
@@ -124,6 +125,8 @@ const LEAVES: { id: string; label: string; icon: string; op?: OpKind; tool?: Too
   { id: "model:engine", label: "Piston engine", icon: "engine" }, // (a single cylinder engine with the exact slider crank)
   { id: "model:piston", label: "Piston", icon: "piston" }, // (the piston maker: every number of a piston in a box of its own, `dec_piston_maker`)
   { id: "model:wheel", label: "Wheel", icon: "wheel" }, // (hub, spokes and rim: alone, or filling a selected round object, `dec_hub_spoke`)
+  { id: "model:keyhole", label: "Keyed hole", icon: "keyhole" }, // (a key, a flat or a spline cut into the hole of a round body, `dec_keyway_maker`)
+  { id: "model:keyshaft", label: "Keyed shaft", icon: "keyshaft" }, // (a shaft with a keyway, a flat or a spline)
   { id: "model:wheelcut", label: "Cut spokes", icon: "wheelcut" }, // (the wheel cut into a round body that is selected: its bore and outside edge kept, `dec_hub_spoke`)
   { id: "model:cycloidal", label: "Cycloidal drive", icon: "cycloidal" }, // (a cycloidal reducer)
   { id: "fab:material", label: "Material", icon: "models" }, // (Shape, Fabricate: what a body is made of, `in_1083`; it was a row of the ⋯ list)
@@ -159,7 +162,7 @@ const BEARINGS_MENU: Group = { id: "bearings", label: "Bearings", icon: "bearing
 const CATEGORIES: { id: string; label: string; icon: string; items: (string | Group)[] }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch", items: ["tool:rect", "tool:circle", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset"] },
   { id: "shape", label: "Shape", icon: "body", items: ["op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:parts", { id: "fabricate", label: "Fabricate", icon: "hammer", items: ["fab:material", "tool:fasteners"] }] },
-  { id: "mechanisms", label: "Models", icon: "gear", items: [GEARS, BEARINGS_MENU, "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "model:piston", "model:wheel", "model:wheelcut", "tool:geneva:model"] }, // (the gears, and the devices made of them, `in_1145`; the gears were in Sketch and the devices in Shape, Fabricate, Models)
+  { id: "mechanisms", label: "Models", icon: "gear", items: [GEARS, BEARINGS_MENU, "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "model:piston", "model:wheel", "model:wheelcut", "model:keyhole", "model:keyshaft", "tool:geneva:model"] }, // (the gears, and the devices made of them, `in_1145`; the gears were in Sketch and the devices in Shape, Fabricate, Models)
   { id: "place", label: "Move", icon: "move", items: ["op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue"] },
   { id: "repeat", label: "Repeat", icon: "copy", items: ["op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path"] },
   { id: "select", label: "Select", icon: "pointer", items: ["select:add", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup"] },
@@ -483,7 +486,7 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
     const next = run(sess, plan.command);
     return { ...base, session: next.message ? next : { ...next, message: null, click: { ...next.click, selection: [] } }, tool: { ...t, trimming: undefined } };
   }
-  if (t.kind === "model" && t.model?.kind === "wheelcut" && !t.fill) { // (Cut spokes waits for a click on the round body to cut into: the first thing under the click that is one)
+  if (t.kind === "model" && t.model && modelCutsBody(t.model.kind) && !t.fill) { // (Cut spokes waits for a click on the round body to cut into: the first thing under the click that is one)
     let got: ReturnType<typeof cutFillOf> = "click the round body to cut spokes into: a gear, a disc, a cylinder or a ring";
     for (const r of refs) { got = cutFillOf(sc, r); if (typeof got !== "string") break; }
     if (typeof got === "string") return { ...base, session: { ...sess, message: got } };

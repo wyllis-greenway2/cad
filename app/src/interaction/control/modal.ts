@@ -12,6 +12,7 @@ import { gearFields, armTool, armModel, typeKey, finish, lineNext, gearTyped, ed
 import type { GearVariant } from "../tools.ts";
 import { modelHeld, modelChanged, modelTyped, modelCommand, modelFix, modelBuilding, nextPartCommand, partIds, finishCommand } from "../modeltool.ts";
 import type { ModelKind } from "../../operation/modelkinds.ts";
+import { modelCutsBody } from "../../operation/modelkinds.ts";
 /** why the model of a tool is not made (the words of its refusal), or null */
 const modelWhy = (sc: ReturnType<typeof sceneOf>, t: Tool): string | null => { const c = modelCommand(sc, t); return c.ok ? null : c.error; };
 import type { CamKind, CamLaw, CamLayout } from "../../operation/cams.ts";
@@ -96,8 +97,8 @@ function fillOf(s: AppState): { center: Vec3; normal: Vec3; radius: number } | n
 function beginTool(s: AppState, kind: ToolKind, now: number, over: Ref | null = null, variant: GearVariant = "gear", cam?: CamKind, law?: CamLaw, layout?: CamLayout, model?: ModelKind): AppState {
   if (s.tool?.kind === kind && s.tool.model?.kind === model && !s.tool.plane && variantOf(s.tool.gear) === (kind === "gear" ? variant : "gear") && s.tool.cam?.kind === cam && s.tool.cam?.law === law && s.tool.cam?.layout === layout) return { ...s, tool: null }; // pressing it again puts it away
   const make = (): Tool => (model ? armModel(model) : cam ? armCam(cam, law, layout) : armTool(kind, variant));
-  if (model === "wheelcut") { // (cut spokes into the round body that is selected: its outside, its bore and its thickness are kept, `dec_hub_spoke`; with none selected the box opens and waits for a click on one)
-    const sc = sceneOf(s.session), sel = selectionOf(s.session), got = sel.length ? cutFillOf(sc, sel[0]!) : "click the round body to cut spokes into: a gear, a disc, a cylinder or a ring";
+  if (model && modelCutsBody(model)) { // (cut spokes / a keyed hole into the round body that is selected: its outside, its bore and its thickness are kept, `dec_hub_spoke`; with none selected the box opens and waits for a click on one)
+    const sc = sceneOf(s.session), sel = selectionOf(s.session), got = sel.length ? cutFillOf(sc, sel[0]!) : (model === "keyhole" ? "click the round body to key the hole of: a gear, a disc, a cylinder or a ring" : "click the round body to cut spokes into: a gear, a disc, a cylinder or a ring");
     if (typeof got === "string") return { ...s, tool: { ...make(), plane: worldRef("XY") }, op: null, menu: null, session: { ...s.session, message: got } };
     return { ...s, tool: { ...make(), plane: worldRef("XY"), points: [got.center], cursor: got.center, sized: true, fill: { center: got.center, normal: got.normal, cut: got.cut } }, op: null, menu: null };
   }

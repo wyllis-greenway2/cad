@@ -5404,3 +5404,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1271 — 2026-11-20 — directive
 > group the fields into sections first
 (answers my offer to group the piston maker's fields into sections before adding more variables)
+
+## in_1272 — 2026-11-20 — directive
+> build the keyway tool next
+(asks for the keyway tool to be built next, as designed in `dec_keyway_maker`)

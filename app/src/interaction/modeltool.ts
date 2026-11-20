@@ -53,7 +53,8 @@ export function modelTarget(scene: Scene, t: Tool): ModelTarget | null {
   const [mx, my] = localOf(pl, middle), cursor = t.cursor ? localOf(pl, t.cursor) : null;
   const reach = cursor ? 2 * Math.hypot(cursor[0] - mx, cursor[1] - my) : 0; // (the pointer's distance from the middle, both ways)
   const cutFrom = t.fill?.cut; // (Cut spokes: the outside, the bore and the thickness are the body's, and are not moved)
-  if (cutFrom) Object.assign(typed, cutFrom.bore > 0 ? { bore: 2 * cutFrom.bore, boreOwned: 1 } : { boreOwned: 0, bore: typed.bore ?? 0 }, { rimT: cutFrom.thickness, hubT: cutFrom.thickness, draft: 0, rimMax: cutFrom.root > 0 ? Math.max(0, 2 * (cutFrom.root - 1.2)) : 0 });
+  if (cutFrom && m.kind === "keyhole") Object.assign(typed, cutFrom.bore > 0 ? { bore: 2 * cutFrom.bore, boreOwned: 1 } : { boreOwned: 0 }, { thick: cutFrom.thickness, bodyR: cutFrom.root > 0 ? cutFrom.root : cutFrom.outer }); // (a keyed hole: the body's thickness and how far from the axis the hole may reach, `dec_keyway_maker`)
+  else if (cutFrom) Object.assign(typed, cutFrom.bore > 0 ? { bore: 2 * cutFrom.bore, boreOwned: 1 } : { boreOwned: 0, bore: typed.bore ?? 0 }, { rimT: cutFrom.thickness, hubT: cutFrom.thickness, draft: 0, rimMax: cutFrom.root > 0 ? Math.max(0, 2 * (cutFrom.root - 1.2)) : 0 });
   const size = cutFrom ? 2 * cutFrom.outer : numOf(m.typed[0]) ?? (reach > 1e-6 ? Math.max(MIN_SHARE * modelExtent(m.kind, modelStart(m.kind)), reach) : undefined);
   const sk = modelSizeKey(m.kind); // (a model whose Size is one of its numbers, the wheel's outside diameter: the Size is that number)
   if (sk && size !== undefined) typed[sk] = size;
@@ -140,7 +141,7 @@ export function modelEntry(scene: Scene, t: Tool): { panel: string; fields: { ba
     panel: modelTitle(m.kind),
     fields: order.map((i) => ({ ...(m.bad?.field === i || guard?.field === i ? { bad: true as const } : {}), ...((i === 0 ? modelFixedSize(m.kind) : lockedNum(fields[i - 1]!, g?.nums)) ? { locked: true as const } : {}), index: i, ...(i >= 1 && fields[i - 1]!.section ? { section: fields[i - 1]!.section } : {}), label: labels[i]!, value: m.typed[i] !== "" ? m.typed[i]! : live[i] !== undefined ? round(live[i]!) : "", active: m.field === i, typed: m.typed[i] !== "", hint: i === 0 ? hintSize : hints[i]!, ...(i >= 1 && fields[i - 1]!.choices ? { choices: fields[i - 1]!.choices } : {}), ...(i >= 1 && fields[i - 1]!.toggle ? toggleOf(i) : {}) })),
     unit: "mm",
-    note: g ? (g.problem ?? modelAbout(m.kind, g.nums)) : m.kind === "wheelcut" ? "click the round body to cut spokes into" : "click where the middle of it goes",
+    note: g ? (g.problem ?? modelAbout(m.kind, g.nums)) : m.kind === "wheelcut" ? "click the round body to cut spokes into" : m.kind === "keyhole" ? "click the round body to key the hole of: a gear, a disc, a cylinder or a ring" : "click where the middle of it goes",
   };
 }
 
