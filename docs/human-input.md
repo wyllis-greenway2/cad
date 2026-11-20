@@ -5382,6 +5382,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (with a screenshot of the blue wireframe of the piston lying on its side beside the piston that stands; reports the wireframe turned 90 degrees to the model for piston heads, and maybe for other things)
 
 ## in_1266 — 2026-11-20 — question
+> Is this supposed to be cut like this? it looks like the oil ring cuts all the way through the wall except the bosses hold it together?
+(with a screenshot of the piston seen from the side and above: the ring grooves show as white bands, a small drain hole in the oil groove, and the pin bore with a jagged ring round it; asks whether the oil ring groove cuts through the wall)
+
 > okay, look at this, pull the face of this gear up to make it thicker didn't respect the the gear helix. Is this normal expected behavior with the face pull type? or is this a bug? also it took exactly one billion years, and half the time I try to do these operations it fails.
 (with the saved model 06451bcb-gear.json)
 
@@ -5390,3 +5393,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1268 — 2026-11-20 — question
 > so did we figure out why it is so slow?
+
+## in_1269 — 2026-11-20 — directive
+> can we make it faster and not fail so much?

@@ -138,8 +138,10 @@ test("the lands are cut smaller than the skirt: the top land 0.003 and the other
 test("the pin is held by circlips: a groove in the pin bore near each face, a ring in each, the pin ends short of them", () => {
   const base = P({ bore: 68, pin: 18 }), g = pistonGeometry(base), c = g.clip!;
   assert.ok(c, "circlips are the default");
-  assert.ok(Math.abs(c.width - 1.08) < 1e-9 && Math.abs(c.depth - 0.504) < 1e-9 && Math.abs(c.z - (g.rzPin - 1 - 1.08)) < 1e-9, "the groove: 0.06 and 0.028 of the pin, 1 mm from the face (the outer face at the pin)");
+  assert.ok(Math.abs(c.width - 1.08) < 1e-9 && Math.abs(c.depth - 0.504) < 1e-9 && Math.abs(c.z - (g.outerZ(c.bore + c.depth) - 1 - 1.08)) < 1e-9, "the groove: 0.06 and 0.028 of the pin, 1 mm from the face where the groove is widest");
   assert.ok(Math.abs(g.pinHalf - (c.z - 0.1)) < 1e-9, "the pin ends 0.1 mm short of the groove");
+  for (const y of [0, 3, 6, c.bore + c.depth]) assert.ok(c.z + c.width + 1 <= g.outerZ(y) + 1e-9 || y < c.bore + c.depth - 1e-9 && c.z + c.width + 1 <= g.outerZ(c.bore + c.depth) + 1e-9, `the groove stays inside the skirt's face at y = ${y}: it was breaking out at its sides`);
+  assert.ok(c.z + c.width + 1 <= g.outerZ(c.bore + c.depth) + 1e-9, "the groove's outer face is 1 mm inside the skirt where the groove is widest");
   assert.ok(c.inner < 9 && c.outer < c.bore + c.depth, "the circlip reaches in over the pin's end and stays inside its groove");
   const bs = bodies(pistonSteps(base)).sort((a, b) => b.volume - a.volume);
   assert.equal(bs.length, 4);
@@ -154,7 +156,7 @@ test("the pin is held by circlips: a groove in the pin bore near each face, a ri
   const bn = bodies(pistonSteps({ ...base, retention: 0 })).sort((a, b) => b.volume - a.volume);
   assert.equal(bn.length, 2, "no circlips, no ring bodies");
   const grooves = 2 * Math.PI * ((c.bore + c.depth) ** 2 - c.bore ** 2) * c.width;
-  assert.ok(Math.abs((bn[0]!.volume - bs[0]!.volume) - grooves) / grooves < 0.05, `the grooves take ${grooves.toFixed(2)} mm3 out of the piston: ${(bn[0]!.volume - bs[0]!.volume).toFixed(2)}`);
+  assert.ok(Math.abs((bn[0]!.volume - bs[0]!.volume) - grooves) / grooves < 0.01, `the grooves take ${grooves.toFixed(2)} mm3 out of the piston: ${(bn[0]!.volume - bs[0]!.volume).toFixed(2)}`);
   assert.match(pistonProblem(P({ retention: 2 })) ?? "", /retention is 0/);
   assert.match(pistonProblem({ ...base, pinLen: 2 * c.z + 4 }) ?? "", /too long for the circlips/);
   assert.match(pistonProblem({ ...base, clipEdge: 0.2 }) ?? "", /0.5 mm or more/);
@@ -250,4 +252,36 @@ test("two pads: the skirt is cut away at the sides of the pin below the bosses, 
   assert.match(pistonProblem({ ...base, skirtStyle: 1, skirtLen: 10 }) ?? "", /two pads needs the skirt to reach/);
   assert.match(pistonProblem({ ...base, skirtStyle: 1, padAngle: 10 }) ?? "", /a pad spans 30 to 150 degrees/);
   assert.match(pistonProblem({ ...base, skirtStyle: 2 }) ?? "", /full \(0\) or two pads \(1\)/);
+});
+
+// A section through a ring groove: the wall under its floor is there (the grooves do not cut through the piston).
+test("a section through each ring groove at the thrust sides: the cavity's wall and the groove's floor, the wall between them as thick as the wall asked for", () => {
+  const spec = P({ bore: 68, pin: 18 }), g = pistonGeometry(spec);
+  const r = pistonSteps(spec), c = asCommand(scene(createSession(kernel)), r.ok ? r.value.steps : []);
+  assert.ok(r.ok && c.ok);
+  if (!r.ok || !c.ok) return;
+  const s = run(createSession(kernel), c.value);
+  const mesh = (s.outcome.kernel as unknown as { mesh: { vertices: Float32Array; triangles: Uint32Array } }).mesh, V = mesh.vertices, T = mesh.triangles;
+  const hits = (zq: number, th: number): number[] => { // (the distances from the axis at which a ray in the plane z = zq crosses the surfaces)
+    const dx = Math.cos(th), dy = Math.sin(th), out: number[] = [];
+    for (let i = 0; i < T.length; i += 3) {
+      const p = [0, 1, 2].map((k) => [V[3 * T[i + k]!]!, V[3 * T[i + k]! + 1]!, V[3 * T[i + k]! + 2]!]);
+      const lo = p.filter((q) => q[2]! < zq), hi = p.filter((q) => q[2]! >= zq);
+      if (!lo.length || !hi.length) continue;
+      const pts: number[][] = [];
+      for (const a of lo) for (const b of hi) { const t = (zq - a[2]!) / (b[2]! - a[2]!); pts.push([a[0]! + t * (b[0]! - a[0]!), a[1]! + t * (b[1]! - a[1]!)]); }
+      if (pts.length < 2) continue;
+      const [P0, Q] = [pts[0]!, pts[1]!], ex = Q[0]! - P0[0]!, ey = Q[1]! - P0[1]!, den = dx * ey - dy * ex;
+      if (Math.abs(den) < 1e-12) continue;
+      const tt = (P0[0]! * ey - P0[1]! * ex) / den, uu = (P0[0]! * dy - P0[1]! * dx) / den;
+      if (tt > 0 && uu >= 0 && uu <= 1) out.push(tt);
+    }
+    return out.sort((a, b) => a - b).filter((v, i, a) => i === 0 || v - a[i - 1]! > 1e-3);
+  };
+  for (const gr of g.belt.grooves) for (const deg of [60, 90, 120]) {
+    const h = hits(g.sk + g.ch - gr.top - gr.height / 2, (deg * Math.PI) / 180);
+    assert.equal(h.length, 2, `groove at ${gr.top.toFixed(1)}, ${deg} degrees: the cavity's wall and the groove's floor: ${h.map((v) => v.toFixed(2))}`);
+    assert.ok(Math.abs(h[0]! - g.shell.innerBelt) < 0.05 && Math.abs(h[1]! - (g.rp - g.belt.depth)) < 0.05, `the wall runs from ${g.shell.innerBelt.toFixed(2)} to the floor at ${(g.rp - g.belt.depth).toFixed(2)}: ${h.map((v) => v.toFixed(2))}`);
+    assert.ok(Math.abs(h[1]! - h[0]! - g.shell.wall) < 0.1, "the wall under the floor is the wall asked for");
+  }
 });
