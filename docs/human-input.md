@@ -5739,3 +5739,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1360 — 2026-11-20 — approval
 > Yes I will go with your recommendations
 (approves the recommendation after in_1359: option A of `q_body_edge_pieces` first, the pieces of a figure that use the body's edges copied into the sketch as drawn lines and arcs when the step is made, and the lost-figure error said out loud; C later only if following the diameter is wanted)
+
+## in_1361 — 2026-11-20 — directive
+> merge into claude/inspiring-pascal-l342k7 please no need for full tests
+(asks for the body-edge copy fix, the two-face pull fix and the earlier work to be merged into the testing branch, no full test run)
