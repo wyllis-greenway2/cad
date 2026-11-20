@@ -5494,3 +5494,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1296 — 2026-11-20 — directive
 > merge into claude/inspiring-pascal-l342k7 please
+
+## in_1297 — 2026-11-20 — directive
+> I got it. Okay so the profile is pretty cartoonish. Also it doesn't merge well with the other bodies. No we need to have it be a real profile that is extruded and then sections inset and stepped in with proper fillets etc. It should look more like this. Notice the smooth curved profile shape. Notice how there is an extended rim thinkess on both bored ends that can be mchined mate flush with the edges of the pins that go through them. Also notice how there are oil holes designed to let oil into the bearing surface. I dont know the standard on these, but I think they need oil holes sometimes or possibly always?
+(an image attached: a photograph of a forged I-beam rod with a bronze-bushed small end, a bolted cap and a smooth curved beam with a long recessed pocket; the image is not kept in the repository)
+

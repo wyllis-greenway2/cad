@@ -91,7 +91,8 @@ const GROUPS_PISTON = (f: ModelField[]): ModelField[] => grouped(f, [
 
 const GROUPS_ROD = (f: ModelField[]): ModelField[] => grouped(f, [
   ["Size", ["length", "pin", "crankPin", "thick", "smallThick", "room"]],
-  ["Beam", ["pockets"]],
+  ["Beam", ["beamThick", "blend", "pockets", "pocketRound"]],
+  ["Oil", ["oil", "oilDia"]],
   ["Small end", ["bush", "bushWall"]],
   ["Big end", ["shells", "shellWall", "bolts", "bolt"]]]);
 
@@ -284,6 +285,9 @@ const DEFS: Record<ModelKind, Def> = {
     fields: GROUPS_ROD([{ ...F("preset", "Start from", "the Honda GX160's rod (its length, pins and bolts: the service and tech manuals), or your own numbers; a number you type replaces the preset's"), choices: ["Your own", ...ROD_PRESETS.map((e) => e.name.replace("Honda ", ""))], top: true },
       F("length", "Length", "mm between the centres of the big and the small bore", true), F("pin", "Piston pin diameter", "mm: the small bore, before the sleeve", true), F("crankPin", "Crank pin diameter", "mm: the big bore, before the shells", true),
       F("thick", "Thickness", "mm of the beam and the big end; 0: 0.75 of the pin, at least 3 (assumed)", true), F("smallThick", "Small end thickness", "mm; 0: the same as the beam (a narrower small end saves weight: the lower side carries the load)", true), F("room", "Room round the pins", "mm: the pins' running room in the bores (half of it is also left between rod and cap)"),
+      F("beamThick", "Beam thickness", "mm; 0: 0.8 of the thinner eye (the eyes stand proud of the beam as rims, to be machined flush with the pins; assumed)", true), F("blend", "Blend radius", "mm where the beam runs into each eye; 0: half the small end's outer radius (assumed)", true),
+      F("pocketRound", "Pocket round", "mm at the pocket's floor; 0: 0.4 of its depth, at most 1.5 (assumed)", true),
+      { ...F("oil", "Oil passage", "none, or a hole drilled along the beam from the big bore to the small bore (through the shell and the sleeve): pressure fed engines have one; splash engines (Honda's) none"), choices: ["None", "Drilled"] }, F("oilDia", "Oil passage diameter", "mm; 0: 0.1 of the pin, at most the web less 1 (assumed)", true),
       { ...F("pockets", "Beam pockets", "an I-beam: none, one long pocket in each face, or two (assumed proportions)"), choices: ["None", "One long", "Two"] },
       { ...F("bush", "Small end sleeve", "none (the pin runs on the bore), or a bush pressed into the eye (most four-strokes)"), choices: ["None", "Bush"] }, F("bushWall", "Sleeve wall", "mm; 0: 0.06 of the pin, at least 1 (assumed)", true),
       { ...F("shells", "Big end bearing", "none (the crank pin runs on the bore), or two half shells held in the rod and the cap (the usual plain bearing)"), choices: ["None", "Shells"] }, F("shellWall", "Shell wall", "mm; 0: 0.029 of the crank pin (from one worksheet, assumed)", true),

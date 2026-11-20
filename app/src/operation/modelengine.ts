@@ -126,7 +126,7 @@ export function engineSteps(s: EngineSpec, place?: Place): Result<ModelBuild> {
   // the connecting rod (`dec_rod_design`): the small eye, an I-beam (a pocket in each face, a web and flanges between), and the upper half of the split big end with its two lugs; the cap is the lower half, a body of its own; the bolt holes go through both lugs
   // the connecting rod and its cap (`dec_rod_design`, `modelrod.ts`: the rod maker's own code; the sleeve, shells and bolts are off here)
   const rd = g.rod;
-  buildRod(b, { l: g.l, pin: s.pin, rm, w: g.w, ws: g.w, rb: g.rb, ri: g.cp / 2 + rm, rs: g.rs, eye: s.pin / 2 + rm, web: rd.web, flange: rd.flange, bolt: rd.bolt, lug: rd.lug, boltY: rd.boltY, pockets: 1, bush: 0, shell: 0, bolts: 0, cpR: g.cp / 2 }, g.r, g.zc);
+  buildRod(b, { l: g.l, pin: s.pin, rm, w: g.w, ws: g.w, rb: g.rb, ri: g.cp / 2 + rm, rs: g.rs, eye: s.pin / 2 + rm, web: rd.web, flange: rd.flange, bolt: rd.bolt, lug: rd.lug, boltY: rd.boltY, wb: Math.round(0.8 * g.w * 10) / 10, rf: Math.round(0.5 * g.rs * 10) / 10, round: 0, oil: 0, oilD: 0, pockets: 1, bush: 0, shell: 0, bolts: 0, cpR: g.cp / 2 }, g.r, g.zc);
   return ok(b.build());
 }
 
