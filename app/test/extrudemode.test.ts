@@ -8,6 +8,7 @@ import type { Session } from "../src/interaction/session.ts";
 import { drawSquaredRectangle } from "../src/operation/build.ts";
 import { loopFaceRef } from "../src/operation/loops.ts";
 import { nextId } from "../src/operation/scene.ts";
+import { consumed } from "../src/operation/ownership.ts";
 import { startOp } from "../src/interaction/operations.ts";
 import { runOp } from "../src/interaction/runop.ts";
 import { facingOf } from "../src/interaction/frame.ts";
@@ -20,9 +21,12 @@ function pull(s: Session, face: string): Session {
   const st = startOp(scene(s), [face as never], "extrude");
   if (!st.ok) throw new Error("no extrude");
   const r = runOp(s, { ...st.op, value: 10 });
-  assert.ok(r && !r.session.message);
+  assert.ok(r && !r.session.message, r ? String(r.session.message) : "no run");
   return r!.session;
 }
+const consumedSet = (s: Session) => consumed(scene(s));
+/** whether a piece of the plane's drawing lies on the first box (0 to 10 each way) */
+const inside = (f: { corners: string[] }, s: Session): boolean => f.corners.length > 0 && f.corners.every((c) => { const at = (scene(s).parts[c as never] as { at?: number[] } | undefined)?.at; return !!at && at[0]! <= 10 + 1e-6 && at[1]! <= 10 + 1e-6; });
 const modes = (s: Session) => scene(s).steps.filter((x) => x.type === "extrude").map((x) => x.params.mode);
 
 test("an extrusion that stands apart from the body is stored as a piece of its own, one that touches it as joined (`in_295`)", () => {
@@ -48,7 +52,11 @@ test("an extrusion that goes into the body is stored as a cut, and the body is s
   const a = sketch(s, 0, 0); s = pull(a.s, a.face); // (a box 10 by 10 by 10)
   const volume = (x: Session) => Object.values(scene(x).parts).reduce((t, p) => t + (p.kind === "body" ? (p.volume ?? 0) : 0), 0);
   const before = volume(s);
-  const b = sketch(s, 5, 5); s = pull(b.s, b.face); // (a second figure on the same plane, half on the body: pulled into it)
+  // a second figure on the same plane, half on the body: the body's edges cut it into the piece that is on the body and the piece beside it (`in_1344`); the piece on the body is pulled into it
+  const b = sketch(s, 5, 5);
+  const piece = Object.values(scene(b.s).parts).find((p) => p.kind === "face" && p.origin === "drawn" && !!p.pieces && !consumedSet(b.s).has(p.ref) && inside(p as never, b.s));
+  assert.ok(piece, "a piece of the second figure lies on the body");
+  s = pull(b.s, piece!.ref);
   assert.deepEqual(modes(s), [undefined, "cut"]);
   assert.ok(volume(s) < before - 1);
 });

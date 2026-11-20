@@ -16,3 +16,16 @@ test("lines across the base of a cylinder make four regions with its rim", () =>
   const pieces = Object.values(scene(s).parts).filter((p): p is Extract<Part, { kind: "face" }> => p.kind === "face" && p.origin === "drawn" && !!p.pieces);
   assert.equal(pieces.length, 4);
 });
+
+test("a region cut by the rim can be extruded", async () => {
+  const { startOp } = await import("../src/interaction/operations.ts");
+  const r = openSession(kernel, readFileSync(new URL("./fixtures/lines-across-base.cad.json", import.meta.url), "utf8"));
+  const s = (r as unknown as { value: Session }).value;
+  const pieces = Object.values(scene(s).parts).filter((p): p is Extract<Part, { kind: "face" }> => p.kind === "face" && p.origin === "drawn" && !!p.pieces);
+  const { runOp } = await import("../src/interaction/runop.ts");
+  const st = startOp(scene(s), [pieces[0]!.ref], "extrude");
+  assert.ok(st.ok, st.ok ? "" : st.why);
+  const out = runOp(s, { ...(st as { op: never }).op, value: 8 });
+  assert.ok(out && !out.session.message, out ? String(out.session.message) : "no run");
+  assert.deepEqual(out!.session.outcome.errors, {});
+});

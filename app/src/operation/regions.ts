@@ -132,7 +132,7 @@ export function curvesOn(s: Scene, plRef: Ref, spent: ReadonlySet<Ref> = new Set
   // a plane of the world that a body stands on (the base of an extruded circle) is cut by the body's round edges only where a line drawn on it really crosses one (a line across the base cuts it into pieces up to the rim, `in_1343`);
   // a curve that meets an edge only at an end, or lies along it (a circle drawn over the one that was extruded), leaves the drawing as it was
   const interior = (c: Curve, q: V2): boolean => { const t = along(c, q); return t !== null && (c.k === "circle" || (t > 1e-6 && t < 1 - 1e-6)); };
-  if (bodyCurves.length && (pl.onBody || curves.some((c) => c.k === "seg" && bodyCurves.some((b) => b.k !== "seg" && meet(c, b).some((q) => interior(c, q) && interior(b, q)))))) curves.push(...bodyCurves);
+  if (bodyCurves.length && (pl.onBody || curves.some((c) => bodyCurves.some((b) => meet(c, b).some((q) => interior(c, q) && interior(b, q)))))) curves.push(...bodyCurves);
   curves.sort((x, y) => (x.ref < y.ref ? -1 : 1));
   return { curves, pl, flat, extra };
 }

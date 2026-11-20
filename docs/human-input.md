@@ -5671,3 +5671,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1343 — 2026-11-20 — question
 > Normally when you sketch on a plane, it merges the lines with the plane lines, so this would be four sections of closed sketches on this cylinder surface but it is not. Why?
 (a screenshot of the flat top of a round body with three lines drawn across it, two parallel and one crossing them, the top face selected as one surface; the saved model 2d6fd416-model_not_four_closed_sketches.json)
+
+## in_1344 — 2026-11-20 — question
+> should't it simply be that any lines exactly on the same plane can interact to make closed sketches?

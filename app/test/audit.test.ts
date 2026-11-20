@@ -138,11 +138,11 @@ test("a chamfer made now on the top rim of a post goes up with the top when the 
   }
 });
 
-test("a circle drawn over a circle that has been extruded is one disk, not cut by the old one", () => {
+test("a circle drawn across the rim of a body that stands on the plane is cut by it into pieces; one that touches no rim is one disk (`in_1344`: any lines exactly in one plane take part)", () => {
   const s = rod();
   const faces = parts(s).filter((p) => p.kind === "face" && !consumed(scene(s)).has(p.ref));
-  assert.equal(faces.length, 1);
-  assert.ok(faces[0]!.kind === "face" && faces[0]!.disk, "the new circle's disk");
+  assert.ok(faces.length > 1, `${faces.length} faces: the new circle crosses the rim of the first body`);
+  assert.ok(faces.every((f) => f.kind === "face" && !!f.pieces), "all of them pieces");
 });
 
 function near(a: number, b: number, tol = 1e-6) { assert.ok(Math.abs(a - b) <= tol, `${a} vs ${b}`); }

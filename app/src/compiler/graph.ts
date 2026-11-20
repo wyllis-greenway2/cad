@@ -38,7 +38,7 @@ export function buildGraph(scene: Scene): GraphResult {
   let chain: { base: string | null; mode: string; mods: { ref: unknown; value: number }[] } | null = null;
 
   const profile = (st: Step, refs: readonly Ref[] = st.parts, sid = `s_${st.id}`): KernelOp | string => {
-    const first = get(refs[0]!);
+    const first = refs.map((r) => get(r)).find((p) => p?.plane) ?? get(refs[0]!); // (a side that is an edge of the body has no plane of its own: the first that has one says where the shape is, `in_1344`)
     if (!first) return "a part of this step is gone";
     const plane = first.plane ? get(first.plane) : undefined;
     if (!plane || plane.kind !== "plane") return "the shape is not on a plane";
