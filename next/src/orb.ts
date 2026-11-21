@@ -9,8 +9,8 @@ import { settings } from "./settings.ts";
 
 export interface Orb { centre: V3; /** the axes a drag is held to (chosen with Shift): one is a line, two a plane */ held: number[]; /** the second arrows beyond the straight ones: an operation has them or not (off unless it says), the user does not choose */ extras?: boolean }
 export type HandleKind = "arrow" | "turn" | "ball";
-/** `points` is the handle's line, from the ball to the tip of its arrow. */
-export interface Handle { id: string; kind: HandleKind; axis: 0 | 1 | 2 | null; points: V3[]; /** the second arrow of an operation that has one */ extra?: true }
+/** `points` is the handle's line, to the tip of its arrow; `also` more lines that belong to it (the stem of a curved arrow). */
+export interface Handle { id: string; kind: HandleKind; axis: 0 | 1 | 2 | null; points: V3[]; also?: V3[][]; /** the second arrow of an operation that has one */ extra?: true }
 export const AXES: V3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
 export const AXIS_LETTER = ["X", "Y", "Z"] as const;
 
@@ -20,8 +20,8 @@ export function unitOf(c: Cam, centre: V3): number {
   return viewHeight(c, depth) / (2 * tan) * settings.mover.sizeOfView;
 }
 /**
- * The orb: from the ball three straight arrows along +X, +Y, +Z (they move along the axis), and out of the tip of each a curved arrow that goes on round the circle about the next axis
- * (the Y arrow's tip carries the turn about Z, the Z arrow's the turn about X, the X arrow's the turn about Y). A tip is on that circle, so the curved arrow carries on from it.
+ * The orb: from the ball, on each axis, a straight arrow out one side (it moves along the axis) and a curved arrow out the other (it turns about the axis): a stem along the
+ * axis to the middle of an open circle round it, with a head on the circle.
  */
 export function handlesOf(o: Orb, c: Cam): Handle[] {
   const L = unitOf(c, o.centre), M = settings.mover, A = M.arrowShare * L, out: Handle[] = [];
@@ -29,9 +29,10 @@ export function handlesOf(o: Orb, c: Cam): Handle[] {
     const a = i as 0 | 1 | 2, letter = AXIS_LETTER[i];
     out.push({ id: `move:${letter}`, kind: "arrow", axis: a, points: [o.centre, add(o.centre, scale(d, A))] });
     if (o.extras) out.push({ id: `copy:${letter}`, kind: "arrow", axis: a, extra: true, points: [add(o.centre, scale(d, A * (1 + M.extraGap))), add(o.centre, scale(d, A * (1 + M.extraGap + M.extraShare)))] });
-    const about = ((i + 1) % 3) as 0 | 1 | 2, axis = AXES[about]!, side = cross(axis, d), span = (M.turnSpanDeg * Math.PI) / 180, arc: V3[] = [];
-    for (let k = 0; k <= M.arcSegments; k++) { const t = (k / M.arcSegments) * span; arc.push(add(o.centre, scale(add(scale(d, Math.cos(t)), scale(side, Math.sin(t))), A))); }
-    out.push({ id: `turn:${AXIS_LETTER[about]}`, kind: "turn", axis: about, points: arc });
+    const stemEnd = sub(o.centre, scale(d, A * M.stemShare)), r = A * M.turnShare, u = unit(cross(Math.abs(d[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0], d)), v = cross(d, u), arc: V3[] = [];
+    const from = (M.turnStartDeg * Math.PI) / 180, span = (M.turnSpanDeg * Math.PI) / 180;
+    for (let k = 0; k <= M.arcSegments; k++) { const t = from + (k / M.arcSegments) * span; arc.push(add(stemEnd, scale(add(scale(u, Math.cos(t)), scale(v, Math.sin(t))), r))); }
+    out.push({ id: `turn:${letter}`, kind: "turn", axis: a, points: arc, also: [[o.centre, stemEnd]] });
   });
   out.push({ id: "ball", kind: "ball", axis: null, points: [o.centre] });
   return out;
@@ -46,7 +47,7 @@ export function hitHandle(hs: Handle[], c: Cam, w: number, h: number, px: number
   let best: { d: number; h: Handle } | null = null;
   for (const hd of hs) {
     let d = Infinity;
-    for (const line of [hd.points]) {
+    for (const line of [hd.points, ...(hd.also ?? [])]) {
       const ps = line.map((p) => project(c, p, w, h));
       if (c.ortho === null && ps.some((q) => q.depth <= 1e-6)) continue;
       if (hd.kind === "ball") d = Math.hypot(ps[0]!.x - px, ps[0]!.y - py) - 4;

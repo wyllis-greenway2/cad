@@ -178,6 +178,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
       const seg = pts[i]!.clone().sub(pts[i - 1]!), base = pts[i]!.clone().sub(seg.clone().normalize().multiplyScalar(left)), dir = pts[i - 1]!.clone().sub(pts[i]!).negate().normalize();
       const line = [...pts.slice(0, i), base].map((q) => [q.x, q.y, q.z] as V3);
       orbLine(line, hot, w, h);
+      for (const l of hd.also ?? []) orbLine(l, hot, w, h);
       const tip = base.clone().add(dir.clone().multiplyScalar(hl));
       const m = new THREE.Mesh(new THREE.ConeGeometry(hr, hl, 14), new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity: hot ? 1 : M.opacity, depthTest: false }));
       m.position.copy(base.clone().add(tip).multiplyScalar(0.5)); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); m.renderOrder = 13; dyn.add(m);
