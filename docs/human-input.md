@@ -5828,3 +5828,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1382 — 2026-11-20 — directive
 > yes do step 1 and the engine-rod check
 (step 1: read how a corner snapped to a body's rim is stored today; and the engine-rod check: whether the retry of `in_1368` changes the rod's volume)
+
+## in_1383 — 2026-11-21 — directive
+> yes please
+(asked: write the decision entry for the general fix, exact anchor numbers behind the existing rim reference and referenced points sent unrounded, and look into the rod's volume separately)
