@@ -2,7 +2,7 @@
 // It knows nothing of input: the controller says what the camera is, which plane is on, what is under the pointer; it only draws. Text and buttons are the page's (ui.ts).
 import * as THREE from "three";
 import { settings } from "./settings.ts";
-import { fovOf, forward, rightOf, upOf, type Cam } from "./camera.ts";
+import { fovOf, forward, heightAt, isStraight, rightOf, upOf, type Cam } from "./camera.ts";
 import type { Scene as Model } from "./scene.ts";
 import { centreOf } from "./scene.ts";
 import type { V3 } from "./vec.ts";
@@ -28,6 +28,8 @@ export interface Drawing {
   cam: Cam;
   /** How far ahead things are: only the depth range of the drawing (what must not be cut off) comes from it. */
   depth: number;
+  /** How far in front of the eye the plane that is on is (the picture's size is that of the perspective picture there, in a straight view). */
+  refDepth: number;
   /** The distance the picture must reach: the far plane (a thing's far wall, seen from inside, must not be cut off). */
   reach: number;
   /** The grid's spacing, how far it has gone toward the next one, and how far the fog reaches: from the view's distance to the plane (see `gridLevel`). */
@@ -46,7 +48,9 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setClearColor(settings.theme.background);
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(settings.view.fovDeg, 1, 0.1, 1000);
+  const persp = new THREE.PerspectiveCamera(settings.view.fovDeg, 1, 0.1, 1000);
+  const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000); // a straight view at rest is drawn with this: nothing of the third dimension is seen when the view is slid across
+  let camera: THREE.PerspectiveCamera | THREE.OrthographicCamera = persp;
   const ambient = new THREE.AmbientLight(0xffffff, 1.5), key = new THREE.DirectionalLight(0xffffff, 1.6);
   scene.add(ambient, key, key.target);
 
@@ -131,9 +135,14 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
     render(d: Drawing) {
       renderer.setSize(d.w, d.h, false);
       const c = d.cam, f = forward(c);
+      // a straight view at rest is drawn orthographic, the size of the picture at the plane that is on (what the perspective picture would show there), so that sliding the view shows nothing of the third dimension
+      camera = isStraight(c) ? ortho : persp;
       camera.position.copy(vec(c.eye));
       camera.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(vec(rightOf(c)), vec(upOf(c)), vec(f).negate()));
-      camera.fov = (fovOf(c) * 180) / Math.PI; camera.aspect = d.w / d.h;
+      if (camera === ortho) {
+        const hh = heightAt(c, d.refDepth) / 2, hw = hh * (d.w / d.h);
+        ortho.left = -hw; ortho.right = hw; ortho.top = hh; ortho.bottom = -hh;
+      } else { persp.fov = (fovOf(c) * 180) / Math.PI; persp.aspect = d.w / d.h; }
       camera.near = d.depth * 0.02; camera.far = Math.max(d.depth, d.reach) * 120; camera.updateProjectionMatrix();
       key.position.copy(camera.position); key.target.position.copy(vec([c.eye[0] + f[0], c.eye[1] + f[1], c.eye[2] + f[2]]));
       // the grid: lines at whole multiples of the spacing from the origin (the world's), the quad following the view in whole steps so the lines do not swim

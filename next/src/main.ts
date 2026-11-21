@@ -161,6 +161,8 @@ function fly(dt: number, g: { ahead: number; side: number; dx: number; dy: numbe
   const mag = Math.hypot(g.dx, g.dy), k = settings.view.orbitRadPerPx * settings.input.flyLookScale * fineGain(mag);
   if (mag > 0) c = cam.turnAbout(c, c.eye, -g.dx * k, -g.dy * k);
 }
+/** How far in front of the eye the plane that is on is (the world's origin lies on it): the picture's size in a straight view. */
+const refDepth = (): number => { const d = cam.forwardDepth(c, [0, 0, 0]); return d > settings.view.minSurfaceMm ? d : len(c.eye); };
 /** What is under the pointer: the pane of a plane, a face of a thing, or the plane that is on. */
 function underPointer() {
   const r = pointer || game.on ? rayAt(pointer?.x ?? 0, pointer?.y ?? 0) : null;
@@ -198,7 +200,7 @@ function frame(now: number) {
   if (sawNow) seen = sawNow;
   paneLevel = clamp((c.lens - 0.5) / 0.5, 0, 1);
   const { pane, disc } = underPointer();
-  world.render({ cam: c, depth: scaleDepth(model, c), reach: flightScale(model, c), grid: gridLevel(c, plane), w, h, gizmoScale: gizmoScale(), plane, paneHover: pane ? pane.axis : null, paneLevel, axesShown: !worldHidden, disc });
+  world.render({ cam: c, depth: scaleDepth(model, c), refDepth: refDepth(), reach: flightScale(model, c), grid: gridLevel(c, plane), w, h, gizmoScale: gizmoScale(), plane, paneHover: pane ? pane.axis : null, paneLevel, axesShown: !worldHidden, disc });
   ui.update(pageState(w, h));
   requestAnimationFrame(frame);
 }
