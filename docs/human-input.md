@@ -6129,3 +6129,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1472 — 2026-11-21 — rejection
 > okay but this isn't a 3d printing software, this is supposed to be a real cad software, are you saying the mesh is just a proxy? or the real model? and how would that work when you need real objects or to interface with other cad programs?
+
+## in_1473 — 2026-11-21 — directive
+> yes lets update our vision, it is supposed to be a real cad software. So how can we make a really good engine working with this that has history, and we can map our line system on?

@@ -1,6 +1,6 @@
 # CAD: working agreement
 
-A parametric solid modeler for functional 3D printing. Vision, target user and scope are in
+A parametric solid modeler: real CAD (exact geometry, exchange with other CAD programs, history); 3D printing is one thing it makes (`dec_scope_real_cad`, `in_1472`). Vision, target user and scope were first written in
 `docs/origin/CAD_Blueprint.original.md` (written by the human owner, kept untouched).
 Current decisions live in `docs/decisions/`. This file is the short version of how we work.
 
