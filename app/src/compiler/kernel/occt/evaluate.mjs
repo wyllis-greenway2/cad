@@ -146,7 +146,7 @@ function describeSolid(shape, tess0, lite, vol0) {
           const nn = f.normalAt(pt);
           const rad = [pt.x - (axis === 0 ? pt.x : center[0]), pt.y - (axis === 1 ? pt.y : center[1]), pt.z - (axis === 2 ? pt.z : center[2])];
           const convex = nn.x * rad[0] + nn.y * rad[1] + nn.z * rad[2] > 0;
-          const have = round.get(key) ?? { type: "cyl", convex, ranges: [], faces: [], turn: 0, axis, center, radius, lo: Math.round(lo[axis] * 1e4) / 1e4, hi: Math.round(hi[axis] * 1e4) / 1e4 };
+          const have = round.get(key) ?? { type: "cyl", convex, ranges: [], faces: [], turn: 0, axis, center, radius, exact: { center: [loc.X(), loc.Y(), loc.Z()], radius: cyl.Radius() }, lo: Math.round(lo[axis] * 1e4) / 1e4, hi: Math.round(hi[axis] * 1e4) / 1e4 };
           have.ranges.push({ start: g.start, count: g.count });
           have.faces.push(f);
           partOf.set(f.hashCode, { axis, center, convex });
@@ -184,7 +184,7 @@ function describeSolid(shape, tess0, lite, vol0) {
       const into = merged.find((m) => m.axis === c.axis && m.radius === c.radius && m.convex === c.convex && m.center.every((v, i) => i === c.axis || v === c.center[i]) && Math.abs(m.hi - c.lo) < 1e-3);
       if (into) { into.ranges.push(...c.ranges); into.hi = c.hi; } else merged.push({ ...c, ranges: [...c.ranges] });
     }
-    for (const c of merged) faces.push({ type: "cyl", convex: c.convex, start: c.ranges[0].start, count: c.ranges[0].count, ranges: c.ranges, axis: c.axis, center: c.center, radius: c.radius, lo: c.lo, hi: c.hi });
+    for (const c of merged) faces.push({ type: "cyl", convex: c.convex, start: c.ranges[0].start, count: c.ranges[0].count, ranges: c.ranges, axis: c.axis, center: c.center, radius: c.radius, exact: c.exact, lo: c.lo, hi: c.hi });
     for (const f of other) {
       const g = ranges.get(f.hashCode);
       const [lo, hi] = g && !ANALYTIC.has(f.geomType) ? meshBounds(m, g) : f.boundingBox.bounds;
@@ -222,7 +222,7 @@ function describeSolid(shape, tess0, lite, vol0) {
         try {
           const ci = e._geomAdaptor().Circle();
           const [lc, ax] = [ci.Location(), ci.Axis().Direction()];
-          circle = { center: [r4(lc.X()), r4(lc.Y()), r4(lc.Z())], normal: [r4(ax.X()), r4(ax.Y()), r4(ax.Z())], radius: r4(ci.Radius()) };
+          circle = { center: [r4(lc.X()), r4(lc.Y()), r4(lc.Z())], normal: [r4(ax.X()), r4(ax.Y()), r4(ax.Z())], radius: r4(ci.Radius()), exact: { center: [lc.X(), lc.Y(), lc.Z()], radius: ci.Radius() } }; // (the numbers as they are, beside the rounded ones that name the edge: what a sketch is held to, `dec_exact_rim_numbers`)
         } catch { circle = undefined; }
       }
       edges.push({ type: e.geomType, pts, a: [r4(a.x), r4(a.y), r4(a.z)], b: [r4(z.x), r4(z.y), r4(z.z)], mid: [r4(mid.x), r4(mid.y), r4(mid.z)], ...(circle ? { circle } : {}) });

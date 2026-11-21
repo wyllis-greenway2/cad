@@ -87,7 +87,7 @@ export function bodyParts(result: KernelResult, sheets: Sheet[] = [], gears: Gea
     const name = edgeName(e.a, e.b, e.mid);
     const pair = e.circle ? halves.get(circleKey(e.circle)) : undefined;
     const twin = pair && pair.length === 2 && ends.get(pair[0]!) === ends.get(pair[1]!) ? pair.find((r) => r !== name) : undefined;
-    out.push({ ...base, ref: name, kind: "line", ...(stableEdges.get(edgeKey(e.a, e.b, e.mid)) ? { stable: stableEdges.get(edgeKey(e.a, e.b, e.mid))! } : {}), a: corner(e.a), b: corner(e.b), ...(straight ? {} : { mid: e.mid }), ...(!straight && !e.circle ? { path: pathOf(e.pts, e.a as Vec3, e.b as Vec3) } : {}), ...(e.circle ? { circle: e.circle as { center: Vec3; normal: Vec3; radius: number } } : {}), ...(twin ? { twin } : {}), ...(many && e.body !== undefined ? { of: bodyPart(e.body) } : {}) });
+    out.push({ ...base, ref: name, kind: "line", ...(stableEdges.get(edgeKey(e.a, e.b, e.mid)) ? { stable: stableEdges.get(edgeKey(e.a, e.b, e.mid))! } : {}), a: corner(e.a), b: corner(e.b), ...(straight ? {} : { mid: e.mid }), ...(!straight && !e.circle ? { path: pathOf(e.pts, e.a as Vec3, e.b as Vec3) } : {}), ...(e.circle ? { circle: e.circle as { center: Vec3; normal: Vec3; radius: number; exact?: { center: Vec3; radius: number } } } : {}), ...(twin ? { twin } : {}), ...(many && e.body !== undefined ? { of: bodyPart(e.body) } : {}) });
   }
   const flats: { n: Vec3; d: number; u: Vec3; v: Vec3; mesh: number[]; body?: number; stable?: string }[] = [];
   /** The lasting name the kernel gave the flat face on this plane whose middle is nearest the middle of the triangles shown (`dec_stable_reference_mechanism`). */
@@ -121,7 +121,8 @@ export function bodyParts(result: KernelResult, sheets: Sheet[] = [], gears: Gea
       const mesh: number[] = [];
       const m = result.mesh;
       if (m) for (const r of (f.ranges as { start: number; count: number }[] | undefined) ?? [{ start: f.start, count: f.count }]) for (let i = r.start; i < r.start + r.count; i++) { const ix = m.triangles[i]!; mesh.push(m.vertices[ix * 3]!, m.vertices[ix * 3 + 1]!, m.vertices[ix * 3 + 2]!); }
-      const curved = { axis, center, radius: f.radius as number, lo: f.lo as number, hi: f.hi as number, convex: f.convex !== false };
+      const ex = f.exact as { center: Vec3; radius: number } | undefined;
+      const curved = { axis, center, radius: f.radius as number, lo: f.lo as number, hi: f.hi as number, convex: f.convex !== false, ...(ex ? { exact: { center: ex.center.map((v, i) => (i === axis ? (f.lo as number) : v)) as unknown as Vec3, radius: ex.radius } } : {}) };
       out.push({ ...base, ref: cylName(curved), kind: "plane", at: center, u: dirs[0]!, v: dirs[1]!, curved, ...(mesh.length ? { mesh } : {}), ...(many && f.body !== undefined ? { of: bodyPart(f.body as number) } : {}) });
       continue;
     }

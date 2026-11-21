@@ -5,7 +5,7 @@ import type { Vec3 } from "../math/vec.ts";
 import { normalize, sub } from "../math/vec.ts";
 import type { Scene, Step } from "../operation/scene.ts";
 import { lookup, figuresOf, figureDepths } from "../operation/scene.ts";
-import type { Plane } from "../operation/part.ts";
+import type { Plane, Part } from "../operation/part.ts";
 import { normalOfPlane, pointOf, loopSteps } from "../operation/part.ts";
 import type { KernelGraph, KernelOp } from "./kernel/adapter.ts";
 import { decodeEdge, decodeFace } from "./body.ts";
@@ -24,10 +24,25 @@ const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
 // (the frame is read back through the moves that came after it, which gives the same numbers to about 1e-14 whichever moves they are: rounded, so that the kernel's memory of what it made from it can tell it is the same sketch, `in_252`)
 const r9 = (v: number) => Math.round(v * 1e9) / 1e9 + 0;
 const frameOf = (pl: Plane, back: Rigid = NONE) => ({ origin: [...applyPoint(back, pl.at)].map(r9), xDir: [...applyDir(back, normalize(pl.u))].map(r9), normal: [...applyDir(back, normalOfPlane(pl))].map(r9) });
-const to2d = (pl: Plane, p: Vec3, k = 1): [number, number] => {
-  const d = sub(p, pl.at);
-  return [r6(k * (d[0] * pl.u[0] + d[1] * pl.u[1] + d[2] * pl.u[2])), r6(k * (d[0] * pl.v[0] + d[1] * pl.v[1] + d[2] * pl.v[2]))];
+// (a point held to a body's curve or edge goes to the kernel to a trillionth, not a millionth: rounded to a millionth it lies up to 5e-7 off the surface, where a cut leaves a sliver the mesher cannot do; it is the only kind of point that is, `dec_exact_rim_numbers`)
+const r12 = (v: number) => Math.round(v * 1e12) / 1e12 + 0;
+const to2d = (pl: Plane, p: Vec3, k = 1, exact = false): [number, number] => {
+  const d = sub(p, pl.at), round = exact ? r12 : r6;
+  return [round(k * (d[0] * pl.u[0] + d[1] * pl.u[1] + d[2] * pl.u[2])), round(k * (d[0] * pl.v[0] + d[1] * pl.v[1] + d[2] * pl.v[2]))];
 };
+
+/** The corners among these that a relation holds on a part of a body (a circle or an edge of it: on it, or on its line): the points that must lie on the body's surface. */
+function heldToBody(scene: Scene, get: (r: Ref) => Part | undefined, corners: readonly Ref[]): Set<Ref> {
+  const out = new Set<Ref>();
+  if (!scene.relations.length) return out;
+  const mine = new Set<Ref>(corners);
+  for (const r of scene.relations) {
+    if (r.kind !== "onCircle" && r.kind !== "onLine") continue;
+    const [a, b] = [r.parts[0], r.parts[1]];
+    if (a && b && mine.has(a) && get(b)?.origin === "body") out.add(a);
+  }
+  return out;
+}
 
 export function buildGraph(scene: Scene): GraphResult {
   const get = lookup(scene);
@@ -56,7 +71,9 @@ export function buildGraph(scene: Scene): GraphResult {
     if (!loop.ok) return loop.error;
     if (loop.corners.some((c) => !pointOf(get, c))) return "a corner of the shape is gone";
     const steps = loopSteps(get, refs, loop.corners); // (a side that is an arc has its middle point: the kernel draws a true arc through the two corners and it)
-    return { id, type: "sketch", shape: "polygon", points: steps.map((p) => to2d(plane, p.at, back.k)), sides: steps.map((p) => (p.line ? (p.piece ? `${p.line}~${p.piece}` : p.line) : "")), ...(steps.some((p) => p.mid) ? { mids: steps.map((p) => (p.mid ? to2d(plane, p.mid, back.k) : null)) } : {}), plane: "XY", origin: 0, frame: frameOf(plane, back) };
+    const held = heldToBody(scene, get, loop.corners); // (the corners held to a body's circle or edge: sent exactly, `dec_exact_rim_numbers`)
+    const exactAt = (i: number): boolean => steps.length === loop.corners.length && held.has(loop.corners[i]!);
+    return { id, type: "sketch", shape: "polygon", points: steps.map((p, i) => to2d(plane, p.at, back.k, exactAt(i))), sides: steps.map((p) => (p.line ? (p.piece ? `${p.line}~${p.piece}` : p.line) : "")), ...(steps.some((p) => p.mid) ? { mids: steps.map((p) => (p.mid ? to2d(plane, p.mid, back.k) : null)) } : {}), plane: "XY", origin: 0, frame: frameOf(plane, back) };
   };
 
   // Each gear's steps are a chain of their own, joined where a step that is not a gear's comes and at the end (`dec_gear_islands`): a gear is made of its own numbers and stands beside the other bodies, so what is worked out for it must not

@@ -8,6 +8,8 @@ import { ENGINE_START, ENGINE_PRESETS, engineGeometry, engineProblem, engineStep
 import { pistonFit, defaultPin } from "../src/operation/pistondesign.ts";
 import { modelNumbers } from "../src/operation/modelkinds.ts";
 import { asCommand } from "../src/operation/modelparts.ts";
+import { rodProfile } from "../src/operation/modelrod.ts";
+import { bulgeOf } from "../src/operation/arcs.ts";
 
 await kernel.init();
 
@@ -220,6 +222,51 @@ test("the oil drain holes are 0 to 4 a side, whole", () => {
 type Iv = [number, number];
 const measure = (iv: Iv[]): number => { const s = iv.filter((v) => v[1] > v[0]).sort((a, b) => a[0] - b[0]); let m = 0, end = -Infinity; for (const [a, b] of s) { if (a > end) { m += b - a; end = b; } else if (b > end) { m += b - end; end = b; } } return m; };
 const annulusAt = (dx: number, ri: number, ro: number): Iv[] => { const o = ro * ro - dx * dx, i = ri * ri - dx * dx; if (o <= 0) return []; const yo = Math.sqrt(o); return i <= 0 ? [[-yo, yo]] : [[-yo, -Math.sqrt(i)], [Math.sqrt(i), yo]]; };
+// The rod's volume, worked out for the rod maker's smooth outline (`rodProfile`, from the rod maker's own numbers: `modelrod.ts`, `in_1297`; the engine's rod has its beam's pocket and the two eyes' collars, no rounds, no oil passage): the outline's arcs sampled, the layers of the rod's thickness (the core, the pocketed faces, the collars alone) each measured as the union of its parts by integration, and the bolt holes taken out. Older than this the rod was a plain I-beam (`in_1383`: the check had not been moved to the new rod).
+type P = [number, number];
+const rodSample = (pts: P[], bulges: number[], n = 400): P[] => { // (the app's bulge k: the chord's middle pushed out by k times the chord, to its left when k > 0)
+  const out: P[] = [];
+  pts.forEach((A, i) => {
+    const B = pts[(i + 1) % pts.length]!, k = bulges[i]!; out.push(A);
+    if (!k) return;
+    const c = Math.hypot(B[0] - A[0], B[1] - A[1]), M: P = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], nrm: P = [-(B[1] - A[1]) / c, (B[0] - A[0]) / c], sg = Math.sign(k), s = Math.abs(k) * c, r = (c * c / 4 + s * s) / (2 * s);
+    const C: P = [M[0] - nrm[0] * sg * (r - s), M[1] - nrm[1] * sg * (r - s)], a0 = Math.atan2(A[1] - C[1], A[0] - C[0]), sweep = -4 * Math.atan(2 * k);
+    for (let j = 1; j < n; j++) out.push([C[0] + r * Math.cos(a0 + (sweep * j) / n), C[1] + r * Math.sin(a0 + (sweep * j) / n)]);
+  });
+  return out;
+};
+const rodCross = (poly: P[], x: number): Iv[] => { const ys: number[] = []; poly.forEach((p, i) => { const q = poly[(i + 1) % poly.length]!; if ((p[0] <= x) !== (q[0] <= x)) ys.push(p[1] + ((x - p[0]) / (q[0] - p[0])) * (q[1] - p[1])); }); ys.sort((a, b) => a - b); const out: Iv[] = []; for (let i = 0; i + 1 < ys.length; i += 2) out.push([ys[i]!, ys[i + 1]!]); return out; };
+const rodMerge = (iv: Iv[]): Iv[] => { const s = iv.filter((v) => v[1] > v[0]).sort((a, b) => a[0] - b[0]); const out: Iv[] = []; for (const v of s) { const l = out[out.length - 1]; if (l && v[0] <= l[1]) l[1] = Math.max(l[1], v[1]); else out.push([v[0], v[1]]); } return out; };
+const rodMinus = (a: Iv[], b: Iv[]): Iv[] => { let cur = rodMerge(a); for (const [lo, hi] of rodMerge(b)) cur = cur.flatMap(([x, y]): Iv[] => (hi <= x || lo >= y ? [[x, y]] : [...(lo > x ? [[x, lo] as Iv] : []), ...(hi < y ? [[hi, y] as Iv] : [])])); return cur; };
+const rodLen = (iv: Iv[]): number => rodMerge(iv).reduce((t, [a, b]) => t + b - a, 0);
+const rodDiscAt = (cx: number, r: number, x: number): Iv[] => { const d = r * r - (x - cx) ** 2; return d <= 0 ? [] : [[-Math.sqrt(d), Math.sqrt(d)]]; };
+const rodRing = (cx: number, ri: number, ro: number, x: number): Iv[] => rodMinus(rodDiscAt(cx, ro, x), rodDiscAt(cx, ri, x));
+function rodVolumeNew(s: typeof ENGINE_START): number {
+  const g = engineGeometry(s), rd = g.rod, rm = s.room, e = rm / 2, ri = g.cp / 2 + rm, xp0 = g.r + g.l, cx = g.r, eye = s.pin / 2 + rm;
+  const geo = { l: g.l, pin: s.pin, rm, w: g.w, ws: g.w, rb: g.rb, ri, rs: g.rs, eye, web: rd.web, flange: rd.flange, bolt: rd.bolt, lug: rd.lug, boltY: rd.boltY, wb: Math.round(0.8 * g.w * 10) / 10, rf: Math.round(0.5 * g.rs * 10) / 10, round: 0, oil: 0, oilD: 0, pockets: 1, bush: 0, shell: 0, bolts: 0, cpR: g.cp / 2 };
+  const pr = rodProfile(geo as never, cx)!, poly = rodSample(pr.pts, pr.bulges);
+  const hb = 0.6 * g.rb, hs = 0.6 * g.rs, at = (x: number): number => hb + ((hs - hb) * (x - cx)) / g.l;
+  const x0 = pr.q1x + 1, x1 = pr.q2x - 1, ya = at(x0) - rd.flange, yc = at(x1) - rd.flange, xa = x0 + ya, xc = x1 - yc;
+  const A: P = [xa, -ya], B: P = [xc, -yc], C: P = [xc, yc], D: P = [xa, ya];
+  const slot = rodSample([A, B, C, D], [0, bulgeOf(B, [xc + yc, 0], C), 0, bulgeOf(D, [xa - ya, 0], A)]);
+  const rimB = ri + 0.6 * (g.rb - ri), rimS = eye + 0.6 * (g.rs - eye), lugY0 = ri + 0.3, lugY1 = g.rb + rd.bolt + 0.6, xs = cx + e;
+  const w = g.w, wb = geo.wb, web = rd.web;
+  const area = (layer: "core" | "pockets" | "collars"): number => {
+    const N = 6000, xlo = cx - g.rb - 1, xhi = xp0 + g.rs + 1, h = (xhi - xlo) / N; let t = 0;
+    for (let i = 0; i < N; i++) {
+      const x = xlo + (i + 0.5) * h;
+      let iv: Iv[] = [];
+      if (layer !== "collars") { let beam = rodMinus(rodCross(poly, x), rodDiscAt(xp0, eye + 0.3, x)); if (layer === "pockets") beam = rodMinus(beam, rodCross(slot, x)); iv.push(...beam); }
+      if (x >= xs) iv.push(...rodMinus(rodRing(cx, ri, rimB, x), [])); // (the big end's half ring beyond the parting face)
+      if (x >= xs && x <= cx + rd.lug) iv.push([lugY0, lugY1], [-lugY1, -lugY0]);
+      iv.push(...rodRing(xp0, eye, rimS, x));
+      t += rodLen(iv) * h;
+    }
+    return t;
+  };
+  const bolts = 2 * Math.PI * (rd.bolt / 2) ** 2 * (rd.lug - e);
+  return 2 * (web / 2 * area("core") + (wb / 2 - web / 2) * area("pockets") + (w / 2 - wb / 2) * area("collars")) - bolts;
+}
 function rodVolumes(s: typeof ENGINE_START): { rod: number; cap: number } {
   const g = engineGeometry(s), rd = g.rod, rm = s.room, e = rm / 2, ri = g.cp / 2 + rm, xp0 = g.r + g.l;
   const hb = 0.6 * g.rb, hs = 0.6 * g.rs, xa = g.r + g.rb - 1, xb = xp0 - g.rs + 1, at = (x: number): number => hb + ((hs - hb) * (x - g.r)) / g.l;
@@ -238,7 +285,8 @@ function rodVolumes(s: typeof ENGINE_START): { rod: number; cap: number } {
   };
   const pocket = simpson((x) => 2 * (at(x) - rd.flange), g.r + g.rb + 1.5, xp0 - g.rs - 1.5, 4000), deep = (g.w - rd.web) / 2;
   const bolts = 2 * Math.PI * (rd.bolt / 2) ** 2 * (rd.lug - e);
-  return { rod: g.w * area(1) - 2 * deep * pocket - bolts, cap: g.w * area(-1) - bolts };
+  void pocket; void deep;
+  return { rod: rodVolumeNew(s), cap: g.w * area(-1) - bolts };
 }
 for (const [name, spec] of [["the usual engine", ENGINE_START], ["Honda GX160", ENGINE_PRESETS[1]!.spec]] as const) {
   test(`${name}: the rod is an I-beam with a split big end: its volume and its cap's are the worked-out ones, and the cap is a body of its own`, () => {

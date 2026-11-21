@@ -49,3 +49,26 @@ test("a cut whose corners lie 2 hundred-thousandths of a mm inside the rim (wher
   assert.deepEqual(s.outcome.errors, {});
   assert.ok(Math.abs(enclosed(k as never) - k.volume!) < 0.01 * k.volume!, `the triangles enclose ${enclosed(k as never).toFixed(0)}, the body has ${k.volume!.toFixed(0)}`);
 });
+
+test("corners held on a body's rim by a relation lie on its real circle and reach the kernel exactly: the cut is drawn whole at every angle (`dec_exact_rim_numbers`)", () => {
+  let bad = 0;
+  for (const [R, a0] of [[12.5, 0.1], [12.5, 0.73], [12.5, 1.31], [12.5, 2.2], [12.500019, 0.4], [12.34567, 0.9], [7.123457, 0.3], [12.5, 3.0]] as const) {
+    let s = createSession(kernel);
+    const c = drawCircle(scene(s), worldRef("XY"), [0, 0, 0], R);
+    s = run(s, c.command);
+    s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 25 } } } as never);
+    const top = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.ref.startsWith("b/body/f@0,0,1"))!;
+    const { plane, command } = planeForDrawing(scene(s), top.ref);
+    if (command) s = run(s, command);
+    const rim = Object.values(scene(s).parts).find((p) => p.kind === "line" && p.origin === "body" && p.circle && Math.abs(p.circle.center[2] - 25) < 1e-6)!;
+    const r = R - 3e-5; // (a corner put about where the pointer was: the relation brings it onto the circle)
+    const pts: [number, number, number][] = [0, 1.9, 3.9].map((t) => [r * Math.cos(a0 + t), r * Math.sin(a0 + t), 25]);
+    const ch = drawChain(scene(s), plane, [...pts, pts[0]!], true);
+    s = run(s, ch.command);
+    for (const corner of ch.corners.slice(0, 3)) s = run(s, { type: "addRelation", relation: { id: nextId(scene(s), "r"), kind: "onCircle", parts: [corner, rim.ref] } } as never);
+    s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: ch.lines, params: { depth: -8, mode: "cut" } } } as never);
+    const k = s.outcome.kernel!;
+    if (Object.keys(s.outcome.errors).length || Math.abs(enclosed(k as never) - k.volume!) > 0.01 * k.volume!) bad++;
+  }
+  assert.equal(bad, 0, `${bad} of 8 cuts left a face undrawn`);
+});
