@@ -81,14 +81,17 @@ export function createCutUi(host: HTMLElement, on: { toggle(id: string): void; o
   };
 }
 
-/** The number that shows beside the pointer while a handle of the orb is dragged. */
-export function createReadout(host: HTMLElement) {
-  const tag = document.createElement("div");
-  tag.style.cssText = `position:fixed;z-index:13;display:none;height:26px;box-sizing:border-box;padding:0 8px;line-height:24px;border-radius:13px;background:#fff;border:1px solid #d6d7db;box-shadow:0 1px 6px rgba(0,0,0,.12);font:13px ${settings.ui.font};color:${settings.ui.text};white-space:nowrap;pointer-events:none;transform:translate(16px,-34px)`;
-  host.appendChild(tag);
-  return { show(at: [number, number] | null, text: string) { if (!at) { tag.style.display = "none"; return; } tag.style.display = "block"; tag.style.left = `${at[0]}px`; tag.style.top = `${at[1]}px`; tag.textContent = text; } };
+/** The little info bubbles of the arrows that are chosen: they stay while the arrow is chosen and follow it. */
+export function createBubbles(host: HTMLElement) {
+  const pool: HTMLElement[] = [];
+  const make = () => { const el = document.createElement("div"); el.style.cssText = `position:fixed;z-index:13;display:none;height:26px;box-sizing:border-box;padding:0 8px;line-height:24px;border-radius:13px;background:#fff;border:1px solid #1ab8b3;box-shadow:0 1px 6px rgba(0,0,0,.12);font:13px ${settings.ui.font};color:${settings.ui.text};white-space:nowrap;pointer-events:none;transform:translate(12px,-34px)`; host.appendChild(el); pool.push(el); return el; };
+  return {
+    update(list: Array<{ at: [number, number]; text: string }>) {
+      while (pool.length < list.length) make();
+      pool.forEach((el, i) => { const b = list[i]; if (!b) { el.style.display = "none"; return; } el.style.display = "block"; el.style.left = `${Math.round(b.at[0])}px`; el.style.top = `${Math.round(b.at[1])}px`; if (el.textContent !== b.text) el.textContent = b.text; });
+    },
+  };
 }
-
 /** The bar at the top while the orb itself is being oriented: what it says, an apply check and a cancel cross (the prototype's). */
 export function createOrientBar(host: HTMLElement, on: { apply(): void; cancel(): void }) {
   const bar = document.createElement("div");

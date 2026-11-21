@@ -81,7 +81,11 @@ export function startGrab(o: Orb, hd: Handle, c: Cam, w: number, h: number, px: 
     const axis = (o.frame ?? AXES)[hd.axis!]!, q = onPlane(r, o.centre, axis);
     return q ? { handle: hd, centre: o.centre, kind: "ring", axis, held: [], s0: 0, q0: null, v0: sub(q, o.centre), normal: axis } : null;
   }
-  if (held.length >= 2) { // two axes held: the plane of the two
+  if (held.length >= 3) { // all three: free, in the plane across the view
+    const n = scale(forward, -1), q = onPlane(r, o.centre, n);
+    return q ? { handle: hd, centre: o.centre, kind: "plane", axis: n, held, s0: 0, q0: q, v0: null, normal: n } : null;
+  }
+  if (held.length === 2) { // two axes held: the plane of the two
     const third = [0, 1, 2].find((i) => !held.includes(i))!, q = onPlane(r, o.centre, (o.frame ?? AXES)[third]!);
     return q ? { handle: hd, centre: o.centre, kind: "plane", axis: (o.frame ?? AXES)[third]!, held, s0: 0, q0: q, v0: null, normal: (o.frame ?? AXES)[third]! } : null;
   }

@@ -13,7 +13,7 @@ import { focusOf, gridLevelAt } from "./sense.ts";
 import { acrossView, borderOf, cutFaceOf, facingCamera, frameOf, noPlanes, regionsOf, vOf, type Cut } from "./planes.ts";
 import { faceNormal, pick, type Hit } from "./pick.ts";
 import { apply, marksOf, noMarks, type Sel } from "./select.ts";
-import { createCutUi, createMenu, createOrientBar, createReadout, type MenuItem } from "./menu.ts";
+import { createCutUi, createMenu, createBubbles, createOrientBar, type MenuItem } from "./menu.ts";
 import { AXES, dragTo, handlesOf, hitHandle, startGrab, unitOf, type Grab, type Orb } from "./orb.ts";
 import { rotate } from "./vec.ts";
 import { add, cross, dot, scale, sub, type V3 } from "./vec.ts";
@@ -56,19 +56,21 @@ function sketchOn(f: { origin: V3; normal: V3; u: V3 }, temp: boolean) {
   if (temp) P.cuts.push({ ...f, id: `c${P.next++}`, on: true, temp: true });
 }
 // ---- the mover orb: one orb, three modes; here it moves, turns and copies a cut plane ----
-let held: number[] = [], orbHot: string | null = null;
+/** The arrows that are chosen (by a press, Shift adding or taking away): their bubbles stay; chosen move arrows are dragged together (two: in their plane, three: free). One turn arrow at a time. */
+let chosen: string[] = [], orbHot: string | null = null;
+const heldAxes = (): number[] => chosen.filter((id) => id.startsWith("move:")).map((id) => "XYZ".indexOf(id[5]!));
 /** Where the orb stands and how it is turned, for each cut plane: it goes with the plane (an offset from its origin) and is remembered (the prototype's moverPose). */
-interface Pose { offset: V3; frame: V3[] }
+interface Pose { offset: V3; frame: V3[]; /** how far it has been turned about each of its axes (radians), for the bubbles */ turned: number[] }
 const poses = new Map<string, Pose>();
-const poseOf = (k: Cut): Pose => { let q = poses.get(k.id); if (!q) { q = { offset: [0, 0, 0], frame: AXES.map((a) => [...a] as V3) }; poses.set(k.id, q); } return q; };
-const clonePose = (q: Pose): Pose => ({ offset: [...q.offset] as V3, frame: q.frame.map((a) => [...a] as V3) });
+const poseOf = (k: Cut): Pose => { let q = poses.get(k.id); if (!q) { q = { offset: [0, 0, 0], frame: AXES.map((a) => [...a] as V3), turned: [0, 0, 0] }; poses.set(k.id, q); } return q; };
+const clonePose = (q: Pose): Pose => ({ offset: [...q.offset] as V3, frame: q.frame.map((a) => [...a] as V3), turned: [...q.turned] });
 let orient = false, poseWas: Pose | null = null; // (the orb itself is being moved and turned, not the plane: a click on the ball turns it on, Enter keeps it, Esc puts it back)
-let grabbed: { g: Grab; base: Cut; pose: Pose; id: string; copied: boolean; text: string; moved: boolean; x0: number; y0: number } | null = null;
+let grabbed: { g: Grab; base: Cut; pose: Pose; id: string; copied: boolean; moved: boolean; x0: number; y0: number } | null = null;
 const selectedCut = (): Cut | undefined => (sel.length === 1 && sel[0]!.kind === "cut" ? cutOf(sel[0]!.id!) : undefined);
-const orbOf = (): Orb | null => { const k = selectedCut(); if (!k || orienting !== k.id) return null; const q = poseOf(k); return { centre: add(k.origin, q.offset), frame: q.frame, orient, held }; };
-function endOrient(keep: boolean) { const k = selectedCut(); if (!keep && k && poseWas) poses.set(k.id, poseWas); orient = false; poseWas = null; held = []; }
+const orbOf = (): Orb | null => { const k = selectedCut(); if (!k || orienting !== k.id) return null; const q = poseOf(k); return { centre: add(k.origin, q.offset), frame: q.frame, orient, held: heldAxes() }; };
+function endOrient(keep: boolean) { const k = selectedCut(); if (!keep && k && poseWas) poses.set(k.id, poseWas); orient = false; poseWas = null; chosen = []; }
 const orientBar = createOrientBar(document.body, { apply: () => endOrient(true), cancel: () => endOrient(false) });
-const readout = createReadout(document.body);
+const bubbles = createBubbles(document.body);
 const ctx = { hit: null as Hit | null };
 function choose(id: string) {
   const { w, h } = size(), hit = ctx.hit;
@@ -89,7 +91,7 @@ const menu = createMenu(document.body, choose);
 const cutUi = (() => {
   const handlers = {
     "cut-toggle": (id: string) => { const k = cutOf(id); if (k) k.on = !k.on; },
-    "cut-orient": (id: string) => { orienting = orienting === id ? null : id; held = []; const k = cutOf(id); if (k) selectCut(k, borderOf(k, model)[0]!); },
+    "cut-orient": (id: string) => { orienting = orienting === id ? null : id; chosen = []; const k = cutOf(id); if (k) selectCut(k, borderOf(k, model)[0]!); },
     "cut-away": (id: string) => { P.cuts = P.cuts.filter((k) => k.id !== id); sel = []; orienting = null; },
     "cut-sketch": (id: string) => { const k = cutOf(id); if (k) sketchOn(k, false); },
   };
@@ -132,10 +134,14 @@ attach(canvas, {
     if (!o || !k || game.on) return false;
     const { w, h } = size(), hd = hitHandle(handlesOf(o, s.c), s.c, w, h, x, y);
     if (!hd) return false;
-    if (shift && hd.axis !== null) held = held.includes(hd.axis) ? held.filter((i) => i !== hd.axis) : [...held, hd.axis]; // (Shift holds a drag to the axes chosen: two make a plane)
-    const g = startGrab({ ...o, held }, hd, s.c, w, h, x, y, forward(s.c));
+    if (hd.kind === "arrow" || hd.kind === "turn") { // a press chooses an arrow; Shift adds it to the move arrows chosen, or takes it out
+      const move = hd.id.startsWith("move:");
+      if (shift) { if (chosen.includes(hd.id)) { chosen = chosen.filter((c) => c !== hd.id); return true; } chosen = move && chosen.every((c) => c.startsWith("move:")) ? [...chosen, hd.id] : [hd.id]; }
+      else if (!chosen.includes(hd.id)) chosen = [hd.id]; // (pressing one that is chosen keeps them all, so they are dragged together)
+    }
+    const g = startGrab({ ...o, held: heldAxes() }, hd, s.c, w, h, x, y, forward(s.c));
     if (!g) return true; // (the handle is taken, but there is nothing to drag from here: end on release)
-    grabbed = { g, base: { ...k }, pose: clonePose(poseOf(k)), id: k.id, copied: false, text: "", moved: false, x0: x, y0: y };
+    grabbed = { g, base: { ...k }, pose: clonePose(poseOf(k)), id: k.id, copied: false, moved: false, x0: x, y0: y };
     return true;
   },
   grabMove: (x, y) => {
@@ -155,14 +161,13 @@ attach(canvas, {
       if (d.move) k.origin = add(b.origin, d.move); // (the orb is an offset from the plane's origin, so it goes along)
       if (d.turn) { // turned about the orb's middle, which stays where it is
         const c0 = add(b.origin, q0.offset), a = d.turn.axis, ang = d.turn.angle;
-        k.origin = add(c0, rotate(sub(b.origin, c0), a, ang)); k.normal = rotate(b.normal, a, ang); k.u = rotate(b.u, a, ang); q.offset = sub(c0, k.origin); q.frame = q0.frame.map((v) => rotate(v, a, ang)); // (the orb and the plane turn together: the orb keeps its place and its turn relative to the plane)
+        k.origin = add(c0, rotate(sub(b.origin, c0), a, ang)); k.normal = rotate(b.normal, a, ang); k.u = rotate(b.u, a, ang); q.offset = sub(c0, k.origin); q.frame = q0.frame.map((v) => rotate(v, a, ang)); q.turned[grabbed.g.handle.axis ?? 0] = q0.turned[grabbed.g.handle.axis ?? 0]! + ang; // (the orb and the plane turn together: the orb keeps its place and its turn relative to the plane)
       }
     }
-    grabbed.text = d.turn ? `${d.label} ${((d.value * 180) / Math.PI).toFixed(1)}°` : `${d.label ? d.label + " " : ""}${d.value.toFixed(1)} mm`;
   },
   grabEnd: () => { // a press on the ball that did not go anywhere: the orb is oriented (it pulses), or the orienting is kept
     const g = grabbed; grabbed = null;
-    if (g && g.g.handle.kind === "ball" && !g.moved) { if (orient) endOrient(true); else { const k = selectedCut(); if (k) { orient = true; poseWas = clonePose(poseOf(k)); held = []; } } }
+    if (g && g.g.handle.kind === "ball" && !g.moved) { if (orient) endOrient(true); else { const k = selectedCut(); if (k) { orient = true; poseWas = clonePose(poseOf(k)); } } }
   },
   menu: (x, y) => { pointer = { x, y }; ctx.hit = pickAt(x, y); menu.open(x, y, menuItems(ctx.hit)); },
   look: (dx, dy) => game.look(dx, dy),
@@ -174,7 +179,7 @@ addEventListener("keydown", (e) => {
   if (game.moves(e.code) && !game.on && !e.repeat) startGame(); // (W A S D turn the game on too, and the key that did it moves the eye)
   if (game.key(e.code, true)) return;
   if (orient && e.code === "Enter") { endOrient(true); return; }
-  if (e.code === "Escape") { if (orient) endOrient(false); else if (menu.isOpen()) menu.close(); else if (game.on) endGame(); else if (held.length) held = []; else { sel = []; orienting = null; } }
+  if (e.code === "Escape") { if (orient) endOrient(false); else if (menu.isOpen()) menu.close(); else if (game.on) endGame(); else if (chosen.length) chosen = []; else { sel = []; orienting = null; } }
 });
 addEventListener("keyup", (e) => { game.key(e.code, false); });
 document.addEventListener("pointerlockchange", () => { if (document.pointerLockElement !== canvas && game.on) endGame(); });
@@ -201,7 +206,7 @@ function frame(now: number) {
       clips: regions().map((r) => ({ origin: r.origin, n: r.n })),
       cuts: P.cuts.map((k) => ({ border: borderOf(k, model), on: k.on, selected: sel.some((i) => i.kind === "cut" && i.id === k.id), temp: k.temp, faces: k.on && !k.temp ? model.things.map((t) => cutFaceOf(k, t)).filter((p) => p.length >= 3).map((poly) => ({ poly, u: k.u, v: vOf(k) })) : [] })),
       selected: marksOf(model, sel), hover: hovered && hovered.kind !== "cut" ? marksOf(model, [hovered]) : noMarks(),
-      ...(orb0 ? { orb: { handles: orbHandles, hot: [...(orbHot ? [orbHot] : []), ...(grabbed ? [grabbed.g.handle.id] : []), ...held.map((i) => `move:${"XYZ"[i]}`)], unit: unitOf(s.c, orb0.centre), orient } } : {}),
+      ...(orb0 ? { orb: { handles: orbHandles, hot: [...(orbHot ? [orbHot] : []), ...(grabbed ? [grabbed.g.handle.id] : []), ...chosen], unit: unitOf(s.c, orb0.centre), orient } } : {}),
     },
   });
   const sc = sel.length === 1 && sel[0]!.kind === "cut" ? cutOf(sel[0]!.id!) : undefined;
@@ -210,7 +215,13 @@ function frame(now: number) {
   const kept = (p: V3 | null): [number, number] | null => { if (!p) return null; const q = project(s.c, p, w, h); return q.depth > 0 || s.c.ortho !== null ? [Math.min(Math.max(q.x, 8), w - 240), Math.min(Math.max(q.y, 8), h - 120)] : null; }; // (the bubble stays on the screen even when the plane's point has left it)
   cutUi.update(sc ? { id: sc.id, anchor: kept(anchor), on: sc.on, temp: sc.temp, orienting: orienting === sc.id } : null);
   orientBar.show(orient && !!orb0);
-  readout.show(grabbed && pointer ? [pointer.x, pointer.y] : null, grabbed?.text ?? "");
+  if (!orb0 && chosen.length) chosen = []; // (the orb is away: nothing of it is chosen)
+  bubbles.update(orb0 ? chosen.flatMap((id) => { // (the number of each arrow that is chosen: where the orb stands along a straight one, how far the thing has been turned about a curved one)
+    const hd = orbHandles.find((q) => q.id === id), k = selectedCut();
+    if (!hd || !k) return [];
+    const i = hd.axis ?? 0, at = scr(hd.points[hd.kind === "turn" ? hd.points.length >> 1 : hd.points.length - 1]!);
+    return at ? [{ at, text: hd.kind === "turn" ? `${"XYZ"[i]} ${((poseOf(k).turned[i]! * 180) / Math.PI).toFixed(1)}°` : `${"XYZ"[i]} ${dot(orb0.centre, (orb0.frame ?? AXES)[i]!).toFixed(1)} mm` }] : [];
+  }) : []);
   ui.update(view.pageState(s, e));
   requestAnimationFrame(frame);
 }

@@ -6084,3 +6084,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1457 — 2026-11-21 — directive
 > okay now the mover should keep relative position to its object always, unless it is in orient mode with the pulsing orb. so the object and the mover should both move together when it is moved
+
+## in_1458 — 2026-11-21 — directive
+> okay now the info bubble of whatever arrow is selected should pop up and persist while it is selected. Also you should be able to shift select one or more arrows in which case it can move on all of the selected arrows at the same time
