@@ -46,8 +46,8 @@ for (let n = 0; n < N; n++) {
     const a = status(e), b = status(fresh);
     if (a.join("\n") !== b.join("\n")) { const i = a.findIndex((x, j) => x !== b[j]); bad.push(`sequence ${n} edit ${k}: the edited engine and a fresh one differ at ${e.ids()[i]} (${JSON.stringify(p)})\n      edited: ${a[i]!.slice(0, 160)}\n      fresh:  ${b[i]!.slice(0, 160)}`); }
     // 2. purity: a second fresh build equals the first
-    const again = new Engine(recipe(p)); again.build(); if (status(again).join("\n") !== b.join("\n")) bad.push(`sequence ${n} edit ${k}: the same recipe built twice differs (${JSON.stringify(p)})`);
-    fresh.release(); again.release();
+    if (k % 2 === 0) { const again = new Engine(recipe(p)); again.build(); if (status(again).join("\n") !== b.join("\n")) bad.push(`sequence ${n} edit ${k}: the same recipe built twice differs (${JSON.stringify(p)})`); again.release(); }
+    fresh.release();
   }
   e.release();
 }

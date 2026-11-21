@@ -33,10 +33,12 @@ export class Body {
   /** the derived list of edges, each with the faces beside it (the edge index, E5) */
   edges(): EdgeRec[] {
     if (this.es) return this.es;
-    const byFace = this.faces.map((f) => ({ f, edges: K.faceEdges(f.h) }));
-    this.es = this.solid.edges().map((h) => {
-      const beside = byFace.filter((x) => x.edges.some((e) => K.sameEdge(e, h))).map((x) => x.f);
-      return { h, faces: beside, ref: beside.length === 2 ? edgeRef(beside[0]!.id, beside[1]!.id) : null };
+    this.es = K.scoped(() => {
+      const byFace = this.faces.map((f) => ({ f, edges: K.faceEdges(f.h) }));
+      return this.solid.edges().map((h) => {
+        const beside = byFace.filter((x) => x.edges.some((e) => K.sameEdge(e, h))).map((x) => x.f);
+        return { h, faces: beside, ref: beside.length === 2 ? edgeRef(beside[0]!.id, beside[1]!.id) : null };
+      });
     });
     return this.es;
   }
@@ -51,7 +53,7 @@ export class Body {
   fingerprint(): string {
     // the geometry as well as the ids: an edit that only moves a face must show (else the engine stops there and the steps after it do not run)
     const g = (f: FaceRec) => { const q = K.facts(f.h); return `${idKey(f.id)}~${q.type}~${q.area.toFixed(9)}~${q.ce.map((v) => v.toFixed(9)).join(",")}`; };
-    return `${K.volume(this.solid).toFixed(9)}|${this.faces.map(g).sort().join(";")}`;
+    return K.scoped(() => `${K.volume(this.solid).toFixed(9)}|${this.faces.map(g).sort().join(";")}`);
   }
 }
 

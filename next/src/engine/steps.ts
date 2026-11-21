@@ -10,7 +10,8 @@ export interface Sketch { readonly kind: "sketch"; readonly lines: Line[]; reado
 export class NoBody { readonly empty = true; fingerprint(): string { return "empty"; } release(): void { /* nothing held */ } }
 export type Value = Body | Sketch | NoBody;
 export interface Step { readonly id: string; readonly kind: string; readonly params: Readonly<Record<string, any>>; readonly inputs: readonly string[] }
-export interface Ctx { age: Age; step: Step }
+/** `temp` registers a body made on the way (a tool, a body before a merge): the engine releases it when the step is done, so only the result lives on (E17) */
+export interface Ctx { age: Age; step: Step; temp: <B extends Body>(b: B) => B }
 
 type V3 = K.V3;
 const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -56,9 +57,9 @@ function pushed(body: Body, faceId: Id, dist: number, ctx: Ctx): Body {
   const rec = body.one(faceId), f = K.facts(rec.h), step = ctx.step.id;
   const p = K.prism(rec.h, scale(f.ne, dist));
   const claims = [...sidesOf(body, rec, p.report, step), { id: rec.id, face: p.last }]; // the far face carries the pushed face's id on
-  const tool = fromClaims(p.solid, claims, step);
+  const tool = ctx.temp(fromClaims(p.solid, claims, step));
   const m = dist >= 0 ? K.fuse(body.solid, tool.solid) : K.cut(body.solid, tool.solid);
-  return unifyBody(carry(m.solid, m.report, [body, tool], [], step, ctx.age), step, ctx.age);
+  return unifyBody(ctx.temp(carry(m.solid, m.report, [body, tool], [], step, ctx.age)), step, ctx.age);
 }
 
 export interface Kind { outputs: "body" | "sketch"; run(inputs: Value[], ctx: Ctx): Value }
@@ -100,9 +101,9 @@ export const kinds: Record<string, Kind> = {
   extrudeRegion: { outputs: "body", run: (inputs, ctx) => {
     const body = needBody(inputs[0]), rec = body.one(ctx.step.params.region as Id), f = K.facts(rec.h), step = ctx.step.id;
     const p = K.prism(rec.h, scale(f.ne, num(ctx.step.params, "t")));
-    const tool = fromClaims(p.solid, [...sidesOf(body, rec, p.report, step), { id: mint(step, "end"), face: p.last }], step);
+    const tool = ctx.temp(fromClaims(p.solid, [...sidesOf(body, rec, p.report, step), { id: mint(step, "end"), face: p.last }], step));
     const m = K.fuse(body.solid, tool.solid);
-    return checked(unifyBody(carry(m.solid, m.report, [body, tool], [], step, ctx.age), step, ctx.age), "the extrusion");
+    return checked(unifyBody(ctx.temp(carry(m.solid, m.report, [body, tool], [], step, ctx.age)), step, ctx.age), "the extrusion");
   } },
   /** a face moved out (or in) along its normal; it keeps its id */
   push: { outputs: "body", run: (inputs, ctx) => checked(pushed(needBody(inputs[0]), ctx.step.params.face as Id, num(ctx.step.params, "dist"), ctx), "the push") },

@@ -16,6 +16,19 @@ export async function initKernel(): Promise<void> {
   if (oc) return;
   oc = await (initOC as unknown as () => Promise<Raw>)();
   setOC(oc);
+  makeDeleteSafe();
+}
+/**
+ * Every kernel object has one `delete`; deleting twice throws. replicad also deletes its wrappers from a finalizer that only runs when the event loop turns, so a long synchronous run
+ * holds them all; this makes a second delete harmless, so the engine can free what it made at once (E17) and the finalizer's later delete does nothing.
+ */
+function makeDeleteSafe(): void {
+  let proto = Object.getPrototypeOf(new oc.gp_Pnt(0, 0, 0));
+  while (proto && !Object.prototype.hasOwnProperty.call(proto, "delete")) proto = Object.getPrototypeOf(proto);
+  if (!proto || proto.__safeDelete) return;
+  const original = proto.delete;
+  proto.delete = function (this: Raw) { try { original.call(this); } catch (e) { if (!/already deleted/i.test(String((e as Error)?.message ?? e))) throw e; } };
+  proto.__safeDelete = true;
 }
 
 // ---------------------------------------------------------------- temporaries: freed when the step that made them is done (E17)
@@ -57,13 +70,16 @@ const toList = (shapes: Raw[]): Raw => { const l = t(new oc.NCollection_List_Top
 export const sameFace = (a: FaceH, b: FaceH): boolean => a.raw.IsSame(b.raw);
 export const sameEdge = (a: EdgeH, b: EdgeH): boolean => a.raw.IsSame(b.raw);
 
+/** the kernel wrappers a reading makes are deleted at once (replicad's vectors and boxes hold kernel objects) */
+const drop = (...xs: Raw[]) => { for (const x of xs) { try { x?.delete?.(); } catch { /* */ } } };
 export function facts(f: FaceH): Facts {
-  const face = new Face(downcast(f.raw)), q = face.normalAt(), c = face.center, [lo, hi] = face.boundingBox.bounds, l = Math.hypot(q.x, q.y, q.z) || 1;
+  const face = new Face(downcast(f.raw)), q = face.normalAt(), c = face.center, bb = face.boundingBox, [lo, hi] = bb.bounds, l = Math.hypot(q.x, q.y, q.z) || 1;
   const props = t(new oc.GProp_GProps()); oc.BRepGProp.SurfaceProperties(f.raw, props, false, false);
-  return { type: face.geomType as string, ne: [q.x / l, q.y / l, q.z / l], ce: [c.x, c.y, c.z], lo: [lo[0]!, lo[1]!, lo[2]!], hi: [hi[0]!, hi[1]!, hi[2]!], area: props.Mass() };
+  const out: Facts = { type: face.geomType as string, ne: [q.x / l, q.y / l, q.z / l], ce: [c.x, c.y, c.z], lo: [lo[0]!, lo[1]!, lo[2]!], hi: [hi[0]!, hi[1]!, hi[2]!], area: props.Mass() };
+  drop(q, c, bb, face); return out;
 }
-export function edgeEnds(e: EdgeH): [V3, V3] { const E = new Edge(downcast(e.raw)); return [[E.startPoint.x, E.startPoint.y, E.startPoint.z], [E.endPoint.x, E.endPoint.y, E.endPoint.z]]; }
-export function edgeMid(e: EdgeH): V3 { const c = new Edge(downcast(e.raw)).pointAt(0.5); return [c.x, c.y, c.z]; }
+export function edgeEnds(e: EdgeH): [V3, V3] { const E = new Edge(downcast(e.raw)), a = E.startPoint, b = E.endPoint, out: [V3, V3] = [[a.x, a.y, a.z], [b.x, b.y, b.z]]; drop(a, b, E); return out; }
+export function edgeMid(e: EdgeH): V3 { const E = new Edge(downcast(e.raw)), c = E.pointAt(0.5), out: V3 = [c.x, c.y, c.z]; drop(c, E); return out; }
 export const faceEdges = (f: FaceH): EdgeH[] => unique(f.raw, "TopAbs_EDGE").map((r) => ({ raw: t(r) }));
 /** the area two faces share (a boolean common): used to recover ids where the kernel says nothing (E7) */
 export function overlap(a: FaceH, b: FaceH): number {
@@ -94,7 +110,7 @@ const fail = (what: string): never => { throw new Error(what); };
 /** a closed polygon in the XY plane at z = 0 (a base sketch's face) */
 export function polygonFace(points: readonly (readonly [number, number])[]): FaceH {
   let d = draw([points[0]![0], points[0]![1]]); for (const p of points.slice(1)) d = d.lineTo([p[0], p[1]]);
-  return { raw: (d.close().sketchOnPlane("XY") as unknown as { face(): { wrapped: Raw } }).face().wrapped };
+  return { raw: t((d.close().sketchOnPlane("XY") as unknown as { face(): { wrapped: Raw } }).face().wrapped) };
 }
 export interface Prism extends Made { first: FaceH; last: FaceH }
 /** a face pulled along a vector; `first` and `last` are its start and end faces, the report's `fromEdge` gives the side each edge made */
@@ -106,7 +122,7 @@ export function fuse(a: Solid, b: Solid): Made { const op = t(new oc.BRepAlgoAPI
 export function cut(a: Solid, b: Solid): Made { const op = t(new oc.BRepAlgoAPI_Cut(a.raw, b.raw, progress())); if (!op.IsDone()) fail("the cut failed"); return { solid: new Solid(op.Shape()), report: reportOf(op) }; }
 /** the body split along line segments lying on its faces (an imprint, E4); the kernel's splitter with history */
 export function split(a: Solid, segments: readonly (readonly [V3, V3])[]): Made {
-  const sp = t(new oc.BRepAlgoAPI_Splitter()), tools = segments.map(([p, q]) => makeLine([p[0], p[1], p[2]], [q[0], q[1], q[2]]).wrapped);
+  const sp = t(new oc.BRepAlgoAPI_Splitter()), tools = segments.map(([p, q]) => t(makeLine([p[0], p[1], p[2]], [q[0], q[1], q[2]]).wrapped));
   sp.SetArguments(toList([a.raw])); sp.SetTools(toList(tools)); sp.SetToFillHistory(true); sp.Build(progress());
   if (sp.HasErrors()) fail("the imprint failed");
   return { solid: new Solid(sp.Shape()), report: reportOf(sp) };
@@ -114,7 +130,7 @@ export function split(a: Solid, segments: readonly (readonly [V3, V3])[]): Made 
 export interface Rounded extends Made { round(e: EdgeH): FaceH[] }
 export function fillet(a: Solid, edges: readonly EdgeH[], r: number): Rounded {
   const mk = t(new oc.BRepFilletAPI_MakeFillet(a.raw, oc.ChFi3d_FilletShape.ChFi3d_Rational));
-  for (const e of edges) mk.Add(r, downcast(e.raw));
+  for (const e of edges) mk.Add(r, t(downcast(e.raw)));
   mk.Build(progress());
   if (!mk.IsDone()) fail("the fillet could not be made at that size");
   const rep = reportOf(mk);

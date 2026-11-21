@@ -57,7 +57,7 @@ export class Engine {
   private compute(id: string): boolean {
     const step = this.steps.get(id)!, kind = kinds[step.kind];
     const inputs = step.inputs.map((i) => this.slots.get(i)!.held.v);
-    const ctx: Ctx = { step, age: (s) => this.age.get(s) ?? -1 };
+    const temps: Body[] = [], ctx: Ctx = { step, age: (s) => this.age.get(s) ?? -1, temp: (b) => { temps.push(b); return b; } };
     this.computes++;
     let value: Value, status: Status = { kind: "ok" };
     if (!kind) { value = new NoBody(); status = { kind: "flagged", why: `there is no step kind ${step.kind}` }; }
@@ -68,6 +68,7 @@ export class Engine {
         value = passthrough(kind, inputs, step);
       }
     }
+    for (const b of temps) if (b !== value) b.release(); // the bodies made on the way are not kept (E17)
     const fresh = this.slots.get(id), shared = fresh?.held.v === value;
     const held = shared ? fresh!.held : this.hold(value);
     const next: Slot = { held, status, fingerprint: fingerprintOf(value) };
