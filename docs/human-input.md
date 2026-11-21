@@ -6018,3 +6018,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1436 — 2026-11-21 — directive
 > it doesn't work like it does with mouse. it move the camera in game mode only if you are not pressing awds, it should still work while pressing any awds just like it does with mouse
 (Nothing in the app's code treats a held key differently for the look: the pointer's movement and the scroll are handled the same. A probe was added to see whether the events reach the page at all while a key is down: `?probe=1`.)
+
+## in_1437 — 2026-11-21 — directive
+> the move in the trackpad is cutout when I press awsd
+(Same report as in_1436; no code changed. Waiting for the `?probe=1` counts and the system the human is on.)
