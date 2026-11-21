@@ -1,17 +1,22 @@
 // What the camera needs to know about the scene: how big a step is, which point it looks at, and whether anything is in view. Pure.
-// Two measures of distance only: `scaleAmong` (the scale of what the eye is among: steps, the depth range, how far ahead to look when nothing is) and `gridLevel` (how far the plane is).
+// Two measures of distance only: `scaleAmong` (the scale of what the eye is among: steps, the depth range, how far ahead to look when nothing
+// is) and `gridLevel` (how far the plane is).
 import { add, len, scale, sub, dot, type V3 } from "./vec.ts";
 import { forward, project, reachOf, type Cam } from "./camera.ts";
 import { centreOf, hitThings, type Scene, type Thing } from "./scene.ts";
 import { settings } from "./settings.ts";
 
 /** The world's own axes, as one thing, for when the model has nothing (and so there is still something to be lost from). */
+/** The fog's reach when there is none (an orthographic view: everything is at the same scale). */
+const NO_FOG = 1e9;
 const WORLD: Thing = { id: "world", lo: [0, 0, 0], hi: [24, 24, 24] };
 const thingsOf = (sc: Scene): Thing[] => (sc.things.length ? sc.things : [WORLD]);
 
 /**
- * The point looked at, which an orbit turns about and a change of view holds: the centre of the thing nearest the line of sight (how far its centre is from the line the screen's middle looks along), among those whose
- * centre is on the screen (`in_291`: turning about a point between two things far apart threw the one being looked at off the screen). With none, the point straight ahead at the scale of what the eye is among.
+ * The point looked at, which an orbit turns about and a change of view holds: the centre of the thing nearest the line of sight (how far its
+ * centre is from the line the screen's middle looks along), among those whose
+ * centre is on the screen (`in_291`: turning about a point between two things far apart threw the one being looked at off the screen). With
+ * none, the point straight ahead at the scale of what the eye is among.
  */
 export function focusOf(sc: Scene, c: Cam, w: number, h: number): V3 {
   const f = forward(c);
@@ -37,7 +42,7 @@ function inView(c: Cam, w: number, h: number, t: Thing): boolean {
   }
   if (!front || x1 < 0 || x0 > w || y1 < 0 || y0 > h) return false;
   const lone = len(sub(t.hi, t.lo)) < 1e-6;
-  return lone || Math.max(x1 - x0, y1 - y0) >= 6;
+  return lone || Math.max(x1 - x0, y1 - y0) >= settings.view.visiblePx;
 }
 export const nothingInView = (sc: Scene, c: Cam, w: number, h: number): boolean => !thingsOf(sc).some((t) => inView(c, w, h, t));
 /** The last thing in view (the most recently made, if several), to be remembered while none is. */
@@ -66,21 +71,26 @@ export function planeHit(from: V3, dir: V3, axis: 0 | 1 | 2): { t: number; point
 }
 
 /**
- * The grid's spacing and the fog's reach, from the camera's distance to the plane that is on and from the origin, and from nothing else: not from where the view points, and not from what is in it.
- * The spacing is a power of ten, and `blend` (0 to 1) says how far the view has gone toward the next one up, so that the lines of one spacing fade into the next and nothing pops.
+ * The grid's spacing and the fog's reach, from the camera's distance to the plane that is on and from the origin, and from nothing else: not
+ * from where the view points, and not from what is in it.
+ * The spacing is a power of ten, and `blend` (0 to 1) says how far the view has gone toward the next one up, so that the lines of one spacing
+ * fade into the next and nothing pops.
  */
 export function gridLevel(c: Cam, plane: 0 | 1 | 2): { step: number; blend: number; fog: number; span: number } {
   const ortho = c.ortho !== null;
   const height = Math.max(ortho ? reachOf(c) : Math.abs(c.eye[plane]) * c.lens, settings.view.minSurfaceMm); // (the distance to the plane as the picture sees it)
-  const e = Math.log10(height / 6), k = Math.floor(e), step = 10 ** k;
-  // fog fades the grid with the distance from the eye; an orthographic view has none (everything is at the same scale), and draws the grid only as far as the picture shows, so the numbers the picture works with stay small
-  const fog = ortho ? 1e9 : Math.max(len(c.eye), (12 * step) / c.lens);
-  return { step, blend: e - k, fog, span: ortho ? 4 * c.ortho! : fog * 5 };
+  const e = Math.log10(height / settings.world.gridCells), k = Math.floor(e), step = 10 ** k;
+  // fog fades the grid with the distance from the eye; an orthographic view has none (everything is at the same scale), and draws the grid only
+  // as far as the picture shows, so the numbers the picture works with stay small
+  const fog = ortho ? NO_FOG : Math.max(len(c.eye), (settings.world.fogMinSteps * step) / c.lens);
+  return { step, blend: e - k, fog, span: ortho ? settings.world.orthoSpan * c.ortho! : fog * settings.world.gridSpanFog };
 }
 
 /**
- * The pane a pointer is over, with a face of a thing counting only if it lies exactly in the pane's plane (`in_1409`): where a ray meets a thing's face that is not in the plane of the
- * pane, the face is what is pointed at (standard selection), whether the pane is in front of it or behind it. A pane over a face in the very same plane is the pane.
+ * The pane a pointer is over, with a face of a thing counting only if it lies exactly in the pane's plane (`in_1409`): where a ray meets a
+ * thing's face that is not in the plane of the
+ * pane, the face is what is pointed at (standard selection), whether the pane is in front of it or behind it. A pane over a face in the very
+ * same plane is the pane.
  */
 export function paneAt(sc: Scene, from: V3, dir: V3, gizmoScale = 1): { axis: 0 | 1 | 2; t: number } | null {
   const p = pickPane(from, dir, gizmoScale);
@@ -92,8 +102,10 @@ export function paneAt(sc: Scene, from: V3, dir: V3, gizmoScale = 1): { axis: 0 
 }
 
 /**
- * The scale of what the eye is among: how far the nearest thing's middle is, never less than that thing's own size or `minFlightMm`. A step of flight or of the wheel is a share of it, so the eye comes to a wall, goes
- * through it and crosses the inside at a pace that follows the scale of things (`in_1411`); the depth range of the drawing is a multiple of it; and with nothing to look at, it is how far ahead the point looked at is.
+ * The scale of what the eye is among: how far the nearest thing's middle is, never less than that thing's own size or `minFlightMm`. A step of
+ * flight or of the wheel is a share of it, so the eye comes to a wall, goes
+ * through it and crosses the inside at a pace that follows the scale of things (`in_1411`); the depth range of the drawing is a multiple of
+ * it; and with nothing to look at, it is how far ahead the point looked at is.
  * It changes smoothly from place to place, so going and coming back are the same.
  */
 export function scaleAmong(sc: Scene, c: Cam): number {

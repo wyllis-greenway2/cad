@@ -1,11 +1,13 @@
 // Raw browser events turned into a few intents (prin_input_agnostic): orbit, pan, zoom, hover, click. Mouse, trackpad and touch all end up here.
-// Mouse: left-drag on empty space, right-drag or Alt+left-drag orbits; middle-drag, Shift+right-drag, Space+drag or Alt+Shift+left-drag pans; the wheel zooms.
+// Mouse: left-drag on empty space, right-drag or Alt+left-drag orbits; middle-drag, Shift+right-drag, Space+drag or Alt+Shift+left-drag pans;
+// the wheel zooms.
 // Trackpad: a two-finger scroll pans, a pinch zooms. Touch: one finger orbits, two fingers pan and pinch.
 import { settings } from "./settings.ts";
+import { fineGain } from "./camera.ts";
 
 export interface Intents {
-  /** A drag of the view is about to begin at (x, y): `kind` says which; the controller picks what it turns or pans about, once, for the whole drag. */
-  dragStart(kind: "orbit" | "pan", x: number, y: number): void;
+  /** A drag of the view is about to begin at (x, y); the controller picks what it turns or pans about, once, for the whole drag. */
+  dragStart(x: number, y: number): void;
   orbit(dx: number, dy: number): void;
   pan(dx: number, dy: number): void;
   /** `factor` below 1 zooms in; (x, y) is the pointer in pixels. */
@@ -30,14 +32,12 @@ export const actionOf = (button: number, m: { shift: boolean; alt: boolean }, sp
   if (m.alt) return "orbit";
   return "click"; // a plain left press: a click if it does not move, else the view turns
 };
-/** The smallest mouse movements turn the view a little less, rising to all of it as the movement grows (in_420). */
-export const fineGain = (mag: number): number => 1 - (1 - settings.input.fineGain) * Math.exp(-Math.max(0, mag) / settings.input.fineFadePx);
 
 /** What a wheel event is: a pinch, a wheel's notch (zoom) or a trackpad's scroll (pan). */
 export function wheelKind(e: { ctrlKey: boolean; deltaMode: number; deltaX: number; deltaY: number }): "pinch" | "wheel" | "scroll" {
   if (e.ctrlKey) return "pinch";
   if (e.deltaMode !== 0) return "wheel";
-  return e.deltaX === 0 && Number.isInteger(e.deltaY) && Math.abs(e.deltaY) >= 50 ? "wheel" : "scroll";
+  return e.deltaX === 0 && Number.isInteger(e.deltaY) && Math.abs(e.deltaY) >= settings.input.wheelNotchMin ? "wheel" : "scroll";
 }
 
 export function attach(el: HTMLElement, out: Intents, locked: () => boolean): () => void {
@@ -60,7 +60,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     if (e.pointerType === "touch") {
       touches.set(e.pointerId, p);
       tap = touches.size === 1 ? { ...p, moved: false } : null;
-      if (touches.size === 2) { if (touchKind) out.dragEnd(); touchKind = "pan"; out.dragStart("pan", p.x, p.y); }
+      if (touches.size === 2) { if (touchKind) out.dragEnd(); touchKind = "pan"; out.dragStart(p.x, p.y); }
       return;
     }
     if (space) spaceUsed = true;
@@ -75,8 +75,8 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
       const before = [...touches.values()];
       touches.set(e.pointerId, p);
       const dx = p.x - was.x, dy = p.y - was.y;
-      if (tap && Math.hypot(p.x - tap.x, p.y - tap.y) > settings.view.clickMovePx * 3) tap.moved = true;
-      if (touches.size === 1) { if (tap?.moved) { if (touchKind !== "orbit") { touchKind = "orbit"; out.dragStart("orbit", tap.x, tap.y); } turn(dx, dy); } }
+      if (tap && Math.hypot(p.x - tap.x, p.y - tap.y) > settings.input.touchSlopPx) tap.moved = true;
+      if (touches.size === 1) { if (tap?.moved) { if (touchKind !== "orbit") { touchKind = "orbit"; out.dragStart(tap.x, tap.y); } turn(dx, dy); } }
       else if (touches.size === 2) {
         const now = [...touches.values()];
         const d0 = Math.hypot(before[0]!.x - before[1]!.x, before[0]!.y - before[1]!.y), d1 = Math.hypot(now[0]!.x - now[1]!.x, now[0]!.y - now[1]!.y);
@@ -88,7 +88,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     out.hover(p.x, p.y); // (also while dragging: the disc under the pointer follows it as the view turns)
     if (!drag) return;
     if (!drag.moved && Math.hypot(p.x - drag.x0, p.y - drag.y0) < settings.view.clickMovePx) return;
-    if (!drag.moved) { drag.moved = true; out.dragStart(drag.action === "pan" ? "pan" : "orbit", drag.x0, drag.y0); }
+    if (!drag.moved) { drag.moved = true; out.dragStart(drag.x0, drag.y0); }
     const dx = p.x - drag.x, dy = p.y - drag.y;
     drag.x = p.x; drag.y = p.y;
     if (drag.action === "pan") out.pan(dx, dy); else turn(dx, dy);
@@ -110,10 +110,10 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     e.preventDefault();
     const r = el.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
     const kind = wheelKind(e);
-    if (kind === "scroll") { out.dragStart("pan", x, y); out.pan(-e.deltaX * settings.input.trackpadPanScale, -e.deltaY * settings.input.trackpadPanScale); out.dragEnd(); }
+    if (kind === "scroll") { out.dragStart(x, y); out.pan(-e.deltaX * settings.input.trackpadPanScale, -e.deltaY * settings.input.trackpadPanScale); out.dragEnd(); }
     else {
       const per = kind === "pinch" ? settings.input.pinchZoomPerWheel : settings.input.zoomPerWheel;
-      out.zoom(Math.exp((e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY) * per), x, y);
+      out.zoom(Math.exp((e.deltaMode === 1 ? e.deltaY * settings.input.wheelLinePx : e.deltaY) * per), x, y);
     }
   };
   const keydown = (e: KeyboardEvent) => { if (e.code === "Space") { if (!e.repeat) { space = true; spaceUsed = false; } if (e.target === document.body || e.target === el) e.preventDefault(); } };

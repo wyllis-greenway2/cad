@@ -1,4 +1,5 @@
-// What there is to look at. Stage 1 has no model, so a few boxes stand in for bodies: they give the view something to measure by, to turn about and to lose.
+// What there is to look at. Stage 1 has no model, so a few boxes stand in for bodies: they give the view something to measure by, to turn
+// about and to lose.
 import type { V3 } from "./vec.ts";
 
 export interface Thing { id: string; lo: V3; hi: V3 }
@@ -16,7 +17,8 @@ export const demoScene = (): Scene => ({
 export const centreOf = (t: Thing): V3 => [(t.lo[0] + t.hi[0]) / 2, (t.lo[1] + t.hi[1]) / 2, (t.lo[2] + t.hi[2]) / 2];
 
 /**
- * The first surface a ray meets: how far, and the way the surface faces (towards the ray's start). From outside a box that is the face the ray goes in by; from inside it is the wall the ray comes out through,
+ * The first surface a ray meets: how far, and the way the surface faces (towards the ray's start). From outside a box that is the face the ray
+ * goes in by; from inside it is the wall the ray comes out through,
  * so the eye can be inside a thing and still measure how far the walls are.
  */
 export function hitThings(sc: Scene, from: V3, dir: V3): { t: number; normal: V3; thing: Thing; inside: boolean } | null {

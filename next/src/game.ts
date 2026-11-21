@@ -1,4 +1,5 @@
-// Game-style flying: the space bar turns it on and off (Esc ends it too); while it is on W A S D move the eye. Pure state: the keys feed it, the loop calls `tick`.
+// Game-style flying: the space bar turns it on and off (Esc ends it too); while it is on W A S D move the eye. Pure state: the keys feed it,
+// the loop calls `tick`.
 // Walking eases up to speed and down again. The mouse's turning is let out over a few ticks, so it is smooth.
 import { settings } from "./settings.ts";
 

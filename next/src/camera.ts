@@ -74,13 +74,16 @@ export function facing(c: Cam): { axis: Axis; sign: 1 | -1; strength: number } {
   const o = scale(forward(c), -1);
   let k: Axis = 0;
   for (const i of [1, 2] as const) if (Math.abs(o[i]) > Math.abs(o[k])) k = i;
-  return { axis: k, sign: o[k] >= 0 ? 1 : -1, strength: clamp((Math.abs(o[k]) - 0.6) / 0.4, 0, 1) };
+  return { axis: k, sign: o[k] >= 0 ? 1 : -1, strength: clamp((Math.abs(o[k]) - settings.view.facingFrom) / (1 - settings.view.facingFrom), 0, 1) };
 }
 /** Whether the view is looking straight along `axis` (within the tolerance), from which side. */
 export function straightAlong(c: Cam, tol = settings.view.normalToleranceRad): { axis: Axis; sign: 1 | -1 } | null {
   const f = facing(c);
   return Math.abs(forward(c)[f.axis]) > Math.cos(tol) ? { axis: f.axis, sign: f.sign } : null;
 }
+
+/** How much of a mouse movement of `mag` pixels turns the view (`in_420`): a little less than all of it for the smallest movements, so a fine edge can be taken without the view slipping, rising to all of it as the movement grows. */
+export const fineGain = (mag: number): number => 1 - (1 - settings.input.fineGain) * Math.exp(-Math.max(0, mag) / settings.input.fineFadePx);
 
 // ---- zoom of an orthographic view, and eased changes of view ----
 /** Zoom an orthographic view by `factor` (below 1 = closer): the picture's size changes, and the point at (nx, ny) across the view (-1..1, y up) stays where it is on the screen. */
@@ -91,10 +94,11 @@ export function zoomOrtho(c: Cam, factor: number, nx = 0, ny = 0, aspect = 1): C
   return { ...c, ortho, eye: add(c.eye, scale(slide, 1 - ortho / c.ortho)) };
 }
 /**
- * Change the lens of a perspective view. The picture's size goes as 1 over the eye's distance times the lens, so the eye goes forward or back by what keeps a point `holdDepth` in front of it the same size:
+ * Change the lens of a perspective view. The picture's size goes as 1 over the eye's distance times the lens, so the eye goes forward or back
+ * by what keeps a point `holdDepth` in front of it the same size:
  * nothing jumps while the perspective comes in or goes out.
  */
-export const setLens = (c: Cam, lens: number, holdDepth: number): Cam => ({ ...c, lens, eye: add(c.eye, scale(forward(c), holdDepth * (1 - c.lens / lens))) });
+const setLens = (c: Cam, lens: number, holdDepth: number): Cam => ({ ...c, lens, eye: add(c.eye, scale(forward(c), holdDepth * (1 - c.lens / lens))) });
 /** An orthographic view as the perspective view of `morphLens` that looks the same at `hold` (a point of the world): the start of a change away from it. The eye goes to where that lens needs it. */
 export function leaveOrtho(c: Cam, hold: V3): Cam {
   if (c.ortho === null) return c;
@@ -140,6 +144,6 @@ export function frameBox(lo: V3, hi: V3, aspect: number): Cam {
 }
 
 /** The cameras blended, k from 0 to 1 (eased by the caller): the eye goes straight, the direction turns the short way, the lens opens or shuts. */
-export function blend(a: Cam, b: Cam, k: number): Cam {
+function blend(a: Cam, b: Cam, k: number): Cam {
   return { eye: [lerp(a.eye[0], b.eye[0], k), lerp(a.eye[1], b.eye[1], k), lerp(a.eye[2], b.eye[2], k)], yaw: a.yaw + shortest(a.yaw, b.yaw) * k, pitch: lerp(a.pitch, b.pitch, k), ortho: null, lens: lerp(a.lens, b.lens, k) };
 }
