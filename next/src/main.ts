@@ -13,8 +13,8 @@ import { focusOf, gridLevelAt } from "./sense.ts";
 import { acrossView, borderOf, cutFaceOf, facingCamera, frameOf, noPlanes, regionsOf, vOf, type Cut } from "./planes.ts";
 import { faceNormal, pick, type Hit } from "./pick.ts";
 import { apply, marksOf, noMarks, type Sel } from "./select.ts";
-import { createCutUi, createMenu, createOrbUi, type MenuItem } from "./menu.ts";
-import { dragTo, handlesOf, hitHandle, startGrab, unitOf, type Grab, type OrbMode, type Orb } from "./orb.ts";
+import { createCutUi, createMenu, createReadout, type MenuItem } from "./menu.ts";
+import { dragTo, handlesOf, hitHandle, startGrab, unitOf, type Grab, type Orb } from "./orb.ts";
 import { rotate } from "./vec.ts";
 import { add, dot, scale, sub, type V3 } from "./vec.ts";
 
@@ -56,11 +56,11 @@ function sketchOn(f: { origin: V3; normal: V3; u: V3 }, temp: boolean) {
   if (temp) P.cuts.push({ ...f, id: `c${P.next++}`, on: true, temp: true });
 }
 // ---- the mover orb: one orb, three modes; here it moves, turns and copies a cut plane ----
-let orbMode: OrbMode = "move", held: number[] = [], orbHot: string | null = null;
+let held: number[] = [], orbHot: string | null = null;
 let grabbed: { g: Grab; base: Cut; id: string; copied: boolean; text: string } | null = null;
 const selectedCut = (): Cut | undefined => (sel.length === 1 && sel[0]!.kind === "cut" ? cutOf(sel[0]!.id!) : undefined);
-const orbOf = (): Orb | null => { const k = selectedCut(); return k && orienting === k.id ? { centre: k.origin, mode: orbMode, held } : null; };
-const orbUi = createOrbUi(document.body, { mode: (m) => { orbMode = m; held = []; } });
+const orbOf = (): Orb | null => { const k = selectedCut(); return k && orienting === k.id ? { centre: k.origin, held } : null; };
+const readout = createReadout(document.body);
 const ctx = { hit: null as Hit | null };
 function choose(id: string) {
   const { w, h } = size(), hit = ctx.hit;
@@ -180,8 +180,7 @@ function frame(now: number) {
   const scr = (p: V3 | null): [number, number] | null => { if (!p) return null; const q = project(s.c, p, w, h); return q.x > -50 && q.x < w + 50 && q.y > -50 && q.y < h + 50 ? [q.x, q.y] : null; };
   const kept = (p: V3 | null): [number, number] | null => { if (!p) return null; const q = project(s.c, p, w, h); return q.depth > 0 || s.c.ortho !== null ? [Math.min(Math.max(q.x, 8), w - 240), Math.min(Math.max(q.y, 8), h - 120)] : null; }; // (the bubble stays on the screen even when the plane's point has left it)
   cutUi.update(sc ? { id: sc.id, anchor: kept(anchor), on: sc.on, temp: sc.temp, orienting: orienting === sc.id } : null);
-  orbUi.update(orb0 ? scr(orb0.centre) : null, orbMode);
-  orbUi.readout(grabbed && pointer ? [pointer.x, pointer.y] : null, grabbed?.text ?? "");
+  readout.show(grabbed && pointer ? [pointer.x, pointer.y] : null, grabbed?.text ?? "");
   ui.update(view.pageState(s, e));
   requestAnimationFrame(frame);
 }

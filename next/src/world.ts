@@ -177,7 +177,8 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
       const hot = o.hot.includes(hd.id), p = hd.points;
       if (hd.kind === "ball") { const m = new THREE.Mesh(new THREE.SphereGeometry(o.unit * 0.064 * (M.headScale / 0.7), 16, 12), new THREE.MeshBasicMaterial({ color: hot ? rgb(settings.orb.color) : rgb(settings.theme.axis), depthTest: false })); m.position.copy(vec(p[0]!)); m.renderOrder = 14; dyn.add(m); continue; }
       orbLine(p, hot, w, h);
-      if (hd.kind === "ring") { const k = Math.round(M.ringSegments / 8); head(p[k + 1]!, [p[k + 1]![0] - p[k]![0], p[k + 1]![1] - p[k]![1], p[k + 1]![2] - p[k]![2]], hot); }
+      for (const l of hd.also ?? []) orbLine(l, hot, w, h);
+      if (hd.kind === "turn") { const n = p.length, a = p[n - 2]!, b = p[n - 1]!; head(b, [b[0] - a[0], b[1] - a[1], b[2] - a[2]], hot); }
       else { const a = p[0]!, b = p[1]!; head(b, [b[0] - a[0], b[1] - a[1], b[2] - a[2]], hot); }
     }
   };

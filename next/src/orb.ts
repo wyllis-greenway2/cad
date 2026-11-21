@@ -7,11 +7,10 @@ import { add, cross, dot, len, scale, sub, unit, type V3 } from "./vec.ts";
 import { project, rayFrom, viewHeight, forwardDepth, type Cam } from "./camera.ts";
 import { settings } from "./settings.ts";
 
-export type OrbMode = "move" | "rotate" | "copy";
-export const MODES: OrbMode[] = ["move", "rotate", "copy"];
-export interface Orb { centre: V3; mode: OrbMode; /** the axes a drag is held to (chosen with Shift): one is a line, two a plane */ held: number[] }
-export type HandleKind = "arrow" | "ring" | "ball";
-export interface Handle { id: string; kind: HandleKind; axis: 0 | 1 | 2 | null; points: V3[]; /** the second arrow of the copy mode */ extra?: true }
+export interface Orb { centre: V3; /** the axes a drag is held to (chosen with Shift): one is a line, two a plane */ held: number[]; /** the second arrows beyond the straight ones: an operation has them or not (off unless it says), the user does not choose */ extras?: boolean }
+export type HandleKind = "arrow" | "turn" | "ball";
+/** `points` is the handle's main line; `also` more lines that belong to it (the stem of a curved arrow). */
+export interface Handle { id: string; kind: HandleKind; axis: 0 | 1 | 2 | null; points: V3[]; also?: V3[][]; /** the second arrow of an operation that has one */ extra?: true }
 export const AXES: V3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
 export const AXIS_LETTER = ["X", "Y", "Z"] as const;
 
@@ -20,21 +19,20 @@ export function unitOf(c: Cam, centre: V3): number {
   const depth = Math.max(forwardDepth(c, centre), 1e-3), tan = Math.tan((settings.view.fovDeg * Math.PI) / 360);
   return viewHeight(c, depth) / (2 * tan) * settings.mover.sizeOfView;
 }
-/** A full circle about `axis` through `centre`. */
-function circle(centre: V3, axis: V3, R: number): V3[] {
-  const u = unit(cross(Math.abs(axis[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0], axis)), v = cross(axis, u), n = settings.mover.ringSegments, pts: V3[] = [];
-  for (let k = 0; k <= n; k++) { const t = (k / n) * Math.PI * 2; pts.push(add(centre, scale(add(scale(u, Math.cos(t)), scale(v, Math.sin(t))), R))); }
-  return pts;
-}
+/**
+ * The orb: from the ball, on each axis, a straight arrow out one side (it moves along the axis) and a curved arrow out the other (it turns about the axis): a stem along the
+ * axis to the middle of an open circle round it, with a head on the circle.
+ */
 export function handlesOf(o: Orb, c: Cam): Handle[] {
   const L = unitOf(c, o.centre), M = settings.mover, A = M.arrowShare * L, out: Handle[] = [];
   AXES.forEach((d, i) => {
-    const a = i as 0 | 1 | 2;
-    if (o.mode === "rotate") out.push({ id: `rot:${AXIS_LETTER[i]}`, kind: "ring", axis: a, points: circle(o.centre, d, M.ringShare * L) });
-    else {
-      out.push({ id: `move:${AXIS_LETTER[i]}`, kind: "arrow", axis: a, points: [o.centre, add(o.centre, scale(d, A))] });
-      if (o.mode === "copy") out.push({ id: `copy:${AXIS_LETTER[i]}`, kind: "arrow", axis: a, extra: true, points: [add(o.centre, scale(d, A * (1 + M.extraGap))), add(o.centre, scale(d, A * (1 + M.extraGap + M.extraShare)))] });
-    }
+    const a = i as 0 | 1 | 2, letter = AXIS_LETTER[i];
+    out.push({ id: `move:${letter}`, kind: "arrow", axis: a, points: [o.centre, add(o.centre, scale(d, A))] });
+    if (o.extras) out.push({ id: `copy:${letter}`, kind: "arrow", axis: a, extra: true, points: [add(o.centre, scale(d, A * (1 + M.extraGap))), add(o.centre, scale(d, A * (1 + M.extraGap + M.extraShare)))] });
+    const stemEnd = sub(o.centre, scale(d, A * M.stemShare)), r = A * M.turnShare, u = unit(cross(Math.abs(d[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0], d)), v = cross(d, u), arc: V3[] = [];
+    const from = (M.turnStartDeg * Math.PI) / 180, span = (M.turnSpanDeg * Math.PI) / 180, n = M.ringSegments;
+    for (let k = 0; k <= n; k++) { const t = from + (k / n) * span; arc.push(add(stemEnd, scale(add(scale(u, Math.cos(t)), scale(v, Math.sin(t))), r))); }
+    out.push({ id: `turn:${letter}`, kind: "turn", axis: a, points: arc, also: [[o.centre, stemEnd]] });
   });
   out.push({ id: "ball", kind: "ball", axis: null, points: [o.centre] });
   return out;
@@ -48,11 +46,13 @@ const toSegment = (px: number, py: number, ax: number, ay: number, bx: number, b
 export function hitHandle(hs: Handle[], c: Cam, w: number, h: number, px: number, py: number, hitPx = settings.mover.hitPx): Handle | null {
   let best: { d: number; h: Handle } | null = null;
   for (const hd of hs) {
-    const ps = hd.points.map((p) => project(c, p, w, h));
-    if (c.ortho === null && ps.some((q) => q.depth <= 1e-6)) continue;
     let d = Infinity;
-    if (hd.kind === "ball") d = Math.hypot(ps[0]!.x - px, ps[0]!.y - py) - 4;
-    else for (let i = 0; i + 1 < ps.length; i++) d = Math.min(d, toSegment(px, py, ps[i]!.x, ps[i]!.y, ps[i + 1]!.x, ps[i + 1]!.y));
+    for (const line of [hd.points, ...(hd.also ?? [])]) {
+      const ps = line.map((p) => project(c, p, w, h));
+      if (c.ortho === null && ps.some((q) => q.depth <= 1e-6)) continue;
+      if (hd.kind === "ball") d = Math.hypot(ps[0]!.x - px, ps[0]!.y - py) - 4;
+      else for (let i = 0; i + 1 < ps.length; i++) d = Math.min(d, toSegment(px, py, ps[i]!.x, ps[i]!.y, ps[i + 1]!.x, ps[i + 1]!.y));
+    }
     if (d <= hitPx && (!best || d < best.d)) best = { d, h: hd };
   }
   return best ? best.h : null;
@@ -77,7 +77,7 @@ export interface Grab { handle: Handle; centre: V3; kind: "line" | "plane" | "ri
 export function startGrab(o: Orb, hd: Handle, c: Cam, w: number, h: number, px: number, py: number, forward: V3): Grab | null {
   const r = rayOf(c, w, h, px, py);
   const held = o.held.length >= 2 && (hd.kind === "ball" || (hd.axis !== null && o.held.includes(hd.axis))) ? o.held : []; // (a drag of a held arrow, or of the ball, goes in the plane of two held axes)
-  if (hd.kind === "ring") {
+  if (hd.kind === "turn") {
     const axis = AXES[hd.axis!]!, q = onPlane(r, o.centre, axis);
     return q ? { handle: hd, centre: o.centre, kind: "ring", axis, held: [], s0: 0, q0: null, v0: sub(q, o.centre), normal: axis } : null;
   }

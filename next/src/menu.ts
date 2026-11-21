@@ -81,24 +81,10 @@ export function createCutUi(host: HTMLElement, on: { toggle(id: string): void; o
   };
 }
 
-/** The swapper beside the mover orb: three round buttons, the mode that is on lit (move, rotate, copy). And the number that shows while a handle is dragged. */
-export function createOrbUi(host: HTMLElement, on: { mode(m: "move" | "rotate" | "copy"): void }) {
-  const row = document.createElement("div"); row.style.cssText = "position:fixed;z-index:12;display:none;gap:4px;transform:translate(26px,-44px)"; host.appendChild(row);
-  row.addEventListener("pointerdown", (e) => e.stopPropagation());
-  const modes = [["move", "move", "XYZ arrows: move"], ["rotate", "rotate", "Rings: turn"], ["copy", "copy", "XYZ arrows with a second arrow: copy"]] as const;
-  let shown = "";
+/** The number that shows beside the pointer while a handle of the orb is dragged. */
+export function createReadout(host: HTMLElement) {
   const tag = document.createElement("div");
   tag.style.cssText = `position:fixed;z-index:13;display:none;height:26px;box-sizing:border-box;padding:0 8px;line-height:24px;border-radius:13px;background:#fff;border:1px solid #d6d7db;box-shadow:0 1px 6px rgba(0,0,0,.12);font:13px ${settings.ui.font};color:${settings.ui.text};white-space:nowrap;pointer-events:none;transform:translate(16px,-34px)`;
   host.appendChild(tag);
-  return {
-    update(at: [number, number] | null, mode: string) {
-      if (!at) { row.style.display = "none"; shown = ""; return; }
-      if (shown !== mode) {
-        shown = mode; row.innerHTML = "";
-        for (const [m, icon, title] of modes) { const b = roundButton({ icon, title, size: 26, on: m === mode }); b.addEventListener("click", (e) => { e.stopPropagation(); on.mode(m); }); row.appendChild(b); }
-      }
-      row.style.display = "flex"; row.style.left = `${at[0]}px`; row.style.top = `${at[1]}px`;
-    },
-    readout(at: [number, number] | null, text: string) { if (!at) { tag.style.display = "none"; return; } tag.style.display = "block"; tag.style.left = `${at[0]}px`; tag.style.top = `${at[1]}px`; tag.textContent = text; },
-  };
+  return { show(at: [number, number] | null, text: string) { if (!at) { tag.style.display = "none"; return; } tag.style.display = "block"; tag.style.left = `${at[0]}px`; tag.style.top = `${at[1]}px`; tag.textContent = text; } };
 }
