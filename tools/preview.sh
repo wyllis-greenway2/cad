@@ -2,7 +2,7 @@
 # Pull the latest changes and start a prototype in your browser (http://localhost:5173).
 # Usage:  bash ~/Documents/cad/tools/preview.sh [app|prototype]     default: app
 #         LAN=1 bash ~/Documents/cad/tools/preview.sh          also reachable from a phone on the same Wi-Fi
-#         app (the clean engine, default), or a prototype: cad-ui (frozen), sketch-extrude, kernel-slice
+#         app (the old app, default), next (the rebuild from scratch, `dec_fresh_start`), or a prototype: cad-ui (frozen), sketch-extrude, kernel-slice
 #         DEMO=1 starts the app with the demo box (default: empty)
 #         PULL_EVERY=60 also pulls every 60 seconds while the preview runs (fast-forward only), so what is merged into
 #         the branch you have checked out shows up by itself (the page reloads). Off unless set. A change to
@@ -38,7 +38,9 @@ fi
 proto="$arg"
 open_path="/"
 dir="prototypes/$proto"
-if [ "$arg" = "app" ]; then
+if [ "$arg" = "next" ]; then
+  dir="next"
+elif [ "$arg" = "app" ]; then
   dir="app"
   if [ "${DEMO:-0}" = "1" ]; then open_path="/?demo=box"; fi
 fi
