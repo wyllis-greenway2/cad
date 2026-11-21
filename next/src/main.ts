@@ -8,14 +8,14 @@ import { createWorld } from "./world.ts";
 import { createUi } from "./ui.ts";
 import * as dev from "./dev.ts";
 import * as view from "./view.ts";
-import { project, forward, type Axis } from "./camera.ts";
+import { project, type Axis } from "./camera.ts";
 import { focusOf, gridLevelAt } from "./sense.ts";
 import { acrossView, borderOf, cutFaceOf, facingCamera, frameOf, noPlanes, regionsOf, vOf, type Cut } from "./planes.ts";
 import { faceNormal, pick, type Hit } from "./pick.ts";
 import { apply, marksOf, noMarks, type Sel } from "./select.ts";
 import { createCutUi, createMenu, createOrientBar, type MenuItem } from "./menu.ts";
 import { createOrbControl } from "./orbcontrol.ts";
-import { add, cross, dot, scale, sub, type V3 } from "./vec.ts";
+import { dot, sub, type V3 } from "./vec.ts";
 
 const params = new URLSearchParams(location.search);
 dev.tuneFromAddress(params);
@@ -159,7 +159,6 @@ function frame(now: number) {
   });
   const sc = sel.length === 1 && sel[0]!.kind === "cut" ? cutOf(sel[0]!.id!) : undefined;
   if (!sc) orienting = null;
-  const scr = (p: V3 | null): [number, number] | null => { if (!p) return null; const q = project(s.c, p, w, h); return q.x > -50 && q.x < w + 50 && q.y > -50 && q.y < h + 50 ? [q.x, q.y] : null; };
   const kept = (p: V3 | null): [number, number] | null => { if (!p) return null; const q = project(s.c, p, w, h); return q.depth > 0 || s.c.ortho !== null ? [Math.min(Math.max(q.x, 8), w - 240), Math.min(Math.max(q.y, 8), h - 120)] : null; }; // (the bubble stays on the screen even when the plane's point has left it)
   cutUi.update(sc ? { id: sc.id, anchor: kept(anchor), on: sc.on, temp: sc.temp, orienting: orienting === sc.id } : null);
   orientBar.show(orbc.orienting() && !!orbd);

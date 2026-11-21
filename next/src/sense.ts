@@ -1,7 +1,7 @@
 // What the camera needs to know about the scene: how big a step is, which point it looks at, and whether anything is in view. Pure.
 // Two measures of distance only: `scaleAmong` (the scale of what the eye is among: steps, the depth range, how far ahead to look when nothing
 // is) and `gridLevel` (how far the plane is).
-import { add, len, scale, sub, dot, type V3 } from "./vec.ts";
+import { add, len, scale, sub, type V3 } from "./vec.ts";
 import { forward, project, reachOf, type Cam } from "./camera.ts";
 import { centreOf, hitThings, type Scene, type Thing } from "./scene.ts";
 import { settings } from "./settings.ts";

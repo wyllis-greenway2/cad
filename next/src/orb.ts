@@ -72,45 +72,27 @@ function alongLine(r: { o: V3; d: V3 }, p: V3, d: V3): number | null {
   const w0 = sub(p, r.o), b = dot(d, r.d), dd = dot(d, w0), e = dot(r.d, w0), den = 1 - b * b;
   return den < 1e-4 ? null : (b * e - dd) / den;
 }
-/** A drag in progress: the handle, where the orb was, and where on its line or plane the pointer took hold. */
-export interface Grab { handle: Handle; centre: V3; kind: "line" | "plane" | "ring"; axis: V3; held: number[]; s0: number; q0: V3 | null; v0: V3 | null; normal: V3 }
+/** A drag in progress: the handle, the orb's middle, and where the pointer took hold: along a line (how far), in a plane (the point), or round an axis (the vector from the middle). */
+export type Grab = { handle: Handle; centre: V3 } & ({ kind: "line"; dir: V3; s0: number } | { kind: "plane"; dir: V3; q0: V3 } | { kind: "ring"; dir: V3; v0: V3 });
 export function startGrab(o: Orb, hd: Handle, c: Cam, w: number, h: number, px: number, py: number, forward: V3): Grab | null {
-  const r = rayOf(c, w, h, px, py);
-  const held = o.held.length >= 2 && (hd.kind === "ball" || (hd.axis !== null && o.held.includes(hd.axis))) ? o.held : []; // (a drag of a held arrow, or of the ball, goes in the plane of two held axes)
-  if (hd.kind === "turn") {
-    const axis = (o.frame ?? AXES)[hd.axis!]!, q = onPlane(r, o.centre, axis);
-    return q ? { handle: hd, centre: o.centre, kind: "ring", axis, held: [], s0: 0, q0: null, v0: sub(q, o.centre), normal: axis } : null;
-  }
-  if (held.length >= 3) { // all three: free, in the plane across the view
-    const n = scale(forward, -1), q = onPlane(r, o.centre, n);
-    return q ? { handle: hd, centre: o.centre, kind: "plane", axis: n, held, s0: 0, q0: q, v0: null, normal: n } : null;
-  }
-  if (held.length === 2) { // two axes held: the plane of the two
-    const third = [0, 1, 2].find((i) => !held.includes(i))!, q = onPlane(r, o.centre, (o.frame ?? AXES)[third]!);
-    return q ? { handle: hd, centre: o.centre, kind: "plane", axis: (o.frame ?? AXES)[third]!, held, s0: 0, q0: q, v0: null, normal: (o.frame ?? AXES)[third]! } : null;
-  }
-  if (hd.kind === "ball") { // free: in the plane across the view
-    const n = scale(forward, -1), q = onPlane(r, o.centre, n);
-    return q ? { handle: hd, centre: o.centre, kind: "plane", axis: n, held: [], s0: 0, q0: q, v0: null, normal: n } : null;
-  }
-  const axis = (o.frame ?? AXES)[hd.axis!]!, s = alongLine(r, o.centre, axis);
-  return s === null ? null : { handle: hd, centre: o.centre, kind: "line", axis, held: [hd.axis!], s0: s, q0: null, v0: null, normal: axis };
+  const r = rayOf(c, w, h, px, py), axes = o.frame ?? AXES, base = { handle: hd, centre: o.centre };
+  const inPlane = (dir: V3): Grab | null => { const q0 = onPlane(r, o.centre, dir); return q0 ? { ...base, kind: "plane", dir, q0 } : null; };
+  if (hd.kind === "turn") { const dir = axes[hd.axis!]!, q = onPlane(r, o.centre, dir); return q ? { ...base, kind: "ring", dir, v0: sub(q, o.centre) } : null; }
+  // a drag of a held arrow, or of the ball, goes in the plane of two held axes, or freely across the view with three (or with none, for the ball)
+  const held = hd.kind === "ball" || (hd.axis !== null && o.held.includes(hd.axis)) ? o.held : [];
+  if (held.length >= 3 || (hd.kind === "ball" && held.length < 2)) return inPlane(scale(forward, -1));
+  if (held.length === 2) return inPlane(axes[[0, 1, 2].find((i) => !held.includes(i))!]!);
+  const dir = axes[hd.axis!]!, s0 = alongLine(r, o.centre, dir);
+  return s0 === null ? null : { ...base, kind: "line", dir, s0 };
 }
-export interface Dragged { move?: V3; turn?: { axis: V3; angle: number }; /** a number to show: mm, or radians for a turn */ value: number; label: string }
+/** What a drag has done so far, from where it began: a move, or a turn about an axis; and its size (mm, or radians) to tell whether it has gone anywhere. */
+export interface Dragged { move?: V3; turn?: { axis: V3; angle: number }; value: number }
 export function dragTo(g: Grab, c: Cam, w: number, h: number, px: number, py: number): Dragged | null {
   const r = rayOf(c, w, h, px, py);
-  if (g.kind === "line") {
-    const s = alongLine(r, g.centre, g.axis);
-    return s === null ? null : { move: scale(g.axis, s - g.s0), value: s - g.s0, label: AXIS_LETTER[g.handle.axis!]! };
-  }
-  if (g.kind === "plane") {
-    const q = onPlane(r, g.centre, g.normal);
-    if (!q || !g.q0) return null;
-    const d = sub(q, g.q0);
-    return { move: d, value: len(d), label: g.held.length === 2 ? g.held.map((i) => AXIS_LETTER[i]).join("") : "" };
-  }
-  const q = onPlane(r, g.centre, g.normal);
-  if (!q || !g.v0) return null;
-  const v = sub(q, g.centre), angle = Math.atan2(dot(g.normal, cross(g.v0, v)), dot(g.v0, v));
-  return { turn: { axis: g.normal, angle }, value: angle, label: AXIS_LETTER[g.handle.axis!]! };
+  if (g.kind === "line") { const s = alongLine(r, g.centre, g.dir); return s === null ? null : { move: scale(g.dir, s - g.s0), value: s - g.s0 }; }
+  const q = onPlane(r, g.centre, g.dir);
+  if (!q) return null;
+  if (g.kind === "plane") { const d = sub(q, g.q0); return { move: d, value: len(d) }; }
+  const v = sub(q, g.centre), angle = Math.atan2(dot(g.dir, cross(g.v0, v)), dot(g.v0, v));
+  return { turn: { axis: g.dir, angle }, value: angle };
 }
