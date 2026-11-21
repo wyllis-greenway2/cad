@@ -5988,3 +5988,10 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1428 — 2026-11-21 — directive
 > it still feels the same. is this just a limitation with trackpads? the worst feeling is that it feels like you are locked into zoom or pan and you cant do both at the same time with moving two fingers while pinching
+
+## in_1429 — 2026-11-21 — directive
+> yea it seems to pickup on initial motion and lock into it. Is there anyway we can just tell it to interpret as a mobile? the same browser can take a mobile input just fine, so can we tell it the trackpad is a mobile?
+(Answered: no, a trackpad is not touch to a page; a glide was offered.)
+
+## in_1430 — 2026-11-21 — directive
+> yes try the glide

@@ -14,7 +14,7 @@ export interface Intents {
   /** A wheel's notch: `factor` below 1 zooms in; (x, y) is the pointer in pixels. */
   zoom(factor: number, x: number, y: number): void;
   /** Two fingers on a touch screen or a trackpad: the view is slid by (dx, dy) (the scene follows the fingers) and zoomed by `factor` (below 1 zooms in, the spread of the fingers changed by 1 / factor), about (x, y), at the same time. */
-  gesture(dx: number, dy: number, factor: number, x: number, y: number): void;
+  gesture(dx: number, dy: number, factor: number, x: number, y: number, coast?: boolean): void;
   dragEnd(): void;
   /** Where the pointer is, kept up to date while a button is held too (a drag of the view), so what is drawn under it stays under it. */
   hover(x: number, y: number): void;
@@ -123,14 +123,14 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     e.preventDefault();
     const r = el.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
     stream = classifyWheel(e, e.timeStamp, stream);
-    if (stream.kind === "pinch") { out.gesture(0, 0, Math.exp(e.deltaY * settings.input.pinchZoomPerWheel), x, y); return; } // (the spread of two fingers on a trackpad)
+    if (stream.kind === "pinch") { out.gesture(0, 0, Math.exp(e.deltaY * settings.input.pinchZoomPerWheel), x, y, true); return; } // (the spread of two fingers on a trackpad)
     if (stream.kind === "wheel") { out.zoom(Math.exp((e.deltaMode === 1 ? e.deltaY * settings.input.wheelLinePx : e.deltaY) * settings.input.zoomPerWheel), x, y); return; }
     // the motion of two fingers on a trackpad: the scene follows them. With natural scrolling the scroll is the way the fingers go, without it the other way; the system says which where it can.
     const inverted = (e as WheelEvent & { webkitDirectionInvertedFromDevice?: boolean }).webkitDirectionInvertedFromDevice;
     const k = (inverted ?? settings.input.trackpadNatural ? -1 : 1) * settings.input.trackpadPanScale;
     if (scrolling === null) out.dragStart(x, y); // (what is grabbed is chosen once for the whole scroll, as for a drag)
     else clearTimeout(scrolling);
-    out.gesture(e.deltaX * k, e.deltaY * k, 1, x, y);
+    out.gesture(e.deltaX * k, e.deltaY * k, 1, x, y, true);
     scrolling = setTimeout(() => { scrolling = null; out.dragEnd(); }, settings.input.scrollStreamMs);
   };
   const keydown = (e: KeyboardEvent) => { if (e.code === "Space") { if (!e.repeat) { space = true; spaceUsed = false; } if (e.target === document.body || e.target === el) e.preventDefault(); } };

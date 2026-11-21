@@ -22,6 +22,7 @@ export const settings = {
   },
   input: {
     zoomPerWheel: 0.0015, pinchZoomPerWheel: 0.01, // (a trackpad's pinch comes as a wheel with the control key: the zoom is this much of its delta, which matches the spread of the fingers)
+    glideMs: 150, glideStartMs: 24, glideMaxPanPxPerSec: 4000, glideMaxZoomPerSec: 6, // after a trackpad's gesture ends its motion and its zoom ease out over about this long (so the two can overlap in time: the system reports one gesture at a time); 0 for none. A glide starts when no event has come for this long
     trackpadPanScale: 1, trackpadNatural: true, scrollStreamMs: 160, // a trackpad's scroll pans as far as the fingers go, as two fingers on a touch screen do; natural scrolling (the scene goes the way the fingers do) unless the system says otherwise; events within this long of each other are one gesture
     fineGain: 0.6, fineFadePx: 6, // the smallest mouse movements turn the view by this much of what they would, rising to all of it over about this many pixels (in_420)
     multiClickPx: 6, multiClickMs: 400,

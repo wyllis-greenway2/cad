@@ -10,6 +10,8 @@ import { add, clamp, dot, ease, len, scale, sub, type V3 } from "./vec.ts";
 
 /** A drag of the view in progress: the point it turns or grabs about, how deep what is grabbed is, and how far it has gone while a straight view holds on. */
 export interface Drag { pivot: V3; depth: number; debt: number }
+/** How fast a trackpad's gesture was going when it ended: the slide in pixels a second, the zoom as the log of the factor a second, where about, and when the last event came. */
+export interface Coast { vx: number; vy: number; vz: number; x: number; y: number; t: number }
 export interface ViewState {
   c: Cam;
   go: Go | null; // a change of view playing out: the lens going to or from a straight view (and the direction turning to a plane), or the view flying to another (Reset camera)
@@ -18,13 +20,14 @@ export interface ViewState {
   free: number; // 0: the axes and panes are the world's size (they zoom with the world); 1: scale free, the same size on the screen. 0 until the first thing exists, then eases over to 1
   seen: string | null; // the last thing that was in view, for Reset camera
   drag: Drag | null;
+  coast: Coast | null; // the slide and zoom of a trackpad's gesture easing out after its last event
 }
 /** What is known now. `gameOn`: the pointer is held at the middle of the view, so the world's pointer is there. */
 export interface Env { model: Scene; w: number; h: number; now: number; gameOn: boolean }
 export interface Pointer { x: number; y: number }
 export interface FlightInput { ahead: number; side: number; dx: number; dy: number }
 
-export const initial = (model: Scene): ViewState => ({ c: cam.home(), go: null, plane: 2, worldHidden: false, free: model.things.length ? 1 : 0, seen: null, drag: null });
+export const initial = (model: Scene): ViewState => ({ c: cam.home(), go: null, plane: 2, worldHidden: false, free: model.things.length ? 1 : 0, seen: null, drag: null, coast: null });
 /** A change of view is playing: flight waits for it, and so does the Reset pill. */
 export const busy = (s: ViewState): boolean => s.go !== null;
 /** Fully perspective and not changing: the one state flight starts from. */
@@ -76,7 +79,8 @@ function lensGo(s: ViewState, e: Env, hold: V3, lens: number, ms: number, dir?: 
  * given up and the perspective comes back smoothly from where it is,
  * never staying half shut (`in_471`); a change that is already bringing it back goes on, with the direction now the hands'.
  */
-export function takeOver(s: ViewState, e: Env, pivot?: V3): ViewState {
+export function takeOver(s0: ViewState, e: Env, pivot?: V3): ViewState {
+  const s = s0.coast ? { ...s0, coast: null } : s0; // (any new input stops what was coasting)
   if (!s.go) return s;
   if (!s.go.eyeTo && s.go.lens === 1) { const { dir: _unused, ...keep } = s.go; return { ...s, go: keep }; }
   const ms = Math.max(settings.view.minChangeMs, (settings.view.perspectiveMs * (1 - s.c.lens)) / (1 - settings.view.morphLens));
@@ -86,14 +90,14 @@ export function takeOver(s: ViewState, e: Env, pivot?: V3): ViewState {
 export function lookAt(s: ViewState, e: Env, axis: Axis): ViewState {
   const f = focusOnAxis(s, e), along = cam.straightAlong(s.c);
   const side: 1 | -1 = along && along.axis === axis ? (-along.sign as 1 | -1) : cam.sideOn(s.c, f, axis);
-  return lensGo({ ...s, plane: axis }, e, f, settings.view.morphLens, settings.view.transitionMs, cam.straightDirection(axis, side));
+  return lensGo({ ...s, plane: axis, coast: null }, e, f, settings.view.morphLens, settings.view.transitionMs, cam.straightDirection(axis, side));
 }
 /** The Reset camera button: the view flies to the thing last seen (else the last there is), framed whole; with nothing, home. */
 export function reset(s: ViewState, e: Env): ViewState {
   const t = resetTarget(e.model, s.seen);
   const to = t.id === "world" ? cam.home() : cam.frameBox(t.lo, t.hi, e.w / e.h);
   const c = cam.leaveOrtho(s.c, focusOnAxis(s, e));
-  return { ...s, c, go: { t0: e.now, ms: settings.view.transitionMs, from: c, lens: to.lens, dir: { yaw: to.yaw, pitch: to.pitch }, hold: c.eye, eyeTo: to.eye } };
+  return { ...s, c, coast: null, go: { t0: e.now, ms: settings.view.transitionMs, from: c, lens: to.lens, dir: { yaw: to.yaw, pitch: to.pitch }, hold: c.eye, eyeTo: to.eye } };
 }
 /** Game mode is about to start: the view is made fully perspective first if it is not (flight never starts in a half-straight view). */
 export function startGame(s: ViewState, e: Env): ViewState {
@@ -106,7 +110,7 @@ export const toggleWorld = (s: ViewState): ViewState => ({ ...s, worldHidden: !s
 export function startDrag(s: ViewState, e: Env, x: number, y: number): ViewState {
   const r = rayAt(s, e, x, y), hit = hitThings(e.model, r.o, r.d), pivot = focus(s, e);
   const depth = Math.max(settings.view.minSurfaceMm, hit ? hit.t * dot(r.d, cam.forward(s.c)) : cam.forwardDepth(s.c, pivot));
-  return { ...s, drag: { pivot, depth, debt: 0 } };
+  return { ...s, coast: null, drag: { pivot, depth, debt: 0 } };
 }
 export const endDrag = (s: ViewState): ViewState => ({ ...s, drag: null });
 /** Turn the view about the pivot. A straight view holds on: the drag is kept back until it is a little way, and the view then turns on from there. */
@@ -138,15 +142,23 @@ export function zoom(s: ViewState, e: Env, factor: number, x: number, y: number)
  * Two fingers (a touch screen, or a trackpad's scroll and pinch): the view is slid by (dx, dy) and zoomed by `factor` about (x, y), together. What is grabbed for the slide is chosen when the gesture begins (`startDrag`),
  * or, with none, is the point looked at.
  */
-export function gesture(s: ViewState, e: Env, dx: number, dy: number, factor: number, x: number, y: number): ViewState {
+export function gesture(s: ViewState, e: Env, dx: number, dy: number, factor: number, x: number, y: number, coast = false): ViewState {
   if (e.gameOn) return s;
   let n = takeOver(s, e);
-  if (dx !== 0 || dy !== 0) n = { ...n, c: cam.pan(n.c, dx, dy, n.drag?.depth ?? Math.max(settings.view.minSurfaceMm, cam.forwardDepth(n.c, focus(n, e))), e.h) };
+  if (dx !== 0 || dy !== 0) n = { ...n, c: cam.pan(n.c, dx, dy, grabDepth(n, e), e.h) };
   if (factor !== 1) n = zoom(n, e, factor, x, y);
-  return n;
+  if (!coast || settings.input.glideMs <= 0) return n;
+  // how fast it is going, from this event and the last (smoothed), so that when the events stop the motion eases out instead of stopping dead
+  const prev = s.coast, dt = Math.max(0.008, prev ? (e.now - prev.t) / 1000 : 0.016), mix = prev ? 0.5 : 1;
+  const [maxPan, maxZoom] = [settings.input.glideMaxPanPxPerSec, settings.input.glideMaxZoomPerSec];
+  const v = (now: number, before: number | undefined) => (before ?? 0) * (1 - mix) + now * mix;
+  return { ...n, coast: { vx: clamp(v(dx / dt, prev?.vx), -maxPan, maxPan), vy: clamp(v(dy / dt, prev?.vy), -maxPan, maxPan), vz: clamp(v(Math.log(factor) / dt, prev?.vz), -maxZoom, maxZoom), x, y, t: e.now } };
 }
+/** What a slide follows: the surface or point chosen when the drag began, else the point looked at. */
+const grabDepth = (s: ViewState, e: Env): number => s.drag?.depth ?? Math.max(settings.view.minSurfaceMm, cam.forwardDepth(s.c, focus(s, e)));
 /** A click: on a pane (not on a face that is not in the pane's own plane, `in_1409`) it is to look straight at that plane. */
-export function click(s: ViewState, e: Env, x: number, y: number): ViewState {
+export function click(s0: ViewState, e: Env, x: number, y: number): ViewState {
+  const s = s0.coast ? { ...s0, coast: null } : s0; // (a click stops what was coasting)
   if (s.worldHidden) return s;
   const r = rayAt(s, e, x, y), p = paneAt(e.model, r.o, r.d, gizmoScale(s));
   return p && paneLevel(s.c) > settings.world.paneUsableLevel ? lookAt(s, e, p.axis) : s;
@@ -161,13 +173,25 @@ export function advance(s: ViewState, e: Env, dt: number): ViewState {
     c = cam.stepGo(go, ease(k), c);
     if (k >= 1) { c = go.lens === 1 ? { ...c, lens: 1 } : go.eyeTo ? c : cam.enterOrtho({ ...c, lens: go.lens }, go.hold); go = null; }
   }
+  let n: ViewState = { ...s, c, go };
+  if (n.coast && !e.gameOn && e.now - n.coast.t > settings.input.glideStartMs) n = coast(n, e, dt);
   const want = e.model.things.length ? 1 : 0;
   let free = s.free + (want - s.free) * Math.min(1, dt * settings.world.gizmoEaseRate);
   if (Math.abs(want - free) < 0.002) free = want;
-  return { ...s, c, go, free, seen: lastSeen(e.model, c, e.w, e.h) ?? s.seen };
+  return { ...n, free, seen: lastSeen(e.model, n.c, e.w, e.h) ?? s.seen };
 }
 
 // ---- what to show ----
+/** A trackpad's gesture that has ended goes on a little, easing out: the slide and the zoom it had, decaying over `glideMs`. */
+function coast(s: ViewState, e: Env, dt: number): ViewState {
+  const k = s.coast!;
+  let n = { ...s, c: cam.pan(s.c, k.vx * dt, k.vy * dt, grabDepth(s, e), e.h) };
+  if (k.vz !== 0) n = goForward(n, e, 1 - clamp(Math.exp(k.vz * dt), ...settings.input.zoomStepClamp), (k.x / e.w) * 2 - 1, -((k.y / e.h) * 2 - 1));
+  const decay = Math.exp(-dt / (settings.input.glideMs / 1000));
+  const vx = k.vx * decay, vy = k.vy * decay, vz = k.vz * decay;
+  const done = Math.hypot(vx, vy) < 5 && Math.abs(vz) < 0.02;
+  return { ...n, coast: done ? null : { ...k, vx, vy, vz } };
+}
 /** How much of the little panes there is: all while the view is perspective, fading out as it goes straight. */
 export const paneLevel = (c: Cam): number => (c.ortho !== null ? 0 : clamp((c.lens - settings.world.paneFadeLens) / (1 - settings.world.paneFadeLens), 0, 1));
 /** How many times its true size the axes and panes are drawn: 1 while the model is empty, and once the first thing exists the size they have on the screen at the home view, wherever the eye is. */
