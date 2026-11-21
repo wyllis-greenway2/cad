@@ -16,7 +16,7 @@ export const settings = {
     zoomPerWheel: 0.003, pinchZoomPerWheel: 0.01, trackpadPanScale: 0.3,
     fineGain: 0.6, fineFadePx: 6, // the smallest mouse movements turn the view by this much of what they would, rising to all of it over about this many pixels (in_420)
     multiClickPx: 6, multiClickMs: 400,
-    gameIdleMs: 700, flySpeed: 0.45, flyEaseSec: 0.15, flyLookSec: 0.06, flyLookScale: 0.25,
+    flySpeed: 0.45, flyEaseSec: 0.15, flyLookSec: 0.06, flyLookScale: 0.25,
   },
   world: { axisLengthMm: 24, paneGapMm: 3, paneMm: 8, paneRound: 0.18, paneOpacity: 0.18, paneActiveOpacity: 0.4, paneFadeMs: 250 },
   orb: { radius: 0.025, hoverOpacity: 0.14, color: [0.1, 0.72, 0.7] as [number, number, number] }, // the hover disc: its radius in depths of the surface it is on

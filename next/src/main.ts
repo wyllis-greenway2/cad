@@ -118,18 +118,19 @@ attach(canvas, {
     if (p && paneLevel > 0.5) lookAt(p.axis);
   },
   look(dx, dy) { game.look(dx, dy); },
+  space() { if (game.on) endGame(); else startGame(); },
 }, () => document.pointerLockElement === canvas);
 
+/** Game mode on: the view is made fully perspective first if it is not (flight never starts in a half-straight view), the pointer is held at the middle of the view. */
+function startGame() {
+  glide = null;
+  if (cam.isStraight(c) || lens || c.lens < 1) startLens(focusNow(), { yaw: c.yaw, pitch: c.pitch }, 1, settings.view.perspectiveMs);
+  game.start();
+  canvas.requestPointerLock?.();
+}
 addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
-  if (game.key(e.code, true)) {
-    if (!e.repeat) {
-      glide = null;
-      if (cam.isStraight(c) || (lens && lens.lensTo < 1) || c.lens < 1) startLens(focusNow(), { yaw: c.yaw, pitch: c.pitch }, 1, settings.view.perspectiveMs); // (flight starts in a full perspective view only, C9)
-      canvas.requestPointerLock?.();
-    }
-    return;
-  }
+  if (game.key(e.code, true)) return;
   if (e.code === "Escape" && game.on) endGame();
 });
 addEventListener("keyup", (e) => { game.key(e.code, false); });

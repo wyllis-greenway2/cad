@@ -15,6 +15,8 @@ export interface Intents {
   click(x: number, y: number, count: number): void;
   /** The mouse moved while the pointer is held (game mode): by how much. */
   look(dx: number, dy: number): void;
+  /** The space bar was tapped (let go without having been used to pan): game mode on or off. */
+  space(): void;
 }
 
 type Action = "orbit" | "pan" | "click";
@@ -36,7 +38,7 @@ export function wheelKind(e: { ctrlKey: boolean; deltaMode: number; deltaX: numb
 }
 
 export function attach(el: HTMLElement, out: Intents, locked: () => boolean): () => void {
-  let space = false;
+  let space = false, spaceUsed = false; // (the space bar held is a pan modifier; tapped alone it is the game switch)
   let drag: { x0: number; y0: number; x: number; y: number; moved: boolean; action: Action } | null = null;
   const touches = new Map<number, { x: number; y: number }>();
   let tap: { x: number; y: number; moved: boolean } | null = null;
@@ -58,6 +60,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
       if (touches.size === 2) { if (touchKind) out.dragEnd(); touchKind = "pan"; out.dragStart("pan", p.x, p.y); }
       return;
     }
+    if (space) spaceUsed = true;
     drag = { x0: p.x, y0: p.y, ...p, moved: false, action: actionOf(e.button, { shift: e.shiftKey, alt: e.altKey }, space) };
   };
   const move = (e: PointerEvent) => {
@@ -109,8 +112,8 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
       out.zoom(Math.exp((e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY) * per), x, y);
     }
   };
-  const keydown = (e: KeyboardEvent) => { if (e.code === "Space") { space = true; if (e.target === document.body) e.preventDefault(); } };
-  const keyup = (e: KeyboardEvent) => { if (e.code === "Space") space = false; };
+  const keydown = (e: KeyboardEvent) => { if (e.code === "Space") { if (!e.repeat) { space = true; spaceUsed = false; } if (e.target === document.body || e.target === el) e.preventDefault(); } };
+  const keyup = (e: KeyboardEvent) => { if (e.code === "Space") { const tapped = space && !spaceUsed; space = false; if (tapped) out.space(); } };
   const menu = (e: Event) => e.preventDefault();
 
   el.addEventListener("pointerdown", down); el.addEventListener("pointermove", move); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);

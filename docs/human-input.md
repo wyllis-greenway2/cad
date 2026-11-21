@@ -5907,3 +5907,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1403 — 2026-11-21 — directive
 > okay, now swtiching in and out of ortho mode is very clunky, the prototype was better there
+
+## in_1404 — 2026-11-21 — directive
+> okay now we want to enter and exit game mode with the space bar (esc) should also exit
