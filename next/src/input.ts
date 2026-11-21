@@ -1,7 +1,8 @@
-// Raw browser events turned into a few intents (prin_input_agnostic): orbit, pan, zoom, hover, click. Mouse, trackpad and touch all end up here.
-// Mouse: left-drag on empty space, right-drag or Alt+left-drag orbits; middle-drag, Shift+right-drag, Space+drag or Alt+Shift+left-drag pans;
-// the wheel zooms.
-// Trackpad: a two-finger scroll pans, a pinch zooms. Touch: one finger orbits, two fingers pan and pinch.
+// Raw browser events turned into a few intents (prin_input_agnostic): orbit, pan, zoom, gesture, hover, click. Mouse, trackpad and touch all end up here.
+// Mouse: left-drag on empty space, right-drag or Alt+left-drag orbits; middle-drag, Shift+right-drag, Space+drag or Alt+Shift+left-drag pans; the wheel zooms.
+// Touch and trackpad are the same thing, a gesture: two fingers pan (by the motion of the pair) and zoom (by the spread of the pair) at the same time. On a touch screen
+// the page sees both fingers; on a trackpad the browser reports the pair's motion as a scroll and its spread as a pinch, so a gesture is made of whichever arrives.
+// One finger orbits on a touch screen; on a trackpad a one-finger drag with the button down is the mouse's left-drag.
 import { settings } from "./settings.ts";
 import { fineGain } from "./camera.ts";
 
@@ -10,8 +11,10 @@ export interface Intents {
   dragStart(x: number, y: number): void;
   orbit(dx: number, dy: number): void;
   pan(dx: number, dy: number): void;
-  /** `factor` below 1 zooms in; (x, y) is the pointer in pixels. */
+  /** A wheel's notch: `factor` below 1 zooms in; (x, y) is the pointer in pixels. */
   zoom(factor: number, x: number, y: number): void;
+  /** Two fingers on a touch screen or a trackpad: the view is slid by (dx, dy) (the scene follows the fingers) and zoomed by `factor` (below 1 zooms in, the spread of the fingers changed by 1 / factor), about (x, y), at the same time. */
+  gesture(dx: number, dy: number, factor: number, x: number, y: number): void;
   dragEnd(): void;
   /** Where the pointer is, kept up to date while a button is held too (a drag of the view), so what is drawn under it stays under it. */
   hover(x: number, y: number): void;
@@ -33,11 +36,21 @@ export const actionOf = (button: number, m: { shift: boolean; alt: boolean }, sp
   return "click"; // a plain left press: a click if it does not move, else the view turns
 };
 
-/** What a wheel event is: a pinch, a wheel's notch (zoom) or a trackpad's scroll (pan). */
-export function wheelKind(e: { ctrlKey: boolean; deltaMode: number; deltaX: number; deltaY: number }): "pinch" | "wheel" | "scroll" {
+export type WheelKind = "pinch" | "wheel" | "scroll";
+/** What a wheel event is on its own: a pinch (the browser's way of reporting a trackpad's spread), a wheel's notch (zoom) or a trackpad's scroll (the motion of two fingers). */
+export function wheelKind(e: { ctrlKey: boolean; deltaMode: number; deltaX: number; deltaY: number }): WheelKind {
   if (e.ctrlKey) return "pinch";
   if (e.deltaMode !== 0) return "wheel";
   return e.deltaX === 0 && Number.isInteger(e.deltaY) && Math.abs(e.deltaY) >= settings.input.wheelNotchMin ? "wheel" : "scroll";
+}
+/**
+ * A gesture keeps its kind while its events keep coming (`scrollStreamMs`): the first event decides, so the tail of a trackpad's flick (small steps, and now and then a whole number) is not taken for a wheel,
+ * and a wheel spun fast is not taken for a scroll. `prev` is the kind and time of the last event.
+ */
+export function classifyWheel(e: { ctrlKey: boolean; deltaMode: number; deltaX: number; deltaY: number }, now: number, prev: { kind: WheelKind; t: number } | null): { kind: WheelKind; t: number } {
+  const own = wheelKind(e);
+  if (own === "pinch") return { kind: own, t: now };
+  return { kind: prev && prev.kind !== "pinch" && now - prev.t < settings.input.scrollStreamMs ? prev.kind : own, t: now };
 }
 
 export function attach(el: HTMLElement, out: Intents, locked: () => boolean): () => void {
@@ -56,7 +69,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
 
   const down = (e: PointerEvent) => {
     const p = pos(e);
-    el.setPointerCapture(e.pointerId);
+    try { el.setPointerCapture(e.pointerId); } catch { /* (a pointer that is not there to capture) */ }
     if (e.pointerType === "touch") {
       touches.set(e.pointerId, p);
       tap = touches.size === 1 ? { ...p, moved: false } : null;
@@ -80,8 +93,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
       else if (touches.size === 2) {
         const now = [...touches.values()];
         const d0 = Math.hypot(before[0]!.x - before[1]!.x, before[0]!.y - before[1]!.y), d1 = Math.hypot(now[0]!.x - now[1]!.x, now[0]!.y - now[1]!.y);
-        out.pan(dx / 2, dy / 2);
-        if (d0 > 0 && d1 > 0) out.zoom(d0 / d1, (now[0]!.x + now[1]!.x) / 2, (now[0]!.y + now[1]!.y) / 2);
+        out.gesture(dx / 2, dy / 2, d0 > 0 && d1 > 0 ? d0 / d1 : 1, (now[0]!.x + now[1]!.x) / 2, (now[0]!.y + now[1]!.y) / 2); // (each finger's share of the pair's motion, and the change of their spread, together)
       }
       return;
     }
@@ -106,15 +118,20 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     if (d.moved) { out.dragEnd(); return; }
     if (d.action === "click" && e.type === "pointerup") out.click(p.x, p.y, count(p.x, p.y, e.timeStamp));
   };
+  let stream: { kind: WheelKind; t: number } | null = null, scrolling: ReturnType<typeof setTimeout> | null = null;
   const wheel = (e: WheelEvent) => {
     e.preventDefault();
     const r = el.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
-    const kind = wheelKind(e);
-    if (kind === "scroll") { out.dragStart(x, y); out.pan(-e.deltaX * settings.input.trackpadPanScale, -e.deltaY * settings.input.trackpadPanScale); out.dragEnd(); }
-    else {
-      const per = kind === "pinch" ? settings.input.pinchZoomPerWheel : settings.input.zoomPerWheel;
-      out.zoom(Math.exp((e.deltaMode === 1 ? e.deltaY * settings.input.wheelLinePx : e.deltaY) * per), x, y);
-    }
+    stream = classifyWheel(e, e.timeStamp, stream);
+    if (stream.kind === "pinch") { out.gesture(0, 0, Math.exp(e.deltaY * settings.input.pinchZoomPerWheel), x, y); return; } // (the spread of two fingers on a trackpad)
+    if (stream.kind === "wheel") { out.zoom(Math.exp((e.deltaMode === 1 ? e.deltaY * settings.input.wheelLinePx : e.deltaY) * settings.input.zoomPerWheel), x, y); return; }
+    // the motion of two fingers on a trackpad: the scene follows them. With natural scrolling the scroll is the way the fingers go, without it the other way; the system says which where it can.
+    const inverted = (e as WheelEvent & { webkitDirectionInvertedFromDevice?: boolean }).webkitDirectionInvertedFromDevice;
+    const k = (inverted ?? settings.input.trackpadNatural ? -1 : 1) * settings.input.trackpadPanScale;
+    if (scrolling === null) out.dragStart(x, y); // (what is grabbed is chosen once for the whole scroll, as for a drag)
+    else clearTimeout(scrolling);
+    out.gesture(e.deltaX * k, e.deltaY * k, 1, x, y);
+    scrolling = setTimeout(() => { scrolling = null; out.dragEnd(); }, settings.input.scrollStreamMs);
   };
   const keydown = (e: KeyboardEvent) => { if (e.code === "Space") { if (!e.repeat) { space = true; spaceUsed = false; } if (e.target === document.body || e.target === el) e.preventDefault(); } };
   const keyup = (e: KeyboardEvent) => { if (e.code === "Space") { const tapped = space && !spaceUsed; space = false; if (tapped) out.space(); } };

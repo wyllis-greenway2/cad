@@ -5982,3 +5982,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1426 — 2026-11-21 — directive
 > yes start with step 1
 (Step 1: the final pass on the world view's requirements, `docs/rebuild/world_view_requirements.md`, rewritten as 20 camera, 16 world and 4 button rows, each with its inputs, contracts, test kind and status.)
+
+## in_1427 — 2026-11-21 — directive
+> hang on, we are not quite ready. i forgot to test on trackpad and mobile. When I tested on trackpad I realized it is not good. Can we make the trackpad behave identical to mobile touch. So on mobile, one finger rotates, two fingers pans and zooms at the same time, zooming with finger seperation and panning with motion of double fingers

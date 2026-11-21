@@ -21,7 +21,8 @@ export const settings = {
     visiblePx: 6, // a thing smaller than this on the screen is not in view
   },
   input: {
-    zoomPerWheel: 0.0015, pinchZoomPerWheel: 0.005, trackpadPanScale: 0.3,
+    zoomPerWheel: 0.0015, pinchZoomPerWheel: 0.01, // (a trackpad's pinch comes as a wheel with the control key: the zoom is this much of its delta, which matches the spread of the fingers)
+    trackpadPanScale: 1, trackpadNatural: true, scrollStreamMs: 160, // a trackpad's scroll pans as far as the fingers go, as two fingers on a touch screen do; natural scrolling (the scene goes the way the fingers do) unless the system says otherwise; events within this long of each other are one gesture
     fineGain: 0.6, fineFadePx: 6, // the smallest mouse movements turn the view by this much of what they would, rising to all of it over about this many pixels (in_420)
     multiClickPx: 6, multiClickMs: 400,
     zoomStepClamp: [0.2, 5] as [number, number], // one wheel event never zooms by more than this share either way

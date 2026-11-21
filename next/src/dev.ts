@@ -11,6 +11,8 @@ export const sceneFromAddress = (params: URLSearchParams): Scene => (params.get(
 /** `?wheel=0.001`: how far a wheel notch goes, as a share of the step scale per unit of wheel (the default is in settings). */
 export function tuneFromAddress(params: URLSearchParams): void {
   if (params.get("wheel")) settings.input.zoomPerWheel = Number(params.get("wheel"));
+  if (params.get("pan")) settings.input.trackpadPanScale = Number(params.get("pan")); // (?pan=0.5: how far a trackpad's two-finger scroll pans, as a share of the fingers' travel)
+  if (params.get("natural")) settings.input.trackpadNatural = params.get("natural") !== "0"; // (?natural=0: the scroll goes the other way to the fingers)
 }
 export interface DevHooks {
   model: Scene;

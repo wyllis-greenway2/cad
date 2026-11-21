@@ -134,6 +134,17 @@ export function zoom(s: ViewState, e: Env, factor: number, x: number, y: number)
   const [lo, hi] = settings.input.zoomStepClamp;
   return goForward(takeOver(s, e), e, 1 - clamp(factor, lo, hi), (x / e.w) * 2 - 1, -((y / e.h) * 2 - 1));
 }
+/**
+ * Two fingers (a touch screen, or a trackpad's scroll and pinch): the view is slid by (dx, dy) and zoomed by `factor` about (x, y), together. What is grabbed for the slide is chosen when the gesture begins (`startDrag`),
+ * or, with none, is the point looked at.
+ */
+export function gesture(s: ViewState, e: Env, dx: number, dy: number, factor: number, x: number, y: number): ViewState {
+  if (e.gameOn) return s;
+  let n = takeOver(s, e);
+  if (dx !== 0 || dy !== 0) n = { ...n, c: cam.pan(n.c, dx, dy, n.drag?.depth ?? Math.max(settings.view.minSurfaceMm, cam.forwardDepth(n.c, focus(n, e))), e.h) };
+  if (factor !== 1) n = zoom(n, e, factor, x, y);
+  return n;
+}
 /** A click: on a pane (not on a face that is not in the pane's own plane, `in_1409`) it is to look straight at that plane. */
 export function click(s: ViewState, e: Env, x: number, y: number): ViewState {
   if (s.worldHidden) return s;
