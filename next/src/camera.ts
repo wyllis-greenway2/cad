@@ -55,20 +55,6 @@ export function pan(c: Cam, dxPx: number, dyPx: number, depth: number, heightPx:
   const wpp = heightAt(c, depth) / heightPx;
   return { ...c, eye: add(c.eye, add(scale(rightOf(c), -dxPx * wpp), scale(upOf(c), dyPx * wpp))) };
 }
-/**
- * Zoom a straight view by `factor` (below 1 = closer) without letting perspective creep in: the picture's size goes as 1 over the eye's distance times the lens, so with the eye staying where it is far back
- * the lens is shut a little more (or opened, up to the straight view's own); only past the lens's ends is the eye moved, by a share of `refDepth` (how far it is from what is looked at).
- */
-export function zoomLens(c: Cam, factor: number, refDepth: number, nx = 0, ny = 0, aspect = 1): Cam {
-  const want = c.lens * factor, lo = settings.view.minStraightLens, hi = settings.view.straightLens;
-  const lens = clamp(want, lo, hi);
-  // the point at (nx, ny) across the view (in -1..1, y up) stays where it is on the screen: the eye slides across by what the view's half-size at `refDepth` changes by
-  const half = heightAt(c, refDepth) / 2;
-  const slide = add(scale(rightOf(c), nx * half * aspect), scale(upOf(c), ny * half));
-  const next: Cam = { ...c, lens, eye: add(c.eye, scale(slide, 1 - lens / c.lens)) };
-  return lens === want ? next : moveAlong(next, forward(c), refDepth * (1 - want / lens));
-}
-
 // ---- the world's planes: where the straight views look from ----
 export type Axis = 0 | 1 | 2;
 export const AXIS_NAME = ["X", "Y", "Z"] as const;
@@ -93,24 +79,29 @@ export function straightAlong(c: Cam, tol = settings.view.normalToleranceRad): {
   return Math.abs(forward(c)[f.axis]) > Math.cos(tol) ? { axis: f.axis, sign: f.sign } : null;
 }
 
-// ---- eased changes of view ----
-/** Where the eye is for a change of lens about the point `focus`: `a` and `u` are where the point stands across the view (right, up) and `depth` how far in front it is with the full lens. The lens shuts as the eye backs away, so the point keeps its place on the screen and its size, which is why nothing jumps. */
-export function eyeFor(focus: V3, yaw: number, pitch: number, depth: number, lens: number, a = 0, u = 0): V3 {
-  const c: Cam = { eye: focus, yaw, pitch, lens };
-  return sub(sub(sub(focus, scale(rightOf(c), a)), scale(upOf(c), u)), scale(forward(c), depth / lens));
+// ---- the lens, and eased changes of view ----
+/**
+ * Change the lens. The picture's size goes as 1 over the eye's distance times the lens, so with the eye staying where it is the view is simply zoomed; with `holdDepth` (how far in front of the eye the point to keep is)
+ * the eye goes forward or back by what keeps that point the same size, so nothing jumps while the perspective comes in or goes out. Both a zoom of a straight view and a change to or from one are this.
+ */
+export const setLens = (c: Cam, lens: number, holdDepth = 0): Cam => ({ ...c, lens, eye: add(c.eye, scale(forward(c), holdDepth * (1 - c.lens / lens))) });
+/** Zoom a straight view by `factor` (below 1 = closer) without letting perspective creep in: the lens is shut more (or opened, up to the straight view's own) with the eye where it is; only past the lens's ends is the eye moved, by a share of `refDepth`. The point at (nx, ny) across the view (-1..1, y up) stays where it is on the screen. */
+export function zoomLens(c: Cam, factor: number, refDepth: number, nx = 0, ny = 0, aspect = 1): Cam {
+  const want = c.lens * factor, lens = clamp(want, settings.view.minStraightLens, settings.view.straightLens);
+  const half = heightAt(c, refDepth) / 2;
+  const slide = add(scale(rightOf(c), nx * half * aspect), scale(upOf(c), ny * half));
+  const next: Cam = { ...setLens(c, lens), eye: add(c.eye, scale(slide, 1 - lens / c.lens)) };
+  return lens === want ? next : moveAlong(next, forward(c), refDepth * (1 - want / lens));
 }
-export interface Move { focus: V3; a: number; u: number; depth: number; from: { yaw: number; pitch: number; lens: number }; to: { yaw: number; pitch: number } | null; t0: number; ms: number; lensTo: number }
-/** A change of lens to `lensTo` about the point `focus` as the camera sees it now (it must be in front of the eye). With `to` null the direction is left to whoever turns the camera, as in a drag that leaves a straight view. */
-export function startAbout(c: Cam, focus: V3, to: { yaw: number; pitch: number } | null, lensTo: number, ms: number, t0: number): Move {
-  const rel = sub(focus, c.eye);
-  return { focus, a: dot(rel, rightOf(c)), u: dot(rel, upOf(c)), depth: Math.max(dot(rel, forward(c)), 1e-6) * c.lens, from: { yaw: c.yaw, pitch: c.pitch, lens: c.lens }, to, t0, ms, lensTo };
-}
-/** The camera part-way through a change (k from 0 to 1, already eased). */
-export function along(m: Move, k: number, now: { yaw: number; pitch: number }): Cam {
-  const lens = lerp(m.from.lens, m.lensTo, k);
-  const yaw = m.to ? m.from.yaw + shortest(m.from.yaw, m.to.yaw) * k : now.yaw;
-  const pitch = m.to ? lerp(m.from.pitch, m.to.pitch, k) : now.pitch;
-  return { eye: eyeFor(m.focus, yaw, pitch, m.depth, lens, m.a, m.u), yaw, pitch, lens };
+
+/** A change of view that plays out over time: the lens goes to `lens`, and the direction to `dir` (turning about `hold`, a point of the world that keeps its place and size), or, with `eyeTo`, the whole view flies there (Reset). */
+export interface Go { t0: number; ms: number; from: Cam; lens: number; dir?: { yaw: number; pitch: number }; hold: V3; eyeTo?: V3 }
+/** The camera `k` of the way through the change (already eased), from `c`, which may have been moved by hand since. */
+export function stepGo(g: Go, k: number, c: Cam): Cam {
+  if (g.eyeTo && g.dir) return blend(g.from, { eye: g.eyeTo, yaw: g.dir.yaw, pitch: g.dir.pitch, lens: g.lens }, k);
+  let n = c;
+  if (g.dir) n = turnAbout(n, g.hold, shortest(n.yaw, g.from.yaw + shortest(g.from.yaw, g.dir.yaw) * k), lerp(g.from.pitch, g.dir.pitch, k) - n.pitch);
+  return setLens(n, lerp(g.from.lens, g.lens, k), dot(sub(g.hold, n.eye), forward(n)));
 }
 
 // ---- seeing ----
@@ -131,7 +122,7 @@ export function frameBox(lo: V3, hi: V3, aspect: number): Cam {
   const h0 = home();
   const t = tanHalf0();
   const d = (radius * 1.15) / Math.min(t, t * aspect); // (the sphere round the box fits the narrower side)
-  return { ...h0, eye: eyeFor(centre, h0.yaw, h0.pitch, d, 1) };
+  return { ...h0, eye: sub(centre, scale(forward(h0), d)) };
 }
 
 /** The cameras blended, k from 0 to 1 (eased by the caller): the eye goes straight, the direction turns the short way, the lens opens or shuts. */

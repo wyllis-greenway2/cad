@@ -1,12 +1,12 @@
 // What the camera needs to know about the scene: how far ahead things are, what to turn about, and whether anything is in view. Pure.
 import { add, len, scale, sub, dot, type V3 } from "./vec.ts";
-import { forward, heightAt, home, project, type Cam } from "./camera.ts";
+import { forward, heightAt, project, type Cam } from "./camera.ts";
 import { centreOf, hitThings, type Scene, type Thing } from "./scene.ts";
 import { settings } from "./settings.ts";
 
 /** The world's own axes, as one thing, for when the model has nothing (and so there is still something to be lost from). */
-export const WORLD: Thing = { id: "world", lo: [0, 0, 0], hi: [24, 24, 24] };
-export const thingsOf = (sc: Scene): Thing[] => (sc.things.length ? sc.things : [WORLD]);
+const WORLD: Thing = { id: "world", lo: [0, 0, 0], hi: [24, 24, 24] };
+const thingsOf = (sc: Scene): Thing[] => (sc.things.length ? sc.things : [WORLD]);
 
 /**
  * How far ahead along `ray` things are, which sets how big a step is. The first surface the ray meets; else how far in front of the eye the nearest thing's centre is
@@ -48,7 +48,7 @@ export function pivotFor(sc: Scene, c: Cam, w: number, h: number): V3 {
 }
 
 /** Does any of the thing's box show in the view, and big enough to see (6 px across, or a lone point on the screen)? Boxes behind the eye do not count. */
-export function inView(c: Cam, w: number, h: number, t: Thing): boolean {
+function inView(c: Cam, w: number, h: number, t: Thing): boolean {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, front = 0;
   for (const x of [t.lo[0], t.hi[0]]) for (const y of [t.lo[1], t.hi[1]]) for (const z of [t.lo[2], t.hi[2]]) {
     const p = project(c, [x, y, z], w, h);
@@ -65,10 +65,9 @@ export const nothingInView = (sc: Scene, c: Cam, w: number, h: number): boolean 
 export const lastSeen = (sc: Scene, c: Cam, w: number, h: number): string | null => [...thingsOf(sc)].reverse().find((t) => inView(c, w, h, t))?.id ?? null;
 /** The thing a Reset goes to: the one last seen, else the last there is. */
 export const resetTarget = (sc: Scene, seen: string | null): Thing => { const ts = thingsOf(sc); return ts.find((t) => t.id === seen) ?? ts[ts.length - 1]!; };
-export const homeCam = home;
 
 /** Which little pane of the world planes a ray goes through, if any: the pane for the plane across `axis` is a square in the positive quarter of that plane, a little way from the origin. */
-export function pickPane(from: V3, dir: V3, gizmoScale = 1): { axis: 0 | 1 | 2; t: number } | null {
+function pickPane(from: V3, dir: V3, gizmoScale = 1): { axis: 0 | 1 | 2; t: number } | null {
   const lo = settings.world.paneGapMm * gizmoScale, hi = lo + settings.world.paneMm * gizmoScale;
   let best: { axis: 0 | 1 | 2; t: number } | null = null;
   for (const k of [0, 1, 2] as const) {

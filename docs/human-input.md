@@ -5949,3 +5949,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1417 — 2026-11-21 — directive
 > okay now can we have it so that the zoom in target is the cursor in non game mode?
+
+## in_1418 — 2026-11-21 — directive
+> yes go ahead
+(To the AI's list of simplifications of `next/`: the lens primitive in place of the change-of-view machinery, and the small cleanups.)

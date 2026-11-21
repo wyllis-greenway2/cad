@@ -6,7 +6,6 @@ export const settings = {
     minSurfaceMm: 0.3, // zooming toward a surface by the wheel's exact steps goes on until it is this near, and the next step goes through it
     maxDistanceMm: 5000, // the eye does not go farther from the origin than this
     minFlightMm: 20, // a step of flight or of the wheel is never less than this, however near the eye is to the middle of a thing
-    defaultDepthMm: 120, // how far ahead a point is taken to be when there is nothing at all to measure by
     transitionMs: 450, // the move to a straight view
     perspectiveMs: 350, // the perspective coming back after a straight view is left
     leaveStraightPx: 60, // how far a drag must go to leave a straight view
