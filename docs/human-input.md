@@ -6093,3 +6093,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1460 — 2026-11-21 — directive
 > okay lets get back to sketching for a moment. So sketching on a plane should default orthographic to that plane. Also Why dont we toss the cut away code. In fact lets toss and clean up a lot of that so we dont get a lot of duplicate code. At this point all we should really have is the world and camera code we did and the orb. and that the grid sketch goes to the sketch plane. Lets get rid of the bodies default loaded into the world. Lets look at how the prototype did cut planes and see if we can learn from that, and make a simpler cleaner version.
+
+## in_1461 — 2026-11-21 — directive
+> lets not have any options to select move it yet, lets just build a really simple one that cuts. It should cut from the direction of camera but only once and from the perspective of the camera after going orthographic to the sketch plane. it should not re-cut if the camera rotates around to the other side later.

@@ -10,6 +10,7 @@ import { centreOf } from "./scene.ts";
 import type { V3 } from "./vec.ts";
 import type { OrbDrawing } from "./orbcontrol.ts";
 import { drawOrb } from "./orbdraw.ts";
+import { createCutDraw, type CutDrawing } from "./cutdraw.ts";
 
 const vec = (v: V3) => new THREE.Vector3(v[0], v[1], v[2]);
 const rgb = (c: [number, number, number]) => new THREE.Color().setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace);
@@ -33,6 +34,8 @@ export interface Drawing {
   sketch?: { origin: V3; u: V3; v: V3; n: V3 } | null;
   /** The mover orb (orbcontrol.ts). */
   orb?: OrbDrawing | null;
+  /** The cut: everything on the side `n` points to is not drawn. */
+  cut?: CutDrawing | null;
   cam: Cam;
   /** The scale of what the eye is among: the depth range of the drawing is a multiple of it. */
   depth: number;
@@ -48,7 +51,7 @@ export interface Drawing {
 }
 
 export function createWorld(canvas: HTMLCanvasElement, model: Model) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, stencil: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setClearColor(settings.theme.background);
   const scene = new THREE.Scene();
@@ -71,8 +74,10 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
     bodies.add(m);
   }
   };
-  buildBodies();
   scene.add(bodies);
+  const cut = createCutDraw(scene, bodies, renderer);
+  const rebuildAll = () => { buildBodies(); cut.rebuild(); };
+  rebuildAll();
 
   // axes: a charcoal line and a small head each, positive only
   const axes = new THREE.Group();
@@ -141,7 +146,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
   const drop = () => { for (const o of [...dyn.children]) { dyn.remove(o); o.traverse((q) => { (q as THREE.Mesh).geometry?.dispose?.(); }); } };
 
   return {
-    rebuild: buildBodies,
+    rebuild: rebuildAll,
     render(d: Drawing) {
       renderer.setSize(d.w, d.h, false);
       const c = d.cam, f = forward(c);
@@ -187,6 +192,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
         disc.visible = true; disc.position.copy(vec(d.disc.point)); disc.scale.setScalar(d.disc.radius);
         disc.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), vec(d.disc.normal));
       } else disc.visible = false;
+      cut.update(d.cut ?? null);
       drop();
       if (d.orb) drawOrb(dyn, d.orb, d.w, d.h);
       renderer.render(scene, camera);

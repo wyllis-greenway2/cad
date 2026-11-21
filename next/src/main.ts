@@ -101,6 +101,7 @@ function frame(now: number) {
   canvas.style.cursor = orb?.hover ? "grab" : "";
   world.render({
     ...d, ...(sketch ? { grid: gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, sketch.origin), sketch.normal))), sketch: { origin: sketch.origin, u: sketch.u, v: vOf(sketch), n: sketch.normal } } : {}), orb,
+    cut: sketch ? { origin: sketch.origin, n: sketch.normal } : null, // (made once with the plane, from the side the camera looked from; it turns and moves with the plane, and does not change with the camera)
   });
   orientBar.show(orbc.orienting() && !!orb);
   ui.update(view.pageState(s, e));
