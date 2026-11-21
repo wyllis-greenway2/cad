@@ -5925,3 +5925,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1409 — 2026-11-21 — directive
 > Priority on clicking the world pane should only be if a face is literally on the exactly same plane as the world pane, otherwise it is just standard face selection
+
+## in_1410 — 2026-11-21 — directive
+> The world view center orb should show a eye icon just like it did in the prototype

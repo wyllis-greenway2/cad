@@ -32,9 +32,22 @@ export function createUi(host: HTMLElement, on: UiHandlers) {
     host.appendChild(b);
     return b;
   });
+  // the origin dot: pointing at it shows what a click does, an eye (a click would show the axes and panes) or a crossed eye (a click would put them away)
+  const EYE = '<path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/>';
+  const icon = (inner: string) => `<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
   const orb = document.createElement("div");
-  orb.style.cssText = css + "z-index:5;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;box-sizing:border-box;background:rgba(60,62,68,.55);border:1px solid rgba(255,255,255,.7);display:none;cursor:pointer";
-  orb.title = "Hide the axes and the planes"; stop(orb);
+  const DOT = "width:12px;height:12px;margin:-6px 0 0 -6px;background:rgba(60,62,68,.55);border-color:rgba(255,255,255,.7);box-shadow:none";
+  const HOT = "width:26px;height:26px;margin:-13px 0 0 -13px;background:#fff;border-color:#8a8f98;box-shadow:0 1px 3px rgba(0,0,0,.25)";
+  orb.style.cssText = css + "z-index:5;border-radius:50%;box-sizing:border-box;border:1px solid;display:none;align-items:center;justify-content:center;cursor:pointer;color:#2b2b2d;transition:width .12s,height .12s,margin .12s,background .12s;" + DOT;
+  let hovering = false, hiddenNow = false;
+  const drawOrb = () => {
+    orb.style.cssText = orb.style.cssText.replace(/(width|height|margin|background|border-color|box-shadow):[^;]*;?/g, "") + ";" + (hovering ? HOT : DOT);
+    orb.innerHTML = hovering ? icon(hiddenNow ? EYE : EYE + '<path d="M2.5 13.5l11-11"/>') : "";
+    orb.title = hiddenNow ? "Show the axes and the planes" : "Hide the axes and the planes";
+  };
+  stop(orb);
+  orb.addEventListener("pointerenter", () => { hovering = true; drawOrb(); });
+  orb.addEventListener("pointerleave", () => { hovering = false; drawOrb(); });
   orb.addEventListener("click", (e) => { e.stopPropagation(); on.toggleWorld(); });
   orb.addEventListener("wheel", (e) => { e.preventDefault(); document.getElementById("view")?.dispatchEvent(new WheelEvent("wheel", e)); }, { passive: false }); // (a wheel over the dot zooms the view like anywhere else)
   host.appendChild(orb);
@@ -47,8 +60,8 @@ export function createUi(host: HTMLElement, on: UiHandlers) {
   return {
     update(s: UiState) {
       letters.forEach((el, i) => { const l = s.letters.find((q) => q.axis === i); el.style.display = l?.at ? "block" : "none"; if (l?.at) { el.style.left = `${l.at[0]}px`; el.style.top = `${l.at[1]}px`; } });
-      if (s.origin) { orb.style.display = "block"; orb.style.left = `${Math.round(s.origin[0])}px`; orb.style.top = `${Math.round(s.origin[1])}px`; } else orb.style.display = "none";
-      orb.title = s.worldHidden ? "Show the axes and the planes" : "Hide the axes and the planes";
+      if (s.origin) { orb.style.display = "flex"; orb.style.left = `${Math.round(s.origin[0])}px`; orb.style.top = `${Math.round(s.origin[1])}px`; } else orb.style.display = "none";
+      if (s.worldHidden !== hiddenNow) { hiddenNow = s.worldHidden; drawOrb(); }
       pill.style.display = s.lost ? "flex" : "none";
       const { marginPx: m, sizePx: z } = settings.buttons;
       buttons.forEach((b, i) => {
