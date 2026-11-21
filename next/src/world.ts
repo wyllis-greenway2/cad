@@ -28,6 +28,8 @@ export interface Drawing {
   cam: Cam;
   /** How far ahead things are: only the depth range of the drawing (what must not be cut off) comes from it. */
   depth: number;
+  /** The distance the picture must reach: the far plane (a thing's far wall, seen from inside, must not be cut off). */
+  reach: number;
   /** The grid's spacing, how far it has gone toward the next one, and how far the fog reaches: from the view's distance to the plane (see `gridLevel`). */
   grid: { step: number; blend: number; fog: number };
   w: number; h: number;
@@ -55,7 +57,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
   for (const t of model.things) {
     const size = vec([t.hi[0] - t.lo[0], t.hi[1] - t.lo[1], t.hi[2] - t.lo[2]]);
     const g = new THREE.BoxGeometry(size.x, size.y, size.z);
-    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: settings.theme.bodyColor, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
+    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ side: THREE.DoubleSide, color: settings.theme.bodyColor, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
     m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color: settings.theme.bodyEdge })));
     m.position.copy(vec(centreOf(t)));
     bodies.add(m);
@@ -131,7 +133,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
       camera.position.copy(vec(c.eye));
       camera.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(vec(rightOf(c)), vec(upOf(c)), vec(f).negate()));
       camera.fov = (fovOf(c) * 180) / Math.PI; camera.aspect = d.w / d.h;
-      camera.near = d.depth * 0.02; camera.far = d.depth * 120; camera.updateProjectionMatrix();
+      camera.near = d.depth * 0.02; camera.far = Math.max(d.depth, d.reach) * 120; camera.updateProjectionMatrix();
       key.position.copy(camera.position); key.target.position.copy(vec([c.eye[0] + f[0], c.eye[1] + f[1], c.eye[2] + f[2]]));
       // the grid: lines at whole multiples of the spacing from the origin (the world's), the quad following the view in whole steps so the lines do not swim
       const big = d.grid.step * 100;

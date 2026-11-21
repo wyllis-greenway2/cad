@@ -109,3 +109,15 @@ export function paneAt(sc: Scene, from: V3, dir: V3, gizmoScale = 1): { axis: 0 
   const exact = Math.abs(h.normal[p.axis]!) === 1 && Math.abs(from[p.axis]! + dir[p.axis]! * h.t) < 1e-6; // (the face faces along the pane's axis, and is at the plane through the origin)
   return exact ? p : null;
 }
+
+/**
+ * How far a step of flight or of the wheel goes when there is no surface to measure by, or the eye is at one: a share of how far the nearest thing's middle is, never less than the thing's own size.
+ * So a step is never smaller than the thing is big: the eye can come to a wall, go through it and cross the inside, and it goes at a pace that follows the scale of what it is among (`in_1411`).
+ * It changes smoothly from place to place, so going and coming back are the same.
+ */
+export function flightScale(sc: Scene, c: Cam): number {
+  let best = Infinity;
+  for (const t of sc.things) best = Math.min(best, Math.max(len(sub(centreOf(t), c.eye)), len(sub(t.hi, t.lo)) / 2));
+  if (!isFinite(best)) best = len(c.eye) * (c.lens < 1 ? 1 : 1); // (nothing there: how far from the origin)
+  return Math.max(best, settings.view.minFlightMm);
+}

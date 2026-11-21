@@ -7,7 +7,7 @@ import { createGame } from "./game.ts";
 import { createWorld } from "./world.ts";
 import { createUi } from "./ui.ts";
 import { demoScene, emptyScene, hitThings, oneScene } from "./scene.ts";
-import { depthAhead, gridLevel, lastSeen, nothingInView, paneAt, pivotFor, planeHit, resetTarget, scaleDepth } from "./sense.ts";
+import { depthAhead, flightScale, gridLevel, lastSeen, nothingInView, paneAt, pivotFor, planeHit, resetTarget, scaleDepth } from "./sense.ts";
 import { add, clamp, dot, len, scale, sub, ease, type V3 } from "./vec.ts";
 
 const params = new URLSearchParams(location.search);
@@ -43,6 +43,9 @@ function gizmoScale(): number {
   const sFree = Math.max(cam.forwardDepth(c, [0, 0, 0]), settings.view.minSurfaceMm) * c.lens / home;
   return Math.exp(free * Math.log(sFree));
 }
+
+/** A move that would take the eye farther than the world reaches, and farther than it is, is not made (the prototype's zoom stopped at 5,000 mm). */
+const reach = (from: Cam, to: Cam): Cam => (len(to.eye) > settings.view.maxDistanceMm && len(to.eye) > len(from.eye) ? from : to);
 
 // ---- changes of view ----
 /** Start a change of lens about `focus`: what is there keeps its place on the screen and its size while the lens opens or shuts and the eye goes back or forward, so nothing jumps. A point behind the eye is replaced by the one looked at. */
@@ -111,8 +114,9 @@ attach(canvas, {
     if (game.on) return;
     takeOver();
     const r = rayAt(x, y), hit = hitThings(model, c.eye, r);
-    const ray = hit ? r : cam.forward(c); // (nothing under the pointer: about the middle of the view)
-    c = cam.zoomAlong(c, ray, hit ? hit.t : depthAhead(model, c, ray), clamp(factor, 0.2, 5));
+    const f = clamp(factor, 0.2, 5);
+    if (hit) c = reach(c, cam.zoomAlong(c, r, hit.t, f)); // toward (or away from) the surface under the pointer: exact steps, so the same zoom back returns; it stops a hair from the surface (`in_151`): to go through a surface is for flight
+    else c = reach(c, cam.moveAlong(c, cam.forward(c), (1 - f) * flightScale(model, c))); // nothing under the pointer: a step by the scale of what the eye is among
     rebase();
   },
   dragEnd() { drag = null; },
@@ -165,9 +169,8 @@ function frame(now: number) {
   if (Math.abs((model.things.length ? 1 : 0) - free) < 0.002) free = model.things.length ? 1 : 0;
   const g = game.tick(dt);
   if (g.on && !busy() && c.lens >= 1) { // flying: the same moves as the wheel and the pan, driven by time; and turning about the eye
-    const f = cam.forward(c), d = depthAhead(model, c, f);
-    const ahead = g.ahead > 0 ? Math.min(g.ahead * dt * d, Math.max(0, d - settings.view.minSurfaceMm)) : g.ahead * dt * d;
-    c = cam.moveAlong(cam.moveAlong(c, f, ahead), cam.rightOf(c), g.side * dt * d);
+    const f = cam.forward(c), d = flightScale(model, c); // (no walls: the eye goes through a thing and looks round inside it, `in_1411`)
+    c = reach(c, cam.moveAlong(cam.moveAlong(c, f, g.ahead * dt * d), cam.rightOf(c), g.side * dt * d));
     const mag = Math.hypot(g.dx, g.dy), k = settings.view.orbitRadPerPx * settings.input.flyLookScale * fineGain(mag);
     if (mag > 0) c = cam.turnAbout(c, c.eye, -g.dx * k, -g.dy * k);
   }
@@ -185,7 +188,7 @@ function frame(now: number) {
   const flat = r && !hit && !pane ? planeHit(c.eye, r, plane) : null;
   const disc = r && hit ? { point: hit.t ? add(c.eye, scale(r, hit.t)) : c.eye, normal: hit.normal, radius: settings.orb.radius * hit.t * c.lens }
     : r && flat ? { point: flat.point, normal: [0, 0, 0].map((_, i) => (i === plane ? (c.eye[plane] >= 0 ? 1 : -1) : 0)) as V3, radius: settings.orb.radius * flat.t * c.lens } : null;
-  world.render({ cam: c, depth, grid: gridLevel(c, plane), w, h, gizmoScale: gizmoScale(), plane, paneHover: pane ? pane.axis : null, paneLevel, axesShown: !worldHidden, disc });
+  world.render({ cam: c, depth, reach: flightScale(model, c), grid: gridLevel(c, plane), w, h, gizmoScale: gizmoScale(), plane, paneHover: pane ? pane.axis : null, paneLevel, axesShown: !worldHidden, disc });
 
   // the page's parts
   const occluded = (p: V3) => { const to = sub(p, c.eye), l = len(to); const hh = hitThings(model, c.eye, scale(to, 1 / l)); return !!hh && hh.t < l - 1e-3; };
