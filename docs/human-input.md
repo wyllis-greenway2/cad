@@ -6002,3 +6002,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1432 — 2026-11-21 — directive
 > okay then I guess it is fine how it is, except the trackpad is too sensitive on pan, shoud we put things back to how they were before we tried fixing this thing?
 (The probe's result for "a pinch while moving both fingers": only control-wheel events, 62 of them, no scroll events; recorded in the requirements and the handoff.)
+
+## in_1433 — 2026-11-21 — directive
+> approved, go ahead with the test tool, also lets not forget to remove /trackpad.html
+(The world view requirements are approved: `dec_world_view_spec`. `next/trackpad.html` is removed. The test tool: `tools/spec_lib.py`, `tools/check_spec.py`, `tools/affected_tests.py --root next`, with a starter set of 19 tests.)

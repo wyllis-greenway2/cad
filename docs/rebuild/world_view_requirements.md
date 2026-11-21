@@ -5,13 +5,22 @@ Status: **a frozen draft, `ai-unreviewed` until the human approves it** (then it
 How to read a row: **Inputs** are the user inputs it claims; **Contracts** are the shared interfaces or settings other sections may touch; **Test** is `unit` (a pure function in `view.ts`, `camera.ts`, `sense.ts` or `game.ts`, run in milliseconds), `browser` (a scripted run of the page), `hand` (only a person on a real device can judge), or `later` (waits for a section that does not exist yet). **Status** is `built`, `later`, or `hand`.
 
 ## Contracts of this section (what a later section must not break without re-testing the rows that list it)
-- `Intents` (`input.ts`): `dragStart`, `orbit`, `pan`, `zoom`, `gesture`, `dragEnd`, `hover`, `leave`, `click`, `look`, `space`.
-- `ViewState` and `Env` (`view.ts`), and the pure functions on them; `Drawing` (`world.ts`) and `UiState` (`ui.ts`), what the view hands to the drawing and the page.
-- `Scene` (`scene.ts`): things with a box and a centre, and the ray test `hitThings`.
-- `settings`: groups `view`, `input`, `world`, `orb`, `buttons`, `ui`, `theme`, `light`.
+One per line, `Name` (`file`): what it is. The impact tool reads these lines: a change to the file re-runs the tests of every row that lists the name.
+- `Intents` (`src/input.ts`): `dragStart`, `orbit`, `pan`, `zoom`, `gesture`, `dragEnd`, `hover`, `leave`, `click`, `look`, `space`.
+- `ViewState` (`src/view.ts`): the world view's state and the pure functions that change it.
+- `Env` (`src/view.ts`): what is known when a change is made (the model, the size, the time, whether game mode is on).
+- `Drawing` (`src/world.ts`): what the view hands to the drawing.
+- `UiState` (`src/ui.ts`): what the view hands to the page's own parts.
+- `Scene` (`src/scene.ts`): things with a box and a centre, and the ray test `hitThings`.
+- `settings` (`src/settings.ts`): groups `view`, `input`, `world`, `orb`, `buttons`, `ui`, `theme`, `light`; a row lists `settings.<group>`.
 
-## Inputs this section claims (a conflict check will compare these with other sections)
-Mouse: left-drag on empty space; right-drag; Alt+left-drag (orbit); middle-drag; Shift+right-drag; Space held + drag; Alt+Shift+left-drag (pan); wheel (zoom); left click on a pane; hover. Trackpad: two-finger scroll and pinch (one gesture: pan and zoom together). Touch: one-finger drag (orbit); two fingers (the same gesture); tap on a pane. Keys: Space tap; W A S D; Esc (while game mode is on). Pointer lock (game mode).
+## Inputs this section claims (the conflict check compares these with other sections)
+One device per line; claims separated by semicolons.
+- mouse: left-drag on empty space; right-drag; alt+left-drag; middle-drag; shift+right-drag; space+drag; alt+shift+left-drag; wheel; left click on a pane; hover
+- trackpad: two-finger scroll; pinch
+- touch: one-finger drag; two-finger gesture; tap on a pane
+- keys: space tap; w; a; s; d; escape while game mode is on
+- pointer lock: game mode
 
 ---
 
