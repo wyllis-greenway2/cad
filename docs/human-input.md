@@ -6047,3 +6047,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1445 — 2026-11-21 — directive
 > okay the circle menu looks terrible. Can we import some styling and icons from the old prototype?
+
+## in_1446 — 2026-11-21 — directive
+> okay we already have a bunch of stuff we are going to need to delete. Moving should be done with the moving orb, lets make one or import one from the old prototype. It should have three modes. xyz mode, rotate mode, and xyz with extra arrows mode (an extra arrow at the end of each xyz arrow to indicate a copy etc) Look at how the orb works in the old prototype, I believe the old one had many fractured versions, We want a single unified version in our new app, it should be styled basically the same and function the same.

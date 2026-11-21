@@ -56,43 +56,49 @@ export function createMenu(host: HTMLElement, choose: (id: string) => void) {
   };
 }
 
-export interface CutView { id: string; anchor: [number, number] | null; handle: [number, number] | null; on: boolean; temp: boolean; orienting: boolean }
-/** The little controls of a selected cut plane: round buttons in a row (the prototype's sheet chips), and while it is being oriented a handle that moves it along its normal. */
-export function createCutUi(host: HTMLElement, on: { toggle(id: string): void; orient(id: string): void; away(id: string): void; sketch(id: string): void; across(id: string, axis: 0 | 1 | 2 | "camera"): void; drag(id: string, dx: number, dy: number): void }) {
+export interface CutView { id: string; anchor: [number, number] | null; on: boolean; temp: boolean; orienting: boolean }
+/** The little controls of a selected cut plane: round buttons in a row (the prototype's sheet chips). Moving it is the orb's (orb.ts). */
+export function createCutUi(host: HTMLElement, on: { toggle(id: string): void; orient(id: string): void; away(id: string): void; sketch(id: string): void }) {
   const bar = document.createElement("div"); bar.style.cssText = "position:fixed;z-index:12;display:none;gap:6px;flex-wrap:wrap;max-width:204px;transform:translate(10px,10px)"; host.appendChild(bar);
-  const handle = document.createElement("div"); handle.title = "Drag to move the plane along its normal";
-  handle.style.cssText = `position:fixed;z-index:11;display:none;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:rgb(${settings.ui.tealRgb.join(",")});border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:grab;touch-action:none`;
-  host.appendChild(handle);
-  for (const e of [bar, handle]) e.addEventListener("pointerdown", (ev) => ev.stopPropagation());
-  let id = "", built = "";
-  handle.addEventListener("pointerdown", (e) => {
-    handle.setPointerCapture(e.pointerId);
-    let lx = e.clientX, ly = e.clientY;
-    const move = (m: PointerEvent) => { on.drag(id, m.clientX - lx, m.clientY - ly); lx = m.clientX; ly = m.clientY; };
-    const up = () => { handle.removeEventListener("pointermove", move); handle.removeEventListener("pointerup", up); };
-    handle.addEventListener("pointermove", move); handle.addEventListener("pointerup", up);
-  });
+  bar.addEventListener("pointerdown", (ev) => ev.stopPropagation());
+  let built = "";
   const add = (o: { icon?: string; text?: string; title: string; on?: boolean }, fn: () => void) => { const b = roundButton({ ...o, size: 30 }); b.addEventListener("click", (e) => { e.stopPropagation(); fn(); }); bar.appendChild(b); };
   return {
     update(v: CutView | null) {
-      if (!v || !v.anchor) { bar.style.display = "none"; handle.style.display = "none"; built = ""; return; }
-      id = v.id;
+      if (!v || !v.anchor) { bar.style.display = "none"; built = ""; return; }
       const sig = `${v.id}${v.on}${v.temp}${v.orienting}`;
       if (sig !== built) {
         built = sig; bar.innerHTML = "";
         add({ icon: v.on ? "eye" : "eyeOff", title: v.on ? "It cuts: switch it off" : "It does not cut: switch it on", on: v.on }, () => on.toggle(v.id));
         if (!v.temp) {
-          add({ icon: "orient", title: v.orienting ? "Done orienting" : "Orient: move and turn it", on: v.orienting }, () => on.orient(v.id));
+          add({ icon: "orient", title: v.orienting ? "Put the mover away" : "Orient: show the mover", on: v.orienting }, () => on.orient(v.id));
           add({ icon: "sheetPlain", title: "Make a sketch plane here" }, () => on.sketch(v.id));
           add({ icon: "trash", title: "Put the cut plane away" }, () => on.away(v.id));
-          if (v.orienting) {
-            for (const [l, a] of [["X", 0], ["Y", 1], ["Z", 2]] as const) add({ text: l, title: `Lay it across ${l}` }, () => on.across(v.id, a));
-            add({ icon: "look", title: "Lay it facing the camera" }, () => on.across(v.id, "camera"));
-          }
         }
       }
       bar.style.display = "flex"; bar.style.left = `${v.anchor[0]}px`; bar.style.top = `${v.anchor[1]}px`;
-      if (v.orienting && v.handle) { handle.style.display = "block"; handle.style.left = `${v.handle[0]}px`; handle.style.top = `${v.handle[1]}px`; } else handle.style.display = "none";
     },
+  };
+}
+
+/** The swapper beside the mover orb: three round buttons, the mode that is on lit (move, rotate, copy). And the number that shows while a handle is dragged. */
+export function createOrbUi(host: HTMLElement, on: { mode(m: "move" | "rotate" | "copy"): void }) {
+  const row = document.createElement("div"); row.style.cssText = "position:fixed;z-index:12;display:none;gap:4px;transform:translate(26px,-44px)"; host.appendChild(row);
+  row.addEventListener("pointerdown", (e) => e.stopPropagation());
+  const modes = [["move", "move", "XYZ arrows: move"], ["rotate", "rotate", "Rings: turn"], ["copy", "copy", "XYZ arrows with a second arrow: copy"]] as const;
+  let shown = "";
+  const tag = document.createElement("div");
+  tag.style.cssText = `position:fixed;z-index:13;display:none;height:26px;box-sizing:border-box;padding:0 8px;line-height:24px;border-radius:13px;background:#fff;border:1px solid #d6d7db;box-shadow:0 1px 6px rgba(0,0,0,.12);font:13px ${settings.ui.font};color:${settings.ui.text};white-space:nowrap;pointer-events:none;transform:translate(16px,-34px)`;
+  host.appendChild(tag);
+  return {
+    update(at: [number, number] | null, mode: string) {
+      if (!at) { row.style.display = "none"; shown = ""; return; }
+      if (shown !== mode) {
+        shown = mode; row.innerHTML = "";
+        for (const [m, icon, title] of modes) { const b = roundButton({ icon, title, size: 26, on: m === mode }); b.addEventListener("click", (e) => { e.stopPropagation(); on.mode(m); }); row.appendChild(b); }
+      }
+      row.style.display = "flex"; row.style.left = `${at[0]}px`; row.style.top = `${at[1]}px`;
+    },
+    readout(at: [number, number] | null, text: string) { if (!at) { tag.style.display = "none"; return; } tag.style.display = "block"; tag.style.left = `${at[0]}px`; tag.style.top = `${at[1]}px`; tag.textContent = text; },
   };
 }

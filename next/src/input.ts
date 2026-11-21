@@ -26,6 +26,10 @@ export interface Intents {
   menu(x: number, y: number): void;
   /** The mouse moved while the pointer is held (game mode): by how much. */
   look(dx: number, dy: number): void;
+  /** A press at (x, y) with the left button: does it take hold of something that is the page's own (a handle of the mover orb)? `shift` was held. If so the press, its moves and its release are the handle's, and not the view's. */
+  grab(x: number, y: number, shift: boolean): boolean;
+  grabMove(x: number, y: number): void;
+  grabEnd(): void;
   /** The space bar was tapped (let go without having been used to pan): game mode on or off. */
   space(): void;
 }
@@ -61,6 +65,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
   let drag: { x0: number; y0: number; x: number; y: number; moved: boolean; action: Action; button: number; shift: boolean } | null = null;
   const touches = new Map<number, { x: number; y: number }>();
   let tap: { x: number; y: number; moved: boolean } | null = null;
+  let grabbing = false; // (a handle of the mover orb has the pointer)
   let touchKind: "orbit" | "pan" | null = null;
   let last = { t: 0, x: 0, y: 0, n: 0 };
   const count = (x: number, y: number, t: number) => {
@@ -79,6 +84,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
       if (touches.size === 2) { if (touchKind) out.dragEnd(); touchKind = "pan"; out.dragStart(p.x, p.y); }
       return;
     }
+    if (e.button === 0 && !space && !e.altKey && out.grab(p.x, p.y, e.shiftKey)) { grabbing = true; return; }
     if (space) spaceUsed = true;
     drag = { x0: p.x, y0: p.y, ...p, moved: false, action: actionOf(e.button, { shift: e.shiftKey, alt: e.altKey }, space), button: e.button, shift: e.shiftKey };
   };
@@ -100,6 +106,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
       }
       return;
     }
+    if (grabbing) { out.hover(p.x, p.y); out.grabMove(p.x, p.y); return; }
     out.hover(p.x, p.y); // (also while dragging: the disc under the pointer follows it as the view turns)
     if (!drag) return;
     if (!drag.moved && Math.hypot(p.x - drag.x0, p.y - drag.y0) < settings.view.clickMovePx) return;
@@ -116,6 +123,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
       if (touches.size === 0) { if (touchKind) out.dragEnd(); touchKind = null; tap = null; }
       return;
     }
+    if (grabbing) { grabbing = false; out.grabEnd(); return; }
     const d = drag; drag = null;
     if (!d) return;
     if (d.moved) { out.dragEnd(); return; }
