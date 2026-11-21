@@ -5922,3 +5922,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1408 — 2026-11-21 — directive
 > space, or awds should enter game mode. Lets make the arrow tips on the xyz things smaller. Ortho no longer has a grid at all
+
+## in_1409 — 2026-11-21 — directive
+> Priority on clicking the world pane should only be if a face is literally on the exactly same plane as the world pane, otherwise it is just standard face selection

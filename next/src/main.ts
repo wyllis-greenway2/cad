@@ -7,7 +7,7 @@ import { createGame } from "./game.ts";
 import { createWorld } from "./world.ts";
 import { createUi } from "./ui.ts";
 import { demoScene, emptyScene, hitThings, oneScene } from "./scene.ts";
-import { depthAhead, gridLevel, lastSeen, nothingInView, pickPane, pivotFor, planeHit, resetTarget, scaleDepth } from "./sense.ts";
+import { depthAhead, gridLevel, lastSeen, nothingInView, paneAt, pivotFor, planeHit, resetTarget, scaleDepth } from "./sense.ts";
 import { add, clamp, dot, len, scale, sub, ease, type V3 } from "./vec.ts";
 
 const params = new URLSearchParams(location.search);
@@ -122,8 +122,8 @@ attach(canvas, {
     const { w, h } = size(); void w; void h;
     pointer = { x, y };
     const r = rayAt(x, y);
-    if (worldHidden || hitThings(model, c.eye, r)) return; // (the model wins over a pane in front of it, `in_135`)
-    const p = pickPane(c.eye, r, gizmoScale());
+    if (worldHidden) return;
+    const p = paneAt(model, c.eye, r, gizmoScale()); // (a face that is not in the pane's own plane is what is clicked, `in_1409`)
     if (p && paneLevel > 0.5) lookAt(p.axis);
   },
   look(dx, dy) { game.look(dx, dy); },
@@ -181,7 +181,7 @@ function frame(now: number) {
   paneLevel = clamp((c.lens - 0.5) / 0.5, 0, 1);
   const r = pointer || game.on ? rayAt(pointer?.x ?? 0, pointer?.y ?? 0) : null;
   const hit = r ? hitThings(model, c.eye, r) : null;
-  const pane = r && !hit && !worldHidden && paneLevel > 0.5 ? pickPane(c.eye, r, gizmoScale()) : null;
+  const pane = r && !worldHidden && paneLevel > 0.5 ? paneAt(model, c.eye, r, gizmoScale()) : null;
   const flat = r && !hit && !pane ? planeHit(c.eye, r, plane) : null;
   const disc = r && hit ? { point: hit.t ? add(c.eye, scale(r, hit.t)) : c.eye, normal: hit.normal, radius: settings.orb.radius * hit.t * c.lens }
     : r && flat ? { point: flat.point, normal: [0, 0, 0].map((_, i) => (i === plane ? (c.eye[plane] >= 0 ? 1 : -1) : 0)) as V3, radius: settings.orb.radius * flat.t * c.lens } : null;

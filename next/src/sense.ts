@@ -96,3 +96,16 @@ export function gridLevel(c: Cam, plane: 0 | 1 | 2): { step: number; blend: numb
   const e = Math.log10(height / 6), k = Math.floor(e), step = 10 ** k;
   return { step, blend: e - k, fog: Math.max(len(c.eye), (12 * step) / c.lens) };
 }
+
+/**
+ * The pane a pointer is over, with a face of a thing counting only if it lies exactly in the pane's plane (`in_1409`): where a ray meets a thing's face that is not in the plane of the
+ * pane, the face is what is pointed at (standard selection), whether the pane is in front of it or behind it. A pane over a face in the very same plane is the pane.
+ */
+export function paneAt(sc: Scene, from: V3, dir: V3, gizmoScale = 1): { axis: 0 | 1 | 2; t: number } | null {
+  const p = pickPane(from, dir, gizmoScale);
+  if (!p) return null;
+  const h = hitThings(sc, from, dir);
+  if (!h) return p;
+  const exact = Math.abs(h.normal[p.axis]!) === 1 && Math.abs(from[p.axis]! + dir[p.axis]! * h.t) < 1e-6; // (the face faces along the pane's axis, and is at the plane through the origin)
+  return exact ? p : null;
+}
