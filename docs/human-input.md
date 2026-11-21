@@ -5985,3 +5985,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1427 — 2026-11-21 — directive
 > hang on, we are not quite ready. i forgot to test on trackpad and mobile. When I tested on trackpad I realized it is not good. Can we make the trackpad behave identical to mobile touch. So on mobile, one finger rotates, two fingers pans and zooms at the same time, zooming with finger seperation and panning with motion of double fingers
+
+## in_1428 — 2026-11-21 — directive
+> it still feels the same. is this just a limitation with trackpads? the worst feeling is that it feels like you are locked into zoom or pan and you cant do both at the same time with moving two fingers while pinching
