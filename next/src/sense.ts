@@ -43,7 +43,7 @@ function inView(c: Cam, w: number, h: number, t: Thing): boolean {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, front = 0;
   for (const x of [t.lo[0], t.hi[0]]) for (const y of [t.lo[1], t.hi[1]]) for (const z of [t.lo[2], t.hi[2]]) {
     const p = project(c, [x, y, z], w, h);
-    if (p.depth <= 1e-3) continue;
+    if (c.ortho === null && p.depth <= 1e-3) continue; // (an orthographic view has no behind: the eye is only where the view is held)
     front++;
     x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
   }

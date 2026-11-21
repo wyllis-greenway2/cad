@@ -6,8 +6,8 @@ import { demoScene, emptyScene, oneScene, type Scene } from "./scene.ts";
 import type { Cam } from "./camera.ts";
 import type { ViewState } from "./view.ts";
 
-/** `?boxes=0`: an empty model; `?boxes=1`: one box at the origin; otherwise three boxes. */
-export const sceneFromAddress = (params: URLSearchParams): Scene => (params.get("boxes") === "0" ? emptyScene() : params.get("boxes") === "1" ? oneScene() : demoScene());
+/** The world starts empty. For trying things by hand: `?boxes=1` one box at the origin, `?boxes=3` three. */
+export const sceneFromAddress = (params: URLSearchParams): Scene => (params.get("boxes") === "1" ? oneScene() : params.get("boxes") === "3" ? demoScene() : emptyScene());
 /** `?wheel=0.001`: how far a wheel notch goes, as a share of the step scale per unit of wheel (the default is in settings). */
 export function tuneFromAddress(params: URLSearchParams): void {
   if (params.get("wheel")) settings.input.zoomPerWheel = Number(params.get("wheel"));

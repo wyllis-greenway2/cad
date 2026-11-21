@@ -7,37 +7,33 @@ before(async () => { session = await start(); });
 after(async () => { await session.stop(); });
 
 type P = Awaited<ReturnType<Session["open"]>>["page"];
-/** A cut plane with its orb, seen from 60 mm off so the orb is in the middle of the view. */
+/** A sketch plane made from the ring, with the view turned straight to it: its orb is in the middle of the view. */
 async function withOrb(page: P) {
   await page.mouse.click(300, 520, { button: "right" });
-  await page.click("div[title='Cut plane']");
-  await page.evaluate(() => { const w: any = (window as any).__cad, o = w.planes.P.cuts[0].origin, c = w.cam; const f = [Math.cos(c.pitch) * Math.cos(c.yaw), Math.cos(c.pitch) * Math.sin(c.yaw), Math.sin(c.pitch)]; w.set({ eye: o.map((v: number, i: number) => v - f[i]! * 60), yaw: c.yaw, pitch: c.pitch }); });
-  await page.waitForTimeout(300);
+  await page.click("div[title='Sketch plane']");
+  await page.waitForTimeout(900); // (the view turns straight to it)
 }
 /** Where a handle of the orb is on the screen (its middle), from the page's own modules. */
 const MODULES = { orb: "/src/orb.ts", cam: "/src/camera.ts", mover: "/src/mover.ts" };
 const where = (page: P, id: string) => page.evaluate(async ({ id, mods }: { id: string; mods: typeof MODULES }) => {
-  const orb = await import(/* @vite-ignore */ mods.orb), cam = await import(/* @vite-ignore */ mods.cam), mover = await import(/* @vite-ignore */ mods.mover); const w: any = (window as any).__cad, st = w.planes, k = st.P.cuts[0];
-  const pose = (st.poses.find((p: any) => p[0] === k.id) ?? [0, mover.newPose()])[1], centre = mover.centreOf(k, pose);
+  const orb = await import(/* @vite-ignore */ mods.orb), cam = await import(/* @vite-ignore */ mods.cam), mover = await import(/* @vite-ignore */ mods.mover); const w: any = (window as any).__cad, st = w.planes, k = st.sketch;
+  const pose = (st.poses.find((p: any) => p[0] === "sketch") ?? [0, mover.newPose()])[1], centre = mover.centreOf(k, pose);
   if (id === "centre") { const q = cam.project(w.cam, centre, innerWidth, innerHeight); return [q.x, q.y]; }
   const h = orb.handlesOf({ centre, frame: pose.frame, held: [] }, w.cam).find((x: any) => x.id === id)!, m = h.points[h.points.length >> 1];
   const q = cam.project(w.cam, m, innerWidth, innerHeight); return [q.x, q.y];
 }, { id, mods: MODULES }).then((r) => r as unknown as [number, number]);
-const state = (page: P) => page.evaluate(() => { const st = (window as any).__cad.planes, k = st.P.cuts[0], q = (st.poses.find((p: any) => p[0] === k.id) ?? [0, { offset: [0, 0, 0] }])[1]; return { origin: k.origin as number[], normal: k.normal as number[], offset: q.offset as number[], orient: st.orient as boolean, chosen: st.chosen as string[], cuts: st.P.cuts.length as number }; });
+const state = (page: P) => page.evaluate(() => { const st = (window as any).__cad.planes, k = st.sketch, q = (st.poses.find((p: any) => p[0] === "sketch") ?? [0, { offset: [0, 0, 0] }])[1]; return { origin: k.origin as number[], normal: k.normal as number[], offset: q.offset as number[], orient: st.orient as boolean, chosen: st.chosen as string[], ortho: (window as any).__cad.cam.ortho !== null }; });
 const drag = async (page: P, from: [number, number], dx: number, dy: number) => { await page.mouse.move(from[0], from[1]); await page.mouse.down(); await page.mouse.move(from[0] + dx, from[1] + dy, { steps: 6 }); await page.mouse.up(); };
 
-test("[O11] a new cut plane shows its orb, and its Orient button puts it away and brings it back", async () => {
+test("[O11] the orb is on the sketch plane: there is none before one is made, and then it is where the plane is", async () => {
   const { page, errors, close } = await session.open("");
+  assert.equal(await page.evaluate(() => (window as any).__cad.planes.sketch), null, "no sketch plane, no orb");
   await withOrb(page);
-  const orbShown = () => page.evaluate(async () => { const w: any = (window as any).__cad; return w.planes.sel.length === 1; });
-  assert.ok(await orbShown());
-  const at = await where(page, "move:X"), before = await state(page);
+  const s = await state(page);
+  assert.ok(s.ortho, "the view is straight to the new plane");
+  const at = await where(page, "move:X"), before = s.origin;
   await drag(page, at, 30, 10);
-  assert.notDeepEqual((await state(page)).origin, before.origin, "with the orb shown a press on an arrow moves the plane");
-  await page.click("div[title='Put the mover away']");
-  const gone = await where(page, "move:X"), o2 = (await state(page)).origin;
-  await drag(page, gone, 30, 10);
-  assert.deepEqual((await state(page)).origin, o2, "with the orb put away the same press moves nothing");
+  assert.notDeepEqual((await state(page)).origin, before, "a press on an arrow of its orb moves the plane");
   assert.deepEqual(errors, []);
   await close();
 });
@@ -63,7 +59,7 @@ test("[O3] a curved arrow turns the plane about its axis, the plane's middle sta
   await drag(page, at, 25, 8);
   const s1 = await state(page);
   assert.notDeepEqual(s1.normal, s0.normal, "the plane turned");
-  assert.ok(Math.abs(s1.normal[2]!) < 1e-9, "about Z: the normal stays level");
+  assert.ok(Math.abs(s1.normal[2]! - s0.normal[2]!) < 1e-9, "about Z: the normal keeps its height");
   await close();
 });
 

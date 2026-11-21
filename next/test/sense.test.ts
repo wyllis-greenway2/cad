@@ -63,6 +63,12 @@ test("[C17] far away, or with the thing behind, the view is lost; framed on the 
   assert.equal(nothingInView(sc, cam.frameBox(t.lo, t.hi, W / H), W, H), false, "the framing shows it");
 });
 
+test("[C17] in a straight (orthographic) view there is no behind: a thing on the far side of the plane the eye is held at is still in view", () => {
+  const sc = oneScene(), top = { ...home, eye: [0, 0, 0] as V3, yaw: 0, pitch: -Math.PI / 2, ortho: 120 }; // (looking down from the floor: the box stands above the eye plane's depth)
+  assert.equal(nothingInView(sc, top, W, H), false);
+  assert.equal(nothingInView(emptyScene(), top, W, H), false, "and so is the world's own box when the model is empty");
+});
+
 test("[C17] a thing smaller than 6 px counts as lost; the last thing seen is the reset target, then the last there is", () => {
   const sc = oneScene();
   assert.equal(nothingInView(sc, { ...home, eye: scale(cam.forward(home), -200000) as V3 }, W, H), true, "tiny");

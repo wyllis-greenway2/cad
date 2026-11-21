@@ -1,4 +1,4 @@
-// The right-click ring and the cut plane's little controls, in the prototype's look (`app/src/ui/ring.ts`, `look.ts`): round white buttons with an icon (the words are in the
+// The right-click ring and the orb's orient bar, in the prototype's look (`app/src/ui/ring.ts`, `look.ts`): round white buttons with an icon (the words are in the
 // tooltip), a light shadow, a teal edge when pointed at, faded when they cannot be used, and a ring that unfolds from the click.
 // It closes on Esc, on a click outside it and after one item is chosen.
 import { settings } from "./settings.ts";
@@ -52,31 +52,6 @@ export function createMenu(host: HTMLElement, choose: (id: string) => void) {
       });
       el = root; host.appendChild(root);
       setTimeout(() => document.addEventListener("pointerdown", outside, true));
-    },
-  };
-}
-
-export interface CutView { id: string; anchor: [number, number] | null; on: boolean; temp: boolean; orienting: boolean }
-/** The little controls of a selected cut plane: round buttons in a row (the prototype's sheet chips). Moving it is the orb's (orb.ts). */
-export function createCutUi(host: HTMLElement, on: { toggle(id: string): void; orient(id: string): void; away(id: string): void; sketch(id: string): void }) {
-  const bar = document.createElement("div"); bar.style.cssText = "position:fixed;z-index:12;display:none;gap:6px;flex-wrap:wrap;max-width:204px;transform:translate(10px,10px)"; host.appendChild(bar);
-  bar.addEventListener("pointerdown", (ev) => ev.stopPropagation());
-  let built = "";
-  const add = (o: { icon?: string; text?: string; title: string; on?: boolean }, fn: () => void) => { const b = roundButton({ ...o, size: 30 }); b.addEventListener("click", (e) => { e.stopPropagation(); fn(); }); bar.appendChild(b); };
-  return {
-    update(v: CutView | null) {
-      if (!v || !v.anchor) { bar.style.display = "none"; built = ""; return; }
-      const sig = `${v.id}${v.on}${v.temp}${v.orienting}`;
-      if (sig !== built) {
-        built = sig; bar.innerHTML = "";
-        add({ icon: v.on ? "eye" : "eyeOff", title: v.on ? "It cuts: switch it off" : "It does not cut: switch it on", on: v.on }, () => on.toggle(v.id));
-        if (!v.temp) {
-          add({ icon: "orient", title: v.orienting ? "Put the mover away" : "Orient: show the mover", on: v.orienting }, () => on.orient(v.id));
-          add({ icon: "sheetPlain", title: "Make a sketch plane here" }, () => on.sketch(v.id));
-          add({ icon: "trash", title: "Put the cut plane away" }, () => on.away(v.id));
-        }
-      }
-      bar.style.display = "flex"; bar.style.left = `${v.anchor[0]}px`; bar.style.top = `${v.anchor[1]}px`;
     },
   };
 }

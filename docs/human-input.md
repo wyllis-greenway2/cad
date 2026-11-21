@@ -6090,3 +6090,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1459 — 2026-11-21 — directive
 > no lets not worry about the bubbles yet, I want to define those later, so I am happy with the orb now ( I am not yet happy with any of the other new stuff we built yet) should we write down the orb restrictions, and tests now?
+
+## in_1460 — 2026-11-21 — directive
+> okay lets get back to sketching for a moment. So sketching on a plane should default orthographic to that plane. Also Why dont we toss the cut away code. In fact lets toss and clean up a lot of that so we dont get a lot of duplicate code. At this point all we should really have is the world and camera code we did and the orb. and that the grid sketch goes to the sketch plane. Lets get rid of the bodies default loaded into the world. Lets look at how the prototype did cut planes and see if we can learn from that, and make a simpler cleaner version.

@@ -88,6 +88,10 @@ export function lookAt(s: ViewState, e: Env, axis: Axis): ViewState {
   const side: 1 | -1 = along && along.axis === axis ? (-along.sign as 1 | -1) : cam.sideOn(s.c, f, axis);
   return lensGo({ ...s, plane: axis }, e, f, settings.view.morphLens, settings.view.transitionMs, cam.straightDirection(axis, side));
 }
+/** Look straight at a flat surface, along `dir` (the way it faces, towards the eye's side taken by the caller): the view turns to that direction and becomes orthographic, as for a world plane. */
+export function lookAlong(s: ViewState, e: Env, dir: V3): ViewState {
+  return lensGo(s, e, focusOnAxis(s, e), settings.view.morphLens, settings.view.transitionMs, { yaw: Math.atan2(dir[1], dir[0]), pitch: Math.asin(clamp(dir[2], -1, 1)) });
+}
 /** The Reset camera button: the view flies to the thing last seen (else the last there is), framed whole; with nothing, home. */
 export function reset(s: ViewState, e: Env): ViewState {
   const t = resetTarget(e.model, s.seen);

@@ -42,17 +42,9 @@ export const settings = {
     arrowSegments: 12, discSegments: 48, paneCurveSteps: 6,
   },
   light: { ambient: 1.5, key: 1.6 },
-  // sketch planes, cut planes, picking and the ring menu (a prototype: `docs/rebuild/sketch_planes_requirements.md`)
-  planes: {
-    marginShare: 0.1, defaultMm: 40, // a cut plane's border stands off from what it cuts by this share of the box; a plane that meets nothing is a square this big
-    snapAxisRad: 0.14, // a sketch plane made facing the camera snaps to a world axis within this
-    hatchMm: 2.5, hatchWidth: 0.05, cutFace: [0.72, 0.74, 0.79] as [number, number, number], cutHatch: [0.5, 0.52, 0.58] as [number, number, number],
-    border: [0.3, 0.33, 0.4] as [number, number, number], borderOff: [0.72, 0.74, 0.78] as [number, number, number],
-    pickVertexPx: 9, pickBorderPx: 7, pickEdgePx: 6, // how near the pointer must be to take a corner, a cut plane's border, a line
-    markVertexPx: 4.5, markEdgePx: 1.6, faceOpacity: 0.3, hoverOpacity: 0.14,
-    ringButtonPx: 36,
-  },
   orb: { radius: 0.025, hoverOpacity: 0.14, color: [0.1, 0.72, 0.7] as [number, number, number] }, // the hover disc: its radius in depths of the surface it is on
+  // a sketch plane placed anywhere, and the right-click ring
+  planes: { snapAxisRad: 0.14, ringButtonPx: 36 }, // (a sketch plane made facing the camera snaps to a world axis within this)
   // the mover orb (`app/src/shared/settings.ts` gizmo): its size as a share of the view distance, how near the pointer must be to take a handle, and how its lines look
   mover: { sizeOfView: 0.11, hitPx: 12, opacity: 0.6, widthPx: 2.2, headScale: 0.7, arrowShare: 0.6, gapShare: 0.09, extraGap: 0.12, extraShare: 0.4, stemShare: 0.85, turnShare: 0.33, turnStartDeg: 40, turnSpanDeg: 280, arcSegments: 48 }, // (the orb: its size, how near the pointer must be, the lines; the curved arrow: a stem of this share of the straight arrow, then an open circle of this radius, from this angle and this far round)
   buttons: { marginPx: 18, sizePx: 34 },

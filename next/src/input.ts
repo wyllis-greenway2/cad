@@ -20,8 +20,7 @@ export interface Intents {
   hover(x: number, y: number): void;
   /** The pointer left the view. */
   leave(): void;
-  /** A click: `count` 1 is a click, 2 a double click; `shift` was held. */
-  click(x: number, y: number, count: number, shift?: boolean): void;
+  click(x: number, y: number, count: number): void;
   /** A right click that did not move, or a long press: the menu, at (x, y). */
   menu(x: number, y: number): void;
   /** The mouse moved while the pointer is held (game mode): by how much. */
@@ -127,7 +126,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     const d = drag; drag = null;
     if (!d) return;
     if (d.moved) { out.dragEnd(); return; }
-    if (d.action === "click" && e.type === "pointerup") out.click(p.x, p.y, count(p.x, p.y, e.timeStamp), d.shift);
+    if (d.action === "click" && e.type === "pointerup") out.click(p.x, p.y, count(p.x, p.y, e.timeStamp));
     else if (d.button === 2 && !d.shift && e.type === "pointerup") out.menu(p.x, p.y); // (a right click that did not move: the menu; a right drag orbits)
   };
   let stream: { kind: WheelKind; t: number } | null = null, scrolling: ReturnType<typeof setTimeout> | null = null;

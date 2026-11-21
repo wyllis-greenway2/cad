@@ -3,9 +3,7 @@
 import { forward, type Cam } from "./camera.ts";
 import { dragTo, handlesOf, hitHandle, startGrab, unitOf, type Grab, type Handle, type Orb } from "./orb.ts";
 import { applyDrag, centreOf, choose, clonePose, heldAxes, newPose, type Pose } from "./mover.ts";
-import { faceNormal } from "./pick.ts";
-import { frameOf, type Frame } from "./planes.ts";
-import { cross, sub, type V3 } from "./vec.ts";
+import type { Frame } from "./planes.ts";
 
 export interface OrbHost {
   /** What the orb is on now (null: no orb is shown), and where that is. */
@@ -65,16 +63,6 @@ export function createOrbControl(host: OrbHost) {
     cancel(): boolean { if (!orient) return false; stopOrient(false); return true; },
     /** Esc: let go of the chosen arrows. */
     release(): boolean { if (!chosen.length) return false; chosen = []; return true; },
-    /** A click while orienting: a corner, a line or a face puts the orb there (a face also lays its axes along it). Returns whether the click was the orb's. */
-    place(hit: { kind: string; point: V3; index?: number } | null): boolean {
-      if (!orient) return false;
-      const t = host.target();
-      if (t && hit && hit.kind !== "cut" && hit.kind !== "body") {
-        const q = poseOf(t.id); q.offset = sub(hit.point, t.frame.origin);
-        if (hit.kind === "face") { const f = frameOf(hit.point, faceNormal(hit.index!)); q.frame = [f.u, cross(f.normal, f.u), f.normal]; }
-      }
-      return true;
-    },
     /** Each picture: what to draw (null: no orb), the pointer being where it is. */
     drawing(pointer: { x: number; y: number } | null): OrbDrawing | null {
       const o = orb();
