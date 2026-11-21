@@ -6065,3 +6065,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1451 — 2026-11-21 — directive
 > no that is super confusing. lets try it somewhat like you had it before where there is a C shaped arrow going around the axis line, but instead of it being a star, have that C shaped arrow floating in space in front of the three XYZ arrows
+
+## in_1452 — 2026-11-21 — directive
+> make the C arrows a bit bigger and further out, past the ends of the arrows a bit
