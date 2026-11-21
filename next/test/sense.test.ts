@@ -86,3 +86,12 @@ test("[W6] the grid's spacing depends on the distance to the plane and on nothin
   const levels = [200, 120, 60, 30, 10, 3].map((z) => gridLevel({ ...home, eye: [0, 0, z] }, 2).step);
   assert.deepEqual(levels, [10, 10, 10, 1, 1, 0.1]);
 });
+
+test("[W7] the fog reaches out with the distance to the origin and the plane; an orthographic view has none", () => {
+  const c = { ...home, lens: 1 };
+  const near1 = gridLevel({ ...c, eye: [0, 0, 20] }, 2), far1 = gridLevel({ ...c, eye: [0, 0, 400] }, 2);
+  assert.ok(far1.fog > near1.fog * 10, "a view ten times farther sees a fog ten times farther");
+  assert.ok(near1.fog >= len([0, 0, 20]), "the fog never closes in nearer than the origin");
+  const flat = gridLevel({ ...c, eye: [0, 0, 20], ortho: 40 }, 2);
+  assert.ok(flat.fog >= 1e9, "no fog in a straight view");
+});

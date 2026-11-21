@@ -144,11 +144,16 @@ def main():
         tests = sorted(set(tests) | {str(f.relative_to(APP)) for f in why})
     print(f"{len(seeds)} changed files; {len(near)} test files within {depth_max} imports of them ({len(all_tests)} reach them at any distance; --depth N widens)"
           + (f"; {len(why)} more by the requirements' contracts" if NEXT_MODE else ""))
+    browser = [t for t in tests if t.endswith(".browser.ts")]
+    if "--browser" not in args:
+        tests = [t for t in tests if t not in browser]
+        if browser:
+            print(f"  ({len(browser)} browser test file(s) not run: add --browser, before pushing)")
     for t in tests:
         reasons = sorted(why.get(APP / t, ()))
         print("  " + t + (("   [" + "; ".join(reasons) + "]") if reasons else ""))
     if "--run" in args and tests:
-        sys.exit(subprocess.call(["node", "--experimental-strip-types", "--test", *tests], cwd=APP))
+        sys.exit(subprocess.call(["node", "--experimental-strip-types", "--test", "--test-timeout=60000", *tests], cwd=APP))
 
 
 if __name__ == "__main__":

@@ -6006,3 +6006,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1433 — 2026-11-21 — directive
 > approved, go ahead with the test tool, also lets not forget to remove /trackpad.html
 (The world view requirements are approved: `dec_world_view_spec`. `next/trackpad.html` is removed. The test tool: `tools/spec_lib.py`, `tools/check_spec.py`, `tools/affected_tests.py --root next`, with a starter set of 19 tests.)
+
+## in_1434 — 2026-11-21 — directive
+> go ahead with step 3
+(Step 3: the tests for the rest of the requirement rows: 46 pure tests and 6 browser tests, every row that needs a test now has one.)

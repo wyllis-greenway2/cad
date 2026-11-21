@@ -66,7 +66,7 @@ def specs(root: Path = ROOT) -> list:
 def tests_of(test_dir: Path) -> dict:
     """test file -> {title: set(requirement ids)} for every test("...") in it."""
     out = {}
-    for f in sorted(test_dir.glob("*.test.ts")):
+    for f in sorted([*test_dir.glob("*.test.ts"), *test_dir.glob("browser/*.browser.ts")]):
         titles = {}
         for m in re.finditer(r"""\btest\(\s*(["'`])(.*?)\1""", f.read_text(encoding="utf-8")):
             titles[m.group(2)] = {i for tag in TAG.findall(m.group(2)) for i in re.split(r"[ ,]+", tag) if i}

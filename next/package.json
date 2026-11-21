@@ -6,6 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "test": "node --experimental-strip-types --test \"test/**/*.test.ts\"",
+    "test:browser": "node --experimental-strip-types --test --test-timeout=60000 \"test/browser/*.browser.ts\"",
     "typecheck": "tsc --noEmit",
     "check": "python3 ../tools/check_spec.py && npm test && npm run typecheck",
     "test:affected": "python3 ../tools/affected_tests.py --root next --run"
