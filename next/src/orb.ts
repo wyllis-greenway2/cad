@@ -7,7 +7,7 @@ import { add, cross, dot, len, scale, sub, unit, type V3 } from "./vec.ts";
 import { project, rayFrom, viewHeight, forwardDepth, type Cam } from "./camera.ts";
 import { settings } from "./settings.ts";
 
-export interface Orb { centre: V3; /** the axes a drag is held to (chosen with Shift): one is a line, two a plane */ held: number[]; /** the second arrows beyond the straight ones: an operation has them or not (off unless it says), the user does not choose */ extras?: boolean }
+export interface Orb { centre: V3; /** the orb's own axes (they are the world's unless it has been oriented) */ frame?: V3[]; /** the orb itself is being moved and turned, not the thing it stands for */ orient?: boolean; /** the axes a drag is held to (chosen with Shift): one is a line, two a plane */ held: number[]; /** the second arrows beyond the straight ones: an operation has them or not (off unless it says), the user does not choose */ extras?: boolean }
 export type HandleKind = "arrow" | "turn" | "ball";
 /** `points` is the handle's line, to the tip of its arrow; `also` more lines that belong to it (the stem of a curved arrow). */
 export interface Handle { id: string; kind: HandleKind; axis: 0 | 1 | 2 | null; points: V3[]; also?: V3[][]; /** the second arrow of an operation that has one */ extra?: true }
@@ -24,15 +24,15 @@ export function unitOf(c: Cam, centre: V3): number {
  * axis to the middle of an open circle round it, with a head on the circle.
  */
 export function handlesOf(o: Orb, c: Cam): Handle[] {
-  const L = unitOf(c, o.centre), M = settings.mover, A = M.arrowShare * L, out: Handle[] = [];
-  AXES.forEach((d, i) => {
+  const L = unitOf(c, o.centre), M = settings.mover, A = M.arrowShare * L, g = M.gapShare * L, out: Handle[] = []; // (the arrows start `g` out from the middle: they stop short of the ball)
+  (o.frame ?? AXES).forEach((d, i) => {
     const a = i as 0 | 1 | 2, letter = AXIS_LETTER[i];
-    out.push({ id: `move:${letter}`, kind: "arrow", axis: a, points: [o.centre, add(o.centre, scale(d, A))] });
-    if (o.extras) out.push({ id: `copy:${letter}`, kind: "arrow", axis: a, extra: true, points: [add(o.centre, scale(d, A * (1 + M.extraGap))), add(o.centre, scale(d, A * (1 + M.extraGap + M.extraShare)))] });
-    const stemEnd = sub(o.centre, scale(d, A * M.stemShare)), r = A * M.turnShare, u = unit(cross(Math.abs(d[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0], d)), v = cross(d, u), arc: V3[] = [];
+    out.push({ id: `move:${letter}`, kind: "arrow", axis: a, points: [add(o.centre, scale(d, g)), add(o.centre, scale(d, g + A))] });
+    if (o.extras) out.push({ id: `copy:${letter}`, kind: "arrow", axis: a, extra: true, points: [add(o.centre, scale(d, g + A * (1 + M.extraGap))), add(o.centre, scale(d, g + A * (1 + M.extraGap + M.extraShare)))] });
+    const stemEnd = sub(o.centre, scale(d, g + A * M.stemShare)), r = A * M.turnShare, u = unit(cross(Math.abs(d[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0], d)), v = cross(d, u), arc: V3[] = [];
     const from = (M.turnStartDeg * Math.PI) / 180, span = (M.turnSpanDeg * Math.PI) / 180;
     for (let k = 0; k <= M.arcSegments; k++) { const t = from + (k / M.arcSegments) * span; arc.push(add(stemEnd, scale(add(scale(u, Math.cos(t)), scale(v, Math.sin(t))), r))); }
-    out.push({ id: `turn:${letter}`, kind: "turn", axis: a, points: arc, also: [[o.centre, stemEnd]] });
+    out.push({ id: `turn:${letter}`, kind: "turn", axis: a, points: arc, also: [[sub(o.centre, scale(d, g)), stemEnd]] });
   });
   out.push({ id: "ball", kind: "ball", axis: null, points: [o.centre] });
   return out;
@@ -78,18 +78,18 @@ export function startGrab(o: Orb, hd: Handle, c: Cam, w: number, h: number, px: 
   const r = rayOf(c, w, h, px, py);
   const held = o.held.length >= 2 && (hd.kind === "ball" || (hd.axis !== null && o.held.includes(hd.axis))) ? o.held : []; // (a drag of a held arrow, or of the ball, goes in the plane of two held axes)
   if (hd.kind === "turn") {
-    const axis = AXES[hd.axis!]!, q = onPlane(r, o.centre, axis);
+    const axis = (o.frame ?? AXES)[hd.axis!]!, q = onPlane(r, o.centre, axis);
     return q ? { handle: hd, centre: o.centre, kind: "ring", axis, held: [], s0: 0, q0: null, v0: sub(q, o.centre), normal: axis } : null;
   }
   if (held.length >= 2) { // two axes held: the plane of the two
-    const third = [0, 1, 2].find((i) => !held.includes(i))!, q = onPlane(r, o.centre, AXES[third]!);
-    return q ? { handle: hd, centre: o.centre, kind: "plane", axis: AXES[third]!, held, s0: 0, q0: q, v0: null, normal: AXES[third]! } : null;
+    const third = [0, 1, 2].find((i) => !held.includes(i))!, q = onPlane(r, o.centre, (o.frame ?? AXES)[third]!);
+    return q ? { handle: hd, centre: o.centre, kind: "plane", axis: (o.frame ?? AXES)[third]!, held, s0: 0, q0: q, v0: null, normal: (o.frame ?? AXES)[third]! } : null;
   }
   if (hd.kind === "ball") { // free: in the plane across the view
     const n = scale(forward, -1), q = onPlane(r, o.centre, n);
     return q ? { handle: hd, centre: o.centre, kind: "plane", axis: n, held: [], s0: 0, q0: q, v0: null, normal: n } : null;
   }
-  const axis = AXES[hd.axis!]!, s = alongLine(r, o.centre, axis);
+  const axis = (o.frame ?? AXES)[hd.axis!]!, s = alongLine(r, o.centre, axis);
   return s === null ? null : { handle: hd, centre: o.centre, kind: "line", axis, held: [hd.axis!], s0: s, q0: null, v0: null, normal: axis };
 }
 export interface Dragged { move?: V3; turn?: { axis: V3; angle: number }; /** a number to show: mm, or radians for a turn */ value: number; label: string }

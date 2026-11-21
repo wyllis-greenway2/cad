@@ -88,3 +88,15 @@ export function createReadout(host: HTMLElement) {
   host.appendChild(tag);
   return { show(at: [number, number] | null, text: string) { if (!at) { tag.style.display = "none"; return; } tag.style.display = "block"; tag.style.left = `${at[0]}px`; tag.style.top = `${at[1]}px`; tag.textContent = text; } };
 }
+
+/** The bar at the top while the orb itself is being oriented: what it says, an apply check and a cancel cross (the prototype's). */
+export function createOrientBar(host: HTMLElement, on: { apply(): void; cancel(): void }) {
+  const bar = document.createElement("div");
+  bar.style.cssText = `position:fixed;z-index:14;top:12px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:8px;height:36px;padding:0 6px 0 14px;border-radius:18px;background:${settings.ui.pill};color:${settings.ui.pillText};font:600 13px ${settings.ui.font};box-shadow:0 2px 8px rgba(0,0,0,.25);white-space:nowrap`;
+  bar.addEventListener("pointerdown", (e) => e.stopPropagation());
+  const t = document.createElement("span"); t.textContent = "Orient the mover"; bar.appendChild(t);
+  const btn = (icon: string, title: string, fn: () => void) => { const b = roundButton({ icon, title, size: 26 }); b.addEventListener("click", (e) => { e.stopPropagation(); fn(); }); bar.appendChild(b); };
+  btn("check", "Keep it where it is (Enter)", on.apply); btn("cross", "Put it back (Esc)", on.cancel);
+  host.appendChild(bar);
+  return { show(v: boolean) { bar.style.display = v ? "flex" : "none"; } };
+}

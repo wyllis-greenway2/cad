@@ -30,8 +30,8 @@ One orb for everything that is moved, **with no modes** (`in_1447`, replacing th
 | O9 | A press on a handle is the orb's: it does not orbit, pan or click the view; a press anywhere else is the view's as before. The pointer over a handle shows a grab cursor and lights it. | in_1446 | left press | `Intents` | unit | later |
 | O10 | The orb is shown for the thing it moves when that is selected and asked for (for a cut plane the *Orient* button of its bubble, or at once when it is made); it is put away with the same button. The orb never changes what is selected. | in_1446 in_1442 | | `UiState` | unit | later |
 | O11 | Typed numbers: a number can be typed into the one that shows while dragging (place, turn, distance), as the old orb's bubbles. **later** | in_230 in_434 | | | later | later |
-| O12 | Sticking to places (a corner, the middle of an edge or a face) and "a click on the orb selects it, then a corner clicked puts the orb there". **later** | in_652 in_1182 | | | later | later |
-| O13 | The orb's axes can be turned (oriented) so that it moves along a face's own directions. **later** | in_417 in_421 | | | later | later |
+| O12 | **Orient mode** (`in_1456`, from the old app's `in_421`, `in_437`, `in_439`): a click on the ball (a press that does not move) makes it **pulse blue** and puts the orb in orient mode: a bar at the top says *Orient the mover* with a check and a cross; the orb's straight arrows now move **the orb itself** and its curved arrows turn **its own axes**, about the ball, and **the thing it stands for does not move**; a corner, a line or a face clicked puts the orb there (a face also lays its axes along the face). Enter or the check or a click on the ball again keeps it; Esc or the cross puts it back as it was. The orb's place and axes are remembered for the thing (an offset from it), so they go with it; the straight arrows then move along the orb's axes and the curved ones turn about its middle. | in_1456 in_417 in_421 in_439 | click on the ball, enter, escape | `Intents` | unit | later |
+| O13 | Sticking to places while an arrow is dragged, and typed numbers for the place and turn of the orb. **later** | in_652 in_230 in_434 | | | later | later |
 | O14 | A second quantity on an arrow (a copy count, a spiral's advance): the copy mode's second arrow is that; its number is typed or dragged. **later** | in_1187 in_529 | | | later | later |
 
 ## What is dropped from the old orbs
@@ -41,3 +41,5 @@ The mode chip of each tool, the section's own move icon that went through five s
 1. **Extra arrows:** which operations have them, and what dragging one means for each (a copy; a count)? Left for you to specify (`in_1447`); none for now.
 2. **The curved arrow** turns the thing about its own middle (the ball), the axes staying the world's. Right for now?
 3. **Where the orb stands for a body or a sketch plane** (later sections): the middle of the box of what is selected; its axes the world's unless oriented (O13).
+
+**Arrows stop short of the ball** (`in_1456`): every arrow, and each stem, begins a little way out from the ball (`settings.mover.gapShare`), so none runs into it.

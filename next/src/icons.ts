@@ -20,6 +20,7 @@ const ICONS: Record<string, string> = {
   lock: svg('<rect x="3.5" y="7.2" width="9" height="6.3" rx="1.3" fill="currentColor" fill-opacity=".18"/><path d="M5.5 7.2V5.4a2.5 2.5 0 0 1 5 0v1.8"/><circle cx="8" cy="10.3" r="0.9" fill="currentColor" stroke="none"/>'),
   unlock: svg('<rect x="3.5" y="7.2" width="9" height="6.3" rx="1.3"/><path d="M5.5 7.2V5.4a2.5 2.5 0 0 1 4.8-1"/>'),
   copy: svg('<rect x="5.5" y="5.5" width="8" height="8" rx="1"/><path d="M10.5 3.5v-.5a1 1 0 00-1-1h-6a1 1 0 00-1 1v6a1 1 0 001 1h.5"/>'),
+  check: svg('<path d="M3 8.5l3.2 3.2L13 4.8"/>'),
   cross: svg('<path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>'),
 };
 export const iconSvg = (key: string): string => ICONS[key] ?? "";

@@ -38,7 +38,7 @@ export interface PlanesDrawing {
   cuts: Array<{ border: V3[]; on: boolean; selected: boolean; temp: boolean; faces: Array<{ poly: V3[]; u: V3; v: V3 }> }>;
   selected: Marks; hover: Marks;
   /** The mover orb: its handles, the ones that are lit (pointed at, dragged or held) and how big a unit of it is. */
-  orb?: { handles: Handle[]; hot: string[]; unit: number };
+  orb?: { handles: Handle[]; hot: string[]; unit: number; /** the orb itself is being oriented: its ball pulses blue */ orient?: boolean };
 }
 export interface Drawing {
   planes?: PlanesDrawing;
@@ -171,7 +171,9 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
     const M = settings.mover, hl = o.unit * 0.127 * (M.headScale / 0.7), hr = hl * 0.3;
     for (const hd of o.handles) {
       const hot = o.hot.includes(hd.id), p = hd.points, colour = hot ? rgb(settings.orb.color) : rgb(settings.theme.axis);
-      if (hd.kind === "ball") { const m = new THREE.Mesh(new THREE.SphereGeometry(o.unit * 0.064 * (M.headScale / 0.7), 16, 12), new THREE.MeshBasicMaterial({ color: colour, depthTest: false })); m.position.copy(vec(p[0]!)); m.renderOrder = 14; dyn.add(m); continue; }
+      if (hd.kind === "ball") {
+        const k = o.orient ? 0.5 + 0.5 * Math.sin(performance.now() / 260) : 0, blue = new THREE.Color(0x2f6fe0).lerp(new THREE.Color(0x9cc4ff), k); // (oriented: it breathes blue)
+        const m = new THREE.Mesh(new THREE.SphereGeometry(o.unit * 0.064 * (M.headScale / 0.7) * (1 + 0.35 * k * (o.orient ? 1 : 0)), 16, 12), new THREE.MeshBasicMaterial({ color: o.orient ? blue : colour, depthTest: false })); m.position.copy(vec(p[0]!)); m.renderOrder = 14; dyn.add(m); continue; }
       // the head begins where the line has `hl` left to go, and points the way the line goes THERE (not at its end), so it carries on from the curve; the line stops where the head begins
       const pts = p.map(vec); let left = hl, i = pts.length - 1;
       while (i > 0 && left > pts[i]!.distanceTo(pts[i - 1]!)) { left -= pts[i]!.distanceTo(pts[i - 1]!); i--; }

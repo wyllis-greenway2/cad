@@ -6078,3 +6078,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1455 — 2026-11-21 — directive
 > okay no I am sorry the original way you made it was best
 (The human chose, when asked, "Straight arrow + C arrow on a stem": the version of `in_1447`.)
+
+## in_1456 — 2026-11-21 — directive
+> okay that is good, now lets make the arrows stop before the enter the orb. Also lets get our reorient abilities from the prototype. If you click on the orb, it should pulse, and go into orient mode, where you can move the orienter itself without moving the object it represents
