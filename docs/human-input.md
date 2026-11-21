@@ -5946,3 +5946,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1416 — 2026-11-21 — directive
 > okay lets make the border around the selected xyz icon a thinner lighter gray
+
+## in_1417 — 2026-11-21 — directive
+> okay now can we have it so that the zoom in target is the cursor in non game mode?

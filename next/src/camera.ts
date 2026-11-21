@@ -59,10 +59,13 @@ export function pan(c: Cam, dxPx: number, dyPx: number, depth: number, heightPx:
  * Zoom a straight view by `factor` (below 1 = closer) without letting perspective creep in: the picture's size goes as 1 over the eye's distance times the lens, so with the eye staying where it is far back
  * the lens is shut a little more (or opened, up to the straight view's own); only past the lens's ends is the eye moved, by a share of `refDepth` (how far it is from what is looked at).
  */
-export function zoomLens(c: Cam, factor: number, refDepth: number): Cam {
+export function zoomLens(c: Cam, factor: number, refDepth: number, nx = 0, ny = 0, aspect = 1): Cam {
   const want = c.lens * factor, lo = settings.view.minStraightLens, hi = settings.view.straightLens;
   const lens = clamp(want, lo, hi);
-  const next: Cam = { ...c, lens };
+  // the point at (nx, ny) across the view (in -1..1, y up) stays where it is on the screen: the eye slides across by what the view's half-size at `refDepth` changes by
+  const half = heightAt(c, refDepth) / 2;
+  const slide = add(scale(rightOf(c), nx * half * aspect), scale(upOf(c), ny * half));
+  const next: Cam = { ...c, lens, eye: add(c.eye, scale(slide, 1 - lens / c.lens)) };
   return lens === want ? next : moveAlong(next, forward(c), refDepth * (1 - want / lens));
 }
 

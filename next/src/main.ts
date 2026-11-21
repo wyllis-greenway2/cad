@@ -50,10 +50,11 @@ function gizmoScale(): number {
 const reach = (from: Cam, to: Cam): Cam => { const far = (k: Cam) => len(k.eye) * k.lens; return far(to) > settings.view.maxDistanceMm && far(to) > far(from) ? from : to; }; // (the distance as the picture sees it: a straight view puts the eye far back with the lens shut)
 
 /** The one way the camera goes forward (a negative number: back): the wheel's notches and W and S in flight both call it. The step is a share of `flightScale`, the scale of what the eye is among. */
-function goForward(share: number) {
-  const scale = flightScale(model, c);
-  // in a straight view the eye is far back and the picture is zoomed by the lens (so it stays as flat as it was); otherwise the camera goes forward
-  c = reach(c, cam.isStraight(c) && !lens ? cam.zoomLens(c, 1 - share, scale) : cam.moveAlong(c, cam.forward(c), share * scale));
+function goForward(share: number, nx = 0, ny = 0) {
+  const scale = flightScale(model, c), { w, h } = size();
+  // along the ray through the point of the view being zoomed toward: the cursor, or in flight the middle (where the cursor is held), so the point stays where it is on the screen.
+  // In a straight view the eye is far back and the picture is zoomed by the lens (so it stays as flat as it was), about that point.
+  c = reach(c, cam.isStraight(c) && !lens ? cam.zoomLens(c, 1 - share, scale, nx, ny, w / h) : cam.moveAlong(c, cam.rayThrough(c, nx, ny, w / h), share * scale));
 }
 
 // ---- changes of view ----
@@ -119,7 +120,13 @@ attach(canvas, {
     c = cam.turnAbout(c, drag.pivot, -dx * k, -dy * k);
   },
   pan(dx, dy) { if (game.on || !drag) return; takeOver(); c = cam.pan(c, dx, dy, drag.depth, size().h); rebase(); },
-  zoom(factor) { if (game.on) return; takeOver(); goForward(1 - clamp(factor, 0.2, 5)); rebase(); }, // the wheel is W and S in steps: the camera goes forward or back, by the same rule as in flight
+  zoom(factor, x, y) { // the wheel is W and S in steps: the camera goes forward or back toward the cursor, by the same rule as in flight
+    if (game.on) return;
+    takeOver();
+    const { w, h } = size();
+    goForward(1 - clamp(factor, 0.2, 5), (x / w) * 2 - 1, -((y / h) * 2 - 1));
+    rebase();
+  },
   dragEnd() { drag = null; },
   hover(x, y) { pointer = { x, y }; },
   leave() { pointer = null; },
