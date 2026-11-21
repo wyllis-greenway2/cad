@@ -4911,3 +4911,6 @@ Full suite after the build (2152 tests, concurrency 4): 19 failures. 14 are the 
 
 ## Handoff 1274 — 2026-11-21 (in_1443: the last answers on the sketch plane requirements)
 `in_1443`. Q5: the side toward the camera is always cut (changes sides as the eye crosses the plane; no Flip); Q3: hatched cut face, nothing left of the cut-away part, 10 % stand-off; R1 keeps "only what existed when the sketch began" (not mentioned). No ASK left. Awaiting approval, then tests.
+
+## Handoff 1275 — 2026-11-21 (in_1444: prototype first, tests after)
+`in_1444`. The order for a section is now: requirements, then a hand-tried prototype, then tests once the human wants to keep it. Changed in `dec_rebuild_by_requirements` and the sketch plane requirements' header. I had wrongly said the tests came next. **Next:** the human's approval of the requirements (or changes), then a first prototype slice; no tests.

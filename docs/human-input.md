@@ -6041,3 +6041,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1443 — 2026-11-21 — directive
 > I think the side towards the camera is always cut. yes a hatched cut face, no border left behind of the cut part,. yes 10% standoff is fine.
+
+## in_1444 — 2026-11-21 — directive
+> okay remember we dont write tests till we prototype and get it into a state we actually want to preserve

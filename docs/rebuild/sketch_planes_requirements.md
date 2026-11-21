@@ -1,6 +1,6 @@
 # Sketch planes, cut planes, the right-click menu and selecting: the requirements (for the human to approve)
 
-Status: **a draft, `ai-unreviewed` until the human approves it** (`in_1441` is the brief; the rest is read from the prototype's decisions, named in the Source column). **Nothing is built.** Every row is marked `later` until its code and test exist; a row then becomes `built` and `check_spec.py` demands its test. Rows marked **ASK** still hold a choice for the human; the ones answered in `in_1442` are listed near the end.
+Status: **a draft, `ai-unreviewed` until the human approves it** (`in_1441` is the brief; the rest is read from the prototype's decisions, named in the Source column). **Nothing is built.** Every row is marked `later` until its code is **prototyped and kept** (`in_1444`: no tests are written until the prototype is in a state worth preserving); a row then becomes `built` and `check_spec.py` demands its test. Rows marked **ASK** still hold a choice for the human; the ones answered in `in_1442` are listed near the end.
 
 How to read a row: as in `world_view_requirements.md` (Inputs claimed, Contracts, Test kind `unit` / `browser` / `hand`). The contracts listed are the ones that exist in `next/` now; the new modules this section adds (`planes.ts`, `pick.ts`, `select.ts`, `menu.ts`) are named in the text and become contracts when their files exist.
 
@@ -101,4 +101,4 @@ The mover orb itself (its arrows, rings, sphere and typing, `dec_unified_orb`), 
 Then (`in_1443`): the side toward the camera is always the one cut (Q5; so no Flip); the cut face stays hatched and nothing is left of the cut-away part (Q3); the border stands off by 10 % of the box (settings.planes), a plane across empty space being a small default square. **One reading to check:** "only what existed when the sketch began" (R1) was not mentioned and is kept.
 
 ## Still for the human
-Nothing open from this list. Say if the reading above is wrong; otherwise the next step is the tests.
+Nothing open from this list. Say if the reading above is wrong; otherwise the next step is a prototype (no tests yet, `in_1444`).
