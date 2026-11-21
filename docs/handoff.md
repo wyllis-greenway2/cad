@@ -4935,3 +4935,6 @@ The human approved the first slice. **Built (a prototype, no tests, `in_1444`):*
 
 ## Handoff 1282 — 2026-11-21 (in_1450: the curved arrows bend 90 degrees)
 `in_1450`. `settings.mover.turnBendDeg` 15 to 90: each curved arrow is a quarter circle of the same length as the straight ones; heads follow the curve at their base. Looked at in headless Chromium; the drag of a curved arrow still turns the plane.
+
+## Handoff 1283 — 2026-11-21 (in_1451: C-shaped arrows round the three arrows)
+`in_1451`. The star (curved arrows on the other side of each axis) was confusing; the orb is now three straight arrows from the ball and, round each, floating part way along it, a C-shaped arrow (an open circle of about 270° about the axis line, radius 0.3 of the arrow, at 0.55 of its length, `settings.mover.turnAt`, `turnShare`, `turnStartDeg`, `turnSpanDeg`) with its head standing on the curve where it begins (the head code of `in_1449` kept). Dragging a C turns about its axis through the ball; the straight arrows move. Requirements intro and O3 updated. Looked at in headless Chromium; both drags checked.
