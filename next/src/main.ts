@@ -47,6 +47,9 @@ function gizmoScale(): number {
 /** A move that would take the eye farther than the world reaches, and farther than it is, is not made (the prototype's zoom stopped at 5,000 mm). */
 const reach = (from: Cam, to: Cam): Cam => (len(to.eye) > settings.view.maxDistanceMm && len(to.eye) > len(from.eye) ? from : to);
 
+/** The one way the camera goes forward (a negative number: back): the wheel's notches and W and S in flight both call it. The step is a share of `flightScale`, the scale of what the eye is among. */
+function goForward(share: number) { c = reach(c, cam.moveAlong(c, cam.forward(c), share * flightScale(model, c))); }
+
 // ---- changes of view ----
 /** Start a change of lens about `focus`: what is there keeps its place on the screen and its size while the lens opens or shuts and the eye goes back or forward, so nothing jumps. A point behind the eye is replaced by the one looked at. */
 function startLens(focus: V3, to: { yaw: number; pitch: number } | null, lensTo: number, ms: number, free = false) {
@@ -110,15 +113,7 @@ attach(canvas, {
     c = cam.turnAbout(c, drag.pivot, -dx * k, -dy * k);
   },
   pan(dx, dy) { if (game.on || !drag) return; takeOver(); c = cam.pan(c, dx, dy, drag.depth, size().h); rebase(); },
-  zoom(factor, x, y) {
-    if (game.on) return;
-    takeOver();
-    const r = rayAt(x, y), hit = hitThings(model, c.eye, r);
-    const f = clamp(factor, 0.2, 5);
-    if (hit) c = reach(c, cam.zoomAlong(c, r, hit.t, f)); // toward (or away from) the surface under the pointer: exact steps, so the same zoom back returns; it stops a hair from the surface (`in_151`): to go through a surface is for flight
-    else c = reach(c, cam.moveAlong(c, cam.forward(c), (1 - f) * flightScale(model, c))); // nothing under the pointer: a step by the scale of what the eye is among
-    rebase();
-  },
+  zoom(factor) { if (game.on) return; takeOver(); goForward(1 - clamp(factor, 0.2, 5)); rebase(); }, // the wheel is W and S in steps: the camera goes forward or back, by the same rule as in flight
   dragEnd() { drag = null; },
   hover(x, y) { pointer = { x, y }; },
   leave() { pointer = null; },
@@ -169,8 +164,8 @@ function frame(now: number) {
   if (Math.abs((model.things.length ? 1 : 0) - free) < 0.002) free = model.things.length ? 1 : 0;
   const g = game.tick(dt);
   if (g.on && !busy() && c.lens >= 1) { // flying: the same moves as the wheel and the pan, driven by time; and turning about the eye
-    const f = cam.forward(c), d = flightScale(model, c); // (no walls: the eye goes through a thing and looks round inside it, `in_1411`)
-    c = reach(c, cam.moveAlong(cam.moveAlong(c, f, g.ahead * dt * d), cam.rightOf(c), g.side * dt * d));
+    goForward(g.ahead * dt); // (no walls: the eye goes through a thing and looks round inside it, `in_1411`)
+    c = reach(c, cam.moveAlong(c, cam.rightOf(c), g.side * dt * flightScale(model, c)));
     const mag = Math.hypot(g.dx, g.dy), k = settings.view.orbitRadPerPx * settings.input.flyLookScale * fineGain(mag);
     if (mag > 0) c = cam.turnAbout(c, c.eye, -g.dx * k, -g.dy * k);
   }

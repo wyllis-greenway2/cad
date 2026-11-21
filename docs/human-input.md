@@ -5931,3 +5931,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1411 — 2026-11-21 — directive
 > zoom gets really weird in game mode and non game mode. In the prototype I could fly right inside an object and look around. I think it should be like that
+
+## in_1412 — 2026-11-21 — directive
+> zoom on scroll wheel and zoom in game mode still feel different. Shouldn't it be like literally the same? it just move the camera forward

@@ -55,15 +55,6 @@ export function pan(c: Cam, dxPx: number, dyPx: number, depth: number, heightPx:
   const wpp = heightAt(c, depth) / heightPx;
   return { ...c, eye: add(c.eye, add(scale(rightOf(c), -dxPx * wpp), scale(upOf(c), dyPx * wpp))) };
 }
-/**
- * Zoom: the eye goes along `ray` toward (factor below 1) or away from the point `depth` along it, so that the point keeps its place on the screen
- * and the same zoom the other way returns exactly. It never comes nearer than `minDepth`, and it stops there rather than going through.
- */
-export function zoomAlong(c: Cam, ray: V3, depth: number, factor: number, minDepth = settings.view.minSurfaceMm): Cam {
-  const to = Math.max(depth * factor, Math.min(depth, minDepth)); // (already nearer than the least: it does not go nearer, but it may go away)
-  return moveAlong(c, ray, depth - to);
-}
-
 // ---- the world's planes: where the straight views look from ----
 export type Axis = 0 | 1 | 2;
 export const AXIS_NAME = ["X", "Y", "Z"] as const;
