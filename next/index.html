@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>CAD</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #fff; font: 12px system-ui, sans-serif; color: #2b2b30; }
+  #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .label { position: fixed; transform: translate(-50%, -50%); pointer-events: none; font-weight: 600; user-select: none; }
+  #planes { position: fixed; right: 14px; bottom: 14px; display: flex; flex-direction: column; gap: 8px; }
+  #planes button { width: 34px; height: 34px; border-radius: 50%; border: 1px solid #c9cdd2; background: #fff; font: 600 12px system-ui, sans-serif; color: #2b2b30; cursor: pointer; }
+  #planes button.on { border: 2px solid #2b2b30; }
+  #ring { position: fixed; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px; border: 1.5px solid #1ab8b3; border-radius: 50%; pointer-events: none; display: none; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="planes"></div>
+<div id="ring"></div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

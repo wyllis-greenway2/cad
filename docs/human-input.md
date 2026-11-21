@@ -5870,3 +5870,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1393 — 2026-11-21 — directive
 > yes draft the lessons and scope document
 (Drafted as `docs/rebuild/lessons_and_scope.md`, `ai-unreviewed`; nothing is decided until the human marks it.)
+
+## in_1394 — 2026-11-21 — directive
+> I am not really sure and I am worried about importing a bunch of stuff we dont want but dont know we dont want it. How about this, we just start from scratch, and as we go, we can learn the lessons and pull parts in from the old app piece by piece, otherwise we leave it. I will try the app piece by piece as we go and confirm it feels right and works. So lets just start totally from scratch. So first lets get a worldview and camera setup. The old system seemed to work fairly well here. So what is the simplest lean version of that we can start with? I liked the game view, and I liked the pan and mouse interactions, I liked the world plane selection layout with the little world xyz things.
+(Built as stage 1 in `next/`; `docs/rebuild/lessons_and_scope.md` stays as the AI's draft of lessons, not a plan.)
