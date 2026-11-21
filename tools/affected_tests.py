@@ -153,7 +153,7 @@ def main():
         reasons = sorted(why.get(APP / t, ()))
         print("  " + t + (("   [" + "; ".join(reasons) + "]") if reasons else ""))
     if "--run" in args and tests:
-        sys.exit(subprocess.call(["node", "--experimental-strip-types", "--test", "--test-timeout=60000", *tests], cwd=APP))
+        sys.exit(subprocess.call(["node", "--experimental-strip-types", "--test", "--test-timeout=60000", "--test-concurrency=1", *tests], cwd=APP))
 
 
 if __name__ == "__main__":
