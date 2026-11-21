@@ -3,8 +3,10 @@
 import * as K from "./kernel.ts";
 import { type Note, Body, RefLost } from "./lineage.ts";
 import { type Ctx, type Step, type Value, NoBody, kinds, passthrough } from "./steps.ts";
+import { insertStep, moveStep, removeStep, swapWithInput, validateRecipe } from "./recipe.ts";
 
 export type Status = { kind: "ok" } | { kind: "flagged"; why: string } | { kind: "orphaned"; why: string };
+export interface Changes { recomputed: string[]; changed: string[] }
 export interface Result { value: Value; status: Status; fingerprint: string; notes: Note[] }
 
 /** a value shared by a pass-through is freed when the last result holding it lets go (E17) */
@@ -22,13 +24,13 @@ export class Engine {
   /** how many steps were computed so far (for measuring what an edit cost) */
   computes = 0;
 
-  constructor(steps: readonly Step[]) {
-    steps.forEach((s, i) => {
-      if (this.steps.has(s.id)) throw new Error(`two steps are called ${s.id}`);
-      for (const inp of s.inputs) if (!this.steps.has(inp)) throw new Error(`step ${s.id} works on ${inp}, which is not an earlier step`);
-      this.steps.set(s.id, s); this.order.push(s.id); this.age.set(s.id, i); this.dependents.set(s.id, []);
-      for (const inp of s.inputs) this.dependents.get(inp)!.push(s.id);
-    });
+  constructor(steps: readonly Step[]) { this.install(steps); }
+  /** take a list of steps as the recipe: the order, who depends on whom, how old each is (older ids lead when faces merge) */
+  private install(steps: readonly Step[]): void {
+    validateRecipe(steps);
+    this.steps = new Map(steps.map((s) => [s.id, s])); this.order = steps.map((s) => s.id);
+    this.age = new Map(this.order.map((id, i) => [id, i])); this.dependents = new Map(this.order.map((id) => [id, [] as string[]]));
+    for (const id of this.order) for (const inp of this.steps.get(id)!.inputs) this.dependents.get(inp)?.push(id);
   }
 
   build(): void { for (const id of this.order) this.compute(id); }
@@ -39,15 +41,50 @@ export class Engine {
   }
   ids(): readonly string[] { return this.order; }
 
+  /**
+   * Would doing this step before the one it works on help? Built on the side; nothing of this engine changes (E15: a rescue is offered, never done unasked).
+   * It helps when the step is then fine and no more steps are flagged or orphaned than now.
+   */
+  trySwap(id: string): { worked: boolean; why: string; now: number; after: number } {
+    const bad = (e: Engine) => e.ids().filter((i) => e.result(i).status.kind !== "ok").length, now = bad(this);
+    let steps: Step[]; try { steps = swapWithInput(this.recipe(), id); } catch (e) { return { worked: false, why: e instanceof Error ? e.message : String(e), now, after: now }; }
+    const scratch = new Engine(steps); try { scratch.build(); const r = scratch.result(id), after = bad(scratch); return { worked: r.status.kind === "ok" && after <= now, why: "why" in r.status ? r.status.why : "", now, after }; } finally { scratch.release(); }
+  }
+  /** the recipe as it is now, as a list of steps (a fresh engine built from it gives the same answers) */
+  recipe(): Step[] { return this.order.map((id) => this.steps.get(id)!); }
   /** change a step's numbers; the steps that depend on it run again, and only those whose inputs came out different */
-  edit(id: string, params: Record<string, any>): { recomputed: string[]; changed: string[] } {
-    const old = this.steps.get(id); if (!old) throw new Error(`no step ${id}`);
-    this.steps.set(id, { ...old, params });
-    const dirty = new Set([id]), recomputed: string[] = [], changed: string[] = [];
-    for (const sid of this.order.slice(this.age.get(id)!)) {
+  edit(id: string, params: Record<string, any>): Changes {
+    if (!this.steps.has(id)) throw new Error(`no step ${id}`);
+    return this.setRecipe(this.recipe().map((s) => (s.id === id ? { ...s, params } : s)));
+  }
+  insert(step: Step, opts: { after?: string; splice?: boolean } = {}): Changes { return this.setRecipe(insertStep(this.recipe(), step, opts)); }
+  remove(id: string): Changes { return this.setRecipe(removeStep(this.recipe(), id)); }
+  move(id: string, after: string | null): Changes { return this.setRecipe(moveStep(this.recipe(), id, after)); }
+  swapWithInput(id: string): Changes { return this.setRecipe(swapWithInput(this.recipe(), id)); }
+
+  /**
+   * Take a new list of steps (E19). A step that is new, or whose kind, numbers or inputs are different, runs; so does one whose place among the steps it keeps company with has changed
+   * (older ids lead when faces merge); then whatever depends on a step whose answer came out different. A step that is gone lets its answer go.
+   */
+  setRecipe(next: readonly Step[]): Changes {
+    validateRecipe(next);
+    const before = new Map(this.steps), ageBefore = new Map(this.age), keep = new Set(next.map((s) => s.id));
+    for (const id of this.order) if (!keep.has(id)) { const slot = this.slots.get(id); if (slot) { this.letGo(slot.held); this.slots.delete(id); } }
+    this.install(next);
+    const same = (a: Step, b: Step) => a.kind === b.kind && JSON.stringify(a.inputs) === JSON.stringify(b.inputs) && JSON.stringify(a.params) === JSON.stringify(b.params);
+    const dirty = new Set<string>();
+    for (const s of next) { const p = before.get(s.id); if (!p || !same(p, s) || !this.slots.has(s.id)) dirty.add(s.id); }
+    const kept = next.filter((s) => before.has(s.id)).map((s) => s.id);
+    for (let i = 0; i < kept.length; i++) for (let j = i + 1; j < kept.length; j++) if (ageBefore.get(kept[i]!)! > ageBefore.get(kept[j]!)!) { dirty.add(kept[i]!); dirty.add(kept[j]!); }
+    return this.settle(dirty);
+  }
+  /** run the dirty steps in order; what depends on a step whose answer changed is dirty too, and a step whose answer is the same stops it (E18) */
+  private settle(dirty: Set<string>): Changes {
+    const recomputed: string[] = [], changed: string[] = [];
+    for (const sid of this.order) {
       if (!dirty.has(sid)) continue;
       const moved = this.compute(sid); recomputed.push(sid);
-      if (!moved) continue; // the answer is the same as before: nothing after it moves
+      if (!moved) continue;
       changed.push(sid); for (const d of this.dependents.get(sid)!) dirty.add(d);
     }
     return { recomputed, changed };
@@ -56,7 +93,7 @@ export class Engine {
   /** run one step; true when its answer (value or status) differs from before */
   private compute(id: string): boolean {
     const step = this.steps.get(id)!, kind = kinds[step.kind];
-    const inputs = step.inputs.map((i) => this.slots.get(i)!.held.v);
+    const inputs = step.inputs.map((i) => this.slots.get(i)?.held.v ?? new NoBody()); // a step taken out leaves nothing: the step that worked on it is orphaned
     const temps: Body[] = [], ctx: Ctx = { step, age: (s) => this.age.get(s) ?? -1, temp: (b) => { temps.push(b); return b; } };
     this.computes++;
     let value: Value, status: Status = { kind: "ok" };

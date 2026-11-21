@@ -6144,3 +6144,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1477 — 2026-11-21 — directive
 > build the headless core
+
+## in_1478 — 2026-11-21 — directive
+> yes start with structural edits

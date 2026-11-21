@@ -142,8 +142,10 @@ export function turn(a: Solid, axis: V3, degrees: number): Made {
   return { solid: new Solid(mk.Shape()), report: reportOf(mk) };
 }
 /** join faces that lie in one surface; the kernel's history of this is not available, so the engine recovers ids by `overlap` (E7, E9) */
-export function unify(a: Solid): Solid {
-  const u = t(new oc.ShapeUpgrade_UnifySameDomain(a.raw, true, true, false)); u.Build();
+export function unify(a: Solid, keep: readonly EdgeH[] = []): Solid {
+  const u = t(new oc.ShapeUpgrade_UnifySameDomain(a.raw, true, true, false));
+  for (const e of keep) u.KeepShape(e.raw); // edges that are the person's own lines (an imprint's seam) are not merged away
+  u.Build();
   return new Solid(u.Shape());
 }
 
