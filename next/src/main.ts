@@ -139,6 +139,7 @@ function startGame() {
 }
 addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (game.moves(e.code) && !game.on && !e.repeat) startGame(); // (W A S D turn the game on too, and the key that did it moves the eye)
   if (game.key(e.code, true)) return;
   if (e.code === "KeyB" && !e.repeat) { model.things = model.things.length ? [] : demoScene().things; world.rebuild(); return; } // (a testing aid for this stage: the first thing appears, or goes)
   if (e.code === "Escape" && game.on) endGame();

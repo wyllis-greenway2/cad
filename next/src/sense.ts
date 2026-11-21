@@ -94,5 +94,5 @@ export function planeHit(from: V3, dir: V3, axis: 0 | 1 | 2): { t: number; point
 export function gridLevel(c: Cam, plane: 0 | 1 | 2): { step: number; blend: number; fog: number } {
   const height = Math.max(Math.abs(c.eye[plane]) * c.lens, settings.view.minSurfaceMm); // (the distance to the plane; a straight view is far away with the lens shut, so the lens is taken out)
   const e = Math.log10(height / 6), k = Math.floor(e), step = 10 ** k;
-  return { step, blend: e - k, fog: Math.max(len(c.eye) * c.lens, 12 * step) };
+  return { step, blend: e - k, fog: Math.max(len(c.eye), (12 * step) / c.lens) };
 }

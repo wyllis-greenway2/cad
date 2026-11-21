@@ -8,6 +8,8 @@ const SIDE: Record<string, number> = { KeyD: 1, KeyA: -1 };
 export interface Game {
   /** The game is turned on (`start`) or off (`end`); it stays on until it is turned off. */
   start(): void;
+  /** Is this one of the movement keys (W A S D)? Pressing one turns the game on. */
+  moves(code: string): boolean;
   /** A key went down or up; true if it is one of the game's (the movement keys, while it is on). */
   key(code: string, down: boolean): boolean;
   /** The mouse moved by this much (pixels) while the game is on. */
@@ -25,6 +27,7 @@ export function createGame(): Game {
   return {
     get on() { return on; },
     start() { on = true; },
+    moves: (code) => code in AHEAD || code in SIDE,
     key(code, down) {
       if (!(code in AHEAD) && !(code in SIDE)) return false;
       if (!on) { held.delete(code); return false; }

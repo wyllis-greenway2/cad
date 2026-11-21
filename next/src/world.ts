@@ -70,7 +70,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
   for (let i = 0; i < 3; i++) {
     const dir: V3 = [0, 0, 0]; dir[i] = 1;
     axes.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), vec(dir).multiplyScalar(L)]), new THREE.LineBasicMaterial({ color: axisColor })));
-    const head = new THREE.Mesh(new THREE.ConeGeometry(0.7, 2.6, 12), new THREE.MeshBasicMaterial({ color: axisColor }));
+    const head = new THREE.Mesh(new THREE.ConeGeometry(settings.world.arrowRadiusMm, settings.world.arrowLengthMm, 12), new THREE.MeshBasicMaterial({ color: axisColor }));
     head.position.copy(vec(dir).multiplyScalar(L)); head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec(dir));
     axes.add(head);
   }

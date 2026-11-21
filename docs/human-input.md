@@ -5919,3 +5919,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1407 — 2026-11-21 — directive
 > yes the grid is behaving oddly, the prototype was better, it seems to change the grid size a lot based off camera rotation and relation to objects. I think grid should be scale to world ad grid division should be dependent on cameras distance to plane only
+
+## in_1408 — 2026-11-21 — directive
+> space, or awds should enter game mode. Lets make the arrow tips on the xyz things smaller. Ortho no longer has a grid at all
