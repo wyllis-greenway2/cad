@@ -1,6 +1,6 @@
-# Rebuild: lessons and scope (DRAFT for the human to mark up)
+# Cleanup: lessons and scope (DRAFT for the human to mark up)
 
-Status: **draft, `ai-unreviewed`.** Nothing here is decided. The human marks each item KEEP / DROP /
+Status: **draft, `ai-unreviewed`.** Written when a rebuild was being considered; the human then chose to clean up the existing app instead (`in_1395`), so read "rebuild" below as "the cleaned-up app": the lessons and the scope marks (CORE / LATER / PARKED) are the input to what is kept, trimmed or removed. Nothing here is decided. The human marks each item KEEP / DROP /
 LATER / CHANGE, and only then does anything get built. The old app is parked on the branch
 `prototype-v1` (the git tag could not be pushed from this environment). Work on the rebuild goes on
 the branch `cleanup`. Written from the 162 `dec_` / 21 `q_` / 8 `prin_` / 6 `inv_` entries, the
