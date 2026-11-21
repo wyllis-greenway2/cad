@@ -19,7 +19,7 @@ await kernel.init();
 const env = { w: 800, h: 600, now: 0 } as never;
 const open = () => (openSession(kernel, readFileSync(new URL("./fixtures/pin-two-arms-jamb.cad.json", import.meta.url), "utf8")) as unknown as { value: Session }).value;
 const PIN = "b/body/c@2,27.59,25.5,4.8,1.7043,4.8,11.5" as Ref; // the big gear's pin, held in an arm's hole by the Concentric r_010
-const FAR_HOLE = "b/body/c@2,10.5672,58.7191,8.3,1.9482,8.3,11.5" as Ref; // the hole of another arm, elsewhere
+const FAR_HOLE = "b/body/c@2,10.5672,58.7192,8.3,1.9482,8.3,11.5" as Ref; // the hole of another arm, elsewhere
 const pick = (s: Session, sel: Ref[]) => reduce({ ...createState({ ...s, click: { ...s.click, selection: sel as never } }), cam: homeCamera() }, { type: "runAction", id: "mate:coaxial" }, env);
 const centreOf = (s: Session, ref: Ref) => { const p = scene(s).parts[ref] as unknown as { center?: number[]; mesh?: number[] }; return p; };
 

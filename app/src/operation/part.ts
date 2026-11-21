@@ -30,7 +30,7 @@ export interface Line extends Base { kind: "line"; a: Ref; b: Ref; /** the name 
   center?: Ref; ccw?: boolean;
   /** an arc of a circle that lines drawn across it cut into pieces (made when the faces are, never saved, not picked) */ derived?: boolean;
   /** a body edge that is (part of) a circle: the circle it lies on; the rim of a post or a hole */
-  circle?: { center: Vec3; normal: Vec3; radius: number };
+  circle?: { center: Vec3; normal: Vec3; radius: number; /** the circle's numbers as the kernel has them, unrounded (`dec_exact_rim_numbers`) */ exact?: { center: Vec3; radius: number } };
   /** a rim made of two half circles: the other half (picking one picks both) */
   twin?: Ref }
 export interface Circle extends Base { kind: "circle"; center: Ref; radius: number }
@@ -39,7 +39,7 @@ export interface Face extends Base { kind: "face"; loop: Ref[]; corners: Ref[]; 
 /** A plane you can look at, select and draw on. `infinite`: a world plane, hit anywhere on it (`in_116`). `extent`: a square pane from `at` to `at + extent` along u and v. `mesh`: a flat face of the body, as triangles (flat xyz). */
 export interface Plane extends Base { kind: "plane"; /** the cut face of a sheet that is cutting (`in_681`): a face of the cut view, named by where it is; it is looked at, picked and sketched on, and nothing else is made of it */ /** a sphere's centre (its radius is `radius`) and a cone's apex, axis direction and half angle, for a tangent mate (`in_977`) */ sphere?: Vec3; cone?: { apex: Vec3; axis: Vec3; semi: number }; cap?: true; at: Vec3; /** the name of a flat face of the body that lasts through the steps (`dec_stable_reference_mechanism`) */ stable?: string; u: Vec3; v: Vec3; /** a cross section plane (`in_396`): a plane inserted in the part that cuts the view while it is selected; its normal (u crossed with v) points to the half that is cut away; `at` is a corner and `extent` the side of its square */ section?: true; /** whether it is cutting the view now (`in_416`): a click on the plane switches it, selected or not */ cut?: boolean; /** a sheet (`dec_sheet_planes`): with the cut on, it is the half the normal points AWAY from that is cut away instead of the half it points to */ flip?: boolean; /** a sheet in its invisible mode (`in_459`): fainter still and no pointer pick, only its icon answers */ hidden?: boolean; /** a plane made from a face of the body when something was drawn on it (`in_234`): what is drawn on it belongs to the body and goes with it when the whole body is moved, turned or scaled */ onBody?: true; /** with several bodies, the one it was made from the face of (its name): the sketch drawn on it goes with that body when it is moved alone (`in_277`) */ body?: string; extent?: number; infinite?: boolean; mesh?: readonly number[]; curved?: Curved; /** a curved face of the body that is not a full round post or hole (a cone, a sphere, a fillet, a turned post): it can be selected and looked at, nothing more yet; the name of its surface type */ rounded?: string; /** its radius, when it is part of a cylinder or a sphere */ radius?: number; /** a piece of a cylinder along a world axis (a wall cut from a circle): where its axis is, and whether it is a post (convex) or a hole */ round?: { axis: 0 | 1 | 2; center: Vec3; convex: boolean; /** the axis as a direction, when it is not along a world axis (a turned body); `axis` is then the nearest world axis */ dir?: Vec3 } }
 /** A full round face of the body (a post or a hole) that stands along a world axis: it is selected and pushed / pulled like a face, which changes its radius. Its `at` is where its axis starts, `u` and `v` the other two directions. */
-export interface Curved { axis: 0 | 1 | 2; /** the axis as a direction, when it is not along a world axis (a turned body) */ dir?: Vec3; center: Vec3; radius: number; lo: number; hi: number; /** a post (the surface faces away from its axis) or a hole */ convex: boolean }
+export interface Curved { axis: 0 | 1 | 2; /** the axis as a direction, when it is not along a world axis (a turned body) */ dir?: Vec3; center: Vec3; radius: number; lo: number; hi: number; /** the circle's numbers as the kernel has them, unrounded (`dec_exact_rim_numbers`) */ exact?: { center: Vec3; radius: number }; /** a post (the surface faces away from its axis) or a hole */ convex: boolean }
 export interface Axis extends Base { kind: "axis"; at: Vec3; dir: Vec3 }
 export interface Body extends Base { kind: "body"; /** the name the body keeps through the history (the operation that made it) */ id?: string; /** how much room it takes, mm cubed */ volume?: number; /** the box round the whole body, as the kernel measures it (the middle of it is what a turn or a scale is about) */ bbox?: { min: Vec3; max: Vec3 } }
 export type Part = Corner | Line | Circle | Face | Plane | Axis | Body;
@@ -107,10 +107,11 @@ export const roundOf = (get: Lookup, ref: Ref): { center: Vec3; radius: number; 
     const c = p.curved ?? (p.round && p.radius ? { axis: p.round.axis, dir: p.round.dir, center: p.round.center, radius: p.radius } : null);
     if (!c) return null;
     const axis: Vec3 = c.dir ?? (c.axis === 0 ? [1, 0, 0] : c.axis === 1 ? [0, 1, 0] : [0, 0, 1]);
-    return { center: c.center, radius: c.radius, anchor: true, normal: axis };
+    const ex = p.curved?.exact; // (the same, for a round face)
+    return { center: ex?.center ?? c.center, radius: ex?.radius ?? c.radius, anchor: true, normal: axis };
   }
   if (p.kind !== "line" || p.origin !== "body") return null;
-  if (p.circle) return { center: p.circle.center, radius: p.circle.radius, anchor: true, normal: p.circle.normal };
+  if (p.circle) return { center: p.circle.exact?.center ?? p.circle.center, radius: p.circle.exact?.radius ?? p.circle.radius, anchor: true, normal: p.circle.normal }; // (a sketch is held to the circle as it is, not to the rounded numbers that name the edge, `dec_exact_rim_numbers`)
   return null; // (a body edge that is not a circle of the kernel's: a straight line, or another curve)
 };
 /** What a part counts as when relations are chosen for a selection: a circular edge of a body is a circle (an anchor), the rest are what they are. */

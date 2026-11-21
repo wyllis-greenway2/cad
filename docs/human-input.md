@@ -5832,3 +5832,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1383 — 2026-11-21 — directive
 > yes please
 (asked: write the decision entry for the general fix, exact anchor numbers behind the existing rim reference and referenced points sent unrounded, and look into the rod's volume separately)
+
+## in_1384 — 2026-11-21 — directive
+> yes build it, and work out the new rod volume. Also shouldn't we apply a general fix for the rod volumne type of problem so that it cant get into this weird state?
+(`dec_exact_rim_numbers` is approved to build; the new rod's volume is to be worked out for `pistonhonda.test.ts`; and a general safeguard is asked for against a test being left stale when another session changes what it checks)

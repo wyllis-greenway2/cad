@@ -48,7 +48,7 @@ Current decisions live in `docs/decisions/`. This file is the short version of h
     AGPL. LGPL needs the packaging care described there.
 11. **Architecture invariants** (`inv_*` entries) are checked in code review and, where possible, by
     tooling. Violating one is a failed review.
-12. **Session end:** append a handoff entry, run the check, commit, push to the designated branch.
+12. **Session end:** append a handoff entry, run the check, run `python3 tools/affected_tests.py --run` (the tests that import, directly or through one file, what you changed; do the same right after merging another session's work, with `--since-merge`), commit, push to the designated branch. A test that checks what another session changed on purpose is brought up to date, not left failing (`in_1384`).
 
 ## Entry format (`docs/decisions/<id>.md`; copy `_TEMPLATE.md`)
 Front matter, then a `# Title`, a body, and `## Rationale`. Id prefixes: `prin_`, `inv_`, `dec_`, `q_`.
