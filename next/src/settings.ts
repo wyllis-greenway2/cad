@@ -22,7 +22,7 @@ export const settings = {
   },
   input: {
     zoomPerWheel: 0.0015, pinchZoomPerWheel: 0.005, // (a trackpad's pinch comes as a wheel with the control key: the zoom is this much of its delta)
-    trackpadPanScale: 0.3, // how far a trackpad's two-finger scroll pans, as a share of the scroll (set by hand, `in_303`)
+    trackpadPanScale: 0.3, trackpadLookScale: 1, // how far a trackpad's two-finger scroll pans, as a share of the scroll (set by hand, `in_303`)
     trackpadNatural: true, // a scroll goes the way the fingers do (natural scrolling) unless the system says otherwise
     scrollStreamMs: 160, // wheel events within this long of each other are one gesture, whose kind (scroll or notch) the first decides
     fineGain: 0.6, fineFadePx: 6, // the smallest mouse movements turn the view by this much of what they would, rising to all of it over about this many pixels (in_420)

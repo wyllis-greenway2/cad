@@ -127,7 +127,9 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     if (stream.kind === "wheel") { out.zoom(Math.exp((e.deltaMode === 1 ? e.deltaY * settings.input.wheelLinePx : e.deltaY) * settings.input.zoomPerWheel), x, y); return; }
     // the motion of two fingers on a trackpad: the scene follows them. With natural scrolling the scroll is the way the fingers go, without it the other way; the system says which where it can.
     const inverted = (e as WheelEvent & { webkitDirectionInvertedFromDevice?: boolean }).webkitDirectionInvertedFromDevice;
-    const k = (inverted ?? settings.input.trackpadNatural ? -1 : 1) * settings.input.trackpadPanScale;
+    const dir = inverted ?? settings.input.trackpadNatural ? -1 : 1;
+    if (locked()) { out.look(dir * e.deltaX * settings.input.trackpadLookScale, dir * e.deltaY * settings.input.trackpadLookScale); return; } // game mode: two fingers on a trackpad turn the view as a mouse does
+    const k = dir * settings.input.trackpadPanScale;
     if (scrolling === null) out.dragStart(x, y); // (what is grabbed is chosen once for the whole scroll, as for a drag)
     else clearTimeout(scrolling);
     out.gesture(e.deltaX * k, e.deltaY * k, 1, x, y);
