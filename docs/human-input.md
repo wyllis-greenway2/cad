@@ -5889,3 +5889,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1398 — 2026-11-21 — directive
 > Okay I like this simplified model, but lets keep designing for a bit. So what does rotate mean in non game mode and what does it mean in game mode?
 (Section M of `docs/rebuild/world_view_requirements.md`: the human likes the simplified camera model; "Rotate" added to it.)
+
+## in_1399 — 2026-11-21 — directive
+> okay yes that sounds right the old prototype was pretty good with I believe game mode rotate the camera directly, and non game mode rotate the camera around the center point of the nearest object in front of it I believe or the other defaults if no object as you had stated. That felt right. Another function the old prototype had that was useful was the ability to recover if you get lost in the world.
+(Rotate is confirmed as written in section M. The recovery is requirement C7, rewritten from the prototype's Reset camera button, `lastseen.ts`.)
