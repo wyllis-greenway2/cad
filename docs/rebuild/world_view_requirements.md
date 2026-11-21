@@ -51,7 +51,7 @@ Status: **marked by the human in `in_1397` (all rows KEEP unless a row says othe
 | Left-drag, right-drag, Alt+left-drag | Orbit: turn the eye and move it round a pivot (the nearest object's centre, found when the drag starts, not stored) so the pivot stays where it is on screen. |
 | X Y Z buttons, panes | Go to a straight view of a plane: set the direction, back the eye off and narrow the lens, eased. |
 
-**What "what is ahead" means:** the depth of the surface under the ray, else the depth of the nearest object's centre, else a default. This is the only place the camera needs to look at the scene; everything else is pure maths.
+**What "what is ahead" means:** the distance to the surface under the ray; else how far in front of the eye (along the view) the nearest object's centre is, so a zoom goes toward it and never past it and the same zoom back returns exactly; else, with everything behind, how far away the nearest object or the origin is. This is the only place the camera needs to look at the scene; everything else is pure maths.
 
 **Scroll zoom and game-mode forward are the same movement** in perspective: the eye going along a ray. They differ only in what drives them (a wheel notch, a key held over time) and which ray (the pointer's, the centre's). Zooming toward the pointer comes free: moving along the pointer's ray keeps the point under the pointer where it is on screen, and the same steps back return to the same place.
 
@@ -68,7 +68,7 @@ Status: **marked by the human in `in_1397` (all rows KEEP unless a row says othe
 **Rotate, in both modes, is one operation:** turn the camera by a yaw (about world Z) and a pitch (about its own right side), rigidly, **about a point**. It has no roll, so Z stays up. The only difference is the point.
 - **Orbit (not game mode):** the point is the pivot, so the eye swings round it and the pivot stays where it is on screen. The pivot is the centre of the nearest object in front of the eye, found when the drag starts and kept for that drag; with no object, a point straight ahead at a default distance (never the origin far behind).
 - **Look (game mode):** the point is the eye itself, so the eye stays and the view turns, like turning your head. It is orbit with the pivot at distance zero.
-- **Direction:** orbit grabs the world (drag right, the scene turns right); look turns the head (mouse right, the view turns right, so the scene goes left). Both are one angle per pixel; game mode scales it down (0.25) and smooths it, and the smallest movements are less sensitive in both (`in_420`).
+- **Direction:** both turn the camera the same way for the same movement (the mouse or drag to the right turns the camera to the right, and down tilts it down); they differ only in the point, so orbit swings the eye round the pivot and look turns it in place. One angle per pixel; game mode scales it down (0.25) and smooths it, and the smallest movements are less sensitive in both (`in_420`).
 - **Limits:** pitch stops straight up and straight down; when it stops, the eye stops too (it is not moved on its own). A straight view is left only after the 60 px hold (`in_193`), and orbit then turns about the focus.
 
 ## What this cuts, against the prototype
@@ -94,3 +94,6 @@ Going normal to a sketch and the cut to the plane (`in_1375`-`in_1387`); the cro
 4. C6: is the right-click menu in space during game mode part of "game view", or does it wait for the menus section?
 5. W2: is the grid wanted in a straight view (today yes)?
 6. Is anything here that you do not care about, or missing?
+
+## Built (`in_1401`)
+The first build of this section is in `next/` (`bash tools/preview.sh next`; `?boxes=0` for an empty model). Three stand-in boxes play the part of bodies. Open points for the human to judge by hand: the feel of flight near a wall (speed follows the distance ahead, so it slows toward a surface and does not go through it), whether the hover disc's size (constant on screen, about 29 px) is right, and every item above. No tests yet, as asked.

@@ -38,7 +38,9 @@ fi
 proto="$arg"
 open_path="/"
 dir="prototypes/$proto"
-if [ "$arg" = "app" ]; then
+if [ "$arg" = "next" ]; then
+  dir="next"
+elif [ "$arg" = "app" ]; then
   dir="app"
   if [ "${DEMO:-0}" = "1" ]; then open_path="/?demo=box"; fi
 fi

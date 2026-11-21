@@ -5897,3 +5897,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1400 — 2026-11-21 — directive
 > 1 yes 2 yes 3 no. Okay so does this capture everything we care about with the world view? Is it simpler than the prototype? What does it cut out? what is the simplest possible model that captures what we care about and simplfies any complexity we can
 (Recovery: empty-model home view yes, far and tiny counts as lost yes, no previous-view step. Answers in `docs/rebuild/world_view_requirements.md`; the lens simplification is in section M.)
+
+## in_1401 — 2026-11-21 — directive
+> no lets not write the tests until after we build the slice and I confirm it is right. So now should we build this part from scratch? i will test it, once it is right, we write down the final requirements specs, and the tests
+(Built as the first section in `next/`; no tests until the human confirms it.)
