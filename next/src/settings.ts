@@ -45,6 +45,8 @@ export const settings = {
   orb: { radius: 0.025, hoverOpacity: 0.14, color: [0.1, 0.72, 0.7] as [number, number, number] }, // the hover disc: its radius in depths of the surface it is on
   // the cut of a sketch plane: the face where it cuts a body is solid with hatching
   cut: { face: [0.72, 0.74, 0.79] as [number, number, number], hatch: [0.5, 0.52, 0.58] as [number, number, number], hatchMm: 2.5, hatchWidth: 0.05, capMm: 10000 },
+  // sketching: how near the pointer must be to stick to a place or a grid crossing, the cursor's cross, the lines' width, a circle's segments
+  sketch: { snapPx: 10, crossPx: 7, widthPx: 2, circleSegments: 64 },
   // a sketch plane placed anywhere, and the right-click ring
   planes: { snapAxisRad: 0.14, ringButtonPx: 36 }, // (a sketch plane made facing the camera snaps to a world axis within this)
   // the mover orb (`app/src/shared/settings.ts` gizmo): its size as a share of the view distance, how near the pointer must be to take a handle, and how its lines look

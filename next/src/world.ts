@@ -11,6 +11,8 @@ import type { V3 } from "./vec.ts";
 import type { OrbDrawing } from "./orbcontrol.ts";
 import { drawOrb } from "./orbdraw.ts";
 import { createCutDraw, type CutDrawing } from "./cutdraw.ts";
+import { drawLines } from "./sketchdraw.ts";
+import type { DrawLine } from "./sketchcontrol.ts";
 
 const vec = (v: V3) => new THREE.Vector3(v[0], v[1], v[2]);
 const rgb = (c: [number, number, number]) => new THREE.Color().setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace);
@@ -36,6 +38,8 @@ export interface Drawing {
   orb?: OrbDrawing | null;
   /** The cut: everything on the side `n` points to is not drawn. */
   cut?: CutDrawing | null;
+  /** The sketch's lines: figures, what the tool would make, the pointer's cross. */
+  lines?: DrawLine[];
   cam: Cam;
   /** The scale of what the eye is among: the depth range of the drawing is a multiple of it. */
   depth: number;
@@ -194,6 +198,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
       } else disc.visible = false;
       cut.update(d.cut ?? null);
       drop();
+      if (d.lines) drawLines(dyn, d.lines, d.w, d.h);
       if (d.orb) drawOrb(dyn, d.orb, d.w, d.h);
       renderer.render(scene, camera);
     },

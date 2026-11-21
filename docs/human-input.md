@@ -6096,3 +6096,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1461 — 2026-11-21 — directive
 > lets not have any options to select move it yet, lets just build a really simple one that cuts. It should cut from the direction of camera but only once and from the perspective of the camera after going orthographic to the sketch plane. it should not re-cut if the camera rotates around to the other side later.
+
+## in_1462 — 2026-11-21 — directive
+> Okay now lets try to build a sketching system. The menu should be just like in the other prototype, lets have the pencil, and then all the sub menu items of different sketching tools, but for now lets just start with line rectangle and circle.

@@ -4,7 +4,7 @@
 import { settings } from "./settings.ts";
 import { iconSvg } from "./icons.ts";
 
-export interface MenuItem { id: string; label: string; icon: string; enabled?: boolean; note?: string }
+export interface MenuItem { id: string; label: string; icon: string; enabled?: boolean; note?: string; /** a bubble that opens a ring of its own */ children?: MenuItem[] }
 
 const MS = 280, STAGGER = 22, GAP = 8; // the unfolding, and the room between neighbours
 /** The one round button of every control over the view: white, a light grey edge, a soft shadow; pointing at it lights its edge teal. */
@@ -22,35 +22,50 @@ export function roundButton(o: { icon?: string; text?: string; size?: number; ti
   return b;
 }
 
+const BACK: MenuItem = { id: "back", label: "Back", icon: "cross" };
+const depth = (items: MenuItem[]): number => Math.max(items.length + 1, ...items.map((i) => (i.children ? depth(i.children) : 0)));
+
+/** The ring (the prototype's): round buttons about the click, which unfold from it; a button with items of its own opens them as a new ring in the same place, with a way back. */
 export function createMenu(host: HTMLElement, choose: (id: string) => void) {
   const SIZE = settings.planes.ringButtonPx;
-  let el: HTMLElement | null = null;
-  const close = () => { el?.remove(); el = null; document.removeEventListener("pointerdown", outside, true); };
-  const outside = (e: Event) => { if (el && !el.contains(e.target as Node)) close(); };
+  let root: HTMLElement | null = null, C = { x: 0, y: 0, R: 0 }, path: MenuItem[][] = [], shown: HTMLElement[] = [];
+  const close = () => { root?.remove(); root = null; shown = []; document.removeEventListener("pointerdown", outside, true); };
+  const outside = (e: Event) => { if (root && !root.contains(e.target as Node)) close(); };
+  const spot = (a: number) => ({ left: Math.round(C.x + Math.cos(a) * C.R - SIZE / 2), top: Math.round(C.y + Math.sin(a) * C.R - SIZE / 2) });
+  /** Show the ring at the end of the path, its buttons coming out of `from` (null: out of the click). */
+  function draw(from: { left: number; top: number } | null) {
+    const old = shown, items = path[path.length - 1]!, slots = path.length > 1 ? [BACK, ...items] : items, start = from ?? { left: Math.round(C.x - SIZE / 2), top: Math.round(C.y - SIZE / 2) };
+    old.forEach((b) => { b.style.pointerEvents = "none"; b.style.transition = `left ${MS}ms,top ${MS}ms,opacity ${MS * 0.7}ms,transform ${MS}ms`; b.style.left = `${start.left}px`; b.style.top = `${start.top}px`; b.style.opacity = "0"; b.style.transform = "scale(.4)"; });
+    setTimeout(() => old.forEach((b) => b.remove()), MS);
+    shown = slots.map((it, k) => {
+      const a = -Math.PI / 2 + (k / slots.length) * Math.PI * 2, live = it.enabled !== false, at = spot(a);
+      const b = roundButton({ icon: it.icon, size: SIZE, title: it.note ? `${it.label} (${it.note})` : it.label, live });
+      b.style.position = "absolute"; b.style.left = `${start.left}px`; b.style.top = `${start.top}px`; b.style.opacity = "0"; b.style.transform = "scale(.4)";
+      b.addEventListener("pointerdown", (e) => e.stopPropagation());
+      if (live) b.addEventListener("pointerup", (e) => {
+        e.stopPropagation();
+        if (it.id === "back") { path.pop(); draw(at); } else if (it.children) { path.push(it.children); draw(at); } else { close(); choose(it.id); }
+      });
+      root!.appendChild(b);
+      requestAnimationFrame(() => { // (the buttons come out one after the other)
+        const t = `${MS}ms cubic-bezier(.2,.8,.2,1) ${k * STAGGER}ms`;
+        b.style.transition = `left ${t},top ${t},opacity ${MS}ms ${k * STAGGER}ms,transform ${t}`;
+        b.style.left = `${at.left}px`; b.style.top = `${at.top}px`; b.style.opacity = live ? "1" : "0.38"; b.style.transform = "scale(1)";
+      });
+      return b;
+    });
+  }
   return {
-    isOpen: () => el !== null,
+    isOpen: () => root !== null,
     close,
     open(x: number, y: number, items: MenuItem[]) {
       close();
-      const R = Math.max(SIZE + 14, ((SIZE + GAP) * (items.length + 1)) / (2 * Math.PI)), m = R + SIZE / 2 + 6; // (far enough out that neighbours do not touch)
-      const cx = Math.min(Math.max(x, m), innerWidth - m), cy = Math.min(Math.max(y, m), innerHeight - m); // (the whole ring is kept on the screen)
-      const root = document.createElement("div");
-      root.style.cssText = `position:fixed;left:0;top:0;width:0;height:0;z-index:20;user-select:none;-webkit-user-select:none`;
+      const R = Math.max(SIZE + 14, ((SIZE + GAP) * depth(items)) / (2 * Math.PI)), m = R + SIZE / 2 + 6; // (far enough out that neighbours do not touch, the same for every ring; the whole ring is kept on the screen)
+      C = { x: Math.min(Math.max(x, m), innerWidth - m), y: Math.min(Math.max(y, m), innerHeight - m), R };
+      root = document.createElement("div");
+      root.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;z-index:20;user-select:none;-webkit-user-select:none";
       root.addEventListener("contextmenu", (e) => e.preventDefault());
-      items.forEach((it, k) => {
-        const a = -Math.PI / 2 + (k / items.length) * Math.PI * 2, live = it.enabled !== false;
-        const b = roundButton({ icon: it.icon, size: SIZE, title: it.note ? `${it.label} (${it.note})` : it.label, live });
-        const at = { left: Math.round(cx + Math.cos(a) * R - SIZE / 2), top: Math.round(cy + Math.sin(a) * R - SIZE / 2) };
-        b.style.position = "absolute"; b.style.left = `${Math.round(cx - SIZE / 2)}px`; b.style.top = `${Math.round(cy - SIZE / 2)}px`; b.style.opacity = "0"; b.style.transform = "scale(.4)";
-        b.addEventListener("pointerdown", (e) => e.stopPropagation());
-        if (live) b.addEventListener("pointerup", (e) => { e.stopPropagation(); close(); choose(it.id); });
-        root.appendChild(b);
-        requestAnimationFrame(() => { // (the buttons come out of the click's place, one after the other)
-          b.style.transition = `left ${MS}ms cubic-bezier(.2,.8,.2,1) ${k * STAGGER}ms,top ${MS}ms cubic-bezier(.2,.8,.2,1) ${k * STAGGER}ms,opacity ${MS}ms ${k * STAGGER}ms,transform ${MS}ms cubic-bezier(.2,.8,.2,1) ${k * STAGGER}ms`;
-          b.style.left = `${at.left}px`; b.style.top = `${at.top}px`; b.style.opacity = live ? "1" : "0.38"; b.style.transform = "scale(1)";
-        });
-      });
-      el = root; host.appendChild(root);
+      host.appendChild(root); path = [items]; draw(null);
       setTimeout(() => document.addEventListener("pointerdown", outside, true));
     },
   };
