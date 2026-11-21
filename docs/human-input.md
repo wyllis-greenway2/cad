@@ -5940,3 +5940,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1414 — 2026-11-21 — directive
 > zoom doesn't work in ortho mode and it seems to pull it out of ortho slightly.
+
+## in_1415 — 2026-11-21 — directive
+> [a screenshot of the grid, zoomed in on a corner of a box: the grid lines are broken into hatched, jagged strokes] if you zoom in the grid becomes fuzzy

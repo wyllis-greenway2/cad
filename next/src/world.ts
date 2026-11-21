@@ -31,7 +31,7 @@ export interface Drawing {
   /** The distance the picture must reach: the far plane (a thing's far wall, seen from inside, must not be cut off). */
   reach: number;
   /** The grid's spacing, how far it has gone toward the next one, and how far the fog reaches: from the view's distance to the plane (see `gridLevel`). */
-  grid: { step: number; blend: number; fog: number };
+  grid: { step: number; blend: number; fog: number; span: number };
   w: number; h: number;
   plane: 0 | 1 | 2; // the world plane that is on: its grid is shown, its pane is lit
   paneHover: 0 | 1 | 2 | null;
@@ -82,19 +82,20 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
 
   // the grid of the plane that is on: one big quad with the lines drawn by the shader
   const uni = {
-    uStep: { value: 10 }, uBlend: { value: 0 }, uSpan: { value: 1000 }, uCentre: { value: new THREE.Vector2() },
+    uStep: { value: 10 }, uBlend: { value: 0 }, uSpan: { value: 1000 }, uFoot: { value: new THREE.Vector2() }, uPhase: { value: new THREE.Vector2() },
     uEye: { value: new THREE.Vector3() }, uFog: { value: new THREE.Vector2(1, 2) }, uColor: { value: rgb(settings.theme.grid) },
     uAlpha: { value: new THREE.Vector2(settings.theme.minorAlpha, settings.theme.majorAlpha) },
   };
   const grid = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
     uniforms: uni, transparent: true, depthWrite: false, side: THREE.DoubleSide,
-    vertexShader: `uniform vec2 uCentre; uniform float uSpan; varying vec2 vL; varying vec3 vW;
-      void main() { vL = position.xy * uSpan + uCentre; vec4 w = modelMatrix * vec4(vL, 0.0, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: `uniform float uStep; uniform float uBlend; uniform vec3 uEye; uniform vec2 uFog; uniform vec3 uColor; uniform vec2 uAlpha; varying vec2 vL; varying vec3 vW;
+    // the lines are worked out from the eye's foot on the plane: the picture's own numbers are small near the eye however far the eye is from the origin (`uPhase` is where the foot is within a hundred spacings, worked out exactly on the CPU), so the lines stay sharp at any zoom
+    vertexShader: `uniform vec2 uFoot; uniform vec2 uPhase; uniform float uSpan; varying vec2 vP; varying vec3 vW;
+      void main() { vec2 l = position.xy * uSpan; vP = l + uPhase; vec4 w = modelMatrix * vec4(uFoot + l, 0.0, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: `uniform float uStep; uniform float uBlend; uniform vec3 uEye; uniform vec2 uFog; uniform vec3 uColor; uniform vec2 uAlpha; varying vec2 vP; varying vec3 vW;
       float lines(vec2 p) { vec2 d = fwidth(p); vec2 g = abs(fract(p - 0.5) - 0.5) / max(d, 1e-6); float l = 1.0 - min(min(g.x, g.y), 1.0); return l * (1.0 - smoothstep(0.3, 0.8, max(d.x, d.y))); }
       void main() {
         // three spacings, each ten times the last: as the view goes from one to the next, the finest fades out, the middle takes the strength of the finest and the coarsest rises to the strength of the middle
-        float a0 = lines(vL / uStep), a1 = lines(vL / (uStep * 10.0)), a2 = lines(vL / (uStep * 100.0));
+        float a0 = lines(vP / uStep), a1 = lines(vP / (uStep * 10.0)), a2 = lines(vP / (uStep * 100.0));
         float fade = 1.0 - clamp((distance(vW, uEye) - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
         float alpha = max(max(a0 * uAlpha.x * (1.0 - uBlend), a1 * mix(uAlpha.y, uAlpha.x, uBlend)), a2 * uAlpha.y * uBlend) * fade;
         if (alpha < 0.004) discard;
@@ -139,8 +140,10 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
       const big = d.grid.step * 100;
       const [i, j] = across(d.plane);
       grid.quaternion.setFromRotationMatrix(basisOf(d.plane));
-      uni.uStep.value = d.grid.step; uni.uBlend.value = d.grid.blend; uni.uSpan.value = d.grid.fog * 5 + big;
-      uni.uCentre.value.set(Math.round(c.eye[i] / big) * big, Math.round(c.eye[j] / big) * big);
+      const foot = [c.eye[i]!, c.eye[j]!];
+      uni.uStep.value = d.grid.step; uni.uBlend.value = d.grid.blend; uni.uSpan.value = d.grid.span + big;
+      uni.uFoot.value.set(foot[0]!, foot[1]!);
+      uni.uPhase.value.set(foot[0]! - Math.floor(foot[0]! / big) * big, foot[1]! - Math.floor(foot[1]! / big) * big);
       uni.uEye.value.copy(camera.position); uni.uFog.value.set(d.grid.fog * 0.6, d.grid.fog * 4);
       axes.visible = d.axesShown; gizmo.scale.setScalar(d.gizmoScale);
       // the panes: the one that is on in the one teal, the one under the pointer lighter; none at all in a straight view
