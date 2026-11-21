@@ -8,7 +8,8 @@ import { buildGraph } from "../../app/src/compiler/graph.ts";
 await kernel.init();
 const dir = new URL("../../app/test/fixtures/", import.meta.url);
 const budgetMs = Number(process.argv[2] ?? 300000), EDITS = Number(process.argv[3] ?? 12), only = process.argv[4];
-const out = new URL("./results.jsonl", import.meta.url); writeFileSync(out, "");
+import { mkdirSync } from "node:fs"; mkdirSync(new URL("./results/", import.meta.url), { recursive: true });
+const out = new URL(`./results/${only ?? "all"}.jsonl`, import.meta.url); writeFileSync(out, "");
 
 let seed = 12345; const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -47,7 +48,7 @@ function perturb(g: any): { op: string; type: string; key: string; before: any; 
   return { op: op.id, type: op.type, key, before, after: clone(op[key]) };
 }
 
-const files = readdirSync(dir).filter((f) => f.endsWith(".cad.json") && (!only || f.includes(only))).sort();
+const files = readdirSync(dir).filter((f) => f.endsWith(".cad.json") && (!only || f === only)).sort();
 const t0 = performance.now();
 const structure: any[] = []; let edits = 0, byOutcome: Record<string, number> = {}; const failByType: Record<string, number> = {}, editByType: Record<string, number> = {};
 console.log(`${files.length} fixtures`);

@@ -1,0 +1,11 @@
+import { readFileSync } from "node:fs";
+import { kernel } from "../../app/src/compiler/kernel/index.ts";
+import { openSession } from "../../app/src/interaction/session.ts";
+import { buildGraph } from "../../app/src/compiler/graph.ts";
+await kernel.init();
+const f = process.argv[2];
+const o: any = openSession(kernel, readFileSync(new URL(`../../app/test/fixtures/${f}`, import.meta.url), "utf8"));
+const g = buildGraph(o.value.history.scene).graph;
+const r: any = kernel.evaluate(JSON.parse(JSON.stringify(g)));
+console.log(f, "session's own outcome errors:", (o.value.outcome.kernel?.ops ?? []).filter((x: any) => x.error).length, "| fresh evaluate errors:", r.ops.filter((x: any) => x.error).length, "of", r.ops.length);
+for (const x of r.ops.filter((x: any) => x.error).slice(0, 4)) console.log("  ", x.id, x.type, String(x.error).slice(0, 160));
