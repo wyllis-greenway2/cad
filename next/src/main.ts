@@ -6,12 +6,12 @@ import { attach, fineGain } from "./input.ts";
 import { createGame } from "./game.ts";
 import { createWorld } from "./world.ts";
 import { createUi } from "./ui.ts";
-import { demoScene, emptyScene, hitThings } from "./scene.ts";
+import { demoScene, emptyScene, hitThings, oneScene } from "./scene.ts";
 import { depthAhead, lastSeen, nothingInView, pickPane, pivotFor, planeHit, resetTarget } from "./sense.ts";
 import { add, clamp, dot, len, scale, sub, ease, type V3 } from "./vec.ts";
 
 const params = new URLSearchParams(location.search);
-const model = params.get("boxes") === "0" ? emptyScene() : demoScene(); // (?boxes=0: an empty model, to see what is there with nothing in it)
+const model = params.get("boxes") === "0" ? emptyScene() : params.get("boxes") === "1" ? oneScene() : demoScene(); // (?boxes=0: an empty model; ?boxes=1: one box at the origin)
 const canvas = document.getElementById("view") as HTMLCanvasElement;
 const ring = document.getElementById("ring")!;
 const world = createWorld(canvas, model);
@@ -73,7 +73,7 @@ attach(canvas, {
     const { w, h } = size();
     const r = rayAt(x, y), hit = hitThings(model, c.eye, r);
     const t = hit ? hit.t : depthAhead(model, c, cam.forward(c));
-    drag = { kind, pivot: pivotFor(model, c, w, h), depth: Math.max(settings.view.minSurfaceMm, t * dot(hit ? r : cam.forward(c), cam.forward(c))), debt: 0 };
+    drag = { kind, pivot: pivotFor(model, c, size().w, size().h), depth: Math.max(settings.view.minSurfaceMm, t * dot(hit ? r : cam.forward(c), cam.forward(c))), debt: 0 };
   },
   orbit(dx, dy) {
     if (game.on || !drag || glide) return;

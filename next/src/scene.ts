@@ -5,6 +5,7 @@ export interface Thing { id: string; lo: V3; hi: V3 }
 export interface Scene { things: Thing[] }
 
 export const emptyScene = (): Scene => ({ things: [] });
+export const oneScene = (): Scene => ({ things: [{ id: "a", lo: [-20, -20, 0], hi: [20, 20, 30] }] });
 export const demoScene = (): Scene => ({
   things: [
     { id: "a", lo: [20, -60, 0], hi: [60, -30, 25] },

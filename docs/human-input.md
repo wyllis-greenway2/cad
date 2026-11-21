@@ -5901,3 +5901,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1401 — 2026-11-21 — directive
 > no lets not write the tests until after we build the slice and I confirm it is right. So now should we build this part from scratch? i will test it, once it is right, we write down the final requirements specs, and the tests
 (Built as the first section in `next/`; no tests until the human confirms it.)
+
+## in_1402 — 2026-11-21 — directive
+> okay the rotate in non game mode doesn't quite feel right, how is it different from the prototype?

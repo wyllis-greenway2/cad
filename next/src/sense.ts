@@ -27,15 +27,19 @@ export function depthAhead(sc: Scene, c: Cam, ray: V3): number {
   return Math.max(isFinite(ahead) ? ahead : away, settings.view.minSurfaceMm);
 }
 
-/** The point an orbit turns about: the centre of the nearest thing in front of the eye that is in view; with none, the point straight ahead at the depth ahead. */
+/**
+ * The point an orbit turns about: the centre of the thing nearest the line of sight (how far its centre is from the line the screen's middle looks along), among those whose centre is on the screen (`in_291`:
+ * turning about a point between two things far apart threw the one being looked at off the screen). With none, the point straight ahead at the depth ahead (the point looked at).
+ */
 export function pivotFor(sc: Scene, c: Cam, w: number, h: number): V3 {
   const f = forward(c);
-  let best: { d: number; p: V3 } | null = null;
+  let best: { off: number; p: V3 } | null = null;
   for (const t of sc.things) {
-    const p = centreOf(t), rel = sub(p, c.eye);
-    if (dot(rel, f) <= 0 || !inView(c, w, h, t)) continue;
-    const d = len(rel);
-    if (!best || d < best.d) best = { d, p };
+    const p = centreOf(t), rel = sub(p, c.eye), s = dot(rel, f);
+    const at = project(c, p, w, h);
+    if (s <= 0 || at.x < 0 || at.x > w || at.y < 0 || at.y > h) continue; // (behind the eye or off the screen: not in view; turning about it would swing what is looked at out of the picture)
+    const off = len(sub(rel, scale(f, s)));
+    if (!best || off < best.off) best = { off, p };
   }
   return best ? best.p : add(c.eye, scale(f, depthAhead(sc, c, f)));
 }
