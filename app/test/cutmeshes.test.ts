@@ -91,12 +91,12 @@ function notchDrawn(R: number, a0: number, off: number): boolean {
   return Object.keys(s.outcome.errors).length === 0 && Math.abs(enclosed(k as never) - k.volume!) <= 0.01 * k.volume!;
 }
 
-test("corners that a snap puts exactly on a rim, with no relation, are drawn whole at 40 angles (`dec_exact_rim_numbers`, `in_1387`)", () => {
+test("corners that a snap puts exactly on a rim, with no relation, are drawn whole at 40 angles (`dec_exact_rim_numbers`, `in_1388`)", () => {
   const bad = Array.from({ length: 40 }, (_, k) => 0.1 + 0.13 * k).filter((a) => !notchDrawn(12.5, a, 0));
   assert.deepEqual(bad, [], `the cuts at these angles left a face undrawn`);
 });
 
-test("corners an older file has a few hundred-thousandths inside the rim are put on it: drawn whole at 20 angles (`in_1387`)", () => {
+test("corners an older file has a few hundred-thousandths inside the rim are put on it: drawn whole at 20 angles (`in_1388`)", () => {
   const bad = Array.from({ length: 20 }, (_, k) => 0.2 + 0.31 * k).filter((a) => !notchDrawn(12.5, a, 1.9e-5));
   assert.deepEqual(bad, [], `the cuts at these angles left a face undrawn`);
 });

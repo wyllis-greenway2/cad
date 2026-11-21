@@ -5846,5 +5846,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (asked: the browser check of the exact rim numbers: snap corners to a cylinder's rim by hand, cut, and see that the top face draws)
 
 ## in_1387 — 2026-11-21 — directive
+> okay lets try something new. So how about single click always selects something like it does now, face edge, verticy etc. Double click always selects body if there is a body to select. Then lets get rid of the eye and the Then lets make the eye just always put a cross section plane on the selected thing (not swap between different view types), and lets offer a pencil icon that always goes into sketch mode and normals to the plane and also applies a cross section plane as well (clicking the eye again turns the cross section plane on and off in this mode)
+(a click selects the part; a double click always the body when there is one; the ring's eye is one action, a cross section plane on what is selected; the pencil always begins sketch mode square to the plane with the cut on, and the eye then turns the cut on and off; the sentence "get rid of the eye and the" was left unfinished and is read as: the list of other ways of looking under the eye goes)
+
+## in_1388 — 2026-11-21 — directive
 > yes build the geometric test
 (`dec_exact_rim_numbers` is changed as proposed in it: a corner within a ten-thousandth of a mm of a body's circle in the sketch's plane is put on that circle exactly and sent unrounded, instead of the relation being the test)

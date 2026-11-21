@@ -362,7 +362,7 @@ test("the right-click ring offers all the operations around the click; nothing o
   const f = frameOf(st, { w: 800, h: 600 });
   assert.ok(!f.annotations.some((a) => ["pushpull", "sketch", "edge", "rect"].includes(a.kind)), "a left click shows constraints and dimensions only");
   const ring = flat(reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!.items.filter((i) => i.id !== "constraints")); // (the constraints have their own test: they are all always there, `in_666`)
-  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:polygon", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset", "op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:add", "combine:subtract", "combine:intersect", "combine:parts", "fab:material", "tool:fasteners", "tool:gear", "tool:ring", "tool:rack", "tool:planetary", "tool:bevel", "tool:spiral", "tool:hypoid", "tool:crown", "tool:face", "tool:worm", "tool:wormwheel", "tool:clock", "tool:clockring", "tool:clockrack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "model:ballbearing", "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "model:piston", "model:rod", "model:wheel", "model:wheelcut", "model:keyhole", "model:keyshaft", "keyway:mesh", "keyway:key", "tool:geneva:model", "op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue", "op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup", "look", "view:game", "view:section", "view:hide", "view:wireframe", "view:constraints", "view:cuts", "tape:measure", "delete"]);
+  assert.deepEqual(ring.map((i) => i.id), ["tool:rect", "tool:circle", "tool:polygon", "tool:line", "tool:arc", "tool:spline", "tool:trim", "op:offset", "op:pushpull", "op:edge", "op:hollow", "op:revolve", "op:loft", "op:sweep", "op:scale", "combine:add", "combine:subtract", "combine:intersect", "combine:parts", "fab:material", "tool:fasteners", "tool:gear", "tool:ring", "tool:rack", "tool:planetary", "tool:bevel", "tool:spiral", "tool:hypoid", "tool:crown", "tool:face", "tool:worm", "tool:wormwheel", "tool:clock", "tool:clockring", "tool:clockrack", "tool:gt2", "tool:gt3", "tool:htd5", "tool:htd8", "tool:sprocket", "tool:isosprocket", "model:ballbearing", "model:gearbox", "model:differential", "model:cycloidal", "model:engine", "model:piston", "model:rod", "model:wheel", "model:wheelcut", "model:keyhole", "model:keyshaft", "keyway:mesh", "keyway:key", "tool:geneva:model", "op:move", "op:rotate", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue", "op:copy", "clipboard:paste", "op:mirror", "op:linear", "op:circular", "repeat:path", "select:similar", "select:bodies", "select:faces", "select:edges", "select:vertices", "select:group", "select:ungroup", "view:eye", "delete"]);
   assert.deepEqual(ring.filter((i) => !i.enabled).map((i) => i.id), ["combine:add", "combine:subtract", "combine:intersect", "combine:parts", "fab:material", "keyway:mesh", "keyway:key", "motion:play", "motion:link", "motion:pivot", "motion:unpivot", "motion:glue", "motion:unglue", "clipboard:paste", "repeat:path", "select:group", "select:ungroup", "delete"], "an operation that needs more than a face is still offered and waits for it (`in_464`); one face is nothing to group and is no group to break; Path repeat needs a figure or a body and a path (`in_841`) while Fastener Holes works on a flat face (`in_813`); a face cannot be deleted (fillet / chamfer takes a flat face too now, `in_257`, as offset does, `in_199`)");
   assert.ok(ring.every((i) => i.icon));
   const drawing = reduce(st, { type: "runAction", id: "tool:circle" }, env);
@@ -424,7 +424,7 @@ test("an arc's other end is level or upright with its first end when it is near,
   assert.ok(scene(st.session).relations.some((r) => r.kind === "horizontal"), "the arc's chord is held level");
 });
 
-test("a double click on a sketch drawn on a face of a block turns to it, like a sketch in free space (`in_1385`)", () => {
+test("a triple click on a sketch drawn on a face of a block turns to it, like a sketch in free space", () => {
   let st = drawBox(top(), 20); // 40 x 20 block from (3,3)
   st = { ...st, cam: homeCamera() };
   st = reduce(st, { type: "begin", name: "rect" }, env);
@@ -433,7 +433,7 @@ test("a double click on a sketch drawn on a face of a block turns to it, like a 
   const fig = Object.values(scene(st.session).parts).find((p) => p.kind === "face" && p.origin === "drawn")!;
   assert.ok(fig);
   st = click({ ...st, tool: null, resume: null }, [16, 15.5, 20], 1);
-  st = click(st, [16, 15.5, 20], 2); // (away from the arrow that shows by itself at the middle)
+  st = click(st, [16, 15.5, 20], 3); // (away from the arrow that shows by itself at the middle)
   assert.ok(st.anim, "the view is turning to the plane");
 });
 

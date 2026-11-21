@@ -38,7 +38,7 @@ import { createState, reduce, advance, stopView, afterTakenBack } from "./intera
 import { frameOf } from "./interaction/frame.ts";
 import { requestOverlap } from "./interaction/overlap.ts";
 import { clearanceBetween } from "./interaction/clearance.ts";
-import { appRows, fabricateRows, isScrollMode } from "./interaction/appmenu.ts";
+import { appRows, fabricateRows, viewRows, isScrollMode } from "./interaction/appmenu.ts";
 import { createSettings } from "./ui/settings.ts";
 import type { Change } from "./ui/settings.ts";
 import { keysFromText, keysToText } from "./interaction/preferences.ts";
@@ -183,6 +183,7 @@ const menu = createMenu(document.body, (id) => {
   else if (id === "constraints") dispatch({ type: "runAction", id: "constraints" });
   else if (id === "export") void exportDialogFlow();
   else if (id === "import") void importDialogFlow();
+  else if (id === "view") { menu.show(menuAt[0], menuAt[1], [], viewRows({ wireframe: state.wireframe, constraints: state.showAllConstraints, cuts: state.showCuts })); } // (a list of its own, in the same place: what was under the eye, `in_1387`)
   else if (id === "fabricate") { menu.show(menuAt[0], menuAt[1], [], fabricateList()); } // (a list of its own, in the same place: Fabricate, `in_1083`)
   else if (id === "laser") void laserDialogFlow();
   else if (id === "laserTable") void laserTableFlow();

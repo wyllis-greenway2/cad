@@ -266,17 +266,8 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     ...CATEGORIES.slice(0, 1).map((c) => category(c.id, c.label, c.icon, c.items.filter((i) => (i !== "select:add" && i !== "select:drag") || view.touch || adding || (i === "select:drag" && view.dragSelect)).map(build))),
     category("constraints", "Constraints", "constraint", groups), // (a hard body is a constraint on every body that meets it, `in_490`; the constraints are one flat list, `in_969`)
     ...CATEGORIES.slice(1).map((c) => category(c.id, c.label, c.icon, c.items.filter((i) => (i !== "select:add" && i !== "select:drag") || view.touch || adding || (i === "select:drag" && view.dragSelect)).map(build))),
-    // the eye: how the model is looked at (`in_386`): straight at a surface, as wireframe, and the tape measure
-    category("view", "View", "eye", [
-      { id: "look", label: "Look at", icon: "look", enabled: !!target, why: target ? null : "select a plane or a face, or right-click on one" },
-      { id: "view:game", label: "Game mode", icon: "game", enabled: true, why: null },
-      { id: "view:section", label: "Section", icon: "section", enabled: true, why: null }, // (one item: a new plane, cutting; its icons change that, `in_466`)
-      { id: "view:hide", label: "Hide body", icon: "eyeOff", enabled: selectedBodies(sc, sel).length > 0, why: "select a body to hide (a hidden body comes back with its eye or from the Bodies list)" }, // (the eye that hovered on a body is here now, `in_697`)
-      { id: "view:wireframe", label: "Wireframe", icon: "wireframe", enabled: true, why: null },
-      { id: "view:constraints", label: view.constraints ? "Hide constraints" : "All constraints", icon: "constraint", enabled: true, why: null }, // (every constraint of the whole world, not only those of what is selected, `in_1157`)
-      { id: "view:cuts", label: view.cuts ? "Hide cuts" : "Show cuts", icon: "cutghost", enabled: true, why: null }, // (the tool of each cut as a ghost body that can be picked and moved, `dec_cut_tools`, `in_1348`)
-      { id: "tape:measure", label: "Tape measure", icon: "dimension", enabled: true, why: null },
-    ]),
+    // the eye (`in_1387`): one action, not a list: a cross section plane on what is selected (in sketch mode it turns the cut on and off); the other ways of looking are in the ⋯ list under View
+    { id: "view:eye", label: "Cross section", icon: "eye", enabled: true, why: null },
     // delete: one item with no list under it, that deletes what is selected, or the thing the right click was on when nothing is (`in_1281`); undo and redo are in the ⋯ list
     { id: "delete", label: "Delete", icon: "trash", enabled: !!del?.enabled || (!sel.length && !!overDel?.enabled), why: del?.why ?? "select something to delete, or right click on it" },
   ];
@@ -506,17 +497,6 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
     for (const r of refs) { got = cutFillOf(sc, r); if (typeof got !== "string") break; }
     if (typeof got === "string") return { ...base, session: { ...sess, message: got } };
     return { ...base, session: { ...sess, message: null }, tool: { ...t, plane: worldRef("XY"), points: [got.center], cursor: got.center, sized: true, fill: { center: got.center, normal: got.normal, cut: got.cut } } };
-  }
-  // a double click on a surface with a sketch tool on (the first click of it has put down the first point): the sketch goes onto that surface and the view turns square to it, cut along it (`in_1385`)
-  if (i.count >= 2 && !i.shift && t.points.length === 1 && !t.sized && ["rect", "circle", "polygon", "line", "arc", "spline"].includes(t.kind)) {
-    const under = refs.find((r) => { const q = sc.parts[r]; return q?.kind === "plane" && q.origin !== "world"; }) ?? drawingPlane(sc, refs); // (a surface under the pointer before an edge of it, which belongs to its own plane)
-    const pl = under ? (lookup(sc)(under) as Plane | undefined) : undefined;
-    if (pl?.kind === "plane") {
-      const { plane, command } = planeForDrawing(sc, pl.ref);
-      const session = command ? run(sess, command) : sess;
-      const turned = lookup(sceneOf(session))(plane) as Plane;
-      return turnToPlane({ ...base, session: { ...session, click: { ...session.click, selection: [plane] }, message: null }, tool: { ...t, plane, points: [], cursor: null, typed: ["", ""], hints: [], guides: undefined, ends: undefined } }, turned, false, env.now);
-    }
   }
   if (!t.points.length) {
     // the plane chosen from the pencil bubble, else the surface under the click takes the drawing, from wherever the camera is; with none under it, the selected plane does
@@ -822,20 +802,10 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
     const pl = planeOf(get, selectable[0]!);
     if (pl) return turnToPlane(withSession(base, { ...sess, click: { selection: [selectable[0]!], spot: sess.click.spot }, message: null }), pl, false, env.now);
   }
-  // a double click on a flat face of a body (or on a plane) goes normal to it, cut along it, and it is the plane that is sketched on (`in_1378`, `in_1385`); the whole object is the third click (`in_070` had it the other way about)
-  const flatFace = onePlane && selectable.length > 0 && selectable.every((r) => { const q = sc.parts[r]; return (q?.kind === "plane" && !(q.curved || q.round || q.rounded)) || (q?.kind === "face" && q.origin === "drawn"); }) && selectable.some((r) => sc.parts[r]?.kind === "plane"); // (a figure drawn on the face lies on the same surface)
-  if (count === 2 && flatFace) {
-    const pl = planeOf(get, selectable[0]!);
-    if (pl) return turnToPlane(withSession(base, { ...sess, click: { selection: [selectable[0]!], spot: sess.click.spot }, message: null }), pl, false, env.now);
-  }
-  if (count >= 3 && flatFace) {
-    const o = objectOf(sc, selectable.find((r) => sc.parts[r]?.origin === "body") ?? selectable[0]!);
-    const took = o ? withSession(base, { ...sess, click: { selection: [o], spot: sess.click.spot }, message: null }) : base;
-    return o && sc.parts[o]?.kind === "body" ? { ...took, consFor: o } : took; // (three on a flat face: the whole object, as two used to)
-  }
   if ((onePlane || bodyFirst) && count === 2) {
-    // two: the whole object (the view does not turn)
-    const o = selectable[0] ? objectOf(sc, selectable[0]) : undefined;
+    // two: the whole body when there is one under the click, from whatever part of it, a figure drawn on its face too (`in_1387`); the view does not turn
+    const under = selectable.find((r) => sc.parts[r]?.origin === "body") ?? selectable[0];
+    const o = under ? objectOf(sc, under) : undefined;
     const took = o ? withSession(base, { ...sess, click: { selection: [o], spot: sess.click.spot }, message: null }) : base;
     return o && sc.parts[o]?.kind === "body" ? { ...took, consFor: o } : took; // (a double click on a body: its constraints icon is offered in the bar, `in_1160`)
   }

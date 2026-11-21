@@ -168,25 +168,22 @@ test("every way of going normal to a surface cuts to it, and the icon's choice i
   assert.deepEqual(cutN(st), [0, 0, 1], "the ring");
 });
 
-test("two clicks on a flat face turn the view to it and cut along it, three take the whole object (`in_1378`, `in_1385`)", () => {
+test("a double click on a flat face selects the whole body; a third is the face and goes normal to it, cutting along it (`in_1387`)", () => {
   const s = (openSession(kernel, readFileSync(new URL("./fixtures/sketch-two-faces.cad.json", import.meta.url), "utf8")) as unknown as { value: Parameters<typeof createState>[0] }).value;
   let st = createState(s);
-  st = { ...st, cam: { ...st.cam, ...{} } };
   const top = scene(st.session).parts["b/body/f@0,0,1,25" as never] as unknown as { mesh: Float32Array };
   let x = 0, y = 0, z = 0, k = 0;
   for (let i = 0; i + 2 < top.mesh.length; i += 3) { x += top.mesh[i]!; y += top.mesh[i + 1]!; z += top.mesh[i + 2]!; k++; }
   const [px, py] = projector(st.cam, 900, 700).project([x / k, y / k, z / k]);
   for (const count of [1, 2]) st = reduce(st, { type: "click", x: px, y: py, count, shift: false }, env);
-  assert.ok(st.sketchOn, "the cut is on after the second click");
-  assert.deepEqual(st.sketchOn!.n.map((v) => Math.round(v) || 0), [0, 0, 1]);
-  assert.ok(st.anim, "and the view turns to it");
+  assert.equal(scene(st.session).parts[st.session.click.selection[0]!]?.kind, "body", "two take the body");
+  assert.ok(!st.anim && !st.sketchOn, "the view does not turn");
   st = reduce(st, { type: "click", x: px, y: py, count: 3, shift: false }, env);
-  assert.equal(st.session.click.selection.length, 1);
-  assert.equal(scene(st.session).parts[st.session.click.selection[0]!]?.kind, "body", "the third takes the whole object");
+  assert.ok(st.sketchOn, "three: the cut is on");
+  assert.deepEqual(st.sketchOn!.n.map((v) => Math.round(v) || 0), [0, 0, 1]);
+  assert.ok(st.anim, "and the view turns to the face");
 });
 
-
-// ---- `in_1385`: the cut is of the model as it was, the view kept square, a double click with a tool, the pencil
 const sketchState = () => {
   const s = open();
   let st = createState({ ...s, click: { ...s.click, selection: [TOP] as never } });
@@ -228,23 +225,6 @@ test("the bar's button keeps the view square to the sketch plane: not turned by 
   assert.notEqual(JSON.stringify(st.cam), before, "let go: the view turns again");
 });
 
-test("a double click on a surface with a sketch tool on puts the sketch on it and turns the view square to it", () => {
-  const s = open();
-  let st = createState({ ...s, click: { ...s.click, selection: [TOP] as never } });
-  st = reduce(st, { type: "begin", name: "rect" }, env);
-  st = { ...st, cam: st.anim ? st.anim.to : st.cam, anim: null };
-  const pr = projector(st.cam, env.w, env.h);
-  const m = (scene(s).parts["b/body/f@-1,0,0,-23.21" as never] as unknown as { mesh: number[] }).mesh; // (the middle of this wall seen from above lies over a floor of the pocket, lower than the face that is sketched on)
-  const [x, y] = pr.project([0, 1, 2].map((i) => (m[i]! + m[3 + i]! + m[6 + i]!) / 3) as never);
-  st = reduce(st, { type: "click", x, y, count: 1, shift: false }, env);
-  st = reduce(st, { type: "click", x, y, count: 2, shift: false }, env);
-  assert.ok(st.tool && st.tool.points.length === 0, `no half figure is left: ${st.session.message}`);
-  const on = scene(st.session).parts[st.tool!.plane!] as unknown as { at: number[] };
-  assert.ok(Math.abs(on.at[2]! - 2) < 1e-6, "the sketch is on the surface that was double clicked (the pocket's floor, not the face it was on)");
-  assert.ok(st.anim, "the view turns to it");
-  assert.ok(st.sketchOn && Math.abs(st.sketchOn.centre[2] - 2) < 1e-6, "and sketch mode follows it");
-});
-
 test("the pencil of the ring begins sketch mode on the surface under the right click: square to it, cut along it; with none under it nothing happens", () => {
   const s = open();
   const st = { ...createState(s), menu: { x: 0, y: 0, items: [], plane: TOP as never, over: TOP as never } as never };
@@ -255,4 +235,25 @@ test("the pencil of the ring begins sketch mode on the surface under the right c
   assert.ok(turned.menu, "the ring stays open for the tools");
   const none = reduce({ ...st, menu: { x: 0, y: 0, items: [], plane: null, over: null } as never }, { type: "runAction", id: "sketch:open" }, env);
   assert.ok(!none.anim && !none.sketchOn && none.session.click.selection.length === 0);
+});
+
+test("the eye is one action: in sketch mode it turns the cut on and off, else it puts a cross section plane on what is selected; the pencil takes the selected plane when none was clicked (`in_1387`)", () => {
+  const s = open();
+  let st = createState({ ...s, click: { ...s.click, selection: [TOP] as never } });
+  const planes = (t: typeof st) => Object.values(scene(t.session).parts).filter((p) => p.kind === "plane" && !!p.section).length;
+  const before = planes(st);
+  const sec = reduce(st, { type: "runAction", id: "view:eye" }, env);
+  assert.equal(planes(sec), before + 1, "a cross section plane is put on");
+  assert.ok(!sec.sketchOn);
+  // the pencil with no right click on a plane: the selected plane
+  st = reduce(st, { type: "runAction", id: "sketch:open" }, env);
+  assert.ok(st.sketchOn && !st.sketchOn.off, "sketch mode, cut on");
+  assert.ok(st.anim, "square to it");
+  const off = reduce(st, { type: "runAction", id: "view:eye" }, env);
+  assert.equal(off.sketchOn?.off, true, "the eye turns the cut off");
+  assert.equal(planes(off), before, "no plane is added in sketch mode");
+  assert.ok(!reduce(off, { type: "runAction", id: "view:eye" }, env).sketchOn?.off, "and on again");
+  assert.ok(!reduce(off, { type: "runAction", id: "sketch:open" }, env).sketchOn?.off, "the pencil puts the cut on");
+  const none = reduce(createState(s), { type: "runAction", id: "sketch:open" }, env);
+  assert.ok(!none.sketchOn && /select a plane or a face/.test(none.session.message ?? ""), "with nothing it says what to select");
 });
