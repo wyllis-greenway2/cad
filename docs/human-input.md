@@ -6022,3 +6022,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1437 — 2026-11-21 — directive
 > the move in the trackpad is cutout when I press awsd
 (Same report as in_1436; no code changed. Waiting for the `?probe=1` counts and the system the human is on.)
+
+## in_1438 — 2026-11-21 — directive
+> the keydown doesnt do anything. The top right move increments on trackpad movement when no w key is pressed, and stops when w key is pressed.
+(With a screenshot of the probe: no key: wheel 0, move 403; key down: wheel 0, move 0. So the page is not told of the trackpad's movement while a key is held: the system or browser drops it.)
