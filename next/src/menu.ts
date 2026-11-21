@@ -1,25 +1,29 @@
-// The right-click ring: round buttons round the pointer (prototype: the ring menu). It closes on Esc, on a click outside it and after one item is chosen.
-// Also the cut plane's small bubble of options and its Orient handles, which are the same kind of thing: a few buttons near a point.
+// The right-click ring and the cut plane's little controls, in the prototype's look (`app/src/ui/ring.ts`, `look.ts`): round white buttons with an icon (the words are in the
+// tooltip), a light shadow, a teal edge when pointed at, faded when they cannot be used, and a ring that unfolds from the click.
+// It closes on Esc, on a click outside it and after one item is chosen.
 import { settings } from "./settings.ts";
+import { iconSvg } from "./icons.ts";
 
-export interface MenuItem { id: string; label: string; enabled?: boolean; note?: string }
+export interface MenuItem { id: string; label: string; icon: string; enabled?: boolean; note?: string }
 
-const css = () => {
-  const P = settings.planes, u = settings.ui;
-  return `.cadring{position:fixed;z-index:20;width:0;height:0}
-    .cadring button,.cadbubble button{font:600 12px ${u.font};color:${u.text};background:#fff;border:1px solid #cfd0d4;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.14)}
-    .cadring button{position:absolute;width:${P.ringButtonPx}px;height:${P.ringButtonPx}px;margin:-${P.ringButtonPx / 2}px 0 0 -${P.ringButtonPx / 2}px;border-radius:50%;padding:2px;line-height:1.15}
-    .cadring button:hover:not(:disabled){background:rgb(${u.tealRgb.join(",")});color:#fff;border-color:transparent}
-    .cadring button:disabled,.cadbubble button:disabled{opacity:.4;cursor:default}
-    .cadring .hub{position:absolute;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#9a9ea6}
-    .cadbubble{position:fixed;z-index:12;display:none;gap:4px;flex-wrap:wrap;max-width:220px;transform:translate(10px,10px);font-family:${u.font}}
-    .cadbubble button{border-radius:14px;padding:4px 10px}
-    .cadbubble button.on{background:rgb(${u.tealRgb.join(",")});color:#fff;border-color:transparent}
-    .cadhandle{position:fixed;z-index:11;display:none;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:rgb(${u.tealRgb.join(",")});border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:grab;touch-action:none}`;
-};
+const MS = 280, STAGGER = 22, GAP = 8; // the unfolding, and the room between neighbours
+/** The one round button of every control over the view: white, a light grey edge, a soft shadow; pointing at it lights its edge teal. */
+export function roundButton(o: { icon?: string; text?: string; size?: number; title?: string; live?: boolean; on?: boolean }): HTMLDivElement {
+  const { size = 30, live = true, on = false } = o, u = settings.ui;
+  const edge = on ? "#1ab8b3" : "#d6d7db", bg = on ? "#e8f7f6" : "#fff";
+  const b = document.createElement("div");
+  if (o.icon) b.innerHTML = iconSvg(o.icon); else if (o.text) b.textContent = o.text;
+  if (o.title) b.title = o.title;
+  b.style.cssText = `box-sizing:border-box;display:flex;align-items:center;justify-content:center;flex:none;width:${size}px;height:${size}px;border-radius:50%;background:${bg};border:1px solid ${edge};color:${u.text};font:700 12px ${u.font};cursor:${live ? "pointer" : "default"};opacity:${live ? 1 : 0.38};user-select:none;-webkit-user-select:none;touch-action:manipulation;box-shadow:0 1px 6px rgba(0,0,0,.14)`;
+  if (live) { // (pointing at one lights its edge, the same everywhere)
+    b.addEventListener("pointerenter", () => { b.style.borderColor = "#1ab8b3"; b.style.background = "#e8f7f6"; });
+    b.addEventListener("pointerleave", () => { b.style.borderColor = edge; b.style.background = bg; });
+  }
+  return b;
+}
 
 export function createMenu(host: HTMLElement, choose: (id: string) => void) {
-  const style = document.createElement("style"); style.textContent = css(); document.head.appendChild(style);
+  const SIZE = settings.planes.ringButtonPx;
   let el: HTMLElement | null = null;
   const close = () => { el?.remove(); el = null; document.removeEventListener("pointerdown", outside, true); };
   const outside = (e: Event) => { if (el && !el.contains(e.target as Node)) close(); };
@@ -28,29 +32,38 @@ export function createMenu(host: HTMLElement, choose: (id: string) => void) {
     close,
     open(x: number, y: number, items: MenuItem[]) {
       close();
-      const R = Math.max(settings.planes.ringRadiusPx, (items.length * settings.planes.ringButtonPx * 1.1) / (2 * Math.PI)), pad = R + settings.planes.ringButtonPx / 2 + 4;
-      const cx = Math.min(Math.max(x, pad), innerWidth - pad), cy = Math.min(Math.max(y, pad), innerHeight - pad);
-      el = document.createElement("div"); el.className = "cadring"; el.style.left = `${cx}px`; el.style.top = `${cy}px`;
-      el.innerHTML = '<div class="hub"></div>';
-      items.forEach((it, i) => {
-        const a = -Math.PI / 2 + (i * 2 * Math.PI) / items.length, b = document.createElement("button");
-        b.textContent = it.label; b.disabled = it.enabled === false; if (it.note) b.title = it.note;
-        b.style.left = `${Math.cos(a) * R}px`; b.style.top = `${Math.sin(a) * R}px`;
-        b.addEventListener("click", (e) => { e.stopPropagation(); close(); choose(it.id); });
-        el!.appendChild(b);
+      const R = Math.max(SIZE + 14, ((SIZE + GAP) * (items.length + 1)) / (2 * Math.PI)), m = R + SIZE / 2 + 6; // (far enough out that neighbours do not touch)
+      const cx = Math.min(Math.max(x, m), innerWidth - m), cy = Math.min(Math.max(y, m), innerHeight - m); // (the whole ring is kept on the screen)
+      const root = document.createElement("div");
+      root.style.cssText = `position:fixed;left:0;top:0;width:0;height:0;z-index:20;user-select:none;-webkit-user-select:none`;
+      root.addEventListener("contextmenu", (e) => e.preventDefault());
+      items.forEach((it, k) => {
+        const a = -Math.PI / 2 + (k / items.length) * Math.PI * 2, live = it.enabled !== false;
+        const b = roundButton({ icon: it.icon, size: SIZE, title: it.note ? `${it.label} (${it.note})` : it.label, live });
+        const at = { left: Math.round(cx + Math.cos(a) * R - SIZE / 2), top: Math.round(cy + Math.sin(a) * R - SIZE / 2) };
+        b.style.position = "absolute"; b.style.left = `${Math.round(cx - SIZE / 2)}px`; b.style.top = `${Math.round(cy - SIZE / 2)}px`; b.style.opacity = "0"; b.style.transform = "scale(.4)";
+        b.addEventListener("pointerdown", (e) => e.stopPropagation());
+        if (live) b.addEventListener("pointerup", (e) => { e.stopPropagation(); close(); choose(it.id); });
+        root.appendChild(b);
+        requestAnimationFrame(() => { // (the buttons come out of the click's place, one after the other)
+          b.style.transition = `left ${MS}ms cubic-bezier(.2,.8,.2,1) ${k * STAGGER}ms,top ${MS}ms cubic-bezier(.2,.8,.2,1) ${k * STAGGER}ms,opacity ${MS}ms ${k * STAGGER}ms,transform ${MS}ms cubic-bezier(.2,.8,.2,1) ${k * STAGGER}ms`;
+          b.style.left = `${at.left}px`; b.style.top = `${at.top}px`; b.style.opacity = live ? "1" : "0.38"; b.style.transform = "scale(1)";
+        });
       });
-      el.addEventListener("contextmenu", (e) => e.preventDefault());
-      host.appendChild(el);
+      el = root; host.appendChild(root);
       setTimeout(() => document.addEventListener("pointerdown", outside, true));
     },
   };
 }
 
 export interface CutView { id: string; anchor: [number, number] | null; handle: [number, number] | null; on: boolean; temp: boolean; orienting: boolean }
+/** The little controls of a selected cut plane: round buttons in a row (the prototype's sheet chips), and while it is being oriented a handle that moves it along its normal. */
 export function createCutUi(host: HTMLElement, on: { toggle(id: string): void; orient(id: string): void; away(id: string): void; sketch(id: string): void; across(id: string, axis: 0 | 1 | 2 | "camera"): void; drag(id: string, dx: number, dy: number): void }) {
-  const bubble = document.createElement("div"); bubble.className = "cadbubble"; host.appendChild(bubble);
-  const handle = document.createElement("div"); handle.className = "cadhandle"; handle.title = "Drag to move the plane along its normal"; host.appendChild(handle);
-  for (const el of [bubble, handle]) el.addEventListener("pointerdown", (e) => e.stopPropagation());
+  const bar = document.createElement("div"); bar.style.cssText = "position:fixed;z-index:12;display:none;gap:6px;flex-wrap:wrap;max-width:204px;transform:translate(10px,10px)"; host.appendChild(bar);
+  const handle = document.createElement("div"); handle.title = "Drag to move the plane along its normal";
+  handle.style.cssText = `position:fixed;z-index:11;display:none;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:rgb(${settings.ui.tealRgb.join(",")});border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:grab;touch-action:none`;
+  host.appendChild(handle);
+  for (const e of [bar, handle]) e.addEventListener("pointerdown", (ev) => ev.stopPropagation());
   let id = "", built = "";
   handle.addEventListener("pointerdown", (e) => {
     handle.setPointerCapture(e.pointerId);
@@ -59,21 +72,26 @@ export function createCutUi(host: HTMLElement, on: { toggle(id: string): void; o
     const up = () => { handle.removeEventListener("pointermove", move); handle.removeEventListener("pointerup", up); };
     handle.addEventListener("pointermove", move); handle.addEventListener("pointerup", up);
   });
-  const button = (label: string, fn: () => void, lit = false) => { const b = document.createElement("button"); b.textContent = label; b.className = lit ? "on" : ""; b.addEventListener("click", (e) => { e.stopPropagation(); fn(); }); bubble.appendChild(b); };
+  const add = (o: { icon?: string; text?: string; title: string; on?: boolean }, fn: () => void) => { const b = roundButton({ ...o, size: 30 }); b.addEventListener("click", (e) => { e.stopPropagation(); fn(); }); bar.appendChild(b); };
   return {
     update(v: CutView | null) {
-      if (!v || !v.anchor) { bubble.style.display = "none"; handle.style.display = "none"; built = ""; return; }
+      if (!v || !v.anchor) { bar.style.display = "none"; handle.style.display = "none"; built = ""; return; }
       id = v.id;
       const sig = `${v.id}${v.on}${v.temp}${v.orienting}`;
       if (sig !== built) {
-        built = sig; bubble.innerHTML = "";
-        button(v.on ? "On" : "Off", () => on.toggle(v.id), v.on);
+        built = sig; bar.innerHTML = "";
+        add({ icon: v.on ? "eye" : "eyeOff", title: v.on ? "It cuts: switch it off" : "It does not cut: switch it on", on: v.on }, () => on.toggle(v.id));
         if (!v.temp) {
-          button("Orient", () => on.orient(v.id), v.orienting); button("Put away", () => on.away(v.id)); button("Sketch here", () => on.sketch(v.id));
-          if (v.orienting) { for (const [l, a] of [["X", 0], ["Y", 1], ["Z", 2]] as const) button(`Across ${l}`, () => on.across(v.id, a)); button("Face camera", () => on.across(v.id, "camera")); }
+          add({ icon: "orient", title: v.orienting ? "Done orienting" : "Orient: move and turn it", on: v.orienting }, () => on.orient(v.id));
+          add({ icon: "sheetPlain", title: "Make a sketch plane here" }, () => on.sketch(v.id));
+          add({ icon: "trash", title: "Put the cut plane away" }, () => on.away(v.id));
+          if (v.orienting) {
+            for (const [l, a] of [["X", 0], ["Y", 1], ["Z", 2]] as const) add({ text: l, title: `Lay it across ${l}` }, () => on.across(v.id, a));
+            add({ icon: "look", title: "Lay it facing the camera" }, () => on.across(v.id, "camera"));
+          }
         }
       }
-      bubble.style.display = "flex"; bubble.style.left = `${v.anchor[0]}px`; bubble.style.top = `${v.anchor[1]}px`;
+      bar.style.display = "flex"; bar.style.left = `${v.anchor[0]}px`; bar.style.top = `${v.anchor[1]}px`;
       if (v.orienting && v.handle) { handle.style.display = "block"; handle.style.left = `${v.handle[0]}px`; handle.style.top = `${v.handle[1]}px`; } else handle.style.display = "none";
     },
   };

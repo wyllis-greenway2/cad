@@ -62,9 +62,12 @@ function choose(id: string) {
   else if (hit?.kind === "cut") cutUi.handlers[id as "cut-toggle"]?.(hit.id!);
 }
 function menuItems(hit: Hit | null): MenuItem[] {
-  const tools = ["Line", "Rectangle", "Circle", "Arc"].map((t) => ({ id: `tool-${t}`, label: t, enabled: false, note: "not built yet" }));
-  if (hit?.kind === "cut") { const k = cutOf(hit.id!)!; return [{ id: "cut-toggle", label: k.on ? "Switch off" : "Switch on" }, ...(k.temp ? [] : [{ id: "cut-orient", label: "Orient" }, { id: "cut-sketch", label: "Sketch plane here" }, { id: "cut-away", label: "Put away" }])]; }
-  return [...(hit?.kind === "face" ? [{ id: "sketch-here", label: "Sketch here" }] : []), ...tools, { id: "sketch-plane", label: "Sketch plane" }, { id: "cut-plane", label: "Cut plane" }];
+  const tools: MenuItem[] = [["Line", "line"], ["Rectangle", "rect"], ["Circle", "circle"], ["Arc", "arc"]].map(([t, i]) => ({ id: `tool-${t}`, label: t!, icon: i!, enabled: false, note: "not built yet" }));
+  if (hit?.kind === "cut") {
+    const k = cutOf(hit.id!)!;
+    return [{ id: "cut-toggle", label: k.on ? "Switch it off" : "Switch it on", icon: k.on ? "eye" : "eyeOff" }, ...(k.temp ? [] : [{ id: "cut-orient", label: "Orient", icon: "orient" }, { id: "cut-sketch", label: "Make a sketch plane here", icon: "sheetPlain" }, { id: "cut-away", label: "Put away", icon: "trash" }])];
+  }
+  return [...(hit?.kind === "face" ? [{ id: "sketch-here", label: "Sketch here", icon: "sketch" }] : []), ...tools, { id: "sketch-plane", label: "Sketch plane", icon: "sheetPlain" }, { id: "cut-plane", label: "Cut plane", icon: "section" }];
 }
 const menu = createMenu(document.body, choose);
 const cutUi = (() => {

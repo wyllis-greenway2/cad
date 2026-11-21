@@ -50,7 +50,7 @@ export const settings = {
     border: [0.3, 0.33, 0.4] as [number, number, number], borderOff: [0.72, 0.74, 0.78] as [number, number, number],
     pickVertexPx: 9, pickBorderPx: 7, pickEdgePx: 6, // how near the pointer must be to take a corner, a cut plane's border, a line
     markVertexPx: 4.5, markEdgePx: 1.6, faceOpacity: 0.3, hoverOpacity: 0.14,
-    ringRadiusPx: 78, ringButtonPx: 60,
+    ringButtonPx: 36,
   },
   orb: { radius: 0.025, hoverOpacity: 0.14, color: [0.1, 0.72, 0.7] as [number, number, number] }, // the hover disc: its radius in depths of the surface it is on
   buttons: { marginPx: 18, sizePx: 34 },

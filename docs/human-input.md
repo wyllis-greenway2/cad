@@ -6044,3 +6044,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1444 — 2026-11-21 — directive
 > okay remember we dont write tests till we prototype and get it into a state we actually want to preserve
+
+## in_1445 — 2026-11-21 — directive
+> okay the circle menu looks terrible. Can we import some styling and icons from the old prototype?
