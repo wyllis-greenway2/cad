@@ -127,6 +127,8 @@ export function project(c: Cam, p: V3, w: number, h: number): { x: number; y: nu
 }
 /** How far in front of the eye a point is, along the view (negative: behind it). */
 export const forwardDepth = (c: Cam, p: V3): number => dot(sub(p, c.eye), forward(c));
+/** The point on the line of sight (the middle of the screen) at the same depth as `p`: what is held when the view is to change about the middle and not about `p`. */
+export const onAxis = (c: Cam, p: V3): V3 => add(c.eye, scale(forward(c), forwardDepth(c, p)));
 /** The camera that frames a box whole from the home direction. */
 export function frameBox(lo: V3, hi: V3, aspect: number): Cam {
   const centre: V3 = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];

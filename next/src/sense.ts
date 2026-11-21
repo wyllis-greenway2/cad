@@ -1,4 +1,5 @@
-// What the camera needs to know about the scene: how far ahead things are, what to turn about, and whether anything is in view. Pure.
+// What the camera needs to know about the scene: how big a step is, which point it looks at, and whether anything is in view. Pure.
+// Two measures of distance only: `scaleAmong` (the scale of what the eye is among: steps, the depth range, how far ahead to look when nothing is) and `gridLevel` (how far the plane is).
 import { add, len, scale, sub, dot, type V3 } from "./vec.ts";
 import { forward, project, reachOf, type Cam } from "./camera.ts";
 import { centreOf, hitThings, type Scene, type Thing } from "./scene.ts";
@@ -9,32 +10,10 @@ const WORLD: Thing = { id: "world", lo: [0, 0, 0], hi: [24, 24, 24] };
 const thingsOf = (sc: Scene): Thing[] => (sc.things.length ? sc.things : [WORLD]);
 
 /**
- * How far ahead along `ray` things are, which sets how big a step is. The first surface the ray meets; else how far in front of the eye the nearest thing's centre is
- * (so a zoom goes toward it and never past it, and the same zoom back returns exactly); else, with every thing behind or none, how far away the nearest thing or the origin is.
- * Always at least a little, and never a number that can run out.
+ * The point looked at, which an orbit turns about and a change of view holds: the centre of the thing nearest the line of sight (how far its centre is from the line the screen's middle looks along), among those whose
+ * centre is on the screen (`in_291`: turning about a point between two things far apart threw the one being looked at off the screen). With none, the point straight ahead at the scale of what the eye is among.
  */
-export function depthAhead(sc: Scene, c: Cam, ray: V3): number {
-  const h = hitThings(sc, c.eye, ray);
-  return h ? h.t : scaleDepth(sc, c);
-}
-/** The same without the surface under a ray: how far in front of the eye the nearest thing's centre is, or how far away things are. It sets the fog, the grid's spacing and the depth range, and does not jump as the view crosses an edge. */
-export function scaleDepth(sc: Scene, c: Cam): number {
-  const f = forward(c);
-  const points: V3[] = sc.things.length ? sc.things.map(centreOf) : [[0, 0, 0]];
-  let ahead = Infinity, away = Infinity;
-  for (const p of points) {
-    const rel = sub(p, c.eye), s = dot(rel, f);
-    if (s > settings.view.minSurfaceMm && s < ahead) ahead = s;
-    away = Math.min(away, len(rel));
-  }
-  return Math.max(isFinite(ahead) ? ahead : away, settings.view.minSurfaceMm);
-}
-
-/**
- * The point an orbit turns about: the centre of the thing nearest the line of sight (how far its centre is from the line the screen's middle looks along), among those whose centre is on the screen (`in_291`:
- * turning about a point between two things far apart threw the one being looked at off the screen). With none, the point straight ahead at the depth ahead (the point looked at).
- */
-export function pivotFor(sc: Scene, c: Cam, w: number, h: number): V3 {
+export function focusOf(sc: Scene, c: Cam, w: number, h: number): V3 {
   const f = forward(c);
   let best: { off: number; p: V3 } | null = null;
   for (const t of sc.things) {
@@ -44,7 +23,7 @@ export function pivotFor(sc: Scene, c: Cam, w: number, h: number): V3 {
     const off = len(sub(rel, scale(f, s)));
     if (!best || off < best.off) best = { off, p };
   }
-  return best ? best.p : add(c.eye, scale(f, depthAhead(sc, c, f)));
+  return best ? best.p : add(c.eye, scale(f, scaleAmong(sc, c)));
 }
 
 /** Does any of the thing's box show in the view, and big enough to see (6 px across, or a lone point on the screen)? Boxes behind the eye do not count. */
@@ -113,11 +92,11 @@ export function paneAt(sc: Scene, from: V3, dir: V3, gizmoScale = 1): { axis: 0 
 }
 
 /**
- * How far a step of flight or of the wheel goes when there is no surface to measure by, or the eye is at one: a share of how far the nearest thing's middle is, never less than the thing's own size.
- * So a step is never smaller than the thing is big: the eye can come to a wall, go through it and cross the inside, and it goes at a pace that follows the scale of what it is among (`in_1411`).
+ * The scale of what the eye is among: how far the nearest thing's middle is, never less than that thing's own size or `minFlightMm`. A step of flight or of the wheel is a share of it, so the eye comes to a wall, goes
+ * through it and crosses the inside at a pace that follows the scale of things (`in_1411`); the depth range of the drawing is a multiple of it; and with nothing to look at, it is how far ahead the point looked at is.
  * It changes smoothly from place to place, so going and coming back are the same.
  */
-export function flightScale(sc: Scene, c: Cam): number {
+export function scaleAmong(sc: Scene, c: Cam): number {
   let best = Infinity;
   for (const t of sc.things) best = Math.min(best, Math.max(len(sub(centreOf(t), c.eye)), len(sub(t.hi, t.lo)) / 2));
   if (!isFinite(best)) best = len(c.eye); // (nothing there: how far from the origin)

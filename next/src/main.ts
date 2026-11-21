@@ -7,7 +7,7 @@ import { createGame } from "./game.ts";
 import { createWorld } from "./world.ts";
 import { createUi } from "./ui.ts";
 import { demoScene, emptyScene, hitThings, oneScene } from "./scene.ts";
-import { depthAhead, flightScale, gridLevel, lastSeen, nothingInView, paneAt, pivotFor, planeHit, resetTarget, scaleDepth } from "./sense.ts";
+import { focusOf, gridLevel, lastSeen, nothingInView, paneAt, planeHit, resetTarget, scaleAmong } from "./sense.ts";
 import { add, clamp, dot, len, scale, sub, ease, type V3 } from "./vec.ts";
 
 const params = new URLSearchParams(location.search);
@@ -51,14 +51,16 @@ function goForward(share: number, nx = 0, ny = 0) {
   const { w, h } = size();
   // along the ray through the point of the view being zoomed toward: the cursor, or in flight the middle (where the cursor is held), so the point stays where it is on the screen.
   // An orthographic view has no depth to move through: it is zoomed (its size changes) about that point.
-  c = reach(c, c.ortho !== null ? cam.zoomOrtho(c, 1 - share, nx, ny, w / h) : cam.moveAlong(c, cam.rayFrom(c, nx, ny, w / h).d, share * flightScale(model, c)));
+  c = reach(c, c.ortho !== null ? cam.zoomOrtho(c, 1 - share, nx, ny, w / h) : cam.moveAlong(c, cam.rayFrom(c, nx, ny, w / h).d, share * scaleAmong(model, c)));
 }
 
 // ---- changes of view ----
-const focusNow = (): V3 => add(c.eye, scale(cam.forward(c), depthAhead(model, c, cam.forward(c))));
+const focus = (): V3 => { const { w, h } = size(); return focusOf(model, c, w, h); };
+/** The point at the middle of the screen at the depth of the point looked at: what a change of view holds when the middle of the screen is to stay where it is. */
+const focusOnAxis = (): V3 => cam.onAxis(c, focus());
 /** Start a change of lens about `hold`, a point of the world that keeps its place on the screen and its size while the lens opens or shuts and the eye goes back or forward, so nothing jumps; a point behind the eye is replaced by the one looked at. With `dir` the view also turns to that direction about the point. An orthographic view is first made the perspective view that looks the same. */
 function lensGo(hold: V3, lens: number, ms: number, dir?: { yaw: number; pitch: number }): Go {
-  const h = cam.forwardDepth(c, hold) > settings.view.minSurfaceMm ? hold : focusNow();
+  const h = cam.forwardDepth(c, hold) > settings.view.minSurfaceMm ? hold : focusOnAxis();
   c = cam.leaveOrtho(c, h);
   return { t0: performance.now(), ms, from: c, lens, hold: h, ...(dir ? { dir } : {}) };
 }
@@ -66,13 +68,13 @@ function lensGo(hold: V3, lens: number, ms: number, dir?: { yaw: number; pitch: 
 function takeOver(pivot?: V3) {
   if (!go) return;
   if (!go.eyeTo && go.lens === 1) { const { dir: _unused, ...keep } = go; go = keep; return; }
-  go = c.lens < 1 ? lensGo(pivot ?? focusNow(), 1, Math.max(60, (settings.view.perspectiveMs * (1 - c.lens)) / (1 - settings.view.morphLens))) : null;
+  go = c.lens < 1 ? lensGo(pivot ?? focus(), 1, Math.max(60, (settings.view.perspectiveMs * (1 - c.lens)) / (1 - settings.view.morphLens))) : null;
 }
 /** Look straight at the plane across `axis` (again: from the other side). It becomes the plane that is on. */
 function lookAt(axis: Axis) {
   if (game.on) endGame();
   plane = axis;
-  const f = focusNow();
+  const f = focusOnAxis();
   const along = cam.straightAlong(c);
   const side: 1 | -1 = along && along.axis === axis ? (-along.sign as 1 | -1) : cam.sideOn(c, f, axis);
   go = lensGo(f, settings.view.morphLens, settings.view.transitionMs, cam.straightDirection(axis, side));
@@ -82,7 +84,7 @@ function reset() {
   const { w, h } = size();
   const to = t.id === "world" ? cam.home() : cam.frameBox(t.lo, t.hi, w / h);
   if (game.on) endGame();
-  c = cam.leaveOrtho(c, focusNow());
+  c = cam.leaveOrtho(c, focusOnAxis());
   go = { t0: performance.now(), ms: settings.view.transitionMs, from: c, lens: to.lens, dir: { yaw: to.yaw, pitch: to.pitch }, hold: c.eye, eyeTo: to.eye };
 }
 function endGame() { game.end(); if (document.pointerLockElement) document.exitPointerLock(); ring.style.display = "none"; }
@@ -93,10 +95,8 @@ const ui = createUi(document.body, { look: lookAt, reset, toggleWorld: () => { w
 // ---- intents ----
 attach(canvas, {
   dragStart(kind, x, y) {
-    const { w, h } = size();
-    const r = rayAt(x, y), hit = hitThings(model, r.o, r.d);
-    const t = hit ? hit.t : depthAhead(model, c, cam.forward(c));
-    drag = { kind, pivot: pivotFor(model, c, w, h), depth: Math.max(settings.view.minSurfaceMm, t * dot(hit ? r.d : cam.forward(c), cam.forward(c))), debt: 0 };
+    const r = rayAt(x, y), hit = hitThings(model, r.o, r.d), pivot = focus(); // (what is grabbed: the surface under the pointer, else what is looked at)
+    drag = { kind, pivot, depth: Math.max(settings.view.minSurfaceMm, hit ? hit.t * dot(r.d, cam.forward(c)) : cam.forwardDepth(c, pivot)), debt: 0 };
   },
   orbit(dx, dy) {
     if (game.on || !drag) return;
@@ -133,7 +133,7 @@ attach(canvas, {
 
 /** Game mode on: the view is made fully perspective first if it is not (flight never starts in a half-straight view), the pointer is held at the middle of the view. */
 function startGame() {
-  if (c.ortho !== null || go || c.lens < 1) go = lensGo(focusNow(), 1, settings.view.perspectiveMs);
+  if (c.ortho !== null || go || c.lens < 1) go = lensGo(focusOnAxis(), 1, settings.view.perspectiveMs);
   game.start();
   canvas.requestPointerLock?.();
 }
@@ -158,7 +158,7 @@ function advanceView(now: number) {
 /** Flight: the same moves as the wheel and the pan, driven by time; and turning about the eye. */
 function fly(dt: number, g: { ahead: number; side: number; dx: number; dy: number }) {
   goForward(g.ahead * dt); // (no walls: the eye goes through a thing and looks round inside it, `in_1411`)
-  c = reach(c, cam.moveAlong(c, cam.rightOf(c), g.side * dt * flightScale(model, c)));
+  c = reach(c, cam.moveAlong(c, cam.rightOf(c), g.side * dt * scaleAmong(model, c)));
   const mag = Math.hypot(g.dx, g.dy), k = settings.view.orbitRadPerPx * settings.input.flyLookScale * fineGain(mag);
   if (mag > 0) c = cam.turnAbout(c, c.eye, -g.dx * k, -g.dy * k);
 }
@@ -204,7 +204,7 @@ function frame(now: number) {
   if (sawNow) seen = sawNow;
   paneLevel = c.ortho !== null ? 0 : clamp((c.lens - 0.5) / 0.5, 0, 1);
   const { pane, disc } = underPointer();
-  world.render({ cam: c, depth: scaleDepth(model, c), reach: flightScale(model, c), grid: gridLevel(c, plane), w, h, gizmoScale: gizmoScale(), plane, paneHover: pane ? pane.axis : null, paneLevel, axesShown: !worldHidden, disc });
+  world.render({ cam: c, depth: scaleAmong(model, c), grid: gridLevel(c, plane), w, h, gizmoScale: gizmoScale(), plane, paneHover: pane ? pane.axis : null, paneLevel, axesShown: !worldHidden, disc });
   ui.update(pageState(w, h));
   requestAnimationFrame(frame);
 }

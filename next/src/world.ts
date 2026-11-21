@@ -26,10 +26,8 @@ function roundedSquare(size: number, round: number): THREE.Shape {
 
 export interface Drawing {
   cam: Cam;
-  /** How far ahead things are: only the depth range of the drawing (what must not be cut off) comes from it. */
+  /** The scale of what the eye is among: the depth range of the drawing is a multiple of it. */
   depth: number;
-  /** The distance the picture must reach: the far plane (a thing's far wall, seen from inside, must not be cut off). */
-  reach: number;
   /** The grid's spacing, how far it has gone toward the next one, and how far the fog reaches: from the view's distance to the plane (see `gridLevel`). */
   grid: { step: number; blend: number; fog: number; span: number };
   w: number; h: number;
@@ -138,12 +136,12 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
       camera.position.copy(vec(c.eye));
       camera.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(vec(rightOf(c)), vec(upOf(c)), vec(f).negate()));
       if (camera === ortho) {
-        const hh = c.ortho! / 2, hw = hh * (d.w / d.h), R = d.reach * 120;
+        const hh = c.ortho! / 2, hw = hh * (d.w / d.h), R = d.depth * 120;
         ortho.left = -hw; ortho.right = hw; ortho.top = hh; ortho.bottom = -hh;
         ortho.near = -R; ortho.far = R; // (there is no distance to cut things off at: what is in front of the eye's plane is as drawn as what is behind it)
       } else {
         persp.fov = (fovOf(c) * 180) / Math.PI; persp.aspect = d.w / d.h;
-        persp.near = d.depth * 0.02; persp.far = Math.max(d.depth, d.reach) * 120;
+        persp.near = d.depth * 0.02; persp.far = d.depth * 120;
       }
       camera.updateProjectionMatrix();
       key.position.copy(camera.position); key.target.position.copy(vec([c.eye[0] + f[0], c.eye[1] + f[1], c.eye[2] + f[2]]));
