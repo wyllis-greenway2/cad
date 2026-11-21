@@ -21,7 +21,7 @@ Status: **marked by the human in `in_1397` (all rows KEEP unless a row says othe
 | ID | Requirement | Source | Test | Mark |
 |---|---|---|---|---|
 | B1 | Three round buttons X, Y, Z. A click selects that world plane (it becomes the one that is on) and turns the view straight to it, smoothly. Pressed again it looks from the other side. | in_067 in_190 in_143 | click X: straight, plane on = X | KEEP |
-| B2 | The button of the plane that is selected has a ring (a bolder border of the same button, not a separate ring: `in_299`, `in_301`, `in_382`); it is there on the first load (`in_301`). | in_299 in_301 in_382 | Z has the ring at load | KEEP |
+| B2 | The button of the plane that is selected has a ring (a thinner, lighter-gray border of the same button (2 px, `#9a9ea6`), not a separate ring: `in_299`, `in_301`, `in_382`, `in_1416`); it is there on the first load (`in_301`). | in_299 in_301 in_382 | Z has the ring at load | KEEP |
 | B3 | As you orbit in 3D, the button of the axis the view is nearest to takes on the teal gradually (`in_295`); it works whatever plane is selected (`in_299`). In a straight view it reads the side being looked from: +X or -X (`in_145`). | in_145 in_295 in_299 | the nearest axis's button is teal at six straight views | KEEP |
 | B4 | Keys: today there are **no** letter keys for views (`in_131` left them for later); N and the N button were removed (`in_088`). Say if X Y Z keys are wanted. | in_069 in_088 in_131 | | DROP: no letter keys (`in_1397`) |
 

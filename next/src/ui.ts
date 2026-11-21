@@ -71,8 +71,8 @@ export function createUi(host: HTMLElement, on: UiHandlers) {
         const ring = s.plane === i; // the plane that is on: a bolder border of the button itself
         b.textContent = k > 0.5 ? `${s.facing.sign > 0 ? "+" : "−"}${AXIS_NAME[i]}` : AXIS_NAME[i]!;
         b.style.background = mix([255, 255, 255], [26, 184, 179]); b.style.color = mix([43, 43, 45], [255, 255, 255]);
-        b.style.borderWidth = ring ? "3px" : "1px"; b.style.lineHeight = ring ? "28px" : "32px";
-        b.style.borderColor = ring ? "#2b2b2d" : mix([207, 208, 212], [26, 184, 179]);
+        b.style.borderWidth = ring ? "2px" : "1px"; b.style.lineHeight = ring ? "30px" : "32px";
+        b.style.borderColor = ring ? "#9a9ea6" : mix([207, 208, 212], [26, 184, 179]);
       });
     },
   };

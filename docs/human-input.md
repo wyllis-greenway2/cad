@@ -5943,3 +5943,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1415 — 2026-11-21 — directive
 > [a screenshot of the grid, zoomed in on a corner of a box: the grid lines are broken into hatched, jagged strokes] if you zoom in the grid becomes fuzzy
+
+## in_1416 — 2026-11-21 — directive
+> okay lets make the border around the selected xyz icon a thinner lighter gray
