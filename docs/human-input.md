@@ -5974,3 +5974,11 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1424 — 2026-11-21 — directive
 > yes put that rule in
+
+## in_1425 — 2026-11-21 — directive
+> yes that feels perfect. Okay so is this a good solid system now? what else should we do? also before we write tests, should we think about some sort of test trigger or dependency test rule so that we dont retest everything compounding more and more as the project grows? wouldn't it make sense to only test things when we touch their files? or touch inter-dependency somehow? Like a new system reusing similar human inputs or conflicts with the view etc?
+(The pivot rule feels right; answered in chat: three triggers, tests tied to requirements, tiers.)
+
+## in_1426 — 2026-11-21 — directive
+> yes start with step 1
+(Step 1: the final pass on the world view's requirements, `docs/rebuild/world_view_requirements.md`, rewritten as 20 camera, 16 world and 4 button rows, each with its inputs, contracts, test kind and status.)
