@@ -152,10 +152,10 @@ attach(canvas, {
       if (d.move) q.offset = add(q0.offset, d.move);
       if (d.turn) q.frame = q0.frame.map((v) => rotate(v, d.turn!.axis, d.turn!.angle));
     } else {
-      if (d.move) k.origin = add(b.origin, d.move);
+      if (d.move) k.origin = add(b.origin, d.move); // (the orb is an offset from the plane's origin, so it goes along)
       if (d.turn) { // turned about the orb's middle, which stays where it is
         const c0 = add(b.origin, q0.offset), a = d.turn.axis, ang = d.turn.angle;
-        k.origin = add(c0, rotate(sub(b.origin, c0), a, ang)); k.normal = rotate(b.normal, a, ang); k.u = rotate(b.u, a, ang); q.offset = sub(c0, k.origin);
+        k.origin = add(c0, rotate(sub(b.origin, c0), a, ang)); k.normal = rotate(b.normal, a, ang); k.u = rotate(b.u, a, ang); q.offset = sub(c0, k.origin); q.frame = q0.frame.map((v) => rotate(v, a, ang)); // (the orb and the plane turn together: the orb keeps its place and its turn relative to the plane)
       }
     }
     grabbed.text = d.turn ? `${d.label} ${((d.value * 180) / Math.PI).toFixed(1)}°` : `${d.label ? d.label + " " : ""}${d.value.toFixed(1)} mm`;

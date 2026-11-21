@@ -6081,3 +6081,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1456 — 2026-11-21 — directive
 > okay that is good, now lets make the arrows stop before the enter the orb. Also lets get our reorient abilities from the prototype. If you click on the orb, it should pulse, and go into orient mode, where you can move the orienter itself without moving the object it represents
+
+## in_1457 — 2026-11-21 — directive
+> okay now the mover should keep relative position to its object always, unless it is in orient mode with the pulsing orb. so the object and the mover should both move together when it is moved
