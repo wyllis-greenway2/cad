@@ -5852,3 +5852,21 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1388 — 2026-11-21 — directive
 > yes build the geometric test
 (`dec_exact_rim_numbers` is changed as proposed in it: a corner within a ten-thousandth of a mm of a body's circle in the sketch's plane is put on that circle exactly and sent unrounded, instead of the relation being the test)
+
+## in_1389 — 2026-11-21 — directive
+> okay so I think this project app is getting way too bloaty and buggy. We have been rough prototying for a long time and I think there are lots of unclear exceptions, probably some dead code, lots of duplication. We really need to trim down and clean up. So can we park a copy of this branch as is, and start a new branch or continue on this branch and do a major trim and clean up? Why do we have so many tests and why are they so slow? most of our time is spent testing these days. How should we proceed cleaning up? what are some good strategies?
+(The old state is parked on the branch `prototype-v1`; the work goes on the branch `cleanup`.)
+
+## in_1390 — 2026-11-21 — directive
+> yes do the tag, branch and report
+
+## in_1391 — 2026-11-21 — directive
+> hang on, instead of running all the tests, why dont we just talk about the things we want to preserve and build tests around those? it doesn't make sense to time and cut based off time, what makes sense is just ensuring we dont have regressions in places that matter to us. Lets cancel the tests and think about it from that angle
+(The timing run was cancelled.)
+
+## in_1392 — 2026-11-21 — directive
+> Okay how about this, is it feasibly just to entirely rebuild the app from scratch, just by learning from the old app as we build in a direction that makes sense? So we dont keep the good or the bad, we just learn lessons from the prototype and rebuild?
+
+## in_1393 — 2026-11-21 — directive
+> yes draft the lessons and scope document
+(Drafted as `docs/rebuild/lessons_and_scope.md`, `ai-unreviewed`; nothing is decided until the human marks it.)
