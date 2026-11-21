@@ -6071,3 +6071,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1453 — 2026-11-21 — directive
 > try making the xyz arrows shorter
+
+## in_1454 — 2026-11-21 — directive
+> okay lets try something new, lets have it so that the arrows have another arrow coming out of their tip. So the y arrow has the z rotation arrow coming out of its tip etc

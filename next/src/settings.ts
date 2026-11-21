@@ -54,7 +54,7 @@ export const settings = {
   },
   orb: { radius: 0.025, hoverOpacity: 0.14, color: [0.1, 0.72, 0.7] as [number, number, number] }, // the hover disc: its radius in depths of the surface it is on
   // the mover orb (`app/src/shared/settings.ts` gizmo): its size as a share of the view distance, how near the pointer must be to take a handle, and how its lines look
-  mover: { sizeOfView: 0.11, hitPx: 12, opacity: 0.6, widthPx: 2.2, headScale: 0.7, arrowShare: 0.42, extraGap: 0.12, extraShare: 0.4, turnAt: 0.62, turnShare: 0.24, turnStartDeg: 45, turnSpanDeg: 270, arcSegments: 24 }, // (the orb: its size, how near the pointer must be, the lines; the C-shaped arrow stands this far along the axis, with this radius (both as shares of the orb's unit, not of the straight arrow, so the arrows can be made shorter without moving them), starting at this angle and going this far round)
+  mover: { sizeOfView: 0.11, hitPx: 12, opacity: 0.6, widthPx: 2.2, headScale: 0.7, arrowShare: 0.5, extraGap: 0.12, extraShare: 0.4, turnSpanDeg: 80, arcSegments: 24 }, // (the orb: its size, how near the pointer must be, the lines; the curved arrow out of a tip goes this far round)
   buttons: { marginPx: 18, sizePx: 34 },
   ui: {
     font: "system-ui,sans-serif", text: "#2b2b2d", textRgb: [43, 43, 45], whiteRgb: [255, 255, 255], tealRgb: [26, 184, 179], buttonBorderRgb: [207, 208, 212],

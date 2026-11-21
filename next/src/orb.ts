@@ -20,8 +20,8 @@ export function unitOf(c: Cam, centre: V3): number {
   return viewHeight(c, depth) / (2 * tan) * settings.mover.sizeOfView;
 }
 /**
- * The orb: from the ball three straight arrows along +X, +Y, +Z (they move along the axis), and round each of them, floating in space part way along it, a C-shaped arrow, an open
- * circle about the axis line with a head at its end (it turns about the axis).
+ * The orb: from the ball three straight arrows along +X, +Y, +Z (they move along the axis), and out of the tip of each a curved arrow that goes on round the circle about the next axis
+ * (the Y arrow's tip carries the turn about Z, the Z arrow's the turn about X, the X arrow's the turn about Y). A tip is on that circle, so the curved arrow carries on from it.
  */
 export function handlesOf(o: Orb, c: Cam): Handle[] {
   const L = unitOf(c, o.centre), M = settings.mover, A = M.arrowShare * L, out: Handle[] = [];
@@ -29,10 +29,9 @@ export function handlesOf(o: Orb, c: Cam): Handle[] {
     const a = i as 0 | 1 | 2, letter = AXIS_LETTER[i];
     out.push({ id: `move:${letter}`, kind: "arrow", axis: a, points: [o.centre, add(o.centre, scale(d, A))] });
     if (o.extras) out.push({ id: `copy:${letter}`, kind: "arrow", axis: a, extra: true, points: [add(o.centre, scale(d, A * (1 + M.extraGap))), add(o.centre, scale(d, A * (1 + M.extraGap + M.extraShare)))] });
-    const mid = add(o.centre, scale(d, L * M.turnAt)), r = L * M.turnShare, u = unit(cross(Math.abs(d[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0], d)), v = cross(d, u), arc: V3[] = [];
-    const from = (M.turnStartDeg * Math.PI) / 180, span = (M.turnSpanDeg * Math.PI) / 180;
-    for (let k = 0; k <= M.arcSegments; k++) { const t = from + (k / M.arcSegments) * span; arc.push(add(mid, scale(add(scale(u, Math.cos(t)), scale(v, Math.sin(t))), r))); }
-    out.push({ id: `turn:${letter}`, kind: "turn", axis: a, points: arc });
+    const about = ((i + 1) % 3) as 0 | 1 | 2, axis = AXES[about]!, side = cross(axis, d), span = (M.turnSpanDeg * Math.PI) / 180, arc: V3[] = [];
+    for (let k = 0; k <= M.arcSegments; k++) { const t = (k / M.arcSegments) * span; arc.push(add(o.centre, scale(add(scale(d, Math.cos(t)), scale(side, Math.sin(t))), A))); }
+    out.push({ id: `turn:${AXIS_LETTER[about]}`, kind: "turn", axis: about, points: arc });
   });
   out.push({ id: "ball", kind: "ball", axis: null, points: [o.centre] });
   return out;

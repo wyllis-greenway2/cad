@@ -4944,3 +4944,6 @@ The human approved the first slice. **Built (a prototype, no tests, `in_1444`):*
 
 ## Handoff 1285 — 2026-11-21 (in_1453: shorter XYZ arrows)
 `in_1453`. `settings.mover.arrowShare` 0.6 to 0.42. The C arrows' place and radius are now shares of the orb's unit (`turnAt` 0.62, `turnShare` 0.24), no longer of the straight arrow's length, so shortening the arrows does not move them (they stand where they did, a little past the new ends). Looked at in headless Chromium; both drags work.
+
+## Handoff 1286 — 2026-11-21 (in_1454: a curved arrow out of each arrow's tip)
+`in_1454`. The orb is three straight arrows (`arrowShare` 0.5) and, out of the tip of each, a curved arrow along the circle about the next axis (Y tip: turn about Z; Z tip: about X; X tip: about Y), 80° (`turnSpanDeg`), radius the arrow's length; its drag turns about that axis. The C arrows and their settings (`turnAt`, `turnShare`, `turnStartDeg`) are gone. Requirements intro and O3 rewritten. Looked at in headless Chromium; both drags work.
