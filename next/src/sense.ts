@@ -13,22 +13,29 @@ const WORLD: Thing = { id: "world", lo: [0, 0, 0], hi: [24, 24, 24] };
 const thingsOf = (sc: Scene): Thing[] => (sc.things.length ? sc.things : [WORLD]);
 
 /**
- * The point looked at, which an orbit turns about and a change of view holds: the centre of the thing nearest the line of sight (how far its
- * centre is from the line the screen's middle looks along), among those whose
- * centre is on the screen (`in_291`: turning about a point between two things far apart threw the one being looked at off the screen). With
- * none, the point straight ahead at the scale of what the eye is among.
+ * The point looked at, which an orbit turns about and a change of view holds: the average of the centres of what is in view, each weighted by how big it looks and by how near the middle of the screen it is
+ * (a share, fading smoothly, over `gazeWindow` of the view's height). One thing that fills the view is its own centre; a group of small things in view, as when zoomed out, is the group's middle; and as the view
+ * moves from one to the other the point moves with it, with no switch to flip. It is always on the screen (the average of points on the screen is). With nothing in view, the point straight ahead at the scale of what the eye is among.
  */
 export function focusOf(sc: Scene, c: Cam, w: number, h: number): V3 {
-  const f = forward(c);
-  let best: { off: number; p: V3 } | null = null;
+  let sum = 0, acc: V3 = [0, 0, 0];
   for (const t of sc.things) {
-    const p = centreOf(t), rel = sub(p, c.eye), s = dot(rel, f);
-    const at = project(c, p, w, h);
-    if (s <= 0 || at.x < 0 || at.x > w || at.y < 0 || at.y > h) continue; // (behind the eye or off the screen: not in view; turning about it would swing what is looked at out of the picture)
-    const off = len(sub(rel, scale(f, s)));
-    if (!best || off < best.off) best = { off, p };
+    const p = centreOf(t), at = project(c, p, w, h);
+    if ((c.ortho === null && at.depth <= 0) || at.x < 0 || at.x > w || at.y < 0 || at.y > h) continue; // (behind the eye or off the screen: not in view; turning about it would swing what is looked at out of the picture)
+    const d = Math.hypot(at.x - w / 2, at.y - h / 2) / h; // how far from the middle of the screen, in heights of the view
+    const weight = apparentSize(c, t, w, h) * (Math.exp(-((d / settings.view.gazeWindow) ** 2)) + settings.view.gazeFloor);
+    sum += weight; acc = add(acc, scale(p, weight));
   }
-  return best ? best.p : add(c.eye, scale(f, scaleAmong(sc, c)));
+  return sum > 0 ? scale(acc, 1 / sum) : add(c.eye, scale(forward(c), scaleAmong(sc, c)));
+}
+/** How big a thing looks: the diagonal of its box on the screen, in heights of the view. */
+function apparentSize(c: Cam, t: Thing, w: number, h: number): number {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const x of [t.lo[0], t.hi[0]]) for (const y of [t.lo[1], t.hi[1]]) for (const z of [t.lo[2], t.hi[2]]) {
+    const q = project(c, [x, y, z], w, h);
+    x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y);
+  }
+  return Math.max(Math.hypot(x1 - x0, y1 - y0) / h, 1e-6);
 }
 
 /** Does any of the thing's box show in the view, and big enough to see (6 px across, or a lone point on the screen)? Boxes behind the eye do not count. */

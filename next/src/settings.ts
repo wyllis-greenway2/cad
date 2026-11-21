@@ -17,6 +17,7 @@ export const settings = {
     minChangeMs: 60, // a change of view that the hands interrupt takes at least this long to bring the perspective back
     facingFrom: 0.6, // how much along an axis the view must be (as a share) before that axis's button starts to take on the teal
     nearShare: 0.02, farShare: 120, // the picture's near and far planes, as shares of the scale of what the eye is among
+    gazeWindow: 0.3, gazeFloor: 0.001, // what is looked at: things count by how big they look, fading with their distance from the middle of the screen over this share of the view's height; the floor keeps a lone thing at the edge from counting for nothing
     visiblePx: 6, // a thing smaller than this on the screen is not in view
   },
   input: {

@@ -5967,3 +5967,10 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1422 — 2026-11-21 — directive
 > yes do 1 and 2 first
 (To the AI's critique of `next/`: 1 pull a pure `view` module out of `main.ts`; 2 sweep the magic numbers into settings and move the dev aids out.)
+
+## in_1423 — 2026-11-21 — directive
+> would it make more sense to have a general single rule for what is being looked at? So it switches between single object most in view, to center of all objects most in view? and what would that clean switching point be?
+(Answered in chat with the weighted rule and no switching point.)
+
+## in_1424 — 2026-11-21 — directive
+> yes put that rule in
