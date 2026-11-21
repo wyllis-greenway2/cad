@@ -21,7 +21,7 @@ for (const n of sizes) {
   e.byId.get("s0").params.w = 310; const r1 = e.edit("s0", "graph");
   e.byId.get(`s${n - 1}`).params.r = 2.5; const r2 = e.edit(`s${n - 1}`, "graph");
   // per-step cost at the head and the tail of a full replay: edit step 1 and time each recomputed step by wrapping the kernel
-  const cost = []; const wrapped = { ...kernel, run: (k, p, i) => { const t = performance.now(); const v = kernel.run(k, p, i); cost.push(performance.now() - t); return v; } };
+  const cost = []; const wrapped = { ...kernel, run: (k, p, i) => { const t = performance.now(); const v = kernel.run(k, p, i); cost.push(performance.now() - t); return v; }, hash: (v) => { const t = performance.now(); const h = kernel.hash(v); cost[cost.length - 1] += performance.now() - t; return h; } }; // (Manifold evaluates a boolean lazily: the work shows up when the answer is first asked for, so the hash is timed with its step)
   const e2 = makeEngine(wrapped, steps); e2.buildAll();
   const head = cost.slice(1, 11).reduce((s, x) => s + x, 0) / 10, tail = cost.slice(-10).reduce((s, x) => s + x, 0) / 10;
   console.log(`${String(n).padStart(5)} | ${(build / 1000).toFixed(2).padStart(7)} s | ${head.toFixed(1).padStart(7)} ms | ${tail.toFixed(1).padStart(7)} ms | ${(r1.ms / 1000).toFixed(2)} s (${r1.computes} steps) | ${r2.ms.toFixed(0)} ms (${r2.computes} step)`);
