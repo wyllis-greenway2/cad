@@ -8,6 +8,7 @@ One orb for everything that is moved, with **three modes**, chosen by one swappe
 ## Contracts of this section
 - `Intents` (`src/input.ts`): `grab`, `grabMove`, `grabEnd` (a press that takes a handle is the handle's, not the view's), `hover`.
 - `Drawing` (`src/world.ts`): gains the orb's handles and which are lit.
+- `UiState` (`src/ui.ts`): what the page's own parts show (the swapper, the number).
 - `settings` (`src/settings.ts`): groups `mover`, `orb`, `theme`.
 
 ## Inputs this section claims
