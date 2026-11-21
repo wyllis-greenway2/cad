@@ -6038,3 +6038,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1442 — 2026-11-21 — directive
 > 1 yes, 2 I am not sure, why don't we try this, cut planes are just a border of the plane edge that only is in a bounding box around the object cut, the plane doesn't interact except you can select its edge, in which case you have options to turn it on or off, or orient. 5 yes, 6 yes, planes should persist and stay where you left them, but this is only true for planes you create deliberetly, cut planes auto made when you sketch on a face are temporary, can be turned off but not moved, and are deleted after the sketch is no longer active. 7 lets use the prototype ring, including the method of interaction in game mode. 8 yes. 9 yes, double click only selects hole bodies now. 10 yes.
+
+## in_1443 — 2026-11-21 — directive
+> I think the side towards the camera is always cut. yes a hatched cut face, no border left behind of the cut part,. yes 10% standoff is fine.

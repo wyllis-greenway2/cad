@@ -4908,3 +4908,6 @@ Full suite after the build (2152 tests, concurrency 4): 19 failures. 14 are the 
 
 ## Handoff 1273 — 2026-11-21 (in_1442: answers to the sketch plane questions)
 `in_1442`. Answers worked into `sketch_planes_requirements.md`: the cut plane is drawn as a border only, inside a box round what it cuts, and its edge is selectable (bubble: On / Off, Orient, Flip, Put away; the icon is gone, Q3, Q4); a sketch on a face makes a **temporary** cut plane that can be switched off, not moved, deleted when the sketch is no longer active and never saved (R1, R5); deliberate planes persist (R5); the menu is the prototype's ring with its game mode way (M2, M6); double click selects whole bodies only (S3); curved face rule, separate pair, no cycling agreed. **Open:** ASK 4 (temporary cut's side and "only what existed"), 11 (hatched cut face kept?), 12 (border margin, default square in empty space). No code, no tests yet.
+
+## Handoff 1274 — 2026-11-21 (in_1443: the last answers on the sketch plane requirements)
+`in_1443`. Q5: the side toward the camera is always cut (changes sides as the eye crosses the plane; no Flip); Q3: hatched cut face, nothing left of the cut-away part, 10 % stand-off; R1 keeps "only what existed when the sketch began" (not mentioned). No ASK left. Awaiting approval, then tests.
