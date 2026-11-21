@@ -4941,3 +4941,6 @@ The human approved the first slice. **Built (a prototype, no tests, `in_1444`):*
 
 ## Handoff 1284 — 2026-11-21 (in_1452: the C arrows larger and further out)
 `in_1452`. `settings.mover`: `turnAt` 0.55 to 1.15 (a little past the end of the straight arrow) and `turnShare` 0.3 to 0.4. Looked at in headless Chromium; both drags still work.
+
+## Handoff 1285 — 2026-11-21 (in_1453: shorter XYZ arrows)
+`in_1453`. `settings.mover.arrowShare` 0.6 to 0.42. The C arrows' place and radius are now shares of the orb's unit (`turnAt` 0.62, `turnShare` 0.24), no longer of the straight arrow's length, so shortening the arrows does not move them (they stand where they did, a little past the new ends). Looked at in headless Chromium; both drags work.

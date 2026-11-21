@@ -6068,3 +6068,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1452 — 2026-11-21 — directive
 > make the C arrows a bit bigger and further out, past the ends of the arrows a bit
+
+## in_1453 — 2026-11-21 — directive
+> try making the xyz arrows shorter

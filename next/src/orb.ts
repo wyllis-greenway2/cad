@@ -29,7 +29,7 @@ export function handlesOf(o: Orb, c: Cam): Handle[] {
     const a = i as 0 | 1 | 2, letter = AXIS_LETTER[i];
     out.push({ id: `move:${letter}`, kind: "arrow", axis: a, points: [o.centre, add(o.centre, scale(d, A))] });
     if (o.extras) out.push({ id: `copy:${letter}`, kind: "arrow", axis: a, extra: true, points: [add(o.centre, scale(d, A * (1 + M.extraGap))), add(o.centre, scale(d, A * (1 + M.extraGap + M.extraShare)))] });
-    const mid = add(o.centre, scale(d, A * M.turnAt)), r = A * M.turnShare, u = unit(cross(Math.abs(d[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0], d)), v = cross(d, u), arc: V3[] = [];
+    const mid = add(o.centre, scale(d, L * M.turnAt)), r = L * M.turnShare, u = unit(cross(Math.abs(d[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0], d)), v = cross(d, u), arc: V3[] = [];
     const from = (M.turnStartDeg * Math.PI) / 180, span = (M.turnSpanDeg * Math.PI) / 180;
     for (let k = 0; k <= M.arcSegments; k++) { const t = from + (k / M.arcSegments) * span; arc.push(add(mid, scale(add(scale(u, Math.cos(t)), scale(v, Math.sin(t))), r))); }
     out.push({ id: `turn:${letter}`, kind: "turn", axis: a, points: arc });
