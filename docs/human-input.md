@@ -5937,3 +5937,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1413 — 2026-11-21 — directive
 > okay that is better but I think the step size is still a little too coarse
+
+## in_1414 — 2026-11-21 — directive
+> zoom doesn't work in ortho mode and it seems to pull it out of ortho slightly.

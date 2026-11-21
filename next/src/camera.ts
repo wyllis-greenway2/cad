@@ -55,6 +55,17 @@ export function pan(c: Cam, dxPx: number, dyPx: number, depth: number, heightPx:
   const wpp = heightAt(c, depth) / heightPx;
   return { ...c, eye: add(c.eye, add(scale(rightOf(c), -dxPx * wpp), scale(upOf(c), dyPx * wpp))) };
 }
+/**
+ * Zoom a straight view by `factor` (below 1 = closer) without letting perspective creep in: the picture's size goes as 1 over the eye's distance times the lens, so with the eye staying where it is far back
+ * the lens is shut a little more (or opened, up to the straight view's own); only past the lens's ends is the eye moved, by a share of `refDepth` (how far it is from what is looked at).
+ */
+export function zoomLens(c: Cam, factor: number, refDepth: number): Cam {
+  const want = c.lens * factor, lo = settings.view.minStraightLens, hi = settings.view.straightLens;
+  const lens = clamp(want, lo, hi);
+  const next: Cam = { ...c, lens };
+  return lens === want ? next : moveAlong(next, forward(c), refDepth * (1 - want / lens));
+}
+
 // ---- the world's planes: where the straight views look from ----
 export type Axis = 0 | 1 | 2;
 export const AXIS_NAME = ["X", "Y", "Z"] as const;

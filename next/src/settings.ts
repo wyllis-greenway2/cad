@@ -11,6 +11,7 @@ export const settings = {
     perspectiveMs: 350, // the perspective coming back after a straight view is left
     leaveStraightPx: 60, // how far a drag must go to leave a straight view
     clickMovePx: 4,
+    minStraightLens: 0.00005, // a straight view zoomed in shuts the lens down to this, so the eye need not come near
     straightLens: 0.02, // how much perspective a straight view has left: as good as none
     normalToleranceRad: 0.02,
   },

@@ -47,10 +47,14 @@ function gizmoScale(): number {
 }
 
 /** A move that would take the eye farther than the world reaches, and farther than it is, is not made (the prototype's zoom stopped at 5,000 mm). */
-const reach = (from: Cam, to: Cam): Cam => (len(to.eye) > settings.view.maxDistanceMm && len(to.eye) > len(from.eye) ? from : to);
+const reach = (from: Cam, to: Cam): Cam => { const far = (k: Cam) => len(k.eye) * k.lens; return far(to) > settings.view.maxDistanceMm && far(to) > far(from) ? from : to; }; // (the distance as the picture sees it: a straight view puts the eye far back with the lens shut)
 
 /** The one way the camera goes forward (a negative number: back): the wheel's notches and W and S in flight both call it. The step is a share of `flightScale`, the scale of what the eye is among. */
-function goForward(share: number) { c = reach(c, cam.moveAlong(c, cam.forward(c), share * flightScale(model, c))); }
+function goForward(share: number) {
+  const scale = flightScale(model, c);
+  // in a straight view the eye is far back and the picture is zoomed by the lens (so it stays as flat as it was); otherwise the camera goes forward
+  c = reach(c, cam.isStraight(c) && !lens ? cam.zoomLens(c, 1 - share, scale) : cam.moveAlong(c, cam.forward(c), share * scale));
+}
 
 // ---- changes of view ----
 /** Start a change of lens about `focus`: what is there keeps its place on the screen and its size while the lens opens or shuts and the eye goes back or forward, so nothing jumps. A point behind the eye is replaced by the one looked at. */
