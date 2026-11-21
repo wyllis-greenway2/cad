@@ -5995,3 +5995,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1430 — 2026-11-21 — directive
 > yes try the glide
+
+## in_1431 — 2026-11-21 — directive
+> It still feels very stuck into one route or another. how is this supposed to work? It seems like the start of the gesture is all that matters and then it locks into that, can we have it basically re sample the start over and over? like terminate the input and resample the start so we can continually get the recent gesture movement?

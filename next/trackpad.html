@@ -14,6 +14,7 @@
 <body>
 <div id="pad">Trackpad probe: do each gesture on this grey area, then read the summary below.<br /><br />1. two-finger scroll only &nbsp; 2. pinch only &nbsp; 3. pinch while moving both fingers across<br /><br />(Nothing here is the app; it only counts what the browser tells a page.)</div>
 <div id="sum">no gesture yet</div>
+<button id="copy" style="position:fixed;right:12px;top:52%;font:13px system-ui">Copy the log</button>
 <div id="log"></div>
 <script>
 const pad = document.getElementById("pad"), sum = document.getElementById("sum"), log = document.getElementById("log");
@@ -42,6 +43,7 @@ pad.addEventListener("wheel", (e) => {
 for (const t of ["gesturestart", "gesturechange", "gestureend"]) pad.addEventListener(t, (e) => { e.preventDefault(); note(t, e, `scale ${(e.scale ?? 0).toFixed(3)} rotation ${(e.rotation ?? 0).toFixed(1)}`); g.gesture++; }, { passive: false });
 for (const t of ["pointerdown", "pointermove", "pointerup"]) pad.addEventListener(t, (e) => { if (e.pointerType === "touch") { note(t, e, `id ${e.pointerId} touch at ${Math.round(e.clientX)},${Math.round(e.clientY)}`); g.pointerTouch++; } });
 for (const t of ["touchstart", "touchmove", "touchend"]) pad.addEventListener(t, (e) => { note(t, e, `${e.touches.length} touches`); g.touch++; }, { passive: true });
+document.getElementById("copy").addEventListener("click", () => { navigator.clipboard.writeText(navigator.userAgent + "\n" + lines.slice(-80).join("\n")).then(() => { document.getElementById("copy").textContent = "Copied"; setTimeout(() => (document.getElementById("copy").textContent = "Copy the log"), 1500); }); });
 document.addEventListener("gesturestart", (e) => e.preventDefault());
 </script>
 </body>
