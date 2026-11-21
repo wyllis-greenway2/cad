@@ -20,7 +20,10 @@ export interface Intents {
   hover(x: number, y: number): void;
   /** The pointer left the view. */
   leave(): void;
-  click(x: number, y: number, count: number): void;
+  /** A click: `count` 1 is a click, 2 a double click; `shift` was held. */
+  click(x: number, y: number, count: number, shift?: boolean): void;
+  /** A right click that did not move, or a long press: the menu, at (x, y). */
+  menu(x: number, y: number): void;
   /** The mouse moved while the pointer is held (game mode): by how much. */
   look(dx: number, dy: number): void;
   /** The space bar was tapped (let go without having been used to pan): game mode on or off. */
@@ -55,7 +58,7 @@ export function classifyWheel(e: { ctrlKey: boolean; deltaMode: number; deltaX: 
 
 export function attach(el: HTMLElement, out: Intents, locked: () => boolean): () => void {
   let space = false, spaceUsed = false; // (the space bar held is a pan modifier; tapped alone it is the game switch)
-  let drag: { x0: number; y0: number; x: number; y: number; moved: boolean; action: Action } | null = null;
+  let drag: { x0: number; y0: number; x: number; y: number; moved: boolean; action: Action; button: number; shift: boolean } | null = null;
   const touches = new Map<number, { x: number; y: number }>();
   let tap: { x: number; y: number; moved: boolean } | null = null;
   let touchKind: "orbit" | "pan" | null = null;
@@ -77,7 +80,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
       return;
     }
     if (space) spaceUsed = true;
-    drag = { x0: p.x, y0: p.y, ...p, moved: false, action: actionOf(e.button, { shift: e.shiftKey, alt: e.altKey }, space) };
+    drag = { x0: p.x, y0: p.y, ...p, moved: false, action: actionOf(e.button, { shift: e.shiftKey, alt: e.altKey }, space), button: e.button, shift: e.shiftKey };
   };
   const move = (e: PointerEvent) => {
     if (locked()) { out.look(e.movementX, e.movementY); return; } // game mode: the pointer is held at the middle and turns the view
@@ -116,7 +119,8 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     const d = drag; drag = null;
     if (!d) return;
     if (d.moved) { out.dragEnd(); return; }
-    if (d.action === "click" && e.type === "pointerup") out.click(p.x, p.y, count(p.x, p.y, e.timeStamp));
+    if (d.action === "click" && e.type === "pointerup") out.click(p.x, p.y, count(p.x, p.y, e.timeStamp), d.shift);
+    else if (d.button === 2 && !d.shift && e.type === "pointerup") out.menu(p.x, p.y); // (a right click that did not move: the menu; a right drag orbits)
   };
   let stream: { kind: WheelKind; t: number } | null = null, scrolling: ReturnType<typeof setTimeout> | null = null;
   const wheel = (e: WheelEvent) => {

@@ -16,6 +16,7 @@ export function tuneFromAddress(params: URLSearchParams): void {
   if (params.get("natural")) settings.input.trackpadNatural = params.get("natural") !== "0"; // (?natural=0: the scroll goes the other way to the fingers)
 }
 export interface DevHooks {
+  planes(): unknown;
   model: Scene;
   rebuild(): void;
   state(): ViewState;
@@ -30,7 +31,7 @@ export function install(h: DevHooks): void {
   });
   (window as unknown as { __cad: unknown }).__cad = {
     get cam() { return h.state().c; }, get plane() { return h.state().plane; }, get free() { return h.state().free; }, get go() { return h.state().go; },
-    get gizmo() { return h.gizmoScale(); }, get pointer() { return h.pointer(); }, game: h.game, model: h.model,
+    get gizmo() { return h.gizmoScale(); }, get pointer() { return h.pointer(); }, game: h.game, model: h.model, get planes() { return h.planes(); },
     set(next: Partial<Cam>) { h.put({ ...h.state(), c: { ortho: null, lens: 1, ...next } as Cam, go: null }); },
   };
 }

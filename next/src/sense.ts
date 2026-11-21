@@ -83,9 +83,11 @@ export function planeHit(from: V3, dir: V3, axis: 0 | 1 | 2): { t: number; point
  * The spacing is a power of ten, and `blend` (0 to 1) says how far the view has gone toward the next one up, so that the lines of one spacing
  * fade into the next and nothing pops.
  */
-export function gridLevel(c: Cam, plane: 0 | 1 | 2): { step: number; blend: number; fog: number; span: number } {
+export const gridLevel = (c: Cam, plane: 0 | 1 | 2) => gridLevelAt(c, Math.abs(c.eye[plane]));
+/** The same for a plane that is `distance` from the eye (a sketch plane that is not a world plane). */
+export function gridLevelAt(c: Cam, distance: number): { step: number; blend: number; fog: number; span: number } {
   const ortho = c.ortho !== null;
-  const height = Math.max(ortho ? reachOf(c) : Math.abs(c.eye[plane]) * c.lens, settings.view.minSurfaceMm); // (the distance to the plane as the picture sees it)
+  const height = Math.max(ortho ? reachOf(c) : distance * c.lens, settings.view.minSurfaceMm); // (the distance to the plane as the picture sees it)
   const e = Math.log10(height / settings.world.gridCells), k = Math.floor(e), step = 10 ** k;
   // fog fades the grid with the distance from the eye; an orthographic view has none (everything is at the same scale), and draws the grid only
   // as far as the picture shows, so the numbers the picture works with stay small
