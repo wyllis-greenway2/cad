@@ -26,8 +26,10 @@ function roundedSquare(size: number, round: number): THREE.Shape {
 
 export interface Drawing {
   cam: Cam;
-  /** How far ahead things are (sets the fog, the grid's spacing and the depth range). */
+  /** How far ahead things are: only the depth range of the drawing (what must not be cut off) comes from it. */
   depth: number;
+  /** The grid's spacing, how far it has gone toward the next one, and how far the fog reaches: from the view's distance to the plane (see `gridLevel`). */
+  grid: { step: number; blend: number; fog: number };
   w: number; h: number;
   plane: 0 | 1 | 2; // the world plane that is on: its grid is shown, its pane is lit
   paneHover: 0 | 1 | 2 | null;
@@ -78,7 +80,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
 
   // the grid of the plane that is on: one big quad with the lines drawn by the shader
   const uni = {
-    uStep: { value: 10 }, uMajor: { value: settings.theme.gridMajorEvery }, uSpan: { value: 1000 }, uCentre: { value: new THREE.Vector2() },
+    uStep: { value: 10 }, uBlend: { value: 0 }, uSpan: { value: 1000 }, uCentre: { value: new THREE.Vector2() },
     uEye: { value: new THREE.Vector3() }, uFog: { value: new THREE.Vector2(1, 2) }, uColor: { value: rgb(settings.theme.grid) },
     uAlpha: { value: new THREE.Vector2(settings.theme.minorAlpha, settings.theme.majorAlpha) },
   };
@@ -86,12 +88,13 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
     uniforms: uni, transparent: true, depthWrite: false, side: THREE.DoubleSide,
     vertexShader: `uniform vec2 uCentre; uniform float uSpan; varying vec2 vL; varying vec3 vW;
       void main() { vL = position.xy * uSpan + uCentre; vec4 w = modelMatrix * vec4(vL, 0.0, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: `uniform float uStep; uniform float uMajor; uniform vec3 uEye; uniform vec2 uFog; uniform vec3 uColor; uniform vec2 uAlpha; varying vec2 vL; varying vec3 vW;
+    fragmentShader: `uniform float uStep; uniform float uBlend; uniform vec3 uEye; uniform vec2 uFog; uniform vec3 uColor; uniform vec2 uAlpha; varying vec2 vL; varying vec3 vW;
       float lines(vec2 p) { vec2 d = fwidth(p); vec2 g = abs(fract(p - 0.5) - 0.5) / max(d, 1e-6); float l = 1.0 - min(min(g.x, g.y), 1.0); return l * (1.0 - smoothstep(0.3, 0.8, max(d.x, d.y))); }
       void main() {
-        float a = lines(vL / uStep), b = lines(vL / (uStep * uMajor));
+        // three spacings, each ten times the last: as the view goes from one to the next, the finest fades out, the middle takes the strength of the finest and the coarsest rises to the strength of the middle
+        float a0 = lines(vL / uStep), a1 = lines(vL / (uStep * 10.0)), a2 = lines(vL / (uStep * 100.0));
         float fade = 1.0 - clamp((distance(vW, uEye) - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
-        float alpha = max(a * uAlpha.x, b * uAlpha.y) * fade;
+        float alpha = max(max(a0 * uAlpha.x * (1.0 - uBlend), a1 * mix(uAlpha.y, uAlpha.x, uBlend)), a2 * uAlpha.y * uBlend) * fade;
         if (alpha < 0.004) discard;
         gl_FragColor = vec4(uColor, alpha);
       }`,
@@ -130,13 +133,13 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
       camera.fov = (fovOf(c) * 180) / Math.PI; camera.aspect = d.w / d.h;
       camera.near = d.depth * 0.02; camera.far = d.depth * 120; camera.updateProjectionMatrix();
       key.position.copy(camera.position); key.target.position.copy(vec([c.eye[0] + f[0], c.eye[1] + f[1], c.eye[2] + f[2]]));
-      // the grid: spaced for the depth, following the view in whole steps so the lines do not swim
-      const step = 10 ** Math.floor(Math.log10((d.depth * c.lens) / 6)), big = step * settings.theme.gridMajorEvery;
+      // the grid: lines at whole multiples of the spacing from the origin (the world's), the quad following the view in whole steps so the lines do not swim
+      const big = d.grid.step * 100;
       const [i, j] = across(d.plane);
       grid.quaternion.setFromRotationMatrix(basisOf(d.plane));
-      uni.uStep.value = step; uni.uSpan.value = d.depth * 5 + big;
+      uni.uStep.value = d.grid.step; uni.uBlend.value = d.grid.blend; uni.uSpan.value = d.grid.fog * 5 + big;
       uni.uCentre.value.set(Math.round(c.eye[i] / big) * big, Math.round(c.eye[j] / big) * big);
-      uni.uEye.value.copy(camera.position); uni.uFog.value.set(d.depth * 0.6, d.depth * 4);
+      uni.uEye.value.copy(camera.position); uni.uFog.value.set(d.grid.fog * 0.6, d.grid.fog * 4);
       axes.visible = d.axesShown; gizmo.scale.setScalar(d.gizmoScale);
       // the panes: the one that is on in the one teal, the one under the pointer lighter; none at all in a straight view
       for (let k = 0; k < 3; k++) {

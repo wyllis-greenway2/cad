@@ -7,7 +7,7 @@ import { createGame } from "./game.ts";
 import { createWorld } from "./world.ts";
 import { createUi } from "./ui.ts";
 import { demoScene, emptyScene, hitThings, oneScene } from "./scene.ts";
-import { depthAhead, lastSeen, nothingInView, pickPane, pivotFor, planeHit, resetTarget, scaleDepth } from "./sense.ts";
+import { depthAhead, gridLevel, lastSeen, nothingInView, pickPane, pivotFor, planeHit, resetTarget, scaleDepth } from "./sense.ts";
 import { add, clamp, dot, len, scale, sub, ease, type V3 } from "./vec.ts";
 
 const params = new URLSearchParams(location.search);
@@ -184,7 +184,7 @@ function frame(now: number) {
   const flat = r && !hit && !pane ? planeHit(c.eye, r, plane) : null;
   const disc = r && hit ? { point: hit.t ? add(c.eye, scale(r, hit.t)) : c.eye, normal: hit.normal, radius: settings.orb.radius * hit.t * c.lens }
     : r && flat ? { point: flat.point, normal: [0, 0, 0].map((_, i) => (i === plane ? (c.eye[plane] >= 0 ? 1 : -1) : 0)) as V3, radius: settings.orb.radius * flat.t * c.lens } : null;
-  world.render({ cam: c, depth, w, h, gizmoScale: gizmoScale(), plane, paneHover: pane ? pane.axis : null, paneLevel, axesShown: !worldHidden, disc });
+  world.render({ cam: c, depth, grid: gridLevel(c, plane), w, h, gizmoScale: gizmoScale(), plane, paneHover: pane ? pane.axis : null, paneLevel, axesShown: !worldHidden, disc });
 
   // the page's parts
   const occluded = (p: V3) => { const to = sub(p, c.eye), l = len(to); const hh = hitThings(model, c.eye, scale(to, 1 / l)); return !!hh && hh.t < l - 1e-3; };

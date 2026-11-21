@@ -5916,3 +5916,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1406 — 2026-11-21 — directive
 > okay, now can we try that the world view xyz thing is scaled untill the first sketch or object exists and then it becomes scale free?
+
+## in_1407 — 2026-11-21 — directive
+> yes the grid is behaving oddly, the prototype was better, it seems to change the grid size a lot based off camera rotation and relation to objects. I think grid should be scale to world ad grid division should be dependent on cameras distance to plane only

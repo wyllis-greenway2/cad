@@ -86,3 +86,13 @@ export function planeHit(from: V3, dir: V3, axis: 0 | 1 | 2): { t: number; point
   const t = -from[axis] / dir[axis];
   return t > 0 ? { t, point: add(from, scale(dir, t)) } : null;
 }
+
+/**
+ * The grid's spacing and the fog's reach, from the camera's distance to the plane that is on and from the origin, and from nothing else: not from where the view points, and not from what is in it.
+ * The spacing is a power of ten, and `blend` (0 to 1) says how far the view has gone toward the next one up, so that the lines of one spacing fade into the next and nothing pops.
+ */
+export function gridLevel(c: Cam, plane: 0 | 1 | 2): { step: number; blend: number; fog: number } {
+  const height = Math.max(Math.abs(c.eye[plane]) * c.lens, settings.view.minSurfaceMm); // (the distance to the plane; a straight view is far away with the lens shut, so the lens is taken out)
+  const e = Math.log10(height / 6), k = Math.floor(e), step = 10 ** k;
+  return { step, blend: e - k, fog: Math.max(len(c.eye) * c.lens, 12 * step) };
+}

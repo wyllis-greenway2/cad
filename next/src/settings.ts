@@ -25,7 +25,7 @@ export const settings = {
     background: 0xffffff,
     axis: [0.17, 0.17, 0.19] as [number, number, number], // charcoal, like a pencil
     pane: [0.55, 0.58, 0.64] as [number, number, number], // the little pane of a world plane that is off
-    grid: [0.62, 0.63, 0.67] as [number, number, number], minorAlpha: 0.35, majorAlpha: 0.7, gridMajorEvery: 5,
+    grid: [0.62, 0.63, 0.67] as [number, number, number], minorAlpha: 0.35, majorAlpha: 0.7,
     bodyColor: 0xc9c9cd, bodyEdge: 0x2a2a2d,
   },
 };
