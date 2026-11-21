@@ -36,6 +36,7 @@ export function createUi(host: HTMLElement, on: UiHandlers) {
   orb.style.cssText = css + "z-index:5;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;box-sizing:border-box;background:rgba(60,62,68,.55);border:1px solid rgba(255,255,255,.7);display:none;cursor:pointer";
   orb.title = "Hide the axes and the planes"; stop(orb);
   orb.addEventListener("click", (e) => { e.stopPropagation(); on.toggleWorld(); });
+  orb.addEventListener("wheel", (e) => { e.preventDefault(); document.getElementById("view")?.dispatchEvent(new WheelEvent("wheel", e)); }, { passive: false }); // (a wheel over the dot zooms the view like anywhere else)
   host.appendChild(orb);
   const pill = document.createElement("div");
   pill.style.cssText = css + `z-index:8;top:12px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:8px;padding:6px 8px 6px 14px;border-radius:18px;background:#34363b;color:#fff;font:600 13px ${FONT};box-shadow:0 2px 8px rgba(0,0,0,.25)`;

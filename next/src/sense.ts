@@ -68,8 +68,8 @@ export const resetTarget = (sc: Scene, seen: string | null): Thing => { const ts
 export const homeCam = home;
 
 /** Which little pane of the world planes a ray goes through, if any: the pane for the plane across `axis` is a square in the positive quarter of that plane, a little way from the origin. */
-export function pickPane(from: V3, dir: V3): { axis: 0 | 1 | 2; t: number } | null {
-  const lo = settings.world.paneGapMm, hi = lo + settings.world.paneMm;
+export function pickPane(from: V3, dir: V3, gizmoScale = 1): { axis: 0 | 1 | 2; t: number } | null {
+  const lo = settings.world.paneGapMm * gizmoScale, hi = lo + settings.world.paneMm * gizmoScale;
   let best: { axis: 0 | 1 | 2; t: number } | null = null;
   for (const k of [0, 1, 2] as const) {
     if (Math.abs(dir[k]) < 1e-12) continue;

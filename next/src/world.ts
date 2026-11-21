@@ -33,6 +33,7 @@ export interface Drawing {
   paneHover: 0 | 1 | 2 | null;
   paneLevel: number; // 0..1: the panes fade out in a straight view
   axesShown: boolean;
+  gizmoScale: number; // 1: the axes are 24 mm long, as the world is; otherwise how many times that
   disc: { point: V3; normal: V3; radius: number } | null;
 }
 
@@ -45,8 +46,10 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
   const ambient = new THREE.AmbientLight(0xffffff, 1.5), key = new THREE.DirectionalLight(0xffffff, 1.6);
   scene.add(ambient, key, key.target);
 
-  // stand-in bodies
+  // stand-in bodies (rebuilt when the model changes)
   const bodies = new THREE.Group();
+  const buildBodies = () => {
+  bodies.clear();
   for (const t of model.things) {
     const size = vec([t.hi[0] - t.lo[0], t.hi[1] - t.lo[1], t.hi[2] - t.lo[2]]);
     const g = new THREE.BoxGeometry(size.x, size.y, size.z);
@@ -55,6 +58,8 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
     m.position.copy(vec(centreOf(t)));
     bodies.add(m);
   }
+  };
+  buildBodies();
   scene.add(bodies);
 
   // axes: a charcoal line and a small head each, positive only
@@ -67,7 +72,9 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
     head.position.copy(vec(dir).multiplyScalar(L)); head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec(dir));
     axes.add(head);
   }
-  scene.add(axes);
+  const gizmo = new THREE.Group(); // the axes and the little panes: one thing, scaled together
+  gizmo.add(axes);
+  scene.add(gizmo);
 
   // the grid of the plane that is on: one big quad with the lines drawn by the shader
   const uni = {
@@ -106,7 +113,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
     fill.renderOrder = 6; edge.renderOrder = 6;
     outline.add(fill); panes.push(fill); edges.push(edge);
   }
-  scene.add(outline);
+  gizmo.add(outline);
 
   // the hover disc: flat on the surface under the pointer, soft, with no hard edge
   const disc = new THREE.Mesh(new THREE.CircleGeometry(1, 48), new THREE.MeshBasicMaterial({ color: rgb(settings.orb.color), transparent: true, opacity: settings.orb.hoverOpacity, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, side: THREE.DoubleSide }));
@@ -114,6 +121,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
   scene.add(disc);
 
   return {
+    rebuild: buildBodies,
     render(d: Drawing) {
       renderer.setSize(d.w, d.h, false);
       const c = d.cam, f = forward(c);
@@ -129,7 +137,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
       uni.uStep.value = step; uni.uSpan.value = d.depth * 5 + big;
       uni.uCentre.value.set(Math.round(c.eye[i] / big) * big, Math.round(c.eye[j] / big) * big);
       uni.uEye.value.copy(camera.position); uni.uFog.value.set(d.depth * 0.6, d.depth * 4);
-      axes.visible = d.axesShown;
+      axes.visible = d.axesShown; gizmo.scale.setScalar(d.gizmoScale);
       // the panes: the one that is on in the one teal, the one under the pointer lighter; none at all in a straight view
       for (let k = 0; k < 3; k++) {
         const on = k === d.plane, hov = k === d.paneHover;

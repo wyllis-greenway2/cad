@@ -26,6 +26,7 @@ let plane: Axis = 2; // the world plane that is on: its grid shows, its pane is 
 let worldHidden = false;
 let paneLevel = 1;
 let seen: string | null = null;
+let free = model.things.length ? 1 : 0; // 0: the axes and panes are the world's size (they grow and shrink with a zoom); 1: scale free, the same size on the screen. It is 0 until the first thing exists, and eases over to 1.
 let pointer: { x: number; y: number } | null = null;
 let drag: { kind: "orbit" | "pan"; pivot: V3; depth: number; debt: number } | null = null;
 
@@ -35,6 +36,13 @@ const centre = () => ({ x: size().w / 2, y: size().h / 2 });
 const at = (x: number, y: number) => (game.on ? centre() : { x, y });
 const rayAt = (x: number, y: number): V3 => { const { w, h } = size(); const p = at(x, y); return cam.rayThrough(c, (p.x / w) * 2 - 1, -((p.y / h) * 2 - 1), w / h); };
 const busy = () => lens !== null || glide !== null; // (a change of view is playing: flight waits for it, and so does the Reset pill)
+
+/** How many times its true size the axes and panes are drawn: 1 while the model is empty (they zoom with the world, which gives a sense of scale), and once the first thing exists they keep the size they have on the screen at the home view, wherever the eye is. */
+function gizmoScale(): number {
+  const home = settings.view.homeDistance;
+  const sFree = Math.max(cam.forwardDepth(c, [0, 0, 0]), settings.view.minSurfaceMm) * c.lens / home;
+  return Math.exp(free * Math.log(sFree));
+}
 
 // ---- changes of view ----
 /** Start a change of lens about `focus`: what is there keeps its place on the screen and its size while the lens opens or shuts and the eye goes back or forward, so nothing jumps. A point behind the eye is replaced by the one looked at. */
@@ -115,7 +123,7 @@ attach(canvas, {
     pointer = { x, y };
     const r = rayAt(x, y);
     if (worldHidden || hitThings(model, c.eye, r)) return; // (the model wins over a pane in front of it, `in_135`)
-    const p = pickPane(c.eye, r);
+    const p = pickPane(c.eye, r, gizmoScale());
     if (p && paneLevel > 0.5) lookAt(p.axis);
   },
   look(dx, dy) { game.look(dx, dy); },
@@ -132,6 +140,7 @@ function startGame() {
 addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (game.key(e.code, true)) return;
+  if (e.code === "KeyB" && !e.repeat) { model.things = model.things.length ? [] : demoScene().things; world.rebuild(); return; } // (a testing aid for this stage: the first thing appears, or goes)
   if (e.code === "Escape" && game.on) endGame();
 });
 addEventListener("keyup", (e) => { game.key(e.code, false); });
@@ -151,6 +160,8 @@ function frame(now: number) {
     c = k >= 1 ? glide.to : cam.blend(glide.from, glide.to, ease(k));
     if (k >= 1) glide = null;
   }
+  free += ((model.things.length ? 1 : 0) - free) * Math.min(1, dt * 6); // (it eases over: the axes do not jump when the first thing appears)
+  if (Math.abs((model.things.length ? 1 : 0) - free) < 0.002) free = model.things.length ? 1 : 0;
   const g = game.tick(dt);
   if (g.on && !busy() && c.lens >= 1) { // flying: the same moves as the wheel and the pan, driven by time; and turning about the eye
     const f = cam.forward(c), d = depthAhead(model, c, f);
@@ -169,16 +180,16 @@ function frame(now: number) {
   paneLevel = clamp((c.lens - 0.5) / 0.5, 0, 1);
   const r = pointer || game.on ? rayAt(pointer?.x ?? 0, pointer?.y ?? 0) : null;
   const hit = r ? hitThings(model, c.eye, r) : null;
-  const pane = r && !hit && !worldHidden && paneLevel > 0.5 ? pickPane(c.eye, r) : null;
+  const pane = r && !hit && !worldHidden && paneLevel > 0.5 ? pickPane(c.eye, r, gizmoScale()) : null;
   const flat = r && !hit && !pane ? planeHit(c.eye, r, plane) : null;
   const disc = r && hit ? { point: hit.t ? add(c.eye, scale(r, hit.t)) : c.eye, normal: hit.normal, radius: settings.orb.radius * hit.t * c.lens }
     : r && flat ? { point: flat.point, normal: [0, 0, 0].map((_, i) => (i === plane ? (c.eye[plane] >= 0 ? 1 : -1) : 0)) as V3, radius: settings.orb.radius * flat.t * c.lens } : null;
-  world.render({ cam: c, depth, w, h, plane, paneHover: pane ? pane.axis : null, paneLevel, axesShown: !worldHidden, disc });
+  world.render({ cam: c, depth, w, h, gizmoScale: gizmoScale(), plane, paneHover: pane ? pane.axis : null, paneLevel, axesShown: !worldHidden, disc });
 
   // the page's parts
   const occluded = (p: V3) => { const to = sub(p, c.eye), l = len(to); const hh = hitThings(model, c.eye, scale(to, 1 / l)); return !!hh && hh.t < l - 1e-3; };
   const screen = (p: V3): [number, number] | null => { const q = cam.project(c, p, w, h); return q.depth > 1e-3 && q.x > -20 && q.x < w + 20 && q.y > -20 && q.y < h + 20 && !occluded(p) ? [q.x, q.y] : null; };
-  const L = settings.world.axisLengthMm + 6;
+  const L = (settings.world.axisLengthMm + 6) * gizmoScale();
   ui.update({
     letters: worldHidden ? [] : ([0, 1, 2] as const).map((axis) => { const tip: V3 = [0, 0, 0]; tip[axis] = L; return { axis, at: Math.abs(f[axis]!) > 0.98 ? null : screen(tip) }; }), // (the letter of the axis looked along points at you: not drawn)
     origin: screen([0, 0, 0]), worldHidden, plane, facing: cam.facing(c), lost: !busy() && nothingInView(model, c, w, h), w, h,
@@ -186,4 +197,4 @@ function frame(now: number) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-(window as unknown as { __cad: unknown }).__cad = { get cam() { return c; }, get plane() { return plane; }, get pointer() { return pointer; }, get lens() { return lens; }, get glide() { return glide; }, game, model, set(next: Cam) { c = next; lens = glide = null; }, };
+(window as unknown as { __cad: unknown }).__cad = { get cam() { return c; }, get plane() { return plane; }, get gizmo() { return gizmoScale(); }, get free() { return free; }, get pointer() { return pointer; }, get lens() { return lens; }, get glide() { return glide; }, game, model, set(next: Cam) { c = next; lens = glide = null; }, };

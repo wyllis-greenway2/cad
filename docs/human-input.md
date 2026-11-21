@@ -5913,3 +5913,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1405 — 2026-11-21 — directive
 > okay the blue circle highliter under the cursor gets divorced from the cursor on camera rotate
+
+## in_1406 — 2026-11-21 — directive
+> okay, now can we try that the world view xyz thing is scaled untill the first sketch or object exists and then it becomes scale free?
