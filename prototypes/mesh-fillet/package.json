@@ -1,0 +1,1 @@
+{"name":"mesh-fillet","private":true,"type":"module","description":"THROWAWAY spike 2: fillets by construction on a mesh-boolean kernel","dependencies":{"manifold-3d":"^3.5.5"}}
