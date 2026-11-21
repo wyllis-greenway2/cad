@@ -12,6 +12,8 @@
     "test:affected": "python3 ../tools/affected_tests.py --root next --run"
   },
   "dependencies": {
+    "replicad": "^1.2.0",
+    "replicad-opencascadejs": "^1.1.0",
     "three": "^0.187.0"
   },
   "devDependencies": {

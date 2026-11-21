@@ -6141,3 +6141,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1476 — 2026-11-21 — directive
 > yes write the engine requirements
+
+## in_1477 — 2026-11-21 — directive
+> build the headless core
