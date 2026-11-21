@@ -453,7 +453,7 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
     if (!/^select/i.test(hit.why)) return { ...s, session: { ...s.session, message: `${hit.label}: ${hit.why}` } }; // (nothing to select: the reason is said and the ring stays, as before)
     return { ...s, menu: null, picking: null, awaiting: { id: hit.id, label: hit.label, icon: hit.icon ?? hit.id, why: hit.why, ...(needsMany(hit.id) ? { many: true as const } : {}) }, session: { ...s.session, message: `${hit.label}: ${instruction(hit.why)}` } };
   }
-  // the pencil of the ring opened (`in_1385`, `in_1386`): sketch mode begins at once on the plane under the right click, else the plane or face selected: the view square to it and cut along it (the cut on, whatever it was), the ring staying open on the tools; with neither it says so
+  // the pencil of the ring opened (`in_1385`, `in_1387`): sketch mode begins at once on the plane under the right click, else the plane or face selected: the view square to it and cut along it (the cut on, whatever it was), the ring staying open on the tools; with neither it says so
   if (id === "sketch:open") {
     const get = lookup(sceneOf(s.session));
     const sel = selectionOf(s.session).map((r) => planeOf(get, r)).find((p) => p);
@@ -462,7 +462,7 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
     const on = turnToPlane({ ...s, session: { ...s.session, click: { ...s.session.click, selection: [pl.ref] }, message: null } }, pl, false, now);
     return on.sketchOn?.off ? { ...on, sketchOn: (({ off: _off, ...rest }) => rest)(on.sketchOn) } : on;
   }
-  // the eye (`in_1386`): one thing. In sketch mode it turns the cut along the plane on and off; otherwise it puts a cross section plane on what is selected
+  // the eye (`in_1387`): one thing. In sketch mode it turns the cut along the plane on and off; otherwise it puts a cross section plane on what is selected
   if (id === "view:eye") {
     if (s.sketchOn) return { ...s, menu: null, sketchOn: s.sketchOn.off ? (({ off: _off, ...rest }) => rest)(s.sketchOn) : { ...s.sketchOn, off: true } };
     return doPlaneNew({ ...s, menu: null }, true);

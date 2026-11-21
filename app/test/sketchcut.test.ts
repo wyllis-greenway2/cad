@@ -168,7 +168,7 @@ test("every way of going normal to a surface cuts to it, and the icon's choice i
   assert.deepEqual(cutN(st), [0, 0, 1], "the ring");
 });
 
-test("a double click on a flat face selects the whole body; a third is the face and goes normal to it, cutting along it (`in_1386`)", () => {
+test("a double click on a flat face selects the whole body; a third is the face and goes normal to it, cutting along it (`in_1387`)", () => {
   const s = (openSession(kernel, readFileSync(new URL("./fixtures/sketch-two-faces.cad.json", import.meta.url), "utf8")) as unknown as { value: Parameters<typeof createState>[0] }).value;
   let st = createState(s);
   const top = scene(st.session).parts["b/body/f@0,0,1,25" as never] as unknown as { mesh: Float32Array };
@@ -237,7 +237,7 @@ test("the pencil of the ring begins sketch mode on the surface under the right c
   assert.ok(!none.anim && !none.sketchOn && none.session.click.selection.length === 0);
 });
 
-test("the eye is one action: in sketch mode it turns the cut on and off, else it puts a cross section plane on what is selected; the pencil takes the selected plane when none was clicked (`in_1386`)", () => {
+test("the eye is one action: in sketch mode it turns the cut on and off, else it puts a cross section plane on what is selected; the pencil takes the selected plane when none was clicked (`in_1387`)", () => {
   const s = open();
   let st = createState({ ...s, click: { ...s.click, selection: [TOP] as never } });
   const planes = (t: typeof st) => Object.values(scene(t.session).parts).filter((p) => p.kind === "plane" && !!p.section).length;

@@ -9,7 +9,7 @@ export const appRows = (build = "", can: { undo?: boolean; redo?: boolean; expor
   { id: "groups", label: "Groups", enabled: true, why: null },
   { id: "import", label: "Import…", enabled: true, why: null }, // (every file coming in, a project too; Open is gone, `in_1083`)
   { id: "export", label: "Export…", enabled: can.export ?? true, why: "nothing to export yet" }, // (every file going out, a project first; Save and Share state are gone, `in_1083`)
-  { id: "view", label: "View", enabled: true, why: null }, // (the ways of looking that were under the eye of the ring: the eye is one action now, `in_1386`)
+  { id: "view", label: "View", enabled: true, why: null }, // (the ways of looking that were under the eye of the ring: the eye is one action now, `in_1387`)
   { id: "fabricate", label: "Fabricate", enabled: true, why: null }, // (a list of its own: the laser, `in_1083`)
   { id: "clearAnswers", label: "Clear cache", enabled: !!can.clearAnswers, why: "no kept answers in this page" },
   { id: "settings", label: "Settings…", enabled: true, why: null }, // (the options of the view, the mouse and the keyboard, and the number system are on their own page, `in_661`)
@@ -22,7 +22,7 @@ export const fabricateRows = (can: { laser?: boolean; laserLayers?: boolean; las
   ...(can.laserTable ? [{ id: "laserTable", label: "Laser table…", enabled: true, why: null }] : []),
   { id: "hard:clearance", label: `Clearance ${lengthText(clearance)}`, enabled: true, why: null }, // (the gap of the whole model for parts that fit one another, stepped through a few small values on each press: Fabricate, `in_1097`)
 ];
-/** The list under View in the ⋯ list (`in_1386`): what was under the eye of the ring. */
+/** The list under View in the ⋯ list (`in_1387`): what was under the eye of the ring. */
 export const viewRows = (on: { wireframe?: boolean; constraints?: boolean; cuts?: boolean } = {}): AppRow[] => [
   { id: "look", label: "Look at", enabled: true, why: null },
   { id: "view:game", label: "Game mode", enabled: true, why: null },

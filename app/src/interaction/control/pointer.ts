@@ -266,7 +266,7 @@ function menuFor(session: Session, x: number, y: number, repeating = false, over
     ...CATEGORIES.slice(0, 1).map((c) => category(c.id, c.label, c.icon, c.items.filter((i) => (i !== "select:add" && i !== "select:drag") || view.touch || adding || (i === "select:drag" && view.dragSelect)).map(build))),
     category("constraints", "Constraints", "constraint", groups), // (a hard body is a constraint on every body that meets it, `in_490`; the constraints are one flat list, `in_969`)
     ...CATEGORIES.slice(1).map((c) => category(c.id, c.label, c.icon, c.items.filter((i) => (i !== "select:add" && i !== "select:drag") || view.touch || adding || (i === "select:drag" && view.dragSelect)).map(build))),
-    // the eye (`in_1386`): one action, not a list: a cross section plane on what is selected (in sketch mode it turns the cut on and off); the other ways of looking are in the ⋯ list under View
+    // the eye (`in_1387`): one action, not a list: a cross section plane on what is selected (in sketch mode it turns the cut on and off); the other ways of looking are in the ⋯ list under View
     { id: "view:eye", label: "Cross section", icon: "eye", enabled: true, why: null },
     // delete: one item with no list under it, that deletes what is selected, or the thing the right click was on when nothing is (`in_1281`); undo and redo are in the ⋯ list
     { id: "delete", label: "Delete", icon: "trash", enabled: !!del?.enabled || (!sel.length && !!overDel?.enabled), why: del?.why ?? "select something to delete, or right click on it" },
@@ -803,7 +803,7 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
     if (pl) return turnToPlane(withSession(base, { ...sess, click: { selection: [selectable[0]!], spot: sess.click.spot }, message: null }), pl, false, env.now);
   }
   if ((onePlane || bodyFirst) && count === 2) {
-    // two: the whole body when there is one under the click, from whatever part of it, a figure drawn on its face too (`in_1386`); the view does not turn
+    // two: the whole body when there is one under the click, from whatever part of it, a figure drawn on its face too (`in_1387`); the view does not turn
     const under = selectable.find((r) => sc.parts[r]?.origin === "body") ?? selectable[0];
     const o = under ? objectOf(sc, under) : undefined;
     const took = o ? withSession(base, { ...sess, click: { selection: [o], spot: sess.click.spot }, message: null }) : base;

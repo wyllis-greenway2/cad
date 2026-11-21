@@ -183,7 +183,7 @@ const menu = createMenu(document.body, (id) => {
   else if (id === "constraints") dispatch({ type: "runAction", id: "constraints" });
   else if (id === "export") void exportDialogFlow();
   else if (id === "import") void importDialogFlow();
-  else if (id === "view") { menu.show(menuAt[0], menuAt[1], [], viewRows({ wireframe: state.wireframe, constraints: state.showAllConstraints, cuts: state.showCuts })); } // (a list of its own, in the same place: what was under the eye, `in_1386`)
+  else if (id === "view") { menu.show(menuAt[0], menuAt[1], [], viewRows({ wireframe: state.wireframe, constraints: state.showAllConstraints, cuts: state.showCuts })); } // (a list of its own, in the same place: what was under the eye, `in_1387`)
   else if (id === "fabricate") { menu.show(menuAt[0], menuAt[1], [], fabricateList()); } // (a list of its own, in the same place: Fabricate, `in_1083`)
   else if (id === "laser") void laserDialogFlow();
   else if (id === "laserTable") void laserTableFlow();
