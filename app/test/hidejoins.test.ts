@@ -1,5 +1,6 @@
 // Constraints that only join the outline of a body's sketch are not shown (`in_238`, `in_239`, `dec_hide_structural_constraints`).
 import test from "node:test";
+import { viewRows } from "../src/interaction/appmenu.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { kernel } from "../src/compiler/kernel/index.ts";
@@ -48,15 +49,13 @@ test("View, All constraints shows every constraint of the world, and the History
   const s = open();
   let st = createState(s);
   assert.equal(st.showAllConstraints, false);
-  const view = reduce(st, { type: "menu", x: 400, y: 300 }, { w: 800, h: 600, now: 0 }).menu!.items.find((i) => i.id === "view")!;
-  assert.equal(view.children!.find((c) => c.id === "view:constraints")!.label, "All constraints");
+  assert.equal(viewRows({ constraints: st.showAllConstraints }).find((c) => c.id === "view:constraints")!.label, "All constraints"); // (the View list of the ⋯ menu, `in_1387`)
   const few = frameOf(st, { w: 800, h: 600 }).annotations.length;
   st = reduce(st, { type: "runAction", id: "view:constraints" }, { w: 800, h: 600, now: 0 });
   assert.equal(st.showAllConstraints, true);
   const many = frameOf(st, { w: 800, h: 600 }).annotations.length;
   assert.ok(many > few, `nothing selected: ${few} -> ${many}`);
-  const again = reduce(st, { type: "menu", x: 400, y: 300 }, { w: 800, h: 600, now: 0 }).menu!.items.find((i) => i.id === "view")!;
-  assert.equal(again.children!.find((c) => c.id === "view:constraints")!.label, "Hide constraints");
+  assert.equal(viewRows({ constraints: st.showAllConstraints }).find((c) => c.id === "view:constraints")!.label, "Hide constraints");
   const line = "d/e_025.s0" as never;
   const withSel = (x: typeof st) => ({ ...x, session: { ...x.session, click: { ...x.session.click, selection: [line] } } });
   const lessSel = frameOf(withSel({ ...st, showAllConstraints: false }), { w: 800, h: 600 }).annotations.length;

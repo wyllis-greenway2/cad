@@ -1970,10 +1970,7 @@ test("a sketch on the cross section plane is held to the cut's own edges: the fa
 
 test("Look straight at the cross section plane turns the view to it (`in_397`)", () => {
   let st = reduce(box(), { type: "runAction", id: "view:section" }, env);
-  const menu = reduce(st, { type: "menu", x: 400, y: 300, button: true }, env).menu!;
-  const look = menu.items.find((i) => i.id === "view")!.children!.find((i) => i.id === "look")!;
-  assert.ok(look.enabled, "the plane is a surface to look at");
-  st = reduce(st, { type: "runAction", id: "look" }, env);
+  st = reduce(st, { type: "runAction", id: "look" }, env); // (Look at is in the ⋯ list under View now, `in_1387`)
   assert.ok(st.anim, "the view is turning to it");
 });
 
