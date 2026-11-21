@@ -507,6 +507,17 @@ function clickWithTool(base: AppState, i: Extract<Intent, { type: "click" }>, en
     if (typeof got === "string") return { ...base, session: { ...sess, message: got } };
     return { ...base, session: { ...sess, message: null }, tool: { ...t, plane: worldRef("XY"), points: [got.center], cursor: got.center, sized: true, fill: { center: got.center, normal: got.normal, cut: got.cut } } };
   }
+  // a double click on a surface with a sketch tool on (the first click of it has put down the first point): the sketch goes onto that surface and the view turns square to it, cut along it (`in_1385`)
+  if (i.count >= 2 && !i.shift && t.points.length === 1 && !t.sized && ["rect", "circle", "polygon", "line", "arc", "spline"].includes(t.kind)) {
+    const under = refs.find((r) => { const q = sc.parts[r]; return q?.kind === "plane" && q.origin !== "world"; }) ?? drawingPlane(sc, refs); // (a surface under the pointer before an edge of it, which belongs to its own plane)
+    const pl = under ? (lookup(sc)(under) as Plane | undefined) : undefined;
+    if (pl?.kind === "plane") {
+      const { plane, command } = planeForDrawing(sc, pl.ref);
+      const session = command ? run(sess, command) : sess;
+      const turned = lookup(sceneOf(session))(plane) as Plane;
+      return turnToPlane({ ...base, session: { ...session, click: { ...session.click, selection: [plane] }, message: null }, tool: { ...t, plane, points: [], cursor: null, typed: ["", ""], hints: [], guides: undefined, ends: undefined } }, turned, false, env.now);
+    }
+  }
   if (!t.points.length) {
     // the plane chosen from the pencil bubble, else the surface under the click takes the drawing, from wherever the camera is; with none under it, the selected plane does
     const planeRef = t.plane ?? sketchPlaneOf(base)?.ref ?? selectedSurface(sc, selectionOf(sess)) ?? drawingPlane(sc, refs) ?? drawingPlane(sc, selectionOf(sess)); // (the plane the tool is already on, else the one being looked at straight, else what is under the click: a block in front of the plane does not take the drawing, `in_194`)
@@ -810,6 +821,17 @@ function doClickSelect(base: AppState, i: Extract<Intent, { type: "click" }>, en
   if (count === 2 && onePlane && selectable.length > 0 && selectable.every((r) => sc.parts[r]?.origin === "drawn" && sc.parts[r]?.kind === "face")) {
     const pl = planeOf(get, selectable[0]!);
     if (pl) return turnToPlane(withSession(base, { ...sess, click: { selection: [selectable[0]!], spot: sess.click.spot }, message: null }), pl, false, env.now);
+  }
+  // a double click on a flat face of a body (or on a plane) goes normal to it, cut along it, and it is the plane that is sketched on (`in_1378`, `in_1385`); the whole object is the third click (`in_070` had it the other way about)
+  const flatFace = onePlane && selectable.length > 0 && selectable.every((r) => { const q = sc.parts[r]; return (q?.kind === "plane" && !(q.curved || q.round || q.rounded)) || (q?.kind === "face" && q.origin === "drawn"); }) && selectable.some((r) => sc.parts[r]?.kind === "plane"); // (a figure drawn on the face lies on the same surface)
+  if (count === 2 && flatFace) {
+    const pl = planeOf(get, selectable[0]!);
+    if (pl) return turnToPlane(withSession(base, { ...sess, click: { selection: [selectable[0]!], spot: sess.click.spot }, message: null }), pl, false, env.now);
+  }
+  if (count >= 3 && flatFace) {
+    const o = objectOf(sc, selectable.find((r) => sc.parts[r]?.origin === "body") ?? selectable[0]!);
+    const took = o ? withSession(base, { ...sess, click: { selection: [o], spot: sess.click.spot }, message: null }) : base;
+    return o && sc.parts[o]?.kind === "body" ? { ...took, consFor: o } : took; // (three on a flat face: the whole object, as two used to)
   }
   if ((onePlane || bodyFirst) && count === 2) {
     // two: the whole object (the view does not turn)

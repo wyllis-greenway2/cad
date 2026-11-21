@@ -453,6 +453,12 @@ export function doRunAction(s0: AppState, id: string, now = 0): AppState {
     if (!/^select/i.test(hit.why)) return { ...s, session: { ...s.session, message: `${hit.label}: ${hit.why}` } }; // (nothing to select: the reason is said and the ring stays, as before)
     return { ...s, menu: null, picking: null, awaiting: { id: hit.id, label: hit.label, icon: hit.icon ?? hit.id, why: hit.why, ...(needsMany(hit.id) ? { many: true as const } : {}) }, session: { ...s.session, message: `${hit.label}: ${instruction(hit.why)}` } };
   }
+  // the pencil of the ring opened (`in_1385`): with a surface under the right click, sketch mode begins on it at once (the view square to it and cut along it, selected as the surface sketched on) and the ring stays open on the tools; with none under the click nothing happens
+  if (id === "sketch:open") {
+    const pl = s.menu?.plane ? planeOf(lookup(sceneOf(s.session)), s.menu.plane) : null;
+    if (!pl) return s;
+    return turnToPlane({ ...s, session: { ...s.session, click: { ...s.session.click, selection: [pl.ref] }, message: null } }, pl, false, now);
+  }
   const closed = { ...s, menu: null };
   if (id === "look") {
     const get = lookup(sceneOf(s.session));

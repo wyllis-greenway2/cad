@@ -4,7 +4,7 @@ import { iconSvg } from "./icons.ts";
 import { choiceRow, roundButton, onPress } from "./look.ts";
 import type { Option } from "../interaction/options.ts";
 
-export function createToolChip(host: HTMLElement, cancel: () => void, apply: () => void, pick: (o: Option) => void = () => {}, undo: () => void = () => {}, redo: () => void = () => {}, exitSketch: () => void = () => {}, cutView: () => void = () => {}) {
+export function createToolChip(host: HTMLElement, cancel: () => void, apply: () => void, pick: (o: Option) => void = () => {}, undo: () => void = () => {}, redo: () => void = () => {}, exitSketch: () => void = () => {}, cutView: () => void = () => {}, keepSquare: () => void = () => {}) {
   const chip = document.createElement("div");
   chip.style.cssText = "position:fixed;z-index:7;top:12px;left:50%;transform:translateX(-50%);display:none;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;min-height:40px;max-width:calc(100vw - 16px);padding:4px 6px 4px 14px;border-radius:20px;background:#34363b;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.25);user-select:none;-webkit-user-select:none;touch-action:manipulation";
   const icon = document.createElement("span");
@@ -31,7 +31,11 @@ export function createToolChip(host: HTMLElement, cancel: () => void, apply: () 
   // the cut view on and off while sketching (`in_1377`): the same icon as the cross section plane's
   const cutB = round("section", "Cut view: on", cutView);
   cutB.style.display = "none";
-  chip.append(undoB, redoB, icon, words, options, tick, x, cutB, leave);
+  // the view kept square to the plane being sketched on (`in_1385`): lit while it is on
+  const squareB = round("look", "Keep the view square to the sketch", keepSquare);
+  squareB.style.display = "none";
+  const squareBase = squareB.style.background;
+  chip.append(undoB, redoB, icon, words, options, tick, x, cutB, squareB, leave);
   host.appendChild(chip);
   const tickBase = tick.style.background;
   /** green, fading out: "this is there to press" (`in_283`) */
@@ -47,7 +51,7 @@ export function createToolChip(host: HTMLElement, cancel: () => void, apply: () 
   let madeSeen = 0;
   return {
     /** The tool that is on (its icon key and the words for the tooltip; `made` figures so far, `drawing` one half drawn), or an operation open that is applied with the check; or null. */
-    update(tool: { kind: string; label: string; made?: number; drawing?: boolean; done?: boolean } | null, confirm: { kind: string; label: string; text?: string } | null = null, touch = false, opts: readonly Option[] = [], can: { undo: boolean; redo: boolean } = { undo: false, redo: false }, sketching = false, cutOn = true): boolean {
+    update(tool: { kind: string; label: string; made?: number; drawing?: boolean; done?: boolean } | null, confirm: { kind: string; label: string; text?: string } | null = null, touch = false, opts: readonly Option[] = [], can: { undo: boolean; redo: boolean } = { undo: false, redo: false }, sketching = false, cutOn = true, keep = false): boolean {
       // a finger: at the bottom with undo and redo; else at the top
       chip.style.top = touch ? "auto" : "12px";
       chip.style.bottom = touch ? "40px" : "";
@@ -57,6 +61,10 @@ export function createToolChip(host: HTMLElement, cancel: () => void, apply: () 
       const on = confirm ?? tool;
       leave.style.display = sketching ? "inline-block" : "none";
       cutB.style.display = sketching ? "flex" : "none";
+      squareB.style.display = sketching ? "flex" : "none";
+      squareB.style.opacity = keep ? "1" : "0.45";
+      squareB.style.background = keep ? "#1ab8b3" : squareBase; // (teal while the view is kept square)
+      squareB.title = keep ? "The view is kept square to the sketch (click to let it turn again)" : "Keep the view square to the sketch (turns to it now, and stays)";
       cutB.style.opacity = cutOn ? "1" : "0.45";
       cutB.title = cutOn ? "Cut view: on (click to see the whole part)" : "Cut view: off (click to cut along the sketch plane)";
       chip.style.display = on || touch || sketching ? "flex" : "none";

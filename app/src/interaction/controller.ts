@@ -8,10 +8,10 @@ import { figureRefs } from "../operation/scene.ts";
 import { isLive } from "./operations.ts";
 import type { Ref } from "../shared/ref.ts";
 import type { AppState, Env } from "./control/state.ts";
-import { animateTo } from "./control/state.ts";
+import { animateTo, planeView } from "./control/state.ts";
 import { doHover, doClick, doMenu, doHold, doTapAim, doMovePoint, settleAwaiting } from "./control/pointer.ts";
 import { doCut } from "./control/select.ts";
-import { doPan, doWalk, doSwivel, doZoom, doLook, doHome, doResetView } from "./control/viewing.ts";
+import { doPan, doWalk, doSwivel, doZoom, doLook, doKeepNormal, doHome, doResetView } from "./control/viewing.ts";
 import { doDragMove, doDragEnd } from "./control/handles.ts";
 import { doSimilarRule, doGroup, doUngroup } from "./control/select.ts";
 import { doBodiesAction } from "./control/bodies.ts";
@@ -27,7 +27,7 @@ import { loftChoice } from "./loft.ts";
 import { orientApply, storePose } from "./control/pose.ts";
 import { settings } from "../shared/settings.ts";
 import type { Command } from "../operation/commands.ts";
-import { projector, frame } from "./camera.ts";
+import { projector, frame, sideOf } from "./camera.ts";
 import { noteSeen } from "./lastseen.ts";
 import type { Vec3 } from "../math/vec.ts";
 import { offsetNear } from "./offset.ts";
@@ -49,7 +49,7 @@ export { advance, gridPlaneOf } from "./control/viewing.ts";
 export { stop as stopView } from "./control/state.ts";
 export { pivotOf, planeOf, objectOf } from "./objects.ts";
 
-const RESUMING = new Set<Intent["type"]>(["hover", "hoverEnd", "click", "orbit", "pan", "zoom", "dragEnd", "look", "typed", "entry"]);
+const RESUMING = new Set<Intent["type"]>(["hover", "hoverEnd", "click", "orbit", "pan", "zoom", "dragEnd", "look", "keepNormal", "typed", "entry"]);
 
 /** Apply one intent. A command that was refused for breaking constraints starts the flash. */
 export function reduce(s: AppState, i: Intent, env: Env): AppState {
@@ -70,6 +70,10 @@ export function reduce(s: AppState, i: Intent, env: Env): AppState {
     const on = planeCutOf(next, planeOfTool(next), false);
     const same = (a: { centre: Vec3; n: Vec3 }, b: { centre: Vec3; n: Vec3 }) => Math.abs(dot(a.n, b.n)) > 1 - 1e-6 && Math.abs(dot(sub(a.centre, b.centre), b.n)) < 1e-4;
     if (on && (!next.sketchOn || !same(next.sketchOn, on))) next = { ...next, sketchOn: next.sketchOn?.off ? { ...on, off: true } : on }; // (the choice of the cut icon is kept, `in_1378`)
+    if (on && next.keepNormal && next.sketchOn?.ref === on.ref && next.sketchOn !== s.sketchOn) { // (kept square to the sketch: the plane that has taken the tool is turned to at once, `in_1385`)
+      const pl = sceneOf(next.session).parts[on.ref];
+      if (pl?.kind === "plane" && sideOf(next.cam, normalOfPlane(pl)) === 0) next = animateTo(next, planeView(next.cam, pl, false), env.now);
+    }
   }
   if (next.sketchOn && !(next.sketchOn.ref in sceneOf(next.session).parts)) next = { ...next, sketchOn: null }; // (the plane is gone: undone or deleted)
   if (next.resume && !RESUMING.has(i.type)) next = { ...next, resume: null }; // only a click, or moving the view, keeps "sketching goes on" waiting for a vertex
@@ -164,6 +168,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "swivel": return doSwivel(s, i);
     case "zoom": return doZoom(s, i, env);
     case "look": return doLook(s, i, env);
+    case "keepNormal": return doKeepNormal(s, env);
     case "home": return doHome(s, env);
     case "buildNext": return doBuildNext(s);
     case "runAction": return doRunAction(i.part && i.id.startsWith("gear:") && !s.session.click.selection.includes(i.part as never) ? { ...s, session: { ...s.session, click: { ...s.session.click, selection: [i.part as never] } } } : s, i.id, env.now); // (the icon of a gear that is only pointed at: its Edit, Helix and Mesh are for that gear, `in_864`)
@@ -185,7 +190,7 @@ function apply(s: AppState, i: Intent, env: Env): AppState {
     case "undo": return doUndo(s);
     case "redo": return doRedo(s);
     case "escape": return doEscape(s);
-    case "sketchCut": return s.sketchOn ? { ...s, sketchOn: s.sketchOn.off ? { ref: s.sketchOn.ref, centre: s.sketchOn.centre, n: s.sketchOn.n } : { ...s.sketchOn, off: true } } : s; // (the bar's cut icon: the cut view on and off while sketching, `in_1377`)
+    case "sketchCut": return s.sketchOn ? { ...s, sketchOn: s.sketchOn.off ? (({ off: _off, ...rest }) => rest)(s.sketchOn) : { ...s.sketchOn, off: true } } : s; // (the bar's cut icon: the cut view on and off while sketching, `in_1377`)
     case "exitSketch": return { ...s, sketchOn: null, tool: null, resume: null, session: { ...s.session, message: null } }; // (sketching is left: the cut goes, and the tool with it, `in_1375`)
     case "begin": return doBegin(s, i.name, env.now);
     case "typed": {

@@ -81,7 +81,7 @@ import { bodiesOfSelection } from "./objects.ts";
 import type { Bar, BarFacts } from "./bar.ts";
 import type { Suggestions } from "./suggest.ts";
 import type { Annotation } from "./annotations.ts";
-import { sectionQuad, sectionNow, cutsNow, modeOf, sheetMoveOf, activePane } from "./control/section.ts";
+import { newFaces, sectionQuad, sectionNow, cutsNow, modeOf, sheetMoveOf, activePane } from "./control/section.ts";
 import { buildingText } from "./modeltool.ts";
 import { inUnits, entryOf, revolveEntries, loftEntries, previewFor, repeatEntries, moveEntries, moverPlaceEntries, mirrorEntries, scaleEntries, sectionEntries } from "./entry.ts";
 import { helperOf } from "./pattern.ts";
@@ -241,6 +241,10 @@ export interface Frame {
   sketching: boolean;
   /** while sketching: whether the view is cut along the plane (the bar's cut icon switches it) */
   sketchCut: boolean;
+  /** while sketching: the view is kept square to the plane (the bar's button, `in_1385`) */
+  keepNormal: boolean;
+  /** the triangles of the faces made since the sketch's cut began (`in_1385`): drawn whole, not cut; null with none */
+  unclipped: Float32Array | null;
   tool: { kind: "rect" | "circle" | "polygon" | "line" | "arc" | "spline" | "cam" | "trim" | "gear" | "model"; label: string; /** figures made while it has been on (the chip flashes at each) */ made: number; /** a figure is half drawn (the chip's cross then cancels it) */ drawing: boolean; /** something is made and nothing is half drawn: the chip shows a check that puts the tool away, in place of the cross (`in_283`) */ done: boolean } | null;
   /** a repeat or an operation that is open: the tick (Enter, a right click) and the cross (Esc) are shown for it (`in_244`) */
   confirm: { kind: string; label: string; /** words shown in the bubble beside the buttons */ text?: string } | null;
@@ -544,6 +548,8 @@ function frameBase(s: AppState, size: { w: number; h: number }, now = 0): Omit<F
     confirm: s.awaiting && !s.op && !s.tool && !s.repeat ? { kind: s.awaiting.icon, label: s.awaiting.label, text: s.awaiting.why.charAt(0).toUpperCase() + s.awaiting.why.slice(1) } : s.picking && !s.op && !s.tool && !s.repeat ? { kind: s.picking.kind, label: OPEN_LABELS[s.picking.kind] ?? s.picking.kind, text: s.picking.why ? s.picking.why.charAt(0).toUpperCase() + s.picking.why.slice(1) : "Click what it needs" } : s.moverSphere && moverOp(s) && !s.tool ? { kind: "orient", label: "Orient the mover", text: "Orient the mover" } : s.cut ? { kind: "subtract", label: "Cut" } : s.tool ? null : s.repeat && !s.op ? { kind: s.repeat.op.kind, label: OPEN_LABELS[s.repeat.op.kind] ?? s.repeat.op.kind } : s.op && s.op.kind !== "dimension" ? { kind: s.op.kind, label: OPEN_LABELS[s.op.kind] ?? s.op.kind } : !s.op && !s.picking && !s.repeat && !s.cut && similarOf(s) ? { kind: "similar", label: "Select similar", text: `${similarOf(s)!.count} similar ${similarOf(s)!.noun}${similarOf(s)!.count === 1 ? "" : "s"}` } : null,
     sketching: !!s.sketchOn,
     sketchCut: !!s.sketchOn && !s.sketchOn.off,
+    keepNormal: !!s.sketchOn && !!s.keepNormal,
+    unclipped: unclippedOf(s),
     tool: s.tool ? { kind: s.tool.kind, label: ({ rect: "Rectangle", circle: "Circle", polygon: "Polygon", line: "Line", arc: "Curve", spline: "Spline", cam: "Cam", trim: "Trim", gear: "Gear", model: "Model" } as const)[s.tool.kind], made: s.tool.made ?? 0, drawing: s.tool.points.length > 0, done: (s.tool.made ?? 0) > 0 && s.tool.points.length === 0 } : null,
     wireframe: s.wireframe || (s.moverSphere && !!moverOp(s)) || s.op?.kind === "revolve" || s.op?.kind === "mirror" || s.op?.kind === "sweep" || s.op?.kind === "loft" || ((s.picking?.kind === "sweep" || s.picking?.kind === "loft") && !!pickingOp(s)) /* (what a sweep would make is drawn as wireframe, not as a made body, `in_529`, `in_530`) */ || /* the object goes wireframe while the mover itself is oriented, `in_421` */ (s.op?.kind === "hollow" && !!s.drag && "handle" in s.drag), // (the body fades to wireframe while the wall is pulled, so the wall can be seen, `in_394`)
     sections: cutsNow(s).map((c) => ({ at: c.centre, n: c.n, corners: sectionQuad(c.centre, c.n, c.extent) })),
@@ -758,6 +764,19 @@ function withGhost(base: Preview | null, s: AppState): Preview | null {
 function motionNote(m: NonNullable<AppState["motion"]>): string | null {
   const c = m.contact;
   return c?.jam ? "Collision occurred" : null; // (the words are short, the detail is in the tooltip and a click goes to it, `in_1191`; only a stop is said here; a heavy push or a pin in a hole is not: the Fix constraints offer is the sign, and its walk has the detail, `in_1131`)
+}
+
+let unclippedMemo: { sc: Scene; on: unknown; out: Float32Array | null } | null = null;
+/** The triangles of the faces that stand in the model now and did not when sketch mode began: drawn whole while the cut is on (`in_1385`); kept for the scene and the mode they were worked out for. */
+function unclippedOf(s: AppState): Float32Array | null {
+  const faces = newFaces(s);
+  if (!faces.length) return null;
+  const sc = sceneOf(s.session);
+  if (unclippedMemo && unclippedMemo.sc === sc && unclippedMemo.on === s.sketchOn) return unclippedMemo.out;
+  const meshes = faces.flatMap((r) => { const p = sc.parts[r]; return p?.kind === "plane" && p.mesh && p.mesh.length >= 9 ? [p.mesh] : []; });
+  const out = meshes.length ? Float32Array.from(meshes.flat()) : null;
+  unclippedMemo = { sc, on: s.sketchOn, out };
+  return out;
 }
 
 /** The plane a sketch tool is on (the tool's, else the one selected) with its normal turned toward the camera, from wherever the camera is: what is past it is not what is being worked on. */

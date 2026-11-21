@@ -82,7 +82,7 @@ export function planeOfTool(s: AppState): Ref | null {
  * The cut along a plane, for sketching on it (`in_1351`, `in_1375`): the plane or face, and the middle of it and the way it looks out (the half it looks out to is cut away: a face of the body outward; any other plane,
  * a world plane or a sheet, towards the camera, so the cut is seen from where the view is). Null for a sheet that cuts already, a cut's own cap, or a round face, which has no plane to cut along.
  */
-export function planeCutOf(s: AppState, ref: Ref | null, world = true): { ref: Ref; centre: Vec3; n: Vec3 } | null {
+export function planeCutOf(s: AppState, ref: Ref | null, world = true): { ref: Ref; centre: Vec3; n: Vec3; known: Ref[] } | null {
   if (!ref) return null;
   const sc = sceneOf(s.session);
   const p = sc.parts[ref];
@@ -93,12 +93,21 @@ export function planeCutOf(s: AppState, ref: Ref | null, world = true): { ref: R
     if (!m || m.length < 9 || !ax) return null;
     let [x, y, z, k] = [0, 0, 0, 0];
     for (let i = 0; i + 2 < m.length; i += 3) { x += m[i]!; y += m[i + 1]!; z += m[i + 2]!; k++; }
-    return { ref, centre: [x / k, y / k, z / k], n: ax[2] };
+    return { ref, centre: [x / k, y / k, z / k], n: ax[2], known: facesNow(sc) };
   }
   const n = normalize(cross(p.u, p.v));
-  if (p.onBody) return { ref, centre: p.at, n };
+  if (p.onBody) return { ref, centre: p.at, n, known: facesNow(sc) };
   const toCamera = dot(sub(position(s.cam), p.at), n) >= 0 ? 1 : -1; // (a plane that is no face: the half the camera is on)
-  return { ref, centre: p.at, n: toCamera > 0 ? n : (scale(n, -1) as Vec3) };
+  return { ref, centre: p.at, n: toCamera > 0 ? n : (scale(n, -1) as Vec3), known: facesNow(sc) };
+}
+/** The faces of the bodies as they are now (flat or round, not a cut's cap): what a sketch's cut is of. */
+const facesNow = (sc: Scene): Ref[] => Object.values(sc.parts).filter((p) => p.kind === "plane" && p.origin === "body" && !p.cap && !p.section).map((p) => p.ref);
+/** The faces made since sketch mode began: they are not cut (`in_1385`), and with none known (a state kept from before) nothing is left out. */
+export function newFaces(s: AppState): Ref[] {
+  const on = s.sketchOn;
+  if (!on || on.off || !on.known) return [];
+  const known = new Set(on.known);
+  return Object.values(sceneOf(s.session).parts).filter((p) => p.kind === "plane" && p.origin === "body" && !p.cap && !p.section && !known.has(p.ref)).map((p) => p.ref);
 }
 /**
  * The one way the view goes normal to a surface (`in_1378`): the camera turns straight to it (`alternate`: pressed again, the back) and the view is cut along it, unless the cut was switched off with the

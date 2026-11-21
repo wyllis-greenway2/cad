@@ -30,6 +30,8 @@ export interface PickOptions {
   centres?: { at: Vec3; ref: Ref }[];
   /** the cross section (`in_395`): what lies on the side of the plane its normal points to is not drawn, so it is not there to point at */
   clips?: { at: Vec3; n: Vec3 }[];
+  /** the faces made since the cut began (a sketch's cut is of the model as it was, `in_1385`): they are not cut, so they are there to point at */
+  unclipped?: ReadonlySet<Ref>;
 }
 const DEFAULT_PICK: PickOptions = { pointTol: 10, lineTol: 8 };
 
@@ -74,7 +76,7 @@ export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = 
   for (const p of parts) {
     if (RANK[p.kind] !== 2) continue;
     const t = depthOf(get, p, pv);
-    if (t !== null && opts.clips?.length && p.origin !== "world" && pv.ray && cut(add(pv.ray.o, scale(pv.ray.d, t)))) continue; // (the part of a surface that is cut away cannot be hit)
+    if (t !== null && opts.clips?.length && p.origin !== "world" && !opts.unclipped?.has(p.ref) && pv.ray && cut(add(pv.ray.o, scale(pv.ray.d, t)))) continue; // (the part of a surface that is cut away cannot be hit)
     if (t !== null && !(tPlane !== null && p.origin !== "world" && p.origin !== "drawn" && t < tPlane - 1e-3)) surfaces.push({ p, t });
   }
   // an infinite world plane is only the background, whatever lies in front of what: it is what a click lands on only when there is no other surface under the pointer, even if the
@@ -98,7 +100,7 @@ export function candidatesAt(scene: Scene, pv: PointerView, opts: PickOptions = 
     const tp = dot(sub(point, ray.o), ray.d);
     for (const o of occluders) {
       const t = depthOf(get, o, { ...pv, ray });
-      if (t !== null && opts.clips?.length && cut(add(ray.o, scale(ray.d, t)))) continue; // (a face cut away on the screen hides nothing behind it: the inside edges of a body opened by a cross section are there to point at)
+      if (t !== null && opts.clips?.length && !opts.unclipped?.has(o.ref) && cut(add(ray.o, scale(ray.d, t)))) continue; // (a face cut away on the screen hides nothing behind it: the inside edges of a body opened by a cross section are there to point at)
       if (t !== null && t < tp - 1e-3 - 1.5e-3 * tp && !(tPlane !== null && t < tPlane - 1e-3)) return false; // (a face between the camera and the plane being sketched on hides nothing) // (the mesh of a curved face lies a hair inside the true surface, so an edge between two curved faces must not be taken for hidden behind them)
     }
     return true;

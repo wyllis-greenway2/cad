@@ -33,7 +33,7 @@ test("nothing selected, no bar; a body selected has its eye in it, and not the i
   assert.deepEqual(ids(sel), [`body:eye:${bodyOf(st)}`]);
 });
 
-test("a double click on a body adds the icon of its constraints; it goes when the body is no longer selected, and pressing it shows the constraints of the body", () => {
+test("a triple click on a body (a double click on a flat face turns the view to it, `in_1385`) adds the icon of its constraints; it goes when the body is no longer selected, and pressing it shows the constraints of the body", () => {
   let st = box();
   const b = bodyOf(st);
   const pr = projector(st.cam, 800, 600);
@@ -41,7 +41,8 @@ test("a double click on a body adds the icon of its constraints; it goes when th
   const [x, y] = pr.project(c);
   st = reduce(st, { type: "click", x, y, count: 1, shift: false }, env);
   st = reduce(st, { type: "click", x, y, count: 2, shift: false }, env);
-  assert.equal(st.consFor, b, "double clicked");
+  st = reduce(st, { type: "click", x, y, count: 3, shift: false }, env);
+  assert.equal(st.consFor, b, "triple clicked");
   assert.ok(ids(st).includes(`body:constraints:${b}`), ids(st).join());
   st = reduce(st, { type: "runAction", id: `body:constraints:${b}` }, env);
   assert.deepEqual(st.bodyConstraints, [b]);

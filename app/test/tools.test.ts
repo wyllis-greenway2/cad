@@ -424,7 +424,7 @@ test("an arc's other end is level or upright with its first end when it is near,
   assert.ok(scene(st.session).relations.some((r) => r.kind === "horizontal"), "the arc's chord is held level");
 });
 
-test("a triple click on a sketch drawn on a face of a block turns to it, like a sketch in free space", () => {
+test("a double click on a sketch drawn on a face of a block turns to it, like a sketch in free space (`in_1385`)", () => {
   let st = drawBox(top(), 20); // 40 x 20 block from (3,3)
   st = { ...st, cam: homeCamera() };
   st = reduce(st, { type: "begin", name: "rect" }, env);
@@ -433,7 +433,7 @@ test("a triple click on a sketch drawn on a face of a block turns to it, like a 
   const fig = Object.values(scene(st.session).parts).find((p) => p.kind === "face" && p.origin === "drawn")!;
   assert.ok(fig);
   st = click({ ...st, tool: null, resume: null }, [16, 15.5, 20], 1);
-  st = click(st, [16, 15.5, 20], 3); // (away from the arrow that shows by itself at the middle)
+  st = click(st, [16, 15.5, 20], 2); // (away from the arrow that shows by itself at the middle)
   assert.ok(st.anim, "the view is turning to the plane");
 });
 

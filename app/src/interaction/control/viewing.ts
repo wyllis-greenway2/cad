@@ -1,5 +1,5 @@
 // The camera intents: orbit, pan, zoom, look at a plane (X Y Z N), home, the animation, and which plane's grid to show.
-import { turnToPlane } from "./section.ts";
+import { turnToPlane, sectionNow } from "./section.ts";
 import type { Intent } from "../../shared/input.ts";
 import type { Vec3 } from "../../math/vec.ts";
 import { sub } from "../../math/vec.ts";
@@ -25,7 +25,16 @@ const WORLD_PLANE = { X: "YZ", Y: "XZ", Z: "XY" } as const; // X looks along the
 
 const withoutMix = (c: AppState["cam"]): AppState["cam"] => { const { mix: _unused, ...rest } = c; return rest; };
 
+/** The button of the bar while sketching (`in_1385`): the view is kept square to the plane being sketched on, or let go; switched on it turns to the plane at once, from the side you are on. */
+export function doKeepNormal(s: AppState, env: Env): AppState {
+  const on = !s.keepNormal;
+  const pl = on && s.sketchOn ? (lookup(sceneOf(s.session))(s.sketchOn.ref) as Plane | undefined) : undefined;
+  const next: AppState = { ...s, keepNormal: on };
+  return pl?.kind === "plane" && sideOf(s.cam, normalOfPlane(pl)) === 0 ? animateTo(next, planeView(s.cam, pl, false), env.now) : next;
+}
+
 export function doOrbit(s: AppState, i0: Extract<Intent, { type: "orbit" }>): AppState {
+  if (s.keepNormal && s.sketchOn) return { ...s, menu: null }; // (kept square to the sketch: the view is not turned by hand; pan and zoom still go)
   const g = fineGain(Math.hypot(i0.dx, i0.dy)); // (the finest movements turn the view a little less, `in_420`)
   const i = { ...i0, dx: i0.dx * g, dy: i0.dy * g };
   // the view turns about the body in view when there are several, kept for the whole drag (`in_291`)
@@ -82,7 +91,7 @@ export function doLook(s: AppState, i: Extract<Intent, { type: "look" }>, env: E
   }
   const r = doLook0(s, i, env);
   if (s.op && (s.op.kind === "move" || s.op.kind === "rotate") && i.plane !== "N") return r; // (those buttons pick the axis of the move or turn)
-  return i.plane !== "N" && r.sketchOn ? { ...r, sketchOn: null } : r; // (X, Y, Z: views of the world, `in_1376`)
+  return i.plane !== "N" && s.sketchOn ? { ...r, keepNormal: false } : r; // (X, Y, Z only turn the view: sketch mode and its cut stay, `in_1385`, which took back `in_1376`; the view is let go if it was kept square)
 }
 function doLook0(s: AppState, i: Extract<Intent, { type: "look" }>, env: Env): AppState {
   const get = lookup(sceneOf(s.session));
@@ -92,6 +101,7 @@ function doLook0(s: AppState, i: Extract<Intent, { type: "look" }>, env: Env): A
     return pl ? animateTo(s, planeView(s.cam, pl, true), env.now) : withSession(s, { ...s.session, message: "select something on a plane first" });
   }
   const ref = worldRef(WORLD_PLANE[i.plane]);
+  if (s.sketchOn || s.tool || sectionNow(s)) return animateTo(s, planeView(s.cam, get(ref) as Plane, true), env.now); // (sketching or a cross section in hand: the buttons only turn the view: nothing is selected, the world plane that is on stays, `in_1385`)
   const selected: Session = { ...s.session, click: { ...initialClick(), selection: [ref] }, message: null };
   return animateTo({ ...withSession(s, selected), world: WORLD_PLANE[i.plane] }, planeView(s.cam, get(ref) as Plane, true), env.now); // (the plane that is on changes with it, `in_190`)
 }
