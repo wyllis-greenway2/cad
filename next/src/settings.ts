@@ -10,8 +10,8 @@ export const settings = {
     perspectiveMs: 350, // the perspective coming back after a straight view is left
     leaveStraightPx: 60, // how far a drag must go to leave a straight view
     clickMovePx: 4,
-    minStraightLens: 0.00005, // a straight view zoomed in shuts the lens down to this, so the eye need not come near
-    straightLens: 0.02, // how much perspective a straight view has left: as good as none
+    morphLens: 0.01, // while the view changes between perspective and orthographic the lens goes to this and the picture is handed over to the orthographic camera (they look the same here to within a fraction of a percent)
+    minOrthoMm: 0.05, // an orthographic view is not made smaller than this tall
     normalToleranceRad: 0.02,
   },
   input: {

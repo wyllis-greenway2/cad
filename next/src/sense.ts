@@ -1,6 +1,6 @@
 // What the camera needs to know about the scene: how far ahead things are, what to turn about, and whether anything is in view. Pure.
 import { add, len, scale, sub, dot, type V3 } from "./vec.ts";
-import { forward, heightAt, project, type Cam } from "./camera.ts";
+import { forward, project, reachOf, type Cam } from "./camera.ts";
 import { centreOf, hitThings, type Scene, type Thing } from "./scene.ts";
 import { settings } from "./settings.ts";
 
@@ -91,12 +91,12 @@ export function planeHit(from: V3, dir: V3, axis: 0 | 1 | 2): { t: number; point
  * The spacing is a power of ten, and `blend` (0 to 1) says how far the view has gone toward the next one up, so that the lines of one spacing fade into the next and nothing pops.
  */
 export function gridLevel(c: Cam, plane: 0 | 1 | 2): { step: number; blend: number; fog: number; span: number } {
-  const height = Math.max(Math.abs(c.eye[plane]) * c.lens, settings.view.minSurfaceMm); // (the distance to the plane; a straight view is far away with the lens shut, so the lens is taken out)
+  const ortho = c.ortho !== null;
+  const height = Math.max(ortho ? reachOf(c) : Math.abs(c.eye[plane]) * c.lens, settings.view.minSurfaceMm); // (the distance to the plane as the picture sees it)
   const e = Math.log10(height / 6), k = Math.floor(e), step = 10 ** k;
-  const fog = Math.max(len(c.eye), (12 * step) / c.lens);
-  // how far from the eye's foot the grid is drawn: as far as the fog reaches, but in a straight view (the plane seen face on) only as far as the picture shows, so the numbers the picture works with stay small
-  const span = c.lens < 0.2 ? Math.min(fog * 5, 3 * heightAt(c, Math.max(Math.abs(c.eye[plane]), settings.view.minSurfaceMm))) : fog * 5;
-  return { step, blend: e - k, fog, span };
+  // fog fades the grid with the distance from the eye; an orthographic view has none (everything is at the same scale), and draws the grid only as far as the picture shows, so the numbers the picture works with stay small
+  const fog = ortho ? 1e9 : Math.max(len(c.eye), (12 * step) / c.lens);
+  return { step, blend: e - k, fog, span: ortho ? 4 * c.ortho! : fog * 5 };
 }
 
 /**
@@ -120,6 +120,6 @@ export function paneAt(sc: Scene, from: V3, dir: V3, gizmoScale = 1): { axis: 0 
 export function flightScale(sc: Scene, c: Cam): number {
   let best = Infinity;
   for (const t of sc.things) best = Math.min(best, Math.max(len(sub(centreOf(t), c.eye)), len(sub(t.hi, t.lo)) / 2));
-  if (!isFinite(best)) best = len(c.eye) * (c.lens < 1 ? 1 : 1); // (nothing there: how far from the origin)
+  if (!isFinite(best)) best = len(c.eye); // (nothing there: how far from the origin)
   return Math.max(best, settings.view.minFlightMm);
 }

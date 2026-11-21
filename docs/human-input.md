@@ -5956,3 +5956,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1419 — 2026-11-21 — directive
 > Okay it seems like ortho mode is not actually ortho, panning goes slightly 3d
+
+## in_1420 — 2026-11-21 — directive
+> yes go ahead
+(To the AI's proposal that the camera be perspective or orthographic with a size, the lens existing only while the view changes between them.)

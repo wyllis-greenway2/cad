@@ -1,16 +1,17 @@
-// The camera as pure maths: an eye looking in a direction, through a lens. No target, no stored distance, no zoom number.
+// The camera as pure maths: an eye looking in a direction, seen either in perspective or orthographically. No target, no stored distance.
 //   Move  the eye along a ray, or across the view.          (zoom, walk, pan)
 //   Turn  the camera about a point.                          (orbit: the point is a pivot; look: the point is the eye)
-//   Lens  how much perspective there is; a straight view is the same camera with the lens nearly shut and the eye far back.
-// How far a step goes is always a fraction of the depth ahead (what is in front on that ray), which the caller measures.
+//   View  perspective, or orthographic with a size (how tall the picture is in mm). A straight view is the orthographic one.
+// The lens (how much perspective) exists only while the view changes between the two, an eased dolly-zoom that keeps what is held the same size.
 import { settings } from "./settings.ts";
-import { add, clamp, cross, dot, lerp, rotate, scale, shortest, sub, unit, type V3 } from "./vec.ts";
+import { add, clamp, cross, dot, lerp, len, rotate, scale, shortest, sub, unit, type V3 } from "./vec.ts";
 
 export interface Cam {
   eye: V3;
   yaw: number; // radians, the direction looked in, about Z (0 = along +X, counter-clockwise from above)
   pitch: number; // radians above the horizon, in [-PI/2, PI/2]; there is no roll: Z is always up
-  lens: number; // 1 = full perspective .. settings.view.straightLens = as good as orthographic
+  ortho: number | null; // null: perspective; otherwise orthographic, and how tall the picture is, in mm, at every depth
+  lens: number; // how much perspective, 1 = all: it is 1 at rest, and between 1 and `morphLens` only while the view changes between perspective and orthographic
 }
 
 const HALF_PI = Math.PI / 2;
@@ -18,7 +19,7 @@ export const home = (): Cam => {
   // from the +X +Y corner, a little above, looking at the origin from the home distance
   const az = settings.view.homeAzimuth, el = settings.view.homeElevation, d = settings.view.homeDistance;
   const toward: V3 = [-Math.cos(el) * Math.cos(az), -Math.cos(el) * Math.sin(az), -Math.sin(el)];
-  return { eye: scale(toward, -d), yaw: Math.atan2(toward[1], toward[0]), pitch: Math.asin(toward[2]), lens: 1 };
+  return { eye: scale(toward, -d), yaw: Math.atan2(toward[1], toward[0]), pitch: Math.asin(toward[2]), ortho: null, lens: 1 };
 };
 
 export const forward = (c: Cam): V3 => [Math.cos(c.pitch) * Math.cos(c.yaw), Math.cos(c.pitch) * Math.sin(c.yaw), Math.sin(c.pitch)];
@@ -27,14 +28,16 @@ export const rightOf = (c: Cam): V3 => cross(forward(c), upOf(c));
 const tanHalf0 = (): number => Math.tan((settings.view.fovDeg * Math.PI) / 360);
 /** The lens's vertical field of view, in radians. */
 export const fovOf = (c: Cam): number => 2 * Math.atan(tanHalf0() * c.lens);
-/** The size of the view's height, in mm, at `depth` in front of the eye. */
-export const heightAt = (c: Cam, depth: number): number => 2 * depth * tanHalf0() * c.lens;
-export const isStraight = (c: Cam): boolean => c.lens <= settings.view.straightLens + 1e-9;
+/** How tall the view is, in mm, `depth` in front of the eye: the same at every depth in an orthographic view. */
+export const viewHeight = (c: Cam, depth: number): number => c.ortho ?? 2 * depth * tanHalf0() * c.lens;
+/** The distance at which a perspective picture would be as tall as this view: how far in or out the view is, in the one unit both kinds of view share. */
+export const reachOf = (c: Cam): number => (c.ortho !== null ? c.ortho / (2 * tanHalf0()) : len(c.eye));
 
-/** The unit direction of the ray through a point of the view: (nx, ny) in -1..1 across it, y up. */
-export function rayThrough(c: Cam, nx: number, ny: number, aspect: number): V3 {
+/** The ray through a point of the view, (nx, ny) in -1..1 across it, y up: from the eye in perspective; in an orthographic view parallel to the view, from the point of the plane through the eye. */
+export function rayFrom(c: Cam, nx: number, ny: number, aspect: number): { o: V3; d: V3 } {
+  if (c.ortho !== null) return { o: add(c.eye, add(scale(rightOf(c), (nx * c.ortho * aspect) / 2), scale(upOf(c), (ny * c.ortho) / 2))), d: forward(c) };
   const t = tanHalf0() * c.lens;
-  return unit(add(forward(c), add(scale(rightOf(c), nx * t * aspect), scale(upOf(c), ny * t))));
+  return { o: c.eye, d: unit(add(forward(c), add(scale(rightOf(c), nx * t * aspect), scale(upOf(c), ny * t)))) };
 }
 
 /** Turn the whole camera about `point`, by a yaw about Z and a pitch about its own right side: the eye swings round the point, and the point stays where it is on screen. With the eye as the point, the eye stays and the view turns. The pitch stops at straight up and down, and the eye stops with it. */
@@ -52,7 +55,7 @@ export function turnAbout(c: Cam, point: V3, dyaw: number, dpitch: number): Cam 
 export const moveAlong = (c: Cam, dir: V3, dist: number): Cam => ({ ...c, eye: add(c.eye, scale(dir, dist)) });
 /** Slide the view so that what is `depth` ahead follows the pointer's movement in pixels. */
 export function pan(c: Cam, dxPx: number, dyPx: number, depth: number, heightPx: number): Cam {
-  const wpp = heightAt(c, depth) / heightPx;
+  const wpp = viewHeight(c, depth) / heightPx;
   return { ...c, eye: add(c.eye, add(scale(rightOf(c), -dxPx * wpp), scale(upOf(c), dyPx * wpp))) };
 }
 // ---- the world's planes: where the straight views look from ----
@@ -79,29 +82,39 @@ export function straightAlong(c: Cam, tol = settings.view.normalToleranceRad): {
   return Math.abs(forward(c)[f.axis]) > Math.cos(tol) ? { axis: f.axis, sign: f.sign } : null;
 }
 
-// ---- the lens, and eased changes of view ----
+// ---- zoom of an orthographic view, and eased changes of view ----
+/** Zoom an orthographic view by `factor` (below 1 = closer): the picture's size changes, and the point at (nx, ny) across the view (-1..1, y up) stays where it is on the screen. */
+export function zoomOrtho(c: Cam, factor: number, nx = 0, ny = 0, aspect = 1): Cam {
+  if (c.ortho === null) return c;
+  const ortho = clamp(c.ortho * factor, settings.view.minOrthoMm, 2 * tanHalf0() * settings.view.maxDistanceMm);
+  const slide = add(scale(rightOf(c), (nx * c.ortho * aspect) / 2), scale(upOf(c), (ny * c.ortho) / 2));
+  return { ...c, ortho, eye: add(c.eye, scale(slide, 1 - ortho / c.ortho)) };
+}
 /**
- * Change the lens. The picture's size goes as 1 over the eye's distance times the lens, so with the eye staying where it is the view is simply zoomed; with `holdDepth` (how far in front of the eye the point to keep is)
- * the eye goes forward or back by what keeps that point the same size, so nothing jumps while the perspective comes in or goes out. Both a zoom of a straight view and a change to or from one are this.
+ * Change the lens of a perspective view. The picture's size goes as 1 over the eye's distance times the lens, so the eye goes forward or back by what keeps a point `holdDepth` in front of it the same size:
+ * nothing jumps while the perspective comes in or goes out.
  */
-export const setLens = (c: Cam, lens: number, holdDepth = 0): Cam => ({ ...c, lens, eye: add(c.eye, scale(forward(c), holdDepth * (1 - c.lens / lens))) });
-/** Zoom a straight view by `factor` (below 1 = closer) without letting perspective creep in: the lens is shut more (or opened, up to the straight view's own) with the eye where it is; only past the lens's ends is the eye moved, by a share of `refDepth`. The point at (nx, ny) across the view (-1..1, y up) stays where it is on the screen. */
-export function zoomLens(c: Cam, factor: number, refDepth: number, nx = 0, ny = 0, aspect = 1): Cam {
-  const want = c.lens * factor, lens = clamp(want, settings.view.minStraightLens, settings.view.straightLens);
-  const half = heightAt(c, refDepth) / 2;
-  const slide = add(scale(rightOf(c), nx * half * aspect), scale(upOf(c), ny * half));
-  const next: Cam = { ...setLens(c, lens), eye: add(c.eye, scale(slide, 1 - lens / c.lens)) };
-  return lens === want ? next : moveAlong(next, forward(c), refDepth * (1 - want / lens));
+export const setLens = (c: Cam, lens: number, holdDepth: number): Cam => ({ ...c, lens, eye: add(c.eye, scale(forward(c), holdDepth * (1 - c.lens / lens))) });
+/** An orthographic view as the perspective view of `morphLens` that looks the same at `hold` (a point of the world): the start of a change away from it. The eye goes to where that lens needs it. */
+export function leaveOrtho(c: Cam, hold: V3): Cam {
+  if (c.ortho === null) return c;
+  const lens = settings.view.morphLens, d = c.ortho / (2 * tanHalf0() * lens);
+  return { ...c, ortho: null, lens, eye: add(c.eye, scale(forward(c), forwardDepth(c, hold) - d)) };
+}
+/** The end of a change to a straight view: the perspective view of `morphLens` becomes the orthographic one that looks the same at `hold`, and the eye comes to the plane through `hold`. */
+export function enterOrtho(c: Cam, hold: V3): Cam {
+  const d = Math.max(forwardDepth(c, hold), 1e-6);
+  return { ...c, ortho: 2 * d * tanHalf0() * c.lens, lens: 1, eye: add(c.eye, scale(forward(c), d)) };
 }
 
 /** A change of view that plays out over time: the lens goes to `lens`, and the direction to `dir` (turning about `hold`, a point of the world that keeps its place and size), or, with `eyeTo`, the whole view flies there (Reset). */
 export interface Go { t0: number; ms: number; from: Cam; lens: number; dir?: { yaw: number; pitch: number }; hold: V3; eyeTo?: V3 }
 /** The camera `k` of the way through the change (already eased), from `c`, which may have been moved by hand since. */
 export function stepGo(g: Go, k: number, c: Cam): Cam {
-  if (g.eyeTo && g.dir) return blend(g.from, { eye: g.eyeTo, yaw: g.dir.yaw, pitch: g.dir.pitch, lens: g.lens }, k);
+  if (g.eyeTo && g.dir) return blend(g.from, { eye: g.eyeTo, yaw: g.dir.yaw, pitch: g.dir.pitch, ortho: null, lens: g.lens }, k);
   let n = c;
   if (g.dir) n = turnAbout(n, g.hold, shortest(n.yaw, g.from.yaw + shortest(g.from.yaw, g.dir.yaw) * k), lerp(g.from.pitch, g.dir.pitch, k) - n.pitch);
-  return setLens(n, lerp(g.from.lens, g.lens, k), dot(sub(g.hold, n.eye), forward(n)));
+  return setLens(n, lerp(g.from.lens, g.lens, k), forwardDepth(n, g.hold));
 }
 
 // ---- seeing ----
@@ -109,8 +122,7 @@ export function stepGo(g: Go, k: number, c: Cam): Cam {
 export function project(c: Cam, p: V3, w: number, h: number): { x: number; y: number; depth: number } {
   const rel = sub(p, c.eye);
   const depth = dot(rel, forward(c));
-  const t = tanHalf0() * c.lens;
-  const k = depth > 1e-9 ? 1 / (depth * t) : 0;
+  const k = c.ortho !== null ? 2 / c.ortho : depth > 1e-9 ? 1 / (depth * tanHalf0() * c.lens) : 0; // (screen heights per mm across the view, at this depth)
   return { x: (dot(rel, rightOf(c)) * k * (h / w) * 0.5 + 0.5) * w, y: (0.5 - dot(rel, upOf(c)) * k * 0.5) * h, depth };
 }
 /** How far in front of the eye a point is, along the view (negative: behind it). */
@@ -127,5 +139,5 @@ export function frameBox(lo: V3, hi: V3, aspect: number): Cam {
 
 /** The cameras blended, k from 0 to 1 (eased by the caller): the eye goes straight, the direction turns the short way, the lens opens or shuts. */
 export function blend(a: Cam, b: Cam, k: number): Cam {
-  return { eye: [lerp(a.eye[0], b.eye[0], k), lerp(a.eye[1], b.eye[1], k), lerp(a.eye[2], b.eye[2], k)], yaw: a.yaw + shortest(a.yaw, b.yaw) * k, pitch: lerp(a.pitch, b.pitch, k), lens: lerp(a.lens, b.lens, k) };
+  return { eye: [lerp(a.eye[0], b.eye[0], k), lerp(a.eye[1], b.eye[1], k), lerp(a.eye[2], b.eye[2], k)], yaw: a.yaw + shortest(a.yaw, b.yaw) * k, pitch: lerp(a.pitch, b.pitch, k), ortho: null, lens: lerp(a.lens, b.lens, k) };
 }
