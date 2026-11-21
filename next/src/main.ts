@@ -7,7 +7,7 @@ import { createGame } from "./game.ts";
 import { createWorld } from "./world.ts";
 import { createUi } from "./ui.ts";
 import { demoScene, emptyScene, hitThings, oneScene } from "./scene.ts";
-import { depthAhead, lastSeen, nothingInView, pickPane, pivotFor, planeHit, resetTarget } from "./sense.ts";
+import { depthAhead, lastSeen, nothingInView, pickPane, pivotFor, planeHit, resetTarget, scaleDepth } from "./sense.ts";
 import { add, clamp, dot, len, scale, sub, ease, type V3 } from "./vec.ts";
 
 const params = new URLSearchParams(location.search);
@@ -26,7 +26,6 @@ let plane: Axis = 2; // the world plane that is on: its grid shows, its pane is 
 let worldHidden = false;
 let paneLevel = 1;
 let seen: string | null = null;
-let depth = 120; // how far ahead things are, smoothed: it sets the fog, the grid's spacing and the depth range
 let pointer: { x: number; y: number } | null = null;
 let drag: { kind: "orbit" | "pan"; pivot: V3; depth: number; debt: number } | null = null;
 
@@ -35,15 +34,27 @@ const centre = () => ({ x: size().w / 2, y: size().h / 2 });
 /** Where the pointer is for the world's purposes: at the middle of the view in game mode (the pointer is held there), else where it is. */
 const at = (x: number, y: number) => (game.on ? centre() : { x, y });
 const rayAt = (x: number, y: number): V3 => { const { w, h } = size(); const p = at(x, y); return cam.rayThrough(c, (p.x / w) * 2 - 1, -((p.y / h) * 2 - 1), w / h); };
-const busy = () => lens !== null || glide !== null; // (a change of view is playing: no resting half-straight view, so the camera waits for it, C9)
+const busy = () => lens !== null || glide !== null; // (a change of view is playing: flight waits for it, and so does the Reset pill)
 
 // ---- changes of view ----
-/** Start a change of lens about `focus`: what is there keeps its size while the lens opens or shuts and the eye goes back or forward. */
+/** Start a change of lens about `focus`: what is there keeps its place on the screen and its size while the lens opens or shuts and the eye goes back or forward, so nothing jumps. A point behind the eye is replaced by the one looked at. */
 function startLens(focus: V3, to: { yaw: number; pitch: number } | null, lensTo: number, ms: number, free = false) {
-  const d = len(sub(focus, c.eye)) * c.lens; // (the distance, as it would be with the full lens)
-  lens = { focus, depth: d, from: { yaw: c.yaw, pitch: c.pitch, lens: c.lens }, to: to ?? null, t0: performance.now(), ms, lensTo, free };
+  const f = dot(sub(focus, c.eye), cam.forward(c)) > settings.view.minSurfaceMm ? focus : focusNow();
+  lens = { ...cam.startAbout(c, f, to, lensTo, ms, performance.now()), free };
 }
 const focusNow = (): V3 => add(c.eye, scale(cam.forward(c), depthAhead(model, c, cam.forward(c))));
+/** The hands take the view while a change is playing (any drag, wheel or pan): a change toward a straight view is given up and the perspective comes back smoothly from where it is, never staying half shut (`in_471`). */
+function takeOver(pivot?: V3) {
+  const flying = glide !== null;
+  glide = null;
+  if ((lens && !lens.free) || (flying && c.lens < 1)) startLens(pivot ?? focusNow(), null, 1, Math.max(60, (settings.view.perspectiveMs * (1 - c.lens)) / (1 - settings.view.straightLens)), true);
+}
+/** After the eye was moved by hand while the perspective is coming back: go on from where it is, about the point now looked at, over what time is left. */
+function rebase() {
+  if (!lens?.free) return;
+  const left = Math.max(60, lens.ms - (performance.now() - lens.t0));
+  lens = { ...cam.startAbout(c, add(c.eye, scale(cam.forward(c), Math.max(settings.view.minSurfaceMm, dot(sub(lens.focus, c.eye), cam.forward(c))))), null, lens.lensTo, left, performance.now()), free: true };
+}
 /** Look straight at the plane across `axis` (again: from the other side). It becomes the plane that is on. */
 function lookAt(axis: Axis) {
   if (game.on) endGame();
@@ -76,24 +87,25 @@ attach(canvas, {
     drag = { kind, pivot: pivotFor(model, c, size().w, size().h), depth: Math.max(settings.view.minSurfaceMm, t * dot(hit ? r : cam.forward(c), cam.forward(c))), debt: 0 };
   },
   orbit(dx, dy) {
-    if (game.on || !drag || glide) return;
+    if (game.on || !drag) return;
     const k = settings.view.orbitRadPerPx;
-    if (lens && !lens.free) return; // (a change to a straight view is playing: it is not turned by hand until it is over)
-    if (cam.isStraight(c) && !lens) { // a straight view holds on: the drag is kept back until it is a little way, and the view then turns on from there
+    if (cam.isStraight(c) && !lens && !glide) { // a straight view holds on: the drag is kept back until it is a little way, and the view then turns on from there
       drag.debt += Math.hypot(dx, dy);
       if (drag.debt < settings.view.leaveStraightPx) return;
       const past = Math.min(1, (drag.debt - settings.view.leaveStraightPx) / Math.max(1e-9, Math.hypot(dx, dy)));
       dx *= past; dy *= past;
       startLens(drag.pivot, null, 1, settings.view.perspectiveMs, true);
-    }
-    c = cam.turnAbout(c, lens?.free ? lens.focus : drag.pivot, -dx * k, -dy * k);
+    } else takeOver(drag.pivot);
+    c = cam.turnAbout(c, drag.pivot, -dx * k, -dy * k);
   },
-  pan(dx, dy) { if (busy() || game.on || !drag) return; c = cam.pan(c, dx, dy, drag.depth, size().h); },
+  pan(dx, dy) { if (game.on || !drag) return; takeOver(); c = cam.pan(c, dx, dy, drag.depth, size().h); rebase(); },
   zoom(factor, x, y) {
-    if (busy() || game.on) return;
+    if (game.on) return;
+    takeOver();
     const r = rayAt(x, y), hit = hitThings(model, c.eye, r);
     const ray = hit ? r : cam.forward(c); // (nothing under the pointer: about the middle of the view)
     c = cam.zoomAlong(c, ray, hit ? hit.t : depthAhead(model, c, ray), clamp(factor, 0.2, 5));
+    rebase();
   },
   dragEnd() { drag = null; },
   hover(x, y) { pointer = { x, y }; },
@@ -149,9 +161,7 @@ function frame(now: number) {
   ring.style.display = g.on ? "block" : "none";
 
   // what the world view shows
-  const f = cam.forward(c), dNow = depthAhead(model, c, f);
-  depth += (dNow - depth) * Math.min(1, dt * 8);
-  if (!isFinite(depth) || depth <= 0) depth = dNow;
+  const f = cam.forward(c), depth = scaleDepth(model, c);
   const sawNow = lastSeen(model, c, w, h);
   if (sawNow) seen = sawNow;
   paneLevel = clamp((c.lens - 0.5) / 0.5, 0, 1);
@@ -174,4 +184,4 @@ function frame(now: number) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-(window as unknown as { __cad: unknown }).__cad = { get cam() { return c; }, get plane() { return plane; }, get lens() { return lens; }, get glide() { return glide; }, game, model, set(next: Cam) { c = next; lens = glide = null; }, get depth() { return depth; } };
+(window as unknown as { __cad: unknown }).__cad = { get cam() { return c; }, get plane() { return plane; }, get lens() { return lens; }, get glide() { return glide; }, game, model, set(next: Cam) { c = next; lens = glide = null; }, };

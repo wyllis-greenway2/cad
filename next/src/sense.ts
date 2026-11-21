@@ -15,7 +15,10 @@ export const thingsOf = (sc: Scene): Thing[] => (sc.things.length ? sc.things : 
  */
 export function depthAhead(sc: Scene, c: Cam, ray: V3): number {
   const h = hitThings(sc, c.eye, ray);
-  if (h) return h.t;
+  return h ? h.t : scaleDepth(sc, c);
+}
+/** The same without the surface under a ray: how far in front of the eye the nearest thing's centre is, or how far away things are. It sets the fog, the grid's spacing and the depth range, and does not jump as the view crosses an edge. */
+export function scaleDepth(sc: Scene, c: Cam): number {
   const f = forward(c);
   const points: V3[] = sc.things.length ? sc.things.map(centreOf) : [[0, 0, 0]];
   let ahead = Infinity, away = Infinity;

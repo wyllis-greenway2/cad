@@ -5904,3 +5904,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1402 — 2026-11-21 — directive
 > okay the rotate in non game mode doesn't quite feel right, how is it different from the prototype?
+
+## in_1403 — 2026-11-21 — directive
+> okay, now swtiching in and out of ortho mode is very clunky, the prototype was better there

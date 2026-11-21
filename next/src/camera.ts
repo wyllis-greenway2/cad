@@ -89,17 +89,23 @@ export function straightAlong(c: Cam, tol = settings.view.normalToleranceRad): {
 }
 
 // ---- eased changes of view ----
-/** Where the eye is when the point `focus` is `depth` ahead at the given direction and lens: the lens is shut as the eye backs away, so what is at `focus` keeps its size. */
-export function eyeFor(focus: V3, yaw: number, pitch: number, depth: number, lens: number): V3 {
-  return sub(focus, scale(forward({ eye: focus, yaw, pitch, lens }), depth / lens));
+/** Where the eye is for a change of lens about the point `focus`: `a` and `u` are where the point stands across the view (right, up) and `depth` how far in front it is with the full lens. The lens shuts as the eye backs away, so the point keeps its place on the screen and its size, which is why nothing jumps. */
+export function eyeFor(focus: V3, yaw: number, pitch: number, depth: number, lens: number, a = 0, u = 0): V3 {
+  const c: Cam = { eye: focus, yaw, pitch, lens };
+  return sub(sub(sub(focus, scale(rightOf(c), a)), scale(upOf(c), u)), scale(forward(c), depth / lens));
 }
-export interface Move { focus: V3; depth: number; from: { yaw: number; pitch: number; lens: number }; to: { yaw: number; pitch: number } | null; t0: number; ms: number; lensTo: number }
-/** The camera part-way through a change (k from 0 to 1, already eased). With `to` null the direction is left to whoever turns the camera (the view being turned by a drag while the perspective comes in). */
+export interface Move { focus: V3; a: number; u: number; depth: number; from: { yaw: number; pitch: number; lens: number }; to: { yaw: number; pitch: number } | null; t0: number; ms: number; lensTo: number }
+/** A change of lens to `lensTo` about the point `focus` as the camera sees it now (it must be in front of the eye). With `to` null the direction is left to whoever turns the camera, as in a drag that leaves a straight view. */
+export function startAbout(c: Cam, focus: V3, to: { yaw: number; pitch: number } | null, lensTo: number, ms: number, t0: number): Move {
+  const rel = sub(focus, c.eye);
+  return { focus, a: dot(rel, rightOf(c)), u: dot(rel, upOf(c)), depth: Math.max(dot(rel, forward(c)), 1e-6) * c.lens, from: { yaw: c.yaw, pitch: c.pitch, lens: c.lens }, to, t0, ms, lensTo };
+}
+/** The camera part-way through a change (k from 0 to 1, already eased). */
 export function along(m: Move, k: number, now: { yaw: number; pitch: number }): Cam {
   const lens = lerp(m.from.lens, m.lensTo, k);
   const yaw = m.to ? m.from.yaw + shortest(m.from.yaw, m.to.yaw) * k : now.yaw;
   const pitch = m.to ? lerp(m.from.pitch, m.to.pitch, k) : now.pitch;
-  return { eye: eyeFor(m.focus, yaw, pitch, m.depth, lens), yaw, pitch, lens };
+  return { eye: eyeFor(m.focus, yaw, pitch, m.depth, lens, m.a, m.u), yaw, pitch, lens };
 }
 
 // ---- seeing ----
