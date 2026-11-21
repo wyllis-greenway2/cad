@@ -168,8 +168,8 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
     const l = new Line2(g, m); l.renderOrder = 12; dyn.add(l);
   };
   const drawOrb = (o: NonNullable<PlanesDrawing["orb"]>, w: number, h: number) => {
-    const M = settings.mover, head = (tip: V3, dir: V3, hot: boolean) => {
-      const hl = o.unit * 0.127 * (M.headScale / 0.7), hr = hl * 0.275; // (the old head: 0.02 of the view distance long, a little under a third as wide)
+    const M = settings.mover, head = (tip: V3, dir: V3, hot: boolean, big = 1) => {
+      const hl = o.unit * 0.127 * (M.headScale / 0.7) * big, hr = hl * 0.3; // (the old head: 0.02 of the view distance long, a little under a third as wide)
       const m = new THREE.Mesh(new THREE.ConeGeometry(hr, hl, 14), new THREE.MeshBasicMaterial({ color: hot ? rgb(settings.orb.color) : rgb(settings.theme.axis), transparent: true, opacity: hot ? 1 : M.opacity, depthTest: false }));
       const d = vec(dir).normalize(); m.position.copy(vec(tip).sub(d.clone().multiplyScalar(hl / 2))); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d); m.renderOrder = 13; dyn.add(m);
     };
@@ -178,7 +178,13 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
       if (hd.kind === "ball") { const m = new THREE.Mesh(new THREE.SphereGeometry(o.unit * 0.064 * (M.headScale / 0.7), 16, 12), new THREE.MeshBasicMaterial({ color: hot ? rgb(settings.orb.color) : rgb(settings.theme.axis), depthTest: false })); m.position.copy(vec(p[0]!)); m.renderOrder = 14; dyn.add(m); continue; }
       orbLine(p, hot, w, h);
       for (const l of hd.also ?? []) orbLine(l, hot, w, h);
-      if (hd.kind === "turn") { const n = p.length, a = p[n - 2]!, b = p[n - 1]!; head(b, [b[0] - a[0], b[1] - a[1], b[2] - a[2]], hot); }
+      if (hd.kind === "turn") { // a flat head lying in the plane of the circle, so it reads as a turn from any side
+        const n = p.length, a = vec(p[n - 2]!), b = vec(p[n - 1]!), centre = vec(hd.also![0]![1]!), dir = b.clone().sub(a).normalize(), radial = b.clone().sub(centre).normalize();
+        const hl = o.unit * 0.127 * (M.headScale / 0.7) * M.turnHeadScale, hw = hl * 0.5, base = b.clone().sub(dir.clone().multiplyScalar(hl));
+        const g = new THREE.BufferGeometry().setFromPoints([b, base.clone().add(radial.clone().multiplyScalar(hw)), base.clone().sub(radial.clone().multiplyScalar(hw))]);
+        const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: hot ? rgb(settings.orb.color) : rgb(settings.theme.axis), transparent: true, opacity: hot ? 1 : M.opacity, side: THREE.DoubleSide, depthTest: false }));
+        m.renderOrder = 13; dyn.add(m);
+      }
       else { const a = p[0]!, b = p[1]!; head(b, [b[0] - a[0], b[1] - a[1], b[2] - a[2]], hot); }
     }
   };

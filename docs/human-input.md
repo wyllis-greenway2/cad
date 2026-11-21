@@ -6053,3 +6053,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1447 — 2026-11-21 — directive
 > okay lets try making our own orb slightly different, lets try so that it has a straight arrow coming out one side, and a curved arrow coming out the other side. The extra arrows arent an option the user can add or remove, they are just default added on some operations or not. We will specify when later, for now they should default be off
+
+## in_1448 — 2026-11-21 — directive
+> okay make the rotation circles jsut slightly larger, and fix the arrow tips on them
