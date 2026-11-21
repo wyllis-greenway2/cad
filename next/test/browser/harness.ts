@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
 const playwright = (() => { for (const p of [process.env.PLAYWRIGHT_MODULE, "playwright", "/opt/node-tools/node_modules/playwright"]) { if (!p) continue; try { return require(p); } catch { /* next */ } } throw new Error("Playwright was not found: set PLAYWRIGHT_MODULE"); })();
 
-export interface Page { goto(url: string): Promise<unknown>; evaluate<T>(f: (a: any) => T, a?: unknown): Promise<T>; screenshot(o?: object): Promise<Buffer>; click(s: string): Promise<void>; mouse: any; waitForTimeout(ms: number): Promise<void>; on(e: string, f: (x: any) => void): void; $(s: string): Promise<any>; locator(s: string): any; viewportSize(): { width: number; height: number } | null }
+export interface Page { goto(url: string): Promise<unknown>; evaluate<T>(f: (a: any) => T, a?: unknown): Promise<T>; screenshot(o?: object): Promise<Buffer>; click(s: string): Promise<void>; mouse: any; keyboard: any; waitForTimeout(ms: number): Promise<void>; on(e: string, f: (x: any) => void): void; $(s: string): Promise<any>; locator(s: string): any; viewportSize(): { width: number; height: number } | null }
 export interface Session { url: string; open(query?: string, size?: { width: number; height: number }): Promise<{ page: Page; errors: string[]; close(): Promise<void> }>; stop(): Promise<void> }
 
 export async function start(port = 5197): Promise<Session> {

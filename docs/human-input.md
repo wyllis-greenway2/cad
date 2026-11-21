@@ -6087,3 +6087,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1458 — 2026-11-21 — directive
 > okay now the info bubble of whatever arrow is selected should pop up and persist while it is selected. Also you should be able to shift select one or more arrows in which case it can move on all of the selected arrows at the same time
+
+## in_1459 — 2026-11-21 — directive
+> no lets not worry about the bubbles yet, I want to define those later, so I am happy with the orb now ( I am not yet happy with any of the other new stuff we built yet) should we write down the orb restrictions, and tests now?
