@@ -11,7 +11,10 @@ export interface Intents {
   /** `factor` below 1 zooms in; (x, y) is the pointer in pixels. */
   zoom(factor: number, x: number, y: number): void;
   dragEnd(): void;
+  /** Where the pointer is, kept up to date while a button is held too (a drag of the view), so what is drawn under it stays under it. */
   hover(x: number, y: number): void;
+  /** The pointer left the view. */
+  leave(): void;
   click(x: number, y: number, count: number): void;
   /** The mouse moved while the pointer is held (game mode): by how much. */
   look(dx: number, dy: number): void;
@@ -82,7 +85,8 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
       }
       return;
     }
-    if (!drag) { out.hover(p.x, p.y); return; }
+    out.hover(p.x, p.y); // (also while dragging: the disc under the pointer follows it as the view turns)
+    if (!drag) return;
     if (!drag.moved && Math.hypot(p.x - drag.x0, p.y - drag.y0) < settings.view.clickMovePx) return;
     if (!drag.moved) { drag.moved = true; out.dragStart(drag.action === "pan" ? "pan" : "orbit", drag.x0, drag.y0); }
     const dx = p.x - drag.x, dy = p.y - drag.y;
@@ -115,12 +119,13 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
   const keydown = (e: KeyboardEvent) => { if (e.code === "Space") { if (!e.repeat) { space = true; spaceUsed = false; } if (e.target === document.body || e.target === el) e.preventDefault(); } };
   const keyup = (e: KeyboardEvent) => { if (e.code === "Space") { const tapped = space && !spaceUsed; space = false; if (tapped) out.space(); } };
   const menu = (e: Event) => e.preventDefault();
+  const leave = (e: PointerEvent) => { if (e.pointerType !== "touch" && !drag) out.leave(); };
 
-  el.addEventListener("pointerdown", down); el.addEventListener("pointermove", move); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+  el.addEventListener("pointerdown", down); el.addEventListener("pointermove", move); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up); el.addEventListener("pointerleave", leave);
   el.addEventListener("wheel", wheel, { passive: false }); el.addEventListener("contextmenu", menu);
   addEventListener("keydown", keydown); addEventListener("keyup", keyup);
   return () => {
-    el.removeEventListener("pointerdown", down); el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up);
+    el.removeEventListener("pointerdown", down); el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); el.removeEventListener("pointerleave", leave);
     el.removeEventListener("wheel", wheel); el.removeEventListener("contextmenu", menu); removeEventListener("keydown", keydown); removeEventListener("keyup", keyup);
   };
 }

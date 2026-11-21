@@ -109,6 +109,7 @@ attach(canvas, {
   },
   dragEnd() { drag = null; },
   hover(x, y) { pointer = { x, y }; },
+  leave() { pointer = null; },
   click(x, y) {
     const { w, h } = size(); void w; void h;
     pointer = { x, y };
@@ -185,4 +186,4 @@ function frame(now: number) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-(window as unknown as { __cad: unknown }).__cad = { get cam() { return c; }, get plane() { return plane; }, get lens() { return lens; }, get glide() { return glide; }, game, model, set(next: Cam) { c = next; lens = glide = null; }, };
+(window as unknown as { __cad: unknown }).__cad = { get cam() { return c; }, get plane() { return plane; }, get pointer() { return pointer; }, get lens() { return lens; }, get glide() { return glide; }, game, model, set(next: Cam) { c = next; lens = glide = null; }, };
