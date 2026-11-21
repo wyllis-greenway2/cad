@@ -14,8 +14,7 @@ import { acrossView, borderOf, cutFaceOf, facingCamera, frameOf, noPlanes, regio
 import { faceNormal, pick, type Hit } from "./pick.ts";
 import { apply, marksOf, noMarks, type Sel } from "./select.ts";
 import { createCutUi, createMenu, createOrientBar, type MenuItem } from "./menu.ts";
-import { applyDrag, centreOf, choose as chooseArrow, clonePose, heldAxes as heldOf, newPose, type Pose } from "./mover.ts";
-import { dragTo, handlesOf, hitHandle, startGrab, unitOf, type Grab, type Orb } from "./orb.ts";
+import { createOrbControl } from "./orbcontrol.ts";
 import { add, cross, dot, scale, sub, type V3 } from "./vec.ts";
 
 const params = new URLSearchParams(location.search);
@@ -56,18 +55,15 @@ function sketchOn(f: { origin: V3; normal: V3; u: V3 }, temp: boolean) {
   if (temp) P.cuts.push({ ...f, id: `c${P.next++}`, on: true, temp: true });
 }
 // ---- the mover orb: one orb, three modes; here it moves, turns and copies a cut plane ----
-/** The arrows that are chosen (by a press, Shift adding or taking away): their bubbles stay; chosen move arrows are dragged together (two: in their plane, three: free). One turn arrow at a time. */
-let chosen: string[] = [], orbHot: string | null = null;
-const heldAxes = (): number[] => heldOf(chosen);
-/** The orb's pose for each cut plane: it goes with the plane and is remembered (the prototype's moverPose). */
-const poses = new Map<string, Pose>();
-const poseOf = (k: Cut): Pose => { let q = poses.get(k.id); if (!q) { q = newPose(); poses.set(k.id, q); } return q; };
-let orient = false, poseWas: Pose | null = null; // (the orb itself is being moved and turned, not the plane: a click on the ball turns it on, Enter keeps it, Esc puts it back)
-let grabbed: { g: Grab; base: Cut; pose: Pose; id: string; copied: boolean; moved: boolean; x0: number; y0: number } | null = null;
 const selectedCut = (): Cut | undefined => (sel.length === 1 && sel[0]!.kind === "cut" ? cutOf(sel[0]!.id!) : undefined);
-const orbOf = (): Orb | null => { const k = selectedCut(); if (!k || orienting !== k.id) return null; const q = poseOf(k); return { centre: centreOf(k, q), frame: q.frame, orient, held: heldAxes() }; };
-function endOrient(keep: boolean) { const k = selectedCut(); if (!keep && k && poseWas) poses.set(k.id, poseWas); orient = false; poseWas = null; chosen = []; }
-const orientBar = createOrientBar(document.body, { apply: () => endOrient(true), cancel: () => endOrient(false) });
+/** The mover orb (orbcontrol.ts), on the selected cut plane when it is asked for. */
+const orbc = createOrbControl({
+  target: () => { const k = selectedCut(); return k && orienting === k.id ? { id: k.id, frame: k } : null; },
+  set: (id, f) => { const k = cutOf(id); if (k) { k.origin = f.origin; k.normal = f.normal; k.u = f.u; } },
+  copy: (id) => { const k = cutOf(id); if (!k) return null; const c: Cut = { ...k, id: `c${P.next++}`, temp: false }; P.cuts.push(c); selectCut(c, borderOf(c, model)[0]!); orienting = c.id; return { id: c.id, frame: c }; },
+  view: () => ({ cam: s.c, ...size() }),
+});
+const orientBar = createOrientBar(document.body, { apply: () => orbc.keep(), cancel: () => orbc.cancel() });
 const ctx = { hit: null as Hit | null };
 function choose(id: string) {
   const { w, h } = size(), hit = ctx.hit;
@@ -88,7 +84,7 @@ const menu = createMenu(document.body, choose);
 const cutUi = (() => {
   const handlers = {
     "cut-toggle": (id: string) => { const k = cutOf(id); if (k) k.on = !k.on; },
-    "cut-orient": (id: string) => { orienting = orienting === id ? null : id; chosen = []; const k = cutOf(id); if (k) selectCut(k, borderOf(k, model)[0]!); },
+    "cut-orient": (id: string) => { orienting = orienting === id ? null : id; const k = cutOf(id); if (k) selectCut(k, borderOf(k, model)[0]!); },
     "cut-away": (id: string) => { P.cuts = P.cuts.filter((k) => k.id !== id); sel = []; orienting = null; },
     "cut-sketch": (id: string) => { const k = cutOf(id); if (k) sketchOn(k, false); },
   };
@@ -111,14 +107,7 @@ attach(canvas, {
   click: (x, y, count, shift = false) => {
     pointer = { x, y };
     if (menu.isOpen()) { menu.close(); return; }
-    if (orient) { // (the orb is being oriented: a corner, an edge or a face clicked puts it there; a face also lays its axes along the face)
-      const k = selectedCut(), hit = pickAt(x, y);
-      if (k && hit && hit.kind !== "cut" && hit.kind !== "body") {
-        const q = poseOf(k); q.offset = sub(hit.point, k.origin);
-        if (hit.kind === "face") { const f = frameOf(hit.point, faceNormal(hit.index!)); q.frame = [f.u, cross(f.normal, f.u), f.normal]; }
-      }
-      return;
-    }
+    if (orbc.orienting()) { orbc.place(pickAt(x, y)); return; } // (the orb is being oriented: a click puts it somewhere)
     if (count === 1) selBefore = sel;
     const hit = pickAt(x, y), double = count >= 2;
     if (hit) { sel = apply(double ? selBefore : sel, hit, { shift, double }); if (hit.kind === "cut") { anchor = hit.point; if (orienting !== hit.id) orienting = null; } return; }
@@ -126,34 +115,9 @@ attach(canvas, {
     const next = view.click(s, env(), x, y); // (nothing there: a pane of a world plane, or nothing)
     if (next !== s) { endSketch(); s = next; } else sel = apply(sel, null, { shift, double: false });
   },
-  grab: (x, y, shift) => {
-    const o = orbOf(), k = selectedCut();
-    if (!o || !k || game.on) return false;
-    const { w, h } = size(), hd = hitHandle(handlesOf(o, s.c), s.c, w, h, x, y);
-    if (!hd) return false;
-    if (hd.kind === "arrow" || hd.kind === "turn") { const r = chooseArrow(chosen, hd.id, shift); chosen = r.chosen; if (!r.drag) return true; } // (a press chooses an arrow; Shift adds or takes out)
-    const g = startGrab({ ...o, held: heldAxes() }, hd, s.c, w, h, x, y, forward(s.c));
-    if (!g) return true; // (the handle is taken, but there is nothing to drag from here: end on release)
-    grabbed = { g, base: { ...k }, pose: clonePose(poseOf(k)), id: k.id, copied: false, moved: false, x0: x, y0: y };
-    return true;
-  },
-  grabMove: (x, y) => {
-    if (!grabbed) return;
-    const { w, h } = size(), d = dragTo(grabbed.g, s.c, w, h, x, y);
-    if (!d) return;
-    let k = cutOf(grabbed.id)!;
-    if (grabbed.g.handle.id.startsWith("copy:") && !grabbed.copied && Math.abs(d.value) > 0.5) { // (the second arrow: the first drag of it makes a copy and takes that along)
-      const c: Cut = { ...grabbed.base, id: `c${P.next++}`, temp: false }; P.cuts.push(c); selectCut(c, borderOf(c, model)[0]!); orienting = c.id; grabbed.id = c.id; grabbed.copied = true; k = c;
-    }
-    if (Math.hypot(x - grabbed.x0, y - grabbed.y0) > 3) grabbed.moved = true;
-    const r = applyDrag(grabbed.base, grabbed.pose, d, grabbed.g.handle.axis, orient);
-    if (!orient) { k.origin = r.frame.origin; k.normal = r.frame.normal; k.u = r.frame.u; }
-    poses.set(k.id, r.pose);
-  },
-  grabEnd: () => { // a press on the ball that did not go anywhere: the orb is oriented (it pulses), or the orienting is kept
-    const g = grabbed; grabbed = null;
-    if (g && g.g.handle.kind === "ball" && !g.moved) { if (orient) endOrient(true); else { const k = selectedCut(); if (k) { orient = true; poseWas = clonePose(poseOf(k)); } } }
-  },
+  grab: (x, y, shift) => !game.on && orbc.grab(x, y, shift),
+  grabMove: (x, y) => orbc.grabMove(x, y),
+  grabEnd: () => orbc.grabEnd(),
   menu: (x, y) => { pointer = { x, y }; ctx.hit = pickAt(x, y); menu.open(x, y, menuItems(ctx.hit)); },
   look: (dx, dy) => game.look(dx, dy),
   space: () => { if (game.on) endGame(); else startGame(); },
@@ -163,8 +127,8 @@ addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (game.moves(e.code) && !game.on && !e.repeat) startGame(); // (W A S D turn the game on too, and the key that did it moves the eye)
   if (game.key(e.code, true)) return;
-  if (orient && e.code === "Enter") { endOrient(true); return; }
-  if (e.code === "Escape") { if (orient) endOrient(false); else if (menu.isOpen()) menu.close(); else if (game.on) endGame(); else if (chosen.length) chosen = []; else { sel = []; orienting = null; } }
+  if (orbc.orienting() && e.code === "Enter") { orbc.keep(); return; }
+  if (e.code === "Escape") { if (orbc.cancel()) return; if (menu.isOpen()) menu.close(); else if (game.on) endGame(); else if (!orbc.release()) { sel = []; orienting = null; } }
 });
 addEventListener("keyup", (e) => { game.key(e.code, false); });
 document.addEventListener("pointerlockchange", () => { if (document.pointerLockElement !== canvas && game.on) endGame(); });
@@ -181,9 +145,8 @@ function frame(now: number) {
   const d = view.drawing(s, e, pointer), { w, h } = e;
   hovered = pointer || game.on ? (menu.isOpen() ? null : pickAt(pointer?.x ?? 0, pointer?.y ?? 0)) : null;
   canvas.style.cursor = hovered ? "pointer" : "";
-  const sk = P.sketch, orb0 = orbOf(), orbHandles = orb0 ? handlesOf(orb0, s.c) : [];
-  orbHot = orb0 && pointer && !grabbed && !game.on ? hitHandle(orbHandles, s.c, w, h, pointer.x, pointer.y)?.id ?? null : null;
-  if (orb0 && orbHot) canvas.style.cursor = "grab";
+  const sk = P.sketch, orbd = orbc.drawing(game.on ? null : pointer);
+  if (orbd?.hover) canvas.style.cursor = "grab";
   world.render({
     ...d, ...(sk ? { grid: gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, sk.origin), sk.normal))) } : {}),
     planes: {
@@ -191,19 +154,18 @@ function frame(now: number) {
       clips: regions().map((r) => ({ origin: r.origin, n: r.n })),
       cuts: P.cuts.map((k) => ({ border: borderOf(k, model), on: k.on, selected: sel.some((i) => i.kind === "cut" && i.id === k.id), temp: k.temp, faces: k.on && !k.temp ? model.things.map((t) => cutFaceOf(k, t)).filter((p) => p.length >= 3).map((poly) => ({ poly, u: k.u, v: vOf(k) })) : [] })),
       selected: marksOf(model, sel), hover: hovered && hovered.kind !== "cut" ? marksOf(model, [hovered]) : noMarks(),
-      ...(orb0 ? { orb: { handles: orbHandles, hot: [...(orbHot ? [orbHot] : []), ...(grabbed ? [grabbed.g.handle.id] : []), ...chosen], unit: unitOf(s.c, orb0.centre), orient } } : {}),
+      ...(orbd ? { orb: orbd } : {}),
     },
   });
   const sc = sel.length === 1 && sel[0]!.kind === "cut" ? cutOf(sel[0]!.id!) : undefined;
-  if (!sc) { orienting = null; if (orient) endOrient(true); }
+  if (!sc) orienting = null;
   const scr = (p: V3 | null): [number, number] | null => { if (!p) return null; const q = project(s.c, p, w, h); return q.x > -50 && q.x < w + 50 && q.y > -50 && q.y < h + 50 ? [q.x, q.y] : null; };
   const kept = (p: V3 | null): [number, number] | null => { if (!p) return null; const q = project(s.c, p, w, h); return q.depth > 0 || s.c.ortho !== null ? [Math.min(Math.max(q.x, 8), w - 240), Math.min(Math.max(q.y, 8), h - 120)] : null; }; // (the bubble stays on the screen even when the plane's point has left it)
   cutUi.update(sc ? { id: sc.id, anchor: kept(anchor), on: sc.on, temp: sc.temp, orienting: orienting === sc.id } : null);
-  orientBar.show(orient && !!orb0);
-  if (!orb0 && chosen.length) chosen = []; // (the orb is away: nothing of it is chosen)
+  orientBar.show(orbc.orienting() && !!orbd);
   ui.update(view.pageState(s, e));
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
-dev.install({ planes: () => ({ P, sel, orient, chosen, poses: [...poses] }), model, rebuild: world.rebuild, state: () => s, put: (next) => { s = next; }, pointer: () => pointer, game, gizmoScale: () => view.gizmoScale(s) });
+dev.install({ planes: () => ({ P, sel, ...orbc.debug() }), model, rebuild: world.rebuild, state: () => s, put: (next) => { s = next; }, pointer: () => pointer, game, gizmoScale: () => view.gizmoScale(s) });

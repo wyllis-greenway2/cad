@@ -9,10 +9,8 @@ import type { Scene as Model } from "./scene.ts";
 import { centreOf } from "./scene.ts";
 import type { V3 } from "./vec.ts";
 import type { Marks } from "./select.ts";
-import type { Handle } from "./orb.ts";
-import { Line2 } from "three/examples/jsm/lines/Line2.js";
-import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
-import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+import type { OrbDrawing } from "./orbcontrol.ts";
+import { drawOrb } from "./orbdraw.ts";
 
 const vec = (v: V3) => new THREE.Vector3(v[0], v[1], v[2]);
 const rgb = (c: [number, number, number]) => new THREE.Color().setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace);
@@ -37,8 +35,8 @@ export interface PlanesDrawing {
   clips: Array<{ origin: V3; n: V3 }>; // the half-spaces that are cut away (where dot(p - origin, n) > 0)
   cuts: Array<{ border: V3[]; on: boolean; selected: boolean; temp: boolean; faces: Array<{ poly: V3[]; u: V3; v: V3 }> }>;
   selected: Marks; hover: Marks;
-  /** The mover orb: its handles, the ones that are lit (pointed at, dragged or held) and how big a unit of it is. */
-  orb?: { handles: Handle[]; hot: string[]; unit: number; /** the orb itself is being oriented: its ball pulses blue */ orient?: boolean };
+  /** The mover orb (orbcontrol.ts). */
+  orb?: OrbDrawing;
 }
 export interface Drawing {
   planes?: PlanesDrawing;
@@ -161,31 +159,6 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
   const markFace = (o: number) => new THREE.MeshBasicMaterial({ color: rgb(settings.orb.color), transparent: true, opacity: o, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
   const markSolid = (o: number) => new THREE.MeshBasicMaterial({ color: rgb(settings.orb.color), transparent: o < 1, opacity: o, depthTest: true, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
   const drop = () => { for (const o of [...dyn.children]) { dyn.remove(o); o.traverse((q) => { (q as THREE.Mesh).geometry?.dispose?.(); }); } };
-  const orbLine = (pts: V3[], hot: boolean, w: number, h: number) => {
-    const g = new LineGeometry(); g.setPositions(pts.flat());
-    const m = new LineMaterial({ color: hot ? rgb(settings.orb.color).getHex() : rgb(settings.theme.axis).getHex(), linewidth: settings.mover.widthPx + (hot ? 1 : 0), transparent: true, opacity: hot ? 1 : settings.mover.opacity, depthTest: false });
-    m.resolution.set(w, h);
-    const l = new Line2(g, m); l.renderOrder = 12; dyn.add(l);
-  };
-  const drawOrb = (o: NonNullable<PlanesDrawing["orb"]>, w: number, h: number) => {
-    const M = settings.mover, hl = o.unit * 0.127 * (M.headScale / 0.7), hr = hl * 0.3;
-    for (const hd of o.handles) {
-      const hot = o.hot.includes(hd.id), p = hd.points, colour = hot ? rgb(settings.orb.color) : rgb(settings.theme.axis);
-      if (hd.kind === "ball") {
-        const k = o.orient ? 0.5 + 0.5 * Math.sin(performance.now() / 260) : 0, blue = new THREE.Color(0x2f6fe0).lerp(new THREE.Color(0x9cc4ff), k); // (oriented: it breathes blue)
-        const m = new THREE.Mesh(new THREE.SphereGeometry(o.unit * 0.064 * (M.headScale / 0.7) * (1 + 0.35 * k * (o.orient ? 1 : 0)), 16, 12), new THREE.MeshBasicMaterial({ color: o.orient ? blue : colour, depthTest: false })); m.position.copy(vec(p[0]!)); m.renderOrder = 14; dyn.add(m); continue; }
-      // the head begins where the line has `hl` left to go, and points the way the line goes THERE (not at its end), so it carries on from the curve; the line stops where the head begins
-      const pts = p.map(vec); let left = hl, i = pts.length - 1;
-      while (i > 0 && left > pts[i]!.distanceTo(pts[i - 1]!)) { left -= pts[i]!.distanceTo(pts[i - 1]!); i--; }
-      const seg = pts[i]!.clone().sub(pts[i - 1]!), base = pts[i]!.clone().sub(seg.clone().normalize().multiplyScalar(left)), dir = pts[i - 1]!.clone().sub(pts[i]!).negate().normalize();
-      const line = [...pts.slice(0, i), base].map((q) => [q.x, q.y, q.z] as V3);
-      orbLine(line, hot, w, h);
-      for (const l of hd.also ?? []) orbLine(l, hot, w, h);
-      const tip = base.clone().add(dir.clone().multiplyScalar(hl));
-      const m = new THREE.Mesh(new THREE.ConeGeometry(hr, hl, 14), new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity: hot ? 1 : M.opacity, depthTest: false }));
-      m.position.copy(base.clone().add(tip).multiplyScalar(0.5)); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); m.renderOrder = 13; dyn.add(m);
-    }
-  };
   const drawMarks = (mk: Marks, strong: boolean, c: Cam, hh: number) => {
     const per = (p: V3) => viewHeight(c, Math.max(forwardDepth(c, p), 1e-3)) / hh; // (mm of the world per pixel at a point)
     for (const f of mk.faces) { const m = new THREE.Mesh(fan(f), markFace(strong ? settings.planes.faceOpacity : settings.planes.hoverOpacity)); m.renderOrder = 7; dyn.add(m); }
@@ -256,7 +229,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
           if (k.on) for (const f of k.faces) { const m = new THREE.Mesh(fan(f.poly), hatch.clone()); const mm = m.material as THREE.ShaderMaterial; mm.uniforms = THREE.UniformsUtils.clone(hatch.uniforms); mm.uniforms.uU!.value.copy(vec(f.u)); mm.uniforms.uV!.value.copy(vec(f.v)); m.renderOrder = 4; dyn.add(m); }
         }
         drawMarks(pl.hover, false, c, d.h); drawMarks(pl.selected, true, c, d.h);
-        if (pl.orb) drawOrb(pl.orb, d.w, d.h);
+        if (pl.orb) drawOrb(dyn, pl.orb, d.w, d.h);
       }
       renderer.render(scene, camera);
     },

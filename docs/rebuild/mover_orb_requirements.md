@@ -10,8 +10,9 @@ One orb for everything that is moved, **with no modes and no swapper**. From a b
 ## Contracts of this section
 - `Orb` (`src/orb.ts`): the handles, which one the pointer is at, and what a drag of one means (pure).
 - `Mover` (`src/mover.ts`): which arrows are chosen, and what a drag does to the thing and to the orb's own place and axes (pure).
+- `OrbControl` (`src/orbcontrol.ts`): the controller: presses, drags and keys on the orb into changes of the thing it stands for; it knows nothing of what the thing is (the host says).
 - `Intents` (`src/input.ts`): `grab`, `grabMove`, `grabEnd` (a press that takes a handle is the handle's, not the view's).
-- `Drawing` (`src/world.ts`): gains the orb's handles, which are lit, and whether it is being oriented.
+- `Drawing` (`src/world.ts`): gains the orb's handles, which are lit, and whether it is being oriented; the orb is drawn by `src/orbdraw.ts`.
 - `settings` (`src/settings.ts`): groups `mover`, `orb`, `theme`.
 
 ## Inputs this section claims
