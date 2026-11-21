@@ -1,7 +1,7 @@
 // The step kinds of the first slice (E2): a step takes the values of its inputs and returns a body or a sketch. Each is pure: the same step and inputs give the same body and the same ids (E20).
 // A step that cannot be made throws; the engine flags it and passes `passthrough` on, a value of the step's own output type (E13).
 import * as K from "./kernel.ts";
-import { type EdgeRef, type Id, mint } from "./id.ts";
+import { type EdgeRef, type Id, idKey, isPieceOf, mint } from "./id.ts";
 import { type Age, Body, type Claim, RefLost, type FaceRec, carry, fromClaims, unifyBody } from "./lineage.ts";
 
 export interface Line { id: Id; a: K.V3; b: K.V3 }
@@ -116,10 +116,12 @@ export const kinds: Record<string, Kind> = {
   } },
   /** a round on every edge between the faces named (a face that has split names all its pieces' edges, E8) */
   fillet: { outputs: "body", run: (inputs, { step, age }) => {
-    const body = needBody(inputs[0]), edges = body.findEdges(step.params.edge as EdgeRef), r = num(step.params, "r");
-    const m = K.fillet(body.solid, edges.map((e) => e.h), r), claims: Claim[] = [];
+    const body = needBody(inputs[0]), asked = body.findEdges(step.params.edge as EdgeRef), r = num(step.params, "r");
+    const m = K.fillet(body.solid, asked.map((e) => e.h), r), claims: Claim[] = [];
+    // the kernel rounds along edges that continue the ones asked for (an imprint splits one straight edge in two): every edge it rounded gets a round, named by its two faces
+    const edges = body.edges().filter((e) => m.rounded.some((x) => K.sameEdge(x, e.h)));
     edges.forEach((e, n) => m.round(e.h).forEach((face, k) => claims.push({ id: e.ref ? mint(step.id, "round", e.ref.a, e.ref.b, k) : mint(step.id, "round", "free", n, k), face })));
-    return checked(carry(m.solid, m.report, [body], claims, step.id, age), "the fillet");
+    return checked(corners(carry(m.solid, m.report, [body], claims, step.id, age), step.id), "the fillet");
   } },
   /** the whole body turned about an axis through the origin */
   turn: { outputs: "body", run: (inputs, { step, age }) => {
@@ -127,6 +129,21 @@ export const kinds: Record<string, Kind> = {
     return checked(carry(m.solid, m.report, [body], [], step.id, age), "the turn");
   } },
 };
+
+/**
+ * Where two rounds made by one step meet at a vertex the kernel makes a corner face it does not report. The step's own claims name it: a face with no id that touches two or more of
+ * this step's rounds is the corner between them, named by their ids (an exact rule from the step's own inputs, E7; a face that fits no rule stays a defect).
+ */
+function corners(body: Body, step: string): Body {
+  const edges = body.edges();
+  for (const f of body.faces) {
+    if (!f.defect) continue;
+    const around = new Map<string, Id>();
+    for (const e of edges) if (e.faces.includes(f)) for (const g of e.faces) if (g !== f && g.id.step === step && g.id.role === "round") around.set(idKey(g.id), g.id);
+    if (around.size >= 2) { f.id = mint(step, "corner", ...[...around.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([, id]) => id)); f.defect = false; }
+  }
+  return body;
+}
 
 /** what a failed step hands on, of its own output type (E13) */
 export function passthrough(kind: Kind, inputs: Value[], step: Step): Value {

@@ -127,14 +127,17 @@ export function split(a: Solid, segments: readonly (readonly [V3, V3])[]): Made 
   if (sp.HasErrors()) fail("the imprint failed");
   return { solid: new Solid(sp.Shape()), report: reportOf(sp) };
 }
-export interface Rounded extends Made { round(e: EdgeH): FaceH[] }
+/** `rounded`: the edges the kernel actually rounded: it follows an edge along the ones that continue it (tangent), so this can be more than were asked for */
+export interface Rounded extends Made { round(e: EdgeH): FaceH[]; rounded: EdgeH[] }
 export function fillet(a: Solid, edges: readonly EdgeH[], r: number): Rounded {
   const mk = t(new oc.BRepFilletAPI_MakeFillet(a.raw, oc.ChFi3d_FilletShape.ChFi3d_Rational));
   for (const e of edges) mk.Add(r, t(downcast(e.raw)));
+  const rounded: EdgeH[] = [];
+  for (let i = 1; i <= mk.NbContours(); i++) for (let j = 1; j <= mk.NbEdges(i); j++) rounded.push({ raw: t(mk.Edge(i, j)) });
   mk.Build(progress());
   if (!mk.IsDone()) fail("the fillet could not be made at that size");
   const rep = reportOf(mk);
-  return { solid: new Solid(mk.Shape()), report: rep, round: (e) => rep.fromEdge(e) };
+  return { solid: new Solid(mk.Shape()), report: rep, round: (e) => rep.fromEdge(e), rounded };
 }
 export function turn(a: Solid, axis: V3, degrees: number): Made {
   const tr = t(new oc.gp_Trsf()); tr.SetRotation(t(new oc.gp_Ax1(t(new oc.gp_Pnt(0, 0, 0)), t(new oc.gp_Dir(axis[0], axis[1], axis[2])))), (degrees * Math.PI) / 180);

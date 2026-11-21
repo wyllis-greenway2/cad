@@ -4,8 +4,9 @@
 cd "$(dirname "$0")/.."
 P=${1:-15}; N=${2:-8}; S=${3:-engine-check.ts}; fail=0
 for seed in $(seq 1 $P); do
-  out=$(node --experimental-strip-types dev/$S $N $seed 2>&1 | grep -v "BindingError\|    at ") || fail=1
-  echo "seed $seed: $(echo "$out" | head -3 | tr '\n' ' ')"
-  echo "$out" | grep -q "VIOLATIONS" && echo "$out"
+  out=$(node --experimental-strip-types dev/$S $N $seed 2>&1 | grep -v "BindingError\|    at "; exit ${PIPESTATUS[0]}); code=$?
+  [ $code -ne 0 ] && fail=$((fail+1))
+  echo "seed $seed: $(echo "$out" | head -3 | tr '\n' ' ' | cut -c1-230)"
+  [ $code -ne 0 ] && echo "$out" | sed -n '3,12p'
 done
-echo "processes: $P x $N sequences; failures: $fail"
+echo "processes: $P x $N sequences; processes with violations: $fail"
