@@ -4899,3 +4899,6 @@ Full suite after the build (2152 tests, concurrency 4): 19 failures. 14 are the 
 
 ## Handoff 1270 — 2026-11-21 (in_1437, in_1438: the probe's answer)
 `in_1437`, `in_1438`. The `?probe=1` counts: no key down, 403 movement events; key down, 0. The page is not told of the trackpad's movement while any key is held, so the app cannot fix it: the system or browser suppresses the trackpad while typing (palm rejection, "disable touchpad while typing"). No code changed. Options given to the human: switch that setting off (where it is depends on the system, not yet known), or change how the eye moves so that no key needs to be held (e.g. a tap starts or stops a movement); not decided.
+
+## Handoff 1271 — 2026-11-21 (in_1439, in_1440: status; the probe taken out)
+`in_1439`, `in_1440`. Status given (40 rows, 34 testable and covered, 4 `hand` rows, 2 `later`). Asked why 1,200 lines: `next/src` was 1,141 lines at the pure-view commit (7c772591), 1,186 after the touch/trackpad one-gesture work (in_1427) and the trackpad glide put back out, 1,204 after today (the game-mode trackpad look +3, the `?probe` overlay +15). **Done:** the `?probe` overlay taken out (`dev.ts`, `main.ts`): 1,188 lines. The game-mode trackpad look stays (it works when no key is held). **Not done:** none of the old diagnostics remain (`trackpad.html` went in 701a7c1e).

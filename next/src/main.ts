@@ -69,4 +69,3 @@ function frame(now: number) {
 requestAnimationFrame(frame);
 
 dev.install({ model, rebuild: world.rebuild, state: () => s, put: (next) => { s = next; }, pointer: () => pointer, game, gizmoScale: () => view.gizmoScale(s) });
-if (params.get("probe")) dev.probe();

@@ -6026,3 +6026,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1438 — 2026-11-21 — directive
 > the keydown doesnt do anything. The top right move increments on trackpad movement when no w key is pressed, and stops when w key is pressed.
 (With a screenshot of the probe: no key: wheel 0, move 403; key down: wheel 0, move 0. So the page is not told of the trackpad's movement while a key is held: the system or browser drops it.)
+
+## in_1439 — 2026-11-21 — question
+> wow trackpads suck. Okay I guess this is as good as it can get then. Okay so where are we? we have a solid system now? did we write up all the requirements it has? we have good tests that only trigger if they need to? Are we ready to move to the next portion of the app?
+
+## in_1440 — 2026-11-21 — directive
+> okay why are we at 1,200 lines of code? I thought we were in around 1000 before we started chasing trackpad nonesense and we didn't really fix anything there, we just learned track pads suck, also did we clean up all the diagnostic stuff we did there? the ?probe etc
