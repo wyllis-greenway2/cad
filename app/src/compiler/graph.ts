@@ -5,7 +5,7 @@ import type { Vec3 } from "../math/vec.ts";
 import { normalize, sub } from "../math/vec.ts";
 import type { Scene, Step } from "../operation/scene.ts";
 import { lookup, figuresOf, figureDepths } from "../operation/scene.ts";
-import type { Plane, Part } from "../operation/part.ts";
+import type { Plane } from "../operation/part.ts";
 import { normalOfPlane, pointOf, loopSteps } from "../operation/part.ts";
 import type { KernelGraph, KernelOp } from "./kernel/adapter.ts";
 import { decodeEdge, decodeFace } from "./body.ts";
@@ -31,21 +31,61 @@ const to2d = (pl: Plane, p: Vec3, k = 1, exact = false): [number, number] => {
   return [round(k * (d[0] * pl.u[0] + d[1] * pl.u[1] + d[2] * pl.u[2])), round(k * (d[0] * pl.v[0] + d[1] * pl.v[1] + d[2] * pl.v[2]))];
 };
 
-/** The corners among these that a relation holds on a part of a body (a circle or an edge of it: on it, or on its line): the points that must lie on the body's surface. */
-function heldToBody(scene: Scene, get: (r: Ref) => Part | undefined, corners: readonly Ref[]): Set<Ref> {
-  const out = new Set<Ref>();
-  if (!scene.relations.length) return out;
-  const mine = new Set<Ref>(corners);
-  for (const r of scene.relations) {
-    if (r.kind !== "onCircle" && r.kind !== "onLine") continue;
-    const [a, b] = [r.parts[0], r.parts[1]];
-    if (a && b && mine.has(a) && get(b)?.origin === "body") out.add(a);
+/** How close a point must lie to a circle of a body to be taken as on it (mm): a snap places it there, a rounded copy or an older file has it up to a few hundred-thousandths off. */
+const ON_RIM = 1e-4;
+/** The circles of a body that a sketch can lie on: its circular edges and its round faces along a world axis, at the kernel's own numbers (`dec_exact_rim_numbers`). */
+function bodyRims(scene: Scene): { c: Vec3; n: Vec3; r: number }[] {
+  const out: { c: Vec3; n: Vec3; r: number }[] = [];
+  for (const q of Object.values(scene.parts)) {
+    if (q.origin !== "body") continue;
+    if (q.kind === "line" && q.circle) out.push({ c: q.circle.exact?.center ?? q.circle.center, n: q.circle.normal, r: q.circle.exact?.radius ?? q.circle.radius });
+    else if (q.kind === "plane" && q.curved && !q.curved.dir) out.push({ c: q.curved.exact?.center ?? q.curved.center, n: q.curved.axis === 0 ? [1, 0, 0] : q.curved.axis === 1 ? [0, 1, 0] : [0, 0, 1], r: q.curved.exact?.radius ?? q.curved.radius });
+  }
+  return out;
+}
+/**
+ * A corner of a figure that lies within a ten-thousandth of a mm of a circle of a body in the figure's plane is put on that circle exactly (and is sent to the kernel unrounded): a corner meant to lie on a body's rim,
+ * a hair inside it, leaves a sliver the mesher cannot do after a cut (`dec_exact_rim_numbers`). Null for a corner that is on no rim.
+ */
+function ontoRim(rims: { c: Vec3; n: Vec3; r: number }[], pl: Plane, p: Vec3, atVertex: (p: Vec3) => boolean): Vec3 | null {
+  const pn = normalOfPlane(pl);
+  for (const R of rims) {
+    if (Math.abs(R.n[0] * pn[0] + R.n[1] * pn[1] + R.n[2] * pn[2]) < 1 - 1e-6) continue; // (a rim across the figure's plane, not along it)
+    const d = sub(p, R.c), h = d[0] * pn[0] + d[1] * pn[1] + d[2] * pn[2];
+    const rad: Vec3 = [d[0] - pn[0] * h, d[1] - pn[1] * h, d[2] - pn[2] * h], L = Math.hypot(rad[0], rad[1], rad[2]);
+    if (L < 1e-9 || Math.abs(L - R.r) > ON_RIM) continue;
+    if (atVertex(p)) return null; // (a corner at the very end of a rim, where its halves meet: exactly there the kernel makes an invalid solid; it is left as it is, as the check of `in_1368` mends it)
+    const k = R.r / L - 1;
+    return [p[0] + rad[0] * k, p[1] + rad[1] * k, p[2] + rad[2] * k];
+  }
+  return null;
+}
+
+/**
+ * After corners were moved onto a rim: a corner that lay on the straight run between its two neighbours (a side drawn as two lines in a row) is kept on the run between where they are now, or the run gets a kink of the
+ * size of the move and the kernel makes an invalid solid of it. `at` are the corners, `placed` the new places of the ones that moved (null for the others); the answer is `placed` with those kept straight added.
+ */
+function keepStraight(at: readonly Vec3[], placed: (Vec3 | null)[]): (Vec3 | null)[] {
+  if (!placed.some((q) => q) || at.length < 3) return placed;
+  const out = placed.slice(), n = at.length;
+  for (let i = 0; i < n; i++) {
+    if (placed[i]) continue;
+    const [a, b, p] = [at[(i + n - 1) % n]!, at[(i + 1) % n]!, at[i]!];
+    const [a2, b2] = [placed[(i + n - 1) % n] ?? a, placed[(i + 1) % n] ?? b];
+    if (a2 === a && b2 === b) continue; // (neither neighbour moved)
+    const ab = sub(b, a), L2 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2];
+    if (L2 < 1e-18) continue;
+    const t = ((p[0] - a[0]) * ab[0] + (p[1] - a[1]) * ab[1] + (p[2] - a[2]) * ab[2]) / L2;
+    const foot: Vec3 = [a[0] + ab[0] * t, a[1] + ab[1] * t, a[2] + ab[2] * t];
+    if (Math.hypot(p[0] - foot[0], p[1] - foot[1], p[2] - foot[2]) > 1e-6 || t <= 0 || t >= 1) continue; // (not on the run between them)
+    out[i] = [a2[0] + (b2[0] - a2[0]) * t, a2[1] + (b2[1] - a2[1]) * t, a2[2] + (b2[2] - a2[2]) * t];
   }
   return out;
 }
 
 export function buildGraph(scene: Scene): GraphResult {
   const get = lookup(scene);
+  let rims: { c: Vec3; n: Vec3; r: number }[] | undefined; // (made when a figure first needs them)
   const ops: KernelOp[] = [];
   const errors: Record<string, string> = {};
   let prev: string | null = null;
@@ -71,9 +111,10 @@ export function buildGraph(scene: Scene): GraphResult {
     if (!loop.ok) return loop.error;
     if (loop.corners.some((c) => !pointOf(get, c))) return "a corner of the shape is gone";
     const steps = loopSteps(get, refs, loop.corners); // (a side that is an arc has its middle point: the kernel draws a true arc through the two corners and it)
-    const held = heldToBody(scene, get, loop.corners); // (the corners held to a body's circle or edge: sent exactly, `dec_exact_rim_numbers`)
-    const exactAt = (i: number): boolean => steps.length === loop.corners.length && held.has(loop.corners[i]!);
-    return { id, type: "sketch", shape: "polygon", points: steps.map((p, i) => to2d(plane, p.at, back.k, exactAt(i))), sides: steps.map((p) => (p.line ? (p.piece ? `${p.line}~${p.piece}` : p.line) : "")), ...(steps.some((p) => p.mid) ? { mids: steps.map((p) => (p.mid ? to2d(plane, p.mid, back.k) : null)) } : {}), plane: "XY", origin: 0, frame: frameOf(plane, back) };
+    rims ??= bodyRims(scene);
+    const vertexNear = (p: Vec3): boolean => Object.values(scene.parts).some((q) => q.kind === "corner" && q.origin === "body" && Math.hypot(q.at[0] - p[0], q.at[1] - p[1], q.at[2] - p[2]) < 1e-3);
+    const placed = keepStraight(steps.map((p) => p.at), steps.map((p) => ontoRim(rims!, plane, p.at, vertexNear))); // (the corners on a body's rim: put on it exactly and sent unrounded, `dec_exact_rim_numbers`)
+    return { id, type: "sketch", shape: "polygon", points: steps.map((p, i) => to2d(plane, placed[i] ?? p.at, back.k, !!placed[i])), sides: steps.map((p) => (p.line ? (p.piece ? `${p.line}~${p.piece}` : p.line) : "")), ...(steps.some((p) => p.mid) ? { mids: steps.map((p) => (p.mid ? to2d(plane, p.mid, back.k) : null)) } : {}), plane: "XY", origin: 0, frame: frameOf(plane, back) };
   };
 
   // Each gear's steps are a chain of their own, joined where a step that is not a gear's comes and at the end (`dec_gear_islands`): a gear is made of its own numbers and stands beside the other bodies, so what is worked out for it must not

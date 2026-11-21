@@ -5844,3 +5844,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1386 — 2026-11-21 — directive
 > yes run the browser check now
 (asked: the browser check of the exact rim numbers: snap corners to a cylinder's rim by hand, cut, and see that the top face draws)
+
+## in_1387 — 2026-11-21 — directive
+> yes build the geometric test
+(`dec_exact_rim_numbers` is changed as proposed in it: a corner within a ten-thousandth of a mm of a body's circle in the sketch's plane is put on that circle exactly and sent unrounded, instead of the relation being the test)

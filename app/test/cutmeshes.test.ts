@@ -72,3 +72,31 @@ test("corners held on a body's rim by a relation lie on its real circle and reac
   }
   assert.equal(bad, 0, `${bad} of 8 cuts left a face undrawn`);
 });
+
+/** a cylinder of radius R, a triangle on its top with its corners where a snap puts them (on the rim to the number: `off` mm inside it) and no relation, cut 8 mm down: whether the result is drawn whole */
+function notchDrawn(R: number, a0: number, off: number): boolean {
+  let s = createSession(kernel);
+  const c = drawCircle(scene(s), worldRef("XY"), [0, 0, 0], R);
+  s = run(s, c.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: [c.circle], params: { depth: 25 } } } as never);
+  const top = Object.values(scene(s).parts).find((p) => p.kind === "plane" && p.origin === "body" && p.ref.startsWith("b/body/f@0,0,1"))!;
+  const { plane, command } = planeForDrawing(scene(s), top.ref);
+  if (command) s = run(s, command);
+  const r = R - off;
+  const pts: [number, number, number][] = [0, 1.9, 3.9].map((t) => [r * Math.cos(a0 + t), r * Math.sin(a0 + t), 25]);
+  const ch = drawChain(scene(s), plane, [...pts, pts[0]!], true);
+  s = run(s, ch.command);
+  s = run(s, { type: "addStep", step: { id: nextId(scene(s), "s"), type: "extrude", parts: ch.lines, params: { depth: -8, mode: "cut" } } } as never);
+  const k = s.outcome.kernel!;
+  return Object.keys(s.outcome.errors).length === 0 && Math.abs(enclosed(k as never) - k.volume!) <= 0.01 * k.volume!;
+}
+
+test("corners that a snap puts exactly on a rim, with no relation, are drawn whole at 40 angles (`dec_exact_rim_numbers`, `in_1387`)", () => {
+  const bad = Array.from({ length: 40 }, (_, k) => 0.1 + 0.13 * k).filter((a) => !notchDrawn(12.5, a, 0));
+  assert.deepEqual(bad, [], `the cuts at these angles left a face undrawn`);
+});
+
+test("corners an older file has a few hundred-thousandths inside the rim are put on it: drawn whole at 20 angles (`in_1387`)", () => {
+  const bad = Array.from({ length: 20 }, (_, k) => 0.2 + 0.31 * k).filter((a) => !notchDrawn(12.5, a, 1.9e-5));
+  assert.deepEqual(bad, [], `the cuts at these angles left a face undrawn`);
+});
