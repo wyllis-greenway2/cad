@@ -4,6 +4,7 @@ Status: **a draft, `ai-unreviewed`.** The first prototype of this section (`in_1
 
 ## Contracts of this section
 - `Intents` (`src/input.ts`): `menu` (a right click that did not move).
+- `Drawing` (`src/world.ts`): gains the sketch plane, the cut and the orb to draw.
 - `ViewState` (`src/view.ts`): `lookAlong` turns the view straight to any flat surface.
 - `settings` (`src/settings.ts`): groups `world`, `planes`.
 
