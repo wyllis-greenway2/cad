@@ -5885,3 +5885,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1397 — 2026-11-21 — directive
 > okay this is all good except I remember we had some trouble entering game mode while going to ortho graphic view, a semi orthographic view could make game mode weird. 1 yes, 2 no, 3 yes only three as today, 4 as it is today in prototype, 5 yes the grid is wanted in ortho view, 6 yes I remember we had the little world pane fade away in ortho view. Also I believe we should talk about the view models. So the nice thing about the game view was that it never really had zooming issues. Is there a simpler world model that could tie everything together? Like what is the difference between game mode moving forward and mouse scroll zoom?
 (The answers are in `docs/rebuild/world_view_requirements.md`; the AI's camera model is its section M, not yet approved.)
+
+## in_1398 — 2026-11-21 — directive
+> Okay I like this simplified model, but lets keep designing for a bit. So what does rotate mean in non game mode and what does it mean in game mode?
+(Section M of `docs/rebuild/world_view_requirements.md`: the human likes the simplified camera model; "Rotate" added to it.)

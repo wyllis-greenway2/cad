@@ -60,6 +60,12 @@ Status: **marked by the human in `in_1397` (all rows KEEP unless a row says othe
 
 **Costs and cautions:** the one scene query (depth ahead) must be fast; the eye can be far from the origin, so the drawing is done relative to the eye (as games do), which also removes far-from-origin glitches; the 60 px hold before leaving a straight view stays.
 
+**Rotate, in both modes, is one operation:** turn the camera by a yaw (about world Z) and a pitch (about its own right side), rigidly, **about a point**. It has no roll, so Z stays up. The only difference is the point.
+- **Orbit (not game mode):** the point is the pivot, so the eye swings round it and the pivot stays where it is on screen. The pivot is the centre of the nearest object in front of the eye, found when the drag starts and kept for that drag; with no object, a point straight ahead at a default distance (never the origin far behind).
+- **Look (game mode):** the point is the eye itself, so the eye stays and the view turns, like turning your head. It is orbit with the pivot at distance zero.
+- **Direction:** orbit grabs the world (drag right, the scene turns right); look turns the head (mouse right, the view turns right, so the scene goes left). Both are one angle per pixel; game mode scales it down (0.25) and smooths it, and the smallest movements are less sensitive in both (`in_420`).
+- **Limits:** pitch stops straight up and straight down; when it stops, the eye stops too (it is not moved on its own). A straight view is left only after the 60 px hold (`in_193`), and orbit then turns about the focus.
+
 ## D. Left for their own sections (they use the world view but are not part of it)
 Going normal to a sketch and the cut to the plane (`in_1375`-`in_1387`); the cross-section sheets; the right-click menu's content; the orb that moves things (`in_1181`); the view looks (`in_1379`).
 
