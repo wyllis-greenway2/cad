@@ -4,6 +4,7 @@ import { loadOC } from "../../app/src/compiler/kernel/occt/oc.mjs";
 import { Face, Edge, downcast, HASH_CODE_MAX, draw, makeLine } from "replicad";
 
 export const oc = await loadOC();
+export { Face, Edge };
 export { draw, makeLine, downcast };
 const pr = () => new oc.Message_ProgressRange();
 const R = (v) => Math.round(v * 1e4) / 1e4;
@@ -38,7 +39,7 @@ export function facts(raw) {
   const f = new Face(downcast(raw));
   const q = f.normalAt(), c = f.center, [lo, hi] = f.boundingBox.bounds;
   const l = Math.hypot(q.x, q.y, q.z) || 1;
-  return { ne: [q.x / l, q.y / l, q.z / l], n: [R(q.x / l), R(q.y / l), R(q.z / l)], c: [R(c.x), R(c.y), R(c.z)], lo: [...lo].map(R), hi: [...hi].map(R), type: f.geomType };
+  return { ce: [c.x, c.y, c.z], ne: [q.x / l, q.y / l, q.z / l], n: [R(q.x / l), R(q.y / l), R(q.z / l)], c: [R(c.x), R(c.y), R(c.z)], lo: [...lo].map(R), hi: [...hi].map(R), type: f.geomType };
 }
 export const edgeMid = (raw) => { const c = new Edge(downcast(raw)).pointAt(0.5); return [R(c.x), R(c.y), R(c.z)]; };
 
