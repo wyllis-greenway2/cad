@@ -15,7 +15,7 @@ export const settings = {
     normalToleranceRad: 0.02,
   },
   input: {
-    zoomPerWheel: 0.003, pinchZoomPerWheel: 0.01, trackpadPanScale: 0.3,
+    zoomPerWheel: 0.0015, pinchZoomPerWheel: 0.005, trackpadPanScale: 0.3,
     fineGain: 0.6, fineFadePx: 6, // the smallest mouse movements turn the view by this much of what they would, rising to all of it over about this many pixels (in_420)
     multiClickPx: 6, multiClickMs: 400,
     flySpeed: 0.45, flyEaseSec: 0.15, flyLookSec: 0.06, flyLookScale: 0.25,

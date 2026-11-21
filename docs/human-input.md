@@ -5934,3 +5934,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1412 — 2026-11-21 — directive
 > zoom on scroll wheel and zoom in game mode still feel different. Shouldn't it be like literally the same? it just move the camera forward
+
+## in_1413 — 2026-11-21 — directive
+> okay that is better but I think the step size is still a little too coarse

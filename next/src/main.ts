@@ -12,6 +12,8 @@ import { add, clamp, dot, len, scale, sub, ease, type V3 } from "./vec.ts";
 
 const params = new URLSearchParams(location.search);
 const model = params.get("boxes") === "0" ? emptyScene() : params.get("boxes") === "1" ? oneScene() : demoScene(); // (?boxes=0: an empty model; ?boxes=1: one box at the origin)
+// (tuning by hand: ?wheel=0.001 sets how far a wheel notch goes, as a share of the step scale per unit of wheel; the default is in settings)
+if (params.get("wheel")) settings.input.zoomPerWheel = Number(params.get("wheel"));
 const canvas = document.getElementById("view") as HTMLCanvasElement;
 const ring = document.getElementById("ring")!;
 const world = createWorld(canvas, model);
