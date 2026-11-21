@@ -4932,3 +4932,6 @@ The human approved the first slice. **Built (a prototype, no tests, `in_1444`):*
 
 ## Handoff 1281 — 2026-11-21 (in_1449: the orb as a star)
 `in_1449`. The orb is a star of six arrows of one length (`settings.mover.arrowShare`): straight along +X +Y +Z (move), curved along -X -Y -Z (turn), each curved one an arc that bends `turnBendDeg` = 15° over its length. Every head now begins where the line has a head's length left and points the way the line goes there (`world.ts` `drawOrb`), the line stopping at its base; the flat triangles and stems of the last version are gone. Drag maths unchanged (a curved arrow turns about its axis through the ball). Requirements intro and O3 updated. Looked at in headless Chromium; drag of a curved arrow and a straight one checked.
+
+## Handoff 1282 — 2026-11-21 (in_1450: the curved arrows bend 90 degrees)
+`in_1450`. `settings.mover.turnBendDeg` 15 to 90: each curved arrow is a quarter circle of the same length as the straight ones; heads follow the curve at their base. Looked at in headless Chromium; the drag of a curved arrow still turns the plane.

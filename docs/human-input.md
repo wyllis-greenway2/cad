@@ -6059,3 +6059,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1449 — 2026-11-21 — directive
 > I think the arrow tips want to be normal with the curve where they begin, not where they end at the tips. Also lets try something different, lets have it a star, arrows coming out of one side are straight, arrows coming out of the other side ar curved maybe 15 degrees or so. They the arrows should all be about the same length
+
+## in_1450 — 2026-11-21 — directive
+> okay they want to be curved way more, maybe 90 degrees
