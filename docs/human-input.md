@@ -6102,3 +6102,18 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1463 — 2026-11-21 — directive
 > Okay before we go too much further we should probably think about the underlying engine that runs this whole thing. So what exactly is a sketch? What is a body? what is a line and a verticy? How are bodies independent? I think we should look at the prototype for inspiration, and then come think about how we can make it better, simpler, more logically sound. So generally want I was thinking is that lines are all sketches full stop. So literally every edge of a body is technically a sketch line. Lines interact with each other based off sketching rules. So if I sketch a square, and extrude, then if I sketch on any of those six faces, then my sketches there interact with those lines as if they are already lines on the sketch. This concept has a few interesting features. There is really no difference between bodies and sketches. Once a sketch has a body, then manipulations to the body also change the sketch. For example if I push the wall of a cub, then the lines change, and the sketch is the lines. This also has interesting things where for example if I select the face of a cube and draw a single line through it, then I already have two enclosed sketches that I can extrude differently. The old prototype had a lot of trouble with this, and it had a lot of trouble with its history, and body formations failing. So I want to think about a solid engine that always works
+
+## in_1464 — 2026-11-21 — directive
+> Yea I am not sure I want to give all that up. We need fillets  for example. And we probably want the ability to go back in history and edit a step and let the downstream cascade. So what are the core tensions between my model and the kernel?
+
+## in_1465 — 2026-11-21 — directive
+> so I mostly want the sketching to map to edges from the UI perspective, so you could do all those things I was talking about, like sketching a single line on a face already gives you two closed sketches, so that constraints and references to body edges always work like they would to other lines etc. So what is the most robust engine full stop? irrespective of my line ideas. And then how much of my line ideas can we include and how? could we make it so that we just redraw our concept of lines between verticies or map them on body edges just as a way to make our sketching UI map on body edges and treat them the same?
+
+## in_1466 — 2026-11-21 — directive
+> should we look at our old prototype and see if we can learn from its insights or mistakes?
+
+## in_1467 — 2026-11-21 — directive
+> okay lets not write it up yet, lets stress test our own ideas to see if they hold up and see if we correctly identified things we should keep toss, and new things we should do. So what is our proposed engine design? lets stress test it
+
+## in_1468 — 2026-11-21 — directive
+> yes start with spike 1

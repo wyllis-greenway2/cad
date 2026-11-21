@@ -1,0 +1,16 @@
+import * as L from "./lib.mjs";
+import { makeBox } from "replicad";
+const { oc } = L;
+const box = (x0,y0,z0,x1,y1,z1,step)=>{const sh = makeBox([x0,y0,z0],[x1,y1,z1]).wrapped; return new L.Model(sh, L.facesOf(sh).map((raw)=>{const k=L.facts(raw).n.join(",");return {id:`${step}:${{"1,0,0":"+x","-1,0,0":"-x","0,1,0":"+y","0,-1,0":"-y","0,0,1":"+z","0,0,-1":"-z"}[k]}`,raw};}));};
+const base = box(0,0,0,20,10,5,"A");
+const t = new oc.gp_Trsf(); t.SetRotation(new oc.gp_Ax1(new oc.gp_Pnt(0,0,0), new oc.gp_Dir(0.3,0.5,0.8)), 37*Math.PI/180);
+const tr = new oc.BRepBuilderAPI_Transform(base.shape, t, true); tr.Build(L.pr());
+const turned = L.carry(tr, [base.entries], tr.Shape(), "T");
+console.log("turned", turned.ids(), turned.log);
+const raw = turned.rawOf("A:+x"), f = L.facts(raw); console.log(f.n);
+const pr = L.prism(raw, f.n.map(v=>v*4), ()=>"s", "P");
+console.log("prism ids", pr.extra.map(x=>x.id));
+const tool = new L.Model(pr.shape, pr.extra.reduce((acc,x)=>acc.some(y=>L.same(y.raw,x.raw))?acc:[...acc, x.id==="P:end"?{...x,id:"A:+x"}:x],[]));
+const fused = L.boolean("fuse", turned, tool, "P");
+console.log("fused", fused.ids(), fused.log);
+const u = L.unify(fused, "P"); console.log("unified", u.ids(), u.log);
