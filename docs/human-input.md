@@ -6014,3 +6014,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1435 — 2026-11-21 — directive
 > no need for that checklist.Okay one more thing. I noticed that game mode mostly solves the track pad issues. however the track pad stops rotating the camera when you enter came mode, it is supposed to still control the cursor which rotates the camera just like mouse movements rotate the camera in game mode
 (Step 4, the hand-test checklist, is dropped. Fix: in game mode a trackpad's two-finger scroll turns the view like the mouse does; `input.ts`, `settings.input.trackpadLookScale`.)
+
+## in_1436 — 2026-11-21 — directive
+> it doesn't work like it does with mouse. it move the camera in game mode only if you are not pressing awds, it should still work while pressing any awds just like it does with mouse
+(Nothing in the app's code treats a held key differently for the look: the pointer's movement and the scroll are handled the same. A probe was added to see whether the events reach the page at all while a key is down: `?probe=1`.)
