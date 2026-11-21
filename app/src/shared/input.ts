@@ -43,6 +43,8 @@ export type Intent =
   | { type: "swivel"; dx: number; dy: number }
   | { type: "zoom"; factor: number; x: number; y: number }
   | { type: "look"; plane: LookPlane }
+  /** the bar's button while sketching: the view is kept square to the plane, or let go (`in_1385`) */
+  | { type: "keepNormal" }
   | { type: "home" }
   | { type: "undo" }
   | { type: "redo" }

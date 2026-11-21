@@ -3,7 +3,7 @@ import type { Annotation } from "../annotations.ts";
 import type { Ref } from "../../shared/ref.ts";
 import { worldRef } from "../../shared/ref.ts";
 import type { Vec3 } from "../../math/vec.ts";
-import { cutsNow } from "./section.ts";
+import { cutsNow, newFaces } from "./section.ts";
 import type { Hint } from "../hints.ts";
 import type { Building } from "../modeltool.ts";
 import type { CutState } from "../cut.ts";
@@ -72,7 +72,9 @@ export interface AppState {
   /** where a drag of its handles has taken the plane so far; one step is made when it is let go */
   sectionLive: { ref: Ref; centre: Vec3; n: Vec3 } | null;
   /** sketching on a plane (`in_1375`): the view is cut along it, the half it looks out to cut away, until Exit sketch is pressed; it is taken when the view goes normal to a plane or a sketch, or a sketch tool begins on one */
-  sketchOn: { ref: Ref; centre: Vec3; n: Vec3; /** the cut is switched off with the bar's cut icon: sketch mode goes on without it */ off?: true } | null;
+  /** the view is kept square to the plane being sketched on: the button in the bar (`in_1385`); turning the view by hand is held off while it is on, a plane that takes the sketch is turned to at once */
+  keepNormal?: boolean;
+  sketchOn: { ref: Ref; centre: Vec3; n: Vec3; /** the faces of the body when the sketch mode began: the cut is of these; a face made since (an extrusion into the cut-away space) is not cut (`in_1385`) */ known?: Ref[]; /** the cut is switched off with the bar's cut icon: sketch mode goes on without it */ off?: true } | null;
   /** the sheet's move icon (`in_459`): which state it is in for the sheet, and the free place it came from to go back to */
   sheetMove: { ref: Ref; mode: 0 | 1 } | null;
   /** the body (or "sketch") that was last in view: "Reset camera" goes back to it (`in_303`) */
@@ -155,7 +157,7 @@ export const pickOpts = (s?: AppState) => {
   const behind = s ? sketchPlaneOf(s) : null;
   // the middle point drawn on a selected curved edge of the body can be picked: it is the middle point of the sketch behind the edge (`in_214`)
   const centres = s ? selectionOf(s.session).flatMap((r) => { const e = sketchOfEdge(sceneOf(s.session), r); return e?.centre && e.centreRef ? [{ at: e.centre, ref: e.centreRef }] : []; }) : [];
-  return { ...(centres.length ? { centres } : {}), pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx, ...(s ? { world: worldRef(s.world) } : {}), ...(s && cutsNow(s).length ? { clips: cutsNow(s).map((c) => ({ at: c.centre, n: c.n })) } : {}), ...(behind && s ? { inFront: { at: behind.at, n: normalOfPlane(behind), side: sideOf(s.cam, normalOfPlane(behind)) as 1 | -1 } } : {}) };
+  return { ...(centres.length ? { centres } : {}), pointTol: settings.pick.pointPx, lineTol: settings.pick.linePx, ...(s ? { world: worldRef(s.world) } : {}), ...(s && cutsNow(s).length ? { clips: cutsNow(s).map((c) => ({ at: c.centre, n: c.n })) } : {}), ...(s && newFaces(s).length ? { unclipped: new Set(newFaces(s)) } : {}), ...(behind && s ? { inFront: { at: behind.at, n: normalOfPlane(behind), side: sideOf(s.cam, normalOfPlane(behind)) as 1 | -1 } } : {}) };
 };
 export const withSession = (s: AppState, session: Session): AppState => ({ ...s, session });
 /**

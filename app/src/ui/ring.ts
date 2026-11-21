@@ -13,7 +13,7 @@ const BACK: RingItem = { id: "back", label: "Back", icon: "cross", enabled: true
 
 const depthN = (items: RingItem[]): number => Math.max(items.length + 1, ...items.map((i) => (i.children ? depthN(i.children) : 0)));
 
-export function createRing(host: HTMLElement, onChoose: (id: string) => void, onBlocked: (id: string) => void = () => {}) {
+export function createRing(host: HTMLElement, onChoose: (id: string) => void, onBlocked: (id: string) => void = () => {}, onOpen: (id: string) => void = () => {}) {
   const root = document.createElement("div");
   root.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;display:none;z-index:10;user-select:none;-webkit-user-select:none";
   host.appendChild(root);
@@ -71,6 +71,7 @@ export function createRing(host: HTMLElement, onChoose: (id: string) => void, on
       const go = () => {
         if (it.id === "back") { const at = pos(start); path.length = depth; draw(depth - 1, at); return; }
         if (it.children) {
+          onOpen(it.id); // (a bubble that opens a ring of its own: the pencil turns the view to the surface at once)
           const idx = slots.indexOf(it);
           path.length = depth + 1;
           path.push({ items: it.children, start: start + (idx / slots.length) * Math.PI * 2 });

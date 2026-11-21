@@ -5838,5 +5838,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 (`dec_exact_rim_numbers` is approved to build; the new rod's volume is to be worked out for `pistonhonda.test.ts`; and a general safeguard is asked for against a test being left stale when another session changes what it checks)
 
 ## in_1385 — 2026-11-21 — directive
+> It is confusing when you are trying to extrude into a cut away zone because normal to a sketch is cutting stuff. Can we have it so that it only cuts stuff that existed at the time it went normal to sketch? Also why can I still see the edges of things behind the cut surface? Also while in sketch it should also have a button to always normal to the sketch up in the bar thing at the top. Also double clicking a surface still doesn't normal to it like it used to. Also lets make the xyz things not exit the sketch or cut view. Lets have it so that as soon as you click the pencil it goes into sketch mode normaled to the plane you clicked on, and also goes into the sketching submenu. This assumes a plane was clicked on when you clicked, otherwise it wont.
+(asks that the cut of a sketch cut only what existed when going normal, so an extrusion into the cut-away space shows; why the edges past the cut surface still show; a button in the bar while sketching that keeps the view square to the sketch; a double click on a surface to go normal to it as it used to; the X Y Z buttons not to leave the sketch or the cut view (which took back `in_1376`); the ring's pencil to put the view in sketch mode, square to the plane that was right clicked, and open the sketch tools, only when a plane was under the click)
+
+## in_1386 — 2026-11-21 — directive
 > yes run the browser check now
 (asked: the browser check of the exact rim numbers: snap corners to a cylinder's rim by hand, cut, and see that the top face draws)

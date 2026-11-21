@@ -86,13 +86,13 @@ export function createView(host: HTMLElement) {
     if (clips.length) applyClip();
   }
   let ghoster: ((on: boolean) => void) | null = null;
-  let behinder: ((p: { n: readonly [number, number, number]; at: readonly [number, number, number] } | null) => void) | null = null;
+  let behinder: ((p: { n: readonly [number, number, number]; at: readonly [number, number, number] } | null, cuts?: readonly THREE.Plane[]) => void) | null = null;
   let behindNow: { n: readonly [number, number, number]; at: readonly [number, number, number] } | null = null;
   const behindKey = (p: typeof behindNow) => (p ? p.n.concat(p.at).map((x) => x.toFixed(4)).join() : "");
   /** The edges of the body on the far side of the plane being sketched on show faintly, those on it and nearer in full (`in_1045`). */
   function setBehindPlane(p: typeof behindNow) { if (behindKey(p) === behindKey(behindNow)) return; behindNow = p; syncHidden(); }
   /** The edges that are out of sight (those behind a face, and those behind the sketch's plane) are drawn faint, except in a cross section: there nothing shows through the part (`in_1374`). */
-  function syncHidden() { ghoster?.(hiddenOn && !clips.length); behinder?.(clips.length ? null : behindNow); }
+  function syncHidden() { ghoster?.(hiddenOn && !clips.length); behinder?.(clips.length ? null : behindNow, clips); }
   let hiddenOn = false;
   /** The edges of the body that are behind a face show faintly (while a sketch is being drawn, `in_324`). */
   function setHiddenEdges(on: boolean) { if (on === hiddenOn) return; hiddenOn = on; syncHidden(); }
@@ -154,6 +154,7 @@ export function createView(host: HTMLElement) {
       const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
       for (const mat of Array.isArray(m) ? m : m ? [m] : []) { mat.clippingPlanes = clips.length ? clips : null; if (mat instanceof THREE.MeshBasicMaterial || mat instanceof THREE.MeshPhysicalMaterial || mat instanceof THREE.MeshStandardMaterial) { if (clips.length) { mat.userData.side ??= mat.side; mat.side = THREE.DoubleSide; } else if (mat.userData.side !== undefined) mat.side = mat.userData.side as THREE.Side; } mat.needsUpdate = true; }
     });
+    syncHidden(); // (the traverse gave every material the cut's planes: the edges' own planes of the sketch are put with them)
     clearGroup(sectionGroup);
     twins.length = 0;
     if (!clips.length || !bodyGroup) return;
@@ -267,7 +268,28 @@ export function createView(host: HTMLElement) {
     applyClip();
   };
   /** The body in the see-through look (a wireframe, a sketch plane looked at straight with the body between, a cut being made) or solid (`in_1379`). */
-  function applyLook() { if (bodyMat) setLook(bodyMat, fade || wire ? "seeThrough" : "solid"); }
+  function applyLook() { if (bodyMat) setLook(bodyMat, fade || wire ? "seeThrough" : "solid"); if (keptMat) setLook(keptMat as THREE.MeshPhysicalMaterial, fade || wire ? "seeThrough" : "solid"); }
+  // the faces made since a sketch's cut began (`in_1385`): the cut is of the model as it was, so these are drawn whole, again, by a mesh of their own that no cut clips; where the part is not cut away it lies over the same faces
+  const keptGroup = new THREE.Group();
+  scene3.add(keptGroup);
+  let keptMat: THREE.Material | null = null;
+  let keptNow: Float32Array | null = null;
+  function setUnclipped(pos: Float32Array | null) {
+    if (pos === keptNow) return;
+    keptNow = pos;
+    clearGroup(keptGroup);
+    keptMat = null;
+    if (!pos || !bodyMat) return;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    g.computeVertexNormals();
+    const mat = solidCopy(bodyMat);
+    mat.polygonOffsetFactor = -1; mat.polygonOffsetUnits = -1; // (over the same faces of the part where it is not cut)
+    mat.clippingPlanes = null;
+    keptMat = mat;
+    applyLook();
+    keptGroup.add(new THREE.Mesh(g, mat));
+  }
   const setWireframe = (on: boolean) => { if (on !== wire) { wire = on; applyLook(); } };
   const setBodyFade = (on: boolean) => { if (on !== fade) { fade = on; applyLook(); } };
   const setHighlight = (h: Highlight, cam: Camera, nowMs: number) => {
@@ -485,5 +507,5 @@ export function createView(host: HTMLElement) {
     renderer.render(scene3, active);
   }
   resize();
-  return { rebuild, setWorldHidden, originHidden, setScene, setHiddenBodies, setThin, setClash, setCutGhosts, setStandIns, setHiddenEdges, setBehindPlane, setBodyMatrix, setHighlight, setPreview, setGizmo, setToolpath, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
+  return { rebuild, setWorldHidden, originHidden, setScene, setHiddenBodies, setThin, setClash, setCutGhosts, setStandIns, setHiddenEdges, setBehindPlane, setUnclipped, setBodyMatrix, setHighlight, setPreview, setGizmo, setToolpath, setPanes, setBodyFade, setWireframe, setSection, setSectionPlanes, setNotes, render, resize, size: () => size, canvas: renderer.domElement };
 }
