@@ -5998,3 +5998,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1431 — 2026-11-21 — directive
 > It still feels very stuck into one route or another. how is this supposed to work? It seems like the start of the gesture is all that matters and then it locks into that, can we have it basically re sample the start over and over? like terminate the input and resample the start so we can continually get the recent gesture movement?
+
+## in_1432 — 2026-11-21 — directive
+> okay then I guess it is fine how it is, except the trackpad is too sensitive on pan, shoud we put things back to how they were before we tried fixing this thing?
+(The probe's result for "a pinch while moving both fingers": only control-wheel events, 62 of them, no scroll events; recorded in the requirements and the handoff.)

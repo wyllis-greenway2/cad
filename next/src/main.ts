@@ -35,7 +35,7 @@ attach(canvas, {
   orbit: (dx, dy) => { s = view.orbit(s, env(), dx, dy); },
   pan: (dx, dy) => { s = view.pan(s, env(), dx, dy); },
   zoom: (factor, x, y) => { s = view.zoom(s, env(), factor, x, y); },
-  gesture: (dx, dy, factor, x, y, coast) => { s = view.gesture(s, env(), dx, dy, factor, x, y, coast); },
+  gesture: (dx, dy, factor, x, y) => { s = view.gesture(s, env(), dx, dy, factor, x, y); },
   dragEnd: () => { s = view.endDrag(s); },
   hover: (x, y) => { pointer = { x, y }; },
   leave: () => { pointer = null; },
