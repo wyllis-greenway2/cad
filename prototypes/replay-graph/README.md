@@ -32,10 +32,10 @@ The graph recomputes 10 to 40 times fewer steps and takes 6 to 20 times less tim
 |---|---|---|---|---|
 | 50 | 0.21 s, 0.16 s | 1.4 / 6.0 ms | 1.0 s, 1.0 s | 6.7 / 42 ms |
 | 100 | 0.62 s, 0.53 s | 1.5 / 8.1 ms | 4.3 s, 4.2 s | 6.7 / 90 ms |
-| 200 | 1.95 s, 2.5 s | 2.3 / 18 ms | **did not finish** | |
+| 200 | 1.95 s, 2.5 s | 2.3 / 18 ms | 16.4 s for one build (`occt200.mjs`: 8.2 s booleans, 8.2 s validity checks); the 4-replay harness did not finish in 550 s | 85 ms at step 190 |
 | 400 | 6.0 s, 5.4 s | 1.1 / 27 ms | not run | |
 
-A step costs more as the body grows (about 25 times at 400 steps on the mesh kernel), so a replay grows faster than the number of steps. Editing the last step is cheap (6 to 24 ms mesh, 16 to 103 ms OCCT). OCCT per step cost 3 to 5 times the mesh's; **a 200-feature chain on OCCT did not finish in the time left of a 550 second limit, and I did not find out why** (a boolean that slows badly as holes accumulate is the first suspect).
+A step costs more as the body grows (about 25 times at 400 steps on the mesh kernel), so a replay grows faster than the number of steps. Editing the last step is cheap (6 to 24 ms mesh, 16 to 103 ms OCCT). OCCT per step cost 3 to 5 times the mesh's. **A 200-feature chain on OCCT takes 16.4 s to build once** (`node occt200.mjs 200`: 8.2 s in the booleans, 8.2 s in the validity checks, the faces going from 28 to 470): both parts grow about as the square of the steps. The harness run that printed no 200-step row replays the chain four times and fingerprints each step by counting faces, which explores the whole shape; that was the harness, not a limit of OCCT. The validity check is half the time and can be spent less often (every few steps, or only before a step is trusted by the next).
 
 ## Cautions
 - The recipe is synthetic (boxes, cylinders and bosses on plates); a real model has sketches, patterns and imports. The graph here is chains plus joins.
