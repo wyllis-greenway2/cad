@@ -6177,3 +6177,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1488 — 2026-11-22 — approval
 > Yes we can do 0.01 mm and auto snap with warning. Do you think this will solve most of our problems? Also another issue we have is fillets and chamfers failing or being weird. Can you look at the prototype to see the issues we had there? One issue was having curved and complex corners with varying acute ness. For example a rod cut at an angle by another rod leaving a swopping sharp edge. Trying to fillet that was difficult. One fix was a variable fillet type. Another issue was fillets or chamfers that just failed too soon. For example a fillet on a rod end fails at around the time its fillets meet in the center. But why? Why cant it just keep going untill it makes a gothic arch type of point on the rod? There were lots of other problems with fillets especially and also chamfers. How can we robustly handle them?
+
+## in_1489 — 2026-11-22 — directive
+> yes spike the pointed rod end and variable size
