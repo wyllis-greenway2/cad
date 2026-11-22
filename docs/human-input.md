@@ -6198,3 +6198,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1495 — 2026-11-22 — approval
 > 3 and 4 next please
+
+## in_1496 — 2026-11-22 — approval
+> yes make them step kinds

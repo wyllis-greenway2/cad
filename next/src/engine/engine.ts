@@ -5,6 +5,7 @@ import { type Note, Body, RefLost } from "./lineage.ts";
 import { type Ctx, type Step, type Value, NoBody, kinds, passthrough } from "./steps.ts";
 import { insertStep, moveStep, removeStep, swapWithInput, validateRecipe } from "./recipe.ts";
 import "./curved.ts"; // registers revolve, loft, sweep and shell
+import "./pull.ts"; // registers moveFace and offsetFace (pull modes 3 and 4)
 
 export type Status = { kind: "ok" } | { kind: "flagged"; why: string } | { kind: "orphaned"; why: string };
 export interface Changes { recomputed: string[]; changed: string[] }

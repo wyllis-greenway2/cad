@@ -1,0 +1,100 @@
+// Pulling a face (E26, E32, "Face pull modes"). The modes the person can pick, each one recipe change:
+//   1 Change the original (`originalEdit`: a number of the step that made the face; not a step kind)   2 Push (`push` in steps.ts)   3 Move with neighbours (`moveFace`)   4 Offset (`offsetFace`)
+// Modes 3 and 4 are regions (spike 8, `prototypes/face-modes`): the slab or ring between the old and the new surface, kept on the side of each neighbour's plane where the face lies, added or taken.
+// The neighbours keep their ids, the moved face keeps its own, a face that collapses is gone (E10); a move past the limit is refused with the distance where it stops (E26).
+import * as K from "./kernel.ts";
+import { type Id } from "./id.ts";
+import { type Body, type Claim, type FaceRec, carry, fromClaims, unifyBody } from "./lineage.ts";
+import { type Ctx, type Sketch, type Step, checked, kinds, needBody, num } from "./steps.ts";
+import type { Engine } from "./engine.ts";
+
+type V3 = K.V3;
+const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const unit = (a: V3): V3 => { const l = Math.hypot(...a); return [a[0] / l, a[1] / l, a[2] / l]; };
+
+/** the faces that share an edge with `rec` */
+function neighbours(body: Body, rec: FaceRec): FaceRec[] {
+  const out: FaceRec[] = [];
+  for (const e of body.edges()) if (e.faces.includes(rec)) for (const f of e.faces) if (f !== rec && !out.includes(f)) out.push(f);
+  return out;
+}
+/** a tool face lies in the plane of a neighbour (and so joins it when the faces are merged) */
+const coplanar = (a: K.Facts, b: K.Facts) => a.type === "PLANE" && b.type === "PLANE" && Math.abs(dot(a.ne, b.ne)) > 0.999 && Math.abs(dot(sub(a.ce, b.ce), b.ne)) < 1e-6;
+
+/** put the tool in the body: the face at the new place carries the moved face's id, every other face of the tool lies in a neighbour's plane and carries that neighbour's id */
+function applyTool(body: Body, tool: K.Solid, isCap: (q: K.Facts) => boolean, moved: FaceRec, around: FaceRec[], add: boolean, ctx: Ctx): Body {
+  const claims: Claim[] = [];
+  for (const h of tool.faces()) {
+    const q = K.facts(h);
+    if (isCap(q)) { claims.push({ id: moved.id, face: h }); continue; }
+    const n = around.find((g) => coplanar(q, K.facts(g.h))); if (n) claims.push({ id: n.id, face: h });
+  }
+  const toolBody = ctx.temp(fromClaims(tool, claims, ctx.step.id));
+  const m = add ? K.fuse(body.solid, tool) : K.cut(body.solid, tool);
+  return unifyBody(ctx.temp(carry(m.solid, m.report, [body, toolBody], [], ctx.step.id, ctx.age)), ctx.step.id, ctx.age);
+}
+
+/** the distance, up to `d`, at which the face has collapsed (the neighbours meet), by halving */
+function limitOf(body: Body, rec: FaceRec, around: FaceRec[], d: number): number {
+  let lo = 0, hi = Math.abs(d); const s = Math.sign(d);
+  for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2, r = K.moveRegion(body.solid, rec.h, around.map((g) => g.h), s * mid); r.tool.release(); if (r.collapsed) hi = mid; else lo = mid; }
+  return lo;
+}
+
+/** mode 3: the face moves by `dist` along its outward normal; the faces beside it (all flat) are carried on as planes */
+kinds["moveFace"] = { outputs: "body", run: (inputs, ctx) => {
+  const body = needBody(inputs[0]), d = num(ctx.step.params, "dist"), rec = body.one(ctx.step.params.face as Id), around = neighbours(body, rec);
+  if (Math.abs(d) < 1e-12) return body;
+  const f = K.facts(rec.h), reg = K.moveRegion(body.solid, rec.h, around.map((g) => g.h), d);
+  if (reg.collapsed) { reg.tool.release(); const at = limitOf(body, rec, around, d); throw new Error(`the face has collapsed: the faces beside it meet at ${at.toFixed(3)} (the move is ${d})`); }
+  const target: V3 = [f.ce[0] + f.ne[0] * d, f.ce[1] + f.ne[1] * d, f.ce[2] + f.ne[2] * d];
+  const isCap = (q: K.Facts) => q.type === "PLANE" && Math.abs(dot(q.ne, f.ne)) > 0.999 && Math.abs(dot(sub(q.ce, target), f.ne)) < 1e-6;
+  return checked(applyTool(body, reg.tool, isCap, rec, around, d > 0, ctx), "the move");
+} };
+
+/** mode 4: a cylinder's wall moves by `dist` along its outward normal (its radius changes); the faces beside it (all flat) are carried on. A wall the kernel split at its seam is moved as one wall */
+kinds["offsetFace"] = { outputs: "body", run: (inputs, ctx) => {
+  const body = needBody(inputs[0]), d = num(ctx.step.params, "dist"), id = ctx.step.params.face as Id, pieces = body.find(id);
+  if (!pieces.length) body.one(id); // lost: says so
+  if (pieces.some((p) => K.facts(p.h).type !== "CYLINDRE")) throw new Error("offset moves a round wall: this face is not one");
+  if (Math.abs(d) < 1e-12) return body;
+  const around = [...new Set(pieces.flatMap((p) => neighbours(body, p)))].filter((g) => !pieces.includes(g));
+  const reg = K.ringRegion(body.solid, pieces[0]!.h, around.map((g) => g.h), d), axis = K.cylinderOf(pieces[0]!.h);
+  const newWall = (h: K.FaceH) => { const q = K.facts(h); if (q.type !== "CYLINDRE") return false; const c = K.cylinderOf(h); return Math.abs(c.r - reg.r2) < 1e-6 && Math.abs(Math.abs(dot(c.dir, axis.dir)) - 1) < 1e-9; };
+  const claims: Claim[] = [];
+  for (const h of reg.tool.faces()) {
+    if (newWall(h)) { claims.push({ id: pieces[0]!.id, face: h }); continue; }
+    const q = K.facts(h), n = around.find((g) => coplanar(q, K.facts(g.h))); if (n) claims.push({ id: n.id, face: h });
+  }
+  const toolBody = ctx.temp(fromClaims(reg.tool, claims, ctx.step.id));
+  const m = d > 0 ? K.fuse(body.solid, reg.tool) : K.cut(body.solid, reg.tool);
+  return checked(unifyBody(ctx.temp(carry(m.solid, m.report, [body, toolBody], [], ctx.step.id, ctx.age)), ctx.step.id, ctx.age), "the offset");
+} };
+
+// ---------------------------------------------------------------- the modes offered for a face (E32)
+export type Mode = "edit" | "push" | "move" | "offset";
+export interface ModeInfo { mode: Mode; ok: boolean; /** when not: why, in a sentence */ why: string; /** the first that applies, in the order edit, push, move, offset: highlighted, never applied unchosen */ suggested: boolean }
+
+/** mode 1: the step that made the face has a number that moves it. Only the end of an extrusion for now (its depth); the answer is the step's new numbers, to be set with `Engine.edit` */
+export function originalEdit(engine: Engine, bodyStep: string, face: Id, dist: number): { step: string; params: Record<string, any> } | { why: string } {
+  const st = engine.ids().includes(face.step) ? engine.step(face.step) : null;
+  if (!st) return { why: "no step made this face" };
+  if (st.kind !== "extrude" || face.role !== "end") return { why: `the ${st.kind} step that made this face has no number that moves it` };
+  const body = engine.result(bodyStep).value as Body; let rec: FaceRec; try { rec = body.one(face); } catch (e) { return { why: e instanceof Error ? e.message : String(e) }; }
+  const sk = engine.result(st.inputs[0]!).value as Sketch, dir = unit((st.params.dir as V3 | undefined) ?? sk.normal), n = K.facts(rec.h).ne, d = (st.params.d as number) + (dot(n, dir) > 0 ? dist : -dist);
+  if (!(d > 0)) return { why: `the depth would be ${d.toFixed(3)}, not above nothing` };
+  return { step: st.id, params: { ...st.params, d } };
+}
+/** the four modes for a face of the body made by `bodyStep`, each with whether it applies and why not */
+export function pullModes(engine: Engine, bodyStep: string, face: Id): ModeInfo[] {
+  const body = engine.result(bodyStep).value as Body, pieces = body.find(face), out: Omit<ModeInfo, "suggested">[] = [];
+  if (!pieces.length) return (["edit", "push", "move", "offset"] as Mode[]).map((mode) => ({ mode, ok: false, why: "the face is no longer there", suggested: false }));
+  const types = new Set(pieces.map((p) => K.facts(p.h).type)), around = pieces.flatMap((p) => neighbours(body, p)).filter((g) => !pieces.includes(g)), allFlat = around.every((g) => K.facts(g.h).type === "PLANE");
+  const e = originalEdit(engine, bodyStep, face, 0); out.push({ mode: "edit", ok: !("why" in e), why: "why" in e ? e.why : "" });
+  out.push({ mode: "push", ok: types.size === 1 && types.has("PLANE") && pieces.length === 1, why: pieces.length > 1 ? "the face has split: say which piece" : types.has("PLANE") ? "" : "push extrudes a flat face's outline; this face is round" });
+  out.push({ mode: "move", ok: types.size === 1 && types.has("PLANE") && pieces.length === 1 && allFlat, why: !types.has("PLANE") ? "move carries a flat face; this face is round" : pieces.length > 1 ? "the face has split: say which piece" : allFlat ? "" : "a face beside it is round" });
+  out.push({ mode: "offset", ok: types.size === 1 && types.has("CYLINDRE") && allFlat, why: !types.has("CYLINDRE") ? "offset moves a round wall; this face is not one" : allFlat ? "" : "a face beside the wall is round" });
+  const first = out.findIndex((m) => m.ok);
+  return out.map((m, i) => ({ ...m, suggested: i === first }));
+}

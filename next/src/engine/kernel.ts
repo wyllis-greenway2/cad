@@ -243,3 +243,69 @@ export function unify(a: Solid, keep: readonly EdgeH[] = []): { solid: Solid; jo
   return { solid, joined: true };
 }
 
+
+// ---------------------------------------------------------------- moving a face with its neighbours (spike 8, `prototypes/face-modes`)
+const common2 = (a: Raw, b: Raw): Raw => t(new oc.BRepAlgoAPI_Common(a, b, progress())).Shape();
+const volumeOf = (raw: Raw): number => { const p = t(new oc.GProp_GProps()); oc.BRepGProp.VolumeProperties(raw, p, false, false, false); return p.Mass(); };
+/** the half-space on the side of the plane (a point and a normal) where `ref` lies. It is infinite: only ever cut from a finite shape, never intersected with another half-space (the kernel gives garbage) */
+function halfSpace(p: V3, n: V3, ref: V3): Raw {
+  const pl = t(new oc.gp_Pln(t(new oc.gp_Pnt(p[0], p[1], p[2])), t(new oc.gp_Dir(n[0], n[1], n[2])))), f = t(new oc.BRepBuilderAPI_MakeFace(pl, -1e4, 1e4, -1e4, 1e4)).Face();
+  return t(new oc.BRepPrimAPI_MakeHalfSpace(f, t(new oc.gp_Pnt(ref[0], ref[1], ref[2])))).Solid();
+}
+const add3 = (a: V3, b: V3, s = 1): V3 => [a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s];
+const dot3 = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+/** a finite box around a body and far beyond it: the start of every region, so that nothing infinite is intersected with anything infinite */
+function bigBox(a: Solid, pad: number): Raw {
+  const all = a.faces().map(facts), lo = [0, 1, 2].map((i) => Math.min(...all.map((q) => q.lo[i]!)) - pad), hi = [0, 1, 2].map((i) => Math.max(...all.map((q) => q.hi[i]!)) + pad);
+  const base = polygonFace3([[lo[0]!, lo[1]!, lo[2]!], [hi[0]!, lo[1]!, lo[2]!], [hi[0]!, hi[1]!, lo[2]!], [lo[0]!, hi[1]!, lo[2]!]]);
+  return prism(base, [0, 0, hi[2]! - lo[2]!]).solid.raw;
+}
+const sizeOf = (a: Solid): number => { const all = a.faces().map(facts); return Math.max(...[0, 1, 2].map((i) => Math.max(...all.map((q) => q.hi[i]!)) - Math.min(...all.map((q) => q.lo[i]!)))); };
+export interface Region { tool: Solid; /** the face at the new place has gone: the neighbours meet before it gets there (the distance `d` is past the limit) */ collapsed: boolean }
+/**
+ * The region a flat face sweeps when it is moved by `d` along its outward normal and the faces `around` it (all flat) are carried on as planes: the slab between the old and the new plane, kept on the side of each
+ * neighbour's plane where the face lies. Add it (d > 0) or take it (d < 0). `collapsed`: the face at the new plane no longer exists, because the neighbours have met.
+ */
+export function moveRegion(a: Solid, face: FaceH, around: readonly FaceH[], d: number): Region {
+  return guard("the move", () => {
+    const f = facts(face); if (f.type !== "PLANE") fail(`the face is ${f.type}, not flat`);
+    const s = Math.sign(d), pad = 10 * (sizeOf(a) + Math.abs(d)), n = f.ne, c = f.ce;
+    let tool = common2(bigBox(a, pad), halfSpace(c, [n[0] * s, n[1] * s, n[2] * s], add3(c, n, s * Math.abs(d) * 0.5)));
+    tool = common2(tool, halfSpace(add3(c, n, d), [-n[0] * s, -n[1] * s, -n[2] * s], c));
+    for (const g of around) {
+      const q = facts(g); if (q.type !== "PLANE") fail(`a face beside it is ${q.type}, not flat`);
+      if (Math.abs(dot3([c[0] - q.ce[0], c[1] - q.ce[1], c[2] - q.ce[2]], q.ne)) < 1e-9) fail("the face's centre lies in the plane of a face beside it");
+      tool = common2(tool, halfSpace(q.ce, q.ne, c));
+      if (!(volumeOf(tool) > 1e-9)) return { tool: new Solid(tool), collapsed: true };
+    }
+    const newPlane = add3(c, n, d), solid = new Solid(tool);
+    const here = solid.faces().some((h) => { const q = facts(h); return q.type === "PLANE" && Math.abs(dot3(q.ne, n)) > 0.999 && Math.abs(dot3([q.ce[0] - newPlane[0], q.ce[1] - newPlane[1], q.ce[2] - newPlane[2]], n)) < 1e-6 && q.area > 1e-6; });
+    return { tool: solid, collapsed: !here };
+  });
+}
+export interface Cylinder { r: number; point: V3; dir: V3 }
+export const cylinderOf = (face: FaceH): Cylinder => scoped(() => {
+  const c = t(new oc.BRepAdaptor_Surface(t(downcast(face.raw)), true)).Cylinder(), ax = t(c.Axis()), p = t(ax.Location()), d = t(ax.Direction());
+  return { r: c.Radius(), point: [p.X(), p.Y(), p.Z()] as V3, dir: [d.X(), d.Y(), d.Z()] as V3 };
+});
+/** the face's outward normal at a point on its edge: for a cylinder wall it says whether the wall is a boss's (away from the axis) or a hole's (toward it) */
+export function outwardAtEdge(face: FaceH): { at: V3; normal: V3 } {
+  const e = faceEdges(face)[0]!, m = edgeMid(e), F = new Face(downcast(face.raw)), p = new oc.gp_Pnt(m[0], m[1], m[2]), q = F.normalAt(p), l = Math.hypot(q.x, q.y, q.z) || 1, out = { at: m, normal: [q.x / l, q.y / l, q.z / l] as V3 }; drop(p, q, F); return out;
+}
+export interface Ring { tool: Solid; boss: boolean; r: number; r2: number }
+/** the region a cylinder wall sweeps when it moves by `d` along its outward normal (its radius changes: a boss grows, a hole shrinks for d > 0): the ring between the radii, kept on the side of each flat neighbour's plane where the wall lies */
+export function ringRegion(a: Solid, wall: FaceH, around: readonly FaceH[], d: number): Ring {
+  return guard("the offset", () => {
+    const q = facts(wall); if (q.type !== "CYLINDRE") fail(`the face is ${q.type}, not a cylinder`);
+    const cy = cylinderOf(wall), out = outwardAtEdge(wall), rel: V3 = [out.at[0] - cy.point[0], out.at[1] - cy.point[1], out.at[2] - cy.point[2]], along = dot3(rel, cy.dir), radial: V3 = [rel[0] - cy.dir[0] * along, rel[1] - cy.dir[1] * along, rel[2] - cy.dir[2] * along];
+    const boss = dot3(out.normal, radial) > 0, r2 = boss ? cy.r + d : cy.r - d; if (!(r2 > 1e-6)) fail("the radius would not be above nothing");
+    const corners = a.faces().flatMap((h) => { const b = facts(h); return [0, 1].flatMap((i) => [0, 1].flatMap((j) => [0, 1].map((k) => dot3([[b.lo, b.hi][i]![0], [b.lo, b.hi][j]![1], [b.lo, b.hi][k]![2]], cy.dir)))); });
+    const a0 = Math.min(...corners) - 5 - Math.abs(d), a1 = Math.max(...corners) + 5 + Math.abs(d), R1 = Math.min(cy.r, r2), R2 = Math.max(cy.r, r2);
+    const base = dot3(cy.point, cy.dir), at = (x: number): V3 => add3(cy.point, cy.dir, x - base);
+    const tube = (r: number, x0: number, x1: number) => prism(profileFace({ kind: "circle", c: at(x0), r, normal: cy.dir }), [cy.dir[0] * (x1 - x0), cy.dir[1] * (x1 - x0), cy.dir[2] * (x1 - x0)]).solid.raw;
+    let tool = t(new oc.BRepAlgoAPI_Cut(tube(R2, a0, a1), tube(R1, a0 - 1, a1 + 1), progress())).Shape();
+    for (const g of around) { const b = facts(g); if (b.type !== "PLANE") fail(`a face beside it is ${b.type}, not flat`); tool = common2(tool, halfSpace(b.ce, b.ne, q.ce)); }
+    if (!(volumeOf(tool) > 1e-9)) fail("there is nothing between the old wall and the new one");
+    return { tool: new Solid(tool), boss, r: cy.r, r2 };
+  });
+}
