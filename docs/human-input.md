@@ -6339,3 +6339,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1542 — 2026-11-22 — directive
 > fix what the stress test found
+
+## in_1543 — 2026-11-22 — question
+> do we need to patch the kernel itself when we find issues with it?
