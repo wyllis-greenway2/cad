@@ -6,6 +6,7 @@ import { type Ctx, type Step, type Value, NoBody, kinds, passthrough } from "./s
 import { insertStep, moveStep, removeStep, swapWithInput, validateRecipe } from "./recipe.ts";
 import "./curved.ts"; // registers revolve, loft, sweep and shell
 import "./pull.ts"; // registers moveFace and offsetFace (pull modes 3 and 4)
+import "./pattern.ts"; // registers pattern and mirror (copies of a body, E44 to E47)
 import { scopeKinds } from "./scope.ts"; // steps that name a body work on that body alone (E40, E41)
 scopeKinds();
 

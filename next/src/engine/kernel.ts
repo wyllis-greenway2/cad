@@ -352,3 +352,10 @@ export function solidIndexOfFaces(a: Solid): number[] {
   for (const s of solids) s.delete?.(); for (const fs of per) for (const g of fs) g.delete?.();
   return out;
 }
+
+/** a copy of the solid mirrored in a plane (a point on it and its normal); the report says which face each face became */
+export function mirror(a: Solid, point: V3, normal: V3): Made {
+  const tr = t(new oc.gp_Trsf()); tr.SetMirror(t(new oc.gp_Ax2(t(new oc.gp_Pnt(point[0], point[1], point[2])), t(new oc.gp_Dir(normal[0], normal[1], normal[2])))));
+  const mk = t(new oc.BRepBuilderAPI_Transform(a.raw, tr, true)); mk.Build(progress());
+  return { solid: new Solid(mk.Shape()), report: reportOf(mk) };
+}
