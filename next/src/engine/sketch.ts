@@ -19,13 +19,16 @@ export interface SketchParams {
   anchors?: { id: string; edge: EdgeRef }[];
 }
 
+/** where a sketch lies: the plane's frame, local (x, y) to the world and back (the interaction layer needs the same) */
+export function sketchFrame(p: SketchParams, body: Body | null): { F: { O: V3; u: V3; v: V3 }; normal: V3; local(q: V3): [number, number]; world(x: number, y: number): V3 } {
+  const F = p.face ? (() => { if (!body) throw new Error("a sketch on a face needs the body as its first input"); const rec = body.one(p.face); const f = frameOf(rec, null); return { F: f, normal: unitV(K.facts(rec.h).ne) as V3 }; })() : (() => { const pl = planeOf(p as Record<string, any>); const o = pl.at(0, 0), ux = pl.at(1, 0), uy = pl.at(0, 1); return { F: { O: o, u: [ux[0] - o[0], ux[1] - o[1], ux[2] - o[2]] as V3, v: [uy[0] - o[0], uy[1] - o[1], uy[2] - o[2]] as V3 }, normal: pl.normal }; })();
+  const local = (q: V3): [number, number] => { const d: V3 = [q[0] - F.F.O[0], q[1] - F.F.O[1], q[2] - F.F.O[2]]; return [d[0] * F.F.u[0] + d[1] * F.F.u[1] + d[2] * F.F.u[2], d[0] * F.F.v[0] + d[1] * F.F.v[1] + d[2] * F.F.v[2]]; };
+  return { F: F.F, normal: F.normal as V3, local, world: (x, y) => at(F.F, x, y) };
+}
 /** make the sketch of a definition: the solve, the lines with ids from their names, the anchors; `step` is the id of the step that makes it */
 export function makeSketch(p: SketchParams, body: Body | null, step: { id: string }): Sketch {
   if (!Array.isArray(p.points)) throw new Error("a sketch needs its points");
-  // where the sketch lies: local (x, y) to the world and back
-  const F = p.face ? (() => { if (!body) throw new Error("a sketch on a face needs the body as its first input"); const rec = body.one(p.face); const f = frameOf(rec, null); return { F: f, normal: unitV(K.facts(rec.h).ne) as V3 }; })() : (() => { const pl = planeOf(p as Record<string, any>); const o = pl.at(0, 0), ux = pl.at(1, 0), uy = pl.at(0, 1); return { F: { O: o, u: [ux[0] - o[0], ux[1] - o[1], ux[2] - o[2]] as V3, v: [uy[0] - o[0], uy[1] - o[1], uy[2] - o[2]] as V3 }, normal: pl.normal }; })();
-  const local = (q: V3): [number, number] => { const d: V3 = [q[0] - F.F.O[0], q[1] - F.F.O[1], q[2] - F.F.O[2]]; return [d[0] * F.F.u[0] + d[1] * F.F.u[1] + d[2] * F.F.u[2], d[0] * F.F.v[0] + d[1] * F.F.v[1] + d[2] * F.F.v[2]]; };
-  const world = (x: number, y: number): V3 => at(F.F, x, y);
+  const fr = sketchFrame(p, body), F = { F: fr.F, normal: fr.normal }, local = fr.local, world = fr.world;
   const names = [...p.points.map((q) => q.id), ...(p.lines ?? []).map((q) => q.id), ...(p.circles ?? []).map((q) => q.id), ...(p.anchors ?? []).map((q) => q.id)];
   const dup = names.find((n, i) => names.indexOf(n) !== i); if (dup) throw new Error(`two parts of this sketch are called ${dup}`);
   // the body's edges, held: found by the faces beside them (a lost edge orphans the step), seen in the plane of the sketch

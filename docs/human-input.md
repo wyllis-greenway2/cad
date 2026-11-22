@@ -6246,3 +6246,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1511 — 2026-11-22 — approval
 > Copies next
+
+## in_1512 — 2026-11-22 — directive
+> Sure lets do that next, lets borrow some visuals from the prototype because it looked pretty good

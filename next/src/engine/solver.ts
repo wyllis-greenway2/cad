@@ -44,8 +44,8 @@ const len = (u: P) => sqrtD(dot2(u, u));
 
 // ---------------------------------------------------------------- the relations, as residuals (zero when they hold)
 interface Ctx { pt(id: string): P; line(id: string): { a: P; b: P }; r(id: string): D; c(id: string): P; value: number; at?: [number, number]; internal?: boolean }
-const kindOf = (id: string, S: System): "point" | "line" | "circle" => S.points.some((p) => p.id === id) ? "point" : S.lines.some((l) => l.id === id) ? "line" : "circle";
-const RELATIONS: Record<Relation, { arity: number; parts: ("point" | "line" | "circle")[][]; rows: (ids: string[], c: Ctx, kinds: string[]) => D[] }> = {
+export const kindOf = (id: string, S: System): "point" | "line" | "circle" => S.points.some((p) => p.id === id) ? "point" : S.lines.some((l) => l.id === id) ? "line" : "circle";
+export const RELATIONS: Record<Relation, { arity: number; parts: ("point" | "line" | "circle")[][]; rows: (ids: string[], c: Ctx, kinds: string[]) => D[] }> = {
   fixed: { arity: 1, parts: [["point"]], rows: (ids, c) => { const p = c.pt(ids[0]!); return [sub(p.x, k(c.at![0])), sub(p.y, k(c.at![1]))]; } },
   coincident: { arity: 2, parts: [["point"], ["point"]], rows: (ids, c) => { const p = c.pt(ids[0]!), q = c.pt(ids[1]!); return [sub(p.x, q.x), sub(p.y, q.y)]; } },
   horizontal: { arity: 1, parts: [["line", "point"], ["point"]], rows: (ids, c, kk) => kk[0] === "line" ? (() => { const l = c.line(ids[0]!); return [sub(l.b.y, l.a.y)]; })() : [sub(c.pt(ids[1]!).y, c.pt(ids[0]!).y)] },
@@ -282,4 +282,13 @@ export function tryAdd(S: System, c: Constraint, opts: Options = {}): Attempt2 {
   if (!r.verdict.ok) return { outcome: "refused", by: [], victims: r.verdict.conflict, holding: r.verdict.conflict.filter((id) => id !== c.id), system: S, verdict: r.verdict };
   if (r.verdict.implied.includes(c.id)) return { outcome: "already", by: S.constraints.map((q) => q.id), victims: [], holding: [], system: S, verdict: r.verdict }; // it follows from what is there
   return { outcome: "added", by: [], victims: [], holding: [], system: next, verdict: r.verdict };
+}
+
+/** how far a constraint is from holding at the places the parts are now: one number for each thing it says (zero when it holds); a dimension's number is read as 0 to measure what the parts are (E51: measure, then lock) */
+export function residualsOf(S: System, c: Constraint): number[] {
+  const prep = prepare(S, new Set(), {}), row = RELATIONS[c.kind]; if (!row) return [];
+  const pointVar = prep.pointVar, circleVar = prep.circleVar, x = prep.x, v = (i: number) => new D(x[i]!);
+  const pt = (id: string): P => { const [i, j] = pointVar.get(id)!; return { x: v(i), y: v(j) }; }, lines = new Map(S.lines.map((l) => [l.id, l])), circles = new Map(S.circles.map((q) => [q.id, q]));
+  const ctx = { pt, line: (id: string) => { const l = lines.get(id)!; return { a: pt(l.a), b: pt(l.b) }; }, r: (id: string) => v(circleVar.get(id)!), c: (id: string) => pt(circles.get(id)!.c), value: c.value ?? 0, at: c.at, internal: c.internal };
+  return row.rows(c.parts, ctx, c.parts.map((q) => kindOf(q, S))).map((d) => d.v);
 }
