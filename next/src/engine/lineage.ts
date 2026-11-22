@@ -75,10 +75,10 @@ export class Body {
   }
   /** what a step's answer is known by, for the engine to tell whether it changed (a whole-body fingerprint: volume and every id) */
   fingerprint(): string {
-    // the kernel's own sums differ in the last digits with the way a shape was built (found by the stress run: an edit and back gave a volume 1e-11 apart), so volume is kept to 8 digits and an area to 6 (areas were seen 1e-8 apart) and a centre to 1e-5 mm
+    // kept fine on purpose: the kernel's own sums differ in the 8th digit with the way a shape was built, which only makes a step run again that need not have (a rounder fingerprint could hide a real, small edit); a check that compares two builds compares the numbers with a tolerance (`same` in dev/lib.ts)
     // the geometry as well as the ids: an edit that only moves a face must show (else the engine stops there and the steps after it do not run)
-    const g = (f: FaceRec) => { const q = K.facts(f.h); return `${idKey(f.id)}~${q.type}~${q.area.toPrecision(6)}~${q.ce.map((v) => v.toFixed(5)).join(",")}`; };
-    return K.scoped(() => `${K.volume(this.solid).toPrecision(8)}|${this.faces.map(g).sort().join(";")}|${this.bodies.map((b) => [b.id, ...b.alias].map(idKey).join("=") + ":" + b.faces.length).sort().join(";")}`);
+    const g = (f: FaceRec) => { const q = K.facts(f.h); return `${idKey(f.id)}~${q.type}~${q.area.toFixed(9)}~${q.ce.map((v) => v.toFixed(9)).join(",")}`; };
+    return K.scoped(() => `${K.volume(this.solid).toFixed(9)}|${this.faces.map(g).sort().join(";")}|${this.bodies.map((b) => [b.id, ...b.alias].map(idKey).join("=") + ":" + b.faces.length).sort().join(";")}`);
   }
 }
 

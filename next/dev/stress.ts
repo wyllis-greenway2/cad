@@ -11,6 +11,7 @@ import { initKernel } from "../src/engine/kernel.ts";
 import * as K from "../src/engine/kernel.ts";
 import { Engine } from "../src/engine/engine.ts";
 import { Body } from "../src/engine/lineage.ts";
+import { same } from "./lib.ts";
 import { writeFileSync } from "node:fs";
 import type { Step } from "../src/engine/steps.ts";
 await initKernel();
@@ -109,7 +110,7 @@ for (let m = 0; m < MODELS; m++) {
     }
     // 3. fresh build equals the live engine
     const rec = e.recipe(), fresh = new Engine(rec); fresh.build();
-    for (const id of rec.map((x) => x.id)) if (e.result(id).fingerprint !== fresh.result(id).fingerprint) { problems.push(`model ${m} (seed ${mseed}): live differs from fresh at ${id} [${trace.join(" ")}]`); bad++; break; }
+    for (const id of rec.map((x) => x.id)) if (!same(e.result(id).fingerprint, fresh.result(id).fingerprint)) { problems.push(`model ${m} (seed ${mseed}): live differs from fresh at ${id} [${trace.join(" ")}]`); bad++; break; }
     fresh.release();
     // 4. edit and put back
     const cands = rec.filter((x) => tweakable(x).length);
@@ -119,10 +120,10 @@ for (let m = 0; m < MODELS; m++) {
       try {
         e.edit(st.id, edited);
         const rec2 = e.recipe(), f2 = new Engine(rec2); f2.build();
-        for (const id of rec2.map((x) => x.id)) if (e.result(id).fingerprint !== f2.result(id).fingerprint) { problems.push(`model ${m} (seed ${mseed}): after editing ${st.id}.${key}, live differs from fresh at ${id}`); bad++; break; }
+        for (const id of rec2.map((x) => x.id)) if (!same(e.result(id).fingerprint, f2.result(id).fingerprint)) { problems.push(`model ${m} (seed ${mseed}): after editing ${st.id}.${key}, live differs from fresh at ${id}`); bad++; break; }
         f2.release();
         e.edit(st.id, st.params);
-        for (const id of Object.keys(before)) if (e.result(id).fingerprint !== before[id]) { const x = before[id]!, y = e.result(id).fingerprint; let k = 0; while (x[k] === y[k]) k++; problems.push(`model ${m} (seed ${mseed}): editing ${st.id}.${key} and back changed ${id}; first difference at ${k}: ${x.slice(Math.max(0, k - 60), k + 60)}  =>  ${y.slice(Math.max(0, k - 60), k + 60)}`); bad++; break; }
+        for (const id of Object.keys(before)) if (!same(e.result(id).fingerprint, before[id]!)) { const x = before[id]!, y = e.result(id).fingerprint; let k = 0; while (x[k] === y[k]) k++; problems.push(`model ${m} (seed ${mseed}): editing ${st.id}.${key} and back changed ${id}; first difference at ${k}: ${x.slice(Math.max(0, k - 60), k + 60)}  =>  ${y.slice(Math.max(0, k - 60), k + 60)}`); bad++; break; }
       } catch (x) { problems.push(`model ${m} (seed ${mseed}): edit of ${st.id}.${key} THREW ${(x as Error).message.slice(0, 160)}`); bad++; }
     }
     if (problems.length > pBefore) { const f = `/tmp/stress-model-${SEED}-${m}.json`; writeFileSync(f, JSON.stringify(e.recipe(), null, 1)); problems.push(`  recipe saved in ${f}`); }
