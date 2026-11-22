@@ -6180,3 +6180,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1489 — 2026-11-22 — directive
 > yes spike the pointed rod end and variable size
+
+## in_1490 — 2026-11-22 — question
+> What do you recommend?
