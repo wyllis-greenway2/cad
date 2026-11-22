@@ -23,8 +23,20 @@ export class Engine {
   private age = new Map<string, number>();
   /** how many steps were computed so far (for measuring what an edit cost) */
   computes = 0;
+  /** steps that are not run at all but flagged with a reason: what the host says of a step that ran past its time or stopped the kernel (E16) */
+  private forced = new Map<string, string>();
+  /** told which step is about to run, so a host that has to stop the kernel knows which one it was */
+  watch: ((id: string) => void) | null = null;
 
-  constructor(steps: readonly Step[]) { this.install(steps); }
+  constructor(steps: readonly Step[], opts: { forced?: Record<string, string>; watch?: (id: string) => void } = {}) {
+    this.forced = new Map(Object.entries(opts.forced ?? {})); this.watch = opts.watch ?? null; this.install(steps);
+  }
+  /** change which steps are held back; the steps whose hold changed run again (or are held), and what depends on them */
+  setForced(next: Record<string, string>): Changes {
+    const now = new Map(Object.entries(next)), dirty = new Set<string>();
+    for (const id of new Set([...this.forced.keys(), ...now.keys()])) if (this.forced.get(id) !== now.get(id) && this.steps.has(id)) dirty.add(id);
+    this.forced = now; return this.settle(dirty);
+  }
   /** take a list of steps as the recipe: the order, who depends on whom, how old each is (older ids lead when faces merge) */
   private install(steps: readonly Step[]): void {
     validateRecipe(steps);
@@ -66,7 +78,7 @@ export class Engine {
    * Take a new list of steps (E19). A step that is new, or whose kind, numbers or inputs are different, runs; so does one whose place among the steps it keeps company with has changed
    * (older ids lead when faces merge); then whatever depends on a step whose answer came out different. A step that is gone lets its answer go.
    */
-  setRecipe(next: readonly Step[]): Changes {
+  setRecipe(next: readonly Step[], forced?: Record<string, string>): Changes {
     validateRecipe(next);
     const before = new Map(this.steps), ageBefore = new Map(this.age), keep = new Set(next.map((s) => s.id));
     for (const id of this.order) if (!keep.has(id)) { const slot = this.slots.get(id); if (slot) { this.letGo(slot.held); this.slots.delete(id); } }
@@ -74,6 +86,11 @@ export class Engine {
     const same = (a: Step, b: Step) => a.kind === b.kind && JSON.stringify(a.inputs) === JSON.stringify(b.inputs) && JSON.stringify(a.params) === JSON.stringify(b.params);
     const dirty = new Set<string>();
     for (const s of next) { const p = before.get(s.id); if (!p || !same(p, s) || !this.slots.has(s.id)) dirty.add(s.id); }
+    if (forced) { // which steps are held back is settled together with the recipe, so a step that was changed and is let go runs once, with its new numbers
+      const now = new Map(Object.entries(forced));
+      for (const id of new Set([...this.forced.keys(), ...now.keys()])) if (this.forced.get(id) !== now.get(id) && this.steps.has(id)) dirty.add(id);
+      this.forced = now;
+    }
     const kept = next.filter((s) => before.has(s.id)).map((s) => s.id);
     for (let i = 0; i < kept.length; i++) for (let j = i + 1; j < kept.length; j++) if (ageBefore.get(kept[i]!)! > ageBefore.get(kept[j]!)!) { dirty.add(kept[i]!); dirty.add(kept[j]!); }
     return this.settle(dirty);
@@ -95,9 +112,10 @@ export class Engine {
     const step = this.steps.get(id)!, kind = kinds[step.kind];
     const inputs = step.inputs.map((i) => this.slots.get(i)?.held.v ?? new NoBody()); // a step taken out leaves nothing: the step that worked on it is orphaned
     const temps: Body[] = [], ctx: Ctx = { step, age: (s) => this.age.get(s) ?? -1, temp: (b) => { temps.push(b); return b; } };
-    this.computes++;
+    this.computes++; this.watch?.(id);
     let value: Value, status: Status = { kind: "ok" };
-    if (!kind) { value = new NoBody(); status = { kind: "flagged", why: `there is no step kind ${step.kind}` }; }
+    if (this.forced.has(id)) { status = { kind: "flagged", why: this.forced.get(id)! }; value = kind ? passthrough(kind, inputs, step) : new NoBody(); }
+    else if (!kind) { value = new NoBody(); status = { kind: "flagged", why: `there is no step kind ${step.kind}` }; }
     else {
       try { value = K.scoped(() => kind.run(inputs, ctx)); }
       catch (e) {
