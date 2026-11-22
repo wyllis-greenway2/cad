@@ -1,9 +1,9 @@
 ---
-id: q_body_placement
-kind: question
-status: open
-origin: ai-unreviewed
-human_input: in_1520, in_1507, in_1506
+id: dec_body_placement
+kind: decision
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_1520, in_1521, in_1522, in_1523, in_1507, in_1506
 date: 2026-11-22
 depends_on:
   - dec_independent_bodies: the bodies that are placed are the named bodies of one model; a placement moves a body and changes no face id
@@ -11,7 +11,9 @@ depends_on:
   - dec_body_mates: the old app's mates (flush with a gap, coaxial with an offset, parallel, perpendicular, angle, axis to face) are the vocabulary to carry; this asks how they are kept
 alternative_to:
 ---
-# How do placement constraints between bodies work in the rebuild (E60)
+# Placement constraints between bodies are one `place` step that solves the poses (E60)
+
+**Decided (`in_1523`, "Go with A"):** option A below. A `place` step takes the bodies and the mates, solves each moving body's pose every recompute with the sketch solver's machinery, and moves the bodies; the history shows one step; a mated body is moved by changing a mate's number. B (the old move-and-turn steps) and C (both) are not built. The text after this paragraph is the question as it was put, kept for the reasons.
 
 `in_1514` listed placement constraints and mates between bodies as the last group. The old app made a mate as **ordinary move and turn steps** (placed once), and a *standing* mate appended corrective steps after every change (`dec_body_mates`, `dec_standing_mates`, provisional). The rebuild's engine is a recipe of pure steps with a verdict and a refusal channel, so there is a second way. **For the human to decide before anything is built.**
 

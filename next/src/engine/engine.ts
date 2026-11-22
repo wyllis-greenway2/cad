@@ -10,6 +10,7 @@ import "./curved.ts"; // registers revolve, loft, sweep and shell
 import "./pull.ts"; // registers moveFace and offsetFace (pull modes 3 and 4)
 import "./sketch.ts"; // registers the constrained sketch (E49)
 import "./exchange.ts"; // registers import (a STEP file as a body, E21)
+import "./place.ts"; // registers place (mates between bodies, E60)
 import "./hole.ts"; // registers hole (E76)
 import "./pattern.ts"; // registers pattern and mirror (copies of a body, E44 to E47)
 import { scopeKinds } from "./scope.ts"; // steps that name a body work on that body alone (E40, E41)

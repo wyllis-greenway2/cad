@@ -7,7 +7,7 @@ import { type EdgeRef, type Id, type VertexRef, baseKey, edgeKey, edgeRef, idKey
 export interface FaceRec { id: Id; alias: Id[]; h: K.FaceH; /** the engine could not name this face from the step's history or rules (E7): a defect, reported */ defect: boolean }
 /** a body: a solid the model remembers by a name (E38). `faces` are the faces in it; `alias` the other names it answers to after bodies were joined (E39) */
 export interface BodyRec { id: Id; alias: Id[]; faces: FaceRec[] }
-export interface Note { kind: "split" | "tie" | "defect" | "merged" | "dropped" | "unjoined" | "sliver"; text: string }
+export interface Note { kind: "split" | "tie" | "defect" | "merged" | "dropped" | "unjoined" | "sliver" | "free"; text: string }
 export interface VertexRec { p: K.V3; faces: FaceRec[]; /** the faces that meet there, if three or more: the vertex's name (E6) */ ref: VertexRef | null }
 export interface EdgeRec { h: K.EdgeH; faces: FaceRec[]; /** two faces beside it: the edge's name */ ref: EdgeRef | null }
 

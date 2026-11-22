@@ -316,3 +316,8 @@ export function residualsOf(S: System, c: Constraint): number[] {
   const ctx = { pt, line: (id: string) => { const l = lines.get(id)!; return { a: pt(l.a), b: pt(l.b) }; }, r: (id: string) => v(circleVar.get(id)!), c: (id: string) => pt(circles.get(id)!.c), value: c.value ?? 0, at: c.at, internal: c.internal };
   return row.rows(c.parts, ctx, c.parts.map((q) => kindOf(q, S))).map((d) => d.v);
 }
+
+// ---------------------------------------------------------------- what the placement solver of bodies shares with this one (`dec_body_placement`: one solver, its parts and unknowns generalised)
+export const kit = { D, k, add, sub, mul, div, scaleD, sqrtD, levenberg, narrow, independentRows, nullSpace, tol };
+export type { Prep, Attempt };
+export type AD = D;
