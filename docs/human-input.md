@@ -6192,3 +6192,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1493 — 2026-11-22 — approval
 > yes do that
+
+## in_1494 — 2026-11-22 — directive
+> Look at the invalid push

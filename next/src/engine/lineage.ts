@@ -5,7 +5,7 @@ import * as K from "./kernel.ts";
 import { type EdgeRef, type Id, baseKey, edgeKey, edgeRef, idKey, isPieceOf, mint, piece, show } from "./id.ts";
 
 export interface FaceRec { id: Id; alias: Id[]; h: K.FaceH; /** the engine could not name this face from the step's history or rules (E7): a defect, reported */ defect: boolean }
-export interface Note { kind: "split" | "tie" | "defect" | "merged" | "dropped"; text: string }
+export interface Note { kind: "split" | "tie" | "defect" | "merged" | "dropped" | "unjoined"; text: string }
 export interface EdgeRec { h: K.EdgeH; faces: FaceRec[]; /** two faces beside it: the edge's name */ ref: EdgeRef | null }
 
 /** a reference that finds nothing: the step it belongs to is orphaned (E10) */
@@ -98,7 +98,9 @@ export function carry(solid: K.Solid, report: K.Report, inputs: readonly Body[],
 export function unifyBody(body: Body, step: string, age: Age): Body {
   // the seams between the pieces of a face that split (an imprint's lines) stay: they are the person's lines, not leftovers (E4)
   const seams = body.edges().filter((e) => e.faces.length === 2 && baseKey(e.faces[0]!.id) === baseKey(e.faces[1]!.id) && idKey(e.faces[0]!.id) !== idKey(e.faces[1]!.id) && body.kept.has(baseKey(e.faces[0]!.id))).map((e) => e.h);
-  const solid = K.unify(body.solid, seams), faces = solid.faces();
+  const u = K.unify(body.solid, seams);
+  if (!u.joined) { body.notes.push({ kind: "unjoined", text: `the faces of ${step} were not joined: joining them would have made an invalid solid` }); return body; } // the body as it is is right, with more faces than it needs
+  const solid = u.solid, faces = solid.faces();
   const targets = faces.map((h) => ({ h, f: K.facts(h), ids: [] as Id[] })), notes: Note[] = [...body.notes];
   for (const rec of body.faces) {
     const a = K.facts(rec.h);
