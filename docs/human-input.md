@@ -6348,3 +6348,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1545 — 2026-11-22 — directive
 > fix the remaining gaps it found
+
+## in_1546 — 2026-11-22 — approval
+> yes start on those

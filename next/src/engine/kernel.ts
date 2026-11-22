@@ -124,7 +124,7 @@ export const valid = (s: Solid): boolean => t(new oc.BRepCheck_Analyzer(s.raw, t
 function reportOf(maker: Raw, via: (raw: Raw) => Raw = (r) => r): Report {
   const safe = <R>(fn: () => R, otherwise: R): R => { try { return fn(); } catch { return otherwise; } };
   return {
-    modified: (f) => safe(() => toArray(maker.Modified(via(f.raw))), []),
+    modified: (f) => safe(() => { const c = via(f.raw), m = toArray(maker.Modified(c)); return m.length || c === f.raw || maker.IsDeleted(c) ? m : [{ raw: c }]; }, []), // on a copy a face the kernel left alone is the copy's own face
     fromEdge: (e) => safe(() => toArray(maker.Generated(via(e.raw))), []),
     fromFace: (f) => safe(() => toArray(maker.Generated(via(f.raw))), []),
     deleted: (f) => safe(() => !!maker.IsDeleted(via(f.raw)), false),
@@ -228,18 +228,19 @@ export interface Rounded extends Made { round(e: EdgeH): FaceH[]; rounded: EdgeH
 /** a round (`fillet`) or a flat cut (`chamfer`) of the given size on the given edges */
 /** a size that varies along an edge: the size at fractions (0 to 1) of the edge, in order: exact at the points, a straight law between two, a smooth one through three or more (spike 7, E36) */
 export type SizeLaw = readonly (readonly [number, number])[];
-export function roundEdges(a: Solid, edges: readonly EdgeH[], size: number | SizeLaw | ((e: EdgeH) => SizeLaw), mode: "fillet" | "chamfer"): Rounded {
+export function roundEdges(a: Solid, edges: readonly EdgeH[], size: number | SizeLaw | ((e: EdgeH) => SizeLaw), mode: "fillet" | "chamfer", shape: "Rational" | "QuasiAngular" | "Polynomial" = "Rational"): Rounded {
   return guard(`the ${mode}`, () => {
     if (typeof size !== "number" && mode === "chamfer") throw new Error("a chamfer cannot vary along its edge yet (only a round can)");
     const cp = deepCopy(a.raw);
-    const mk = mode === "fillet" ? t(new oc.BRepFilletAPI_MakeFillet(cp.shape, oc.ChFi3d_FilletShape.ChFi3d_Rational)) : t(new oc.BRepFilletAPI_MakeChamfer(cp.shape));
+    const mk = mode === "fillet" ? t(new oc.BRepFilletAPI_MakeFillet(cp.shape, oc.ChFi3d_FilletShape[`ChFi3d_${shape}`])) : t(new oc.BRepFilletAPI_MakeChamfer(cp.shape));
     for (const e of edges) {
       if (typeof size === "number") { mk.Add(size, t(downcast(cp.to(e.raw)))); continue; }
       const law = typeof size === "function" ? size(e) : size, arr = t(new oc.NCollection_Array1_gp_Pnt2d(1, law.length)); law.forEach((q, k) => arr.SetValue(k + 1, t(new oc.gp_Pnt2d(q[0], q[1]))));
       (mk as unknown as { Add(law: unknown, e: unknown): void }).Add(arr, t(downcast(cp.to(e.raw))));
     }
-    const rounded: EdgeH[] = [];
-    for (let i = 1; i <= mk.NbContours(); i++) for (let j = 1; j <= mk.NbEdges(i); j++) rounded.push({ raw: t(mk.Edge(i, j)) });
+    const inCopy: EdgeH[] = []; // the kernel's edges are those of the copy: said back as the edges of the shape that was given
+    for (let i = 1; i <= mk.NbContours(); i++) for (let j = 1; j <= mk.NbEdges(i); j++) inCopy.push({ raw: t(mk.Edge(i, j)) });
+    const rounded = a.edges().filter((o) => inCopy.some((x) => sameEdge(x, { raw: cp.to(o.raw) })));
     mk.Build(progress());
     if (!mk.IsDone()) fail(`the ${mode} could not be made at that size`);
     const rep = reportOf(mk, cp.to);
@@ -337,6 +338,13 @@ export const cylinderOf = (face: FaceH): Cylinder => scoped(() => {
 /** the face's outward normal at a point on its edge: for a cylinder wall it says whether the wall is a boss's (away from the axis) or a hole's (toward it) */
 export function outwardAtEdge(face: FaceH): { at: V3; normal: V3 } {
   const e = faceEdges(face)[0]!, m = edgeMid(e), F = new Face(downcast(face.raw)), p = new oc.gp_Pnt(m[0], m[1], m[2]), q = F.normalAt(p), l = Math.hypot(q.x, q.y, q.z) || 1, out = { at: m, normal: [q.x / l, q.y / l, q.z / l] as V3 }; drop(p, q, F); return out;
+}
+/** the angle in degrees between the outward normals of the two faces beside an edge, at the edge's middle: 0 for a smooth edge (a fillet's seam, a tangent join), 90 for a square corner */
+export function edgeTurn(e: EdgeH, a: FaceH, b: FaceH): number {
+  return scoped(() => {
+    const m = edgeMid(e), p = t(new oc.gp_Pnt(m[0], m[1], m[2])), n = [a, b].map((f) => { const F = new Face(downcast(f.raw)), q = F.normalAt(p), l = Math.hypot(q.x, q.y, q.z) || 1, v: V3 = [q.x / l, q.y / l, q.z / l]; drop(q, F); return v; });
+    return (Math.acos(Math.max(-1, Math.min(1, dot3(n[0]!, n[1]!)))) * 180) / Math.PI;
+  });
 }
 export interface Ring { tool: Solid; boss: boolean; r: number; r2: number }
 /** the region a cylinder wall sweeps when it moves by `d` along its outward normal (its radius changes: a boss grows, a hole shrinks for d > 0): the ring between the radii, kept on the side of each flat neighbour's plane where the wall lies */

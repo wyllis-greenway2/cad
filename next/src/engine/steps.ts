@@ -2,7 +2,7 @@
 // A step that cannot be made throws; the engine flags it and passes `passthrough` on, a value of the step's own output type (E13).
 import * as K from "./kernel.ts";
 import { cross, dot, scale, sub, unit } from "./vec.ts";
-import { type EdgeRef, type Id, idKey, isPieceOf, mint } from "./id.ts";
+import { type EdgeRef, type Id, idKey, isPieceOf, mint, show } from "./id.ts";
 import { type Age, Body, type Claim, type EdgeRec, RefLost, type FaceRec, carry, fromClaims, markImprinted, unifyBody } from "./lineage.ts";
 import { pointedLimit, rimOf } from "./rounds.ts";
 
@@ -175,6 +175,7 @@ export const kinds: Record<string, Kind> = {
   /** a round (`fillet`) or a flat cut (`chamfer`) of `size` on every edge between the faces named (`edges`); a face that has split names all its pieces' edges, and the kernel may follow edges that continue them */
   round: { outputs: "body", run: (inputs, { step, age }) => {
     const body = needBody(inputs[0]), asked = (step.params.edges as EdgeRef[]).flatMap((r) => body.findEdges(r)), mode = step.params.mode === "chamfer" ? "chamfer" : "fillet";
+    for (const e of asked) if (e.faces.length === 2 && K.edgeTurn(e.h, e.faces[0]!.h, e.faces[1]!.h) < 0.5) throw new Error(`the edge between ${show(e.faces[0]!.id)} and ${show(e.faces[1]!.id)} is smooth (the faces meet without a corner): there is nothing to ${mode === "chamfer" ? "chamfer" : "round"}`); // the seam of a fillet, a tangent join: the kernel fails on these at any size
     const law = step.params.sizes as K.SizeLaw | undefined; if (law !== undefined && (!Array.isArray(law) || law.length < 2 || law.some((q) => !Array.isArray(q) || q.length !== 2 || !(q[1] > 0) || !(q[0] >= 0 && q[0] <= 1)) || law.some((q, i) => i > 0 && !(q[0] > law[i - 1]![0])))) throw new Error("a varying size is a list of (place along the edge from 0 to 1, size above nothing) in order, two at least");
     const size = law ? Math.max(...law.map((q) => q[1])) : num(step.params, "size");
     if (step.params.past === true && !law && mode === "fillet") { const out = pointed(body, asked, size, step, age); if (out) return out; } // the person chose to continue past the kernel's limit (E35)

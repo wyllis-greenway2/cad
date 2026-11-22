@@ -44,4 +44,14 @@ console.log("6. a fillet does not change the shape it was given (it raised toler
   e.edit("X4", { ...p, size: p.size * 1.25 }); const f = new Engine(e.recipe()); f.build();
   check("live equals a fresh build after the edit", e.ids().every((i) => same(e.result(i).fingerprint, f.result(i).fingerprint)), e.ids().filter((i) => !same(e.result(i).fingerprint, f.result(i).fingerprint)).join(" ")); f.release(); e.release();
 }
+console.log("7. rounding an edge where the faces meet smoothly (a fillet's own seam) is refused in words; the kernel failed on these at every size");
+{
+  const { mint, edgeRef } = await import("../src/engine/id.ts"), A = (r: string, o?: unknown) => mint("A", r as never, ...(o ? [o as never] : []));
+  const line0 = mint("s", "line", 0), side = mint("A", "side", line0), end = mint("A", "end"), ref = edgeRef(side, end);
+  const steps: Step[] = [{ id: "s", kind: "sketchPolygon", params: { points: [[0, 0], [40, 0], [40, 30], [0, 30]] }, inputs: [] }, { id: "A", kind: "extrude", params: { d: 10 }, inputs: ["s"] },
+    { id: "R", kind: "round", params: { edges: [ref], size: 2 }, inputs: ["A"] }, { id: "T", kind: "round", params: { edges: [edgeRef(mint("R", "round", ref.a, ref.b, 0), end)], size: 0.5 }, inputs: ["R"] }];
+  void A; const e = new Engine(steps); e.build();
+  check("a round of a block's own edge is fine", st(e, "R").kind === "ok", st(e, "R").kind + " " + (st(e, "R").why ?? ""));
+  check("a round of the seam between that round and the top is flagged, and says the edge is smooth", st(e, "T").kind === "flagged" && /is smooth/.test(st(e, "T").why ?? ""), st(e, "T").kind + " " + (st(e, "T").why ?? "")); e.release();
+}
 process.exit(failureCount() ? 1 : 0);
