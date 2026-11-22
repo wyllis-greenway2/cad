@@ -5,7 +5,9 @@ import { type EdgeRef, type Id, idKey, isPieceOf, mint } from "./id.ts";
 import { type Age, Body, type Claim, RefLost, type FaceRec, carry, fromClaims, unifyBody } from "./lineage.ts";
 
 export interface Line { id: Id; a: K.V3; b: K.V3 }
-export interface Sketch { readonly kind: "sketch"; readonly lines: Line[]; readonly face?: Id }
+export type PlaneName = "XY" | "XZ" | "YZ";
+/** a sketch: lines (a closed polygon, or an open path), or one circle; the plane's normal is the way an extrusion goes unless told otherwise */
+export interface Sketch { readonly kind: "sketch"; readonly lines: Line[]; readonly face?: Id; readonly normal: V3; readonly open?: boolean; readonly circle?: { id: Id; r: number; plane: PlaneName; offset: number } }
 /** what a body step passes on when it has no body to pass: nothing, of the type of a body */
 export class NoBody { readonly empty = true; fingerprint(): string { return "empty"; } release(): void { /* nothing held */ } }
 export type Value = Body | Sketch | NoBody;
@@ -14,18 +16,19 @@ export interface Step { readonly id: string; readonly kind: string; readonly par
 export interface Ctx { age: Age; step: Step; temp: <B extends Body>(b: B) => B }
 
 type V3 = K.V3;
+export const unitV = (a: V3): V3 => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const unit = (a: V3): V3 => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 const scale = (a: V3, s: number): V3 => [a[0] * s, a[1] * s, a[2] * s];
 
-const needBody = (v: Value | undefined, what = "this step"): Body => { if (!(v instanceof Body)) throw new RefLost(`the body ${what} works on`); return v; };
-const needSketch = (v: Value | undefined): Sketch => { if (!v || v instanceof Body || v instanceof NoBody || v.kind !== "sketch") throw new RefLost("the sketch this step works on"); return v; };
-const num = (p: any, name: string): number => { const v = p[name]; if (typeof v !== "number" || !Number.isFinite(v)) throw new Error(`${name} is not a number`); return v; };
+export const needBody = (v: Value | undefined, what = "this step"): Body => { if (!(v instanceof Body)) throw new RefLost(`the body ${what} works on`); return v; };
+export const needSketch = (v: Value | undefined): Sketch => { if (!v || v instanceof Body || v instanceof NoBody || v.kind !== "sketch") throw new RefLost("the sketch this step works on"); return v; };
+export const num = (p: any, name: string): number => { const v = p[name]; if (typeof v !== "number" || !Number.isFinite(v)) throw new Error(`${name} is not a number`); return v; };
 
 /** the body a step made, checked (E14): a valid solid with a volume */
-function checked(body: Body, what: string): Body {
+export function checked(body: Body, what: string): Body {
   if (!K.valid(body.solid)) throw new Error(`${what} gave an invalid solid`);
   if (!(K.volume(body.solid) > 0)) throw new Error(`${what} left nothing`);
   return body;
@@ -62,19 +65,55 @@ function pushed(body: Body, faceId: Id, dist: number, ctx: Ctx): Body {
   return unifyBody(ctx.temp(carry(m.solid, m.report, [body, tool], [], step, ctx.age)), step, ctx.age);
 }
 
+/** where a sketch lies: a named plane, moved along its normal; local (x, y) become world points */
+export function planeOf(p: Record<string, any>): { name: PlaneName; offset: number; normal: V3; at(x: number, y: number): V3 } {
+  const name = ((p.plane as PlaneName | undefined) ?? "XY"), offset = typeof p.offset === "number" ? p.offset : 0;
+  if (name === "XY") return { name, offset, normal: [0, 0, 1], at: (x, y) => [x, y, offset] };
+  if (name === "XZ") return { name, offset, normal: [0, -1, 0], at: (x, y) => [x, offset, y] };
+  if (name === "YZ") return { name, offset, normal: [1, 0, 0], at: (x, y) => [offset, x, y] };
+  throw new Error(`there is no plane ${String(name)}`);
+}
+/** the face a sketch bounds (a polygon, or its circle) */
+export function profileFace(sk: Sketch): K.FaceH {
+  if (sk.circle) return K.circleFace(sk.circle.r, sk.circle.plane, sk.circle.offset);
+  if (sk.open || sk.lines.length < 3) throw new Error("a profile needs a closed shape of three lines or more, or a circle");
+  return K.polygonFace3(sk.lines.map((l) => l.a));
+}
+/** the sides a profile's edges made, named by the sketch line (or the circle) each came from; an edge that made more than one face (a sweep round a corner) numbers them along the way (`rank`) */
+export function sidesFromProfile(sk: Sketch, face: K.FaceH, report: K.Report, step: string, claims: Claim[], rank?: (f: K.FaceH) => number): void {
+  const near = (a: V3, b: V3) => a.every((v, i) => Math.abs(v - b[i]!) < 1e-9), mids = sk.lines.map((l) => [(l.a[0] + l.b[0]) / 2, (l.a[1] + l.b[1]) / 2, (l.a[2] + l.b[2]) / 2] as V3);
+  const edges = K.faceEdges(face).map((e) => ({ e, m: K.edgeMid(e) })).sort((p, q) => p.m[0] - q.m[0] || p.m[1] - q.m[1] || p.m[2] - q.m[2]);
+  edges.forEach(({ e, m }, n) => {
+    const i = mids.findIndex((q) => near(q, m)), made = report.fromEdge(e);
+    const from = sk.circle ? [sk.circle.id, n] as const : i >= 0 ? [sk.lines[i]!.id] as const : null; if (!from) return;
+    const ordered = rank ? [...made].sort((p, q) => rank(p) - rank(q)) : made;
+    ordered.forEach((f, k) => claims.push({ id: ordered.length > 1 || rank ? mint(step, "side", ...from, k) : mint(step, "side", ...from), face: f }));
+  });
+}
+
 export interface Kind { outputs: "body" | "sketch"; run(inputs: Value[], ctx: Ctx): Value }
 export const kinds: Record<string, Kind> = {
-  /** a closed polygon in the XY plane; every line has an id from this step and its place in the polygon */
+  /** a closed polygon in a plane (XY, XZ or YZ, moved `offset` along its normal); every line has an id from this step and its place in the polygon */
   sketchPolygon: { outputs: "sketch", run: (_in, { step }) => {
-    const pts = step.params.points as [number, number][], lines: Line[] = pts.map((p, i) => { const q = pts[(i + 1) % pts.length]!; return { id: mint(step.id, "line", i), a: [p[0], p[1], 0], b: [q[0], q[1], 0] }; });
-    return { kind: "sketch", lines };
+    const pts = step.params.points as [number, number][], pl = planeOf(step.params), lines: Line[] = pts.map((p, i) => { const q = pts[(i + 1) % pts.length]!; return { id: mint(step.id, "line", i), a: pl.at(p[0], p[1]), b: pl.at(q[0], q[1]) }; });
+    return { kind: "sketch", lines, normal: pl.normal };
   } },
-  /** a sketch pulled up: each side is named by the sketch line it grew from, the caps by their ends */
+  /** an open path of straight legs (what a sweep goes along) */
+  sketchPath: { outputs: "sketch", run: (_in, { step }) => {
+    const pts = step.params.points as [number, number][], pl = planeOf(step.params);
+    if (pts.length < 2) throw new Error("a path needs two points at least");
+    return { kind: "sketch", open: true, normal: pl.normal, lines: pts.slice(0, -1).map((p, i) => ({ id: mint(step.id, "line", i), a: pl.at(p[0], p[1]), b: pl.at(pts[i + 1]![0], pts[i + 1]![1]) })) };
+  } },
+  /** a circle centred on a plane's origin (moved `offset` along its normal) */
+  sketchCircle: { outputs: "sketch", run: (_in, { step }) => {
+    const pl = planeOf(step.params), r = num(step.params, "r"); if (!(r > 0)) throw new Error("the radius is not above nothing");
+    return { kind: "sketch", lines: [], normal: pl.normal, circle: { id: mint(step.id, "circle"), r, plane: pl.name, offset: pl.offset } };
+  } },
+  /** a sketch pulled along its plane's normal (or `dir`): each side is named by the sketch line it grew from, the caps by their ends */
   extrude: { outputs: "body", run: (inputs, { step }) => {
-    const sk = needSketch(inputs[0]), d = num(step.params, "d");
-    const face = K.polygonFace(sk.lines.map((l) => [l.a[0], l.a[1]] as [number, number])), p = K.prism(face, [0, 0, d]);
+    const sk = needSketch(inputs[0]), d = num(step.params, "d"), dir = unitV((step.params.dir as V3 | undefined) ?? sk.normal), face = profileFace(sk), p = K.prism(face, scale(dir, d));
     const claims: Claim[] = [{ id: mint(step.id, "start"), face: p.first }, { id: mint(step.id, "end"), face: p.last }];
-    for (const e of K.faceEdges(face)) { const m = K.edgeMid(e), line = sk.lines.find((l) => Math.abs((l.a[0] + l.b[0]) / 2 - m[0]) < 1e-9 && Math.abs((l.a[1] + l.b[1]) / 2 - m[1]) < 1e-9); if (line) for (const f of p.report.fromEdge(e)) claims.push({ id: mint(step.id, "side", line.id), face: f }); }
+    sidesFromProfile(sk, face, p.report, step.id, claims);
     return checked(fromClaims(p.solid, claims, step.id), "the extrusion");
   } },
   /** lines drawn on a face; a line may be placed by its distance from an edge named by the two faces beside it (E5, E12) */
@@ -88,7 +127,7 @@ export const kinds: Record<string, Kind> = {
       }
       lines.push({ id: mint(step.id, "line", i), a: at(F, x, F.lo), b: at(F, x, F.hi) });
     });
-    return { kind: "sketch", lines, face: face.id };
+    return { kind: "sketch", lines, face: face.id, normal: unitV(K.facts(face.h).ne) };
   } },
   /** the lines become edges of the body: the faces they cross split (E4); a line that splits nothing is flagged, not ignored */
   imprint: { outputs: "body", run: (inputs, { step, age }) => {
@@ -148,5 +187,5 @@ function corners(body: Body, step: string): Body {
 /** what a failed step hands on, of its own output type (E13) */
 export function passthrough(kind: Kind, inputs: Value[], step: Step): Value {
   if (kind.outputs === "body") return inputs.find((v) => v instanceof Body) ?? new NoBody();
-  return inputs.find((v): v is Sketch => !(v instanceof Body) && !(v instanceof NoBody) && v.kind === "sketch") ?? { kind: "sketch", lines: [], face: mint(step.id, "none") };
+  return inputs.find((v): v is Sketch => !(v instanceof Body) && !(v instanceof NoBody) && v.kind === "sketch") ?? { kind: "sketch", lines: [], face: mint(step.id, "none"), normal: [0, 0, 1] };
 }

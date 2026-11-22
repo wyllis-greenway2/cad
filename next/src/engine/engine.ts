@@ -4,6 +4,7 @@ import * as K from "./kernel.ts";
 import { type Note, Body, RefLost } from "./lineage.ts";
 import { type Ctx, type Step, type Value, NoBody, kinds, passthrough } from "./steps.ts";
 import { insertStep, moveStep, removeStep, swapWithInput, validateRecipe } from "./recipe.ts";
+import "./curved.ts"; // registers revolve, loft, sweep and shell
 
 export type Status = { kind: "ok" } | { kind: "flagged"; why: string } | { kind: "orphaned"; why: string };
 export interface Changes { recomputed: string[]; changed: string[] }
@@ -13,7 +14,7 @@ export interface Result { value: Value; status: Status; fingerprint: string; not
 class Held { refs = 0; readonly v: Value; constructor(v: Value) { this.v = v; } }
 interface Slot { held: Held; status: Status; fingerprint: string }
 
-const fingerprintOf = (v: Value): string => (v instanceof Body ? v.fingerprint() : v instanceof NoBody ? "empty" : JSON.stringify(v.lines.map((l) => [l.id, l.a, l.b])));
+const fingerprintOf = (v: Value): string => (v instanceof Body ? v.fingerprint() : v instanceof NoBody ? "empty" : JSON.stringify([v.lines.map((l) => [l.id, l.a, l.b]), v.circle ?? null, v.normal, v.open ?? false, v.face ?? null])); // everything a step could read of it: a circle has no lines
 
 export class Engine {
   private steps = new Map<string, Step>();
@@ -119,7 +120,7 @@ export class Engine {
     else {
       try { value = K.scoped(() => kind.run(inputs, ctx)); }
       catch (e) {
-        status = e instanceof RefLost ? { kind: "orphaned", why: e.message } : { kind: "flagged", why: e instanceof Error ? e.message : String(e).slice(0, 80) };
+        status = e instanceof RefLost ? { kind: "orphaned", why: e.message } : { kind: "flagged", why: e instanceof Error ? e.message : "the kernel could not make this step" };
         value = passthrough(kind, inputs, step);
       }
     }

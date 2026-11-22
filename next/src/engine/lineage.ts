@@ -87,7 +87,7 @@ export function carry(solid: K.Solid, report: K.Report, inputs: readonly Body[],
     const ids = got[i]!.filter((x, k, all) => all.findIndex((y) => idKey(y) === idKey(x)) === k).sort(lead);
     if (!ids.length) { notes.push({ kind: "defect", text: `a face of ${step} has no id` }); return { id: mint(step, "unnamed", n++), alias: [], h, defect: true }; }
     if (ids.length > 1) notes.push({ kind: "merged", text: `${ids.map(show).join(" + ")}` });
-    return { id: ids[0]!, alias: ids.slice(1), h, defect: false };
+    return { id: ids[0]!, alias: ids.slice(1), h, defect: ids[0]!.role === "unnamed" };
   });
   return new Body(solid, recs, notes);
 }
@@ -110,7 +110,7 @@ export function unifyBody(body: Body, step: string, age: Age): Body {
     const ids = t.ids.filter((x, k, all) => all.findIndex((y) => idKey(y) === idKey(x)) === k).sort(lead);
     if (!ids.length) { notes.push({ kind: "defect", text: `a face after the merge in ${step} has no id` }); return { id: mint(step, "unnamed", n++), alias: [], h: t.h, defect: true }; }
     if (ids.length > 1) notes.push({ kind: "merged", text: ids.map(show).join(" + ") });
-    return { id: ids[0]!, alias: ids.slice(1), h: t.h, defect: false };
+    return { id: ids[0]!, alias: ids.slice(1), h: t.h, defect: ids[0]!.role === "unnamed" };
   });
   return new Body(solid, recs, notes);
 }

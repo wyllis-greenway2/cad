@@ -1,7 +1,7 @@
 // The kernel adapter (E1, `inv_kernel_boundary`): the only file that touches OCCT or replicad. Everything it hands out is plain data or an opaque handle;
 // the engine above it knows nothing of the kernel's own objects. Numbers it returns are exact (E11): rounding is for the screen only.
 import initOC from "replicad-opencascadejs";
-import { setOC, Face, Edge, downcast, HASH_CODE_MAX, draw, makeLine } from "replicad";
+import { setOC, Face, Edge, downcast, HASH_CODE_MAX, draw, makeLine, assembleWire, drawCircle } from "replicad";
 
 export type V3 = readonly [number, number, number];
 type Raw = any; // the kernel's own objects: they do not leave this file
@@ -112,11 +112,64 @@ export function polygonFace(points: readonly (readonly [number, number])[]): Fac
   let d = draw([points[0]![0], points[0]![1]]); for (const p of points.slice(1)) d = d.lineTo([p[0], p[1]]);
   return { raw: t((d.close().sketchOnPlane("XY") as unknown as { face(): { wrapped: Raw } }).face().wrapped) };
 }
+/** a closed polygon through 3D points (a sketch on any plane) */
+export function polygonFace3(points: readonly V3[]): FaceH {
+  const w = wireOf(points, true), mk = t(new oc.BRepBuilderAPI_MakeFace(w, true));
+  return { raw: t(mk.Face()) };
+}
+/** a circle of radius r in a named plane (XY, XZ, YZ), centred on that plane's origin moved `offset` along its normal */
+export function circleFace(r: number, plane: "XY" | "XZ" | "YZ", offset: number): FaceH {
+  return { raw: t((drawCircle(r).sketchOnPlane(plane, offset) as unknown as { face(): { wrapped: Raw } }).face().wrapped) };
+}
+const wireOf = (pts: readonly V3[], closed: boolean): Raw => {
+  const n = closed ? pts.length : pts.length - 1, edges = [];
+  for (let i = 0; i < n; i++) { const p = pts[i]!, q = pts[(i + 1) % pts.length]!; edges.push(makeLine([p[0], p[1], p[2]], [q[0], q[1], q[2]])); }
+  return t(assembleWire(edges).wrapped);
+};
+/** the kernel throws its own objects, not errors; what the engine shows is a sentence */
+function guard<R>(what: string, fn: () => R): R { try { return fn(); } catch (e) { throw e instanceof Error ? e : new Error(`the kernel could not make ${what}`); } }
 export interface Prism extends Made { first: FaceH; last: FaceH }
 /** a face pulled along a vector; `first` and `last` are its start and end faces, the report's `fromEdge` gives the side each edge made */
 export function prism(face: FaceH, v: V3): Prism {
   const mk = t(new oc.BRepPrimAPI_MakePrism(face.raw, t(new oc.gp_Vec(v[0], v[1], v[2])), false, true));
   return { solid: new Solid(mk.Shape()), report: reportOf(mk), first: { raw: t(mk.FirstShape()) }, last: { raw: t(mk.LastShape()) } };
+}
+/** a face turned about an axis (a point and a direction) through an angle; the flat faces made by edges across the axis are not in the kernel's report (E7) */
+export function revolve(face: FaceH, point: V3, dir: V3, degrees: number): Prism {
+  return guard("the revolve", () => {
+    const ax = t(new oc.gp_Ax1(t(new oc.gp_Pnt(point[0], point[1], point[2])), t(new oc.gp_Dir(dir[0], dir[1], dir[2]))));
+    const mk = t(new oc.BRepPrimAPI_MakeRevol(face.raw, ax, (degrees * Math.PI) / 180, false));
+    return { solid: new Solid(mk.Shape()), report: reportOf(mk), first: { raw: t(mk.FirstShape()) }, last: { raw: t(mk.LastShape()) } };
+  });
+}
+/** a solid through two or more sections (closed polygons of 3D points, the same number of points each); `side(i)` is the face made from the i-th segment of the first section */
+export interface Lofted extends Prism { side(i: number): FaceH | null }
+export function loft(sections: readonly (readonly V3[])[], ruled: boolean): Lofted {
+  return guard("the loft", () => {
+    const ts = t(new oc.BRepOffsetAPI_ThruSections(true, ruled, 1e-6)); let firstWire: Raw = null;
+    sections.forEach((pts, i) => { const w = wireOf(pts, true); if (i === 0) firstWire = w; ts.AddWire(w); });
+    ts.Build(progress());
+    const mids = sections[0]!.map((p, i) => { const q = sections[0]![(i + 1) % sections[0]!.length]!; return [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2]; });
+    const edges = unique(firstWire, "TopAbs_EDGE").map((r) => ({ raw: t(r) }));
+    const at = (e: EdgeH) => { const m = edgeMid(e); return mids.findIndex((q) => q.every((v, k) => Math.abs(v - m[k]!) < 1e-6)); };
+    return { solid: new Solid(ts.Shape()), report: reportOf(ts), first: { raw: t(ts.FirstShape()) }, last: { raw: t(ts.LastShape()) },
+      side: (i: number) => { const e = edges.find((x) => at(x) === i); if (!e) return null; try { return { raw: t(ts.GeneratedFace(e.raw)) }; } catch { return null; } } };
+  });
+}
+/** a face swept along a path of straight legs (3D points); each edge of the profile makes a face for every leg */
+export function pipe(spine: readonly V3[], profile: FaceH): Prism {
+  return guard("the sweep", () => {
+    const mk = t(new oc.BRepOffsetAPI_MakePipe(wireOf(spine, false), profile.raw));
+    return { solid: new Solid(mk.Shape()), report: reportOf(mk), first: { raw: t(mk.FirstShape()) }, last: { raw: t(mk.LastShape()) } };
+  });
+}
+/** the body hollowed: the face taken off, a wall of the thickness left (inward); the report's `fromFace` gives the inner face each face made */
+export function shell(a: Solid, remove: FaceH, thickness: number): Made {
+  return guard("the shell", () => {
+    const th = t(new oc.BRepOffsetAPI_MakeThickSolid());
+    th.MakeThickSolidByJoin(a.raw, toList([remove.raw]), -thickness, 1e-3, oc.BRepOffset_Mode.BRepOffset_Skin, false, false, oc.GeomAbs_JoinType.GeomAbs_Arc, false);
+    return { solid: new Solid(th.Shape()), report: reportOf(th) };
+  });
 }
 export function fuse(a: Solid, b: Solid): Made { const op = t(new oc.BRepAlgoAPI_Fuse(a.raw, b.raw, progress())); if (!op.IsDone()) fail("the join failed"); return { solid: new Solid(op.Shape()), report: reportOf(op) }; }
 export function cut(a: Solid, b: Solid): Made { const op = t(new oc.BRepAlgoAPI_Cut(a.raw, b.raw, progress())); if (!op.IsDone()) fail("the cut failed"); return { solid: new Solid(op.Shape()), report: reportOf(op) }; }

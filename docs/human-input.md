@@ -6150,3 +6150,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1479 — 2026-11-22 — directive
 > yes go on to the worker
+
+## in_1480 — 2026-11-22 — directive
+> yes go on with the curved kinds
