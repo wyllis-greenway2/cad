@@ -6162,3 +6162,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1483 — 2026-11-22 — directive
 > In fact i dont really care about old models at all, i only want to look at them as an example of models that were a problem for the last enginw. I am okay with stripping out the converter entirely if you think it makwa swnsw. I want the leanest simpliest robust engine possible
+
+## in_1484 — 2026-11-22 — question
+> Okay now how else can we stress test our engine? Can we learn anymore about issues we ran into with the prototype? We ran into a lot of issues with chamfers and fillets interactly strangly with face pulls, we also had lots of problems with sketches interfacing with bodies well. How do we solve these problems, are they kernel issues or issues with our code? I know last time wr made different face pull types, extend, extrude, move, but they still were very very buggy overall and it wasnt clear why and when they would work how they did. A classic example is a block with chamfered edges. Should pulling the top surface make the same shape taller? Literally extrude the surface pulled? Or pull the surface into larger chamfers untill the chamfers reach a pyramid tip. Is this something the kernal handles? Or something our code needs to decide?
