@@ -103,8 +103,8 @@ console.log("10. a body's circular edge as an anchor (E65): concentric with a ri
   check("it says it is fully constrained", s.solve?.freedom === 0, JSON.stringify(s.solve));
   e.edit("c0", { r: 5, center: [6, 1] }); const m = e.result("s").value as Sketch;
   check("the body's circle moves: the sketch follows (concentric still)", st(e, "s").kind === "ok" && near(m.circle!.c[0], 6) && near(m.circle!.c[1], 1), JSON.stringify(m.circle?.c));
-  const refs = referenceSet({ body: e.result("A").value as Body, plane: { plane: "XY", offset: 4 } }), rc = refs.find((r) => r.kind === "circle");
-  check("the reference set offers the rim as a circle that can be held (origin: anchor, radius 5)", !!rc && rc.origin === "anchor" && near(rc.r!, 5) && !!rc.anchor && !rc.anchor.held, JSON.stringify(rc && { o: rc.origin, r: rc.r }));
+  const refs = referenceSet({ body: e.result("A").value as Body, plane: { plane: "XY", offset: 4 } }), rc = refs.find((r) => r.kind === "circle" && r.origin === "anchor"), low = refs.find((r) => r.kind === "circle" && r.origin === "projection");
+  check("the reference set offers the rim as a circle that can be held (the top rim in the plane is an anchor, the bottom one is seen through its projection)", !!rc && !!low && near(low.offset!, -4) && rc.origin === "anchor" && near(rc.r!, 5) && !!rc.anchor && !rc.anchor.held, JSON.stringify(rc && { o: rc.origin, r: rc.r }));
   const edgeOn = build([...body(3, 2), { id: "s", kind: "sketch", params: { plane: "XZ", offset: 0, points: [P("A", 0, 0), P("B", 1, 1)], lines: [{ id: "l", a: "A", b: "B" }], anchors: [{ id: "rim", edge }], constraints: [{ id: "on", kind: "pointOnLine", parts: ["A", "rim"] }] }, inputs: ["A"] }]), es = edgeOn.result("s").value as Sketch;
   const rl = es.reference?.[0]; const ends = rl ? [rl.a, rl.b].map((p) => p.map((x) => Math.round(x * 1e6) / 1e6).join()).sort() : [];
   check("seen edge-on (the XZ plane): a line between the circle's extremes, (-2, 2, 4) to (8, 2, 4)", st(edgeOn, "s").kind === "ok" && ends.join("|") === ["-2,2,4", "8,2,4"].sort().join("|"), st(edgeOn, "s").why ?? ends.join("|"));
