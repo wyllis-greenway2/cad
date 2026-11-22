@@ -62,6 +62,14 @@ console.log("4. combine by name: cut only one body; keep two bodies apart where 
   const kept = scene(k, "K"), added = scene(k, "A");
   check("keep: two boxes that touch stay two bodies with 12 faces; add makes one body with 6", kept.bodies.length === 2 && kept.faces.length === 12 && added.bodies.length === 1 && added.faces.length === 6, `keep ${kept.bodies.length} bodies ${kept.faces.length} faces; add ${added.bodies.length} bodies ${added.faces.length} faces`); invariants(kept, "K"); k.release();
 }
+console.log("4b. a turn or a move on several bodies must say which");
+{
+  const two: Step[] = [...box("1", 0), ...box("2", 30), { id: "J", kind: "combine", params: { mode: "add" }, inputs: ["E1", "E2"] }];
+  const none = build([...two, { id: "T", kind: "turn", params: { axis: [0, 0, 1], deg: 90, pivot: [5, 5, 0] }, inputs: ["J"] }]), r = none.result("T");
+  check("a turn naming no body is refused in words", r.status.kind === "flagged" && /say which one to turn/.test((r.status as any).why), r.status.kind + " " + ((r.status as any).why ?? "")); none.release();
+  const all = build([...two, { id: "T", kind: "move", params: { by: [0, 0, 5], body: "all" }, inputs: ["J"] }]); check('a move of "all" moves every body', all.result("T").status.kind === "ok" && scene(all, "T").bodies.length === 2 && Math.abs(K.facts(scene(all, "T").faces[0]!.h).lo[2] - 0) >= 0, all.result("T").status.kind); all.release();
+  const one = build([...box("1", 0), { id: "T", kind: "turn", params: { axis: [0, 0, 1], deg: 90, pivot: [5, 5, 0] }, inputs: ["E1"] }]); check("with one body it needs no name (as before)", one.result("T").status.kind === "ok"); one.release();
+}
 console.log("5. an edit follows (incremental equals fresh), and the picture is the same");
 {
   const steps = (dist: number): Step[] => [...box("1", 0), ...box("2", 30), { id: "J", kind: "combine", params: { mode: "add" }, inputs: ["E1", "E2"] }, { id: "P", kind: "push", params: { face: top("1"), dist }, inputs: ["J"] }, { id: "R", kind: "round", params: { mode: "chamfer", size: 1, edges: [edgeRef(top("2"), side("2", 0))] }, inputs: ["P"] }];

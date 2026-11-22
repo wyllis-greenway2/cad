@@ -41,7 +41,7 @@ export function recombine(made: Body | null, rest: readonly { scene: Body; rec: 
 const REF: Record<string, (p: Record<string, any>, inputs: Value[]) => Id | null> = {
   push: (p) => p.face ?? null, moveFace: (p) => p.face ?? null, offsetFace: (p) => p.face ?? null, dimension: (p) => p.b ?? null,
   round: (p) => (p.edges as { a: Id }[] | undefined)?.[0]?.a ?? null,
-  turn: (p) => p.body ?? null, move: (p) => p.body ?? null,
+  turn: (p) => (p.body && p.body !== "all" ? p.body : null), move: (p) => (p.body && p.body !== "all" ? p.body : null),
   imprint: (_p, inputs) => ((inputs[1] as { face?: Id } | undefined)?.face) ?? null,
 };
 
@@ -51,7 +51,11 @@ export function scopeKinds(): void {
     k.run = (inputs: Value[], ctx: Ctx): Value => {
       const scene = inputs[0];
       if (!(scene instanceof Body) || scene.bodies.length < 2) return run(inputs, ctx);
-      const id = ref(ctx.step.params, inputs); if (!id) return run(inputs, ctx);
+      const id = ref(ctx.step.params, inputs);
+      if (!id) { // a step that works on a whole body but names none: with several bodies it is not clear which, so it is refused (to move everything, name `body: "all"`)
+        if (name === "turn" || name === "move") { if (ctx.step.params.body === "all") return run(inputs, ctx); throw new Error(`there are ${scene.bodies.length} bodies: say which one to ${name} (a body name, or "all")`); }
+        return run(inputs, ctx);
+      }
       const target = bodyOf(scene, id), view = viewOf(scene, [target]);
       const out = run([view, ...inputs.slice(1)], ctx) as Body;
       if (out === view) { view.solid.release(); return scene; }

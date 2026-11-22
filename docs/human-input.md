@@ -6222,3 +6222,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1503 — 2026-11-22 — approval
 > yes do several separate bodies first
+
+## in_1504 — 2026-11-22 — question
+> How could it name no body? Would that even ever be a valid request?
