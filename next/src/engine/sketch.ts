@@ -5,6 +5,7 @@ import * as K from "./kernel.ts";
 import { type EdgeRef, type Id, mint } from "./id.ts";
 import { Body } from "./lineage.ts";
 import { type Constraint, type System, solve } from "./solver.ts";
+import { type Loop as RLoop, type Seg, regions } from "./region.ts";
 import { type Line, type Sketch, Refusal, at, frameOf, kinds, needBody, planeOf, unitV } from "./steps.ts";
 
 type V3 = K.V3;
@@ -13,7 +14,11 @@ export interface SketchParams {
   plane?: string; offset?: number; frame?: unknown; face?: Id;
   points: { id: string; x: number; y: number; fixed?: boolean }[];
   lines?: { id: string; a: string; b: string; /** not part of the profile */ construction?: boolean }[];
-  circles?: { id: string; c: string; r: number; fixedR?: boolean }[];
+  circles?: { id: string; c: string; r: number; fixedR?: boolean; construction?: boolean }[];
+  /** an arc: a circle (its centre `c`, its radius from the start) with a start `a` and an end `b` on it, counter-clockwise from the start unless `cw` (E62) */
+  arcs?: { id: string; c: string; a: string; b: string; cw?: boolean; construction?: boolean }[];
+  /** the regions that make the profile: a point inside each; none means the even-odd rule (E63) */
+  pick?: [number, number][];
   constraints?: Constraint[];
   /** a body's edge, read-only: a line (two fixed points) in the sketch, or a point where the edge is seen end-on (E53, E54) */
   anchors?: { id: string; edge: EdgeRef }[];
@@ -29,7 +34,7 @@ export function sketchFrame(p: SketchParams, body: Body | null): { F: { O: V3; u
 export function makeSketch(p: SketchParams, body: Body | null, step: { id: string }): Sketch {
   if (!Array.isArray(p.points)) throw new Error("a sketch needs its points");
   const fr = sketchFrame(p, body), F = { F: fr.F, normal: fr.normal }, local = fr.local, world = fr.world;
-  const names = [...p.points.map((q) => q.id), ...(p.lines ?? []).map((q) => q.id), ...(p.circles ?? []).map((q) => q.id), ...(p.anchors ?? []).map((q) => q.id)];
+  const names = [...p.points.map((q) => q.id), ...(p.lines ?? []).map((q) => q.id), ...(p.circles ?? []).map((q) => q.id), ...(p.arcs ?? []).map((q) => q.id), ...(p.anchors ?? []).map((q) => q.id)];
   const dup = names.find((n, i) => names.indexOf(n) !== i); if (dup) throw new Error(`two parts of this sketch are called ${dup}`);
   // the body's edges, held: found by the faces beside them (a lost edge orphans the step), seen in the plane of the sketch
   const anchorPoints: { id: string; x: number; y: number; fixed: true }[] = [], anchorLines: { id: string; a: string; b: string }[] = [], reference: Line[] = [];
@@ -40,24 +45,49 @@ export function makeSketch(p: SketchParams, body: Body | null, step: { id: strin
     if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-9) anchorPoints.push({ id: an.id, x: a[0], y: a[1], fixed: true }); // seen end-on: a point in this plane
     else { anchorPoints.push({ id: `${an.id}.a`, x: a[0], y: a[1], fixed: true }, { id: `${an.id}.b`, x: b[0], y: b[1], fixed: true }); anchorLines.push({ id: an.id, a: `${an.id}.a`, b: `${an.id}.b` }); reference.push({ id: mint(step.id, "anchor", an.id), a: e0, b: e1 }); }
   }
-  const system: System = { points: [...p.points.map((q) => ({ id: q.id, x: q.x, y: q.y, fixed: !!q.fixed })), ...anchorPoints], lines: [...(p.lines ?? []).map((l) => ({ id: l.id, a: l.a, b: l.b })), ...anchorLines], circles: (p.circles ?? []).map((c) => ({ id: c.id, c: c.c, r: c.r, fixedR: !!c.fixedR })), constraints: p.constraints ?? [] };
+  const at0 = new Map(p.points.map((q) => [q.id, q] as const));
+  const arcCircles = (p.arcs ?? []).map((a) => { const c = at0.get(a.c), s0 = at0.get(a.a); if (!c || !s0) throw new Error(`the arc ${a.id} names a point that is not there`); return { id: a.id, c: a.c, r: Math.hypot(s0.x - c.x, s0.y - c.y), fixedR: false }; });
+  const arcEnds: Constraint[] = (p.arcs ?? []).flatMap((a) => [{ id: `${a.id}.start`, kind: "pointOnCircle" as const, parts: [a.a, a.id] }, { id: `${a.id}.end`, kind: "pointOnCircle" as const, parts: [a.b, a.id] }]);
+  const system: System = { points: [...p.points.map((q) => ({ id: q.id, x: q.x, y: q.y, fixed: !!q.fixed })), ...anchorPoints], lines: [...(p.lines ?? []).map((l) => ({ id: l.id, a: l.a, b: l.b })), ...anchorLines], circles: [...(p.circles ?? []).map((c) => ({ id: c.id, c: c.c, r: c.r, fixedR: !!c.fixedR })), ...arcCircles], constraints: [...(p.constraints ?? []), ...arcEnds] };
   const r = solve(system);
   if (!r.verdict.ok) {
     const who = r.verdict.conflict.length ? `: ${r.verdict.conflict.join(", ")}` : "";
     throw new Refusal(r.verdict.conflict.length ? `these constraints cannot all hold${who}${r.verdict.reason ? ` (${r.verdict.reason})` : ""}` : r.verdict.reason || "this sketch cannot be made", r.verdict.conflict);
   }
-  const sol = r.solution.points, lines: Line[] = [];
+  const sol = r.solution.points, normal = F.normal as V3, drawn: Line[] = [], segs: Seg[] = [];
   for (const l of p.lines ?? []) {
     const a = sol[l.a]!, b = sol[l.b]!;
     if (l.construction) reference.push({ id: mint(step.id, "ref", l.id), a: world(a[0], a[1]), b: world(b[0], b[1]) });
-    else lines.push({ id: mint(step.id, "line", l.id), a: world(a[0], a[1]), b: world(b[0], b[1]) });
+    else { drawn.push({ id: mint(step.id, "line", l.id), a: world(a[0], a[1]), b: world(b[0], b[1]) }); segs.push({ name: l.id, kind: "line", a, b }); }
   }
-  const solveInfo = { kind: r.verdict.kind as "solved" | "under" | "redundant", freedom: r.verdict.freedom, free: r.verdict.free, redundant: r.verdict.redundant };
-  const normal = F.normal as V3;
-  if (!lines.length && (p.circles ?? []).length === 1) { const c = p.circles![0]!, cc = sol[c.c]!; return { kind: "sketch", lines: [], normal, circle: { id: mint(step.id, "circle", c.id), r: r.solution.circles[c.id]!, c: world(cc[0], cc[1]), normal }, reference, solve: solveInfo, definition: p } as Sketch; }
+  const TAU = 2 * Math.PI, norm = (x: number) => { const m = x % TAU; return m < 0 ? m + TAU : m; };
+  for (const a of p.arcs ?? []) {
+    if (a.construction) continue;
+    const c = sol[a.c]!, s0 = sol[a.a]!, e0 = sol[a.b]!, R = r.solution.circles[a.id]!, ta = Math.atan2(s0[1] - c[1], s0[0] - c[0]), tb = Math.atan2(e0[1] - c[1], e0[0] - c[0]);
+    if (Math.hypot(s0[0] - e0[0], s0[1] - e0[1]) < 1e-9 * Math.max(1, R)) throw new Refusal(`the arc ${a.id} starts and ends at the same place`, [a.id]);
+    const sweep = a.cw ? norm(ta - tb) : norm(tb - ta), t0 = a.cw ? tb : ta, midT = a.cw ? ta - sweep / 2 : ta + sweep / 2;
+    segs.push({ name: a.id, kind: "arc", c, r: R, t0, sweep });
+    drawn.push({ id: mint(step.id, "line", a.id), a: world(s0[0], s0[1]), b: world(e0[0], e0[1]), mid: world(c[0] + R * Math.cos(midT), c[1] + R * Math.sin(midT)) });
+  }
+  for (const c of p.circles ?? []) { if (c.construction) continue; const q = sol[c.c]!; segs.push({ name: c.id, kind: "arc", c: q, r: r.solution.circles[c.id]!, t0: 0, sweep: TAU }); }
+  // the ends an arc keeps on its circle are the step's own, not the person's: they are not reported as redundant
+  const own = new Set(arcEnds.map((c) => c.id)), redundant = r.verdict.redundant.filter((c) => !own.has(c)), kind = r.verdict.kind === "redundant" && !redundant.length ? (r.verdict.freedom > 0 ? "under" : "solved") : r.verdict.kind;
+  const solveInfo = { kind: kind as "solved" | "under" | "redundant", freedom: r.verdict.freedom, free: r.verdict.free, redundant };
   const close = (u: V3, v: V3) => Math.hypot(u[0] - v[0], u[1] - v[1], u[2] - v[2]) < 1e-7;
-  const closed = lines.length >= 3 && lines.every((l, i) => close(l.b, lines[(i + 1) % lines.length]!.a));
-  return { kind: "sketch", lines, normal, ...(closed || !lines.length ? {} : { open: true }), ...(p.face ? { face: p.face } : {}), reference, solve: solveInfo, definition: p } as Sketch;
+  const chained = drawn.length >= 2 && drawn.every((l, i) => close(l.b, drawn[(i + 1) % drawn.length]!.a)) && (drawn.length >= 3 || drawn.some((l) => l.mid));
+  const loopSketch = (loop: RLoop, hole: boolean): Sketch => {
+    if (loop.whole) { const w = loop.whole, c = world(w.c[0], w.c[1]); return { kind: "sketch", lines: [], normal, circle: { id: mint(step.id, "circle", w.name), r: w.r, c, normal } }; }
+    const ps = hole ? [...loop.pieces].reverse().map((q) => ({ ...q, a: q.b, b: q.a })) : loop.pieces; // a hole runs the way the kernel wants it: counter-clockwise, as given (E64)
+    return { kind: "sketch", normal, lines: ps.map((q) => ({ id: q.of > 1 ? mint(step.id, "line", q.name, q.k) : mint(step.id, "line", q.name), a: world(q.a[0], q.a[1]), b: world(q.b[0], q.b[1]), ...(q.mid ? { mid: world(q.mid[0], q.mid[1]) } : {}) })) } as Sketch;
+  };
+  const found = regions(segs, p.pick?.length ? { pick: p.pick } : {});
+  const info = { reference, solve: solveInfo, definition: p, ...(p.face ? { face: p.face } : {}) };
+  const seen = found.faces.map((f) => ({ at: world(f.sample[0], f.sample[1]), area: f.area, filled: f.filled }));
+  // a drawing that is one chain, closed, and no part crossing another: the sides in the order drawn, as before
+  if (chained && found.profiles.length === 1 && !found.profiles[0]!.holes.length && found.profiles[0]!.outer.pieces.length === drawn.length && !(p.circles ?? []).some((c) => !c.construction)) return { kind: "sketch", lines: drawn, normal, regions: seen, ...info } as Sketch;
+  if (found.profiles.length > 1) throw new Refusal(`this drawing makes ${found.profiles.length} separate shapes; pick the regions of one (a point inside each), or draw them in separate sketches`, []);
+  if (found.profiles.length === 1) { const pr = found.profiles[0]!, o = loopSketch(pr.outer, false), inner = pr.holes.map((h) => loopSketch(h, true)); return { ...o, ...(inner.length ? { inner } : {}), regions: seen, ...info } as Sketch; }
+  return { kind: "sketch", lines: drawn, normal, ...(drawn.length ? { open: true } : {}), regions: seen, ...info } as Sketch; // nothing closed: a path, or nothing yet
 }
 kinds["sketch"] = { outputs: "sketch", run: (inputs, { step }) => makeSketch(step.params as SketchParams, inputs[0] instanceof Body ? inputs[0] : null, step) };
 
@@ -125,7 +155,9 @@ export function moveDefinition(p: SketchParams, m: Motion): { params: SketchPara
   const dropped = [...carried.dropped, ...gone.map((c) => ({ id: c.id, kind: c.kind, why: "it holds to a body's edge, which is not in the copy" }))];
   const circles = (p.circles ?? []).map((c) => ({ ...c })), points = p.points.map((q) => { const [x, y] = mv(q.x, q.y); return { ...q, x, y }; });
   const { anchors: _a, ...rest } = p; void _a;
-  return { params: { ...rest, points, circles, constraints: carried.kept }, dropped, changed: carried.changed };
+  const flips = M[0][0] * M[1][1] - M[0][1] * M[1][0] < 0; // a mirror turns the way an arc goes
+  const arcs = (p.arcs ?? []).map((a) => ({ ...a, ...(flips ? { cw: !a.cw } : {}) })), pick = (p.pick ?? []).map(([x, y]) => mv(x, y));
+  return { params: { ...rest, points, circles, ...(p.arcs ? { arcs } : {}), ...(p.pick ? { pick } : {}), constraints: carried.kept }, dropped, changed: carried.changed };
 }
 /** a copy of a constrained sketch, moved: its constraints carried (E59); it follows the sketch it copies when that is edited */
 kinds["sketchCopy"] = { outputs: "sketch", run: (inputs, { step }) => {

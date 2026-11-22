@@ -10,7 +10,7 @@ export type PlaneName = "XY" | "XZ" | "YZ";
 /** a sketch: lines (a closed polygon, or an open path), or one circle; the plane's normal is the way an extrusion goes unless told otherwise */
 /** what a constrained sketch says of itself (E49, E50): data only */
 export interface SolveInfo { kind: "solved" | "under" | "redundant"; freedom: number; free: string[]; redundant: string[] }
-export interface Sketch { readonly kind: "sketch"; readonly lines: Line[]; readonly face?: Id; readonly normal: V3; readonly open?: boolean; readonly circle?: { id: Id; r: number; c: K.V3; normal: K.V3 }
+export interface Sketch { readonly kind: "sketch"; readonly lines: Line[]; readonly face?: Id; readonly normal: V3; readonly open?: boolean; /** the holes of the profile (E63, E64): closed loops inside it, each a sketch of its own (lines, or one circle) */ readonly inner?: readonly Sketch[]; /** every region the drawing makes, as a point inside it (the world), its area, and whether the profile fills it (E63) */ readonly regions?: readonly { at: V3; area: number; filled: boolean }[]; readonly circle?: { id: Id; r: number; c: K.V3; normal: K.V3 }
   /** lines that are not part of the profile: construction lines, and a body's edges held as anchors (E53); read-only for the solver */ readonly reference?: Line[]; readonly solve?: SolveInfo;
   /** how a constrained sketch was made (its entities and constraints, as data), so a copy of it can carry them (E59); constraints a copy could not keep, and what each became */ readonly definition?: unknown; readonly carried?: { dropped: { id: string; kind: string; why: string }[]; changed: { id: string; from: string; to: string }[] } }
 /** a step refused, with the constraints that hold it back named, so the screen can show them and offer to delete (E55) */
@@ -89,7 +89,7 @@ const loopOf = (sk: Sketch): K.Loop => sk.circle ? { kind: "circle", c: sk.circl
   return { kind: "poly" as const, pts: sk.lines.map((l) => l.a), mids: sk.lines.map((l) => l.mid ?? null) };
 })();
 /** the face a sketch bounds (a polygon, which may have arcs, or a circle), with the other sketches as holes in it */
-export function profileFace(sk: Sketch, holes: readonly Sketch[] = []): K.FaceH { return K.profileFace(loopOf(sk), holes.map(loopOf)); }
+export function profileFace(sk: Sketch, holes: readonly Sketch[] = []): K.FaceH { return K.profileFace(loopOf(sk), [...holes, ...(sk.inner ?? [])].map(loopOf)); }
 /**
  * The sides a profile's edges made, named by the sketch line (or circle) each came from, found by where the edge's ends are; an edge that made more than one face (a sweep round a corner)
  * numbers them along the way (`rank`).
@@ -98,9 +98,9 @@ export function sidesFromProfile(sks: readonly Sketch[], face: K.FaceH, report: 
   const same = (a: V3, b: V3) => a.every((v, i) => Math.abs(v - b[i]!) < 1e-7);
   K.faceEdges(face).map((e) => ({ e, ends: K.edgeEnds(e) })).sort((p, q) => p.ends[0][0] - q.ends[0][0] || p.ends[0][1] - q.ends[0][1] || p.ends[0][2] - q.ends[0][2]).forEach(({ e, ends }, n) => {
     let from: readonly (string | number | Id)[] | null = null;
-    for (const sk of sks) {
+    for (const sk of sks.flatMap((q) => [q, ...(q.inner ?? [])])) {
       if (sk.circle) { if (Math.abs(Math.hypot(...sub(ends[0], sk.circle.c)) - sk.circle.r) < 1e-7) from = [sk.circle.id, n]; }
-      else { const l = sk.lines.find((x) => (same(x.a, ends[0]) && same(x.b, ends[1])) || (same(x.a, ends[1]) && same(x.b, ends[0]))); if (l) from = [l.id]; }
+      else { const em = K.edgeMid(e), l = sk.lines.find((x) => ((same(x.a, ends[0]) && same(x.b, ends[1])) || (same(x.a, ends[1]) && same(x.b, ends[0]))) && same(x.mid ?? [(x.a[0] + x.b[0]) / 2, (x.a[1] + x.b[1]) / 2, (x.a[2] + x.b[2]) / 2], em)); if (l) from = [l.id]; } // the middle tells a line from an arc with the same ends (a D)
       if (from) break;
     }
     if (!from) return;

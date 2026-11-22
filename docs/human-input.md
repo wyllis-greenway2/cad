@@ -6255,3 +6255,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1514 — 2026-11-22 — question
 > before we do robustness lets finish designing and building the engine. So what are the not done things over the past several build sessions we did that we should probably do now?
+
+## in_1515 — 2026-11-22 — approval
+> yes start with the first group, and yes named parameters
