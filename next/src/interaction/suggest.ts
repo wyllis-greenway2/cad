@@ -12,7 +12,7 @@ export interface Offer {
   label: string;
 }
 export interface Inapplicable { kind: Relation; why: string }
-const NAMES: Record<Relation, string> = { fixed: "fixed in place", coincident: "coincident", horizontal: "level", vertical: "upright", parallel: "parallel", perpendicular: "square", collinear: "in line", equalLength: "equal length", equalRadius: "equal radius", concentric: "concentric", pointOnLine: "on the line", pointOnCircle: "on the circle", midpoint: "at the middle", tangent: "tangent", tangentCircles: "circles touching", distance: "distance", length: "length", radius: "radius", pointLineDistance: "distance to the line", horizontalDistance: "distance across", verticalDistance: "distance up and down", angle: "angle" };
+const NAMES: Record<Relation, string> = { fixed: "fixed in place", symmetric: "symmetric", coincident: "coincident", horizontal: "level", vertical: "upright", parallel: "parallel", perpendicular: "square", collinear: "in line", equalLength: "equal length", equalRadius: "equal radius", concentric: "concentric", pointOnLine: "on the line", pointOnCircle: "on the circle", midpoint: "at the middle", tangent: "tangent", tangentCircles: "circles touching", distance: "distance", length: "length", radius: "radius", pointLineDistance: "distance to the line", horizontalDistance: "distance across", verticalDistance: "distance up and down", angle: "angle" };
 const DIMENSIONAL = new Set<Relation>(["distance", "length", "radius", "pointLineDistance", "horizontalDistance", "verticalDistance", "angle"]);
 
 const pos = (S: System, id: string): [number, number] => { const p = S.points.find((q) => q.id === id)!; return [p.x, p.y]; };

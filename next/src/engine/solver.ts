@@ -11,7 +11,7 @@ export interface PointSpec { id: string; x: number; y: number; /** read-only: a 
 export interface LineSpec { id: string; a: string; b: string }
 export interface CircleSpec { id: string; c: string; r: number; fixedR?: boolean }
 export type Relation =
-  | "fixed" | "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "collinear" | "equalLength" | "equalRadius" | "concentric" | "pointOnLine" | "pointOnCircle" | "midpoint"
+  | "fixed" | "symmetric" | "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "collinear" | "equalLength" | "equalRadius" | "concentric" | "pointOnLine" | "pointOnCircle" | "midpoint"
   | "tangent" | "tangentCircles" | "distance" | "length" | "radius" | "pointLineDistance" | "horizontalDistance" | "verticalDistance" | "angle";
 export interface Constraint { id: string; kind: Relation; /** the ids of the parts, in the order the relation reads them (the first is the one that moves when one must, E51) */ parts: string[]; /** the number of a dimension (degrees for an angle) */ value?: number; /** `fixed`: where; tangent circles: internal */ at?: [number, number]; internal?: boolean }
 export interface System { points: PointSpec[]; lines: LineSpec[]; circles: CircleSpec[]; constraints: Constraint[] }
@@ -47,6 +47,7 @@ interface Ctx { pt(id: string): P; line(id: string): { a: P; b: P }; r(id: strin
 export const kindOf = (id: string, S: System): "point" | "line" | "circle" => S.points.some((p) => p.id === id) ? "point" : S.lines.some((l) => l.id === id) ? "line" : "circle";
 export const RELATIONS: Record<Relation, { arity: number; parts: ("point" | "line" | "circle")[][]; rows: (ids: string[], c: Ctx, kinds: string[]) => D[] }> = {
   fixed: { arity: 1, parts: [["point"]], rows: (ids, c) => { const p = c.pt(ids[0]!); return [sub(p.x, k(c.at![0])), sub(p.y, k(c.at![1]))]; } },
+  symmetric: { arity: 3, parts: [["point"], ["point"], ["line"]], rows: (ids, c) => { const p = c.pt(ids[0]!), q = c.pt(ids[1]!), l = c.line(ids[2]!), u = vec(l.a, l.b), n = len(u), m: P = { x: scaleD(add(p.x, q.x), 0.5), y: scaleD(add(p.y, q.y), 0.5) }; return [div(dot2(vec(p, q), u), n), div(cross2(u, vec(l.a, m)), n)]; } },
   coincident: { arity: 2, parts: [["point"], ["point"]], rows: (ids, c) => { const p = c.pt(ids[0]!), q = c.pt(ids[1]!); return [sub(p.x, q.x), sub(p.y, q.y)]; } },
   horizontal: { arity: 1, parts: [["line", "point"], ["point"]], rows: (ids, c, kk) => kk[0] === "line" ? (() => { const l = c.line(ids[0]!); return [sub(l.b.y, l.a.y)]; })() : [sub(c.pt(ids[1]!).y, c.pt(ids[0]!).y)] },
   vertical: { arity: 1, parts: [["line", "point"], ["point"]], rows: (ids, c, kk) => kk[0] === "line" ? (() => { const l = c.line(ids[0]!); return [sub(l.b.x, l.a.x)]; })() : [sub(c.pt(ids[1]!).x, c.pt(ids[0]!).x)] },
@@ -214,7 +215,30 @@ function narrow(ids: string[], can: (set: string[]) => boolean, budget: number):
   const set = qx([], [], ids); return solves > budget ? { set: ids, exceeded: true } : { set, exceeded: false };
 }
 
+/**
+ * A level line that was drawn upright (or the other way) cannot get there by sliding its ends: the nearest answer is a quarter turn, and from the start the length wants to collapse on the way. When the plain solve
+ * has failed, a line the constraints say is level or upright and that lies nearer the other axis is turned a quarter about its middle (about its fixed end if it has one) and the solve is tried again from there.
+ */
+function seedTurns(S: System): System | null {
+  const pts = new Map(S.points.map((p) => [p.id, { ...p }])); let turned = false;
+  for (const c of S.constraints) {
+    if ((c.kind !== "horizontal" && c.kind !== "vertical") || c.parts.length !== 1) continue;
+    const l = S.lines.find((q) => q.id === c.parts[0]); if (!l) continue;
+    const a = pts.get(l.a)!, b = pts.get(l.b)!, dx = b.x - a.x, dy = b.y - a.y; if (a.fixed && b.fixed) continue;
+    const wrongWay = c.kind === "horizontal" ? Math.abs(dy) > Math.abs(dx) : Math.abs(dx) > Math.abs(dy); if (!wrongWay) continue;
+    const pivot = a.fixed ? { x: a.x, y: a.y } : b.fixed ? { x: b.x, y: b.y } : { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, sign = (c.kind === "horizontal") === (dx * dy > 0) ? -1 : 1; // the quarter that is nearer
+    for (const q of [a, b]) if (!q.fixed) { const rx = q.x - pivot.x, ry = q.y - pivot.y; q.x = pivot.x - sign * ry; q.y = pivot.y + sign * rx; }
+    turned = true;
+  }
+  return turned ? { ...S, points: S.points.map((p) => pts.get(p.id)!) } : null;
+}
 export function solve(S: System, opts: Options = {}): Result {
+  const r = solveOnce(S, opts);
+  if (r.verdict.ok || validate(S)) return r;
+  const seeded = seedTurns(S); if (!seeded) return r;
+  const r2 = solveOnce(seeded, opts); return r2.verdict.ok ? r2 : r;
+}
+function solveOnce(S: System, opts: Options = {}): Result {
   const bad = validate(S); const empty: Solution = { points: Object.fromEntries(S.points.map((p) => [p.id, [p.x, p.y] as [number, number]])), circles: Object.fromEntries(S.circles.map((c) => [c.id, c.r])) };
   if (bad) return { solution: empty, verdict: { kind: "over", ok: false, freedom: 0, free: [], redundant: [], implied: [], conflict: [], reason: bad }, iterations: 0, unreached: {}, holds: [] };
   const hold = new Set(opts.hold ?? []), pins = opts.pins ?? {}, restarts = opts.restarts ?? 4;

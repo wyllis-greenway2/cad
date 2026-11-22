@@ -33,7 +33,7 @@ const NOTEWORTHY = new Set(["defect", "tie", "sliver"]);
 
 /** build the change on a copy and say what happened. `engine` is not touched. */
 export function trial(engine: Engine, change: Change): Verdict {
-  const now = notOk(engine), scratch = new Engine(engine.recipe(), { parameters: engine.parameters() });
+  const now = notOk(engine), scratch = new Engine(engine.recipe(), { parameters: engine.parameters(), forced: engine.held() });
   try {
     scratch.build(); apply(scratch, change);
     const focus = change.op === "remove" || change.op === "batch" || change.op === "param" ? null : change.step, r = focus && scratch.ids().includes(focus) ? scratch.result(focus) : null, status: Status = r ? r.status : { kind: "ok" };
@@ -69,7 +69,7 @@ export function probeParam(engine: Engine, name: string, opts: { lo?: number; hi
   return scan(engine, value, opts, (e, v) => e.setParameters({ ...e.parameters(), [name]: v }), (e) => !opts.focus || e.result(opts.focus).status.kind === "ok", { step: opts.focus ?? "", key: name });
 }
 function scan(engine: Engine, value: number, opts: { lo?: number; hi?: number; samples?: number }, set: (e: Engine, v: number) => void, focusOk: (e: Engine) => boolean, name: { step: string; key: string }): Probe {
-  const { step, key } = name, lo = opts.lo ?? (value >= 0 ? 0 : value * 3), hi = opts.hi ?? (value >= 0 ? (value === 0 ? 1 : value * 3) : 0), n = opts.samples ?? 24, base = notOk(engine), scratch = new Engine(engine.recipe(), { parameters: engine.parameters() });
+  const { step, key } = name, lo = opts.lo ?? (value >= 0 ? 0 : value * 3), hi = opts.hi ?? (value >= 0 ? (value === 0 ? 1 : value * 3) : 0), n = opts.samples ?? 24, base = notOk(engine), scratch = new Engine(engine.recipe(), { parameters: engine.parameters(), forced: engine.held() });
   try {
     scratch.build();
     const works = (v: number): boolean => { try { set(scratch, v); return focusOk(scratch) && notOk(scratch) <= base; } catch { return false; } };

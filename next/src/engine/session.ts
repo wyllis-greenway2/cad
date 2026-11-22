@@ -7,6 +7,7 @@ import { NoBody } from "./steps.ts";
 import { bodyVolumes } from "./scope.ts";
 import { options, probe, probeParam, trial } from "./failure.ts";
 import { exportBody, meshOf, toBase64 } from "./exchange.ts";
+import { dragSketch } from "./drag.ts";
 import type { Reply, Request, Snapshot, StepSnap } from "./protocol.ts";
 
 export class Session {
@@ -21,6 +22,7 @@ export class Session {
       if (req.type === "ask") {
         if (!this.engine) { this.post({ type: "error", id: req.id, message: "no recipe is loaded" }); return; }
         const a = req.ask, e = this.engine;
+        if (a.what === "dragSketch") { this.post({ type: "answer", id: req.id, data: dragSketch(e, a.step, a.pins, a.hold) }); return; }
         if (a.what === "mesh" || a.what === "export") {
           if (!e.ids().includes(a.step)) { this.post({ type: "error", id: req.id, message: `no step ${a.step}` }); return; }
           const v = e.result(a.step).value; if (!(v instanceof Body) || !v.faces.length) { this.post({ type: "error", id: req.id, message: `step ${a.step} has no body to ${a.what === "mesh" ? "mesh" : "export"}` }); return; }

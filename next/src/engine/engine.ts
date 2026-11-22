@@ -47,6 +47,8 @@ export class Engine {
   constructor(steps: readonly Step[], opts: { forced?: Record<string, string>; watch?: (id: string) => void; parameters?: Table } = {}) {
     this.forced = new Map(Object.entries(opts.forced ?? {})); this.watch = opts.watch ?? null; this.table = { ...(opts.parameters ?? {}) }; this.lookup = scopeOf(this.table); this.install(steps);
   }
+  /** the steps held back now, with the reason (a copy made for a question holds the same ones back: a step that stopped the kernel is not run again to answer it) */
+  held(): Record<string, string> { return Object.fromEntries(this.forced); }
   /** the table of named numbers, as given (numbers and expressions) */
   parameters(): Table { return { ...this.table }; }
   /** a step with its expressions worked out, or the words that say why not (E66) */
@@ -89,7 +91,7 @@ export class Engine {
   trySwap(id: string): { worked: boolean; why: string; now: number; after: number } {
     const bad = (e: Engine) => e.ids().filter((i) => e.result(i).status.kind !== "ok").length, now = bad(this);
     let steps: Step[]; try { steps = swapWithInput(this.recipe(), id); } catch (e) { return { worked: false, why: e instanceof Error ? e.message : String(e), now, after: now }; }
-    const scratch = new Engine(steps, { parameters: this.table }); try { scratch.build(); const r = scratch.result(id), after = bad(scratch); return { worked: r.status.kind === "ok" && after <= now, why: "why" in r.status ? r.status.why : "", now, after }; } finally { scratch.release(); }
+    const scratch = new Engine(steps, { parameters: this.table, forced: this.held() }); try { scratch.build(); const r = scratch.result(id), after = bad(scratch); return { worked: r.status.kind === "ok" && after <= now, why: "why" in r.status ? r.status.why : "", now, after }; } finally { scratch.release(); }
   }
   /** the recipe as it is now, as a list of steps (a fresh engine built from it gives the same answers) */
   recipe(): Step[] { return this.order.map((id) => this.steps.get(id)!); }

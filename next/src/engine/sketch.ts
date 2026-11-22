@@ -4,7 +4,7 @@
 import * as K from "./kernel.ts";
 import { type EdgeRef, type Id, type VertexRef, mint } from "./id.ts";
 import { Body } from "./lineage.ts";
-import { type Constraint, type System, solve } from "./solver.ts";
+import { type Constraint, type Options as SolveOptions, type System, solve } from "./solver.ts";
 import { type Loop as RLoop, type Seg, regions } from "./region.ts";
 import { type Line, type Sketch, Refusal, at, frameOf, kinds, needBody, planeOf, unitV } from "./steps.ts";
 
@@ -31,7 +31,7 @@ export function sketchFrame(p: SketchParams, body: Body | null): { F: { O: V3; u
   return { F: F.F, normal: F.normal as V3, local, world: (x, y) => at(F.F, x, y) };
 }
 /** make the sketch of a definition: the solve, the lines with ids from their names, the anchors; `step` is the id of the step that makes it */
-export function makeSketch(p: SketchParams, body: Body | null, step: { id: string }): Sketch {
+export function makeSketch(p: SketchParams, body: Body | null, step: { id: string }, drag?: SolveOptions): Sketch {
   if (!Array.isArray(p.points)) throw new Error("a sketch needs its points");
   const fr = sketchFrame(p, body), F = { F: fr.F, normal: fr.normal }, local = fr.local, world = fr.world;
   const names = [...p.points.map((q) => q.id), ...(p.lines ?? []).map((q) => q.id), ...(p.circles ?? []).map((q) => q.id), ...(p.arcs ?? []).map((q) => q.id), ...(p.anchors ?? []).map((q) => q.id)];
@@ -64,7 +64,7 @@ export function makeSketch(p: SketchParams, body: Body | null, step: { id: strin
   const arcCircles = (p.arcs ?? []).map((a) => { const c = at0.get(a.c), s0 = at0.get(a.a); if (!c || !s0) throw new Error(`the arc ${a.id} names a point that is not there`); return { id: a.id, c: a.c, r: Math.hypot(s0.x - c.x, s0.y - c.y), fixedR: false }; });
   const arcEnds: Constraint[] = (p.arcs ?? []).flatMap((a) => [{ id: `${a.id}.start`, kind: "pointOnCircle" as const, parts: [a.a, a.id] }, { id: `${a.id}.end`, kind: "pointOnCircle" as const, parts: [a.b, a.id] }]);
   const system: System = { points: [...p.points.map((q) => ({ id: q.id, x: q.x, y: q.y, fixed: !!q.fixed })), ...anchorPoints], lines: [...(p.lines ?? []).map((l) => ({ id: l.id, a: l.a, b: l.b })), ...anchorLines], circles: [...(p.circles ?? []).map((c) => ({ id: c.id, c: c.c, r: c.r, fixedR: !!c.fixedR })), ...arcCircles, ...anchorCircles], constraints: [...(p.constraints ?? []), ...arcEnds] };
-  const r = solve(system);
+  const r = solve(system, drag ?? {});
   if (!r.verdict.ok) {
     const who = r.verdict.conflict.length ? `: ${r.verdict.conflict.join(", ")}` : "";
     throw new Refusal(r.verdict.conflict.length ? `these constraints cannot all hold${who}${r.verdict.reason ? ` (${r.verdict.reason})` : ""}` : r.verdict.reason || "this sketch cannot be made", r.verdict.conflict);
@@ -87,7 +87,7 @@ export function makeSketch(p: SketchParams, body: Body | null, step: { id: strin
   for (const c of p.circles ?? []) { if (c.construction) continue; const q = sol[c.c]!; segs.push({ name: c.id, kind: "arc", c: q, r: r.solution.circles[c.id]!, t0: 0, sweep: TAU }); }
   // the ends an arc keeps on its circle are the step's own, not the person's: they are not reported as redundant
   const own = new Set(arcEnds.map((c) => c.id)), redundant = r.verdict.redundant.filter((c) => !own.has(c)), kind = r.verdict.kind === "redundant" && !redundant.length ? (r.verdict.freedom > 0 ? "under" : "solved") : r.verdict.kind;
-  const solveInfo = { kind: kind as "solved" | "under" | "redundant", freedom: r.verdict.freedom, free: r.verdict.free, redundant };
+  const solveInfo = { kind: kind as "solved" | "under" | "redundant", freedom: r.verdict.freedom, free: r.verdict.free, redundant, ...(drag ? { solution: r.solution, unreached: r.unreached, holds: r.holds } : {}) };
   const close = (u: V3, v: V3) => Math.hypot(u[0] - v[0], u[1] - v[1], u[2] - v[2]) < 1e-7;
   const chained = drawn.length >= 2 && drawn.every((l, i) => close(l.b, drawn[(i + 1) % drawn.length]!.a)) && (drawn.length >= 3 || drawn.some((l) => l.mid));
   const loopSketch = (loop: RLoop, hole: boolean): Sketch => {
