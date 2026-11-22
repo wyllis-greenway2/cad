@@ -228,9 +228,15 @@ export function move(a: Solid, by: V3): Made {
 export function common(a: Solid, b: Solid): Made { const op = t(new oc.BRepAlgoAPI_Common(a.raw, b.raw, progress())); if (!op.IsDone()) fail("the intersection failed"); return { solid: new Solid(op.Shape()), report: reportOf(op) }; }
 /** join faces that lie in one surface; the kernel's history of this is not available, so the engine recovers ids by `overlap` (E7, E9) */
 export function unify(a: Solid, keep: readonly EdgeH[] = []): Solid {
-  const u = t(new oc.ShapeUpgrade_UnifySameDomain(a.raw, true, true, false));
-  for (const e of keep) u.KeepShape(e.raw); // edges that are the person's own lines (an imprint's seam) are not merged away
-  u.Build();
-  return new Solid(u.Shape());
+  const once = (raw: Raw): Raw => {
+    const u = t(new oc.ShapeUpgrade_UnifySameDomain(raw, true, true, false));
+    for (const e of keep) u.KeepShape(e.raw); // edges that are the person's own lines (an imprint's seam) are not merged away
+    u.Build();
+    return u.Shape();
+  };
+  // one pass does not always join faces on a surface that wraps round (a cylinder's seam); a second pass does, and stops when nothing more joins
+  let raw = once(a.raw), n = unique(raw, "TopAbs_FACE").length;
+  for (let pass = 0; pass < 2; pass++) { const next = once(raw), m = unique(next, "TopAbs_FACE").length; if (m >= n) { next.delete?.(); break; } raw = next; n = m; }
+  return new Solid(raw);
 }
 

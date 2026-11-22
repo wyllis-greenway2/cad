@@ -2,7 +2,7 @@
 // A step that cannot be made throws; the engine flags it and passes `passthrough` on, a value of the step's own output type (E13).
 import * as K from "./kernel.ts";
 import { type EdgeRef, type Id, idKey, isPieceOf, mint } from "./id.ts";
-import { type Age, Body, type Claim, RefLost, type FaceRec, carry, fromClaims, unifyBody } from "./lineage.ts";
+import { type Age, Body, type Claim, RefLost, type FaceRec, carry, fromClaims, markImprinted, unifyBody } from "./lineage.ts";
 
 /** a side of a sketch: straight, or an arc through `mid` */
 export interface Line { id: Id; a: K.V3; b: K.V3; mid?: K.V3 }
@@ -142,7 +142,7 @@ export const kinds: Record<string, Kind> = {
     const body = needBody(inputs[0]), sk = needSketch(inputs[1]);
     const m = K.split(body.solid, sk.lines.map((l) => [l.a, l.b] as const));
     if (m.solid.faces().length === body.faces.length) throw new Error("the line does not cross a face: it splits nothing");
-    return checked(carry(m.solid, m.report, [body], [], step.id, age), "the imprint");
+    return checked(markImprinted(carry(m.solid, m.report, [body], [], step.id, age), body), "the imprint");
   } },
   /** a face moved out (or in) along its normal, a region made by an imprint included; it keeps its id */
   push: { outputs: "body", run: (inputs, ctx) => checked(pushed(needBody(inputs[0]), ctx.step.params.face as Id, num(ctx.step.params, "dist"), ctx), "the push") },

@@ -87,6 +87,8 @@ for (let n = 0; n < N; n++) {
   };
   const depths = feats.map((f) => f.depth), fin = depths.map((d, i) => (i === pick ? d + (-delta) : d)); // pushing the pocket's end by `delta` along the face's outward normal (into the pocket) shrinks the depth
   const fresh = build(make(fin)), pull = build(make(depths, { feat: pick, dist: delta }));
+  if (process.env.CASE && Number(process.env.CASE) === n && pull.ok && fresh.ok) for (const [name, o] of [["pulled", pull], ["fresh", fresh]] as const) { console.log(`${name}: ${o.body.faces.length} faces`); for (const f of o.body.faces) { const q = K.facts(f.h); console.log(`   ${q.type.padEnd(9)} area ${q.area.toFixed(3).padStart(9)} at ${q.ce.map((x) => x.toFixed(1)).join(",").padEnd(18)} ${[f.id, ...f.alias].map(idKey).join(" | ").slice(0, 110)}`); } }
+  if (process.env.CASE && Number(process.env.CASE) === n && pull.ok) for (const e of pull.body.edges()) if (e.faces.length === 2 && e.faces.every((f) => K.facts(f.h).type === "CYLINDRE")) { const [a, b] = K.edgeEnds(e.h); console.log("   edge between two cylinder faces: ends", a.map((x) => x.toFixed(3)).join(","), "to", b.map((x) => x.toFixed(3)).join(","), "mid", K.edgeMid(e.h).map((x) => x.toFixed(3)).join(",")); }
   const v = compare(pull, fresh); (meets ? p2o : p2).push(v); if (v.kind !== "same" && !meets && shown.length < 12) shown.push(`case ${n}: ${v.kind}: ${v.detail}  (${JSON.stringify({ W, Hh, D, pick, delta, feats })})`); done(pull, fresh);
 }
 console.log(); tally("Part 2, pockets that do not meet", p2); tally("Part 2, pockets that meet another (a pushed face is only what is left of the pocket's end, so the two are different on purpose, mode 2 against mode 1)", p2o); shown.forEach((s) => console.log("  " + s.slice(0, 420)));

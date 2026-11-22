@@ -16,7 +16,9 @@ export type Age = (step: string) => number;
 export class Body {
   private es: EdgeRec[] | null = null;
   readonly solid: K.Solid; readonly faces: FaceRec[]; readonly notes: Note[];
-  constructor(solid: K.Solid, faces: FaceRec[], notes: Note[] = []) { this.solid = solid; this.faces = faces; this.notes = notes; }
+  /** the base keys of faces an imprint split: the person's own lines. Only the seams between pieces of these are kept when faces merge (E4); a piece made by a boolean is not a line the person drew */
+  readonly kept: ReadonlySet<string>;
+  constructor(solid: K.Solid, faces: FaceRec[], notes: Note[] = [], kept: ReadonlySet<string> = new Set()) { this.solid = solid; this.faces = faces; this.notes = notes; this.kept = kept; }
   release(): void { this.solid.release(); this.es = null; }
 
   /** the faces a reference means: the face, or the pieces it split into, found through any of its ids (E8, E9) */
@@ -89,18 +91,18 @@ export function carry(solid: K.Solid, report: K.Report, inputs: readonly Body[],
     if (ids.length > 1) notes.push({ kind: "merged", text: `${ids.map(show).join(" + ")}` });
     return { id: ids[0]!, alias: ids.slice(1), h, defect: ids[0]!.role === "unnamed" };
   });
-  return new Body(solid, recs, notes);
+  return new Body(solid, recs, notes, new Set(inputs.flatMap((b) => [...b.kept])));
 }
 
 /** join faces in one surface, and recover which new face each old face went into by the area they share (E7, E9) */
 export function unifyBody(body: Body, step: string, age: Age): Body {
   // the seams between the pieces of a face that split (an imprint's lines) stay: they are the person's lines, not leftovers (E4)
-  const seams = body.edges().filter((e) => e.faces.length === 2 && baseKey(e.faces[0]!.id) === baseKey(e.faces[1]!.id) && idKey(e.faces[0]!.id) !== idKey(e.faces[1]!.id)).map((e) => e.h);
+  const seams = body.edges().filter((e) => e.faces.length === 2 && baseKey(e.faces[0]!.id) === baseKey(e.faces[1]!.id) && idKey(e.faces[0]!.id) !== idKey(e.faces[1]!.id) && body.kept.has(baseKey(e.faces[0]!.id))).map((e) => e.h);
   const solid = K.unify(body.solid, seams), faces = solid.faces();
   const targets = faces.map((h) => ({ h, f: K.facts(h), ids: [] as Id[] })), notes: Note[] = [...body.notes];
   for (const rec of body.faces) {
     const a = K.facts(rec.h);
-    const into = targets.filter((t) => t.f.type === a.type && t.f.ne.every((v, i) => Math.abs(v - a.ne[i]!) < 1e-6)
+    const into = targets.filter((t) => t.f.type === a.type && (a.type !== "PLANE" || t.f.ne.every((v, i) => Math.abs(v - a.ne[i]!) < 1e-6)) // a curved face's normal is read at its centre, which moves when it merges: planes only are told apart by it
       && t.f.lo.every((v, i) => v <= a.hi[i]! + 1e-6) && t.f.hi.every((v, i) => v >= a.lo[i]! - 1e-6) && K.overlap(rec.h, t.h) > 0.99 * a.area);
     if (into.length === 1) into[0]!.ids.push(rec.id, ...rec.alias);
     else notes.push({ kind: "dropped", text: `${show(rec.id)} could not be placed after the merge (${into.length} candidates)` });
@@ -112,7 +114,7 @@ export function unifyBody(body: Body, step: string, age: Age): Body {
     if (ids.length > 1) notes.push({ kind: "merged", text: ids.map(show).join(" + ") });
     return { id: ids[0]!, alias: ids.slice(1), h: t.h, defect: ids[0]!.role === "unnamed" };
   });
-  return new Body(solid, recs, notes);
+  return new Body(solid, recs, notes, body.kept);
 }
 
 /** a body made by a step from nothing: every face named by the step, from a list of claims */
@@ -126,3 +128,10 @@ export function fromClaims(solid: K.Solid, claims: readonly Claim[], step: strin
   return new Body(solid, recs, notes);
 }
 export { edgeKey };
+
+/** the faces an imprint split are the person's lines: remember them, so the seams between their pieces stay when faces merge later (E4) */
+export function markImprinted(body: Body, before: Body): Body {
+  const kept = new Set(body.kept), had = new Set(before.faces.filter((g) => g.id.pieces.length).map((g) => baseKey(g.id)));
+  for (const f of body.faces) if (f.id.pieces.length && !had.has(baseKey(f.id))) kept.add(baseKey(f.id)); // newly split by this imprint, not split before by a boolean
+  return new Body(body.solid, body.faces, body.notes, kept);
+}
