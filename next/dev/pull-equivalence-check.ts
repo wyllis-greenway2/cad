@@ -10,6 +10,8 @@ import { Body } from "../src/engine/lineage.ts";
 import { idKey, mint } from "../src/engine/id.ts";
 import type { Step } from "../src/engine/steps.ts";
 await initKernel();
+// the kernel's own volume of a body with curved cuts is good to about 1e-6 of the body (`dev/hole-reference.ts`: against an independent integral, the hole cut in one step and the hole cut short then pushed were each 0.01 to 0.06 mm3 off in 23730), so a difference below 1e-5 is noise, not a different shape
+const VOL_TOL = 1e-5;
 const N = Number(process.argv[2] ?? 150); let seed = Number(process.argv[3] ?? 1);
 const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 const between = (a: number, b: number) => a + rnd() * (b - a), round = (x: number, k = 2) => Math.round(x * 10 ** k) / 10 ** k;
@@ -27,7 +29,7 @@ function compare(pull: Out, fresh: Out): Verdict {
   if (!pull.ok) return { kind: "pull refused", detail: pull.why };
   if (!fresh.ok) return { kind: "fresh refused", detail: fresh.why };
   const va = K.volume(pull.body.solid), vb = K.volume(fresh.body.solid), fa = faceKey(pull.body), fb = faceKey(fresh.body), why: string[] = [];
-  if (Math.abs(va - vb) > 1e-6 * Math.max(va, vb)) why.push(`volume ${va.toFixed(4)} vs ${vb.toFixed(4)} (diff ${(va - vb).toExponential(2)})`);
+  if (Math.abs(va - vb) > VOL_TOL * Math.max(va, vb)) why.push(`volume ${va.toFixed(4)} vs ${vb.toFixed(4)} (diff ${(va - vb).toExponential(2)})`);
   if (fa.length !== fb.length) why.push(`${fa.length} faces vs ${fb.length}`);
   let unmatched = 0, idDiff = 0, extra = 0; const used = new Set<number>();
   for (const f of fa) {
@@ -53,11 +55,11 @@ const holeSteps = (y0: number, len: number): Step[] => [
 ];
 const p1: Verdict[] = [];
 console.log("   eps       gap   result");
-for (const eps of [0.3, 0.03, 0.003, 1e-4, 0]) for (const gap of [1, 0.2]) {
+for (const eps of [0.3, 0.03, 1e-3, 1e-5, 1e-7, 1e-9, 0, -1e-9, -1e-7, -1e-5, -1e-3]) for (const gap of [1, 0.2]) {
   const y0 = 12 - eps + 3, wall = -Math.sqrt(Math.max(0, 144 - (12 - eps) ** 2)), stop = wall - gap, past = 1;
   const fresh = build([...ringSteps(), ...holeSteps(y0, past + 30)]);
   const pull = build([...ringSteps(), ...holeSteps(y0, stop + 30), { id: "P", kind: "push", params: { face: mint("T", "end"), dist: -(past - stop) }, inputs: ["H"] }]);
-  const v = compare(pull, fresh); p1.push(v); console.log(`   ${String(eps).padEnd(8)} ${String(gap).padEnd(5)} ${v.kind}${v.detail ? ": " + v.detail : ""}`); done(pull, fresh);
+  const tiny = (o: Out) => o.ok ? o.body.faces.filter((f) => K.facts(f.h).area < 0.01).length : 0, v = compare(pull, fresh); if (tiny(pull) || tiny(fresh)) v.detail += ` [faces under 0.01 mm²: pulled ${tiny(pull)}, fresh ${tiny(fresh)}]`; p1.push(v); console.log(`   ${String(eps).padEnd(8)} ${String(gap).padEnd(5)} ${v.kind}${v.detail ? ": " + v.detail : ""}`); done(pull, fresh);
 }
 tally("Part 1", p1);
 

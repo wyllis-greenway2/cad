@@ -1,5 +1,5 @@
 // A ring, a hole that nearly grazes the bore and stops short, then the hole's flat end pulled on until it breaks into the bore.
-// Compares: (A) the hole cut to full depth in one step (the original step edited), (B) the hole cut short, then its end face pushed (a later pull).
+// NOTE (in_1493): the volume differences this prints are kernel noise, not a leftover sliver; see dev/hole-reference.ts and dev/pull-equivalence-check.ts. Compares: (A) the hole cut to full depth in one step (the original step edited), (B) the hole cut short, then its end face pushed (a later pull).
 //   node --experimental-strip-types dev/tangent-hole-experiment.ts
 import { initKernel } from "../src/engine/kernel.ts";
 import * as K from "../src/engine/kernel.ts";
