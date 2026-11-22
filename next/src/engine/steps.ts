@@ -4,10 +4,11 @@ import * as K from "./kernel.ts";
 import { type EdgeRef, type Id, idKey, isPieceOf, mint } from "./id.ts";
 import { type Age, Body, type Claim, RefLost, type FaceRec, carry, fromClaims, unifyBody } from "./lineage.ts";
 
-export interface Line { id: Id; a: K.V3; b: K.V3 }
+/** a side of a sketch: straight, or an arc through `mid` */
+export interface Line { id: Id; a: K.V3; b: K.V3; mid?: K.V3 }
 export type PlaneName = "XY" | "XZ" | "YZ";
 /** a sketch: lines (a closed polygon, or an open path), or one circle; the plane's normal is the way an extrusion goes unless told otherwise */
-export interface Sketch { readonly kind: "sketch"; readonly lines: Line[]; readonly face?: Id; readonly normal: V3; readonly open?: boolean; readonly circle?: { id: Id; r: number; plane: PlaneName; offset: number } }
+export interface Sketch { readonly kind: "sketch"; readonly lines: Line[]; readonly face?: Id; readonly normal: V3; readonly open?: boolean; readonly circle?: { id: Id; r: number; c: K.V3; normal: K.V3 } }
 /** what a body step passes on when it has no body to pass: nothing, of the type of a body */
 export class NoBody { readonly empty = true; fingerprint(): string { return "empty"; } release(): void { /* nothing held */ } }
 export type Value = Body | Sketch | NoBody;
@@ -73,29 +74,40 @@ export function planeOf(p: Record<string, any>): { name: PlaneName; offset: numb
   if (name === "YZ") return { name, offset, normal: [1, 0, 0], at: (x, y) => [offset, x, y] };
   throw new Error(`there is no plane ${String(name)}`);
 }
-/** the face a sketch bounds (a polygon, or its circle) */
-export function profileFace(sk: Sketch): K.FaceH {
-  if (sk.circle) return K.circleFace(sk.circle.r, sk.circle.plane, sk.circle.offset);
-  if (sk.open || sk.lines.length < 3) throw new Error("a profile needs a closed shape of three lines or more, or a circle");
-  return K.polygonFace3(sk.lines.map((l) => l.a));
-}
-/** the sides a profile's edges made, named by the sketch line (or the circle) each came from; an edge that made more than one face (a sweep round a corner) numbers them along the way (`rank`) */
-export function sidesFromProfile(sk: Sketch, face: K.FaceH, report: K.Report, step: string, claims: Claim[], rank?: (f: K.FaceH) => number): void {
-  const near = (a: V3, b: V3) => a.every((v, i) => Math.abs(v - b[i]!) < 1e-9), mids = sk.lines.map((l) => [(l.a[0] + l.b[0]) / 2, (l.a[1] + l.b[1]) / 2, (l.a[2] + l.b[2]) / 2] as V3);
-  const edges = K.faceEdges(face).map((e) => ({ e, m: K.edgeMid(e) })).sort((p, q) => p.m[0] - q.m[0] || p.m[1] - q.m[1] || p.m[2] - q.m[2]);
-  edges.forEach(({ e, m }, n) => {
-    const i = mids.findIndex((q) => near(q, m)), made = report.fromEdge(e);
-    const from = sk.circle ? [sk.circle.id, n] as const : i >= 0 ? [sk.lines[i]!.id] as const : null; if (!from) return;
-    const ordered = rank ? [...made].sort((p, q) => rank(p) - rank(q)) : made;
-    ordered.forEach((f, k) => claims.push({ id: ordered.length > 1 || rank ? mint(step, "side", ...from, k) : mint(step, "side", ...from), face: f }));
+const loopOf = (sk: Sketch): K.Loop => sk.circle ? { kind: "circle", c: sk.circle.c, r: sk.circle.r, normal: sk.circle.normal } : (() => {
+  if (sk.open || sk.lines.length < 2 || (sk.lines.length === 2 && !sk.lines.some((l) => l.mid))) throw new Error("a profile needs a closed shape or a circle");
+  return { kind: "poly" as const, pts: sk.lines.map((l) => l.a), mids: sk.lines.map((l) => l.mid ?? null) };
+})();
+/** the face a sketch bounds (a polygon, which may have arcs, or a circle), with the other sketches as holes in it */
+export function profileFace(sk: Sketch, holes: readonly Sketch[] = []): K.FaceH { return K.profileFace(loopOf(sk), holes.map(loopOf)); }
+/**
+ * The sides a profile's edges made, named by the sketch line (or circle) each came from, found by where the edge's ends are; an edge that made more than one face (a sweep round a corner)
+ * numbers them along the way (`rank`).
+ */
+export function sidesFromProfile(sks: readonly Sketch[], face: K.FaceH, report: K.Report, step: string, claims: Claim[], rank?: (f: K.FaceH) => number): void {
+  const same = (a: V3, b: V3) => a.every((v, i) => Math.abs(v - b[i]!) < 1e-7);
+  K.faceEdges(face).map((e) => ({ e, ends: K.edgeEnds(e) })).sort((p, q) => p.ends[0][0] - q.ends[0][0] || p.ends[0][1] - q.ends[0][1] || p.ends[0][2] - q.ends[0][2]).forEach(({ e, ends }, n) => {
+    let from: readonly (string | number | Id)[] | null = null;
+    for (const sk of sks) {
+      if (sk.circle) { if (Math.abs(Math.hypot(...sub(ends[0], sk.circle.c)) - sk.circle.r) < 1e-7) from = [sk.circle.id, n]; }
+      else { const l = sk.lines.find((x) => (same(x.a, ends[0]) && same(x.b, ends[1])) || (same(x.a, ends[1]) && same(x.b, ends[0]))); if (l) from = [l.id]; }
+      if (from) break;
+    }
+    if (!from) return;
+    const made = report.fromEdge(e), ordered = rank ? [...made].sort((p, q) => rank(p) - rank(q)) : made;
+    ordered.forEach((f, k) => claims.push({ id: ordered.length > 1 || rank ? mint(step, "side", ...from!, k) : mint(step, "side", ...from!), face: f }));
   });
 }
+
+/** the edges a round or a chamfer is asked for: one reference (`edge`) or a list (`edges`) */
+const refsOf = (p: Record<string, any>): EdgeRef[] => (Array.isArray(p.edges) ? (p.edges as EdgeRef[]) : [p.edge as EdgeRef]);
 
 export interface Kind { outputs: "body" | "sketch"; run(inputs: Value[], ctx: Ctx): Value }
 export const kinds: Record<string, Kind> = {
   /** a closed polygon in a plane (XY, XZ or YZ, moved `offset` along its normal); every line has an id from this step and its place in the polygon */
   sketchPolygon: { outputs: "sketch", run: (_in, { step }) => {
-    const pts = step.params.points as [number, number][], pl = planeOf(step.params), lines: Line[] = pts.map((p, i) => { const q = pts[(i + 1) % pts.length]!; return { id: mint(step.id, "line", i), a: pl.at(p[0], p[1]), b: pl.at(q[0], q[1]) }; });
+    const pts = step.params.points as [number, number][], mids = (step.params.mids ?? []) as ([number, number] | null)[], pl = planeOf(step.params);
+    const lines: Line[] = pts.map((p, i) => { const q = pts[(i + 1) % pts.length]!, m = mids[i]; return { id: mint(step.id, "line", i), a: pl.at(p[0], p[1]), b: pl.at(q[0], q[1]), ...(m ? { mid: pl.at(m[0], m[1]) } : {}) }; });
     return { kind: "sketch", lines, normal: pl.normal };
   } },
   /** an open path of straight legs (what a sweep goes along) */
@@ -104,16 +116,16 @@ export const kinds: Record<string, Kind> = {
     if (pts.length < 2) throw new Error("a path needs two points at least");
     return { kind: "sketch", open: true, normal: pl.normal, lines: pts.slice(0, -1).map((p, i) => ({ id: mint(step.id, "line", i), a: pl.at(p[0], p[1]), b: pl.at(pts[i + 1]![0], pts[i + 1]![1]) })) };
   } },
-  /** a circle centred on a plane's origin (moved `offset` along its normal) */
+  /** a circle in a plane, centred at `center` (two numbers in the plane; the origin when not given) */
   sketchCircle: { outputs: "sketch", run: (_in, { step }) => {
-    const pl = planeOf(step.params), r = num(step.params, "r"); if (!(r > 0)) throw new Error("the radius is not above nothing");
-    return { kind: "sketch", lines: [], normal: pl.normal, circle: { id: mint(step.id, "circle"), r, plane: pl.name, offset: pl.offset } };
+    const pl = planeOf(step.params), r = num(step.params, "r"), at = (step.params.center as [number, number] | undefined) ?? [0, 0]; if (!(r > 0)) throw new Error("the radius is not above nothing");
+    return { kind: "sketch", lines: [], normal: pl.normal, circle: { id: mint(step.id, "circle"), r, c: pl.at(at[0], at[1]), normal: pl.normal } };
   } },
   /** a sketch pulled along its plane's normal (or `dir`): each side is named by the sketch line it grew from, the caps by their ends */
   extrude: { outputs: "body", run: (inputs, { step }) => {
-    const sk = needSketch(inputs[0]), d = num(step.params, "d"), dir = unitV((step.params.dir as V3 | undefined) ?? sk.normal), face = profileFace(sk), p = K.prism(face, scale(dir, d));
+    const sk = needSketch(inputs[0]), holes = inputs.slice(1).map(needSketch), d = num(step.params, "d"), dir = unitV((step.params.dir as V3 | undefined) ?? sk.normal), face = profileFace(sk, holes), p = K.prism(face, scale(dir, d));
     const claims: Claim[] = [{ id: mint(step.id, "start"), face: p.first }, { id: mint(step.id, "end"), face: p.last }];
-    sidesFromProfile(sk, face, p.report, step.id, claims);
+    sidesFromProfile([sk, ...holes], face, p.report, step.id, claims);
     return checked(fromClaims(p.solid, claims, step.id), "the extrusion");
   } },
   /** lines drawn on a face; a line may be placed by its distance from an edge named by the two faces beside it (E5, E12) */
@@ -155,16 +167,35 @@ export const kinds: Record<string, Kind> = {
   } },
   /** a round on every edge between the faces named (a face that has split names all its pieces' edges, E8) */
   fillet: { outputs: "body", run: (inputs, { step, age }) => {
-    const body = needBody(inputs[0]), asked = body.findEdges(step.params.edge as EdgeRef), r = num(step.params, "r");
+    const body = needBody(inputs[0]), asked = refsOf(step.params).flatMap((r) => body.findEdges(r)), r = num(step.params, "r");
     const m = K.fillet(body.solid, asked.map((e) => e.h), r), claims: Claim[] = [];
     // the kernel rounds along edges that continue the ones asked for (an imprint splits one straight edge in two): every edge it rounded gets a round, named by its two faces
     const edges = body.edges().filter((e) => m.rounded.some((x) => K.sameEdge(x, e.h)));
     edges.forEach((e, n) => m.round(e.h).forEach((face, k) => claims.push({ id: e.ref ? mint(step.id, "round", e.ref.a, e.ref.b, k) : mint(step.id, "round", "free", n, k), face })));
     return checked(corners(carry(m.solid, m.report, [body], claims, step.id, age), step.id), "the fillet");
   } },
-  /** the whole body turned about an axis through the origin */
+  /** two bodies made one (`add`), the second taken out of the first (`cut`), or what they share (`intersect`); every face keeps its id, and merged faces answer to both */
+  combine: { outputs: "body", run: (inputs, { step, age }, ) => {
+    const a = needBody(inputs[0]), b = needBody(inputs[1]), mode = (step.params.mode as string | undefined) ?? "add";
+    const m = mode === "cut" ? K.cut(a.solid, b.solid) : mode === "intersect" ? K.common(a.solid, b.solid) : mode === "add" ? K.fuse(a.solid, b.solid) : (() => { throw new Error(`there is no way to combine called ${mode}`); })();
+    return checked(unifyBody(carry(m.solid, m.report, [a, b], [], step.id, age), step.id, age), "the combination");
+  } },
+  /** the whole body moved by a vector */
+  move: { outputs: "body", run: (inputs, { step, age }) => {
+    const body = needBody(inputs[0]), by = step.params.by as V3; if (!Array.isArray(by) || by.length !== 3) throw new Error("the move needs three numbers");
+    const m = K.move(body.solid, by); return checked(carry(m.solid, m.report, [body], [], step.id, age), "the move");
+  } },
+  /** a round, but a flat cut: every edge between the faces named, at one distance */
+  chamfer: { outputs: "body", run: (inputs, { step, age }) => {
+    const body = needBody(inputs[0]), asked = refsOf(step.params).flatMap((r) => body.findEdges(r)), d = num(step.params, "d");
+    const m = K.chamfer(body.solid, asked.map((e) => e.h), d), claims: Claim[] = [];
+    const edges = body.edges().filter((e) => m.rounded.some((x) => K.sameEdge(x, e.h)));
+    edges.forEach((e, n) => m.round(e.h).forEach((face, k) => claims.push({ id: e.ref ? mint(step.id, "cut", e.ref.a, e.ref.b, k) : mint(step.id, "cut", "free", n, k), face })));
+    return checked(carry(m.solid, m.report, [body], claims, step.id, age), "the chamfer");
+  } },
+  /** the whole body turned about an axis (through the origin, or through `pivot`) */
   turn: { outputs: "body", run: (inputs, { step, age }) => {
-    const body = needBody(inputs[0]), m = K.turn(body.solid, step.params.axis as V3, num(step.params, "deg"));
+    const body = needBody(inputs[0]), m = K.turn(body.solid, step.params.axis as V3, num(step.params, "deg"), (step.params.pivot as V3 | undefined) ?? [0, 0, 0]);
     return checked(carry(m.solid, m.report, [body], [], step.id, age), "the turn");
   } },
 };

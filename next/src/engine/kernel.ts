@@ -1,7 +1,7 @@
 // The kernel adapter (E1, `inv_kernel_boundary`): the only file that touches OCCT or replicad. Everything it hands out is plain data or an opaque handle;
 // the engine above it knows nothing of the kernel's own objects. Numbers it returns are exact (E11): rounding is for the screen only.
 import initOC from "replicad-opencascadejs";
-import { setOC, Face, Edge, downcast, HASH_CODE_MAX, draw, makeLine, assembleWire, drawCircle } from "replicad";
+import { setOC, Face, Edge, downcast, HASH_CODE_MAX, draw, makeLine, makeCircle, makeThreePointArc, assembleWire, drawCircle } from "replicad";
 
 export type V3 = readonly [number, number, number];
 type Raw = any; // the kernel's own objects: they do not leave this file
@@ -112,14 +112,33 @@ export function polygonFace(points: readonly (readonly [number, number])[]): Fac
   let d = draw([points[0]![0], points[0]![1]]); for (const p of points.slice(1)) d = d.lineTo([p[0], p[1]]);
   return { raw: t((d.close().sketchOnPlane("XY") as unknown as { face(): { wrapped: Raw } }).face().wrapped) };
 }
-/** a closed polygon through 3D points (a sketch on any plane) */
-export function polygonFace3(points: readonly V3[]): FaceH {
-  const w = wireOf(points, true), mk = t(new oc.BRepBuilderAPI_MakeFace(w, true));
-  return { raw: t(mk.Face()) };
+/** one closed loop of a profile: a polygon whose sides may be arcs (a mid point on the side), or a circle (a centre, a radius, the way it faces) */
+export type Loop = { kind: "poly"; pts: readonly V3[]; mids: readonly (V3 | null)[] } | { kind: "circle"; c: V3; r: number; normal: V3 };
+/** a face bounded by a loop, with holes cut in it by the other loops (a profile with holes, E4) */
+export function profileFace(outer: Loop, holes: readonly Loop[] = []): FaceH {
+  const mk = t(new oc.BRepBuilderAPI_MakeFace(loopWire(outer), true));
+  let face = mk.Face();
+  if (holes.length) {
+    const withHoles = t(new oc.BRepBuilderAPI_MakeFace(face));
+    for (const h of holes) withHoles.Add(t(loopWire(h).Reversed())); // a hole runs the other way round
+    face = withHoles.Face();
+  }
+  return { raw: t(face) };
 }
+/** a closed polygon through 3D points (a sketch on any plane) */
+export const polygonFace3 = (points: readonly V3[]): FaceH => profileFace({ kind: "poly", pts: points, mids: points.map(() => null) });
 /** a circle of radius r in a named plane (XY, XZ, YZ), centred on that plane's origin moved `offset` along its normal */
 export function circleFace(r: number, plane: "XY" | "XZ" | "YZ", offset: number): FaceH {
   return { raw: t((drawCircle(r).sketchOnPlane(plane, offset) as unknown as { face(): { wrapped: Raw } }).face().wrapped) };
+}
+function loopWire(l: Loop): Raw {
+  if (l.kind === "circle") return t(assembleWire([makeCircle(l.r, [l.c[0], l.c[1], l.c[2]], [l.normal[0], l.normal[1], l.normal[2]])]).wrapped);
+  const edges = [];
+  for (let i = 0; i < l.pts.length; i++) {
+    const p = l.pts[i]!, q = l.pts[(i + 1) % l.pts.length]!, m = l.mids[i];
+    edges.push(m ? makeThreePointArc([p[0], p[1], p[2]], [m[0], m[1], m[2]], [q[0], q[1], q[2]]) : makeLine([p[0], p[1], p[2]], [q[0], q[1], q[2]]));
+  }
+  return t(assembleWire(edges).wrapped);
 }
 const wireOf = (pts: readonly V3[], closed: boolean): Raw => {
   const n = closed ? pts.length : pts.length - 1, edges = [];
@@ -192,10 +211,30 @@ export function fillet(a: Solid, edges: readonly EdgeH[], r: number): Rounded {
   const rep = reportOf(mk);
   return { solid: new Solid(mk.Shape()), report: rep, round: (e) => rep.fromEdge(e), rounded };
 }
-export function turn(a: Solid, axis: V3, degrees: number): Made {
-  const tr = t(new oc.gp_Trsf()); tr.SetRotation(t(new oc.gp_Ax1(t(new oc.gp_Pnt(0, 0, 0)), t(new oc.gp_Dir(axis[0], axis[1], axis[2])))), (degrees * Math.PI) / 180);
+export function turn(a: Solid, axis: V3, degrees: number, pivot: V3 = [0, 0, 0]): Made {
+  const tr = t(new oc.gp_Trsf()); tr.SetRotation(t(new oc.gp_Ax1(t(new oc.gp_Pnt(pivot[0], pivot[1], pivot[2])), t(new oc.gp_Dir(axis[0], axis[1], axis[2])))), (degrees * Math.PI) / 180);
   const mk = t(new oc.BRepBuilderAPI_Transform(a.raw, tr, true)); mk.Build(progress());
   return { solid: new Solid(mk.Shape()), report: reportOf(mk) };
+}
+/** the body moved by a vector */
+export function move(a: Solid, by: V3): Made {
+  const tr = t(new oc.gp_Trsf()); tr.SetTranslation(t(new oc.gp_Vec(by[0], by[1], by[2])));
+  const mk = t(new oc.BRepBuilderAPI_Transform(a.raw, tr, true)); mk.Build(progress());
+  return { solid: new Solid(mk.Shape()), report: reportOf(mk) };
+}
+export function common(a: Solid, b: Solid): Made { const op = t(new oc.BRepAlgoAPI_Common(a.raw, b.raw, progress())); if (!op.IsDone()) fail("the intersection failed"); return { solid: new Solid(op.Shape()), report: reportOf(op) }; }
+/** the edges of a body, every edge of a chamfer at one distance (the kernel follows edges that continue them, as for a round) */
+export function chamfer(a: Solid, edges: readonly EdgeH[], d: number): Rounded {
+  return guard("the chamfer", () => {
+    const mk = t(new oc.BRepFilletAPI_MakeChamfer(a.raw));
+    for (const e of edges) mk.Add(d, t(downcast(e.raw)));
+    const rounded: EdgeH[] = [];
+    for (let i = 1; i <= mk.NbContours(); i++) for (let j = 1; j <= mk.NbEdges(i); j++) rounded.push({ raw: t(mk.Edge(i, j)) });
+    mk.Build(progress());
+    if (!mk.IsDone()) fail("the chamfer could not be made at that size");
+    const rep = reportOf(mk);
+    return { solid: new Solid(mk.Shape()), report: rep, round: (e: EdgeH) => rep.fromEdge(e), rounded };
+  });
 }
 /** join faces that lie in one surface; the kernel's history of this is not available, so the engine recovers ids by `overlap` (E7, E9) */
 export function unify(a: Solid, keep: readonly EdgeH[] = []): Solid {

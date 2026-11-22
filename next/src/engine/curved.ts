@@ -34,7 +34,7 @@ function flatFaces(body: Body, sk: Sketch, point: V3, dir: V3, step: string): Bo
 kinds["revolve"] = { outputs: "body", run: (inputs, { step, age }) => {
   const sk = needSketch(inputs[0]), ax = (step.params.axis as { point: V3; dir: V3 } | undefined) ?? { point: [0, 0, 0] as V3, dir: [0, 0, 1] as V3 }, dir = unitV(ax.dir), deg = typeof step.params.deg === "number" ? step.params.deg : 360;
   profilePoints(sk); const face = profileFace(sk), p = K.revolve(face, ax.point, dir, deg), claims: Claim[] = [];
-  sidesFromProfile(sk, face, p.report, step.id, claims);
+  sidesFromProfile([sk], face, p.report, step.id, claims);
   if (deg < 360) claims.push({ id: mint(step.id, "start"), face: p.first }, { id: mint(step.id, "end"), face: p.last });
   return checked(flatFaces(carry(p.solid, p.report, [], claims, step.id, age), sk, ax.point, dir, step.id), "the revolve");
 } };
@@ -56,7 +56,7 @@ kinds["sweep"] = { outputs: "body", run: (inputs, { step, age }) => {
   const legs = spine.slice(0, -1).map((a, i) => ({ a, b: spine[i + 1]!, from: spine.slice(0, i + 1).reduce((s, q, j) => (j === 0 ? 0 : s + Math.hypot(...sub(q, spine[j - 1]!))), 0) }));
   const along = (f: K.FaceH) => { const c = K.facts(f).ce; let best = Infinity, at = 0; for (const l of legs) { const d = sub(l.b, l.a), len = Math.hypot(...d), t = Math.max(0, Math.min(1, dot(sub(c, l.a), d) / (len * len))), q: V3 = [l.a[0] + d[0] * t, l.a[1] + d[1] * t, l.a[2] + d[2] * t], dist = Math.hypot(...sub(c, q)); if (dist < best - 1e-9) { best = dist; at = l.from + t * len; } } return at; };
   const claims: Claim[] = [{ id: mint(step.id, "start"), face: p.first }, { id: mint(step.id, "end"), face: p.last }];
-  sidesFromProfile(prof, face, p.report, step.id, claims, along);
+  sidesFromProfile([prof], face, p.report, step.id, claims, along);
   return checked(fromClaims(p.solid, claims, step.id), "the sweep");
 } };
 
