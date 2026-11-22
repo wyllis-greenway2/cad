@@ -5,6 +5,7 @@ import { ParamError, type Table, canonical, resolve, scopeOf } from "./params.ts
 import { type Note, Body, RefLost } from "./lineage.ts";
 import { type Ctx, type Step, type Value, NoBody, Refusal, kinds, passthrough } from "./steps.ts";
 import { insertStep, moveStep, removeStep, swapWithInput, validateRecipe } from "./recipe.ts";
+import { CHANGES, MIN_FEATURE, changedNothing, sliverNotes } from "./clean.ts";
 import "./curved.ts"; // registers revolve, loft, sweep and shell
 import "./pull.ts"; // registers moveFace and offsetFace (pull modes 3 and 4)
 import "./sketch.ts"; // registers the constrained sketch (E49)
@@ -36,6 +37,8 @@ export class Engine {
   /** told which step is about to run, so a host that has to stop the kernel knows which one it was */
   watch: ((id: string) => void) | null = null;
   /** the named numbers (E66) and how each step's numbers came out with them: a step whose numbers are the same is not run again */
+  /** the smallest feature the model allows (E27, E33); 0 turns the check off */
+  minFeature = MIN_FEATURE;
   private table: Table = {};
   private lookup = scopeOf({});
   private used = new Map<string, string>();
@@ -144,7 +147,15 @@ export class Engine {
     else if (!kind) { value = new NoBody(); status = { kind: "flagged", why: `there is no step kind ${step.kind}` }; }
     else if ("error" in pr) { status = { kind: "flagged", why: pr.error }; value = passthrough(kind, inputs, step); }
     else {
-      try { value = K.scoped(() => kind.run(inputs, ctx)); }
+      try {
+        value = K.scoped(() => kind.run(inputs, ctx));
+        const first = inputs[0];
+        if (value instanceof Body && !inputs.includes(value)) {
+          const mode = (step.params as { mode?: string }).mode;
+          if (CHANGES.has(step.kind) && first instanceof Body && first.faces.length && !(step.kind === "combine" && mode === "keep") && changedNothing(first, value)) status = { kind: "flagged", why: `this step is valid but changed nothing (the result is the body it was given)` };
+          else if (this.minFeature > 0) value.notes.push(...K.scoped(() => sliverNotes(value as Body, this.minFeature)));
+        }
+      }
       catch (e) {
         status = e instanceof RefLost ? { kind: "orphaned", why: e.message } : e instanceof Refusal ? { kind: "flagged", why: e.message, victims: e.victims } : { kind: "flagged", why: e instanceof Error ? e.message : "the kernel could not make this step" };
         value = passthrough(kind, inputs, step);

@@ -92,7 +92,7 @@ export const unusedNames = (d: Doc, live: readonly string[]): string[] => Object
 export { MISSING };
 
 // ---------------------------------------------------------------- undo and redo
-export interface Entry { label: string; doc: Doc; merge?: string }
+export interface Entry { label: string; doc: Doc; merge?: string; /** an automatic cleanup (E33): what it cleaned, so that undoing it is remembered and it is not done again */ auto?: string }
 /**
  * The history of a document: every state, in order, with a pointer. `do` puts a new state after the pointer (what was after it, the redo, is gone); a change given the same `merge` key as the one before it
  * (a number dragged: one change to the person) replaces it instead of adding one. The states share their steps, so a long history costs little.
@@ -105,14 +105,17 @@ export class History {
   get canRedo(): boolean { return this.at < this.entries.length - 1; }
   /** what undo would undo and redo would redo, in the words the change was given */
   get next(): { undo: string | null; redo: string | null } { return { undo: this.canUndo ? this.entries[this.at]!.label : null, redo: this.canRedo ? this.entries[this.at + 1]!.label : null }; }
-  do(doc: Doc, label: string, opts: { merge?: string } = {}): Doc {
+  private declinedKeys = new Set<string>();
+  /** automatic changes the person undid: not made again (E33) */
+  declined(key: string): boolean { return this.declinedKeys.has(key); }
+  do(doc: Doc, label: string, opts: { merge?: string; auto?: string } = {}): Doc {
     if (opts.merge !== undefined && opts.merge === this.lastMerge && this.at === this.entries.length - 1 && this.at > 0 && this.saved !== this.at) { this.entries[this.at] = { label, doc, merge: opts.merge }; return doc; }
-    this.entries = [...this.entries.slice(0, this.at + 1), { label, doc, merge: opts.merge }]; this.at++; this.lastMerge = opts.merge;
+    this.entries = [...this.entries.slice(0, this.at + 1), { label, doc, merge: opts.merge, ...(opts.auto ? { auto: opts.auto } : {}) }]; this.at++; this.lastMerge = opts.merge;
     if (this.saved > this.at - 1 && this.saved >= this.at) this.saved = -1; // the saved state was in the redo that is gone
     if (this.entries.length > this.limit) { this.entries.shift(); this.at--; if (this.saved >= 0) this.saved--; }
     return doc;
   }
-  undo(): Doc | null { if (!this.canUndo) return null; this.at--; this.lastMerge = undefined; return this.doc; }
+  undo(): Doc | null { if (!this.canUndo) return null; const undone = this.entries[this.at]!; if (undone.auto) this.declinedKeys.add(undone.auto); this.at--; this.lastMerge = undefined; return this.doc; }
   redo(): Doc | null { if (!this.canRedo) return null; this.at++; this.lastMerge = undefined; return this.doc; }
   /** the document as saved: the state now is the saved one */
   markSaved(): void { this.saved = this.at; this.lastMerge = undefined; }

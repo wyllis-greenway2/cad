@@ -7,7 +7,7 @@ import { type EdgeRef, type Id, baseKey, edgeKey, edgeRef, idKey, isPieceOf, min
 export interface FaceRec { id: Id; alias: Id[]; h: K.FaceH; /** the engine could not name this face from the step's history or rules (E7): a defect, reported */ defect: boolean }
 /** a body: a solid the model remembers by a name (E38). `faces` are the faces in it; `alias` the other names it answers to after bodies were joined (E39) */
 export interface BodyRec { id: Id; alias: Id[]; faces: FaceRec[] }
-export interface Note { kind: "split" | "tie" | "defect" | "merged" | "dropped" | "unjoined"; text: string }
+export interface Note { kind: "split" | "tie" | "defect" | "merged" | "dropped" | "unjoined" | "sliver"; text: string }
 export interface EdgeRec { h: K.EdgeH; faces: FaceRec[]; /** two faces beside it: the edge's name */ ref: EdgeRef | null }
 
 /** a reference that finds nothing: the step it belongs to is orphaned (E10) */

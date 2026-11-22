@@ -94,6 +94,7 @@ export function edgeCircle(e: EdgeH): { c: V3; r: number; normal: V3; closed: bo
   for (const q of P.slice(3)) if (Math.abs(Math.hypot(q[0] - ctr[0], q[1] - ctr[1], q[2] - ctr[2]) - r) > 1e-7 * Math.max(1, r)) return null;
   return { c: ctr, r, normal: [n[0] / L, n[1] / L, n[2] / L], closed };
 }
+export function edgeLength(e: EdgeH): number { return scoped(() => { const p = t(new oc.GProp_GProps()); oc.BRepGProp.LinearProperties(e.raw, p, false, false); return p.Mass(); }); }
 export const faceEdges = (f: FaceH): EdgeH[] => unique(f.raw, "TopAbs_EDGE").map((r) => ({ raw: t(r) }));
 /** the area two faces share (a boolean common): used to recover ids where the kernel says nothing (E7) */
 export function overlap(a: FaceH, b: FaceH): number {

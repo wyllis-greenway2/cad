@@ -29,7 +29,7 @@ function changedConstraints(engine: Engine, change: Change): string[] {
   const old = new Map(((engine.step(change.step).params.constraints ?? []) as { id: string }[]).map((c) => [c.id, JSON.stringify(c)])), now = (change.params.constraints ?? []) as { id: string }[];
   return now.filter((c) => old.get(c.id) !== JSON.stringify(c)).map((c) => c.id);
 }
-const NOTEWORTHY = new Set(["defect", "tie"]);
+const NOTEWORTHY = new Set(["defect", "tie", "sliver"]);
 
 /** build the change on a copy and say what happened. `engine` is not touched. */
 export function trial(engine: Engine, change: Change): Verdict {
@@ -90,7 +90,7 @@ function scan(engine: Engine, value: number, opts: { lo?: number; hi?: number; s
 const spell = (p: Probe): string => p.ok.length ? "works " + p.ok.map((r) => `from ${r.from.toFixed(3)} to ${r.to.toFixed(3)}`).join(" and ") : `works nowhere in ${p.looked.from.toFixed(3)} to ${p.looked.to.toFixed(3)}`;
 
 /** the number a step is mostly about, for the kinds that have one */
-const MAIN: Record<string, string> = { push: "dist", moveFace: "dist", offsetFace: "dist", round: "size", extrude: "d", dimension: "value", turn: "deg", move: "", revolve: "deg" };
+export const MAIN: Record<string, string> = { push: "dist", moveFace: "dist", offsetFace: "dist", round: "size", extrude: "d", dimension: "value", turn: "deg", move: "", revolve: "deg" };
 
 export type OptionKind = "range" | "continue" | "editOriginal" | "swap" | "remove";
 export interface Option { kind: OptionKind; label: string; applies: boolean; /** why not, or what it did when tried */ why: string; /** tried on a copy: did it work, no worse than now */ worked: boolean | null; change?: Change; probe?: Probe }
