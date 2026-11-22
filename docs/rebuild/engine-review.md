@@ -2,7 +2,7 @@
 
 Measured: `next/src/engine` is 306 KB in 3 500 lines (the lines are long; formatting is a separate matter); 42 dev checks, 2 600 lines. Nothing here changes behaviour; each item is done under the existing checks.
 
-**Done (`in_1534`, `in_1535`): items 1 to 9** (marked *done*); 10, 11 are left.
+**Done (`in_1534`, `in_1535`): **all the items** (marked *done*; item 10 turned out to be two places, not three).
 
 ## Merge or generalise (the real duplication)
 1. *done* **The two solvers repeat the verdict code.** `solver.ts` (solveOnce) and `placement.ts` (place) each build the unknowns, run the restarts, find the rank, the null space, the free owners, the redundant and implied constraints and the conflict by QuickXplain. They share a `kit` of helpers, not the analysis. One `analyse(problem)` over `{ names, x, frozen, rows, seeds }` returns the verdict; each solver only builds its rows. Saves about 60 dense lines, and every later relation (a third kind of part) gets the verdict free. Medium effort; the 2D solver checks (solver, sketch, refusal, range) and the placement checks pin it.
@@ -16,8 +16,8 @@ Measured: `next/src/engine` is 306 KB in 3 500 lines (the lines are long; format
 
 ## Smaller
 9. *done* **23 dev checks repeat `check`, `near`, `st`, `body`** (and 17 `near`): `dev/lib.ts`.
-10. **Relation names are in three places**: the solver's table, `suggest.ts` `NAMES`, `hold.ts` `HoldKind`. Derive the last two from the first.
-11. **Lineage has four near-copies**: `find`, `findEdges`, `findVertices`, `bodyOf` (match a reference to the pieces and aliases of ids). One matcher.
+10. *done* **Relation names are in three places**: the solver's table, `suggest.ts` `NAMES`, `hold.ts` `HoldKind`. Derive the last two from the first.
+11. *done* **Lineage has four near-copies**: `find`, `findEdges`, `findVertices`, `bodyOf` (match a reference to the pieces and aliases of ids). One matcher.
 12. **Three failure channels** (`RefLost`, `Refusal`, a plain error) mapped to a status in `engine.compute`: fine as it is; not worth touching.
 
 ## Not worth merging

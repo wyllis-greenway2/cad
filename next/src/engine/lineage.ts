@@ -6,6 +6,8 @@ import { type EdgeRef, type Id, type VertexRef, baseKey, edgeKey, edgeRef, idKey
 
 export interface FaceRec { id: Id; alias: Id[]; h: K.FaceH; /** the engine could not name this face from the step's history or rules (E7): a defect, reported */ defect: boolean }
 /** a body: a solid the model remembers by a name (E38). `faces` are the faces in it; `alias` the other names it answers to after bodies were joined (E39) */
+/** a face or a body answers to a reference when the reference names it, one of the names it answers to (after joins, E8, E39), or a piece of either: the one rule every lookup by id uses */
+export const answers = (r: { id: Id; alias: readonly Id[] }, ref: Id): boolean => isPieceOf(r.id, ref) || r.alias.some((a) => isPieceOf(a, ref));
 export interface BodyRec { id: Id; alias: Id[]; faces: FaceRec[] }
 export interface Note { kind: "split" | "tie" | "defect" | "merged" | "dropped" | "unjoined" | "sliver" | "free"; text: string }
 export interface VertexRec { p: K.V3; faces: FaceRec[]; /** the faces that meet there, if three or more: the vertex's name (E6) */ ref: VertexRef | null }
@@ -28,7 +30,7 @@ export class Body {
   release(): void { this.solid.release(); this.es = null; this.vs = null; }
 
   /** the faces a reference means: the face, or the pieces it split into, found through any of its ids (E8, E9) */
-  find(id: Id): FaceRec[] { return this.faces.filter((f) => isPieceOf(f.id, id) || f.alias.some((a) => isPieceOf(a, id))); }
+  find(id: Id): FaceRec[] { return this.faces.filter((f) => answers(f, id)); }
   /** the one face a reference means, or lost; more than one is a split the step must say how to take (E8) */
   one(id: Id): FaceRec {
     const s = this.find(id);
@@ -61,15 +63,13 @@ export class Body {
   }
   /** the vertices a reference means: the ones where exactly the faces it names (or their pieces) meet */
   findVertices(ref: VertexRef): VertexRec[] {
-    const hit = (f: FaceRec, id: Id) => isPieceOf(f.id, id) || f.alias.some((a) => isPieceOf(a, id));
-    const out = this.vertices().filter((v) => v.faces.length === ref.faces.length && ref.faces.every((id) => v.faces.some((f) => hit(f, id))));
+    const out = this.vertices().filter((v) => v.faces.length === ref.faces.length && ref.faces.every((id) => v.faces.some((f) => answers(f, id))));
     if (!out.length) throw new RefLost(`the vertex where ${ref.faces.map(show).join(", ")} meet`);
     return out;
   }
   /** the edges a reference means: every edge between the faces (or their pieces) it names (E8) */
   findEdges(ref: EdgeRef): EdgeRec[] {
-    const hit = (f: FaceRec, id: Id) => isPieceOf(f.id, id) || f.alias.some((a) => isPieceOf(a, id));
-    const out = this.edges().filter((e) => e.faces.length === 2 && ((hit(e.faces[0]!, ref.a) && hit(e.faces[1]!, ref.b)) || (hit(e.faces[0]!, ref.b) && hit(e.faces[1]!, ref.a))));
+    const out = this.edges().filter((e) => e.faces.length === 2 && ((answers(e.faces[0]!, ref.a) && answers(e.faces[1]!, ref.b)) || (answers(e.faces[0]!, ref.b) && answers(e.faces[1]!, ref.a))));
     if (!out.length) throw new RefLost(`the edge between ${show(ref.a)} and ${show(ref.b)}`);
     return out;
   }
@@ -144,7 +144,7 @@ function joinFamilies(body: Body, step: string, age: Age): Body {
     const keys = group.map((f) => baseKey(f.id)).filter((k) => body.kept.has(k));
     if (new Set(group.flatMap((f) => keys.includes(baseKey(f.id)) ? [idKey(f.id)] : [])).size > 1) continue; // two pieces of an imprint in one group
     const all = group.flatMap((f) => [f.id, ...f.alias]).sort(lead), head: Id = { ...all[0]!, pieces: [] }, taken = new Set(all.map(idKey));
-    const loose = group.filter((f) => ![f.id, ...f.alias].some((x) => isPieceOf(x, head))).sort((p, q) => { const a = K.facts(p.h), b = K.facts(q.h); return b.area - a.area || a.ce[0] - b.ce[0] || a.ce[1] - b.ce[1] || a.ce[2] - b.ce[2]; });
+    const loose = group.filter((f) => !answers(f, head)).sort((p, q) => { const a = K.facts(p.h), b = K.facts(q.h); return b.area - a.area || a.ce[0] - b.ce[0] || a.ce[1] - b.ce[1] || a.ce[2] - b.ce[2]; });
     let n = 0;
     for (const f of loose) { let id = piece(head, n++); while (taken.has(idKey(id))) id = piece(head, n++); taken.add(idKey(id)); f.alias.push(id); }
     if (loose.length) body.notes.push({ kind: "unjoined", text: `${group.length} faces on one surface answer to ${show(head)} (the kernel keeps them apart; ${step})` });
@@ -220,7 +220,7 @@ export function labelBodies(body: Body, inputs: readonly Body[], step: string, a
 }
 /** the body a reference means (a body's name, or the name of a face in it); lost when there is none (E10) */
 export function bodyOf(scene: Body, ref: Id): BodyRec {
-  const hit = scene.bodies.filter((b) => isPieceOf(b.id, ref) || b.alias.some((a) => isPieceOf(a, ref)) || b.faces.some((f) => isPieceOf(f.id, ref) || f.alias.some((a) => isPieceOf(a, ref))));
+  const hit = scene.bodies.filter((b) => answers(b, ref) || b.faces.some((f) => answers(f, ref)));
   if (!hit.length) throw new RefLost(show(ref));
   if (hit.length > 1) throw new Error(`${show(ref)} is in ${hit.length} bodies: say which`);
   return hit[0]!;
