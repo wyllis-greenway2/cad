@@ -26,7 +26,7 @@ export const shellRecipe = (c: C): Step[] => [
 /** a circle swept along an L-shaped path, and along a quarter turn... (the L here) */
 export const sweepRecipe = (c: C): Step[] => [
   { id: "pr", kind: "sketchCircle", params: { plane: "YZ", r: c.r }, inputs: [] },
-  { id: "pa", kind: "sketchPath", params: { plane: "XZ", points: [[0, 0], [c.l1, 0], [c.l1, c.l2]] }, inputs: [] },
+  { id: "pa", kind: "sketchPolygon", params: { plane: "XZ", open: true, points: [[0, 0], [c.l1, 0], [c.l1, c.l2]] }, inputs: [] },
   { id: "P", kind: "sweep", params: {}, inputs: ["pr", "pa"] },
 ];
 /** a revolved shaft, hollowed from the top, then its base rim rounded: curved faces through three steps */
@@ -36,7 +36,7 @@ export const chainRecipe = (c: C): Step[] => {
     { id: "sk", kind: "sketchPolygon", params: { plane: "XZ", points: [[0, 0], [c.r1, 0], [c.r1, c.h1], [c.r2, c.h1], [c.r2, c.H + 12], [0, c.H + 12]] }, inputs: [] },
     { id: "R", kind: "revolve", params: { deg: 360 }, inputs: ["sk"] },
     { id: "S", kind: "shell", params: { face: side(4), t: Math.min(c.t, 1.5) }, inputs: ["R"] },
-    { id: "F", kind: "fillet", params: { edge: edgeRef(side(0), side(1)), r: c.rf }, inputs: ["S"] },
+    { id: "F", kind: "round", params: { edges: [edgeRef(side(0), side(1))], size: c.rf }, inputs: ["S"] },
   ];
 };
 export const families: Record<string, (c: C) => Step[]> = { revolve: revolveRecipe, loft: loftRecipe, shell: shellRecipe, sweep: sweepRecipe, chain: chainRecipe };

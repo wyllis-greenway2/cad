@@ -13,8 +13,8 @@ export function recipe(p: P): Step[] {
     { id: "A", kind: "extrude", params: { d: p.d }, inputs: ["sk0"] },
     { id: "sk1", kind: "sketchOnFace", params: { face: top, lines: [{ from: { edge: edgeRef(top, side(1)), dist: p.off } }] }, inputs: ["A"] },
     { id: "B", kind: "imprint", params: {}, inputs: ["A", "sk1"] },
-    { id: "C", kind: "extrudeRegion", params: { region: piece(top, 1), t: p.t }, inputs: ["B"] },
+    { id: "C", kind: "push", params: { face: piece(top, 1), dist: p.t }, inputs: ["B"] },
     { id: "D", kind: "dimension", params: { a: side(3), b: side(1), value: p.width }, inputs: ["C"] },
-    { id: "E", kind: "fillet", params: { edge: edgeRef(piece(top, 0), side(3)), r: p.r }, inputs: ["D"] },
+    { id: "E", kind: "round", params: { edges: [edgeRef(piece(top, 0), side(3))], size: p.r }, inputs: ["D"] },
   ];
 }

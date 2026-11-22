@@ -6156,3 +6156,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1481 — 2026-11-22 — directive
 > yes start on the converter
+
+## in_1482 — 2026-11-22 — directive
+> I am not really worried about keeping my old models. I just want the engine to work moving forward
+
+## in_1483 — 2026-11-22 — directive
+> In fact i dont really care about old models at all, i only want to look at them as an example of models that were a problem for the last enginw. I am okay with stripping out the converter entirely if you think it makwa swnsw. I want the leanest simpliest robust engine possible

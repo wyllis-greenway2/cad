@@ -80,11 +80,6 @@ export function facts(f: FaceH): Facts {
 }
 export function edgeEnds(e: EdgeH): [V3, V3] { const E = new Edge(downcast(e.raw)), a = E.startPoint, b = E.endPoint, out: [V3, V3] = [[a.x, a.y, a.z], [b.x, b.y, b.z]]; drop(a, b, E); return out; }
 export function edgeMid(e: EdgeH): V3 { const E = new Edge(downcast(e.raw)), c = E.pointAt(0.5), out: V3 = [c.x, c.y, c.z]; drop(c, E); return out; }
-/** how far a point is from an edge (the shortest distance to the curve, wherever its ends or its start are) */
-export function distanceToEdge(p: V3, e: EdgeH): number {
-  const v = t(new oc.BRepBuilderAPI_MakeVertex(t(new oc.gp_Pnt(p[0], p[1], p[2])))), d = t(new oc.BRepExtrema_DistShapeShape());
-  d.LoadS1(v.Vertex()); d.LoadS2(e.raw); return d.Perform(progress()) ? d.Value() : Infinity;
-}
 export const faceEdges = (f: FaceH): EdgeH[] => unique(f.raw, "TopAbs_EDGE").map((r) => ({ raw: t(r) }));
 /** the area two faces share (a boolean common): used to recover ids where the kernel says nothing (E7) */
 export function overlap(a: FaceH, b: FaceH): number {
@@ -204,17 +199,20 @@ export function split(a: Solid, segments: readonly (readonly [V3, V3])[]): Made 
   if (sp.HasErrors()) fail("the imprint failed");
   return { solid: new Solid(sp.Shape()), report: reportOf(sp) };
 }
-/** `rounded`: the edges the kernel actually rounded: it follows an edge along the ones that continue it (tangent), so this can be more than were asked for */
+/** `rounded`: the edges the kernel actually modified: it follows an edge along the ones that continue it (tangent), so this can be more than were asked for */
 export interface Rounded extends Made { round(e: EdgeH): FaceH[]; rounded: EdgeH[] }
-export function fillet(a: Solid, edges: readonly EdgeH[], r: number): Rounded {
-  const mk = t(new oc.BRepFilletAPI_MakeFillet(a.raw, oc.ChFi3d_FilletShape.ChFi3d_Rational));
-  for (const e of edges) mk.Add(r, t(downcast(e.raw)));
-  const rounded: EdgeH[] = [];
-  for (let i = 1; i <= mk.NbContours(); i++) for (let j = 1; j <= mk.NbEdges(i); j++) rounded.push({ raw: t(mk.Edge(i, j)) });
-  mk.Build(progress());
-  if (!mk.IsDone()) fail("the fillet could not be made at that size");
-  const rep = reportOf(mk);
-  return { solid: new Solid(mk.Shape()), report: rep, round: (e) => rep.fromEdge(e), rounded };
+/** a round (`fillet`) or a flat cut (`chamfer`) of the given size on the given edges */
+export function roundEdges(a: Solid, edges: readonly EdgeH[], size: number, mode: "fillet" | "chamfer"): Rounded {
+  return guard(`the ${mode}`, () => {
+    const mk = mode === "fillet" ? t(new oc.BRepFilletAPI_MakeFillet(a.raw, oc.ChFi3d_FilletShape.ChFi3d_Rational)) : t(new oc.BRepFilletAPI_MakeChamfer(a.raw));
+    for (const e of edges) mk.Add(size, t(downcast(e.raw)));
+    const rounded: EdgeH[] = [];
+    for (let i = 1; i <= mk.NbContours(); i++) for (let j = 1; j <= mk.NbEdges(i); j++) rounded.push({ raw: t(mk.Edge(i, j)) });
+    mk.Build(progress());
+    if (!mk.IsDone()) fail(`the ${mode} could not be made at that size`);
+    const rep = reportOf(mk);
+    return { solid: new Solid(mk.Shape()), report: rep, round: (e: EdgeH) => rep.fromEdge(e), rounded };
+  });
 }
 export function turn(a: Solid, axis: V3, degrees: number, pivot: V3 = [0, 0, 0]): Made {
   const tr = t(new oc.gp_Trsf()); tr.SetRotation(t(new oc.gp_Ax1(t(new oc.gp_Pnt(pivot[0], pivot[1], pivot[2])), t(new oc.gp_Dir(axis[0], axis[1], axis[2])))), (degrees * Math.PI) / 180);
@@ -228,19 +226,6 @@ export function move(a: Solid, by: V3): Made {
   return { solid: new Solid(mk.Shape()), report: reportOf(mk) };
 }
 export function common(a: Solid, b: Solid): Made { const op = t(new oc.BRepAlgoAPI_Common(a.raw, b.raw, progress())); if (!op.IsDone()) fail("the intersection failed"); return { solid: new Solid(op.Shape()), report: reportOf(op) }; }
-/** the edges of a body, every edge of a chamfer at one distance (the kernel follows edges that continue them, as for a round) */
-export function chamfer(a: Solid, edges: readonly EdgeH[], d: number): Rounded {
-  return guard("the chamfer", () => {
-    const mk = t(new oc.BRepFilletAPI_MakeChamfer(a.raw));
-    for (const e of edges) mk.Add(d, t(downcast(e.raw)));
-    const rounded: EdgeH[] = [];
-    for (let i = 1; i <= mk.NbContours(); i++) for (let j = 1; j <= mk.NbEdges(i); j++) rounded.push({ raw: t(mk.Edge(i, j)) });
-    mk.Build(progress());
-    if (!mk.IsDone()) fail("the chamfer could not be made at that size");
-    const rep = reportOf(mk);
-    return { solid: new Solid(mk.Shape()), report: rep, round: (e: EdgeH) => rep.fromEdge(e), rounded };
-  });
-}
 /** join faces that lie in one surface; the kernel's history of this is not available, so the engine recovers ids by `overlap` (E7, E9) */
 export function unify(a: Solid, keep: readonly EdgeH[] = []): Solid {
   const u = t(new oc.ShapeUpgrade_UnifySameDomain(a.raw, true, true, false));

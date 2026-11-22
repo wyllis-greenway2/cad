@@ -21,7 +21,7 @@ console.log("lines:", e.lines("E").length, "(body edges) +", e.lines("sk1").leng
 const edits: [string, string, (p: any) => any][] = [
   ["the line moves to 20 from the right", "sk1", (p) => ({ ...p, lines: [{ from: { ...p.lines[0].from, dist: 20 } }] })],
   ["the body is wider (60)", "sk0", () => ({ points: [[0, 0], [60, 0], [60, 30], [0, 30]] })],
-  ["the tower is taller (9)", "C", (p) => ({ ...p, t: 9 })],
+  ["the tower is taller (9)", "C", (p) => ({ ...p, dist: 9 })],
   ["a line that crosses nothing (off 45)", "sk1", (p) => ({ ...p, lines: [{ from: { ...p.lines[0].from, dist: 45 } }] })],
 ];
 for (const [label, id, f] of edits) {

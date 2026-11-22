@@ -22,7 +22,7 @@ function newStep(id: string, input: string): Step {
   switch (pick(["turn", "push", "fillet", "dimension", "push", "turn"])) {
     case "turn": return { id, kind: "turn", params: { axis: pick([[0, 0, 1], [0.3, 0.5, 0.8], [1, 0, 0]]), deg: pick([10, 37, 90]) }, inputs: [input] };
     case "push": return { id, kind: "push", params: { face: pick([side(0), side(1), side(2), side(3), top]), dist: pick([2, 5, -2, -4, 12]) }, inputs: [input] };
-    case "fillet": return { id, kind: "fillet", params: { edge: edgeRef(pick([top, piece(top, 0)]), pick([side(0), side(1), side(2), side(3)])), r: pick([0.5, 1.5, 4, 9]) }, inputs: [input] };
+    case "fillet": return { id, kind: "round", params: { edges: [edgeRef(pick([top, piece(top, 0)]), pick([side(0), side(1), side(2), side(3)]))], size: pick([0.5, 1.5, 4, 9]) }, inputs: [input] };
     default: return { id, kind: "dimension", params: { a: side(3), b: side(1), value: pick([30, 50, 80]) }, inputs: [input] };
   }
 }
