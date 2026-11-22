@@ -6,7 +6,7 @@ import { edgeRef, mint } from "../src/engine/id.ts";
 import { options, probe, trial } from "../src/engine/failure.ts";
 import type { Step } from "../src/engine/steps.ts";
 await initKernel();
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
+import { check, fail, failureCount } from "./lib.ts";
 const W = 40, H = 30, D = 10, line = (i: number) => mint("sk", "line", i), side = (i: number) => mint("A", "side", line(i)), top = mint("A", "end");
 const block: Step[] = [{ id: "sk", kind: "sketchPolygon", params: { points: [[0, 0], [W, 0], [W, H], [0, H]] }, inputs: [] }, { id: "A", kind: "extrude", params: { d: D }, inputs: ["sk"] }];
 const chamfered = (c: number): Step[] => [...block, { id: "C", kind: "round", params: { mode: "chamfer", size: c, edges: [0, 1, 2, 3].map((i) => edgeRef(top, side(i))) }, inputs: ["A"] }];
@@ -50,4 +50,4 @@ console.log("3. the options for a failed step");
     check("the steps after the failed one are not blamed (nothing is applied)", e.result("C").status.kind === "flagged"); }
   e.release();
 }
-console.log(failures ? `\n${failures} failures` : "\nno failure"); process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failureCount()` : "\nno failure"); process.exit(failureCount() ? 1 : 0);

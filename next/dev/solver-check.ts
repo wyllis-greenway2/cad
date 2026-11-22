@@ -3,7 +3,7 @@
 import { solve, validate, type Constraint, type System } from "../src/engine/solver.ts";
 const N = Number(process.argv[2] ?? 200); let seed = Number(process.argv[3] ?? 1);
 const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
+import { check, fail, failureCount } from "./lib.ts";
 const near = (a: number, b: number, t = 1e-7) => Math.abs(a - b) <= t;
 const pt = (id: string, x: number, y: number, fixed = false) => ({ id, x, y, fixed });
 const rect = (extra: Constraint[] = [], fixA = true): System => ({
@@ -123,4 +123,4 @@ console.log("8. how long a solve takes (the budget of a drag step is to settle, 
   console.log(`   a wrong constraint on a chain of 40 points: the conflict (${wr.verdict.conflict.length} constraints) took ${(t4 - t3).toFixed(0)} ms`);
   check("the conflict names the wrong constraint", wr.verdict.kind === "over" && wr.verdict.conflict.includes("wrong"), JSON.stringify(wr.verdict.conflict.slice(0, 6)));
 }
-console.log(failures ? `\n${failures} failures` : "\nno failure"); process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failureCount()` : "\nno failure"); process.exit(failureCount() ? 1 : 0);

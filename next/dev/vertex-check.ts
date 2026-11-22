@@ -8,7 +8,7 @@ import { rectangle } from "../src/engine/sketch.ts";
 import { referenceSet } from "../src/interaction/refs.ts";
 import type { Sketch, Step } from "../src/engine/steps.ts";
 await initKernel();
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
+import { check, fail, failureCount } from "./lib.ts";
 const st = (e: Engine, id: string) => e.result(id).status as { kind: string; why?: string };
 const body = (e: Engine, id: string) => e.result(id).value as Body;
 const box = (w: number): Step[] => [{ id: "s", kind: "sketchPolygon", params: { points: [[0, 0], [w, 0], [w, 20], [0, 20]] }, inputs: [] }, { id: "A", kind: "extrude", params: { d: 10 }, inputs: ["s"] }];
@@ -44,5 +44,5 @@ console.log("3. a vertex as a sketch anchor: held where it is, followed when the
   const gone = new Engine([...box(30), { ...sk, params: { ...sk.params, anchors: [{ id: "pin", vertex: vertexRef([top, side(0), mint("A", "side", "nope")]) }] } }]); gone.build();
   check("an anchor on a vertex that is gone orphans the sketch, in words", st(gone, "k").kind === "orphaned" && /vertex/.test(st(gone, "k").why ?? ""), st(gone, "k").why); gone.release(); e.release();
 }
-console.log(failures ? `\n${failures} failure(s)` : "\nno failure");
-process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failure(s)` : "\nno failure");
+process.exit(failureCount() ? 1 : 0);

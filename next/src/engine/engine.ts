@@ -5,7 +5,7 @@ import { ParamError, type Table, canonical, resolve, scopeOf } from "./params.ts
 import { type Note, Body, RefLost } from "./lineage.ts";
 import { type Ctx, type Step, type Value, NoBody, Refusal, kinds, passthrough } from "./steps.ts";
 import { insertStep, moveStep, removeStep, swapWithInput, validateRecipe } from "./recipe.ts";
-import { CHANGES, MIN_FEATURE, changedNothing, sliverNotes } from "./clean.ts";
+import { MIN_FEATURE, changedNothing, sliverNotes } from "./clean.ts";
 import "./curved.ts"; // registers revolve, loft, sweep and shell
 import "./pull.ts"; // registers moveFace and offsetFace (pull modes 3 and 4)
 import "./sketch.ts"; // registers the constrained sketch (E49)
@@ -156,7 +156,7 @@ export class Engine {
         const first = inputs[0];
         if (value instanceof Body && !inputs.includes(value)) {
           const mode = (step.params as { mode?: string }).mode;
-          if (CHANGES.has(step.kind) && first instanceof Body && first.faces.length && !(step.kind === "combine" && mode === "keep") && changedNothing(first, value)) status = { kind: "flagged", why: `this step is valid but changed nothing (the result is the body it was given)` };
+          if (kind.changes && first instanceof Body && first.faces.length && !(step.kind === "combine" && mode === "keep") && changedNothing(first, value)) status = { kind: "flagged", why: `this step is valid but changed nothing (the result is the body it was given)` };
           else if (this.minFeature > 0) value.notes.push(...K.scoped(() => sliverNotes(value as Body, this.minFeature)));
         }
       }

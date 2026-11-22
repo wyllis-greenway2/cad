@@ -12,7 +12,7 @@ import type { Sketch, Step } from "../src/engine/steps.ts";
 await initKernel();
 const N = Number(process.argv[2] ?? 300); let seed = Number(process.argv[3] ?? 1);
 const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
+import { check, fail, failureCount } from "./lib.ts";
 const near = (a: number, b: number, t = 1e-9) => Math.abs(a - b) <= t;
 const P = (key: string, x: number, y: number): Ref => ({ key, kind: "point", name: key, origin: "drawn", p: [x, y], visible: true });
 const L = (key: string, a: Pt, b: Pt): Ref => ({ key, kind: "line", name: key, origin: "drawn", a, b, visible: true });
@@ -96,4 +96,4 @@ console.log("5. the reference set from a real sketch and a real body");
   const ax = hold([5, 0.2], refs.filter((r) => r.kind === "axis"), { what: "point" }, { reach: 0.5 }); check("near a world axis: on it (placed only: no constraint is drafted)", ax.taken[0]?.kind === "onAxis" && ax.taken[0]!.draft === null);
   e.release();
 }
-console.log(failures ? `\n${failures} failures` : "\nno failure"); process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failureCount()` : "\nno failure"); process.exit(failureCount() ? 1 : 0);

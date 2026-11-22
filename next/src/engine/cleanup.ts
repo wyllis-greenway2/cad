@@ -2,7 +2,8 @@
 // that leaves none, **only if the move is under the smallest feature**, and the move is an ordinary change in the document's history marked automatic, so undoing it is the history's own undo (nothing is changed
 // without a trace, E15). A number the person has undone is not moved again. The engine is only asked: each candidate is tried on a copy (`trial`), and a candidate that fails or makes something else worse is not applied.
 import { type Engine } from "./engine.ts";
-import { MAIN, trial } from "./failure.ts";
+import { trial } from "./failure.ts";
+import { kinds } from "./steps.ts";
 import { MIN_FEATURE } from "./clean.ts";
 import { type Doc, type History, editStep } from "./document.ts";
 
@@ -11,7 +12,7 @@ export interface Proposal { step: string; key: string; from: number; to: number;
 export function propose(engine: Engine, step: string, min: number = MIN_FEATURE): Proposal | null {
   const st = engine.step(step), r = engine.result(step); if (r.status.kind !== "ok") return null;
   const slivers = r.notes.filter((n) => n.kind === "sliver"); if (!slivers.length) return null;
-  const key = MAIN[st.kind]; if (!key) return null;
+  const key = kinds[st.kind]?.main; if (!key) return null;
   const v = engine.result(step) && (st.params[key] as unknown); if (typeof v !== "number") return null; // an expression is the person's: the number it comes to is not moved from here
   const width = Math.min(...slivers.map((n) => Number(/ ([0-9.]+) mm thick/.exec(n.text)?.[1] ?? min)));
   const deltas = [...new Set([width, min / 4, min / 2, (3 * min) / 4, min * 0.99].map((d) => Math.round(d * 1e9) / 1e9))].filter((d) => d > 0 && d < min).sort((a, b) => a - b);

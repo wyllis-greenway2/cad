@@ -1,8 +1,7 @@
 // A dev check (not a test, `in_1444`) for the placement solver of bodies (E60, `dec_body_placement`): pure data, no kernel.
 //   node --experimental-strip-types dev/placement-solver-check.ts
 import { type Mate, type Prim, type V3, place } from "../src/engine/placement.ts";
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
-const near = (a: number, b: number, t = 1e-6) => Math.abs(a - b) <= t * Math.max(1, Math.abs(b));
+import { check, fail, failureCount, near } from "./lib.ts";
 const plane = (p: V3, d: V3): Prim => ({ kind: "plane", p, d }), axis = (p: V3, d: V3): Prim => ({ kind: "axis", p, d });
 const A = { id: "A", free: false, pivot: [0, 0, 0] as V3 }, B = { id: "B", free: true, pivot: [0, 0, 20] as V3 };
 const apply = (pose: { pivot: V3; axis: V3; deg: number; by: V3 } | undefined, _pivot: V3, p: V3): V3 => { if (!pose) return p; const pivot = pose.pivot; const t = (pose.deg * Math.PI) / 180, [x, y, z] = [p[0] - pivot[0], p[1] - pivot[1], p[2] - pivot[2]], k = pose.axis, c = Math.cos(t), s = Math.sin(t), d = k[0] * x + k[1] * y + k[2] * z; return [pivot[0] + x * c + (k[1] * z - k[2] * y) * s + k[0] * d * (1 - c) + pose.by[0], pivot[1] + y * c + (k[2] * x - k[0] * z) * s + k[1] * d * (1 - c) + pose.by[1], pivot[2] + z * c + (k[0] * y - k[1] * x) * s + k[2] * d * (1 - c) + pose.by[2]]; };
@@ -66,5 +65,5 @@ console.log("6. random: a body placed by random flush, coaxial and angle mates l
   }
   check(`${n} random flush mates: the face ends opposite the other and ${"`gap`"} away`, bad === 0, `${bad} wrong`);
 }
-console.log(failures ? `\n${failures} failure(s)` : "\nno failure");
-process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failure(s)` : "\nno failure");
+process.exit(failureCount() ? 1 : 0);

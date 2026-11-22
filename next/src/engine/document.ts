@@ -3,7 +3,7 @@
 //  - saving is canonical (the same document is the same bytes; one step a line, so a version-control diff reads); opening checks everything and says in words what is wrong with a file
 //  - every change is a function from a document to a document; the history keeps the documents (steps are shared, not copied), so undo and redo are exact and cost no recomputation by themselves
 import { MISSING, insertStep, moveStep, removeStep, swapWithInput, validateRecipe } from "./recipe.ts";
-import { type Table, isReserved, namesIn, usedBy, valuesOf } from "./params.ts";
+import { type Table, canonical, isReserved, namesIn, usedBy, valuesOf } from "./params.ts";
 import type { Step } from "./steps.ts";
 
 export const FORMAT = "cad-document", VERSION = 1;
@@ -12,10 +12,9 @@ export class DocError extends Error {}
 export const emptyDoc = (): Doc => ({ format: FORMAT, version: VERSION, steps: [], parameters: {}, labels: {}, names: {} });
 
 // ---------------------------------------------------------------- save and open
-const sorted = (v: unknown): unknown => (Array.isArray(v) ? v.map(sorted) : v && typeof v === "object" ? Object.fromEntries(Object.keys(v as object).sort().map((k) => [k, sorted((v as Record<string, unknown>)[k])])) : v);
 /** the document as text: keys in order, one step to a line; the same document is always the same text */
 export function save(doc: Doc): string {
-  const j = (v: unknown) => JSON.stringify(sorted(v));
+  const j = canonical;
   return `{"format":${j(doc.format)},"version":${doc.version},\n"parameters":${j(doc.parameters)},\n"labels":${j(doc.labels)},\n"names":${j(doc.names)},\n"steps":[\n${doc.steps.map((s) => j(s)).join(",\n")}\n]}\n`;
 }
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);

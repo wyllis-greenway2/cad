@@ -3,15 +3,13 @@
 // Modes 3 and 4 are regions (spike 8, `prototypes/face-modes`): the slab or ring between the old and the new surface, kept on the side of each neighbour's plane where the face lies, added or taken.
 // The neighbours keep their ids, the moved face keeps its own, a face that collapses is gone (E10); a move past the limit is refused with the distance where it stops (E26).
 import * as K from "./kernel.ts";
+import { dot, sub, unit } from "./vec.ts";
 import { type Id } from "./id.ts";
 import { type Body, type Claim, type FaceRec, carry, fromClaims, unifyBody } from "./lineage.ts";
-import { type Ctx, type Sketch, type Step, checked, kinds, needBody, num } from "./steps.ts";
+import { type Ctx, type Sketch, type Step, checked, joinTool, kinds, meta, needBody, num } from "./steps.ts";
 import type { Engine } from "./engine.ts";
 
 type V3 = K.V3;
-const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const unit = (a: V3): V3 => { const l = Math.hypot(...a); return [a[0] / l, a[1] / l, a[2] / l]; };
 
 /** the faces that share an edge with `rec` */
 function neighbours(body: Body, rec: FaceRec): FaceRec[] {
@@ -31,8 +29,7 @@ function applyTool(body: Body, tool: K.Solid, isCap: (q: K.Facts) => boolean, mo
     const n = around.find((g) => coplanar(q, K.facts(g.h))); if (n) claims.push({ id: n.id, face: h });
   }
   const toolBody = ctx.temp(fromClaims(tool, claims, ctx.step.id, false));
-  const m = add ? K.fuse(body.solid, tool) : K.cut(body.solid, tool);
-  return unifyBody(ctx.temp(carry(m.solid, m.report, [body, toolBody], [], ctx.step.id, ctx.age)), ctx.step.id, ctx.age);
+  return joinTool(body, toolBody, add ? "add" : "cut", ctx);
 }
 
 /** the distance, up to `d`, at which the face has collapsed (the neighbours meet), by halving */
@@ -68,8 +65,7 @@ kinds["offsetFace"] = { outputs: "body", run: (inputs, ctx) => {
     const q = K.facts(h), n = around.find((g) => coplanar(q, K.facts(g.h))); if (n) claims.push({ id: n.id, face: h });
   }
   const toolBody = ctx.temp(fromClaims(reg.tool, claims, ctx.step.id, false));
-  const m = d > 0 ? K.fuse(body.solid, reg.tool) : K.cut(body.solid, reg.tool);
-  return checked(unifyBody(ctx.temp(carry(m.solid, m.report, [body, toolBody], [], ctx.step.id, ctx.age)), ctx.step.id, ctx.age), "the offset");
+  return checked(joinTool(body, toolBody, d > 0 ? "add" : "cut", ctx), "the offset");
 } };
 
 // ---------------------------------------------------------------- the modes offered for a face (E32)
@@ -104,3 +100,6 @@ export function pullModes(engine: Engine, bodyStep: string, face: Id): ModeInfo[
   const first = out.findIndex((m) => m.ok);
   return out.map((m, i) => ({ ...m, suggested: i === first }));
 }
+
+meta("moveFace", { main: "dist", changes: true, scope: (p) => p.face ?? null });
+meta("offsetFace", { main: "dist", changes: true, scope: (p) => p.face ?? null });

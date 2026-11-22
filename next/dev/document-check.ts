@@ -7,7 +7,7 @@ import { idKey } from "../src/engine/id.ts";
 import { Body } from "../src/engine/lineage.ts";
 import { rectangle } from "../src/engine/sketch.ts";
 await initKernel();
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
+import { check, fail, failureCount } from "./lib.ts";
 const throws = (f: () => unknown): string => { try { f(); return ""; } catch (e) { return e instanceof Error ? e.message : String(e); } };
 const rect = rectangle(0, 0, 10, 5);
 let doc = D.emptyDoc();
@@ -97,5 +97,5 @@ console.log("6. a long random session: every undo and redo equals a fresh build 
   check(`40 random changes, undos and redos (${ops} of them undo or redo): each state builds the same as a fresh engine`, bad === 0, `${bad} differ`);
   const e = build(h.doc), inc = new Engine(doc.steps as never, { parameters: doc.parameters }); inc.build(); inc.setRecipe(h.doc.steps as never, undefined, h.doc.parameters); check("and an engine that is told the final state arrives at the fresh picture", fp(inc) === fp(e)); e.release(); inc.release();
 }
-console.log(failures ? `\n${failures} failure(s)` : "\nno failure");
-process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failure(s)` : "\nno failure");
+process.exit(failureCount() ? 1 : 0);

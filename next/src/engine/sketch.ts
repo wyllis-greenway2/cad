@@ -2,11 +2,12 @@
 // anchors (by the faces beside them, E52): the solver (E48) makes the sketch, and the step's answer is the solved lines with ids made from their names (E6), for the steps after it. A sketch that cannot be made is
 // refused with the constraints that hold it back named (`Refusal`, E55); a sketch with freedom is made and says what is free; an anchor whose edge is gone makes the step orphaned, in words (E10).
 import * as K from "./kernel.ts";
+import { unit } from "./vec.ts";
 import { type EdgeRef, type Id, type VertexRef, mint } from "./id.ts";
 import { Body } from "./lineage.ts";
 import { type Constraint, type Options as SolveOptions, type System, solve } from "./solver.ts";
 import { type Loop as RLoop, type Seg, regions } from "./region.ts";
-import { type Line, type Sketch, Refusal, at, frameOf, kinds, needBody, planeOf, unitV } from "./steps.ts";
+import { type Line, type Sketch, Refusal, at, frameOf, kinds, needBody, planeOf } from "./steps.ts";
 
 type V3 = K.V3;
 export interface SketchParams {
@@ -26,7 +27,7 @@ export interface SketchParams {
 
 /** where a sketch lies: the plane's frame, local (x, y) to the world and back (the interaction layer needs the same) */
 export function sketchFrame(p: SketchParams, body: Body | null): { F: { O: V3; u: V3; v: V3 }; normal: V3; local(q: V3): [number, number]; world(x: number, y: number): V3 } {
-  const F = p.face ? (() => { if (!body) throw new Error("a sketch on a face needs the body as its first input"); const rec = body.one(p.face); const f = frameOf(rec, null); return { F: f, normal: unitV(K.facts(rec.h).ne) as V3 }; })() : (() => { const pl = planeOf(p as Record<string, any>); const o = pl.at(0, 0), ux = pl.at(1, 0), uy = pl.at(0, 1); return { F: { O: o, u: [ux[0] - o[0], ux[1] - o[1], ux[2] - o[2]] as V3, v: [uy[0] - o[0], uy[1] - o[1], uy[2] - o[2]] as V3 }, normal: pl.normal }; })();
+  const F = p.face ? (() => { if (!body) throw new Error("a sketch on a face needs the body as its first input"); const rec = body.one(p.face); const f = frameOf(rec, null); return { F: f, normal: unit(K.facts(rec.h).ne) as V3 }; })() : (() => { const pl = planeOf(p as Record<string, any>); const o = pl.at(0, 0), ux = pl.at(1, 0), uy = pl.at(0, 1); return { F: { O: o, u: [ux[0] - o[0], ux[1] - o[1], ux[2] - o[2]] as V3, v: [uy[0] - o[0], uy[1] - o[1], uy[2] - o[2]] as V3 }, normal: pl.normal }; })();
   const local = (q: V3): [number, number] => { const d: V3 = [q[0] - F.F.O[0], q[1] - F.F.O[1], q[2] - F.F.O[2]]; return [d[0] * F.F.u[0] + d[1] * F.F.u[1] + d[2] * F.F.u[2], d[0] * F.F.v[0] + d[1] * F.F.v[1] + d[2] * F.F.v[2]]; };
   return { F: F.F, normal: F.normal as V3, local, world: (x, y) => at(F.F, x, y) };
 }
@@ -51,7 +52,7 @@ export function makeSketch(p: SketchParams, body: Body | null, step: { id: strin
       const along = Math.abs(circ.normal[0] * fr.normal[0] + circ.normal[1] * fr.normal[1] + circ.normal[2] * fr.normal[2]);
       if (along > 1 - 1e-9) { const c = local(circ.c); anchorPoints.push({ id: `${an.id}.c`, x: c[0], y: c[1], fixed: true }); anchorCircles.push({ id: an.id, c: `${an.id}.c`, r: circ.r, fixedR: true }); continue; }
       if (along < 1e-9 && circ.closed) {
-        const w = unitV([fr.normal[1] * circ.normal[2] - fr.normal[2] * circ.normal[1], fr.normal[2] * circ.normal[0] - fr.normal[0] * circ.normal[2], fr.normal[0] * circ.normal[1] - fr.normal[1] * circ.normal[0]] as V3), q0: V3 = [circ.c[0] - w[0] * circ.r, circ.c[1] - w[1] * circ.r, circ.c[2] - w[2] * circ.r], q1: V3 = [circ.c[0] + w[0] * circ.r, circ.c[1] + w[1] * circ.r, circ.c[2] + w[2] * circ.r], a = local(q0), b = local(q1);
+        const w = unit([fr.normal[1] * circ.normal[2] - fr.normal[2] * circ.normal[1], fr.normal[2] * circ.normal[0] - fr.normal[0] * circ.normal[2], fr.normal[0] * circ.normal[1] - fr.normal[1] * circ.normal[0]] as V3), q0: V3 = [circ.c[0] - w[0] * circ.r, circ.c[1] - w[1] * circ.r, circ.c[2] - w[2] * circ.r], q1: V3 = [circ.c[0] + w[0] * circ.r, circ.c[1] + w[1] * circ.r, circ.c[2] + w[2] * circ.r], a = local(q0), b = local(q1);
         anchorPoints.push({ id: `${an.id}.a`, x: a[0], y: a[1], fixed: true }, { id: `${an.id}.b`, x: b[0], y: b[1], fixed: true }); anchorLines.push({ id: an.id, a: `${an.id}.a`, b: `${an.id}.b` }); reference.push({ id: mint(step.id, "anchor", an.id), a: q0, b: q1 }); continue;
       }
       throw new Error(`the anchor ${an.id} is a circle seen at an angle, which is an ellipse in this sketch: it cannot be held (sketch on a plane that faces it, or on a plane through its axis)`);

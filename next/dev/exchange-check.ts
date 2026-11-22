@@ -9,8 +9,7 @@ import { idKey, mint } from "../src/engine/id.ts";
 import { rectangle } from "../src/engine/sketch.ts";
 import type { Step } from "../src/engine/steps.ts";
 await initKernel();
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
-const near = (a: number, b: number, t = 1e-6) => Math.abs(a - b) <= t * Math.max(1, Math.abs(b));
+import { check, fail, failureCount, near } from "./lib.ts";
 const body = (e: Engine, id: string) => e.result(id).value as Body;
 // the volume a mesh encloses (divergence theorem), for a closed mesh
 const enclosed = (m: { positions: number[]; indices: number[] }) => { let v = 0; for (let t = 0; t < m.indices.length; t += 3) { const P = (k: number) => m.indices[t + k]! * 3, a = P(0), b = P(1), c = P(2), p = m.positions; v += (p[a]! * (p[b + 1]! * p[c + 2]! - p[b + 2]! * p[c + 1]!) - p[a + 1]! * (p[b]! * p[c + 2]! - p[b + 2]! * p[c]!) + p[a + 2]! * (p[b]! * p[c + 1]! - p[b + 1]! * p[c]!)) / 6; } return v; };
@@ -67,5 +66,5 @@ console.log("4. several bodies: all, or the ones named")
   let said = ""; try { meshOf(sc, { bodies: ["nothing"] }); } catch (x) { said = (x as Error).message; } check("a body that is not there is said", /no body called nothing/.test(said), said);
   for (const x of [e, back, b2]) x.release();
 }
-console.log(failures ? `\n${failures} failure(s)` : "\nno failure");
-process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failure(s)` : "\nno failure");
+process.exit(failureCount() ? 1 : 0);

@@ -72,11 +72,13 @@ export const sameEdge = (a: EdgeH, b: EdgeH): boolean => a.raw.IsSame(b.raw);
 
 /** the kernel wrappers a reading makes are deleted at once (replicad's vectors and boxes hold kernel objects) */
 const drop = (...xs: Raw[]) => { for (const x of xs) { try { x?.delete?.(); } catch { /* */ } } };
+const factsOf = new WeakMap<FaceH, Facts>(); // a face never changes, so what is read of it is read once (the fingerprint, the checks, the mesh and the pulls all ask)
 export function facts(f: FaceH): Facts {
+  const known = factsOf.get(f); if (known) return known;
   const face = new Face(downcast(f.raw)), q = face.normalAt(), c = face.center, bb = face.boundingBox, [lo, hi] = bb.bounds, l = Math.hypot(q.x, q.y, q.z) || 1;
   const props = t(new oc.GProp_GProps()); oc.BRepGProp.SurfaceProperties(f.raw, props, false, false);
   const out: Facts = { type: face.geomType as string, ne: [q.x / l, q.y / l, q.z / l], ce: [c.x, c.y, c.z], lo: [lo[0]!, lo[1]!, lo[2]!], hi: [hi[0]!, hi[1]!, hi[2]!], area: props.Mass() };
-  drop(q, c, bb, face); return out;
+  drop(q, c, bb, face); factsOf.set(f, out); return out;
 }
 export function edgeEnds(e: EdgeH): [V3, V3] { const E = new Edge(downcast(e.raw)), a = E.startPoint, b = E.endPoint, out: [V3, V3] = [[a.x, a.y, a.z], [b.x, b.y, b.z]]; drop(a, b, E); return out; }
 export function edgeMid(e: EdgeH): V3 { const E = new Edge(downcast(e.raw)), c = E.pointAt(0.5), out: V3 = [c.x, c.y, c.z]; drop(c, E); return out; }

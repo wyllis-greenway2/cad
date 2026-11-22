@@ -2,8 +2,7 @@
 //   node --experimental-strip-types dev/range-check.ts
 import { moveDefinition } from "../src/engine/sketch.ts";
 import { type Constraint, type System, residualsOf, solve, tryAdd } from "../src/engine/solver.ts";
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
-const near = (a: number, b: number, t = 1e-6) => Math.abs(a - b) <= t * Math.max(1, Math.abs(b));
+import { check, fail, failureCount, near } from "./lib.ts";
 const line = (len: number, cs: Constraint[], fixB = false): System => ({ points: [{ id: "A", x: 0, y: 0, fixed: true }, { id: "B", x: len, y: 0, fixed: fixB }], lines: [{ id: "l", a: "A", b: "B" }], circles: [], constraints: [{ id: "h", kind: "horizontal", parts: ["l"] }, ...cs] });
 const L = (len: number, min?: number, max?: number) => solve(line(len, [{ id: "r", kind: "length", parts: ["l"], ...(min !== undefined ? { min } : {}), ...(max !== undefined ? { max } : {}) }]));
 
@@ -64,5 +63,5 @@ console.log("6. a copy of a sketch carries the range, flipped when the copy is m
   check("a length keeps its range as it was", len.max === 9 && len.min === undefined, JSON.stringify(len));
   const turned = moveDefinition(params as never, { deg: 0, by: [4, 4] }).params.constraints!.find((c) => c.id === "hd")!; check("moved without a flip: the range is as it was", turned.min === 2 && turned.max === 5);
 }
-console.log(failures ? `\n${failures} failure(s)` : "\nno failure");
-process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failure(s)` : "\nno failure");
+process.exit(failureCount() ? 1 : 0);

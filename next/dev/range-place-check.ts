@@ -1,8 +1,7 @@
 // A dev check (not a test, `in_1444`) for ranges and the signed relations of placement (E85, E86, `in_1527`, `in_1529`): a hinge turned to a number or held to a range, a slider slid, a gap of at least so much.
 //   node --experimental-strip-types dev/range-place-check.ts
 import { type Mate, type Prim, type V3, place } from "../src/engine/placement.ts";
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
-const near = (a: number, b: number, t = 1e-6) => Math.abs(a - b) <= t * Math.max(1, Math.abs(b));
+import { check, fail, failureCount, near } from "./lib.ts";
 const plane = (p: V3, d: V3): Prim => ({ kind: "plane", p, d, c: p }), axis = (p: V3, d: V3): Prim => ({ kind: "axis", p, d, c: p });
 const A = { id: "A", free: false, pivot: [0, 0, 0] as V3 }, B = { id: "B", free: true, pivot: [0, 0, 0] as V3 };
 const rot = (pose: { pivot: V3; axis: V3; deg: number; by: V3 } | undefined, v: V3): V3 => { if (!pose) return v; const t = (pose.deg * Math.PI) / 180, k = pose.axis, c = Math.cos(t), s = Math.sin(t), d = k[0] * v[0] + k[1] * v[1] + k[2] * v[2]; return [v[0] * c + (k[1] * v[2] - k[2] * v[1]) * s + k[0] * d * (1 - c), v[1] * c + (k[2] * v[0] - k[0] * v[2]) * s + k[1] * d * (1 - c), v[2] * c + (k[0] * v[1] - k[1] * v[0]) * s + k[2] * d * (1 - c)]; };
@@ -47,5 +46,5 @@ console.log("3. a gap of at least so much (the stop that keeps bodies apart)");
   const both2 = place([A, B], [mk(20, { value: 3, min: 1 })]); check("a number and a range on one mate: said", /number or a range, not both/.test(both2.reason), both2.reason);
   const par = place([A, B], [{ id: "p", kind: "parallel", a: { body: "B", prim: bot(10) }, b: { body: "A", prim: top }, min: 0 }]); check("a parallel has no number to range: said", /no number that can have a range/.test(par.reason), par.reason);
 }
-console.log(failures ? `\n${failures} failure(s)` : "\nno failure");
-process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failure(s)` : "\nno failure");
+process.exit(failureCount() ? 1 : 0);

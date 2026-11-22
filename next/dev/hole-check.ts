@@ -9,8 +9,7 @@ import { options } from "../src/engine/failure.ts";
 import { originalEdit, pullModes } from "../src/engine/pull.ts";
 import type { Step } from "../src/engine/steps.ts";
 await initKernel();
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
-const near = (a: number, b: number, t = 1e-6) => Math.abs(a - b) <= t * Math.max(1, Math.abs(b));
+import { check, fail, failureCount, near } from "./lib.ts";
 const st = (e: Engine, id: string) => e.result(id).status as { kind: string; why?: string };
 const body = (e: Engine, id: string) => e.result(id).value as Body;
 const vol = (e: Engine, id: string) => K.volume(body(e, id).solid);
@@ -71,5 +70,5 @@ console.log("6. pulling the hole's own faces changes the hole's numbers (mode 1,
   const too = originalEdit(e, "H", bottom, 10); check("pulled so far the depth would be nothing: refused in words", "why" in too && /depth would be/.test(too.why), JSON.stringify(too));
   const thr = new Engine([...block, hole({ depth: "through" })]); thr.build(); const tb = originalEdit(thr, "H", mint("H", "hole", "bottom"), 1); check("a through hole has no bottom: said", "why" in tb && /no bottom/.test(tb.why), JSON.stringify(tb)); thr.release(); e.release();
 }
-console.log(failures ? `\n${failures} failure(s)` : "\nno failure");
-process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failure(s)` : "\nno failure");
+process.exit(failureCount() ? 1 : 0);

@@ -1,14 +1,12 @@
 // The curved step kinds (E7): revolve, loft, sweep, shell. Their lineage comes from the kernel's report for each operation (spike 6); where it is silent, an exact rule from the step's own inputs names the face.
 // Registered into the same table as the others (`kinds`); the engine imports this file for that.
 import * as K from "./kernel.ts";
+import { dot, scale, sub, unit } from "./vec.ts";
 import { type Id, mint } from "./id.ts";
 import { type Body, type Claim, type FaceRec, carry, fromClaims } from "./lineage.ts";
-import { type Sketch, type Value, checked, kinds, needBody, needSketch, num, profileFace, sidesFromProfile, unitV } from "./steps.ts";
+import { type Sketch, type Value, checked, kinds, meta, needBody, needSketch, num, profileFace, sidesFromProfile } from "./steps.ts";
 
 type V3 = K.V3;
-const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const scale = (a: V3, s: number): V3 => [a[0] * s, a[1] * s, a[2] * s];
 
 const profilePoints = (sk: Sketch): V3[] => { if (sk.circle || sk.open || sk.lines.length < 3) throw new Error("this needs a closed shape of three lines or more"); return sk.lines.map((l) => l.a); };
 
@@ -32,7 +30,7 @@ function flatFaces(body: Body, sk: Sketch, point: V3, dir: V3, step: string): Bo
 
 /** a profile turned about an axis (default the Z axis through the origin), through `deg` degrees (default 360) */
 kinds["revolve"] = { outputs: "body", run: (inputs, { step, age }) => {
-  const sk = needSketch(inputs[0]), ax = (step.params.axis as { point: V3; dir: V3 } | undefined) ?? { point: [0, 0, 0] as V3, dir: [0, 0, 1] as V3 }, dir = unitV(ax.dir), deg = typeof step.params.deg === "number" ? step.params.deg : 360;
+  const sk = needSketch(inputs[0]), ax = (step.params.axis as { point: V3; dir: V3 } | undefined) ?? { point: [0, 0, 0] as V3, dir: [0, 0, 1] as V3 }, dir = unit(ax.dir), deg = typeof step.params.deg === "number" ? step.params.deg : 360;
   profilePoints(sk); const face = profileFace(sk), p = K.revolve(face, ax.point, dir, deg), claims: Claim[] = [];
   sidesFromProfile([sk], face, p.report, step.id, claims);
   if (deg < 360) claims.push({ id: mint(step.id, "start"), face: p.first }, { id: mint(step.id, "end"), face: p.last });
@@ -74,3 +72,6 @@ kinds["shell"] = { outputs: "body", run: (inputs, { step, age }) => {
 } };
 
 export type { Value };
+
+meta("revolve", { main: "deg" });
+meta("shell", { scope: (p) => p.face ?? null });

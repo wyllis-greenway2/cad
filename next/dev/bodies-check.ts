@@ -9,7 +9,7 @@ import type { Step } from "../src/engine/steps.ts";
 await initKernel();
 const N = Number(process.argv[2] ?? 30); let seed = Number(process.argv[3] ?? 1);
 const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
+import { check, fail, failureCount } from "./lib.ts";
 const box = (n: string, x: number, w = 10, y = 0, d = 10): Step[] => [{ id: `s${n}`, kind: "sketchPolygon", params: { points: [[x, y], [x + w, y], [x + w, y + 10], [x, y + 10]] }, inputs: [] }, { id: `E${n}`, kind: "extrude", params: { d }, inputs: [`s${n}`] }];
 const top = (n: string) => mint(`E${n}`, "end"), side = (n: string, i: number) => mint(`E${n}`, "side", mint(`s${n}`, "line", i)), bodyId = (n: string) => mint(`E${n}`, "body", 0);
 const build = (steps: Step[]) => { const e = new Engine(steps); e.build(); return e; };
@@ -98,4 +98,4 @@ console.log(`6. random scenes: ${N} cases of 2 to 3 bodies with random steps tha
   }
   console.log(`   ${ok} steps ran, ${flagged} flagged with a reason; no body was touched that the step did not name`);
 }
-console.log(failures ? `\n${failures} failures` : "\nno failure"); process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failureCount()` : "\nno failure"); process.exit(failureCount() ? 1 : 0);

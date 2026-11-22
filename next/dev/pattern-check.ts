@@ -9,7 +9,7 @@ import type { Step } from "../src/engine/steps.ts";
 await initKernel();
 const N = Number(process.argv[2] ?? 20); let seed = Number(process.argv[3] ?? 1);
 const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
+import { check, fail, failureCount } from "./lib.ts";
 const box = (x: number, w = 10, h = 10, id = "1"): Step[] => [{ id: `s${id}`, kind: "sketchPolygon", params: { points: [[x, 0], [x + w, 0], [x + w, 10], [x, 10]] }, inputs: [] }, { id: `E${id}`, kind: "extrude", params: { d: h }, inputs: [`s${id}`] }];
 const build = (steps: Step[]) => { const e = new Engine(steps); e.build(); return e; };
 const scene = (e: Engine, id: string) => e.result(id).value as Body;
@@ -72,9 +72,9 @@ console.log(`7. random: a pattern or a mirror, then a push on a copy (${N} cases
     const count = 2 + Math.floor(rnd() * 5), kind = rnd() < 0.5 ? "pattern" : "mirror", steps: Step[] = [...box(30 + Math.floor(rnd() * 20), 8, 6)];
     const params = kind === "mirror" ? { plane: { point: [0, 0, 0], normal: [[1, 0, 0], [0, 1, 0]][Math.floor(rnd() * 2)] } } : rnd() < 0.5 ? { kind: "linear", by: [0, 15, 0], count } : { kind: "circular", axis: { point: [0, 5, 0], dir: [0, 0, 1] }, count, deg: [360, 180][Math.floor(rnd() * 2)] };
     steps.push({ id: "P", kind, params, inputs: ["E1"] }); const e = build(steps), r = e.result("P");
-    if (r.status.kind !== "ok") { console.log(`   case ${n}: ${r.status.kind}: ${(r.status as any).why}`); failures++; e.release(); continue; }
+    if (r.status.kind !== "ok") { console.log(`   case ${n}: ${r.status.kind}: ${(r.status as any).why}`); fail(); e.release(); continue; }
     const p = scene(e, "P"); invariants(p, `case ${n}`); const vs = bodyVol(p); if (vs.some((v) => Math.abs(v - vs[0]!) > 1e-6)) check(`case ${n}: all the bodies are the same size`, false, vs.join(",")); ok++; e.release();
   }
   console.log(`   ${ok} of ${N} made, bodies equal in size, every face in one body, names unique`);
 }
-console.log(failures ? `\n${failures} failures` : "\nno failure"); process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failureCount()` : "\nno failure"); process.exit(failureCount() ? 1 : 0);

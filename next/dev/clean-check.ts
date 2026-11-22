@@ -11,8 +11,7 @@ import * as D from "../src/engine/document.ts";
 import { edgeRef, idKey, mint } from "../src/engine/id.ts";
 import type { Step } from "../src/engine/steps.ts";
 await initKernel();
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
-const near = (a: number, b: number, t = 1e-6) => Math.abs(a - b) <= t * Math.max(1, Math.abs(b));
+import { check, fail, failureCount, near } from "./lib.ts";
 const st = (e: Engine, id: string) => e.result(id).status as { kind: string; why?: string };
 const body = (e: Engine, id: string) => e.result(id).value as Body;
 const poly = (id: string, x0: number, x1: number): Step => ({ id, kind: "sketchPolygon", params: { points: [[x0, 0], [x1, 0], [x1, 10], [x0, 10]] }, inputs: [] });
@@ -62,5 +61,5 @@ console.log("3. the cleanup: a number moved by under the smallest feature, as a 
   const tiny = new Engine([...stepped(), { id: "P", kind: "push", params: { face, dist: 4.9999 }, inputs: ["U"] }]); tiny.build(); const pr = propose(tiny, "P");
   check("0.0001 from flush: moved by 0.0001", !!pr && near(pr.to, 5, 1e-9), pr ? pr.text : "none"); tiny.release();
 }
-console.log(failures ? `\n${failures} failure(s)` : "\nno failure");
-process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failure(s)` : "\nno failure");
+process.exit(failureCount() ? 1 : 0);

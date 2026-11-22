@@ -10,8 +10,7 @@ import { edgeRef, mint } from "../src/engine/id.ts";
 import { rectangle } from "../src/engine/sketch.ts";
 import type { Step } from "../src/engine/steps.ts";
 await initKernel();
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
-const near = (a: number, b: number, t = 1e-6) => Math.abs(a - b) <= t * Math.max(1, Math.abs(b));
+import { check, fail, failureCount, near } from "./lib.ts";
 const throws = (f: () => unknown): string => { try { f(); return ""; } catch (e) { return e instanceof Error ? e.message : String(e); } };
 
 console.log("1. the expressions");
@@ -78,5 +77,5 @@ console.log("3. a trial, a range and the options when a step fails because of a 
   const o2 = options(two, "C").find((x) => x.kind === "range")!; check("a number that is an expression of a parameter says so and does not guess which to change", !o2.applies && /expression/.test(o2.label), o2.label);
   two.release(); e.release();
 }
-console.log(failures ? `\n${failures} failure(s)` : "\nno failure");
-process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failure(s)` : "\nno failure");
+process.exit(failureCount() ? 1 : 0);

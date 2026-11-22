@@ -9,7 +9,7 @@ import { solve, tryAdd, type Constraint, type System } from "../src/engine/solve
 import { trial } from "../src/engine/failure.ts";
 import type { Step } from "../src/engine/steps.ts";
 await initKernel();
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
+import { check, fail, failureCount } from "./lib.ts";
 const rect = (): System => { const r = rectangle(0, 0, 10, 5); return { points: r.points!.map((p) => ({ ...p, fixed: false })), lines: r.lines!, circles: [], constraints: r.constraints! }; };
 
 console.log("1. a drag that the constraints do not allow: refused, with what holds it back named");
@@ -52,4 +52,4 @@ console.log("4. asking for a constraint: made, already holds, or refused");
   const loose: System = { ...S, constraints: S.constraints.filter((q) => q.id !== "w") }; const added = tryAdd(loose, c("w4", "length", ["bottom"], 10)); check("a width where there was none: added, one constraint more", added.outcome === "added" && added.system.constraints.length === loose.constraints.length + 1);
   const hv = tryAdd(S, c("hh", "horizontal", ["right"])); check("a side that is upright made level too: refused (a line of nothing), the upright one named as what holds it", hv.outcome === "refused" && hv.holding.length === 1 && hv.holding[0] === "vr", JSON.stringify({ o: hv.outcome, h: hv.holding }));
 }
-console.log(failures ? `\n${failures} failures` : "\nno failure"); process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failureCount()` : "\nno failure"); process.exit(failureCount() ? 1 : 0);

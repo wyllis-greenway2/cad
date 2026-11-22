@@ -1,6 +1,7 @@
 // The step kinds of the first slice (E2): a step takes the values of its inputs and returns a body or a sketch. Each is pure: the same step and inputs give the same body and the same ids (E20).
 // A step that cannot be made throws; the engine flags it and passes `passthrough` on, a value of the step's own output type (E13).
 import * as K from "./kernel.ts";
+import { cross, dot, scale, sub, unit } from "./vec.ts";
 import { type EdgeRef, type Id, idKey, isPieceOf, mint } from "./id.ts";
 import { type Age, Body, type Claim, type EdgeRec, RefLost, type FaceRec, carry, fromClaims, markImprinted, unifyBody } from "./lineage.ts";
 import { pointedLimit, rimOf } from "./rounds.ts";
@@ -24,12 +25,6 @@ export interface Step { readonly id: string; readonly kind: string; readonly par
 export interface Ctx { age: Age; step: Step; temp: <B extends Body>(b: B) => B }
 
 type V3 = K.V3;
-export const unitV = (a: V3): V3 => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
-const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const unit = (a: V3): V3 => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
-const scale = (a: V3, s: number): V3 => [a[0] * s, a[1] * s, a[2] * s];
 
 export const needBody = (v: Value | undefined, what = "this step"): Body => { if (!(v instanceof Body)) throw new RefLost(`the body ${what} works on`); return v; };
 export const needSketch = (v: Value | undefined): Sketch => { if (!v || v instanceof Body || v instanceof NoBody || v.kind !== "sketch") throw new RefLost("the sketch this step works on"); return v; };
@@ -64,19 +59,26 @@ export function frameOf(face: FaceRec, align: V3 | null) {
 }
 export const at = (F: { O: V3; u: V3; v: V3 }, x: number, y: number): V3 => [F.O[0] + F.u[0] * x + F.v[0] * y, F.O[1] + F.u[1] * x + F.v[1] * y, F.O[2] + F.u[2] * x + F.v[2] * y];
 
+/**
+ * Put a tool body into a body: added (`add`), taken out (`cut`) or kept where they overlap (`intersect`); every face keeps its id, the faces the kernel says nothing of are recovered by the engine (E7), and faces
+ * that lie on one surface are joined. The one place this sequence is written (a push, a hole, a pull, a combine all end here). `nameFrom`: the bodies whose names the result may take (a cut takes the target's).
+ */
+export function joinTool(a: Body, tool: Body, mode: "add" | "cut" | "intersect", ctx: Ctx, nameFrom?: readonly Body[]): Body {
+  const m = mode === "cut" ? K.cut(a.solid, tool.solid) : mode === "intersect" ? K.common(a.solid, tool.solid) : K.fuse(a.solid, tool.solid);
+  return unifyBody(ctx.temp(carry(m.solid, m.report, [a, tool], [], ctx.step.id, ctx.age, nameFrom)), ctx.step.id, ctx.age);
+}
 function pushed(body: Body, faceId: Id, dist: number, ctx: Ctx): Body {
   const rec = body.one(faceId), f = K.facts(rec.h), step = ctx.step.id;
   const p = K.prism(rec.h, scale(f.ne, dist));
   const claims = [...sidesOf(body, rec, p.report, step), { id: rec.id, face: p.last }]; // the far face carries the pushed face's id on
   const tool = ctx.temp(fromClaims(p.solid, claims, step, false));
-  const m = dist >= 0 ? K.fuse(body.solid, tool.solid) : K.cut(body.solid, tool.solid);
-  return unifyBody(ctx.temp(carry(m.solid, m.report, [body, tool], [], step, ctx.age)), step, ctx.age);
+  return joinTool(body, tool, dist >= 0 ? "add" : "cut", ctx);
 }
 
 /** where a sketch lies: a named plane, moved along its normal; local (x, y) become world points */
 export function planeOf(p: Record<string, any>): { name: PlaneName; offset: number; normal: V3; at(x: number, y: number): V3 } {
   if (p.frame) { // any plane: an origin, the way local x runs, and the normal; local y is the normal across x
-    const f = p.frame as { origin: V3; xDir: V3; normal: V3 }, n = unitV(f.normal), x = unitV(f.xDir), y = cross(n, x), o: V3 = f.origin;
+    const f = p.frame as { origin: V3; xDir: V3; normal: V3 }, n = unit(f.normal), x = unit(f.xDir), y = cross(n, x), o: V3 = f.origin;
     return { name: "XY", offset: 0, normal: n, at: (u, v) => [o[0] + x[0] * u + y[0] * v, o[1] + x[1] * u + y[1] * v, o[2] + x[2] * u + y[2] * v] };
   }
   const name = ((p.plane as PlaneName | undefined) ?? "XY"), offset = typeof p.offset === "number" ? p.offset : 0;
@@ -110,7 +112,16 @@ export function sidesFromProfile(sks: readonly Sketch[], face: K.FaceH, report: 
   });
 }
 
-export interface Kind { outputs: "body" | "sketch"; run(inputs: Value[], ctx: Ctx): Value }
+export interface Kind {
+  outputs: "body" | "sketch"; run(inputs: Value[], ctx: Ctx): Value;
+  /** what is known of the kind besides how it runs, written once with the kind (`meta`): */
+  /** the number the step is mostly about (the one a failed step offers a range for, E35) */ main?: string;
+  /** the step must change the body it is given: when the result is that body again it is flagged (E27) */ changes?: boolean;
+  /** which face, edge or body the step names, to find the body it works on when there are several (E40); with `bodyRequired`, a step that names none is refused */ scope?: (params: Record<string, any>, inputs: Value[]) => Id | null; bodyRequired?: boolean;
+}
+type KindMeta = Pick<Kind, "main" | "changes" | "scope" | "bodyRequired">;
+/** say what a kind is about, next to where the kind is defined: its main number, whether it must change something, what it names (replaces three tables in three files) */
+export function meta(name: string, m: KindMeta): void { const k = kinds[name]; if (!k) throw new Error(`there is no step kind ${name} to say anything about`); Object.assign(k, m); }
 export const kinds: Record<string, Kind> = {
   /** a polygon in a plane (a frame, or XY, XZ, YZ moved `offset` along its normal), its sides straight or arcs through a mid point; every line has an id from this step and its place in it. `open` leaves the last side out: a path */
   sketchPolygon: { outputs: "sketch", run: (_in, { step }) => {
@@ -126,7 +137,7 @@ export const kinds: Record<string, Kind> = {
   } },
   /** a sketch pulled along its plane's normal (or `dir`): each side is named by the sketch line it grew from, the caps by their ends */
   extrude: { outputs: "body", run: (inputs, { step }) => {
-    const sk = needSketch(inputs[0]), holes = inputs.slice(1).map(needSketch), d = num(step.params, "d"), dir = unitV((step.params.dir as V3 | undefined) ?? sk.normal), face = profileFace(sk, holes), p = K.prism(face, scale(dir, d));
+    const sk = needSketch(inputs[0]), holes = inputs.slice(1).map(needSketch), d = num(step.params, "d"), dir = unit((step.params.dir as V3 | undefined) ?? sk.normal), face = profileFace(sk, holes), p = K.prism(face, scale(dir, d));
     const claims: Claim[] = [{ id: mint(step.id, "start"), face: p.first }, { id: mint(step.id, "end"), face: p.last }];
     sidesFromProfile([sk, ...holes], face, p.report, step.id, claims);
     return checked(fromClaims(p.solid, claims, step.id), "the extrusion");
@@ -142,7 +153,7 @@ export const kinds: Record<string, Kind> = {
       }
       lines.push({ id: mint(step.id, "line", i), a: at(F, x, F.lo), b: at(F, x, F.hi) });
     });
-    return { kind: "sketch", lines, face: face.id, normal: unitV(K.facts(face.h).ne) };
+    return { kind: "sketch", lines, face: face.id, normal: unit(K.facts(face.h).ne) };
   } },
   /** the lines become edges of the body: the faces they cross split (E4); a line that splits nothing is flagged, not ignored */
   imprint: { outputs: "body", run: (inputs, { step, age }) => {
@@ -176,8 +187,8 @@ export const kinds: Record<string, Kind> = {
   /** two bodies made one (`add`), the second taken out of the first (`cut`), or what they share (`intersect`); every face keeps its id, and merged faces answer to both */
   combine: { outputs: "body", run: (inputs, { step, age }, ) => {
     const a = needBody(inputs[0]), b = needBody(inputs[1]), mode = (step.params.mode as string | undefined) ?? "add";
-    const m = mode === "cut" ? K.cut(a.solid, b.solid) : mode === "intersect" ? K.common(a.solid, b.solid) : mode === "add" ? K.fuse(a.solid, b.solid) : (() => { throw new Error(`there is no way to combine called ${mode}`); })();
-    return checked(unifyBody(carry(m.solid, m.report, [a, b], [], step.id, age, mode === "cut" ? [a] : [a, b]), step.id, age), "the combination");
+    if (mode !== "cut" && mode !== "intersect" && mode !== "add") throw new Error(`there is no way to combine called ${mode}`);
+    return checked(joinTool(a, b, mode, { step, age, temp: (x) => x }, mode === "cut" ? [a] : [a, b]), "the combination");
   } },
   /** the whole body moved by a vector */
   move: { outputs: "body", run: (inputs, { step, age }) => {
@@ -190,6 +201,14 @@ export const kinds: Record<string, Kind> = {
     return checked(carry(m.solid, m.report, [body], [], step.id, age), "the turn");
   } },
 };
+meta("extrude", { main: "d" });
+meta("push", { main: "dist", changes: true, scope: (p) => p.face ?? null });
+meta("round", { main: "size", changes: true, scope: (p) => (p.edges as { a: Id }[] | undefined)?.[0]?.a ?? null });
+meta("dimension", { main: "value", scope: (p) => p.b ?? null });
+meta("combine", { changes: true });
+meta("turn", { main: "deg", scope: (p) => (p.body && p.body !== "all" ? p.body : null), bodyRequired: true });
+meta("move", { scope: (p) => (p.body && p.body !== "all" ? p.body : null), bodyRequired: true });
+meta("imprint", { scope: (_p, inputs) => ((inputs[1] as { face?: Id } | undefined)?.face) ?? null });
 
 /** the pointed end (E34, tier 2): for the rim of a rod's end and a size above the radius; null when the size is not above the radius (the kernel's round is the same shape then) */
 function pointed(body: Body, asked: EdgeRec[], s: number, step: { id: string }, age: Age): Body | null {

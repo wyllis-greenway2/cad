@@ -7,8 +7,7 @@ import { Body } from "../src/engine/lineage.ts";
 import { type Id, idKey } from "../src/engine/id.ts";
 import type { Step } from "../src/engine/steps.ts";
 await initKernel();
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
-const near = (a: number, b: number, t = 1e-6) => Math.abs(a - b) <= t * Math.max(1, Math.abs(b));
+import { check, fail, failureCount, near } from "./lib.ts";
 const st = (e: Engine, id: string) => e.result(id).status as { kind: string; why?: string; victims?: string[] };
 const scene = (e: Engine, id: string) => e.result(id).value as Body;
 const blocks: Step[] = [{ id: "s", kind: "sketchPolygon", params: { points: [[0, 0], [20, 0], [20, 20], [0, 20]] }, inputs: [] }, { id: "A", kind: "extrude", params: { d: 10 }, inputs: ["s"] }, { id: "P", kind: "pattern", params: { kind: "linear", by: [60, 5, 30], count: 2 }, inputs: ["A"] }];
@@ -82,5 +81,5 @@ console.log("6. ranges in the step: a gap of at least, an offset of at most")
   const band = run({ min: 0, max: 8 }); check("a gap between 0 and 8: 20 comes down to 8 (lowest is 18)", near(band.lo[1]!, 18, 1e-6), `${band.lo}`);
   const bad = run({ value: 3, min: 1 }); check("a number and a range together: said", /number or a range, not both/.test(bad.s.why ?? ""), bad.s.why);
 }
-console.log(failures ? `\n${failures} failure(s)` : "\nno failure");
-process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failure(s)` : "\nno failure");
+process.exit(failureCount() ? 1 : 0);

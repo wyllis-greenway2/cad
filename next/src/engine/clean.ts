@@ -23,8 +23,6 @@ export function slivers(body: Body, min: number = MIN_FEATURE): Sliver[] {
 export function sliverNotes(body: Body, min: number = MIN_FEATURE): Note[] {
   return slivers(body, min).map((s) => ({ kind: "sliver" as const, text: `${show(s.face.id)} is a sliver ${s.width.toFixed(4)} mm thick (smaller than the smallest feature, ${min} mm)` }));
 }
-/** the steps that must change the body they are given: when they come out the same, that is said (E27, spike 7) */
-export const CHANGES = new Set(["round", "push", "moveFace", "offsetFace", "combine", "hole"]);
 /** did the step make the body it was given again: the same volume and the same faces? */
 export function changedNothing(input: Body, output: Body): boolean {
   if (input === output) return true;

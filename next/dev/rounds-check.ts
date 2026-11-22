@@ -8,8 +8,7 @@ import { edgeRef, idKey, mint } from "../src/engine/id.ts";
 import { options, trial } from "../src/engine/failure.ts";
 import type { Step } from "../src/engine/steps.ts";
 await initKernel();
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
-const near = (a: number, b: number, t = 1e-6) => Math.abs(a - b) <= t * Math.max(1, Math.abs(b));
+import { check, fail, failureCount, near } from "./lib.ts";
 const st = (e: Engine, id: string) => e.result(id).status as { kind: string; why?: string };
 const body = (e: Engine, id: string) => e.result(id).value as Body;
 const vol = (e: Engine, id: string) => K.volume(body(e, id).solid);
@@ -84,5 +83,5 @@ console.log("5. a size that varies along an edge (the kernel's radius law)");
   const e2 = mk({ sizes: [[0, 1], [1, 5]] }); e2.edit("F", { ...e2.step("F").params, sizes: [[0, 2], [1, 2]] }); check("edit the law to a constant: equals a fresh constant round", near(taken(e2), taken(constant), 1e-6) && e2.result("F").status.kind === "ok");
   for (const e of [constant, grow, swell, same, bad, chamfer, e2]) e.release();
 }
-console.log(failures ? `\n${failures} failure(s)` : "\nno failure");
-process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failure(s)` : "\nno failure");
+process.exit(failureCount() ? 1 : 0);

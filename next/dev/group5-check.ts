@@ -11,8 +11,7 @@ import { idKey, mint } from "../src/engine/id.ts";
 import { rectangle } from "../src/engine/sketch.ts";
 import type { Step } from "../src/engine/steps.ts";
 await initKernel();
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
-const near = (a: number, b: number, t = 1e-6) => Math.abs(a - b) <= t * Math.max(1, Math.abs(b));
+import { check, fail, failureCount, near } from "./lib.ts";
 
 console.log("1. the symmetric relation: two points mirrored in a line");
 {
@@ -69,5 +68,5 @@ console.log("5. a question that stops the kernel is given up, and the host is wh
     const ok = await h.ask({ what: "options", step: "Y" }); check("and questions work again", ok.ok, ok.ok ? "" : ok.why);
   } finally { h.dispose(); }
 }
-console.log(failures ? `\n${failures} failure(s)` : "\nno failure");
-process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failure(s)` : "\nno failure");
+process.exit(failureCount() ? 1 : 0);

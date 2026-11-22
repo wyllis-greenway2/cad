@@ -9,7 +9,7 @@ import { rectangle } from "../src/engine/sketch.ts";
 import { referenceSet } from "../src/interaction/refs.ts";
 import type { Sketch, Step } from "../src/engine/steps.ts";
 await initKernel();
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
+import { check, fail, failureCount } from "./lib.ts";
 const near = (a: number, b: number, t = 1e-4) => Math.abs(a - b) <= t * Math.max(1, Math.abs(b));
 const build = (steps: Step[]) => { const e = new Engine(steps); e.build(); return e; };
 const vol = (e: Engine, id: string) => K.volume((e.result(id).value as Body).solid);
@@ -125,5 +125,5 @@ console.log("8. random: plates with holes, slots and picks: the volume is the ar
   }
   check(`${good} of ${n} plates have the volume of their area`, good === n);
 }
-console.log(failures ? `\n${failures} failure(s)` : "\nno failure");
-process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failure(s)` : "\nno failure");
+process.exit(failureCount() ? 1 : 0);

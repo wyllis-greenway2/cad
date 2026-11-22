@@ -4,7 +4,7 @@ import { EngineHost } from "../src/engine/host.ts";
 import { nodeWorker } from "../src/engine/host-node.ts";
 import { edgeRef, mint } from "../src/engine/id.ts";
 import type { Step } from "../src/engine/steps.ts";
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
+import { check, fail, failureCount } from "./lib.ts";
 const W = 40, H = 30, D = 10, top = mint("A", "end"), side = (i: number) => mint("A", "side", mint("sk", "line", i));
 const recipe: Step[] = [{ id: "sk", kind: "sketchPolygon", params: { points: [[0, 0], [W, 0], [W, H], [0, H]] }, inputs: [] }, { id: "A", kind: "extrude", params: { d: D }, inputs: ["sk"] },
   { id: "C", kind: "round", params: { mode: "chamfer", size: 3, edges: [0, 1, 2, 3].map((i) => edgeRef(top, side(i))) }, inputs: ["A"] }, { id: "M", kind: "moveFace", params: { face: top, dist: 12.5 }, inputs: ["C"] }];
@@ -23,4 +23,4 @@ try {
   const e = await host.ask({ what: "options", step: "nothing" }); check("a question about a step that is not there is refused in words", !e.ok && /no step nothing/.test(e.why), e.ok ? "" : e.why);
   const again = await host.apply(recipe); check("the recipe and the picture are as they were", JSON.stringify(again.snapshot.steps.map((s) => [s.id, s.status, s.fingerprint])) === before);
 } finally { host.dispose(); }
-console.log(failures ? `\n${failures} failures` : "\nno failure"); process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failureCount()` : "\nno failure"); process.exit(failureCount() ? 1 : 0);

@@ -89,8 +89,6 @@ function scan(engine: Engine, value: number, opts: { lo?: number; hi?: number; s
 }
 const spell = (p: Probe): string => p.ok.length ? "works " + p.ok.map((r) => `from ${r.from.toFixed(3)} to ${r.to.toFixed(3)}`).join(" and ") : `works nowhere in ${p.looked.from.toFixed(3)} to ${p.looked.to.toFixed(3)}`;
 
-/** the number a step is mostly about, for the kinds that have one */
-export const MAIN: Record<string, string> = { push: "dist", hole: "depth", moveFace: "dist", offsetFace: "dist", round: "size", extrude: "d", dimension: "value", turn: "deg", move: "", revolve: "deg" };
 
 export type OptionKind = "range" | "continue" | "editOriginal" | "swap" | "remove";
 export interface Option { kind: OptionKind; label: string; applies: boolean; /** why not, or what it did when tried */ why: string; /** tried on a copy: did it work, no worse than now */ worked: boolean | null; change?: Change; probe?: Probe }
@@ -102,7 +100,7 @@ export function options(engine: Engine, step: string): Option[] {
   if (!engine.ids().includes(step)) throw new Error(`no step ${step}`);
   const st = engine.step(step), r = engine.result(step), out: Option[] = [];
   if (r.status.kind === "ok") return out;
-  const key = MAIN[st.kind];
+  const key = kinds[st.kind]?.main || undefined;
   const raw = key ? st.params[key] : undefined, exprName = typeof raw === "string" && /^=\s*[A-Za-z_][A-Za-z0-9_]*\s*$/.test(raw) ? raw.slice(1).trim() : null;
   if (key && typeof raw === "string" && !exprName) out.push({ kind: "range", label: `${key} is ${raw}, an expression`, applies: false, why: "change one of the parameters it uses", worked: null });
   else if (key && exprName) { // the number is a named parameter (E67): the range is asked of the parameter

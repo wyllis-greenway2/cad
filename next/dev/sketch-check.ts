@@ -11,7 +11,7 @@ import type { Sketch, Step } from "../src/engine/steps.ts";
 await initKernel();
 const N = Number(process.argv[2] ?? 30); let seed = Number(process.argv[3] ?? 1);
 const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
+import { check, fail, failureCount } from "./lib.ts";
 const near = (a: number, b: number, t = 1e-6) => Math.abs(a - b) <= t;
 const build = (steps: Step[]) => { const e = new Engine(steps); e.build(); return e; };
 const volume = (e: Engine, id: string) => { const b = e.result(id).value as Body; return K.volume(b.solid); };
@@ -71,6 +71,6 @@ console.log(`4. random: ${N} rectangles with random sizes and edits, incremental
     e.edit("s", params); const f = build([sk("s", params), ext("E", "s", d)]);
     if (e.result("E").fingerprint !== f.result("E").fingerprint || !near(volume(e, "E"), w2 * h2 * d)) check(`case ${n}: edit differs from fresh`, false); else ok++; e.release(); f.release();
   }
-  console.log(`   ${ok} of ${N} cases: the volume is w x h x d, and an edit equals a fresh build`); if (ok !== N) failures++;
+  console.log(`   ${ok} of ${N} cases: the volume is w x h x d, and an edit equals a fresh build`); if (ok !== N) fail();
 }
-console.log(failures ? `\n${failures} failures` : "\nno failure"); process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failureCount()` : "\nno failure"); process.exit(failureCount() ? 1 : 0);

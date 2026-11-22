@@ -3,8 +3,8 @@
 // step can refer to the wall of the hole and an edit of the diameter keeps the names.
 import * as K from "./kernel.ts";
 import { type Id, mint } from "./id.ts";
-import { type Body, type Claim, carry, fromClaims, unifyBody } from "./lineage.ts";
-import { type Sketch, at, checked, frameOf, kinds, needBody, num, sidesFromProfile } from "./steps.ts";
+import { type Body, type Claim, fromClaims } from "./lineage.ts";
+import { type Sketch, at, checked, frameOf, joinTool, kinds, meta, needBody, num, sidesFromProfile } from "./steps.ts";
 
 type V3 = K.V3;
 export interface HoleParams {
@@ -20,7 +20,8 @@ function cylinder(c: V3, n: V3, r: number, depth: number, margin: number, step: 
   const wall: Claim[] = []; sidesFromProfile([sk], face, p.report, step, wall);
   return { solid: p.solid, claims: [...claims, ...wall.map((w) => ({ ...w, id: mint(step, tag, "wall") }))], report: p.report };
 }
-kinds["hole"] = { outputs: "body", run: (inputs, { step, age, temp }) => {
+kinds["hole"] = { outputs: "body", run: (inputs, ctx) => {
+  const { step, temp } = ctx;
   const p = step.params as unknown as HoleParams, body = needBody(inputs[0]), rec = body.one(p.face);
   const d = num(step.params, "diameter"); if (!(d > 0)) throw new Error("the hole's diameter is not above nothing");
   const f = K.facts(rec.h); if (f.type !== "PLANE") throw new Error("a hole is put into a flat face (a curved face has no one direction to drill)");
@@ -32,8 +33,9 @@ kinds["hole"] = { outputs: "body", run: (inputs, { step, age, temp }) => {
   cuts.push(cylinder(c, n, d / 2, depth, margin, step.id, "hole"));
   let cur: Body = body;
   for (const cut of cuts) {
-    const tool = temp(fromClaims(cut.solid, cut.claims, step.id, false)), m = K.cut(cur.solid, tool.solid);
-    cur = temp(unifyBody(temp(carry(m.solid, m.report, [cur, tool], [], step.id, age, [cur])), step.id, age));
+    const tool = temp(fromClaims(cut.solid, cut.claims, step.id, false));
+    cur = temp(joinTool(cur, tool, "cut", ctx, [cur]));
   }
   return checked(cur, "the hole");
 } };
+meta("hole", { main: "depth", changes: true, scope: (p) => p.face ?? null });

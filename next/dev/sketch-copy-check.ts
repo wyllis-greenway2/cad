@@ -10,7 +10,7 @@ import type { Sketch, Step } from "../src/engine/steps.ts";
 await initKernel();
 const N = Number(process.argv[2] ?? 40); let seed = Number(process.argv[3] ?? 1);
 const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
+import { check, fail, failureCount } from "./lib.ts";
 const near = (a: number, b: number, t = 1e-8) => Math.abs(a - b) <= t;
 const build = (steps: Step[]) => { const e = new Engine(steps); e.build(); return e; };
 const sketch = (e: Engine, id: string) => e.result(id).value as Sketch;
@@ -86,6 +86,6 @@ console.log(`7. random: ${N} rectangles with random motions: every constraint is
     else if (c.carried!.dropped.length === 0) { const mp = pts(s).map((p) => { const q = rot(p, deg, mir); return [q[0] + by[0], q[1] + by[1]] as [number, number]; }); if (!pts(c).every((p, i) => near(p[0], mp[i]![0], 1e-7) && near(p[1], mp[i]![1], 1e-7))) { check(`case ${n} (${JSON.stringify(m)}): the copy is the source moved`, false); good = false; } }
     void axisKept; void quarter; if (good) ok++; e.release();
   }
-  console.log(`   ${ok} of ${N} copies as expected`); if (ok !== N) failures++;
+  console.log(`   ${ok} of ${N} copies as expected`); if (ok !== N) fail();
 }
-console.log(failures ? `\n${failures} failures` : "\nno failure"); process.exit(failures ? 1 : 0);
+console.log(failureCount() ? `\n${failureCount()} failureCount()` : "\nno failure"); process.exit(failureCount() ? 1 : 0);
