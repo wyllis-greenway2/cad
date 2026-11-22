@@ -19,8 +19,8 @@ export interface SketchParams {
   anchors?: { id: string; edge: EdgeRef }[];
 }
 
-kinds["sketch"] = { outputs: "sketch", run: (inputs, { step }) => {
-  const p = step.params as SketchParams, body = inputs[0] instanceof Body ? inputs[0] : null;
+/** make the sketch of a definition: the solve, the lines with ids from their names, the anchors; `step` is the id of the step that makes it */
+export function makeSketch(p: SketchParams, body: Body | null, step: { id: string }): Sketch {
   if (!Array.isArray(p.points)) throw new Error("a sketch needs its points");
   // where the sketch lies: local (x, y) to the world and back
   const F = p.face ? (() => { if (!body) throw new Error("a sketch on a face needs the body as its first input"); const rec = body.one(p.face); const f = frameOf(rec, null); return { F: f, normal: unitV(K.facts(rec.h).ne) as V3 }; })() : (() => { const pl = planeOf(p as Record<string, any>); const o = pl.at(0, 0), ux = pl.at(1, 0), uy = pl.at(0, 1); return { F: { O: o, u: [ux[0] - o[0], ux[1] - o[1], ux[2] - o[2]] as V3, v: [uy[0] - o[0], uy[1] - o[1], uy[2] - o[2]] as V3 }, normal: pl.normal }; })();
@@ -51,11 +51,12 @@ kinds["sketch"] = { outputs: "sketch", run: (inputs, { step }) => {
   }
   const solveInfo = { kind: r.verdict.kind as "solved" | "under" | "redundant", freedom: r.verdict.freedom, free: r.verdict.free, redundant: r.verdict.redundant };
   const normal = F.normal as V3;
-  if (!lines.length && (p.circles ?? []).length === 1) { const c = p.circles![0]!, cc = sol[c.c]!; return { kind: "sketch", lines: [], normal, circle: { id: mint(step.id, "circle", c.id), r: r.solution.circles[c.id]!, c: world(cc[0], cc[1]), normal }, reference, solve: solveInfo } as Sketch; }
+  if (!lines.length && (p.circles ?? []).length === 1) { const c = p.circles![0]!, cc = sol[c.c]!; return { kind: "sketch", lines: [], normal, circle: { id: mint(step.id, "circle", c.id), r: r.solution.circles[c.id]!, c: world(cc[0], cc[1]), normal }, reference, solve: solveInfo, definition: p } as Sketch; }
   const close = (u: V3, v: V3) => Math.hypot(u[0] - v[0], u[1] - v[1], u[2] - v[2]) < 1e-7;
   const closed = lines.length >= 3 && lines.every((l, i) => close(l.b, lines[(i + 1) % lines.length]!.a));
-  return { kind: "sketch", lines, normal, ...(closed || !lines.length ? {} : { open: true }), ...(p.face ? { face: p.face } : {}), reference, solve: solveInfo } as Sketch;
-} };
+  return { kind: "sketch", lines, normal, ...(closed || !lines.length ? {} : { open: true }), ...(p.face ? { face: p.face } : {}), reference, solve: solveInfo, definition: p } as Sketch;
+}
+kinds["sketch"] = { outputs: "sketch", run: (inputs, { step }) => makeSketch(step.params as SketchParams, inputs[0] instanceof Body ? inputs[0] : null, step) };
 
 /** a rectangle as a tool makes it: four points, four lines, horizontal and vertical (its own constraints, E56) and, when given, a width and a height; corner A at (x, y) */
 export function rectangle(x: number, y: number, w: number, h: number, opts: { size?: boolean; fixCorner?: boolean } = {}): Pick<SketchParams, "points" | "lines" | "constraints"> {
@@ -64,3 +65,68 @@ export function rectangle(x: number, y: number, w: number, h: number, opts: { si
   if (opts.fixCorner !== false) cs.push({ id: "fix", kind: "fixed", parts: ["A"], at: [x, y] });
   return { points: [{ id: "A", x, y }, { id: "B", x: x + w, y }, { id: "C", x: x + w, y: y + h }, { id: "D", x, y: y + h }], lines: [{ id: "bottom", a: "A", b: "B" }, { id: "right", a: "B", b: "C" }, { id: "top", a: "C", b: "D" }, { id: "left", a: "D", b: "A" }], constraints: cs };
 }
+
+// ---------------------------------------------------------------- copies (E59): which constraints a copy keeps
+/** a rigid motion of the sketch's plane, as a tool makes it: mirrored first (in the line through the origin at `mirror` degrees), then turned `deg` degrees, then moved by `by` */
+export interface Motion { deg?: number; mirror?: number; by?: [number, number] }
+const matrix = (m: Motion): [[number, number], [number, number]] => {
+  const t = ((m.deg ?? 0) * Math.PI) / 180, c = Math.cos(t), s = Math.sin(t), R: [[number, number], [number, number]] = [[c, -s], [s, c]];
+  if (m.mirror === undefined) return R;
+  const a = (2 * m.mirror * Math.PI) / 180, F: [[number, number], [number, number]] = [[Math.cos(a), Math.sin(a)], [Math.sin(a), -Math.cos(a)]]; // reflection in the line at `mirror` degrees
+  return [[R[0][0] * F[0][0] + R[0][1] * F[1][0], R[0][0] * F[0][1] + R[0][1] * F[1][1]], [R[1][0] * F[0][0] + R[1][1] * F[1][0], R[1][0] * F[0][1] + R[1][1] * F[1][1]]];
+};
+const clean = (v: number) => { const r = Math.round(v); return Math.abs(v - r) < 1e-9 ? r : v; };
+/**
+ * What a copy keeps of a sketch's constraints. A relation is kept as it is if it means the same after the motion (a length, a parallel, a tangent: all of those); a relation tied to the world's axes
+ * (level, upright, a distance along an axis, an angle's sign, a place) is changed to what it has become (level and upright swap when the sketch is turned a quarter; a distance along an axis changes sign or axis)
+ * or, where it cannot be said in the world's axes any more (a sketch turned 30 degrees is not level), **dropped and said**, with the relations among the dropped ones kept as they were (the sides that were all
+ * level stay parallel to each other, and square to the upright ones). Nothing is kept as it was when it no longer means the same.
+ */
+export function carryConstraints(constraints: Constraint[], lineOfPoints: (a: string, b: string) => string | null, m: Motion): { kept: Constraint[]; dropped: { id: string; kind: string; why: string }[]; changed: { id: string; from: string; to: string }[] } {
+  const M = matrix(m), kept: Constraint[] = [], dropped: { id: string; kind: string; why: string }[] = [], changed: { id: string; from: string; to: string }[] = [];
+  const mirrored = M[0][0] * M[1][1] - M[0][1] * M[1][0] < 0, ex = [clean(M[0][0]), clean(M[1][0])], ey = [clean(M[0][1]), clean(M[1][1])]; // where the axes go: M applied to (1,0) and (0,1)
+  const axis = (v: number[]): "h" | "v" | null => (Math.abs(v[1]!) < 1e-9 ? "h" : Math.abs(v[0]!) < 1e-9 ? "v" : null);
+  const xAxis = axis(ex), turned = xAxis === null; // the x axis goes to a world axis only for a quarter turn or a mirror in an axis
+  const levels: string[] = [], uprights: string[] = [];
+  const lineFor = (c: Constraint): string | null => (c.parts.length === 1 ? c.parts[0]! : lineOfPoints(c.parts[0]!, c.parts[1]!));
+  for (const c of constraints) {
+    if (c.kind === "horizontal" || c.kind === "vertical") {
+      const was = c.kind === "horizontal" ? "h" : "v", now = was === "h" ? axis(ex) : axis(ey);  // the direction it had becomes: the image of the x axis, or of the y axis
+      if (now === null) { dropped.push({ id: c.id, kind: c.kind, why: `a sketch turned ${((m.deg ?? 0) % 360).toFixed(1)} degrees is not ${c.kind === "horizontal" ? "level" : "upright"}` }); const l = lineFor(c); if (l) (was === "h" ? levels : uprights).push(l); continue; }
+      const kind = now === "h" ? "horizontal" : "vertical"; kept.push({ ...c, kind }); if (kind !== c.kind) changed.push({ id: c.id, from: c.kind, to: kind });
+    } else if (c.kind === "horizontalDistance" || c.kind === "verticalDistance") {
+      // the number along an axis: it follows the axis it went to, with the sign of the way that axis points
+      const fromX = c.kind === "horizontalDistance", img = fromX ? ex : ey, to = axis(img);
+      if (to === null) { dropped.push({ id: c.id, kind: c.kind, why: `a distance along an axis cannot be kept when the sketch is turned ${((m.deg ?? 0) % 360).toFixed(1)} degrees` }); continue; }
+      const sign = (to === "h" ? img[0]! : img[1]!) < 0 ? -1 : 1, kind = to === "h" ? "horizontalDistance" : "verticalDistance";
+      kept.push({ ...c, kind, value: (c.value ?? 0) * sign }); if (kind !== c.kind || sign < 0) changed.push({ id: c.id, from: c.kind, to: `${kind}${sign < 0 ? " (the other way)" : ""}` });
+    } else if (c.kind === "angle") {
+      kept.push(mirrored ? { ...c, value: -(c.value ?? 0) } : c); if (mirrored) changed.push({ id: c.id, from: "angle", to: "angle (the other way)" });
+    } else if (c.kind === "fixed") {
+      const at = c.at ?? [0, 0], to: [number, number] = [M[0][0] * at[0] + M[0][1] * at[1] + (m.by?.[0] ?? 0), M[1][0] * at[0] + M[1][1] * at[1] + (m.by?.[1] ?? 0)]; kept.push({ ...c, at: to }); changed.push({ id: c.id, from: "fixed", to: `fixed at ${to[0].toFixed(3)}, ${to[1].toFixed(3)}` });
+    } else kept.push(c);
+  }
+  void turned;
+  // what the dropped relations said among themselves: the level sides are parallel to each other, the upright ones too, and the two kinds are square
+  const chain = (lines: string[], tag: string) => { for (let i = 1; i < lines.length; i++) { const id = `${tag}${i}`; kept.push({ id, kind: "parallel", parts: [lines[i - 1]!, lines[i]!] }); changed.push({ id, from: "level/upright", to: "parallel" }); } };
+  chain([...new Set(levels)], "keep.level."); chain([...new Set(uprights)], "keep.upright.");
+  if (levels.length && uprights.length) { kept.push({ id: "keep.square", kind: "perpendicular", parts: [levels[0]!, uprights[0]!] }); changed.push({ id: "keep.square", from: "level/upright", to: "perpendicular" }); }
+  return { kept, dropped, changed };
+}
+/** the definition of a sketch after a motion: the points moved, the constraints carried, the anchors and what held to them left behind (a body's edge is not in the copy) */
+export function moveDefinition(p: SketchParams, m: Motion): { params: SketchParams; dropped: { id: string; kind: string; why: string }[]; changed: { id: string; from: string; to: string }[] } {
+  const M = matrix(m), by = m.by ?? [0, 0], mv = (x: number, y: number): [number, number] => [M[0][0] * x + M[0][1] * y + by[0], M[1][0] * x + M[1][1] * y + by[1]];
+  const anchors = new Set([...(p.anchors ?? []).flatMap((a) => [a.id, `${a.id}.a`, `${a.id}.b`])]), lines = p.lines ?? [], lineOfPoints = (a: string, b: string) => lines.find((l) => (l.a === a && l.b === b) || (l.a === b && l.b === a))?.id ?? null;
+  const usesAnchor = (c: Constraint) => c.parts.some((q) => anchors.has(q)), held = (p.constraints ?? []).filter((c) => !usesAnchor(c)), gone = (p.constraints ?? []).filter(usesAnchor);
+  const carried = carryConstraints(held, lineOfPoints, m);
+  const dropped = [...carried.dropped, ...gone.map((c) => ({ id: c.id, kind: c.kind, why: "it holds to a body's edge, which is not in the copy" }))];
+  const circles = (p.circles ?? []).map((c) => ({ ...c })), points = p.points.map((q) => { const [x, y] = mv(q.x, q.y); return { ...q, x, y }; });
+  const { anchors: _a, ...rest } = p; void _a;
+  return { params: { ...rest, points, circles, constraints: carried.kept }, dropped, changed: carried.changed };
+}
+/** a copy of a constrained sketch, moved: its constraints carried (E59); it follows the sketch it copies when that is edited */
+kinds["sketchCopy"] = { outputs: "sketch", run: (inputs, { step }) => {
+  const src = inputs[0] as Sketch | undefined; if (!src || src.kind !== "sketch" || !src.definition) throw new Error("this is a copy of a constrained sketch: the step before it is not one");
+  const body = inputs[1] instanceof Body ? inputs[1] : null, moved = moveDefinition(src.definition as SketchParams, step.params as Motion);
+  const out = makeSketch(moved.params, body, step); return { ...out, carried: { dropped: moved.dropped, changed: moved.changed } } as Sketch;
+} };

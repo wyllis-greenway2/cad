@@ -19,7 +19,7 @@ export interface Result { value: Value; status: Status; fingerprint: string; not
 class Held { refs = 0; readonly v: Value; constructor(v: Value) { this.v = v; } }
 interface Slot { held: Held; status: Status; fingerprint: string }
 
-const fingerprintOf = (v: Value): string => (v instanceof Body ? v.fingerprint() : v instanceof NoBody ? "empty" : JSON.stringify([v.lines.map((l) => [l.id, l.a, l.b]), v.circle ?? null, v.normal, v.open ?? false, v.face ?? null, (v.reference ?? []).map((l) => [l.id, l.a, l.b]), v.solve ?? null])); // everything a step could read of it: a circle has no lines
+const fingerprintOf = (v: Value): string => (v instanceof Body ? v.fingerprint() : v instanceof NoBody ? "empty" : JSON.stringify([v.lines.map((l) => [l.id, l.a, l.b]), v.circle ?? null, v.normal, v.open ?? false, v.face ?? null, (v.reference ?? []).map((l) => [l.id, l.a, l.b]), v.solve ?? null, v.definition ?? null, v.carried ?? null])); // everything a step could read of it: a circle has no lines
 
 export class Engine {
   private steps = new Map<string, Step>();

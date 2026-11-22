@@ -11,7 +11,8 @@ export type PlaneName = "XY" | "XZ" | "YZ";
 /** what a constrained sketch says of itself (E49, E50): data only */
 export interface SolveInfo { kind: "solved" | "under" | "redundant"; freedom: number; free: string[]; redundant: string[] }
 export interface Sketch { readonly kind: "sketch"; readonly lines: Line[]; readonly face?: Id; readonly normal: V3; readonly open?: boolean; readonly circle?: { id: Id; r: number; c: K.V3; normal: K.V3 }
-  /** lines that are not part of the profile: construction lines, and a body's edges held as anchors (E53); read-only for the solver */ readonly reference?: Line[]; readonly solve?: SolveInfo }
+  /** lines that are not part of the profile: construction lines, and a body's edges held as anchors (E53); read-only for the solver */ readonly reference?: Line[]; readonly solve?: SolveInfo;
+  /** how a constrained sketch was made (its entities and constraints, as data), so a copy of it can carry them (E59); constraints a copy could not keep, and what each became */ readonly definition?: unknown; readonly carried?: { dropped: { id: string; kind: string; why: string }[]; changed: { id: string; from: string; to: string }[] } }
 /** a step refused, with the constraints that hold it back named, so the screen can show them and offer to delete (E55) */
 export class Refusal extends Error { readonly victims: string[]; constructor(message: string, victims: string[]) { super(message); this.victims = victims; } }
 /** what a body step passes on when it has no body to pass: nothing, of the type of a body */
