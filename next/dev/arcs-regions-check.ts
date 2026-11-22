@@ -112,6 +112,23 @@ console.log("10. a body's circular edge as an anchor (E65): concentric with a ri
   check("seen at an angle: refused in words (an ellipse)", st(tilted, "s").kind !== "ok" && /ellipse/.test(st(tilted, "s").why ?? ""), st(tilted, "s").why);
   e.release(); edgeOn.release(); tilted.release();
 }
+console.log("11. the sides come out in the order and the way they were drawn, whatever the start and the direction")
+{
+  let seed = 13; const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296; let bad = 0, n = 0;
+  for (let k = 0; k < 40; k++) {
+    const corners: [number, number][] = [[0, 0], [10 + rnd() * 5, 0], [10 + rnd() * 5, 8 + rnd() * 5], [0, 8 + rnd() * 5]], start = Math.floor(rnd() * 4), cw = rnd() < 0.5;
+    const seq = [0, 1, 2, 3].map((i) => corners[(cw ? start - i + 8 : start + i) % 4]!), pts = seq.map(([x, y], i) => ({ id: `P${i}`, x, y })), lines = seq.map((_, i) => ({ id: `l${i}`, a: `P${i}`, b: `P${(i + 1) % 4}` }));
+    const e = build([sk("s", { points: pts, lines, constraints: [] }), ext("E", "s", 2)]); n++;
+    const out = (e.result("s").value as Sketch).lines;
+    const area = Math.abs(corners.reduce((a, c, i) => a + c[0] * corners[(i + 1) % 4]![1] - corners[(i + 1) % 4]![0] * c[1], 0)) / 2;
+    const ok = st(e, "s").kind === "ok" && st(e, "E").kind === "ok" && near(vol(e, "E"), area * 2, 1e-6) && out.length === 4 && out.every((l, i) => l.id.of[0] === `l${i}` && Math.hypot(l.a[0] - seq[i]![0], l.a[1] - seq[i]![1]) < 1e-9 && Math.hypot(l.b[0] - seq[(i + 1) % 4]![0], l.b[1] - seq[(i + 1) % 4]![1]) < 1e-9);
+    if (!ok) bad++; e.release();
+  }
+  check(`${n} quadrilaterals drawn from a random corner, clockwise or not, and extruded to the right volume: l0, l1, l2, l3 in that order, each from where it was drawn to where it was drawn`, bad === 0, `${bad} wrong`);
+  const slot = build([sk("s", { points: [P("A", 0, -1), P("B", 6, -1), P("C", 6, 1), P("D", 0, 1), P("M", 6, 0), P("N", 0, 0)], lines: [{ id: "bot", a: "A", b: "B" }, { id: "top", a: "C", b: "D" }], arcs: [{ id: "right", c: "M", a: "B", b: "C" }, { id: "left", c: "N", a: "D", b: "A" }], constraints: [{ id: "t1", kind: "tangent", parts: ["bot", "right"] }, { id: "t2", kind: "tangent", parts: ["top", "right"] }, { id: "t3", kind: "tangent", parts: ["bot", "left"] }, { id: "t4", kind: "tangent", parts: ["top", "left"] }, { id: "r", kind: "radius", parts: ["right"], value: 1 }, { id: "er", kind: "equalRadius", parts: ["left", "right"] }] })]);
+  const so = (slot.result("s").value as Sketch).lines.map((l) => l.id.of[0]); check("a slot drawn as bottom, top, right arc, left arc: starts at the bottom, which was drawn first, going the way it was drawn; then the sides in the order the outline meets them", so[0] === "bot" && so.length === 4, so.join());
+  const cwSlot = (slot.result("s").value as Sketch).lines[0]!; check("the first side runs from A to B as drawn", Math.abs(cwSlot.a[0] - 0) < 1e-6 && Math.abs(cwSlot.b[0] - 6) < 1e-6, `${cwSlot.a} ${cwSlot.b}`); slot.release();
+}
 console.log("8. random: plates with holes, slots and picks: the volume is the area, an edit equals a fresh build");
 {
   let seed = 7; const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296; let n = 0, good = 0;

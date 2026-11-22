@@ -2,7 +2,7 @@
 
 Measured: `next/src/engine` is 306 KB in 3 500 lines (the lines are long; formatting is a separate matter); 42 dev checks, 2 600 lines. Nothing here changes behaviour; each item is done under the existing checks.
 
-**Done (`in_1534`, `in_1535`): items 1, 2, 3, 4, 5, 6, 7 and 9** (marked *done*); 8, 10, 11 are left.
+**Done (`in_1534`, `in_1535`): items 1 to 9** (marked *done*); 10, 11 are left.
 
 ## Merge or generalise (the real duplication)
 1. *done* **The two solvers repeat the verdict code.** `solver.ts` (solveOnce) and `placement.ts` (place) each build the unknowns, run the restarts, find the rank, the null space, the free owners, the redundant and implied constraints and the conflict by QuickXplain. They share a `kit` of helpers, not the analysis. One `analyse(problem)` over `{ names, x, frozen, rows, seeds }` returns the verdict; each solver only builds its rows. Saves about 60 dense lines, and every later relation (a third kind of part) gets the verdict free. Medium effort; the 2D solver checks (solver, sketch, refusal, range) and the placement checks pin it.
@@ -12,7 +12,7 @@ Measured: `next/src/engine` is 306 KB in 3 500 lines (the lines are long; format
 5. *done* **Two canonical-JSON functions** (`document.ts` `sorted`, `params.ts` `canonical`): one. Trivial.
 6. *done* **Vector helpers defined five times** (`curved`, `pull`, `steps` and two in the interaction layer): one `vec.ts`. Trivial.
 7. *done* **`K.facts` is called again and again for the same face** (lineage 7, pull 8, steps 4, and the fingerprint, the sliver check, the snapshot, the mesh and `primOf` each read every face). Cache it on the face record. This is also the likeliest cheap win for the 0.5 s a step found in `in_1530`, and `changedNothing` computes two whole fingerprints each step: compare volume and face count first. Small effort, measurable.
-8. **The sketch's old path (the drawing that is one closed chain keeps its order) beside the new region path.** Once regions exist the old path only keeps the sides' order. If the order is not something a later step relies on, delete it (about 15 lines and a special case). Needs a decision on side order; low risk with the checks.
+8. *done* **The sketch's old path (the drawing that is one closed chain keeps its order) beside the new region path.** Once regions exist the old path only keeps the sides' order. If the order is not something a later step relies on, delete it (about 15 lines and a special case). Needs a decision on side order; low risk with the checks.
 
 ## Smaller
 9. *done* **23 dev checks repeat `check`, `near`, `st`, `body`** (and 17 `near`): `dev/lib.ts`.

@@ -71,10 +71,11 @@ export function makeSketch(p: SketchParams, body: Body | null, step: { id: strin
     throw new Refusal(r.verdict.conflict.length ? `these constraints cannot all hold${who}${r.verdict.reason ? ` (${r.verdict.reason})` : ""}` : r.verdict.reason || "this sketch cannot be made", r.verdict.conflict);
   }
   const sol = r.solution.points, normal = F.normal as V3, drawn: Line[] = [], segs: Seg[] = [];
+  const drawnEnds = new Map<string, { a: [number, number]; b: [number, number] }>(), order = new Map<string, number>(); // where each drawn part starts and ends, and in which place it was drawn (for the order of the sides)
   for (const l of p.lines ?? []) {
     const a = sol[l.a]!, b = sol[l.b]!;
     if (l.construction) reference.push({ id: mint(step.id, "ref", l.id), a: world(a[0], a[1]), b: world(b[0], b[1]) });
-    else { drawn.push({ id: mint(step.id, "line", l.id), a: world(a[0], a[1]), b: world(b[0], b[1]) }); segs.push({ name: l.id, kind: "line", a, b }); }
+    else { drawn.push({ id: mint(step.id, "line", l.id), a: world(a[0], a[1]), b: world(b[0], b[1]) }); segs.push({ name: l.id, kind: "line", a, b }); drawnEnds.set(l.id, { a, b }); order.set(l.id, order.size); }
   }
   const TAU = 2 * Math.PI, norm = (x: number) => { const m = x % TAU; return m < 0 ? m + TAU : m; };
   for (const a of p.arcs ?? []) {
@@ -82,15 +83,25 @@ export function makeSketch(p: SketchParams, body: Body | null, step: { id: strin
     const c = sol[a.c]!, s0 = sol[a.a]!, e0 = sol[a.b]!, R = r.solution.circles[a.id]!, ta = Math.atan2(s0[1] - c[1], s0[0] - c[0]), tb = Math.atan2(e0[1] - c[1], e0[0] - c[0]);
     if (Math.hypot(s0[0] - e0[0], s0[1] - e0[1]) < 1e-9 * Math.max(1, R)) throw new Refusal(`the arc ${a.id} starts and ends at the same place`, [a.id]);
     const sweep = a.cw ? norm(ta - tb) : norm(tb - ta), t0 = a.cw ? tb : ta, midT = a.cw ? ta - sweep / 2 : ta + sweep / 2;
-    segs.push({ name: a.id, kind: "arc", c, r: R, t0, sweep });
+    segs.push({ name: a.id, kind: "arc", c, r: R, t0, sweep }); drawnEnds.set(a.id, { a: s0, b: e0 }); order.set(a.id, order.size);
     drawn.push({ id: mint(step.id, "line", a.id), a: world(s0[0], s0[1]), b: world(e0[0], e0[1]), mid: world(c[0] + R * Math.cos(midT), c[1] + R * Math.sin(midT)) });
   }
   for (const c of p.circles ?? []) { if (c.construction) continue; const q = sol[c.c]!; segs.push({ name: c.id, kind: "arc", c: q, r: r.solution.circles[c.id]!, t0: 0, sweep: TAU }); }
   // the ends an arc keeps on its circle are the step's own, not the person's: they are not reported as redundant
   const own = new Set(arcEnds.map((c) => c.id)), redundant = r.verdict.redundant.filter((c) => !own.has(c)), kind = r.verdict.kind === "redundant" && !redundant.length ? (r.verdict.freedom > 0 ? "under" : "solved") : r.verdict.kind;
   const solveInfo = { kind: kind as "solved" | "under" | "redundant", freedom: r.verdict.freedom, free: r.verdict.free, redundant, ...(drag ? { solution: r.solution, unreached: r.unreached, holds: r.holds } : {}) };
-  const close = (u: V3, v: V3) => Math.hypot(u[0] - v[0], u[1] - v[1], u[2] - v[2]) < 1e-7;
-  const chained = drawn.length >= 2 && drawn.every((l, i) => close(l.b, drawn[(i + 1) % drawn.length]!.a)) && (drawn.length >= 3 || drawn.some((l) => l.mid));
+  /**
+   * The sides of an outline in the order and the way they were drawn: it starts at the part drawn first that is on it and goes the way that part was drawn (so a shape drawn clockwise from its second corner comes
+   * out so, as a loft that matches the sides of two sketches by place needs); the tracing starts anywhere and goes counter-clockwise, so it is turned and, if need be, reversed.
+   */
+  const arranged = (loop: RLoop): RLoop => {
+    if (loop.whole || !loop.pieces.length) return loop;
+    let at = 0; loop.pieces.forEach((q, i) => { const o = order.get(q.name) ?? 1e9, b = loop.pieces[at]!, ob = order.get(b.name) ?? 1e9; if (o < ob || (o === ob && q.k < b.k)) at = i; });
+    const first = loop.pieces[at]!, d = drawnEnds.get(first.name), dist = (u: [number, number], v: [number, number]) => Math.hypot(u[0] - v[0], u[1] - v[1]);
+    const backwards = !!d && dist(first.a, d.a) + dist(first.b, d.b) > dist(first.a, d.b) + dist(first.b, d.a) + 1e-12;
+    let ps = loop.pieces, j = at; if (backwards) { ps = [...ps].reverse().map((q) => ({ ...q, a: q.b, b: q.a })); j = loop.pieces.length - 1 - at; }
+    return { ...loop, pieces: [...ps.slice(j), ...ps.slice(0, j)] };
+  };
   const loopSketch = (loop: RLoop, hole: boolean): Sketch => {
     if (loop.whole) { const w = loop.whole, c = world(w.c[0], w.c[1]); return { kind: "sketch", lines: [], normal, circle: { id: mint(step.id, "circle", w.name), r: w.r, c, normal } }; }
     const ps = hole ? [...loop.pieces].reverse().map((q) => ({ ...q, a: q.b, b: q.a })) : loop.pieces; // a hole runs the way the kernel wants it: counter-clockwise, as given (E64)
@@ -99,10 +110,8 @@ export function makeSketch(p: SketchParams, body: Body | null, step: { id: strin
   const found = regions(segs, p.pick?.length ? { pick: p.pick } : {});
   const info = { reference, solve: solveInfo, definition: p, ...(p.face ? { face: p.face } : {}) };
   const seen = found.faces.map((f) => ({ at: world(f.sample[0], f.sample[1]), area: f.area, filled: f.filled }));
-  // a drawing that is one chain, closed, and no part crossing another: the sides in the order drawn, as before
-  if (chained && found.profiles.length === 1 && !found.profiles[0]!.holes.length && found.profiles[0]!.outer.pieces.length === drawn.length && !(p.circles ?? []).some((c) => !c.construction)) return { kind: "sketch", lines: drawn, normal, regions: seen, ...info } as Sketch;
   if (found.profiles.length > 1) throw new Refusal(`this drawing makes ${found.profiles.length} separate shapes; pick the regions of one (a point inside each), or draw them in separate sketches`, []);
-  if (found.profiles.length === 1) { const pr = found.profiles[0]!, o = loopSketch(pr.outer, false), inner = pr.holes.map((h) => loopSketch(h, true)); return { ...o, ...(inner.length ? { inner } : {}), regions: seen, ...info } as Sketch; }
+  if (found.profiles.length === 1) { const pr = found.profiles[0]!, o = loopSketch(arranged(pr.outer), false), inner = pr.holes.map((h) => loopSketch(h, true)); return { ...o, ...(inner.length ? { inner } : {}), regions: seen, ...info } as Sketch; }
   return { kind: "sketch", lines: drawn, normal, ...(drawn.length ? { open: true } : {}), regions: seen, ...info } as Sketch; // nothing closed: a path, or nothing yet
 }
 kinds["sketch"] = { outputs: "sketch", run: (inputs, { step }) => makeSketch(step.params as SketchParams, inputs[0] instanceof Body ? inputs[0] : null, step) };
