@@ -21,8 +21,8 @@ export class EngineHost {
   private held = new Map<string, { why: string; sig: string }>();
   constructor(spawn: Spawn, opts: HostOptions) { this.spawn = spawn; this.opts = opts; }
 
-  load(steps: Step[]): Promise<Outcome> { return this.go("load", steps); }
-  apply(steps: Step[]): Promise<Outcome> { return this.go("apply", steps); }
+  load(steps: Step[], parameters: Record<string, number | string> = {}): Promise<Outcome> { return this.go("load", steps, parameters); }
+  apply(steps: Step[], parameters: Record<string, number | string> = {}): Promise<Outcome> { return this.go("apply", steps, parameters); }
   /**
    * Ask about the recipe the worker holds (a trial, where a number works, the options for a failed step: E28, E35). The answer is plain data. The same limits hold: a question that runs past the time limit
    * or stops the kernel is given up (the worker is restarted, the next recipe is sent whole) and the answer says so; nothing in the recipe or in the picture changes.
@@ -46,14 +46,14 @@ export class EngineHost {
   }
   private stop(): void { const w = this.worker; this.worker = null; w?.terminate(); }
 
-  private async go(mode: "load" | "apply", steps: Step[]): Promise<Outcome> {
-    const events: string[] = [], sig = (id: string) => JSON.stringify(steps.find((s) => s.id === id) ?? null);
+  private async go(mode: "load" | "apply", steps: Step[], parameters: Record<string, number | string>): Promise<Outcome> {
+    const events: string[] = [], pj = JSON.stringify(parameters), sig = (id: string) => JSON.stringify([steps.find((s) => s.id === id) ?? null, pj]); // a held-back step is tried again when its numbers or a parameter change
     for (const [id, h] of [...this.held]) if (h.sig !== sig(id)) this.held.delete(id); // a step that was changed gets another try
     if (this.worker && this.rss > this.opts.memoryMb) { events.push(`the kernel held ${this.rss} MB, over the ${this.opts.memoryMb} MB budget: restarted before this recipe`); this.stop(); }
     for (let attempt = 0; attempt < (this.opts.attempts ?? 4); attempt++) {
       this.running = null;
       const fresh = !this.worker, w = this.worker ?? this.start(), forced = Object.fromEntries([...this.held].map(([id, h]) => [id, h.why]));
-      const reply = await this.ask1(w, { id: ++this.serial, type: fresh ? "load" : mode, steps, forced });
+      const reply = await this.ask1(w, { id: ++this.serial, type: fresh ? "load" : mode, steps, forced, parameters });
       if (reply.type === "done") { this.rss = reply.snapshot.rssMb; this.lastGood = reply.snapshot; return { snapshot: reply.snapshot, events, fresh: true }; }
       if (reply.type === "error") { events.push(`this recipe was refused: ${reply.message}; this is the last good picture`); return { snapshot: this.lastGood ?? { steps: [], computes: 0, ms: 0, rssMb: 0 }, events, fresh: false }; }
       // it did not answer: which step was it in?

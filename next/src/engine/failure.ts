@@ -1,5 +1,6 @@
 // Failure handling (E28, E35, E30): what a change would do, where a number works, and what the person can do when a step has failed. Everything is built on the side, on a copy of the recipe in a scratch
 // engine: **the engine asked is never changed** (a refusal and a trial leave it as it was), and nothing is applied unasked (E15). The answers are plain data, so they cross the worker boundary (E16).
+import { scopeOf } from "./params.ts";
 import { Engine, type Status } from "./engine.ts";
 import { Body } from "./lineage.ts";
 import { originalEdit } from "./pull.ts";
@@ -8,7 +9,7 @@ import * as K from "./kernel.ts";
 import type { Id } from "./id.ts";
 
 /** a change to the recipe, as data: it is applied with the engine's own methods */
-export type Change = { op: "edit"; step: string; params: Record<string, any> } | { op: "swap"; step: string } | { op: "remove"; step: string } | { op: "batch"; changes: Change[] };
+export type Change = { op: "edit"; step: string; params: Record<string, any> } | { op: "swap"; step: string } | { op: "remove"; step: string } | { op: "batch"; changes: Change[] } | { op: "param"; name: string; value: number | string };
 export interface Verdict {
   kind: "ok" | "notes" | "refused"; /** in words: why it was refused, or what to look at */ why: string;
   step: string; status: Status; /** the constraints that hold the change back, by name (E55) */ victims?: string[];
@@ -17,7 +18,7 @@ export interface Verdict {
 }
 const notOk = (e: Engine) => e.ids().filter((i) => e.result(i).status.kind !== "ok").length;
 const lastBody = (e: Engine): Body | null => { for (const id of [...e.ids()].reverse()) { const v = e.result(id).value; if (v instanceof Body) return v; } return null; };
-const apply = (e: Engine, c: Change): void => { if (c.op === "edit") e.edit(c.step, c.params); else if (c.op === "swap") e.swapWithInput(c.step); else if (c.op === "remove") e.remove(c.step); else for (const x of c.changes) apply(e, x); };
+const apply = (e: Engine, c: Change): void => { if (c.op === "edit") e.edit(c.step, c.params); else if (c.op === "swap") e.swapWithInput(c.step); else if (c.op === "remove") e.remove(c.step); else if (c.op === "param") e.setParameters({ ...e.parameters(), [c.name]: c.value }); else for (const x of c.changes) apply(e, x); };
 // a face that is replaced by the one that takes its place is "dropped" in every step that moves a face: only an unnamed face and a tie are worth the person's attention
 /** the constraints a change asks for: those of a sketch whose numbers or parts are not as they were (what is asked for is not what holds it back) */
 function changedConstraints(engine: Engine, change: Change): string[] {
@@ -30,10 +31,10 @@ const NOTEWORTHY = new Set(["defect", "tie"]);
 
 /** build the change on a copy and say what happened. `engine` is not touched. */
 export function trial(engine: Engine, change: Change): Verdict {
-  const now = notOk(engine), scratch = new Engine(engine.recipe());
+  const now = notOk(engine), scratch = new Engine(engine.recipe(), { parameters: engine.parameters() });
   try {
     scratch.build(); apply(scratch, change);
-    const focus = change.op === "remove" || change.op === "batch" ? null : change.step, r = focus && scratch.ids().includes(focus) ? scratch.result(focus) : null, status: Status = r ? r.status : { kind: "ok" };
+    const focus = change.op === "remove" || change.op === "batch" || change.op === "param" ? null : change.step, r = focus && scratch.ids().includes(focus) ? scratch.result(focus) : null, status: Status = r ? r.status : { kind: "ok" };
     const after = notOk(scratch), body = lastBody(scratch), notes = r ? r.notes.filter((n) => NOTEWORTHY.has(n.kind)).map((n) => n.text) : [];
     const volume = body ? K.volume(body.solid) : null, faces = body ? body.faces.length : null;
     const before = new Map(engine.ids().map((i) => [i, engine.result(i).status.kind])), failing = scratch.ids().filter((i) => scratch.result(i).status.kind !== "ok" && (before.get(i) ?? "ok") === "ok");
@@ -57,10 +58,19 @@ export interface Probe { step: string; key: string; value: number; /** where the
 export function probe(engine: Engine, step: string, key: string, opts: { lo?: number; hi?: number; samples?: number } = {}): Probe {
   if (!engine.ids().includes(step)) throw new Error(`no step ${step}`);
   const st = engine.step(step), value = st.params[key]; if (typeof value !== "number") throw new Error(`${step} has no number called ${key}`);
-  const lo = opts.lo ?? (value >= 0 ? 0 : value * 3), hi = opts.hi ?? (value >= 0 ? (value === 0 ? 1 : value * 3) : 0), n = opts.samples ?? 24, base = notOk(engine), scratch = new Engine(engine.recipe());
+  return scan(engine, value, opts, (e, v) => e.edit(step, { ...st.params, [key]: v }), (e) => e.result(step).status.kind === "ok", { step, key });
+}
+/** where a named parameter works (E67): the same question as for a step's number, asked of a name; the steps that use it are the ones that decide */
+export function probeParam(engine: Engine, name: string, opts: { lo?: number; hi?: number; samples?: number; /** a step that must come out fine (a failed step being mended) */ focus?: string } = {}): Probe {
+  const table = engine.parameters(); if (!(name in table)) throw new Error(`no parameter ${name}`);
+  const value = scopeOf(table)(name);
+  return scan(engine, value, opts, (e, v) => e.setParameters({ ...e.parameters(), [name]: v }), (e) => !opts.focus || e.result(opts.focus).status.kind === "ok", { step: opts.focus ?? "", key: name });
+}
+function scan(engine: Engine, value: number, opts: { lo?: number; hi?: number; samples?: number }, set: (e: Engine, v: number) => void, focusOk: (e: Engine) => boolean, name: { step: string; key: string }): Probe {
+  const { step, key } = name, lo = opts.lo ?? (value >= 0 ? 0 : value * 3), hi = opts.hi ?? (value >= 0 ? (value === 0 ? 1 : value * 3) : 0), n = opts.samples ?? 24, base = notOk(engine), scratch = new Engine(engine.recipe(), { parameters: engine.parameters() });
   try {
     scratch.build();
-    const works = (v: number): boolean => { try { scratch.edit(step, { ...st.params, [key]: v }); return scratch.result(step).status.kind === "ok" && notOk(scratch) <= base; } catch { return false; } };
+    const works = (v: number): boolean => { try { set(scratch, v); return focusOk(scratch) && notOk(scratch) <= base; } catch { return false; } };
     const xs = Array.from({ length: n + 1 }, (_, i) => lo + ((hi - lo) * i) / n), ok = xs.map(works), tol = (hi - lo) * 1e-4;
     const edge = (a: number, b: number): number => { // a works, b does not (or the other way about): the place between
       let good = ok[xs.indexOf(a)] ? a : b, bad = good === a ? b : a;
@@ -91,7 +101,13 @@ export function options(engine: Engine, step: string): Option[] {
   const st = engine.step(step), r = engine.result(step), out: Option[] = [];
   if (r.status.kind === "ok") return out;
   const key = MAIN[st.kind];
-  if (key) {
+  const raw = key ? st.params[key] : undefined, exprName = typeof raw === "string" && /^=\s*[A-Za-z_][A-Za-z0-9_]*\s*$/.test(raw) ? raw.slice(1).trim() : null;
+  if (key && typeof raw === "string" && !exprName) out.push({ kind: "range", label: `${key} is ${raw}, an expression`, applies: false, why: "change one of the parameters it uses", worked: null });
+  else if (key && exprName) { // the number is a named parameter (E67): the range is asked of the parameter
+    const p = probeParam(engine, exprName, { focus: step }), v = scopeOf(engine.parameters())(exprName);
+    if (p.ok.length) { const near = p.ok.flatMap((g) => [g.from, g.to]).sort((a, b) => Math.abs(a - v) - Math.abs(b - v))[0]!, change: Change = { op: "param", name: exprName, value: near }, t = trial(engine, change); out.push({ kind: "range", label: `${exprName}: ${spell(p)}`, applies: true, why: t.kind === "refused" ? `the nearest place, ${near.toFixed(3)}, was tried: ${t.why}` : `the nearest place is ${near.toFixed(3)}`, worked: t.kind !== "refused", change, probe: p }); }
+    else out.push({ kind: "range", label: `${exprName}: ${spell(p)}`, applies: true, why: "no value of this parameter works", worked: false, probe: p });
+  } else if (key) {
     const p = probe(engine, step, key), v = st.params[key] as number;
     if (p.ok.length) {
       const near = p.ok.flatMap((g) => [g.from, g.to]).sort((a, b) => Math.abs(a - v) - Math.abs(b - v))[0]!, change: Change = { op: "edit", step, params: { ...st.params, [key]: near } }, t = trial(engine, change);

@@ -1,6 +1,7 @@
 // The engine (E2, E13, E18, E19, E20): a recipe of steps, run in an order that suits their inputs; each result has a status, and a failed step is flagged and passes its input through,
 // so the model is never lost (E13). An edit recomputes only the steps that depend on it and stops where an answer is unchanged (E18).
 import * as K from "./kernel.ts";
+import { ParamError, type Table, resolve, scopeOf } from "./params.ts";
 import { type Note, Body, RefLost } from "./lineage.ts";
 import { type Ctx, type Step, type Value, NoBody, Refusal, kinds, passthrough } from "./steps.ts";
 import { insertStep, moveStep, removeStep, swapWithInput, validateRecipe } from "./recipe.ts";
@@ -33,9 +34,26 @@ export class Engine {
   private forced = new Map<string, string>();
   /** told which step is about to run, so a host that has to stop the kernel knows which one it was */
   watch: ((id: string) => void) | null = null;
+  /** the named numbers (E66) and how each step's numbers came out with them: a step whose numbers are the same is not run again */
+  private table: Table = {};
+  private lookup = scopeOf({});
+  private used = new Map<string, string>();
 
-  constructor(steps: readonly Step[], opts: { forced?: Record<string, string>; watch?: (id: string) => void } = {}) {
-    this.forced = new Map(Object.entries(opts.forced ?? {})); this.watch = opts.watch ?? null; this.install(steps);
+  constructor(steps: readonly Step[], opts: { forced?: Record<string, string>; watch?: (id: string) => void; parameters?: Table } = {}) {
+    this.forced = new Map(Object.entries(opts.forced ?? {})); this.watch = opts.watch ?? null; this.table = { ...(opts.parameters ?? {}) }; this.lookup = scopeOf(this.table); this.install(steps);
+  }
+  /** the table of named numbers, as given (numbers and expressions) */
+  parameters(): Table { return { ...this.table }; }
+  /** a step with its expressions worked out, or the words that say why not (E66) */
+  private resolveStep(step: Step): { step: Step } | { error: string } {
+    try { return { step: { ...step, params: resolve(step.params, this.lookup) } }; } catch (e) { if (e instanceof ParamError) return { error: e.message }; throw e; }
+  }
+  private signature(step: Step): string { const r = this.resolveStep(step); return "error" in r ? `error:${r.error}` : JSON.stringify(r.step.params); }
+  /** change the named numbers; exactly the steps whose numbers come out different run again (E66) */
+  setParameters(next: Table): Changes {
+    this.table = { ...next }; this.lookup = scopeOf(this.table);
+    const dirty = new Set<string>(); for (const id of this.order) if (this.used.get(id) !== this.signature(this.steps.get(id)!)) dirty.add(id);
+    return this.settle(dirty);
   }
   /** change which steps are held back; the steps whose hold changed run again (or are held), and what depends on them */
   setForced(next: Record<string, string>): Changes {
@@ -66,7 +84,7 @@ export class Engine {
   trySwap(id: string): { worked: boolean; why: string; now: number; after: number } {
     const bad = (e: Engine) => e.ids().filter((i) => e.result(i).status.kind !== "ok").length, now = bad(this);
     let steps: Step[]; try { steps = swapWithInput(this.recipe(), id); } catch (e) { return { worked: false, why: e instanceof Error ? e.message : String(e), now, after: now }; }
-    const scratch = new Engine(steps); try { scratch.build(); const r = scratch.result(id), after = bad(scratch); return { worked: r.status.kind === "ok" && after <= now, why: "why" in r.status ? r.status.why : "", now, after }; } finally { scratch.release(); }
+    const scratch = new Engine(steps, { parameters: this.table }); try { scratch.build(); const r = scratch.result(id), after = bad(scratch); return { worked: r.status.kind === "ok" && after <= now, why: "why" in r.status ? r.status.why : "", now, after }; } finally { scratch.release(); }
   }
   /** the recipe as it is now, as a list of steps (a fresh engine built from it gives the same answers) */
   recipe(): Step[] { return this.order.map((id) => this.steps.get(id)!); }
@@ -84,14 +102,14 @@ export class Engine {
    * Take a new list of steps (E19). A step that is new, or whose kind, numbers or inputs are different, runs; so does one whose place among the steps it keeps company with has changed
    * (older ids lead when faces merge); then whatever depends on a step whose answer came out different. A step that is gone lets its answer go.
    */
-  setRecipe(next: readonly Step[], forced?: Record<string, string>): Changes {
-    validateRecipe(next);
+  setRecipe(next: readonly Step[], forced?: Record<string, string>, parameters?: Table): Changes {
+    validateRecipe(next); if (parameters) { this.table = { ...parameters }; this.lookup = scopeOf(this.table); }
     const before = new Map(this.steps), ageBefore = new Map(this.age), keep = new Set(next.map((s) => s.id));
     for (const id of this.order) if (!keep.has(id)) { const slot = this.slots.get(id); if (slot) { this.letGo(slot.held); this.slots.delete(id); } }
     this.install(next);
     const same = (a: Step, b: Step) => a.kind === b.kind && JSON.stringify(a.inputs) === JSON.stringify(b.inputs) && JSON.stringify(a.params) === JSON.stringify(b.params);
     const dirty = new Set<string>();
-    for (const s of next) { const p = before.get(s.id); if (!p || !same(p, s) || !this.slots.has(s.id)) dirty.add(s.id); }
+    for (const s of next) { const p = before.get(s.id); if (!p || !same(p, s) || !this.slots.has(s.id) || this.used.get(s.id) !== this.signature(s)) dirty.add(s.id); }
     if (forced) { // which steps are held back is settled together with the recipe, so a step that was changed and is let go runs once, with its new numbers
       const now = new Map(Object.entries(forced));
       for (const id of new Set([...this.forced.keys(), ...now.keys()])) if (this.forced.get(id) !== now.get(id) && this.steps.has(id)) dirty.add(id);
@@ -115,13 +133,15 @@ export class Engine {
 
   /** run one step; true when its answer (value or status) differs from before */
   private compute(id: string): boolean {
-    const step = this.steps.get(id)!, kind = kinds[step.kind];
+    const raw = this.steps.get(id)!, kind = kinds[raw.kind], pr = this.resolveStep(raw), step = "error" in pr ? raw : pr.step; // the numbers are worked out before the step runs: it only ever sees numbers (E66)
+    this.used.set(id, "error" in pr ? `error:${pr.error}` : JSON.stringify(step.params));
     const inputs = step.inputs.map((i) => this.slots.get(i)?.held.v ?? new NoBody()); // a step taken out leaves nothing: the step that worked on it is orphaned
     const temps: Body[] = [], ctx: Ctx = { step, age: (s) => this.age.get(s) ?? -1, temp: (b) => { temps.push(b); return b; } };
     this.computes++; this.watch?.(id);
     let value: Value, status: Status = { kind: "ok" };
     if (this.forced.has(id)) { status = { kind: "flagged", why: this.forced.get(id)! }; value = kind ? passthrough(kind, inputs, step) : new NoBody(); }
     else if (!kind) { value = new NoBody(); status = { kind: "flagged", why: `there is no step kind ${step.kind}` }; }
+    else if ("error" in pr) { status = { kind: "flagged", why: pr.error }; value = passthrough(kind, inputs, step); }
     else {
       try { value = K.scoped(() => kind.run(inputs, ctx)); }
       catch (e) {
