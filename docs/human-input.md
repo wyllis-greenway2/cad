@@ -6321,3 +6321,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1536 — 2026-11-22 — question
 > what is the old sketch ordering path? what do you recommend we do?
+
+## in_1537 — 2026-11-22 — unclear
+> Yes, build the signed relations and ranges
