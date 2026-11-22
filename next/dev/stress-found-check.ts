@@ -25,4 +25,17 @@ console.log("4. a push does not spoil the shape it was given (the kernel's boole
   const kinds: string[] = []; for (const f of [1.25, 1, 1.25, 1]) { e.edit("X12", { ...(e.step("X12").params as object), dist: d0 * f }); kinds.push(st(e, "X12").kind); }
   check("the push is ok every time it is edited", kinds.every((k) => k === "ok"), kinds.join(" ")); e.release();
 }
+console.log("5. a flat face moved beside the wall of a hole (the neighbour is round, along the move): the wall grows or shrinks with it");
+{
+  const { mint } = await import("../src/engine/id.ts"), K = await import("../src/engine/kernel.ts"), { Body } = await import("../src/engine/lineage.ts");
+  const base: Step[] = [{ id: "s", kind: "sketchPolygon", params: { points: [[0, 0], [40, 0], [40, 30], [0, 30]] }, inputs: [] }, { id: "A", kind: "extrude", params: { d: 10 }, inputs: ["s"] }];
+  const top = mint("A", "end"), hole: Step = { id: "H", kind: "hole", params: { face: top, diameter: 6, depth: 4 }, inputs: ["A"] }, vol = (e: Engine) => K.volume((e.result("M").value as InstanceType<typeof Body>).solid);
+  const mv = (face: typeof top, dist: number) => { const e = new Engine([...base, hole, { id: "M", kind: "moveFace", params: { face, dist }, inputs: ["H"] }]); e.build(); return e; };
+  const up = mv(top, 4), down = mv(top, -3), deeper = mv(mint("H", "hole", "bottom"), -2), disc = Math.PI * 9, slab = 1200 - disc;
+  check("the top moved up 4: four more slabs, the hole 4 longer", st(up, "M").kind === "ok" && Math.abs(vol(up) - (12000 - 4 * disc + 4 * slab)) < 1e-3, st(up, "M").kind + " " + vol(up));
+  check("the top moved down 3: three slabs fewer", st(down, "M").kind === "ok" && Math.abs(vol(down) - (12000 - 4 * disc - 3 * slab)) < 1e-3, st(down, "M").kind + " " + vol(down));
+  check("the hole's bottom moved 2 deeper: two discs fewer", st(deeper, "M").kind === "ok" && Math.abs(vol(deeper) - (12000 - 6 * disc)) < 1e-3, st(deeper, "M").kind + " " + vol(deeper));
+  check("the same as editing the hole's depth (fresh build)", (() => { const e = new Engine([...base, { ...hole, params: { ...hole.params, depth: 6 } }]); e.build(); const v = K.volume((e.result("H").value as InstanceType<typeof Body>).solid); e.release(); return Math.abs(v - vol(deeper)) < 1e-3; })());
+  up.release(); down.release(); deeper.release();
+}
 process.exit(failureCount() ? 1 : 0);

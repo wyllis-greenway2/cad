@@ -26,7 +26,7 @@ function applyTool(body: Body, tool: K.Solid, isCap: (q: K.Facts) => boolean, mo
   for (const h of tool.faces()) {
     const q = K.facts(h);
     if (isCap(q)) { claims.push({ id: moved.id, face: h }); continue; }
-    const n = around.find((g) => coplanar(q, K.facts(g.h))); if (n) claims.push({ id: n.id, face: h });
+    const n = around.find((g) => coplanar(q, K.facts(g.h)) || (q.type === "CYLINDRE" && K.sameSurface(h, g.h, q))); if (n) claims.push({ id: n.id, face: h });
   }
   const toolBody = ctx.temp(fromClaims(tool, claims, ctx.step.id, false));
   return joinTool(body, toolBody, add ? "add" : "cut", ctx);
@@ -39,7 +39,7 @@ function limitOf(body: Body, rec: FaceRec, around: FaceRec[], d: number): number
   return lo;
 }
 
-/** mode 3: the face moves by `dist` along its outward normal; the faces beside it (all flat) are carried on as planes */
+/** mode 3: the face moves by `dist` along its outward normal; the faces beside it (flat, or the wall of a hole or boss along the move) are carried on */
 kinds["moveFace"] = { outputs: "body", run: (inputs, ctx) => {
   const body = needBody(inputs[0]), d = num(ctx.step.params, "dist"), rec = body.one(ctx.step.params.face as Id), around = neighbours(body, rec);
   if (Math.abs(d) < 1e-12) return body;
@@ -93,9 +93,11 @@ export function pullModes(engine: Engine, bodyStep: string, face: Id): ModeInfo[
   const body = engine.result(bodyStep).value as Body, pieces = body.find(face), out: Omit<ModeInfo, "suggested">[] = [];
   if (!pieces.length) return (["edit", "push", "move", "offset"] as Mode[]).map((mode) => ({ mode, ok: false, why: "the face is no longer there", suggested: false }));
   const types = new Set(pieces.map((p) => K.facts(p.h).type)), around = pieces.flatMap((p) => neighbours(body, p)).filter((g) => !pieces.includes(g)), allFlat = around.every((g) => K.facts(g.h).type === "PLANE");
+  // a flat face can also be moved beside a round wall that runs along the move (the wall of a hole or a boss)
+  const flatN = types.size === 1 && types.has("PLANE") && pieces.length ? K.facts(pieces[0]!.h).ne : null, canMove = flatN !== null && around.every((g) => { const q = K.facts(g.h); return q.type === "PLANE" || (q.type === "CYLINDRE" && Math.abs(dot(K.cylinderOf(g.h).dir, flatN)) > 0.999); });
   const e = originalEdit(engine, bodyStep, face, 0); out.push({ mode: "edit", ok: !("why" in e), why: "why" in e ? e.why : "" });
   out.push({ mode: "push", ok: types.size === 1 && types.has("PLANE") && pieces.length === 1, why: pieces.length > 1 ? "the face has split: say which piece" : types.has("PLANE") ? "" : "push extrudes a flat face's outline; this face is round" });
-  out.push({ mode: "move", ok: types.size === 1 && types.has("PLANE") && pieces.length === 1 && allFlat, why: !types.has("PLANE") ? "move carries a flat face; this face is round" : pieces.length > 1 ? "the face has split: say which piece" : allFlat ? "" : "a face beside it is round" });
+  out.push({ mode: "move", ok: types.size === 1 && types.has("PLANE") && pieces.length === 1 && canMove, why: !types.has("PLANE") ? "move carries a flat face; this face is round" : pieces.length > 1 ? "the face has split: say which piece" : canMove ? "" : "a face beside it is round, across the move" });
   out.push({ mode: "offset", ok: types.size === 1 && types.has("CYLINDRE") && allFlat, why: !types.has("CYLINDRE") ? "offset moves a round wall; this face is not one" : allFlat ? "" : "a face beside the wall is round" });
   const first = out.findIndex((m) => m.ok);
   return out.map((m, i) => ({ ...m, suggested: i === first }));

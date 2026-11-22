@@ -299,7 +299,16 @@ export function moveRegion(a: Solid, face: FaceH, around: readonly FaceH[], d: n
     let tool = common2(bigBox(a, pad), halfSpace(c, [n[0] * s, n[1] * s, n[2] * s], add3(c, n, s * Math.abs(d) * 0.5)));
     tool = common2(tool, halfSpace(add3(c, n, d), [-n[0] * s, -n[1] * s, -n[2] * s], c));
     for (const g of around) {
-      const q = facts(g); if (q.type !== "PLANE") fail(`a face beside it is ${q.type}, not flat`);
+      const q = facts(g);
+      if (q.type === "CYLINDRE") { // a round wall along the move (the wall of a hole or a boss): the region is kept inside it or outside it, on the side the moved face lies
+        const cy = cylinderOf(g); if (Math.abs(dot3(cy.dir, n)) < 0.999) fail("a round face beside it has its axis across the move");
+        const radial = (p: V3) => { const w: V3 = [p[0] - cy.point[0], p[1] - cy.point[1], p[2] - cy.point[2]], al = dot3(w, cy.dir); return Math.hypot(w[0] - cy.dir[0] * al, w[1] - cy.dir[1] * al, w[2] - cy.dir[2] * al); };
+        const outside = faceVertexPoints(face).some((p) => radial(p) > cy.r + 1e-6), mid = dot3(c, cy.dir), cyl = cylinderSolid(cy, cy.r, mid - pad, mid + pad);
+        tool = outside ? t(new oc.BRepAlgoAPI_Cut(tool, cyl, progress())).Shape() : common2(tool, cyl);
+        if (!(volumeOf(tool) > 1e-9)) return { tool: new Solid(tool), collapsed: true };
+        continue;
+      }
+      if (q.type !== "PLANE") fail(`a face beside it is ${q.type}, not flat or a round wall along the move`);
       if (Math.abs(dot3([c[0] - q.ce[0], c[1] - q.ce[1], c[2] - q.ce[2]], q.ne)) < 1e-9) fail("the face's centre lies in the plane of a face beside it");
       tool = common2(tool, halfSpace(q.ce, q.ne, c));
       if (!(volumeOf(tool) > 1e-9)) return { tool: new Solid(tool), collapsed: true };
@@ -308,6 +317,11 @@ export function moveRegion(a: Solid, face: FaceH, around: readonly FaceH[], d: n
     const here = solid.faces().some((h) => { const q = facts(h); return q.type === "PLANE" && Math.abs(dot3(q.ne, n)) > 0.999 && Math.abs(dot3([q.ce[0] - newPlane[0], q.ce[1] - newPlane[1], q.ce[2] - newPlane[2]], n)) < 1e-6 && q.area > 1e-6; });
     return { tool: solid, collapsed: !here };
   });
+}
+/** a solid cylinder about a cylinder's axis, of radius `r`, from axis coordinate `x0` to `x1` (the coordinate is the distance along the axis direction from the origin) */
+function cylinderSolid(cy: Cylinder, r: number, x0: number, x1: number): Raw {
+  const base = dot3(cy.point, cy.dir), at = (x: number): V3 => add3(cy.point, cy.dir, x - base);
+  return prism(profileFace({ kind: "circle", c: at(x0), r, normal: cy.dir }), [cy.dir[0] * (x1 - x0), cy.dir[1] * (x1 - x0), cy.dir[2] * (x1 - x0)]).solid.raw;
 }
 export interface Cylinder { r: number; point: V3; dir: V3 }
 export const cylinderOf = (face: FaceH): Cylinder => scoped(() => {
@@ -328,7 +342,7 @@ export function ringRegion(a: Solid, wall: FaceH, around: readonly FaceH[], d: n
     const corners = a.faces().flatMap((h) => { const b = facts(h); return [0, 1].flatMap((i) => [0, 1].flatMap((j) => [0, 1].map((k) => dot3([[b.lo, b.hi][i]![0], [b.lo, b.hi][j]![1], [b.lo, b.hi][k]![2]], cy.dir)))); });
     const a0 = Math.min(...corners) - 5 - Math.abs(d), a1 = Math.max(...corners) + 5 + Math.abs(d), R1 = Math.min(cy.r, r2), R2 = Math.max(cy.r, r2);
     const base = dot3(cy.point, cy.dir), at = (x: number): V3 => add3(cy.point, cy.dir, x - base);
-    const tube = (r: number, x0: number, x1: number) => prism(profileFace({ kind: "circle", c: at(x0), r, normal: cy.dir }), [cy.dir[0] * (x1 - x0), cy.dir[1] * (x1 - x0), cy.dir[2] * (x1 - x0)]).solid.raw;
+    const tube = (r: number, x0: number, x1: number) => cylinderSolid(cy, r, x0, x1);
     let tool = t(new oc.BRepAlgoAPI_Cut(tube(R2, a0, a1), tube(R1, a0 - 1, a1 + 1), progress())).Shape();
     for (const g of around) { const b = facts(g); if (b.type !== "PLANE") fail(`a face beside it is ${b.type}, not flat`); tool = common2(tool, halfSpace(b.ce, b.ne, q.ce)); }
     if (!(volumeOf(tool) > 1e-9)) fail("there is nothing between the old wall and the new one");

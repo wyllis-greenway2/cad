@@ -105,6 +105,13 @@ for (let m = 0; m < MODELS; m++) {
         const v = K.volume(r.value.solid);
         if (!(v > 1e-6) || !Number.isFinite(v)) problems.push(`model ${m} (seed ${mseed}) ${o.op}: ok but volume ${v}`);
       }
+      // a round that did not work at its size: does it work smaller? one that fails even at a twentieth of the size is a kernel failure, not a size that is too big
+      if (k !== "ok" && (o.op === "round" || o.op === "chamfer") && /could not|kernel/.test(why)) {
+        let works = false; for (const f of [0.25, 0.05]) { e.edit(o.step.id, { ...o.step.params, size: (o.step.params as { size: number }).size * f }); if (e.result(o.step.id).status.kind === "ok") { works = true; break; } }
+        const tn = (tally[o.op + " (smaller works)"] ??= { ok: 0, flagged: 0, orphaned: 0, ms: 0, whys: {} }); (works ? tn : (tally[o.op + " (fails at any size)"] ??= { ok: 0, flagged: 0, orphaned: 0, ms: 0, whys: {} })).flagged++;
+        if (!works) { const f = `/tmp/anysize-${SEED}-${m}-${n}.json`; writeFileSync(f, JSON.stringify(e.recipe())); }
+        e.edit(o.step.id, o.step.params);
+      }
       // a step that did not work is taken back out, as a person would (the chain goes on from the last good body)
       if (k !== "ok") e.remove(o.step.id);
     }
