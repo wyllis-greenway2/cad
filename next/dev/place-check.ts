@@ -72,5 +72,15 @@ console.log("5. fixed: the body that must not move; and the first named body is 
   const sa = scene(a, "M"), sb = scene(b, "M"); check("flush a-onto-b moves one body; b-onto-a moves the other: the two answers are not the same bodies at the same places", JSON.stringify(lo(sa).map((v) => Math.round(v * 1e6))) !== JSON.stringify(lo(sb).map((v) => Math.round(v * 1e6))), `${lo(sa)} | ${lo(sb)}`);
   a.release(); b.release();
 }
+console.log("6. ranges in the step: a gap of at least, an offset of at most")
+{
+  const base = new Engine(blocks); base.build(); const sc0 = scene(base, "P"), bot = faceOf(sc0, 0, -1), top = faceOf(sc0, 1, 1); base.release();
+  const lo = (sc: Body) => sc.bodies.map((b) => Math.min(...b.faces.map((f) => K.facts(f.h).lo[2]))).sort((p, q) => p - q);
+  const run = (extra: Record<string, unknown>) => { const e = new Engine([...blocks, { id: "M", kind: "place", params: { mates: [{ id: "f", kind: "flush", a: bot, b: top, ...extra }] }, inputs: ["P"] }]); e.build(); const r = { s: st(e, "M"), lo: lo(scene(e, "M")), free: e.result("M").notes.map((n) => n.text).join(" | ") }; e.release(); return r; };
+  const far = run({ min: 5 }); check("the copy is 20 above the first block's top; a gap of at least 5: not moved in height (still at 30)", far.s.kind === "ok" && near(far.lo[1]!, 30, 1e-6), `${far.s.kind} ${far.lo}`);
+  const close = run({ min: 25 }); check("a gap of at least 25: lifted from 20 to 25 (the second block's lowest is 35)", near(close.lo[1]!, 35, 1e-6), `${close.lo}`);
+  const band = run({ min: 0, max: 8 }); check("a gap between 0 and 8: 20 comes down to 8 (lowest is 18)", near(band.lo[1]!, 18, 1e-6), `${band.lo}`);
+  const bad = run({ value: 3, min: 1 }); check("a number and a range together: said", /number or a range, not both/.test(bad.s.why ?? ""), bad.s.why);
+}
 console.log(failures ? `\n${failures} failure(s)` : "\nno failure");
 process.exit(failures ? 1 : 0);

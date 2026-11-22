@@ -13,7 +13,7 @@ export interface CircleSpec { id: string; c: string; r: number; fixedR?: boolean
 export type Relation =
   | "fixed" | "symmetric" | "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "collinear" | "equalLength" | "equalRadius" | "concentric" | "pointOnLine" | "pointOnCircle" | "midpoint"
   | "tangent" | "tangentCircles" | "distance" | "length" | "radius" | "pointLineDistance" | "horizontalDistance" | "verticalDistance" | "angle";
-export interface Constraint { id: string; kind: Relation; /** the ids of the parts, in the order the relation reads them (the first is the one that moves when one must, E51) */ parts: string[]; /** the number of a dimension (degrees for an angle) */ value?: number; /** `fixed`: where; tangent circles: internal */ at?: [number, number]; internal?: boolean }
+export interface Constraint { id: string; kind: Relation; /** the ids of the parts, in the order the relation reads them (the first is the one that moves when one must, E51) */ parts: string[]; /** the number of a dimension (degrees for an angle) */ value?: number; /** a range instead of a number (`in_1527`, E85): the measured number may be anywhere from `min` to `max` (either alone is a one-sided range: at least, at most); equal, they are a value */ min?: number; max?: number; /** `fixed`: where; tangent circles: internal */ at?: [number, number]; internal?: boolean }
 export interface System { points: PointSpec[]; lines: LineSpec[]; circles: CircleSpec[]; constraints: Constraint[] }
 export interface Solution { points: Record<string, [number, number]>; circles: Record<string, number> }
 export type VerdictKind = "solved" | "under" | "redundant" | "over";
@@ -22,7 +22,7 @@ export interface Verdict {
   /** the constraints hold and nothing collapsed */ ok: boolean;
   /** how many ways the sketch can still move */ freedom: number; /** the parts that can still move (point ids, circle ids for a radius) */ free: string[];
   /** constraints that add nothing the others do not already say (they hold) */ redundant: string[]; /** of those, the ones that say nothing new at all (every part of what they say follows from the others) */ implied: string[];
-  /** when not ok: a set of constraints that cannot hold together and none of which can be left out of it */ conflict: string[]; reason: string;
+  /** ranges that are holding the answer at one of their ends right now (the person's stops, E85): the sketch is free within them but not past them */ atStop: string[]; /** when not ok: a set of constraints that cannot hold together and none of which can be left out of it */ conflict: string[]; reason: string;
 }
 export interface Options { /** a part that must reach this place: a drag (soft: it goes as near as the constraints allow) */ pins?: Record<string, [number, number]>; /** parts that do not move in this solve */ hold?: string[]; /** solve only the parts connected to these (the rest keep their places) */ only?: string[]; restarts?: number; minSize?: number; /** the most solves spent narrowing a conflict */ maxSolves?: number }
 export interface Result { solution: Solution; verdict: Verdict; iterations: number; /** a pin that could not be reached, with how far it is */ unreached: Record<string, number>; /** the constraints that hold a pin back: a set that cannot hold with the pinned parts where they were taken to, none of which can be left out of it (E55) */ holds: string[] }
@@ -39,6 +39,14 @@ const scaleD = (a: D, s: number) => lin(a, s, a, 0, a.v * s);
 const div = (a: D, b: D) => lin(a, 1 / b.v, b, -a.v / (b.v * b.v), a.v / b.v);
 const sqrtD = (a: D) => { const s = Math.sqrt(a.v); return lin(a, s > 0 ? 0.5 / s : 0, a, 0, s); };
 type P = { x: D; y: D };
+/** the angle of (x, y), in radians, differentiated */
+const atan2D = (y: D, x: D): D => { const den = x.v * x.v + y.v * y.v || 1e-300, r = add(scaleD(y, x.v / den), scaleD(x, -y.v / den)); r.v = Math.atan2(y.v, x.v); return r; };
+/** a measured number held to a range: no residual inside it, the distance past the nearest end outside (and no gradient inside, so it takes no freedom and moves nothing) */
+const clampRes = (m: D, lo?: number, hi?: number): D => (lo !== undefined && m.v < lo ? sub(m, k(lo)) : hi !== undefined && m.v > hi ? sub(m, k(hi)) : scaleD(m, 0));
+/** the constraints that measure a number: only those can have a range */
+export const RANGEABLE = new Set(["distance", "length", "radius", "pointLineDistance", "horizontalDistance", "verticalDistance", "angle"]);
+/** a range that is a true range (the two ends differ, or only one is given); the same two ends are a value */
+export const isRange = (c: { min?: number; max?: number }): boolean => (c.min !== undefined || c.max !== undefined) && c.min !== c.max;
 const dot2 = (u: P, w: P) => add(mul(u.x, w.x), mul(u.y, w.y)), cross2 = (u: P, w: P) => sub(mul(u.x, w.y), mul(u.y, w.x)), vec = (a: P, b: P): P => ({ x: sub(b.x, a.x), y: sub(b.y, a.y) });
 const len = (u: P) => sqrtD(dot2(u, u));
 
@@ -84,8 +92,17 @@ export function validate(S: System): string | null {
     if (c.kind === "horizontal" || c.kind === "vertical") { const kk = c.parts.map((p) => kindOf(p, S)); if (!((c.parts.length === 1 && kk[0] === "line") || (c.parts.length === 2 && kk[0] === "point" && kk[1] === "point"))) return `${c.id}: ${c.kind} takes a line, or two points`; continue; }
     c.parts.forEach((p, i) => { if (!def.parts[i]!.includes(kindOf(p, S))) return; });
     for (let i = 0; i < want; i++) if (!def.parts[i]!.includes(kindOf(c.parts[i]!, S))) return `${c.id}: ${c.kind} needs a ${def.parts[i]!.join(" or ")} as part ${i + 1}, ${c.parts[i]} is a ${kindOf(c.parts[i]!, S)}`;
-    if ((c.kind === "distance" || c.kind === "length" || c.kind === "radius" || c.kind === "pointLineDistance") && !(typeof c.value === "number" && c.value > 0)) return `${c.id}: ${c.kind} needs a number above nothing`;
-    if ((c.kind === "angle" || c.kind === "horizontalDistance" || c.kind === "verticalDistance") && typeof c.value !== "number") return `${c.id}: ${c.kind} needs a number`;
+    const ranged = c.min !== undefined || c.max !== undefined, num = typeof c.value === "number" ? c.value : c.min !== undefined && c.min === c.max ? c.min : undefined;
+    if (ranged) {
+      if (!RANGEABLE.has(c.kind)) return `${c.id}: ${c.kind} measures no number, so it has no range`;
+      for (const [nm, v] of [["min", c.min], ["max", c.max]] as const) if (v !== undefined && !Number.isFinite(v)) return `${c.id}: the ${nm} is not a number`;
+      if (c.min !== undefined && c.max !== undefined && c.min > c.max) return `${c.id}: the least (${c.min}) is above the most (${c.max})`;
+      if (c.kind !== "horizontalDistance" && c.kind !== "verticalDistance" && c.kind !== "angle" && c.max !== undefined && !(c.max > 0)) return `${c.id}: the most of a ${c.kind} is above nothing`;
+      if (c.kind === "angle" && ((c.min !== undefined && (c.min < -180 || c.min > 180)) || (c.max !== undefined && (c.max < -180 || c.max > 180)))) return `${c.id}: an angle range is within -180 and 180 degrees`;
+    } else {
+      if ((c.kind === "distance" || c.kind === "length" || c.kind === "radius" || c.kind === "pointLineDistance") && !(typeof num === "number" && num > 0)) return `${c.id}: ${c.kind} needs a number above nothing`;
+      if ((c.kind === "angle" || c.kind === "horizontalDistance" || c.kind === "verticalDistance") && typeof num !== "number") return `${c.id}: ${c.kind} needs a number`;
+    }
     if (c.kind === "fixed" && !c.at) return `${c.id}: fixed needs the place`;
   }
   return null;
@@ -133,6 +150,21 @@ interface Prep {
   names: string[]; /** unknown index -> what it is */ x: number[]; frozen: boolean[];
   pointVar: Map<string, [number, number]>; circleVar: Map<string, number>; rows: { c: Constraint; fn: (x: number[]) => D[] }[]; pins: { id: string; at: [number, number] }[];
 }
+/** the number a ranged constraint measures, at a state of the unknowns (null for what has no number); angles in degrees */
+function measuredOf(S: System, c: Constraint, xs: number[]): number | null {
+  const prep = prepare({ ...S, constraints: [] }, new Set(), {}), x = xs, v = (i: number) => new D(x[i]!), pt = (id: string): P => { const [i, j] = prep.pointVar.get(id)!; return { x: v(i), y: v(j) }; };
+  const lines = new Map(S.lines.map((l) => [l.id, l])), circles = new Map(S.circles.map((q) => [q.id, q])), ctx = { pt, line: (id: string) => { const l = lines.get(id)!; return { a: pt(l.a), b: pt(l.b) }; }, r: (id: string) => v(prep.circleVar.get(id)!), c: (id: string) => pt(circles.get(id)!.c) };
+  if (c.kind === "angle") { const a = ctx.line(c.parts[0]!), b = ctx.line(c.parts[1]!), u = vec(a.a, a.b), w = vec(b.a, b.b); return (atan2D(cross2(u, w), dot2(u, w)).v * 180) / Math.PI; }
+  const row = RELATIONS[c.kind]; return row ? row.rows(c.parts, { ...ctx, value: 0 }, c.parts.map((q) => kindOf(q, S)))[0]!.v : null;
+}
+/** the residual rows of one constraint, with its range if it has one */
+function constraintRows(S: System, c: Constraint, m: Pick<Ctx, "pt" | "line" | "r" | "c">): D[] {
+  const kk = c.parts.map((p) => kindOf(p, S)), value = c.value ?? (c.min !== undefined && c.min === c.max ? c.min : 0);
+  if (!isRange(c)) return RELATIONS[c.kind].rows(c.parts, { ...m, value, at: c.at, internal: c.internal }, kk);
+  if (c.kind === "angle") { const a = m.line(c.parts[0]!), b = m.line(c.parts[1]!), u = vec(a.a, a.b), w = vec(b.a, b.b), th = atan2D(cross2(u, w), dot2(u, w)), rad = Math.PI / 180; return [clampRes(th, c.min !== undefined ? c.min * rad : undefined, c.max !== undefined ? c.max * rad : undefined)]; }
+  const measured = RELATIONS[c.kind].rows(c.parts, { ...m, value: 0, at: c.at, internal: c.internal }, kk)[0]!; // the relation with a value of nothing is the number itself
+  return [clampRes(measured, c.min, c.max)];
+}
 function prepare(S: System, hold: Set<string>, pins: Record<string, [number, number]>): Prep {
   const names: string[] = [], x: number[] = [], frozen: boolean[] = [], pointVar = new Map<string, [number, number]>(), circleVar = new Map<string, number>();
   for (const p of S.points) { const fz = !!p.fixed || hold.has(p.id); pointVar.set(p.id, [names.length, names.length + 1]); names.push(p.id + ".x", p.id + ".y"); x.push(p.x, p.y); frozen.push(fz, fz); }
@@ -143,7 +175,7 @@ function prepare(S: System, hold: Set<string>, pins: Record<string, [number, num
     const lines = new Map(S.lines.map((l) => [l.id, l])), circles = new Map(S.circles.map((c) => [c.id, c]));
     return { pt, line: (id: string) => { const l = lines.get(id)!; return { a: pt(l.a), b: pt(l.b) }; }, r: (id: string) => v(circleVar.get(id)!), c: (id: string) => pt(circles.get(id)!.c) };
   };
-  const rows = S.constraints.map((c) => ({ c, fn: (xs: number[]) => { const m = mk(xs), kk = c.parts.map((p) => kindOf(p, S)); return RELATIONS[c.kind].rows(c.parts, { ...m, value: c.value ?? 0, at: c.at, internal: c.internal }, kk); } }));
+  const rows = S.constraints.map((c) => ({ c, fn: (xs: number[]) => { const m = mk(xs); return constraintRows(S, c, m); } }));
   return { names, x, frozen, pointVar, circleVar, rows, pins: Object.entries(pins).map(([id, at]) => ({ id, at })) };
 }
 /** a pin is a wish, a constraint is a rule: the pin weighs little against them, and the rules are made exact again after */
@@ -240,7 +272,7 @@ export function solve(S: System, opts: Options = {}): Result {
 }
 function solveOnce(S: System, opts: Options = {}): Result {
   const bad = validate(S); const empty: Solution = { points: Object.fromEntries(S.points.map((p) => [p.id, [p.x, p.y] as [number, number]])), circles: Object.fromEntries(S.circles.map((c) => [c.id, c.r])) };
-  if (bad) return { solution: empty, verdict: { kind: "over", ok: false, freedom: 0, free: [], redundant: [], implied: [], conflict: [], reason: bad }, iterations: 0, unreached: {}, holds: [] };
+  if (bad) return { solution: empty, verdict: { kind: "over", ok: false, freedom: 0, free: [], redundant: [], implied: [], atStop: [], conflict: [], reason: bad }, iterations: 0, unreached: {}, holds: [] };
   const hold = new Set(opts.hold ?? []), pins = opts.pins ?? {}, restarts = opts.restarts ?? 4;
   const xs = S.points.flatMap((p) => [p.x, p.y]).concat(S.circles.map((c) => c.r)), scale = Math.max(1, ...xs.map(Math.abs)), minSize = opts.minSize ?? 1e-6 * scale;
   const prep = prepare(S, hold, pins);
@@ -264,7 +296,7 @@ function solveOnce(S: System, opts: Options = {}): Result {
     // where it ended; then what is free and what adds nothing
     for (let q = 0; q < solved.length; q++) if (!prep.frozen[q] && find(q) === root) solved[q] = f.attempt.x[q]!;
     const free = prep.frozen.map((fz, q) => (fz ? -1 : q)).filter((q) => q >= 0 && find(q) === root), pos = new Map(free.map((q, i) => [q, i] as const)), rowsOf: { id: string; row: number[] }[] = [];
-    for (const row of prep.rows) if (use.has(row.c.id)) for (const d of row.fn(f.attempt.x)) { const v = new Array<number>(free.length).fill(0); for (const [i, g] of d.g) if (pos.has(i)) v[pos.get(i)!] = g; rowsOf.push({ id: row.c.id, row: v }); }
+    for (const row of prep.rows) if (use.has(row.c.id) && !isRange(row.c)) for (const d of row.fn(f.attempt.x)) { const v = new Array<number>(free.length).fill(0); for (const [i, g] of d.g) if (pos.has(i)) v[pos.get(i)!] = g; rowsOf.push({ id: row.c.id, row: v }); }
     const indep = independentRows(rowsOf.map((r) => r.row), 1e-9), partial = new Set<string>(); rowsOf.forEach((r, i) => { if (!indep[i]) partial.add(r.id); });
     redundant.push(...ids.filter((id) => partial.has(id)));
     for (const id of ids) { const mine = rowsOf.map((r, i) => (r.id === id ? i : -1)).filter((i) => i >= 0); if (mine.length && mine.every((i) => !indep[i])) implied.push(id); }
@@ -292,12 +324,13 @@ function solveOnce(S: System, opts: Options = {}): Result {
   }
   const solution: Solution = { points: Object.fromEntries(S.points.map((p) => [p.id, [final[prep.pointVar.get(p.id)![0]]!, final[prep.pointVar.get(p.id)![1]]!] as [number, number]])), circles: Object.fromEntries(S.circles.map((c) => [c.id, final[prep.circleVar.get(c.id)!]!])) };
   const kind: VerdictKind = !ok ? "over" : redundant.length ? "redundant" : freedomTotal > 0 ? "under" : "solved";
-  return { solution: ok ? solution : empty, verdict: { kind, ok, freedom: freedomTotal, free: [...freeParts].sort(), redundant, implied, conflict, reason }, iterations, unreached, holds };
+  const atStop = ok ? S.constraints.filter((c) => isRange(c)).filter((c) => { const m = measuredOf(S, c, final); return m !== null && ((c.min !== undefined && Math.abs(m - c.min) < 1e-6 * Math.max(1, Math.abs(c.min))) || (c.max !== undefined && Math.abs(m - c.max) < 1e-6 * Math.max(1, Math.abs(c.max)))); }).map((c) => c.id) : [];
+  return { solution: ok ? solution : empty, verdict: { kind, ok, freedom: freedomTotal, free: [...freeParts].sort(), redundant, implied, atStop, conflict, reason }, iterations, unreached, holds };
 }
 
 // ---------------------------------------------------------------- asking for a constraint (E55: made, already holds, or refused)
 export interface Attempt2 { outcome: "added" | "already" | "refused"; /** `already`: the constraint that says it, or that it follows from the others */ by: string[]; /** `refused`: the constraints that cannot hold together with it, and the ones among them that were there before */ victims: string[]; holding: string[]; system: System; verdict: Verdict }
-const sameAs = (a: Constraint, b: Constraint) => a.kind === b.kind && a.value === b.value && JSON.stringify([...a.parts].sort()) === JSON.stringify([...b.parts].sort());
+const sameAs = (a: Constraint, b: Constraint) => a.kind === b.kind && a.value === b.value && a.min === b.min && a.max === b.max && JSON.stringify([...a.parts].sort()) === JSON.stringify([...b.parts].sort());
 /** ask for a constraint: it is made, or it already holds as asked (nothing is added twice), or it is refused with the constraints that hold it back named */
 export function tryAdd(S: System, c: Constraint, opts: Options = {}): Attempt2 {
   const twin = S.constraints.find((q) => sameAs(q, c) && !(c.kind === "horizontal" || c.kind === "vertical"));
@@ -314,10 +347,10 @@ export function residualsOf(S: System, c: Constraint): number[] {
   const pointVar = prep.pointVar, circleVar = prep.circleVar, x = prep.x, v = (i: number) => new D(x[i]!);
   const pt = (id: string): P => { const [i, j] = pointVar.get(id)!; return { x: v(i), y: v(j) }; }, lines = new Map(S.lines.map((l) => [l.id, l])), circles = new Map(S.circles.map((q) => [q.id, q]));
   const ctx = { pt, line: (id: string) => { const l = lines.get(id)!; return { a: pt(l.a), b: pt(l.b) }; }, r: (id: string) => v(circleVar.get(id)!), c: (id: string) => pt(circles.get(id)!.c), value: c.value ?? 0, at: c.at, internal: c.internal };
-  return row.rows(c.parts, ctx, c.parts.map((q) => kindOf(q, S))).map((d) => d.v);
+  return (isRange(c) ? constraintRows(S, c, ctx) : row.rows(c.parts, ctx, c.parts.map((q) => kindOf(q, S)))).map((d) => d.v);
 }
 
 // ---------------------------------------------------------------- what the placement solver of bodies shares with this one (`dec_body_placement`: one solver, its parts and unknowns generalised)
-export const kit = { D, k, add, sub, mul, div, scaleD, sqrtD, levenberg, narrow, independentRows, nullSpace, tol };
+export const kit = { D, k, add, sub, mul, div, scaleD, sqrtD, atan2D, clampRes, levenberg, narrow, independentRows, nullSpace, tol };
 export type { Prep, Attempt };
 export type AD = D;

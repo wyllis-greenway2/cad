@@ -123,6 +123,8 @@ const matrix = (m: Motion): [[number, number], [number, number]] => {
   const a = (2 * m.mirror * Math.PI) / 180, F: [[number, number], [number, number]] = [[Math.cos(a), Math.sin(a)], [Math.sin(a), -Math.cos(a)]]; // reflection in the line at `mirror` degrees
   return [[R[0][0] * F[0][0] + R[0][1] * F[1][0], R[0][0] * F[0][1] + R[0][1] * F[1][1]], [R[1][0] * F[0][0] + R[1][1] * F[1][0], R[1][0] * F[0][1] + R[1][1] * F[1][1]]];
 };
+/** a number's range seen the other way round (the sign flipped): the least becomes minus the most */
+const flipRange = (c: Constraint): Pick<Constraint, "min" | "max"> => ({ ...(c.max !== undefined ? { min: -c.max } : {}), ...(c.min !== undefined ? { max: -c.min } : {}) });
 const clean = (v: number) => { const r = Math.round(v); return Math.abs(v - r) < 1e-9 ? r : v; };
 /**
  * What a copy keeps of a sketch's constraints. A relation is kept as it is if it means the same after the motion (a length, a parallel, a tangent: all of those); a relation tied to the world's axes
@@ -147,9 +149,9 @@ export function carryConstraints(constraints: Constraint[], lineOfPoints: (a: st
       const fromX = c.kind === "horizontalDistance", img = fromX ? ex : ey, to = axis(img);
       if (to === null) { dropped.push({ id: c.id, kind: c.kind, why: `a distance along an axis cannot be kept when the sketch is turned ${((m.deg ?? 0) % 360).toFixed(1)} degrees` }); continue; }
       const sign = (to === "h" ? img[0]! : img[1]!) < 0 ? -1 : 1, kind = to === "h" ? "horizontalDistance" : "verticalDistance";
-      kept.push({ ...c, kind, value: (c.value ?? 0) * sign }); if (kind !== c.kind || sign < 0) changed.push({ id: c.id, from: c.kind, to: `${kind}${sign < 0 ? " (the other way)" : ""}` });
+      { const { min: _a, max: _b, ...rest } = c; void _a; void _b; kept.push({ ...rest, kind, ...(c.value !== undefined ? { value: c.value * sign } : {}), ...(sign < 0 ? flipRange(c) : { ...(c.min !== undefined ? { min: c.min } : {}), ...(c.max !== undefined ? { max: c.max } : {}) }) }); } if (kind !== c.kind || sign < 0) changed.push({ id: c.id, from: c.kind, to: `${kind}${sign < 0 ? " (the other way)" : ""}` });
     } else if (c.kind === "angle") {
-      kept.push(mirrored ? { ...c, value: -(c.value ?? 0) } : c); if (mirrored) changed.push({ id: c.id, from: "angle", to: "angle (the other way)" });
+      { if (!mirrored) kept.push(c); else { const { min: _a, max: _b, ...rest } = c; void _a; void _b; kept.push({ ...rest, ...(c.value !== undefined ? { value: -c.value } : {}), ...flipRange(c) }); } } if (mirrored) changed.push({ id: c.id, from: "angle", to: "angle (the other way)" });
     } else if (c.kind === "fixed") {
       const at = c.at ?? [0, 0], to: [number, number] = [M[0][0] * at[0] + M[0][1] * at[1] + (m.by?.[0] ?? 0), M[1][0] * at[0] + M[1][1] * at[1] + (m.by?.[1] ?? 0)]; kept.push({ ...c, at: to }); changed.push({ id: c.id, from: "fixed", to: `fixed at ${to[0].toFixed(3)}, ${to[1].toFixed(3)}` });
     } else kept.push(c);

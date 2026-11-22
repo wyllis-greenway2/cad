@@ -4,24 +4,27 @@
 // differentiates cleanly). Pure and deterministic: no kernel, no clock. The answer is a pose for each body that moved; the `place` step applies them.
 import { kit, type AD, type Prep } from "./solver.ts";
 
-const { D, add, sub, mul, div, scaleD, sqrtD, levenberg, narrow, independentRows, nullSpace } = kit;
+const { D, add, sub, mul, div, scaleD, sqrtD, atan2D, clampRes, levenberg, narrow, independentRows, nullSpace } = kit;
 export type V3 = readonly [number, number, number];
 /** a face as a part: a plane (a point on it, its outward normal) or an axis (a point on it, its direction) */
-export interface Prim { kind: "plane" | "axis"; p: V3; d: V3 }
-export type MateKind = "flush" | "coaxial" | "parallel" | "perpendicular" | "angle" | "axisToFace";
+export interface Prim { kind: "plane" | "axis"; p: V3; d: V3; /** the middle of the face (for a distance along a direction); the point `p` when not given */ c?: V3 }
+export type MateKind = "flush" | "coaxial" | "parallel" | "perpendicular" | "angle" | "axisToFace" | "turn" | "slide";
 /** `a` is the part that moves when one must (the first named, as in a sketch); `b` is what it is placed against */
-export interface Mate { id: string; kind: MateKind; a: { body: string; prim: Prim }; b: { body: string; prim: Prim }; /** flush: the gap (mm, positive is apart along b's normal); coaxial: the distance between the axes; angle: degrees 0 to 180 */ value?: number }
+export interface Mate { id: string; kind: MateKind; a: { body: string; prim: Prim }; b: { body: string; prim: Prim }; /** flush: the gap (mm, positive is apart along b's normal); coaxial: the distance between the axes; angle: degrees 0 to 180; turn: how far a's direction is turned from b's, signed, about `about`, degrees (right-handed); slide: the signed distance from b's middle to a's along `about`, mm */ value?: number;
+  /** a range instead of a number (`in_1527`): for flush, coaxial, turn and slide; the number may be anywhere from `min` to `max` (one alone is at least / at most) */ min?: number; max?: number;
+  /** turn and slide: the direction they are measured about / along (a plane's normal or an axis), carried by the pose of its body */ about?: { body: string; prim: Prim } }
 export interface BodyIn { id: string; free: boolean; /** the point the body turns about (its middle) */ pivot: V3 }
 export interface Pose { /** the turn, about this point (a point of the first mated face of the body: turning about it keeps the solve well conditioned) */ pivot: V3; axis: V3; deg: number; /** then the move */ by: V3 }
 export interface PlaceResult {
   ok: boolean; kind: "solved" | "under" | "redundant" | "over"; poses: Record<string, Pose>;
   /** how many ways the placement can still change, and for each body that can, how many */ freedom: number; free: Record<string, number>;
-  redundant: string[]; conflict: string[]; reason: string; iterations: number;
+  redundant: string[]; /** ranges holding the answer at one of their ends (the stops, E85) */ atStop: string[]; conflict: string[]; reason: string; iterations: number;
 }
-export const MATE_NEEDS: Record<MateKind, { a: ("plane" | "axis")[]; b: ("plane" | "axis")[]; value: "none" | "gap" | "offset" | "angle" }> = {
+export const MATE_NEEDS: Record<MateKind, { a: ("plane" | "axis")[]; b: ("plane" | "axis")[]; value: "none" | "gap" | "offset" | "angle" | "turn" | "slide" }> = {
   flush: { a: ["plane"], b: ["plane"], value: "gap" }, coaxial: { a: ["axis"], b: ["axis"], value: "offset" },
   parallel: { a: ["plane", "axis"], b: ["plane", "axis"], value: "none" }, perpendicular: { a: ["plane", "axis"], b: ["plane", "axis"], value: "none" },
   angle: { a: ["plane", "axis"], b: ["plane", "axis"], value: "angle" }, axisToFace: { a: ["axis"], b: ["plane"], value: "none" },
+  turn: { a: ["plane", "axis"], b: ["plane", "axis"], value: "turn" }, slide: { a: ["plane", "axis"], b: ["plane", "axis"], value: "slide" },
 };
 /** a mate that cannot be read (a part of the wrong kind) is said in words */
 export function validateMate(m: Mate): string | null {
@@ -29,6 +32,13 @@ export function validateMate(m: Mate): string | null {
   if (!n.a.includes(m.a.prim.kind)) return `${m.kind} needs ${n.a.join(" or ")} for the first part, not ${m.a.prim.kind === "plane" ? "a flat face" : "a round face"}`;
   if (!n.b.includes(m.b.prim.kind)) return `${m.kind} needs ${n.b.join(" or ")} for the second part, not ${m.b.prim.kind === "plane" ? "a flat face" : "a round face"}`;
   if (m.a.body === m.b.body) return `${m.kind} joins two bodies; both parts are in ${m.a.body}`;
+  const ranged = m.min !== undefined || m.max !== undefined;
+  if (ranged && !["flush", "coaxial", "turn", "slide"].includes(m.kind)) return `${m.kind} measures no number that can have a range (flush, coaxial, turn and slide do)`;
+  if (ranged && m.min !== undefined && m.max !== undefined && m.min > m.max) return `the least (${m.min}) is above the most (${m.max})`;
+  if (ranged && m.value !== undefined) return "a mate has a number or a range, not both";
+  if (m.kind === "coaxial" && ranged && ((m.min !== undefined && m.min < 0) || (m.max !== undefined && m.max < 0))) return "a distance between axes is not below nothing";
+  if ((m.kind === "turn" || m.kind === "slide") && !m.about) return `${m.kind} needs the direction it is measured about (a plane's normal or an axis)`;
+  if (m.kind === "turn" && ((m.value !== undefined && Math.abs(m.value) > 180) || (m.min !== undefined && m.min < -180) || (m.max !== undefined && m.max > 180))) return "a turn is between -180 and 180 degrees";
   if (n.value === "gap" && m.value !== undefined && !Number.isFinite(m.value)) return "the gap is not a number";
   if (n.value === "angle" && !(m.value !== undefined && m.value >= 0 && m.value <= 180)) return "an angle is between 0 and 180 degrees";
   if (n.value === "offset" && m.value !== undefined && !(m.value >= 0)) return "the distance between axes is not below nothing";
@@ -47,9 +57,9 @@ const rotate = (w: A3, v: A3): A3 => { const wv = cross3(w, v), wwv = cross3(w, 
 /** the placement that the mates say: bodies that are `free` move, the others stay; `scale` is about how big the model is (for the tolerance) */
 export function place(bodiesGiven: readonly BodyIn[], mates: readonly Mate[], opts: { restarts?: number; maxSolves?: number } = {}): PlaceResult {
   let bodies: readonly BodyIn[] = bodiesGiven;
-  const empty: PlaceResult = { ok: false, kind: "over", poses: {}, freedom: 0, free: {}, redundant: [], conflict: [], reason: "", iterations: 0 };
+  const empty: PlaceResult = { ok: false, kind: "over", poses: {}, freedom: 0, free: {}, redundant: [], atStop: [], conflict: [], reason: "", iterations: 0 };
   const ids = mates.map((m) => m.id), dupe = ids.find((x, i) => ids.indexOf(x) !== i); if (dupe) return { ...empty, reason: `two mates are called ${dupe}` };
-  for (const m of mates) { const bad = validateMate(m); if (bad) return { ...empty, reason: `${m.id}: ${bad}`, conflict: [m.id] }; for (const b of [m.a.body, m.b.body]) if (!bodies.some((x) => x.id === b)) return { ...empty, reason: `${m.id}: there is no body ${b}`, conflict: [m.id] }; }
+  for (const m of mates) { const bad = validateMate(m); if (bad) return { ...empty, reason: `${m.id}: ${bad}`, conflict: [m.id] }; for (const b of [m.a.body, m.b.body, ...(m.about ? [m.about.body] : [])]) if (!bodies.some((x) => x.id === b)) return { ...empty, reason: `${m.id}: there is no body ${b}`, conflict: [m.id] }; }
   // each body turns about a point of the first face of it that a mate names (rotation about the mated axis or face then costs no move to put right)
   const bodiesIn = bodies; bodies = bodiesIn.map((b) => { const m = mates.find((q) => q.a.body === b.id) ?? mates.find((q) => q.b.body === b.id), pr = m ? (m.a.body === b.id ? m.a.prim : m.b.prim) : null; return pr ? { ...b, pivot: pr.p } : b; });
   const at = new Map(bodies.map((b, i) => [b.id, i])), n = bodies.length * 6;
@@ -64,13 +74,29 @@ export function place(bodiesGiven: readonly BodyIn[], mates: readonly Mate[], op
   const dir = (xs: number[], body: string, d: V3): A3 => rotate(pose(xs, body).w, turn0(body, c3(d)));
   const rowsOf = (m: Mate) => (xs: number[]): AD[] => {
     const pa = point(xs, m.a.body, m.a.prim.p), da = dir(xs, m.a.body, m.a.prim.d), pb = point(xs, m.b.body, m.b.prim.p), db = dir(xs, m.b.body, m.b.prim.d), v = m.value ?? 0, apart = sub3(pa, pb);
+    const ranged = m.min !== undefined || m.max !== undefined, hold = (x: AD, lo?: number, hi?: number, scale = 1) => (ranged ? clampRes(x, lo !== undefined ? lo * scale : undefined, hi !== undefined ? hi * scale : undefined) : sub(x, new D(v * scale)));
     switch (m.kind) {
-      case "flush": return [add(da.x, db.x), add(da.y, db.y), add(da.z, db.z), sub(dot3(db, apart), new D(v))];
-      case "coaxial": { const c = cross3(da, db), off = cross3(db, apart); return v > 0 ? [c.x, c.y, c.z, sub(sqrtD(dot3(off, off)), new D(v))] : [c.x, c.y, c.z, off.x, off.y, off.z]; }
+      case "flush": return [add(da.x, db.x), add(da.y, db.y), add(da.z, db.z), hold(dot3(db, apart), m.min, m.max)];
+      case "coaxial": { const c = cross3(da, db), off = cross3(db, apart); return ranged || v > 0 ? [c.x, c.y, c.z, hold(sqrtD(dot3(off, off)), m.min, m.max)] : [c.x, c.y, c.z, off.x, off.y, off.z]; }
       case "parallel": case "axisToFace": { const c = cross3(da, db); return [c.x, c.y, c.z]; }
       case "perpendicular": return [dot3(da, db)];
       case "angle": return [sub(dot3(da, db), new D(Math.cos((v * Math.PI) / 180)))];
+      case "turn": { // how far a's direction is turned from b's about `about`; held to a number (the difference wrapped to -180..180) or to a range
+        const u = dir(xs, m.about!.body, m.about!.prim.d), th = atan2D(dot3(u, cross3(db, da)), dot3(db, da)), rad = Math.PI / 180;
+        if (ranged) return [clampRes(th, m.min !== undefined ? m.min * rad : undefined, m.max !== undefined ? m.max * rad : undefined)];
+        const d = sub(th, new D(v * rad)); if (d.v > Math.PI) d.v -= 2 * Math.PI; else if (d.v < -Math.PI) d.v += 2 * Math.PI; return [d];
+      }
+      case "slide": { const u = dir(xs, m.about!.body, m.about!.prim.d), ca = point(xs, m.a.body, m.a.prim.c ?? m.a.prim.p), cb = point(xs, m.b.body, m.b.prim.c ?? m.b.prim.p); return [hold(dot3(u, sub3(ca, cb)), m.min, m.max)]; }
     }
+  };
+  /** the number a ranged mate measures at a state (degrees for a turn) */
+  const measured = (m: Mate, xs: number[]): number | null => {
+    const pa = point(xs, m.a.body, m.a.prim.p), da = dir(xs, m.a.body, m.a.prim.d), pb = point(xs, m.b.body, m.b.prim.p), db = dir(xs, m.b.body, m.b.prim.d), apart = sub3(pa, pb);
+    if (m.kind === "flush") return dot3(db, apart).v;
+    if (m.kind === "coaxial") { const off = cross3(db, apart); return Math.sqrt(dot3(off, off).v); }
+    if (m.kind === "turn") { const u = dir(xs, m.about!.body, m.about!.prim.d); return (atan2D(dot3(u, cross3(db, da)), dot3(db, da)).v * 180) / Math.PI; }
+    if (m.kind === "slide") { const u = dir(xs, m.about!.body, m.about!.prim.d), ca = point(xs, m.a.body, m.a.prim.c ?? m.a.prim.p), cb = point(xs, m.b.body, m.b.prim.c ?? m.b.prim.p); return dot3(u, sub3(ca, cb)).v; }
+    return null;
   };
   const rows = mates.map((m) => ({ c: { id: m.id, kind: m.kind as never, parts: [] as string[] }, fn: rowsOf(m) }));
   const names = bodies.flatMap((b, i) => ["tx", "ty", "tz", "wx", "wy", "wz"].map((s) => `${i}.${s}`)); // a body is named by its place in the list: its own id may hold dots
@@ -85,7 +111,7 @@ export function place(bodiesGiven: readonly BodyIn[], mates: readonly Mate[], op
   const x = f.a.x, free = frozen.map((fz, i) => (fz ? -1 : i)).filter((i) => i >= 0), pos = new Map(free.map((q, i) => [q, i] as const)), list: { id: string; row: number[] }[] = [];
   for (const r of rows) for (const d of r.fn(x)) { const v = new Array<number>(free.length).fill(0); for (const [i, g] of d.g) if (pos.has(i)) v[pos.get(i)!] = g; list.push({ id: r.c.id, row: v }); }
   const rank = (rs: number[][]) => independentRows(rs, 1e-9).filter(Boolean).length, total = rank(list.map((r) => r.row)), partial = new Set<string>();
-  for (const id of ids) if (rank(list.filter((r) => r.id !== id).map((r) => r.row)) === total) partial.add(id); // a mate that adds nothing the others do not already say
+  for (const m of mates) if ((m.kind !== "turn" && m.kind !== "slide") || (m.min === undefined && m.max === undefined)) if (rank(list.filter((r) => r.id !== m.id).map((r) => r.row)) === total) partial.add(m.id); // a mate that adds nothing the others do not already say
   const ns = nullSpace(list.map((r) => r.row), free.length), freeBy: Record<string, number> = {};
   for (const v of ns.basis) { const owners = new Set<string>(); v.forEach((c, i) => { if (Math.abs(c) > 1e-8) owners.add(bodies[Number(names[free[i]!]!.split(".")[0])]!.id); }); for (const o of owners) freeBy[o] = (freeBy[o] ?? 0) + 1; }
   // a free body no mate holds at all is free in all six ways
@@ -103,6 +129,6 @@ export function place(bodiesGiven: readonly BodyIn[], mates: readonly Mate[], op
     else if (th >= 1e-9) { const d = [Math.sqrt(Math.max(0, (R[0]![0]! + 1) / 2)), Math.sqrt(Math.max(0, (R[1]![1]! + 1) / 2)), Math.sqrt(Math.max(0, (R[2]![2]! + 1) / 2))], j = d.indexOf(Math.max(...d)); const sg = [Math.sign(R[j]![0]! + R[0]![j]!) || 1, Math.sign(R[j]![1]! + R[1]![j]!) || 1, Math.sign(R[j]![2]! + R[2]![j]!) || 1]; ax = [d[0]! * (j === 0 ? 1 : sg[0]!), d[1]! * (j === 1 ? 1 : sg[1]!), d[2]! * (j === 2 ? 1 : sg[2]!)]; const l = Math.hypot(...ax); ax = [ax[0] / l, ax[1] / l, ax[2] / l]; }
     poses[b.id] = { pivot: b.pivot, axis: ax, deg: (th * 180) / Math.PI, by };
   }
-  const freedom = ns.basis.length;
-  return { ok: true, kind: partial.size ? "redundant" : freedom > 0 ? "under" : "solved", poses, freedom, free: freeBy, redundant: ids.filter((q) => partial.has(q)), conflict: [], reason: "", iterations: f.a.iterations };
+  const freedom = ns.basis.length, atStop = mates.filter((m) => m.min !== undefined || m.max !== undefined).filter((m) => { const v = measured(m, x); return v !== null && ((m.min !== undefined && Math.abs(v - m.min) < 1e-6 * Math.max(1, Math.abs(m.min))) || (m.max !== undefined && Math.abs(v - m.max) < 1e-6 * Math.max(1, Math.abs(m.max)))); }).map((m) => m.id);
+  return { ok: true, kind: partial.size ? "redundant" : freedom > 0 ? "under" : "solved", poses, freedom, free: freeBy, redundant: ids.filter((q) => partial.has(q)), atStop, conflict: [], reason: "", iterations: f.a.iterations };
 }

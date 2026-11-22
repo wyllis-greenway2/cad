@@ -8,14 +8,14 @@ import { type BodyIn, type Mate, type MateKind, type Prim, place } from "./place
 import { type Ctx, Refusal, checked, kinds, needBody } from "./steps.ts";
 
 type V3 = K.V3;
-export interface MateParams { id: string; kind: MateKind; /** the face that moves with its body */ a: Id; /** the face it is placed against */ b: Id; value?: number }
+export interface MateParams { id: string; kind: MateKind; /** the face that moves with its body */ a: Id; /** the face it is placed against */ b: Id; value?: number; /** a range instead of a number (E85): flush, coaxial, turn and slide */ min?: number; max?: number; /** turn and slide: a face whose normal or axis is the direction they are measured about (carried by its body) */ about?: Id }
 export interface PlaceParams { mates: MateParams[]; /** a face of each body that must not move (a body that is only ever the second face of a mate does not move either) */ fixed?: Id[] }
 
 /** a face as a part: a flat face is a plane (a point, its outward normal), a round one an axis (a point on it, its direction) */
 function primOf(scene: Body, face: Id): { body: string; prim: Prim } {
   const rec = scene.one(face), f = K.facts(rec.h), owner = bodyOf(scene, face), body = idKey(owner.id);
-  if (f.type === "PLANE") return { body, prim: { kind: "plane", p: f.ce, d: f.ne } };
-  if (f.type === "CYLINDRE") { const c = K.cylinderOf(rec.h); return { body, prim: { kind: "axis", p: c.point, d: c.dir } }; }
+  if (f.type === "PLANE") return { body, prim: { kind: "plane", p: f.ce, d: f.ne, c: f.ce } };
+  if (f.type === "CYLINDRE") { const c = K.cylinderOf(rec.h); return { body, prim: { kind: "axis", p: c.point, d: c.dir, c: f.ce } }; }
   throw new Error(`${show(face)} is a ${f.type.toLowerCase()} face: a mate takes a flat face or a round (cylinder) one`);
 }
 /** the middle of a body (the point it turns about): the middle of the box its faces lie in */
@@ -28,8 +28,8 @@ kinds["place"] = { outputs: "body", run: (inputs, ctx: Ctx) => {
   let scene = needBody(inputs[0], "the bodies to place"); const first = scene; const p = ctx.step.params as unknown as PlaceParams;
   if (!Array.isArray(p.mates)) throw new Error("a placement needs its list of mates");
   if (scene.bodies.length < 2) throw new Error("a placement needs two bodies at least");
-  const mates: Mate[] = p.mates.map((m) => { const a = primOf(scene, m.a), b = primOf(scene, m.b); return { id: m.id, kind: m.kind, a, b, ...(m.value !== undefined ? { value: m.value } : {}) }; });
-  const fixed = new Set((p.fixed ?? []).map((f) => idKey(bodyOf(scene, f).id))), movers = new Set(mates.map((m) => m.a.body)), used = new Set(mates.flatMap((m) => [m.a.body, m.b.body]));
+  const mates: Mate[] = p.mates.map((m) => { const a = primOf(scene, m.a), b = primOf(scene, m.b); return { id: m.id, kind: m.kind, a, b, ...(m.value !== undefined ? { value: m.value } : {}), ...(m.min !== undefined ? { min: m.min } : {}), ...(m.max !== undefined ? { max: m.max } : {}), ...(m.about ? { about: primOf(scene, m.about) } : {}) }; });
+  const fixed = new Set((p.fixed ?? []).map((f) => idKey(bodyOf(scene, f).id))), movers = new Set(mates.map((m) => m.a.body)), used = new Set(mates.flatMap((m) => [m.a.body, m.b.body, ...(m.about ? [m.about.body] : [])]));
   const bodies: BodyIn[] = [...used].map((id) => ({ id, free: movers.has(id) && !fixed.has(id), pivot: middle(scene, id) }));
   const r = place(bodies, mates);
   if (!r.ok) throw new Refusal(r.conflict.length ? `these mates cannot all hold: ${r.conflict.join(", ")}${r.reason && !/cannot all hold/.test(r.reason) ? ` (${r.reason})` : ""}` : r.reason || "this placement cannot be made", r.conflict);
