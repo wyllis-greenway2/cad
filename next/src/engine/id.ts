@@ -24,3 +24,8 @@ export function show(id: Id): string { return `${id.step}.${id.role}${id.of.leng
 export interface EdgeRef { readonly a: Id; readonly b: Id }
 export const edgeRef = (x: Id, y: Id): EdgeRef => (idKey(x) <= idKey(y) ? { a: x, b: y } : { a: y, b: x });
 export const edgeKey = (e: EdgeRef): string => JSON.stringify([idKey(e.a), idKey(e.b)]);
+
+/** a vertex is named by the faces that meet at it (three or more, ordered by key: the same whichever is named first); a vertex on fewer faces (the seam of a cylinder) has no name */
+export interface VertexRef { readonly faces: readonly Id[] }
+export const vertexRef = (faces: readonly Id[]): VertexRef => ({ faces: [...faces].sort((x, y) => (idKey(x) < idKey(y) ? -1 : idKey(x) > idKey(y) ? 1 : 0)) });
+export const vertexKey = (v: VertexRef): string => JSON.stringify(v.faces.map(idKey));

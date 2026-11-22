@@ -95,6 +95,10 @@ export function edgeCircle(e: EdgeH): { c: V3; r: number; normal: V3; closed: bo
   return { c: ctr, r, normal: [n[0] / L, n[1] / L, n[2] / L], closed };
 }
 export function edgeLength(e: EdgeH): number { return scoped(() => { const p = t(new oc.GProp_GProps()); oc.BRepGProp.LinearProperties(e.raw, p, false, false); return p.Mass(); }); }
+/** the vertices of a solid, as points (in the order the kernel walks them) */
+export function vertexPoints(a: Solid): V3[] { return scoped(() => unique(a.raw, "TopAbs_VERTEX").map((v) => { const p = t(oc.BRep_Tool.Pnt(t(downcast(v)))); return [p.X(), p.Y(), p.Z()] as V3; })); }
+/** the vertices of a face, as points */
+export function faceVertexPoints(f: FaceH): V3[] { return scoped(() => unique(f.raw, "TopAbs_VERTEX").map((v) => { const p = t(oc.BRep_Tool.Pnt(t(downcast(v)))); return [p.X(), p.Y(), p.Z()] as V3; })); }
 export const faceEdges = (f: FaceH): EdgeH[] => unique(f.raw, "TopAbs_EDGE").map((r) => ({ raw: t(r) }));
 /** the area two faces share (a boolean common): used to recover ids where the kernel says nothing (E7) */
 export function overlap(a: FaceH, b: FaceH): number {

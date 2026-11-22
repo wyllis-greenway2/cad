@@ -80,6 +80,12 @@ export interface ModeInfo { mode: Mode; ok: boolean; /** when not: why, in a sen
 export function originalEdit(engine: Engine, bodyStep: string, face: Id, dist: number): { step: string; params: Record<string, any> } | { why: string } {
   const st = engine.ids().includes(face.step) ? engine.step(face.step) : null;
   if (!st) return { why: "no step made this face" };
+  if (st.kind === "hole" && (face.role === "hole" || face.role === "cb") && typeof face.of[0] === "string") { // a hole's own faces: the bottom is its depth, a wall its diameter, a counterbore's floor and wall the same (E76)
+    const part = face.of[0] as string, cb = st.params.counterbore as { diameter: number; depth: number } | undefined;
+    if (face.role === "cb" && !cb) return { why: "this hole has no counterbore" };
+    if (part === "bottom") { if (face.role === "cb") { const h = cb!.depth - dist; return h > 0 ? { step: st.id, params: { ...st.params, counterbore: { ...cb, depth: h } } } : { why: `the counterbore would be ${h.toFixed(3)} deep, not above nothing` }; } const h = (st.params.depth as number | "through"); if (h === "through") return { why: "a hole that goes through has no bottom to move" }; const d = h - dist; return d > 0 ? { step: st.id, params: { ...st.params, depth: d } } : { why: `the depth would be ${d.toFixed(3)}, not above nothing` }; }
+    if (part === "wall") { const wd = (face.role === "cb" ? cb!.diameter : (st.params.diameter as number)) - 2 * dist; if (!(wd > 0)) return { why: `the diameter would be ${wd.toFixed(3)}, not above nothing` }; return face.role === "cb" ? { step: st.id, params: { ...st.params, counterbore: { ...cb, diameter: wd } } } : { step: st.id, params: { ...st.params, diameter: wd } }; }
+  }
   if (st.kind !== "extrude" || face.role !== "end") return { why: `the ${st.kind} step that made this face has no number that moves it` };
   const body = engine.result(bodyStep).value as Body; let rec: FaceRec; try { rec = body.one(face); } catch (e) { return { why: e instanceof Error ? e.message : String(e) }; }
   const sk = engine.result(st.inputs[0]!).value as Sketch, dir = unit((st.params.dir as V3 | undefined) ?? sk.normal), n = K.facts(rec.h).ne, d = (st.params.d as number) + (dot(n, dir) > 0 ? dist : -dist);

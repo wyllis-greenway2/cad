@@ -2,7 +2,7 @@
 // anchors (by the faces beside them, E52): the solver (E48) makes the sketch, and the step's answer is the solved lines with ids made from their names (E6), for the steps after it. A sketch that cannot be made is
 // refused with the constraints that hold it back named (`Refusal`, E55); a sketch with freedom is made and says what is free; an anchor whose edge is gone makes the step orphaned, in words (E10).
 import * as K from "./kernel.ts";
-import { type EdgeRef, type Id, mint } from "./id.ts";
+import { type EdgeRef, type Id, type VertexRef, mint } from "./id.ts";
 import { Body } from "./lineage.ts";
 import { type Constraint, type System, solve } from "./solver.ts";
 import { type Loop as RLoop, type Seg, regions } from "./region.ts";
@@ -21,7 +21,7 @@ export interface SketchParams {
   pick?: [number, number][];
   constraints?: Constraint[];
   /** a body's edge, read-only: a line (two fixed points) in the sketch, or a point where the edge is seen end-on (E53, E54) */
-  anchors?: { id: string; edge: EdgeRef }[];
+  anchors?: { id: string; edge?: EdgeRef; /** a vertex of the body (E6): a point, held */ vertex?: VertexRef }[];
 }
 
 /** where a sketch lies: the plane's frame, local (x, y) to the world and back (the interaction layer needs the same) */
@@ -40,6 +40,11 @@ export function makeSketch(p: SketchParams, body: Body | null, step: { id: strin
   const anchorCircles: { id: string; c: string; r: number; fixedR: true }[] = [], anchorPoints: { id: string; x: number; y: number; fixed: true }[] = [], anchorLines: { id: string; a: string; b: string }[] = [], reference: Line[] = [];
   for (const an of p.anchors ?? []) {
     if (!body) throw new Error(`the anchor ${an.id} needs the body as the first input`);
+    if (an.vertex) { // a vertex of the body: a point held where it is, seen through the plane (E53, E54)
+      const vs = body.findVertices(an.vertex); if (vs.length > 1) throw new Error(`the anchor ${an.id} is ${vs.length} vertices: say which`);
+      const q = local(vs[0]!.p); anchorPoints.push({ id: an.id, x: q[0], y: q[1], fixed: true }); continue;
+    }
+    if (!an.edge) throw new Error(`the anchor ${an.id} names neither an edge nor a vertex`);
     const edges = body.findEdges(an.edge); if (edges.length > 1) throw new Error(`the anchor ${an.id} is ${edges.length} edges (a face split): say which`);
     const circ = K.edgeCircle(edges[0]!.h);
     if (circ) { // a circle or an arc of one (E65): held whole, centre and radius, when the sketch faces the same way; seen edge-on it is a line; at an angle it is an ellipse, which is not held

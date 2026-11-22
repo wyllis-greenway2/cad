@@ -1,7 +1,7 @@
 // The reference set of a sketch plane (E57): every point, line, circle and axis the person can hold to, from one place, each with a stable name that a constraint can use. The old project had six places each deciding what was
 // under the pointer (`q_unified_snapping`); this is the one list. It reads engine data (the solved sketch, the body's edges) and changes nothing.
 import * as K from "../engine/kernel.ts";
-import { type EdgeRef, edgeKey } from "../engine/id.ts";
+import { type EdgeRef, type VertexRef, edgeKey, vertexKey } from "../engine/id.ts";
 import type { Body } from "../engine/lineage.ts";
 import type { Sketch } from "../engine/steps.ts";
 import { type SketchParams, sketchFrame } from "../engine/sketch.ts";
@@ -15,7 +15,7 @@ export interface Ref {
   /** a drawn part of this sketch, a body's edge in the plane, a body's edge off the plane (seen through its projection), a world axis */ origin: "drawn" | "anchor" | "projection" | "world";
   p?: Pt; a?: Pt; b?: Pt; c?: Pt; r?: number;
   /** how far the part is from the plane (projections), along the plane's normal */ offset?: number;
-  /** a body's edge: the anchor to add to the sketch before a constraint can name it; `held`: it is in the sketch already */ anchor?: { id: string; edge: EdgeRef; held: boolean };
+  /** a body's edge: the anchor to add to the sketch before a constraint can name it; `held`: it is in the sketch already */ anchor?: { id: string; edge?: EdgeRef; vertex?: VertexRef; held: boolean };
   /** the screen says whether the part can be seen (a body's edge behind a face); a hidden one is not offered unless asked for */ visible: boolean;
 }
 export interface RefInput {
@@ -46,7 +46,7 @@ export function referenceSet(input: RefInput): Ref[] {
     const [e0, e1] = K.edgeEnds(e.h), m = K.edgeMid(e.h), chord: [number, number, number] = [(e0[0] + e1[0]) / 2, (e0[1] + e1[1]) / 2, (e0[2] + e1[2]) / 2];
     const off = (p: K.V3) => (p[0] - fr.F.O[0]) * fr.normal[0] + (p[1] - fr.F.O[1]) * fr.normal[1] + (p[2] - fr.F.O[2]) * fr.normal[2];
     const key = `edge:${edgeKey(e.ref)}`, name = `e${out.filter((r) => r.origin !== "drawn" && r.origin !== "world").length + 1}`;
-    const held = (def?.anchors ?? []).find((an) => edgeKey(an.edge) === edgeKey(e.ref!)), nm = held ? held.id : name;
+    const held = (def?.anchors ?? []).find((an) => !!an.edge && edgeKey(an.edge) === edgeKey(e.ref!)), nm = held ? held.id : name;
     const base = (inPlane: boolean, offset: number) => ({ key, name: nm, origin: (inPlane ? "anchor" : "projection") as Ref["origin"], offset, anchor: { id: nm, edge: e.ref!, held: !!held && anchorIds.has(held.id) }, visible: vis(key) });
     if (Math.hypot(m[0] - chord[0], m[1] - chord[1], m[2] - chord[2]) > 1e-7 || (Math.hypot(e0[0] - e1[0], e0[1] - e1[1], e0[2] - e1[2]) < 1e-9 && K.edgeCircle(e.h))) {
       // a curve: a circle (or an arc of one) is held whole when the sketch faces it, as a line when seen edge-on; at an angle it is an ellipse, which is not offered (E65)
@@ -58,6 +58,12 @@ export function referenceSet(input: RefInput): Ref[] {
     }
     const a = fr.local(e0), b = fr.local(e1), inPlane = Math.abs(off(e0)) < 1e-9 && Math.abs(off(e1)) < 1e-9;
     if (Math.hypot(...sub(a, b)) < 1e-9) out.push({ ...base(inPlane, off(m)), kind: "point", p: a }); else out.push({ ...base(inPlane, off(m)), kind: "line", a, b });
+  }
+  // the body's vertices (E6): points, held where they are; a vertex off the plane is seen through its projection
+  if (body) for (const v of body.vertices()) {
+    if (!v.ref) continue;
+    const key = `vertex:${vertexKey(v.ref)}`, held = (def?.anchors ?? []).find((an) => !!an.vertex && vertexKey(an.vertex) === vertexKey(v.ref!)), nm = held ? held.id : `v${out.filter((r) => r.key.startsWith("vertex:")).length + 1}`, o = (v.p[0] - fr.F.O[0]) * fr.normal[0] + (v.p[1] - fr.F.O[1]) * fr.normal[1] + (v.p[2] - fr.F.O[2]) * fr.normal[2];
+    out.push({ key, kind: "point", name: nm, origin: Math.abs(o) < 1e-9 ? "anchor" : "projection", p: fr.local(v.p), offset: o, anchor: { id: nm, vertex: v.ref, held: !!held && anchorIds.has(held.id) }, visible: vis(key) });
   }
   out.push({ key: "axis:x", kind: "axis", name: "axis.x", origin: "world", a: [0, 0], b: [1, 0], visible: true }, { key: "axis:y", kind: "axis", name: "axis.y", origin: "world", a: [0, 0], b: [0, 1], visible: true });
   return out;

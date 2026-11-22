@@ -39,7 +39,7 @@ export function recombine(made: Body | null, rest: readonly { scene: Body; rec: 
 
 /** what a step names, to find the body it works on: a face, the first edge's face, a body */
 const REF: Record<string, (p: Record<string, any>, inputs: Value[]) => Id | null> = {
-  push: (p) => p.face ?? null, moveFace: (p) => p.face ?? null, offsetFace: (p) => p.face ?? null, dimension: (p) => p.b ?? null,
+  push: (p) => p.face ?? null, hole: (p) => p.face ?? null, moveFace: (p) => p.face ?? null, offsetFace: (p) => p.face ?? null, dimension: (p) => p.b ?? null,
   round: (p) => (p.edges as { a: Id }[] | undefined)?.[0]?.a ?? null,
   turn: (p) => (p.body && p.body !== "all" ? p.body : null), move: (p) => (p.body && p.body !== "all" ? p.body : null),
   imprint: (_p, inputs) => ((inputs[1] as { face?: Id } | undefined)?.face) ?? null,

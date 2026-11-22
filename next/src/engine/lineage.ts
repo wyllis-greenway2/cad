@@ -2,12 +2,13 @@
 // completed by exact rules where the report is silent. A reference to a face that split resolves to its pieces (E8); to a face that merged, through its other ids (E9);
 // a reference that finds nothing is lost (E10) and never attaches to anything else.
 import * as K from "./kernel.ts";
-import { type EdgeRef, type Id, baseKey, edgeKey, edgeRef, idKey, isPieceOf, mint, piece, show } from "./id.ts";
+import { type EdgeRef, type Id, type VertexRef, baseKey, edgeKey, edgeRef, idKey, isPieceOf, mint, piece, show, vertexRef } from "./id.ts";
 
 export interface FaceRec { id: Id; alias: Id[]; h: K.FaceH; /** the engine could not name this face from the step's history or rules (E7): a defect, reported */ defect: boolean }
 /** a body: a solid the model remembers by a name (E38). `faces` are the faces in it; `alias` the other names it answers to after bodies were joined (E39) */
 export interface BodyRec { id: Id; alias: Id[]; faces: FaceRec[] }
 export interface Note { kind: "split" | "tie" | "defect" | "merged" | "dropped" | "unjoined" | "sliver"; text: string }
+export interface VertexRec { p: K.V3; faces: FaceRec[]; /** the faces that meet there, if three or more: the vertex's name (E6) */ ref: VertexRef | null }
 export interface EdgeRec { h: K.EdgeH; faces: FaceRec[]; /** two faces beside it: the edge's name */ ref: EdgeRef | null }
 
 /** a reference that finds nothing: the step it belongs to is orphaned (E10) */
@@ -17,13 +18,14 @@ export type Age = (step: string) => number;
 
 export class Body {
   private es: EdgeRec[] | null = null;
+  private vs: VertexRec[] | null = null;
   readonly solid: K.Solid; readonly faces: FaceRec[]; readonly notes: Note[];
   /** the base keys of faces an imprint split: the person's own lines. Only the seams between pieces of these are kept when faces merge (E4); a piece made by a boolean is not a line the person drew */
   readonly kept: ReadonlySet<string>;
   /** the bodies of the shape (a scene of one or more), each with its name: set by `labelBodies` when a step has made the body */
   bodies: BodyRec[];
   constructor(solid: K.Solid, faces: FaceRec[], notes: Note[] = [], kept: ReadonlySet<string> = new Set(), bodies: BodyRec[] = []) { this.solid = solid; this.faces = faces; this.notes = notes; this.kept = kept; this.bodies = bodies; }
-  release(): void { this.solid.release(); this.es = null; }
+  release(): void { this.solid.release(); this.es = null; this.vs = null; }
 
   /** the faces a reference means: the face, or the pieces it split into, found through any of its ids (E8, E9) */
   find(id: Id): FaceRec[] { return this.faces.filter((f) => isPieceOf(f.id, id) || f.alias.some((a) => isPieceOf(a, id))); }
@@ -47,6 +49,22 @@ export class Body {
       });
     });
     return this.es;
+  }
+  /** the derived list of vertices, each with the faces that meet there (E6) */
+  vertices(): VertexRec[] {
+    if (this.vs) return this.vs;
+    this.vs = K.scoped(() => {
+      const per = this.faces.map((f) => ({ f, pts: K.faceVertexPoints(f.h) })), same = (a: K.V3, b: K.V3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 1e-7;
+      return K.vertexPoints(this.solid).map((p) => { const beside = per.filter((x) => x.pts.some((q) => same(p, q))).map((x) => x.f); return { p, faces: beside, ref: beside.length >= 3 ? vertexRef(beside.map((f) => f.id)) : null }; });
+    });
+    return this.vs;
+  }
+  /** the vertices a reference means: the ones where exactly the faces it names (or their pieces) meet */
+  findVertices(ref: VertexRef): VertexRec[] {
+    const hit = (f: FaceRec, id: Id) => isPieceOf(f.id, id) || f.alias.some((a) => isPieceOf(a, id));
+    const out = this.vertices().filter((v) => v.faces.length === ref.faces.length && ref.faces.every((id) => v.faces.some((f) => hit(f, id))));
+    if (!out.length) throw new RefLost(`the vertex where ${ref.faces.map(show).join(", ")} meet`);
+    return out;
   }
   /** the edges a reference means: every edge between the faces (or their pieces) it names (E8) */
   findEdges(ref: EdgeRef): EdgeRec[] {
