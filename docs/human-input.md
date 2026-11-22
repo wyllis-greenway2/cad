@@ -6291,3 +6291,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1526 — 2026-11-22 — question
 > Okay those sound smart but why dont we hold off for a minute and think. One of those features sounds like efficiency and speed rendering related, and the other atually just sounds like another constraint? Or are you saying its not a constraint, it is an animation specific instruction to say how to move?
+
+## in_1527 — 2026-11-22 — question
+> Okay so i like the speed related idea, but i was planning on doing an entire session dedicated just to speed and rendering so maybe that belongs there? We should pin the idea. The new constraint is interesting, but it sounds more like a stop constraint not a fixed? So normal constraints say only this one state is valid, but what you seem to be saying is a constraint type where only a portion of movement is invalid? Or a constraint range? So instead of a face being locked to 90 degrees, it could be locked to a range of between 270 snd 90 degrees? Am i understsnding correctly?
