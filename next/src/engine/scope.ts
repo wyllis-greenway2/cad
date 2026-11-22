@@ -3,9 +3,9 @@
 // (`targets` of the first input, `tools` of the second; all of them when not said) and can keep them apart (`mode: "keep"`). With one body in the answer nothing here runs and the steps are as they were.
 import * as K from "./kernel.ts";
 import { type Id } from "./id.ts";
-import { Body, type BodyRec, type FaceRec, bodyOf } from "./lineage.ts";
+import { Body, type BodyRec, type FaceRec, RefLost, bodyOf } from "./lineage.ts";
 import { type Ctx, type Value, kinds } from "./steps.ts";
-import { idKey, piece } from "./id.ts";
+import { idKey, piece, show } from "./id.ts";
 
 /** the solid each body of a scene is, by the order of the scene's faces */
 function solidsOfBodies(scene: Body, parts: readonly BodyRec[]): K.Solid[] {
@@ -49,7 +49,12 @@ export function scopeKinds(): void {
         return run(inputs, ctx);
       }
       const target = bodyOf(scene, id), view = viewOf(scene, [target]);
-      const out = run([view, ...inputs.slice(1)], ctx) as Body;
+      let out: Body;
+      try { out = run([view, ...inputs.slice(1)], ctx) as Body; }
+      catch (e) { // a name that is on another body of the scene is not gone: the step names things on two bodies, and one step works on one body (said so, not "no longer there")
+        if (e instanceof RefLost && e.faces.length && e.faces.every((f) => scene.find(f).length)) throw new Error(`${e.what} is on another body than ${show(id)}: a step works on one body`);
+        throw e;
+      }
       if (out === view) { view.solid.release(); return scene; }
       const back = recombine(out, scene.bodies.filter((b) => b !== target).map((rec) => ({ scene, rec })));
       view.solid.release(); if (out !== view) out.release();

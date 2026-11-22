@@ -14,7 +14,7 @@ export interface VertexRec { p: K.V3; faces: FaceRec[]; /** the faces that meet 
 export interface EdgeRec { h: K.EdgeH; faces: FaceRec[]; /** two faces beside it: the edge's name */ ref: EdgeRef | null }
 
 /** a reference that finds nothing: the step it belongs to is orphaned (E10) */
-export class RefLost extends Error { readonly what: string; constructor(what: string) { super(`${what} is no longer there`); this.what = what; } }
+export class RefLost extends Error { readonly what: string; /** the faces whose names were looked for (so a step working on one body of a scene can tell a face that is gone from one that is on another body) */ readonly faces: Id[]; constructor(what: string, faces: Id[] = []) { super(`${what} is no longer there`); this.what = what; this.faces = faces; } }
 /** the age of a step in the recipe: older ids lead when faces merge */
 export type Age = (step: string) => number;
 
@@ -34,11 +34,11 @@ export class Body {
   /** the one face a reference means, or lost; more than one is a split the step must say how to take (E8) */
   one(id: Id): FaceRec {
     const s = this.find(id);
-    if (!s.length) throw new RefLost(show(id));
+    if (!s.length) throw new RefLost(show(id), [id]);
     if (s.length > 1) throw new Error(`${show(id)} has split into ${s.length} faces: say which`);
     return s[0]!;
   }
-  all(id: Id): FaceRec[] { const s = this.find(id); if (!s.length) throw new RefLost(show(id)); return s; }
+  all(id: Id): FaceRec[] { const s = this.find(id); if (!s.length) throw new RefLost(show(id), [id]); return s; }
 
   /** the derived list of edges, each with the faces beside it (the edge index, E5) */
   edges(): EdgeRec[] {
@@ -64,20 +64,21 @@ export class Body {
   /** the vertices a reference means: the ones where exactly the faces it names (or their pieces) meet */
   findVertices(ref: VertexRef): VertexRec[] {
     const out = this.vertices().filter((v) => v.faces.length === ref.faces.length && ref.faces.every((id) => v.faces.some((f) => answers(f, id))));
-    if (!out.length) throw new RefLost(`the vertex where ${ref.faces.map(show).join(", ")} meet`);
+    if (!out.length) throw new RefLost(`the vertex where ${ref.faces.map(show).join(", ")} meet`, [...ref.faces]);
     return out;
   }
   /** the edges a reference means: every edge between the faces (or their pieces) it names (E8) */
   findEdges(ref: EdgeRef): EdgeRec[] {
     const out = this.edges().filter((e) => e.faces.length === 2 && ((answers(e.faces[0]!, ref.a) && answers(e.faces[1]!, ref.b)) || (answers(e.faces[0]!, ref.b) && answers(e.faces[1]!, ref.a))));
-    if (!out.length) throw new RefLost(`the edge between ${show(ref.a)} and ${show(ref.b)}`);
+    if (!out.length) throw new RefLost(`the edge between ${show(ref.a)} and ${show(ref.b)}`, [ref.a, ref.b]);
     return out;
   }
   /** what a step's answer is known by, for the engine to tell whether it changed (a whole-body fingerprint: volume and every id) */
   fingerprint(): string {
+    // the kernel's own sums differ in the last digits with the way a shape was built (found by the stress run: an edit and back gave a volume 1e-11 apart), so volume and area are kept to 8 digits and a centre to 1e-5 mm
     // the geometry as well as the ids: an edit that only moves a face must show (else the engine stops there and the steps after it do not run)
-    const g = (f: FaceRec) => { const q = K.facts(f.h); return `${idKey(f.id)}~${q.type}~${q.area.toFixed(9)}~${q.ce.map((v) => v.toFixed(9)).join(",")}`; };
-    return K.scoped(() => `${K.volume(this.solid).toFixed(9)}|${this.faces.map(g).sort().join(";")}|${this.bodies.map((b) => [b.id, ...b.alias].map(idKey).join("=") + ":" + b.faces.length).sort().join(";")}`);
+    const g = (f: FaceRec) => { const q = K.facts(f.h); return `${idKey(f.id)}~${q.type}~${q.area.toPrecision(8)}~${q.ce.map((v) => v.toFixed(5)).join(",")}`; };
+    return K.scoped(() => `${K.volume(this.solid).toPrecision(8)}|${this.faces.map(g).sort().join(";")}|${this.bodies.map((b) => [b.id, ...b.alias].map(idKey).join("=") + ":" + b.faces.length).sort().join(";")}`);
   }
 }
 

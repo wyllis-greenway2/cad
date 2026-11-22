@@ -11,6 +11,7 @@ import { initKernel } from "../src/engine/kernel.ts";
 import * as K from "../src/engine/kernel.ts";
 import { Engine } from "../src/engine/engine.ts";
 import { Body } from "../src/engine/lineage.ts";
+import { writeFileSync } from "node:fs";
 import type { Step } from "../src/engine/steps.ts";
 await initKernel();
 const MODELS = Number(process.argv[2] ?? 20), SEED = Number(process.argv[3] ?? 1), LEN = Number(process.argv[4] ?? 12);
@@ -88,7 +89,7 @@ const t0 = Date.now(), perLen: number[][] = [];
 const RANGE = (process.argv[5] ?? `0-${MODELS - 1}`).split('-').map(Number), LO = RANGE[0]!, HI = RANGE[1] ?? LO;
 for (let m = 0; m < MODELS; m++) {
   s = (SEED * 7919 + m * 104729) | 0; const mseed = `${SEED}/${m}`; if (m < LO || m > HI) continue; totalModels++;
-  let e: Engine; const trace: string[] = [];
+  const pBefore = problems.length; let e: Engine; const trace: string[] = [];
   try {
     e = new Engine(profile()); e.build();
     for (let n = 0; n < LEN; n++) {
@@ -97,7 +98,7 @@ for (let m = 0; m < MODELS; m++) {
       try { c = e.insert(o.step); } catch (x) { problems.push(`model ${m} (seed ${mseed}) op ${o.op}: THREW ${(x as Error).message.slice(0, 160)}`); bad++; break; }
       const ms = Date.now() - before; const r = e.result(o.step.id), k = r.status.kind, why = (r.status as { why?: string }).why ?? "";
       note(o.op, k, why, ms); events.push({ model: m, op: o.op, ms, kind: k, why }); (perLen[n] ??= []).push(ms);
-      trace.push(`${o.op}:${k}`);
+      trace.push(`${o.op}:${k}`); if (k === "orphaned") { const f = `/tmp/orphan-${SEED}-${m}-${n}.json`; writeFileSync(f, JSON.stringify([...e.recipe().filter((x) => x.id !== o.step.id), o.step])); }
       if (k !== "ok" && !why) problems.push(`model ${m} (seed ${mseed}) ${o.op}: ${k} with no reason`);
       if (k === "ok" && r.value instanceof Body) {
         const v = K.volume(r.value.solid);
@@ -121,9 +122,10 @@ for (let m = 0; m < MODELS; m++) {
         for (const id of rec2.map((x) => x.id)) if (e.result(id).fingerprint !== f2.result(id).fingerprint) { problems.push(`model ${m} (seed ${mseed}): after editing ${st.id}.${key}, live differs from fresh at ${id}`); bad++; break; }
         f2.release();
         e.edit(st.id, st.params);
-        for (const id of Object.keys(before)) if (e.result(id).fingerprint !== before[id]) { problems.push(`model ${m} (seed ${mseed}): editing ${st.id}.${key} and back changed ${id}`); bad++; break; }
+        for (const id of Object.keys(before)) if (e.result(id).fingerprint !== before[id]) { const x = before[id]!, y = e.result(id).fingerprint; let k = 0; while (x[k] === y[k]) k++; problems.push(`model ${m} (seed ${mseed}): editing ${st.id}.${key} and back changed ${id}; first difference at ${k}: ${x.slice(Math.max(0, k - 60), k + 60)}  =>  ${y.slice(Math.max(0, k - 60), k + 60)}`); bad++; break; }
       } catch (x) { problems.push(`model ${m} (seed ${mseed}): edit of ${st.id}.${key} THREW ${(x as Error).message.slice(0, 160)}`); bad++; }
     }
+    if (problems.length > pBefore) { const f = `/tmp/stress-model-${SEED}-${m}.json`; writeFileSync(f, JSON.stringify(e.recipe(), null, 1)); problems.push(`  recipe saved in ${f}`); }
     e.release();
   } catch (x) { problems.push(`model ${m} (seed ${mseed}): THREW ${(x as Error).stack?.split("\n").slice(0, 3).join(" | ").slice(0, 300)}`); bad++; }
 }

@@ -34,6 +34,7 @@ export const num = (p: any, name: string): number => { const v = p[name]; if (ty
 export function checked(body: Body, what: string): Body {
   if (!K.valid(body.solid)) throw new Error(`${what} gave an invalid solid`);
   if (!(K.volume(body.solid) > 0)) throw new Error(`${what} left nothing`);
+  if (K.absurd(body.solid)) throw new Error(`${what} gave a solid that cannot be right (a face or the volume is beyond any part)`);
   return body;
 }
 

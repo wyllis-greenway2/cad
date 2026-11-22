@@ -111,6 +111,11 @@ export function overlap(a: FaceH, b: FaceH): number {
   s.delete?.(); return sum;
 }
 export const volume = (s: Solid): number => { const p = t(new oc.GProp_GProps()); oc.BRepGProp.VolumeProperties(s.raw, p, false, false, false); return p.Mass(); };
+/** a solid that cannot be right: a volume or a face area that is not a number or is beyond any part (a kilometre across), which the kernel's own validity check passes (the shell once gave a face of 1e101 mm squared) */
+export function absurd(s: Solid): boolean {
+  const v = volume(s); if (!Number.isFinite(v) || Math.abs(v) > 1e12) return true;
+  return s.faces().some((f) => { const q = facts(f); return !Number.isFinite(q.area) || q.area > 1e10 || q.hi.some((x, i) => !Number.isFinite(x) || x - q.lo[i]! > 1e6); });
+}
 export const valid = (s: Solid): boolean => t(new oc.BRepCheck_Analyzer(s.raw, true, false)).IsValid();
 
 // ---------------------------------------------------------------- history of an operation

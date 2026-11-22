@@ -1,0 +1,322 @@
+[
+ {
+  "id": "s",
+  "kind": "sketchPolygon",
+  "params": {
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     50,
+     0
+    ],
+    [
+     50,
+     30.25
+    ],
+    [
+     0,
+     30.25
+    ]
+   ]
+  },
+  "inputs": []
+ },
+ {
+  "id": "A",
+  "kind": "extrude",
+  "params": {
+   "d": 21.5
+  },
+  "inputs": [
+   "s"
+  ]
+ },
+ {
+  "id": "X0",
+  "kind": "hole",
+  "params": {
+   "face": {
+    "step": "A",
+    "role": "start",
+    "of": [],
+    "pieces": []
+   },
+   "diameter": 4.75,
+   "depth": 20,
+   "at": [
+    -5,
+    -11
+   ],
+   "counterbore": {
+    "diameter": 7.6000000000000005,
+    "depth": 2.25
+   }
+  },
+  "inputs": [
+   "A"
+  ]
+ },
+ {
+  "id": "X2",
+  "kind": "round",
+  "params": {
+   "edges": [
+    {
+     "a": {
+      "step": "A",
+      "role": "end",
+      "of": [],
+      "pieces": []
+     },
+     "b": {
+      "step": "A",
+      "role": "side",
+      "of": [
+       {
+        "step": "s",
+        "role": "line",
+        "of": [
+         0
+        ],
+        "pieces": []
+       }
+      ],
+      "pieces": []
+     }
+    }
+   ],
+   "size": 19.5
+  },
+  "inputs": [
+   "X0"
+  ]
+ },
+ {
+  "id": "X3",
+  "kind": "hole",
+  "params": {
+   "face": {
+    "step": "A",
+    "role": "side",
+    "of": [
+     {
+      "step": "s",
+      "role": "line",
+      "of": [
+       2
+      ],
+      "pieces": []
+     }
+    ],
+    "pieces": []
+   },
+   "diameter": 5.25,
+   "depth": 10.25,
+   "at": [
+    -8,
+    0.25
+   ]
+  },
+  "inputs": [
+   "X2"
+  ]
+ },
+ {
+  "id": "X4",
+  "kind": "push",
+  "params": {
+   "face": {
+    "step": "A",
+    "role": "start",
+    "of": [],
+    "pieces": []
+   },
+   "dist": 3.75
+  },
+  "inputs": [
+   "X3"
+  ]
+ },
+ {
+  "id": "X5",
+  "kind": "hole",
+  "params": {
+   "face": {
+    "step": "A",
+    "role": "side",
+    "of": [
+     {
+      "step": "s",
+      "role": "line",
+      "of": [
+       2
+      ],
+      "pieces": []
+     }
+    ],
+    "pieces": []
+   },
+   "diameter": 7.75,
+   "depth": 16.5,
+   "at": [
+    4.75,
+    -1
+   ]
+  },
+  "inputs": [
+   "X4"
+  ]
+ },
+ {
+  "id": "X8",
+  "kind": "hole",
+  "params": {
+   "face": {
+    "step": "A",
+    "role": "end",
+    "of": [],
+    "pieces": []
+   },
+   "diameter": 11.5,
+   "depth": 10.75,
+   "at": [
+    -5.25,
+    -3
+   ],
+   "counterbore": {
+    "diameter": 18.400000000000002,
+    "depth": 0.75
+   }
+  },
+  "inputs": [
+   "X5"
+  ]
+ },
+ {
+  "id": "X9",
+  "kind": "push",
+  "params": {
+   "face": {
+    "step": "A",
+    "role": "end",
+    "of": [],
+    "pieces": [
+     0
+    ]
+   },
+   "dist": 9.5
+  },
+  "inputs": [
+   "X8"
+  ]
+ },
+ {
+  "id": "X11",
+  "kind": "hole",
+  "params": {
+   "face": {
+    "step": "A",
+    "role": "side",
+    "of": [
+     {
+      "step": "s",
+      "role": "line",
+      "of": [
+       0
+      ],
+      "pieces": []
+     }
+    ],
+    "pieces": []
+   },
+   "diameter": 8.5,
+   "depth": 7.75,
+   "at": [
+    3.25,
+    6.75
+   ],
+   "counterbore": {
+    "diameter": 13.600000000000001,
+    "depth": 1.75
+   }
+  },
+  "inputs": [
+   "X9"
+  ]
+ },
+ {
+  "id": "X12",
+  "kind": "push",
+  "params": {
+   "face": {
+    "step": "X8",
+    "role": "cb",
+    "of": [
+     "bottom"
+    ],
+    "pieces": []
+   },
+   "dist": -13.5
+  },
+  "inputs": [
+   "X11"
+  ]
+ },
+ {
+  "id": "X13",
+  "kind": "push",
+  "params": {
+   "face": {
+    "step": "X9",
+    "role": "side",
+    "of": [
+     {
+      "step": "A",
+      "role": "end",
+      "of": [],
+      "pieces": [
+       0
+      ]
+     },
+     {
+      "step": "X2",
+      "role": "round",
+      "of": [
+       {
+        "step": "A",
+        "role": "end",
+        "of": [],
+        "pieces": []
+       },
+       {
+        "step": "A",
+        "role": "side",
+        "of": [
+         {
+          "step": "s",
+          "role": "line",
+          "of": [
+           0
+          ],
+          "pieces": []
+         }
+        ],
+        "pieces": []
+       },
+       0
+      ],
+      "pieces": []
+     }
+    ],
+    "pieces": []
+   },
+   "dist": 5.25
+  },
+  "inputs": [
+   "X12"
+  ]
+ }
+]
