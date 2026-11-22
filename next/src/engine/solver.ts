@@ -21,11 +21,11 @@ export interface Verdict {
   kind: VerdictKind;
   /** the constraints hold and nothing collapsed */ ok: boolean;
   /** how many ways the sketch can still move */ freedom: number; /** the parts that can still move (point ids, circle ids for a radius) */ free: string[];
-  /** constraints that add nothing the others do not already say (they hold) */ redundant: string[];
+  /** constraints that add nothing the others do not already say (they hold) */ redundant: string[]; /** of those, the ones that say nothing new at all (every part of what they say follows from the others) */ implied: string[];
   /** when not ok: a set of constraints that cannot hold together and none of which can be left out of it */ conflict: string[]; reason: string;
 }
 export interface Options { /** a part that must reach this place: a drag (soft: it goes as near as the constraints allow) */ pins?: Record<string, [number, number]>; /** parts that do not move in this solve */ hold?: string[]; /** solve only the parts connected to these (the rest keep their places) */ only?: string[]; restarts?: number; minSize?: number; /** the most solves spent narrowing a conflict */ maxSolves?: number }
-export interface Result { solution: Solution; verdict: Verdict; iterations: number; /** a pin that could not be reached, with how far it is */ unreached: Record<string, number> }
+export interface Result { solution: Solution; verdict: Verdict; iterations: number; /** a pin that could not be reached, with how far it is */ unreached: Record<string, number>; /** the constraints that hold a pin back: a set that cannot hold with the pinned parts where they were taken to, none of which can be left out of it (E55) */ holds: string[] }
 
 // ---------------------------------------------------------------- forward-mode differentiation over a few unknowns
 class D {
@@ -203,9 +203,20 @@ function collapse(S: System, prep: Prep, x: number[], minSize: number): string |
   return null;
 }
 
+/** a set of constraints that cannot hold together and none of which can be left out of it (QuickXplain): about the size of the set times the log of the rest, in solves; past the budget, all of them, said */
+function narrow(ids: string[], can: (set: string[]) => boolean, budget: number): { set: string[]; exceeded: boolean } {
+  let solves = 0; const test = (set: string[]): boolean => (solves++ > budget ? true : can(set));
+  const qx = (background: string[], added: string[], rest: string[]): string[] => {
+    if (added.length > 0 && !test(background)) return [];
+    if (rest.length === 1) return rest;
+    const mid = Math.floor(rest.length / 2), a = rest.slice(0, mid), b = rest.slice(mid), d2 = qx([...background, ...a], a, b), d1 = qx([...background, ...d2], d2, a); return [...d1, ...d2];
+  };
+  const set = qx([], [], ids); return solves > budget ? { set: ids, exceeded: true } : { set, exceeded: false };
+}
+
 export function solve(S: System, opts: Options = {}): Result {
   const bad = validate(S); const empty: Solution = { points: Object.fromEntries(S.points.map((p) => [p.id, [p.x, p.y] as [number, number]])), circles: Object.fromEntries(S.circles.map((c) => [c.id, c.r])) };
-  if (bad) return { solution: empty, verdict: { kind: "over", ok: false, freedom: 0, free: [], redundant: [], conflict: [], reason: bad }, iterations: 0, unreached: {} };
+  if (bad) return { solution: empty, verdict: { kind: "over", ok: false, freedom: 0, free: [], redundant: [], implied: [], conflict: [], reason: bad }, iterations: 0, unreached: {}, holds: [] };
   const hold = new Set(opts.hold ?? []), pins = opts.pins ?? {}, restarts = opts.restarts ?? 4;
   const xs = S.points.flatMap((p) => [p.x, p.y]).concat(S.circles.map((c) => c.r)), scale = Math.max(1, ...xs.map(Math.abs)), minSize = opts.minSize ?? 1e-6 * scale;
   const prep = prepare(S, hold, pins);
@@ -217,19 +228,14 @@ export function solve(S: System, opts: Options = {}): Result {
   const comps = new Map<number, string[]>();
   for (const c of S.constraints) { const t = touch(c).filter((i) => !prep.frozen[i]); const root = t.length ? find(t[0]!) : -1; comps.set(root, [...(comps.get(root) ?? []), c.id]); }
   const solved = [...prep.x]; let iterations = 0; const unreached: Record<string, number> = {};
-  const redundant: string[] = [], conflict: string[] = []; let reason = "", ok = true, freedomTotal = 0; const freeParts = new Set<string>();
+  const redundant: string[] = [], implied: string[] = [], conflict: string[] = []; let reason = "", ok = true, freedomTotal = 0; const freeParts = new Set<string>();
   const only = opts.only ? new Set(opts.only) : null;
   for (const [root, ids] of [...comps].sort((a, b) => a[0] - b[0])) {
     if (only && !ids.some((id) => touch(S.constraints.find((c) => c.id === id)!).some((i) => only.has(prep.names[i]!.split(".")[0]!)))) continue;
     const use = new Set(ids), f = feasible(S, prep, use, scale, restarts, minSize); iterations += f.attempt.iterations;
     if (!f.ok) { // a set that cannot hold together and cannot be made smaller: QuickXplain, a number of solves about the size of the set times the log of the rest (not one for each constraint)
-      ok = false; let solves = 0; const budget = opts.maxSolves ?? 60, can = (set: string[]): boolean => { if (solves++ > budget) return true; return feasible(S, prep, new Set(set), scale, 0, minSize).ok; };
-      const qx = (background: string[], added: string[], rest: string[]): string[] => {
-        if (added.length > 0 && !can(background)) return [];
-        if (rest.length === 1) return rest;
-        const mid = Math.floor(rest.length / 2), a = rest.slice(0, mid), b = rest.slice(mid), d2 = qx([...background, ...a], a, b), d1 = qx([...background, ...d2], d2, a); return [...d1, ...d2];
-      };
-      const set = qx([], [], ids); conflict.push(...(solves > budget ? ids : set)); reason = f.why + (solves > budget ? " (the set that conflicts was not narrowed: too many parts)" : ""); continue;
+      ok = false; const n = narrow(ids, (set) => feasible(S, prep, new Set(set), scale, 2, minSize).ok, opts.maxSolves ?? 60);
+      conflict.push(...n.set); reason = f.why + (n.exceeded ? " (the set that conflicts was not narrowed: too many parts)" : ""); continue;
     }
     // where it ended; then what is free and what adds nothing
     for (let q = 0; q < solved.length; q++) if (!prep.frozen[q] && find(q) === root) solved[q] = f.attempt.x[q]!;
@@ -237,6 +243,7 @@ export function solve(S: System, opts: Options = {}): Result {
     for (const row of prep.rows) if (use.has(row.c.id)) for (const d of row.fn(f.attempt.x)) { const v = new Array<number>(free.length).fill(0); for (const [i, g] of d.g) if (pos.has(i)) v[pos.get(i)!] = g; rowsOf.push({ id: row.c.id, row: v }); }
     const indep = independentRows(rowsOf.map((r) => r.row), 1e-9), partial = new Set<string>(); rowsOf.forEach((r, i) => { if (!indep[i]) partial.add(r.id); });
     redundant.push(...ids.filter((id) => partial.has(id)));
+    for (const id of ids) { const mine = rowsOf.map((r, i) => (r.id === id ? i : -1)).filter((i) => i >= 0); if (mine.length && mine.every((i) => !indep[i])) implied.push(id); }
     const ns = nullSpace(rowsOf.map((r) => r.row), free.length); freedomTotal += ns.basis.length;
     for (const v of ns.basis) v.forEach((c, i) => { if (Math.abs(c) > 1e-8) freeParts.add(prep.names[free[i]!]!.split(".")[0]!); });
   }
@@ -245,12 +252,15 @@ export function solve(S: System, opts: Options = {}): Result {
   for (const p of S.points) if (!p.fixed && !hold.has(p.id) && !constrained.has(p.id)) { freedomTotal += 2; freeParts.add(p.id); }
   for (const c of S.circles) if (!c.fixedR && !hold.has(c.id) && !constrained.has(c.id)) { freedomTotal += 1; freeParts.add(c.id); }
   // a drag: the pinned parts go as near as the constraints let them
-  let final = solved;
+  let final = solved, holds: string[] = [];
   if (ok && prep.pins.length) {
     // first as a rule: the pinned parts fixed where they were taken to (the same answer as a fresh solve with them fixed there); when the constraints do not allow it, as a wish: as near as they let it go
     const target = solve({ ...S, points: S.points.map((p) => (pins[p.id] ? { ...p, x: pins[p.id]![0], y: pins[p.id]![1], fixed: true } : p)) }, { hold: opts.hold, restarts });
     if (target.verdict.ok) { final = [...solved]; for (const p of S.points) { const [i, j] = prep.pointVar.get(p.id)!; final[i] = target.solution.points[p.id]![0]; final[j] = target.solution.points[p.id]![1]; } for (const c of S.circles) final[prep.circleVar.get(c.id)!] = target.solution.circles[c.id]!; iterations += target.iterations; }
     else {
+      // what holds it back: the constraints that cannot hold with the pinned parts fixed where they were taken to
+      const S2 = { ...S, points: S.points.map((p) => (pins[p.id] ? { ...p, x: pins[p.id]![0], y: pins[p.id]![1], fixed: true } : p)) }, prep2 = prepare(S2, hold, {});
+      holds = narrow(S.constraints.map((c) => c.id), (set) => feasible(S2, prep2, new Set(set), scale, 2, minSize).ok, opts.maxSolves ?? 60).set;
       const all = new Set(S.constraints.map((c) => c.id)), pulled = levenberg(S, prep, all, solved, scale, true), exact = levenberg(S, prep, all, pulled.x, scale, false); iterations += pulled.iterations + exact.iterations;
       if (exact.converged && !collapse(S, prep, exact.x, minSize)) final = exact.x;
     }
@@ -258,5 +268,18 @@ export function solve(S: System, opts: Options = {}): Result {
   }
   const solution: Solution = { points: Object.fromEntries(S.points.map((p) => [p.id, [final[prep.pointVar.get(p.id)![0]]!, final[prep.pointVar.get(p.id)![1]]!] as [number, number]])), circles: Object.fromEntries(S.circles.map((c) => [c.id, final[prep.circleVar.get(c.id)!]!])) };
   const kind: VerdictKind = !ok ? "over" : redundant.length ? "redundant" : freedomTotal > 0 ? "under" : "solved";
-  return { solution: ok ? solution : empty, verdict: { kind, ok, freedom: freedomTotal, free: [...freeParts].sort(), redundant, conflict, reason }, iterations, unreached };
+  return { solution: ok ? solution : empty, verdict: { kind, ok, freedom: freedomTotal, free: [...freeParts].sort(), redundant, implied, conflict, reason }, iterations, unreached, holds };
+}
+
+// ---------------------------------------------------------------- asking for a constraint (E55: made, already holds, or refused)
+export interface Attempt2 { outcome: "added" | "already" | "refused"; /** `already`: the constraint that says it, or that it follows from the others */ by: string[]; /** `refused`: the constraints that cannot hold together with it, and the ones among them that were there before */ victims: string[]; holding: string[]; system: System; verdict: Verdict }
+const sameAs = (a: Constraint, b: Constraint) => a.kind === b.kind && a.value === b.value && JSON.stringify([...a.parts].sort()) === JSON.stringify([...b.parts].sort());
+/** ask for a constraint: it is made, or it already holds as asked (nothing is added twice), or it is refused with the constraints that hold it back named */
+export function tryAdd(S: System, c: Constraint, opts: Options = {}): Attempt2 {
+  const twin = S.constraints.find((q) => sameAs(q, c) && !(c.kind === "horizontal" || c.kind === "vertical"));
+  if (twin) return { outcome: "already", by: [twin.id], victims: [], holding: [], system: S, verdict: solve(S, opts).verdict };
+  const next: System = { ...S, constraints: [...S.constraints, c] }, r = solve(next, opts);
+  if (!r.verdict.ok) return { outcome: "refused", by: [], victims: r.verdict.conflict, holding: r.verdict.conflict.filter((id) => id !== c.id), system: S, verdict: r.verdict };
+  if (r.verdict.implied.includes(c.id)) return { outcome: "already", by: S.constraints.map((q) => q.id), victims: [], holding: [], system: S, verdict: r.verdict }; // it follows from what is there
+  return { outcome: "added", by: [], victims: [], holding: [], system: next, verdict: r.verdict };
 }
