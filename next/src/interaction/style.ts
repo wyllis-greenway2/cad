@@ -32,4 +32,3 @@ export const WEIGHT = { figure: 2, guide: 1.5, mark: 5, edge: 2.4, edgeHover: 1.
 /** opacities: a closed sketch's tint, its teal under the pointer, the hover disc, the edges of a body behind a face, behind the plane */
 export const OPACITY = { sketchFill: 0.06, sketchHover: 0.28, hoverDisc: 0.14, hiddenEdge: 0.22, behindEdge: 0.28 };
 /** the flashing of a refused or already-applied constraint: a short pulse, in milliseconds (the old project flashed the bubble and the parts) */
-export const FLASH = { refusedMs: 900, appliedMs: 700 };

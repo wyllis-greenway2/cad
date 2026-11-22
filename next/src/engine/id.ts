@@ -12,7 +12,6 @@ const partKey = (p: Part): string => (typeof p === "object" ? `{${idKey(p)}}` : 
 export function idKey(id: Id): string { return `${baseKey(id)}${id.pieces.length ? "/" + id.pieces.join(".") : ""}`; }
 /** the id without its pieces: the face as it was before it split */
 export function baseKey(id: Id): string { return `${JSON.stringify(id.step)}.${JSON.stringify(id.role)}(${id.of.map(partKey).join(",")})`; }
-export const sameId = (a: Id, b: Id): boolean => idKey(a) === idKey(b);
 /** is `child` the face `parent`, or one of the pieces it split into (E8) */
 export function isPieceOf(child: Id, parent: Id): boolean {
   return baseKey(child) === baseKey(parent) && parent.pieces.length <= child.pieces.length && parent.pieces.every((n, i) => child.pieces[i] === n);

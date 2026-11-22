@@ -3,7 +3,6 @@
 // Dimensions are measure, then lock: the offer carries the number the parts are now. Pure; reads the system; changes nothing.
 import { type Constraint, RANGEABLE, RELATIONS, type Relation, type System, kindOf, residualsOf, tryAdd } from "../engine/solver.ts";
 
-export type PartKind = "point" | "line" | "circle";
 export type OfferState = "free" | "holds" | "already" | "refused";
 export interface Offer {
   kind: Relation; /** in the order the relation reads them */ parts: string[]; /** the one that moves when one must: the first selected (E51) */ moves: string;

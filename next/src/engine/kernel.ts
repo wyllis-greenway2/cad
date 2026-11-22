@@ -128,11 +128,6 @@ function reportOf(maker: Raw): Report {
 export interface Made { solid: Solid; report: Report }
 const fail = (what: string): never => { throw new Error(what); };
 
-/** a closed polygon in the XY plane at z = 0 (a base sketch's face) */
-export function polygonFace(points: readonly (readonly [number, number])[]): FaceH {
-  let d = draw([points[0]![0], points[0]![1]]); for (const p of points.slice(1)) d = d.lineTo([p[0], p[1]]);
-  return { raw: t((d.close().sketchOnPlane("XY") as unknown as { face(): { wrapped: Raw } }).face().wrapped) };
-}
 /** one closed loop of a profile: a polygon whose sides may be arcs (a mid point on the side), or a circle (a centre, a radius, the way it faces) */
 export type Loop = { kind: "poly"; pts: readonly V3[]; mids: readonly (V3 | null)[] } | { kind: "circle"; c: V3; r: number; normal: V3 };
 /** a face bounded by a loop, with holes cut in it by the other loops (a profile with holes, E4) */
@@ -148,10 +143,6 @@ export function profileFace(outer: Loop, holes: readonly Loop[] = []): FaceH {
 }
 /** a closed polygon through 3D points (a sketch on any plane) */
 export const polygonFace3 = (points: readonly V3[]): FaceH => profileFace({ kind: "poly", pts: points, mids: points.map(() => null) });
-/** a circle of radius r in a named plane (XY, XZ, YZ), centred on that plane's origin moved `offset` along its normal */
-export function circleFace(r: number, plane: "XY" | "XZ" | "YZ", offset: number): FaceH {
-  return { raw: t((drawCircle(r).sketchOnPlane(plane, offset) as unknown as { face(): { wrapped: Raw } }).face().wrapped) };
-}
 function loopWire(l: Loop): Raw {
   if (l.kind === "circle") return t(assembleWire([makeCircle(l.r, [l.c[0], l.c[1], l.c[2]], [l.normal[0], l.normal[1], l.normal[2]])]).wrapped);
   const edges = [];
