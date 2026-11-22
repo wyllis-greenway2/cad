@@ -37,10 +37,20 @@ export function makeSketch(p: SketchParams, body: Body | null, step: { id: strin
   const names = [...p.points.map((q) => q.id), ...(p.lines ?? []).map((q) => q.id), ...(p.circles ?? []).map((q) => q.id), ...(p.arcs ?? []).map((q) => q.id), ...(p.anchors ?? []).map((q) => q.id)];
   const dup = names.find((n, i) => names.indexOf(n) !== i); if (dup) throw new Error(`two parts of this sketch are called ${dup}`);
   // the body's edges, held: found by the faces beside them (a lost edge orphans the step), seen in the plane of the sketch
-  const anchorPoints: { id: string; x: number; y: number; fixed: true }[] = [], anchorLines: { id: string; a: string; b: string }[] = [], reference: Line[] = [];
+  const anchorCircles: { id: string; c: string; r: number; fixedR: true }[] = [], anchorPoints: { id: string; x: number; y: number; fixed: true }[] = [], anchorLines: { id: string; a: string; b: string }[] = [], reference: Line[] = [];
   for (const an of p.anchors ?? []) {
     if (!body) throw new Error(`the anchor ${an.id} needs the body as the first input`);
     const edges = body.findEdges(an.edge); if (edges.length > 1) throw new Error(`the anchor ${an.id} is ${edges.length} edges (a face split): say which`);
+    const circ = K.edgeCircle(edges[0]!.h);
+    if (circ) { // a circle or an arc of one (E65): held whole, centre and radius, when the sketch faces the same way; seen edge-on it is a line; at an angle it is an ellipse, which is not held
+      const along = Math.abs(circ.normal[0] * fr.normal[0] + circ.normal[1] * fr.normal[1] + circ.normal[2] * fr.normal[2]);
+      if (along > 1 - 1e-9) { const c = local(circ.c); anchorPoints.push({ id: `${an.id}.c`, x: c[0], y: c[1], fixed: true }); anchorCircles.push({ id: an.id, c: `${an.id}.c`, r: circ.r, fixedR: true }); continue; }
+      if (along < 1e-9 && circ.closed) {
+        const w = unitV([fr.normal[1] * circ.normal[2] - fr.normal[2] * circ.normal[1], fr.normal[2] * circ.normal[0] - fr.normal[0] * circ.normal[2], fr.normal[0] * circ.normal[1] - fr.normal[1] * circ.normal[0]] as V3), q0: V3 = [circ.c[0] - w[0] * circ.r, circ.c[1] - w[1] * circ.r, circ.c[2] - w[2] * circ.r], q1: V3 = [circ.c[0] + w[0] * circ.r, circ.c[1] + w[1] * circ.r, circ.c[2] + w[2] * circ.r], a = local(q0), b = local(q1);
+        anchorPoints.push({ id: `${an.id}.a`, x: a[0], y: a[1], fixed: true }, { id: `${an.id}.b`, x: b[0], y: b[1], fixed: true }); anchorLines.push({ id: an.id, a: `${an.id}.a`, b: `${an.id}.b` }); reference.push({ id: mint(step.id, "anchor", an.id), a: q0, b: q1 }); continue;
+      }
+      throw new Error(`the anchor ${an.id} is a circle seen at an angle, which is an ellipse in this sketch: it cannot be held (sketch on a plane that faces it, or on a plane through its axis)`);
+    }
     const [e0, e1] = K.edgeEnds(edges[0]!.h), a = local(e0), b = local(e1);
     if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-9) anchorPoints.push({ id: an.id, x: a[0], y: a[1], fixed: true }); // seen end-on: a point in this plane
     else { anchorPoints.push({ id: `${an.id}.a`, x: a[0], y: a[1], fixed: true }, { id: `${an.id}.b`, x: b[0], y: b[1], fixed: true }); anchorLines.push({ id: an.id, a: `${an.id}.a`, b: `${an.id}.b` }); reference.push({ id: mint(step.id, "anchor", an.id), a: e0, b: e1 }); }
@@ -48,7 +58,7 @@ export function makeSketch(p: SketchParams, body: Body | null, step: { id: strin
   const at0 = new Map(p.points.map((q) => [q.id, q] as const));
   const arcCircles = (p.arcs ?? []).map((a) => { const c = at0.get(a.c), s0 = at0.get(a.a); if (!c || !s0) throw new Error(`the arc ${a.id} names a point that is not there`); return { id: a.id, c: a.c, r: Math.hypot(s0.x - c.x, s0.y - c.y), fixedR: false }; });
   const arcEnds: Constraint[] = (p.arcs ?? []).flatMap((a) => [{ id: `${a.id}.start`, kind: "pointOnCircle" as const, parts: [a.a, a.id] }, { id: `${a.id}.end`, kind: "pointOnCircle" as const, parts: [a.b, a.id] }]);
-  const system: System = { points: [...p.points.map((q) => ({ id: q.id, x: q.x, y: q.y, fixed: !!q.fixed })), ...anchorPoints], lines: [...(p.lines ?? []).map((l) => ({ id: l.id, a: l.a, b: l.b })), ...anchorLines], circles: [...(p.circles ?? []).map((c) => ({ id: c.id, c: c.c, r: c.r, fixedR: !!c.fixedR })), ...arcCircles], constraints: [...(p.constraints ?? []), ...arcEnds] };
+  const system: System = { points: [...p.points.map((q) => ({ id: q.id, x: q.x, y: q.y, fixed: !!q.fixed })), ...anchorPoints], lines: [...(p.lines ?? []).map((l) => ({ id: l.id, a: l.a, b: l.b })), ...anchorLines], circles: [...(p.circles ?? []).map((c) => ({ id: c.id, c: c.c, r: c.r, fixedR: !!c.fixedR })), ...arcCircles, ...anchorCircles], constraints: [...(p.constraints ?? []), ...arcEnds] };
   const r = solve(system);
   if (!r.verdict.ok) {
     const who = r.verdict.conflict.length ? `: ${r.verdict.conflict.join(", ")}` : "";
@@ -149,7 +159,7 @@ export function carryConstraints(constraints: Constraint[], lineOfPoints: (a: st
 /** the definition of a sketch after a motion: the points moved, the constraints carried, the anchors and what held to them left behind (a body's edge is not in the copy) */
 export function moveDefinition(p: SketchParams, m: Motion): { params: SketchParams; dropped: { id: string; kind: string; why: string }[]; changed: { id: string; from: string; to: string }[] } {
   const M = matrix(m), by = m.by ?? [0, 0], mv = (x: number, y: number): [number, number] => [M[0][0] * x + M[0][1] * y + by[0], M[1][0] * x + M[1][1] * y + by[1]];
-  const anchors = new Set([...(p.anchors ?? []).flatMap((a) => [a.id, `${a.id}.a`, `${a.id}.b`])]), lines = p.lines ?? [], lineOfPoints = (a: string, b: string) => lines.find((l) => (l.a === a && l.b === b) || (l.a === b && l.b === a))?.id ?? null;
+  const anchors = new Set([...(p.anchors ?? []).flatMap((a) => [a.id, `${a.id}.a`, `${a.id}.b`, `${a.id}.c`])]), lines = p.lines ?? [], lineOfPoints = (a: string, b: string) => lines.find((l) => (l.a === a && l.b === b) || (l.a === b && l.b === a))?.id ?? null;
   const usesAnchor = (c: Constraint) => c.parts.some((q) => anchors.has(q)), held = (p.constraints ?? []).filter((c) => !usesAnchor(c)), gone = (p.constraints ?? []).filter(usesAnchor);
   const carried = carryConstraints(held, lineOfPoints, m);
   const dropped = [...carried.dropped, ...gone.map((c) => ({ id: c.id, kind: c.kind, why: "it holds to a body's edge, which is not in the copy" }))];

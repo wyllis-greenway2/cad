@@ -80,6 +80,20 @@ export function facts(f: FaceH): Facts {
 }
 export function edgeEnds(e: EdgeH): [V3, V3] { const E = new Edge(downcast(e.raw)), a = E.startPoint, b = E.endPoint, out: [V3, V3] = [[a.x, a.y, a.z], [b.x, b.y, b.z]]; drop(a, b, E); return out; }
 export function edgeMid(e: EdgeH): V3 { const E = new Edge(downcast(e.raw)), c = E.pointAt(0.5), out: V3 = [c.x, c.y, c.z]; drop(c, E); return out; }
+/** the point of an edge at a fraction (0 to 1) of its length-parameter */
+export function edgeAt(e: EdgeH, u: number): V3 { const E = new Edge(downcast(e.raw)), c = E.pointAt(u), out: V3 = [c.x, c.y, c.z]; drop(c, E); return out; }
+/** the circle an edge lies on (a whole circle or an arc of one: its centre, radius, the way its plane faces, whether it is closed), or null for any other edge (a line, an ellipse, a spline) */
+export function edgeCircle(e: EdgeH): { c: V3; r: number; normal: V3; closed: boolean } | null {
+  const [s, f] = edgeEnds(e), closed = Math.hypot(s[0] - f[0], s[1] - f[1], s[2] - f[2]) < 1e-9, us = closed ? [0, 1 / 3, 2 / 3, 1 / 6, 5 / 6] : [0, 0.5, 1, 0.25, 0.75], P = us.map((u) => edgeAt(e, u));
+  const a = P[0]!, b = P[1]!, c = P[2]!, ab: V3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], ac: V3 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+  const n: V3 = [ab[1] * ac[2] - ab[2] * ac[1], ab[2] * ac[0] - ab[0] * ac[2], ab[0] * ac[1] - ab[1] * ac[0]], n2 = n[0] * n[0] + n[1] * n[1] + n[2] * n[2]; if (n2 < 1e-18) return null; // three points in a line
+  const d1 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2], d2 = ac[0] * ac[0] + ac[1] * ac[1] + ac[2] * ac[2];
+  // the centre of the circle through three points: a + (|ac|2 (n x ab) + |ab|2 (ac x n)) / (2 |n|2), n = ab x ac
+  const k = 1 / (2 * n2), ctr: V3 = [a[0] + k * (d2 * (n[1] * ab[2] - n[2] * ab[1]) + d1 * (ac[1] * n[2] - ac[2] * n[1])), a[1] + k * (d2 * (n[2] * ab[0] - n[0] * ab[2]) + d1 * (ac[2] * n[0] - ac[0] * n[2])), a[2] + k * (d2 * (n[0] * ab[1] - n[1] * ab[0]) + d1 * (ac[0] * n[1] - ac[1] * n[0]))];
+  const r = Math.hypot(a[0] - ctr[0], a[1] - ctr[1], a[2] - ctr[2]), L = Math.sqrt(n2);
+  for (const q of P.slice(3)) if (Math.abs(Math.hypot(q[0] - ctr[0], q[1] - ctr[1], q[2] - ctr[2]) - r) > 1e-7 * Math.max(1, r)) return null;
+  return { c: ctr, r, normal: [n[0] / L, n[1] / L, n[2] / L], closed };
+}
 export const faceEdges = (f: FaceH): EdgeH[] => unique(f.raw, "TopAbs_EDGE").map((r) => ({ raw: t(r) }));
 /** the area two faces share (a boolean common): used to recover ids where the kernel says nothing (E7) */
 export function overlap(a: FaceH, b: FaceH): number {

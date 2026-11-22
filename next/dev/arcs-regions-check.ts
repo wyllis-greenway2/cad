@@ -6,6 +6,7 @@ import { Engine } from "../src/engine/engine.ts";
 import { Body } from "../src/engine/lineage.ts";
 import { idKey, mint } from "../src/engine/id.ts";
 import { rectangle } from "../src/engine/sketch.ts";
+import { referenceSet } from "../src/interaction/refs.ts";
 import type { Sketch, Step } from "../src/engine/steps.ts";
 await initKernel();
 let failures = 0; const check = (label: string, ok: boolean, detail = "") => { if (!ok) failures++; console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ": " + detail : ""}`); };
@@ -90,6 +91,26 @@ console.log("9. a copy of a sketch with arcs: mirrored, the arcs still go the ri
   const a = (e.result("s").value as Sketch).lines.find((l) => l.id.of[0] === "right")!, b = (e.result("c").value as Sketch).lines.find((l) => l.id.of[0] === "right")!;
   check("the mirrored slot is a slot of the same size", st(e, "E").kind === "ok" && near(vol(e, "E"), (12 + Math.PI) * 2 * 1, 5e-3) || near(vol(e, "E"), (6 * 2 + Math.PI) * 2, 5e-3), st(e, "E").why ?? String(vol(e, "E")));
   check("the right arc's middle is where the mirror puts it (the centre line is y = 0, the arc bulges to x = 7)", Math.abs(b.mid![0] - 7) < 1e-6 && Math.abs(b.mid![1] - 5) < 1e-6 && Math.abs(a.mid![0] - 7) < 1e-6, `${b.mid} ${a.mid}`); e.release();
+}
+console.log("10. a body's circular edge as an anchor (E65): concentric with a rim, seen edge-on as a line, refused at an angle")
+{
+  const body = (cx: number, cy: number): Step[] => [{ id: "c0", kind: "sketchCircle", params: { r: 5, center: [cx, cy] }, inputs: [] }, ext("A", "c0", 4)];
+  const faces = (e: Engine) => (e.result("A").value as Body).faces.map((f) => f.id), rim = (e: Engine) => ({ a: faces(e).find((i) => idKey(i).includes('"end"'))!, b: faces(e).find((i) => idKey(i).includes('"side"'))! });
+  const probe = build(body(3, 2)), R = rim(probe), edge = { a: R.a, b: R.b }; probe.release();
+  const on = (cx: number, cy: number, extra: Record<string, any> = {}): Step[] => [...body(cx, cy), { id: "s", kind: "sketch", params: { plane: "XY", offset: 4, points: [P("H", 0, 0)], circles: [{ id: "ring", c: "H", r: 1 }], anchors: [{ id: "rim", edge }], constraints: [{ id: "co", kind: "concentric", parts: ["ring", "rim"] }, { id: "rr", kind: "radius", parts: ["ring"], value: 2 }], ...extra }, inputs: ["A"] }, ext("B", "s", 1)];
+  const e = build(on(3, 2)), s = e.result("s").value as Sketch;
+  check("a circle made concentric with the rim, radius 2: at the rim's centre, a cylinder of volume pi 4 x 1", st(e, "s").kind === "ok" && !!s.circle && near(s.circle.c[0], 3) && near(s.circle.c[1], 2) && near(s.circle.c[2], 4) && near(s.circle.r, 2) && near(vol(e, "B"), 4 * Math.PI), st(e, "s").why ?? JSON.stringify(s.circle));
+  check("it says it is fully constrained", s.solve?.freedom === 0, JSON.stringify(s.solve));
+  e.edit("c0", { r: 5, center: [6, 1] }); const m = e.result("s").value as Sketch;
+  check("the body's circle moves: the sketch follows (concentric still)", st(e, "s").kind === "ok" && near(m.circle!.c[0], 6) && near(m.circle!.c[1], 1), JSON.stringify(m.circle?.c));
+  const refs = referenceSet({ body: e.result("A").value as Body, plane: { plane: "XY", offset: 4 } }), rc = refs.find((r) => r.kind === "circle");
+  check("the reference set offers the rim as a circle that can be held (origin: anchor, radius 5)", !!rc && rc.origin === "anchor" && near(rc.r!, 5) && !!rc.anchor && !rc.anchor.held, JSON.stringify(rc && { o: rc.origin, r: rc.r }));
+  const edgeOn = build([...body(3, 2), { id: "s", kind: "sketch", params: { plane: "XZ", offset: 0, points: [P("A", 0, 0), P("B", 1, 1)], lines: [{ id: "l", a: "A", b: "B" }], anchors: [{ id: "rim", edge }], constraints: [{ id: "on", kind: "pointOnLine", parts: ["A", "rim"] }] }, inputs: ["A"] }]), es = edgeOn.result("s").value as Sketch;
+  const rl = es.reference?.[0]; const ends = rl ? [rl.a, rl.b].map((p) => p.map((x) => Math.round(x * 1e6) / 1e6).join()).sort() : [];
+  check("seen edge-on (the XZ plane): a line between the circle's extremes, (-2, 2, 4) to (8, 2, 4)", st(edgeOn, "s").kind === "ok" && ends.join("|") === ["-2,2,4", "8,2,4"].sort().join("|"), st(edgeOn, "s").why ?? ends.join("|"));
+  const tilted = build([...body(3, 2), { id: "s", kind: "sketch", params: { frame: { origin: [0, 0, 4], xDir: [1, 0, 0], normal: [0, Math.SQRT1_2, Math.SQRT1_2] }, points: [P("A", 0, 0)], anchors: [{ id: "rim", edge }], constraints: [] }, inputs: ["A"] }]);
+  check("seen at an angle: refused in words (an ellipse)", st(tilted, "s").kind !== "ok" && /ellipse/.test(st(tilted, "s").why ?? ""), st(tilted, "s").why);
+  e.release(); edgeOn.release(); tilted.release();
 }
 console.log("8. random: plates with holes, slots and picks: the volume is the area, an edit equals a fresh build");
 {

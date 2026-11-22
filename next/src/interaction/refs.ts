@@ -44,12 +44,20 @@ export function referenceSet(input: RefInput): Ref[] {
   if (body) for (const e of body.edges()) {
     if (!e.ref) continue;
     const [e0, e1] = K.edgeEnds(e.h), m = K.edgeMid(e.h), chord: [number, number, number] = [(e0[0] + e1[0]) / 2, (e0[1] + e1[1]) / 2, (e0[2] + e1[2]) / 2];
-    if (Math.hypot(m[0] - chord[0], m[1] - chord[1], m[2] - chord[2]) > 1e-7) continue; // a curve: not offered yet
-    const a = fr.local(e0), b = fr.local(e1), off = (p: K.V3) => (p[0] - fr.F.O[0]) * fr.normal[0] + (p[1] - fr.F.O[1]) * fr.normal[1] + (p[2] - fr.F.O[2]) * fr.normal[2];
-    const key = `edge:${edgeKey(e.ref)}`, name = `e${out.filter((r) => r.origin !== "drawn" && r.origin !== "world").length + 1}`, inPlane = Math.abs(off(e0)) < 1e-9 && Math.abs(off(e1)) < 1e-9;
+    const off = (p: K.V3) => (p[0] - fr.F.O[0]) * fr.normal[0] + (p[1] - fr.F.O[1]) * fr.normal[1] + (p[2] - fr.F.O[2]) * fr.normal[2];
+    const key = `edge:${edgeKey(e.ref)}`, name = `e${out.filter((r) => r.origin !== "drawn" && r.origin !== "world").length + 1}`;
     const held = (def?.anchors ?? []).find((an) => edgeKey(an.edge) === edgeKey(e.ref!)), nm = held ? held.id : name;
-    const base = { key, name: nm, origin: (inPlane ? "anchor" : "projection") as Ref["origin"], offset: off(m), anchor: { id: nm, edge: e.ref, held: !!held && anchorIds.has(held.id) }, visible: vis(key) };
-    if (Math.hypot(...sub(a, b)) < 1e-9) out.push({ ...base, kind: "point", p: a }); else out.push({ ...base, kind: "line", a, b });
+    const base = (inPlane: boolean, offset: number) => ({ key, name: nm, origin: (inPlane ? "anchor" : "projection") as Ref["origin"], offset, anchor: { id: nm, edge: e.ref!, held: !!held && anchorIds.has(held.id) }, visible: vis(key) });
+    if (Math.hypot(m[0] - chord[0], m[1] - chord[1], m[2] - chord[2]) > 1e-7 || (Math.hypot(e0[0] - e1[0], e0[1] - e1[1], e0[2] - e1[2]) < 1e-9 && K.edgeCircle(e.h))) {
+      // a curve: a circle (or an arc of one) is held whole when the sketch faces it, as a line when seen edge-on; at an angle it is an ellipse, which is not offered (E65)
+      const circ = K.edgeCircle(e.h); if (!circ) continue;
+      const along = Math.abs(circ.normal[0] * fr.normal[0] + circ.normal[1] * fr.normal[1] + circ.normal[2] * fr.normal[2]);
+      if (along > 1 - 1e-9) out.push({ ...base(Math.abs(off(circ.c)) < 1e-9, off(circ.c)), kind: "circle", c: fr.local(circ.c), r: circ.r });
+      else if (along < 1e-9 && circ.closed) { const w = [fr.normal[1] * circ.normal[2] - fr.normal[2] * circ.normal[1], fr.normal[2] * circ.normal[0] - fr.normal[0] * circ.normal[2], fr.normal[0] * circ.normal[1] - fr.normal[1] * circ.normal[0]], L = Math.hypot(w[0]!, w[1]!, w[2]!), q = (sg: number): K.V3 => [circ.c[0] + (sg * circ.r * w[0]!) / L, circ.c[1] + (sg * circ.r * w[1]!) / L, circ.c[2] + (sg * circ.r * w[2]!) / L]; out.push({ ...base(true, off(circ.c)), kind: "line", a: fr.local(q(-1)), b: fr.local(q(1)) }); }
+      continue;
+    }
+    const a = fr.local(e0), b = fr.local(e1), inPlane = Math.abs(off(e0)) < 1e-9 && Math.abs(off(e1)) < 1e-9;
+    if (Math.hypot(...sub(a, b)) < 1e-9) out.push({ ...base(inPlane, off(m)), kind: "point", p: a }); else out.push({ ...base(inPlane, off(m)), kind: "line", a, b });
   }
   out.push({ key: "axis:x", kind: "axis", name: "axis.x", origin: "world", a: [0, 0], b: [1, 0], visible: true }, { key: "axis:y", kind: "axis", name: "axis.y", origin: "world", a: [0, 0], b: [0, 1], visible: true });
   return out;
