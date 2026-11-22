@@ -3,7 +3,7 @@
 //  - a kernel that stops (a crash, running out of memory) does the same for the step it was in;
 //  - the worker is restarted between requests once it holds more than the memory budget, and the recipe is sent again, so the memory the kernel does not give back cannot grow without end.
 // The last good snapshot is kept and returned when nothing better can be made.
-import type { Reply, Request, Snapshot } from "./protocol.ts";
+import type { Ask, Reply, Request, Snapshot } from "./protocol.ts";
 import type { Step } from "./steps.ts";
 
 /** how the host talks to a worker; Node's worker thread and a browser's Web Worker each make one */
@@ -23,6 +23,17 @@ export class EngineHost {
 
   load(steps: Step[]): Promise<Outcome> { return this.go("load", steps); }
   apply(steps: Step[]): Promise<Outcome> { return this.go("apply", steps); }
+  /**
+   * Ask about the recipe the worker holds (a trial, where a number works, the options for a failed step: E28, E35). The answer is plain data. The same limits hold: a question that runs past the time limit
+   * or stops the kernel is given up (the worker is restarted, the next recipe is sent whole) and the answer says so; nothing in the recipe or in the picture changes.
+   */
+  async ask(q: Ask): Promise<{ ok: true; data: unknown } | { ok: false; why: string }> {
+    const w = this.worker; if (!w) return { ok: false, why: "no recipe is loaded" };
+    const reply = await this.ask1(w, { id: ++this.serial, type: "ask", ask: q });
+    if (reply.type === "answer") return { ok: true, data: reply.data };
+    if (reply.type === "error") return { ok: false, why: reply.message };
+    this.stop(); return { ok: false, why: reply.type === "gone" ? `the kernel stopped while this was tried (${reply.why}); it is restarted` : `this took longer than the time limit (${this.opts.timeoutMs / 1000} s) and was given up` };
+  }
   get last(): Snapshot | null { return this.lastGood; }
   dispose(): void { this.worker?.terminate(); this.worker = null; }
 
@@ -42,7 +53,7 @@ export class EngineHost {
     for (let attempt = 0; attempt < (this.opts.attempts ?? 4); attempt++) {
       this.running = null;
       const fresh = !this.worker, w = this.worker ?? this.start(), forced = Object.fromEntries([...this.held].map(([id, h]) => [id, h.why]));
-      const reply = await this.ask(w, { id: ++this.serial, type: fresh ? "load" : mode, steps, forced });
+      const reply = await this.ask1(w, { id: ++this.serial, type: fresh ? "load" : mode, steps, forced });
       if (reply.type === "done") { this.rss = reply.snapshot.rssMb; this.lastGood = reply.snapshot; return { snapshot: reply.snapshot, events, fresh: true }; }
       if (reply.type === "error") { events.push(`this recipe was refused: ${reply.message}; this is the last good picture`); return { snapshot: this.lastGood ?? { steps: [], computes: 0, ms: 0, rssMb: 0 }, events, fresh: false }; }
       // it did not answer: which step was it in?
@@ -56,10 +67,10 @@ export class EngineHost {
     return { snapshot: this.lastGood ?? { steps: [], computes: 0, ms: 0, rssMb: 0 }, events, fresh: false };
   }
 
-  private ask(w: Transport, req: Request): Promise<Reply | { type: "gone"; why: string } | { type: "timeout" }> {
+  private ask1(w: Transport, req: Request): Promise<Reply | { type: "gone"; why: string } | { type: "timeout" }> {
     return new Promise((resolve) => {
       const timer = setTimeout(() => { this.waiting = null; resolve({ type: "timeout" }); }, this.opts.timeoutMs);
-      this.waiting = (r) => { clearTimeout(timer); this.waiting = null; if (r.type === "done" && r.id !== req.id) return; resolve(r); };
+      this.waiting = (r) => { clearTimeout(timer); this.waiting = null; if ((r.type === "done" || r.type === "answer") && r.id !== req.id) return; resolve(r); };
       if (this.exited) { this.waiting({ type: "gone", why: this.exited }); return; }
       w.post(req);
     });

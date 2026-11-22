@@ -1,0 +1,104 @@
+// Failure handling (E28, E35, E30): what a change would do, where a number works, and what the person can do when a step has failed. Everything is built on the side, on a copy of the recipe in a scratch
+// engine: **the engine asked is never changed** (a refusal and a trial leave it as it was), and nothing is applied unasked (E15). The answers are plain data, so they cross the worker boundary (E16).
+import { Engine, type Status } from "./engine.ts";
+import { Body } from "./lineage.ts";
+import { originalEdit } from "./pull.ts";
+import { kinds, type Step } from "./steps.ts";
+import * as K from "./kernel.ts";
+import type { Id } from "./id.ts";
+
+/** a change to the recipe, as data: it is applied with the engine's own methods */
+export type Change = { op: "edit"; step: string; params: Record<string, any> } | { op: "swap"; step: string } | { op: "remove"; step: string } | { op: "batch"; changes: Change[] };
+export interface Verdict {
+  kind: "ok" | "notes" | "refused"; /** in words: why it was refused, or what to look at */ why: string;
+  step: string; status: Status; notes: string[]; /** steps not ok now, and after the change */ now: number; after: number;
+  /** the body the last body step makes after the change: for the picture shown while the person decides */ volume: number | null; faces: number | null;
+}
+const notOk = (e: Engine) => e.ids().filter((i) => e.result(i).status.kind !== "ok").length;
+const lastBody = (e: Engine): Body | null => { for (const id of [...e.ids()].reverse()) { const v = e.result(id).value; if (v instanceof Body) return v; } return null; };
+const apply = (e: Engine, c: Change): void => { if (c.op === "edit") e.edit(c.step, c.params); else if (c.op === "swap") e.swapWithInput(c.step); else if (c.op === "remove") e.remove(c.step); else for (const x of c.changes) apply(e, x); };
+// a face that is replaced by the one that takes its place is "dropped" in every step that moves a face: only an unnamed face and a tie are worth the person's attention
+const NOTEWORTHY = new Set(["defect", "tie"]);
+
+/** build the change on a copy and say what happened. `engine` is not touched. */
+export function trial(engine: Engine, change: Change): Verdict {
+  const now = notOk(engine), scratch = new Engine(engine.recipe());
+  try {
+    scratch.build(); apply(scratch, change);
+    const focus = change.op === "remove" || change.op === "batch" ? null : change.step, r = focus && scratch.ids().includes(focus) ? scratch.result(focus) : null, status: Status = r ? r.status : { kind: "ok" };
+    const after = notOk(scratch), body = lastBody(scratch), notes = r ? r.notes.filter((n) => NOTEWORTHY.has(n.kind)).map((n) => n.text) : [];
+    const volume = body ? K.volume(body.solid) : null, faces = body ? body.faces.length : null;
+    if (status.kind !== "ok") return { kind: "refused", why: status.why, step: focus ?? "", status, notes, now, after, volume, faces };
+    if (after > now) return { kind: "refused", why: `${after - now} more step${after - now === 1 ? "" : "s"} would fail after this change`, step: focus ?? "", status, notes, now, after, volume, faces };
+    return { kind: notes.length ? "notes" : "ok", why: notes.join("; "), step: focus ?? "", status, notes, now, after, volume, faces };
+  } catch (e) {
+    const why = e instanceof Error ? e.message : String(e); return { kind: "refused", why, step: "step" in change ? change.step : "", status: { kind: "flagged", why }, notes: [], now, after: now, volume: null, faces: null };
+  } finally { scratch.release(); }
+}
+
+export interface Range { from: number; to: number }
+export interface Probe { step: string; key: string; value: number; /** where the number works, in order */ ok: Range[]; /** the range looked at */ looked: Range; samples: number }
+/**
+ * Where a step's number works: the step and everything after it are no worse than they are now. The number is tried at `samples` places across `looked`, and each edge between a place that works and one
+ * that does not is found by halving (to 1e-4 of the range). One scratch engine takes all the edits, so each costs what an edit costs (E18).
+ */
+export function probe(engine: Engine, step: string, key: string, opts: { lo?: number; hi?: number; samples?: number } = {}): Probe {
+  if (!engine.ids().includes(step)) throw new Error(`no step ${step}`);
+  const st = engine.step(step), value = st.params[key]; if (typeof value !== "number") throw new Error(`${step} has no number called ${key}`);
+  const lo = opts.lo ?? (value >= 0 ? 0 : value * 3), hi = opts.hi ?? (value >= 0 ? (value === 0 ? 1 : value * 3) : 0), n = opts.samples ?? 24, base = notOk(engine), scratch = new Engine(engine.recipe());
+  try {
+    scratch.build();
+    const works = (v: number): boolean => { try { scratch.edit(step, { ...st.params, [key]: v }); return scratch.result(step).status.kind === "ok" && notOk(scratch) <= base; } catch { return false; } };
+    const xs = Array.from({ length: n + 1 }, (_, i) => lo + ((hi - lo) * i) / n), ok = xs.map(works), tol = (hi - lo) * 1e-4;
+    const edge = (a: number, b: number): number => { // a works, b does not (or the other way about): the place between
+      let good = ok[xs.indexOf(a)] ? a : b, bad = good === a ? b : a;
+      for (let i = 0; i < 30 && Math.abs(good - bad) > tol; i++) { const m = (good + bad) / 2; if (works(m)) good = m; else bad = m; }
+      return good;
+    };
+    const ranges: Range[] = []; let from: number | null = null;
+    for (let i = 0; i <= n; i++) {
+      if (ok[i]) { if (from === null) from = i === 0 ? xs[0]! : edge(xs[i - 1]!, xs[i]!); if (i === n) ranges.push({ from, to: xs[n]! }); }
+      else if (from !== null) { ranges.push({ from, to: edge(xs[i - 1]!, xs[i]!) }); from = null; }
+    }
+    return { step, key, value, ok: ranges, looked: { from: lo, to: hi }, samples: n + 1 };
+  } finally { scratch.release(); }
+}
+const spell = (p: Probe): string => p.ok.length ? "works " + p.ok.map((r) => `from ${r.from.toFixed(3)} to ${r.to.toFixed(3)}`).join(" and ") : `works nowhere in ${p.looked.from.toFixed(3)} to ${p.looked.to.toFixed(3)}`;
+
+/** the number a step is mostly about, for the kinds that have one */
+const MAIN: Record<string, string> = { push: "dist", moveFace: "dist", offsetFace: "dist", round: "size", extrude: "d", dimension: "value", turn: "deg", move: "", revolve: "deg" };
+
+export type OptionKind = "range" | "editOriginal" | "swap" | "remove";
+export interface Option { kind: OptionKind; label: string; applies: boolean; /** why not, or what it did when tried */ why: string; /** tried on a copy: did it work, no worse than now */ worked: boolean | null; change?: Change; probe?: Probe }
+/**
+ * What the person can do about a step that has failed (E35). Each option is tried on a copy and says whether it worked; none is applied. Built so far: a number that works (the nearest one),
+ * the number of the step that made the face (for a pull), doing the step before the one it works on, and leaving the step out. (A variable size and a split chain are not built, E36.)
+ */
+export function options(engine: Engine, step: string): Option[] {
+  if (!engine.ids().includes(step)) throw new Error(`no step ${step}`);
+  const st = engine.step(step), r = engine.result(step), out: Option[] = [];
+  if (r.status.kind === "ok") return out;
+  const key = MAIN[st.kind];
+  if (key) {
+    const p = probe(engine, step, key), v = st.params[key] as number;
+    if (p.ok.length) {
+      const near = p.ok.flatMap((g) => [g.from, g.to]).sort((a, b) => Math.abs(a - v) - Math.abs(b - v))[0]!, change: Change = { op: "edit", step, params: { ...st.params, [key]: near } }, t = trial(engine, change);
+      out.push({ kind: "range", label: `${key}: ${spell(p)}`, applies: true, why: t.kind === "refused" ? `the nearest place, ${near.toFixed(3)}, was tried: ${t.why}` : `the nearest place is ${near.toFixed(3)}`, worked: t.kind !== "refused", change, probe: p });
+    } else out.push({ kind: "range", label: `${key}: ${spell(p)}`, applies: true, why: "no value of this number works", worked: false, probe: p });
+  } else out.push({ kind: "range", label: "this step has no one number to change", applies: false, why: "", worked: null });
+  // a pull of a face that a step made: change that step's number instead
+  if ((st.kind === "push" || st.kind === "moveFace") && st.params.face) {
+    const from = st.inputs[0]!, o = originalEdit(engine, from, st.params.face as Id, st.params.dist as number);
+    if ("why" in o) out.push({ kind: "editOriginal", label: "change the step that made the face", applies: false, why: o.why, worked: null });
+    else { // the original step gets its new number and the pull is left out: the face is then where the person wanted it, made by the step that knows how to make it
+      const change: Change = { op: "batch", changes: [{ op: "edit", step: o.step, params: o.params }, { op: "remove", step }] }, t = trial(engine, change);
+      out.push({ kind: "editOriginal", label: `change the step that made the face (${o.step}) instead of pulling it`, applies: true, why: t.kind === "refused" ? t.why : `${o.step} would have ${Object.entries(o.params).filter(([k, x]) => x !== engine.step(o.step).params[k]).map(([k, x]) => `${k} ${typeof x === "number" ? x.toFixed(3) : x}`).join(", ")}`, worked: t.kind !== "refused", change });
+    }
+  } else out.push({ kind: "editOriginal", label: "change the step that made the face", applies: false, why: "this step does not pull a face", worked: null });
+  // do the step before the one it works on
+  { const s = engine.trySwap(step); const body = engine.ids().includes(st.inputs[0] ?? ""); out.push({ kind: "swap", label: "do this step before the one it works on", applies: body && st.inputs.length > 0 && kinds[engine.step(st.inputs[0]!).kind]?.outputs === "body", why: s.why || (s.worked ? "this order works" : "this order does not help"), worked: s.worked, change: { op: "swap", step } }); }
+  // leave it out
+  { const change: Change = { op: "remove", step }, t = trial(engine, change); out.push({ kind: "remove", label: "leave this step out", applies: true, why: t.kind === "refused" ? t.why : "the steps after it would use what it worked on", worked: t.kind !== "refused", change }); }
+  return out;
+}
+export type { Step };

@@ -4,6 +4,7 @@ import { Engine } from "./engine.ts";
 import { Body } from "./lineage.ts";
 import { idKey, show } from "./id.ts";
 import { NoBody } from "./steps.ts";
+import { options, probe, trial } from "./failure.ts";
 import type { Reply, Request, Snapshot, StepSnap } from "./protocol.ts";
 
 export class Session {
@@ -15,6 +16,11 @@ export class Session {
     try {
       await K.initKernel();
       if (req.type === "ping") { this.post({ type: "done", id: req.id, snapshot: this.snapshot(0, 0) }); return; }
+      if (req.type === "ask") {
+        if (!this.engine) { this.post({ type: "error", id: req.id, message: "no recipe is loaded" }); return; }
+        const a = req.ask, e = this.engine, data = a.what === "trial" ? trial(e, a.change) : a.what === "probe" ? probe(e, a.step, a.key, { lo: a.lo, hi: a.hi }) : options(e, a.step);
+        this.post({ type: "answer", id: req.id, data: JSON.parse(JSON.stringify(data)) }); return;
+      }
       const t0 = performance.now(), watch = (step: string) => this.post({ type: "running", step });
       let base = this.engine?.computes ?? 0;
       if (req.type === "load" || !this.engine) {

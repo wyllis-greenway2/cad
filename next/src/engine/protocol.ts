@@ -4,16 +4,21 @@ import type { Note } from "./lineage.ts";
 import type { Status } from "./engine.ts";
 import type { Step } from "./steps.ts";
 import type { V3 } from "./kernel.ts";
+import type { Change } from "./failure.ts";
 
 export interface FaceSnap { id: string; label: string; alias: string[]; defect: boolean; type: string; area: number; ce: V3; ne: V3 }
 export interface LineSnap { id: string; ends: [V3, V3] | null; from: "sketch" | "body" }
 export interface StepSnap { id: string; kind: string; status: Status; fingerprint: string; output: "body" | "sketch" | "empty"; faces: FaceSnap[]; lines: LineSnap[]; notes: Note[] }
 export interface Snapshot { steps: StepSnap[]; computes: number; ms: number; rssMb: number }
 
+/** a question about the recipe the worker holds (E28, E35): answered on a copy, the recipe is not changed */
+export type Ask = { what: "trial"; change: Change } | { what: "probe"; step: string; key: string; lo?: number; hi?: number } | { what: "options"; step: string };
 export type Request =
   | { id: number; type: "load" | "apply"; steps: Step[]; forced: Record<string, string> }
+  | { id: number; type: "ask"; ask: Ask }
   | { id: number; type: "ping" };
 export type Reply =
   | { type: "running"; step: string }
   | { type: "done"; id: number; snapshot: Snapshot }
+  | { type: "answer"; id: number; data: unknown }
   | { type: "error"; id: number; message: string };
