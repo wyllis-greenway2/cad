@@ -6168,3 +6168,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1485 — 2026-11-22 — directive
 > Okay before we stress test, lets spec out our engine more for how to properly interface between the user, kernal, and hsndling history and valididty etc then we will stress test once we have a model. So another problem we had is slivers and weird shapes failing. For example, if you have a ring and you extrude a hole almost tangent but stop before break through. Basicially any hole exiting a curved surface. If take the flat at the end of the hole that didnt fully cut through to the curved surface, and you pull that face to complete the hole, it often breaks. There seem to be lots of operations that would be valid if done in the original negative extrusion step, but are no longer valid if you try to do them later with face pulls
+
+## in_1486 — 2026-11-22 — directive
+> I dont really know, what do you think we should do?
+
+## in_1487 — 2026-11-22 — directive
+> How about we just surface these options to the user? So face pull has types kind of like before, move, extrude, extend, edit original step. Maybe more or less steps. But how do we actually define what exactly those modes do and how to handle their edge cases? Also yes we should probably handle slivers with a warning and option to clean up. Maybe auto cleanup with option to undo cleanup.
