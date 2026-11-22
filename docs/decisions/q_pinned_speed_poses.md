@@ -14,6 +14,8 @@ depends_on:
 
 **Also pinned (`in_1529`): solid body contact.** Collision is the same range modifier on the signed distance between two bodies, one-sided, from zero up (`in_1528`); the constraint is no cost, the distance query is. To decide later, with the speed work: rough bounding checks so only near pairs are queried; a cheap interference report first (the overlap by a boolean common) before contact is a constraint; contacts active only when near (the nearest feature pair switches, which makes the measured distance change direction suddenly); and how to get a body back out of an overlap (a distance does not say how deep).
 
+**Also pinned (`in_1530`): where a chain's time goes.** 60 holes one after another in a 400 x 400 x 10 block took 30 s (about 0.5 s a step, growing with the faces), of which the validity checks were 2 to 5 percent. The time is in the steps (the cut, the face join, carrying every face's id, the sliver check that reads every face): to profile first in the speed session, before any policy of skipping checks.
+
 ## Rationale
 
 Kept as a question so it is not lost and not mistaken for a decision: nothing depends on it, and the human wants it handled with the rest of the speed work.

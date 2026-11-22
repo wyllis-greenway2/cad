@@ -6300,3 +6300,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1529 — 2026-11-22 — approval
 > Okay this sounds good, lets build it, lets pin the speed idea so we don't forget, we will worry about solid body constraints later.  did you have any other points I missed?
+
+## in_1530 — 2026-11-22 — question
+> what is the checking policy? we will work on UI and display things all at once later
