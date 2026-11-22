@@ -5,6 +5,8 @@ import * as K from "./kernel.ts";
 import { type EdgeRef, type Id, baseKey, edgeKey, edgeRef, idKey, isPieceOf, mint, piece, show } from "./id.ts";
 
 export interface FaceRec { id: Id; alias: Id[]; h: K.FaceH; /** the engine could not name this face from the step's history or rules (E7): a defect, reported */ defect: boolean }
+/** a body: a solid the model remembers by a name (E38). `faces` are the faces in it; `alias` the other names it answers to after bodies were joined (E39) */
+export interface BodyRec { id: Id; alias: Id[]; faces: FaceRec[] }
 export interface Note { kind: "split" | "tie" | "defect" | "merged" | "dropped" | "unjoined"; text: string }
 export interface EdgeRec { h: K.EdgeH; faces: FaceRec[]; /** two faces beside it: the edge's name */ ref: EdgeRef | null }
 
@@ -18,7 +20,9 @@ export class Body {
   readonly solid: K.Solid; readonly faces: FaceRec[]; readonly notes: Note[];
   /** the base keys of faces an imprint split: the person's own lines. Only the seams between pieces of these are kept when faces merge (E4); a piece made by a boolean is not a line the person drew */
   readonly kept: ReadonlySet<string>;
-  constructor(solid: K.Solid, faces: FaceRec[], notes: Note[] = [], kept: ReadonlySet<string> = new Set()) { this.solid = solid; this.faces = faces; this.notes = notes; this.kept = kept; }
+  /** the bodies of the shape (a scene of one or more), each with its name: set by `labelBodies` when a step has made the body */
+  bodies: BodyRec[];
+  constructor(solid: K.Solid, faces: FaceRec[], notes: Note[] = [], kept: ReadonlySet<string> = new Set(), bodies: BodyRec[] = []) { this.solid = solid; this.faces = faces; this.notes = notes; this.kept = kept; this.bodies = bodies; }
   release(): void { this.solid.release(); this.es = null; }
 
   /** the faces a reference means: the face, or the pieces it split into, found through any of its ids (E8, E9) */
@@ -55,7 +59,7 @@ export class Body {
   fingerprint(): string {
     // the geometry as well as the ids: an edit that only moves a face must show (else the engine stops there and the steps after it do not run)
     const g = (f: FaceRec) => { const q = K.facts(f.h); return `${idKey(f.id)}~${q.type}~${q.area.toFixed(9)}~${q.ce.map((v) => v.toFixed(9)).join(",")}`; };
-    return K.scoped(() => `${K.volume(this.solid).toFixed(9)}|${this.faces.map(g).sort().join(";")}`);
+    return K.scoped(() => `${K.volume(this.solid).toFixed(9)}|${this.faces.map(g).sort().join(";")}|${this.bodies.map((b) => [b.id, ...b.alias].map(idKey).join("=") + ":" + b.faces.length).sort().join(";")}`);
   }
 }
 
@@ -67,7 +71,7 @@ const older = (age: Age) => (a: Id, b: Id) => age(a.step) - age(b.step) || (idKe
  * Carry the ids of the input bodies' faces through an operation (E7). `claims` name faces the step itself made (a cap, a side from a sketch line, a round).
  * A face of the answer that nothing names is a defect: it gets an id marked so and a note (never a silent name).
  */
-export function carry(solid: K.Solid, report: K.Report, inputs: readonly Body[], claims: readonly Claim[], step: string, age: Age): Body {
+export function carry(solid: K.Solid, report: K.Report, inputs: readonly Body[], claims: readonly Claim[], step: string, age: Age, nameFrom: readonly Body[] = inputs): Body {
   const newFaces = solid.faces(), notes: Note[] = [], got: Id[][] = newFaces.map(() => []);
   const where = (h: K.FaceH) => newFaces.findIndex((f) => K.sameFace(f, h));
   for (const body of inputs) for (const rec of body.faces) {
@@ -91,7 +95,7 @@ export function carry(solid: K.Solid, report: K.Report, inputs: readonly Body[],
     if (ids.length > 1) notes.push({ kind: "merged", text: `${ids.map(show).join(" + ")}` });
     return { id: ids[0]!, alias: ids.slice(1), h, defect: ids[0]!.role === "unnamed" };
   });
-  return new Body(solid, recs, notes, new Set(inputs.flatMap((b) => [...b.kept])));
+  return labelBodies(new Body(solid, recs, notes, new Set(inputs.flatMap((b) => [...b.kept]))), nameFrom, step, age); // `nameFrom`: the bodies whose names the result may take (a tool that is cut away lends its faces' names but not its body's)
 }
 
 /** join faces in one surface, and recover which new face each old face went into by the area they share (E7, E9) */
@@ -150,18 +154,19 @@ export function unifyBody(body: Body, step: string, age: Age): Body {
     if (ids.length > 1) notes.push({ kind: "merged", text: ids.map(show).join(" + ") });
     return { id: ids[0]!, alias: ids.slice(1), h: t.h, defect: ids[0]!.role === "unnamed" };
   });
-  return joinFamilies(new Body(solid, recs, notes, body.kept), step, age);
+  return joinFamilies(labelBodies(new Body(solid, recs, notes, body.kept), [body], step, age), step, age);
 }
 
 /** a body made by a step from nothing: every face named by the step, from a list of claims */
-export function fromClaims(solid: K.Solid, claims: readonly Claim[], step: string): Body {
+export function fromClaims(solid: K.Solid, claims: readonly Claim[], step: string, label = true): Body {
   const faces = solid.faces(), notes: Note[] = []; let n = 0;
   const recs: FaceRec[] = faces.map((h) => {
     const c = claims.find((x) => K.sameFace(x.face, h));
     if (c) return { id: c.id, alias: [], h, defect: false };
     notes.push({ kind: "defect", text: `a face of ${step} has no id` }); return { id: mint(step, "unnamed", n++), alias: [], h, defect: true };
   });
-  return new Body(solid, recs, notes);
+  const body = new Body(solid, recs, notes);
+  return label ? labelBodies(body, [], step, null) : body; // a tool (`label` false) is not a body of the model: it only lends its faces' names
 }
 export { edgeKey };
 
@@ -169,5 +174,36 @@ export { edgeKey };
 export function markImprinted(body: Body, before: Body): Body {
   const kept = new Set(body.kept), had = new Set(before.faces.filter((g) => g.id.pieces.length).map((g) => baseKey(g.id)));
   for (const f of body.faces) if (f.id.pieces.length && !had.has(baseKey(f.id))) kept.add(baseKey(f.id)); // newly split by this imprint, not split before by a boolean
-  return new Body(body.solid, body.faces, body.notes, kept);
+  return new Body(body.solid, body.faces, body.notes, kept, body.bodies);
+}
+
+/**
+ * Name the bodies of a shape (E38, E39; `dec_independent_bodies`: a body is known by a name, not by its shape). A body keeps the name of the input body its faces came from; bodies that were joined answer to the
+ * older name and to the others; a body that was split into pieces: the largest piece keeps the name and the others are its pieces (E8); a body no input body is in is new, named by this step.
+ */
+export function labelBodies(body: Body, inputs: readonly Body[], step: string, age: Age | null): Body {
+  const index = K.solidIndexOfFaces(body.solid), groups = new Map<number, FaceRec[]>();
+  body.faces.forEach((f, i) => { const g = index[i]!; if (g >= 0) groups.set(g, [...(groups.get(g) ?? []), f]); });
+  const made = [...groups.values()].map((faces) => { const solidFacts = faces.map((f) => K.facts(f.h)); return { faces, area: solidFacts.reduce((a, q) => a + q.area, 0), ce: [0, 1, 2].map((i) => solidFacts.reduce((a, q) => a + q.ce[i]! * q.area, 0)) }; })
+    .sort((p, q) => q.area - p.area || p.ce[0]! - q.ce[0]! || p.ce[1]! - q.ce[1]! || p.ce[2]! - q.ce[2]!);
+  const known = inputs.flatMap((b) => b.bodies.map((r) => ({ r, keys: new Set(r.faces.flatMap((f) => [f.id, ...f.alias].map(idKey))) })));
+  // which input body each made body holds faces of (by the ids its faces carry)
+  const from = made.map((m) => known.filter((k) => m.faces.some((f) => [f.id, ...f.alias].some((x) => k.keys.has(idKey(x))))));
+  const lead = age ? older(age) : (a: Id, b: Id) => (idKey(a) < idKey(b) ? -1 : 1), used = new Map<string, number>(), taken = new Set<string>(), recs: BodyRec[] = []; let fresh = 0;
+  made.forEach((m, i) => {
+    const names: Id[] = [];
+    for (const k of from[i]!) { const key = idKey(k.r.id), n = used.get(key) ?? 0; used.set(key, n + 1); names.push(n === 0 ? k.r.id : piece(k.r.id, n)); for (const a of k.r.alias) names.push(a); } // the largest piece (made first) keeps the name; the next are its pieces
+    const ids = names.filter((x, j, all) => all.findIndex((y) => idKey(y) === idKey(x)) === j).sort(lead);
+    let id = ids.length ? ids[0]! : mint(step, "body", fresh++), alias = ids.slice(1);
+    while (taken.has(idKey(id))) id = piece(id, 1 + (used.get(idKey(id)) ?? 0));
+    taken.add(idKey(id)); recs.push({ id, alias, faces: m.faces });
+  });
+  body.bodies = recs; return body;
+}
+/** the body a reference means (a body's name, or the name of a face in it); lost when there is none (E10) */
+export function bodyOf(scene: Body, ref: Id): BodyRec {
+  const hit = scene.bodies.filter((b) => isPieceOf(b.id, ref) || b.alias.some((a) => isPieceOf(a, ref)) || b.faces.some((f) => isPieceOf(f.id, ref) || f.alias.some((a) => isPieceOf(a, ref))));
+  if (!hit.length) throw new RefLost(show(ref));
+  if (hit.length > 1) throw new Error(`${show(ref)} is in ${hit.length} bodies: say which`);
+  return hit[0]!;
 }

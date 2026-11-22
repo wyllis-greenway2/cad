@@ -30,7 +30,7 @@ function applyTool(body: Body, tool: K.Solid, isCap: (q: K.Facts) => boolean, mo
     if (isCap(q)) { claims.push({ id: moved.id, face: h }); continue; }
     const n = around.find((g) => coplanar(q, K.facts(g.h))); if (n) claims.push({ id: n.id, face: h });
   }
-  const toolBody = ctx.temp(fromClaims(tool, claims, ctx.step.id));
+  const toolBody = ctx.temp(fromClaims(tool, claims, ctx.step.id, false));
   const m = add ? K.fuse(body.solid, tool) : K.cut(body.solid, tool);
   return unifyBody(ctx.temp(carry(m.solid, m.report, [body, toolBody], [], ctx.step.id, ctx.age)), ctx.step.id, ctx.age);
 }
@@ -67,7 +67,7 @@ kinds["offsetFace"] = { outputs: "body", run: (inputs, ctx) => {
     if (newWall(h)) { claims.push({ id: pieces[0]!.id, face: h }); continue; }
     const q = K.facts(h), n = around.find((g) => coplanar(q, K.facts(g.h))); if (n) claims.push({ id: n.id, face: h });
   }
-  const toolBody = ctx.temp(fromClaims(reg.tool, claims, ctx.step.id));
+  const toolBody = ctx.temp(fromClaims(reg.tool, claims, ctx.step.id, false));
   const m = d > 0 ? K.fuse(body.solid, reg.tool) : K.cut(body.solid, reg.tool);
   return checked(unifyBody(ctx.temp(carry(m.solid, m.report, [body, toolBody], [], ctx.step.id, ctx.age)), ctx.step.id, ctx.age), "the offset");
 } };

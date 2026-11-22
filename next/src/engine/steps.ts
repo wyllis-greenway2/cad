@@ -61,7 +61,7 @@ function pushed(body: Body, faceId: Id, dist: number, ctx: Ctx): Body {
   const rec = body.one(faceId), f = K.facts(rec.h), step = ctx.step.id;
   const p = K.prism(rec.h, scale(f.ne, dist));
   const claims = [...sidesOf(body, rec, p.report, step), { id: rec.id, face: p.last }]; // the far face carries the pushed face's id on
-  const tool = ctx.temp(fromClaims(p.solid, claims, step));
+  const tool = ctx.temp(fromClaims(p.solid, claims, step, false));
   const m = dist >= 0 ? K.fuse(body.solid, tool.solid) : K.cut(body.solid, tool.solid);
   return unifyBody(ctx.temp(carry(m.solid, m.report, [body, tool], [], step, ctx.age)), step, ctx.age);
 }
@@ -165,7 +165,7 @@ export const kinds: Record<string, Kind> = {
   combine: { outputs: "body", run: (inputs, { step, age }, ) => {
     const a = needBody(inputs[0]), b = needBody(inputs[1]), mode = (step.params.mode as string | undefined) ?? "add";
     const m = mode === "cut" ? K.cut(a.solid, b.solid) : mode === "intersect" ? K.common(a.solid, b.solid) : mode === "add" ? K.fuse(a.solid, b.solid) : (() => { throw new Error(`there is no way to combine called ${mode}`); })();
-    return checked(unifyBody(carry(m.solid, m.report, [a, b], [], step.id, age), step.id, age), "the combination");
+    return checked(unifyBody(carry(m.solid, m.report, [a, b], [], step.id, age, mode === "cut" ? [a] : [a, b]), step.id, age), "the combination");
   } },
   /** the whole body moved by a vector */
   move: { outputs: "body", run: (inputs, { step, age }) => {

@@ -8,7 +8,9 @@ import type { Change } from "./failure.ts";
 
 export interface FaceSnap { id: string; label: string; alias: string[]; defect: boolean; type: string; area: number; ce: V3; ne: V3 }
 export interface LineSnap { id: string; ends: [V3, V3] | null; from: "sketch" | "body" }
-export interface StepSnap { id: string; kind: string; status: Status; fingerprint: string; output: "body" | "sketch" | "empty"; faces: FaceSnap[]; lines: LineSnap[]; notes: Note[] }
+/** a body of the answer (E38, E42): its name, the ids of its faces, its volume */
+export interface BodySnap { id: string; label: string; alias: string[]; faces: string[]; volume: number }
+export interface StepSnap { id: string; kind: string; status: Status; fingerprint: string; output: "body" | "sketch" | "empty"; faces: FaceSnap[]; bodies: BodySnap[]; lines: LineSnap[]; notes: Note[] }
 export interface Snapshot { steps: StepSnap[]; computes: number; ms: number; rssMb: number }
 
 /** a question about the recipe the worker holds (E28, E35): answered on a copy, the recipe is not changed */

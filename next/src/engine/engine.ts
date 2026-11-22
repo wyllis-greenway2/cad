@@ -6,6 +6,8 @@ import { type Ctx, type Step, type Value, NoBody, kinds, passthrough } from "./s
 import { insertStep, moveStep, removeStep, swapWithInput, validateRecipe } from "./recipe.ts";
 import "./curved.ts"; // registers revolve, loft, sweep and shell
 import "./pull.ts"; // registers moveFace and offsetFace (pull modes 3 and 4)
+import { scopeKinds } from "./scope.ts"; // steps that name a body work on that body alone (E40, E41)
+scopeKinds();
 
 export type Status = { kind: "ok" } | { kind: "flagged"; why: string } | { kind: "orphaned"; why: string };
 export interface Changes { recomputed: string[]; changed: string[] }

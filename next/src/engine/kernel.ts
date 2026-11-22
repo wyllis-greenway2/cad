@@ -332,3 +332,23 @@ export function sameSurface(a: FaceH, b: FaceH, pa?: Facts, pb?: Facts): boolean
   if (p.type === "CONE" || p.type === "SPHERE" || p.type === "TORUS") return onSurface(a, b) && onSurface(b, a);
   return false;
 }
+
+// ---------------------------------------------------------------- several bodies (E38 to E43): a shape may hold more than one solid
+/** each solid of a shape, as a solid of its own (the faces of it are the same faces: `sameFace` tells them) */
+export function solidsOf(a: Solid): Solid[] {
+  return unique(a.raw, "TopAbs_SOLID").map((r) => new Solid(r));
+}
+/** several solids held together, none fused to another (bodies that touch or overlap stay apart); the faces are the same faces */
+export function compoundOf(parts: readonly Solid[]): Solid {
+  const c = new oc.TopoDS_Compound(), b = new oc.TopoDS_Builder(); b.MakeCompound(c);
+  for (const p of parts) b.Add(c, p.raw);
+  b.delete?.();
+  return new Solid(c);
+}
+/** for each face of the solid (in the order `faces()` gives them), which of its solids it lies in */
+export function solidIndexOfFaces(a: Solid): number[] {
+  const solids = unique(a.raw, "TopAbs_SOLID"), faces = a.faces();
+  const per = solids.map((s) => unique(s, "TopAbs_FACE")), out = faces.map((f) => per.findIndex((fs) => fs.some((g) => g.IsSame(f.raw))));
+  for (const s of solids) s.delete?.(); for (const fs of per) for (const g of fs) g.delete?.();
+  return out;
+}

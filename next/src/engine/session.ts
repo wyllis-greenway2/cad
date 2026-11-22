@@ -4,6 +4,7 @@ import { Engine } from "./engine.ts";
 import { Body } from "./lineage.ts";
 import { idKey, show } from "./id.ts";
 import { NoBody } from "./steps.ts";
+import { bodyVolumes } from "./scope.ts";
 import { options, probe, trial } from "./failure.ts";
 import type { Reply, Request, Snapshot, StepSnap } from "./protocol.ts";
 
@@ -38,6 +39,7 @@ export class Session {
         id, kind: e.step(id).kind, status: r.status, fingerprint: r.fingerprint, notes: r.notes,
         output: v instanceof Body ? "body" as const : v instanceof NoBody ? "empty" as const : "sketch" as const,
         faces: v instanceof Body ? v.faces.map((f) => { const q = K.facts(f.h); return { id: idKey(f.id), label: show(f.id), alias: f.alias.map(idKey), defect: f.defect, type: q.type, area: q.area, ce: q.ce, ne: q.ne }; }) : [],
+        bodies: v instanceof Body ? (() => { const vols = bodyVolumes(v); return v.bodies.map((b, i) => ({ id: idKey(b.id), label: show(b.id), alias: b.alias.map(idKey), faces: b.faces.map((f) => idKey(f.id)), volume: vols[i]! })); })() : [],
         lines: e.lines(id).map((l) => ({ id: l.id, ends: l.ends ?? null, from: l.from })),
       })));
     }
