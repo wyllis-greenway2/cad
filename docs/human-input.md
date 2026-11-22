@@ -6303,3 +6303,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1530 — 2026-11-22 — question
 > what is the checking policy? we will work on UI and display things all at once later
+
+## in_1531 — 2026-11-22 — approval
+> Accept always check
