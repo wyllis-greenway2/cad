@@ -6249,3 +6249,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1512 — 2026-11-22 — directive
 > Sure lets do that next, lets borrow some visuals from the prototype because it looked pretty good
+
+## in_1513 — 2026-11-22 — question
+> How is our engine looking overall? Is it better than the prototype? Is it lean and simple and robust?
