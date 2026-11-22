@@ -8,7 +8,12 @@ import { type Age, Body, type Claim, RefLost, type FaceRec, carry, fromClaims, m
 export interface Line { id: Id; a: K.V3; b: K.V3; mid?: K.V3 }
 export type PlaneName = "XY" | "XZ" | "YZ";
 /** a sketch: lines (a closed polygon, or an open path), or one circle; the plane's normal is the way an extrusion goes unless told otherwise */
-export interface Sketch { readonly kind: "sketch"; readonly lines: Line[]; readonly face?: Id; readonly normal: V3; readonly open?: boolean; readonly circle?: { id: Id; r: number; c: K.V3; normal: K.V3 } }
+/** what a constrained sketch says of itself (E49, E50): data only */
+export interface SolveInfo { kind: "solved" | "under" | "redundant"; freedom: number; free: string[]; redundant: string[] }
+export interface Sketch { readonly kind: "sketch"; readonly lines: Line[]; readonly face?: Id; readonly normal: V3; readonly open?: boolean; readonly circle?: { id: Id; r: number; c: K.V3; normal: K.V3 }
+  /** lines that are not part of the profile: construction lines, and a body's edges held as anchors (E53); read-only for the solver */ readonly reference?: Line[]; readonly solve?: SolveInfo }
+/** a step refused, with the constraints that hold it back named, so the screen can show them and offer to delete (E55) */
+export class Refusal extends Error { readonly victims: string[]; constructor(message: string, victims: string[]) { super(message); this.victims = victims; } }
 /** what a body step passes on when it has no body to pass: nothing, of the type of a body */
 export class NoBody { readonly empty = true; fingerprint(): string { return "empty"; } release(): void { /* nothing held */ } }
 export type Value = Body | Sketch | NoBody;
@@ -46,7 +51,7 @@ function sidesOf(body: Body, face: FaceRec, report: K.Report, step: string): Cla
 }
 
 /** the frame of a face for placing lines: u across, v along; v follows `align` (an edge's direction) when given, so a line placed from an edge is parallel to it (E12) */
-function frameOf(face: FaceRec, align: V3 | null) {
+export function frameOf(face: FaceRec, align: V3 | null) {
   const f = K.facts(face.h), n = f.ne;
   let u: V3 = [1 - n[0] * n[0], -n[0] * n[1], -n[0] * n[2]]; if (Math.hypot(...u) < 1e-3) u = [-n[1] * n[0], 1 - n[1] * n[1], -n[1] * n[2]];
   u = unit(u); let v = cross(n, u);
@@ -55,7 +60,7 @@ function frameOf(face: FaceRec, align: V3 | null) {
   for (const e of K.faceEdges(face.h)) for (const p of K.edgeEnds(e)) { const a = dot(sub(p, O), v); lo = Math.min(lo, a); hi = Math.max(hi, a); }
   return { n, u, v, O, lo, hi };
 }
-const at = (F: { O: V3; u: V3; v: V3 }, x: number, y: number): V3 => [F.O[0] + F.u[0] * x + F.v[0] * y, F.O[1] + F.u[1] * x + F.v[1] * y, F.O[2] + F.u[2] * x + F.v[2] * y];
+export const at = (F: { O: V3; u: V3; v: V3 }, x: number, y: number): V3 => [F.O[0] + F.u[0] * x + F.v[0] * y, F.O[1] + F.u[1] * x + F.v[1] * y, F.O[2] + F.u[2] * x + F.v[2] * y];
 
 function pushed(body: Body, faceId: Id, dist: number, ctx: Ctx): Body {
   const rec = body.one(faceId), f = K.facts(rec.h), step = ctx.step.id;

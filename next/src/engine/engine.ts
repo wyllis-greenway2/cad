@@ -2,15 +2,16 @@
 // so the model is never lost (E13). An edit recomputes only the steps that depend on it and stops where an answer is unchanged (E18).
 import * as K from "./kernel.ts";
 import { type Note, Body, RefLost } from "./lineage.ts";
-import { type Ctx, type Step, type Value, NoBody, kinds, passthrough } from "./steps.ts";
+import { type Ctx, type Step, type Value, NoBody, Refusal, kinds, passthrough } from "./steps.ts";
 import { insertStep, moveStep, removeStep, swapWithInput, validateRecipe } from "./recipe.ts";
 import "./curved.ts"; // registers revolve, loft, sweep and shell
 import "./pull.ts"; // registers moveFace and offsetFace (pull modes 3 and 4)
+import "./sketch.ts"; // registers the constrained sketch (E49)
 import "./pattern.ts"; // registers pattern and mirror (copies of a body, E44 to E47)
 import { scopeKinds } from "./scope.ts"; // steps that name a body work on that body alone (E40, E41)
 scopeKinds();
 
-export type Status = { kind: "ok" } | { kind: "flagged"; why: string } | { kind: "orphaned"; why: string };
+export type Status = { kind: "ok" } | { kind: "flagged"; why: string; /** the constraints that hold the change back, by name (E55) */ victims?: string[] } | { kind: "orphaned"; why: string };
 export interface Changes { recomputed: string[]; changed: string[] }
 export interface Result { value: Value; status: Status; fingerprint: string; notes: Note[] }
 
@@ -18,7 +19,7 @@ export interface Result { value: Value; status: Status; fingerprint: string; not
 class Held { refs = 0; readonly v: Value; constructor(v: Value) { this.v = v; } }
 interface Slot { held: Held; status: Status; fingerprint: string }
 
-const fingerprintOf = (v: Value): string => (v instanceof Body ? v.fingerprint() : v instanceof NoBody ? "empty" : JSON.stringify([v.lines.map((l) => [l.id, l.a, l.b]), v.circle ?? null, v.normal, v.open ?? false, v.face ?? null])); // everything a step could read of it: a circle has no lines
+const fingerprintOf = (v: Value): string => (v instanceof Body ? v.fingerprint() : v instanceof NoBody ? "empty" : JSON.stringify([v.lines.map((l) => [l.id, l.a, l.b]), v.circle ?? null, v.normal, v.open ?? false, v.face ?? null, (v.reference ?? []).map((l) => [l.id, l.a, l.b]), v.solve ?? null])); // everything a step could read of it: a circle has no lines
 
 export class Engine {
   private steps = new Map<string, Step>();
@@ -124,7 +125,7 @@ export class Engine {
     else {
       try { value = K.scoped(() => kind.run(inputs, ctx)); }
       catch (e) {
-        status = e instanceof RefLost ? { kind: "orphaned", why: e.message } : { kind: "flagged", why: e instanceof Error ? e.message : "the kernel could not make this step" };
+        status = e instanceof RefLost ? { kind: "orphaned", why: e.message } : e instanceof Refusal ? { kind: "flagged", why: e.message, victims: e.victims } : { kind: "flagged", why: e instanceof Error ? e.message : "the kernel could not make this step" };
         value = passthrough(kind, inputs, step);
       }
     }
@@ -132,7 +133,7 @@ export class Engine {
     const fresh = this.slots.get(id), shared = fresh?.held.v === value;
     const held = shared ? fresh!.held : this.hold(value);
     const next: Slot = { held, status, fingerprint: fingerprintOf(value) };
-    const moved = !fresh || fresh.fingerprint !== next.fingerprint || fresh.status.kind !== status.kind || ("why" in fresh.status ? fresh.status.why : "") !== ("why" in status ? status.why : "");
+    const moved = !fresh || fresh.fingerprint !== next.fingerprint || fresh.status.kind !== status.kind || ("why" in fresh.status ? fresh.status.why : "") !== ("why" in status ? status.why : "") || JSON.stringify((fresh.status as { victims?: string[] }).victims ?? null) !== JSON.stringify((status as { victims?: string[] }).victims ?? null);
     if (!shared) held.refs++;
     this.slots.set(id, next);
     if (fresh && !shared) this.letGo(fresh.held);

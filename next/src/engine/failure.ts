@@ -11,7 +11,7 @@ import type { Id } from "./id.ts";
 export type Change = { op: "edit"; step: string; params: Record<string, any> } | { op: "swap"; step: string } | { op: "remove"; step: string } | { op: "batch"; changes: Change[] };
 export interface Verdict {
   kind: "ok" | "notes" | "refused"; /** in words: why it was refused, or what to look at */ why: string;
-  step: string; status: Status; notes: string[]; /** steps not ok now, and after the change */ now: number; after: number;
+  step: string; status: Status; /** the constraints that hold the change back, by name (E55) */ victims?: string[]; notes: string[]; /** steps not ok now, and after the change */ now: number; after: number;
   /** the body the last body step makes after the change: for the picture shown while the person decides */ volume: number | null; faces: number | null;
 }
 const notOk = (e: Engine) => e.ids().filter((i) => e.result(i).status.kind !== "ok").length;
@@ -28,7 +28,7 @@ export function trial(engine: Engine, change: Change): Verdict {
     const focus = change.op === "remove" || change.op === "batch" ? null : change.step, r = focus && scratch.ids().includes(focus) ? scratch.result(focus) : null, status: Status = r ? r.status : { kind: "ok" };
     const after = notOk(scratch), body = lastBody(scratch), notes = r ? r.notes.filter((n) => NOTEWORTHY.has(n.kind)).map((n) => n.text) : [];
     const volume = body ? K.volume(body.solid) : null, faces = body ? body.faces.length : null;
-    if (status.kind !== "ok") return { kind: "refused", why: status.why, step: focus ?? "", status, notes, now, after, volume, faces };
+    if (status.kind !== "ok") return { kind: "refused", why: status.why, step: focus ?? "", status, ...("victims" in status && status.victims ? { victims: status.victims } : {}), notes, now, after, volume, faces };
     if (after > now) return { kind: "refused", why: `${after - now} more step${after - now === 1 ? "" : "s"} would fail after this change`, step: focus ?? "", status, notes, now, after, volume, faces };
     return { kind: notes.length ? "notes" : "ok", why: notes.join("; "), step: focus ?? "", status, notes, now, after, volume, faces };
   } catch (e) {
