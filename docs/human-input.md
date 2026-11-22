@@ -6288,3 +6288,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1525 — 2026-11-22 — question
 > I am not sure why this is different either from our normal world motion system, cant parts already move in the world? Why not just use the same system for animation? A start and pause on animation would be the the same as drag start and stop
+
+## in_1526 — 2026-11-22 — question
+> Okay those sound smart but why dont we hold off for a minute and think. One of those features sounds like efficiency and speed rendering related, and the other atually just sounds like another constraint? Or are you saying its not a constraint, it is an animation specific instruction to say how to move?
