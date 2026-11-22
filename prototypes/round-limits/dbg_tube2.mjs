@@ -1,0 +1,18 @@
+import * as L from "../lineage-occt/lib.mjs";
+import { assembleWire, makeLine, Edge } from "replicad";
+const { oc } = L;
+const vol = (s) => { const p = new oc.GProp_GProps(); oc.BRepGProp.VolumeProperties(s, p, false, false, false); return p.Mass(); };
+const rodShape = (r, h0, h1) => { const e = [[0, h0], [r, h0], [r, h1], [0, h1]].map((p, i, a) => { const q = a[(i + 1) % 4]; return makeLine([p[0], 0, p[1]], [q[0], 0, q[1]]); }); const f = new oc.BRepBuilderAPI_MakeFace(assembleWire(e).wrapped, true).Face(); return new oc.BRepPrimAPI_MakeRevol(f, new oc.gp_Ax1(new oc.gp_Pnt(0, 0, 0), new oc.gp_Dir(0, 0, 1)), 2 * Math.PI, false).Shape(); };
+const turnX = (s, deg) => { const t = new oc.gp_Trsf(); t.SetRotation(new oc.gp_Ax1(new oc.gp_Pnt(0, 0, 0), new oc.gp_Dir(1, 0, 0)), (deg * Math.PI) / 180); return new oc.BRepBuilderAPI_Transform(s, t, true).Shape(); };
+const offset = (shape, d) => { const mk = new oc.BRepOffsetAPI_MakeOffsetShape(); mk.PerformByJoin(shape, d, 1e-6, oc.BRepOffset_Mode.BRepOffset_Skin, false, false, oc.GeomAbs_JoinType.GeomAbs_Arc, false, new oc.Message_ProgressRange()); return mk.Shape(); };
+const op = (K, a, b) => new oc[`BRepAlgoAPI_${K}`](a, b, new oc.Message_ProgressRange()).Shape();
+const junction = (s) => { const by = new Map(); for (const f of L.facesOf(s)) for (const e of L.edgesOf(f)) { const k = L.edgeMid(e).join(","); by.set(k, [...(by.get(k) ?? []), { e, f }]); } return [...by.values()].filter((v) => v.length === 2 && v.every((x) => L.facts(x.f).type === "CYLINDRE")).map((v) => v[0].e); };
+const a = rodShape(10, -25, 25), b = turnX(rodShape(6, -25, 25), 90), body = op("Fuse", a, b), I = op("Common", offset(a, 1), offset(b, 1));
+const spine = junction(I), size = 1;
+const tube = (e) => { const E = new Edge(L.downcast(e)), p = E.startPoint, t = E.tangentAt(0), wire = assembleWire([E]).wrapped; const ax = new oc.gp_Ax2(new oc.gp_Pnt(p.x, p.y, p.z), new oc.gp_Dir(t.x, t.y, t.z)), w = new oc.BRepBuilderAPI_MakeWire(new oc.BRepBuilderAPI_MakeEdge(new oc.gp_Circ(ax, size)).Edge()).Wire(); const mk = new oc.BRepOffsetAPI_MakePipeShell(wire); mk.Add(w, false, false); mk.SetMode(true); mk.Build(new oc.Message_ProgressRange()); mk.MakeSolid(); return mk.Shape(); };
+const T = spine.map(tube);
+const t = (l, f) => { const t0 = Date.now(); try { const r = f(); console.log(l.padEnd(44), r, `${Date.now() - t0} ms`); } catch (e) { console.log(l.padEnd(44), "THROWS"); } };
+t("I", () => vol(I).toFixed(2)); t("I common tube0", () => vol(op("Common", I, T[0])).toFixed(2)); t("I common tube1", () => vol(op("Common", I, T[1])).toFixed(2));
+t("I cut tube0", () => vol(op("Cut", I, T[0])).toFixed(2)); t("body common tube0", () => vol(op("Common", body, T[0])).toFixed(2)); t("body common tube1", () => vol(op("Common", body, T[1])).toFixed(2));
+const air = op("Cut", I, body); t("air", () => vol(air).toFixed(2)); t("air cut tube0", () => vol(op("Cut", air, T[0])).toFixed(2)); t("air cut tube1", () => vol(op("Cut", air, T[1])).toFixed(2));
+const both = op("Fuse", T[0], T[1]); t("tube0 fuse tube1", () => vol(both).toFixed(2) + " valid " + L.valid(both)); t("air cut (tube0+tube1)", () => vol(op("Cut", air, both)).toFixed(2));
