@@ -216,10 +216,17 @@ export function split(a: Solid, segments: readonly (readonly [V3, V3])[]): Made 
 /** `rounded`: the edges the kernel actually modified: it follows an edge along the ones that continue it (tangent), so this can be more than were asked for */
 export interface Rounded extends Made { round(e: EdgeH): FaceH[]; rounded: EdgeH[] }
 /** a round (`fillet`) or a flat cut (`chamfer`) of the given size on the given edges */
-export function roundEdges(a: Solid, edges: readonly EdgeH[], size: number, mode: "fillet" | "chamfer"): Rounded {
+/** a size that varies along an edge: the size at fractions (0 to 1) of the edge, in order: exact at the points, a straight law between two, a smooth one through three or more (spike 7, E36) */
+export type SizeLaw = readonly (readonly [number, number])[];
+export function roundEdges(a: Solid, edges: readonly EdgeH[], size: number | SizeLaw | ((e: EdgeH) => SizeLaw), mode: "fillet" | "chamfer"): Rounded {
   return guard(`the ${mode}`, () => {
+    if (typeof size !== "number" && mode === "chamfer") throw new Error("a chamfer cannot vary along its edge yet (only a round can)");
     const mk = mode === "fillet" ? t(new oc.BRepFilletAPI_MakeFillet(a.raw, oc.ChFi3d_FilletShape.ChFi3d_Rational)) : t(new oc.BRepFilletAPI_MakeChamfer(a.raw));
-    for (const e of edges) mk.Add(size, t(downcast(e.raw)));
+    for (const e of edges) {
+      if (typeof size === "number") { mk.Add(size, t(downcast(e.raw))); continue; }
+      const law = typeof size === "function" ? size(e) : size, arr = t(new oc.NCollection_Array1_gp_Pnt2d(1, law.length)); law.forEach((q, k) => arr.SetValue(k + 1, t(new oc.gp_Pnt2d(q[0], q[1]))));
+      (mk as unknown as { Add(law: unknown, e: unknown): void }).Add(arr, t(downcast(e.raw)));
+    }
     const rounded: EdgeH[] = [];
     for (let i = 1; i <= mk.NbContours(); i++) for (let j = 1; j <= mk.NbEdges(i); j++) rounded.push({ raw: t(mk.Edge(i, j)) });
     mk.Build(progress());
@@ -372,4 +379,21 @@ export function mirror(a: Solid, point: V3, normal: V3): Made {
   const tr = t(new oc.gp_Trsf()); tr.SetMirror(t(new oc.gp_Ax2(t(new oc.gp_Pnt(point[0], point[1], point[2])), t(new oc.gp_Dir(normal[0], normal[1], normal[2])))));
   const mk = t(new oc.BRepBuilderAPI_Transform(a.raw, tr, true)); mk.Build(progress());
   return { solid: new Solid(mk.Shape()), report: reportOf(mk) };
+}
+
+/**
+ * The pointed ("gothic") end of a rod, our own construction past the kernel's limit (E34, spike 7A): the rod's flat end at `c` (the way out is `outward`, the rod has radius `r`) is cut by the surface made by
+ * turning an arc of radius `s` about the axis: the arc is tangent to the wall `t = sqrt(2 r s - r^2)` below the end and reaches the axis at the end's own height. At s = r it is the dome; above it a point.
+ * Exact and valid (no rolling ball); needs `r < s` and `t` no longer than the wall.
+ */
+export function pointedEnd(a: Solid, c: V3, outward: V3, r: number, s: number): Made {
+  return guard("the pointed end", () => {
+    const tt = Math.sqrt(2 * r * s - r * r), n = outward, ref: V3 = Math.abs(n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+    const dotn = ref[0] * n[0] + ref[1] * n[1] + ref[2] * n[2], u0: V3 = [ref[0] - dotn * n[0], ref[1] - dotn * n[1], ref[2] - dotn * n[2]], ul = Math.hypot(...u0), u: V3 = [u0[0] / ul, u0[1] / ul, u0[2] / ul];
+    const P = (rho: number, z: number): V3 => [c[0] + u[0] * rho + n[0] * z, c[1] + u[1] * rho + n[1] * z, c[2] + u[2] * rho + n[2] * z];
+    const cc = [r - s, -tt], phi = Math.atan2(tt, s - r), mid = P(cc[0]! + s * Math.cos(phi / 2), cc[1]! + s * Math.sin(phi / 2));
+    const face = profileFace({ kind: "poly", pts: [P(r, -tt), P(0, 0), P(0, 2), P(r + 2, 2), P(r + 2, -tt)], mids: [mid, null, null, null, null] });
+    const tool = revolve(face, c, outward, 360);
+    return cut(a, tool.solid);
+  });
 }

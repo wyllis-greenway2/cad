@@ -2,7 +2,8 @@
 // A step that cannot be made throws; the engine flags it and passes `passthrough` on, a value of the step's own output type (E13).
 import * as K from "./kernel.ts";
 import { type EdgeRef, type Id, idKey, isPieceOf, mint } from "./id.ts";
-import { type Age, Body, type Claim, RefLost, type FaceRec, carry, fromClaims, markImprinted, unifyBody } from "./lineage.ts";
+import { type Age, Body, type Claim, type EdgeRec, RefLost, type FaceRec, carry, fromClaims, markImprinted, unifyBody } from "./lineage.ts";
+import { pointedLimit, rimOf } from "./rounds.ts";
 
 /** a side of a sketch: straight, or an arc through `mid` */
 export interface Line { id: Id; a: K.V3; b: K.V3; mid?: K.V3 }
@@ -161,8 +162,13 @@ export const kinds: Record<string, Kind> = {
   } },
   /** a round (`fillet`) or a flat cut (`chamfer`) of `size` on every edge between the faces named (`edges`); a face that has split names all its pieces' edges, and the kernel may follow edges that continue them */
   round: { outputs: "body", run: (inputs, { step, age }) => {
-    const body = needBody(inputs[0]), asked = (step.params.edges as EdgeRef[]).flatMap((r) => body.findEdges(r)), size = num(step.params, "size"), mode = step.params.mode === "chamfer" ? "chamfer" : "fillet";
-    const m = K.roundEdges(body.solid, asked.map((e) => e.h), size, mode), claims: Claim[] = [];
+    const body = needBody(inputs[0]), asked = (step.params.edges as EdgeRef[]).flatMap((r) => body.findEdges(r)), mode = step.params.mode === "chamfer" ? "chamfer" : "fillet";
+    const law = step.params.sizes as K.SizeLaw | undefined; if (law !== undefined && (!Array.isArray(law) || law.length < 2 || law.some((q) => !Array.isArray(q) || q.length !== 2 || !(q[1] > 0) || !(q[0] >= 0 && q[0] <= 1)) || law.some((q, i) => i > 0 && !(q[0] > law[i - 1]![0])))) throw new Error("a varying size is a list of (place along the edge from 0 to 1, size above nothing) in order, two at least");
+    const size = law ? Math.max(...law.map((q) => q[1])) : num(step.params, "size");
+    if (step.params.past === true && !law && mode === "fillet") { const out = pointed(body, asked, size, step, age); if (out) return out; } // the person chose to continue past the kernel's limit (E35)
+    // the law's first place is the edge's own start, which end that is nobody can tell from outside: `near` (a point) says which end the first size belongs to
+    const near = step.params.near as V3 | undefined, lawFor = law && near ? (e: K.EdgeH): K.SizeLaw => { const [a, b] = K.edgeEnds(e), da = Math.hypot(a[0] - near[0], a[1] - near[1], a[2] - near[2]), db = Math.hypot(b[0] - near[0], b[1] - near[1], b[2] - near[2]); return da <= db ? law : [...law].reverse().map(([u, z]) => [1 - u, z] as const); } : null;
+    const m = K.roundEdges(body.solid, asked.map((e) => e.h), lawFor ?? law ?? size, mode), claims: Claim[] = [];
     const edges = body.edges().filter((e) => m.rounded.some((x) => K.sameEdge(x, e.h)));
     edges.forEach((e, n) => m.round(e.h).forEach((face, k) => claims.push({ id: e.ref ? mint(step.id, "round", e.ref.a, e.ref.b, k) : mint(step.id, "round", "free", n, k), face })));
     return checked(corners(carry(m.solid, m.report, [body], claims, step.id, age), step.id), `the ${mode}`);
@@ -184,6 +190,17 @@ export const kinds: Record<string, Kind> = {
     return checked(carry(m.solid, m.report, [body], [], step.id, age), "the turn");
   } },
 };
+
+/** the pointed end (E34, tier 2): for the rim of a rod's end and a size above the radius; null when the size is not above the radius (the kernel's round is the same shape then) */
+function pointed(body: Body, asked: EdgeRec[], s: number, step: { id: string }, age: Age): Body | null {
+  if (asked.length !== 1) throw new Error("a pointed end is made on one edge, the rim of a rod's end");
+  const rim = rimOf(body, asked[0]!); if (!rim) throw new Error("a pointed end is defined only for the rim of a rod's flat end (a disc with nothing else on it, a wall round the same axis)");
+  if (s <= rim.r) return null;
+  const limit = pointedLimit(rim.r, rim.height); if (s > limit) throw new Error(`the pointed end would pass the other end of the wall: the largest size is ${limit.toFixed(3)}`);
+  const m = K.pointedEnd(body.solid, rim.c, rim.outward, rim.r, s), out = carry(m.solid, m.report, [body], [], step.id, age), ref = asked[0]!.ref, fresh = out.faces.filter((f) => f.defect);
+  if (fresh.length === 1 && ref) { fresh[0]!.id = mint(step.id, "round", ref.a, ref.b, 0); fresh[0]!.defect = false; } // the arc's surface takes the name a kernel round would have given
+  return checked(out, "the pointed end");
+}
 
 /**
  * Where two rounds made by one step meet at a vertex the kernel makes a corner face it does not report. The step's own claims name it: a face with no id that touches two or more of

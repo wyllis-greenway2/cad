@@ -4,6 +4,8 @@ import { scopeOf } from "./params.ts";
 import { Engine, type Status } from "./engine.ts";
 import { Body } from "./lineage.ts";
 import { originalEdit } from "./pull.ts";
+import { pointedLimit, rimOf } from "./rounds.ts";
+import type { EdgeRef } from "./id.ts";
 import { kinds, type Step } from "./steps.ts";
 import * as K from "./kernel.ts";
 import type { Id } from "./id.ts";
@@ -90,7 +92,7 @@ const spell = (p: Probe): string => p.ok.length ? "works " + p.ok.map((r) => `fr
 /** the number a step is mostly about, for the kinds that have one */
 const MAIN: Record<string, string> = { push: "dist", moveFace: "dist", offsetFace: "dist", round: "size", extrude: "d", dimension: "value", turn: "deg", move: "", revolve: "deg" };
 
-export type OptionKind = "range" | "editOriginal" | "swap" | "remove";
+export type OptionKind = "range" | "continue" | "editOriginal" | "swap" | "remove";
 export interface Option { kind: OptionKind; label: string; applies: boolean; /** why not, or what it did when tried */ why: string; /** tried on a copy: did it work, no worse than now */ worked: boolean | null; change?: Change; probe?: Probe }
 /**
  * What the person can do about a step that has failed (E35). Each option is tried on a copy and says whether it worked; none is applied. Built so far: a number that works (the nearest one),
@@ -114,6 +116,15 @@ export function options(engine: Engine, step: string): Option[] {
       out.push({ kind: "range", label: `${key}: ${spell(p)}`, applies: true, why: t.kind === "refused" ? `the nearest place, ${near.toFixed(3)}, was tried: ${t.why}` : `the nearest place is ${near.toFixed(3)}`, worked: t.kind !== "refused", change, probe: p });
     } else out.push({ kind: "range", label: `${key}: ${spell(p)}`, applies: true, why: "no value of this number works", worked: false, probe: p });
   } else out.push({ kind: "range", label: "this step has no one number to change", applies: false, why: "", worked: null });
+  // a fillet of a rod's rim past the kernel's limit: our own construction, the pointed end (E34, tier 2); offered, never applied
+  if (st.kind === "round" && st.params.mode !== "chamfer" && !st.params.sizes && st.params.past !== true) {
+    const body = engine.ids().includes(st.inputs[0] ?? "") ? engine.result(st.inputs[0]!).value : null, asked = body instanceof Body ? (st.params.edges as EdgeRef[]).flatMap((x) => body.findEdges(x)) : [];
+    const rim = asked.length === 1 ? rimOf(body as Body, asked[0]!) : null, s = st.params.size as number;
+    if (!rim) out.push({ kind: "continue", label: "continue past the limit (a pointed end)", applies: false, why: "this edge is not the rim of a rod's flat end", worked: null });
+    else if (!(s > rim.r)) out.push({ kind: "continue", label: "continue past the limit (a pointed end)", applies: false, why: "the size is not above the rod's radius: the kernel's round is the same shape", worked: null });
+    else { const limit = pointedLimit(rim.r, rim.height), change: Change = { op: "edit", step, params: { ...st.params, past: true } }, t = s > limit ? null : trial(engine, change);
+      out.push({ kind: "continue", label: `continue past the limit: a pointed end (largest size ${limit.toFixed(3)})`, applies: s <= limit, why: s > limit ? `the size is above the largest, ${limit.toFixed(3)}` : t!.kind === "refused" ? t!.why : "tried on a copy: it works", worked: t ? t.kind !== "refused" : false, change }); }
+  } else out.push({ kind: "continue", label: "continue past the limit (a pointed end)", applies: false, why: "this step is not a fillet of one edge", worked: null });
   // a pull of a face that a step made: change that step's number instead
   if ((st.kind === "push" || st.kind === "moveFace") && st.params.face) {
     const from = st.inputs[0]!, o = originalEdit(engine, from, st.params.face as Id, st.params.dist as number);

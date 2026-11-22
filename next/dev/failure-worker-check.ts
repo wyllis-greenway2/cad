@@ -13,7 +13,7 @@ try {
   const none = await host.ask({ what: "options", step: "M" }); check("nothing is loaded yet: said in words", !none.ok && /no recipe/.test(none.why), JSON.stringify(none));
   const out = await host.load(recipe), before = JSON.stringify(out.snapshot.steps.map((s) => [s.id, s.status, s.fingerprint]));
   check("the recipe is loaded and M is flagged", out.snapshot.steps.find((s) => s.id === "M")?.status.kind === "flagged");
-  const o = await host.ask({ what: "options", step: "M" }); check("options come back as data", o.ok && Array.isArray(o.data) && (o.data as any[]).length === 4, o.ok ? (o.data as any[]).map((x) => `${x.kind}${x.worked ? "+" : ""}`).join(" ") : o.why);
+  const o = await host.ask({ what: "options", step: "M" }); check("options come back as data", o.ok && Array.isArray(o.data) && (o.data as any[]).length === 5, o.ok ? (o.data as any[]).map((x) => `${x.kind}${x.worked ? "+" : ""}`).join(" ") : o.why);
   const t = await host.ask({ what: "trial", change: { op: "edit", step: "M", params: { face: top, dist: 8 } } }); check("a trial comes back as data and is ok", t.ok && (t.data as any).kind === "ok" && typeof (t.data as any).volume === "number", t.ok ? JSON.stringify(t.data).slice(0, 120) : t.why);
   const p = await host.ask({ what: "probe", step: "M", key: "dist", lo: -8, hi: 20 }); check("a probe comes back as data: works from -8 to 12", p.ok && (p.data as any).ok.length === 1 && Math.abs((p.data as any).ok[0].to - 12) < 0.01, p.ok ? JSON.stringify((p.data as any).ok) : p.why);
   const e = await host.ask({ what: "options", step: "nothing" }); check("a question about a step that is not there is refused in words", !e.ok && /no step nothing/.test(e.why), e.ok ? "" : e.why);
