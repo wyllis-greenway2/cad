@@ -6276,3 +6276,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1521 — 2026-11-22 — question
 > Can we reuse the constraints for sketches for bodies? why do we need something different?
+
+## in_1522 — 2026-11-22 — question
+> can you describe how the choices would work and what makes them different especially form the ui perspective
