@@ -1,0 +1,354 @@
+[
+ {
+  "id": "s",
+  "kind": "sketchPolygon",
+  "params": {
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     55.5,
+     0
+    ],
+    [
+     55.5,
+     23.25
+    ],
+    [
+     0,
+     23.25
+    ]
+   ]
+  },
+  "inputs": []
+ },
+ {
+  "id": "A",
+  "kind": "extrude",
+  "params": {
+   "d": 11
+  },
+  "inputs": [
+   "s"
+  ]
+ },
+ {
+  "id": "X0",
+  "kind": "round",
+  "params": {
+   "edges": [
+    {
+     "a": {
+      "step": "A",
+      "role": "side",
+      "of": [
+       {
+        "step": "s",
+        "role": "line",
+        "of": [
+         1
+        ],
+        "pieces": []
+       }
+      ],
+      "pieces": []
+     },
+     "b": {
+      "step": "A",
+      "role": "start",
+      "of": [],
+      "pieces": []
+     }
+    }
+   ],
+   "size": 0.75
+  },
+  "inputs": [
+   "A"
+  ]
+ },
+ {
+  "id": "X2",
+  "kind": "round",
+  "params": {
+   "edges": [
+    {
+     "a": {
+      "step": "A",
+      "role": "side",
+      "of": [
+       {
+        "step": "s",
+        "role": "line",
+        "of": [
+         0
+        ],
+        "pieces": []
+       }
+      ],
+      "pieces": []
+     },
+     "b": {
+      "step": "X0",
+      "role": "round",
+      "of": [
+       {
+        "step": "A",
+        "role": "side",
+        "of": [
+         {
+          "step": "s",
+          "role": "line",
+          "of": [
+           1
+          ],
+          "pieces": []
+         }
+        ],
+        "pieces": []
+       },
+       {
+        "step": "A",
+        "role": "start",
+        "of": [],
+        "pieces": []
+       },
+       0
+      ],
+      "pieces": []
+     }
+    },
+    {
+     "a": {
+      "step": "A",
+      "role": "end",
+      "of": [],
+      "pieces": []
+     },
+     "b": {
+      "step": "A",
+      "role": "side",
+      "of": [
+       {
+        "step": "s",
+        "role": "line",
+        "of": [
+         0
+        ],
+        "pieces": []
+       }
+      ],
+      "pieces": []
+     }
+    }
+   ],
+   "size": 0.5
+  },
+  "inputs": [
+   "X0"
+  ]
+ },
+ {
+  "id": "X3",
+  "kind": "push",
+  "params": {
+   "face": {
+    "step": "A",
+    "role": "start",
+    "of": [],
+    "pieces": []
+   },
+   "dist": 8.25
+  },
+  "inputs": [
+   "X2"
+  ]
+ },
+ {
+  "id": "X4",
+  "kind": "hole",
+  "params": {
+   "face": {
+    "step": "A",
+    "role": "start",
+    "of": [],
+    "pieces": []
+   },
+   "diameter": 3.5,
+   "depth": 27,
+   "at": [
+    5.5,
+    -1.5
+   ]
+  },
+  "inputs": [
+   "X3"
+  ]
+ },
+ {
+  "id": "X5",
+  "kind": "mirror",
+  "params": {
+   "plane": {
+    "point": [
+     -75.5,
+     0,
+     0
+    ],
+    "normal": [
+     1,
+     0,
+     0
+    ]
+   }
+  },
+  "inputs": [
+   "X4"
+  ]
+ },
+ {
+  "id": "X7",
+  "kind": "push",
+  "params": {
+   "face": {
+    "step": "X5",
+    "role": "mirror",
+    "of": [
+     {
+      "step": "X3",
+      "role": "side",
+      "of": [
+       {
+        "step": "A",
+        "role": "start",
+        "of": [],
+        "pieces": []
+       },
+       {
+        "step": "X2",
+        "role": "round",
+        "of": [
+         {
+          "step": "A",
+          "role": "side",
+          "of": [
+           {
+            "step": "s",
+            "role": "line",
+            "of": [
+             0
+            ],
+            "pieces": []
+           }
+          ],
+          "pieces": []
+         },
+         {
+          "step": "A",
+          "role": "start",
+          "of": [],
+          "pieces": []
+         },
+         0
+        ],
+        "pieces": []
+       }
+      ],
+      "pieces": []
+     },
+     1
+    ],
+    "pieces": []
+   },
+   "dist": -14
+  },
+  "inputs": [
+   "X5"
+  ]
+ },
+ {
+  "id": "X10",
+  "kind": "hole",
+  "params": {
+   "face": {
+    "step": "X5",
+    "role": "mirror",
+    "of": [
+     {
+      "step": "A",
+      "role": "side",
+      "of": [
+       {
+        "step": "s",
+        "role": "line",
+        "of": [
+         1
+        ],
+        "pieces": []
+       }
+      ],
+      "pieces": []
+     },
+     1
+    ],
+    "pieces": []
+   },
+   "diameter": 12.5,
+   "depth": 29.5,
+   "at": [
+    0.5,
+    12
+   ]
+  },
+  "inputs": [
+   "X7"
+  ]
+ },
+ {
+  "id": "X11",
+  "kind": "push",
+  "params": {
+   "face": {
+    "step": "X10",
+    "role": "hole",
+    "of": [
+     "bottom"
+    ],
+    "pieces": [
+     0
+    ]
+   },
+   "dist": 17
+  },
+  "inputs": [
+   "X10"
+  ]
+ },
+ {
+  "id": "X12",
+  "kind": "push",
+  "params": {
+   "face": {
+    "step": "A",
+    "role": "side",
+    "of": [
+     {
+      "step": "s",
+      "role": "line",
+      "of": [
+       3
+      ],
+      "pieces": []
+     }
+    ],
+    "pieces": []
+   },
+   "dist": 10.25
+  },
+  "inputs": [
+   "X11"
+  ]
+ }
+]

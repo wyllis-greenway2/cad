@@ -39,6 +39,8 @@ export function scoped<T>(fn: () => T): T {
   stack.push([]);
   try { return fn(); } finally { const mine = stack.pop()!; for (const r of mine) { try { r.delete?.(); } catch { /* already gone */ } } }
 }
+/** a boolean that leaves its arguments as they were: the kernel's own constructor works in place, and after one push the shape it was given was no longer valid (found by the stress run), so the next step on that shape failed */
+const boolean = (Op: Raw, a: Raw, b: Raw): Raw => { const op = t(new Op()); op.SetArguments(toList([a])); op.SetTools(toList([b])); op.SetNonDestructive(true); op.SetToFillHistory(true); op.Build(progress()); return op; };
 const progress = () => t(new oc.Message_ProgressRange());
 
 /** a solid, and the face and edge handles taken from it (all freed with it) */
@@ -104,7 +106,7 @@ export function faceVertexPoints(f: FaceH): V3[] { return scoped(() => unique(f.
 export const faceEdges = (f: FaceH): EdgeH[] => unique(f.raw, "TopAbs_EDGE").map((r) => ({ raw: t(r) }));
 /** the area two faces share (a boolean common): used to recover ids where the kernel says nothing (E7) */
 export function overlap(a: FaceH, b: FaceH): number {
-  const op = t(new oc.BRepAlgoAPI_Common(a.raw, b.raw, progress()));
+  const op = boolean(oc.BRepAlgoAPI_Common, a.raw, b.raw);
   if (!op.IsDone()) return 0;
   const s = op.Shape(); let sum = 0;
   for (const r of unique(s, "TopAbs_FACE")) { const p = t(new oc.GProp_GProps()); oc.BRepGProp.SurfaceProperties(r, p, false, false); sum += p.Mass(); r.delete?.(); }
@@ -207,8 +209,8 @@ export function shell(a: Solid, remove: FaceH, thickness: number): Made {
     return { solid: new Solid(th.Shape()), report: reportOf(th) };
   });
 }
-export function fuse(a: Solid, b: Solid): Made { const op = t(new oc.BRepAlgoAPI_Fuse(a.raw, b.raw, progress())); if (!op.IsDone()) fail("the join failed"); return { solid: new Solid(op.Shape()), report: reportOf(op) }; }
-export function cut(a: Solid, b: Solid): Made { const op = t(new oc.BRepAlgoAPI_Cut(a.raw, b.raw, progress())); if (!op.IsDone()) fail("the cut failed"); return { solid: new Solid(op.Shape()), report: reportOf(op) }; }
+export function fuse(a: Solid, b: Solid): Made { const op = boolean(oc.BRepAlgoAPI_Fuse, a.raw, b.raw); if (!op.IsDone()) fail("the join failed"); return { solid: new Solid(op.Shape()), report: reportOf(op) }; }
+export function cut(a: Solid, b: Solid): Made { const op = boolean(oc.BRepAlgoAPI_Cut, a.raw, b.raw); if (!op.IsDone()) fail("the cut failed"); return { solid: new Solid(op.Shape()), report: reportOf(op) }; }
 /** the body split along line segments lying on its faces (an imprint, E4); the kernel's splitter with history */
 export function split(a: Solid, segments: readonly (readonly [V3, V3])[]): Made {
   const sp = t(new oc.BRepAlgoAPI_Splitter()), tools = segments.map(([p, q]) => t(makeLine([p[0], p[1], p[2]], [q[0], q[1], q[2]]).wrapped));
@@ -249,7 +251,7 @@ export function move(a: Solid, by: V3): Made {
   const mk = t(new oc.BRepBuilderAPI_Transform(a.raw, tr, true)); mk.Build(progress());
   return { solid: new Solid(mk.Shape()), report: reportOf(mk) };
 }
-export function common(a: Solid, b: Solid): Made { const op = t(new oc.BRepAlgoAPI_Common(a.raw, b.raw, progress())); if (!op.IsDone()) fail("the intersection failed"); return { solid: new Solid(op.Shape()), report: reportOf(op) }; }
+export function common(a: Solid, b: Solid): Made { const op = boolean(oc.BRepAlgoAPI_Common, a.raw, b.raw); if (!op.IsDone()) fail("the intersection failed"); return { solid: new Solid(op.Shape()), report: reportOf(op) }; }
 /** join faces that lie in one surface; the kernel's history of this is not available, so the engine recovers ids by `overlap` (E7, E9) */
 /** the faces of one surface joined into one. Joining can itself make an invalid solid out of a valid one (`dev/pull-equivalence-check.ts`, case 236 of seed 7), so the joined solid is checked and, when it is not valid, `joined` is false and the caller keeps what it had */
 export function unify(a: Solid, keep: readonly EdgeH[] = []): { solid: Solid; joined: boolean } {

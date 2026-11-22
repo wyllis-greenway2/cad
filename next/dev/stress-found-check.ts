@@ -19,4 +19,10 @@ console.log("3. an edit and back gives the same answers (the kernel's volume dif
   e.edit("X12", { ...p, dist: p.dist * 1.25 }); e.edit("X12", p);
   check("every step has its first fingerprint again", ids.every((i) => e.result(i).fingerprint === before[i]), ids.filter((i) => e.result(i).fingerprint !== before[i]).join(" ")); e.release();
 }
+console.log("4. a push does not spoil the shape it was given (the kernel's booleans work in place unless told not to), so a later edit of that step works as a fresh build does");
+{
+  const rec = load("boolean-changes-its-input"), d0 = (rec.find((s) => s.id === "X12")!.params as { dist: number }).dist, e = new Engine(rec); e.build();
+  const kinds: string[] = []; for (const f of [1.25, 1, 1.25, 1]) { e.edit("X12", { ...(e.step("X12").params as object), dist: d0 * f }); kinds.push(st(e, "X12").kind); }
+  check("the push is ok every time it is edited", kinds.every((k) => k === "ok"), kinds.join(" ")); e.release();
+}
 process.exit(failureCount() ? 1 : 0);
