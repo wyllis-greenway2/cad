@@ -6207,3 +6207,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1498 — 2026-11-22 — approval
 > yes start on the face join
+
+## in_1499 — 2026-11-22 — question
+> shouldn't we do cones spheres and tori in the same surface test before we do rounds

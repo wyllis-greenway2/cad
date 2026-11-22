@@ -106,7 +106,7 @@ export function wholes(body: Body): FaceRec[][] {
   for (const e of body.edges()) {
     if (e.faces.length !== 2) continue; const [a, b] = e.faces as [FaceRec, FaceRec];
     if (baseKey(a.id) === baseKey(b.id) && body.kept.has(baseKey(a.id))) continue; // the person's own line
-    if ((fact(a).type === "PLANE" || fact(a).type === "CYLINDRE") && K.sameSurface(a.h, b.h, fact(a), fact(b))) parent.set(find(a), find(b));
+    if (["PLANE", "CYLINDRE", "CONE", "SPHERE", "TORUS"].includes(fact(a).type) && K.sameSurface(a.h, b.h, fact(a), fact(b))) parent.set(find(a), find(b));
   }
   const groups = new Map<FaceRec, FaceRec[]>(); for (const f of body.faces) { const r = find(f); groups.set(r, [...(groups.get(r) ?? []), f]); }
   return [...groups.values()];

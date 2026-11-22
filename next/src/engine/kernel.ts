@@ -310,7 +310,18 @@ export function ringRegion(a: Solid, wall: FaceH, around: readonly FaceH[], d: n
   });
 }
 
-/** two faces lie on one surface (a plane, or a cylinder of the same axis and radius): the kernel may keep them apart as two faces, but to the person they are one face */
+/** the points of `a` (six places on it) all lie on the surface of `b`: for the surfaces whose own numbers the kernel build does not give (a cone, a torus) the surfaces are compared by where their points are */
+function onSurface(a: FaceH, b: FaceH): boolean {
+  return scoped(() => {
+    const F = new Face(downcast(a.raw)), surf = t(oc.BRep_Tool.Surface(t(downcast(b.raw))));
+    for (const [u, v] of [[0.2, 0.2], [0.8, 0.2], [0.5, 0.5], [0.2, 0.8], [0.8, 0.8], [0.35, 0.65]] as const) {
+      const p = F.pointOnSurface(u, v), proj = t(new oc.GeomAPI_ProjectPointOnSurf(t(new oc.gp_Pnt(p.x, p.y, p.z)), surf)); drop(p);
+      if (!proj.NbPoints() || proj.LowerDistance() > 1e-6) return false;
+    }
+    return true;
+  });
+}
+/** two faces lie on one surface (a plane; a cylinder of the same axis and radius; a cone, sphere or torus that the points of each lie on): the kernel may keep them apart as two faces, but to the person they are one face */
 export function sameSurface(a: FaceH, b: FaceH, pa?: Facts, pb?: Facts): boolean {
   const p = pa ?? facts(a), q = pb ?? facts(b); if (p.type !== q.type) return false;
   if (p.type === "PLANE") return dot3(p.ne, q.ne) > 1 - 1e-9 && Math.abs(dot3([p.ce[0] - q.ce[0], p.ce[1] - q.ce[1], p.ce[2] - q.ce[2]], p.ne)) < 1e-7;
@@ -318,5 +329,6 @@ export function sameSurface(a: FaceH, b: FaceH, pa?: Facts, pb?: Facts): boolean
     const c = cylinderOf(a), d = cylinderOf(b), par = Math.abs(Math.abs(dot3(c.dir, d.dir)) - 1) < 1e-9, w: V3 = [d.point[0] - c.point[0], d.point[1] - c.point[1], d.point[2] - c.point[2]], along = dot3(w, c.dir);
     return par && Math.abs(c.r - d.r) < 1e-7 && Math.hypot(w[0] - c.dir[0] * along, w[1] - c.dir[1] * along, w[2] - c.dir[2] * along) < 1e-7;
   }
+  if (p.type === "CONE" || p.type === "SPHERE" || p.type === "TORUS") return onSurface(a, b) && onSurface(b, a);
   return false;
 }
