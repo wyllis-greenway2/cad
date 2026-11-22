@@ -28,14 +28,26 @@ export function convert(dump: Dump): Outcome {
   const need = <T,>(m: Map<string, T>, id: string, what: string): T => { const v = m.get(id); if (v === undefined) throw new Unsupported(`${what} ${id} was not converted`); return v; };
 
   /** an old edge (its ends, its middle) in the body: the edge of the new body that is there, as the pair of faces beside it */
+  const approx: string[] = [];
+  /**
+   * An old edge in the body: the edge of the new body that lies on its points (wherever a closed edge starts). The old kernel also took the nearest edge when its own numbers had gone stale
+   * ("if clearly the nearest", `dec_stable_references`); so does this, and says so: the volume and the box at the end show whether the guess was right.
+   */
   const edgeRefAt = (stepId: string, d: { a: V3; b: V3; mid: V3 }): EdgeRef => {
-    const body = bodyAt(stepId); let best: { ref: EdgeRef; err: number } | null = null;
+    const body = bodyAt(stepId), cands: { ref: EdgeRef; err: number; ends: number }[] = [];
     for (const e of body.edges()) {
-      if (!e.ref) continue; const [p, q] = K.edgeEnds(e.h), m = K.edgeMid(e.h);
-      const err = Math.min(Math.hypot(...p.map((v, i) => v - d.a[i]!)) + Math.hypot(...q.map((v, i) => v - d.b[i]!)), Math.hypot(...p.map((v, i) => v - d.b[i]!)) + Math.hypot(...q.map((v, i) => v - d.a[i]!))) + Math.hypot(...m.map((v, i) => v - d.mid[i]!));
-      if (!best || err < best.err) best = { ref: e.ref, err };
+      if (!e.ref) continue;
+      const err = Math.max(K.distanceToEdge(d.a, e.h), K.distanceToEdge(d.b, e.h), K.distanceToEdge(d.mid, e.h)), [p, q] = K.edgeEnds(e.h);
+      const ends = Math.min(Math.hypot(...p.map((v, i) => v - d.a[i]!)) + Math.hypot(...q.map((v, i) => v - d.b[i]!)), Math.hypot(...p.map((v, i) => v - d.b[i]!)) + Math.hypot(...q.map((v, i) => v - d.a[i]!)));
+      cands.push({ ref: e.ref, err, ends });
     }
-    if (!best || best.err > 0.05) throw new Unsupported(`no edge near ${JSON.stringify(d.mid)} in ${stepId} (nearest off by ${best ? best.err.toFixed(3) : "?"})`);
+    cands.sort((x, y) => x.err - y.err || x.ends - y.ends);
+    const best = cands[0], second = cands[1];
+    if (!best) throw new Unsupported(`no edges in ${stepId}`);
+    if (best.err > 0.02) {
+      if (best.err < 25 && (!second || second.err > 1.5 * best.err + 0.1)) approx.push(`edge near ${JSON.stringify(d.mid)} taken as the nearest (off by ${best.err.toFixed(2)})`);
+      else throw new Unsupported(`no edge through ${JSON.stringify(d.mid)} in ${stepId} (nearest off by ${best.err.toFixed(3)}, next ${second ? second.err.toFixed(3) : "-"})`);
+    }
     return best.ref;
   };
   /** an old face (a plane: normal, offset, a point on it) in the body: the id of the face of the new body that is there */
@@ -50,20 +62,30 @@ export function convert(dump: Dump): Outcome {
     return best.id;
   };
 
+  // `clear` throws away every body made so far, so only what comes after the last one matters; a sketch drawn before it can still be used after it, so sketches are made when something uses them
+  const all = dump.graph.ops as any[], lastClear = all.map((o) => o.type).lastIndexOf("clear"), sketchOps = new Map<string, any>(all.filter((o) => o.type === "sketch").map((o) => [o.id, o]));
+  const sketch = (id: string): string => {
+    const known = sketchOf.get(id); if (known) return known;
+    const op = sketchOps.get(id); if (!op) throw new Unsupported(`sketch ${id} was not converted`);
+    const f = op.frame as { origin: V3; xDir: V3; normal: V3 }, off = (op.origin as number) ?? 0, frame = { origin: f.origin.map((v, i) => v + f.normal[i]! * off) as V3, xDir: f.xDir, normal: f.normal };
+    const sid = add(op.shape === "circle" ? { id: `S${op.id}`, kind: "sketchCircle", params: { frame, r: op.radius, center: op.at }, inputs: [] } : { id: `S${op.id}`, kind: "sketchPolygon", params: { frame, points: op.points, mids: op.mids ?? [] }, inputs: [] });
+    sketchOf.set(id, sid); return sid;
+  };
   try {
-    for (const op of dump.graph.ops) {
+    for (const op of all.slice(lastClear + 1)) {
       switch (op.type) {
-        case "sketch": {
+        case "sketch": break; // made when used
+        case "SKETCH_OLD": {
           const f = op.frame as { origin: V3; xDir: V3; normal: V3 }, off = (op.origin as number) ?? 0, frame = { origin: f.origin.map((v, i) => v + f.normal[i]! * off) as V3, xDir: f.xDir, normal: f.normal };
           sketchOf.set(op.id, add(op.shape === "circle" ? { id: `S${op.id}`, kind: "sketchCircle", params: { frame, r: op.radius, center: op.at }, inputs: [] } : { id: `S${op.id}`, kind: "sketchPolygon", params: { frame, points: op.points, mids: op.mids ?? [] }, inputs: [] }));
           break;
         }
         case "extrude": {
           const mode = op.mode as string, d = op.distance as number, name = `X${op.id}`;
-          let tool = add({ id: `${name}`, kind: "extrude", params: { d }, inputs: [need(sketchOf, op.profile, "sketch"), ...((op.holes ?? []) as string[]).map((h) => need(sketchOf, h, "hole sketch"))] });
+          let tool = add({ id: `${name}`, kind: "extrude", params: { d }, inputs: [sketch(op.profile), ...((op.holes ?? []) as string[]).map((h) => sketch(h))] });
           (op.also ?? []).forEach((x: { profile: string; holes: string[] }, i: number) => {
-            const more = add({ id: `${name}a${i}`, kind: "extrude", params: { d }, inputs: [need(sketchOf, x.profile, "sketch"), ...x.holes.map((h) => need(sketchOf, h, "hole sketch"))] });
-            tool = add({ id: `${name}u${i}`, kind: "combine", params: { mode: "add" }, inputs: [tool, more] });
+            const more = add({ id: `${name}a${i}`, kind: "extrude", params: { d }, inputs: [sketch(x.profile), ...x.holes.map((h) => sketch(h))] });
+            tool = add({ id: `${name}u${i}`, kind: "combine", params: { mode: "add", unify: false }, inputs: [tool, more] });
           });
           if (mode === "new" || !op.target) { bodyOf.set(op.id, tool); break; }
           const combine = mode === "cut" ? "cut" : mode === "add" ? "add" : d < 0 ? "cut" : "add"; // cutOrAdd: pulled below its plane it cuts
@@ -98,8 +120,9 @@ export function convert(dump: Dump): Outcome {
     const ov = dump.old.volume ?? NaN, box = dump.old.bbox, relV = Math.abs(vol - ov) / Math.max(1e-9, Math.abs(ov));
     const boxOff = box ? Math.max(...[0, 1, 2].flatMap((i) => [Math.abs(lo[i]! - box.min[i]!), Math.abs(hi[i]! - box.max[i]!)])) : 0;
     if (dump.old.errors.length) return out("old kernel failed too", JSON.stringify(dump.old.errors[0]).slice(0, 100), vol);
-    if (relV < 2e-3 && boxOff < 0.05) return out("same", `${heads.length} body step(s)`, vol);
-    return out("DIFFERENT", `volume ${vol.toFixed(3)} against ${ov.toFixed(3)} (${(100 * relV).toFixed(2)}%), box off by ${boxOff.toFixed(3)}; ${heads.length} body step(s)`, vol);
+    const guessed = approx.length ? `; ${approx.length} stale edge(s) taken as the nearest` : "";
+    if (relV < 2e-3 && boxOff < 0.05) return out("same", `${heads.length} body step(s)${guessed}`, vol);
+    return out("DIFFERENT", `volume ${vol.toFixed(3)} against ${ov.toFixed(3)} (${(100 * relV).toFixed(2)}%), box off by ${boxOff.toFixed(3)}; ${heads.length} body step(s)${guessed}`, vol);
   } catch (e) {
     if (e instanceof Unsupported) return out("unsupported", e.message);
     return out("FAILED", e instanceof Error ? e.message.slice(0, 220) : String(e));

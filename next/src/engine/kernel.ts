@@ -80,6 +80,11 @@ export function facts(f: FaceH): Facts {
 }
 export function edgeEnds(e: EdgeH): [V3, V3] { const E = new Edge(downcast(e.raw)), a = E.startPoint, b = E.endPoint, out: [V3, V3] = [[a.x, a.y, a.z], [b.x, b.y, b.z]]; drop(a, b, E); return out; }
 export function edgeMid(e: EdgeH): V3 { const E = new Edge(downcast(e.raw)), c = E.pointAt(0.5), out: V3 = [c.x, c.y, c.z]; drop(c, E); return out; }
+/** how far a point is from an edge (the shortest distance to the curve, wherever its ends or its start are) */
+export function distanceToEdge(p: V3, e: EdgeH): number {
+  const v = t(new oc.BRepBuilderAPI_MakeVertex(t(new oc.gp_Pnt(p[0], p[1], p[2])))), d = t(new oc.BRepExtrema_DistShapeShape());
+  d.LoadS1(v.Vertex()); d.LoadS2(e.raw); return d.Perform(progress()) ? d.Value() : Infinity;
+}
 export const faceEdges = (f: FaceH): EdgeH[] => unique(f.raw, "TopAbs_EDGE").map((r) => ({ raw: t(r) }));
 /** the area two faces share (a boolean common): used to recover ids where the kernel says nothing (E7) */
 export function overlap(a: FaceH, b: FaceH): number {

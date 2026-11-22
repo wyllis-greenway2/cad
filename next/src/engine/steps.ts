@@ -182,7 +182,9 @@ export const kinds: Record<string, Kind> = {
   combine: { outputs: "body", run: (inputs, { step, age }, ) => {
     const a = needBody(inputs[0]), b = needBody(inputs[1]), mode = (step.params.mode as string | undefined) ?? "add";
     const m = mode === "cut" ? K.cut(a.solid, b.solid) : mode === "intersect" ? K.common(a.solid, b.solid) : mode === "add" ? K.fuse(a.solid, b.solid) : (() => { throw new Error(`there is no way to combine called ${mode}`); })();
-    return checked(unifyBody(carry(m.solid, m.report, [a, b], [], step.id, age), step.id, age), "the combination");
+    const joined = carry(m.solid, m.report, [a, b], [], step.id, age);
+    // `unify: false` leaves faces in one surface as they are: the seams between the regions of one sketch are the person's lines
+    return checked(step.params.unify === false ? joined : unifyBody(joined, step.id, age), "the combination");
   } },
   /** the whole body moved by a vector */
   move: { outputs: "body", run: (inputs, { step, age }) => {
