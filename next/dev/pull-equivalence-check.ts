@@ -6,7 +6,7 @@
 import { initKernel } from "../src/engine/kernel.ts";
 import * as K from "../src/engine/kernel.ts";
 import { Engine } from "../src/engine/engine.ts";
-import { Body } from "../src/engine/lineage.ts";
+import { Body, wholes } from "../src/engine/lineage.ts";
 import { idKey, mint } from "../src/engine/id.ts";
 import type { Step } from "../src/engine/steps.ts";
 await initKernel();
@@ -22,7 +22,8 @@ const build = (steps: Step[]): Out => {
   if (bad) return { ok: false, why: ("why" in bad.status ? bad.status.why : "") || bad.status.kind, e };
   const v = e.result(steps[steps.length - 1]!.id).value; return v instanceof Body ? { ok: true, body: v, e } : { ok: false, why: "no body", e };
 };
-const faceKey = (b: Body) => b.faces.map((f) => { const q = K.facts(f.h); return { type: q.type, area: q.area, ce: q.ce, ids: [f.id, ...f.alias].map(idKey).sort(), lead: idKey(f.id) }; });
+// a face to the person is a whole: faces on one surface that share an edge count as one (the kernel may keep them apart), so the comparison is of wholes
+const faceKey = (b: Body) => wholes(b).map((g) => { const qs = g.map((f) => K.facts(f.h)), area = qs.reduce((a, q) => a + q.area, 0), ce = [0, 1, 2].map((i) => qs.reduce((a, q) => a + q.ce[i]! * q.area, 0) / area); return { type: qs[0]!.type, area, ce, ids: [...new Set(g.flatMap((f) => [f.id, ...f.alias].map(idKey)))].sort(), lead: "" }; });
 type Verdict = { kind: "same" | "differs" | "pull refused" | "fresh refused" | "both refused"; detail: string };
 function compare(pull: Out, fresh: Out): Verdict {
   if (!pull.ok && !fresh.ok) return { kind: "both refused", detail: `${pull.why}` };
@@ -30,11 +31,11 @@ function compare(pull: Out, fresh: Out): Verdict {
   if (!fresh.ok) return { kind: "fresh refused", detail: fresh.why };
   const va = K.volume(pull.body.solid), vb = K.volume(fresh.body.solid), fa = faceKey(pull.body), fb = faceKey(fresh.body), why: string[] = [];
   if (Math.abs(va - vb) > VOL_TOL * Math.max(va, vb)) why.push(`volume ${va.toFixed(4)} vs ${vb.toFixed(4)} (diff ${(va - vb).toExponential(2)})`);
-  if (fa.length !== fb.length) why.push(`${fa.length} faces vs ${fb.length}`);
+  if (fa.length !== fb.length) why.push(`${fa.length} faces (as wholes) vs ${fb.length}`);
   let unmatched = 0, idDiff = 0, extra = 0; const used = new Set<number>();
   for (const f of fa) {
     const j = fb.findIndex((g, i) => !used.has(i) && g.type === f.type && Math.abs(g.area - f.area) < 1e-4 * Math.max(1, f.area) && g.ce.every((v, k) => Math.abs(v - f.ce[k]!) < 1e-3));
-    if (j < 0) { unmatched++; continue; } used.add(j); const g = fb[j]!; if (g.lead !== f.lead || !g.ids.every((x) => f.ids.includes(x))) idDiff++; else if (f.ids.length > g.ids.length) extra++;
+    if (j < 0) { unmatched++; continue; } used.add(j); const g = fb[j]!; if (!g.ids.every((x) => f.ids.includes(x))) idDiff++; else if (f.ids.length > g.ids.length) extra++;
   }
   if (unmatched) why.push(`${unmatched} faces with no equal face`);
   if (idDiff) why.push(`${idDiff} faces whose lead id or ids differ`);

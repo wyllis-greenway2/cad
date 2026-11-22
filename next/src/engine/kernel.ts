@@ -309,3 +309,14 @@ export function ringRegion(a: Solid, wall: FaceH, around: readonly FaceH[], d: n
     return { tool: new Solid(tool), boss, r: cy.r, r2 };
   });
 }
+
+/** two faces lie on one surface (a plane, or a cylinder of the same axis and radius): the kernel may keep them apart as two faces, but to the person they are one face */
+export function sameSurface(a: FaceH, b: FaceH, pa?: Facts, pb?: Facts): boolean {
+  const p = pa ?? facts(a), q = pb ?? facts(b); if (p.type !== q.type) return false;
+  if (p.type === "PLANE") return dot3(p.ne, q.ne) > 1 - 1e-9 && Math.abs(dot3([p.ce[0] - q.ce[0], p.ce[1] - q.ce[1], p.ce[2] - q.ce[2]], p.ne)) < 1e-7;
+  if (p.type === "CYLINDRE") {
+    const c = cylinderOf(a), d = cylinderOf(b), par = Math.abs(Math.abs(dot3(c.dir, d.dir)) - 1) < 1e-9, w: V3 = [d.point[0] - c.point[0], d.point[1] - c.point[1], d.point[2] - c.point[2]], along = dot3(w, c.dir);
+    return par && Math.abs(c.r - d.r) < 1e-7 && Math.hypot(w[0] - c.dir[0] * along, w[1] - c.dir[1] * along, w[2] - c.dir[2] * along) < 1e-7;
+  }
+  return false;
+}

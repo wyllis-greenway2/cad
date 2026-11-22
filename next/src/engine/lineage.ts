@@ -95,11 +95,45 @@ export function carry(solid: K.Solid, report: K.Report, inputs: readonly Body[],
 }
 
 /** join faces in one surface, and recover which new face each old face went into by the area they share (E7, E9) */
+/**
+ * The faces that are one face to the person: faces of a body that lie on one surface and share an edge, except the pieces an imprint made on purpose (E4). The kernel's join (`unify`) does this
+ * as geometry, but it leaves them apart where it cannot (a wall with openings across a seam: `dev/pull-equivalence-check.ts`) or where joining would make an invalid solid.
+ */
+export function wholes(body: Body): FaceRec[][] {
+  const parent = new Map<FaceRec, FaceRec>(); const find = (f: FaceRec): FaceRec => { let r = f; while (parent.get(r)! !== r) r = parent.get(r)!; return r; };
+  const fx = new Map<FaceRec, K.Facts>(); const fact = (f: FaceRec) => fx.get(f) ?? (fx.set(f, K.facts(f.h)), fx.get(f)!);
+  for (const f of body.faces) parent.set(f, f);
+  for (const e of body.edges()) {
+    if (e.faces.length !== 2) continue; const [a, b] = e.faces as [FaceRec, FaceRec];
+    if (baseKey(a.id) === baseKey(b.id) && body.kept.has(baseKey(a.id))) continue; // the person's own line
+    if ((fact(a).type === "PLANE" || fact(a).type === "CYLINDRE") && K.sameSurface(a.h, b.h, fact(a), fact(b))) parent.set(find(a), find(b));
+  }
+  const groups = new Map<FaceRec, FaceRec[]>(); for (const f of body.faces) { const r = find(f); groups.set(r, [...(groups.get(r) ?? []), f]); }
+  return [...groups.values()];
+}
+/**
+ * Faces that are one face but are two to the kernel answer to one id: the earliest id of the group leads (E9), the others are its pieces (E8), so a reference to the lead finds them all and no two faces share an id.
+ * A group that holds two pieces an imprint made on purpose (E4) is left alone: the person's line runs through it.
+ */
+function joinFamilies(body: Body, step: string, age: Age): Body {
+  const lead = older(age);
+  for (const group of wholes(body)) {
+    if (group.length < 2) continue;
+    const keys = group.map((f) => baseKey(f.id)).filter((k) => body.kept.has(k));
+    if (new Set(group.flatMap((f) => keys.includes(baseKey(f.id)) ? [idKey(f.id)] : [])).size > 1) continue; // two pieces of an imprint in one group
+    const all = group.flatMap((f) => [f.id, ...f.alias]).sort(lead), head: Id = { ...all[0]!, pieces: [] }, taken = new Set(all.map(idKey));
+    const loose = group.filter((f) => ![f.id, ...f.alias].some((x) => isPieceOf(x, head))).sort((p, q) => { const a = K.facts(p.h), b = K.facts(q.h); return b.area - a.area || a.ce[0] - b.ce[0] || a.ce[1] - b.ce[1] || a.ce[2] - b.ce[2]; });
+    let n = 0;
+    for (const f of loose) { let id = piece(head, n++); while (taken.has(idKey(id))) id = piece(head, n++); taken.add(idKey(id)); f.alias.push(id); }
+    if (loose.length) body.notes.push({ kind: "unjoined", text: `${group.length} faces on one surface answer to ${show(head)} (the kernel keeps them apart; ${step})` });
+  }
+  return body;
+}
 export function unifyBody(body: Body, step: string, age: Age): Body {
   // the seams between the pieces of a face that split (an imprint's lines) stay: they are the person's lines, not leftovers (E4)
   const seams = body.edges().filter((e) => e.faces.length === 2 && baseKey(e.faces[0]!.id) === baseKey(e.faces[1]!.id) && idKey(e.faces[0]!.id) !== idKey(e.faces[1]!.id) && body.kept.has(baseKey(e.faces[0]!.id))).map((e) => e.h);
   const u = K.unify(body.solid, seams);
-  if (!u.joined) { body.notes.push({ kind: "unjoined", text: `the faces of ${step} were not joined: joining them would have made an invalid solid` }); return body; } // the body as it is is right, with more faces than it needs
+  if (!u.joined) { body.notes.push({ kind: "unjoined", text: `the faces of ${step} were not joined: joining them would have made an invalid solid` }); return joinFamilies(body, step, age); } // the body as it is is right, with more faces than it needs
   const solid = u.solid, faces = solid.faces();
   const targets = faces.map((h) => ({ h, f: K.facts(h), ids: [] as Id[] })), notes: Note[] = [...body.notes];
   for (const rec of body.faces) {
@@ -116,7 +150,7 @@ export function unifyBody(body: Body, step: string, age: Age): Body {
     if (ids.length > 1) notes.push({ kind: "merged", text: ids.map(show).join(" + ") });
     return { id: ids[0]!, alias: ids.slice(1), h: t.h, defect: ids[0]!.role === "unnamed" };
   });
-  return new Body(solid, recs, notes, body.kept);
+  return joinFamilies(new Body(solid, recs, notes, body.kept), step, age);
 }
 
 /** a body made by a step from nothing: every face named by the step, from a list of claims */

@@ -6204,3 +6204,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1497 — 2026-11-22 — directive
 > lets not do UI stuff yet. Lets finish designing the engine. What is next our radius junction? and face join?
+
+## in_1498 — 2026-11-22 — approval
+> yes start on the face join
