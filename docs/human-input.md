@@ -6294,3 +6294,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1527 — 2026-11-22 — question
 > Okay so i like the speed related idea, but i was planning on doing an entire session dedicated just to speed and rendering so maybe that belongs there? We should pin the idea. The new constraint is interesting, but it sounds more like a stop constraint not a fixed? So normal constraints say only this one state is valid, but what you seem to be saying is a constraint type where only a portion of movement is invalid? Or a constraint range? So instead of a face being locked to 90 degrees, it could be locked to a range of between 270 snd 90 degrees? Am i understsnding correctly?
+
+## in_1528 — 2026-11-22 — question
+> okay so is this really a new constraint or more of a constraint modifier? would it valid to match it with any available constraint or only some? Also I have an interesting idea, would this possibly be a faster more efficient way to do solid body collision handling? They would have some sort of ranged constraints to everything. Almost like their body allows relative motion except the ranges that intersect with it? Or maybe this is a stupid idea?
