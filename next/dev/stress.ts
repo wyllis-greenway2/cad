@@ -6,7 +6,7 @@
 //   4. a number edited and put back gives the first fingerprints again
 //   5. time per step, and how it grows with the length of the chain
 // A model that fails is written to the output with its seed so it can be replayed.
-//   node --experimental-strip-types dev/stress.ts [models] [seed] [steps]
+//   node --experimental-strip-types dev/stress.ts [models] [seed] [steps] [only: replay just this model number]
 import { initKernel } from "../src/engine/kernel.ts";
 import * as K from "../src/engine/kernel.ts";
 import { Engine } from "../src/engine/engine.ts";
@@ -85,8 +85,9 @@ const tweakable = (st: Step): [string, number][] => {
 
 let totalModels = 0, bad = 0;
 const t0 = Date.now(), perLen: number[][] = [];
+const ONLY = process.argv[5] === undefined ? -1 : Number(process.argv[5]);
 for (let m = 0; m < MODELS; m++) {
-  const mseed = s; totalModels++;
+  s = (SEED * 7919 + m * 104729) | 0; const mseed = `${SEED}/${m}`; if (ONLY >= 0 && m !== ONLY) continue; totalModels++;
   let e: Engine; const trace: string[] = [];
   try {
     e = new Engine(profile()); e.build();
