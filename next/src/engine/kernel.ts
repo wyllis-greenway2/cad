@@ -120,7 +120,7 @@ export function profileFace(outer: Loop, holes: readonly Loop[] = []): FaceH {
   let face = mk.Face();
   if (holes.length) {
     const withHoles = t(new oc.BRepBuilderAPI_MakeFace(face));
-    for (const h of holes) withHoles.Add(t(loopWire(h).Reversed())); // a hole runs the other way round
+    for (const h of holes) withHoles.Add(downcast(t(loopWire(h).Reversed()))); // a hole runs the other way round; the kernel wants a wire, not a shape
     face = withHoles.Face();
   }
   return { raw: t(face) };

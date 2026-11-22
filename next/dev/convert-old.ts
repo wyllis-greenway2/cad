@@ -54,9 +54,8 @@ export function convert(dump: Dump): Outcome {
     for (const op of dump.graph.ops) {
       switch (op.type) {
         case "sketch": {
-          const f = op.frame as { origin: V3; xDir: V3; normal: V3 }, offset = f.origin[2];
-          if (op.plane !== "XY" || !close([f.origin[0], f.origin[1], 0], [0, 0, 0], 1e-9) || !close(f.normal, [0, 0, 1], 1e-9) || !close(f.xDir, [1, 0, 0], 1e-9)) throw new Unsupported(`a sketch on a plane that is not the XY plane moved along z (${op.plane})`);
-          sketchOf.set(op.id, add(op.shape === "circle" ? { id: `S${op.id}`, kind: "sketchCircle", params: { plane: "XY", offset, r: op.radius, center: op.at }, inputs: [] } : { id: `S${op.id}`, kind: "sketchPolygon", params: { plane: "XY", offset, points: op.points, mids: op.mids ?? [] }, inputs: [] }));
+          const f = op.frame as { origin: V3; xDir: V3; normal: V3 }, off = (op.origin as number) ?? 0, frame = { origin: f.origin.map((v, i) => v + f.normal[i]! * off) as V3, xDir: f.xDir, normal: f.normal };
+          sketchOf.set(op.id, add(op.shape === "circle" ? { id: `S${op.id}`, kind: "sketchCircle", params: { frame, r: op.radius, center: op.at }, inputs: [] } : { id: `S${op.id}`, kind: "sketchPolygon", params: { frame, points: op.points, mids: op.mids ?? [] }, inputs: [] }));
           break;
         }
         case "extrude": {

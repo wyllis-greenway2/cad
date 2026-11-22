@@ -68,6 +68,10 @@ function pushed(body: Body, faceId: Id, dist: number, ctx: Ctx): Body {
 
 /** where a sketch lies: a named plane, moved along its normal; local (x, y) become world points */
 export function planeOf(p: Record<string, any>): { name: PlaneName; offset: number; normal: V3; at(x: number, y: number): V3 } {
+  if (p.frame) { // any plane: an origin, the way local x runs, and the normal; local y is the normal across x
+    const f = p.frame as { origin: V3; xDir: V3; normal: V3 }, n = unitV(f.normal), x = unitV(f.xDir), y = cross(n, x), o: V3 = f.origin;
+    return { name: "XY", offset: 0, normal: n, at: (u, v) => [o[0] + x[0] * u + y[0] * v, o[1] + x[1] * u + y[1] * v, o[2] + x[2] * u + y[2] * v] };
+  }
   const name = ((p.plane as PlaneName | undefined) ?? "XY"), offset = typeof p.offset === "number" ? p.offset : 0;
   if (name === "XY") return { name, offset, normal: [0, 0, 1], at: (x, y) => [x, y, offset] };
   if (name === "XZ") return { name, offset, normal: [0, -1, 0], at: (x, y) => [x, offset, y] };
