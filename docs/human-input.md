@@ -6282,3 +6282,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1523 — 2026-11-22 — approval
 > Go with A
+
+## in_1524 — 2026-11-22 — question
+> So how are driven joints any different then just regular constraints? I am not sure we should fully copy the prototype because i am not sure it was the simplest method. Why wouldnt a body just slide already as long as it doesnt violate constraints?
