@@ -4,7 +4,7 @@
 // differentiates cleanly). Pure and deterministic: no kernel, no clock. The answer is a pose for each body that moved; the `place` step applies them.
 import { kit, type AD, type Prep } from "./solver.ts";
 
-const { D, add, sub, mul, div, scaleD, sqrtD, atan2D, clampRes, levenberg, narrow, independentRows, nullSpace } = kit;
+const { D, add, sub, mul, div, scaleD, sqrtD, atan2D, clampRes, levenberg, narrow, analyse } = kit;
 export type V3 = readonly [number, number, number];
 /** a face as a part: a plane (a point on it, its outward normal) or an axis (a point on it, its direction) */
 export interface Prim { kind: "plane" | "axis"; p: V3; d: V3; /** the middle of the face (for a distance along a direction); the point `p` when not given */ c?: V3 }
@@ -108,14 +108,13 @@ export function place(bodiesGiven: readonly BodyIn[], mates: readonly Mate[], op
   const feasible = (use: Set<string>, restarts: number, all = false) => { let last = null as ReturnType<typeof levenberg> | null; for (const sd of all ? seeds : seeds.slice(0, restarts + 1)) { pre.clear(); if (sd.pre) pre.set(sd.pre[0], half(sd.pre[1])); const a = levenberg(dummy as never, prep, use, sd.x, scale, false, 300); last = a;  if (a.converged) { usedPre = new Map(pre); return { ok: true, a }; } } pre.clear(); return { ok: false, a: last! }; };
   const all = new Set(ids), f = feasible(all, 0, true); pre.clear(); for (const [k, v] of usedPre) pre.set(k, v);
   if (!f.ok) { const nar = narrow([...ids], (set) => feasible(new Set(set), 0, true).ok, opts.maxSolves ?? 60); return { ...empty, conflict: nar.set, reason: `these mates cannot all hold${nar.exceeded ? " (not narrowed: too many)" : ""}`, iterations: f.a.iterations }; }
-  const x = f.a.x, free = frozen.map((fz, i) => (fz ? -1 : i)).filter((i) => i >= 0), pos = new Map(free.map((q, i) => [q, i] as const)), list: { id: string; row: number[] }[] = [];
-  for (const r of rows) for (const d of r.fn(x)) { const v = new Array<number>(free.length).fill(0); for (const [i, g] of d.g) if (pos.has(i)) v[pos.get(i)!] = g; list.push({ id: r.c.id, row: v }); }
-  const rank = (rs: number[][]) => independentRows(rs, 1e-9).filter(Boolean).length, total = rank(list.map((r) => r.row)), partial = new Set<string>();
-  for (const m of mates) if ((m.kind !== "turn" && m.kind !== "slide") || (m.min === undefined && m.max === undefined)) if (rank(list.filter((r) => r.id !== m.id).map((r) => r.row)) === total) partial.add(m.id); // a mate that adds nothing the others do not already say
-  const ns = nullSpace(list.map((r) => r.row), free.length), freeBy: Record<string, number> = {};
-  for (const v of ns.basis) { const owners = new Set<string>(); v.forEach((c, i) => { if (Math.abs(c) > 1e-8) owners.add(bodies[Number(names[free[i]!]!.split(".")[0])]!.id); }); for (const o of owners) freeBy[o] = (freeBy[o] ?? 0) + 1; }
+  // what is left free and what adds nothing: the sketch solver's own analysis; the row of a range takes no freedom (E85)
+  const x = f.a.x, free = frozen.map((fz, i) => (fz ? -1 : i)).filter((i) => i >= 0), byId = new Map(mates.map((m) => [m.id, m] as const));
+  const rangeRow = (id: string, k: number) => { const m = byId.get(id)!; return (m.min !== undefined || m.max !== undefined) && (m.kind === "turn" || m.kind === "slide" ? true : k === 3); };
+  const an = analyse(prep, x, ids, free, (q) => bodies[Number(names[q]!.split(".")[0])]!.id, rangeRow), freeBy: Record<string, number> = Object.fromEntries(an.freeBy);
+  const partial = new Set(an.implied.filter((id) => { const m = byId.get(id)!; return !((m.kind === "turn" || m.kind === "slide") && (m.min !== undefined || m.max !== undefined)); })); // a mate that adds nothing the ones before it do not say (a mate that is only a range says nothing and is no fault)
   // a free body no mate holds at all is free in all six ways
-  const held = new Set(mates.map((m) => m.a.body)); for (const b of bodies) if (b.free && !held.has(b.id)) { ns.basis.length += 0; freeBy[b.id] = 6; }
+  const held = new Set(mates.map((m) => m.a.body)); for (const b of bodies) if (b.free && !held.has(b.id)) freeBy[b.id] = 6;
   const poses: Record<string, Pose> = {};
   for (const b of bodies) {
     if (!b.free) continue; const i = at.get(b.id)! * 6, w: V3 = [x[i + 3]!, x[i + 4]!, x[i + 5]!], by: V3 = [x[i]!, x[i + 1]!, x[i + 2]!];
@@ -129,6 +128,6 @@ export function place(bodiesGiven: readonly BodyIn[], mates: readonly Mate[], op
     else if (th >= 1e-9) { const d = [Math.sqrt(Math.max(0, (R[0]![0]! + 1) / 2)), Math.sqrt(Math.max(0, (R[1]![1]! + 1) / 2)), Math.sqrt(Math.max(0, (R[2]![2]! + 1) / 2))], j = d.indexOf(Math.max(...d)); const sg = [Math.sign(R[j]![0]! + R[0]![j]!) || 1, Math.sign(R[j]![1]! + R[1]![j]!) || 1, Math.sign(R[j]![2]! + R[2]![j]!) || 1]; ax = [d[0]! * (j === 0 ? 1 : sg[0]!), d[1]! * (j === 1 ? 1 : sg[1]!), d[2]! * (j === 2 ? 1 : sg[2]!)]; const l = Math.hypot(...ax); ax = [ax[0] / l, ax[1] / l, ax[2] / l]; }
     poses[b.id] = { pivot: b.pivot, axis: ax, deg: (th * 180) / Math.PI, by };
   }
-  const freedom = ns.basis.length, atStop = mates.filter((m) => m.min !== undefined || m.max !== undefined).filter((m) => { const v = measured(m, x); return v !== null && ((m.min !== undefined && Math.abs(v - m.min) < 1e-6 * Math.max(1, Math.abs(m.min))) || (m.max !== undefined && Math.abs(v - m.max) < 1e-6 * Math.max(1, Math.abs(m.max)))); }).map((m) => m.id);
+  const freedom = an.freedom, atStop = mates.filter((m) => m.min !== undefined || m.max !== undefined).filter((m) => { const v = measured(m, x); return v !== null && ((m.min !== undefined && Math.abs(v - m.min) < 1e-6 * Math.max(1, Math.abs(m.min))) || (m.max !== undefined && Math.abs(v - m.max) < 1e-6 * Math.max(1, Math.abs(m.max)))); }).map((m) => m.id);
   return { ok: true, kind: partial.size ? "redundant" : freedom > 0 ? "under" : "solved", poses, freedom, free: freeBy, redundant: ids.filter((q) => partial.has(q)), atStop, conflict: [], reason: "", iterations: f.a.iterations };
 }

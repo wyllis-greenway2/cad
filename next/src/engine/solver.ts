@@ -236,6 +236,25 @@ function collapse(S: System, prep: Prep, x: number[], minSize: number): string |
   return null;
 }
 
+/**
+ * What a solved set of constraints says of itself, for any problem made of unknowns and rows (the sketch's points, the bodies' poses): how many ways it can still move and which owners can move, which constraints
+ * say something the ones before them already say (`partial`: some of what they say; `implied`: all of it), judged from the rows in order. `skip` leaves a row out (a range takes none of the freedom, E85).
+ * The one place this is worked out (the sketch solver and the placement solver both call it).
+ */
+export function analyse(prep: Prep, x: number[], ids: readonly string[], free: readonly number[], owner: (unknown: number) => string, skip: (id: string, row: number) => boolean = () => false): { freedom: number; freeBy: Map<string, number>; partial: string[]; implied: string[] } {
+  const pos = new Map(free.map((q, i) => [q, i] as const)), want = new Set(ids), list: { id: string; row: number[] }[] = [];
+  for (const row of prep.rows) if (want.has(row.c.id)) row.fn(x).forEach((d, k) => { if (skip(row.c.id, k)) return; const v = new Array<number>(free.length).fill(0); for (const [i, g] of d.g) if (pos.has(i)) v[pos.get(i)!] = g; list.push({ id: row.c.id, row: v }); });
+  const indep = independentRows(list.map((r) => r.row), 1e-9), partial: string[] = [], implied: string[] = [];
+  for (const id of ids) {
+    const mine = list.map((r, i) => (r.id === id ? i : -1)).filter((i) => i >= 0); if (!mine.length) continue;
+    const own = independentRows(mine.map((i) => list[i]!.row), 1e-9).filter(Boolean).length, adds = mine.filter((i) => indep[i]).length;
+    if (adds === 0) implied.push(id); if (adds < own) partial.push(id);
+  }
+  const ns = nullSpace(list.map((r) => r.row), free.length), freeBy = new Map<string, number>();
+  for (const v of ns.basis) { const owners = new Set<string>(); v.forEach((c, i) => { if (Math.abs(c) > 1e-8) owners.add(owner(free[i]!)); }); for (const o of owners) freeBy.set(o, (freeBy.get(o) ?? 0) + 1); }
+  return { freedom: ns.basis.length, freeBy, partial, implied };
+}
+
 /** a set of constraints that cannot hold together and none of which can be left out of it (QuickXplain): about the size of the set times the log of the rest, in solves; past the budget, all of them, said */
 function narrow(ids: string[], can: (set: string[]) => boolean, budget: number): { set: string[]; exceeded: boolean } {
   let solves = 0; const test = (set: string[]): boolean => (solves++ > budget ? true : can(set));
@@ -295,13 +314,9 @@ function solveOnce(S: System, opts: Options = {}): Result {
     }
     // where it ended; then what is free and what adds nothing
     for (let q = 0; q < solved.length; q++) if (!prep.frozen[q] && find(q) === root) solved[q] = f.attempt.x[q]!;
-    const free = prep.frozen.map((fz, q) => (fz ? -1 : q)).filter((q) => q >= 0 && find(q) === root), pos = new Map(free.map((q, i) => [q, i] as const)), rowsOf: { id: string; row: number[] }[] = [];
-    for (const row of prep.rows) if (use.has(row.c.id) && !isRange(row.c)) for (const d of row.fn(f.attempt.x)) { const v = new Array<number>(free.length).fill(0); for (const [i, g] of d.g) if (pos.has(i)) v[pos.get(i)!] = g; rowsOf.push({ id: row.c.id, row: v }); }
-    const indep = independentRows(rowsOf.map((r) => r.row), 1e-9), partial = new Set<string>(); rowsOf.forEach((r, i) => { if (!indep[i]) partial.add(r.id); });
-    redundant.push(...ids.filter((id) => partial.has(id)));
-    for (const id of ids) { const mine = rowsOf.map((r, i) => (r.id === id ? i : -1)).filter((i) => i >= 0); if (mine.length && mine.every((i) => !indep[i])) implied.push(id); }
-    const ns = nullSpace(rowsOf.map((r) => r.row), free.length); freedomTotal += ns.basis.length;
-    for (const v of ns.basis) v.forEach((c, i) => { if (Math.abs(c) > 1e-8) freeParts.add(prep.names[free[i]!]!.split(".")[0]!); });
+    const free = prep.frozen.map((fz, q) => (fz ? -1 : q)).filter((q) => q >= 0 && find(q) === root);
+    const an = analyse(prep, f.attempt.x, ids, free, (q) => prep.names[q]!.split(".")[0]!, (id) => isRange(S.constraints.find((c) => c.id === id)!));
+    redundant.push(...an.partial); implied.push(...an.implied); freedomTotal += an.freedom; for (const o of an.freeBy.keys()) freeParts.add(o);
   }
   // a part with no constraint at all is free too
   const constrained = new Set<string>(); for (const c of S.constraints) for (const i of touch(c)) constrained.add(prep.names[i]!.split(".")[0]!);
@@ -351,6 +366,6 @@ export function residualsOf(S: System, c: Constraint): number[] {
 }
 
 // ---------------------------------------------------------------- what the placement solver of bodies shares with this one (`dec_body_placement`: one solver, its parts and unknowns generalised)
-export const kit = { D, k, add, sub, mul, div, scaleD, sqrtD, atan2D, clampRes, levenberg, narrow, independentRows, nullSpace, tol };
+export const kit = { D, k, add, sub, mul, div, scaleD, sqrtD, atan2D, clampRes, levenberg, narrow, analyse, tol };
 export type { Prep, Attempt };
 export type AD = D;
