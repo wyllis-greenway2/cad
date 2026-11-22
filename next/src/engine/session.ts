@@ -6,6 +6,7 @@ import { idKey, show } from "./id.ts";
 import { NoBody } from "./steps.ts";
 import { bodyVolumes } from "./scope.ts";
 import { options, probe, probeParam, trial } from "./failure.ts";
+import { exportBody, meshOf, toBase64 } from "./exchange.ts";
 import type { Reply, Request, Snapshot, StepSnap } from "./protocol.ts";
 
 export class Session {
@@ -19,7 +20,14 @@ export class Session {
       if (req.type === "ping") { this.post({ type: "done", id: req.id, snapshot: this.snapshot(0, 0) }); return; }
       if (req.type === "ask") {
         if (!this.engine) { this.post({ type: "error", id: req.id, message: "no recipe is loaded" }); return; }
-        const a = req.ask, e = this.engine, data = a.what === "trial" ? trial(e, a.change) : a.what === "probe" ? probe(e, a.step, a.key, { lo: a.lo, hi: a.hi }) : a.what === "probeParam" ? probeParam(e, a.name, { lo: a.lo, hi: a.hi, focus: a.focus }) : options(e, a.step);
+        const a = req.ask, e = this.engine;
+        if (a.what === "mesh" || a.what === "export") {
+          if (!e.ids().includes(a.step)) { this.post({ type: "error", id: req.id, message: `no step ${a.step}` }); return; }
+          const v = e.result(a.step).value; if (!(v instanceof Body) || !v.faces.length) { this.post({ type: "error", id: req.id, message: `step ${a.step} has no body to ${a.what === "mesh" ? "mesh" : "export"}` }); return; }
+          const out = a.what === "mesh" ? meshOf(v, { bodies: a.bodies, tolerance: a.tolerance }) : (() => { const bytes = exportBody(v, a.format, { bodies: a.bodies, tolerance: a.tolerance, ascii: a.ascii }); return { format: a.format, base64: toBase64(bytes), bytes: bytes.length }; })();
+          this.post({ type: "answer", id: req.id, data: out }); return;
+        }
+        const data = a.what === "trial" ? trial(e, a.change) : a.what === "probe" ? probe(e, a.step, a.key, { lo: a.lo, hi: a.hi }) : a.what === "probeParam" ? probeParam(e, a.name, { lo: a.lo, hi: a.hi, focus: a.focus }) : options(e, a.step);
         this.post({ type: "answer", id: req.id, data: JSON.parse(JSON.stringify(data)) }); return;
       }
       const t0 = performance.now(), watch = (step: string) => this.post({ type: "running", step });

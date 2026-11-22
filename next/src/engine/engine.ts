@@ -1,13 +1,14 @@
 // The engine (E2, E13, E18, E19, E20): a recipe of steps, run in an order that suits their inputs; each result has a status, and a failed step is flagged and passes its input through,
 // so the model is never lost (E13). An edit recomputes only the steps that depend on it and stops where an answer is unchanged (E18).
 import * as K from "./kernel.ts";
-import { ParamError, type Table, resolve, scopeOf } from "./params.ts";
+import { ParamError, type Table, canonical, resolve, scopeOf } from "./params.ts";
 import { type Note, Body, RefLost } from "./lineage.ts";
 import { type Ctx, type Step, type Value, NoBody, Refusal, kinds, passthrough } from "./steps.ts";
 import { insertStep, moveStep, removeStep, swapWithInput, validateRecipe } from "./recipe.ts";
 import "./curved.ts"; // registers revolve, loft, sweep and shell
 import "./pull.ts"; // registers moveFace and offsetFace (pull modes 3 and 4)
 import "./sketch.ts"; // registers the constrained sketch (E49)
+import "./exchange.ts"; // registers import (a STEP file as a body, E21)
 import "./pattern.ts"; // registers pattern and mirror (copies of a body, E44 to E47)
 import { scopeKinds } from "./scope.ts"; // steps that name a body work on that body alone (E40, E41)
 scopeKinds();
@@ -20,7 +21,7 @@ export interface Result { value: Value; status: Status; fingerprint: string; not
 class Held { refs = 0; readonly v: Value; constructor(v: Value) { this.v = v; } }
 interface Slot { held: Held; status: Status; fingerprint: string }
 
-const fingerprintOf = (v: Value): string => (v instanceof Body ? v.fingerprint() : v instanceof NoBody ? "empty" : JSON.stringify([v.lines.map((l) => [l.id, l.a, l.b, l.mid ?? null]), v.circle ?? null, (v.inner ?? []).map(fingerprintOf), v.regions ?? null, v.normal, v.open ?? false, v.face ?? null, (v.reference ?? []).map((l) => [l.id, l.a, l.b]), v.solve ?? null, v.definition ?? null, v.carried ?? null])); // everything a step could read of it: a circle has no lines
+const fingerprintOf = (v: Value): string => (v instanceof Body ? v.fingerprint() : v instanceof NoBody ? "empty" : JSON.stringify([v.lines.map((l) => [l.id, l.a, l.b, l.mid ?? null]), v.circle ?? null, (v.inner ?? []).map(fingerprintOf), v.regions ?? null, v.normal, v.open ?? false, v.face ?? null, (v.reference ?? []).map((l) => [l.id, l.a, l.b]), v.solve ?? null, canonical(v.definition ?? null), v.carried ?? null])); // everything a step could read of it: a circle has no lines
 
 export class Engine {
   private steps = new Map<string, Step>();

@@ -110,3 +110,6 @@ export function usedBy(value: unknown, out: Set<string> = new Set()): Set<string
   else if (value && typeof value === "object") Object.values(value as Record<string, unknown>).forEach((v) => usedBy(v, out));
   return out;
 }
+
+/** JSON with the keys of every object in order: the same data is the same text, however it was built (a saved and reopened document must give the same fingerprints) */
+export function canonical(v: unknown): string { return JSON.stringify(v, (_k, x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map((k) => [k, (x as Record<string, unknown>)[k]])) : x)); }

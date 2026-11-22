@@ -1,7 +1,7 @@
 // The kernel adapter (E1, `inv_kernel_boundary`): the only file that touches OCCT or replicad. Everything it hands out is plain data or an opaque handle;
 // the engine above it knows nothing of the kernel's own objects. Numbers it returns are exact (E11): rounding is for the screen only.
 import initOC from "replicad-opencascadejs";
-import { setOC, Face, Edge, downcast, HASH_CODE_MAX, draw, makeLine, makeCircle, makeThreePointArc, assembleWire, drawCircle } from "replicad";
+import { setOC, cast, Face, Edge, downcast, HASH_CODE_MAX, draw, makeLine, makeCircle, makeThreePointArc, assembleWire, drawCircle } from "replicad";
 
 export type V3 = readonly [number, number, number];
 type Raw = any; // the kernel's own objects: they do not leave this file
@@ -396,4 +396,43 @@ export function pointedEnd(a: Solid, c: V3, outward: V3, r: number, s: number): 
     const tool = revolve(face, c, outward, 360);
     return cut(a, tool.solid);
   });
+}
+
+// ---------------------------------------------------------------- exchange and the derived mesh (E21, E70, E71): the mesh is made here and leaves as plain numbers; the exact body is the model, the mesh is only for the screen and for STL
+export interface MeshData {
+  /** x y z per vertex */ positions: number[]; /** a normal per vertex */ normals: number[]; /** three vertex numbers per triangle */ indices: number[];
+  /** the triangles of each face: `count` indices from `start` (in `indices`), in the order of `Solid.faces()` */ faces: { face: FaceH; start: number; count: number }[];
+  /** the polylines of the edges: x y z per point, one polyline per edge */ lines: number[]; edges: { edge: EdgeH; start: number; count: number }[];
+}
+/** the triangles of a solid, by face, and the polylines of its edges; `tolerance` is the largest distance a triangle may lie from the surface (mm), `angle` the largest turn between neighbours (radians) */
+export function mesh(a: Solid, tolerance = 0.02, angle = 0.25): MeshData {
+  const shape = cast(a.raw), m = shape.mesh({ tolerance, angularTolerance: angle }), e = shape.meshEdges({ tolerance, angularTolerance: angle });
+  const byFace = new Map<number, FaceH>(), byEdge = new Map<number, EdgeH>();
+  for (const f of a.faces()) byFace.set(oc.ReplicadShapeHasher.HashCode(f.raw, HASH_CODE_MAX), f);
+  for (const x of a.edges()) byEdge.set(oc.ReplicadShapeHasher.HashCode(x.raw, HASH_CODE_MAX), x);
+  const faces = m.faceGroups.flatMap((g) => { const f = byFace.get(g.faceId); return f ? [{ face: f, start: g.start, count: g.count }] : []; });
+  const edges = e.edgeGroups.flatMap((g) => { const x = byEdge.get(g.edgeId); return x ? [{ edge: x, start: g.start, count: g.count }] : []; });
+  return { positions: m.vertices, normals: m.normals, indices: m.triangles, faces, lines: e.lines, edges };
+}
+/** the exact body as a STEP file (text, as bytes) */
+export function stepBytes(a: Solid): Uint8Array {
+  const file = "/out.step", w = new oc.STEPControl_Writer();
+  try {
+    oc.Interface_Static.SetIVal("write.step.schema", 5); const status = w.Transfer(a.raw, oc.STEPControl_StepModelType.STEPControl_AsIs, true, new oc.Message_ProgressRange());
+    void status;
+    if (w.Write(file) !== oc.IFSelect_ReturnStatus.IFSelect_RetDone) throw new Error("the kernel could not write the STEP file");
+    return oc.FS.readFile(file) as Uint8Array;
+  } finally { try { oc.FS.unlink(file); } catch { /* */ } try { w.delete?.(); } catch { /* */ } }
+}
+/** the solids of a STEP file, in the file's own order (E21); nothing else in the file is kept */
+export function stepSolids(bytes: Uint8Array): Solid[] {
+  const file = "/in.step"; oc.FS.writeFile(file, bytes);
+  const r = new oc.STEPControl_Reader();
+  try {
+    if (r.ReadFile(file) !== oc.IFSelect_ReturnStatus.IFSelect_RetDone) throw new Error("this is not a STEP file the kernel can read");
+    r.TransferRoots(new oc.Message_ProgressRange());
+    const shape = r.OneShape(), out = unique(shape, "TopAbs_SOLID").map((x) => new Solid(x)); shape.delete?.();
+    if (!out.length) throw new Error("the STEP file has no solid in it (only surfaces or curves are not read yet)");
+    return out;
+  } finally { try { oc.FS.unlink(file); } catch { /* */ } try { r.delete?.(); } catch { /* */ } }
 }

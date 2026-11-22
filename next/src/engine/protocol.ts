@@ -14,7 +14,9 @@ export interface StepSnap { id: string; kind: string; status: Status; fingerprin
 export interface Snapshot { steps: StepSnap[]; computes: number; ms: number; rssMb: number }
 
 /** a question about the recipe the worker holds (E28, E35): answered on a copy, the recipe is not changed */
-export type Ask = { what: "trial"; change: Change } | { what: "probe"; step: string; key: string; lo?: number; hi?: number } | { what: "options"; step: string } | { what: "probeParam"; name: string; lo?: number; hi?: number; focus?: string };
+export type Ask = { what: "trial"; change: Change } | { what: "probe"; step: string; key: string; lo?: number; hi?: number } | { what: "options"; step: string } | { what: "probeParam"; name: string; lo?: number; hi?: number; focus?: string }
+  /** the mesh of what a step made, by face id (E70); bodies: only these */ | { what: "mesh"; step: string; bodies?: string[]; tolerance?: number }
+  /** a file of what a step made (E21, E71): the answer is `{ format, base64, bytes }` */ | { what: "export"; step: string; format: "step" | "stl"; bodies?: string[]; tolerance?: number; ascii?: boolean };
 export type Request =
   | { id: number; type: "load" | "apply"; steps: Step[]; forced: Record<string, string>; /** the named numbers (E66) */ parameters?: Record<string, number | string> }
   | { id: number; type: "ask"; ask: Ask }
