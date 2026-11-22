@@ -121,17 +121,22 @@ export function absurd(s: Solid): boolean {
 export const valid = (s: Solid): boolean => t(new oc.BRepCheck_Analyzer(s.raw, true, false)).IsValid();
 
 // ---------------------------------------------------------------- history of an operation
-function reportOf(maker: Raw): Report {
+function reportOf(maker: Raw, via: (raw: Raw) => Raw = (r) => r): Report {
   const safe = <R>(fn: () => R, otherwise: R): R => { try { return fn(); } catch { return otherwise; } };
   return {
-    modified: (f) => safe(() => toArray(maker.Modified(f.raw)), []),
-    fromEdge: (e) => safe(() => toArray(maker.Generated(e.raw)), []),
-    fromFace: (f) => safe(() => toArray(maker.Generated(f.raw)), []),
-    deleted: (f) => safe(() => !!maker.IsDeleted(f.raw), false),
+    modified: (f) => safe(() => toArray(maker.Modified(via(f.raw))), []),
+    fromEdge: (e) => safe(() => toArray(maker.Generated(via(e.raw))), []),
+    fromFace: (f) => safe(() => toArray(maker.Generated(via(f.raw))), []),
+    deleted: (f) => safe(() => !!maker.IsDeleted(via(f.raw)), false),
   };
 }
 
 // ---------------------------------------------------------------- operations
+/** a deep copy of a shape (its own geometry), and where each part of the original went in it: an operation that works in place on what it is given (a fillet changes tolerances) is given the copy */
+function deepCopy(raw: Raw): { shape: Raw; to: (part: Raw) => Raw } {
+  const mk = t(new oc.BRepBuilderAPI_Transform(raw, t(new oc.gp_Trsf()), true)); mk.Build(progress());
+  return { shape: mk.Shape(), to: (part) => { const q = mk.ModifiedShape(part); return q.IsNull() ? part : q; } };
+}
 export interface Made { solid: Solid; report: Report }
 const fail = (what: string): never => { throw new Error(what); };
 
@@ -226,17 +231,18 @@ export type SizeLaw = readonly (readonly [number, number])[];
 export function roundEdges(a: Solid, edges: readonly EdgeH[], size: number | SizeLaw | ((e: EdgeH) => SizeLaw), mode: "fillet" | "chamfer"): Rounded {
   return guard(`the ${mode}`, () => {
     if (typeof size !== "number" && mode === "chamfer") throw new Error("a chamfer cannot vary along its edge yet (only a round can)");
-    const mk = mode === "fillet" ? t(new oc.BRepFilletAPI_MakeFillet(a.raw, oc.ChFi3d_FilletShape.ChFi3d_Rational)) : t(new oc.BRepFilletAPI_MakeChamfer(a.raw));
+    const cp = deepCopy(a.raw);
+    const mk = mode === "fillet" ? t(new oc.BRepFilletAPI_MakeFillet(cp.shape, oc.ChFi3d_FilletShape.ChFi3d_Rational)) : t(new oc.BRepFilletAPI_MakeChamfer(cp.shape));
     for (const e of edges) {
-      if (typeof size === "number") { mk.Add(size, t(downcast(e.raw))); continue; }
+      if (typeof size === "number") { mk.Add(size, t(downcast(cp.to(e.raw)))); continue; }
       const law = typeof size === "function" ? size(e) : size, arr = t(new oc.NCollection_Array1_gp_Pnt2d(1, law.length)); law.forEach((q, k) => arr.SetValue(k + 1, t(new oc.gp_Pnt2d(q[0], q[1]))));
-      (mk as unknown as { Add(law: unknown, e: unknown): void }).Add(arr, t(downcast(e.raw)));
+      (mk as unknown as { Add(law: unknown, e: unknown): void }).Add(arr, t(downcast(cp.to(e.raw))));
     }
     const rounded: EdgeH[] = [];
     for (let i = 1; i <= mk.NbContours(); i++) for (let j = 1; j <= mk.NbEdges(i); j++) rounded.push({ raw: t(mk.Edge(i, j)) });
     mk.Build(progress());
     if (!mk.IsDone()) fail(`the ${mode} could not be made at that size`);
-    const rep = reportOf(mk);
+    const rep = reportOf(mk, cp.to);
     return { solid: new Solid(mk.Shape()), report: rep, round: (e: EdgeH) => rep.fromEdge(e), rounded };
   });
 }

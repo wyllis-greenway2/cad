@@ -38,4 +38,10 @@ console.log("5. a flat face moved beside the wall of a hole (the neighbour is ro
   check("the same as editing the hole's depth (fresh build)", (() => { const e = new Engine([...base, { ...hole, params: { ...hole.params, depth: 6 } }]); e.build(); const v = K.volume((e.result("H").value as InstanceType<typeof Body>).solid); e.release(); return Math.abs(v - vol(deeper)) < 1e-3; })());
   up.release(); down.release(); deeper.release();
 }
+console.log("6. a fillet does not change the shape it was given (it raised tolerances in place), so a later step on that shape gives what a fresh build gives");
+{
+  const e = new Engine(load("fillet-changes-its-input")); e.build(); const p = e.step("X4").params as { size: number };
+  e.edit("X4", { ...p, size: p.size * 1.25 }); const f = new Engine(e.recipe()); f.build();
+  check("live equals a fresh build after the edit", e.ids().every((i) => same(e.result(i).fingerprint, f.result(i).fingerprint)), e.ids().filter((i) => !same(e.result(i).fingerprint, f.result(i).fingerprint)).join(" ")); f.release(); e.release();
+}
 process.exit(failureCount() ? 1 : 0);
