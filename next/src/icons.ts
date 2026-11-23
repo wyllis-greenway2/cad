@@ -35,6 +35,9 @@ const ICONS: Record<string, string> = {
   add: svg('<circle cx="6" cy="8" r="4.2"/><circle cx="10" cy="8" r="4.2"/>'),
   round: svg('<path d="M3 13V8a5 5 0 015-5h5"/><path d="M3 13h2M13 3v2" opacity=".5"/>'),
   chamfer: svg('<path d="M3 13V7l4-4h6"/><path d="M3 13h2M13 3v2" opacity=".5"/>'),
+  open: svg('<path d="M2 12.5V4.5h4l1.5 1.7H13v2.3"/><path d="M2 12.5l1.8-4.2H14.5l-1.8 4.2z"/>'),
+  save: svg('<path d="M8 2.5v7"/><path d="M5.2 6.8L8 9.6l2.8-2.8"/><path d="M3 11.5v2h10v-2"/>'),
+  exportFile: svg('<path d="M4 5.5V13h8V5.5"/><path d="M8 10V2.5"/><path d="M5.5 5L8 2.5 10.5 5"/>'),
   cross: svg('<path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>'),
 };
 export const iconSvg = (key: string): string => ICONS[key] ?? "";

@@ -25,6 +25,10 @@ import { createBodySelect } from "./bodyselect.ts";
 import { Undo } from "./interaction/undo.ts";
 import { editNumber, rowsOf } from "./interaction/steplist.ts";
 import { createStepList } from "./steplistdraw.ts";
+import { createMoreMenu } from "./moremenu.ts";
+import { moreItems } from "./interaction/moremenu.ts";
+import { fromFile, toFile, DocError } from "./interaction/files.ts";
+import { chooseFile, download, fromBase64 } from "./filesdraw.ts";
 import type { SketchParams } from "./engine/sketch.ts";
 import type { Step } from "./engine/steps.ts";
 
@@ -129,6 +133,32 @@ const list = createStepList(document.body, {
   edit(id, key, value) { const next = editNumber(studio.state().steps, id, key, value); if (next) { studio.change(next); record("Number", `s:${id}:${key}`); } },
   undo: () => restore(undo.undo()), redo: () => restore(undo.redo()),
 });
+// ---- the "..." menu: new, open, save, export ----
+let said = "", saidUntil = 0;
+const say = (text: string, ms = 5000) => { said = text; saidUntil = performance.now() + ms; };
+const hasBody = () => studio.state().meshes.length > 0, hasModel = () => studio.state().steps.length > 0 || sk.hasDrawing();
+async function chooseMore(id: import("./interaction/moremenu.ts").MoreItem["id"]) {
+  if (game.on) endGame();
+  if (id === "new") { ext.cancel(); restore({ sketches: {}, steps: [], faces: new Map() }); record("New"); say("A new model; undo brings the last one back"); }
+  else if (id === "save") {
+    const text = toFile({ steps: studio.state().steps, drawings: sk.snapshot(), faces: Object.fromEntries(facePlanes) as never });
+    download("model.cad", text, "application/json"); say("Saved as model.cad");
+  } else if (id === "open") {
+    const f = await chooseFile(); if (!f) return;
+    try {
+      const { model, warnings } = fromFile(f.text);
+      restore({ sketches: model.drawings, steps: model.steps, faces: new Map(Object.entries(model.faces) as never) }); record("Open");
+      say(warnings.length ? `Opened ${f.name}. ${warnings.join("; ")}` : `Opened ${f.name}`);
+    } catch (x) { say(x instanceof DocError ? `${f.name}: ${x.message}` : `${f.name} could not be opened: ${(x as Error).message}`, 8000); }
+  } else {
+    const step = studio.state().meshes[0]?.id; if (!step) { say("There is no body yet: extrude something first"); return; }
+    const format = id === "export:step" ? "step" : "stl", r = await studio.ask({ what: "export", step, format });
+    if (!r.ok) { say(`The export did not work: ${r.why}`, 8000); return; }
+    const d = r.data as { base64: string; bytes: number };
+    download(`model.${format}`, fromBase64(d.base64), "application/octet-stream"); say(`Exported model.${format} (${Math.round(d.bytes / 1024 * 10) / 10} kB)`);
+  }
+}
+const more = createMoreMenu(document.body, (id) => { void chooseMore(id); });
 function startExtrude() { if (game.on) endGame(); while (sk.stop()) { /* the sketch tool is put away */ } sk.clearSelection(); ext.start(); }
 function startTool(kind: ToolKind) {
   ext.cancel();
@@ -185,7 +215,7 @@ addEventListener("keydown", (e) => {
   if (game.moves(e.code) && !game.on && !e.repeat) startGame(); // (W A S D turn the game on too, and the key that did it moves the eye)
   if (game.key(e.code, true)) return;
   if (orbc.orienting() && e.code === "Enter") { orbc.keep(); return; }
-  if (e.code === "Escape") { if (ext.cancel()) return; if (orbc.cancel()) return; if (menu.isOpen()) menu.close(); else if (game.on) endGame(); else if (!sk.stop() && !sk.clearSelection() && !bodies.clear()) orbc.release(); }
+  if (e.code === "Escape") { if (more.isOpen()) { more.close(); return; } if (ext.cancel()) return; if (orbc.cancel()) return; if (menu.isOpen()) menu.close(); else if (game.on) endGame(); else if (!sk.stop() && !sk.clearSelection() && !bodies.clear()) orbc.release(); }
 });
 addEventListener("keyup", (e) => { game.key(e.code, false); });
 document.addEventListener("pointerlockchange", () => { if (document.pointerLockElement !== canvas && game.on) endGame(); });
@@ -206,12 +236,14 @@ function frame(now: number) {
   });
   ext.frame(); bodies.frame(sk.active() || ext.active());
   { const st = studio.state(), n = undo.next; list.show({ rows: rowsOf(st.steps, st.snapshot), canUndo: undo.canUndo, canRedo: undo.canRedo, undoLabel: n.undo, redoLabel: n.redo, busy: st.busy }); }
-  note.textContent = studio.state().problem || sk.frame(now).message; note.style.display = note.textContent ? "block" : "none";
+  more.show(moreItems({ hasModel: hasModel(), hasBody: hasBody() }));
+  if (now > saidUntil) said = "";
+  note.textContent = studio.state().problem || said || sk.frame(now).message; note.style.display = note.textContent ? "block" : "none";
   orientBar.show(orbc.orienting() && !!orb);
   ui.update(view.pageState(s, e));
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
-Object.assign(window, { __sketch: sk, __ext: ext, __studio: studio, __startExtrude: startExtrude, __bodies: bodies, __undo: undo, __restore: restore, __proj3: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __proj: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __tool: startTool, __px: (p: [number, number]) => { const e = env(), q = project(s.c, to3(planeNow().frame, p), e.w, e.h); return [q.x, q.y]; } }); // (for the dev checks in a page)
+Object.assign(window, { __sketch: sk, __ext: ext, __studio: studio, __startExtrude: startExtrude, __bodies: bodies, __more: chooseMore, __record: record, __undo: undo, __restore: restore, __proj3: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __proj: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __tool: startTool, __px: (p: [number, number]) => { const e = env(), q = project(s.c, to3(planeNow().frame, p), e.w, e.h); return [q.x, q.y]; } }); // (for the dev checks in a page)
 dev.install({ planes: () => ({ sketch: placed, drawn: sk.debug(), ...orbc.debug() }), model, rebuild: world.rebuild, state: () => s, put: (next) => { s = next; }, pointer: () => pointer, game, gizmoScale: () => view.gizmoScale(s) });

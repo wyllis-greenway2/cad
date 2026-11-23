@@ -5,7 +5,7 @@ import type { Spawn } from "./engine/host.ts";
 import { webWorker } from "./engine/host-web.ts";
 import type { Step } from "./engine/steps.ts";
 import type { MeshSnap } from "./engine/exchange.ts";
-import type { StepSnap } from "./engine/protocol.ts";
+import type { Ask, StepSnap } from "./engine/protocol.ts";
 import type { EdgeRef, Id } from "./engine/id.ts";
 
 export interface FaceInfo { id: string; ref: Id; /** where its triangles are in `indices` (index units) */ start: number; count: number }
@@ -50,6 +50,8 @@ export function createStudio(spawn: Spawn = webWorker()) {
       const mine = ++version; pending++; set({ steps, busy: true });
       queue = queue.then(() => run(steps, mine)).catch((e: unknown) => { set({ problem: e instanceof Error ? e.message : String(e) }); }).finally(() => { pending--; if (!pending) set({ busy: false }); });
     },
+    /** A question about the recipe the worker holds (a file of the body: `export`). */
+    ask: (q: Ask) => host.ask(q),
     /** Ready when everything asked for so far has been answered. */
     settled: (): Promise<void> => queue.then(() => undefined),
     dispose: () => host.dispose(),

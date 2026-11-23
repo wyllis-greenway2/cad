@@ -9,7 +9,7 @@ Status: **a draft, `ai-unreviewed`**, written after a first prototype was built 
 - What the next click would make is shown as the pointer moves (teal), with a small cross where the pointer is; figures done are charcoal lines.
 - **Snapping:** the point goes onto an end, a corner or a middle of an earlier figure within 10 px, else onto a grid crossing within 10 px.
 - **Right click** (or Esc) gives up the figure under way; with none, it puts the tool away; then the ring opens again.
-- Since `in_1564` the figures are **the engine's own definition** (points, lines, circles, constraints), solved at every edit; selecting, a number on a part (D), typing over it, Delete and Trim (K9 to K25) are built, checked by dev checks (`dev/drawing-check.ts`, `dev/stress-drawing.ts`, `dev/sketch-browser.ts`) and not yet tests.
+- Since `in_1564` the figures are **the engine's own definition** (points, lines, circles, constraints), solved at every edit; selecting, a number on a part (D), typing over it, Delete and Trim (K9 to K27) are built, checked by dev checks (`dev/drawing-check.ts`, `dev/stress-drawing.ts`, `dev/sketch-browser.ts`) and not yet tests.
 - Figures are kept **in the plane's own axes**, so they go with a placed plane when the orb moves it; a world plane keeps its own; a placed plane's are let go with it.
 - The orb is out of the way while a tool is on.
 
@@ -46,6 +46,9 @@ Status: **a draft, `ai-unreviewed`**, written after a first prototype was built 
 | K23 | Sketch on a face makes the face's plane the sketch plane (the engine's own frame of the face, so what is drawn lands on it), turns the view straight to it, and an extrude from it is a `sketch` step on the face with the body as its input and a `combine`: out adds a boss, in cuts a pocket. | in_1568 in_036 | | `Sketch` | later | later |
 | K24 | Push / pull of a face puts the arrow on the face where it was picked along its outward normal; the face itself, moved, follows the pull; out adds, in cuts; the number is typed over; Enter applies as a `push` step. | in_1568 in_036 in_034 | press, drag | `Sketch` | later | later |
 | K25 | Round and Chamfer take the edges picked and one number, the size (about a tenth of the shortest edge to begin with, to type over), applied with Enter as a `round` step; a size of nothing or less makes nothing; what the engine cannot do is flagged in its words. | in_1568 in_258 | key | `Sketch` | later | later |
+
+| K26 | The "..." button (top right) opens a short list: New, Open a file, Save to a file, Export STL, Export STEP; a choice that cannot be made (nothing made yet, no body yet) is dimmed with the reason in its tooltip; a click elsewhere or Esc closes it. | in_1569 in_291 in_294 | click, escape | `Sketch` | later | later |
+| K27 | Save gives `model.cad`: the document (the recipe, canonical text) with the drawings on the planes and the planes on faces; Open reads it back (the same recipe makes the same body); a file that is not one, or is newer than the program, is said in words and nothing changes; New clears everything and undo brings it back; Export gives the body as STL (to print) or STEP (to another CAD program) through the engine's worker. | in_1569 in_256 | | `Sketch` | later | later |
 
 ## Contracts
 - `Sketch` (`src/interaction/drawing.ts`): what a click does to a sketch's definition, pure, solved by the engine's solver (`engine/definition.ts`, `engine/trim.ts`: no kernel); `src/sketchcontrol.ts` the controller (the host says where each plane is); `src/sketch.ts` the plane's axes to the world.
