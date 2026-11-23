@@ -6360,3 +6360,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1549 — 2026-11-23 — question
 > So what next?
+
+## in_1550 — 2026-11-23 — question
+> Did we test some of the problematic ones? Like for example a fillet on the edge of a cylinder cut through at an angle by another cylinder?
