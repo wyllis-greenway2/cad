@@ -6390,3 +6390,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1559 — 2026-11-23 — directive
 > not yet, remember I am supposed to test in the browser and re refine before we write up requirements and tests against those requirements to preserve their abilities without regressions. So a few things before I test, what about the missing features you suggested? I believe you said Splines, a trim operation, offset curves, ellipses and conics, and 2D corner rounding.
+
+## in_1560 — 2026-11-23 — directive
+> well we at least need a trim operation, I use that all the time. Why dont you look at how the prototype trimmed, and see if it is good and reusable or if we should code our own
