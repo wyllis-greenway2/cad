@@ -2,7 +2,7 @@
 // exchange (STEP out and back, the STL mesh) and placement (mates between bodies). The checks of `dev/stress.ts` run on the first two (random operations, live equals fresh, an edit put back, nothing changed in place); the others check what
 // is theirs.
 //   node --experimental-strip-types dev/stress-families.ts family [models] [seed] [steps] [from-to]
-//   family: curved | sketch | params | document | exchange | place
+//   family: curved | sketch | params | history | document | exchange | place
 import { initKernel } from "../src/engine/kernel.ts";
 import * as K from "../src/engine/kernel.ts";
 import { Engine } from "../src/engine/engine.ts";
@@ -14,7 +14,7 @@ import { exportBody, meshOf, toBase64 } from "../src/engine/exchange.ts";
 import type { Step } from "../src/engine/steps.ts";
 import { C0, families, type C } from "./curved-recipe.ts";
 import { same } from "./lib.ts";
-import { driveModel, makeCtx, report, tweakable, type Ctx } from "./stress-lib.ts";
+import { driveModel, makeCtx, randomOp, report, tweakable, type Ctx } from "./stress-lib.ts";
 import { writeFileSync } from "node:fs";
 await initKernel();
 const FAMILY = process.argv[2] ?? "curved", MODELS = Number(process.argv[3] ?? 20), SEED = Number(process.argv[4] ?? 1), LEN = Number(process.argv[5] ?? 8);
@@ -106,6 +106,64 @@ function documentCheck(e: Engine): string[] {
   return out;
 }
 
+
+/**
+ * history, the way a person uses it: edit a step far back, put a step in the middle, take one out, move one, swap two, go back and forward; after each change the live engine must equal a fresh build of the same recipe, a step whose input
+ * is not ok is not ok (and says why), and going back to a state (by undo) must give that state's answers again, exactly as they were
+ */
+function historyCheck(e: Engine): string[] {
+  const out: string[] = [], rec = e.recipe(); let doc = D.emptyDoc();
+  try {
+    for (const s of rec) doc = D.insert(doc, s);
+    const h = new D.History(doc), live = new Engine(doc.steps as never, { parameters: doc.parameters }); live.build();
+    const snaps = new Map<string, Record<string, string>>(), statusOf = (en: Engine) => Object.fromEntries(en.ids().map((i) => [i, en.result(i).status.kind]));
+    c.note("history", "ok", "", 0);
+    let step = 0;
+    const settle = (label: string): boolean => {
+      step++; const d = h.doc;
+      try { live.setRecipe(d.steps as never, undefined, d.parameters); } catch (x) { out.push(`${label}: the live engine THREW ${(x as Error).message.slice(0, 120)}`); return false; }
+      const fresh = new Engine(d.steps as never, { parameters: d.parameters }); fresh.build();
+      for (const id of live.ids()) {
+        const a = live.result(id), b = fresh.result(id);
+        if (a.status.kind !== b.status.kind || (a.status.kind === "ok" && !same(a.fingerprint, b.fingerprint))) { out.push(`${label}: live ${a.status.kind} but fresh ${b.status.kind} at ${id}`); break; }
+        if (a.status.kind !== "ok" && !(a.status as { why?: string }).why) { out.push(`${label}: ${id} is ${a.status.kind} with no reason`); break; }
+        // a failed step is flagged and passes its input through (the model does not go blank): its answer is its first input's
+        if (a.status.kind !== "ok") { const inp = live.step(id).inputs[0]; if (inp && live.ids().includes(inp) && live.result(inp).value instanceof Body && live.result(id).value instanceof Body && !same(a.fingerprint, live.result(inp).fingerprint)) { out.push(`${label}: ${id} is ${a.status.kind} but does not pass ${inp} through`); break; } }
+      }
+      const key = D.save(d), now = fp(live), was = snaps.get(key);
+      if (was) { if (!sameFp(was, now)) out.push(`${label}: going back to a state gave other answers than the first time`); } else snaps.set(key, now);
+      c.note(`history ${label.split(" ")[0]}`, Object.values(statusOf(live)).every((k) => k === "ok") ? "ok" : "flagged", "everything ok" , 0); c.events++;
+      fresh.release(); return true;
+    };
+    snaps.set(D.save(h.doc), fp(live)); const first = D.save(h.doc), firstFp = fp(live);
+    for (let i = 0; i < 12; i++) {
+      const d = h.doc, ids = d.steps.map((s) => s.id), r = c.rnd(); let label = "";
+      try {
+        if (r < 0.35) { // edit a number of a step, far back or near
+          const cands = d.steps.filter((s) => tweakable(s).length); if (!cands.length) continue; const s = pick(cands), [key, val] = pick(tweakable(s)); label = `edit ${s.id}.${key}`;
+          h.do(D.editStep(d, s.id, { ...(s.params as object), [key]: val * pick([0.4, 0.7, 1.5, 2.5]) }), label);
+        } else if (r < 0.55) { // a new step put into the middle
+          const after = pick(ids), o = randomOp(c, live, 100 + i, after); if (!o) continue; label = `insert after ${after}`;
+          const st = { ...o.step, id: D.freshId(d, "H") }; h.do(D.insert(d, st, { after, ...(c.rnd() < 0.5 ? { splice: true } : {}) }), label);
+        } else if (r < 0.67) { const id = pick(ids); label = `remove ${id}`; h.do(D.remove(d, id), label); }
+        else if (r < 0.74) { const id = pick(ids), after = c.rnd() < 0.2 ? null : pick(ids); label = `move ${id}`; h.do(D.move(d, id, after), label); }
+        else if (r < 0.80) { const id = pick(ids); label = `swap ${id}`; h.do(D.swap(d, id), label); }
+        else if (r < 0.92) { label = "undo"; if (!h.undo()) continue; }
+        else { label = "redo"; if (!h.redo()) continue; }
+      } catch (x) { if (x instanceof D.DocError) { if (!x.message) out.push(`${label}: refused with no words`); c.note("history refused", "flagged", x.message.slice(0, 70), 0); continue; } out.push(`${label}: THREW ${(x as Error).message.slice(0, 120)}`); continue; }
+      settle(`${label} (change ${i})`);
+    }
+    // to the end of the history, all the way back, and all the way forward again
+    while (h.canRedo) h.redo(); settle("to the end"); const last = D.save(h.doc), lastFp = fp(live);
+    while (h.canUndo) h.undo(); settle("undo all");
+    if (D.save(h.doc) !== first) out.push("undoing everything did not give back the first document"); else if (!sameFp(firstFp, fp(live))) out.push("undoing everything did not give back the first answers");
+    while (h.canRedo) h.redo(); settle("redo all");
+    if (D.save(h.doc) !== last) out.push("redoing everything did not give back the last document"); else if (!sameFp(lastFp, fp(live))) out.push("redoing everything did not give back the last answers");
+    live.release();
+  } catch (x) { out.push(`history THREW ${(x as Error).stack?.split("\n").slice(0, 3).join(" | ").slice(0, 240)}`); }
+  return out;
+}
+
 /** exchange: the part as STEP and read back (same volume, same number of faces, ids from its own order), and as a mesh that encloses the part's volume */
 function exchangeCheck(e: Engine): string[] {
   const out: string[] = [], fin = finalBody(e); if (!fin) return out; c.note("exchange", "ok", "", 0);
@@ -166,8 +224,8 @@ for (let m = LO; m <= Math.min(HI, MODELS - 1); m++) {
   else { const p = sketchStart(), b = [{ id: "s", kind: "sketchPolygon", params: { points: [[0, 0], [num(20, 50), 0], [num(20, 50), num(15, 35)], [0, num(15, 35)]] }, inputs: [] }, { id: "A", kind: "extrude", params: { d: num(6, 25) }, inputs: ["s"] }] as Step[]; start = pick([p, b]); }
   const e = new Engine(start); e.build();
   const first = finalBody(e); if (!first) { c.note("start", "flagged", "the start was not ok", 0); e.release(); continue; }
-  const lenFor = FAMILY === "curved" || FAMILY === "sketch" ? LEN : Math.min(LEN, 4);
-  const extra = FAMILY === "params" ? paramsCheck : FAMILY === "document" ? documentCheck : FAMILY === "exchange" ? exchangeCheck : FAMILY === "place" ? placeCheck : undefined;
+  const lenFor = FAMILY === "curved" || FAMILY === "sketch" ? LEN : FAMILY === "history" ? Math.min(LEN, 6) : Math.min(LEN, 4);
+  const extra = FAMILY === "params" ? paramsCheck : FAMILY === "history" ? historyCheck : FAMILY === "document" ? documentCheck : FAMILY === "exchange" ? exchangeCheck : FAMILY === "place" ? placeCheck : undefined;
   if (FAMILY === "place") { const w = extra!(e); for (const x of w) c.problems.push(`model ${m} (seed ${mseed}): ${x}`); if (w.length) writeFileSync(`/tmp/stress-${FAMILY}-${SEED}-${m}.json`, JSON.stringify(e.recipe())); e.release(); continue; }
   driveModel(c, m, mseed, e, lenFor, extra);
 }

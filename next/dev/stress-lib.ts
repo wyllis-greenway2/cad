@@ -28,8 +28,8 @@ const planar = (b: Body) => b.faces.filter((f) => K.facts(f.h).type === "PLANE")
 const round = (b: Body) => b.faces.filter((f) => K.facts(f.h).type === "CYLINDRE");
 
 /** one random operation on the part as it is now: the step to try, and its name */
-export function randomOp(c: Ctx, e: Engine, n: number): { op: string; step: Step } | null {
-  const bid = lastBodyId(e); if (!bid) return null; const b = lastBody(e)!; const id = `X${n}`;
+export function randomOp(c: Ctx, e: Engine, n: number, from?: string): { op: string; step: Step } | null {
+  const bid = from ?? lastBodyId(e); if (!bid) return null; const fv = e.result(bid).value; if (e.result(bid).status.kind !== "ok" || !(fv instanceof Body)) return null; const b = fv; const id = `X${n}`;
   const faces = planar(b), edges = b.edges().filter((x) => x.ref);
   const op = c.pick(["hole", "hole", "push", "push", "moveFace", "round", "round", "chamfer", "shell", "offsetFace", "pattern", "mirror", "counterbore", "holeThrough", "pushNeg", "roundBig"]);
   const bb = (() => { const v = K.volume(b.solid); return Math.cbrt(v); })();

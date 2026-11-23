@@ -6372,3 +6372,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1553 — 2026-11-23 — question
 > not yet, I just want to compare apples to apples as much as possible. How is our engine compared to just the prototype engine? Is ours complete, logically sound, and covering all the things we care about? history, sketches, bodies, costraints etc?
+
+## in_1554 — 2026-11-23 — question
+> does our engine handle history well? did you try testing the history as a user would? Going back to prior steps, editing them, seeing if things update or error properly
