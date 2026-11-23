@@ -6378,3 +6378,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1555 — 2026-11-23 — question
 > okay, and how about sketching and constraints? did we test those?
+
+## in_1556 — 2026-11-23 — question
+> so is the sketch engine good now? We arent worried about the UI side yet because we haven't really built it yet
