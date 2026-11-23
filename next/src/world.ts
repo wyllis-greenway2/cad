@@ -15,6 +15,10 @@ import { drawLines } from "./sketchdraw.ts";
 import type { DrawLine } from "./sketchcontrol.ts";
 import { SOLID, SEE_THROUGH, surfaceOf, type Look } from "./looks.ts";
 import type { BodyMesh } from "./studio.ts";
+import type { Mark } from "./bodyselect.ts";
+import { Line2 } from "three/examples/jsm/lines/Line2.js";
+import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 
 const vec = (v: V3) => new THREE.Vector3(v[0], v[1], v[2]);
 const rgb = (c: [number, number, number]) => new THREE.Color().setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace);
@@ -57,7 +61,9 @@ export interface Drawing {
   /** The look of each body by id (default Solid): the world draws a body only in one of the three looks (looks.ts). */
   looks?: Record<string, Look>;
   /** What a pull would make, shown before the engine has made it: the outline (and holes) in the plane's axes, pulled `d` along the plane's normal, in the See-through look marked as picked. */
-  ghost?: { frame: { origin: V3; u: V3; v: V3; n: V3 }; loops: [number, number][][]; d: number } | null;
+  /** What is picked or pointed at on the bodies: laid over them in the Marked look (teal). */
+  marks?: Mark[];
+  ghost?: { frame: { origin: V3; u: V3; v: V3; n: V3 }; loops: [number, number][][]; d: number } | { faceMove: { positions: Float32Array; n: V3; d: number } } | null;
 }
 
 export function createWorld(canvas: HTMLCanvasElement, model: Model) {
@@ -177,12 +183,42 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
   const dyn = new THREE.Group(); scene.add(dyn);
   const drop = () => { for (const o of [...dyn.children]) { dyn.remove(o); o.traverse((q) => { (q as THREE.Mesh).geometry?.dispose?.(); }); } };
 
+  // the marks: faces and edges of the bodies, in the Marked look (teal); made again when they change
+  const markGroup = new THREE.Group(); scene.add(markGroup);
+  let markKey = ""; const markLines: LineMaterial[] = [];
+  const setMarks = (marks: Mark[] | undefined, w: number, h: number) => {
+    const key = JSON.stringify([marks ?? [], solids.length, solids[0]?.positions.length ?? 0]);
+    for (const m of markLines) m.resolution.set(w, h);
+    if (key === markKey) return;
+    markKey = key; markGroup.traverse((o) => { (o as THREE.Mesh).geometry?.dispose(); }); markGroup.clear(); markLines.length = 0;
+    const teal = new THREE.Color(surfaceOf({ base: "solid", mark: "pick" }).color).lerp(new THREE.Color(0x1ab8b3), 1);
+    for (const mk of marks ?? []) {
+      const b = solids.find((x) => x.id === mk.body); if (!b) continue;
+      const strong = mk.strength === "pick";
+      for (const f of mk.faces) {
+        const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(b.positions, 3)); g.setIndex(new THREE.BufferAttribute(b.indices.slice(f.start, f.start + f.count), 1));
+        const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: teal, transparent: true, opacity: strong ? 0.5 : 0.22, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+        m.renderOrder = 3; markGroup.add(m);
+      }
+      for (const e of mk.edges) {
+        const g = new LineGeometry(); g.setPositions(Array.from(b.lines.slice(3 * e.start, 3 * (e.start + e.count))));
+        const m = new LineMaterial({ color: teal.getHex(), linewidth: strong ? 4 : 3, transparent: !strong, opacity: strong ? 1 : 0.7, depthTest: false }); m.resolution.set(w, h);
+        const l = new Line2(g, m); l.renderOrder = 12; markGroup.add(l); markLines.push(m);
+      }
+    }
+  };
   // the ghost of a pull: made again only when what it is made of changes
   let ghost: THREE.Group | null = null, ghostKey = "";
   const setGhost = (g: Drawing["ghost"]) => {
-    const key = g ? JSON.stringify([g.frame, g.loops, g.d]) : "";
+    const key = !g ? "" : "faceMove" in g ? `face:${g.faceMove.positions.length}:${g.faceMove.positions[0]}:${g.faceMove.n}:${g.faceMove.d}` : JSON.stringify([g.frame, g.loops, g.d]);
     if (key === ghostKey) return;
     ghostKey = key; if (ghost) { scene.remove(ghost); ghost.traverse((o) => { (o as THREE.Mesh).geometry?.dispose(); }); ghost = null; }
+    if (g && "faceMove" in g) { // a face of a body pushed or pulled: the face itself, moved along its normal
+      const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(g.faceMove.positions, 3));
+      const sf = surfaceOf({ base: "seeThrough", mark: "pick" }), mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: sf.color, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
+      ghost = new THREE.Group(); ghost.add(mesh, new THREE.LineSegments(new THREE.WireframeGeometry(geo), new THREE.LineBasicMaterial({ color: sf.color, transparent: true, opacity: 0.35 })));
+      ghost.position.copy(vec(g.faceMove.n).multiplyScalar(g.faceMove.d)); ghost.renderOrder = 5; scene.add(ghost); return;
+    }
     if (!g || !g.loops.length || Math.abs(g.d) < 1e-9) return;
     const shape = new THREE.Shape(g.loops[0]!.map((p) => new THREE.Vector2(p[0], p[1])));
     for (const h of g.loops.slice(1)) shape.holes.push(new THREE.Path(h.map((p) => new THREE.Vector2(p[0], p[1]))));
@@ -202,7 +238,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
     render(d: Drawing) {
       renderer.setSize(d.w, d.h, false);
       lookBodies(d.looks);
-      setGhost(d.ghost);
+      setGhost(d.ghost); setMarks(d.marks, d.w, d.h);
       const c = d.cam, f = forward(c);
       // an orthographic view (a straight view at rest) is drawn with the orthographic camera, so that sliding it shows nothing of the third
       // dimension; between it and perspective, the perspective camera with the lens narrowed

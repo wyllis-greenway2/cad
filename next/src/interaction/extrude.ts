@@ -6,6 +6,7 @@ import { regions, type Loop, type Pt } from "../engine/region.ts";
 import type { Frame } from "../planes.ts";
 import { vOf } from "../planes.ts";
 import type { Step } from "../engine/steps.ts";
+import type { EdgeRef, Id } from "../engine/id.ts";
 
 export interface Region {
   /** the point inside it that the sketch keeps to find it again */ pick: Pt;
@@ -42,10 +43,23 @@ export const frameParams = (f: Frame) => ({ origin: f.origin, xDir: f.u, normal:
 void vOf;
 
 /** What a pull of this size is made of: the steps to add to the recipe, given the steps there are (`recipe`) and the body the last one made (`last`, if any). A pull in the plane's direction adds; against it, when there is a body, cuts. */
-export function extrudeSteps(recipe: readonly Step[], def: SketchParams, f: Frame, pick: Pt, d: number): Step[] {
+export interface FaceSource { face: Id; body: string }
+/** The step that made the body now: the last step of the recipe that makes one (an extrude, a push, a round, a combine). */
+export const lastBodyStep = (recipe: readonly Step[]): string | null => { for (let i = recipe.length - 1; i >= 0; i--) if (recipe[i]!.kind !== "sketch" && recipe[i]!.kind !== "sketchPolygon" && recipe[i]!.kind !== "sketchCircle" && recipe[i]!.kind !== "sketchOnFace") return recipe[i]!.id; return null; };
+/** a face of the body pushed out (a distance above nothing) or in */
+export function pushSteps(recipe: readonly Step[], face: Id, body: string, d: number): Step[] {
+  let n = 1; while (recipe.some((s) => s.id === `p${n}`)) n++;
+  return [{ id: `p${n}`, kind: "push", params: { face, dist: d }, inputs: [body] }];
+}
+/** edges of the body rounded (`fillet`) or cut flat (`chamfer`) by `size` */
+export function roundSteps(recipe: readonly Step[], edges: readonly EdgeRef[], body: string, size: number, kind: "fillet" | "chamfer"): Step[] {
+  let n = 1; while (recipe.some((s) => s.id === `r${n}`)) n++;
+  return [{ id: `r${n}`, kind: "round", params: { edges, size, mode: kind }, inputs: [body] }];
+}
+export function extrudeSteps(recipe: readonly Step[], def: SketchParams, f: Frame, pick: Pt, d: number, source?: FaceSource): Step[] {
   const have = (p: string) => { let n = 1; while (recipe.some((s) => s.id === `${p}${n}`)) n++; return `${p}${n}`; };
   const sid = have("s"), eid = have("e"), steps: Step[] = [
-    { id: sid, kind: "sketch", params: { ...def, frame: frameParams(f), pick: [pick] } as never, inputs: [] },
+    source ? { id: sid, kind: "sketch", params: { ...def, face: source.face, pick: [pick] } as never, inputs: [source.body] } : { id: sid, kind: "sketch", params: { ...def, frame: frameParams(f), pick: [pick] } as never, inputs: [] },
     { id: eid, kind: "extrude", params: { d }, inputs: [sid] },
   ];
   const lastBody = [...recipe].reverse().find((s) => s.kind === "extrude" || s.kind === "combine");

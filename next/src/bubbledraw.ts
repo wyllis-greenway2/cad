@@ -35,7 +35,7 @@ export function createBubbleLayer(host: HTMLElement, h: BubbleHandlers) {
     const input = document.createElement("input");
     input.value = b.text ?? ""; input.style.cssText = `width:${Math.max(4, (b.text ?? "").length + 1)}ch;font:inherit;font-weight:600;border:0;outline:0;background:transparent;padding:0`;
     num.replaceWith(input); input.focus(); input.select(); e.editing = true;
-    const done = (commit: boolean) => { if (!e.editing) return; e.editing = false; const v = Number(input.value.trim()); if (commit && input.value.trim() !== "" && isFinite(v)) h.set(b.id, v); else { e.sig = ""; } };
+    const done = (commit: boolean) => { if (!e.editing) return; e.editing = false; const v = Number(input.value.trim()); if (commit && input.value.trim() !== "" && isFinite(v)) h.set(b.id, v); e.sig = ""; /* (drawn again, with the number, whether or not it changed) */ };
     input.addEventListener("keydown", (ev) => { ev.stopPropagation(); if (ev.key === "Enter") done(true); else if (ev.key === "Escape") done(false); });
     input.addEventListener("blur", () => done(false));
     input.addEventListener("pointerdown", (ev) => ev.stopPropagation());

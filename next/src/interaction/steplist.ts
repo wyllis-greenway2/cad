@@ -9,16 +9,16 @@ export interface Row { id: string; icon: string; title: string; status: "ok" | "
 
 const unitOf = (k: string): "mm" | "deg" => (k === "angle" ? "deg" : "mm");
 const TITLE: Record<string, string> = { sketch: "Sketch", extrude: "Extrude", combine: "Combine", sketchPolygon: "Sketch", sketchCircle: "Sketch", push: "Push / pull", round: "Round", move: "Move", turn: "Turn" };
-const ICON: Record<string, string> = { sketch: "sketch", sketchPolygon: "sketch", sketchCircle: "sketch", extrude: "pushpull", push: "pushpull", combine: "add" };
+const ICON: Record<string, string> = { sketch: "sketch", sketchPolygon: "sketch", sketchCircle: "sketch", extrude: "pushpull", push: "pushpull", combine: "add", round: "round" };
 
 export function rowsOf(steps: readonly Step[], snap: readonly StepSnap[]): Row[] {
   return steps.map((s) => {
     const sn = snap.find((x) => x.id === s.id), numbers: NumberRow[] = [];
     if (s.kind === "sketch") for (const c of ((s.params.constraints as Constraint[] | undefined) ?? [])) { if (RANGEABLE.has(c.kind) && c.value !== undefined) numbers.push({ key: `c:${c.id}`, label: `${RELATIONS[c.kind].label} ${c.parts.join(", ")}`, value: c.value, unit: unitOf(c.kind) }); }
     else for (const [k, v] of Object.entries(s.params)) if (typeof v === "number") numbers.push({ key: k, label: k === "d" ? "Distance" : k, value: v, unit: "mm" });
-    const mode = s.kind === "combine" ? (s.params.mode === "cut" ? "Cut" : s.params.mode === "intersect" ? "Intersect" : "Add") : null;
+    const mode = s.kind === "combine" ? (s.params.mode === "cut" ? "Cut" : s.params.mode === "intersect" ? "Intersect" : "Add") : s.kind === "round" ? (s.params.mode === "chamfer" ? "Chamfer" : "Round") : null;
     const st = sn?.status as { kind: string; why?: string } | undefined;
-    return { id: s.id, icon: ICON[s.kind] ?? "pencil", title: `${mode ?? TITLE[s.kind] ?? s.kind} ${s.id}`, status: !st ? "unknown" : (st.kind as Row["status"]), why: st?.why ?? "", numbers };
+    return { id: s.id, icon: s.kind === "round" && s.params.mode === "chamfer" ? "chamfer" : ICON[s.kind] ?? "pencil", title: `${mode ?? TITLE[s.kind] ?? s.kind} ${s.id}`, status: !st ? "unknown" : (st.kind as Row["status"]), why: st?.why ?? "", numbers };
   });
 }
 /** the recipe with one number of one step changed; null if there is no such step or number */

@@ -1,7 +1,7 @@
 // Exchange and the derived mesh (E21, E70, E71; `dec_export_stl`, `dec_export_formats`, `dec_import`): the exact body is the model; the mesh is made from it for the screen, for picking by face id and for STL, and is
 // never kept as the truth. STEP leaves and enters as the exact body (the kernel writes and reads it). All the answers are plain data (numbers, strings, bytes), so they cross the worker.
 import * as K from "./kernel.ts";
-import { type Id, edgeKey, idKey, mint } from "./id.ts";
+import { type EdgeRef, type Id, edgeKey, idKey, mint } from "./id.ts";
 import { Body, type Claim, fromClaims } from "./lineage.ts";
 import { viewOf } from "./scope.ts";
 import { type Value, kinds } from "./steps.ts";
@@ -9,9 +9,9 @@ import { type Value, kinds } from "./steps.ts";
 export interface MeshSnap {
   positions: number[]; normals: number[]; indices: number[];
   /** the triangles of each face, by the face's id: `count` indices from `start`; `body` the name of the body it is in (a pick gives the face and the body) */
-  faces: { id: string; body: string | null; start: number; count: number }[];
+  faces: { id: string; /** the face's id as data (a step takes it to name the face) */ ref: Id; body: string | null; start: number; count: number }[];
   /** the polylines of the edges (x y z per point), one per edge; `key` is the edge's name (the two faces beside it), null for an edge with none */
-  lines: number[]; edges: { key: string | null; start: number; count: number }[];
+  lines: number[]; edges: { key: string | null; /** the edge as data: the two faces beside it (a step takes it to name the edge) */ ref: EdgeRef | null; start: number; count: number }[];
   /** the triangle count, for the person who wants to know what the mesh cost */ triangles: number;
 }
 /** the bodies of a scene that the names pick (by name or an alias); none named: all of them */
@@ -30,8 +30,8 @@ export function meshOf(scene: Body, opts: { bodies?: readonly string[]; toleranc
       const m = K.mesh(b.solid, opts.tolerance, opts.angle), owner = new Map<string, string>();
       for (const r of scene.bodies) for (const f of r.faces) owner.set(idKey(f.id), idKey(r.id));
       const rec = (h: K.FaceH) => b.faces.find((f) => K.sameFace(f.h, h));
-      const faces = m.faces.flatMap((g) => { const f = rec(g.face); return f ? [{ id: idKey(f.id), body: owner.get(idKey(f.id)) ?? null, start: g.start, count: g.count }] : []; });
-      const refs = new Map(b.edges().map((e) => [e.h, e.ref] as const)), edges = m.edges.map((g) => { const e = b.edges().find((x) => K.sameEdge(x.h, g.edge)); return { key: e?.ref ? edgeKey(e.ref) : null, start: g.start, count: g.count }; }); void refs;
+      const faces = m.faces.flatMap((g) => { const f = rec(g.face); return f ? [{ id: idKey(f.id), ref: f.id, body: owner.get(idKey(f.id)) ?? null, start: g.start, count: g.count }] : []; });
+      const refs = new Map(b.edges().map((e) => [e.h, e.ref] as const)), edges = m.edges.map((g) => { const e = b.edges().find((x) => K.sameEdge(x.h, g.edge)); return { key: e?.ref ? edgeKey(e.ref) : null, ref: e?.ref ?? null, start: g.start, count: g.count }; }); void refs;
       return { positions: m.positions, normals: m.normals, indices: m.indices, faces, lines: m.lines, edges, triangles: m.indices.length / 3 };
     });
   } finally { if (b !== scene) b.release?.(); }

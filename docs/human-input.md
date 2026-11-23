@@ -6414,3 +6414,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1567 — 2026-11-23 — directive
 > undo and a step list for editing numbers
+
+## in_1568 — 2026-11-23 — approval
+> yes start with face and edge picking

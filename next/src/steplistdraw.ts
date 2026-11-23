@@ -29,7 +29,7 @@ export function createStepList(host: HTMLElement, h: StepListHandlers) {
       ev.stopPropagation();
       const input = document.createElement("input"); input.value = String(Math.round(n.value * 1000) / 1000); input.style.cssText = `width:${Math.max(4, input.value.length + 1)}ch;font:inherit;font-weight:600;border:0;outline:0;background:transparent;padding:0`;
       val.replaceWith(input); input.focus(); input.select(); editing = true;
-      const done = (commit: boolean) => { if (!editing) return; editing = false; const v = Number(input.value.trim()); if (commit && input.value.trim() !== "" && isFinite(v) && v !== n.value) h.edit(row.id, n.key, v); else sig = ""; };
+      const done = (commit: boolean) => { if (!editing) return; editing = false; const v = Number(input.value.trim()); if (commit && input.value.trim() !== "" && isFinite(v) && v !== n.value) h.edit(row.id, n.key, v); sig = ""; };
       input.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") done(true); else if (e.key === "Escape") done(false); });
       input.addEventListener("blur", () => done(false));
     });

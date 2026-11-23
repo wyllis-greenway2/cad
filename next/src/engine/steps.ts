@@ -1,7 +1,7 @@
 // The step kinds of the first slice (E2): a step takes the values of its inputs and returns a body or a sketch. Each is pure: the same step and inputs give the same body and the same ids (E20).
 // A step that cannot be made throws; the engine flags it and passes `passthrough` on, a value of the step's own output type (E13).
 import * as K from "./kernel.ts";
-import { cross, dot, scale, sub, unit } from "./vec.ts";
+import { cross, dot, faceAxes, scale, sub, unit } from "./vec.ts";
 import { type EdgeRef, type Id, idKey, isPieceOf, mint, show } from "./id.ts";
 import { type Age, Body, type Claim, type EdgeRec, RefLost, type FaceRec, carry, fromClaims, markImprinted, unifyBody } from "./lineage.ts";
 import { pointedLimit, rimOf } from "./rounds.ts";
@@ -52,8 +52,7 @@ function sidesOf(body: Body, face: FaceRec, report: K.Report, step: string): Cla
 /** the frame of a face for placing lines: u across, v along; v follows `align` (an edge's direction) when given, so a line placed from an edge is parallel to it (E12) */
 export function frameOf(face: FaceRec, align: V3 | null) {
   const f = K.facts(face.h), n = f.ne;
-  let u: V3 = [1 - n[0] * n[0], -n[0] * n[1], -n[0] * n[2]]; if (Math.hypot(...u) < 1e-3) u = [-n[1] * n[0], 1 - n[1] * n[1], -n[1] * n[2]];
-  u = unit(u); let v = cross(n, u);
+  let { u, v } = faceAxes(n);
   if (align) { const d = dot(align, n); v = unit([align[0] - n[0] * d, align[1] - n[1] * d, align[2] - n[2] * d]); u = cross(v, n); }
   const O = f.ce; let lo = Infinity, hi = -Infinity;
   for (const e of K.faceEdges(face.h)) for (const p of K.edgeEnds(e)) { const a = dot(sub(p, O), v); lo = Math.min(lo, a); hi = Math.max(hi, a); }

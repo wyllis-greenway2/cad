@@ -33,6 +33,8 @@ const ICONS: Record<string, string> = {
   undo: svg('<path d="M3.5 6.5h5.8a3.2 3.2 0 010 6.4H5.5"/><path d="M6 3.5L3 6.5l3 3"/>'),
   redo: svg('<path d="M12.5 6.5H6.7a3.2 3.2 0 000 6.4h3.8"/><path d="M10 3.5l3 3-3 3"/>'),
   add: svg('<circle cx="6" cy="8" r="4.2"/><circle cx="10" cy="8" r="4.2"/>'),
+  round: svg('<path d="M3 13V8a5 5 0 015-5h5"/><path d="M3 13h2M13 3v2" opacity=".5"/>'),
+  chamfer: svg('<path d="M3 13V7l4-4h6"/><path d="M3 13h2M13 3v2" opacity=".5"/>'),
   cross: svg('<path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>'),
 };
 export const iconSvg = (key: string): string => ICONS[key] ?? "";
