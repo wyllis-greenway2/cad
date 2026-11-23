@@ -1,6 +1,6 @@
 // A dev check (not a test, `in_1444`) of the looks and the bubbles, without a page: node --experimental-strip-types dev/looks-bubbles-check.ts
 import { SEE_THROUGH, SOLID, mix, surfaceOf } from "../src/looks.ts";
-import { anchorOf, bubblesOn, retype, placed } from "../src/interaction/bubbles.ts";
+import { anchorOf, bubblesOn, placed } from "../src/interaction/bubbles.ts";
 import { solve, type System } from "../src/engine/solver.ts";
 let bad = 0; const ok = (c: boolean, what: string) => { console.log(`${c ? "ok  " : "FAIL"} ${what}`); if (!c) bad++; };
 
@@ -31,13 +31,4 @@ ok(bubblesOn(S, ["K"])[0]!.symbol === "R" && bubblesOn(S, ["K"])[0]!.text === "2
 const at = anchorOf(S, S.constraints.find((c) => c.id === "n")!);
 ok(Math.abs(at[0] - 5) < 1e-6, `a length stands at the middle of its line (${at.map((v) => v.toFixed(2))})`);
 ok(bubblesOn(S, ["L0"], { refused: ["n"] }).find((b) => b.id === "n")!.tone === "refused" && bubblesOn(S, ["L0"], { applied: ["h"] }).find((b) => b.id === "h")!.tone === "applied", "flashes give the tone");
-// retype
-const r = retype(S, "n", 14);
-ok(r.ok && Math.abs(r.solved.points.find((p) => p.id === "B")!.x - 14) < 1e-6, "a new length is solved");
-const bad1 = retype(S, "n", -2), bad2 = retype(S, "h", 3);
-ok(!bad1.ok && !bad2.ok, "a negative length, and a number for something that has none, are refused with words");
-// a number that conflicts: the second dimension on the same line
-const S2: System = { ...S, constraints: [...S.constraints, { id: "m", kind: "distance", parts: ["A", "B"], value: 10 }] }, S2p = placed(S2, solve(S2).solution);
-const c = retype(S2p, "m", 12);
-ok(!c.ok && c.victims.includes("n"), `a number that fights another names it (${!c.ok ? c.victims : ""})`);
 process.exit(bad ? 1 : 0);

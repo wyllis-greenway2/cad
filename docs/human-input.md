@@ -6402,3 +6402,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1563 — 2026-11-23 — approval
 > yes start with looks and the bubble, click to trim is fine
+
+## in_1564 — 2026-11-23 — approval
+> yes build the sketch controller on the engine with trim

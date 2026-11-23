@@ -8,16 +8,16 @@ import { createWorld } from "./world.ts";
 import { createUi } from "./ui.ts";
 import * as dev from "./dev.ts";
 import * as view from "./view.ts";
-import { forward, type Axis } from "./camera.ts";
+import { forward, project, type Axis } from "./camera.ts";
 import { focusOf, gridLevel, gridLevelAt } from "./sense.ts";
 import { facingCamera, vOf, worldFrame, type Frame } from "./planes.ts";
 import { createSketch } from "./sketchcontrol.ts";
-import type { ToolKind } from "./sketch.ts";
+import { to3, type ToolKind } from "./sketch.ts";
 import { createMenu, createOrientBar, type MenuItem } from "./menu.ts";
 import { createOrbControl } from "./orbcontrol.ts";
 import { dot, scale, sub } from "./vec.ts";
-import { createSketchDemo } from "./bubbledemo.ts";
 import { SEE_THROUGH } from "./looks.ts";
+import { settings } from "./settings.ts";
 
 const params = new URLSearchParams(location.search);
 dev.tuneFromAddress(params);
@@ -63,9 +63,11 @@ const sk = createSketch({
     return { all, on: planeNow().key, step: placed ? gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, placed.origin), placed.normal))).step : gridLevel(s.c, s.plane).step };
   },
   ray: (x, y) => view.rayAt(s, env(), x, y),
-});
-// the engine-kind sketch with bubbles, to try by hand (`?bubbles=1`): it stands on the plane that is on, and the stand-in bodies are drawn See-through behind it
-const demo = params.get("bubbles") === "1" ? createSketchDemo({ view: () => { const e = env(); return { cam: s.c, w: e.w, h: e.h }; }, plane: () => planeNow().frame, ray: (x, y) => view.rayAt(s, env(), x, y) }, document.body) : null;
+}, document.body);
+// the one line of words at the bottom (a refusal, what a trim let go)
+const note = document.createElement("div");
+note.style.cssText = `position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:none;max-width:70vw;padding:7px 14px;border-radius:15px;background:${settings.ui.pill};color:${settings.ui.pillText};font:13px ${settings.ui.font};z-index:9;pointer-events:none`;
+document.body.appendChild(note);
 function startTool(kind: ToolKind) {
   if (game.on) endGame();
   const f = planeNow().frame, straight = s.c.ortho !== null && !s.go && Math.abs(dot(forward(s.c), f.normal)) > 0.9999;
@@ -76,7 +78,7 @@ function startTool(kind: ToolKind) {
 // ---- the right-click ring: the pencil (its tools open as a ring of their own) and the sketch plane ----
 const menu = createMenu(document.body, (id) => { if (id === "sketch-plane") addSketchPlane(); else if (id.startsWith("tool:")) startTool(id.slice(5) as ToolKind); });
 const menuItems = (): MenuItem[] => [
-  { id: "pencil", label: "Sketch", icon: "sketch", children: [{ id: "tool:line", label: "Line", icon: "line" }, { id: "tool:rect", label: "Rectangle", icon: "rect" }, { id: "tool:circle", label: "Circle", icon: "circle" }] },
+  { id: "pencil", label: "Sketch", icon: "sketch", children: [{ id: "tool:line", label: "Line", icon: "line" }, { id: "tool:rect", label: "Rectangle", icon: "rect" }, { id: "tool:circle", label: "Circle", icon: "circle" }, { id: "tool:trim", label: "Trim", icon: "scissors" }] },
   { id: "sketch-plane", label: "Sketch plane", icon: "sheetPlain" },
 ];
 
@@ -94,8 +96,7 @@ attach(canvas, {
   click: (x, y, count) => {
     pointer = { x, y };
     if (menu.isOpen()) { menu.close(); return; }
-    if (demo?.click(x, y, shiftHeld)) return;
-    if (sk.click(x, y, count)) return; // (a tool is on: a click is a point of its figure)
+    if (sk.click(x, y, count, shiftHeld)) return; // (a tool is on: a click is a point of its figure)
     const next = view.click(s, env(), x, y); // (a pane of a world plane: it is the sketch plane now)
     if (next !== s) { placed = null; s = next; }
   },
@@ -112,10 +113,11 @@ addEventListener("keydown", (e) => { shiftHeld = e.shiftKey; });
 addEventListener("keyup", (e) => { shiftHeld = e.shiftKey; });
 addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (sk.key(e.code)) { e.preventDefault(); return; } // (Delete, and D with something selected, are the sketch's before they are the game's)
   if (game.moves(e.code) && !game.on && !e.repeat) startGame(); // (W A S D turn the game on too, and the key that did it moves the eye)
   if (game.key(e.code, true)) return;
   if (orbc.orienting() && e.code === "Enter") { orbc.keep(); return; }
-  if (e.code === "Escape") { if (orbc.cancel()) return; if (menu.isOpen()) menu.close(); else if (game.on) endGame(); else if (demo?.clear()) { /* the selection is put away */ } else if (!sk.stop()) orbc.release(); }
+  if (e.code === "Escape") { if (orbc.cancel()) return; if (menu.isOpen()) menu.close(); else if (game.on) endGame(); else if (!sk.stop() && !sk.clearSelection()) orbc.release(); }
 });
 addEventListener("keyup", (e) => { game.key(e.code, false); });
 document.addEventListener("pointerlockchange", () => { if (document.pointerLockElement !== canvas && game.on) endGame(); });
@@ -131,15 +133,15 @@ function frame(now: number) {
   const e = env(now), d = view.drawing(s, e, pointer), orb = orbc.drawing(game.on ? null : pointer);
   canvas.style.cursor = orb?.hover ? "grab" : "";
   world.render({
-    ...d, ...(placed ? { grid: gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, placed.origin), placed.normal))), sketch: { origin: placed.origin, u: placed.u, v: vOf(placed), n: placed.normal } } : {}), orb, lines: [...sk.lines(game.on ? null : pointer), ...(demo?.lines() ?? [])], ...(demo ? { looks: Object.fromEntries(model.things.map((t) => [t.id, SEE_THROUGH])) } : {}),
+    ...d, ...(placed ? { grid: gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, placed.origin), placed.normal))), sketch: { origin: placed.origin, u: placed.u, v: vOf(placed), n: placed.normal } } : {}), orb, lines: sk.lines(game.on ? null : pointer), ...(sk.active() ? { looks: Object.fromEntries(model.things.map((t) => [t.id, SEE_THROUGH])) } : {}),
     cut: placed ? { origin: placed.origin, n: placed.normal } : null, // (made once with the plane, from the side the camera looked from; it turns and moves with the plane, and does not change with the camera)
   });
-  demo?.frame(now);
+  note.textContent = sk.frame(now).message; note.style.display = note.textContent ? "block" : "none";
   orientBar.show(orbc.orienting() && !!orb);
   ui.update(view.pageState(s, e));
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
-if (demo) (window as unknown as { __demo: unknown }).__demo = demo;
+Object.assign(window, { __sketch: sk, __tool: startTool, __px: (p: [number, number]) => { const e = env(), q = project(s.c, to3(planeNow().frame, p), e.w, e.h); return [q.x, q.y]; } }); // (for the dev checks in a page)
 dev.install({ planes: () => ({ sketch: placed, drawn: sk.debug(), ...orbc.debug() }), model, rebuild: world.rebuild, state: () => s, put: (next) => { s = next; }, pointer: () => pointer, game, gizmoScale: () => view.gizmoScale(s) });

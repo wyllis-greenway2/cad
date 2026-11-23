@@ -6,7 +6,7 @@ import { type Change, options, probe, probeParam, trial } from "./failure.ts";
 import { exportBody, meshOf, toBase64 } from "./exchange.ts";
 import { dragSketch } from "./drag.ts";
 import { trimAt } from "./trim.ts";
-import type { SketchParams } from "./sketch.ts";
+import { solvedPositions, type SketchParams } from "./sketch.ts";
 
 /** what each question takes */
 export interface AskArgs {
@@ -32,7 +32,7 @@ export const asks: { [K in keyof AskArgs]: (e: Engine, a: AskArgs[K]) => unknown
   probeParam: (e, a) => probeParam(e, a.name, { lo: a.lo, hi: a.hi, focus: a.focus }),
   options: (e, a) => options(e, a.step),
   dragSketch: (e, a) => dragSketch(e, a.step, a.pins, a.hold),
-  trim: (e, a) => { const st = e.step(a.step); if (st.kind !== "sketch") throw new Error(`step ${a.step} is not a sketch`); const input = st.inputs[0] ? e.result(st.inputs[0]).value : null; return trimAt(st.params as unknown as SketchParams, a.part, a.at, input instanceof Body ? input : null); },
+  trim: (e, a) => { const st = e.step(a.step); if (st.kind !== "sketch") throw new Error(`step ${a.step} is not a sketch`); const input = st.inputs[0] ? e.result(st.inputs[0]).value : null; const body = input instanceof Body ? input : null; return trimAt(st.params as unknown as SketchParams, a.part, a.at, (q) => solvedPositions(q, body)); },
   mesh: (e, a) => meshOf(bodyOf(e, a.step, "mesh"), { bodies: a.bodies, tolerance: a.tolerance }),
   export: (e, a) => { const bytes = exportBody(bodyOf(e, a.step, "export"), a.format, { bodies: a.bodies, tolerance: a.tolerance, ascii: a.ascii }); return { format: a.format, base64: toBase64(bytes), bytes: bytes.length }; },
 };

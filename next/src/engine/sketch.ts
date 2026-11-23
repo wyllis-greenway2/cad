@@ -6,6 +6,7 @@ import { unit } from "./vec.ts";
 import { type EdgeRef, type Id, type VertexRef, mint } from "./id.ts";
 import { Body } from "./lineage.ts";
 import { type Constraint, type Options as SolveOptions, type System, solve } from "./solver.ts";
+import { refusalOf, segsOf, systemOf } from "./definition.ts";
 import { type Loop as RLoop, type Seg, regions } from "./region.ts";
 import { type Line, type Sketch, Refusal, at, frameOf, kinds, needBody, planeOf } from "./steps.ts";
 
@@ -61,29 +62,18 @@ function solveParts(p: SketchParams, body: Body | null, step: { id: string }, dr
     if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-9) anchorPoints.push({ id: an.id, x: a[0], y: a[1], fixed: true }); // seen end-on: a point in this plane
     else { anchorPoints.push({ id: `${an.id}.a`, x: a[0], y: a[1], fixed: true }, { id: `${an.id}.b`, x: b[0], y: b[1], fixed: true }); anchorLines.push({ id: an.id, a: `${an.id}.a`, b: `${an.id}.b` }); reference.push({ id: mint(step.id, "anchor", an.id), a: e0, b: e1 }); }
   }
-  const at0 = new Map(p.points.map((q) => [q.id, q] as const));
-  const arcCircles = (p.arcs ?? []).map((a) => { const c = at0.get(a.c), s0 = at0.get(a.a); if (!c || !s0) throw new Error(`the arc ${a.id} names a point that is not there`); return { id: a.id, c: a.c, r: Math.hypot(s0.x - c.x, s0.y - c.y), fixedR: false }; });
-  const arcEnds: Constraint[] = (p.arcs ?? []).flatMap((a) => [{ id: `${a.id}.start`, kind: "pointOnCircle" as const, parts: [a.a, a.id] }, { id: `${a.id}.end`, kind: "pointOnCircle" as const, parts: [a.b, a.id] }]);
-  const system: System = { points: [...p.points.map((q) => ({ id: q.id, x: q.x, y: q.y, fixed: !!q.fixed })), ...anchorPoints], lines: [...(p.lines ?? []).map((l) => ({ id: l.id, a: l.a, b: l.b })), ...anchorLines], circles: [...(p.circles ?? []).map((c) => ({ id: c.id, c: c.c, r: c.r, fixedR: !!c.fixedR })), ...arcCircles, ...anchorCircles], constraints: [...(p.constraints ?? []), ...arcEnds] };
+  const plain = systemOf(p), arcEnds = plain.constraints.slice((p.constraints ?? []).length);
+  const system: System = { points: [...plain.points, ...anchorPoints], lines: [...plain.lines, ...anchorLines], circles: [...plain.circles, ...anchorCircles], constraints: plain.constraints };
   const r = solve(system, drag ?? {});
-  if (!r.verdict.ok) {
-    const who = r.verdict.conflict.length ? `: ${r.verdict.conflict.join(", ")}` : "";
-    throw new Refusal(r.verdict.conflict.length ? `these constraints cannot all hold${who}${r.verdict.reason ? ` (${r.verdict.reason})` : ""}` : r.verdict.reason || "this sketch cannot be made", r.verdict.conflict);
-  }
+  if (!r.verdict.ok) throw refusalOf(r);
   return { fr, F, local, world, reference, arcEnds, r };
 }
 /** the places the parts of a definition end up when it is solved (local to the sketch's plane): every point, and the radius of every circle and arc; `makeSketch` without the shapes, so a drawing that makes several shapes (and so cannot be made yet) can still be read */
 export function solvedPositions(p: SketchParams, body: Body | null = null): { points: Record<string, [number, number]>; radii: Record<string, number>; world(x: number, y: number): V3 } {
   const s = solveParts(p, body, { id: "read" }); return { points: s.r.solution.points, radii: s.r.solution.circles, world: s.world };
 }
-/** the drawn lines, arcs and circles of a definition as the plane's segments, from where the solve put them (construction geometry is not drawn) */
-export function segsOf(p: SketchParams, sol: Record<string, [number, number]>, radii: Record<string, number>): Seg[] {
-  const TAU = 2 * Math.PI, norm = (x: number) => { const m = x % TAU; return m < 0 ? m + TAU : m; }, out: Seg[] = [];
-  for (const l of p.lines ?? []) if (!l.construction) out.push({ name: l.id, kind: "line", a: sol[l.a]!, b: sol[l.b]! });
-  for (const a of p.arcs ?? []) { if (a.construction) continue; const c = sol[a.c]!, s0 = sol[a.a]!, e0 = sol[a.b]!, ta = Math.atan2(s0[1] - c[1], s0[0] - c[0]), tb = Math.atan2(e0[1] - c[1], e0[0] - c[0]); out.push({ name: a.id, kind: "arc", c, r: radii[a.id]!, t0: a.cw ? tb : ta, sweep: a.cw ? norm(ta - tb) : norm(tb - ta) }); }
-  for (const c of p.circles ?? []) if (!c.construction) out.push({ name: c.id, kind: "arc", c: sol[c.c]!, r: radii[c.id]!, t0: 0, sweep: TAU });
-  return out;
-}
+/** the drawn lines, arcs and circles of a definition as the plane's segments: `definition.ts` (kernel-free) */
+export { segsOf } from "./definition.ts";
 /** make the sketch of a definition: the solve, the lines with ids from their names, the anchors; `step` is the id of the step that makes it */
 export function makeSketch(p: SketchParams, body: Body | null, step: { id: string }, drag?: SolveOptions): Sketch {
   const { fr, F, world, reference, arcEnds, r } = solveParts(p, body, step, drag);

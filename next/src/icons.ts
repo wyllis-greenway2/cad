@@ -27,6 +27,7 @@ const ICONS: Record<string, string> = {
   midpoint: svg('<path d="M2 13L14 3"/><circle cx="8" cy="8" r="1.7"/><path d="M5 5.5l2 2M9 9.5l2 2" stroke-width="1"/>'),
   collinear: svg('<path d="M2 12L14 4"/><circle cx="4" cy="10.7" r="1"/><circle cx="12" cy="5.3" r="1"/>'),
   symmetric: svg('<path d="M8 2v12" stroke-dasharray="2 2"/><circle cx="4" cy="6" r="1.3"/><circle cx="12" cy="6" r="1.3"/><path d="M4 11h8"/>'),
+  scissors: svg('<circle cx="4.2" cy="11.6" r="2"/><circle cx="4.2" cy="4.4" r="2"/><path d="M5.9 5.5L14 12M5.9 10.5L14 4"/>'),
   cross: svg('<path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>'),
 };
 export const iconSvg = (key: string): string => ICONS[key] ?? "";

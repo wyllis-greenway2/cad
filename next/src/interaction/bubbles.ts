@@ -1,7 +1,7 @@
 // The bubbles (`q_lean_ui`, `in_1562`): the one bubble that stands on the part of a sketch it belongs to. It has two contents: a constraint (its icon) and a dimension (its number). Only the constraints of what is selected are shown (`in_058`..`in_061`);
 // a refusal flashes the ones that hold a change back (red) and an already-holding one flashes mild green. Pure: the solver's system and the selection in, descriptions out (where it belongs in the sketch's own axes, what it says, its tone);
 // the screen (`bubbledraw.ts`) places and draws them, and `bubbleplace.ts` (the prototype's) says where on the page each stands.
-import { RANGEABLE, RELATIONS, kindOf, solve, type Constraint, type Relation, type Solution, type System } from "../engine/solver.ts";
+import { RANGEABLE, RELATIONS, kindOf, type Constraint, type Relation, type Solution, type System } from "../engine/solver.ts";
 
 export type BubbleTone = "rest" | "refused" | "applied";
 export interface Bubble {
@@ -17,6 +17,7 @@ export interface Bubble {
 }
 /** A refusal while it flashes: the constraints that held the change back; and the ones that held already. */
 export interface Flash { refused?: readonly string[]; applied?: readonly string[] }
+/** a constraint is shown when one of its parts is selected, and while it flashes (a refusal shows what holds it back, wherever it is) */
 
 const ICON: Partial<Record<Relation, string>> = { equalLength: "equal", equalRadius: "equal", tangentCircles: "tangent", length: "dimension", distance: "dimension", pointLineDistance: "dimension", horizontalDistance: "dimension", verticalDistance: "dimension", radius: "radius", angle: "angle", fixed: "fixed" };
 export const iconOf = (r: Relation): string => ICON[r] ?? r;
@@ -41,7 +42,7 @@ export function anchorOf(S: System, c: Constraint): [number, number] {
 /** The bubbles of what is selected (none selected: none), in the order of the constraints. `S` is the system at the places it is solved to. */
 export function bubblesOn(S: System, selection: string[], flash: Flash = {}): Bubble[] {
   // a constraint is shown when one of its parts is selected (a selected line shows its own, not those of the lines that meet it)
-  return S.constraints.filter((c) => c.parts.some((p) => selection.includes(p))).map((c) => {
+  return S.constraints.filter((c) => c.parts.some((p) => selection.includes(p)) || flash.refused?.includes(c.id) || flash.applied?.includes(c.id)).map((c) => {
     const ties = c.parts.filter((p) => !selection.includes(p));
     const row = RELATIONS[c.kind], dim = RANGEABLE.has(c.kind) && (c.value !== undefined || c.min !== undefined || c.max !== undefined);
     const tone: BubbleTone = flash.refused?.includes(c.id) ? "refused" : flash.applied?.includes(c.id) ? "applied" : "rest";
@@ -58,16 +59,5 @@ export function bubblesOn(S: System, selection: string[], flash: Flash = {}): Bu
   });
 }
 
-/** What typing a new number into a dimension comes to: the sketch with the number changed and solved, or the constraints that hold it back (the bubbles flash them, and the number goes back). */
-export type Retyped = { ok: true; system: System; solved: System } | { ok: false; victims: string[]; reason: string };
-export function retype(S: System, id: string, value: number): Retyped {
-  const c = S.constraints.find((q) => q.id === id);
-  if (!c || !RANGEABLE.has(c.kind)) return { ok: false, victims: [], reason: "that is not a number that can be typed" };
-  if (!(value > 0) && c.kind !== "angle" && !c.kind.endsWith("Distance")) return { ok: false, victims: [id], reason: "a size must be more than nothing" };
-  const next: System = { ...S, constraints: S.constraints.map((q) => (q.id === id ? { ...q, value, min: undefined, max: undefined } : q)) };
-  const r = solve(next);
-  if (!r.verdict.ok) return { ok: false, victims: r.verdict.conflict.filter((v) => v !== id).length ? r.verdict.conflict : [id], reason: r.verdict.reason };
-  return { ok: true, system: next, solved: placed(next, r.solution) };
-}
 /** the system with its parts at the places a solution says */
 export const placed = (S: System, sol: Solution): System => ({ ...S, points: S.points.map((p) => (sol.points[p.id] ? { ...p, x: sol.points[p.id]![0], y: sol.points[p.id]![1] } : p)), circles: S.circles.map((q) => ({ ...q, r: sol.circles[q.id] ?? q.r })) });

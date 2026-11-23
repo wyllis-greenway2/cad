@@ -16,7 +16,8 @@ export interface Sketch { readonly kind: "sketch"; readonly lines: Line[]; reado
   /** lines that are not part of the profile: construction lines, and a body's edges held as anchors (E53); read-only for the solver */ readonly reference?: Line[]; readonly solve?: SolveInfo;
   /** how a constrained sketch was made (its entities and constraints, as data), so a copy of it can carry them (E59); constraints a copy could not keep, and what each became */ readonly definition?: unknown; readonly carried?: { dropped: { id: string; kind: string; why: string }[]; changed: { id: string; from: string; to: string }[] } }
 /** a step refused, with the constraints that hold it back named, so the screen can show them and offer to delete (E55) */
-export class Refusal extends Error { readonly victims: string[]; constructor(message: string, victims: string[]) { super(message); this.victims = victims; } }
+import { Refusal } from "./refusal.ts";
+export { Refusal };
 /** what a body step passes on when it has no body to pass: nothing, of the type of a body */
 export class NoBody { readonly empty = true; fingerprint(): string { return "empty"; } release(): void { /* nothing held */ } }
 export type Value = Body | Sketch | NoBody;

@@ -5,9 +5,9 @@
 //   each new end is the crossing: a point on what cut it (or that point, where one already is), so the trim follows the cutter when it is moved
 //   constraints stay where they still mean the same (a line's direction, a tangent, a point on it, a circle's size); a length, an equal length and a midpoint belonged to the whole line and go, and each is reported with why
 import { alongSeg, crossingPoints, pointOnSeg, type Pt, type Seg } from "./region.ts";
-import { Refusal } from "./steps.ts";
-import { segsOf, solvedPositions, type SketchParams } from "./sketch.ts";
-import type { Body } from "./lineage.ts";
+import { Refusal } from "./refusal.ts";
+import { segsOf, solveDefinition } from "./definition.ts";
+import type { SketchParams } from "./sketch.ts";
 import type { Constraint } from "./solver.ts";
 
 export interface TrimOutcome {
@@ -25,8 +25,10 @@ const WHOLE_LINE = new Set(["length", "equalLength", "midpoint"]);
 /**
  * Trim the part `id` where `at` is (a point in the sketch's plane near the pointer). Throws, in words, when it cannot (not a drawn line, arc or circle; a circle crossed fewer than twice; a drawing that does not solve).
  */
-export function trimAt(p: SketchParams, id: string, at: Pt, body: Body | null = null): TrimOutcome {
-  const { points: sol, radii } = solvedPositions(p, body), segs = segsOf(p, sol, radii), target = segs.find((s) => s.name === id);
+/** how a definition is read: where its parts end up. On a plane alone, `solveDefinition`; a sketch that holds a body's edges reads them with the body (`solvedPositions` of sketch.ts: the worker's trim question) */
+export type Read = (p: SketchParams) => { points: Record<string, [number, number]>; radii: Record<string, number> };
+export function trimAt(p: SketchParams, id: string, at: Pt, read: Read = solveDefinition): TrimOutcome {
+  const { points: sol, radii } = read(p), segs = segsOf(p, sol, radii), target = segs.find((s) => s.name === id);
   // the drawing as it is on the screen: a point that the solve moved is where it ended up (a point left alone afterwards must not jump back to where the definition first put it)
   p = { ...p, points: p.points.map((x) => (sol[x.id] ? { ...x, x: sol[x.id]![0], y: sol[x.id]![1] } : x)), ...(p.circles ? { circles: p.circles.map((c) => (radii[c.id] !== undefined ? { ...c, r: radii[c.id]! } : c)) } : {}) };
   const line = (p.lines ?? []).find((l) => l.id === id), arc = (p.arcs ?? []).find((a) => a.id === id), circle = (p.circles ?? []).find((c) => c.id === id);
@@ -134,7 +136,7 @@ export function trimAt(p: SketchParams, id: string, at: Pt, body: Body | null = 
   // ---- it must still be a drawing that can be made: a constraint that does not hold with the new ends is let go, and said
   const mine = new Set<string>(made);
   for (let tries = 0; tries < 5; tries++) {
-    try { solvedPositions(q, body); break; } catch (x) {
+    try { read(q); break; } catch (x) {
       if (!(x instanceof Refusal)) throw x;
       const victims = x.victims.filter((v) => mine.has(v) || (p.constraints ?? []).some((c) => c.id === v && c.parts.includes(id)));
       if (!victims.length || tries === 4) throw new Error(`the trim leaves a drawing that cannot be made: ${x.message}`);
