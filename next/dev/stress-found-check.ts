@@ -76,4 +76,14 @@ console.log("9. two edges the kernel cannot round together are rounded one after
     both.release(); two.release();
   }
 }
+console.log("10. a constraint added to a sketch does not send the drawing far away (a parallel or a square from a quarter turn off had almost no slope, and the step it gave sent points thousands of mm off), or shrink a line to nothing");
+{
+  const { tryAdd, solve } = await import("../src/engine/solver.ts");
+  for (const n of ["sketch-parallel-flies-away", "sketch-line-of-nothing"]) {
+    const { prev, c } = JSON.parse(readFileSync(new URL(`./stress-found/${n}.json`, import.meta.url), "utf8")), a = tryAdd(prev, c), r = solve(a.system);
+    const moved = Math.max(...prev.points.map((p: { id: string; x: number; y: number }) => Math.hypot(r.solution.points[p.id]![0] - p.x, r.solution.points[p.id]![1] - p.y)));
+    const lines = a.system.lines.map((l: { a: string; b: string }) => Math.hypot(r.solution.points[l.a]![0] - r.solution.points[l.b]![0], r.solution.points[l.a]![1] - r.solution.points[l.b]![1]));
+    check(`${n}: ${a.outcome}, nothing moves more than the drawing is wide (${moved.toFixed(1)} mm), and no line is shorter than 0.001 mm`, a.outcome !== "added" || (moved < 60 && Math.min(...lines) >= 1e-3), `${a.outcome} moved ${moved.toFixed(1)} shortest ${Math.min(...lines)}`);
+  }
+}
 process.exit(failureCount() ? 1 : 0);

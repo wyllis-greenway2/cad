@@ -6375,3 +6375,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1554 — 2026-11-23 — question
 > does our engine handle history well? did you try testing the history as a user would? Going back to prior steps, editing them, seeing if things update or error properly
+
+## in_1555 — 2026-11-23 — question
+> okay, and how about sketching and constraints? did we test those?

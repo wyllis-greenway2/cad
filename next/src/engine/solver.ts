@@ -53,14 +53,22 @@ const len = (u: P) => sqrtD(dot2(u, u));
 // ---------------------------------------------------------------- the relations, as residuals (zero when they hold)
 interface Ctx { pt(id: string): P; line(id: string): { a: P; b: P }; r(id: string): D; c(id: string): P; value: number; at?: [number, number]; internal?: boolean }
 export const kindOf = (id: string, S: System): "point" | "line" | "circle" => S.points.some((p) => p.id === id) ? "point" : S.lines.some((l) => l.id === id) ? "line" : "circle";
+/**
+ * How far the second line is turned from where it should be (`want`, radians, from the first line's direction), as an angle wrapped to the nearest turn of `period` (a half turn for a line that has no direction: parallel, square;
+ * a whole turn for an angle between two directions). It is the angle itself, not its sine: the sine has almost no slope where the lines are a quarter turn off, and the step that slope asks for sent a drawing hundreds of mm away (found by the stress run)
+ */
+function turned(a: { a: P; b: P }, b: { a: P; b: P }, want: number, period: number): D {
+  const u = vec(a.a, a.b), w = vec(b.a, b.b), th = atan2D(cross2(u, w), dot2(u, w)), off = th.v - want;
+  return sub(th, k(want + period * Math.round(off / period)));
+}
 export const RELATIONS: Record<Relation, { /** what the person calls it */ label: string; arity: number; parts: ("point" | "line" | "circle")[][]; rows: (ids: string[], c: Ctx, kinds: string[]) => D[] }> = {
   fixed: { label: "fixed in place", arity: 1, parts: [["point"]], rows: (ids, c) => { const p = c.pt(ids[0]!); return [sub(p.x, k(c.at![0])), sub(p.y, k(c.at![1]))]; } },
   symmetric: { label: "symmetric", arity: 3, parts: [["point"], ["point"], ["line"]], rows: (ids, c) => { const p = c.pt(ids[0]!), q = c.pt(ids[1]!), l = c.line(ids[2]!), u = vec(l.a, l.b), n = len(u), m: P = { x: scaleD(add(p.x, q.x), 0.5), y: scaleD(add(p.y, q.y), 0.5) }; return [div(dot2(vec(p, q), u), n), div(cross2(u, vec(l.a, m)), n)]; } },
   coincident: { label: "coincident", arity: 2, parts: [["point"], ["point"]], rows: (ids, c) => { const p = c.pt(ids[0]!), q = c.pt(ids[1]!); return [sub(p.x, q.x), sub(p.y, q.y)]; } },
   horizontal: { label: "level", arity: 1, parts: [["line", "point"], ["point"]], rows: (ids, c, kk) => kk[0] === "line" ? (() => { const l = c.line(ids[0]!); return [sub(l.b.y, l.a.y)]; })() : [sub(c.pt(ids[1]!).y, c.pt(ids[0]!).y)] },
   vertical: { label: "upright", arity: 1, parts: [["line", "point"], ["point"]], rows: (ids, c, kk) => kk[0] === "line" ? (() => { const l = c.line(ids[0]!); return [sub(l.b.x, l.a.x)]; })() : [sub(c.pt(ids[1]!).x, c.pt(ids[0]!).x)] },
-  parallel: { label: "parallel", arity: 2, parts: [["line"], ["line"]], rows: (ids, c) => { const a = c.line(ids[0]!), b = c.line(ids[1]!), u = vec(a.a, a.b), w = vec(b.a, b.b); return [div(cross2(u, w), mul(len(u), len(w)))]; } },
-  perpendicular: { label: "square", arity: 2, parts: [["line"], ["line"]], rows: (ids, c) => { const a = c.line(ids[0]!), b = c.line(ids[1]!), u = vec(a.a, a.b), w = vec(b.a, b.b); return [div(dot2(u, w), mul(len(u), len(w)))]; } },
+  parallel: { label: "parallel", arity: 2, parts: [["line"], ["line"]], rows: (ids, c) => { const a = c.line(ids[0]!), b = c.line(ids[1]!); return [turned(a, b, 0, Math.PI)]; } },
+  perpendicular: { label: "square", arity: 2, parts: [["line"], ["line"]], rows: (ids, c) => { const a = c.line(ids[0]!), b = c.line(ids[1]!); return [turned(a, b, Math.PI / 2, Math.PI)]; } },
   collinear: { label: "in line", arity: 2, parts: [["line"], ["line"]], rows: (ids, c) => { const a = c.line(ids[0]!), b = c.line(ids[1]!), u = vec(a.a, a.b), n = len(u); return [div(cross2(u, vec(a.a, b.a)), n), div(cross2(u, vec(a.a, b.b)), n)]; } },
   equalLength: { label: "equal length", arity: 2, parts: [["line"], ["line"]], rows: (ids, c) => { const a = c.line(ids[0]!), b = c.line(ids[1]!); return [sub(len(vec(a.a, a.b)), len(vec(b.a, b.b)))]; } },
   equalRadius: { label: "equal radius", arity: 2, parts: [["circle"], ["circle"]], rows: (ids, c) => [sub(c.r(ids[0]!), c.r(ids[1]!))] },
@@ -76,7 +84,7 @@ export const RELATIONS: Record<Relation, { /** what the person calls it */ label
   pointLineDistance: { label: "distance to the line", arity: 2, parts: [["point"], ["line"]], rows: (ids, c) => { const p = c.pt(ids[0]!), l = c.line(ids[1]!), u = vec(l.a, l.b), s = div(cross2(u, vec(l.a, p)), len(u)); return [sub(new D(Math.abs(s.v), (s.v >= 0 ? s : scaleD(s, -1)).g), k(c.value))]; } },
   horizontalDistance: { label: "distance across", arity: 2, parts: [["point"], ["point"]], rows: (ids, c) => [sub(sub(c.pt(ids[1]!).x, c.pt(ids[0]!).x), k(c.value))] },
   verticalDistance: { label: "distance up and down", arity: 2, parts: [["point"], ["point"]], rows: (ids, c) => [sub(sub(c.pt(ids[1]!).y, c.pt(ids[0]!).y), k(c.value))] },
-  angle: { label: "angle", arity: 2, parts: [["line"], ["line"]], rows: (ids, c) => { const a = c.line(ids[0]!), b = c.line(ids[1]!), u = vec(a.a, a.b), w = vec(b.a, b.b), th = (c.value * Math.PI) / 180; return [div(sub(scaleD(cross2(u, w), Math.cos(th)), scaleD(dot2(u, w), Math.sin(th))), mul(len(u), len(w)))]; } },
+  angle: { label: "angle", arity: 2, parts: [["line"], ["line"]], rows: (ids, c) => { const a = c.line(ids[0]!), b = c.line(ids[1]!); return [turned(a, b, (c.value * Math.PI) / 180, 2 * Math.PI)]; } },
 };
 /** a constraint that cannot be read (a wrong kind of part, a part that is not there) is said in words */
 export function validate(S: System): string | null {
@@ -204,6 +212,7 @@ function levenberg(S: System, prep: Prep, use: Set<string>, start: number[], sca
     for (let attempt = 0; attempt < 30; attempt++) {
       const A = H.map((row, i) => row.map((v, j) => (i === j ? v + lambda * (trace / n + 1e-9) : v))), step = cholesky(A, g.map((v) => -v)); // damped the same in every direction, so a step that has freedom takes the smallest move (the nearest answer)
       if (step) {
+        const len = Math.hypot(...step), cap = Math.max(scale, 1); if (len > cap) for (let q = 0; q < step.length; q++) step[q] = step[q]! * cap / len; // a step is at most the size of the drawing: where a turning constraint has almost no slope (square, parallel or an angle from near 90 degrees) the step the slope gives is thousands of mm, and the drawing was sent that far (found by the stress run)
         const nx = [...x]; free.forEach((gi, q) => { nx[gi] = x[gi]! + step[q]!; }); const ev = eval_(nx), nc = cost(ev.r);
         if (nc < c) { x = nx; r = ev.r; J = ev.J; const drop = c - nc; c = nc; lambda = Math.max(1e-12, lambda / 5); moved = true; stall = drop <= 1e-9 * Math.max(c, 1e-12) ? stall + 1 : 0; if (stall >= 5) iterations = 1e9; /* it is not getting nearer: the constraints cannot hold */ break; }
       }
@@ -293,7 +302,7 @@ function solveOnce(S: System, opts: Options = {}): Result {
   const bad = validate(S); const empty: Solution = { points: Object.fromEntries(S.points.map((p) => [p.id, [p.x, p.y] as [number, number]])), circles: Object.fromEntries(S.circles.map((c) => [c.id, c.r])) };
   if (bad) return { solution: empty, verdict: { kind: "over", ok: false, freedom: 0, free: [], redundant: [], implied: [], atStop: [], conflict: [], reason: bad }, iterations: 0, unreached: {}, holds: [] };
   const hold = new Set(opts.hold ?? []), pins = opts.pins ?? {}, restarts = opts.restarts ?? 4;
-  const xs = S.points.flatMap((p) => [p.x, p.y]).concat(S.circles.map((c) => c.r)), scale = Math.max(1, ...xs.map(Math.abs)), minSize = opts.minSize ?? 1e-6 * scale;
+  const xs = S.points.flatMap((p) => [p.x, p.y]).concat(S.circles.map((c) => c.r)), scale = Math.max(1, ...xs.map(Math.abs)), minSize = opts.minSize ?? Math.max(1e-6 * scale, 1e-3); // a line shorter than a thousandth of a mm is a line of nothing (the stress run: a constraint was "solved" by shrinking a line to 1e-4 mm and sending the rest hundreds of mm away)
   const prep = prepare(S, hold, pins);
   // the parts connected through a constraint (or a pin) are solved together, the others apart
   const parent = prep.names.map((_, i) => i), find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i]!)));
