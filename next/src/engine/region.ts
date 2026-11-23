@@ -17,47 +17,57 @@ const hyp = Math.hypot;
 interface Piece0 { seg: number; v0: number; v1: number; p0: number; p1: number }
 interface Half { piece: number; fwd: boolean; from: number; to: number; ang: number; kappa: number }
 
-export function regions(segs: readonly Seg[], opts: { pick?: readonly Pt[] } = {}): Result {
-  const ext = Math.max(1, ...segs.flatMap((s) => (s.kind === "line" ? [...s.a, ...s.b] : [s.c[0] + s.r, s.c[1] + s.r, s.c[0] - s.r, s.c[1] - s.r])).map(Math.abs)), eps = 1e-9 * ext;
-  const pointAt = (s: Seg, p: number): Pt => s.kind === "line" ? [s.a[0] + (s.b[0] - s.a[0]) * p, s.a[1] + (s.b[1] - s.a[1]) * p] : [s.c[0] + s.r * Math.cos(s.t0 + p), s.c[1] + s.r * Math.sin(s.t0 + p)];
-  const last = (s: Seg) => (s.kind === "line" ? 1 : s.sweep), closed = (s: Seg) => s.kind === "arc" && s.sweep >= TAU - 1e-12;
-  const dist2 = (p: Pt, q: Pt) => hyp(p[0] - q[0], p[1] - q[1]);
-  // where a point lies along a segment, or null if it is not on it
-  const along = (s: Seg, q: Pt): number | null => {
-    if (s.kind === "line") {
-      const dx = s.b[0] - s.a[0], dy = s.b[1] - s.a[1], L = hyp(dx, dy); if (L < eps) return null;
-      const t = ((q[0] - s.a[0]) * dx + (q[1] - s.a[1]) * dy) / (L * L);
-      if (t < -eps / L || t > 1 + eps / L) return null;
-      return Math.abs((q[0] - s.a[0]) * dy - (q[1] - s.a[1]) * dx) / L < eps ? Math.min(1, Math.max(0, t)) : null;
-    }
-    if (Math.abs(dist2(q, s.c) - s.r) > eps) return null;
-    let u = norm(Math.atan2(q[1] - s.c[1], q[0] - s.c[0]) - s.t0);
-    if (u > TAU - eps / s.r) u = 0;
-    if (!closed(s) && u > s.sweep + eps / s.r) return null;
-    return u;
-  };
-  // the candidate places where something is cut: every crossing of two segments, every end
-  const cand: Pt[] = [];
+/** where along a segment a parameter is: a line goes 0 to 1, an arc goes from its start by an angle (radians) */
+export const pointOnSeg = (s: Seg, p: number): Pt => s.kind === "line" ? [s.a[0] + (s.b[0] - s.a[0]) * p, s.a[1] + (s.b[1] - s.a[1]) * p] : [s.c[0] + s.r * Math.cos(s.t0 + p), s.c[1] + s.r * Math.sin(s.t0 + p)];
+/** where a point lies along a segment (the parameter of `pointOnSeg`), or null if it is not on it (within `eps`) */
+export function alongSeg(s: Seg, q: Pt, eps: number): number | null {
+  if (s.kind === "line") {
+    const dx = s.b[0] - s.a[0], dy = s.b[1] - s.a[1], L = hyp(dx, dy); if (L < eps) return null;
+    const t = ((q[0] - s.a[0]) * dx + (q[1] - s.a[1]) * dy) / (L * L);
+    if (t < -eps / L || t > 1 + eps / L) return null;
+    return Math.abs((q[0] - s.a[0]) * dy - (q[1] - s.a[1]) * dx) / L < eps ? Math.min(1, Math.max(0, t)) : null;
+  }
+  if (Math.abs(hyp(q[0] - s.c[0], q[1] - s.c[1]) - s.r) > eps) return null;
+  let u = norm(Math.atan2(q[1] - s.c[1], q[0] - s.c[0]) - s.t0);
+  if (u > TAU - eps / s.r) u = 0;
+  if (!(s.sweep >= TAU - 1e-12) && u > s.sweep + eps / s.r) return null;
+  return u;
+}
+/** the places two segments cross (of their whole lines and circles: the caller says whether each is on its segment, by `alongSeg`) */
+export function crossingPoints(s: Seg, u: Seg, eps: number): Pt[] {
+  const out: Pt[] = [], dist2 = (p: Pt, q: Pt) => hyp(p[0] - q[0], p[1] - q[1]);
   const lineCircle = (l: Extract<Seg, { kind: "line" }>, c: Extract<Seg, { kind: "arc" }>) => {
     const dx = l.b[0] - l.a[0], dy = l.b[1] - l.a[1], fx = l.a[0] - c.c[0], fy = l.a[1] - c.c[1], A = dx * dx + dy * dy, B = 2 * (fx * dx + fy * dy), C = fx * fx + fy * fy - c.r * c.r;
     if (A < eps * eps) return; const D = B * B - 4 * A * C; if (D < -eps * Math.sqrt(A) * 4) return;
-    const sq = Math.sqrt(Math.max(0, D)); for (const t of D < eps ? [-B / (2 * A)] : [(-B - sq) / (2 * A), (-B + sq) / (2 * A)]) cand.push([l.a[0] + dx * t, l.a[1] + dy * t]);
+    const sq = Math.sqrt(Math.max(0, D)); for (const t of D < eps ? [-B / (2 * A)] : [(-B - sq) / (2 * A), (-B + sq) / (2 * A)]) out.push([l.a[0] + dx * t, l.a[1] + dy * t]);
   };
+  if (s.kind === "line" && u.kind === "line") {
+    const d1x = s.b[0] - s.a[0], d1y = s.b[1] - s.a[1], d2x = u.b[0] - u.a[0], d2y = u.b[1] - u.a[1], den = d1x * d2y - d1y * d2x;
+    if (Math.abs(den) > 1e-14 * hyp(d1x, d1y) * hyp(d2x, d2y)) { const t = ((u.a[0] - s.a[0]) * d2y - (u.a[1] - s.a[1]) * d2x) / den; out.push([s.a[0] + d1x * t, s.a[1] + d1y * t]); }
+  } else if (s.kind === "line" && u.kind === "arc") lineCircle(s, u);
+  else if (s.kind === "arc" && u.kind === "line") lineCircle(u, s);
+  else if (s.kind === "arc" && u.kind === "arc") {
+    const d = dist2(s.c, u.c); if (d < eps || d > s.r + u.r + eps || d < Math.abs(s.r - u.r) - eps) return out;
+    const a = (s.r * s.r - u.r * u.r + d * d) / (2 * d), h = Math.sqrt(Math.max(0, s.r * s.r - a * a)), ux = (u.c[0] - s.c[0]) / d, uy = (u.c[1] - s.c[1]) / d, mx = s.c[0] + a * ux, my = s.c[1] + a * uy;
+    out.push([mx - h * uy, my + h * ux]); if (h > eps) out.push([mx + h * uy, my - h * ux]);
+  }
+  return out;
+}
+
+export function regions(segs: readonly Seg[], opts: { pick?: readonly Pt[] } = {}): Result {
+  const ext = Math.max(1, ...segs.flatMap((s) => (s.kind === "line" ? [...s.a, ...s.b] : [s.c[0] + s.r, s.c[1] + s.r, s.c[0] - s.r, s.c[1] - s.r])).map(Math.abs)), eps = 1e-9 * ext;
+  const pointAt = pointOnSeg;
+  const last = (s: Seg) => (s.kind === "line" ? 1 : s.sweep), closed = (s: Seg) => s.kind === "arc" && s.sweep >= TAU - 1e-12;
+  const dist2 = (p: Pt, q: Pt) => hyp(p[0] - q[0], p[1] - q[1]);
+  const along = (s: Seg, q: Pt): number | null => alongSeg(s, q, eps);
+  // the candidate places where something is cut: every crossing of two segments, every end
+  const cand: Pt[] = [];
   for (let i = 0; i < segs.length; i++) {
     const s = segs[i]!;
     if (s.kind === "line") cand.push(s.a, s.b); else cand.push(pointAt(s, 0), ...(closed(s) ? [] : [pointAt(s, s.sweep)]));
     for (let j = i + 1; j < segs.length; j++) {
       const u = segs[j]!;
-      if (s.kind === "line" && u.kind === "line") {
-        const d1x = s.b[0] - s.a[0], d1y = s.b[1] - s.a[1], d2x = u.b[0] - u.a[0], d2y = u.b[1] - u.a[1], den = d1x * d2y - d1y * d2x;
-        if (Math.abs(den) > 1e-14 * hyp(d1x, d1y) * hyp(d2x, d2y)) { const t = ((u.a[0] - s.a[0]) * d2y - (u.a[1] - s.a[1]) * d2x) / den; cand.push([s.a[0] + d1x * t, s.a[1] + d1y * t]); }
-      } else if (s.kind === "line" && u.kind === "arc") lineCircle(s, u);
-      else if (s.kind === "arc" && u.kind === "line") lineCircle(u, s);
-      else if (s.kind === "arc" && u.kind === "arc") {
-        const d = dist2(s.c, u.c); if (d < eps || d > s.r + u.r + eps || d < Math.abs(s.r - u.r) - eps) continue;
-        const a = (s.r * s.r - u.r * u.r + d * d) / (2 * d), h = Math.sqrt(Math.max(0, s.r * s.r - a * a)), ux = (u.c[0] - s.c[0]) / d, uy = (u.c[1] - s.c[1]) / d, mx = s.c[0] + a * ux, my = s.c[1] + a * uy;
-        cand.push([mx - h * uy, my + h * ux]); if (h > eps) cand.push([mx + h * uy, my - h * ux]);
-      }
+      for (const q of crossingPoints(s, u, eps)) cand.push(q);
     }
   }
   // the vertices: candidates that are the same place are one

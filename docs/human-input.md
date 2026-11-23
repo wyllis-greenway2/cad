@@ -6393,3 +6393,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1560 — 2026-11-23 — directive
 > well we at least need a trim operation, I use that all the time. Why dont you look at how the prototype trimmed, and see if it is good and reusable or if we should code our own
+
+## in_1561 — 2026-11-23 — approval
+> yes, keep the id on one piece and build trim

@@ -31,8 +31,8 @@ export function sketchFrame(p: SketchParams, body: Body | null): { F: { O: V3; u
   const local = (q: V3): [number, number] => { const d: V3 = [q[0] - F.F.O[0], q[1] - F.F.O[1], q[2] - F.F.O[2]]; return [d[0] * F.F.u[0] + d[1] * F.F.u[1] + d[2] * F.F.u[2], d[0] * F.F.v[0] + d[1] * F.F.v[1] + d[2] * F.F.v[2]]; };
   return { F: F.F, normal: F.normal as V3, local, world: (x, y) => at(F.F, x, y) };
 }
-/** make the sketch of a definition: the solve, the lines with ids from their names, the anchors; `step` is the id of the step that makes it */
-export function makeSketch(p: SketchParams, body: Body | null, step: { id: string }, drag?: SolveOptions): Sketch {
+/** the solve of a definition (the part of `makeSketch` before any shape is made): the frame, the body's edges as anchors, the places every point and circle ended up; refused as `makeSketch` refuses a sketch that cannot be made */
+function solveParts(p: SketchParams, body: Body | null, step: { id: string }, drag?: SolveOptions) {
   if (!Array.isArray(p.points)) throw new Error("a sketch needs its points");
   const fr = sketchFrame(p, body), F = { F: fr.F, normal: fr.normal }, local = fr.local, world = fr.world;
   const names = [...p.points.map((q) => q.id), ...(p.lines ?? []).map((q) => q.id), ...(p.circles ?? []).map((q) => q.id), ...(p.arcs ?? []).map((q) => q.id), ...(p.anchors ?? []).map((q) => q.id)];
@@ -70,12 +70,29 @@ export function makeSketch(p: SketchParams, body: Body | null, step: { id: strin
     const who = r.verdict.conflict.length ? `: ${r.verdict.conflict.join(", ")}` : "";
     throw new Refusal(r.verdict.conflict.length ? `these constraints cannot all hold${who}${r.verdict.reason ? ` (${r.verdict.reason})` : ""}` : r.verdict.reason || "this sketch cannot be made", r.verdict.conflict);
   }
-  const sol = r.solution.points, normal = F.normal as V3, drawn: Line[] = [], segs: Seg[] = [];
+  return { fr, F, local, world, reference, arcEnds, r };
+}
+/** the places the parts of a definition end up when it is solved (local to the sketch's plane): every point, and the radius of every circle and arc; `makeSketch` without the shapes, so a drawing that makes several shapes (and so cannot be made yet) can still be read */
+export function solvedPositions(p: SketchParams, body: Body | null = null): { points: Record<string, [number, number]>; radii: Record<string, number>; world(x: number, y: number): V3 } {
+  const s = solveParts(p, body, { id: "read" }); return { points: s.r.solution.points, radii: s.r.solution.circles, world: s.world };
+}
+/** the drawn lines, arcs and circles of a definition as the plane's segments, from where the solve put them (construction geometry is not drawn) */
+export function segsOf(p: SketchParams, sol: Record<string, [number, number]>, radii: Record<string, number>): Seg[] {
+  const TAU = 2 * Math.PI, norm = (x: number) => { const m = x % TAU; return m < 0 ? m + TAU : m; }, out: Seg[] = [];
+  for (const l of p.lines ?? []) if (!l.construction) out.push({ name: l.id, kind: "line", a: sol[l.a]!, b: sol[l.b]! });
+  for (const a of p.arcs ?? []) { if (a.construction) continue; const c = sol[a.c]!, s0 = sol[a.a]!, e0 = sol[a.b]!, ta = Math.atan2(s0[1] - c[1], s0[0] - c[0]), tb = Math.atan2(e0[1] - c[1], e0[0] - c[0]); out.push({ name: a.id, kind: "arc", c, r: radii[a.id]!, t0: a.cw ? tb : ta, sweep: a.cw ? norm(ta - tb) : norm(tb - ta) }); }
+  for (const c of p.circles ?? []) if (!c.construction) out.push({ name: c.id, kind: "arc", c: sol[c.c]!, r: radii[c.id]!, t0: 0, sweep: TAU });
+  return out;
+}
+/** make the sketch of a definition: the solve, the lines with ids from their names, the anchors; `step` is the id of the step that makes it */
+export function makeSketch(p: SketchParams, body: Body | null, step: { id: string }, drag?: SolveOptions): Sketch {
+  const { fr, F, world, reference, arcEnds, r } = solveParts(p, body, step, drag);
+  const sol = r.solution.points, normal = F.normal as V3, drawn: Line[] = [], segs: Seg[] = segsOf(p, sol, r.solution.circles);
   const drawnEnds = new Map<string, { a: [number, number]; b: [number, number] }>(), order = new Map<string, number>(); // where each drawn part starts and ends, and in which place it was drawn (for the order of the sides)
   for (const l of p.lines ?? []) {
     const a = sol[l.a]!, b = sol[l.b]!;
     if (l.construction) reference.push({ id: mint(step.id, "ref", l.id), a: world(a[0], a[1]), b: world(b[0], b[1]) });
-    else { drawn.push({ id: mint(step.id, "line", l.id), a: world(a[0], a[1]), b: world(b[0], b[1]) }); segs.push({ name: l.id, kind: "line", a, b }); drawnEnds.set(l.id, { a, b }); order.set(l.id, order.size); }
+    else { drawn.push({ id: mint(step.id, "line", l.id), a: world(a[0], a[1]), b: world(b[0], b[1]) }); drawnEnds.set(l.id, { a, b }); order.set(l.id, order.size); }
   }
   const TAU = 2 * Math.PI, norm = (x: number) => { const m = x % TAU; return m < 0 ? m + TAU : m; };
   for (const a of p.arcs ?? []) {
@@ -83,10 +100,9 @@ export function makeSketch(p: SketchParams, body: Body | null, step: { id: strin
     const c = sol[a.c]!, s0 = sol[a.a]!, e0 = sol[a.b]!, R = r.solution.circles[a.id]!, ta = Math.atan2(s0[1] - c[1], s0[0] - c[0]), tb = Math.atan2(e0[1] - c[1], e0[0] - c[0]);
     if (Math.hypot(s0[0] - e0[0], s0[1] - e0[1]) < 1e-9 * Math.max(1, R)) throw new Refusal(`the arc ${a.id} starts and ends at the same place`, [a.id]);
     const sweep = a.cw ? norm(ta - tb) : norm(tb - ta), t0 = a.cw ? tb : ta, midT = a.cw ? ta - sweep / 2 : ta + sweep / 2;
-    segs.push({ name: a.id, kind: "arc", c, r: R, t0, sweep }); drawnEnds.set(a.id, { a: s0, b: e0 }); order.set(a.id, order.size);
+    drawnEnds.set(a.id, { a: s0, b: e0 }); order.set(a.id, order.size);
     drawn.push({ id: mint(step.id, "line", a.id), a: world(s0[0], s0[1]), b: world(e0[0], e0[1]), mid: world(c[0] + R * Math.cos(midT), c[1] + R * Math.sin(midT)) });
   }
-  for (const c of p.circles ?? []) { if (c.construction) continue; const q = sol[c.c]!; segs.push({ name: c.id, kind: "arc", c: q, r: r.solution.circles[c.id]!, t0: 0, sweep: TAU }); }
   // the ends an arc keeps on its circle are the step's own, not the person's: they are not reported as redundant
   const own = new Set(arcEnds.map((c) => c.id)), redundant = r.verdict.redundant.filter((c) => !own.has(c)), kind = r.verdict.kind === "redundant" && !redundant.length ? (r.verdict.freedom > 0 ? "under" : "solved") : r.verdict.kind;
   const solveInfo = { kind: kind as "solved" | "under" | "redundant", freedom: r.verdict.freedom, free: r.verdict.free, redundant, ...(drag ? { solution: r.solution, unreached: r.unreached, holds: r.holds } : {}) };
