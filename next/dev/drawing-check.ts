@@ -32,6 +32,8 @@ check("D on a side: a length of what it measures", d.ok && d.params.constraints!
 if (d.ok) {
   const r = retype(d.params, d.added, 55);
   check("a new number is solved, the side is 55", r.ok && (() => { const L = r.params.lines!.find((l) => l.id === "L1")!, a = r.params.points.find((x) => x.id === L.a)!, b = r.params.points.find((x) => x.id === L.b)!; return Math.abs(Math.hypot(b.x - a.x, b.y - a.y) - 55) < 1e-6; })());
+  const P1 = r.ok ? r.params.points.find((x) => x.id === "P1")! : null;
+  check("the first corner stays where it was when a number is typed (the far end gives way)", !!P1 && Math.abs(P1.x) < 1e-6 && Math.abs(P1.y) < 1e-6, P1 ? `P1 at ${P1.x.toFixed(4)}, ${P1.y.toFixed(4)}` : "");
   const bad = retype(d.params, d.added, -4);
   check("a size of nothing or less is refused in words", !bad.ok && bad.why.length > 0);
 }

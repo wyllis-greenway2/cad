@@ -9,7 +9,7 @@ Status: **a draft, `ai-unreviewed`**, written after a first prototype was built 
 - What the next click would make is shown as the pointer moves (teal), with a small cross where the pointer is; figures done are charcoal lines.
 - **Snapping:** the point goes onto an end, a corner or a middle of an earlier figure within 10 px, else onto a grid crossing within 10 px.
 - **Right click** (or Esc) gives up the figure under way; with none, it puts the tool away; then the ring opens again.
-- Since `in_1564` the figures are **the engine's own definition** (points, lines, circles, constraints), solved at every edit; selecting, a number on a part (D), typing over it, Delete and Trim (K9 to K12) are built, checked by dev checks (`dev/drawing-check.ts`, `dev/stress-drawing.ts`, `dev/sketch-browser.ts`) and not yet tests.
+- Since `in_1564` the figures are **the engine's own definition** (points, lines, circles, constraints), solved at every edit; selecting, a number on a part (D), typing over it, Delete and Trim (K9 to K14) are built, checked by dev checks (`dev/drawing-check.ts`, `dev/stress-drawing.ts`, `dev/sketch-browser.ts`) and not yet tests.
 - Figures are kept **in the plane's own axes**, so they go with a placed plane when the orb moves it; a world plane keeps its own; a placed plane's are let go with it.
 - The orb is out of the way while a tool is on.
 
@@ -29,6 +29,9 @@ Status: **a draft, `ai-unreviewed`**, written after a first prototype was built 
 | K10 | With no tool on, a click selects a point, a line, a circle or an arc (Shift adds); the bubbles of the constraints of what is selected show on it, and only those; Esc puts the selection away; Delete takes the selected parts away with the constraints that name them and the end points nothing else uses. | in_1564 in_1562 in_058 | click, delete, escape | `Sketch` | later | later |
 | K11 | D puts the number a selection measures on it (a length, a radius, a distance, an angle) as a dimension; its bubble is typed over, and the sketch is solved again or the bubbles that hold the number back flash red and the number goes back. | in_1564 in_034 | key D | `Sketch` | later | later |
 | K12 | Trim is a tool in the pencil's ring: pointing at a line, arc or circle shows in red the part a click would take off (between the places others cross it); the click takes it off as an edit of the sketch (E87), and says what it had to let go. | in_1564 in_1560 in_1561 | click, hover | `Sketch` | later | later |
+
+| K13 | The helper bar stands beside what is selected, up and to the right, kept on the page and clear of the bubbles: on the left what can be done with the selection (delete, put the selection away), on the right the relations that fit exactly it, the numbers first, those already true marked, those that cannot hold shown red with what holds them back, those that follow from what is there not offered. Pressing one puts it on the sketch or flashes what holds it back. It is the one place a suggestion appears, and it is not there while a tool is on or a number is being typed. | in_1565 in_1562 | click | `Sketch` | later | later |
+| K14 | A number typed or a relation added moves the rest of the sketch and not the first-drawn corner (it is held while the solve allows). | in_1565 | | `Sketch` | later | later |
 
 ## Contracts
 - `Sketch` (`src/interaction/drawing.ts`): what a click does to a sketch's definition, pure, solved by the engine's solver (`engine/definition.ts`, `engine/trim.ts`: no kernel); `src/sketchcontrol.ts` the controller (the host says where each plane is); `src/sketch.ts` the plane's axes to the world.

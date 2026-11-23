@@ -27,7 +27,12 @@ export function bake(p: SketchParams, s: Sol): SketchParams {
 export type Kept = { ok: true; params: SketchParams; sol: Sol } | { ok: false; why: string; victims: string[] };
 /** keep a changed definition if it solves (and then with its parts at the solved places), else say why not */
 export function keep(next: SketchParams): Kept {
-  try { const s = solveDefinition(next); return { ok: true, params: bake(next, s), sol: s }; } catch (x) {
+  try {
+    // the first corner stays (`in_1565`): the oldest point is held while the rest of the sketch gives way to a number or a relation; if the sketch cannot hold with it held (a second place is asked for), it is solved without
+    const first = next.points.find((q) => !q.fixed)?.id; let s;
+    try { s = first ? solveDefinition(next, { hold: [first] }) : solveDefinition(next); } catch (x) { if (!(x instanceof Refusal) || !first) throw x; s = solveDefinition(next); }
+    return { ok: true, params: bake(next, s), sol: s };
+  } catch (x) {
     if (x instanceof Refusal) return { ok: false, why: x.message, victims: x.victims };
     return { ok: false, why: (x as Error).message, victims: [] };
   }

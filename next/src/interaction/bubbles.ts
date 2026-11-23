@@ -33,6 +33,12 @@ function placeOf(S: System, id: string, radii: Record<string, number>): [number,
   if (k === "line") { const l = S.lines.find((x) => x.id === id)!, a = pt(l.a), b = pt(l.b); return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; }
   const c = S.circles.find((x) => x.id === id)!, m = pt(c.c), r = radii[id] ?? c.r; return [m[0] + r * Math.SQRT1_2, m[1] + r * Math.SQRT1_2];
 }
+/** where a selection is: the middle of the places of its parts (what the helper bar stands beside) */
+export function selectionAnchor(S: System, ids: string[]): [number, number] | null {
+  if (!ids.length) return null;
+  const radii = Object.fromEntries(S.circles.map((q) => [q.id, q.r])), ps = ids.map((id) => placeOf(S, id, radii));
+  return [ps.reduce((a, p) => a + p[0], 0) / ps.length, ps.reduce((a, p) => a + p[1], 0) / ps.length];
+}
 /** where a constraint belongs: the middle of the places of its parts (on the line, at the point, between two lines) */
 export function anchorOf(S: System, c: Constraint): [number, number] {
   const radii = Object.fromEntries(S.circles.map((q) => [q.id, q.r])), ps = c.parts.map((id) => placeOf(S, id, radii));

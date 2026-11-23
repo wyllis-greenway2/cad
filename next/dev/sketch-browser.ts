@@ -40,19 +40,26 @@ try {
   await ev(`() => window.__sketch.stop()`);
   await click(20, 0);
   let b = await bubbles(); ok(b.some((q) => /—|horizontal/i.test(q.text ?? "") || true) && b.length >= 1, `a selected side shows its bubbles (${b.length})`);
-  await page.keyboard.press("KeyD"); await page.waitForTimeout(300);
-  b = await bubbles(); ok(b.some((q) => q.text === "40"), `D puts the number it measures on it: ${JSON.stringify(b.map((q) => q.text))}`);
+  const bar = await ev<string[]>(`() => [...document.querySelectorAll("[data-bar]")].map((e) => e.dataset.bar)`);
+  ok(bar[0] === "delete" && bar.includes("rel:length"), `the helper bar stands beside the selected side: ${bar.join(" ")}`);
+  writeFileSync(`${dir}/sketch-bar.png`, await page.screenshot());
+  await page.click("[data-bar='rel:length']"); await page.waitForTimeout(300);
+  b = await bubbles(); ok(b.some((q) => q.text === "40"), `the length button of the bar puts the number it measures on it: ${JSON.stringify(b.map((q) => q.text))}`);
   const num = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-bubble] span")].find((s) => s.textContent === "40")!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
   await page.mouse.click(num[0]!, num[1]!); await page.keyboard.type("55"); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
-  d = await def(); const L1 = d.lines.find((l: any) => l.id === "L1"), pa = d.points.find((p: any) => p.id === L1.a), pb = d.points.find((p: any) => p.id === L1.b); ok(Math.abs(Math.hypot(pb.x - pa.x, pb.y - pa.y) - 55) < 1e-4, `typing 55 makes the bottom side 55 long (${Math.hypot(pb.x - pa.x, pb.y - pa.y).toFixed(3)})`);
+  d = await def(); const first = d.points.find((p: any) => p.id === "P1"); ok(Math.abs(first.x) < 1e-6 && Math.abs(first.y) < 1e-6, `the first corner stays at the origin (${first.x.toFixed(3)}, ${first.y.toFixed(3)})`);
+  const L1 = d.lines.find((l: any) => l.id === "L1"), pa = d.points.find((p: any) => p.id === L1.a), pb = d.points.find((p: any) => p.id === L1.b); ok(Math.abs(Math.hypot(pb.x - pa.x, pb.y - pa.y) - 55) < 1e-4, `typing 55 makes the bottom side 55 long (${Math.hypot(pb.x - pa.x, pb.y - pa.y).toFixed(3)})`);
   writeFileSync(`${dir}/sketch-3.png`, await page.screenshot());
   // a number that cannot be
   const num2 = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-bubble] span")].find((s) => s.textContent === "55")!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
   await page.mouse.click(num2[0]!, num2[1]!); await page.keyboard.type("-3"); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
   b = await bubbles(); ok(b.some((q) => q.text === "55" && /228, 106, 106/.test(q.border)), "a number that cannot be goes back and its bubble is red");
-  // delete
-  await click(20, 0); await page.keyboard.press("Delete"); await page.waitForTimeout(200);
-  d = await def(); ok(d.lines.every((l: any) => l.id !== "L1"), "Delete takes the selected side away");
+  // delete, from the bar
+  await click(20, 0); await page.waitForTimeout(150); await page.click("[data-bar='delete']"); await page.waitForTimeout(200);
+  d = await def(); ok(d.lines.every((l: any) => l.id !== "L1"), "the bar's delete takes the selected side away");
+  ok((await ev<number>(`() => [...document.querySelectorAll("[data-bar]")].filter((e) => e.offsetParent !== null).length`)) === 0, "and the bar goes with the selection");
+  await click(0, 12); await page.keyboard.press("Delete"); await page.waitForTimeout(150);
+  ok((await def()).lines.every((l: any) => l.id !== "L4"), "the Delete key does the same");
   await page.keyboard.press("Escape");
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   await close();

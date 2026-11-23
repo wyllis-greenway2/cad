@@ -13,7 +13,9 @@ import { pointOnSeg, type Pt } from "./engine/region.ts";
 import { trimAt } from "./engine/trim.ts";
 import type { Relation } from "./engine/solver.ts";
 import { addCircle, addLine, addRect, constrain, emptySketch, hitAt, keep, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
-import { bubblesOn, type Flash } from "./interaction/bubbles.ts";
+import { bubblesOn, selectionAnchor, type Flash } from "./interaction/bubbles.ts";
+import { barFor } from "./interaction/helperbar.ts";
+import { createHelperBar } from "./helperbardraw.ts";
 import { createBubbleLayer, type Placed } from "./bubbledraw.ts";
 
 export interface SketchHost {
@@ -53,6 +55,18 @@ export function createSketch(host: SketchHost, page: HTMLElement) {
       const r = unconstrain(c.p, id); if (r.ok) set(c.key, r.params); else fail(r.why, r.victims);
     },
   });
+
+  /** a press on the helper bar: the selection is taken away or put away, or a relation is put on it */
+  const act = (id: string): void => {
+    const c = current(); if (!c) return;
+    if (id === "clear") selection = { key: "", ids: [] };
+    else if (id === "delete") { const sel = selected(c.key); if (sel.length) { set(c.key, removeParts(c.p, sel)); selection = { key: c.key, ids: [] }; } }
+    else if (id.startsWith("rel:")) {
+      const r = constrain(c.p, solOf(c.p), selected(c.key), id.slice(4) as Relation | "dimension");
+      if (r.ok) { set(c.key, r.params); flash = { applied: [r.added] }; flashUntil = performance.now() + 900; } else fail(r.why, r.victims);
+    }
+  };
+  const bar = createHelperBar(page, act);
 
   /** a figure made with a click: kept if the engine accepts it */
   const commit = (key: string, next: SketchParams | null, p: SketchParams) => {
@@ -157,13 +171,18 @@ export function createSketch(host: SketchHost, page: HTMLElement) {
       if (now > flashUntil) flash = {};
       if (now > messageUntil) message = "";
       const c = current(), cam = host.view();
-      if (!c) { layer.show([], { lines: [], dots: [] }); return { message }; }
+      if (!c) { layer.show([], { lines: [], dots: [] }); bar.show(null, null, cam.w, cam.h); return { message }; }
       const s = solOf(c.p), S = viewSystem(c.p, s), px = (p: P2) => { const q = project(cam.cam, to3(c.f, p), cam.w, cam.h); return [q.x, q.y] as [number, number]; };
+      // the helper bar beside what is selected (not while a tool is on or a number is being typed); the bubbles keep clear of it
+      const sel = selected(c.key), where = !tool && !layer.editing() ? selectionAnchor(S, sel) : null;
+      const box = bar.show(where ? barFor(S, sel) : null, where ? px(where) : null, cam.w, cam.h);
       const items: Placed[] = bubblesOn(S, selected(c.key), flash).map((bubble) => { const [x, y] = px(bubble.at); return { bubble, x, y }; });
-      layer.show(items, { lines: c.p.lines?.map((l) => [px(s.points[l.a]!), px(s.points[l.b]!)] as [[number, number], [number, number]]) ?? [], dots: c.p.points.map((q) => px(s.points[q.id]!)) });
+      layer.show(items, { lines: c.p.lines?.map((l) => [px(s.points[l.a]!), px(s.points[l.b]!)] as [[number, number], [number, number]]) ?? [], dots: c.p.points.map((q) => px(s.points[q.id]!)), ...(box ? { rects: [box] } : {}) });
       return { message };
     },
     editing: (): boolean => layer.editing(),
+    /** a press of the helper bar by its id (`delete`, `clear`, `rel:<relation>`): for the dev checks */
+    press: act,
     debug: () => ({ tool: tool ? { ...tool } : null, sketches: [...defs].map(([k, v]) => [k, v] as const), selection, message }),
   };
 }
