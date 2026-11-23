@@ -86,4 +86,13 @@ console.log("10. a constraint added to a sketch does not send the drawing far aw
     check(`${n}: ${a.outcome}, nothing moves more than the drawing is wide (${moved.toFixed(1)} mm), and no line is shorter than 0.001 mm`, a.outcome !== "added" || (moved < 60 && Math.min(...lines) >= 1e-3), `${a.outcome} moved ${moved.toFixed(1)} shortest ${Math.min(...lines)}`);
   }
 }
+console.log("11. the area of a region of a sketch is exact (arcs were cut into a polygon, a tenth of a percent short) and does not count an island inside it");
+{
+  const K = await import("../src/engine/kernel.ts"), { Body } = await import("../src/engine/lineage.ts");
+  const params = JSON.parse(readFileSync(new URL("./stress-found/sketch-island-region.json", import.meta.url), "utf8")), e = new Engine([{ id: "s", kind: "sketch", params, inputs: [] }, { id: "E", kind: "extrude", params: { d: 4 }, inputs: ["s"] }]); e.build();
+  const sk = e.result("s").value as { regions?: { area: number; filled: boolean }[] }, filled = (sk.regions ?? []).filter((q) => q.filled).reduce((a, q) => a + q.area, 0), v = K.volume((e.result("E").value as InstanceType<typeof Body>).solid);
+  check("the filled areas times the depth are the volume of the extrude, to a millionth", st(e, "E").kind === "ok" && Math.abs(v - filled * 4) < 1e-6 * v, `${v} against ${filled * 4}`); e.release();
+  const c = new Engine([{ id: "s", kind: "sketch", params: { points: [{ id: "C", x: 0, y: 0 }], circles: [{ id: "k", c: "C", r: 7 }], constraints: [{ id: "f", kind: "fixed", parts: ["C"], at: [0, 0] }, { id: "r", kind: "radius", parts: ["k"], value: 7 }] }, inputs: [] }]); c.build(); const cs = c.result("s").value as { regions?: { area: number }[] };
+  check("a circle of radius 7: its region is 49 pi", !!cs.regions?.length && Math.abs(cs.regions[0]!.area - 49 * Math.PI) < 1e-9, String(cs.regions?.[0]?.area)); c.release();
+}
 process.exit(failureCount() ? 1 : 0);

@@ -192,7 +192,7 @@ const PIN_WEIGHT = 1e-3;
 interface Attempt { x: number[]; cost: number; iterations: number; converged: boolean; residual: number }
 /** Levenberg-Marquardt on the unknowns that are not frozen; `use` says which constraints take part */
 function levenberg(S: System, prep: Prep, use: Set<string>, start: number[], scale: number, withPins: boolean, maxIter = 300): Attempt {
-  const free = prep.frozen.map((f, i) => (f ? -1 : i)).filter((i) => i >= 0), n = free.length; let x = [...start];
+  const frozenFree = prep.frozen.map((f, i) => (f ? -1 : i)).filter((i) => i >= 0); let x = [...start];
   const eval_ = (xs: number[]) => {
     const r: number[] = [], J: Map<number, number>[] = [];
     for (const row of prep.rows) if (use.has(row.c.id)) for (const d of row.fn(xs)) { r.push(d.v); J.push(d.g); }
@@ -200,6 +200,9 @@ function levenberg(S: System, prep: Prep, use: Set<string>, start: number[], sca
     return { r, J };
   };
   const cost = (r: number[]) => r.reduce((s, v) => s + v * v, 0), t = tol(scale); let lambda = 1e-3, iterations = 0, stall = 0, { r, J } = eval_(x), c = cost(r);
+  // only the unknowns the constraints in use say something about are solved for (the others have no slope: a step would not move them): a part of a big sketch is solved on its own, not with every point of the drawing beside it
+  const touched = new Set<number>(); for (const row of J) for (const i of row.keys()) touched.add(i);
+  const free = frozenFree.filter((i) => touched.has(i)), n = free.length;
   if (n === 0 || r.length === 0) return { x, cost: c, iterations: 0, converged: Math.sqrt(c) <= t, residual: Math.sqrt(c) };
   const idx = new Map(free.map((g, q) => [g, q] as const));
   for (; iterations < maxIter; iterations++) {
@@ -318,7 +321,7 @@ function solveOnce(S: System, opts: Options = {}): Result {
     if (only && !ids.some((id) => touch(S.constraints.find((c) => c.id === id)!).some((i) => only.has(prep.names[i]!.split(".")[0]!)))) continue;
     const use = new Set(ids), f = feasible(S, prep, use, scale, restarts, minSize); iterations += f.attempt.iterations;
     if (!f.ok) { // a set that cannot hold together and cannot be made smaller: QuickXplain, a number of solves about the size of the set times the log of the rest (not one for each constraint)
-      ok = false; const n = narrow(ids, (set) => feasible(S, prep, new Set(set), scale, 2, minSize).ok, opts.maxSolves ?? 60);
+      ok = false; const n = narrow(ids, (set) => feasible(S, prep, new Set(set), scale, 1, minSize, 80).ok, opts.maxSolves ?? 60); // a set that holds settles in a few steps; one that does not is cut off at 80 (the full 300 each time made a conflict in a big sketch take seconds)
       conflict.push(...n.set); reason = f.why + (n.exceeded ? " (the set that conflicts was not narrowed: too many parts)" : ""); continue;
     }
     // where it ended; then what is free and what adds nothing

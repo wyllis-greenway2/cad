@@ -99,7 +99,17 @@ export function regions(segs: readonly Seg[], opts: { pick?: readonly Pt[] } = {
   const pts = (list: number[]): Pt[] => list.flatMap((h) => poly(ps[halves[h]!.piece]!, halves[h]!.fwd).slice(0, -1));
   const areaOf = (q: Pt[]) => { let a = 0; for (let i = 0; i < q.length; i++) { const p = q[i]!, r = q[(i + 1) % q.length]!; a += p[0] * r[1] - r[0] * p[1]; } return a / 2; };
   const inside = (q: Pt[], p: Pt): boolean => { let c = false; for (let i = 0, j = q.length - 1; i < q.length; j = i++) { const a = q[i]!, b = q[j]!; if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < ((b[0] - a[0]) * (p[1] - a[1])) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
-  const poly_ = cycles.map(pts), area = poly_.map(areaOf);
+  // the area of a cycle is exact (Green's theorem along each side: a line, or an arc about its centre), not that of the polygon the arcs are cut into for the tests of what is inside what (that one is smaller by the slivers between chord and arc: a tenth of a percent)
+  const exactArea = (list: number[]): number => {
+    let a = 0;
+    for (const h of list) {
+      const hf = halves[h]!, pc = ps[hf.piece]!, s = segs[pc.seg]!, P = vx[hf.from]!, Q = vx[hf.to]!;
+      if (s.kind === "line") a += (P[0] * Q[1] - Q[0] * P[1]) / 2;
+      else { const dt = (hf.fwd ? 1 : -1) * (pc.p1 - pc.p0); a += (s.r * s.r * dt + s.c[0] * (Q[1] - P[1]) - s.c[1] * (Q[0] - P[0])) / 2; }
+    }
+    return a;
+  };
+  const poly_ = cycles.map(pts), area = cycles.map(exactArea);
   // connected components (by shared vertices)
   const comp = vx.map((_, i) => i), find = (i: number): number => (comp[i] === i ? i : (comp[i] = find(comp[i]!)));
   for (const p of ps) comp[find(p.v0)] = find(p.v1);
@@ -123,7 +133,7 @@ export function regions(segs: readonly Seg[], opts: { pick?: readonly Pt[] } = {
   if (opts.pick?.length) { for (const f of faceCycles) filled.set(f, false); for (const p of opts.pick) { const f = faceOfPoint(p); if (f >= 0) filled.set(f, true); } }
   else for (const f of faceCycles) filled.set(f, crossings(sampleOf(f)) % 2 === 1);
   const fill = (f: number) => f >= 0 && filled.get(f) === true;
-  const faces: Faces[] = faceCycles.map((f) => ({ sample: sampleOf(f), area: area[f]!, filled: fill(f) }));
+  const faces: Faces[] = faceCycles.map((f) => ({ sample: sampleOf(f), area: area[f]! + (holes.get(f) ?? []).reduce((s, hc) => s + area[hc]!, 0) /* an island inside it is not part of it (its cycle runs clockwise: negative) */, filled: fill(f) }));
   // the boundary: half-edges with a filled face on the left and not on the right; traced into loops
   const edge = (h: number) => fill(leftFace(h)) && !fill(leftFace(twin(h)));
   const seen = new Set<number>(), loops: { halves: number[] }[] = [];
