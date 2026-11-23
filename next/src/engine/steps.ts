@@ -181,10 +181,19 @@ export const kinds: Record<string, Kind> = {
     if (step.params.past === true && !law && mode === "fillet") { const out = pointed(body, asked, size, step, age); if (out) return out; } // the person chose to continue past the kernel's limit (E35)
     // the law's first place is the edge's own start, which end that is nobody can tell from outside: `near` (a point) says which end the first size belongs to
     const near = step.params.near as V3 | undefined, lawFor = law && near ? (e: K.EdgeH): K.SizeLaw => { const [a, b] = K.edgeEnds(e), da = Math.hypot(a[0] - near[0], a[1] - near[1], a[2] - near[2]), db = Math.hypot(b[0] - near[0], b[1] - near[1], b[2] - near[2]); return da <= db ? law : [...law].reverse().map(([u, z]) => [1 - u, z] as const); } : null;
-    const m = K.roundEdges(body.solid, asked.map((e) => e.h), lawFor ?? law ?? size, mode), claims: Claim[] = [];
-    const edges = body.edges().filter((e) => m.rounded.some((x) => K.sameEdge(x, e.h)));
-    edges.forEach((e, n) => m.round(e.h).forEach((face, k) => claims.push({ id: e.ref ? mint(step.id, "round", e.ref.a, e.ref.b, k) : mint(step.id, "round", "free", n, k), face })));
-    return checked(corners(carry(m.solid, m.report, [body], claims, step.id, age), step.id), `the ${mode}`);
+    const once = (from: Body, edgesOf: EdgeRec[]): Body => {
+      const m = K.roundEdges(from.solid, edgesOf.map((e) => e.h), lawFor ?? law ?? size, mode), claims: Claim[] = [];
+      const edges = from.edges().filter((e) => m.rounded.some((x) => K.sameEdge(x, e.h)));
+      edges.forEach((e, n) => m.round(e.h).forEach((face, k) => claims.push({ id: e.ref ? mint(step.id, "round", e.ref.a, e.ref.b, k) : mint(step.id, "round", "free", n, k), face })));
+      return checked(corners(carry(m.solid, m.report, [from], claims, step.id, age), step.id), `the ${mode}`);
+    };
+    const refs = step.params.edges as EdgeRef[];
+    try { return once(body, asked); } catch (first) {
+      // the kernel often fails on several edges at once where each edge alone, one after the other, is fine (found by the stress run: two walls of a boss running out over a cylinder's rim). The edges are then done in turn: the same faces are named, and a note says so; where the edges meet, the corners are the kernel's for each in turn
+      if (refs.length < 2) throw first;
+      let cur = body; try { for (const r of refs) { const next = once(cur, cur.findEdges(r)); if (cur !== body) cur.release(); cur = next; } } catch (later) { if (cur !== body) cur.release(); throw first instanceof Error && later instanceof Error ? new Error(`${first.message}; one edge at a time it stopped too: ${later.message}`) : first; }
+      cur.notes.push({ kind: "sequence", text: `the ${mode} could not be made on all ${refs.length} edges at once, so each edge was done after the other` }); return cur;
+    }
   } },
   /** two bodies made one (`add`), the second taken out of the first (`cut`), or what they share (`intersect`); every face keeps its id, and merged faces answer to both */
   combine: { outputs: "body", run: (inputs, { step, age }, ) => {

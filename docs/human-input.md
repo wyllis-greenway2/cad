@@ -6363,3 +6363,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1550 — 2026-11-23 — question
 > Did we test some of the problematic ones? Like for example a fillet on the edge of a cylinder cut through at an angle by another cylinder?
+
+## in_1551 — 2026-11-23 — question
+> but shouldn't you be able to fillet an edge like that? why is it so fragile and breaking all the time? does our variable fillet idea help it suceed more? Another test is extruding a rectangle (out of center) out of the top of a cylinder and filleting its inner edges until they join with the cylinder wall, I would expect to be able to increase the fillet and the amount that overhangs the cylinder wall is just extended and cut. Does that make sense? and is that how it works?

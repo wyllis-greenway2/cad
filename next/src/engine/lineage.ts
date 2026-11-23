@@ -9,7 +9,7 @@ export interface FaceRec { id: Id; alias: Id[]; h: K.FaceH; /** the engine could
 /** a face or a body answers to a reference when the reference names it, one of the names it answers to (after joins, E8, E39), or a piece of either: the one rule every lookup by id uses */
 export const answers = (r: { id: Id; alias: readonly Id[] }, ref: Id): boolean => isPieceOf(r.id, ref) || r.alias.some((a) => isPieceOf(a, ref));
 export interface BodyRec { id: Id; alias: Id[]; faces: FaceRec[] }
-export interface Note { kind: "split" | "tie" | "defect" | "merged" | "dropped" | "unjoined" | "sliver" | "free"; text: string }
+export interface Note { kind: "split" | "tie" | "defect" | "merged" | "dropped" | "unjoined" | "sliver" | "free" | "sequence"; text: string }
 export interface VertexRec { p: K.V3; faces: FaceRec[]; /** the faces that meet there, if three or more: the vertex's name (E6) */ ref: VertexRef | null }
 export interface EdgeRec { h: K.EdgeH; faces: FaceRec[]; /** two faces beside it: the edge's name */ ref: EdgeRef | null }
 

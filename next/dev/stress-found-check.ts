@@ -63,4 +63,17 @@ console.log("8. faces the kernel left without a name are numbered by what they a
     for (let i = 1; i < keys.length; i++) { const a = keys[i - 1]!, b = keys[i]!; const cmp = (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0) || a[1] - b[1] || a[2] - b[2] || a[3] - b[3] || a[4] - b[4]; if (cmp > 0) inOrder = false; } }
   check("the unnamed faces of every step are in geometric order", seen > 0 && inOrder, `${seen} unnamed faces seen`); e.release();
 }
+console.log("9. two edges the kernel cannot round together are rounded one after the other (a boss whose two walls run out over a cylinder's rim), and the part is the same as rounding them in two steps");
+{
+  const { mint, edgeRef } = await import("../src/engine/id.ts"), K = await import("../src/engine/kernel.ts"), { Body } = await import("../src/engine/lineage.ts"), top = mint("A", "end"), bs = (i: number) => mint("B", "side", mint("t", "line", i));
+  const base: Step[] = [{ id: "s", kind: "sketchCircle", params: { r: 20, at: [0, 0] }, inputs: [] }, { id: "A", kind: "extrude", params: { d: 20 }, inputs: ["s"] }, { id: "t", kind: "sketchPolygon", params: { offset: 20, points: [[5, -6], [32, -6], [32, 6], [5, 6]] }, inputs: [] },
+    { id: "B", kind: "extrude", params: { d: 10 }, inputs: ["t"] }, { id: "C", kind: "combine", params: { mode: "add" }, inputs: ["A", "B"] }];
+  for (const size of [0.5, 2, 6]) {
+    const both = new Engine([...base, { id: "F", kind: "round", params: { edges: [edgeRef(bs(0), top), edgeRef(bs(2), top)], size }, inputs: ["C"] }]); both.build();
+    const two = new Engine([...base, { id: "F1", kind: "round", params: { edges: [edgeRef(bs(0), top)], size }, inputs: ["C"] }, { id: "F2", kind: "round", params: { edges: [edgeRef(bs(2), top)], size }, inputs: ["F1"] }]); two.build();
+    const v = (e: Engine, id: string) => K.volume((e.result(id).value as InstanceType<typeof Body>).solid);
+    check(`size ${size}: ok, with a note that says it was done in turn, and the volume of the two steps`, st(both, "F").kind === "ok" && st(two, "F2").kind === "ok" && both.result("F").notes.some((n) => n.kind === "sequence") && Math.abs(v(both, "F") - v(two, "F2")) < 1e-3, `${st(both, "F").kind} ${st(both, "F").why ?? ""} ${st(both, "F").kind === "ok" ? v(both, "F") : ""} ${st(two, "F2").kind === "ok" ? v(two, "F2") : ""}`);
+    both.release(); two.release();
+  }
+}
 process.exit(failureCount() ? 1 : 0);
