@@ -6369,3 +6369,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1552 — 2026-11-23 — question
 > okay so how is our engine looking? is it lean? is it simple and robust? is it better than the prototype?
+
+## in_1553 — 2026-11-23 — question
+> not yet, I just want to compare apples to apples as much as possible. How is our engine compared to just the prototype engine? Is ours complete, logically sound, and covering all the things we care about? history, sketches, bodies, costraints etc?
