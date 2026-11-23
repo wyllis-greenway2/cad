@@ -13,7 +13,8 @@ import { drawOrb } from "./orbdraw.ts";
 import { createCutDraw, type CutDrawing } from "./cutdraw.ts";
 import { drawLines } from "./sketchdraw.ts";
 import type { DrawLine } from "./sketchcontrol.ts";
-import { SOLID, surfaceOf, type Look } from "./looks.ts";
+import { SOLID, SEE_THROUGH, surfaceOf, type Look } from "./looks.ts";
+import type { BodyMesh } from "./studio.ts";
 
 const vec = (v: V3) => new THREE.Vector3(v[0], v[1], v[2]);
 const rgb = (c: [number, number, number]) => new THREE.Color().setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace);
@@ -55,6 +56,8 @@ export interface Drawing {
   disc: { point: V3; normal: V3; radius: number } | null;
   /** The look of each body by id (default Solid): the world draws a body only in one of the three looks (looks.ts). */
   looks?: Record<string, Look>;
+  /** What a pull would make, shown before the engine has made it: the outline (and holes) in the plane's axes, pulled `d` along the plane's normal, in the See-through look marked as picked. */
+  ghost?: { frame: { origin: V3; u: V3; v: V3; n: V3 }; loops: [number, number][][]; d: number } | null;
 }
 
 export function createWorld(canvas: HTMLCanvasElement, model: Model) {
@@ -70,6 +73,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
 
   // stand-in bodies (rebuilt when the model changes)
   const bodies = new THREE.Group();
+  let solids: readonly BodyMesh[] = [];
   const buildBodies = () => {
   bodies.clear();
   for (const t of model.things) {
@@ -79,6 +83,15 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
     m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial()));
     m.userData.thing = t.id; m.userData.look = "";
     m.position.copy(vec(centreOf(t)));
+    bodies.add(m);
+  }
+  for (const b of solids) { // the bodies the engine made
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(b.positions, 3)); g.setAttribute("normal", new THREE.BufferAttribute(b.normals, 3)); g.setIndex(new THREE.BufferAttribute(b.indices, 1));
+    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
+    const eg = new THREE.BufferGeometry(); eg.setAttribute("position", new THREE.BufferAttribute(b.edges, 3));
+    m.add(new THREE.LineSegments(eg, new THREE.LineBasicMaterial()));
+    m.userData.thing = b.id; m.userData.look = "";
     bodies.add(m);
   }
   };
@@ -164,11 +177,32 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
   const dyn = new THREE.Group(); scene.add(dyn);
   const drop = () => { for (const o of [...dyn.children]) { dyn.remove(o); o.traverse((q) => { (q as THREE.Mesh).geometry?.dispose?.(); }); } };
 
+  // the ghost of a pull: made again only when what it is made of changes
+  let ghost: THREE.Group | null = null, ghostKey = "";
+  const setGhost = (g: Drawing["ghost"]) => {
+    const key = g ? JSON.stringify([g.frame, g.loops, g.d]) : "";
+    if (key === ghostKey) return;
+    ghostKey = key; if (ghost) { scene.remove(ghost); ghost.traverse((o) => { (o as THREE.Mesh).geometry?.dispose(); }); ghost = null; }
+    if (!g || !g.loops.length || Math.abs(g.d) < 1e-9) return;
+    const shape = new THREE.Shape(g.loops[0]!.map((p) => new THREE.Vector2(p[0], p[1])));
+    for (const h of g.loops.slice(1)) shape.holes.push(new THREE.Path(h.map((p) => new THREE.Vector2(p[0], p[1]))));
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: Math.abs(g.d), bevelEnabled: false, curveSegments: 1 }), sf = surfaceOf({ base: "seeThrough", mark: "pick" });
+    const mat = new THREE.MeshBasicMaterial({ color: sf.color, transparent: true, opacity: Math.max(sf.opacity, 0.25), depthWrite: false, side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(geo, mat), edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), new THREE.LineBasicMaterial({ color: sf.color, transparent: true, opacity: 0.9 }));
+    ghost = new THREE.Group(); ghost.add(mesh, edges);
+    const f = g.frame; ghost.matrix.makeBasis(vec(f.u), vec(f.v), vec(f.n)).setPosition(vec(f.origin)); ghost.matrixAutoUpdate = false; ghost.matrixWorldNeedsUpdate = true;
+    mesh.scale.z = Math.sign(g.d); edges.scale.z = Math.sign(g.d); // (pulled the other way: the same prism on the other side)
+    ghost.renderOrder = 5; scene.add(ghost);
+  };
+  void SEE_THROUGH;
   return {
     rebuild: rebuildAll,
+    /** The bodies the engine made (replaced as a whole). */
+    setBodies(list: readonly BodyMesh[]) { solids = list; rebuildAll(); },
     render(d: Drawing) {
       renderer.setSize(d.w, d.h, false);
       lookBodies(d.looks);
+      setGhost(d.ghost);
       const c = d.cam, f = forward(c);
       // an orthographic view (a straight view at rest) is drawn with the orthographic camera, so that sliding it shows nothing of the third
       // dimension; between it and perspective, the perspective camera with the lens narrowed

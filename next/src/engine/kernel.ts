@@ -12,9 +12,10 @@ export interface Facts { type: string; ne: V3; ce: V3; lo: V3; hi: V3; area: num
 export interface Report { modified(f: FaceH): FaceH[]; fromEdge(e: EdgeH): FaceH[]; fromFace(f: FaceH): FaceH[]; deleted(f: FaceH): boolean }
 
 let oc: Raw = null;
-export async function initKernel(): Promise<void> {
+/** `wasm`: where the kernel's WebAssembly file is, when the page (a browser's worker) has to say; Node finds it by itself */
+export async function initKernel(wasm?: string): Promise<void> {
   if (oc) return;
-  oc = await (initOC as unknown as () => Promise<Raw>)();
+  oc = await (initOC as unknown as (o?: { locateFile?: (f: string) => string }) => Promise<Raw>)(wasm ? { locateFile: () => wasm } : undefined);
   setOC(oc);
   makeDeleteSafe();
 }

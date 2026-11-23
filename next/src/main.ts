@@ -15,9 +15,11 @@ import { createSketch } from "./sketchcontrol.ts";
 import { to3, type ToolKind } from "./sketch.ts";
 import { createMenu, createOrientBar, type MenuItem } from "./menu.ts";
 import { createOrbControl } from "./orbcontrol.ts";
-import { dot, scale, sub } from "./vec.ts";
+import { add, dot, scale, sub, unit } from "./vec.ts";
 import { SEE_THROUGH } from "./looks.ts";
 import { settings } from "./settings.ts";
+import { createStudio } from "./studio.ts";
+import { createExtrude } from "./extrudecontrol.ts";
 
 const params = new URLSearchParams(location.search);
 dev.tuneFromAddress(params);
@@ -68,7 +70,19 @@ const sk = createSketch({
 const note = document.createElement("div");
 note.style.cssText = `position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:none;max-width:70vw;padding:7px 14px;border-radius:15px;background:${settings.ui.pill};color:${settings.ui.pillText};font:13px ${settings.ui.font};z-index:9;pointer-events:none`;
 document.body.appendChild(note);
+// ---- the engine's worker (the recipe and the bodies it makes) and the Extrude tool ----
+const studio = createStudio();
+studio.subscribe(() => world.setBodies(studio.state().meshes));
+const ext = createExtrude({
+  view: () => { const e = env(); return { cam: s.c, w: e.w, h: e.h }; },
+  regionAt: (x, y) => sk.regionAt(x, y),
+  recipe: () => studio.state().steps,
+  change: (steps) => studio.change(steps),
+  tilt: (f, c, size) => { const e = env(), v = vOf(f), n = f.normal, el = 0.9; s = view.lookObliqueAt(s, e, c, unit(add(scale(unit(add(scale(f.u, 0.4), scale(v, 0.8))), Math.cos(el)), scale(n, -Math.sin(el)))), Math.max(70, size * 3.2)); },
+}, document.body);
+function startExtrude() { if (game.on) endGame(); while (sk.stop()) { /* the sketch tool is put away */ } sk.clearSelection(); ext.start(); }
 function startTool(kind: ToolKind) {
+  ext.cancel();
   if (game.on) endGame();
   const f = planeNow().frame, straight = s.c.ortho !== null && !s.go && Math.abs(dot(forward(s.c), f.normal)) > 0.9999;
   if (!straight) s = placed ? view.lookAlong(s, env(), scale(f.normal, dot(sub(s.c.eye, f.origin), f.normal) >= 0 ? -1 : 1)) : view.lookAt(s, env(), s.plane);
@@ -76,9 +90,10 @@ function startTool(kind: ToolKind) {
 }
 
 // ---- the right-click ring: the pencil (its tools open as a ring of their own) and the sketch plane ----
-const menu = createMenu(document.body, (id) => { if (id === "sketch-plane") addSketchPlane(); else if (id.startsWith("tool:")) startTool(id.slice(5) as ToolKind); });
+const menu = createMenu(document.body, (id) => { if (id === "extrude") startExtrude(); else if (id === "sketch-plane") addSketchPlane(); else if (id.startsWith("tool:")) startTool(id.slice(5) as ToolKind); });
 const menuItems = (): MenuItem[] => [
   { id: "pencil", label: "Sketch", icon: "sketch", children: [{ id: "tool:line", label: "Line", icon: "line" }, { id: "tool:rect", label: "Rectangle", icon: "rect" }, { id: "tool:circle", label: "Circle", icon: "circle" }, { id: "tool:trim", label: "Trim", icon: "scissors" }] },
+  { id: "extrude", label: "Extrude", icon: "pushpull" },
   { id: "sketch-plane", label: "Sketch plane", icon: "sheetPlain" },
 ];
 
@@ -96,14 +111,15 @@ attach(canvas, {
   click: (x, y, count) => {
     pointer = { x, y };
     if (menu.isOpen()) { menu.close(); return; }
+    if (ext.click(x, y)) return;
     if (sk.click(x, y, count, shiftHeld)) return; // (a tool is on: a click is a point of its figure)
     const next = view.click(s, env(), x, y); // (a pane of a world plane: it is the sketch plane now)
     if (next !== s) { placed = null; s = next; }
   },
-  grab: (x, y, shift) => !game.on && orbc.grab(x, y, shift),
-  grabMove: (x, y) => orbc.grabMove(x, y),
-  grabEnd: () => orbc.grabEnd(),
-  menu: (x, y) => { pointer = { x, y }; if (!sk.stop()) menu.open(x, y, menuItems()); }, // (with a tool on, a right click gives up the figure, then puts the tool away)
+  grab: (x, y, shift) => !game.on && (ext.grab(x, y) || orbc.grab(x, y, shift)),
+  grabMove: (x, y) => { ext.grabMove(x, y); orbc.grabMove(x, y); },
+  grabEnd: () => { ext.grabEnd(); orbc.grabEnd(); },
+  menu: (x, y) => { pointer = { x, y }; if (ext.pulling()) { ext.apply(); return; } if (ext.cancel()) return; if (!sk.stop()) menu.open(x, y, menuItems()); }, // (with a tool on, a right click gives up the figure, then puts the tool away)
   look: (dx, dy) => game.look(dx, dy),
   space: () => { if (game.on) endGame(); else startGame(); },
 }, () => document.pointerLockElement === canvas);
@@ -113,11 +129,12 @@ addEventListener("keydown", (e) => { shiftHeld = e.shiftKey; });
 addEventListener("keyup", (e) => { shiftHeld = e.shiftKey; });
 addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (ext.key(e.code)) { e.preventDefault(); return; }
   if (sk.key(e.code)) { e.preventDefault(); return; } // (Delete, and D with something selected, are the sketch's before they are the game's)
   if (game.moves(e.code) && !game.on && !e.repeat) startGame(); // (W A S D turn the game on too, and the key that did it moves the eye)
   if (game.key(e.code, true)) return;
   if (orbc.orienting() && e.code === "Enter") { orbc.keep(); return; }
-  if (e.code === "Escape") { if (orbc.cancel()) return; if (menu.isOpen()) menu.close(); else if (game.on) endGame(); else if (!sk.stop() && !sk.clearSelection()) orbc.release(); }
+  if (e.code === "Escape") { if (ext.cancel()) return; if (orbc.cancel()) return; if (menu.isOpen()) menu.close(); else if (game.on) endGame(); else if (!sk.stop() && !sk.clearSelection()) orbc.release(); }
 });
 addEventListener("keyup", (e) => { game.key(e.code, false); });
 document.addEventListener("pointerlockchange", () => { if (document.pointerLockElement !== canvas && game.on) endGame(); });
@@ -133,15 +150,16 @@ function frame(now: number) {
   const e = env(now), d = view.drawing(s, e, pointer), orb = orbc.drawing(game.on ? null : pointer);
   canvas.style.cursor = orb?.hover ? "grab" : "";
   world.render({
-    ...d, ...(placed ? { grid: gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, placed.origin), placed.normal))), sketch: { origin: placed.origin, u: placed.u, v: vOf(placed), n: placed.normal } } : {}), orb, lines: sk.lines(game.on ? null : pointer), ...(sk.active() ? { looks: Object.fromEntries(model.things.map((t) => [t.id, SEE_THROUGH])) } : {}),
+    ...d, ...(placed ? { grid: gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, placed.origin), placed.normal))), sketch: { origin: placed.origin, u: placed.u, v: vOf(placed), n: placed.normal } } : {}), orb: ext.drawing(game.on ? null : pointer) ?? orb, ghost: ext.ghost(), lines: sk.lines(game.on ? null : pointer), ...(sk.active() ? { looks: Object.fromEntries(model.things.map((t) => [t.id, SEE_THROUGH])) } : {}),
     cut: placed ? { origin: placed.origin, n: placed.normal } : null, // (made once with the plane, from the side the camera looked from; it turns and moves with the plane, and does not change with the camera)
   });
-  note.textContent = sk.frame(now).message; note.style.display = note.textContent ? "block" : "none";
+  ext.frame();
+  note.textContent = studio.state().problem || sk.frame(now).message; note.style.display = note.textContent ? "block" : "none";
   orientBar.show(orbc.orienting() && !!orb);
   ui.update(view.pageState(s, e));
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
-Object.assign(window, { __sketch: sk, __tool: startTool, __px: (p: [number, number]) => { const e = env(), q = project(s.c, to3(planeNow().frame, p), e.w, e.h); return [q.x, q.y]; } }); // (for the dev checks in a page)
+Object.assign(window, { __sketch: sk, __ext: ext, __studio: studio, __startExtrude: startExtrude, __proj: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __tool: startTool, __px: (p: [number, number]) => { const e = env(), q = project(s.c, to3(planeNow().frame, p), e.w, e.h); return [q.x, q.y]; } }); // (for the dev checks in a page)
 dev.install({ planes: () => ({ sketch: placed, drawn: sk.debug(), ...orbc.debug() }), model, rebuild: world.rebuild, state: () => s, put: (next) => { s = next; }, pointer: () => pointer, game, gizmoScale: () => view.gizmoScale(s) });

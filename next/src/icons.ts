@@ -29,6 +29,7 @@ const ICONS: Record<string, string> = {
   symmetric: svg('<path d="M8 2v12" stroke-dasharray="2 2"/><circle cx="4" cy="6" r="1.3"/><circle cx="12" cy="6" r="1.3"/><path d="M4 11h8"/>'),
   scissors: svg('<circle cx="4.2" cy="11.6" r="2"/><circle cx="4.2" cy="4.4" r="2"/><path d="M5.9 5.5L14 12M5.9 10.5L14 4"/>'),
   trash: svg('<path d="M3 4.5h10"/><path d="M6.2 4.5V3h3.6v1.5"/><path d="M4.3 4.5l.7 8.5h6l.7-8.5"/><path d="M6.8 7v3.8M9.2 7v3.8"/>'),
+  pushpull: svg('<path d="M2.5 11.5L8 8.7l5.5 2.8L8 14.3z"/><path d="M8 7V2"/><path d="M5.6 4.4L8 2l2.4 2.4"/>'),
   cross: svg('<path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>'),
 };
 export const iconSvg = (key: string): string => ICONS[key] ?? "";

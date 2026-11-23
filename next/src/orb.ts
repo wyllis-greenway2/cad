@@ -59,7 +59,7 @@ export function hitHandle(hs: Handle[], c: Cam, w: number, h: number, px: number
 }
 
 // ---- what a drag means ----
-const rayOf = (c: Cam, w: number, h: number, px: number, py: number) => rayFrom(c, (px / w) * 2 - 1, -((py / h) * 2 - 1), w / h);
+export const rayOf = (c: Cam, w: number, h: number, px: number, py: number) => rayFrom(c, (px / w) * 2 - 1, -((py / h) * 2 - 1), w / h);
 /** Where the pointer's ray meets the plane through `p` with normal `n`. */
 function onPlane(r: { o: V3; d: V3 }, p: V3, n: V3): V3 | null {
   const den = dot(r.d, n);
@@ -68,7 +68,7 @@ function onPlane(r: { o: V3; d: V3 }, p: V3, n: V3): V3 | null {
   return add(r.o, scale(r.d, t));
 }
 /** How far along the line through `p` in direction `d` the pointer's ray comes nearest to it. */
-function alongLine(r: { o: V3; d: V3 }, p: V3, d: V3): number | null {
+export function alongLine(r: { o: V3; d: V3 }, p: V3, d: V3): number | null {
   const w0 = sub(p, r.o), b = dot(d, r.d), dd = dot(d, w0), e = dot(r.d, w0), den = 1 - b * b;
   return den < 1e-4 ? null : (b * e - dd) / den;
 }

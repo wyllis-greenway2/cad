@@ -43,6 +43,6 @@ export class Session {
         lines: e.lines(id).map((l) => ({ id: l.id, ends: l.ends ?? null, from: l.from })),
       })));
     }
-    return { steps, computes, ms, rssMb: Math.round(process.memoryUsage().rss / 1e6) };
+    return { steps, computes, ms, rssMb: typeof process !== "undefined" && process.memoryUsage ? Math.round(process.memoryUsage().rss / 1e6) : Math.round(((performance as unknown as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? 0) / 1e6) };
   }
 }

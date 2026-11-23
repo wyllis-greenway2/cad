@@ -17,6 +17,7 @@ import { bubblesOn, selectionAnchor, type Flash } from "./interaction/bubbles.ts
 import { barFor } from "./interaction/helperbar.ts";
 import { createHelperBar } from "./helperbardraw.ts";
 import { createBubbleLayer, type Placed } from "./bubbledraw.ts";
+import { regionAt, type Region } from "./interaction/extrude.ts";
 
 export interface SketchHost {
   view(): { cam: Cam; w: number; h: number };
@@ -180,6 +181,15 @@ export function createSketch(host: SketchHost, page: HTMLElement) {
       layer.show(items, { lines: c.p.lines?.map((l) => [px(s.points[l.a]!), px(s.points[l.b]!)] as [[number, number], [number, number]]) ?? [], dots: c.p.points.map((q) => px(s.points[q.id]!)), ...(box ? { rects: [box] } : {}) });
       return { message };
     },
+    /** The region of the drawing on the plane that is on under the pointer, with the sketch and the plane it is of (what an extrude is made from); null: none. */
+    regionAt(x: number, y: number): { key: string; frame: Frame; def: SketchParams; region: Region } | null {
+      const c = here(x, y); if (!c) return null;
+      const region = regionAt(c.p, c.q); return region ? { key: c.key, frame: c.f, def: c.p, region } : null;
+    },
+    /** Whether any plane has something drawn on it (what the Extrude tool needs). */
+    hasDrawing: (): boolean => [...defs.values()].some((p) => (p.lines?.length ?? 0) + (p.circles?.length ?? 0) + (p.arcs?.length ?? 0) > 0),
+    /** The sketch of a plane, as the definition (for the extrude). */
+    sketchOf: (key: string): SketchParams | null => defs.get(key) ?? null,
     editing: (): boolean => layer.editing(),
     /** a press of the helper bar by its id (`delete`, `clear`, `rel:<relation>`): for the dev checks */
     press: act,

@@ -9,7 +9,7 @@ Status: **a draft, `ai-unreviewed`**, written after a first prototype was built 
 - What the next click would make is shown as the pointer moves (teal), with a small cross where the pointer is; figures done are charcoal lines.
 - **Snapping:** the point goes onto an end, a corner or a middle of an earlier figure within 10 px, else onto a grid crossing within 10 px.
 - **Right click** (or Esc) gives up the figure under way; with none, it puts the tool away; then the ring opens again.
-- Since `in_1564` the figures are **the engine's own definition** (points, lines, circles, constraints), solved at every edit; selecting, a number on a part (D), typing over it, Delete and Trim (K9 to K14) are built, checked by dev checks (`dev/drawing-check.ts`, `dev/stress-drawing.ts`, `dev/sketch-browser.ts`) and not yet tests.
+- Since `in_1564` the figures are **the engine's own definition** (points, lines, circles, constraints), solved at every edit; selecting, a number on a part (D), typing over it, Delete and Trim (K9 to K17) are built, checked by dev checks (`dev/drawing-check.ts`, `dev/stress-drawing.ts`, `dev/sketch-browser.ts`) and not yet tests.
 - Figures are kept **in the plane's own axes**, so they go with a placed plane when the orb moves it; a world plane keeps its own; a placed plane's are let go with it.
 - The orb is out of the way while a tool is on.
 
@@ -32,6 +32,10 @@ Status: **a draft, `ai-unreviewed`**, written after a first prototype was built 
 
 | K13 | The helper bar stands beside what is selected, up and to the right, kept on the page and clear of the bubbles: on the left what can be done with the selection (delete, put the selection away), on the right the relations that fit exactly it, the numbers first, those already true marked, those that cannot hold shown red with what holds them back, those that follow from what is there not offered. Pressing one puts it on the sketch or flashes what holds it back. It is the one place a suggestion appears, and it is not there while a tool is on or a number is being typed. | in_1565 in_1562 | click | `Sketch` | later | later |
 | K14 | A number typed or a relation added moves the rest of the sketch and not the first-drawn corner (it is held while the solve allows). | in_1565 | | `Sketch` | later | later |
+
+| K15 | The Extrude tool (the ring) waits for a click inside a closed part of the drawing and picks that region (a rectangle with a circle drawn in it is the rectangle with a hole; a click in the circle picks the circle); the view turns about the region to look at the plane from the side. | in_1566 in_034 in_036 | click | `Sketch` | later | later |
+| K16 | An arrow stands on the picked region along the plane's normal (the mover's kind of handle, drawn the mover's way); pulling it sets the distance, a ghost of the body (See-through, marked as picked) follows at once, and the number is a bubble at the arrow's tip to type over. Enter, a right click or the check of the operation bar applies; Esc or the cross gives it up; a pull of nothing makes nothing. | in_1566 in_034 in_244 | press, drag, key | `Sketch` | later | later |
+| K17 | Applying adds a `sketch` step (the drawing, its plane, the picked region) and an `extrude` step to the recipe; the engine's worker (the kernel, in a Web Worker) makes the body and the screen shows its mesh in the Solid look. A later pull adds a `combine` step: against the plane's direction with a body there, it cuts. | in_1566 in_036 | | `Sketch` | later | later |
 
 ## Contracts
 - `Sketch` (`src/interaction/drawing.ts`): what a click does to a sketch's definition, pure, solved by the engine's solver (`engine/definition.ts`, `engine/trim.ts`: no kernel); `src/sketchcontrol.ts` the controller (the host says where each plane is); `src/sketch.ts` the plane's axes to the world.

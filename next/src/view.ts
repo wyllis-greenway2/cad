@@ -92,6 +92,11 @@ export function lookAt(s: ViewState, e: Env, axis: Axis): ViewState {
 export function lookAlong(s: ViewState, e: Env, dir: V3): ViewState {
   return lensGo(s, e, focusOnAxis(s, e), settings.view.morphLens, settings.view.transitionMs, { yaw: Math.atan2(dir[1], dir[0]), pitch: Math.asin(clamp(dir[2], -1, 1)) });
 }
+/** The view goes to look at `hold` (a place it must keep in the middle) along `dir`, perspective, from `reach` mm away, the way a straight view is left to see a pull (`in_1566`). */
+export function lookObliqueAt(s: ViewState, e: Env, hold: V3, dir: V3, reach = 0): ViewState {
+  const c = cam.leaveOrtho(s.c, focusOnAxis(s, e)), dist = Math.max(reach, settings.view.minSurfaceMm * 10); // (not the depth it had: in a straight view the eye is far back)
+  return { ...s, c, go: { t0: e.now, ms: settings.view.transitionMs, from: c, lens: 1, hold, dir: { yaw: Math.atan2(dir[1], dir[0]), pitch: Math.asin(clamp(dir[2], -1, 1)) }, eyeTo: [hold[0] - dir[0] * dist, hold[1] - dir[1] * dist, hold[2] - dir[2] * dist] } };
+}
 /** The Reset camera button: the view flies to the thing last seen (else the last there is), framed whole; with nothing, home. */
 export function reset(s: ViewState, e: Env): ViewState {
   const t = resetTarget(e.model, s.seen);
