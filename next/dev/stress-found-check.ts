@@ -54,4 +54,13 @@ console.log("7. rounding an edge where the faces meet smoothly (a fillet's own s
   check("a round of a block's own edge is fine", st(e, "R").kind === "ok", st(e, "R").kind + " " + (st(e, "R").why ?? ""));
   check("a round of the seam between that round and the top is flagged, and says the edge is smooth", st(e, "T").kind === "flagged" && /is smooth/.test(st(e, "T").why ?? ""), st(e, "T").kind + " " + (st(e, "T").why ?? "")); e.release();
 }
+console.log("8. faces the kernel left without a name are numbered by what they are and where, not by the kernel's listing order (which differed between a live engine and a fresh build)");
+{
+  const { Body } = await import("../src/engine/lineage.ts"), K = await import("../src/engine/kernel.ts"), e = new Engine(load("unnamed-order")); e.build(); let seen = 0, inOrder = true;
+  const q = (v: number) => Math.round(v * 1e6) / 1e6;
+  for (const id of e.ids()) { const v = e.result(id).value; if (!(v instanceof Body)) continue; const un = v.faces.filter((f) => f.id.role === "unnamed" && f.id.step === id).sort((a, b) => (a.id.of[0] as number) - (b.id.of[0] as number)); seen += un.length;
+    const keys = un.map((f) => { const c = K.facts(f.h); return [c.type, q(c.ce[0]), q(c.ce[1]), q(c.ce[2]), q(c.area)] as const; });
+    for (let i = 1; i < keys.length; i++) { const a = keys[i - 1]!, b = keys[i]!; const cmp = (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0) || a[1] - b[1] || a[2] - b[2] || a[3] - b[3] || a[4] - b[4]; if (cmp > 0) inOrder = false; } }
+  check("the unnamed faces of every step are in geometric order", seen > 0 && inOrder, `${seen} unnamed faces seen`); e.release();
+}
 process.exit(failureCount() ? 1 : 0);

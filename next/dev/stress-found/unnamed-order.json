@@ -1,0 +1,272 @@
+[
+ {
+  "id": "sk",
+  "kind": "sketchPolygon",
+  "params": {
+   "points": [
+    [
+     0,
+     0
+    ],
+    [
+     40,
+     0
+    ],
+    [
+     40,
+     20
+    ],
+    [
+     0,
+     20
+    ]
+   ]
+  },
+  "inputs": []
+ },
+ {
+  "id": "A",
+  "kind": "extrude",
+  "params": {
+   "d": 10
+  },
+  "inputs": [
+   "sk"
+  ]
+ },
+ {
+  "id": "S",
+  "kind": "shell",
+  "params": {
+   "face": {
+    "step": "A",
+    "role": "end",
+    "of": [],
+    "pieces": []
+   },
+   "t": 3
+  },
+  "inputs": [
+   "A"
+  ]
+ },
+ {
+  "id": "X0",
+  "kind": "pattern",
+  "params": {
+   "kind": "linear",
+   "by": [
+    48,
+    0,
+    0
+   ],
+   "count": 2
+  },
+  "inputs": [
+   "S"
+  ]
+ },
+ {
+  "id": "X1",
+  "kind": "round",
+  "params": {
+   "edges": [
+    {
+     "a": {
+      "step": "X0",
+      "role": "copy",
+      "of": [
+       {
+        "step": "S",
+        "role": "inner",
+        "of": [
+         {
+          "step": "A",
+          "role": "side",
+          "of": [
+           {
+            "step": "sk",
+            "role": "line",
+            "of": [
+             2
+            ],
+            "pieces": []
+           }
+          ],
+          "pieces": []
+         },
+         0
+        ],
+        "pieces": []
+       },
+       1
+      ],
+      "pieces": []
+     },
+     "b": {
+      "step": "X0",
+      "role": "copy",
+      "of": [
+       {
+        "step": "S",
+        "role": "inner",
+        "of": [
+         {
+          "step": "A",
+          "role": "side",
+          "of": [
+           {
+            "step": "sk",
+            "role": "line",
+            "of": [
+             3
+            ],
+            "pieces": []
+           }
+          ],
+          "pieces": []
+         },
+         0
+        ],
+        "pieces": []
+       },
+       1
+      ],
+      "pieces": []
+     }
+    }
+   ],
+   "size": 8.25
+  },
+  "inputs": [
+   "X0"
+  ]
+ },
+ {
+  "id": "X2",
+  "kind": "push",
+  "params": {
+   "face": {
+    "step": "A",
+    "role": "end",
+    "of": [],
+    "pieces": []
+   },
+   "dist": -3.25
+  },
+  "inputs": [
+   "X1"
+  ]
+ },
+ {
+  "id": "X5",
+  "kind": "shell",
+  "params": {
+   "face": {
+    "step": "X0",
+    "role": "copy",
+    "of": [
+     {
+      "step": "A",
+      "role": "start",
+      "of": [],
+      "pieces": []
+     },
+     1
+    ],
+    "pieces": []
+   },
+   "t": 0.75
+  },
+  "inputs": [
+   "X2"
+  ]
+ },
+ {
+  "id": "X6",
+  "kind": "hole",
+  "params": {
+   "face": {
+    "step": "X0",
+    "role": "copy",
+    "of": [
+     {
+      "step": "A",
+      "role": "side",
+      "of": [
+       {
+        "step": "sk",
+        "role": "line",
+        "of": [
+         0
+        ],
+        "pieces": []
+       }
+      ],
+      "pieces": []
+     },
+     1
+    ],
+    "pieces": []
+   },
+   "diameter": 8,
+   "depth": 12.75,
+   "at": [
+    5.25,
+    3.5
+   ]
+  },
+  "inputs": [
+   "X5"
+  ]
+ },
+ {
+  "id": "X8",
+  "kind": "push",
+  "params": {
+   "face": {
+    "step": "X5",
+    "role": "inner",
+    "of": [
+     {
+      "step": "X0",
+      "role": "copy",
+      "of": [
+       {
+        "step": "S",
+        "role": "inner",
+        "of": [
+         {
+          "step": "A",
+          "role": "side",
+          "of": [
+           {
+            "step": "sk",
+            "role": "line",
+            "of": [
+             0
+            ],
+            "pieces": []
+           }
+          ],
+          "pieces": []
+         },
+         0
+        ],
+        "pieces": []
+       },
+       1
+      ],
+      "pieces": []
+     },
+     0
+    ],
+    "pieces": []
+   },
+   "dist": 3
+  },
+  "inputs": [
+   "X6"
+  ]
+ }
+]

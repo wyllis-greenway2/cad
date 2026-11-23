@@ -97,7 +97,7 @@ export function driveModel(c: Ctx, m: number, mseed: string, e: Engine, len: num
     }
     // 3. fresh build equals the live engine
     const rec = e.recipe(), fresh = new Engine(rec); fresh.build();
-    for (const id of rec.map((x) => x.id)) if (!same(e.result(id).fingerprint, fresh.result(id).fingerprint)) { problems.push(`model ${m} (seed ${mseed}): live differs from fresh at ${id} [${trace.join(" ")}]`); break; }
+    for (const id of rec.map((x) => x.id)) if (!same(e.result(id).fingerprint, fresh.result(id).fingerprint)) { const x = e.result(id).fingerprint, y = fresh.result(id).fingerprint; let k = 0; while (x[k] === y[k]) k++; problems.push(`model ${m} (seed ${mseed}): live differs from fresh at ${id} [${trace.join(" ")}]; first difference at ${k}: ${x.slice(Math.max(0, k - 80), k + 80)}  =>  ${y.slice(Math.max(0, k - 80), k + 80)}; status ${e.result(id).status.kind} / ${fresh.result(id).status.kind}`); break; }
     fresh.release();
     // 4. edit and put back
     const cands = rec.filter((x) => tweakable(x).length);

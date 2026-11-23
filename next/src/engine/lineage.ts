@@ -90,6 +90,13 @@ const older = (age: Age) => (a: Id, b: Id) => age(a.step) - age(b.step) || (idKe
  * Carry the ids of the input bodies' faces through an operation (E7). `claims` name faces the step itself made (a cap, a side from a sketch line, a round).
  * A face of the answer that nothing names is a defect: it gets an id marked so and a note (never a silent name).
  */
+/** the order faces with no name are numbered in: by what they are and where, not by the order the kernel happened to list them (that order depends on the memory the shapes were made in, so a live engine and a fresh build disagreed on `unnamed(1)` and `unnamed(2)`) */
+function unnamedRank(hs: readonly K.FaceH[]): Map<K.FaceH, number> {
+  const q = (v: number) => Math.round(v * 1e6) / 1e6;
+  const key = (h: K.FaceH) => { const f = K.facts(h); return [f.type, q(f.ce[0]), q(f.ce[1]), q(f.ce[2]), q(f.area)] as const; };
+  const order = hs.map((h) => ({ h, k: key(h) })).sort((a, b) => (a.k[0] < b.k[0] ? -1 : a.k[0] > b.k[0] ? 1 : 0) || a.k[1] - b.k[1] || a.k[2] - b.k[2] || a.k[3] - b.k[3] || a.k[4] - b.k[4]);
+  return new Map(order.map((o, i) => [o.h, i]));
+}
 export function carry(solid: K.Solid, report: K.Report, inputs: readonly Body[], claims: readonly Claim[], step: string, age: Age, nameFrom: readonly Body[] = inputs): Body {
   const newFaces = solid.faces(), notes: Note[] = [], got: Id[][] = newFaces.map(() => []);
   const where = (h: K.FaceH) => newFaces.findIndex((f) => K.sameFace(f, h));
@@ -106,11 +113,10 @@ export function carry(solid: K.Solid, report: K.Report, inputs: readonly Body[],
     else { const i = where(rec.h); if (i >= 0) got[i]!.push(...ids); else notes.push({ kind: "dropped", text: `${show(rec.id)} was not carried` }); }
   }
   for (const c of claims) { const i = where(c.face); if (i >= 0) got[i]!.push(c.id); }
-  const lead = older(age);
-  let n = 0;
+  const lead = older(age), rank = unnamedRank(newFaces.filter((_h, i) => !got[i]!.length));
   const recs: FaceRec[] = newFaces.map((h, i) => {
     const ids = got[i]!.filter((x, k, all) => all.findIndex((y) => idKey(y) === idKey(x)) === k).sort(lead);
-    if (!ids.length) { notes.push({ kind: "defect", text: `a face of ${step} has no id` }); return { id: mint(step, "unnamed", n++), alias: [], h, defect: true }; }
+    if (!ids.length) { notes.push({ kind: "defect", text: `a face of ${step} has no id` }); return { id: mint(step, "unnamed", rank.get(h)!), alias: [], h, defect: true }; }
     if (ids.length > 1) notes.push({ kind: "merged", text: `${ids.map(show).join(" + ")}` });
     return { id: ids[0]!, alias: ids.slice(1), h, defect: ids[0]!.role === "unnamed" };
   });
@@ -166,10 +172,10 @@ export function unifyBody(body: Body, step: string, age: Age): Body {
     if (into.length === 1) into[0]!.ids.push(rec.id, ...rec.alias);
     else notes.push({ kind: "dropped", text: `${show(rec.id)} could not be placed after the merge (${into.length} candidates)` });
   }
-  const lead = older(age); let n = 0;
+  const lead = older(age), rank = unnamedRank(targets.filter((x) => !x.ids.length).map((x) => x.h));
   const recs: FaceRec[] = targets.map((t) => {
     const ids = t.ids.filter((x, k, all) => all.findIndex((y) => idKey(y) === idKey(x)) === k).sort(lead);
-    if (!ids.length) { notes.push({ kind: "defect", text: `a face after the merge in ${step} has no id` }); return { id: mint(step, "unnamed", n++), alias: [], h: t.h, defect: true }; }
+    if (!ids.length) { notes.push({ kind: "defect", text: `a face after the merge in ${step} has no id` }); return { id: mint(step, "unnamed", rank.get(t.h)!), alias: [], h: t.h, defect: true }; }
     if (ids.length > 1) notes.push({ kind: "merged", text: ids.map(show).join(" + ") });
     return { id: ids[0]!, alias: ids.slice(1), h: t.h, defect: ids[0]!.role === "unnamed" };
   });
@@ -178,11 +184,11 @@ export function unifyBody(body: Body, step: string, age: Age): Body {
 
 /** a body made by a step from nothing: every face named by the step, from a list of claims */
 export function fromClaims(solid: K.Solid, claims: readonly Claim[], step: string, label = true): Body {
-  const faces = solid.faces(), notes: Note[] = []; let n = 0;
+  const faces = solid.faces(), notes: Note[] = [], rank = unnamedRank(faces.filter((h) => !claims.some((x) => K.sameFace(x.face, h))));
   const recs: FaceRec[] = faces.map((h) => {
     const c = claims.find((x) => K.sameFace(x.face, h));
     if (c) return { id: c.id, alias: [], h, defect: false };
-    notes.push({ kind: "defect", text: `a face of ${step} has no id` }); return { id: mint(step, "unnamed", n++), alias: [], h, defect: true };
+    notes.push({ kind: "defect", text: `a face of ${step} has no id` }); return { id: mint(step, "unnamed", rank.get(h)!), alias: [], h, defect: true };
   });
   const body = new Body(solid, recs, notes);
   return label ? labelBodies(body, [], step, null) : body; // a tool (`label` false) is not a body of the model: it only lends its faces' names

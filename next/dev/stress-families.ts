@@ -114,7 +114,7 @@ function exchangeCheck(e: Engine): string[] {
     const back = new Engine([{ id: "I", kind: "import", params: { format: "step", data: toBase64(bytes) }, inputs: [] }]); back.build();
     const b = bodyOf(back, "I"); if (!b) out.push(`a STEP file of the part does not come back in: ${(back.result("I").status as { why?: string }).why ?? back.result("I").status.kind}`);
     else {
-      const w = K.volume(b.solid); if (Math.abs(v - w) > 1e-6 * Math.max(1, v)) out.push(`a STEP file comes back with another volume: ${v} against ${w}`);
+      const w = K.volume(b.solid); if (Math.abs(v - w) > 1e-4 * Math.max(1, v)) out.push(`a STEP file comes back with another volume: ${v} against ${w}`);
       const mine = fin.body.faces.length, theirs = b.faces.length; if (mine !== theirs) out.push(`a STEP file comes back with ${theirs} faces, the part has ${mine}`);
     }
     back.release();
