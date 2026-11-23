@@ -64,6 +64,7 @@ function paramsCheck(e: Engine): string[] {
   const out: string[] = [], rec = e.recipe(), table: Record<string, number | string> = {}; let n = 0;
   const steps = rec.map((s) => { const p = { ...(s.params as Record<string, unknown>) }; for (const [k, v] of tweakable(s)) { if (c.rnd() < 0.7) { const name = `p${n++}`; table[name] = v; p[k] = c.rnd() < 0.5 ? `=${name}` : `=${name} * 1`; } } return { ...s, params: p }; });
   if (!n) return out;
+  c.note("params", "ok", "", 0);
   try {
     e.setRecipe(steps, undefined, table); const base = fp(e);
     const f0 = new Engine(steps, { parameters: table }); f0.build(); if (!sameFp(base, fp(f0))) out.push("a recipe given its numbers as parameters differs from a fresh build"); f0.release();
@@ -82,7 +83,7 @@ function paramsCheck(e: Engine): string[] {
 
 /** the document: the recipe saved and opened (same text, same answers), every change undone and redone, a number edited with a merge key, equal to fresh builds throughout */
 function documentCheck(e: Engine): string[] {
-  const out: string[] = [], rec = e.recipe(); let doc = D.emptyDoc();
+  const out: string[] = [], rec = e.recipe(); let doc = D.emptyDoc(); c.note("document", "ok", "", 0);
   try {
     for (const s of rec) doc = D.insert(doc, s);
     const text = D.save(doc), back = D.open(text);
@@ -107,7 +108,7 @@ function documentCheck(e: Engine): string[] {
 
 /** exchange: the part as STEP and read back (same volume, same number of faces, ids from its own order), and as a mesh that encloses the part's volume */
 function exchangeCheck(e: Engine): string[] {
-  const out: string[] = [], fin = finalBody(e); if (!fin) return out;
+  const out: string[] = [], fin = finalBody(e); if (!fin) return out; c.note("exchange", "ok", "", 0);
   try {
     const v = K.volume(fin.body.solid), bytes = exportBody(fin.body, "step");
     const back = new Engine([{ id: "I", kind: "import", params: { format: "step", data: toBase64(bytes) }, inputs: [] }]); back.build();
@@ -139,7 +140,7 @@ function placeCheck(e: Engine): string[] {
   const step: Step = { id: "M", kind: "place", params: { mates }, inputs: ["P"] };
   try {
     const before = new Set(sc.faces.map((f) => idKey(f.id))), v0 = K.volume(sc.solid);
-    e.insert(step); const r = e.result("M"), why = (r.status as { why?: string }).why ?? "";
+    e.insert(step); const r = e.result("M"), why = (r.status as { why?: string }).why ?? ""; c.note("place " + mates.map((x) => x.kind).join("+"), r.status.kind, why, 0); c.events++;
     if (r.status.kind !== "ok") { if (!why) out.push(`a placement was ${r.status.kind} with no reason`); return out; }
     const after = bodyOf(e, "M")!, ids = new Set(after.faces.map((f) => idKey(f.id)));
     if (ids.size !== before.size || [...before].some((i) => !ids.has(i))) out.push("a placement changed the face ids");
