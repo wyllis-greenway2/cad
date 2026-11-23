@@ -28,7 +28,7 @@ export interface SketchHost {
 export interface DrawLine { pts: V3[]; kind: "done" | "selected" | "preview" | "cursor" | "cut" }
 type Tool = { kind: ToolKind; pts: Ref[] };
 
-export function createSketch(host: SketchHost, page: HTMLElement) {
+export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: string, merge?: string) => void) {
   const defs = new Map<string, SketchParams>(), sols = new WeakMap<SketchParams, Sol>();
   let tool: Tool | null = null, selection: { key: string; ids: string[] } = { key: "", ids: [] }, flash: Flash = {}, flashUntil = 0, message = "", messageUntil = 0;
   const say = (text: string, ms = 4000) => { message = text; messageUntil = performance.now() + ms; };
@@ -42,18 +42,19 @@ export function createSketch(host: SketchHost, page: HTMLElement) {
     const r = host.ray(x, y), q = onPlane(c.f, r.o, r.d); if (!q) return null;
     return { ...c, q: to2(c.f, q), tol: mmPerPx(c.f, to2(c.f, q)) * settings.sketch.snapPx };
   };
-  const set = (key: string, p: SketchParams) => { defs.set(key, p); };
+  /** a change of a sketch: kept, and said to whoever keeps the history (`label`: what it was; `merge`: changes with the same key are one, a number typed again and again) */
+  const set = (key: string, p: SketchParams, label: string, merge?: string) => { defs.set(key, p); on?.(label, merge); };
   const fail = (why: string, victims: string[]) => { say(why); flash = { refused: victims }; flashUntil = performance.now() + 1800; };
 
   const layer = createBubbleLayer(page, {
     set(id, value) {
       const c = current(); if (!c) return;
       const r = retype(c.p, id, value);
-      if (r.ok) { set(c.key, r.params); flash = {}; } else fail(r.why, r.victims);
+      if (r.ok) { set(c.key, r.params, "Number", `n:${id}`); flash = {}; } else fail(r.why, r.victims);
     },
     remove(id) {
       const c = current(); if (!c) return;
-      const r = unconstrain(c.p, id); if (r.ok) set(c.key, r.params); else fail(r.why, r.victims);
+      const r = unconstrain(c.p, id); if (r.ok) set(c.key, r.params, "Delete constraint"); else fail(r.why, r.victims);
     },
   });
 
@@ -61,19 +62,19 @@ export function createSketch(host: SketchHost, page: HTMLElement) {
   const act = (id: string): void => {
     const c = current(); if (!c) return;
     if (id === "clear") selection = { key: "", ids: [] };
-    else if (id === "delete") { const sel = selected(c.key); if (sel.length) { set(c.key, removeParts(c.p, sel)); selection = { key: c.key, ids: [] }; } }
+    else if (id === "delete") { const sel = selected(c.key); if (sel.length) { set(c.key, removeParts(c.p, sel), "Delete"); selection = { key: c.key, ids: [] }; } }
     else if (id.startsWith("rel:")) {
       const r = constrain(c.p, solOf(c.p), selected(c.key), id.slice(4) as Relation | "dimension");
-      if (r.ok) { set(c.key, r.params); flash = { applied: [r.added] }; flashUntil = performance.now() + 900; } else fail(r.why, r.victims);
+      if (r.ok) { set(c.key, r.params, "Constraint"); flash = { applied: [r.added] }; flashUntil = performance.now() + 900; } else fail(r.why, r.victims);
     }
   };
   const bar = createHelperBar(page, act);
 
   /** a figure made with a click: kept if the engine accepts it */
-  const commit = (key: string, next: SketchParams | null, p: SketchParams) => {
+  const commit = (key: string, next: SketchParams | null, label: string) => {
     if (!next) return;
     const k = keep(next);
-    if (k.ok) set(key, k.params); else { set(key, p); fail(k.why, k.victims); }
+    if (k.ok) set(key, k.params, label); else fail(k.why, k.victims);
   };
   type Trimmed = { id: string; out: ReturnType<typeof trimAt>; err?: undefined } | { id: string; err: string; out?: undefined };
   const trimHere = (c: NonNullable<ReturnType<typeof here>>): Trimmed | null => {
@@ -109,14 +110,14 @@ export function createSketch(host: SketchHost, page: HTMLElement) {
         const t = trimHere(c);
         if (!t) say("Click a line, an arc or a circle to trim it");
         else if (t.err !== undefined) fail(t.err, []);
-        else { set(c.key, t.out.params); flash = {}; say(t.out.dropped.length ? `Trimmed. Let go: ${t.out.dropped.map((d) => `${d.kind} (${d.why})`).join("; ")}` : "Trimmed"); }
+        else { set(c.key, t.out.params, "Trim"); flash = {}; say(t.out.dropped.length ? `Trimmed. Let go: ${t.out.dropped.map((d) => `${d.kind} (${d.why})`).join("; ")}` : "Trimmed"); }
         return true;
       }
       const s = solOf(c.p), r = refOf(c.p, s, c.q, c.tol, host.planes().step), a = tool.pts[0];
       if (!a) { tool = { ...tool, pts: [r] }; return true; }
-      if (tool.kind === "line") { commit(c.key, addLine(c.p, s, a, r), c.p); tool = { ...tool, pts: [r] }; }
-      else if (tool.kind === "rect") { commit(c.key, addRect(c.p, s, a, r), c.p); tool = { ...tool, pts: [] }; }
-      else { commit(c.key, addCircle(c.p, s, a, posOf(s, r)), c.p); tool = { ...tool, pts: [] }; }
+      if (tool.kind === "line") { commit(c.key, addLine(c.p, s, a, r), "Line"); tool = { ...tool, pts: [r] }; }
+      else if (tool.kind === "rect") { commit(c.key, addRect(c.p, s, a, r), "Rectangle"); tool = { ...tool, pts: [] }; }
+      else { commit(c.key, addCircle(c.p, s, a, posOf(s, r)), "Circle"); tool = { ...tool, pts: [] }; }
       // a line goes on from where it ended: the end is now a point of the sketch
       if (tool.kind === "line" && tool.pts[0] && !("id" in tool.pts[0])) { const q = defs.get(c.key)!, s2 = solOf(q), h = hitAt(q, s2, posOf(s, r), 1e-6); if (h?.kind === "point") tool = { ...tool, pts: [{ id: h.id }] }; }
       return true;
@@ -125,10 +126,10 @@ export function createSketch(host: SketchHost, page: HTMLElement) {
     key(code: string): boolean {
       const c = current(); if (!c || tool) return false;
       const sel = selected(c.key);
-      if (code === "Delete" || code === "Backspace") { if (!sel.length) return false; set(c.key, removeParts(c.p, sel)); selection = { key: c.key, ids: [] }; return true; }
+      if (code === "Delete" || code === "Backspace") { if (!sel.length) return false; set(c.key, removeParts(c.p, sel), "Delete"); selection = { key: c.key, ids: [] }; return true; }
       if (code === "KeyD") {
         const r = constrain(c.p, solOf(c.p), sel, "dimension");
-        if (r.ok) { set(c.key, r.params); flash = { applied: [r.added] }; flashUntil = performance.now() + 900; } else fail(r.why, r.victims);
+        if (r.ok) { set(c.key, r.params, "Dimension"); flash = { applied: [r.added] }; flashUntil = performance.now() + 900; } else fail(r.why, r.victims);
         return true;
       }
       return false;
@@ -137,9 +138,12 @@ export function createSketch(host: SketchHost, page: HTMLElement) {
     constrain(kind: Relation | "dimension"): boolean {
       const c = current(); if (!c) return false;
       const r = constrain(c.p, solOf(c.p), selected(c.key), kind);
-      if (r.ok) { set(c.key, r.params); flash = { applied: [r.added] }; flashUntil = performance.now() + 900; return true; }
+      if (r.ok) { set(c.key, r.params, "Constraint"); flash = { applied: [r.added] }; flashUntil = performance.now() + 900; return true; }
       fail(r.why, r.victims); return false;
     },
+    /** Every sketch, by plane (for the history); `restore` puts them back as they were (the selection and the tool are put away). */
+    snapshot: (): Record<string, SketchParams> => Object.fromEntries(defs),
+    restore(snap: Record<string, SketchParams>): void { defs.clear(); for (const [k, v] of Object.entries(snap)) defs.set(k, v); selection = { key: "", ids: [] }; flash = {}; },
     clearSelection(): boolean { const had = selection.ids.length > 0; selection = { key: "", ids: [] }; return had; },
     /** What to draw: every sketch on every plane (what is selected in teal), what the tool would make, the part a trim would take, and the place the pointer is at. */
     lines(pointer: { x: number; y: number } | null): DrawLine[] {

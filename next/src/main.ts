@@ -20,6 +20,11 @@ import { SEE_THROUGH } from "./looks.ts";
 import { settings } from "./settings.ts";
 import { createStudio } from "./studio.ts";
 import { createExtrude } from "./extrudecontrol.ts";
+import { Undo } from "./interaction/undo.ts";
+import { editNumber, rowsOf } from "./interaction/steplist.ts";
+import { createStepList } from "./steplistdraw.ts";
+import type { SketchParams } from "./engine/sketch.ts";
+import type { Step } from "./engine/steps.ts";
 
 const params = new URLSearchParams(location.search);
 dev.tuneFromAddress(params);
@@ -65,7 +70,7 @@ const sk = createSketch({
     return { all, on: planeNow().key, step: placed ? gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, placed.origin), placed.normal))).step : gridLevel(s.c, s.plane).step };
   },
   ray: (x, y) => view.rayAt(s, env(), x, y),
-}, document.body);
+}, document.body, (label, merge) => record(label, merge));
 // the one line of words at the bottom (a refusal, what a trim let go)
 const note = document.createElement("div");
 note.style.cssText = `position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:none;max-width:70vw;padding:7px 14px;border-radius:15px;background:${settings.ui.pill};color:${settings.ui.pillText};font:13px ${settings.ui.font};z-index:9;pointer-events:none`;
@@ -77,9 +82,18 @@ const ext = createExtrude({
   view: () => { const e = env(); return { cam: s.c, w: e.w, h: e.h }; },
   regionAt: (x, y) => sk.regionAt(x, y),
   recipe: () => studio.state().steps,
-  change: (steps) => studio.change(steps),
+  change: (steps) => { studio.change(steps); record("Extrude"); },
   tilt: (f, c, size) => { const e = env(), v = vOf(f), n = f.normal, el = 0.9; s = view.lookObliqueAt(s, e, c, unit(add(scale(unit(add(scale(f.u, 0.4), scale(v, 0.8))), Math.cos(el)), scale(n, -Math.sin(el)))), Math.max(70, size * 3.2)); },
 }, document.body);
+// ---- undo and redo of the drawings and the recipe together, and the step list with its numbers ----
+interface App { sketches: Record<string, SketchParams>; steps: readonly Step[] }
+const undo = new Undo<App>({ sketches: {}, steps: [] });
+function record(label: string, merge?: string) { undo.do({ sketches: sk.snapshot(), steps: studio.state().steps }, label, merge); }
+function restore(a: App | null) { if (!a) return; ext.cancel(); sk.restore(a.sketches); if (a.steps !== studio.state().steps) studio.change([...a.steps]); }
+const list = createStepList(document.body, {
+  edit(id, key, value) { const next = editNumber(studio.state().steps, id, key, value); if (next) { studio.change(next); record("Number", `s:${id}:${key}`); } },
+  undo: () => restore(undo.undo()), redo: () => restore(undo.redo()),
+});
 function startExtrude() { if (game.on) endGame(); while (sk.stop()) { /* the sketch tool is put away */ } sk.clearSelection(); ext.start(); }
 function startTool(kind: ToolKind) {
   ext.cancel();
@@ -128,6 +142,7 @@ let shiftHeld = false;
 addEventListener("keydown", (e) => { shiftHeld = e.shiftKey; });
 addEventListener("keyup", (e) => { shiftHeld = e.shiftKey; });
 addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.code === "KeyZ" || e.code === "KeyY")) { e.preventDefault(); restore(e.code === "KeyY" || e.shiftKey ? undo.redo() : undo.undo()); return; }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (ext.key(e.code)) { e.preventDefault(); return; }
   if (sk.key(e.code)) { e.preventDefault(); return; } // (Delete, and D with something selected, are the sketch's before they are the game's)
@@ -154,6 +169,7 @@ function frame(now: number) {
     cut: placed ? { origin: placed.origin, n: placed.normal } : null, // (made once with the plane, from the side the camera looked from; it turns and moves with the plane, and does not change with the camera)
   });
   ext.frame();
+  { const st = studio.state(), n = undo.next; list.show({ rows: rowsOf(st.steps, st.snapshot), canUndo: undo.canUndo, canRedo: undo.canRedo, undoLabel: n.undo, redoLabel: n.redo, busy: st.busy }); }
   note.textContent = studio.state().problem || sk.frame(now).message; note.style.display = note.textContent ? "block" : "none";
   orientBar.show(orbc.orienting() && !!orb);
   ui.update(view.pageState(s, e));
@@ -161,5 +177,5 @@ function frame(now: number) {
 }
 requestAnimationFrame(frame);
 
-Object.assign(window, { __sketch: sk, __ext: ext, __studio: studio, __startExtrude: startExtrude, __proj: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __tool: startTool, __px: (p: [number, number]) => { const e = env(), q = project(s.c, to3(planeNow().frame, p), e.w, e.h); return [q.x, q.y]; } }); // (for the dev checks in a page)
+Object.assign(window, { __sketch: sk, __ext: ext, __studio: studio, __startExtrude: startExtrude, __undo: undo, __restore: restore, __proj: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __tool: startTool, __px: (p: [number, number]) => { const e = env(), q = project(s.c, to3(planeNow().frame, p), e.w, e.h); return [q.x, q.y]; } }); // (for the dev checks in a page)
 dev.install({ planes: () => ({ sketch: placed, drawn: sk.debug(), ...orbc.debug() }), model, rebuild: world.rebuild, state: () => s, put: (next) => { s = next; }, pointer: () => pointer, game, gizmoScale: () => view.gizmoScale(s) });

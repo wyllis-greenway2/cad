@@ -6411,3 +6411,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1566 — 2026-11-23 — directive
 > Sketch to extrude please, we want the arrow to show up to help extrude like in the prototype
+
+## in_1567 — 2026-11-23 — directive
+> undo and a step list for editing numbers

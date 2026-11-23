@@ -6,7 +6,7 @@ import { unit } from "./vec.ts";
 import { type EdgeRef, type Id, type VertexRef, mint } from "./id.ts";
 import { Body } from "./lineage.ts";
 import { type Constraint, type Options as SolveOptions, type System, solve } from "./solver.ts";
-import { refusalOf, segsOf, systemOf } from "./definition.ts";
+import { refusalOf, segsOf, solveKeeping, systemOf } from "./definition.ts";
 import { type Loop as RLoop, type Seg, regions } from "./region.ts";
 import { type Line, type Sketch, Refusal, at, frameOf, kinds, needBody, planeOf } from "./steps.ts";
 
@@ -64,7 +64,7 @@ function solveParts(p: SketchParams, body: Body | null, step: { id: string }, dr
   }
   const plain = systemOf(p), arcEnds = plain.constraints.slice((p.constraints ?? []).length);
   const system: System = { points: [...plain.points, ...anchorPoints], lines: [...plain.lines, ...anchorLines], circles: [...plain.circles, ...anchorCircles], constraints: plain.constraints };
-  const r = solve(system, drag ?? {});
+  const r = solveKeeping(system, drag ?? {});
   if (!r.verdict.ok) throw refusalOf(r);
   return { fr, F, local, world, reference, arcEnds, r };
 }

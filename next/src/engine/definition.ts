@@ -17,12 +17,22 @@ export function refusalOf(r: Result): Refusal {
   const who = r.verdict.conflict.length ? `: ${r.verdict.conflict.join(", ")}` : "";
   return new Refusal(r.verdict.conflict.length ? `these constraints cannot all hold${who}${r.verdict.reason ? ` (${r.verdict.reason})` : ""}` : r.verdict.reason || "this sketch cannot be made", r.verdict.conflict);
 }
+/**
+ * The solve a sketch is made with: the first corner stays (`in_1565`). The oldest point that is not fixed is held while the rest gives way to a number or a relation (a length of 55 on a side that was 40 moves the far end, not the first corner); if the sketch cannot hold
+ * with it held (a place is asked of it twice) it is solved without. A drag that names its own pins or held parts is left as it is.
+ */
+export function solveKeeping(system: System, opts: SolveOptions = {}): Result {
+  const first = system.points.find((q) => !q.fixed)?.id;
+  if (!first || opts.pins || opts.hold?.length) return solve(system, opts);
+  const held = solve(system, { ...opts, hold: [first] });
+  return held.verdict.ok ? held : solve(system, opts);
+}
 /** the places the parts of a definition end up (local to the plane): every point, and the radius of every circle and arc; refused as a sketch is */
 export function solveDefinition(p: SketchParams, opts: SolveOptions = {}): { points: Record<string, [number, number]>; radii: Record<string, number>; result: Result } {
   if (!Array.isArray(p.points)) throw new Error("a sketch needs its points");
   const names = [...p.points.map((q) => q.id), ...(p.lines ?? []).map((q) => q.id), ...(p.circles ?? []).map((q) => q.id), ...(p.arcs ?? []).map((q) => q.id)];
   const dup = names.find((n, i) => names.indexOf(n) !== i); if (dup) throw new Error(`two parts of this sketch are called ${dup}`);
-  const result = solve(systemOf(p), opts);
+  const result = solveKeeping(systemOf(p), opts);
   if (!result.verdict.ok) throw refusalOf(result);
   return { points: result.solution.points, radii: result.solution.circles, result };
 }

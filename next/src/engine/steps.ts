@@ -139,7 +139,7 @@ export const kinds: Record<string, Kind> = {
   } },
   /** a sketch pulled along its plane's normal (or `dir`): each side is named by the sketch line it grew from, the caps by their ends */
   extrude: { outputs: "body", run: (inputs, { step }) => {
-    const sk = needSketch(inputs[0]), holes = inputs.slice(1).map(needSketch), d = num(step.params, "d"), dir = unit((step.params.dir as V3 | undefined) ?? sk.normal), face = profileFace(sk, holes), p = K.prism(face, scale(dir, d));
+    const sk = needSketch(inputs[0]), holes = inputs.slice(1).map(needSketch), d = num(step.params, "d"); if (!(Math.abs(d) > 1e-9)) throw new Error("the distance is nothing: an extrusion needs a length"); const dir = unit((step.params.dir as V3 | undefined) ?? sk.normal), face = profileFace(sk, holes), p = K.prism(face, scale(dir, d));
     const claims: Claim[] = [{ id: mint(step.id, "start"), face: p.first }, { id: mint(step.id, "end"), face: p.last }];
     sidesFromProfile([sk, ...holes], face, p.report, step.id, claims);
     return checked(fromClaims(p.solid, claims, step.id), "the extrusion");
