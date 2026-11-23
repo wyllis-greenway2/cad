@@ -13,6 +13,7 @@ import { drawOrb } from "./orbdraw.ts";
 import { createCutDraw, type CutDrawing } from "./cutdraw.ts";
 import { drawLines } from "./sketchdraw.ts";
 import type { DrawLine } from "./sketchcontrol.ts";
+import { SOLID, surfaceOf, type Look } from "./looks.ts";
 
 const vec = (v: V3) => new THREE.Vector3(v[0], v[1], v[2]);
 const rgb = (c: [number, number, number]) => new THREE.Color().setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace);
@@ -52,6 +53,8 @@ export interface Drawing {
   axesShown: boolean;
   gizmoScale: number; // 1: the axes are 24 mm long, as the world is; otherwise how many times that
   disc: { point: V3; normal: V3; radius: number } | null;
+  /** The look of each body by id (default Solid): the world draws a body only in one of the three looks (looks.ts). */
+  looks?: Record<string, Look>;
 }
 
 export function createWorld(canvas: HTMLCanvasElement, model: Model) {
@@ -72,15 +75,27 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
   for (const t of model.things) {
     const size = vec([t.hi[0] - t.lo[0], t.hi[1] - t.lo[1], t.hi[2] - t.lo[2]]);
     const g = new THREE.BoxGeometry(size.x, size.y, size.z);
-    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ side: THREE.DoubleSide, color: settings.theme.bodyColor, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
-    m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color: settings.theme.bodyEdge })));
+    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
+    m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial()));
+    m.userData.thing = t.id; m.userData.look = "";
     m.position.copy(vec(centreOf(t)));
     bodies.add(m);
   }
   };
   scene.add(bodies);
   const cut = createCutDraw(scene, bodies, renderer);
-  const rebuildAll = () => { buildBodies(); cut.rebuild(); };
+  /** Each body in the look asked for (looks.ts: the only place a body's colour and opacity are set), changed only when the look changed. */
+  const lookBodies = (looks: Record<string, Look> | undefined) => {
+    for (const m of bodies.children as THREE.Mesh[]) {
+      const look = looks?.[m.userData.thing as string] ?? SOLID, key = `${look.base}/${look.mark ?? ""}`;
+      if (m.userData.look === key) continue;
+      m.userData.look = key;
+      const sf = surfaceOf(look), mat = m.material as THREE.MeshLambertMaterial, edges = m.children[0] as THREE.LineSegments, em = edges.material as THREE.LineBasicMaterial;
+      mat.color.setHex(sf.color); mat.opacity = sf.opacity; mat.transparent = sf.transparent; mat.depthWrite = sf.depthWrite; mat.needsUpdate = true;
+      em.color.setHex(sf.edge); em.opacity = sf.edgeOpacity; em.transparent = sf.edgeOpacity < 1; em.needsUpdate = true;
+    }
+  };
+  const rebuildAll = () => { buildBodies(); lookBodies(undefined); cut.rebuild(); };
   rebuildAll();
 
   // axes: a charcoal line and a small head each, positive only
@@ -153,6 +168,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
     rebuild: rebuildAll,
     render(d: Drawing) {
       renderer.setSize(d.w, d.h, false);
+      lookBodies(d.looks);
       const c = d.cam, f = forward(c);
       // an orthographic view (a straight view at rest) is drawn with the orthographic camera, so that sliding it shows nothing of the third
       // dimension; between it and perspective, the perspective camera with the lens narrowed

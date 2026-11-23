@@ -16,6 +16,8 @@ import type { ToolKind } from "./sketch.ts";
 import { createMenu, createOrientBar, type MenuItem } from "./menu.ts";
 import { createOrbControl } from "./orbcontrol.ts";
 import { dot, scale, sub } from "./vec.ts";
+import { createSketchDemo } from "./bubbledemo.ts";
+import { SEE_THROUGH } from "./looks.ts";
 
 const params = new URLSearchParams(location.search);
 dev.tuneFromAddress(params);
@@ -62,6 +64,8 @@ const sk = createSketch({
   },
   ray: (x, y) => view.rayAt(s, env(), x, y),
 });
+// the engine-kind sketch with bubbles, to try by hand (`?bubbles=1`): it stands on the plane that is on, and the stand-in bodies are drawn See-through behind it
+const demo = params.get("bubbles") === "1" ? createSketchDemo({ view: () => { const e = env(); return { cam: s.c, w: e.w, h: e.h }; }, plane: () => planeNow().frame, ray: (x, y) => view.rayAt(s, env(), x, y) }, document.body) : null;
 function startTool(kind: ToolKind) {
   if (game.on) endGame();
   const f = planeNow().frame, straight = s.c.ortho !== null && !s.go && Math.abs(dot(forward(s.c), f.normal)) > 0.9999;
@@ -90,6 +94,7 @@ attach(canvas, {
   click: (x, y, count) => {
     pointer = { x, y };
     if (menu.isOpen()) { menu.close(); return; }
+    if (demo?.click(x, y, shiftHeld)) return;
     if (sk.click(x, y, count)) return; // (a tool is on: a click is a point of its figure)
     const next = view.click(s, env(), x, y); // (a pane of a world plane: it is the sketch plane now)
     if (next !== s) { placed = null; s = next; }
@@ -102,12 +107,15 @@ attach(canvas, {
   space: () => { if (game.on) endGame(); else startGame(); },
 }, () => document.pointerLockElement === canvas);
 
+let shiftHeld = false;
+addEventListener("keydown", (e) => { shiftHeld = e.shiftKey; });
+addEventListener("keyup", (e) => { shiftHeld = e.shiftKey; });
 addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (game.moves(e.code) && !game.on && !e.repeat) startGame(); // (W A S D turn the game on too, and the key that did it moves the eye)
   if (game.key(e.code, true)) return;
   if (orbc.orienting() && e.code === "Enter") { orbc.keep(); return; }
-  if (e.code === "Escape") { if (orbc.cancel()) return; if (menu.isOpen()) menu.close(); else if (game.on) endGame(); else if (!sk.stop()) orbc.release(); }
+  if (e.code === "Escape") { if (orbc.cancel()) return; if (menu.isOpen()) menu.close(); else if (game.on) endGame(); else if (demo?.clear()) { /* the selection is put away */ } else if (!sk.stop()) orbc.release(); }
 });
 addEventListener("keyup", (e) => { game.key(e.code, false); });
 document.addEventListener("pointerlockchange", () => { if (document.pointerLockElement !== canvas && game.on) endGame(); });
@@ -123,13 +131,15 @@ function frame(now: number) {
   const e = env(now), d = view.drawing(s, e, pointer), orb = orbc.drawing(game.on ? null : pointer);
   canvas.style.cursor = orb?.hover ? "grab" : "";
   world.render({
-    ...d, ...(placed ? { grid: gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, placed.origin), placed.normal))), sketch: { origin: placed.origin, u: placed.u, v: vOf(placed), n: placed.normal } } : {}), orb, lines: sk.lines(game.on ? null : pointer),
+    ...d, ...(placed ? { grid: gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, placed.origin), placed.normal))), sketch: { origin: placed.origin, u: placed.u, v: vOf(placed), n: placed.normal } } : {}), orb, lines: [...sk.lines(game.on ? null : pointer), ...(demo?.lines() ?? [])], ...(demo ? { looks: Object.fromEntries(model.things.map((t) => [t.id, SEE_THROUGH])) } : {}),
     cut: placed ? { origin: placed.origin, n: placed.normal } : null, // (made once with the plane, from the side the camera looked from; it turns and moves with the plane, and does not change with the camera)
   });
+  demo?.frame(now);
   orientBar.show(orbc.orienting() && !!orb);
   ui.update(view.pageState(s, e));
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
+if (demo) (window as unknown as { __demo: unknown }).__demo = demo;
 dev.install({ planes: () => ({ sketch: placed, drawn: sk.debug(), ...orbc.debug() }), model, rebuild: world.rebuild, state: () => s, put: (next) => { s = next; }, pointer: () => pointer, game, gizmoScale: () => view.gizmoScale(s) });

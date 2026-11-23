@@ -29,3 +29,9 @@ Plus the sketching drawing the human liked, kept as it is in `interaction/style.
 ## Rationale
 
 The prototype's polish came from the human's feedback and is worth keeping; its mess came from a widget per feature. One description and one drawer per part keeps both.
+
+## Progress (`in_1563`: the human said to start with the looks and the bubble, and that click to trim is fine)
+- **Looks built:** `src/looks.ts` (Solid, See-through, a mark: pick, clash, tie; numbers in `settings.looks`), and `world.ts` sets a body's colour and opacity only through it (`Drawing.looks`, by body id; `theme.bodyColor` is gone).
+- **Bubble built:** `interaction/bubbles.ts` (the descriptions, from the solver's system and the selection; `retype` for a typed number), `bubbledraw.ts` (the one drawer), `interaction/bubbleplace.ts` (the prototype's placement, ported unchanged), the constraint icons ported to `icons.ts`. A constraint is shown when one of its parts is selected.
+- **Try it:** `?bubbles=1&boxes=3` (`bubbledemo.ts`): click a part, type a number, an impossible number flashes the bubbles that hold it red. Checked by `dev/looks-bubbles-check.ts` and, in the page, `dev/bubble-browser.ts`.
+- **Not yet:** the drawing tools make figures, not the engine's points and lines; the sketch controller moves onto the engine's definition next, and trim (a click on the piece) comes with it. Ring, helper bar and "..." menu are as before.

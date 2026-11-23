@@ -58,11 +58,16 @@ export const settings = {
     pill: "#34363b", pillText: "#fff", orbDot: "rgba(60,62,68,.55)", orbDotBorder: "rgba(255,255,255,.7)", orbHotBorder: "#8a8f98", orbPx: 12, orbHotPx: 26,
     offscreenMarginPx: 20, // a letter or the dot this far off the screen is still drawn
   },
+  // the three looks of a body (`dec_view_looks`, `q_lean_ui`): Solid, See-through, and a mark laid over either; colours as the prototype had them
+  looks: {
+    solid: { color: 0xc9c9cd, edge: 0x2a2a2d, opacity: 1 },
+    seeThrough: { color: 0x14161a, edge: 0x14161a, opacity: 0.14, edgeOpacity: 0.5 },
+    marks: { pick: { color: 0x1ab8b3, strength: 0.55 }, clash: { color: 0xe46a6a, strength: 0.7 }, tie: { color: 0xf2c14e, strength: 0.55 } },
+  },
   theme: {
     background: 0xffffff,
     axis: [0.17, 0.17, 0.19] as [number, number, number], // charcoal, like a pencil
     pane: [0.55, 0.58, 0.64] as [number, number, number], // the little pane of a world plane that is off
     grid: [0.62, 0.63, 0.67] as [number, number, number], minorAlpha: 0.35, majorAlpha: 0.7,
-    bodyColor: 0xc9c9cd, bodyEdge: 0x2a2a2d,
   },
 };
