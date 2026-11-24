@@ -12,7 +12,7 @@ import { solveDefinition, segsOf } from "./engine/definition.ts";
 import { pointOnSeg, type Pt } from "./engine/region.ts";
 import { trimAt } from "./engine/trim.ts";
 import type { Relation } from "./engine/solver.ts";
-import { addCircle, addLine, addRect, constrain, emptySketch, hitAt, keep, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
+import { addCircle, addLine, addRect, bake, constrain, emptySketch, hitAt, keep, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
 import { bubblesOn, selectionAnchor, type Flash } from "./interaction/bubbles.ts";
 import { barFor } from "./interaction/helperbar.ts";
 import { createHelperBar } from "./helperbardraw.ts";
@@ -45,6 +45,26 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   /** a change of a sketch: kept, and said to whoever keeps the history (`label`: what it was; `merge`: changes with the same key are one, a number typed again and again) */
   const set = (key: string, p: SketchParams, label: string, merge?: string) => { defs.set(key, p); on?.(label, merge); };
   const fail = (why: string, victims: string[]) => { say(why); flash = { refused: victims }; flashUntil = performance.now() + 1800; };
+
+  // ---- a part dragged: the solver follows the pointer with the part pinned where it goes (soft: it goes as near as the constraints allow); a point let go on another point or on a curve joins it
+  type Drag = { key: string; def0: SketchParams; pins: string[]; start: Record<string, [number, number]>; q0: P2; x0: number; y0: number; moved: boolean; shift: boolean; id: string; join: { id: string; kind: "point" | "curve" } | null; snapAt: P2 | null };
+  let drag: Drag | null = null;
+  const pinsOf = (p: SketchParams, id: string): string[] => {
+    if (p.points.some((q) => q.id === id)) return [id];
+    const l = (p.lines ?? []).find((q) => q.id === id); if (l) return [l.a, l.b];
+    const c = (p.circles ?? []).find((q) => q.id === id); if (c) return [c.c];
+    const a = (p.arcs ?? []).find((q) => q.id === id); if (a) return [a.c, a.a, a.b];
+    return [];
+  };
+  /** where a dragged point would join something: another point within reach, else a curve it is not part of */
+  const joinFor = (p: SketchParams, s: Sol, id: string, q: P2, tol: number): { id: string; kind: "point" | "curve"; at: P2 } | null => {
+    let best: { id: string; kind: "point" | "curve"; at: P2 } | null = null, bd = tol;
+    for (const x of p.points) { if (x.id === id) continue; const at = s.points[x.id]; if (!at) continue; const d = Math.hypot(q[0] - at[0], q[1] - at[1]); if (d < bd) { bd = d; best = { id: x.id, kind: "point", at }; } }
+    if (best) return best;
+    const mine = new Set([...(p.lines ?? []).filter((l) => l.a === id || l.b === id).map((l) => l.id), ...(p.arcs ?? []).filter((a) => a.a === id || a.b === id || a.c === id).map((a) => a.id), ...(p.circles ?? []).filter((c) => c.c === id).map((c) => c.id)]);
+    const h = hitAt({ ...p, lines: (p.lines ?? []).filter((l) => !mine.has(l.id)), arcs: (p.arcs ?? []).filter((a) => !mine.has(a.id)), circles: (p.circles ?? []).filter((c) => !mine.has(c.id)), points: [] }, s, q, tol);
+    return h && h.kind === "curve" ? { id: h.id, kind: "curve", at: h.at } : null;
+  };
 
   const layer = createBubbleLayer(page, {
     set(id, value) {
@@ -144,6 +164,43 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     /** Every sketch, by plane (for the history); `restore` puts them back as they were (the selection and the tool are put away). */
     snapshot: (): Record<string, SketchParams> => Object.fromEntries(defs),
     restore(snap: Record<string, SketchParams>): void { defs.clear(); for (const [k, v] of Object.entries(snap)) defs.set(k, v); selection = { key: "", ids: [] }; flash = {}; },
+    /** A press on a part with no tool on: it may be dragged (true: the press is taken; a press that goes nowhere is a click, said at `grabEnd`). */
+    grab(x: number, y: number, shift: boolean): boolean {
+      if (tool) return false;
+      const c = here(x, y); if (!c) return false;
+      const s = solOf(c.p), h = hitAt(c.p, s, c.q, c.tol); if (!h) return false;
+      const pins = pinsOf(c.p, h.id); if (!pins.length) return false;
+      drag = { key: c.key, def0: c.p, pins, start: Object.fromEntries(pins.map((id) => [id, s.points[id]!])), q0: c.q, x0: x, y0: y, moved: false, shift, id: h.id, join: null, snapAt: null };
+      return true;
+    },
+    grabMove(x: number, y: number): void {
+      if (!drag) return;
+      const c = here(x, y); if (!c) return;
+      if (!drag.moved && Math.hypot(x - drag.x0, y - drag.y0) < 4) return; // (a press that has not gone anywhere yet is still a click)
+      drag.moved = true;
+      let d: P2 = [c.q[0] - drag.q0[0], c.q[1] - drag.q0[1]];
+      drag.join = null; drag.snapAt = null;
+      if (drag.pins.length === 1 && drag.id === drag.pins[0]) { // one point: it sticks to another point or a curve near it
+        const at0 = drag.start[drag.pins[0]!]!, j = joinFor(drag.def0, solOf(drag.def0), drag.id, [at0[0] + d[0], at0[1] + d[1]], c.tol);
+        if (j) { drag.join = { id: j.id, kind: j.kind }; drag.snapAt = j.at; d = [j.at[0] - at0[0], j.at[1] - at0[1]]; }
+      }
+      const pins = Object.fromEntries(drag.pins.map((id) => [id, [drag!.start[id]![0] + d[0], drag!.start[id]![1] + d[1]] as [number, number]]));
+      try {
+        const r = solveDefinition(drag.def0, { pins });
+        defs.set(drag.key, bake(drag.def0, { points: r.points, radii: r.radii }));
+        const held = r.result.holds ?? []; flash = held.length ? { refused: held } : {}; flashUntil = performance.now() + 400; if (held.length) say("Held back by the constraints shown in red", 600);
+      } catch { /* a place that cannot be solved: the part stays where it was last */ }
+    },
+    grabEnd(): void {
+      const g = drag; drag = null; if (!g) return;
+      if (!g.moved) { // it was a click on the part: it is picked
+        const was = selected(g.key); selection = { key: g.key, ids: g.shift ? (was.includes(g.id) ? was.filter((q) => q !== g.id) : [...was, g.id]) : [g.id] }; return;
+      }
+      let next = defs.get(g.key) ?? g.def0, joined = false;
+      if (g.join) { const r = constrain(next, solOf(next), [g.id, g.join.id], g.join.kind === "point" ? "coincident" : (next.lines ?? []).some((l) => l.id === g.join!.id) ? "pointOnLine" : "pointOnCircle"); if (r.ok) { next = r.params; joined = true; } }
+      defs.set(g.key, g.def0); // (the history takes the whole move as one change, from where it began)
+      set(g.key, next, joined ? "Drag and join" : "Drag"); selection = { key: g.key, ids: [g.id] }; flash = {};
+    },
     clearSelection(): boolean { const had = selection.ids.length > 0; selection = { key: "", ids: [] }; return had; },
     /** What to draw: every sketch on every plane (what is selected in teal), what the tool would make, the part a trim would take, and the place the pointer is at. */
     lines(pointer: { x: number; y: number } | null): DrawLine[] {
@@ -154,6 +211,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
         for (const q of seg) out.push({ kind: sel.has(q.name) ? "selected" : "done", pts: polyline(q).map((z) => to3(f, z)) });
         for (const x of p.points) { const at = s.points[x.id]; if (!at) continue; const a = mmPerPx(f, at) * (sel.has(x.id) ? 5 : arm); out.push({ kind: sel.has(x.id) ? "selected" : "done", pts: [to3(f, [at[0] - a, at[1]]), to3(f, [at[0] + a, at[1]])] }, { kind: sel.has(x.id) ? "selected" : "done", pts: [to3(f, [at[0], at[1] - a]), to3(f, [at[0], at[1] + a])] }); }
       }
+      if (drag?.snapAt) { const f = all.get(drag.key); if (f) { const arm = mmPerPx(f, drag.snapAt) * settings.sketch.crossPx * 1.4, w = to3(f, drag.snapAt); out.push({ kind: "cursor", pts: [add(w, scale(f.u, -arm)), add(w, scale(f.u, arm))] }, { kind: "cursor", pts: [add(w, scale(vOf(f), -arm)), add(w, scale(vOf(f), arm))] }); } }
       const c = pointer && tool ? here(pointer.x, pointer.y) : null;
       if (c && tool) {
         const s = solOf(c.p);

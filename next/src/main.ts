@@ -196,9 +196,9 @@ attach(canvas, {
     const next = view.click(s, env(), x, y); // (a pane of a world plane: it is the sketch plane now)
     if (next !== s) { placed = null; placedKey = null; s = next; }
   },
-  grab: (x, y, shift) => !game.on && (ext.grab(x, y) || orbc.grab(x, y, shift)),
-  grabMove: (x, y) => { ext.grabMove(x, y); orbc.grabMove(x, y); },
-  grabEnd: () => { ext.grabEnd(); orbc.grabEnd(); },
+  grab: (x, y, shift) => { if (game.on) return false; if (ext.grab(x, y)) return true; if (ext.active()) return false; return orbc.grab(x, y, shift) || sk.grab(x, y, shift); },
+  grabMove: (x, y) => { ext.grabMove(x, y); orbc.grabMove(x, y); sk.grabMove(x, y); },
+  grabEnd: () => { ext.grabEnd(); orbc.grabEnd(); sk.grabEnd(); },
   menu: (x, y) => { pointer = { x, y }; if (ext.pulling()) { ext.apply(); return; } if (ext.cancel()) return; if (!sk.stop()) menu.open(x, y, menuItems()); }, // (with a tool on, a right click gives up the figure, then puts the tool away)
   look: (dx, dy) => game.look(dx, dy),
   space: () => { if (game.on) endGame(); else startGame(); },

@@ -6420,3 +6420,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1569 — 2026-11-23 — approval
 > yes start the ... menu
+
+## in_1570 — 2026-11-24 — approval
+> yes build dragging a sketch point first

@@ -9,7 +9,7 @@ Status: **a draft, `ai-unreviewed`**, written after a first prototype was built 
 - What the next click would make is shown as the pointer moves (teal), with a small cross where the pointer is; figures done are charcoal lines.
 - **Snapping:** the point goes onto an end, a corner or a middle of an earlier figure within 10 px, else onto a grid crossing within 10 px.
 - **Right click** (or Esc) gives up the figure under way; with none, it puts the tool away; then the ring opens again.
-- Since `in_1564` the figures are **the engine's own definition** (points, lines, circles, constraints), solved at every edit; selecting, a number on a part (D), typing over it, Delete and Trim (K9 to K27) are built, checked by dev checks (`dev/drawing-check.ts`, `dev/stress-drawing.ts`, `dev/sketch-browser.ts`) and not yet tests.
+- Since `in_1564` the figures are **the engine's own definition** (points, lines, circles, constraints), solved at every edit; selecting, a number on a part (D), typing over it, Delete and Trim (K9 to K29) are built, checked by dev checks (`dev/drawing-check.ts`, `dev/stress-drawing.ts`, `dev/sketch-browser.ts`) and not yet tests.
 - Figures are kept **in the plane's own axes**, so they go with a placed plane when the orb moves it; a world plane keeps its own; a placed plane's are let go with it.
 - The orb is out of the way while a tool is on.
 
@@ -23,7 +23,7 @@ Status: **a draft, `ai-unreviewed`**, written after a first prototype was built 
 | K5 | A point sticks to an end, a corner or a middle of an earlier figure (the middle of a circle, and the four points on it) within 10 px, else to a grid crossing within 10 px of the grid's spacing; the distance is so many pixels wherever the view is. | in_1462 in_652 | | `Sketch` | unit | later |
 | K6 | Figures are kept in the plane's own axes: they move and turn with a placed plane, and each plane keeps its own; a placed plane's figures are let go with it. | in_1462 in_233 in_234 | | `Sketch` | unit | later |
 | K7 | What the next click would make is drawn as the pointer moves, with a cross at the pointer; figures done are charcoal lines, pixel-wide, drawn on top. | in_1462 | hover | `Drawing` | browser | later |
-| K8 | Not yet: an arc tool, polygons, typing a size while drawing, adding a relation from a bar (the helper bar), dragging a part, closed figures making a face and an extrude of them, a sketch's own cut when it is on a face, undo. | in_1462 | | | later | later |
+| K8 | Not yet: an arc tool, polygons, typing a size while drawing, adding a relation from a bar (the helper bar), closed figures making a face and an extrude of them, a sketch's own cut when it is on a face, undo. | in_1462 | | | later | later |
 
 | K9 | A figure is the engine's own definition (points, lines, circles, constraints), one for each plane: a rectangle is four points, four lines, level and upright; a click on a point is that point; a click on a line or circle puts a new point held on it; every edit is solved before it is kept, and one the solver refuses leaves the sketch as it was and says which constraints hold it back. | in_1564 in_1562 | click | `Sketch` | later | later |
 | K10 | With no tool on, a click selects a point, a line, a circle or an arc (Shift adds); the bubbles of the constraints of what is selected show on it, and only those; Esc puts the selection away; Delete takes the selected parts away with the constraints that name them and the end points nothing else uses. | in_1564 in_1562 in_058 | click, delete, escape | `Sketch` | later | later |
@@ -49,6 +49,9 @@ Status: **a draft, `ai-unreviewed`**, written after a first prototype was built 
 
 | K26 | The "..." button (top right) opens a short list: New, Open a file, Save to a file, Export STL, Export STEP; a choice that cannot be made (nothing made yet, no body yet) is dimmed with the reason in its tooltip; a click elsewhere or Esc closes it. | in_1569 in_291 in_294 | click, escape | `Sketch` | later | later |
 | K27 | Save gives `model.cad`: the document (the recipe, canonical text) with the drawings on the planes and the planes on faces; Open reads it back (the same recipe makes the same body); a file that is not one, or is newer than the program, is said in words and nothing changes; New clears everything and undo brings it back; Export gives the body as STL (to print) or STEP (to another CAD program) through the engine's worker. | in_1569 in_256 | | `Sketch` | later | later |
+
+| K28 | With no tool on, a press on a point, a line, a circle or an arc and a drag moves it with the solver following the pointer (the part pinned where it goes, soft: it goes as near as the constraints allow); a rectangle stays a rectangle; a locked length holds and what holds a drag back flashes red with a sentence; a press that goes nowhere is a click that picks the part; the whole drag is one change for undo. | in_1570 in_290 in_292 | press, drag | `Sketch` | later | later |
+| K29 | A single point dragged and let go on another point joins it (a coincident constraint is added), on a line or circle it is held on it (point on line, point on circle); a cross shows where it will stick while it is dragged. | in_1570 in_294 in_300 | drag | `Sketch` | later | later |
 
 ## Contracts
 - `Sketch` (`src/interaction/drawing.ts`): what a click does to a sketch's definition, pure, solved by the engine's solver (`engine/definition.ts`, `engine/trim.ts`: no kernel); `src/sketchcontrol.ts` the controller (the host says where each plane is); `src/sketch.ts` the plane's axes to the world.

@@ -33,6 +33,13 @@ for (let s = 0; s < N; s++) {
         const dims = (p.constraints ?? []).filter((c) => c.value !== undefined); if (!dims.length) continue;
         const r = retype(p, pick(dims).id, 1 + rnd() * 50); bump(`retype ${r.ok ? "kept" : "said no"}`); if (r.ok) p = r.params; else if (!r.why) fail("a retype was refused with no words");
         continue;
+      } else if (roll < 0.86) { // a drag: a point, or both ends of a line, pinned somewhere else, as the screen does it
+        const ids = [...p.points.map((x) => x.id), ...(p.lines ?? []).map((x) => x.id)]; if (!ids.length) continue;
+        const id = pick(ids), pins = (p.lines ?? []).find((l) => l.id === id) ? [(p.lines ?? []).find((l) => l.id === id)!.a, (p.lines ?? []).find((l) => l.id === id)!.b] : [id], dx = (rnd() - 0.5) * 30, dy = (rnd() - 0.5) * 30;
+        const pinned = Object.fromEntries(pins.map((q) => [q, [sol.points[q]![0] + dx, sol.points[q]![1] + dy] as [number, number]]));
+        try { const r = solveDefinition(p, { pins: pinned }); bump("dragged"); const k = keep({ ...p, points: p.points.map((x) => (r.points[x.id] ? { ...x, x: r.points[x.id]![0], y: r.points[x.id]![1] } : x)) }); if (!k.ok) fail(`after a drag of ${id} the sketch does not solve: ${k.why}`); else p = k.params; }
+        catch (x) { bump("drag said no"); if (!(x as Error).message) fail("a drag was refused with no words"); }
+        continue;
       } else if (roll < 0.9) {
         const ids = [...(p.lines ?? []), ...(p.circles ?? []), ...(p.arcs ?? []), ...p.points]; if (!ids.length) continue;
         const gone = pick(ids).id, q = removeParts(p, [gone]); bump("removed");
