@@ -67,13 +67,12 @@ export function hitAt(p: SketchParams, s: Sol, q: Pt, tol: number): Hit | null {
 // ---------------------------------------------------------------- what a click puts down
 /** a place for a figure's point: a point that is there already, or a new point (held on the line or circle it was put on, if it was) */
 export type Ref = { id: string } | { at: Pt; on?: { id: string; of: "line" | "circle" | "arc" } };
-/** where a click is, as a place for a point: on a point, on a curve, on a grid crossing within `tol`, or free */
-export function refOf(p: SketchParams, s: Sol, q: Pt, tol: number, grid: number): Ref {
+/** where a click is, as a place for a point: on a point, on a curve, or free (to 0.01 mm, so sizes read 40.00 and not 39.999999; there is no grid to snap to, `in_1580`) */
+export function refOf(p: SketchParams, s: Sol, q: Pt, tol: number): Ref {
   const h = hitAt(p, s, q, tol);
   if (h?.kind === "point") return { id: h.id };
   if (h) return { at: h.at, on: { id: h.id, of: h.of } };
-  const g: Pt = [Math.round(q[0] / grid) * grid, Math.round(q[1] / grid) * grid];
-  return { at: hyp(q[0] - g[0], q[1] - g[1]) < tol ? g : q };
+  return { at: [Math.round(q[0] * 100) / 100, Math.round(q[1] * 100) / 100] };
 }
 export const posOf = (s: Sol, r: Ref): Pt => ("id" in r ? s.points[r.id]! : r.at);
 /** the point of a place: its own id, or a new point where the click was (a click on a line or circle puts it on the curve's place and makes no constraint: a helper helps position, `dec_hints_place_only`, `in_1574`) */

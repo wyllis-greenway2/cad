@@ -9,7 +9,7 @@ import { worldFrame } from "../src/planes.ts";
 import { check, failureCount } from "./lib.ts";
 await initKernel();
 const grow = (p: any, f: (p: any, s: any) => any) => { const s = { points: Object.fromEntries(p.points.map((x: any) => [x.id, [x.x, x.y]])), radii: Object.fromEntries((p.circles ?? []).map((c: any) => [c.id, c.r])) }; const k = keep(f(p, s)); if (!k.ok) throw new Error(k.why); return k.params; };
-const at = (p: any, s: any, x: number, y: number) => refOf(p, s, [x, y], 0.5, 1);
+const at = (p: any, s: any, x: number, y: number) => refOf(p, s, [x, y], 0.5);
 let p = grow(emptySketch(), (q, s) => addRect(q, s, at(q, s, 0, 0), at(q, s, 40, 25)));
 p = grow(p, (q, s) => addCircle(q, s, at(q, s, 20, 12), [26, 12]));
 const outside = regionAt(p, [100, 100]), ring = regionAt(p, [5, 5]), inner = regionAt(p, [20, 12]);
@@ -32,7 +32,7 @@ import { addArc, addLine, arcWay } from "../src/interaction/drawing.ts";
 {
   let q = emptySketch(); const sl = () => ({ points: Object.fromEntries(q.points.map((x: any) => [x.id, [x.x, x.y]])), radii: {} });
   const step = (f: (q: any, s: any) => any) => { const k = keep(f(q, sl())); if (!k.ok) throw new Error(k.why); q = k.params; };
-  step((a, s) => addArc(a, s, refOf(a, s, [0, 0], 0.01, 1), refOf(a, s, [10, 0], 0.01, 1), [-10, 0.0001]));
+  step((a, s) => addArc(a, s, refOf(a, s, [0, 0], 0.01), refOf(a, s, [10, 0], 0.01), [-10, 0.0001]));
   check("an arc is a circle with a start and an end on it", q.arcs!.length === 1 && q.points.length === 3 && !q.arcs![0]!.cw, JSON.stringify(q.arcs));
   const [pa, pb] = [q.arcs![0]!.a, q.arcs![0]!.b];
   step((a, s) => addLine(a, s, { id: pb }, { id: pa }));

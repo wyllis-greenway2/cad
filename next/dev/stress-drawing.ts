@@ -18,11 +18,11 @@ for (let s = 0; s < N; s++) {
   try {
     for (let step = 0; step < 25; step++) {
       const sol = solOf(p), spot = (): [number, number] => (rnd() < 0.5 && p.points.length ? (() => { const q = pick(p.points); return [q.x + (rnd() - 0.5) * 0.2, q.y + (rnd() - 0.5) * 0.2] as [number, number]; })() : [Math.round(rnd() * 60 - 10), Math.round(rnd() * 40 - 5)]);
-      const roll = rnd(), ref = () => refOf(p, sol, spot(), 0.6, 1);
+      const roll = rnd(), ref = () => refOf(p, sol, spot(), 0.6);
       let next: SketchParams | null = null, what = "";
       if (roll < 0.25) { next = addLine(p, sol, ref(), ref()); what = "line"; }
       else if (roll < 0.4) { next = addRect(p, sol, ref(), ref()); what = "rect"; }
-      else if (roll < 0.45) { const c = spot(); next = addCircle(p, sol, refOf(p, sol, c, 0.6, 1), spot()); what = "circle"; }
+      else if (roll < 0.45) { const c = spot(); next = addCircle(p, sol, refOf(p, sol, c, 0.6), spot()); what = "circle"; }
       else if (roll < 0.5) { next = addArc(p, sol, ref(), ref(), spot()); what = "arc"; }
       else if (roll < 0.7) {
         const parts = [...p.points.map((x) => x.id), ...(p.lines ?? []).map((x) => x.id), ...(p.circles ?? []).map((x) => x.id), ...(p.arcs ?? []).map((x) => x.id)]; if (!parts.length) continue;

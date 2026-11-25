@@ -40,7 +40,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   /** a pixel's worth of the plane in mm, where the pointer is */
   /** where a click would put the place: on a point or curve as drawn, else drawn to the helpers' places (they place, they never constrain, `dec_hints_place_only`, `in_1579`) */
   const placed = (c: { p: SketchParams; q: P2; tol: number }, s: Sol): { ref: Ref; help: Helped | null } => {
-    const r = refOf(c.p, s, c.q, c.tol, host.planes().step);
+    const r = refOf(c.p, s, c.q, c.tol);
     if ("id" in r) return { ref: r, help: null };
     const a = tool?.pts[0], h = place(c.p, s, a && tool?.kind === "line" ? posOf(s, a) : null, c.q, c.tol / settings.sketch.snapPx);
     return h.held.length ? { ref: { at: h.at }, help: h } : { ref: r, help: null };

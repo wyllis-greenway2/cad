@@ -6451,3 +6451,7 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1579 — 2026-11-25 — directive
 > can we have a simple rule set that just captures all of this? how can we simplify the whole thing so we don't need so many edge case rules and it always just works? Can we just have a rule set for what an alignment helper is, and how it should always be styled and represented?
+
+## in_1580 — 2026-11-25 — directive
+> lets toss snapping to the grid. Also lets talk about another constraint and or helper which would be centerline. So it is often helpful to snap to the center of a line. Also why would the cross line for concentric not match our rules? because alignment rules would require the circle to be orange not cross lines? wouldn't cross lines be aligned with the centers of the curve? or maybe we make a special case for circles because I like the cross lines? I would prefer not to make a special case. Also shouldn't we have  rule that all things in alignment turn orange? why make it turn orange sometimes but not others? we need a really simple ruleset that expands well. The ruleset needs to cover the actual alignment and the UI styling
+

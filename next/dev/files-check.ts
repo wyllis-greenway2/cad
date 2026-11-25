@@ -9,7 +9,7 @@ import { canonical } from "../src/engine/params.ts";
 import { check, failureCount } from "./lib.ts";
 await initKernel();
 const s0 = { points: {}, radii: {} }; let p = emptySketch();
-const k = keep(addRect(p, s0, refOf(p, s0, [0, 0], 0.5, 1), refOf(p, s0, [40, 25], 0.5, 1))!); if (!k.ok) throw new Error(k.why); p = k.params;
+const k = keep(addRect(p, s0, refOf(p, s0, [0, 0], 0.5), refOf(p, s0, [40, 25], 0.5))!); if (!k.ok) throw new Error(k.why); p = k.params;
 const steps = extrudeSteps([], p, worldFrame(2), [20, 12], 10);
 const model = { steps, drawings: { "world:2": p }, faces: { "face:x": { frame: { origin: [1, 2, 3], normal: [0, 0, 1], u: [1, 0, 0] }, source: { face: { step: "e1", role: "end", of: [], pieces: [] }, body: "e1" } } } };
 const text = toFile(model as any);

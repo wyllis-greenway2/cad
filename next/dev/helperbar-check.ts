@@ -4,7 +4,7 @@ import { addRect, emptySketch, keep, viewSystem } from "../src/interaction/drawi
 import { refOf } from "../src/interaction/drawing.ts";
 import { check, failureCount } from "./lib.ts";
 let p = emptySketch(); const s0 = { points: {}, radii: {} };
-const n = addRect(p, s0, refOf(p, s0, [0, 0], 0.5, 1), refOf(p, s0, [40, 25], 0.5, 1))!; const k = keep(n); if (!k.ok) throw new Error(k.why); p = k.params;
+const n = addRect(p, s0, refOf(p, s0, [0, 0], 0.5), refOf(p, s0, [40, 25], 0.5))!; const k = keep(n); if (!k.ok) throw new Error(k.why); p = k.params;
 const S = viewSystem(p, k.sol);
 check("nothing selected: no bar", barFor(S, []).left.length === 0 && barFor(S, []).right.length === 0);
 const one = barFor(S, ["L1"]);

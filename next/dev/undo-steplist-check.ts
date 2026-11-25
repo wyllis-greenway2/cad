@@ -25,7 +25,7 @@ check("an undo ends the merging", m2.undo() === 1);
 
 // the recipe of a drawn rectangle with a dimension, extruded
 const s0 = { points: {}, radii: {} }; let p = emptySketch();
-let k = keep(addRect(p, s0, refOf(p, s0, [0, 0], 0.5, 1), refOf(p, s0, [40, 25], 0.5, 1))!); if (!k.ok) throw new Error(k.why); p = k.params;
+let k = keep(addRect(p, s0, refOf(p, s0, [0, 0], 0.5), refOf(p, s0, [40, 25], 0.5))!); if (!k.ok) throw new Error(k.why); p = k.params;
 const sol = { points: Object.fromEntries(p.points.map((x) => [x.id, [x.x, x.y] as [number, number]])), radii: {} };
 const dim = constrain(p, sol, ["L1"], "dimension"); if (!dim.ok) throw new Error(dim.why); p = dim.params;
 const steps = extrudeSteps([], p, worldFrame(2), [20, 12], 10);

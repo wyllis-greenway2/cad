@@ -7,7 +7,7 @@ import { check, failureCount } from "./lib.ts";
 
 const sol = (p: SketchParams): Sol => { const s = solveDefinition(p); return { points: s.points, radii: s.radii }; };
 const grow = (p: SketchParams, f: (p: SketchParams, s: Sol) => SketchParams | null): SketchParams => { const n = f(p, sol(p)); if (!n) throw new Error("nothing drawn"); const k = keep(n); if (!k.ok) throw new Error(k.why); return k.params; };
-const at = (p: SketchParams, s: Sol, x: number, y: number) => refOf(p, s, [x, y], 0.5, 1);
+const at = (p: SketchParams, s: Sol, x: number, y: number) => refOf(p, s, [x, y], 0.5);
 
 let p = emptySketch();
 p = grow(p, (q, s) => addRect(q, s, at(q, s, 0, 0), at(q, s, 40, 25)));
