@@ -11,7 +11,7 @@ import type { OrbDrawing } from "./orbcontrol.ts";
 import type { Bubble } from "./interaction/bubbles.ts";
 import type { Operation } from "./interaction/operation.ts";
 import { createBubbleLayer } from "./bubbledraw.ts";
-import { createOpBar } from "./opbar.ts";
+import type { PillState } from "./opbar.ts";
 
 export interface OperationHost {
   view(): { cam: Cam; w: number; h: number };
@@ -30,7 +30,6 @@ const ID = "operation";
 
 export function createOperations(host: OperationHost, page: HTMLElement) {
   let armed = false, op: Operation | null = null, grab: { s0: number; d0: number } | null = null;
-  const bar = createOpBar(page, { apply: () => apply(), cancel: () => cancel(), option: (id) => { if (op) op = op.withOption(id); } });
   const layer = createBubbleLayer(page, { set(_id, v) { if (op && isFinite(v)) op = op.withValue(v) ?? op; }, remove() { /* none */ } });
   /** the arrow: from a little out of the thing's middle along its normal (the way it is pulled), to the tip; as long as the pull when that is longer than the arrow */
   const handle = (o: Operation, cam: Cam): Handle => {
@@ -87,9 +86,12 @@ export function createOperations(host: OperationHost, page: HTMLElement) {
     },
     /** What to show before the engine has made it. */
     ghost: () => op?.ghost ?? null,
-    /** Each picture: the number (at the arrow's tip, or where the operation says), the operation bar. */
+    /** Another kind chosen (a chip of the pill). */
+    option(id: string) { if (op) op = op.withOption(id); },
+    /** What the page's pill says for it (null: no operation is open). */
+    pill: (): PillState | null => (op ? { title: op.title, options: op.options, apply: true } : armed ? { title: "Extrude: click a closed shape" } : null),
+    /** Each picture: the number (at the arrow's tip, or where the operation says). */
     frame(): void {
-      bar.show(op ? op.title : armed ? "Extrude: click a closed shape" : null, op?.options ?? []);
       if (!op) { layer.show([], { lines: [], dots: [] }); return; }
       const { cam, w, h } = host.view(), tip = op.arrow ? handle(op, cam).points[1]! : op.at, q = project(cam, tip, w, h);
       const b: Bubble = { id: "d", kind: "dimension", relation: "length", icon: "dimension", at: [0, 0], text: String(op.value), unit: "mm", value: op.value, tone: "rest", title: op.valueTitle, parts: [] };

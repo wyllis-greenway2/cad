@@ -10,8 +10,8 @@ import { COLOUR, STROKE } from "./interaction/style.ts";
 export function drawLines(group: THREE.Group, lines: DrawLine[], w: number, h: number): void {
   for (const l of lines) {
     const g = new LineGeometry(); g.setPositions(l.pts.flat());
-    const st = STROKE[l.kind], m = new LineMaterial({ color: new THREE.Color(COLOUR[st.tone]).getHex(), linewidth: settings.sketch.widthPx * st.weight, transparent: st.soft, opacity: st.soft ? 0.8 : 1, depthTest: false });
+    const st = STROKE[l.kind], m = new LineMaterial({ color: new THREE.Color(COLOUR[st.tone]).getHex(), linewidth: settings.sketch.widthPx * st.weight, transparent: st.soft, opacity: st.soft ? 0.8 : 1, depthTest: false, ...(st.dashed ? { dashed: true, dashSize: 5, gapSize: 4, dashScale: 1 } : {}) });
     m.resolution.set(w, h);
-    const line = new Line2(g, m); line.renderOrder = 11; group.add(line);
+    const line = new Line2(g, m); if (st.dashed) line.computeLineDistances(); line.renderOrder = 11; group.add(line);
   }
 }

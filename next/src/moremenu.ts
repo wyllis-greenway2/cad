@@ -1,14 +1,14 @@
 // The "..." button and its list on the page (`q_lean_ui`): a round button at the top right (the prototype's look) that opens a short list under it; a click elsewhere or Esc closes it; a choice that cannot be made is dimmed with its reason in the tooltip.
-import { roundButton } from "./menu.ts";
 import { iconSvg } from "./icons.ts";
 import { settings } from "./settings.ts";
 import type { MoreItem } from "./interaction/moremenu.ts";
 
 export function createMoreMenu(host: HTMLElement, choose: (id: MoreItem["id"]) => void) {
-  const b = roundButton({ text: "···", size: settings.buttons.sizePx, title: "More" });
-  b.style.cssText += `;position:fixed;right:${settings.buttons.marginPx}px;top:${settings.buttons.marginPx}px;z-index:9;cursor:pointer;letter-spacing:1px`; b.dataset.more = "button";
+  // the old app's button (`app/src/ui/controls.ts`): a dark filled circle, 40 px, with white dots, at the top right
+  const b = document.createElement("div"); b.textContent = "⋯"; b.title = "More"; b.dataset.more = "button";
+  b.style.cssText = "position:fixed;z-index:11;top:12px;right:12px;width:40px;height:40px;border-radius:20px;background:#34363b;color:#fff;font:700 22px/38px system-ui,sans-serif;text-align:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);user-select:none;-webkit-user-select:none";
   const list = document.createElement("div");
-  list.style.cssText = `position:fixed;right:${settings.buttons.marginPx}px;top:${settings.buttons.marginPx + settings.buttons.sizePx + 8}px;display:none;flex-direction:column;min-width:230px;padding:6px;border-radius:14px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.25);z-index:9;font:13px ${settings.ui.font};color:${settings.ui.text};user-select:none;-webkit-user-select:none`;
+  list.style.cssText = `position:fixed;right:12px;top:60px;display:none;flex-direction:column;min-width:230px;padding:6px;border-radius:14px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.25);z-index:9;font:13px ${settings.ui.font};color:${settings.ui.text};user-select:none;-webkit-user-select:none`;
   list.dataset.more = "list";
   for (const el of [b, list]) { el.addEventListener("pointerdown", (e) => e.stopPropagation()); el.addEventListener("contextmenu", (e) => e.preventDefault()); }
   host.append(b, list);

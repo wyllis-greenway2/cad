@@ -24,6 +24,7 @@ import { createOperations } from "./operationcontrol.ts";
 import { extrudeOp, pushOp, roundOp, type PullInfo, type Source } from "./interaction/operations.ts";
 import { createBodySelect } from "./bodyselect.ts";
 import { createHelperBar } from "./helperbardraw.ts";
+import { createOpBar } from "./opbar.ts";
 import { Undo } from "./interaction/undo.ts";
 import { editNumber, rowsOf } from "./interaction/steplist.ts";
 import { createStepList } from "./steplistdraw.ts";
@@ -106,6 +107,11 @@ const bodies = createBodySelect({
   press: (id, sel) => doOnPick(id, sel),
 });
 // ---- the helper bar: the page has one, and it says what the sketch's selection or the body's pick offers (`in_1576`) ----
+// ---- sketch mode and the page's one pill (the old app's: a tool's icon and cross, "Exit sketch"; an operation's words, kinds, check and cross) ----
+let sketchMode = false;
+function exitSketch() { while (sk.stop()) { /* the tool is put away */ } sk.clearSelection(); sketchMode = false; }
+const TOOL_ICON: Record<string, string> = { line: "line", rect: "rect", circle: "circle", arc: "arc", trim: "scissors" };
+const pill = createOpBar(document.body, { apply: () => { ext.apply(); }, cancel: () => { if (ext.active()) ext.cancel(); else sk.stop(); }, option: (id) => ext.option(id), exit: exitSketch });
 let barPress: ((id: string) => void) | null = null;
 const bar = createHelperBar(document.body, (id) => barPress?.(id));
 /** the engine's facts about a face of the body: where it faces (out of the body) */
@@ -118,7 +124,7 @@ function doOnPick(id: string, sel: import("./bodyselect.ts").Selection) {
     const ff = faceFacts(sel.body, f.id); if (!ff) return;
     const n = ff.ne as [number, number, number], fr: Frame = { origin: ff.ce as [number, number, number], normal: n, u: [...faceAxes(n).u] as [number, number, number] }, key = `face:${f.id}`;
     facePlanes.set(key, { frame: fr, source: { face: f.ref, body: sel.body } });
-    placed = fr; placedKey = key; bodies.clear(); s = view.lookAlong(s, env(), scale(n, -1)); record("Plane on a face");
+    placed = fr; placedKey = key; sketchMode = true; bodies.clear(); s = view.lookAlong(s, env(), scale(n, -1)); record("Plane on a face");
   }
   if ((id === "body:round" || id === "body:chamfer") && sel.edges.length) { // the number is the size: about a tenth of the shortest edge, to type over
     const pts = (e: { start: number; count: number }) => { const m = mesh!; let L = 0; for (let i = 0; i + 1 < e.count; i++) { const k = 3 * (e.start + i); L += Math.hypot(m.lines[k + 3]! - m.lines[k]!, m.lines[k + 4]! - m.lines[k + 1]!, m.lines[k + 5]! - m.lines[k + 2]!); } return L; };
@@ -169,9 +175,9 @@ async function chooseMore(id: import("./interaction/moremenu.ts").MoreItem["id"]
   }
 }
 const more = createMoreMenu(document.body, (id) => { void chooseMore(id); });
-function startExtrude() { if (game.on) endGame(); while (sk.stop()) { /* the sketch tool is put away */ } sk.clearSelection(); ext.start(); }
+function startExtrude() { sketchMode = false; if (game.on) endGame(); while (sk.stop()) { /* the sketch tool is put away */ } sk.clearSelection(); ext.start(); }
 function startTool(kind: ToolKind) {
-  ext.cancel();
+  ext.cancel(); sketchMode = true;
   if (game.on) endGame();
   const f = planeNow().frame, straight = s.c.ortho !== null && !s.go && Math.abs(dot(forward(s.c), f.normal)) > 0.9999;
   if (!straight) s = placed ? view.lookAlong(s, env(), scale(f.normal, dot(sub(s.c.eye, f.origin), f.normal) >= 0 ? -1 : 1)) : view.lookAt(s, env(), s.plane);
@@ -225,7 +231,7 @@ addEventListener("keydown", (e) => {
   if (game.moves(e.code) && !game.on && !e.repeat) startGame(); // (W A S D turn the game on too, and the key that did it moves the eye)
   if (game.key(e.code, true)) return;
   if (orbc.orienting() && e.code === "Enter") { orbc.keep(); return; }
-  if (e.code === "Escape") { if (more.isOpen()) { more.close(); return; } if (ext.cancel()) return; if (orbc.cancel()) return; if (menu.isOpen()) menu.close(); else if (game.on) endGame(); else if (!sk.stop() && !sk.clearSelection() && !bodies.clear()) orbc.release(); }
+  if (e.code === "Escape") { if (more.isOpen()) { more.close(); return; } if (ext.cancel()) return; if (orbc.cancel()) return; if (menu.isOpen()) menu.close(); else if (game.on) endGame(); else if (!sk.stop() && !sk.clearSelection() && !bodies.clear()) { if (sketchMode) exitSketch(); else orbc.release(); } }
 });
 addEventListener("keyup", (e) => { game.key(e.code, false); });
 document.addEventListener("pointerlockchange", () => { if (document.pointerLockElement !== canvas && game.on) endGame(); });
@@ -244,7 +250,7 @@ function frame(now: number) {
     ...d, ...(placed ? { grid: gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, placed.origin), placed.normal))), sketch: { origin: placed.origin, u: placed.u, v: vOf(placed), n: placed.normal } } : {}), orb: ext.drawing(game.on ? null : pointer) ?? orb, ghost: ext.ghost(), marks: bodies.marks(), fills: sk.fills(), lines: sk.lines(game.on ? null : pointer), ...(sk.active() ? { looks: Object.fromEntries(model.things.map((t) => [t.id, SEE_THROUGH])) } : {}),
     cut: placed && !placedKey ? { origin: placed.origin, n: placed.normal } : null, // (made once with the plane, from the side the camera looked from; it turns and moves with the plane, and does not change with the camera)
   });
-  ext.frame();
+  ext.frame(); pill.show(ext.pill() ?? (sketchMode || sk.active() ? { title: null, sketch: { icon: TOOL_ICON[sk.tool() ?? ""] ?? null } } : null));
   const say1 = sk.bar() ?? bodies.bar(sk.active() || ext.active()), barBox = (() => { barPress = say1?.press ?? null; const e = env(); return bar.show(say1?.items ?? null, say1?.at ?? null, e.w, e.h); })();
   { const st = studio.state(), n = undo.next; list.show({ rows: rowsOf(st.steps, st.snapshot), canUndo: undo.canUndo, canRedo: undo.canRedo, undoLabel: n.undo, redoLabel: n.redo, busy: st.busy }); }
   more.show(moreItems({ hasModel: hasModel(), hasBody: hasBody() }));

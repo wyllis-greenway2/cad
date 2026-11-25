@@ -27,7 +27,7 @@ export interface SketchHost {
   planes(): { all: Map<string, Frame>; on: string; step: number };
   ray(x: number, y: number): { o: V3; d: V3 };
 }
-export interface DrawLine { pts: V3[]; kind: "done" | "selected" | "preview" | "cursor" | "cut" }
+export interface DrawLine { pts: V3[]; kind: "done" | "selected" | "preview" | "cursor" | "cut" | "tie" | "guide" }
 
 export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: string, merge?: string) => void) {
   const defs = new Map<string, SketchParams>(), sols = new WeakMap<SketchParams, Sol>(), fillCache = new WeakMap<SketchParams, [number, number][][][]>();

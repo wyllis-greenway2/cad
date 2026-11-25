@@ -6445,3 +6445,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1577 — 2026-11-25 — approval
 > okay lets do your lean recommendations
+
+## in_1578 — 2026-11-25 — directive
+> okay can we make the sketching look and feel more like the prototype now?
