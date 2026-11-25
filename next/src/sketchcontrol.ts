@@ -139,23 +139,16 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
         if (tool.pts.length === 1) { tool = { ...tool, pts: [a, r] }; return true; }
         commit(c.key, addArc(c.p, s, tool.pts[0]!, tool.pts[1]!, posOf(s, r)), "Arc"); tool = { ...tool, pts: [] }; return true;
       }
-      if (tool.kind === "line") { commit(c.key, addLine(c.p, s, a, r), "Line"); tool = { ...tool, pts: [r] }; }
+      if (tool.kind === "line") { commit(c.key, addLine(c.p, s, a, r), "Line"); tool = { ...tool, pts: "id" in r ? [r] : [] }; } // (a line is two clicks; one that ends on a point already drawn goes on from it, as the prototype's does)
       else if (tool.kind === "rect") { commit(c.key, addRect(c.p, s, a, r), "Rectangle"); tool = { ...tool, pts: [] }; }
       else { commit(c.key, addCircle(c.p, s, a, posOf(s, r)), "Circle"); tool = { ...tool, pts: [] }; }
-      // a line goes on from where it ended: the end is now a point of the sketch
-      if (tool.kind === "line" && tool.pts[0] && !("id" in tool.pts[0])) { const q = defs.get(c.key)!, s2 = solOf(q), h = hitAt(q, s2, posOf(s, r), 1e-6); if (h?.kind === "point") tool = { ...tool, pts: [{ id: h.id }] }; }
       return true;
     },
-    /** Keys of the sketch: Delete takes the selected parts away, D puts a number on them (what they measure now, to type over). Returns whether the key was used. */
+    /** Keys of the sketch: Delete takes the selected parts away (no other key is bound for now, `in_1574`). Returns whether the key was used. */
     key(code: string): boolean {
       const c = current(); if (!c || tool) return false;
       const sel = selected(c.key);
       if (code === "Delete" || code === "Backspace") { if (!sel.length) return false; set(c.key, removeParts(c.p, sel), "Delete"); selection = { key: c.key, ids: [] }; return true; }
-      if (code === "KeyD") {
-        const r = constrain(c.p, solOf(c.p), sel, "dimension");
-        if (r.ok) { set(c.key, r.params, "Dimension"); flash = { applied: [r.added] }; flashUntil = performance.now() + 900; } else fail(r.why, r.victims);
-        return true;
-      }
       return false;
     },
     /** Add a relation to what is selected (the helper bar's, later); false: the sketch said no, and says why. */
@@ -200,10 +193,9 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       if (!g.moved) { // it was a click on the part: it is picked
         const was = selected(g.key); selection = { key: g.key, ids: g.shift ? (was.includes(g.id) ? was.filter((q) => q !== g.id) : [...was, g.id]) : [g.id] }; return;
       }
-      let next = defs.get(g.key) ?? g.def0, joined = false;
-      if (g.join) { const r = constrain(next, solOf(next), [g.id, g.join.id], g.join.kind === "point" ? "coincident" : (next.lines ?? []).some((l) => l.id === g.join!.id) ? "pointOnLine" : "pointOnCircle"); if (r.ok) { next = r.params; joined = true; } }
+      const next = defs.get(g.key) ?? g.def0; // (a point let go on another point or a curve lands there; no constraint is made by it)
       defs.set(g.key, g.def0); // (the history takes the whole move as one change, from where it began)
-      set(g.key, next, joined ? "Drag and join" : "Drag"); selection = { key: g.key, ids: [g.id] }; flash = {};
+      set(g.key, next, "Drag"); selection = { key: g.key, ids: [g.id] }; flash = {};
     },
     clearSelection(): boolean { const had = selection.ids.length > 0; selection = { key: "", ids: [] }; return had; },
     /** What to draw: every sketch on every plane (what is selected in teal), what the tool would make, the part a trim would take, and the place the pointer is at. */

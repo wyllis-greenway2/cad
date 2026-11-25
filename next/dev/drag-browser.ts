@@ -30,18 +30,18 @@ try {
   d = await def(); const back = near(d, 20, 12); ok(Math.hypot(back.x - 20, back.y - 12) < 1e-4, "undo puts the whole drag back in one step");
   await page.keyboard.press("Control+Shift+z"); await page.waitForTimeout(150);
   // a locked length holds the drag back: select the bottom side, put a number on it (D), then pull the right end sideways
-  await click(10, 0); await page.keyboard.press("KeyD"); await page.waitForTimeout(200);
+  await click(10, 0); await page.click("[data-bar='rel:length']"); await page.waitForTimeout(200);
   const d0 = await def(), a0 = near(d0, 0, 0), b0 = near(d0, 30, 0), before = b0.x - a0.x;
   await drag([30, 0], [45, 0]);
   d = await def(); const after = near(d, 30, 0).x - near(d, 0, 0).x;
   ok(Math.abs(after - before) < 1e-4, `a locked length holds: ${before.toFixed(2)} stays ${after.toFixed(2)}`);
-  // a free point let go on another point joins it (coincident)
+  // a free point let go on another point lands there; no constraint is made by it
   await page.keyboard.press("Escape");
   await ev(`() => window.__tool("line")`); await click(40, -5); await click(45, 10); await ev(`() => { window.__sketch.stop(); window.__sketch.stop(); }`); // (the first ends the chain, the second puts the tool away)
   const n0 = (await def()).constraints.length;
    const top = (await def()).points.filter((p: any) => p.id !== "P5" && p.id !== "P6").reduce((a: any, p: any) => (p.x + p.y > a.x + a.y ? p : a)); await drag([45, 10], [top.x, top.y]);
-  d = await def(); const joined = d.constraints.some((c: any) => c.kind === "coincident" && c.parts.includes("P6"));
-  ok(joined && d.constraints.length === n0 + 1, `a point let go on another point joins it (coincident added): ${d.constraints.length - n0} new constraint`);
+  d = await def(); const landed = d.points.find((p: any) => p.id === "P6"), target = d.points.filter((p: any) => p.id !== "P6" && p.id !== "P5").reduce((a: any, p: any) => (Math.hypot(p.x - landed.x, p.y - landed.y) < Math.hypot(a.x - landed.x, a.y - landed.y) ? p : a)), joined = Math.hypot(target.x - landed.x, target.y - landed.y) < 1e-6;
+  ok(joined && d.constraints.length === n0, `a point let go on another lands on it and makes no constraint: ${d.constraints.length - n0} new`);
   writeFileSync(`${dir}/drag-2.png`, await page.screenshot());
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   await close();

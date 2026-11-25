@@ -20,6 +20,7 @@ try {
   await ev(`() => window.__sketch.stop()`); await ev(`() => window.__tool("line")`);
   await click(-10, 12); await click(50, 12);
   d = await def(); ok(d.lines.length === 5, `a line is drawn (${d.lines.length} lines)`);
+  ok((await ev<any>(`() => window.__sketch.debug().tool`)).pts.length === 0, "a line is two clicks: the second ends it, the tool stays armed and the next click starts a new line");
   // a circle crossing the line
   await ev(`() => window.__sketch.stop()`); await ev(`() => window.__tool("circle")`);
   await click(20, 12); await click(20, 18);

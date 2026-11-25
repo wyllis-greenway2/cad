@@ -1,6 +1,6 @@
 // Drawing on the engine's own definition (`in_1564`): what a click does to a sketch's points, lines, circles and constraints, as pure functions of the definition (`SketchParams`) and a place in the sketch's plane (mm). The screen's controller
 // (`sketchcontrol.ts`) turns a pointer into a place and calls these; every edit is solved (`solveDefinition`, no kernel) before it is kept, and one the solver refuses leaves the definition as it was and says which constraints hold it back.
-// A figure drawn on an earlier one shares its point (a click on a point is that point) or holds its new point on it (a click on a line or a circle puts a point on it), so what is drawn is joined as it looks.
+// A figure drawn on an earlier one shares its point (a click on a point is that point) or puts its new point on the line or circle where it was clicked; no constraint is made by a click (the person asks for those).
 import type { SketchParams } from "../engine/sketch.ts";
 import { solveDefinition, systemOf, segsOf } from "../engine/definition.ts";
 import { Refusal } from "../engine/refusal.ts";
@@ -76,12 +76,11 @@ export function refOf(p: SketchParams, s: Sol, q: Pt, tol: number, grid: number)
   return { at: hyp(q[0] - g[0], q[1] - g[1]) < tol ? g : q };
 }
 export const posOf = (s: Sol, r: Ref): Pt => ("id" in r ? s.points[r.id]! : r.at);
-/** the point of a place: its own id, or a new point (and the constraint that holds it on its curve) */
+/** the point of a place: its own id, or a new point where the click was (a click on a line or circle puts it on the curve's place and makes no constraint: a helper helps position, `dec_hints_place_only`, `in_1574`) */
 function pointFor(p: SketchParams, r: Ref): { p: SketchParams; id: string } {
   if ("id" in r) return { p, id: r.id };
-  const id = nextId(p, "P"), cs: Constraint[] = [];
-  if (r.on) cs.push({ id: nextId({ ...p, constraints: [...(p.constraints ?? [])] }, "c"), kind: r.on.of === "line" ? "pointOnLine" : "pointOnCircle", parts: [id, r.on.id] });
-  return { p: { ...p, points: [...p.points, { id, x: r.at[0], y: r.at[1] }], constraints: [...(p.constraints ?? []), ...cs] }, id };
+  const id = nextId(p, "P");
+  return { p: { ...p, points: [...p.points, { id, x: r.at[0], y: r.at[1] }] }, id };
 }
 const same = (a: Pt, b: Pt) => hyp(a[0] - b[0], a[1] - b[1]) < 1e-9;
 /** a line from one place to another (nothing when they are the same place) */

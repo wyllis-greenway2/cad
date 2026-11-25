@@ -13,9 +13,9 @@ let p = emptySketch();
 p = grow(p, (q, s) => addRect(q, s, at(q, s, 0, 0), at(q, s, 40, 25)));
 check("a rectangle: 4 points, 4 lines, 4 constraints (level, upright)", p.points.length === 4 && p.lines!.length === 4 && p.constraints!.length === 4);
 check("a click on a corner is that point (a line from it shares it)", (() => { const q = grow(p, (a, s) => addLine(a, s, at(a, s, 40, 25), at(a, s, 60, 40))); return q.points.length === 5 && q.lines!.length === 5; })());
-// a line drawn from the middle of a side: its start is held on that side
+// a line drawn from the middle of a side: its start is put on that side, and no constraint is made by the click
 const q1 = grow(p, (a, s) => addLine(a, s, at(a, s, 20, 0), at(a, s, 20, -10)));
-check("a click on a side puts a new point on it (pointOnLine) and it stays on when the side is moved", q1.constraints!.some((c) => c.kind === "pointOnLine" && c.parts.includes("L1")) && q1.points.length === 6);
+check("a click on a side puts a new point on it and makes no constraint (a helper helps position; the person asks for relations)", q1.points.length === 6 && !q1.constraints!.some((c) => c.kind === "pointOnLine" || c.kind === "pointOnCircle") && Math.abs(q1.points[4]!.y) < 1e-9);
 // a line across, and a circle
 let q2 = grow(p, (a, s) => addLine(a, s, at(a, s, -10, 12), at(a, s, 50, 12)));
 q2 = grow(q2, (a, s) => addCircle(a, s, at(a, s, 20, 12), [26, 12]));

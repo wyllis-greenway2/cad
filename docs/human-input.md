@@ -6432,3 +6432,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1573 — 2026-11-25 — approval
 > yes start the behaviour list
+
+## in_1574 — 2026-11-25 — directive
+> this is mostly functional stuff. I wanted to capture the look and feel of the prototype mostly. We want to copy the way the old prototype handled sketching. click starts, second click ends on single line sketching. the helpers help position but don't add constraints. I am not sure about the grid or how dimensions are handled, the helper bar is better in the prototype. I thought we agreed to offer the user different extrude types in this new build based off how the face should extend? Remember I gave you the chamfered block to pyramid example.  Lets keep the keyboard bindings off for now, lets keep the colored on constraints like the original prototype
