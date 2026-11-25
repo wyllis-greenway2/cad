@@ -3,7 +3,7 @@ id: dec_helpers_one_rule
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1579, in_1580, in_1581, in_1582
+human_input: in_1579, in_1580, in_1581, in_1582, in_1583
 date: 2026-11-25
 depends_on:
   - dec_hints_place_only: a helper only places; this entry is what a helper is and how it always looks
@@ -30,6 +30,11 @@ Asked for in `in_1579` and `in_1580` (a simple rule set that expands well and co
 - **Units.** The step to a relation is the Newton step on its residuals, so it is in mm whatever the row's unit (an angle's residual is turned into the distance the place must move): one reach, 6 px for a line, 12 px for a point.
 - **A guard.** Every relation row says `helper: null` or what it needs (`HelperSpec`), so a new relation cannot be left out (type-checked, and `dev/helpers-check.ts`). Relations with three parts (`symmetric`) are `null` until a locality prune is built; with several roots (tangent) only the roots within reach of the pointer matter, found by Newton from it.
 - **Everything that holds is shown.** At the place, every helper that holds is shown (sources lit, guides drawn) and offered (`dec_helper_constraint_bubble`), not only the ones that moved it: a place on a circle's middle holds level and upright with it, so the cross appears with no case for circles. A relation that holds wherever the place is (the end of the line is on the line) says nothing and is left out.
+
+## Hints and constraints are one thing (`in_1583`)
+
+A helper is a relation that is **applicable** and **within reach**. *Applicable* is the question the helper bar asks, answered once in `engine/relations.ts`: `fits` (which kinds of parts a relation can be said over) and `standingOf` (the solver would add it as new, or it is already implied by the figure or the sketch, or it is refused). A relation that always holds for the figure (a line's start is on the line) is `already` by the solver's own verdict, not by a guess, so it can never hide a real helper; a relation the sketch's constraints would refuse is never offered. `interaction/suggest.ts` (the bar) and `engine/helpers.ts` (the drawing) both use these, so they cannot disagree about what a relation is, what parts it takes, or whether it would add anything. The first place of a line or circle is the sketch's own point when it is one (`Free.startId`), so the solver sees one point, not two that happen to coincide.
+**The guard** is `dev/helpers-roundtrip-check.ts`: random sketches; for random selections that include the free place, the bar's `offersFor` says what would be new; each helper relation is applied, the solver moves only the free part, and `helpersAt` must list that same relation as holding where the figure ends up (700 constraints a seed, all found). Not covered by it: circles being drawn (the circle's radius is its own variable in the solver, the helper's follows the pointer) and dragging.
 
 ## Not helpers
 

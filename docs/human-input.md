@@ -6461,3 +6461,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1582 — 2026-11-25 — approval
 > yes fold in the gaps and build it with the bubble
 
+## in_1583 — 2026-11-25 — approval
+> yes do the root cause fix
+

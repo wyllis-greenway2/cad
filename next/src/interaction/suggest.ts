@@ -1,7 +1,8 @@
 // What to offer for a selection (E51, E55, E57): the relations that exist for exactly the parts selected, in one table; which already hold (shown, not added), which are already in the sketch or follow from it (said, nothing added twice),
 // which would be refused (with what holds them back named, so the screen can show them red and offer to delete), and which do not apply (with the reason). And what a relation ties the selection to (the amber).
 // Dimensions are measure, then lock: the offer carries the number the parts are now. Pure; reads the system; changes nothing.
-import { type Constraint, RANGEABLE, RELATIONS, type Relation, type System, kindOf, residualsOf, tryAdd } from "../engine/solver.ts";
+import { type Constraint, RANGEABLE, RELATIONS, type Relation, type System, kindOf, residualsOf } from "../engine/solver.ts";
+import { fits, standingOf } from "../engine/relations.ts";
 
 export type OfferState = "free" | "holds" | "already" | "refused";
 export interface Offer {
@@ -27,13 +28,12 @@ export function offersFor(S: System, selection: string[]): { offers: Offer[]; in
     const arity = name === "horizontal" || name === "vertical" ? (selection.length === 1 || selection.length === 2 ? selection.length : 1) : def.arity;
     if (arity !== selection.length) { inapplicable.push({ kind: name, why: `${RELATIONS[name].label} takes ${def.arity} part${def.arity === 1 ? "" : "s"}, ${selection.length} selected` }); continue; }
     let parts: string[] | null = null;
-    const fits = (ks: string[]) => (name === "horizontal" || name === "vertical" ? (ks.length === 1 ? ks[0] === "line" : ks[0] === "point" && ks[1] === "point") : def.parts.every((allowed, i) => (allowed as string[]).includes(ks[i]!)));
-    if (fits(kinds)) parts = [...selection]; else if (selection.length === 2 && fits([kinds[1]!, kinds[0]!])) parts = [selection[1]!, selection[0]!];
+    if (fits(name, kinds)) parts = [...selection]; else if (selection.length === 2 && fits(name, [kinds[1]!, kinds[0]!])) parts = [selection[1]!, selection[0]!];
     if (!parts) { inapplicable.push({ kind: name, why: `${RELATIONS[name].label} needs ${(def.parts as string[][]).map((p) => p.join(" or ")).join(" and ")}, not ${kinds.join(" and ")}` }); continue; }
     const m = measure(S, name, parts), draft: Constraint = { id: `offer.${name}`, kind: name, parts, ...(name === "fixed" ? { at: pos(S, parts[0]!) } : {}), ...(RANGEABLE.has(name) && m !== null ? { value: name === "angle" ? Math.round(m * 1e6) / 1e6 : Math.round(m * 1e9) / 1e9 } : {}) };
     if (RANGEABLE.has(name)) { offers.push({ kind: name, parts, moves: selection[0]!, dimensional: true, measure: m, state: "free", by: [], victims: [], holding: [], label: RELATIONS[name].label }); continue; } // a number is asked of the person, then locked
-    const holdsNow = residualsOf(S, draft).every((v) => Math.abs(v) < 1e-7), t = tryAdd(S, draft);
-    offers.push({ kind: name, parts, moves: selection[0]!, dimensional: false, measure: null, state: t.outcome === "already" ? "already" : t.outcome === "refused" ? "refused" : holdsNow ? "holds" : "free", by: t.by, victims: t.victims, holding: t.holding, label: RELATIONS[name].label });
+    const t = standingOf(S, draft);
+    offers.push({ kind: name, parts, moves: selection[0]!, dimensional: false, measure: null, state: t.state, by: t.by, victims: t.victims, holding: t.holding, label: RELATIONS[name].label });
   }
   return { offers, inapplicable };
 }

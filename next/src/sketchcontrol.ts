@@ -43,7 +43,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   /** where a click would put the place: on a point or curve as drawn, else drawn to the helpers' places (they place, they never constrain, `dec_hints_place_only`, `in_1579`) */
   const placed = (c: { p: SketchParams; q: P2; tol: number }, s: Sol): { ref: Ref; help: Helped | null; free: Free } => {
     const r = refOf(c.p, s, c.q, c.tol), a = tool?.pts[0], pos = a ? posOf(s, a) : null;
-    const free: Free = pos && tool?.kind === "line" ? { shape: "line", from: pos } : pos && tool?.kind === "circle" ? { shape: "circle", centre: pos } : { shape: "point" };
+    const free: Free = pos && tool?.kind === "line" ? { shape: "line", from: pos, ...("id" in a! ? { startId: a.id } : {}) } : pos && tool?.kind === "circle" ? { shape: "circle", centre: pos, ...("id" in a! ? { startId: a.id } : {}) } : { shape: "point" };
     const h = helpersAt(viewSystem(c.p, s), free, "id" in r ? s.points[r.id]! : c.q, c.tol / settings.sketch.snapPx), co = h.acted.find((x) => x.relation === "coincident");
     if ("id" in r) return { ref: r, help: h.holds.length ? h : null, free };
     return h.acted.length ? { ref: co?.sources[0] ? { id: co.sources[0] } : { at: h.at }, help: h, free } : { ref: r, help: h.holds.length ? h : null, free };
