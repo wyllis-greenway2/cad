@@ -32,3 +32,13 @@ export const WEIGHT = { figure: 2, guide: 1.5, mark: 5, edge: 2.4, edgeHover: 1.
 /** opacities: a closed sketch's tint, its teal under the pointer, the hover disc, the edges of a body behind a face, behind the plane */
 export const OPACITY = { sketchFill: 0.06, sketchHover: 0.28, hoverDisc: 0.14, hiddenEdge: 0.22, behindEdge: 0.28 };
 /** the flashing of a refused or already-applied constraint: a short pulse, in milliseconds (the old project flashed the bubble and the parts) */
+
+/** How each line of a drawing is drawn, by what it is doing: the tone (colour) and the weight, in one place (`in_1576`). The drawing code says `selected`; the screen turns it into a colour and a width. */
+export type StrokeKind = "done" | "selected" | "preview" | "cursor" | "cut";
+export const STROKE: Record<StrokeKind, { tone: Tone; /** times the figure's width */ weight: number; /** drawn a little see-through */ soft: boolean }> = {
+  done: { tone: "axis", weight: 1, soft: false },
+  selected: { tone: "figure", weight: 1.4, soft: false },
+  preview: { tone: "candidate", weight: 1, soft: true },
+  cursor: { tone: "figure", weight: 0.8, soft: true },
+  cut: { tone: "refused", weight: 1.4, soft: false },
+};

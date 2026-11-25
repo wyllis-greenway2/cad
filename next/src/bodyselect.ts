@@ -3,7 +3,7 @@
 import { project, type Cam } from "./camera.ts";
 import { pickAt, type Hit } from "./interaction/pick.ts";
 import { barForBody } from "./interaction/bodybar.ts";
-import { createHelperBar } from "./helperbardraw.ts";
+import type { Bar } from "./interaction/helperbar.ts";
 import type { BodyMesh, EdgeInfo, FaceInfo } from "./studio.ts";
 import type { V3 } from "./vec.ts";
 
@@ -16,9 +16,8 @@ export interface BodySelectHost {
 }
 export interface Selection { body: string; faces: FaceInfo[]; edges: EdgeInfo[]; /** where it was picked (the bar stands beside it) */ at: V3 }
 
-export function createBodySelect(host: BodySelectHost, page: HTMLElement) {
+export function createBodySelect(host: BodySelectHost) {
   let sel: Selection | null = null, over: Hit | null = null;
-  const bar = createHelperBar(page, (id) => { if (id === "body:clear") sel = null; else if (sel) host.press(id, sel); });
   const same = (a: { key?: string; id?: string }, b: { key?: string; id?: string }) => (a.key ?? a.id) === (b.key ?? b.id);
   return {
     selection: (): Selection | null => sel,
@@ -43,10 +42,11 @@ export function createBodySelect(host: BodySelectHost, page: HTMLElement) {
         out.push({ body: over.body, faces: over.kind === "face" ? [{ start: over.face.start, count: over.face.count }] : [], edges: over.kind === "edge" ? [{ start: over.edge.start, count: over.edge.count }] : [], strength: "hover" });
       return out;
     },
-    /** Each picture: the bar beside the pick (hidden while something else is being done: `hide`). Returns the box it takes. */
-    frame(hide: boolean): [number, number, number, number] | null {
-      const { cam, w, h } = host.view(), q = sel ? project(cam, sel.at, w, h) : null;
-      return bar.show(sel && !hide ? barForBody({ faces: sel.faces.length, edges: sel.edges.length }) : null, q ? [q.x, q.y] : null, w, h);
+    /** What the helper bar says for the pick (null: none, or `hide`: something else is being done): the buttons, the place they stand by, and what a press does. */
+    bar(hide: boolean): { items: Bar; at: [number, number]; press: (id: string) => void } | null {
+      if (!sel || hide) return null;
+      const { cam, w, h } = host.view(), q = project(cam, sel.at, w, h), picked = sel;
+      return { items: barForBody({ faces: picked.faces.length, edges: picked.edges.length }), at: [q.x, q.y], press: (id) => host.press(id, picked) };
     },
     /** The pick is dropped when its body is made again (the faces may be other ones now). */
     reset() { sel = null; over = null; },

@@ -12,11 +12,12 @@ import { solveDefinition, segsOf } from "./engine/definition.ts";
 import { pointOnSeg, type Pt } from "./engine/region.ts";
 import { trimAt } from "./engine/trim.ts";
 import type { Relation } from "./engine/solver.ts";
-import { addArc, arcWay, addCircle, addLine, addRect, bake, constrain, emptySketch, hitAt, keep, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
+import { bake, constrain, emptySketch, hitAt, keep, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
 import { bubblesOn, selectionAnchor, type Flash } from "./interaction/bubbles.ts";
-import { barFor } from "./interaction/helperbar.ts";
-import { createHelperBar } from "./helperbardraw.ts";
+import { barFor, type Bar } from "./interaction/helperbar.ts";
 import { createBubbleLayer, type Placed } from "./bubbledraw.ts";
+import { newTool, cancelFigure, toolClick, toolPreview, type Tool } from "./interaction/tools.ts";
+import { dragTo, joinFor, pinsOf } from "./interaction/dragging.ts";
 import { loopPoints, regionAt, type Region } from "./interaction/extrude.ts";
 import { regions } from "./engine/region.ts";
 
@@ -27,7 +28,6 @@ export interface SketchHost {
   ray(x: number, y: number): { o: V3; d: V3 };
 }
 export interface DrawLine { pts: V3[]; kind: "done" | "selected" | "preview" | "cursor" | "cut" }
-type Tool = { kind: ToolKind; pts: Ref[] };
 
 export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: string, merge?: string) => void) {
   const defs = new Map<string, SketchParams>(), sols = new WeakMap<SketchParams, Sol>(), fillCache = new WeakMap<SketchParams, [number, number][][][]>();
@@ -50,22 +50,6 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   // ---- a part dragged: the solver follows the pointer with the part pinned where it goes (soft: it goes as near as the constraints allow); a point let go on another point or on a curve joins it
   type Drag = { key: string; def0: SketchParams; pins: string[]; start: Record<string, [number, number]>; q0: P2; x0: number; y0: number; moved: boolean; shift: boolean; id: string; join: { id: string; kind: "point" | "curve" } | null; snapAt: P2 | null };
   let drag: Drag | null = null;
-  const pinsOf = (p: SketchParams, id: string): string[] => {
-    if (p.points.some((q) => q.id === id)) return [id];
-    const l = (p.lines ?? []).find((q) => q.id === id); if (l) return [l.a, l.b];
-    const c = (p.circles ?? []).find((q) => q.id === id); if (c) return [c.c];
-    const a = (p.arcs ?? []).find((q) => q.id === id); if (a) return [a.c, a.a, a.b];
-    return [];
-  };
-  /** where a dragged point would join something: another point within reach, else a curve it is not part of */
-  const joinFor = (p: SketchParams, s: Sol, id: string, q: P2, tol: number): { id: string; kind: "point" | "curve"; at: P2 } | null => {
-    let best: { id: string; kind: "point" | "curve"; at: P2 } | null = null, bd = tol;
-    for (const x of p.points) { if (x.id === id) continue; const at = s.points[x.id]; if (!at) continue; const d = Math.hypot(q[0] - at[0], q[1] - at[1]); if (d < bd) { bd = d; best = { id: x.id, kind: "point", at }; } }
-    if (best) return best;
-    const mine = new Set([...(p.lines ?? []).filter((l) => l.a === id || l.b === id).map((l) => l.id), ...(p.arcs ?? []).filter((a) => a.a === id || a.b === id || a.c === id).map((a) => a.id), ...(p.circles ?? []).filter((c) => c.c === id).map((c) => c.id)]);
-    const h = hitAt({ ...p, lines: (p.lines ?? []).filter((l) => !mine.has(l.id)), arcs: (p.arcs ?? []).filter((a) => !mine.has(a.id)), circles: (p.circles ?? []).filter((c) => !mine.has(c.id)), points: [] }, s, q, tol);
-    return h && h.kind === "curve" ? { id: h.id, kind: "curve", at: h.at } : null;
-  };
 
   const layer = createBubbleLayer(page, {
     set(id, value) {
@@ -89,7 +73,6 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       if (r.ok) { set(c.key, r.params, "Constraint"); flash = { applied: [r.added] }; flashUntil = performance.now() + 900; } else fail(r.why, r.victims);
     }
   };
-  const bar = createHelperBar(page, act);
 
   /** a figure made with a click: kept if the engine accepts it */
   const commit = (key: string, next: SketchParams | null, label: string) => {
@@ -108,11 +91,11 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   return {
     active: () => tool !== null,
     tool: (): ToolKind | null => tool?.kind ?? null,
-    start(kind: ToolKind) { tool = { kind, pts: [] }; selection = { key: "", ids: [] }; },
+    start(kind: ToolKind) { tool = newTool(kind); selection = { key: "", ids: [] }; },
     /** Right click or Esc: the figure under way is given up; with none, the tool is put away. Returns whether there was a tool. */
     stop(): boolean {
       if (!tool) return false;
-      if (tool.pts.length) tool = { ...tool, pts: [] }; else tool = null;
+      if (tool.pts.length) tool = cancelFigure(tool); else tool = null;
       return true;
     },
     /** A click. With a tool on it is the tool's (a double click ends a line's chain); with none, it selects (Shift adds). Returns whether it was used. */
@@ -125,7 +108,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
         const was = selected(c.key), id = h.id; selection = { key: c.key, ids: shift ? (was.includes(id) ? was.filter((q) => q !== id) : [...was, id]) : [id] };
         return true;
       }
-      if (count >= 2 && tool.kind === "line") { tool = { ...tool, pts: [] }; return true; }
+      if (count >= 2 && tool.kind === "line") { tool = cancelFigure(tool); return true; }
       if (!c) return true;
       if (tool.kind === "trim") {
         const t = trimHere(c);
@@ -134,15 +117,8 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
         else { set(c.key, t.out.params, "Trim"); flash = {}; say(t.out.dropped.length ? `Trimmed. Let go: ${t.out.dropped.map((d) => `${d.kind} (${d.why})`).join("; ")}` : "Trimmed"); }
         return true;
       }
-      const s = solOf(c.p), r = refOf(c.p, s, c.q, c.tol, host.planes().step), a = tool.pts[0];
-      if (!a) { tool = { ...tool, pts: [r] }; return true; }
-      if (tool.kind === "arc") { // centre, start, then where it ends
-        if (tool.pts.length === 1) { tool = { ...tool, pts: [a, r] }; return true; }
-        commit(c.key, addArc(c.p, s, tool.pts[0]!, tool.pts[1]!, posOf(s, r)), "Arc"); tool = { ...tool, pts: [] }; return true;
-      }
-      if (tool.kind === "line") { commit(c.key, addLine(c.p, s, a, r), "Line"); tool = { ...tool, pts: "id" in r ? [r] : [] }; } // (a line is two clicks; one that ends on a point already drawn goes on from it, as the prototype's does)
-      else if (tool.kind === "rect") { commit(c.key, addRect(c.p, s, a, r), "Rectangle"); tool = { ...tool, pts: [] }; }
-      else { commit(c.key, addCircle(c.p, s, a, posOf(s, r)), "Circle"); tool = { ...tool, pts: [] }; }
+      const s = solOf(c.p), r = refOf(c.p, s, c.q, c.tol, host.planes().step), done = toolClick(tool, c.p, s, r);
+      tool = done.tool; if (done.made) commit(c.key, done.made.params, done.made.label);
       return true;
     },
     /** Keys of the sketch: Delete takes the selected parts away (no other key is bound for now, `in_1574`). Returns whether the key was used. */
@@ -183,11 +159,9 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
         if (j) { drag.join = { id: j.id, kind: j.kind }; drag.snapAt = j.at; d = [j.at[0] - at0[0], j.at[1] - at0[1]]; }
       }
       const pins = Object.fromEntries(drag.pins.map((id) => [id, [drag!.start[id]![0] + d[0], drag!.start[id]![1] + d[1]] as [number, number]]));
-      try {
-        const r = solveDefinition(drag.def0, { pins });
-        defs.set(drag.key, bake(drag.def0, { points: r.points, radii: r.radii }));
-        const held = r.result.holds ?? []; flash = held.length ? { refused: held } : {}; flashUntil = performance.now() + 400; if (held.length) say("Held back by the constraints shown in red", 600);
-      } catch { /* a place that cannot be solved: the part stays where it was last */ }
+      const r = dragTo(drag.def0, pins); if (!r) return; // (a place that cannot be solved: the part stays where it was last)
+      defs.set(drag.key, r.params);
+      flash = r.held.length ? { refused: r.held } : {}; flashUntil = performance.now() + 400; if (r.held.length) say("Held back by the constraints shown in red", 600);
     },
     grabEnd(): void {
       const g = drag; drag = null; if (!g) return;
@@ -216,32 +190,29 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
           const t = trimHere(c);
           if (t?.out) out.push({ kind: "cut", pts: t.out.span.map((z) => to3(c.f, z)) });
         } else {
-          const r = refOf(c.p, s, c.q, c.tol, host.planes().step), at = posOf(s, r), a = tool.pts[0], A = a ? posOf(s, a) : null;
-          if (A && tool.kind === "line") out.push({ kind: "preview", pts: [to3(c.f, A), to3(c.f, at)] });
-          else if (A && tool.kind === "rect") out.push({ kind: "preview", pts: [A, [at[0], A[1]], at, [A[0], at[1]], A].map((z) => to3(c.f, z as P2)) });
-          else if (A && tool.kind === "arc" && tool.pts.length === 1) out.push({ kind: "preview", pts: [to3(c.f, A), to3(c.f, at)] }); // (the radius, to the pointer)
-          else if (tool.kind === "arc" && tool.pts.length === 2) { // the arc from its start to where the pointer is, and the lines from its centre
-            const m = posOf(s, tool.pts[0]!), st = posOf(s, tool.pts[1]!), r = Math.hypot(st[0] - m[0], st[1] - m[1]), d = Math.hypot(at[0] - m[0], at[1] - m[1]);
-            if (r > 1e-9 && d > 1e-9) { const e: P2 = [m[0] + ((at[0] - m[0]) / d) * r, m[1] + ((at[1] - m[1]) / d) * r], w = arcWay(m, st, e), a0 = Math.atan2(st[1] - m[1], st[0] - m[0]), n = Math.max(2, Math.ceil(w.sweep / 0.05));
-              out.push({ kind: "preview", pts: Array.from({ length: n + 1 }, (_, k) => to3(c.f, [m[0] + r * Math.cos(a0 + (w.cw ? -1 : 1) * (w.sweep * k) / n), m[1] + r * Math.sin(a0 + (w.cw ? -1 : 1) * (w.sweep * k) / n)])) }, { kind: "preview", pts: [to3(c.f, st), to3(c.f, m), to3(c.f, e)] }); }
-          }
-          else if (A && tool.kind === "circle") { const rad = Math.hypot(at[0] - A[0], at[1] - A[1]); out.push({ kind: "preview", pts: Array.from({ length: 65 }, (_, k) => to3(c.f, [A[0] + rad * Math.cos((k / 64) * 2 * Math.PI), A[1] + rad * Math.sin((k / 64) * 2 * Math.PI)])) }); }
+          const r = refOf(c.p, s, c.q, c.tol, host.planes().step), at = posOf(s, r);
+          for (const l of toolPreview(tool, s, at)) out.push({ kind: l.kind, pts: l.pts.map((z) => to3(c.f, z)) });
           const arm = mmPerPx(c.f, at) * settings.sketch.crossPx, w = to3(c.f, at);
           out.push({ kind: "cursor", pts: [add(w, scale(c.f.u, -arm)), add(w, scale(c.f.u, arm))] }, { kind: "cursor", pts: [add(w, scale(vOf(c.f), -arm)), add(w, scale(vOf(c.f), arm))] });
         }
       }
       return out;
     },
+    /** What the helper bar says for what is selected (null: none: a tool is on, a number is being typed, or nothing is selected): the buttons, the place on the page they stand by, and what a press does. The page has the one bar (`bars` in `main.ts`). */
+    bar(): { items: Bar; at: [number, number]; press: (id: string) => void } | null {
+      const c = current(); if (!c || tool || layer.editing()) return null;
+      const s = solOf(c.p), S = viewSystem(c.p, s), sel = selected(c.key), where = selectionAnchor(S, sel); if (!where) return null;
+      const cam = host.view(), q = project(cam.cam, to3(c.f, where), cam.w, cam.h);
+      return { items: barFor(S, sel), at: [q.x, q.y], press: act };
+    },
     /** Each picture: the bubbles of what is selected, on the page, and the sentence (empty when it has gone). */
-    frame(now: number): { message: string } {
+    frame(now: number, barBox: [number, number, number, number] | null = null): { message: string } {
       if (now > flashUntil) flash = {};
       if (now > messageUntil) message = "";
       const c = current(), cam = host.view();
-      if (!c) { layer.show([], { lines: [], dots: [] }); bar.show(null, null, cam.w, cam.h); return { message }; }
+      if (!c) { layer.show([], { lines: [], dots: [] }); return { message }; }
       const s = solOf(c.p), S = viewSystem(c.p, s), px = (p: P2) => { const q = project(cam.cam, to3(c.f, p), cam.w, cam.h); return [q.x, q.y] as [number, number]; };
-      // the helper bar beside what is selected (not while a tool is on or a number is being typed); the bubbles keep clear of it
-      const sel = selected(c.key), where = !tool && !layer.editing() ? selectionAnchor(S, sel) : null;
-      const box = bar.show(where ? barFor(S, sel) : null, where ? px(where) : null, cam.w, cam.h);
+      const box = barBox; // (the bubbles keep clear of the helper bar)
       const items: Placed[] = bubblesOn(S, selected(c.key), flash).map((bubble) => { const [x, y] = px(bubble.at); return { bubble, x, y }; });
       layer.show(items, { lines: c.p.lines?.map((l) => [px(s.points[l.a]!), px(s.points[l.b]!)] as [[number, number], [number, number]]) ?? [], dots: c.p.points.map((q) => px(s.points[q.id]!)), ...(box ? { rects: [box] } : {}) });
       return { message };

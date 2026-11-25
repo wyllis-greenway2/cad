@@ -20,8 +20,10 @@ import { faceAxes } from "./engine/vec.ts";
 import { SEE_THROUGH } from "./looks.ts";
 import { settings } from "./settings.ts";
 import { createStudio } from "./studio.ts";
-import { createExtrude, type Source } from "./extrudecontrol.ts";
+import { createOperations } from "./operationcontrol.ts";
+import { extrudeOp, pushOp, roundOp, type PullInfo, type Source } from "./interaction/operations.ts";
 import { createBodySelect } from "./bodyselect.ts";
+import { createHelperBar } from "./helperbardraw.ts";
 import { Undo } from "./interaction/undo.ts";
 import { editNumber, rowsOf } from "./interaction/steplist.ts";
 import { createStepList } from "./steplistdraw.ts";
@@ -88,9 +90,9 @@ const facePlanes = new Map<string, { frame: Frame; source: Source }>();
 const studio = createStudio();
 let shown: readonly unknown[] = [];
 studio.subscribe(() => { const m = studio.state().meshes; if (m !== shown) { shown = m; world.setBodies(m); bodies.reset(); } });
-const ext = createExtrude({
+const ext = createOperations({
   view: () => { const e = env(); return { cam: s.c, w: e.w, h: e.h }; },
-  regionAt: (x, y) => { const r = sk.regionAt(x, y); return r ? { ...r, source: facePlanes.get(r.key)?.source ?? null } : null; },
+  pick: (x, y) => { const r = sk.regionAt(x, y); return r ? extrudeOp({ ...r, source: facePlanes.get(r.key)?.source ?? null }) : null; },
   recipe: () => studio.state().steps,
   change: (steps) => { studio.change(steps); record("Extrude"); },
   ask: (a) => studio.ask(a),
@@ -102,7 +104,10 @@ const bodies = createBodySelect({
   view: () => { const e = env(); return { cam: s.c, w: e.w, h: e.h }; },
   meshes: () => studio.state().meshes,
   press: (id, sel) => doOnPick(id, sel),
-}, document.body);
+});
+// ---- the helper bar: the page has one, and it says what the sketch's selection or the body's pick offers (`in_1576`) ----
+let barPress: ((id: string) => void) | null = null;
+const bar = createHelperBar(document.body, (id) => barPress?.(id));
 /** the engine's facts about a face of the body: where it faces (out of the body) */
 const faceFacts = (body: string, id: string) => studio.state().snapshot.find((x) => x.id === body)?.faces.find((f) => f.id === id) ?? null;
 function doOnPick(id: string, sel: import("./bodyselect.ts").Selection) {
@@ -118,14 +123,14 @@ function doOnPick(id: string, sel: import("./bodyselect.ts").Selection) {
   if ((id === "body:round" || id === "body:chamfer") && sel.edges.length) { // the number is the size: about a tenth of the shortest edge, to type over
     const pts = (e: { start: number; count: number }) => { const m = mesh!; let L = 0; for (let i = 0; i + 1 < e.count; i++) { const k = 3 * (e.start + i); L += Math.hypot(m.lines[k + 3]! - m.lines[k]!, m.lines[k + 4]! - m.lines[k + 1]!, m.lines[k + 5]! - m.lines[k + 2]!); } return L; };
     const short = Math.min(...sel.edges.map(pts)), size = Math.max(0.1, Math.round(Math.min(short / 10, 2) * 10) / 10);
-    ext.startRound({ body: sel.body, edges: sel.edges.map((e) => e.ref), kind: id === "body:chamfer" ? "chamfer" : "fillet", at: sel.at, size });
+    ext.open(roundOp({ body: sel.body, edges: sel.edges.map((e) => e.ref), kind: id === "body:chamfer" ? "chamfer" : "fillet", at: sel.at }, size));
   }
   if (id === "body:pull" && mesh && f) {
     const ff = faceFacts(sel.body, f.id); if (!ff) return;
     const positions = new Float32Array(f.count * 3); for (let k = 0; k < f.count; k++) positions.set(mesh.positions.subarray(3 * mesh.indices[f.start + k]!, 3 * mesh.indices[f.start + k]! + 3), 3 * k);
     void studio.ask({ what: "pullModes", step: sel.body, face: f.ref }).then((r) => { // the kinds of pull this face has, from the worker
-      const kinds = r.ok ? (r.data as import("./extrudecontrol.ts").PullInfo[]) : [{ mode: "push" as const, ok: true, why: "", suggested: true }];
-      ext.startPush({ ref: f.ref, body: sel.body, at: sel.at, normal: ff.ne as [number, number, number], positions, kinds });
+      const kinds = r.ok ? (r.data as PullInfo[]) : [{ mode: "push" as const, ok: true, why: "", suggested: true }];
+      ext.open(pushOp({ ref: f.ref, body: sel.body, at: sel.at, normal: ff.ne as [number, number, number], positions, kinds }));
     });
   }
 }
@@ -239,11 +244,13 @@ function frame(now: number) {
     ...d, ...(placed ? { grid: gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, placed.origin), placed.normal))), sketch: { origin: placed.origin, u: placed.u, v: vOf(placed), n: placed.normal } } : {}), orb: ext.drawing(game.on ? null : pointer) ?? orb, ghost: ext.ghost(), marks: bodies.marks(), fills: sk.fills(), lines: sk.lines(game.on ? null : pointer), ...(sk.active() ? { looks: Object.fromEntries(model.things.map((t) => [t.id, SEE_THROUGH])) } : {}),
     cut: placed && !placedKey ? { origin: placed.origin, n: placed.normal } : null, // (made once with the plane, from the side the camera looked from; it turns and moves with the plane, and does not change with the camera)
   });
-  ext.frame(); bodies.frame(sk.active() || ext.active());
+  ext.frame();
+  const say1 = sk.bar() ?? bodies.bar(sk.active() || ext.active()), barBox = (() => { barPress = say1?.press ?? null; const e = env(); return bar.show(say1?.items ?? null, say1?.at ?? null, e.w, e.h); })();
   { const st = studio.state(), n = undo.next; list.show({ rows: rowsOf(st.steps, st.snapshot), canUndo: undo.canUndo, canRedo: undo.canRedo, undoLabel: n.undo, redoLabel: n.redo, busy: st.busy }); }
   more.show(moreItems({ hasModel: hasModel(), hasBody: hasBody() }));
   if (now > saidUntil) said = "";
-  note.textContent = studio.state().problem || said || sk.frame(now).message; note.style.display = note.textContent ? "block" : "none";
+  const skMessage = sk.frame(now, barBox).message; // (always made: the bubbles are drawn by it, whatever the line says)
+  note.textContent = studio.state().problem || said || skMessage; note.style.display = note.textContent ? "block" : "none";
   orientBar.show(orbc.orienting() && !!orb);
   ui.update(view.pageState(s, e));
   requestAnimationFrame(frame);

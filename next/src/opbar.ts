@@ -2,7 +2,7 @@
 import { iconSvg } from "./icons.ts";
 import { settings } from "./settings.ts";
 
-export interface OpOption { id: string; label: string; on: boolean; enabled: boolean; why?: string }
+import type { OpOption } from "./interaction/operation.ts";
 export function createOpBar(host: HTMLElement, on: { apply(): void; cancel(): void; option?(id: string): void }) {
   const el = document.createElement("div");
   el.style.cssText = `position:fixed;left:50%;top:14px;transform:translateX(-50%);display:none;align-items:center;gap:8px;padding:5px 8px 5px 12px;border-radius:20px;background:${settings.ui.pill};color:${settings.ui.pillText};font:13px ${settings.ui.font};z-index:9;user-select:none;-webkit-user-select:none`;
