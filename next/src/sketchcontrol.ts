@@ -16,6 +16,7 @@ import { bake, constrain, emptySketch, hitAt, keep, posOf, refOf, removeParts, r
 import { bubblesOn, selectionAnchor, type Flash } from "./interaction/bubbles.ts";
 import { barFor, type Bar } from "./interaction/helperbar.ts";
 import { createBubbleLayer, type Placed } from "./bubbledraw.ts";
+import { hintAt, type Hinted } from "./interaction/hints.ts";
 import { newTool, cancelFigure, toolClick, toolPreview, type Tool } from "./interaction/tools.ts";
 import { dragTo, joinFor, pinsOf } from "./interaction/dragging.ts";
 import { loopPoints, regionAt, type Region } from "./interaction/extrude.ts";
@@ -37,6 +38,14 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   const current = () => { const { all, on } = host.planes(); const f = all.get(on); return f ? { key: on, f, p: defs.get(on) ?? emptySketch() } : null; };
   const selected = (key: string) => (selection.key === key ? selection.ids : []);
   /** a pixel's worth of the plane in mm, where the pointer is */
+  /** where a click would put the place: on a point or curve as drawn, else lined up by the helpers (they place, they never constrain, `dec_hints_place_only`) */
+  const placed = (c: { p: SketchParams; q: P2; tol: number }, s: Sol): { ref: Ref; hint: Hinted } => {
+    const r = refOf(c.p, s, c.q, c.tol, host.planes().step), none = { at: c.q, hints: [], guides: [] } as Hinted;
+    if ("id" in r) return { ref: r, hint: none };
+    const a = tool?.pts[0], start = a && tool?.kind === "line" ? posOf(s, a) : null, h = hintAt(c.p, s, start, c.q, c.tol / settings.sketch.snapPx);
+    const moved = h.hints.length > 0 || h.guides.length > 0;
+    return moved ? { ref: { at: h.at }, hint: h } : { ref: r, hint: none };
+  };
   const mmPerPx = (f: Frame, q: P2) => { const { cam, h } = host.view(); return viewHeight(cam, Math.max(forwardDepth(cam, to3(f, q)), 1e-3)) / h; };
   const here = (x: number, y: number) => {
     const c = current(); if (!c) return null;
@@ -117,7 +126,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
         else { set(c.key, t.out.params, "Trim"); flash = {}; say(t.out.dropped.length ? `Trimmed. Let go: ${t.out.dropped.map((d) => `${d.kind} (${d.why})`).join("; ")}` : "Trimmed"); }
         return true;
       }
-      const s = solOf(c.p), r = refOf(c.p, s, c.q, c.tol, host.planes().step), done = toolClick(tool, c.p, s, r);
+      const s = solOf(c.p), r = placed(c, s).ref, done = toolClick(tool, c.p, s, r);
       tool = done.tool; if (done.made) commit(c.key, done.made.params, done.made.label);
       return true;
     },
@@ -190,8 +199,10 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
           const t = trimHere(c);
           if (t?.out) out.push({ kind: "cut", pts: t.out.span.map((z) => to3(c.f, z)) });
         } else {
-          const r = refOf(c.p, s, c.q, c.tol, host.planes().step), at = posOf(s, r);
+          const pl = placed(c, s), at = posOf(s, pl.ref);
           for (const l of toolPreview(tool, s, at)) out.push({ kind: l.kind, pts: l.pts.map((z) => to3(c.f, z)) });
+          for (const g of pl.hint.guides) out.push({ kind: "guide", pts: g.map((z) => to3(c.f, z)) });
+          for (const h of pl.hint.hints) { const g = h.part ? segsOf(c.p, s.points, s.radii).find((x) => x.name === h.part) : null; if (g && g.kind === "line") out.push({ kind: "tie", pts: [to3(c.f, g.a), to3(c.f, g.b)] }); }
           const arm = mmPerPx(c.f, at) * settings.sketch.crossPx, w = to3(c.f, at);
           out.push({ kind: "cursor", pts: [add(w, scale(c.f.u, -arm)), add(w, scale(c.f.u, arm))] }, { kind: "cursor", pts: [add(w, scale(vOf(c.f), -arm)), add(w, scale(vOf(c.f), arm))] });
         }
