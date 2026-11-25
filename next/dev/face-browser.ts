@@ -1,19 +1,17 @@
 // A dev check in the real page (not a test, `in_1444`): sketch on a face of the body, then extrude from it: a boss on top, a pocket cut into the top. Screenshots to the directory given.
 //   node --experimental-strip-types dev/face-browser.ts [screenshot-dir]
-import { start } from "../test/browser/harness.ts";
+import { S, dir, ok, finish, evalIn, pxIn, clickIn } from "./page-lib.ts";
 import { writeFileSync } from "node:fs";
-const dir = process.argv[2] ?? "/tmp", S = await start(5199);
-let bad = 0; const ok = (c: boolean, what: string) => { console.log(`${c ? "ok  " : "FAIL"} ${what}`); if (!c) bad++; };
 try {
   const { page, errors, close } = await S.open("");
-  const ev = <T,>(f: string): Promise<T> => page.evaluate((src: string) => new Function(`return (${src})`)()(), f) as Promise<T>;
+  const ev = evalIn(page);
   const settle = async () => { await ev(`() => window.__studio.settled()`); await page.waitForTimeout(400); };
   const body = () => ev<any>(`() => { const s = window.__studio.state(); const m = s.meshes[0]; const z = m ? Array.from({ length: m.positions.length / 3 }, (_, i) => m.positions[3 * i + 2]) : [0]; return { steps: s.steps.map((x) => x.kind), problem: s.problem, top: Math.max(...z), tris: m ? m.indices.length / 3 : 0 }; }`);
   await ev(`() => { window.__studio.change([{ id: "s1", kind: "sketchPolygon", params: { points: [[0, 0], [40, 0], [40, 25], [0, 25]] }, inputs: [] }, { id: "e1", kind: "extrude", params: { d: 10 }, inputs: ["s1"] }]); return 1; }`);
   await settle();
-  const px = (x: number, y: number) => ev<[number, number]>(`() => window.__px([${x}, ${y}])`);
+  const px = pxIn(ev);
   const p3 = (p: number[]) => ev<[number, number]>(`() => window.__proj3([${p}])`);
-  const click = async (x: number, y: number) => { const [a, b] = await px(x, y); await page.mouse.click(a, b); await page.waitForTimeout(120); };
+  const click = clickIn(page, px, 120);
   const [fx, fy] = await p3([20, 12, 10]);
   await page.mouse.click(fx, fy); await page.waitForTimeout(250);
   await page.click("[data-bar='body:sketch']"); await page.waitForTimeout(1000);
@@ -42,4 +40,4 @@ try {
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   await close();
 } finally { await S.stop(); }
-process.exit(bad ? 1 : 0);
+finish();

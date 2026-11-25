@@ -8,6 +8,8 @@
     "test": "node --experimental-strip-types --test \"test/**/*.test.ts\"",
     "test:browser": "node --experimental-strip-types --test --test-timeout=60000 --test-concurrency=1 \"test/browser/*.browser.ts\"",
     "typecheck": "tsc --noEmit",
+    "checks": "node --experimental-strip-types dev/run-checks.ts",
+    "checks:all": "node --experimental-strip-types dev/run-checks.ts --all",
     "check": "python3 ../tools/check_spec.py && npm test && npm run typecheck",
     "test:affected": "python3 ../tools/affected_tests.py --root next --run"
   },

@@ -1,14 +1,12 @@
 // A dev check in the real page (not a test, `in_1444`): sketch to extrude. A rectangle is drawn, the Extrude tool picks it, the arrow shows and is pulled (a ghost follows), a number is typed over, Enter applies, and the engine's worker (in the page, with the kernel) makes the body.
 //   node --experimental-strip-types dev/extrude-browser.ts [screenshot-dir]
-import { start } from "../test/browser/harness.ts";
+import { S, dir, ok, finish, evalIn, pxIn, clickIn } from "./page-lib.ts";
 import { writeFileSync } from "node:fs";
-const dir = process.argv[2] ?? "/tmp", S = await start(5199);
-let bad = 0; const ok = (c: boolean, what: string) => { console.log(`${c ? "ok  " : "FAIL"} ${what}`); if (!c) bad++; };
 try {
   const { page, errors, close } = await S.open("");
-  const ev = <T,>(f: string): Promise<T> => page.evaluate((src: string) => new Function(`return (${src})`)()(), f) as Promise<T>;
-  const px = (x: number, y: number) => ev<[number, number]>(`() => window.__px([${x}, ${y}])`);
-  const click = async (x: number, y: number) => { const [a, b] = await px(x, y); await page.mouse.click(a, b); await page.waitForTimeout(120); };
+  const ev = evalIn(page);
+  const px = pxIn(ev);
+  const click = clickIn(page, px, 120);
   await ev(`() => window.__tool("rect")`); await page.waitForTimeout(900);
   await click(0, 0); await click(40, 25);
   await ev(`() => window.__sketch.stop()`);
@@ -38,4 +36,4 @@ try {
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   await close();
 } finally { await S.stop(); }
-process.exit(bad ? 1 : 0);
+finish();

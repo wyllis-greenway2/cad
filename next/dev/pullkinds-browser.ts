@@ -1,12 +1,10 @@
 // A dev check in the real page (not a test, `in_1444`): the kinds of face pull the operation bar offers, on the human's chamfered block: Move (the step that made the face, so the height), Extrude (a prism of the face), Extend (the chamfers carried on towards a pyramid).
 //   node --experimental-strip-types dev/pullkinds-browser.ts [screenshot-dir]
-import { start } from "../test/browser/harness.ts";
+import { S, dir, ok, finish, evalIn, pxIn, clickIn } from "./page-lib.ts";
 import { writeFileSync } from "node:fs";
-const dir = process.argv[2] ?? "/tmp", S = await start(5199);
-let bad = 0; const ok = (c: boolean, what: string) => { console.log(`${c ? "ok  " : "FAIL"} ${what}`); if (!c) bad++; };
 try {
   const { page, errors, close } = await S.open("");
-  const ev = <T,>(f: string): Promise<T> => page.evaluate((src: string) => new Function(`return (${src})`)()(), f) as Promise<T>;
+  const ev = evalIn(page);
   const settle = async () => { await ev(`() => window.__studio.settled()`); await page.waitForTimeout(500); };
   const body = () => ev<any>(`() => { const s = window.__studio.state(); const m = s.meshes[0]; const z = m ? Array.from({ length: m.positions.length / 3 }, (_, i) => m.positions[3 * i + 2]) : [0]; return { steps: s.steps.map((x) => x.kind), problem: s.problem, top: Math.max(...z), tris: m ? m.indices.length / 3 : 0 }; }`);
   const p3 = (p: number[]) => ev<[number, number]>(`() => window.__proj3([${p}])`);
@@ -41,4 +39,4 @@ try {
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   await close();
 } finally { await S.stop(); }
-process.exit(bad ? 1 : 0);
+finish();

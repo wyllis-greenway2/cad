@@ -1,15 +1,13 @@
 // A dev check in the real page (not a test, `in_1444`): sketching on the engine's definition with the tools, a click on a part, a number put on it with D and typed over, and trim. Screenshots go to the directory given.
 //   node --experimental-strip-types dev/sketch-browser.ts [screenshot-dir]
-import { start } from "../test/browser/harness.ts";
+import { S, dir, ok, finish, evalIn, pxIn, clickIn } from "./page-lib.ts";
 import { writeFileSync } from "node:fs";
-const dir = process.argv[2] ?? "/tmp", S = await start(5199);
-let bad = 0; const ok = (c: boolean, what: string) => { console.log(`${c ? "ok  " : "FAIL"} ${what}`); if (!c) bad++; };
 try {
   const { page, errors, close } = await S.open("?boxes=3");
-  const ev = <T,>(f: string): Promise<T> => page.evaluate((src: string) => new Function(`return (${src})`)()(), f) as Promise<T>;
-  const px = (x: number, y: number) => ev<[number, number]>(`() => window.__px([${x}, ${y}])`);
+  const ev = evalIn(page);
+  const px = pxIn(ev);
   const def = () => ev<any>(`() => window.__sketch.debug().sketches[0]?.[1] ?? null`);
-  const click = async (x: number, y: number, n = 1) => { const [a, b] = await px(x, y); await page.mouse.click(a, b, { clickCount: n }); await page.waitForTimeout(120); };
+  const click = clickIn(page, px, 120);
   const bubbles = () => ev<any[]>(`() => [...document.querySelectorAll("[data-bubble]")].map((e) => ({ id: e.dataset.bubble, text: e.textContent, border: e.style.border }))`);
 
   await ev(`() => window.__tool("rect")`); await page.waitForTimeout(900);
@@ -65,4 +63,4 @@ try {
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   await close();
 } finally { await S.stop(); }
-process.exit(bad ? 1 : 0);
+finish();

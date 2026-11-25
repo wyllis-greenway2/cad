@@ -1,14 +1,12 @@
 // A dev check in the real page (not a test, `in_1444`): undo and redo of drawings and recipe together, and the step list's numbers. Draw a rectangle, extrude 12, change the distance in the list to 20 (the engine remakes the body), undo, undo, undo, redo.
 //   node --experimental-strip-types dev/undo-browser.ts [screenshot-dir]
-import { start } from "../test/browser/harness.ts";
+import { S, dir, ok, finish, evalIn, pxIn, clickIn } from "./page-lib.ts";
 import { writeFileSync } from "node:fs";
-const dir = process.argv[2] ?? "/tmp", S = await start(5199);
-let bad = 0; const ok = (c: boolean, what: string) => { console.log(`${c ? "ok  " : "FAIL"} ${what}`); if (!c) bad++; };
 try {
   const { page, errors, close } = await S.open("");
-  const ev = <T,>(f: string): Promise<T> => page.evaluate((src: string) => new Function(`return (${src})`)()(), f) as Promise<T>;
-  const px = (x: number, y: number) => ev<[number, number]>(`() => window.__px([${x}, ${y}])`);
-  const click = async (x: number, y: number) => { const [a, b] = await px(x, y); await page.mouse.click(a, b); await page.waitForTimeout(100); };
+  const ev = evalIn(page);
+  const px = pxIn(ev);
+  const click = clickIn(page, px, 100);
   const sketches = () => ev<number>(`() => Object.values(window.__sketch.snapshot()).reduce((n, p) => n + (p.lines?.length ?? 0), 0)`);
   const state = () => ev<any>(`() => { const s = window.__studio.state(); return { steps: s.steps.map((x) => x.kind + (x.params.d !== undefined ? ":" + x.params.d : "")), top: s.meshes[0] ? Math.max(...Array.from({ length: s.meshes[0].positions.length / 3 }, (_, i) => s.meshes[0].positions[3 * i + 2])) : 0, problem: s.problem }; }`);
   const settle = async () => { await ev(`() => window.__studio.settled()`); await page.waitForTimeout(250); };
@@ -53,4 +51,4 @@ try {
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   await close();
 } finally { await S.stop(); }
-process.exit(bad ? 1 : 0);
+finish();

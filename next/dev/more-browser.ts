@@ -1,13 +1,11 @@
 // A dev check in the real page (not a test, `in_1444`): the "..." menu: save a model to a file, export STL and STEP, New (and undo it), open the file again, open a file that is not one.
 //   node --experimental-strip-types dev/more-browser.ts [screenshot-dir]
-import { start } from "../test/browser/harness.ts";
+import { S, dir, ok, finish, evalIn, pxIn, clickIn } from "./page-lib.ts";
 import { readFileSync, writeFileSync } from "node:fs";
-const dir = process.argv[2] ?? "/tmp", S = await start(5199);
-let bad = 0; const ok = (c: boolean, what: string) => { console.log(`${c ? "ok  " : "FAIL"} ${what}`); if (!c) bad++; };
 try {
   const { page, errors, close } = await S.open("");
   const pg = page as any;
-  const ev = <T,>(f: string): Promise<T> => page.evaluate((src: string) => new Function(`return (${src})`)()(), f) as Promise<T>;
+  const ev = evalIn(page);
   const settle = async () => { await ev(`() => window.__studio.settled()`); await page.waitForTimeout(400); };
   const state = () => ev<any>(`() => { const s = window.__studio.state(); return { steps: s.steps.length, meshes: s.meshes.length, problem: s.problem }; }`);
   const items = () => ev<string[]>(`() => [...document.querySelectorAll("[data-item]")].filter((e) => e.style.opacity !== "0.4").map((e) => e.dataset.item)`);
@@ -51,4 +49,4 @@ try {
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   await close();
 } finally { await S.stop(); }
-process.exit(bad ? 1 : 0);
+finish();

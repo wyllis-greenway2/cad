@@ -1,14 +1,12 @@
 // A dev check in the real page (not a test, `in_1444`): the arc tool (centre, start, end), the short way round, a radius put on it with D and typed over, a quarter-disc closed by two lines and extruded, and an arc dragged by its end.
 //   node --experimental-strip-types dev/arc-browser.ts [screenshot-dir]
-import { start } from "../test/browser/harness.ts";
+import { S, dir, ok, finish, evalIn, pxIn, clickIn } from "./page-lib.ts";
 import { writeFileSync } from "node:fs";
-const dir = process.argv[2] ?? "/tmp", S = await start(5199);
-let bad = 0; const ok = (c: boolean, what: string) => { console.log(`${c ? "ok  " : "FAIL"} ${what}`); if (!c) bad++; };
 try {
   const { page, errors, close } = await S.open("");
-  const ev = <T,>(f: string): Promise<T> => page.evaluate((src: string) => new Function(`return (${src})`)()(), f) as Promise<T>;
-  const px = (x: number, y: number) => ev<[number, number]>(`() => window.__px([${x}, ${y}])`);
-  const click = async (x: number, y: number) => { const [a, b] = await px(x, y); await page.mouse.click(a, b); await page.waitForTimeout(100); };
+  const ev = evalIn(page);
+  const px = pxIn(ev);
+  const click = clickIn(page, px, 100);
   const def = () => ev<any>(`() => Object.values(window.__sketch.snapshot())[0]`);
   const stop = () => ev(`() => { window.__sketch.stop(); window.__sketch.stop(); window.__sketch.stop(); }`);
   await ev(`() => window.__tool("arc")`); await page.waitForTimeout(900);
@@ -47,4 +45,4 @@ try {
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   await close();
 } finally { await S.stop(); }
-process.exit(bad ? 1 : 0);
+finish();

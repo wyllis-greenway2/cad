@@ -1,14 +1,12 @@
 // A dev check in the real page (not a test, `in_1444`): dragging sketch parts with the solver following: a corner of a rectangle (the constraints keep it a rectangle), a whole line, a point let go on another point, a drag held back by a locked length (red), undo of the whole drag as one change, and a click that goes nowhere is still a click.
 //   node --experimental-strip-types dev/drag-browser.ts [screenshot-dir]
-import { start } from "../test/browser/harness.ts";
+import { S, dir, ok, finish, evalIn, pxIn, clickIn } from "./page-lib.ts";
 import { writeFileSync } from "node:fs";
-const dir = process.argv[2] ?? "/tmp", S = await start(5199);
-let bad = 0; const ok = (c: boolean, what: string) => { console.log(`${c ? "ok  " : "FAIL"} ${what}`); if (!c) bad++; };
 try {
   const { page, errors, close } = await S.open("");
-  const ev = <T,>(f: string): Promise<T> => page.evaluate((src: string) => new Function(`return (${src})`)()(), f) as Promise<T>;
-  const px = (x: number, y: number) => ev<[number, number]>(`() => window.__px([${x}, ${y}])`);
-  const click = async (x: number, y: number) => { const [a, b] = await px(x, y); await page.mouse.click(a, b); await page.waitForTimeout(100); };
+  const ev = evalIn(page);
+  const px = pxIn(ev);
+  const click = clickIn(page, px, 100);
   const def = () => ev<any>(`() => Object.values(window.__sketch.snapshot())[0]`);
   const near = (d: any, x: number, y: number) => d.points.reduce((a: any, p: any) => (Math.hypot(p.x - x, p.y - y) < Math.hypot(a.x - x, a.y - y) ? p : a));
   const drag = async (from: [number, number], to: [number, number]) => { const [a, b] = await px(...from), [c, e] = await px(...to); await page.mouse.move(a, b); await page.mouse.down(); await page.mouse.move((a + c) / 2, (b + e) / 2, { steps: 4 }); await page.mouse.move(c, e, { steps: 4 }); await page.mouse.up(); await page.waitForTimeout(150); };
@@ -46,4 +44,4 @@ try {
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   await close();
 } finally { await S.stop(); }
-process.exit(bad ? 1 : 0);
+finish();
