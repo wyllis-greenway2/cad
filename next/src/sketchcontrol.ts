@@ -16,7 +16,7 @@ import { bake, constrain, emptySketch, hitAt, keep, posOf, refOf, removeParts, r
 import { bubblesOn, selectionAnchor, type Flash } from "./interaction/bubbles.ts";
 import { barFor, type Bar } from "./interaction/helperbar.ts";
 import { createBubbleLayer, type Placed } from "./bubbledraw.ts";
-import { hintAt, type Hinted } from "./interaction/hints.ts";
+import { place, showOf, type Helped } from "./interaction/helpers.ts";
 import { newTool, cancelFigure, toolClick, toolPreview, type Tool } from "./interaction/tools.ts";
 import { dragTo, joinFor, pinsOf } from "./interaction/dragging.ts";
 import { loopPoints, regionAt, type Region } from "./interaction/extrude.ts";
@@ -38,13 +38,12 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   const current = () => { const { all, on } = host.planes(); const f = all.get(on); return f ? { key: on, f, p: defs.get(on) ?? emptySketch() } : null; };
   const selected = (key: string) => (selection.key === key ? selection.ids : []);
   /** a pixel's worth of the plane in mm, where the pointer is */
-  /** where a click would put the place: on a point or curve as drawn, else lined up by the helpers (they place, they never constrain, `dec_hints_place_only`) */
-  const placed = (c: { p: SketchParams; q: P2; tol: number }, s: Sol): { ref: Ref; hint: Hinted } => {
-    const r = refOf(c.p, s, c.q, c.tol, host.planes().step), none = { at: c.q, hints: [], guides: [] } as Hinted;
-    if ("id" in r) return { ref: r, hint: none };
-    const a = tool?.pts[0], start = a && tool?.kind === "line" ? posOf(s, a) : null, h = hintAt(c.p, s, start, c.q, c.tol / settings.sketch.snapPx);
-    const moved = h.hints.length > 0 || h.guides.length > 0;
-    return moved ? { ref: { at: h.at }, hint: h } : { ref: r, hint: none };
+  /** where a click would put the place: on a point or curve as drawn, else drawn to the helpers' places (they place, they never constrain, `dec_hints_place_only`, `in_1579`) */
+  const placed = (c: { p: SketchParams; q: P2; tol: number }, s: Sol): { ref: Ref; help: Helped | null } => {
+    const r = refOf(c.p, s, c.q, c.tol, host.planes().step);
+    if ("id" in r) return { ref: r, help: null };
+    const a = tool?.pts[0], h = place(c.p, s, a && tool?.kind === "line" ? posOf(s, a) : null, c.q, c.tol / settings.sketch.snapPx);
+    return h.held.length ? { ref: { at: h.at }, help: h } : { ref: r, help: null };
   };
   /** the dash of a guide, as the old app's: 0.012 of the view's distance (the view's height over twice the tangent of half its angle, so it is the same in the straight view) */
   const dashAt = (f: Frame, q: P2) => { const { cam } = host.view(); return (viewHeight(cam, Math.max(forwardDepth(cam, to3(f, q)), 1e-3)) * 0.012) / (2 * Math.tan((settings.view.fovDeg * Math.PI) / 360)); };
@@ -203,12 +202,8 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
         } else {
           const pl = placed(c, s), at = posOf(s, pl.ref);
           for (const l of toolPreview(tool, s, at)) out.push({ kind: l.kind, pts: l.pts.map((z) => to3(c.f, z)) });
-          if ("id" in pl.ref) for (const k of [...(c.p.circles ?? []), ...(c.p.arcs ?? [])]) { // (the pointer on a circle's middle: the dashed cross through it, a little past the rim, as the old app's `concentricGuides`)
-            if (k.c !== pl.ref.id) continue; const m = s.points[k.c], r = s.radii[k.id]; if (!m || !r) continue;
-            for (const d of [[1, 0], [0, 1]] as const) out.push({ kind: "guide", pts: [to3(c.f, [m[0] - d[0] * r * 1.25, m[1] - d[1] * r * 1.25]), to3(c.f, [m[0] + d[0] * r * 1.25, m[1] + d[1] * r * 1.25])], dash: dashAt(c.f, m) });
-          }
-          for (const g of pl.hint.guides) out.push({ kind: "guide", pts: g.map((z) => to3(c.f, z)), dash: dashAt(c.f, at) });
-          for (const h of pl.hint.hints) { const g = h.part ? segsOf(c.p, s.points, s.radii).find((x) => x.name === h.part) : null; if (g) out.push({ kind: "tie", pts: polyline(g).map((z) => to3(c.f, z)) }); }
+          const shown = showOf(c.p, s, pl.help ?? { at, held: [] }, (part) => { const g = segsOf(c.p, s.points, s.radii).find((x) => x.name === part); return g ? polyline(g) : null; }, "id" in pl.ref ? pl.ref.id : null);
+          for (const l of shown) out.push({ kind: l.kind, pts: l.pts.map((z) => to3(c.f, z)), ...(l.kind === "guide" ? { dash: dashAt(c.f, at) } : {}) });
           const arm = mmPerPx(c.f, at) * settings.sketch.crossPx, w = to3(c.f, at);
           out.push({ kind: "cursor", pts: [add(w, scale(c.f.u, -arm)), add(w, scale(c.f.u, arm))] }, { kind: "cursor", pts: [add(w, scale(vOf(c.f), -arm)), add(w, scale(vOf(c.f), arm))] });
         }

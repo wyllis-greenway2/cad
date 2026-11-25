@@ -6448,3 +6448,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1578 — 2026-11-25 — directive
 > okay can we make the sketching look and feel more like the prototype now?
+
+## in_1579 — 2026-11-25 — directive
+> can we have a simple rule set that just captures all of this? how can we simplify the whole thing so we don't need so many edge case rules and it always just works? Can we just have a rule set for what an alignment helper is, and how it should always be styled and represented?
