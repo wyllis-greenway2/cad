@@ -6455,3 +6455,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1580 — 2026-11-25 — directive
 > lets toss snapping to the grid. Also lets talk about another constraint and or helper which would be centerline. So it is often helpful to snap to the center of a line. Also why would the cross line for concentric not match our rules? because alignment rules would require the circle to be orange not cross lines? wouldn't cross lines be aligned with the centers of the curve? or maybe we make a special case for circles because I like the cross lines? I would prefer not to make a special case. Also shouldn't we have  rule that all things in alignment turn orange? why make it turn orange sometimes but not others? we need a really simple ruleset that expands well. The ruleset needs to cover the actual alignment and the UI styling
 
+## in_1581 — 2026-11-25 — question
+> do you think this is a good future proof rule set? Also if hints really are just constraint hints, do you think we should surface some ability to actually constrain them at the same time? Maybe the constraint bubble exists for a moment with a question mark, and fades a way, but if you click it before it fades then it goes to a green check mark and fades away (unless a line is slected because selected lines should always show their constraints)
+
