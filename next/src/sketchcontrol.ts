@@ -41,20 +41,21 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   const selected = (key: string) => (selection.key === key ? selection.ids : []);
   /** a pixel's worth of the plane in mm, where the pointer is */
   /** where a click would put the place: on a point or curve as drawn, else drawn to the helpers' places (they place, they never constrain, `dec_hints_place_only`, `in_1579`) */
-  const placed = (c: { p: SketchParams; q: P2; tol: number }, s: Sol): { ref: Ref; help: Helped | null; free: Free } => {
+  const placed = (c: { p: SketchParams; q: P2; tol: number; mm: number }, s: Sol): { ref: Ref; help: Helped | null; free: Free } => {
     const r = refOf(c.p, s, c.q, c.tol), a = tool?.pts[0], pos = a ? posOf(s, a) : null;
     const free: Free = pos && tool?.kind === "line" ? { shape: "line", from: pos, ...("id" in a! ? { startId: a.id } : {}) } : pos && tool?.kind === "circle" ? { shape: "circle", centre: pos, ...("id" in a! ? { startId: a.id } : {}) } : { shape: "point" };
-    const h = helpersAt(viewSystem(c.p, s), free, "id" in r ? s.points[r.id]! : c.q, c.tol / settings.sketch.snapPx), co = h.acted.find((x) => x.relation === "coincident");
+    const h = helpersAt(viewSystem(c.p, s), free, "id" in r ? s.points[r.id]! : c.q, c.mm, settings.helpers), co = h.acted.find((x) => x.relation === "coincident");
     if ("id" in r) return { ref: r, help: h.holds.length ? h : null, free };
     return h.acted.length ? { ref: co?.sources[0] ? { id: co.sources[0] } : { at: h.at }, help: h, free } : { ref: r, help: h.holds.length ? h : null, free };
   };
-  /** the dash of a guide, as the old app's: 0.012 of the view's distance (the view's height over twice the tangent of half its angle, so it is the same in the straight view) */
-  const dashAt = (f: Frame, q: P2) => { const { cam } = host.view(); return (viewHeight(cam, Math.max(forwardDepth(cam, to3(f, q)), 1e-3)) * 0.012) / (2 * Math.tan((settings.view.fovDeg * Math.PI) / 360)); };
+  /** the dash of a guide, as the old app's (`settings.helpers.dash` of the view's distance; worked from the view's height over twice the tangent of half its angle, so it is the same in the straight view) */
+  const dashAt = (f: Frame, q: P2) => { const { cam } = host.view(); return (viewHeight(cam, Math.max(forwardDepth(cam, to3(f, q)), 1e-3)) * settings.helpers.dash) / (2 * Math.tan((settings.view.fovDeg * Math.PI) / 360)); };
   const mmPerPx = (f: Frame, q: P2) => { const { cam, h } = host.view(); return viewHeight(cam, Math.max(forwardDepth(cam, to3(f, q)), 1e-3)) / h; };
   const here = (x: number, y: number) => {
     const c = current(); if (!c) return null;
     const r = host.ray(x, y), q = onPlane(c.f, r.o, r.d); if (!q) return null;
-    return { ...c, q: to2(c.f, q), tol: mmPerPx(c.f, to2(c.f, q)) * settings.sketch.snapPx };
+    const mm = mmPerPx(c.f, to2(c.f, q));
+    return { ...c, q: to2(c.f, q), mm, tol: mm * settings.sketch.snapPx };
   };
   /** a change of a sketch: kept, and said to whoever keeps the history (`label`: what it was; `merge`: changes with the same key are one, a number typed again and again) */
   const set = (key: string, p: SketchParams, label: string, merge?: string) => { defs.set(key, p); on?.(label, merge); };
@@ -97,7 +98,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   // ---- the constraints a helper held, offered for a moment after a figure is placed (`dec_helper_constraint_bubble`): a bubble with a question mark; a click makes the constraint (a check, then it fades); a selected part shows its constraints always
   type Offer = { id: string; c: Constraint; state: "open" | "taken"; until: number };
   let offers: { key: string; base: SketchParams; items: Offer[] } | null = null;
-  const OFFER_MS = 4000, TAKEN_MS = 900, HOVER_MS = 1500, FADE_MS = 700;
+  const OFFER_MS = settings.offer.stayMs, TAKEN_MS = settings.offer.takenMs, HOVER_MS = settings.offer.hoverMs, FADE_MS = settings.offer.fadeMs;
   const offerFor = (key: string, pl: { help: Helped | null }, at: Pt, start: Pt | null) => {
     const p = defs.get(key)!, sol = solOf(p), S = viewSystem(p, sol);
     if (!pl.help) { offers = null; return; }
@@ -220,7 +221,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       for (const [k, p] of defs) {
         const f = all.get(k)!, s = solOf(p), sel = new Set(selected(k)), seg = segsOf(p, s.points, s.radii);
         for (const q of seg) out.push({ kind: sel.has(q.name) ? "selected" : "done", pts: polyline(q).map((z) => to3(f, z)) });
-        for (const x of p.points) { const at = sel.has(x.id) ? s.points[x.id] : null; if (at) out.push({ kind: "ball", pts: [to3(f, at)], r: mmPerPx(f, at) * 4.5 }); } // (the old app marks no point until it is picked, then a teal ball)
+        for (const x of p.points) { const at = sel.has(x.id) ? s.points[x.id] : null; if (at) out.push({ kind: "ball", pts: [to3(f, at)], r: mmPerPx(f, at) * settings.sketch.ballPx }); } // (the old app marks no point until it is picked, then a teal ball)
       }
       if (drag?.snapAt) { const f = all.get(drag.key); if (f) { const arm = mmPerPx(f, drag.snapAt) * settings.sketch.crossPx * 1.4, w = to3(f, drag.snapAt); out.push({ kind: "cursor", pts: [add(w, scale(f.u, -arm)), add(w, scale(f.u, arm))] }, { kind: "cursor", pts: [add(w, scale(vOf(f), -arm)), add(w, scale(vOf(f), arm))] }); } }
       const c = pointer && tool ? here(pointer.x, pointer.y) : null;
@@ -233,7 +234,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
           const pl = placed(c, s), at = posOf(s, pl.ref);
           for (const l of toolPreview(tool, s, at)) out.push({ kind: l.kind, pts: l.pts.map((z) => to3(c.f, z)) });
           const shown = pl.help ? helpShown(pl.help, (part) => { const g = segsOf(c.p, s.points, s.radii).find((x) => x.name === part); return g ? polyline(g) : null; }, (id) => s.points[id] ?? null) : [];
-          for (const l of shown) out.push({ kind: l.kind, pts: l.pts.map((z) => to3(c.f, z)), ...(l.kind === "guide" ? { dash: dashAt(c.f, at) } : {}), ...(l.kind === "tieBall" ? { r: mmPerPx(c.f, l.pts[0]!) * 4.5 } : {}) });
+          for (const l of shown) out.push({ kind: l.kind, pts: l.pts.map((z) => to3(c.f, z)), ...(l.kind === "guide" ? { dash: dashAt(c.f, at) } : {}), ...(l.kind === "tieBall" ? { r: mmPerPx(c.f, l.pts[0]!) * settings.sketch.ballPx } : {}) });
           const arm = mmPerPx(c.f, at) * settings.sketch.crossPx, w = to3(c.f, at);
           out.push({ kind: "cursor", pts: [add(w, scale(c.f.u, -arm)), add(w, scale(c.f.u, arm))] }, { kind: "cursor", pts: [add(w, scale(vOf(c.f), -arm)), add(w, scale(vOf(c.f), arm))] });
         }

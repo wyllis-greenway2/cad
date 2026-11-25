@@ -17,7 +17,7 @@ export function drawLines(group: THREE.Group, lines: DrawLine[], w: number, h: n
       sp.position.set(p[0], p[1], p[2]); sp.scale.setScalar(2 * (l.r ?? 1)); sp.renderOrder = 12; group.add(sp); continue;
     }
     const g = new LineGeometry(); g.setPositions(l.pts.flat());
-    const st = STROKE[l.kind], m = new LineMaterial({ color: new THREE.Color(COLOUR[st.tone]).getHex(), linewidth: settings.sketch.widthPx * st.weight, transparent: st.soft, opacity: st.soft ? 0.8 : 1, depthTest: false, ...(st.dashed ? { dashed: true, dashSize: l.dash ?? 5, gapSize: (l.dash ?? 5) * 0.7, dashScale: 1 } : {}) });
+    const st = STROKE[l.kind], m = new LineMaterial({ color: new THREE.Color(COLOUR[st.tone]).getHex(), linewidth: settings.sketch.widthPx * st.weight, transparent: st.soft, opacity: st.soft ? 0.8 : 1, depthTest: false, ...(st.dashed ? { dashed: true, dashSize: l.dash ?? 5, gapSize: (l.dash ?? 5) * settings.helpers.dashGap, dashScale: 1 } : {}) });
     m.resolution.set(w, h);
     const line = new Line2(g, m); if (st.dashed) line.computeLineDistances(); line.renderOrder = 11; group.add(line);
   }

@@ -5279,3 +5279,6 @@ The human tried the helpers: a second line starting on the end of another and go
 ## Handoff 1379 — 2026-11-25
 `in_1585`: the session-end rule 12 in `CLAUDE.md` now says to run `npm run checks` in `next/` before the handoff (`checks:all` when the page, the engine or the solver changed). Nothing else changed.
 
+## Handoff 1380 — 2026-11-25
+`in_1586`: the tolerances of the helpers in `settings`. `settings.helpers` (pointPx 12, linePx 6, overPx 12, stepPx 6, dash 0.012, dashGap 0.7), `settings.offer` (stayMs 4000, takenMs 900, hoverMs 1500, fadeMs 700), `settings.sketch.ballPx` (4.5). `engine/helpers.ts` no longer has its own `POINT_PX`/`LINE_PX`: `helpersAt(S, free, q, mm, reach)` takes a `Reach` (a required argument, so the engine imports no screen settings); `sketchcontrol.ts` passes `settings.helpers`, and `here()` now returns the pixel size `mm` instead of the controller dividing `tol` by `snapPx`; `sketchdraw.ts` uses `dashGap`. Dev checks pass `settings.helpers` (`settings.ts` imports nothing, so they can read it). `npm run checks` (34) and the page checks for sketch, drag, offer and tangent pass; 60 unit tests. Left as they were: `snapPx` and `crossPx` (already in settings), the colours and weights (`interaction/style.ts`, the old app's table), the bubble placement numbers (`bubbleplace.ts`, the old app's).
+

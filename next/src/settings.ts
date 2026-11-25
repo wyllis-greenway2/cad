@@ -46,8 +46,12 @@ export const settings = {
   orb: { radius: 0.025, hoverOpacity: 0.14, color: [0.1, 0.72, 0.7] as [number, number, number] }, // the hover disc: its radius in depths of the surface it is on
   // the cut of a sketch plane: the face where it cuts a body is solid with hatching
   cut: { face: [0.72, 0.74, 0.79] as [number, number, number], hatch: [0.5, 0.52, 0.58] as [number, number, number], hatchMm: 2.5, hatchWidth: 0.05, capMm: 10000 },
-  // sketching: how near the pointer must be to stick to a place or a grid crossing, the cursor's cross, the lines' width, a circle's segments
-  sketch: { snapPx: 10, crossPx: 7, widthPx: 2, circleSegments: 64 },
+  // sketching: how near the pointer must be to stick to a place, the cursor's cross, the lines' width, a circle's segments
+  sketch: { snapPx: 10, crossPx: 7, widthPx: 2, circleSegments: 64, ballPx: 4.5 /* (a picked point's ball: its radius) */ },
+  // the helpers of drawing (`dec_helpers_one_rule`): how near the pointer must be to a relation that says a point and one that says a line (px), how far past its ends a guide runs and the steps it is traced in (px), the guide's dash (the old app's: this much of the view's distance; the gap is this much of the dash)
+  helpers: { pointPx: 12, linePx: 6, overPx: 12, stepPx: 6, dash: 0.012, dashGap: 0.7 },
+  // the constraint a helper held, offered as a bubble (`dec_helper_constraint_bubble`): how long it stays, how long the check shows, how long it waits while the pointer is on it, how long it fades (ms)
+  offer: { stayMs: 4000, takenMs: 900, hoverMs: 1500, fadeMs: 700 },
   // a sketch plane placed anywhere, and the right-click ring
   planes: { snapAxisRad: 0.14, ringButtonPx: 36 }, // (a sketch plane made facing the camera snaps to a world axis within this)
   // the mover orb (`app/src/shared/settings.ts` gizmo): its size as a share of the view distance, how near the pointer must be to take a handle, and how its lines look

@@ -1,6 +1,6 @@
 // The helpers of drawing, read from the relation table (`dec_helpers_one_rule`, `in_1579`..`in_1583`; no kernel). A helper is a relation that is APPLICABLE and within REACH:
 //   applicable: the same question the helper bar asks (`engine/relations.ts`): the relation fits the kinds of parts, and the solver would add it as something new (not already implied by the figure or the sketch, not refused)
-//   within reach: the place being drawn nearly satisfies it, with parts already there; 12 px if it says a point (two rows), 6 px if a line; the step is the Newton step on its residuals, so it is in mm whatever the unit of the row
+//   within reach: the place being drawn nearly satisfies it, with parts already there; `reach.pointPx` if it says a point (two rows), `reach.linePx` if a line; the step is the Newton step on its residuals, so it is in mm whatever the unit of the row
 // The free thing is the place `~P`, alone (`point`), or the end of a line from the figure's first place (`line`: `~L`), or the edge of a circle about it (`circle`: `~C`); the first place is a point of the sketch (`startId`) or only a place.
 // The nearest acts (a point before a line, then a fixed order); one more, not parallel to it, within reach of that place: the place is where both hold. Everything that holds at the place is reported, to be shown and offered.
 import { RELATIONS, type Constraint, type Relation, type System } from "./solver.ts";
@@ -8,7 +8,8 @@ import { residualsOf } from "./solver.ts";
 import { kindTuples, standingOf, type PartKind } from "./relations.ts";
 
 export type Pt = [number, number];
-export const POINT_PX = 12, LINE_PX = 6;
+/** how near (px) the pointer must be to a relation that says a point and to one that says a line, how far past its ends a guide runs, and the step it is traced in: the screen's settings (`settings.helpers`), given to each call so this file knows no screen */
+export interface Reach { pointPx: number; linePx: number; overPx: number; stepPx: number }
 export const P = "~P", S = "~S", L = "~L", C = "~C";
 export type Free = { shape: "point" } | { shape: "line"; from: Pt; startId?: string } | { shape: "circle"; centre: Pt; startId?: string };
 /** a relation that holds or nearly holds: which parts (the free ones by their `~` names), where it puts the place, and how far it moved it */
@@ -51,7 +52,7 @@ function candidates(S0: System, f: Free): Cand[] {
 }
 
 /** The place the pointer `q` is drawn to, by what acts and what holds there; `mm` is the size of a pixel. */
-export function helpersAt(S0: System, f: Free, q: Pt, mm: number): Helped {
+export function helpersAt(S0: System, f: Free, q: Pt, mm: number, reach: Reach): Helped {
   const pts = new Map(S0.points.map((p) => [p.id, p] as const)), lines = new Map(S0.lines.map((l) => [l.id, l] as const)), circles = new Map(S0.circles.map((c) => [c.id, c] as const));
   const startId = f.shape === "point" ? undefined : f.startId, startAt: Pt | null = f.shape === "line" ? f.from : f.shape === "circle" ? f.centre : null;
   const startName = startId ?? S;
@@ -116,15 +117,15 @@ export function helpersAt(S0: System, f: Free, q: Pt, mm: number): Helped {
     for (const c of all) {
       if (skip && c === skip) continue;
       const row = rowFn(c), n0 = row(from); if (n0.length === 0 || !n0.every(Number.isFinite)) continue;
-      const reach = (n0.length === 2 ? POINT_PX : LINE_PX) * mm;
-      const at = land(row, from, reach); if (!at) continue;
+      const within = (n0.length === 2 ? reach.pointPx : reach.linePx) * mm;
+      const at = land(row, from, within); if (!at) continue;
       const moved = Math.hypot(at[0] - from[0], at[1] - from[1]);
-      if (moved <= reach && applicable(c, at)) out.push({ c, at, moved });
+      if (moved <= within && applicable(c, at)) out.push({ c, at, moved });
     }
     return out;
   };
   // a figure's own start: not within reach of itself, so a line near its first place takes nothing from it
-  const startGap = startAt ? 2 * LINE_PX * mm : 0;
+  const startGap = startAt ? 2 * reach.linePx * mm : 0;
   const usable = (x: { c: Cand }) => !(startGap && x.c.parts.includes(L) && Math.hypot(q[0] - startAt![0], q[1] - startAt![1]) < startGap);
   const found = near(q, null).filter(usable);
   const rank = (a: { c: Cand; moved: number }, b: { c: Cand; moved: number }) => (rowFn(a.c)(q).length === 2 ? 0 : 1) - (rowFn(b.c)(q).length === 2 ? 0 : 1) || a.moved - b.moved || b.c.parts.filter((x) => !free(x)).length - a.c.parts.filter((x) => !free(x)).length || a.c.order - b.c.order || a.c.parts.join().localeCompare(b.c.parts.join());
@@ -135,7 +136,7 @@ export function helpersAt(S0: System, f: Free, q: Pt, mm: number): Helped {
     at = first.at; acted.push(make(first.c, at, first.moved));
     if (acted[0]!.says === "line") {
       const second = near(at, first.c).filter(usable).filter((x) => rowFn(x.c)(at).length === 1).sort(rank).find((x) => { const h = make(x.c, x.at, x.moved), d1 = acted[0]!.dir, d2 = h.dir; return !!d1 && !!d2 && Math.abs(d1[0] * d2[1] - d1[1] * d2[0]) > 0.3; });
-      if (second) { const p2 = crossing(rowFn(first.c), rowFn(second.c), at); if (p2 && Math.hypot(p2[0] - at[0], p2[1] - at[1]) <= LINE_PX * mm * 2) { const m = Math.hypot(p2[0] - q[0], p2[1] - q[1]); at = p2; acted.length = 0; acted.push(make(first.c, at, m), make(second.c, at, m)); } }
+      if (second) { const p2 = crossing(rowFn(first.c), rowFn(second.c), at); if (p2 && Math.hypot(p2[0] - at[0], p2[1] - at[1]) <= reach.linePx * mm * 2) { const m = Math.hypot(p2[0] - q[0], p2[1] - q[1]); at = p2; acted.length = 0; acted.push(make(first.c, at, m), make(second.c, at, m)); } }
     }
   }
   // everything that holds at the place, that the solver would add
@@ -144,7 +145,7 @@ export function helpersAt(S0: System, f: Free, q: Pt, mm: number): Helped {
   const byHeld = new Map<Held, Cand>(); for (const h of [...acted, ...holds]) { const c = all.find((x) => x.relation === h.relation && x.parts.join() === h.parts.join() && x.variant === h.variant); if (c) byHeld.set(h, c); }
   const guide = (h: Held): Pt[] | null => {
     const c = byHeld.get(h); if (!c || h.says !== "line" || !h.dir || c.parts.includes(L) || c.parts.includes(C)) return null;
-    const row = rowFn(c), src = h.sources[0], over = 12 * mm, ds = 6 * mm;
+    const row = rowFn(c), src = h.sources[0], over = reach.overPx * mm, ds = reach.stepPx * mm;
     let anchor: Pt = h.at;
     if (src) {
       if (pts.has(src)) anchor = [pts.get(src)!.x, pts.get(src)!.y];

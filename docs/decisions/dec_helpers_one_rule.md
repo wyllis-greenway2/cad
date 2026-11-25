@@ -23,6 +23,8 @@ Asked for in `in_1579` and `in_1580` (a simple rule set that expands well and co
 6. **A circle's cross is not a special case.** *P* on a circle's middle is level and upright with the middle: two alignment guides that cross there, the middle lit orange. With rule 5(b) each guide runs 12 px past its ends, so the cross is small and the same for every point (a corner has one too). If the cross should reach past the rim as the old app's does, the general rule is "a guide spans the whole source part plus *P*", which does the same for a parallel line and a tangent circle: one rule, still no circle case.
 7. **Constraints are made only when asked** (`dec_hints_place_only`). The helper bar's suggestion and the constraint you add use the same relation row, so a helper, its suggestion and its constraint cannot disagree.
 
+**The numbers** (6 px and 12 px reach, the guide's 12 px overshoot and 6 px trace step, the dash) are `settings.helpers`; the offer's times are `settings.offer` (`dec_helper_constraint_bubble`); `engine/helpers.ts` takes them as an argument (`Reach`) so the engine knows no screen. Where this entry says 6 or 12 px it means those settings.
+
 ## The four amendments (`in_1581`)
 
 - **A fixed order.** The place is taken by, in order: a relation that says a point (two rows: coincident, midpoint) before one that says a line; the smallest move; the one that names more of the sketch's own parts; the relation's order in the table; the parts' names. So the same pointer always gives the same helper.

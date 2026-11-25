@@ -3,6 +3,7 @@
 // and `helpersAt` (the drawing's way) is asked at that place.   node --experimental-strip-types dev/helpers-roundtrip-check.ts [trials] [seed]
 import { addCircle, addLine, addRect, emptySketch, keep, refOf, viewSystem, type Sol } from "../src/interaction/drawing.ts";
 import { solveDefinition } from "../src/engine/definition.ts";
+import { settings } from "../src/settings.ts";
 import { helpersAt, type Free } from "../src/engine/helpers.ts";
 import { RELATIONS, solve, tryAdd, type System } from "../src/engine/solver.ts";
 import { offersFor } from "../src/interaction/suggest.ts";
@@ -34,7 +35,7 @@ for (let t = 0; t < N; t++) {
       const r = tryAdd(temp, { id: "k", kind: o.kind, parts: o.parts }); if (r.outcome !== "added") continue;
       const solved = solve(r.system, {}); if (!solved.verdict.ok) continue;
       const at = solved.solution.points["~P"]!; if (Math.hypot(at[0] - (shape.shape === "line" ? shape.from[0] : q[0]), at[1] - (shape.shape === "line" ? shape.from[1] : q[1])) < 0.5) continue; // (a line of nothing is not a figure)
-      const mm = 1e-4, h = helpersAt(real, shape, [at[0], at[1]], mm), key = (x: { relation: string; parts: string[] }) => `${x.relation}|${[...x.parts].sort().join()}`;
+      const mm = 1e-4, h = helpersAt(real, shape, [at[0], at[1]], mm, settings.helpers), key = (x: { relation: string; parts: string[] }) => `${x.relation}|${[...x.parts].sort().join()}`;
       checked++; kinds[o.kind] = (kinds[o.kind] ?? 0) + 1;
       if (!h.holds.some((x) => key(x) === key({ relation: o.kind, parts: o.parts }))) problems.push(`trial ${t}: the bar offers ${o.kind} on ${o.parts.join(",")} (${shape.shape}); applied, the figure is at ${at.map((v) => v.toFixed(3))}, and the helpers say only ${h.holds.map(key).join(" ; ") || "nothing"}`);
     }
