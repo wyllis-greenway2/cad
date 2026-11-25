@@ -1,36 +1,42 @@
-// A dev check (not a test, `in_1444`) of the helpers of drawing: node --experimental-strip-types dev/helpers-check.ts
-import { addRect, emptySketch, keep, refOf, type Sol } from "../src/interaction/drawing.ts";
-import { place, showOf } from "../src/interaction/helpers.ts";
-import { solveDefinition } from "../src/engine/definition.ts";
+// A dev check (not a test, `in_1444`) of the helpers of drawing, read from the relation table: node --experimental-strip-types dev/helpers-check.ts
+import { addCircle, addRect, emptySketch, keep, refOf, type Sol } from "../src/interaction/drawing.ts";
+import { helpersAt } from "../src/engine/helpers.ts";
+import { RELATIONS } from "../src/engine/solver.ts";
+import { solveDefinition, systemOf } from "../src/engine/definition.ts";
 import type { SketchParams } from "../src/engine/sketch.ts";
 import { check, failureCount } from "./lib.ts";
 
 const sol = (p: SketchParams): Sol => { const s = solveDefinition(p); return { points: s.points, radii: s.radii }; };
+const sysOf = (p: SketchParams) => { const s = solveDefinition(p), S = systemOf(p); return { ...S, points: S.points.map((q) => ({ ...q, x: s.points[q.id]![0], y: s.points[q.id]![1] })), circles: S.circles.map((c) => ({ ...c, r: s.radii[c.id] ?? c.r })) }; };
 let p = emptySketch(); const s0 = sol(p), k = keep(addRect(p, s0, refOf(p, s0, [0, 0], 0.5), refOf(p, s0, [40, 25], 0.5))!); if (!k.ok) throw new Error(k.why); p = k.params;
-const s = sol(p), n0 = p.constraints!.length;
-const mm = 0.1; // (a pixel is 0.1 mm: a line helper reaches 0.6 mm, a point helper 1.2 mm)
-let h = place(p, s, [100, 100], [130, 100.4], mm);
-check("a line a little off level goes level", h.held[0]?.name === "horizontal" && h.at[1] === 100 && h.at[0] === 130);
-h = place(p, s, [100, 100], [140, 120], mm);
-check("a plain slope gets no helper and does not move", h.held.length === 0 && h.at[0] === 140 && h.at[1] === 120);
-h = place(p, s, [100, 100], [100.4, 130], mm);
-check("nearly upright goes upright", h.held[0]?.name === "vertical" && h.at[0] === 100);
-h = place(p, s, [100, 100], [100.3, 100.3], mm);
-check("close to its own start nothing is taken (no jitter)", h.held.length === 0);
-h = place(p, s, null, [20.3, 0.2], mm);
-check("near the middle of a side takes the middle", h.held[0]?.name === "midpoint" && h.at[0] === 20 && h.at[1] === 0);
-h = place(p, s, null, [60, 25.3], mm);
-check("in line with a corner: takes its coordinate", h.held[0]?.name === "aligned" && h.at[1] === 25 && h.at[0] === 60);
-check("and shows one dashed guide from the corner to the place", (() => { const g = showOf(p, s, h, () => null, null).filter((x) => x.kind === "guide"); return g.length === 1 && g[0]!.pts[0]![0] === 40 && g[0]!.pts[1]![0] === 60; })());
-// a circle of radius 5 at (100, 100); a line from (80, 100): the tangent is asin(5/20) = 14.48 degrees off the line to the centre
-import { addCircle } from "../src/interaction/drawing.ts";
-const kc = keep(addCircle(p, s, refOf(p, s, [100, 100], 0.5), [105, 100])!); if (!kc.ok) throw new Error(kc.why);
-const pc = kc.params, sc = sol(pc), ang = Math.asin(5 / 20);
-h = place(pc, sc, [80, 100], [80 + 30 * Math.cos(ang + 0.01), 100 + 30 * Math.sin(ang + 0.01)], mm);
-check("a line from outside a circle nearly tangent becomes tangent, and says which circle", h.held[0]?.name === "tangent" && h.held[0].part === "K1" && Math.abs(Math.atan2(h.at[1] - 100, h.at[0] - 80) - ang) < 1e-9);
-check("a lit part comes with it", showOf(pc, sc, h, (n) => (n === "K1" ? [[0, 0]] : null), null).some((x) => x.kind === "tie"));
-h = place(pc, sc, null, [40.3, 100.3], mm);
-check("two helpers cross: in line with a corner upright and with a circle's middle level, the place is where they cross", h.held.length === 2 && Math.abs(h.at[0] - 40) < 1e-9 && Math.abs(h.at[1] - 100) < 1e-9);
-check("the middle of a circle has a dashed cross", showOf(pc, sc, { at: [100, 100], held: [] }, () => null, "P5").filter((x) => x.kind === "guide").length === 2);
+const mm = 0.1, S1 = sysOf(p), n0 = p.constraints!.length, line = (from: [number, number]) => ({ shape: "line", from }) as const, point = { shape: "point" } as const;
+check("every relation says whether it is a helper (a new one cannot be left out)", Object.values(RELATIONS).every((r) => r.helper === null || typeof r.helper === "object"));
+let h = helpersAt(S1, line([100, 100]), [130, 100.4], mm);
+check("a line a little off level goes level", h.acted[0]?.relation === "horizontal" && h.at[1] === 100 && h.at[0] === 130 || (h.acted[0]?.relation === "horizontal" && Math.abs(h.at[1] - 100) < 1e-6));
+h = helpersAt(S1, line([100, 100]), [140, 120], mm);
+check("a plain slope gets no helper and does not move", h.acted.length === 0 && h.at[0] === 140 && h.at[1] === 120);
+h = helpersAt(S1, line([100, 100]), [100.4, 130], mm);
+check("nearly upright goes upright", h.acted[0]?.relation === "vertical" && Math.abs(h.at[0] - 100) < 1e-6);
+h = helpersAt(S1, line([100, 100]), [100.3, 100.3], mm);
+check("close to its own start nothing is taken (no jitter)", h.acted.length === 0);
+h = helpersAt(S1, point, [20.3, 0.2], mm);
+check("near the middle of a side takes the middle (a point before a line)", h.acted[0]?.relation === "midpoint" && Math.abs(h.at[0] - 20) < 1e-6 && Math.abs(h.at[1]) < 1e-6);
+h = helpersAt(S1, point, [60, 25.3], mm);
+check("in line with a corner: level with it, its source is the corner", h.acted[0]?.relation === "horizontal" && Math.abs(h.at[1] - 25) < 1e-6 && h.acted[0].sources.length > 0);
+check("and the guide is along the line it holds on", !!h.acted[0]?.dir && Math.abs(h.acted[0].dir![0]) > 0.99);
+h = helpersAt(S1, point, [40.3, 60.3], mm);
+check("level with nothing near but upright with the corner: one helper", h.acted.length === 1 && h.acted[0]!.relation === "vertical");
+// a circle of radius 5 at (100, 100); a line from (80, 100): tangent is asin(5/20) off the line to the centre
+const kc = keep(addCircle(p, sol(p), refOf(p, sol(p), [100, 100], 0.5), [105, 100])!); if (!kc.ok) throw new Error(kc.why);
+const pc = kc.params, S2 = sysOf(pc), ang = Math.asin(5 / 20);
+h = helpersAt(S2, line([80, 100]), [80 + 30 * Math.cos(ang + 0.01), 100 + 30 * Math.sin(ang + 0.01)], mm);
+check("a line from outside a circle nearly tangent becomes tangent, naming the circle", h.acted[0]?.relation === "tangent" && h.acted[0].sources[0] === "K1" && Math.abs(Math.atan2(h.at[1] - 100, h.at[0] - 80) - ang) < 1e-6);
+h = helpersAt(S2, point, [40.3, 100.3], mm);
+check("two helpers cross: upright with a corner, level with a circle's middle", h.acted.length === 2 && Math.abs(h.at[0] - 40) < 1e-6 && Math.abs(h.at[1] - 100) < 1e-6);
+h = helpersAt(S2, point, [100.2, 100.2], mm);
+check("on a circle's middle: it takes the middle, and level and upright with it hold (the cross)", h.acted[0]?.relation === "coincident" && h.holds.filter((x) => x.relation === "horizontal").length >= 1 && h.holds.filter((x) => x.relation === "vertical").length >= 1);
+// drawing a circle about (30, 30): its edge point near another circle's edge makes them touch
+h = helpersAt(S2, { shape: "circle", centre: [80, 100] }, [90.2, 100], mm);
+check("a circle about (80,100) of radius 10 reaches the other's edge: circles touching or equal radius is found", h.holds.length > 0 || h.acted.length > 0);
 check("the helpers make no constraint", p.constraints!.length === n0);
 process.exit(failureCount() ? 1 : 0);

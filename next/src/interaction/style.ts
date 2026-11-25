@@ -34,8 +34,9 @@ export const OPACITY = { sketchFill: 0.06, sketchHover: 0.28, hoverDisc: 0.14, h
 /** the flashing of a refused or already-applied constraint: a short pulse, in milliseconds (the old project flashed the bubble and the parts) */
 
 /** How each line of a drawing is drawn, by what it is doing: the tone (colour) and the weight, in one place (`in_1576`). The drawing code says `selected`; the screen turns it into a colour and a width. */
-export type StrokeKind = "ball" | "done" | "selected" | "preview" | "cursor" | "cut" | "tie" | "guide";
+export type StrokeKind = "ball" | "tieBall" | "done" | "selected" | "preview" | "cursor" | "cut" | "tie" | "guide";
 export const STROKE: Record<StrokeKind, { tone: Tone; /** times the figure's width */ weight: number; /** drawn a little see-through */ soft: boolean; /** drawn dashed */ dashed?: boolean }> = {
+  tieBall: { tone: "ties", weight: 1, soft: false }, // a point a helper is about: an orange ball
   ball: { tone: "figure", weight: 1, soft: false }, // a picked point: a teal ball, not a line (its size is WEIGHT.vertexBall of the view's height)
   done: { tone: "axis", weight: 0.75, soft: false }, // thin charcoal
   selected: { tone: "figure", weight: 1.3, soft: false },

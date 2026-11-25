@@ -5,9 +5,9 @@ import { placeBubbles, type Memory, type Obstacles } from "./interaction/bubblep
 import { iconSvg } from "./icons.ts";
 import { settings } from "./settings.ts";
 
-export interface BubbleHandlers { set(id: string, value: number): void; remove(id: string): void }
+export interface BubbleHandlers { set(id: string, value: number): void; remove(id: string): void; /** an offered constraint was clicked */ take(id: string): void }
 export interface Placed { bubble: Bubble; x: number; y: number }
-const TONE = { rest: "#d6d7db", refused: "#e46a6a", applied: "#3fae6a" } as const;
+const TONE = { rest: "#d6d7db", refused: "#e46a6a", applied: "#3fae6a", offer: "#f2c14e" } as const;
 
 export function createBubbleLayer(host: HTMLElement, h: BubbleHandlers) {
   const root = document.createElement("div");
@@ -15,7 +15,7 @@ export function createBubbleLayer(host: HTMLElement, h: BubbleHandlers) {
   const style = document.createElement("style");
   style.textContent = "@keyframes bubble-flash{0%,100%{box-shadow:0 1px 3px rgba(0,0,0,.18)}50%{box-shadow:0 0 0 4px rgba(228,106,106,.45)}}";
   host.append(style, root);
-  const els = new Map<string, { el: HTMLElement; sig: string; open: boolean; editing: boolean }>(), memory: Memory = new Map();
+  const over = new Set<string>(), els = new Map<string, { el: HTMLElement; sig: string; open: boolean; editing: boolean }>(), memory: Memory = new Map();
   const widthOf = (b: Bubble) => (b.kind === "dimension" ? 22 + (b.symbol && b.symbol !== "°" ? 10 : 0) + (b.text ?? "").length * 8 + (b.symbol === "°" ? 8 : 0) : 30);
 
   function fill(b: Bubble, e: { el: HTMLElement; sig: string; open: boolean; editing: boolean }): void {
@@ -28,7 +28,11 @@ export function createBubbleLayer(host: HTMLElement, h: BubbleHandlers) {
       num.addEventListener("click", (ev) => { ev.stopPropagation(); edit(b, e, num); });
       el.append(num);
       if (b.symbol === "°") { const s = document.createElement("span"); s.textContent = "°"; s.style.cssText = "font-weight:600;opacity:.6;margin-left:-3px"; el.append(s); }
-    } else { const i = document.createElement("span"); i.innerHTML = iconSvg(b.icon); i.style.cssText = "display:flex"; el.append(i); }
+    } else if (b.offer === "taken") { const i = document.createElement("span"); i.innerHTML = iconSvg("check"); i.style.cssText = "display:flex;color:#3fae6a"; el.append(i); }
+    else {
+      const i = document.createElement("span"); i.innerHTML = iconSvg(b.icon); i.style.cssText = "display:flex"; el.append(i);
+      if (b.offer === "open") { const q = document.createElement("span"); q.textContent = "?"; q.style.cssText = "font-weight:700;color:#c98f12"; el.append(q); el.style.borderStyle = "dashed"; el.style.cursor = "pointer"; }
+    }
     if (e.open) { const x = document.createElement("span"); x.innerHTML = iconSvg("cross"); x.title = "Delete"; x.style.cssText = "display:flex;cursor:pointer"; x.addEventListener("click", (ev) => { ev.stopPropagation(); h.remove(b.id); }); el.append(x); }
   }
   function edit(b: Bubble, e: { el: HTMLElement; sig: string; open: boolean; editing: boolean }, num: HTMLElement): void {
@@ -52,15 +56,17 @@ export function createBubbleLayer(host: HTMLElement, h: BubbleHandlers) {
         if (!e) {
           const el = document.createElement("div"); el.dataset.bubble = b.id; e = { el, sig: "", open: false, editing: false }; els.set(b.id, e); root.append(el);
           el.addEventListener("pointerdown", (ev) => ev.stopPropagation());
-          el.addEventListener("click", () => { const q = els.get(b.id)!; if (b.kind === "dimension") return; q.open = !q.open; q.sig = ""; });
+          el.addEventListener("pointerenter", () => { over.add(b.id); }); el.addEventListener("pointerleave", () => { over.delete(b.id); });
+          el.addEventListener("click", () => { const q = els.get(b.id)!; if (b.offer) { if (b.offer === "open") h.take(b.id); return; } if (b.kind === "dimension") return; q.open = !q.open; q.sig = ""; });
         }
-        const sig = `${b.tone}|${b.text ?? b.icon}|${e.open}`;
+        const sig = `${b.tone}|${b.text ?? b.icon}|${e.open}|${b.offer ?? ""}`;
         if (sig !== e.sig && !e.editing) { e.sig = sig; fill(b, e); }
         const q = put.get(b.id)!;
-        e.el.style.transform = `translate(${Math.round(q.left)}px,${Math.round(q.top)}px)`; e.el.style.opacity = q.faded ? "0.3" : "1"; e.el.style.pointerEvents = q.faded ? "none" : "auto";
+        e.el.style.transform = `translate(${Math.round(q.left)}px,${Math.round(q.top)}px)`; e.el.style.opacity = String((q.faded ? 0.3 : 1) * (b.fade ?? 1)); e.el.style.pointerEvents = q.faded ? "none" : "auto";
       }
-      for (const [id, e] of els) if (!seen.has(id)) { e.el.remove(); els.delete(id); }
+      for (const [id, e] of els) if (!seen.has(id)) { e.el.remove(); els.delete(id); over.delete(id); }
     },
+    /** whether the pointer is over a bubble */ hovered: (): boolean => over.size > 0,
     editing: (): boolean => [...els.values()].some((e) => e.editing),
     /** The rectangles the bubbles stand in (the page's pixels), for what must keep clear of them. */
     rects: (): [number, number, number, number][] => [...els.values()].map((e) => { const r = e.el.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom] as [number, number, number, number]; }),

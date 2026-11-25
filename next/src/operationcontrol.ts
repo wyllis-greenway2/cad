@@ -30,7 +30,7 @@ const ID = "operation";
 
 export function createOperations(host: OperationHost, page: HTMLElement) {
   let armed = false, op: Operation | null = null, grab: { s0: number; d0: number } | null = null;
-  const layer = createBubbleLayer(page, { set(_id, v) { if (op && isFinite(v)) op = op.withValue(v) ?? op; }, remove() { /* none */ } });
+  const layer = createBubbleLayer(page, { set(_id, v) { if (op && isFinite(v)) op = op.withValue(v) ?? op; }, remove() { /* none */ }, take() { /* none */ } });
   /** the arrow: from a little out of the thing's middle along its normal (the way it is pulled), to the tip; as long as the pull when that is longer than the arrow */
   const handle = (o: Operation, cam: Cam): Handle => {
     const a = o.arrow!, L = unitOf(cam, a.base), M = settings.mover, g = M.gapShare * L, A = M.arrowShare * L, dir = scale(a.normal, o.value < 0 ? -1 : 1);

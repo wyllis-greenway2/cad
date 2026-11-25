@@ -6458,3 +6458,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1581 — 2026-11-25 — question
 > do you think this is a good future proof rule set? Also if hints really are just constraint hints, do you think we should surface some ability to actually constrain them at the same time? Maybe the constraint bubble exists for a moment with a question mark, and fades a way, but if you click it before it fades then it goes to a green check mark and fades away (unless a line is slected because selected lines should always show their constraints)
 
+## in_1582 — 2026-11-25 — approval
+> yes fold in the gaps and build it with the bubble
+

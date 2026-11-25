@@ -12,8 +12,8 @@ const ball = (): THREE.Texture => { if (ballTexture) return ballTexture; const c
 
 export function drawLines(group: THREE.Group, lines: DrawLine[], w: number, h: number): void {
   for (const l of lines) {
-    if (l.kind === "ball") { // a picked point: a teal ball of the old app's size, on top of the model
-      const m = new THREE.SpriteMaterial({ map: ball(), color: new THREE.Color(COLOUR[STROKE.ball.tone]).getHex(), depthTest: false }), sp = new THREE.Sprite(m), p = l.pts[0]!;
+    if (l.kind === "ball" || l.kind === "tieBall") { // a picked point: a teal ball of the old app's size, on top of the model
+      const m = new THREE.SpriteMaterial({ map: ball(), color: new THREE.Color(COLOUR[STROKE[l.kind].tone]).getHex(), depthTest: false }), sp = new THREE.Sprite(m), p = l.pts[0]!;
       sp.position.set(p[0], p[1], p[2]); sp.scale.setScalar(2 * (l.r ?? 1)); sp.renderOrder = 12; group.add(sp); continue;
     }
     const g = new LineGeometry(); g.setPositions(l.pts.flat());

@@ -3,7 +3,7 @@
 // the screen (`bubbledraw.ts`) places and draws them, and `bubbleplace.ts` (the prototype's) says where on the page each stands.
 import { RANGEABLE, RELATIONS, kindOf, type Constraint, type Relation, type Solution, type System } from "../engine/solver.ts";
 
-export type BubbleTone = "rest" | "refused" | "applied";
+export type BubbleTone = "rest" | "refused" | "applied" | "offer";
 export interface Bubble {
   /** the constraint's id */ id: string;
   kind: "constraint" | "dimension";
@@ -14,6 +14,8 @@ export interface Bubble {
   tone: BubbleTone;
   /** the words (a tooltip): what it is and what it ties the selection to */ title: string;
   parts: string[];
+  /** a constraint a helper held, offered for a moment: a click makes it (`dec_helper_constraint_bubble`); `taken`: it was, and shows a check */ offer?: "open" | "taken";
+  /** how much of its colour is left while it fades (1: all) */ fade?: number;
 }
 /** A refusal while it flashes: the constraints that held the change back; and the ones that held already. */
 export interface Flash { refused?: readonly string[]; applied?: readonly string[] }

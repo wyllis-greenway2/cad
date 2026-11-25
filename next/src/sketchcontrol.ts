@@ -12,11 +12,13 @@ import { solveDefinition, segsOf } from "./engine/definition.ts";
 import { pointOnSeg, type Pt } from "./engine/region.ts";
 import { trimAt } from "./engine/trim.ts";
 import type { Relation } from "./engine/solver.ts";
-import { bake, constrain, emptySketch, hitAt, keep, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
-import { bubblesOn, selectionAnchor, type Flash } from "./interaction/bubbles.ts";
+import { bake, constrain, emptySketch, hitAt, keep, nextId, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
+import { anchorOf, bubblesOn, iconOf, selectionAnchor, type Bubble, type Flash } from "./interaction/bubbles.ts";
 import { barFor, type Bar } from "./interaction/helperbar.ts";
 import { createBubbleLayer, type Placed } from "./bubbledraw.ts";
-import { place, showOf, type Helped } from "./interaction/helpers.ts";
+import { helpersAt, P as FREE_P, S as FREE_S, L as FREE_L, C as FREE_C, type Free, type Helped } from "./engine/helpers.ts";
+import { helpShown, offersFrom, type Made } from "./interaction/helpshow.ts";
+import { RELATIONS, type Constraint } from "./engine/solver.ts";
 import { newTool, cancelFigure, toolClick, toolPreview, type Tool } from "./interaction/tools.ts";
 import { dragTo, joinFor, pinsOf } from "./interaction/dragging.ts";
 import { loopPoints, regionAt, type Region } from "./interaction/extrude.ts";
@@ -28,7 +30,7 @@ export interface SketchHost {
   planes(): { all: Map<string, Frame>; on: string; step: number };
   ray(x: number, y: number): { o: V3; d: V3 };
 }
-export interface DrawLine { pts: V3[]; /** a ball's radius, in mm */ r?: number; /** a dashed line's dash, in mm (the gap is 0.7 of it) */ dash?: number; kind: "done" | "selected" | "preview" | "cursor" | "cut" | "tie" | "guide" | "ball" }
+export interface DrawLine { pts: V3[]; /** a ball's radius, in mm */ r?: number; /** a dashed line's dash, in mm (the gap is 0.7 of it) */ dash?: number; kind: "done" | "selected" | "preview" | "cursor" | "cut" | "tie" | "tieBall" | "guide" | "ball" }
 
 export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: string, merge?: string) => void) {
   const defs = new Map<string, SketchParams>(), sols = new WeakMap<SketchParams, Sol>(), fillCache = new WeakMap<SketchParams, [number, number][][][]>();
@@ -39,11 +41,12 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   const selected = (key: string) => (selection.key === key ? selection.ids : []);
   /** a pixel's worth of the plane in mm, where the pointer is */
   /** where a click would put the place: on a point or curve as drawn, else drawn to the helpers' places (they place, they never constrain, `dec_hints_place_only`, `in_1579`) */
-  const placed = (c: { p: SketchParams; q: P2; tol: number }, s: Sol): { ref: Ref; help: Helped | null } => {
-    const r = refOf(c.p, s, c.q, c.tol);
-    if ("id" in r) return { ref: r, help: null };
-    const a = tool?.pts[0], h = place(c.p, s, a && tool?.kind === "line" ? posOf(s, a) : null, c.q, c.tol / settings.sketch.snapPx);
-    return h.held.length ? { ref: { at: h.at }, help: h } : { ref: r, help: null };
+  const placed = (c: { p: SketchParams; q: P2; tol: number }, s: Sol): { ref: Ref; help: Helped | null; free: Free } => {
+    const r = refOf(c.p, s, c.q, c.tol), a = tool?.pts[0], pos = a ? posOf(s, a) : null;
+    const free: Free = pos && tool?.kind === "line" ? { shape: "line", from: pos } : pos && tool?.kind === "circle" ? { shape: "circle", centre: pos } : { shape: "point" };
+    const h = helpersAt(viewSystem(c.p, s), free, "id" in r ? s.points[r.id]! : c.q, c.tol / settings.sketch.snapPx), co = h.acted.find((x) => x.relation === "coincident");
+    if ("id" in r) return { ref: r, help: h.holds.length ? h : null, free };
+    return h.acted.length ? { ref: co?.sources[0] ? { id: co.sources[0] } : { at: h.at }, help: h, free } : { ref: r, help: h.holds.length ? h : null, free };
   };
   /** the dash of a guide, as the old app's: 0.012 of the view's distance (the view's height over twice the tangent of half its angle, so it is the same in the straight view) */
   const dashAt = (f: Frame, q: P2) => { const { cam } = host.view(); return (viewHeight(cam, Math.max(forwardDepth(cam, to3(f, q)), 1e-3)) * 0.012) / (2 * Math.tan((settings.view.fovDeg * Math.PI) / 360)); };
@@ -67,6 +70,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       const r = retype(c.p, id, value);
       if (r.ok) { set(c.key, r.params, "Number", `n:${id}`); flash = {}; } else fail(r.why, r.victims);
     },
+    take(id) { takeOffer(id); },
     remove(id) {
       const c = current(); if (!c) return;
       const r = unconstrain(c.p, id); if (r.ok) set(c.key, r.params, "Delete constraint"); else fail(r.why, r.victims);
@@ -90,6 +94,31 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     const k = keep(next);
     if (k.ok) set(key, k.params, label); else fail(k.why, k.victims);
   };
+  // ---- the constraints a helper held, offered for a moment after a figure is placed (`dec_helper_constraint_bubble`): a bubble with a question mark; a click makes the constraint (a check, then it fades); a selected part shows its constraints always
+  type Offer = { id: string; c: Constraint; state: "open" | "taken"; until: number };
+  let offers: { key: string; base: SketchParams; items: Offer[] } | null = null;
+  const OFFER_MS = 4000, TAKEN_MS = 900, HOVER_MS = 1500, FADE_MS = 700;
+  const offerFor = (key: string, pl: { help: Helped | null }, at: Pt, start: Pt | null) => {
+    const p = defs.get(key)!, sol = solOf(p), S = viewSystem(p, sol);
+    if (!pl.help) { offers = null; return; }
+    const near = (q: Pt | null) => (q ? p.points.find((x) => Math.hypot(sol.points[x.id]![0] - q[0], sol.points[x.id]![1] - q[1]) < 1e-6)?.id : undefined);
+    const made: Made = { [FREE_P]: near(at), [FREE_S]: near(start) };
+    made[FREE_L] = (p.lines ?? []).find((l) => l.a === made[FREE_S] && l.b === made[FREE_P])?.id;
+    made[FREE_C] = [...(p.circles ?? [])].reverse().find((k) => k.c === made[FREE_S])?.id;
+    const cs = offersFrom(S, pl.help, made), now = performance.now();
+    offers = cs.length ? { key, base: p, items: cs.map((c, i) => ({ id: `offer:${i}`, c, state: "open" as const, until: now + OFFER_MS })) } : null;
+  };
+  const takeOffer = (id: string) => {
+    const o = offers?.items.find((i) => i.id === id), c = current(); if (!o || !c || !offers || o.state !== "open" || defs.get(c.key) !== offers.base) return;
+    const k = keep({ ...c.p, constraints: [...(c.p.constraints ?? []), { ...o.c, id: nextId(c.p, "c") }] });
+    if (k.ok) { set(c.key, k.params, "Constraint"); o.state = "taken"; o.until = performance.now() + TAKEN_MS; offers.base = k.params; } else fail(k.why, k.victims);
+  };
+  const offerBubbles = (S: ReturnType<typeof viewSystem>, now: number): Bubble[] => {
+    const c = current(); if (!offers || !c || offers.key !== c.key || defs.get(c.key) !== offers.base) { offers = null; return []; }
+    if (layer.hovered()) for (const i of offers.items) if (i.state === "open") i.until = Math.max(i.until, now + HOVER_MS); // (it waits while the pointer is on one)
+    offers.items = offers.items.filter((i) => now < i.until); if (!offers.items.length) { offers = null; return []; }
+    return offers.items.map((i) => ({ id: i.id, kind: "constraint" as const, relation: i.c.kind, icon: iconOf(i.c.kind), at: anchorOf(S, i.c), tone: i.state === "taken" ? "applied" as const : "offer" as const, offer: i.state, fade: Math.min(1, (i.until - now) / FADE_MS), title: i.state === "taken" ? "made" : `${RELATIONS[i.c.kind].label}? Click to make it`, parts: i.c.parts }));
+  };
   type Trimmed = { id: string; out: ReturnType<typeof trimAt>; err?: undefined } | { id: string; err: string; out?: undefined };
   const trimHere = (c: NonNullable<ReturnType<typeof here>>): Trimmed | null => {
     const s = solOf(c.p), h = hitAt(c.p, s, c.q, c.tol);
@@ -101,11 +130,11 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   return {
     active: () => tool !== null,
     tool: (): ToolKind | null => tool?.kind ?? null,
-    start(kind: ToolKind) { tool = newTool(kind); selection = { key: "", ids: [] }; },
+    start(kind: ToolKind) { tool = newTool(kind); selection = { key: "", ids: [] }; offers = null; },
     /** Right click or Esc: the figure under way is given up; with none, the tool is put away. Returns whether there was a tool. */
     stop(): boolean {
       if (!tool) return false;
-      if (tool.pts.length) tool = cancelFigure(tool); else tool = null;
+      if (tool.pts.length) tool = cancelFigure(tool); else { tool = null; offers = null; } // (an offer goes when the tool is put away)
       return true;
     },
     /** A click. With a tool on it is the tool's (a double click ends a line's chain); with none, it selects (Shift adds). Returns whether it was used. */
@@ -127,8 +156,9 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
         else { set(c.key, t.out.params, "Trim"); flash = {}; say(t.out.dropped.length ? `Trimmed. Let go: ${t.out.dropped.map((d) => `${d.kind} (${d.why})`).join("; ")}` : "Trimmed"); }
         return true;
       }
-      const s = solOf(c.p), r = placed(c, s).ref, done = toolClick(tool, c.p, s, r);
-      tool = done.tool; if (done.made) commit(c.key, done.made.params, done.made.label);
+      const s = solOf(c.p), pl = placed(c, s), done = toolClick(tool, c.p, s, pl.ref), start = tool.pts[0] ? posOf(s, tool.pts[0]) : null;
+      tool = done.tool;
+      if (done.made) { const before = c.p; commit(c.key, done.made.params, done.made.label); if (defs.get(c.key) !== before) offerFor(c.key, pl, posOf(s, pl.ref), start); }
       return true;
     },
     /** Keys of the sketch: Delete takes the selected parts away (no other key is bound for now, `in_1574`). Returns whether the key was used. */
@@ -202,8 +232,8 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
         } else {
           const pl = placed(c, s), at = posOf(s, pl.ref);
           for (const l of toolPreview(tool, s, at)) out.push({ kind: l.kind, pts: l.pts.map((z) => to3(c.f, z)) });
-          const shown = showOf(c.p, s, pl.help ?? { at, held: [] }, (part) => { const g = segsOf(c.p, s.points, s.radii).find((x) => x.name === part); return g ? polyline(g) : null; }, "id" in pl.ref ? pl.ref.id : null);
-          for (const l of shown) out.push({ kind: l.kind, pts: l.pts.map((z) => to3(c.f, z)), ...(l.kind === "guide" ? { dash: dashAt(c.f, at) } : {}) });
+          const shown = pl.help ? helpShown(pl.help, (part) => { const g = segsOf(c.p, s.points, s.radii).find((x) => x.name === part); return g ? polyline(g) : null; }, (id) => s.points[id] ?? null) : [];
+          for (const l of shown) out.push({ kind: l.kind, pts: l.pts.map((z) => to3(c.f, z)), ...(l.kind === "guide" ? { dash: dashAt(c.f, at) } : {}), ...(l.kind === "tieBall" ? { r: mmPerPx(c.f, l.pts[0]!) * 4.5 } : {}) });
           const arm = mmPerPx(c.f, at) * settings.sketch.crossPx, w = to3(c.f, at);
           out.push({ kind: "cursor", pts: [add(w, scale(c.f.u, -arm)), add(w, scale(c.f.u, arm))] }, { kind: "cursor", pts: [add(w, scale(vOf(c.f), -arm)), add(w, scale(vOf(c.f), arm))] });
         }
@@ -225,7 +255,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       if (!c) { layer.show([], { lines: [], dots: [] }); return { message }; }
       const s = solOf(c.p), S = viewSystem(c.p, s), px = (p: P2) => { const q = project(cam.cam, to3(c.f, p), cam.w, cam.h); return [q.x, q.y] as [number, number]; };
       const box = barBox; // (the bubbles keep clear of the helper bar)
-      const items: Placed[] = bubblesOn(S, selected(c.key), flash).map((bubble) => { const [x, y] = px(bubble.at); return { bubble, x, y }; });
+      const items: Placed[] = [...bubblesOn(S, selected(c.key), flash), ...offerBubbles(S, now)].map((bubble) => { const [x, y] = px(bubble.at); return { bubble, x, y }; });
       layer.show(items, { lines: c.p.lines?.map((l) => [px(s.points[l.a]!), px(s.points[l.b]!)] as [[number, number], [number, number]]) ?? [], dots: c.p.points.map((q) => px(s.points[q.id]!)), ...(box ? { rects: [box] } : {}) });
       return { message };
     },
