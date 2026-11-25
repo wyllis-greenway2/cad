@@ -12,7 +12,7 @@ import { solveDefinition, segsOf } from "./engine/definition.ts";
 import { pointOnSeg, type Pt } from "./engine/region.ts";
 import { trimAt } from "./engine/trim.ts";
 import type { Relation } from "./engine/solver.ts";
-import { addCircle, addLine, addRect, bake, constrain, emptySketch, hitAt, keep, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
+import { addArc, arcWay, addCircle, addLine, addRect, bake, constrain, emptySketch, hitAt, keep, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
 import { bubblesOn, selectionAnchor, type Flash } from "./interaction/bubbles.ts";
 import { barFor } from "./interaction/helperbar.ts";
 import { createHelperBar } from "./helperbardraw.ts";
@@ -135,6 +135,10 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       }
       const s = solOf(c.p), r = refOf(c.p, s, c.q, c.tol, host.planes().step), a = tool.pts[0];
       if (!a) { tool = { ...tool, pts: [r] }; return true; }
+      if (tool.kind === "arc") { // centre, start, then where it ends
+        if (tool.pts.length === 1) { tool = { ...tool, pts: [a, r] }; return true; }
+        commit(c.key, addArc(c.p, s, tool.pts[0]!, tool.pts[1]!, posOf(s, r)), "Arc"); tool = { ...tool, pts: [] }; return true;
+      }
       if (tool.kind === "line") { commit(c.key, addLine(c.p, s, a, r), "Line"); tool = { ...tool, pts: [r] }; }
       else if (tool.kind === "rect") { commit(c.key, addRect(c.p, s, a, r), "Rectangle"); tool = { ...tool, pts: [] }; }
       else { commit(c.key, addCircle(c.p, s, a, posOf(s, r)), "Circle"); tool = { ...tool, pts: [] }; }
@@ -222,6 +226,12 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
           const r = refOf(c.p, s, c.q, c.tol, host.planes().step), at = posOf(s, r), a = tool.pts[0], A = a ? posOf(s, a) : null;
           if (A && tool.kind === "line") out.push({ kind: "preview", pts: [to3(c.f, A), to3(c.f, at)] });
           else if (A && tool.kind === "rect") out.push({ kind: "preview", pts: [A, [at[0], A[1]], at, [A[0], at[1]], A].map((z) => to3(c.f, z as P2)) });
+          else if (A && tool.kind === "arc" && tool.pts.length === 1) out.push({ kind: "preview", pts: [to3(c.f, A), to3(c.f, at)] }); // (the radius, to the pointer)
+          else if (tool.kind === "arc" && tool.pts.length === 2) { // the arc from its start to where the pointer is, and the lines from its centre
+            const m = posOf(s, tool.pts[0]!), st = posOf(s, tool.pts[1]!), r = Math.hypot(st[0] - m[0], st[1] - m[1]), d = Math.hypot(at[0] - m[0], at[1] - m[1]);
+            if (r > 1e-9 && d > 1e-9) { const e: P2 = [m[0] + ((at[0] - m[0]) / d) * r, m[1] + ((at[1] - m[1]) / d) * r], w = arcWay(m, st, e), a0 = Math.atan2(st[1] - m[1], st[0] - m[0]), n = Math.max(2, Math.ceil(w.sweep / 0.05));
+              out.push({ kind: "preview", pts: Array.from({ length: n + 1 }, (_, k) => to3(c.f, [m[0] + r * Math.cos(a0 + (w.cw ? -1 : 1) * (w.sweep * k) / n), m[1] + r * Math.sin(a0 + (w.cw ? -1 : 1) * (w.sweep * k) / n)])) }, { kind: "preview", pts: [to3(c.f, st), to3(c.f, m), to3(c.f, e)] }); }
+          }
           else if (A && tool.kind === "circle") { const rad = Math.hypot(at[0] - A[0], at[1] - A[1]); out.push({ kind: "preview", pts: Array.from({ length: 65 }, (_, k) => to3(c.f, [A[0] + rad * Math.cos((k / 64) * 2 * Math.PI), A[1] + rad * Math.sin((k / 64) * 2 * Math.PI)])) }); }
           const arm = mmPerPx(c.f, at) * settings.sketch.crossPx, w = to3(c.f, at);
           out.push({ kind: "cursor", pts: [add(w, scale(c.f.u, -arm)), add(w, scale(c.f.u, arm))] }, { kind: "cursor", pts: [add(w, scale(vOf(c.f), -arm)), add(w, scale(vOf(c.f), arm))] });

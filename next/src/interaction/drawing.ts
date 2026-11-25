@@ -111,6 +111,26 @@ export function addCircle(p: SketchParams, s: Sol, c: Ref, through: Pt): SketchP
   return { ...C.p, circles: [...(C.p.circles ?? []), { id: nextId(C.p, "K"), c: C.id, r }] };
 }
 
+/** the direction an arc goes from its start to a place: the short way round (a half turn or less), counter-clockwise or clockwise; the angles are those of the start and the place seen from the centre */
+export function arcWay(c: Pt, start: Pt, to: Pt): { cw: boolean; sweep: number } {
+  const TAU = 2 * Math.PI, a0 = Math.atan2(start[1] - c[1], start[0] - c[0]), a1 = Math.atan2(to[1] - c[1], to[0] - c[0]), ccw = (((a1 - a0) % TAU) + TAU) % TAU;
+  return ccw <= Math.PI ? { cw: false, sweep: ccw } : { cw: true, sweep: TAU - ccw };
+}
+/**
+ * An arc by its centre, its start (so its radius) and a place that says where it ends: the end is the place seen from the centre, on the circle through the start, and the arc goes the short way round to it. The start and the end are points of the sketch
+ * held on the arc (the engine's own arc: a circle with its two ends on it); a start on a point or a curve that is there joins it as any figure's point does.
+ */
+export function addArc(p: SketchParams, s: Sol, c: Ref, a: Ref, to: Pt): SketchParams | null {
+  const mc = posOf(s, c), ma = posOf(s, a), r = hyp(ma[0] - mc[0], ma[1] - mc[1]);
+  if (r < 1e-9) return null;
+  const d = hyp(to[0] - mc[0], to[1] - mc[1]); if (d < 1e-9) return null;
+  const e: Pt = [mc[0] + ((to[0] - mc[0]) / d) * r, mc[1] + ((to[1] - mc[1]) / d) * r];
+  if (hyp(e[0] - ma[0], e[1] - ma[1]) < 1e-9) return null; // (an end on the start is no arc)
+  const C = pointFor(p, c), A = pointFor(C.p, a), B = pointFor(A.p, { at: e });
+  const { cw } = arcWay(mc, ma, e);
+  return { ...B.p, arcs: [...(B.p.arcs ?? []), { id: nextId(B.p, "A"), c: C.id, a: A.id, b: B.id, ...(cw ? { cw: true } : {}) }] };
+}
+
 // ---------------------------------------------------------------- taking parts away
 /** The parts go with what hangs on them: a point takes the lines, circles and arcs that use it; every constraint that names a part that is gone goes; an end point that nothing else uses goes with its line. */
 export function removeParts(p: SketchParams, ids: string[]): SketchParams {

@@ -4,7 +4,7 @@ import type { Frame } from "./planes.ts";
 import { vOf } from "./planes.ts";
 
 export type P2 = [number, number];
-export type ToolKind = "line" | "rect" | "circle" | "trim";
+export type ToolKind = "line" | "rect" | "circle" | "arc" | "trim";
 export const to3 = (f: Frame, p: P2): V3 => add(f.origin, add(scale(f.u, p[0]), scale(vOf(f), p[1])));
 export const to2 = (f: Frame, q: V3): P2 => { const d = sub(q, f.origin); return [dot(d, f.u), dot(d, vOf(f))]; };
 /** Where a ray meets the plane (null: it never does). */

@@ -171,7 +171,7 @@ function startTool(kind: ToolKind) {
 // ---- the right-click ring: the pencil (its tools open as a ring of their own) and the sketch plane ----
 const menu = createMenu(document.body, (id) => { if (id === "extrude") startExtrude(); else if (id === "sketch-plane") addSketchPlane(); else if (id.startsWith("tool:")) startTool(id.slice(5) as ToolKind); });
 const menuItems = (): MenuItem[] => [
-  { id: "pencil", label: "Sketch", icon: "sketch", children: [{ id: "tool:line", label: "Line", icon: "line" }, { id: "tool:rect", label: "Rectangle", icon: "rect" }, { id: "tool:circle", label: "Circle", icon: "circle" }, { id: "tool:trim", label: "Trim", icon: "scissors" }] },
+  { id: "pencil", label: "Sketch", icon: "sketch", children: [{ id: "tool:line", label: "Line", icon: "line" }, { id: "tool:rect", label: "Rectangle", icon: "rect" }, { id: "tool:circle", label: "Circle", icon: "circle" }, { id: "tool:arc", label: "Arc (centre, start, end)", icon: "arc" }, { id: "tool:trim", label: "Trim", icon: "scissors" }] },
   { id: "extrude", label: "Extrude", icon: "pushpull" },
   { id: "sketch-plane", label: "Sketch plane", icon: "sheetPlain" },
 ];

@@ -1,7 +1,7 @@
 // A dev stress run (not a test, `in_1444`) of drawing as a person does it, through `interaction/drawing.ts`: random clicks make lines, rectangles and circles (on grid crossings, on points, on curves), numbers and relations are put on random selections,
 // numbers are retyped, parts are deleted, curves are trimmed. The promises: nothing throws; a definition that was kept solves; a refusal says why; what a trim leaves solves; a deleted part leaves no constraint that names it.
 //   node --experimental-strip-types dev/stress-drawing.ts [sessions] [seed]
-import { addCircle, addLine, addRect, constrain, emptySketch, hitAt, keep, refOf, removeParts, retype, type Sol } from "../src/interaction/drawing.ts";
+import { addArc, addCircle, addLine, addRect, constrain, emptySketch, hitAt, keep, refOf, removeParts, retype, type Sol } from "../src/interaction/drawing.ts";
 import { solveDefinition } from "../src/engine/definition.ts";
 import { trimAt } from "../src/engine/trim.ts";
 import { RELATIONS, type Relation } from "../src/engine/solver.ts";
@@ -22,7 +22,8 @@ for (let s = 0; s < N; s++) {
       let next: SketchParams | null = null, what = "";
       if (roll < 0.25) { next = addLine(p, sol, ref(), ref()); what = "line"; }
       else if (roll < 0.4) { next = addRect(p, sol, ref(), ref()); what = "rect"; }
-      else if (roll < 0.5) { const c = spot(); next = addCircle(p, sol, refOf(p, sol, c, 0.6, 1), spot()); what = "circle"; }
+      else if (roll < 0.45) { const c = spot(); next = addCircle(p, sol, refOf(p, sol, c, 0.6, 1), spot()); what = "circle"; }
+      else if (roll < 0.5) { next = addArc(p, sol, ref(), ref(), spot()); what = "arc"; }
       else if (roll < 0.7) {
         const parts = [...p.points.map((x) => x.id), ...(p.lines ?? []).map((x) => x.id), ...(p.circles ?? []).map((x) => x.id), ...(p.arcs ?? []).map((x) => x.id)]; if (!parts.length) continue;
         const sel = [pick(parts), ...(rnd() < 0.5 ? [pick(parts)] : [])].filter((x, i, a) => a.indexOf(x) === i), kind = rnd() < 0.4 ? "dimension" as const : pick(KINDS);
