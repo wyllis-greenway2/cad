@@ -6426,3 +6426,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1571 — 2026-11-25 — approval
 > yes build the arc tool
+
+## in_1572 — 2026-11-25 — directive
+> lets test now and see what to fix
