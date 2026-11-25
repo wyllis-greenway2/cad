@@ -28,7 +28,7 @@ export interface SketchHost {
   planes(): { all: Map<string, Frame>; on: string; step: number };
   ray(x: number, y: number): { o: V3; d: V3 };
 }
-export interface DrawLine { pts: V3[]; kind: "done" | "selected" | "preview" | "cursor" | "cut" | "tie" | "guide" }
+export interface DrawLine { pts: V3[]; /** a ball's radius, in mm */ r?: number; kind: "done" | "selected" | "preview" | "cursor" | "cut" | "tie" | "guide" | "ball" }
 
 export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: string, merge?: string) => void) {
   const defs = new Map<string, SketchParams>(), sols = new WeakMap<SketchParams, Sol>(), fillCache = new WeakMap<SketchParams, [number, number][][][]>();
@@ -189,7 +189,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       for (const [k, p] of defs) {
         const f = all.get(k)!, s = solOf(p), sel = new Set(selected(k)), seg = segsOf(p, s.points, s.radii);
         for (const q of seg) out.push({ kind: sel.has(q.name) ? "selected" : "done", pts: polyline(q).map((z) => to3(f, z)) });
-        for (const x of p.points) { if (!sel.has(x.id)) continue; const at = s.points[x.id]; if (!at) continue; const a = mmPerPx(f, at) * 5; out.push({ kind: "selected", pts: [to3(f, [at[0] - a, at[1]]), to3(f, [at[0] + a, at[1]])] }, { kind: "selected", pts: [to3(f, [at[0], at[1] - a]), to3(f, [at[0], at[1] + a])] }); } // (the old app marks no point until it is picked)
+        for (const x of p.points) { const at = sel.has(x.id) ? s.points[x.id] : null; if (at) out.push({ kind: "ball", pts: [to3(f, at)], r: mmPerPx(f, at) * 4.5 }); } // (the old app marks no point until it is picked, then a teal ball)
       }
       if (drag?.snapAt) { const f = all.get(drag.key); if (f) { const arm = mmPerPx(f, drag.snapAt) * settings.sketch.crossPx * 1.4, w = to3(f, drag.snapAt); out.push({ kind: "cursor", pts: [add(w, scale(f.u, -arm)), add(w, scale(f.u, arm))] }, { kind: "cursor", pts: [add(w, scale(vOf(f), -arm)), add(w, scale(vOf(f), arm))] }); } }
       const c = pointer && tool ? here(pointer.x, pointer.y) : null;
