@@ -79,3 +79,25 @@ Each item is a look-and-feel piece to **copy** (`keep`), **change** or **drop**;
 | "different extrude types … based off how the face should extend … the chamfered block to pyramid example" | To do: see `docs/decisions/dec_edits_saturate.md` (`in_405`) and `engine_requirements.md` E32 (modes Edit, Push, Move, Offset). The engine has them; the screen offers one. To offer **Extrude** (a prism of the face), **Move** (the step that made it changes: grows the height), **Extend** (the face and its neighbours carried on until they meet: the chamfered block to a pyramid) as options in the operation bar |
 | "keep the keyboard bindings off for now" | **Done:** the D key for a dimension is gone; undo, redo, Delete and Esc stay (the old app binds the same and no letter keys) |
 | "keep the colored on constraints like the original prototype" | Read as the **constraint colours**: amber for the parts a constraint ties, red for the ones that refuse, mild green for one that already holds, teal for selected (the old app has no colour for how constrained a sketch is). To do (L9) |
+
+## 9. Lines, points, bodies and the extrusion (the human's questions, `in_1575`)
+
+**Lines and points: not the same, and now closer.** Old app: thin charcoal lines, **no mark at any point** until it is picked (then a teal ball), the picked line a thicker teal, **a closed figure tinted very faintly (6%)**. Rebuild before this change: a "+" tick at every point and no tint. Done now: the ticks are gone (only a picked point is marked), closed figures carry the faint teal tint (a hole is left out). Not done: the ball for a picked point (a small cross for now), the line weights (the old app's thin charcoal against the rebuild's 2 px), the hover disc that the old app hides while drawing.
+
+**Bodies: not the same, and now the same way made.** Old app: the body has a slight clear coat over the grey, and **its lights ride with the camera** (the key to the left and above it, a weak fill at the eye), so the top that faces the sky is the lightest and the shading is the same from any side; the outline is the dark charcoal. Rebuild before: a flat matte grey with the light at the eye. Done now: the old app's material and lights (settings `light`), the same outline colour. Still a little darker than the old app's top face; the sheen's reflection map is not ported.
+
+**Extrusion: not the same yet.** Old app: picking a closed figure lights **the whole figure teal**, a **small double-headed arrow** stands in its middle (pulled from the middle either way), the number "0" sits as a chip at the figure's edge, and the body that results is the grey one above. Rebuild: a long one-way arrow from the middle with the number at its tip, a teal ghost prism while pulling. To do (L11): the double arrow and the chip's place, the figure lit teal when picked.
+
+![old: picked figure with the arrow and its number](look/prototype/21-sketch-selected-arrow.png)
+![old: the body made](look/prototype/23-extruded.png)
+
+## 10. Face pull kinds (`in_1575`, `dec_edits_saturate`): done
+
+The operation bar of a pulled face now has **Move | Extrude | Extend** (and Offset for a round wall), the kinds the engine has (`pullModes`, E32): **Move** changes the step that made the face (the height grows; what the old app did), **Extrude** adds a prism of the face's outline (the chamfers stay as a ledge), **Extend** moves the face and carries its neighbours on until they meet (the chamfered block towards a pyramid; past the tip it says where they meet, 6.999 mm on the human's 20 x 20 x 10 block with 3 mm chamfers, and makes nothing different). The first that applies is chosen at the start (Move when a step made the face). `dev/pullmodes-check.ts` (the kernel) and `dev/pullkinds-browser.ts` (the page) check all three on that block.
+
+![kinds](look/new/21-pull-kinds-chips.png)
+![Extrude on the chamfered top: a prism, the chamfers a ledge](look/new/23-extrude-kind-result.png)
+
+## 11. The helper bar (`in_1574`, `in_1575`): done
+
+Same look (a rounded white row with a teal edge, the suggested relations in a dashed teal outline of their own, round 28 px buttons) and **the same place** (67 px below the middle of what is selected, 6 px to its left; above it when there is no room). The delete button is on the left; a click on nothing puts the pick away (no cross).

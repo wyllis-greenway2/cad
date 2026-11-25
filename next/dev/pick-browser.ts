@@ -18,7 +18,7 @@ try {
   ok((await ev<any>(`() => window.__bodies.debug()`)).over === "face", "pointing at the top face marks it");
   await page.mouse.click(fx, fy); await page.waitForTimeout(250);
   let d = await ev<any>(`() => window.__bodies.debug()`); ok(d.sel?.faces.length === 1 && d.sel.edges.length === 0, `a click picks the face: ${JSON.stringify(d.sel)}`);
-  let b = await bar(); ok(b.includes("body:sketch") && b.includes("body:pull") && b.includes("body:clear"), `the bar offers sketch and push/pull: ${b.join(" ")}`);
+  let b = await bar(); ok(b.includes("body:sketch") && b.includes("body:pull") , `the bar offers sketch and push/pull: ${b.join(" ")}`);
   writeFileSync(`${dir}/pick-1.png`, await page.screenshot());
   const [ex, ey] = await pxOf([20, 25, 10]);
   await page.mouse.click(ex, ey); await page.waitForTimeout(250);
@@ -31,7 +31,7 @@ try {
   d = await ev<any>(`() => window.__bodies.debug()`); ok(d.sel === null && (await bar()).length === 0, "Esc puts the pick away, and the bar");
   // push / pull the top face: pick, press the bar's button, drag the arrow out, apply
   await page.mouse.click(fx, fy); await page.waitForTimeout(250); await page.click("[data-bar='body:pull']"); await page.waitForTimeout(250);
-  d = await ev<any>(`() => window.__ext.debug()`); ok(d.pull?.mode === "push" && d.pull.d === 0, `the bar's push/pull puts the arrow on the face: ${JSON.stringify(d.pull)}`);
+  d = await ev<any>(`() => window.__ext.debug()`); ok(d.pull?.mode === "push" && d.pull.d === 0 && d.pull.kind === "edit", `the bar's push/pull puts the arrow on the face: ${JSON.stringify(d.pull)}`);
   const arrow = await ev<number[][]>(`() => window.__ext.drawing(null).handles[0].points`);
   const mid = await ev<[number, number]>(`() => window.__proj3([${arrow[0]!.map((v, i) => (v + arrow[1]![i]!) / 2)}])`);
   await page.mouse.move(mid[0], mid[1]); await page.mouse.down(); await page.mouse.move(mid[0], mid[1] - 40, { steps: 5 }); await page.waitForTimeout(100);
@@ -39,7 +39,7 @@ try {
   writeFileSync(`${dir}/pick-3.png`, await page.screenshot());
   await page.mouse.up(); await page.keyboard.press("Enter"); await ev(`() => window.__studio.settled()`); await page.waitForTimeout(400);
   const st = await ev<any>(`() => { const s = window.__studio.state(); return { steps: s.steps.map((x) => x.kind), problem: s.problem, top: Math.max(...Array.from({ length: s.meshes[0].positions.length / 3 }, (_, i) => s.meshes[0].positions[3 * i + 2])) }; }`);
-  ok(st.steps.join() === "sketchPolygon,extrude,push" && st.problem === "" && st.top > 12, `the engine pushed the face out: ${JSON.stringify(st)}`);
+  ok(st.steps.join() === "sketchPolygon,extrude" && st.problem === "" && st.top > 12, `Move (the default) changed the extrude's depth: ${JSON.stringify(st)}`);
 
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   await close();

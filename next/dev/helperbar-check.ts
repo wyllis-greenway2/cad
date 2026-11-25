@@ -8,7 +8,7 @@ const n = addRect(p, s0, refOf(p, s0, [0, 0], 0.5, 1), refOf(p, s0, [40, 25], 0.
 const S = viewSystem(p, k.sol);
 check("nothing selected: no bar", barFor(S, []).left.length === 0 && barFor(S, []).right.length === 0);
 const one = barFor(S, ["L1"]);
-check("a side: delete and put away on the left", one.left.map((b) => b.id).join() === "delete,clear");
+check("a side: delete on the left (a click on nothing puts the selection away)", one.left.map((b) => b.id).join() === "delete");
 check("a side: a number first (length), then the relations that fit", one.right[0]!.id === "rel:length" && /40/.test(one.right[0]!.label), one.right.map((b) => b.id).join());
 check("a side that is level: the level relation is said already and is not offered; a vertical is offered refused with what holds it back", !one.right.some((b) => b.id === "rel:horizontal") && one.right.find((b) => b.id === "rel:vertical")?.tone === "refused" && /holds|hold/.test(one.right.find((b) => b.id === "rel:vertical")?.note ?? ""));
 const two = barFor(S, ["L1", "L3"]);

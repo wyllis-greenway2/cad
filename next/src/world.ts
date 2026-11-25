@@ -63,9 +63,13 @@ export interface Drawing {
   /** What a pull would make, shown before the engine has made it: the outline (and holes) in the plane's axes, pulled `d` along the plane's normal, in the See-through look marked as picked. */
   /** What is picked or pointed at on the bodies: laid over them in the Marked look (teal). */
   marks?: Mark[];
+  /** The closed parts of the drawings, tinted very faintly (6%): each an outline and its holes in the plane's axes. */
+  fills?: { frame: { origin: V3; u: V3; v: V3 }; loops: [number, number][][] }[];
   ghost?: { frame: { origin: V3; u: V3; v: V3; n: V3 }; loops: [number, number][][]; d: number } | { faceMove: { positions: Float32Array; n: V3; d: number } } | null;
 }
 
+/** a body's surface as the old app made it: a slight clear coat over the grey, drawn behind its own outline */
+const bodyMaterial = () => new THREE.MeshPhysicalMaterial({ roughness: settings.light.roughness, metalness: 0, clearcoat: settings.light.sheen, clearcoatRoughness: settings.light.sheenRoughness, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
 export function createWorld(canvas: HTMLCanvasElement, model: Model) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, stencil: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -74,8 +78,8 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
   const persp = new THREE.PerspectiveCamera(settings.view.fovDeg, 1, 0.1, 1000);
   const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000); // a straight view at rest is drawn with this: nothing of the third dimension is seen when the view is slid across
   let camera: THREE.PerspectiveCamera | THREE.OrthographicCamera = persp;
-  const ambient = new THREE.AmbientLight(0xffffff, settings.light.ambient), key = new THREE.DirectionalLight(0xffffff, settings.light.key);
-  scene.add(ambient, key, key.target);
+  const ambient = new THREE.AmbientLight(0xffffff, settings.light.ambient * Math.PI), key = new THREE.DirectionalLight(0xffffff, settings.light.key), fill = new THREE.DirectionalLight(0xffffff, settings.light.fill);
+  scene.add(ambient, key, key.target, fill, fill.target);
 
   // stand-in bodies (rebuilt when the model changes)
   const bodies = new THREE.Group();
@@ -85,7 +89,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
   for (const t of model.things) {
     const size = vec([t.hi[0] - t.lo[0], t.hi[1] - t.lo[1], t.hi[2] - t.lo[2]]);
     const g = new THREE.BoxGeometry(size.x, size.y, size.z);
-    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
+    const m = new THREE.Mesh(g, bodyMaterial());
     m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial()));
     m.userData.thing = t.id; m.userData.look = "";
     m.position.copy(vec(centreOf(t)));
@@ -94,7 +98,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
   for (const b of solids) { // the bodies the engine made
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(b.positions, 3)); g.setAttribute("normal", new THREE.BufferAttribute(b.normals, 3)); g.setIndex(new THREE.BufferAttribute(b.indices, 1));
-    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
+    const m = new THREE.Mesh(g, bodyMaterial());
     const eg = new THREE.BufferGeometry(); eg.setAttribute("position", new THREE.BufferAttribute(b.edges, 3));
     m.add(new THREE.LineSegments(eg, new THREE.LineBasicMaterial()));
     m.userData.thing = b.id; m.userData.look = "";
@@ -109,7 +113,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
       const look = looks?.[m.userData.thing as string] ?? SOLID, key = `${look.base}/${look.mark ?? ""}`;
       if (m.userData.look === key) continue;
       m.userData.look = key;
-      const sf = surfaceOf(look), mat = m.material as THREE.MeshLambertMaterial, edges = m.children[0] as THREE.LineSegments, em = edges.material as THREE.LineBasicMaterial;
+      const sf = surfaceOf(look), mat = m.material as THREE.MeshPhysicalMaterial, edges = m.children[0] as THREE.LineSegments, em = edges.material as THREE.LineBasicMaterial;
       mat.color.setHex(sf.color); mat.opacity = sf.opacity; mat.transparent = sf.transparent; mat.depthWrite = sf.depthWrite; mat.needsUpdate = true;
       em.color.setHex(sf.edge); em.opacity = sf.edgeOpacity; em.transparent = sf.edgeOpacity < 1; em.needsUpdate = true;
     }
@@ -183,6 +187,18 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
   const dyn = new THREE.Group(); scene.add(dyn);
   const drop = () => { for (const o of [...dyn.children]) { dyn.remove(o); o.traverse((q) => { (q as THREE.Mesh).geometry?.dispose?.(); }); } };
 
+  // the tint of closed sketches
+  const fillGroup = new THREE.Group(); scene.add(fillGroup); let fillKey = "";
+  const setFills = (fills: Drawing["fills"]) => {
+    const key = JSON.stringify(fills ?? []); if (key === fillKey) return; fillKey = key;
+    fillGroup.traverse((o) => { (o as THREE.Mesh).geometry?.dispose(); }); fillGroup.clear();
+    for (const f of fills ?? []) {
+      if (!f.loops.length) continue;
+      const shape = new THREE.Shape(f.loops[0]!.map((p) => new THREE.Vector2(p[0], p[1]))); for (const h of f.loops.slice(1)) shape.holes.push(new THREE.Path(h.map((p) => new THREE.Vector2(p[0], p[1]))));
+      const m = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({ color: 0x1ab8b3, transparent: true, opacity: 0.06, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
+      m.matrixAutoUpdate = false; m.matrix.makeBasis(vec(f.frame.u), vec(f.frame.v), vec(f.frame.u).cross(vec(f.frame.v))).setPosition(vec(f.frame.origin)); m.matrixWorldNeedsUpdate = true; m.renderOrder = 1; fillGroup.add(m);
+    }
+  };
   // the marks: faces and edges of the bodies, in the Marked look (teal); made again when they change
   const markGroup = new THREE.Group(); scene.add(markGroup);
   let markKey = ""; const markLines: LineMaterial[] = [];
@@ -238,7 +254,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
     render(d: Drawing) {
       renderer.setSize(d.w, d.h, false);
       lookBodies(d.looks);
-      setGhost(d.ghost); setMarks(d.marks, d.w, d.h);
+      setGhost(d.ghost); setMarks(d.marks, d.w, d.h); setFills(d.fills);
       const c = d.cam, f = forward(c);
       // an orthographic view (a straight view at rest) is drawn with the orthographic camera, so that sliding it shows nothing of the third
       // dimension; between it and perspective, the perspective camera with the lens narrowed
@@ -254,7 +270,11 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
         persp.near = d.depth * settings.view.nearShare; persp.far = d.depth * settings.view.farShare;
       }
       camera.updateProjectionMatrix();
-      key.position.copy(camera.position); key.target.position.copy(vec([c.eye[0] + f[0], c.eye[1] + f[1], c.eye[2] + f[2]]));
+      { // the lights ride with the camera: the key to the left of it and above (the old app: 0.7 of the distance left, 0.9 up), the fill at the eye, so the shading is the same from any side
+        const R = rightOf(c), U = upOf(c), D = 100;
+        key.position.set(c.eye[0] - R[0] * 0.7 * D + U[0] * 0.9 * D, c.eye[1] - R[1] * 0.7 * D + U[1] * 0.9 * D, c.eye[2] - R[2] * 0.7 * D + U[2] * 0.9 * D);
+        key.target.position.set(c.eye[0] + f[0] * D, c.eye[1] + f[1] * D, c.eye[2] + f[2] * D); fill.position.copy(camera.position); fill.target.position.copy(key.target.position);
+      }
       // the grid: lines at whole multiples of the spacing from the origin (the world's), the quad following the view in whole steps so the lines do
       // not swim
       const big = d.grid.step * 100;

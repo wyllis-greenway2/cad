@@ -17,7 +17,8 @@ import { bubblesOn, selectionAnchor, type Flash } from "./interaction/bubbles.ts
 import { barFor } from "./interaction/helperbar.ts";
 import { createHelperBar } from "./helperbardraw.ts";
 import { createBubbleLayer, type Placed } from "./bubbledraw.ts";
-import { regionAt, type Region } from "./interaction/extrude.ts";
+import { loopPoints, regionAt, type Region } from "./interaction/extrude.ts";
+import { regions } from "./engine/region.ts";
 
 export interface SketchHost {
   view(): { cam: Cam; w: number; h: number };
@@ -29,7 +30,7 @@ export interface DrawLine { pts: V3[]; kind: "done" | "selected" | "preview" | "
 type Tool = { kind: ToolKind; pts: Ref[] };
 
 export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: string, merge?: string) => void) {
-  const defs = new Map<string, SketchParams>(), sols = new WeakMap<SketchParams, Sol>();
+  const defs = new Map<string, SketchParams>(), sols = new WeakMap<SketchParams, Sol>(), fillCache = new WeakMap<SketchParams, [number, number][][][]>();
   let tool: Tool | null = null, selection: { key: string; ids: string[] } = { key: "", ids: [] }, flash: Flash = {}, flashUntil = 0, message = "", messageUntil = 0;
   const say = (text: string, ms = 4000) => { message = text; messageUntil = performance.now() + ms; };
   const solOf = (p: SketchParams): Sol => { let s = sols.get(p); if (!s) { const r = solveDefinition(p); s = { points: r.points, radii: r.radii }; sols.set(p, s); } return s; };
@@ -203,9 +204,9 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       const { all } = host.planes(), out: DrawLine[] = [];
       for (const k of [...defs.keys()]) if (!all.has(k)) defs.delete(k); // (the plane is gone, and its sketch)
       for (const [k, p] of defs) {
-        const f = all.get(k)!, s = solOf(p), sel = new Set(selected(k)), seg = segsOf(p, s.points, s.radii), arm = 3;
+        const f = all.get(k)!, s = solOf(p), sel = new Set(selected(k)), seg = segsOf(p, s.points, s.radii);
         for (const q of seg) out.push({ kind: sel.has(q.name) ? "selected" : "done", pts: polyline(q).map((z) => to3(f, z)) });
-        for (const x of p.points) { const at = s.points[x.id]; if (!at) continue; const a = mmPerPx(f, at) * (sel.has(x.id) ? 5 : arm); out.push({ kind: sel.has(x.id) ? "selected" : "done", pts: [to3(f, [at[0] - a, at[1]]), to3(f, [at[0] + a, at[1]])] }, { kind: sel.has(x.id) ? "selected" : "done", pts: [to3(f, [at[0], at[1] - a]), to3(f, [at[0], at[1] + a])] }); }
+        for (const x of p.points) { if (!sel.has(x.id)) continue; const at = s.points[x.id]; if (!at) continue; const a = mmPerPx(f, at) * 5; out.push({ kind: "selected", pts: [to3(f, [at[0] - a, at[1]]), to3(f, [at[0] + a, at[1]])] }, { kind: "selected", pts: [to3(f, [at[0], at[1] - a]), to3(f, [at[0], at[1] + a])] }); } // (the old app marks no point until it is picked)
       }
       if (drag?.snapAt) { const f = all.get(drag.key); if (f) { const arm = mmPerPx(f, drag.snapAt) * settings.sketch.crossPx * 1.4, w = to3(f, drag.snapAt); out.push({ kind: "cursor", pts: [add(w, scale(f.u, -arm)), add(w, scale(f.u, arm))] }, { kind: "cursor", pts: [add(w, scale(vOf(f), -arm)), add(w, scale(vOf(f), arm))] }); } }
       const c = pointer && tool ? here(pointer.x, pointer.y) : null;
@@ -244,6 +245,17 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       const items: Placed[] = bubblesOn(S, selected(c.key), flash).map((bubble) => { const [x, y] = px(bubble.at); return { bubble, x, y }; });
       layer.show(items, { lines: c.p.lines?.map((l) => [px(s.points[l.a]!), px(s.points[l.b]!)] as [[number, number], [number, number]]) ?? [], dots: c.p.points.map((q) => px(s.points[q.id]!)), ...(box ? { rects: [box] } : {}) });
       return { message };
+    },
+    /** The closed parts of every drawing, to be tinted (a closed figure has a very faint fill in the old app, `in_194`): the outline and holes in each plane's axes. */
+    fills(): { frame: { origin: V3; u: V3; v: V3 }; loops: [number, number][][] }[] {
+      const { all } = host.planes(), out: { frame: { origin: V3; u: V3; v: V3 }; loops: [number, number][][] }[] = [];
+      for (const [k, p] of defs) {
+        const f = all.get(k); if (!f) continue;
+        let loops = fillCache.get(p);
+        if (!loops) { try { const sol = solOf(p), found = regions(segsOf(p, sol.points, sol.radii)); loops = found.profiles.map((q) => [loopPoints(q.outer), ...q.holes.map(loopPoints)] as [number, number][][]); } catch { loops = []; } fillCache.set(p, loops); }
+        for (const l of loops) out.push({ frame: { origin: f.origin, u: f.u, v: vOf(f) }, loops: l });
+      }
+      return out;
     },
     /** The region of the drawing on the plane that is on under the pointer, with the sketch and the plane it is of (what an extrude is made from); null: none. */
     regionAt(x: number, y: number): { key: string; frame: Frame; def: SketchParams; region: Region } | null {
