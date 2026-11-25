@@ -6429,3 +6429,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1572 — 2026-11-25 — directive
 > lets test now and see what to fix
+
+## in_1573 — 2026-11-25 — approval
+> yes start the behaviour list
