@@ -38,5 +38,9 @@ check("on a circle's middle: it takes the middle, and level and upright with it 
 // drawing a circle about (30, 30): its edge point near another circle's edge makes them touch
 h = helpersAt(S2, { shape: "circle", centre: [80, 100] }, [90.2, 100], mm);
 check("a circle about (80,100) of radius 10 reaches the other's edge: circles touching or equal radius is found", h.holds.length > 0 || h.acted.length > 0);
+// the same from a point that is already in the sketch (a line starting on the end of another): the point being on its own line says nothing, and must not hide the tangent
+const S3 = { points: [{ id: "A", x: 100, y: 140 }, { id: "O", x: 100, y: 100 }], lines: [], circles: [{ id: "K9", c: "O", r: 20 }], constraints: [] } as any, a3 = Math.asin(20 / 40) - Math.PI / 2 + 0.002;
+h = helpersAt(S3, line([100, 140]), [100 + 60 * Math.cos(a3), 140 + 60 * Math.sin(a3)], mm);
+check("a line starting on an existing point still finds the tangent", h.acted[0]?.relation === "tangent" && h.acted[0].sources[0] === "K9");
 check("the helpers make no constraint", p.constraints!.length === n0);
 process.exit(failureCount() ? 1 : 0);

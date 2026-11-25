@@ -98,8 +98,8 @@ function crossing(a: (at: Pt) => number[], b: (at: Pt) => number[], from: Pt): P
 export function helpersAt(S0: System, f: Free, q: Pt, mm: number): Helped {
   const pts = new Map(S0.points.map((p) => [p.id, p] as const)), lines = new Map(S0.lines.map((l) => [l.id, l] as const)), circles = new Map(S0.circles.map((c) => [c.id, c] as const));
   const all = candidates(S0, f), rowFn = (c: Cand) => (at: Pt) => rowsOf(S0, f, c, at, pts, lines, circles);
-  // a relation that holds wherever the place is (the end of the line is on the line) says nothing about it
-  const cands = all.filter((c) => { if (!c.parts.every(free)) return true; const row = rowFn(c); return [[0, 0], [37 * mm, 0], [0, 53 * mm]].some(([dx, dy]) => norm(row([q[0] + dx!, q[1] + dy!])) > 1e-9); });
+  // a relation that holds wherever the place is (the end of the line is on the line, a line's own start is on it) says nothing about it
+  const cands = all.filter((c) => { const row = rowFn(c); if (norm(row(q)) > 1e-9) return true; return [[37 * mm, 0], [0, 53 * mm]].some(([dx, dy]) => norm(row([q[0] + dx!, q[1] + dy!])) > 1e-9); });
   const make = (c: Cand, at: Pt, moved: number): Held => {
     const row = rowFn(c), r = row(at), says: "point" | "line" = r.length === 2 ? "point" : "line", h = 1e-5;
     let dir: Pt | null = null;
