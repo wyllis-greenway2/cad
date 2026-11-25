@@ -6467,3 +6467,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1584 — 2026-11-25 — directive
 > yes start with the dev checks cleanup
 
+## in_1585 — 2026-11-25 — approval
+> yes add it to CLAUDE.md
+
