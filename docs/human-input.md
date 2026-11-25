@@ -6439,5 +6439,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1575 — 2026-11-25 — directive
 > Okay now generally, how can we simplify and lean this whole model while capturing most of the look at feel of the prototype? Are our lines and vertices styled the same? Are bodies styled the same? does extrusion look the same? Yes lets have no color for how constrained a sketch is for now. Lets have the helper bar keep the same position as in the prototype. Lets add those face pull types.
 
-## in_1576 — 2026-11-25 — approval
+## in_1576 — 2026-11-25 — directive
+> can you cancel the hourly merging
+(asks for the scheduled hourly batch merge into the testing branch to be cancelled)
+
+## in_1577 — 2026-11-25 — approval
 > okay lets do your lean recommendations
