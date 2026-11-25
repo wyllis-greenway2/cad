@@ -12,13 +12,13 @@ import { solveDefinition, segsOf } from "./engine/definition.ts";
 import { pointOnSeg, type Pt } from "./engine/region.ts";
 import { trimAt } from "./engine/trim.ts";
 import type { Relation } from "./engine/solver.ts";
-import { bake, constrain, emptySketch, hitAt, keep, nextId, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
-import { anchorOf, bubblesOn, iconOf, selectionAnchor, type Bubble, type Flash } from "./interaction/bubbles.ts";
+import { bake, constrain, emptySketch, hitAt, keep, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
+import { bubblesOn, selectionAnchor, type Bubble, type Flash } from "./interaction/bubbles.ts";
 import { barFor, type Bar } from "./interaction/helperbar.ts";
 import { createBubbleLayer, type Placed } from "./bubbledraw.ts";
-import { helpersAt, P as FREE_P, S as FREE_S, L as FREE_L, C as FREE_C, type Free, type Helped } from "./engine/helpers.ts";
-import { helpShown, offersFrom, type Made } from "./interaction/helpshow.ts";
-import { RELATIONS, type Constraint } from "./engine/solver.ts";
+import { helpersAt, type Free, type Helped } from "./engine/helpers.ts";
+import { helpShown } from "./interaction/helpshow.ts";
+import { newOffers, offerBubbles, takeOffer, type Offers } from "./interaction/offers.ts";
 import { newTool, cancelFigure, toolClick, toolPreview, type Tool } from "./interaction/tools.ts";
 import { dragTo, joinFor, pinsOf } from "./interaction/dragging.ts";
 import { loopPoints, regionAt, type Region } from "./interaction/extrude.ts";
@@ -71,7 +71,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       const r = retype(c.p, id, value);
       if (r.ok) { set(c.key, r.params, "Number", `n:${id}`); flash = {}; } else fail(r.why, r.victims);
     },
-    take(id) { takeOffer(id); },
+    take(id) { takeOne(id); },
     remove(id) {
       const c = current(); if (!c) return;
       const r = unconstrain(c.p, id); if (r.ok) set(c.key, r.params, "Delete constraint"); else fail(r.why, r.victims);
@@ -95,31 +95,14 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     const k = keep(next);
     if (k.ok) set(key, k.params, label); else fail(k.why, k.victims);
   };
-  // ---- the constraints a helper held, offered for a moment after a figure is placed (`dec_helper_constraint_bubble`): a bubble with a question mark; a click makes the constraint (a check, then it fades); a selected part shows its constraints always
-  type Offer = { id: string; c: Constraint; state: "open" | "taken"; until: number };
-  let offers: { key: string; base: SketchParams; items: Offer[] } | null = null;
-  const OFFER_MS = settings.offer.stayMs, TAKEN_MS = settings.offer.takenMs, HOVER_MS = settings.offer.hoverMs, FADE_MS = settings.offer.fadeMs;
-  const offerFor = (key: string, pl: { help: Helped | null }, at: Pt, start: Pt | null) => {
-    const p = defs.get(key)!, sol = solOf(p), S = viewSystem(p, sol);
-    if (!pl.help) { offers = null; return; }
-    const near = (q: Pt | null) => (q ? p.points.find((x) => Math.hypot(sol.points[x.id]![0] - q[0], sol.points[x.id]![1] - q[1]) < 1e-6)?.id : undefined);
-    const made: Made = { [FREE_P]: near(at), [FREE_S]: near(start) };
-    made[FREE_L] = (p.lines ?? []).find((l) => l.a === made[FREE_S] && l.b === made[FREE_P])?.id;
-    made[FREE_C] = [...(p.circles ?? [])].reverse().find((k) => k.c === made[FREE_S])?.id;
-    const cs = offersFrom(S, pl.help, made), now = performance.now();
-    offers = cs.length ? { key, base: p, items: cs.map((c, i) => ({ id: `offer:${i}`, c, state: "open" as const, until: now + OFFER_MS })) } : null;
+  // ---- the constraints a helper held, offered for a moment after a figure is placed (`dec_helper_constraint_bubble`, `interaction/offers.ts`): this keeps the value and says when the sketch changed
+  let offers: Offers | null = null;
+  const takeOne = (id: string) => {
+    const c = current(); if (!offers || !c) return;
+    const r = takeOffer(offers, id, c, performance.now(), settings.offer); if (!r) return;
+    if (r.ok) { set(c.key, r.params, "Constraint"); offers = r.offers; } else fail(r.why, r.victims);
   };
-  const takeOffer = (id: string) => {
-    const o = offers?.items.find((i) => i.id === id), c = current(); if (!o || !c || !offers || o.state !== "open" || defs.get(c.key) !== offers.base) return;
-    const k = keep({ ...c.p, constraints: [...(c.p.constraints ?? []), { ...o.c, id: nextId(c.p, "c") }] });
-    if (k.ok) { set(c.key, k.params, "Constraint"); o.state = "taken"; o.until = performance.now() + TAKEN_MS; offers.base = k.params; } else fail(k.why, k.victims);
-  };
-  const offerBubbles = (S: ReturnType<typeof viewSystem>, now: number): Bubble[] => {
-    const c = current(); if (!offers || !c || offers.key !== c.key || defs.get(c.key) !== offers.base) { offers = null; return []; }
-    if (layer.hovered()) for (const i of offers.items) if (i.state === "open") i.until = Math.max(i.until, now + HOVER_MS); // (it waits while the pointer is on one)
-    offers.items = offers.items.filter((i) => now < i.until); if (!offers.items.length) { offers = null; return []; }
-    return offers.items.map((i) => ({ id: i.id, kind: "constraint" as const, relation: i.c.kind, icon: iconOf(i.c.kind), at: anchorOf(S, i.c), tone: i.state === "taken" ? "applied" as const : "offer" as const, offer: i.state, fade: Math.min(1, (i.until - now) / FADE_MS), title: i.state === "taken" ? "made" : `${RELATIONS[i.c.kind].label}? Click to make it`, parts: i.c.parts }));
-  };
+  const shownOffers = (S: ReturnType<typeof viewSystem>, now: number): Bubble[] => { const r = offerBubbles(offers, current(), S, layer.hovered(), now, settings.offer); offers = r.offers; return r.bubbles; };
   type Trimmed = { id: string; out: ReturnType<typeof trimAt>; err?: undefined } | { id: string; err: string; out?: undefined };
   const trimHere = (c: NonNullable<ReturnType<typeof here>>): Trimmed | null => {
     const s = solOf(c.p), h = hitAt(c.p, s, c.q, c.tol);
@@ -159,7 +142,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       }
       const s = solOf(c.p), pl = placed(c, s), done = toolClick(tool, c.p, s, pl.ref), start = tool.pts[0] ? posOf(s, tool.pts[0]) : null;
       tool = done.tool;
-      if (done.made) { const before = c.p; commit(c.key, done.made.params, done.made.label); if (defs.get(c.key) !== before) offerFor(c.key, pl, posOf(s, pl.ref), start); }
+      if (done.made) { const before = c.p; commit(c.key, done.made.params, done.made.label); if (defs.get(c.key) !== before) { const p2 = defs.get(c.key)!, s2 = solOf(p2); offers = newOffers(c.key, p2, viewSystem(p2, s2), s2, pl.help, posOf(s, pl.ref), start, performance.now(), settings.offer); } }
       return true;
     },
     /** Keys of the sketch: Delete takes the selected parts away (no other key is bound for now, `in_1574`). Returns whether the key was used. */
@@ -256,7 +239,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       if (!c) { layer.show([], { lines: [], dots: [] }); return { message }; }
       const s = solOf(c.p), S = viewSystem(c.p, s), px = (p: P2) => { const q = project(cam.cam, to3(c.f, p), cam.w, cam.h); return [q.x, q.y] as [number, number]; };
       const box = barBox; // (the bubbles keep clear of the helper bar)
-      const items: Placed[] = [...bubblesOn(S, selected(c.key), flash), ...offerBubbles(S, now)].map((bubble) => { const [x, y] = px(bubble.at); return { bubble, x, y }; });
+      const items: Placed[] = [...bubblesOn(S, selected(c.key), flash), ...shownOffers(S, now)].map((bubble) => { const [x, y] = px(bubble.at); return { bubble, x, y }; });
       layer.show(items, { lines: c.p.lines?.map((l) => [px(s.points[l.a]!), px(s.points[l.b]!)] as [[number, number], [number, number]]) ?? [], dots: c.p.points.map((q) => px(s.points[q.id]!)), ...(box ? { rects: [box] } : {}) });
       return { message };
     },

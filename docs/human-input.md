@@ -6473,3 +6473,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1586 — 2026-11-25 — approval
 > yes do the tolerances in settings first
 
+## in_1587 — 2026-11-25 — approval
+> yes split the offers logic out
+
