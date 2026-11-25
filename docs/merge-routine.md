@@ -2,7 +2,7 @@
 
 How work from the other Claude branches gets into the testing branch, `claude/inspiring-pascal-l342k7`,
 which the human tries with `LAN=1 bash tools/preview.sh`. Asked for in `in_834`, `in_835`; the check rule is `in_833`.
-Run by a scheduled task every hour, or by hand when the human says "merge".
+**The hourly scheduled task is disabled (`in_1575`, 2026-11-25):** it ran every hour from 2026-11-18 to 2026-11-25. The routine is run by hand when the human says "merge", or by each session merging its own work.
 
 ## The rule that stops the endless chase
 
