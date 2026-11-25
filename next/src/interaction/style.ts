@@ -43,5 +43,5 @@ export const STROKE: Record<StrokeKind, { tone: Tone; /** times the figure's wid
   cursor: { tone: "figure", weight: 0.8, soft: true },
   cut: { tone: "refused", weight: 1.4, soft: false },
   tie: { tone: "ties", weight: 1.4, soft: false },
-  guide: { tone: "figure", weight: 0.75, soft: true, dashed: true },
+  guide: { tone: "figure", weight: 0.75, soft: false, dashed: true },
 };

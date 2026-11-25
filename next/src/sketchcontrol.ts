@@ -28,7 +28,7 @@ export interface SketchHost {
   planes(): { all: Map<string, Frame>; on: string; step: number };
   ray(x: number, y: number): { o: V3; d: V3 };
 }
-export interface DrawLine { pts: V3[]; /** a ball's radius, in mm */ r?: number; kind: "done" | "selected" | "preview" | "cursor" | "cut" | "tie" | "guide" | "ball" }
+export interface DrawLine { pts: V3[]; /** a ball's radius, in mm */ r?: number; /** a dashed line's dash, in mm (the gap is 0.7 of it) */ dash?: number; kind: "done" | "selected" | "preview" | "cursor" | "cut" | "tie" | "guide" | "ball" }
 
 export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: string, merge?: string) => void) {
   const defs = new Map<string, SketchParams>(), sols = new WeakMap<SketchParams, Sol>(), fillCache = new WeakMap<SketchParams, [number, number][][][]>();
@@ -201,8 +201,8 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
         } else {
           const pl = placed(c, s), at = posOf(s, pl.ref);
           for (const l of toolPreview(tool, s, at)) out.push({ kind: l.kind, pts: l.pts.map((z) => to3(c.f, z)) });
-          for (const g of pl.hint.guides) out.push({ kind: "guide", pts: g.map((z) => to3(c.f, z)) });
-          for (const h of pl.hint.hints) { const g = h.part ? segsOf(c.p, s.points, s.radii).find((x) => x.name === h.part) : null; if (g && g.kind === "line") out.push({ kind: "tie", pts: [to3(c.f, g.a), to3(c.f, g.b)] }); }
+          for (const g of pl.hint.guides) out.push({ kind: "guide", pts: g.map((z) => to3(c.f, z)), dash: forwardDepth(host.view().cam, to3(c.f, at)) * 0.012 });
+          for (const h of pl.hint.hints) { const g = h.part ? segsOf(c.p, s.points, s.radii).find((x) => x.name === h.part) : null; if (g) out.push({ kind: "tie", pts: polyline(g).map((z) => to3(c.f, z)) }); }
           const arm = mmPerPx(c.f, at) * settings.sketch.crossPx, w = to3(c.f, at);
           out.push({ kind: "cursor", pts: [add(w, scale(c.f.u, -arm)), add(w, scale(c.f.u, arm))] }, { kind: "cursor", pts: [add(w, scale(vOf(c.f), -arm)), add(w, scale(vOf(c.f), arm))] });
         }

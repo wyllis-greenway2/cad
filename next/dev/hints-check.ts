@@ -18,5 +18,11 @@ h = hintAt(p, s, null, [20.3, 0.2], 0.1);
 check("near the middle of a side takes the middle", h.hints[0]?.kind === "midpoint" && h.at[0] === 20 && h.at[1] === 0);
 h = hintAt(p, s, null, [60, 25.3], 0.1);
 check("in line with a corner level: takes its coordinate, a dashed guide to it", h.at[1] === 25 && h.guides.length === 1);
+// a circle of radius 5 at (100, 100); a line from (80, 100) going across: the tangent from there is asin(5/20) = 14.48 degrees off the line to the centre
+import { addCircle } from "../src/interaction/drawing.ts";
+const kc = keep(addCircle(p, s, refOf(p, s, [100, 100], 0.5, 1), [105, 100])!); if (!kc.ok) throw new Error(kc.why);
+const pc = kc.params, sc = sol(pc), ang = Math.asin(5 / 20);
+h = hintAt(pc, sc, [80, 100], [80 + 30 * Math.cos(ang + 0.03), 100 + 30 * Math.sin(ang + 0.03)], 0.1);
+check("a line from outside a circle that is nearly tangent becomes tangent, and says which circle", h.hints[0]?.kind === "tangent" && h.hints[0].part === "K1" && Math.abs(Math.atan2(h.at[1] - 100, h.at[0] - 80) - ang) < 1e-9);
 check("the helpers make no constraint", p.constraints!.length === n0);
 process.exit(failureCount() ? 1 : 0);

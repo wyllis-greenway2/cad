@@ -8,7 +8,7 @@ import { segsOf } from "../engine/definition.ts";
 import type { Pt } from "../engine/region.ts";
 import type { Sol } from "./drawing.ts";
 
-export type HintKind = "horizontal" | "vertical" | "parallel" | "perpendicular" | "midpoint";
+export type HintKind = "horizontal" | "vertical" | "parallel" | "perpendicular" | "tangent" | "midpoint";
 export interface Hint { kind: HintKind; /** the part the hint is about, lit while it holds (a parallel's line, a midpoint's line) */ part?: string }
 export interface Hinted { at: Pt; hints: Hint[]; /** dashed lines from the corner a place is lined up with, to the place */ guides: [Pt, Pt][] }
 const HINT_DEG = 4, ALIGN_PX = 6, MID_PX = 10;
@@ -30,6 +30,14 @@ export function hintAt(p: SketchParams, s: Sol, start: Pt | null, q: Pt, mm: num
           ...[th + Math.PI / 2, th - Math.PI / 2].map((t) => ({ th: t, hint: { kind: "perpendicular", part: g.name } as Hint })),
         ]; }),
       ];
+      // tangent to a circle or arc (the old app's `tangent`): from outside it, the two directions that just touch; from a point on its edge, along the edge
+      for (const g of segsOf(p, s.points, s.radii)) {
+        if (g.kind !== "arc") continue;
+        const cx = g.c[0] - start[0], cy = g.c[1] - start[1], d = Math.hypot(cx, cy);
+        if (d < 1e-9) continue;
+        if (Math.abs(d - g.r) < ALIGN_PX * mm * 0.5) { const th = Math.atan2(cy, cx) + Math.PI / 2; for (const t of [th, th + Math.PI]) cands.push({ th: t, hint: { kind: "tangent", part: g.name } }); }
+        else if (d > g.r) { const phi = Math.atan2(cy, cx), a = Math.asin(g.r / d); for (const t of [phi + a, phi - a]) cands.push({ th: t, hint: { kind: "tangent", part: g.name } }); }
+      }
       const turn = (a: number, b: number) => { let d = (a - b) % (2 * Math.PI); if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI; return Math.abs(d); };
       let best: { th: number; hint: Hint } | null = null, bd = (HINT_DEG * Math.PI) / 180;
       for (const c of cands) { const d = turn(ang, c.th); if (d < bd - 1e-12) { bd = d; best = c; } }
