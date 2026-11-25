@@ -41,7 +41,8 @@ export const settings = {
     fogNear: 0.6, fogFar: 4, fogMinSteps: 12, gridSpanFog: 5, orthoSpan: 4, // the fog's reach, as shares of the distance; the grid is drawn out to a multiple of it (of the picture's height, orthographic)
     arrowSegments: 12, discSegments: 48, paneCurveSteps: 6,
   },
-  light: { ambient: 1.5, key: 1.6 },
+  // the old app's light (`app/src/shared/settings.ts`): it rides with the camera, to one side and above it, and the body has a slight clear coat; ambient is multiplied by pi where it is used
+  light: { ambient: 0.42, key: 1.7, fill: 0.12, roughness: 0.4, sheen: 0.55, sheenRoughness: 0.25 },
   orb: { radius: 0.025, hoverOpacity: 0.14, color: [0.1, 0.72, 0.7] as [number, number, number] }, // the hover disc: its radius in depths of the surface it is on
   // the cut of a sketch plane: the face where it cuts a body is solid with hatching
   cut: { face: [0.72, 0.74, 0.79] as [number, number, number], hatch: [0.5, 0.52, 0.58] as [number, number, number], hatchMm: 2.5, hatchWidth: 0.05, capMm: 10000 },

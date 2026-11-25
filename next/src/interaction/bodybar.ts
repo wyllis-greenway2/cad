@@ -5,7 +5,7 @@ import type { Bar } from "./helperbar.ts";
 export interface Picked { faces: number; edges: number }
 export function barForBody(p: Picked): Bar {
   if (!p.faces && !p.edges) return { left: [], right: [] };
-  const left: Bar["left"] = [{ id: "body:clear", icon: "cross", label: "Put the pick away", tone: "plain" }];
+  const left: Bar["left"] = []; // (a click on nothing puts the pick away)
   const right: Bar["right"] = p.faces ? [
     { id: "body:sketch", icon: "sketch", label: "Sketch on this face", tone: "free" },
     { id: "body:pull", icon: "pushpull", label: "Push / pull this face", tone: "free" },

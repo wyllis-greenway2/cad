@@ -18,6 +18,6 @@ export function barFor(S: System, selection: string[]): Bar {
     id: `rel:${o.kind}`, icon: iconOf(o.kind as Relation), label: o.dimensional && o.measure !== null ? `${o.label} (${Math.round(o.measure * 1000) / 1000}${o.kind === "angle" ? "°" : ""})` : o.label,
     tone: o.state === "refused" ? "refused" : o.state === "holds" ? "holds" : "free", ...(o.state === "refused" && o.holding.length ? { note: `cannot hold with ${o.holding.join(", ")}` } : {}),
   }));
-  const left: BarItem[] = [{ id: "delete", icon: "trash", label: "Delete", tone: "plain" }, { id: "clear", icon: "cross", label: "Put the selection away", tone: "plain" }];
+  const left: BarItem[] = [{ id: "delete", icon: "trash", label: "Delete", tone: "plain" }]; // (a click on nothing puts the selection away, as in the old app)
   return { left, right };
 }

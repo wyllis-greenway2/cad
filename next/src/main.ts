@@ -93,6 +93,8 @@ const ext = createExtrude({
   regionAt: (x, y) => { const r = sk.regionAt(x, y); return r ? { ...r, source: facePlanes.get(r.key)?.source ?? null } : null; },
   recipe: () => studio.state().steps,
   change: (steps) => { studio.change(steps); record("Extrude"); },
+  ask: (a) => studio.ask(a),
+  say: (t) => say(t),
   tilt: (f, c, size) => { const e = env(), v = vOf(f), n = f.normal, el = 0.9; s = view.lookObliqueAt(s, e, c, unit(add(scale(unit(add(scale(f.u, 0.4), scale(v, 0.8))), Math.cos(el)), scale(n, -Math.sin(el)))), Math.max(70, size * 3.2)); },
 }, document.body);
 // ---- what is picked on the bodies (a face or edges), and what can be done with it ----
@@ -121,7 +123,10 @@ function doOnPick(id: string, sel: import("./bodyselect.ts").Selection) {
   if (id === "body:pull" && mesh && f) {
     const ff = faceFacts(sel.body, f.id); if (!ff) return;
     const positions = new Float32Array(f.count * 3); for (let k = 0; k < f.count; k++) positions.set(mesh.positions.subarray(3 * mesh.indices[f.start + k]!, 3 * mesh.indices[f.start + k]! + 3), 3 * k);
-    ext.startPush({ ref: f.ref, body: sel.body, at: sel.at, normal: ff.ne as [number, number, number], positions });
+    void studio.ask({ what: "pullModes", step: sel.body, face: f.ref }).then((r) => { // the kinds of pull this face has, from the worker
+      const kinds = r.ok ? (r.data as import("./extrudecontrol.ts").PullInfo[]) : [{ mode: "push" as const, ok: true, why: "", suggested: true }];
+      ext.startPush({ ref: f.ref, body: sel.body, at: sel.at, normal: ff.ne as [number, number, number], positions, kinds });
+    });
   }
 }
 // ---- undo and redo of the drawings and the recipe together, and the step list with its numbers ----
@@ -231,7 +236,7 @@ function frame(now: number) {
   const e = env(now), d = view.drawing(s, e, pointer), orb = orbc.drawing(game.on ? null : pointer);
   canvas.style.cursor = orb?.hover ? "grab" : "";
   world.render({
-    ...d, ...(placed ? { grid: gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, placed.origin), placed.normal))), sketch: { origin: placed.origin, u: placed.u, v: vOf(placed), n: placed.normal } } : {}), orb: ext.drawing(game.on ? null : pointer) ?? orb, ghost: ext.ghost(), marks: bodies.marks(), lines: sk.lines(game.on ? null : pointer), ...(sk.active() ? { looks: Object.fromEntries(model.things.map((t) => [t.id, SEE_THROUGH])) } : {}),
+    ...d, ...(placed ? { grid: gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, placed.origin), placed.normal))), sketch: { origin: placed.origin, u: placed.u, v: vOf(placed), n: placed.normal } } : {}), orb: ext.drawing(game.on ? null : pointer) ?? orb, ghost: ext.ghost(), marks: bodies.marks(), fills: sk.fills(), lines: sk.lines(game.on ? null : pointer), ...(sk.active() ? { looks: Object.fromEntries(model.things.map((t) => [t.id, SEE_THROUGH])) } : {}),
     cut: placed && !placedKey ? { origin: placed.origin, n: placed.normal } : null, // (made once with the plane, from the side the camera looked from; it turns and moves with the plane, and does not change with the camera)
   });
   ext.frame(); bodies.frame(sk.active() || ext.active());

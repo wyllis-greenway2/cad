@@ -47,9 +47,9 @@ export interface FaceSource { face: Id; body: string }
 /** The step that made the body now: the last step of the recipe that makes one (an extrude, a push, a round, a combine). */
 export const lastBodyStep = (recipe: readonly Step[]): string | null => { for (let i = recipe.length - 1; i >= 0; i--) if (recipe[i]!.kind !== "sketch" && recipe[i]!.kind !== "sketchPolygon" && recipe[i]!.kind !== "sketchCircle" && recipe[i]!.kind !== "sketchOnFace") return recipe[i]!.id; return null; };
 /** a face of the body pushed out (a distance above nothing) or in */
-export function pushSteps(recipe: readonly Step[], face: Id, body: string, d: number): Step[] {
-  let n = 1; while (recipe.some((s) => s.id === `p${n}`)) n++;
-  return [{ id: `p${n}`, kind: "push", params: { face, dist: d }, inputs: [body] }];
+export function pushSteps(recipe: readonly Step[], face: Id, body: string, d: number, kind: "push" | "moveFace" | "offsetFace" = "push"): Step[] {
+  const prefix = kind === "push" ? "p" : kind === "moveFace" ? "m" : "o"; let n = 1; while (recipe.some((s) => s.id === `${prefix}${n}`)) n++;
+  return [{ id: `${prefix}${n}`, kind, params: { face, dist: d }, inputs: [body] }];
 }
 /** edges of the body rounded (`fillet`) or cut flat (`chamfer`) by `size` */
 export function roundSteps(recipe: readonly Step[], edges: readonly EdgeRef[], body: string, size: number, kind: "fillet" | "chamfer"): Step[] {

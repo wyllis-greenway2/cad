@@ -7,6 +7,8 @@ import { exportBody, meshOf, toBase64 } from "./exchange.ts";
 import { dragSketch } from "./drag.ts";
 import { trimAt } from "./trim.ts";
 import { solvedPositions, type SketchParams } from "./sketch.ts";
+import { originalEdit, pullModes } from "./pull.ts";
+import type { Id } from "./id.ts";
 
 /** what each question takes */
 export interface AskArgs {
@@ -16,6 +18,8 @@ export interface AskArgs {
   /** what the person can do about a failed step (E35) */ options: { step: string };
   /** where a sketch goes when the points the person drags are pinned (E58) */ dragSketch: { step: string; pins: Record<string, [number, number]>; hold?: string[] };
   /** the part of a sketch that a trim at this place takes off, and the definition that is left (E87); the answer changes nothing: the screen applies `params` as an edit of the step */ trim: { step: string; part: string; at: [number, number] };
+  /** the ways a face of the body made by `step` can be pulled, each with whether it applies and why not (E32): edit the step that made it, push (a prism), move with its neighbours, offset a round wall */ pullModes: { step: string; face: Id };
+  /** the new numbers of the step that made the face, for a pull of `dist` (mode 1, E32): `{ step, params }` to be set, or `{ why }` */ originalEdit: { step: string; face: Id; dist: number };
   /** the mesh of what a step made, by face id (E70); `bodies`: only these */ mesh: { step: string; bodies?: string[]; tolerance?: number };
   /** a file of what a step made (E21, E71): the answer is `{ format, base64, bytes }` */ export: { step: string; format: "step" | "stl"; bodies?: string[]; tolerance?: number; ascii?: boolean };
 }
@@ -33,6 +37,8 @@ export const asks: { [K in keyof AskArgs]: (e: Engine, a: AskArgs[K]) => unknown
   options: (e, a) => options(e, a.step),
   dragSketch: (e, a) => dragSketch(e, a.step, a.pins, a.hold),
   trim: (e, a) => { const st = e.step(a.step); if (st.kind !== "sketch") throw new Error(`step ${a.step} is not a sketch`); const input = st.inputs[0] ? e.result(st.inputs[0]).value : null; const body = input instanceof Body ? input : null; return trimAt(st.params as unknown as SketchParams, a.part, a.at, (q) => solvedPositions(q, body)); },
+  pullModes: (e, a) => pullModes(e, a.step, a.face),
+  originalEdit: (e, a) => originalEdit(e, a.step, a.face, a.dist),
   mesh: (e, a) => meshOf(bodyOf(e, a.step, "mesh"), { bodies: a.bodies, tolerance: a.tolerance }),
   export: (e, a) => { const bytes = exportBody(bodyOf(e, a.step, "export"), a.format, { bodies: a.bodies, tolerance: a.tolerance, ascii: a.ascii }); return { format: a.format, base64: toBase64(bytes), bytes: bytes.length }; },
 };
