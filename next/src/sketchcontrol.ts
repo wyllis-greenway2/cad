@@ -349,6 +349,11 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
           const at = shownPts.has(x.id) ? s.points[x.id] : null;
           if (at) out.push({ kind: "ball", pts: [to3(f, at)], r: mmPerPx(f, at) * settings.sketch.ballPx });
         } // (the old app marks no point until it is picked, then a teal ball)
+        // a circle's and an arc's centre is always there to see, a small dot; picked, it is the teal ball above (`in_1646`)
+        for (const id of new Set([...(p.circles ?? []).map((k) => k.c), ...(p.arcs ?? []).map((a) => a.c)])) {
+          const at = shownPts.has(id) ? null : s.points[id];
+          if (at) out.push({ kind: "centre", pts: [to3(f, at)], r: mmPerPx(f, at) * settings.sketch.ballPx * 0.55 });
+        }
       }
       const mv = st.moves && all.get(st.moves.key) ? { f: all.get(st.moves.key)!, list: st.moves.list } : null;
       if (mv)

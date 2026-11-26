@@ -43,6 +43,7 @@ export interface DrawLine {
     | "tieBall"
     | "guide"
     | "ball"
+    | "centre"
     | "note"
     | "move"
     | "moveHead";

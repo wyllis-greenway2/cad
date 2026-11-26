@@ -6650,3 +6650,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1645 — 2026-11-26 — directive
 > why do we still have equal length and equal radius? on line should be called on line and show the original straight line with a dot. The fixed in place should just be a locked icon
+
+## in_1646 — 2026-11-26 — question
+> why does selecting a circle edge select the center too? also can we make circles centers always visible

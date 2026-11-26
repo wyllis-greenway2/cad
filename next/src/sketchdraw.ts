@@ -22,7 +22,7 @@ const ball = (): THREE.Texture => {
 
 export function drawLines(group: THREE.Group, lines: DrawLine[], w: number, h: number): void {
   for (const l of lines) {
-    if (l.kind === "ball" || l.kind === "tieBall") {
+    if (l.kind === "ball" || l.kind === "tieBall" || l.kind === "centre") {
       // a picked point: a teal ball of the old app's size, on top of the model
       const m = new THREE.SpriteMaterial({
           map: ball(),

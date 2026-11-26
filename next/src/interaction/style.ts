@@ -57,6 +57,7 @@ export type StrokeKind =
   | "cut"
   | "tie"
   | "guide"
+  | "centre"
   | "move"
   | "moveHead";
 export const STROKE: Record<
@@ -70,6 +71,7 @@ export const STROKE: Record<
 > = {
   note: { tone: "note", weight: 0.75, soft: false }, // the thin grey line of a number (an angle's arc)
   tieBall: { tone: "ties", weight: 1, soft: false }, // a point a helper is about: an orange ball
+  centre: { tone: "axis", weight: 1, soft: false }, // a circle's or an arc's centre, always shown: a small charcoal dot (`in_1646`)
   ball: { tone: "figure", weight: 1, soft: false }, // a picked point: a teal ball, not a line (its size is WEIGHT.vertexBall of the view's height)
   done: { tone: "axis", weight: 0.75, soft: false }, // thin charcoal
   selected: { tone: "figure", weight: 1.3, soft: false },
