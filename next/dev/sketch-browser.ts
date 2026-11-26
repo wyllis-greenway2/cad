@@ -40,7 +40,7 @@ try {
   await click(20, 0);
   let b = await bubbles(); ok(b.some((q) => /—|horizontal/i.test(q.text ?? "") || true) && b.length >= 1, `a selected side shows its bubbles (${b.length})`);
   const bar = await ev<string[]>(`() => [...document.querySelectorAll("[data-bar]")].map((e) => e.dataset.bar)`);
-  ok(bar[0] === "delete" && !bar.some((x) => x.startsWith("rel:length")), `the helper bar stands beside the selected side, with no number on it (it is on the bubble): ${bar.join(" ")}`);
+  ok(bar.every((x) => x.startsWith("rel:")) && !bar.includes("rel:length"), `the bar of a side of the rectangle holds only relations that would be new (level is said, upright would be refused: none): ${bar.join(" ") || "no bar"}`);
   ok(b.some((q) => q.text === "40") && (await page.locator("[data-bubble] [data-padlock='open']").count()) === 1, `the side's measured length is a bubble with an open padlock: ${JSON.stringify(b.map((q) => q.text))}`);
   writeFileSync(`${dir}/sketch-bar.png`, await page.screenshot());
   await page.keyboard.type("55"); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
@@ -52,12 +52,12 @@ try {
   const num2 = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-bubble] span")].find((s) => s.textContent === "55")!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
   await page.mouse.click(num2[0]!, num2[1]!); await page.keyboard.type("-3"); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
   b = await bubbles(); ok(b.some((q) => q.text === "55" && /228, 106, 106/.test(q.border)), "a number that cannot be goes back and its bubble is red");
-  // delete, from the bar
-  await click(20, 0); await page.waitForTimeout(150); await page.click("[data-bar='delete']"); await page.waitForTimeout(200);
-  d = await def(); ok(d.lines.every((l: any) => l.id !== "L1"), "the bar's delete takes the selected side away");
+  // delete, with the key
+  await click(20, 0); await page.keyboard.press("Delete"); await page.waitForTimeout(200);
+  d = await def(); ok(d.lines.every((l: any) => l.id !== "L1"), "the Delete key takes the selected side away");
   ok((await ev<number>(`() => [...document.querySelectorAll("[data-bar]")].filter((e) => e.offsetParent !== null).length`)) === 0, "and the bar goes with the selection");
   await click(0, 12); await page.keyboard.press("Delete"); await page.waitForTimeout(150);
-  ok((await def()).lines.every((l: any) => l.id !== "L4"), "the Delete key does the same");
+  ok((await def()).lines.every((l: any) => l.id !== "L4"), "and on another side");
   await page.keyboard.press("Escape");
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   await close();

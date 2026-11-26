@@ -3,7 +3,7 @@ id: dec_helpers_one_rule
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1579, in_1580, in_1581, in_1582, in_1583
+human_input: in_1579, in_1580, in_1581, in_1582, in_1583, in_1597
 date: 2026-11-25
 depends_on:
   - dec_hints_place_only: a helper only places; this entry is what a helper is and how it always looks
@@ -37,6 +37,10 @@ Asked for in `in_1579` and `in_1580` (a simple rule set that expands well and co
 
 A helper is a relation that is **applicable** and **within reach**. *Applicable* is the question the helper bar asks, answered once in `engine/relations.ts`: `fits` (which kinds of parts a relation can be said over) and `standingOf` (the solver would add it as new, or it is already implied by the figure or the sketch, or it is refused). A relation that always holds for the figure (a line's start is on the line) is `already` by the solver's own verdict, not by a guess, so it can never hide a real helper; a relation the sketch's constraints would refuse is never offered. `interaction/suggest.ts` (the bar) and `engine/helpers.ts` (the drawing) both use these, so they cannot disagree about what a relation is, what parts it takes, or whether it would add anything. The first place of a line or circle is the sketch's own point when it is one (`Free.startId`), so the solver sees one point, not two that happen to coincide.
 **The guard** is `dev/helpers-roundtrip-check.ts`: random sketches; for random selections that include the free place, the bar's `offersFor` says what would be new; each helper relation is applied, the solver moves only the free part, and `helpersAt` must list that same relation as holding where the figure ends up (700 constraints a seed, all found). Not covered by it: circles being drawn (the circle's radius is its own variable in the solver, the helper's follows the pointer) and dragging.
+
+## One rule for what is offered (`in_1597`)
+
+A relation is offered to a person, **anywhere**, only if it is **offerable**: new (`free`), or true as drawn but not yet said (`holds`), and the solver would accept it. One predicate, `offerable` in `engine/relations.ts`, is used by the helpers of drawing (`applicable`), the offer bubbles after a figure is placed (`offersFrom`) and the helper bar (`barFor`). **Already said** and **refused** are never offered (the bar used to show refused ones with a red edge as buttons that only said why they would not work; that is gone). The helper bar has no Delete button either: Delete and a click on nothing do that. A bar with nothing offerable does not appear.
 
 ## Not helpers
 

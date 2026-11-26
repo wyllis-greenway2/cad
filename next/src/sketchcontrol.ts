@@ -118,12 +118,10 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     const r = constrain(c.p, solOf(c.p), selected(c.key), "dimension", value);
     if (r.ok) { set(c.key, r.params, value === undefined ? "Lock number" : "Number"); flash = { applied: [r.added] }; flashUntil = performance.now() + 900; } else fail(r.why, r.victims);
   };
-  /** a press on the helper bar: the selection is taken away or put away, or a relation is put on it */
+  /** a press on the helper bar: a relation is put on the selection */
   const act = (id: string): void => {
     const c = current(); if (!c) return;
-    if (id === "clear") sel.clear();
-    else if (id === "delete") { const ids = selected(c.key); if (ids.length) { set(c.key, removeParts(c.p, ids), "Delete"); sel.clear(); } }
-    else if (id.startsWith("rel:")) {
+    if (id.startsWith("rel:")) {
       const r = constrain(c.p, solOf(c.p), selected(c.key), id.slice(4) as Relation | "dimension");
       if (r.ok) { set(c.key, r.params, "Constraint"); flash = { applied: [r.added] }; flashUntil = performance.now() + 900; } else fail(r.why, r.victims);
     }

@@ -6503,3 +6503,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1596 — 2026-11-26 — approval
 > yes do the three cleanups
 
+## in_1597 — 2026-11-26 — directive
+> okay lets try to simplify and unify even more. So in the suggested bar, why do we have constraints that cannot be applied at all? like it seems that it knows it cannot be applied because it puts a red circle on it, but it still offers it? What is our ruleset for when and how we offer suggested constraints? Also, why do we offer a trash can in the left of the suggested bubble? I think that is not needed and a waste of space. Also what are all of the places we do notices and messages? It seems like when we are in sketch mode there is a bar at the top that says exit sketch mode but clicking it does nothing? And what even is sketch mode exactly? What defines it and when is it turned on and off?
+

@@ -4,7 +4,7 @@
 // The free thing is the place `~P`, alone (`point`), or the end of a line from the figure's first place (`line`: `~L`), or the edge of a circle about it (`circle`: `~C`); the first place is a point of the sketch (`startId`) or only a place.
 // The nearest acts (a point before a line, then a fixed order); one more, not parallel to it, within reach of that place: the place is where both hold. Everything that holds at the place is reported, to be shown and offered.
 import { RELATIONS, type Constraint, type Relation, type System } from "./solver.ts";
-import { kindTuples, standingOf, type PartKind } from "./relations.ts";
+import { kindTuples, offerable, standingOf, type PartKind } from "./relations.ts";
 import { figureOf, isFree, land, P, S, L, C, type Free, type Pt } from "./free.ts";
 export { P, S, L, C, type Free, type Pt } from "./free.ts";
 /** how near (px) the pointer must be to a relation that says a point and to one that says a line, how far past its ends a guide runs, and the step it is traced in: the screen's settings (`settings.helpers`), given to each call so this file knows no screen */
@@ -52,7 +52,7 @@ function candidates(S0: System, f: Free): Cand[] {
 export function helpersAt(S0: System, f: Free, q: Pt, mm: number, reach: Reach): Helped {
   const fig = figureOf(S0, f), pts = new Map(S0.points.map((p) => [p.id, p] as const)), lines = new Map(S0.lines.map((l) => [l.id, l] as const)), circles = new Map(S0.circles.map((c) => [c.id, c] as const)), startAt = fig.startAt, whole = fig.whole;
   const all = candidates(S0, f), rowFn = (c: Cand) => fig.rows({ kind: c.relation, parts: c.parts, ...(c.variant ?? {}) });
-  const applicable = (c: Cand, at: Pt) => { const t = standingOf(whole(at), { id: "helper", kind: c.relation, parts: c.parts, ...(c.variant ?? {}) }).state; return t !== "already" && t !== "refused"; };
+  const applicable = (c: Cand, at: Pt) => { return offerable(standingOf(whole(at), { id: "helper", kind: c.relation, parts: c.parts, ...(c.variant ?? {}) }).state); };
   const make = (c: Cand, at: Pt, moved: number): Held => {
     const row = rowFn(c), r = row(at), says: "point" | "line" = r.length === 2 ? "point" : "line", h = 1e-5;
     let dir: Pt | null = null;

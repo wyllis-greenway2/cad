@@ -23,3 +23,5 @@ export function standingOf(S: System, c: Constraint): { state: Standing; by: str
   if (t.outcome === "refused") return { state: "refused", by: t.by, victims: t.victims, holding: t.holding };
   return { state: residualsOf(S, c).every((v) => Math.abs(v) < 1e-7) ? "holds" : "free", by: t.by, victims: t.victims, holding: t.holding };
 }
+/** Whether a relation in this standing is worth offering, to the helpers of drawing and to the helper bar alike: it would add something (new, or true as drawn and not yet said), and the solver would accept it. Already said and refused are never offered. */
+export const offerable = (s: Standing): boolean => s === "free" || s === "holds";
