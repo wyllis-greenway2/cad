@@ -236,10 +236,11 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
   const moved = ask(() => arrows),
     still = ask(() => []);
   check(
-    "an offer stands at the middle of the longest arrow of its own parts (not of one that moves only because they do), and on its part when nothing moves",
+    "an offer stands at its spot, whatever it would move (the movement is drawn when it is pointed at), and carries what it would move",
     !!moved &&
-      Math.abs(moved.at[0] - 4.85) < 1e-9 &&
+      moved.at[0] === 4.7 &&
       moved.at[1] === 0 &&
+      moved.moves?.length === 2 &&
       !!still &&
       !still.moves &&
       still.at[0] === 4.7,

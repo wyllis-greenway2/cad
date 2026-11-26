@@ -22,7 +22,7 @@ export const COLOUR: Record<Tone, string> = {
   aligned: "#f59e0b", // view.ts: `p.orange ? 0xf59e0b`
   ties: "#f2c14e", // highlight.ts AMBER
   refused: "#e46a6a", // highlight.ts RED
-  applied: "#3fae6a", // highlight.ts GREEN
+  applied: "#6b7178", // an applied constraint: neutral charcoal (only yellow and blue are colours: `in_1661`)
   temp: "#4f8cf0", // highlight.ts TEMP
   note: "#55575c", // view.ts setNotes
   axis: "#2b2b30", // theme.axis [0.17, 0.17, 0.19]
@@ -58,6 +58,9 @@ export type StrokeKind =
   | "tie"
   | "guide"
   | "centre"
+  | "lit"
+  | "litOffer"
+  | "litOfferSel"
   | "move"
   | "moveHead";
 export const STROKE: Record<
@@ -71,6 +74,9 @@ export const STROKE: Record<
 > = {
   note: { tone: "note", weight: 0.75, soft: false }, // the thin grey line of a number (an angle's arc)
   tieBall: { tone: "ties", weight: 1, soft: false }, // a point a helper is about: an orange ball
+  lit: { tone: "figure", weight: 0.75, soft: false }, // the parts an applied constraint is about, while its bubble is pointed at: blue (`in_1661`)
+  litOffer: { tone: "ties", weight: 0.75, soft: false }, // the same for an offer: yellow
+  litOfferSel: { tone: "ties", weight: 1.3, soft: false }, // (a part that is selected keeps the selected weight)
   centre: { tone: "axis", weight: 1, soft: false }, // a circle's or an arc's centre, always shown: a small charcoal dot (`in_1646`)
   ball: { tone: "figure", weight: 1, soft: false }, // a picked point: a teal ball, not a line (its size is WEIGHT.vertexBall of the view's height)
   done: { tone: "axis", weight: 0.75, soft: false }, // thin charcoal

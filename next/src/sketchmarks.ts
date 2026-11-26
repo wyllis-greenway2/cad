@@ -61,6 +61,10 @@ export function createMarks(
       if (k?.ok) set(c.key, k.params, "Constraint");
       else if (k) fail(k.why, k.victims);
     },
+    /** a mark is pointed at (null: none): its parts and what it would move are drawn */
+    hover(id, over) {
+      st.hover = id === null ? null : { id, over: over ?? "" };
+    },
     /** an offered constraint, from a mark: the parts it is offered for are selected, and it is applied */
     offer(id, over) {
       const c = current();
@@ -191,6 +195,7 @@ export function createMarks(
     marks(now: number): PlacedMark[] {
       const c = current();
       st.moves = null;
+      st.lit = null;
       if (!c) {
         ownId = null;
         return [];
@@ -263,8 +268,10 @@ export function createMarks(
         }),
         chosen = [...ids].sort().join();
       ownId = list.find((m) => m.kind === "dimension" && [...m.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
-      const arrows = list.filter((m) => m.state === "offer" && m.moves?.length).flatMap((m) => m.moves!);
-      if (arrows.length) st.moves = { key: c.key, list: arrows };
+      // only the mark that is pointed at draws anything: the parts it is about lit, and (an offer) what applying it would move
+      const hm = st.hover && list.find((m) => m.id === st.hover!.id && (m.over?.join(",") ?? "") === st.hover!.over);
+      st.lit = hm ? { key: c.key, parts: hm.parts, offer: hm.state === "offer" } : null;
+      if (hm?.state === "offer" && hm.moves?.length) st.moves = { key: c.key, list: hm.moves };
       return list.map(at3);
     },
     /** Each picture: a refusal's red goes after its time. */

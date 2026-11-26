@@ -6,6 +6,7 @@ import type { Mark } from "./interaction/marks.ts";
 import { settings } from "./settings.ts";
 
 export interface MarkHandlers extends InfoHandlers {
+  /** a mark is pointed at, or none any more (`id` null) */ hover?(id: string | null, over?: string): void;
   /** an offered constraint was clicked: select the parts it is offered for, and apply it */ offer(
     id: string,
     over: string[],
@@ -18,24 +19,10 @@ export interface PlacedMark {
 }
 
 const keyOf = (m: Mark) => `${m.id}|${m.over?.join(",") ?? ""}`;
-/** the marks that stand at one spot (within `settings.marks.pillPx` on the page) are one group; a number, and the numbers of a figure being drawn, stand alone */
-function groups(list: PlacedMark[]): PlacedMark[][] {
-  const out: PlacedMark[][] = [];
-  for (const p of list) {
-    const alone = p.mark.kind === "dimension" || p.mark.readonly,
-      g = alone
-        ? null
-        : out.find(
-            (q) =>
-              q[0]!.mark.kind !== "dimension" &&
-              !q[0]!.mark.readonly &&
-              Math.hypot(q[0]!.x - p.x, q[0]!.y - p.y) < settings.marks.pillPx,
-          );
-    if (g) g.push(p);
-    else out.push([p]);
-  }
-  return out;
-}
+/** no pills (`in_1650`): every mark is its own bubble */
+const groups = (list: PlacedMark[]): PlacedMark[][] => list.map((p) => [p]);
+/** the places round a mark's spot, in the order they are tried: up, up-right, up-left, right, left, down-right, down-left, down; at 30, 48 and 66 px (`dec_mark_placement`) */
+const SLOTS = [270, 315, 225, 0, 180, 45, 135, 90].map((a) => (a * Math.PI) / 180);
 
 export function createMarkDraw(host: HTMLElement) {
   const layer = document.createElement("div");
@@ -47,6 +34,40 @@ export function createMarkDraw(host: HTMLElement) {
   host.appendChild(layer);
   let on: MarkHandlers | null = null,
     sig = "";
+  // what is pointed at is caught once on the layer, not on each mark: the marks are rebuilt, and a mark replaced under the pointer could miss its 'leave' (`in_1657`)
+  let hoverKey: string | null = null,
+    last = { x: -1, y: -1 };
+  const keyAt = (t: EventTarget | null): string | null =>
+    (t as HTMLElement | null)?.closest?.("[data-key]")?.getAttribute("data-key") ?? null;
+  const setHover = (k: string | null) => {
+    if (k === hoverKey) return;
+    hoverKey = k;
+    if (k === null) on?.hover?.(null);
+    else {
+      const i = k.indexOf("|");
+      on?.hover?.(k.slice(0, i), k.slice(i + 1));
+    }
+  };
+  for (const t of ["pointerover", "pointermove"] as const)
+    layer.addEventListener(t, (e) => {
+      last = { x: e.clientX, y: e.clientY };
+      setHover(keyAt(e.target));
+    });
+  layer.addEventListener("pointerout", (e) => {
+    if (!keyAt((e as PointerEvent).relatedTarget)) setHover(null);
+  });
+  // the arrow from a pointed-at bubble to the exact spot it is about
+  const NS = "http://www.w3.org/2000/svg",
+    leader = document.createElementNS(NS, "svg"),
+    shaft = document.createElementNS(NS, "path"),
+    head = document.createElementNS(NS, "path");
+  leader.style.cssText = "position:fixed;left:0;top:0;width:100vw;height:100vh;pointer-events:none;overflow:visible";
+  shaft.setAttribute("fill", "none");
+  shaft.setAttribute("stroke-width", "1.2");
+  shaft.setAttribute("stroke-dasharray", "4 3");
+  leader.append(shaft, head);
+  leader.style.display = "none";
+  layer.append(leader);
   const boxes = new Map<string, HTMLElement>(),
     chipOf = new Map<string, HTMLElement>(),
     anchored = new Map<string, { x: number; y: number }>(),
@@ -83,8 +104,7 @@ export function createMarkDraw(host: HTMLElement) {
     box.style.cssText =
       "position:absolute;left:0;top:0;pointer-events:auto;will-change:transform;display:flex;align-items:center;gap:3px";
     box.dataset.mark = g[0]!.mark.state;
-    if (g.length > 1)
-      box.style.cssText += ";padding:3px;border-radius:19px;background:rgba(255,255,255,.92);border:1px solid #d6d7db";
+    box.dataset.key = key;
     for (const p of g) {
       const c = chipFor(p.mark);
       chipOf.set(keyOf(p.mark), c);
@@ -158,7 +178,9 @@ export function createMarkDraw(host: HTMLElement) {
           boxes.set(keyG(g), e);
           layer.append(e);
         }
+        if (last.x >= 0) setHover(keyAt(document.elementFromPoint(last.x, last.y))); // (a rebuilt mark under the pointer is still pointed at)
       }
+      let spot: { cx: number; cy: number; sx: number; sy: number; offer: boolean } | null = null;
       const seen = new Set<string>(),
         placed: { x: number; y: number; w: number; h: number }[] = [];
       const shown = gs.filter((g) => boxes.has(keyG(g)));
@@ -178,23 +200,49 @@ export function createMarkDraw(host: HTMLElement) {
         }
         const w = e.offsetWidth || 28,
           h = e.offsetHeight || 28,
-          ax = p.x - w / 2,
-          ay = p.y - h - settings.marks.gapPx;
-        anchored.set(k, { x: ax, y: ay }); // (standing on the part: its lower edge at the part)
-        let x = ax + (off?.x ?? 0),
-          y = ay + (off?.y ?? 0);
+          free = (x0: number, y0: number) =>
+            !placed.some((b) => x0 < b.x + b.w + 4 && b.x < x0 + w + 4 && y0 < b.y + b.h + 4 && b.y < y0 + h + 4);
+        // the first free place round its spot; one the person moved keeps its first place (its offset is from it)
+        let ax = p.x - w / 2,
+          ay = p.y - h / 2 - 30;
         if (!off)
-          for (let tries = 0; tries < 8; tries++) {
-            const hit = placed.find(
-              (b) => x < b.x + b.w + 4 && b.x < x + w + 4 && y < b.y + b.h + 4 && b.y < y + h + 4,
-            );
-            if (!hit) break;
-            x = hit.x + hit.w + 6;
-          } // (a pill that would cover another stands beside it)
+          slot: for (const r of [30, 48, 66])
+            for (const t of SLOTS) {
+              const cx = p.x + Math.cos(t) * r - w / 2,
+                cy = p.y + Math.sin(t) * r - h / 2;
+              if (free(cx, cy)) {
+                ax = cx;
+                ay = cy;
+                break slot;
+              }
+            }
+        anchored.set(k, { x: ax, y: ay });
+        const x = ax + (off?.x ?? 0),
+          y = ay + (off?.y ?? 0);
+        if (k === hoverKey) spot = { cx: x + w / 2, cy: y + h / 2, sx: p.x, sy: p.y, offer: p.mark.state === "offer" };
         placed.push({ x, y, w, h });
         e.style.transform = `translate(${Math.round(x)}px,${Math.round(y)}px)`;
       }
       for (const [k, e] of boxes) if (!seen.has(k)) e.style.display = "none";
+      const sp = spot as { cx: number; cy: number; sx: number; sy: number; offer: boolean } | null;
+      const dx = sp ? sp.sx - sp.cx : 0,
+        dy = sp ? sp.sy - sp.cy : 0,
+        dist = Math.hypot(dx, dy);
+      if (sp && dist > 24) {
+        const ux = dx / dist,
+          uy = dy / dist,
+          x0 = sp.cx + ux * 16,
+          y0 = sp.cy + uy * 16,
+          colour = sp.offer ? "#f2c14e" : "#8a9097";
+        shaft.setAttribute("d", `M${x0} ${y0} L${sp.sx - ux * 6} ${sp.sy - uy * 6}`);
+        shaft.setAttribute("stroke", colour);
+        head.setAttribute(
+          "d",
+          `M${sp.sx} ${sp.sy} L${sp.sx - ux * 9 - uy * 4} ${sp.sy - uy * 9 + ux * 4} L${sp.sx - ux * 9 + uy * 4} ${sp.sy - uy * 9 - ux * 4}Z`,
+        );
+        head.setAttribute("fill", colour);
+        leader.style.display = "block";
+      } else leader.style.display = "none";
     },
     startEdit: chips.startEdit,
     editing: chips.editing,

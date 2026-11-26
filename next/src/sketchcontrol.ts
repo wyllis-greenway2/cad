@@ -354,6 +354,26 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
           const at = shownPts.has(id) ? null : s.points[id];
           if (at) out.push({ kind: "centre", pts: [to3(f, at)], r: mmPerPx(f, at) * settings.sketch.ballPx * 0.55 });
         }
+        // the parts the pointed-at mark is about, lit in its colour (blue for an applied constraint, yellow for an offer); a named point also lights the lines that end at it; only colour changes, never the weight (`in_1657`, `in_1661`)
+        if (st.lit && st.lit.key === k) {
+          const names = new Set(st.lit.parts);
+          for (const l of p.lines ?? []) if (names.has(l.a) || names.has(l.b)) names.add(l.id);
+          for (const q of seg)
+            if (names.has(q.name))
+              out.push({
+                kind: st.lit.offer ? (chosen.has(q.name) ? "litOfferSel" : "litOffer") : "lit",
+                pts: polyline(q).map((z) => to3(f, z)),
+              });
+          for (const id of st.lit.parts) {
+            const at = s.points[id];
+            if (at)
+              out.push({
+                kind: st.lit.offer ? "tieBall" : "ball",
+                pts: [to3(f, at)],
+                r: mmPerPx(f, at) * settings.sketch.ballPx,
+              });
+          }
+        }
       }
       const mv = st.moves && all.get(st.moves.key) ? { f: all.get(st.moves.key)!, list: st.moves.list } : null;
       if (mv)

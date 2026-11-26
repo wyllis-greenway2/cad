@@ -41,10 +41,30 @@ try {
     !!offer?.moves?.length,
     `a vertex and a circle picked: "on the circle" is offered with arrows: ${JSON.stringify(offer?.moves)}`,
   );
-  const lines = await ev<any[]>(
-    `() => window.__sketch.lines(null).filter((l) => l.kind === "move" || l.kind === "moveHead")`,
+  const drawnArrows = () =>
+      ev<any[]>(`() => window.__sketch.lines(null).filter((l) => l.kind === "move" || l.kind === "moveHead")`),
+    lit = () =>
+      ev<any[]>(`() => window.__sketch.lines(null).filter((l) => /^lit/.test(l.kind) || l.kind === "tieBall")`);
+  ok((await drawnArrows()).length === 0, "at rest nothing of the offer is drawn: no arrows");
+  // point at its bubble, with a real mouse: the arrows and the parts it is about appear
+  const chip = await page.evaluate(() => {
+    const e = document.querySelector('[data-key^="rel:on|"]') as HTMLElement | null;
+    if (!e) return null;
+    const r = e.getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  });
+  ok(!!chip, "the offer's bubble is on the page");
+  await page.mouse.move(chip!.x, chip!.y);
+  await page.waitForTimeout(250);
+  ok(
+    (await drawnArrows()).length >= 2,
+    `pointing at the bubble draws what applying would move: ${(await drawnArrows()).length} lines`,
   );
-  ok(lines.length >= 2, `and they are drawn: ${lines.length} lines`);
+  ok((await lit()).length >= 2, `and lights the parts it is about: ${(await lit()).length} drawn`);
+  writeFileSync(`${dir}/moves-hover.png`, await page.screenshot());
+  await page.mouse.move(chip!.x + 300, chip!.y + 250, { steps: 6 });
+  await page.waitForTimeout(250);
+  ok((await drawnArrows()).length === 0 && (await lit()).length === 0, "and moving away takes them all away again");
   writeFileSync(`${dir}/moves-1.png`, await page.screenshot());
   // apply it: the same call as the arrows were made with
   await ev(`() => window.__sketch.handlers.suggest("rel:on")`);

@@ -44,6 +44,9 @@ export interface DrawLine {
     | "guide"
     | "ball"
     | "centre"
+    | "lit"
+    | "litOffer"
+    | "litOfferSel"
     | "note"
     | "move"
     | "moveHead";
@@ -61,6 +64,9 @@ export function createCore(host: SketchHost, on?: (label: string, merge?: string
     recent: null as (Recent & { key: string }) | null,
     activeSince: new Map<string, number>(),
     /** what the offers showing now would move, from where to where (set with the marks, drawn with the lines) */
+    /** the mark being pointed at (its id and what it is offered for), and the parts it is about with whether it is an offer: both from the marks, drawn with the lines */
+    hover: null as { id: string; over: string } | null,
+    lit: null as { key: string; parts: string[]; offer: boolean } | null,
     moves: null as { key: string; list: { from: [number, number]; to: [number, number] }[] } | null,
   };
   const say = (text: string, ms = 4000) => host.notify(text, { ttl: ms });

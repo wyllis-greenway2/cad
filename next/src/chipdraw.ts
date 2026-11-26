@@ -14,10 +14,12 @@ export interface InfoHandlers {
 }
 
 export type Border = string;
-export const EDGE = { free: "#d6d7db", holds: "#3fae6a" } as const,
-  TONE = { rest: "#d6d7db", refused: "#e46a6a", applied: "#3fae6a", offer: "#f2c14e" } as const;
+/** an applied constraint is neutral charcoal; only an offer is yellow, and what is selected is blue (`in_1661`); red is a refusal (`inv_constraint_uniformity`) */
+export const APPLIED = "#6b7178";
+export const EDGE = { free: "#d6d7db", holds: APPLIED } as const,
+  TONE = { rest: "#d6d7db", refused: "#e46a6a", applied: APPLIED, offer: "#f2c14e" } as const;
 /** the colour of a mark's state: locked green, offered yellow, refused red */
-export const STATE = { locked: "#3fae6a", offer: "#f2c14e", refused: "#e46a6a" } as const;
+export const STATE = { locked: APPLIED, offer: "#f2c14e", refused: "#e46a6a" } as const;
 
 /** the one lock (`dec_marks_on_things`): small, on the corner of a chip: closed when applied, open when offered or only measured; clickable when it can be toggled */
 export function cornerLock(open: boolean, colour: string, onClick?: () => void): HTMLElement {
@@ -136,12 +138,10 @@ export function createChips(handlers: () => InfoHandlers | null, retake: () => v
     d.style.cssText = `position:relative;box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#fff;border:1.5px solid ${border};cursor:pointer`;
     if (lockOpen) d.append(cornerLock(true, border));
     d.addEventListener("pointerenter", () => {
-      d.style.background = "#e8f7f6";
-      d.style.borderColor = "#1ab8b3";
+      d.style.background = "#fff8e1";
     });
     d.addEventListener("pointerleave", () => {
       d.style.background = "#fff";
-      d.style.borderColor = border;
     });
     d.addEventListener("click", onClick);
     return d;

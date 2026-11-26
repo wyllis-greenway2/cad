@@ -6695,3 +6695,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1660 — 2026-11-26 — directive
 > build the minimal version, try the hover only arrows, but lets keep the parent highlight on hover
+
+## in_1661 — 2026-11-26 — directive
+> okay but lets simplify it even more, only yellow and blue colors, please implement it into the app
