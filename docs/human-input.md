@@ -6536,3 +6536,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1607 — 2026-11-26 — approval
 > yes do the task moves first
+
+## in_1608 — 2026-11-26 — approval
+> yes do the arrow gain fix first

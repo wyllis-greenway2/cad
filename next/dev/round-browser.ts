@@ -23,10 +23,10 @@ try {
   const at = (k: number) => p3(ar.base.map((v, i) => v + ar.normal[i]! * k));
   const [b0x, b0y] = await at(0), [b1x, b1y] = await at(10), ux = b1x! - b0x!, uy = b1y! - b0y!, ul = Math.hypot(ux, uy) / 10; // pixels per mm along the arrow
   let grabbed = false;
-  for (const k of [2, 3, 4, 5, 6, 8, 10, 12]) { const [x, y] = await at(k); await page.mouse.move(x!, y!); await page.mouse.down(); await page.mouse.move(x! - ux / ul * 0.01, y! - uy / ul * 0.01); await page.mouse.move(x! - (ux / ul) * 2 * ul, y! - (uy / ul) * 2 * ul, { steps: 6 }); await page.waitForTimeout(120); const g = (await ev<any>(`() => window.__ext.debug()`)).pull; await page.mouse.up(); if (g.mode === "round" && g.pulled !== 3) { grabbed = true; d = { pull: g }; break; } }
-  ok(grabbed && d.pull.pulled < 0 && d.pull.d > 0, `dragging the arrow in makes it a chamfer of the size dragged: ${JSON.stringify(d.pull)}`);
-  const sz = d.pull.d; { const [x, y] = await at(d.pull.pulled); await page.mouse.move(x!, y!); await page.mouse.down(); await page.mouse.move(x! + (ux / ul) * 5 * ul, y! + (uy / ul) * 5 * ul, { steps: 8 }); await page.mouse.up(); await page.waitForTimeout(150); d = await ev<any>(`() => window.__ext.debug()`); }
-  ok(d.pull.pulled > 0 && d.pull.d > 0, `and dragging it out makes it a round (was a chamfer of ${sz}): ${JSON.stringify(d.pull)}`);
+  for (const k of [2, 3, 4, 5, 6, 8, 10, 12]) { const [x, y] = await at(k); await page.mouse.move(x!, y!); await page.mouse.down(); await page.mouse.move(x! - ux / ul * 0.01, y! - uy / ul * 0.01); await page.mouse.move(x! - ux * 0.6, y! - uy * 0.6, { steps: 6 }); await page.waitForTimeout(120); const g = (await ev<any>(`() => window.__ext.debug()`)).pull; await page.mouse.up(); if (g.mode === "round" && g.pulled !== 3) { grabbed = true; d = { pull: g }; break; } }
+  ok(grabbed && d.pull.pulled < 0 && d.pull.d > 0 && d.pull.d < 10, `dragging the arrow in makes it a chamfer of the size dragged: ${JSON.stringify(d.pull)}`);
+  const sz = d.pull.d; { const [x, y] = await at(d.pull.pulled); await page.mouse.move(x!, y!); await page.mouse.down(); await page.mouse.move(x! + ux * 1.2, y! + uy * 1.2, { steps: 8 }); await page.mouse.up(); await page.waitForTimeout(150); d = await ev<any>(`() => window.__ext.debug()`); }
+  ok(d.pull.pulled > 0 && d.pull.d > 0 && d.pull.d < 16, `and dragging it out makes it a round (was a chamfer of ${sz}): ${JSON.stringify(d.pull)}`);
   await type("3"); await page.keyboard.press("Enter"); await settle();
   let b = await body(); ok(b.steps.join() === "sketchPolygon,extrude,round" && b.problem === "" && b.tris > 12, `the engine rounded the edge: ${JSON.stringify(b)}`);
   writeFileSync(`${dir}/round-2.png`, await page.screenshot());

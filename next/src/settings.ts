@@ -53,6 +53,8 @@ export const settings = {
   // a sketch plane placed anywhere, and the right-click ring
   planes: { snapAxisRad: 0.14, ringButtonPx: 36 }, // (a sketch plane made facing the camera snaps to a world axis within this)
   // the mover orb (`app/src/shared/settings.ts` gizmo): its size as a share of the view distance, how near the pointer must be to take a handle, and how its lines look
+  // a pull arrow is dragged by the pointer's movement along the arrow as it looks on the screen; an arrow pointing nearly at the camera looks short, so a movement is counted as no more than this share of the screen's mm to the pixel (else a small movement is a huge pull)
+  pull: { minGain: 0.5 },
   mover: { sizeOfView: 0.11, hitPx: 12, opacity: 0.6, widthPx: 2.2, headScale: 0.7, arrowShare: 0.6, gapShare: 0.09, extraGap: 0.12, extraShare: 0.4, stemShare: 0.85, turnShare: 0.33, turnStartDeg: 40, turnSpanDeg: 280, arcSegments: 48 }, // (the orb: its size, how near the pointer must be, the lines; the curved arrow: a stem of this share of the straight arrow, then an open circle of this radius, from this angle and this far round)
   buttons: { marginPx: 18, sizePx: 34 },
   ui: {

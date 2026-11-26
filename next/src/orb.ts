@@ -72,6 +72,15 @@ export function alongLine(r: { o: V3; d: V3 }, p: V3, d: V3): number | null {
   const w0 = sub(p, r.o), b = dot(d, r.d), dd = dot(d, w0), e = dot(r.d, w0), den = 1 - b * b;
   return den < 1e-4 ? null : (b * e - dd) / den;
 }
+/** How far a pointer movement of (dx, dy) pixels pulls an arrow standing at `base` and pointing along `dir`, in mm: the movement along the arrow as it looks on the screen, with the arrow's look never counted shorter than a share of the longest it could look (`settings.pull.minGain`): an arrow pointing nearly at the camera would otherwise turn a small movement into a huge pull. */
+export function pullDelta(c: Cam, w: number, h: number, base: V3, dir: V3, dx: number, dy: number): number {
+  const q0 = project(c, base, w, h), look = (d: V3) => { const q = project(c, add(base, d), w, h); return [q.x - q0.x, q.y - q0.y] as [number, number]; };
+  const best = Math.max(...([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as V3[]).map((e) => Math.hypot(...look(e)))), floor = settings.pull.minGain * best;
+  let [px, py] = look(dir); const l = Math.hypot(px, py);
+  if (l < 1e-9) { px = 0; py = -1; } else { px /= l; py /= l; } // (looking straight along it: up the screen is out)
+  const g = Math.max(l, floor);
+  return g < 1e-9 ? 0 : (dx * px + dy * py) / g;
+}
 /** A drag in progress: the handle, the orb's middle, and where the pointer took hold: along a line (how far), in a plane (the point), or round an axis (the vector from the middle). */
 export type Grab = { handle: Handle; centre: V3 } & ({ kind: "line"; dir: V3; s0: number } | { kind: "plane"; dir: V3; q0: V3 } | { kind: "ring"; dir: V3; v0: V3 });
 export function startGrab(o: Orb, hd: Handle, c: Cam, w: number, h: number, px: number, py: number, forward: V3): Grab | null {
