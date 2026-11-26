@@ -23,7 +23,8 @@ import { SEE_THROUGH } from "./looks.ts";
 import { settings } from "./settings.ts";
 import { createStudio } from "./studio.ts";
 import { createOperations } from "./operationcontrol.ts";
-import { extrudeOp, pushOp, roundOp, type PullInfo, type Source } from "./interaction/operations.ts";
+import { extrudeOp, type Source } from "./interaction/operations.ts";
+import { createBodyOps } from "./bodyops.ts";
 import { createBodySelect } from "./bodyselect.ts";
 import { createSelection } from "./selection.ts";
 import { createNotices } from "./interaction/notices.ts";
@@ -119,33 +120,14 @@ const badge = createBadge(document.body); // (the tool that is armed, following 
 const infobar = createInfoBar(document.body); // (the one bar: what is so of the subject, and what could be added)
 /** the engine's facts about a face of the body: where it faces (out of the body) */
 const faceFacts = (body: string, id: string) => studio.state().snapshot.find((x) => x.id === body)?.faces.find((f) => f.id === id) ?? null;
-function doOnPick(id: string, sel: import("./bodyselect.ts").Selection) {
-  const mesh = studio.state().meshes.find((m) => m.id === sel.body), f = sel.faces[0];
-  if (game.on) endGame();
-  while (sk.stop()) { /* the sketch tool is put away */ }
-  if (id === "body:sketch" && f) { // a sketch on the face: the plane is the face's (the engine's own frame of it), the view turns straight to it
-    const ff = faceFacts(sel.body, f.id); if (!ff) return;
-    const n = ff.ne as [number, number, number], fr: Frame = { origin: ff.ce as [number, number, number], normal: n, u: [...faceAxes(n).u] as [number, number, number] }, key = `face:${f.id}`;
-    facePlanes.set(key, { frame: fr, source: { face: f.ref, body: sel.body } });
-    placed = fr; placedKey = key; selection.clear(); s = view.lookAlong(s, env(), scale(n, -1)); record("Plane on a face");
-  }
-  if ((id === "body:round" || id === "body:chamfer") && sel.edges.length) { // the number is the size: about a tenth of the shortest edge, to type over
-    const pts = (e: { start: number; count: number }) => { const m = mesh!; let L = 0; for (let i = 0; i + 1 < e.count; i++) { const k = 3 * (e.start + i); L += Math.hypot(m.lines[k + 3]! - m.lines[k]!, m.lines[k + 4]! - m.lines[k + 1]!, m.lines[k + 5]! - m.lines[k + 2]!); } return L; };
-    const short = Math.min(...sel.edges.map(pts)), size = Math.max(0.1, Math.round(Math.min(short / 10, 2) * 10) / 10);
-    // the arrow stands on the middle of the first edge and points out of the body, between its two faces (pulled out: round; pushed in: chamfer)
-    const e0 = sel.edges[0]!, m = mesh!, a0 = 3 * e0.start, a1 = 3 * (e0.start + e0.count - 1), at: V3 = [(m.lines[a0]! + m.lines[a1]!) / 2, (m.lines[a0 + 1]! + m.lines[a1 + 1]!) / 2, (m.lines[a0 + 2]! + m.lines[a1 + 2]!) / 2];
-    const ns = [e0.ref.a, e0.ref.b].map((r) => { const fi = m.faces.find((x) => idKey(x.ref) === idKey(r)); return fi && faceFacts(sel.body, fi.id)?.ne; });
-    const sum = ns[0] && ns[1] ? add(ns[0] as V3, ns[1] as V3) : null, normal = sum && Math.hypot(...sum) > 1e-6 ? unit(sum) : null;
-    ext.open(roundOp({ body: sel.body, edges: sel.edges.map((e) => e.ref), kind: id === "body:chamfer" ? "chamfer" : "fillet", at: normal ? at : sel.at, normal }, size));
-  }
-  if (id === "body:pull" && mesh && f) {
-    const ff = faceFacts(sel.body, f.id); if (!ff) return;
-    const positions = new Float32Array(f.count * 3); for (let k = 0; k < f.count; k++) positions.set(mesh.positions.subarray(3 * mesh.indices[f.start + k]!, 3 * mesh.indices[f.start + k]! + 3), 3 * k);
-    void studio.ask({ what: "pullModes", step: sel.body, face: f.ref }).then((r) => { // the kinds of pull this face has, from the worker
-      const kinds = r.ok ? (r.data as PullInfo[]) : [{ mode: "push" as const, ok: true, why: "", suggested: true }];
-      ext.open(pushOp({ ref: f.ref, body: sel.body, at: sel.at, normal: ff.ne as [number, number, number], positions, kinds }));
-    });
-  }
+const bodyOps = createBodyOps({ studio, faceFacts });
+/** a sketch on a face: the plane is the face's (the engine's own frame of it), the view turns straight to it */
+function sketchOnFace(sel: import("./bodyselect.ts").Selection) {
+  const f = sel.faces[0]; if (!f) return;
+  const ff = faceFacts(sel.body, f.id); if (!ff) return;
+  const n = ff.ne as [number, number, number], fr: Frame = { origin: ff.ce as [number, number, number], normal: n, u: [...faceAxes(n).u] as [number, number, number] }, key = `face:${f.id}`;
+  facePlanes.set(key, { frame: fr, source: { face: f.ref, body: sel.body } });
+  placed = fr; placedKey = key; selection.clear(); s = view.lookAlong(s, env(), scale(n, -1)); record("Plane on a face");
 }
 // ---- undo and redo of the drawings and the recipe together, and the step list with its numbers ----
 interface App { sketches: Record<string, SketchParams>; steps: readonly Step[]; faces: ReadonlyMap<string, { frame: Frame; source: Source }> }
@@ -194,8 +176,8 @@ function startTool(kind: ToolKind) {
 const tools = createToolControl({
   notify, selection,
   draw: (kind) => startTool(kind as ToolKind), drawStep: () => sk.drawStep(), drawStop: () => sk.stop(),
-  extrude: { start: () => { while (sk.stop()) { /* the sketch tool is put away */ } selection.clear(); ext.start(); }, active: () => ext.active(), open: () => ext.pulling(), valid: () => ext.valid(), apply: () => ext.apply(), cancel: () => ext.cancel(), words: () => ext.words() },
-  plane: addSketchPlane, face: (action, pick) => doOnPick(action, pick),
+  extrude: { start: () => { while (sk.stop()) { /* the sketch tool is put away */ } selection.clear(); ext.start(); }, active: () => ext.active(), open: () => ext.pulling(), valid: () => ext.valid(), apply: () => ext.apply(), cancel: () => ext.cancel(), words: () => ext.words(), show: (op) => { while (sk.stop()) { /* the sketch tool is put away */ } ext.open(op); } },
+  plane: addSketchPlane, sketchFace: sketchOnFace, bodyOp: (action, pick) => bodyOps.operationFor(action, pick),
   selectedKinds: () => sk.selectedKinds(), relate: (rel) => sk.constrain(rel),
   orient: { on: () => orbc.orienting(), keep: () => { orbc.keep(); return true; }, cancel: () => orbc.cancel() },
   endGame: () => { if (game.on) endGame(); },

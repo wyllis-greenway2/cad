@@ -6533,3 +6533,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1606 — 2026-11-26 — approval
 > yes update the entry and start with the pull arrow
+
+## in_1607 — 2026-11-26 — approval
+> yes do the task moves first

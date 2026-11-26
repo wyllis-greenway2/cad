@@ -9,8 +9,8 @@ function fake() {
   const host = {
     notify: (text: string, o?: { persistent?: boolean }) => { const n = { text, persistent: !!o?.persistent, cleared: false }; notices.push(n); return { clear: () => { n.cleared = true; }, set: (t: string) => { n.text = t; } }; },
     selection, draw: (k: string) => { st.step = 0; log.push(`draw ${k}`); }, drawStep: () => st.step, drawStop: () => { if (st.step === null) return false; if (st.step > 0) { st.step = 0; return true; } st.step = null; return false; },
-    extrude: { start: () => log.push("ext"), active: () => false, open: () => st.open, valid: () => st.valid, apply: () => { st.open = false; log.push("apply"); return true; }, cancel: () => { st.open = false; log.push("cancel"); return true; }, words: () => null },
-    plane: () => log.push("plane"), face: (a: string) => { st.open = true; log.push(`face ${a}`); },
+    extrude: { show: () => {}, start: () => log.push("ext"), active: () => false, open: () => st.open, valid: () => st.valid, apply: () => { st.open = false; log.push("apply"); return true; }, cancel: () => { st.open = false; log.push("cancel"); return true; }, words: () => null },
+    plane: () => log.push("plane"), sketchFace: () => log.push("sketchFace"), bodyOp: async (a: string) => { st.open = true; log.push(`face ${a}`); return null; },
     selectedKinds: () => st.kinds, relate: (r: string) => { log.push(`relate ${r}`); return true; },
     orient: { on: () => st.orient, keep: () => { st.orient = false; log.push("keep"); return true; }, cancel: () => { st.orient = false; log.push("back"); return true; } },
     endGame: () => {},

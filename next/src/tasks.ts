@@ -4,6 +4,7 @@ import { constraintAsk, constraintStatus, faceStatus, type ToolSpec } from "./in
 import type { Handle, NoticeOptions } from "./interaction/notices.ts";
 import type { BodyPick, Selection } from "./selection.ts";
 import type { Relation } from "./engine/solver.ts";
+import type { Operation } from "./interaction/operation.ts";
 
 export interface Task {
   /** the sentence now (null: none) */
@@ -26,10 +27,11 @@ export interface ToolHost {
   drawStep(): number | null;
   drawStop(): boolean;
   /** the Extrude tool: armed, an operation open (the thing being pulled), whether what is pulled is valid (a size above nothing), applied, given up, and the words for what is open */
-  extrude: { start(): void; active(): boolean; open(): boolean; valid(): boolean; apply(): boolean; cancel(): boolean; words(): string | null };
+  extrude: { show(op: Operation): void; start(): void; active(): boolean; open(): boolean; valid(): boolean; apply(): boolean; cancel(): boolean; words(): string | null };
   plane(): void;
-  /** what is picked on a body is done with: `body:sketch`, `body:pull`, `body:round`, `body:chamfer` */
-  face(action: string, pick: BodyPick): void;
+  /** what is picked on a body: a sketch on the face, or the operation a tool opens on it (`body:pull`, `body:round`, `body:chamfer`; null: none) */
+  sketchFace(pick: BodyPick): void;
+  bodyOp(action: string, pick: BodyPick): Promise<Operation | null>;
   /** the kinds of the parts selected in the sketch, and a relation put on them (false: the sketch said no, in words and red) */
   selectedKinds(): string[];
   relate(rel: Relation): boolean;
@@ -61,7 +63,7 @@ const extrude = (spec: ToolSpec, host: ToolHost): Task => {
 };
 /** a tool for what is picked on a body: it runs when it has what it needs (from what was already picked, or from the picks), and then the operation it opens is the draft */
 const body = (spec: ToolSpec, host: ToolHost): Task => {
-  let ran = false, since = 0, seen = false, warn = "";
+  let ran = false, since = 0, seen = false, over = false; const warn = "";
   const need = () => spec.needs[0]!.ask;
   const status = () => { const p = host.selection.body(); return { pick: p, st: faceStatus(spec, p && { faces: p.faces.length, edges: p.edges.length }) }; };
   return {
@@ -70,11 +72,16 @@ const body = (spec: ToolSpec, host: ToolHost): Task => {
     update: (now) => {
       if (ran) { if (host.extrude.open()) { seen = true; return "going"; } if (!since) since = now; return seen || (now > 0 && now - since > 4000) ? "done" : "going"; }
       const { pick, st } = status();
-      if (st === "met" && pick) { ran = true; host.face(spec.arg, pick); return spec.arg === "body:sketch" ? "done" : "going"; }
+      if (st === "met" && pick) {
+        ran = true;
+        if (spec.arg === "body:sketch") { host.sketchFace(pick); return "done"; }
+        void host.bodyOp(spec.arg, pick).then((op) => { if (op && !over) host.extrude.show(op); });
+        return "going";
+      }
       if (st === "bad") { host.notify(`${need()}: that is not it`, { kind: "warn", ttl: 3000 }); host.selection.clear(); }
       return "going";
     },
-    commit: () => settle(host, true), cancel: () => { settle(host, false); return false; },
+    commit: () => { over = true; settle(host, true); }, cancel: () => { over = true; settle(host, false); return false; },
   };
 };
 /** a constraint: a relation put on what is selected when it fits; the tool goes on, asking for the next */
