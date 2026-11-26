@@ -2,4 +2,6 @@
 
 **What it was meant to learn:** how to show what a constraint mark belongs to and what it will do without cluttering the sketch (`in_1649`). One scene (the human's `model_5.cad`: a circle, a tangent line, a vertex at the line's middle, an offer "P5 on the circle") drawn four ways: quiet marks that wake when pointed at; tint and leaders; a sentence line; one pill that opens to a list. Standalone HTML, no build; open `index.html` in a browser. Imports nothing from the app and the app imports nothing from it.
 
+**`rules.html` (`in_1651`):** the draft rule set of `dec_mark_placement` on the same scene plus an angle (a square), a length and a circle size: quiet marks, loud on hover (an offer's arrows only then), no pills, each mark first at the place its kind says, stepping aside along the way with most room (a thin leader back to its feature once it has), a dimension line with the bubble on it, a dashed radial line for a circle, a dot when its part is tiny at the zoom. Controls: what is selected, 'everything loud' (worst case), zoom, touch mode (a tap toggles the preview).
+
 **What it learned:** (the human's findings go here after trying it).
