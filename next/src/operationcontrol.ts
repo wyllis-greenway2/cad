@@ -1,7 +1,7 @@
 // The operation controller (`in_1576`): the one controller of every operation open on the screen (extrude, push or pull a face, round, chamfer, and what comes after). It holds the operation (`interaction/operation.ts`: a description) and does what every operation
 // needs: the operation bar (title, kinds, check, cross), the arrow to be pulled and the ghost that follows it, the number to type over, Enter or a right click to apply, Esc to give up. The Extrude tool's wait for a click inside a drawing is the only
 // thing particular to one operation here: the click picks what the first operation is made of. The arrow is the mover's kind of handle (`orb.ts`) drawn the mover's way (`orbdraw.ts`).
-import { project, type Cam } from "./camera.ts";
+import { forwardDepth, project, viewHeight, type Cam } from "./camera.ts";
 import type { Ask } from "./engine/protocol.ts";
 import type { Step } from "./engine/steps.ts";
 import type { InfoHandlers } from "./infobardraw.ts";
@@ -37,7 +37,8 @@ const OPTION_ICON: Record<string, string> = {
 };
 
 export function createOperations(host: OperationHost) {
-  let armed = false,
+  let tie: string | null = null,
+    armed = false,
     op: Operation | null = null,
     grab: { x0: number; y0: number; d0: number } | null = null;
   /** the arrow: from a little out of the thing's middle along its normal (the way it is pulled), to the tip; as long as the pull when that is longer than the arrow */
@@ -59,6 +60,7 @@ export function createOperations(host: OperationHost) {
     armed = false;
     op = null;
     grab = null;
+    tie = null;
   };
   function apply(): boolean {
     if (!op) return false;
@@ -113,16 +115,21 @@ export function createOperations(host: OperationHost) {
     },
     grabMove(x: number, y: number): void {
       if (!op?.arrow || !grab) return;
-      const { cam, w, h } = host.view();
-      op =
-        op.withPull(
+      const { cam, w, h } = host.view(),
+        raw =
           Math.round((grab.d0 + pullDelta(cam, w, h, op.arrow.base, op.arrow.normal, x - grab.x0, y - grab.y0)) * 100) /
-            100,
-        ) ?? op;
+          100,
+        mm = viewHeight(cam, Math.max(forwardDepth(cam, op.arrow.base), 1e-3)) / h, // (a pixel's worth in mm, where the arrow stands)
+        flush = op.snap?.(raw, settings.helpers.linePx * mm) ?? null; // (the pull is placed flush with another face when it is near one: it places, it never constrains)
+      tie = flush ? flush.tie : null;
+      op = op.withPull(flush ? Math.round(flush.d * 100) / 100 : raw) ?? op;
     },
     grabEnd(): void {
       grab = null;
+      tie = null;
     },
+    /** the face the pull is flush with, while it is (`engine/flush.ts`; null: none), to be lit */
+    tie: (): string | null => tie,
     apply,
     cancel,
     /** Enter applies; returns whether it was used. */

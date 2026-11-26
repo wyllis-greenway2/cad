@@ -5,9 +5,11 @@
 import { createBadge } from "./badgedraw.ts";
 import { createBodyMove } from "./bodymovecontrol.ts";
 import { createBodyOps } from "./bodyops.ts";
+import type { Mark } from "./bodyselect.ts";
 import { createBodySelect } from "./bodyselect.ts";
 import { forward, project, type Axis } from "./camera.ts";
 import * as dev from "./dev.ts";
+import { flushPull, planesOf, type PlaneRef } from "./engine/flush.ts";
 import type { SketchParams } from "./engine/sketch.ts";
 import type { Step } from "./engine/steps.ts";
 import { faceAxes } from "./engine/vec.ts";
@@ -173,7 +175,13 @@ const ext = createOperations({
   },
   pick: (x, y) => {
     const r = sk.regionAt(x, y);
-    return r ? extrudeOp({ ...r, source: liveSource(r.key) }) : null;
+    if (!r) return null;
+    const base = to3(r.frame, r.region.centre),
+      snap = (d: number, reach: number) => {
+        const f = flushPull({ p: base, n: r.frame.normal }, scenePlanes(), d, reach);
+        return f && { d: f.d, tie: f.to.face };
+      };
+    return extrudeOp({ ...r, source: liveSource(r.key), snap });
   },
   recipe: () => studio.state().steps,
   change: (steps) => {
@@ -226,7 +234,22 @@ const faceFacts = (body: string, id: string) =>
     .state()
     .snapshot.find((x) => x.id === body)
     ?.faces.find((f) => f.id === id) ?? null;
-const bodyOps = createBodyOps({ studio, faceFacts });
+/** the face a pull is flush with, lit orange while it is (`operationcontrol.ts` `tie`) */
+const tieMarks = (): Mark[] => {
+  const id = ext.tie();
+  if (!id) return [];
+  for (const m of studio.state().meshes) {
+    const f = m.faces.find((x) => x.id === id);
+    if (f) return [{ body: m.id, faces: [{ start: f.start, count: f.count }], edges: [], strength: "tie" }];
+  }
+  return [];
+};
+/** the flat faces of the scene, as planes: what a pull can be flush with (`engine/flush.ts`) */
+const scenePlanes = (): PlaneRef[] => {
+  const last = [...studio.state().snapshot].reverse().find((x) => x.output === "body");
+  return last ? planesOf(last.faces) : [];
+};
+const bodyOps = createBodyOps({ studio, faceFacts, planes: scenePlanes });
 const bmove = createBodyMove({
   meshes: () => studio.state().meshes,
   bodies: () => studio.state().snapshot.at(-1)?.bodies.length ?? 0,
@@ -599,7 +622,7 @@ function frame(now: number) {
     orb: ext.drawing(game.on ? null : pointer) ?? orb,
     ghost: ext.ghost(),
     moved: bmove.preview(),
-    marks: bodies.marks(),
+    marks: [...bodies.marks(), ...tieMarks()],
     fills: sk.fills(),
     lines: sk.lines(game.on ? null : pointer),
     ...(sk.active() ? { looks: Object.fromEntries(model.things.map((t) => [t.id, SEE_THROUGH])) } : {}),

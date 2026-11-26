@@ -12,7 +12,7 @@ export interface Mark {
   body: string;
   faces: { start: number; count: number }[];
   edges: { start: number; count: number }[];
-  strength: "pick" | "hover";
+  strength: "pick" | "hover" | "tie";
 }
 export interface BodySelectHost {
   view(): { cam: Cam; w: number; h: number };

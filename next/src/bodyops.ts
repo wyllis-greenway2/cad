@@ -1,5 +1,6 @@
 // The operation a tool for what is picked on a body opens (`dec_task_handles`): round and chamfer (the arrow out of the edge), push and pull (the arrow on the face, with the kinds the engine says the face has). The page gives the engine's facts; the descriptions are `interaction/operations.ts`.
 import type { Selection } from "./bodyselect.ts";
+import { flushPull, type PlaneRef } from "./engine/flush.ts";
 import { idKey } from "./engine/id.ts";
 import type { Operation } from "./interaction/operation.ts";
 import { pushOp, roundOp, type PullInfo } from "./interaction/operations.ts";
@@ -7,11 +8,13 @@ import type { createStudio } from "./studio.ts";
 import { add, unit, type V3 } from "./vec.ts";
 
 export interface BodyOpsHost {
+  /** the flat faces of the scene, as planes (`engine/flush.ts`): what a pull can be flush with */
+  planes(): PlaneRef[];
   studio: Pick<ReturnType<typeof createStudio>, "state" | "ask">;
   faceFacts(body: string, id: string): { ne: readonly number[]; ce: readonly number[] } | null;
 }
 export function createBodyOps(host: BodyOpsHost) {
-  const { studio, faceFacts } = host;
+  const { studio, faceFacts, planes } = host;
   return {
     /** the operation for `body:round`, `body:chamfer` or `body:pull` on what is picked (null: it has none) */
     async operationFor(id: string, sel: Selection): Promise<Operation | null> {
@@ -70,7 +73,12 @@ export function createBodyOps(host: BodyOpsHost) {
           );
         const r = await studio.ask({ what: "pullModes", step: sel.body, face: f.ref }); // the kinds of pull this face has, from the worker
         const kinds = r.ok ? (r.data as PullInfo[]) : [{ mode: "push" as const, ok: true, why: "", suggested: true }];
-        return pushOp({ ref: f.ref, body: sel.body, at: sel.at, normal: ff.ne as unknown as V3, positions, kinds });
+        const normal = ff.ne as unknown as V3,
+          snap = (d: number, reach: number) => {
+            const r = flushPull({ p: sel.at, n: normal }, planes(), d, reach);
+            return r && { d: r.d, tie: r.to.face };
+          };
+        return pushOp({ ref: f.ref, body: sel.body, at: sel.at, normal, positions, kinds, snap });
       }
       return null;
     },

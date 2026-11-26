@@ -25,7 +25,7 @@ const KIND_LABEL: Record<PullKind, string> = { edit: "Move", push: "Extrude", mo
 
 /** a closed part of a drawing, pulled along its plane's normal: out adds a body (or joins), in cuts */
 export function extrudeOp(
-  a: { key: string; frame: Frame; def: SketchParams; region: Region; source: Source | null },
+  a: { key: string; frame: Frame; def: SketchParams; region: Region; source: Source | null; snap?: Operation["snap"] },
   d = 0,
 ): Operation {
   const base = to3(a.frame, a.region.centre),
@@ -41,6 +41,7 @@ export function extrudeOp(
     valueTitle: "Distance (type a number)",
     at: base,
     arrow: { base, normal: f.normal },
+    ...(a.snap ? { snap: a.snap } : {}),
     ghost: {
       frame: { origin: f.origin, u: f.u, v: vOf(f), n: f.normal },
       loops: a.region.loops as [number, number][][],
@@ -76,6 +77,7 @@ export function pushOp(
     normal: V3;
     /** the face's triangles (x y z each), to show it moved */ positions: Float32Array;
     kinds: readonly PullInfo[];
+    snap?: Operation["snap"];
   },
   kind?: PullKind,
   d = 0,
@@ -98,6 +100,7 @@ export function pushOp(
     valueTitle: "Distance (type a number)",
     at: a.at,
     arrow: { base: a.at, normal: a.normal },
+    ...(a.snap ? { snap: a.snap } : {}),
     ghost: { faceMove: { positions: a.positions, n: a.normal, d: value } },
     tilt: null,
     pulled: value,

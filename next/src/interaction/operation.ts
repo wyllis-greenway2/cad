@@ -37,6 +37,8 @@ export interface Operation {
   /** the arrow pulled to a signed distance: what the drag makes of the operation (null: not allowed, it stays) */ withPull(
     d: number,
   ): Operation | null;
+  /** where the arrow's pull would be flush with another face of the scene, from a pull `d` and the reach (mm): the pull to use and the face it is flush with (`engine/flush.ts`); absent: nothing to be flush with */
+  snap?: (d: number, reachMm: number) => { d: number; tie: string } | null;
   ghost: Ghost | null;
   /** when it opens, the view turns about this to look at the plane from the side (null: it stays) */ tilt: {
     frame: { origin: V3; normal: V3; u: V3 };

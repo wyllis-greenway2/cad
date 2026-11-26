@@ -359,7 +359,8 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
     for (const mk of marks ?? []) {
       const b = solids.find((x) => x.id === mk.body);
       if (!b) continue;
-      const strong = mk.strength === "pick";
+      const strong = mk.strength === "pick" || mk.strength === "tie",
+        colour = mk.strength === "tie" ? new THREE.Color(0xf2c14e) : teal; // (a tie: the face a pull is flush with, as the sketch's ties are orange)
       for (const f of mk.faces) {
         const g = new THREE.BufferGeometry();
         g.setAttribute("position", new THREE.BufferAttribute(b.positions, 3));
@@ -367,7 +368,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
         const m = new THREE.Mesh(
           g,
           new THREE.MeshBasicMaterial({
-            color: teal,
+            color: colour,
             transparent: true,
             opacity: strong ? 0.5 : 0.22,
             depthWrite: false,
@@ -384,7 +385,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
         const g = new LineGeometry();
         g.setPositions(Array.from(b.lines.slice(3 * e.start, 3 * (e.start + e.count))));
         const m = new LineMaterial({
-          color: teal.getHex(),
+          color: colour.getHex(),
           linewidth: strong ? 4 : 3,
           transparent: !strong,
           opacity: strong ? 1 : 0.7,
