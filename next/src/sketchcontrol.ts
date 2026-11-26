@@ -27,7 +27,7 @@ import { measureAt, placeTyped, type TypedMeasure } from "./engine/typed.ts";
 import { FIELDS, chipFields, freeOf, madeNames, typeKey, typedMeasures } from "./interaction/typing.ts";
 import { helpShown } from "./interaction/helpshow.ts";
 import { newTool, cancelFigure, toolClick, toolPreview, type Tool } from "./interaction/tools.ts";
-import { dragTo, joinFor, pinsOf } from "./interaction/dragging.ts";
+import { dragRadius, dragTo, freeOfDrag, joinFor, pinsOf, without } from "./interaction/dragging.ts";
 import { loopPoints, regionAt, type Region } from "./interaction/extrude.ts";
 import { regions } from "./engine/region.ts";
 
@@ -98,7 +98,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
   const fail = (why: string, victims: string[]) => { host.notify(why, { kind: "warn", ttl: 4000 }); flash = { refused: victims }; flashUntil = performance.now() + 1800; };
 
   // ---- a part dragged: the solver follows the pointer with the part pinned where it goes (soft: it goes as near as the constraints allow); a point let go on another point or on a curve joins it
-  type Drag = { key: string; def0: SketchParams; pins: string[]; start: Record<string, [number, number]>; q0: P2; x0: number; y0: number; moved: boolean; shift: boolean; id: string; join: { id: string; kind: "point" | "curve" } | null; snapAt: P2 | null };
+  type Drag = { key: string; def0: SketchParams; pins: string[]; start: Record<string, [number, number]>; q0: P2; x0: number; y0: number; moved: boolean; shift: boolean; id: string; join: { id: string; kind: "point" | "curve" } | null; snapAt: P2 | null; /** a circle's edge pressed: its radius follows the pointer (the circle, its centre) */ edge: { circle: string; centre: string } | null; /** what the helpers say of where it is (the same rules as when it was drawn: they place, they never constrain) */ help: Helped | null };
   let drag: Drag | null = null;
 
   /** what the info bar's buttons do (`dec_three_surfaces`): a suggestion is applied; a constraint clicked is taken away; a number typed over is the number (a measured one locks); a padlock locks or lets go */
@@ -248,20 +248,32 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       if (tool) return false;
       const c = here(x, y); if (!c) return false;
       const s = solOf(c.p), h = hitAt(c.p, s, c.q, c.tol); if (!h) return false;
-      const pins = pinsOf(c.p, h.id); if (!pins.length) return false;
-      drag = { key: c.key, def0: c.p, pins, start: Object.fromEntries(pins.map((id) => [id, s.points[id]!])), q0: c.q, x0: x, y0: y, moved: false, shift, id: h.id, join: null, snapAt: null };
+      const ring = h.kind === "curve" && h.of === "circle" ? (c.p.circles ?? []).find((q) => q.id === h.id) : null; // (a circle's edge: its radius follows the pointer; its centre moves it whole)
+      const pins = ring ? [] : pinsOf(c.p, h.id); if (!pins.length && !ring) return false;
+      drag = { key: c.key, def0: c.p, pins, start: Object.fromEntries(pins.map((id) => [id, s.points[id]!])), q0: c.q, x0: x, y0: y, moved: false, shift, id: h.id, join: null, snapAt: null, edge: ring ? { circle: ring.id, centre: ring.c } : null, help: null };
       return true;
     },
     grabMove(x: number, y: number): void {
       if (!drag) return;
       const c = here(x, y); if (!c) return;
       if (!drag.moved && Math.hypot(x - drag.x0, y - drag.y0) < 4) return; // (a press that has not gone anywhere yet is still a click)
-      drag.moved = true;
+      drag.moved = true; drag.join = null; drag.snapAt = null; drag.help = null;
+      const sol0 = solOf(drag.def0), S0 = sysOf(drag.def0);
+      if (drag.edge) { // a circle's edge: the place the helpers give the edge (a tangent, an equal radius) sets the radius
+        const centre = sol0.points[drag.edge.centre]!, out = without(S0, [drag.edge.circle]);
+        drag.help = helpersAt(out, { shape: "circle", centre, startId: drag.edge.centre }, c.q, c.mm, settings.helpers);
+        const at = drag.help.acted.length ? drag.help.at : c.q, r = dragRadius(drag.def0, drag.edge.circle, Math.max(1e-3, Math.hypot(at[0] - centre[0], at[1] - centre[1])));
+                if (!r) return;
+        defs.set(drag.key, r.params); flash = r.held.length ? { refused: r.held } : {}; flashUntil = performance.now() + 400; if (r.held.length) say("Held back by the constraints shown in red", 600); return;
+      }
       let d: P2 = [c.q[0] - drag.q0[0], c.q[1] - drag.q0[1]];
-      drag.join = null; drag.snapAt = null;
-      if (drag.pins.length === 1 && drag.id === drag.pins[0]) { // one point: it sticks to another point or a curve near it
-        const at0 = drag.start[drag.pins[0]!]!, j = joinFor(drag.def0, solOf(drag.def0), drag.id, [at0[0] + d[0], at0[1] + d[1]], c.tol);
+      if (drag.pins.length === 1 && drag.id === drag.pins[0]) { // one point: it sticks to another point or a curve near it, else the helpers place it (an alignment, a tangent for the end of a line, on a line): they place, they never constrain
+        const at0 = drag.start[drag.pins[0]!]!, want: Pt = [at0[0] + d[0], at0[1] + d[1]], j = joinFor(drag.def0, sol0, drag.id, want, c.tol);
         if (j) { drag.join = { id: j.id, kind: j.kind }; drag.snapAt = j.at; d = [j.at[0] - at0[0], j.at[1] - at0[1]]; }
+        else {
+          const { free, out } = freeOfDrag(drag.def0, sol0, drag.id), help = helpersAt(without(S0, out), free, want, c.mm, settings.helpers); drag.help = help.acted.length || help.holds.length ? help : null;
+          if (help.acted.length) d = [help.at[0] - at0[0], help.at[1] - at0[1]];
+        }
       }
       const pins = Object.fromEntries(drag.pins.map((id) => [id, [drag!.start[id]![0] + d[0], drag!.start[id]![1] + d[1]] as [number, number]]));
       const r = dragTo(drag.def0, pins); if (!r) return; // (a place that cannot be solved: the part stays where it was last)
@@ -287,6 +299,13 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
         for (const q of seg) out.push({ kind: chosen.has(q.name) ? "selected" : "done", pts: polyline(q).map((z) => to3(f, z)) });
         if (chosen.size) { const S = sysOf(p); for (const b of bubblesOn(S, [...chosen])) { const m = b.relation === "angle" ? angleMarkAt(f, S, b.parts) : null; if (m) out.push({ kind: "note", pts: m.arc.map((z) => to3(f, z)) }); } }
         for (const x of p.points) { const at = chosen.has(x.id) ? s.points[x.id] : null; if (at) out.push({ kind: "ball", pts: [to3(f, at)], r: mmPerPx(f, at) * settings.sketch.ballPx }); } // (the old app marks no point until it is picked, then a teal ball)
+      }
+      if (drag?.help) { // what the helpers say of where the dragged point or edge is: the same drawing as when the figure was drawn (orange ties, dashed guides)
+        const f = all.get(drag.key), p = defs.get(drag.key);
+        if (f && p) {
+          const sol = solOf(p), h = drag.help, at = h.at, shown = helpShown(h, (part) => { const g = segsOf(p, sol.points, sol.radii).find((x) => x.name === part); return g ? polyline(g) : null; }, (id) => sol.points[id] ?? null);
+          for (const l of shown) out.push({ kind: l.kind, pts: l.pts.map((z) => to3(f, z)), ...(l.kind === "guide" ? { dash: dashAt(f, at) } : {}), ...(l.kind === "tieBall" ? { r: mmPerPx(f, l.pts[0]!) * settings.sketch.ballPx } : {}) });
+        }
       }
       if (drag?.snapAt) { const f = all.get(drag.key); if (f) { const arm = mmPerPx(f, drag.snapAt) * settings.sketch.crossPx * 1.4, w = to3(f, drag.snapAt); out.push({ kind: "cursor", pts: [add(w, scale(f.u, -arm)), add(w, scale(f.u, arm))] }, { kind: "cursor", pts: [add(w, scale(vOf(f), -arm)), add(w, scale(vOf(f), arm))] }); } }
       const c = pointer && tool ? here(pointer.x, pointer.y) : null;
@@ -354,7 +373,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     dismissOffers(): void { recent = null; },
     /** a press of the helper bar by its id (`delete`, `clear`, `rel:<relation>`): for the dev checks */
     press: act,
-    debug: () => ({ tool: tool ? { ...tool } : null, sketches: [...defs].map(([k, v]) => [k, v] as const), selection: (() => { const k = sel.get(); return k?.kind === "sketch" ? { key: k.key, ids: k.ids } : { key: "", ids: [] }; })() }),
+    debug: () => ({ drag: drag ? { id: drag.id, moved: drag.moved, edge: drag.edge, acted: drag.help?.acted.map((x) => x.relation) ?? null } : null, tool: tool ? { ...tool } : null, sketches: [...defs].map(([k, v]) => [k, v] as const), selection: (() => { const k = sel.get(); return k?.kind === "sketch" ? { key: k.key, ids: k.ids } : { key: "", ids: [] }; })() }),
   };
   clickAt = (x, y, count) => api.click(x, y, count);
   return api;

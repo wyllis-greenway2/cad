@@ -39,7 +39,7 @@ function candidates(S0: System, f: Free): Cand[] {
     if (!def.helper) continue; order++;
     for (const kinds of kindTuples(name)) {
       const walk = (i: number, got: string[]) => {
-        if (i === kinds.length) { if (got.some((g) => g === P || g === L || g === C)) for (const variant of def.helper!.variants ?? [undefined]) out.push({ relation: name, parts: got, ...(variant && Object.keys(variant).length ? { variant } : {}), order }); return; }
+        if (i === kinds.length) { if (name === "pointOnCircle" && got.includes(P) && got.includes(C)) return; /* (the edge place is on its own circle by construction: it would always win, at no distance, and hide the tangent) */ if (got.some((g) => g === P || g === L || g === C)) for (const variant of def.helper!.variants ?? [undefined]) out.push({ relation: name, parts: got, ...(variant && Object.keys(variant).length ? { variant } : {}), order }); return; }
         for (const id of pool[kinds[i]!]) if (!got.includes(id)) walk(i + 1, [...got, id]);
       };
       walk(0, []);

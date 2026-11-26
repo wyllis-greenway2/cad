@@ -4,6 +4,8 @@ import type { SketchParams } from "../engine/sketch.ts";
 import { solveDefinition } from "../engine/definition.ts";
 import type { Pt } from "../engine/region.ts";
 import { bake, hitAt, type Sol } from "./drawing.ts";
+import type { System } from "../engine/solver.ts";
+import type { Free } from "../engine/free.ts";
 
 /** the points a press on this part takes: the point itself, both ends of a line, a circle's centre, an arc's three points */
 export function pinsOf(p: SketchParams, id: string): string[] {
@@ -26,4 +28,26 @@ export function joinFor(p: SketchParams, s: Sol, id: string, q: Pt, tol: number)
 /** the drawing with the pinned points where they are asked to be, as the solver leaves it, and the constraints that held it back (named), or null when it cannot be solved there */
 export function dragTo(def0: SketchParams, pins: Record<string, Pt>): { params: SketchParams; held: string[] } | null {
   try { const r = solveDefinition(def0, { pins }); return { params: bake(def0, { points: r.points, radii: r.radii }), held: r.result.holds ?? [] }; } catch { return null; }
+}
+
+// ---- hints while dragging (`in_1617`): what a dragged point or circle edge is to the helpers (the same rules as when it was drawn), and the sketch without it to look for what it could go to
+/** what a dragged point is to the helpers: the free end of its only line (a line drawn from the other end), else a place alone; and the parts to take out of the system while looking (what is dragged is not a target for itself) */
+export function freeOfDrag(p: SketchParams, s: Sol, id: string): { free: Free; out: string[] } {
+  const lines = (p.lines ?? []).filter((l) => l.a === id || l.b === id), round = [...(p.circles ?? []).filter((c) => c.c === id), ...(p.arcs ?? []).filter((a) => a.c === id || a.a === id || a.b === id)];
+  if (lines.length === 1 && !round.length) {
+    const l = lines[0]!, other = l.a === id ? l.b : l.a, at = s.points[other];
+    if (at) return { free: { shape: "line", from: at, startId: other }, out: [id, l.id] };
+  }
+  return { free: { shape: "point" }, out: [id, ...lines.map((l) => l.id), ...round.map((c) => c.id)] };
+}
+/** the system with parts taken out: those named, the lines and circles that use a point taken out, and every constraint that names one of them */
+export function without(S: System, ids: readonly string[]): System {
+  const gone = new Set(ids); for (const l of S.lines) if (gone.has(l.a) || gone.has(l.b)) gone.add(l.id); for (const c of S.circles) if (gone.has(c.c)) gone.add(c.id);
+  return { points: S.points.filter((x) => !gone.has(x.id)), lines: S.lines.filter((l) => !gone.has(l.id)), circles: S.circles.filter((c) => !gone.has(c.id)), constraints: S.constraints.filter((k) => !k.parts.some((x) => gone.has(x))) };
+}
+/** a circle with its radius put at `r` (the edge dragged), the rest solved round it; not if the radius is held (locked or fixed): the constraints that hold it are named */
+export function dragRadius(def0: SketchParams, id: string, r: number): { params: SketchParams; held: string[] } | null {
+  const c = (def0.circles ?? []).find((q) => q.id === id); if (!c || c.fixedR) return null;
+  const locked = (def0.constraints ?? []).filter((k) => k.kind === "radius" && k.parts.includes(id)).map((k) => k.id); if (locked.length) return { params: def0, held: locked };
+  try { const out = solveDefinition({ ...def0, circles: (def0.circles ?? []).map((q) => (q.id === id ? { ...q, r, fixedR: true } : q)) }); return { params: bake(def0, { points: out.points, radii: out.radii }), held: out.result.holds ?? [] }; } catch { return null; }
 }
