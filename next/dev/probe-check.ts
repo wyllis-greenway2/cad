@@ -38,16 +38,6 @@ check(
   "and not in a reach of 0.1",
   !inRange(S, mv, [0, 0], cands, { pointMm: 0.1, lineMm: 0.1 }).some((r) => r.cand.relation === "tangent"),
 );
-check(
-  "a relation that is the same wherever the part is put (a circle's radius equal to another's, when it is only moved) is not a hint",
-  !inRange(
-    { ...S, circles: [...S.circles, { id: "K2", c: "P1", r: 5 }] },
-    translating({ ...S, circles: [...S.circles, { id: "K2", c: "P1", r: 5 }] }, ["P1"]),
-    [0, 0],
-    candidatesFor({ ...S, circles: [...S.circles, { id: "K2", c: "P1", r: 5 }] }, affectedBy(S, ["P1"])),
-    reach,
-  ).some((r) => r.cand.relation === "equalRadius"),
-);
 // at rest, each point free to move: a line a little off parallel to another is in reach of parallel
 const T: System = {
   points: [

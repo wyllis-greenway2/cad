@@ -13,15 +13,10 @@ const ICONS: Record<string, string> = {
   vertical: svg('<path d="M8 2v12"/>'),
   perpendicular: svg('<path d="M3 13V3"/><path d="M3 13h10"/><path d="M3 9h4v4"/>'),
   parallel: svg('<path d="M5 14L8.5 2"/><path d="M10 14L13.5 2"/>'),
-  equal: svg('<path d="M3 6h10"/><path d="M3 10h10"/>'),
   coincident: svg('<circle cx="8" cy="8" r="4.6"/><circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none"/>'),
-  fixed: svg(
-    '<circle cx="8" cy="5.3" r="2.6" fill="currentColor" fill-opacity=".18"/><path d="M8 7.9V14M5.4 8.2h5.2"/>',
-  ), // (a pin: held in place; not a padlock, which is the lock on every mark)
   dimension: svg('<path d="M2 11.5L11.5 2 14 4.5 4.5 14z"/><path d="M5 8.5l1.6 1.6M7.4 6l1.6 1.6M9.8 3.6l1.2 1.2"/>'),
   angle: svg('<path d="M2.5 13.5h11"/><path d="M2.5 13.5L11 4.5"/><path d="M7.5 13.5a5 5 0 0 0-1.4-3.4"/>'),
   radius: svg('<circle cx="8" cy="8" r="5.5"/><path d="M8 8l3.9-3.9"/>'),
-  on: svg('<path d="M2 11C5 4 11 4 14 11"/><circle cx="8" cy="5.8" r="1.7"/>'),
   onCircle: svg('<circle cx="8" cy="8" r="5.5"/><circle cx="12.4" cy="4.6" r="1.6"/>'),
   onLine: svg('<path d="M2 12.5L14 3.5"/><circle cx="8" cy="8" r="1.7"/>'),
   tangent: svg('<circle cx="8" cy="10" r="4"/><path d="M1.5 6h13"/>'),

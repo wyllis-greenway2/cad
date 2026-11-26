@@ -3,7 +3,7 @@ id: dec_relations_merged
 kind: decision
 status: provisional
 origin: ai-proposed-human-approved
-human_input: in_1643, in_1644
+human_input: in_1643, in_1644, in_1645
 date: 2026-11-26
 depends_on:
   - dec_relations_standard: it is the table these two kinds are taken out of
@@ -19,7 +19,7 @@ Approved (`in_1643`, "merge the exact duplicates first"): two kinds that were th
 **Not done yet (the other two exact duplicates of `q_relation_set`; and a decision for the human: whether to delete `equalLength`/`equalRadius` from the engine too):** a line's **length** as the **distance** of its ends, and a line's **level/upright** as that of its two ends. They reach into the typed numbers, ranges and measure bubbles (a dimension), so they are a separate step.
 
 ## The second round (`in_1644`, the human's directive)
-**On a line and on a circle are one kind, `on`** (a point stays on a curve; which formula measures its distance from the curve is the curve's business: `rows` chooses by the kind of the second part). **Tangent and circles touching are one kind, `tangent`** (a line and a circle, or two circles, outside or `internal`); the helper's inside/outside variants are only for two circles. **Equal length and equal radius are not offered** ("people can just set dimensions equal by hand", `in_1644`): `RELATIONS` marks them `person: false` (no offer, not in the menu, no helper); they are **kept in the engine** for two reasons the human has not been asked about: trim makes an equal radius to keep the two arcs of a cut circle one circle, and an old file that has one must still open. **Old files:** `pointOnLine` and `pointOnCircle` read as `on`, `tangentCircles` as `tangent` (`modernise`). The icon for `on` is one (a dot on a curve); the offer reads "on L1" (`infobar.ts`).
+**On a line and on a circle are one kind, `on`** (a point stays on a curve; which formula measures its distance from the curve is the curve's business: `rows` chooses by the kind of the second part). **Tangent and circles touching are one kind, `tangent`** (a line and a circle, or two circles, outside or `internal`); the helper's inside/outside variants are only for two circles. **Equal length and equal radius are gone** (`in_1644`, `in_1645`: "why do we still have equal length and equal radius?"): not kinds at all. Trim keeps the second arc of a cut arc on the first's circle by its two ends being on it (`on`), as the second line is kept in line. **Old files:** `pointOnLine` and `pointOnCircle` read as `on`, `tangentCircles` as `tangent`, and an old equal radius or equal length as the two sizes given as numbers, the same (the first's; they were solved when saved) (`modernise`): the link "change one and the other follows" is lost, as setting them by hand loses it. **Names and icons** (`in_1645`): `on` is called "on line" (a curve is a line to the person), its icon the straight line with a dot, and the offer reads "on line L1"; **fixed in place** shows the padlock as its icon.
 
 ## Rationale
 

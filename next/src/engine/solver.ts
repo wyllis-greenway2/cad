@@ -34,8 +34,6 @@ export type Relation =
   | "vertical"
   | "parallel"
   | "perpendicular"
-  | "equalLength"
-  | "equalRadius"
   | "on"
   | "midpoint"
   | "tangent"
@@ -183,7 +181,6 @@ export const RELATIONS: Record<
   {
     /** what the person calls it */ label: string;
     /** a helper while drawing, or null */ helper: HelperSpec | null;
-    /** false: not offered to the person and not in the menu (kept for what makes it, and for old files): `equalLength`, `equalRadius` (`in_1644`) */ person?: false;
     arity: number;
     parts: ("point" | "line" | "circle")[][];
     rows: (ids: string[], c: Ctx, kinds: string[]) => D[];
@@ -273,28 +270,8 @@ export const RELATIONS: Record<
       return [turned(a, b, Math.PI / 2, Math.PI)];
     },
   },
-  equalLength: {
-    label: "equal length",
-    helper: null,
-    person: false,
-    arity: 2,
-    parts: [["line"], ["line"]],
-    rows: (ids, c) => {
-      const a = c.line(ids[0]!),
-        b = c.line(ids[1]!);
-      return [sub(len(vec(a.a, a.b)), len(vec(b.a, b.b)))];
-    },
-  },
-  equalRadius: {
-    label: "equal radius",
-    helper: null,
-    person: false,
-    arity: 2,
-    parts: [["circle"], ["circle"]],
-    rows: (ids, c) => [sub(c.r(ids[0]!), c.r(ids[1]!))],
-  },
   on: {
-    label: "on",
+    label: "on line",
     helper: {},
     arity: 2,
     parts: [["point"], ["line", "circle"]],

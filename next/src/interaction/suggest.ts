@@ -72,7 +72,6 @@ function offersForUncached(S: System, selection: string[]): { offers: Offer[]; i
     offers: Offer[] = [],
     inapplicable: Inapplicable[] = [];
   for (const [name, def] of Object.entries(RELATIONS) as [Relation, (typeof RELATIONS)[Relation]][]) {
-    if (def.person === false) continue; // (kept for what makes it and for old files, not offered: `in_1644`)
     // horizontal and upright take a line, or two points
     const arity =
       name === "horizontal" || name === "vertical"

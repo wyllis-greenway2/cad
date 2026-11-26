@@ -117,7 +117,7 @@ function sketchStart(): Step[] {
         { id: "t2", kind: "tangent", parts: ["top", "right"] },
         { id: "t3", kind: "tangent", parts: ["bot", "left"] },
         { id: "t4", kind: "tangent", parts: ["top", "left"] },
-        { id: "er", kind: "equalRadius", parts: ["right", "left"] },
+        { id: "er", kind: "radius", parts: ["left"], value: rad },
         { id: "r", kind: "radius", parts: ["right"], value: rad },
         { id: "len", kind: "distance", parts: ["M", "N"], value: len },
         { id: "fN", kind: "fixed", parts: ["N"], at: [0, 0] },

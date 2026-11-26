@@ -199,7 +199,7 @@ console.log("3. the relations, one at a time");
       near(Math.abs(p.C![1]), 2, 1e-6),
   );
   rel(
-    "equal radius, concentric (centres together), equal length, in line (two ends on a line)",
+    "a radius, the centres together, a length, in line (two ends on a line)",
     {
       points: [
         pt("P", 0, 0, true),
@@ -218,9 +218,9 @@ console.log("3. the relations, one at a time");
         { id: "K2", c: "Q", r: 5 },
       ],
       constraints: [
-        { id: "er", kind: "equalRadius", parts: ["K1", "K2"] },
+        { id: "er", kind: "radius", parts: ["K2"], value: 3 },
         { id: "cc", kind: "coincident", parts: ["P", "Q"] },
-        { id: "el", kind: "equalLength", parts: ["L1", "L2"] },
+        { id: "el", kind: "length", parts: ["L2"], value: 4 },
         { id: "co", kind: "on", parts: ["C", "L1"] },
         { id: "co2", kind: "on", parts: ["D", "L1"] },
       ],

@@ -20,7 +20,7 @@ export interface TrimOutcome {
 const TAU = 2 * Math.PI;
 const hyp = Math.hypot;
 /** constraints that said something about the whole line, which a piece of it no longer says */
-const WHOLE_LINE = new Set(["length", "equalLength", "midpoint"]);
+const WHOLE_LINE = new Set(["length", "midpoint"]);
 
 /**
  * Trim the part `id` where `at` is (a point in the sketch's plane near the pointer). Throws, in words, when it cannot (not a drawn line, arc or circle; a circle crossed fewer than twice; a drawing that does not solve).
@@ -245,8 +245,11 @@ export function trimAt(p: SketchParams, id: string, at: Pt, read: Read = solveDe
       newConstraints.push({ id: cid, kind: "on", parts: [l2.a, id] }, { id: cid2, kind: "on", parts: [l2.b, id] });
       made.push(cid, cid2);
     } else {
-      newConstraints.push({ id: cid, kind: "equalRadius", parts: [id, id2] });
-      made.push(cid);
+      // (the second arc is on the first's circle: its two ends on it, as the second line's are on the first)
+      const a2 = q.arcs.find((x) => x.id === id2)!,
+        cid2 = fresh(`${id2}_same2`);
+      newConstraints.push({ id: cid, kind: "on", parts: [a2.a, id] }, { id: cid2, kind: "on", parts: [a2.b, id] });
+      made.push(cid, cid2);
     }
   }
 

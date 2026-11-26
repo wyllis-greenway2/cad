@@ -78,7 +78,7 @@ export function nearFor(
           label: !other
             ? RELATIONS[r.cand.relation].label
             : r.cand.relation === "on"
-              ? `on ${other}`
+              ? `on line ${other}`
               : `${RELATIONS[r.cand.relation].label} with ${other}`,
           tone: (r.moved < 1e-7 ? "holds" : "free") as BarTone,
         },

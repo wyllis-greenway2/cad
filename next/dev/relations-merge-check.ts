@@ -105,15 +105,30 @@ check(
     kindsOf(["L1", "K1"]).includes("tangent") && kindsOf(["K1", "K2"]).includes("tangent"),
   );
   check(
-    "equal length and equal radius are not offered (set the sizes by hand)",
-    !kindsOf(["L1", "L2"]).includes("equalLength" as never) && !kindsOf(["K1", "K2"]).includes("equalRadius" as never),
-    `${kindsOf(["L1", "L2"])} | ${kindsOf(["K1", "K2"])}`,
+    "equal length and equal radius are not kinds any more",
+    !("equalLength" in RELATIONS) && !("equalRadius" in RELATIONS),
   );
-  const old2: any = { ...old, constraints: [{ id: "e", kind: "equalRadius", parts: ["K1", "K2"] }] };
-  const r2 = solveDefinition(old2);
+  const eq: any = {
+    ...old,
+    constraints: [
+      { id: "e", kind: "equalRadius", parts: ["K1", "K2"] },
+      { id: "f", kind: "equalLength", parts: ["L1", "L2"] },
+    ],
+  };
+  const m3 = modernise(eq).constraints!;
   check(
-    "but an old file that has one still solves it",
-    Math.abs(r2.radii.K1! - r2.radii.K2!) < 1e-6,
+    "an old file's equal radius and equal length are the two sizes as numbers, the same (the first's)",
+    m3.length === 4 &&
+      m3.filter((c: any) => c.kind === "radius" && c.value === 3).length === 2 &&
+      m3.filter((c: any) => c.kind === "length" && Math.abs(c.value - 4) < 1e-9).length === 2,
+    JSON.stringify(m3),
+  );
+  const r2 = solveDefinition(eq);
+  check(
+    "and it solves: both circles 3, both lines 4",
+    Math.abs(r2.radii.K1! - 3) < 1e-6 &&
+      Math.abs(r2.radii.K2! - 3) < 1e-6 &&
+      Math.abs(Math.hypot(r2.points.C![0] - r2.points.D![0], r2.points.C![1] - r2.points.D![1]) - 4) < 1e-6,
     JSON.stringify(r2.radii),
   );
 }

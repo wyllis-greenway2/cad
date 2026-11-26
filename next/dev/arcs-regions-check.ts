@@ -70,7 +70,7 @@ console.log("2. a slot: two lines and two arcs, the arcs tangent to the lines, o
       { id: "t2", kind: "tangent", parts: ["top", "right"] },
       { id: "t3", kind: "tangent", parts: ["bot", "left"] },
       { id: "t4", kind: "tangent", parts: ["top", "left"] },
-      { id: "er", kind: "equalRadius", parts: ["left", "right"] },
+      { id: "er", kind: "radius", parts: ["left"], value: 1 },
       { id: "r", kind: "radius", parts: ["right"], value: 1 },
       { id: "len", kind: "horizontalDistance", parts: ["N", "M"], value: 6 },
       { id: "f", kind: "fixed", parts: ["N"], at: [0, 0] },
@@ -91,7 +91,7 @@ console.log("2. a slot: two lines and two arcs, the arcs tangent to the lines, o
   e.edit("s", {
     ...slot,
     constraints: slot.constraints.map((c) =>
-      c.id === "r" ? { ...c, value: 1.5 } : c.id === "len" ? { ...c, value: 8 } : c,
+      c.id === "r" || c.id === "er" ? { ...c, value: 1.5 } : c.id === "len" ? { ...c, value: 8 } : c,
     ),
   });
   check(
@@ -272,7 +272,7 @@ console.log("9. a copy of a sketch with arcs: mirrored, the arcs still go the ri
       { id: "t3", kind: "tangent", parts: ["bot", "left"] },
       { id: "t4", kind: "tangent", parts: ["top", "left"] },
       { id: "r", kind: "radius", parts: ["right"], value: 1 },
-      { id: "er", kind: "equalRadius", parts: ["left", "right"] },
+      { id: "er", kind: "radius", parts: ["left"], value: 1 },
     ],
     pick: [[3, 0]],
   };
@@ -462,7 +462,7 @@ console.log("11. the sides come out in the order and the way they were drawn, wh
         { id: "t3", kind: "tangent", parts: ["bot", "left"] },
         { id: "t4", kind: "tangent", parts: ["top", "left"] },
         { id: "r", kind: "radius", parts: ["right"], value: 1 },
-        { id: "er", kind: "equalRadius", parts: ["left", "right"] },
+        { id: "er", kind: "radius", parts: ["left"], value: 1 },
       ],
     }),
   ]);

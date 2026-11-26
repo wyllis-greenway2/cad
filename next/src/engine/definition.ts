@@ -6,7 +6,15 @@ import type { SketchParams } from "./sketch.ts";
 import { type Constraint, type Result, type Options as SolveOptions, type System, solve } from "./solver.ts";
 
 /** the kinds that were once kept and are now another (`q_relation_set`): what each becomes is in `modernise` */
-const LEGACY = new Set(["collinear", "concentric", "pointOnLine", "pointOnCircle", "tangentCircles"]);
+const LEGACY = new Set([
+  "collinear",
+  "concentric",
+  "pointOnLine",
+  "pointOnCircle",
+  "tangentCircles",
+  "equalLength",
+  "equalRadius",
+]);
 /**
  * Kinds of relation that were once kept are the same as others and are no longer made (`q_relation_set`, `in_1642`): **in line** (two lines) is the two ends of the second on the first (two `pointOnLine`) and **concentric** (two circles) is the two centres together (`coincident`). A definition that still has them (a saved file) is read as what they are, once, here: the first keeps its name (the second is `<name>.2`), the other keeps its name.
  */
@@ -38,6 +46,32 @@ export function modernise(p: SketchParams): SketchParams {
     }
     if (c.kind === ("pointOnLine" as string) || c.kind === ("pointOnCircle" as string)) return [{ ...c, kind: "on" }];
     if (c.kind === ("tangentCircles" as string)) return [{ ...c, kind: "tangent" }];
+    // equal length and equal radius are not kinds (`in_1645`): the two sizes are each given as they are (the first's, if they differ), the same number
+    if (c.kind === ("equalRadius" as string) || c.kind === ("equalLength" as string)) {
+      const radius = c.kind === ("equalRadius" as string),
+        size = (id: string): number | null => {
+          const pt = (q: string) => (p.points ?? []).find((x) => x.id === q);
+          if (radius) {
+            const k = (p.circles ?? []).find((x) => x.id === id);
+            if (k) return k.r;
+            const a = (p.arcs ?? []).find((x) => x.id === id),
+              c0 = a && pt(a.c),
+              s0 = a && pt(a.a);
+            return c0 && s0 ? Math.hypot(s0.x - c0.x, s0.y - c0.y) : null;
+          }
+          const l = (p.lines ?? []).find((x) => x.id === id),
+            a = l && pt(l.a),
+            b = l && pt(l.b);
+          return a && b ? Math.hypot(b.x - a.x, b.y - a.y) : null;
+        },
+        v = size(c.parts[0]!);
+      if (v === null || !(v > 0) || size(c.parts[1]!) === null) return [c];
+      const kind = radius ? "radius" : "length";
+      return [
+        { id: c.id, kind, parts: [c.parts[0]!], value: v },
+        { id: `${c.id}.2`, kind, parts: [c.parts[1]!], value: v },
+      ];
+    }
     return [c];
   });
   return { ...p, constraints };
