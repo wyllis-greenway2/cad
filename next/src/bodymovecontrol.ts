@@ -13,6 +13,8 @@ export interface BodyMoveHost {
   recipe(): readonly Step[];
   change(steps: Step[]): void;
   say(text: string): void;
+  /** the orb's memory of a draft that is over */
+  forget(id: string): void;
 }
 export function createBodyMove(host: BodyMoveHost) {
   let cur: { id: string; body: string; base: Frame; now: Frame } | null = null, n = 0;
@@ -33,8 +35,8 @@ export function createBodyMove(host: BodyMoveHost) {
       cur = { id: `move:${++n}`, body, base, now: base }; return true;
     },
     /** the steps are made (nothing moved: nothing made) */
-    commit(): void { const c = cur; cur = null; if (!c) return; const steps = moveSteps(host.recipe(), c.body, c.base, c.now); if (steps.length) host.change([...host.recipe(), ...steps]); },
-    cancel(): void { cur = null; },
+    commit(): void { const c = cur; cur = null; if (!c) return; host.forget(c.id); const steps = moveSteps(host.recipe(), c.body, c.base, c.now); if (steps.length) host.change([...host.recipe(), ...steps]); },
+    cancel(): void { if (cur) host.forget(cur.id); cur = null; },
     debug: () => (cur ? { body: cur.body, now: cur.now } : null),
   };
 }

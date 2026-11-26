@@ -28,6 +28,8 @@ export function createOrbControl(host: OrbHost) {
 
   return {
     orienting: () => orient,
+    /** a thing is gone, or is a new one under the same name: what the orb remembered of it goes (a sketch plane placed again starts with the orb in its middle) */
+    forget(id: string): void { poses.delete(id); },
     /** A press at (x, y): does it take a handle of the orb? */
     grab(x: number, y: number, shift: boolean): boolean {
       const o = orb(), t = host.target();

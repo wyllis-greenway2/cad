@@ -57,7 +57,8 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
   const systems = new WeakMap<SketchParams, ReturnType<typeof viewSystem>>(), sysOf = (p: SketchParams) => { let y = systems.get(p); if (!y) { y = viewSystem(p, solOf(p)); systems.set(p, y); } return y; }; // (a definition has one system: asked for by every part of a frame)
   const solOf = (p: SketchParams): Sol => { let s = sols.get(p); if (!s) { const r = solveDefinition(p); s = { points: r.points, radii: r.radii }; sols.set(p, s); } return s; };
   const current = () => { const { all, on } = host.planes(); const f = all.get(on); return f ? { key: on, f, p: defs.get(on) ?? emptySketch() } : null; };
-  const selected = (key: string): string[] => [...sel.sketch(key)];
+  /** what is selected in the sketch of a plane, as far as it is still there (a part taken away, by a deletion or an undo, is not selected any more) */
+  const selected = (key: string): string[] => { const p = defs.get(key), ids = [...sel.sketch(key)]; if (!p) return ids; const has = new Set([...p.points, ...(p.lines ?? []), ...(p.circles ?? []), ...(p.arcs ?? [])].map((x) => x.id)); return ids.filter((id) => has.has(id)); };
   /** a pixel's worth of the plane in mm, where the pointer is */
   /** where a click would put the place: on a point or curve as drawn, else drawn to the helpers' places (they place, they never constrain, `dec_hints_place_only`, `in_1579`) */
   type PlaceResult = { ref: Ref; help: Helped | null; free: Free; /** the numbers typed for the figure, as measures to hold */ measures: TypedMeasure[] };

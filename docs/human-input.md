@@ -6584,3 +6584,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1623 — 2026-11-26 — directive
 > This file seems to have this circle snapping to some phantom line that has been deleted and no longer exists? this was a huge problem in our last old prototype where deleted things werent really deleted and their souls walked the app forever haunting things
+
+## in_1624 — 2026-11-26 — approval
+> yes audit the other places for leftovers

@@ -68,7 +68,7 @@ function lookAt(axis: Axis) { if (game.on) endGame(); placed = null; placedKey =
 function addSketchPlane() {
   if (game.on) endGame();
   const e = env();
-  placed = facingCamera(s.c, focusOf(model, s.c, e.w, e.h)); placedKey = null;
+  placed = facingCamera(s.c, focusOf(model, s.c, e.w, e.h)); placedKey = null; orbc.forget("sketch");
   s = view.lookAlong(s, e, scale(placed.normal, -1)); // (a sketch is drawn looking straight at its plane, orthographic)
 }
 const planeNow = () => (placed ? { key: placedKey ?? "placed", frame: placed } : { key: `world:${s.plane}`, frame: worldFrame(s.plane) });
@@ -98,13 +98,17 @@ const sk = createSketch({
 
 /** the planes that lie on a face of a body, by the key the sketch controller keeps their drawings under */
 const facePlanes = new Map<string, { frame: Frame; source: Source }>();
+/** what a sketch on a face is made from, as long as the body it was drawn on is still in the recipe: when the body is gone the sketch is a free drawing, as `dec_sketch_on_face_follows_body` says (an extrude of it must not name a step that is not there) */
+/** what a file holds is what there is: no drawing with nothing in it, no plane on a face that nothing is drawn on (unless it is the one being drawn on) */
+const documentNow = (): string => { const drawings = Object.fromEntries(Object.entries(sk.snapshot()).filter(([, v]) => v.points.length)), faces = Object.fromEntries([...facePlanes].filter(([k]) => drawings[k] || k === placedKey)); return toFile({ steps: studio.state().steps, drawings, faces: faces as never }); };
+const liveSource = (key: string): Source | null => { const f = facePlanes.get(key); return f && studio.state().steps.some((x) => x.id === f.source.body) ? f.source : null; };
 // ---- the engine's worker (the recipe and the bodies it makes) and the Extrude tool ----
 const studio = createStudio();
 let shown: readonly unknown[] = [];
 studio.subscribe(() => { const m = studio.state().meshes; if (m !== shown) { shown = m; world.setBodies(m); bodies.reset(); } });
 const ext = createOperations({
   view: () => { const e = env(); return { cam: s.c, w: e.w, h: e.h }; },
-  pick: (x, y) => { const r = sk.regionAt(x, y); return r ? extrudeOp({ ...r, source: facePlanes.get(r.key)?.source ?? null }) : null; },
+  pick: (x, y) => { const r = sk.regionAt(x, y); return r ? extrudeOp({ ...r, source: liveSource(r.key) }) : null; },
   recipe: () => studio.state().steps,
   change: (steps) => { studio.change(steps); record("Extrude"); },
   ask: (a) => studio.ask(a),
@@ -125,7 +129,7 @@ const infobar = createInfoBar(document.body); // (the one bar: what is so of the
 /** the engine's facts about a face of the body: where it faces (out of the body) */
 const faceFacts = (body: string, id: string) => studio.state().snapshot.find((x) => x.id === body)?.faces.find((f) => f.id === id) ?? null;
 const bodyOps = createBodyOps({ studio, faceFacts });
-const bmove = createBodyMove({ meshes: () => studio.state().meshes, bodies: () => studio.state().snapshot.at(-1)?.bodies.length ?? 0, recipe: () => studio.state().steps, change: (steps) => { studio.change(steps); record("Move"); }, say: (t) => notify(t, { kind: "warn", ttl: 4000 }) });
+const bmove = createBodyMove({ meshes: () => studio.state().meshes, bodies: () => studio.state().snapshot.at(-1)?.bodies.length ?? 0, recipe: () => studio.state().steps, change: (steps) => { studio.change(steps); record("Move"); }, say: (t) => notify(t, { kind: "warn", ttl: 4000 }), forget: (id) => orbc.forget(id) });
 /** a sketch on a face: the plane is the face's (the engine's own frame of it), the view turns straight to it */
 function sketchOnFace(sel: import("./bodyselect.ts").Selection) {
   const f = sel.faces[0]; if (!f) return;
@@ -151,7 +155,7 @@ async function chooseMore(id: import("./interaction/moremenu.ts").MoreItem["id"]
   if (id === "history") { historyOpen = !historyOpen; return; }
   if (id === "new") { ext.cancel(); restore({ sketches: {}, steps: [], faces: new Map() }); record("New"); say("A new model; undo brings the last one back"); }
   else if (id === "save") {
-    const text = toFile({ steps: studio.state().steps, drawings: sk.snapshot(), faces: Object.fromEntries(facePlanes) as never });
+    const text = documentNow();
     download("model.cad", text, "application/json"); say("Saved as model.cad");
   } else if (id === "open") {
     const f = await chooseFile(); if (!f) return;
@@ -270,5 +274,5 @@ function frame(now: number) {
 }
 requestAnimationFrame(frame);
 
-Object.assign(window, { __sketch: sk, __ext: ext, __studio: studio, __startExtrude: () => tools.arm("extrude"), __bodies: bodies, __more: chooseMore, __record: record, __undo: undo, __restore: restore, __proj3: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __proj: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __tool: (k: string) => tools.arm(k), __tools: tools, __orb: () => orbc.drawing(null), __bmove: bmove, __px: (p: [number, number]) => { const e = env(), q = project(s.c, to3(planeNow().frame, p), e.w, e.h); return [q.x, q.y]; } }); // (for the dev checks in a page)
+Object.assign(window, { __sketch: sk, __ext: ext, __studio: studio, __startExtrude: () => tools.arm("extrude"), __bodies: bodies, __more: chooseMore, __record: record, __undo: undo, __restore: restore, __proj3: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __proj: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __tool: (k: string) => tools.arm(k), __tools: tools, __facePlanes: () => [...facePlanes.entries()].map(([k, v]) => [k, v.source.body]), __doc: documentNow, __orb: () => orbc.drawing(null), __bmove: bmove, __px: (p: [number, number]) => { const e = env(), q = project(s.c, to3(planeNow().frame, p), e.w, e.h); return [q.x, q.y]; } }); // (for the dev checks in a page)
 dev.install({ planes: () => ({ sketch: placed, drawn: sk.debug(), ...orbc.debug() }), model, rebuild: world.rebuild, state: () => s, put: (next) => { s = next; }, pointer: () => pointer, game, gizmoScale: () => view.gizmoScale(s) });
