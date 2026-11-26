@@ -44,8 +44,6 @@ void vOf;
 
 /** What a pull of this size is made of: the steps to add to the recipe, given the steps there are (`recipe`) and the body the last one made (`last`, if any). A pull in the plane's direction adds; against it, when there is a body, cuts. */
 export interface FaceSource { face: Id; body: string }
-/** The step that made the body now: the last step of the recipe that makes one (an extrude, a push, a round, a combine). */
-export const lastBodyStep = (recipe: readonly Step[]): string | null => { for (let i = recipe.length - 1; i >= 0; i--) if (recipe[i]!.kind !== "sketch" && recipe[i]!.kind !== "sketchPolygon" && recipe[i]!.kind !== "sketchCircle" && recipe[i]!.kind !== "sketchOnFace") return recipe[i]!.id; return null; };
 /** a face of the body pushed out (a distance above nothing) or in */
 export function pushSteps(recipe: readonly Step[], face: Id, body: string, d: number, kind: "push" | "moveFace" | "offsetFace" = "push"): Step[] {
   const prefix = kind === "push" ? "p" : kind === "moveFace" ? "m" : "o"; let n = 1; while (recipe.some((s) => s.id === `${prefix}${n}`)) n++;

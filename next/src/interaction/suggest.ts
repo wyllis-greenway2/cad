@@ -42,9 +42,3 @@ function offersForUncached(S: System, selection: string[]): { offers: Offer[]; i
   }
   return { offers, inapplicable };
 }
-/** the constraints that touch the selection, and what each ties it to (the amber): shown only for what is selected, whatever else is drawn */
-export function constraintsOn(S: System, selection: string[]): { constraint: Constraint; ties: string[] }[] {
-  const reach = (id: string): string[] => { const k = kindOf(id, S); if (k === "line") { const l = S.lines.find((q) => q.id === id)!; return [id, l.a, l.b]; } if (k === "circle") { const c = S.circles.find((q) => q.id === id)!; return [id, c.c]; } return [id]; };
-  const mine = new Set(selection.flatMap(reach));
-  return S.constraints.filter((c) => c.parts.some((p) => reach(p).some((q) => mine.has(q)))).map((c) => ({ constraint: c, ties: c.parts.filter((p) => !selection.includes(p)) })); // what it ties the selection to: the other parts it names (by name: a corner two sides share does not make them the same part)
-}

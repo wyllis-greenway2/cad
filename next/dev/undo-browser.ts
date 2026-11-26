@@ -12,10 +12,10 @@ try {
   const settle = async () => { await ev(`() => window.__studio.settled()`); await page.waitForTimeout(250); };
   const visible = (sel: string) => ev<number>(`() => [...document.querySelectorAll(${JSON.stringify(sel)})].filter((e) => e.offsetParent !== null).length`);
 
-  ok((await visible("[data-history]")) === 0, "nothing drawn: no history panel");
+  ok((await visible("[data-step]")) === 0, "nothing drawn: no step list");
   await ev(`() => window.__tool("rect")`); await page.waitForTimeout(900);
   await click(0, 0); await click(40, 25); await ev(`() => window.__sketch.stop()`);
-  ok((await sketches()) === 4 && (await visible("[data-history]")) === 2, "a rectangle: the panel shows undo and redo");
+  ok((await sketches()) === 4, "a rectangle is drawn");
   await ev(`() => window.__startExtrude()`); await click(20, 12); await page.waitForTimeout(800);
   const arrow = await ev<number[][]>(`() => window.__ext.drawing(null).handles[0].points`);
   const mid = await ev<[number, number]>(`() => window.__proj([${arrow[0]!.map((v, i) => (v + arrow[1]![i]!) / 2)}])`);
@@ -40,8 +40,8 @@ try {
   await page.keyboard.press("Control+y"); await settle();
   st = await state(); ok(st.steps.join() === "sketch,extrude:20", "Ctrl+Y redoes the number too");
   // the buttons
-  await page.click("[data-history='undo']"); await settle();
-  st = await state(); ok(st.steps.join() === "sketch,extrude:12", "the undo button does what the key does");
+  await page.click("[data-more='button']"); await page.waitForTimeout(150); await page.click("[data-item='undo']"); await settle();
+  st = await state(); ok(st.steps.join() === "sketch,extrude:12", "Undo in the ... menu does what the key does");
   // a distance of nothing, typed in the list: flagged in words
   await page.click("[data-number='e1:d']"); await page.keyboard.press("Control+a"); await page.keyboard.type("0"); await page.keyboard.press("Enter"); await settle();
   st = await state(); ok(/distance is nothing/.test(st.problem), `a distance of nothing is said in words: ${st.problem.slice(0, 90)}`);

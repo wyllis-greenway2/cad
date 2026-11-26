@@ -29,8 +29,6 @@ export const COLOUR: Record<Tone, string> = {
 };
 /** line weights in pixels, and the dash, as view.ts and settings.pick had them; the dash is a fraction of the view distance (0.012) with a gap 0.7 of it */
 export const WEIGHT = { figure: 2, guide: 1.5, mark: 5, edge: 2.4, edgeHover: 1.8, note: 1.5, vertexBall: 0.0042, dash: 0.012, gap: 0.7 };
-/** opacities: a closed sketch's tint, its teal under the pointer, the hover disc, the edges of a body behind a face, behind the plane */
-export const OPACITY = { sketchFill: 0.06, sketchHover: 0.28, hoverDisc: 0.14, hiddenEdge: 0.22, behindEdge: 0.28 };
 /** the flashing of a refused or already-applied constraint: a short pulse, in milliseconds (the old project flashed the bubble and the parts) */
 
 /** How each line of a drawing is drawn, by what it is doing: the tone (colour) and the weight, in one place (`in_1576`). The drawing code says `selected`; the screen turns it into a colour and a width. */

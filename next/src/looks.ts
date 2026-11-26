@@ -32,5 +32,3 @@ export function surfaceOf(look: Look): Surface {
   }
   return { color, opacity, transparent: opacity < 1, depthWrite: opacity >= 1, edge, edgeOpacity: look.mark && look.base === "seeThrough" ? 0.9 : edgeOpacity };
 }
-/** Two looks that come to the same surface need no change of material. */
-export const sameLook = (a: Look, b: Look): boolean => a.base === b.base && a.mark === b.mark;

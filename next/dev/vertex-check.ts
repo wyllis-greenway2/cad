@@ -5,7 +5,6 @@ import { Engine } from "../src/engine/engine.ts";
 import { Body } from "../src/engine/lineage.ts";
 import { idKey, mint, vertexRef, vertexKey } from "../src/engine/id.ts";
 import { rectangle } from "../src/engine/sketch.ts";
-import { referenceSet } from "../src/interaction/refs.ts";
 import type { Sketch, Step } from "../src/engine/steps.ts";
 await initKernel();
 import { check, fail, failureCount } from "./lib.ts";
@@ -39,8 +38,6 @@ console.log("3. a vertex as a sketch anchor: held where it is, followed when the
   const e = new Engine([...box(30), sk]); e.build(); const s = e.result("k").value as Sketch, a = s.lines.find((l) => l.id.of[0] === "bottom")!;
   check("the rectangle's corner A is at the vertex (30, 0)", st(e, "k").kind === "ok" && Math.abs(a.a[0] - 30) < 1e-9 && Math.abs(a.a[1]) < 1e-9, `${st(e, "k").kind} ${st(e, "k").why ?? a.a.join()}`);
   e.edit("s", { points: [[0, 0], [50, 0], [50, 20], [0, 20]] }); const m = (e.result("k").value as Sketch).lines.find((l) => l.id.of[0] === "bottom")!; check("the body made wider: the corner follows to (50, 0)", Math.abs(m.a[0] - 50) < 1e-9, m.a.join());
-  const refs = referenceSet({ body: body(e, "A"), plane: { plane: "XY", offset: 10 } }), vr = refs.filter((r) => r.key.startsWith("vertex:"));
-  check("the reference set offers the eight vertices as points to hold: the four at the plane's height as anchors, the four below through projection", vr.length === 8 && vr.filter((r) => r.origin === "anchor").length === 4 && vr.filter((r) => r.origin === "projection").length === 4 && vr.every((r) => !!r.anchor?.vertex), `${vr.length}`);
   const gone = new Engine([...box(30), { ...sk, params: { ...sk.params, anchors: [{ id: "pin", vertex: vertexRef([top, side(0), mint("A", "side", "nope")]) }] } }]); gone.build();
   check("an anchor on a vertex that is gone orphans the sketch, in words", st(gone, "k").kind === "orphaned" && /vertex/.test(st(gone, "k").why ?? ""), st(gone, "k").why); gone.release(); e.release();
 }

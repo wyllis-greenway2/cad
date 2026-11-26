@@ -153,7 +153,6 @@ function record(label: string, merge?: string) { undo.do({ sketches: sk.snapshot
 function restore(a: App | null) { if (!a) return; ext.cancel(); selection.clear(); facePlanes.clear(); for (const [k, v] of a.faces) facePlanes.set(k, v); if (placedKey && !facePlanes.has(placedKey)) { placed = null; placedKey = null; } sk.restore(a.sketches); if (a.steps !== studio.state().steps) studio.change([...a.steps]); }
 const list = createStepList(document.body, {
   edit(id, key, value) { const next = editNumber(studio.state().steps, id, key, value); if (next) { studio.change(next); record("Number", `s:${id}:${key}`); } },
-  undo: () => restore(undo.undo()), redo: () => restore(undo.redo()),
 });
 // ---- the "..." menu: new, open, save, export ----
 let said = "", saidUntil = 0;
@@ -161,6 +160,7 @@ const say = (text: string, ms = 5000) => { said = text; saidUntil = performance.
 const hasBody = () => studio.state().meshes.length > 0, hasModel = () => studio.state().steps.length > 0 || sk.hasDrawing();
 async function chooseMore(id: import("./interaction/moremenu.ts").MoreItem["id"]) {
   if (game.on) endGame();
+  if (id === "undo" || id === "redo") { restore(id === "undo" ? undo.undo() : undo.redo()); return; }
   if (id === "new") { ext.cancel(); restore({ sketches: {}, steps: [], faces: new Map() }); record("New"); say("A new model; undo brings the last one back"); }
   else if (id === "save") {
     const text = toFile({ steps: studio.state().steps, drawings: sk.snapshot(), faces: Object.fromEntries(facePlanes) as never });
@@ -259,8 +259,8 @@ function frame(now: number) {
   ext.frame(); pill.show(ext.pill() ?? (sketchMode || sk.active() ? { title: null, sketch: { icon: TOOL_ICON[sk.tool() ?? ""] ?? null } } : null));
   chip.show(game.on ? null : sk.chip());
   const say1 = sk.bar() ?? bodies.bar(sk.active() || ext.active()), barBox = (() => { barPress = say1?.press ?? null; const e = env(); return bar.show(say1?.items ?? null, say1?.at ?? null, e.w, e.h); })();
-  { const st = studio.state(), n = undo.next; list.show({ rows: rowsOf(st.steps, st.snapshot), canUndo: undo.canUndo, canRedo: undo.canRedo, undoLabel: n.undo, redoLabel: n.redo, busy: st.busy }); }
-  more.show(moreItems({ hasModel: hasModel(), hasBody: hasBody() }));
+  { const st = studio.state(); list.show({ rows: rowsOf(st.steps, st.snapshot), busy: st.busy }); }
+  more.show(moreItems({ hasModel: hasModel(), hasBody: hasBody(), undo: undo.canUndo ? undo.next.undo ?? "" : null, redo: undo.canRedo ? undo.next.redo ?? "" : null }));
   if (now > saidUntil) said = "";
   const skMessage = sk.frame(now, barBox).message; // (always made: the bubbles are drawn by it, whatever the line says)
   note.textContent = studio.state().problem || said || skMessage; note.style.display = note.textContent ? "block" : "none";

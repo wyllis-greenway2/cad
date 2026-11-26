@@ -6500,3 +6500,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1595 — 2026-11-26 — directive
 > lets just keep it simple and only do mm for now. How are we looking overall? is our build really clean lean and simple? Do we have any extra code that was written un called for? it looks like we introduced little undo redo buttons in the upper left? What else did we do? lets try to keep it as lean and simple as possible
 
+## in_1596 — 2026-11-26 — approval
+> yes do the three cleanups
+
