@@ -1,6 +1,6 @@
 // What a selection can be offered, and the info bar's descriptions (`dec_three_surfaces`, `dec_marks_on_things`): `barFor` the relations that fit a selection and would be accepted, `nearFor` the relations with one other part that hold or are in range
 // (`reach`); the marks (`marks.ts`) use both. The info bar itself (`infobardraw.ts`) is now only for an operation's number and the kinds of what is picked on a body. Pure.
-import { adjusting, appliedAt, candidatesFor, displacements, inRange, type Arrow } from "../engine/probe.ts";
+import { adjusting, candidatesFor, inRange } from "../engine/probe.ts";
 import { offerable } from "../engine/relations.ts";
 import type { Relation, System } from "../engine/solver.ts";
 import { RANGEABLE, RELATIONS } from "../engine/solver.ts";
@@ -10,8 +10,6 @@ import { offersFor } from "./suggest.ts";
 /** `free`: would be added; `holds`: already true as drawn (adding it makes it a rule) */
 export type BarTone = "free" | "holds";
 export interface BarItem {
-  /** what taking it would move, and by how much (mm, in the sketch's axes): the points that would go (a relation that holds already moves nothing) */
-  moves?: Arrow[];
   id: string;
   icon: string;
   label: string;
@@ -46,7 +44,6 @@ export function nearFor(
   selection: string[],
   max = NEAR_MAX,
   reach?: { pointMm: number; lineMm: number },
-  /** the selection is itself the whole relation (a pair the person chose), not one part to be matched with another */ pair = false,
 ): BarItem[] {
   if (!selection.length || selection.length > 2) return [];
   const points = new Set<string>(),
@@ -62,16 +59,15 @@ export function nearFor(
     } else points.add(id);
   }
   const motion = adjusting(S, [...points], radii),
-    cands = candidatesFor(S, motion.affected, selection, pair ? selection.length : selection.length + 1).filter(
+    cands = candidatesFor(S, motion.affected, selection, selection.length + 1).filter(
       (c) => !RANGEABLE.has(c.relation),
     ),
     exact = { pointMm: 1e-7, lineMm: 1e-7 };
   const found = inRange(S, motion, new Array(motion.dim).fill(0), cands, reach ?? exact)
     .slice(0, 24)
     .map((r) => {
-      const other = r.cand.parts.find((x) => !selection.includes(x)) ?? selection[selection.length - 1]!,
-        parts = r.cand.parts,
-        moves = displacements(S, appliedAt(S, r.cand) ?? motion.at(r.q), r.cand.parts);
+      const other = r.cand.parts.find((x) => !selection.includes(x))!,
+        parts = r.cand.parts;
       return {
         other,
         item: {
@@ -79,7 +75,6 @@ export function nearFor(
           icon: iconOf(r.cand.relation),
           label: `${RELATIONS[r.cand.relation].label} with ${other}`,
           tone: (r.moved < 1e-7 ? "holds" : "free") as BarTone,
-          ...(moves.length ? { moves } : {}),
         },
       };
     });

@@ -1,9 +1,20 @@
 // The marks of a sketch and what their buttons do (`dec_marks_on_things`, `in_1611`..`in_1622`): what is selected shows its constraints (locked) and what is true of it or in range (offered); the part being dragged and the parts just made show their offers; a refusal shows
 // what held it back, always; a constraint doing work in a drag fades in. The buttons: an offer is applied, a constraint is taken away, a number is typed over, a padlock locks or lets go. The relation put on the selection by the ring is here too.
 import { project } from "./camera.ts";
+import { displacements, type Arrow } from "./engine/probe.ts";
 import type { Relation } from "./engine/solver.ts";
+import type { SketchParams } from "./engine/sketch.ts";
 import { MEASURE_ID } from "./interaction/bubbles.ts";
-import { constrain, keep, nextId, retype, unconstrain } from "./interaction/drawing.ts";
+import {
+  constrain,
+  keep,
+  nextId,
+  retype,
+  unconstrain,
+  viewSystem,
+  type Constrained,
+  type Kept,
+} from "./interaction/drawing.ts";
 import { nearConstraint } from "./interaction/infobar.ts";
 import { marksFor, type Mark } from "./interaction/marks.ts";
 import type { MarkHandlers, PlacedMark } from "./markdraw.ts";
@@ -32,15 +43,9 @@ export function createMarks(
         act(id);
         return;
       }
-      const k = keep({
-        ...c.p,
-        constraints: [
-          ...(c.p.constraints ?? []),
-          { id: nextId(c.p, "c"), kind: nc.kind, parts: nc.parts, ...(nc.internal ? { internal: true } : {}) },
-        ],
-      });
-      if (k.ok) set(c.key, k.params, "Constraint");
-      else fail(k.why, k.victims);
+      const k = planOf(c.p, id, selected(c.key));
+      if (k?.ok) set(c.key, k.params, "Constraint");
+      else if (k) fail(k.why, k.victims);
     },
     /** an offered constraint, from a mark: the parts it is offered for are selected, and it is applied */
     offer(id, over) {
@@ -97,15 +102,39 @@ export function createMarks(
   /** a press on the helper bar: a relation is put on the selection */
   const act = (id: string): void => {
     const c = current();
-    if (!c) return;
-    if (id.startsWith("rel:")) {
-      const r = constrain(c.p, solOf(c.p), selected(c.key), id.slice(4) as Relation | "dimension");
-      if (r.ok) {
-        set(c.key, r.params, "Constraint");
-        st.flash = { applied: [r.added] };
-        st.flashUntil = performance.now() + 900;
-      } else fail(r.why, r.victims);
-    }
+    if (!c || !id.startsWith("rel:")) return;
+    const r = planOf(c.p, id, selected(c.key));
+    if (r?.ok) {
+      set(c.key, r.params, "Constraint");
+      st.flash = { applied: [(r as Extract<Constrained, { ok: true }>).added] };
+      st.flashUntil = performance.now() + 900;
+    } else if (r) fail(r.why, r.victims);
+  };
+  /** what applying an offer makes: the sketch with the constraint added and solved, or why not (null: not an offer). The one place an offer becomes a sketch: the buttons keep what it makes, the arrows only look at it (`in_1638`) */
+  const planOf = (p: SketchParams, id: string, over: string[]): Constrained | Kept | null => {
+    const nc = nearConstraint(id);
+    if (nc)
+      return keep({
+        ...p,
+        constraints: [
+          ...(p.constraints ?? []),
+          { id: nextId(p, "c"), kind: nc.kind, parts: nc.parts, ...(nc.internal ? { internal: true } : {}) },
+        ],
+      });
+    return id.startsWith("rel:") ? constrain(p, solOf(p), over, id.slice(4) as Relation | "dimension") : null;
+  };
+  /** the arrows of what applying an offer would move (nothing: none; refused: none) */
+  const previews = new WeakMap<SketchParams, Map<string, Arrow[]>>();
+  const preview = (p: SketchParams, id: string, over: string[]): Arrow[] => {
+    const key = `${id}|${over.join(",")}`;
+    let m = previews.get(p);
+    if (!m) previews.set(p, (m = new Map()));
+    const hit = m.get(key);
+    if (hit) return hit;
+    const k = planOf(p, id, over),
+      out = k?.ok ? displacements(sysOf(p), viewSystem(k.params, k.sol), nearConstraint(id)?.parts ?? over) : [];
+    m.set(key, out);
+    return out;
   };
 
   return {
@@ -192,7 +221,14 @@ export function createMarks(
           Math.min(1, (now - t) / settings.marks.fadeInMs, ctx.dragged() ? 1 : (st.flashUntil - now) / 400),
         );
       }; // (a constraint doing work fades in; once the drag is over it fades out)
-      const list = marksFor(S, ids, { flash: st.flash, recent: fresh, now, fade, reach }),
+      const list = marksFor(S, ids, {
+          flash: st.flash,
+          recent: fresh,
+          now,
+          fade,
+          reach,
+          preview: (id, over) => preview(c.p, id, over),
+        }),
         chosen = [...ids].sort().join();
       ownId = list.find((m) => m.kind === "dimension" && [...m.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
       const arrows = list.filter((m) => m.state === "offer" && m.moves?.length).flatMap((m) => m.moves!);

@@ -6626,3 +6626,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1637 — 2026-11-26 — question
 > what is going on here? there are multiple arrows going in both directions? There is only one suggested constraint? and it is only between the verticy and the circle line, and it would only go in one direction if applied right?
+
+## in_1638 — 2026-11-26 — directive
+> I want it to basically preview what would happen if the constraint were applied. Does it do this and is it actually tied into the constraint logic so it holds true? or do we have duplicate code hanging around? it should just be a visual preview of the movement that would happen if any constraint were actually applied (if movement were to happen, otherwise no arrow)

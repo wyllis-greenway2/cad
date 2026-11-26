@@ -177,60 +177,6 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
   );
 }
 {
-  // an offer that would move a part says where (`in_1631`): the arrow's ends, and the offer stands at its middle
-  const T: System = {
-    points: [
-      { id: "A", x: 0, y: 5 },
-      { id: "B", x: 4.7, y: 0 },
-      { id: "C", x: 10, y: 0 },
-    ],
-    lines: [{ id: "L1", a: "A", b: "B" }],
-    circles: [{ id: "K1", c: "C", r: 5 }],
-    constraints: [],
-  } as unknown as System;
-  const m = marksFor(T, ["L1"], { now: 0, reach: { pointMm: 1, lineMm: 0.6 } }).find(
-      (x) => x.id === "near:pointOnCircle:B,K1",
-    ),
-    mv = m?.moves?.[0];
-  check(
-    "a point 0.3 mm off a circle is offered on it with the arrows of what applying does, the offer at the middle of the longest",
-    !!m?.moves?.length &&
-      (() => {
-        const L = m.moves!.reduce((a, b) =>
-          Math.hypot(b.to[0] - b.from[0], b.to[1] - b.from[1]) > Math.hypot(a.to[0] - a.from[0], a.to[1] - a.from[1])
-            ? b
-            : a,
-        );
-        return (
-          Math.abs(m.at[0] - (L.from[0] + L.to[0]) / 2) < 1e-9 && Math.abs(m.at[1] - (L.from[1] + L.to[1]) / 2) < 1e-9
-        );
-      })(),
-    JSON.stringify(m?.moves),
-  );
-}
-{
-  // a radius that would change shows an arrow along the edge's way out (`in_1631`)
-  const T: System = {
-    points: [
-      { id: "A", x: -10, y: 5.3 },
-      { id: "B", x: 10, y: 5.3 },
-      { id: "C", x: 0, y: 0 },
-    ],
-    lines: [{ id: "L1", a: "A", b: "B" }],
-    circles: [{ id: "K1", c: "C", r: 5 }],
-    constraints: [],
-  } as unknown as System;
-  const m = marksFor(T, ["K1"], { now: 0, reach: { pointMm: 1, lineMm: 0.6 } }).find((x) =>
-      x.id.startsWith("near:tangent"),
-    ),
-    mv = m?.moves?.[0];
-  check(
-    "a circle 0.3 mm from tangent to a line is offered it, with an arrow for the edge's move toward the line",
-    !!m?.moves?.some((v) => Math.abs(v.from[1] - 5) < 1e-6 && v.to[1] > 5.1) && !!mv,
-    JSON.stringify(m?.moves),
-  );
-}
-{
   // zoomed far out the reach in mm is huge, but a circle is not offered what is far from it (`in_1633`)
   const T: System = {
     points: [
@@ -271,47 +217,30 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
   );
 }
 {
-  // a point and a circle the person picked together: "on the circle" is offered however far, with the arrows of what it would move and the offer at the middle of the longest (`in_1631`)
+  // the offer stands in the middle of the longest arrow of what applying it would move, and on its part when nothing would move (`in_1631`; the arrows themselves are the apply, `dev/moves-browser.ts`)
   const T: System = {
     points: [
-      { id: "A", x: 40, y: 0 },
-      { id: "C", x: 0, y: 0 },
+      { id: "A", x: 4.7, y: 0 },
+      { id: "C", x: 10, y: 0 },
     ],
     lines: [],
-    circles: [{ id: "K1", c: "C", r: 10 }],
+    circles: [{ id: "K1", c: "C", r: 5 }],
     constraints: [],
   } as unknown as System;
-  const m = marksFor(T, ["A", "K1"], { now: 0, reach: { pointMm: 1, lineMm: 0.5 } }).find(
-    (x) => x.id === "rel:pointOnCircle",
-  );
+  const arrows = [
+      { from: [4.7, 0] as [number, number], to: [5, 0] as [number, number] },
+      { from: [0, 0] as [number, number], to: [0, 6] as [number, number] },
+    ] as { from: [number, number]; to: [number, number] }[],
+    ask = (preview: (id: string, over: string[]) => typeof arrows) =>
+      marksFor(T, ["A"], { now: 0, reach: { pointMm: 1, lineMm: 1 }, preview }).find((x) =>
+        x.id.startsWith("near:pointOnCircle"),
+      );
+  const moved = ask(() => arrows),
+    still = ask(() => []);
   check(
-    "a point and a circle picked together are offered on-the-circle with arrows, however far",
-    !!m?.moves?.length && Math.abs(m.at[0] - 20) < 15 && m.at[0] !== 40,
-    JSON.stringify(m?.moves),
-  );
-}
-{
-  // a chosen pair has its arrows however far apart, a tangent too (`in_1636`)
-  const far = (d: number): System =>
-    ({
-      points: [
-        { id: "A", x: d, y: d * 0.6 },
-        { id: "B", x: d + 20, y: d * 0.6 + 5 },
-        { id: "C", x: 0, y: 0 },
-      ],
-      lines: [{ id: "L1", a: "A", b: "B" }],
-      circles: [{ id: "K1", c: "C", r: 10 }],
-      constraints: [],
-    }) as unknown as System;
-  const bare = [15, 200, 2000].flatMap((d) =>
-    marksFor(far(d), ["L1", "K1"], { now: 0, reach: { pointMm: 1, lineMm: 0.5 } })
-      .filter((m) => m.id.startsWith("rel:") && m.state === "offer" && !m.moves?.length)
-      .map((m) => `${d}:${m.id}`),
-  );
-  check(
-    "a chosen line and circle are offered their relations with arrows at any distance",
-    bare.length === 0,
-    bare.join(),
+    "an offer stands at the middle of the longest arrow of what it would move, and on its part when nothing moves",
+    !!moved && moved.at[0] === 0 && moved.at[1] === 3 && !!still && !still.moves && still.at[0] === 4.7,
+    `${moved?.at} ${still?.at}`,
   );
 }
 process.exit(failureCount() ? 1 : 0);

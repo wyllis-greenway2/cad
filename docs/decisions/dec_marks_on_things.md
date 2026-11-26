@@ -32,8 +32,8 @@ The mark drawer and the rule: `next/src/interaction/marks.ts` (pure: `marksFor` 
 - **Arcs:** the curve sets the radius (the ends go out along their own lines), the centre moves the whole arc.
 `dev/marks-check.ts` (where, scope, what shows), `dev/drag-hints-browser.ts` (a tangent line pulled takes its circle and the tangent shows; the circle fixed and its diameter locked, the same drag is held back and the tangent flashes).
 
-## Built: an offer that would move something shows where (`in_1631`)
-An offered constraint that is not yet true moves parts to hold (`inRange` already knows the numbers). Each such offer carries `moves` (a point from where it is to where it would be); the sketch draws a dashed arrow for each (`STROKE` kinds `move`, `moveHead`), and the offer's mark stands at the middle of the longest arrow instead of on the part. An offer that is already true has no arrow. Dev check: `dev/moves-browser.ts`, `marks-check`. A move of a few pixels has an arrow too small to see; the mark at its middle still tells it. (Seen on the way: `NEAR_MAX` is 2, so two trivial offers such as a point level with another can crowd out a nearer one; not changed.)
+## Built: an offer that would move something previews it (`in_1631`, `in_1638`)
+The arrows of an offer are a preview of applying it, and nothing else: `planOf` (`sketchmarks.ts`) is the one place an offer becomes a sketch (the constraint added and solved the way applying solves, `keep`/`constrain`); the buttons keep what it makes, `preview` only compares it with the sketch now (`displacements`, `engine/probe.ts`: every point that goes, and a circle's edge when its radius changes) and draws a dashed arrow for each (`STROKE` kinds `move`, `moveHead`). The offer's mark stands at the middle of the longest arrow (on its part when nothing would move; a mark beside a short arrow stands clear of it); an offer that would be refused, or that moves nothing, has no arrow. There is no second way of working out what moves. Dev check: `dev/moves-browser.ts` applies an offer and checks that exactly the points the arrows named moved, there, and `marks-check` the position of the mark.
 
 ## Rationale
 
