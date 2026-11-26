@@ -205,7 +205,7 @@ export function inRange(
       r0 = res([...q0]);
     if (!r0.length || !r0.every(Number.isFinite) || !aboutMotion(res, q0)) continue;
     const within = r0.length === 2 ? reach.pointMm : reach.lineMm,
-      q = landN(res, q0, within);
+      q = landN(res, q0, within, within > 1e6 ? 80 : 8); // (no limit on the distance: more steps to get there)
     if (!q) continue;
     const moved = norm(q.map((v, j) => v - q0[j]!));
     if (moved <= within && offerable(standingOf(m.at(q), c).state)) out.push({ cand, q, moved });

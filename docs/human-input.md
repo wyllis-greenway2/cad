@@ -6620,3 +6620,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1635 — 2026-11-26 — question
 > Why is it when I select a verticy and a circle edge, it offers to move it to the line, but still doesn't show an arrow or put the bubble in the middle of the arrow?
+
+## in_1636 — 2026-11-26 — directive
+> I want the arrows at any distance, not just near distances

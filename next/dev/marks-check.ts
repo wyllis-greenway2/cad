@@ -280,4 +280,28 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
     JSON.stringify(m?.moves),
   );
 }
+{
+  // a chosen pair has its arrows however far apart, a tangent too (`in_1636`)
+  const far = (d: number): System =>
+    ({
+      points: [
+        { id: "A", x: d, y: d * 0.6 },
+        { id: "B", x: d + 20, y: d * 0.6 + 5 },
+        { id: "C", x: 0, y: 0 },
+      ],
+      lines: [{ id: "L1", a: "A", b: "B" }],
+      circles: [{ id: "K1", c: "C", r: 10 }],
+      constraints: [],
+    }) as unknown as System;
+  const bare = [15, 200, 2000].flatMap((d) =>
+    marksFor(far(d), ["L1", "K1"], { now: 0, reach: { pointMm: 1, lineMm: 0.5 } })
+      .filter((m) => m.id.startsWith("rel:") && m.state === "offer" && !m.moves?.length)
+      .map((m) => `${d}:${m.id}`),
+  );
+  check(
+    "a chosen line and circle are offered their relations with arrows at any distance",
+    bare.length === 0,
+    bare.join(),
+  );
+}
 process.exit(failureCount() ? 1 : 0);
