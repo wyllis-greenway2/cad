@@ -1,6 +1,6 @@
 // What a selection can be offered, and the info bar's descriptions (`dec_three_surfaces`, `dec_marks_on_things`): `barFor` the relations that fit a selection and would be accepted, `nearFor` the relations with one other part that hold or are in range
 // (`reach`); the marks (`marks.ts`) use both. The info bar itself (`infobardraw.ts`) is now only for an operation's number and the kinds of what is picked on a body. Pure.
-import { adjusting, candidatesFor, displacements, inRange, type Arrow } from "../engine/probe.ts";
+import { adjusting, appliedAt, candidatesFor, displacements, inRange, type Arrow } from "../engine/probe.ts";
 import { offerable } from "../engine/relations.ts";
 import type { Relation, System } from "../engine/solver.ts";
 import { RANGEABLE, RELATIONS } from "../engine/solver.ts";
@@ -71,7 +71,7 @@ export function nearFor(
     .map((r) => {
       const other = r.cand.parts.find((x) => !selection.includes(x)) ?? selection[selection.length - 1]!,
         parts = r.cand.parts,
-        moves = displacements(S, motion.at(r.q), other);
+        moves = displacements(S, appliedAt(S, r.cand) ?? motion.at(r.q), r.cand.parts);
       return {
         other,
         item: {

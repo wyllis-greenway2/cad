@@ -193,8 +193,18 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
     ),
     mv = m?.moves?.[0];
   check(
-    "a point 0.3 mm off a circle is offered on it with an arrow to the edge, the offer at its middle",
-    !!mv && Math.abs(mv.to[0] - 5) < 1e-6 && Math.abs(m!.at[0] - 4.85) < 1e-6,
+    "a point 0.3 mm off a circle is offered on it with the arrows of what applying does, the offer at the middle of the longest",
+    !!m?.moves?.length &&
+      (() => {
+        const L = m.moves!.reduce((a, b) =>
+          Math.hypot(b.to[0] - b.from[0], b.to[1] - b.from[1]) > Math.hypot(a.to[0] - a.from[0], a.to[1] - a.from[1])
+            ? b
+            : a,
+        );
+        return (
+          Math.abs(m.at[0] - (L.from[0] + L.to[0]) / 2) < 1e-9 && Math.abs(m.at[1] - (L.from[1] + L.to[1]) / 2) < 1e-9
+        );
+      })(),
     JSON.stringify(m?.moves),
   );
 }

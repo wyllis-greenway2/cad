@@ -1,6 +1,7 @@
 // One question for every case (`q_motion_probe_domain`, `in_1627`): for some parts that can move by a few numbers (a MOTION), which relations of the table fit them, would the solver accept them, and are they within reach of holding, and
 // at what numbers do they hold? The parts at rest (adjusted a little), a part dragged (moved by an offset), a corner of several lines, a circle's radius are all motions; what differs is only the reach. Pure: a system in, answers out; no screen.
 import { kindTuples, offerable, standingOf, type PartKind } from "./relations.ts";
+import { solveKeeping } from "./definition.ts";
 import { RELATIONS, residualsOf, type Constraint, type Relation, type System } from "./solver.ts";
 
 /** how a few numbers `q` (an offset from where things are) move parts of a system: `at(q)` is the system with them moved; `affected` are the parts they move (points) and what is made of them (a line with an end moved, a circle with its centre or radius moved) */
@@ -219,7 +220,7 @@ export interface Arrow {
   to: [number, number];
 }
 /** what moves between two states of a system, for any part: a point from where it was to where it is; a circle whose radius changed, its edge (at the place where it moves most: along the centre's move when it moved, else toward `toward`, the other part it is being matched to). A line or arc moves by its points. Nothing is special to a relation (`in_1631`) */
-export function displacements(before: System, after: System, toward?: string, least = 1e-3): Arrow[] {
+export function displacements(before: System, after: System, toward: readonly string[] = [], least = 1e-3): Arrow[] {
   const out: Arrow[] = [];
   const at = (S: System, id: string) => S.points.find((p) => p.id === id);
   for (const p of before.points) {
@@ -238,8 +239,9 @@ export function displacements(before: System, after: System, toward?: string, le
       moved = Math.hypot(dx, dy);
     let u: [number, number] | null =
       moved > least ? [(Math.sign(dr) * dx) / moved, (Math.sign(dr) * dy) / moved] : null;
-    if (!u && toward) {
-      const g = placeOf(before, toward, c.x, c.y);
+    const other = toward.find((x) => x !== k.id);
+    if (!u && other) {
+      const g = placeOf(before, other, c.x, c.y);
       if (g) {
         const d = Math.hypot(g[0] - c.x, g[1] - c.y) || 1;
         u = [(g[0] - c.x) / d, (g[1] - c.y) / d];
@@ -270,4 +272,20 @@ function placeOf(S: System, id: string, x: number, y: number): [number, number] 
     dy = b.y - a.y,
     t = ((x - a.x) * dx + (y - a.y) * dy) / (dx * dx + dy * dy || 1);
   return [a.x + t * dx, a.y + t * dy];
+}
+
+/** the sketch as it would be if a relation were added and solved the way a sketch is solved when it is applied (`solveKeeping`: the first corner stays), or null when it would not hold: what the arrows of an offer show is what applying it does */
+export function appliedAt(S: System, cand: Cand): System | null {
+  const r = solveKeeping({ ...S, constraints: [...S.constraints, constraintOf(cand)] });
+  if (!r.verdict.ok) return null;
+  return {
+    ...S,
+    points: S.points.map((p) => {
+      const q = r.solution.points[p.id];
+      return q ? { ...p, x: q[0], y: q[1] } : p;
+    }),
+    circles: S.circles.map((k) =>
+      r.solution.circles[k.id] === undefined ? k : { ...k, r: r.solution.circles[k.id]! },
+    ),
+  };
 }

@@ -6623,3 +6623,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1636 — 2026-11-26 — directive
 > I want the arrows at any distance, not just near distances
+
+## in_1637 — 2026-11-26 — question
+> what is going on here? there are multiple arrows going in both directions? There is only one suggested constraint? and it is only between the verticy and the circle line, and it would only go in one direction if applied right?
