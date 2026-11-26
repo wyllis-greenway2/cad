@@ -26,7 +26,7 @@ test("[B3] the button of the axis the view is nearest to takes the teal as the v
 
 test("[B4] there are no letter keys for the views: no key handler names X, Y, Z or N, and the game takes only W A S D", () => {
   for (const f of readdirSync(new URL("../src", import.meta.url), { recursive: true, encoding: "utf8" }).filter((n) => n.endsWith(".ts"))) {
-    const text = readFileSync(new URL(`../src/${f}`, import.meta.url), "utf8").split("\n").filter((l) => !/ctrlKey \|\| e\.metaKey/.test(l)).join("\n"); // (Ctrl or Cmd with Z or Y is undo and redo, `in_1567`: not a key for a view)
+    const text = readFileSync(new URL(`../src/${f}`, import.meta.url), "utf8").split("\n").filter((l) => !/ctrlKey \|\| e\.metaKey|undo\.redo\(\)/.test(l)).join("\n"); // (Ctrl or Cmd with Z or Y is undo and redo, `in_1567`: not a key for a view)
     assert.equal(/Key[XYZN]\b/.test(text), false, `${f} names a letter key for a view`);
   }
   const g = createGame();
