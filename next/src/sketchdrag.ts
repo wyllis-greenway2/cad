@@ -1,11 +1,11 @@
 // A part of a drawing dragged (`in_1576`, `in_1617`..`in_1621`): the solver follows the pointer with what is held where the pointer puts it; the helpers place what is dragged as when it was drawn (they place, they never constrain); a point let go on another
 // point or a curve joins it; a circle's or an arc's edge sets the radius; a line, an arc or a circle by its centre moves as one piece; what is doing work fades in and what holds the drag back flashes (`working`).
 import { segsOf } from "./engine/definition.ts";
-import type { Free } from "./engine/free.ts";
-import { helpersAt, type Helped } from "./engine/helpers.ts";
+import { helpersAt, helpersForMotion, type Helped } from "./engine/helpers.ts";
+import { translating } from "./engine/probe.ts";
 import type { Pt } from "./engine/region.ts";
 import type { SketchParams } from "./engine/sketch.ts";
-import { activeOf, dragRadius, dragTo, freeOfDrag, joinFor, pieceOf, pinsOf, without } from "./interaction/dragging.ts";
+import { activeOf, dragRadius, dragTo, joinFor, pinsOf, without } from "./interaction/dragging.ts";
 import { hitAt } from "./interaction/drawing.ts";
 import { helpShown } from "./interaction/helpshow.ts";
 import type { Frame } from "./planes.ts";
@@ -113,24 +113,24 @@ export function createDrag(K: Core, armed: () => boolean) {
       }
       let d: P2 = [c.q[0] - drag.q0[0], c.q[1] - drag.q0[1]];
       const lone = drag.pins.length === 1 && drag.id === drag.pins[0],
-        piece = pieceOf(drag.def0, sol0, drag.id); // (a whole line, an arc or a circle by its centre moves as one piece)
-      const hint = (at0: Pt, want: Pt, look: { free: Free; out: string[] }) => {
+        at0 = drag.start[drag.pins[0]!]!,
+        motion = translating(S0, drag.pins); // (what is pressed moves as one: a point, a line's ends, an arc's three points)
+      const hint = (want: Pt) => {
         // the helpers place what is dragged, as when it was drawn: they place, they never constrain
-        const help = helpersAt(without(S0, look.out), look.free, want, c.mm, settings.helpers);
+        const help = helpersForMotion(S0, motion, at0, want, c.mm, settings.helpers);
         drag!.help = help.acted.length || help.holds.length ? help : null;
         if (help.acted.length) d = [help.at[0] - at0[0], help.at[1] - at0[1]];
       };
+      const want: Pt = [at0[0] + d[0], at0[1] + d[1]];
       if (lone) {
         // one point: it sticks to another point or a curve near it, else the helpers place it (an alignment, a tangent for the end of a line, on a line)
-        const at0 = drag.start[drag.pins[0]!]!,
-          want: Pt = [at0[0] + d[0], at0[1] + d[1]],
-          j = joinFor(drag.def0, sol0, drag.id, want, c.tol);
+        const j = joinFor(drag.def0, sol0, drag.id, want, c.tol);
         if (j) {
           drag.join = { id: j.id, kind: j.kind };
           drag.snapAt = j.at;
           d = [j.at[0] - at0[0], j.at[1] - at0[1]];
-        } else hint(at0, want, piece ?? freeOfDrag(drag.def0, sol0, drag.id));
-      } else if (piece) hint(piece.ref, [piece.ref[0] + d[0], piece.ref[1] + d[1]], piece);
+        } else hint(want);
+      } else hint(want);
       const pins = Object.fromEntries(
         drag.pins.map((id) => [id, [drag!.start[id]![0] + d[0], drag!.start[id]![1] + d[1]] as [number, number]]),
       );

@@ -50,6 +50,8 @@ export interface Cand {
   relation: Relation;
   parts: string[];
   variant?: Partial<Constraint>;
+  /** the place of its relation in the table (the order a tie is broken by) */
+  order: number;
 }
 /** the ways the parts of a system can be named for the relations that are helpers (the table says which): each names at least one affected part (else it says nothing about the motion), and all of `must` when given; each once whichever way round it is read */
 export function candidatesFor(
@@ -59,35 +61,50 @@ export function candidatesFor(
   arity?: number,
 ): Cand[] {
   const pool: Record<PartKind, string[]> = {
-    point: S.points.map((p) => p.id),
-    line: S.lines.map((l) => l.id),
-    circle: S.circles.map((c) => c.id),
-  };
+      point: S.points.map((p) => p.id),
+      line: S.lines.map((l) => l.id),
+      circle: S.circles.map((c) => c.id),
+    },
+    hit: Record<PartKind, string[]> = {
+      point: pool.point.filter((id) => affected.has(id)),
+      line: pool.line.filter((id) => affected.has(id)),
+      circle: pool.circle.filter((id) => affected.has(id)),
+    };
   const out: Cand[] = [],
     seen = new Set<string>();
+  let order = 0;
   for (const [name, def] of Object.entries(RELATIONS) as [Relation, (typeof RELATIONS)[Relation]][]) {
     if (!def.helper) continue;
+    order++;
     for (const kinds of kindTuples(name)) {
       if (arity !== undefined && kinds.length !== arity) continue;
-      const walk = (i: number, got: string[]) => {
-        if (i === kinds.length) {
-          if (!got.some((g) => affected.has(g)) || !must.every((m) => got.includes(m))) return;
-          for (const variant of def.helper!.variants ?? [undefined]) {
-            const key = `${name}|${[...got].sort().join()}|${JSON.stringify(variant ?? {})}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
-            out.push({ relation: name, parts: got, ...(variant && Object.keys(variant).length ? { variant } : {}) });
+      for (let j = 0; j < kinds.length; j++) {
+        // an affected part at place j, anything at the others (so the walk is not over every combination)
+        const walk = (i: number, got: string[]) => {
+          if (i === kinds.length) {
+            if (!must.every((m) => got.includes(m))) return;
+            for (const variant of def.helper!.variants ?? [undefined]) {
+              const key = `${name}|${[...got].sort().join()}|${JSON.stringify(variant ?? {})}`;
+              if (seen.has(key)) continue;
+              seen.add(key);
+              out.push({
+                relation: name,
+                parts: got,
+                ...(variant && Object.keys(variant).length ? { variant } : {}),
+                order,
+              });
+            }
+            return;
           }
-          return;
-        }
-        for (const id of pool[kinds[i]!]) if (!got.includes(id)) walk(i + 1, [...got, id]);
-      };
-      walk(0, []);
+          for (const id of i === j ? hit[kinds[i]!] : pool[kinds[i]!]) if (!got.includes(id)) walk(i + 1, [...got, id]);
+        };
+        walk(0, []);
+      }
     }
   }
   return out;
 }
-const constraintOf = (c: Cand): Constraint =>
+export const constraintOf = (c: Cand): Constraint =>
   ({ id: "probe", kind: c.relation, parts: c.parts, ...(c.variant ?? {}) }) as Constraint;
 const norm = (v: readonly number[]) => Math.hypot(...v);
 /** Newton for the numbers at which some rows (one or two) are zero, the shortest way from `q0`: the least-norm step `-J^T (J J^T)^-1 r`; null when it does not get there, or when the first step is longer than 3 times `within` */

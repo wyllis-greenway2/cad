@@ -4,8 +4,9 @@
 // The free thing is the place `~P`, alone (`point`), or the end of a line from the figure's first place (`line`: `~L`), or the edge of a circle about it (`circle`: `~C`); the first place is a point of the sketch (`startId`) or only a place.
 // The nearest acts (a point before a line, then a fixed order); one more, not parallel to it, within reach of that place: the place is where both hold. Everything that holds at the place is reported, to be shown and offered.
 import { C, L, P, figureOf, isFree, land, type Free, type Pt } from "./free.ts";
+import { candidatesFor, constraintOf, type Cand, type Motion } from "./probe.ts";
 import { kindTuples, offerable, standingOf, type PartKind } from "./relations.ts";
-import { RELATIONS, type Constraint, type Relation, type System } from "./solver.ts";
+import { RELATIONS, residualsOf, type Constraint, type Relation, type System } from "./solver.ts";
 export { C, L, P, S, type Free, type Pt } from "./free.ts";
 /** how near (px) the pointer must be to a relation that says a point and to one that says a line, how far past its ends a guide runs, and the step it is traced in: the screen's settings (`settings.helpers`), given to each call so this file knows no screen */
 export interface Reach {
@@ -34,37 +35,18 @@ export interface Helped {
     h: Held,
   ): Pt[] | null;
 }
-interface Cand {
-  relation: Relation;
-  parts: string[];
-  variant?: Partial<Constraint>;
-  order: number;
-}
 
 const free = isFree;
 const norm = (v: number[]) => Math.hypot(...v);
 
 /** the ways parts can be named for the relations that are helpers: each needs at least one free part (else it does not say anything about the place) */
 function candidates(S0: System, f: Free): Cand[] {
-  const start = f.shape === "line" || f.shape === "circle" ? f.startId : undefined; // (a piece names no start)
-  const piece = f.shape === "piece" ? f : null;
-  const pool: Record<PartKind, string[]> = piece
-    ? {
-        // a part moved as one piece: its own parts (free names) against everything else
-        point: [...Object.keys(piece.points), ...S0.points.map((p) => p.id)],
-        line: [...piece.lines.map((l) => l.name), ...S0.lines.map((l) => l.id)],
-        circle: [...piece.circles.map((c) => c.name), ...S0.circles.map((c) => c.id)],
-      }
-    : {
-        point: [
-          P,
-          ...S0.points
-            .map((p) => p.id)
-            .filter((id) => id !== start && !(f.shape === "line" && f.more?.some((m) => m.startId === id))),
-        ], // (the first place is covered by the line or circle that starts there)
-        line: [...(f.shape === "line" ? [L, ...(f.more ?? []).map((m) => m.name)] : []), ...S0.lines.map((l) => l.id)],
-        circle: [...(f.shape === "circle" ? [C] : []), ...S0.circles.map((c) => c.id)],
-      };
+  const start = f.shape === "line" || f.shape === "circle" ? f.startId : undefined;
+  const pool: Record<PartKind, string[]> = {
+    point: [P, ...S0.points.map((p) => p.id).filter((id) => id !== start)], // (the first place is covered by the line or circle that starts there)
+    line: [...(f.shape === "line" ? [L] : []), ...S0.lines.map((l) => l.id)],
+    circle: [...(f.shape === "circle" ? [C] : []), ...S0.circles.map((c) => c.id)],
+  };
   const out: Cand[] = [];
   let order = 0;
   for (const [name, def] of Object.entries(RELATIONS) as [Relation, (typeof RELATIONS)[Relation]][]) {
@@ -74,8 +56,7 @@ function candidates(S0: System, f: Free): Cand[] {
       const walk = (i: number, got: string[]) => {
         if (i === kinds.length) {
           if (name === "pointOnCircle" && got.includes(P) && got.includes(C)) return;
-          if (piece && got.every((g) => free(g))) return;
-          /* (a piece moved whole keeps what is among its own parts: only what it says of the rest) */ /* (the edge place is on its own circle by construction: it would always win, at no distance, and hide the tangent) */ if (
+          /* (the edge place is on its own circle by construction: it would always win, at no distance, and hide the tangent) */ if (
             got.some((g) => free(g))
           )
             for (const variant of def.helper!.variants ?? [undefined])
@@ -95,16 +76,62 @@ function candidates(S0: System, f: Free): Cand[] {
   return out;
 }
 
+/** what the helpers look through (`dec_helpers_one_rule`): the relations to try, how each reads at a place, the whole sketch at a place, where the figure started (if it did), which parts move, and where a relation's dashed line passes (null: it says none) */
+interface Fig {
+  cands: Cand[];
+  rows(c: Cand): (at: Pt) => number[];
+  whole(at: Pt): System;
+  startAt: Pt | null;
+  isFree(id: string): boolean;
+  guideShift(c: Cand): Pt | null;
+}
+/** a figure being drawn: a place alone, a corner, the end of a line, the edge of a circle (`free.ts`) */
+function figOfFree(S0: System, f: Free): Fig {
+  const fig = figureOf(S0, f);
+  return {
+    cands: candidates(S0, f),
+    rows: (c) => fig.rows({ kind: c.relation, parts: c.parts, ...(c.variant ?? {}) }),
+    whole: fig.whole,
+    startAt: fig.startAt,
+    isFree: free,
+    guideShift: (c) => (c.parts.some((x) => free(x) && x !== P) ? null : [0, 0]),
+  };
+}
+/** a part of the sketch being moved: `ref` is the place that stands for it (the place asked about is where `ref` is moved to); a relation is read with the parts moved by the difference */
+function figOfMotion(S: System, m: Motion, ref: Pt): Fig {
+  const off = (at: Pt) => [at[0] - ref[0], at[1] - ref[1]];
+  return {
+    cands: candidatesFor(S, m.affected),
+    rows: (c) => {
+      const k = constraintOf(c);
+      return (at) => residualsOf(m.at(off(at)), k);
+    },
+    whole: (at) => m.at(off(at)),
+    startAt: null,
+    isFree: (id) => m.affected.has(id),
+    guideShift: (c) => {
+      if (c.parts.some((x) => m.affected.has(x) && !S.points.some((p) => p.id === x))) return null; // (a moving line or circle says no dashed line, only its ties)
+      const mover = S.points.find((p) => c.parts.includes(p.id) && m.affected.has(p.id));
+      return mover ? [mover.x - ref[0], mover.y - ref[1]] : null; // (the dashed line passes through where the moving point is, not through the place that stands for the whole)
+    },
+  };
+}
 /** The place the pointer `q` is drawn to, by what acts and what holds there; `mm` is the size of a pixel. */
 export function helpersAt(S0: System, f: Free, q: Pt, mm: number, reach: Reach): Helped {
-  const fig = figureOf(S0, f),
-    pts = new Map(S0.points.map((p) => [p.id, p] as const)),
+  return helpersWith(S0, figOfFree(S0, f), q, mm, reach);
+}
+/** the same for a part of the sketch dragged: `q` is where the pointer would put `ref` */
+export function helpersForMotion(S: System, m: Motion, ref: Pt, q: Pt, mm: number, reach: Reach): Helped {
+  return helpersWith(S, figOfMotion(S, m, ref), q, mm, reach);
+}
+function helpersWith(S0: System, fig: Fig, q: Pt, mm: number, reach: Reach): Helped {
+  const pts = new Map(S0.points.map((p) => [p.id, p] as const)),
     lines = new Map(S0.lines.map((l) => [l.id, l] as const)),
     circles = new Map(S0.circles.map((c) => [c.id, c] as const)),
     startAt = fig.startAt,
     whole = fig.whole;
-  const all = candidates(S0, f),
-    rowFn = (c: Cand) => fig.rows({ kind: c.relation, parts: c.parts, ...(c.variant ?? {}) });
+  const all = fig.cands,
+    rowFn = fig.rows;
   const applicable = (c: Cand, at: Pt) => {
     return offerable(
       standingOf(whole(at), { id: "helper", kind: c.relation, parts: c.parts, ...(c.variant ?? {}) }).state,
@@ -127,7 +154,7 @@ export function helpersAt(S0: System, f: Free, q: Pt, mm: number, reach: Reach):
       label: RELATIONS[c.relation].label,
       parts: c.parts,
       ...(c.variant ? { variant: c.variant } : {}),
-      sources: c.parts.filter((x) => !free(x)),
+      sources: c.parts.filter((x) => !fig.isFree(x)),
       says,
       at,
       moved,
@@ -187,7 +214,7 @@ export function helpersAt(S0: System, f: Free, q: Pt, mm: number, reach: Reach):
   const rank = (a: { c: Cand; moved: number }, b: { c: Cand; moved: number }) =>
     (rowFn(a.c)(q).length === 2 ? 0 : 1) - (rowFn(b.c)(q).length === 2 ? 0 : 1) ||
     a.moved - b.moved ||
-    b.c.parts.filter((x) => !free(x)).length - a.c.parts.filter((x) => !free(x)).length ||
+    b.c.parts.filter((x) => !fig.isFree(x)).length - a.c.parts.filter((x) => !fig.isFree(x)).length ||
     a.c.order - b.c.order ||
     a.c.parts.join().localeCompare(b.c.parts.join());
   found.sort(rank);
@@ -243,17 +270,9 @@ export function helpersAt(S0: System, f: Free, q: Pt, mm: number, reach: Reach):
   }
   const guide = (h: Held): Pt[] | null => {
     const c = byHeld.get(h);
-    if (
-      !c ||
-      h.says !== "line" ||
-      !h.dir ||
-      c.parts.some((x) => free(x) && x !== P && !(f.shape === "piece" && f.points[x]))
-    )
-      return null; // (a free line or circle says no dashed line, only its ties)
-    const pc = f.shape === "piece" ? f : null,
-      mover = pc ? c.parts.find((x) => free(x)) : undefined;
-    if (pc && (!mover || !pc.points[mover])) return null; // (a piece's line or circle says no dashed line, only its ties)
-    const sh: Pt = pc && mover ? [pc.points[mover]![0] - pc.ref[0], pc.points[mover]![1] - pc.ref[1]] : [0, 0]; // (the dashed line passes through where the moving point is, not through the piece's reference place)
+    if (!c || h.says !== "line" || !h.dir) return null;
+    const sh = fig.guideShift(c);
+    if (!sh) return null;
     const row = rowFn(c),
       src = h.sources[0],
       over = reach.overPx * mm,
