@@ -355,7 +355,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
         for (const { from: a, to: b } of mv.list) {
           // a dashed arrow from where a part is to where the offered constraint would put it; the offer stands at its middle (`in_1631`)
           const len = Math.hypot(b[0] - a[0], b[1] - a[1]),
-            head = Math.min(mmPerPx(mv.f, b) * 9, len * 0.5),
+            head = mmPerPx(mv.f, b) * 8,
             ux = (b[0] - a[0]) / len,
             uy = (b[1] - a[1]) / len,
             wing = (sgn: number): [number, number] => {

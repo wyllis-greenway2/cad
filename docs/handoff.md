@@ -5399,3 +5399,6 @@ The human tried the helpers: a second line starting on the end of another and go
 
 ## Handoff 1418
 `in_1630`, `in_1631`: an offered constraint that would move a part shows a dashed arrow from where the part is to where it would be, the offer standing at the arrow's middle. **Built:** `BarItem.moves` (`nearFor`), `Mark.moves` and the middle anchor (`interaction/marks.ts`), `st.moves` set by `sketchmarks.marks()` and drawn by `sketchcontrol.lines()` (STROKE `move`, `moveHead`, tone ties); `marks-check` case, page scaffolding `dev/moves-browser.ts`. **Not answered:** which part of sketching look and feel to do next (`in_1630` said to go back to it; the question to the human about marks, hints, selection, weights is still open). **Seen, not changed:** `NEAR_MAX` 2 lets trivial offers crowd out a nearer one; a 0.25 mm move is a 2 px arrow. Nothing locked in.
+
+## Handoff 1419
+The human saw no arrow in `in_1631`'s build: an offer is only in reach of 6 to 12 px, so the arrow is that short and the mark (28 px) sat on it. **Changed:** a mark whose arrow is shorter than 34 px stands 26 px to the side (up on the screen) of the arrow's middle, clear of it; arrows weigh 2 and have a fixed 8 px head. Still small by nature; the human has not said whether it is right. Nothing locked in.

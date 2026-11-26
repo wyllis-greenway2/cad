@@ -136,7 +136,29 @@ export function createMarks(
       }
       const cam = host.view(),
         at3 = (m: Mark): PlacedMark => {
-          const q = project(cam.cam, to3(c.f, m.at), cam.w, cam.h);
+          const q = project(cam.cam, to3(c.f, m.at), cam.w, cam.h),
+            // an arrow shorter than the mark would be hidden under it: the mark then stands to the side of its middle, clear of the arrow
+            main = (m.moves ?? []).reduce<{ from: [number, number]; to: [number, number] } | null>(
+              (a, v) =>
+                !a ||
+                Math.hypot(v.to[0] - v.from[0], v.to[1] - v.from[1]) >
+                  Math.hypot(a.to[0] - a.from[0], a.to[1] - a.from[1])
+                  ? v
+                  : a,
+              null,
+            );
+          if (main) {
+            const a = project(cam.cam, to3(c.f, main.from), cam.w, cam.h),
+              b = project(cam.cam, to3(c.f, main.to), cam.w, cam.h),
+              len = Math.hypot(b.x - a.x, b.y - a.y),
+              clear = 34;
+            if (len < clear) {
+              const nx = len > 1e-6 ? -(b.y - a.y) / len : 0,
+                ny = len > 1e-6 ? (b.x - a.x) / len : -1,
+                side = ny > 0 ? -1 : 1; // (the side that is up on the screen)
+              return { mark: m, x: q.x + side * nx * 26, y: q.y + side * ny * 26 };
+            }
+          }
           return { mark: m, x: q.x, y: q.y };
         };
       const under = ctx.fieldMarks(c, at3); // (a figure under way: its numbers stand on it)

@@ -78,6 +78,6 @@ export const STROKE: Record<
   cut: { tone: "refused", weight: 1.4, soft: false },
   tie: { tone: "ties", weight: 1.4, soft: false },
   guide: { tone: "figure", weight: 0.75, soft: false, dashed: true },
-  move: { tone: "ties", weight: 1, soft: false, dashed: true }, // what an offered constraint would move, and to where: a dashed amber line with an arrow (`in_1631`)
-  moveHead: { tone: "ties", weight: 1, soft: false }, // the head of that arrow
+  move: { tone: "ties", weight: 2, soft: false, dashed: true }, // what an offered constraint would move, and to where: a dashed amber line with an arrow (`in_1631`)
+  moveHead: { tone: "ties", weight: 2, soft: false }, // the head of that arrow
 };
