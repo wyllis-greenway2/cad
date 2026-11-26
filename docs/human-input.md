@@ -6701,3 +6701,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1662 — 2026-11-26 — question
 > why do lines not offer vertical and horizontal cosntraints?
+
+## in_1663 — 2026-11-26 — question
+> I like that rule, but what about cases where two or more constraints are still equally viable? Do we just show all of them then?
+
+## in_1664 — 2026-11-26 — approval
+> yes build it

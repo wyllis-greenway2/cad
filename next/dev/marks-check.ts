@@ -283,4 +283,69 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
     offers(mk(40, 0)).join(),
   );
 }
+{
+  // which near offers are shown (`in_1663`): alternatives for one decision keep the one that moves least (a real toss-up keeps both), independent ones are capped at three, smallest movement first; coincident beats on-a-line-it-ends
+  const pt = (id: string, x: number, y: number) => ({ id, x, y });
+  const near = (S: System, sel: string[], cost: Record<string, number>) =>
+    marksFor(S, sel, {
+      now: 0,
+      reach: { pointMm: 3, lineMm: 3 },
+      preview: (id) => {
+        const key = Object.keys(cost).find((k) => id.includes(k));
+        const d = key ? cost[key]! : 0.1;
+        return [{ from: [0, 0] as [number, number], to: [d, 0] as [number, number], of: "A" }];
+      },
+    })
+      .filter((m) => m.state === "offer" && m.id.startsWith("near:"))
+      .map((m) => m.id.replace(/^near:/, ""));
+  // five independent neighbours: A is nearly level with B, C, D and nearly upright with E, F
+  const many: System = {
+    points: [pt("A", 0, 0), pt("B", 20, 0.3), pt("C", 30, 0.5), pt("D", -20, 0.4), pt("E", 0.2, 20), pt("F", 0.3, -25)],
+    lines: [],
+    circles: [],
+    constraints: [],
+  } as unknown as System;
+  const shown = near(many, ["A"], {
+    "horizontal:A,B": 0.5,
+    "horizontal:A,C": 0.9,
+    "horizontal:A,D": 0.7,
+    "vertical:A,E": 0.3,
+    "vertical:A,F": 1.5,
+  });
+  check(
+    "five independent near offers show three, smallest movement first",
+    shown.length === 3 && shown[0] === "vertical:A,E" && shown[1] === "horizontal:A,B",
+    shown.join(),
+  );
+  // one neighbour, two alternatives: the cheaper only; within a quarter, both
+  const alt: System = {
+    points: [pt("A", 0, 0), pt("B", 0.2, 0.2)],
+    lines: [],
+    circles: [],
+    constraints: [],
+  } as unknown as System;
+  const one = near(alt, ["A"], { "coincident:A,B": 9, "horizontal:A,B": 0.2, "vertical:A,B": 0.9 }),
+    both = near(alt, ["A"], { "coincident:A,B": 9, "horizontal:A,B": 0.2, "vertical:A,B": 0.22 });
+  check(
+    "two alternatives with one neighbour show the cheaper",
+    one.length === 1 && one[0] === "horizontal:A,B",
+    one.join(),
+  );
+  check("but within a quarter of each other (a toss-up) both are shown", both.length === 2, both.join());
+  // coincident beats on a line that the other point ends
+  const imp: System = {
+    points: [pt("A", 0, 0.1), pt("B", 0.1, 0), pt("C", 10, 0)],
+    lines: [{ id: "L1", a: "B", b: "C" }],
+    circles: [],
+    constraints: [],
+  } as unknown as System;
+  const sw = near(imp, ["A"], { "on:A,L1": 0.05, "coincident:A,B": 0.3 });
+  check(
+    "a point near a line's end is offered coincident; the line it ends, and level or upright with that end, are implied and not offered",
+    sw.some((x) => x.startsWith("coincident:A,B")) &&
+      !sw.some((x) => x.startsWith("on:A,L1")) &&
+      !sw.some((x) => /^(horizontal|vertical):A,B/.test(x)),
+    sw.join(),
+  );
+}
 process.exit(failureCount() ? 1 : 0);

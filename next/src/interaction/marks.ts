@@ -51,7 +51,7 @@ function offersOfUncached(S: System, selection: string[], reach?: { pointMm: num
   const own = barFor(S, selection)
     .filter((b) => b.id !== "rel:fixed" && (selection.length >= 2 || b.tone === "holds" || b.id === nearer))
     .map((item) => ({ item, at: where }));
-  const near = nearFor(S, selection, undefined, reach).flatMap((item) => {
+  const near = nearFor(S, selection, 12, reach).flatMap((item) => {
     const nc = nearConstraint(item.id);
     if (!nc) return [];
     // (what is said of the selection alone is already among its own offers: not twice)
@@ -81,6 +81,60 @@ function capReach(
   return size > 0
     ? { pointMm: Math.min(reach.pointMm, size * 0.1), lineMm: Math.min(reach.lineMm, size * 0.05) }
     : reach;
+}
+interface Cand {
+  item: BarItem;
+  standing: [number, number];
+  nc: ReturnType<typeof nearConstraint>;
+  parts: string[];
+  moves: Arrow[];
+}
+/** what a near offer wins over another by when they would move things alike: the stronger or more specific relation first (`dec_offer_rank`) */
+const PRIORITY = ["tangent", "coincident", "on", "midpoint", "perpendicular", "parallel", "horizontal", "vertical"];
+/** how many independent near offers one selection shows (the rest are in the menu) */
+export const NEAR_SHOWN = 3;
+/** two offers move things alike when the smaller is within a quarter of the larger */
+const TOSS_UP = 1.25;
+/** Which near offers to show (`in_1663`): offers for the same decision (the same other part, or the selection alone) are alternatives: the one that moves things least wins, with a relation that says more (a vertex put on a line's end, not only on the line) beating one it implies, and only a real toss-up (within a quarter) shows both; offers that can all hold together are independent, shown smallest movement first, at most `NEAR_SHOWN`, ties broken by the priority of the relation. */
+export function rankNear(S: System, pool: Cand[], scope: readonly string[]): Cand[] {
+  const move = (c: Cand) => c.moves.reduce((t, m) => t + Math.hypot(m.to[0] - m.from[0], m.to[1] - m.from[1]), 0),
+    rank = (c: Cand) => {
+      const i = PRIORITY.indexOf(c.nc!.kind);
+      return i < 0 ? PRIORITY.length : i;
+    },
+    cmp = (a: Cand, b: Cand) => move(a) - move(b) || rank(a) - rank(b);
+  // a vertex put on a line or at its middle is implied by the vertex being coincident with one of its ends, and two points being level or upright by their being coincident, when that is offered too
+  const ends = (id: string) => {
+    const l = S.lines.find((x) => x.id === id);
+    return l ? [l.a, l.b] : [];
+  };
+  const stronger = (c: Cand) => {
+    const k = c.nc!.kind;
+    if (k === "on" || k === "midpoint")
+      return pool.some(
+        (o) =>
+          o.nc!.kind === "coincident" &&
+          o.nc!.parts.includes(c.nc!.parts[0]!) &&
+          ends(c.nc!.parts[1]!).some((e) => o.nc!.parts.includes(e)),
+      );
+    // two points together are also level and upright with each other
+    if ((k === "horizontal" || k === "vertical") && c.nc!.parts.length === 2)
+      return pool.some((o) => o.nc!.kind === "coincident" && c.nc!.parts.every((p) => o.nc!.parts.includes(p)));
+    return false;
+  };
+  const groups = new Map<string, Cand[]>();
+  for (const c of pool) {
+    if (stronger(c)) continue;
+    const other = c.nc!.parts.filter((p) => !scope.includes(p)).join(",") || "self";
+    groups.set(other, [...(groups.get(other) ?? []), c]);
+  }
+  const kept: Cand[] = [];
+  for (const g of groups.values()) {
+    g.sort(cmp);
+    const best = move(g[0]!);
+    kept.push(...g.filter((c, i) => i === 0 || move(c) <= best * TOSS_UP + 1e-6));
+  }
+  return kept.sort(cmp).slice(0, NEAR_SHOWN);
 }
 /** the marks to show now */
 export function marksFor(
@@ -122,6 +176,9 @@ export function marksFor(
   const fresh = !selection.length && ctx.recent && ctx.now < ctx.recent.until ? ctx.recent : null;
   for (const sel of selection.length ? [selection] : fresh ? fresh.ids.map((id) => [id]) : []) {
     const reach = capReach(S, sel, ctx.reach);
+    // the offers of this selection: the ones asked for (a picked pair, what is true) stand as they are; the near ones are ranked (`rankNear`, `in_1663`)
+    const direct: Cand[] = [],
+      pool: Cand[] = [];
     for (const { item, at: standing } of [
       ...offersOf(S, sel, reach),
       ...(sel === selection
@@ -133,30 +190,30 @@ export function marksFor(
           )
         : []),
     ]) {
-      const nc = nearConstraint(item.id),
-        parts = nc ? nc.parts : sel;
+      const nc = nearConstraint(item.id);
       if (out.some((m) => m.id === item.id && m.over?.join() === sel.join())) continue;
       // what applying it would move (the preview is the apply itself, `sketchmarks.ts`)
       const moves = ctx.preview?.(item.id, sel) ?? [];
       // an offer is near when applying it moves only a little, whatever the parts it names are apart: a point 0.14 mm off a circle, on a tangent line's middle, turns the whole line (`in_1652`)
       if (nc && reach && moves.some((m) => Math.hypot(m.to[0] - m.from[0], m.to[1] - m.from[1]) > 2 * reach.pointMm))
         continue;
-      const at = standing; // (the bubble stands round its spot; what it would move is drawn when it is pointed at, `in_1655`)
+      (nc ? pool : direct).push({ item, standing, nc, parts: nc ? nc.parts : sel, moves });
+    }
+    for (const c of [...direct, ...rankNear(S, pool, scopeOf(S, sel))])
       out.push({
-        id: item.id,
+        id: c.item.id,
         kind: "constraint",
-        relation: (nc?.kind ?? item.id.slice(4)) as Fact["relation"],
-        icon: item.icon,
-        at,
+        relation: (c.nc?.kind ?? c.item.id.slice(4)) as Fact["relation"],
+        icon: c.item.icon,
+        at: c.standing, // (the bubble stands round its spot; what it would move is drawn when it is pointed at, `in_1655`)
         tone: "offer",
-        title: item.label,
-        parts,
+        title: c.item.label,
+        parts: c.parts,
         state: "offer",
         alpha: fresh ? alphaAt(fresh.until, ctx.now) : 1,
         over: sel,
-        ...(moves.length ? { moves } : {}),
+        ...(c.moves.length ? { moves: c.moves } : {}),
       });
-    }
   }
   return out;
 }
