@@ -9,7 +9,7 @@
 // ---------------------------------------------------------------- the system
 export interface PointSpec { id: string; x: number; y: number; /** read-only: a body's anchor (E53), or a point the person fixed */ fixed?: boolean }
 export interface LineSpec { id: string; a: string; b: string }
-export interface CircleSpec { id: string; c: string; r: number; fixedR?: boolean }
+export interface CircleSpec { id: string; c: string; r: number; fixedR?: boolean; /** an arc is a circle to the solver; this says it is one (a circle is measured by its diameter, an arc by its radius) */ arc?: boolean }
 export type Relation =
   | "fixed" | "symmetric" | "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "collinear" | "equalLength" | "equalRadius" | "concentric" | "pointOnLine" | "pointOnCircle" | "midpoint"
   | "tangent" | "tangentCircles" | "distance" | "length" | "radius" | "pointLineDistance" | "horizontalDistance" | "verticalDistance" | "angle";

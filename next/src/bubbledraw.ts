@@ -16,6 +16,8 @@ export function createBubbleLayer(host: HTMLElement, h: BubbleHandlers) {
   style.textContent = "@keyframes bubble-flash{0%,100%{box-shadow:0 1px 3px rgba(0,0,0,.18)}50%{box-shadow:0 0 0 4px rgba(228,106,106,.45)}}";
   host.append(style, root);
   const over = new Set<string>(), els = new Map<string, { el: HTMLElement; sig: string; open: boolean; editing: boolean; num?: HTMLElement; cur?: Bubble }>(), memory: Memory = new Map();
+  /** what a number typed over a bubble is, as the solver's value (a diameter typed is half of it; an angle typed inside the corner is the directed angle the solver reads, kept within a half turn either way) */
+  const valueOf = (b: Bubble, typed: number): number => { if (!b.input) return typed; const v = b.input.mul * typed + b.input.add; if (b.unit !== "deg") return v; let r = ((v % 360) + 360) % 360; if (r > 180) r -= 360; return r; };
   const widthOf = (b: Bubble) => (b.kind === "dimension" ? 22 + (b.symbol && b.symbol !== "°" ? 10 : 0) + (b.text ?? "").length * 8 + (b.symbol === "°" ? 8 : 0) : 30);
 
   function fill(b: Bubble, e: { el: HTMLElement; sig: string; open: boolean; editing: boolean; num?: HTMLElement; cur?: Bubble }): void {
@@ -45,7 +47,7 @@ export function createBubbleLayer(host: HTMLElement, h: BubbleHandlers) {
     const input = document.createElement("input"), start = initial ?? b.text ?? "";
     input.value = start; input.style.cssText = `width:${Math.max(4, start.length + 3)}ch;font:inherit;font-weight:600;border:0;outline:0;background:transparent;padding:0`;
     num.replaceWith(input); input.focus(); if (initial === undefined) input.select(); else input.setSelectionRange(input.value.length, input.value.length); e.editing = true;
-    const done = (commit: boolean) => { if (!e.editing) return; e.editing = false; const v = Number(input.value.trim()); if (commit && input.value.trim() !== "" && isFinite(v)) h.set(b.id, v); e.sig = ""; /* (drawn again, with the number, whether or not it changed) */ };
+    const done = (commit: boolean) => { if (!e.editing) return; e.editing = false; const v = Number(input.value.trim()); if (commit && input.value.trim() !== "" && isFinite(v)) h.set(b.id, valueOf(b, v)); e.sig = ""; /* (drawn again, with the number, whether or not it changed) */ };
     input.addEventListener("keydown", (ev) => { ev.stopPropagation(); if (ev.key === "Enter") done(true); else if (ev.key === "Escape") done(false); });
     input.addEventListener("blur", () => done(false));
     input.addEventListener("pointerdown", (ev) => ev.stopPropagation());

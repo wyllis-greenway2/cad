@@ -6488,3 +6488,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1591 — 2026-11-26 — approval
 > yes start slice (b)
 
+## in_1592 — 2026-11-26 — approval
+> yes start slice (c)
+

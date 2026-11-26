@@ -14,7 +14,7 @@ import { trimAt } from "./engine/trim.ts";
 import type { Relation } from "./engine/solver.ts";
 import type { Selection } from "./selection.ts";
 import { bake, constrain, emptySketch, hitAt, keep, nextId, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
-import { MEASURE_ID, bubblesOn, selectionAnchor, type Bubble, type Flash } from "./interaction/bubbles.ts";
+import { MEASURE_ID, angleMark, bubblesOn, selectionAnchor, type Bubble, type Flash } from "./interaction/bubbles.ts";
 import { barFor, type Bar } from "./interaction/helperbar.ts";
 import { createBubbleLayer, type Placed } from "./bubbledraw.ts";
 import { helpersAt, type Helped } from "./engine/helpers.ts";
@@ -36,7 +36,7 @@ export interface SketchHost {
   /** the page's one selection (`selection.ts`): what is selected in a sketch is kept there, so selecting on a body puts it away */
   selection: Selection;
 }
-export interface DrawLine { pts: V3[]; /** a ball's radius, in mm */ r?: number; /** a dashed line's dash, in mm (the gap is 0.7 of it) */ dash?: number; kind: "done" | "selected" | "preview" | "cursor" | "cut" | "tie" | "tieBall" | "guide" | "ball" }
+export interface DrawLine { pts: V3[]; /** a ball's radius, in mm */ r?: number; /** a dashed line's dash, in mm (the gap is 0.7 of it) */ dash?: number; kind: "done" | "selected" | "preview" | "cursor" | "cut" | "tie" | "tieBall" | "guide" | "ball" | "note" }
 
 /** the keys that type a number (and what each types) */
 const TYPED: Record<string, string> = { ...Object.fromEntries([...Array(10).keys()].flatMap((d) => [[`Digit${d}`, String(d)], [`Numpad${d}`, String(d)]])), Period: ".", NumpadDecimal: ".", Minus: "-", NumpadSubtract: "-" };
@@ -46,6 +46,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   const sel = host.selection;
   let tool: Tool | null = null, flash: Flash = {}, flashUntil = 0, message = "", messageUntil = 0;
   const say = (text: string, ms = 4000) => { message = text; messageUntil = performance.now() + ms; };
+  const systems = new WeakMap<SketchParams, ReturnType<typeof viewSystem>>(), sysOf = (p: SketchParams) => { let y = systems.get(p); if (!y) { y = viewSystem(p, solOf(p)); systems.set(p, y); } return y; }; // (a definition has one system: asked for by every part of a frame)
   const solOf = (p: SketchParams): Sol => { let s = sols.get(p); if (!s) { const r = solveDefinition(p); s = { points: r.points, radii: r.radii }; sols.set(p, s); } return s; };
   const current = () => { const { all, on } = host.planes(); const f = all.get(on); return f ? { key: on, f, p: defs.get(on) ?? emptySketch() } : null; };
   const selected = (key: string): string[] => [...sel.sketch(key)];
@@ -59,7 +60,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   };
   const placeOf = (c: { p: SketchParams; q: P2; tol: number; mm: number }, s: Sol): PlaceResult => {
     const r = refOf(c.p, s, c.q, c.tol), a = tool?.pts[0], pos = a ? posOf(s, a) : null, kind = tool && tool.kind !== "trim" ? tool.kind : null;
-    const free: Free = kind && pos ? freeOf(kind, pos, a && "id" in a ? a.id : undefined) : { shape: "point" }, sys = viewSystem(c.p, s);
+    const free: Free = kind && pos ? freeOf(kind, pos, a && "id" in a ? a.id : undefined) : { shape: "point" }, sys = sysOf(c.p);
     // numbers typed hold the figure's size: the place is the pointer's, moved to where they hold, and no helper acts on it (`dec_dimensions_measure_then_lock`)
     if (kind && pos && tool!.typed.some((t) => t !== "")) {
       const live = FIELDS[kind].map((f) => measureAt(sys, free, c.q, f.kind, f.parts)), measures = typedMeasures(kind, tool!.typed, live), at = measures.length ? placeTyped(sys, free, c.q, measures) : null;
@@ -68,6 +69,12 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     const h = helpersAt(sys, free, "id" in r ? s.points[r.id]! : c.q, c.mm, settings.helpers), co = h.acted.find((x) => x.relation === "coincident");
     if ("id" in r) return { ref: r, help: h.holds.length ? h : null, free, measures: [] };
     return h.acted.length ? { ref: co?.sources[0] ? { id: co.sources[0] } : { at: h.at }, help: h, free, measures: [] } : { ref: r, help: h.holds.length ? h : null, free, measures: [] };
+  };
+  /** an angle as the old app draws it: a thin arc at the corner of the two lines (about 34 px across, not past the shorter line), and where its number stands on it */
+  const angleMarkAt = (f: Frame, S: ReturnType<typeof sysOf>, parts: readonly string[]): { arc: P2[]; at: P2 } | null => {
+    const m = angleMark(S, parts); if (!m) return null;
+    const mm = mmPerPx(f, m.centre), r = Math.min(34 * mm, m.reach * 0.8), n = Math.max(6, Math.ceil(Math.abs(m.sweep) / 0.1)), mid = m.from + m.sweep / 2;
+    return { arc: Array.from({ length: n + 1 }, (_, i) => [m.centre[0] + r * Math.cos(m.from + (m.sweep * i) / n), m.centre[1] + r * Math.sin(m.from + (m.sweep * i) / n)] as P2), at: [m.centre[0] + (r + 16 * mm) * Math.cos(mid), m.centre[1] + (r + 16 * mm) * Math.sin(mid)] };
   };
   /** the dash of a guide, as the old app's (`settings.helpers.dash` of the view's distance; worked from the view's height over twice the tangent of half its angle, so it is the same in the straight view) */
   const dashAt = (f: Frame, q: P2) => { const { cam } = host.view(); return (viewHeight(cam, Math.max(forwardDepth(cam, to3(f, q)), 1e-3)) * settings.helpers.dash) / (2 * Math.tan((settings.view.fovDeg * Math.PI) / 360)); };
@@ -197,7 +204,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
             const k2 = keep(withLocks); if (k2.ok) final = k2.params; else say(`The numbers typed could not be locked: ${k2.why}`);
           }
           set(c.key, final, made.label);
-          if (defs.get(c.key) !== before) { const p2 = defs.get(c.key)!, s2 = solOf(p2); offers = newOffers(c.key, p2, viewSystem(p2, s2), s2, pl.help, at, start, performance.now(), settings.offer); }
+          if (defs.get(c.key) !== before) { const p2 = defs.get(c.key)!, s2 = solOf(p2); offers = newOffers(c.key, p2, sysOf(p2), s2, pl.help, at, start, performance.now(), settings.offer); }
         }
       }
       return true;
@@ -264,6 +271,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       for (const [k, p] of defs) {
         const f = all.get(k)!, s = solOf(p), chosen = new Set(selected(k)), seg = segsOf(p, s.points, s.radii);
         for (const q of seg) out.push({ kind: chosen.has(q.name) ? "selected" : "done", pts: polyline(q).map((z) => to3(f, z)) });
+        if (chosen.size) { const S = sysOf(p); for (const b of bubblesOn(S, [...chosen])) { const m = b.relation === "angle" ? angleMarkAt(f, S, b.parts) : null; if (m) out.push({ kind: "note", pts: m.arc.map((z) => to3(f, z)) }); } }
         for (const x of p.points) { const at = chosen.has(x.id) ? s.points[x.id] : null; if (at) out.push({ kind: "ball", pts: [to3(f, at)], r: mmPerPx(f, at) * settings.sketch.ballPx }); } // (the old app marks no point until it is picked, then a teal ball)
       }
       if (drag?.snapAt) { const f = all.get(drag.key); if (f) { const arm = mmPerPx(f, drag.snapAt) * settings.sketch.crossPx * 1.4, w = to3(f, drag.snapAt); out.push({ kind: "cursor", pts: [add(w, scale(f.u, -arm)), add(w, scale(f.u, arm))] }, { kind: "cursor", pts: [add(w, scale(vOf(f), -arm)), add(w, scale(vOf(f), arm))] }); } }
@@ -287,7 +295,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     /** What the helper bar says for what is selected (null: none: a tool is on, a number is being typed, or nothing is selected): the buttons, the place on the page they stand by, and what a press does. The page has the one bar (`bars` in `main.ts`). */
     bar(): { items: Bar; at: [number, number]; press: (id: string) => void } | null {
       const c = current(); if (!c || tool || layer.editing()) return null;
-      const s = solOf(c.p), S = viewSystem(c.p, s), ids = selected(c.key), where = selectionAnchor(S, ids); if (!where) return null;
+      const s = solOf(c.p), S = sysOf(c.p), ids = selected(c.key), where = selectionAnchor(S, ids); if (!where) return null;
       const cam = host.view(), q = project(cam.cam, to3(c.f, where), cam.w, cam.h);
       return { items: barFor(S, ids), at: [q.x, q.y], press: act };
     },
@@ -297,9 +305,9 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       if (now > messageUntil) message = "";
       const c = current(), cam = host.view();
       if (!c) { layer.show([], { lines: [], dots: [] }); return { message }; }
-      const s = solOf(c.p), S = viewSystem(c.p, s), px = (p: P2) => { const q = project(cam.cam, to3(c.f, p), cam.w, cam.h); return [q.x, q.y] as [number, number]; };
+      const s = solOf(c.p), S = sysOf(c.p), px = (p: P2) => { const q = project(cam.cam, to3(c.f, p), cam.w, cam.h); return [q.x, q.y] as [number, number]; };
       const box = barBox; // (the bubbles keep clear of the helper bar)
-      const bubbles = [...bubblesOn(S, selected(c.key), flash), ...shownOffers(S, now)], chosen = [...selected(c.key)].sort().join();
+      const bubbles = [...bubblesOn(S, selected(c.key), flash).map((b) => (b.relation === "angle" ? { ...b, at: angleMarkAt(c.f, S, b.parts)?.at ?? b.at } : b)), ...shownOffers(S, now)], chosen = [...selected(c.key)].sort().join();
       ownId = bubbles.find((b) => b.kind === "dimension" && [...b.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
       const items: Placed[] = bubbles.map((bubble) => { const [x, y] = px(bubble.at); return { bubble, x, y }; });
       layer.show(items, { lines: c.p.lines?.map((l) => [px(s.points[l.a]!), px(s.points[l.b]!)] as [[number, number], [number, number]]) ?? [], dots: c.p.points.map((q) => px(s.points[q.id]!)), ...(box ? { rects: [box] } : {}) });
@@ -309,7 +317,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     chip(): { fields: ChipField[]; at: [number, number] } | null {
       if (!tool || tool.kind === "trim" || !tool.pts.length || !FIELDS[tool.kind].length || !lastPointer) return null;
       const c = here(lastPointer.x, lastPointer.y); if (!c) return null;
-      const s = solOf(c.p), pl = placed(c, s), at = posOf(s, pl.ref), sys = viewSystem(c.p, s), cam = host.view(), q = project(cam.cam, to3(c.f, at), cam.w, cam.h);
+      const s = solOf(c.p), pl = placed(c, s), at = posOf(s, pl.ref), sys = sysOf(c.p), cam = host.view(), q = project(cam.cam, to3(c.f, at), cam.w, cam.h);
       return { fields: chipFields(tool.kind, tool.typed, tool.field, FIELDS[tool.kind].map((f) => measureAt(sys, pl.free, at, f.kind, f.parts))), at: [q.x, q.y] };
     },
     /** The closed parts of every drawing, to be tinted (a closed figure has a very faint fill in the old app, `in_194`): the outline and holes in each plane's axes. */

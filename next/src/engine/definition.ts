@@ -8,7 +8,7 @@ import type { SketchParams } from "./sketch.ts";
 /** the solver's system of a definition: an arc is a circle with its two ends held on it */
 export function systemOf(p: SketchParams): System {
   const at0 = new Map(p.points.map((q) => [q.id, q] as const));
-  const arcCircles = (p.arcs ?? []).map((a) => { const c = at0.get(a.c), s0 = at0.get(a.a); if (!c || !s0) throw new Error(`the arc ${a.id} names a point that is not there`); return { id: a.id, c: a.c, r: Math.hypot(s0.x - c.x, s0.y - c.y), fixedR: false }; });
+  const arcCircles = (p.arcs ?? []).map((a) => { const c = at0.get(a.c), s0 = at0.get(a.a); if (!c || !s0) throw new Error(`the arc ${a.id} names a point that is not there`); return { id: a.id, c: a.c, r: Math.hypot(s0.x - c.x, s0.y - c.y), fixedR: false, arc: true }; });
   const arcEnds: Constraint[] = (p.arcs ?? []).flatMap((a) => [{ id: `${a.id}.start`, kind: "pointOnCircle" as const, parts: [a.a, a.id] }, { id: `${a.id}.end`, kind: "pointOnCircle" as const, parts: [a.b, a.id] }]);
   return { points: p.points.map((q) => ({ id: q.id, x: q.x, y: q.y, fixed: !!q.fixed })), lines: (p.lines ?? []).map((l) => ({ id: l.id, a: l.a, b: l.b })), circles: [...(p.circles ?? []).map((c) => ({ id: c.id, c: c.c, r: c.r, fixedR: !!c.fixedR })), ...arcCircles], constraints: [...(p.constraints ?? []), ...arcEnds] };
 }

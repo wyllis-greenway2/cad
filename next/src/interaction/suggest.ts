@@ -21,7 +21,12 @@ export function measure(S: System, kind: Relation, parts: string[]): number | nu
   const r = residualsOf(S, { id: "?", kind, parts, value: 0 }); return r.length ? (kind === "pointLineDistance" || kind === "distance" || kind === "length" ? Math.abs(r[0]!) : r[0]!) : null;
 }
 /** the relations for exactly these parts, in the order the person selected them: the first moves */
+const memo = new WeakMap<System, Map<string, { offers: Offer[]; inapplicable: Inapplicable[] }>>(); // (the same system and selection are asked about by the bar, the bubbles and the drawing, every frame)
 export function offersFor(S: System, selection: string[]): { offers: Offer[]; inapplicable: Inapplicable[] } {
+  const key = selection.join("\u0000"), hit = memo.get(S)?.get(key); if (hit) return hit;
+  const out = offersForUncached(S, selection); let m = memo.get(S); if (!m) memo.set(S, (m = new Map())); m.set(key, out); return out;
+}
+function offersForUncached(S: System, selection: string[]): { offers: Offer[]; inapplicable: Inapplicable[] } {
   const kinds = selection.map((id) => kindOf(id, S)), offers: Offer[] = [], inapplicable: Inapplicable[] = [];
   for (const [name, def] of Object.entries(RELATIONS) as [Relation, (typeof RELATIONS)[Relation]][]) {
     // horizontal and upright take a line, or two points
