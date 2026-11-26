@@ -3,9 +3,9 @@
 //   within reach: the place being drawn nearly satisfies it, with parts already there; `reach.pointPx` if it says a point (two rows), `reach.linePx` if a line; the step is the Newton step on its residuals, so it is in mm whatever the unit of the row
 // The free thing is the place `~P`, alone (`point`), or the end of a line from the figure's first place (`line`: `~L`), or the edge of a circle about it (`circle`: `~C`); the first place is a point of the sketch (`startId`) or only a place.
 // The nearest acts (a point before a line, then a fixed order); one more, not parallel to it, within reach of that place: the place is where both hold. Everything that holds at the place is reported, to be shown and offered.
-import { C, L, P, figureOf, isFree, land, type Free, type Pt } from "./free.ts";
-import { candidatesFor, constraintOf, type Cand, type Motion } from "./probe.ts";
-import { kindTuples, offerable, standingOf, type PartKind } from "./relations.ts";
+import { L, P, S, figureOf, type Free, type Pt } from "./free.ts";
+import { candidatesFor, constraintOf, landN, type Cand, type Motion } from "./probe.ts";
+import { offerable, standingOf } from "./relations.ts";
 import { RELATIONS, residualsOf, type Constraint, type Relation, type System } from "./solver.ts";
 export { C, L, P, S, type Free, type Pt } from "./free.ts";
 /** how near (px) the pointer must be to a relation that says a point and to one that says a line, how far past its ends a guide runs, and the step it is traced in: the screen's settings (`settings.helpers`), given to each call so this file knows no screen */
@@ -36,45 +36,7 @@ export interface Helped {
   ): Pt[] | null;
 }
 
-const free = isFree;
 const norm = (v: number[]) => Math.hypot(...v);
-
-/** the ways parts can be named for the relations that are helpers: each needs at least one free part (else it does not say anything about the place) */
-function candidates(S0: System, f: Free): Cand[] {
-  const start = f.shape === "line" || f.shape === "circle" ? f.startId : undefined;
-  const pool: Record<PartKind, string[]> = {
-    point: [P, ...S0.points.map((p) => p.id).filter((id) => id !== start)], // (the first place is covered by the line or circle that starts there)
-    line: [...(f.shape === "line" ? [L] : []), ...S0.lines.map((l) => l.id)],
-    circle: [...(f.shape === "circle" ? [C] : []), ...S0.circles.map((c) => c.id)],
-  };
-  const out: Cand[] = [];
-  let order = 0;
-  for (const [name, def] of Object.entries(RELATIONS) as [Relation, (typeof RELATIONS)[Relation]][]) {
-    if (!def.helper) continue;
-    order++;
-    for (const kinds of kindTuples(name)) {
-      const walk = (i: number, got: string[]) => {
-        if (i === kinds.length) {
-          if (name === "pointOnCircle" && got.includes(P) && got.includes(C)) return;
-          /* (the edge place is on its own circle by construction: it would always win, at no distance, and hide the tangent) */ if (
-            got.some((g) => free(g))
-          )
-            for (const variant of def.helper!.variants ?? [undefined])
-              out.push({
-                relation: name,
-                parts: got,
-                ...(variant && Object.keys(variant).length ? { variant } : {}),
-                order,
-              });
-          return;
-        }
-        for (const id of pool[kinds[i]!]) if (!got.includes(id)) walk(i + 1, [...got, id]);
-      };
-      walk(0, []);
-    }
-  }
-  return out;
-}
 
 /** what the helpers look through (`dec_helpers_one_rule`): the relations to try, how each reads at a place, the whole sketch at a place, where the figure started (if it did), which parts move, and where a relation's dashed line passes (null: it says none) */
 interface Fig {
@@ -89,12 +51,12 @@ interface Fig {
 function figOfFree(S0: System, f: Free): Fig {
   const fig = figureOf(S0, f);
   return {
-    cands: candidates(S0, f),
+    cands: candidatesFor(fig.whole([0, 0]), fig.affected, [], undefined, fig.startId ? [fig.startId] : [S]),
     rows: (c) => fig.rows({ kind: c.relation, parts: c.parts, ...(c.variant ?? {}) }),
     whole: fig.whole,
     startAt: fig.startAt,
-    isFree: free,
-    guideShift: (c) => (c.parts.some((x) => free(x) && x !== P) ? null : [0, 0]),
+    isFree: (id) => fig.affected.has(id) || id === S,
+    guideShift: (c) => (c.parts.some((x) => fig.affected.has(x) && x !== P) ? null : [0, 0]),
   };
 }
 /** a part of the sketch being moved: `ref` is the place that stands for it (the place asked about is where `ref` is moved to); a relation is read with the parts moved by the difference */
@@ -161,25 +123,10 @@ function helpersWith(S0: System, fig: Fig, q: Pt, mm: number, reach: Reach): Hel
       dir,
     };
   };
-  /** Newton for two rows of one each (2x2): where both hold */
+  /** the place where two relations of one row each both hold, from `from` (the least-norm Newton step on both rows together) */
   const crossing = (a: (at: Pt) => number[], b: (at: Pt) => number[], from: Pt): Pt | null => {
-    let at: Pt = [from[0], from[1]];
-    for (let it = 0; it < 10; it++) {
-      const r = [a(at)[0]!, b(at)[0]!];
-      if (!r.every(Number.isFinite)) return null;
-      if (Math.hypot(r[0]!, r[1]!) < 1e-9) return at;
-      const h = 1e-5,
-        g = (fn: (p: Pt) => number[]) => [
-          (fn([at[0] + h, at[1]])[0]! - fn([at[0] - h, at[1]])[0]!) / (2 * h),
-          (fn([at[0], at[1] + h])[0]! - fn([at[0], at[1] - h])[0]!) / (2 * h),
-        ];
-      const ga = g(a),
-        gb = g(b),
-        det = ga[0]! * gb[1]! - ga[1]! * gb[0]!;
-      if (Math.abs(det) < 1e-12) return null;
-      at = [at[0] - (gb[1]! * r[0]! - ga[1]! * r[1]!) / det, at[1] - (-gb[0]! * r[0]! + ga[0]! * r[1]!) / det];
-    }
-    return Math.hypot(a(at)[0]!, b(at)[0]!) < 1e-6 ? at : null;
+    const q = landN((p) => [a([p[0]!, p[1]!])[0]!, b([p[0]!, p[1]!])[0]!], from, Infinity, 10);
+    return q ? [q[0]!, q[1]!] : null;
   };
   /** whether a relation says anything about the place: one that is the same wherever the place is (a radius equal to another's, when the thing is only moved) is a fact about the thing, not a hint, and would win at no distance */
   const aboutPlace = (row: (at: Pt) => number[], at: Pt): boolean => {
@@ -199,7 +146,8 @@ function helpersWith(S0: System, fig: Fig, q: Pt, mm: number, reach: Reach): Hel
         n0 = row(from);
       if (n0.length === 0 || !n0.every(Number.isFinite) || !aboutPlace(row, from)) continue;
       const within = (n0.length === 2 ? reach.pointPx : reach.linePx) * mm;
-      const at = land(row, from, within);
+      const q = landN((p) => row([p[0]!, p[1]!]), from, within),
+        at: Pt | null = q ? [q[0]!, q[1]!] : null;
       if (!at) continue;
       const moved = Math.hypot(at[0] - from[0], at[1] - from[1]);
       if (moved <= within && applicable(c, at)) out.push({ c, at, moved });
@@ -305,7 +253,7 @@ function helpersWith(S0: System, fig: Fig, q: Pt, mm: number, reach: Reach): Hel
       for (let done = 0; done < length - 1e-9;) {
         const step = Math.min(ds, length - done),
           next: Pt = [a[0] + dir[0] * step, a[1] + dir[1] * step],
-          fixed = land(row, next, 1e9, 3) ?? next;
+          fixed = ((q) => (q ? ([q[0]!, q[1]!] as Pt) : null))(landN((p) => row([p[0]!, p[1]!]), next, 1e9, 3)) ?? next;
         const nd: Pt = [fixed[0] - a[0], fixed[1] - a[1]],
           n = Math.hypot(nd[0], nd[1]) || 1;
         dir = [nd[0] / n, nd[1] / n];

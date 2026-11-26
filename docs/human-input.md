@@ -6596,3 +6596,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1627 — 2026-11-26 — approval
 > yes start step 2
+
+## in_1628 — 2026-11-26 — approval
+> yes continue with drawing and the radius motion

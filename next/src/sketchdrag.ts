@@ -1,11 +1,11 @@
 // A part of a drawing dragged (`in_1576`, `in_1617`..`in_1621`): the solver follows the pointer with what is held where the pointer puts it; the helpers place what is dragged as when it was drawn (they place, they never constrain); a point let go on another
 // point or a curve joins it; a circle's or an arc's edge sets the radius; a line, an arc or a circle by its centre moves as one piece; what is doing work fades in and what holds the drag back flashes (`working`).
 import { segsOf } from "./engine/definition.ts";
-import { helpersAt, helpersForMotion, type Helped } from "./engine/helpers.ts";
-import { translating } from "./engine/probe.ts";
+import { helpersForMotion, type Helped } from "./engine/helpers.ts";
+import { radiating, translating } from "./engine/probe.ts";
 import type { Pt } from "./engine/region.ts";
 import type { SketchParams } from "./engine/sketch.ts";
-import { activeOf, dragRadius, dragTo, joinFor, pinsOf, without } from "./interaction/dragging.ts";
+import { activeOf, dragRadius, dragTo, joinFor, pinsOf } from "./interaction/dragging.ts";
 import { hitAt } from "./interaction/drawing.ts";
 import { helpShown } from "./interaction/helpshow.ts";
 import type { Frame } from "./planes.ts";
@@ -90,9 +90,8 @@ export function createDrag(K: Core, armed: () => boolean) {
       if (drag.edge) {
         // a circle's or an arc's edge: the place the helpers give the edge (a tangent, an equal radius) sets the radius
         const e = drag.edge,
-          centre = sol0.points[e.centre]!,
-          out = without(S0, [e.circle, ...(e.ends ?? [])]);
-        drag.help = helpersAt(out, { shape: "circle", centre, startId: e.centre }, c.q, c.mm, settings.helpers);
+          centre = sol0.points[e.centre]!;
+        drag.help = helpersForMotion(S0, radiating(S0, e.circle), [0, 0], c.q, c.mm, settings.helpers); // (the place is a point of the edge: the radius is its distance from the centre)
         const at = drag.help.acted.length ? drag.help.at : c.q,
           rad = Math.max(1e-3, Math.hypot(at[0] - centre[0], at[1] - centre[1]));
         let r: { params: SketchParams; held: string[] } | null;

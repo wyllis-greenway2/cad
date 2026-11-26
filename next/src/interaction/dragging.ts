@@ -3,7 +3,6 @@
 import { solveDefinition } from "../engine/definition.ts";
 import type { Pt } from "../engine/region.ts";
 import type { SketchParams } from "../engine/sketch.ts";
-import type { System } from "../engine/solver.ts";
 import { bake, hitAt, type Sol } from "./drawing.ts";
 
 /** the points a press on this part takes: the point itself (an arc's centre takes the arc with it), both ends of a line, a circle's centre; an arc's curve takes none (it sets the radius) */
@@ -69,19 +68,7 @@ export function dragTo(def0: SketchParams, pins: Record<string, Pt>): { params: 
   }
 }
 
-// ---- hints while dragging (`in_1617`): the part being dragged is a motion over the sketch (`engine/probe.ts`); what is left of the old figures is for a circle's edge
-/** the system with parts taken out: those named, the lines and circles that use a point taken out, and every constraint that names one of them */
-export function without(S: System, ids: readonly string[]): System {
-  const gone = new Set(ids);
-  for (const l of S.lines) if (gone.has(l.a) || gone.has(l.b)) gone.add(l.id);
-  for (const c of S.circles) if (gone.has(c.c)) gone.add(c.id);
-  return {
-    points: S.points.filter((x) => !gone.has(x.id)),
-    lines: S.lines.filter((l) => !gone.has(l.id)),
-    circles: S.circles.filter((c) => !gone.has(c.id)),
-    constraints: S.constraints.filter((k) => !k.parts.some((x) => gone.has(x))),
-  };
-}
+// ---- hints while dragging (`in_1617`): the part being dragged is a motion over the sketch (`engine/probe.ts`: `translating` a point, a line, an arc; `radiating` a circle's or an arc's edge)
 /** a circle with its radius put at `r` (the edge dragged), the rest solved round it; not if the radius is held (locked or fixed): the constraints that hold it are named */
 export function dragRadius(def0: SketchParams, id: string, r: number): { params: SketchParams; held: string[] } | null {
   const c = (def0.circles ?? []).find((q) => q.id === id);

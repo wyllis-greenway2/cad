@@ -46,6 +46,29 @@ export function translating(S: System, points: readonly string[]): Motion {
   };
 }
 
+/** a circle's or an arc's edge: the place `q` is a point of the edge, the radius is its distance from the centre, and the arc's ends go out along their own lines to it (a radius motion: one number worth, read in a place) */
+export function radiating(S: System, circle: string): Motion {
+  const k = S.circles.find((c) => c.id === circle)!,
+    centre = S.points.find((p) => p.id === k.c)!,
+    ends: readonly string[] = k.ends ?? [];
+  return {
+    dim: 2,
+    affected: affectedBy(S, ends, [circle]),
+    at: (q) => {
+      const r = Math.hypot(q[0]! - centre.x, q[1]! - centre.y) || 1e-9;
+      return {
+        ...S,
+        circles: S.circles.map((c) => (c.id === circle ? { ...c, r } : c)),
+        points: S.points.map((p) => {
+          if (!ends.includes(p.id)) return p;
+          const d = Math.hypot(p.x - centre.x, p.y - centre.y) || 1;
+          return { ...p, x: centre.x + ((p.x - centre.x) / d) * r, y: centre.y + ((p.y - centre.y) / d) * r };
+        }),
+      };
+    },
+  };
+}
+
 export interface Cand {
   relation: Relation;
   parts: string[];
@@ -59,9 +82,10 @@ export function candidatesFor(
   affected: ReadonlySet<string>,
   must: readonly string[] = [],
   arity?: number,
+  /** parts that are not tried (the point a line being drawn starts from: it is covered by the line itself) */ exclude: readonly string[] = [],
 ): Cand[] {
   const pool: Record<PartKind, string[]> = {
-      point: S.points.map((p) => p.id),
+      point: S.points.map((p) => p.id).filter((id) => !exclude.includes(id)),
       line: S.lines.map((l) => l.id),
       circle: S.circles.map((c) => c.id),
     },
