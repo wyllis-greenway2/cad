@@ -6659,3 +6659,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1648 — 2026-11-26 — question
 > What is going on here, selecting the circle seems to offer an on line constraint for the end verticy of this line even though the line is not selected, and also that end verticy constraint doesn't actually seem to make it on line with anything when clicked, it just seems to make it level with itself, and also the whole thing dissapears if the perpendicular line is deleted? It feels like our login is super messed up and irrational.
+
+## in_1649 — 2026-11-26 — question
+> but how do we make it not cluttered? can you make me w few html visual examples we can test with real quick without modifying the real thing?

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Constraint clarity: four ways, one scene</title>
+<style>
+  :root{--teal:#1ab8b3;--amber:#f2c14e;--green:#3aa76d;--ink:#2a2e33;--grid:#e3e6e8}
+  body{font:14px system-ui,sans-serif;margin:0;background:#f4f5f6;color:var(--ink)}
+  header{padding:14px 20px;background:#fff;border-bottom:1px solid #ddd;position:sticky;top:0;z-index:5}
+  header h1{font-size:16px;margin:0 0 6px}
+  .sel button{margin-right:6px;padding:5px 12px;border:1px solid #bbb;border-radius:14px;background:#fff;cursor:pointer;font:inherit}
+  .sel button.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+  .note{color:#666;font-size:12px;margin-top:6px}
+  main{display:grid;grid-template-columns:repeat(auto-fit,minmax(460px,1fr));gap:16px;padding:16px}
+  .card{background:#fff;border:1px solid #ddd;border-radius:8px;overflow:hidden}
+  .card h2{font-size:14px;margin:0;padding:10px 12px 2px}
+  .card p{margin:0;padding:0 12px 8px;color:#666;font-size:12px}
+  svg{width:100%;height:auto;display:block;background:#fff}
+  .bar{border-top:1px solid #eee;padding:8px 12px;min-height:34px;font-size:13px;background:#fafafa}
+  .part{transition:stroke .12s,fill .12s}
+  text{font:12px system-ui,sans-serif}
+  .chip{cursor:pointer}
+  .chip circle.b{fill:#fff;stroke-width:1.8}
+  .tip{pointer-events:none}
+</style></head><body>
+<header>
+  <h1>Constraint clarity: the same scene, four ways to show what a mark belongs to and does</h1>
+  <div class="sel" id="sel"></div>
+  <div class="note">Pick what is selected, then hover marks in each card. The scene is the one from your file: a circle, a line tangent to it, a vertex P5 at the line's middle (on the line), a second line from P5, and an offer "P5 on the circle" (yellow). Nothing here touches the real app.</div>
+</header>
+<main id="main"></main>
+<script>
+// ---- the scene (the user's model_5): geometry in a 440 x 330 box
+const G={K1:{c:[170,235],r:72},L1:{a:[40,175],b:[300,152]},L2:{a:[170,163.5],b:[212,48]},P5:[170,163.5],P2:[40,175],P3:[300,152],P1:[170,235]};
+const PARTS={K1:'circle K1',L1:'line L1',L2:'line L2',P5:'vertex P5'};
+const scopeOf={K1:['K1','P1'],L1:['L1','P2','P3'],P5:['P5'],none:[]};
+const C=[ // the constraints: applied ones, and one offer
+ {id:'c1',kind:'tangent',parts:['L1','K1'],state:'applied',at:[170,150],word:'Tangent',says:'the line touches the circle at one point'},
+ {id:'c2',kind:'on',parts:['P5','L1'],state:'applied',at:[170,163.5],word:'On line',says:'vertex P5 stays on line L1'},
+ {id:'c3',kind:'mid',parts:['P5','L1'],state:'applied',at:[170,163.5],word:'At the middle',says:'P5 stays halfway along line L1'},
+ {id:'o1',kind:'onc',parts:['P5','K1'],state:'offer',at:[170,162],word:'P5 on the circle',says:'the circle grows 0.14 mm to reach P5; the line shifts to stay tangent',arrow:[[170,163],[170,163]]},
+];
+const ICON={ // 16x16 glyphs
+ tangent:'<circle cx="8" cy="10" r="4"/><path d="M1.5 6h13"/>',
+ on:'<path d="M2 12.5L14 3.5"/><circle cx="8" cy="8" r="1.7"/>',
+ mid:'<path d="M2 8h12"/><circle cx="8" cy="8" r="1.6"/><path d="M5 6v4M11 6v4"/>',
+ onc:'<circle cx="8" cy="8" r="5.5"/><circle cx="12.4" cy="4.6" r="1.6"/>'};
+let sel='K1', hover=null; const cards=[];
+const shown=()=>C.filter(c=>c.parts.some(p=>scopeOf[sel].includes(p)) || (c.state==='offer'&&(sel==='K1'||sel==='P5')));
+const partsLit=(ids)=>new Set(ids);
+function draw(card){
+  const {svg,bar,variant}=card, list=shown(), hv=hover&&hover.v===variant?C.find(c=>c.id===hover.id):null;
+  const quietTint = variant===2? new Set(list.flatMap(c=>c.parts)) : new Set();  // variant 2 tints every shown mark's parts, lightly
+  const lit = hv? new Set(hv.parts): new Set();
+  const col=(id,base)=> lit.has(id)?'var(--amber)': quietTint.has(id)?'#f6dca0': base;
+  const w=(id,base)=> lit.has(id)?3.2: quietTint.has(id)?2.4: base;
+  let s='';
+  for(let x=0;x<=440;x+=55)s+=`<path d="M${x} 0V330" stroke="var(--grid)"/>`;for(let y=0;y<=330;y+=55)s+=`<path d="M0 ${y}H440" stroke="var(--grid)"/>`;
+  const k=G.K1; s+=`<circle class="part" cx="${k.c[0]}" cy="${k.c[1]}" r="${k.r}" fill="${sel==='K1'?'#eef9f9':'none'}" stroke="${col('K1',sel==='K1'?'var(--teal)':'var(--ink)')}" stroke-width="${w('K1',sel==='K1'?3:1.6)}"/>`;
+  s+=`<line class="part" x1="${G.L1.a[0]}" y1="${G.L1.a[1]}" x2="${G.L1.b[0]}" y2="${G.L1.b[1]}" stroke="${col('L1',sel==='L1'?'var(--teal)':'var(--ink)')}" stroke-width="${w('L1',sel==='L1'?3:1.6)}"/>`;
+  s+=`<line class="part" x1="${G.L2.a[0]}" y1="${G.L2.a[1]}" x2="${G.L2.b[0]}" y2="${G.L2.b[1]}" stroke="${col('L2','var(--ink)')}" stroke-width="${w('L2',1.6)}"/>`;
+  const dot=(id,p,r)=>`<circle class="part" cx="${p[0]}" cy="${p[1]}" r="${r}" fill="${lit.has(id)?'var(--amber)':(sel===id||scopeOf[sel].includes(id))?'var(--teal)':'#c9ced2'}"/>`;
+  s+=dot('P1',G.P1,3.5)+dot('P5',G.P5,4.5)+dot('P2',G.P2,3)+dot('P3',G.P3,3);
+  // the arrow of the offer (preview of what moves): a small dashed arrow at P5 (the circle edge grows to it)
+  if(list.some(c=>c.state==='offer')&&(variant!==3||hv)) s+=`<path d="M170 169 L170 163" stroke="var(--amber)" stroke-width="2.4" fill="none" marker-end="url(#ah)"/>`;
+  s+=`<defs><marker id="ah" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0 0L6 3 0 6z" fill="var(--amber)"/></marker></defs>`;
+  // marks per variant
+  const colr=c=>c.state==='offer'?'var(--amber)':'var(--green)';
+  const chip=(c,x,y,sz,label)=>{
+    const R=sz/2,on=hv&&hv.id===c.id;
+    return `<g class="chip" data-id="${c.id}" transform="translate(${x},${y})"><circle class="b" r="${R}" stroke="${colr(c)}" ${on?'style="fill:#fffbe9"':''}/><g transform="translate(${-8*sz/22},${-8*sz/22}) scale(${sz/22})" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round" transform-origin="8 8">${ICON[c.kind]}</g>${label?`<text x="${R+6}" y="4">${label}</text>`:''}</g>`;};
+  const tip=(txt,x,y)=>{const wd=Math.min(300,txt.length*6.3+16);const X=Math.max(4,Math.min(436-wd,x-wd/2));return `<g class="tip"><rect x="${X}" y="${y}" width="${wd}" height="22" rx="5" fill="#2a2e33"/><text x="${X+8}" y="${y+15}" fill="#fff">${txt}</text></g>`;};
+  let msg='';
+  if(variant===1){ // quiet dots until pointed
+    list.forEach((c,i)=>{const x=c.at[0]+(i-(list.length-1)/2)*26+ (c.id==='c1'?-0:0), y=c.at[1]-30; s+=`<path d="M${x} ${y+9}L${c.at[0]} ${c.at[1]}" stroke="${colr(c)}" stroke-width="1" stroke-dasharray="3 3" opacity="${hv&&hv.id===c.id?1:.45}"/>`+chip(c,x,y,hv&&hv.id===c.id?26:18,'');});
+    if(hv) s+=tip(`${hv.word}: ${hv.says}`,170,288);
+    msg=list.length?`${list.length} marks, each small and pale until you point at it`:'nothing selected, nothing shown';
+  }
+  if(variant===2){ // tint every part of the selection's marks, leaders to parts, no words
+    list.forEach((c,i)=>{const x=c.at[0]+(i-(list.length-1)/2)*34, y=c.at[1]-34; c.parts.forEach(p=>{const q=p==='K1'?[170,163]:p==='L1'?[110,168.5]:p==='L2'?[190,106]:G.P5; s+=`<path d="M${x} ${y} L${q[0]} ${q[1]}" stroke="${colr(c)}" stroke-width="1" stroke-dasharray="4 3" opacity="${hv&&hv.id!==c.id?.15:.8}"/>`;});s+=chip(c,x,y,22,'');});
+    msg=list.length?`parts of every shown mark are pale amber; pointing at one makes its parts strong and dims the other leaders`:'nothing selected, nothing shown';
+  }
+  if(variant===3){ // marks are plain small, one sentence line below says it
+    list.forEach((c,i)=>{const x=c.at[0]+(i-(list.length-1)/2)*30,y=c.at[1]-30; s+=chip(c,x,y,22,'');});
+    msg=hv?`<b>${hv.word}</b> — ${hv.says}`:(list.length?`${list.length} constraint${list.length>1?'s':''} on ${sel==='K1'?'circle K1':sel==='L1'?'line L1':'vertex P5'} — point at one`:'nothing selected');
+  }
+  if(variant===4){ // one pill, expands into rows
+    if(list.length){const open=hover&&hover.v===4, rows=list.length, X=250,Y=60;
+      if(!open) s+=`<g class="chip" data-id="${list[0].id}" data-pill="1" transform="translate(${X},${Y})"><rect x="-26" y="-13" width="52" height="26" rx="13" fill="#fff" stroke="#bbb"/><text x="-16" y="4" font-weight="600">${rows} ⛓</text></g><path d="M${X-26} ${Y+10} L170 160" stroke="#bbb" stroke-dasharray="4 3"/>`;
+      else {s+=`<g transform="translate(${X-60},${Y-14})"><rect width="190" height="${rows*26+10}" rx="8" fill="#fff" stroke="#bbb"/>`;
+        list.forEach((c,i)=>{const on=hv&&hv.id===c.id; s+=`<g class="chip" data-id="${c.id}" transform="translate(14,${i*26+17})"><rect x="-6" y="-12" width="184" height="24" rx="6" fill="${on?'#fffbe9':'#fff'}"/><circle r="8" class="b" stroke="${colr(c)}" cx="4"/><g transform="translate(-3,-7) scale(.9)" fill="none" stroke="var(--ink)" stroke-width="1.5">${ICON[c.kind]}</g><text x="20" y="4">${c.word}${c.state==='offer'?' (offer)':''}</text></g>`;});s+='</g>';}
+    }
+    msg=hv&&hv.v===4?`<b>${hv.word}</b> — ${hv.says}`:(list.length?'one pill with a count; point at it and it opens into a list; each row lights its parts':'nothing selected');
+  }
+  svg.innerHTML=s; bar.innerHTML=msg;
+  svg.querySelectorAll('.chip').forEach(el=>{
+    el.addEventListener('mouseenter',()=>{hover={id:el.dataset.id,v:variant};all()});
+    el.addEventListener('mouseleave',()=>{if(variant===4&&!el.dataset.pill)return;hover=null;all()});
+  });
+  svg.addEventListener('mouseleave',()=>{if(hover&&hover.v===variant){hover=null;all()}});
+}
+const all=()=>cards.forEach(draw);
+const TITLES=[['Quiet until pointed','Small pale marks, one short leader each. Pointing at one grows it, lights its parts amber and shows a one-line tooltip. Calmest by default.'],
+ ['Tint and leaders','Every part a shown mark is about is pale amber, with thin leaders from each mark to its parts. Pointing makes one strong. No words.'],
+ ['Sentence line','Marks stay plain; a line under the picture says what the one you point at means (or counts them). Words never cover the drawing.'],
+ ['One pill, opens to a list','All the constraints of the selection collapse into one pill with a count; open it and each row names itself and lights its parts. Least clutter, one extra step.']];
+TITLES.forEach((t,i)=>{const d=document.createElement('div');d.className='card';d.innerHTML=`<h2>${i+1}. ${t[0]}</h2><p>${t[1]}</p><svg viewBox="0 0 440 330"></svg><div class="bar"></div>`;document.getElementById('main').append(d);cards.push({svg:d.querySelector('svg'),bar:d.querySelector('.bar'),variant:i+1});});
+const SEL=[['K1','Select the circle'],['L1','Select line L1 (3 marks)'],['P5','Select vertex P5'],['none','Nothing selected']];
+SEL.forEach(([k,l])=>{const b=document.createElement('button');b.textContent=l;b.onclick=()=>{sel=k;hover=null;[...document.querySelectorAll('.sel button')].forEach(x=>x.classList.toggle('on',x===b));all()};if(k===sel)b.classList.add('on');document.getElementById('sel').append(b)});
+all();
+</script></body></html>
