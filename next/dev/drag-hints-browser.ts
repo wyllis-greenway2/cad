@@ -72,14 +72,56 @@ try {
   await ev2(`() => window.__tool("line")`); await B.page.waitForTimeout(300);
   await click2(-48, -10); await click2(-8, -10); await ev2(`() => window.__sketch.stop()`);
   await B.page.waitForTimeout(5200);
-  const ra = await drag2([-26.46, 13.54], [-26.46, -1.26]); // a place on the arc, dragged 14.8 down: the centre would reach y = -4.8
-  ok((await ties(ra)).length >= 1, "dragging a whole arc near a line lights the line while held");
+  // the arc's curve sets its radius (`in_1620`): pressed at 45 degrees and pulled out to radius 8; the centre stays
+  await drag2([-26.46, 13.54], [-24.34, 15.66]); await B.page.mouse.up(); await B.page.waitForTimeout(250);
+  q = await def2(); let ac = q.points.find((p: any) => p.id === q.arcs[0].c); const ends = [q.arcs[0].a, q.arcs[0].b].map((id: string) => q.points.find((p: any) => p.id === id));
+  ok(Math.abs(ac.x + 30) < 1e-6 && Math.abs(ac.y - 10) < 1e-6 && ends.every((e: any) => Math.abs(Math.hypot(e.x - ac.x, e.y - ac.y) - 8) < 0.15), `the arc's curve dragged out sets the radius, the centre stays (radii ${ends.map((e: any) => Math.hypot(e.x - ac.x, e.y - ac.y).toFixed(3))})`);
+  const r8 = Math.hypot(ends[0].x - ac.x, ends[0].y - ac.y);
+  // the arc's centre moves the whole arc: dragged down towards the level line (y = -10) it rests on it (centre at y = -10 + radius)
+  const ra = await drag2([-30, 10], [-30, -10 + r8 + 0.2 - 0]);
+  ok((await ties(ra)).length >= 1, "dragging an arc by its centre near a line lights the line while held");
   writeFileSync(`${dir}/drag-hints-5.png`, await B.page.screenshot());
   await B.page.mouse.up(); await B.page.waitForTimeout(250);
-  q = await def2(); const ac = q.points.find((p: any) => p.id === q.arcs[0].c), ar = q.points.find((p: any) => p.id === q.arcs[0].a);
-  ok(Math.abs(ac.y + 5) < 1e-3 && Math.abs(ac.x + 30) < 0.4, `and the arc rests on the line (centre at y=${ac.y.toFixed(4)}, wanted -5)`);
-  ok(Math.abs(Math.hypot(ar.x - ac.x, ar.y - ac.y) - 5) < 1e-3 && q.constraints.length === 0, "the arc kept its size and nothing was constrained by the hint");
+  q = await def2(); ac = q.points.find((p: any) => p.id === q.arcs[0].c);
+  const ends2 = [q.arcs[0].a, q.arcs[0].b].map((id: string) => q.points.find((p: any) => p.id === id));
+  ok(Math.abs(ac.y - (-10 + r8)) < 1e-3 && ends2.every((e: any) => Math.abs(Math.hypot(e.x - ac.x, e.y - ac.y) - r8) < 1e-3), `and the whole arc rests on the line (centre at y=${ac.y.toFixed(4)}, wanted ${(-10 + r8).toFixed(4)}), its ends with it`);
   ok(B.errors.length === 0, `no errors in the page ${B.errors.join("; ")}`);
   await B.close();
+  // constraints doing work in a drag (`in_1620`): a line held tangent to a circle is dragged and takes the circle with it: the tangent shows (green); with the circle fixed in place and in size the same drag is held back and it flashes (red)
+  const C = await S.open(""), ev3 = evalIn(C.page), px3 = pxIn(ev3), click3 = clickIn(C.page, px3, 100), def3 = () => ev3<any>(`() => Object.values(window.__sketch.snapshot())[0]`);
+  const marks3 = () => C.page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-marks] [data-state]")].filter((e) => (e.parentElement as HTMLElement).style.display !== "none").map((e) => ({ state: e.dataset.state!, id: e.dataset.bar ?? e.dataset.fact ?? "", alpha: Number(e.style.opacity || 1) })));
+  const drag3 = async (from: [number, number], to: [number, number]) => { const [a, b] = await px3(...from), [c, e] = await px3(...to); await C.page.mouse.move(a, b); await C.page.mouse.down(); await C.page.mouse.move((a + c) / 2, (b + e) / 2, { steps: 6 }); await C.page.mouse.move(c, e, { steps: 6 }); await C.page.waitForTimeout(500); };
+  await ev3(`() => window.__tool("circle")`); await C.page.waitForTimeout(900);
+  await click3(30, 10); await click3(35, 10); await ev3(`() => window.__sketch.stop()`);
+  await ev3(`() => window.__tool("line")`); await C.page.waitForTimeout(300);
+  await click3(10, 15); await click3(50, 15); await ev3(`() => window.__sketch.stop()`);
+  await C.page.waitForTimeout(300);
+  const tg = (await marks3()).find((m) => m.id.startsWith("near:tangent"));
+  await C.page.click(`[data-marks] [data-bar='${tg!.id}']`); await C.page.waitForTimeout(300);
+  ok((await def3()).constraints.some((k: any) => k.kind === "tangent"), "a tangent line and circle");
+  await ev3(`() => window.__sketch.clear ? window.__sketch.clear() : 0`);
+  await click3(-20, 0); await C.page.waitForTimeout(200);   // nothing selected
+  await drag3([18, 15], [18, 12]);
+  const during = await marks3();
+  ok(during.some((m) => m.state === "locked" && m.id === "c1" && m.alpha > 0.9), `dragging the line takes the circle with it and the tangent shows: ${JSON.stringify(during)}`);
+  writeFileSync(`${dir}/drag-hints-6.png`, await C.page.screenshot());
+  await C.page.mouse.up(); await C.page.waitForTimeout(300);
+  let z = await def3(); const cp = z.points.find((p: any) => p.id === z.circles[0].c);
+  ok(Math.abs(cp.y - 10) > 1, `(the circle moved: centre at y=${cp.y.toFixed(2)})`);
+  // fix the circle in place and in size, then the same drag is held back and the constraints flash
+  await ev3(`() => window.__sketch.restore ? 0 : 0`);
+  const [ex, ey] = await px3(cp.x + z.circles[0].r * Math.SQRT1_2, cp.y - z.circles[0].r * Math.SQRT1_2); await C.page.mouse.click(ex, ey); await C.page.waitForTimeout(300);
+  const pad = C.page.locator("[data-marks] [data-state='offer'][data-fact] [data-padlock='open']"); if (await pad.count()) await pad.first().click(); await C.page.waitForTimeout(300);
+  await ev3(`() => { const s = window.__sketch.snapshot(), k = Object.keys(s)[0]; const d = JSON.parse(JSON.stringify(s[k])); d.points.find((p) => p.id === d.circles[0].c).fixed = true; s[k] = d; window.__sketch.restore(s); }`); await C.page.waitForTimeout(300);
+  z = await def3(); ok(z.points.some((p: any) => p.fixed) && z.constraints.some((k: any) => k.kind === "radius"), `the circle is fixed in place and its diameter is locked: ${JSON.stringify(z.constraints.map((k: any) => k.kind))}`);
+  await click3(-20, 0); await C.page.waitForTimeout(200);
+  const lineY = (d: any) => { const l = d.lines[0], a = d.points.find((p: any) => p.id === l.a); return a.y; };
+  const y0 = lineY(z); await drag3([18, y0], [18, y0 - 2]); // (a little way down: between the two places the line can be tangent, so it cannot go)
+  const held = await marks3();
+  ok(held.some((m) => m.state === "refused"), `the same drag is held back and what holds it flashes red: ${JSON.stringify(held)}`);
+  writeFileSync(`${dir}/drag-hints-7.png`, await C.page.screenshot());
+  await C.page.mouse.up(); await C.page.waitForTimeout(300);
+  ok(C.errors.length === 0, `no errors in the page ${C.errors.join("; ")}`);
+  await C.close();
 } finally { await S.stop(); }
 finish();

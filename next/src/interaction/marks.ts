@@ -2,7 +2,7 @@
 // Red: a change was refused and this is what held it back. ONE rule says which show: a locked mark when its part is selected; an offer when its part is selected, or for a short time (fading) after the part was made or moved, selected or not; a refused one always, while the
 // refusal stands. Nothing else. Pure: the solver's system, the selection, the flash and the clock in; descriptions out (where on the sketch, what, which state). The page draws them (`markdraw.ts`).
 import type { System } from "../engine/solver.ts";
-import { anchorOf, bubblesOn, selectionAnchor, type Flash } from "./bubbles.ts";
+import { anchorOf, bubblesOn, scopeOf, selectionAnchor, type Flash } from "./bubbles.ts";
 import { barFor, nearConstraint, nearFor, type BarItem } from "./infobar.ts";
 import type { Fact } from "./infobar.ts";
 import { settings } from "../settings.ts";
@@ -24,12 +24,16 @@ function offersOf(S: System, selection: string[]): { item: BarItem; at: [number,
   return [...own, ...near];
 }
 /** the marks to show now */
-export function marksFor(S: System, selection: string[], ctx: { flash?: Flash; recent?: Recent | null; now: number }): Mark[] {
+export function marksFor(S: System, selection: string[], ctx: { flash?: Flash; recent?: Recent | null; now: number; /** how much of a constraint doing work shows, from 0 to 1 (a fade in and out) */ fade?: (id: string) => number }): Mark[] {
   const out: Mark[] = [];
-  for (const f of bubblesOn(S, selection, ctx.flash ?? {})) out.push({ ...f, state: f.tone === "refused" ? "refused" : f.locked === false ? "offer" : "locked", alpha: 1 });
+  // what is selected shows what it is made of too (a line, its ends; going down, never up: `scopeOf`)
+  const scope = scopeOf(S, selection);
+  for (const f of bubblesOn(S, selection, ctx.flash ?? {}, scope)) out.push({ ...f, state: f.tone === "refused" ? "refused" : f.locked === false ? "offer" : "locked", alpha: f.tone === "applied" ? ctx.fade?.(f.id) ?? 1 : 1 });
+  // the near offers of what a single part is made of (a line's end on another line) are offered with it
+  const kids = selection.length === 1 ? scope.filter((id) => id !== selection[0]) : [];
   const fresh = !selection.length && ctx.recent && ctx.now < ctx.recent.until ? ctx.recent : null;
   for (const sel of selection.length ? [selection] : fresh ? fresh.ids.map((id) => [id]) : []) {
-    for (const { item, at } of offersOf(S, sel)) {
+    for (const { item, at } of [...offersOf(S, sel), ...(sel === selection ? kids.flatMap((k) => offersOf(S, [k]).filter((o) => { const nc = nearConstraint(o.item.id); return !!nc && nc.parts.some((x) => !scope.includes(x)); })) : [])]) {
       const nc = nearConstraint(item.id), parts = nc ? nc.parts : sel;
       if (out.some((m) => m.id === item.id && m.over?.join() === sel.join())) continue;
       out.push({ id: item.id, kind: "constraint", relation: (nc?.kind ?? item.id.slice(4)) as Fact["relation"], icon: item.icon, at, tone: "offer", title: item.label, parts, state: "offer", alpha: fresh ? alphaAt(fresh.until, ctx.now) : 1, over: sel });

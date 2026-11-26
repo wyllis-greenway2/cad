@@ -21,7 +21,7 @@ try {
   writeFileSync(`${dir}/tangent-1.png`, await page.screenshot());
   await page.mouse.click(mx, my); await page.waitForTimeout(300);
   // the marks stand on the parts (`dec_marks_on_things`): an offer is yellow and unlocked, an applied constraint green and locked; the offer for a part just made shows for a while, selected or not, then goes
-  const marks = () => page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-marks] [data-mark]")].filter((e) => e.style.display !== "none" && Number(e.style.opacity || 1) > 0.02).map((e) => ({ state: e.dataset.mark!, id: (e.querySelector("[data-bar],[data-fact]") as HTMLElement | null)?.dataset.bar ?? (e.querySelector("[data-fact]") as HTMLElement | null)?.dataset.fact ?? "" })));
+  const marks = () => page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-marks] [data-state]")].filter((e) => (e.parentElement as HTMLElement).style.display !== "none" && Number(e.style.opacity || 1) > 0.02).map((e) => ({ state: e.dataset.state!, id: e.dataset.bar ?? e.dataset.fact ?? "" })));
   const tangent = (await marks()).find((m) => m.id.startsWith("near:tangent"));
   ok(!!tangent && tangent.state === "offer", `the line just made, selected or not, shows the tangent as an offer (yellow, unlocked): ${JSON.stringify(await marks())}`);
   let d = await def(); ok(d.constraints.length === 0, "and nothing was made unasked");
@@ -38,7 +38,7 @@ try {
   d = await def(); ok(d.constraints.some((k: any) => k.kind === "tangent"), `a click makes it: ${JSON.stringify(d.constraints)}`);
   const locked = (await marks()).filter((m) => m.state === "locked" && !/^[0-9]/.test(m.id));
   ok(!(await marks()).some((m) => m.id === again!.id) && locked.length >= 1, `and it is locked (green) now: ${JSON.stringify(await marks())}`);
-  await page.click("[data-marks] [data-mark='locked'] [data-fact]:not(:has([data-number]))"); await page.waitForTimeout(300);
+  await page.click("[data-marks] [data-state='locked'][data-fact]:not(:has([data-number]))"); await page.waitForTimeout(300);
   d = await def(); ok(!d.constraints.some((k: any) => k.kind === "tangent"), "a click on the locked one takes it away");
   ok((await marks()).some((m) => m.id.startsWith("near:tangent") && m.state === "offer"), "and it is offered again, unlocked");
   ok(errors.length === 0, `no errors in the page ${errors.join("; ")}`);

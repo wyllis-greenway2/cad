@@ -7,12 +7,14 @@ import { bake, hitAt, type Sol } from "./drawing.ts";
 import type { System } from "../engine/solver.ts";
 import type { Free } from "../engine/free.ts";
 
-/** the points a press on this part takes: the point itself, both ends of a line, a circle's centre, an arc's three points */
+/** the points a press on this part takes: the point itself (an arc's centre takes the arc with it), both ends of a line, a circle's centre; an arc's curve takes none (it sets the radius) */
 export function pinsOf(p: SketchParams, id: string): string[] {
-  if (p.points.some((q) => q.id === id)) return [id];
+  if (p.points.some((q) => q.id === id)) { // (an arc's centre moves the whole arc; any other point only itself)
+    const arcs = (p.arcs ?? []).filter((a) => a.c === id), used = (p.lines ?? []).some((l) => l.a === id || l.b === id) || (p.circles ?? []).some((c) => c.c === id);
+    return arcs.length === 1 && !used ? [id, arcs[0]!.a, arcs[0]!.b] : [id];
+  }
   const l = (p.lines ?? []).find((q) => q.id === id); if (l) return [l.a, l.b];
   const c = (p.circles ?? []).find((q) => q.id === id); if (c) return [c.c];
-  const a = (p.arcs ?? []).find((q) => q.id === id); if (a) return [a.c, a.a, a.b];
   return [];
 }
 export interface Join { id: string; kind: "point" | "curve"; at: Pt }
@@ -56,10 +58,20 @@ export function pieceOf(p: SketchParams, s: Sol, id: string): { free: Free; ref:
   const at = (q: string) => s.points[q];
   const l = (p.lines ?? []).find((q) => q.id === id);
   if (l) { const a = at(l.a), b = at(l.b); if (!a || !b) return null; const na = `~${l.a}`, nb = `~${l.b}`; return { free: { shape: "piece", ref: a, points: { [na]: a, [nb]: b }, lines: [{ name: `~${l.id}`, a: na, b: nb }], circles: [] }, ref: a, out: [l.a, l.b, l.id] }; }
-  const arc = (p.arcs ?? []).find((q) => q.id === id); // (a whole arc: its centre and both ends, and the circle it is on)
+  const arc = (p.arcs ?? []).find((q) => q.id === id) ?? ((p.arcs ?? []).filter((q) => q.c === id).length === 1 && !(p.circles ?? []).some((q) => q.c === id) && !(p.lines ?? []).some((l) => l.a === id || l.b === id) ? (p.arcs ?? []).find((q) => q.c === id) : undefined); // (a whole arc: its centre and both ends, and the circle it is on; pressed by its centre)
   if (arc) { const c = at(arc.c), a = at(arc.a), b = at(arc.b), r = s.radii[arc.id]; if (!c || !a || !b || r === undefined) return null; const nc = `~${arc.c}`, na = `~${arc.a}`, nb = `~${arc.b}`; return { free: { shape: "piece", ref: c, points: { [nc]: c, [na]: a, [nb]: b }, lines: [], circles: [{ name: `~${arc.id}`, c: nc, r }] }, ref: c, out: [arc.c, arc.a, arc.b, arc.id] }; }
   const rounds = [...(p.circles ?? []).filter((c) => c.c === id), ...(p.arcs ?? []).filter((a) => a.c === id || a.a === id || a.b === id)], lines = (p.lines ?? []).filter((x) => x.a === id || x.b === id);
   const c = rounds.length === 1 && !lines.length ? (p.circles ?? []).find((q) => q.c === id) : null, at0 = at(id);
   if (c && at0) { const n = `~${id}`; return { free: { shape: "piece", ref: at0, points: { [n]: at0 }, lines: [], circles: [{ name: `~${c.id}`, c: n, r: s.radii[c.id] ?? c.r }] }, ref: at0, out: [id, c.id] }; }
   return null;
+}
+/** the constraints that are doing work in a drag (`in_1620`): those that name a part that was carried along (it moved, and it was not one of the points held where the pointer put them, nor the circle whose edge is dragged), so a tangent shows when the line pulled takes its circle with it and a level shows while the far end of a line follows */
+export function activeOf(def0: SketchParams, next: SketchParams, held: readonly string[]): string[] {
+  const was = new Map(def0.points.map((q) => [q.id, q] as const)), moved = new Set<string>();
+  for (const q of next.points) { const w = was.get(q.id); if (w && Math.hypot(q.x - w.x, q.y - w.y) > 1e-6) moved.add(q.id); }
+  const carried = new Set<string>([...moved].filter((id) => !held.includes(id)));
+  for (const c of next.circles ?? []) { const w = (def0.circles ?? []).find((x) => x.id === c.id); if (w && Math.abs(c.r - w.r) > 1e-6 && !held.includes(c.id)) carried.add(c.id); }
+  const lines = def0.lines ?? [], circles = def0.circles ?? [], arcs = def0.arcs ?? [];
+  const isCarried = (id: string) => carried.has(id) || lines.some((l) => l.id === id && (carried.has(l.a) || carried.has(l.b))) || circles.some((c) => c.id === id && carried.has(c.c)) || arcs.some((a) => a.id === id && (carried.has(a.c) || carried.has(a.a) || carried.has(a.b)));
+  return (def0.constraints ?? []).filter((k) => k.parts.some(isCarried)).map((k) => k.id);
 }

@@ -39,16 +39,32 @@ function placeOf(S: System, id: string, radii: Record<string, number>): [number,
   if (k === "line") { const l = S.lines.find((x) => x.id === id)!, a = pt(l.a), b = pt(l.b); return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; }
   const c = S.circles.find((x) => x.id === id)!, m = pt(c.c), r = radii[id] ?? c.r; return [m[0] + r * Math.SQRT1_2, m[1] + r * Math.SQRT1_2];
 }
-/** where a selection is: the middle of the places of its parts (what the helper bar stands beside) */
-export function selectionAnchor(S: System, ids: string[]): [number, number] | null {
-  if (!ids.length) return null;
-  const radii = Object.fromEntries(S.circles.map((q) => [q.id, q.r])), ps = ids.map((id) => placeOf(S, id, radii));
-  return [ps.reduce((a, p) => a + p[0], 0) / ps.length, ps.reduce((a, p) => a + p[1], 0) / ps.length];
+/** Where a constraint (or a selection) is, literally (`in_1620`): on the point when it names a point; at the touching place of a line and a circle (the foot of the circle's centre on the line) or of two circles (on the first, towards the other); else on the first part (a line's middle, a circle's top right). One rule for every relation: nothing says where it goes but what it ties. */
+export function whereOf(S: System, parts: readonly string[]): [number, number] {
+  const radii = Object.fromEntries(S.circles.map((q) => [q.id, q.r])), kinds = parts.map((id) => kindOf(id, S)), pt = (q: string) => { const p = S.points.find((x) => x.id === q)!; return [p.x, p.y] as [number, number]; };
+  const ip = kinds.indexOf("point"); if (ip >= 0) return pt(parts[ip]!);
+  const ic = kinds.indexOf("circle"); if (ic < 0 || parts.length < 2) return placeOf(S, parts[0]!, radii);
+  const k = S.circles.find((x) => x.id === parts[ic])!, m = pt(k.c), other = parts.find((_, i) => i !== ic)!;
+  if (kindOf(other, S) === "line") { const l = S.lines.find((x) => x.id === other)!, a = pt(l.a), b = pt(l.b), dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((m[0] - a[0]) * dx + (m[1] - a[1]) * dy) / (dx * dx + dy * dy || 1))); return [a[0] + dx * t, a[1] + dy * t]; }
+  const o = S.circles.find((x) => x.id === other); if (!o) return placeOf(S, parts[0]!, radii);
+  const om = pt(o.c), d = Math.hypot(om[0] - m[0], om[1] - m[1]) || 1; return [m[0] + (k.r * (om[0] - m[0])) / d, m[1] + (k.r * (om[1] - m[1])) / d];
 }
-/** where a constraint belongs: the middle of the places of its parts (on the line, at the point, between two lines) */
+/** where a selection is */
+export const selectionAnchor = (S: System, ids: string[]): [number, number] | null => (ids.length ? whereOf(S, ids) : null);
+/** where a constraint belongs: a number between two things stands between them; every other relation where `whereOf` says */
 export function anchorOf(S: System, c: Constraint): [number, number] {
+  if (!(RANGEABLE.has(c.kind) && c.parts.length > 1)) return whereOf(S, c.parts);
   const radii = Object.fromEntries(S.circles.map((q) => [q.id, q.r])), ps = c.parts.map((id) => placeOf(S, id, radii));
   return [ps.reduce((a, p) => a + p[0], 0) / ps.length, ps.reduce((a, p) => a + p[1], 0) / ps.length];
+}
+/** What a selection takes in, going down and never up (`in_1620`): a line its two ends, a circle its centre, an arc its centre and ends; a point nothing. The selection and its parts, once each. */
+export function scopeOf(S: System, ids: readonly string[]): string[] {
+  const out = new Set(ids);
+  for (const id of ids) {
+    const l = S.lines.find((x) => x.id === id); if (l) { out.add(l.a); out.add(l.b); }
+    const c = S.circles.find((x) => x.id === id); if (c) { out.add(c.c); for (const e of c.ends ?? []) out.add(e); }
+  }
+  return [...out];
 }
 
 /** how a number is shown (`dec_dimensions_measure_then_lock`, as the old app shows them): a circle by its diameter, an arc by its radius, an angle as the angle inside the corner of the two sides (where the arc is drawn); `text` is the number as shown, `input` how a number typed over it becomes the solver's value */
@@ -66,9 +82,9 @@ export function ownMeasure(S: System, selection: string[]): Offer | null {
 export const MEASURE_ID = "measure";
 
 /** The bubbles of what is selected (none selected: none): the constraints, in their order, and the number the selection measures if no locked one says it. `S` is the system at the places it is solved to. */
-export function bubblesOn(S: System, selection: string[], flash: Flash = {}): Bubble[] {
-  // a constraint is shown when one of its parts is selected (a selected line shows its own, not those of the lines that meet it)
-  const own = measuredBubble(S, selection), locked = (c: Constraint) => c.parts.some((p) => selection.includes(p)) || flash.refused?.includes(c.id) || flash.applied?.includes(c.id);
+export function bubblesOn(S: System, selection: string[], flash: Flash = {}, scope: readonly string[] = selection): Bubble[] {
+  // a constraint is shown when one of its parts is in the scope of the selection (what is selected and what it is made of, `scopeOf`), and while it flashes
+  const own = measuredBubble(S, selection), locked = (c: Constraint) => c.parts.some((p) => scope.includes(p)) || flash.refused?.includes(c.id) || flash.applied?.includes(c.id);
   const shown = S.constraints.filter(locked).map((c) => {
     const ties = c.parts.filter((p) => !selection.includes(p));
     const row = RELATIONS[c.kind], dim = RANGEABLE.has(c.kind) && (c.value !== undefined || c.min !== undefined || c.max !== undefined), shown = c.value !== undefined ? display(S, c.kind, c.parts, c.value) : null, word = shown?.word ?? row.label;

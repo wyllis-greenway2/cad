@@ -1,6 +1,8 @@
 // A dev check (not a test, `in_1444`) of the marks of a sketch and the one rule for which show (`interaction/marks.ts`, `dec_marks_on_things`): node --experimental-strip-types dev/marks-check.ts
 import { addCircle, addLine, addRect, emptySketch, keep, refOf, viewSystem } from "../src/interaction/drawing.ts";
 import { alphaAt, marksFor } from "../src/interaction/marks.ts";
+import { scopeOf, whereOf } from "../src/interaction/bubbles.ts";
+import type { System } from "../src/engine/solver.ts";
 import { settings } from "../src/settings.ts";
 import { check, failureCount } from "./lib.ts";
 
@@ -37,4 +39,14 @@ check("a line and a circle chosen together are offered the tangent even when the
 const pt = F.points[0]!.id, pl = marksFor(F, [pt, "L2"], { now: 0 }).filter((m) => m.state === "offer" && m.kind === "constraint");
 check("a point and a line chosen together are offered on-the-line", pl.some((m) => m.id === "rel:pointOnLine"), pl.map((m) => m.id).join());
 check("a part alone is not offered what is not true of it", !marksFor(F, ["L1"], { now: 0 }).some((m) => m.id === "rel:tangent" || m.id === "rel:pointOnLine"));
+// where a mark stands, literally (`in_1620`), and what a selection takes in (down, never up)
+const Z: System = { points: [{ id: "P1", x: 0, y: 0 }, { id: "P2", x: 40, y: 0 }, { id: "P3", x: 20, y: 5 }, { id: "P4", x: 50, y: 50 }], lines: [{ id: "L1", a: "P1", b: "P2" }], circles: [{ id: "K1", c: "P3", r: 5 }], constraints: [{ id: "c1", kind: "fixed" as never, parts: ["P2"] }, { id: "c2", kind: "horizontal", parts: ["L1"] }, { id: "c3", kind: "tangent", parts: ["L1", "K1"] }] };
+const touch = whereOf(Z, ["L1", "K1"]), touch2 = whereOf(Z, ["K1", "L1"]);
+check("a line tangent to a circle: the mark is at the touching place, whichever way the parts are named", Math.hypot(touch[0] - 20, touch[1]) < 1e-9 && Math.hypot(touch2[0] - 20, touch2[1]) < 1e-9, `${touch} ${touch2}`);
+check("a constraint that names a point stands on the point", whereOf(Z, ["P2", "L1"]).join() === "40,0" && whereOf(Z, ["P4"]).join() === "50,50");
+check("a constraint of one line stands on its middle", whereOf(Z, ["L1"]).join() === "20,0");
+check("a selection takes in what it is made of: a line its ends, a circle its centre; a point nothing", scopeOf(Z, ["L1"]).sort().join() === "L1,P1,P2" && scopeOf(Z, ["K1"]).sort().join() === "K1,P3" && scopeOf(Z, ["P2"]).join() === "P2");
+const onLine = marksFor(Z, ["L1"], { now: 0 }).filter((m) => m.state === "locked").map((m) => m.id).sort().join(), onEnd = marksFor(Z, ["P2"], { now: 0 }).filter((m) => m.state === "locked").map((m) => m.id).sort().join();
+check("a selected line shows the constraints of its ends too", onLine === "c1,c2,c3", onLine);
+check("a selected end shows its own constraints and not the line's", onEnd === "c1", onEnd);
 process.exit(failureCount() ? 1 : 0);

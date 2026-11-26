@@ -14,7 +14,7 @@ import type { Relation } from "./engine/solver.ts";
 import type { Selection } from "./selection.ts";
 import type { NoticeOptions } from "./interaction/notices.ts";
 import { bake, constrain, emptySketch, hitAt, keep, nextId, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
-import { MEASURE_ID, angleMark, bubblesOn, type Flash } from "./interaction/bubbles.ts";
+import { MEASURE_ID, angleMark, bubblesOn, scopeOf, type Flash } from "./interaction/bubbles.ts";
 import { marksFor, type Mark, type Recent } from "./interaction/marks.ts";
 import type { MarkHandlers, PlacedMark } from "./markdraw.ts";
 import { settings } from "./settings.ts";
@@ -27,7 +27,7 @@ import { measureAt, placeTyped, type TypedMeasure } from "./engine/typed.ts";
 import { FIELDS, chipFields, freeOf, madeNames, typeKey, typedMeasures } from "./interaction/typing.ts";
 import { helpShown } from "./interaction/helpshow.ts";
 import { newTool, cancelFigure, toolClick, toolPreview, type Tool } from "./interaction/tools.ts";
-import { dragRadius, dragTo, freeOfDrag, joinFor, pieceOf, pinsOf, without } from "./interaction/dragging.ts";
+import { activeOf, dragRadius, dragTo, freeOfDrag, joinFor, pieceOf, pinsOf, without } from "./interaction/dragging.ts";
 import { loopPoints, regionAt, type Region } from "./interaction/extrude.ts";
 import { regions } from "./engine/region.ts";
 
@@ -52,7 +52,7 @@ const TYPED: Record<string, string> = { ...Object.fromEntries([...Array(10).keys
 export function createSketch(host: SketchHost, on?: (label: string, merge?: string) => void) {
   const defs = new Map<string, SketchParams>(), sols = new WeakMap<SketchParams, Sol>(), fillCache = new WeakMap<SketchParams, [number, number][][][]>();
   const sel = host.selection;
-  let tool: Tool | null = null, flash: Flash = {}, flashUntil = 0, recent: (Recent & { key: string }) | null = null; // (recent: the parts just made, whose offers show for a while even when nothing is selected, `dec_marks_on_things`)
+  let tool: Tool | null = null, flash: Flash = {}, flashUntil = 0, recent: (Recent & { key: string }) | null = null, activeSince = new Map<string, number>(); // (activeSince: when each constraint doing work in a drag began to, for its fade) // (recent: the parts just made, whose offers show for a while even when nothing is selected, `dec_marks_on_things`)
   const say = (text: string, ms = 4000) => host.notify(text, { ttl: ms });
   const systems = new WeakMap<SketchParams, ReturnType<typeof viewSystem>>(), sysOf = (p: SketchParams) => { let y = systems.get(p); if (!y) { y = viewSystem(p, solOf(p)); systems.set(p, y); } return y; }; // (a definition has one system: asked for by every part of a frame)
   const solOf = (p: SketchParams): Sol => { let s = sols.get(p); if (!s) { const r = solveDefinition(p); s = { points: r.points, radii: r.radii }; sols.set(p, s); } return s; };
@@ -97,8 +97,13 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
   const set = (key: string, p: SketchParams, label: string, merge?: string) => { defs.set(key, p); on?.(label, merge); };
   const fail = (why: string, victims: string[]) => { host.notify(why, { kind: "warn", ttl: 4000 }); flash = { refused: victims }; flashUntil = performance.now() + 1800; };
 
+  /** what a drag in progress shows of the constraints: the ones doing work fade in (green), the ones that hold the drag back flash (red) */
+  const working = (active: string[], held: string[]) => {
+    const now = performance.now(); for (const id of active) if (!activeSince.has(id)) activeSince.set(id, now);
+    flash = { ...(held.length ? { refused: held } : {}), ...(active.length ? { applied: active } : {}) }; flashUntil = now + 400; if (held.length) say("Held back by the constraints shown in red", 600);
+  };
   // ---- a part dragged: the solver follows the pointer with the part pinned where it goes (soft: it goes as near as the constraints allow); a point let go on another point or on a curve joins it
-  type Drag = { key: string; def0: SketchParams; pins: string[]; start: Record<string, [number, number]>; q0: P2; x0: number; y0: number; moved: boolean; shift: boolean; id: string; join: { id: string; kind: "point" | "curve" } | null; snapAt: P2 | null; /** a circle's edge pressed: its radius follows the pointer (the circle, its centre) */ edge: { circle: string; centre: string } | null; /** what the helpers say of where it is (the same rules as when it was drawn: they place, they never constrain) */ help: Helped | null };
+  type Drag = { key: string; def0: SketchParams; pins: string[]; start: Record<string, [number, number]>; q0: P2; x0: number; y0: number; moved: boolean; shift: boolean; id: string; join: { id: string; kind: "point" | "curve" } | null; snapAt: P2 | null; /** a circle's edge pressed: its radius follows the pointer (the circle, its centre) */ edge: { circle: string; centre: string; ends?: [string, string] } | null; /** what the helpers say of where it is (the same rules as when it was drawn: they place, they never constrain) */ help: Helped | null };
   let drag: Drag | null = null;
 
   /** what the info bar's buttons do (`dec_three_surfaces`): a suggestion is applied; a constraint clicked is taken away; a number typed over is the number (a measured one locks); a padlock locks or lets go */
@@ -248,9 +253,9 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       if (tool) return false;
       const c = here(x, y); if (!c) return false;
       const s = solOf(c.p), h = hitAt(c.p, s, c.q, c.tol); if (!h) return false;
-      const ring = h.kind === "curve" && h.of === "circle" ? (c.p.circles ?? []).find((q) => q.id === h.id) : null; // (a circle's edge: its radius follows the pointer; its centre moves it whole)
-      const pins = ring ? [] : pinsOf(c.p, h.id); if (!pins.length && !ring) return false;
-      drag = { key: c.key, def0: c.p, pins, start: Object.fromEntries(pins.map((id) => [id, s.points[id]!])), q0: c.q, x0: x, y0: y, moved: false, shift, id: h.id, join: null, snapAt: null, edge: ring ? { circle: ring.id, centre: ring.c } : null, help: null };
+      const ring = h.kind === "curve" && h.of === "circle" ? (c.p.circles ?? []).find((q) => q.id === h.id) : null, arc = h.kind === "curve" && h.of === "arc" ? (c.p.arcs ?? []).find((q) => q.id === h.id) : null; // (a circle's or an arc's edge: its radius follows the pointer; its centre moves it whole)
+      const pins = ring || arc ? [] : pinsOf(c.p, h.id); if (!pins.length && !ring && !arc) return false;
+      drag = { key: c.key, def0: c.p, pins, start: Object.fromEntries(pins.map((id) => [id, s.points[id]!])), q0: c.q, x0: x, y0: y, moved: false, shift, id: h.id, join: null, snapAt: null, edge: ring ? { circle: ring.id, centre: ring.c } : arc ? { circle: arc.id, centre: arc.c, ends: [arc.a, arc.b] } : null, help: null };
       return true;
     },
     grabMove(x: number, y: number): void {
@@ -259,15 +264,20 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       if (!drag.moved && Math.hypot(x - drag.x0, y - drag.y0) < 4) return; // (a press that has not gone anywhere yet is still a click)
       drag.moved = true; drag.join = null; drag.snapAt = null; drag.help = null;
       const sol0 = solOf(drag.def0), S0 = sysOf(drag.def0);
-      if (drag.edge) { // a circle's edge: the place the helpers give the edge (a tangent, an equal radius) sets the radius
-        const centre = sol0.points[drag.edge.centre]!, out = without(S0, [drag.edge.circle]);
-        drag.help = helpersAt(out, { shape: "circle", centre, startId: drag.edge.centre }, c.q, c.mm, settings.helpers);
-        const at = drag.help.acted.length ? drag.help.at : c.q, r = dragRadius(drag.def0, drag.edge.circle, Math.max(1e-3, Math.hypot(at[0] - centre[0], at[1] - centre[1])));
-                if (!r) return;
-        defs.set(drag.key, r.params); flash = r.held.length ? { refused: r.held } : {}; flashUntil = performance.now() + 400; if (r.held.length) say("Held back by the constraints shown in red", 600); return;
+      if (drag.edge) { // a circle's or an arc's edge: the place the helpers give the edge (a tangent, an equal radius) sets the radius
+        const e = drag.edge, centre = sol0.points[e.centre]!, out = without(S0, [e.circle, ...(e.ends ?? [])]);
+        drag.help = helpersAt(out, { shape: "circle", centre, startId: e.centre }, c.q, c.mm, settings.helpers);
+        const at = drag.help.acted.length ? drag.help.at : c.q, rad = Math.max(1e-3, Math.hypot(at[0] - centre[0], at[1] - centre[1]));
+        let r: { params: SketchParams; held: string[] } | null;
+        if (e.ends) { // an arc: both ends go along their own lines out of the centre to the new radius
+          const pins: Record<string, P2> = { [e.centre]: centre }; for (const end of e.ends) { const q = sol0.points[end]!, n = Math.hypot(q[0] - centre[0], q[1] - centre[1]) || 1; pins[end] = [centre[0] + ((q[0] - centre[0]) / n) * rad, centre[1] + ((q[1] - centre[1]) / n) * rad]; }
+          r = dragTo(drag.def0, pins);
+        } else r = dragRadius(drag.def0, e.circle, rad);
+        if (!r) return;
+        defs.set(drag.key, r.params); working(activeOf(drag.def0, r.params, e.ends ? [e.centre, ...e.ends] : [e.centre, e.circle]), r.held); return;
       }
       let d: P2 = [c.q[0] - drag.q0[0], c.q[1] - drag.q0[1]];
-      const lone = drag.pins.length === 1 && drag.id === drag.pins[0], whole = !lone && (drag.pins.length === 2 || drag.pins.length === 3) && !drag.pins.includes(drag.id), piece = lone || whole ? pieceOf(drag.def0, sol0, drag.id) : null; // (a whole line, or a circle by its centre, moves as one piece)
+      const lone = drag.pins.length === 1 && drag.id === drag.pins[0], piece = pieceOf(drag.def0, sol0, drag.id); // (a whole line, an arc or a circle by its centre moves as one piece)
       const hint = (at0: Pt, want: Pt, look: { free: Free; out: string[] }) => { // the helpers place what is dragged, as when it was drawn: they place, they never constrain
         const help = helpersAt(without(S0, look.out), look.free, want, c.mm, settings.helpers);
         drag!.help = help.acted.length || help.holds.length ? help : null;
@@ -280,8 +290,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       } else if (piece) hint(piece.ref, [piece.ref[0] + d[0], piece.ref[1] + d[1]], piece);
       const pins = Object.fromEntries(drag.pins.map((id) => [id, [drag!.start[id]![0] + d[0], drag!.start[id]![1] + d[1]] as [number, number]]));
       const r = dragTo(drag.def0, pins); if (!r) return; // (a place that cannot be solved: the part stays where it was last)
-      defs.set(drag.key, r.params);
-      flash = r.held.length ? { refused: r.held } : {}; flashUntil = performance.now() + 400; if (r.held.length) say("Held back by the constraints shown in red", 600);
+      defs.set(drag.key, r.params); working(activeOf(drag.def0, r.params, drag.pins), r.held);
     },
     grabEnd(): void {
       const g = drag; drag = null; if (!g) return;
@@ -290,7 +299,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       }
       const next = defs.get(g.key) ?? g.def0; // (a point let go on another point or a curve lands there; no constraint is made by it)
       defs.set(g.key, g.def0); // (the history takes the whole move as one change, from where it began)
-      set(g.key, next, "Drag"); sel.setSketch(g.key, [g.id]); flash = {};
+      set(g.key, next, "Drag"); sel.setSketch(g.key, [g.id]); flash = {}; activeSince.clear();
     },
     /** What to draw: every sketch on every plane (what is selected in teal), what the tool would make, the part a trim would take, and the place the pointer is at. */
     lines(pointer: { x: number; y: number } | null): DrawLine[] {
@@ -301,7 +310,8 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
         const f = all.get(k)!, s = solOf(p), chosen = new Set(selected(k)), seg = segsOf(p, s.points, s.radii);
         for (const q of seg) out.push({ kind: chosen.has(q.name) ? "selected" : "done", pts: polyline(q).map((z) => to3(f, z)) });
         if (chosen.size) { const S = sysOf(p); for (const b of bubblesOn(S, [...chosen])) { const m = b.relation === "angle" ? angleMarkAt(f, S, b.parts) : null; if (m) out.push({ kind: "note", pts: m.arc.map((z) => to3(f, z)) }); } }
-        for (const x of p.points) { const at = chosen.has(x.id) ? s.points[x.id] : null; if (at) out.push({ kind: "ball", pts: [to3(f, at)], r: mmPerPx(f, at) * settings.sketch.ballPx }); } // (the old app marks no point until it is picked, then a teal ball)
+        const shownPts = chosen.size ? new Set(scopeOf(sysOf(p), [...chosen])) : chosen; // (what is selected shows what it is made of: a circle its centre, a line its ends, an arc its centre and ends)
+        for (const x of p.points) { const at = shownPts.has(x.id) ? s.points[x.id] : null; if (at) out.push({ kind: "ball", pts: [to3(f, at)], r: mmPerPx(f, at) * settings.sketch.ballPx }); } // (the old app marks no point until it is picked, then a teal ball)
       }
       if (drag?.help) { // what the helpers say of where the dragged point or edge is: the same drawing as when the figure was drawn (orange ties, dashed guides)
         const f = all.get(drag.key), p = defs.get(drag.key);
@@ -344,12 +354,13 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       const S = sysOf(c.p), ids = selected(c.key), has = (id: string) => S.points.some((x) => x.id === id) || S.lines.some((x) => x.id === id) || S.circles.some((x) => x.id === id);
       if (ids.length) recent = null; // (once the person has picked something, the offers for what was just made are over)
       const fresh = recent && recent.key === c.key ? { ids: recent.ids.filter(has), until: recent.until } : null;
-      const list = marksFor(S, ids, { flash, recent: fresh, now }), chosen = [...ids].sort().join();
+      const fade = (id: string) => { const t = activeSince.get(id); if (t === undefined) return 1; return Math.max(0, Math.min(1, (now - t) / settings.marks.fadeInMs, drag ? 1 : (flashUntil - now) / 400)); }; // (a constraint doing work fades in; once the drag is over it fades out)
+      const list = marksFor(S, ids, { flash, recent: fresh, now, fade }), chosen = [...ids].sort().join();
       ownId = list.find((m) => m.kind === "dimension" && [...m.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
       return list.map(at3);
     },
     /** Each picture: a refusal's red goes after its time. */
-    frame(now: number): void { if (now > flashUntil) flash = {}; },
+    frame(now: number): void { if (!drag && now > flashUntil) { flash = {}; activeSince.clear(); } }, // (while a drag is held, the constraints doing work and the ones holding it back stay)
     /** The closed parts of every drawing, to be tinted (a closed figure has a very faint fill in the old app, `in_194`): the outline and holes in each plane's axes. */
     fills(): { frame: { origin: V3; u: V3; v: V3 }; loops: [number, number][][] }[] {
       const { all } = host.planes(), out: { frame: { origin: V3; u: V3; v: V3 }; loops: [number, number][][] }[] = [];
