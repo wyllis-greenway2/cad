@@ -3,7 +3,7 @@ id: dec_three_surfaces
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1598, in_1599, in_1600
+human_input: in_1598, in_1599, in_1600, in_1601
 date: 2026-11-26
 depends_on:
   - dec_helpers_one_rule: what the info bar offers is the same predicate (`offerable`) as what the helpers offer
@@ -45,6 +45,7 @@ alternative_to:
 ## Built
 
 - **Step 1, the notices (`in_1600`):** `interaction/notices.ts` (the stack as a value with its own clock: persistent and temporary, a limit of three, the same words begun again not stacked, a handle to clear or change one), `notifydraw.ts` (one stack at the bottom, takes no clicks), every sentence of the page through `notify` (`main.ts`, the sketch controller's host, the operation controller's `say`); the engine's problem is a persistent error while it lasts, "Making..." a persistent notice after 300 ms of work; the old bottom line, the sketch's own message and the step list's "making..." are gone; `dev/notices-check.ts`, `dev/notices-browser.ts`. The undo and redo items and the always-on step list are gone (History in the menu).
+- **Step 2, the info bar (`in_1601`):** `interaction/infobar.ts` (was `helperbar.ts`: `infoFor` = the facts of the selection on the left, `barFor` and `nearFor` on the right; `nearFor` is the relations with one other part that hold now and would be new, up to two, the first of each other part before a second of any), `infobardraw.ts` (the one drawing: a constraint is a round button, a click takes it away; a number is a pill with its padlock, typed over; suggestions in a dashed outline, a click applies them; digits typed with the subject selected go to its number), `bodyselect.ts`, `sketchcontrol.ts` and `operationcontrol.ts` each give a `subject()` (what to say, where it stands, what the buttons do) and `main.ts` draws the first that has one. The line, circle or arc just made is **selected** so the bar speaks of it. **Deleted:** `bubbledraw.ts`, `bubbleplace.ts`, `chipdraw.ts`, `offers.ts` (the offer bubbles with a question mark, the timer and the check), `helperbardraw.ts`, `settings.offer`, and `dec_helper_constraint_bubble` (its job is the right of the bar). `dev/infobar-check.ts`, `tangent-browser` (suggested on the right, a click moves it to the left, clicked there it is taken away and is on the right again), `typed-browser` (the figure under way's numbers in the bar) and the other page checks updated.
 
 ## Rationale
 

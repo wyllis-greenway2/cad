@@ -31,7 +31,7 @@ Asked for in `in_1579` and `in_1580` (a simple rule set that expands well and co
 - **The free thing is general.** The place `~P` is alone (a corner, a centre, a first click), or the end of a line from the figure's first place `~S` (`~L`), or the edge of a circle about it (`~C`). Dragging a point will use the same. A new tool says which of its points is free.
 - **Units.** The step to a relation is the Newton step on its residuals, so it is in mm whatever the row's unit (an angle's residual is turned into the distance the place must move): one reach, 6 px for a line, 12 px for a point.
 - **A guard.** Every relation row says `helper: null` or what it needs (`HelperSpec`), so a new relation cannot be left out (type-checked, and `dev/helpers-check.ts`). Relations with three parts (`symmetric`) are `null` until a locality prune is built; with several roots (tangent) only the roots within reach of the pointer matter, found by Newton from it.
-- **Everything that holds is shown.** At the place, every helper that holds is shown (sources lit, guides drawn) and offered (`dec_helper_constraint_bubble`), not only the ones that moved it: a place on a circle's middle holds level and upright with it, so the cross appears with no case for circles. A relation that holds wherever the place is (the end of the line is on the line) says nothing and is left out.
+- **Everything that holds is shown.** At the place, every helper that holds is shown (sources lit, guides drawn) and shown, not only the ones that moved it: a place on a circle's middle holds level and upright with it, so the cross appears with no case for circles. A relation that holds wherever the place is (the end of the line is on the line) says nothing and is left out.
 
 ## Hints and constraints are one thing (`in_1583`)
 
@@ -40,7 +40,7 @@ A helper is a relation that is **applicable** and **within reach**. *Applicable*
 
 ## One rule for what is offered (`in_1597`)
 
-A relation is offered to a person, **anywhere**, only if it is **offerable**: new (`free`), or true as drawn but not yet said (`holds`), and the solver would accept it. One predicate, `offerable` in `engine/relations.ts`, is used by the helpers of drawing (`applicable`), the offer bubbles after a figure is placed (`offersFrom`) and the helper bar (`barFor`). **Already said** and **refused** are never offered (the bar used to show refused ones with a red edge as buttons that only said why they would not work; that is gone). The helper bar has no Delete button either: Delete and a click on nothing do that. A bar with nothing offerable does not appear.
+A relation is offered to a person, **anywhere**, only if it is **offerable**: new (`free`), or true as drawn but not yet said (`holds`), and the solver would accept it. One predicate, `offerable` in `engine/relations.ts`, is used by the helpers of drawing (`applicable`) and the info bar (`barFor`, and `nearFor` for the relations with one other part that hold now). **Already said** and **refused** are never offered (the bar used to show refused ones with a red edge as buttons that only said why they would not work; that is gone). The helper bar has no Delete button either: Delete and a click on nothing do that. A bar with nothing offerable does not appear.
 
 ## Not helpers
 

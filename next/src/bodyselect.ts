@@ -3,7 +3,8 @@
 import { project, type Cam } from "./camera.ts";
 import { pickAt, type Hit } from "./interaction/pick.ts";
 import { barForBody } from "./interaction/bodybar.ts";
-import type { Bar } from "./interaction/helperbar.ts";
+import type { Info } from "./interaction/infobar.ts";
+import type { InfoHandlers } from "./infobardraw.ts";
 import type { BodyMesh, EdgeInfo, FaceInfo } from "./studio.ts";
 import type { BodyPick, Selection as Store } from "./selection.ts";
 
@@ -44,11 +45,11 @@ export function createBodySelect(host: BodySelectHost) {
         out.push({ body: over.body, faces: over.kind === "face" ? [{ start: over.face.start, count: over.face.count }] : [], edges: over.kind === "edge" ? [{ start: over.edge.start, count: over.edge.count }] : [], strength: "hover" });
       return out;
     },
-    /** What the helper bar says for the pick (null: none, or `hide`: something else is being done): the buttons, the place they stand by, and what a press does. */
-    bar(hide: boolean): { items: Bar; at: [number, number]; press: (id: string) => void } | null {
+    /** What the info bar says for the pick (null: none, or `hide`: something else is being done): what can be done with it, the place it stands by, and what a press does. */
+    subject(hide: boolean): { info: Info; at: [number, number]; on: InfoHandlers } | null {
       const picked = sel(); if (!picked || hide) return null;
       const { cam, w, h } = host.view(), q = project(cam, picked.at, w, h);
-      return { items: barForBody({ faces: picked.faces.length, edges: picked.edges.length }), at: [q.x, q.y], press: (id) => host.press(id, picked) };
+      return { info: { facts: [], suggestions: barForBody({ faces: picked.faces.length, edges: picked.edges.length }) }, at: [q.x, q.y], on: { suggest: (id) => host.press(id, picked), fact() { /* none */ }, set() { /* none */ }, lock() { /* none */ } } };
     },
     /** The pick is dropped when its body is made again (the faces may be other ones now). */
     reset() { if (store.body()) store.clear(); over = null; },

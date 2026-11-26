@@ -8,7 +8,7 @@ try {
   const px = pxIn(ev);
   const def = () => ev<any>(`() => window.__sketch.debug().sketches[0]?.[1] ?? null`);
   const click = clickIn(page, px, 120);
-  const bubbles = () => ev<any[]>(`() => [...document.querySelectorAll("[data-bubble]")].map((e) => ({ id: e.dataset.bubble, text: e.textContent, border: e.style.border }))`);
+  const bubbles = () => ev<any[]>(`() => [...document.querySelectorAll("[data-fact]")].map((e) => ({ id: e.dataset.fact, text: e.textContent, border: e.style.border }))`);
 
   await ev(`() => window.__tool("rect")`); await page.waitForTimeout(900);
   await click(0, 0); await click(40, 25);
@@ -40,16 +40,16 @@ try {
   await click(20, 0);
   let b = await bubbles(); ok(b.some((q) => /—|horizontal/i.test(q.text ?? "") || true) && b.length >= 1, `a selected side shows its bubbles (${b.length})`);
   const bar = await ev<string[]>(`() => [...document.querySelectorAll("[data-bar]")].map((e) => e.dataset.bar)`);
-  ok(bar.every((x) => x.startsWith("rel:")) && !bar.includes("rel:length"), `the bar of a side of the rectangle holds only relations that would be new (level is said, upright would be refused: none): ${bar.join(" ") || "no bar"}`);
-  ok(b.some((q) => q.text === "40") && (await page.locator("[data-bubble] [data-padlock='open']").count()) === 1, `the side's measured length is a bubble with an open padlock: ${JSON.stringify(b.map((q) => q.text))}`);
+  ok(bar.every((x) => x.startsWith("rel:") || x.startsWith("near:")) && !bar.includes("rel:length"), `the info bar of a side of the rectangle suggests only relations that would be new (level is said, upright would be refused; a near one that holds): ${bar.join(" ") || "none"}`);
+  ok(b.some((q) => q.text === "40") && (await page.locator("[data-fact] [data-padlock='open']").count()) === 1, `the side's measured length is a bubble with an open padlock: ${JSON.stringify(b.map((q) => q.text))}`);
   writeFileSync(`${dir}/sketch-bar.png`, await page.screenshot());
   await page.keyboard.type("55"); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
-  ok((await page.locator("[data-bubble] [data-padlock='closed']").count()) === 1, "typing digits with the side selected types into its number, and Enter locks it (a closed padlock)");
+  ok((await page.locator("[data-fact] [data-padlock='closed']").count()) === 1, "typing digits with the side selected types into its number, and Enter locks it (a closed padlock)");
   d = await def(); const first = d.points.find((p: any) => p.id === "P1"); ok(Math.abs(first.x) < 1e-6 && Math.abs(first.y) < 1e-6, `the first corner stays at the origin (${first.x.toFixed(3)}, ${first.y.toFixed(3)})`);
   const L1 = d.lines.find((l: any) => l.id === "L1"), pa = d.points.find((p: any) => p.id === L1.a), pb = d.points.find((p: any) => p.id === L1.b); ok(Math.abs(Math.hypot(pb.x - pa.x, pb.y - pa.y) - 55) < 1e-4, `typing 55 makes the bottom side 55 long (${Math.hypot(pb.x - pa.x, pb.y - pa.y).toFixed(3)})`);
   writeFileSync(`${dir}/sketch-3.png`, await page.screenshot());
   // a number that cannot be
-  const num2 = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-bubble] span")].find((s) => s.textContent === "55")!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+  const num2 = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-fact] span")].find((s) => s.textContent === "55")!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
   await page.mouse.click(num2[0]!, num2[1]!); await page.keyboard.type("-3"); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
   b = await bubbles(); ok(b.some((q) => q.text === "55" && /228, 106, 106/.test(q.border)), "a number that cannot be goes back and its bubble is red");
   // delete, with the key

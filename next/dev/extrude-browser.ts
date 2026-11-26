@@ -23,7 +23,7 @@ try {
   writeFileSync(`${dir}/extrude-2.png`, await page.screenshot());
   await page.mouse.up();
   // type a number over: click the bubble's number
-  const num = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-bubble='d'] span")].find((s) => /^-?[\d.]+$/.test(s.textContent ?? ""))!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+  const num = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-fact='d'] span")].find((s) => /^-?[\d.]+$/.test(s.textContent ?? ""))!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
   await page.mouse.click(num[0]!, num[1]!); await page.keyboard.press("Control+a"); await page.keyboard.type("12"); await page.keyboard.press("Enter"); await page.waitForTimeout(200);
   d = await ev<any>(`() => window.__ext.debug()`); ok(d.pull && d.pull.d === 12, `typing 12 over the number: d = ${d.pull?.d}`);
   await page.keyboard.press("Enter"); await page.waitForTimeout(100);

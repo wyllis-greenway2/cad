@@ -45,3 +45,12 @@ export function chipFields(kind: DrawKind, typed: readonly string[], field: numb
   const show = (v: number) => String(Math.round(Math.abs(v) * 100) / 100);
   return FIELDS[kind].map((f, i) => ({ label: f.label, text: (typed[i] ?? "") !== "" ? typed[i]! : show((live[i] ?? 0) * f.scale), typed: (typed[i] ?? "") !== "", active: i === field }));
 }
+
+/** the names the free parts of a figure have once it is made: the points at the place and at the first place, the line between, the circle about the first place (by where they are) */
+export function madeNames(p: import("../engine/sketch.ts").SketchParams, sol: { points: Record<string, [number, number]> }, at: Pt, start: Pt | null): Partial<Record<typeof P | typeof S | typeof L | typeof C, string>> {
+  const near = (q: Pt | null) => (q ? p.points.find((x) => Math.hypot(sol.points[x.id]![0] - q[0], sol.points[x.id]![1] - q[1]) < 1e-6)?.id : undefined);
+  const made: Partial<Record<typeof P | typeof S | typeof L | typeof C, string>> = { [P]: near(at), [S]: near(start) };
+  made[L] = (p.lines ?? []).find((l) => l.a === made[S] && l.b === made[P])?.id;
+  made[C] = [...(p.circles ?? [])].reverse().find((k) => k.c === made[S])?.id;
+  return made;
+}

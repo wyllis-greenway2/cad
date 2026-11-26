@@ -21,7 +21,7 @@ try {
   const arrow = await ev<number[][]>(`() => window.__ext.drawing(null).handles[0].points`);
   const mid = await ev<[number, number]>(`() => window.__proj([${arrow[0]!.map((v, i) => (v + arrow[1]![i]!) / 2)}])`);
   await page.mouse.move(mid[0], mid[1]); await page.mouse.down(); await page.mouse.move(mid[0], mid[1] - 60, { steps: 5 }); await page.mouse.up();
-  const num = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-bubble='d'] span")].find((s) => /^-?[\d.]+$/.test(s.textContent ?? ""))!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+  const num = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-fact='d'] span")].find((s) => /^-?[\d.]+$/.test(s.textContent ?? ""))!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
   await page.mouse.click(num[0]!, num[1]!); await page.keyboard.press("Control+a"); await page.keyboard.type("12"); await page.keyboard.press("Enter"); await page.keyboard.press("Enter"); await settle();
   let st = await state(); ok(st.steps.join() === "sketch,extrude:12" && Math.abs(st.top - 12) < 1e-6, `extruded 12: ${JSON.stringify(st)}`);
   ok((await visible("[data-step]")) === 0, "the step list does not show on its own, even with steps");

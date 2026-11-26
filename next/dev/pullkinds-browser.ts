@@ -14,7 +14,7 @@ try {
   const edges = [[10, 0, 10], [20, 10, 10], [10, 20, 10], [0, 10, 10]];
   for (let i = 0; i < edges.length; i++) { const [x, y] = await p3(edges[i]!); if (i) await page.keyboard.down("Shift"); await page.mouse.click(x, y); if (i) await page.keyboard.up("Shift"); await page.waitForTimeout(150); }
   await page.click("[data-bar='body:chamfer']"); await page.waitForTimeout(250);
-  const num = async (v: string) => { const n = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-bubble='d'] span")].find((s) => /^-?[\d.]+$/.test(s.textContent ?? ""))!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }); await page.mouse.click(n[0]!, n[1]!); await page.keyboard.press("Control+a"); await page.keyboard.type(v); await page.keyboard.press("Enter"); };
+  const num = async (v: string) => { const n = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-fact='d'] span")].find((s) => /^-?[\d.]+$/.test(s.textContent ?? ""))!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }); await page.mouse.click(n[0]!, n[1]!); await page.keyboard.press("Control+a"); await page.keyboard.type(v); await page.keyboard.press("Enter"); };
   await num("3"); await page.keyboard.press("Enter"); await settle();
   let b = await body(); ok(b.steps.join() === "sketchPolygon,extrude,round" && b.problem === "", `a chamfered block: ${JSON.stringify(b)}`);
   const pickTop = async () => { const [x, y] = await p3([10, 10, 10]); await page.mouse.click(x, y); await page.waitForTimeout(250); await page.click("[data-bar='body:pull']"); await page.waitForTimeout(600); };

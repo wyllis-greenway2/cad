@@ -15,9 +15,10 @@ export interface Bubble {
   tone: BubbleTone;
   /** the words (a tooltip): what it is and what it ties the selection to */ title: string;
   parts: string[];
-  /** a constraint a helper held, offered for a moment: a click makes it (`dec_helper_constraint_bubble`); `taken`: it was, and shows a check */ offer?: "open" | "taken";
+  /** a constraint a helper held, offered for a moment: a click makes it `taken`: it was, and shows a check */ offer?: "open" | "taken";
   /** how much of its colour is left while it fades (1: all) */ fade?: number;
   /** how a typed number becomes the solver's value (a circle is shown by its diameter: the value is half of it; an angle is shown inside the corner: `mul` and `add` turn it into the directed angle the solver reads): value = mul * typed + add */ input?: { mul: number; add: number };
+  /** a number of a figure being drawn: it takes digits from the keys and nothing else (no click), and the one digits go to is `active` */ readonly?: boolean; active?: boolean;
   /** a dimension: locked (the constraint exists, a closed padlock) or only measured (no constraint, an open padlock: `dec_dimensions_measure_then_lock`) */ locked?: boolean;
 }
 /** A refusal while it flashes: the constraints that held the change back; and the ones that held already. */

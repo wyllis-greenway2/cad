@@ -20,9 +20,17 @@ try {
   ok(lit.length >= 1, "the circle is lit orange while the line runs tangent to it");
   writeFileSync(`${dir}/tangent-1.png`, await page.screenshot());
   await page.mouse.click(mx, my); await page.waitForTimeout(300);
-  const b = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-bubble^='offer']")].map((e) => e.title));
-  ok(b.some((t) => /tangent/.test(t)), `the tangent is offered as a constraint: ${JSON.stringify(b)}`);
-  const d = await def(); ok(d.constraints.length === 0, "and nothing was made unasked");
+  const bars = () => page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-info] [data-bar]")].map((e) => e.dataset.bar!));
+  const tangent = (await bars()).find((id) => id.startsWith("near:tangent"));
+  ok(!!tangent, `the line just made is selected and the tangent is suggested on the right of the info bar: ${JSON.stringify(await bars())}`);
+  let d = await def(); ok(d.constraints.length === 0, "and nothing was made unasked");
+  writeFileSync(`${dir}/tangent-2.png`, await page.screenshot());
+  await page.click(`[data-bar='${tangent}']`); await page.waitForTimeout(250);
+  d = await def(); ok(d.constraints.some((k: any) => k.kind === "tangent"), `a click makes it: ${JSON.stringify(d.constraints)}`);
+  ok(!(await bars()).includes(tangent!) && (await page.locator("[data-info] [data-fact]").count()) >= 1, "and it moves to the left, among what is so");
+  await page.click("[data-info] [data-fact]:not(:has([data-number]))"); await page.waitForTimeout(250);
+  d = await def(); ok(!d.constraints.some((k: any) => k.kind === "tangent"), "clicked there it is taken away");
+  ok((await bars()).some((id) => id.startsWith("near:tangent")), "and it is on the right again, offered");
   ok(errors.length === 0, `no errors in the page ${errors.join("; ")}`);
   await close();
 } finally { await S.stop(); }

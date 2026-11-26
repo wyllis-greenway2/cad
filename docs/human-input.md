@@ -6515,3 +6515,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1600 — 2026-11-26 — approval
 > yes to both, start with the notification system, yes esc sounds correct. I wanted undo and redo to be ctrl z and ctrl y only. I wanted the history to be accessible from the ... menu, not show up on its own.
 
+## in_1601 — 2026-11-26 — approval
+> yes start step 2
+

@@ -1,5 +1,5 @@
 // A dev check (not a test, `in_1444`) of the helper bar's descriptions: node --experimental-strip-types dev/helperbar-check.ts
-import { barFor } from "../src/interaction/helperbar.ts";
+import { barFor } from "../src/interaction/infobar.ts";
 import { addRect, emptySketch, keep, viewSystem } from "../src/interaction/drawing.ts";
 import { refOf } from "../src/interaction/drawing.ts";
 import { check, failureCount } from "./lib.ts";
@@ -18,4 +18,21 @@ check("two opposite level sides: parallel follows from what is there so it is no
 check("two points: no distance on the bar (it is on the bubble)", !pts.some((b) => /istance/.test(b.id)), ids(pts));
 check("everything on the bar is new or true as drawn: the tones are free or holds, never refused", [...one, ...two, ...pts].every((b) => b.tone === "free" || b.tone === "holds"));
 check("every button has an icon key and words", [...one, ...two, ...pts].every((b) => b.icon && b.label));
+// near suggestions and the whole info (`dec_three_surfaces`): relations with one other part that hold now and would be new; facts on the left, suggestions on the right
+import { addCircle } from "../src/interaction/drawing.ts";
+import { infoFor, nearConstraint, nearFor } from "../src/interaction/infobar.ts";
+{
+  let q = emptySketch(); const z = { points: {}, radii: {} } as never, k1 = keep(addLine(q, z, refOf(q, z, [0, 0], 0.5), refOf(q, z, [40, 0], 0.5))!); if (!k1.ok) throw new Error(k1.why); q = k1.params;
+  const k2 = keep(addCircle(q, k1.sol, refOf(q, k1.sol, [20, 5], 0.5), [25, 5])!); if (!k2.ok) throw new Error(k2.why); q = k2.params;
+  const k3 = keep(addLine(q, k2.sol, refOf(q, k2.sol, [0, 30], 0.5), refOf(q, k2.sol, [40, 30], 0.5))!); if (!k3.ok) throw new Error(k3.why); q = k3.params;
+  const sys = viewSystem(q, k3.sol), near = nearFor(sys, ["L1"]);
+  check("a line touching a circle: the tangent with it is a near suggestion", near.some((b) => b.id.startsWith("near:tangent:") && /K1/.test(b.id)), near.map((b) => b.id).join());
+  check("at most two near suggestions", nearFor(sys, ["L1"], 9).length >= nearFor(sys, ["L1"]).length && nearFor(sys, ["L1"]).length <= 2);
+  const nc = nearConstraint(near[0]!.id);
+  check("a near suggestion says the constraint it makes: the relation and the parts", !!nc && nc.parts.includes("L1") && nc.parts.length === 2, JSON.stringify(nc));
+  const info = infoFor(sys, ["L2"]);
+  check("a line level with another far from it: horizontal-like relations are suggested, none already said, and the number is a fact", info.facts.some((f) => f.kind === "dimension" && f.locked === false) && info.suggestions.length > 0, info.suggestions.map((b) => b.id).join());
+  check("nothing selected, or three parts: no near suggestions", nearFor(sys, []).length === 0 && nearFor(sys, ["L1", "L2", "K1"]).length === 0);
+  check("everything suggested is new or true as drawn (never refused or already said)", [...infoFor(sys, ["L1"]).suggestions, ...infoFor(sys, ["L1", "K1"]).suggestions].every((b) => b.tone === "free" || b.tone === "holds"));
+}
 process.exit(failureCount() ? 1 : 0);

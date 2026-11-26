@@ -15,15 +15,14 @@ import type { Relation } from "./engine/solver.ts";
 import type { Selection } from "./selection.ts";
 import type { NoticeOptions } from "./interaction/notices.ts";
 import { bake, constrain, emptySketch, hitAt, keep, nextId, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
-import { MEASURE_ID, angleMark, bubblesOn, selectionAnchor, type Bubble, type Flash } from "./interaction/bubbles.ts";
-import { barFor, type Bar } from "./interaction/helperbar.ts";
-import { createBubbleLayer, type Placed } from "./bubbledraw.ts";
+import { MEASURE_ID, angleMark, bubblesOn, selectionAnchor, type Flash } from "./interaction/bubbles.ts";
+import { infoFor, nearConstraint, type Fact, type Info } from "./interaction/infobar.ts";
+import type { InfoHandlers } from "./infobardraw.ts";
 import { helpersAt, type Helped } from "./engine/helpers.ts";
 import type { Free } from "./engine/free.ts";
 import { measureAt, placeTyped, type TypedMeasure } from "./engine/typed.ts";
-import { FIELDS, chipFields, freeOf, typeKey, typedMeasures, type ChipField } from "./interaction/typing.ts";
+import { FIELDS, chipFields, freeOf, madeNames, typeKey, typedMeasures } from "./interaction/typing.ts";
 import { helpShown } from "./interaction/helpshow.ts";
-import { madeNames, newOffers, offerBubbles, takeOffer, type Offers } from "./interaction/offers.ts";
 import { newTool, cancelFigure, toolClick, toolPreview, type Tool } from "./interaction/tools.ts";
 import { dragTo, joinFor, pinsOf } from "./interaction/dragging.ts";
 import { loopPoints, regionAt, type Region } from "./interaction/extrude.ts";
@@ -34,6 +33,9 @@ export interface SketchHost {
   /** Every plane there is, by name (the sketches of a plane that is gone are let go), and the one that is on. */
   planes(): { all: Map<string, Frame>; on: string; step: number };
   ray(x: number, y: number): { o: V3; d: V3 };
+  /** digits typed with a part selected go to its number in the info bar (false: there is none), and whether a number is being typed */
+  startEdit(id: string, initial: string): boolean;
+  editing(): boolean;
   /** a sentence for the person, through the page's one notice (`interaction/notices.ts`) */
   notify(text: string, o?: NoticeOptions): void;
   /** the page's one selection (`selection.ts`): what is selected in a sketch is kept there, so selecting on a body puts it away */
@@ -44,7 +46,7 @@ export interface DrawLine { pts: V3[]; /** a ball's radius, in mm */ r?: number;
 /** the keys that type a number (and what each types) */
 const TYPED: Record<string, string> = { ...Object.fromEntries([...Array(10).keys()].flatMap((d) => [[`Digit${d}`, String(d)], [`Numpad${d}`, String(d)]])), Period: ".", NumpadDecimal: ".", Minus: "-", NumpadSubtract: "-" };
 
-export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: string, merge?: string) => void) {
+export function createSketch(host: SketchHost, on?: (label: string, merge?: string) => void) {
   const defs = new Map<string, SketchParams>(), sols = new WeakMap<SketchParams, Sol>(), fillCache = new WeakMap<SketchParams, [number, number][][][]>();
   const sel = host.selection;
   let tool: Tool | null = null, flash: Flash = {}, flashUntil = 0;
@@ -96,7 +98,19 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   type Drag = { key: string; def0: SketchParams; pins: string[]; start: Record<string, [number, number]>; q0: P2; x0: number; y0: number; moved: boolean; shift: boolean; id: string; join: { id: string; kind: "point" | "curve" } | null; snapAt: P2 | null };
   let drag: Drag | null = null;
 
-  const layer = createBubbleLayer(page, {
+  /** what the info bar's buttons do (`dec_three_surfaces`): a suggestion is applied; a constraint clicked is taken away; a number typed over is the number (a measured one locks); a padlock locks or lets go */
+  const handlers: InfoHandlers = {
+    suggest(id) {
+      const c = current(); if (!c) return;
+      const nc = nearConstraint(id);
+      if (!nc) { act(id); return; }
+      const k = keep({ ...c.p, constraints: [...(c.p.constraints ?? []), { id: nextId(c.p, "c"), kind: nc.kind, parts: nc.parts, ...(nc.internal ? { internal: true } : {}) }] });
+      if (k.ok) set(c.key, k.params, "Constraint"); else fail(k.why, k.victims);
+    },
+    fact(id) {
+      const c = current(); if (!c) return;
+      const r = unconstrain(c.p, id); if (r.ok) set(c.key, r.params, "Delete constraint"); else fail(r.why, r.victims);
+    },
     set(id, value) {
       const c = current(); if (!c) return;
       if (id === MEASURE_ID) { lockMeasure(value); return; } // (a number typed over one that is only measured locks it at that number)
@@ -108,12 +122,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       if (id === MEASURE_ID) { lockMeasure(); return; } // (measured: lock it at what it measures now)
       const r = unconstrain(c.p, id); if (r.ok) set(c.key, r.params, "Unlock"); else fail(r.why, r.victims); // (locked: let it go; it is only measured again)
     },
-    take(id) { takeOne(id); },
-    remove(id) {
-      const c = current(); if (!c) return;
-      const r = unconstrain(c.p, id); if (r.ok) set(c.key, r.params, "Delete constraint"); else fail(r.why, r.victims);
-    },
-  });
+  };
 
   /** the selection's own number locked: at what it measures now, or at the number typed */
   const lockMeasure = (value?: number) => {
@@ -136,8 +145,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     const k = keep(next);
     if (k.ok) set(key, k.params, label); else fail(k.why, k.victims);
   };
-  // ---- the constraints a helper held, offered for a moment after a figure is placed (`dec_helper_constraint_bubble`, `interaction/offers.ts`): this keeps the value and says when the sketch changed
-  let offers: Offers | null = null, ownId: string | null = null, lastPointer: { x: number; y: number } | null = null, clickAt: ((x: number, y: number, count: number) => boolean) | null = null;
+  let ownId: string | null = null, lastPointer: { x: number; y: number } | null = null, clickAt: ((x: number, y: number, count: number) => boolean) | null = null;
   /** a key while a figure is under way: digits, a point and a minus go to the active number, Backspace takes one away, Tab changes number, Enter makes the figure from what is typed (`typing.ts`) */
   const typeInTool = (code: string): boolean => {
     if (!tool || tool.kind === "trim" || !tool.pts.length || !FIELDS[tool.kind].length) return false;
@@ -149,12 +157,6 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     if (next.join("\u0000") === tool.typed.join("\u0000")) return key === "Backspace" ? false : true; // (a key that adds nothing, as a second point, is used up, a Backspace with nothing typed is not)
     tool = { ...tool, typed: next }; return true;
   };
-  const takeOne = (id: string) => {
-    const c = current(); if (!offers || !c) return;
-    const r = takeOffer(offers, id, c, performance.now(), settings.offer); if (!r) return;
-    if (r.ok) { set(c.key, r.params, "Constraint"); offers = r.offers; } else fail(r.why, r.victims);
-  };
-  const shownOffers = (S: ReturnType<typeof viewSystem>, now: number): Bubble[] => { const r = offerBubbles(offers, current(), S, layer.hovered(), now, settings.offer); offers = r.offers; return r.bubbles; };
   type Trimmed = { id: string; out: ReturnType<typeof trimAt>; err?: undefined } | { id: string; err: string; out?: undefined };
   const trimHere = (c: NonNullable<ReturnType<typeof here>>): Trimmed | null => {
     const s = solOf(c.p), h = hitAt(c.p, s, c.q, c.tol);
@@ -166,11 +168,11 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   const api = {
     active: () => tool !== null,
     tool: (): ToolKind | null => tool?.kind ?? null,
-    start(kind: ToolKind) { tool = newTool(kind); sel.clear(); offers = null; },
+    start(kind: ToolKind) { tool = newTool(kind); sel.clear(); },
     /** Right click or Esc: the figure under way is given up; with none, the tool is put away. Returns whether there was a tool. */
     stop(): boolean {
       if (!tool) return false;
-      if (tool.pts.length) tool = cancelFigure(tool); else { tool = null; offers = null; } // (an offer goes when the tool is put away)
+      if (tool.pts.length) tool = cancelFigure(tool); else tool = null;
       return true;
     },
     /** A click. With a tool on it is the tool's (a double click ends a line's chain); with none, it selects (Shift adds). Returns whether it was used. */
@@ -205,7 +207,9 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
             const k2 = keep(withLocks); if (k2.ok) final = k2.params; else say(`The numbers typed could not be locked: ${k2.why}`);
           }
           set(c.key, final, made.label);
-          if (defs.get(c.key) !== before) { const p2 = defs.get(c.key)!, s2 = solOf(p2); offers = newOffers(c.key, p2, sysOf(p2), s2, pl.help, at, start, performance.now(), settings.offer); }
+          // the line, circle or arc just made is what the info bar speaks of (its numbers, what could be added): it is selected (a rectangle, of four sides, is not)
+          const p2 = defs.get(c.key)!, had = new Set([...(before.lines ?? []), ...(before.circles ?? []), ...(before.arcs ?? [])].map((x) => x.id)), made1 = [...(p2.lines ?? []), ...(p2.circles ?? []), ...(p2.arcs ?? [])].filter((x) => !had.has(x.id));
+          if (made1.length === 1) sel.setSketch(c.key, [made1[0]!.id]); else sel.clear();
         }
       }
       return true;
@@ -215,7 +219,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       const c = current(); if (!c) return false;
       if (tool) return typeInTool(code); // (a figure under way: the keys type its numbers)
       const typed = TYPED[code]; // (digits typed with a part selected go to its own number, `dec_typing_standard`)
-      if (typed !== undefined && ownId && !layer.editing()) return layer.startEdit(ownId, typed);
+      if (typed !== undefined && ownId && !host.editing()) return host.startEdit(ownId, typed);
       const ids = selected(c.key);
       if (code === "Delete" || code === "Backspace") { if (!ids.length) return false; set(c.key, removeParts(c.p, ids), "Delete"); sel.clear(); return true; }
       return false;
@@ -293,32 +297,23 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       }
       return out;
     },
-    /** What the helper bar says for what is selected (null: none: a tool is on, a number is being typed, or nothing is selected): the buttons, the place on the page they stand by, and what a press does. The page has the one bar (`bars` in `main.ts`). */
-    bar(): { items: Bar; at: [number, number]; press: (id: string) => void } | null {
-      const c = current(); if (!c || tool || layer.editing()) return null;
-      const s = solOf(c.p), S = sysOf(c.p), ids = selected(c.key), where = selectionAnchor(S, ids); if (!where) return null;
-      const cam = host.view(), q = project(cam.cam, to3(c.f, where), cam.w, cam.h);
-      return { items: barFor(S, ids), at: [q.x, q.y], press: act };
+    /** What the info bar says: the numbers of a figure being drawn, else what is so of what is selected and what could be added to it (null: neither, or a number is being typed); where on the page it stands from; what its buttons do. The page has the one bar. */
+    subject(): { info: Info; at: [number, number]; on: InfoHandlers } | null {
+      const c = current(); if (!c || host.editing()) return null;
+      const s = solOf(c.p), S = sysOf(c.p), cam = host.view(), project3 = (p: P2) => { const q = project(cam.cam, to3(c.f, p), cam.w, cam.h); return [q.x, q.y] as [number, number]; };
+      if (tool && tool.kind !== "trim" && tool.pts.length && FIELDS[tool.kind].length && lastPointer) { // a figure under way: its numbers, as they are measured or typed (they take digits from the keys)
+        const hereNow = here(lastPointer.x, lastPointer.y); if (!hereNow) return null;
+        const pl = placed(hereNow, s), at = posOf(s, pl.ref), live = FIELDS[tool.kind].map((f) => measureAt(S, pl.free, at, f.kind, f.parts));
+        const facts: Fact[] = chipFields(tool.kind, tool.typed, tool.field, live).map((f) => ({ id: `field:${f.label}`, kind: "dimension", relation: "length", icon: "dimension", at: [0, 0], text: f.text, tone: "rest", title: f.label, parts: [], locked: f.typed, readonly: true, active: f.active, ...(f.label === "Diameter" ? { symbol: "Ø" } : {}) }));
+        ownId = null; return { info: { facts, suggestions: [] }, at: project3(at), on: handlers };
+      }
+      const ids = selected(c.key), where = selectionAnchor(S, ids); if (!where) { ownId = null; return null; }
+      const info = infoFor(S, ids, flash), chosen = [...ids].sort().join();
+      ownId = info.facts.find((b) => b.kind === "dimension" && [...b.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
+      return { info, at: project3(where), on: handlers };
     },
-    /** Each picture: the bubbles of what is selected, on the page, and the sentence (empty when it has gone). */
-    frame(now: number, barBox: [number, number, number, number] | null = null): void {
-      if (now > flashUntil) flash = {};
-      const c = current(), cam = host.view();
-      if (!c) { layer.show([], { lines: [], dots: [] }); return; }
-      const s = solOf(c.p), S = sysOf(c.p), px = (p: P2) => { const q = project(cam.cam, to3(c.f, p), cam.w, cam.h); return [q.x, q.y] as [number, number]; };
-      const box = barBox; // (the bubbles keep clear of the helper bar)
-      const bubbles = [...bubblesOn(S, selected(c.key), flash).map((b) => (b.relation === "angle" ? { ...b, at: angleMarkAt(c.f, S, b.parts)?.at ?? b.at } : b)), ...shownOffers(S, now)], chosen = [...selected(c.key)].sort().join();
-      ownId = bubbles.find((b) => b.kind === "dimension" && [...b.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
-      const items: Placed[] = bubbles.map((bubble) => { const [x, y] = px(bubble.at); return { bubble, x, y }; });
-      layer.show(items, { lines: c.p.lines?.map((l) => [px(s.points[l.a]!), px(s.points[l.b]!)] as [[number, number], [number, number]]) ?? [], dots: c.p.points.map((q) => px(s.points[q.id]!)), ...(box ? { rects: [box] } : {}) });
-    },
-    /** The chip by the pointer while a figure is drawn (the old app's: its numbers, each with a padlock): what it says and where on the page it stands (null: no figure under way, or it has no numbers) */
-    chip(): { fields: ChipField[]; at: [number, number] } | null {
-      if (!tool || tool.kind === "trim" || !tool.pts.length || !FIELDS[tool.kind].length || !lastPointer) return null;
-      const c = here(lastPointer.x, lastPointer.y); if (!c) return null;
-      const s = solOf(c.p), pl = placed(c, s), at = posOf(s, pl.ref), sys = sysOf(c.p), cam = host.view(), q = project(cam.cam, to3(c.f, at), cam.w, cam.h);
-      return { fields: chipFields(tool.kind, tool.typed, tool.field, FIELDS[tool.kind].map((f) => measureAt(sys, pl.free, at, f.kind, f.parts))), at: [q.x, q.y] };
-    },
+    /** Each picture: a refusal's red goes after its time. */
+    frame(now: number): void { if (now > flashUntil) flash = {}; },
     /** The closed parts of every drawing, to be tinted (a closed figure has a very faint fill in the old app, `in_194`): the outline and holes in each plane's axes. */
     fills(): { frame: { origin: V3; u: V3; v: V3 }; loops: [number, number][][] }[] {
       const { all } = host.planes(), out: { frame: { origin: V3; u: V3; v: V3 }; loops: [number, number][][] }[] = [];
@@ -339,7 +334,6 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     hasDrawing: (): boolean => [...defs.values()].some((p) => (p.lines?.length ?? 0) + (p.circles?.length ?? 0) + (p.arcs?.length ?? 0) > 0),
     /** The sketch of a plane, as the definition (for the extrude). */
     sketchOf: (key: string): SketchParams | null => defs.get(key) ?? null,
-    editing: (): boolean => layer.editing(),
     /** a press of the helper bar by its id (`delete`, `clear`, `rel:<relation>`): for the dev checks */
     press: act,
     debug: () => ({ tool: tool ? { ...tool } : null, sketches: [...defs].map(([k, v]) => [k, v] as const), selection: (() => { const k = sel.get(); return k?.kind === "sketch" ? { key: k.key, ids: k.ids } : { key: "", ids: [] }; })() }),

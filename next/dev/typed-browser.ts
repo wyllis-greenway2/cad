@@ -6,12 +6,12 @@ try {
   const { page, errors, close } = await S.open("");
   const ev = evalIn(page), px = pxIn(ev), click = clickIn(page, px, 150);
   const def = () => ev<any>(`() => Object.values(window.__sketch.snapshot())[0]`);
-  const chip = () => page.evaluate(() => { const e = document.querySelector<HTMLElement>("[data-chip]"); if (!e || e.style.display === "none") return null; return [...e.querySelectorAll<HTMLElement>("[data-field]")].map((f) => ({ label: f.dataset.field, text: f.textContent, underlined: f.style.textDecoration.includes("underline"), padlock: f.parentElement!.querySelector<HTMLElement>("[data-padlock]")!.dataset.padlock })); });
+  const chip = () => page.evaluate(() => { const e = document.querySelector<HTMLElement>("[data-info]"); if (!e || getComputedStyle(e).display === "none") return null; return [...e.querySelectorAll<HTMLElement>("[data-fact]")].map((f) => ({ label: f.title, text: f.querySelector("[data-number]")!.textContent, underlined: (f.querySelector<HTMLElement>("[data-number]")!.style.textDecoration ?? "").includes("underline"), padlock: f.querySelector<HTMLElement>("[data-padlock]")!.dataset.padlock })); });
   const move = async (x: number, y: number) => { const [a, b] = await px(x, y); await page.mouse.move(a, b, { steps: 4 }); await page.waitForTimeout(150); };
   await ev(`() => window.__tool("line")`); await page.waitForTimeout(900);
-  ok((await chip()) === null, "no chip before the first click");
+  ok((await chip()) === null, "no info bar before the first click");
   await click(10, 10); await move(30, 10.2);
-  let c = await chip(); ok(!!c && c.length === 1 && c[0]!.label === "Length" && c[0]!.padlock === "open" && Math.abs(Number(c[0]!.text) - 20) < 0.5, `the chip shows the length as measured, an open padlock: ${JSON.stringify(c)}`);
+  let c = await chip(); ok(!!c && c.length === 1 && c[0]!.label === "Length" && c[0]!.padlock === "open" && Math.abs(Number(c[0]!.text) - 20) < 0.5, `the info bar shows the length as measured, an open padlock: ${JSON.stringify(c)}`);
   writeFileSync(`${dir}/typed-1.png`, await page.screenshot());
   await page.keyboard.type("25"); await page.waitForTimeout(150);
   c = await chip(); ok(!!c && c[0]!.text === "25" && c[0]!.padlock === "closed" && c[0]!.underlined, `typing digits goes straight into the number, its padlock closes: ${JSON.stringify(c)}`);
@@ -40,14 +40,14 @@ try {
   await ev(`() => { window.__sketch.stop(); window.__sketch.stop(); }`); await page.waitForTimeout(300);
   await ev(`() => window.__tool("circle")`); await page.waitForTimeout(900);
   await click(-30, 10); await move(-20, 10); await page.keyboard.type("12"); await page.waitForTimeout(150);
-  c = await chip(); ok(!!c && c[0]!.label === "Diameter" && c[0]!.text === "12", `a circle's chip is its diameter: ${JSON.stringify(c)}`);
+  c = await chip(); ok(!!c && c[0]!.label === "Diameter" && c[0]!.text === "12", `a circle's number in the info bar is its diameter: ${JSON.stringify(c)}`);
   await page.keyboard.press("Enter"); await page.waitForTimeout(300);
   d = await def(); ok(d.circles.length === 1 && Math.abs(d.circles[0].r - 6) < 1e-4 && d.constraints.some((k: any) => k.kind === "radius" && Math.abs(k.value - 6) < 1e-4), `typing 12 makes the circle radius 6, locked: ${JSON.stringify(d.circles.map((k: any) => k.r))}`);
   // Backspace and Esc
   await click(40, 20); await move(50, 20); await page.keyboard.type("77"); await page.keyboard.press("Backspace"); await page.waitForTimeout(150);
   c = await chip(); ok(!!c && c[0]!.text === "7", `Backspace takes a digit away: ${JSON.stringify(c)}`);
   await page.keyboard.press("Escape"); await page.waitForTimeout(200);
-  ok((await chip()) === null, "Esc gives the figure up, and the chip with it");
+  c = await chip(); ok(!c || c.every((f: any) => f.text !== "7"), `Esc gives the figure up: the number typed is gone (the bar is now of the circle made before: ${JSON.stringify(c?.map((f: any) => f.text))})`);
   ok(errors.length === 0, `no errors in the page ${errors.join("; ")}`);
   await close();
 } finally { await S.stop(); }

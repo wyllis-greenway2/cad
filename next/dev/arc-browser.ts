@@ -24,7 +24,7 @@ try {
   await ev(`() => window.__tool("line")`); await click(10, 0); await click(0, 0); await click(0, 10); await stop();
   d = await def(); ok(d.lines.length === 2, "two lines close it");
   await ev(`() => window.__startExtrude()`); await click(3, 3); await page.waitForTimeout(900);
-  const num = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-bubble='d'] span")].find((s) => /^-?[\d.]+$/.test(s.textContent ?? ""))!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+  const num = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-fact='d'] span")].find((s) => /^-?[\d.]+$/.test(s.textContent ?? ""))!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
   await page.mouse.click(num[0]!, num[1]!); await page.keyboard.press("Control+a"); await page.keyboard.type("5"); await page.keyboard.press("Enter"); await page.keyboard.press("Enter");
   await ev(`() => window.__studio.settled()`); await page.waitForTimeout(500);
   const st = await ev<any>(`() => { const s = window.__studio.state(); return { steps: s.steps.map((x) => x.kind), problem: s.problem, tris: s.meshes[0] ? s.meshes[0].indices.length / 3 : 0 }; }`);
@@ -33,7 +33,7 @@ try {
   // undo the extrude, then put a radius on the arc and type over it
   await page.keyboard.press("Control+z"); await page.waitForTimeout(400);
   await stop(); await click(7.07, 7.07); await page.waitForTimeout(150);
-  const rnum = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-bubble] span")].some((s) => s.textContent === "10"));
+  const rnum = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-fact] span")].some((s) => s.textContent === "10"));
   ok(rnum, "a selected arc shows its radius, measured, on a bubble: 10");
   await page.keyboard.type("14"); await page.keyboard.press("Enter"); await page.waitForTimeout(300); // (digits go to the radius; Enter locks it)
   d = await def(); const st1 = d.points.find((p: any) => p.id === d.arcs[0].a), c1 = d.points.find((p: any) => p.id === d.arcs[0].c);

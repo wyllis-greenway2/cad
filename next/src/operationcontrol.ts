@@ -8,9 +8,9 @@ import { add, scale, type V3 } from "./vec.ts";
 import type { Step } from "./engine/steps.ts";
 import type { Ask } from "./engine/protocol.ts";
 import type { OrbDrawing } from "./orbcontrol.ts";
-import type { Bubble } from "./interaction/bubbles.ts";
 import type { Operation } from "./interaction/operation.ts";
-import { createBubbleLayer } from "./bubbledraw.ts";
+import type { Info, Fact } from "./interaction/infobar.ts";
+import type { InfoHandlers } from "./infobardraw.ts";
 import type { PillState } from "./opbar.ts";
 
 export interface OperationHost {
@@ -28,9 +28,8 @@ export interface OperationHost {
 }
 const ID = "operation";
 
-export function createOperations(host: OperationHost, page: HTMLElement) {
+export function createOperations(host: OperationHost) {
   let armed = false, op: Operation | null = null, grab: { s0: number; d0: number } | null = null;
-  const layer = createBubbleLayer(page, { set(_id, v) { if (op && isFinite(v)) op = op.withValue(v) ?? op; }, remove() { /* none */ }, take() { /* none */ }, lock() { /* none */ } });
   /** the arrow: from a little out of the thing's middle along its normal (the way it is pulled), to the tip; as long as the pull when that is longer than the arrow */
   const handle = (o: Operation, cam: Cam): Handle => {
     const a = o.arrow!, L = unitOf(cam, a.base), M = settings.mover, g = M.gapShare * L, A = M.arrowShare * L, dir = scale(a.normal, o.value < 0 ? -1 : 1);
@@ -90,14 +89,13 @@ export function createOperations(host: OperationHost, page: HTMLElement) {
     option(id: string) { if (op) op = op.withOption(id); },
     /** What the page's pill says for it (null: no operation is open). */
     pill: (): PillState | null => (op ? { title: op.title, options: op.options, apply: true } : armed ? { title: "Extrude: click a closed shape" } : null),
-    /** Each picture: the number (at the arrow's tip, or where the operation says). */
-    frame(): void {
-      if (!op) { layer.show([], { lines: [], dots: [] }); return; }
+    /** What the info bar says while an operation is open: its number (on the left, typed over like any other), standing by the arrow's tip or where the operation says; null: no operation is open. */
+    subject(): { info: Info; at: [number, number]; on: InfoHandlers } | null {
+      if (!op) return null;
       const { cam, w, h } = host.view(), tip = op.arrow ? handle(op, cam).points[1]! : op.at, q = project(cam, tip, w, h);
-      const b: Bubble = { id: "d", kind: "dimension", relation: "length", icon: "dimension", at: [0, 0], text: String(op.value), unit: "mm", value: op.value, tone: "rest", title: op.valueTitle, parts: [] };
-      layer.show([{ bubble: b, x: Math.max(60, Math.min(w - 60, q.x)), y: Math.max(70, Math.min(h - 50, q.y)) }], { lines: [], dots: [] });
+      const f: Fact = { id: "d", kind: "dimension", relation: "length", icon: "dimension", at: [0, 0], text: String(Math.round(op.value * 1000) / 1000), unit: "mm", value: op.value, tone: "rest", title: op.valueTitle, parts: [] };
+      return { info: { facts: [f], suggestions: [] }, at: [Math.max(60, Math.min(w - 60, q.x)), Math.max(70, Math.min(h - 50, q.y))], on: { suggest() { /* none */ }, fact() { /* none */ }, lock() { /* none */ }, set: (_id, v) => { if (op && isFinite(v)) op = op.withValue(v) ?? op; } } };
     },
-    editing: (): boolean => layer.editing(),
     debug: () => ({ armed, pull: op ? { mode: op.kind, d: op.value, ...op.debug } : null }),
   };
 }

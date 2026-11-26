@@ -24,10 +24,9 @@ import { createOperations } from "./operationcontrol.ts";
 import { extrudeOp, pushOp, roundOp, type PullInfo, type Source } from "./interaction/operations.ts";
 import { createBodySelect } from "./bodyselect.ts";
 import { createSelection } from "./selection.ts";
-import { createChip } from "./chipdraw.ts";
 import { createNotices } from "./interaction/notices.ts";
 import { createNoticeStack } from "./notifydraw.ts";
-import { createHelperBar } from "./helperbardraw.ts";
+import { createInfoBar } from "./infobardraw.ts";
 import { createOpBar } from "./opbar.ts";
 import { Undo } from "./interaction/undo.ts";
 import { editNumber, rowsOf } from "./interaction/steplist.ts";
@@ -79,7 +78,7 @@ const orientBar = createOrientBar(document.body, { apply: () => orbc.keep(), can
 const notices = createNotices(), noticeStack = createNoticeStack(document.body), notify = notices.notify;
 const selection = createSelection(); // (the page's one selection: parts of a sketch, or what is picked on a body)
 const sk = createSketch({
-  selection, notify,
+  selection, notify, startEdit: (id, initial) => infobar.startEdit(id, initial), editing: () => infobar.editing(),
   view: () => { const e = env(); return { cam: s.c, w: e.w, h: e.h }; },
   planes: () => {
     const all = new Map<string, Frame>([0, 1, 2].map((a) => [`world:${a}`, worldFrame(a as Axis)] as const));
@@ -88,7 +87,7 @@ const sk = createSketch({
     return { all, on: planeNow().key, step: placed ? gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, placed.origin), placed.normal))).step : gridLevel(s.c, s.plane).step };
   },
   ray: (x, y) => view.rayAt(s, env(), x, y),
-}, document.body, (label, merge) => record(label, merge));
+}, (label, merge) => record(label, merge));
 
 /** the planes that lie on a face of a body, by the key the sketch controller keeps their drawings under */
 const facePlanes = new Map<string, { frame: Frame; source: Source }>();
@@ -104,7 +103,7 @@ const ext = createOperations({
   ask: (a) => studio.ask(a),
   say: (t) => say(t),
   tilt: (f, c, size) => { const e = env(), v = vOf(f), n = f.normal, el = 0.9; s = view.lookObliqueAt(s, e, c, unit(add(scale(unit(add(scale(f.u, 0.4), scale(v, 0.8))), Math.cos(el)), scale(n, -Math.sin(el)))), Math.max(70, size * 3.2)); },
-}, document.body);
+});
 // ---- what is picked on the bodies (a face or edges), and what can be done with it ----
 const bodies = createBodySelect({
   view: () => { const e = env(); return { cam: s.c, w: e.w, h: e.h }; },
@@ -115,10 +114,8 @@ const bodies = createBodySelect({
 // ---- the helper bar: the page has one, and it says what the sketch's selection or the body's pick offers (`in_1576`) ----
 // ---- the page's one pill (the old app's: a tool's icon and cross; an operation's words, kinds, check and cross) ----
 const TOOL_ICON: Record<string, string> = { line: "line", rect: "rect", circle: "circle", arc: "arc", trim: "scissors" };
-const chip = createChip(document.body); // (the numbers of the figure being drawn, by the pointer)
 const pill = createOpBar(document.body, { apply: () => { ext.apply(); }, cancel: () => { if (ext.active()) ext.cancel(); else sk.stop(); }, option: (id) => ext.option(id) });
-let barPress: ((id: string) => void) | null = null;
-const bar = createHelperBar(document.body, (id) => barPress?.(id));
+const infobar = createInfoBar(document.body); // (the one bar: what is so of the subject, and what could be added)
 /** the engine's facts about a face of the body: where it faces (out of the body) */
 const faceFacts = (body: string, id: string) => studio.state().snapshot.find((x) => x.id === body)?.faces.find((f) => f.id === id) ?? null;
 function doOnPick(id: string, sel: import("./bodyselect.ts").Selection) {
@@ -262,12 +259,11 @@ function frame(now: number) {
     ...d, ...(placed ? { grid: gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, placed.origin), placed.normal))), sketch: { origin: placed.origin, u: placed.u, v: vOf(placed), n: placed.normal } } : {}), orb: ext.drawing(game.on ? null : pointer) ?? orb, ghost: ext.ghost(), marks: bodies.marks(), fills: sk.fills(), lines: sk.lines(game.on ? null : pointer), ...(sk.active() ? { looks: Object.fromEntries(model.things.map((t) => [t.id, SEE_THROUGH])) } : {}),
     cut: placed && !placedKey ? { origin: placed.origin, n: placed.normal } : null, // (made once with the plane, from the side the camera looked from; it turns and moves with the plane, and does not change with the camera)
   });
-  ext.frame(); pill.show(ext.pill() ?? (sk.active() ? { title: null, sketch: { icon: TOOL_ICON[sk.tool() ?? ""] ?? null } } : null));
-  chip.show(game.on ? null : sk.chip());
-  const say1 = sk.bar() ?? bodies.bar(sk.active() || ext.active()), barBox = (() => { barPress = say1?.press ?? null; const e = env(); return bar.show(say1?.items ?? null, say1?.at ?? null, e.w, e.h); })();
+  pill.show(ext.pill() ?? (sk.active() ? { title: null, sketch: { icon: TOOL_ICON[sk.tool() ?? ""] ?? null } } : null));
+  { const sub = game.on ? null : ext.subject() ?? sk.subject() ?? bodies.subject(sk.active() || ext.active()), e = env(); infobar.show(sub?.info ?? null, sub?.at ?? null, sub?.on ?? null, e.w, e.h); }
   { const st = studio.state(); list.show({ rows: historyOpen ? rowsOf(st.steps, st.snapshot) : [] }); }
   more.show(moreItems({ hasModel: hasModel(), hasBody: hasBody(), history: historyOpen }));
-  sk.frame(now, barBox);
+  sk.frame(now);
   syncNotices(now);
   noticeStack.show(notices.visible(now));
   orientBar.show(orbc.orienting() && !!orb);

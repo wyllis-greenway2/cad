@@ -26,14 +26,14 @@ try {
   // extrude it out 5: a boss
   await ev(`() => window.__startExtrude()`); await click(0, 0); await page.waitForTimeout(900);
   await page.evaluate(() => { /* type the distance */ });
-  const num = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-bubble='d'] span")].find((s) => /^-?[\d.]+$/.test(s.textContent ?? ""))!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+  const num = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-fact='d'] span")].find((s) => /^-?[\d.]+$/.test(s.textContent ?? ""))!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
   await page.mouse.click(num[0]!, num[1]!); await page.keyboard.press("Control+a"); await page.keyboard.type("5"); await page.keyboard.press("Enter"); await page.keyboard.press("Enter"); await settle();
   let b = await body(); ok(b.steps.join() === "sketchPolygon,extrude,sketch,extrude,combine" && b.problem === "" && Math.abs(b.top - 15) < 1e-4, `a boss 5 high on top: ${JSON.stringify(b)}`);
   writeFileSync(`${dir}/face-2.png`, await page.screenshot());
   // a pocket: the same sketch pulled into the body (negative) from the top of the boss? use the original top face: undo the boss, pull -3
   await page.keyboard.press("Control+z"); await settle();
   await ev(`() => window.__startExtrude()`); await click(0, 0); await page.waitForTimeout(900);
-  const num2 = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-bubble='d'] span")].find((s) => /^-?[\d.]+$/.test(s.textContent ?? ""))!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+  const num2 = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-fact='d'] span")].find((s) => /^-?[\d.]+$/.test(s.textContent ?? ""))!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
   await page.mouse.click(num2[0]!, num2[1]!); await page.keyboard.press("Control+a"); await page.keyboard.type("-3"); await page.keyboard.press("Enter"); await page.keyboard.press("Enter"); await settle();
   b = await body(); ok(b.steps.slice(-1)[0] === "combine" && b.problem === "" && Math.abs(b.top - 10) < 1e-4 && b.tris > 12, `a pocket 3 deep in the top: ${JSON.stringify(b)}`);
   writeFileSync(`${dir}/face-3.png`, await page.screenshot());

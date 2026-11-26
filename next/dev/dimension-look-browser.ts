@@ -6,7 +6,7 @@ try {
   const { page, errors, close } = await S.open("");
   const ev = evalIn(page), px = pxIn(ev), click = clickIn(page, px, 150);
   const def = () => ev<any>(`() => Object.values(window.__sketch.snapshot())[0]`);
-  const bubbles = () => page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-bubble]")].map((e) => ({ id: e.dataset.bubble, text: e.textContent, padlock: e.querySelector<HTMLElement>("[data-padlock]")?.dataset.padlock })));
+  const bubbles = () => page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-fact]")].map((e) => ({ id: e.dataset.fact, text: e.textContent, padlock: e.querySelector<HTMLElement>("[data-padlock]")?.dataset.padlock })));
   await ev(`() => window.__tool("rect")`); await page.waitForTimeout(900);
   await click(0, 0); await click(40, 25); await ev(`() => { window.__sketch.stop(); window.__sketch.stop(); }`); await page.waitForTimeout(200);
   await ev(`() => window.__tool("circle")`); await page.waitForTimeout(700);

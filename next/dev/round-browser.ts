@@ -10,7 +10,7 @@ try {
   await ev(`() => { window.__studio.change([{ id: "s1", kind: "sketchPolygon", params: { points: [[0, 0], [40, 0], [40, 25], [0, 25]] }, inputs: [] }, { id: "e1", kind: "extrude", params: { d: 10 }, inputs: ["s1"] }]); return 1; }`);
   await settle();
   const p3 = (p: number[]) => ev<[number, number]>(`() => window.__proj3([${p}])`);
-  const type = async (v: string) => { const num = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-bubble='d'] span")].find((s) => /^-?[\d.]+$/.test(s.textContent ?? ""))!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }); await page.mouse.click(num[0]!, num[1]!); await page.keyboard.press("Control+a"); await page.keyboard.type(v); await page.keyboard.press("Enter"); };
+  const type = async (v: string) => { const num = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-fact='d'] span")].find((s) => /^-?[\d.]+$/.test(s.textContent ?? ""))!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }); await page.mouse.click(num[0]!, num[1]!); await page.keyboard.press("Control+a"); await page.keyboard.type(v); await page.keyboard.press("Enter"); };
   const [ex, ey] = await p3([20, 25, 10]); await page.mouse.click(ex, ey); await page.waitForTimeout(250);
   await page.click("[data-bar='body:round']"); await page.waitForTimeout(250);
   let d = await ev<any>(`() => window.__ext.debug()`); ok(d.pull?.mode === "round" && d.pull.edges === 1, `the bar's round starts the operation with a size: ${JSON.stringify(d.pull)}`);
