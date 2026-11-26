@@ -260,4 +260,24 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
     `${ids(["K1"])} | ${ids(["C"])}`,
   );
 }
+{
+  // a point and a circle the person picked together: "on the circle" is offered however far, with the arrows of what it would move and the offer at the middle of the longest (`in_1631`)
+  const T: System = {
+    points: [
+      { id: "A", x: 40, y: 0 },
+      { id: "C", x: 0, y: 0 },
+    ],
+    lines: [],
+    circles: [{ id: "K1", c: "C", r: 10 }],
+    constraints: [],
+  } as unknown as System;
+  const m = marksFor(T, ["A", "K1"], { now: 0, reach: { pointMm: 1, lineMm: 0.5 } }).find(
+    (x) => x.id === "rel:pointOnCircle",
+  );
+  check(
+    "a point and a circle picked together are offered on-the-circle with arrows, however far",
+    !!m?.moves?.length && Math.abs(m.at[0] - 20) < 15 && m.at[0] !== 40,
+    JSON.stringify(m?.moves),
+  );
+}
 process.exit(failureCount() ? 1 : 0);

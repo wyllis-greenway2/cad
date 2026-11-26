@@ -46,6 +46,7 @@ export function nearFor(
   selection: string[],
   max = NEAR_MAX,
   reach?: { pointMm: number; lineMm: number },
+  /** the selection is itself the whole relation (a pair the person chose), not one part to be matched with another */ pair = false,
 ): BarItem[] {
   if (!selection.length || selection.length > 2) return [];
   const points = new Set<string>(),
@@ -61,14 +62,14 @@ export function nearFor(
     } else points.add(id);
   }
   const motion = adjusting(S, [...points], radii),
-    cands = candidatesFor(S, motion.affected, selection, selection.length + 1).filter(
+    cands = candidatesFor(S, motion.affected, selection, pair ? selection.length : selection.length + 1).filter(
       (c) => !RANGEABLE.has(c.relation),
     ),
     exact = { pointMm: 1e-7, lineMm: 1e-7 };
   const found = inRange(S, motion, new Array(motion.dim).fill(0), cands, reach ?? exact)
     .slice(0, 24)
     .map((r) => {
-      const other = r.cand.parts.find((x) => !selection.includes(x))!,
+      const other = r.cand.parts.find((x) => !selection.includes(x)) ?? selection[selection.length - 1]!,
         parts = r.cand.parts,
         moves = displacements(S, motion.at(r.q), other);
       return {

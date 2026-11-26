@@ -6617,3 +6617,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1634 — 2026-11-26 — preference
 > I am more concerned with the nonsense offers
+
+## in_1635 — 2026-11-26 — question
+> Why is it when I select a verticy and a circle edge, it offers to move it to the line, but still doesn't show an arrow or put the bubble in the middle of the arrow?

@@ -42,25 +42,33 @@ function offersOfUncached(S: System, selection: string[], reach?: { pointMm: num
   const where = selectionAnchor(S, selection);
   if (!where) return [];
   // ("fixed in place" is true of every point as drawn: it is a thing to ask for in the menu, not an offer) one part: only what is already true of it (the rest is in the menu); two or more: the person has paired them, so everything that fits the pair and would be accepted (a line and a circle: tangent; a point and a line: on the line)
+  const pair =
+    selection.length >= 2
+      ? nearFor(S, selection, 99, { pointMm: 1e9, lineMm: 1e9 }, true).flatMap((it) => {
+          const n = nearConstraint(it.id);
+          return n ? [{ kind: n.kind as string, parts: n.parts, moves: it.moves ?? [] }] : [];
+        })
+      : [];
   const own = barFor(S, selection)
     .filter((b) => b.id !== "rel:fixed" && (selection.length >= 2 || b.tone === "holds"))
-    .map((item) => ({ item, at: where, moves: [] as { from: [number, number]; to: [number, number] }[] }));
+    .map((item) => {
+      // a pair the person chose is offered whether it is near or not: what it would move is worked out with no limit on the distance (`in_1631`)
+      const k = item.id.startsWith("rel:") ? item.id.slice(4) : "",
+        moves =
+          selection.length >= 2 && item.tone !== "holds"
+            ? (pair.find(
+                (n) =>
+                  n.kind === k && n.parts.length === selection.length && selection.every((x) => n.parts.includes(x)),
+              )?.moves ?? [])
+            : [];
+      return { item, at: middleOf(moves) ?? where, moves };
+    });
   const near = nearFor(S, selection, undefined, reach).flatMap((item) => {
     const nc = nearConstraint(item.id);
     if (!nc) return [];
     // what taking it would move, each part from where it is to where it would be; the mark stands in the middle of the longest (`in_1631`)
     const moves = item.moves ?? [];
-    const main = moves.reduce<(typeof moves)[number] | null>(
-      (a, m) =>
-        !a ||
-        Math.hypot(m.to[0] - m.from[0], m.to[1] - m.from[1]) > Math.hypot(a.to[0] - a.from[0], a.to[1] - a.from[1])
-          ? m
-          : a,
-      null,
-    );
-    const at: [number, number] = main
-      ? [(main.from[0] + main.to[0]) / 2, (main.from[1] + main.to[1]) / 2]
-      : anchorOf(S, { id: "near", kind: nc.kind, parts: nc.parts });
+    const at = middleOf(moves) ?? anchorOf(S, { id: "near", kind: nc.kind, parts: nc.parts });
     return [{ item, at, moves }];
   });
   return [...own, ...near];
@@ -85,6 +93,16 @@ function capReach(
   return size > 0
     ? { pointMm: Math.min(reach.pointMm, size * 0.1), lineMm: Math.min(reach.lineMm, size * 0.05) }
     : reach;
+}
+/** the middle of the longest of some arrows (where the offer that makes them stands), null when there are none */
+function middleOf(moves: readonly { from: [number, number]; to: [number, number] }[]): [number, number] | null {
+  let best: (typeof moves)[number] | null = null,
+    len = 0;
+  for (const m of moves) {
+    const d = Math.hypot(m.to[0] - m.from[0], m.to[1] - m.from[1]);
+    if (!best || d > len) ((best = m), (len = d));
+  }
+  return best ? [(best.from[0] + best.to[0]) / 2, (best.from[1] + best.to[1]) / 2] : null;
 }
 /** the marks to show now */
 export function marksFor(
