@@ -6608,3 +6608,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1631 — 2026-11-26 — directive
 > Can we have it so that when a suggested constraint would move something, then there is a dashed line with an arrow showing what would move to where and the suggested constraint would be in the middle of that arrow?
+
+## in_1632 — 2026-11-26 — directive
+> cant we just have it generic for any things that move to other things?

@@ -1,6 +1,6 @@
 // What a selection can be offered, and the info bar's descriptions (`dec_three_surfaces`, `dec_marks_on_things`): `barFor` the relations that fit a selection and would be accepted, `nearFor` the relations with one other part that hold or are in range
 // (`reach`); the marks (`marks.ts`) use both. The info bar itself (`infobardraw.ts`) is now only for an operation's number and the kinds of what is picked on a body. Pure.
-import { adjusting, candidatesFor, inRange } from "../engine/probe.ts";
+import { adjusting, candidatesFor, displacements, inRange, type Arrow } from "../engine/probe.ts";
 import { offerable } from "../engine/relations.ts";
 import type { Relation, System } from "../engine/solver.ts";
 import { RANGEABLE, RELATIONS } from "../engine/solver.ts";
@@ -11,9 +11,7 @@ import { offersFor } from "./suggest.ts";
 export type BarTone = "free" | "holds";
 export interface BarItem {
   /** what taking it would move, and by how much (mm, in the sketch's axes): the points that would go (a relation that holds already moves nothing) */
-  moves?: { id: string; dx: number; dy: number }[];
-  /** the radii it would change, each by this much (mm, signed) */
-  radii?: { id: string; dr: number }[];
+  moves?: Arrow[];
   id: string;
   icon: string;
   label: string;
@@ -72,15 +70,7 @@ export function nearFor(
     .map((r) => {
       const other = r.cand.parts.find((x) => !selection.includes(x))!,
         parts = r.cand.parts,
-        moves = [...points].flatMap((id, i) => {
-          const dx = r.q[2 * i]!,
-            dy = r.q[2 * i + 1]!;
-          return Math.hypot(dx, dy) > 1e-3 ? [{ id, dx, dy }] : [];
-        });
-      const dRadii = radii.flatMap((id, i) => {
-        const dr = r.q[2 * points.size + i]!;
-        return Math.abs(dr) > 1e-3 ? [{ id, dr }] : [];
-      });
+        moves = displacements(S, motion.at(r.q), other);
       return {
         other,
         item: {
@@ -89,7 +79,6 @@ export function nearFor(
           label: `${RELATIONS[r.cand.relation].label} with ${other}`,
           tone: (r.moved < 1e-7 ? "holds" : "free") as BarTone,
           ...(moves.length ? { moves } : {}),
-          ...(dRadii.length ? { radii: dRadii } : {}),
         },
       };
     });

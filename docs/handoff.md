@@ -5405,3 +5405,6 @@ The human saw no arrow in `in_1631`'s build: an offer is only in reach of 6 to 1
 
 ## Handoff 1420
 The human's screenshot (a selected circle, an offer at a line end, no arrow) showed that an offer changing only a radius (and a centre by a little) drew nothing for the radius. **Built:** `BarItem.radii` (`nearFor`), and `marks.ts` draws a radius change as an arrow along the edge's way out, from the edge to where it would be, toward the other part (the foot of a line, a point, a circle's centre); `marks-check` case. Nothing locked in.
+
+## Handoff 1421
+The human asked (`in_1632`) for the arrow to be generic for anything that moves to something. **Changed:** `displacements(before, after, toward)` in `engine/probe.ts` compares the sketch before and after the offered constraint holds and lists an arrow for every part that moves: each point, and a circle's edge when its radius changes (where it moves most). `BarItem.moves` is now those arrows; the point and radius special cases in `marks.ts` are gone. Nothing locked in.

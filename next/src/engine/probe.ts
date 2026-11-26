@@ -212,3 +212,62 @@ export function inRange(
   }
   return out;
 }
+
+/** one thing that would move, from where it is to where it would be (mm, in the plane) */
+export interface Arrow {
+  from: [number, number];
+  to: [number, number];
+}
+/** what moves between two states of a system, for any part: a point from where it was to where it is; a circle whose radius changed, its edge (at the place where it moves most: along the centre's move when it moved, else toward `toward`, the other part it is being matched to). A line or arc moves by its points. Nothing is special to a relation (`in_1631`) */
+export function displacements(before: System, after: System, toward?: string, least = 1e-3): Arrow[] {
+  const out: Arrow[] = [];
+  const at = (S: System, id: string) => S.points.find((p) => p.id === id);
+  for (const p of before.points) {
+    const q = at(after, p.id);
+    if (q && Math.hypot(q.x - p.x, q.y - p.y) > least) out.push({ from: [p.x, p.y], to: [q.x, q.y] });
+  }
+  for (const k of before.circles) {
+    const k2 = after.circles.find((x) => x.id === k.id),
+      c = at(before, k.c),
+      c2 = at(after, k.c);
+    if (!k2 || !c || !c2) continue;
+    const dr = k2.r - k.r;
+    if (Math.abs(dr) <= least) continue;
+    const dx = c2.x - c.x,
+      dy = c2.y - c.y,
+      moved = Math.hypot(dx, dy);
+    let u: [number, number] | null =
+      moved > least ? [(Math.sign(dr) * dx) / moved, (Math.sign(dr) * dy) / moved] : null;
+    if (!u && toward) {
+      const g = placeOf(before, toward, c.x, c.y);
+      if (g) {
+        const d = Math.hypot(g[0] - c.x, g[1] - c.y) || 1;
+        u = [(g[0] - c.x) / d, (g[1] - c.y) / d];
+      }
+    }
+    if (!u) continue;
+    out.push({
+      from: [c.x + u[0] * k.r, c.y + u[1] * k.r],
+      to: [c2.x + u[0] * k2.r, c2.y + u[1] * k2.r],
+    });
+  }
+  return out;
+}
+/** the place of a part nearest a point: a point is where it is, a circle its centre, a line the foot of the perpendicular */
+function placeOf(S: System, id: string, x: number, y: number): [number, number] | null {
+  const pt = S.points.find((p) => p.id === id);
+  if (pt) return [pt.x, pt.y];
+  const k = S.circles.find((c) => c.id === id);
+  if (k) {
+    const c = S.points.find((p) => p.id === k.c);
+    return c ? [c.x, c.y] : null;
+  }
+  const l = S.lines.find((x) => x.id === id),
+    a = l && S.points.find((p) => p.id === l.a),
+    b = l && S.points.find((p) => p.id === l.b);
+  if (!a || !b) return null;
+  const dx = b.x - a.x,
+    dy = b.y - a.y,
+    t = ((x - a.x) * dx + (y - a.y) * dy) / (dx * dx + dy * dy || 1);
+  return [a.x + t * dx, a.y + t * dy];
+}
