@@ -59,21 +59,23 @@ export function nearFor(
     } else points.add(id);
   }
   const motion = adjusting(S, [...points], radii),
-    cands = candidatesFor(S, motion.affected, selection, selection.length + 1).filter(
-      (c) => !RANGEABLE.has(c.relation),
-    ),
+    // what is said of the selection with one other part, and (one part alone) what is said of it by itself: a line a little off level is offered level (`in_1641`)
+    cands = [
+      ...candidatesFor(S, motion.affected, selection, selection.length + 1),
+      ...(selection.length === 1 ? candidatesFor(S, motion.affected, selection, 1) : []),
+    ].filter((c) => !RANGEABLE.has(c.relation)),
     exact = { pointMm: 1e-7, lineMm: 1e-7 };
   const found = inRange(S, motion, new Array(motion.dim).fill(0), cands, reach ?? exact)
     .slice(0, 24)
     .map((r) => {
-      const other = r.cand.parts.find((x) => !selection.includes(x))!,
+      const other = r.cand.parts.find((x) => !selection.includes(x)) ?? "", // (none: it is said of the selection alone)
         parts = r.cand.parts;
       return {
         other,
         item: {
           id: `near:${r.cand.relation}:${parts.join(",")}${r.cand.variant?.internal ? ":in" : ""}`,
           icon: iconOf(r.cand.relation),
-          label: `${RELATIONS[r.cand.relation].label} with ${other}`,
+          label: other ? `${RELATIONS[r.cand.relation].label} with ${other}` : RELATIONS[r.cand.relation].label,
           tone: (r.moved < 1e-7 ? "holds" : "free") as BarTone,
         },
       };

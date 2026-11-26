@@ -6635,3 +6635,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1640 — 2026-11-26 — approval
 > first picked moves to second, yes build it
+
+## in_1641 — 2026-11-26 — directive
+> lets have them not have underlines. Lets make the arrow lines the same thickness as any other line, in fact lets use the same dashed line and lets make the dashed alignment lines yellow. Also why when i select a line. Also our logic seems all wrong, why does a line have a horizontal or virtical suggested constraint but it seems to only be on a verticy not a line and it doesnt actually seem to do anything? also why does this suggested constraint go away sometimes? like this line participating in a circle?

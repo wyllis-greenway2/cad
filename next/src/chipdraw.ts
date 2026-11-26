@@ -96,7 +96,7 @@ export function createChips(handlers: () => InfoHandlers | null, retake: () => v
     const num = document.createElement("span");
     num.textContent = f.text ?? "";
     num.dataset.number = f.id;
-    num.style.cssText = `font-weight:600;${f.readonly ? "" : "cursor:text;"}${f.active ? "text-decoration:underline;text-underline-offset:3px;" : ""}${f.locked === false ? "opacity:.8;" : ""}`;
+    num.style.cssText = `font-weight:600;${f.readonly ? "" : "cursor:text;"}${f.locked === false ? "opacity:.8;" : ""}`;
     if (!f.readonly) num.addEventListener("click", () => edit(f, num));
     numbers.set(f.id, { fact: f, span: num });
     d.append(num);

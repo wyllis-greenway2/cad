@@ -243,4 +243,31 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
     `${moved?.at} ${still?.at}`,
   );
 }
+{
+  // a line a little off level is offered level for the line itself, not only when it already is (`in_1641`)
+  const T: System = {
+    points: [
+      { id: "A", x: 0, y: 0 },
+      { id: "B", x: 40, y: 1 },
+    ],
+    lines: [{ id: "L1", a: "A", b: "B" }],
+    circles: [],
+    constraints: [],
+  } as unknown as System;
+  const m = marksFor(T, ["L1"], { now: 0, reach: { pointMm: 2, lineMm: 1.5 } }).find(
+    (x) => x.id === "near:horizontal:L1",
+  );
+  check(
+    "a line 1 mm off level over 40 is offered level for the line",
+    !!m && m.parts.join() === "L1",
+    `${m?.id} ${m?.title}`,
+  );
+  check(
+    "and a line 8 mm off is not",
+    !marksFor({ ...T, points: [T.points[0]!, { id: "B", x: 40, y: 8 }] }, ["L1"], {
+      now: 0,
+      reach: { pointMm: 2, lineMm: 1.5 },
+    }).some((x) => x.id === "near:horizontal:L1"),
+  );
+}
 process.exit(failureCount() ? 1 : 0);

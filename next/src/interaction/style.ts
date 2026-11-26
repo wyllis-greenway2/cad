@@ -77,7 +77,7 @@ export const STROKE: Record<
   cursor: { tone: "figure", weight: 0.8, soft: true },
   cut: { tone: "refused", weight: 1.4, soft: false },
   tie: { tone: "ties", weight: 1.4, soft: false },
-  guide: { tone: "figure", weight: 0.75, soft: false, dashed: true },
-  move: { tone: "ties", weight: 2, soft: false, dashed: true }, // what an offered constraint would move, and to where: a dashed amber line with an arrow (`in_1631`)
-  moveHead: { tone: "ties", weight: 2, soft: false }, // the head of that arrow
+  guide: { tone: "ties", weight: 0.75, soft: false, dashed: true }, // the dashed alignment lines: amber, as what they tie to (`in_1641`)
+  move: { tone: "ties", weight: 0.75, soft: false, dashed: true }, // what an offered constraint would move, and to where: the same dashed amber line as a guide, with an arrow (`in_1631`, `in_1641`)
+  moveHead: { tone: "ties", weight: 0.75, soft: false }, // the head of that arrow
 };
