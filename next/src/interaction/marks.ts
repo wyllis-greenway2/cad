@@ -25,24 +25,32 @@ export const alphaAt = (until: number, now: number): number =>
   Math.max(0, Math.min(1, (until - now) / settings.marks.fadeMs));
 /** what is offered for one selection: for a part alone, what is already true (`holds`: a line is level, a point is on a line) and the near ones (true now with another part), the rest is in the menu; for two or more parts chosen together, everything that fits them and would be accepted, true yet or not */
 const memo = new WeakMap<System, Map<string, { item: BarItem; at: [number, number] }[]>>(); // (the same system and selection are asked about every frame)
-function offersOf(S: System, selection: string[], reachMm?: number): { item: BarItem; at: [number, number] }[] {
-  const key = `${selection.join("\u0000")}|${reachMm === undefined ? "" : reachMm.toFixed(3)}`,
+function offersOf(
+  S: System,
+  selection: string[],
+  reach?: { pointMm: number; lineMm: number },
+): { item: BarItem; at: [number, number] }[] {
+  const key = `${selection.join("\u0000")}|${reach === undefined ? "" : `${reach.pointMm.toFixed(3)},${reach.lineMm.toFixed(3)}`}`,
     hit = memo.get(S)?.get(key);
   if (hit) return hit;
-  const out = offersOfUncached(S, selection, reachMm);
+  const out = offersOfUncached(S, selection, reach);
   let m = memo.get(S);
   if (!m) memo.set(S, (m = new Map()));
   m.set(key, out);
   return out;
 }
-function offersOfUncached(S: System, selection: string[], reachMm?: number): { item: BarItem; at: [number, number] }[] {
+function offersOfUncached(
+  S: System,
+  selection: string[],
+  reach?: { pointMm: number; lineMm: number },
+): { item: BarItem; at: [number, number] }[] {
   const where = selectionAnchor(S, selection);
   if (!where) return [];
   // ("fixed in place" is true of every point as drawn: it is a thing to ask for in the menu, not an offer) one part: only what is already true of it (the rest is in the menu); two or more: the person has paired them, so everything that fits the pair and would be accepted (a line and a circle: tangent; a point and a line: on the line)
   const own = barFor(S, selection)
     .filter((b) => b.id !== "rel:fixed" && (selection.length >= 2 || b.tone === "holds"))
     .map((item) => ({ item, at: where }));
-  const near = nearFor(S, selection, undefined, reachMm).flatMap((item) => {
+  const near = nearFor(S, selection, undefined, reach).flatMap((item) => {
     const nc = nearConstraint(item.id);
     return nc ? [{ item, at: anchorOf(S, { id: "near", kind: nc.kind, parts: nc.parts }) }] : [];
   });
@@ -57,7 +65,10 @@ export function marksFor(
     recent?: Recent | null;
     now: number;
     /** how much of a constraint doing work shows, from 0 to 1 (a fade in and out) */ fade?: (id: string) => number;
-    /** how far (mm) a relation may be from holding and still be offered (the helpers' reach in mm): in range, whatever moved things there */ reachMm?: number;
+    /** how far (mm) a relation may be from holding and still be offered (the helpers' reach in mm): in range, whatever moved things there */ reach?: {
+      pointMm: number;
+      lineMm: number;
+    };
   },
 ): Mark[] {
   const out: Mark[] = [];
@@ -74,10 +85,10 @@ export function marksFor(
   const fresh = !selection.length && ctx.recent && ctx.now < ctx.recent.until ? ctx.recent : null;
   for (const sel of selection.length ? [selection] : fresh ? fresh.ids.map((id) => [id]) : []) {
     for (const { item, at } of [
-      ...offersOf(S, sel, ctx.reachMm),
+      ...offersOf(S, sel, ctx.reach),
       ...(sel === selection
         ? kids.flatMap((k) =>
-            offersOf(S, [k], ctx.reachMm).filter((o) => {
+            offersOf(S, [k], ctx.reach).filter((o) => {
               const nc = nearConstraint(o.item.id);
               return !!nc && nc.parts.some((x) => !scope.includes(x));
             }),

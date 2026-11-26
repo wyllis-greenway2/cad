@@ -1,8 +1,9 @@
 // What a selection can be offered, and the info bar's descriptions (`dec_three_surfaces`, `dec_marks_on_things`): `barFor` the relations that fit a selection and would be accepted, `nearFor` the relations with one other part that hold or are in range
-// (`reachMm`); the marks (`marks.ts`) use both. The info bar itself (`infobardraw.ts`) is now only for an operation's number and the kinds of what is picked on a body. Pure.
-import { kindTuples, offerable, snapEstimate, standingOf } from "../engine/relations.ts";
+// (`reach`); the marks (`marks.ts`) use both. The info bar itself (`infobardraw.ts`) is now only for an operation's number and the kinds of what is picked on a body. Pure.
+import { adjusting, candidatesFor, inRange } from "../engine/probe.ts";
+import { offerable } from "../engine/relations.ts";
 import type { Relation, System } from "../engine/solver.ts";
-import { RANGEABLE, RELATIONS, kindOf, residualsOf, type Constraint } from "../engine/solver.ts";
+import { RANGEABLE, RELATIONS } from "../engine/solver.ts";
 import { iconOf, type Bubble } from "./bubbles.ts";
 import { offersFor } from "./suggest.ts";
 
@@ -35,68 +36,48 @@ export interface Info {
   facts: Fact[];
   suggestions: BarItem[];
 }
-/** every way to put `k` parts, in order, into `n` slots */
-function placements(n: number, k: number): number[][] {
-  return k === 0
-    ? [[]]
-    : placements(n, k - 1).flatMap((p) => [...Array(n).keys()].filter((i) => !p.includes(i)).map((i) => [...p, i]));
-}
 export const NEAR_MAX = 2; // (the old app offered up to two "near" suggestions)
 
-/** Relations between the selection and one other part that hold now, or (with `reachMm`) are within that many mm of holding, and would be new (`offerable`): a line that is level with one a long way off, a line tangent to a circle, a point on a line that was not made to be. Up to `max`; none for more than two parts selected. */
-export function nearFor(S: System, selection: string[], max = NEAR_MAX, reachMm?: number): BarItem[] {
+/** Relations between the selection and one other part that hold now, or (with `reach`) are within reach of holding, and would be new (`offerable`): a line that is level with one a long way off, a line tangent to a circle, a point on a line that was not made to be, a line a little off parallel. The parts at rest are a motion (each point free to move a little, a circle's radius too) and this is `inRange` over it, the same question the helpers ask of a part being drawn or dragged (`engine/probe.ts`): how it got there does not matter. Up to `max`, one for each other part before a second of any; none for more than two parts selected. */
+export function nearFor(
+  S: System,
+  selection: string[],
+  max = NEAR_MAX,
+  reach?: { pointMm: number; lineMm: number },
+): BarItem[] {
   if (!selection.length || selection.length > 2) return [];
-  const pool: Record<string, string[]> = {
-      point: S.points.map((p) => p.id),
-      line: S.lines.map((l) => l.id),
-      circle: S.circles.map((c) => c.id),
-    },
-    kinds = selection.map((id) => kindOf(id, S)),
-    found: { other: string; item: BarItem }[] = [],
-    seen = new Set<string>();
-  for (const [name, def] of Object.entries(RELATIONS) as [Relation, (typeof RELATIONS)[Relation]][]) {
-    if (!def.helper || RANGEABLE.has(name)) continue;
-    for (const tuple of kindTuples(name)) {
-      if (tuple.length !== selection.length + 1) continue;
-      for (const pos of placements(tuple.length, selection.length)) {
-        if (pos.some((slot, i) => tuple[slot] !== kinds[i])) continue;
-        const spare = [...tuple.keys()].find((i) => !pos.includes(i))!;
-        for (const other of pool[tuple[spare]!] ?? []) {
-          if (selection.includes(other)) continue;
-          const parts = new Array<string>(tuple.length);
-          pos.forEach((slot, i) => {
-            parts[slot] = selection[i]!;
-          });
-          parts[spare] = other;
-          for (const variant of def.helper.variants ?? [undefined]) {
-            const c: Constraint = { id: "near", kind: name, parts, ...(variant ?? {}) },
-              key = `${name}|${[...parts].sort().join()}|${JSON.stringify(variant ?? {})}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
-            const rows = residualsOf(S, c);
-            if (
-              !rows.length ||
-              !rows.every(Number.isFinite) ||
-              !(rows.every((v) => Math.abs(v) < 1e-7) || (reachMm !== undefined && snapEstimate(S, c) <= reachMm))
-            )
-              continue; // (it holds, or it is in range: `reachMm`, the helpers' reach: how it got there does not matter)
-            const st = standingOf(S, c);
-            if (!offerable(st.state)) continue;
-            found.push({
-              other,
-              item: {
-                id: `near:${name}:${parts.join(",")}${variant?.internal ? ":in" : ""}`,
-                icon: iconOf(name),
-                label: `${RELATIONS[name].label} with ${other}`,
-                tone: st.state as BarTone,
-              },
-            });
-            if (found.length >= 24) break; // (more than enough to choose from)
-          }
-        }
-      }
-    }
+  const points = new Set<string>(),
+    radii: string[] = [];
+  for (const id of selection) {
+    const l = S.lines.find((x) => x.id === id),
+      k = S.circles.find((x) => x.id === id);
+    if (l) [l.a, l.b].forEach((x) => points.add(x));
+    else if (k) {
+      points.add(k.c);
+      (k.ends ?? []).forEach((x) => points.add(x));
+      radii.push(k.id);
+    } else points.add(id);
   }
+  const motion = adjusting(S, [...points], radii),
+    cands = candidatesFor(S, motion.affected, selection, selection.length + 1).filter(
+      (c) => !RANGEABLE.has(c.relation),
+    ),
+    exact = { pointMm: 1e-7, lineMm: 1e-7 };
+  const found = inRange(S, motion, new Array(motion.dim).fill(0), cands, reach ?? exact)
+    .slice(0, 24)
+    .map((r) => {
+      const other = r.cand.parts.find((x) => !selection.includes(x))!,
+        parts = r.cand.parts;
+      return {
+        other,
+        item: {
+          id: `near:${r.cand.relation}:${parts.join(",")}${r.cand.variant?.internal ? ":in" : ""}`,
+          icon: iconOf(r.cand.relation),
+          label: `${RELATIONS[r.cand.relation].label} with ${other}`,
+          tone: (r.moved < 1e-7 ? "holds" : "free") as BarTone,
+        },
+      };
+    });
   // the first of each other part before a second of any (so a line that is parallel to one and tangent to another says both)
   const out: BarItem[] = [],
     byOther = new Map<string, BarItem[]>();

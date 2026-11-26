@@ -159,7 +159,8 @@ export function createMarks(
         : st.recent && st.recent.key === c.key
           ? { ids: st.recent.ids.filter(has), until: st.recent.until }
           : null;
-      const reachMm = settings.helpers.linePx * mmPerPx(c.f, [0, 0]); // (in range, however things came there: the helpers' reach in mm)
+      const mm = mmPerPx(c.f, [0, 0]),
+        reach = { pointMm: settings.helpers.pointPx * mm, lineMm: settings.helpers.linePx * mm }; // (in range, however things came there: the helpers' reach in mm)
       const fade = (id: string) => {
         const t = st.activeSince.get(id);
         if (t === undefined) return 1;
@@ -168,7 +169,7 @@ export function createMarks(
           Math.min(1, (now - t) / settings.marks.fadeInMs, ctx.dragged() ? 1 : (st.flashUntil - now) / 400),
         );
       }; // (a constraint doing work fades in; once the drag is over it fades out)
-      const list = marksFor(S, ids, { flash: st.flash, recent: fresh, now, fade, reachMm }),
+      const list = marksFor(S, ids, { flash: st.flash, recent: fresh, now, fade, reach }),
         chosen = [...ids].sort().join();
       ownId = list.find((m) => m.kind === "dimension" && [...m.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
       return list.map(at3);

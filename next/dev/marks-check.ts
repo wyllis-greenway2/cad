@@ -156,8 +156,12 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
     circles: [{ id: "K1", c: "P3", r: 5 }],
     constraints: [],
   };
-  const wide = marksFor(R, ["L1"], { now: 0, reachMm: 0.6 }).some((m) => m.id.startsWith("near:tangent")),
-    narrow = marksFor(R, ["L1"], { now: 0, reachMm: 0.1 }).some((m) => m.id.startsWith("near:tangent")),
+  const wide = marksFor(R, ["L1"], { now: 0, reach: { pointMm: 0.6, lineMm: 0.6 } }).some((m) =>
+      m.id.startsWith("near:tangent"),
+    ),
+    narrow = marksFor(R, ["L1"], { now: 0, reach: { pointMm: 0.1, lineMm: 0.1 } }).some((m) =>
+      m.id.startsWith("near:tangent"),
+    ),
     none = marksFor(R, ["L1"], { now: 0 }).some((m) => m.id.startsWith("near:tangent"));
   check(
     "a line 0.3 mm from tangent is offered the tangent in a reach of 0.6, and not in 0.1 or when only what holds is offered",
@@ -167,7 +171,9 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
   const far: System = { ...R, points: R.points.map((p) => (p.id === "P1" || p.id === "P2" ? { ...p, y: 9 } : p)) };
   check(
     "a line well away from tangent is not offered it",
-    !marksFor(far, ["L1"], { now: 0, reachMm: 0.6 }).some((m) => m.id.startsWith("near:tangent")),
+    !marksFor(far, ["L1"], { now: 0, reach: { pointMm: 0.6, lineMm: 0.6 } }).some((m) =>
+      m.id.startsWith("near:tangent"),
+    ),
   );
 }
 process.exit(failureCount() ? 1 : 0);
