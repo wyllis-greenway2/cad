@@ -6587,3 +6587,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1624 — 2026-11-26 — approval
 > yes audit the other places for leftovers
+
+## in_1625 — 2026-11-26 — question
+> Okay that sounds good, but how do we really clean it up wholostically? So for example should we make generic mover functions that could be rused for all movement? 3d or 3d? Would it make sense to split things along similar lines so its reusable and generic as we move into working with bodies too? Also does it make sense to overlap the suggestion and constraint system more? Where can we trim and reuse and get leaner? I like your ideas as well
