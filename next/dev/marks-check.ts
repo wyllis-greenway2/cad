@@ -268,4 +268,27 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
     }).some((x) => x.id === "near:horizontal:L1"),
   );
 }
+{
+  // a point that is on a line is not offered a distance to it of 0 (a distance is more than nothing, so it could not be typed; `in_1647`)
+  const T: System = {
+    points: [
+      { id: "A", x: 0, y: 0 },
+      { id: "B", x: 10, y: 0 },
+      { id: "P", x: 5, y: 0 },
+    ],
+    lines: [{ id: "L1", a: "A", b: "B" }],
+    circles: [],
+    constraints: [],
+  } as unknown as System;
+  check(
+    "a point on a line, picked with it, is not offered a number for its distance (it is 0)",
+    !marksFor(T, ["P", "L1"], { now: 0 }).some((m) => m.id === "measure"),
+  );
+  check(
+    "and a point off the line is",
+    marksFor({ ...T, points: [T.points[0]!, T.points[1]!, { id: "P", x: 5, y: 2 }] }, ["P", "L1"], { now: 0 }).some(
+      (m) => m.id === "measure",
+    ),
+  );
+}
 process.exit(failureCount() ? 1 : 0);

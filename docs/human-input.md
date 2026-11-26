@@ -6653,3 +6653,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1646 — 2026-11-26 — question
 > why does selecting a circle edge select the center too? also can we make circles centers always visible
+
+## in_1647 — 2026-11-26 — question
+> Why is this offering me a dimension constraint that is already zero and cannot be set higher and also says it must be set higher?

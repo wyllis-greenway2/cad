@@ -109,6 +109,14 @@ function offersForUncached(S: System, selection: string[]): { offers: Offer[]; i
           ? { value: name === "angle" ? Math.round(m * 1e6) / 1e6 : Math.round(m * 1e9) / 1e9 }
           : {}),
       };
+    // a size that is nothing cannot be a number (a distance, a length, a radius are more than nothing): the parts are touching or on one another, and that is said by coincident or on line, not by a number of 0 (`in_1647`)
+    if (m !== null && Math.abs(m) < 1e-9 && ["distance", "pointLineDistance", "length", "radius"].includes(name)) {
+      inapplicable.push({
+        kind: name,
+        why: `${RELATIONS[name].label} is nothing: they already touch (say coincident or on line instead)`,
+      });
+      continue;
+    }
     if (RANGEABLE.has(name)) {
       offers.push({
         kind: name,
