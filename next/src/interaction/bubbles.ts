@@ -25,7 +25,7 @@ export interface Bubble {
 export interface Flash { refused?: readonly string[]; applied?: readonly string[] }
 /** a constraint is shown when one of its parts is selected, and while it flashes (a refusal shows what holds it back, wherever it is) */
 
-const ICON: Partial<Record<Relation, string>> = { equalLength: "equal", equalRadius: "equal", tangentCircles: "tangent", length: "dimension", distance: "dimension", pointLineDistance: "dimension", horizontalDistance: "dimension", verticalDistance: "dimension", radius: "radius", angle: "angle", fixed: "fixed" };
+const ICON: Partial<Record<Relation, string>> = { pointOnLine: "onLine", pointOnCircle: "onCircle", equalLength: "equal", equalRadius: "equal", tangentCircles: "tangent", length: "dimension", distance: "dimension", pointLineDistance: "dimension", horizontalDistance: "dimension", verticalDistance: "dimension", radius: "radius", angle: "angle", fixed: "fixed" };
 export const iconOf = (r: Relation): string => ICON[r] ?? r;
 
 /** a number as a person reads it: no more than three decimals, no trailing zeros */

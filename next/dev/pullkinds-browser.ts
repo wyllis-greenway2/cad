@@ -1,4 +1,4 @@
-// A dev check in the real page (not a test, `in_1444`): the kinds of face pull the operation bar offers, on the human's chamfered block: Move (the step that made the face, so the height), Extrude (a prism of the face), Extend (the chamfers carried on towards a pyramid).
+// A dev check in the real page (not a test, `in_1444`): the kinds of face pull the info bar offers, on the human's chamfered block: Move (the step that made the face, so the height), Extrude (a prism of the face), Extend (the chamfers carried on towards a pyramid).
 //   node --experimental-strip-types dev/pullkinds-browser.ts [screenshot-dir]
 import { S, dir, ok, finish, evalIn, pxIn, clickIn } from "./page-lib.ts";
 import { writeFileSync } from "node:fs";
@@ -18,22 +18,22 @@ try {
   await num("3"); await page.keyboard.press("Enter"); await settle();
   let b = await body(); ok(b.steps.join() === "sketchPolygon,extrude,round" && b.problem === "", `a chamfered block: ${JSON.stringify(b)}`);
   const pickTop = async () => { const [x, y] = await p3([10, 10, 10]); await page.mouse.click(x, y); await page.waitForTimeout(250); await page.click("[data-bar='body:pull']"); await page.waitForTimeout(600); };
-  const chips = () => ev<string[]>(`() => [...document.querySelectorAll("[data-option]")].filter((e) => e.style.opacity !== "0.4").map((e) => e.dataset.option)`);
+  const chips = () => ev<string[]>(`() => [...document.querySelectorAll("[data-info] [data-bar^='opt:']")].map((e) => e.dataset.bar.slice(4))`);
   await pickTop();
-  let c = await chips(); ok(c.includes("edit") && c.includes("push") && c.includes("move") && !c.includes("offset"), `the operation bar offers Move, Extrude, Extend: ${c.join(" ")}`);
+  let c = await chips(); ok(c.includes("push") && c.includes("move") && !c.includes("offset") && !c.includes("edit"), `the info bar offers the other kinds, Extrude and Extend (Move is the one in use; Offset cannot be made here): ${c.join(" ")}`);
   writeFileSync(`${dir}/pullkinds-1.png`, await page.screenshot());
   // Extend: the chamfers go with it
-  await page.click("[data-option='move']"); await page.waitForTimeout(150); await num("3"); await page.keyboard.press("Enter"); await settle();
+  await page.click("[data-bar='opt:move']"); await page.waitForTimeout(150); await num("3"); await page.keyboard.press("Enter"); await settle();
   b = await body(); ok(b.steps.join() === "sketchPolygon,extrude,round,moveFace" && b.problem === "" && Math.abs(b.top - 13) < 1e-3, `Extend: the top rises 3 and the chamfers go on: ${JSON.stringify(b)}`);
   writeFileSync(`${dir}/pullkinds-2.png`, await page.screenshot());
   await page.keyboard.press("Control+z"); await settle();
   // Extrude: a prism of the top square
-  await pickTop(); await page.click("[data-option='push']"); await page.waitForTimeout(150); await num("3"); await page.keyboard.press("Enter"); await settle();
+  await pickTop(); await page.click("[data-bar='opt:push']"); await page.waitForTimeout(150); await num("3"); await page.keyboard.press("Enter"); await settle();
   b = await body(); ok(b.steps.join() === "sketchPolygon,extrude,round,push" && b.problem === "" && Math.abs(b.top - 13) < 1e-3, `Extrude: a prism of the face: ${JSON.stringify(b)}`);
   writeFileSync(`${dir}/pullkinds-3.png`, await page.screenshot());
   await page.keyboard.press("Control+z"); await settle();
-  // Move: the extrude's depth: the chamfer stays on the top edges
-  await pickTop(); await page.click("[data-option='edit']"); await page.waitForTimeout(150); await num("3"); await page.keyboard.press("Enter"); await settle();
+  // Move: the extrude's depth (the kind in use when a face is pulled): the chamfer stays on the top edges
+  await pickTop(); await num("3"); await page.keyboard.press("Enter"); await settle();
   b = await body(); const st = await ev<any>(`() => window.__studio.state().steps.find((s) => s.id === "e1").params.d`);
   ok(b.steps.join() === "sketchPolygon,extrude,round" && st === 13 && b.problem === "", `Move: the extrude's depth is now ${st}: ${JSON.stringify(b)}`);
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);

@@ -16,6 +16,7 @@ import type { Selection } from "./selection.ts";
 import type { NoticeOptions } from "./interaction/notices.ts";
 import { bake, constrain, emptySketch, hitAt, keep, nextId, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
 import { MEASURE_ID, angleMark, bubblesOn, selectionAnchor, type Flash } from "./interaction/bubbles.ts";
+import { kindsOfSelection } from "./interaction/toolspec.ts";
 import { infoFor, nearConstraint, type Fact, type Info } from "./interaction/infobar.ts";
 import type { InfoHandlers } from "./infobardraw.ts";
 import { helpersAt, type Helped } from "./engine/helpers.ts";
@@ -167,6 +168,10 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
 
   const api = {
     active: () => tool !== null,
+    /** how many places of the figure under way are down (null: no drawing tool is on) */
+    drawStep: (): number | null => (tool ? tool.pts.length : null),
+    /** the kinds of the parts selected in the sketch of the plane that is on */
+    selectedKinds: (): string[] => { const c = current(); return c ? kindsOfSelection(sysOf(c.p), selected(c.key)) : []; },
     tool: (): ToolKind | null => tool?.kind ?? null,
     start(kind: ToolKind) { tool = newTool(kind); sel.clear(); },
     /** Right click or Esc: the figure under way is given up; with none, the tool is put away. Returns whether there was a tool. */

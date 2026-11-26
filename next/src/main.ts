@@ -13,7 +13,7 @@ import { focusOf, gridLevel, gridLevelAt } from "./sense.ts";
 import { facingCamera, vOf, worldFrame, type Frame } from "./planes.ts";
 import { createSketch } from "./sketchcontrol.ts";
 import { to3, type ToolKind } from "./sketch.ts";
-import { createMenu, createOrientBar, type MenuItem } from "./menu.ts";
+import { createMenu, type MenuItem } from "./menu.ts";
 import { createOrbControl } from "./orbcontrol.ts";
 import { add, dot, scale, sub, unit } from "./vec.ts";
 import { faceAxes } from "./engine/vec.ts";
@@ -27,7 +27,9 @@ import { createSelection } from "./selection.ts";
 import { createNotices } from "./interaction/notices.ts";
 import { createNoticeStack } from "./notifydraw.ts";
 import { createInfoBar } from "./infobardraw.ts";
-import { createOpBar } from "./opbar.ts";
+import { createToolControl } from "./toolcontrol.ts";
+import { GROUPS, TOOLS } from "./interaction/toolspec.ts";
+import { createBadge } from "./badgedraw.ts";
 import { Undo } from "./interaction/undo.ts";
 import { editNumber, rowsOf } from "./interaction/steplist.ts";
 import { createStepList } from "./steplistdraw.ts";
@@ -71,7 +73,6 @@ const orbc = createOrbControl({
   copy: () => null,
   view: () => { const e = env(); return { cam: s.c, w: e.w, h: e.h }; },
 });
-const orientBar = createOrientBar(document.body, { apply: () => orbc.keep(), cancel: () => orbc.cancel() });
 
 // ---- sketching: a tool is chosen from the ring and draws on the plane that is on, which the view is first turned straight to ----
 // every sentence the page says goes through the notices (`dec_three_surfaces`): temporary ones report what happened, persistent ones belong to something going on
@@ -108,13 +109,11 @@ const ext = createOperations({
 const bodies = createBodySelect({
   view: () => { const e = env(); return { cam: s.c, w: e.w, h: e.h }; },
   meshes: () => studio.state().meshes,
-  press: (id, sel) => doOnPick(id, sel),
+  press: (id) => tools.arm(({ "body:sketch": "sketch-face", "body:pull": "pull", "body:round": "round", "body:chamfer": "chamfer" } as Record<string, string>)[id] ?? id),
   selection,
 });
 // ---- the helper bar: the page has one, and it says what the sketch's selection or the body's pick offers (`in_1576`) ----
-// ---- the page's one pill (the old app's: a tool's icon and cross; an operation's words, kinds, check and cross) ----
-const TOOL_ICON: Record<string, string> = { line: "line", rect: "rect", circle: "circle", arc: "arc", trim: "scissors" };
-const pill = createOpBar(document.body, { apply: () => { ext.apply(); }, cancel: () => { if (ext.active()) ext.cancel(); else sk.stop(); }, option: (id) => ext.option(id) });
+const badge = createBadge(document.body); // (the tool that is armed, following the pointer)
 const infobar = createInfoBar(document.body); // (the one bar: what is so of the subject, and what could be added)
 /** the engine's facts about a face of the body: where it faces (out of the body) */
 const faceFacts = (body: string, id: string) => studio.state().snapshot.find((x) => x.id === body)?.faces.find((f) => f.id === id) ?? null;
@@ -177,7 +176,6 @@ async function chooseMore(id: import("./interaction/moremenu.ts").MoreItem["id"]
   }
 }
 const more = createMoreMenu(document.body, (id) => { void chooseMore(id); });
-function startExtrude() { if (game.on) endGame(); while (sk.stop()) { /* the sketch tool is put away */ } selection.clear(); ext.start(); }
 function startTool(kind: ToolKind) {
   ext.cancel();
   if (game.on) endGame();
@@ -186,13 +184,19 @@ function startTool(kind: ToolKind) {
   sk.start(kind);
 }
 
-// ---- the right-click ring: the pencil (its tools open as a ring of their own) and the sketch plane ----
-const menu = createMenu(document.body, (id) => { if (id === "extrude") startExtrude(); else if (id === "sketch-plane") addSketchPlane(); else if (id.startsWith("tool:")) startTool(id.slice(5) as ToolKind); });
-const menuItems = (): MenuItem[] => [
-  { id: "pencil", label: "Sketch", icon: "sketch", children: [{ id: "tool:line", label: "Line", icon: "line" }, { id: "tool:rect", label: "Rectangle", icon: "rect" }, { id: "tool:circle", label: "Circle", icon: "circle" }, { id: "tool:arc", label: "Arc (centre, start, end)", icon: "arc" }, { id: "tool:trim", label: "Trim", icon: "scissors" }] },
-  { id: "extrude", label: "Extrude", icon: "pushpull" },
-  { id: "sketch-plane", label: "Sketch plane", icon: "sheetPlain" },
-];
+// ---- the tools, run the one way: the ring's items are the registry (`interaction/toolspec.ts`), a click arms one, a right click finishes it (`toolcontrol.ts`) ----
+const tools = createToolControl({
+  notify, selection,
+  draw: (kind) => startTool(kind as ToolKind), drawStep: () => sk.drawStep(), drawStop: () => sk.stop(),
+  extrude: { start: () => { while (sk.stop()) { /* the sketch tool is put away */ } selection.clear(); ext.start(); }, active: () => ext.active(), open: () => ext.pulling(), valid: () => ext.valid(), apply: () => ext.apply(), cancel: () => ext.cancel(), words: () => ext.words() },
+  plane: addSketchPlane, face: (action, pick) => doOnPick(action, pick),
+  selectedKinds: () => sk.selectedKinds(), relate: (rel) => sk.constrain(rel),
+  orient: { on: () => orbc.orienting(), keep: () => { orbc.keep(); return true; }, cancel: () => orbc.cancel() },
+  endGame: () => { if (game.on) endGame(); },
+});
+const menu = createMenu(document.body, (id) => { if (id.startsWith("tool:")) tools.arm(id.slice(5)); });
+/** every tool, always shown and always chosen: by group, and the words in a tooltip (`dec_three_surfaces`) */
+const menuItems = (): MenuItem[] => GROUPS.map((g) => ({ id: `group:${g.id}`, label: g.label, icon: g.icon, children: TOOLS.filter((t) => t.group === g.id).map((t) => ({ id: `tool:${t.id}`, label: t.label, icon: t.icon })) }));
 
 const ui = createUi(document.body, { look: lookAt, reset, toggleWorld: () => { s = view.toggleWorld(s); } });
 
@@ -209,15 +213,15 @@ attach(canvas, {
     pointer = { x, y };
     if (menu.isOpen()) { menu.close(); return; }
     if (ext.click(x, y)) return;
-    if (sk.click(x, y, count, shiftHeld)) return;
-    if (!sk.active() && bodies.click(x, y, shiftHeld)) return; // (a tool is on: a click is a point of its figure)
+    if (sk.click(x, y, count, shiftHeld || tools.additive())) return;
+    if (!sk.active() && bodies.click(x, y, shiftHeld || tools.additive())) return; // (a tool is on: a click is a point of its figure)
     const next = view.click(s, env(), x, y); // (a pane of a world plane: it is the sketch plane now)
     if (next !== s) { placed = null; placedKey = null; s = next; }
   },
-  grab: (x, y, shift) => { if (game.on) return false; if (ext.grab(x, y)) return true; if (ext.active()) return false; return orbc.grab(x, y, shift) || sk.grab(x, y, shift); },
+  grab: (x, y, shift) => { if (game.on) return false; if (ext.grab(x, y)) return true; if (ext.active()) return false; return orbc.grab(x, y, shift) || sk.grab(x, y, shift || tools.additive()); },
   grabMove: (x, y) => { ext.grabMove(x, y); orbc.grabMove(x, y); sk.grabMove(x, y); },
   grabEnd: () => { ext.grabEnd(); orbc.grabEnd(); sk.grabEnd(); },
-  menu: (x, y) => { pointer = { x, y }; if (ext.pulling()) { ext.apply(); return; } if (ext.cancel()) return; if (!sk.stop()) menu.open(x, y, menuItems()); }, // (with a tool on, a right click gives up the figure, then puts the tool away)
+  menu: (x, y) => { pointer = { x, y }; if (tools.finish()) return; menu.open(x, y, menuItems()); }, // (a right click finishes what is armed or open: what is valid is kept, the rest thrown away, the tool put away; with none, it opens the ring)
   look: (dx, dy) => game.look(dx, dy),
   space: () => { if (game.on) endGame(); else startGame(); },
 }, () => document.pointerLockElement === canvas);
@@ -233,7 +237,7 @@ addEventListener("keydown", (e) => {
   if (game.moves(e.code) && !game.on && !e.repeat) startGame(); // (W A S D turn the game on too, and the key that did it moves the eye)
   if (game.key(e.code, true)) return;
   if (orbc.orienting() && e.code === "Enter") { orbc.keep(); return; }
-  if (e.code === "Escape") { if (more.isOpen()) { more.close(); return; } if (ext.cancel()) return; if (orbc.cancel()) return; if (menu.isOpen()) menu.close(); else if (game.on) endGame(); else if (!sk.stop() && !selection.clear()) orbc.release(); }
+  if (e.code === "Escape") { if (more.isOpen()) { more.close(); return; } if (tools.cancel()) return; if (menu.isOpen()) menu.close(); else if (game.on) endGame(); else if (!selection.clear()) orbc.release(); }
 });
 addEventListener("keyup", (e) => { game.key(e.code, false); });
 document.addEventListener("pointerlockchange", () => { if (document.pointerLockElement !== canvas && game.on) endGame(); });
@@ -259,18 +263,18 @@ function frame(now: number) {
     ...d, ...(placed ? { grid: gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, placed.origin), placed.normal))), sketch: { origin: placed.origin, u: placed.u, v: vOf(placed), n: placed.normal } } : {}), orb: ext.drawing(game.on ? null : pointer) ?? orb, ghost: ext.ghost(), marks: bodies.marks(), fills: sk.fills(), lines: sk.lines(game.on ? null : pointer), ...(sk.active() ? { looks: Object.fromEntries(model.things.map((t) => [t.id, SEE_THROUGH])) } : {}),
     cut: placed && !placedKey ? { origin: placed.origin, n: placed.normal } : null, // (made once with the plane, from the side the camera looked from; it turns and moves with the plane, and does not change with the camera)
   });
-  pill.show(ext.pill() ?? (sk.active() ? { title: null, sketch: { icon: TOOL_ICON[sk.tool() ?? ""] ?? null } } : null));
+  badge.show(tools.armed()?.icon ?? null, game.on ? null : pointer);
   { const sub = game.on ? null : ext.subject() ?? sk.subject() ?? bodies.subject(sk.active() || ext.active()), e = env(); infobar.show(sub?.info ?? null, sub?.at ?? null, sub?.on ?? null, e.w, e.h); }
   { const st = studio.state(); list.show({ rows: historyOpen ? rowsOf(st.steps, st.snapshot) : [] }); }
   more.show(moreItems({ hasModel: hasModel(), hasBody: hasBody(), history: historyOpen }));
   sk.frame(now);
+  tools.update(now);
   syncNotices(now);
   noticeStack.show(notices.visible(now));
-  orientBar.show(orbc.orienting() && !!orb);
   ui.update(view.pageState(s, e));
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
-Object.assign(window, { __sketch: sk, __ext: ext, __studio: studio, __startExtrude: startExtrude, __bodies: bodies, __more: chooseMore, __record: record, __undo: undo, __restore: restore, __proj3: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __proj: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __tool: startTool, __px: (p: [number, number]) => { const e = env(), q = project(s.c, to3(planeNow().frame, p), e.w, e.h); return [q.x, q.y]; } }); // (for the dev checks in a page)
+Object.assign(window, { __sketch: sk, __ext: ext, __studio: studio, __startExtrude: () => tools.arm("extrude"), __bodies: bodies, __more: chooseMore, __record: record, __undo: undo, __restore: restore, __proj3: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __proj: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __tool: (k: string) => tools.arm(k), __tools: tools, __px: (p: [number, number]) => { const e = env(), q = project(s.c, to3(planeNow().frame, p), e.w, e.h); return [q.x, q.y]; } }); // (for the dev checks in a page)
 dev.install({ planes: () => ({ sketch: placed, drawn: sk.debug(), ...orbc.debug() }), model, rebuild: world.rebuild, state: () => s, put: (next) => { s = next; }, pointer: () => pointer, game, gizmoScale: () => view.gizmoScale(s) });

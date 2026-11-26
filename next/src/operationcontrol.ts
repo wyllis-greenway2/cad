@@ -11,7 +11,6 @@ import type { OrbDrawing } from "./orbcontrol.ts";
 import type { Operation } from "./interaction/operation.ts";
 import type { Info, Fact } from "./interaction/infobar.ts";
 import type { InfoHandlers } from "./infobardraw.ts";
-import type { PillState } from "./opbar.ts";
 
 export interface OperationHost {
   view(): { cam: Cam; w: number; h: number };
@@ -27,6 +26,8 @@ export interface OperationHost {
   tilt(frame: { origin: V3; normal: V3; u: V3 }, centre: V3, size: number): void;
 }
 const ID = "operation";
+/** the icons of the kinds of a pull (the old chips' words are their tooltips) */
+const OPTION_ICON: Record<string, string> = { edit: "moveFace", push: "pushpull", move: "extend", offset: "offset" };
 
 export function createOperations(host: OperationHost) {
   let armed = false, op: Operation | null = null, grab: { s0: number; d0: number } | null = null;
@@ -87,14 +88,16 @@ export function createOperations(host: OperationHost) {
     ghost: () => op?.ghost ?? null,
     /** Another kind chosen (a chip of the pill). */
     option(id: string) { if (op) op = op.withOption(id); },
-    /** What the page's pill says for it (null: no operation is open). */
-    pill: (): PillState | null => (op ? { title: op.title, options: op.options, apply: true } : armed ? { title: "Extrude: click a closed shape" } : null),
+    /** Whether what is open is valid to make (a size above nothing). */
+    valid: (): boolean => op !== null && Math.abs(op.value) > 1e-9,
+    /** The sentence for what is open (a persistent notice while it is). */
+    words: (): string | null => (op ? `${op.title}. ${op.arrow ? "Drag the arrow or type a number" : "Type a number"}. Right click finishes, Esc cancels.` : null),
     /** What the info bar says while an operation is open: its number (on the left, typed over like any other), standing by the arrow's tip or where the operation says; null: no operation is open. */
     subject(): { info: Info; at: [number, number]; on: InfoHandlers } | null {
       if (!op) return null;
       const { cam, w, h } = host.view(), tip = op.arrow ? handle(op, cam).points[1]! : op.at, q = project(cam, tip, w, h);
       const f: Fact = { id: "d", kind: "dimension", relation: "length", icon: "dimension", at: [0, 0], text: String(Math.round(op.value * 1000) / 1000), unit: "mm", value: op.value, tone: "rest", title: op.valueTitle, parts: [] };
-      return { info: { facts: [f], suggestions: [] }, at: [Math.max(60, Math.min(w - 60, q.x)), Math.max(70, Math.min(h - 50, q.y))], on: { suggest() { /* none */ }, fact() { /* none */ }, lock() { /* none */ }, set: (_id, v) => { if (op && isFinite(v)) op = op.withValue(v) ?? op; } } };
+      return { info: { facts: [f], suggestions: op.options.filter((o) => !o.on && o.enabled).map((o) => ({ id: `opt:${o.id}`, icon: OPTION_ICON[o.id] ?? "pushpull", label: o.label, tone: "free" as const })) }, at: [Math.max(60, Math.min(w - 60, q.x)), Math.max(70, Math.min(h - 50, q.y))], on: { suggest: (id) => { if (id.startsWith("opt:") && op) op = op.withOption(id.slice(4)); }, fact() { /* none */ }, lock() { /* none */ }, set: (_id, v) => { if (op && isFinite(v)) op = op.withValue(v) ?? op; } } };
     },
     debug: () => ({ armed, pull: op ? { mode: op.kind, d: op.value, ...op.debug } : null }),
   };
