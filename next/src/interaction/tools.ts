@@ -5,13 +5,14 @@ import type { SketchParams } from "../engine/sketch.ts";
 import { addArc, addCircle, addLine, addRect, arcWay, posOf, type Ref, type Sol } from "./drawing.ts";
 import type { StrokeKind } from "./style.ts";
 import type { Pt } from "../engine/region.ts";
+import { emptyTyped } from "./typing.ts";
 
 export type DrawKind = "line" | "rect" | "circle" | "arc";
 /** a tool and the places put down so far for the figure under way */
-export interface Tool { kind: DrawKind | "trim"; pts: Ref[] }
-export const newTool = (kind: Tool["kind"]): Tool => ({ kind, pts: [] });
+export interface Tool { kind: DrawKind | "trim"; pts: Ref[]; /** the numbers typed for the figure under way, one for each of the tool's numbers ("": not typed), and which one digits go to (`typing.ts`) */ typed: string[]; field: number }
+export const newTool = (kind: Tool["kind"]): Tool => ({ kind, pts: [], typed: emptyTyped(kind), field: 0 });
 /** the figure given up (a line's chain ends) */
-export const cancelFigure = (t: Tool): Tool => ({ ...t, pts: [] });
+export const cancelFigure = (t: Tool): Tool => ({ ...t, pts: [], typed: emptyTyped(t.kind), field: 0 });
 export interface Clicked { tool: Tool; /** the drawing with the figure in it (null: the click made nothing yet, or nothing at all), and its name for the history */ made?: { params: SketchParams | null; label: string } }
 
 /** a click at a place (as a point of the sketch or a free place) */
@@ -22,7 +23,7 @@ export function toolClick(t: Tool, p: SketchParams, s: Sol, r: Ref): Clicked {
     case "arc":
       if (t.pts.length === 1) return { tool: { ...t, pts: [a, r] } };
       return { tool: cancelFigure(t), made: { params: addArc(p, s, t.pts[0]!, t.pts[1]!, posOf(s, r)), label: "Arc" } };
-    case "line": return { tool: { ...t, pts: "id" in r ? [r] : [] }, made: { params: addLine(p, s, a, r), label: "Line" } }; // (a line is two clicks; one that ends on a point already drawn goes on from it, as the old app's does)
+    case "line": return { tool: { ...cancelFigure(t), pts: "id" in r ? [r] : [] }, made: { params: addLine(p, s, a, r), label: "Line" } }; // (a line is two clicks; one that ends on a point already drawn goes on from it, as the old app's does)
     case "rect": return { tool: cancelFigure(t), made: { params: addRect(p, s, a, r), label: "Rectangle" } };
     case "circle": return { tool: cancelFigure(t), made: { params: addCircle(p, s, a, posOf(s, r)), label: "Circle" } };
     default: return { tool: t };

@@ -24,6 +24,7 @@ import { createOperations } from "./operationcontrol.ts";
 import { extrudeOp, pushOp, roundOp, type PullInfo, type Source } from "./interaction/operations.ts";
 import { createBodySelect } from "./bodyselect.ts";
 import { createSelection } from "./selection.ts";
+import { createChip } from "./chipdraw.ts";
 import { createHelperBar } from "./helperbardraw.ts";
 import { createOpBar } from "./opbar.ts";
 import { Undo } from "./interaction/undo.ts";
@@ -115,6 +116,7 @@ const bodies = createBodySelect({
 let sketchMode = false;
 function exitSketch() { while (sk.stop()) { /* the tool is put away */ } selection.clear(); sketchMode = false; }
 const TOOL_ICON: Record<string, string> = { line: "line", rect: "rect", circle: "circle", arc: "arc", trim: "scissors" };
+const chip = createChip(document.body); // (the numbers of the figure being drawn, by the pointer)
 const pill = createOpBar(document.body, { apply: () => { ext.apply(); }, cancel: () => { if (ext.active()) ext.cancel(); else sk.stop(); }, option: (id) => ext.option(id), exit: exitSketch });
 let barPress: ((id: string) => void) | null = null;
 const bar = createHelperBar(document.body, (id) => barPress?.(id));
@@ -255,6 +257,7 @@ function frame(now: number) {
     cut: placed && !placedKey ? { origin: placed.origin, n: placed.normal } : null, // (made once with the plane, from the side the camera looked from; it turns and moves with the plane, and does not change with the camera)
   });
   ext.frame(); pill.show(ext.pill() ?? (sketchMode || sk.active() ? { title: null, sketch: { icon: TOOL_ICON[sk.tool() ?? ""] ?? null } } : null));
+  chip.show(game.on ? null : sk.chip());
   const say1 = sk.bar() ?? bodies.bar(sk.active() || ext.active()), barBox = (() => { barPress = say1?.press ?? null; const e = env(); return bar.show(say1?.items ?? null, say1?.at ?? null, e.w, e.h); })();
   { const st = studio.state(), n = undo.next; list.show({ rows: rowsOf(st.steps, st.snapshot), canUndo: undo.canUndo, canRedo: undo.canRedo, undoLabel: n.undo, redoLabel: n.redo, busy: st.busy }); }
   more.show(moreItems({ hasModel: hasModel(), hasBody: hasBody() }));

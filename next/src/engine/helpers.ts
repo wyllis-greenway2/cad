@@ -4,14 +4,11 @@
 // The free thing is the place `~P`, alone (`point`), or the end of a line from the figure's first place (`line`: `~L`), or the edge of a circle about it (`circle`: `~C`); the first place is a point of the sketch (`startId`) or only a place.
 // The nearest acts (a point before a line, then a fixed order); one more, not parallel to it, within reach of that place: the place is where both hold. Everything that holds at the place is reported, to be shown and offered.
 import { RELATIONS, type Constraint, type Relation, type System } from "./solver.ts";
-import { residualsOf } from "./solver.ts";
 import { kindTuples, standingOf, type PartKind } from "./relations.ts";
-
-export type Pt = [number, number];
+import { figureOf, isFree, land, P, S, L, C, type Free, type Pt } from "./free.ts";
+export { P, S, L, C, type Free, type Pt } from "./free.ts";
 /** how near (px) the pointer must be to a relation that says a point and to one that says a line, how far past its ends a guide runs, and the step it is traced in: the screen's settings (`settings.helpers`), given to each call so this file knows no screen */
 export interface Reach { pointPx: number; linePx: number; overPx: number; stepPx: number }
-export const P = "~P", S = "~S", L = "~L", C = "~C";
-export type Free = { shape: "point" } | { shape: "line"; from: Pt; startId?: string } | { shape: "circle"; centre: Pt; startId?: string };
 /** a relation that holds or nearly holds: which parts (the free ones by their `~` names), where it puts the place, and how far it moved it */
 export interface Held {
   relation: Relation; label: string; parts: string[]; variant?: Partial<Constraint>;
@@ -26,12 +23,12 @@ export interface Helped {
 }
 interface Cand { relation: Relation; parts: string[]; variant?: Partial<Constraint>; order: number }
 
-const free = (id: string) => id.startsWith("~");
+const free = isFree;
 const norm = (v: number[]) => Math.hypot(...v);
 
 /** the ways parts can be named for the relations that are helpers: each needs at least one free part (else it does not say anything about the place) */
 function candidates(S0: System, f: Free): Cand[] {
-  const start = f.shape === "point" ? undefined : f.startId;
+  const start = f.shape === "line" || f.shape === "circle" ? f.startId : undefined;
   const pool: Record<PartKind, string[]> = {
     point: [P, ...S0.points.map((p) => p.id).filter((id) => id !== start)], // (the first place is covered by the line or circle that starts there)
     line: [...(f.shape === "line" ? [L] : []), ...S0.lines.map((l) => l.id)],
@@ -53,51 +50,14 @@ function candidates(S0: System, f: Free): Cand[] {
 
 /** The place the pointer `q` is drawn to, by what acts and what holds there; `mm` is the size of a pixel. */
 export function helpersAt(S0: System, f: Free, q: Pt, mm: number, reach: Reach): Helped {
-  const pts = new Map(S0.points.map((p) => [p.id, p] as const)), lines = new Map(S0.lines.map((l) => [l.id, l] as const)), circles = new Map(S0.circles.map((c) => [c.id, c] as const));
-  const startId = f.shape === "point" ? undefined : f.startId, startAt: Pt | null = f.shape === "line" ? f.from : f.shape === "circle" ? f.centre : null;
-  const startName = startId ?? S;
-  /** the parts a candidate names, at a place, as a small system (only what it names) */
-  const small = (names: string[], at: Pt): System => {
-    const points: System["points"] = [], seen = new Set<string>(), ls: System["lines"] = [], cs: System["circles"] = [];
-    const addPt = (id: string) => { if (seen.has(id)) return; seen.add(id); points.push(id === P ? { id, x: at[0], y: at[1] } : id === S ? { id, x: startAt![0], y: startAt![1] } : pts.get(id)!); };
-    for (const id of names) {
-      if (id === P) addPt(P);
-      else if (id === L) { addPt(startName); addPt(P); ls.push({ id: L, a: startName, b: P }); }
-      else if (id === C) { addPt(startName); cs.push({ id: C, c: startName, r: Math.hypot(at[0] - startAt![0], at[1] - startAt![1]) || 1e-9 }); }
-      else if (lines.has(id)) { const l = lines.get(id)!; addPt(l.a); addPt(l.b); ls.push(l); }
-      else if (circles.has(id)) { const k = circles.get(id)!; addPt(k.c); cs.push(k); }
-      else addPt(id);
-    }
-    return { points, lines: ls, circles: cs, constraints: [] };
-  };
-  const all = candidates(S0, f), rowFn = (c: Cand) => (at: Pt) => residualsOf(small(c.parts, at), { id: "h", kind: c.relation, parts: c.parts, ...(c.variant ?? {}) });
-  /** the whole sketch with the figure's free parts in it at a place, for the solver to judge a candidate */
-  const whole = (at: Pt): System => {
-    const extra: System = small([P, ...(f.shape === "line" ? [L] : []), ...(f.shape === "circle" ? [C] : [])], at);
-    const have = new Set(S0.points.map((p) => p.id));
-    return { points: [...S0.points, ...extra.points.filter((p) => !have.has(p.id))], lines: [...S0.lines, ...extra.lines], circles: [...S0.circles, ...extra.circles], constraints: S0.constraints };
-  };
+  const fig = figureOf(S0, f), pts = new Map(S0.points.map((p) => [p.id, p] as const)), lines = new Map(S0.lines.map((l) => [l.id, l] as const)), circles = new Map(S0.circles.map((c) => [c.id, c] as const)), startAt = fig.startAt, whole = fig.whole;
+  const all = candidates(S0, f), rowFn = (c: Cand) => fig.rows({ kind: c.relation, parts: c.parts, ...(c.variant ?? {}) });
   const applicable = (c: Cand, at: Pt) => { const t = standingOf(whole(at), { id: "helper", kind: c.relation, parts: c.parts, ...(c.variant ?? {}) }).state; return t !== "already" && t !== "refused"; };
   const make = (c: Cand, at: Pt, moved: number): Held => {
     const row = rowFn(c), r = row(at), says: "point" | "line" = r.length === 2 ? "point" : "line", h = 1e-5;
     let dir: Pt | null = null;
     if (says === "line") { const gx = (row([at[0] + h, at[1]])[0]! - row([at[0] - h, at[1]])[0]!) / (2 * h), gy = (row([at[0], at[1] + h])[0]! - row([at[0], at[1] - h])[0]!) / (2 * h), n = Math.hypot(gx, gy); if (n > 1e-12) dir = [-gy / n, gx / n]; }
     return { relation: c.relation, label: RELATIONS[c.relation].label, parts: c.parts, ...(c.variant ? { variant: c.variant } : {}), sources: c.parts.filter((x) => !free(x)), says, at, moved, dir };
-  };
-  /** Newton on the residuals toward where they are zero (null: it does not get there, or is too far to be a helper) */
-  const land = (row: (at: Pt) => number[], from: Pt, reach: number, steps = 8): Pt | null => {
-    let at: Pt = [from[0], from[1]];
-    for (let it = 0; it < steps; it++) {
-      const r = row(at); if (r.length === 0 || !r.every(Number.isFinite)) return null;
-      if (norm(r) < 1e-9) return at;
-      const h = 1e-5, gx = row([at[0] + h, at[1]]).map((v, i) => (v - row([at[0] - h, at[1]])[i]!) / (2 * h)), gy = row([at[0], at[1] + h]).map((v, i) => (v - row([at[0], at[1] - h])[i]!) / (2 * h));
-      let dx: number, dy: number;
-      if (r.length === 1) { const n = gx[0]! ** 2 + gy[0]! ** 2; if (n < 1e-14) return null; dx = -(r[0]! * gx[0]!) / n; dy = -(r[0]! * gy[0]!) / n; }
-      else { const a = gx[0]!, b = gy[0]!, c = gx[1]!, d = gy[1]!, det = a * d - b * c; if (Math.abs(det) < 1e-12) return null; dx = -(d * r[0]! - b * r[1]!) / det; dy = -(-c * r[0]! + a * r[1]!) / det; }
-      if (it === 0 && Math.hypot(dx, dy) > 3 * reach) return null;
-      at = [at[0] + dx, at[1] + dy];
-    }
-    return norm(row(at)) < 1e-6 ? at : null;
   };
   /** Newton for two rows of one each (2x2): where both hold */
   const crossing = (a: (at: Pt) => number[], b: (at: Pt) => number[], from: Pt): Pt | null => {

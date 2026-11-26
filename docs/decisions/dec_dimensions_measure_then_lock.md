@@ -3,7 +3,7 @@ id: dec_dimensions_measure_then_lock
 kind: decision
 status: accepted
 origin: ai-proposed-human-approved
-human_input: in_1589, in_1590
+human_input: in_1589, in_1590, in_1591
 date: 2026-11-26
 depends_on:
   - dec_hints_place_only: a typed number is the one thing besides a click that places a point; it does not make hints into constraints
@@ -26,7 +26,7 @@ alternative_to:
 5. **Enter or a click makes the figure with the typed numbers as locked dimensions**; the numbers not typed stay live (open padlock) and are only measured.
 
 **Slices, each small and checked on its own:** (a) the measured bubbles with a padlock for a selection, and typing into them; (b) the chip while drawing, fed by the tool's measures and the solver; (c) diameter and angle shown as the old app shows them, units.
-**Built: slice (a)** (`in_1590`): `interaction/bubbles.ts` (`ownMeasure`, the measured bubble with `locked: false`; a constraint's dimension has `locked: true`), `bubbledraw.ts` (the padlock, a click locks or lets go; `startEdit`), `sketchcontrol.ts` (`lockMeasure`, digits typed with a part selected go to its number, `TYPED`), `drawing.ts` `constrain(..., "dimension", value)`, the bar has no number items; `dev/measure-check.ts` (13 cases), page checks updated (`sketch`, `arc`, `drag`). **Not decided / not built:** an inch display (`CN-40`); a number on a body's edge (`CN-44`); an arc's angle (`CN-9`).
+**Built: slice (a)** (`in_1590`): `interaction/bubbles.ts` (`ownMeasure`, the measured bubble with `locked: false`; a constraint's dimension has `locked: true`), `bubbledraw.ts` (the padlock, a click locks or lets go; `startEdit`), `sketchcontrol.ts` (`lockMeasure`, digits typed with a part selected go to its number, `TYPED`), `drawing.ts` `constrain(..., "dimension", value)`, the bar has no number items; `dev/measure-check.ts` (13 cases), page checks updated (`sketch`, `arc`, `drag`). **Built: slice (b)** (`in_1591`): `engine/free.ts` (the free part of a figure: `Free`, `figureOf`, `land`, shared with the helpers), `engine/typed.ts` (`placeTyped`: the pointer's place moved by Newton on the relation table's residuals to where the typed measures hold: no solver and no rule per tool, found to be enough), `interaction/typing.ts` (`FIELDS`: each tool's numbers once; `typeKey`, `typedMeasures`, `chipFields`), `chipdraw.ts` (the chip, pointer-events none so it can never take a click), `sketchcontrol.ts` (`typeInTool`: digits, Backspace, Tab, Enter; the figure and its locked numbers are one change), `tools.ts` (`Tool.typed`, `Tool.field`); checked by `dev/typed-check.ts` (15 cases without a page) and `dev/typed-browser.ts`. The chip shows the number as measured with an open padlock, as typed with a closed teal one, the active one underlined; a circle's is its diameter. A signed distance (a width) takes the pointer's side unless typed with a minus. Not built: an arc's numbers (the old app's "Height"), the chip on touch, a typed number clicked into with the pointer. **Not decided / not built:** an inch display (`CN-40`); a number on a body's edge (`CN-44`); an arc's angle (`CN-9`).
 
 ## Rationale
 

@@ -13,13 +13,16 @@ import { pointOnSeg, type Pt } from "./engine/region.ts";
 import { trimAt } from "./engine/trim.ts";
 import type { Relation } from "./engine/solver.ts";
 import type { Selection } from "./selection.ts";
-import { bake, constrain, emptySketch, hitAt, keep, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
+import { bake, constrain, emptySketch, hitAt, keep, nextId, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
 import { MEASURE_ID, bubblesOn, selectionAnchor, type Bubble, type Flash } from "./interaction/bubbles.ts";
 import { barFor, type Bar } from "./interaction/helperbar.ts";
 import { createBubbleLayer, type Placed } from "./bubbledraw.ts";
-import { helpersAt, type Free, type Helped } from "./engine/helpers.ts";
+import { helpersAt, type Helped } from "./engine/helpers.ts";
+import type { Free } from "./engine/free.ts";
+import { measureAt, placeTyped, type TypedMeasure } from "./engine/typed.ts";
+import { FIELDS, chipFields, freeOf, typeKey, typedMeasures, type ChipField } from "./interaction/typing.ts";
 import { helpShown } from "./interaction/helpshow.ts";
-import { newOffers, offerBubbles, takeOffer, type Offers } from "./interaction/offers.ts";
+import { madeNames, newOffers, offerBubbles, takeOffer, type Offers } from "./interaction/offers.ts";
 import { newTool, cancelFigure, toolClick, toolPreview, type Tool } from "./interaction/tools.ts";
 import { dragTo, joinFor, pinsOf } from "./interaction/dragging.ts";
 import { loopPoints, regionAt, type Region } from "./interaction/extrude.ts";
@@ -48,12 +51,23 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   const selected = (key: string): string[] => [...sel.sketch(key)];
   /** a pixel's worth of the plane in mm, where the pointer is */
   /** where a click would put the place: on a point or curve as drawn, else drawn to the helpers' places (they place, they never constrain, `dec_hints_place_only`, `in_1579`) */
-  const placed = (c: { p: SketchParams; q: P2; tol: number; mm: number }, s: Sol): { ref: Ref; help: Helped | null; free: Free } => {
-    const r = refOf(c.p, s, c.q, c.tol), a = tool?.pts[0], pos = a ? posOf(s, a) : null;
-    const free: Free = pos && tool?.kind === "line" ? { shape: "line", from: pos, ...("id" in a! ? { startId: a.id } : {}) } : pos && tool?.kind === "circle" ? { shape: "circle", centre: pos, ...("id" in a! ? { startId: a.id } : {}) } : { shape: "point" };
-    const h = helpersAt(viewSystem(c.p, s), free, "id" in r ? s.points[r.id]! : c.q, c.mm, settings.helpers), co = h.acted.find((x) => x.relation === "coincident");
-    if ("id" in r) return { ref: r, help: h.holds.length ? h : null, free };
-    return h.acted.length ? { ref: co?.sources[0] ? { id: co.sources[0] } : { at: h.at }, help: h, free } : { ref: r, help: h.holds.length ? h : null, free };
+  type PlaceResult = { ref: Ref; help: Helped | null; free: Free; /** the numbers typed for the figure, as measures to hold */ measures: TypedMeasure[] };
+  let memo: { tool: Tool | null; p: SketchParams; x: number; y: number; res: PlaceResult } | null = null; // (the same place is asked for by the preview, the chip and a click)
+  const placed = (c: { p: SketchParams; q: P2; tol: number; mm: number }, s: Sol): PlaceResult => {
+    if (memo && memo.tool === tool && memo.p === c.p && memo.x === c.q[0] && memo.y === c.q[1]) return memo.res;
+    const res = placeOf(c, s); memo = { tool, p: c.p, x: c.q[0], y: c.q[1], res }; return res;
+  };
+  const placeOf = (c: { p: SketchParams; q: P2; tol: number; mm: number }, s: Sol): PlaceResult => {
+    const r = refOf(c.p, s, c.q, c.tol), a = tool?.pts[0], pos = a ? posOf(s, a) : null, kind = tool && tool.kind !== "trim" ? tool.kind : null;
+    const free: Free = kind && pos ? freeOf(kind, pos, a && "id" in a ? a.id : undefined) : { shape: "point" }, sys = viewSystem(c.p, s);
+    // numbers typed hold the figure's size: the place is the pointer's, moved to where they hold, and no helper acts on it (`dec_dimensions_measure_then_lock`)
+    if (kind && pos && tool!.typed.some((t) => t !== "")) {
+      const live = FIELDS[kind].map((f) => measureAt(sys, free, c.q, f.kind, f.parts)), measures = typedMeasures(kind, tool!.typed, live), at = measures.length ? placeTyped(sys, free, c.q, measures) : null;
+      if (at) return { ref: { at }, help: null, free, measures };
+    }
+    const h = helpersAt(sys, free, "id" in r ? s.points[r.id]! : c.q, c.mm, settings.helpers), co = h.acted.find((x) => x.relation === "coincident");
+    if ("id" in r) return { ref: r, help: h.holds.length ? h : null, free, measures: [] };
+    return h.acted.length ? { ref: co?.sources[0] ? { id: co.sources[0] } : { at: h.at }, help: h, free, measures: [] } : { ref: r, help: h.holds.length ? h : null, free, measures: [] };
   };
   /** the dash of a guide, as the old app's (`settings.helpers.dash` of the view's distance; worked from the view's height over twice the tangent of half its angle, so it is the same in the straight view) */
   const dashAt = (f: Frame, q: P2) => { const { cam } = host.view(); return (viewHeight(cam, Math.max(forwardDepth(cam, to3(f, q)), 1e-3)) * settings.helpers.dash) / (2 * Math.tan((settings.view.fovDeg * Math.PI) / 360)); };
@@ -115,7 +129,18 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     if (k.ok) set(key, k.params, label); else fail(k.why, k.victims);
   };
   // ---- the constraints a helper held, offered for a moment after a figure is placed (`dec_helper_constraint_bubble`, `interaction/offers.ts`): this keeps the value and says when the sketch changed
-  let offers: Offers | null = null, ownId: string | null = null;
+  let offers: Offers | null = null, ownId: string | null = null, lastPointer: { x: number; y: number } | null = null, clickAt: ((x: number, y: number, count: number) => boolean) | null = null;
+  /** a key while a figure is under way: digits, a point and a minus go to the active number, Backspace takes one away, Tab changes number, Enter makes the figure from what is typed (`typing.ts`) */
+  const typeInTool = (code: string): boolean => {
+    if (!tool || tool.kind === "trim" || !tool.pts.length || !FIELDS[tool.kind].length) return false;
+    const n = FIELDS[tool.kind].length;
+    if (code === "Tab") { if (n < 2) return false; tool = { ...tool, field: (tool.field + 1) % n }; return true; }
+    if (code === "Enter") return !!lastPointer && tool.typed.some((t) => t !== "") && !!clickAt?.(lastPointer.x, lastPointer.y, 1);
+    const key = code === "Backspace" ? "Backspace" : TYPED[code]; if (key === undefined) return false;
+    const next = typeKey(tool.typed, tool.field, key);
+    if (next.join("\u0000") === tool.typed.join("\u0000")) return key === "Backspace" ? false : true; // (a key that adds nothing, as a second point, is used up, a Backspace with nothing typed is not)
+    tool = { ...tool, typed: next }; return true;
+  };
   const takeOne = (id: string) => {
     const c = current(); if (!offers || !c) return;
     const r = takeOffer(offers, id, c, performance.now(), settings.offer); if (!r) return;
@@ -130,7 +155,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   };
   const polyline = (s: ReturnType<typeof segsOf>[number]): Pt[] => s.kind === "line" ? [s.a, s.b] : Array.from({ length: 65 }, (_, k) => pointOnSeg(s, (k / 64) * s.sweep));
 
-  return {
+  const api = {
     active: () => tool !== null,
     tool: (): ToolKind | null => tool?.kind ?? null,
     start(kind: ToolKind) { tool = newTool(kind); sel.clear(); offers = null; },
@@ -161,12 +186,26 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       }
       const s = solOf(c.p), pl = placed(c, s), done = toolClick(tool, c.p, s, pl.ref), start = tool.pts[0] ? posOf(s, tool.pts[0]) : null;
       tool = done.tool;
-      if (done.made) { const before = c.p; commit(c.key, done.made.params, done.made.label); if (defs.get(c.key) !== before) { const p2 = defs.get(c.key)!, s2 = solOf(p2); offers = newOffers(c.key, p2, viewSystem(p2, s2), s2, pl.help, posOf(s, pl.ref), start, performance.now(), settings.offer); } }
+      if (done.made?.params) { // the figure, with the numbers typed for it locked as dimensions, is one change
+        const before = c.p, made = done.made, k = keep(made.params!), at = posOf(s, pl.ref);
+        if (!k.ok) fail(k.why, k.victims);
+        else {
+          let final = k.params;
+          if (pl.measures.length) {
+            const names = madeNames(final, k.sol, at, start); let withLocks = final;
+            for (const m of pl.measures) { const parts = m.parts.map((x) => (x.startsWith("~") ? names[x as keyof typeof names] : x)); if (parts.every((x) => x)) withLocks = { ...withLocks, constraints: [...(withLocks.constraints ?? []), { id: nextId(withLocks, "c"), kind: m.kind, parts: parts as string[], value: Math.round(m.value * 1e6) / 1e6 }] }; }
+            const k2 = keep(withLocks); if (k2.ok) final = k2.params; else say(`The numbers typed could not be locked: ${k2.why}`);
+          }
+          set(c.key, final, made.label);
+          if (defs.get(c.key) !== before) { const p2 = defs.get(c.key)!, s2 = solOf(p2); offers = newOffers(c.key, p2, viewSystem(p2, s2), s2, pl.help, at, start, performance.now(), settings.offer); }
+        }
+      }
       return true;
     },
     /** Keys of the sketch: Delete takes the selected parts away (no other key is bound for now, `in_1574`). Returns whether the key was used. */
     key(code: string): boolean {
-      const c = current(); if (!c || tool) return false;
+      const c = current(); if (!c) return false;
+      if (tool) return typeInTool(code); // (a figure under way: the keys type its numbers)
       const typed = TYPED[code]; // (digits typed with a part selected go to its own number, `dec_typing_standard`)
       if (typed !== undefined && ownId && !layer.editing()) return layer.startEdit(ownId, typed);
       const ids = selected(c.key);
@@ -219,6 +258,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     },
     /** What to draw: every sketch on every plane (what is selected in teal), what the tool would make, the part a trim would take, and the place the pointer is at. */
     lines(pointer: { x: number; y: number } | null): DrawLine[] {
+      if (pointer) lastPointer = pointer;
       const { all } = host.planes(), out: DrawLine[] = [];
       for (const k of [...defs.keys()]) if (!all.has(k)) defs.delete(k); // (the plane is gone, and its sketch)
       for (const [k, p] of defs) {
@@ -265,6 +305,13 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       layer.show(items, { lines: c.p.lines?.map((l) => [px(s.points[l.a]!), px(s.points[l.b]!)] as [[number, number], [number, number]]) ?? [], dots: c.p.points.map((q) => px(s.points[q.id]!)), ...(box ? { rects: [box] } : {}) });
       return { message };
     },
+    /** The chip by the pointer while a figure is drawn (the old app's: its numbers, each with a padlock): what it says and where on the page it stands (null: no figure under way, or it has no numbers) */
+    chip(): { fields: ChipField[]; at: [number, number] } | null {
+      if (!tool || tool.kind === "trim" || !tool.pts.length || !FIELDS[tool.kind].length || !lastPointer) return null;
+      const c = here(lastPointer.x, lastPointer.y); if (!c) return null;
+      const s = solOf(c.p), pl = placed(c, s), at = posOf(s, pl.ref), sys = viewSystem(c.p, s), cam = host.view(), q = project(cam.cam, to3(c.f, at), cam.w, cam.h);
+      return { fields: chipFields(tool.kind, tool.typed, tool.field, FIELDS[tool.kind].map((f) => measureAt(sys, pl.free, at, f.kind, f.parts))), at: [q.x, q.y] };
+    },
     /** The closed parts of every drawing, to be tinted (a closed figure has a very faint fill in the old app, `in_194`): the outline and holes in each plane's axes. */
     fills(): { frame: { origin: V3; u: V3; v: V3 }; loops: [number, number][][] }[] {
       const { all } = host.planes(), out: { frame: { origin: V3; u: V3; v: V3 }; loops: [number, number][][] }[] = [];
@@ -290,4 +337,6 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     press: act,
     debug: () => ({ tool: tool ? { ...tool } : null, sketches: [...defs].map(([k, v]) => [k, v] as const), selection: (() => { const k = sel.get(); return k?.kind === "sketch" ? { key: k.key, ids: k.ids } : { key: "", ids: [] }; })(), message }),
   };
+  clickAt = (x, y, count) => api.click(x, y, count);
+  return api;
 }
