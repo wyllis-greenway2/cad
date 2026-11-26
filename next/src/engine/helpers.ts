@@ -28,8 +28,11 @@ const norm = (v: number[]) => Math.hypot(...v);
 
 /** the ways parts can be named for the relations that are helpers: each needs at least one free part (else it does not say anything about the place) */
 function candidates(S0: System, f: Free): Cand[] {
-  const start = f.shape === "line" || f.shape === "circle" ? f.startId : undefined;
-  const pool: Record<PartKind, string[]> = {
+  const start = f.shape === "line" || f.shape === "circle" ? f.startId : undefined; // (a piece names no start)
+  const piece = f.shape === "piece" ? f : null;
+  const pool: Record<PartKind, string[]> = piece ? { // a part moved as one piece: its own parts (free names) against everything else
+    point: [...Object.keys(piece.points), ...S0.points.map((p) => p.id)], line: [...piece.lines.map((l) => l.name), ...S0.lines.map((l) => l.id)], circle: [...piece.circles.map((c) => c.name), ...S0.circles.map((c) => c.id)],
+  } : {
     point: [P, ...S0.points.map((p) => p.id).filter((id) => id !== start)], // (the first place is covered by the line or circle that starts there)
     line: [...(f.shape === "line" ? [L] : []), ...S0.lines.map((l) => l.id)],
     circle: [...(f.shape === "circle" ? [C] : []), ...S0.circles.map((c) => c.id)],
@@ -39,7 +42,7 @@ function candidates(S0: System, f: Free): Cand[] {
     if (!def.helper) continue; order++;
     for (const kinds of kindTuples(name)) {
       const walk = (i: number, got: string[]) => {
-        if (i === kinds.length) { if (name === "pointOnCircle" && got.includes(P) && got.includes(C)) return; /* (the edge place is on its own circle by construction: it would always win, at no distance, and hide the tangent) */ if (got.some((g) => g === P || g === L || g === C)) for (const variant of def.helper!.variants ?? [undefined]) out.push({ relation: name, parts: got, ...(variant && Object.keys(variant).length ? { variant } : {}), order }); return; }
+        if (i === kinds.length) { if (name === "pointOnCircle" && got.includes(P) && got.includes(C)) return; if (piece && got.every((g) => free(g))) return; /* (a piece moved whole keeps what is among its own parts: only what it says of the rest) */ /* (the edge place is on its own circle by construction: it would always win, at no distance, and hide the tangent) */ if (got.some((g) => free(g))) for (const variant of def.helper!.variants ?? [undefined]) out.push({ relation: name, parts: got, ...(variant && Object.keys(variant).length ? { variant } : {}), order }); return; }
         for (const id of pool[kinds[i]!]) if (!got.includes(id)) walk(i + 1, [...got, id]);
       };
       walk(0, []);
@@ -105,13 +108,17 @@ export function helpersAt(S0: System, f: Free, q: Pt, mm: number, reach: Reach):
   const byHeld = new Map<Held, Cand>(); for (const h of [...acted, ...holds]) { const c = all.find((x) => x.relation === h.relation && x.parts.join() === h.parts.join() && x.variant === h.variant); if (c) byHeld.set(h, c); }
   const guide = (h: Held): Pt[] | null => {
     const c = byHeld.get(h); if (!c || h.says !== "line" || !h.dir || c.parts.includes(L) || c.parts.includes(C)) return null;
-    const row = rowFn(c), src = h.sources[0], over = reach.overPx * mm, ds = reach.stepPx * mm;
-    let anchor: Pt = h.at;
+    const pc = f.shape === "piece" ? f : null, mover = pc ? c.parts.find((x) => free(x)) : undefined;
+    if (pc && (!mover || !pc.points[mover])) return null; // (a piece's line or circle says no dashed line, only its ties)
+    const sh: Pt = pc && mover ? [pc.points[mover]![0] - pc.ref[0], pc.points[mover]![1] - pc.ref[1]] : [0, 0]; // (the dashed line passes through where the moving point is, not through the piece's reference place)
+    const row = rowFn(c), src = h.sources[0], over = reach.overPx * mm, ds = reach.stepPx * mm, ha: Pt = [h.at[0] + sh[0], h.at[1] + sh[1]];
+    let anchor: Pt = ha;
     if (src) {
       if (pts.has(src)) anchor = [pts.get(src)!.x, pts.get(src)!.y];
-      else if (lines.has(src)) { const l = lines.get(src)!, a = pts.get(l.a)!, b = pts.get(l.b)!, dx = b.x - a.x, dy = b.y - a.y, t = Math.max(0, Math.min(1, ((h.at[0] - a.x) * dx + (h.at[1] - a.y) * dy) / (dx * dx + dy * dy || 1))); anchor = [a.x + dx * t, a.y + dy * t]; }
-      else if (circles.has(src)) { const k = circles.get(src)!, m = pts.get(k.c)!, d = Math.hypot(h.at[0] - m.x, h.at[1] - m.y) || 1; anchor = [m.x + (k.r * (h.at[0] - m.x)) / d, m.y + (k.r * (h.at[1] - m.y)) / d]; }
+      else if (lines.has(src)) { const l = lines.get(src)!, a = pts.get(l.a)!, b = pts.get(l.b)!, dx = b.x - a.x, dy = b.y - a.y, t = Math.max(0, Math.min(1, ((ha[0] - a.x) * dx + (ha[1] - a.y) * dy) / (dx * dx + dy * dy || 1))); anchor = [a.x + dx * t, a.y + dy * t]; }
+      else if (circles.has(src)) { const k = circles.get(src)!, m = pts.get(k.c)!, d = Math.hypot(ha[0] - m.x, ha[1] - m.y) || 1; anchor = [m.x + (k.r * (ha[0] - m.x)) / d, m.y + (k.r * (ha[1] - m.y)) / d]; }
     }
+    anchor = [anchor[0] - sh[0], anchor[1] - sh[1]]; // (in the space of the place asked about)
     const span = Math.hypot(anchor[0] - h.at[0], anchor[1] - h.at[1]);
     const walk = (sign: 1 | -1, length: number): Pt[] => {
       const out: Pt[] = []; let a: Pt = h.at, dir: Pt = [h.dir![0] * sign, h.dir![1] * sign];
@@ -123,7 +130,7 @@ export function helpersAt(S0: System, f: Free, q: Pt, mm: number, reach: Reach):
     };
     const toward = h.dir[0] * (anchor[0] - h.at[0]) + h.dir[1] * (anchor[1] - h.at[1]) >= 0 ? 1 : -1;
     const near2 = walk(toward, span + over), far = walk(toward === 1 ? -1 : 1, over);
-    return [...far.reverse(), h.at, ...near2];
+    return [...far.reverse(), h.at, ...near2].map((q): Pt => [q[0] + sh[0], q[1] + sh[1]]);
   };
   return { at, acted, holds, guide };
 }

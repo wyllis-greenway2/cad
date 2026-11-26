@@ -38,7 +38,35 @@ try {
   writeFileSync(`${dir}/drag-hints-2.png`, await page.screenshot());
   await page.mouse.up(); await page.waitForTimeout(250);
   d = await def(); ok(Math.abs(d.circles[0].r - 12) < 1e-3, `and the circle lands tangent to the line (radius ${d.circles[0].r}, wanted 12)`);
-  ok(errors.length === 0, `no errors in the page ${errors.join("; ")}`);
+  ok(errors.length === 0, `no errors in the page (first part) ${errors.join("; ")}`);
   await close();
+  // whole pieces (`in_1618`): a circle dragged by its centre towards a level line rests on it; a level line dragged towards a circle rests on it
+  const B = await S.open(""), ev2 = evalIn(B.page), px2 = pxIn(ev2), click2 = clickIn(B.page, px2, 100), def2 = () => ev2<any>(`() => Object.values(window.__sketch.snapshot())[0]`);
+  const drag2 = async (from: [number, number], to: [number, number]) => { const [a, b] = await px2(...from), [c, e] = await px2(...to); await B.page.mouse.move(a, b); await B.page.mouse.down(); await B.page.mouse.move((a + c) / 2, (b + e) / 2, { steps: 6 }); await B.page.mouse.move(c, e, { steps: 6 }); await B.page.waitForTimeout(500); return { c, e }; };
+  const ties = (r: { c: number; e: number }) => ev2<any[]>(`() => window.__sketch.lines({ x: ${r.c}, y: ${r.e} }).filter((l) => l.kind === "tie" || l.kind === "tieBall")`);
+  await ev2(`() => window.__tool("circle")`); await B.page.waitForTimeout(900);
+  await click2(30, 10); await click2(35, 10); await ev2(`() => window.__sketch.stop()`);
+  await ev2(`() => window.__tool("line")`); await B.page.waitForTimeout(300);
+  await click2(10, -8); await click2(50, -8); await ev2(`() => window.__sketch.stop()`);
+  await B.page.waitForTimeout(5200);
+  const rc = await drag2([30, 10], [30, -2.7]);   // the centre goes down towards the line (y = -8): resting on it is a centre at y = -3
+  ok((await ties(rc)).length >= 1, "dragging a circle by its centre near a line lights the line while held");
+  writeFileSync(`${dir}/drag-hints-3.png`, await B.page.screenshot());
+  await B.page.mouse.up(); await B.page.waitForTimeout(250);
+  let q = await def2(); const cen = q.points.find((p: any) => p.id === q.circles[0].c);
+  ok(Math.abs(cen.y + 3) < 1e-3 && Math.abs(cen.x - 30) < 0.3, `and the circle rests on the line (centre at y=${cen.y.toFixed(4)}, wanted -3)`);
+  ok(q.constraints.length === 0 && Math.abs(q.circles[0].r - 5) < 1e-3, "nothing constrained by the hint and the circle did not change size");
+  // a level line far above, dragged down towards the circle: it rests on top of it (y = 2, the circle's top)
+  await ev2(`() => window.__tool("line")`); await B.page.waitForTimeout(300);
+  await click2(10, 24); await click2(50, 24); await ev2(`() => window.__sketch.stop()`);
+  await B.page.waitForTimeout(5200);
+  const rl = await drag2([18, 24], [18, 2.6]);
+  ok((await ties(rl)).length >= 1, "dragging a whole line near a circle lights the circle while held");
+  writeFileSync(`${dir}/drag-hints-4.png`, await B.page.screenshot());
+  await B.page.mouse.up(); await B.page.waitForTimeout(250);
+  q = await def2(); const top = q.lines.map((l: any) => [q.points.find((p: any) => p.id === l.a), q.points.find((p: any) => p.id === l.b)]).find((e: any) => Math.abs(e[0].x - e[1].x) > 30 && e[0].y > 0)!;
+  ok(!!top && Math.abs(top[0].y - 2) < 1e-3 && Math.abs(top[1].y - 2) < 1e-3, `and the line rests on the circle (y=${top && top[0].y.toFixed(4)}, wanted 2)`);
+  ok(B.errors.length === 0, `no errors in the page ${B.errors.join("; ")}`);
+  await B.close();
 } finally { await S.stop(); }
 finish();

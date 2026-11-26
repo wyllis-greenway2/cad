@@ -5,19 +5,26 @@ import { residualsOf, type System } from "./solver.ts";
 export type Pt = [number, number];
 export const P = "~P", S = "~S", L = "~L", C = "~C";
 /** the free thing: a place alone (`point`), a corner with the first corner placed (`corner`), the end of a line from the first place (`line`), the edge of a circle about it (`circle`); `startId`: the first place is this point of the sketch */
-export type Free = { shape: "point" } | { shape: "corner"; from: Pt; startId?: string } | { shape: "line"; from: Pt; startId?: string } | { shape: "circle"; centre: Pt; startId?: string };
+export type Free = { shape: "point" } | { shape: "corner"; from: Pt; startId?: string } | { shape: "line"; from: Pt; startId?: string } | { shape: "circle"; centre: Pt; startId?: string }
+  /** a part of the sketch moved as one piece (`in_1618`): its points by a free name (`~` and the point's own name, as they are), its lines and circles by free names over those points, and `ref`, the place that stands for the whole (the place asked about is where `ref` is: the piece is moved by the difference) */
+  | { shape: "piece"; ref: Pt; points: Record<string, Pt>; lines: { name: string; a: string; b: string }[]; circles: { name: string; c: string; r: number }[] };
 export const isFree = (id: string) => id.startsWith("~");
 
 export function figureOf(S0: System, f: Free) {
   const pts = new Map(S0.points.map((p) => [p.id, p] as const)), lines = new Map(S0.lines.map((l) => [l.id, l] as const)), circles = new Map(S0.circles.map((c) => [c.id, c] as const));
-  const startId = f.shape === "point" ? undefined : f.startId, startAt: Pt | null = f.shape === "line" || f.shape === "corner" ? f.from : f.shape === "circle" ? f.centre : null;
+  const startId = f.shape === "point" || f.shape === "piece" ? undefined : f.startId, startAt: Pt | null = f.shape === "line" || f.shape === "corner" ? f.from : f.shape === "circle" ? f.centre : null;
   const startName = startId ?? S;
   /** the parts a relation names, at a place, as a small system (only what it names) */
   const small = (names: string[], at: Pt): System => {
     const points: System["points"] = [], seen = new Set<string>(), ls: System["lines"] = [], cs: System["circles"] = [];
-    const addPt = (id: string) => { if (seen.has(id)) return; seen.add(id); points.push(id === P ? { id, x: at[0], y: at[1] } : id === S ? { id, x: startAt![0], y: startAt![1] } : pts.get(id)!); };
+    const off: Pt = f.shape === "piece" ? [at[0] - f.ref[0], at[1] - f.ref[1]] : [0, 0], mine = f.shape === "piece" ? f : null;
+    const addPt = (id: string) => { if (seen.has(id)) return; seen.add(id); const q = mine?.points[id]; points.push(id === P ? { id, x: at[0], y: at[1] } : id === S ? { id, x: startAt![0], y: startAt![1] } : q ? { id, x: q[0] + off[0], y: q[1] + off[1] } : pts.get(id)!); };
     for (const id of names) {
-      if (id === P) addPt(P);
+      const pl = mine?.lines.find((x) => x.name === id), pc = mine?.circles.find((x) => x.name === id);
+      if (pl) { addPt(pl.a); addPt(pl.b); ls.push({ id, a: pl.a, b: pl.b }); }
+      else if (pc) { addPt(pc.c); cs.push({ id, c: pc.c, r: pc.r }); }
+      else if (mine && mine.points[id]) addPt(id);
+      else if (id === P) addPt(P);
       else if (id === L) { addPt(startName); addPt(P); ls.push({ id: L, a: startName, b: P }); }
       else if (id === C) { addPt(startName); cs.push({ id: C, c: startName, r: Math.hypot(at[0] - startAt![0], at[1] - startAt![1]) || 1e-9 }); }
       else if (lines.has(id)) { const l = lines.get(id)!; addPt(l.a); addPt(l.b); ls.push(l); }
@@ -28,7 +35,7 @@ export function figureOf(S0: System, f: Free) {
   };
   /** the whole sketch with the figure's free parts in it at a place */
   const whole = (at: Pt): System => {
-    const extra: System = small([P, ...(f.shape === "line" ? [L] : []), ...(f.shape === "circle" ? [C] : []), ...(startId === undefined && startAt ? [S] : [])], at);
+    const extra: System = f.shape === "piece" ? small([...f.lines.map((l) => l.name), ...f.circles.map((c) => c.name), ...Object.keys(f.points)], at) : small([P, ...(f.shape === "line" ? [L] : []), ...(f.shape === "circle" ? [C] : []), ...(startId === undefined && startAt ? [S] : [])], at);
     const have = new Set(S0.points.map((p) => p.id));
     return { points: [...S0.points, ...extra.points.filter((p) => !have.has(p.id))], lines: [...S0.lines, ...extra.lines], circles: [...S0.circles, ...extra.circles], constraints: S0.constraints };
   };

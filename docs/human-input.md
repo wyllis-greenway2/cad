@@ -6566,3 +6566,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1617 — 2026-11-26 — approval
 > yes build the drag hints for vertex, line end and circle edge
+
+## in_1618 — 2026-11-26 — approval
+> yes do the whole line and whole circle drags next
