@@ -6686,3 +6686,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1657 — 2026-11-26 — directive
 > okay it is close, but I think nothing should change size on hover, and the highlight color should go on and off on hover too, right now it seems to stay stuck on after hover ends
+
+## in_1658 — 2026-11-26 — directive
+> okay but I think blue should be reserved for selected, and yellow is reserved for suggested
