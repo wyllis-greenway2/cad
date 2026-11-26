@@ -6557,3 +6557,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1614 — 2026-11-26 — approval
 > yes do all three
+
+## in_1615 — 2026-11-26 — directive
+> lets not approve any right now, we just want to prototype fast and cheap and lock in behavior once it is right

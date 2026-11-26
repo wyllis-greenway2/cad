@@ -1,6 +1,6 @@
 # Behaviours that might have to survive (candidates, not approved)
 
-`in_1444`: no tests until the prototype is in a state the human wants to preserve. This is a list **for the human to approve, cut or reword**, taken from what the human has said (the input ids are the source). Nothing here is a requirement until the human says so; once one is approved it becomes a requirement row and a test names it (`check_spec.py`). Until then these are only what the dev checks and page checks happen to look at.
+`in_1444`: no tests until the prototype is in a state the human wants to preserve. This is a list **for the human to approve, cut or reword**, taken from what the human has said (the input ids are the source). **The human has decided to approve none of it for now (`in_1615`): prototype fast and cheap, lock a behaviour in once it is right.** Nothing here is a requirement until the human says so; once one is approved it becomes a requirement row and a test names it (`check_spec.py`). Until then these are only what the dev checks and page checks happen to look at.
 
 | # | Behaviour, in one line | Source | Approved? |
 |---|---|---|---|
