@@ -74,12 +74,14 @@ export function helpersAt(S0: System, f: Free, q: Pt, mm: number, reach: Reach):
     }
     return Math.hypot(a(at)[0]!, b(at)[0]!) < 1e-6 ? at : null;
   };
+  /** whether a relation says anything about the place: one that is the same wherever the place is (a radius equal to another's, when the thing is only moved) is a fact about the thing, not a hint, and would win at no distance */
+  const aboutPlace = (row: (at: Pt) => number[], at: Pt): boolean => { const h = 1e-4, a = row([at[0] + h, at[1]]), b = row([at[0] - h, at[1]]), c = row([at[0], at[1] + h]), d = row([at[0], at[1] - h]); return a.some((v, i) => Math.abs(v - b[i]!) > 1e-9 || Math.abs(c[i]! - d[i]!) > 1e-9); };
   /** what is within reach of a place (the nearest root, from the place itself) and that the solver would add */
   const near = (from: Pt, skip: Cand | null): { c: Cand; at: Pt; moved: number }[] => {
     const out: { c: Cand; at: Pt; moved: number }[] = [];
     for (const c of all) {
       if (skip && c === skip) continue;
-      const row = rowFn(c), n0 = row(from); if (n0.length === 0 || !n0.every(Number.isFinite)) continue;
+      const row = rowFn(c), n0 = row(from); if (n0.length === 0 || !n0.every(Number.isFinite) || !aboutPlace(row, from)) continue;
       const within = (n0.length === 2 ? reach.pointPx : reach.linePx) * mm;
       const at = land(row, from, within); if (!at) continue;
       const moved = Math.hypot(at[0] - from[0], at[1] - from[1]);
@@ -104,7 +106,7 @@ export function helpersAt(S0: System, f: Free, q: Pt, mm: number, reach: Reach):
   }
   // everything that holds at the place, that the solver would add
   const holds: Held[] = [];
-  for (const c of all) { const r = rowFn(c)(at); if (r.length && r.every(Number.isFinite) && norm(r) < 1e-7 && usable({ c }) && applicable(c, at)) holds.push(make(c, at, 0)); }
+  for (const c of all) { const row = rowFn(c), r = row(at); if (r.length && r.every(Number.isFinite) && norm(r) < 1e-7 && aboutPlace(row, at) && usable({ c }) && applicable(c, at)) holds.push(make(c, at, 0)); }
   const byHeld = new Map<Held, Cand>(); for (const h of [...acted, ...holds]) { const c = all.find((x) => x.relation === h.relation && x.parts.join() === h.parts.join() && x.variant === h.variant); if (c) byHeld.set(h, c); }
   const guide = (h: Held): Pt[] | null => {
     const c = byHeld.get(h); if (!c || h.says !== "line" || !h.dir || c.parts.includes(L) || c.parts.includes(C)) return null;

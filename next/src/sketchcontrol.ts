@@ -267,7 +267,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
         defs.set(drag.key, r.params); flash = r.held.length ? { refused: r.held } : {}; flashUntil = performance.now() + 400; if (r.held.length) say("Held back by the constraints shown in red", 600); return;
       }
       let d: P2 = [c.q[0] - drag.q0[0], c.q[1] - drag.q0[1]];
-      const lone = drag.pins.length === 1 && drag.id === drag.pins[0], whole = !lone && drag.pins.length === 2 && !drag.pins.includes(drag.id), piece = lone || whole ? pieceOf(drag.def0, sol0, drag.id) : null; // (a whole line, or a circle by its centre, moves as one piece)
+      const lone = drag.pins.length === 1 && drag.id === drag.pins[0], whole = !lone && (drag.pins.length === 2 || drag.pins.length === 3) && !drag.pins.includes(drag.id), piece = lone || whole ? pieceOf(drag.def0, sol0, drag.id) : null; // (a whole line, or a circle by its centre, moves as one piece)
       const hint = (at0: Pt, want: Pt, look: { free: Free; out: string[] }) => { // the helpers place what is dragged, as when it was drawn: they place, they never constrain
         const help = helpersAt(without(S0, look.out), look.free, want, c.mm, settings.helpers);
         drag!.help = help.acted.length || help.holds.length ? help : null;

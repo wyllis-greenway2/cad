@@ -66,6 +66,19 @@ try {
   await B.page.mouse.up(); await B.page.waitForTimeout(250);
   q = await def2(); const top = q.lines.map((l: any) => [q.points.find((p: any) => p.id === l.a), q.points.find((p: any) => p.id === l.b)]).find((e: any) => Math.abs(e[0].x - e[1].x) > 30 && e[0].y > 0)!;
   ok(!!top && Math.abs(top[0].y - 2) < 1e-3 && Math.abs(top[1].y - 2) < 1e-3, `and the line rests on the circle (y=${top && top[0].y.toFixed(4)}, wanted 2)`);
+  // a whole arc (`in_1619`): an arc about (30, 10), start (35, 10), end (30, 15) (a quarter), dragged down towards a level line at y = -10: it rests on it when the circle it is on does (centre at y = -5)
+  await ev2(`() => window.__tool("arc")`); await B.page.waitForTimeout(500);
+  await click2(-30, 10); await click2(-25, 10); await click2(-30, 15); await ev2(`() => window.__sketch.stop()`);
+  await ev2(`() => window.__tool("line")`); await B.page.waitForTimeout(300);
+  await click2(-48, -10); await click2(-8, -10); await ev2(`() => window.__sketch.stop()`);
+  await B.page.waitForTimeout(5200);
+  const ra = await drag2([-26.46, 13.54], [-26.46, -1.26]); // a place on the arc, dragged 14.8 down: the centre would reach y = -4.8
+  ok((await ties(ra)).length >= 1, "dragging a whole arc near a line lights the line while held");
+  writeFileSync(`${dir}/drag-hints-5.png`, await B.page.screenshot());
+  await B.page.mouse.up(); await B.page.waitForTimeout(250);
+  q = await def2(); const ac = q.points.find((p: any) => p.id === q.arcs[0].c), ar = q.points.find((p: any) => p.id === q.arcs[0].a);
+  ok(Math.abs(ac.y + 5) < 1e-3 && Math.abs(ac.x + 30) < 0.4, `and the arc rests on the line (centre at y=${ac.y.toFixed(4)}, wanted -5)`);
+  ok(Math.abs(Math.hypot(ar.x - ac.x, ar.y - ac.y) - 5) < 1e-3 && q.constraints.length === 0, "the arc kept its size and nothing was constrained by the hint");
   ok(B.errors.length === 0, `no errors in the page ${B.errors.join("; ")}`);
   await B.close();
 } finally { await S.stop(); }

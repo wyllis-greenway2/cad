@@ -51,11 +51,13 @@ export function dragRadius(def0: SketchParams, id: string, r: number): { params:
   const locked = (def0.constraints ?? []).filter((k) => k.kind === "radius" && k.parts.includes(id)).map((k) => k.id); if (locked.length) return { params: def0, held: locked };
   try { const out = solveDefinition({ ...def0, circles: (def0.circles ?? []).map((q) => (q.id === id ? { ...q, r, fixedR: true } : q)) }); return { params: bake(def0, { points: out.points, radii: out.radii }), held: out.result.holds ?? [] }; } catch { return null; }
 }
-/** a part dragged as one piece (a whole line, or a circle by its centre): the free figure that moves, the place that stands for it, and the parts to take out while looking; null: it is not one piece (a point of several lines, an arc) */
+/** a part dragged as one piece (a whole line, an arc, or a circle by its centre): the free figure that moves, the place that stands for it, and the parts to take out while looking; null: it is not one piece (a point of several lines) */
 export function pieceOf(p: SketchParams, s: Sol, id: string): { free: Free; ref: Pt; out: string[] } | null {
   const at = (q: string) => s.points[q];
   const l = (p.lines ?? []).find((q) => q.id === id);
   if (l) { const a = at(l.a), b = at(l.b); if (!a || !b) return null; const na = `~${l.a}`, nb = `~${l.b}`; return { free: { shape: "piece", ref: a, points: { [na]: a, [nb]: b }, lines: [{ name: `~${l.id}`, a: na, b: nb }], circles: [] }, ref: a, out: [l.a, l.b, l.id] }; }
+  const arc = (p.arcs ?? []).find((q) => q.id === id); // (a whole arc: its centre and both ends, and the circle it is on)
+  if (arc) { const c = at(arc.c), a = at(arc.a), b = at(arc.b), r = s.radii[arc.id]; if (!c || !a || !b || r === undefined) return null; const nc = `~${arc.c}`, na = `~${arc.a}`, nb = `~${arc.b}`; return { free: { shape: "piece", ref: c, points: { [nc]: c, [na]: a, [nb]: b }, lines: [], circles: [{ name: `~${arc.id}`, c: nc, r }] }, ref: c, out: [arc.c, arc.a, arc.b, arc.id] }; }
   const rounds = [...(p.circles ?? []).filter((c) => c.c === id), ...(p.arcs ?? []).filter((a) => a.c === id || a.a === id || a.b === id)], lines = (p.lines ?? []).filter((x) => x.a === id || x.b === id);
   const c = rounds.length === 1 && !lines.length ? (p.circles ?? []).find((q) => q.c === id) : null, at0 = at(id);
   if (c && at0) { const n = `~${id}`; return { free: { shape: "piece", ref: at0, points: { [n]: at0 }, lines: [], circles: [{ name: `~${c.id}`, c: n, r: s.radii[c.id] ?? c.r }] }, ref: at0, out: [id, c.id] }; }
