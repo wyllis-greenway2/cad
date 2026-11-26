@@ -126,14 +126,14 @@ function render(){
   for(let x=0;x<=W;x+=55)s+=`<path d="M${x} 0V${H}" stroke="var(--grid)"/>`;for(let y=0;y<=H;y+=55)s+=`<path d="M0 ${y}H${W}" stroke="var(--grid)"/>`;
   s+=`<defs><marker id="at" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto-start-reverse"><path d="M0 0L7 3.5 0 7z" fill="var(--grey)"/></marker><marker id="ay" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto-start-reverse"><path d="M0 0L7 3.5 0 7z" fill="var(--amber)"/></marker></defs>`;
   const kSel=sel==='K1';
-  s+=`<circle class="part" cx="${G.k.c[0]}" cy="${G.k.c[1]}" r="${G.k.r}" fill="${kSel?'#eef9f9':'none'}" stroke="${isLit('K1')?'var(--amber)':isSoft('K1')?'#f6dca0':kSel?'var(--teal)':'var(--ink)'}" stroke-width="${isLit('K1')?3.2:isSoft('K1')?2.8:kSel?3:1.6}"/>`;
-  for(const id of ['L1','L2']){const [a,b]=G.L[id];s+=`<line class="part" x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${isLit(id)?'var(--amber)':isSoft(id)?'#f6dca0':sel===id?'var(--teal)':'var(--ink)'}" stroke-width="${isLit(id)?3.2:isSoft(id)?2.8:sel===id?3:1.6}"/>`;}
+  s+=`<circle class="part" cx="${G.k.c[0]}" cy="${G.k.c[1]}" r="${G.k.r}" fill="${kSel?'#eef9f9':'none'}" stroke="${isLit('K1')?'var(--amber)':isSoft('K1')?'#f6dca0':kSel?'var(--teal)':'var(--ink)'}" stroke-width="${kSel?3:1.6}"/>`;
+  for(const id of ['L1','L2']){const [a,b]=G.L[id];s+=`<line class="part" x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${isLit(id)?'var(--amber)':isSoft(id)?'#f6dca0':sel===id?'var(--teal)':'var(--ink)'}" stroke-width="${sel===id?3:1.6}"/>`;}
   for(const id in G.P){const on=isLit(id),inScope=SCOPE[sel].includes(id);const p=G.P[id];s+=`<circle class="part" cx="${p[0]}" cy="${p[1]}" r="${id==='P5'?4.5:3.2}" fill="${on?'var(--amber)':inScope?'var(--teal)':id==='P1'?'var(--ink)':'#c9ced2'}"/>`;}
   // dimension geometry and leaders (under the marks)
   P.forEach(o=>{const m=o.m,hot=hv(m),c=m.state==='offer'?'var(--amber)':'var(--grey)',mk=m.state==='offer'?'ay':'at';
     if(o.extra){const e=o.extra;
-      if(e.radial)s+=`<path d="M${e.a[0]} ${e.a[1]} L${e.b[0]} ${e.b[1]}" stroke="${c}" stroke-width="${hot?1.8:1}" stroke-dasharray="5 4" fill="none" marker-end="url(#${mk})" marker-start="url(#${mk})" opacity="${hot?1:.8}"/>`;
-      else{s+=`<path d="M${e.a[0]} ${e.a[1]} L${e.b[0]} ${e.b[1]}" stroke="${c}" stroke-width="${hot?1.8:1}" stroke-dasharray="5 4" fill="none" marker-end="url(#${mk})" marker-start="url(#${mk})" opacity="${hot?1:.8}"/>`;
+      if(e.radial)s+=`<path d="M${e.a[0]} ${e.a[1]} L${e.b[0]} ${e.b[1]}" stroke="${c}" stroke-width="1.2" stroke-dasharray="5 4" fill="none" marker-end="url(#${mk})" marker-start="url(#${mk})" opacity="${hot?1:.8}"/>`;
+      else{s+=`<path d="M${e.a[0]} ${e.a[1]} L${e.b[0]} ${e.b[1]}" stroke="${c}" stroke-width="1.2" stroke-dasharray="5 4" fill="none" marker-end="url(#${mk})" marker-start="url(#${mk})" opacity="${hot?1:.8}"/>`;
         e.ext.forEach(([p,q])=>s+=`<path d="M${p[0]} ${p[1]} L${q[0]} ${q[1]}" stroke="${c}" stroke-width="1" opacity=".5"/>`);}}
     if(o.feature&&!o.corner&&len(sub(o.at,o.feature))>12)s+=`<path d="M${o.at[0]} ${o.at[1]} L${o.feature[0]} ${o.feature[1]}" stroke="${m.state==='offer'?'var(--amber)':'var(--grey)'}" stroke-width="1" stroke-dasharray="3 3" fill="none" marker-end="url(#${mk})" opacity="${hot?1:.55}"/>`;
   });
@@ -142,10 +142,10 @@ function render(){
     s+=`<path d="M${a[0]} ${a[1]} L${b[0]} ${b[1]}" stroke="var(--amber)" stroke-width="2.4" stroke-dasharray="5 3" fill="none" marker-end="url(#ay)"/>`;
     for(const [p,dir] of [[G.P.P2,[0,1]],[G.P.P3,[0,-1]]]){const q=add(p,mul(dir,22));s+=`<path d="M${p[0]} ${p[1]} L${q[0]} ${q[1]}" stroke="var(--amber)" stroke-width="2" stroke-dasharray="5 3" fill="none" marker-end="url(#ay)"/>`;}});
   // the marks
-  P.forEach(o=>{const m=o.m,hot=hv(m),R=o.dot&&!hot?5:(hot?o.size/2*1.18:o.size/2),c=col(m.state);
+  P.forEach(o=>{const m=o.m,hot=hv(m),R=o.dot?5:o.size/2,c=col(m.state);
     s+=`<g class="mk" data-id="${m.id}" transform="translate(${o.at[0]},${o.at[1]})">`;
     s+=`<circle r="${Math.max(R+6,16)}" fill="transparent"/>`; // a generous hit area
-    if(o.dot&&!hot)s+=`<circle r="5" fill="${c}"/>`;
+    if(o.dot)s+=`<circle r="5" fill="${c}"/>`;
     else if(m.kind==='square'){const u=nUnit();s+=`<path d="M${-9*u.d[0]-9*u.u[0]} ${-9*u.d[1]-9*u.u[1]} L${9*u.d[0]-9*u.u[0]} ${9*u.d[1]-9*u.u[1]} L${9*u.d[0]+9*u.u[0]} ${9*u.d[1]+9*u.u[1]}" stroke="${c}" stroke-width="${hot?2.6:1.8}" fill="none" transform="translate(${-0},${-0}) " />`;}
     else if(m.state==='measure'){const wd=m.text.length*7+16;s+=`<rect x="${-wd/2}" y="-11" width="${wd}" height="22" rx="11" fill="${hot?'#fffbe9':'#fff'}" stroke="${hot?'var(--amber)':'var(--grey)'}" stroke-width="1.6"/><text x="0" y="4" text-anchor="middle" font-weight="600">${m.text}</text>`;}
     else{const sc=R/11;s+=`<circle r="${R}" fill="${hot?'#fffbe9':'#fff'}" stroke="${c}" stroke-width="1.8"/><g transform="translate(${-8*sc},${-8*sc}) scale(${sc})" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round">${ICON[m.kind]}</g>`;}
@@ -154,12 +154,13 @@ function render(){
   const one=hover&&P.find(o=>o.m.id===hover);
   const svg=document.getElementById('svg');svg.innerHTML=s;
   document.getElementById('bar').innerHTML=one?`<b>${one.m.word}</b> — ${one.m.says}`:(list.length?`${list.length} mark${list.length>1?'s':''} on ${{K1:'circle K1',L1:'line L1',L2:'line L2',P5:'vertex P5'}[sel]} — quiet; point at one`:'nothing selected, nothing shown');
-  svg.querySelectorAll('.mk').forEach(el=>{
-    el.addEventListener('mouseenter',()=>{if(!touch){hover=el.dataset.id;render()}});
-    el.addEventListener('mouseleave',()=>{if(!touch){hover=null;render()}});
-    el.addEventListener('click',()=>{const id=el.dataset.id;if(touch){pinned.has(id)?pinned.delete(id):(pinned.clear(),pinned.add(id));hover=pinned.has(id)?id:null;}render();});
-  });
+
 }
+// hover and click are caught once on the picture itself, not on the marks, which are redrawn: the redraw replaces the mark under the pointer, and a replaced mark can miss its 'leave'
+(()=>{const svg=document.getElementById('svg'),at=e=>{const t=e.target&&e.target.closest?e.target.closest('.mk'):null;return t?t.dataset.id:null;};
+  svg.addEventListener('mousemove',e=>{if(touch)return;const id=at(e);if(id!==hover){hover=id;render();}});
+  svg.addEventListener('mouseleave',()=>{if(!touch&&hover!==null){hover=null;render();}});
+  svg.addEventListener('click',e=>{const id=at(e);if(!id)return;if(touch){pinned.has(id)?pinned.delete(id):(pinned.clear(),pinned.add(id));hover=pinned.has(id)?id:null;}render();});})();
 function nUnit(){const G=geo(),a=unit(sub(G.L.L1[1],G.L.L1[0]));return {d:a,u:[a[1],-a[0]]};}
 // ---- controls
 const SEL=[['K1','Select the circle'],['L1','Select line L1 (4 marks + length)'],['L2','Select line L2'],['P5','Select vertex P5'],['none','Nothing selected']];
