@@ -36,9 +36,9 @@ export function bake(p: SketchParams, s: Sol): SketchParams {
 }
 export type Kept = { ok: true; params: SketchParams; sol: Sol } | { ok: false; why: string; victims: string[] };
 /** keep a changed definition if it solves (and then with its parts at the solved places), else say why not */
-export function keep(next: SketchParams): Kept {
+export function keep(next: SketchParams, hold?: readonly string[]): Kept {
   try {
-    const s = solveDefinition(next);
+    const s = solveDefinition(next, hold?.length ? { hold: [...hold] } : {});
     return { ok: true, params: bake(next, s), sol: s };
   } catch (x) {
     if (x instanceof Refusal) return { ok: false, why: x.message, victims: x.victims };
@@ -267,6 +267,7 @@ export function constrain(
   selection: string[],
   kind: Relation | "dimension",
   value?: number,
+  /** parts that stay where they are while it is applied (what the others move to) */ hold?: readonly string[],
 ): Constrained {
   const { offers } = offersFor(viewSystem(p, s), selection),
     o = kind === "dimension" ? offers.find((x) => x.dimensional) : offers.find((x) => x.kind === kind);
@@ -303,7 +304,7 @@ export function constrain(
           ? { value: Math.round(o.measure * 1e3) / 1e3 }
           : {}),
     };
-  const k = keep({ ...p, constraints: [...(p.constraints ?? []), c] });
+  const k = keep({ ...p, constraints: [...(p.constraints ?? []), c] }, hold);
   return k.ok ? { ...k, added: id } : k;
 }
 /** a new number for a dimension */

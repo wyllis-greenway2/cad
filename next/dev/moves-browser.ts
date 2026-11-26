@@ -73,6 +73,31 @@ try {
     Math.abs(r1 - r0) > 1e-3 === arrows.length > pointArrows.length,
     `and the circle's edge has an arrow exactly when its size changed: ${r0} to ${r1}`,
   );
+  // the other way: one part selected, a vertex just off its edge: the selected circle goes to the vertex, the vertex stays (`in_1639`)
+  await ev(`() => {
+    const s = structuredClone(window.__sketch.snapshot()), k = Object.keys(s)[0];
+    s[k] = { arcs: [], circles: [{ c: "P1", id: "K1", r: 5 }], constraints: [], lines: [{ a: "P2", b: "P3", id: "L1" }],
+      points: [{ id: "P1", x: 10, y: 12 }, { id: "P2", x: 12, y: 30 }, { id: "P3", x: 15.2, y: 12 }] };
+    window.__sketch.restore(s);
+  }`);
+  await page.waitForTimeout(400);
+  await click(10, 17); // the circle's top edge
+  await page.waitForTimeout(400);
+  const near = (await ev<any[]>(`() => window.__sketch.marks(performance.now()).map((m) => m.mark)`)).find((m) =>
+    m.id.startsWith("near:pointOnCircle"),
+  );
+  ok(
+    near?.moves?.length === 1 && Math.abs(near.moves[0].from[0] - 15) < 0.05,
+    `one circle selected, a vertex near its edge: one arrow, for the circle's edge: ${JSON.stringify(near?.moves)}`,
+  );
+  const b2 = await pts();
+  await ev(`() => window.__sketch.handlers.suggest(${JSON.stringify(near?.id)})`);
+  await page.waitForTimeout(300);
+  const a2 = await pts();
+  ok(
+    Math.hypot(a2.P3![0] - b2.P3![0], a2.P3![1] - b2.P3![1]) < 1e-6 && Math.abs((await radius()) - 5.2) < 0.01,
+    `and applied, the vertex stays and the circle's size goes to it: ${await radius()}`,
+  );
   ok(errors.length === 0, `no errors in the page ${errors.join("; ")}`);
   await close();
 } finally {

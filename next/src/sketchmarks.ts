@@ -2,9 +2,10 @@
 // what held it back, always; a constraint doing work in a drag fades in. The buttons: an offer is applied, a constraint is taken away, a number is typed over, a padlock locks or lets go. The relation put on the selection by the ring is here too.
 import { project } from "./camera.ts";
 import { displacements, type Arrow } from "./engine/probe.ts";
+import type { System } from "./engine/solver.ts";
 import type { Relation } from "./engine/solver.ts";
 import type { SketchParams } from "./engine/sketch.ts";
-import { MEASURE_ID } from "./interaction/bubbles.ts";
+import { MEASURE_ID, scopeOf } from "./interaction/bubbles.ts";
 import {
   constrain,
   keep,
@@ -22,6 +23,19 @@ import type { Frame } from "./planes.ts";
 import { settings } from "./settings.ts";
 import { to3 } from "./sketch.ts";
 import type { Core } from "./sketchcore.ts";
+
+/** what keeps still to hold these parts where they are: a point itself, a line its ends, a circle its centre and its size (and an arc's ends) */
+function heldIds(S: System, parts: readonly string[]): string[] {
+  const out = new Set<string>();
+  for (const id of parts) {
+    const l = S.lines.find((x) => x.id === id),
+      k = S.circles.find((x) => x.id === id);
+    if (l) [l.a, l.b].forEach((x) => out.add(x));
+    else if (k) [k.id, k.c, ...(k.ends ?? [])].forEach((x) => out.add(x));
+    else out.add(id);
+  }
+  return [...out];
+}
 
 /** `ctx.dragged`: the part being dragged (null: none); `ctx.fieldMarks`: the numbers of a figure under way, placed (null: no figure is under way) */
 export function createMarks(
@@ -112,16 +126,34 @@ export function createMarks(
   };
   /** what applying an offer makes: the sketch with the constraint added and solved, or why not (null: not an offer). The one place an offer becomes a sketch: the buttons keep what it makes, the arrows only look at it (`in_1638`) */
   const planOf = (p: SketchParams, id: string, over: string[]): Constrained | Kept | null => {
-    const nc = nearConstraint(id);
-    if (nc)
-      return keep({
-        ...p,
-        constraints: [
-          ...(p.constraints ?? []),
-          { id: nextId(p, "c"), kind: nc.kind, parts: nc.parts, ...(nc.internal ? { internal: true } : {}) },
-        ],
-      });
-    return id.startsWith("rel:") ? constrain(p, solOf(p), over, id.slice(4) as Relation | "dimension") : null;
+    const nc = nearConstraint(id),
+      S = sysOf(p);
+    // what moves and what stays (`in_1639`): an offer moves what it is offered for to the part it is matched with, which stays; a pair that was picked moves the first to the second. What cannot stay (it would not hold) is left to give way too.
+    const scope = nc ? scopeOf(S, over) : [],
+      kind = nc ? nc.kind : id.slice(4),
+      movers = nc ? nc.parts.filter((x) => scope.includes(x)) : over.slice(0, 1),
+      // (a circle that goes to a point or a line by its edge changes its size and keeps its centre, as a drag of its edge does)
+      edgeOf = ["pointOnCircle", "tangent"].includes(kind)
+        ? movers.flatMap((x) => S.circles.filter((k) => k.id === x).map((k) => k.c))
+        : [],
+      stays = [...heldIds(S, nc ? nc.parts.filter((x) => !scope.includes(x)) : over.slice(1)), ...edgeOf];
+    const make = (hold: string[]): Constrained | Kept | null =>
+      nc
+        ? keep(
+            {
+              ...p,
+              constraints: [
+                ...(p.constraints ?? []),
+                { id: nextId(p, "c"), kind: nc.kind, parts: nc.parts, ...(nc.internal ? { internal: true } : {}) },
+              ],
+            },
+            hold,
+          )
+        : id.startsWith("rel:")
+          ? constrain(p, solOf(p), over, id.slice(4) as Relation | "dimension", undefined, hold)
+          : null;
+    const r = make(stays);
+    return stays.length && r && !r.ok ? make([]) : r;
   };
   /** the arrows of what applying an offer would move (nothing: none; refused: none) */
   const previews = new WeakMap<SketchParams, Map<string, Arrow[]>>();
@@ -145,14 +177,14 @@ export function createMarks(
     constrain(kind: Relation | "dimension"): boolean {
       const c = current();
       if (!c) return false;
-      const r = constrain(c.p, solOf(c.p), selected(c.key), kind);
-      if (r.ok) {
+      const r = planOf(c.p, `rel:${kind}`, selected(c.key));
+      if (r?.ok) {
         set(c.key, r.params, "Constraint");
-        st.flash = { applied: [r.added] };
+        st.flash = { applied: [(r as Extract<Constrained, { ok: true }>).added] };
         st.flashUntil = performance.now() + 900;
         return true;
       }
-      fail(r.why, r.victims);
+      if (r) fail(r.why, r.victims);
       return false;
     },
     /** The marks standing on the parts (`dec_marks_on_things`): what is selected shows its constraints (locked) and what is true of it and near (offered); the parts just made show their offers for a while and fade; a refusal shows what held it back, always; placed on the page. */

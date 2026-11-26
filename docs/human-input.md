@@ -6629,3 +6629,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1638 — 2026-11-26 — directive
 > I want it to basically preview what would happen if the constraint were applied. Does it do this and is it actually tied into the constraint logic so it holds true? or do we have duplicate code hanging around? it should just be a visual preview of the movement that would happen if any constraint were actually applied (if movement were to happen, otherwise no arrow)
+
+## in_1639 — 2026-11-26 — question
+> why does it grow the circle? I thought the whole point of our system was to have one thing move to another thing? not move both?
+
+## in_1640 — 2026-11-26 — approval
+> first picked moves to second, yes build it
