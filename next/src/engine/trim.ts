@@ -238,10 +238,19 @@ export function trimAt(p: SketchParams, id: string, at: Pt, read: Read = solveDe
   if (id2) {
     // the second piece stays in line with the first (a line), or on the same circle (an arc)
     const cid = fresh(`${id2}_same`);
-    newConstraints.push(
-      line ? { id: cid, kind: "collinear", parts: [id, id2] } : { id: cid, kind: "equalRadius", parts: [id, id2] },
-    );
-    made.push(cid);
+    if (line) {
+      // (in line is the two ends of the second piece on the first)
+      const l2 = q.lines.find((x) => x.id === id2)!,
+        cid2 = fresh(`${id2}_same2`);
+      newConstraints.push(
+        { id: cid, kind: "pointOnLine", parts: [l2.a, id] },
+        { id: cid2, kind: "pointOnLine", parts: [l2.b, id] },
+      );
+      made.push(cid, cid2);
+    } else {
+      newConstraints.push({ id: cid, kind: "equalRadius", parts: [id, id2] });
+      made.push(cid);
+    }
   }
 
   // ---- the constraints that were on the part

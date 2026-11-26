@@ -1,7 +1,7 @@
 // Drawing on the engine's own definition (`in_1564`): what a click does to a sketch's points, lines, circles and constraints, as pure functions of the definition (`SketchParams`) and a place in the sketch's plane (mm). The screen's controller
 // (`sketchcontrol.ts`) turns a pointer into a place and calls these; every edit is solved (`solveDefinition`, no kernel) before it is kept, and one the solver refuses leaves the definition as it was and says which constraints hold it back.
 // A figure drawn on an earlier one shares its point (a click on a point is that point) or puts its new point on the line or circle where it was clicked; no constraint is made by a click (the person asks for those).
-import { segsOf, solveDefinition, systemOf } from "../engine/definition.ts";
+import { modernise, segsOf, solveDefinition, systemOf } from "../engine/definition.ts";
 import { Refusal } from "../engine/refusal.ts";
 import { alongSeg, pointOnSeg, type Pt, type Seg } from "../engine/region.ts";
 import type { SketchParams } from "../engine/sketch.ts";
@@ -225,7 +225,7 @@ export function removeParts(p: SketchParams, ids: string[]): SketchParams {
 }
 /** A sketch with nothing left over (`in_1623`): a point exists only while a line, a circle or an arc uses it, and nothing names a part that is not there (a line with an end that is gone, a constraint that names a part that is gone). Nothing haunts: no point that no figure has, which is invisible and yet a place for hints to snap to. Applied wherever a sketch is changed or comes in (a deletion, an undo, a file); the same sketch (the same object) when there is nothing to take away. */
 export function tidy(p: SketchParams): SketchParams {
-  let cur = p;
+  let cur = modernise(p); // (a saved file's old kinds become what they are, `q_relation_set`)
   for (;;) {
     const pts = new Set(cur.points.map((x) => x.id)),
       lines = (cur.lines ?? []).filter((l) => pts.has(l.a) && pts.has(l.b)),

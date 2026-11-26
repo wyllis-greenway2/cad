@@ -5,8 +5,42 @@ import type { Seg } from "./region.ts";
 import type { SketchParams } from "./sketch.ts";
 import { type Constraint, type Result, type Options as SolveOptions, type System, solve } from "./solver.ts";
 
+/**
+ * Two kinds of relation that were once kept are the same as others and are no longer made (`q_relation_set`, `in_1642`): **in line** (two lines) is the two ends of the second on the first (two `pointOnLine`) and **concentric** (two circles) is the two centres together (`coincident`). A definition that still has them (a saved file) is read as what they are, once, here: the first keeps its name (the second is `<name>.2`), the other keeps its name.
+ */
+export function modernise(p: SketchParams): SketchParams {
+  const old = (c: { kind: string }) => c.kind === "collinear" || c.kind === "concentric";
+  if (!(p.constraints ?? []).some(old)) return p;
+  const centre = (id: string): string | null =>
+    (p.circles ?? []).find((x) => x.id === id)?.c ??
+    (p.arcs ?? []).find((x) => x.id === id)?.c ??
+    ((p.anchors ?? []).some((x) => x.id === id) ? `${id}.c` : null);
+  const end = (id: string): [string, string] | null => {
+    const l = (p.lines ?? []).find((x) => x.id === id);
+    return l ? [l.a, l.b] : (p.anchors ?? []).some((x) => x.id === id) ? [`${id}.a`, `${id}.b`] : null;
+  };
+  const constraints = (p.constraints ?? []).flatMap((c): Constraint[] => {
+    if (c.kind === ("concentric" as string)) {
+      const a = centre(c.parts[0]!),
+        b = centre(c.parts[1]!);
+      return a && b ? [{ ...c, kind: "coincident", parts: [a, b] }] : [c];
+    }
+    if (c.kind === ("collinear" as string)) {
+      const e = end(c.parts[1]!);
+      return e
+        ? [
+            { id: c.id, kind: "pointOnLine", parts: [e[0], c.parts[0]!] },
+            { id: `${c.id}.2`, kind: "pointOnLine", parts: [e[1], c.parts[0]!] },
+          ]
+        : [c];
+    }
+    return [c];
+  });
+  return { ...p, constraints };
+}
 /** the solver's system of a definition: an arc is a circle with its two ends held on it */
-export function systemOf(p: SketchParams): System {
+export function systemOf(def: SketchParams): System {
+  const p = modernise(def);
   const at0 = new Map(p.points.map((q) => [q.id, q] as const));
   const arcCircles = (p.arcs ?? []).map((a) => {
     const c = at0.get(a.c),

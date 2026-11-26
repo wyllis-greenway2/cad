@@ -36,7 +36,6 @@ const KINDS: Relation[] = [
   "perpendicular",
   "equalLength",
   "equalRadius",
-  "concentric",
   "tangent",
   "tangentCircles",
   "pointOnLine",

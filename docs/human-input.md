@@ -6641,3 +6641,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1642 — 2026-11-26 — question
 > Can we do an audit of the constraints in general? it seems like there are a lot that are either entirely un-needed or duplicates. Like for example isn't a line on line just the same as making two verticies on line? or one on line and parallel? and what is the difference of on line and on circle? they are both on line right? why does it matter that one of the lines is curved? isn't it the same kind of constraint?
+
+## in_1643 — 2026-11-26 — approval
+> yes merge the exact duplicates first

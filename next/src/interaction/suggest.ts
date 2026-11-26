@@ -86,9 +86,12 @@ function offersForUncached(S: System, selection: string[]): { offers: Offer[]; i
       });
       continue;
     }
+    // (two circles are made concentric by their centres being together: a circle stands for its centre where a point is wanted, `q_relation_set`)
+    const sel = name === "coincident" ? selection.map((id) => S.circles.find((c) => c.id === id)?.c ?? id) : selection,
+      kk = name === "coincident" ? sel.map((id) => kindOf(id, S)) : kinds;
     let parts: string[] | null = null;
-    if (fits(name, kinds)) parts = [...selection];
-    else if (selection.length === 2 && fits(name, [kinds[1]!, kinds[0]!])) parts = [selection[1]!, selection[0]!];
+    if (fits(name, kk)) parts = [...sel];
+    else if (sel.length === 2 && fits(name, [kk[1]!, kk[0]!])) parts = [sel[1]!, sel[0]!];
     if (!parts) {
       inapplicable.push({
         kind: name,

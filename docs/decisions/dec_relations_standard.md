@@ -26,10 +26,10 @@ The human (`in_089`) wants the relations between any two parts to be obvious and
 | corner, corner | coincident, horizontal / vertical alignment | distance (straight), and the part of it along an axis (dX, dY, dZ) |
 | corner, line | on the line, midpoint | distance (perpendicular to the line's infinite carrier; optionally to the segment) |
 | corner, plane | on the plane | distance |
-| line, line | parallel, perpendicular, collinear, equal length | angle, and distance when they are parallel (the perpendicular gap between their carriers; otherwise the shortest distance) |
+| line, line | parallel, perpendicular, equal length (in line is two ends on a line, `dec_relations_merged`) | angle, and distance when they are parallel (the perpendicular gap between their carriers; otherwise the shortest distance) |
 | line, plane | parallel, perpendicular, lies in | angle, and distance when parallel |
 | plane, plane | parallel, perpendicular, coplanar | angle, and distance when parallel (an offset) |
-| circle, circle | equal radius, concentric, tangent | distance between centres |
+| circle, circle | equal radius, tangent (concentric is the two centres coincident, `dec_relations_merged`) | distance between centres |
 | circle, line | tangent | distance from the centre |
 | one corner | fixed | position (x, y, z) |
 | one line | horizontal, vertical, fixed | length, angle to a world axis |

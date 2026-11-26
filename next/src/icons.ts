@@ -21,7 +21,6 @@ const ICONS: Record<string, string> = {
   dimension: svg('<path d="M2 11.5L11.5 2 14 4.5 4.5 14z"/><path d="M5 8.5l1.6 1.6M7.4 6l1.6 1.6M9.8 3.6l1.2 1.2"/>'),
   angle: svg('<path d="M2.5 13.5h11"/><path d="M2.5 13.5L11 4.5"/><path d="M7.5 13.5a5 5 0 0 0-1.4-3.4"/>'),
   radius: svg('<circle cx="8" cy="8" r="5.5"/><path d="M8 8l3.9-3.9"/>'),
-  concentric: svg('<circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.6"/>'),
   onCircle: svg('<circle cx="8" cy="8" r="5.5"/><circle cx="12.4" cy="4.6" r="1.6"/>'),
   onLine: svg('<path d="M2 12.5L14 3.5"/><circle cx="8" cy="8" r="1.7"/>'),
   tangent: svg('<circle cx="8" cy="10" r="4"/><path d="M1.5 6h13"/>'),
@@ -32,7 +31,6 @@ const ICONS: Record<string, string> = {
   midpoint: svg(
     '<path d="M2 13L14 3"/><circle cx="8" cy="8" r="1.7"/><path d="M5 5.5l2 2M9 9.5l2 2" stroke-width="1"/>',
   ),
-  collinear: svg('<path d="M2 12L14 4"/><circle cx="4" cy="10.7" r="1"/><circle cx="12" cy="5.3" r="1"/>'),
   symmetric: svg(
     '<path d="M8 2v12" stroke-dasharray="2 2"/><circle cx="4" cy="6" r="1.3"/><circle cx="12" cy="6" r="1.3"/><path d="M4 11h8"/>',
   ),

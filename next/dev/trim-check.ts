@@ -100,8 +100,8 @@ console.log("2. the middle of a line between two crossings: two lines, the first
     JSON.stringify([a, b]),
   );
   check(
-    "h_2 is kept in line with h",
-    r.params.constraints!.some((c) => c.kind === "collinear" && c.parts.join() === "h,h_2"),
+    "h_2 is kept in line with h (its two ends on h)",
+    r.params.constraints!.filter((c) => c.kind === "pointOnLine" && c.parts[1] === "h").length === 2,
   );
   check(
     "the level constraint stays on h (and h_2 is level through being in line)",

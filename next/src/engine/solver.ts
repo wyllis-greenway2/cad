@@ -34,10 +34,8 @@ export type Relation =
   | "vertical"
   | "parallel"
   | "perpendicular"
-  | "collinear"
   | "equalLength"
   | "equalRadius"
-  | "concentric"
   | "pointOnLine"
   | "pointOnCircle"
   | "midpoint"
@@ -276,19 +274,6 @@ export const RELATIONS: Record<
       return [turned(a, b, Math.PI / 2, Math.PI)];
     },
   },
-  collinear: {
-    label: "in line",
-    helper: {},
-    arity: 2,
-    parts: [["line"], ["line"]],
-    rows: (ids, c) => {
-      const a = c.line(ids[0]!),
-        b = c.line(ids[1]!),
-        u = vec(a.a, a.b),
-        n = len(u);
-      return [div(cross2(u, vec(a.a, b.a)), n), div(cross2(u, vec(a.a, b.b)), n)];
-    },
-  },
   equalLength: {
     label: "equal length",
     helper: {},
@@ -306,17 +291,6 @@ export const RELATIONS: Record<
     arity: 2,
     parts: [["circle"], ["circle"]],
     rows: (ids, c) => [sub(c.r(ids[0]!), c.r(ids[1]!))],
-  },
-  concentric: {
-    label: "concentric",
-    helper: {},
-    arity: 2,
-    parts: [["circle"], ["circle"]],
-    rows: (ids, c) => {
-      const p = c.c(ids[0]!),
-        q = c.c(ids[1]!);
-      return [sub(p.x, q.x), sub(p.y, q.y)];
-    },
   },
   pointOnLine: {
     label: "on the line",
