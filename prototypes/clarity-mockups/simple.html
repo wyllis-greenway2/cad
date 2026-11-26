@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Marks: the simple rule set, one scene</title>
+<style>
+  :root{--teal:#1ab8b3;--amber:#f2c14e;--green:#3aa76d;--ink:#2a2e33;--grid:#e6e9eb;--grey:#8a9097}
+  body{font:14px system-ui,sans-serif;margin:0;background:#f4f5f6;color:var(--ink)}
+  header{padding:12px 18px;background:#fff;border-bottom:1px solid #ddd}
+  header h1{font-size:16px;margin:0 0 6px}
+  .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}
+  button{padding:5px 12px;border:1px solid #bbb;border-radius:14px;background:#fff;cursor:pointer;font:inherit}
+  button.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+  label{margin-right:12px;font-size:13px}
+  .note{color:#666;font-size:12px;margin-top:4px;max-width:980px}
+  main{display:grid;grid-template-columns:minmax(560px,1.6fr) minmax(260px,1fr);gap:14px;padding:14px;align-items:start}
+  .card{background:#fff;border:1px solid #ddd;border-radius:8px;overflow:hidden}
+  svg{width:100%;height:auto;display:block;background:#fff}
+  .bar{border-top:1px solid #eee;padding:10px 12px;min-height:44px;font-size:13px;background:#fafafa}
+  .legend{padding:12px 14px;font-size:13px;line-height:1.5}
+  .legend h3{margin:0 0 6px;font-size:14px}
+  .legend table{border-collapse:collapse;width:100%;font-size:12px}
+  .legend td{border-top:1px solid #eee;padding:4px 6px;vertical-align:top}
+  text{font:12px system-ui,sans-serif}
+  .mk{cursor:pointer}
+  .part{transition:stroke .1s,fill .1s}
+</style></head><body>
+<header>
+  <h1>Marks: the simple rule set on one scene (a bubble anywhere free, an arrow to its spot, parents light on hover)</h1>
+  <div class="row" id="sel"></div>
+  <div class="row">
+    <label><input type="checkbox" id="loud"> everything loud (worst case: all hovered at once)</label>
+    <label>zoom <input type="range" id="zoom" min="40" max="150" value="100"> <span id="zv">100%</span></label>
+    <label><input type="checkbox" id="touch"> touch (a tap toggles the preview, like hover)</label>
+  </div>
+  <div class="note">Pick what is selected. Every mark is a small bubble in the nearest free place with a thin dashed arrow to the exact spot it is about (pale until you point at it, left out when the bubble is already beside its spot). Pointing lights the parts it names (strong amber) and what it would also move or the line a named vertex ends (pale amber). Yellow is an offer: its arrow joins the two named parts in the direction they move, and what else would move is drawn paler. A length and a circle size keep their dashed dimension line with the bubble on it. Nothing here touches the real app.</div>
+</header>
+<main>
+  <div class="card"><svg id="svg" viewBox="0 0 640 430"></svg><div class="bar" id="bar"></div></div>
+  <div class="card legend" id="legend"></div>
+</main>
+<script>
+const W=640,H=430,CEN=[320,215];
+// ---- the scene (the human's model_5): a circle, a line tangent to it, a second line square to it from the line's middle
+const K={c:[230,282],r:90};
+const dirL=[Math.cos(5*Math.PI/180),-Math.sin(5*Math.PI/180)], nrm=[-dirL[1]*-1*-1, 0]; // placeholder, set below
+const d=[0.9962,-0.0872], n=[-0.0872,-0.9962]; // along L1, and square to it (up)
+const T=[K.c[0]+K.r*n[0],K.c[1]+K.r*n[1]];
+const P2=[T[0]-190*d[0],T[1]-190*d[1]], P3=[T[0]+210*d[0],T[1]+210*d[1]];
+const P5=[(P2[0]+P3[0])/2,(P2[1]+P3[1])/2], P4=[P5[0]+170*n[0],P5[1]+170*n[1]];
+const PT={P1:K.c,P2,P3,P4,P5};
+const LINES={L1:[P2,P3],L2:[P5,P4]};
+const MM=180/9.051; // px per mm
+const ICON={ // 16x16 glyphs
+ tangent:'<circle cx="8" cy="10" r="4"/><path d="M1.5 6h13"/>',
+ on:'<path d="M2 12.5L14 3.5"/><circle cx="8" cy="8" r="1.7"/>',
+ mid:'<path d="M2 8h12"/><circle cx="8" cy="8" r="1.6"/><path d="M5 6v4M11 6v4"/>',
+ onc:'<path d="M2 12.5L14 3.5"/><circle cx="8" cy="8" r="1.7"/>',
+ sq:'<path d="M3 13V3"/><path d="M3 13h10"/><path d="M3 9h4v4"/>'};
+// the marks: what each is about, what it says, and where it stands first
+const MARKS=[
+ {id:'c4',kind:'sq',state:'applied',parts:['L1','L2','P5'],word:'Square',says:'line L2 stands square to line L1',order:0},
+ {id:'c2',kind:'on',state:'applied',parts:['P5','L1'],word:'On line',says:'vertex P5 stays on line L1',order:1},
+ {id:'c3',kind:'mid',state:'applied',parts:['P5','L1'],word:'At the middle',says:'P5 stays halfway along line L1',order:2},
+ {id:'c1',kind:'tangent',state:'applied',parts:['L1','K1'],word:'Tangent',says:'line L1 touches circle K1 at one point',order:3},
+ {id:'o1',kind:'onc',state:'offer',parts:['P5','K1'],moves:['L1'],word:'Offer: P5 on the circle',says:'P5 stays and the circle grows 0.14 mm to reach it. Also moves line L1 (it turns so it stays tangent). Click to apply',order:4},
+ {id:'m1',kind:'len',state:'measure',parts:['L1','P2','P3'],word:'Length 20.39',says:'the length of line L1 (measured, not locked)',order:5,text:'20.39'},
+ {id:'m2',kind:'dia',state:'measure',parts:['K1','P1'],word:'Diameter 9.051',says:'the diameter of circle K1 (measured, not locked)',order:6,text:'Ø 9.051'},
+];
+const SCOPE={K1:['K1','P1'],L1:['L1','P2','P3'],L2:['L2','P4','P5'],P5:['P5'],none:[]};
+let sel='K1',hover=null,pinned=new Set(),zoom=1,loud=false,touch=false;
+const f=p=>[(p[0]-CEN[0])*zoom+CEN[0],(p[1]-CEN[1])*zoom+CEN[1]];
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1]],add=(a,b)=>[a[0]+b[0],a[1]+b[1]],mul=(a,k)=>[a[0]*k,a[1]*k],len=a=>Math.hypot(a[0],a[1]),unit=a=>{const l=len(a)||1;return [a[0]/l,a[1]/l]};
+const rot=(a,t)=>[a[0]*Math.cos(t)-a[1]*Math.sin(t),a[0]*Math.sin(t)+a[1]*Math.cos(t)];
+function distSeg(p,a,b){const ab=sub(b,a),t=Math.max(0,Math.min(1,((p[0]-a[0])*ab[0]+(p[1]-a[1])*ab[1])/(ab[0]*ab[0]+ab[1]*ab[1]||1)));return len(sub(p,add(a,mul(ab,t))));}
+const shown=()=>MARKS.filter(m=>{
+  if(m.state==='offer')return sel==='K1'||sel==='P5';
+  if(m.state==='measure')return (m.kind==='len'&&['L1'].includes(sel))||(m.kind==='dia'&&sel==='K1');
+  return m.parts.some(p=>SCOPE[sel].includes(p));
+});
+// ---- geometry in screen space
+function geo(){const k={c:f(K.c),r:K.r*zoom},L={L1:LINES.L1.map(f),L2:LINES.L2.map(f)},P={};for(const i in PT)P[i]=f(PT[i]);return {k,L,P};}
+const clearOf=(p,G,skip)=>{ // distance from p to the drawing (lines, circle edge)
+  let m=Math.abs(len(sub(p,G.k.c))-G.k.r);for(const id in G.L)m=Math.min(m,distSeg(p,G.L[id][0],G.L[id][1]));return m;};
+// ---- placement: first place by kind, then a step aside along the clearest way, kept apart from marks already placed
+function place(list,G){
+  const placed=[],out=[];
+  const apart=(p,sz)=>placed.every(q=>len(sub(p,q.at))>=(sz+q.size)/2+4);
+  const inView=(p,sz)=>p[0]>sz/2+4&&p[0]<W-sz/2-4&&p[1]>sz/2+4&&p[1]<H-sz/2-4;
+  const nL1=unit(sub(G.L.L1[1],G.L.L1[0])), up=[nL1[1],-nL1[0]];
+  // the spot each mark is about
+  const contact=add(G.k.c,mul(unit(sub(G.P.P5,G.k.c)),G.k.r));
+  const spotOf=m=>m.kind==='sq'?add(G.P.P5,add(mul(nL1,9),mul(up,9))):m.kind==='tangent'?contact:G.P.P5;
+  [...list].sort((a,b)=>a.order-b.order).forEach(m=>{
+    const dimension=m.kind==='len'||m.kind==='dia';
+    const size=dimension?(m.text.length*7+20):22, o={m,size,feature:null,extra:null,at:null,dot:false};
+    if(m.kind==='len'){ // a dimension line off the line, the bubble on it, slid along it until clear
+      const off=mul(up,30),a=add(G.L.L1[0],off),b=add(G.L.L1[1],off),mid=mul(add(a,b),.5);o.extra={a,b,ext:[[G.L.L1[0],a],[G.L.L1[1],b]]};
+      for(const k of [0,1,-1,2,-2,3,-3,4,-4]){const p=add(mid,mul(nL1,k*(size+8)));if(apart(p,size)&&clearOf(p,G)>size/2-6&&distSeg(p,G.L.L2[0],G.L.L2[1])>size/2){o.at=p;break;}}
+      o.at=o.at||mid;
+    } else if(m.kind==='dia'){ // a dashed radial line in the freest direction, the bubble on it
+      let best=null;for(let t=0;t<360;t+=10){const u=[Math.cos(t*Math.PI/180),Math.sin(t*Math.PI/180)];let m1=1e9;
+        for(const id in G.L)m1=Math.min(m1,distSeg(add(G.k.c,mul(u,G.k.r*.5)),G.L[id][0],G.L[id][1]));const score=m1+(u[0]>0&&u[1]>0?12:0);if(!best||score>best.s)best={s:score,u};}
+      o.extra={a:G.k.c,b:add(G.k.c,mul(best.u,G.k.r)),radial:true};o.at=add(G.k.c,mul(best.u,G.k.r*.5));
+    } else { // a bubble in the nearest free place round its spot; an arrow from it to the spot
+      const spot=spotOf(m);o.feature=spot;
+      outer:for(const r of [30,46,62,80]){const cs=[];for(let t=0;t<360;t+=20){const u=[Math.cos(t*Math.PI/180),Math.sin(t*Math.PI/180)],p=add(spot,mul(u,r));cs.push({p,sc:clearOf(p,G)+(u[1]<0?3:0)});}
+        cs.sort((a,b)=>b.sc-a.sc);for(const c of cs)if(apart(c.p,size)&&inView(c.p,size)&&c.sc>size/2+2){o.at=c.p;break outer;}}
+      o.at=o.at||add(spot,[0,-90]);
+    }
+    const ext=m.parts.map(p=>p==='K1'?G.k.r*2:p in G.L?len(sub(G.L[p][1],G.L[p][0])):1e9);if(Math.min(...ext)<46)o.dot=true;
+    placed.push({at:o.at,size});out.push(o);
+  });
+  return out;
+}
+// ---- drawing
+const col=s=>s==='offer'?'var(--amber)':s==='measure'?'var(--grey)':'var(--green)';
+function render(){
+  const G=geo(),list=shown(),P=place(list,G);
+  const hv=m=>loud||pinned.has(m.id)||(hover===m.id);
+  const hot=P.filter(o=>hv(o.m)),lit=new Set(hot.flatMap(o=>o.m.parts)),
+    ENDS={L1:['P2','P3'],L2:['P5','P4']}, // a vertex lights the lines that end at it, lightly: P5 is the end of the perpendicular line
+    soft=new Set(hot.flatMap(o=>[...(o.m.moves||[]),...Object.keys(ENDS).filter(l=>ENDS[l].some(v=>o.m.parts.includes(v)))]).filter(id=>!lit.has(id))),
+    isLit=id=>lit.has(id),isSoft=id=>soft.has(id);
+  let s='';
+  for(let x=0;x<=W;x+=55)s+=`<path d="M${x} 0V${H}" stroke="var(--grid)"/>`;for(let y=0;y<=H;y+=55)s+=`<path d="M0 ${y}H${W}" stroke="var(--grid)"/>`;
+  s+=`<defs><marker id="at" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto-start-reverse"><path d="M0 0L7 3.5 0 7z" fill="var(--grey)"/></marker><marker id="ay" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto-start-reverse"><path d="M0 0L7 3.5 0 7z" fill="var(--amber)"/></marker></defs>`;
+  const kSel=sel==='K1';
+  s+=`<circle class="part" cx="${G.k.c[0]}" cy="${G.k.c[1]}" r="${G.k.r}" fill="${kSel?'#eef9f9':'none'}" stroke="${isLit('K1')?'var(--amber)':isSoft('K1')?'#f6dca0':kSel?'var(--teal)':'var(--ink)'}" stroke-width="${isLit('K1')?3.2:isSoft('K1')?2.8:kSel?3:1.6}"/>`;
+  for(const id of ['L1','L2']){const [a,b]=G.L[id];s+=`<line class="part" x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${isLit(id)?'var(--amber)':isSoft(id)?'#f6dca0':sel===id?'var(--teal)':'var(--ink)'}" stroke-width="${isLit(id)?3.2:isSoft(id)?2.8:sel===id?3:1.6}"/>`;}
+  for(const id in G.P){const on=isLit(id),inScope=SCOPE[sel].includes(id);const p=G.P[id];s+=`<circle class="part" cx="${p[0]}" cy="${p[1]}" r="${id==='P5'?4.5:3.2}" fill="${on?'var(--amber)':inScope?'var(--teal)':id==='P1'?'var(--ink)':'#c9ced2'}"/>`;}
+  // dimension geometry and leaders (under the marks)
+  P.forEach(o=>{const m=o.m,hot=hv(m),c=m.state==='offer'?'var(--amber)':'var(--grey)',mk=m.state==='offer'?'ay':'at';
+    if(o.extra){const e=o.extra;
+      if(e.radial)s+=`<path d="M${e.a[0]} ${e.a[1]} L${e.b[0]} ${e.b[1]}" stroke="${c}" stroke-width="${hot?1.8:1}" stroke-dasharray="5 4" fill="none" marker-end="url(#${mk})" marker-start="url(#${mk})" opacity="${hot?1:.8}"/>`;
+      else{s+=`<path d="M${e.a[0]} ${e.a[1]} L${e.b[0]} ${e.b[1]}" stroke="${c}" stroke-width="${hot?1.8:1}" stroke-dasharray="5 4" fill="none" marker-end="url(#${mk})" marker-start="url(#${mk})" opacity="${hot?1:.8}"/>`;
+        e.ext.forEach(([p,q])=>s+=`<path d="M${p[0]} ${p[1]} L${q[0]} ${q[1]}" stroke="${c}" stroke-width="1" opacity=".5"/>`);}}
+    if(o.feature){const R=o.size/2,dd=len(sub(o.feature,o.at));if(dd>R+12){const u=unit(sub(o.feature,o.at)),st=add(o.at,mul(u,R));
+      s+=`<path d="M${st[0]} ${st[1]} L${o.feature[0]} ${o.feature[1]}" stroke="${m.state==='offer'?'var(--amber)':'var(--grey)'}" stroke-width="${hot?1.8:1}" stroke-dasharray="${hot?'5 3':'3 3'}" fill="none" marker-end="url(#${mk})" opacity="${hot?1:.5}"/>`;}}
+  });
+  // the offer's arrows, only when it is pointed at: the main one joins the two named parts (the circle's edge goes to P5), the others are what else moves, paler
+  P.filter(o=>o.m.state==='offer'&&hv(o.m)).forEach(()=>{const a=add(G.k.c,mul(unit(sub(G.P.P5,G.k.c)),G.k.r)),b=G.P.P5;
+    s+=`<path d="M${a[0]} ${a[1]} L${b[0]} ${b[1]}" stroke="var(--amber)" stroke-width="2.6" stroke-dasharray="5 3" fill="none" marker-end="url(#ay)"/>`;
+    for(const [p,dir] of [[G.P.P2,[0,1]],[G.P.P3,[0,-1]]]){const q=add(p,mul(dir,22));s+=`<path d="M${p[0]} ${p[1]} L${q[0]} ${q[1]}" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="5 3" fill="none" marker-end="url(#ay)" opacity=".55"/>`;}});
+  // the marks
+  P.forEach(o=>{const m=o.m,hot=hv(m),R=o.dot&&!hot?5:(hot?o.size/2*1.18:o.size/2),c=col(m.state);
+    s+=`<g class="mk" data-id="${m.id}" transform="translate(${o.at[0]},${o.at[1]})">`;
+    s+=`<circle r="${Math.max(R+6,16)}" fill="transparent"/>`; // a generous hit area
+    if(o.dot&&!hot)s+=`<circle r="5" fill="${c}"/>`;
+    else if(m.state==='measure'){const wd=m.text.length*7+16;s+=`<rect x="${-wd/2}" y="-11" width="${wd}" height="22" rx="11" fill="${hot?'#fffbe9':'#fff'}" stroke="${hot?'var(--amber)':'var(--grey)'}" stroke-width="1.6"/><text x="0" y="4" text-anchor="middle" font-weight="600">${m.text}</text>`;}
+    else{const sc=R/11;s+=`<circle r="${R}" fill="${hot?'#fffbe9':'#fff'}" stroke="${c}" stroke-width="1.8"/><g transform="translate(${-8*sc},${-8*sc}) scale(${sc})" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round">${ICON[m.kind]}</g>`;}
+    s+='</g>';});
+  // a sentence beside what is pointed at
+  const one=hover&&P.find(o=>o.m.id===hover);
+  const svg=document.getElementById('svg');svg.innerHTML=s;
+  document.getElementById('bar').innerHTML=one?`<b>${one.m.word}</b> — ${one.m.says}`:(list.length?`${list.length} mark${list.length>1?'s':''} on ${{K1:'circle K1',L1:'line L1',L2:'line L2',P5:'vertex P5'}[sel]} — quiet; point at one`:'nothing selected, nothing shown');
+  svg.querySelectorAll('.mk').forEach(el=>{
+    el.addEventListener('mouseenter',()=>{if(!touch){hover=el.dataset.id;render()}});
+    el.addEventListener('mouseleave',()=>{if(!touch){hover=null;render()}});
+    el.addEventListener('click',()=>{const id=el.dataset.id;if(touch){pinned.has(id)?pinned.delete(id):(pinned.clear(),pinned.add(id));hover=pinned.has(id)?id:null;}render();});
+  });
+}
+function nUnit(){const G=geo(),a=unit(sub(G.L.L1[1],G.L.L1[0]));return {d:a,u:[a[1],-a[0]]};}
+// ---- controls
+const SEL=[['K1','Select the circle'],['L1','Select line L1 (4 marks + length)'],['L2','Select line L2'],['P5','Select vertex P5'],['none','Nothing selected']];
+SEL.forEach(([k,l])=>{const b=document.createElement('button');b.textContent=l;b.onclick=()=>{sel=k;hover=null;pinned.clear();[...document.querySelectorAll('#sel button')].forEach(x=>x.classList.toggle('on',x===b));render()};if(k===sel)b.classList.add('on');document.getElementById('sel').append(b)});
+document.getElementById('loud').onchange=e=>{loud=e.target.checked;render()};
+document.getElementById('touch').onchange=e=>{touch=e.target.checked;hover=null;pinned.clear();render()};
+document.getElementById('zoom').oninput=e=>{zoom=e.target.value/100;document.getElementById('zv').textContent=e.target.value+'%';render()};
+document.getElementById('legend').innerHTML=`<h3>The simple rule set</h3><table>
+<tr><td><b>Every mark</b></td><td>a small bubble in the nearest free place; a thin dashed arrow to the exact spot it is about</td></tr>
+<tr><td><b>The arrow</b></td><td>pale until you point at the bubble; left out when the bubble already sits beside its spot</td></tr>
+<tr><td><b>Hover lights</b></td><td>the parts it names (strong amber); what applying would also move, and the line a named vertex ends (pale amber)</td></tr>
+<tr><td><b>Offer (yellow)</b></td><td>its arrow joins the two named parts in the direction they move; what else moves is drawn paler; the sentence says "also moves L1"</td></tr>
+<tr><td><b>Spots</b></td><td>a vertex, junction or touching point: that point; a corner: the corner; a whole line: its middle</td></tr>
+<tr><td><b>Dimensions</b></td><td>a length and a circle size keep their dashed dimension line with the bubble on it</td></tr>
+<tr><td><b>Fan-out</b></td><td>several marks at one spot ring round it in a fixed order, so they do not swap</td></tr>
+<tr><td><b>Zoomed out</b></td><td>a mark whose part is tiny on screen is a dot until pointed at</td></tr></table>
+<p style="color:#666;font-size:12px">Try: "Select line L1" with "everything loud" for the worst case; "Select the circle" and point at the yellow offer; zoom down for dots.</p>`;
+render();
+</script></body></html>

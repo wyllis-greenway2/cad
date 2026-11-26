@@ -6677,3 +6677,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1654 — 2026-11-26 — question
 > so then why does hovering on the suggested bubble not include the perpendicular line in the highlight?
+
+## in_1655 — 2026-11-26 — directive
+> so what ruleset can we have that is really simple and reliable? How about on hover the associated parents highlight, and the bubble always has an arrow pointing to the specific spot that will be effected. Suggested works the say way, but the arrow joins the two parts that will be modified in the direction they will be modified basically how it is now. Is this a good reliable method?
+
+## in_1656 — 2026-11-26 — approval
+> yes update the mockup to match

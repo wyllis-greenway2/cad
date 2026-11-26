@@ -4,4 +4,6 @@
 
 **`rules.html` (`in_1651`):** the draft rule set of `dec_mark_placement` on the same scene plus an angle (a square), a length and a circle size: quiet marks, loud on hover (an offer's arrows only then), no pills, each mark first at the place its kind says, stepping aside along the way with most room (a thin leader back to its feature once it has), a dimension line with the bubble on it, a dashed radial line for a circle, a dot when its part is tiny at the zoom. Controls: what is selected, 'everything loud' (worst case), zoom, touch mode (a tap toggles the preview).
 
+**`simple.html` (`in_1655`, `in_1656`):** the simplified rule set: every mark a small bubble in the nearest free place with a thin dashed arrow to the exact spot it is about (pale until pointed at, left out when beside its spot); hover lights the parts it names (strong amber) and what it would also move or the line a named vertex ends (pale amber); an offer's arrow joins the two named parts in the direction they move, what else moves is paler, and the sentence says "also moves L1"; a length and a circle size keep their dashed dimension line. `rules.html` is the earlier, per-kind placement version.
+
 **What it learned:** (the human's findings go here after trying it).

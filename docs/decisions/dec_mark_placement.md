@@ -3,39 +3,28 @@ id: dec_mark_placement
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_1649, in_1650, in_1654
+human_input: in_1649, in_1650, in_1654, in_1655, in_1656
 date: 2026-11-26
 depends_on:
   - dec_marks_on_things: this says where each mark stands and when it speaks; that entry says which marks show and what a mark is
 alternative_to:
 ---
-# When and where marks show: quiet, in the drawing, loud on hover (a draft of the human's direction, `in_1650`)
+# When and where marks show: quiet, an arrow to the spot, loud on hover (a draft of the human's direction, `in_1650`, simplified at `in_1655`)
 
 The human's direction (`in_1650`): quiet marks that light up on hover are good, for offers too; an offer's arrows only on hover; **no pills** (marks never cluster, they are part of the drawing); an angle's mark in its corner (a square if square, a curve and the degrees if not); on-line and tangent near the junction; a whole-line number on the line (a length with a dashed dimension line and arrow tips); a circle's size on a dashed radial line, the bubble on it; thin grey dashed leaders with arrow tips (yellow when offered) to where a mark points, ending in a small bubble at the nearest free place. **The rest of this entry is the AI's draft of the rule set that follows, not yet seen or approved.**
 
-## When
-1. A mark is quiet by default: small, pale, its icon only. An offer is the same in yellow. No arrows, no words.
-2. Pointing at a mark (hover; on touch, a first tap) makes it strong, lights the parts it is about (strong amber), and lightly (pale amber) what applying it would also move and the lines a named vertex ends (`in_1654`: P5 is the end of the perpendicular line, and the tangent line turns), draws what it measures or would move (a dimension line, an offer's dashed arrow) and says it in a sentence. Pressing applies it (offers) or takes it away (an applied one).
-3. Which marks exist at all is unchanged (`dec_marks_on_things`): a selection shows its constraints, an offer near it, a refusal always.
-4. A mark that cannot fit at the zoom (its part is smaller on screen than the mark) is a dot until pointed at.
+## The simple rule set (`in_1655`, the human's proposal; AI's refinements marked)
+Three things, all made from the constraint's own parts, so nothing depends on the kind of constraint:
+1. **Hover lights the parents.** The parts the constraint names, strong amber; what applying it would also move, and the lines a named vertex ends, pale amber (`in_1654`).
+2. **Every bubble has an arrow to the exact spot it is about** (a thin dashed grey line with an arrow tip; yellow for an offer). The bubble stands in the nearest free place, so the arrow, not the position, says what it is about. *AI refinement:* the arrow is pale until hover (strong on hover) and is left out when the bubble already stands within about 12 px of its spot; several marks at one spot fan out round it in a fixed order by kind, so they do not swap.
+3. **An offer's arrow shows the movement:** it joins the two named parts, in the direction they move. *AI refinement:* anything else that applying would move is drawn as paler arrows and the hover sentence says so ("also moves L1"). The preview is the apply itself (`dec_marks_on_things`, `planOf`), so it cannot disagree with what happens.
 
-## Where (by what the constraint is about)
-| about | stands at | draws, when pointed at |
-|---|---|---|
-| two lines at an angle (square, angle) | in the corner, inside the angle: a small square if square, an arc and the degrees if not | the two lines lit |
-| parallel, level, upright, equal-ish marks of one line | on the line near its middle, a tick | the line lit |
-| a point on a line or circle, tangent, coincident, midpoint | at the junction, a step off the geometry along the way that is clearest | both parts lit |
-| a length or distance of one line, two points | on the line, as a dimension line a little off it with arrow tips, the bubble on it | the two ends lit |
-| a circle's size | a dashed radial line from the centre to the edge (in the freest direction), the bubble on it | the circle lit |
-| a point to a line | a short dashed line square to the line with arrow tips, the bubble on it | |
-| fixed | at the point, a padlock | |
-2. A leader (thin grey dashed, an arrow tip at the feature, yellow when offered) is drawn only when the bubble cannot stand on its feature: it goes from the feature to the bubble.
-
-## Placing without a pill
-Each mark has a first place (the table). If it collides with a mark or with the drawing, it moves along the clear way out in small steps (a leader appears once it is a few pixels from its feature); at one junction several marks fan out round it, kept in a fixed order by kind so they do not swap as you move. A mark keeps its place while you hover and zoom (it is placed in the drawing with a pixel offset, not re-found each frame). Offsets a person dragged stay (`dec_marks_on_things`).
+**The spot** (the one table left; the literal anchor `anchorOf` already finds it): at a vertex, a junction or a touching point, that point; a whole line (level, length), its middle; a circle's edge, a point on it; an angle, its corner.
+**Dimensions keep their own drawing** (they are the dimension): a length is a dashed line with arrow tips and the bubble on it; a circle's size is a dashed radial line with the bubble on it.
+**When:** unchanged: quiet by default (small, pale, icon only, no words); a mark that is tiny at the zoom is a dot until pointed at; on touch a first tap is the hover.
 
 ## Open (to ask)
-Touch has no hover: a first tap on an offer previews (the arrow, the lit parts), a second applies? During a drag the hints show at once (the person is moving it now). Whether an unlocked measured number (a line's length, not yet a constraint) shows as its dimension line when selected, or only a plain bubble until pointed at.
+Touch: a first tap previews, a second applies? During a drag the hints show at once. Whether an unlocked measured number shows as its dimension line when selected, or as a plain bubble until pointed at.
 
 ## Rationale
 The human's own direction; the rest follows from keeping what a mark belongs to visible in the drawing rather than in a list.
