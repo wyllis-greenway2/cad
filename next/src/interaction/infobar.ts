@@ -12,6 +12,8 @@ export type BarTone = "free" | "holds";
 export interface BarItem {
   /** what taking it would move, and by how much (mm, in the sketch's axes): the points that would go (a relation that holds already moves nothing) */
   moves?: { id: string; dx: number; dy: number }[];
+  /** the radii it would change, each by this much (mm, signed) */
+  radii?: { id: string; dr: number }[];
   id: string;
   icon: string;
   label: string;
@@ -75,6 +77,10 @@ export function nearFor(
             dy = r.q[2 * i + 1]!;
           return Math.hypot(dx, dy) > 1e-3 ? [{ id, dx, dy }] : [];
         });
+      const dRadii = radii.flatMap((id, i) => {
+        const dr = r.q[2 * points.size + i]!;
+        return Math.abs(dr) > 1e-3 ? [{ id, dr }] : [];
+      });
       return {
         other,
         item: {
@@ -83,6 +89,7 @@ export function nearFor(
           label: `${RELATIONS[r.cand.relation].label} with ${other}`,
           tone: (r.moved < 1e-7 ? "holds" : "free") as BarTone,
           ...(moves.length ? { moves } : {}),
+          ...(dRadii.length ? { radii: dRadii } : {}),
         },
       };
     });

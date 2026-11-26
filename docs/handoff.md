@@ -5402,3 +5402,6 @@ The human tried the helpers: a second line starting on the end of another and go
 
 ## Handoff 1419
 The human saw no arrow in `in_1631`'s build: an offer is only in reach of 6 to 12 px, so the arrow is that short and the mark (28 px) sat on it. **Changed:** a mark whose arrow is shorter than 34 px stands 26 px to the side (up on the screen) of the arrow's middle, clear of it; arrows weigh 2 and have a fixed 8 px head. Still small by nature; the human has not said whether it is right. Nothing locked in.
+
+## Handoff 1420
+The human's screenshot (a selected circle, an offer at a line end, no arrow) showed that an offer changing only a radius (and a centre by a little) drew nothing for the radius. **Built:** `BarItem.radii` (`nearFor`), and `marks.ts` draws a radius change as an arrow along the edge's way out, from the edge to where it would be, toward the other part (the foot of a line, a point, a circle's centre); `marks-check` case. Nothing locked in.

@@ -198,4 +198,26 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
     JSON.stringify(m?.moves),
   );
 }
+{
+  // a radius that would change shows an arrow along the edge's way out (`in_1631`)
+  const T: System = {
+    points: [
+      { id: "A", x: -10, y: 5.3 },
+      { id: "B", x: 10, y: 5.3 },
+      { id: "C", x: 0, y: 0 },
+    ],
+    lines: [{ id: "L1", a: "A", b: "B" }],
+    circles: [{ id: "K1", c: "C", r: 5 }],
+    constraints: [],
+  } as unknown as System;
+  const m = marksFor(T, ["K1"], { now: 0, reach: { pointMm: 1, lineMm: 0.6 } }).find((x) =>
+      x.id.startsWith("near:tangent"),
+    ),
+    mv = m?.moves?.[0];
+  check(
+    "a circle 0.3 mm from tangent to a line is offered it, with an arrow for the edge's move toward the line",
+    !!m?.moves?.some((v) => Math.abs(v.from[1] - 5) < 1e-6 && v.to[1] > 5.1) && !!mv,
+    JSON.stringify(m?.moves),
+  );
+}
 process.exit(failureCount() ? 1 : 0);

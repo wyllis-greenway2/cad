@@ -53,6 +53,42 @@ function offersOfUncached(S: System, selection: string[], reach?: { pointMm: num
       const p = S.points.find((x) => x.id === m.id);
       return p ? [{ from: [p.x, p.y] as [number, number], to: [p.x + m.dx, p.y + m.dy] as [number, number] }] : [];
     });
+    // a radius it would change: an arrow along the edge's way out, from the edge to where it would be, toward the other part
+    for (const rd of item.radii ?? []) {
+      const k = S.circles.find((x) => x.id === rd.id),
+        c = k && S.points.find((x) => x.id === k.c),
+        other = nc.parts.find((x) => x !== rd.id);
+      if (!k || !c || !other) continue;
+      const line = S.lines.find((x) => x.id === other),
+        pa = line && S.points.find((x) => x.id === line.a),
+        pb = line && S.points.find((x) => x.id === line.b),
+        ok = S.circles.find((x) => x.id === other),
+        at: [number, number] | null =
+          pa && pb
+            ? (() => {
+                const dx = pb.x - pa.x,
+                  dy = pb.y - pa.y,
+                  t = ((c.x - pa.x) * dx + (c.y - pa.y) * dy) / (dx * dx + dy * dy || 1);
+                return [pa.x + t * dx, pa.y + t * dy];
+              })()
+            : ok
+              ? (() => {
+                  const oc = S.points.find((x) => x.id === ok.c);
+                  return oc ? [oc.x, oc.y] : null;
+                })()
+              : (() => {
+                  const pt = S.points.find((x) => x.id === other);
+                  return pt ? [pt.x, pt.y] : null;
+                })();
+      if (!at) continue;
+      const d = Math.hypot(at[0] - c.x, at[1] - c.y) || 1,
+        ux = (at[0] - c.x) / d,
+        uy = (at[1] - c.y) / d;
+      moves.push({
+        from: [c.x + ux * k.r, c.y + uy * k.r],
+        to: [c.x + ux * (k.r + rd.dr), c.y + uy * (k.r + rd.dr)],
+      });
+    }
     const main = moves.reduce<(typeof moves)[number] | null>(
       (a, m) =>
         !a ||
