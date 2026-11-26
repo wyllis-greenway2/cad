@@ -7,8 +7,14 @@ export function webWorker(): Spawn {
     const w = new Worker(new URL("./webworker.ts", import.meta.url), { type: "module" });
     const t: Transport = {
       post: (m: Request) => w.postMessage(m),
-      onMessage: (cb: (r: Reply) => void) => { w.addEventListener("message", (e) => cb(e.data as Reply)); },
-      onExit: (cb: (why: string) => void) => { w.addEventListener("error", (e) => cb(`the worker stopped: ${e.message || "no message"} (${e.filename}:${e.lineno})`)); },
+      onMessage: (cb: (r: Reply) => void) => {
+        w.addEventListener("message", (e) => cb(e.data as Reply));
+      },
+      onExit: (cb: (why: string) => void) => {
+        w.addEventListener("error", (e) =>
+          cb(`the worker stopped: ${e.message || "no message"} (${e.filename}:${e.lineno})`),
+        );
+      },
       terminate: () => w.terminate(),
     };
     return t;

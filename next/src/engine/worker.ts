@@ -4,4 +4,6 @@ import { Session } from "./session.ts";
 
 if (workerData?.debug) await import("./debug-kinds.ts"); // faults for testing the host: a hang, a crash
 const session = new Session((r) => parentPort!.postMessage(r));
-parentPort!.on("message", (req) => { void session.handle(req); });
+parentPort!.on("message", (req) => {
+  void session.handle(req);
+});

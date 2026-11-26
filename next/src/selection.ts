@@ -3,7 +3,12 @@
 import type { EdgeInfo, FaceInfo } from "./studio.ts";
 import type { V3 } from "./vec.ts";
 
-export interface BodyPick { body: string; faces: FaceInfo[]; edges: EdgeInfo[]; /** where it was picked (the bar stands beside it) */ at: V3 }
+export interface BodyPick {
+  body: string;
+  faces: FaceInfo[];
+  edges: EdgeInfo[];
+  /** where it was picked (the bar stands beside it) */ at: V3;
+}
 export type Picked = { kind: "sketch"; key: string; ids: string[] } | ({ kind: "body" } & BodyPick);
 
 export function createSelection() {
@@ -14,12 +19,20 @@ export function createSelection() {
     /** the ids selected in the sketch of this plane (none when something else is selected, or a sketch of another plane) */
     sketch: (key: string): readonly string[] => (cur?.kind === "sketch" && cur.key === key ? cur.ids : []),
     /** select parts of a sketch (none: nothing is selected) */
-    setSketch(key: string, ids: readonly string[]): void { cur = ids.length ? { kind: "sketch", key, ids: [...ids] } : null; },
+    setSketch(key: string, ids: readonly string[]): void {
+      cur = ids.length ? { kind: "sketch", key, ids: [...ids] } : null;
+    },
     /** what is picked on a body (null: nothing) */
     body: (): BodyPick | null => (cur?.kind === "body" ? cur : null),
-    setBody(pick: BodyPick | null): void { cur = pick && (pick.faces.length || pick.edges.length) ? { kind: "body", ...pick } : null; },
+    setBody(pick: BodyPick | null): void {
+      cur = pick && (pick.faces.length || pick.edges.length) ? { kind: "body", ...pick } : null;
+    },
     /** put the selection away; whether there was one */
-    clear(): boolean { const had = cur !== null; cur = null; return had; },
+    clear(): boolean {
+      const had = cur !== null;
+      cur = null;
+      return had;
+    },
   };
 }
 export type Selection = ReturnType<typeof createSelection>;

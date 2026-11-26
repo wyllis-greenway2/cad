@@ -7,9 +7,19 @@ import { settings } from "./settings.ts";
 
 export type Base = "solid" | "seeThrough";
 export type Mark = "pick" | "clash" | "tie";
-export interface Look { base: Base; mark?: Mark }
+export interface Look {
+  base: Base;
+  mark?: Mark;
+}
 /** What a look comes to, as plain numbers (the screen turns it into a material; the checks read it). */
-export interface Surface { color: number; opacity: number; transparent: boolean; depthWrite: boolean; edge: number; edgeOpacity: number }
+export interface Surface {
+  color: number;
+  opacity: number;
+  transparent: boolean;
+  depthWrite: boolean;
+  edge: number;
+  edgeOpacity: number;
+}
 
 export const SOLID: Look = { base: "solid" };
 export const SEE_THROUGH: Look = { base: "seeThrough" };
@@ -22,13 +32,29 @@ export function mix(a: number, b: number, t: number): number {
 }
 
 export function surfaceOf(look: Look): Surface {
-  const L = settings.looks, base = L[look.base];
+  const L = settings.looks,
+    base = L[look.base];
   const edgeOpacity = look.base === "seeThrough" ? L.seeThrough.edgeOpacity : 1;
-  let color = base.color, edge = base.edge, opacity = base.opacity;
+  let color = base.color,
+    edge = base.edge,
+    opacity = base.opacity;
   if (look.mark) {
     const m = L.marks[look.mark];
-    if (look.base === "solid") { color = mix(color, m.color, m.strength); edge = mix(edge, m.color, 0.8); }
-    else { color = m.color; edge = m.color; opacity = Math.max(opacity, 0.3); } // (a see-through body marked takes the colour itself, still clear)
+    if (look.base === "solid") {
+      color = mix(color, m.color, m.strength);
+      edge = mix(edge, m.color, 0.8);
+    } else {
+      color = m.color;
+      edge = m.color;
+      opacity = Math.max(opacity, 0.3);
+    } // (a see-through body marked takes the colour itself, still clear)
   }
-  return { color, opacity, transparent: opacity < 1, depthWrite: opacity >= 1, edge, edgeOpacity: look.mark && look.base === "seeThrough" ? 0.9 : edgeOpacity };
+  return {
+    color,
+    opacity,
+    transparent: opacity < 1,
+    depthWrite: opacity >= 1,
+    edge,
+    edgeOpacity: look.mark && look.base === "seeThrough" ? 0.9 : edgeOpacity,
+  };
 }

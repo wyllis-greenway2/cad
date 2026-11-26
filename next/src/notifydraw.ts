@@ -2,11 +2,16 @@
 import type { Notice } from "./interaction/notices.ts";
 import { settings } from "./settings.ts";
 
-const TONE = { info: { bg: "pill", fg: "pillText" }, warn: { bg: "#8a5a00", fg: "#fff" }, error: { bg: "#a63b3b", fg: "#fff" } } as const;
+const TONE = {
+  info: { bg: "pill", fg: "pillText" },
+  warn: { bg: "#8a5a00", fg: "#fff" },
+  error: { bg: "#a63b3b", fg: "#fff" },
+} as const;
 export function createNoticeStack(host: HTMLElement) {
   const el = document.createElement("div");
   el.dataset.notices = "";
-  el.style.cssText = "position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;z-index:9;pointer-events:none;max-width:70vw";
+  el.style.cssText =
+    "position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;z-index:9;pointer-events:none;max-width:70vw";
   host.appendChild(el);
   const rows = new Map<number, HTMLElement>();
   return {
@@ -16,14 +21,25 @@ export function createNoticeStack(host: HTMLElement) {
       for (const n of items) {
         seen.add(n.id);
         let r = rows.get(n.id);
-        if (!r) { r = document.createElement("div"); r.dataset.notice = n.kind; rows.set(n.id, r); }
-        const t = TONE[n.kind], bg = t.bg === "pill" ? settings.ui.pill : t.bg, fg = t.fg === "pillText" ? settings.ui.pillText : t.fg;
+        if (!r) {
+          r = document.createElement("div");
+          r.dataset.notice = n.kind;
+          rows.set(n.id, r);
+        }
+        const t = TONE[n.kind],
+          bg = t.bg === "pill" ? settings.ui.pill : t.bg,
+          fg = t.fg === "pillText" ? settings.ui.pillText : t.fg;
         if (r.textContent !== n.text) r.textContent = n.text;
-        r.dataset.persistent = String(n.persistent); r.dataset.notice = n.kind;
+        r.dataset.persistent = String(n.persistent);
+        r.dataset.notice = n.kind;
         r.style.cssText = `padding:7px 14px;border-radius:15px;background:${bg};color:${fg};font:13px ${settings.ui.font};text-align:center;opacity:${n.fade}`;
         el.append(r); // (appended again in order, so the oldest is on top)
       }
-      for (const [id, r] of rows) if (!seen.has(id)) { r.remove(); rows.delete(id); }
+      for (const [id, r] of rows)
+        if (!seen.has(id)) {
+          r.remove();
+          rows.delete(id);
+        }
     },
   };
 }

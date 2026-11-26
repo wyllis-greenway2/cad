@@ -6,16 +6,48 @@ import { type SketchParams, makeSketch } from "./sketch.ts";
 import { type Sketch, Refusal } from "./steps.ts";
 import * as K from "./kernel.ts";
 
-export type DragAnswer = { ok: true; solution: { points: Record<string, [number, number]>; circles: Record<string, number> }; unreached: Record<string, number>; holds: string[]; kind: string; freedom: number } | { ok: false; why: string; victims: string[] };
+export type DragAnswer =
+  | {
+      ok: true;
+      solution: { points: Record<string, [number, number]>; circles: Record<string, number> };
+      unreached: Record<string, number>;
+      holds: string[];
+      kind: string;
+      freedom: number;
+    }
+  | { ok: false; why: string; victims: string[] };
 /** where the sketch of `step` goes when `pins` (point name -> where it is dragged to) are asked for; `hold` are parts that do not move */
-export function dragSketch(engine: Engine, step: string, pins: Record<string, [number, number]>, hold: string[] = []): DragAnswer {
+export function dragSketch(
+  engine: Engine,
+  step: string,
+  pins: Record<string, [number, number]>,
+  hold: string[] = [],
+): DragAnswer {
   if (!engine.ids().includes(step)) throw new Error(`no step ${step}`);
-  const v = engine.result(step).value as Sketch; if (!v || v.kind !== "sketch" || !v.definition) throw new Error(`step ${step} is not a constrained sketch`);
-  const st = engine.step(step), input = st.inputs[0] ? engine.result(st.inputs[0]).value : null;
+  const v = engine.result(step).value as Sketch;
+  if (!v || v.kind !== "sketch" || !v.definition) throw new Error(`step ${step} is not a constrained sketch`);
+  const st = engine.step(step),
+    input = st.inputs[0] ? engine.result(st.inputs[0]).value : null;
   try {
     return K.scoped(() => {
-      const out = makeSketch(v.definition as SketchParams, input instanceof Body ? input : null, { id: step }, { pins, hold });
-      const s = out.solve!; return { ok: true as const, solution: s.solution!, unreached: s.unreached ?? {}, holds: s.holds ?? [], kind: s.kind, freedom: s.freedom };
+      const out = makeSketch(
+        v.definition as SketchParams,
+        input instanceof Body ? input : null,
+        { id: step },
+        { pins, hold },
+      );
+      const s = out.solve!;
+      return {
+        ok: true as const,
+        solution: s.solution!,
+        unreached: s.unreached ?? {},
+        holds: s.holds ?? [],
+        kind: s.kind,
+        freedom: s.freedom,
+      };
     });
-  } catch (e) { if (e instanceof Refusal) return { ok: false, why: e.message, victims: e.victims }; throw e; }
+  } catch (e) {
+    if (e instanceof Refusal) return { ok: false, why: e.message, victims: e.victims };
+    throw e;
+  }
 }

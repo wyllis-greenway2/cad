@@ -17,13 +17,29 @@ export interface Cam {
 const HALF_PI = Math.PI / 2;
 export const home = (): Cam => {
   // from the +X +Y corner, a little above, looking at the origin from the home distance
-  const az = settings.view.homeAzimuth, el = settings.view.homeElevation, d = settings.view.homeDistance;
+  const az = settings.view.homeAzimuth,
+    el = settings.view.homeElevation,
+    d = settings.view.homeDistance;
   const toward: V3 = [-Math.cos(el) * Math.cos(az), -Math.cos(el) * Math.sin(az), -Math.sin(el)];
-  return { eye: scale(toward, -d), yaw: Math.atan2(toward[1], toward[0]), pitch: Math.asin(toward[2]), ortho: null, lens: 1 };
+  return {
+    eye: scale(toward, -d),
+    yaw: Math.atan2(toward[1], toward[0]),
+    pitch: Math.asin(toward[2]),
+    ortho: null,
+    lens: 1,
+  };
 };
 
-export const forward = (c: Cam): V3 => [Math.cos(c.pitch) * Math.cos(c.yaw), Math.cos(c.pitch) * Math.sin(c.yaw), Math.sin(c.pitch)];
-export const upOf = (c: Cam): V3 => [-Math.sin(c.pitch) * Math.cos(c.yaw), -Math.sin(c.pitch) * Math.sin(c.yaw), Math.cos(c.pitch)];
+export const forward = (c: Cam): V3 => [
+  Math.cos(c.pitch) * Math.cos(c.yaw),
+  Math.cos(c.pitch) * Math.sin(c.yaw),
+  Math.sin(c.pitch),
+];
+export const upOf = (c: Cam): V3 => [
+  -Math.sin(c.pitch) * Math.cos(c.yaw),
+  -Math.sin(c.pitch) * Math.sin(c.yaw),
+  Math.cos(c.pitch),
+];
 export const rightOf = (c: Cam): V3 => cross(forward(c), upOf(c));
 const tanHalf0 = (): number => Math.tan((settings.view.fovDeg * Math.PI) / 360);
 /** The lens's vertical field of view, in radians. */
@@ -35,7 +51,11 @@ export const reachOf = (c: Cam): number => (c.ortho !== null ? c.ortho / (2 * ta
 
 /** The ray through a point of the view, (nx, ny) in -1..1 across it, y up: from the eye in perspective; in an orthographic view parallel to the view, from the point of the plane through the eye. */
 export function rayFrom(c: Cam, nx: number, ny: number, aspect: number): { o: V3; d: V3 } {
-  if (c.ortho !== null) return { o: add(c.eye, add(scale(rightOf(c), (nx * c.ortho * aspect) / 2), scale(upOf(c), (ny * c.ortho) / 2))), d: forward(c) };
+  if (c.ortho !== null)
+    return {
+      o: add(c.eye, add(scale(rightOf(c), (nx * c.ortho * aspect) / 2), scale(upOf(c), (ny * c.ortho) / 2))),
+      d: forward(c),
+    };
   const t = tanHalf0() * c.lens;
   return { o: c.eye, d: unit(add(forward(c), add(scale(rightOf(c), nx * t * aspect), scale(upOf(c), ny * t)))) };
 }
@@ -74,7 +94,11 @@ export function facing(c: Cam): { axis: Axis; sign: 1 | -1; strength: number } {
   const o = scale(forward(c), -1);
   let k: Axis = 0;
   for (const i of [1, 2] as const) if (Math.abs(o[i]) > Math.abs(o[k])) k = i;
-  return { axis: k, sign: o[k] >= 0 ? 1 : -1, strength: clamp((Math.abs(o[k]) - settings.view.facingFrom) / (1 - settings.view.facingFrom), 0, 1) };
+  return {
+    axis: k,
+    sign: o[k] >= 0 ? 1 : -1,
+    strength: clamp((Math.abs(o[k]) - settings.view.facingFrom) / (1 - settings.view.facingFrom), 0, 1),
+  };
 }
 /** Whether the view is looking straight along `axis` (within the tolerance), from which side. */
 export function straightAlong(c: Cam, tol = settings.view.normalToleranceRad): { axis: Axis; sign: 1 | -1 } | null {
@@ -83,7 +107,8 @@ export function straightAlong(c: Cam, tol = settings.view.normalToleranceRad): {
 }
 
 /** How much of a mouse movement of `mag` pixels turns the view (`in_420`): a little less than all of it for the smallest movements, so a fine edge can be taken without the view slipping, rising to all of it as the movement grows. */
-export const fineGain = (mag: number): number => 1 - (1 - settings.input.fineGain) * Math.exp(-Math.max(0, mag) / settings.input.fineFadePx);
+export const fineGain = (mag: number): number =>
+  1 - (1 - settings.input.fineGain) * Math.exp(-Math.max(0, mag) / settings.input.fineFadePx);
 
 // ---- zoom of an orthographic view, and eased changes of view ----
 /** Zoom an orthographic view by `factor` (below 1 = closer): the picture's size changes, and the point at (nx, ny) across the view (-1..1, y up) stays where it is on the screen. */
@@ -98,11 +123,16 @@ export function zoomOrtho(c: Cam, factor: number, nx = 0, ny = 0, aspect = 1): C
  * by what keeps a point `holdDepth` in front of it the same size:
  * nothing jumps while the perspective comes in or goes out.
  */
-const setLens = (c: Cam, lens: number, holdDepth: number): Cam => ({ ...c, lens, eye: add(c.eye, scale(forward(c), holdDepth * (1 - c.lens / lens))) });
+const setLens = (c: Cam, lens: number, holdDepth: number): Cam => ({
+  ...c,
+  lens,
+  eye: add(c.eye, scale(forward(c), holdDepth * (1 - c.lens / lens))),
+});
 /** An orthographic view as the perspective view of `morphLens` that looks the same at `hold` (a point of the world): the start of a change away from it. The eye goes to where that lens needs it. */
 export function leaveOrtho(c: Cam, hold: V3): Cam {
   if (c.ortho === null) return c;
-  const lens = settings.view.morphLens, d = c.ortho / (2 * tanHalf0() * lens);
+  const lens = settings.view.morphLens,
+    d = c.ortho / (2 * tanHalf0() * lens);
   return { ...c, ortho: null, lens, eye: add(c.eye, scale(forward(c), forwardDepth(c, hold) - d)) };
 }
 /** The end of a change to a straight view: the perspective view of `morphLens` becomes the orthographic one that looks the same at `hold`, and the eye comes to the plane through `hold`. */
@@ -112,12 +142,27 @@ export function enterOrtho(c: Cam, hold: V3): Cam {
 }
 
 /** A change of view that plays out over time: the lens goes to `lens`, and the direction to `dir` (turning about `hold`, a point of the world that keeps its place and size), or, with `eyeTo`, the whole view flies there (Reset). */
-export interface Go { t0: number; ms: number; from: Cam; lens: number; dir?: { yaw: number; pitch: number }; hold: V3; eyeTo?: V3 }
+export interface Go {
+  t0: number;
+  ms: number;
+  from: Cam;
+  lens: number;
+  dir?: { yaw: number; pitch: number };
+  hold: V3;
+  eyeTo?: V3;
+}
 /** The camera `k` of the way through the change (already eased), from `c`, which may have been moved by hand since. */
 export function stepGo(g: Go, k: number, c: Cam): Cam {
-  if (g.eyeTo && g.dir) return blend(g.from, { eye: g.eyeTo, yaw: g.dir.yaw, pitch: g.dir.pitch, ortho: null, lens: g.lens }, k);
+  if (g.eyeTo && g.dir)
+    return blend(g.from, { eye: g.eyeTo, yaw: g.dir.yaw, pitch: g.dir.pitch, ortho: null, lens: g.lens }, k);
   let n = c;
-  if (g.dir) n = turnAbout(n, g.hold, shortest(n.yaw, g.from.yaw + shortest(g.from.yaw, g.dir.yaw) * k), lerp(g.from.pitch, g.dir.pitch, k) - n.pitch);
+  if (g.dir)
+    n = turnAbout(
+      n,
+      g.hold,
+      shortest(n.yaw, g.from.yaw + shortest(g.from.yaw, g.dir.yaw) * k),
+      lerp(g.from.pitch, g.dir.pitch, k) - n.pitch,
+    );
   return setLens(n, lerp(g.from.lens, g.lens, k), forwardDepth(n, g.hold));
 }
 
@@ -145,5 +190,11 @@ export function frameBox(lo: V3, hi: V3, aspect: number): Cam {
 
 /** The cameras blended, k from 0 to 1 (eased by the caller): the eye goes straight, the direction turns the short way, the lens opens or shuts. */
 function blend(a: Cam, b: Cam, k: number): Cam {
-  return { eye: [lerp(a.eye[0], b.eye[0], k), lerp(a.eye[1], b.eye[1], k), lerp(a.eye[2], b.eye[2], k)], yaw: a.yaw + shortest(a.yaw, b.yaw) * k, pitch: lerp(a.pitch, b.pitch, k), ortho: null, lens: lerp(a.lens, b.lens, k) };
+  return {
+    eye: [lerp(a.eye[0], b.eye[0], k), lerp(a.eye[1], b.eye[1], k), lerp(a.eye[2], b.eye[2], k)],
+    yaw: a.yaw + shortest(a.yaw, b.yaw) * k,
+    pitch: lerp(a.pitch, b.pitch, k),
+    ortho: null,
+    lens: lerp(a.lens, b.lens, k),
+  };
 }

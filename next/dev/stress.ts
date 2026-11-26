@@ -13,22 +13,74 @@ import { Engine } from "../src/engine/engine.ts";
 import type { Step } from "../src/engine/steps.ts";
 import { driveModel, makeCtx, report } from "./stress-lib.ts";
 await initKernel();
-const MODELS = Number(process.argv[2] ?? 20), SEED = Number(process.argv[3] ?? 1), LEN = Number(process.argv[4] ?? 12);
-const c = makeCtx(SEED), { pick, num } = c;
+const MODELS = Number(process.argv[2] ?? 20),
+  SEED = Number(process.argv[3] ?? 1),
+  LEN = Number(process.argv[4] ?? 12);
+const c = makeCtx(SEED),
+  { pick, num } = c;
 
 const profile = (): Step[] => {
   const kind = pick(["rect", "rect", "poly", "circle", "L"]);
-  const w = num(20, 60), h = num(15, 45);
-  const sk: Step = kind === "circle" ? { id: "s", kind: "sketchCircle", params: { r: num(8, 25), at: [0, 0] }, inputs: [] }
-    : kind === "poly" ? { id: "s", kind: "sketchPolygon", params: { points: [[0, 0], [w, 0], [w * 0.8, h], [w * 0.1, h * 0.9]] }, inputs: [] }
-    : kind === "L" ? { id: "s", kind: "sketchPolygon", params: { points: [[0, 0], [w, 0], [w, h * 0.4], [w * 0.4, h * 0.4], [w * 0.4, h], [0, h]] }, inputs: [] }
-    : { id: "s", kind: "sketchPolygon", params: { points: [[0, 0], [w, 0], [w, h], [0, h]] }, inputs: [] };
+  const w = num(20, 60),
+    h = num(15, 45);
+  const sk: Step =
+    kind === "circle"
+      ? { id: "s", kind: "sketchCircle", params: { r: num(8, 25), at: [0, 0] }, inputs: [] }
+      : kind === "poly"
+        ? {
+            id: "s",
+            kind: "sketchPolygon",
+            params: {
+              points: [
+                [0, 0],
+                [w, 0],
+                [w * 0.8, h],
+                [w * 0.1, h * 0.9],
+              ],
+            },
+            inputs: [],
+          }
+        : kind === "L"
+          ? {
+              id: "s",
+              kind: "sketchPolygon",
+              params: {
+                points: [
+                  [0, 0],
+                  [w, 0],
+                  [w, h * 0.4],
+                  [w * 0.4, h * 0.4],
+                  [w * 0.4, h],
+                  [0, h],
+                ],
+              },
+              inputs: [],
+            }
+          : {
+              id: "s",
+              kind: "sketchPolygon",
+              params: {
+                points: [
+                  [0, 0],
+                  [w, 0],
+                  [w, h],
+                  [0, h],
+                ],
+              },
+              inputs: [],
+            };
   return [sk, { id: "A", kind: "extrude", params: { d: num(6, 30) }, inputs: ["s"] }];
 };
 
-const RANGE = (process.argv[5] ?? `0-${MODELS - 1}`).split("-").map(Number), LO = RANGE[0]!, HI = RANGE[1] ?? LO, t0 = Date.now();
+const RANGE = (process.argv[5] ?? `0-${MODELS - 1}`).split("-").map(Number),
+  LO = RANGE[0]!,
+  HI = RANGE[1] ?? LO,
+  t0 = Date.now();
 for (let m = LO; m <= Math.min(HI, MODELS - 1); m++) {
-  c.reseed(SEED * 7919 + m * 104729); c.models++;
-  const e = new Engine(profile()); e.build(); driveModel(c, m, `${SEED}/${m}`, e, LEN);
+  c.reseed(SEED * 7919 + m * 104729);
+  c.models++;
+  const e = new Engine(profile());
+  e.build();
+  driveModel(c, m, `${SEED}/${m}`, e, LEN);
 }
 process.exit(report(c, t0));

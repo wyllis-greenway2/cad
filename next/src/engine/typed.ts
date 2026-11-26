@@ -4,12 +4,17 @@ import type { Relation, System } from "./solver.ts";
 import { figureOf, land, type Free, type Pt } from "./free.ts";
 
 /** a measure with the number typed for it: the relation, the parts it names (the free ones by name), and the value (a signed distance keeps its sign) */
-export interface TypedMeasure { kind: Relation; parts: string[]; value: number }
+export interface TypedMeasure {
+  kind: Relation;
+  parts: string[];
+  value: number;
+}
 
 /** where the figure's free place goes: the pointer's place, moved to where every typed measure holds (null: there is no such place) */
 export function placeTyped(S0: System, f: Free, pointer: Pt, typed: readonly TypedMeasure[]): Pt | null {
   if (!typed.length) return pointer;
-  const fig = figureOf(S0, f), rows = typed.map((t) => fig.rows({ kind: t.kind, parts: t.parts, value: t.value }));
+  const fig = figureOf(S0, f),
+    rows = typed.map((t) => fig.rows({ kind: t.kind, parts: t.parts, value: t.value }));
   return land((at) => rows.flatMap((r) => r(at)), pointer, Infinity, 20);
 }
 /** what a relation over the figure's parts measures at a place (a signed distance across or up is signed; a length or a radius is not) */

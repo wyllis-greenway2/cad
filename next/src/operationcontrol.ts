@@ -27,37 +27,80 @@ export interface OperationHost {
 }
 const ID = "operation";
 /** the icons of the kinds of a pull (the old chips' words are their tooltips) */
-const OPTION_ICON: Record<string, string> = { edit: "moveFace", push: "pushpull", move: "extend", offset: "offset", fillet: "round", chamfer: "chamfer" };
+const OPTION_ICON: Record<string, string> = {
+  edit: "moveFace",
+  push: "pushpull",
+  move: "extend",
+  offset: "offset",
+  fillet: "round",
+  chamfer: "chamfer",
+};
 
 export function createOperations(host: OperationHost) {
-  let armed = false, op: Operation | null = null, grab: { x0: number; y0: number; d0: number } | null = null;
+  let armed = false,
+    op: Operation | null = null,
+    grab: { x0: number; y0: number; d0: number } | null = null;
   /** the arrow: from a little out of the thing's middle along its normal (the way it is pulled), to the tip; as long as the pull when that is longer than the arrow */
   const handle = (o: Operation, cam: Cam): Handle => {
-    const a = o.arrow!, L = unitOf(cam, a.base), M = settings.mover, g = M.gapShare * L, A = M.arrowShare * L, dir = scale(a.normal, o.pulled < 0 ? -1 : 1);
-    return { id: ID, kind: "arrow", axis: null, points: [add(a.base, scale(dir, g)), add(a.base, scale(dir, g + Math.max(A, Math.abs(o.pulled))))] };
+    const a = o.arrow!,
+      L = unitOf(cam, a.base),
+      M = settings.mover,
+      g = M.gapShare * L,
+      A = M.arrowShare * L,
+      dir = scale(a.normal, o.pulled < 0 ? -1 : 1);
+    return {
+      id: ID,
+      kind: "arrow",
+      axis: null,
+      points: [add(a.base, scale(dir, g)), add(a.base, scale(dir, g + Math.max(A, Math.abs(o.pulled))))],
+    };
   };
-  const close = () => { armed = false; op = null; grab = null; };
+  const close = () => {
+    armed = false;
+    op = null;
+    grab = null;
+  };
   function apply(): boolean {
     if (!op) return false;
-    const plan = op.plan(host.recipe()); close();
+    const plan = op.plan(host.recipe());
+    close();
     if (plan.kind === "steps") host.change(plan.steps);
-    else if (plan.kind === "ask") void host.ask(plan.ask).then((r) => { const a = r.ok ? plan.then(r.data) : { why: r.why }; if ("steps" in a) host.change(a.steps); else host.say(a.why); });
+    else if (plan.kind === "ask")
+      void host.ask(plan.ask).then((r) => {
+        const a = r.ok ? plan.then(r.data) : { why: r.why };
+        if ("steps" in a) host.change(a.steps);
+        else host.say(a.why);
+      });
     return true;
   }
-  function cancel(): boolean { const was = armed || op !== null; close(); return was; }
+  function cancel(): boolean {
+    const was = armed || op !== null;
+    close();
+    return was;
+  }
 
   return {
     active: () => armed || op !== null,
     pulling: () => op !== null,
     /** An operation is open (made of what was picked on a body): its arrow, ghost and number show. */
-    open(o: Operation) { armed = false; grab = null; op = o; if (o.tilt) host.tilt(o.tilt.frame, o.tilt.centre, o.tilt.size); },
+    open(o: Operation) {
+      armed = false;
+      grab = null;
+      op = o;
+      if (o.tilt) host.tilt(o.tilt.frame, o.tilt.centre, o.tilt.size);
+    },
     /** The Extrude tool is chosen: the next click inside a closed part of the drawing picks it. */
-    start() { armed = true; op = null; grab = null; },
+    start() {
+      armed = true;
+      op = null;
+      grab = null;
+    },
     /** A click: with the tool on and nothing picked, it picks what is under it. Returns whether the click was the tool's. */
     click(x: number, y: number): boolean {
       if (!armed && !op) return false;
       if (op) return true; // (the arrow is pulled by a press and drag; a click elsewhere does nothing)
-      const o = host.pick(x, y); if (o) this.open(o);
+      const o = host.pick(x, y);
+      if (o) this.open(o);
       return true;
     },
     /** A press: does it take the arrow? */
@@ -65,38 +108,107 @@ export function createOperations(host: OperationHost) {
       if (!op?.arrow) return false;
       const { cam, w, h } = host.view();
       if (!hitHandle([handle(op, cam)], cam, w, h, x, y)) return false;
-      grab = { x0: x, y0: y, d0: op.pulled }; return true;
+      grab = { x0: x, y0: y, d0: op.pulled };
+      return true;
     },
     grabMove(x: number, y: number): void {
       if (!op?.arrow || !grab) return;
       const { cam, w, h } = host.view();
-      op = op.withPull(Math.round((grab.d0 + pullDelta(cam, w, h, op.arrow.base, op.arrow.normal, x - grab.x0, y - grab.y0)) * 100) / 100) ?? op;
+      op =
+        op.withPull(
+          Math.round((grab.d0 + pullDelta(cam, w, h, op.arrow.base, op.arrow.normal, x - grab.x0, y - grab.y0)) * 100) /
+            100,
+        ) ?? op;
     },
-    grabEnd(): void { grab = null; },
-    apply, cancel,
+    grabEnd(): void {
+      grab = null;
+    },
+    apply,
+    cancel,
     /** Enter applies; returns whether it was used. */
-    key(code: string): boolean { if (!op) return false; if (code === "Enter" || code === "NumpadEnter") return apply(); return false; },
+    key(code: string): boolean {
+      if (!op) return false;
+      if (code === "Enter" || code === "NumpadEnter") return apply();
+      return false;
+    },
     /** The arrow, as the mover's drawing takes it (null: none). */
     drawing(pointer: { x: number; y: number } | null): OrbDrawing | null {
       if (!op?.arrow) return null;
-      const { cam, w, h } = host.view(), hd = handle(op, cam), over = pointer && !grab ? hitHandle([hd], cam, w, h, pointer.x, pointer.y) : null;
-      return { handles: [hd], hot: over || grab ? [ID] : [], unit: unitOf(cam, op.arrow.base), orient: false, hover: !!over };
+      const { cam, w, h } = host.view(),
+        hd = handle(op, cam),
+        over = pointer && !grab ? hitHandle([hd], cam, w, h, pointer.x, pointer.y) : null;
+      return {
+        handles: [hd],
+        hot: over || grab ? [ID] : [],
+        unit: unitOf(cam, op.arrow.base),
+        orient: false,
+        hover: !!over,
+      };
     },
     /** What to show before the engine has made it. */
     ghost: () => op?.ghost ?? null,
     /** Another kind chosen (a chip of the pill). */
-    option(id: string) { if (op) op = op.withOption(id); },
+    option(id: string) {
+      if (op) op = op.withOption(id);
+    },
     /** Whether what is open is valid to make (a size above nothing). */
     valid: (): boolean => op !== null && Math.abs(op.value) > 1e-9,
     /** The sentence for what is open (a persistent notice while it is). */
-    words: (): string | null => (op ? `${op.title}. ${op.arrow ? "Drag the arrow or type a number" : "Type a number"}. Right click finishes, Esc cancels.` : null),
+    words: (): string | null =>
+      op
+        ? `${op.title}. ${op.arrow ? "Drag the arrow or type a number" : "Type a number"}. Right click finishes, Esc cancels.`
+        : null,
     /** What the info bar says while an operation is open: its number (on the left, typed over like any other), standing by the arrow's tip or where the operation says; null: no operation is open. */
     subject(): { info: Info; at: [number, number]; on: InfoHandlers } | null {
       if (!op) return null;
-      const { cam, w, h } = host.view(), tip = op.arrow ? handle(op, cam).points[1]! : op.at, q = project(cam, tip, w, h);
-      const f: Fact = { id: "d", kind: "dimension", relation: "length", icon: "dimension", at: [0, 0], text: String(Math.round(op.value * 1000) / 1000), unit: "mm", value: op.value, tone: "rest", title: op.valueTitle, parts: [] };
-      return { info: { facts: [f], suggestions: op.options.filter((o) => !o.on && o.enabled).map((o) => ({ id: `opt:${o.id}`, icon: OPTION_ICON[o.id] ?? "pushpull", label: o.label, tone: "free" as const })) }, at: [Math.max(60, Math.min(w - 60, q.x)), Math.max(70, Math.min(h - 50, q.y))], on: { suggest: (id) => { if (id.startsWith("opt:") && op) op = op.withOption(id.slice(4)); }, fact() { /* none */ }, lock() { /* none */ }, set: (_id, v) => { if (op && isFinite(v)) op = op.withValue(v) ?? op; } } };
+      const { cam, w, h } = host.view(),
+        tip = op.arrow ? handle(op, cam).points[1]! : op.at,
+        q = project(cam, tip, w, h);
+      const f: Fact = {
+        id: "d",
+        kind: "dimension",
+        relation: "length",
+        icon: "dimension",
+        at: [0, 0],
+        text: String(Math.round(op.value * 1000) / 1000),
+        unit: "mm",
+        value: op.value,
+        tone: "rest",
+        title: op.valueTitle,
+        parts: [],
+      };
+      return {
+        info: {
+          facts: [f],
+          suggestions: op.options
+            .filter((o) => !o.on && o.enabled)
+            .map((o) => ({
+              id: `opt:${o.id}`,
+              icon: OPTION_ICON[o.id] ?? "pushpull",
+              label: o.label,
+              tone: "free" as const,
+            })),
+        },
+        at: [Math.max(60, Math.min(w - 60, q.x)), Math.max(70, Math.min(h - 50, q.y))],
+        on: {
+          suggest: (id) => {
+            if (id.startsWith("opt:") && op) op = op.withOption(id.slice(4));
+          },
+          fact() {
+            /* none */
+          },
+          lock() {
+            /* none */
+          },
+          set: (_id, v) => {
+            if (op && isFinite(v)) op = op.withValue(v) ?? op;
+          },
+        },
+      };
     },
-    debug: () => ({ armed, pull: op ? { mode: op.kind, d: op.value, pulled: op.pulled, arrow: op.arrow, ...op.debug } : null }),
+    debug: () => ({
+      armed,
+      pull: op ? { mode: op.kind, d: op.value, pulled: op.pulled, arrow: op.arrow, ...op.debug } : null,
+    }),
   };
 }

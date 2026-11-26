@@ -7,7 +7,8 @@ import type { Cam } from "./camera.ts";
 import type { ViewState } from "./view.ts";
 
 /** The world starts empty. For trying things by hand: `?boxes=1` one box at the origin, `?boxes=3` three. */
-export const sceneFromAddress = (params: URLSearchParams): Scene => (params.get("boxes") === "1" ? oneScene() : params.get("boxes") === "3" ? demoScene() : emptyScene());
+export const sceneFromAddress = (params: URLSearchParams): Scene =>
+  params.get("boxes") === "1" ? oneScene() : params.get("boxes") === "3" ? demoScene() : emptyScene();
 /** `?wheel=0.001`: how far a wheel notch goes, as a share of the step scale per unit of wheel (the default is in settings). */
 export function tuneFromAddress(params: URLSearchParams): void {
   if (params.get("wheel")) settings.input.zoomPerWheel = Number(params.get("wheel"));
@@ -27,11 +28,37 @@ export interface DevHooks {
 }
 export function install(h: DevHooks): void {
   addEventListener("keydown", (e) => {
-    if (e.code === "KeyB" && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) { h.model.things = h.model.things.length ? [] : demoScene().things; h.rebuild(); }
+    if (e.code === "KeyB" && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      h.model.things = h.model.things.length ? [] : demoScene().things;
+      h.rebuild();
+    }
   });
   (window as unknown as { __cad: unknown }).__cad = {
-    get cam() { return h.state().c; }, get plane() { return h.state().plane; }, get free() { return h.state().free; }, get go() { return h.state().go; },
-    get gizmo() { return h.gizmoScale(); }, get pointer() { return h.pointer(); }, game: h.game, model: h.model, get planes() { return h.planes(); },
-    set(next: Partial<Cam>) { h.put({ ...h.state(), c: { ortho: null, lens: 1, ...next } as Cam, go: null }); },
+    get cam() {
+      return h.state().c;
+    },
+    get plane() {
+      return h.state().plane;
+    },
+    get free() {
+      return h.state().free;
+    },
+    get go() {
+      return h.state().go;
+    },
+    get gizmo() {
+      return h.gizmoScale();
+    },
+    get pointer() {
+      return h.pointer();
+    },
+    game: h.game,
+    model: h.model,
+    get planes() {
+      return h.planes();
+    },
+    set(next: Partial<Cam>) {
+      h.put({ ...h.state(), c: { ortho: null, lens: 1, ...next } as Cam, go: null });
+    },
   };
 }

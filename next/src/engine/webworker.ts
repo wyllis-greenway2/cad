@@ -5,4 +5,6 @@ import { Session } from "./session.ts";
 
 const ready = initKernel(wasm);
 const session = new Session((r) => (self as unknown as { postMessage(m: unknown): void }).postMessage(r));
-self.onmessage = (e: MessageEvent) => { void ready.then(() => session.handle(e.data)); };
+self.onmessage = (e: MessageEvent) => {
+  void ready.then(() => session.handle(e.data));
+};

@@ -8,17 +8,52 @@ import { settings } from "./settings.ts";
 import { COLOUR, STROKE } from "./interaction/style.ts";
 
 let ballTexture: THREE.Texture | null = null;
-const ball = (): THREE.Texture => { if (ballTexture) return ballTexture; const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d")!; g.fillStyle = "#fff"; g.beginPath(); g.arc(32, 32, 30, 0, 2 * Math.PI); g.fill(); return (ballTexture = new THREE.CanvasTexture(c)); };
+const ball = (): THREE.Texture => {
+  if (ballTexture) return ballTexture;
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#fff";
+  g.beginPath();
+  g.arc(32, 32, 30, 0, 2 * Math.PI);
+  g.fill();
+  return (ballTexture = new THREE.CanvasTexture(c));
+};
 
 export function drawLines(group: THREE.Group, lines: DrawLine[], w: number, h: number): void {
   for (const l of lines) {
-    if (l.kind === "ball" || l.kind === "tieBall") { // a picked point: a teal ball of the old app's size, on top of the model
-      const m = new THREE.SpriteMaterial({ map: ball(), color: new THREE.Color(COLOUR[STROKE[l.kind].tone]).getHex(), depthTest: false }), sp = new THREE.Sprite(m), p = l.pts[0]!;
-      sp.position.set(p[0], p[1], p[2]); sp.scale.setScalar(2 * (l.r ?? 1)); sp.renderOrder = 12; group.add(sp); continue;
+    if (l.kind === "ball" || l.kind === "tieBall") {
+      // a picked point: a teal ball of the old app's size, on top of the model
+      const m = new THREE.SpriteMaterial({
+          map: ball(),
+          color: new THREE.Color(COLOUR[STROKE[l.kind].tone]).getHex(),
+          depthTest: false,
+        }),
+        sp = new THREE.Sprite(m),
+        p = l.pts[0]!;
+      sp.position.set(p[0], p[1], p[2]);
+      sp.scale.setScalar(2 * (l.r ?? 1));
+      sp.renderOrder = 12;
+      group.add(sp);
+      continue;
     }
-    const g = new LineGeometry(); g.setPositions(l.pts.flat());
-    const st = STROKE[l.kind], m = new LineMaterial({ color: new THREE.Color(COLOUR[st.tone]).getHex(), linewidth: settings.sketch.widthPx * st.weight, transparent: st.soft, opacity: st.soft ? 0.8 : 1, depthTest: false, ...(st.dashed ? { dashed: true, dashSize: l.dash ?? 5, gapSize: (l.dash ?? 5) * settings.helpers.dashGap, dashScale: 1 } : {}) });
+    const g = new LineGeometry();
+    g.setPositions(l.pts.flat());
+    const st = STROKE[l.kind],
+      m = new LineMaterial({
+        color: new THREE.Color(COLOUR[st.tone]).getHex(),
+        linewidth: settings.sketch.widthPx * st.weight,
+        transparent: st.soft,
+        opacity: st.soft ? 0.8 : 1,
+        depthTest: false,
+        ...(st.dashed
+          ? { dashed: true, dashSize: l.dash ?? 5, gapSize: (l.dash ?? 5) * settings.helpers.dashGap, dashScale: 1 }
+          : {}),
+      });
     m.resolution.set(w, h);
-    const line = new Line2(g, m); if (st.dashed) line.computeLineDistances(); line.renderOrder = 11; group.add(line);
+    const line = new Line2(g, m);
+    if (st.dashed) line.computeLineDistances();
+    line.renderOrder = 11;
+    group.add(line);
   }
 }

@@ -8,47 +8,117 @@ import type { MeshSnap } from "./engine/exchange.ts";
 import type { Ask, StepSnap } from "./engine/protocol.ts";
 import type { EdgeRef, Id } from "./engine/id.ts";
 
-export interface FaceInfo { id: string; ref: Id; /** where its triangles are in `indices` (index units) */ start: number; count: number }
-export interface EdgeInfo { key: string; ref: EdgeRef; /** where its polyline is in `lines` (points) */ start: number; count: number }
-export interface BodyMesh {
-  /** the step that made it */ id: string; positions: Float32Array; normals: Float32Array; indices: Uint32Array;
-  /** pairs of points: the edges as short lines */ edges: Float32Array;
-  /** the faces and edges, by name, for picking and marking (only edges that have a name: two faces beside them) */ faces: FaceInfo[]; edgeInfo: EdgeInfo[]; /** the points of every edge's polyline, x y z each */ lines: Float32Array;
+export interface FaceInfo {
+  id: string;
+  ref: Id;
+  /** where its triangles are in `indices` (index units) */ start: number;
+  count: number;
 }
-export interface StudioState { steps: readonly Step[]; meshes: readonly BodyMesh[]; busy: boolean; /** what the last answer said was wrong with a step, in words ("" when all is well) */ problem: string; snapshot: readonly StepSnap[] }
+export interface EdgeInfo {
+  key: string;
+  ref: EdgeRef;
+  /** where its polyline is in `lines` (points) */ start: number;
+  count: number;
+}
+export interface BodyMesh {
+  /** the step that made it */ id: string;
+  positions: Float32Array;
+  normals: Float32Array;
+  indices: Uint32Array;
+  /** pairs of points: the edges as short lines */ edges: Float32Array;
+  /** the faces and edges, by name, for picking and marking (only edges that have a name: two faces beside them) */ faces: FaceInfo[];
+  edgeInfo: EdgeInfo[];
+  /** the points of every edge's polyline, x y z each */ lines: Float32Array;
+}
+export interface StudioState {
+  steps: readonly Step[];
+  meshes: readonly BodyMesh[];
+  busy: boolean;
+  /** what the last answer said was wrong with a step, in words ("" when all is well) */ problem: string;
+  snapshot: readonly StepSnap[];
+}
 
 /** an engine mesh as buffers: each edge's points are joined by short lines */
 export function meshBuffers(id: string, m: MeshSnap): BodyMesh {
   const segs: number[] = [];
-  for (const g of m.edges) for (let i = g.start; i + 1 < g.start + g.count; i++) segs.push(m.lines[3 * i]!, m.lines[3 * i + 1]!, m.lines[3 * i + 2]!, m.lines[3 * i + 3]!, m.lines[3 * i + 4]!, m.lines[3 * i + 5]!);
+  for (const g of m.edges)
+    for (let i = g.start; i + 1 < g.start + g.count; i++)
+      segs.push(
+        m.lines[3 * i]!,
+        m.lines[3 * i + 1]!,
+        m.lines[3 * i + 2]!,
+        m.lines[3 * i + 3]!,
+        m.lines[3 * i + 4]!,
+        m.lines[3 * i + 5]!,
+      );
   return {
-    id, positions: new Float32Array(m.positions), normals: new Float32Array(m.normals), indices: new Uint32Array(m.indices), edges: new Float32Array(segs), lines: new Float32Array(m.lines),
-    faces: m.faces.map((f) => ({ id: f.id, ref: f.ref, start: f.start, count: f.count })), edgeInfo: m.edges.flatMap((e) => (e.key && e.ref ? [{ key: e.key, ref: e.ref, start: e.start, count: e.count }] : [])),
+    id,
+    positions: new Float32Array(m.positions),
+    normals: new Float32Array(m.normals),
+    indices: new Uint32Array(m.indices),
+    edges: new Float32Array(segs),
+    lines: new Float32Array(m.lines),
+    faces: m.faces.map((f) => ({ id: f.id, ref: f.ref, start: f.start, count: f.count })),
+    edgeInfo: m.edges.flatMap((e) =>
+      e.key && e.ref ? [{ key: e.key, ref: e.ref, start: e.start, count: e.count }] : [],
+    ),
   };
 }
 
 export function createStudio(spawn: Spawn = webWorker()) {
   const host = new EngineHost(spawn, { timeoutMs: 30000, memoryMb: 1500 });
-  let state: StudioState = { steps: [], meshes: [], busy: false, problem: "", snapshot: [] }, loaded = false, version = 0, pending = 0, queue: Promise<void> = Promise.resolve();
-  const listeners = new Set<() => void>(), tell = () => listeners.forEach((f) => f());
-  const set = (p: Partial<StudioState>) => { state = { ...state, ...p }; tell(); };
+  let state: StudioState = { steps: [], meshes: [], busy: false, problem: "", snapshot: [] },
+    loaded = false,
+    version = 0,
+    pending = 0,
+    queue: Promise<void> = Promise.resolve();
+  const listeners = new Set<() => void>(),
+    tell = () => listeners.forEach((f) => f());
+  const set = (p: Partial<StudioState>) => {
+    state = { ...state, ...p };
+    tell();
+  };
 
   async function run(steps: Step[], mine: number): Promise<void> {
-    const out = await (loaded ? host.apply(steps) : host.load(steps)); loaded = true;
+    const out = await (loaded ? host.apply(steps) : host.load(steps));
+    loaded = true;
     if (mine !== version) return; // (a newer recipe is on its way)
-    const snap = out.snapshot.steps, bad = snap.filter((s) => s.status.kind !== "ok"), last = [...snap].reverse().find((s) => s.output === "body" && s.status.kind !== "orphaned");
-    const problem = out.fresh ? (bad.length ? bad.map((s) => `${s.id}: ${(s.status as { why?: string }).why ?? s.status.kind}`).join("; ") : out.events.join("; ")) : out.events.join("; ");
+    const snap = out.snapshot.steps,
+      bad = snap.filter((s) => s.status.kind !== "ok"),
+      last = [...snap].reverse().find((s) => s.output === "body" && s.status.kind !== "orphaned");
+    const problem = out.fresh
+      ? bad.length
+        ? bad.map((s) => `${s.id}: ${(s.status as { why?: string }).why ?? s.status.kind}`).join("; ")
+        : out.events.join("; ")
+      : out.events.join("; ");
     let meshes: BodyMesh[] = [];
-    if (last) { const r = await host.ask({ what: "mesh", step: last.id }); if (r.ok) meshes = [meshBuffers(last.id, r.data as MeshSnap)]; else if (!problem) set({ problem: r.why }); }
+    if (last) {
+      const r = await host.ask({ what: "mesh", step: last.id });
+      if (r.ok) meshes = [meshBuffers(last.id, r.data as MeshSnap)];
+      else if (!problem) set({ problem: r.why });
+    }
     if (mine === version) set({ meshes, problem, snapshot: snap });
   }
   return {
     state: (): StudioState => state,
-    subscribe(f: () => void): () => void { listeners.add(f); return () => listeners.delete(f); },
+    subscribe(f: () => void): () => void {
+      listeners.add(f);
+      return () => listeners.delete(f);
+    },
     /** A new recipe: made by the worker after the ones before it; the screen is told when it is in. */
     change(steps: Step[]): void {
-      const mine = ++version; pending++; set({ steps, busy: true });
-      queue = queue.then(() => run(steps, mine)).catch((e: unknown) => { set({ problem: e instanceof Error ? e.message : String(e) }); }).finally(() => { pending--; if (!pending) set({ busy: false }); });
+      const mine = ++version;
+      pending++;
+      set({ steps, busy: true });
+      queue = queue
+        .then(() => run(steps, mine))
+        .catch((e: unknown) => {
+          set({ problem: e instanceof Error ? e.message : String(e) });
+        })
+        .finally(() => {
+          pending--;
+          if (!pending) set({ busy: false });
+        });
     },
     /** A question about the recipe the worker holds (a file of the body: `export`). */
     ask: (q: Ask) => host.ask(q),
