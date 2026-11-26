@@ -9,7 +9,7 @@ depends_on:
   - dec_relations_standard: it is the table of relations this audit reads, and it already groups some of what the engine keeps apart
 alternative_to:
 ---
-# Which relations are really different? (in line and concentric merged: `dec_relations_merged`) (the audit the human asked for, `in_1642`)
+# Which relations are really different? (merged so far: `dec_relations_merged`) (the audit the human asked for, `in_1642`)
 
 Read from `engine/solver.ts` `RELATIONS` (23 kinds) by what each one says as equations. Nothing is changed; the human has not approved any of it. (Not the same as `q_constraint_audit`, which is about refusals.)
 

@@ -91,12 +91,12 @@ const pt = F.points[0]!.id,
   pl = marksFor(F, [pt, "L2"], { now: 0 }).filter((m) => m.state === "offer" && m.kind === "constraint");
 check(
   "a point and a line chosen together are offered on-the-line",
-  pl.some((m) => m.id === "rel:pointOnLine"),
+  pl.some((m) => m.id === "rel:on"),
   pl.map((m) => m.id).join(),
 );
 check(
   "a part alone is not offered what is not true of it",
-  !marksFor(F, ["L1"], { now: 0 }).some((m) => m.id === "rel:tangent" || m.id === "rel:pointOnLine"),
+  !marksFor(F, ["L1"], { now: 0 }).some((m) => m.id === "rel:tangent" || m.id === "rel:on"),
 );
 // where a mark stands, literally (`in_1620`), and what a selection takes in (down, never up)
 const Z: System = {
@@ -232,9 +232,7 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
       { from: [0, 0] as [number, number], to: [0, 6] as [number, number] },
     ] as { from: [number, number]; to: [number, number] }[],
     ask = (preview: (id: string, over: string[]) => typeof arrows) =>
-      marksFor(T, ["A"], { now: 0, reach: { pointMm: 1, lineMm: 1 }, preview }).find((x) =>
-        x.id.startsWith("near:pointOnCircle"),
-      );
+      marksFor(T, ["A"], { now: 0, reach: { pointMm: 1, lineMm: 1 }, preview }).find((x) => x.id.startsWith("near:on"));
   const moved = ask(() => arrows),
     still = ask(() => []);
   check(

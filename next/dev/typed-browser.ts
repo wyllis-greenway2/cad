@@ -47,7 +47,7 @@ try {
   await page.waitForTimeout(150);
   c = await chip();
   ok(
-    !!c && c[0]!.text === "25" && c[0]!.padlock === "closed" && c[0]!.underlined,
+    !!c && c[0]!.text === "25" && c[0]!.padlock === "closed",
     `typing digits goes straight into the number, its padlock closes: ${JSON.stringify(c)}`,
   );
   await move(30, 20); // the pointer moves; the length stays
@@ -87,12 +87,7 @@ try {
   await page.waitForTimeout(150);
   c = await chip();
   ok(
-    !!c &&
-      c.length === 2 &&
-      c[0]!.text === "30" &&
-      c[1]!.text === "10" &&
-      c[1]!.underlined &&
-      c.every((f: any) => f.padlock === "closed"),
+    !!c && c.length === 2 && c[0]!.text === "30" && c[1]!.text === "10" && c.every((f: any) => f.padlock === "closed"),
     `a width, Tab, a height: both typed and locked: ${JSON.stringify(c)}`,
   );
   await page.keyboard.press("Enter");

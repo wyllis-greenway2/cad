@@ -75,7 +75,11 @@ export function nearFor(
         item: {
           id: `near:${r.cand.relation}:${parts.join(",")}${r.cand.variant?.internal ? ":in" : ""}`,
           icon: iconOf(r.cand.relation),
-          label: other ? `${RELATIONS[r.cand.relation].label} with ${other}` : RELATIONS[r.cand.relation].label,
+          label: !other
+            ? RELATIONS[r.cand.relation].label
+            : r.cand.relation === "on"
+              ? `on ${other}`
+              : `${RELATIONS[r.cand.relation].label} with ${other}`,
           tone: (r.moved < 1e-7 ? "holds" : "free") as BarTone,
         },
       };

@@ -16,7 +16,7 @@ import { check, failureCount } from "./lib.ts";
 const filed: SketchParams = {
   arcs: [],
   circles: [{ c: "P1", id: "K1", r: 12.056495702843327 }],
-  constraints: [{ id: "c2", kind: "pointOnCircle", parts: ["P3", "K1"] }],
+  constraints: [{ id: "c2", kind: "on", parts: ["P3", "K1"] }],
   lines: [],
   points: [
     { id: "P1", x: 30.1, y: 25.2 },
@@ -45,7 +45,7 @@ q = k.params;
 k = keep(addLine(q, k.sol, refOf(q, k.sol, [30, 15], 0.5), refOf(q, k.sol, [30, 40], 0.5))!);
 q = k.params;
 const line = q.lines![0]!,
-  onCircle = { id: "c9", kind: "pointOnCircle" as const, parts: [line.a, "K1"] };
+  onCircle = { id: "c9", kind: "on" as const, parts: [line.a, "K1"] };
 const withC: SketchParams = { ...q, constraints: [...(q.constraints ?? []), onCircle] };
 const gone = removeParts(withC, [line.id]);
 check(

@@ -42,11 +42,9 @@ export interface Flash {
 /** a constraint is shown when one of its parts is selected, and while it flashes (a refusal shows what holds it back, wherever it is) */
 
 const ICON: Partial<Record<Relation, string>> = {
-  pointOnLine: "onLine",
-  pointOnCircle: "onCircle",
+  on: "on",
   equalLength: "equal",
   equalRadius: "equal",
-  tangentCircles: "tangent",
   length: "dimension",
   distance: "dimension",
   pointLineDistance: "dimension",

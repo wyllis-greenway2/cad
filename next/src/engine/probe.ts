@@ -107,7 +107,9 @@ export function candidatesFor(
         const walk = (i: number, got: string[]) => {
           if (i === kinds.length) {
             if (!must.every((m) => got.includes(m))) return;
-            for (const variant of def.helper!.variants ?? [undefined]) {
+            for (const variant of kinds.every((k) => k === "circle")
+              ? (def.helper!.variants ?? [undefined])
+              : [undefined]) {
               const key = `${name}|${[...got].sort().join()}|${JSON.stringify(variant ?? {})}`;
               if (seen.has(key)) continue;
               seen.add(key);

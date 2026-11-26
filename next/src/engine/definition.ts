@@ -5,11 +5,13 @@ import type { Seg } from "./region.ts";
 import type { SketchParams } from "./sketch.ts";
 import { type Constraint, type Result, type Options as SolveOptions, type System, solve } from "./solver.ts";
 
+/** the kinds that were once kept and are now another (`q_relation_set`): what each becomes is in `modernise` */
+const LEGACY = new Set(["collinear", "concentric", "pointOnLine", "pointOnCircle", "tangentCircles"]);
 /**
- * Two kinds of relation that were once kept are the same as others and are no longer made (`q_relation_set`, `in_1642`): **in line** (two lines) is the two ends of the second on the first (two `pointOnLine`) and **concentric** (two circles) is the two centres together (`coincident`). A definition that still has them (a saved file) is read as what they are, once, here: the first keeps its name (the second is `<name>.2`), the other keeps its name.
+ * Kinds of relation that were once kept are the same as others and are no longer made (`q_relation_set`, `in_1642`): **in line** (two lines) is the two ends of the second on the first (two `pointOnLine`) and **concentric** (two circles) is the two centres together (`coincident`). A definition that still has them (a saved file) is read as what they are, once, here: the first keeps its name (the second is `<name>.2`), the other keeps its name.
  */
 export function modernise(p: SketchParams): SketchParams {
-  const old = (c: { kind: string }) => c.kind === "collinear" || c.kind === "concentric";
+  const old = (c: { kind: string }) => LEGACY.has(c.kind);
   if (!(p.constraints ?? []).some(old)) return p;
   const centre = (id: string): string | null =>
     (p.circles ?? []).find((x) => x.id === id)?.c ??
@@ -29,11 +31,13 @@ export function modernise(p: SketchParams): SketchParams {
       const e = end(c.parts[1]!);
       return e
         ? [
-            { id: c.id, kind: "pointOnLine", parts: [e[0], c.parts[0]!] },
-            { id: `${c.id}.2`, kind: "pointOnLine", parts: [e[1], c.parts[0]!] },
+            { id: c.id, kind: "on", parts: [e[0], c.parts[0]!] },
+            { id: `${c.id}.2`, kind: "on", parts: [e[1], c.parts[0]!] },
           ]
         : [c];
     }
+    if (c.kind === ("pointOnLine" as string) || c.kind === ("pointOnCircle" as string)) return [{ ...c, kind: "on" }];
+    if (c.kind === ("tangentCircles" as string)) return [{ ...c, kind: "tangent" }];
     return [c];
   });
   return { ...p, constraints };
@@ -56,8 +60,8 @@ export function systemOf(def: SketchParams): System {
     };
   });
   const arcEnds: Constraint[] = (p.arcs ?? []).flatMap((a) => [
-    { id: `${a.id}.start`, kind: "pointOnCircle" as const, parts: [a.a, a.id] },
-    { id: `${a.id}.end`, kind: "pointOnCircle" as const, parts: [a.b, a.id] },
+    { id: `${a.id}.start`, kind: "on" as const, parts: [a.a, a.id] },
+    { id: `${a.id}.end`, kind: "on" as const, parts: [a.b, a.id] },
   ]);
   return {
     points: p.points.map((q) => ({ id: q.id, x: q.x, y: q.y, fixed: !!q.fixed })),

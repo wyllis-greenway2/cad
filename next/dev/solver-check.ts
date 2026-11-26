@@ -168,8 +168,8 @@ console.log("3. the relations, one at a time");
       lines: [{ id: "L", a: "A", b: "B" }],
       circles: [{ id: "K", c: "C", r: 5, fixedR: true }],
       constraints: [
-        { id: "on", kind: "pointOnCircle", parts: ["P", "K"] },
-        { id: "ol", kind: "pointOnLine", parts: ["Q", "L"] },
+        { id: "on", kind: "on", parts: ["P", "K"] },
+        { id: "ol", kind: "on", parts: ["Q", "L"] },
         { id: "mid", kind: "midpoint", parts: ["M", "L"] },
         { id: "px", kind: "horizontalDistance", parts: ["C", "P"], value: 3 },
       ],
@@ -221,8 +221,8 @@ console.log("3. the relations, one at a time");
         { id: "er", kind: "equalRadius", parts: ["K1", "K2"] },
         { id: "cc", kind: "coincident", parts: ["P", "Q"] },
         { id: "el", kind: "equalLength", parts: ["L1", "L2"] },
-        { id: "co", kind: "pointOnLine", parts: ["C", "L1"] },
-        { id: "co2", kind: "pointOnLine", parts: ["D", "L1"] },
+        { id: "co", kind: "on", parts: ["C", "L1"] },
+        { id: "co2", kind: "on", parts: ["D", "L1"] },
       ],
     },
     (p, c) =>
@@ -244,8 +244,8 @@ console.log("3. the relations, one at a time");
         { id: "K3", c: "R", r: 1, fixedR: true },
       ],
       constraints: [
-        { id: "t1", kind: "tangentCircles", parts: ["K1", "K2"] },
-        { id: "t2", kind: "tangentCircles", parts: ["K1", "K3"], internal: true },
+        { id: "t1", kind: "tangent", parts: ["K1", "K2"] },
+        { id: "t2", kind: "tangent", parts: ["K1", "K3"], internal: true },
         { id: "y", kind: "verticalDistance", parts: ["P", "Q"], value: 0 },
         { id: "y3", kind: "verticalDistance", parts: ["P", "R"], value: 0 },
       ],

@@ -133,7 +133,7 @@ export function createMarks(
       kind = nc ? nc.kind : id.slice(4),
       movers = nc ? nc.parts.filter((x) => scope.includes(x)) : over.slice(0, 1),
       // (a circle that goes to a point or a line by its edge changes its size and keeps its centre, as a drag of its edge does)
-      edgeOf = ["pointOnCircle", "tangent"].includes(kind)
+      edgeOf = ["on", "tangent"].includes(kind)
         ? movers.flatMap((x) => S.circles.filter((k) => k.id === x).map((k) => k.c))
         : [],
       stays = [...heldIds(S, nc ? nc.parts.filter((x) => !scope.includes(x)) : over.slice(1)), ...edgeOf];

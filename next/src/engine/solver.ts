@@ -36,11 +36,9 @@ export type Relation =
   | "perpendicular"
   | "equalLength"
   | "equalRadius"
-  | "pointOnLine"
-  | "pointOnCircle"
+  | "on"
   | "midpoint"
   | "tangent"
-  | "tangentCircles"
   | "distance"
   | "length"
   | "radius"
@@ -185,6 +183,7 @@ export const RELATIONS: Record<
   {
     /** what the person calls it */ label: string;
     /** a helper while drawing, or null */ helper: HelperSpec | null;
+    /** false: not offered to the person and not in the menu (kept for what makes it, and for old files): `equalLength`, `equalRadius` (`in_1644`) */ person?: false;
     arity: number;
     parts: ("point" | "line" | "circle")[][];
     rows: (ids: string[], c: Ctx, kinds: string[]) => D[];
@@ -276,7 +275,8 @@ export const RELATIONS: Record<
   },
   equalLength: {
     label: "equal length",
-    helper: {},
+    helper: null,
+    person: false,
     arity: 2,
     parts: [["line"], ["line"]],
     rows: (ids, c) => {
@@ -287,29 +287,27 @@ export const RELATIONS: Record<
   },
   equalRadius: {
     label: "equal radius",
-    helper: {},
+    helper: null,
+    person: false,
     arity: 2,
     parts: [["circle"], ["circle"]],
     rows: (ids, c) => [sub(c.r(ids[0]!), c.r(ids[1]!))],
   },
-  pointOnLine: {
-    label: "on the line",
+  on: {
+    label: "on",
     helper: {},
     arity: 2,
-    parts: [["point"], ["line"]],
-    rows: (ids, c) => {
-      const p = c.pt(ids[0]!),
-        l = c.line(ids[1]!),
-        u = vec(l.a, l.b);
-      return [div(cross2(u, vec(l.a, p)), len(u))];
+    parts: [["point"], ["line", "circle"]],
+    // a point stays on a curve: its distance from it is nothing; how that is measured is the curve's own business, not another relation (`in_1644`)
+    rows: (ids, c, kk) => {
+      const p = c.pt(ids[0]!);
+      if (kk[1] === "line") {
+        const l = c.line(ids[1]!),
+          u = vec(l.a, l.b);
+        return [div(cross2(u, vec(l.a, p)), len(u))];
+      }
+      return [sub(len(vec(c.c(ids[1]!), p)), c.r(ids[1]!))];
     },
-  },
-  pointOnCircle: {
-    label: "on the circle",
-    helper: {},
-    arity: 2,
-    parts: [["point"], ["circle"]],
-    rows: (ids, c) => [sub(len(vec(c.c(ids[1]!), c.pt(ids[0]!))), c.r(ids[1]!))],
   },
   midpoint: {
     label: "at the middle",
@@ -324,23 +322,17 @@ export const RELATIONS: Record<
   },
   tangent: {
     label: "tangent",
-    helper: {},
+    helper: { variants: [{}, { internal: true }] }, // (the variants, inside or outside, are of two circles)
     arity: 2,
-    parts: [["line"], ["circle"]],
-    rows: (ids, c) => {
-      const l = c.line(ids[0]!),
-        u = vec(l.a, l.b),
-        d = div(cross2(u, vec(l.a, c.c(ids[1]!))), len(u)),
-        r = c.r(ids[1]!);
-      return [div(sub(mul(d, d), mul(r, r)), scaleD(r, 2))];
-    },
-  },
-  tangentCircles: {
-    label: "circles touching",
-    helper: { variants: [{}, { internal: true }] },
-    arity: 2,
-    parts: [["circle"], ["circle"]],
-    rows: (ids, c) => {
+    parts: [["line", "circle"], ["circle"]],
+    rows: (ids, c, kk) => {
+      if (kk[0] === "line") {
+        const l = c.line(ids[0]!),
+          u = vec(l.a, l.b),
+          d = div(cross2(u, vec(l.a, c.c(ids[1]!))), len(u)),
+          r = c.r(ids[1]!);
+        return [div(sub(mul(d, d), mul(r, r)), scaleD(r, 2))];
+      }
       const d = len(vec(c.c(ids[0]!), c.c(ids[1]!))),
         r1 = c.r(ids[0]!),
         r2 = c.r(ids[1]!);

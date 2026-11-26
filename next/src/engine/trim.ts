@@ -174,7 +174,7 @@ export function trimAt(p: SketchParams, id: string, at: Pt, read: Read = solveDe
       if (o === target || alongSeg(o, c.at, eps) === null) continue;
       const isLine = (p.lines ?? []).some((l) => l.id === o.name),
         cid = fresh(`${pid}_on_${o.name}`);
-      newConstraints.push({ id: cid, kind: isLine ? "pointOnLine" : "pointOnCircle", parts: [pid, o.name] });
+      newConstraints.push({ id: cid, kind: "on", parts: [pid, o.name] });
       made.push(cid);
     }
     return pid;
@@ -242,10 +242,7 @@ export function trimAt(p: SketchParams, id: string, at: Pt, read: Read = solveDe
       // (in line is the two ends of the second piece on the first)
       const l2 = q.lines.find((x) => x.id === id2)!,
         cid2 = fresh(`${id2}_same2`);
-      newConstraints.push(
-        { id: cid, kind: "pointOnLine", parts: [l2.a, id] },
-        { id: cid2, kind: "pointOnLine", parts: [l2.b, id] },
-      );
+      newConstraints.push({ id: cid, kind: "on", parts: [l2.a, id] }, { id: cid2, kind: "on", parts: [l2.b, id] });
       made.push(cid, cid2);
     } else {
       newConstraints.push({ id: cid, kind: "equalRadius", parts: [id, id2] });

@@ -36,7 +36,7 @@ try {
   await page.keyboard.up("Shift");
   await page.waitForTimeout(500);
   const marks = await ev<any[]>(`() => window.__sketch.marks(performance.now()).map((m) => m.mark)`),
-    offer = marks.find((m) => m.id === "rel:pointOnCircle");
+    offer = marks.find((m) => m.id === "rel:on");
   ok(
     !!offer?.moves?.length,
     `a vertex and a circle picked: "on the circle" is offered with arrows: ${JSON.stringify(offer?.moves)}`,
@@ -47,7 +47,7 @@ try {
   ok(lines.length >= 2, `and they are drawn: ${lines.length} lines`);
   writeFileSync(`${dir}/moves-1.png`, await page.screenshot());
   // apply it: the same call as the arrows were made with
-  await ev(`() => window.__sketch.handlers.suggest("rel:pointOnCircle")`);
+  await ev(`() => window.__sketch.handlers.suggest("rel:on")`);
   await page.waitForTimeout(300);
   const after = await pts(),
     r1 = await radius();
@@ -84,7 +84,7 @@ try {
   await click(10, 17); // the circle's top edge
   await page.waitForTimeout(400);
   const near = (await ev<any[]>(`() => window.__sketch.marks(performance.now()).map((m) => m.mark)`)).find((m) =>
-    m.id.startsWith("near:pointOnCircle"),
+    m.id.startsWith("near:on"),
   );
   ok(
     near?.moves?.length === 1 && Math.abs(near.moves[0].from[0] - 15) < 0.05,

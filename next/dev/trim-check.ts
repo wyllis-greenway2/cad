@@ -47,7 +47,7 @@ console.log("1. a line crossed by another: the half the pointer is on goes");
   );
   check(
     "the new end is held on the line that cut it, and level stays",
-    r.params.constraints!.some((c) => c.kind === "pointOnLine" && c.parts[1] === "v") &&
+    r.params.constraints!.some((c) => c.kind === "on" && c.parts[1] === "v") &&
       r.params.constraints!.some((c) => c.id === "hz"),
   );
   check(
@@ -101,7 +101,7 @@ console.log("2. the middle of a line between two crossings: two lines, the first
   );
   check(
     "h_2 is kept in line with h (its two ends on h)",
-    r.params.constraints!.filter((c) => c.kind === "pointOnLine" && c.parts[1] === "h").length === 2,
+    r.params.constraints!.filter((c) => c.kind === "on" && c.parts[1] === "h").length === 2,
   );
   check(
     "the level constraint stays on h (and h_2 is level through being in line)",

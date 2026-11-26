@@ -6644,3 +6644,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1643 — 2026-11-26 — approval
 > yes merge the exact duplicates first
+
+## in_1644 — 2026-11-26 — directive
+> I still don't understand how is online or on circle really a different constraint? I understand the system might have different math to solve it, but shouldn't the system handle that on its own? all the user cares about is that a verticy stays on a line.  Lets toss equal radius and equal length, people can just set dimensions equal by hand. Also what is the difference between tangent and circle on circle? isn't circle on circle just a circle tangent to another circle?

@@ -48,7 +48,7 @@ const q1 = grow(p, (a, s) => addLine(a, s, at(a, s, 20, 0), at(a, s, 20, -10)));
 check(
   "a click on a side puts a new point on it and makes no constraint (a helper helps position; the person asks for relations)",
   q1.points.length === 6 &&
-    !q1.constraints!.some((c) => c.kind === "pointOnLine" || c.kind === "pointOnCircle") &&
+    !q1.constraints!.some((c) => c.kind === "on" || c.kind === "on") &&
     Math.abs(q1.points[4]!.y) < 1e-9,
 );
 // a line across, and a circle
