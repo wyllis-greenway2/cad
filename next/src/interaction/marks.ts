@@ -43,12 +43,20 @@ function offersOfUncached(S: System, selection: string[], reach?: { pointMm: num
   const where = selectionAnchor(S, selection);
   if (!where) return [];
   // ("fixed in place" is true of every point as drawn: it is a thing to ask for in the menu, not an offer) one part: only what is already true of it (the rest is in the menu); two or more: the person has paired them, so everything that fits the pair and would be accepted (a line and a circle: tangent; a point and a line: on the line)
+  // a line alone is always offered the nearer of level and upright (one of them, whatever its angle; the preview shows the turn): the two constraints most often wanted (`in_1662`)
+  const line = selection.length === 1 ? S.lines.find((l) => l.id === selection[0]) : undefined,
+    pa = line && S.points.find((p) => p.id === line.a),
+    pb = line && S.points.find((p) => p.id === line.b),
+    nearer = pa && pb ? (Math.abs(pb.y - pa.y) <= Math.abs(pb.x - pa.x) ? "rel:horizontal" : "rel:vertical") : null;
   const own = barFor(S, selection)
-    .filter((b) => b.id !== "rel:fixed" && (selection.length >= 2 || b.tone === "holds"))
+    .filter((b) => b.id !== "rel:fixed" && (selection.length >= 2 || b.tone === "holds" || b.id === nearer))
     .map((item) => ({ item, at: where }));
   const near = nearFor(S, selection, undefined, reach).flatMap((item) => {
     const nc = nearConstraint(item.id);
     if (!nc) return [];
+    // (what is said of the selection alone is already among its own offers: not twice)
+    if (nc.parts.length === 1 && nc.parts[0] === selection[0] && own.some((o) => o.item.id === `rel:${nc.kind}`))
+      return [];
     return [{ item, at: anchorOf(S, { id: "near", kind: nc.kind, parts: nc.parts }) }];
   });
   return [...own, ...near];

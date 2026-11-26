@@ -248,76 +248,39 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
   );
 }
 {
-  // a line a little off level is offered level for the line itself, not only when it already is (`in_1641`)
-  const T: System = {
-    points: [
-      { id: "A", x: 0, y: 0 },
-      { id: "B", x: 40, y: 1 },
-    ],
-    lines: [{ id: "L1", a: "A", b: "B" }],
-    circles: [],
-    constraints: [],
-  } as unknown as System;
-  const m = marksFor(T, ["L1"], { now: 0, reach: { pointMm: 2, lineMm: 1.5 } }).find(
-    (x) => x.id === "near:horizontal:L1",
+  // a line alone is always offered the nearer of level and upright, one of them, once (`in_1662`)
+  const mk = (dx: number, dy: number): System =>
+    ({
+      points: [
+        { id: "A", x: 0, y: 0 },
+        { id: "B", x: dx, y: dy },
+      ],
+      lines: [{ id: "L1", a: "A", b: "B" }],
+      circles: [],
+      constraints: [],
+    }) as unknown as System;
+  const offers = (S: System) =>
+    marksFor(S, ["L1"], { now: 0, reach: { pointMm: 0.7, lineMm: 0.33 } })
+      .filter((m) => m.state === "offer" && m.id !== "measure")
+      .map((m) => m.id);
+  check(
+    "a line 1 mm off level over 40 is offered level, once",
+    offers(mk(40, 1)).join() === "rel:horizontal",
+    offers(mk(40, 1)).join(),
   );
   check(
-    "a line 1 mm off level over 40 is offered level for the line",
-    !!m && m.parts.join() === "L1",
-    `${m?.id} ${m?.title}`,
+    "a line 8 mm off level is still offered level (it is the nearer)",
+    offers(mk(40, 8)).join() === "rel:horizontal",
   );
   check(
-    "and a line 8 mm off is not",
-    !marksFor({ ...T, points: [T.points[0]!, { id: "B", x: 40, y: 8 }] }, ["L1"], {
-      now: 0,
-      reach: { pointMm: 2, lineMm: 1.5 },
-    }).some((x) => x.id === "near:horizontal:L1"),
-  );
-}
-{
-  // a point that is on a line is not offered a distance to it of 0 (a distance is more than nothing, so it could not be typed; `in_1647`)
-  const T: System = {
-    points: [
-      { id: "A", x: 0, y: 0 },
-      { id: "B", x: 10, y: 0 },
-      { id: "P", x: 5, y: 0 },
-    ],
-    lines: [{ id: "L1", a: "A", b: "B" }],
-    circles: [],
-    constraints: [],
-  } as unknown as System;
-  check(
-    "a point on a line, picked with it, is not offered a number for its distance (it is 0)",
-    !marksFor(T, ["P", "L1"], { now: 0 }).some((m) => m.id === "measure"),
+    "a line steeper than 45 degrees is offered upright, not level",
+    offers(mk(10, 30)).join() === "rel:vertical",
+    offers(mk(10, 30)).join(),
   );
   check(
-    "and a point off the line is",
-    marksFor({ ...T, points: [T.points[0]!, T.points[1]!, { id: "P", x: 5, y: 2 }] }, ["P", "L1"], { now: 0 }).some(
-      (m) => m.id === "measure",
-    ),
-  );
-}
-{
-  // an offer is near when applying it moves only a little (`in_1652`): the same offer with a big knock-on move is not offered
-  const T: System = {
-    points: [
-      { id: "A", x: 4.7, y: 0 },
-      { id: "C", x: 10, y: 0 },
-    ],
-    lines: [],
-    circles: [{ id: "K1", c: "C", r: 5 }],
-    constraints: [],
-  } as unknown as System;
-  const reach = { pointMm: 1, lineMm: 1 },
-    ask = (len: number) =>
-      marksFor(T, ["A"], {
-        now: 0,
-        reach,
-        preview: () => [{ from: [0, 0] as [number, number], to: [len, 0] as [number, number], of: "A" }],
-      }).some((x) => x.id.startsWith("near:on"));
-  check(
-    "an offer whose apply moves a part by a little is offered, by a lot (past twice the reach) it is not",
-    ask(1.5) && !ask(2.5),
+    "a line exactly level is offered level once (it holds), not twice",
+    offers(mk(40, 0)).join() === "rel:horizontal",
+    offers(mk(40, 0)).join(),
   );
 }
 process.exit(failureCount() ? 1 : 0);

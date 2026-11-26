@@ -137,6 +137,27 @@ try {
     turn.length === 0,
     `the offer that would swing a tangent line 14 degrees is not made: ${JSON.stringify(turn.map((m) => m.id))}`,
   );
+  // a line alone is offered level (or upright), whatever its angle, and applying it turns the line (`in_1662`)
+  await ev(`() => {
+    const s = structuredClone(window.__sketch.snapshot()), k = Object.keys(s)[0];
+    s[k] = { arcs: [], circles: [], constraints: [], lines: [{ a: "P1", b: "P2", id: "L1" }],
+      points: [{ id: "P1", x: 10, y: 10 }, { id: "P2", x: 30, y: 21 }] };
+    window.__sketch.restore(s);
+  }`);
+  await page.waitForTimeout(400);
+  await click(20, 15.5);
+  await page.waitForTimeout(400);
+  const lm = (await ev<any[]>(`() => window.__sketch.marks(performance.now()).map((m) => m.mark)`)).find(
+    (m) => m.id === "rel:horizontal",
+  );
+  ok(
+    !!lm && lm.moves?.length > 0,
+    `a line 30 degrees up is offered level, with the turn it would make: ${JSON.stringify(lm?.moves)}`,
+  );
+  await ev(`() => window.__sketch.handlers.suggest("rel:horizontal")`);
+  await page.waitForTimeout(300);
+  const lp = await pts();
+  ok(Math.abs(lp.P1![1] - lp.P2![1]) < 1e-6, `and applying it makes the line level: ${JSON.stringify(lp)}`);
   ok(errors.length === 0, `no errors in the page ${errors.join("; ")}`);
   await close();
 } finally {

@@ -6698,3 +6698,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1661 — 2026-11-26 — directive
 > okay but lets simplify it even more, only yellow and blue colors, please implement it into the app
+
+## in_1662 — 2026-11-26 — question
+> why do lines not offer vertical and horizontal cosntraints?
