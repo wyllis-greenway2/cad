@@ -5408,3 +5408,6 @@ The human's screenshot (a selected circle, an offer at a line end, no arrow) sho
 
 ## Handoff 1421
 The human asked (`in_1632`) for the arrow to be generic for anything that moves to something. **Changed:** `displacements(before, after, toward)` in `engine/probe.ts` compares the sketch before and after the offered constraint holds and lists an arrow for every part that moves: each point, and a circle's edge when its radius changes (where it moves most). `BarItem.moves` is now those arrows; the point and radius special cases in `marks.ts` are gone. Nothing locked in.
+
+## Handoff 1422
+`in_1633` (with a file): selecting a circle and zooming out offered more and more constraints. **Cause:** the reach is in pixels, so its mm grows with the zoom until the whole drawing is "in reach". **Changed (provisional, not approved):** `capReach` in `interaction/marks.ts`: the reach is never more than a tenth (point rows) or a twentieth (line rows) of the size of what is selected (a circle's radius, a line's length), for the part and for the offers of what it is made of; a single point has no size and keeps the pixel reach. `marks-check` case. **Not changed:** an offer for a circle's centre (vertical or coincident with another point) still reads as an offer for the circle; the icons do not say "centre". Open to the human.

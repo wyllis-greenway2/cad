@@ -220,4 +220,21 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
     JSON.stringify(m?.moves),
   );
 }
+{
+  // zoomed far out the reach in mm is huge, but a circle is not offered what is far from it (`in_1633`)
+  const T: System = {
+    points: [
+      { id: "A", x: 20, y: 40 },
+      { id: "B", x: 40, y: 20 },
+      { id: "C", x: 0, y: 0 },
+    ],
+    lines: [{ id: "L1", a: "A", b: "B" }],
+    circles: [{ id: "K1", c: "C", r: 12.5 }],
+    constraints: [],
+  } as unknown as System;
+  const far = marksFor(T, ["K1"], { now: 0, reach: { pointMm: 960, lineMm: 480 } }).filter(
+    (m) => m.state === "offer" && m.id.startsWith("near:"),
+  );
+  check("a circle zoomed far out is not offered things far from it", far.length === 0, far.map((m) => m.id).join());
+}
 process.exit(failureCount() ? 1 : 0);

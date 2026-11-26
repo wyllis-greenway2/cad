@@ -65,6 +65,27 @@ function offersOfUncached(S: System, selection: string[], reach?: { pointMm: num
   });
   return [...own, ...near];
 }
+/** the reach is in pixels, so zoomed far out it would cover the whole drawing: it is never more than a tenth of the size of what is selected (a circle's radius, a line's length), so zooming out does not make more things "near" (`in_1633`) */
+function capReach(
+  S: System,
+  selection: string[],
+  reach?: { pointMm: number; lineMm: number },
+): { pointMm: number; lineMm: number } | undefined {
+  if (!reach) return reach;
+  const size = Math.max(
+    0,
+    ...selection.map((id) => {
+      const k = S.circles.find((x) => x.id === id),
+        l = S.lines.find((x) => x.id === id),
+        a = l && S.points.find((x) => x.id === l.a),
+        b = l && S.points.find((x) => x.id === l.b);
+      return k ? k.r : a && b ? Math.hypot(b.x - a.x, b.y - a.y) : 0;
+    }),
+  );
+  return size > 0
+    ? { pointMm: Math.min(reach.pointMm, size * 0.1), lineMm: Math.min(reach.lineMm, size * 0.05) }
+    : reach;
+}
 /** the marks to show now */
 export function marksFor(
   S: System,
@@ -93,11 +114,12 @@ export function marksFor(
   const kids = selection.length === 1 ? scope.filter((id) => id !== selection[0]) : [];
   const fresh = !selection.length && ctx.recent && ctx.now < ctx.recent.until ? ctx.recent : null;
   for (const sel of selection.length ? [selection] : fresh ? fresh.ids.map((id) => [id]) : []) {
+    const reach = capReach(S, sel, ctx.reach);
     for (const { item, at, moves } of [
-      ...offersOf(S, sel, ctx.reach),
+      ...offersOf(S, sel, reach),
       ...(sel === selection
         ? kids.flatMap((k) =>
-            offersOf(S, [k], ctx.reach).filter((o) => {
+            offersOf(S, [k], reach).filter((o) => {
               const nc = nearConstraint(o.item.id);
               return !!nc && nc.parts.some((x) => !scope.includes(x));
             }),
