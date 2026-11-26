@@ -22,7 +22,7 @@ export function extrudeOp(a: { key: string; frame: Frame; def: SketchParams; reg
     kind: "extrude", title: "Extrude", options: [], value, valueTitle: "Distance (type a number)", at: base, arrow: { base, normal: f.normal },
     ghost: { frame: { origin: f.origin, u: f.u, v: vOf(f), n: f.normal }, loops: a.region.loops as [number, number][][], d: value },
     tilt: { frame: f, centre: base, size: Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) },
-    withValue: (v) => op(v), withOption: () => op(value),
+    pulled: value, withPull: (d) => op(d), withValue: (v) => op(v), withOption: () => op(value),
     plan: (recipe) => (Math.abs(value) < 1e-6 ? { kind: "nothing" } : { kind: "steps", steps: [...recipe, ...extrudeSteps(recipe, a.def, a.frame, a.region.pick, value, a.source ?? undefined)] }),
     debug: { key: a.key, pick: a.region.pick, loops: a.region.loops.length },
   });
@@ -36,7 +36,7 @@ export function pushOp(a: { ref: Id; body: string; at: V3; normal: V3; /** the f
   const op = (value: number): Operation => ({
     kind: "push", title: "Push / pull", options, value, valueTitle: "Distance (type a number)", at: a.at, arrow: { base: a.at, normal: a.normal },
     ghost: { faceMove: { positions: a.positions, n: a.normal, d: value } }, tilt: null,
-    withValue: (v) => op(v), withOption: (id) => pushOp(a, id as PullKind, value),
+    pulled: value, withPull: (d) => op(d), withValue: (v) => op(v), withOption: (id) => pushOp(a, id as PullKind, value),
     plan: (recipe) => {
       if (Math.abs(value) < 1e-6) return { kind: "nothing" };
       if (chosen === "edit") { // Move: the step that made the face takes the new number: the worker says which and what
@@ -49,11 +49,15 @@ export function pushOp(a: { ref: Id; body: string; at: V3; normal: V3; /** the f
   return op(d);
 }
 
-/** edges of a body rounded or chamfered: one number, the size, typed */
-export function roundOp(a: { body: string; edges: EdgeRef[]; kind: "fillet" | "chamfer"; at: V3 }, size: number): Operation {
+/** edges of a body rounded or chamfered: one number, the size, and the arrow out of the edge (`dec_task_handles`): pulled out the edge is rounded, pushed in it is chamfered; the kinds are also chips. `normal`: out of the body between the two faces (null: no arrow, the size is typed). */
+export function roundOp(a: { body: string; edges: EdgeRef[]; kind: "fillet" | "chamfer"; at: V3; normal: V3 | null }, size: number): Operation {
+  const label = (k: "fillet" | "chamfer") => (k === "chamfer" ? "Chamfer" : "Round");
+  const options: OpOption[] = (["fillet", "chamfer"] as const).map((k) => ({ id: k, label: label(k), on: k === a.kind, enabled: true }));
   const op = (value: number): Operation => ({
-    kind: "round", title: a.kind === "chamfer" ? "Chamfer: type the size" : "Round: type the size", options: [], value, valueTitle: "Size (type a number)", at: a.at, arrow: null, ghost: null, tilt: null,
-    withValue: (v) => (v > 0 ? op(v) : null), withOption: () => op(value),
+    kind: "round", title: label(a.kind), options, value, valueTitle: "Size (type a number)", at: a.at, arrow: a.normal ? { base: a.at, normal: a.normal } : null, ghost: null, tilt: null,
+    pulled: a.kind === "chamfer" ? -value : value,
+    withPull: (d) => { const v = Math.round(Math.abs(d) * 100) / 100; return v > 0 ? roundOp({ ...a, kind: d < 0 ? "chamfer" : "fillet" }, v) : null; },
+    withValue: (v) => (v > 0 ? op(v) : null), withOption: (id) => roundOp({ ...a, kind: id as "fillet" | "chamfer" }, value),
     plan: (recipe) => (value > 0 ? { kind: "steps", steps: [...recipe, ...roundSteps(recipe, a.edges, a.body, value, a.kind)] } : { kind: "nothing" }),
     debug: { edges: a.edges.length, kind: a.kind },
   });

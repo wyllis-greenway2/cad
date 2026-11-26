@@ -2,26 +2,34 @@
 id: dec_task_handles
 kind: decision
 status: provisional
-origin: ai-unreviewed
-human_input: in_1604
+origin: ai-proposed-human-approved
+human_input: in_1604, in_1605, in_1606
 date: 2026-11-26
 depends_on:
-  - dec_three_surfaces: a handle is another way to reach a task of the registry, so what a task is (say, update, commit, cancel) must stay the one lifecycle
+  - dec_three_surfaces: a handle is another way to reach a task of the registry, so what a task is (say, update, commit, cancel) must stay the one lifecycle, and the numbers a handle sets are info-bar numbers
 alternative_to:
 ---
-# Tasks, and handles to reach them in the scene
+# Tasks, and three handles to reach them in the model
 
-Every tool and operation is a task (`next/src/tasks.ts`), reached from the circle menu. A task may also offer **handles**: controls in the scene (on a face, a corner, an edge, a sketch part) that reach the same task and the same draft by direct manipulation. A handle is not always an arrow and not always a pull: its form (arrow, dot, ring, arc, a click target) and its gesture (drag along an axis, turn, click, drag in a plane) belong to the handle, and what it changes belongs to the task. Examples to build toward: the arrow on a face to extrude a sketch or pull a face (as in the old prototype); the corner arrow that chamfers one way and rounds the other; the mover that orients a sketch plane.
+Every tool and operation is a task (`next/src/tasks.ts`), reached from the circle menu. A task may also be reached by a **handle**: a control in the model's own view. There are exactly three, each a gesture class, so handles do not multiply (`in_1605`):
 
-How it works (proposed, not yet approved in detail):
-- A handle is data a task returns: where it sits, what it looks like, which gesture it takes, and a function from the gesture to a change of the task's draft. It draws nothing and reads no input.
-- One drawer and one input path serve every handle; a task never draws its own.
-- A handle changes the same draft the info bar shows: a dragged number appears live in the pill, a typed number moves the handle. One value, several ways to set it.
-- A handle may set more than a number (the corner arrow's sign picks chamfer or round): the task owns that rule.
+1. **The mover orb:** always the one orb (with or without the extra pull arrows). For any input that is movement or rotation (a body moved or turned, a plane oriented, a revolve's angle).
+2. **The pull arrow:** a drag along one axis giving a signed number. Its anchor says what it means: on a **face** (or a closed sketch region) it is push or pull (extrude); on an **edge** it is chamfer one way and round (fillet) the other. The kinds of a face pull (move face, extend, offset) are offered on the right of the info bar and switch the draft's kind; the arrow does not change.
+3. **Grab:** pressing the object itself and dragging: free movement. (A sketch part: the solver drag that exists; a body: free move. To be defined further; it needs a rule for a press on an object against a press on empty space.)
+
+A new handle is allowed only for a new gesture class, and then it is specified here first, generic and reusable. A new feature (revolve, loft, gears) chooses among the three, says where it is anchored and what the value means, and puts its numbers on the info bar.
+
+How it works:
+- A handle is data a task returns (which of the three, its anchor, and what the value means). One drawer and one input path serve all; a task never draws its own.
+- A handle changes the same draft the info bar shows: a dragged number appears live in the pill, a typed one moves the arrow.
 - Commit and cancel are unchanged: right click makes what is valid, Esc throws the draft away.
-- Handles are never the only way: every task is also reachable from the menu.
-- Whether a handle is a "fourth surface" next to the menu, notices and info bar: proposed that it is not (it is a control of a task's draft in the model's own view); the human has not said.
+- A handle is never the only way: every task is also reachable from the menu.
+- **A handle is not a fourth surface.** A surface is the app talking in screen space (menu, notices, info bar). A handle lives in the model's space: anchored to geometry, moving with the camera, like the selection highlight. A control drawn in screen space would be a surface, not a handle.
+
+Built: the pull arrow (`next/src/operationcontrol.ts`, one arrow for every operation): `Operation.pulled` and `withPull(d)` make a drag set more than a number; on an edge (round, chamfer) the arrow stands on the middle of the first edge and points out of the body between its two faces, pulled out it is a round, pushed in a chamfer, and the two kinds are also chips on the info bar. Not yet: the mover orb and grab through the same task data, and the face arrow's pull being given to a task (it is still opened by `doOnPick`). Known: an arrow pointing nearly at the camera is hard to pull (the drag is the closest approach of the pointer's ray to the arrow's line, `alongLine`); a gain floor is to be considered.
+
+Status: the definition is approved in general (`in_1604`–`in_1606`); the entry stays provisional until the first handle is built and seen.
 
 ## Rationale
 
-The human wants one system for tools and operations, with the direct handles of the old prototype kept as a way into it (`in_1604`). Making handles data of the task keeps new features (revolve, loft, gears) to a registry entry plus a task, without their own UI code.
+The human wants one system for tools and operations, with the direct handles of the old prototype kept as a way into it, and no explosion of handle variants (`in_1604`, `in_1605`). Three gesture classes cover moving, pulling along an axis and direct dragging; everything else is a number on the info bar.

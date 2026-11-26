@@ -6527,3 +6527,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1604 — 2026-11-26 — directive
 > Yes I like this idea in general, but I am not sure all handles will be arrows and or all change based off arrow direction pull, but I like the idea that we have a unified task or tool operation system, and sometimes or maybe always we have handles available to access them alongside using the circle menu to access them.
+
+## in_1605 — 2026-11-26 — directive
+> I don't really know if a handle is a fourth surface, what do you think? What exactly is a surface? I would want handles to be standardized and unified as well so we dont get an explosion of handle variants. So why don't we just take a moment to define what a handle is, I think we should have three. We have the mover orb, which should always be the same singular orb that we defined earlier with or without the extra pull arrows. That is a standardized handle for any input that needs to capture movement or rotational input. Another I think is the pull arrow, which can be normal on a face, or coming out of an edge. Edges always mean chamfer or fillet, and faces arrows always mean push or pull the face ( how do we offer our push pull types though? in our info bubble?) finally I think the last is just directly selecting the object itself and dragging which initiates free movement which we can define in more detail later. If we need any more handles, we should take the time to specify new generic reusable ones. What do you think?
+
+## in_1606 — 2026-11-26 — approval
+> yes update the entry and start with the pull arrow

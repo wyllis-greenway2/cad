@@ -15,6 +15,8 @@ import { createSketch } from "./sketchcontrol.ts";
 import { to3, type ToolKind } from "./sketch.ts";
 import { createMenu, type MenuItem } from "./menu.ts";
 import { createOrbControl } from "./orbcontrol.ts";
+import type { V3 } from "./vec.ts";
+import { idKey } from "./engine/id.ts";
 import { add, dot, scale, sub, unit } from "./vec.ts";
 import { faceAxes } from "./engine/vec.ts";
 import { SEE_THROUGH } from "./looks.ts";
@@ -130,7 +132,11 @@ function doOnPick(id: string, sel: import("./bodyselect.ts").Selection) {
   if ((id === "body:round" || id === "body:chamfer") && sel.edges.length) { // the number is the size: about a tenth of the shortest edge, to type over
     const pts = (e: { start: number; count: number }) => { const m = mesh!; let L = 0; for (let i = 0; i + 1 < e.count; i++) { const k = 3 * (e.start + i); L += Math.hypot(m.lines[k + 3]! - m.lines[k]!, m.lines[k + 4]! - m.lines[k + 1]!, m.lines[k + 5]! - m.lines[k + 2]!); } return L; };
     const short = Math.min(...sel.edges.map(pts)), size = Math.max(0.1, Math.round(Math.min(short / 10, 2) * 10) / 10);
-    ext.open(roundOp({ body: sel.body, edges: sel.edges.map((e) => e.ref), kind: id === "body:chamfer" ? "chamfer" : "fillet", at: sel.at }, size));
+    // the arrow stands on the middle of the first edge and points out of the body, between its two faces (pulled out: round; pushed in: chamfer)
+    const e0 = sel.edges[0]!, m = mesh!, a0 = 3 * e0.start, a1 = 3 * (e0.start + e0.count - 1), at: V3 = [(m.lines[a0]! + m.lines[a1]!) / 2, (m.lines[a0 + 1]! + m.lines[a1 + 1]!) / 2, (m.lines[a0 + 2]! + m.lines[a1 + 2]!) / 2];
+    const ns = [e0.ref.a, e0.ref.b].map((r) => { const fi = m.faces.find((x) => idKey(x.ref) === idKey(r)); return fi && faceFacts(sel.body, fi.id)?.ne; });
+    const sum = ns[0] && ns[1] ? add(ns[0] as V3, ns[1] as V3) : null, normal = sum && Math.hypot(...sum) > 1e-6 ? unit(sum) : null;
+    ext.open(roundOp({ body: sel.body, edges: sel.edges.map((e) => e.ref), kind: id === "body:chamfer" ? "chamfer" : "fillet", at: normal ? at : sel.at, normal }, size));
   }
   if (id === "body:pull" && mesh && f) {
     const ff = faceFacts(sel.body, f.id); if (!ff) return;

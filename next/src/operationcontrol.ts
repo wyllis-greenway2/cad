@@ -27,14 +27,14 @@ export interface OperationHost {
 }
 const ID = "operation";
 /** the icons of the kinds of a pull (the old chips' words are their tooltips) */
-const OPTION_ICON: Record<string, string> = { edit: "moveFace", push: "pushpull", move: "extend", offset: "offset" };
+const OPTION_ICON: Record<string, string> = { edit: "moveFace", push: "pushpull", move: "extend", offset: "offset", fillet: "round", chamfer: "chamfer" };
 
 export function createOperations(host: OperationHost) {
   let armed = false, op: Operation | null = null, grab: { s0: number; d0: number } | null = null;
   /** the arrow: from a little out of the thing's middle along its normal (the way it is pulled), to the tip; as long as the pull when that is longer than the arrow */
   const handle = (o: Operation, cam: Cam): Handle => {
-    const a = o.arrow!, L = unitOf(cam, a.base), M = settings.mover, g = M.gapShare * L, A = M.arrowShare * L, dir = scale(a.normal, o.value < 0 ? -1 : 1);
-    return { id: ID, kind: "arrow", axis: null, points: [add(a.base, scale(dir, g)), add(a.base, scale(dir, g + Math.max(A, Math.abs(o.value))))] };
+    const a = o.arrow!, L = unitOf(cam, a.base), M = settings.mover, g = M.gapShare * L, A = M.arrowShare * L, dir = scale(a.normal, o.pulled < 0 ? -1 : 1);
+    return { id: ID, kind: "arrow", axis: null, points: [add(a.base, scale(dir, g)), add(a.base, scale(dir, g + Math.max(A, Math.abs(o.pulled))))] };
   };
   const ray = (x: number, y: number) => { const { cam, w, h } = host.view(); return rayOf(cam, w, h, x, y); };
   const close = () => { armed = false; op = null; grab = null; };
@@ -67,12 +67,12 @@ export function createOperations(host: OperationHost) {
       const { cam, w, h } = host.view();
       if (!hitHandle([handle(op, cam)], cam, w, h, x, y)) return false;
       const s0 = alongLine(ray(x, y), op.arrow.base, op.arrow.normal); if (s0 === null) return false;
-      grab = { s0, d0: op.value }; return true;
+      grab = { s0, d0: op.pulled }; return true;
     },
     grabMove(x: number, y: number): void {
       if (!op?.arrow || !grab) return;
       const s = alongLine(ray(x, y), op.arrow.base, op.arrow.normal); if (s === null) return;
-      op = op.withValue(Math.round((grab.d0 + s - grab.s0) * 100) / 100) ?? op;
+      op = op.withPull(Math.round((grab.d0 + s - grab.s0) * 100) / 100) ?? op;
     },
     grabEnd(): void { grab = null; },
     apply, cancel,
@@ -99,6 +99,6 @@ export function createOperations(host: OperationHost) {
       const f: Fact = { id: "d", kind: "dimension", relation: "length", icon: "dimension", at: [0, 0], text: String(Math.round(op.value * 1000) / 1000), unit: "mm", value: op.value, tone: "rest", title: op.valueTitle, parts: [] };
       return { info: { facts: [f], suggestions: op.options.filter((o) => !o.on && o.enabled).map((o) => ({ id: `opt:${o.id}`, icon: OPTION_ICON[o.id] ?? "pushpull", label: o.label, tone: "free" as const })) }, at: [Math.max(60, Math.min(w - 60, q.x)), Math.max(70, Math.min(h - 50, q.y))], on: { suggest: (id) => { if (id.startsWith("opt:") && op) op = op.withOption(id.slice(4)); }, fact() { /* none */ }, lock() { /* none */ }, set: (_id, v) => { if (op && isFinite(v)) op = op.withValue(v) ?? op; } } };
     },
-    debug: () => ({ armed, pull: op ? { mode: op.kind, d: op.value, ...op.debug } : null }),
+    debug: () => ({ armed, pull: op ? { mode: op.kind, d: op.value, pulled: op.pulled, arrow: op.arrow, ...op.debug } : null }),
   };
 }
