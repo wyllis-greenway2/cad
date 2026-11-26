@@ -8,6 +8,10 @@ Update it at the end of each session.
 - **The eight phases of the clean engine are done** (131 tests; `cd app && npm run check`): core, compiler, picking, view, input, drawing and operations, relations UI, and the cut over (save and open, autosave, conformance suite moved, README). Run it: `LAN=1 bash tools/preview.sh`. **Next: the human tries it on the mouse, trackpad and phone**; then the features listed in Handoff 090 (compass and panes, grid on the straight plane, kernel in a worker, history panel, push and pull, named references).
 - `prototypes/cad-ui` is frozen (its README says what it taught); `bash tools/preview.sh cad-ui` still runs it.
 
+## Pinned to do (rebuild in `next/`)
+- **Move / turn a body, what is left** (`dec_task_handles`, `in_1610`): moving one of several bodies (the step names the body by an `Id`, the page holds a string), numbers for a move on the info bar, the orb's own axes with the pull arrow's screen-based gain (`pullDelta`), grab (press a body and drag), a second move of the same body merged into the earlier steps.
+- **Marks on the things instead of the info bar for a sketch** (`dec_marks_on_things`, `in_1611`): proposed, not built; see the entry.
+
 ## Done
 - Project record set up; `docs/licenses.md` written; `kernel-slice`, `sketch-extrude`, `cad-ui` built as prototypes (2026-11-04 and 2026-11-05): planes, sketching, constraints, extrude, fillet and chamfer, devices, the pencil look and the ring highlight; relations (distances) started.
 
