@@ -5,7 +5,7 @@ import { placeBubbles, type Memory, type Obstacles } from "./interaction/bubblep
 import { iconSvg } from "./icons.ts";
 import { settings } from "./settings.ts";
 
-export interface BubbleHandlers { set(id: string, value: number): void; remove(id: string): void; /** an offered constraint was clicked */ take(id: string): void }
+export interface BubbleHandlers { set(id: string, value: number): void; remove(id: string): void; /** an offered constraint was clicked */ take(id: string): void; /** the padlock of a number was clicked: a measured one is locked, a locked one let go */ lock(id: string): void }
 export interface Placed { bubble: Bubble; x: number; y: number }
 const TONE = { rest: "#d6d7db", refused: "#e46a6a", applied: "#3fae6a", offer: "#f2c14e" } as const;
 
@@ -15,10 +15,10 @@ export function createBubbleLayer(host: HTMLElement, h: BubbleHandlers) {
   const style = document.createElement("style");
   style.textContent = "@keyframes bubble-flash{0%,100%{box-shadow:0 1px 3px rgba(0,0,0,.18)}50%{box-shadow:0 0 0 4px rgba(228,106,106,.45)}}";
   host.append(style, root);
-  const over = new Set<string>(), els = new Map<string, { el: HTMLElement; sig: string; open: boolean; editing: boolean }>(), memory: Memory = new Map();
+  const over = new Set<string>(), els = new Map<string, { el: HTMLElement; sig: string; open: boolean; editing: boolean; num?: HTMLElement; cur?: Bubble }>(), memory: Memory = new Map();
   const widthOf = (b: Bubble) => (b.kind === "dimension" ? 22 + (b.symbol && b.symbol !== "°" ? 10 : 0) + (b.text ?? "").length * 8 + (b.symbol === "°" ? 8 : 0) : 30);
 
-  function fill(b: Bubble, e: { el: HTMLElement; sig: string; open: boolean; editing: boolean }): void {
+  function fill(b: Bubble, e: { el: HTMLElement; sig: string; open: boolean; editing: boolean; num?: HTMLElement; cur?: Bubble }): void {
     const el = e.el;
     el.replaceChildren(); el.title = b.title;
     el.style.cssText = `position:absolute;left:0;top:0;box-sizing:border-box;height:26px;display:flex;align-items:center;gap:4px;padding:0 8px;border-radius:13px;background:#fff;border:1px solid ${e.open ? "#e0a82e" : TONE[b.tone]};box-shadow:0 1px 3px rgba(0,0,0,.18);cursor:pointer;white-space:nowrap;${b.tone === "refused" ? "animation:bubble-flash .5s ease-in-out 3;" : ""}`;
@@ -26,8 +26,14 @@ export function createBubbleLayer(host: HTMLElement, h: BubbleHandlers) {
       if (b.symbol && b.symbol !== "°") { const s = document.createElement("span"); s.textContent = b.symbol; s.style.cssText = "font-weight:600;opacity:.6"; el.append(s); }
       const num = document.createElement("span"); num.textContent = b.text ?? ""; num.style.cssText = "font-weight:600;cursor:text"; num.title = "Type a new number";
       num.addEventListener("click", (ev) => { ev.stopPropagation(); edit(b, e, num); });
+      if (b.locked === false) num.style.opacity = ".8"; // (measured only: a little lighter than a number that is locked)
+      e.num = num; e.cur = b;
       el.append(num);
       if (b.symbol === "°") { const s = document.createElement("span"); s.textContent = "°"; s.style.cssText = "font-weight:600;opacity:.6;margin-left:-3px"; el.append(s); }
+      if (b.locked !== undefined) { // the padlock: closed when the number is a constraint, open when it is only measured; a click changes it
+        const l = document.createElement("span"); l.innerHTML = iconSvg(b.locked ? "lock" : "unlock"); l.title = b.locked ? "Locked: click to let it go" : "Measured: click to lock it at this number"; l.dataset.padlock = b.locked ? "closed" : "open";
+        l.style.cssText = `display:flex;cursor:pointer;opacity:${b.locked ? 1 : 0.6};color:${b.locked ? "#1ab8b3" : "inherit"}`; l.addEventListener("click", (ev) => { ev.stopPropagation(); h.lock(b.id); }); el.append(l);
+      }
     } else if (b.offer === "taken") { const i = document.createElement("span"); i.innerHTML = iconSvg("check"); i.style.cssText = "display:flex;color:#3fae6a"; el.append(i); }
     else {
       const i = document.createElement("span"); i.innerHTML = iconSvg(b.icon); i.style.cssText = "display:flex"; el.append(i);
@@ -35,10 +41,10 @@ export function createBubbleLayer(host: HTMLElement, h: BubbleHandlers) {
     }
     if (e.open) { const x = document.createElement("span"); x.innerHTML = iconSvg("cross"); x.title = "Delete"; x.style.cssText = "display:flex;cursor:pointer"; x.addEventListener("click", (ev) => { ev.stopPropagation(); h.remove(b.id); }); el.append(x); }
   }
-  function edit(b: Bubble, e: { el: HTMLElement; sig: string; open: boolean; editing: boolean }, num: HTMLElement): void {
-    const input = document.createElement("input");
-    input.value = b.text ?? ""; input.style.cssText = `width:${Math.max(4, (b.text ?? "").length + 1)}ch;font:inherit;font-weight:600;border:0;outline:0;background:transparent;padding:0`;
-    num.replaceWith(input); input.focus(); input.select(); e.editing = true;
+  function edit(b: Bubble, e: { el: HTMLElement; sig: string; open: boolean; editing: boolean; num?: HTMLElement; cur?: Bubble }, num: HTMLElement, initial?: string): void {
+    const input = document.createElement("input"), start = initial ?? b.text ?? "";
+    input.value = start; input.style.cssText = `width:${Math.max(4, start.length + 3)}ch;font:inherit;font-weight:600;border:0;outline:0;background:transparent;padding:0`;
+    num.replaceWith(input); input.focus(); if (initial === undefined) input.select(); else input.setSelectionRange(input.value.length, input.value.length); e.editing = true;
     const done = (commit: boolean) => { if (!e.editing) return; e.editing = false; const v = Number(input.value.trim()); if (commit && input.value.trim() !== "" && isFinite(v)) h.set(b.id, v); e.sig = ""; /* (drawn again, with the number, whether or not it changed) */ };
     input.addEventListener("keydown", (ev) => { ev.stopPropagation(); if (ev.key === "Enter") done(true); else if (ev.key === "Escape") done(false); });
     input.addEventListener("blur", () => done(false));
@@ -66,6 +72,8 @@ export function createBubbleLayer(host: HTMLElement, h: BubbleHandlers) {
       }
       for (const [id, e] of els) if (!seen.has(id)) { e.el.remove(); els.delete(id); over.delete(id); }
     },
+    /** start typing into a number (digits typed with its part selected): the text starts as the key that was typed; false: there is no such number */
+    startEdit(id: string, initial: string): boolean { const e = els.get(id); if (!e || e.editing || !e.num || !e.cur || e.cur.kind !== "dimension" || !e.num.isConnected) return false; edit(e.cur, e, e.num, initial); return true; },
     /** whether the pointer is over a bubble */ hovered: (): boolean => over.size > 0,
     editing: (): boolean => [...els.values()].some((e) => e.editing),
     /** The rectangles the bubbles stand in (the page's pixels), for what must keep clear of them. */

@@ -33,12 +33,9 @@ try {
   // undo the extrude, then put a radius on the arc and type over it
   await page.keyboard.press("Control+z"); await page.waitForTimeout(400);
   await stop(); await click(7.07, 7.07); await page.waitForTimeout(150);
-  const bar = await ev<string[]>(`() => [...document.querySelectorAll("[data-bar]")].filter((e) => e.offsetParent !== null).map((e) => e.dataset.bar)`);
-  ok(bar.includes("rel:radius"), `a selected arc offers its radius: ${bar.join(" ")}`);
-  await page.click("[data-bar='rel:radius']"); await page.waitForTimeout(250);
-  const rnum = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-bubble] span")].find((s) => s.textContent === "10"); if (!e) return null; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
-  ok(!!rnum, "the radius bubble reads 10");
-  if (rnum) { await page.mouse.click(rnum[0]!, rnum[1]!); await page.keyboard.press("Control+a"); await page.keyboard.type("14"); await page.keyboard.press("Enter"); await page.waitForTimeout(300); }
+  const rnum = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-bubble] span")].some((s) => s.textContent === "10"));
+  ok(rnum, "a selected arc shows its radius, measured, on a bubble: 10");
+  await page.keyboard.type("14"); await page.keyboard.press("Enter"); await page.waitForTimeout(300); // (digits go to the radius; Enter locks it)
   d = await def(); const st1 = d.points.find((p: any) => p.id === d.arcs[0].a), c1 = d.points.find((p: any) => p.id === d.arcs[0].c);
   ok(Math.abs(Math.hypot(st1.x - c1.x, st1.y - c1.y) - 14) < 1e-3, `typing 14 makes the radius 14 (${Math.hypot(st1.x - c1.x, st1.y - c1.y).toFixed(3)})`);
   writeFileSync(`${dir}/arc-3.png`, await page.screenshot());

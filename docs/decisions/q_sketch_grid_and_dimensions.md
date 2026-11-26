@@ -6,7 +6,7 @@ origin: ai-unreviewed
 human_input: in_1574
 date: 2026-11-25
 depends_on:
-  - dec_dimensions_measure_then_lock: the AI's proposal for dimensions (measured then locked, typed as you go); this question stays open until the human approves it
+  - dec_dimensions_measure_then_lock: the dimension half is answered by it (accepted, `in_1590`)
   - dec_grid_ui_only: the old app's grid is display-only; this asks whether the rebuild should keep that
 ---
 # How dimensions are handled: which of the old app's ways? (the grid is decided: no snapping)

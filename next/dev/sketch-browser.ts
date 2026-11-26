@@ -35,17 +35,16 @@ try {
   await click(20, 18);
   d = await def(); ok(d.arcs.length === 1 && d.circles.length === 0, `the circle became an arc (${d.arcs.length} arc, ${d.circles.length} circles)`);
   writeFileSync(`${dir}/sketch-2.png`, await page.screenshot());
-  // select the bottom side: its bubbles; dimension it with D; type 55
+  // select the bottom side: its measured number (an open padlock) is on a bubble; type 55 (digits go to it); Enter locks it
   await ev(`() => window.__sketch.stop()`);
   await click(20, 0);
   let b = await bubbles(); ok(b.some((q) => /—|horizontal/i.test(q.text ?? "") || true) && b.length >= 1, `a selected side shows its bubbles (${b.length})`);
   const bar = await ev<string[]>(`() => [...document.querySelectorAll("[data-bar]")].map((e) => e.dataset.bar)`);
-  ok(bar[0] === "delete" && bar.includes("rel:length"), `the helper bar stands beside the selected side: ${bar.join(" ")}`);
+  ok(bar[0] === "delete" && !bar.some((x) => x.startsWith("rel:length")), `the helper bar stands beside the selected side, with no number on it (it is on the bubble): ${bar.join(" ")}`);
+  ok(b.some((q) => q.text === "40") && (await page.locator("[data-padlock='open']").count()) === 1, `the side's measured length is a bubble with an open padlock: ${JSON.stringify(b.map((q) => q.text))}`);
   writeFileSync(`${dir}/sketch-bar.png`, await page.screenshot());
-  await page.click("[data-bar='rel:length']"); await page.waitForTimeout(300);
-  b = await bubbles(); ok(b.some((q) => q.text === "40"), `the length button of the bar puts the number it measures on it: ${JSON.stringify(b.map((q) => q.text))}`);
-  const num = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-bubble] span")].find((s) => s.textContent === "40")!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
-  await page.mouse.click(num[0]!, num[1]!); await page.keyboard.type("55"); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
+  await page.keyboard.type("55"); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
+  ok((await page.locator("[data-padlock='closed']").count()) === 1, "typing digits with the side selected types into its number, and Enter locks it (a closed padlock)");
   d = await def(); const first = d.points.find((p: any) => p.id === "P1"); ok(Math.abs(first.x) < 1e-6 && Math.abs(first.y) < 1e-6, `the first corner stays at the origin (${first.x.toFixed(3)}, ${first.y.toFixed(3)})`);
   const L1 = d.lines.find((l: any) => l.id === "L1"), pa = d.points.find((p: any) => p.id === L1.a), pb = d.points.find((p: any) => p.id === L1.b); ok(Math.abs(Math.hypot(pb.x - pa.x, pb.y - pa.y) - 55) < 1e-4, `typing 55 makes the bottom side 55 long (${Math.hypot(pb.x - pa.x, pb.y - pa.y).toFixed(3)})`);
   writeFileSync(`${dir}/sketch-3.png`, await page.screenshot());

@@ -151,13 +151,14 @@ export function removeParts(p: SketchParams, ids: string[]): SketchParams {
 
 // ---------------------------------------------------------------- constraints
 export type Constrained = { ok: true; params: SketchParams; sol: Sol; added: string } | { ok: false; why: string; victims: string[]; already?: string[] };
-/** Add the relation of this kind for the selected parts (`dimension`: the number that they measure now, to be typed over): kept if the sketch still solves, else said, with the constraints that hold it back. */
-export function constrain(p: SketchParams, s: Sol, selection: string[], kind: Relation | "dimension"): Constrained {
+/** Add the relation of this kind for the selected parts (`dimension`: the number that they measure now, or `value` if one is given): kept if the sketch still solves, else said, with the constraints that hold it back. */
+export function constrain(p: SketchParams, s: Sol, selection: string[], kind: Relation | "dimension", value?: number): Constrained {
   const { offers } = offersFor(viewSystem(p, s), selection), o = kind === "dimension" ? offers.find((x) => x.dimensional) : offers.find((x) => x.kind === kind);
   if (!o) return { ok: false, why: selection.length ? `${kind === "dimension" ? "there is no number to put on" : kind} does not fit what is selected` : "select something first", victims: [] };
   if (o.state === "already") return { ok: false, why: `${o.label} is already said`, victims: [], already: o.by };
   if (o.state === "refused") return { ok: false, why: `${o.label} cannot hold with ${o.holding.join(", ") || "what is there"}`, victims: o.victims.filter((v) => !v.startsWith("offer.")) };
-  const id = nextId(p, "c"), c: Constraint = { id, kind: o.kind, parts: o.parts, ...(o.dimensional && o.measure !== null ? { value: Math.round(o.measure * 1e3) / 1e3 } : {}) };
+  if (value !== undefined && o.dimensional && !(value > 0) && !(o.kind === "angle" || o.kind === "horizontalDistance" || o.kind === "verticalDistance")) return { ok: false, why: "a size must be more than nothing", victims: [] };
+  const id = nextId(p, "c"), c: Constraint = { id, kind: o.kind, parts: o.parts, ...(o.dimensional && value !== undefined ? { value } : o.dimensional && o.measure !== null ? { value: Math.round(o.measure * 1e3) / 1e3 } : {}) };
   const k = keep({ ...p, constraints: [...(p.constraints ?? []), c] });
   return k.ok ? { ...k, added: id } : k;
 }

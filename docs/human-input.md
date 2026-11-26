@@ -6482,3 +6482,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1589 — 2026-11-26 — directive
 > yes go back to the sketching look and feel, so I liked how the prototype worked with dimensions, I liked how you could generally just type dimensions as you go and it felt really smooth. How can we capture the prototypes dimension UI in a clean and lean way?
 
+## in_1590 — 2026-11-26 — approval
+> yes start with slice (a)
+

@@ -27,8 +27,8 @@ try {
   await page.keyboard.press("Control+z"); await page.waitForTimeout(150);
   d = await def(); const back = near(d, 20, 12); ok(Math.hypot(back.x - 20, back.y - 12) < 1e-4, "undo puts the whole drag back in one step");
   await page.keyboard.press("Control+Shift+z"); await page.waitForTimeout(150);
-  // a locked length holds the drag back: select the bottom side, put a number on it (D), then pull the right end sideways
-  await click(10, 0); await page.click("[data-bar='rel:length']"); await page.waitForTimeout(200);
+  // a locked length holds the drag back: select the bottom side, lock its measured number (the padlock), then pull the right end sideways
+  await click(10, 0); await page.click("[data-padlock='open']"); await page.waitForTimeout(200);
   const d0 = await def(), a0 = near(d0, 0, 0), b0 = near(d0, 30, 0), before = b0.x - a0.x;
   await drag([30, 0], [45, 0]);
   d = await def(); const after = near(d, 30, 0).x - near(d, 0, 0).x;

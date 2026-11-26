@@ -14,7 +14,7 @@ import { trimAt } from "./engine/trim.ts";
 import type { Relation } from "./engine/solver.ts";
 import type { Selection } from "./selection.ts";
 import { bake, constrain, emptySketch, hitAt, keep, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
-import { bubblesOn, selectionAnchor, type Bubble, type Flash } from "./interaction/bubbles.ts";
+import { MEASURE_ID, bubblesOn, selectionAnchor, type Bubble, type Flash } from "./interaction/bubbles.ts";
 import { barFor, type Bar } from "./interaction/helperbar.ts";
 import { createBubbleLayer, type Placed } from "./bubbledraw.ts";
 import { helpersAt, type Free, type Helped } from "./engine/helpers.ts";
@@ -34,6 +34,9 @@ export interface SketchHost {
   selection: Selection;
 }
 export interface DrawLine { pts: V3[]; /** a ball's radius, in mm */ r?: number; /** a dashed line's dash, in mm (the gap is 0.7 of it) */ dash?: number; kind: "done" | "selected" | "preview" | "cursor" | "cut" | "tie" | "tieBall" | "guide" | "ball" }
+
+/** the keys that type a number (and what each types) */
+const TYPED: Record<string, string> = { ...Object.fromEntries([...Array(10).keys()].flatMap((d) => [[`Digit${d}`, String(d)], [`Numpad${d}`, String(d)]])), Period: ".", NumpadDecimal: ".", Minus: "-", NumpadSubtract: "-" };
 
 export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: string, merge?: string) => void) {
   const defs = new Map<string, SketchParams>(), sols = new WeakMap<SketchParams, Sol>(), fillCache = new WeakMap<SketchParams, [number, number][][][]>();
@@ -72,8 +75,14 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   const layer = createBubbleLayer(page, {
     set(id, value) {
       const c = current(); if (!c) return;
+      if (id === MEASURE_ID) { lockMeasure(value); return; } // (a number typed over one that is only measured locks it at that number)
       const r = retype(c.p, id, value);
       if (r.ok) { set(c.key, r.params, "Number", `n:${id}`); flash = {}; } else fail(r.why, r.victims);
+    },
+    lock(id) {
+      const c = current(); if (!c) return;
+      if (id === MEASURE_ID) { lockMeasure(); return; } // (measured: lock it at what it measures now)
+      const r = unconstrain(c.p, id); if (r.ok) set(c.key, r.params, "Unlock"); else fail(r.why, r.victims); // (locked: let it go; it is only measured again)
     },
     take(id) { takeOne(id); },
     remove(id) {
@@ -82,6 +91,12 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     },
   });
 
+  /** the selection's own number locked: at what it measures now, or at the number typed */
+  const lockMeasure = (value?: number) => {
+    const c = current(); if (!c) return;
+    const r = constrain(c.p, solOf(c.p), selected(c.key), "dimension", value);
+    if (r.ok) { set(c.key, r.params, value === undefined ? "Lock number" : "Number"); flash = { applied: [r.added] }; flashUntil = performance.now() + 900; } else fail(r.why, r.victims);
+  };
   /** a press on the helper bar: the selection is taken away or put away, or a relation is put on it */
   const act = (id: string): void => {
     const c = current(); if (!c) return;
@@ -100,7 +115,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     if (k.ok) set(key, k.params, label); else fail(k.why, k.victims);
   };
   // ---- the constraints a helper held, offered for a moment after a figure is placed (`dec_helper_constraint_bubble`, `interaction/offers.ts`): this keeps the value and says when the sketch changed
-  let offers: Offers | null = null;
+  let offers: Offers | null = null, ownId: string | null = null;
   const takeOne = (id: string) => {
     const c = current(); if (!offers || !c) return;
     const r = takeOffer(offers, id, c, performance.now(), settings.offer); if (!r) return;
@@ -152,6 +167,8 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     /** Keys of the sketch: Delete takes the selected parts away (no other key is bound for now, `in_1574`). Returns whether the key was used. */
     key(code: string): boolean {
       const c = current(); if (!c || tool) return false;
+      const typed = TYPED[code]; // (digits typed with a part selected go to its own number, `dec_typing_standard`)
+      if (typed !== undefined && ownId && !layer.editing()) return layer.startEdit(ownId, typed);
       const ids = selected(c.key);
       if (code === "Delete" || code === "Backspace") { if (!ids.length) return false; set(c.key, removeParts(c.p, ids), "Delete"); sel.clear(); return true; }
       return false;
@@ -242,7 +259,9 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       if (!c) { layer.show([], { lines: [], dots: [] }); return { message }; }
       const s = solOf(c.p), S = viewSystem(c.p, s), px = (p: P2) => { const q = project(cam.cam, to3(c.f, p), cam.w, cam.h); return [q.x, q.y] as [number, number]; };
       const box = barBox; // (the bubbles keep clear of the helper bar)
-      const items: Placed[] = [...bubblesOn(S, selected(c.key), flash), ...shownOffers(S, now)].map((bubble) => { const [x, y] = px(bubble.at); return { bubble, x, y }; });
+      const bubbles = [...bubblesOn(S, selected(c.key), flash), ...shownOffers(S, now)], chosen = [...selected(c.key)].sort().join();
+      ownId = bubbles.find((b) => b.kind === "dimension" && [...b.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
+      const items: Placed[] = bubbles.map((bubble) => { const [x, y] = px(bubble.at); return { bubble, x, y }; });
       layer.show(items, { lines: c.p.lines?.map((l) => [px(s.points[l.a]!), px(s.points[l.b]!)] as [[number, number], [number, number]]) ?? [], dots: c.p.points.map((q) => px(s.points[q.id]!)), ...(box ? { rects: [box] } : {}) });
       return { message };
     },
