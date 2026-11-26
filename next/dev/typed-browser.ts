@@ -6,7 +6,7 @@ try {
   const { page, errors, close } = await S.open("");
   const ev = evalIn(page), px = pxIn(ev), click = clickIn(page, px, 150);
   const def = () => ev<any>(`() => Object.values(window.__sketch.snapshot())[0]`);
-  const chip = () => page.evaluate(() => { const e = document.querySelector<HTMLElement>("[data-info]"); if (!e || getComputedStyle(e).display === "none") return null; return [...e.querySelectorAll<HTMLElement>("[data-fact]")].map((f) => ({ label: f.title, text: f.querySelector("[data-number]")!.textContent, underlined: (f.querySelector<HTMLElement>("[data-number]")!.style.textDecoration ?? "").includes("underline"), padlock: f.querySelector<HTMLElement>("[data-padlock]")!.dataset.padlock })); });
+  const chip = () => page.evaluate(() => { const e = document.querySelector<HTMLElement>("[data-marks]"); if (!e) return null; const facts = [...e.querySelectorAll<HTMLElement>("[data-fact]")].filter((f) => (f.parentElement as HTMLElement).style.display !== "none"); if (!facts.length) return null; return facts.map((f) => ({ label: f.title, text: f.querySelector("[data-number]")!.textContent, underlined: (f.querySelector<HTMLElement>("[data-number]")!.style.textDecoration ?? "").includes("underline"), padlock: f.querySelector<HTMLElement>("[data-padlock]")!.dataset.padlock })); });
   const move = async (x: number, y: number) => { const [a, b] = await px(x, y); await page.mouse.move(a, b, { steps: 4 }); await page.waitForTimeout(150); };
   await ev(`() => window.__tool("line")`); await page.waitForTimeout(900);
   ok((await chip()) === null, "no info bar before the first click");

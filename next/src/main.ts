@@ -181,7 +181,7 @@ function startTool(kind: ToolKind) {
 const tools = createToolControl({
   notify, selection,
   draw: (kind) => startTool(kind as ToolKind), drawStep: () => sk.drawStep(), drawStop: () => sk.stop(),
-  extrude: { start: () => { while (sk.stop()) { /* the sketch tool is put away */ } selection.clear(); ext.start(); }, active: () => ext.active(), open: () => ext.pulling(), valid: () => ext.valid(), apply: () => ext.apply(), cancel: () => ext.cancel(), words: () => ext.words(), show: (op) => { while (sk.stop()) { /* the sketch tool is put away */ } ext.open(op); } },
+  extrude: { start: () => { while (sk.stop()) { /* the sketch tool is put away */ } sk.dismissOffers(); selection.clear(); ext.start(); }, active: () => ext.active(), open: () => ext.pulling(), valid: () => ext.valid(), apply: () => ext.apply(), cancel: () => ext.cancel(), words: () => ext.words(), show: (op) => { while (sk.stop()) { /* the sketch tool is put away */ } sk.dismissOffers(); ext.open(op); } },
   mover: { start: (body) => bmove.start(body), on: () => bmove.on(), commit: () => bmove.commit(), cancel: () => bmove.cancel() },
   plane: addSketchPlane, sketchFace: sketchOnFace, bodyOp: (action, pick) => bodyOps.operationFor(action, pick),
   selectedKinds: () => sk.selectedKinds(), relate: (rel) => sk.constrain(rel),
@@ -258,7 +258,7 @@ function frame(now: number) {
     cut: placed && !placedKey ? { origin: placed.origin, n: placed.normal } : null, // (made once with the plane, from the side the camera looked from; it turns and moves with the plane, and does not change with the camera)
   });
   badge.show(tools.armed()?.icon ?? null, game.on ? null : pointer);
-  { const sub = game.on ? null : ext.subject() ?? sk.subject() ?? bodies.subject(sk.active() || ext.active()), e = env(); infobar.show(sub?.info ?? null, sub?.at ?? null, sub?.on ?? null, e.w, e.h); markdraw.show(game.on ? [] : sk.marks(now), sk.handlers); }
+  { const sub = game.on ? null : ext.subject() ?? bodies.subject(sk.active() || ext.active()), e = env(); infobar.show(sub?.info ?? null, sub?.at ?? null, sub?.on ?? null, e.w, e.h); markdraw.show(game.on ? [] : sk.marks(now), sk.handlers); }
   { const st = studio.state(); list.show({ rows: historyOpen ? rowsOf(st.steps, st.snapshot) : [] }); }
   more.show(moreItems({ hasModel: hasModel(), hasBody: hasBody(), history: historyOpen }));
   sk.frame(now);

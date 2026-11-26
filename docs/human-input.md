@@ -6551,3 +6551,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1612 — 2026-11-26 — approval
 > yes start with the mark drawer and the rule
+
+## in_1613 — 2026-11-26 — approval
+> yes move the drawing numbers onto the figure. Can we try putting the info bubble more directly on the part it represents? and then have it so that the user can click and drag the bubble to move it out the of the way? it shouldn't remember its position when the part is deselected and re selected.

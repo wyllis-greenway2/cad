@@ -12,7 +12,7 @@ export function createMarkDraw(host: HTMLElement) {
   const layer = document.createElement("div"); layer.dataset.marks = ""; layer.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;z-index:7;pointer-events:none";
   const style = document.createElement("style"); style.textContent = "@keyframes mark-flash{0%,100%{opacity:1}50%{opacity:.25}}"; layer.append(style);
   host.appendChild(layer);
-  let on: MarkHandlers | null = null, sig = ""; const els = new Map<string, HTMLElement>();
+  let on: MarkHandlers | null = null, sig = ""; const els = new Map<string, HTMLElement>(), anchored = new Map<string, { x: number; y: number }>(), moved = new Map<string, { x: number; y: number }>(); // (anchored: where each mark would stand on its part; moved: where the person dragged each mark to, from where it stands)
   const chips = createChips(() => on, () => { sig = ""; });
   const keyOf = (m: Mark) => `${m.id}|${m.over?.join(",") ?? ""}`;
   /** the lock on a chip's corner */
@@ -26,6 +26,14 @@ export function createMarkDraw(host: HTMLElement) {
     }
     if (m.state === "refused") box.style.animation = "mark-flash .5s ease-in-out 3";
     for (const t of ["pointerdown", "click", "contextmenu"]) box.addEventListener(t, (e) => { e.stopPropagation(); if (t === "contextmenu") e.preventDefault(); });
+    if (m.readonly) { box.style.pointerEvents = "none"; return box; } // (the numbers of a figure being drawn are not in the way of the click that finishes it)
+    // a press and a drag moves the mark out of the way; the click that ends a drag is not a click on the chip
+    const key = keyOf(m); let press: { x: number; y: number; ox: number; oy: number; drag: boolean } | null = null, swallow = false;
+    box.style.touchAction = "none";
+    box.addEventListener("pointerdown", (e) => { if (e.button !== 0 || (e.target as HTMLElement).tagName === "INPUT") return; const r = box.getBoundingClientRect(), a = anchored.get(key); press = { x: e.clientX, y: e.clientY, ox: a ? r.x - a.x : 0, oy: a ? r.y - a.y : 0, drag: false }; }); // (the drag goes on from where it stands, beside another mark or not)
+    box.addEventListener("pointermove", (e) => { if (!press) return; const dx = e.clientX - press.x, dy = e.clientY - press.y; if (!press.drag && Math.hypot(dx, dy) < settings.marks.dragPx) return; if (!press.drag) box.setPointerCapture(e.pointerId); press.drag = true; moved.set(key, { x: press.ox + dx, y: press.oy + dy }); });
+    box.addEventListener("pointerup", () => { if (press?.drag) { swallow = true; setTimeout(() => { swallow = false; }, 0); } press = null; });
+    box.addEventListener("click", (e) => { if (swallow) { e.stopPropagation(); e.preventDefault(); swallow = false; } }, true);
     return box;
   };
   return {
@@ -37,12 +45,16 @@ export function createMarkDraw(host: HTMLElement) {
         sig = s; chips.forget(); for (const e of els.values()) e.remove(); els.clear();
         for (const p of list) { const e = make(p.mark); els.set(keyOf(p.mark), e); layer.append(e); }
       }
-      const M = settings.marks, seen = new Set<string>(), placed: { x: number; y: number; w: number; h: number }[] = [];
-      for (const p of list) {
-        const e = els.get(keyOf(p.mark)); if (!e) continue; seen.add(keyOf(p.mark));
+      const seen = new Set<string>(), placed: { x: number; y: number; w: number; h: number }[] = [];
+      const shown = list.filter((p) => els.has(keyOf(p.mark))); for (const p of shown) seen.add(keyOf(p.mark));
+      for (const k of [...moved.keys()]) if (!seen.has(k)) moved.delete(k); for (const k of [...anchored.keys()]) if (!seen.has(k)) anchored.delete(k); // (a mark that is gone forgets where it was put)
+      // the marks the person has put somewhere keep it; the others stand on their part and keep away from all of those and from each other
+      for (const p of [...shown.filter((q) => moved.has(keyOf(q.mark))), ...shown.filter((q) => !moved.has(keyOf(q.mark)))]) {
+        const e = els.get(keyOf(p.mark))!, off = moved.get(keyOf(p.mark));
         e.style.display = "block"; e.style.opacity = String(p.mark.alpha);
-        const w = e.offsetWidth || 28, h = e.offsetHeight || 28; let x = p.x - w / 2, y = p.y - M.liftPx - h / 2;
-        for (let tries = 0; tries < 8; tries++) { const hit = placed.find((b) => x < b.x + b.w + 4 && b.x < x + w + 4 && y < b.y + b.h + 4 && b.y < y + h + 4); if (!hit) break; x = hit.x + hit.w + 6; } // (a mark that would cover another stands beside it)
+        const w = e.offsetWidth || 28, h = e.offsetHeight || 28, ax = p.x - w / 2, ay = p.y - h - settings.marks.gapPx; anchored.set(keyOf(p.mark), { x: ax, y: ay }); // (standing on the part: its lower edge at the part)
+        let x = ax + (off?.x ?? 0), y = ay + (off?.y ?? 0);
+        if (!off) for (let tries = 0; tries < 8; tries++) { const hit = placed.find((b) => x < b.x + b.w + 4 && b.x < x + w + 4 && y < b.y + b.h + 4 && b.y < y + h + 4); if (!hit) break; x = hit.x + hit.w + 6; } // (a mark that would cover another stands beside it)
         placed.push({ x, y, w, h }); e.style.transform = `translate(${Math.round(x)}px,${Math.round(y)}px)`;
       }
       for (const [k, e] of els) if (!seen.has(k)) e.style.display = "none";

@@ -15,11 +15,11 @@ import type { Selection } from "./selection.ts";
 import type { NoticeOptions } from "./interaction/notices.ts";
 import { bake, constrain, emptySketch, hitAt, keep, nextId, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
 import { MEASURE_ID, angleMark, bubblesOn, type Flash } from "./interaction/bubbles.ts";
-import { marksFor, type Recent } from "./interaction/marks.ts";
+import { marksFor, type Mark, type Recent } from "./interaction/marks.ts";
 import type { MarkHandlers, PlacedMark } from "./markdraw.ts";
 import { settings } from "./settings.ts";
 import { kindsOfSelection } from "./interaction/toolspec.ts";
-import { nearConstraint, type Fact, type Info } from "./interaction/infobar.ts";
+import { nearConstraint, type Fact } from "./interaction/infobar.ts";
 import type { InfoHandlers } from "./infobardraw.ts";
 import { helpersAt, type Helped } from "./engine/helpers.ts";
 import type { Free } from "./engine/free.ts";
@@ -306,27 +306,25 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       }
       return out;
     },
-    /** What the info bar says: the numbers of a figure being drawn, else what is so of what is selected and what could be added to it (null: neither, or a number is being typed); where on the page it stands from; what its buttons do. The page has the one bar. */
-    subject(): { info: Info; at: [number, number]; on: InfoHandlers } | null {
-      const c = current(); if (!c || host.editing()) return null;
-      const s = solOf(c.p), S = sysOf(c.p), cam = host.view(), project3 = (p: P2) => { const q = project(cam.cam, to3(c.f, p), cam.w, cam.h); return [q.x, q.y] as [number, number]; };
-      if (tool && tool.kind !== "trim" && tool.pts.length && FIELDS[tool.kind].length && lastPointer) { // a figure under way: its numbers, as they are measured or typed (they take digits from the keys)
-        const hereNow = here(lastPointer.x, lastPointer.y); if (!hereNow) return null;
-        const pl = placed(hereNow, s), at = posOf(s, pl.ref), live = FIELDS[tool.kind].map((f) => measureAt(S, pl.free, at, f.kind, f.parts));
-        const facts: Fact[] = chipFields(tool.kind, tool.typed, tool.field, live).map((f) => ({ id: `field:${f.label}`, kind: "dimension", relation: "length", icon: "dimension", at: [0, 0], text: f.text, tone: "rest", title: f.label, parts: [], locked: f.typed, readonly: true, active: f.active, ...(f.label === "Diameter" ? { symbol: "Ø" } : {}) }));
-        ownId = null; return { info: { facts, suggestions: [] }, at: project3(at), on: handlers };
-      }
-      ownId = null; return null; // (what is selected speaks through its marks, `marks`)
-    },
     /** The marks standing on the parts (`dec_marks_on_things`): what is selected shows its constraints (locked) and what is true of it and near (offered); the parts just made show their offers for a while and fade; a refusal shows what held it back, always; placed on the page. */
     marks(now: number): PlacedMark[] {
-      const c = current(); if (!c || (tool && tool.pts.length)) { ownId = null; return []; }
-      const S = sysOf(c.p), cam = host.view(), ids = selected(c.key), has = (id: string) => S.points.some((x) => x.id === id) || S.lines.some((x) => x.id === id) || S.circles.some((x) => x.id === id);
+      const c = current(); if (!c) { ownId = null; return []; }
+      const cam = host.view(), at3 = (m: Mark): PlacedMark => { const q = project(cam.cam, to3(c.f, m.at), cam.w, cam.h); return { mark: m, x: q.x, y: q.y }; };
+      if (tool && tool.pts.length) { // a figure under way: its numbers stand on it, as they are measured (open) or typed (closed); they take digits from the keys and are not clicked
+        ownId = null; if (tool.kind === "trim" || !FIELDS[tool.kind].length || !lastPointer) return [];
+        const s = solOf(c.p), S = sysOf(c.p), hereNow = here(lastPointer.x, lastPointer.y), kind = tool.kind; if (!hereNow) return [];
+        const pl = placed(hereNow, s), to = posOf(s, pl.ref), from = tool.pts[0] ? posOf(s, tool.pts[0]) : to, live = FIELDS[kind].map((f) => measureAt(S, pl.free, to, f.kind, f.parts));
+        return chipFields(kind, tool.typed, tool.field, live).map((f) => {
+          const where: P2 = kind === "rect" ? (f.label === "Width" ? [(from[0] + to[0]) / 2, from[1]] : [to[0], (from[1] + to[1]) / 2]) : [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2]; // (a rectangle's width on its bottom side, its height on the side at the pointer)
+          return at3({ id: `field:${f.label}`, kind: "dimension", relation: "length", icon: "dimension", at: where, text: f.text, tone: "rest", title: f.label, parts: [], locked: f.typed, readonly: true, active: f.active, state: f.typed ? "locked" : "offer", alpha: 1, ...(f.label === "Diameter" ? { symbol: "Ø" } : {}) });
+        });
+      }
+      const S = sysOf(c.p), ids = selected(c.key), has = (id: string) => S.points.some((x) => x.id === id) || S.lines.some((x) => x.id === id) || S.circles.some((x) => x.id === id);
       if (ids.length) recent = null; // (once the person has picked something, the offers for what was just made are over)
       const fresh = recent && recent.key === c.key ? { ids: recent.ids.filter(has), until: recent.until } : null;
       const list = marksFor(S, ids, { flash, recent: fresh, now }), chosen = [...ids].sort().join();
       ownId = list.find((m) => m.kind === "dimension" && [...m.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
-      return list.map((m) => { const q = project(cam.cam, to3(c.f, m.at), cam.w, cam.h); return { mark: m, x: q.x, y: q.y }; });
+      return list.map(at3);
     },
     /** Each picture: a refusal's red goes after its time. */
     frame(now: number): void { if (now > flashUntil) flash = {}; },
@@ -352,6 +350,8 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     sketchOf: (key: string): SketchParams | null => defs.get(key) ?? null,
     /** what the marks' buttons do */
     handlers,
+    /** the offers for what was just made are over (another tool, such as Extrude, is taking the clicks) */
+    dismissOffers(): void { recent = null; },
     /** a press of the helper bar by its id (`delete`, `clear`, `rel:<relation>`): for the dev checks */
     press: act,
     debug: () => ({ tool: tool ? { ...tool } : null, sketches: [...defs].map(([k, v]) => [k, v] as const), selection: (() => { const k = sel.get(); return k?.kind === "sketch" ? { key: k.key, ids: k.ids } : { key: "", ids: [] }; })() }),

@@ -53,8 +53,8 @@ export const settings = {
   // a sketch plane placed anywhere, and the right-click ring
   planes: { snapAxisRad: 0.14, ringButtonPx: 36 }, // (a sketch plane made facing the camera snaps to a world axis within this)
   // the mover orb (`app/src/shared/settings.ts` gizmo): its size as a share of the view distance, how near the pointer must be to take a handle, and how its lines look
-  // the marks of a sketch (`dec_marks_on_things`): how long a constraint offered for a part just made or moved stays when nothing is selected, how long it fades (ms), how far a mark stands up from its part (px)
-  marks: { stayMs: 4000, fadeMs: 700, liftPx: 22 },
+  // the marks of a sketch (`dec_marks_on_things`): how long a constraint offered for a part just made or moved stays when nothing is selected, how long it fades (ms), how far a press on a mark must move before it is a drag (px), and the gap between a mark and the part it stands on (it stands on it: its lower edge touches the part, so the part can still be pressed)
+  marks: { stayMs: 4000, fadeMs: 700, dragPx: 4, gapPx: 2 },
   // a pull arrow is dragged by the pointer's movement along the arrow as it looks on the screen; an arrow pointing nearly at the camera looks short, so a movement is counted as no more than this share of the screen's mm to the pixel (else a small movement is a huge pull)
   pull: { minGain: 0.5 },
   mover: { sizeOfView: 0.11, hitPx: 12, opacity: 0.6, widthPx: 2.2, headScale: 0.7, arrowShare: 0.6, gapShare: 0.09, extraGap: 0.12, extraShare: 0.4, stemShare: 0.85, turnShare: 0.33, turnStartDeg: 40, turnSpanDeg: 280, arcSegments: 48 }, // (the orb: its size, how near the pointer must be, the lines; the curved arrow: a stem of this share of the straight arrow, then an open circle of this radius, from this angle and this far round)
