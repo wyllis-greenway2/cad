@@ -1275,5 +1275,5 @@ export function residualsOf(S: System, c: Constraint): number[] {
 
 // ---------------------------------------------------------------- what the placement solver of bodies shares with this one (`dec_body_placement`: one solver, its parts and unknowns generalised)
 export const kit = { D, k, add, sub, mul, div, scaleD, sqrtD, atan2D, clampRes, levenberg, narrow, analyse, tol };
-export type { Prep, Attempt };
+export type { Attempt, Prep };
 export type AD = D;

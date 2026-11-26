@@ -1,9 +1,9 @@
 // A sketch's definition read without the kernel (E48, E49, E62): the solver's system made from points, lines, circles, arcs and constraints, solved, and the drawn parts as the plane's segments. A sketch that lies on a plane has no body in it, so this is all
 // the screen needs to draw it, edit it and trim it on its own (`bubbledemo.ts`, `sketchcontrol.ts`); a sketch that holds a body's edges (anchors) is made by `sketch.ts`, which adds them to the same system.
 import { Refusal } from "./refusal.ts";
-import { type Constraint, type Options as SolveOptions, type Result, type System, solve } from "./solver.ts";
 import type { Seg } from "./region.ts";
 import type { SketchParams } from "./sketch.ts";
+import { type Constraint, type Result, type Options as SolveOptions, type System, solve } from "./solver.ts";
 
 /** the solver's system of a definition: an arc is a circle with its two ends held on it */
 export function systemOf(p: SketchParams): System {

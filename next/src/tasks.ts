@@ -1,10 +1,10 @@
 // What a tool is while it is armed (`dec_three_surfaces`, `in_1599`, `in_1602`): one small interface, the same for every tool, so the controller (`toolcontrol.ts`) knows nothing of any tool. A TASK says its sentence (what the person is asked, or told, now), goes on each frame
 // (it may be done), COMMITS what is valid and throws away the rest (the right click), and CANCELS its draft (Esc). A tool of a kind that exists is a registry entry (`interaction/toolspec.ts`) and nothing else; a new KIND of tool is one factory here.
-import { constraintAsk, constraintStatus, faceStatus, type ToolSpec } from "./interaction/toolspec.ts";
-import type { Handle, NoticeOptions } from "./interaction/notices.ts";
-import type { BodyPick, Selection } from "./selection.ts";
 import type { Relation } from "./engine/solver.ts";
+import type { Handle, NoticeOptions } from "./interaction/notices.ts";
 import type { Operation } from "./interaction/operation.ts";
+import { constraintAsk, constraintStatus, faceStatus, type ToolSpec } from "./interaction/toolspec.ts";
+import type { BodyPick, Selection } from "./selection.ts";
 
 export interface Task {
   /** the sentence now (null: none) */

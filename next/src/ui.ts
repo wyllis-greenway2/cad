@@ -1,8 +1,8 @@
 // The page's own parts, drawn as HTML over the picture: the axis letters, the X Y Z buttons, the origin dot, the Reset camera pill. They
 // report what was pressed; main decides what it means.
 // Their looks are in one stylesheet built from `settings.ui`; only what changes (positions, the teal of a button, which icon) is set from script.
-import { settings } from "./settings.ts";
 import { AXIS_NAME, type Axis } from "./camera.ts";
+import { settings } from "./settings.ts";
 
 export interface UiHandlers {
   look(axis: Axis): void;

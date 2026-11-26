@@ -3,10 +3,10 @@
 //   within reach: the place being drawn nearly satisfies it, with parts already there; `reach.pointPx` if it says a point (two rows), `reach.linePx` if a line; the step is the Newton step on its residuals, so it is in mm whatever the unit of the row
 // The free thing is the place `~P`, alone (`point`), or the end of a line from the figure's first place (`line`: `~L`), or the edge of a circle about it (`circle`: `~C`); the first place is a point of the sketch (`startId`) or only a place.
 // The nearest acts (a point before a line, then a fixed order); one more, not parallel to it, within reach of that place: the place is where both hold. Everything that holds at the place is reported, to be shown and offered.
-import { RELATIONS, type Constraint, type Relation, type System } from "./solver.ts";
+import { C, L, P, figureOf, isFree, land, type Free, type Pt } from "./free.ts";
 import { kindTuples, offerable, standingOf, type PartKind } from "./relations.ts";
-import { figureOf, isFree, land, P, S, L, C, type Free, type Pt } from "./free.ts";
-export { P, S, L, C, type Free, type Pt } from "./free.ts";
+import { RELATIONS, type Constraint, type Relation, type System } from "./solver.ts";
+export { C, L, P, S, type Free, type Pt } from "./free.ts";
 /** how near (px) the pointer must be to a relation that says a point and to one that says a line, how far past its ends a guide runs, and the step it is traced in: the screen's settings (`settings.helpers`), given to each call so this file knows no screen */
 export interface Reach {
   pointPx: number;

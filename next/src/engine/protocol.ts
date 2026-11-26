@@ -1,10 +1,10 @@
 // What crosses between the engine's worker and the caller (E16, E17): plain data only. A body holds kernel objects and cannot cross, so the caller sees a snapshot of each step:
 // its status, its faces with their ids and facts, its lines, its notes. Ids travel as text (`idKey`) with a readable label.
-import type { Note } from "./lineage.ts";
-import type { Status } from "./engine.ts";
-import type { Step } from "./steps.ts";
-import type { V3 } from "./kernel.ts";
 import type { Ask } from "./asks.ts";
+import type { Status } from "./engine.ts";
+import type { V3 } from "./kernel.ts";
+import type { Note } from "./lineage.ts";
+import type { Step } from "./steps.ts";
 
 export interface FaceSnap {
   id: string;

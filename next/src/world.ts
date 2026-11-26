@@ -3,22 +3,22 @@
 // It knows nothing of input: the controller says what the camera is, which plane is on, what is under the pointer; it only draws. Text and
 // buttons are the page's (ui.ts).
 import * as THREE from "three";
-import { settings } from "./settings.ts";
-import { fovOf, forward, rightOf, upOf, type Cam } from "./camera.ts";
-import type { Scene as Model } from "./scene.ts";
-import { centreOf } from "./scene.ts";
-import type { V3 } from "./vec.ts";
-import type { OrbDrawing } from "./orbcontrol.ts";
-import { drawOrb } from "./orbdraw.ts";
-import { createCutDraw, type CutDrawing } from "./cutdraw.ts";
-import { drawLines } from "./sketchdraw.ts";
-import type { DrawLine } from "./sketchcontrol.ts";
-import { SOLID, SEE_THROUGH, surfaceOf, type Look } from "./looks.ts";
-import type { BodyMesh } from "./studio.ts";
-import type { Mark } from "./bodyselect.ts";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+import type { Mark } from "./bodyselect.ts";
+import { forward, fovOf, rightOf, upOf, type Cam } from "./camera.ts";
+import { createCutDraw, type CutDrawing } from "./cutdraw.ts";
+import { SEE_THROUGH, SOLID, surfaceOf, type Look } from "./looks.ts";
+import type { OrbDrawing } from "./orbcontrol.ts";
+import { drawOrb } from "./orbdraw.ts";
+import type { Scene as Model } from "./scene.ts";
+import { centreOf } from "./scene.ts";
+import { settings } from "./settings.ts";
+import type { DrawLine } from "./sketchcontrol.ts";
+import { drawLines } from "./sketchdraw.ts";
+import type { BodyMesh } from "./studio.ts";
+import type { V3 } from "./vec.ts";
 
 const vec = (v: V3) => new THREE.Vector3(v[0], v[1], v[2]);
 const rgb = (c: [number, number, number]) => new THREE.Color().setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace);

@@ -1,11 +1,11 @@
 // Copies of a body (E44 to E47): a linear or circular `pattern`, and a `mirror`. Each copy is a body of its own (E38) and every one of its faces has an id made from the face it copies and the number of the copy
 // (`mint(step, "copy", faceId, i)`), so a later step can name a face of the third copy, and an edit of the count removes exactly the copies that are no longer there (a reference to one is lost, E10).
 // A feature repeated (a hole, a boss) needs no step of its own: pattern the tool body, then combine with `tools` all of them.
-import * as K from "./kernel.ts";
 import { type Id, mint } from "./id.ts";
+import * as K from "./kernel.ts";
 import { Body, type BodyRec, type FaceRec, bodyOf } from "./lineage.ts";
-import { checked, kinds, needBody, num, type Ctx, type Value } from "./steps.ts";
 import { recombine, viewOf } from "./scope.ts";
+import { type Ctx, type Value, checked, kinds, needBody, num } from "./steps.ts";
 
 type V3 = K.V3;
 const MAX_COPIES = 500;

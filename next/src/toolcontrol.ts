@@ -1,8 +1,8 @@
 // The tools, run the one way (`dec_three_surfaces`, `in_1598`, `in_1599`, `in_1602`): one controller for what is armed, which knows nothing of any tool. A menu item arms a tool (`arm`): its task (`tasks.ts`) says what is asked or told, in a persistent notice, goes on each frame and says when it
 // is done; a right click (`finish`) commits what is valid, throws away what is not and disarms; Esc (`cancel`) throws the draft away, then disarms; a badge follows the pointer (drawn from `armed()`). The mover's orient is the same lifecycle (`orient`), without a tool. It draws nothing:
 // its sentences are notices.
-import { toolOf, type ToolSpec } from "./interaction/toolspec.ts";
 import type { Handle } from "./interaction/notices.ts";
+import { toolOf, type ToolSpec } from "./interaction/toolspec.ts";
 import { orient, taskFor, type Task, type ToolHost } from "./tasks.ts";
 
 export type { ToolHost } from "./tasks.ts";
@@ -80,4 +80,3 @@ export function createToolControl(host: ToolHost) {
     disarm,
   };
 }
-export type ToolControl = ReturnType<typeof createToolControl>;

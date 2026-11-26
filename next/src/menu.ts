@@ -1,8 +1,8 @@
 // The right-click ring, in the prototype's look (`app/src/ui/ring.ts`, `look.ts`): round white buttons with an icon (the words are in the
 // tooltip), a light shadow, a teal edge when pointed at, faded when they cannot be used, and a ring that unfolds from the click.
 // It closes on Esc, on a click outside it and after one item is chosen.
-import { settings } from "./settings.ts";
 import { iconSvg } from "./icons.ts";
+import { settings } from "./settings.ts";
 
 export interface MenuItem {
   id: string;

@@ -1,7 +1,6 @@
 // A body is an exact solid and, for each of its faces, an id (E6, E7); a step's result carries the ids of the input's faces through the operation by the kernel's own report,
 // completed by exact rules where the report is silent. A reference to a face that split resolves to its pieces (E8); to a face that merged, through its other ids (E9);
 // a reference that finds nothing is lost (E10) and never attaches to anything else.
-import * as K from "./kernel.ts";
 import {
   type EdgeRef,
   type Id,
@@ -16,6 +15,7 @@ import {
   show,
   vertexRef,
 } from "./id.ts";
+import * as K from "./kernel.ts";
 
 export interface FaceRec {
   id: Id;

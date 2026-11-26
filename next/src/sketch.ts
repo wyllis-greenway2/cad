@@ -1,7 +1,7 @@
 // Between a sketch plane's own two axes and the world (what is drawn is kept in the plane's axes, so it goes with the plane when the plane is moved). The figures themselves are the engine's definition (`interaction/drawing.ts`).
-import { add, dot, scale, sub, type V3 } from "./vec.ts";
 import type { Frame } from "./planes.ts";
 import { vOf } from "./planes.ts";
+import { add, dot, scale, sub, type V3 } from "./vec.ts";
 
 export type P2 = [number, number];
 export type ToolKind = "line" | "rect" | "circle" | "arc" | "trim";

@@ -1,6 +1,6 @@
 // Step kinds that misbehave on purpose, loaded only when the worker is started for testing (`workerData.debug`): they let the host's limits be tried.
-import { kinds } from "./steps.ts";
 import { Body } from "./lineage.ts";
+import { kinds } from "./steps.ts";
 const body = (inputs: unknown[]) => inputs.find((v) => v instanceof Body) as Body;
 /** takes `ms` milliseconds doing nothing useful, then passes its body on */
 kinds["debugHang"] = {

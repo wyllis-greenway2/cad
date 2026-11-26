@@ -1,7 +1,7 @@
 // A body moved and turned by the mover orb (`dec_task_handles`): from where the orb's frame was (the body's middle, the world's axes) to where it is now, the steps the engine knows (`turn` about the middle, then `move`), and the matrix to show it before it is made. Pure.
-import { cross, sub, unit, type V3 } from "../vec.ts";
 import type { Step } from "../engine/steps.ts";
 import type { Frame } from "../planes.ts";
+import { cross, sub, unit, type V3 } from "../vec.ts";
 
 /** the frame of a body's middle, in the world's own axes */
 export const baseFrame = (origin: V3): Frame => ({ origin, normal: [0, 0, 1], u: [1, 0, 0] });

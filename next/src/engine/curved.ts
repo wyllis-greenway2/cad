@@ -1,8 +1,7 @@
 // The curved step kinds (E7): revolve, loft, sweep, shell. Their lineage comes from the kernel's report for each operation (spike 6); where it is silent, an exact rule from the step's own inputs names the face.
 // Registered into the same table as the others (`kinds`); the engine imports this file for that.
-import * as K from "./kernel.ts";
-import { dot, scale, sub, unit } from "./vec.ts";
 import { type Id, mint } from "./id.ts";
+import * as K from "./kernel.ts";
 import { type Body, type Claim, type FaceRec, carry, fromClaims } from "./lineage.ts";
 import {
   type Sketch,
@@ -16,6 +15,7 @@ import {
   profileFace,
   sidesFromProfile,
 } from "./steps.ts";
+import { dot, scale, sub, unit } from "./vec.ts";
 
 type V3 = K.V3;
 
@@ -122,13 +122,11 @@ kinds["sweep"] = {
       face = profileFace(prof),
       p = K.pipe(spine, face);
     // how far along the path a face lies: the length to the nearest point of the path (exact from the step's own path)
-    const legs = spine
-      .slice(0, -1)
-      .map((a, i) => ({
-        a,
-        b: spine[i + 1]!,
-        from: spine.slice(0, i + 1).reduce((s, q, j) => (j === 0 ? 0 : s + Math.hypot(...sub(q, spine[j - 1]!))), 0),
-      }));
+    const legs = spine.slice(0, -1).map((a, i) => ({
+      a,
+      b: spine[i + 1]!,
+      from: spine.slice(0, i + 1).reduce((s, q, j) => (j === 0 ? 0 : s + Math.hypot(...sub(q, spine[j - 1]!))), 0),
+    }));
     const along = (f: K.FaceH) => {
       const c = K.facts(f).ce;
       let best = Infinity,

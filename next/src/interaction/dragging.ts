@@ -1,11 +1,11 @@
 // Dragging a part of a drawing as rules (`in_1576`): which points a press on a part holds, where a dragged point would stick, and the solve that follows the pointer. Pure: the definition and places in; the definition as the solver leaves it out.
 // The part is pinned where the pointer puts it (soft: it goes as near as the constraints allow) and the solve is made from where the drag began, so it does not drift. A point let go on another point or a curve lands there and makes no constraint (`in_1574`).
-import type { SketchParams } from "../engine/sketch.ts";
 import { solveDefinition } from "../engine/definition.ts";
-import type { Pt } from "../engine/region.ts";
-import { bake, hitAt, type Sol } from "./drawing.ts";
-import type { System } from "../engine/solver.ts";
 import type { Free } from "../engine/free.ts";
+import type { Pt } from "../engine/region.ts";
+import type { SketchParams } from "../engine/sketch.ts";
+import type { System } from "../engine/solver.ts";
+import { bake, hitAt, type Sol } from "./drawing.ts";
 
 /** the points a press on this part takes: the point itself (an arc's centre takes the arc with it), both ends of a line, a circle's centre; an arc's curve takes none (it sets the radius) */
 export function pinsOf(p: SketchParams, id: string): string[] {

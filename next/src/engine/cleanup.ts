@@ -1,11 +1,11 @@
 // The automatic cleanup of slivers (E33, `in_1487`, `in_1488`): when a step's result is valid but has a face thinner than the smallest feature (E27), the step's own number is moved to the nearest value
 // that leaves none, **only if the move is under the smallest feature**, and the move is an ordinary change in the document's history marked automatic, so undoing it is the history's own undo (nothing is changed
 // without a trace, E15). A number the person has undone is not moved again. The engine is only asked: each candidate is tried on a copy (`trial`), and a candidate that fails or makes something else worse is not applied.
+import { MIN_FEATURE } from "./clean.ts";
+import { type Doc, type History, editStep } from "./document.ts";
 import { type Engine } from "./engine.ts";
 import { trial } from "./failure.ts";
 import { kinds } from "./steps.ts";
-import { MIN_FEATURE } from "./clean.ts";
-import { type Doc, type History, editStep } from "./document.ts";
 
 export interface Proposal {
   step: string;

@@ -1,10 +1,10 @@
 // The drawing tools as rules (`in_1576`): what a click does to the tool under way and to the drawing, and what the tool would make where the pointer is. Pure: the tool, the definition, a place in the plane in; the tool, the edit (or nothing) and the lines to show out.
 // The controller (`sketchcontrol.ts`) only turns a pointer into a place and a result into the screen's words and lines. A line is two clicks (one that ends on a point already drawn goes on from it); a rectangle two corners; a circle the middle and a point on it;
 // an arc the centre, the start and where it ends; Trim is the engine's (`engine/trim.ts`), the controller's.
+import type { Pt } from "../engine/region.ts";
 import type { SketchParams } from "../engine/sketch.ts";
 import { addArc, addCircle, addLine, addRect, arcWay, posOf, type Ref, type Sol } from "./drawing.ts";
 import type { StrokeKind } from "./style.ts";
-import type { Pt } from "../engine/region.ts";
 import { emptyTyped } from "./typing.ts";
 
 export type DrawKind = "line" | "rect" | "circle" | "arc";

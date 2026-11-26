@@ -1,11 +1,10 @@
 // Several bodies in one answer (E38 to E43; `dec_independent_bodies`). A step that names a face, an edge or a body works on **that body alone**: the others pass through with the same faces, the same names
 // and the same geometry; what the step makes goes into the body it worked on, even where it runs into another body (bodies may overlap; only a combine joins or cuts bodies). A combine takes bodies by name
 // (`targets` of the first input, `tools` of the second; all of them when not said) and can keep them apart (`mode: "keep"`). With one body in the answer nothing here runs and the steps are as they were.
+import { type Id, idKey, piece, show } from "./id.ts";
 import * as K from "./kernel.ts";
-import { type Id } from "./id.ts";
 import { Body, type BodyRec, type FaceRec, RefLost, bodyOf } from "./lineage.ts";
 import { type Ctx, type Value, kinds } from "./steps.ts";
-import { idKey, piece, show } from "./id.ts";
 
 /** the solid each body of a scene is, by the order of the scene's faces */
 function solidsOfBodies(scene: Body, parts: readonly BodyRec[]): K.Solid[] {

@@ -1,7 +1,7 @@
 // The step list on the page (`in_1567`, `q_lean_ui`): a small panel at the top left, shown when the "..." menu's History item is on (`in_1600`) and there is a step. Each step of the recipe: its icon
 // and name, a mark when the engine flagged it (with its words), and its numbers as pills to type over (the same pill as the bubbles'). It draws `interaction/steplist.ts`'s rows and says what was typed; it decides nothing.
-import type { Row } from "./interaction/steplist.ts";
 import { iconSvg } from "./icons.ts";
+import type { Row } from "./interaction/steplist.ts";
 import { settings } from "./settings.ts";
 
 export interface StepListHandlers {

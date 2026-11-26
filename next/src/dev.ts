@@ -1,9 +1,9 @@
 // Aids for trying the world view by hand at this stage. None of it is part of the app: the address picks the stand-in model and can tune a
 // number, the B key adds or takes away the stand-in things (so the
 // axes' change from scaled to scale free can be seen), and `window.__cad` lets a script read the state and put the camera somewhere.
-import { settings } from "./settings.ts";
-import { demoScene, emptyScene, oneScene, type Scene } from "./scene.ts";
 import type { Cam } from "./camera.ts";
+import { demoScene, emptyScene, oneScene, type Scene } from "./scene.ts";
+import { settings } from "./settings.ts";
 import type { ViewState } from "./view.ts";
 
 /** The world starts empty. For trying things by hand: `?boxes=1` one box at the origin, `?boxes=3` three. */

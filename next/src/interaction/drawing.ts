@@ -1,13 +1,13 @@
 // Drawing on the engine's own definition (`in_1564`): what a click does to a sketch's points, lines, circles and constraints, as pure functions of the definition (`SketchParams`) and a place in the sketch's plane (mm). The screen's controller
 // (`sketchcontrol.ts`) turns a pointer into a place and calls these; every edit is solved (`solveDefinition`, no kernel) before it is kept, and one the solver refuses leaves the definition as it was and says which constraints hold it back.
 // A figure drawn on an earlier one shares its point (a click on a point is that point) or puts its new point on the line or circle where it was clicked; no constraint is made by a click (the person asks for those).
-import type { SketchParams } from "../engine/sketch.ts";
-import { solveDefinition, systemOf, segsOf } from "../engine/definition.ts";
+import { segsOf, solveDefinition, systemOf } from "../engine/definition.ts";
 import { Refusal } from "../engine/refusal.ts";
-import { pointOnSeg, alongSeg, type Pt, type Seg } from "../engine/region.ts";
+import { alongSeg, pointOnSeg, type Pt, type Seg } from "../engine/region.ts";
+import type { SketchParams } from "../engine/sketch.ts";
 import { RANGEABLE, type Constraint, type Relation, type System } from "../engine/solver.ts";
-import { offersFor } from "./suggest.ts";
 import { placed } from "./bubbles.ts";
+import { offersFor } from "./suggest.ts";
 
 export type Sol = { points: Record<string, [number, number]>; radii: Record<string, number> };
 export const emptySketch = (): SketchParams => ({ points: [], lines: [], circles: [], arcs: [], constraints: [] });

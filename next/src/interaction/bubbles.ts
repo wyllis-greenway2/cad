@@ -1,6 +1,6 @@
-// The bubbles (`q_lean_ui`, `in_1562`): the one bubble that stands on the part of a sketch it belongs to. It has two contents: a constraint (its icon) and a dimension (its number). Only the constraints of what is selected are shown (`in_058`..`in_061`);
-// a refusal flashes the ones that hold a change back (red) and an already-holding one flashes mild green. Pure: the solver's system and the selection in, descriptions out (where it belongs in the sketch's own axes, what it says, its tone);
-// the screen (`bubbledraw.ts`) places and draws them, and `bubbleplace.ts` (the prototype's) says where on the page each stands.
+// The facts of a sketch (`q_lean_ui`, `in_1562`, `dec_marks_on_things`): what a constraint or a number is, where it stands (`whereOf`: literally, on the point or the touching place), what a selection takes in (`scopeOf`: going down, never up),
+// and the numbers as they are shown (a circle by its diameter, an angle inside its corner). A fact is a constraint (its icon) or a dimension (its number); `marks.ts` says which show and in what state, `markdraw.ts` draws them.
+// Pure: the solver's system and the selection in, descriptions out.
 import {
   RANGEABLE,
   RELATIONS,
@@ -26,9 +26,6 @@ export interface Bubble {
   tone: BubbleTone;
   /** the words (a tooltip): what it is and what it ties the selection to */ title: string;
   parts: string[];
-  /** a constraint a helper held, offered for a moment: a click makes it `taken`: it was, and shows a check */ offer?:
-    "open" | "taken";
-  /** how much of its colour is left while it fades (1: all) */ fade?: number;
   /** how a typed number becomes the solver's value (a circle is shown by its diameter: the value is half of it; an angle is shown inside the corner: `mul` and `add` turn it into the directed angle the solver reads): value = mul * typed + add */ input?: {
     mul: number;
     add: number;

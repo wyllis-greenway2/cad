@@ -1,12 +1,12 @@
 // The operations the screen knows (`in_1576`): each is a function from what was picked to an `Operation` description (`operation.ts`). The steps they make are `interaction/extrude.ts`'s; the numbers and kinds are the engine's (`pullModes`, E32).
-import type { SketchParams } from "../engine/sketch.ts";
 import type { EdgeRef, Id } from "../engine/id.ts";
+import type { SketchParams } from "../engine/sketch.ts";
 import type { Step } from "../engine/steps.ts";
-import { to3 } from "../sketch.ts";
 import { vOf, type Frame } from "../planes.ts";
-import { extrudeSteps, pushSteps, roundSteps, type Region } from "./extrude.ts";
-import type { Operation, OpOption } from "./operation.ts";
+import { to3 } from "../sketch.ts";
 import type { V3 } from "../vec.ts";
+import { extrudeSteps, pushSteps, roundSteps, type Region } from "./extrude.ts";
+import type { OpOption, Operation } from "./operation.ts";
 
 /** what a sketch that lies on a face of a body is made from: the face and the step that made the body */
 export interface Source {

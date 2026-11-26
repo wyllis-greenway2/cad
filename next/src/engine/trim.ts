@@ -4,9 +4,9 @@
 //   an arc becomes the one or two arcs that remain about the same centre (the second equal in radius to the first); a circle becomes the arc that remains
 //   each new end is the crossing: a point on what cut it (or that point, where one already is), so the trim follows the cutter when it is moved
 //   constraints stay where they still mean the same (a line's direction, a tangent, a point on it, a circle's size); a length, an equal length and a midpoint belonged to the whole line and go, and each is reported with why
-import { alongSeg, crossingPoints, pointOnSeg, type Pt, type Seg } from "./region.ts";
-import { Refusal } from "./refusal.ts";
 import { segsOf, solveDefinition } from "./definition.ts";
+import { Refusal } from "./refusal.ts";
+import { alongSeg, crossingPoints, pointOnSeg, type Pt } from "./region.ts";
 import type { SketchParams } from "./sketch.ts";
 import type { Constraint } from "./solver.ts";
 

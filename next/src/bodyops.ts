@@ -1,9 +1,9 @@
 // The operation a tool for what is picked on a body opens (`dec_task_handles`): round and chamfer (the arrow out of the edge), push and pull (the arrow on the face, with the kinds the engine says the face has). The page gives the engine's facts; the descriptions are `interaction/operations.ts`.
-import { idKey } from "./engine/id.ts";
-import type { createStudio } from "./studio.ts";
 import type { Selection } from "./bodyselect.ts";
-import { pushOp, roundOp, type PullInfo } from "./interaction/operations.ts";
+import { idKey } from "./engine/id.ts";
 import type { Operation } from "./interaction/operation.ts";
+import { pushOp, roundOp, type PullInfo } from "./interaction/operations.ts";
+import type { createStudio } from "./studio.ts";
 import { add, unit, type V3 } from "./vec.ts";
 
 export interface BodyOpsHost {

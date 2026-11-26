@@ -1,7 +1,7 @@
 // The marks on the sketch (`dec_marks_on_things`): each mark of `interaction/marks.ts` drawn standing on its part, with the one lock on its corner (`chipdraw.ts`): closed and green (applied), open and yellow (offered, a click applies it), closed and red (it held a
 // change back: it flashes). A constraint is a round chip, a number a pill; the chips that stand at one spot are side by side in one pill (`in_1620`). A press and a drag on a mark moves it out of the way (forgotten once it is gone); a pill that would cover another is moved
 // along until it does not. It only draws and says what was pressed.
-import { createChips, STATE, type InfoHandlers } from "./chipdraw.ts";
+import { STATE, createChips, type InfoHandlers } from "./chipdraw.ts";
 import type { Mark } from "./interaction/marks.ts";
 import { settings } from "./settings.ts";
 

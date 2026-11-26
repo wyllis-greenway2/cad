@@ -1,21 +1,21 @@
 // The step kinds of the first slice (E2): a step takes the values of its inputs and returns a body or a sketch. Each is pure: the same step and inputs give the same body and the same ids (E20).
 // A step that cannot be made throws; the engine flags it and passes `passthrough` on, a value of the step's own output type (E13).
+import { type EdgeRef, type Id, idKey, mint, show } from "./id.ts";
 import * as K from "./kernel.ts";
-import { cross, dot, faceAxes, scale, sub, unit } from "./vec.ts";
-import { type EdgeRef, type Id, idKey, isPieceOf, mint, show } from "./id.ts";
 import {
   type Age,
   Body,
   type Claim,
   type EdgeRec,
-  RefLost,
   type FaceRec,
+  RefLost,
   carry,
   fromClaims,
   markImprinted,
   unifyBody,
 } from "./lineage.ts";
 import { pointedLimit, rimOf } from "./rounds.ts";
+import { cross, dot, faceAxes, scale, sub, unit } from "./vec.ts";
 
 /** a side of a sketch: straight, or an arc through `mid` */
 export interface Line {
@@ -454,14 +454,12 @@ export const kinds: Record<string, Kind> = {
           claims: Claim[] = [];
         const edges = from.edges().filter((e) => m.rounded.some((x) => K.sameEdge(x, e.h)));
         edges.forEach((e, n) =>
-          m
-            .round(e.h)
-            .forEach((face, k) =>
-              claims.push({
-                id: e.ref ? mint(step.id, "round", e.ref.a, e.ref.b, k) : mint(step.id, "round", "free", n, k),
-                face,
-              }),
-            ),
+          m.round(e.h).forEach((face, k) =>
+            claims.push({
+              id: e.ref ? mint(step.id, "round", e.ref.a, e.ref.b, k) : mint(step.id, "round", "free", n, k),
+              face,
+            }),
+          ),
         );
         return checked(corners(carry(m.solid, m.report, [from], claims, step.id, age), step.id), `the ${mode}`);
       };

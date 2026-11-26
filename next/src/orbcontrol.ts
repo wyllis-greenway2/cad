@@ -1,8 +1,8 @@
 // The mover orb's controller: the one place that turns presses, drags and keys on the orb into changes of the thing it stands for. It knows nothing of what the thing is (a cut plane now,
 // a body or a sketch plane later): the host says what the orb is on, takes the new frame when it moves, and makes a copy when a second arrow is dragged. The maths is in orb.ts and mover.ts.
 import { forward, type Cam } from "./camera.ts";
-import { dragTo, handlesOf, hitHandle, startGrab, unitOf, type Grab, type Handle, type Orb } from "./orb.ts";
 import { applyDrag, centreOf, choose, clonePose, heldAxes, newPose, type Pose } from "./mover.ts";
+import { dragTo, handlesOf, hitHandle, startGrab, unitOf, type Grab, type Handle, type Orb } from "./orb.ts";
 import type { Frame } from "./planes.ts";
 
 export interface OrbHost {

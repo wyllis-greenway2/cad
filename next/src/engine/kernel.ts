@@ -1,20 +1,18 @@
 // The kernel adapter (E1, `inv_kernel_boundary`): the only file that touches OCCT or replicad. Everything it hands out is plain data or an opaque handle;
 // the engine above it knows nothing of the kernel's own objects. Numbers it returns are exact (E11): rounding is for the screen only.
-import initOC from "replicad-opencascadejs";
 import {
-  setOC,
-  cast,
-  Face,
   Edge,
-  downcast,
+  Face,
   HASH_CODE_MAX,
-  draw,
-  makeLine,
-  makeCircle,
-  makeThreePointArc,
   assembleWire,
-  drawCircle,
+  cast,
+  downcast,
+  makeCircle,
+  makeLine,
+  makeThreePointArc,
+  setOC,
 } from "replicad";
+import initOC from "replicad-opencascadejs";
 
 export type V3 = readonly [number, number, number];
 type Raw = any; // the kernel's own objects: they do not leave this file

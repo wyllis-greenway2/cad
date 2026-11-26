@@ -1,10 +1,10 @@
 // A drag of a sketch, asked of the worker (E58): the same solver as the commit, with the points the person is dragging as pins; the answer is where every point and circle ends up, what could not be
 // reached and what was held, or a refusal that names the constraints in the way (E55). The recipe is not changed and nothing is made: this is the picture of the drag, and the commit is an ordinary edit.
-import { Body } from "./lineage.ts";
 import { type Engine } from "./engine.ts";
+import * as K from "./kernel.ts";
+import { Body } from "./lineage.ts";
 import { type SketchParams, makeSketch } from "./sketch.ts";
 import { type Sketch, Refusal } from "./steps.ts";
-import * as K from "./kernel.ts";
 
 export type DragAnswer =
   | {

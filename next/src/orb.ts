@@ -3,9 +3,9 @@
 //   rotate  a ring about each of X, Y, Z;
 //   copy    the move arrows with a second arrow beyond the end of each: dragged, it makes a copy.
 // Pure: where the handles are, which one the pointer is at, and what a drag of one means. The drawing and the page's buttons are elsewhere.
-import { add, cross, dot, len, scale, sub, unit, type V3 } from "./vec.ts";
-import { project, rayFrom, viewHeight, forwardDepth, type Cam } from "./camera.ts";
+import { forwardDepth, project, rayFrom, viewHeight, type Cam } from "./camera.ts";
 import { settings } from "./settings.ts";
+import { add, cross, dot, len, scale, sub, unit, type V3 } from "./vec.ts";
 
 export interface Orb {
   centre: V3;

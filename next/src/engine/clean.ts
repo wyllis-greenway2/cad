@@ -1,8 +1,8 @@
 // "Clean" and "something happened" (E27, E29, E33): the checks after a step that the kernel's own validity does not make. A result can be a valid solid and still be a sliver of a few hundredths of a millimetre
 // where a near-tangent hole meets a bore, or a valid solid that is the very body the step was given (the round that took nothing, the cut that missed). Both are said, in words, with the face or step named.
-import * as K from "./kernel.ts";
-import { type Body, type Note, type FaceRec } from "./lineage.ts";
 import { show } from "./id.ts";
+import * as K from "./kernel.ts";
+import { type Body, type FaceRec, type Note } from "./lineage.ts";
 
 /** the smallest feature the model allows, in mm (`in_1488`: 0.01) */
 export const MIN_FEATURE = 0.01;

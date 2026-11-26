@@ -1,12 +1,12 @@
 // What is picked on the bodies (`in_1568`): a face, or edges (Shift adds), by the names the steps use. A click on a body picks; a click on nothing puts the pick away; the pointer over a body marks what a click would pick (fainter). The marks go to the
 // world as the Marked look (teal over the body); the helper bar (`bodybar.ts`) stands beside the pick, up and to the right, and its buttons are the operations (the host does them).
 import { project, type Cam } from "./camera.ts";
-import { pickAt, type Hit } from "./interaction/pick.ts";
+import type { InfoHandlers } from "./infobardraw.ts";
 import { barForBody } from "./interaction/bodybar.ts";
 import type { Info } from "./interaction/infobar.ts";
-import type { InfoHandlers } from "./infobardraw.ts";
-import type { BodyMesh, EdgeInfo, FaceInfo } from "./studio.ts";
+import { pickAt, type Hit } from "./interaction/pick.ts";
 import type { BodyPick, Selection as Store } from "./selection.ts";
+import type { BodyMesh } from "./studio.ts";
 
 export interface Mark {
   body: string;

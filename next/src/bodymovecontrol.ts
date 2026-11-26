@@ -1,9 +1,9 @@
 // A body moved and turned by the mover orb (`dec_task_handles`): the draft is the orb's frame, from the body's middle to where it has been taken. The orb (`orbcontrol.ts`) is given this as its subject; the body is shown moved (the world takes `preview()`); the steps are made
 // when the task commits. Knows nothing of the orb's maths or of the engine's: `interaction/bodymove.ts` has them.
-import type { BodyMesh } from "./studio.ts";
 import type { Step } from "./engine/steps.ts";
-import type { Frame } from "./planes.ts";
 import { baseFrame, matrixOf, moveSteps } from "./interaction/bodymove.ts";
+import type { Frame } from "./planes.ts";
+import type { BodyMesh } from "./studio.ts";
 import type { V3 } from "./vec.ts";
 
 export interface BodyMoveHost {

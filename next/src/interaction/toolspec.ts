@@ -1,7 +1,7 @@
 // The tools, as data (`dec_three_surfaces`, `in_1598`, `in_1599`): every item of the circle menu is one of these, and the framework treats all of them the same way. A tool is a list of NEEDS, what must be picked (in order, with the sentence that asks for it),
 // and what it is (`kind`: how the page runs it). A constraint is a tool whose needs come from the relation table, so the constraints in the menu need no code of their own. New tools are new entries; nothing here draws anything. Pure.
-import { RANGEABLE, RELATIONS, kindOf, type Relation, type System } from "../engine/solver.ts";
 import { fits, kindTuples } from "../engine/relations.ts";
+import { RANGEABLE, RELATIONS, kindOf, type Relation, type System } from "../engine/solver.ts";
 import { iconOf } from "./bubbles.ts";
 
 export type Pick = "place" | "region" | "face" | "edge" | "body" | "part" | "line" | "circle" | "point";

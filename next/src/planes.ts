@@ -1,8 +1,8 @@
 // A flat surface for sketching: a point on it, the way it faces and which way its first axis runs. One sketch plane is active and carries the grid; the world's X, Y, Z planes are the
 // other kind of sketch plane (view.ts); this is one placed anywhere, at any angle.
-import { cross, scale, unit, type V3 } from "./vec.ts";
 import { forward, type Cam } from "./camera.ts";
 import { settings } from "./settings.ts";
+import { cross, scale, unit, type V3 } from "./vec.ts";
 
 export interface Frame {
   origin: V3;

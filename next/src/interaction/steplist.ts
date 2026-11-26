@@ -1,8 +1,8 @@
 // The step list (`in_1567`, the prototype's History list): what the recipe is made of, in order, each with its status and the numbers that can be changed in place (an extrude's distance, a sketch's dimensions). Pure: the recipe and what the engine last said in,
 // rows out; and `editNumber`, the new recipe when one number is changed (the studio sends it to the engine; a step that then fails is flagged with the reason and the rest passes through, as always: undo puts it back).
-import type { Step } from "../engine/steps.ts";
 import type { StepSnap } from "../engine/protocol.ts";
 import { RANGEABLE, RELATIONS, type Constraint } from "../engine/solver.ts";
+import type { Step } from "../engine/steps.ts";
 
 export interface NumberRow {
   /** where it is in the step: `d`, or `c:<constraint id>` */ key: string;

@@ -1,71 +1,32 @@
 // The sketching controller (`in_1564`): a sketch is the engine's own definition (points, lines, circles, constraints: `SketchParams`), one for each plane, drawn, selected, dimensioned and trimmed here, and solved by the engine's solver
 // at every edit (`interaction/drawing.ts`; no kernel). It turns the pointer into a place in the plane and the engine's answers into what the page shows: the lines, the bubbles of what is selected (`bubbledraw.ts`), a sentence.
 // The tool that is on: Line, Rectangle, Circle (the figure goes on being made until the tool is put away), or Trim (a click on a piece of a line, arc or circle takes off the part between the places where others cross it).
-import { viewHeight, forwardDepth, project, type Cam } from "./camera.ts";
-import { onPlane, to2, to3, type P2, type ToolKind } from "./sketch.ts";
+import { segsOf } from "./engine/definition.ts";
+import type { Free } from "./engine/free.ts";
+import { helpersAt, type Helped } from "./engine/helpers.ts";
+import { regions } from "./engine/region.ts";
+import type { SketchParams } from "./engine/sketch.ts";
+import { trimAt } from "./engine/trim.ts";
+import { measureAt, placeTyped, type TypedMeasure } from "./engine/typed.ts";
+import { angleMark, bubblesOn, scopeOf } from "./interaction/bubbles.ts";
+import { hitAt, keep, nextId, posOf, refOf, removeParts, tidy, type Ref, type Sol } from "./interaction/drawing.ts";
+import { loopPoints, regionAt, type Region } from "./interaction/extrude.ts";
+import { helpShown } from "./interaction/helpshow.ts";
+import { type Mark } from "./interaction/marks.ts";
+import { cancelFigure, newTool, toolClick, toolPreview, type Tool } from "./interaction/tools.ts";
+import { kindsOfSelection } from "./interaction/toolspec.ts";
+import { FIELDS, chipFields, freeOf, madeNames, typeKey, typedMeasures } from "./interaction/typing.ts";
+import type { PlacedMark } from "./markdraw.ts";
 import type { Frame } from "./planes.ts";
 import { vOf } from "./planes.ts";
-import { add, scale, type V3 } from "./vec.ts";
-import type { SketchParams } from "./engine/sketch.ts";
-import { solveDefinition, segsOf } from "./engine/definition.ts";
-import { pointOnSeg, type Pt } from "./engine/region.ts";
-import { trimAt } from "./engine/trim.ts";
-import type { Relation } from "./engine/solver.ts";
-import type { Selection } from "./selection.ts";
-import type { NoticeOptions } from "./interaction/notices.ts";
-import {
-  bake,
-  constrain,
-  emptySketch,
-  hitAt,
-  keep,
-  nextId,
-  posOf,
-  refOf,
-  removeParts,
-  retype,
-  tidy,
-  unconstrain,
-  viewSystem,
-  type Ref,
-  type Sol,
-} from "./interaction/drawing.ts";
-import { MEASURE_ID, angleMark, bubblesOn, scopeOf, type Flash } from "./interaction/bubbles.ts";
-import { marksFor, type Mark, type Recent } from "./interaction/marks.ts";
-import type { MarkHandlers, PlacedMark } from "./markdraw.ts";
 import { settings } from "./settings.ts";
-import { kindsOfSelection } from "./interaction/toolspec.ts";
-import { nearConstraint, type Fact } from "./interaction/infobar.ts";
-import type { InfoHandlers } from "./infobardraw.ts";
-import { helpersAt, type Helped } from "./engine/helpers.ts";
-import type { Free } from "./engine/free.ts";
-import { measureAt, placeTyped, type TypedMeasure } from "./engine/typed.ts";
-import { FIELDS, chipFields, freeOf, madeNames, typeKey, typedMeasures } from "./interaction/typing.ts";
-import { helpShown } from "./interaction/helpshow.ts";
-import { newTool, cancelFigure, toolClick, toolPreview, type Tool } from "./interaction/tools.ts";
-import { activeOf, dragRadius, dragTo, freeOfDrag, joinFor, pieceOf, pinsOf, without } from "./interaction/dragging.ts";
-import { loopPoints, regionAt, type Region } from "./interaction/extrude.ts";
-import { regions } from "./engine/region.ts";
+import { to3, type P2, type ToolKind } from "./sketch.ts";
+import { createCore, type DrawLine, type SketchHost } from "./sketchcore.ts";
+import { createDrag } from "./sketchdrag.ts";
+import { createMarks } from "./sketchmarks.ts";
+import { add, scale, type V3 } from "./vec.ts";
 
-export interface SketchHost {
-  view(): { cam: Cam; w: number; h: number };
-  /** Every plane there is, by name (the sketches of a plane that is gone are let go), and the one that is on. */
-  planes(): { all: Map<string, Frame>; on: string; step: number };
-  ray(x: number, y: number): { o: V3; d: V3 };
-  /** digits typed with a part selected go to its number in the info bar (false: there is none), and whether a number is being typed */
-  startEdit(id: string, initial: string): boolean;
-  editing(): boolean;
-  /** a sentence for the person, through the page's one notice (`interaction/notices.ts`) */
-  notify(text: string, o?: NoticeOptions): void;
-  /** the page's one selection (`selection.ts`): what is selected in a sketch is kept there, so selecting on a body puts it away */
-  selection: Selection;
-}
-export interface DrawLine {
-  pts: V3[];
-  /** a ball's radius, in mm */ r?: number;
-  /** a dashed line's dash, in mm (the gap is 0.7 of it) */ dash?: number;
-  kind: "done" | "selected" | "preview" | "cursor" | "cut" | "tie" | "tieBall" | "guide" | "ball" | "note";
-}
+export type { DrawLine, SketchHost } from "./sketchcore.ts";
 
 /** the keys that type a number (and what each types) */
 const TYPED: Record<string, string> = {
@@ -82,47 +43,10 @@ const TYPED: Record<string, string> = {
 };
 
 export function createSketch(host: SketchHost, on?: (label: string, merge?: string) => void) {
-  const defs = new Map<string, SketchParams>(),
-    sols = new WeakMap<SketchParams, Sol>(),
-    fillCache = new WeakMap<SketchParams, [number, number][][][]>();
-  const sel = host.selection;
-  let tool: Tool | null = null,
-    flash: Flash = {},
-    flashUntil = 0,
-    recent: (Recent & { key: string }) | null = null,
-    activeSince = new Map<string, number>(); // (activeSince: when each constraint doing work in a drag began to, for its fade) // (recent: the parts just made, whose offers show for a while even when nothing is selected, `dec_marks_on_things`)
-  const say = (text: string, ms = 4000) => host.notify(text, { ttl: ms });
-  const systems = new WeakMap<SketchParams, ReturnType<typeof viewSystem>>(),
-    sysOf = (p: SketchParams) => {
-      let y = systems.get(p);
-      if (!y) {
-        y = viewSystem(p, solOf(p));
-        systems.set(p, y);
-      }
-      return y;
-    }; // (a definition has one system: asked for by every part of a frame)
-  const solOf = (p: SketchParams): Sol => {
-    let s = sols.get(p);
-    if (!s) {
-      const r = solveDefinition(p);
-      s = { points: r.points, radii: r.radii };
-      sols.set(p, s);
-    }
-    return s;
-  };
-  const current = () => {
-    const { all, on } = host.planes();
-    const f = all.get(on);
-    return f ? { key: on, f, p: defs.get(on) ?? emptySketch() } : null;
-  };
-  /** what is selected in the sketch of a plane, as far as it is still there (a part taken away, by a deletion or an undo, is not selected any more) */
-  const selected = (key: string): string[] => {
-    const p = defs.get(key),
-      ids = [...sel.sketch(key)];
-    if (!p) return ids;
-    const has = new Set([...p.points, ...(p.lines ?? []), ...(p.circles ?? []), ...(p.arcs ?? [])].map((x) => x.id));
-    return ids.filter((id) => has.has(id));
-  };
+  const K = createCore(host, on);
+  const { defs, fillCache, sel, st, say, sysOf, solOf, current, selected, dashAt, mmPerPx, here, set, fail, polyline } =
+    K;
+  let tool: Tool | null = null;
   /** a pixel's worth of the plane in mm, where the pointer is */
   /** where a click would put the place: on a point or curve as drawn, else drawn to the helpers' places (they place, they never constrain, `dec_hints_place_only`, `in_1579`) */
   type PlaceResult = {
@@ -183,155 +107,6 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       at: [m.centre[0] + (r + 16 * mm) * Math.cos(mid), m.centre[1] + (r + 16 * mm) * Math.sin(mid)],
     };
   };
-  /** the dash of a guide, as the old app's (`settings.helpers.dash` of the view's distance; worked from the view's height over twice the tangent of half its angle, so it is the same in the straight view) */
-  const dashAt = (f: Frame, q: P2) => {
-    const { cam } = host.view();
-    return (
-      (viewHeight(cam, Math.max(forwardDepth(cam, to3(f, q)), 1e-3)) * settings.helpers.dash) /
-      (2 * Math.tan((settings.view.fovDeg * Math.PI) / 360))
-    );
-  };
-  const mmPerPx = (f: Frame, q: P2) => {
-    const { cam, h } = host.view();
-    return viewHeight(cam, Math.max(forwardDepth(cam, to3(f, q)), 1e-3)) / h;
-  };
-  const here = (x: number, y: number) => {
-    const c = current();
-    if (!c) return null;
-    const r = host.ray(x, y),
-      q = onPlane(c.f, r.o, r.d);
-    if (!q) return null;
-    const mm = mmPerPx(c.f, to2(c.f, q));
-    return { ...c, q: to2(c.f, q), mm, tol: mm * settings.sketch.snapPx };
-  };
-  /** a change of a sketch: kept, and said to whoever keeps the history (`label`: what it was; `merge`: changes with the same key are one, a number typed again and again) */
-  const set = (key: string, p: SketchParams, label: string, merge?: string) => {
-    defs.set(key, tidy(p));
-    on?.(label, merge);
-  }; // (a change leaves nothing behind: `tidy`)
-  const fail = (why: string, victims: string[]) => {
-    host.notify(why, { kind: "warn", ttl: 4000 });
-    flash = { refused: victims };
-    flashUntil = performance.now() + 1800;
-  };
-
-  /** what a drag in progress shows of the constraints: the ones doing work fade in (green), the ones that hold the drag back flash (red) */
-  const working = (active: string[], held: string[]) => {
-    const now = performance.now();
-    for (const id of active) if (!activeSince.has(id)) activeSince.set(id, now);
-    flash = { ...(held.length ? { refused: held } : {}), ...(active.length ? { applied: active } : {}) };
-    flashUntil = now + 400;
-    if (held.length) say("Held back by the constraints shown in red", 600);
-  };
-  // ---- a part dragged: the solver follows the pointer with the part pinned where it goes (soft: it goes as near as the constraints allow); a point let go on another point or on a curve joins it
-  type Drag = {
-    key: string;
-    def0: SketchParams;
-    pins: string[];
-    start: Record<string, [number, number]>;
-    q0: P2;
-    x0: number;
-    y0: number;
-    moved: boolean;
-    shift: boolean;
-    id: string;
-    join: { id: string; kind: "point" | "curve" } | null;
-    snapAt: P2 | null;
-    /** a circle's edge pressed: its radius follows the pointer (the circle, its centre) */ edge: {
-      circle: string;
-      centre: string;
-      ends?: [string, string];
-    } | null;
-    /** what the helpers say of where it is (the same rules as when it was drawn: they place, they never constrain) */ help: Helped | null;
-  };
-  let drag: Drag | null = null;
-
-  /** what the info bar's buttons do (`dec_three_surfaces`): a suggestion is applied; a constraint clicked is taken away; a number typed over is the number (a measured one locks); a padlock locks or lets go */
-  const handlers: MarkHandlers = {
-    suggest(id) {
-      const c = current();
-      if (!c) return;
-      const nc = nearConstraint(id);
-      if (!nc) {
-        act(id);
-        return;
-      }
-      const k = keep({
-        ...c.p,
-        constraints: [
-          ...(c.p.constraints ?? []),
-          { id: nextId(c.p, "c"), kind: nc.kind, parts: nc.parts, ...(nc.internal ? { internal: true } : {}) },
-        ],
-      });
-      if (k.ok) set(c.key, k.params, "Constraint");
-      else fail(k.why, k.victims);
-    },
-    /** an offered constraint, from a mark: the parts it is offered for are selected, and it is applied */
-    offer(id, over) {
-      const c = current();
-      if (!c) return;
-      sel.setSketch(c.key, over);
-      recent = null;
-      this.suggest(id);
-    },
-    fact(id) {
-      const c = current();
-      if (!c) return;
-      const r = unconstrain(c.p, id);
-      if (r.ok) set(c.key, r.params, "Delete constraint");
-      else fail(r.why, r.victims);
-    },
-    set(id, value) {
-      const c = current();
-      if (!c) return;
-      if (id === MEASURE_ID) {
-        lockMeasure(value);
-        return;
-      } // (a number typed over one that is only measured locks it at that number)
-      const r = retype(c.p, id, value);
-      if (r.ok) {
-        set(c.key, r.params, "Number", `n:${id}`);
-        flash = {};
-      } else fail(r.why, r.victims);
-    },
-    lock(id) {
-      const c = current();
-      if (!c) return;
-      if (id === MEASURE_ID) {
-        lockMeasure();
-        return;
-      } // (measured: lock it at what it measures now)
-      const r = unconstrain(c.p, id);
-      if (r.ok) set(c.key, r.params, "Unlock");
-      else fail(r.why, r.victims); // (locked: let it go; it is only measured again)
-    },
-  };
-
-  /** the selection's own number locked: at what it measures now, or at the number typed */
-  const lockMeasure = (value?: number) => {
-    const c = current();
-    if (!c) return;
-    const r = constrain(c.p, solOf(c.p), selected(c.key), "dimension", value);
-    if (r.ok) {
-      set(c.key, r.params, value === undefined ? "Lock number" : "Number");
-      flash = { applied: [r.added] };
-      flashUntil = performance.now() + 900;
-    } else fail(r.why, r.victims);
-  };
-  /** a press on the helper bar: a relation is put on the selection */
-  const act = (id: string): void => {
-    const c = current();
-    if (!c) return;
-    if (id.startsWith("rel:")) {
-      const r = constrain(c.p, solOf(c.p), selected(c.key), id.slice(4) as Relation | "dimension");
-      if (r.ok) {
-        set(c.key, r.params, "Constraint");
-        flash = { applied: [r.added] };
-        flashUntil = performance.now() + 900;
-      } else fail(r.why, r.victims);
-    }
-  };
-
   /** a figure made with a click: kept if the engine accepts it */
   const commit = (key: string, next: SketchParams | null, label: string) => {
     if (!next) return;
@@ -339,8 +114,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     if (k.ok) set(key, k.params, label);
     else fail(k.why, k.victims);
   };
-  let ownId: string | null = null,
-    lastPointer: { x: number; y: number } | null = null,
+  let lastPointer: { x: number; y: number } | null = null,
     clickAt: ((x: number, y: number, count: number) => boolean) | null = null;
   /** a key while a figure is under way: digits, a point and a minus go to the active number, Backspace takes one away, Tab changes number, Enter makes the figure from what is typed (`typing.ts`) */
   const typeInTool = (code: string): boolean => {
@@ -372,8 +146,52 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       return { id: h.id, err: (x as Error).message };
     }
   };
-  const polyline = (s: ReturnType<typeof segsOf>[number]): Pt[] =>
-    s.kind === "line" ? [s.a, s.b] : Array.from({ length: 65 }, (_, k) => pointOnSeg(s, (k / 64) * s.sweep));
+
+  /** the numbers of a figure under way, standing on it (null: no figure is under way): a line's length and a circle's diameter at the middle of it, a rectangle's width on its bottom side and its height on the side at the pointer */
+  const fieldMarks = (c: { key: string; f: Frame; p: unknown }, at3: (m: Mark) => PlacedMark): PlacedMark[] | null => {
+    const p = c.p as SketchParams;
+    if (tool && tool.pts.length) {
+      // a figure under way: its numbers stand on it, as they are measured (open) or typed (closed); they take digits from the keys and are not clicked
+      if (tool.kind === "trim" || !FIELDS[tool.kind].length || !lastPointer) return [];
+      const s = solOf(p),
+        S = sysOf(p),
+        hereNow = here(lastPointer.x, lastPointer.y),
+        kind = tool.kind;
+      if (!hereNow) return [];
+      const pl = placed(hereNow, s),
+        to = posOf(s, pl.ref),
+        from = tool.pts[0] ? posOf(s, tool.pts[0]) : to,
+        live = FIELDS[kind].map((f) => measureAt(S, pl.free, to, f.kind, f.parts));
+      return chipFields(kind, tool.typed, tool.field, live).map((f) => {
+        const where: P2 =
+          kind === "rect"
+            ? f.label === "Width"
+              ? [(from[0] + to[0]) / 2, from[1]]
+              : [to[0], (from[1] + to[1]) / 2]
+            : [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2]; // (a rectangle's width on its bottom side, its height on the side at the pointer)
+        return at3({
+          id: `field:${f.label}`,
+          kind: "dimension",
+          relation: "length",
+          icon: "dimension",
+          at: where,
+          text: f.text,
+          tone: "rest",
+          title: f.label,
+          parts: [],
+          locked: f.typed,
+          readonly: true,
+          active: f.active,
+          state: f.typed ? "locked" : "offer",
+          alpha: 1,
+          ...(f.label === "Diameter" ? { symbol: "Ø" } : {}),
+        });
+      });
+    }
+    return null;
+  };
+  const D = createDrag(K, () => tool !== null);
+  const M = createMarks(K, { dragged: D.dragged, fieldMarks });
 
   const api = {
     active: () => tool !== null,
@@ -423,7 +241,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
         else if (t.err !== undefined) fail(t.err, []);
         else {
           set(c.key, t.out.params, "Trim");
-          flash = {};
+          st.flash = {};
           say(
             t.out.dropped.length
               ? `Trimmed. Let go: ${t.out.dropped.map((d) => `${d.kind} (${d.why})`).join("; ")}`
@@ -476,7 +294,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
               [...(before.lines ?? []), ...(before.circles ?? []), ...(before.arcs ?? [])].map((x) => x.id),
             ),
             made1 = [...(p2.lines ?? []), ...(p2.circles ?? []), ...(p2.arcs ?? [])].filter((x) => !had.has(x.id));
-          recent = { key: c.key, ids: made1.map((x) => x.id), until: performance.now() + settings.marks.stayMs };
+          st.recent = { key: c.key, ids: made1.map((x) => x.id), until: performance.now() + settings.marks.stayMs };
           sel.clear();
         }
       }
@@ -488,7 +306,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       if (!c) return false;
       if (tool) return typeInTool(code); // (a figure under way: the keys type its numbers)
       const typed = TYPED[code]; // (digits typed with a part selected go to its own number, `dec_typing_standard`)
-      if (typed !== undefined && ownId && !host.editing()) return host.startEdit(ownId, typed);
+      if (typed !== undefined && M.ownId() && !host.editing()) return host.startEdit(M.ownId()!, typed);
       const ids = selected(c.key);
       if (code === "Delete" || code === "Backspace") {
         if (!ids.length) return false;
@@ -498,141 +316,13 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       }
       return false;
     },
-    /** Add a relation to what is selected (the helper bar's, later); false: the sketch said no, and says why. */
-    constrain(kind: Relation | "dimension"): boolean {
-      const c = current();
-      if (!c) return false;
-      const r = constrain(c.p, solOf(c.p), selected(c.key), kind);
-      if (r.ok) {
-        set(c.key, r.params, "Constraint");
-        flash = { applied: [r.added] };
-        flashUntil = performance.now() + 900;
-        return true;
-      }
-      fail(r.why, r.victims);
-      return false;
-    },
     /** Every sketch, by plane (for the history); `restore` puts them back as they were (the selection and the tool are put away). */
     snapshot: (): Record<string, SketchParams> => Object.fromEntries(defs),
     restore(snap: Record<string, SketchParams>): void {
       defs.clear();
       for (const [k, v] of Object.entries(snap)) defs.set(k, tidy(v));
       sel.clear();
-      flash = {};
-    },
-    /** A press on a part with no tool on: it may be dragged (true: the press is taken; a press that goes nowhere is a click, said at `grabEnd`). */
-    grab(x: number, y: number, shift: boolean): boolean {
-      if (tool) return false;
-      const c = here(x, y);
-      if (!c) return false;
-      const s = solOf(c.p),
-        h = hitAt(c.p, s, c.q, c.tol);
-      if (!h) return false;
-      const ring = h.kind === "curve" && h.of === "circle" ? (c.p.circles ?? []).find((q) => q.id === h.id) : null,
-        arc = h.kind === "curve" && h.of === "arc" ? (c.p.arcs ?? []).find((q) => q.id === h.id) : null; // (a circle's or an arc's edge: its radius follows the pointer; its centre moves it whole)
-      const pins = ring || arc ? [] : pinsOf(c.p, h.id);
-      if (!pins.length && !ring && !arc) return false;
-      drag = {
-        key: c.key,
-        def0: c.p,
-        pins,
-        start: Object.fromEntries(pins.map((id) => [id, s.points[id]!])),
-        q0: c.q,
-        x0: x,
-        y0: y,
-        moved: false,
-        shift,
-        id: h.id,
-        join: null,
-        snapAt: null,
-        edge: ring
-          ? { circle: ring.id, centre: ring.c }
-          : arc
-            ? { circle: arc.id, centre: arc.c, ends: [arc.a, arc.b] }
-            : null,
-        help: null,
-      };
-      return true;
-    },
-    grabMove(x: number, y: number): void {
-      if (!drag) return;
-      const c = here(x, y);
-      if (!c) return;
-      if (!drag.moved && Math.hypot(x - drag.x0, y - drag.y0) < 4) return; // (a press that has not gone anywhere yet is still a click)
-      drag.moved = true;
-      drag.join = null;
-      drag.snapAt = null;
-      drag.help = null;
-      const sol0 = solOf(drag.def0),
-        S0 = sysOf(drag.def0);
-      if (drag.edge) {
-        // a circle's or an arc's edge: the place the helpers give the edge (a tangent, an equal radius) sets the radius
-        const e = drag.edge,
-          centre = sol0.points[e.centre]!,
-          out = without(S0, [e.circle, ...(e.ends ?? [])]);
-        drag.help = helpersAt(out, { shape: "circle", centre, startId: e.centre }, c.q, c.mm, settings.helpers);
-        const at = drag.help.acted.length ? drag.help.at : c.q,
-          rad = Math.max(1e-3, Math.hypot(at[0] - centre[0], at[1] - centre[1]));
-        let r: { params: SketchParams; held: string[] } | null;
-        if (e.ends) {
-          // an arc: both ends go along their own lines out of the centre to the new radius
-          const pins: Record<string, P2> = { [e.centre]: centre };
-          for (const end of e.ends) {
-            const q = sol0.points[end]!,
-              n = Math.hypot(q[0] - centre[0], q[1] - centre[1]) || 1;
-            pins[end] = [centre[0] + ((q[0] - centre[0]) / n) * rad, centre[1] + ((q[1] - centre[1]) / n) * rad];
-          }
-          r = dragTo(drag.def0, pins);
-        } else r = dragRadius(drag.def0, e.circle, rad);
-        if (!r) return;
-        defs.set(drag.key, r.params);
-        working(activeOf(drag.def0, r.params, e.ends ? [e.centre, ...e.ends] : [e.centre, e.circle]), r.held);
-        return;
-      }
-      let d: P2 = [c.q[0] - drag.q0[0], c.q[1] - drag.q0[1]];
-      const lone = drag.pins.length === 1 && drag.id === drag.pins[0],
-        piece = pieceOf(drag.def0, sol0, drag.id); // (a whole line, an arc or a circle by its centre moves as one piece)
-      const hint = (at0: Pt, want: Pt, look: { free: Free; out: string[] }) => {
-        // the helpers place what is dragged, as when it was drawn: they place, they never constrain
-        const help = helpersAt(without(S0, look.out), look.free, want, c.mm, settings.helpers);
-        drag!.help = help.acted.length || help.holds.length ? help : null;
-        if (help.acted.length) d = [help.at[0] - at0[0], help.at[1] - at0[1]];
-      };
-      if (lone) {
-        // one point: it sticks to another point or a curve near it, else the helpers place it (an alignment, a tangent for the end of a line, on a line)
-        const at0 = drag.start[drag.pins[0]!]!,
-          want: Pt = [at0[0] + d[0], at0[1] + d[1]],
-          j = joinFor(drag.def0, sol0, drag.id, want, c.tol);
-        if (j) {
-          drag.join = { id: j.id, kind: j.kind };
-          drag.snapAt = j.at;
-          d = [j.at[0] - at0[0], j.at[1] - at0[1]];
-        } else hint(at0, want, piece ?? freeOfDrag(drag.def0, sol0, drag.id));
-      } else if (piece) hint(piece.ref, [piece.ref[0] + d[0], piece.ref[1] + d[1]], piece);
-      const pins = Object.fromEntries(
-        drag.pins.map((id) => [id, [drag!.start[id]![0] + d[0], drag!.start[id]![1] + d[1]] as [number, number]]),
-      );
-      const r = dragTo(drag.def0, pins);
-      if (!r) return; // (a place that cannot be solved: the part stays where it was last)
-      defs.set(drag.key, r.params);
-      working(activeOf(drag.def0, r.params, drag.pins), r.held);
-    },
-    grabEnd(): void {
-      const g = drag;
-      drag = null;
-      if (!g) return;
-      if (!g.moved) {
-        // it was a click on the part: it is picked
-        const was = selected(g.key);
-        sel.setSketch(g.key, g.shift ? (was.includes(g.id) ? was.filter((q) => q !== g.id) : [...was, g.id]) : [g.id]);
-        return;
-      }
-      const next = defs.get(g.key) ?? g.def0; // (a point let go on another point or a curve lands there; no constraint is made by it)
-      defs.set(g.key, g.def0); // (the history takes the whole move as one change, from where it began)
-      set(g.key, next, "Drag");
-      sel.setSketch(g.key, [g.id]);
-      flash = {};
-      activeSince.clear();
+      st.flash = {};
     },
     /** What to draw: every sketch on every plane (what is selected in teal), what the tool would make, the part a trim would take, and the place the pointer is at. */
     lines(pointer: { x: number; y: number } | null): DrawLine[] {
@@ -660,42 +350,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
           if (at) out.push({ kind: "ball", pts: [to3(f, at)], r: mmPerPx(f, at) * settings.sketch.ballPx });
         } // (the old app marks no point until it is picked, then a teal ball)
       }
-      if (drag?.help) {
-        // what the helpers say of where the dragged point or edge is: the same drawing as when the figure was drawn (orange ties, dashed guides)
-        const f = all.get(drag.key),
-          p = defs.get(drag.key);
-        if (f && p) {
-          const sol = solOf(p),
-            h = drag.help,
-            at = h.at,
-            shown = helpShown(
-              h,
-              (part) => {
-                const g = segsOf(p, sol.points, sol.radii).find((x) => x.name === part);
-                return g ? polyline(g) : null;
-              },
-              (id) => sol.points[id] ?? null,
-            );
-          for (const l of shown)
-            out.push({
-              kind: l.kind,
-              pts: l.pts.map((z) => to3(f, z)),
-              ...(l.kind === "guide" ? { dash: dashAt(f, at) } : {}),
-              ...(l.kind === "tieBall" ? { r: mmPerPx(f, l.pts[0]!) * settings.sketch.ballPx } : {}),
-            });
-        }
-      }
-      if (drag?.snapAt) {
-        const f = all.get(drag.key);
-        if (f) {
-          const arm = mmPerPx(f, drag.snapAt) * settings.sketch.crossPx * 1.4,
-            w = to3(f, drag.snapAt);
-          out.push(
-            { kind: "cursor", pts: [add(w, scale(f.u, -arm)), add(w, scale(f.u, arm))] },
-            { kind: "cursor", pts: [add(w, scale(vOf(f), -arm)), add(w, scale(vOf(f), arm))] },
-          );
-        }
-      }
+      out.push(...D.hintLines(all));
       const c = pointer && tool ? here(pointer.x, pointer.y) : null;
       if (c && tool) {
         const s = solOf(c.p);
@@ -733,90 +388,15 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       }
       return out;
     },
-    /** The marks standing on the parts (`dec_marks_on_things`): what is selected shows its constraints (locked) and what is true of it and near (offered); the parts just made show their offers for a while and fade; a refusal shows what held it back, always; placed on the page. */
-    marks(now: number): PlacedMark[] {
-      const c = current();
-      if (!c) {
-        ownId = null;
-        return [];
-      }
-      const cam = host.view(),
-        at3 = (m: Mark): PlacedMark => {
-          const q = project(cam.cam, to3(c.f, m.at), cam.w, cam.h);
-          return { mark: m, x: q.x, y: q.y };
-        };
-      if (tool && tool.pts.length) {
-        // a figure under way: its numbers stand on it, as they are measured (open) or typed (closed); they take digits from the keys and are not clicked
-        ownId = null;
-        if (tool.kind === "trim" || !FIELDS[tool.kind].length || !lastPointer) return [];
-        const s = solOf(c.p),
-          S = sysOf(c.p),
-          hereNow = here(lastPointer.x, lastPointer.y),
-          kind = tool.kind;
-        if (!hereNow) return [];
-        const pl = placed(hereNow, s),
-          to = posOf(s, pl.ref),
-          from = tool.pts[0] ? posOf(s, tool.pts[0]) : to,
-          live = FIELDS[kind].map((f) => measureAt(S, pl.free, to, f.kind, f.parts));
-        return chipFields(kind, tool.typed, tool.field, live).map((f) => {
-          const where: P2 =
-            kind === "rect"
-              ? f.label === "Width"
-                ? [(from[0] + to[0]) / 2, from[1]]
-                : [to[0], (from[1] + to[1]) / 2]
-              : [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2]; // (a rectangle's width on its bottom side, its height on the side at the pointer)
-          return at3({
-            id: `field:${f.label}`,
-            kind: "dimension",
-            relation: "length",
-            icon: "dimension",
-            at: where,
-            text: f.text,
-            tone: "rest",
-            title: f.label,
-            parts: [],
-            locked: f.typed,
-            readonly: true,
-            active: f.active,
-            state: f.typed ? "locked" : "offer",
-            alpha: 1,
-            ...(f.label === "Diameter" ? { symbol: "Ø" } : {}),
-          });
-        });
-      }
-      const S = sysOf(c.p),
-        picked = selected(c.key),
-        has = (id: string) =>
-          S.points.some((x) => x.id === id) ||
-          S.lines.some((x) => x.id === id) ||
-          S.circles.some((x) => x.id === id) ||
-          (c.p.arcs ?? []).some((x) => x.id === id);
-      const dragged = drag && drag.moved && drag.key === c.key ? drag.id : null,
-        ids = dragged ? [] : picked; // (the part being dragged is what the offers are for, and what it is made of; what was picked waits)
-      if (picked.length && !dragged) recent = null; // (once the person has picked something, the offers for what was just made are over)
-      const fresh = dragged
-        ? { ids: [dragged].filter(has), until: Infinity }
-        : recent && recent.key === c.key
-          ? { ids: recent.ids.filter(has), until: recent.until }
-          : null;
-      const reachMm = settings.helpers.linePx * mmPerPx(c.f, [0, 0]); // (in range, however things came there: the helpers' reach in mm)
-      const fade = (id: string) => {
-        const t = activeSince.get(id);
-        if (t === undefined) return 1;
-        return Math.max(0, Math.min(1, (now - t) / settings.marks.fadeInMs, drag ? 1 : (flashUntil - now) / 400));
-      }; // (a constraint doing work fades in; once the drag is over it fades out)
-      const list = marksFor(S, ids, { flash, recent: fresh, now, fade, reachMm }),
-        chosen = [...ids].sort().join();
-      ownId = list.find((m) => m.kind === "dimension" && [...m.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
-      return list.map(at3);
-    },
-    /** Each picture: a refusal's red goes after its time. */
-    frame(now: number): void {
-      if (!drag && now > flashUntil) {
-        flash = {};
-        activeSince.clear();
-      }
-    }, // (while a drag is held, the constraints doing work and the ones holding it back stay)
+    grab: D.grab,
+    grabMove: D.grabMove,
+    grabEnd: D.grabEnd,
+    marks: M.marks,
+    frame: (now: number): void => M.frame(now, D.held()),
+    handlers: M.handlers,
+    constrain: M.constrain,
+    dismissOffers: M.dismissOffers,
+    press: M.act,
     /** The closed parts of every drawing, to be tinted (a closed figure has a very faint fill in the old app, `in_194`): the outline and holes in each plane's axes. */
     fills(): { frame: { origin: V3; u: V3; v: V3 }; loops: [number, number][][] }[] {
       const { all } = host.planes(),
@@ -853,18 +433,9 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       [...defs.values()].some((p) => (p.lines?.length ?? 0) + (p.circles?.length ?? 0) + (p.arcs?.length ?? 0) > 0),
     /** The sketch of a plane, as the definition (for the extrude). */
     sketchOf: (key: string): SketchParams | null => defs.get(key) ?? null,
-    /** what the marks' buttons do */
-    handlers,
-    /** the offers for what was just made are over (another tool, such as Extrude, is taking the clicks) */
-    dismissOffers(): void {
-      recent = null;
-    },
     /** a press of the helper bar by its id (`delete`, `clear`, `rel:<relation>`): for the dev checks */
-    press: act,
     debug: () => ({
-      drag: drag
-        ? { id: drag.id, moved: drag.moved, edge: drag.edge, acted: drag.help?.acted.map((x) => x.relation) ?? null }
-        : null,
+      drag: D.debug(),
       tool: tool ? { ...tool } : null,
       sketches: [...defs].map(([k, v]) => [k, v] as const),
       selection: (() => {

@@ -1,12 +1,12 @@
 // The studio: the document's recipe, the engine's worker behind the host, and what the screen shows of its answer (`in_1566`). A change is a new recipe; it goes to the worker, which makes every step (a sketch, an extrude, ...) and answers with each
 // step's status; the body the last step made is then asked for as a mesh. Changes are made one after another and the screen is told when the answer is in; while it is out, the screen has its own ghost. Nothing here decides geometry: it sends and reads.
-import { EngineHost } from "./engine/host.ts";
-import type { Spawn } from "./engine/host.ts";
-import { webWorker } from "./engine/host-web.ts";
-import type { Step } from "./engine/steps.ts";
 import type { MeshSnap } from "./engine/exchange.ts";
-import type { Ask, StepSnap } from "./engine/protocol.ts";
+import { webWorker } from "./engine/host-web.ts";
+import type { Spawn } from "./engine/host.ts";
+import { EngineHost } from "./engine/host.ts";
 import type { EdgeRef, Id } from "./engine/id.ts";
+import type { Ask, StepSnap } from "./engine/protocol.ts";
+import type { Step } from "./engine/steps.ts";
 
 export interface FaceInfo {
   id: string;

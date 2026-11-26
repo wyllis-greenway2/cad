@@ -22,3 +22,6 @@ Order, each step keeping the fast checks and the drag page check green: (a) mech
 ## Rationale
 
 Every case added lately (a piece, a corner of several lines, an arc, a circle edge) was a branch of one idea: something moves by a few numbers and the relations it could land on are looked for. Naming that idea once is what stops each new feature from adding a branch.
+
+## Step (a) done (`in_1626`)
+The code is formatted (prettier, 120 columns, `npm run format`, recorded in `docs/licenses.md`: a development tool only; the source went from 8,365 to about 18,000 lines with no line a wall of code), the imports are sorted and the unused ones removed (84 files), `sketchcontrol.ts` is split into `sketchcore.ts` (the sketches, what they solve to, the shared helpers and the short-lived refusal and active state), `sketchdrag.ts` (grab, move and end of a drag, the hints a drag draws), `sketchmarks.ts` (the marks and what their buttons do, the relation put on the selection) and `sketchcontrol.ts` (the tools, the preview, the figure's numbers, the composition): 880 lines became 473, 146, 208 and 186. The old timed-offer fields of a bubble and the unused `ToolControl` type are gone and the two old headers (`bubbles.ts`, `infobar.ts`) say what the files are now. Behaviour is unchanged: `npm run checks` (43), the 60 unit tests and all 14 page checks pass.

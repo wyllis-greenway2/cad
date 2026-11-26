@@ -1,7 +1,7 @@
 // Exchange and the derived mesh (E21, E70, E71; `dec_export_stl`, `dec_export_formats`, `dec_import`): the exact body is the model; the mesh is made from it for the screen, for picking by face id and for STL, and is
 // never kept as the truth. STEP leaves and enters as the exact body (the kernel writes and reads it). All the answers are plain data (numbers, strings, bytes), so they cross the worker.
-import * as K from "./kernel.ts";
 import { type EdgeRef, type Id, edgeKey, idKey, mint } from "./id.ts";
+import * as K from "./kernel.ts";
 import { Body, type Claim, fromClaims } from "./lineage.ts";
 import { viewOf } from "./scope.ts";
 import { type Value, kinds } from "./steps.ts";

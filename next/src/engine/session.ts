@@ -1,12 +1,12 @@
 // What the worker does with a request (E16, E17): hold one engine, run the recipe it is sent, and answer with a snapshot. Kept apart from the worker's own plumbing so it can be driven in one process.
-import * as K from "./kernel.ts";
-import { Engine } from "./engine.ts";
-import { Body } from "./lineage.ts";
-import { idKey, show } from "./id.ts";
-import { NoBody } from "./steps.ts";
-import { bodyVolumes } from "./scope.ts";
 import { answer } from "./asks.ts";
+import { Engine } from "./engine.ts";
+import { idKey, show } from "./id.ts";
+import * as K from "./kernel.ts";
+import { Body } from "./lineage.ts";
 import type { Reply, Request, Snapshot, StepSnap } from "./protocol.ts";
+import { bodyVolumes } from "./scope.ts";
+import { NoBody } from "./steps.ts";
 
 export class Session {
   private engine: Engine | null = null;

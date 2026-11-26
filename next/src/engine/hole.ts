@@ -1,8 +1,8 @@
 // Holes as a step (E76): a round hole put into a face of a body: where (on the face), how wide, how deep (a number, or through), and optionally a counterbore. The old way was a circle sketched on the face
 // and a cut, two steps that the person had to keep in step; this is one step with the numbers a hole has. Its faces are named by the step (the wall, the bottom, the counterbore's wall and floor), so a later
 // step can refer to the wall of the hole and an edit of the diameter keeps the names.
-import * as K from "./kernel.ts";
 import { type Id, mint } from "./id.ts";
+import * as K from "./kernel.ts";
 import { type Body, type Claim, fromClaims } from "./lineage.ts";
 import { type Sketch, at, checked, frameOf, joinTool, kinds, meta, needBody, num, sidesFromProfile } from "./steps.ts";
 

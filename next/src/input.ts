@@ -3,8 +3,8 @@
 // Touch and trackpad are the same thing, a gesture: two fingers pan (by the motion of the pair) and zoom (by the spread of the pair) at the same time. On a touch screen
 // the page sees both fingers; on a trackpad the browser reports the pair's motion as a scroll and its spread as a pinch, so a gesture is made of whichever arrives.
 // One finger orbits on a touch screen; on a trackpad a one-finger drag with the button down is the mouse's left-drag.
-import { settings } from "./settings.ts";
 import { fineGain } from "./camera.ts";
+import { settings } from "./settings.ts";
 
 export interface Intents {
   /** A drag of the view is about to begin at (x, y); the controller picks what it turns or pans about, once, for the whole drag. */

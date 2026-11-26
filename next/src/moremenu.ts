@@ -1,7 +1,7 @@
 // The "..." button and its list on the page (`q_lean_ui`): a round button at the top right (the prototype's look) that opens a short list under it; a click elsewhere or Esc closes it; a choice that cannot be made is dimmed with its reason in the tooltip.
 import { iconSvg } from "./icons.ts";
-import { settings } from "./settings.ts";
 import type { MoreItem } from "./interaction/moremenu.ts";
+import { settings } from "./settings.ts";
 
 export function createMoreMenu(host: HTMLElement, choose: (id: MoreItem["id"]) => void) {
   // the old app's button (`app/src/ui/controls.ts`): a dark filled circle, 40 px, with white dots, at the top right

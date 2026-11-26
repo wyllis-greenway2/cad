@@ -1,7 +1,7 @@
 // The chips (`dec_three_surfaces`, `dec_marks_on_things`): how one constraint, one number and one offered constraint look and what a click on each says, shared by the info bar and the marks on the sketch. A chip is a round button with an icon (a constraint, or an
 // offer) or a pill with a number and its padlock. The border says the state (grey at rest, green locked or holds, yellow offered, red refused). It draws nothing of its own accord: whoever places it keeps it, and it says what was pressed through `on`.
-import type { BarItem, Fact } from "./interaction/infobar.ts";
 import { iconSvg } from "./icons.ts";
+import type { BarItem, Fact } from "./interaction/infobar.ts";
 
 export interface InfoHandlers {
   suggest(id: string): void;

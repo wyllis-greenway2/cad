@@ -1,12 +1,12 @@
 // Extruding a region of a sketch (`in_1566`): what a click inside a drawing picks, what the pull of the arrow comes to, and the recipe steps that make it. Pure: the definition and a place in the plane in, descriptions out. The arrow and the ghost are drawn by
 // the screen; the engine's worker makes the body (`engine/steps.ts` `extrude`); a pick is the point inside the region, which the sketch step keeps (`pick`, E63) so the region is found again when the drawing changes.
-import type { SketchParams } from "../engine/sketch.ts";
 import { segsOf, solveDefinition } from "../engine/definition.ts";
+import type { EdgeRef, Id } from "../engine/id.ts";
 import { regions, type Loop, type Pt } from "../engine/region.ts";
+import type { SketchParams } from "../engine/sketch.ts";
+import type { Step } from "../engine/steps.ts";
 import type { Frame } from "../planes.ts";
 import { vOf } from "../planes.ts";
-import type { Step } from "../engine/steps.ts";
-import type { EdgeRef, Id } from "../engine/id.ts";
 
 export interface Region {
   /** the point inside it that the sketch keeps to find it again */ pick: Pt;

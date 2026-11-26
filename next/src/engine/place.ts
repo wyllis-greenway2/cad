@@ -1,8 +1,8 @@
 // The `place` step (E60, `dec_body_placement`): bodies put where mates between their faces say. One step, the whole placement: it takes a scene of bodies, reads each mate's two faces (by their ids, E6) as planes and
 // axes, solves the poses of the bodies that must move (`placement.ts`: the sketch solver's machinery over poses), and moves them; no face id changes. Recomputed from its inputs every time, so it replays exactly and
 // an edit of a mate's number is an edit of this step. A set of mates that cannot all hold is refused and the mates named (`Refusal`, E55), never ranked; what is left free is said in a note.
-import * as K from "./kernel.ts";
 import { type Id, idKey, show } from "./id.ts";
+import * as K from "./kernel.ts";
 import { type Body, bodyOf } from "./lineage.ts";
 import { type BodyIn, type Mate, type MateKind, type Prim, place } from "./placement.ts";
 import { type Ctx, Refusal, checked, kinds, needBody } from "./steps.ts";

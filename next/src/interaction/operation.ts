@@ -1,7 +1,7 @@
 // An operation open on the screen, as a description (`in_1576`, `q_lean_ui`): extrude, push or pull a face (its kinds), round, chamfer, and what comes after (revolve, offset, hollow) are all this one thing: a title, options, a number, an arrow (the one pull handle, `dec_task_handles`), a ghost, and what applying makes.
 // Pure: no page, no three.js. The one controller (`operationcontrol.ts`) draws it and takes the pointer and the keys; a new operation is a new description, not a new controller.
-import type { Step } from "../engine/steps.ts";
 import type { Ask } from "../engine/protocol.ts";
+import type { Step } from "../engine/steps.ts";
 import type { V3 } from "../vec.ts";
 
 /** a kind of the operation, as a chip (the one chosen is filled; one that cannot be chosen is dim with its reason) */

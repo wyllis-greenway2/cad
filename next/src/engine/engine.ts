@@ -1,19 +1,19 @@
 // The engine (E2, E13, E18, E19, E20): a recipe of steps, run in an order that suits their inputs; each result has a status, and a failed step is flagged and passes its input through,
 // so the model is never lost (E13). An edit recomputes only the steps that depend on it and stops where an answer is unchanged (E18).
-import * as K from "./kernel.ts";
-import { ParamError, type Table, canonical, resolve, scopeOf } from "./params.ts";
-import { type Note, Body, RefLost } from "./lineage.ts";
-import { type Ctx, type Step, type Value, NoBody, Refusal, kinds, passthrough } from "./steps.ts";
-import { insertStep, moveStep, removeStep, swapWithInput, validateRecipe } from "./recipe.ts";
 import { MIN_FEATURE, changedNothing, sliverNotes } from "./clean.ts";
 import "./curved.ts"; // registers revolve, loft, sweep and shell
-import "./pull.ts"; // registers moveFace and offsetFace (pull modes 3 and 4)
-import "./sketch.ts"; // registers the constrained sketch (E49)
 import "./exchange.ts"; // registers import (a STEP file as a body, E21)
-import "./place.ts"; // registers place (mates between bodies, E60)
 import "./hole.ts"; // registers hole (E76)
+import * as K from "./kernel.ts";
+import { type Note, Body, RefLost } from "./lineage.ts";
+import { type Table, ParamError, canonical, resolve, scopeOf } from "./params.ts";
 import "./pattern.ts"; // registers pattern and mirror (copies of a body, E44 to E47)
+import "./place.ts"; // registers place (mates between bodies, E60)
+import "./pull.ts"; // registers moveFace and offsetFace (pull modes 3 and 4)
+import { insertStep, moveStep, removeStep, swapWithInput, validateRecipe } from "./recipe.ts";
 import { scopeKinds } from "./scope.ts"; // steps that name a body work on that body alone (E40, E41)
+import "./sketch.ts"; // registers the constrained sketch (E49)
+import { type Ctx, type Step, type Value, NoBody, Refusal, kinds, passthrough } from "./steps.ts";
 scopeKinds();
 
 export type Status =
@@ -357,13 +357,11 @@ export class Engine {
   lines(id: string): { id: string; ends?: [K.V3, K.V3]; from: "sketch" | "body" }[] {
     const v = this.slots.get(id)!.held.v;
     if (v instanceof Body)
-      return v
-        .edges()
-        .map((e) => ({
-          id: e.ref ? JSON.stringify([e.ref.a, e.ref.b]) : "free",
-          ends: K.edgeEnds(e.h),
-          from: "body" as const,
-        }));
+      return v.edges().map((e) => ({
+        id: e.ref ? JSON.stringify([e.ref.a, e.ref.b]) : "free",
+        ends: K.edgeEnds(e.h),
+        from: "body" as const,
+      }));
     if (v instanceof NoBody) return [];
     return v.lines.map((l) => ({
       id: JSON.stringify(l.id),

@@ -1,11 +1,10 @@
-// What a selection can be offered (`dec_three_surfaces`, `dec_marks_on_things`; this was the info bar's, now the marks' too: `marks.ts`) and the info bar's descriptions for operations and body picks: formerly the one place the page says what is so of what is selected (the left: its constraints and its numbers) and what could be added to it (the right: only what would be new and
-// accepted, `offerable`). A click moves an item across: a suggestion clicked is applied and stands on the left, a fact clicked is taken away and, if still offerable, is on the right again. Pure: the solver's system and the selection in, descriptions out; `infobardraw.ts` draws them.
+// What a selection can be offered, and the info bar's descriptions (`dec_three_surfaces`, `dec_marks_on_things`): `barFor` the relations that fit a selection and would be accepted, `nearFor` the relations with one other part that hold or are in range
+// (`reachMm`); the marks (`marks.ts`) use both. The info bar itself (`infobardraw.ts`) is now only for an operation's number and the kinds of what is picked on a body. Pure.
+import { kindTuples, offerable, snapEstimate, standingOf } from "../engine/relations.ts";
 import type { Relation, System } from "../engine/solver.ts";
-import { offerable } from "../engine/relations.ts";
-import { offersFor } from "./suggest.ts";
 import { RANGEABLE, RELATIONS, kindOf, residualsOf, type Constraint } from "../engine/solver.ts";
-import { kindTuples, snapEstimate, standingOf } from "../engine/relations.ts";
 import { iconOf, type Bubble } from "./bubbles.ts";
+import { offersFor } from "./suggest.ts";
 
 /** `free`: would be added; `holds`: already true as drawn (adding it makes it a rule) */
 export type BarTone = "free" | "holds";

@@ -2,10 +2,10 @@
 // Red: a change was refused and this is what held it back. ONE rule says which show: a locked mark when its part is selected; an offer when its part is selected, or for a short time (fading) after the part was made or moved, selected or not; a refused one always, while the
 // refusal stands. Nothing else. Pure: the solver's system, the selection, the flash and the clock in; descriptions out (where on the sketch, what, which state). The page draws them (`markdraw.ts`).
 import type { System } from "../engine/solver.ts";
-import { anchorOf, bubblesOn, scopeOf, selectionAnchor, type Flash } from "./bubbles.ts";
-import { barFor, nearConstraint, nearFor, type BarItem } from "./infobar.ts";
-import type { Fact } from "./infobar.ts";
 import { settings } from "../settings.ts";
+import { anchorOf, bubblesOn, scopeOf, selectionAnchor, type Flash } from "./bubbles.ts";
+import type { Fact } from "./infobar.ts";
+import { barFor, nearConstraint, nearFor, type BarItem } from "./infobar.ts";
 
 export type MarkState = "locked" | "offer" | "refused";
 /** a mark is a fact (what a bubble says) with its state, how much of it is left while it fades, and (an offer) the parts it is offered for: a click on it selects them and applies it */

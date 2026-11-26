@@ -2,12 +2,12 @@
 //   1 Change the original (`originalEdit`: a number of the step that made the face; not a step kind)   2 Push (`push` in steps.ts)   3 Move with neighbours (`moveFace`)   4 Offset (`offsetFace`)
 // Modes 3 and 4 are regions (spike 8, `prototypes/face-modes`): the slab or ring between the old and the new surface, kept on the side of each neighbour's plane where the face lies, added or taken.
 // The neighbours keep their ids, the moved face keeps its own, a face that collapses is gone (E10); a move past the limit is refused with the distance where it stops (E26).
-import * as K from "./kernel.ts";
-import { dot, sub, unit } from "./vec.ts";
-import { type Id } from "./id.ts";
-import { type Body, type Claim, type FaceRec, carry, fromClaims, unifyBody } from "./lineage.ts";
-import { type Ctx, type Sketch, type Step, checked, joinTool, kinds, meta, needBody, num } from "./steps.ts";
 import type { Engine } from "./engine.ts";
+import { type Id } from "./id.ts";
+import * as K from "./kernel.ts";
+import { type Body, type Claim, type FaceRec, fromClaims } from "./lineage.ts";
+import { type Ctx, type Sketch, checked, joinTool, kinds, meta, needBody, num } from "./steps.ts";
+import { dot, sub, unit } from "./vec.ts";
 
 type V3 = K.V3;
 

@@ -1,6 +1,7 @@
 // What to offer for a selection (E51, E55, E57): the relations that exist for exactly the parts selected, in one table; which already hold (shown, not added), which are already in the sketch or follow from it (said, nothing added twice),
 // which would be refused (with what holds them back named, so the screen can show them red and offer to delete), and which do not apply (with the reason). And what a relation ties the selection to (the amber).
 // Dimensions are measure, then lock: the offer carries the number the parts are now. Pure; reads the system; changes nothing.
+import { fits, standingOf } from "../engine/relations.ts";
 import {
   type Constraint,
   RANGEABLE,
@@ -10,7 +11,6 @@ import {
   kindOf,
   residualsOf,
 } from "../engine/solver.ts";
-import { fits, standingOf } from "../engine/relations.ts";
 
 export type OfferState = "free" | "holds" | "already" | "refused";
 export interface Offer {

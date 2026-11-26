@@ -1,14 +1,14 @@
 // The questions the worker answers about the recipe it holds (E28, E35, E58, E70, E71): each is its arguments (a type) and its answer (a function of the engine), written together, once. The protocol's `Ask`
 // is made from this table and the worker calls it, so a new question is one entry here and nothing else. A question is answered on a copy: the recipe is not changed. The answer is plain data.
-import { type Engine } from "./engine.ts";
-import { Body } from "./lineage.ts";
-import { type Change, options, probe, probeParam, trial } from "./failure.ts";
-import { exportBody, meshOf, toBase64 } from "./exchange.ts";
 import { dragSketch } from "./drag.ts";
-import { trimAt } from "./trim.ts";
-import { solvedPositions, type SketchParams } from "./sketch.ts";
-import { originalEdit, pullModes } from "./pull.ts";
+import { type Engine } from "./engine.ts";
+import { exportBody, meshOf, toBase64 } from "./exchange.ts";
+import { options, probe, probeParam, trial, type Change } from "./failure.ts";
 import type { Id } from "./id.ts";
+import { Body } from "./lineage.ts";
+import { originalEdit, pullModes } from "./pull.ts";
+import { solvedPositions, type SketchParams } from "./sketch.ts";
+import { trimAt } from "./trim.ts";
 
 /** what each question takes */
 export interface AskArgs {

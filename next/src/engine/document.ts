@@ -2,8 +2,8 @@
 //  - a document is the recipe, the named parameters (E66) and the names the person gave (to steps, and to bodies by their id: an id is structural, so a name survives the file being opened again)
 //  - saving is canonical (the same document is the same bytes; one step a line, so a version-control diff reads); opening checks everything and says in words what is wrong with a file
 //  - every change is a function from a document to a document; the history keeps the documents (steps are shared, not copied), so undo and redo are exact and cost no recomputation by themselves
-import { MISSING, insertStep, moveStep, removeStep, swapWithInput, validateRecipe } from "./recipe.ts";
 import { type Table, canonical, isReserved, namesIn, usedBy, valuesOf } from "./params.ts";
+import { MISSING, insertStep, moveStep, removeStep, swapWithInput, validateRecipe } from "./recipe.ts";
 import type { Step } from "./steps.ts";
 
 export const FORMAT = "cad-document",

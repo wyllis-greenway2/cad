@@ -1,14 +1,14 @@
 // The constrained sketch step (E49, E52 to E54, E56; `dec_constraints_in_engine`). Entities with names, constraints by name, dimensions as constraints with a number, and a body's edges held as read-only
 // anchors (by the faces beside them, E52): the solver (E48) makes the sketch, and the step's answer is the solved lines with ids made from their names (E6), for the steps after it. A sketch that cannot be made is
 // refused with the constraints that hold it back named (`Refusal`, E55); a sketch with freedom is made and says what is free; an anchor whose edge is gone makes the step orphaned, in words (E10).
-import * as K from "./kernel.ts";
-import { unit } from "./vec.ts";
-import { type EdgeRef, type Id, type VertexRef, mint } from "./id.ts";
-import { Body } from "./lineage.ts";
-import { type Constraint, type Options as SolveOptions, type System, solve } from "./solver.ts";
 import { refusalOf, segsOf, solveKeeping, systemOf } from "./definition.ts";
+import { type EdgeRef, type Id, type VertexRef, mint } from "./id.ts";
+import * as K from "./kernel.ts";
+import { Body } from "./lineage.ts";
 import { type Loop as RLoop, type Seg, regions } from "./region.ts";
-import { type Line, type Sketch, Refusal, at, frameOf, kinds, needBody, planeOf } from "./steps.ts";
+import { type Constraint, type Options as SolveOptions, type System } from "./solver.ts";
+import { type Line, type Sketch, Refusal, at, frameOf, kinds, planeOf } from "./steps.ts";
+import { unit } from "./vec.ts";
 
 type V3 = K.V3;
 export interface SketchParams {

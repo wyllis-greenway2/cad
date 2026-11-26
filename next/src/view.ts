@@ -1,11 +1,11 @@
 // The world view's state and every change of it, as pure functions: (state, what is known now, what happened) in, the next state out.
 // No DOM, no clock of its own, no three.js: the controller (main.ts) feeds it intents and the time and draws what it says, so each change can
 // be tried on its own.
-import { settings } from "./settings.ts";
 import * as cam from "./camera.ts";
 import { type Axis, type Cam, type Go } from "./camera.ts";
-import { type Scene, hitThings } from "./scene.ts";
+import { hitThings, type Scene } from "./scene.ts";
 import { focusOf, gridLevel, lastSeen, nothingInView, paneAt, planeHit, resetTarget, scaleAmong } from "./sense.ts";
+import { settings } from "./settings.ts";
 import { add, clamp, dot, ease, len, scale, sub, type V3 } from "./vec.ts";
 
 /** A drag of the view in progress: the point it turns or grabs about, how deep what is grabbed is, and how far it has gone while a straight view holds on. */

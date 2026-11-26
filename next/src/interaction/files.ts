@@ -1,10 +1,10 @@
 // The file of a model (`in_1569`): the document (`engine/document.ts`: the recipe, canonical text, one step to a line, checked when opened) with what the screen holds besides the recipe: the drawings on the planes that are not steps yet,
 // and the planes that lie on faces of the body. The extra keys sit between the names and the steps; the document's own reader ignores them, so a file is still a document. Pure: text in, text out; the platform's file service takes the text.
 import { DocError, emptyDoc, open, save } from "../engine/document.ts";
-import { canonical } from "../engine/params.ts";
-import type { Step } from "../engine/steps.ts";
-import type { SketchParams } from "../engine/sketch.ts";
 import type { Id } from "../engine/id.ts";
+import { canonical } from "../engine/params.ts";
+import type { SketchParams } from "../engine/sketch.ts";
+import type { Step } from "../engine/steps.ts";
 
 export interface FacePlane {
   frame: { origin: readonly number[]; normal: readonly number[]; u: readonly number[] };

@@ -4,7 +4,7 @@
 //   View  perspective, or orthographic with a size (how tall the picture is in mm). A straight view is the orthographic one.
 // The lens (how much perspective) exists only while the view changes between the two, an eased dolly-zoom that keeps what is held the same size.
 import { settings } from "./settings.ts";
-import { add, clamp, cross, dot, lerp, len, rotate, scale, shortest, sub, unit, type V3 } from "./vec.ts";
+import { add, clamp, cross, dot, len, lerp, rotate, scale, shortest, sub, unit, type V3 } from "./vec.ts";
 
 export interface Cam {
   eye: V3;

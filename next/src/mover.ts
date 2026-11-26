@@ -1,8 +1,8 @@
 // What the mover orb does to the thing it stands for, as pure functions: which arrows are chosen, and what a drag of one does to the thing and to the orb's own place and axes.
 // The orb is rigid with its thing (an offset from its origin, three axes) except in orient mode, where only the orb moves.
-import { add, rotate, sub, type V3 } from "./vec.ts";
 import { AXES, type Dragged } from "./orb.ts";
 import type { Frame } from "./planes.ts";
+import { add, rotate, sub, type V3 } from "./vec.ts";
 
 /** Where the orb stands and how it is turned, relative to its thing; `turned` is how far the thing has been turned about each axis (radians). */
 export interface Pose {

@@ -2,15 +2,15 @@
 // needs: the operation bar (title, kinds, check, cross), the arrow to be pulled and the ghost that follows it, the number to type over, Enter or a right click to apply, Esc to give up. The Extrude tool's wait for a click inside a drawing is the only
 // thing particular to one operation here: the click picks what the first operation is made of. The arrow is the mover's kind of handle (`orb.ts`) drawn the mover's way (`orbdraw.ts`).
 import { project, type Cam } from "./camera.ts";
+import type { Ask } from "./engine/protocol.ts";
+import type { Step } from "./engine/steps.ts";
+import type { InfoHandlers } from "./infobardraw.ts";
+import type { Fact, Info } from "./interaction/infobar.ts";
+import type { Operation } from "./interaction/operation.ts";
 import { hitHandle, pullDelta, unitOf, type Handle } from "./orb.ts";
+import type { OrbDrawing } from "./orbcontrol.ts";
 import { settings } from "./settings.ts";
 import { add, scale, type V3 } from "./vec.ts";
-import type { Step } from "./engine/steps.ts";
-import type { Ask } from "./engine/protocol.ts";
-import type { OrbDrawing } from "./orbcontrol.ts";
-import type { Operation } from "./interaction/operation.ts";
-import type { Info, Fact } from "./interaction/infobar.ts";
-import type { InfoHandlers } from "./infobardraw.ts";
 
 export interface OperationHost {
   view(): { cam: Cam; w: number; h: number };

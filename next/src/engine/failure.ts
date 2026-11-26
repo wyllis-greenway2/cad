@@ -1,14 +1,13 @@
 // Failure handling (E28, E35, E30): what a change would do, where a number works, and what the person can do when a step has failed. Everything is built on the side, on a copy of the recipe in a scratch
 // engine: **the engine asked is never changed** (a refusal and a trial leave it as it was), and nothing is applied unasked (E15). The answers are plain data, so they cross the worker boundary (E16).
-import { scopeOf } from "./params.ts";
 import { Engine, type Status } from "./engine.ts";
+import type { EdgeRef, Id } from "./id.ts";
+import * as K from "./kernel.ts";
 import { Body } from "./lineage.ts";
+import { scopeOf } from "./params.ts";
 import { originalEdit } from "./pull.ts";
 import { pointedLimit, rimOf } from "./rounds.ts";
-import type { EdgeRef } from "./id.ts";
 import { kinds, type Step } from "./steps.ts";
-import * as K from "./kernel.ts";
-import type { Id } from "./id.ts";
 
 /** a change to the recipe, as data: it is applied with the engine's own methods */
 export type Change =
