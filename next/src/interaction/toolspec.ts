@@ -4,11 +4,11 @@ import { RANGEABLE, RELATIONS, kindOf, type Relation, type System } from "../eng
 import { fits, kindTuples } from "../engine/relations.ts";
 import { iconOf } from "./bubbles.ts";
 
-export type Pick = "place" | "region" | "face" | "edge" | "part" | "line" | "circle" | "point";
+export type Pick = "place" | "region" | "face" | "edge" | "body" | "part" | "line" | "circle" | "point";
 export interface Need { pick: Pick; ask: string; many?: boolean }
 export type Group = "sketch" | "model" | "constraint";
-/** how the page runs a tool: `draw` (a figure of clicks, repeats), `extrude` (a click in a closed shape opens it), `plane` (a sketch plane placed, once), `face` (what is picked on a body), `constraint` (a relation on what is selected, repeats) */
-export type ToolKind = "draw" | "extrude" | "plane" | "face" | "constraint";
+/** how the page runs a tool: `draw` (a figure of clicks, repeats), `extrude` (a click in a closed shape opens it), `plane` (a sketch plane placed, once), `face` (what is picked on a body), `move` (a body moved and turned by the mover orb), `constraint` (a relation on what is selected, repeats) */
+export type ToolKind = "draw" | "extrude" | "plane" | "face" | "move" | "constraint";
 export interface ToolSpec { id: string; icon: string; label: string; group: Group; kind: ToolKind; /** the first need at index 0; a draw tool's step is how many places are down */ needs: readonly Need[]; /** the draw tool's kind, the body action (`body:pull`), or the relation */ arg: string }
 
 const place = (ask: string): Need => ({ pick: "place", ask });
@@ -22,6 +22,7 @@ const FIXED: ToolSpec[] = [
   { id: "pull", icon: "pushpull", label: "Push / pull a face", group: "model", kind: "face", arg: "body:pull", needs: [{ pick: "face", ask: "Select the face to push or pull" }] },
   { id: "round", icon: "round", label: "Round edges", group: "model", kind: "face", arg: "body:round", needs: [{ pick: "edge", ask: "Select the edges to round", many: true }] },
   { id: "chamfer", icon: "chamfer", label: "Chamfer edges", group: "model", kind: "face", arg: "body:chamfer", needs: [{ pick: "edge", ask: "Select the edges to chamfer", many: true }] },
+  { id: "move", icon: "moveFace", label: "Move / turn a body", group: "model", kind: "move", arg: "body:move", needs: [{ pick: "body", ask: "Select the body to move or turn" }] },
   { id: "sketch-face", icon: "sketch", label: "Sketch on a face", group: "model", kind: "face", arg: "body:sketch", needs: [{ pick: "face", ask: "Select the face to sketch on" }] },
   { id: "sketch-plane", icon: "sheetPlain", label: "Sketch plane", group: "model", kind: "plane", arg: "plane", needs: [] },
 ];
@@ -56,5 +57,6 @@ export const kindsOfSelection = (S: System, ids: readonly string[]): string[] =>
 /** how what is picked on a body stands against a face tool: `met` (the face, or the edges, it needs), `partial` (nothing yet), `bad` (the other kind) */
 export function faceStatus(spec: ToolSpec, picked: { faces: number; edges: number } | null): Status {
   const need = spec.needs[0]?.pick; if (!picked || (!picked.faces && !picked.edges)) return "partial";
+  if (need === "body") return "met"; // (anything picked on a body picks the body)
   return need === "face" ? (picked.faces === 1 && !picked.edges ? "met" : "bad") : picked.edges > 0 && !picked.faces ? "met" : "bad";
 }

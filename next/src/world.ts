@@ -65,6 +65,8 @@ export interface Drawing {
   marks?: Mark[];
   /** The closed parts of the drawings, tinted very faintly (6%): each an outline and its holes in the plane's axes. */
   fills?: { frame: { origin: V3; u: V3; v: V3 }; loops: [number, number][][] }[];
+  /** a body shown moved and turned (the mover orb's draft): the step that made it, and its matrix (column by column) */
+  moved?: { body: string; matrix: number[] } | null;
   ghost?: { frame: { origin: V3; u: V3; v: V3; n: V3 }; loops: [number, number][][]; d: number } | { faceMove: { positions: Float32Array; n: V3; d: number } } | null;
 }
 
@@ -254,6 +256,11 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
     render(d: Drawing) {
       renderer.setSize(d.w, d.h, false);
       lookBodies(d.looks);
+      for (const m of bodies.children as THREE.Mesh[]) { // a body shown moved (the mover orb's draft): its own matrix; the others as they were
+        if (!solids.some((b) => b.id === m.userData.thing)) continue;
+        const mv = d.moved && d.moved.body === m.userData.thing ? d.moved.matrix : null;
+        if (mv) { m.matrixAutoUpdate = false; m.matrix.fromArray(mv); m.matrixWorldNeedsUpdate = true; } else if (!m.matrixAutoUpdate) { m.matrixAutoUpdate = true; m.matrix.identity(); m.matrixWorldNeedsUpdate = true; }
+      }
       setGhost(d.ghost); setMarks(d.marks, d.w, d.h); setFills(d.fills);
       const c = d.cam, f = forward(c);
       // an orthographic view (a straight view at rest) is drawn with the orthographic camera, so that sliding it shows nothing of the third

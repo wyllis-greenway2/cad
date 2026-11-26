@@ -32,6 +32,8 @@ export interface ToolHost {
   /** what is picked on a body: a sketch on the face, or the operation a tool opens on it (`body:pull`, `body:round`, `body:chamfer`; null: none) */
   sketchFace(pick: BodyPick): void;
   bodyOp(action: string, pick: BodyPick): Promise<Operation | null>;
+  /** the body moved and turned by the mover orb: begun on a body (false: it cannot be, and has said why), whether it is on, made (the steps), given up */
+  mover: { start(body: string): boolean; on(): boolean; commit(): void; cancel(): void };
   /** the kinds of the parts selected in the sketch, and a relation put on them (false: the sketch said no, in words and red) */
   selectedKinds(): string[];
   relate(rel: Relation): boolean;
@@ -84,6 +86,18 @@ const body = (spec: ToolSpec, host: ToolHost): Task => {
     commit: () => { over = true; settle(host, true); }, cancel: () => { over = true; settle(host, false); return false; },
   };
 };
+/** a body moved and turned: the orb stands on the body, the draft is where it has been taken; the right click makes it, Esc puts it back */
+const move = (spec: ToolSpec, host: ToolHost): Task => {
+  let began = false;
+  return {
+    say: () => (began ? "Drag the arrows to move and the curves to turn. Right click makes it, Esc puts it back." : spec.needs[0]!.ask),
+    update: () => {
+      if (!began) { const p = host.selection.body(); if (p) { began = host.mover.start(p.body); host.selection.clear(); } return "going"; }
+      return host.mover.on() ? "going" : "done";
+    },
+    commit: () => host.mover.commit(), cancel: () => { host.mover.cancel(); return false; },
+  };
+};
 /** a constraint: a relation put on what is selected when it fits; the tool goes on, asking for the next */
 const constraint = (spec: ToolSpec, host: ToolHost): Task => {
   const rel = spec.arg as Relation; let ask = constraintAsk(rel, []);
@@ -109,7 +123,7 @@ export const orient = (host: ToolHost): Task => ({
 
 /** the one place that knows which kind of tool is which: a new kind of tool is a line here (a tool of a kind that is here is only a registry entry) */
 const FACTORY: Record<ToolSpec["kind"], (spec: ToolSpec, host: ToolHost) => Task | null> = {
-  draw, extrude, face: body, constraint,
+  draw, extrude, face: body, move, constraint,
   plane: (_spec, host) => { host.plane(); return null; }, // (done at once: a plane placed)
 };
 export const taskFor = (spec: ToolSpec, host: ToolHost): Task | null => FACTORY[spec.kind](spec, host);

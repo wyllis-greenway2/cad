@@ -25,6 +25,7 @@ import { createStudio } from "./studio.ts";
 import { createOperations } from "./operationcontrol.ts";
 import { extrudeOp, type Source } from "./interaction/operations.ts";
 import { createBodyOps } from "./bodyops.ts";
+import { createBodyMove } from "./bodymovecontrol.ts";
 import { createBodySelect } from "./bodyselect.ts";
 import { createSelection } from "./selection.ts";
 import { createNotices } from "./interaction/notices.ts";
@@ -71,8 +72,9 @@ function addSketchPlane() {
 }
 const planeNow = () => (placed ? { key: placedKey ?? "placed", frame: placed } : { key: `world:${s.plane}`, frame: worldFrame(s.plane) });
 const orbc = createOrbControl({
-  target: () => (placed && !placedKey && !sk.active() ? { id: "sketch", frame: placed } : null), // (the orb is out of the way while a tool is on)
-  set: (_id, f) => { placed = { origin: f.origin, normal: f.normal, u: f.u }; },
+  // the orb's subject: the body being moved (a task's draft), else the sketch plane placed (out of the way while a drawing tool is on)
+  target: () => bmove.target() ?? (placed && !placedKey && !sk.active() ? { id: "sketch", frame: placed } : null),
+  set: (_id, f) => { if (bmove.on()) bmove.set(f); else placed = { origin: f.origin, normal: f.normal, u: f.u }; },
   copy: () => null,
   view: () => { const e = env(); return { cam: s.c, w: e.w, h: e.h }; },
 });
@@ -121,6 +123,7 @@ const infobar = createInfoBar(document.body); // (the one bar: what is so of the
 /** the engine's facts about a face of the body: where it faces (out of the body) */
 const faceFacts = (body: string, id: string) => studio.state().snapshot.find((x) => x.id === body)?.faces.find((f) => f.id === id) ?? null;
 const bodyOps = createBodyOps({ studio, faceFacts });
+const bmove = createBodyMove({ meshes: () => studio.state().meshes, bodies: () => studio.state().snapshot.at(-1)?.bodies.length ?? 0, recipe: () => studio.state().steps, change: (steps) => { studio.change(steps); record("Move"); }, say: (t) => notify(t, { kind: "warn", ttl: 4000 }) });
 /** a sketch on a face: the plane is the face's (the engine's own frame of it), the view turns straight to it */
 function sketchOnFace(sel: import("./bodyselect.ts").Selection) {
   const f = sel.faces[0]; if (!f) return;
@@ -133,7 +136,7 @@ function sketchOnFace(sel: import("./bodyselect.ts").Selection) {
 interface App { sketches: Record<string, SketchParams>; steps: readonly Step[]; faces: ReadonlyMap<string, { frame: Frame; source: Source }> }
 const undo = new Undo<App>({ sketches: {}, steps: [], faces: new Map() });
 function record(label: string, merge?: string) { undo.do({ sketches: sk.snapshot(), steps: studio.state().steps, faces: new Map(facePlanes) }, label, merge); }
-function restore(a: App | null) { if (!a) return; ext.cancel(); selection.clear(); facePlanes.clear(); for (const [k, v] of a.faces) facePlanes.set(k, v); if (placedKey && !facePlanes.has(placedKey)) { placed = null; placedKey = null; } sk.restore(a.sketches); if (a.steps !== studio.state().steps) studio.change([...a.steps]); }
+function restore(a: App | null) { if (!a) return; ext.cancel(); bmove.cancel(); selection.clear(); facePlanes.clear(); for (const [k, v] of a.faces) facePlanes.set(k, v); if (placedKey && !facePlanes.has(placedKey)) { placed = null; placedKey = null; } sk.restore(a.sketches); if (a.steps !== studio.state().steps) studio.change([...a.steps]); }
 const list = createStepList(document.body, {
   edit(id, key, value) { const next = editNumber(studio.state().steps, id, key, value); if (next) { studio.change(next); record("Number", `s:${id}:${key}`); } },
 });
@@ -177,6 +180,7 @@ const tools = createToolControl({
   notify, selection,
   draw: (kind) => startTool(kind as ToolKind), drawStep: () => sk.drawStep(), drawStop: () => sk.stop(),
   extrude: { start: () => { while (sk.stop()) { /* the sketch tool is put away */ } selection.clear(); ext.start(); }, active: () => ext.active(), open: () => ext.pulling(), valid: () => ext.valid(), apply: () => ext.apply(), cancel: () => ext.cancel(), words: () => ext.words(), show: (op) => { while (sk.stop()) { /* the sketch tool is put away */ } ext.open(op); } },
+  mover: { start: (body) => bmove.start(body), on: () => bmove.on(), commit: () => bmove.commit(), cancel: () => bmove.cancel() },
   plane: addSketchPlane, sketchFace: sketchOnFace, bodyOp: (action, pick) => bodyOps.operationFor(action, pick),
   selectedKinds: () => sk.selectedKinds(), relate: (rel) => sk.constrain(rel),
   orient: { on: () => orbc.orienting(), keep: () => { orbc.keep(); return true; }, cancel: () => orbc.cancel() },
@@ -248,7 +252,7 @@ function frame(now: number) {
   const e = env(now), d = view.drawing(s, e, pointer), orb = orbc.drawing(game.on ? null : pointer);
   canvas.style.cursor = orb?.hover ? "grab" : "";
   world.render({
-    ...d, ...(placed ? { grid: gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, placed.origin), placed.normal))), sketch: { origin: placed.origin, u: placed.u, v: vOf(placed), n: placed.normal } } : {}), orb: ext.drawing(game.on ? null : pointer) ?? orb, ghost: ext.ghost(), marks: bodies.marks(), fills: sk.fills(), lines: sk.lines(game.on ? null : pointer), ...(sk.active() ? { looks: Object.fromEntries(model.things.map((t) => [t.id, SEE_THROUGH])) } : {}),
+    ...d, ...(placed ? { grid: gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, placed.origin), placed.normal))), sketch: { origin: placed.origin, u: placed.u, v: vOf(placed), n: placed.normal } } : {}), orb: ext.drawing(game.on ? null : pointer) ?? orb, ghost: ext.ghost(), moved: bmove.preview(), marks: bodies.marks(), fills: sk.fills(), lines: sk.lines(game.on ? null : pointer), ...(sk.active() ? { looks: Object.fromEntries(model.things.map((t) => [t.id, SEE_THROUGH])) } : {}),
     cut: placed && !placedKey ? { origin: placed.origin, n: placed.normal } : null, // (made once with the plane, from the side the camera looked from; it turns and moves with the plane, and does not change with the camera)
   });
   badge.show(tools.armed()?.icon ?? null, game.on ? null : pointer);
@@ -264,5 +268,5 @@ function frame(now: number) {
 }
 requestAnimationFrame(frame);
 
-Object.assign(window, { __sketch: sk, __ext: ext, __studio: studio, __startExtrude: () => tools.arm("extrude"), __bodies: bodies, __more: chooseMore, __record: record, __undo: undo, __restore: restore, __proj3: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __proj: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __tool: (k: string) => tools.arm(k), __tools: tools, __px: (p: [number, number]) => { const e = env(), q = project(s.c, to3(planeNow().frame, p), e.w, e.h); return [q.x, q.y]; } }); // (for the dev checks in a page)
+Object.assign(window, { __sketch: sk, __ext: ext, __studio: studio, __startExtrude: () => tools.arm("extrude"), __bodies: bodies, __more: chooseMore, __record: record, __undo: undo, __restore: restore, __proj3: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __proj: (p: [number, number, number]) => { const e = env(), q = project(s.c, p, e.w, e.h); return [q.x, q.y]; }, __tool: (k: string) => tools.arm(k), __tools: tools, __orb: () => orbc.drawing(null), __bmove: bmove, __px: (p: [number, number]) => { const e = env(), q = project(s.c, to3(planeNow().frame, p), e.w, e.h); return [q.x, q.y]; } }); // (for the dev checks in a page)
 dev.install({ planes: () => ({ sketch: placed, drawn: sk.debug(), ...orbc.debug() }), model, rebuild: world.rebuild, state: () => s, put: (next) => { s = next; }, pointer: () => pointer, game, gizmoScale: () => view.gizmoScale(s) });

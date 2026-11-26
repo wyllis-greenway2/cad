@@ -6542,3 +6542,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1609 — 2026-11-26 — approval
 > yes start on the mover orb
+
+## in_1610 — 2026-11-26 — approval
+> (answer to the question how to scope the mover orb work) Move/Turn tool for bodies (Recommended)
