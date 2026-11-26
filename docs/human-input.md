@@ -6668,3 +6668,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1651 — 2026-11-26 — approval
 > yes extend the mockup with this rule set
+
+## in_1652 — 2026-11-26 — question
+> what is going on here? why does this on line suggestion seem to just rotate the line that is tangent already?

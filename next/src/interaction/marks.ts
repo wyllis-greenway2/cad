@@ -140,8 +140,11 @@ export function marksFor(
         parts = nc ? nc.parts : sel;
       if (out.some((m) => m.id === item.id && m.over?.join() === sel.join())) continue;
       // what applying it would move (the preview is the apply itself, `sketchmarks.ts`): the mark stands in the middle of the longest arrow, else on its part
-      const moves = ctx.preview?.(item.id, sel) ?? [],
-        at = middleOf(moves, new Set(scopeOf(S, parts))) ?? standing; // (stands with the parts the offer is about, `in_1648`)
+      const moves = ctx.preview?.(item.id, sel) ?? [];
+      // an offer is near when applying it moves only a little, whatever the parts it names are apart: a point 0.14 mm off a circle, on a tangent line's middle, turns the whole line (`in_1652`)
+      if (nc && reach && moves.some((m) => Math.hypot(m.to[0] - m.from[0], m.to[1] - m.from[1]) > 2 * reach.pointMm))
+        continue;
+      const at = middleOf(moves, new Set(scopeOf(S, parts))) ?? standing; // (stands with the parts the offer is about, `in_1648`)
       out.push({
         id: item.id,
         kind: "constraint",

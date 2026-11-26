@@ -98,6 +98,25 @@ try {
     Math.hypot(a2.P3![0] - b2.P3![0], a2.P3![1] - b2.P3![1]) < 1e-6 && Math.abs((await radius()) - 5.2) < 0.01,
     `and applied, the vertex stays and the circle's size goes to it: ${await radius()}`,
   );
+  // the human's file (`in_1648`, `in_1652`): a vertex 0.14 mm off a circle, the middle of a tangent line: "on the circle" would turn the line 14 degrees, so it is not offered with the circle selected
+  await ev(`() => {
+    const s = structuredClone(window.__sketch.snapshot()), k = Object.keys(s)[0];
+    s[k] = { arcs: [], circles: [{ c: "P1", id: "K1", r: 4.5256 }],
+      constraints: [{ id: "c1", kind: "tangent", parts: ["L1", "K1"] }, { id: "c2", kind: "on", parts: ["P5", "L1"] }, { id: "c3", kind: "midpoint", parts: ["P5", "L1"] }],
+      lines: [{ a: "P2", b: "P3", id: "L1" }, { a: "P4", b: "P5", id: "L2" }],
+      points: [{ id: "P1", x: 18.0676, y: 21.9759 }, { id: "P2", x: 8.5385, y: 29.5809 }, { id: "P3", x: 28.0529, y: 23.688 }, { id: "P4", x: 21.4769, y: 39.1988 }, { id: "P5", x: 18.2957, y: 26.6345 }] };
+    window.__sketch.restore(s);
+  }`);
+  await page.waitForTimeout(400);
+  await click(18.0676, 21.9759 + 4.5256 * -1); // the circle's lower edge
+  await page.waitForTimeout(400);
+  const turn = (await ev<any[]>(`() => window.__sketch.marks(performance.now()).map((m) => m.mark)`)).filter((m) =>
+    m.id.startsWith("near:on"),
+  );
+  ok(
+    turn.length === 0,
+    `the offer that would swing a tangent line 14 degrees is not made: ${JSON.stringify(turn.map((m) => m.id))}`,
+  );
   ok(errors.length === 0, `no errors in the page ${errors.join("; ")}`);
   await close();
 } finally {
