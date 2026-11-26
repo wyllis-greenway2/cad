@@ -6524,3 +6524,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1603 — 2026-11-26 — approval
 > yes start step 4
+
+## in_1604 — 2026-11-26 — directive
+> Yes I like this idea in general, but I am not sure all handles will be arrows and or all change based off arrow direction pull, but I like the idea that we have a unified task or tool operation system, and sometimes or maybe always we have handles available to access them alongside using the circle menu to access them.
