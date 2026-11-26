@@ -17,7 +17,7 @@ try {
   await ev(`() => { window.__studio.change([{ id: "s1", kind: "sketchPolygon", params: { points: [[0, 0], [40, 0], [40, 25], [0, 25]] }, inputs: [] }, { id: "e1", kind: "extrude", params: { d: 10 }, inputs: ["s1"] }]); window.__record("Extrude"); return 1; }`);
   await settle();
   await pg.click("[data-more='button']"); await page.waitForTimeout(150);
-  const have = await items(); ok(["new", "open", "save", "export:stl", "export:step", "undo"].every((id) => have.includes(id)), `with a body: new, open, save, both exports and undo can be chosen (${have.join(" ")})`);
+  const have = await items(); ok(["new", "open", "save", "export:stl", "export:step", "history"].every((id) => have.includes(id)) && !have.includes("undo") && !have.includes("redo"), `with a body: history, new, open, save and both exports can be chosen; no undo or redo (those are keys) (${have.join(" ")})`);
   writeFileSync(`${dir}/more-2.png`, await page.screenshot());
   await page.keyboard.press("Escape");
   // save

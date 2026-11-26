@@ -1,9 +1,9 @@
 ---
 id: dec_three_surfaces
 kind: decision
-status: provisional
-origin: ai-unreviewed
-human_input: in_1598, in_1599
+status: accepted
+origin: ai-proposed-human-approved
+human_input: in_1598, in_1599, in_1600
 date: 2026-11-26
 depends_on:
   - dec_helpers_one_rule: what the info bar offers is the same predicate (`offerable`) as what the helpers offer
@@ -12,7 +12,7 @@ alternative_to:
 ---
 # Three surfaces for everything: the menu, the notices, the info bar
 
-**The AI's proposal, not decided.** The human's picture (`in_1598`): the program has only three handles. **The circle menu** (what can I do), **notifications** (what is happening, what do you need to do next), **the info bar** (what is true of what I am working on, and what could I add). No tool, operation or feature grows a panel, pill, chip or bubble of its own. This entry says how to build that lean, and what rules make a future feature fit.
+**The human's picture and the AI's rules, approved (`in_1600`: "yes to both, start with the notification system, yes esc sounds correct").** The human's picture (`in_1598`): the program has only three handles. **The circle menu** (what can I do), **notifications** (what is happening, what do you need to do next), **the info bar** (what is true of what I am working on, and what could I add). No tool, operation or feature grows a panel, pill, chip or bubble of its own. This entry says how to build that lean, and what rules make a future feature fit.
 
 ## The rules
 
@@ -36,10 +36,15 @@ alternative_to:
 3. **Tools and the menu**: the registry, arming with needs from the selection, the badge, right click disarms, the constraints group in the menu (refusal: red flash and a notice); the pill and the orient bar go.
 4. **Move each existing tool and operation to the registry** (line, rectangle, circle, arc, trim, extrude, push and pull, round, chamfer, constraints), one at a time, with a page check each.
 
-## Still open for the human
+## Decided with it (`in_1600`)
 
-- **Esc** as written (throw the draft away; then disarm; then clear the selection) is the AI's; right click is the human's.
-- **The step list panel** (top left) is not one of the three surfaces. It came from the human's "undo and a step list for editing numbers" (`in_1567`) and the early approval of "a history list" (`in_028`); the old app has a **History** item in its "..." menu that opens it, it is not always on screen. Proposed: the same here (History in the "..." menu opens it), so nothing is always in the way.
+- **Esc** throws the draft away (valid or not), then disarms the tool, then clears the selection, then closes the menu.
+- **Undo and redo are Ctrl+Z and Ctrl+Y only**: no buttons, no menu items.
+- **History** (the list of steps with their numbers, `in_1567`, `in_028`) is **not on screen on its own**: the "..." menu has a History item that shows or hides it.
+
+## Built
+
+- **Step 1, the notices (`in_1600`):** `interaction/notices.ts` (the stack as a value with its own clock: persistent and temporary, a limit of three, the same words begun again not stacked, a handle to clear or change one), `notifydraw.ts` (one stack at the bottom, takes no clicks), every sentence of the page through `notify` (`main.ts`, the sketch controller's host, the operation controller's `say`); the engine's problem is a persistent error while it lasts, "Making..." a persistent notice after 300 ms of work; the old bottom line, the sketch's own message and the step list's "making..." are gone; `dev/notices-check.ts`, `dev/notices-browser.ts`. The undo and redo items and the always-on step list are gone (History in the menu).
 
 ## Rationale
 

@@ -13,6 +13,7 @@ try {
   const visible = (sel: string) => ev<number>(`() => [...document.querySelectorAll(${JSON.stringify(sel)})].filter((e) => e.offsetParent !== null).length`);
 
   ok((await visible("[data-step]")) === 0, "nothing drawn: no step list");
+  const history = async () => { await page.click("[data-more='button']"); await page.waitForTimeout(150); await page.click("[data-item='history']"); await page.waitForTimeout(200); };
   await ev(`() => window.__tool("rect")`); await page.waitForTimeout(900);
   await click(0, 0); await click(40, 25); await ev(`() => window.__sketch.stop()`);
   ok((await sketches()) === 4, "a rectangle is drawn");
@@ -23,7 +24,8 @@ try {
   const num = await page.evaluate(() => { const e = [...document.querySelectorAll<HTMLElement>("[data-bubble='d'] span")].find((s) => /^-?[\d.]+$/.test(s.textContent ?? ""))!; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
   await page.mouse.click(num[0]!, num[1]!); await page.keyboard.press("Control+a"); await page.keyboard.type("12"); await page.keyboard.press("Enter"); await page.keyboard.press("Enter"); await settle();
   let st = await state(); ok(st.steps.join() === "sketch,extrude:12" && Math.abs(st.top - 12) < 1e-6, `extruded 12: ${JSON.stringify(st)}`);
-  ok((await visible("[data-step]")) === 2, "the step list shows the sketch and the extrude");
+  ok((await visible("[data-step]")) === 0, "the step list does not show on its own, even with steps");
+  await history(); ok((await visible("[data-step]")) === 2, "History in the ... menu shows the step list: the sketch and the extrude");
   writeFileSync(`${dir}/undo-1.png`, await page.screenshot());
   // the distance in the list
   await page.click("[data-number='e1:d']"); await page.keyboard.press("Control+a"); await page.keyboard.type("20"); await page.keyboard.press("Enter"); await settle();
@@ -39,15 +41,12 @@ try {
   st = await state(); ok(st.steps.join() === "sketch,extrude:12" && (await sketches()) === 4, `redo twice: the rectangle and the extrude are back (${JSON.stringify(st)})`);
   await page.keyboard.press("Control+y"); await settle();
   st = await state(); ok(st.steps.join() === "sketch,extrude:20", "Ctrl+Y redoes the number too");
-  // the buttons
-  await page.click("[data-more='button']"); await page.waitForTimeout(150); await page.click("[data-item='undo']"); await settle();
-  st = await state(); ok(st.steps.join() === "sketch,extrude:12", "Undo in the ... menu does what the key does");
   // a distance of nothing, typed in the list: flagged in words
   await page.click("[data-number='e1:d']"); await page.keyboard.press("Control+a"); await page.keyboard.type("0"); await page.keyboard.press("Enter"); await settle();
   st = await state(); ok(/distance is nothing/.test(st.problem), `a distance of nothing is said in words: ${st.problem.slice(0, 90)}`);
   writeFileSync(`${dir}/undo-2.png`, await page.screenshot());
   await page.keyboard.press("Control+z"); await settle();
-  st = await state(); ok(st.problem === "" && st.steps.join() === "sketch,extrude:12", "and undo puts it right");
+  st = await state(); ok(st.problem === "" && st.steps.join() === "sketch,extrude:20", "and undo puts it right (back to the 20)");
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   await close();
 } finally { await S.stop(); }

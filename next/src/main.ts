@@ -25,6 +25,8 @@ import { extrudeOp, pushOp, roundOp, type PullInfo, type Source } from "./intera
 import { createBodySelect } from "./bodyselect.ts";
 import { createSelection } from "./selection.ts";
 import { createChip } from "./chipdraw.ts";
+import { createNotices } from "./interaction/notices.ts";
+import { createNoticeStack } from "./notifydraw.ts";
 import { createHelperBar } from "./helperbardraw.ts";
 import { createOpBar } from "./opbar.ts";
 import { Undo } from "./interaction/undo.ts";
@@ -73,9 +75,11 @@ const orbc = createOrbControl({
 const orientBar = createOrientBar(document.body, { apply: () => orbc.keep(), cancel: () => orbc.cancel() });
 
 // ---- sketching: a tool is chosen from the ring and draws on the plane that is on, which the view is first turned straight to ----
+// every sentence the page says goes through the notices (`dec_three_surfaces`): temporary ones report what happened, persistent ones belong to something going on
+const notices = createNotices(), noticeStack = createNoticeStack(document.body), notify = notices.notify;
 const selection = createSelection(); // (the page's one selection: parts of a sketch, or what is picked on a body)
 const sk = createSketch({
-  selection,
+  selection, notify,
   view: () => { const e = env(); return { cam: s.c, w: e.w, h: e.h }; },
   planes: () => {
     const all = new Map<string, Frame>([0, 1, 2].map((a) => [`world:${a}`, worldFrame(a as Axis)] as const));
@@ -85,10 +89,7 @@ const sk = createSketch({
   },
   ray: (x, y) => view.rayAt(s, env(), x, y),
 }, document.body, (label, merge) => record(label, merge));
-// the one line of words at the bottom (a refusal, what a trim let go)
-const note = document.createElement("div");
-note.style.cssText = `position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:none;max-width:70vw;padding:7px 14px;border-radius:15px;background:${settings.ui.pill};color:${settings.ui.pillText};font:13px ${settings.ui.font};z-index:9;pointer-events:none`;
-document.body.appendChild(note);
+
 /** the planes that lie on a face of a body, by the key the sketch controller keeps their drawings under */
 const facePlanes = new Map<string, { frame: Frame; source: Source }>();
 // ---- the engine's worker (the recipe and the bodies it makes) and the Extrude tool ----
@@ -153,12 +154,12 @@ const list = createStepList(document.body, {
   edit(id, key, value) { const next = editNumber(studio.state().steps, id, key, value); if (next) { studio.change(next); record("Number", `s:${id}:${key}`); } },
 });
 // ---- the "..." menu: new, open, save, export ----
-let said = "", saidUntil = 0;
-const say = (text: string, ms = 5000) => { said = text; saidUntil = performance.now() + ms; };
+const say = (text: string, ms = 5000) => { notify(text, { ttl: ms }); };
+let historyOpen = false;
 const hasBody = () => studio.state().meshes.length > 0, hasModel = () => studio.state().steps.length > 0 || sk.hasDrawing();
 async function chooseMore(id: import("./interaction/moremenu.ts").MoreItem["id"]) {
   if (game.on) endGame();
-  if (id === "undo" || id === "redo") { restore(id === "undo" ? undo.undo() : undo.redo()); return; }
+  if (id === "history") { historyOpen = !historyOpen; return; }
   if (id === "new") { ext.cancel(); restore({ sketches: {}, steps: [], faces: new Map() }); record("New"); say("A new model; undo brings the last one back"); }
   else if (id === "save") {
     const text = toFile({ steps: studio.state().steps, drawings: sk.snapshot(), faces: Object.fromEntries(facePlanes) as never });
@@ -169,11 +170,11 @@ async function chooseMore(id: import("./interaction/moremenu.ts").MoreItem["id"]
       const { model, warnings } = fromFile(f.text);
       restore({ sketches: model.drawings, steps: model.steps, faces: new Map(Object.entries(model.faces) as never) }); record("Open");
       say(warnings.length ? `Opened ${f.name}. ${warnings.join("; ")}` : `Opened ${f.name}`);
-    } catch (x) { say(x instanceof DocError ? `${f.name}: ${x.message}` : `${f.name} could not be opened: ${(x as Error).message}`, 8000); }
+    } catch (x) { notify(x instanceof DocError ? `${f.name}: ${x.message}` : `${f.name} could not be opened: ${(x as Error).message}`, { kind: "error", ttl: 8000 }); }
   } else {
     const step = studio.state().meshes[0]?.id; if (!step) { say("There is no body yet: extrude something first"); return; }
     const format = id === "export:step" ? "step" : "stl", r = await studio.ask({ what: "export", step, format });
-    if (!r.ok) { say(`The export did not work: ${r.why}`, 8000); return; }
+    if (!r.ok) { notify(`The export did not work: ${r.why}`, { kind: "error", ttl: 8000 }); return; }
     const d = r.data as { base64: string; bytes: number };
     download(`model.${format}`, fromBase64(d.base64), "application/octet-stream"); say(`Exported model.${format} (${Math.round(d.bytes / 1024 * 10) / 10} kB)`);
   }
@@ -240,6 +241,13 @@ addEventListener("keydown", (e) => {
 addEventListener("keyup", (e) => { game.key(e.code, false); });
 document.addEventListener("pointerlockchange", () => { if (document.pointerLockElement !== canvas && game.on) endGame(); });
 
+/** the notices that belong to the state of the page, not to an event: the engine's problem, and "Making..." while it takes a moment */
+let problem = { text: "", handle: null as ReturnType<typeof notify> | null }, busySince = 0, making: ReturnType<typeof notify> | null = null;
+function syncNotices(now: number) {
+  const st = studio.state();
+  if ((st.problem || "") !== problem.text) { problem.handle?.clear(); problem = { text: st.problem || "", handle: st.problem ? notify(st.problem, { kind: "error", persistent: true }) : null }; }
+  if (st.busy) { if (!busySince) busySince = now; if (!making && now - busySince > 300) making = notify("Making…", { persistent: true }); } else { busySince = 0; making?.clear(); making = null; }
+}
 let last = performance.now();
 function frame(now: number) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
@@ -257,11 +265,11 @@ function frame(now: number) {
   ext.frame(); pill.show(ext.pill() ?? (sk.active() ? { title: null, sketch: { icon: TOOL_ICON[sk.tool() ?? ""] ?? null } } : null));
   chip.show(game.on ? null : sk.chip());
   const say1 = sk.bar() ?? bodies.bar(sk.active() || ext.active()), barBox = (() => { barPress = say1?.press ?? null; const e = env(); return bar.show(say1?.items ?? null, say1?.at ?? null, e.w, e.h); })();
-  { const st = studio.state(); list.show({ rows: rowsOf(st.steps, st.snapshot), busy: st.busy }); }
-  more.show(moreItems({ hasModel: hasModel(), hasBody: hasBody(), undo: undo.canUndo ? undo.next.undo ?? "" : null, redo: undo.canRedo ? undo.next.redo ?? "" : null }));
-  if (now > saidUntil) said = "";
-  const skMessage = sk.frame(now, barBox).message; // (always made: the bubbles are drawn by it, whatever the line says)
-  note.textContent = studio.state().problem || said || skMessage; note.style.display = note.textContent ? "block" : "none";
+  { const st = studio.state(); list.show({ rows: historyOpen ? rowsOf(st.steps, st.snapshot) : [] }); }
+  more.show(moreItems({ hasModel: hasModel(), hasBody: hasBody(), history: historyOpen }));
+  sk.frame(now, barBox);
+  syncNotices(now);
+  noticeStack.show(notices.visible(now));
   orientBar.show(orbc.orienting() && !!orb);
   ui.update(view.pageState(s, e));
   requestAnimationFrame(frame);

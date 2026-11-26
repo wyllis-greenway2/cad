@@ -13,6 +13,7 @@ import { pointOnSeg, type Pt } from "./engine/region.ts";
 import { trimAt } from "./engine/trim.ts";
 import type { Relation } from "./engine/solver.ts";
 import type { Selection } from "./selection.ts";
+import type { NoticeOptions } from "./interaction/notices.ts";
 import { bake, constrain, emptySketch, hitAt, keep, nextId, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
 import { MEASURE_ID, angleMark, bubblesOn, selectionAnchor, type Bubble, type Flash } from "./interaction/bubbles.ts";
 import { barFor, type Bar } from "./interaction/helperbar.ts";
@@ -33,6 +34,8 @@ export interface SketchHost {
   /** Every plane there is, by name (the sketches of a plane that is gone are let go), and the one that is on. */
   planes(): { all: Map<string, Frame>; on: string; step: number };
   ray(x: number, y: number): { o: V3; d: V3 };
+  /** a sentence for the person, through the page's one notice (`interaction/notices.ts`) */
+  notify(text: string, o?: NoticeOptions): void;
   /** the page's one selection (`selection.ts`): what is selected in a sketch is kept there, so selecting on a body puts it away */
   selection: Selection;
 }
@@ -44,8 +47,8 @@ const TYPED: Record<string, string> = { ...Object.fromEntries([...Array(10).keys
 export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: string, merge?: string) => void) {
   const defs = new Map<string, SketchParams>(), sols = new WeakMap<SketchParams, Sol>(), fillCache = new WeakMap<SketchParams, [number, number][][][]>();
   const sel = host.selection;
-  let tool: Tool | null = null, flash: Flash = {}, flashUntil = 0, message = "", messageUntil = 0;
-  const say = (text: string, ms = 4000) => { message = text; messageUntil = performance.now() + ms; };
+  let tool: Tool | null = null, flash: Flash = {}, flashUntil = 0;
+  const say = (text: string, ms = 4000) => host.notify(text, { ttl: ms });
   const systems = new WeakMap<SketchParams, ReturnType<typeof viewSystem>>(), sysOf = (p: SketchParams) => { let y = systems.get(p); if (!y) { y = viewSystem(p, solOf(p)); systems.set(p, y); } return y; }; // (a definition has one system: asked for by every part of a frame)
   const solOf = (p: SketchParams): Sol => { let s = sols.get(p); if (!s) { const r = solveDefinition(p); s = { points: r.points, radii: r.radii }; sols.set(p, s); } return s; };
   const current = () => { const { all, on } = host.planes(); const f = all.get(on); return f ? { key: on, f, p: defs.get(on) ?? emptySketch() } : null; };
@@ -87,7 +90,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   };
   /** a change of a sketch: kept, and said to whoever keeps the history (`label`: what it was; `merge`: changes with the same key are one, a number typed again and again) */
   const set = (key: string, p: SketchParams, label: string, merge?: string) => { defs.set(key, p); on?.(label, merge); };
-  const fail = (why: string, victims: string[]) => { say(why); flash = { refused: victims }; flashUntil = performance.now() + 1800; };
+  const fail = (why: string, victims: string[]) => { host.notify(why, { kind: "warn", ttl: 4000 }); flash = { refused: victims }; flashUntil = performance.now() + 1800; };
 
   // ---- a part dragged: the solver follows the pointer with the part pinned where it goes (soft: it goes as near as the constraints allow); a point let go on another point or on a curve joins it
   type Drag = { key: string; def0: SketchParams; pins: string[]; start: Record<string, [number, number]>; q0: P2; x0: number; y0: number; moved: boolean; shift: boolean; id: string; join: { id: string; kind: "point" | "curve" } | null; snapAt: P2 | null };
@@ -298,18 +301,16 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       return { items: barFor(S, ids), at: [q.x, q.y], press: act };
     },
     /** Each picture: the bubbles of what is selected, on the page, and the sentence (empty when it has gone). */
-    frame(now: number, barBox: [number, number, number, number] | null = null): { message: string } {
+    frame(now: number, barBox: [number, number, number, number] | null = null): void {
       if (now > flashUntil) flash = {};
-      if (now > messageUntil) message = "";
       const c = current(), cam = host.view();
-      if (!c) { layer.show([], { lines: [], dots: [] }); return { message }; }
+      if (!c) { layer.show([], { lines: [], dots: [] }); return; }
       const s = solOf(c.p), S = sysOf(c.p), px = (p: P2) => { const q = project(cam.cam, to3(c.f, p), cam.w, cam.h); return [q.x, q.y] as [number, number]; };
       const box = barBox; // (the bubbles keep clear of the helper bar)
       const bubbles = [...bubblesOn(S, selected(c.key), flash).map((b) => (b.relation === "angle" ? { ...b, at: angleMarkAt(c.f, S, b.parts)?.at ?? b.at } : b)), ...shownOffers(S, now)], chosen = [...selected(c.key)].sort().join();
       ownId = bubbles.find((b) => b.kind === "dimension" && [...b.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
       const items: Placed[] = bubbles.map((bubble) => { const [x, y] = px(bubble.at); return { bubble, x, y }; });
       layer.show(items, { lines: c.p.lines?.map((l) => [px(s.points[l.a]!), px(s.points[l.b]!)] as [[number, number], [number, number]]) ?? [], dots: c.p.points.map((q) => px(s.points[q.id]!)), ...(box ? { rects: [box] } : {}) });
-      return { message };
     },
     /** The chip by the pointer while a figure is drawn (the old app's: its numbers, each with a padlock): what it says and where on the page it stands (null: no figure under way, or it has no numbers) */
     chip(): { fields: ChipField[]; at: [number, number] } | null {
@@ -341,7 +342,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     editing: (): boolean => layer.editing(),
     /** a press of the helper bar by its id (`delete`, `clear`, `rel:<relation>`): for the dev checks */
     press: act,
-    debug: () => ({ tool: tool ? { ...tool } : null, sketches: [...defs].map(([k, v]) => [k, v] as const), selection: (() => { const k = sel.get(); return k?.kind === "sketch" ? { key: k.key, ids: k.ids } : { key: "", ids: [] }; })(), message }),
+    debug: () => ({ tool: tool ? { ...tool } : null, sketches: [...defs].map(([k, v]) => [k, v] as const), selection: (() => { const k = sel.get(); return k?.kind === "sketch" ? { key: k.key, ids: k.ids } : { key: "", ids: [] }; })() }),
   };
   clickAt = (x, y, count) => api.click(x, y, count);
   return api;
