@@ -1,1 +1,26 @@
-{"points":[{"id":"P0","x":6.4,"y":14.1},{"id":"P1","x":13.2,"y":15.5},{"id":"P2","x":17.5,"y":18},{"id":"P3","x":29.9,"y":2.7},{"id":"P4","x":19.2,"y":14.2},{"id":"P5","x":18,"y":26.3}],"lines":[{"id":"L0","a":"P4","b":"P3"},{"id":"L1","a":"P1","b":"P0"},{"id":"L2","a":"P0","b":"P2"}],"arcs":[{"id":"A0","c":"P5","a":"P2","b":"P0","cw":true},{"id":"A1","c":"P5","a":"P3","b":"P4"}],"constraints":[{"id":"c0","kind":"length","parts":["L1"],"value":2.4},{"id":"c1","kind":"horizontal","parts":["L2"]},{"id":"c2","kind":"length","parts":["L0"],"value":7.1},{"id":"c4","kind":"radius","parts":["A1"],"value":11.1},{"id":"c6","kind":"equalLength","parts":["L0","L2"]}]}
+{
+  "points": [
+    { "id": "P0", "x": 6.4, "y": 14.1 },
+    { "id": "P1", "x": 13.2, "y": 15.5 },
+    { "id": "P2", "x": 17.5, "y": 18 },
+    { "id": "P3", "x": 29.9, "y": 2.7 },
+    { "id": "P4", "x": 19.2, "y": 14.2 },
+    { "id": "P5", "x": 18, "y": 26.3 }
+  ],
+  "lines": [
+    { "id": "L0", "a": "P4", "b": "P3" },
+    { "id": "L1", "a": "P1", "b": "P0" },
+    { "id": "L2", "a": "P0", "b": "P2" }
+  ],
+  "arcs": [
+    { "id": "A0", "c": "P5", "a": "P2", "b": "P0", "cw": true },
+    { "id": "A1", "c": "P5", "a": "P3", "b": "P4" }
+  ],
+  "constraints": [
+    { "id": "c0", "kind": "length", "parts": ["L1"], "value": 2.4 },
+    { "id": "c1", "kind": "horizontal", "parts": ["L2"] },
+    { "id": "c2", "kind": "length", "parts": ["L0"], "value": 7.1 },
+    { "id": "c4", "kind": "radius", "parts": ["A1"], "value": 11.1 },
+    { "id": "c6", "kind": "equalLength", "parts": ["L0", "L2"] }
+  ]
+}

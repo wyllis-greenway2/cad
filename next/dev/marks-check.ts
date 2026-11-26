@@ -176,4 +176,26 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
     ),
   );
 }
+{
+  // an offer that would move a part says where (`in_1631`): the arrow's ends, and the offer stands at its middle
+  const T: System = {
+    points: [
+      { id: "A", x: 0, y: 5 },
+      { id: "B", x: 4.7, y: 0 },
+      { id: "C", x: 10, y: 0 },
+    ],
+    lines: [{ id: "L1", a: "A", b: "B" }],
+    circles: [{ id: "K1", c: "C", r: 5 }],
+    constraints: [],
+  } as unknown as System;
+  const m = marksFor(T, ["L1"], { now: 0, reach: { pointMm: 1, lineMm: 0.6 } }).find(
+      (x) => x.id === "near:pointOnCircle:B,K1",
+    ),
+    mv = m?.moves?.[0];
+  check(
+    "a point 0.3 mm off a circle is offered on it with an arrow to the edge, the offer at its middle",
+    !!mv && Math.abs(mv.to[0] - 5) < 1e-6 && Math.abs(m!.at[0] - 4.85) < 1e-6,
+    JSON.stringify(m?.moves),
+  );
+}
 process.exit(failureCount() ? 1 : 0);

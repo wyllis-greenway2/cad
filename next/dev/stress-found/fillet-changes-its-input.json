@@ -1,325 +1,245 @@
 [
- {
-  "id": "s",
-  "kind": "sketchCircle",
-  "params": {
-   "r": 13.5,
-   "at": [
-    0,
-    0
-   ]
+  {
+    "id": "s",
+    "kind": "sketchCircle",
+    "params": {
+      "r": 13.5,
+      "at": [0, 0]
+    },
+    "inputs": []
   },
-  "inputs": []
- },
- {
-  "id": "A",
-  "kind": "extrude",
-  "params": {
-   "d": 18
+  {
+    "id": "A",
+    "kind": "extrude",
+    "params": {
+      "d": 18
+    },
+    "inputs": ["s"]
   },
-  "inputs": [
-   "s"
-  ]
- },
- {
-  "id": "X0",
-  "kind": "hole",
-  "params": {
-   "face": {
-    "step": "A",
-    "role": "start",
-    "of": [],
-    "pieces": []
-   },
-   "diameter": 10.5,
-   "depth": 13.5,
-   "at": [
-    5.25,
-    8
-   ],
-   "counterbore": {
-    "diameter": 16.8,
-    "depth": 1.25
-   }
-  },
-  "inputs": [
-   "A"
-  ]
- },
- {
-  "id": "X1",
-  "kind": "hole",
-  "params": {
-   "face": {
-    "step": "X0",
-    "role": "cb",
-    "of": [
-     "bottom"
-    ],
-    "pieces": []
-   },
-   "diameter": 3,
-   "depth": "through",
-   "at": [
-    6.75,
-    -4.5
-   ]
-  },
-  "inputs": [
-   "X0"
-  ]
- },
- {
-  "id": "X2",
-  "kind": "hole",
-  "params": {
-   "face": {
-    "step": "X0",
-    "role": "cb",
-    "of": [
-     "bottom"
-    ],
-    "pieces": []
-   },
-   "diameter": 6.5,
-   "depth": 20.5,
-   "at": [
-    -7,
-    3
-   ],
-   "counterbore": {
-    "diameter": 10.4,
-    "depth": 1.25
-   }
-  },
-  "inputs": [
-   "X1"
-  ]
- },
- {
-  "id": "X3",
-  "kind": "push",
-  "params": {
-   "face": {
-    "step": "A",
-    "role": "start",
-    "of": [],
-    "pieces": [
-     0
-    ]
-   },
-   "dist": 11.75
-  },
-  "inputs": [
-   "X2"
-  ]
- },
- {
-  "id": "X4",
-  "kind": "round",
-  "params": {
-   "edges": [
-    {
-     "a": {
-      "step": "A",
-      "role": "side",
-      "of": [
-       {
-        "step": "s",
-        "role": "circle",
+  {
+    "id": "X0",
+    "kind": "hole",
+    "params": {
+      "face": {
+        "step": "A",
+        "role": "start",
         "of": [],
         "pieces": []
-       },
-       0
-      ],
-      "pieces": []
-     },
-     "b": {
-      "step": "X0",
-      "role": "hole",
-      "of": [
-       "bottom"
-      ],
-      "pieces": []
-     }
+      },
+      "diameter": 10.5,
+      "depth": 13.5,
+      "at": [5.25, 8],
+      "counterbore": {
+        "diameter": 16.8,
+        "depth": 1.25
+      }
     },
-    {
-     "a": {
-      "step": "X0",
-      "role": "cb",
-      "of": [
-       "wall"
+    "inputs": ["A"]
+  },
+  {
+    "id": "X1",
+    "kind": "hole",
+    "params": {
+      "face": {
+        "step": "X0",
+        "role": "cb",
+        "of": ["bottom"],
+        "pieces": []
+      },
+      "diameter": 3,
+      "depth": "through",
+      "at": [6.75, -4.5]
+    },
+    "inputs": ["X0"]
+  },
+  {
+    "id": "X2",
+    "kind": "hole",
+    "params": {
+      "face": {
+        "step": "X0",
+        "role": "cb",
+        "of": ["bottom"],
+        "pieces": []
+      },
+      "diameter": 6.5,
+      "depth": 20.5,
+      "at": [-7, 3],
+      "counterbore": {
+        "diameter": 10.4,
+        "depth": 1.25
+      }
+    },
+    "inputs": ["X1"]
+  },
+  {
+    "id": "X3",
+    "kind": "push",
+    "params": {
+      "face": {
+        "step": "A",
+        "role": "start",
+        "of": [],
+        "pieces": [0]
+      },
+      "dist": 11.75
+    },
+    "inputs": ["X2"]
+  },
+  {
+    "id": "X4",
+    "kind": "round",
+    "params": {
+      "edges": [
+        {
+          "a": {
+            "step": "A",
+            "role": "side",
+            "of": [
+              {
+                "step": "s",
+                "role": "circle",
+                "of": [],
+                "pieces": []
+              },
+              0
+            ],
+            "pieces": []
+          },
+          "b": {
+            "step": "X0",
+            "role": "hole",
+            "of": ["bottom"],
+            "pieces": []
+          }
+        },
+        {
+          "a": {
+            "step": "X0",
+            "role": "cb",
+            "of": ["wall"],
+            "pieces": [0, 0, 0]
+          },
+          "b": {
+            "step": "X2",
+            "role": "cb",
+            "of": ["wall"],
+            "pieces": [0]
+          }
+        }
       ],
-      "pieces": [
-       0,
-       0,
-       0
-      ]
-     },
-     "b": {
-      "step": "X2",
-      "role": "cb",
-      "of": [
-       "wall"
-      ],
-      "pieces": [
-       0
-      ]
-     }
-    }
-   ],
-   "size": 1,
-   "mode": "chamfer"
+      "size": 1,
+      "mode": "chamfer"
+    },
+    "inputs": ["X3"]
   },
-  "inputs": [
-   "X3"
-  ]
- },
- {
-  "id": "X5",
-  "kind": "mirror",
-  "params": {
-   "plane": {
-    "point": [
-     -51.5,
-     0,
-     0
-    ],
-    "normal": [
-     1,
-     0,
-     0
-    ]
-   }
+  {
+    "id": "X5",
+    "kind": "mirror",
+    "params": {
+      "plane": {
+        "point": [-51.5, 0, 0],
+        "normal": [1, 0, 0]
+      }
+    },
+    "inputs": ["X4"]
   },
-  "inputs": [
-   "X4"
-  ]
- },
- {
-  "id": "X7",
-  "kind": "hole",
-  "params": {
-   "face": {
-    "step": "X5",
-    "role": "mirror",
-    "of": [
-     {
-      "step": "X0",
-      "role": "hole",
-      "of": [
-       "bottom"
-      ],
-      "pieces": []
-     },
-     1
-    ],
-    "pieces": []
-   },
-   "diameter": 6.5,
-   "depth": 17,
-   "at": [
-    7,
-    3
-   ]
+  {
+    "id": "X7",
+    "kind": "hole",
+    "params": {
+      "face": {
+        "step": "X5",
+        "role": "mirror",
+        "of": [
+          {
+            "step": "X0",
+            "role": "hole",
+            "of": ["bottom"],
+            "pieces": []
+          },
+          1
+        ],
+        "pieces": []
+      },
+      "diameter": 6.5,
+      "depth": 17,
+      "at": [7, 3]
+    },
+    "inputs": ["X5"]
   },
-  "inputs": [
-   "X5"
-  ]
- },
- {
-  "id": "X9",
-  "kind": "hole",
-  "params": {
-   "face": {
-    "step": "X5",
-    "role": "mirror",
-    "of": [
-     {
-      "step": "A",
-      "role": "end",
-      "of": [],
-      "pieces": []
-     },
-     1
-    ],
-    "pieces": []
-   },
-   "diameter": 3.25,
-   "depth": "through",
-   "at": [
-    1,
-    -5
-   ]
+  {
+    "id": "X9",
+    "kind": "hole",
+    "params": {
+      "face": {
+        "step": "X5",
+        "role": "mirror",
+        "of": [
+          {
+            "step": "A",
+            "role": "end",
+            "of": [],
+            "pieces": []
+          },
+          1
+        ],
+        "pieces": []
+      },
+      "diameter": 3.25,
+      "depth": "through",
+      "at": [1, -5]
+    },
+    "inputs": ["X7"]
   },
-  "inputs": [
-   "X7"
-  ]
- },
- {
-  "id": "X11",
-  "kind": "push",
-  "params": {
-   "face": {
-    "step": "X0",
-    "role": "cb",
-    "of": [
-     "bottom"
-    ],
-    "pieces": [
-     1
-    ]
-   },
-   "dist": 2.25
+  {
+    "id": "X11",
+    "kind": "push",
+    "params": {
+      "face": {
+        "step": "X0",
+        "role": "cb",
+        "of": ["bottom"],
+        "pieces": [1]
+      },
+      "dist": 2.25
+    },
+    "inputs": ["X9"]
   },
-  "inputs": [
-   "X9"
-  ]
- },
- {
-  "id": "X12",
-  "kind": "moveFace",
-  "params": {
-   "face": {
-    "step": "X5",
-    "role": "mirror",
-    "of": [
-     {
-      "step": "X0",
-      "role": "cb",
-      "of": [
-       "bottom"
-      ],
-      "pieces": [
-       1
-      ]
-     },
-     1
-    ],
-    "pieces": []
-   },
-   "dist": -11
+  {
+    "id": "X12",
+    "kind": "moveFace",
+    "params": {
+      "face": {
+        "step": "X5",
+        "role": "mirror",
+        "of": [
+          {
+            "step": "X0",
+            "role": "cb",
+            "of": ["bottom"],
+            "pieces": [1]
+          },
+          1
+        ],
+        "pieces": []
+      },
+      "dist": -11
+    },
+    "inputs": ["X11"]
   },
-  "inputs": [
-   "X11"
-  ]
- },
- {
-  "id": "X13",
-  "kind": "offsetFace",
-  "params": {
-   "face": {
-    "step": "X2",
-    "role": "hole",
-    "of": [
-     "wall"
-    ],
-    "pieces": []
-   },
-   "dist": -1.5
-  },
-  "inputs": [
-   "X12"
-  ]
- }
+  {
+    "id": "X13",
+    "kind": "offsetFace",
+    "params": {
+      "face": {
+        "step": "X2",
+        "role": "hole",
+        "of": ["wall"],
+        "pieces": []
+      },
+      "dist": -1.5
+    },
+    "inputs": ["X12"]
+  }
 ]

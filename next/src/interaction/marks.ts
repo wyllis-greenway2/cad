@@ -10,6 +10,8 @@ import { barFor, nearConstraint, nearFor, type BarItem } from "./infobar.ts";
 export type MarkState = "locked" | "offer" | "refused";
 /** a mark is a fact (what a bubble says) with its state, how much of it is left while it fades, and (an offer) the parts it is offered for: a click on it selects them and applies it */
 export interface Mark extends Fact {
+  /** an offer that would move something: each point that would go, from where it is to where it would be (the sketch's axes); the mark then stands in the middle of the longest */
+  moves?: { from: [number, number]; to: [number, number] }[];
   state: MarkState;
   alpha: number;
   over?: string[];
@@ -24,12 +26,9 @@ export interface Recent {
 export const alphaAt = (until: number, now: number): number =>
   Math.max(0, Math.min(1, (until - now) / settings.marks.fadeMs));
 /** what is offered for one selection: for a part alone, what is already true (`holds`: a line is level, a point is on a line) and the near ones (true now with another part), the rest is in the menu; for two or more parts chosen together, everything that fits them and would be accepted, true yet or not */
-const memo = new WeakMap<System, Map<string, { item: BarItem; at: [number, number] }[]>>(); // (the same system and selection are asked about every frame)
-function offersOf(
-  S: System,
-  selection: string[],
-  reach?: { pointMm: number; lineMm: number },
-): { item: BarItem; at: [number, number] }[] {
+type Offered = { item: BarItem; at: [number, number]; moves: { from: [number, number]; to: [number, number] }[] };
+const memo = new WeakMap<System, Map<string, Offered[]>>(); // (the same system and selection are asked about every frame)
+function offersOf(S: System, selection: string[], reach?: { pointMm: number; lineMm: number }): Offered[] {
   const key = `${selection.join("\u0000")}|${reach === undefined ? "" : `${reach.pointMm.toFixed(3)},${reach.lineMm.toFixed(3)}`}`,
     hit = memo.get(S)?.get(key);
   if (hit) return hit;
@@ -39,20 +38,33 @@ function offersOf(
   m.set(key, out);
   return out;
 }
-function offersOfUncached(
-  S: System,
-  selection: string[],
-  reach?: { pointMm: number; lineMm: number },
-): { item: BarItem; at: [number, number] }[] {
+function offersOfUncached(S: System, selection: string[], reach?: { pointMm: number; lineMm: number }): Offered[] {
   const where = selectionAnchor(S, selection);
   if (!where) return [];
   // ("fixed in place" is true of every point as drawn: it is a thing to ask for in the menu, not an offer) one part: only what is already true of it (the rest is in the menu); two or more: the person has paired them, so everything that fits the pair and would be accepted (a line and a circle: tangent; a point and a line: on the line)
   const own = barFor(S, selection)
     .filter((b) => b.id !== "rel:fixed" && (selection.length >= 2 || b.tone === "holds"))
-    .map((item) => ({ item, at: where }));
+    .map((item) => ({ item, at: where, moves: [] as { from: [number, number]; to: [number, number] }[] }));
   const near = nearFor(S, selection, undefined, reach).flatMap((item) => {
     const nc = nearConstraint(item.id);
-    return nc ? [{ item, at: anchorOf(S, { id: "near", kind: nc.kind, parts: nc.parts }) }] : [];
+    if (!nc) return [];
+    // what taking it would move: each point from where it is to where it would be; the mark stands in the middle of the longest (`in_1631`)
+    const moves = (item.moves ?? []).flatMap((m) => {
+      const p = S.points.find((x) => x.id === m.id);
+      return p ? [{ from: [p.x, p.y] as [number, number], to: [p.x + m.dx, p.y + m.dy] as [number, number] }] : [];
+    });
+    const main = moves.reduce<(typeof moves)[number] | null>(
+      (a, m) =>
+        !a ||
+        Math.hypot(m.to[0] - m.from[0], m.to[1] - m.from[1]) > Math.hypot(a.to[0] - a.from[0], a.to[1] - a.from[1])
+          ? m
+          : a,
+      null,
+    );
+    const at: [number, number] = main
+      ? [(main.from[0] + main.to[0]) / 2, (main.from[1] + main.to[1]) / 2]
+      : anchorOf(S, { id: "near", kind: nc.kind, parts: nc.parts });
+    return [{ item, at, moves }];
   });
   return [...own, ...near];
 }
@@ -84,7 +96,7 @@ export function marksFor(
   const kids = selection.length === 1 ? scope.filter((id) => id !== selection[0]) : [];
   const fresh = !selection.length && ctx.recent && ctx.now < ctx.recent.until ? ctx.recent : null;
   for (const sel of selection.length ? [selection] : fresh ? fresh.ids.map((id) => [id]) : []) {
-    for (const { item, at } of [
+    for (const { item, at, moves } of [
       ...offersOf(S, sel, ctx.reach),
       ...(sel === selection
         ? kids.flatMap((k) =>
@@ -110,6 +122,7 @@ export function marksFor(
         state: "offer",
         alpha: fresh ? alphaAt(fresh.until, ctx.now) : 1,
         over: sel,
+        ...(moves.length ? { moves } : {}),
       });
     }
   }

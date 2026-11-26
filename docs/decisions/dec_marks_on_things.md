@@ -32,6 +32,9 @@ The mark drawer and the rule: `next/src/interaction/marks.ts` (pure: `marksFor` 
 - **Arcs:** the curve sets the radius (the ends go out along their own lines), the centre moves the whole arc.
 `dev/marks-check.ts` (where, scope, what shows), `dev/drag-hints-browser.ts` (a tangent line pulled takes its circle and the tangent shows; the circle fixed and its diameter locked, the same drag is held back and the tangent flashes).
 
+## Built: an offer that would move something shows where (`in_1631`)
+An offered constraint that is not yet true moves parts to hold (`inRange` already knows the numbers). Each such offer carries `moves` (a point from where it is to where it would be); the sketch draws a dashed arrow for each (`STROKE` kinds `move`, `moveHead`), and the offer's mark stands at the middle of the longest arrow instead of on the part. An offer that is already true has no arrow. Dev check: `dev/moves-browser.ts`, `marks-check`. A move of a few pixels has an arrow too small to see; the mark at its middle still tells it. (Seen on the way: `NEAR_MAX` is 2, so two trivial offers such as a point level with another can crowd out a nearer one; not changed.)
+
 ## Rationale
 
 The info bar put the constraints away from the geometry they are about and needed a second place to look; the human wants to see a constraint on the line it constrains and to say yes with the same lock everywhere (`in_1611`). One mark type, one anchor function and one visibility rule keep it as small as the info bar was.

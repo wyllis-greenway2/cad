@@ -47,7 +47,18 @@ export const WEIGHT = {
 
 /** How each line of a drawing is drawn, by what it is doing: the tone (colour) and the weight, in one place (`in_1576`). The drawing code says `selected`; the screen turns it into a colour and a width. */
 export type StrokeKind =
-  "note" | "ball" | "tieBall" | "done" | "selected" | "preview" | "cursor" | "cut" | "tie" | "guide";
+  | "note"
+  | "ball"
+  | "tieBall"
+  | "done"
+  | "selected"
+  | "preview"
+  | "cursor"
+  | "cut"
+  | "tie"
+  | "guide"
+  | "move"
+  | "moveHead";
 export const STROKE: Record<
   StrokeKind,
   {
@@ -67,4 +78,6 @@ export const STROKE: Record<
   cut: { tone: "refused", weight: 1.4, soft: false },
   tie: { tone: "ties", weight: 1.4, soft: false },
   guide: { tone: "figure", weight: 0.75, soft: false, dashed: true },
+  move: { tone: "ties", weight: 1, soft: false, dashed: true }, // what an offered constraint would move, and to where: a dashed amber line with an arrow (`in_1631`)
+  moveHead: { tone: "ties", weight: 1, soft: false }, // the head of that arrow
 };

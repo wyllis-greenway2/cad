@@ -6602,3 +6602,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1629 — 2026-11-26 — approval
 > yes start step 3
+
+## in_1630 — 2026-11-26 — directive
+> 2 lets go back to sketching look and feel
+
+## in_1631 — 2026-11-26 — directive
+> Can we have it so that when a suggested constraint would move something, then there is a dashed line with an arrow showing what would move to where and the suggested constraint would be in the middle of that arrow?

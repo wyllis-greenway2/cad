@@ -1,1 +1,193 @@
-[{"id":"s","kind":"sketchPolygon","params":{"points":[[0,0],[36.25,0],[36.25,15.25],[0,15.25]]},"inputs":[]},{"id":"A","kind":"extrude","params":{"d":12},"inputs":["s"]},{"id":"X1","kind":"push","params":{"face":{"step":"A","role":"side","of":[{"step":"s","role":"line","of":[3],"pieces":[]}],"pieces":[]},"dist":5},"inputs":["A"]},{"id":"X2","kind":"round","params":{"edges":[{"a":{"step":"A","role":"side","of":[{"step":"s","role":"line","of":[3],"pieces":[]}],"pieces":[]},"b":{"step":"A","role":"start","of":[],"pieces":[]}},{"a":{"step":"A","role":"side","of":[{"step":"s","role":"line","of":[0],"pieces":[]}],"pieces":[]},"b":{"step":"A","role":"side","of":[{"step":"s","role":"line","of":[3],"pieces":[]}],"pieces":[]}},{"a":{"step":"A","role":"end","of":[],"pieces":[]},"b":{"step":"A","role":"side","of":[{"step":"s","role":"line","of":[2],"pieces":[]}],"pieces":[]}}],"size":1},"inputs":["X1"]},{"id":"X3","kind":"push","params":{"face":{"step":"A","role":"side","of":[{"step":"s","role":"line","of":[0],"pieces":[]}],"pieces":[]},"dist":10.25},"inputs":["X2"]},{"id":"X4","kind":"push","params":{"face":{"step":"A","role":"start","of":[],"pieces":[]},"dist":-3.75},"inputs":["X3"]},{"id":"X5","kind":"mirror","params":{"plane":{"point":[-44,0,0],"normal":[1,0,0]}},"inputs":["X4"]},{"id":"X6","kind":"round","params":{"edges":[{"a":{"step":"X5","role":"mirror","of":[{"step":"A","role":"end","of":[],"pieces":[]},1],"pieces":[]},"b":{"step":"X5","role":"mirror","of":[{"step":"A","role":"side","of":[{"step":"s","role":"line","of":[1],"pieces":[]}],"pieces":[]},1],"pieces":[]}},{"a":{"step":"X5","role":"mirror","of":[{"step":"A","role":"end","of":[],"pieces":[]},1],"pieces":[]},"b":{"step":"X5","role":"mirror","of":[{"step":"A","role":"side","of":[{"step":"s","role":"line","of":[1],"pieces":[]}],"pieces":[]},1],"pieces":[]}},{"a":{"step":"A","role":"side","of":[{"step":"s","role":"line","of":[0],"pieces":[]}],"pieces":[]},"b":{"step":"X3","role":"side","of":[{"step":"A","role":"side","of":[{"step":"s","role":"line","of":[0],"pieces":[]}],"pieces":[]},{"step":"X2","role":"round","of":[{"step":"A","role":"side","of":[{"step":"s","role":"line","of":[0],"pieces":[]}],"pieces":[]},{"step":"A","role":"side","of":[{"step":"s","role":"line","of":[3],"pieces":[]}],"pieces":[]},0],"pieces":[]}],"pieces":[]}}],"size":19.75},"inputs":["X5"]}]
+[
+  {
+    "id": "s",
+    "kind": "sketchPolygon",
+    "params": {
+      "points": [
+        [0, 0],
+        [36.25, 0],
+        [36.25, 15.25],
+        [0, 15.25]
+      ]
+    },
+    "inputs": []
+  },
+  { "id": "A", "kind": "extrude", "params": { "d": 12 }, "inputs": ["s"] },
+  {
+    "id": "X1",
+    "kind": "push",
+    "params": {
+      "face": {
+        "step": "A",
+        "role": "side",
+        "of": [{ "step": "s", "role": "line", "of": [3], "pieces": [] }],
+        "pieces": []
+      },
+      "dist": 5
+    },
+    "inputs": ["A"]
+  },
+  {
+    "id": "X2",
+    "kind": "round",
+    "params": {
+      "edges": [
+        {
+          "a": {
+            "step": "A",
+            "role": "side",
+            "of": [{ "step": "s", "role": "line", "of": [3], "pieces": [] }],
+            "pieces": []
+          },
+          "b": { "step": "A", "role": "start", "of": [], "pieces": [] }
+        },
+        {
+          "a": {
+            "step": "A",
+            "role": "side",
+            "of": [{ "step": "s", "role": "line", "of": [0], "pieces": [] }],
+            "pieces": []
+          },
+          "b": {
+            "step": "A",
+            "role": "side",
+            "of": [{ "step": "s", "role": "line", "of": [3], "pieces": [] }],
+            "pieces": []
+          }
+        },
+        {
+          "a": { "step": "A", "role": "end", "of": [], "pieces": [] },
+          "b": {
+            "step": "A",
+            "role": "side",
+            "of": [{ "step": "s", "role": "line", "of": [2], "pieces": [] }],
+            "pieces": []
+          }
+        }
+      ],
+      "size": 1
+    },
+    "inputs": ["X1"]
+  },
+  {
+    "id": "X3",
+    "kind": "push",
+    "params": {
+      "face": {
+        "step": "A",
+        "role": "side",
+        "of": [{ "step": "s", "role": "line", "of": [0], "pieces": [] }],
+        "pieces": []
+      },
+      "dist": 10.25
+    },
+    "inputs": ["X2"]
+  },
+  {
+    "id": "X4",
+    "kind": "push",
+    "params": { "face": { "step": "A", "role": "start", "of": [], "pieces": [] }, "dist": -3.75 },
+    "inputs": ["X3"]
+  },
+  {
+    "id": "X5",
+    "kind": "mirror",
+    "params": { "plane": { "point": [-44, 0, 0], "normal": [1, 0, 0] } },
+    "inputs": ["X4"]
+  },
+  {
+    "id": "X6",
+    "kind": "round",
+    "params": {
+      "edges": [
+        {
+          "a": {
+            "step": "X5",
+            "role": "mirror",
+            "of": [{ "step": "A", "role": "end", "of": [], "pieces": [] }, 1],
+            "pieces": []
+          },
+          "b": {
+            "step": "X5",
+            "role": "mirror",
+            "of": [
+              {
+                "step": "A",
+                "role": "side",
+                "of": [{ "step": "s", "role": "line", "of": [1], "pieces": [] }],
+                "pieces": []
+              },
+              1
+            ],
+            "pieces": []
+          }
+        },
+        {
+          "a": {
+            "step": "X5",
+            "role": "mirror",
+            "of": [{ "step": "A", "role": "end", "of": [], "pieces": [] }, 1],
+            "pieces": []
+          },
+          "b": {
+            "step": "X5",
+            "role": "mirror",
+            "of": [
+              {
+                "step": "A",
+                "role": "side",
+                "of": [{ "step": "s", "role": "line", "of": [1], "pieces": [] }],
+                "pieces": []
+              },
+              1
+            ],
+            "pieces": []
+          }
+        },
+        {
+          "a": {
+            "step": "A",
+            "role": "side",
+            "of": [{ "step": "s", "role": "line", "of": [0], "pieces": [] }],
+            "pieces": []
+          },
+          "b": {
+            "step": "X3",
+            "role": "side",
+            "of": [
+              {
+                "step": "A",
+                "role": "side",
+                "of": [{ "step": "s", "role": "line", "of": [0], "pieces": [] }],
+                "pieces": []
+              },
+              {
+                "step": "X2",
+                "role": "round",
+                "of": [
+                  {
+                    "step": "A",
+                    "role": "side",
+                    "of": [{ "step": "s", "role": "line", "of": [0], "pieces": [] }],
+                    "pieces": []
+                  },
+                  {
+                    "step": "A",
+                    "role": "side",
+                    "of": [{ "step": "s", "role": "line", "of": [3], "pieces": [] }],
+                    "pieces": []
+                  },
+                  0
+                ],
+                "pieces": []
+              }
+            ],
+            "pieces": []
+          }
+        }
+      ],
+      "size": 19.75
+    },
+    "inputs": ["X5"]
+  }
+]

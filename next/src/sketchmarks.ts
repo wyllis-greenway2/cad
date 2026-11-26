@@ -129,6 +129,7 @@ export function createMarks(
     /** The marks standing on the parts (`dec_marks_on_things`): what is selected shows its constraints (locked) and what is true of it and near (offered); the parts just made show their offers for a while and fade; a refusal shows what held it back, always; placed on the page. */
     marks(now: number): PlacedMark[] {
       const c = current();
+      st.moves = null;
       if (!c) {
         ownId = null;
         return [];
@@ -172,6 +173,8 @@ export function createMarks(
       const list = marksFor(S, ids, { flash: st.flash, recent: fresh, now, fade, reach }),
         chosen = [...ids].sort().join();
       ownId = list.find((m) => m.kind === "dimension" && [...m.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
+      const arrows = list.filter((m) => m.state === "offer" && m.moves?.length).flatMap((m) => m.moves!);
+      if (arrows.length) st.moves = { key: c.key, list: arrows };
       return list.map(at3);
     },
     /** Each picture: a refusal's red goes after its time. */

@@ -33,7 +33,19 @@ export interface DrawLine {
   pts: V3[];
   /** a ball's radius, in mm */ r?: number;
   /** a dashed line's dash, in mm (the gap is 0.7 of it) */ dash?: number;
-  kind: "done" | "selected" | "preview" | "cursor" | "cut" | "tie" | "tieBall" | "guide" | "ball" | "note";
+  kind:
+    | "done"
+    | "selected"
+    | "preview"
+    | "cursor"
+    | "cut"
+    | "tie"
+    | "tieBall"
+    | "guide"
+    | "ball"
+    | "note"
+    | "move"
+    | "moveHead";
 }
 
 export function createCore(host: SketchHost, on?: (label: string, merge?: string) => void) {
@@ -47,6 +59,8 @@ export function createCore(host: SketchHost, on?: (label: string, merge?: string
     flashUntil: 0,
     recent: null as (Recent & { key: string }) | null,
     activeSince: new Map<string, number>(),
+    /** what the offers showing now would move, from where to where (set with the marks, drawn with the lines) */
+    moves: null as { key: string; list: { from: [number, number]; to: [number, number] }[] } | null,
   };
   const say = (text: string, ms = 4000) => host.notify(text, { ttl: ms });
   const systems = new WeakMap<SketchParams, ReturnType<typeof viewSystem>>(),

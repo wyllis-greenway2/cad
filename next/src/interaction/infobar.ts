@@ -10,6 +10,8 @@ import { offersFor } from "./suggest.ts";
 /** `free`: would be added; `holds`: already true as drawn (adding it makes it a rule) */
 export type BarTone = "free" | "holds";
 export interface BarItem {
+  /** what taking it would move, and by how much (mm, in the sketch's axes): the points that would go (a relation that holds already moves nothing) */
+  moves?: { id: string; dx: number; dy: number }[];
   id: string;
   icon: string;
   label: string;
@@ -67,7 +69,12 @@ export function nearFor(
     .slice(0, 24)
     .map((r) => {
       const other = r.cand.parts.find((x) => !selection.includes(x))!,
-        parts = r.cand.parts;
+        parts = r.cand.parts,
+        moves = [...points].flatMap((id, i) => {
+          const dx = r.q[2 * i]!,
+            dy = r.q[2 * i + 1]!;
+          return Math.hypot(dx, dy) > 1e-3 ? [{ id, dx, dy }] : [];
+        });
       return {
         other,
         item: {
@@ -75,6 +82,7 @@ export function nearFor(
           icon: iconOf(r.cand.relation),
           label: `${RELATIONS[r.cand.relation].label} with ${other}`,
           tone: (r.moved < 1e-7 ? "holds" : "free") as BarTone,
+          ...(moves.length ? { moves } : {}),
         },
       };
     });

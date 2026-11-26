@@ -350,6 +350,24 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
           if (at) out.push({ kind: "ball", pts: [to3(f, at)], r: mmPerPx(f, at) * settings.sketch.ballPx });
         } // (the old app marks no point until it is picked, then a teal ball)
       }
+      const mv = st.moves && all.get(st.moves.key) ? { f: all.get(st.moves.key)!, list: st.moves.list } : null;
+      if (mv)
+        for (const { from: a, to: b } of mv.list) {
+          // a dashed arrow from where a part is to where the offered constraint would put it; the offer stands at its middle (`in_1631`)
+          const len = Math.hypot(b[0] - a[0], b[1] - a[1]),
+            head = Math.min(mmPerPx(mv.f, b) * 9, len * 0.5),
+            ux = (b[0] - a[0]) / len,
+            uy = (b[1] - a[1]) / len,
+            wing = (sgn: number): [number, number] => {
+              const t = 0.45; // (about 25 degrees)
+              return [
+                b[0] - head * (ux * Math.cos(t) - sgn * uy * Math.sin(t)),
+                b[1] - head * (uy * Math.cos(t) + sgn * ux * Math.sin(t)),
+              ];
+            };
+          out.push({ kind: "move", pts: [to3(mv.f, a), to3(mv.f, b)], dash: dashAt(mv.f, a) });
+          out.push({ kind: "moveHead", pts: [to3(mv.f, wing(1)), to3(mv.f, b), to3(mv.f, wing(-1))] });
+        }
       out.push(...D.hintLines(all));
       const c = pointer && tool ? here(pointer.x, pointer.y) : null;
       if (c && tool) {
