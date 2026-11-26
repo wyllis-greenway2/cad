@@ -15,10 +15,11 @@ export interface Recent { ids: readonly string[]; until: number }
 
 /** how much of an offer is left at `now` (1 until the last `fadeMs`, then down to 0) */
 export const alphaAt = (until: number, now: number): number => Math.max(0, Math.min(1, (until - now) / settings.marks.fadeMs));
-/** what is offered for one selection: what is already true (`holds`: a line is level, a point is on a line) and the near ones (true now with another part); what merely could be added is in the menu, not here */
+/** what is offered for one selection: for a part alone, what is already true (`holds`: a line is level, a point is on a line) and the near ones (true now with another part), the rest is in the menu; for two or more parts chosen together, everything that fits them and would be accepted, true yet or not */
 function offersOf(S: System, selection: string[]): { item: BarItem; at: [number, number] }[] {
   const where = selectionAnchor(S, selection); if (!where) return [];
-  const own = barFor(S, selection).filter((b) => b.tone === "holds").map((item) => ({ item, at: where }));
+  // one part: only what is already true of it (the rest is in the menu); two or more: the person has paired them, so everything that fits the pair and would be accepted (a line and a circle: tangent; a point and a line: on the line)
+  const own = barFor(S, selection).filter((b) => selection.length >= 2 || b.tone === "holds").map((item) => ({ item, at: where }));
   const near = nearFor(S, selection).flatMap((item) => { const nc = nearConstraint(item.id); return nc ? [{ item, at: anchorOf(S, { id: "near", kind: nc.kind, parts: nc.parts }) }] : []; });
   return [...own, ...near];
 }

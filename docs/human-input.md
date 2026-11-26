@@ -6560,3 +6560,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1615 — 2026-11-26 — directive
 > lets not approve any right now, we just want to prototype fast and cheap and lock in behavior once it is right
+
+## in_1616 — 2026-11-26 — question
+> okay now why don't I get suggested constraints when I select items? for example selecting a line and a circle, shouldn't that allow me to set it tangent? or a verticy and a line could be on line? And how can we reuse our existing rule set or have a ruleset that unifies this behavior? Like for example how could the suggested constraints reuse the same rules while sketching and aftward while selecting? And also why do these suggestions not show up during later movement? for example if I dont select a line and a circle, but instead only select and line and drag it next to the circle edge, why would it not suggest tangent or snap to tangent and show orange just like while sketching? and draging a verticy next to inline with another could offer the same suggested alignment and dashed line etc?

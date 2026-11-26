@@ -30,4 +30,11 @@ check("nothing selected, a part just made: its offers show, and not its number",
 check("they fade at the end and are gone after", late.length > 0 && late.every((m) => m.alpha > 0.4 && m.alpha < 0.6) && gone.length === 0, `${late.map((m) => m.alpha)} ${gone.length}`);
 check("something selected: the recent ones do not show beside it (the selection's own do)", marksFor(T, ["K1"], { recent, now: 100 }).every((m) => m.over === undefined || m.over.join() === "K1"));
 check("the fade is a clean 1 to 0", alphaAt(1000, 0) === 1 && alphaAt(1000, 1000) === 0 && alphaAt(1000, 2000) === 0);
+// two parts chosen together are offered everything that fits them, true yet or not (a line and a circle far apart: tangent; a point and a line: on the line)
+const k3 = keep(addLine(q, k2.sol, refOf(q, k2.sol, [0, 40], 0.5), refOf(q, k2.sol, [40, 45], 0.5))!); if (!k3.ok) throw new Error(k3.why);
+const F = viewSystem(k3.params, k3.sol), apart = marksFor(F, ["L1", "K1"], { now: 0 }).filter((m) => m.state === "offer" && m.kind === "constraint");
+check("a line and a circle chosen together are offered the tangent even when they are far apart", apart.some((m) => m.id === "rel:tangent" && m.over?.join() === "L1,K1"), apart.map((m) => m.id).join());
+const pt = F.points[0]!.id, pl = marksFor(F, [pt, "L2"], { now: 0 }).filter((m) => m.state === "offer" && m.kind === "constraint");
+check("a point and a line chosen together are offered on-the-line", pl.some((m) => m.id === "rel:pointOnLine"), pl.map((m) => m.id).join());
+check("a part alone is not offered what is not true of it", !marksFor(F, ["L1"], { now: 0 }).some((m) => m.id === "rel:tangent" || m.id === "rel:pointOnLine"));
 process.exit(failureCount() ? 1 : 0);
