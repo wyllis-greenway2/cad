@@ -6494,3 +6494,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1593 — 2026-11-26 — directive
 > yes lets make it so that the app can take inches or metric system wide. What is the cleanest leanest way to implement this?
 
+## in_1594 — 2026-11-26 — question
+> does it make sense to have it convert at all? or just me unit agnostic in the interface and have the system change what those units represent?
+
