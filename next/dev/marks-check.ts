@@ -228,16 +228,21 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
     constraints: [],
   } as unknown as System;
   const arrows = [
-      { from: [4.7, 0] as [number, number], to: [5, 0] as [number, number] },
-      { from: [0, 0] as [number, number], to: [0, 6] as [number, number] },
-    ] as { from: [number, number]; to: [number, number] }[],
+      { from: [4.7, 0] as [number, number], to: [5, 0] as [number, number], of: "A" },
+      { from: [0, 0] as [number, number], to: [0, 6] as [number, number], of: "Z" }, // (a part that only moves because the others do)
+    ] as { from: [number, number]; to: [number, number]; of: string }[],
     ask = (preview: (id: string, over: string[]) => typeof arrows) =>
       marksFor(T, ["A"], { now: 0, reach: { pointMm: 1, lineMm: 1 }, preview }).find((x) => x.id.startsWith("near:on"));
   const moved = ask(() => arrows),
     still = ask(() => []);
   check(
-    "an offer stands at the middle of the longest arrow of what it would move, and on its part when nothing moves",
-    !!moved && moved.at[0] === 0 && moved.at[1] === 3 && !!still && !still.moves && still.at[0] === 4.7,
+    "an offer stands at the middle of the longest arrow of its own parts (not of one that moves only because they do), and on its part when nothing moves",
+    !!moved &&
+      Math.abs(moved.at[0] - 4.85) < 1e-9 &&
+      moved.at[1] === 0 &&
+      !!still &&
+      !still.moves &&
+      still.at[0] === 4.7,
     `${moved?.at} ${still?.at}`,
   );
 }

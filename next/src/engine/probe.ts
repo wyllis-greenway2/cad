@@ -219,6 +219,7 @@ export function inRange(
 export interface Arrow {
   from: [number, number];
   to: [number, number];
+  /** the part it is of: a point, or a circle (its edge) */ of?: string;
 }
 /** what moves between two states of a system, for any part: a point from where it was to where it is; a circle whose radius changed, its edge (at the place where it moves most: along the centre's move when it moved, else toward `toward`, the other part it is being matched to). A line or arc moves by its points. Nothing is special to a relation (`in_1631`) */
 export function displacements(before: System, after: System, toward: readonly string[] = [], least = 1e-3): Arrow[] {
@@ -226,7 +227,7 @@ export function displacements(before: System, after: System, toward: readonly st
   const at = (S: System, id: string) => S.points.find((p) => p.id === id);
   for (const p of before.points) {
     const q = at(after, p.id);
-    if (q && Math.hypot(q.x - p.x, q.y - p.y) > least) out.push({ from: [p.x, p.y], to: [q.x, q.y] });
+    if (q && Math.hypot(q.x - p.x, q.y - p.y) > least) out.push({ from: [p.x, p.y], to: [q.x, q.y], of: p.id });
   }
   for (const k of before.circles) {
     const k2 = after.circles.find((x) => x.id === k.id),
@@ -252,6 +253,7 @@ export function displacements(before: System, after: System, toward: readonly st
     out.push({
       from: [c.x + u[0] * k.r, c.y + u[1] * k.r],
       to: [c2.x + u[0] * k2.r, c2.y + u[1] * k2.r],
+      of: k.id,
     });
   }
   return out;

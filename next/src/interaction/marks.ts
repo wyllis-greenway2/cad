@@ -75,10 +75,11 @@ function capReach(
     : reach;
 }
 /** the middle of the longest of some arrows (where the offer that makes them stands), null when there are none */
-function middleOf(moves: readonly Arrow[]): [number, number] | null {
-  let best: (typeof moves)[number] | null = null,
+function middleOf(moves: readonly Arrow[], own?: ReadonlySet<string>): [number, number] | null {
+  let best: Arrow | null = null,
     len = 0;
   for (const m of moves) {
+    if (own && !(m.of && own.has(m.of))) continue; // (what moves only because the parts do is not what the offer is about)
     const d = Math.hypot(m.to[0] - m.from[0], m.to[1] - m.from[1]);
     if (!best || d > len) ((best = m), (len = d));
   }
@@ -140,7 +141,7 @@ export function marksFor(
       if (out.some((m) => m.id === item.id && m.over?.join() === sel.join())) continue;
       // what applying it would move (the preview is the apply itself, `sketchmarks.ts`): the mark stands in the middle of the longest arrow, else on its part
       const moves = ctx.preview?.(item.id, sel) ?? [],
-        at = middleOf(moves) ?? standing;
+        at = middleOf(moves, new Set(scopeOf(S, parts))) ?? standing; // (stands with the parts the offer is about, `in_1648`)
       out.push({
         id: item.id,
         kind: "constraint",

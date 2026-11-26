@@ -6656,3 +6656,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1647 — 2026-11-26 — question
 > Why is this offering me a dimension constraint that is already zero and cannot be set higher and also says it must be set higher?
+
+## in_1648 — 2026-11-26 — question
+> What is going on here, selecting the circle seems to offer an on line constraint for the end verticy of this line even though the line is not selected, and also that end verticy constraint doesn't actually seem to make it on line with anything when clicked, it just seems to make it level with itself, and also the whole thing dissapears if the perpendicular line is deleted? It feels like our login is super messed up and irrational.
