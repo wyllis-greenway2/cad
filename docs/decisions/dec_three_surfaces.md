@@ -51,3 +51,6 @@ alternative_to:
 ## Rationale
 
 Each feature built so far (the pill, the chip, the bubbles, the offers, the bar, the menu) was a right answer to one need and a second place to learn, to keep in step and to get wrong; the same need (what is true, what could I add, what do I do next) was answered three ways. Three surfaces with fixed rules, and a registry whose entries are data, make a new feature a few lines and the page predictable, and let the checks be written once against the framework.
+
+### Step 4 (built): one lifecycle
+`next/src/tasks.ts`: a tool while armed is a `Task` (say, update, commit, cancel); `toolcontrol.ts` is the tool-agnostic controller; a new kind of tool is one factory in `FACTORY`. Checked by `dev/toolcontrol-check.ts` and the page checks.
