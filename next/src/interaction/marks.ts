@@ -111,7 +111,14 @@ export function marksFor(
       alpha: f.tone === "applied" ? (ctx.fade?.(f.id) ?? 1) : 1,
     });
   // the near offers of what a single part is made of (a line's end on another line) are offered with it
-  const kids = selection.length === 1 ? scope.filter((id) => id !== selection[0]) : [];
+  // (a circle's centre is not offered with the circle: "upright with that point" on a circle reads as an upright circle, and a centre on a point as a circle concentric with itself; select the centre to be offered them, `in_1633`)
+  const centres = new Set(S.circles.map((k) => k.c)),
+    kids =
+      selection.length === 1
+        ? scope.filter(
+            (id) => id !== selection[0] && !(S.circles.some((k) => k.id === selection[0]) && centres.has(id)),
+          )
+        : [];
   const fresh = !selection.length && ctx.recent && ctx.now < ctx.recent.until ? ctx.recent : null;
   for (const sel of selection.length ? [selection] : fresh ? fresh.ids.map((id) => [id]) : []) {
     const reach = capReach(S, sel, ctx.reach);

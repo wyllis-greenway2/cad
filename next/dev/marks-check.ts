@@ -237,4 +237,27 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
   );
   check("a circle zoomed far out is not offered things far from it", far.length === 0, far.map((m) => m.id).join());
 }
+{
+  // a circle's centre is not offered with the circle (`in_1633`): its centre near another point is for the centre to be offered
+  const T: System = {
+    points: [
+      { id: "A", x: 0.3, y: 10 },
+      { id: "B", x: 20, y: 30 },
+      { id: "C", x: 0, y: 0 },
+    ],
+    lines: [{ id: "L1", a: "A", b: "B" }],
+    circles: [{ id: "K1", c: "C", r: 12.5 }],
+    constraints: [],
+  } as unknown as System;
+  const reach = { pointMm: 1, lineMm: 0.5 },
+    ids = (sel: string[]) =>
+      marksFor(T, sel, { now: 0, reach })
+        .filter((m) => m.id.startsWith("near:"))
+        .map((m) => m.id);
+  check(
+    "a circle is not offered its centre's relations; its centre is",
+    !ids(["K1"]).some((i) => i.includes(":C")) && ids(["C"]).some((i) => i.startsWith("near:vertical")),
+    `${ids(["K1"])} | ${ids(["C"])}`,
+  );
+}
 process.exit(failureCount() ? 1 : 0);

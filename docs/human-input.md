@@ -6614,3 +6614,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1633 — 2026-11-26 — question
 > If I select a circle, and then just zoom out, it offers more and more constraints and they don't even make sense, like an upright circle? and a circle concentric to itself?
+
+## in_1634 — 2026-11-26 — preference
+> I am more concerned with the nonsense offers
