@@ -1,11 +1,11 @@
-// The info bar (`dec_three_surfaces`, `in_1598`, `in_1601`; it was the helper bar): the one place the page says what is so of what is selected (the left: its constraints and its numbers) and what could be added to it (the right: only what would be new and
+// What a selection can be offered (`dec_three_surfaces`, `dec_marks_on_things`; this was the info bar's, now the marks' too: `marks.ts`) and the info bar's descriptions for operations and body picks: formerly the one place the page says what is so of what is selected (the left: its constraints and its numbers) and what could be added to it (the right: only what would be new and
 // accepted, `offerable`). A click moves an item across: a suggestion clicked is applied and stands on the left, a fact clicked is taken away and, if still offerable, is on the right again. Pure: the solver's system and the selection in, descriptions out; `infobardraw.ts` draws them.
 import type { Relation, System } from "../engine/solver.ts";
 import { offerable } from "../engine/relations.ts";
 import { offersFor } from "./suggest.ts";
 import { RANGEABLE, RELATIONS, kindOf, residualsOf, type Constraint } from "../engine/solver.ts";
 import { kindTuples, standingOf } from "../engine/relations.ts";
-import { bubblesOn, iconOf, type Bubble, type Flash } from "./bubbles.ts";
+import { iconOf, type Bubble } from "./bubbles.ts";
 
 /** `free`: would be added; `holds`: already true as drawn (adding it makes it a rule) */
 export type BarTone = "free" | "holds";
@@ -60,13 +60,6 @@ export function nearFor(S: System, selection: string[], max = NEAR_MAX): BarItem
   const out: BarItem[] = [], byOther = new Map<string, BarItem[]>(); for (const f of found) byOther.set(f.other, [...(byOther.get(f.other) ?? []), f.item]);
   for (let round = 0; out.length < max; round++) { let any = false; for (const list of byOther.values()) if (list[round] && out.length < max) { out.push(list[round]!); any = true; } if (!any) break; }
   return out;
-}
-/** what the info bar says of a selection: its constraints and numbers on the left, what could be added on the right (the relations that fit it, then the near ones) */
-const suggested = new WeakMap<System, Map<string, BarItem[]>>(); // (asked every frame for the same system and selection)
-export function infoFor(S: System, selection: string[], flash: Flash = {}): Info {
-  const key = selection.join("\u0000"); let m = suggested.get(S); if (!m) suggested.set(S, (m = new Map()));
-  let suggestions = m.get(key); if (!suggestions) m.set(key, (suggestions = [...barFor(S, selection), ...nearFor(S, selection)]));
-  return { facts: bubblesOn(S, selection, flash), suggestions };
 }
 /** a near suggestion as the constraint it makes (its id says the relation and the parts) */
 export function nearConstraint(id: string): { kind: Relation; parts: string[]; internal: boolean } | null {

@@ -20,7 +20,8 @@ check("everything on the bar is new or true as drawn: the tones are free or hold
 check("every button has an icon key and words", [...one, ...two, ...pts].every((b) => b.icon && b.label));
 // near suggestions and the whole info (`dec_three_surfaces`): relations with one other part that hold now and would be new; facts on the left, suggestions on the right
 import { addCircle } from "../src/interaction/drawing.ts";
-import { infoFor, nearConstraint, nearFor } from "../src/interaction/infobar.ts";
+import { nearConstraint, nearFor } from "../src/interaction/infobar.ts";
+import { marksFor } from "../src/interaction/marks.ts";
 {
   let q = emptySketch(); const z = { points: {}, radii: {} } as never, k1 = keep(addLine(q, z, refOf(q, z, [0, 0], 0.5), refOf(q, z, [40, 0], 0.5))!); if (!k1.ok) throw new Error(k1.why); q = k1.params;
   const k2 = keep(addCircle(q, k1.sol, refOf(q, k1.sol, [20, 5], 0.5), [25, 5])!); if (!k2.ok) throw new Error(k2.why); q = k2.params;
@@ -30,9 +31,8 @@ import { infoFor, nearConstraint, nearFor } from "../src/interaction/infobar.ts"
   check("at most two near suggestions", nearFor(sys, ["L1"], 9).length >= nearFor(sys, ["L1"]).length && nearFor(sys, ["L1"]).length <= 2);
   const nc = nearConstraint(near[0]!.id);
   check("a near suggestion says the constraint it makes: the relation and the parts", !!nc && nc.parts.includes("L1") && nc.parts.length === 2, JSON.stringify(nc));
-  const info = infoFor(sys, ["L2"]);
-  check("a line level with another far from it: horizontal-like relations are suggested, none already said, and the number is a fact", info.facts.some((f) => f.kind === "dimension" && f.locked === false) && info.suggestions.length > 0, info.suggestions.map((b) => b.id).join());
   check("nothing selected, or three parts: no near suggestions", nearFor(sys, []).length === 0 && nearFor(sys, ["L1", "L2", "K1"]).length === 0);
-  check("everything suggested is new or true as drawn (never refused or already said)", [...infoFor(sys, ["L1"]).suggestions, ...infoFor(sys, ["L1", "K1"]).suggestions].every((b) => b.tone === "free" || b.tone === "holds"));
+  check("a line level with another far from it shows its own number, measured (an open padlock), as a mark", marksFor(sys, ["L2"], { now: 0 }).some((m) => m.kind === "dimension" && m.locked === false));
+  check("what is offered for a selection is new or true as drawn (never refused or already said)", [...barFor(sys, ["L1"]), ...barFor(sys, ["L1", "K1"]), ...nearFor(sys, ["L1"])].every((b) => b.tone === "free" || b.tone === "holds"));
 }
 process.exit(failureCount() ? 1 : 0);

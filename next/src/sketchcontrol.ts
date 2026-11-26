@@ -5,7 +5,6 @@ import { viewHeight, forwardDepth, project, type Cam } from "./camera.ts";
 import { onPlane, to2, to3, type P2, type ToolKind } from "./sketch.ts";
 import type { Frame } from "./planes.ts";
 import { vOf } from "./planes.ts";
-import { settings } from "./settings.ts";
 import { add, scale, type V3 } from "./vec.ts";
 import type { SketchParams } from "./engine/sketch.ts";
 import { solveDefinition, segsOf } from "./engine/definition.ts";
@@ -15,9 +14,12 @@ import type { Relation } from "./engine/solver.ts";
 import type { Selection } from "./selection.ts";
 import type { NoticeOptions } from "./interaction/notices.ts";
 import { bake, constrain, emptySketch, hitAt, keep, nextId, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
-import { MEASURE_ID, angleMark, bubblesOn, selectionAnchor, type Flash } from "./interaction/bubbles.ts";
+import { MEASURE_ID, angleMark, bubblesOn, type Flash } from "./interaction/bubbles.ts";
+import { marksFor, type Recent } from "./interaction/marks.ts";
+import type { MarkHandlers, PlacedMark } from "./markdraw.ts";
+import { settings } from "./settings.ts";
 import { kindsOfSelection } from "./interaction/toolspec.ts";
-import { infoFor, nearConstraint, type Fact, type Info } from "./interaction/infobar.ts";
+import { nearConstraint, type Fact, type Info } from "./interaction/infobar.ts";
 import type { InfoHandlers } from "./infobardraw.ts";
 import { helpersAt, type Helped } from "./engine/helpers.ts";
 import type { Free } from "./engine/free.ts";
@@ -50,7 +52,7 @@ const TYPED: Record<string, string> = { ...Object.fromEntries([...Array(10).keys
 export function createSketch(host: SketchHost, on?: (label: string, merge?: string) => void) {
   const defs = new Map<string, SketchParams>(), sols = new WeakMap<SketchParams, Sol>(), fillCache = new WeakMap<SketchParams, [number, number][][][]>();
   const sel = host.selection;
-  let tool: Tool | null = null, flash: Flash = {}, flashUntil = 0;
+  let tool: Tool | null = null, flash: Flash = {}, flashUntil = 0, recent: (Recent & { key: string }) | null = null; // (recent: the parts just made, whose offers show for a while even when nothing is selected, `dec_marks_on_things`)
   const say = (text: string, ms = 4000) => host.notify(text, { ttl: ms });
   const systems = new WeakMap<SketchParams, ReturnType<typeof viewSystem>>(), sysOf = (p: SketchParams) => { let y = systems.get(p); if (!y) { y = viewSystem(p, solOf(p)); systems.set(p, y); } return y; }; // (a definition has one system: asked for by every part of a frame)
   const solOf = (p: SketchParams): Sol => { let s = sols.get(p); if (!s) { const r = solveDefinition(p); s = { points: r.points, radii: r.radii }; sols.set(p, s); } return s; };
@@ -100,7 +102,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
   let drag: Drag | null = null;
 
   /** what the info bar's buttons do (`dec_three_surfaces`): a suggestion is applied; a constraint clicked is taken away; a number typed over is the number (a measured one locks); a padlock locks or lets go */
-  const handlers: InfoHandlers = {
+  const handlers: MarkHandlers = {
     suggest(id) {
       const c = current(); if (!c) return;
       const nc = nearConstraint(id);
@@ -108,6 +110,8 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       const k = keep({ ...c.p, constraints: [...(c.p.constraints ?? []), { id: nextId(c.p, "c"), kind: nc.kind, parts: nc.parts, ...(nc.internal ? { internal: true } : {}) }] });
       if (k.ok) set(c.key, k.params, "Constraint"); else fail(k.why, k.victims);
     },
+    /** an offered constraint, from a mark: the parts it is offered for are selected, and it is applied */
+    offer(id, over) { const c = current(); if (!c) return; sel.setSketch(c.key, over); recent = null; this.suggest(id); },
     fact(id) {
       const c = current(); if (!c) return;
       const r = unconstrain(c.p, id); if (r.ok) set(c.key, r.params, "Delete constraint"); else fail(r.why, r.victims);
@@ -212,9 +216,9 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
             const k2 = keep(withLocks); if (k2.ok) final = k2.params; else say(`The numbers typed could not be locked: ${k2.why}`);
           }
           set(c.key, final, made.label);
-          // the line, circle or arc just made is what the info bar speaks of (its numbers, what could be added): it is selected (a rectangle, of four sides, is not)
+          // what was just made is offered what is true of it for a while (its marks), selected or not (a rectangle's four sides too)
           const p2 = defs.get(c.key)!, had = new Set([...(before.lines ?? []), ...(before.circles ?? []), ...(before.arcs ?? [])].map((x) => x.id)), made1 = [...(p2.lines ?? []), ...(p2.circles ?? []), ...(p2.arcs ?? [])].filter((x) => !had.has(x.id));
-          if (made1.length === 1) sel.setSketch(c.key, [made1[0]!.id]); else sel.clear();
+          recent = { key: c.key, ids: made1.map((x) => x.id), until: performance.now() + settings.marks.stayMs }; sel.clear();
         }
       }
       return true;
@@ -312,10 +316,17 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
         const facts: Fact[] = chipFields(tool.kind, tool.typed, tool.field, live).map((f) => ({ id: `field:${f.label}`, kind: "dimension", relation: "length", icon: "dimension", at: [0, 0], text: f.text, tone: "rest", title: f.label, parts: [], locked: f.typed, readonly: true, active: f.active, ...(f.label === "Diameter" ? { symbol: "Ø" } : {}) }));
         ownId = null; return { info: { facts, suggestions: [] }, at: project3(at), on: handlers };
       }
-      const ids = selected(c.key), where = selectionAnchor(S, ids); if (!where) { ownId = null; return null; }
-      const info = infoFor(S, ids, flash), chosen = [...ids].sort().join();
-      ownId = info.facts.find((b) => b.kind === "dimension" && [...b.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
-      return { info, at: project3(where), on: handlers };
+      ownId = null; return null; // (what is selected speaks through its marks, `marks`)
+    },
+    /** The marks standing on the parts (`dec_marks_on_things`): what is selected shows its constraints (locked) and what is true of it and near (offered); the parts just made show their offers for a while and fade; a refusal shows what held it back, always; placed on the page. */
+    marks(now: number): PlacedMark[] {
+      const c = current(); if (!c || (tool && tool.pts.length)) { ownId = null; return []; }
+      const S = sysOf(c.p), cam = host.view(), ids = selected(c.key), has = (id: string) => S.points.some((x) => x.id === id) || S.lines.some((x) => x.id === id) || S.circles.some((x) => x.id === id);
+      if (ids.length) recent = null; // (once the person has picked something, the offers for what was just made are over)
+      const fresh = recent && recent.key === c.key ? { ids: recent.ids.filter(has), until: recent.until } : null;
+      const list = marksFor(S, ids, { flash, recent: fresh, now }), chosen = [...ids].sort().join();
+      ownId = list.find((m) => m.kind === "dimension" && [...m.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
+      return list.map((m) => { const q = project(cam.cam, to3(c.f, m.at), cam.w, cam.h); return { mark: m, x: q.x, y: q.y }; });
     },
     /** Each picture: a refusal's red goes after its time. */
     frame(now: number): void { if (now > flashUntil) flash = {}; },
@@ -339,6 +350,8 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     hasDrawing: (): boolean => [...defs.values()].some((p) => (p.lines?.length ?? 0) + (p.circles?.length ?? 0) + (p.arcs?.length ?? 0) > 0),
     /** The sketch of a plane, as the definition (for the extrude). */
     sketchOf: (key: string): SketchParams | null => defs.get(key) ?? null,
+    /** what the marks' buttons do */
+    handlers,
     /** a press of the helper bar by its id (`delete`, `clear`, `rel:<relation>`): for the dev checks */
     press: act,
     debug: () => ({ tool: tool ? { ...tool } : null, sketches: [...defs].map(([k, v]) => [k, v] as const), selection: (() => { const k = sel.get(); return k?.kind === "sketch" ? { key: k.key, ids: k.ids } : { key: "", ids: [] }; })() }),

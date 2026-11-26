@@ -20,17 +20,27 @@ try {
   ok(lit.length >= 1, "the circle is lit orange while the line runs tangent to it");
   writeFileSync(`${dir}/tangent-1.png`, await page.screenshot());
   await page.mouse.click(mx, my); await page.waitForTimeout(300);
-  const bars = () => page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-info] [data-bar]")].map((e) => e.dataset.bar!));
-  const tangent = (await bars()).find((id) => id.startsWith("near:tangent"));
-  ok(!!tangent, `the line just made is selected and the tangent is suggested on the right of the info bar: ${JSON.stringify(await bars())}`);
+  // the marks stand on the parts (`dec_marks_on_things`): an offer is yellow and unlocked, an applied constraint green and locked; the offer for a part just made shows for a while, selected or not, then goes
+  const marks = () => page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-marks] [data-mark]")].filter((e) => e.style.display !== "none" && Number(e.style.opacity || 1) > 0.02).map((e) => ({ state: e.dataset.mark!, id: (e.querySelector("[data-bar],[data-fact]") as HTMLElement | null)?.dataset.bar ?? (e.querySelector("[data-fact]") as HTMLElement | null)?.dataset.fact ?? "" })));
+  const tangent = (await marks()).find((m) => m.id.startsWith("near:tangent"));
+  ok(!!tangent && tangent.state === "offer", `the line just made, selected or not, shows the tangent as an offer (yellow, unlocked): ${JSON.stringify(await marks())}`);
   let d = await def(); ok(d.constraints.length === 0, "and nothing was made unasked");
   writeFileSync(`${dir}/tangent-2.png`, await page.screenshot());
-  await page.click(`[data-bar='${tangent}']`); await page.waitForTimeout(250);
+  await page.waitForTimeout(5200);
+  ok((await marks()).length === 0, `it fades away if nothing is done: ${JSON.stringify(await marks())}`);
+  // select the line (the tool is put away first): the offer is there again
+  await ev(`() => window.__tools.cancel()`); await ev(`() => window.__tools.cancel()`); await page.waitForTimeout(150);
+  const [lx, ly] = await px((30 + tx) / 2, (22 + ty) / 2); await page.mouse.click(lx, ly); await page.waitForTimeout(300);
+  const again = (await marks()).find((m) => m.id.startsWith("near:tangent"));
+  ok(!!again && again.state === "offer", `selected, the offer is there again: ${JSON.stringify(await marks())}`);
+  writeFileSync(`${dir}/tangent-3.png`, await page.screenshot());
+  await page.click(`[data-marks] [data-bar='${again!.id}']`); await page.waitForTimeout(300);
   d = await def(); ok(d.constraints.some((k: any) => k.kind === "tangent"), `a click makes it: ${JSON.stringify(d.constraints)}`);
-  ok(!(await bars()).includes(tangent!) && (await page.locator("[data-info] [data-fact]").count()) >= 1, "and it moves to the left, among what is so");
-  await page.click("[data-info] [data-fact]:not(:has([data-number]))"); await page.waitForTimeout(250);
-  d = await def(); ok(!d.constraints.some((k: any) => k.kind === "tangent"), "clicked there it is taken away");
-  ok((await bars()).some((id) => id.startsWith("near:tangent")), "and it is on the right again, offered");
+  const locked = (await marks()).filter((m) => m.state === "locked" && !/^[0-9]/.test(m.id));
+  ok(!(await marks()).some((m) => m.id === again!.id) && locked.length >= 1, `and it is locked (green) now: ${JSON.stringify(await marks())}`);
+  await page.click("[data-marks] [data-mark='locked'] [data-fact]:not(:has([data-number]))"); await page.waitForTimeout(300);
+  d = await def(); ok(!d.constraints.some((k: any) => k.kind === "tangent"), "a click on the locked one takes it away");
+  ok((await marks()).some((m) => m.id.startsWith("near:tangent") && m.state === "offer"), "and it is offered again, unlocked");
   ok(errors.length === 0, `no errors in the page ${errors.join("; ")}`);
   await close();
 } finally { await S.stop(); }

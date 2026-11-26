@@ -6548,3 +6548,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1611 — 2026-11-26 — directive
 > lets pin this as to do, and go back to our sketch look and feel. So I think it was a mistake to move everything into the suggestion bar, but I still want to keep things simple and unified. Can we try instead a model where all the bubbles live on the thing the represent? Lets unify the idea of applied and non applied constraints with the lock symbol. So the idea would be that a suggested constraint shows up if it is close, and if locked it stays, otherwise it is hidden. Things are still only shown if the line is selected, and the sketching hints and suggestions go back to showing the timed constraint offer bubble that fades like before even if not selected, if selected it shows the actual constraints as locked green, and suggested as unlocked yellow. Ones you try to voilate always flash red like I believe they do now regardless of selected or not, voilated ones always make themselves known when you try to voilate them. How can we have a lean simple system like this?
+
+## in_1612 — 2026-11-26 — approval
+> yes start with the mark drawer and the rule

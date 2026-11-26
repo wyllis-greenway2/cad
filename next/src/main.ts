@@ -31,6 +31,7 @@ import { createSelection } from "./selection.ts";
 import { createNotices } from "./interaction/notices.ts";
 import { createNoticeStack } from "./notifydraw.ts";
 import { createInfoBar } from "./infobardraw.ts";
+import { createMarkDraw } from "./markdraw.ts";
 import { createToolControl } from "./toolcontrol.ts";
 import { GROUPS, TOOLS } from "./interaction/toolspec.ts";
 import { createBadge } from "./badgedraw.ts";
@@ -84,7 +85,7 @@ const orbc = createOrbControl({
 const notices = createNotices(), noticeStack = createNoticeStack(document.body), notify = notices.notify;
 const selection = createSelection(); // (the page's one selection: parts of a sketch, or what is picked on a body)
 const sk = createSketch({
-  selection, notify, startEdit: (id, initial) => infobar.startEdit(id, initial), editing: () => infobar.editing(),
+  selection, notify, startEdit: (id, initial) => markdraw.startEdit(id, initial) || infobar.startEdit(id, initial), editing: () => markdraw.editing() || infobar.editing(),
   view: () => { const e = env(); return { cam: s.c, w: e.w, h: e.h }; },
   planes: () => {
     const all = new Map<string, Frame>([0, 1, 2].map((a) => [`world:${a}`, worldFrame(a as Axis)] as const));
@@ -119,6 +120,7 @@ const bodies = createBodySelect({
 });
 // ---- the helper bar: the page has one, and it says what the sketch's selection or the body's pick offers (`in_1576`) ----
 const badge = createBadge(document.body); // (the tool that is armed, following the pointer)
+const markdraw = createMarkDraw(document.body); // (the constraints and numbers standing on the parts of a sketch: `dec_marks_on_things`)
 const infobar = createInfoBar(document.body); // (the one bar: what is so of the subject, and what could be added)
 /** the engine's facts about a face of the body: where it faces (out of the body) */
 const faceFacts = (body: string, id: string) => studio.state().snapshot.find((x) => x.id === body)?.faces.find((f) => f.id === id) ?? null;
@@ -256,7 +258,7 @@ function frame(now: number) {
     cut: placed && !placedKey ? { origin: placed.origin, n: placed.normal } : null, // (made once with the plane, from the side the camera looked from; it turns and moves with the plane, and does not change with the camera)
   });
   badge.show(tools.armed()?.icon ?? null, game.on ? null : pointer);
-  { const sub = game.on ? null : ext.subject() ?? sk.subject() ?? bodies.subject(sk.active() || ext.active()), e = env(); infobar.show(sub?.info ?? null, sub?.at ?? null, sub?.on ?? null, e.w, e.h); }
+  { const sub = game.on ? null : ext.subject() ?? sk.subject() ?? bodies.subject(sk.active() || ext.active()), e = env(); infobar.show(sub?.info ?? null, sub?.at ?? null, sub?.on ?? null, e.w, e.h); markdraw.show(game.on ? [] : sk.marks(now), sk.handlers); }
   { const st = studio.state(); list.show({ rows: historyOpen ? rowsOf(st.steps, st.snapshot) : [] }); }
   more.show(moreItems({ hasModel: hasModel(), hasBody: hasBody(), history: historyOpen }));
   sk.frame(now);

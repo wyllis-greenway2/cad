@@ -10,7 +10,7 @@ Update it at the end of each session.
 
 ## Pinned to do (rebuild in `next/`)
 - **Move / turn a body, what is left** (`dec_task_handles`, `in_1610`): moving one of several bodies (the step names the body by an `Id`, the page holds a string), numbers for a move on the info bar, the orb's own axes with the pull arrow's screen-based gain (`pullDelta`), grab (press a body and drag), a second move of the same body merged into the earlier steps.
-- **Marks on the things instead of the info bar for a sketch** (`dec_marks_on_things`, `in_1611`): proposed, not built; see the entry.
+- **Marks on the things instead of the info bar for a sketch** (`dec_marks_on_things`, `in_1611`): the drawer and the rule are built (`in_1612`); the human is to see it; see the entry.
 
 ## Done
 - Project record set up; `docs/licenses.md` written; `kernel-slice`, `sketch-extrude`, `cad-ui` built as prototypes (2026-11-04 and 2026-11-05): planes, sketching, constraints, extrude, fillet and chamfer, devices, the pencil look and the ring highlight; relations (distances) started.
