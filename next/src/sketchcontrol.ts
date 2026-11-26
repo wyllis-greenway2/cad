@@ -13,7 +13,7 @@ import { trimAt } from "./engine/trim.ts";
 import type { Relation } from "./engine/solver.ts";
 import type { Selection } from "./selection.ts";
 import type { NoticeOptions } from "./interaction/notices.ts";
-import { bake, constrain, emptySketch, hitAt, keep, nextId, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
+import { bake, constrain, emptySketch, hitAt, keep, nextId, posOf, refOf, removeParts, retype, tidy, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
 import { MEASURE_ID, angleMark, bubblesOn, scopeOf, type Flash } from "./interaction/bubbles.ts";
 import { marksFor, type Mark, type Recent } from "./interaction/marks.ts";
 import type { MarkHandlers, PlacedMark } from "./markdraw.ts";
@@ -94,7 +94,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     return { ...c, q: to2(c.f, q), mm, tol: mm * settings.sketch.snapPx };
   };
   /** a change of a sketch: kept, and said to whoever keeps the history (`label`: what it was; `merge`: changes with the same key are one, a number typed again and again) */
-  const set = (key: string, p: SketchParams, label: string, merge?: string) => { defs.set(key, p); on?.(label, merge); };
+  const set = (key: string, p: SketchParams, label: string, merge?: string) => { defs.set(key, tidy(p)); on?.(label, merge); }; // (a change leaves nothing behind: `tidy`)
   const fail = (why: string, victims: string[]) => { host.notify(why, { kind: "warn", ttl: 4000 }); flash = { refused: victims }; flashUntil = performance.now() + 1800; };
 
   /** what a drag in progress shows of the constraints: the ones doing work fade in (green), the ones that hold the drag back flash (red) */
@@ -247,7 +247,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     },
     /** Every sketch, by plane (for the history); `restore` puts them back as they were (the selection and the tool are put away). */
     snapshot: (): Record<string, SketchParams> => Object.fromEntries(defs),
-    restore(snap: Record<string, SketchParams>): void { defs.clear(); for (const [k, v] of Object.entries(snap)) defs.set(k, v); sel.clear(); flash = {}; },
+    restore(snap: Record<string, SketchParams>): void { defs.clear(); for (const [k, v] of Object.entries(snap)) defs.set(k, tidy(v)); sel.clear(); flash = {}; },
     /** A press on a part with no tool on: it may be dragged (true: the press is taken; a press that goes nowhere is a click, said at `grabEnd`). */
     grab(x: number, y: number, shift: boolean): boolean {
       if (tool) return false;

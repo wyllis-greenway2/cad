@@ -130,7 +130,7 @@ export function addArc(p: SketchParams, s: Sol, c: Ref, a: Ref, to: Pt): SketchP
 }
 
 // ---------------------------------------------------------------- taking parts away
-/** The parts go with what hangs on them: a point takes the lines, circles and arcs that use it; every constraint that names a part that is gone goes; an end point that nothing else uses goes with its line. */
+/** The parts go with what hangs on them: a point takes the lines, circles and arcs that use it; every constraint that names a part that is gone goes; an end point that nothing else uses goes with its line (`tidy`). */
 export function removeParts(p: SketchParams, ids: string[]): SketchParams {
   const gone = new Set(ids);
   for (let again = true; again;) {
@@ -140,13 +140,18 @@ export function removeParts(p: SketchParams, ids: string[]): SketchParams {
     for (const a of p.arcs ?? []) if (gone.has(a.c) || gone.has(a.a) || gone.has(a.b)) add(a.id);
     for (const c of p.circles ?? []) if (gone.has(c.c)) add(c.id);
   }
-  const lines = (p.lines ?? []).filter((l) => !gone.has(l.id)), arcs = (p.arcs ?? []).filter((a) => !gone.has(a.id)), circles = (p.circles ?? []).filter((c) => !gone.has(c.id));
-  const used = new Set([...lines.flatMap((l) => [l.a, l.b]), ...arcs.flatMap((a) => [a.a, a.b, a.c]), ...circles.map((c) => c.c)]);
-  const constraints = (p.constraints ?? []).filter((c) => !c.parts.some((x) => gone.has(x)));
-  const stillNamed = new Set(constraints.flatMap((c) => c.parts));
-  // the end points of what went, when nothing else uses them; a point that was selected on its own goes only when it is in `ids`
-  const ends = new Set([...(p.lines ?? []).filter((l) => gone.has(l.id)).flatMap((l) => [l.a, l.b]), ...(p.circles ?? []).filter((c) => gone.has(c.id)).map((c) => c.c)]);
-  return { ...p, lines, arcs, circles, constraints, points: p.points.filter((x) => !gone.has(x.id) && !(ends.has(x.id) && !used.has(x.id) && !stillNamed.has(x.id))) };
+  return tidy({ ...p, lines: (p.lines ?? []).filter((l) => !gone.has(l.id)), arcs: (p.arcs ?? []).filter((a) => !gone.has(a.id)), circles: (p.circles ?? []).filter((c) => !gone.has(c.id)), constraints: (p.constraints ?? []).filter((c) => !c.parts.some((x) => gone.has(x))), points: p.points.filter((x) => !gone.has(x.id)) });
+}
+/** A sketch with nothing left over (`in_1623`): a point exists only while a line, a circle or an arc uses it, and nothing names a part that is not there (a line with an end that is gone, a constraint that names a part that is gone). Nothing haunts: no point that no figure has, which is invisible and yet a place for hints to snap to. Applied wherever a sketch is changed or comes in (a deletion, an undo, a file); the same sketch (the same object) when there is nothing to take away. */
+export function tidy(p: SketchParams): SketchParams {
+  let cur = p;
+  for (;;) {
+    const pts = new Set(cur.points.map((x) => x.id)), lines = (cur.lines ?? []).filter((l) => pts.has(l.a) && pts.has(l.b)), circles = (cur.circles ?? []).filter((c) => pts.has(c.c)), arcs = (cur.arcs ?? []).filter((a) => pts.has(a.c) && pts.has(a.a) && pts.has(a.b));
+    const used = new Set([...lines.flatMap((l) => [l.a, l.b]), ...arcs.flatMap((a) => [a.a, a.b, a.c]), ...circles.map((c) => c.c)]), points = cur.points.filter((x) => used.has(x.id));
+    const have = new Set([...points.map((x) => x.id), ...lines.map((l) => l.id), ...circles.map((c) => c.id), ...arcs.map((a) => a.id)]), constraints = (cur.constraints ?? []).filter((c) => c.parts.every((x) => have.has(x)));
+    if (points.length === cur.points.length && lines.length === (cur.lines ?? []).length && circles.length === (cur.circles ?? []).length && arcs.length === (cur.arcs ?? []).length && constraints.length === (cur.constraints ?? []).length) return cur;
+    cur = { ...cur, points, lines, circles, arcs, constraints };
+  }
 }
 
 // ---------------------------------------------------------------- constraints
