@@ -6491,3 +6491,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1592 — 2026-11-26 — approval
 > yes start slice (c)
 
+## in_1593 — 2026-11-26 — directive
+> yes lets make it so that the app can take inches or metric system wide. What is the cleanest leanest way to implement this?
+
