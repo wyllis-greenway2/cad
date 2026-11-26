@@ -351,11 +351,13 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
           return at3({ id: `field:${f.label}`, kind: "dimension", relation: "length", icon: "dimension", at: where, text: f.text, tone: "rest", title: f.label, parts: [], locked: f.typed, readonly: true, active: f.active, state: f.typed ? "locked" : "offer", alpha: 1, ...(f.label === "Diameter" ? { symbol: "Ø" } : {}) });
         });
       }
-      const S = sysOf(c.p), ids = selected(c.key), has = (id: string) => S.points.some((x) => x.id === id) || S.lines.some((x) => x.id === id) || S.circles.some((x) => x.id === id);
-      if (ids.length) recent = null; // (once the person has picked something, the offers for what was just made are over)
-      const fresh = recent && recent.key === c.key ? { ids: recent.ids.filter(has), until: recent.until } : null;
+      const S = sysOf(c.p), picked = selected(c.key), has = (id: string) => S.points.some((x) => x.id === id) || S.lines.some((x) => x.id === id) || S.circles.some((x) => x.id === id) || (c.p.arcs ?? []).some((x) => x.id === id);
+      const dragged = drag && drag.moved && drag.key === c.key ? drag.id : null, ids = dragged ? [] : picked; // (the part being dragged is what the offers are for, and what it is made of; what was picked waits)
+      if (picked.length && !dragged) recent = null; // (once the person has picked something, the offers for what was just made are over)
+      const fresh = dragged ? { ids: [dragged].filter(has), until: Infinity } : recent && recent.key === c.key ? { ids: recent.ids.filter(has), until: recent.until } : null;
+      const reachMm = settings.helpers.linePx * mmPerPx(c.f, [0, 0]); // (in range, however things came there: the helpers' reach in mm)
       const fade = (id: string) => { const t = activeSince.get(id); if (t === undefined) return 1; return Math.max(0, Math.min(1, (now - t) / settings.marks.fadeInMs, drag ? 1 : (flashUntil - now) / 400)); }; // (a constraint doing work fades in; once the drag is over it fades out)
-      const list = marksFor(S, ids, { flash, recent: fresh, now, fade }), chosen = [...ids].sort().join();
+      const list = marksFor(S, ids, { flash, recent: fresh, now, fade, reachMm }), chosen = [...ids].sort().join();
       ownId = list.find((m) => m.kind === "dimension" && [...m.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
       return list.map(at3);
     },

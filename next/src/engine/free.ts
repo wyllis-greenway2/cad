@@ -5,7 +5,7 @@ import { residualsOf, type System } from "./solver.ts";
 export type Pt = [number, number];
 export const P = "~P", S = "~S", L = "~L", C = "~C";
 /** the free thing: a place alone (`point`), a corner with the first corner placed (`corner`), the end of a line from the first place (`line`), the edge of a circle about it (`circle`); `startId`: the first place is this point of the sketch */
-export type Free = { shape: "point" } | { shape: "corner"; from: Pt; startId?: string } | { shape: "line"; from: Pt; startId?: string } | { shape: "circle"; centre: Pt; startId?: string }
+export type Free = { shape: "point" } | { shape: "corner"; from: Pt; startId?: string } | { shape: "line"; from: Pt; startId?: string; /** the other lines that end at the same place (a corner of several lines dragged): each from a point of the sketch, by a free name */ more?: { name: string; from: Pt; startId: string }[] } | { shape: "circle"; centre: Pt; startId?: string }
   /** a part of the sketch moved as one piece (`in_1618`): its points by a free name (`~` and the point's own name, as they are), its lines and circles by free names over those points, and `ref`, the place that stands for the whole (the place asked about is where `ref` is: the piece is moved by the difference) */
   | { shape: "piece"; ref: Pt; points: Record<string, Pt>; lines: { name: string; a: string; b: string }[]; circles: { name: string; c: string; r: number }[] };
 export const isFree = (id: string) => id.startsWith("~");
@@ -26,6 +26,7 @@ export function figureOf(S0: System, f: Free) {
       else if (mine && mine.points[id]) addPt(id);
       else if (id === P) addPt(P);
       else if (id === L) { addPt(startName); addPt(P); ls.push({ id: L, a: startName, b: P }); }
+      else if (f.shape === "line" && f.more?.some((m) => m.name === id)) { const m = f.more.find((x) => x.name === id)!; addPt(m.startId); addPt(P); ls.push({ id, a: m.startId, b: P }); }
       else if (id === C) { addPt(startName); cs.push({ id: C, c: startName, r: Math.hypot(at[0] - startAt![0], at[1] - startAt![1]) || 1e-9 }); }
       else if (lines.has(id)) { const l = lines.get(id)!; addPt(l.a); addPt(l.b); ls.push(l); }
       else if (circles.has(id)) { const k = circles.get(id)!; addPt(k.c); cs.push(k); }
@@ -35,7 +36,7 @@ export function figureOf(S0: System, f: Free) {
   };
   /** the whole sketch with the figure's free parts in it at a place */
   const whole = (at: Pt): System => {
-    const extra: System = f.shape === "piece" ? small([...f.lines.map((l) => l.name), ...f.circles.map((c) => c.name), ...Object.keys(f.points)], at) : small([P, ...(f.shape === "line" ? [L] : []), ...(f.shape === "circle" ? [C] : []), ...(startId === undefined && startAt ? [S] : [])], at);
+    const extra: System = f.shape === "piece" ? small([...f.lines.map((l) => l.name), ...f.circles.map((c) => c.name), ...Object.keys(f.points)], at) : small([P, ...(f.shape === "line" ? [L, ...(f.more ?? []).map((m) => m.name)] : []), ...(f.shape === "circle" ? [C] : []), ...(startId === undefined && startAt ? [S] : [])], at);
     const have = new Set(S0.points.map((p) => p.id));
     return { points: [...S0.points, ...extra.points.filter((p) => !have.has(p.id))], lines: [...S0.lines, ...extra.lines], circles: [...S0.circles, ...extra.circles], constraints: S0.constraints };
   };

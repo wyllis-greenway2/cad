@@ -14,7 +14,7 @@ const ICONS: Record<string, string> = {
   parallel: svg('<path d="M5 14L8.5 2"/><path d="M10 14L13.5 2"/>'),
   equal: svg('<path d="M3 6h10"/><path d="M3 10h10"/>'),
   coincident: svg('<circle cx="8" cy="8" r="4.6"/><circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none"/>'),
-  fixed: svg('<rect x="3.5" y="7.2" width="9" height="6.3" rx="1.3" fill="currentColor" fill-opacity=".18"/><path d="M5.5 7.2V5.4a2.5 2.5 0 0 1 5 0v1.8"/><circle cx="8" cy="10.3" r="0.9" fill="currentColor" stroke="none"/>'), // (a padlock, closed: held in place)
+  fixed: svg('<circle cx="8" cy="5.3" r="2.6" fill="currentColor" fill-opacity=".18"/><path d="M8 7.9V14M5.4 8.2h5.2"/>'), // (a pin: held in place; not a padlock, which is the lock on every mark)
   dimension: svg('<path d="M2 11.5L11.5 2 14 4.5 4.5 14z"/><path d="M5 8.5l1.6 1.6M7.4 6l1.6 1.6M9.8 3.6l1.2 1.2"/>'),
   angle: svg('<path d="M2.5 13.5h11"/><path d="M2.5 13.5L11 4.5"/><path d="M7.5 13.5a5 5 0 0 0-1.4-3.4"/>'),
   radius: svg('<circle cx="8" cy="8" r="5.5"/><path d="M8 8l3.9-3.9"/>'),

@@ -123,5 +123,38 @@ try {
   await C.page.mouse.up(); await C.page.waitForTimeout(300);
   ok(C.errors.length === 0, `no errors in the page ${C.errors.join("; ")}`);
   await C.close();
+  // the corner of two lines dragged near where both are tangent to a circle (`in_1622`): it is placed there (two tangents from one place); and a line dragged into range, away and back is offered the tangent every time it is in range
+  const D = await S.open(""), ev4 = evalIn(D.page), px4 = pxIn(ev4), click4 = clickIn(D.page, px4, 100), def4 = () => ev4<any>(`() => Object.values(window.__sketch.snapshot())[0]`);
+  const marks4 = () => D.page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-marks] [data-state]")].filter((e) => (e.parentElement as HTMLElement).style.display !== "none" && Number(e.style.opacity || 1) > 0.05).map((e) => e.dataset.bar ?? e.dataset.fact ?? ""));
+  await ev4(`() => window.__tool("circle")`); await D.page.waitForTimeout(900);
+  await click4(30, 10); await click4(35, 10); await ev4(`() => window.__sketch.stop()`);
+  await ev4(`() => window.__tool("line")`); await D.page.waitForTimeout(300);
+  const th = Math.asin(5 / 12), f1: [number, number] = [30 - 20 * Math.sin(th), 22 - 20 * Math.cos(th)], f2: [number, number] = [30 + 20 * Math.sin(th), 22 - 20 * Math.cos(th)];
+  await click4(...f1); await click4(30, 25); await ev4(`() => window.__sketch.stop()`);
+  await ev4(`() => window.__tool("line")`); await D.page.waitForTimeout(400); await click4(30, 25); await click4(...f2); await ev4(`() => window.__sketch.stop()`);   // (two lines meeting at (30, 25))
+  await D.page.waitForTimeout(5200);
+  const [ax, ay] = await px4(30, 25), [bx, by] = await px4(30, 22.4);
+  await D.page.mouse.move(ax, ay); await D.page.mouse.down(); await D.page.mouse.move((ax + bx) / 2, (ay + by) / 2, { steps: 6 }); await D.page.mouse.move(bx, by, { steps: 6 }); await D.page.waitForTimeout(500);
+  const tied = await ev4<any[]>(`() => window.__sketch.lines({ x: ${bx}, y: ${by} }).filter((l) => l.kind === "tie" || l.kind === "tieBall")`);
+  ok(tied.length >= 1, "dragging the corner of two lines near both tangents lights the circle while held");
+  await D.page.mouse.up(); await D.page.waitForTimeout(300);
+  let w = await def4(); const apex2 = w.points.find((p: any) => p.id !== w.circles[0].c && w.lines.filter((l: any) => l.a === p.id || l.b === p.id).length === 2)!, cc = w.points.find((p: any) => p.id === w.circles[0].c);
+  const dist4 = (l: any) => { const a = w.points.find((p: any) => p.id === l.a), b = w.points.find((p: any) => p.id === l.b), dx = b.x - a.x, dy = b.y - a.y; return Math.abs(dx * (cc.y - a.y) - dy * (cc.x - a.x)) / Math.hypot(dx, dy); };
+  ok(Math.abs(apex2.y - 22) < 0.05 && w.lines.every((l: any) => Math.abs(dist4(l) - 5) < 5e-3), `and it is placed where both lines are tangent (corner at y=${apex2.y.toFixed(4)}; distances ${w.lines.map((l: any) => dist4(l).toFixed(4))})`);
+  ok(w.constraints.length === 0, "nothing constrained by the hint");
+  // a whole line dragged into range of tangent, away, and back: offered every time
+  await ev4(`() => window.__tool("line")`); await D.page.waitForTimeout(300);
+  await click4(6, 26); await click4(54, 26); await ev4(`() => window.__sketch.stop()`);
+  await D.page.waitForTimeout(5200);
+  let cur = 26;
+  const move = async (to: number) => { const [x1, y1] = await px4(14, cur), [x2, y2] = await px4(14, to); await D.page.mouse.move(x1, y1); await D.page.mouse.move(x2, y2, { steps: 8 }); cur = to; await D.page.waitForTimeout(400); };
+  const [sx, sy] = await px4(14, 26); await D.page.mouse.move(sx, sy); await D.page.mouse.down();
+  await move(15.3); const near1 = (await marks4()).some((m) => m.startsWith("near:tangent"));
+  await move(20); const away = (await marks4()).some((m) => m.startsWith("near:tangent"));
+  await move(15.2); const near2 = (await marks4()).some((m) => m.startsWith("near:tangent"));
+  await D.page.mouse.up();
+  ok(near1 && !away && near2, `the tangent is offered every time the line is in range, however it got there (in range ${near1}, away ${away}, in range again ${near2})`);
+  ok(D.errors.length === 0, `no errors in the page ${D.errors.join("; ")}`);
+  await D.close();
 } finally { await S.stop(); }
 finish();

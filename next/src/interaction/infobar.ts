@@ -4,7 +4,7 @@ import type { Relation, System } from "../engine/solver.ts";
 import { offerable } from "../engine/relations.ts";
 import { offersFor } from "./suggest.ts";
 import { RANGEABLE, RELATIONS, kindOf, residualsOf, type Constraint } from "../engine/solver.ts";
-import { kindTuples, standingOf } from "../engine/relations.ts";
+import { kindTuples, snapEstimate, standingOf } from "../engine/relations.ts";
 import { iconOf, type Bubble } from "./bubbles.ts";
 
 /** `free`: would be added; `holds`: already true as drawn (adding it makes it a rule) */
@@ -30,8 +30,8 @@ export interface Info { facts: Fact[]; suggestions: BarItem[] }
 function placements(n: number, k: number): number[][] { return k === 0 ? [[]] : placements(n, k - 1).flatMap((p) => [...Array(n).keys()].filter((i) => !p.includes(i)).map((i) => [...p, i])); }
 export const NEAR_MAX = 2; // (the old app offered up to two "near" suggestions)
 
-/** Relations that hold now between the selection and one other part and would be new (`offerable`): a line that is level with one a long way off, a line tangent to a circle, a point on a line that was not made to be. Up to `max`; none for more than two parts selected. */
-export function nearFor(S: System, selection: string[], max = NEAR_MAX): BarItem[] {
+/** Relations between the selection and one other part that hold now, or (with `reachMm`) are within that many mm of holding, and would be new (`offerable`): a line that is level with one a long way off, a line tangent to a circle, a point on a line that was not made to be. Up to `max`; none for more than two parts selected. */
+export function nearFor(S: System, selection: string[], max = NEAR_MAX, reachMm?: number): BarItem[] {
   if (!selection.length || selection.length > 2) return [];
   const pool: Record<string, string[]> = { point: S.points.map((p) => p.id), line: S.lines.map((l) => l.id), circle: S.circles.map((c) => c.id) }, kinds = selection.map((id) => kindOf(id, S)), found: { other: string; item: BarItem }[] = [], seen = new Set<string>();
   for (const [name, def] of Object.entries(RELATIONS) as [Relation, (typeof RELATIONS)[Relation]][]) {
@@ -47,7 +47,7 @@ export function nearFor(S: System, selection: string[], max = NEAR_MAX): BarItem
           for (const variant of def.helper.variants ?? [undefined]) {
             const c: Constraint = { id: "near", kind: name, parts, ...(variant ?? {}) }, key = `${name}|${[...parts].sort().join()}|${JSON.stringify(variant ?? {})}`;
             if (seen.has(key)) continue; seen.add(key);
-            const rows = residualsOf(S, c); if (!rows.length || !rows.every((v) => Math.abs(v) < 1e-7)) continue;
+            const rows = residualsOf(S, c); if (!rows.length || !rows.every(Number.isFinite) || !(rows.every((v) => Math.abs(v) < 1e-7) || (reachMm !== undefined && snapEstimate(S, c) <= reachMm))) continue; // (it holds, or it is in range: `reachMm`, the helpers' reach: how it got there does not matter)
             const st = standingOf(S, c); if (!offerable(st.state)) continue;
             found.push({ other, item: { id: `near:${name}:${parts.join(",")}${variant?.internal ? ":in" : ""}`, icon: iconOf(name), label: `${RELATIONS[name].label} with ${other}`, tone: st.state as BarTone } });
             if (found.length >= 24) break; // (more than enough to choose from)

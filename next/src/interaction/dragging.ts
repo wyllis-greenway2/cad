@@ -33,12 +33,12 @@ export function dragTo(def0: SketchParams, pins: Record<string, Pt>): { params: 
 }
 
 // ---- hints while dragging (`in_1617`): what a dragged point or circle edge is to the helpers (the same rules as when it was drawn), and the sketch without it to look for what it could go to
-/** what a dragged point is to the helpers: the free end of its only line (a line drawn from the other end), else a place alone; and the parts to take out of the system while looking (what is dragged is not a target for itself) */
+/** what a dragged point is to the helpers: the free end of its line or lines (each a line drawn from its other end), else a place alone; and the parts to take out of the system while looking (what is dragged is not a target for itself) */
 export function freeOfDrag(p: SketchParams, s: Sol, id: string): { free: Free; out: string[] } {
   const lines = (p.lines ?? []).filter((l) => l.a === id || l.b === id), round = [...(p.circles ?? []).filter((c) => c.c === id), ...(p.arcs ?? []).filter((a) => a.c === id || a.a === id || a.b === id)];
-  if (lines.length === 1 && !round.length) {
-    const l = lines[0]!, other = l.a === id ? l.b : l.a, at = s.points[other];
-    if (at) return { free: { shape: "line", from: at, startId: other }, out: [id, l.id] };
+  if (lines.length >= 1 && !round.length) { // a corner of one line or of several: each is a line out of its other end to the place, so a tangent for each can be looked for (two tangents from one place)
+    const ends = lines.map((l) => { const other = l.a === id ? l.b : l.a; return { l, other, at: s.points[other] }; });
+    if (ends.every((e) => e.at)) return { free: { shape: "line", from: ends[0]!.at!, startId: ends[0]!.other, ...(ends.length > 1 ? { more: ends.slice(1).map((e) => ({ name: `~M${e.l.id}`, from: e.at!, startId: e.other })) } : {}) }, out: [id, ...lines.map((l) => l.id)] };
   }
   return { free: { shape: "point" }, out: [id, ...lines.map((l) => l.id), ...round.map((c) => c.id)] };
 }

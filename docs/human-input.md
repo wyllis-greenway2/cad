@@ -6578,3 +6578,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1621 — 2026-11-26 — approval
 > yes start with 1 and 2 then do 3 and 4
+
+## in_1622 — 2026-11-26 — question
+> why does it seem like the suggested constraint shows up once, then fades away and never comes back? so if I drag a line through a circle, it shows up tangent offer, then if I drag it away and eventually drag back it doesn't offer again? should it re offer every time it gets triggered? Also why does draggin the verticy of these two lines over this circle not offer snapping suggestions when the lines go close to tangent? Can't we just have simplier more unifying rules that say when things move into range, regardless of how they can there, then snapping and suggestions go into play?

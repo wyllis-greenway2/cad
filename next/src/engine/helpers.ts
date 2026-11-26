@@ -33,8 +33,8 @@ function candidates(S0: System, f: Free): Cand[] {
   const pool: Record<PartKind, string[]> = piece ? { // a part moved as one piece: its own parts (free names) against everything else
     point: [...Object.keys(piece.points), ...S0.points.map((p) => p.id)], line: [...piece.lines.map((l) => l.name), ...S0.lines.map((l) => l.id)], circle: [...piece.circles.map((c) => c.name), ...S0.circles.map((c) => c.id)],
   } : {
-    point: [P, ...S0.points.map((p) => p.id).filter((id) => id !== start)], // (the first place is covered by the line or circle that starts there)
-    line: [...(f.shape === "line" ? [L] : []), ...S0.lines.map((l) => l.id)],
+    point: [P, ...S0.points.map((p) => p.id).filter((id) => id !== start && !(f.shape === "line" && f.more?.some((m) => m.startId === id)))], // (the first place is covered by the line or circle that starts there)
+    line: [...(f.shape === "line" ? [L, ...(f.more ?? []).map((m) => m.name)] : []), ...S0.lines.map((l) => l.id)],
     circle: [...(f.shape === "circle" ? [C] : []), ...S0.circles.map((c) => c.id)],
   };
   const out: Cand[] = []; let order = 0;
@@ -109,7 +109,7 @@ export function helpersAt(S0: System, f: Free, q: Pt, mm: number, reach: Reach):
   for (const c of all) { const row = rowFn(c), r = row(at); if (r.length && r.every(Number.isFinite) && norm(r) < 1e-7 && aboutPlace(row, at) && usable({ c }) && applicable(c, at)) holds.push(make(c, at, 0)); }
   const byHeld = new Map<Held, Cand>(); for (const h of [...acted, ...holds]) { const c = all.find((x) => x.relation === h.relation && x.parts.join() === h.parts.join() && x.variant === h.variant); if (c) byHeld.set(h, c); }
   const guide = (h: Held): Pt[] | null => {
-    const c = byHeld.get(h); if (!c || h.says !== "line" || !h.dir || c.parts.includes(L) || c.parts.includes(C)) return null;
+    const c = byHeld.get(h); if (!c || h.says !== "line" || !h.dir || c.parts.some((x) => free(x) && x !== P && !(f.shape === "piece" && f.points[x]))) return null; // (a free line or circle says no dashed line, only its ties)
     const pc = f.shape === "piece" ? f : null, mover = pc ? c.parts.find((x) => free(x)) : undefined;
     if (pc && (!mover || !pc.points[mover])) return null; // (a piece's line or circle says no dashed line, only its ties)
     const sh: Pt = pc && mover ? [pc.points[mover]![0] - pc.ref[0], pc.points[mover]![1] - pc.ref[1]] : [0, 0]; // (the dashed line passes through where the moving point is, not through the piece's reference place)

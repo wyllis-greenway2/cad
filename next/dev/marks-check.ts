@@ -49,4 +49,12 @@ check("a selection takes in what it is made of: a line its ends, a circle its ce
 const onLine = marksFor(Z, ["L1"], { now: 0 }).filter((m) => m.state === "locked").map((m) => m.id).sort().join(), onEnd = marksFor(Z, ["P2"], { now: 0 }).filter((m) => m.state === "locked").map((m) => m.id).sort().join();
 check("a selected line shows the constraints of its ends too", onLine === "c1,c2,c3", onLine);
 check("a selected end shows its own constraints and not the line's", onEnd === "c1", onEnd);
+// in range, however it came there (`in_1622`): a line 0.3 from tangent to a circle is offered the tangent when 0.6 is the reach, not when it is 0.1
+{
+  const R: System = { points: [{ id: "P1", x: 0, y: 5.3 }, { id: "P2", x: 40, y: 5.3 }, { id: "P3", x: 20, y: 10 }], lines: [{ id: "L1", a: "P1", b: "P2" }], circles: [{ id: "K1", c: "P3", r: 5 }], constraints: [] };
+  const wide = marksFor(R, ["L1"], { now: 0, reachMm: 0.6 }).some((m) => m.id.startsWith("near:tangent")), narrow = marksFor(R, ["L1"], { now: 0, reachMm: 0.1 }).some((m) => m.id.startsWith("near:tangent")), none = marksFor(R, ["L1"], { now: 0 }).some((m) => m.id.startsWith("near:tangent"));
+  check("a line 0.3 mm from tangent is offered the tangent in a reach of 0.6, and not in 0.1 or when only what holds is offered", wide && !narrow && !none, `${wide} ${narrow} ${none}`);
+  const far: System = { ...R, points: R.points.map((p) => (p.id === "P1" || p.id === "P2" ? { ...p, y: 9 } : p)) };
+  check("a line well away from tangent is not offered it", !marksFor(far, ["L1"], { now: 0, reachMm: 0.6 }).some((m) => m.id.startsWith("near:tangent")));
+}
 process.exit(failureCount() ? 1 : 0);
