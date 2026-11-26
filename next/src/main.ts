@@ -23,6 +23,7 @@ import { createStudio } from "./studio.ts";
 import { createOperations } from "./operationcontrol.ts";
 import { extrudeOp, pushOp, roundOp, type PullInfo, type Source } from "./interaction/operations.ts";
 import { createBodySelect } from "./bodyselect.ts";
+import { createSelection } from "./selection.ts";
 import { createHelperBar } from "./helperbardraw.ts";
 import { createOpBar } from "./opbar.ts";
 import { Undo } from "./interaction/undo.ts";
@@ -71,7 +72,9 @@ const orbc = createOrbControl({
 const orientBar = createOrientBar(document.body, { apply: () => orbc.keep(), cancel: () => orbc.cancel() });
 
 // ---- sketching: a tool is chosen from the ring and draws on the plane that is on, which the view is first turned straight to ----
+const selection = createSelection(); // (the page's one selection: parts of a sketch, or what is picked on a body)
 const sk = createSketch({
+  selection,
   view: () => { const e = env(); return { cam: s.c, w: e.w, h: e.h }; },
   planes: () => {
     const all = new Map<string, Frame>([0, 1, 2].map((a) => [`world:${a}`, worldFrame(a as Axis)] as const));
@@ -105,11 +108,12 @@ const bodies = createBodySelect({
   view: () => { const e = env(); return { cam: s.c, w: e.w, h: e.h }; },
   meshes: () => studio.state().meshes,
   press: (id, sel) => doOnPick(id, sel),
+  selection,
 });
 // ---- the helper bar: the page has one, and it says what the sketch's selection or the body's pick offers (`in_1576`) ----
 // ---- sketch mode and the page's one pill (the old app's: a tool's icon and cross, "Exit sketch"; an operation's words, kinds, check and cross) ----
 let sketchMode = false;
-function exitSketch() { while (sk.stop()) { /* the tool is put away */ } sk.clearSelection(); sketchMode = false; }
+function exitSketch() { while (sk.stop()) { /* the tool is put away */ } selection.clear(); sketchMode = false; }
 const TOOL_ICON: Record<string, string> = { line: "line", rect: "rect", circle: "circle", arc: "arc", trim: "scissors" };
 const pill = createOpBar(document.body, { apply: () => { ext.apply(); }, cancel: () => { if (ext.active()) ext.cancel(); else sk.stop(); }, option: (id) => ext.option(id), exit: exitSketch });
 let barPress: ((id: string) => void) | null = null;
@@ -124,7 +128,7 @@ function doOnPick(id: string, sel: import("./bodyselect.ts").Selection) {
     const ff = faceFacts(sel.body, f.id); if (!ff) return;
     const n = ff.ne as [number, number, number], fr: Frame = { origin: ff.ce as [number, number, number], normal: n, u: [...faceAxes(n).u] as [number, number, number] }, key = `face:${f.id}`;
     facePlanes.set(key, { frame: fr, source: { face: f.ref, body: sel.body } });
-    placed = fr; placedKey = key; sketchMode = true; bodies.clear(); s = view.lookAlong(s, env(), scale(n, -1)); record("Plane on a face");
+    placed = fr; placedKey = key; sketchMode = true; selection.clear(); s = view.lookAlong(s, env(), scale(n, -1)); record("Plane on a face");
   }
   if ((id === "body:round" || id === "body:chamfer") && sel.edges.length) { // the number is the size: about a tenth of the shortest edge, to type over
     const pts = (e: { start: number; count: number }) => { const m = mesh!; let L = 0; for (let i = 0; i + 1 < e.count; i++) { const k = 3 * (e.start + i); L += Math.hypot(m.lines[k + 3]! - m.lines[k]!, m.lines[k + 4]! - m.lines[k + 1]!, m.lines[k + 5]! - m.lines[k + 2]!); } return L; };
@@ -144,7 +148,7 @@ function doOnPick(id: string, sel: import("./bodyselect.ts").Selection) {
 interface App { sketches: Record<string, SketchParams>; steps: readonly Step[]; faces: ReadonlyMap<string, { frame: Frame; source: Source }> }
 const undo = new Undo<App>({ sketches: {}, steps: [], faces: new Map() });
 function record(label: string, merge?: string) { undo.do({ sketches: sk.snapshot(), steps: studio.state().steps, faces: new Map(facePlanes) }, label, merge); }
-function restore(a: App | null) { if (!a) return; ext.cancel(); bodies.clear(); facePlanes.clear(); for (const [k, v] of a.faces) facePlanes.set(k, v); if (placedKey && !facePlanes.has(placedKey)) { placed = null; placedKey = null; } sk.restore(a.sketches); if (a.steps !== studio.state().steps) studio.change([...a.steps]); }
+function restore(a: App | null) { if (!a) return; ext.cancel(); selection.clear(); facePlanes.clear(); for (const [k, v] of a.faces) facePlanes.set(k, v); if (placedKey && !facePlanes.has(placedKey)) { placed = null; placedKey = null; } sk.restore(a.sketches); if (a.steps !== studio.state().steps) studio.change([...a.steps]); }
 const list = createStepList(document.body, {
   edit(id, key, value) { const next = editNumber(studio.state().steps, id, key, value); if (next) { studio.change(next); record("Number", `s:${id}:${key}`); } },
   undo: () => restore(undo.undo()), redo: () => restore(undo.redo()),
@@ -175,7 +179,7 @@ async function chooseMore(id: import("./interaction/moremenu.ts").MoreItem["id"]
   }
 }
 const more = createMoreMenu(document.body, (id) => { void chooseMore(id); });
-function startExtrude() { sketchMode = false; if (game.on) endGame(); while (sk.stop()) { /* the sketch tool is put away */ } sk.clearSelection(); ext.start(); }
+function startExtrude() { sketchMode = false; if (game.on) endGame(); while (sk.stop()) { /* the sketch tool is put away */ } selection.clear(); ext.start(); }
 function startTool(kind: ToolKind) {
   ext.cancel(); sketchMode = true;
   if (game.on) endGame();
@@ -231,7 +235,7 @@ addEventListener("keydown", (e) => {
   if (game.moves(e.code) && !game.on && !e.repeat) startGame(); // (W A S D turn the game on too, and the key that did it moves the eye)
   if (game.key(e.code, true)) return;
   if (orbc.orienting() && e.code === "Enter") { orbc.keep(); return; }
-  if (e.code === "Escape") { if (more.isOpen()) { more.close(); return; } if (ext.cancel()) return; if (orbc.cancel()) return; if (menu.isOpen()) menu.close(); else if (game.on) endGame(); else if (!sk.stop() && !sk.clearSelection() && !bodies.clear()) { if (sketchMode) exitSketch(); else orbc.release(); } }
+  if (e.code === "Escape") { if (more.isOpen()) { more.close(); return; } if (ext.cancel()) return; if (orbc.cancel()) return; if (menu.isOpen()) menu.close(); else if (game.on) endGame(); else if (!sk.stop() && !selection.clear()) { if (sketchMode) exitSketch(); else orbc.release(); } }
 });
 addEventListener("keyup", (e) => { game.key(e.code, false); });
 document.addEventListener("pointerlockchange", () => { if (document.pointerLockElement !== canvas && game.on) endGame(); });

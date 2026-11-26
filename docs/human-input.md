@@ -6476,3 +6476,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 ## in_1587 — 2026-11-25 — approval
 > yes split the offers logic out
 
+## in_1588 — 2026-11-26 — approval
+> yes do the selection merge
+

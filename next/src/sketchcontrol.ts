@@ -12,6 +12,7 @@ import { solveDefinition, segsOf } from "./engine/definition.ts";
 import { pointOnSeg, type Pt } from "./engine/region.ts";
 import { trimAt } from "./engine/trim.ts";
 import type { Relation } from "./engine/solver.ts";
+import type { Selection } from "./selection.ts";
 import { bake, constrain, emptySketch, hitAt, keep, posOf, refOf, removeParts, retype, unconstrain, viewSystem, type Ref, type Sol } from "./interaction/drawing.ts";
 import { bubblesOn, selectionAnchor, type Bubble, type Flash } from "./interaction/bubbles.ts";
 import { barFor, type Bar } from "./interaction/helperbar.ts";
@@ -29,16 +30,19 @@ export interface SketchHost {
   /** Every plane there is, by name (the sketches of a plane that is gone are let go), and the one that is on. */
   planes(): { all: Map<string, Frame>; on: string; step: number };
   ray(x: number, y: number): { o: V3; d: V3 };
+  /** the page's one selection (`selection.ts`): what is selected in a sketch is kept there, so selecting on a body puts it away */
+  selection: Selection;
 }
 export interface DrawLine { pts: V3[]; /** a ball's radius, in mm */ r?: number; /** a dashed line's dash, in mm (the gap is 0.7 of it) */ dash?: number; kind: "done" | "selected" | "preview" | "cursor" | "cut" | "tie" | "tieBall" | "guide" | "ball" }
 
 export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: string, merge?: string) => void) {
   const defs = new Map<string, SketchParams>(), sols = new WeakMap<SketchParams, Sol>(), fillCache = new WeakMap<SketchParams, [number, number][][][]>();
-  let tool: Tool | null = null, selection: { key: string; ids: string[] } = { key: "", ids: [] }, flash: Flash = {}, flashUntil = 0, message = "", messageUntil = 0;
+  const sel = host.selection;
+  let tool: Tool | null = null, flash: Flash = {}, flashUntil = 0, message = "", messageUntil = 0;
   const say = (text: string, ms = 4000) => { message = text; messageUntil = performance.now() + ms; };
   const solOf = (p: SketchParams): Sol => { let s = sols.get(p); if (!s) { const r = solveDefinition(p); s = { points: r.points, radii: r.radii }; sols.set(p, s); } return s; };
   const current = () => { const { all, on } = host.planes(); const f = all.get(on); return f ? { key: on, f, p: defs.get(on) ?? emptySketch() } : null; };
-  const selected = (key: string) => (selection.key === key ? selection.ids : []);
+  const selected = (key: string): string[] => [...sel.sketch(key)];
   /** a pixel's worth of the plane in mm, where the pointer is */
   /** where a click would put the place: on a point or curve as drawn, else drawn to the helpers' places (they place, they never constrain, `dec_hints_place_only`, `in_1579`) */
   const placed = (c: { p: SketchParams; q: P2; tol: number; mm: number }, s: Sol): { ref: Ref; help: Helped | null; free: Free } => {
@@ -81,8 +85,8 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   /** a press on the helper bar: the selection is taken away or put away, or a relation is put on it */
   const act = (id: string): void => {
     const c = current(); if (!c) return;
-    if (id === "clear") selection = { key: "", ids: [] };
-    else if (id === "delete") { const sel = selected(c.key); if (sel.length) { set(c.key, removeParts(c.p, sel), "Delete"); selection = { key: c.key, ids: [] }; } }
+    if (id === "clear") sel.clear();
+    else if (id === "delete") { const ids = selected(c.key); if (ids.length) { set(c.key, removeParts(c.p, ids), "Delete"); sel.clear(); } }
     else if (id.startsWith("rel:")) {
       const r = constrain(c.p, solOf(c.p), selected(c.key), id.slice(4) as Relation | "dimension");
       if (r.ok) { set(c.key, r.params, "Constraint"); flash = { applied: [r.added] }; flashUntil = performance.now() + 900; } else fail(r.why, r.victims);
@@ -114,7 +118,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
   return {
     active: () => tool !== null,
     tool: (): ToolKind | null => tool?.kind ?? null,
-    start(kind: ToolKind) { tool = newTool(kind); selection = { key: "", ids: [] }; offers = null; },
+    start(kind: ToolKind) { tool = newTool(kind); sel.clear(); offers = null; },
     /** Right click or Esc: the figure under way is given up; with none, the tool is put away. Returns whether there was a tool. */
     stop(): boolean {
       if (!tool) return false;
@@ -127,8 +131,8 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
       if (!tool) {
         if (!c) return false;
         const h = hitAt(c.p, solOf(c.p), c.q, c.tol);
-        if (!h) { const had = selected(c.key).length > 0; selection = { key: c.key, ids: [] }; return had; }
-        const was = selected(c.key), id = h.id; selection = { key: c.key, ids: shift ? (was.includes(id) ? was.filter((q) => q !== id) : [...was, id]) : [id] };
+        if (!h) { const had = selected(c.key).length > 0; if (had) sel.clear(); return had; } // (only a sketch selection is the sketch's to put away: a click that hits no part goes on to the bodies)
+        const was = selected(c.key), id = h.id; sel.setSketch(c.key, shift ? (was.includes(id) ? was.filter((q) => q !== id) : [...was, id]) : [id]);
         return true;
       }
       if (count >= 2 && tool.kind === "line") { tool = cancelFigure(tool); return true; }
@@ -148,8 +152,8 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     /** Keys of the sketch: Delete takes the selected parts away (no other key is bound for now, `in_1574`). Returns whether the key was used. */
     key(code: string): boolean {
       const c = current(); if (!c || tool) return false;
-      const sel = selected(c.key);
-      if (code === "Delete" || code === "Backspace") { if (!sel.length) return false; set(c.key, removeParts(c.p, sel), "Delete"); selection = { key: c.key, ids: [] }; return true; }
+      const ids = selected(c.key);
+      if (code === "Delete" || code === "Backspace") { if (!ids.length) return false; set(c.key, removeParts(c.p, ids), "Delete"); sel.clear(); return true; }
       return false;
     },
     /** Add a relation to what is selected (the helper bar's, later); false: the sketch said no, and says why. */
@@ -161,7 +165,7 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     },
     /** Every sketch, by plane (for the history); `restore` puts them back as they were (the selection and the tool are put away). */
     snapshot: (): Record<string, SketchParams> => Object.fromEntries(defs),
-    restore(snap: Record<string, SketchParams>): void { defs.clear(); for (const [k, v] of Object.entries(snap)) defs.set(k, v); selection = { key: "", ids: [] }; flash = {}; },
+    restore(snap: Record<string, SketchParams>): void { defs.clear(); for (const [k, v] of Object.entries(snap)) defs.set(k, v); sel.clear(); flash = {}; },
     /** A press on a part with no tool on: it may be dragged (true: the press is taken; a press that goes nowhere is a click, said at `grabEnd`). */
     grab(x: number, y: number, shift: boolean): boolean {
       if (tool) return false;
@@ -190,21 +194,20 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     grabEnd(): void {
       const g = drag; drag = null; if (!g) return;
       if (!g.moved) { // it was a click on the part: it is picked
-        const was = selected(g.key); selection = { key: g.key, ids: g.shift ? (was.includes(g.id) ? was.filter((q) => q !== g.id) : [...was, g.id]) : [g.id] }; return;
+        const was = selected(g.key); sel.setSketch(g.key, g.shift ? (was.includes(g.id) ? was.filter((q) => q !== g.id) : [...was, g.id]) : [g.id]); return;
       }
       const next = defs.get(g.key) ?? g.def0; // (a point let go on another point or a curve lands there; no constraint is made by it)
       defs.set(g.key, g.def0); // (the history takes the whole move as one change, from where it began)
-      set(g.key, next, "Drag"); selection = { key: g.key, ids: [g.id] }; flash = {};
+      set(g.key, next, "Drag"); sel.setSketch(g.key, [g.id]); flash = {};
     },
-    clearSelection(): boolean { const had = selection.ids.length > 0; selection = { key: "", ids: [] }; return had; },
     /** What to draw: every sketch on every plane (what is selected in teal), what the tool would make, the part a trim would take, and the place the pointer is at. */
     lines(pointer: { x: number; y: number } | null): DrawLine[] {
       const { all } = host.planes(), out: DrawLine[] = [];
       for (const k of [...defs.keys()]) if (!all.has(k)) defs.delete(k); // (the plane is gone, and its sketch)
       for (const [k, p] of defs) {
-        const f = all.get(k)!, s = solOf(p), sel = new Set(selected(k)), seg = segsOf(p, s.points, s.radii);
-        for (const q of seg) out.push({ kind: sel.has(q.name) ? "selected" : "done", pts: polyline(q).map((z) => to3(f, z)) });
-        for (const x of p.points) { const at = sel.has(x.id) ? s.points[x.id] : null; if (at) out.push({ kind: "ball", pts: [to3(f, at)], r: mmPerPx(f, at) * settings.sketch.ballPx }); } // (the old app marks no point until it is picked, then a teal ball)
+        const f = all.get(k)!, s = solOf(p), chosen = new Set(selected(k)), seg = segsOf(p, s.points, s.radii);
+        for (const q of seg) out.push({ kind: chosen.has(q.name) ? "selected" : "done", pts: polyline(q).map((z) => to3(f, z)) });
+        for (const x of p.points) { const at = chosen.has(x.id) ? s.points[x.id] : null; if (at) out.push({ kind: "ball", pts: [to3(f, at)], r: mmPerPx(f, at) * settings.sketch.ballPx }); } // (the old app marks no point until it is picked, then a teal ball)
       }
       if (drag?.snapAt) { const f = all.get(drag.key); if (f) { const arm = mmPerPx(f, drag.snapAt) * settings.sketch.crossPx * 1.4, w = to3(f, drag.snapAt); out.push({ kind: "cursor", pts: [add(w, scale(f.u, -arm)), add(w, scale(f.u, arm))] }, { kind: "cursor", pts: [add(w, scale(vOf(f), -arm)), add(w, scale(vOf(f), arm))] }); } }
       const c = pointer && tool ? here(pointer.x, pointer.y) : null;
@@ -227,9 +230,9 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     /** What the helper bar says for what is selected (null: none: a tool is on, a number is being typed, or nothing is selected): the buttons, the place on the page they stand by, and what a press does. The page has the one bar (`bars` in `main.ts`). */
     bar(): { items: Bar; at: [number, number]; press: (id: string) => void } | null {
       const c = current(); if (!c || tool || layer.editing()) return null;
-      const s = solOf(c.p), S = viewSystem(c.p, s), sel = selected(c.key), where = selectionAnchor(S, sel); if (!where) return null;
+      const s = solOf(c.p), S = viewSystem(c.p, s), ids = selected(c.key), where = selectionAnchor(S, ids); if (!where) return null;
       const cam = host.view(), q = project(cam.cam, to3(c.f, where), cam.w, cam.h);
-      return { items: barFor(S, sel), at: [q.x, q.y], press: act };
+      return { items: barFor(S, ids), at: [q.x, q.y], press: act };
     },
     /** Each picture: the bubbles of what is selected, on the page, and the sentence (empty when it has gone). */
     frame(now: number, barBox: [number, number, number, number] | null = null): { message: string } {
@@ -266,6 +269,6 @@ export function createSketch(host: SketchHost, page: HTMLElement, on?: (label: s
     editing: (): boolean => layer.editing(),
     /** a press of the helper bar by its id (`delete`, `clear`, `rel:<relation>`): for the dev checks */
     press: act,
-    debug: () => ({ tool: tool ? { ...tool } : null, sketches: [...defs].map(([k, v]) => [k, v] as const), selection, message }),
+    debug: () => ({ tool: tool ? { ...tool } : null, sketches: [...defs].map(([k, v]) => [k, v] as const), selection: (() => { const k = sel.get(); return k?.kind === "sketch" ? { key: k.key, ids: k.ids } : { key: "", ids: [] }; })(), message }),
   };
 }
