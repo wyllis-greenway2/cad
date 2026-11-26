@@ -59,7 +59,7 @@ const MARKS=[
  {id:'c2',kind:'on',state:'applied',parts:['P5','L1'],word:'On line',says:'vertex P5 stays on line L1',order:1},
  {id:'c3',kind:'mid',state:'applied',parts:['P5','L1'],word:'At the middle',says:'P5 stays halfway along line L1',order:2},
  {id:'c1',kind:'tangent',state:'applied',parts:['L1','K1'],word:'Tangent',says:'line L1 touches circle K1 at one point',order:3},
- {id:'o1',kind:'onc',state:'offer',parts:['P5','K1'],word:'Offer: P5 on the circle',says:'the circle grows 0.14 mm to reach P5, and line L1 shifts to stay tangent. Click to apply',order:4},
+ {id:'o1',kind:'onc',state:'offer',parts:['P5','K1'],moves:['L1'],word:'Offer: P5 on the circle',says:'the circle grows 0.14 mm to reach P5, and line L1 shifts to stay tangent. Click to apply',order:4},
  {id:'m1',kind:'len',state:'measure',parts:['L1','P2','P3'],word:'Length 20.39',says:'the length of line L1 (measured, not locked)',order:5,text:'20.39'},
  {id:'m2',kind:'dia',state:'measure',parts:['K1','P1'],word:'Diameter 9.051',says:'the diameter of circle K1 (measured, not locked)',order:6,text:'Ø 9.051'},
 ];
@@ -118,13 +118,16 @@ const col=s=>s==='offer'?'var(--amber)':s==='measure'?'var(--grey)':'var(--green
 function render(){
   const G=geo(),list=shown(),P=place(list,G);
   const hv=m=>loud||pinned.has(m.id)||(hover===m.id);
-  const hot=P.filter(o=>hv(o.m)),lit=new Set(hot.flatMap(o=>o.m.parts)),isLit=id=>lit.has(id);
+  const hot=P.filter(o=>hv(o.m)),lit=new Set(hot.flatMap(o=>o.m.parts)),
+    ENDS={L1:['P2','P3'],L2:['P5','P4']}, // a vertex lights the lines that end at it, lightly: P5 is the end of the perpendicular line
+    soft=new Set(hot.flatMap(o=>[...(o.m.moves||[]),...Object.keys(ENDS).filter(l=>ENDS[l].some(v=>o.m.parts.includes(v)))]).filter(id=>!lit.has(id))),
+    isLit=id=>lit.has(id),isSoft=id=>soft.has(id);
   let s='';
   for(let x=0;x<=W;x+=55)s+=`<path d="M${x} 0V${H}" stroke="var(--grid)"/>`;for(let y=0;y<=H;y+=55)s+=`<path d="M0 ${y}H${W}" stroke="var(--grid)"/>`;
   s+=`<defs><marker id="at" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto-start-reverse"><path d="M0 0L7 3.5 0 7z" fill="var(--grey)"/></marker><marker id="ay" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto-start-reverse"><path d="M0 0L7 3.5 0 7z" fill="var(--amber)"/></marker></defs>`;
   const kSel=sel==='K1';
-  s+=`<circle class="part" cx="${G.k.c[0]}" cy="${G.k.c[1]}" r="${G.k.r}" fill="${kSel?'#eef9f9':'none'}" stroke="${isLit('K1')?'var(--amber)':kSel?'var(--teal)':'var(--ink)'}" stroke-width="${isLit('K1')?3.2:kSel?3:1.6}"/>`;
-  for(const id of ['L1','L2']){const [a,b]=G.L[id];s+=`<line class="part" x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${isLit(id)?'var(--amber)':sel===id?'var(--teal)':'var(--ink)'}" stroke-width="${isLit(id)?3.2:sel===id?3:1.6}"/>`;}
+  s+=`<circle class="part" cx="${G.k.c[0]}" cy="${G.k.c[1]}" r="${G.k.r}" fill="${kSel?'#eef9f9':'none'}" stroke="${isLit('K1')?'var(--amber)':isSoft('K1')?'#f6dca0':kSel?'var(--teal)':'var(--ink)'}" stroke-width="${isLit('K1')?3.2:isSoft('K1')?2.8:kSel?3:1.6}"/>`;
+  for(const id of ['L1','L2']){const [a,b]=G.L[id];s+=`<line class="part" x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${isLit(id)?'var(--amber)':isSoft(id)?'#f6dca0':sel===id?'var(--teal)':'var(--ink)'}" stroke-width="${isLit(id)?3.2:isSoft(id)?2.8:sel===id?3:1.6}"/>`;}
   for(const id in G.P){const on=isLit(id),inScope=SCOPE[sel].includes(id);const p=G.P[id];s+=`<circle class="part" cx="${p[0]}" cy="${p[1]}" r="${id==='P5'?4.5:3.2}" fill="${on?'var(--amber)':inScope?'var(--teal)':id==='P1'?'var(--ink)':'#c9ced2'}"/>`;}
   // dimension geometry and leaders (under the marks)
   P.forEach(o=>{const m=o.m,hot=hv(m),c=m.state==='offer'?'var(--amber)':'var(--grey)',mk=m.state==='offer'?'ay':'at';
@@ -171,6 +174,7 @@ document.getElementById('legend').innerHTML=`<h3>The rule set being tried</h3><t
 <tr><td><b>Length</b></td><td>a dimension line a little off the line, arrow tips, the bubble on it, slid along it until clear</td></tr>
 <tr><td><b>Circle size</b></td><td>a dashed radial line in the freest direction, the bubble on it</td></tr>
 <tr><td><b>Offer (yellow)</b></td><td>quiet icon at the junction; its arrows only on hover</td></tr>
+<tr><td><b>Hover lights</b></td><td>the parts the mark names (strong amber), what applying would also move, and the lines a named vertex ends (pale amber)</td></tr>
 <tr><td><b>Leader</b></td><td>a thin dashed line with an arrow tip back to the feature, only when the bubble had to step aside</td></tr>
 <tr><td><b>No pill</b></td><td>marks never group; several at a junction fan out in a fixed order</td></tr>
 <tr><td><b>Zoomed out</b></td><td>a mark whose part is tiny on screen is a dot until pointed at</td></tr></table>

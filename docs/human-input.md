@@ -6671,3 +6671,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1652 — 2026-11-26 — question
 > what is going on here? why does this on line suggestion seem to just rotate the line that is tangent already?
+
+## in_1653 — 2026-11-26 — question
+> but what is it even offering? Is it offering to put the verticy of the perpendicular line on line with the circle? and if so then why did it modify the tangent line at all?
+
+## in_1654 — 2026-11-26 — question
+> so then why does hovering on the suggested bubble not include the perpendicular line in the highlight?

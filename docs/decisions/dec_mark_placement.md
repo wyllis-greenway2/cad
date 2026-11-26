@@ -3,7 +3,7 @@ id: dec_mark_placement
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_1649, in_1650
+human_input: in_1649, in_1650, in_1654
 date: 2026-11-26
 depends_on:
   - dec_marks_on_things: this says where each mark stands and when it speaks; that entry says which marks show and what a mark is
@@ -15,7 +15,7 @@ The human's direction (`in_1650`): quiet marks that light up on hover are good, 
 
 ## When
 1. A mark is quiet by default: small, pale, its icon only. An offer is the same in yellow. No arrows, no words.
-2. Pointing at a mark (hover; on touch, a first tap) makes it strong, lights the parts it is about, draws what it measures or would move (a dimension line, an offer's dashed arrow) and says it in a sentence. Pressing applies it (offers) or takes it away (an applied one).
+2. Pointing at a mark (hover; on touch, a first tap) makes it strong, lights the parts it is about (strong amber), and lightly (pale amber) what applying it would also move and the lines a named vertex ends (`in_1654`: P5 is the end of the perpendicular line, and the tangent line turns), draws what it measures or would move (a dimension line, an offer's dashed arrow) and says it in a sentence. Pressing applies it (offers) or takes it away (an applied one).
 3. Which marks exist at all is unchanged (`dec_marks_on_things`): a selection shows its constraints, an offer near it, a refusal always.
 4. A mark that cannot fit at the zoom (its part is smaller on screen than the mark) is a dot until pointed at.
 
