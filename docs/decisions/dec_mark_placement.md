@@ -3,7 +3,7 @@ id: dec_mark_placement
 kind: decision
 status: provisional
 origin: ai-unreviewed
-human_input: in_1649, in_1650, in_1654, in_1655, in_1656, in_1657, in_1658
+human_input: in_1649, in_1650, in_1654, in_1655, in_1656, in_1657, in_1658, in_1660
 date: 2026-11-26
 depends_on:
   - dec_marks_on_things: this says where each mark stands and when it speaks; that entry says which marks show and what a mark is
@@ -22,6 +22,9 @@ Three things, all made from the constraint's own parts, so nothing depends on th
 **The spot** (the one table left; the literal anchor `anchorOf` already finds it): at a vertex, a junction or a touching point, that point; a whole line (level, length), its middle; a circle's edge, a point on it; an angle, its corner.
 **Dimensions keep their own drawing** (they are the dimension): a length is a dashed line with arrow tips and the bubble on it; a circle's size is a dashed radial line with the bubble on it.
 **Colours** (`in_1658`): blue (teal) is only for what is selected; yellow (amber) is only for what is suggested (an offer, its arrows, its leader). A hover highlight takes the colour of the mark it is for: green for an applied constraint, yellow for an offer, charcoal for a measured number (pale tier: the pale of the same colour). **Nothing changes size on hover** (`in_1657`): a mark, a line, a leader keep their size and width; hover changes colour and opacity only (and shows what was not drawn: the lit parts, the offer's arrows). A tiny part's mark stays a dot on hover. **When:** unchanged: quiet by default (small, pale, icon only, no words); a mark that is tiny at the zoom is a dot until pointed at; on touch a first tap is the hover.
+
+## The minimal version (`in_1660`, being tried in `prototypes/clarity-mockups/minimal.html`)
+At rest only small bubbles; **everything else only when one is pointed at**: its arrow to the exact spot, its parents lit in its colour (a named vertex lights the lines that end at it; no pale second tier), its dimension line through the bubble, and for an offer the movement (main arrow between the two named parts, other moves paler). No dots for tiny parts, no fan-out rules (the first free slot round the spot, in a fixed order), no standing dimension lines. Whether the arrows should also be always-on and pale is the thing being compared (`simple.html` has them).
 
 ## Open (to ask)
 Touch: a first tap previews, a second applies? During a drag the hints show at once. Whether an unlocked measured number shows as its dimension line when selected, or as a plain bubble until pointed at.

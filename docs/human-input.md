@@ -6689,3 +6689,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1658 — 2026-11-26 — directive
 > okay but I think blue should be reserved for selected, and yellow is reserved for suggested
+
+## in_1659 — 2026-11-26 — question
+> okay is this a really simple and clean design? or should we make it simpler and cleaner?
+
+## in_1660 — 2026-11-26 — directive
+> build the minimal version, try the hover only arrows, but lets keep the parent highlight on hover

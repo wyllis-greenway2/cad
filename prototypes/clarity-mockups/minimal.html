@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Marks: the minimal rule set</title>
+<style>
+  :root{--teal:#1ab8b3;--amber:#f2c14e;--green:#3aa76d;--ink:#2a2e33;--grid:#e6e9eb;--grey:#8a9097}
+  body{font:14px system-ui,sans-serif;margin:0;background:#f4f5f6;color:var(--ink)}
+  header{padding:12px 18px;background:#fff;border-bottom:1px solid #ddd}
+  header h1{font-size:16px;margin:0 0 6px}
+  .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}
+  button{padding:5px 12px;border:1px solid #bbb;border-radius:14px;background:#fff;cursor:pointer;font:inherit}
+  button.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+  label{margin-right:12px;font-size:13px}
+  .note{color:#666;font-size:12px;margin-top:4px;max-width:980px}
+  main{display:grid;grid-template-columns:minmax(560px,1.6fr) minmax(260px,1fr);gap:14px;padding:14px;align-items:start}
+  .card{background:#fff;border:1px solid #ddd;border-radius:8px;overflow:hidden}
+  svg{width:100%;height:auto;display:block;background:#fff}
+  .bar{border-top:1px solid #eee;padding:10px 12px;min-height:44px;font-size:13px;background:#fafafa}
+  .legend{padding:12px 14px;font-size:13px;line-height:1.5}
+  .legend h3{margin:0 0 6px;font-size:14px}
+  .legend table{border-collapse:collapse;width:100%;font-size:12px}
+  .legend td{border-top:1px solid #eee;padding:4px 6px;vertical-align:top}
+  text{font:12px system-ui,sans-serif}
+  .mk{cursor:pointer}
+</style></head><body>
+<header>
+  <h1>Marks: the minimal rule set (bubbles only until you point at one)</h1>
+  <div class="row" id="sel"></div>
+  <div class="row">
+    <label><input type="checkbox" id="loud"> everything pointed at (worst case)</label>
+    <label><input type="checkbox" id="pale"> compare: pale arrows always on</label>
+    <label><input type="checkbox" id="touch"> touch (a tap toggles the preview, like hover)</label>
+  </div>
+  <div class="note">At rest the drawing shows only small bubbles. Pointing at one draws everything about it: its arrow to the exact spot, its parents lit in its colour, its dimension line, and (an offer) the movement. Blue is selected, yellow is suggested, green is applied, charcoal is a measured number. Nothing changes size on hover. Nothing here touches the real app.</div>
+</header>
+<main>
+  <div class="card"><svg id="svg" viewBox="0 0 640 430"></svg><div class="bar" id="bar"></div></div>
+  <div class="card legend" id="legend"></div>
+</main>
+<script>
+const W=640,H=430;
+// ---- the scene (the human's model_5)
+const K={c:[230,282],r:90};
+const d=[0.9962,-0.0872], n=[-0.0872,-0.9962];
+const T=[K.c[0]+K.r*n[0],K.c[1]+K.r*n[1]];
+const P2=[T[0]-190*d[0],T[1]-190*d[1]], P3=[T[0]+210*d[0],T[1]+210*d[1]];
+const P5=[(P2[0]+P3[0])/2,(P2[1]+P3[1])/2], P4=[P5[0]+170*n[0],P5[1]+170*n[1]];
+const PT={P1:K.c,P2,P3,P4,P5}, LINES={L1:[P2,P3],L2:[P5,P4]};
+const ENDS={L1:['P2','P3'],L2:['P5','P4']};          // a vertex's lines: the lines that end at it
+const ICON={
+ tangent:'<circle cx="8" cy="10" r="4"/><path d="M1.5 6h13"/>',
+ on:'<path d="M2 12.5L14 3.5"/><circle cx="8" cy="8" r="1.7"/>',
+ mid:'<path d="M2 8h12"/><circle cx="8" cy="8" r="1.6"/><path d="M5 6v4M11 6v4"/>',
+ onc:'<path d="M2 12.5L14 3.5"/><circle cx="8" cy="8" r="1.7"/>',
+ sq:'<path d="M3 13V3"/><path d="M3 13h10"/><path d="M3 9h4v4"/>'};
+const MARKS=[
+ {id:'c4',kind:'sq',state:'applied',parts:['L1','L2'],spot:'corner',word:'Square',says:'line L2 stands square to line L1',order:0},
+ {id:'c2',kind:'on',state:'applied',parts:['P5','L1'],spot:'P5',word:'On line',says:'vertex P5 stays on line L1',order:1},
+ {id:'c3',kind:'mid',state:'applied',parts:['P5','L1'],spot:'P5',word:'At the middle',says:'P5 stays halfway along line L1',order:2},
+ {id:'c1',kind:'tangent',state:'applied',parts:['L1','K1'],spot:'contact',word:'Tangent',says:'line L1 touches circle K1 at one point',order:3},
+ {id:'o1',kind:'onc',state:'offer',parts:['P5','K1'],spot:'P5',word:'Offer: P5 on the circle',says:'P5 stays and the circle grows 0.14 mm to reach it. Also moves line L1 (it turns so it stays tangent). Click to apply',order:4},
+ {id:'m1',kind:'len',state:'measure',parts:['L1'],spot:'mid1',word:'Length 20.39',says:'the length of line L1 (measured, not locked)',order:5,text:'20.39'},
+ {id:'m2',kind:'dia',state:'measure',parts:['K1'],spot:'centre',word:'Diameter 9.051',says:'the diameter of circle K1 (measured, not locked)',order:6,text:'Ø 9.051'},
+];
+const SCOPE={K1:['K1','P1'],L1:['L1','P2','P3'],L2:['L2','P4','P5'],P5:['P5'],none:[]};
+let sel='K1',hover=null,pinned=new Set(),loud=false,pale=false,touch=false;
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1]],add=(a,b)=>[a[0]+b[0],a[1]+b[1]],mul=(a,k)=>[a[0]*k,a[1]*k],len=a=>Math.hypot(a[0],a[1]),unit=a=>{const l=len(a)||1;return [a[0]/l,a[1]/l]};
+const shown=()=>MARKS.filter(m=>{
+  if(m.state==='offer')return sel==='K1'||sel==='P5';
+  if(m.state==='measure')return (m.kind==='len'&&sel==='L1')||(m.kind==='dia'&&sel==='K1');
+  return m.parts.some(p=>SCOPE[sel].includes(p));
+});
+const SPOT={corner:()=>add(P5,add(mul(d,9),mul([-d[1]*-1,-d[0]*-1],0))),P5:()=>P5,contact:()=>add(K.c,mul(unit(sub(P5,K.c)),K.r)),mid1:()=>P5,centre:()=>K.c};
+SPOT.corner=()=>add(P5,add(mul(d,9),mul(n,9)));
+// ---- placement: a fixed order of slots round the spot, the first one no other bubble has; nothing else decides
+const SLOTS=[270,315,225,0,180,45,135,90].map(a=>a*Math.PI/180);
+function place(list){
+  const placed=[],out=[];
+  [...list].sort((a,b)=>a.order-b.order).forEach(m=>{
+    const size=m.state==='measure'?(m.text.length*7+20):22,spot=SPOT[m.spot]();
+    let at=null;
+    if(m.kind==='dia'){at=add(K.c,mul([Math.cos(.55),Math.sin(.55)],K.r*.5));}                 // on its radial line, down and right of the centre
+    else{outer:for(const r of [30,48,66]){for(const t of SLOTS){const p=add(spot,[Math.cos(t)*r,Math.sin(t)*r]);
+      if(placed.every(q=>len(sub(p,q.at))>=(size+q.size)/2+3)&&p[0]>size/2&&p[0]<W-size/2&&p[1]>size/2&&p[1]<H-size/2){at=p;break outer;}}}
+      at=at||add(spot,[0,-90]);}
+    placed.push({at,size});out.push({m,at,size,spot});
+  });
+  return out;
+}
+// ---- drawing
+const CL={applied:'var(--green)',offer:'var(--amber)',measure:'#5b6269'};
+const FILL={applied:'#effaf3',offer:'#fffbe9',measure:'#f1f3f4'};
+function render(){
+  const P=place(shown()), hv=m=>loud||pinned.has(m.id)||hover===m.id, hot=P.filter(o=>hv(o.m));
+  // parents: the parts a mark names; a named vertex also lights the lines that end at it; one colour, the mark's
+  const lit=new Map();
+  hot.forEach(o=>o.m.parts.forEach(p=>{const add1=q=>{if(!lit.has(q))lit.set(q,o.m.state)};add1(p);for(const l in ENDS)if(ENDS[l].includes(p))add1(l);}));
+  let s='';
+  for(let x=0;x<=W;x+=55)s+=`<path d="M${x} 0V${H}" stroke="var(--grid)"/>`;for(let y=0;y<=H;y+=55)s+=`<path d="M0 ${y}H${W}" stroke="var(--grid)"/>`;
+  s+=`<defs><marker id="at" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto-start-reverse"><path d="M0 0L7 3.5 0 7z" fill="var(--grey)"/></marker><marker id="ay" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto-start-reverse"><path d="M0 0L7 3.5 0 7z" fill="var(--amber)"/></marker><marker id="ag" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto-start-reverse"><path d="M0 0L7 3.5 0 7z" fill="var(--green)"/></marker></defs>`;
+  const mkr=st=>st==='offer'?'ay':st==='applied'?'ag':'at';
+  const col=(id,base)=>lit.has(id)?CL[lit.get(id)]:base, kSel=sel==='K1';
+  s+=`<circle cx="${K.c[0]}" cy="${K.c[1]}" r="${K.r}" fill="${kSel?'#eef9f9':'none'}" stroke="${col('K1',kSel?'var(--teal)':'var(--ink)')}" stroke-width="${kSel?3:1.6}"/>`;
+  for(const id of ['L1','L2']){const [a,b]=LINES[id];s+=`<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${col(id,sel===id?'var(--teal)':'var(--ink)')}" stroke-width="${sel===id?3:1.6}"/>`;}
+  for(const id in PT){const p=PT[id],inScope=SCOPE[sel].includes(id);s+=`<circle cx="${p[0]}" cy="${p[1]}" r="${id==='P5'?4.5:3.2}" fill="${lit.has(id)?CL[lit.get(id)]:inScope?'var(--teal)':id==='P1'?'var(--ink)':'#c9ced2'}"/>`;}
+  // what pointing draws: the arrow to the spot, the dimension line through the bubble, the offer's movement
+  P.forEach(o=>{const m=o.m,hot1=hv(m),c=CL[m.state];
+    if(!hot1&&!(pale&&m.state!=='measure'))return;
+    const R=o.size/2;
+    if(m.kind==='len'){ // a dimension line through the bubble, parallel to the line, with its extension lines
+      const off=sub(o.at,P5),k=off[0]*n[0]+off[1]*n[1],a=add(P2,mul(n,k)),b=add(P3,mul(n,k));
+      if(hot1)s+=`<path d="M${a[0]} ${a[1]} L${b[0]} ${b[1]}" stroke="${c}" stroke-width="1.2" stroke-dasharray="5 4" fill="none" marker-start="url(#at)" marker-end="url(#at)"/><path d="M${P2[0]} ${P2[1]} L${a[0]} ${a[1]}M${P3[0]} ${P3[1]} L${b[0]} ${b[1]}" stroke="${c}" stroke-width="1" opacity=".5"/>`;
+    } else if(m.kind==='dia'){ // a dashed radial line from the centre through the bubble to the edge
+      if(hot1){const u=unit(sub(o.at,K.c)),e=add(K.c,mul(u,K.r));s+=`<path d="M${K.c[0]} ${K.c[1]} L${e[0]} ${e[1]}" stroke="${c}" stroke-width="1.2" stroke-dasharray="5 4" fill="none" marker-start="url(#at)" marker-end="url(#at)"/>`;}
+    } else if(len(sub(o.spot,o.at))>R+8){ // the arrow from the bubble to its spot
+      const u=unit(sub(o.spot,o.at)),st=add(o.at,mul(u,R));
+      s+=`<path d="M${st[0]} ${st[1]} L${o.spot[0]} ${o.spot[1]}" stroke="${c}" stroke-width="1.2" stroke-dasharray="4 3" fill="none" marker-end="url(#${mkr(m.state)})" opacity="${hot1?1:.45}"/>`;
+    }
+    if(m.state==='offer'&&hot1){ // the movement: the main arrow joins the two named parts, what else moves is paler
+      const a=add(K.c,mul(unit(sub(P5,K.c)),K.r));
+      s+=`<path d="M${a[0]} ${a[1]} L${P5[0]} ${P5[1]}" stroke="var(--amber)" stroke-width="2.6" stroke-dasharray="5 3" fill="none" marker-end="url(#ay)"/>`;
+      for(const [p,dir] of [[P2,[0,1]],[P3,[0,-1]]]){const q=add(p,mul(dir,22));s+=`<path d="M${p[0]} ${p[1]} L${q[0]} ${q[1]}" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="5 3" fill="none" marker-end="url(#ay)" opacity=".55"/>`;}
+    }
+  });
+  // the bubbles (nothing here changes size when pointed at: only the colour of the fill)
+  P.forEach(o=>{const m=o.m,hot1=hv(m),R=o.size/2,c=m.state==='measure'?'var(--grey)':CL[m.state];
+    s+=`<g class="mk" data-id="${m.id}" transform="translate(${o.at[0]},${o.at[1]})"><circle r="${Math.max(R+6,16)}" fill="transparent"/>`;
+    if(m.state==='measure'){const wd=o.size;s+=`<rect x="${-wd/2}" y="-11" width="${wd}" height="22" rx="11" fill="${hot1?FILL.measure:'#fff'}" stroke="${hot1?CL.measure:'var(--grey)'}" stroke-width="1.6"/><text x="0" y="4" text-anchor="middle" font-weight="600">${m.text}</text>`;}
+    else{const sc=R/11;s+=`<circle r="${R}" fill="${hot1?FILL[m.state]:'#fff'}" stroke="${c}" stroke-width="1.8"/><g transform="translate(${-8*sc},${-8*sc}) scale(${sc})" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round">${ICON[m.kind]}</g>`;}
+    s+='</g>';});
+  document.getElementById('svg').innerHTML=s;
+  const one=hover&&P.find(o=>o.m.id===hover);
+  document.getElementById('bar').innerHTML=one?`<b>${one.m.word}</b> — ${one.m.says}`:(P.length?`${P.length} mark${P.length>1?'s':''} — point at one`:'nothing selected, nothing shown');
+}
+// hover and click are caught once on the picture (the marks are redrawn, and a replaced mark can miss its 'leave')
+(()=>{const svg=document.getElementById('svg'),at=e=>{const t=e.target&&e.target.closest?e.target.closest('.mk'):null;return t?t.dataset.id:null;};
+  svg.addEventListener('mousemove',e=>{if(touch)return;const id=at(e);if(id!==hover){hover=id;render();}});
+  svg.addEventListener('mouseleave',()=>{if(!touch&&hover!==null){hover=null;render();}});
+  svg.addEventListener('click',e=>{const id=at(e);if(!id)return;if(touch){pinned.has(id)?pinned.delete(id):(pinned.clear(),pinned.add(id));hover=pinned.has(id)?id:null;}render();});})();
+// ---- controls
+[['K1','Select the circle'],['L1','Select line L1 (4 marks + length)'],['L2','Select line L2'],['P5','Select vertex P5'],['none','Nothing selected']].forEach(([k,l])=>{const b=document.createElement('button');b.textContent=l;b.onclick=()=>{sel=k;hover=null;pinned.clear();[...document.querySelectorAll('#sel button')].forEach(x=>x.classList.toggle('on',x===b));render()};if(k===sel)b.classList.add('on');document.getElementById('sel').append(b)});
+document.getElementById('loud').onchange=e=>{loud=e.target.checked;render()};
+document.getElementById('pale').onchange=e=>{pale=e.target.checked;render()};
+document.getElementById('touch').onchange=e=>{touch=e.target.checked;hover=null;pinned.clear();render()};
+document.getElementById('legend').innerHTML=`<h3>The minimal rule set</h3><table>
+<tr><td><b>At rest</b></td><td>only small bubbles, each in the first free place round its spot (up, up-right, up-left, right, left...). Nothing else is drawn.</td></tr>
+<tr><td><b>Pointing at one</b></td><td>draws its arrow to the exact spot; lights its parents in its own colour (a named vertex lights the lines that end at it); draws its dimension line through the bubble; for an offer, draws the movement</td></tr>
+<tr><td><b>Offer movement</b></td><td>the main arrow joins the two named parts in the direction they move; what else moves is a paler arrow; the sentence says "also moves"</td></tr>
+<tr><td><b>Colours</b></td><td>blue selected, yellow suggested, green applied, charcoal measured</td></tr>
+<tr><td><b>Nothing</b></td><td>changes size on hover; no pale second tier; no standing dimension lines; no dots; no fan-out rules</td></tr></table>
+<p style="color:#666;font-size:12px">Try: "Select line L1" and "everything pointed at" for the worst case. The pale-arrows checkbox shows the earlier always-on version for comparison.</p>`;
+render();
+</script></body></html>

@@ -6,4 +6,6 @@
 
 **`simple.html` (`in_1655`, `in_1656`):** the simplified rule set: every mark a small bubble in the nearest free place with a thin dashed arrow to the exact spot it is about (pale until pointed at, left out when beside its spot); hover lights the parts it names (strong amber) and what it would also move or the line a named vertex ends (pale amber); an offer's arrow joins the two named parts in the direction they move, what else moves is paler, and the sentence says "also moves L1"; a length and a circle size keep their dashed dimension line. `rules.html` is the earlier, per-kind placement version.
 
+**`minimal.html` (`in_1659`, `in_1660`):** the cut-down version: at rest only small bubbles (each in the first free slot round its spot: up, up-right, up-left, right, left...); pointing at one draws everything about it (its arrow to the spot, its parents lit in its own colour, a named vertex lighting the lines that end at it, its dimension line through the bubble, and for an offer the movement with what else moves paler). Cut from `simple.html`: the pale second highlight tier, standing dimension lines, dots for tiny parts, the fan-out rules, the always-on pale arrows (a checkbox brings them back to compare).
+
 **What it learned:** (the human's findings go here after trying it).
