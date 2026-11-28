@@ -440,17 +440,30 @@ const tools = createToolControl({
     if (game.on) endGame();
   },
 });
+/** how every body is drawn: solid, or as a wireframe (the See-through look, `dec_body_look_and_feel`); the View section of the circle menu turns it */
+let wireframe = false;
 const menu = createMenu(document.body, (id) => {
   if (id.startsWith("tool:")) tools.arm(id.slice(5));
+  else if (id === "view:wireframe") {
+    wireframe = !wireframe;
+    notify(wireframe ? "Wireframe view" : "Solid view", { ttl: 1500 });
+  }
 });
 /** every tool, always shown and always chosen: by group, and the words in a tooltip (`dec_three_surfaces`) */
-const menuItems = (): MenuItem[] =>
-  GROUPS.map((g) => ({
+const menuItems = (): MenuItem[] => [
+  ...GROUPS.map((g) => ({
     id: `group:${g.id}`,
     label: g.label,
     icon: g.icon,
     children: TOOLS.filter((t) => t.group === g.id).map((t) => ({ id: `tool:${t.id}`, label: t.label, icon: t.icon })),
-  }));
+  })),
+  {
+    id: "group:view",
+    label: "View",
+    icon: "eye",
+    children: [{ id: "view:wireframe", label: wireframe ? "Solid" : "Wireframe", icon: "wireframe" }],
+  },
+];
 
 const ui = createUi(document.body, {
   look: lookAt,
@@ -629,7 +642,15 @@ function frame(now: number) {
     marks: [...bodies.marks(), ...tieMarks()],
     fills: sk.fills(),
     lines: sk.lines(game.on ? null : pointer),
-    ...(sk.active() ? { looks: Object.fromEntries(model.things.map((t) => [t.id, SEE_THROUGH])) } : {}),
+    ...(wireframe || sk.active()
+      ? {
+          looks: Object.fromEntries(
+            [...model.things.map((t) => t.id), ...(wireframe ? studio.state().meshes.map((m) => m.id) : [])].map(
+              (id) => [id, SEE_THROUGH],
+            ),
+          ),
+        }
+      : {}),
     cut: placed && !placedKey ? { origin: placed.origin, n: placed.normal } : null, // (made once with the plane, from the side the camera looked from; it turns and moves with the plane, and does not change with the camera)
   });
   badge.show(tools.armed()?.icon ?? null, game.on ? null : pointer);
