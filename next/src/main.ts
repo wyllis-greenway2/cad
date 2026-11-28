@@ -38,13 +38,13 @@ import { createOrbControl } from "./orbcontrol.ts";
 import { facingCamera, vOf, worldFrame, type Frame } from "./planes.ts";
 import { createSelection } from "./selection.ts";
 import { focusOf, gridLevel, gridLevelAt } from "./sense.ts";
-import { to3, type ToolKind } from "./sketch.ts";
+import { onPlane, to3, type ToolKind } from "./sketch.ts";
 import { createSketch } from "./sketchcontrol.ts";
 import { createStepList } from "./steplistdraw.ts";
 import { createStudio } from "./studio.ts";
 import { createToolControl } from "./toolcontrol.ts";
 import { createUi } from "./ui.ts";
-import { add, dot, scale, sub, unit } from "./vec.ts";
+import { add, dot, scale, sub, unit, type V3 } from "./vec.ts";
 import * as view from "./view.ts";
 import { bodyThings, lookedAt, withMoved, type Scene } from "./scene.ts";
 import type { BodyPick, RegionPick } from "./selection.ts";
@@ -67,7 +67,8 @@ const cameraScene = (): Scene => {
   const bodies = studio.state().meshes;
   if (!looked || looked.standIns !== model.things || looked.bodies !== bodies)
     looked = { standIns: model.things, bodies, scene: lookedAt(model, bodyThings(bodies)) };
-  return withMoved(looked.scene, bmove.preview()); // (a body shown moved by the orb's draft is looked at where it is shown)
+  const pv = bmove.preview();
+  return withMoved(looked.scene, pv?.all ? pv : null); // (a body shown moved by the orb's draft is looked at where it is shown)
 };
 const env = (now = performance.now()): view.Env => ({
   model: cameraScene(),
@@ -137,6 +138,13 @@ const notices = createNotices(),
   noticeStack = createNoticeStack(document.body),
   notify = notices.notify;
 const selection = createSelection(); // (the page's one selection: parts of a sketch, or what is picked on a body)
+/** whether a body's surface under the pointer is nearer than a place on the sketch plane (a figure behind the surface is not there, as in the old app) */
+const bodyAhead = (at: V3, x: number, y: number): boolean => {
+  const e = env(),
+    hit = pickAt(studio.state().meshes, s.c, e.w, e.h, x, y),
+    o = pickRay(s.c, e.w, e.h, x, y).o;
+  return !!hit && Math.hypot(...sub(hit.point, o)) < Math.hypot(...sub(at, o)) - 0.01; // (a figure on the surface itself is on it, to a hundredth of a mm)
+};
 const sk = createSketch(
   {
     selection,
@@ -160,12 +168,7 @@ const sk = createSketch(
       };
     },
     ray: (x, y) => view.rayAt(s, env(), x, y),
-    inFront: (at, x, y) => {
-      const e = env(),
-        hit = pickAt(studio.state().meshes, s.c, e.w, e.h, x, y),
-        o = pickRay(s.c, e.w, e.h, x, y).o;
-      return !!hit && Math.hypot(...sub(hit.point, o)) < Math.hypot(...sub(at, o)) - 0.01; // (a figure on the surface itself is on it, to a hundredth of a mm);
-    },
+    inFront: bodyAhead,
   },
   (label, merge) => record(label, merge),
 );
@@ -287,7 +290,6 @@ const scenePlanes = (): PlaneRef[] => {
 const bodyOps = createBodyOps({ studio, faceFacts, planes: scenePlanes });
 const bmove = createBodyMove({
   meshes: () => studio.state().meshes,
-  bodies: () => studio.state().snapshot.at(-1)?.bodies.length ?? 0,
   recipe: () => studio.state().steps,
   change: (steps) => {
     studio.change(steps);
@@ -320,14 +322,24 @@ const auto = createAutoHandles({
     cancel: () => ext.cancel(),
   },
   mover: {
-    bodies: () => studio.state().snapshot.at(-1)?.bodies.length ?? 0,
-    start: (body) => bmove.start(body),
+    start: (body, owners) => bmove.start(body, owners),
     on: () => bmove.on(),
     moved: () => bmove.moved(),
     commit: () => bmove.commit(),
     cancel: () => bmove.cancel(),
   },
 });
+/** a sketch tool is armed and nothing is placed yet: a click on a flat face of a body that stands before the plane begins the sketch on that face (the old app's: the plane takes the drawing only where nothing else is under the pointer) */
+function beginOnFace(x: number, y: number): boolean {
+  const f = bodies.faceAt(x, y);
+  if (!f) return false;
+  const r = view.rayAt(s, env(), x, y),
+    q = onPlane(planeNow().frame, r.o, r.d);
+  if (q && !bodyAhead(q, x, y)) return false;
+  if (faceFacts(f.body, f.face.id)?.type !== "PLANE") return false;
+  sketchOnFace({ body: f.body, faces: [f.face], edges: [], vertices: [], whole: [], at: f.point });
+  return true;
+}
 /** a sketch on a face: the plane is the face's (the engine's own frame of it), the view turns straight to it */
 function sketchOnFace(sel: import("./bodyselect.ts").Selection) {
   const f = sel.faces[0];
@@ -480,7 +492,7 @@ const tools = createToolControl({
     },
   },
   mover: {
-    start: (body) => bmove.start(body),
+    start: (body, owners) => bmove.start(body, owners),
     on: () => bmove.on(),
     commit: () => bmove.commit(),
     cancel: () => bmove.cancel(),
@@ -598,6 +610,7 @@ attach(
         return;
       }
       if (ext.click(x, y)) return;
+      if (sk.drawStep() === 0 && beginOnFace(x, y)) return;
       if (sk.click(x, y, count, shiftHeld || tools.additive())) return;
       if (!sk.active() && bodies.click(x, y, shiftHeld || tools.additive(), count)) return; // (a tool is on: a click is a point of its figure)
       if (count === 2 && !sk.active()) {
@@ -621,7 +634,7 @@ attach(
       const body = bmove.target() ? selection.body()?.body : null;
       return (
         orbc.grab(x, y, shift) ||
-        (!!body && bodies.bodyAt(x, y) === body && orbc.grabFree(x, y)) ||
+        (!shift && !!body && bodies.wholeAt(x, y) && orbc.grabFree(x, y)) ||
         sk.grab(x, y, shift || tools.additive())
       );
     },
@@ -760,7 +773,7 @@ function frame(now: number) {
     orb: ext.drawing(game.on ? null : pointer) ?? orb,
     ghost: ext.ghost(),
     moved: bmove.preview(),
-    marks: [...bodies.marks(), ...tieMarks()],
+    marks: [...bodies.marks().filter((m) => !(m.whole && bmove.on())), ...tieMarks()],
     regions: regions.lit,
     faceOrb: game.on
       ? undefined

@@ -42,7 +42,7 @@ export interface ToolHost {
   sketchFace(pick: BodyPick): void;
   bodyOp(action: string, pick: BodyPick): Promise<Operation | null>;
   /** the body moved and turned by the mover orb: begun on a body (false: it cannot be, and has said why), whether it is on, made (the steps), given up */
-  mover: { start(body: string): boolean; on(): boolean; commit(): void; cancel(): void };
+  mover: { start(body: string, owners: readonly string[]): boolean; on(): boolean; commit(): void; cancel(): void };
   /** the kinds of the parts selected in the sketch, and a relation put on them (false: the sketch said no, in words and red) */
   selectedKinds(): string[];
   relate(rel: Relation): boolean;
@@ -175,7 +175,7 @@ const move = (spec: ToolSpec, host: ToolHost): Task => {
       if (!began) {
         const p = host.selection.body();
         if (p) {
-          began = host.mover.start(p.body);
+          began = host.mover.start(p.body, p.whole);
           host.selection.clear();
         }
         return "going";

@@ -13,10 +13,12 @@ export interface FaceInfo {
   ref: Id;
   /** where its triangles are in `indices` (index units) */ start: number;
   count: number;
+  /** the body it is in (its name; null: none) */ body: string | null;
 }
 export interface EdgeInfo {
   key: string;
   ref: EdgeRef;
+  body: string | null;
   /** where its polyline is in `lines` (points) */ start: number;
   count: number;
 }
@@ -24,6 +26,7 @@ export interface EdgeInfo {
 export interface VertexInfo {
   key: string;
   ref: VertexRef;
+  body: string | null;
   at: [number, number, number];
 }
 export interface BodyMesh {
@@ -35,6 +38,15 @@ export interface BodyMesh {
   /** the faces and edges, by name, for picking and marking (only edges that have a name: two faces beside them) */ faces: FaceInfo[];
   edgeInfo: EdgeInfo[];
   vertexInfo: VertexInfo[];
+  /** the bodies in it: the name each is known by and as data (a step takes it to name the body it works on) */ bodies: {
+    key: string;
+    id: Id;
+  }[];
+  /** which of `edges` (in pairs of points) belong to which body, in order */ edgeParts: {
+    body: string | null;
+    from: number;
+    to: number;
+  }[];
   /** the points of every edge's polyline, x y z each */ lines: Float32Array;
 }
 export interface StudioState {
@@ -47,8 +59,10 @@ export interface StudioState {
 
 /** an engine mesh as buffers: each edge's points are joined by short lines */
 export function meshBuffers(id: string, m: MeshSnap): BodyMesh {
-  const segs: number[] = [];
-  for (const g of m.edges)
+  const segs: number[] = [],
+    edgeParts: { body: string | null; from: number; to: number }[] = [];
+  for (const g of m.edges) {
+    const from = segs.length / 6;
     for (let i = g.start; i + 1 < g.start + g.count; i++)
       segs.push(
         m.lines[3 * i]!,
@@ -58,6 +72,8 @@ export function meshBuffers(id: string, m: MeshSnap): BodyMesh {
         m.lines[3 * i + 4]!,
         m.lines[3 * i + 5]!,
       );
+    edgeParts.push({ body: g.body, from, to: segs.length / 6 });
+  }
   return {
     id,
     positions: new Float32Array(m.positions),
@@ -65,9 +81,11 @@ export function meshBuffers(id: string, m: MeshSnap): BodyMesh {
     indices: new Uint32Array(m.indices),
     edges: new Float32Array(segs),
     lines: new Float32Array(m.lines),
-    faces: m.faces.map((f) => ({ id: f.id, ref: f.ref, start: f.start, count: f.count })),
+    faces: m.faces.map((f) => ({ id: f.id, ref: f.ref, start: f.start, count: f.count, body: f.body })),
+    bodies: m.bodies,
+    edgeParts,
     edgeInfo: m.edges.flatMap((e) =>
-      e.key && e.ref ? [{ key: e.key, ref: e.ref, start: e.start, count: e.count }] : [],
+      e.key && e.ref ? [{ key: e.key, ref: e.ref, body: e.body, start: e.start, count: e.count }] : [],
     ),
     vertexInfo: m.vertices,
   };

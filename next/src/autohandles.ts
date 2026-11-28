@@ -20,8 +20,7 @@ export interface AutoHost {
   /** an arrow that came by itself has been touched (dragged, a number typed, a kind chosen): it is a draft now; made if it is valid, given up */
   draft: { on(): boolean; apply(): void; cancel(): void };
   mover: {
-    /** how many bodies the model has (the mover is for one, for now) */ bodies(): number;
-    start(body: string): boolean;
+    start(body: string, owners: readonly string[]): boolean;
     on(): boolean;
     /** the orb has been taken somewhere */ moved(): boolean;
     /** what the orb was taken to is made (nothing: nothing) */ commit(): void;
@@ -53,10 +52,10 @@ export function createAutoHandles(host: AutoHost) {
         !pick.faces.length &&
         !pick.edges.length &&
         !pick.vertices.length &&
-        host.mover.bodies() <= 1 &&
+        pick.whole.length &&
         !host.mover.on()
       )
-        moving = host.mover.start(pick.body);
+        moving = host.mover.start(pick.body, pick.whole);
     },
     /** A right click: a draft that was touched is made (true); with none, the ring may open (false). */
     finish(): boolean {

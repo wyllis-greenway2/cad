@@ -7,6 +7,9 @@ import { faceCentre } from "./anchors.ts";
 import type { BodyMesh, EdgeInfo, FaceInfo, VertexInfo } from "../studio.ts";
 import type { V3 } from "../vec.ts";
 
+/** the body a hit is in (its name; "" for one with none) */
+export const ownerOf = (h: Hit): string =>
+  (h.kind === "face" ? h.face.body : h.kind === "edge" ? h.edge.body : h.vertex.body) ?? "";
 /** The edges that bound some faces of a body (those with a name: two faces beside them): a face stands for its edges (`dec_selection_tools`, `in_257`), so a round or chamfer of a face is of every one of them. */
 export function edgesAround(m: Pick<BodyMesh, "edgeInfo">, faces: readonly Pick<FaceInfo, "ref">[]): EdgeInfo[] {
   const sides = new Set(faces.map((f) => idKey(f.ref)));
@@ -190,7 +193,7 @@ export function boxPick(
   w: number,
   h: number,
   box: { x0: number; y0: number; x1: number; y1: number },
-): { body: string; faces: FaceInfo[]; edges: EdgeInfo[]; vertices: VertexInfo[]; at: V3 } | null {
+): { body: string; faces: FaceInfo[]; edges: EdgeInfo[]; vertices: VertexInfo[]; whole: string[]; at: V3 } | null {
   const lo = { x: Math.min(box.x0, box.x1), y: Math.min(box.y0, box.y1) },
     hi = { x: Math.max(box.x0, box.x1), y: Math.max(box.y0, box.y1) },
     inside = (p: V3) => {
@@ -210,16 +213,18 @@ export function boxPick(
         faces: [],
         edges,
         vertices: [],
+        whole: [],
         at: mid(edges.map((e) => middle(Array.from({ length: e.count }, (_, i) => pt(e.start + i))))),
       };
     const vertices = m.vertexInfo.filter((v) => inside(v.at) && visibleFrom(meshes, cam, v.at));
-    if (vertices.length) return { body: m.id, faces: [], edges: [], vertices, at: mid(vertices.map((v) => v.at)) };
+    if (vertices.length)
+      return { body: m.id, faces: [], edges: [], vertices, whole: [], at: mid(vertices.map((v) => v.at)) };
     const faces = m.faces.filter((f) => {
       const c = faceCentre(m, f);
       return inside(c) && visibleFrom(meshes, cam, c);
     });
     if (faces.length)
-      return { body: m.id, faces, edges: [], vertices: [], at: mid(faces.map((f) => faceCentre(m, f))) };
+      return { body: m.id, faces, edges: [], vertices: [], whole: [], at: mid(faces.map((f) => faceCentre(m, f))) };
   }
   return null;
 }

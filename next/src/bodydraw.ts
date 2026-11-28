@@ -20,7 +20,7 @@ export interface BodiesDrawing {
   /** The cut: everything on the side `n` points to is not drawn. */
   cut?: CutDrawing | null;
   /** a body shown moved and turned (the mover orb's draft): the step that made it, and its matrix (column by column) */
-  moved?: { body: string; matrix: number[] } | null;
+  moved?: { body: string; owners: string[]; matrix: number[] } | null;
 }
 
 /** a body's surface as the old app made it: a slight clear coat over the grey, drawn behind its own outline */
@@ -72,16 +72,33 @@ export function createBodies(scene: THREE.Scene, renderer: THREE.WebGLRenderer, 
       bodies.add(m);
     }
     for (const b of solids) {
-      // the bodies the engine made
-      const g = new THREE.BufferGeometry();
-      g.setAttribute("position", new THREE.BufferAttribute(b.positions, 3));
-      g.setAttribute("normal", new THREE.BufferAttribute(b.normals, 3));
-      g.setIndex(new THREE.BufferAttribute(b.indices, 1));
-      const m = new THREE.Mesh(g, bodyMaterial(envMap));
-      m.add(outline(b.edges));
-      m.userData.thing = b.id;
-      m.userData.look = "";
-      bodies.add(m);
+      // the bodies the engine made: one thing for each body of the answer (a body can be moved, hidden or looked at alone), sharing the answer's points
+      const owners = [...new Set(b.faces.map((f) => f.body ?? ""))];
+      for (const owner of owners.length > 1 ? owners : [null]) {
+        const g = new THREE.BufferGeometry();
+        g.setAttribute("position", new THREE.BufferAttribute(b.positions, 3));
+        g.setAttribute("normal", new THREE.BufferAttribute(b.normals, 3));
+        const mine = owner === null ? b.faces : b.faces.filter((f) => (f.body ?? "") === owner),
+          idx =
+            owner === null
+              ? b.indices
+              : Uint32Array.from(mine.flatMap((f) => [...b.indices.subarray(f.start, f.start + f.count)])),
+          segs =
+            owner === null
+              ? b.edges
+              : Float32Array.from(
+                  b.edgeParts
+                    .filter((p) => (p.body ?? "") === owner)
+                    .flatMap((p) => [...b.edges.subarray(6 * p.from, 6 * p.to)]),
+                );
+        g.setIndex(new THREE.BufferAttribute(idx, 1));
+        const m = new THREE.Mesh(g, bodyMaterial(envMap));
+        m.add(outline(segs));
+        m.userData.thing = b.id;
+        m.userData.owner = owner ?? undefined;
+        m.userData.look = "";
+        bodies.add(m);
+      }
     }
   };
   scene.add(bodies);
@@ -130,7 +147,12 @@ export function createBodies(scene: THREE.Scene, renderer: THREE.WebGLRenderer, 
       for (const m of bodies.children as THREE.Mesh[]) {
         // a body shown moved (the mover orb's draft): its own matrix; the others as they were
         if (!solids.some((b) => b.id === m.userData.thing)) continue;
-        const mv = d.moved && d.moved.body === m.userData.thing ? d.moved.matrix : null;
+        const mv =
+          d.moved &&
+          d.moved.body === m.userData.thing &&
+          (m.userData.owner === undefined || d.moved.owners.includes(m.userData.owner as string))
+            ? d.moved.matrix
+            : null;
         if (mv) {
           m.matrixAutoUpdate = false;
           m.matrix.fromArray(mv);

@@ -20,6 +20,7 @@ export interface PullInfo {
   ok: boolean;
   why: string;
   suggested: boolean;
+  cylinder?: { r: number; point: readonly number[]; dir: readonly number[] };
 }
 const KIND_LABEL: Record<PullKind, string> = { edit: "Move", push: "Extrude", move: "Extend", offset: "Offset" };
 
@@ -88,6 +89,8 @@ export function pushOp(
     snap?: Operation["snap"];
     /** more faces picked with it: all are pushed or pulled by the same distance, each along its own normal (only the plain push) */
     more?: { ref: Id; normal: V3; positions: Float32Array }[];
+    /** a round wall: its radius, and whether a pull out makes the hole wider (a boss's wall) or narrower (a hole's): the number is then its diameter, as the old app showed it */
+    wall?: { r: number; grows: boolean };
   },
   kind?: PullKind,
   d = 0,
@@ -105,12 +108,17 @@ export function pushOp(
       enabled: k.ok,
       ...(k.ok ? {} : { why: k.why }),
     }));
+  // the offset of a round wall is shown as the diameter it makes (the old app's); the pull is the distance the wall moves, which is what the engine takes
+  const wall = chosen === "offset" ? a.wall : undefined,
+    sign = wall?.grows === false ? -1 : 1,
+    diameter = (dist: number) => 2 * (wall!.r + sign * dist),
+    distance = (dia: number) => sign * (dia / 2 - wall!.r);
   const op = (value: number): Operation => ({
     kind: "push",
     title: "Push / pull",
     options,
-    value,
-    valueTitle: "Distance (type a number)",
+    value: wall ? diameter(value) : value,
+    valueTitle: wall ? "Diameter (type a number)" : "Distance (type a number)",
     at: a.at,
     arrow: { base: a.at, normal: a.normal },
     ...(a.snap ? { snap: a.snap } : {}),
@@ -121,7 +129,7 @@ export function pushOp(
     tilt: null,
     pulled: value,
     withPull: (d) => op(d),
-    withValue: (v) => op(v),
+    withValue: (v) => op(wall ? distance(v) : v),
     withOption: (id) => pushOp(a, id as PullKind, value),
     plan: (recipe) => {
       if (Math.abs(value) < 1e-6) return { kind: "nothing" };

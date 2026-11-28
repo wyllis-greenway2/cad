@@ -89,6 +89,15 @@ export function createBodyOps(host: BodyOpsHost) {
           const gf = faceFacts(sel.body, g.id);
           return gf ? [{ ref: g.ref, normal: gf.ne as unknown as V3, positions: facePositions(mesh, g) }] : [];
         });
+        // a round wall: its diameter is the number (the wall's own radius, and which way a pull goes, from the engine's cylinder)
+        const cyl = kinds.find((k) => k.mode === "offset")?.cylinder,
+          wall = (() => {
+            if (!cyl) return undefined;
+            const w = [at[0] - cyl.point[0]!, at[1] - cyl.point[1]!, at[2] - cyl.point[2]!],
+              al = w[0]! * cyl.dir[0]! + w[1]! * cyl.dir[1]! + w[2]! * cyl.dir[2]!,
+              radial = [w[0]! - cyl.dir[0]! * al, w[1]! - cyl.dir[1]! * al, w[2]! - cyl.dir[2]! * al];
+            return { r: cyl.r, grows: radial[0]! * normal[0] + radial[1]! * normal[1] + radial[2]! * normal[2] > 0 };
+          })();
         return pushOp({
           ref: f.ref,
           body: sel.body,
@@ -98,6 +107,7 @@ export function createBodyOps(host: BodyOpsHost) {
           kinds,
           snap,
           ...(more.length ? { more } : {}),
+          ...(wall ? { wall } : {}),
         });
       }
       return null;

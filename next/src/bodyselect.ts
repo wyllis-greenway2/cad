@@ -4,9 +4,9 @@ import { project, type Cam } from "./camera.ts";
 import type { InfoHandlers } from "./infobardraw.ts";
 import { barForBody } from "./interaction/bodybar.ts";
 import type { Info } from "./interaction/infobar.ts";
-import { edgesAround, pickAll, pickAt, type Hit } from "./interaction/pick.ts";
+import { edgesAround, ownerOf, pickAll, pickAt, type Hit } from "./interaction/pick.ts";
 import type { BodyPick, Selection as Store } from "./selection.ts";
-import type { BodyMesh } from "./studio.ts";
+import type { BodyMesh, FaceInfo } from "./studio.ts";
 import type { V3 } from "./vec.ts";
 
 export interface Mark {
@@ -15,6 +15,7 @@ export interface Mark {
   edges: { start: number; count: number }[];
   /** corners, drawn as balls */ corners: V3[];
   strength: "pick" | "hover" | "tie";
+  /** the fill of a body picked whole: not shown while the orb has it moved */ whole?: true;
 }
 export interface BodySelectHost {
   view(): { cam: Cam; w: number; h: number };
@@ -59,15 +60,24 @@ export function createBodySelect(host: BodySelectHost) {
         faces: [],
         edges: [],
         vertices: [],
+        whole: [],
         ...{ [part]: [...list] },
         at: [0, 1, 2].map((k) => (lo[k]! + hi[k]!) / 2) as V3,
       });
       host.say(`${list.length} ${part === "vertices" ? "corners" : part} selected`);
     },
-    /** the body under the pointer (null: none) */
-    bodyAt(x: number, y: number): string | null {
-      const { cam, w, h } = host.view();
-      return pickAt(host.meshes(), cam, w, h, x, y)?.body ?? null;
+    /** the face in front under the pointer (null: none): for a sketch tool that is armed with nothing placed, a click on it begins the sketch on that face */
+    faceAt(x: number, y: number): { body: string; face: FaceInfo; point: V3 } | null {
+      const { cam, w, h } = host.view(),
+        hit = pickAll(host.meshes(), cam, w, h, x, y).find((k) => k.kind === "face");
+      return hit && hit.kind === "face" ? { body: hit.body, face: hit.face, point: hit.point } : null;
+    },
+    /** the pointer is over one of the bodies picked whole (a press there takes them, as the old app's grab) */
+    wholeAt(x: number, y: number): boolean {
+      const { cam, w, h } = host.view(),
+        hit = pickAt(host.meshes(), cam, w, h, x, y),
+        cur = sel();
+      return !!hit && !!cur && cur.body === hit.body && cur.whole.includes(ownerOf(hit));
     },
     /** A click: a body is picked (a face, or an edge; Shift adds edges; a double click the whole body), a click on nothing puts the pick away. Returns whether the click was used. */
     click(x: number, y: number, shift: boolean, count = 1): boolean {
@@ -89,14 +99,19 @@ export function createBodySelect(host: BodySelectHost) {
         // three clicks take that face alone and turn the view square to it (as the old app's)
         const f = all.find((x) => x.kind === "face");
         if (!f || f.kind !== "face") return false;
-        store.setBody({ body: f.body, faces: [f.face], edges: [], vertices: [], at: f.point });
+        store.setBody({ body: f.body, faces: [f.face], edges: [], vertices: [], whole: [], at: f.point });
         pickedAt = performance.now();
         host.square(f.normal);
         return true;
       }
-      if (count === 2) {
-        // two clicks take the whole body, from whatever part of it (as the old app's): its orb shows, `autohandles.ts`; a third goes back to the part
-        store.setBody({ body: hit.body, faces: [], edges: [], vertices: [], at: hit.point });
+      // whole bodies: two clicks take the body, from whatever part of it (as the old app's): its orb shows, `autohandles.ts`; a third goes back to the part. Shift, with bodies picked whole, adds the body under the pointer or takes it out (`MD-36`)
+      const wholes = !!cur && cur.body === hit.body && cur.whole.length > 0;
+      if (count === 2 || (shift && wholes)) {
+        const own = ownerOf(hit),
+          have = wholes ? cur!.whole : [],
+          whole = shift && wholes ? (have.includes(own) ? have.filter((k) => k !== own) : [...have, own]) : [own];
+        if (!whole.length) return store.clear();
+        store.setBody({ body: hit.body, faces: [], edges: [], vertices: [], whole, at: hit.point });
         return true;
       }
       // what is picked on the body, as lists; Shift adds a part of the same kind on the same body, or takes it out if it is one of them (the old app's rule, `MD-35`)
@@ -114,7 +129,15 @@ export function createBodySelect(host: BodySelectHost) {
               ? have.filter((x) => !same(x, one))
               : [...have, one]
             : [one];
-      store.setBody({ body: hit.body, faces: [], edges: [], vertices: [], ...{ [part]: list }, at: hit.point });
+      store.setBody({
+        body: hit.body,
+        faces: [],
+        edges: [],
+        vertices: [],
+        whole: [],
+        ...{ [part]: list },
+        at: hit.point,
+      });
       if (hit.kind === "face") pickedAt = performance.now();
       return true;
     },
@@ -144,6 +167,17 @@ export function createBodySelect(host: BodySelectHost) {
         // a face picked has its own edges marked too (the old app drew them bold teal round the lit face)
         const mesh = host.meshes().find((m) => m.id === pick.body),
           around = mesh ? edgesAround(mesh, pick.faces) : [];
+        if (pick.whole.length && mesh)
+          out.push({
+            body: pick.body,
+            faces: mesh.faces
+              .filter((f) => pick.whole.includes(f.body ?? ""))
+              .map((f) => ({ start: f.start, count: f.count })),
+            edges: [],
+            corners: [],
+            strength: "pick",
+            whole: true,
+          });
         out.push({
           body: pick.body,
           faces: pick.faces.map((f) => ({ start: f.start, count: f.count })),
@@ -205,6 +239,7 @@ export function createBodySelect(host: BodySelectHost) {
           body: k.body,
           faces: k.faces.map((f) => f.id),
           edges: k.edges.map((e) => e.key),
+          whole: k.whole,
           vertices: k.vertices.map((v) => v.key),
         },
         over: over?.kind ?? null,

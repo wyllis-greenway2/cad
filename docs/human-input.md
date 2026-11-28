@@ -6892,3 +6892,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1724 — 2026-11-28 — directive
 > lets do all except 7 and 8
+
+## in_1725 — 2026-11-28 — directive
+> do item 3 4 and 6

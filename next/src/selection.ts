@@ -8,6 +8,7 @@ export interface BodyPick {
   faces: FaceInfo[];
   edges: EdgeInfo[];
   /** corners picked (a body's, with a name) */ vertices: VertexInfo[];
+  /** bodies picked whole, by their names ("" for one with none): with no faces, edges or corners, it is these bodies that are picked */ whole: string[];
   /** where it was picked (the bar stands beside it) */ at: V3;
 }
 /** A closed part of a drawing picked (`dec_body_look_and_feel`): the plane's key and a place inside it, which finds it again whatever else is drawn; where it was clicked, for the spread of its colour. */

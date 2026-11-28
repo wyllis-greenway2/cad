@@ -1,4 +1,5 @@
 // A body moved and turned by the mover orb (`dec_task_handles`): from where the orb's frame was (the body's middle, the world's axes) to where it is now, the steps the engine knows (`turn` about the middle, then `move`), and the matrix to show it before it is made. Pure.
+import type { Id } from "../engine/id.ts";
 import type { Step } from "../engine/steps.ts";
 import type { Frame } from "../planes.ts";
 import { cross, sub, unit, type V3 } from "../vec.ts";
@@ -63,31 +64,44 @@ export function matrixOf(base: Frame, now: Frame): number[] {
   return [u[0], u[1], u[2], 0, v[0], v[1], v[2], 0, n[0], n[1], n[2], 0, t[0], t[1], t[2], 1];
 }
 /** the steps that make it: a turn about the middle, then a move (none of either that is nothing) */
-export function moveSteps(recipe: readonly Step[], body: string, base: Frame, now: Frame): Step[] {
+export function moveSteps(
+  recipe: readonly Step[],
+  body: string,
+  base: Frame,
+  now: Frame,
+  /** which of several bodies in the answer (a body's name as data, or "all"): one turn and move for each; none: the model has one body */
+  which: readonly (Id | "all")[] = [],
+): Step[] {
   const mo = motionOf(base, now),
     out: Step[] = [],
     free = (p: string) => {
       let n = 1;
-      while (recipe.some((s) => s.id === `${p}${n}`)) n++;
+      while (recipe.some((s) => s.id === `${p}${n}`) || out.some((s) => s.id === `${p}${n}`)) n++;
       return `${p}${n}`;
     };
   let last = body;
-  if (mo.turn) {
-    const id = free("t");
-    out.push({
-      id,
-      kind: "turn",
-      params: { axis: mo.turn.axis, deg: Math.round(mo.turn.deg * 1e6) / 1e6, pivot: base.origin },
-      inputs: [last],
-    });
-    last = id;
+  for (const target of which.length ? which : [null]) {
+    const named = target ? { body: target } : {};
+    if (mo.turn) {
+      const id = free("t");
+      out.push({
+        id,
+        kind: "turn",
+        params: { axis: mo.turn.axis, deg: Math.round(mo.turn.deg * 1e6) / 1e6, pivot: base.origin, ...named },
+        inputs: [last],
+      });
+      last = id;
+    }
+    if (Math.hypot(...mo.by) > 1e-9) {
+      const id = free("m");
+      out.push({
+        id,
+        kind: "move",
+        params: { by: mo.by.map((x) => Math.round(x * 1e6) / 1e6), ...named },
+        inputs: [last],
+      });
+      last = id;
+    }
   }
-  if (Math.hypot(...mo.by) > 1e-9)
-    out.push({
-      id: free("m"),
-      kind: "move",
-      params: { by: mo.by.map((x) => Math.round(x * 1e6) / 1e6) },
-      inputs: [last],
-    });
   return out;
 }

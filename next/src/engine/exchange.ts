@@ -23,11 +23,14 @@ export interface MeshSnap {
   edges: {
     key: string | null;
     /** the edge as data: the two faces beside it (a step takes it to name the edge) */ ref: EdgeRef | null;
+    /** the body it is in (null: none named) */ body: string | null;
     start: number;
     count: number;
   }[];
+  /** the bodies there are: the name each is known by (`key`) and as data (a step takes it to name the body it works on) */
+  bodies: { key: string; id: Id }[];
   /** the corners with a name (three faces or more meet there): the place, and the vertex as data (a step takes it to name the corner); `key` is its name */
-  vertices: { key: string; ref: VertexRef; at: [number, number, number] }[];
+  vertices: { key: string; ref: VertexRef; body: string | null; at: [number, number, number] }[];
   /** the triangle count, for the person who wants to know what the mesh cost */ triangles: number;
 }
 /** the bodies of a scene that the names pick (by name or an alias); none named: all of them */
@@ -60,7 +63,13 @@ export function meshOf(
       const refs = new Map(b.edges().map((e) => [e.h, e.ref] as const)),
         edges = m.edges.map((g) => {
           const e = b.edges().find((x) => K.sameEdge(x.h, g.edge));
-          return { key: e?.ref ? edgeKey(e.ref) : null, ref: e?.ref ?? null, start: g.start, count: g.count };
+          return {
+            key: e?.ref ? edgeKey(e.ref) : null,
+            ref: e?.ref ?? null,
+            body: e?.faces[0] ? (owner.get(idKey(e.faces[0].id)) ?? null) : null,
+            start: g.start,
+            count: g.count,
+          };
         });
       void refs;
       return {
@@ -70,11 +79,19 @@ export function meshOf(
         faces,
         lines: m.lines,
         edges,
-        vertices: b
-          .vertices()
-          .flatMap((v) =>
-            v.ref ? [{ key: vertexKey(v.ref), ref: v.ref, at: [...v.p] as [number, number, number] }] : [],
-          ),
+        bodies: b.bodies.map((r) => ({ key: idKey(r.id), id: r.id })),
+        vertices: b.vertices().flatMap((v) =>
+          v.ref
+            ? [
+                {
+                  key: vertexKey(v.ref),
+                  ref: v.ref,
+                  body: v.faces[0] ? (owner.get(idKey(v.faces[0].id)) ?? null) : null,
+                  at: [...v.p] as [number, number, number],
+                },
+              ]
+            : [],
+        ),
         triangles: m.indices.length / 3,
       };
     });

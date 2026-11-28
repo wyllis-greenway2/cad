@@ -145,6 +145,8 @@ export interface ModeInfo {
   ok: boolean;
   /** when not: why, in a sentence */ why: string;
   /** the first that applies, in the order edit, push, move, offset: highlighted, never applied unchosen */ suggested: boolean;
+  /** offset of a round wall: the cylinder it lies on (its radius, a point on its axis and the axis's direction), to say what a pull makes of its diameter */
+  cylinder?: { r: number; point: readonly [number, number, number]; dir: readonly [number, number, number] };
 }
 
 /** mode 1: the step that made the face has a number that moves it. Only the end of an extrusion for now (its depth); the answer is the step's new numbers, to be set with `Engine.edit` */
@@ -253,6 +255,12 @@ export function pullModes(engine: Engine, bodyStep: string, face: Id): ModeInfo[
       : allFlat
         ? ""
         : "a face beside the wall is round",
+    ...(types.size === 1 && types.has("CYLINDRE") && pieces.length === 1
+      ? (() => {
+          const cy = K.cylinderOf(pieces[0]!.h);
+          return { cylinder: { r: cy.r, point: cy.point, dir: cy.dir } };
+        })()
+      : {}),
   });
   const first = out.findIndex((m) => m.ok);
   return out.map((m, i) => ({ ...m, suggested: i === first }));

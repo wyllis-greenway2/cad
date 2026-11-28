@@ -8,8 +8,6 @@ import type { V3 } from "./vec.ts";
 
 export interface BodyMoveHost {
   meshes(): readonly BodyMesh[];
-  /** how many bodies the whole model makes (one: a move needs no name; more: it is not built yet) */
-  bodies(): number;
   recipe(): readonly Step[];
   change(steps: Step[]): void;
   say(text: string): void;
@@ -17,7 +15,7 @@ export interface BodyMoveHost {
   forget(id: string): void;
 }
 export function createBodyMove(host: BodyMoveHost) {
-  let cur: { id: string; body: string; base: Frame; now: Frame } | null = null,
+  let cur: { id: string; body: string; owners: string[]; all: boolean; base: Frame; now: Frame } | null = null,
     n = 0;
   return {
     on: (): boolean => cur !== null,
@@ -28,29 +26,35 @@ export function createBodyMove(host: BodyMoveHost) {
     set(f: Frame): void {
       if (cur) cur = { ...cur, now: f };
     },
-    /** the body is shown moved */
-    preview: (): { body: string; matrix: number[] } | null =>
-      cur ? { body: cur.body, matrix: matrixOf(cur.base, cur.now) } : null,
-    /** begin on a body (the step that made it): the orb stands in the middle of its box */
-    start(body: string): boolean {
+    /** the bodies are shown moved */
+    preview: (): { body: string; owners: string[]; all: boolean; matrix: number[] } | null =>
+      cur ? { body: cur.body, owners: cur.owners, all: cur.all, matrix: matrixOf(cur.base, cur.now) } : null,
+    /** begin on bodies of a mesh (the step that made it; `owners`: which of its bodies, by name; none: all): the orb stands in the middle of their box */
+    start(body: string, owners: readonly string[] = []): boolean {
       const m = host.meshes().find((x) => x.id === body);
       if (!m || !m.positions.length) {
         host.say("That body is not there");
         return false;
       }
-      if (host.bodies() > 1) {
-        host.say("Moving one of several bodies is not built yet");
+      const all = m.bodies.map((b) => b.key),
+        which = owners.length ? [...owners] : all,
+        lo: V3 = [Infinity, Infinity, Infinity],
+        hi: V3 = [-Infinity, -Infinity, -Infinity];
+      for (const f of m.faces) {
+        if (all.length > 1 && !which.includes(f.body ?? "")) continue;
+        for (let k = f.start; k < f.start + f.count; k++)
+          for (let c = 0; c < 3; c++) {
+            const v = m.positions[3 * m.indices[k]! + c]!;
+            lo[c] = Math.min(lo[c]!, v);
+            hi[c] = Math.max(hi[c]!, v);
+          }
+      }
+      if (!isFinite(lo[0])) {
+        host.say("That body is not there");
         return false;
       }
-      const lo: V3 = [Infinity, Infinity, Infinity],
-        hi: V3 = [-Infinity, -Infinity, -Infinity];
-      for (let i = 0; i < m.positions.length; i += 3)
-        for (let k = 0; k < 3; k++) {
-          lo[k] = Math.min(lo[k]!, m.positions[i + k]!);
-          hi[k] = Math.max(hi[k]!, m.positions[i + k]!);
-        }
       const base = baseFrame([(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2]);
-      cur = { id: `move:${++n}`, body, base, now: base };
+      cur = { id: `move:${++n}`, body, owners: which, all: which.length >= all.length, base, now: base };
       return true;
     },
     /** the steps are made (nothing moved: nothing made) */
@@ -59,7 +63,16 @@ export function createBodyMove(host: BodyMoveHost) {
       cur = null;
       if (!c) return;
       host.forget(c.id);
-      const steps = moveSteps(host.recipe(), c.body, c.base, c.now);
+      const m = host.meshes().find((x) => x.id === c.body),
+        all = m?.bodies ?? [],
+        // one body in the answer: no name; all of several: "all"; some: each by name
+        which =
+          all.length < 2
+            ? []
+            : all.every((b) => c.owners.includes(b.key))
+              ? (["all"] as const)
+              : all.filter((b) => c.owners.includes(b.key)).map((b) => b.id),
+        steps = moveSteps(host.recipe(), c.body, c.base, c.now, which);
       if (steps.length) host.change([...host.recipe(), ...steps]);
     },
     cancel(): void {
