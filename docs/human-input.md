@@ -6749,3 +6749,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1678 — 2026-11-28 — directive
 > do the chip wrappers and the pixel sizes next
+
+## in_1679 — 2026-11-28 — question
+> okay so I think the sketching is mostly good should we now capture the properties verbally and write down and then write tests against them to prevent against regressions?
