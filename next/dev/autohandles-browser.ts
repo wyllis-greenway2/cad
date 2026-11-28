@@ -175,6 +175,21 @@ try {
   );
   await page.mouse.click(1000, 600);
   await wait(400);
+  // an edge nearer the pointer than an orb handle is picked, with the body picked whole and the orb up (the orb's arrows do not eat the click)
+  await page.mouse.click(gx, gy);
+  await wait(500);
+  await page.mouse.click(gx, gy, { clickCount: 2 });
+  await wait(600);
+  const [ex3, ey3] = await p3([-20 + 40 * 0.65, 10, 20]); // (on the top front edge, near the orb's upright arrow)
+  await page.mouse.click(ex3, ey3);
+  await wait(700);
+  s = await state();
+  ok(
+    s.b.sel?.edges.length === 1 && s.b.sel.whole.length === 0,
+    `with the body picked whole, a click on its edge picks the edge: ${JSON.stringify(s.b.sel?.edges?.length)}`,
+  );
+  await page.mouse.click(1000, 600);
+  await wait(400);
   // two quick clicks on the arrow's own place take the whole body as anywhere else does: the second press is a click's, not the arrow's
   await page.mouse.click(1000, 600);
   await wait(400);
@@ -231,7 +246,7 @@ try {
     s.mv === null && s.steps > before,
     `taken 8 mm along X and let go, it is made as a step (${before} steps, then ${s.steps})`,
   );
-  // a press on the body picked whole, and a drag: it goes where the pointer goes, and is made as one step on release
+  // the orb's ball has modes (`in_1733`): normal (a drag on the body turns the view, the arrows move it), free move (pressed once: a drag on the body carries it), orient (pressed again: the orb itself moves, it pulses blue), normal again
   const [hx, hy] = await p3([24, -6, 20]); // (the body is 8 mm along X now: away from where its arrow stands)
   await page.mouse.click(hx, hy);
   await wait(400);
@@ -239,20 +254,51 @@ try {
   await wait();
   const o0 = (await state()).mv.now.origin;
   const steps0 = (await state()).steps;
+  const mode = () => ev<any>(`() => ({ free: window.__cad.planes.free, orient: window.__cad.planes.orient })`);
+  const cam1 = await ev<string>(`() => JSON.stringify(window.__cad.cam)`);
   await page.mouse.move(hx, hy);
   await page.mouse.down();
   await page.mouse.move(hx + 60, hy + 10, { steps: 6 });
   s = await state();
   ok(
-    s.mv && Math.hypot(...s.mv.now.origin.map((v: number, i: number) => v - o0[i])) > 5,
-    `a press on the body and a drag takes it along: ${JSON.stringify(s.mv?.now.origin)}`,
+    Math.hypot(...s.mv.now.origin.map((v: number, i: number) => v - o0[i])) < 1e-6 &&
+      (await ev<string>(`() => JSON.stringify(window.__cad.cam)`)) !== cam1,
+    "in normal a drag on the body does not move it: the view turns",
   );
   await page.mouse.up();
-  await wait(400);
+  await wait(300);
+  const [bx1, by1] = await p3(o0);
+  await page.mouse.click(bx1, by1); // (the ball: free move)
+  await wait(300);
+  ok((await mode()).free === true, "a press on the ball goes into free move");
+  const [hx2, hy2] = await p3([24, -6, 20]); // (the view turned: the body is somewhere else on the screen)
+  await page.mouse.move(hx2, hy2);
+  await page.mouse.down();
+  await page.mouse.move(hx2 + 60, hy2 + 10, { steps: 6 });
+  s = await state();
+  ok(
+    s.mv && Math.hypot(...s.mv.now.origin.map((v: number, i: number) => v - o0[i])) > 5,
+    `in free move a drag on the body takes it along: ${JSON.stringify(s.mv?.now.origin)}`,
+  );
+  await page.mouse.up();
+  await wait(300);
+  const [bx2, by2] = await p3(s.mv.now.origin);
+  await page.mouse.click(bx2, by2);
+  await wait(300);
+  ok(
+    (await mode()).orient === true && (await mode()).free === false,
+    "a second press on the ball: the orb pulses blue (orient)",
+  );
+  await page.mouse.click(bx2, by2);
+  await wait(300);
+  ok((await mode()).orient === false && (await mode()).free === false, "a third: back to normal");
   await page.mouse.click(1000, 600);
   await wait(900);
   s = await state();
-  ok(s.mv === null && s.steps === steps0 + 1, `and it is one step when it is let go (${steps0}, then ${s.steps})`);
+  ok(
+    s.mv === null && s.steps === steps0 + 1,
+    `and the move is one step when the pick goes (${steps0}, then ${s.steps})`,
+  );
   await page.keyboard.press("Escape");
   // Shift adds a face: two faces pulled together by one number, one step each, with no Move kind
   await page.mouse.click(1000, 600);

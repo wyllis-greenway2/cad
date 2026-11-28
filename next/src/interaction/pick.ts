@@ -17,8 +17,8 @@ export function edgesAround(m: Pick<BodyMesh, "edgeInfo">, faces: readonly Pick<
 }
 export type Hit =
   | { kind: "face"; body: string; face: FaceInfo; point: V3; normal: V3; depth: number }
-  | { kind: "edge"; body: string; edge: EdgeInfo; point: V3; depth: number }
-  | { kind: "vertex"; body: string; vertex: VertexInfo; point: V3; depth: number };
+  | { kind: "edge"; body: string; edge: EdgeInfo; point: V3; depth: number; near?: number }
+  | { kind: "vertex"; body: string; vertex: VertexInfo; point: V3; depth: number; near?: number };
 
 /** the first triangle of the mesh the ray meets: how far along it, and the face it belongs to (Möller–Trumbore) */
 function rayMesh(m: BodyMesh, o: V3, d: V3): { t: number; face: FaceInfo; normal: V3 } | null {
@@ -113,7 +113,7 @@ export function pickAll(
       if (cam.ortho === null && s.depth <= 1e-6) continue;
       const g = Math.hypot(s.x - x, s.y - y);
       if (g >= tolPx || hidden(s.depth)) continue;
-      vertices.push({ g, hit: { kind: "vertex", body: m.id, vertex: v, point: v.at, depth: s.depth } });
+      vertices.push({ g, hit: { kind: "vertex", body: m.id, vertex: v, point: v.at, depth: s.depth, near: g } });
     }
   const edges: { hit: Hit; g: number }[] = [];
   for (const m of meshes)
@@ -144,6 +144,7 @@ export function pickAll(
             edge: e,
             point: [A.q[0] + (B.q[0] - A.q[0]) * t, A.q[1] + (B.q[1] - A.q[1]) * t, A.q[2] + (B.q[2] - A.q[2]) * t],
             depth,
+            near: g.d,
           },
         };
       }

@@ -2,7 +2,17 @@
 // a body or a sketch plane later): the host says what the orb is on, takes the new frame when it moves, and makes a copy when a second arrow is dragged. The maths is in orb.ts and mover.ts.
 import { forward, type Cam } from "./camera.ts";
 import { applyDrag, centreOf, choose, clonePose, heldAxes, newPose, type Pose } from "./mover.ts";
-import { dragTo, handlesOf, hitHandle, startGrab, unitOf, type Grab, type Handle, type Orb } from "./orb.ts";
+import {
+  dragTo,
+  handlesOf,
+  hitHandle,
+  nearHandle,
+  startGrab,
+  unitOf,
+  type Grab,
+  type Handle,
+  type Orb,
+} from "./orb.ts";
 import type { Frame } from "./planes.ts";
 import { dragged } from "./interaction/gesture.ts";
 
@@ -22,6 +32,7 @@ export interface OrbDrawing {
   unit: number;
   orient: boolean;
   hover: boolean;
+  /** the ball has been pressed once: the body goes where it is dragged (free move) */ free: boolean;
 }
 
 export function createOrbControl(host: OrbHost) {
@@ -36,6 +47,8 @@ export function createOrbControl(host: OrbHost) {
   };
   let chosen: string[] = [],
     orient = false,
+    free = false, // (the ball pressed once: bodies go where they are dragged; pressed again: orient; again: normal)
+    freeFor = "",
     was: Pose | null = null;
   let grabbed: {
     g: Grab;
@@ -53,6 +66,10 @@ export function createOrbControl(host: OrbHost) {
   const orb = (): Orb | null => {
     const t = host.target();
     if (!t) return null;
+    if (t.id !== freeFor) {
+      free = false; // (another thing: back to normal)
+      freeFor = t.id;
+    }
     const q = poseOf(t.id);
     return { centre: centreOf(t.frame, q), frame: q.frame, orient, held: heldAxes(chosen) };
   };
@@ -60,6 +77,7 @@ export function createOrbControl(host: OrbHost) {
     const t = host.target();
     if (!keep && t && was) poses.set(t.id, was);
     orient = false;
+    free = false;
     was = null;
     chosen = [];
   };
@@ -71,13 +89,14 @@ export function createOrbControl(host: OrbHost) {
       poses.delete(id);
     },
     /** A press at (x, y): does it take a handle of the orb? */
-    grab(x: number, y: number, shift: boolean): boolean {
+    grab(x: number, y: number, shift: boolean, rival = Infinity): boolean {
       const o = orb(),
         t = host.target();
       if (!o || !t) return false;
       const { cam, w, h } = host.view(),
-        hd = hitHandle(handlesOf(o, cam), cam, w, h, x, y);
-      if (!hd) return false;
+        near = nearHandle(handlesOf(o, cam), cam, w, h, x, y);
+      if (!near || near.d >= rival) return false; // (an edge or a corner nearer the pointer than the handle is the pointer's: it is picked, not pressed on the orb)
+      const hd = near.h;
       if (hd.kind === "arrow" || hd.kind === "turn") {
         const r = choose(chosen, hd.id, shift);
         chosen = r.chosen;
@@ -139,17 +158,20 @@ export function createOrbControl(host: OrbHost) {
       if (!orient) host.set(grabbed.id, r.frame);
       poses.set(grabbed.id, r.pose);
     },
-    /** The press ends: one on the ball that went nowhere orients the orb (it pulses), or keeps what was oriented. */
+    /** The press ends: one on the ball that went nowhere goes on through the modes: normal, free move (the ball is lit), orient (it pulses blue: the orb itself is moved and turned), normal again (what was oriented is kept). */
     grabEnd(): void {
       const g = grabbed;
       grabbed = null;
       if (!g || g.g.handle.kind !== "ball" || g.moved || g.free) return;
       if (orient) stopOrient(true);
-      else {
+      else if (free) {
+        free = false;
         orient = true;
         was = clonePose(poseOf(g.id));
-      }
+      } else free = true;
     },
+    /** whether the ball has been pressed once and not again (free move: bodies picked whole are carried by a drag) */
+    freeMove: (): boolean => free && !orient,
     keep: () => stopOrient(true),
     /** Esc in orient mode: the orb goes back as it was. */
     cancel(): boolean {
@@ -179,10 +201,11 @@ export function createOrbControl(host: OrbHost) {
         hot: [...(over ? [over.id] : []), ...(grabbed ? [grabbed.g.handle.id] : []), ...chosen],
         unit: unitOf(cam, o.centre),
         orient,
+        free: free && !orient,
         hover: !!over,
       };
     },
     /** For the dev hook and tests. */
-    debug: () => ({ orient, chosen: [...chosen], poses: [...poses] }),
+    debug: () => ({ orient, free, chosen: [...chosen], poses: [...poses] }),
   };
 }

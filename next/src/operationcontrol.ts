@@ -187,6 +187,7 @@ export function createOperations(host: OperationHost) {
         hot: over || grab || selected || touched ? [ID] : [],
         unit: unitOf(cam, op.arrow.base),
         orient: false,
+        free: false,
         hover: !!over,
       };
     },

@@ -29,8 +29,8 @@ export function drawOrb(group: THREE.Group, o: OrbDrawing, w: number, h: number)
       const k = o.orient ? 0.5 + 0.5 * Math.sin(performance.now() / 260) : 0,
         blue = new THREE.Color(0x2f6fe0).lerp(new THREE.Color(0x9cc4ff), k); // (being oriented: it breathes blue)
       const ball = new THREE.Mesh(
-        new THREE.SphereGeometry(o.unit * 0.064 * (M.headScale / 0.7) * (1 + 0.35 * k), 16, 12),
-        new THREE.MeshBasicMaterial({ color: o.orient ? blue : colour, depthTest: false }),
+        new THREE.SphereGeometry(o.unit * 0.064 * (M.headScale / 0.7) * (1 + 0.35 * k + (o.free ? 0.25 : 0)), 16, 12),
+        new THREE.MeshBasicMaterial({ color: o.orient ? blue : o.free ? teal : colour, depthTest: false }),
       );
       ball.position.copy(vec(hd.points[0]!));
       add(ball, 14);

@@ -107,6 +107,18 @@ export function hitHandle(
   py: number,
   hitPx = settings.mover.hitPx,
 ): Handle | null {
+  return nearHandle(hs, c, w, h, px, py, hitPx)?.h ?? null;
+}
+/** the same, and how far (px) the handle is */
+export function nearHandle(
+  hs: Handle[],
+  c: Cam,
+  w: number,
+  h: number,
+  px: number,
+  py: number,
+  hitPx = settings.mover.hitPx,
+): { h: Handle; d: number } | null {
   let best: { d: number; h: Handle } | null = null;
   for (const hd of hs) {
     let d = Infinity;
@@ -120,7 +132,7 @@ export function hitHandle(
     }
     if (d <= hitPx && (!best || d < best.d)) best = { d, h: hd };
   }
-  return best ? best.h : null;
+  return best;
 }
 
 // ---- what a drag means ----

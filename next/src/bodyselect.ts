@@ -72,6 +72,12 @@ export function createBodySelect(host: BodySelectHost) {
         hit = pickAll(host.meshes(), cam, w, h, x, y).find((k) => k.kind === "face");
       return hit && hit.kind === "face" ? { body: hit.body, face: hit.face, point: hit.point } : null;
     },
+    /** how far (px) a corner or an edge of a body is from the pointer (Infinity: none within reach) */
+    featureNear(x: number, y: number): number {
+      const { cam, w, h } = host.view(),
+        hit = pickAt(host.meshes(), cam, w, h, x, y);
+      return hit && hit.kind !== "face" ? (hit.near ?? Infinity) : Infinity;
+    },
     /** the pointer is over one of the bodies picked whole (a press there takes them, as the old app's grab) */
     wholeAt(x: number, y: number): boolean {
       const { cam, w, h } = host.view(),

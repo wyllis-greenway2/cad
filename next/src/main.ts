@@ -641,10 +641,11 @@ attach(
       if (box.grab(x, y)) return true;
       if (ext.grab(x, y)) return true;
       if (ext.active()) return false;
-      return orbc.grab(x, y, shift) || sk.grab(x, y, shift || tools.additive());
+      return orbc.grab(x, y, shift, bodies.featureNear(x, y)) || sk.grab(x, y, shift || tools.additive());
     },
     // a press on a body picked whole is a click until it clearly drags (`interaction/gesture.ts`), then it carries them (the old app's grab); a click picks a part of them
-    carries: (x, y, shift) => !shift && !game.on && !!bmove.target() && !ext.active() && bodies.wholeAt(x, y),
+    carries: (x, y, shift) =>
+      !shift && !game.on && !!bmove.target() && !ext.active() && orbc.freeMove() && bodies.wholeAt(x, y),
     carryStart: (x, y) => void orbc.grabFree(x, y),
     carryMove: (x, y) => orbc.grabMove(x, y),
     carryEnd: () => orbc.grabEnd(),
