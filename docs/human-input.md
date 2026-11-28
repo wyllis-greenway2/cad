@@ -6957,3 +6957,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1745 — 2026-11-28 — question
 > I cant seem to move this part?
+
+## in_1746 — 2026-11-28 — question
+> what was the unfinished change it got stuck on forever? lets not write up official tests for the engine yet, but why dont you test it use the app a bunch as a user would and see if you can find bugs and problems

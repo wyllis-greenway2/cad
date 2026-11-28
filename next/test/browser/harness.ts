@@ -24,7 +24,7 @@ export async function start(port = 5197): Promise<Session> {
     async open(query = "", size = { width: 1100, height: 720 }) {
       const page: Page = await browser.newPage({ viewport: size });
       const errors: string[] = [];
-      page.on("pageerror", (e: unknown) => errors.push(String(e)));
+      page.on("pageerror", (e: unknown) => errors.push(String(e) + (process.env.STACK && (e as Error)?.stack ? " @@ " + (e as Error).stack!.split("\n").slice(1, 5).join(" ; ") : "")));
       page.on("console", (m: any) => { if (m.type() === "error") errors.push(m.text()); });
       await page.goto(url + query);
       await page.waitForTimeout(1200);

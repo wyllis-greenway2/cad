@@ -261,6 +261,18 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     return made;
   };
   /** a click with a drawing tool: the next place of the figure, and the figure itself when it is complete (with the numbers typed for it, one change) */
+  /** the plane the figure under way began on: a figure belongs to one plane, and is given up when another is on (its places are ids of that plane's drawing: on another they are nothing, `in_1746`: the page threw an error on every move of the pointer) */
+  let figureKey: string | null = null;
+  const syncFigure = (): void => {
+    if (!tool || !tool.pts.length) {
+      figureKey = null;
+      return;
+    }
+    if (figureKey !== null && current()?.key !== figureKey) {
+      tool = cancelFigure(tool);
+      figureKey = null;
+    }
+  };
   const drawClick = (c: Here): void => {
     const t = tool!,
       s = solOf(c.p),
@@ -272,6 +284,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     }
     const start = t.pts[0] ? posOf(s, t.pts[0]) : null;
     tool = done.tool;
+    figureKey = tool.pts.length ? (figureKey ?? c.key) : null;
     if (!done.made?.params) return;
     const k = keep(done.made.params);
     if (!k.ok) return fail(k.why, k.victims);
@@ -316,6 +329,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     },
     /** A click. With a tool on it is the tool's (a double click ends a line's chain); with none, it selects (Shift adds). Returns whether it was used. */
     click(x: number, y: number, count: number, shift = false): boolean {
+      syncFigure();
       const c = here(x, y);
       if (!tool) return false; // (picking is the page's: one list of what is under the pointer, `interaction/candidates.ts`)
       if (count >= 2 && tool.kind === "line") {
@@ -329,6 +343,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     },
     /** Keys of the sketch: Delete takes the selected parts away (no other key is bound for now, `in_1574`). Returns whether the key was used. */
     key(code: string): boolean {
+      syncFigure();
       const c = current();
       if (!c) return false;
       if (tool) return typeInTool(code); // (a figure under way: the keys type its numbers)
@@ -355,6 +370,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     },
     /** What to draw: every sketch on every plane (what is selected in teal), what the tool would make, the part a trim would take, and the place the pointer is at. */
     lines(pointer: { x: number; y: number } | null): DrawLine[] {
+      syncFigure();
       if (pointer) lastPointer = pointer;
       const { all } = host.planes(),
         out: DrawLine[] = [];

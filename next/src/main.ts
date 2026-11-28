@@ -913,6 +913,15 @@ Object.assign(window, {
   __bodies: bodies,
   __selection: selection,
   __box: box,
+  __cands: (x: number, y: number) =>
+    candidatesAt(x, y).list.map((c) => ({
+      rank: c.rank,
+      px: Math.round(c.px * 10) / 10,
+      depth: c.depth,
+      figure: !!c.figure,
+      from: c.item.from,
+      kind: c.item.from === "body" ? c.item.hit.kind : c.item.kind,
+    })),
   __visible: (p: V3) => visibleFrom(studio.state().meshes, s.c, p),
   __more: chooseMore,
   __record: record,

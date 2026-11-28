@@ -178,7 +178,7 @@ export function visibleFrom(meshes: readonly BodyMesh[], cam: Cam, p: V3): boole
     d: V3 = [v[0] / dist, v[1] / dist, v[2] / dist];
   return !meshes.some((m) => {
     const f = rayMesh(m, eye, d);
-    return !!f && f.t < dist - 0.02 - 1e-4 * dist;
+    return !!f && f.t < dist - 0.02 - (cam.ortho === null ? 1e-4 * dist : 0); // (in a straight view the ray begins 1e6 mm back: a share of that would hide a body 100 mm in front, `in_1746`)
   });
 }
 

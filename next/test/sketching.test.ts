@@ -188,6 +188,19 @@ test("[S2] a line goes on from a point already drawn, each click a segment from 
   assert.equal(r.def().lines!.length, 2);
 });
 
+test("[S2] a figure under way belongs to its plane: when another plane is on it is given up (it used to throw on every move of the pointer)", () => {
+  const r = rig();
+  r.frames.set("other", worldFrame(2)); // (another plane, as seen from above as the first)
+  r.sk.start("line");
+  r.click(0, 0);
+  assert.equal(r.sk.drawStep(), 1);
+  r.plane("other");
+  assert.doesNotThrow(() => r.sk.lines({ x: 400, y: 300 }));
+  assert.equal(r.sk.drawStep(), 0, "the figure begun on the other plane is given up");
+  r.click(5, 5);
+  assert.equal(r.sk.drawStep(), 1, "and a new one begins on this plane");
+});
+
 test("[S2] a second click on the same place makes nothing", () => {
   for (const kind of ["line", "rect", "circle"] as const) {
     const r = rig();

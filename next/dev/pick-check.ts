@@ -3,7 +3,7 @@ import { initKernel } from "../src/engine/kernel.ts";
 import { Engine } from "../src/engine/engine.ts";
 import { meshOf } from "../src/engine/exchange.ts";
 import { meshBuffers } from "../src/studio.ts";
-import { pickAt } from "../src/interaction/pick.ts";
+import { pickAt, visibleFrom } from "../src/interaction/pick.ts";
 import { project, frameBox } from "../src/camera.ts";
 import { check, failureCount } from "./lib.ts";
 await initKernel();
@@ -58,4 +58,20 @@ check("an edge hidden behind the body is not picked through it", !hp || hp.kind 
 const front = at([20, 25, 0]),
   fp = pickAt([mesh], cam as any, W, H, ...front);
 check("the bottom edge of the face towards the eye is picked", fp?.kind === "edge");
+// what is under a body is not seen, in a straight view too (where the ray begins far back: a share of that distance once hid a body 100 mm in front, `in_1746`)
+{
+  const down = {
+    ...cam,
+    ortho: 80,
+    eye: [20, 12, 300] as [number, number, number],
+    pitch: -Math.PI / 2,
+    yaw: -Math.PI / 2,
+  };
+  check(
+    "a place under the body is not seen from above in a straight view",
+    !visibleFrom([mesh], down as any, [20, 12, 0]),
+  );
+  check("a place on top of the body is seen", visibleFrom([mesh], down as any, [20, 12, 10]));
+  check("a place beside the body is seen", visibleFrom([mesh], down as any, [80, 12, 0]));
+}
 process.exit(failureCount() ? 1 : 0);
