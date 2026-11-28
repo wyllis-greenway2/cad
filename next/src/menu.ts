@@ -17,7 +17,7 @@ const MS = 280,
   STAGGER = 22,
   GAP = 8; // the unfolding, and the room between neighbours
 /** The one round button of every control over the view: white, a light grey edge, a soft shadow; pointing at it lights its edge teal. */
-export function roundButton(o: {
+function roundButton(o: {
   icon?: string;
   text?: string;
   size?: number;

@@ -64,7 +64,7 @@ export function regionAt(def: SketchParams, q: Pt): Region | null {
   }
 }
 /** the sketch's plane as the engine takes one: an origin, the way local x runs, and the normal */
-export const frameParams = (f: Frame) => ({ origin: f.origin, xDir: f.u, normal: f.normal });
+const frameParams = (f: Frame) => ({ origin: f.origin, xDir: f.u, normal: f.normal });
 void vOf;
 
 /** What a pull of this size is made of: the steps to add to the recipe, given the steps there are (`recipe`) and the body the last one made (`last`, if any). A pull in the plane's direction adds; against it, when there is a body, cuts. */

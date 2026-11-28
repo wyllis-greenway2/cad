@@ -15,7 +15,7 @@ export interface InfoHandlers {
 
 export type Border = string;
 /** an applied constraint is neutral charcoal; only an offer is yellow, and what is selected is blue (`in_1661`); red is a refusal (`inv_constraint_uniformity`) */
-export const APPLIED = "#6b7178";
+const APPLIED = "#6b7178";
 export const TONE = { rest: "#d6d7db", refused: "#e46a6a", applied: APPLIED, offer: "#f2c14e" } as const;
 /** the colour of a mark's state: locked green, offered yellow, refused red */
 export const STATE = { locked: APPLIED, offer: "#f2c14e", refused: "#e46a6a" } as const;
@@ -29,7 +29,7 @@ export function keepEvents(el: HTMLElement): void {
       if (t === "contextmenu") e.preventDefault();
     });
 }
-export function cornerLock(open: boolean, colour: string, onClick?: () => void): HTMLElement {
+function cornerLock(open: boolean, colour: string, onClick?: () => void): HTMLElement {
   const l = document.createElement("span");
   l.innerHTML = iconSvg(open ? "unlock" : "lock");
   l.dataset.lock = open ? "open" : "closed";

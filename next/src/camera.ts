@@ -146,19 +146,28 @@ export function enterOrtho(c: Cam, hold: V3): Cam {
   return { ...c, ortho: 2 * d * tanHalf0() * c.lens, lens: 1, eye: add(c.eye, scale(forward(c), d)) };
 }
 
-/** A change of view that plays out over time: the lens goes to `lens`, and the direction to `dir` (turning about `hold`, a point of the world that keeps its place and size), or, with `eyeTo`, the whole view flies there (Reset). */
-export interface Go {
+/** A change of view that plays out over time. */
+interface Change {
   t0: number;
   ms: number;
   from: Cam;
+}
+/** The lens goes to `lens`, and the direction to `dir` (turning about `hold`, a point of the world that keeps its place and size). */
+export interface LensGo extends Change {
   lens: number;
   dir?: { yaw: number; pitch: number };
   hold: V3;
-  eyeTo?: V3;
 }
+/** The whole view flies to `eyeTo` and `dir` (Reset, a look at a pull), and ends in full perspective. */
+export interface Flight extends Change {
+  lens: 1;
+  dir: { yaw: number; pitch: number };
+  eyeTo: V3;
+}
+export type Go = LensGo | Flight;
 /** The camera `k` of the way through the change (already eased), from `c`, which may have been moved by hand since. */
 export function stepGo(g: Go, k: number, c: Cam): Cam {
-  if (g.eyeTo && g.dir)
+  if ("eyeTo" in g)
     return blend(g.from, { eye: g.eyeTo, yaw: g.dir.yaw, pitch: g.dir.pitch, ortho: null, lens: g.lens }, k);
   let n = c;
   if (g.dir)

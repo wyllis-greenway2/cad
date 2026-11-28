@@ -31,7 +31,7 @@ export interface Info {
   /** a constraint that touches the subject, or a number (live with an open padlock, locked with a closed one) */ facts: Bubble[];
   suggestions: BarItem[];
 }
-export const NEAR_MAX = 2; // (the old app offered up to two "near" suggestions)
+const NEAR_MAX = 2; // (the old app offered up to two "near" suggestions)
 
 /** Relations between the selection and one other part that hold now, or (with `reach`) are within reach of holding, and would be new (`offerable`): a line that is level with one a long way off, a line tangent to a circle, a point on a line that was not made to be, a line a little off parallel. The parts at rest are a motion (each point free to move a little, a circle's radius too) and this is `inRange` over it, the same question the helpers ask of a part being drawn or dragged (`engine/probe.ts`): how it got there does not matter. Up to `max`, one for each other part before a second of any; none for more than two parts selected. */
 export function nearFor(S: System, selection: string[], max = NEAR_MAX, reach?: number): BarItem[] {

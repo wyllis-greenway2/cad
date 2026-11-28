@@ -2,7 +2,7 @@
 // No DOM, no clock of its own, no three.js: the controller (main.ts) feeds it intents and the time and draws what it says, so each change can
 // be tried on its own.
 import * as cam from "./camera.ts";
-import { type Axis, type Cam, type Go } from "./camera.ts";
+import { type Axis, type Cam, type Go, type LensGo } from "./camera.ts";
 import { hitThings, type Scene } from "./scene.ts";
 import { focusOf, gridLevel, lastSeen, nothingInView, paneAt, planeHit, resetTarget, scaleAmong } from "./sense.ts";
 import { settings } from "./settings.ts";
@@ -107,7 +107,7 @@ function lensGo(
   lens: number,
   ms: number,
   dir?: { yaw: number; pitch: number },
-): ViewState {
+): ViewState & { go: LensGo } {
   const h = cam.forwardDepth(s.c, hold) > settings.view.minSurfaceMm ? hold : focusOnAxis(s, e);
   const c = cam.leaveOrtho(s.c, h);
   return { ...s, c, held: null, go: { t0: e.now, ms, from: c, lens, hold: h, ...(dir ? { dir } : {}) } };
@@ -119,7 +119,7 @@ function lensGo(
  */
 function takeOver(s: ViewState, e: Env, pivot?: V3): ViewState {
   if (!s.go) return s;
-  if (!s.go.eyeTo && s.go.lens === 1) {
+  if (!("eyeTo" in s.go) && s.go.lens === 1) {
     const { dir: _unused, ...keep } = s.go;
     return { ...s, go: keep };
   }
@@ -168,7 +168,6 @@ export function lookObliqueAt(s: ViewState, e: Env, hold: V3, dir: V3, away = 0)
       ms: settings.view.transitionMs,
       from: c,
       lens: 1,
-      hold,
       dir: cam.directionOf(dir),
       eyeTo: [hold[0] - dir[0] * dist, hold[1] - dir[1] * dist, hold[2] - dir[2] * dist],
     },
@@ -187,9 +186,8 @@ export function reset(s: ViewState, e: Env): ViewState {
       t0: e.now,
       ms: settings.view.transitionMs,
       from: c,
-      lens: to.lens,
+      lens: 1,
       dir: { yaw: to.yaw, pitch: to.pitch },
-      hold: c.eye,
       eyeTo: to.eye,
     },
   };
@@ -227,8 +225,8 @@ export function orbit(s: ViewState, e: Env, dx: number, dy: number): ViewState {
     const past = Math.min(1, (debt - settings.view.leaveStraightPx) / Math.max(1e-9, Math.hypot(dx, dy)));
     dx *= past;
     dy *= past;
-    n = lensGo({ ...s, drag: { ...d, debt } }, e, d.pivot, 1, settings.view.perspectiveMs);
-    n = { ...n, held: n.go!.hold };
+    const leaving = lensGo({ ...s, drag: { ...d, debt } }, e, d.pivot, 1, settings.view.perspectiveMs);
+    n = { ...leaving, held: leaving.go.hold };
   } else n = takeOver(s, e, d.pivot);
   return { ...n, c: cam.turnAbout(n.c, d.pivot, -dx * k, -dy * k) };
 }
@@ -275,7 +273,7 @@ export function advance(s: ViewState, e: Env, dt: number): ViewState {
     const k = Math.min(1, (e.now - go.t0) / go.ms);
     c = cam.stepGo(go, ease(k), c);
     if (k >= 1) {
-      c = go.lens === 1 ? { ...c, lens: 1 } : cam.enterOrtho({ ...c, lens: go.lens }, go.hold); // (a flight, `eyeTo`, always ends in full perspective)
+      c = "eyeTo" in go || go.lens === 1 ? { ...c, lens: 1 } : cam.enterOrtho({ ...c, lens: go.lens }, go.hold);
       go = null;
     }
   }

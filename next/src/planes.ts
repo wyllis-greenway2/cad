@@ -16,7 +16,7 @@ export function frameOf(origin: V3, normal: V3): Frame {
   return { origin, normal: n, u: Math.abs(n[2]) > 0.999 ? [1, 0, 0] : unit(cross([0, 0, 1], n)) };
 }
 /** A normal near a world axis is made that axis. */
-export function snapNormal(n: V3): V3 {
+function snapNormal(n: V3): V3 {
   for (let a = 0; a < 3; a++)
     if (Math.abs(n[a]!) > Math.cos(settings.planes.snapAxisRad)) {
       const r: V3 = [0, 0, 0];

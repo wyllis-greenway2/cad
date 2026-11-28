@@ -56,7 +56,7 @@ export const iconOf = (r: Relation, parts?: readonly string[]): string =>
   (r === "horizontal" || r === "vertical") && parts?.length === 2 ? `${r}Points` : (ICON[r] ?? r);
 
 /** a number as a person reads it: no more than three decimals, no trailing zeros */
-export const numberText = (v: number): string => String(Math.round(v * 1000) / 1000);
+const numberText = (v: number): string => String(Math.round(v * 1000) / 1000);
 const rangeText = (c: Constraint, k = 1): string =>
   `${c.min !== undefined ? numberText(c.min * k) : ""}–${c.max !== undefined ? numberText(c.max * k) : ""}`;
 

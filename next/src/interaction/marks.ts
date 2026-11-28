@@ -104,7 +104,7 @@ interface Cand {
 /** what a near offer wins over another by when they would move things alike: the stronger or more specific relation first (`dec_offer_rank`) */
 const PRIORITY = ["tangent", "coincident", "on", "midpoint", "perpendicular", "parallel", "horizontal", "vertical"];
 /** how many independent near offers one selection shows (the rest are in the menu) */
-export const NEAR_SHOWN = 3;
+const NEAR_SHOWN = 3;
 /** two offers move things alike when the smaller is within a quarter of the larger */
 const TOSS_UP = 1.25;
 /** Which near offers to show (`in_1663`): offers for the same decision (the same other part, or the selection alone) are alternatives: the one that moves things least wins, with a relation that says more (a vertex put on a line's end, not only on the line) beating one it implies, and only a real toss-up (within a quarter) shows both; offers that can all hold together are independent, shown smallest movement first, at most `NEAR_SHOWN`, ties broken by the priority of the relation. */

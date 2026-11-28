@@ -6796,3 +6796,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1693 — 2026-11-28 — directive
 > do the mouse lock refusal handler
+
+## in_1694 — 2026-11-28 — directive
+> do the unused exports and Go.hold

@@ -3,7 +3,7 @@
 //   rotate  a ring about each of X, Y, Z;
 //   copy    the move arrows with a second arrow beyond the end of each: dragged, it makes a copy.
 // Pure: where the handles are, which one the pointer is at, and what a drag of one means. The drawing and the page's buttons are elsewhere.
-import { forwardDepth, project, rayFrom, viewHeight, type Cam } from "./camera.ts";
+import { AXIS_NAME, forwardDepth, project, rayFrom, viewHeight, type Cam } from "./camera.ts";
 import { settings } from "./settings.ts";
 import { add, cross, dot, len, scale, sub, unit, type V3 } from "./vec.ts";
 
@@ -29,7 +29,6 @@ export const AXES: V3[] = [
   [0, 1, 0],
   [0, 0, 1],
 ];
-export const AXIS_LETTER = ["X", "Y", "Z"] as const;
 
 /** How big the orb is: a share of how far the view is from it, so it is the same size on the screen wherever it is. */
 export function unitOf(c: Cam, centre: V3): number {
@@ -49,7 +48,7 @@ export function handlesOf(o: Orb, c: Cam): Handle[] {
     out: Handle[] = []; // (the arrows start `g` out from the middle: they stop short of the ball)
   (o.frame ?? AXES).forEach((d, i) => {
     const a = i as 0 | 1 | 2,
-      letter = AXIS_LETTER[i];
+      letter = AXIS_NAME[i];
     out.push({
       id: `move:${letter}`,
       kind: "arrow",
@@ -134,7 +133,7 @@ function onPlane(r: { o: V3; d: V3 }, p: V3, n: V3): V3 | null {
   return add(r.o, scale(r.d, t));
 }
 /** How far along the line through `p` in direction `d` the pointer's ray comes nearest to it. */
-export function alongLine(r: { o: V3; d: V3 }, p: V3, d: V3): number | null {
+function alongLine(r: { o: V3; d: V3 }, p: V3, d: V3): number | null {
   const w0 = sub(p, r.o),
     b = dot(d, r.d),
     dd = dot(d, w0),
