@@ -6859,3 +6859,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1714 — 2026-11-28 — directive
 > do the camera scene bodies box extent fix
+
+## in_1715 — 2026-11-28 — question
+> okay so next lets handle enclosed sketches so that they can be selected and extruded. How did the old prototype handle that? Should we do the same or do something leaner? Like for example did the old prototype have special visuals for enclosed faces selections? If so maybe we should just reuse wire-frame rendering on faces to simplify and reuse?
