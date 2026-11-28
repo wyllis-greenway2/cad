@@ -16,7 +16,7 @@ export interface LitRegion {
   loops: [number, number][][];
 }
 export function createRegionSelect(K: Core) {
-  const { defs, sel, host, here, solOf } = K;
+  const { defs, sel, host, hereAll, solOf } = K;
   let over: RegionPick | null = null,
     pickedAt = 0; // (when a figure was picked, ms: its colour spreads from the click over the time after)
   const found = new WeakMap<SketchParams, Map<string, Region | null>>();
@@ -51,11 +51,15 @@ export function createRegionSelect(K: Core) {
     },
     /** The pointer is at (x, y): the figure under it is pointed at, unless a part of the drawing is nearer (those come first). Returns whether one is. */
     hover(x: number, y: number): boolean {
-      const c = here(x, y);
       over = null;
-      if (!c || c.behind || hitAt(c.p, solOf(c.p), c.q, c.tol) || !regionOf(c.p, c.q)) return false;
-      over = { key: c.key, at: c.q, click: to3(c.f, c.q) };
-      return true;
+      // the planes with a drawing under the pointer, the nearest first: a part of a drawing comes before a figure; a figure behind a body's surface is not there
+      for (const c of hereAll(x, y)) {
+        if (hitAt(c.p, solOf(c.p), c.q, c.tol)) return false;
+        if (c.behind || !regionOf(c.p, c.q)) continue;
+        over = { key: c.key, at: c.q, click: to3(c.f, c.q) };
+        return true;
+      }
+      return false;
     },
     leave: (): void => {
       over = null;

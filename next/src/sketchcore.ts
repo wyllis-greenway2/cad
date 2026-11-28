@@ -177,6 +177,30 @@ export function createCore(host: SketchHost, on?: (label: string, merge?: string
     const mm = mmPerPx(c.f, to2(c.f, q));
     return { ...c, q: to2(c.f, q), mm, tol: mm * settings.sketch.snapPx, behind: host.inFront(q, x, y) };
   };
+  /** every plane that has a drawing, as `here` gives it, the nearest along the pointer's ray first: a figure or a part of a drawing on ANY plane can be picked, not only on the plane that is on (a sketch on a face stays where it was made) */
+  const hereAll = (x: number, y: number) => {
+    const { all } = host.planes(),
+      r = host.ray(x, y),
+      out: (NonNullable<ReturnType<typeof here>> & { away: number })[] = [];
+    for (const [key, p] of defs) {
+      const f = all.get(key);
+      if (!f) continue;
+      const q = onPlane(f, r.o, r.d);
+      if (!q) continue;
+      const mm = mmPerPx(f, to2(f, q));
+      out.push({
+        key,
+        f,
+        p,
+        q: to2(f, q),
+        mm,
+        tol: mm * settings.sketch.snapPx,
+        behind: host.inFront(q, x, y),
+        away: Math.hypot(q[0] - r.o[0], q[1] - r.o[1], q[2] - r.o[2]),
+      });
+    }
+    return out.sort((a, b) => a.away - b.away);
+  };
   /** a change of a sketch: kept, and said to whoever keeps the history (`label`: what it was; `merge`: changes with the same key are one, a number typed again and again) */
   const set = (key: string, p: SketchParams, label: string, merge?: string) => {
     defs.set(key, tidy(p));
@@ -222,6 +246,7 @@ export function createCore(host: SketchHost, on?: (label: string, merge?: string
     cross,
     helpDrawn,
     here,
+    hereAll,
     set,
     fail,
     working,

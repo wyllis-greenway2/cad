@@ -6930,3 +6930,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1736 — 2026-11-28 — directive
 > it shows up on circle edges
+
+## in_1737 — 2026-11-28 — question
+> I cant select the top enclosed sketch in this model?

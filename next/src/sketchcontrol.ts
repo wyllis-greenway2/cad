@@ -48,6 +48,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     cross,
     helpDrawn,
     here,
+    hereAll,
     set,
     fail,
     polyline,
@@ -209,17 +210,20 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
   const M = createMarks(K, { dragged: D.dragged, fieldMarks });
   const R = createRegionSelect(K);
   type Here = NonNullable<ReturnType<typeof here>>;
-  /** a click with no tool: the part under it is picked; on none, the sketch's own selection is put away (only that: a click that hits no part goes on to the bodies). Returns whether it was used. */
-  const selectClick = (c: Here, shift: boolean): boolean => {
-    const h = hitAt(c.p, solOf(c.p), c.q, c.tol);
-    if (!h) {
-      if (R.pick(c)) return true; // (no part of the drawing here: the closed figure it is inside, if any, is picked)
-      const had = selected(c.key).length > 0;
-      if (had) sel.clear();
-      return had;
+  /** a click with no tool, on any plane that has a drawing (the nearest first): a part under it is picked, else the closed figure it is inside, else what is selected of a drawing is put away */
+  const selectAny = (x: number, y: number, shift: boolean): boolean => {
+    const planes = hereAll(x, y);
+    for (const c of planes) {
+      const h = hitAt(c.p, solOf(c.p), c.q, c.tol);
+      if (h) {
+        pick(c.key, h.id, shift);
+        return true;
+      }
     }
-    pick(c.key, h.id, shift);
-    return true;
+    for (const c of planes) if (R.pick(c)) return true;
+    const had = [...defs.keys()].some((k) => selected(k).length > 0);
+    if (had) sel.clear();
+    return had;
   };
   /** a click with the trim tool */
   const trimClick = (c: Here): void => {
@@ -318,7 +322,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     /** A click. With a tool on it is the tool's (a double click ends a line's chain); with none, it selects (Shift adds). Returns whether it was used. */
     click(x: number, y: number, count: number, shift = false): boolean {
       const c = here(x, y);
-      if (!tool) return c ? selectClick(c, shift) : false;
+      if (!tool) return selectAny(x, y, shift);
       if (count >= 2 && tool.kind === "line") {
         tool = cancelFigure(tool);
         return true;
