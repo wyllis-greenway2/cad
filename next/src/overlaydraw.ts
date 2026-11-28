@@ -5,7 +5,7 @@ import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import type { Mark } from "./bodyselect.ts";
 import { forwardDepth, type Cam } from "./camera.ts";
 import { equal } from "./equal.ts";
-import { surfaceOf } from "./looks.ts";
+import { SEE_THROUGH, surfaceOf } from "./looks.ts";
 import { makeOrbs, orbMaterial, selectedRgb, setOrbs } from "./orbfill.ts";
 import { settings } from "./settings.ts";
 import { strokeOf } from "./sketchdraw.ts";
@@ -79,6 +79,7 @@ export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMe
   const fillGroup = new THREE.Group();
   scene.add(fillGroup);
   let lastFills: unknown = null;
+  const see = surfaceOf(SEE_THROUGH); // (a closed figure is a face at rest: the See-through look, as a body's face is)
   const setFills = (fills: Overlays["fills"]) => {
     if (equal(fills ?? [], lastFills)) return;
     lastFills = fills ?? [];
@@ -93,9 +94,9 @@ export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMe
       const m = new THREE.Mesh(
         new THREE.ShapeGeometry(shape),
         new THREE.MeshBasicMaterial({
-          color: settings.looks.marks.pick.color,
+          color: see.color,
           transparent: true,
-          opacity: settings.looks.fillOpacity,
+          opacity: see.opacity,
           depthWrite: false,
           side: THREE.DoubleSide,
           polygonOffset: true,

@@ -6874,3 +6874,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1719 — 2026-11-28 — directive
 > just do 1 for now
+
+## in_1720 — 2026-11-28 — directive
+> do group B next, but before you do should we talk to make sure you are using simple reusable UI components for everything so we dont mint a bunch of new stuff?
+
+## in_1721 — 2026-11-28 — directive
+> lets pin this and fix some current problems we already have. First why do not all enclosed sketches get the enclosed sketch rendering? also why does it look like we just minted a new rendering type for them? I thought we decided that we would reuse only wireframe and solid grey for now? Also why dont we even make the world panes reuse the same style types? wireframe world panes and the blue one is the selected blue color.

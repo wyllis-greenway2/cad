@@ -12,6 +12,8 @@ Update it at the end of each session.
 - **Move / turn a body, what is left** (`dec_task_handles`, `in_1610`): moving one of several bodies (the step names the body by an `Id`, the page holds a string), numbers for a move on the info bar, the orb's own axes with the pull arrow's screen-based gain (`pullDelta`), grab (press a body and drag), a second move of the same body merged into the earlier steps.
 - **Marks on the things instead of the info bar for a sketch** (`dec_marks_on_things`, `in_1611`): built (`in_1612`, `in_1613`): the drawer, the rule, the drawing numbers on the figure, marks on the part and draggable; the human is to see it; see the entry.
 
+- **Group B of body manipulation, waiting for the human** (`in_1720`): before building, agree the rule that an operation adds only a description, chips, number fields and a `plan` (no new handle, render type, controller or overlay; anything that would is a question first), and generalise `Operation.value` to a list of named numbers (count, angle, second distance) and "pick another thing" as `toolspec` needs. Candidates, least new first: hollow, scale, two-distance chamfer, mirror, pattern, revolve, round-wall radius, variable fillet, sweep, loft; need a new pick type (ask first): vertices, box select; multi-body mover. The human has not yet said which items are in B.
+
 ## Done
 - Project record set up; `docs/licenses.md` written; `kernel-slice`, `sketch-extrude`, `cad-ui` built as prototypes (2026-11-04 and 2026-11-05): planes, sketching, constraints, extrude, fillet and chamfer, devices, the pencil look and the ring highlight; relations (distances) started.
 

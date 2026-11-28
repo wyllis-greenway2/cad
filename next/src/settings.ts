@@ -54,12 +54,6 @@ export const settings = {
     paneGapMm: 3,
     paneMm: 8,
     paneRound: 0.18,
-    paneOpacity: 0.18,
-    paneActiveOpacity: 0.4,
-    paneHoverBoost: 0.3,
-    paneHoverMax: 0.75,
-    paneLineHot: 0.9,
-    paneLineCool: 0.5,
     paneFadeLens: 0.5,
     paneUsableLevel: 0.5, // the panes fade out as the lens goes from 1 to this, and cannot be clicked below this much of them
     gizmoEaseRate: 6, // the axes' scale eases over to scale free at this rate (per second)
@@ -155,7 +149,6 @@ export const settings = {
   },
   // the three looks of a body (`dec_view_looks`, `q_lean_ui`): Solid, See-through, and a mark laid over either; colours as the prototype had them
   looks: {
-    fillOpacity: 0.06, // the tint of a closed sketch
     solid: { color: 0xc9c9cd, edge: 0x2a2a2d, opacity: 1 },
     seeThrough: { color: 0x14161a, edge: 0x14161a, opacity: 0.14, edgeOpacity: 0.5 },
     marks: {
@@ -167,7 +160,6 @@ export const settings = {
   theme: {
     background: 0xffffff,
     axis: [0.17, 0.17, 0.19] as [number, number, number], // charcoal, like a pencil
-    pane: [0.55, 0.58, 0.64] as [number, number, number], // the little pane of a world plane that is off
     grid: [0.62, 0.63, 0.67] as [number, number, number],
     minorAlpha: 0.35,
     majorAlpha: 0.7,

@@ -432,7 +432,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     constrain: M.constrain,
     dismissOffers: M.dismissOffers,
     press: M.act,
-    /** The closed parts of every drawing, to be tinted (a closed figure has a very faint fill in the old app, `in_194`): the outline and holes in each plane's axes. */
+    /** The closed parts of every drawing, to be tinted (a closed figure has a very faint fill in the old app, `in_194`; every closed part, also where figures overlap): the outline and holes in each plane's axes. */
     fills(): { frame: { origin: V3; u: V3; v: V3 }; loops: [number, number][][] }[] {
       const { all } = host.planes(),
         out: { frame: { origin: V3; u: V3; v: V3 }; loops: [number, number][][] }[] = [];
@@ -443,10 +443,12 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
         if (!loops) {
           try {
             const sol = solOf(p),
-              found = regions(segsOf(p, sol.points, sol.radii));
-            loops = found.profiles.map(
-              (q) => [loopPoints(q.outer), ...q.holes.map(loopPoints)] as [number, number][][],
-            );
+              segs = segsOf(p, sol.points, sol.radii);
+            // every closed part, one by one (not the even-odd sum, which leaves out where figures overlap): each is a face of its own, as it is picked
+            loops = regions(segs).faces.flatMap((f) => {
+              const q = regions(segs, { pick: [f.sample] }).profiles[0];
+              return q ? [[loopPoints(q.outer), ...q.holes.map(loopPoints)] as [number, number][][]] : [];
+            });
           } catch {
             loops = [];
           }

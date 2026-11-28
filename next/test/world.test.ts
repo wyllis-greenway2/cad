@@ -35,12 +35,11 @@ test("[B4] there are no letter keys for the views: no key handler names X, Y, Z 
 
 test("[W16] the look's numbers are the prototype's hand-tuned values, in the one settings file", () => {
   assert.deepEqual(settings.theme.axis, [0.17, 0.17, 0.19]);
-  assert.deepEqual(settings.theme.pane, [0.55, 0.58, 0.64]);
   assert.deepEqual(settings.theme.grid, [0.62, 0.63, 0.67]);
   assert.equal(settings.theme.minorAlpha, 0.35); assert.equal(settings.theme.majorAlpha, 0.7);
   assert.deepEqual(settings.orb.color, [0.1, 0.72, 0.7]);
   assert.equal(settings.world.axisLengthMm, 24); assert.equal(settings.world.paneGapMm, 3); assert.equal(settings.world.paneMm, 8);
-  assert.equal(settings.world.paneRound, 0.18); assert.equal(settings.world.paneOpacity, 0.18); assert.equal(settings.world.paneActiveOpacity, 0.4);
+  assert.equal(settings.world.paneRound, 0.18);
   assert.equal(settings.buttons.marginPx, 18); assert.equal(settings.buttons.sizePx, 34);
   assert.equal(settings.view.fovDeg, 35); assert.equal(settings.view.homeElevation, 0.5); assert.equal(settings.view.homeDistance, 120);
   assert.equal(settings.theme.background, 0xffffff);

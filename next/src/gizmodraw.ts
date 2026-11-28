@@ -2,6 +2,7 @@
 import * as THREE from "three";
 import type { Cam } from "./camera.ts";
 import { across } from "./planes.ts";
+import { surfaceOf } from "./looks.ts";
 import { settings } from "./settings.ts";
 import { basisOf, rgb, vec } from "./threeutil.ts";
 import type { V3 } from "./vec.ts";
@@ -180,19 +181,14 @@ export function createGizmo(scene: THREE.Scene) {
       for (let k = 0; k < 3; k++) {
         const on = k === d.plane && !d.sketch,
           hov = k === d.paneHover;
-        const colour = rgb(on ? settings.orb.color : settings.theme.pane);
-        const fill = panes[k]!.material as THREE.MeshBasicMaterial,
+        // a pane is a face in the See-through look, marked (teal) when it is the plane that is on or is pointed at
+        const sf = surfaceOf({ base: "seeThrough", ...(on || hov ? { mark: "pick" as const } : {}) }),
+          fill = panes[k]!.material as THREE.MeshBasicMaterial,
           line = edges[k]!.material as THREE.LineBasicMaterial;
-        fill.color.copy(colour);
-        line.color.copy(colour);
-        fill.opacity =
-          d.paneLevel *
-          (hov
-            ? Math.min(settings.world.paneHoverMax, settings.world.paneActiveOpacity + settings.world.paneHoverBoost)
-            : on
-              ? settings.world.paneActiveOpacity
-              : settings.world.paneOpacity);
-        line.opacity = d.paneLevel * (hov || on ? settings.world.paneLineHot : settings.world.paneLineCool);
+        fill.color.setHex(sf.color);
+        line.color.setHex(sf.edge);
+        fill.opacity = d.paneLevel * sf.opacity;
+        line.opacity = d.paneLevel * sf.edgeOpacity;
         panes[k]!.visible = d.axesShown && d.paneLevel > 0.001;
       }
       if (d.disc) {
