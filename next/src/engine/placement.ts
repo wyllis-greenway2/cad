@@ -275,7 +275,7 @@ export function place(
     return null;
   };
   const rows = mates.map((m) => ({ c: { id: m.id, kind: m.kind as never, parts: [] as string[] }, fn: rowsOf(m) }));
-  const names = bodies.flatMap((b, i) => ["tx", "ty", "tz", "wx", "wy", "wz"].map((s) => `${i}.${s}`)); // a body is named by its place in the list: its own id may hold dots
+  const names = bodies.flatMap((_, i) => ["tx", "ty", "tz", "wx", "wy", "wz"].map((s) => `${i}.${s}`)); // a body is named by its place in the list: its own id may hold dots
   const prep: Prep = { names, x: x0, frozen, pointVar: new Map(), circleVar: new Map(), rows, pins: [] };
   const dummy = { points: [], lines: [], circles: [], constraints: [] };
   const seeds: { x: number[]; pre?: [string, number] }[] = [{ x: x0 }];

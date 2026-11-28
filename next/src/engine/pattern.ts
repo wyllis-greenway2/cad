@@ -5,7 +5,7 @@ import { type Id, mint } from "./id.ts";
 import * as K from "./kernel.ts";
 import { Body, type BodyRec, type FaceRec, bodyOf } from "./lineage.ts";
 import { recombine, viewOf } from "./scope.ts";
-import { type Ctx, type Value, checked, kinds, needBody, num } from "./steps.ts";
+import { type Value, checked, kinds, needBody, num } from "./steps.ts";
 
 type V3 = K.V3;
 const MAX_COPIES = 500;
@@ -32,7 +32,7 @@ function asBody(rec: BodyRec, made: { n: number; m: K.Made }[], step: string, ro
   }
   return new Body(K.compoundOf(made.map((x) => x.m.solid)), recs, [], new Set(), bodies);
 }
-function putBack(scene: Body, copies: Body, ctx: Ctx, what: string): Value {
+function putBack(scene: Body, copies: Body, what: string): Value {
   const out = recombine(
     copies,
     scene.bodies.map((rec) => ({ scene, rec })),
@@ -67,7 +67,7 @@ kinds["pattern"] = {
           throw new Error("a linear pattern needs the step from one body to the next (three numbers)");
         for (let n = 1; n < count; n++) made.push({ n, m: K.move(view.solid, [by[0] * n, by[1] * n, by[2] * n]) });
       }
-      return putBack(scene, asBody(rec, made, ctx.step.id, "copy"), ctx, "the pattern");
+      return putBack(scene, asBody(rec, made, ctx.step.id, "copy"), "the pattern");
     } finally {
       view.solid.release();
       for (const x of made) x.m.solid.release();
@@ -87,7 +87,7 @@ kinds["mirror"] = {
       view = viewOf(scene, [rec]),
       made = [{ n: 1, m: K.mirror(view.solid, pl.point, pl.normal) }];
     try {
-      return putBack(scene, asBody(rec, made, ctx.step.id, "mirror"), ctx, "the mirror");
+      return putBack(scene, asBody(rec, made, ctx.step.id, "mirror"), "the mirror");
     } finally {
       view.solid.release();
       for (const x of made) x.m.solid.release();

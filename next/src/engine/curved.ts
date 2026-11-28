@@ -114,7 +114,7 @@ kinds["loft"] = {
 /** a profile swept along a path of straight legs; each profile edge makes a face for each leg, numbered along the path */
 kinds["sweep"] = {
   outputs: "body",
-  run: (inputs, { step, age }) => {
+  run: (inputs, { step }) => {
     const prof = needSketch(inputs[0]),
       path = needSketch(inputs[1]);
     if (!path.open || !path.lines.length) throw new Error("the second sketch must be an open path");
