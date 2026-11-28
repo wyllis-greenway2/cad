@@ -6775,3 +6775,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1686 — 2026-11-28 — directive
 > okay lets review the world view, and the sketching system. Test for leanness cleanness and if we can make them better or fix bugs etc before proceeding. The worldview btw already has a bug I found where it seems to zoom in a little every time you switch from orthographic to 3d view by clicking and rotating the screen with the mouse button
+
+## in_1687 — 2026-11-28 — directive
+> do the sketching leak, the zero-size figure, and the world.ts split

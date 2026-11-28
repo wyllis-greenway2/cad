@@ -185,6 +185,7 @@ test("[S2] a second click on the same place makes nothing", () => {
     const d = r.sk.sketchOf("xy");
     assert.equal((d?.lines?.length ?? 0) + (d?.circles?.length ?? 0), 0, kind);
     assert.equal(d?.points.length ?? 0, 0, `${kind} leaves no stray point`);
+    assert.equal(r.sk.drawStep(), 1, `${kind} keeps its first click, to click again elsewhere`);
   }
   // the same through the tool's own rule
   const s = sol(emptySketch());

@@ -290,6 +290,10 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
         pl = placed(c, s),
         done = toolClick(tool, c.p, s, pl.ref),
         start = tool.pts[0] ? posOf(s, tool.pts[0]) : null;
+      if (done.made && !done.made.params) {
+        say("Nothing to make there: the figure would have no size"); // (the figure stays as it was, its first click kept)
+        return true;
+      }
       tool = done.tool;
       if (done.made?.params) {
         // the figure, with the numbers typed for it locked as dimensions, is one change

@@ -141,6 +141,7 @@ export const settings = {
   },
   // the three looks of a body (`dec_view_looks`, `q_lean_ui`): Solid, See-through, and a mark laid over either; colours as the prototype had them
   looks: {
+    fillOpacity: 0.06, // the tint of a closed sketch
     solid: { color: 0xc9c9cd, edge: 0x2a2a2d, opacity: 1 },
     seeThrough: { color: 0x14161a, edge: 0x14161a, opacity: 0.14, edgeOpacity: 0.5 },
     marks: {

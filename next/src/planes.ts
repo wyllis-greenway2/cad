@@ -27,12 +27,14 @@ export function snapNormal(n: V3): V3 {
 }
 /** A sketch plane at `point` facing the camera (snapped to an axis when near one). */
 export const facingCamera = (c: Cam, point: V3): Frame => frameOf(point, snapNormal(scale(forward(c), -1)));
+/** The two world axes that lie in the plane across `axis`, in order (the first runs to the right in its straight view). */
+export const across = (axis: 0 | 1 | 2): [0 | 1 | 2, 0 | 1 | 2] => (axis === 0 ? [1, 2] : axis === 1 ? [0, 2] : [0, 1]);
 /** One of the world's planes as a frame (the same axes as its grid and its pane: the first two of the axes across it, in order). */
 export function worldFrame(axis: 0 | 1 | 2): Frame {
-  const [i, j] = axis === 0 ? [1, 2] : axis === 1 ? [0, 2] : [0, 1],
+  const [i, j] = across(axis),
     u: V3 = [0, 0, 0],
     v: V3 = [0, 0, 0];
-  u[i!] = 1;
-  v[j!] = 1;
+  u[i] = 1;
+  v[j] = 1;
   return { origin: [0, 0, 0], normal: cross(u, v), u };
 }
