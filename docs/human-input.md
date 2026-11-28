@@ -6850,3 +6850,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1711 — 2026-11-28 — directive
 > lets pin tolook into the stress-found-check kernel crash. Also what tests do we do every time now? I want to try to keep ourselves light and fast while we edit, we should only test things we must test because we touched them
+
+## in_1712 — 2026-11-28 — directive
+> yes write it into rule 12
