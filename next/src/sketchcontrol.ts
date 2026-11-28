@@ -2,6 +2,7 @@
 // at every edit (`interaction/drawing.ts`; no kernel). It turns the pointer into a place in the plane and the engine's answers into what the page shows: the lines, the bubbles of what is selected (`bubbledraw.ts`), a sentence.
 // The tool that is on: Line, Rectangle, Circle (the figure goes on being made until the tool is put away), or Trim (a click on a piece of a line, arc or circle takes off the part between the places where others cross it).
 import { project } from "./camera.ts";
+import type { Ranked } from "./interaction/candidates.ts";
 import { segsOf } from "./engine/definition.ts";
 import type { Free } from "./engine/free.ts";
 import { helpersAt, type Helped } from "./engine/helpers.ts";
@@ -30,6 +31,14 @@ import type { V3 } from "./vec.ts";
 
 export type { DrawLine, SketchHost } from "./sketchcore.ts";
 
+/** a part or a closed figure of a drawing under the pointer, one candidate of the page's list (`interaction/candidates.ts`) */
+export interface SketchItem {
+  from: "sketch";
+  kind: "part" | "figure";
+  /** the plane it is on, as the pointer meets it */
+  plane: { key: string; p: SketchParams; q: P2; f: Frame; mm: number; tol: number; behind: boolean };
+  id?: string;
+}
 export function createSketch(host: SketchHost, on?: (label: string, merge?: string) => void) {
   const K = createCore(host, on);
   const {
@@ -211,22 +220,6 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
   const M = createMarks(K, { dragged: D.dragged, fieldMarks });
   const R = createRegionSelect(K);
   type Here = NonNullable<ReturnType<typeof here>>;
-  /** a click with no tool, on any plane that has a drawing (the nearest first): a part under it is picked, else the closed figure it is inside, else what is selected of a drawing is put away */
-  const selectAny = (x: number, y: number, shift: boolean): boolean => {
-    const planes = hereAll(x, y);
-    for (const c of planes) {
-      if (c.behind) continue; // (a part of a drawing behind a body's surface is not there to be picked, as a figure is not, `in_1739`)
-      const h = hitAt(c.p, solOf(c.p), c.q, c.tol);
-      if (h) {
-        pick(c.key, h.id, shift);
-        return true;
-      }
-    }
-    for (const c of planes) if (R.pick(c)) return true;
-    const had = [...defs.keys()].some((k) => selected(k).length > 0);
-    if (had) sel.clear();
-    return had;
-  };
   /** a click with the trim tool */
   const trimClick = (c: Here): void => {
     const t = trimHere(c);
@@ -324,7 +317,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     /** A click. With a tool on it is the tool's (a double click ends a line's chain); with none, it selects (Shift adds). Returns whether it was used. */
     click(x: number, y: number, count: number, shift = false): boolean {
       const c = here(x, y);
-      if (!tool) return selectAny(x, y, shift);
+      if (!tool) return false; // (picking is the page's: one list of what is under the pointer, `interaction/candidates.ts`)
       if (count >= 2 && tool.kind === "line") {
         tool = cancelFigure(tool);
         return true;
@@ -469,8 +462,37 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     /** The closed figures picked and pointed at, to be drawn lit, and where the orb stands (`regionselect.ts`). */
     litRegions: R.lit,
     /** The pointer is at (x, y): is a closed figure under it (and no part of the drawing nearer)? */
-    hoverRegion: R.hover,
+    /** The figure pointed at (null: none), chosen from the candidates (`interaction/candidates.ts`). */
+    hoverFigure: (item: SketchItem | null): void => R.point(item?.kind === "figure" ? item.plane : null),
     leaveRegion: R.leave,
+    /** What is under the pointer of the drawings, on any plane that has one, as candidates of the one list: a point, a line, circle or arc (nearest the pointer), a closed figure (a surface); what is behind a body's surface is not there. */
+    candidates(x: number, y: number): Ranked<SketchItem>[] {
+      const { cam, w, h } = host.view(),
+        out: Ranked<SketchItem>[] = [];
+      for (const c of hereAll(x, y)) {
+        if (c.behind) continue;
+        const depth = project(cam, to3(c.f, c.q), w, h).depth,
+          hit = hitAt(c.p, solOf(c.p), c.q, c.tol);
+        if (hit)
+          out.push({
+            rank: hit.kind === "point" ? 0 : 1,
+            px: hit.d / c.mm,
+            depth,
+            item: { from: "sketch", kind: "part", plane: c, id: hit.id },
+          });
+        if (R.has(c))
+          out.push({ rank: 2, px: 0, depth, figure: true, item: { from: "sketch", kind: "figure", plane: c } });
+      }
+      return out;
+    },
+    /** Pick a candidate the page chose (a part: with Shift it is added to what is picked, or taken out; a figure). */
+    pickItem(item: SketchItem, shift: boolean): boolean {
+      if (item.kind === "part") {
+        pick(item.plane.key, item.id!, shift);
+        return true;
+      }
+      return R.pick(item.plane);
+    },
     /** The figure a place of a plane is inside, with its drawing and plane (what an extrude is made from). */
     regionIn: R.at,
     /** The region of the drawing on the plane that is on under the pointer, with the sketch and the plane it is of (what an extrude is made from); null: none. */

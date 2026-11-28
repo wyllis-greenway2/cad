@@ -33,7 +33,6 @@ export type Selection = BodyPick;
 
 export function createBodySelect(host: BodySelectHost) {
   let over: Hit | null = null,
-    cycle: { x: number; y: number; i: number } | null = null, // (where the last click was and which of what was under it it took: a click again on the same place takes the next, `MD-3`)
     pickedAt = 0; // (when a face was picked, ms: its teal spreads from the click over the time after)
   const store = host.selection,
     sel = (): BodyPick | null => store.body();
@@ -90,22 +89,14 @@ export function createBodySelect(host: BodySelectHost) {
         cur = sel();
       return !!hit && !!cur && cur.body === hit.body && cur.whole.includes(ownerOf(hit));
     },
-    /** A click: a body is picked (a face, or an edge; Shift adds edges; a double click the whole body), a click on nothing puts the pick away. Returns whether the click was used. */
-    click(x: number, y: number, shift: boolean, count = 1): boolean {
-      const { cam, w, h } = host.view(),
-        all = pickAll(host.meshes(), cam, w, h, x, y),
-        cur = sel();
-      if (!all.length) {
-        cycle = null;
-        return store.clear();
-      }
-      // a click again on the same place (a double click is not one) goes to the next of what is under the pointer
-      if (count === 1) {
-        const again = cycle && Math.hypot(x - cycle.x, y - cycle.y) < 4 && all.length > 1;
-        cycle = { x, y, i: again ? (cycle!.i + 1) % all.length : 0 };
-        if (all.length > 1) host.say(`${cycle.i + 1} of ${all.length} here`);
-      }
-      const hit = all[Math.min(cycle?.i ?? 0, all.length - 1)]!;
+    /** What is under the pointer of the bodies, as candidates of the one list (`interaction/candidates.ts`): corners, edges, then the face in front. */
+    candidates(x: number, y: number): Hit[] {
+      const { cam, w, h } = host.view();
+      return pickAll(host.meshes(), cam, w, h, x, y);
+    },
+    /** Take a candidate the page chose (`all`: every body candidate there was, for a third click): a body is picked (a face, or an edge; Shift adds edges; a double click the whole body). Returns whether it was used. */
+    apply(hit: Hit, all: readonly Hit[], shift: boolean, count = 1): boolean {
+      const cur = sel();
       if (count >= 3) {
         // three clicks take that face alone and turn the view square to it (as the old app's)
         const f = all.find((x) => x.kind === "face");
@@ -152,9 +143,9 @@ export function createBodySelect(host: BodySelectHost) {
       if (hit.kind === "face") pickedAt = performance.now();
       return true;
     },
-    hover(x: number, y: number): void {
-      const { cam, w, h } = host.view();
-      over = pickAt(host.meshes(), cam, w, h, x, y);
+    /** the body candidate pointed at (null: none), chosen by the page from the one list (`interaction/candidates.ts`) */
+    setOver(hit: Hit | null): void {
+      over = hit;
     },
     leave(): void {
       over = null;

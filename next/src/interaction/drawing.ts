@@ -53,7 +53,8 @@ export function viewSystem(p: SketchParams, s: Sol): System {
 
 // ---------------------------------------------------------------- what the pointer is at
 export type Hit =
-  { kind: "point"; id: string; at: Pt } | { kind: "curve"; id: string; at: Pt; of: "line" | "circle" | "arc" };
+  | { kind: "point"; id: string; at: Pt; /** how far (mm) from the place asked */ d: number }
+  | { kind: "curve"; id: string; at: Pt; of: "line" | "circle" | "arc"; d: number };
 /** the nearest place on a segment to `q`, and how far it is */
 function nearest(s: Seg, q: Pt): { at: Pt; d: number } {
   if (s.kind === "line") {
@@ -80,7 +81,7 @@ export function hitAt(p: SketchParams, s: Sol, q: Pt, tol: number): Hit | null {
     const d = hyp(q[0] - at[0], q[1] - at[1]);
     if (d < bd) {
       bd = d;
-      best = { kind: "point", id: x.id, at };
+      best = { kind: "point", id: x.id, at, d };
     }
   }
   if (best) return best;
@@ -92,6 +93,7 @@ export function hitAt(p: SketchParams, s: Sol, q: Pt, tol: number): Hit | null {
       kind: "curve",
       id: seg.name,
       at: n.at,
+      d: n.d,
       of: (p.lines ?? []).some((l) => l.id === seg.name)
         ? "line"
         : (p.arcs ?? []).some((a) => a.id === seg.name)

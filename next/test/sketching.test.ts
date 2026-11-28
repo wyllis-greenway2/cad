@@ -1,3 +1,4 @@
+import { orderCandidates } from "../src/interaction/candidates.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as cam from "../src/camera.ts";
@@ -84,7 +85,13 @@ function rig(ortho = 100) {
     frames,
     px,
     mmPerPx: ortho / H,
-    click: (x: number, y: number, n = 1, shift = false) => sk.click(...px(x, y), n, shift),
+    // a tool on: a click is the sketch's; no tool: the page picks the first of what is under the pointer (`interaction/candidates.ts`)
+    click: (x: number, y: number, n = 1, shift = false) => {
+      const [sx, sy] = px(x, y);
+      if (sk.active()) return sk.click(sx, sy, n, shift);
+      const first = orderCandidates(sk.candidates(sx, sy))[0];
+      return first ? sk.pickItem(first.item, shift) : false;
+    },
     grab: (x: number, y: number) => sk.grab(...px(x, y), false),
     move: (x: number, y: number) => sk.grabMove(...px(x, y)),
     plane: (key: string) => void (on = key),

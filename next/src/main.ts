@@ -10,7 +10,7 @@ import { createBodyOps } from "./bodyops.ts";
 import type { Mark } from "./bodyselect.ts";
 import { createBodySelect } from "./bodyselect.ts";
 import { createBoxSelect } from "./boxselect.ts";
-import { pickAt, pickRay, visibleFrom } from "./interaction/pick.ts";
+import { pickAt, pickRay, visibleFrom, type Hit as BodyHit } from "./interaction/pick.ts";
 import { forward, project, type Axis } from "./camera.ts";
 import * as dev from "./dev.ts";
 import { flushPull, planesOf, type PlaneRef } from "./engine/flush.ts";
@@ -26,6 +26,7 @@ import { moreItems } from "./interaction/moremenu.ts";
 import { createNotices } from "./interaction/notices.ts";
 import { extrudeOp, type Source } from "./interaction/operations.ts";
 import { asideMm, spotBeside, wayAcross } from "./interaction/arrowspot.ts";
+import { chooseCandidate, orderCandidates, type Ranked } from "./interaction/candidates.ts";
 import { insideLoops } from "./interaction/extrude.ts";
 import { editNumber, rowsOf } from "./interaction/steplist.ts";
 import { GROUPS, TOOLS } from "./interaction/toolspec.ts";
@@ -41,7 +42,7 @@ import { facingCamera, vOf, worldFrame, type Frame } from "./planes.ts";
 import { createSelection } from "./selection.ts";
 import { focusOf, gridLevel, gridLevelAt } from "./sense.ts";
 import { onPlane, to2, to3, type ToolKind } from "./sketch.ts";
-import { createSketch } from "./sketchcontrol.ts";
+import { createSketch, type SketchItem } from "./sketchcontrol.ts";
 import { createStepList } from "./steplistdraw.ts";
 import { createStudio } from "./studio.ts";
 import { createToolControl } from "./toolcontrol.ts";
@@ -349,6 +350,45 @@ const auto = createAutoHandles({
     cancel: () => bmove.cancel(),
   },
 });
+// ---- what is under the pointer: ONE ordered list of everything that can be picked (`interaction/candidates.ts`), whatever it is a part of ----
+type Item = SketchItem | { from: "body"; hit: BodyHit };
+const candidatesAt = (x: number, y: number): { list: Ranked<Item>[]; hits: BodyHit[] } => {
+  const hits = bodies.candidates(x, y);
+  return {
+    hits,
+    list: orderCandidates<Item>([
+      ...hits.map((hit): Ranked<Item> => ({
+        rank: hit.kind === "vertex" ? 0 : hit.kind === "edge" ? 1 : 2,
+        px: hit.kind === "face" ? 0 : (hit.near ?? 0),
+        depth: hit.depth,
+        item: { from: "body", hit },
+      })),
+      ...sk.candidates(x, y),
+    ]),
+  };
+};
+let cycleAt: { x: number; y: number; i: number } | null = null; // (where the last click was and which of what was under it it took: a click again on the same place takes the next, `MD-3`)
+/** A click with no tool: what is picked is the first candidate, or the next after the one taken by the click before on the same place. A double or triple click is the bodies' (the first body candidate). Nothing under it: the pick is put away. Returns whether the click was used. */
+const selectAt = (x: number, y: number, shift: boolean, count: number): boolean => {
+  const { list, hits } = candidatesAt(x, y);
+  if (!list.length) {
+    cycleAt = null;
+    return selection.clear();
+  }
+  let i = cycleAt?.i ?? 0;
+  if (count === 1) {
+    i = chooseCandidate(
+      list.length,
+      cycleAt && Math.hypot(x - cycleAt.x, y - cycleAt.y) < 4 ? cycleAt.i : null,
+      cycleAt !== null && Math.hypot(x - cycleAt.x, y - cycleAt.y) < 4,
+    );
+    cycleAt = { x, y, i };
+    if (list.length > 1) say(`${i + 1} of ${list.length} here`);
+  }
+  let item = list[Math.min(i, list.length - 1)]!.item;
+  if (count >= 2) item = list.find((r) => r.item.from === "body")?.item ?? item;
+  return item.from === "body" ? bodies.apply(item.hit, hits, shift, count) : sk.pickItem(item, shift);
+};
 /** a sketch tool is armed and nothing is placed yet: a click on a flat face of a body that stands before the plane begins the sketch on that face (the old app's: the plane takes the drawing only where nothing else is under the pointer) */
 function beginOnFace(x: number, y: number): boolean {
   const f = bodies.faceAt(x, y);
@@ -614,9 +654,10 @@ attach(
     hover: (x, y) => {
       pointer = { x, y };
       if (!game.on && !sk.active() && !ext.active()) {
-        // a closed figure of a drawing under the pointer comes before a body behind it; parts of the drawing before either
-        if (sk.hoverRegion(x, y)) bodies.leave();
-        else bodies.hover(x, y);
+        // the first of what is under the pointer is pointed at, whatever it is a part of (`interaction/candidates.ts`)
+        const first = candidatesAt(x, y).list[0]?.item;
+        sk.hoverFigure(first?.from === "sketch" ? first : null);
+        bodies.setOver(first?.from === "body" ? first.hit : null);
       }
     },
     leave: () => {
@@ -640,7 +681,7 @@ attach(
       if (ext.click(x, y)) return;
       if (sk.drawStep() === 0 && beginOnFace(x, y)) return;
       if (sk.click(x, y, count, shiftHeld || tools.additive())) return;
-      if (!sk.active() && bodies.click(x, y, shiftHeld || tools.additive(), count)) return; // (a tool is on: a click is a point of its figure)
+      if (!sk.active() && selectAt(x, y, shiftHeld || tools.additive(), count)) return; // (a tool is on: a click is a point of its figure)
       if (count === 2 && !sk.active()) {
         // two clicks on a flat sketch or the world's plane turn the view square to it (as the old app's)
         s = view.lookAlong(s, env(), scale(planeNow().frame.normal, -1));

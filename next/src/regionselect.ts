@@ -49,18 +49,11 @@ export function createRegionSelect(K: Core) {
       pickedAt = performance.now();
       return true;
     },
-    /** The pointer is at (x, y): the figure under it is pointed at, unless a part of the drawing is nearer (those come first). Returns whether one is. */
-    hover(x: number, y: number): boolean {
-      over = null;
-      // the planes with a drawing under the pointer, the nearest first: a part of a drawing comes before a figure; a figure behind a body's surface is not there
-      for (const c of hereAll(x, y)) {
-        if (c.behind) continue; // (behind a body's surface: not there)
-        if (hitAt(c.p, solOf(c.p), c.q, c.tol)) return false;
-        if (!regionOf(c.p, c.q)) continue;
-        over = { key: c.key, at: c.q, click: to3(c.f, c.q) };
-        return true;
-      }
-      return false;
+    /** whether a figure of the drawing is under a place of its plane */
+    has: (c: { p: SketchParams; q: P2 }): boolean => regionOf(c.p, c.q) !== null,
+    /** the figure pointed at (null: none), chosen by the page from what is under the pointer (`interaction/candidates.ts`) */
+    point(c: { key: string; q: P2; f: Frame } | null): void {
+      over = c ? { key: c.key, at: c.q, click: to3(c.f, c.q) } : null;
     },
     leave: (): void => {
       over = null;
