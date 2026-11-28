@@ -123,6 +123,11 @@ export function createMarkDraw(host: HTMLElement) {
     }); // (the drag goes on from where it stands, beside another or not)
     box.addEventListener("pointermove", (e) => {
       if (!press) return;
+      // a press whose release was not seen here (let go off the bubble) is over: with no button down it is not a drag (`in_1674`)
+      if (!(e.buttons & 1)) {
+        press = null;
+        return;
+      }
       const dx = e.clientX - press.x,
         dy = e.clientY - press.y;
       if (!press.drag && Math.hypot(dx, dy) < settings.marks.dragPx) return;
@@ -130,6 +135,16 @@ export function createMarkDraw(host: HTMLElement) {
       press.drag = true;
       moved.set(key, { x: press.ox + dx, y: press.oy + dy });
     });
+    for (const t of ["pointercancel", "lostpointercapture"])
+      box.addEventListener(t, () => {
+        if (press?.drag) {
+          swallow = true;
+          setTimeout(() => {
+            swallow = false;
+          }, 0);
+        }
+        press = null;
+      });
     box.addEventListener("pointerup", () => {
       if (press?.drag) {
         swallow = true;
@@ -188,15 +203,24 @@ export function createMarkDraw(host: HTMLElement) {
         e.style.display = "flex";
         for (const q of g) {
           const c = chipOf.get(keyOf(q.mark));
-          if (c) c.style.opacity = String(q.mark.alpha);
+          if (c) {
+            // while one is pointed at, or a number is being typed, the others fade (`in_1674`)
+            const here =
+              hoverKey ??
+              (document.activeElement as HTMLElement | null)?.closest?.("[data-key]")?.getAttribute("data-key") ??
+              null;
+            c.style.transition = "opacity .12s";
+            c.style.opacity = String(here && here !== keyOf(q.mark) ? q.mark.alpha * 0.2 : q.mark.alpha);
+          }
         }
         const w = e.offsetWidth || 28,
           h = e.offsetHeight || 28,
           free = (x0: number, y0: number) =>
             !placed.some((b) => x0 < b.x + b.w + 4 && b.x < x0 + w + 4 && y0 < b.y + b.h + 4 && b.y < y0 + h + 4);
         // the first free place round its spot; one the person moved keeps its first place (its offset is from it)
-        let ax = p.x - w / 2,
-          ay = p.y - h / 2 - 30;
+        const was = anchored.get(k);
+        let ax = was && off ? was.x : p.x - w / 2,
+          ay = was && off ? was.y : p.y - h / 2 - 30;
         if (!off)
           slot: for (const r of p.mark.onSpot ? [0, 30, 48, 66] : [30, 48, 66])
             for (const t of SLOTS) {
@@ -209,8 +233,8 @@ export function createMarkDraw(host: HTMLElement) {
               }
             }
         anchored.set(k, { x: ax, y: ay });
-        const x = ax + (off?.x ?? 0),
-          y = ay + (off?.y ?? 0);
+        const x = Math.max(4, Math.min(window.innerWidth - w - 4, ax + (off?.x ?? 0))), // (a bubble stays on the screen, whatever it was dragged to)
+          y = Math.max(4, Math.min(window.innerHeight - h - 4, ay + (off?.y ?? 0)));
         if (k === hoverKey && !p.mark.onSpot)
           spot = { cx: x + w / 2, cy: y + h / 2, sx: p.x, sy: p.y, offer: p.mark.state === "offer" };
         placed.push({ x, y, w, h });

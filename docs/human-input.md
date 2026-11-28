@@ -6734,3 +6734,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1673 — 2026-11-28 — directive
 > why are there still multiple styles of dashed lines? I want the simplest possible set of parts that can be reused to do what we want. Lets have one dashed line style, lets use the thinner finer dash style that is used for alignment suggestion and snapping when sketching like seen in the image with the two dashed lines showing alignment. What else can we simplify and standardize like this?
+
+## in_1674 — 2026-11-28 — directive
+> okay now some really annoying bugs can happen when you try to drag bubbles around, this one somehow got into a state where every-time the cursor hovers it jumps out of the way and I can never input a dimension. Also sometimes it seems to get into a state where it immediately starts dragging just on hover. Also can we make it so that when a constraint is hovered and being worked on, then other constraints fade away.
