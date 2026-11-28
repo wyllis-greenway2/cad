@@ -225,6 +225,7 @@ export function bubblesOn(
 function measuredBubble(S: System, selection: string[]): Bubble | null {
   const o = ownMeasure(S, selection);
   if (!o || o.measure === null) return null;
+  if (o.kind !== "angle" && Math.abs(o.measure) < 1e-6) return null; // (a length or distance that is nothing is no number to offer: it is what coincident and level say, `in_1647`)
   if (
     S.constraints.some(
       (c) =>

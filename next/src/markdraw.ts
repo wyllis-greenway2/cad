@@ -222,17 +222,40 @@ export function createMarkDraw(host: HTMLElement) {
         const was = anchored.get(k);
         let ax = was && off ? was.x : p.x - w / 2,
           ay = was && off ? was.y : p.y - h / 2 - 30;
-        if (!off)
+        // (every place tried is on the screen: a spot off the window puts its bubbles at the edge, side by side, not on top of each other)
+        const onX = (v: number) => Math.max(4, Math.min(window.innerWidth - w - 4, v)),
+          onY = (v: number) => Math.max(4, Math.min(window.innerHeight - h - 4, v));
+        if (!off) {
+          let found = false;
           slot: for (const r of p.mark.onSpot ? [0, 30, 48, 66] : [30, 48, 66])
             for (const t of SLOTS) {
-              const cx = p.x + Math.cos(t) * r - w / 2,
-                cy = p.y + Math.sin(t) * r - h / 2;
+              const cx = onX(p.x + Math.cos(t) * r - w / 2),
+                cy = onY(p.y + Math.sin(t) * r - h / 2);
               if (free(cx, cy)) {
                 ax = cx;
                 ay = cy;
+                found = true;
                 break slot;
               }
             }
+          if (!found) {
+            // all taken (a crowd, or a spot off the window): the nearest free place on a grid round the first
+            const x0 = onX(p.x - w / 2),
+              y0 = onY(p.y - h / 2);
+            grid: for (let d = 1; d <= 12; d++)
+              for (let i = -d; i <= d; i++)
+                for (let j = -d; j <= d; j++) {
+                  if (Math.max(Math.abs(i), Math.abs(j)) !== d) continue;
+                  const cx = onX(x0 + i * (w + 4)),
+                    cy = onY(y0 + j * (h + 4));
+                  if (free(cx, cy)) {
+                    ax = cx;
+                    ay = cy;
+                    break grid;
+                  }
+                }
+          }
+        }
         anchored.set(k, { x: ax, y: ay });
         const x = Math.max(4, Math.min(window.innerWidth - w - 4, ax + (off?.x ?? 0))), // (a bubble stays on the screen, whatever it was dragged to)
           y = Math.max(4, Math.min(window.innerHeight - h - 4, ay + (off?.y ?? 0)));

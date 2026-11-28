@@ -6761,3 +6761,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1682 — 2026-11-28 — directive
 > fix the five contradictions by correcting the rows
+
+## in_1683 — 2026-11-28 — approval
+> yes do 1, 2 and 3

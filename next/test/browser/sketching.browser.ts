@@ -389,7 +389,53 @@ describe("sketching in a real page", { concurrency: 5 }, () => {
     }
   });
 
-  // [S19] is left out: the page contradicts it (a bubble whose spot is off the window is clamped to the corner, where two such bubbles overlap); see the report.
+  test("[S19] bubbles stand inside the window and keep clear of each other, even when their spot is far off the window", async () => {
+    const { page, errors, close, put, click, boxes } = await open("");
+    try {
+      // two lines that meet far outside the window: the angle and the perpendicular have no place on the screen
+      await put({
+        arcs: [],
+        circles: [],
+        constraints: [],
+        lines: [
+          { a: "P1", b: "P2", id: "L1" },
+          { a: "P3", b: "P4", id: "L2" },
+        ],
+        points: [
+          { id: "P1", x: 10, y: 20 },
+          { id: "P2", x: 20, y: 28 },
+          { id: "P3", x: 36, y: 20 },
+          { id: "P4", x: 44, y: 32 },
+        ],
+      });
+      await click(15, 24);
+      await page.keyboard.down("Shift");
+      await click(40, 26);
+      await page.keyboard.up("Shift");
+      await page.waitForTimeout(500);
+      const bs = (await boxes()) as { l: number; t: number; w: number; h: number }[];
+      assert.ok(bs.length >= 2, `there are several bubbles: ${bs.length}`);
+      const size = page.viewportSize()!;
+      for (const b of bs) {
+        assert.ok(
+          b.l >= 0 && b.t >= 0 && b.l + b.w <= size.width && b.t + b.h <= size.height,
+          `inside the window: ${JSON.stringify(b)}`,
+        );
+      }
+      for (let i = 0; i < bs.length; i++)
+        for (let j = i + 1; j < bs.length; j++) {
+          const a = bs[i]!,
+            b = bs[j]!;
+          assert.ok(
+            a.l + a.w <= b.l + 1 || b.l + b.w <= a.l + 1 || a.t + a.h <= b.t + 1 || b.t + b.h <= a.t + 1,
+            `bubbles ${i} and ${j} do not overlap: ${JSON.stringify([a, b])}`,
+          );
+        }
+      assert.deepEqual(errors, []);
+    } finally {
+      await close();
+    }
+  });
 
   test("[S22] a constraint is one lock-and-icon bubble with a state: a click on an offer applies it, a click on an applied one lets it go", async () => {
     const { page, errors, close, put, click, def, bubble, selection } = await open("");

@@ -1016,3 +1016,88 @@ test("[S28] the relations are the merged set, with no equal length or equal radi
   } as unknown as SketchParams).constraints!.map((c) => c.kind);
   assert.ok(eq.every((k) => names.includes(k)) && eq.includes("radius") && eq.includes("length"));
 });
+
+// ---------------------------------------------------------------- what the first tests left out (`in_1683`)
+test("[S2] two clicks at free places make one segment and end the chain: it goes on only from a point already there", () => {
+  const r = rig();
+  r.sk.start("line");
+  r.click(0, 0);
+  r.click(10, 0);
+  assert.equal(r.def().lines!.length, 1);
+  assert.equal(r.sk.drawStep(), 0, "the chain is over");
+  r.click(30, 30);
+  assert.equal(r.def().lines!.length, 1, "a click at a free place starts a new figure, it makes no second segment");
+});
+
+test("[S13] the drop of a dragged point makes no constraint: it is placed, hints only place", () => {
+  const r = rig();
+  load(r, free());
+  r.grab(10, 0);
+  r.move(15, 10);
+  r.move(20.1, 20.1);
+  r.sk.grabEnd();
+  assert.deepEqual(r.def().constraints, [], "no coincident");
+  load(r, free());
+  r.grab(10, 0);
+  r.move(25, 20.1);
+  r.sk.grabEnd();
+  assert.deepEqual(r.def().constraints, [], "no on");
+});
+
+test("[S23] a length or distance of nothing is no number to offer: two points in one place show no measured number", () => {
+  const p: SketchParams = {
+    points: [P("A", 5, 5), P("B", 5, 5)],
+    lines: [],
+    circles: [],
+    arcs: [],
+    constraints: [],
+  };
+  const S = viewSystem(p, sol(p));
+  const m = marksFor(S, ["A", "B"], { now: 0 });
+  assert.equal(
+    m.filter((x) => x.kind === "dimension").length,
+    0,
+    `no number: ${m.map((x) => x.id + ":" + (x.value ?? "")).join()}`,
+  );
+  const q: SketchParams = { ...p, points: [P("A", 5, 5), P("B", 15, 5)] };
+  assert.ok(
+    marksFor(viewSystem(q, sol(q)), ["A", "B"], { now: 0 }).some((x) => x.kind === "dimension"),
+    "while a real distance is offered as a number",
+  );
+});
+
+test("[S28] the relations are exactly the merged set and nothing else", () => {
+  assert.deepEqual(Object.keys(RELATIONS).sort(), [
+    "angle",
+    "coincident",
+    "distance",
+    "fixed",
+    "horizontal",
+    "horizontalDistance",
+    "length",
+    "midpoint",
+    "on",
+    "parallel",
+    "perpendicular",
+    "pointLineDistance",
+    "radius",
+    "symmetric",
+    "tangent",
+    "vertical",
+    "verticalDistance",
+  ]);
+});
+
+test("[S17 S32] the strokes' colours by meaning: blue for selected and for what an applied constraint is about, yellow for what is suggested (the dashed line too), neutral for the applied dashed line, red only for a refusal", async () => {
+  const { STROKE } = await import("../src/interaction/style.ts");
+  assert.equal(STROKE.selected.tone, "figure", "selected is blue");
+  assert.equal(STROKE.lit.tone, "figure", "what an applied constraint is about is lit blue");
+  assert.equal(STROKE.litOffer.tone, "ties", "what an offer is about is yellow");
+  assert.equal(STROKE.dashOffer.tone, "ties", "a suggested dashed line is yellow");
+  assert.equal(STROKE.dash.tone, "note", "an applied or measured dashed line is neutral");
+  assert.ok(STROKE.dash.dashed && STROKE.dashOffer.dashed, "the two dashed lines");
+  const red = Object.entries(STROKE)
+    .filter(([, v]) => v.tone === "refused")
+    .map(([k]) => k);
+  assert.deepEqual(red, ["cut"], "red is used for the part a trim would cut, and nothing else");
+});
