@@ -6781,3 +6781,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1688 — 2026-11-28 — question
 > what are the next problems to fix and why are they problems?
+
+## in_1689 — 2026-11-28 — question
+> are you sure 1 isn't a feature not a bug to keep orthographic ease in and out stable? are you sure 2 isn't a feature not a bug too?
