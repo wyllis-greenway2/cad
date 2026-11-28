@@ -6784,3 +6784,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1689 — 2026-11-28 — question
 > are you sure 1 isn't a feature not a bug to keep orthographic ease in and out stable? are you sure 2 isn't a feature not a bug too?
+
+## in_1690 — 2026-11-28 — directive
+> do the untrue comments, dead branches, and duplicated helpers

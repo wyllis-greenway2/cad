@@ -31,8 +31,7 @@ export interface SketchHost {
   /** the page's one selection (`selection.ts`): what is selected in a sketch is kept there, so selecting on a body puts it away */
   selection: Selection;
 }
-/** one thing a pointed-at mark draws, in the plane: an arrow (a dashed line and a tip that stops short), a plain dashed line, a thin line, or a curve (`in_1675`) */
-/** `plain`: neutral even for an offer's parts (a measure is a number, not a suggestion) */
+/** one thing a pointed-at mark draws, in the plane: an arrow (a dashed line and a tip that stops short), a dashed line, a thin line, or a curve (`in_1675`); `plain` is neutral even for an offer's parts (a measure is a number, not a suggestion) */
 export type Shape =
   | {
       t: "arrow";
@@ -122,6 +121,11 @@ export function createCore(host: SketchHost, on?: (label: string, merge?: string
     const has = new Set([...p.points, ...(p.lines ?? []), ...(p.circles ?? []), ...(p.arcs ?? [])].map((x) => x.id));
     return ids.filter((id) => has.has(id));
   };
+  /** a click on a part picks it (with Shift: adds it to what is picked, or takes it out if it was already) */
+  const pick = (key: string, id: string, shift: boolean): void => {
+    const was = selected(key);
+    sel.setSketch(key, shift ? (was.includes(id) ? was.filter((q) => q !== id) : [...was, id]) : [id]);
+  };
   /** the dash of a guide, as the old app's (`settings.helpers.dash` of the view's distance; worked from the view's height over twice the tangent of half its angle, so it is the same in the straight view) */
   const dashAt = (f: Frame, q: P2) => {
     const { cam } = host.view();
@@ -202,6 +206,7 @@ export function createCore(host: SketchHost, on?: (label: string, merge?: string
     solOf,
     current,
     selected,
+    pick,
     dashAt,
     mmPerPx,
     px,

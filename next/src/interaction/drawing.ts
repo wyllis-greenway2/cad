@@ -286,12 +286,7 @@ export function constrain(
       why: `${o.label} cannot hold with ${o.holding.join(", ") || "what is there"}`,
       victims: o.victims.filter((v) => !v.startsWith("offer.")),
     };
-  if (
-    value !== undefined &&
-    o.dimensional &&
-    !(value > 0) &&
-    !(o.kind === "angle" || o.kind === "horizontalDistance" || o.kind === "verticalDistance")
-  )
+  if (value !== undefined && o.dimensional && !numberFits(o.kind, value))
     return { ok: false, why: "a size must be more than nothing", victims: [] };
   const id = nextId(p, "c"),
     c: Constraint = {
@@ -307,12 +302,14 @@ export function constrain(
   const k = keep({ ...p, constraints: [...(p.constraints ?? []), c] }, hold);
   return k.ok ? { ...k, added: id } : k;
 }
+/** an angle and the two signed distances may be zero or negative; any other number is a size and must be more than nothing */
+const numberFits = (kind: string, value: number): boolean =>
+  value > 0 || kind === "angle" || kind === "horizontalDistance" || kind === "verticalDistance";
 /** a new number for a dimension */
 export function retype(p: SketchParams, id: string, value: number): Kept {
   const c = (p.constraints ?? []).find((q) => q.id === id);
   if (!c || !RANGEABLE.has(c.kind)) return { ok: false, why: "that is not a number that can be typed", victims: [] };
-  if (!(value > 0) && !(c.kind === "angle" || c.kind === "horizontalDistance" || c.kind === "verticalDistance"))
-    return { ok: false, why: "a size must be more than nothing", victims: [id] };
+  if (!numberFits(c.kind, value)) return { ok: false, why: "a size must be more than nothing", victims: [id] };
   const k = keep({
     ...p,
     constraints: (p.constraints ?? []).map((q) => (q.id === id ? { ...q, value, min: undefined, max: undefined } : q)),

@@ -20,7 +20,6 @@ import type { PlacedMark } from "./markdraw.ts";
 import type { Frame } from "./planes.ts";
 import { vOf } from "./planes.ts";
 import { settings } from "./settings.ts";
-import type { Tone } from "./interaction/style.ts";
 import { to3, type P2, type ToolKind } from "./sketch.ts";
 import { createCore, type DrawLine, type Shape, type SketchHost } from "./sketchcore.ts";
 import { createDrag } from "./sketchdrag.ts";
@@ -55,6 +54,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     solOf,
     current,
     selected,
+    pick,
     dashAt,
     mmPerPx,
     dot,
@@ -66,7 +66,6 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     polyline,
   } = K;
   let tool: Tool | null = null;
-  /** a pixel's worth of the plane in mm, where the pointer is */
   /** where a click would put the place: on a point or curve as drawn, else drawn to the helpers' places (they place, they never constrain, `dec_hints_place_only`, `in_1579`) */
   type PlaceResult = {
     ref: Ref;
@@ -76,7 +75,8 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
   };
   let memo: { tool: Tool | null; p: SketchParams; x: number; y: number; mm: number; res: PlaceResult } | null = null; // (the same place is asked for by the preview, the chip and a click)
   const placed = (c: { p: SketchParams; q: P2; tol: number; mm: number }, s: Sol): PlaceResult => {
-    if (memo && memo.tool === tool && memo.p === c.p && memo.x === c.q[0] && memo.y === c.q[1] && memo.mm === c.mm) return memo.res;
+    if (memo && memo.tool === tool && memo.p === c.p && memo.x === c.q[0] && memo.y === c.q[1] && memo.mm === c.mm)
+      return memo.res;
     const res = placeOf(c, s);
     memo = { tool, p: c.p, x: c.q[0], y: c.q[1], mm: c.mm, res };
     return res;
@@ -101,14 +101,6 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     return h.acted.length
       ? { ref: co?.sources[0] ? { id: co.sources[0] } : { at: h.at }, help: h, free, measures: [] }
       : { ref: r, help: h.holds.length ? h : null, free, measures: [] };
-  };
-  /** an angle as the old app draws it: a thin arc at the corner of the two lines (about 34 px across, not past the shorter line), and where its number stands on it */
-  /** a figure made with a click: kept if the engine accepts it */
-  const commit = (key: string, next: SketchParams | null, label: string) => {
-    if (!next) return;
-    const k = keep(next);
-    if (k.ok) set(key, k.params, label);
-    else fail(k.why, k.victims);
   };
   let lastPointer: { x: number; y: number } | null = null,
     clickAt: ((x: number, y: number, count: number) => boolean) | null = null;
@@ -261,9 +253,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
           if (had) sel.clear();
           return had;
         } // (only a sketch selection is the sketch's to put away: a click that hits no part goes on to the bodies)
-        const was = selected(c.key),
-          id = h.id;
-        sel.setSketch(c.key, shift ? (was.includes(id) ? was.filter((q) => q !== id) : [...was, id]) : [id]);
+        pick(c.key, h.id, shift);
         return true;
       }
       if (count >= 2 && tool.kind === "line") {

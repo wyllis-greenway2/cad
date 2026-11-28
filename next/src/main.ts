@@ -604,9 +604,8 @@ function frame(now: number) {
   last = now;
   s = view.advance(s, env(now), dt);
   const g = game.tick(dt);
-  if (g.on && view.flightReady(s)) s = view.fly(s, env(now), dt, g);
-  if (!g.on && ring.style.display === "block") endGame();
-  ring.style.display = g.on ? "block" : "none";
+  if (game.on && view.flightReady(s)) s = view.fly(s, env(now), dt, g);
+  ring.style.display = game.on ? "block" : "none";
   const e = env(now),
     d = view.drawing(s, e, pointer),
     orb = orbc.drawing(game.on ? null : pointer);
@@ -660,11 +659,6 @@ Object.assign(window, {
   __undo: undo,
   __restore: restore,
   __proj3: (p: [number, number, number]) => {
-    const e = env(),
-      q = project(s.c, p, e.w, e.h);
-    return [q.x, q.y];
-  },
-  __proj: (p: [number, number, number]) => {
     const e = env(),
       q = project(s.c, p, e.w, e.h);
     return [q.x, q.y];

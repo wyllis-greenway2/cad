@@ -87,6 +87,11 @@ export function straightDirection(axis: Axis, side: 1 | -1): { yaw: number; pitc
   if (axis === 0) return { yaw: side === 1 ? Math.PI : 0, pitch: 0 };
   return { yaw: side === 1 ? -HALF_PI : HALF_PI, pitch: 0 };
 }
+/** The yaw and pitch of a view looking along `dir` (a unit vector). Straight up or down it has no yaw of its own: it takes the one the Z button's view has (Y up). */
+export function directionOf(dir: V3): { yaw: number; pitch: number } {
+  const pitch = Math.asin(clamp(dir[2], -1, 1));
+  return Math.hypot(dir[0], dir[1]) < 1e-9 ? { yaw: HALF_PI, pitch } : { yaw: Math.atan2(dir[1], dir[0]), pitch };
+}
 /** The side of the plane across `axis` that the eye is on, as it looks at `focus` (the side whose view shows the face). */
 export const sideOn = (c: Cam, focus: V3, axis: Axis): 1 | -1 => (c.eye[axis] - focus[axis] >= 0 ? 1 : -1);
 /** The axis the view is nearest to coming along, how near (0 at the diagonal, 1 along it) and from which side (`in_295`). */

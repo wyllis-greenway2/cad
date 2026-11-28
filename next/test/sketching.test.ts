@@ -8,7 +8,7 @@ import type { SketchParams } from "../src/engine/sketch.ts";
 import { RELATIONS, type System } from "../src/engine/solver.ts";
 import { trimAt } from "../src/engine/trim.ts";
 import { STATE } from "../src/chipdraw.ts";
-import { iconOf, scopeOf, whereOf } from "../src/interaction/bubbles.ts";
+import { iconOf, whereOf } from "../src/interaction/bubbles.ts";
 import { dragRadius, dragTo, pinsOf } from "../src/interaction/dragging.ts";
 import {
   addCircle,

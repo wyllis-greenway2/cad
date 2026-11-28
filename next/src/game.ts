@@ -16,7 +16,7 @@ export interface Game {
   /** The mouse moved by this much (pixels) while the game is on. */
   look(dx: number, dy: number): void;
   /** Time passes: the speeds (in depths ahead per second, ahead and across, signed) and the turning to apply this tick (pixels). */
-  tick(dtSec: number): { on: boolean; ahead: number; side: number; dx: number; dy: number };
+  tick(dtSec: number): { ahead: number; side: number; dx: number; dy: number };
   end(): void;
   readonly on: boolean;
 }
@@ -59,7 +59,7 @@ export function createGame(): Game {
     tick(dt) {
       if (!on) {
         pdx = pdy = 0;
-        return { on, ahead: 0, side: 0, dx: 0, dy: 0 };
+        return { ahead: 0, side: 0, dx: 0, dy: 0 };
       }
       const sum = (m: Record<string, number>) => [...held].reduce((s, k) => s + (m[k] ?? 0), 0);
       ahead = toward(ahead, sum(AHEAD) * settings.input.flySpeed, dt);
@@ -69,7 +69,7 @@ export function createGame(): Game {
         dy = pdy * f;
       pdx -= dx;
       pdy -= dy;
-      return { on, ahead, side, dx, dy };
+      return { ahead, side, dx, dy };
     },
     end() {
       held.clear();

@@ -117,7 +117,7 @@ function lensGo(
  * given up and the perspective comes back smoothly from where it is,
  * never staying half shut (`in_471`); a change that is already bringing it back goes on, with the direction now the hands'.
  */
-export function takeOver(s: ViewState, e: Env, pivot?: V3): ViewState {
+function takeOver(s: ViewState, e: Env, pivot?: V3): ViewState {
   if (!s.go) return s;
   if (!s.go.eyeTo && s.go.lens === 1) {
     const { dir: _unused, ...keep } = s.go;
@@ -133,7 +133,9 @@ export function takeOver(s: ViewState, e: Env, pivot?: V3): ViewState {
 function heldOnAxis(s: ViewState, e: Env): V3 | null {
   if (!s.held) return null;
   const q = cam.project(s.c, s.held, e.w, e.h);
-  return q.depth > settings.view.minSurfaceMm && q.x >= 0 && q.x <= e.w && q.y >= 0 && q.y <= e.h ? cam.onAxis(s.c, s.held) : null;
+  return q.depth > settings.view.minSurfaceMm && q.x >= 0 && q.x <= e.w && q.y >= 0 && q.y <= e.h
+    ? cam.onAxis(s.c, s.held)
+    : null;
 }
 /** Look straight at the plane across `axis` (again: from the other side). It becomes the plane that is on. */
 export function lookAt(s: ViewState, e: Env, axis: Axis): ViewState {
@@ -151,16 +153,12 @@ export function lookAt(s: ViewState, e: Env, axis: Axis): ViewState {
 }
 /** Look straight along `dir` (the way the eye looks, as the caller has taken the eye's side): the view turns to that direction and becomes orthographic, as for a world plane. Straight up or down it has no yaw of its own, so it takes the one the Z button's view has (Y up). */
 export function lookAlong(s: ViewState, e: Env, dir: V3): ViewState {
-  const vertical = Math.hypot(dir[0], dir[1]) < 1e-9;
-  return lensGo(s, e, focusOnAxis(s, e), settings.view.morphLens, settings.view.transitionMs, {
-    yaw: vertical ? cam.straightDirection(2, 1).yaw : Math.atan2(dir[1], dir[0]),
-    pitch: Math.asin(clamp(dir[2], -1, 1)),
-  });
+  return lensGo(s, e, focusOnAxis(s, e), settings.view.morphLens, settings.view.transitionMs, cam.directionOf(dir));
 }
-/** The view goes to look at `hold` (a place it must keep in the middle) along `dir`, perspective, from `reach` mm away, the way a straight view is left to see a pull (`in_1566`). */
-export function lookObliqueAt(s: ViewState, e: Env, hold: V3, dir: V3, reach = 0): ViewState {
+/** The view flies to look at `hold` (a place it ends with in the middle) along `dir`, perspective, from `away` mm away, the way a straight view is left to see a pull (`in_1566`). */
+export function lookObliqueAt(s: ViewState, e: Env, hold: V3, dir: V3, away = 0): ViewState {
   const c = cam.leaveOrtho(s.c, focusOnAxis(s, e)),
-    dist = Math.max(reach, settings.view.minSurfaceMm * 10); // (not the depth it had: in a straight view the eye is far back)
+    dist = Math.max(away, settings.view.minSurfaceMm * 10); // (not the depth it had: in a straight view the eye is far back)
   return {
     ...s,
     c,
@@ -171,7 +169,7 @@ export function lookObliqueAt(s: ViewState, e: Env, hold: V3, dir: V3, reach = 0
       from: c,
       lens: 1,
       hold,
-      dir: { yaw: Math.atan2(dir[1], dir[0]), pitch: Math.asin(clamp(dir[2], -1, 1)) },
+      dir: cam.directionOf(dir),
       eyeTo: [hold[0] - dir[0] * dist, hold[1] - dir[1] * dist, hold[2] - dir[2] * dist],
     },
   };
@@ -259,12 +257,14 @@ export function gesture(s: ViewState, e: Env, dx: number, dy: number, factor: nu
 /** What a slide follows: the surface or point chosen when the drag began, else the point looked at. */
 const grabDepth = (s: ViewState, e: Env): number =>
   s.drag?.depth ?? Math.max(settings.view.minSurfaceMm, cam.forwardDepth(s.c, focus(s, e)));
+/** The panes have faded in enough to be pointed at and clicked. */
+const paneUsable = (s: ViewState): boolean => paneLevel(s.c) > settings.world.paneUsableLevel;
 /** A click: on a pane (not on a face that is not in the pane's own plane, `in_1409`) it is to look straight at that plane. */
 export function click(s: ViewState, e: Env, x: number, y: number): ViewState {
   if (s.worldHidden) return s;
   const r = rayAt(s, e, x, y),
     p = paneAt(e.model, r.o, r.d, gizmoScale(s));
-  return p && paneLevel(s.c) > settings.world.paneUsableLevel ? lookAt(s, e, p.axis) : s;
+  return p && paneUsable(s) ? lookAt(s, e, p.axis) : s;
 }
 
 // ---- time ----
@@ -275,7 +275,7 @@ export function advance(s: ViewState, e: Env, dt: number): ViewState {
     const k = Math.min(1, (e.now - go.t0) / go.ms);
     c = cam.stepGo(go, ease(k), c);
     if (k >= 1) {
-      c = go.lens === 1 ? { ...c, lens: 1 } : go.eyeTo ? c : cam.enterOrtho({ ...c, lens: go.lens }, go.hold);
+      c = go.lens === 1 ? { ...c, lens: 1 } : cam.enterOrtho({ ...c, lens: go.lens }, go.hold); // (a flight, `eyeTo`, always ends in full perspective)
       go = null;
     }
   }
@@ -301,10 +301,7 @@ export function gizmoScale(s: ViewState): number {
 export function underPointer(s: ViewState, e: Env, pointer: Pointer | null) {
   const r = pointer || e.gameOn ? rayAt(s, e, pointer?.x ?? 0, pointer?.y ?? 0) : null;
   const hit = r ? hitThings(e.model, r.o, r.d) : null;
-  const pane =
-    r && !s.worldHidden && paneLevel(s.c) > settings.world.paneUsableLevel
-      ? paneAt(e.model, r.o, r.d, gizmoScale(s))
-      : null;
+  const pane = r && !s.worldHidden && paneUsable(s) ? paneAt(e.model, r.o, r.d, gizmoScale(s)) : null;
   const flat = r && !hit && !pane ? planeHit(r.o, r.d, s.plane) : null;
   const radius = (t: number) =>
     (settings.orb.radius * cam.viewHeight(s.c, t)) / (2 * Math.tan((settings.view.fovDeg * Math.PI) / 360)); // (a share of the view's height: the same size on the screen wherever it is)

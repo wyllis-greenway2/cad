@@ -1,4 +1,4 @@
-// What to offer for a selection (E51, E55, E57): the relations that exist for exactly the parts selected, in one table; which already hold (shown, not added), which are already in the sketch or follow from it (said, nothing added twice),
+// What to offer for a selection: the relations that exist for exactly the parts selected, in one table; which already hold (shown, not added), which are already in the sketch or follow from it (said, nothing added twice),
 // which would be refused (with what holds them back named, so the screen can show them red and offer to delete), and which do not apply (with the reason). And what a relation ties the selection to (the amber).
 // Dimensions are measure, then lock: the offer carries the number the parts are now. Pure; reads the system; changes nothing.
 import { fits, standingOf } from "../engine/relations.ts";
@@ -55,8 +55,8 @@ export function measure(S: System, kind: Relation, parts: string[]): number | nu
       : r[0]!
     : null;
 }
-/** the relations for exactly these parts, in the order the person selected them: the first moves */
 const memo = new WeakMap<System, Map<string, { offers: Offer[]; inapplicable: Inapplicable[] }>>(); // (the same system and selection are asked about by the bar, the bubbles and the drawing, every frame)
+/** the relations for exactly these parts, in the order the person selected them: the first moves */
 export function offersFor(S: System, selection: string[]): { offers: Offer[]; inapplicable: Inapplicable[] } {
   const key = selection.join("\u0000"),
     hit = memo.get(S)?.get(key);

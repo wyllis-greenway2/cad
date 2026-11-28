@@ -43,9 +43,10 @@ export interface Recent {
 /** how much of an offer is left at `now` (1 until the last `fadeMs`, then down to 0) */
 export const alphaAt = (until: number, now: number): number =>
   Math.max(0, Math.min(1, (until - now) / settings.marks.fadeMs));
-/** what is offered for one selection: for a part alone, what is already true (`holds`: a line is level, a point is on a line) and the near ones (true now with another part), the rest is in the menu; for two or more parts chosen together, everything that fits them and would be accepted, true yet or not */
+/** one offer and where its bubble stands */
 type Offered = { item: BarItem; at: [number, number] };
 const memo = new WeakMap<System, { key: string; out: Offered[] }>(); // (the same system and selection are asked about every frame; only the last answer is kept, so a zoom does not pile them up)
+/** what is offered for one selection: for a part alone, what is already true (`holds`: a line is level, a point is on a line) and the near ones (true now with another part), the rest is in the menu; for two or more parts chosen together, everything that fits them and would be accepted, true yet or not */
 function offersOf(S: System, selection: string[], reach?: number): Offered[] {
   const key = `${selection.join("\u0000")}|${reach === undefined ? "" : reach.toFixed(3)}`,
     hit = memo.get(S);

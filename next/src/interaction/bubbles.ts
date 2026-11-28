@@ -39,7 +39,6 @@ export interface Flash {
   refused?: readonly string[];
   applied?: readonly string[];
 }
-/** a constraint is shown when one of its parts is selected, and while it flashes (a refusal shows what holds it back, wherever it is) */
 
 const ICON: Partial<Record<Relation, string>> = {
   on: "onLine",
@@ -61,13 +60,15 @@ export const numberText = (v: number): string => String(Math.round(v * 1000) / 1
 const rangeText = (c: Constraint, k = 1): string =>
   `${c.min !== undefined ? numberText(c.min * k) : ""}–${c.max !== undefined ? numberText(c.max * k) : ""}`;
 
+/** Where a point of the sketch is (null: there is none by that id). */
+const pointOf = (S: System, id: string): [number, number] | null => {
+  const p = S.points.find((x) => x.id === id);
+  return p ? [p.x, p.y] : null;
+};
 /** The place of a part in the sketch: a point is itself, a line its middle, a circle the top right of its edge. */
 function placeOf(S: System, id: string, radii: Record<string, number>): [number, number] {
   const k = kindOf(id, S),
-    pt = (q: string) => {
-      const p = S.points.find((x) => x.id === q)!;
-      return [p.x, p.y] as [number, number];
-    };
+    pt = (q: string) => pointOf(S, q)!;
   if (k === "point") return pt(id);
   if (k === "line") {
     const l = S.lines.find((x) => x.id === id)!,
@@ -84,10 +85,7 @@ function placeOf(S: System, id: string, radii: Record<string, number>): [number,
 export function whereOf(S: System, parts: readonly string[]): [number, number] {
   const radii = Object.fromEntries(S.circles.map((q) => [q.id, q.r])),
     kinds = parts.map((id) => kindOf(id, S)),
-    pt = (q: string) => {
-      const p = S.points.find((x) => x.id === q)!;
-      return [p.x, p.y] as [number, number];
-    };
+    pt = (q: string) => pointOf(S, q)!;
   const ip = kinds.indexOf("point");
   if (ip >= 0) return pt(parts[ip]!);
   const ic = kinds.indexOf("circle");
@@ -265,10 +263,7 @@ export interface DimLine {
 }
 /** the line a measured number is drawn on, `off` mm away from what it measures where it stands off (null: none, as an angle, which has its arc): a circle's size a radial line from the centre in the direction with most room, a length or distance a line beside the two ends, an across or up-and-down distance level or upright, a distance to a line square to it */
 export function dimLine(S: System, kind: string, parts: readonly string[], off: number): DimLine | null {
-  const pt = (id: string) => {
-    const q = S.points.find((x) => x.id === id);
-    return q ? ([q.x, q.y] as [number, number]) : null;
-  };
+  const pt = (id: string) => pointOf(S, id);
   const beside = (p: [number, number], q: [number, number]): DimLine => {
     const d = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1,
       n: [number, number] = [-(q[1] - p[1]) / d, (q[0] - p[0]) / d],
@@ -372,10 +367,7 @@ export function alignLine(
   parts: readonly string[],
   ext: number,
 ): { a: [number, number]; b: [number, number] } | null {
-  const pt = (id: string): [number, number] | null => {
-    const q = S.points.find((x) => x.id === id);
-    return q ? [q.x, q.y] : null;
-  };
+  const pt = (id: string) => pointOf(S, id);
   if ((kind === "horizontal" || kind === "vertical") && parts.length === 2) {
     const p = pt(parts[0]!),
       q = pt(parts[1]!);
@@ -452,9 +444,9 @@ export function angleMark(
   const line = (id: string) => {
     const l = S.lines.find((x) => x.id === id);
     if (!l) return null;
-    const a = S.points.find((p) => p.id === l.a),
-      b = S.points.find((p) => p.id === l.b);
-    return a && b ? { a: [a.x, a.y] as [number, number], b: [b.x, b.y] as [number, number] } : null;
+    const a = pointOf(S, l.a),
+      b = pointOf(S, l.b);
+    return a && b ? { a, b } : null;
   };
   const u = line(parts[0]!),
     w = line(parts[1]!);

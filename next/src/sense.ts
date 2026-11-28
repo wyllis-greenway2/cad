@@ -6,10 +6,14 @@ import { centreOf, hitThings, type Scene, type Thing } from "./scene.ts";
 import { settings } from "./settings.ts";
 import { add, len, scale, sub, type V3 } from "./vec.ts";
 
-/** The world's own axes, as one thing, for when the model has nothing (and so there is still something to be lost from). */
 /** The fog's reach when there is none (an orthographic view: everything is at the same scale). */
 const NO_FOG = 1e9;
-const WORLD: Thing = { id: "world", lo: [0, 0, 0], hi: [24, 24, 24] };
+/** The world's own axes, as one thing, for when the model has nothing (and so there is still something to be lost from). */
+const WORLD: Thing = {
+  id: "world",
+  lo: [0, 0, 0],
+  hi: [settings.world.axisLengthMm, settings.world.axisLengthMm, settings.world.axisLengthMm],
+};
 const thingsOf = (sc: Scene): Thing[] => (sc.things.length ? sc.things : [WORLD]);
 
 /**
@@ -32,45 +36,34 @@ export function focusOf(sc: Scene, c: Cam, w: number, h: number): V3 {
   }
   return sum > 0 ? scale(acc, 1 / sum) : add(c.eye, scale(forward(c), scaleAmong(sc, c)));
 }
-/** How big a thing looks: the diagonal of its box on the screen, in heights of the view. */
-function apparentSize(c: Cam, t: Thing, w: number, h: number): number {
-  let x0 = Infinity,
-    y0 = Infinity,
-    x1 = -Infinity,
-    y1 = -Infinity;
-  for (const x of [t.lo[0], t.hi[0]])
-    for (const y of [t.lo[1], t.hi[1]])
-      for (const z of [t.lo[2], t.hi[2]]) {
-        const q = project(c, [x, y, z], w, h);
-        x0 = Math.min(x0, q.x);
-        x1 = Math.max(x1, q.x);
-        y0 = Math.min(y0, q.y);
-        y1 = Math.max(y1, q.y);
-      }
-  return Math.max(Math.hypot(x1 - x0, y1 - y0) / h, 1e-6);
-}
-
-/** Does any of the thing's box show in the view, and big enough to see (6 px across, or a lone point on the screen)? Boxes behind the eye do not count. */
-function inView(c: Cam, w: number, h: number, t: Thing): boolean {
-  let x0 = Infinity,
-    y0 = Infinity,
-    x1 = -Infinity,
-    y1 = -Infinity,
-    front = 0;
+/** The box of the screen a thing's own box covers: the corners in front of the eye (an orthographic view has no behind: the eye is only where the view is held), and how many there are. */
+function screenBox(c: Cam, w: number, h: number, t: Thing) {
+  const b = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity, n: 0 };
   for (const x of [t.lo[0], t.hi[0]])
     for (const y of [t.lo[1], t.hi[1]])
       for (const z of [t.lo[2], t.hi[2]]) {
         const p = project(c, [x, y, z], w, h);
-        if (c.ortho === null && p.depth <= 1e-3) continue; // (an orthographic view has no behind: the eye is only where the view is held)
-        front++;
-        x0 = Math.min(x0, p.x);
-        x1 = Math.max(x1, p.x);
-        y0 = Math.min(y0, p.y);
-        y1 = Math.max(y1, p.y);
+        if (c.ortho === null && p.depth <= 1e-3) continue;
+        b.n++;
+        b.x0 = Math.min(b.x0, p.x);
+        b.x1 = Math.max(b.x1, p.x);
+        b.y0 = Math.min(b.y0, p.y);
+        b.y1 = Math.max(b.y1, p.y);
       }
-  if (!front || x1 < 0 || x0 > w || y1 < 0 || y0 > h) return false;
+  return b;
+}
+/** How big a thing looks: the diagonal of its box on the screen, in heights of the view. */
+const apparentSize = (c: Cam, t: Thing, w: number, h: number): number => {
+  const b = screenBox(c, w, h, t);
+  return Math.max(b.n ? Math.hypot(b.x1 - b.x0, b.y1 - b.y0) / h : 0, 1e-6);
+};
+
+/** Does any of the thing's box show in the view, and big enough to see (6 px across, or a lone point on the screen)? Boxes behind the eye do not count. */
+function inView(c: Cam, w: number, h: number, t: Thing): boolean {
+  const b = screenBox(c, w, h, t);
+  if (!b.n || b.x1 < 0 || b.x0 > w || b.y1 < 0 || b.y0 > h) return false;
   const lone = len(sub(t.hi, t.lo)) < 1e-6;
-  return lone || Math.max(x1 - x0, y1 - y0) >= settings.view.visiblePx;
+  return lone || Math.max(b.x1 - b.x0, b.y1 - b.y0) >= settings.view.visiblePx;
 }
 export const nothingInView = (sc: Scene, c: Cam, w: number, h: number): boolean =>
   !thingsOf(sc).some((t) => inView(c, w, h, t));
@@ -152,7 +145,7 @@ export function paneAt(sc: Scene, from: V3, dir: V3, gizmoScale = 1): { axis: 0 
 }
 
 /**
- * The scale of what the eye is among: how far the nearest thing's middle is, never less than that thing's own size or `minFlightMm`. A step of
+ * The scale of what the eye is among: how far the nearest thing's middle is, never less than half that thing's size or `minFlightMm`. A step of
  * flight or of the wheel is a share of it, so the eye comes to a wall, goes
  * through it and crosses the inside at a pace that follows the scale of things (`in_1411`); the depth range of the drawing is a multiple of
  * it; and with nothing to look at, it is how far ahead the point looked at is.

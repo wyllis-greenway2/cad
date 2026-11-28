@@ -1,7 +1,7 @@
 // The info bar on the page (`dec_three_surfaces`, `in_1598`, `in_1601`): one row standing below its subject and a little to its left (the old app's place: 67 px under it, 6 px before it). The left of it is what is so: a constraint is a round button (a click takes
 // it away), a number is a pill with its padlock (a click on the number types a new one; the padlock locks it at what it measures or lets it go; digits typed with its subject selected go to it, `startEdit`). The right, in a dashed teal outline, is what could be added (a click
-// applies it). It only draws `interaction/infobar.ts`'s descriptions and says what was pressed. Words are tooltips.
-import { TONE, createChips, type InfoHandlers } from "./chipdraw.ts";
+// applies it). It only draws `interaction/infobar.ts`'s descriptions and says what was pressed. Words are tooltips. (A sketch's own constraints and numbers are marks on the sketch now, `markdraw.ts`; this bar serves an operation's number and what is picked on a body.)
+import { TONE, createChips, keepEvents, type InfoHandlers } from "./chipdraw.ts";
 import type { Info } from "./interaction/infobar.ts";
 import { settings } from "./settings.ts";
 export type { InfoHandlers } from "./chipdraw.ts";
@@ -10,11 +10,7 @@ export function createInfoBar(host: HTMLElement) {
   const el = document.createElement("div");
   el.dataset.info = "";
   el.style.cssText = `position:fixed;left:0;top:0;display:none;z-index:8;align-items:center;gap:6px;padding:4px;border-radius:18px;background:rgba(255,255,255,.92);border:1px solid #1ab8b3;box-shadow:0 1px 6px rgba(0,0,0,.12);font:12px ${settings.ui.font};color:${settings.ui.text};user-select:none;-webkit-user-select:none`;
-  for (const t of ["pointerdown", "click", "contextmenu"])
-    el.addEventListener(t, (e) => {
-      e.stopPropagation();
-      if (t === "contextmenu") e.preventDefault();
-    });
+  keepEvents(el);
   host.appendChild(el);
   let sig = "",
     on: InfoHandlers | null = null;

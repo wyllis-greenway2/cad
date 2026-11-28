@@ -48,15 +48,16 @@ export function toolClick(t: Tool, p: SketchParams, s: Sol, r: Ref): Clicked {
   }
 }
 
-export interface Shown {
+/** one stroke of what a tool would make */
+export interface PreviewLine {
   kind: StrokeKind;
   pts: Pt[];
 }
 /** What the tool would make if the next click were at `at` (a place, as a point of the sketch or free): the lines to show, in the plane's axes */
-export function toolPreview(t: Tool, s: Sol, at: Pt): Shown[] {
+export function toolPreview(t: Tool, s: Sol, at: Pt): PreviewLine[] {
   const a = t.pts[0],
     A = a ? posOf(s, a) : null,
-    out: Shown[] = [];
+    out: PreviewLine[] = [];
   if (A && t.kind === "line") out.push({ kind: "preview", pts: [A, at] });
   else if (A && t.kind === "rect") out.push({ kind: "preview", pts: [A, [at[0], A[1]], at, [A[0], at[1]], A] });
   else if (A && t.kind === "arc" && t.pts.length === 1)

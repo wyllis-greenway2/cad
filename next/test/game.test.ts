@@ -38,7 +38,7 @@ test("[C15 C16] W eases up to flight speed and, let go, eases down to rest; S is
 test("[C15] the mouse's turning is let out over a few ticks, all of it, and none while game mode is off", () => {
   const g = createGame();
   g.look(10, 4);
-  assert.deepEqual(g.tick(0.016), { on: false, ahead: 0, side: 0, dx: 0, dy: 0 }, "off: it is not kept");
+  assert.deepEqual(g.tick(0.016), { ahead: 0, side: 0, dx: 0, dy: 0 }, "off: it is not kept");
   g.start();
   g.look(20, -8);
   let sx = 0, sy = 0, first = true;

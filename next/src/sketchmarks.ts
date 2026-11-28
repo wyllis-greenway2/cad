@@ -2,8 +2,7 @@
 // what held it back, always; a constraint doing work in a drag fades in. The buttons: an offer is applied, a constraint is taken away, a number is typed over, a padlock locks or lets go. The relation put on the selection by the ring is here too.
 import { project } from "./camera.ts";
 import { displacements, type Arrow } from "./engine/probe.ts";
-import type { System } from "./engine/solver.ts";
-import type { Relation } from "./engine/solver.ts";
+import type { Relation, System } from "./engine/solver.ts";
 import type { SketchParams } from "./engine/sketch.ts";
 import { MEASURE_ID, cornerPts, scopeOf } from "./interaction/bubbles.ts";
 import {
@@ -50,16 +49,9 @@ export function createMarks(
   /** what the info bar's buttons do (`dec_three_surfaces`): a suggestion is applied; a constraint clicked is taken away; a number typed over is the number (a measured one locks); a padlock locks or lets go */
   const handlers: MarkHandlers = {
     suggest(id) {
-      const c = current();
-      if (!c) return;
-      const nc = nearConstraint(id);
-      if (!nc) {
-        act(id);
-        return;
-      }
-      const k = planOf(c.p, id, selected(c.key));
-      if (k?.ok) set(c.key, k.params, "Constraint");
-      else if (k) fail(k.why, k.victims);
+      if (nearConstraint(id))
+        apply(id, false); // (a near offer is a pair of parts: its arrows have shown what it does, so it does not flash)
+      else act(id);
     },
     /** a mark is pointed at (null: none): its parts and what it would move are drawn */
     hover(id, over) {
@@ -74,7 +66,7 @@ export function createMarks(
       if (!c) return;
       sel.setSketch(c.key, over);
       st.recent = null;
-      this.suggest(id);
+      handlers.suggest(id);
     },
     fact(id) {
       const c = current();
@@ -120,16 +112,25 @@ export function createMarks(
       st.flashUntil = performance.now() + 900;
     } else fail(r.why, r.victims);
   };
-  /** a press on the helper bar: a relation is put on the selection */
-  const act = (id: string): void => {
+  /** put the offer `id` (`rel:<relation>`, or a near offer) on the selection, and flash what was made if asked; false: the sketch said no (and says why), or it is no offer */
+  const apply = (id: string, flash: boolean): boolean => {
     const c = current();
-    if (!c || !id.startsWith("rel:")) return;
+    if (!c) return false;
     const r = planOf(c.p, id, selected(c.key));
     if (r?.ok) {
       set(c.key, r.params, "Constraint");
-      st.flash = { applied: [(r as Extract<Constrained, { ok: true }>).added] };
-      st.flashUntil = performance.now() + 900;
-    } else if (r) fail(r.why, r.victims);
+      if (flash) {
+        st.flash = { applied: [(r as Extract<Constrained, { ok: true }>).added] };
+        st.flashUntil = performance.now() + 900;
+      }
+      return true;
+    }
+    if (r) fail(r.why, r.victims);
+    return false;
+  };
+  /** a press on the helper bar: a relation is put on the selection */
+  const act = (id: string): void => {
+    if (id.startsWith("rel:")) apply(id, true);
   };
   /** what applying an offer makes: the sketch with the constraint added and solved, or why not (null: not an offer). The one place an offer becomes a sketch: the buttons keep what it makes, the arrows only look at it (`in_1638`) */
   const planOf = (p: SketchParams, id: string, over: string[]): Constrained | Kept | null => {
@@ -181,19 +182,7 @@ export function createMarks(
     /** a press by its id (`rel:<relation>`): a relation is put on the selection */
     act,
     /** Add a relation to what is selected (the helper bar's, later); false: the sketch said no, and says why. */
-    constrain(kind: Relation | "dimension"): boolean {
-      const c = current();
-      if (!c) return false;
-      const r = planOf(c.p, `rel:${kind}`, selected(c.key));
-      if (r?.ok) {
-        set(c.key, r.params, "Constraint");
-        st.flash = { applied: [(r as Extract<Constrained, { ok: true }>).added] };
-        st.flashUntil = performance.now() + 900;
-        return true;
-      }
-      if (r) fail(r.why, r.victims);
-      return false;
-    },
+    constrain: (kind: Relation | "dimension"): boolean => apply(`rel:${kind}`, true),
     /** The marks standing on the parts (`dec_marks_on_things`): what is selected shows its constraints (locked) and what is true of it and near (offered); the parts just made show their offers for a while and fade; a refusal shows what held it back, always; placed on the page. */
     marks(now: number): PlacedMark[] {
       const c = current();
@@ -251,7 +240,7 @@ export function createMarks(
           ? { ids: st.recent.ids.filter(has), until: st.recent.until }
           : null;
       const mm = mmPerPx(c.f, [0, 0]),
-        reach = settings.helpers.reachPx * mm; // (one distance for every relation: how far an offer may move anything, `in_1665`) // (in range, however things came there: the helpers' reach in mm)
+        reach = settings.helpers.reachPx * mm; // (one distance for every relation: how far an offer may move anything, `in_1665`; in mm)
       const fade = (id: string) => {
         const t = st.activeSince.get(id);
         if (t === undefined) return 1;

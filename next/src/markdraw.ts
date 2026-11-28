@@ -1,7 +1,7 @@
 // The marks on the sketch (`dec_marks_on_things`): each mark of `interaction/marks.ts` drawn standing on its part, with the one lock on its corner (`chipdraw.ts`): closed and green (applied), open and yellow (offered, a click applies it), closed and red (it held a
 // change back: it flashes). A constraint is a round chip, a number a pill; the chips that stand at one spot are side by side in one pill (`in_1620`). A press and a drag on a mark moves it out of the way (forgotten once it is gone); a pill that would cover another is moved
 // along until it does not. It only draws and says what was pressed.
-import { STATE, createChips, type InfoHandlers } from "./chipdraw.ts";
+import { STATE, createChips, keepEvents, type InfoHandlers } from "./chipdraw.ts";
 import type { Mark } from "./interaction/marks.ts";
 import { settings } from "./settings.ts";
 
@@ -22,9 +22,8 @@ export interface PlacedMark {
   y: number;
 }
 
+/** every mark is its own bubble (`in_1650`), known by this */
 const keyOf = (m: Mark) => `${m.id}|${m.over?.join(",") ?? ""}`;
-/** no pills (`in_1650`): every mark is its own bubble */
-const groups = (list: PlacedMark[]): PlacedMark[][] => list.map((p) => [p]);
 /** the places round a mark's spot, in the order they are tried: up, up-right, up-left, right, left, down-right, down-left, down; at 30, 48 and 66 px (`dec_mark_placement`) */
 const SLOTS = [270, 315, 225, 0, 180, 45, 135, 90].map((a) => (a * Math.PI) / 180);
 
@@ -92,23 +91,17 @@ export function createMarkDraw(host: HTMLElement) {
     if (m.state === "refused") chip.style.animation = "mark-flash .5s ease-in-out 3";
     return chip;
   };
-  const make = (g: PlacedMark[], key: string): HTMLElement => {
+  const make = (p: PlacedMark, key: string): HTMLElement => {
     const box = document.createElement("div");
     box.style.cssText =
       "position:absolute;left:0;top:0;pointer-events:auto;will-change:transform;display:flex;align-items:center;gap:3px";
-    box.dataset.mark = g[0]!.mark.state;
+    box.dataset.mark = p.mark.state;
     box.dataset.key = key;
-    for (const p of g) {
-      const c = chipFor(p.mark);
-      chipOf.set(keyOf(p.mark), c);
-      box.append(c);
-    }
-    for (const t of ["pointerdown", "click", "contextmenu"])
-      box.addEventListener(t, (e) => {
-        e.stopPropagation();
-        if (t === "contextmenu") e.preventDefault();
-      });
-    if (g[0]!.mark.readonly) {
+    const c = chipFor(p.mark);
+    chipOf.set(key, c);
+    box.append(c);
+    keepEvents(box);
+    if (p.mark.readonly) {
       box.style.pointerEvents = "none";
       return box;
     } // (the numbers of a figure being drawn are not in the way of the click that finishes it)
@@ -116,6 +109,15 @@ export function createMarkDraw(host: HTMLElement) {
     let press: { x: number; y: number; ox: number; oy: number; drag: boolean } | null = null,
       swallow = false;
     box.style.touchAction = "none";
+    const endPress = () => {
+      if (press?.drag) {
+        swallow = true;
+        setTimeout(() => {
+          swallow = false;
+        }, 0); // (the click that ends a drag is not a click on a chip)
+      }
+      press = null;
+    };
     box.addEventListener("pointerdown", (e) => {
       if (e.button !== 0 || (e.target as HTMLElement).tagName === "INPUT") return;
       const r = box.getBoundingClientRect(),
@@ -138,23 +140,9 @@ export function createMarkDraw(host: HTMLElement) {
     });
     for (const t of ["pointercancel", "lostpointercapture"])
       box.addEventListener(t, () => {
-        if (press?.drag) {
-          swallow = true;
-          setTimeout(() => {
-            swallow = false;
-          }, 0);
-        }
-        press = null;
+        endPress();
       });
-    box.addEventListener("pointerup", () => {
-      if (press?.drag) {
-        swallow = true;
-        setTimeout(() => {
-          swallow = false;
-        }, 0);
-      }
-      press = null;
-    });
+    box.addEventListener("pointerup", endPress);
     box.addEventListener(
       "click",
       (e) => {
@@ -172,18 +160,16 @@ export function createMarkDraw(host: HTMLElement) {
     /** Each picture: the marks to show, placed on the page (none: nothing), and what their buttons do. */
     show(list: PlacedMark[], h: MarkHandlers | null): void {
       if (h) on = h;
-      const gs = groups(list),
-        keyG = (g: PlacedMark[]) => g.map((p) => keyOf(p.mark)).join("+");
-      const s = JSON.stringify(gs.map((g) => g.map((p) => ({ ...p.mark, alpha: 0, at: 0 }))));
+      const s = JSON.stringify(list.map((p) => ({ ...p.mark, alpha: 0, at: 0 })));
       if (s !== sig && !chips.editing()) {
         sig = s;
         chips.forget();
         for (const e of boxes.values()) e.remove();
         boxes.clear();
         chipOf.clear();
-        for (const g of gs) {
-          const e = make(g, keyG(g));
-          boxes.set(keyG(g), e);
+        for (const p of list) {
+          const e = make(p, keyOf(p.mark));
+          boxes.set(keyOf(p.mark), e);
           layer.append(e);
         }
         if (last.x >= 0) setHover(keyAt(document.elementFromPoint(last.x, last.y))); // (a rebuilt mark under the pointer is still pointed at)
@@ -191,28 +177,28 @@ export function createMarkDraw(host: HTMLElement) {
       let spot: { cx: number; cy: number; sx: number; sy: number; offer: boolean } | null = null;
       const seen = new Set<string>(),
         placed: { x: number; y: number; w: number; h: number }[] = [];
-      const shown = gs.filter((g) => boxes.has(keyG(g)));
-      for (const g of shown) seen.add(keyG(g));
+      const shown = list.filter((p) => boxes.has(keyOf(p.mark)));
+      for (const p of shown) seen.add(keyOf(p.mark));
       for (const k of [...moved.keys()]) if (!seen.has(k)) moved.delete(k);
       for (const k of [...anchored.keys()]) if (!seen.has(k)) anchored.delete(k); // (a mark that is gone forgets where it was put)
       // the ones the person has put somewhere keep it; the others stand on their part and keep away from all of those and from each other
-      for (const g of [...shown.filter((q) => moved.has(keyG(q))), ...shown.filter((q) => !moved.has(keyG(q)))]) {
-        const k = keyG(g),
+      for (const p of [
+        ...shown.filter((q) => moved.has(keyOf(q.mark))),
+        ...shown.filter((q) => !moved.has(keyOf(q.mark))),
+      ]) {
+        const k = keyOf(p.mark),
           e = boxes.get(k)!,
-          off = moved.get(k),
-          p = g[0]!;
+          off = moved.get(k);
         e.style.display = "flex";
-        for (const q of g) {
-          const c = chipOf.get(keyOf(q.mark));
-          if (c) {
-            // while one is pointed at, or a number is being typed, the others fade (`in_1674`)
-            const here =
-              hoverKey ??
-              (document.activeElement as HTMLElement | null)?.closest?.("[data-key]")?.getAttribute("data-key") ??
-              null;
-            c.style.transition = "opacity .12s";
-            c.style.opacity = String(here && here !== keyOf(q.mark) ? q.mark.alpha * 0.2 : q.mark.alpha);
-          }
+        const c = chipOf.get(k);
+        if (c) {
+          // while one is pointed at, or a number is being typed, the others fade (`in_1674`)
+          const here =
+            hoverKey ??
+            (document.activeElement as HTMLElement | null)?.closest?.("[data-key]")?.getAttribute("data-key") ??
+            null;
+          c.style.transition = "opacity .12s";
+          c.style.opacity = String(here && here !== k ? p.mark.alpha * 0.2 : p.mark.alpha);
         }
         const w = e.offsetWidth || 28,
           h = e.offsetHeight || 28,
@@ -265,8 +251,7 @@ export function createMarkDraw(host: HTMLElement) {
         e.style.transform = `translate(${Math.round(x)}px,${Math.round(y)}px)`;
       }
       for (const [k, e] of boxes) if (!seen.has(k)) e.style.display = "none";
-      const sp = spot as { cx: number; cy: number; sx: number; sy: number; offer: boolean } | null;
-      if (sp) on?.hoverAt?.(sp.cx, sp.cy); // (the arrow from it to its spot is drawn with the sketch's lines)
+      if (spot) on?.hoverAt?.(spot.cx, spot.cy); // (the arrow from it to its spot is drawn with the sketch's lines)
     },
     startEdit: chips.startEdit,
     editing: chips.editing,

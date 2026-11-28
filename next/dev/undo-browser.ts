@@ -39,7 +39,7 @@ try {
   await click(20, 12);
   await page.waitForTimeout(800);
   const arrow = await ev<number[][]>(`() => window.__ext.drawing(null).handles[0].points`);
-  const mid = await ev<[number, number]>(`() => window.__proj([${arrow[0]!.map((v, i) => (v + arrow[1]![i]!) / 2)}])`);
+  const mid = await ev<[number, number]>(`() => window.__proj3([${arrow[0]!.map((v, i) => (v + arrow[1]![i]!) / 2)}])`);
   await page.mouse.move(mid[0], mid[1]);
   await page.mouse.down();
   await page.mouse.move(mid[0], mid[1] - 60, { steps: 5 });

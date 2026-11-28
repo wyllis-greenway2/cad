@@ -1,4 +1,4 @@
-// The look of sketching, borrowed from the old project (`app/src/shared/settings.ts` `theme`, `app/src/ui/view/highlight.ts`, `app/src/ui/view.ts`): it looked right, so its colours and line weights are kept, named by what they mean.
+// The look of sketching: colours and line weights as the old project had them (it looked right), named by what they mean.
 // A tone says what a drawn thing is doing; the screen turns a tone into a colour. Nothing here decides anything.
 export type Tone =
   | "figure" // the line or shape being drawn or made: teal

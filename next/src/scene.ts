@@ -1,5 +1,4 @@
-// What there is to look at. Stage 1 has no model, so a few boxes stand in for bodies: they give the view something to measure by, to turn
-// about and to lose.
+// What there is to look at: a box for each body (its extent), which the view measures by, turns about and can lose. The ready-made scenes are for tests and the dev page (`dev.ts`).
 import type { V3 } from "./vec.ts";
 
 export interface Thing {

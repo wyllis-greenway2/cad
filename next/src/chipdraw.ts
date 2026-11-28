@@ -21,6 +21,14 @@ export const TONE = { rest: "#d6d7db", refused: "#e46a6a", applied: APPLIED, off
 export const STATE = { locked: APPLIED, offer: "#f2c14e", refused: "#e46a6a" } as const;
 
 /** the one lock (`dec_marks_on_things`): small, on the corner of a chip: closed when applied, open when offered or only measured; clickable when it can be toggled */
+/** A press or click on this element is its own: it does not go on to the drawing under it, and the page's menu does not open. */
+export function keepEvents(el: HTMLElement): void {
+  for (const t of ["pointerdown", "click", "contextmenu"])
+    el.addEventListener(t, (e) => {
+      e.stopPropagation();
+      if (t === "contextmenu") e.preventDefault();
+    });
+}
 export function cornerLock(open: boolean, colour: string, onClick?: () => void): HTMLElement {
   const l = document.createElement("span");
   l.innerHTML = iconSvg(open ? "unlock" : "lock");

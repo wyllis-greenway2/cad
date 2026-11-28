@@ -10,12 +10,12 @@ import { hitAt } from "./interaction/drawing.ts";
 import { helpShown } from "./interaction/helpshow.ts";
 import type { Frame } from "./planes.ts";
 import { settings } from "./settings.ts";
-import { to3, type P2 } from "./sketch.ts";
+import type { P2 } from "./sketch.ts";
 import type { Core, DrawLine } from "./sketchcore.ts";
 
 /** `armed`: whether a tool is on (a press then belongs to the tool) */
 export function createDrag(K: Core, armed: () => boolean) {
-  const { defs, sel, st, solOf, sysOf, here, selected, set, working, polyline, helpDrawn, cross } = K;
+  const { defs, sel, st, solOf, sysOf, here, pick, set, working, polyline, helpDrawn, cross } = K;
   // ---- a part dragged: the solver follows the pointer with the part pinned where it goes (soft: it goes as near as the constraints allow); a point let go on another point or on a curve joins it
   type Drag = {
     key: string;
@@ -142,8 +142,7 @@ export function createDrag(K: Core, armed: () => boolean) {
       if (!g) return;
       if (!g.moved) {
         // it was a click on the part: it is picked
-        const was = selected(g.key);
-        sel.setSketch(g.key, g.shift ? (was.includes(g.id) ? was.filter((q) => q !== g.id) : [...was, g.id]) : [g.id]);
+        pick(g.key, g.id, g.shift);
         return;
       }
       const next = defs.get(g.key) ?? g.def0; // (a point let go on another point or a curve lands there; no constraint is made by it)
@@ -157,7 +156,6 @@ export function createDrag(K: Core, armed: () => boolean) {
     hintLines(all: Map<string, Frame>): DrawLine[] {
       const out: DrawLine[] = [];
       if (drag?.help) {
-        // what the helpers say of where the dragged point or edge is: the same drawing as when the figure was drawn (orange ties, dashed guides)
         const f = all.get(drag.key),
           p = defs.get(drag.key);
         if (f && p) {

@@ -7,7 +7,7 @@ export const settings = {
     homeElevation: 0.5,
     homeDistance: 120, // home: from the +X +Y corner, a little above
     orbitRadPerPx: 0.006,
-    minSurfaceMm: 0.3, // zooming toward a surface by the wheel's exact steps goes on until it is this near, and the next step goes through it
+    minSurfaceMm: 0.3, // the least depth a grabbed surface or the point looked at is taken to be at (a slide or a change of view never works with less)
     maxDistanceMm: 5000, // the eye does not go farther from the origin than this
     minFlightMm: 20, // a step of flight or of the wheel is never less than this, however near the eye is to the middle of a thing
     transitionMs: 450, // the move to a straight view
@@ -28,8 +28,8 @@ export const settings = {
   input: {
     zoomPerWheel: 0.0015,
     pinchZoomPerWheel: 0.005, // (a trackpad's pinch comes as a wheel with the control key: the zoom is this much of its delta)
-    trackpadPanScale: 0.3,
-    trackpadLookScale: 1, // how far a trackpad's two-finger scroll pans, as a share of the scroll (set by hand, `in_303`)
+    trackpadPanScale: 0.3, // how far a trackpad's two-finger scroll pans, as a share of the scroll (set by hand, `in_303`)
+    trackpadLookScale: 1, // how far a trackpad's two-finger scroll turns the view in game mode, as a share of the scroll
     trackpadNatural: true, // a scroll goes the way the fingers do (natural scrolling) unless the system says otherwise
     scrollStreamMs: 160, // wheel events within this long of each other are one gesture, whose kind (scroll or notch) the first decides
     fineGain: 0.6,
@@ -38,8 +38,8 @@ export const settings = {
     multiClickMs: 400,
     zoomStepClamp: [0.2, 5] as [number, number], // one wheel event never zooms by more than this share either way
     touchSlopPx: 12, // a touch must move this far to be a drag
-    wheelLinePx: 33,
-    wheelNotchMin: 50, // a wheel event counted in lines is this many pixels each; a whole step of at least this many pixels is a wheel's notch (not a trackpad's scroll)
+    wheelLinePx: 33, // a wheel event counted in lines is this many pixels each
+    wheelNotchMin: 50, // a whole step of at least this many pixels is a wheel's notch (not a trackpad's scroll)
     flySpeed: 0.45,
     flyEaseSec: 0.15,
     flyLookSec: 0.06,
@@ -68,7 +68,7 @@ export const settings = {
     fogFar: 4,
     fogMinSteps: 12,
     gridSpanFog: 5,
-    orthoSpan: 4, // the fog's reach, as shares of the distance; the grid is drawn out to a multiple of it (of the picture's height, orthographic)
+    orthoSpan: 4, // in a straight view the grid is drawn out to this many heights of the picture
     arrowSegments: 12,
     discSegments: 48,
     paneCurveSteps: 6,
@@ -129,7 +129,7 @@ export const settings = {
     ringBorder: "#9a9ea6",
     ringPx: 2,
     borderPx: 1,
-    buttonGapPx: 4, // the button of the plane that is on has a border this thick and this gray
+    buttonGapPx: 4, // the space between the round buttons
     pill: "#34363b",
     pillText: "#fff",
     orbDot: "rgba(60,62,68,.55)",
