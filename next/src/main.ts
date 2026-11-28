@@ -699,7 +699,10 @@ attach(
       if (box.grab(x, y)) return true;
       if (ext.grab(x, y)) return true;
       if (ext.active()) return false;
-      return orbc.grab(x, y, shift, bodies.featureNear(x, y)) || sk.grab(x, y, shift || tools.additive());
+      if (orbc.grab(x, y, shift, bodies.featureNear(x, y))) return true;
+      // a part of a drawing that is the first of what is under the pointer may be dragged (`interaction/candidates.ts`)
+      const first = sk.active() ? undefined : candidatesAt(x, y).list[0]?.item;
+      return first?.from === "sketch" && sk.grab(first, x, y, shift || tools.additive());
     },
     // a press on a body picked whole is a click until it clearly drags (`interaction/gesture.ts`), then it carries them (the old app's grab); a click picks a part of them
     carries: (x, y, shift) =>

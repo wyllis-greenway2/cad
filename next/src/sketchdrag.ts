@@ -16,7 +16,7 @@ import type { Core, DrawLine } from "./sketchcore.ts";
 
 /** `armed`: whether a tool is on (a press then belongs to the tool) */
 export function createDrag(K: Core, armed: () => boolean) {
-  const { defs, sel, st, solOf, sysOf, here, pick, set, working, polyline, helpDrawn, cross } = K;
+  const { defs, sel, st, solOf, sysOf, hereOn, pick, set, working, polyline, helpDrawn, cross } = K;
   // ---- a part dragged: the solver follows the pointer with the part pinned where it goes (soft: it goes as near as the constraints allow); a point let go on another point or on a curve joins it
   type Drag = {
     key: string;
@@ -41,14 +41,18 @@ export function createDrag(K: Core, armed: () => boolean) {
   let drag: Drag | null = null;
 
   return {
-    /** A press on a part with no tool on: it may be dragged (true: the press is taken; a press that goes nowhere is a click, said at `grabEnd`). */
-    grab(x: number, y: number, shift: boolean): boolean {
+    /** A press on a part of a drawing that the page chose from what is under the pointer (`interaction/candidates.ts`: the first candidate is this part), with no tool on: it may be dragged (true: the press is taken; a press that goes nowhere is a click, said at `grabEnd`). */
+    grab(
+      item: { plane: { key: string; p: SketchParams; q: P2; mm: number; tol: number }; id?: string },
+      x: number,
+      y: number,
+      shift: boolean,
+    ): boolean {
       if (armed()) return false;
-      const c = here(x, y);
-      if (!c || c.behind) return false; // (a part behind a body's surface is not there to be taken)
+      const c = item.plane;
       const s = solOf(c.p),
         h = hitAt(c.p, s, c.q, c.tol);
-      if (!h) return false;
+      if (!h || h.id !== item.id) return false;
       const ring = h.kind === "curve" && h.of === "circle" ? (c.p.circles ?? []).find((q) => q.id === h.id) : null,
         arc = h.kind === "curve" && h.of === "arc" ? (c.p.arcs ?? []).find((q) => q.id === h.id) : null; // (a circle's or an arc's edge: its radius follows the pointer; its centre moves it whole)
       const pins = ring || arc ? [] : pinsOf(c.p, h.id);
@@ -77,7 +81,7 @@ export function createDrag(K: Core, armed: () => boolean) {
     },
     grabMove(x: number, y: number): void {
       if (!drag) return;
-      const c = here(x, y);
+      const c = hereOn(drag.key, x, y); // (on the plane of the drawing being dragged, whichever plane is on)
       if (!c) return;
       if (!drag.moved && !dragged(x - drag.x0, y - drag.y0)) return; // (a press that has not gone anywhere yet is still a click)
       drag.moved = true;

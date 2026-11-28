@@ -177,27 +177,32 @@ export function createCore(host: SketchHost, on?: (label: string, merge?: string
     const mm = mmPerPx(c.f, to2(c.f, q));
     return { ...c, q: to2(c.f, q), mm, tol: mm * settings.sketch.snapPx, behind: host.inFront(q, x, y) };
   };
-  /** every plane that has a drawing, as `here` gives it, the nearest along the pointer's ray first: a figure or a part of a drawing on ANY plane can be picked, not only on the plane that is on (a sketch on a face stays where it was made) */
+  /** the pointer on the plane of one drawing, as `here` gives it for the plane that is on (null: the plane is gone, or the ray does not meet it) */
+  const hereOn = (key: string, x: number, y: number) => {
+    const f = host.planes().all.get(key),
+      p = defs.get(key);
+    if (!f || !p) return null;
+    const r = host.ray(x, y),
+      q = onPlane(f, r.o, r.d);
+    if (!q) return null;
+    const mm = mmPerPx(f, to2(f, q));
+    return {
+      key,
+      f,
+      p,
+      q: to2(f, q),
+      mm,
+      tol: mm * settings.sketch.snapPx,
+      behind: host.inFront(q, x, y),
+      away: Math.hypot(q[0] - r.o[0], q[1] - r.o[1], q[2] - r.o[2]),
+    };
+  };
+  /** every plane that has a drawing, as `hereOn` gives it, the nearest along the pointer's ray first: a figure or a part of a drawing on ANY plane can be picked, not only on the plane that is on (a sketch on a face stays where it was made) */
   const hereAll = (x: number, y: number) => {
-    const { all } = host.planes(),
-      r = host.ray(x, y),
-      out: (NonNullable<ReturnType<typeof here>> & { away: number })[] = [];
-    for (const [key, p] of defs) {
-      const f = all.get(key);
-      if (!f) continue;
-      const q = onPlane(f, r.o, r.d);
-      if (!q) continue;
-      const mm = mmPerPx(f, to2(f, q));
-      out.push({
-        key,
-        f,
-        p,
-        q: to2(f, q),
-        mm,
-        tol: mm * settings.sketch.snapPx,
-        behind: host.inFront(q, x, y),
-        away: Math.hypot(q[0] - r.o[0], q[1] - r.o[1], q[2] - r.o[2]),
-      });
+    const out: NonNullable<ReturnType<typeof hereOn>>[] = [];
+    for (const key of defs.keys()) {
+      const c = hereOn(key, x, y);
+      if (c) out.push(c);
     }
     return out.sort((a, b) => a.away - b.away);
   };
@@ -246,6 +251,7 @@ export function createCore(host: SketchHost, on?: (label: string, merge?: string
     cross,
     helpDrawn,
     here,
+    hereOn,
     hereAll,
     set,
     fail,

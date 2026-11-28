@@ -424,7 +424,9 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       }
       return out;
     },
-    grab: D.grab,
+    /** A press on a part chosen from the candidates (`SketchItem`, a part): it may be dragged. */
+    grab: (item: SketchItem, x: number, y: number, shift: boolean): boolean =>
+      item.kind === "part" && D.grab(item, x, y, shift),
     grabMove: D.grabMove,
     grabEnd: D.grabEnd,
     marks: M.marks,

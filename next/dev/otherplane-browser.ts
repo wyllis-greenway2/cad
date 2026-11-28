@@ -27,6 +27,22 @@ try {
     s?.kind === "region" && s.key === "world:1",
     `a click inside a figure on another plane picks it: ${JSON.stringify(s)?.slice(0, 120)}`,
   );
+  // a part of a drawing on that plane is dragged too (the drag follows the plane of the drawing, not the plane that is on): the edge of the circle sets its radius
+  await page.mouse.click(1000, 650);
+  await page.waitForTimeout(300);
+  const radius = () => ev<number>(`() => window.__sketch.snapshot()["world:1"].circles[0].r`);
+  const r0 = await radius();
+  const [ox, oy] = await p3([10, 0, 0]);
+  await page.mouse.move(ox, oy);
+  await page.mouse.down();
+  await page.mouse.move(ox + 50, oy + 5, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+  const r1 = await radius();
+  ok(
+    Math.abs(r1 - r0) > 1,
+    `a press on the edge of the circle on another plane and a drag changes its radius: ${r0} to ${r1}`,
+  );
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   await close();
 } finally {

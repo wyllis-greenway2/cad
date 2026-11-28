@@ -92,7 +92,11 @@ function rig(ortho = 100) {
       const first = orderCandidates(sk.candidates(sx, sy))[0];
       return first ? sk.pickItem(first.item, shift) : false;
     },
-    grab: (x: number, y: number) => sk.grab(...px(x, y), false),
+    grab: (x: number, y: number) => {
+      const [sx, sy] = px(x, y),
+        first = orderCandidates(sk.candidates(sx, sy))[0];
+      return !!first && sk.grab(first.item, sx, sy, false);
+    },
     move: (x: number, y: number) => sk.grabMove(...px(x, y)),
     plane: (key: string) => void (on = key),
     def: () => sk.sketchOf("xy")!,
