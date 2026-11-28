@@ -6856,3 +6856,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1713 — 2026-11-28 — directive
 > let's look into the stress-found-check kernel crash now
+
+## in_1714 — 2026-11-28 — directive
+> do the camera scene bodies box extent fix

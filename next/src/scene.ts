@@ -11,7 +11,26 @@ export interface Scene {
 }
 
 /** What the camera looks at: the stand-in things and a box for each body the engine made. */
-export const lookedAt = (standIns: Scene, bodies: readonly Thing[]): Scene => ({ things: [...standIns.things, ...bodies] });
+export const lookedAt = (standIns: Scene, bodies: readonly Thing[]): Scene => ({
+  things: [...standIns.things, ...bodies],
+});
+/** The box of a thing under a matrix (column by column, as the drawing has it): the box that holds the eight corners moved. Its middle is exact; turned, its extent is a little more than the body's. */
+export function boxUnder(t: Thing, m: readonly number[]): Thing {
+  const lo: V3 = [Infinity, Infinity, Infinity],
+    hi: V3 = [-Infinity, -Infinity, -Infinity];
+  for (const x of [t.lo[0], t.hi[0]])
+    for (const y of [t.lo[1], t.hi[1]])
+      for (const z of [t.lo[2], t.hi[2]])
+        for (let k = 0; k < 3; k++) {
+          const v = m[k]! * x + m[4 + k]! * y + m[8 + k]! * z + m[12 + k]!;
+          lo[k] = Math.min(lo[k]!, v);
+          hi[k] = Math.max(hi[k]!, v);
+        }
+  return { id: t.id, lo, hi };
+}
+/** The scene with the body that is shown moved (the mover orb's draft) where it is shown, not where it was made. */
+export const withMoved = (sc: Scene, moved: { body: string; matrix: readonly number[] } | null): Scene =>
+  moved ? { things: sc.things.map((t) => (t.id === moved.body ? boxUnder(t, moved.matrix) : t)) } : sc;
 const boxes = new WeakMap<object, Thing>();
 /** The box of each body the engine made (the extent of its points): the camera measures by it, turns about it, and can lose it. Made once for each body. */
 export function bodyThings(meshes: readonly { id: string; positions: ArrayLike<number> }[]): Thing[] {

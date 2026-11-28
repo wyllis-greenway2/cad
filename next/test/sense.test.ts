@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { cam, demoScene, oneScene, emptyScene, near, W, H } from "./helpers.ts";
 import { focusOf, paneAt, nothingInView, lastSeen, resetTarget, scaleAmong, gridLevel } from "../src/sense.ts";
-import { bodyThings, centreOf, lookedAt } from "../src/scene.ts";
+import { bodyThings, centreOf, lookedAt, withMoved } from "../src/scene.ts";
 import { add, len, scale, sub, type V3 } from "../src/vec.ts";
 
 const home = cam.home();
@@ -173,4 +173,35 @@ test("[C17] a body out of view is lost, and Reset goes to it", () => {
   const sc = lookedAt(emptyScene(), bodyThings([body("e1", [1000, 1000, 0], [1040, 1020, 20])]));
   assert.equal(nothingInView(sc, home, W, H), true, "the home view does not see it");
   assert.equal(resetTarget(sc, null).id, "e1");
+});
+
+test("[C3] a body shown moved by the orb's draft is looked at where it is shown, not where it was made", () => {
+  const sc = lookedAt(
+    emptyScene(),
+    bodyThings([body("e1", [0, 0, 0], [40, 20, 10]), body("e2", [100, 0, 0], [110, 10, 10])]),
+  );
+  const slide = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 500, 0, 0, 1]; // (500 mm along X)
+  const moved = withMoved(sc, { body: "e1", matrix: slide });
+  assert.deepEqual(
+    [moved.things[0]!.lo, moved.things[0]!.hi],
+    [
+      [500, 0, 0],
+      [540, 20, 10],
+    ],
+    "the body is where it is shown",
+  );
+  assert.equal(moved.things[1], sc.things[1], "the other is as it was");
+  assert.equal(withMoved(sc, null), sc, "nothing moved: the same scene");
+  const turn = [0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]; // (a quarter turn about Z)
+  const t = withMoved(sc, { body: "e1", matrix: turn }).things[0]!;
+  assert.deepEqual(
+    [t.lo, t.hi],
+    [
+      [-20, 0, 0],
+      [0, 40, 10],
+    ],
+    "turned, the box that holds it turned",
+  );
+  near(centreOf(t)[0], -10, 1e-9);
+  near(centreOf(t)[1], 20, 1e-9, "and its middle is the old middle, turned");
 });

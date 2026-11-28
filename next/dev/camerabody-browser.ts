@@ -53,6 +53,37 @@ try {
     `and it is in front of the camera, ${ahead.toFixed(0)} mm ahead (a point behind the eye projects to the middle of the screen)`,
   );
   ok(rx > 0 && rx < 1100 && ry > 0 && ry < 720, `Reset brings the body into view (${rx.toFixed(0)}, ${ry.toFixed(0)})`);
+  // a body the orb's draft shows moved is looked at where it is shown
+  await look();
+  const [px, py] = await proj(centre);
+  await page.mouse.click(px + 60, py - 30);
+  await page.waitForTimeout(400);
+  await page.mouse.click(px + 60, py - 30, { clickCount: 2 }); // (two clicks take the whole body: its orb)
+  await page.waitForTimeout(700);
+  await ev(
+    `() => { const t = window.__bmove.target().frame; window.__bmove.set({ ...t, origin: [t.origin[0] + 500, t.origin[1], t.origin[2]] }); return 1; }`,
+  );
+  const shown = [centre[0]! + 500, centre[1]!, centre[2]!];
+  {
+    const d = [0.5, 0.6, 0.62],
+      n = Math.hypot(...d),
+      eye = shown.map((c, i) => c + (d[i]! / n) * 150);
+    await ev(
+      `() => { window.__cad.set({ eye: [${eye}], yaw: ${Math.atan2(-d[1]!, -d[0]!)}, pitch: ${-Math.asin(d[2]! / n)} }); return 1; }`,
+    );
+  }
+  await page.waitForTimeout(400);
+  const [mx0, my0] = await proj(shown);
+  await page.mouse.move(200, 600);
+  await page.mouse.down();
+  for (let k = 1; k <= 24; k++) await page.mouse.move(200 + k * 5, 600 + k * 2);
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+  const [mx1, my1] = await proj(shown);
+  ok(
+    Math.hypot(mx1 - mx0, my1 - my0) < 30,
+    `an orbit turns about the body where the draft shows it (${mx0.toFixed(0)},${my0.toFixed(0)} to ${mx1.toFixed(0)},${my1.toFixed(0)})`,
+  );
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   await close();
 } finally {

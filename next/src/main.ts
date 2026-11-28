@@ -43,7 +43,7 @@ import { createToolControl } from "./toolcontrol.ts";
 import { createUi } from "./ui.ts";
 import { add, dot, scale, sub, unit } from "./vec.ts";
 import * as view from "./view.ts";
-import { bodyThings, lookedAt, type Scene } from "./scene.ts";
+import { bodyThings, lookedAt, withMoved, type Scene } from "./scene.ts";
 import { createWorld } from "./world.ts";
 
 const params = new URLSearchParams(location.search);
@@ -62,7 +62,7 @@ const cameraScene = (): Scene => {
   const bodies = studio.state().meshes;
   if (!looked || looked.standIns !== model.things || looked.bodies !== bodies)
     looked = { standIns: model.things, bodies, scene: lookedAt(model, bodyThings(bodies)) };
-  return looked.scene;
+  return withMoved(looked.scene, bmove.preview()); // (a body shown moved by the orb's draft is looked at where it is shown)
 };
 const env = (now = performance.now()): view.Env => ({
   model: cameraScene(),
