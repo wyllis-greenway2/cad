@@ -6707,3 +6707,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1664 — 2026-11-26 — approval
 > yes build it
+
+## in_1665 — 2026-11-28 — approval
+> yes build the single movement distance rule

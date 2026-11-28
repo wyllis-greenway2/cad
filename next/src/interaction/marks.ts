@@ -61,7 +61,7 @@ function offersOfUncached(S: System, selection: string[], reach?: { pointMm: num
   });
   return [...own, ...near];
 }
-/** the reach is in pixels, so zoomed far out it would cover the whole drawing: it is never more than a tenth of the size of what is selected (a circle's radius, a line's length), so zooming out does not make more things "near" (`in_1633`) */
+/** the reach is in pixels, so zoomed far out it would cover the whole drawing: it is never more than a tenth of the size of what is selected (a circle's radius, a line's length), for every relation alike, so zooming out does not make more things "near" (`in_1633`) */
 function capReach(
   S: System,
   selection: string[],
@@ -79,7 +79,7 @@ function capReach(
     }),
   );
   return size > 0
-    ? { pointMm: Math.min(reach.pointMm, size * 0.1), lineMm: Math.min(reach.lineMm, size * 0.05) }
+    ? { pointMm: Math.min(reach.pointMm, size * 0.1), lineMm: Math.min(reach.lineMm, size * 0.1) }
     : reach;
 }
 interface Cand {
@@ -194,8 +194,8 @@ export function marksFor(
       if (out.some((m) => m.id === item.id && m.over?.join() === sel.join())) continue;
       // what applying it would move (the preview is the apply itself, `sketchmarks.ts`)
       const moves = ctx.preview?.(item.id, sel) ?? [];
-      // an offer is near when applying it moves only a little, whatever the parts it names are apart: a point 0.14 mm off a circle, on a tangent line's middle, turns the whole line (`in_1652`)
-      if (nc && reach && moves.some((m) => Math.hypot(m.to[0] - m.from[0], m.to[1] - m.from[1]) > 2 * reach.pointMm))
+      // an offer is near when applying it moves nothing by more than the one distance (`in_1665`), whatever the parts it names are apart: a point 0.14 mm off a circle, on a tangent line's middle, turns the whole line (`in_1652`)
+      if (nc && reach && moves.some((m) => Math.hypot(m.to[0] - m.from[0], m.to[1] - m.from[1]) > reach.pointMm))
         continue;
       (nc ? pool : direct).push({ item, standing, nc, parts: nc ? nc.parts : sel, moves });
     }

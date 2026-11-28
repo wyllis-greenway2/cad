@@ -249,7 +249,7 @@ export function createMarks(
           ? { ids: st.recent.ids.filter(has), until: st.recent.until }
           : null;
       const mm = mmPerPx(c.f, [0, 0]),
-        reach = { pointMm: settings.helpers.pointPx * mm, lineMm: settings.helpers.linePx * mm }; // (in range, however things came there: the helpers' reach in mm)
+        reach = { pointMm: settings.helpers.offerPx * mm, lineMm: settings.helpers.offerPx * mm }; // (one distance for every relation: how far an offer may move anything, `in_1665`) // (in range, however things came there: the helpers' reach in mm)
       const fade = (id: string) => {
         const t = st.activeSince.get(id);
         if (t === undefined) return 1;

@@ -93,7 +93,7 @@ export const settings = {
     ballPx: 4.5 /* (a picked point's ball: its radius) */,
   },
   // the helpers of drawing (`dec_helpers_one_rule`): how near the pointer must be to a relation that says a point and one that says a line (px), how far past its ends a guide runs and the steps it is traced in (px), the guide's dash (the old app's: this much of the view's distance; the gap is this much of the dash)
-  helpers: { pointPx: 12, linePx: 6, overPx: 12, stepPx: 6, dash: 0.012, dashGap: 0.7 },
+  helpers: { pointPx: 12, linePx: 6, offerPx: 12, overPx: 12, stepPx: 6, dash: 0.012, dashGap: 0.7 },
   // a sketch plane placed anywhere, and the right-click ring
   planes: { snapAxisRad: 0.14, ringButtonPx: 36 }, // (a sketch plane made facing the camera snaps to a world axis within this)
   // the mover orb (`app/src/shared/settings.ts` gizmo): its size as a share of the view distance, how near the pointer must be to take a handle, and how its lines look

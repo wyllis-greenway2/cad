@@ -229,7 +229,7 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
   } as unknown as System;
   const arrows = [
       { from: [4.7, 0] as [number, number], to: [5, 0] as [number, number], of: "A" },
-      { from: [0, 0] as [number, number], to: [0, 1.8] as [number, number], of: "Z" }, // (a part that only moves because the others do)
+      { from: [0, 0] as [number, number], to: [0, 0.9] as [number, number], of: "Z" }, // (a part that only moves because the others do)
     ] as { from: [number, number]; to: [number, number]; of: string }[],
     ask = (preview: (id: string, over: string[]) => typeof arrows) =>
       marksFor(T, ["A"], { now: 0, reach: { pointMm: 1, lineMm: 1 }, preview }).find((x) => x.id.startsWith("near:on"));
@@ -346,6 +346,28 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
       !sw.some((x) => x.startsWith("on:A,L1")) &&
       !sw.some((x) => /^(horizontal|vertical):A,B/.test(x)),
     sw.join(),
+  );
+}
+{
+  // one distance for every relation (`in_1665`): an offer is shown when applying it moves nothing by more than it, a level offer and a tangent alike
+  const T: System = {
+    points: [
+      { id: "A", x: 4.7, y: 0 },
+      { id: "C", x: 10, y: 0 },
+    ],
+    lines: [],
+    circles: [{ id: "K1", c: "C", r: 5 }],
+    constraints: [],
+  } as unknown as System;
+  const ask = (len: number) =>
+    marksFor(T, ["A"], {
+      now: 0,
+      reach: { pointMm: 1, lineMm: 1 },
+      preview: () => [{ from: [0, 0] as [number, number], to: [len, 0] as [number, number], of: "A" }],
+    }).some((x) => x.id.startsWith("near:on"));
+  check(
+    "an offer that moves nothing by more than the one distance is shown, one that moves something farther is not",
+    ask(0.8) && !ask(1.3),
   );
 }
 process.exit(failureCount() ? 1 : 0);
