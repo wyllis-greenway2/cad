@@ -6868,3 +6868,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1717 — 2026-11-28 — directive
 > okay it doesn't feel like the old prototype. Why does it zoom the camera to the sketch when it is selected to extrude? Also why are edges visible through. Also selecting sketches and faces should basically be the same except that faces of bodies gives the multiple extrude type options. Also why doesn't the arrow show up in the center of the face like in the old prototype?
+
+## in_1718 — 2026-11-28 — question
+> okay aside from preview of operation, which I dont think I want to copy from the old prototype because I want a dedicated speed system to handle that, then what can we do to make body manipulation look and feel and function just like in the old prototype in a lean and simple way?
