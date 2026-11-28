@@ -40,9 +40,6 @@ export function install(h: DevHooks): void {
     get plane() {
       return h.state().plane;
     },
-    get free() {
-      return h.state().free;
-    },
     get go() {
       return h.state().go;
     },

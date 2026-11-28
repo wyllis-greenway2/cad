@@ -156,6 +156,25 @@ try {
   );
   await page.mouse.click(1000, 600);
   await wait(500);
+  // a click on a body picked whole picks just that face: a press is a click until it clearly drags (`interaction/gesture.ts`), and only a drag carries the body
+  await page.mouse.click(1000, 600);
+  await wait(400);
+  await page.mouse.click(gx, gy);
+  await wait(500);
+  await page.mouse.click(gx, gy, { clickCount: 2 });
+  await wait(600);
+  s = await state();
+  ok(s.b.sel?.whole.length === 1 && s.mv !== null, "the body is picked whole");
+  const [fx2, fy2] = await p3([-12, -4, 20]);
+  await page.mouse.click(fx2, fy2);
+  await wait(700);
+  s = await state();
+  ok(
+    s.b.sel?.faces.length === 1 && s.b.sel.whole.length === 0 && s.mv === null,
+    `a click on it picks that face alone: ${JSON.stringify(s.b.sel)}`,
+  );
+  await page.mouse.click(1000, 600);
+  await wait(400);
   // two quick clicks on the arrow's own place take the whole body as anywhere else does: the second press is a click's, not the arrow's
   await page.mouse.click(1000, 600);
   await wait(400);

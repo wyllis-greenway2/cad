@@ -6913,3 +6913,8 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1731 — 2026-11-28 — directive
 > Add that rule to the top of CLAUDE.md
+
+## in_1732 — 2026-11-28 — directive
+> Can we try having the world xyz thing always be constant size instead of changing from scale to constant size on the first body creation? Can we make the lines (sketch lines, body edges etc) all be the same color and that color be a lighter grey? Also if a body is selected, and you click again on a face, it doesn't really select just that face, it seems to try and cancel to move the whole body. Moving the whole body should only happen on a clear drag. In fact we should probably have reusable logic and thresholds for what is considered a click and a drag, and that shuold be reused everywhere, for clicking or rotating the world view, for selecting or moving body parts etc. Also the arrows on selected corners for chamfer fillet are at a really weird arrow angle now. Also the arrows for these operations should fully move, not stretch, the old prototype had the arrows just move. 
+> 
+> can we make the center xyz world orb thing not show through bodies?

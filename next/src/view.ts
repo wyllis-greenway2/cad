@@ -19,7 +19,6 @@ export interface ViewState {
   go: Go | null; // a change of view playing out: the lens going to or from a straight view (and the direction turning to a plane), or the view flying to another (Reset camera)
   plane: Axis; // the world plane that is on: its grid shows, its pane is lit (the floor, at the start)
   worldHidden: boolean;
-  free: number; // 0: the axes and panes are the world's size (they zoom with the world); 1: scale free, the same size on the screen. 0 until the first thing exists, then eases over to 1
   seen: string | null; // the last thing that was in view, for Reset camera
   held: V3 | null; // the point a straight view was entered about, then left about (the drag's pivot) and entered about again: a round trip holds the one point, so it leaves the zoom as it was whatever the scene; given up when the hands zoom or slide
   drag: Drag | null;
@@ -31,6 +30,8 @@ export interface Env {
   h: number;
   now: number;
   gameOn: boolean;
+  /** whether a body's own surface hides a place from the eye (the letters and the origin dot are not shown through a body); the boxes of bodies are not surfaces */
+  hidden?(p: V3): boolean;
 }
 export interface Pointer {
   x: number;
@@ -48,7 +49,6 @@ export const initial = (model: Scene): ViewState => ({
   go: null,
   plane: 2,
   worldHidden: false,
-  free: model.things.length ? 1 : 0,
   seen: null,
   held: null,
   drag: null,
@@ -287,23 +287,20 @@ export function advance(s: ViewState, e: Env, dt: number): ViewState {
       go = null;
     }
   }
-  const want = e.model.things.length ? 1 : 0;
-  let free = s.free + (want - s.free) * Math.min(1, dt * settings.world.gizmoEaseRate);
-  if (Math.abs(want - free) < 0.002) free = want;
-  return { ...s, c, go, held, free, seen: lastSeen(e.model, c, e.w, e.h) ?? s.seen };
+  return { ...s, c, go, held, seen: lastSeen(e.model, c, e.w, e.h) ?? s.seen };
 }
 
 // ---- what to show ----
 /** How much of the little panes there is: all while the view is perspective, fading out as it goes straight. */
 export const paneLevel = (c: Cam): number =>
   c.ortho !== null ? 0 : clamp((c.lens - settings.world.paneFadeLens) / (1 - settings.world.paneFadeLens), 0, 1);
-/** How many times its true size the axes and panes are drawn: 1 while the model is empty, and once the first thing exists the size they have on the screen at the home view, wherever the eye is. */
+/** How many times its true size the axes and panes are drawn: always the size they have on the screen at the home view, wherever the eye is (`in_1732`: not the world's own size while the model is empty). */
 export function gizmoScale(s: ViewState): number {
   const home = cam.home();
   const sFree =
     cam.viewHeight(s.c, Math.max(cam.forwardDepth(s.c, [0, 0, 0]), settings.view.minSurfaceMm)) /
     cam.viewHeight(home, settings.view.homeDistance);
-  return Math.exp(s.free * Math.log(sFree));
+  return sFree;
 }
 /** What is under the pointer: the pane of a plane, a face of a thing, or the plane that is on, with the hover disc that goes on it. */
 export function underPointer(s: ViewState, e: Env, pointer: Pointer | null) {
@@ -344,12 +341,14 @@ export function drawing(s: ViewState, e: Env, pointer: Pointer | null) {
 export function pageState(s: ViewState, e: Env) {
   const { c, plane } = s,
     f = cam.forward(c);
+  const things = { things: e.model.things.filter((t) => !t.body) }; // (a body is its surface, `e.hidden`, not its box)
   const occluded = (p: V3) => {
     // is a thing between the point and the eye? (orthographic: on the near side of the point along the view)
-    if (c.ortho !== null) return !!hitThings(e.model, p, scale(f, -1));
+    if (e.hidden?.(p)) return true;
+    if (c.ortho !== null) return !!hitThings(things, p, scale(f, -1));
     const to = sub(p, c.eye),
       l = len(to),
-      hh = hitThings(e.model, c.eye, scale(to, 1 / l));
+      hh = hitThings(things, c.eye, scale(to, 1 / l));
     return !!hh && hh.t < l - 1e-3;
   };
   const m = settings.ui.offscreenMarginPx;

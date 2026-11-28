@@ -10,7 +10,7 @@ import { createBodyOps } from "./bodyops.ts";
 import type { Mark } from "./bodyselect.ts";
 import { createBodySelect } from "./bodyselect.ts";
 import { createBoxSelect } from "./boxselect.ts";
-import { pickAt, pickRay } from "./interaction/pick.ts";
+import { pickAt, pickRay, visibleFrom } from "./interaction/pick.ts";
 import { forward, project, type Axis } from "./camera.ts";
 import * as dev from "./dev.ts";
 import { flushPull, planesOf, type PlaneRef } from "./engine/flush.ts";
@@ -76,6 +76,7 @@ const env = (now = performance.now()): view.Env => ({
   h: canvas.clientHeight || innerHeight,
   now,
   gameOn: game.on,
+  hidden: (p) => !visibleFrom(studio.state().meshes, s.c, p),
 });
 
 function endGame() {
@@ -640,14 +641,13 @@ attach(
       if (box.grab(x, y)) return true;
       if (ext.grab(x, y)) return true;
       if (ext.active()) return false;
-      // a press on a body that is picked whole takes it (the orb shows): it goes where the pointer goes, as the old app's grab
-      const body = bmove.target() ? selection.body()?.body : null;
-      return (
-        orbc.grab(x, y, shift) ||
-        (!shift && !!body && bodies.wholeAt(x, y) && orbc.grabFree(x, y)) ||
-        sk.grab(x, y, shift || tools.additive())
-      );
+      return orbc.grab(x, y, shift) || sk.grab(x, y, shift || tools.additive());
     },
+    // a press on a body picked whole is a click until it clearly drags (`interaction/gesture.ts`), then it carries them (the old app's grab); a click picks a part of them
+    carries: (x, y, shift) => !shift && !game.on && !!bmove.target() && !ext.active() && bodies.wholeAt(x, y),
+    carryStart: (x, y) => void orbc.grabFree(x, y),
+    carryMove: (x, y) => orbc.grabMove(x, y),
+    carryEnd: () => orbc.grabEnd(),
     boxStart: (x, y) => box.start(x, y),
     boxMove: (x, y) => box.move(x, y),
     boxEnd: (x, y) => box.end(x, y),

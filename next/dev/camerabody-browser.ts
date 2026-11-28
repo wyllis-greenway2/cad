@@ -1,17 +1,15 @@
-// A dev check in the real page (not a test, `in_1444`): the bodies the engine made are what the camera looks at (`in_1710`, `scene.ts` `bodyThings`): the axes go scale-free once there is a body (W2), an orbit turns about the body (C2, C3), and Reset goes to it (C17).
+// A dev check in the real page (not a test, `in_1444`): the bodies the engine made are what the camera looks at (`in_1710`, `scene.ts` `bodyThings`): an orbit turns about the body (C2, C3), and Reset goes to it (C17).
 //   node --experimental-strip-types dev/camerabody-browser.ts
 import { S, ok, finish, evalIn } from "./page-lib.ts";
 try {
   const { page, errors, close } = await S.open("");
   const ev = evalIn(page);
-  ok((await ev<number>(`() => window.__cad.free`)) === 0, "before there is a body the axes are the world's size");
   // a body a long way from the origin, where "a point ahead of the eye" is not it
   await ev(
     `() => { window.__studio.change([{ id: "s1", kind: "sketchPolygon", params: { points: [[980, 980], [1020, 980], [1020, 1000], [980, 1000]] }, inputs: [] }, { id: "e1", kind: "extrude", params: { d: 20 }, inputs: ["s1"] }]); return 1; }`,
   );
   await ev(`() => window.__studio.settled()`);
   await page.waitForTimeout(1500);
-  ok((await ev<number>(`() => window.__cad.free`)) === 1, "once there is a body the axes are scale free (W2)");
   const proj = (p: number[]) => ev<[number, number]>(`() => window.__proj3([${p}])`);
   const centre = [1000, 990, 10];
   // the camera 150 mm from the body, looking at it from above and the side

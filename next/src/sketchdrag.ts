@@ -10,6 +10,7 @@ import { hitAt } from "./interaction/drawing.ts";
 import { helpShown } from "./interaction/helpshow.ts";
 import type { Frame } from "./planes.ts";
 import { settings } from "./settings.ts";
+import { dragged } from "./interaction/gesture.ts";
 import type { P2 } from "./sketch.ts";
 import type { Core, DrawLine } from "./sketchcore.ts";
 
@@ -78,7 +79,7 @@ export function createDrag(K: Core, armed: () => boolean) {
       if (!drag) return;
       const c = here(x, y);
       if (!c) return;
-      if (!drag.moved && Math.hypot(x - drag.x0, y - drag.y0) < 4) return; // (a press that has not gone anywhere yet is still a click)
+      if (!drag.moved && !dragged(x - drag.x0, y - drag.y0)) return; // (a press that has not gone anywhere yet is still a click)
       drag.moved = true;
       drag.join = null;
       drag.snapAt = null;

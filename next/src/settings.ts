@@ -13,7 +13,6 @@ export const settings = {
     transitionMs: 450, // the move to a straight view
     perspectiveMs: 350, // the perspective coming back after a straight view is left
     leaveStraightPx: 60, // how far a drag must go to leave a straight view
-    clickMovePx: 4,
     morphLens: 0.01, // while the view changes between perspective and orthographic the lens goes to this and the picture is handed over to the orthographic camera (they look the same here to within a fraction of a percent)
     minOrthoMm: 0.05, // an orthographic view is not made smaller than this tall
     normalToleranceRad: 0.02,
@@ -34,10 +33,11 @@ export const settings = {
     scrollStreamMs: 160, // wheel events within this long of each other are one gesture, whose kind (scroll or notch) the first decides
     fineGain: 0.6,
     fineFadePx: 6, // the smallest mouse movements turn the view by this much of what they would, rising to all of it over about this many pixels (in_420)
+    dragPx: 4, // a press that moves this far is a drag, less it is still a click (`interaction/gesture.ts`: the one rule, for the view, the sketch, the marks, the orb and the bodies)
     multiClickPx: 6,
     multiClickMs: 400,
     zoomStepClamp: [0.2, 5] as [number, number], // one wheel event never zooms by more than this share either way
-    touchSlopPx: 12, // a touch must move this far to be a drag
+    touchDragPx: 12, // a touch must move this far to be a drag
     wheelLinePx: 33, // a wheel event counted in lines is this many pixels each
     wheelNotchMin: 50, // a whole step of at least this many pixels is a wheel's notch (not a trackpad's scroll)
     flySpeed: 0.45,
@@ -56,7 +56,6 @@ export const settings = {
     paneRound: 0.18,
     paneFadeLens: 0.5,
     paneUsableLevel: 0.5, // the panes fade out as the lens goes from 1 to this, and cannot be clicked below this much of them
-    gizmoEaseRate: 6, // the axes' scale eases over to scale free at this rate (per second)
     gridCells: 6, // the grid's spacing is the power of ten that gives about this many cells between the eye and the plane
     fogNear: 0.6,
     fogFar: 4,
@@ -115,7 +114,7 @@ export const settings = {
   planes: { snapAxisRad: 0.14, ringButtonPx: 36 }, // (a sketch plane made facing the camera snaps to a world axis within this)
   // the mover orb (`app/src/shared/settings.ts` gizmo): its size as a share of the view distance, how near the pointer must be to take a handle, and how its lines look
   // the marks of a sketch (`dec_marks_on_things`): how long a constraint offered for a part just made or moved stays when nothing is selected, how long it fades (ms), how long a constraint doing work in a drag takes to fade in (ms), how far a press on a mark must move before it is a drag (px), how near on the page marks stand to be one pill, and the gap between a mark and the part it stands on (it stands on it: its lower edge touches the part, so the part can still be pressed)
-  marks: { stayMs: 4000, fadeMs: 700, fadeInMs: 180, dragPx: 4, arrowClearPx: 34, arrowSidePx: 26 }, // (a bubble stands clear of an arrow shorter than `arrowClearPx`, `arrowSidePx` to the side of its middle)
+  marks: { stayMs: 4000, fadeMs: 700, fadeInMs: 180, arrowClearPx: 34, arrowSidePx: 26 }, // (a bubble stands clear of an arrow shorter than `arrowClearPx`, `arrowSidePx` to the side of its middle)
   // a pull arrow is dragged by the pointer's movement along the arrow as it looks on the screen; an arrow pointing nearly at the camera looks short, so a movement is counted as no more than this share of the screen's mm to the pixel (else a small movement is a huge pull)
   pull: { minGain: 0.5 },
   mover: {
@@ -157,8 +156,8 @@ export const settings = {
   },
   // the three looks of a body (`dec_view_looks`, `q_lean_ui`): Solid, See-through, and a mark laid over either; colours as the prototype had them
   looks: {
-    solid: { color: 0xc9c9cd, edge: 0x2a2a2d, opacity: 1 },
-    seeThrough: { color: 0x14161a, edge: 0x14161a, opacity: 0.14, edgeOpacity: 0.5 },
+    solid: { color: 0xc9c9cd, edge: 0x7f828a, opacity: 1 }, // (the edges are the one line colour, `interaction/style.ts` `LINE`)
+    seeThrough: { color: 0x14161a, edge: 0x7f828a, opacity: 0.14, edgeOpacity: 0.5 },
     marks: {
       pick: { color: 0x1ab8b3, strength: 0.55 },
       clash: { color: 0xe46a6a, strength: 0.7 },

@@ -5,6 +5,7 @@ import { equal } from "./equal.ts";
 import { STATE, createChips, keepEvents, type InfoHandlers } from "./chipdraw.ts";
 import type { Mark } from "./interaction/marks.ts";
 import { settings } from "./settings.ts";
+import { dragged } from "./interaction/gesture.ts";
 
 export interface MarkHandlers extends InfoHandlers {
   /** a mark is pointed at, or none any more (`id` null) */ hover?(id: string | null, over?: string): void;
@@ -134,7 +135,7 @@ export function createMarkDraw(host: HTMLElement) {
       }
       const dx = e.clientX - press.x,
         dy = e.clientY - press.y;
-      if (!press.drag && Math.hypot(dx, dy) < settings.marks.dragPx) return;
+      if (!press.drag && !dragged(dx, dy)) return;
       if (!press.drag) box.setPointerCapture(e.pointerId);
       press.drag = true;
       moved.set(key, { x: press.ox + dx, y: press.oy + dy });

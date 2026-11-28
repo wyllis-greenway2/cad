@@ -59,39 +59,17 @@ test("[W13] a click on a pane looks straight at its plane; a click elsewhere doe
   assert.equal(hidden.go, null, "with the world hidden there is no pane to click");
 });
 
-test("[W2] the axes and panes keep the world's size while the model is empty, and the same size on the screen once there is a thing", () => {
-  const empty = emptyScene();
-  for (const d of [30, 120, 400])
-    near(
-      view.gizmoScale({ ...startState(empty), c: { ...cam.home(), eye: scale(cam.forward(cam.home()), -d) as V3 } }),
-      1,
-      1e-12,
-    );
-  const m = oneScene();
-  const lenPx = (d: number) => {
-    const c: cam.Cam = { ...cam.home(), eye: scale(cam.forward(cam.home()), -d) as V3 };
-    const s = { ...startState(m), c, free: 1 },
-      k = view.gizmoScale(s);
-    const a = cam.project(c, [0, 0, 0], W, H),
-      b = cam.project(c, [24 * k, 0, 0], W, H);
-    return Math.hypot(b.x - a.x, b.y - a.y);
-  };
-  near(lenPx(200) / lenPx(800), 1, 0.01);
-});
-
-test("[W2] the change from the world's size to scale free eases over; the first thing makes it begin, taking the thing away reverses it", () => {
-  const m: Scene = { things: [] };
-  let s = startState(m);
-  assert.equal(s.free, 0);
-  m.things = oneScene().things;
-  let t = 0;
-  const e1 = view.advance(s, E(m, { now: 16 }), 0.016);
-  assert.ok(e1.free > 0 && e1.free < 0.5, "not at once");
-  for (let i = 0; i < 100; i++) s = view.advance(s, E(m, { now: (t += 16) }), 0.016);
-  assert.equal(s.free, 1);
-  m.things = [];
-  for (let i = 0; i < 100; i++) s = view.advance(s, E(m, { now: (t += 16) }), 0.016);
-  assert.equal(s.free, 0);
+test("[W2] the axes and panes are always the same size on the screen, wherever the eye is, with a model or without", () => {
+  for (const m of [emptyScene(), oneScene()]) {
+    const lenPx = (d: number) => {
+      const c: cam.Cam = { ...cam.home(), eye: scale(cam.forward(cam.home()), -d) as V3 },
+        k = view.gizmoScale({ ...startState(m), c });
+      const a = cam.project(c, [0, 0, 0], W, H),
+        b = cam.project(c, [24 * k, 0, 0], W, H);
+      return Math.hypot(b.x - a.x, b.y - a.y);
+    };
+    near(lenPx(200) / lenPx(800), 1, 0.01);
+  }
 });
 
 test("[W3 W4] a thing in front hides an axis's letter and the origin dot; the letter of the axis looked along is not drawn", () => {

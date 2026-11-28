@@ -5,6 +5,7 @@
 // One finger orbits on a touch screen; on a trackpad a one-finger drag with the button down is the mouse's left-drag.
 import { fineGain } from "./camera.ts";
 import { settings } from "./settings.ts";
+import { dragged, repeats } from "./interaction/gesture.ts";
 
 export interface Intents {
   /** A drag of the view is about to begin at (x, y); the controller picks what it turns or pans about, once, for the whole drag. */
@@ -29,6 +30,11 @@ export interface Intents {
   grab(x: number, y: number, shift: boolean): boolean;
   grabMove(x: number, y: number): void;
   grabEnd(x: number, y: number): void;
+  /** A left press that is not a handle's: does it take the drag if it turns into one, as bodies picked whole are carried (a click it stays a click, so it can pick a part of them)? */
+  carries(x: number, y: number, shift: boolean): boolean;
+  carryStart(x: number, y: number): void;
+  carryMove(x: number, y: number): void;
+  carryEnd(x: number, y: number): void;
   /** A right drag: a box from where it began; moved; let go (the page picks what it holds). */
   boxStart(x: number, y: number): void;
   boxMove(x: number, y: number): void;
@@ -37,7 +43,7 @@ export interface Intents {
   space(): void;
 }
 
-type Action = "orbit" | "pan" | "click" | "box";
+type Action = "orbit" | "pan" | "click" | "box" | "carry";
 export const actionOf = (button: number, m: { shift: boolean; alt: boolean }, space: boolean): Action => {
   if (button === 1) return "pan";
   if (button === 2) return m.shift ? "pan" : "box"; // (a right drag draws a box to pick what it holds, `in_1728`; the view is turned by a left drag, or Alt)
@@ -91,10 +97,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
   let touchKind: "orbit" | "pan" | null = null;
   let last = { t: 0, x: 0, y: 0, n: 0 };
   const count = (x: number, y: number, t: number) => {
-    last =
-      t - last.t < settings.input.multiClickMs && Math.hypot(x - last.x, y - last.y) < settings.input.multiClickPx
-        ? { t, x, y, n: last.n + 1 }
-        : { t, x, y, n: 1 };
+    last = repeats(t - last.t, x - last.x, y - last.y) ? { t, x, y, n: last.n + 1 } : { t, x, y, n: 1 };
     return last.n;
   };
   const pos = (e: PointerEvent) => {
@@ -124,20 +127,19 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
       return;
     }
     // (a press that goes on from a click just made is the second of a double click, whatever stands under it, an arrow too: it is not a handle's)
-    const again =
-      e.timeStamp - last.t < settings.input.multiClickMs &&
-      Math.hypot(p.x - last.x, p.y - last.y) < settings.input.multiClickPx;
+    const again = repeats(e.timeStamp - last.t, p.x - last.x, p.y - last.y);
     if (e.button === 0 && !space && !e.altKey && !again && out.grab(p.x, p.y, e.shiftKey)) {
       grabbing = { x: p.x, y: p.y };
       return;
     }
     if (space) spaceUsed = true;
+    const action = actionOf(e.button, { shift: e.shiftKey, alt: e.altKey }, space);
     drag = {
       x0: p.x,
       y0: p.y,
       ...p,
       moved: false,
-      action: actionOf(e.button, { shift: e.shiftKey, alt: e.altKey }, space),
+      action: action === "click" && !again && out.carries(p.x, p.y, e.shiftKey) ? "carry" : action,
       button: e.button,
       shift: e.shiftKey,
     };
@@ -155,7 +157,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
       touches.set(e.pointerId, p);
       const dx = p.x - was.x,
         dy = p.y - was.y;
-      if (tap && Math.hypot(p.x - tap.x, p.y - tap.y) > settings.input.touchSlopPx) tap.moved = true;
+      if (tap && dragged(p.x - tap.x, p.y - tap.y, true)) tap.moved = true;
       if (touches.size === 1) {
         if (tap?.moved) {
           if (touchKind !== "orbit") {
@@ -185,14 +187,19 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     }
     out.hover(p.x, p.y); // (also while dragging: the disc under the pointer follows it as the view turns)
     if (!drag) return;
-    if (!drag.moved && Math.hypot(p.x - drag.x0, p.y - drag.y0) < settings.view.clickMovePx) return;
+    if (!drag.moved && !dragged(p.x - drag.x0, p.y - drag.y0)) return;
     if (!drag.moved) {
       drag.moved = true;
       if (drag.action === "box") out.boxStart(drag.x0, drag.y0);
+      else if (drag.action === "carry") out.carryStart(drag.x0, drag.y0);
       else out.dragStart(drag.x0, drag.y0);
     }
     if (drag.action === "box") {
       out.boxMove(p.x, p.y);
+      return;
+    }
+    if (drag.action === "carry") {
+      out.carryMove(p.x, p.y);
       return;
     }
     const dx = p.x - drag.x,
@@ -217,7 +224,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     }
     if (grabbing) {
       // (a press on a handle that went nowhere counts as a click for the counting: its second press is a double click's)
-      if (Math.hypot(p.x - grabbing.x, p.y - grabbing.y) < settings.input.multiClickPx) count(p.x, p.y, e.timeStamp);
+      if (!dragged(p.x - grabbing.x, p.y - grabbing.y)) count(p.x, p.y, e.timeStamp);
       grabbing = null;
       out.grabEnd(p.x, p.y);
       return;
@@ -227,10 +234,12 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     if (!d) return;
     if (d.moved) {
       if (d.action === "box") out.boxEnd(p.x, p.y);
+      else if (d.action === "carry") out.carryEnd(p.x, p.y);
       else out.dragEnd();
       return;
     }
-    if (d.action === "click" && e.type === "pointerup") out.click(p.x, p.y, count(p.x, p.y, e.timeStamp));
+    if ((d.action === "click" || d.action === "carry") && e.type === "pointerup")
+      out.click(p.x, p.y, count(p.x, p.y, e.timeStamp));
     else if (d.button === 2 && !d.shift && e.type === "pointerup") out.menu(p.x, p.y); // (a right click that did not move: the menu; a right drag draws a box)
   };
   let stream: { kind: WheelKind; t: number } | null = null,

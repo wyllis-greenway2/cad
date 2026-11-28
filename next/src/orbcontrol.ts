@@ -4,6 +4,7 @@ import { forward, type Cam } from "./camera.ts";
 import { applyDrag, centreOf, choose, clonePose, heldAxes, newPose, type Pose } from "./mover.ts";
 import { dragTo, handlesOf, hitHandle, startGrab, unitOf, type Grab, type Handle, type Orb } from "./orb.ts";
 import type { Frame } from "./planes.ts";
+import { dragged } from "./interaction/gesture.ts";
 
 export interface OrbHost {
   /** What the orb is on now (null: no orb is shown), and where that is. */
@@ -123,7 +124,7 @@ export function createOrbControl(host: OrbHost) {
       const { cam, w, h } = host.view(),
         d = dragTo(grabbed.g, cam, w, h, x, y);
       if (!d) return;
-      if (Math.hypot(x - grabbed.x0, y - grabbed.y0) > 3) grabbed.moved = true;
+      if (dragged(x - grabbed.x0, y - grabbed.y0)) grabbed.moved = true;
       if (grabbed.g.handle.id.startsWith("copy:") && !grabbed.copied && Math.abs(d.value) > 0.5) {
         // (the first drag of a second arrow makes a copy and takes that along)
         const c = host.copy(grabbed.id);

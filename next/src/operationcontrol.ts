@@ -47,18 +47,18 @@ export function createOperations(host: OperationHost) {
     touched = false, // (and the person has dragged it, typed a number or chosen a kind)
     selected = false, // (the arrow was pressed)
     numberAsked = false; // (digits were typed: the number is to be shown to take them)
-  /** the arrow, as in the old app: centred on the place it is anchored at, along the way it is pulled, with a head at each end; long enough to reach the pull when that is longer than it is */
+  /** the arrow, as in the old app: centred on the place it is anchored at, along the way it is pulled, with a head at each end; pulled, it MOVES with the pull (the same length, never stretched) */
   const handle = (o: Operation, cam: Cam): Handle => {
     const a = o.arrow!,
       L = unitOf(cam, a.base),
       A = settings.mover.arrowShare * L,
-      dir = scale(a.normal, o.pulled < 0 ? -1 : 1);
+      at = add(a.base, scale(a.normal, o.pulled));
     return {
       id: ID,
       kind: "arrow",
       axis: null,
       both: true,
-      points: [add(a.base, scale(dir, -A / 2)), a.base, add(a.base, scale(dir, Math.max(A / 2, Math.abs(o.pulled))))],
+      points: [add(at, scale(a.normal, -A / 2)), at, add(at, scale(a.normal, A / 2))],
     };
   };
   const close = () => {

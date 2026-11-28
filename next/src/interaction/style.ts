@@ -12,18 +12,20 @@ export type Tone =
   | "ground"
   | "hidden";
 
+/** the one colour of every line that is not marked: a sketch's lines, a body's edges, the lines of a number (`in_1732`: all the same, and a lighter grey than the charcoal they were) */
+export const LINE = "#7f828a";
 /** the colours, as the old project had them (hex); the source of each is named */
 export const COLOUR: Record<Tone, string> = {
   figure: "#1ab8b3", // settings.orb.color [0.1, 0.72, 0.7]: "THE teal" (selection, hover, guides)
   candidate: "#1ab8b3", // the same teal, drawn dashed
   ties: "#f2c14e", // highlight.ts AMBER
   refused: "#e46a6a", // highlight.ts RED
-  note: "#55575c", // view.ts setNotes
-  axis: "#2b2b30", // theme.axis [0.17, 0.17, 0.19]
+  note: LINE,
+  axis: LINE, // (a sketch's own lines: the one line colour)
   body: "#c9c9cd", // theme.bodyColor
-  bodyEdge: "#2a2a2d", // theme.bodyEdge
+  bodyEdge: LINE,
   ground: "#ffffff", // theme.background
-  hidden: "#2a2a2d", // the edges of a body behind a face, drawn faint (opacity below)
+  hidden: LINE,
 };
 /** the two line weights of a drawing, times the figure's width (`settings.sketch.widthPx`): thin for everything that is not a thing of the sketch, bold for what is selected, cut or tied (`in_1677`) */
 const THIN = 0.75,

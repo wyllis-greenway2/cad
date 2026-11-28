@@ -11,7 +11,7 @@ One per line, `Name` (`file`): what it is. The impact tool reads these lines: a 
 - `Env` (`src/view.ts`): what is known when a change is made (the model, the size, the time, whether game mode is on).
 - `Drawing` (`src/world.ts`): what the view hands to the drawing.
 - `UiState` (`src/ui.ts`): what the view hands to the page's own parts.
-- `Scene` (`src/scene.ts`): things with a box and a centre, and the ray test `hitThings`. **What the camera looks at is the box of each body the engine made** (`bodyThings`, from the extent of its points) **and, on the dev page, the stand-in boxes** (`lookedAt`); the camera's pivot (C3), step (C8), Reset (C17) and the axes going scale-free (W2) all go by them (`in_1710`); **a body the mover orb's draft shows moved is looked at where it is shown** (`withMoved`: the box that holds its box's eight corners moved; its middle is exact, turned its extent is a little more than the body's), and a body's middle is the middle of its box, as the old app's `bodyCentre` (`in_1714`).
+- `Scene` (`src/scene.ts`): things with a box and a centre, and the ray test `hitThings`. **What the camera looks at is the box of each body the engine made** (`bodyThings`, from the extent of its points) **and, on the dev page, the stand-in boxes** (`lookedAt`); the camera's pivot (C3), step (C8), Reset (C17) and the axes' size (W2) all go by them (`in_1710`); **a body the mover orb's draft shows moved is looked at where it is shown** (`withMoved`: the box that holds its box's eight corners moved; its middle is exact, turned its extent is a little more than the body's), and a body's middle is the middle of its box, as the old app's `bodyCentre` (`in_1714`).
 - `settings` (`src/settings.ts`): groups `view`, `input`, `world`, `orb`, `buttons`, `ui`, `theme`, `light`; a row lists `settings.<group>`.
 
 ## Inputs this section claims (the conflict check compares these with other sections)
@@ -29,7 +29,7 @@ One device per line; claims separated by semicolons.
 | ID | Requirement | Source | Inputs | Contracts | Test | Status |
 |---|---|---|---|---|---|---|
 | W1 | The world is light: a white background; thin charcoal "pencil" axes, **positive X, Y, Z only**, each with a small arrowhead built into the line and a small letter at its tip. | in_018 in_065 in_161 in_1408 | | `settings.theme`, `settings.world` | browser | built |
-| W2 | The axes, the letters and the panes are the world's size (the axes 24 mm) **while the model is empty**, so they zoom with the world; **once the first sketch or object exists** they are scale free: the same size on the screen as at the home view, wherever the eye is; the change eases over a fraction of a second. | in_122 in_1406 | | `settings.world`, `Scene` | unit | built |
+| W2 | The axes, the letters and the panes are **always the same size on the screen** as at the home view, wherever the eye is, with a model or without (`in_1732`; they used to be the world's size, 24 mm, while the model was empty, and went to this size when the first thing was made). | in_122 in_1406 in_1732 | | `settings.world`, `Scene` | unit | built |
 | W3 | The axes, their letters and the origin dot never show through objects. | in_122 in_194 in_1194 | | `Scene` | unit | built |
 | W4 | The letter of an axis that the view looks along is not drawn. | in_122 | | `UiState` | unit | built |
 | W5 | One world plane's grid is always on: the floor (Z) at the start; the plane that is on changes with a pane or a button. | in_190 | | `ViewState` | unit | built |
