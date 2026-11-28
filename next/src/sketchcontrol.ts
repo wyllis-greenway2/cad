@@ -25,7 +25,7 @@ import { to3, type P2, type ToolKind } from "./sketch.ts";
 import { createCore, type DrawLine, type Shape, type SketchHost } from "./sketchcore.ts";
 import { createDrag } from "./sketchdrag.ts";
 import { createMarks } from "./sketchmarks.ts";
-import { add, scale, type V3 } from "./vec.ts";
+import type { V3 } from "./vec.ts";
 
 export type { DrawLine, SketchHost } from "./sketchcore.ts";
 
@@ -45,8 +45,26 @@ const TYPED: Record<string, string> = {
 
 export function createSketch(host: SketchHost, on?: (label: string, merge?: string) => void) {
   const K = createCore(host, on);
-  const { defs, fillCache, sel, st, say, sysOf, solOf, current, selected, dashAt, mmPerPx, here, set, fail, polyline } =
-    K;
+  const {
+    defs,
+    fillCache,
+    sel,
+    st,
+    say,
+    sysOf,
+    solOf,
+    current,
+    selected,
+    dashAt,
+    mmPerPx,
+    dot,
+    cross,
+    helpDrawn,
+    here,
+    set,
+    fail,
+    polyline,
+  } = K;
   let tool: Tool | null = null;
   /** a pixel's worth of the plane in mm, where the pointer is */
   /** where a click would put the place: on a point or curve as drawn, else drawn to the helpers' places (they place, they never constrain, `dec_hints_place_only`, `in_1579`) */
@@ -201,13 +219,6 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       ...(o.both ? [head(from, -ux, -uy)] : []),
     ];
   };
-  /** a point as a dot: one kind, its colour by tone and its size a share of the ball's (`in_1675`) */
-  const dot = (f: Frame, at: P2, tone: Tone, size = 1): DrawLine => ({
-    kind: "dot",
-    tone,
-    pts: [to3(f, at)],
-    r: mmPerPx(f, at) * settings.sketch.ballPx * size,
-  });
   /** one shape of a pointed-at mark as lines: yellow when it is an offer's, else neutral (`in_1675`) */
   const shape = (f: Frame, z: Shape, offer: boolean): DrawLine[] => {
     const kind = offer && !(z.t === "arrow" && z.plain) ? "dashOffer" : "dash";
@@ -411,19 +422,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
                 (id) => s.points[id] ?? null,
               )
             : [];
-          for (const l of shown)
-            out.push({
-              kind: l.kind,
-              pts: l.pts.map((z) => to3(c.f, z)),
-              ...(l.kind === "dashOffer" ? { dash: dashAt(c.f, at) } : {}),
-              ...(l.kind === "dot" ? { tone: l.tone, r: mmPerPx(c.f, l.pts[0]!) * settings.sketch.ballPx } : {}),
-            });
-          const arm = mmPerPx(c.f, at) * settings.sketch.crossPx,
-            w = to3(c.f, at);
-          out.push(
-            { kind: "cursor", pts: [add(w, scale(c.f.u, -arm)), add(w, scale(c.f.u, arm))] },
-            { kind: "cursor", pts: [add(w, scale(vOf(c.f), -arm)), add(w, scale(vOf(c.f), arm))] },
-          );
+          out.push(...helpDrawn(c.f, shown, at), ...cross(c.f, at));
         }
       }
       return out;

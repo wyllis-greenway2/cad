@@ -15,7 +15,8 @@ import type { Frame } from "./planes.ts";
 import type { Selection } from "./selection.ts";
 import { settings } from "./settings.ts";
 import { onPlane, to2, to3, type P2 } from "./sketch.ts";
-import type { V3 } from "./vec.ts";
+import { vOf } from "./planes.ts";
+import { add, scale, type V3 } from "./vec.ts";
 
 export interface SketchHost {
   view(): { cam: Cam; w: number; h: number };
@@ -133,6 +134,32 @@ export function createCore(host: SketchHost, on?: (label: string, merge?: string
     const { cam, h } = host.view();
     return viewHeight(cam, Math.max(forwardDepth(cam, to3(f, q)), 1e-3)) / h;
   };
+  /** the sizes of what is drawn on the sketch are in pixels, turned into mm where they stand (`in_1678`): `n` of `settings.sketch` */
+  const px = (f: Frame, q: P2, n: number) => mmPerPx(f, q) * n;
+  /** a point as a dot: one kind, its colour by tone and its size a share of the ball's (`in_1675`) */
+  const dot = (f: Frame, at: P2, tone: Tone, size = 1): DrawLine => ({
+    kind: "dot",
+    tone,
+    pts: [to3(f, at)],
+    r: px(f, at, settings.sketch.ballPx * size),
+  });
+  /** the cursor's cross at a place (`size`: a share of the usual) */
+  const cross = (f: Frame, at: P2, size = 1): DrawLine[] => {
+    const arm = px(f, at, settings.sketch.crossPx * size),
+      w = to3(f, at);
+    return [
+      { kind: "cursor", pts: [add(w, scale(f.u, -arm)), add(w, scale(f.u, arm))] },
+      { kind: "cursor", pts: [add(w, scale(vOf(f), -arm)), add(w, scale(vOf(f), arm))] },
+    ];
+  };
+  /** what the helpers say of a place, drawn: their ties, dashed guides (dashed at `at`) and dots */
+  const helpDrawn = (f: Frame, shown: { kind: DrawLine["kind"]; pts: P2[]; tone?: Tone }[], at: P2): DrawLine[] =>
+    shown.map((l) => ({
+      kind: l.kind,
+      pts: l.pts.map((z) => to3(f, z)),
+      ...(l.kind === "dashOffer" ? { dash: dashAt(f, at) } : {}),
+      ...(l.kind === "dot" ? { tone: l.tone, r: px(f, l.pts[0]!, settings.sketch.ballPx) } : {}),
+    }));
   const here = (x: number, y: number) => {
     const c = current();
     if (!c) return null;
@@ -177,6 +204,10 @@ export function createCore(host: SketchHost, on?: (label: string, merge?: string
     selected,
     dashAt,
     mmPerPx,
+    px,
+    dot,
+    cross,
+    helpDrawn,
     here,
     set,
     fail,

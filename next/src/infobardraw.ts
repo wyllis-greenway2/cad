@@ -1,7 +1,7 @@
 // The info bar on the page (`dec_three_surfaces`, `in_1598`, `in_1601`): one row standing below its subject and a little to its left (the old app's place: 67 px under it, 6 px before it). The left of it is what is so: a constraint is a round button (a click takes
 // it away), a number is a pill with its padlock (a click on the number types a new one; the padlock locks it at what it measures or lets it go; digits typed with its subject selected go to it, `startEdit`). The right, in a dashed teal outline, is what could be added (a click
 // applies it). It only draws `interaction/infobar.ts`'s descriptions and says what was pressed. Words are tooltips.
-import { createChips, type InfoHandlers } from "./chipdraw.ts";
+import { TONE, createChips, type InfoHandlers } from "./chipdraw.ts";
 import type { Info } from "./interaction/infobar.ts";
 import { settings } from "./settings.ts";
 export type { InfoHandlers } from "./chipdraw.ts";
@@ -50,7 +50,17 @@ export function createInfoBar(host: HTMLElement) {
         sig = s;
         chips.forget();
         const kids: HTMLElement[] = info.facts.map((f) =>
-          f.kind === "dimension" ? chips.number(f) : chips.relation(f),
+          f.kind === "dimension"
+            ? chips.number(f)
+            : chips.round({
+                id: f.id,
+                icon: f.icon,
+                title: `${f.title} (click to take it away)`,
+                border: TONE[f.tone],
+                attr: "fact",
+                lock: "closed",
+                onClick: () => on?.fact(f.id),
+              }),
         );
         if (info.facts.length && info.suggestions.length) {
           const l = document.createElement("div");
@@ -61,7 +71,19 @@ export function createInfoBar(host: HTMLElement) {
           const seg = document.createElement("div");
           seg.style.cssText =
             "display:flex;align-items:center;gap:5px;padding:2px;border-radius:16px;border:1px dashed #1ab8b3";
-          seg.append(...info.suggestions.map((b) => chips.suggestion(b)));
+          seg.append(
+            ...info.suggestions.map((b) =>
+              chips.round({
+                id: b.id,
+                icon: b.icon,
+                title: b.title,
+                border: TONE[b.tone],
+                attr: "bar",
+                hover: true,
+                onClick: () => on?.suggest(b.id),
+              }),
+            ),
+          );
           kids.push(seg);
         }
         el.replaceChildren(...kids);

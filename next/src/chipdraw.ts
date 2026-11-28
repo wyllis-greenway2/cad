@@ -2,7 +2,6 @@
 // offer) or a pill with a number and its padlock. The border says the state (grey at rest, green locked or holds, yellow offered, red refused). It draws nothing of its own accord: whoever places it keeps it, and it says what was pressed through `on`.
 import { iconSvg } from "./icons.ts";
 import type { Bubble } from "./interaction/bubbles.ts";
-import type { BarItem } from "./interaction/infobar.ts";
 
 export interface InfoHandlers {
   suggest(id: string): void;
@@ -101,17 +100,6 @@ export function createChips(handlers: () => InfoHandlers | null, retake: () => v
     d.addEventListener("click", o.onClick);
     return d;
   };
-  /** a constraint, as the bar shows it: a round button, a click takes it away */
-  const relation = (f: Bubble, border: Border = TONE[f.tone]): HTMLElement =>
-    round({
-      id: f.id,
-      icon: f.icon,
-      title: `${f.title} (click to take it away)`,
-      border,
-      attr: "fact",
-      lock: "closed",
-      onClick: () => handlers()?.fact(f.id),
-    });
   /** a number: a pill with its value and its padlock */
   const number = (f: Bubble, border: Border = TONE[f.tone]): HTMLElement => {
     const d = document.createElement("div");
@@ -152,27 +140,9 @@ export function createChips(handlers: () => InfoHandlers | null, retake: () => v
     }
     return d;
   };
-  /** an offered constraint or option: a round button, a click applies it */
-  const suggestion = (
-    b: BarItem,
-    border: Border = TONE[b.tone],
-    onClick: () => void = () => handlers()?.suggest(b.id),
-    lockOpen = false,
-  ): HTMLElement =>
-    round({
-      id: b.id,
-      icon: b.icon,
-      title: b.title,
-      border,
-      attr: "bar",
-      ...(lockOpen ? { lock: "open" as const } : {}),
-      hover: true,
-      onClick,
-    });
   return {
-    relation,
+    round,
     number,
-    suggestion,
     forget: () => numbers.clear(),
     /** digits typed with the subject selected go to its number: the text starts as the key typed; false: there is no such number */
     startEdit(id: string, initial: string): boolean {

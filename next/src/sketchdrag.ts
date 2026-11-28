@@ -9,15 +9,13 @@ import { activeOf, dragRadius, dragTo, joinFor, pinsOf } from "./interaction/dra
 import { hitAt } from "./interaction/drawing.ts";
 import { helpShown } from "./interaction/helpshow.ts";
 import type { Frame } from "./planes.ts";
-import { vOf } from "./planes.ts";
 import { settings } from "./settings.ts";
 import { to3, type P2 } from "./sketch.ts";
 import type { Core, DrawLine } from "./sketchcore.ts";
-import { add, scale } from "./vec.ts";
 
 /** `armed`: whether a tool is on (a press then belongs to the tool) */
 export function createDrag(K: Core, armed: () => boolean) {
-  const { defs, sel, st, solOf, sysOf, here, selected, set, working, mmPerPx, dashAt, polyline } = K;
+  const { defs, sel, st, solOf, sysOf, here, selected, set, working, polyline, helpDrawn, cross } = K;
   // ---- a part dragged: the solver follows the pointer with the part pinned where it goes (soft: it goes as near as the constraints allow); a point let go on another point or on a curve joins it
   type Drag = {
     key: string;
@@ -174,24 +172,13 @@ export function createDrag(K: Core, armed: () => boolean) {
               },
               (id) => sol.points[id] ?? null,
             );
-          for (const l of shown)
-            out.push({
-              kind: l.kind,
-              pts: l.pts.map((z) => to3(f, z)),
-              ...(l.kind === "dashOffer" ? { dash: dashAt(f, at) } : {}),
-              ...(l.kind === "dot" ? { tone: l.tone, r: mmPerPx(f, l.pts[0]!) * settings.sketch.ballPx } : {}),
-            });
+          out.push(...helpDrawn(f, shown, at));
         }
       }
       if (drag?.snapAt) {
         const f = all.get(drag.key);
         if (f) {
-          const arm = mmPerPx(f, drag.snapAt) * settings.sketch.crossPx * 1.4,
-            w = to3(f, drag.snapAt);
-          out.push(
-            { kind: "cursor", pts: [add(w, scale(f.u, -arm)), add(w, scale(f.u, arm))] },
-            { kind: "cursor", pts: [add(w, scale(vOf(f), -arm)), add(w, scale(vOf(f), arm))] },
-          );
+          out.push(...cross(f, drag.snapAt, 1.4));
         }
       }
       return out;

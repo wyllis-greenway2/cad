@@ -77,17 +77,18 @@ export function createMarkDraw(host: HTMLElement) {
       n.dataset.state = m.state;
       return n;
     }
-    const chip =
-      m.state === "offer"
-        ? chips.suggestion(
-            { id: m.id, icon: m.icon, title: m.title, tone: "offer" },
-            colour,
-            () => on?.offer(m.id, m.over ?? []),
-            true,
-          )
-        : chips.relation(m, colour);
+    const offer = m.state === "offer",
+      chip = chips.round({
+        id: m.id,
+        icon: m.icon,
+        title: `${m.title} (click to ${offer ? "lock" : "unlock"} it)`,
+        border: colour,
+        attr: offer ? "bar" : "fact",
+        lock: offer ? "open" : "closed",
+        hover: offer,
+        onClick: () => (offer ? on?.offer(m.id, m.over ?? []) : on?.fact(m.id)),
+      });
     chip.dataset.state = m.state;
-    chip.title = m.state === "offer" ? `${m.title} (click to lock it)` : `${m.title} (click to unlock it)`;
     if (m.state === "refused") chip.style.animation = "mark-flash .5s ease-in-out 3";
     return chip;
   };
