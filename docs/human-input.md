@@ -6814,3 +6814,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1699 — 2026-11-28 — directive
 > do the three unused parameters
+
+## in_1700 — 2026-11-28 — directive
+> do the two remaining unused S parameters

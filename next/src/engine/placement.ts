@@ -277,7 +277,6 @@ export function place(
   const rows = mates.map((m) => ({ c: { id: m.id, kind: m.kind as never, parts: [] as string[] }, fn: rowsOf(m) }));
   const names = bodies.flatMap((_, i) => ["tx", "ty", "tz", "wx", "wy", "wz"].map((s) => `${i}.${s}`)); // a body is named by its place in the list: its own id may hold dots
   const prep: Prep = { names, x: x0, frozen, pointVar: new Map(), circleVar: new Map(), rows, pins: [] };
-  const dummy = { points: [], lines: [], circles: [], constraints: [] };
   const seeds: { x: number[]; pre?: [string, number] }[] = [{ x: x0 }];
   for (const [i, bi] of bodies.entries())
     if (bi.free)
@@ -294,7 +293,7 @@ export function place(
     for (const sd of all ? seeds : seeds.slice(0, restarts + 1)) {
       pre.clear();
       if (sd.pre) pre.set(sd.pre[0], half(sd.pre[1]));
-      const a = levenberg(dummy as never, prep, use, sd.x, scale, false, 300);
+      const a = levenberg(prep, use, sd.x, scale, false, 300);
       last = a;
       if (a.converged) {
         usedPre = new Map(pre);

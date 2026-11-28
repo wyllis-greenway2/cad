@@ -55,7 +55,7 @@ export function nearFor(S: System, selection: string[], max = NEAR_MAX, reach?: 
       ...(selection.length === 1 ? candidatesFor(S, motion.affected, selection, 1) : []),
     ].filter((c) => !RANGEABLE.has(c.relation)),
     exact = 1e-7;
-  const found = inRange(S, motion, new Array(motion.dim).fill(0), cands, reach ?? exact)
+  const found = inRange(motion, new Array(motion.dim).fill(0), cands, reach ?? exact)
     .slice(0, 24)
     .map((r) => {
       const other = r.cand.parts.find((x) => !selection.includes(x)) ?? "", // (none: it is said of the selection alone)

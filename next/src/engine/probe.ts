@@ -193,7 +193,7 @@ export function aboutMotion(res: (q: number[]) => number[], q0: readonly number[
   });
 }
 /** every relation among `cands` that is within reach of holding from `q0` (`reach`, mm: one distance for every relation, the Newton step is in mm whatever the unit of the row), that depends on the motion, and that the solver would add */
-export function inRange(S: System, m: Motion, q0: readonly number[], cands: readonly Cand[], reach: number): InRange[] {
+export function inRange(m: Motion, q0: readonly number[], cands: readonly Cand[], reach: number): InRange[] {
   const out: InRange[] = [];
   for (const cand of cands) {
     const c = constraintOf(cand),

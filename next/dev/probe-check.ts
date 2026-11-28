@@ -28,13 +28,13 @@ check(
     new Set(cands.map((c) => `${c.relation}|${[...c.parts].sort()}`)).size === cands.length,
   String(cands.length),
 );
-const found = inRange(S, mv, [0, 0], cands, reach).find((r) => r.cand.relation === "tangent");
+const found = inRange(mv, [0, 0], cands, reach).find((r) => r.cand.relation === "tangent");
 check(
   "the line moved 0.3 mm towards the circle is tangent: found, at about that offset",
   !!found && Math.abs(found.moved - 0.3) < 1e-6 && Math.abs(found.q[1]! + 0.3) < 1e-6,
   JSON.stringify(found && [found.moved, found.q]),
 );
-check("and not in a reach of 0.1", !inRange(S, mv, [0, 0], cands, 0.1).some((r) => r.cand.relation === "tangent"));
+check("and not in a reach of 0.1", !inRange(mv, [0, 0], cands, 0.1).some((r) => r.cand.relation === "tangent"));
 // at rest, each point free to move: a line a little off parallel to another is in reach of parallel
 const T: System = {
   points: [
@@ -53,14 +53,14 @@ const T: System = {
 const rest = adjusting(T, ["A", "B"]);
 check(
   "parts at rest, each point free: a line 0.3 mm over 40 off parallel is within reach of parallel",
-  inRange(T, rest, new Array(rest.dim).fill(0), candidatesFor(T, rest.affected, ["L1"], 2), reach).some(
+  inRange(rest, new Array(rest.dim).fill(0), candidatesFor(T, rest.affected, ["L1"], 2), reach).some(
     (r) => r.cand.relation === "parallel",
   ),
 );
 const none = adjusting(T, ["A", "B"]);
 check(
   "and not in a reach of 0.01",
-  !inRange(T, none, new Array(none.dim).fill(0), candidatesFor(T, none.affected, ["L1"], 2), 0.01).some(
+  !inRange(none, new Array(none.dim).fill(0), candidatesFor(T, none.affected, ["L1"], 2), 0.01).some(
     (r) => r.cand.relation === "parallel",
   ),
 );

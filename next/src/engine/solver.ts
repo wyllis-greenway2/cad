@@ -674,7 +674,6 @@ interface Attempt {
 }
 /** Levenberg-Marquardt on the unknowns that are not frozen; `use` says which constraints take part */
 function levenberg(
-  S: System,
   prep: Prep,
   use: Set<string>,
   start: number[],
@@ -791,7 +790,7 @@ function feasible(
   let last: Attempt | null = null,
     why = "the constraints cannot all be made to hold";
   for (let a = 0; a <= restarts; a++) {
-    const at = levenberg(S, prep, use, a === 0 ? prep.x : nudged(prep.x, prep.frozen, scale, a), scale, false, maxIter);
+    const at = levenberg(prep, use, a === 0 ? prep.x : nudged(prep.x, prep.frozen, scale, a), scale, false, maxIter);
     last = at;
     if (!at.converged) continue;
     const collapsed = collapse(S, prep, at.x, minSize);
@@ -1082,8 +1081,8 @@ function solveOnce(S: System, opts: Options = {}): Result {
         opts.maxSolves ?? 60,
       ).set;
       const all = new Set(S.constraints.map((c) => c.id)),
-        pulled = levenberg(S, prep, all, solved, scale, true),
-        exact = levenberg(S, prep, all, pulled.x, scale, false);
+        pulled = levenberg(prep, all, solved, scale, true),
+        exact = levenberg(prep, all, pulled.x, scale, false);
       iterations += pulled.iterations + exact.iterations;
       if (exact.converged && !collapse(S, prep, exact.x, minSize)) final = exact.x;
     }

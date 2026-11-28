@@ -746,8 +746,8 @@ test("[S24] one distance for every relation: a near offer is shown if it holds w
   // the probe says the same, for the line moved
   const mv = translating(R, ["P1", "P2"]),
     cands = candidatesFor(R, mv.affected);
-  assert.ok(inRange(R, mv, [0, 0], cands, 0.6).some((x) => x.cand.relation === "tangent"));
-  assert.ok(!inRange(R, mv, [0, 0], cands, 0.1).some((x) => x.cand.relation === "tangent"));
+  assert.ok(inRange(mv, [0, 0], cands, 0.6).some((x) => x.cand.relation === "tangent"));
+  assert.ok(!inRange(mv, [0, 0], cands, 0.1).some((x) => x.cand.relation === "tangent"));
   // an offer that moves nothing by more than the distance shows, one that moves something farther does not
   const T: System = {
     points: [
