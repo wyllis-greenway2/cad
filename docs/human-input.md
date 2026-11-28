@@ -6853,3 +6853,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1712 — 2026-11-28 — directive
 > yes write it into rule 12
+
+## in_1713 — 2026-11-28 — directive
+> let's look into the stress-found-check kernel crash now

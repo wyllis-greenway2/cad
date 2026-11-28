@@ -46,9 +46,12 @@ export function modernise(p: SketchParams): SketchParams {
     }
     if (c.kind === ("pointOnLine" as string) || c.kind === ("pointOnCircle" as string)) return [{ ...c, kind: "on" }];
     if (c.kind === ("tangentCircles" as string)) return [{ ...c, kind: "tangent" }];
-    // equal length and equal radius are not kinds (`in_1645`): the two sizes are each given as they are (the first's, if they differ), the same number
+    // equal length and equal radius are not kinds (`in_1645`): the two sizes are each given as the same number: the size one of them already has as a number if it has one (the first's, if both do and they differ), else the first's as drawn; a part that already has a size is not given a second one (two sizes on one part would only fight)
     if (c.kind === ("equalRadius" as string) || c.kind === ("equalLength" as string)) {
       const radius = c.kind === ("equalRadius" as string),
+        kind = radius ? "radius" : "length",
+        sized = (id: string) =>
+          (p.constraints ?? []).find((q) => q.kind === kind && q.parts[0] === id && q.value !== undefined),
         size = (id: string): number | null => {
           const pt = (q: string) => (p.points ?? []).find((x) => x.id === q);
           if (radius) {
@@ -64,13 +67,12 @@ export function modernise(p: SketchParams): SketchParams {
             b = l && pt(l.b);
           return a && b ? Math.hypot(b.x - a.x, b.y - a.y) : null;
         },
-        v = size(c.parts[0]!);
-      if (v === null || !(v > 0) || size(c.parts[1]!) === null) return [c];
-      const kind = radius ? "radius" : "length";
-      return [
-        { id: c.id, kind, parts: [c.parts[0]!], value: v },
-        { id: `${c.id}.2`, kind, parts: [c.parts[1]!], value: v },
-      ];
+        [first, second] = [c.parts[0]!, c.parts[1]!],
+        v = sized(first)?.value ?? sized(second)?.value ?? size(first);
+      if (v === null || v === undefined || !(v > 0) || size(second) === null) return [c];
+      return [first, second].flatMap((id, i): Constraint[] =>
+        sized(id) ? [] : [{ id: i ? `${c.id}.2` : c.id, kind, parts: [id], value: v }],
+      );
     }
     return [c];
   });

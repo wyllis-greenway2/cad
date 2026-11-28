@@ -10,7 +10,6 @@ Update it at the end of each session.
 
 ## Pinned to do (rebuild in `next/`)
 - **Move / turn a body, what is left** (`dec_task_handles`, `in_1610`): moving one of several bodies (the step names the body by an `Id`, the page holds a string), numbers for a move on the info bar, the orb's own axes with the pull arrow's screen-based gain (`pullDelta`), grab (press a body and drag), a second move of the same body merged into the earlier steps.
-- **A kernel crash in the engine stress check** (found 2026-11-28 by `npm run checks:all`, the only one of 77 to fail): `dev/stress-found-check.ts:334` calls `volume()` with an undefined solid and the kernel throws inside `engine/kernel.ts:313` (`s.raw` of undefined). It fails identically with the session's changes stashed, so recent work did not cause it. Not looked into: it may be the check (a step it no longer makes a body of) or the engine (a step that returns no solid and says nothing: the engine promises a failure is reported, never silent, E-rows). The engine has no tests and its 87 rows are unreviewed, so this is a first thing to read when that starts.
 - **Marks on the things instead of the info bar for a sketch** (`dec_marks_on_things`, `in_1611`): built (`in_1612`, `in_1613`): the drawer, the rule, the drawing numbers on the figure, marks on the part and draggable; the human is to see it; see the entry.
 
 ## Done

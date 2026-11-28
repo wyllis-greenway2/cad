@@ -331,7 +331,7 @@ console.log(
   e.build();
   const sk = e.result("s").value as { regions?: { area: number; filled: boolean }[] },
     filled = (sk.regions ?? []).filter((q) => q.filled).reduce((a, q) => a + q.area, 0),
-    v = K.volume((e.result("E").value as InstanceType<typeof Body>).solid);
+    v = st(e, "E").kind === "ok" ? K.volume((e.result("E").value as InstanceType<typeof Body>).solid) : NaN; // (a failed extrude is a failed check, not a crash)
   check(
     "the filled areas times the depth are the volume of the extrude, to a millionth",
     st(e, "E").kind === "ok" && Math.abs(v - filled * 4) < 1e-6 * v,

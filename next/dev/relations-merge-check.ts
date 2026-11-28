@@ -123,6 +123,29 @@ check(
       m3.filter((c: any) => c.kind === "length" && Math.abs(c.value - 4) < 1e-9).length === 2,
     JSON.stringify(m3),
   );
+  // a part that already has a size keeps it: the other takes it, and no part has two (an old file saved "L1 is 7 long" and "L1 and L2 equal", `stress-found/sketch-island-region.json`)
+  const sized: any = {
+    ...old,
+    constraints: [
+      { id: "g", kind: "length", parts: ["L1"], value: 7 },
+      { id: "h", kind: "equalLength", parts: ["L1", "L2"] },
+    ],
+  };
+  const m4 = modernise(sized).constraints!;
+  check(
+    "an old equal length of a line that has its own length: the other line takes that length, and neither has two",
+    m4.length === 2 &&
+      m4.filter((c: any) => c.kind === "length" && c.parts[0] === "L1" && c.value === 7).length === 1 &&
+      m4.filter((c: any) => c.kind === "length" && c.parts[0] === "L2" && c.value === 7).length === 1,
+    JSON.stringify(m4),
+  );
+  const r3 = solveDefinition(sized);
+  check(
+    "and it solves: both lines 7",
+    Math.abs(Math.hypot(r3.points.A![0] - r3.points.B![0], r3.points.A![1] - r3.points.B![1]) - 7) < 1e-6 &&
+      Math.abs(Math.hypot(r3.points.C![0] - r3.points.D![0], r3.points.C![1] - r3.points.D![1]) - 7) < 1e-6,
+    JSON.stringify(r3.points),
+  );
   const r2 = solveDefinition(eq);
   check(
     "and it solves: both circles 3, both lines 4",
