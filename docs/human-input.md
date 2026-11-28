@@ -6829,3 +6829,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1704 — 2026-11-28 — directive
 > I basically want to copy the old prototype but make it cleaner and leaner. First why dont we just fully reuse the sketch visuals for the lines and verticies of a 3d body? Secondly, why dont we have only two definitions for body rendering for now, solid grey (just like in the old prototype) and wireframe (just like in the old prototype) the wireframe should be accessible from a view section of the circle menu just like in the old prototype. Also the arrows should work like they do in the old prototype, they should be angled out of the body corners like in the old and the face pulls should show up in the center of the face like the old. Also body and face selection should look like the old, with the same blue hightcolor and the same circle to blue propogation pattern on click etc. Lets basically fully copy the old look and feel but see if we can arrive at the same result with leaner code having more reusable parts
+
+## in_1705 — 2026-11-28 — directive
+> what do you mean the engines mesh? I thought we decided to not have mesh bodies because it needs to be real cad? 2 yes lets make the face pull arrows show up on face selection and the body mover orb show up on body selection just like the old app.

@@ -35,12 +35,17 @@ export function createBodySelect(host: BodySelectHost) {
     (a.key ?? a.id) === (b.key ?? b.id);
   return {
     selection: (): Selection | null => sel(),
-    /** A click: a body is picked (a face, or an edge; Shift adds edges), a click on nothing puts the pick away. Returns whether the click was used. */
-    click(x: number, y: number, shift: boolean): boolean {
+    /** A click: a body is picked (a face, or an edge; Shift adds edges; a double click the whole body), a click on nothing puts the pick away. Returns whether the click was used. */
+    click(x: number, y: number, shift: boolean, count = 1): boolean {
       const { cam, w, h } = host.view(),
         hit = pickAt(host.meshes(), cam, w, h, x, y),
         cur = sel();
       if (!hit) return store.clear();
+      if (count === 2) {
+        // two clicks take the whole body, from whatever part of it (as the old app's): its orb shows, `autohandles.ts`; a third goes back to the part
+        store.setBody({ body: hit.body, faces: [], edges: [], at: hit.point });
+        return true;
+      }
       if (hit.kind === "face") {
         store.setBody({ body: hit.body, faces: [hit.face], edges: [], at: hit.point });
         pickedAt = performance.now();

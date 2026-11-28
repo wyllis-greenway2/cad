@@ -41,7 +41,9 @@ export function createOperations(host: OperationHost) {
   let tie: string | null = null,
     armed = false,
     op: Operation | null = null,
-    grab: { x0: number; y0: number; d0: number } | null = null;
+    grab: { x0: number; y0: number; d0: number } | null = null,
+    auto = false, // (it came by itself, from a pick: `autohandles.ts`)
+    touched = false; // (and the person has dragged it, typed a number or chosen a kind)
   /** the arrow, as in the old app: centred on the place it is anchored at, along the way it is pulled, with a head at each end; long enough to reach the pull when that is longer than it is */
   const handle = (o: Operation, cam: Cam): Handle => {
     const a = o.arrow!,
@@ -61,6 +63,7 @@ export function createOperations(host: OperationHost) {
     op = null;
     grab = null;
     tie = null;
+    auto = touched = false;
   };
   function apply(): boolean {
     if (!op) return false;
@@ -82,13 +85,21 @@ export function createOperations(host: OperationHost) {
   }
 
   return {
-    active: () => armed || op !== null,
+    active: () => armed || (op !== null && !(auto && !touched)), // (an arrow that came by itself and is untouched is not in the way of anything)
+    /** an arrow that came by itself and has not been touched is put away */
+    drop(): void {
+      if (op && auto && !touched) close();
+    },
+    /** an arrow that came by itself has been touched: it is a draft the person is making */
+    draft: (): boolean => op !== null && auto && touched,
     pulling: () => op !== null,
     /** An operation is open (made of what was picked on a body): its arrow, ghost and number show. */
-    open(o: Operation) {
+    open(o: Operation, byItself = false) {
       armed = false;
       grab = null;
       op = o;
+      auto = byItself;
+      touched = false;
       if (o.tilt) host.tilt(o.tilt.frame, o.tilt.centre, o.tilt.size);
     },
     /** The Extrude tool is chosen: the next click inside a closed part of the drawing picks it. */
@@ -100,6 +111,10 @@ export function createOperations(host: OperationHost) {
     /** A click: with the tool on and nothing picked, it picks what is under it. Returns whether the click was the tool's. */
     click(x: number, y: number): boolean {
       if (!armed && !op) return false;
+      if (op && auto && !touched) {
+        close(); // (an arrow that came by itself and has not been touched is put away by the next click, which goes on to do its own work)
+        return false;
+      }
       if (op) return true; // (the arrow is pulled by a press and drag; a click elsewhere does nothing)
       const o = host.pick(x, y);
       if (o) this.open(o);
@@ -121,6 +136,7 @@ export function createOperations(host: OperationHost) {
           100,
         mm = viewHeight(cam, Math.max(forwardDepth(cam, op.arrow.base), 1e-3)) / h, // (a pixel's worth in mm, where the arrow stands)
         flush = op.snap?.(raw, settings.helpers.linePx * mm) ?? null; // (the pull is placed flush with another face when it is near one: it places, it never constrains)
+      touched = true;
       tie = flush ? flush.tie : null;
       op = op.withPull(flush ? Math.round(flush.d * 100) / 100 : raw) ?? op;
     },
@@ -156,7 +172,10 @@ export function createOperations(host: OperationHost) {
     ghost: () => op?.ghost ?? null,
     /** Another kind chosen (a chip of the pill). */
     option(id: string) {
-      if (op) op = op.withOption(id);
+      if (op) {
+        op = op.withOption(id);
+        touched = true;
+      }
     },
     /** Whether what is open is valid to make (a size above nothing). */
     valid: (): boolean => op !== null && Math.abs(op.value) > 1e-9,
@@ -199,7 +218,10 @@ export function createOperations(host: OperationHost) {
         at: [Math.max(60, Math.min(w - 60, q.x)), Math.max(70, Math.min(h - 50, q.y))],
         on: {
           suggest: (id) => {
-            if (id.startsWith("opt:") && op) op = op.withOption(id.slice(4));
+            if (id.startsWith("opt:") && op) {
+              op = op.withOption(id.slice(4));
+              touched = true;
+            }
           },
           fact() {
             /* none */
@@ -208,7 +230,10 @@ export function createOperations(host: OperationHost) {
             /* none */
           },
           set: (_id, v) => {
-            if (op && isFinite(v)) op = op.withValue(v) ?? op;
+            if (op && isFinite(v)) {
+              op = op.withValue(v) ?? op;
+              touched = true;
+            }
           },
         },
       };

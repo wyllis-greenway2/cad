@@ -23,7 +23,7 @@ try {
   const [fx, fy] = await p3([20, 12, 10]);
   await page.mouse.click(fx, fy);
   await page.waitForTimeout(250);
-  await page.click("[data-bar='body:sketch']");
+  await ev(`() => window.__tool("sketch-face")`); // (the face's pull arrow shows by itself, so the bar's Sketch button is not there: the ring's tool)
   await page.waitForTimeout(1000);
   const plane = await ev<any>(`() => window.__sketch.debug()`);
   void plane;

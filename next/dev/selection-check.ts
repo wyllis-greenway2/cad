@@ -26,7 +26,12 @@ check("selecting no parts is nothing selected", s.get() === null);
 s.setBody({ body: "B1", faces: [], edges: [edge], at: [0, 0, 0] });
 check("an edge pick is a body pick", s.body()?.edges.length === 1);
 s.setBody({ body: "B1", faces: [], edges: [], at: [0, 0, 0] });
-check("a pick with no face and no edge is nothing", s.get() === null);
+check(
+  "a pick with no face and no edge is the whole body (a double click, `dec_body_look_and_feel`)",
+  s.body()?.body === "B1" && s.body()?.faces.length === 0 && s.body()?.edges.length === 0,
+);
+s.setBody(null);
+check("and a null pick is nothing", s.get() === null);
 s.setBody({ body: "B1", faces: [face], edges: [], at: [0, 0, 0] });
 check("clear says there was something, then nothing", s.clear() === true && s.get() === null && s.clear() === false);
 process.exit(failureCount() ? 1 : 0);

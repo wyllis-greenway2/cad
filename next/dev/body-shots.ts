@@ -21,21 +21,22 @@ try {
   await shot("n2-face-click-early");
   await page.waitForTimeout(900);
   await shot("n3-face-picked");
-  await page.click("[data-bar='body:pull']");
-  await page.waitForTimeout(500);
   await shot("n4-face-pull");
-  await page.keyboard.press("Escape");
-  await page.waitForTimeout(300);
+  await page.mouse.click(fx + 150, fy + 150, { clickCount: 1 }); // elsewhere on the body: the untouched arrow goes, the click picks
+  await page.waitForTimeout(500);
   const [ex, ey] = await p3([0, -10, 20]);
   await page.mouse.move(ex, ey);
   await page.waitForTimeout(400);
   await shot("n5-hover-edge");
   await page.mouse.click(ex, ey);
-  await page.waitForTimeout(500);
-  await shot("n6-edge-picked");
-  await page.click("[data-bar='body:round']");
-  await page.waitForTimeout(500);
-  await shot("n7-edge-round");
+  await page.waitForTimeout(600);
+  await shot("n6-edge-picked-with-arrow");
+  await page.mouse.click(fx + 80, fy - 20, { clickCount: 1 }); // (not on the arrow: that is a grab)
+  await page.waitForTimeout(300);
+  await page.mouse.click(fx + 80, fy - 20, { clickCount: 2 });
+  await page.waitForTimeout(700);
+  await shot("n7-body-picked-orb");
+  console.log(JSON.stringify(await ev<any>(`() => ({ b: window.__bodies.debug(), mv: window.__bmove.debug() })`)));
   console.log("errors:", JSON.stringify(errors));
   await close();
 } finally {

@@ -4,6 +4,7 @@
 // lock, the ring that marks game mode). On top of the world and camera: the right-click ring, one sketch plane placed anywhere, and the mover orb on it.
 import { createBadge } from "./badgedraw.ts";
 import { createBodyMove } from "./bodymovecontrol.ts";
+import { createAutoHandles } from "./autohandles.ts";
 import { createBodyOps } from "./bodyops.ts";
 import type { Mark } from "./bodyselect.ts";
 import { createBodySelect } from "./bodyselect.ts";
@@ -266,6 +267,30 @@ const bmove = createBodyMove({
   say: (t) => notify(t, { kind: "warn", ttl: 4000 }),
   forget: (id) => orbc.forget(id),
 });
+/** what a pick shows by itself: a face its pull arrow, edges their round arrow, a whole body the mover orb (`autohandles.ts`) */
+const auto = createAutoHandles({
+  pick: () => bodies.selection(),
+  busy: () => sk.active() || tools.armed() !== null || ext.active() || bmove.on(),
+  operation: (action, pick) => bodyOps.operationFor(action, pick),
+  show: (op) => ext.open(op, true),
+  drop: () => ext.drop(),
+  draft: {
+    on: () => ext.draft(),
+    apply: () => {
+      if (ext.valid()) ext.apply();
+      else ext.cancel();
+    },
+    cancel: () => ext.cancel(),
+  },
+  mover: {
+    bodies: () => studio.state().snapshot.at(-1)?.bodies.length ?? 0,
+    start: (body) => bmove.start(body),
+    on: () => bmove.on(),
+    moved: () => bmove.moved(),
+    commit: () => bmove.commit(),
+    cancel: () => bmove.cancel(),
+  },
+});
 /** a sketch on a face: the plane is the face's (the engine's own frame of it), the view turns straight to it */
 function sketchOnFace(sel: import("./bodyselect.ts").Selection) {
   const f = sel.faces[0];
@@ -510,7 +535,7 @@ attach(
       }
       if (ext.click(x, y)) return;
       if (sk.click(x, y, count, shiftHeld || tools.additive())) return;
-      if (!sk.active() && bodies.click(x, y, shiftHeld || tools.additive())) return; // (a tool is on: a click is a point of its figure)
+      if (!sk.active() && bodies.click(x, y, shiftHeld || tools.additive(), count)) return; // (a tool is on: a click is a point of its figure)
       const next = view.click(s, env(), x, y); // (a pane of a world plane: it is the sketch plane now)
       if (next !== s) {
         placed = null;
@@ -536,7 +561,7 @@ attach(
     },
     menu: (x, y) => {
       pointer = { x, y };
-      if (tools.finish()) return;
+      if (auto.finish() || tools.finish()) return;
       menu.open(x, y, menuItems());
     }, // (a right click finishes what is armed or open: what is valid is kept, the rest thrown away, the tool put away; with none, it opens the ring)
     look: (dx, dy) => game.look(dx, dy),
@@ -581,7 +606,7 @@ addEventListener("keydown", (e) => {
       more.close();
       return;
     }
-    if (tools.cancel()) return;
+    if (tools.cancel() || auto.cancel()) return;
     if (menu.isOpen()) menu.close();
     else if (game.on) endGame();
     else if (!selection.clear()) orbc.release();
@@ -618,6 +643,7 @@ function syncNotices(now: number) {
 }
 let last = performance.now();
 function frame(now: number) {
+  auto.update();
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   s = view.advance(s, env(now), dt);

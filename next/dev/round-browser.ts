@@ -33,13 +33,11 @@ try {
   };
   const [ex, ey] = await p3([20, 25, 10]);
   await page.mouse.click(ex, ey);
-  await page.waitForTimeout(250);
-  await page.click("[data-bar='body:round']");
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(600); // (a picked edge shows its round arrow by itself, as the old app's did)
   let d = await ev<any>(`() => window.__ext.debug()`);
   ok(
     d.pull?.mode === "round" && d.pull.edges === 1,
-    `the bar's round starts the operation with a size: ${JSON.stringify(d.pull)}`,
+    `a picked edge opens the round with a size by itself: ${JSON.stringify(d.pull)}`,
   );
   await type("3");
   await page.waitForTimeout(150);
@@ -104,8 +102,8 @@ try {
   // a chamfer of the opposite top edge
   const [cx, cy] = await p3([20, 0, 10]);
   await page.mouse.click(cx, cy);
-  await page.waitForTimeout(250);
-  await page.click("[data-bar='body:chamfer']");
+  await page.waitForTimeout(600);
+  await page.click("[data-bar='opt:chamfer']"); // (the kind is a chip of the open operation)
   await page.waitForTimeout(250);
   await type("2");
   await page.keyboard.press("Enter");

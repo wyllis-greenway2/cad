@@ -1,4 +1,4 @@
-// What is selected on the page: ONE value (`in_1588`), either parts of a sketch (by plane, the ids the sketch uses) or what is picked on a body (a face, or edges, by the names the steps use), or nothing. The sketch controller and the body picker
+// What is selected on the page: ONE value (`in_1588`), either parts of a sketch (by plane, the ids the sketch uses) or what is picked on a body (a face, or edges, by the names the steps use, or the whole body), or nothing. The sketch controller and the body picker
 // read and write it; selecting one kind puts the other away because there is only one value, so nothing has to clear the other. Pure but for the value it keeps.
 import type { EdgeInfo, FaceInfo } from "./studio.ts";
 import type { V3 } from "./vec.ts";
@@ -25,7 +25,7 @@ export function createSelection() {
     /** what is picked on a body (null: nothing) */
     body: (): BodyPick | null => (cur?.kind === "body" ? cur : null),
     setBody(pick: BodyPick | null): void {
-      cur = pick && (pick.faces.length || pick.edges.length) ? { kind: "body", ...pick } : null;
+      cur = pick ? { kind: "body", ...pick } : null; // (no faces and no edges: the whole body)
     },
     /** put the selection away; whether there was one */
     clear(): boolean {

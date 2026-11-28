@@ -21,6 +21,8 @@ export function createBodyMove(host: BodyMoveHost) {
     n = 0;
   return {
     on: (): boolean => cur !== null,
+    /** the orb has been taken somewhere (a drag has set a frame) */
+    moved: (): boolean => cur !== null && cur.now !== cur.base,
     /** the orb's subject: a name of its own for each draft (its pose is new each time), and the frame it has been taken to */
     target: (): { id: string; frame: Frame } | null => (cur ? { id: cur.id, frame: cur.now } : null),
     set(f: Frame): void {
