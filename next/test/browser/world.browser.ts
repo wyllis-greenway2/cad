@@ -81,3 +81,20 @@ test("[B2] the button of the plane that is on has a 2 px light-gray border, and 
   assert.equal(x.w, "1px");
   await close();
 });
+
+test("[C15] if the browser will not hold the pointer, game mode is given up and not left on with a mouse that does nothing", async () => {
+  for (const how of ["a refused request", "the error event"]) {
+    const { page, errors, close } = await session.open("?boxes=3");
+    await page.evaluate((h: string) => {
+      HTMLCanvasElement.prototype.requestPointerLock =
+        h === "a refused request"
+          ? () => Promise.reject(new DOMException("no", "SecurityError"))
+          : () => void setTimeout(() => document.dispatchEvent(new Event("pointerlockerror")), 0);
+    }, how);
+    await page.keyboard.press("Space"); // a tap of the space bar turns game mode on
+    await page.waitForTimeout(150);
+    assert.equal(await page.evaluate(() => (document.getElementById("ring") as HTMLElement).style.display), "none", `${how}: the ring is put away`);
+    assert.deepEqual(errors, [], `${how}: no error is left unhandled`);
+    await close();
+  }
+});

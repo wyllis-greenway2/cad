@@ -6793,3 +6793,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1692 — 2026-11-28 — directive
 > do the remaining pixel constants and dimLine
+
+## in_1693 — 2026-11-28 — directive
+> do the mouse lock refusal handler

@@ -71,8 +71,13 @@ function endGame() {
 function startGame() {
   s = view.startGame(s, env());
   game.start();
-  canvas.requestPointerLock?.();
+  Promise.resolve(canvas.requestPointerLock?.()).catch(lockRefused); // (newer browsers answer with a promise that fails; older ones fire `pointerlockerror`)
 }
+/** The browser would not hold the pointer (a second request right after Esc, say): game mode is given up, not left on with a mouse that does nothing. */
+function lockRefused() {
+  if (game.on) endGame();
+}
+document.addEventListener("pointerlockerror", lockRefused);
 function reset() {
   if (game.on) endGame();
   s = view.reset(s, env());
