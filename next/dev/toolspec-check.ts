@@ -18,7 +18,35 @@ check(
       toolOf(`rel:${r}`)?.group === "constraint" &&
       toolOf(`rel:${r}`)!.kind === "constraint" &&
       toolOf(`rel:${r}`)!.arg === r,
-  ) && TOOLS.filter((t) => t.group === "constraint").length === rels.length,
+  ) && TOOLS.filter((t) => t.group === "constraint").length === rels.length + 2,
+);
+// level and upright are two tools each: of a line itself, and between two points, with their own icons (`in_1670`)
+check(
+  "level and upright are each two tools: a line (solid icon) and two points (dashed icon), and the constraints group has a lock icon",
+  toolOf("rel:horizontal")?.only?.join() === "line" &&
+    toolOf("rel:horizontal:points")?.only?.join() === "point,point" &&
+    toolOf("rel:horizontal")?.icon === "horizontal" &&
+    toolOf("rel:horizontal:points")?.icon === "horizontalPoints" &&
+    toolOf("rel:vertical:points")?.icon === "verticalPoints" &&
+    toolOf("rel:horizontal:points")?.arg === "horizontal" &&
+    GROUPS.find((g) => g.id === "constraint")?.icon === "lock",
+);
+check(
+  "every group of the menu has an icon of its own to show (the constraints group had none)",
+  GROUPS.every((g) => iconSvg(g.icon) !== ""),
+  GROUPS.filter((g) => iconSvg(g.icon) === "")
+    .map((g) => `${g.id}:${g.icon}`)
+    .join(),
+);
+check(
+  "each of the two level tools takes only its own shape of parts: a line, or two points",
+  constraintStatus("horizontal", ["line"], ["line"]) === "met" &&
+    constraintStatus("horizontal", ["point", "point"], ["line"]) === "bad" &&
+    constraintStatus("horizontal", ["point", "point"], ["point", "point"]) === "met" &&
+    constraintStatus("horizontal", ["point"], ["point", "point"]) === "partial" &&
+    constraintStatus("horizontal", ["line"], ["point", "point"]) === "bad" &&
+    constraintAsk("horizontal", [], ["point", "point"]) === "Level: select a point and a point",
+  constraintAsk("horizontal", [], ["point", "point"]),
 );
 check(
   "a number is not a tool (it is on the info bar)",

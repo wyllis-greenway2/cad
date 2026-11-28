@@ -192,22 +192,22 @@ const move = (spec: ToolSpec, host: ToolHost): Task => {
 /** a constraint: a relation put on what is selected when it fits; the tool goes on, asking for the next */
 const constraint = (spec: ToolSpec, host: ToolHost): Task => {
   const rel = spec.arg as Relation;
-  let ask = constraintAsk(rel, []);
+  let ask = constraintAsk(rel, [], spec.only);
   return {
     additive: true,
     say: () => ask,
     update: () => {
       const kinds = host.selectedKinds(),
-        st = constraintStatus(rel, kinds);
+        st = constraintStatus(rel, kinds, spec.only);
       if (st === "met") {
         host.relate(rel);
         host.selection.clear();
-        ask = constraintAsk(rel, []);
+        ask = constraintAsk(rel, [], spec.only);
       } else if (st === "bad") {
-        host.notify(`${constraintAsk(rel, [])}: that part does not fit`, { kind: "warn", ttl: 3000 });
+        host.notify(`${constraintAsk(rel, [], spec.only)}: that part does not fit`, { kind: "warn", ttl: 3000 });
         host.selection.clear();
-        ask = constraintAsk(rel, []);
-      } else ask = constraintAsk(rel, kinds);
+        ask = constraintAsk(rel, [], spec.only);
+      } else ask = constraintAsk(rel, kinds, spec.only);
       return "going";
     },
     commit: () => {

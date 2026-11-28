@@ -1,6 +1,6 @@
 // The tools, as data (`dec_three_surfaces`, `in_1598`, `in_1599`): every item of the circle menu is one of these, and the framework treats all of them the same way. A tool is a list of NEEDS, what must be picked (in order, with the sentence that asks for it),
 // and what it is (`kind`: how the page runs it). A constraint is a tool whose needs come from the relation table, so the constraints in the menu need no code of their own. New tools are new entries; nothing here draws anything. Pure.
-import { fits, kindTuples } from "../engine/relations.ts";
+import { fits, kindTuples, type PartKind } from "../engine/relations.ts";
 import { RANGEABLE, RELATIONS, kindOf, type Relation, type System } from "../engine/solver.ts";
 import { iconOf } from "./bubbles.ts";
 
@@ -21,6 +21,8 @@ export interface ToolSpec {
   kind: ToolKind;
   /** the first need at index 0; a draw tool's step is how many places are down */ needs: readonly Need[];
   /** the draw tool's kind, the body action (`body:pull`), or the relation */ arg: string;
+  /** a constraint tool that takes only this shape of parts (level of a line, or of two points: two tools, `in_1670`); absent: any shape the relation takes */
+  only?: readonly PartKind[];
 }
 
 const place = (ask: string): Need => ({ pick: "place", ask });
@@ -136,28 +138,44 @@ const FIXED: ToolSpec[] = [
 ];
 const WORD: Record<string, string> = { point: "a point", line: "a line", circle: "a circle" };
 /** every relation that is not a number is a tool (a number is on the info bar: `dec_dimensions_measure_then_lock`) */
+const label = (r: Relation) => RELATIONS[r].label.replace(/^./, (c) => c.toUpperCase());
 const CONSTRAINTS: ToolSpec[] = (Object.keys(RELATIONS) as Relation[])
   .filter((r) => !RANGEABLE.has(r))
-  .map((r) => ({
-    id: `rel:${r}`,
-    icon: iconOf(r),
-    label: RELATIONS[r].label.replace(/^./, (c) => c.toUpperCase()),
-    group: "constraint" as const,
-    kind: "constraint" as const,
-    arg: r,
-    needs: (kindTuples(r)[0] ?? []).map((k) => ({ pick: k, ask: `Select ${WORD[k] ?? k}` })),
-  }));
+  .flatMap((r): ToolSpec[] => {
+    const one = (id: string, icon: string, text: string, only?: readonly PartKind[]): ToolSpec => ({
+      id,
+      icon,
+      label: text,
+      group: "constraint" as const,
+      kind: "constraint" as const,
+      arg: r,
+      ...(only ? { only } : {}),
+      needs: (only ?? kindTuples(r)[0] ?? []).map((k) => ({ pick: k, ask: `Select ${WORD[k] ?? k}` })),
+    });
+    // level and upright are two tools each (`in_1670`): of a line itself, and between two points (a dashed icon), as on the marks
+    if (r === "horizontal" || r === "vertical")
+      return [
+        one(`rel:${r}`, iconOf(r, ["L"]), label(r), ["line"]),
+        one(`rel:${r}:points`, iconOf(r, ["A", "B"]), `Points ${RELATIONS[r].label}`, ["point", "point"]),
+      ];
+    return [one(`rel:${r}`, iconOf(r), label(r))];
+  });
 export const TOOLS: readonly ToolSpec[] = [...FIXED, ...CONSTRAINTS];
 export const toolOf = (id: string): ToolSpec | undefined => TOOLS.find((t) => t.id === id);
 export const GROUPS: { id: Group; label: string; icon: string }[] = [
   { id: "sketch", label: "Sketch", icon: "sketch" },
   { id: "model", label: "Model", icon: "pushpull" },
-  { id: "constraint", label: "Constraints", icon: "equal" },
+  { id: "constraint", label: "Constraints", icon: "lock" }, // (a padlock: a constraint is a lock; it was an equal sign, which is gone with equal length and radius)
 ];
 
 /** how what is selected stands against a constraint: `met` (the relation fits it), `partial` (it is the start of what the relation takes), `bad` (it cannot become that) */
 export type Status = "met" | "partial" | "bad";
-export function constraintStatus(rel: Relation, kinds: readonly string[]): Status {
+export function constraintStatus(rel: Relation, kinds: readonly string[], only?: readonly PartKind[]): Status {
+  if (only) {
+    if (kinds.length === only.length && kinds.every((k, i) => k === only[i])) return "met";
+    if (!kinds.length) return "partial";
+    return kinds.length < only.length && kinds.every((k, i) => k === only[i]) ? "partial" : "bad";
+  }
   if (kinds.length && (fits(rel, kinds) || (kinds.length === 2 && fits(rel, [kinds[1]!, kinds[0]!])))) return "met";
   if (!kinds.length) return "partial";
   const tuples = kindTuples(rel);
@@ -167,8 +185,8 @@ export function constraintStatus(rel: Relation, kinds: readonly string[]): Statu
     : "bad";
 }
 /** the sentence that asks for what a constraint still needs: "Tangent: select a line and a circle", after a line, "Tangent: select a circle" */
-export function constraintAsk(rel: Relation, kinds: readonly string[]): string {
-  const tuples = kindTuples(rel),
+export function constraintAsk(rel: Relation, kinds: readonly string[], only?: readonly PartKind[]): string {
+  const tuples = only ? [[...only]] : kindTuples(rel),
     label = RELATIONS[rel].label.replace(/^./, (c) => c.toUpperCase());
   const rest = [
     ...new Set(

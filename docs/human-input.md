@@ -6722,3 +6722,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1669 — 2026-11-28 — directive
 > can we make the icon for the alignment constraint be a dashed line instead of solid? the icons look exactly the same as the virtical and horizontal icons
+
+## in_1670 — 2026-11-28 — directive
+> yes split them in the menu too, and also the constraints area of the menu has no icon at all, it should have a lock icon.
