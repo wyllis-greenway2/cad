@@ -52,6 +52,8 @@ export interface DrawLine {
   /** a dot's colour (a dot is one kind, `in_1675`) */ tone?: Tone;
   /** a dashed line's dash, in mm (the gap is 0.7 of it) */ dash?: number;
   /** the open tip of an arrow: drawn solid even where its kind is dashed */ head?: boolean;
+  /** `pts` are pairs, each two a separate line (a body's edges), not one line through them all */ pairs?: boolean;
+  /** hidden by what is in front of it, as a body's edge is (the lines of a drawing are drawn on top of the model) */ hidden?: boolean;
   /** drawn faint (what moves only because the named parts do) */ pale?: boolean;
   kind:
     | "done"

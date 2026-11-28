@@ -36,37 +36,41 @@ export function drawOrb(group: THREE.Group, o: OrbDrawing, w: number, h: number)
       add(ball, 14);
       continue;
     }
-    // the head begins where the line has `hl` left to go and points the way the line goes THERE, not at its end, so it carries on from the curve; the line stops where the head begins
-    const pts = hd.points.map(vec);
-    let left = hl,
-      i = pts.length - 1;
-    while (i > 0 && left > pts[i]!.distanceTo(pts[i - 1]!)) {
-      left -= pts[i]!.distanceTo(pts[i - 1]!);
-      i--;
-    }
-    const dir = pts[i]!.clone()
-        .sub(pts[i - 1]!)
-        .normalize(),
-      base = pts[i]!.clone().sub(dir.clone().multiplyScalar(left));
-    for (const line of [[...pts.slice(0, i), base], ...(hd.also ?? []).map((l) => l.map(vec))]) {
-      const g = new LineGeometry();
-      g.setPositions(line.flatMap((q) => [q.x, q.y, q.z]));
-      const m = new LineMaterial({
-        color: colour.getHex(),
-        linewidth: M.widthPx + (hot ? 1 : 0),
-        transparent: true,
-        opacity,
-        depthTest: false,
-      });
-      m.resolution.set(w, h);
-      add(new Line2(g, m), 12);
-    }
-    const head = new THREE.Mesh(
-      new THREE.ConeGeometry(hr, hl, 14),
-      new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity, depthTest: false }),
-    );
-    head.position.copy(base.clone().add(dir.clone().multiplyScalar(hl / 2)));
-    head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-    add(head, 13);
+    // an arrow with a head at each end is two arms out of the place it is anchored at (the middle point of its three)
+    const arms = hd.both ? [hd.points.slice(1), [hd.points[1]!, hd.points[0]!]] : [hd.points];
+    arms.forEach((arm, n) => {
+      // the head begins where the line has `hl` left to go and points the way the line goes THERE, not at its end, so it carries on from the curve; the line stops where the head begins
+      const pts = arm.map(vec);
+      let left = hl,
+        i = pts.length - 1;
+      while (i > 0 && left > pts[i]!.distanceTo(pts[i - 1]!)) {
+        left -= pts[i]!.distanceTo(pts[i - 1]!);
+        i--;
+      }
+      const dir = pts[i]!.clone()
+          .sub(pts[i - 1]!)
+          .normalize(),
+        base = pts[i]!.clone().sub(dir.clone().multiplyScalar(left));
+      for (const line of [[...pts.slice(0, i), base], ...(n === 0 ? (hd.also ?? []) : []).map((l) => l.map(vec))]) {
+        const g = new LineGeometry();
+        g.setPositions(line.flatMap((q) => [q.x, q.y, q.z]));
+        const m = new LineMaterial({
+          color: colour.getHex(),
+          linewidth: M.widthPx + (hot ? 1 : 0),
+          transparent: true,
+          opacity,
+          depthTest: false,
+        });
+        m.resolution.set(w, h);
+        add(new Line2(g, m), 12);
+      }
+      const head = new THREE.Mesh(
+        new THREE.ConeGeometry(hr, hl, 14),
+        new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity, depthTest: false }),
+      );
+      head.position.copy(base.clone().add(dir.clone().multiplyScalar(hl / 2)));
+      head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      add(head, 13);
+    });
   }
 }

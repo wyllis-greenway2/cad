@@ -2,6 +2,7 @@
 import type { Selection } from "./bodyselect.ts";
 import { flushPull, type PlaneRef } from "./engine/flush.ts";
 import { idKey } from "./engine/id.ts";
+import { edgeAnchor, faceCentre } from "./interaction/anchors.ts";
 import type { Operation } from "./interaction/operation.ts";
 import { pushOp, roundOp, type PullInfo } from "./interaction/operations.ts";
 import type { createStudio } from "./studio.ts";
@@ -36,15 +37,9 @@ export function createBodyOps(host: BodyOpsHost) {
         };
         const short = Math.min(...sel.edges.map(len)),
           size = Math.max(0.1, Math.round(Math.min(short / 10, 2) * 10) / 10);
-        // the arrow stands on the middle of the first edge and points out of the body, between its two faces (pulled out: round; pushed in: chamfer)
+        // the arrow stands on the first edge (a quarter of the way along a straight one, in the middle of a curve) and points out of the body, between its two faces (pulled out: round; pushed in: chamfer)
         const e0 = sel.edges[0]!,
-          a0 = 3 * e0.start,
-          a1 = 3 * (e0.start + e0.count - 1),
-          at: V3 = [
-            (mesh.lines[a0]! + mesh.lines[a1]!) / 2,
-            (mesh.lines[a0 + 1]! + mesh.lines[a1 + 1]!) / 2,
-            (mesh.lines[a0 + 2]! + mesh.lines[a1 + 2]!) / 2,
-          ];
+          at = edgeAnchor(mesh.lines, e0);
         const ns = [e0.ref.a, e0.ref.b].map((r) => {
           const fi = mesh.faces.find((x) => idKey(x.ref) === idKey(r));
           return fi && faceFacts(sel.body, fi.id)?.ne;
@@ -73,12 +68,13 @@ export function createBodyOps(host: BodyOpsHost) {
           );
         const r = await studio.ask({ what: "pullModes", step: sel.body, face: f.ref }); // the kinds of pull this face has, from the worker
         const kinds = r.ok ? (r.data as PullInfo[]) : [{ mode: "push" as const, ok: true, why: "", suggested: true }];
-        const normal = ff.ne as unknown as V3,
+        const at = faceCentre(mesh, f), // (the arrow stands in the middle of the face)
+          normal = ff.ne as unknown as V3,
           snap = (d: number, reach: number) => {
-            const r = flushPull({ p: sel.at, n: normal }, planes(), d, reach);
+            const r = flushPull({ p: at, n: normal }, planes(), d, reach);
             return r && { d: r.d, tie: r.to.face };
           };
-        return pushOp({ ref: f.ref, body: sel.body, at: sel.at, normal, positions, kinds, snap });
+        return pushOp({ ref: f.ref, body: sel.body, at, normal, positions, kinds, snap });
       }
       return null;
     },

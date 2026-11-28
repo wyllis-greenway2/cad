@@ -18,7 +18,7 @@ try {
     return (r + g + b) / 3;
   };
   const solid = await grey();
-  ok(solid < 200, `solid: the top face is grey (${solid.toFixed(0)})`);
+  ok(solid > 235, `solid: the top face is the old app's light grey, lit (${solid.toFixed(0)})`);
   writeFileSync(`${dir}/wire-0-solid.png`, await page.screenshot());
   const choose = async (title: string) => {
     await page.waitForSelector(`[title="${title}"]`, { timeout: 3000 });
@@ -32,8 +32,8 @@ try {
   await page.waitForTimeout(400);
   const wire = await grey();
   ok(
-    wire > solid + 6,
-    `wireframe: the top face is seen through, lighter than solid (${wire.toFixed(0)} against ${solid.toFixed(0)}; the faces behind it show through)`,
+    solid - wire > 25,
+    `wireframe: the top face is seen through, the dark clear look (${wire.toFixed(0)} against ${solid.toFixed(0)})`,
   );
   writeFileSync(`${dir}/wire-1-wireframe.png`, await page.screenshot());
   await page.mouse.click(900, 150, { button: "right" });

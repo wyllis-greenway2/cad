@@ -42,19 +42,18 @@ export function createOperations(host: OperationHost) {
     armed = false,
     op: Operation | null = null,
     grab: { x0: number; y0: number; d0: number } | null = null;
-  /** the arrow: from a little out of the thing's middle along its normal (the way it is pulled), to the tip; as long as the pull when that is longer than the arrow */
+  /** the arrow, as in the old app: centred on the place it is anchored at, along the way it is pulled, with a head at each end; long enough to reach the pull when that is longer than it is */
   const handle = (o: Operation, cam: Cam): Handle => {
     const a = o.arrow!,
       L = unitOf(cam, a.base),
-      M = settings.mover,
-      g = M.gapShare * L,
-      A = M.arrowShare * L,
+      A = settings.mover.arrowShare * L,
       dir = scale(a.normal, o.pulled < 0 ? -1 : 1);
     return {
       id: ID,
       kind: "arrow",
       axis: null,
-      points: [add(a.base, scale(dir, g)), add(a.base, scale(dir, g + Math.max(A, Math.abs(o.pulled))))],
+      both: true,
+      points: [add(a.base, scale(dir, -A / 2)), a.base, add(a.base, scale(dir, Math.max(A / 2, Math.abs(o.pulled))))],
     };
   };
   const close = () => {

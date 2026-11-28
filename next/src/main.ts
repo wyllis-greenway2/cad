@@ -640,6 +640,7 @@ function frame(now: number) {
     ghost: ext.ghost(),
     moved: bmove.preview(),
     marks: [...bodies.marks(), ...tieMarks()],
+    faceOrb: game.on ? undefined : bodies.orbs(),
     fills: sk.fills(),
     lines: sk.lines(game.on ? null : pointer),
     ...(wireframe || sk.active()

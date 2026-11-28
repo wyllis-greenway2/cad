@@ -74,8 +74,17 @@ export const settings = {
     paneCurveSteps: 6,
   },
   // the old app's light (`app/src/shared/settings.ts`): it rides with the camera, to one side and above it, and the body has a slight clear coat; ambient is multiplied by pi where it is used
-  light: { ambient: 0.42, key: 1.7, fill: 0.12, roughness: 0.4, sheen: 0.55, sheenRoughness: 0.25 },
-  orb: { radius: 0.025, hoverOpacity: 0.14, color: [0.1, 0.72, 0.7] as [number, number, number] }, // the hover disc: its radius in depths of the surface it is on
+  light: { ambient: 0.42, key: 1.7, fill: 0.12, roughness: 0.4, sheen: 0.55, sheenRoughness: 0.25, reflect: 0.5 }, // (`reflect`: how much of the soft studio a body shows, `room.ts`)
+  orb: {
+    radius: 0.025,
+    hoverOpacity: 0.14,
+    color: [0.1, 0.72, 0.7] as [number, number, number],
+    selectOpacity: 0.25, // (the teal of a picked face)
+    ringPx: 1.6, // (the ring of the spread)
+    fillMs: 520, // (how long the teal takes to spread over a face)
+    reachFactor: 1.04,
+    softFactor: 2.2,
+  }, // the hover disc: its radius in depths of the surface it is on; as the old app's
   // the cut of a sketch plane: the face where it cuts a body is solid with hatching
   cut: {
     face: [0.72, 0.74, 0.79] as [number, number, number],

@@ -66,7 +66,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
       const now = `${d.w}x${d.h}`;
       if (now !== size) renderer.setSize(d.w, d.h, false); // (setting it again, even to the same, makes a new canvas buffer)
       size = now;
-      bodies.update(d);
+      bodies.update(d, d.w, d.h);
       overlays.update(d, d.w, d.h);
       const c = d.cam,
         f = forward(c);

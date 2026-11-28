@@ -1,12 +1,14 @@
 // What is picked on the bodies (`in_1568`): a face, or edges (Shift adds), by the names the steps use. A click on a body picks; a click on nothing puts the pick away; the pointer over a body marks what a click would pick (fainter). The marks go to the
 // world as the Marked look (teal over the body); the helper bar (`bodybar.ts`) stands beside the pick, up and to the right, and its buttons are the operations (the host does them).
 import { project, type Cam } from "./camera.ts";
+import { idKey } from "./engine/id.ts";
 import type { InfoHandlers } from "./infobardraw.ts";
 import { barForBody } from "./interaction/bodybar.ts";
 import type { Info } from "./interaction/infobar.ts";
 import { pickAt, type Hit } from "./interaction/pick.ts";
 import type { BodyPick, Selection as Store } from "./selection.ts";
 import type { BodyMesh } from "./studio.ts";
+import type { V3 } from "./vec.ts";
 
 export interface Mark {
   body: string;
@@ -25,7 +27,8 @@ export interface BodySelectHost {
 export type Selection = BodyPick;
 
 export function createBodySelect(host: BodySelectHost) {
-  let over: Hit | null = null;
+  let over: Hit | null = null,
+    pickedAt = 0; // (when a face was picked, ms: its teal spreads from the click over the time after)
   const store = host.selection,
     sel = (): BodyPick | null => store.body();
   const same = (a: { key?: string; id?: string }, b: { key?: string; id?: string }) =>
@@ -38,8 +41,10 @@ export function createBodySelect(host: BodySelectHost) {
         hit = pickAt(host.meshes(), cam, w, h, x, y),
         cur = sel();
       if (!hit) return store.clear();
-      if (hit.kind === "face") store.setBody({ body: hit.body, faces: [hit.face], edges: [], at: hit.point });
-      else if (shift && cur && cur.body === hit.body && cur.edges.length)
+      if (hit.kind === "face") {
+        store.setBody({ body: hit.body, faces: [hit.face], edges: [], at: hit.point });
+        pickedAt = performance.now();
+      } else if (shift && cur && cur.body === hit.body && cur.edges.length)
         store.setBody({
           ...cur,
           edges: cur.edges.some((e) => same(e, hit.edge))
@@ -57,17 +62,33 @@ export function createBodySelect(host: BodySelectHost) {
     leave(): void {
       over = null;
     },
+    /** Where the orb is on a face (`orbfill.ts`): the disc under the pointer, on a face that is not the one picked; and the click the picked face's teal spreads from. */
+    orbs(): { hover: V3 | null; spread: { point: V3; since: number } | null } {
+      const pick = sel();
+      return {
+        hover:
+          over?.kind === "face" && !(pick && pick.faces.some((f) => same(f, over!.kind === "face" ? over!.face : f)))
+            ? over.point
+            : null,
+        spread: pick && pick.faces.length === 1 && pick.edges.length === 0 ? { point: pick.at, since: pickedAt } : null,
+      };
+    },
     /** What is marked: the pick, and what the pointer is over. */
     marks(): Mark[] {
       const out: Mark[] = [];
       const pick = sel();
-      if (pick)
+      if (pick) {
+        // a face picked has its own edges marked too (the old app drew them bold teal round the lit face)
+        const sides = new Set(pick.faces.map((f) => idKey(f.ref))),
+          mesh = host.meshes().find((m) => m.id === pick.body),
+          around = (mesh?.edgeInfo ?? []).filter((e) => sides.has(idKey(e.ref.a)) || sides.has(idKey(e.ref.b)));
         out.push({
           body: pick.body,
           faces: pick.faces.map((f) => ({ start: f.start, count: f.count })),
-          edges: pick.edges.map((e) => ({ start: e.start, count: e.count })),
+          edges: [...pick.edges, ...around].map((e) => ({ start: e.start, count: e.count })),
           strength: "pick",
         });
+      }
       if (
         over &&
         !(

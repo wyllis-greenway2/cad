@@ -22,6 +22,7 @@ export interface Handle {
   axis: 0 | 1 | 2 | null;
   points: V3[];
   also?: V3[][];
+  /** an arrow with a head at each end (the pull arrow: it goes both ways); the line runs from one end to the other, through the place it is anchored at */ both?: true;
   /** the second arrow of an operation that has one */ extra?: true;
 }
 export const AXES: V3[] = [

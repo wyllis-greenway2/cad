@@ -2,11 +2,16 @@
 import * as THREE from "three";
 import { createCutDraw, type CutDrawing } from "./cutdraw.ts";
 import { SOLID, surfaceOf, type Look } from "./looks.ts";
+import { roomTexture } from "./room.ts";
 import type { Scene as Model } from "./scene.ts";
 import { centreOf } from "./scene.ts";
 import { settings } from "./settings.ts";
 import type { BodyMesh } from "./studio.ts";
+import { Line2 } from "three/examples/jsm/lines/Line2.js";
+import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+import { strokeOf } from "./sketchdraw.ts";
 import { vec } from "./threeutil.ts";
+import type { V3 } from "./vec.ts";
 
 /** What the bodies need of a picture. */
 export interface BodiesDrawing {
@@ -19,8 +24,10 @@ export interface BodiesDrawing {
 }
 
 /** a body's surface as the old app made it: a slight clear coat over the grey, drawn behind its own outline */
-const bodyMaterial = () =>
+const bodyMaterial = (envMap: THREE.Texture) =>
   new THREE.MeshPhysicalMaterial({
+    envMap,
+    envMapIntensity: settings.light.reflect,
     roughness: settings.light.roughness,
     metalness: 0,
     clearcoat: settings.light.sheen,
@@ -31,16 +38,34 @@ const bodyMaterial = () =>
     polygonOffsetUnits: 1,
   });
 export function createBodies(scene: THREE.Scene, renderer: THREE.WebGLRenderer, model: Model) {
+  const envMap = roomTexture(renderer);
   // stand-in bodies (rebuilt when the model changes)
   const bodies = new THREE.Group();
   let solids: readonly BodyMesh[] = [];
+  /** the outline of a body: the sketch's own "done" stroke (thin charcoal, a line of a drawing), hidden by what is in front of it; its resolution is set each picture */
+  const edgeMaterials: LineMaterial[] = [];
+  const outline = (pairs: ArrayLike<number>): THREE.Object3D => {
+    const pts: V3[] = [];
+    for (let i = 0; i + 2 < pairs.length; i += 3) pts.push([pairs[i]!, pairs[i + 1]!, pairs[i + 2]!]);
+    const o = strokeOf({ kind: "done", pairs: true, hidden: true, pts }, 1, 1);
+    edgeMaterials.push((o as Line2).material as LineMaterial);
+    return o;
+  };
   const buildBodies = () => {
+    for (const o of [...bodies.children]) {
+      o.traverse((q) => {
+        const m = q as THREE.Mesh;
+        m.geometry?.dispose();
+        for (const x of [m.material].flat()) (x as THREE.Material | undefined)?.dispose();
+      });
+    }
     bodies.clear();
+    edgeMaterials.length = 0;
     for (const t of model.things) {
       const size = vec([t.hi[0] - t.lo[0], t.hi[1] - t.lo[1], t.hi[2] - t.lo[2]]);
       const g = new THREE.BoxGeometry(size.x, size.y, size.z);
-      const m = new THREE.Mesh(g, bodyMaterial());
-      m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial()));
+      const m = new THREE.Mesh(g, bodyMaterial(envMap));
+      m.add(outline(new THREE.EdgesGeometry(g).getAttribute("position").array));
       m.userData.thing = t.id;
       m.userData.look = "";
       m.position.copy(vec(centreOf(t)));
@@ -52,10 +77,8 @@ export function createBodies(scene: THREE.Scene, renderer: THREE.WebGLRenderer, 
       g.setAttribute("position", new THREE.BufferAttribute(b.positions, 3));
       g.setAttribute("normal", new THREE.BufferAttribute(b.normals, 3));
       g.setIndex(new THREE.BufferAttribute(b.indices, 1));
-      const m = new THREE.Mesh(g, bodyMaterial());
-      const eg = new THREE.BufferGeometry();
-      eg.setAttribute("position", new THREE.BufferAttribute(b.edges, 3));
-      m.add(new THREE.LineSegments(eg, new THREE.LineBasicMaterial()));
+      const m = new THREE.Mesh(g, bodyMaterial(envMap));
+      m.add(outline(b.edges));
       m.userData.thing = b.id;
       m.userData.look = "";
       bodies.add(m);
@@ -72,8 +95,7 @@ export function createBodies(scene: THREE.Scene, renderer: THREE.WebGLRenderer, 
       m.userData.look = key;
       const sf = surfaceOf(look),
         mat = m.material as THREE.MeshPhysicalMaterial,
-        edges = m.children[0] as THREE.LineSegments,
-        em = edges.material as THREE.LineBasicMaterial;
+        em = (m.children[0] as Line2).material as LineMaterial;
       mat.color.setHex(sf.color);
       mat.opacity = sf.opacity;
       mat.transparent = sf.transparent;
@@ -100,7 +122,8 @@ export function createBodies(scene: THREE.Scene, renderer: THREE.WebGLRenderer, 
       solids = list;
       rebuildAll();
     },
-    update(d: BodiesDrawing) {
+    update(d: BodiesDrawing, w: number, h: number) {
+      for (const e of edgeMaterials) e.resolution.set(w, h);
       lookBodies(d.looks);
       for (const m of bodies.children as THREE.Mesh[]) {
         // a body shown moved (the mover orb's draft): its own matrix; the others as they were
