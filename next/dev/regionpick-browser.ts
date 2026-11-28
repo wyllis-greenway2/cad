@@ -33,9 +33,16 @@ try {
   await page.waitForTimeout(900);
   let s = await state();
   ok(s.pull?.mode === "extrude", `a click inside the figure opens its extrude by itself: ${s.pull?.mode}`);
+  const [bx, by] = await px(s.pull.arrow.base[0], s.pull.arrow.base[1]); // (the arrow stands on the figure near where it was clicked, as a face's does: not under the click)
+  const away = Math.hypot(bx - cx, by - cy);
   ok(
-    Math.abs(s.pull.arrow.base[0] - 20) < 0.5 && Math.abs(s.pull.arrow.base[1] - 12.5) < 0.5,
-    `the arrow stands in the middle of the figure, not where it was clicked: ${JSON.stringify(s.pull.arrow.base)}`,
+    s.pull.arrow.base[0] > 0 &&
+      s.pull.arrow.base[0] < 40 &&
+      s.pull.arrow.base[1] > 0 &&
+      s.pull.arrow.base[1] < 25 &&
+      away > 25 &&
+      away < 90,
+    `the arrow stands on the figure a little way (${Math.round(away)} px) from where it was clicked: ${JSON.stringify(s.pull.arrow.base)}`,
   );
   await shot("r2-picked");
   ok((await ev<any>(`() => JSON.stringify(window.__cad.cam)`)) === cam0, "and the camera did not move");

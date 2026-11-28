@@ -35,10 +35,9 @@ export interface Intents {
   carryStart(x: number, y: number): void;
   carryMove(x: number, y: number): void;
   carryEnd(x: number, y: number): void;
-  /** A sketch tool is on: a left press, whatever follows it (a click or any drag), is the sketch's and never turns the view (`in_1734`). */
+  /** A sketch tool is on: a left press, whatever follows it (a click or any drag), is the sketch's and never turns the view (`in_1734`); it is one click, where it is let go (`in_1738`). */
   sketching(): boolean;
-  sketchPress(x: number, y: number): void;
-  sketchRelease(x: number, y: number, moved: boolean, count: number): void;
+  sketchClick(x: number, y: number, count: number): void;
   /** Both buttons down and dragged: a box from where the first press began; moved; let go (the page picks what it holds). */
   boxStart(x: number, y: number): void;
   boxMove(x: number, y: number): void;
@@ -143,7 +142,6 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     }
     if (e.button === 0 && !space && !e.altKey && out.sketching()) {
       drag = { x0: p.x, y0: p.y, ...p, moved: false, action: "sketch", button: 0, shift: e.shiftKey };
-      out.sketchPress(p.x, p.y);
       return;
     }
     if (space) spaceUsed = true;
@@ -260,7 +258,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     drag = null;
     if (!d) return;
     if (d.action === "sketch") {
-      if (e.type === "pointerup") out.sketchRelease(p.x, p.y, d.moved, count(p.x, p.y, e.timeStamp));
+      if (e.type === "pointerup") out.sketchClick(p.x, p.y, count(p.x, p.y, e.timeStamp));
       return;
     }
     if (d.moved) {

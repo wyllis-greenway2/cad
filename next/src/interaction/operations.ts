@@ -26,10 +26,19 @@ const KIND_LABEL: Record<PullKind, string> = { edit: "Move", push: "Extrude", mo
 
 /** a closed part of a drawing, pulled along its plane's normal: out adds a body (or joins), in cuts */
 export function extrudeOp(
-  a: { key: string; frame: Frame; def: SketchParams; region: Region; source: Source | null; snap?: Operation["snap"] },
+  a: {
+    key: string;
+    frame: Frame;
+    def: SketchParams;
+    region: Region;
+    source: Source | null;
+    snap?: Operation["snap"];
+    /** where the arrow stands (near where the figure was clicked); none: in its middle */ at?: V3;
+  },
   d = 0,
 ): Operation {
-  const base = to3(a.frame, a.region.centre),
+  const centre = to3(a.frame, a.region.centre),
+    base = a.at ?? centre,
     pts = a.region.loops[0]!,
     xs = pts.map((p) => p[0]),
     ys = pts.map((p) => p[1]),
@@ -51,7 +60,7 @@ export function extrudeOp(
     },
     tilt: {
       frame: f,
-      centre: base,
+      centre,
       size: Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)),
     },
     pulled: value,

@@ -17,27 +17,31 @@ try {
     await page.mouse.up();
     await page.waitForTimeout(200);
   };
+  const step = () => ev<number | null>(`() => window.__sketch.drawStep()`);
   await ev(`() => window.__tool("circle")`);
   await page.waitForTimeout(900);
   const cam0 = await cam();
-  await drag([0, 0], [15, 0]);
-  let d = await drawn();
+  // a press and a drag is ONE click, where it is let go: it begins the circle; the circle ends at the next click (not at the release)
+  await drag([0, 0], [10, 0]);
   ok(
-    !!d && (d.circles?.length ?? 0) === 1,
-    `a drag with the circle tool draws a circle: ${JSON.stringify(d)?.slice(0, 120)}`,
+    (await step()) === 1 && ((await drawn())?.circles?.length ?? 0) === 0,
+    `a drag with the circle tool begins the circle and does not end it: step ${await step()}`,
   );
   ok((await cam()) === cam0, "and the view did not turn");
-  // a drag that is only a few pixels is the sketch's too
-  await ev(`() => window.__tool("rect")`);
-  await page.waitForTimeout(700);
-  await drag([30, 0], [30.2, 0.2], 2);
-  ok((await cam()) === cam0, "a short drag does not turn the view either");
+  const [x2, y2] = await px(25, 0);
+  await page.mouse.click(x2, y2);
+  await page.waitForTimeout(250);
+  const d = await drawn();
+  ok(
+    !!d && (d.circles?.length ?? 0) === 1 && Math.abs(d.circles[0].r - 15) < 0.5,
+    `the next click ends it: ${JSON.stringify(d?.circles)}`,
+  );
   await page.keyboard.press("Escape");
-  await ev(`() => window.__tool("rect")`);
-  await page.waitForTimeout(500);
-  await drag([-30, -20], [-10, -5]);
-  d = await drawn();
-  ok((d?.lines?.length ?? 0) >= 4, `a drag with the rectangle tool draws a rectangle: ${d?.lines?.length} lines`);
+  // a drag of a few pixels is the same: one click
+  await ev(`() => window.__tool("circle")`);
+  await page.waitForTimeout(700);
+  await drag([-30, -30], [-29.8, -29.8], 2);
+  ok((await step()) === 1 && (await cam()) === cam0, "a short drag is one click and does not turn the view");
   await page.keyboard.press("Escape");
   // with no tool a left drag turns the view, a right drag turns it, both buttons draw a box
   await page.waitForTimeout(300);

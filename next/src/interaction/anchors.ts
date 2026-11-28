@@ -191,15 +191,3 @@ export function nearOnFace(m: Tris, f: { start: number; count: number }, p: V3):
   }
   return best;
 }
-/** A place beside the click, `step` away along `way` (either side), that is still on the face: the arrow stands near where it was clicked, not under it, so that a second click is a click and not the arrow's press. */
-export function nearClick(m: Tris, f: { start: number; count: number }, click: V3, way: V3, step: number): V3 {
-  for (const sign of [1, -1]) {
-    const q = nearOnFace(m, f, [
-      click[0] + way[0] * step * sign,
-      click[1] + way[1] * step * sign,
-      click[2] + way[2] * step * sign,
-    ]);
-    if (Math.hypot(q[0] - click[0], q[1] - click[1], q[2] - click[2]) >= step * 0.5) return q;
-  }
-  return click;
-}

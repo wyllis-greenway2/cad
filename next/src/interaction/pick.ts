@@ -229,3 +229,50 @@ export function boxPick(
   }
   return null;
 }
+
+/** The bodies a box on the screen goes over whole (every point of the body inside it, seen or not): picked whole, as a double click does (`in_1738`). */
+export function boxWhole(
+  meshes: readonly BodyMesh[],
+  cam: Cam,
+  w: number,
+  h: number,
+  box: { x0: number; y0: number; x1: number; y1: number },
+): { body: string; faces: FaceInfo[]; edges: EdgeInfo[]; vertices: VertexInfo[]; whole: string[]; at: V3 } | null {
+  const lo = { x: Math.min(box.x0, box.x1), y: Math.min(box.y0, box.y1) },
+    hi = { x: Math.max(box.x0, box.x1), y: Math.max(box.y0, box.y1) };
+  for (const m of meshes) {
+    const keys = [...new Set(m.faces.map((f) => f.body ?? ""))],
+      whole = keys.filter((k) =>
+        m.faces
+          .filter((f) => (f.body ?? "") === k)
+          .every((f) => {
+            for (let i = f.start; i < f.start + f.count; i++) {
+              const q = project(
+                cam,
+                [
+                  m.positions[3 * m.indices[i]!]!,
+                  m.positions[3 * m.indices[i]! + 1]!,
+                  m.positions[3 * m.indices[i]! + 2]!,
+                ],
+                w,
+                h,
+              );
+              if ((cam.ortho === null && q.depth <= 1e-6) || q.x < lo.x || q.x > hi.x || q.y < lo.y || q.y > hi.y)
+                return false;
+            }
+            return true;
+          }),
+      );
+    if (!whole.length) continue;
+    const c: V3 = [0, 0, 0];
+    let n = 0;
+    for (const f of m.faces)
+      if (whole.includes(f.body ?? "")) {
+        const p = faceCentre(m, f);
+        for (let k = 0; k < 3; k++) c[k]! += p[k]!;
+        n++;
+      }
+    return { body: m.id, faces: [], edges: [], vertices: [], whole, at: [c[0] / n, c[1] / n, c[2] / n] };
+  }
+  return null;
+}

@@ -1,7 +1,8 @@
 // A box drawn on the screen to pick what it holds of the bodies (`MD-38`): from the ring's Select section, the next press and drag on the view draws it (dashed teal, as the sketch's candidates are), and
 // letting go picks what is wholly in it and seen (`interaction/pick.ts` `boxPick`). It is one wait: Esc, or a press that goes nowhere, puts it away. Knows nothing of the camera or the bodies: the page says.
 import type { Cam } from "./camera.ts";
-import { boxPick } from "./interaction/pick.ts";
+import { dragged } from "./interaction/gesture.ts";
+import { boxPick, boxWhole } from "./interaction/pick.ts";
 import type { Selection } from "./selection.ts";
 import type { BodyMesh } from "./studio.ts";
 
@@ -9,6 +10,8 @@ export interface BoxHost {
   view(): { cam: Cam; w: number; h: number };
   meshes(): readonly BodyMesh[];
   selection: Selection;
+  /** the parts of a drawing wholly in the box, picked (false: none) */
+  sketchParts(box: { x0: number; y0: number; x1: number; y1: number }): boolean;
   /** a sentence for the person */
   say(text: string): void;
 }
@@ -63,13 +66,18 @@ export function createBoxSelect(parent: HTMLElement, host: BoxHost) {
       const a = from;
       if (!a) return;
       const { cam, w, h } = host.view(),
-        got =
-          Math.hypot(x - a.x, y - a.y) < 4
-            ? null
-            : boxPick(host.meshes(), cam, w, h, { x0: a.x, y0: a.y, x1: x, y1: y });
+        box = { x0: a.x, y0: a.y, x1: x, y1: y },
+        small = !dragged(x - a.x, y - a.y);
       stop();
+      if (small) return host.say("Nothing in the box");
+      // what the box takes, the biggest first: bodies it goes over whole, then the parts of a drawing wholly in it, then what is wholly in it of the bodies (edges, corners, faces)
+      const got = boxWhole(host.meshes(), cam, w, h, box);
       if (got) host.selection.setBody(got);
-      else host.say("Nothing in the box");
+      else if (!host.sketchParts(box)) {
+        const parts = boxPick(host.meshes(), cam, w, h, box);
+        if (parts) host.selection.setBody(parts);
+        else host.say("Nothing in the box");
+      }
     },
   };
 }

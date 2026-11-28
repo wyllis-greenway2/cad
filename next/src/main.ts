@@ -25,6 +25,8 @@ import { DocError, fromFile, toFile } from "./interaction/files.ts";
 import { moreItems } from "./interaction/moremenu.ts";
 import { createNotices } from "./interaction/notices.ts";
 import { extrudeOp, type Source } from "./interaction/operations.ts";
+import { asideMm, spotBeside, wayAcross } from "./interaction/arrowspot.ts";
+import { insideLoops } from "./interaction/extrude.ts";
 import { editNumber, rowsOf } from "./interaction/steplist.ts";
 import { GROUPS, TOOLS } from "./interaction/toolspec.ts";
 import { Undo } from "./interaction/undo.ts";
@@ -38,7 +40,7 @@ import { createOrbControl } from "./orbcontrol.ts";
 import { facingCamera, vOf, worldFrame, type Frame } from "./planes.ts";
 import { createSelection } from "./selection.ts";
 import { focusOf, gridLevel, gridLevelAt } from "./sense.ts";
-import { onPlane, to3, type ToolKind } from "./sketch.ts";
+import { onPlane, to2, to3, type ToolKind } from "./sketch.ts";
 import { createSketch } from "./sketchcontrol.ts";
 import { createStepList } from "./steplistdraw.ts";
 import { createStudio } from "./studio.ts";
@@ -60,7 +62,6 @@ const game = createGame();
 
 let s = view.initial(model);
 let pointer: view.Pointer | null = null;
-let pressPlaced = false; // (a sketch tool's press put the first place of its figure down: its release has nothing more to do unless it was dragged)
 let typedFirst: string | null = null; // (the first digit of a number, to go to it once it is shown)
 /** what the camera looks at: the stand-in things and a box for each body the engine made, made again only when the engine's bodies change (`scene.ts`) */
 let looked: { standIns: readonly unknown[]; bodies: readonly unknown[]; scene: Scene } | null = null;
@@ -200,13 +201,20 @@ studio.subscribe(() => {
   }
 });
 /** the extrude of a closed figure of a drawing: what the Extrude tool opens when the figure is clicked, and what a figure picked opens by itself (`autohandles.ts`) */
-const extrudeOfRegion = (r: NonNullable<ReturnType<typeof sk.regionAt>>) => {
-  const base = to3(r.frame, r.region.centre),
+const extrudeOfRegion = (r: Omit<NonNullable<ReturnType<typeof sk.regionAt>>, "click">, click?: V3) => {
+  // the arrow stands on the figure near where it was clicked: the one rule of `interaction/arrowspot.ts`, as a face's does (`in_1738`)
+  const e = env(),
+    centre = to3(r.frame, r.region.centre),
+    base = click
+      ? spotBeside(click, wayAcross(s.c, r.frame.normal), asideMm(s.c, e.h, click), (p) =>
+          insideLoops(r.region.loops, to2(r.frame, p)) ? p : click,
+        )
+      : centre,
     snap = (d: number, reach: number) => {
       const f = flushPull({ p: base, n: r.frame.normal }, scenePlanes(), d, reach);
       return f && { d: f.d, tie: f.to.face };
     };
-  return extrudeOp({ ...r, source: liveSource(r.key), snap });
+  return extrudeOp({ ...r, source: liveSource(r.key), snap, at: base });
 };
 const ext = createOperations({
   view: () => {
@@ -215,7 +223,7 @@ const ext = createOperations({
   },
   pick: (x, y) => {
     const r = sk.regionAt(x, y);
-    return r ? extrudeOfRegion(r) : null;
+    return r ? extrudeOfRegion(r, r.click) : null;
   },
   recipe: () => studio.state().steps,
   change: (steps) => {
@@ -319,7 +327,7 @@ const auto = createAutoHandles({
     if (action !== "region:extrude") return bodyOps.operationFor(action, pick as BodyPick);
     const p = pick as RegionPick,
       r = sk.regionIn(p.key, p.at);
-    return Promise.resolve(r ? extrudeOfRegion(r) : null);
+    return Promise.resolve(r ? extrudeOfRegion(r, p.click) : null);
   },
   show: (op) => ext.open(op, true),
   drop: () => ext.drop(),
@@ -533,6 +541,7 @@ const box = createBoxSelect(document.body, {
   },
   meshes: () => studio.state().meshes,
   selection,
+  sketchParts: (box) => sk.boxParts(box),
   say: (t) => notify(t, { kind: "info", ttl: 2500 }),
 });
 const menu = createMenu(document.body, (id) => {
@@ -650,15 +659,10 @@ attach(
     carryStart: (x, y) => void orbc.grabFree(x, y),
     carryMove: (x, y) => orbc.grabMove(x, y),
     carryEnd: () => orbc.grabEnd(),
-    // a sketch tool is on: a left press is the sketch's, a click or any drag, and never turns the view (`in_1734`): the first place is put down at the press, the next at the release (a drag draws a circle or a rectangle from the press to the release)
+    // a sketch tool is on: a left press, whatever follows it, is the sketch's and never turns the view (`in_1734`); it is ONE click, put down where it is let go: the first click begins the figure and the second ends it (`in_1738`: a press does not begin it and a release end it)
     sketching: () => !game.on && sk.active() && !menu.isOpen() && !more.isOpen(),
-    sketchPress: (x, y) => {
-      pressPlaced = false;
-      if (sk.drawStep() === 0 && sk.toolKind() !== "trim")
-        pressPlaced = beginOnFace(x, y) || sk.click(x, y, 1, shiftHeld || tools.additive());
-    },
-    sketchRelease: (x, y, moved, count) => {
-      if (pressPlaced && !moved) return; // (a click that began the figure at its press has done its work)
+    sketchClick: (x, y, count) => {
+      if (sk.drawStep() === 0 && sk.toolKind() !== "trim" && beginOnFace(x, y)) return;
       sk.click(x, y, count, shiftHeld || tools.additive());
     },
     boxStart: (x, y) => box.start(x, y),

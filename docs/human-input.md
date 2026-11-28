@@ -6933,3 +6933,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1737 — 2026-11-28 — question
 > I cant select the top enclosed sketch in this model?
+
+## in_1738 — 2026-11-28 — directive
+> If a drag select goes over a whole body, it should select the whole body. It also doesn't seem to select stuff in general. For example drag selecting a set of sketches doesn't select them. Also I am having a lot of problems with sketch now where it seems to think that mouse down is start sketch and mouse up is end sketch, it is supposed to be first click starts and second click ends. I found this problem with circles and it only seems to happen sometimes, it could exist with other sketch shapes too. The arrow on enclosed sketches doesn't behave like the arrow on faces. It feels like duplicate code, the same code that places arrow near click should operate in all places that make sense.

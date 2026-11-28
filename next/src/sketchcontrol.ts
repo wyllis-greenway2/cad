@@ -1,6 +1,7 @@
 // The sketching controller (`in_1564`): a sketch is the engine's own definition (points, lines, circles, constraints: `SketchParams`), one for each plane, drawn, selected, dimensioned and trimmed here, and solved by the engine's solver
 // at every edit (`interaction/drawing.ts`; no kernel). It turns the pointer into a place in the plane and the engine's answers into what the page shows: the lines, the bubbles of what is selected (`bubbledraw.ts`), a sentence.
 // The tool that is on: Line, Rectangle, Circle (the figure goes on being made until the tool is put away), or Trim (a click on a piece of a line, arc or circle takes off the part between the places where others cross it).
+import { project } from "./camera.ts";
 import { segsOf } from "./engine/definition.ts";
 import type { Free } from "./engine/free.ts";
 import { helpersAt, type Helped } from "./engine/helpers.ts";
@@ -472,11 +473,47 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     /** The figure a place of a plane is inside, with its drawing and plane (what an extrude is made from). */
     regionIn: R.at,
     /** The region of the drawing on the plane that is on under the pointer, with the sketch and the plane it is of (what an extrude is made from); null: none. */
-    regionAt(x: number, y: number): { key: string; frame: Frame; def: SketchParams; region: Region } | null {
-      const c = here(x, y);
-      if (!c) return null;
-      const region = regionAt(c.p, c.q);
-      return region ? { key: c.key, frame: c.f, def: c.p, region } : null;
+    regionAt(x: number, y: number): { key: string; frame: Frame; def: SketchParams; region: Region; click: V3 } | null {
+      for (const c of hereAll(x, y)) {
+        if (c.behind) continue; // (a figure behind a body's surface is not there)
+        const region = regionAt(c.p, c.q);
+        if (region) return { key: c.key, frame: c.f, def: c.p, region, click: to3(c.f, c.q) };
+      }
+      return null;
+    },
+    /** The parts of drawings wholly in a box on the screen and not hidden behind a body (curves: lines, circles, arcs; none of those: the points), on the plane that has most of them, picked. Returns whether any. */
+    boxParts(box: { x0: number; y0: number; x1: number; y1: number }): boolean {
+      const { cam, w, h } = host.view(),
+        { all } = host.planes(),
+        lo = { x: Math.min(box.x0, box.x1), y: Math.min(box.y0, box.y1) },
+        hi = { x: Math.max(box.x0, box.x1), y: Math.max(box.y0, box.y1) },
+        seen = (p: V3): boolean => {
+          const q = project(cam, p, w, h);
+          return (cam.ortho !== null || q.depth > 1e-6) && q.x >= lo.x && q.x <= hi.x && q.y >= lo.y && q.y <= hi.y;
+        },
+        shown = (p: V3): boolean => {
+          const q = project(cam, p, w, h);
+          return !host.inFront(p, q.x, q.y); // (not behind a body's surface)
+        };
+      let best: { key: string; ids: string[] } | null = null;
+      for (const [key, p] of defs) {
+        const f = all.get(key);
+        if (!f) continue;
+        const s = solOf(p),
+          curves = segsOf(p, s.points, s.radii).flatMap((q) => {
+            const pts = polyline(q).map((z) => to3(f, z));
+            return pts.length && pts.every(seen) && shown(pts[Math.floor(pts.length / 2)]!) ? [q.name] : [];
+          }),
+          ids = curves.length
+            ? curves
+            : p.points
+                .filter((x) => s.points[x.id] && seen(to3(f, s.points[x.id]!)) && shown(to3(f, s.points[x.id]!)))
+                .map((x) => x.id);
+        if (ids.length > (best?.ids.length ?? 0)) best = { key, ids };
+      }
+      if (!best) return false;
+      sel.setSketch(best.key, best.ids);
+      return true;
     },
     /** Whether any plane has something drawn on it (what the Extrude tool needs). */
     hasDrawing: (): boolean =>

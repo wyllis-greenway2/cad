@@ -45,7 +45,7 @@ export function loopPoints(l: Loop): Pt[] {
   return out;
 }
 /** whether a place is inside the outline and not inside a hole (even and odd crossings of all the loops) */
-const insideLoops = (loops: readonly (readonly Pt[])[], p: Pt): boolean => {
+export const insideLoops = (loops: readonly (readonly Pt[])[], p: Pt): boolean => {
   let inside = false;
   for (const l of loops)
     for (let i = 0, j = l.length - 1; i < l.length; j = i++) {

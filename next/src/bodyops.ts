@@ -2,14 +2,14 @@
 import type { Selection } from "./bodyselect.ts";
 import { flushPull, type PlaneRef } from "./engine/flush.ts";
 import { idKey } from "./engine/id.ts";
-import { forwardDepth, rightOf, upOf, viewHeight, type Cam } from "./camera.ts";
-import { edgeAnchor, faceAnchor, nearClick, nearestOnEdges, normalAt } from "./interaction/anchors.ts";
+import type { Cam } from "./camera.ts";
+import { edgeAnchor, faceAnchor, nearOnFace, nearestOnEdges, normalAt } from "./interaction/anchors.ts";
+import { asideMm, spotBeside, wayAcross } from "./interaction/arrowspot.ts";
 import { edgesAround } from "./interaction/pick.ts";
 import type { Operation } from "./interaction/operation.ts";
 import { pushOp, roundOp, type PullInfo } from "./interaction/operations.ts";
 import type { createStudio } from "./studio.ts";
 import { add, scale, sub, unit, type V3 } from "./vec.ts";
-import { settings } from "./settings.ts";
 
 export interface BodyOpsHost {
   /** the flat faces of the scene, as planes (`engine/flush.ts`): what a pull can be flush with */
@@ -31,11 +31,8 @@ function facePositions(
 }
 export function createBodyOps(host: BodyOpsHost) {
   const { studio, faceFacts, planes } = host;
-  /** a few pixels' worth in mm where the click was (how far from it the arrow stands) */
-  const mmNear = (p: V3): number => {
-    const { cam, h } = host.view();
-    return (settings.helpers.arrowAsidePx * viewHeight(cam, Math.max(forwardDepth(cam, p), 1e-3))) / h;
-  };
+  /** how far from the click the arrow stands (`interaction/arrowspot.ts`) */
+  const mmNear = (p: V3): number => asideMm(host.view().cam, host.view().h, p);
   return {
     /** the operation for `body:round`, `body:chamfer` or `body:pull` on what is picked (null: it has none) */
     async operationFor(id: string, sel: Selection): Promise<Operation | null> {
@@ -61,14 +58,11 @@ export function createBodyOps(host: BodyOpsHost) {
           size = Math.max(0.1, Math.round(Math.min(short / 10, 2) * 10) / 10);
         // the arrow stands on the edge where it was clicked (of a face's edges, the one nearest the click; of edges picked another way, the first, a quarter of the way along a straight one) and points out of the body, between its two faces (pulled out: round; pushed in: chamfer)
         const click = nearestOnEdges(mesh.lines, edges, sel.at),
-          step = mmNear(sel.at),
-          // a little way along the edge from the click, so that a second click is a click and not a press on the arrow
-          aside = click
-            ? ([1, -1]
-                .map((sg) => nearestOnEdges(mesh.lines, edges, add(click.at, scale(click.dir, step * sg))))
-                .find((q) => q && Math.hypot(...sub(q.at, click.at)) >= step * 0.5) ?? click)
-            : null,
-          near = aside ?? click,
+          // a little way along the edge from the click (the one rule of `interaction/arrowspot.ts`, along the edge)
+          spot =
+            click &&
+            spotBeside(click.at, click.dir, mmNear(sel.at), (p) => nearestOnEdges(mesh.lines, edges, p)?.at ?? p),
+          near = spot ? nearestOnEdges(mesh.lines, edges, spot) : null,
           e0 = near?.edge ?? edges[0]!,
           at = near?.at ?? edgeAnchor(mesh.lines, e0);
         // out of the body between the edge's two faces, AT the place the arrow stands: the normals the mesh has there (a round face's, such as a cylinder wall's, turns along the edge, so its one normal from the engine would point the same way all round a rim)
@@ -97,12 +91,7 @@ export function createBodyOps(host: BodyOpsHost) {
         const kinds = r.ok ? (r.data as PullInfo[]) : [{ mode: "push" as const, ok: true, why: "", suggested: true }];
         const click = faceAnchor(mesh, f, sel.at),
           nc = normalAt(mesh, f, click),
-          { cam } = host.view(),
-          right = rightOf(cam),
-          rn = right[0] * nc[0] + right[1] * nc[1] + right[2] * nc[2],
-          along: V3 = [right[0] - nc[0] * rn, right[1] - nc[1] * rn, right[2] - nc[2] * rn],
-          way = Math.hypot(...along) > 0.2 ? unit(along) : unit(upOf(cam)),
-          at = nearClick(mesh, f, click, way, mmNear(click)), // (the arrow stands on the face a little way from where it was clicked)
+          at = spotBeside(click, wayAcross(host.view().cam, nc), mmNear(click), (p) => nearOnFace(mesh, f, p)), // (the arrow stands on the face a little way from where it was clicked)
           nm = normalAt(mesh, f, at),
           ne = ff.ne as unknown as V3,
           normal = nm[0] * ne[0] + nm[1] * ne[1] + nm[2] * ne[2] > 0.9999 ? ne : nm, // (a flat face's own normal; a curved face's, where the arrow stands)

@@ -135,6 +135,20 @@ try {
   ok((await ev<string>(`() => JSON.stringify(window.__cad.cam)`)) === cam0, "and the view did not turn");
   await page.mouse.click(1000, 600);
   await wait(400);
+  // a box that goes over the whole body picks the body whole (`in_1738`)
+  await ev(`() => { window.__box.arm(); return 1; }`);
+  await page.mouse.move(40, 40);
+  await page.mouse.down();
+  await page.mouse.move(1050, 660, { steps: 6 });
+  await page.mouse.up();
+  await wait(600);
+  s = await state();
+  ok(
+    s.b.sel?.whole.length === 1 && s.mv !== null,
+    `a box over the whole body picks it whole and its orb shows: ${JSON.stringify(s.b.sel?.whole)}`,
+  );
+  await page.mouse.click(1000, 600);
+  await wait(400);
   await ev(`() => { window.__bodies.selectAll("faces"); return 1; }`);
   await wait(600);
   s = await state();
