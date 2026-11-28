@@ -6841,3 +6841,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1708 — 2026-11-28 — directive
 > but why would this be body dependent at all? why does the camera need to zoom each time it goes into 3d and out anyway? and wouldn't the root cause fix be to just remember its point in space before going into ortho?
+
+## in_1709 — 2026-11-28 — question
+> so why do you want to add the bodies to the camera scene again?
