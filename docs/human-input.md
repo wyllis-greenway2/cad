@@ -6823,3 +6823,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1702 — 2026-11-28 — question
 > okay so how is it looking now? is the new build clean and tidy and bug free with good tests to prevent regressions?
+
+## in_1703 — 2026-11-28 — directive
+> okay so before we write up tests we are supposed to test things, but before we can test the engine I need a bit more UI built in order to actually use it. So I want to capture the body manipulation parts of the old prototype. But we need to think about how to capture the good parts of the old prototype in a lean and clean way. First for the look and feel, the old prototype had a good set of render types, body rendering, wire-frame rendering, how faces get selected and offer the face pull arrow, how edges get selected and offer the chamfer fillet arrow etc. Can we look at the old prototype and figure out how to rebuild these parts in the new app in a clean and lean way? I only want a handful of render types reused by everything downstream, the old app kept minting new ones for new operations all the time
