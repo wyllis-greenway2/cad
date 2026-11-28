@@ -58,6 +58,9 @@ export type StrokeKind =
   | "tie"
   | "guide"
   | "centre"
+  | "dim"
+  | "dimExt"
+  | "dimHead"
   | "lit"
   | "litOffer"
   | "litOfferSel"
@@ -74,6 +77,9 @@ export const STROKE: Record<
 > = {
   note: { tone: "note", weight: 0.75, soft: false }, // the thin grey line of a number (an angle's arc)
   tieBall: { tone: "ties", weight: 1, soft: false }, // a point a helper is about: an orange ball
+  dim: { tone: "note", weight: 0.75, soft: false, dashed: true }, // the line a measured number is drawn on, while it is pointed at (`in_1650`)
+  dimExt: { tone: "note", weight: 0.5, soft: true }, // the thin lines from what it measures to it
+  dimHead: { tone: "note", weight: 0.75, soft: false }, // an arrow tip at each end
   lit: { tone: "figure", weight: 0.75, soft: false }, // the parts an applied constraint is about, while its bubble is pointed at: blue (`in_1661`)
   litOffer: { tone: "ties", weight: 0.75, soft: false }, // the same for an offer: yellow
   litOfferSel: { tone: "ties", weight: 1.3, soft: false }, // (a part that is selected keeps the selected weight)

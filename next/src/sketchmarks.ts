@@ -270,7 +270,7 @@ export function createMarks(
       ownId = list.find((m) => m.kind === "dimension" && [...m.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
       // only the mark that is pointed at draws anything: the parts it is about lit, and (an offer) what applying it would move
       const hm = st.hover && list.find((m) => m.id === st.hover!.id && (m.over?.join(",") ?? "") === st.hover!.over);
-      st.lit = hm ? { key: c.key, parts: hm.parts, offer: hm.state === "offer" } : null;
+      st.lit = hm ? { key: c.key, parts: hm.parts, offer: hm.state === "offer", dim: hm.dim ?? null } : null;
       if (hm?.state === "offer" && hm.moves?.length) st.moves = { key: c.key, list: hm.moves };
       return list.map(at3);
     },

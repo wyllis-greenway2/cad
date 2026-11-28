@@ -6710,3 +6710,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1665 — 2026-11-28 — approval
 > yes build the single movement distance rule
+
+## in_1666 — 2026-11-28 — question
+> so what else is different in the app from what we specced? it seems like the radius of circles are not showing the thin radial arrow with the dimension on that line,

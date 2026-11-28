@@ -4,7 +4,7 @@
 import type { Arrow } from "../engine/probe.ts";
 import type { System } from "../engine/solver.ts";
 import { settings } from "../settings.ts";
-import { anchorOf, bubblesOn, scopeOf, selectionAnchor, type Flash } from "./bubbles.ts";
+import { anchorOf, bubblesOn, dimLine, scopeOf, selectionAnchor, type DimLine, type Flash } from "./bubbles.ts";
 import type { Fact } from "./infobar.ts";
 import { barFor, nearConstraint, nearFor, type BarItem } from "./infobar.ts";
 
@@ -13,6 +13,9 @@ export type MarkState = "locked" | "offer" | "refused";
 export interface Mark extends Fact {
   /** an offer that would move something: each point that would go, from where it is to where it would be (the sketch's axes); the mark then stands in the middle of the longest */
   moves?: Arrow[];
+  /** a measured number: the dimension line it is drawn on when it is pointed at, and the bubble stands on its middle (`in_1650`) */
+  dim?: DimLine;
+  onSpot?: boolean;
   state: MarkState;
   alpha: number;
   over?: string[];
@@ -158,12 +161,18 @@ export function marksFor(
   const out: Mark[] = [];
   // what is selected shows what it is made of too (a line, its ends; going down, never up: `scopeOf`)
   const scope = scopeOf(S, selection);
-  for (const f of bubblesOn(S, selection, ctx.flash ?? {}, scope))
+  for (const f of bubblesOn(S, selection, ctx.flash ?? {}, scope)) {
+    // a number stands on its own dimension line (drawn when it is pointed at), 24 px off what it measures where it stands off
+    const dim =
+        f.kind === "dimension" && f.relation ? dimLine(S, f.relation, f.parts, (ctx.reach?.pointMm ?? 0) * 2) : null,
+      mid: [number, number] | null = dim ? [(dim.a[0] + dim.b[0]) / 2, (dim.a[1] + dim.b[1]) / 2] : null;
     out.push({
       ...f,
+      ...(dim && mid ? { dim, at: mid, onSpot: true } : {}),
       state: f.tone === "refused" ? "refused" : f.locked === false ? "offer" : "locked",
       alpha: f.tone === "applied" ? (ctx.fade?.(f.id) ?? 1) : 1,
     });
+  }
   // the near offers of what a single part is made of (a line's end on another line) are offered with it
   // (a circle's centre is not offered with the circle: "upright with that point" on a circle reads as an upright circle, and a centre on a point as a circle concentric with itself; select the centre to be offered them, `in_1633`)
   const centres = new Set(S.circles.map((k) => k.c)),

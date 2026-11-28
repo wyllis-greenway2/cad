@@ -206,7 +206,7 @@ export function createMarkDraw(host: HTMLElement) {
         let ax = p.x - w / 2,
           ay = p.y - h / 2 - 30;
         if (!off)
-          slot: for (const r of [30, 48, 66])
+          slot: for (const r of p.mark.onSpot ? [0, 30, 48, 66] : [30, 48, 66])
             for (const t of SLOTS) {
               const cx = p.x + Math.cos(t) * r - w / 2,
                 cy = p.y + Math.sin(t) * r - h / 2;
@@ -219,7 +219,8 @@ export function createMarkDraw(host: HTMLElement) {
         anchored.set(k, { x: ax, y: ay });
         const x = ax + (off?.x ?? 0),
           y = ay + (off?.y ?? 0);
-        if (k === hoverKey) spot = { cx: x + w / 2, cy: y + h / 2, sx: p.x, sy: p.y, offer: p.mark.state === "offer" };
+        if (k === hoverKey && !p.mark.onSpot)
+          spot = { cx: x + w / 2, cy: y + h / 2, sx: p.x, sy: p.y, offer: p.mark.state === "offer" };
         placed.push({ x, y, w, h });
         e.style.transform = `translate(${Math.round(x)}px,${Math.round(y)}px)`;
       }

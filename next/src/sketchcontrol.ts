@@ -354,6 +354,24 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
           const at = shownPts.has(id) ? null : s.points[id];
           if (at) out.push({ kind: "centre", pts: [to3(f, at)], r: mmPerPx(f, at) * settings.sketch.ballPx * 0.55 });
         }
+        // a pointed-at number is drawn on its dimension line: thin, dashed, an arrow tip at each end, the thin lines from what it measures (`in_1650`)
+        if (st.lit?.dim && st.lit.key === k) {
+          const dm = st.lit.dim,
+            head = (tip: [number, number], from: [number, number]) => {
+              const len = Math.hypot(tip[0] - from[0], tip[1] - from[1]) || 1,
+                ux = (tip[0] - from[0]) / len,
+                uy = (tip[1] - from[1]) / len,
+                h = mmPerPx(f, tip) * 8,
+                w = (sg: number): [number, number] => [
+                  tip[0] - h * (ux * Math.cos(0.45) - sg * uy * Math.sin(0.45)),
+                  tip[1] - h * (uy * Math.cos(0.45) + sg * ux * Math.sin(0.45)),
+                ];
+              return { kind: "dimHead" as const, pts: [to3(f, w(1)), to3(f, tip), to3(f, w(-1))] };
+            };
+          out.push({ kind: "dim", pts: [to3(f, dm.a), to3(f, dm.b)], dash: dashAt(f, dm.a) });
+          for (const [a, b] of dm.ext) out.push({ kind: "dimExt", pts: [to3(f, a), to3(f, b)] });
+          out.push(head(dm.a, dm.b), head(dm.b, dm.a));
+        }
         // the parts the pointed-at mark is about, lit in its colour (blue for an applied constraint, yellow for an offer); a named point also lights the lines that end at it; only colour changes, never the weight (`in_1657`, `in_1661`)
         if (st.lit && st.lit.key === k) {
           const names = new Set(st.lit.parts);

@@ -370,4 +370,37 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
     ask(0.8) && !ask(1.3),
   );
 }
+{
+  // a measured number stands on its own dimension line (`in_1650`, `in_1666`): a circle's size a radial line from the centre one radius long, the bubble on its middle; a length a line beside the line, offset
+  const T: System = {
+    points: [
+      { id: "C", x: 0, y: 0 },
+      { id: "A", x: 20, y: 0 },
+      { id: "B", x: 30, y: 0 },
+    ],
+    lines: [{ id: "L1", a: "A", b: "B" }],
+    circles: [{ id: "K1", c: "C", r: 8 }],
+    constraints: [],
+  } as unknown as System;
+  const ms = (sel: string[]) =>
+    marksFor(T, sel, { now: 0, reach: { pointMm: 1, lineMm: 1 } }).filter((m) => m.id === "measure");
+  const rad = ms(["K1"])[0],
+    len = ms(["L1"])[0];
+  check(
+    "a circle's size is on a radial line one radius long from its centre, the bubble on its middle",
+    !!rad?.dim &&
+      !!rad.onSpot &&
+      Math.abs(Math.hypot(rad.dim.b[0] - rad.dim.a[0], rad.dim.b[1] - rad.dim.a[1]) - 8) < 1e-9 &&
+      Math.abs(Math.hypot(rad.at[0], rad.at[1]) - 4) < 1e-9,
+    JSON.stringify(rad?.dim),
+  );
+  check(
+    "a line's length is on a line beside it (2 mm off, the reach times two), the bubble on its middle, two thin lines to it",
+    !!len?.dim &&
+      len.dim.ext.length === 2 &&
+      Math.abs(Math.abs(len.dim.a[1]) - 2) < 1e-9 &&
+      Math.abs(len.at[0] - 25) < 1e-9,
+    JSON.stringify(len?.dim),
+  );
+}
 process.exit(failureCount() ? 1 : 0);

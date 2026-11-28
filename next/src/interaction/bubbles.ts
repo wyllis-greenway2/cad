@@ -254,6 +254,114 @@ function measuredBubble(S: System, selection: string[]): Bubble | null {
   };
 }
 
+/** a dimension drawn as the people who draw have always drawn it (`in_1650`): a thin dashed line with an arrow tip at each end, the number on it. `a`, `b`: its ends; `ext`: the thin lines from the measured parts to it (the sketch's axes, mm) */
+export interface DimLine {
+  a: [number, number];
+  b: [number, number];
+  ext: [[number, number], [number, number]][];
+}
+/** the line a measured number is drawn on, `off` mm away from what it measures where it stands off (null: none, as an angle, which has its arc): a circle's size a radial line from the centre in the direction with most room, a length or distance a line beside the two ends, an across or up-and-down distance level or upright, a distance to a line square to it */
+export function dimLine(S: System, kind: string, parts: readonly string[], off: number): DimLine | null {
+  const pt = (id: string) => {
+    const q = S.points.find((x) => x.id === id);
+    return q ? ([q.x, q.y] as [number, number]) : null;
+  };
+  const beside = (p: [number, number], q: [number, number]): DimLine => {
+    const d = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1,
+      n: [number, number] = [-(q[1] - p[1]) / d, (q[0] - p[0]) / d],
+      a: [number, number] = [p[0] + n[0] * off, p[1] + n[1] * off],
+      b: [number, number] = [q[0] + n[0] * off, q[1] + n[1] * off];
+    return {
+      a,
+      b,
+      ext: [
+        [p, a],
+        [q, b],
+      ],
+    };
+  };
+  if (kind === "radius") {
+    const k = S.circles.find((x) => x.id === parts[0]),
+      c = k && pt(k.c);
+    if (!k || !c) return null;
+    // the direction whose radius has most room from the lines, lower right when nothing says otherwise
+    let best: { s: number; u: [number, number] } | null = null;
+    for (let t = 0; t < 360; t += 15) {
+      const u: [number, number] = [Math.cos((t * Math.PI) / 180), Math.sin((t * Math.PI) / 180)];
+      let room = 1e9;
+      for (const l of S.lines) {
+        const a = pt(l.a),
+          b = pt(l.b);
+        if (!a || !b) continue;
+        for (const f of [0.35, 0.7, 1]) {
+          const x = c[0] + u[0] * k.r * f,
+            y = c[1] + u[1] * k.r * f,
+            ab: [number, number] = [b[0] - a[0], b[1] - a[1]],
+            tt = Math.max(
+              0,
+              Math.min(1, ((x - a[0]) * ab[0] + (y - a[1]) * ab[1]) / (ab[0] * ab[0] + ab[1] * ab[1] || 1)),
+            );
+          room = Math.min(room, Math.hypot(x - (a[0] + ab[0] * tt), y - (a[1] + ab[1] * tt)));
+        }
+      }
+      const score = Math.min(room, k.r) + (u[0] > 0 && u[1] < 0 ? k.r * 0.05 : 0);
+      if (!best || score > best.s) best = { s: score, u };
+    }
+    return { a: c, b: [c[0] + best!.u[0] * k.r, c[1] + best!.u[1] * k.r], ext: [] };
+  }
+  if (kind === "length") {
+    const l = S.lines.find((x) => x.id === parts[0]),
+      p = l && pt(l.a),
+      q = l && pt(l.b);
+    return p && q ? beside(p, q) : null;
+  }
+  if (kind === "distance") {
+    const p = pt(parts[0]!),
+      q = pt(parts[1]!);
+    return p && q ? beside(p, q) : null;
+  }
+  if (kind === "horizontalDistance" || kind === "verticalDistance") {
+    const p = pt(parts[0]!),
+      q = pt(parts[1]!);
+    if (!p || !q) return null;
+    if (kind === "horizontalDistance") {
+      const y = Math.max(p[1], q[1]) + off,
+        a: [number, number] = [p[0], y],
+        b: [number, number] = [q[0], y];
+      return {
+        a,
+        b,
+        ext: [
+          [p, a],
+          [q, b],
+        ],
+      };
+    }
+    const x = Math.max(p[0], q[0]) + off,
+      a: [number, number] = [x, p[1]],
+      b: [number, number] = [x, q[1]];
+    return {
+      a,
+      b,
+      ext: [
+        [p, a],
+        [q, b],
+      ],
+    };
+  }
+  if (kind === "pointLineDistance") {
+    const p = pt(parts[0]!),
+      l = S.lines.find((x) => x.id === parts[1]),
+      a = l && pt(l.a),
+      b = l && pt(l.b);
+    if (!p || !a || !b) return null;
+    const ab: [number, number] = [b[0] - a[0], b[1] - a[1]],
+      t = ((p[0] - a[0]) * ab[0] + (p[1] - a[1]) * ab[1]) / (ab[0] * ab[0] + ab[1] * ab[1] || 1);
+    return { a: p, b: [a[0] + ab[0] * t, a[1] + ab[1] * t], ext: [] };
+  }
+  return null;
+}
+
 /** The angle between two lines as the old app draws it and shows it: the angle inside the corner, between the two rays that run from where the lines cross toward the longer part of each (a thin arc at the corner, the number on it). `from`, `sweep`: where the arc starts and how far round it goes (radians, the shorter way); `offset`: 180 when the rays are not both the lines' own directions (a corner where one line ends and the next begins), which turns what is shown into the directed angle the solver reads. None for lines that never cross. */
 export function angleMark(
   S: System,
