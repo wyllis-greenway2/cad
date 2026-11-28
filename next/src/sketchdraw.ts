@@ -30,7 +30,8 @@ export function strokeOf(l: DrawLine, w: number, h: number): THREE.Object3D {
         new THREE.SpriteMaterial({
           map: ball(),
           color: new THREE.Color(COLOUR[l.tone ?? STROKE[l.kind].tone]).getHex(),
-          depthTest: false,
+          depthTest: !!l.hidden,
+          ...(l.hidden ? { polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 } : {}),
         }),
       ),
       p = l.pts[0]!;

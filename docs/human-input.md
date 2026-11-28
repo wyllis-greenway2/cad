@@ -6898,3 +6898,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1726 — 2026-11-28 — directive
 > yes do the side by side comparison
+
+## in_1727 — 2026-11-28 — directive
+> okay that is pretty good, lets make a few small edits. The center points of circles shouldn't show through bodies, the edge chamfer arrow should show up on the edge where you click it and the face body pull arrows should do the same, show up on the body where you click it.

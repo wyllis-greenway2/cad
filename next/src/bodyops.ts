@@ -2,7 +2,7 @@
 import type { Selection } from "./bodyselect.ts";
 import { flushPull, type PlaneRef } from "./engine/flush.ts";
 import { idKey } from "./engine/id.ts";
-import { edgeAnchor, faceCentre, normalAt } from "./interaction/anchors.ts";
+import { edgeAnchor, faceAnchor, nearestOnEdges, normalAt } from "./interaction/anchors.ts";
 import { edgesAround } from "./interaction/pick.ts";
 import type { Operation } from "./interaction/operation.ts";
 import { pushOp, roundOp, type PullInfo } from "./interaction/operations.ts";
@@ -50,9 +50,10 @@ export function createBodyOps(host: BodyOpsHost) {
         };
         const short = Math.min(...edges.map(len)),
           size = Math.max(0.1, Math.round(Math.min(short / 10, 2) * 10) / 10);
-        // the arrow stands on the first edge (a quarter of the way along a straight one, in the middle of a curve) and points out of the body, between its two faces (pulled out: round; pushed in: chamfer)
-        const e0 = edges[0]!,
-          at = edgeAnchor(mesh.lines, e0);
+        // the arrow stands on the edge where it was clicked (of a face's edges, the one nearest the click; of edges picked another way, the first, a quarter of the way along a straight one) and points out of the body, between its two faces (pulled out: round; pushed in: chamfer)
+        const near = nearestOnEdges(mesh.lines, edges, sel.at),
+          e0 = near?.edge ?? edges[0]!,
+          at = near?.at ?? edgeAnchor(mesh.lines, e0);
         const ns = [e0.ref.a, e0.ref.b].map((r) => {
           const fi = mesh.faces.find((x) => idKey(x.ref) === idKey(r));
           return fi && faceFacts(sel.body, fi.id)?.ne;
@@ -76,7 +77,7 @@ export function createBodyOps(host: BodyOpsHost) {
         const positions = facePositions(mesh, f);
         const r = await studio.ask({ what: "pullModes", step: sel.body, face: f.ref }); // the kinds of pull this face has, from the worker
         const kinds = r.ok ? (r.data as PullInfo[]) : [{ mode: "push" as const, ok: true, why: "", suggested: true }];
-        const at = faceCentre(mesh, f, sel.at), // (the arrow stands in the middle of the face, on it: the wall of a cylinder has its middle on the axis)
+        const at = faceAnchor(mesh, f, sel.at), // (the arrow stands on the face where it was clicked)
           nm = normalAt(mesh, f, at),
           ne = ff.ne as unknown as V3,
           normal = nm[0] * ne[0] + nm[1] * ne[1] + nm[2] * ne[2] > 0.9999 ? ne : nm, // (a flat face's own normal; a curved face's, where the arrow stands)

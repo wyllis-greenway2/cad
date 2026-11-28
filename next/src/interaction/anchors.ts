@@ -125,3 +125,45 @@ export function edgeAnchor(lines: Float32Array, e: { start: number; count: numbe
     t = (total / 2 - along[i - 1]!) / Math.max(1e-12, along[i]! - along[i - 1]!);
   return [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t];
 }
+
+/** Where an arrow stands for a click on a face: where it was clicked, when that is on the face; else (a face picked with a box, or with the Select section) the face's middle. */
+export function faceAnchor(m: Tris, f: { start: number; count: number }, click: V3): V3 {
+  for (let k = f.start; k + 2 < f.start + f.count; k += 3) {
+    const at = (n: number): V3 => [
+      m.positions[3 * m.indices[k + n]!]!,
+      m.positions[3 * m.indices[k + n]! + 1]!,
+      m.positions[3 * m.indices[k + n]! + 2]!,
+    ];
+    const q = closestOnTriangle(click, at(0), at(1), at(2));
+    if (Math.hypot(q[0] - click[0], q[1] - click[1], q[2] - click[2]) < 0.05) return click;
+  }
+  return faceCentre(m, f, click);
+}
+/** The place on one of the edges nearest to a click, and the edge it is on: where the arrow of a round or chamfer stands (on the edge where it was clicked). */
+export function nearestOnEdges<E extends { start: number; count: number }>(
+  lines: Float32Array,
+  edges: readonly E[],
+  p: V3,
+): { edge: E; at: V3 } | null {
+  let best: { edge: E; at: V3 } | null = null,
+    d = Infinity;
+  for (const e of edges)
+    for (let i = 0; i + 1 < e.count; i++) {
+      const k = 3 * (e.start + i),
+        a: V3 = [lines[k]!, lines[k + 1]!, lines[k + 2]!],
+        b: V3 = [lines[k + 3]!, lines[k + 4]!, lines[k + 5]!],
+        ab: V3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]],
+        l2 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2],
+        u =
+          l2 < 1e-18
+            ? 0
+            : Math.max(0, Math.min(1, ((p[0] - a[0]) * ab[0] + (p[1] - a[1]) * ab[1] + (p[2] - a[2]) * ab[2]) / l2)),
+        q: V3 = [a[0] + ab[0] * u, a[1] + ab[1] * u, a[2] + ab[2] * u],
+        e2 = Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]);
+      if (e2 < d) {
+        d = e2;
+        best = { edge: e, at: q };
+      }
+    }
+  return best;
+}

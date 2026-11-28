@@ -19,7 +19,7 @@ try {
   const [fx, fy] = await p3([0, 0, 20]);
   const [gx, gy] = await p3([12, 4, 20]); // another place on the same face (the arrow stands at the middle, a press there is its grab)
 
-  // a face: its pull arrow, in the middle of the face
+  // a face: its pull arrow, where it was clicked
   await page.mouse.click(gx, gy);
   await wait();
   let s = await state();
@@ -28,8 +28,9 @@ try {
     `a face picked shows its pull arrow by itself: ${JSON.stringify(s.pull?.arrow)}`,
   );
   ok(
-    Math.hypot(s.pull.arrow.base[0], s.pull.arrow.base[1]) < 1e-6 && Math.abs(s.pull.arrow.base[2] - 20) < 1e-6,
-    "and it stands in the middle of the face, not where the click was",
+    Math.hypot(s.pull.arrow.base[0] - 12, s.pull.arrow.base[1] - 4) < 0.05 &&
+      Math.abs(s.pull.arrow.base[2] - 20) < 1e-6,
+    "and it stands on the face where it was clicked",
   );
 
   // an untouched arrow is put away by the next click, which does its own work (here: an edge)
@@ -134,18 +135,18 @@ try {
   await page.keyboard.press("Escape");
   await page.mouse.click(1000, 600);
   await wait(400);
-  // a click again on the same place goes down what is under it: the edge, then the face behind it ("2 of 2 here", `MD-3`)
-  const [e1x, e1y] = await p3([0, -10, 20]);
+  // a click again on the same place goes down what is under it: the corner, then an edge ("2 of 5 here", `MD-3`); a corner has no arrow standing on the place, as an edge or a face has once picked
+  const [e1x, e1y] = await p3([20, -10, 20]);
   await page.mouse.click(e1x, e1y);
   await wait(700);
   s = await state();
-  ok(s.b.sel?.edges.length === 1 && s.b.sel.faces.length === 0, "a click on an edge picks the edge");
+  ok(s.b.sel?.vertices.length === 1, "a click on a corner picks the corner");
   await page.mouse.click(e1x, e1y);
   await wait(700);
   s = await state();
   ok(
-    s.b.sel?.faces.length === 1 && s.b.sel.edges.length === 0,
-    `a click again on the same place takes the face under it: ${JSON.stringify(s.b.sel)}`,
+    s.b.sel?.edges.length === 1 && s.b.sel.vertices.length === 0,
+    `a click again on the same place takes the next, an edge: ${JSON.stringify(s.b.sel)}`,
   );
   await page.mouse.click(1000, 600);
   await wait(500);

@@ -372,12 +372,12 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
         const shownPts = chosen.size ? new Set(scopeOf(sysOf(p), [...chosen])) : chosen; // (what is selected shows what it is made of: a circle its centre, a line its ends, an arc its centre and ends)
         for (const x of p.points) {
           const at = shownPts.has(x.id) ? s.points[x.id] : null;
-          if (at) out.push(dot(f, at, "figure"));
+          if (at) out.push({ ...dot(f, at, "figure"), hidden: true });
         } // (the old app marks no point until it is picked, then a teal ball)
         // a circle's and an arc's centre is always there to see, a small dot; picked, it is the teal ball above (`in_1646`)
         for (const id of new Set([...(p.circles ?? []).map((k) => k.c), ...(p.arcs ?? []).map((a) => a.c)])) {
           const at = shownPts.has(id) ? null : s.points[id];
-          if (at) out.push(dot(f, at, "axis", 0.55));
+          if (at) out.push({ ...dot(f, at, "axis", 0.55), hidden: true }); // (a point of a drawing is hidden by a body in front of it, as its lines are)
         }
         // what the pointed-at mark shows: its parts lit in its colour (blue for an applied constraint, yellow for an offer; a named point also lights the lines that end at it; only colour changes, never the weight, `in_1657`, `in_1661`), a dot on each named point, and its shapes, all by the one routine (`in_1675`)
         if (st.shown && st.shown.key === k) {
