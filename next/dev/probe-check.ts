@@ -4,7 +4,7 @@ import { helpersForMotion } from "../src/engine/helpers.ts";
 import type { System } from "../src/engine/solver.ts";
 import { check, failureCount } from "./lib.ts";
 
-const reach = { pointMm: 0.6, lineMm: 0.6 };
+const reach = 0.6;
 // a level line and a circle 0.3 mm short of touching it
 const S: System = {
   points: [
@@ -34,10 +34,7 @@ check(
   !!found && Math.abs(found.moved - 0.3) < 1e-6 && Math.abs(found.q[1]! + 0.3) < 1e-6,
   JSON.stringify(found && [found.moved, found.q]),
 );
-check(
-  "and not in a reach of 0.1",
-  !inRange(S, mv, [0, 0], cands, { pointMm: 0.1, lineMm: 0.1 }).some((r) => r.cand.relation === "tangent"),
-);
+check("and not in a reach of 0.1", !inRange(S, mv, [0, 0], cands, 0.1).some((r) => r.cand.relation === "tangent"));
 // at rest, each point free to move: a line a little off parallel to another is in reach of parallel
 const T: System = {
   points: [
@@ -63,10 +60,9 @@ check(
 const none = adjusting(T, ["A", "B"]);
 check(
   "and not in a reach of 0.01",
-  !inRange(T, none, new Array(none.dim).fill(0), candidatesFor(T, none.affected, ["L1"], 2), {
-    pointMm: 0.01,
-    lineMm: 0.01,
-  }).some((r) => r.cand.relation === "parallel"),
+  !inRange(T, none, new Array(none.dim).fill(0), candidatesFor(T, none.affected, ["L1"], 2), 0.01).some(
+    (r) => r.cand.relation === "parallel",
+  ),
 );
 // the shortest way: least-norm Newton on one row of a straight line
 const q = landN((p) => [p[0]! + p[1]! - 1], [0, 0], 5);
@@ -81,7 +77,7 @@ check(
 );
 // the hints for a dragged part: the same probe, placed
 const h = helpersForMotion(S, translating(S, ["P1", "P2"]), [0, 5.3], [0, 5.1], 0.1, {
-  pointPx: 12,
+  reachPx: 12,
   linePx: 6,
   overPx: 12,
   stepPx: 6,

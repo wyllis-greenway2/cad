@@ -34,12 +34,7 @@ export interface Info {
 export const NEAR_MAX = 2; // (the old app offered up to two "near" suggestions)
 
 /** Relations between the selection and one other part that hold now, or (with `reach`) are within reach of holding, and would be new (`offerable`): a line that is level with one a long way off, a line tangent to a circle, a point on a line that was not made to be, a line a little off parallel. The parts at rest are a motion (each point free to move a little, a circle's radius too) and this is `inRange` over it, the same question the helpers ask of a part being drawn or dragged (`engine/probe.ts`): how it got there does not matter. Up to `max`, one for each other part before a second of any; none for more than two parts selected. */
-export function nearFor(
-  S: System,
-  selection: string[],
-  max = NEAR_MAX,
-  reach?: { pointMm: number; lineMm: number },
-): BarItem[] {
+export function nearFor(S: System, selection: string[], max = NEAR_MAX, reach?: number): BarItem[] {
   if (!selection.length || selection.length > 2) return [];
   const points = new Set<string>(),
     radii: string[] = [];
@@ -59,7 +54,7 @@ export function nearFor(
       ...candidatesFor(S, motion.affected, selection, selection.length + 1),
       ...(selection.length === 1 ? candidatesFor(S, motion.affected, selection, 1) : []),
     ].filter((c) => !RANGEABLE.has(c.relation)),
-    exact = { pointMm: 1e-7, lineMm: 1e-7 };
+    exact = 1e-7;
   const found = inRange(S, motion, new Array(motion.dim).fill(0), cands, reach ?? exact)
     .slice(0, 24)
     .map((r) => {

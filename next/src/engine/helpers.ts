@@ -1,6 +1,6 @@
 // The helpers of drawing, read from the relation table (`dec_helpers_one_rule`, `in_1579`..`in_1583`; no kernel). A helper is a relation that is APPLICABLE and within REACH:
 //   applicable: the same question the helper bar asks (`engine/relations.ts`): the relation fits the kinds of parts, and the solver would add it as something new (not already implied by the figure or the sketch, not refused)
-//   within reach: the place being drawn nearly satisfies it, with parts already there; `reach.pointPx` if it says a point (two rows), `reach.linePx` if a line; the step is the Newton step on its residuals, so it is in mm whatever the unit of the row
+//   within reach: the place being drawn nearly satisfies it, with parts already there; `reach.reachPx` if it says a point (two rows), `reach.linePx` if a line; the step is the Newton step on its residuals, so it is in mm whatever the unit of the row
 // The free thing is the place `~P`, alone (`point`), or the end of a line from the figure's first place (`line`: `~L`), or the edge of a circle about it (`circle`: `~C`); the first place is a point of the sketch (`startId`) or only a place.
 // The nearest acts (a point before a line, then a fixed order); one more, not parallel to it, within reach of that place: the place is where both hold. Everything that holds at the place is reported, to be shown and offered.
 import { L, P, S, figureOf, type Free, type Pt } from "./free.ts";
@@ -10,7 +10,7 @@ import { RELATIONS, residualsOf, type Constraint, type Relation, type System } f
 export { C, L, P, S, type Free, type Pt } from "./free.ts";
 /** how near (px) the pointer must be to a relation that says a point and to one that says a line, how far past its ends a guide runs, and the step it is traced in: the screen's settings (`settings.helpers`), given to each call so this file knows no screen */
 export interface Reach {
-  pointPx: number;
+  reachPx: number;
   linePx: number;
   overPx: number;
   stepPx: number;
@@ -145,7 +145,7 @@ function helpersWith(S0: System, fig: Fig, q: Pt, mm: number, reach: Reach): Hel
       const row = rowFn(c),
         n0 = row(from);
       if (n0.length === 0 || !n0.every(Number.isFinite) || !aboutPlace(row, from)) continue;
-      const within = (n0.length === 2 ? reach.pointPx : reach.linePx) * mm;
+      const within = (n0.length === 2 ? reach.reachPx : reach.linePx) * mm;
       const q = landN((p) => row([p[0]!, p[1]!]), from, within),
         at: Pt | null = q ? [q[0]!, q[1]!] : null;
       if (!at) continue;

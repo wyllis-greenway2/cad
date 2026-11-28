@@ -157,12 +157,8 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
     circles: [{ id: "K1", c: "P3", r: 5 }],
     constraints: [],
   };
-  const wide = marksFor(R, ["L1"], { now: 0, reach: { pointMm: 0.6, lineMm: 0.6 } }).some((m) =>
-      m.id.startsWith("near:tangent"),
-    ),
-    narrow = marksFor(R, ["L1"], { now: 0, reach: { pointMm: 0.1, lineMm: 0.1 } }).some((m) =>
-      m.id.startsWith("near:tangent"),
-    ),
+  const wide = marksFor(R, ["L1"], { now: 0, reach: 0.6 }).some((m) => m.id.startsWith("near:tangent")),
+    narrow = marksFor(R, ["L1"], { now: 0, reach: 0.1 }).some((m) => m.id.startsWith("near:tangent")),
     none = marksFor(R, ["L1"], { now: 0 }).some((m) => m.id.startsWith("near:tangent"));
   check(
     "a line 0.3 mm from tangent is offered the tangent in a reach of 0.6, and not in 0.1 or when only what holds is offered",
@@ -172,9 +168,7 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
   const far: System = { ...R, points: R.points.map((p) => (p.id === "P1" || p.id === "P2" ? { ...p, y: 9 } : p)) };
   check(
     "a line well away from tangent is not offered it",
-    !marksFor(far, ["L1"], { now: 0, reach: { pointMm: 0.6, lineMm: 0.6 } }).some((m) =>
-      m.id.startsWith("near:tangent"),
-    ),
+    !marksFor(far, ["L1"], { now: 0, reach: 0.6 }).some((m) => m.id.startsWith("near:tangent")),
   );
 }
 {
@@ -189,7 +183,7 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
     circles: [{ id: "K1", c: "C", r: 12.5 }],
     constraints: [],
   } as unknown as System;
-  const far = marksFor(T, ["K1"], { now: 0, reach: { pointMm: 960, lineMm: 480 } }).filter(
+  const far = marksFor(T, ["K1"], { now: 0, reach: 960 }).filter(
     (m) => m.state === "offer" && m.id.startsWith("near:"),
   );
   check("a circle zoomed far out is not offered things far from it", far.length === 0, far.map((m) => m.id).join());
@@ -206,7 +200,7 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
     circles: [{ id: "K1", c: "C", r: 12.5 }],
     constraints: [],
   } as unknown as System;
-  const reach = { pointMm: 1, lineMm: 0.5 },
+  const reach = 1,
     ids = (sel: string[]) =>
       marksFor(T, sel, { now: 0, reach })
         .filter((m) => m.id.startsWith("near:"))
@@ -233,7 +227,7 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
       { from: [0, 0] as [number, number], to: [0, 0.9] as [number, number], of: "Z" }, // (a part that only moves because the others do)
     ] as { from: [number, number]; to: [number, number]; of: string }[],
     ask = (preview: (id: string, over: string[]) => typeof arrows) =>
-      marksFor(T, ["A"], { now: 0, reach: { pointMm: 1, lineMm: 1 }, preview }).find((x) => x.id.startsWith("near:on"));
+      marksFor(T, ["A"], { now: 0, reach: 1, preview }).find((x) => x.id.startsWith("near:on"));
   const moved = ask(() => arrows),
     still = ask(() => []);
   check(
@@ -261,7 +255,7 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
       constraints: [],
     }) as unknown as System;
   const offers = (S: System) =>
-    marksFor(S, ["L1"], { now: 0, reach: { pointMm: 0.7, lineMm: 0.33 } })
+    marksFor(S, ["L1"], { now: 0, reach: 0.7 })
       .filter((m) => m.state === "offer" && m.id !== "measure")
       .map((m) => m.id);
   check(
@@ -290,7 +284,7 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
   const near = (S: System, sel: string[], cost: Record<string, number>) =>
     marksFor(S, sel, {
       now: 0,
-      reach: { pointMm: 3, lineMm: 3 },
+      reach: 3,
       preview: (id) => {
         const key = Object.keys(cost).find((k) => id.includes(k));
         const d = key ? cost[key]! : 0.1;
@@ -363,7 +357,7 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
   const ask = (len: number) =>
     marksFor(T, ["A"], {
       now: 0,
-      reach: { pointMm: 1, lineMm: 1 },
+      reach: 1,
       preview: () => [{ from: [0, 0] as [number, number], to: [len, 0] as [number, number], of: "A" }],
     }).some((x) => x.id.startsWith("near:on"));
   check(
@@ -383,8 +377,7 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
     circles: [{ id: "K1", c: "C", r: 8 }],
     constraints: [],
   } as unknown as System;
-  const ms = (sel: string[]) =>
-    marksFor(T, sel, { now: 0, reach: { pointMm: 1, lineMm: 1 } }).filter((m) => m.id === "measure");
+  const ms = (sel: string[]) => marksFor(T, sel, { now: 0, reach: 1 }).filter((m) => m.id === "measure");
   const rad = ms(["K1"])[0],
     len = ms(["L1"])[0];
   check(

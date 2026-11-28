@@ -6743,3 +6743,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1676 — 2026-11-28 — directive
 > do the bubble types and chip builders next
+
+## in_1677 — 2026-11-28 — directive
+> do the reach settings and line weights next

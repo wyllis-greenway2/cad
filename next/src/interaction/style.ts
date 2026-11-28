@@ -25,19 +25,9 @@ export const COLOUR: Record<Tone, string> = {
   ground: "#ffffff", // theme.background
   hidden: "#2a2a2d", // the edges of a body behind a face, drawn faint (opacity below)
 };
-/** line weights in pixels, and the dash, as view.ts and settings.pick had them; the dash is a fraction of the view distance (0.012) with a gap 0.7 of it */
-export const WEIGHT = {
-  figure: 2,
-  guide: 1.5,
-  mark: 5,
-  edge: 2.4,
-  edgeHover: 1.8,
-  note: 1.5,
-  vertexBall: 0.0042,
-  dash: 0.012,
-  gap: 0.7,
-};
-/** the flashing of a refused or already-applied constraint: a short pulse, in milliseconds (the old project flashed the bubble and the parts) */
+/** the two line weights of a drawing, times the figure's width (`settings.sketch.widthPx`): thin for everything that is not a thing of the sketch, bold for what is selected, cut or tied (`in_1677`) */
+const THIN = 0.75,
+  BOLD = 1.3;
 
 /** How each line of a drawing is drawn, by what it is doing: the tone (colour) and the weight, in one place (`in_1576`). The drawing code says `selected`; the screen turns it into a colour and a width. */
 export type StrokeKind =
@@ -60,24 +50,24 @@ export const STROKE: Record<
   StrokeKind,
   {
     tone: Tone;
-    /** times the figure's width */ weight: number;
+    /** times the figure's width: `THIN` or `BOLD` */ weight: number;
     /** drawn a little see-through */ soft: boolean;
     /** drawn dashed */ dashed?: boolean;
   }
 > = {
-  note: { tone: "note", weight: 0.75, soft: false }, // the thin grey line of a number (an angle's arc)
-  dimExt: { tone: "note", weight: 0.5, soft: true }, // the thin lines from what a number measures to its dimension line
-  dimArc: { tone: "note", weight: 0.75, soft: false }, // an angle's arc, or a right angle's square, in its corner (`in_1667`)
-  lit: { tone: "figure", weight: 0.75, soft: false }, // the parts an applied constraint is about, while its bubble is pointed at: blue (`in_1661`)
-  litOffer: { tone: "ties", weight: 0.75, soft: false }, // the same for an offer: yellow
-  litOfferSel: { tone: "ties", weight: 1.3, soft: false }, // (a part that is selected keeps the selected weight)
-  dot: { tone: "figure", weight: 1, soft: false }, // a point: the one dot, its colour (`DrawLine.tone`) and size set by what it is for (`in_1675`)
-  done: { tone: "axis", weight: 0.75, soft: false }, // thin charcoal
-  selected: { tone: "figure", weight: 1.3, soft: false },
-  preview: { tone: "candidate", weight: 0.75, soft: true },
-  cursor: { tone: "figure", weight: 0.8, soft: true },
-  cut: { tone: "refused", weight: 1.4, soft: false },
-  tie: { tone: "ties", weight: 1.4, soft: false },
-  dash: { tone: "note", weight: 0.75, soft: false, dashed: true }, // the ONE dashed line (`in_1673`): thin and fine, neutral: a dimension, an applied alignment, a bubble's arrow
-  dashOffer: { tone: "ties", weight: 0.75, soft: false, dashed: true }, // the same line in yellow, for what is suggested: an alignment while drawing, an offer's arrows, its alignment, its bubble's arrow
+  note: { tone: "note", weight: THIN, soft: false }, // the thin grey line of a number (an angle's arc)
+  dimExt: { tone: "note", weight: THIN, soft: true }, // the thin lines from what a number measures to its dimension line
+  dimArc: { tone: "note", weight: THIN, soft: false }, // an angle's arc, or a right angle's square, in its corner (`in_1667`)
+  lit: { tone: "figure", weight: THIN, soft: false }, // the parts an applied constraint is about, while its bubble is pointed at: blue (`in_1661`)
+  litOffer: { tone: "ties", weight: THIN, soft: false }, // the same for an offer: yellow
+  litOfferSel: { tone: "ties", weight: BOLD, soft: false }, // (a part that is selected keeps the selected weight)
+  dot: { tone: "figure", weight: THIN, soft: false }, // a point: the one dot, its colour (`DrawLine.tone`) and size set by what it is for (`in_1675`)
+  done: { tone: "axis", weight: THIN, soft: false }, // thin charcoal
+  selected: { tone: "figure", weight: BOLD, soft: false },
+  preview: { tone: "candidate", weight: THIN, soft: true },
+  cursor: { tone: "figure", weight: THIN, soft: true },
+  cut: { tone: "refused", weight: BOLD, soft: false },
+  tie: { tone: "ties", weight: BOLD, soft: false },
+  dash: { tone: "note", weight: THIN, soft: false, dashed: true }, // the ONE dashed line (`in_1673`): thin and fine, neutral: a dimension, an applied alignment, a bubble's arrow
+  dashOffer: { tone: "ties", weight: THIN, soft: false, dashed: true }, // the same line in yellow, for what is suggested: an alignment while drawing, an offer's arrows, its alignment, its bubble's arrow
 };

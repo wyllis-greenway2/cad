@@ -192,21 +192,15 @@ export function aboutMotion(res: (q: number[]) => number[], q0: readonly number[
     return a.some((v, i) => Math.abs(v - b[i]!) > 1e-9);
   });
 }
-/** every relation among `cands` that is within reach of holding from `q0` (`pointMm` for a relation that says a point, `lineMm` for one that says a line: the Newton step is in mm whatever the unit of the row), that depends on the motion, and that the solver would add */
-export function inRange(
-  S: System,
-  m: Motion,
-  q0: readonly number[],
-  cands: readonly Cand[],
-  reach: { pointMm: number; lineMm: number },
-): InRange[] {
+/** every relation among `cands` that is within reach of holding from `q0` (`reach`, mm: one distance for every relation, the Newton step is in mm whatever the unit of the row), that depends on the motion, and that the solver would add */
+export function inRange(S: System, m: Motion, q0: readonly number[], cands: readonly Cand[], reach: number): InRange[] {
   const out: InRange[] = [];
   for (const cand of cands) {
     const c = constraintOf(cand),
       res = (q: number[]) => residualsOf(m.at(q), c),
       r0 = res([...q0]);
     if (!r0.length || !r0.every(Number.isFinite) || !aboutMotion(res, q0)) continue;
-    const within = r0.length === 2 ? reach.pointMm : reach.lineMm,
+    const within = reach,
       q = landN(res, q0, within, within > 1e6 ? 80 : 8); // (no limit on the distance: more steps to get there)
     if (!q) continue;
     const moved = norm(q.map((v, j) => v - q0[j]!));

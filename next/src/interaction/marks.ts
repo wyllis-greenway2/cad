@@ -46,8 +46,8 @@ export const alphaAt = (until: number, now: number): number =>
 /** what is offered for one selection: for a part alone, what is already true (`holds`: a line is level, a point is on a line) and the near ones (true now with another part), the rest is in the menu; for two or more parts chosen together, everything that fits them and would be accepted, true yet or not */
 type Offered = { item: BarItem; at: [number, number] };
 const memo = new WeakMap<System, Map<string, Offered[]>>(); // (the same system and selection are asked about every frame)
-function offersOf(S: System, selection: string[], reach?: { pointMm: number; lineMm: number }): Offered[] {
-  const key = `${selection.join("\u0000")}|${reach === undefined ? "" : `${reach.pointMm.toFixed(3)},${reach.lineMm.toFixed(3)}`}`,
+function offersOf(S: System, selection: string[], reach?: number): Offered[] {
+  const key = `${selection.join("\u0000")}|${reach === undefined ? "" : reach.toFixed(3)}`,
     hit = memo.get(S)?.get(key);
   if (hit) return hit;
   const out = offersOfUncached(S, selection, reach);
@@ -56,7 +56,7 @@ function offersOf(S: System, selection: string[], reach?: { pointMm: number; lin
   m.set(key, out);
   return out;
 }
-function offersOfUncached(S: System, selection: string[], reach?: { pointMm: number; lineMm: number }): Offered[] {
+function offersOfUncached(S: System, selection: string[], reach?: number): Offered[] {
   const where = selectionAnchor(S, selection);
   if (!where) return [];
   // ("fixed in place" is true of every point as drawn: it is a thing to ask for in the menu, not an offer) one part: only what is already true of it (the rest is in the menu); two or more: the person has paired them, so everything that fits the pair and would be accepted (a line and a circle: tangent; a point and a line: on the line)
@@ -79,11 +79,7 @@ function offersOfUncached(S: System, selection: string[], reach?: { pointMm: num
   return [...own, ...near];
 }
 /** the reach is in pixels, so zoomed far out it would cover the whole drawing: it is never more than a tenth of the size of what is selected (a circle's radius, a line's length), for every relation alike, so zooming out does not make more things "near" (`in_1633`) */
-function capReach(
-  S: System,
-  selection: string[],
-  reach?: { pointMm: number; lineMm: number },
-): { pointMm: number; lineMm: number } | undefined {
+function capReach(S: System, selection: string[], reach?: number): number | undefined {
   if (!reach) return reach;
   const size = Math.max(
     0,
@@ -95,9 +91,7 @@ function capReach(
       return k ? k.r : a && b ? Math.hypot(b.x - a.x, b.y - a.y) : 0;
     }),
   );
-  return size > 0
-    ? { pointMm: Math.min(reach.pointMm, size * 0.1), lineMm: Math.min(reach.lineMm, size * 0.1) }
-    : reach;
+  return size > 0 ? Math.min(reach, size * 0.1) : reach;
 }
 interface Cand {
   item: BarItem;
@@ -166,10 +160,7 @@ export function marksFor(
       id: string,
       over: string[],
     ) => Arrow[];
-    /** how far (mm) a relation may be from holding and still be offered (the helpers' reach in mm): in range, whatever moved things there */ reach?: {
-      pointMm: number;
-      lineMm: number;
-    };
+    /** how far (mm) a relation may be from holding and still be offered (the helpers' reach in mm): in range, whatever moved things there */ reach?: number;
   },
 ): Mark[] {
   const out: Mark[] = [];
@@ -177,9 +168,8 @@ export function marksFor(
   const scope = scopeOf(S, selection);
   for (const f of bubblesOn(S, selection, ctx.flash ?? {}, scope)) {
     // a number stands on its own dimension line (drawn when it is pointed at), 24 px off what it measures where it stands off
-    const mmPx = (ctx.reach?.pointMm ?? 0) / settings.helpers.offerPx,
-      dim =
-        f.kind === "dimension" && f.relation ? dimLine(S, f.relation, f.parts, (ctx.reach?.pointMm ?? 0) * 2) : null,
+    const mmPx = (ctx.reach ?? 0) / settings.helpers.reachPx,
+      dim = f.kind === "dimension" && f.relation ? dimLine(S, f.relation, f.parts, (ctx.reach ?? 0) * 2) : null,
       mid: [number, number] | null = dim ? [(dim.a[0] + dim.b[0]) / 2, (dim.a[1] + dim.b[1]) / 2] : null,
       cn = f.relation && mmPx > 0 ? cornerOf(S, f.relation, f.parts, mmPx) : null,
       al = f.relation && mmPx > 0 && f.kind !== "dimension" ? alignLine(S, f.relation, f.parts, 20 * mmPx) : null;
@@ -223,14 +213,13 @@ export function marksFor(
       // what applying it would move (the preview is the apply itself, `sketchmarks.ts`)
       const moves = ctx.preview?.(item.id, sel) ?? [];
       // an offer is near when applying it moves nothing by more than the one distance (`in_1665`), whatever the parts it names are apart: a point 0.14 mm off a circle, on a tangent line's middle, turns the whole line (`in_1652`)
-      if (nc && reach && moves.some((m) => Math.hypot(m.to[0] - m.from[0], m.to[1] - m.from[1]) > reach.pointMm))
-        continue;
+      if (nc && reach && moves.some((m) => Math.hypot(m.to[0] - m.from[0], m.to[1] - m.from[1]) > reach)) continue;
       (nc ? pool : direct).push({ item, standing, nc, parts: nc ? nc.parts : sel, moves });
     }
     for (const c of [...direct, ...rankNear(S, pool, scopeOf(S, sel))]) {
       // a square or an angle's offer stands in its corner
       const rel = c.nc?.kind ?? c.item.id.slice(4),
-        mmPx = ctx.reach ? ctx.reach.pointMm / settings.helpers.offerPx : 0,
+        mmPx = ctx.reach ? ctx.reach / settings.helpers.reachPx : 0,
         cn = mmPx > 0 ? cornerOf(S, rel, c.parts, mmPx) : null,
         al = mmPx > 0 && !c.moves.length ? alignLine(S, rel, c.parts, 20 * mmPx) : null; // (an offer that would move something draws its arrows instead)
       out.push({
