@@ -21,6 +21,7 @@ export interface ViewState {
   worldHidden: boolean;
   free: number; // 0: the axes and panes are the world's size (they zoom with the world); 1: scale free, the same size on the screen. 0 until the first thing exists, then eases over to 1
   seen: string | null; // the last thing that was in view, for Reset camera
+  held: V3 | null; // the point a straight view was left holding (the drag's pivot): held again on the way back, so a round trip leaves the zoom as it was; given up when the hands zoom or slide
   drag: Drag | null;
 }
 /** What is known now. `gameOn`: the pointer is held at the middle of the view, so the world's pointer is there. */
@@ -49,6 +50,7 @@ export const initial = (model: Scene): ViewState => ({
   worldHidden: false,
   free: model.things.length ? 1 : 0,
   seen: null,
+  held: null,
   drag: null,
 });
 /** A change of view is playing: flight waits for it, and so does the Reset pill. */
@@ -79,7 +81,7 @@ function goForward(s: ViewState, e: Env, share: number, nx = 0, ny = 0): ViewSta
     s.c.ortho !== null
       ? cam.zoomOrtho(s.c, 1 - share, nx, ny, e.w / e.h)
       : cam.moveAlong(s.c, cam.rayFrom(s.c, nx, ny, e.w / e.h).d, share * scaleAmong(e.model, s.c));
-  return { ...s, c: reach(s.c, c) };
+  return { ...s, c: reach(s.c, c), held: null };
 }
 /** Flight: the same moves as the wheel and the pan, driven by time; and turning about the eye. There are no walls: the eye goes through a thing and looks round inside it (`in_1411`). */
 export function fly(s: ViewState, e: Env, dt: number, g: FlightInput): ViewState {
@@ -108,7 +110,7 @@ function lensGo(
 ): ViewState {
   const h = cam.forwardDepth(s.c, hold) > settings.view.minSurfaceMm ? hold : focusOnAxis(s, e);
   const c = cam.leaveOrtho(s.c, h);
-  return { ...s, c, go: { t0: e.now, ms, from: c, lens, hold: h, ...(dir ? { dir } : {}) } };
+  return { ...s, c, held: null, go: { t0: e.now, ms, from: c, lens, hold: h, ...(dir ? { dir } : {}) } };
 }
 /**
  * The hands take the view while a change is playing (any drag, wheel or pan): a change toward a straight view, or a flight to another view, is
@@ -127,9 +129,15 @@ export function takeOver(s: ViewState, e: Env, pivot?: V3): ViewState {
   );
   return s.c.lens < 1 ? lensGo(s, e, pivot ?? focus(s, e), 1, ms) : { ...s, go: null };
 }
+/** The point a straight view was left holding, at the middle of the screen at its depth, while it is still in view and in front of the eye. */
+function heldOnAxis(s: ViewState, e: Env): V3 | null {
+  if (!s.held) return null;
+  const q = cam.project(s.c, s.held, e.w, e.h);
+  return q.depth > settings.view.minSurfaceMm && q.x >= 0 && q.x <= e.w && q.y >= 0 && q.y <= e.h ? cam.onAxis(s.c, s.held) : null;
+}
 /** Look straight at the plane across `axis` (again: from the other side). It becomes the plane that is on. */
 export function lookAt(s: ViewState, e: Env, axis: Axis): ViewState {
-  const f = focusOnAxis(s, e),
+  const f = heldOnAxis(s, e) ?? focusOnAxis(s, e),
     along = cam.straightAlong(s.c);
   const side: 1 | -1 = along && along.axis === axis ? (-along.sign as 1 | -1) : cam.sideOn(s.c, f, axis);
   return lensGo(
@@ -141,10 +149,11 @@ export function lookAt(s: ViewState, e: Env, axis: Axis): ViewState {
     cam.straightDirection(axis, side),
   );
 }
-/** Look straight at a flat surface, along `dir` (the way it faces, towards the eye's side taken by the caller): the view turns to that direction and becomes orthographic, as for a world plane. */
+/** Look straight along `dir` (the way the eye looks, as the caller has taken the eye's side): the view turns to that direction and becomes orthographic, as for a world plane. Straight up or down it has no yaw of its own, so it takes the one the Z button's view has (Y up). */
 export function lookAlong(s: ViewState, e: Env, dir: V3): ViewState {
+  const vertical = Math.hypot(dir[0], dir[1]) < 1e-9;
   return lensGo(s, e, focusOnAxis(s, e), settings.view.morphLens, settings.view.transitionMs, {
-    yaw: Math.atan2(dir[1], dir[0]),
+    yaw: vertical ? cam.straightDirection(2, 1).yaw : Math.atan2(dir[1], dir[0]),
     pitch: Math.asin(clamp(dir[2], -1, 1)),
   });
 }
@@ -155,6 +164,7 @@ export function lookObliqueAt(s: ViewState, e: Env, hold: V3, dir: V3, reach = 0
   return {
     ...s,
     c,
+    held: null,
     go: {
       t0: e.now,
       ms: settings.view.transitionMs,
@@ -174,6 +184,7 @@ export function reset(s: ViewState, e: Env): ViewState {
   return {
     ...s,
     c,
+    held: null,
     go: {
       t0: e.now,
       ms: settings.view.transitionMs,
@@ -219,13 +230,14 @@ export function orbit(s: ViewState, e: Env, dx: number, dy: number): ViewState {
     dx *= past;
     dy *= past;
     n = lensGo({ ...s, drag: { ...d, debt } }, e, d.pivot, 1, settings.view.perspectiveMs);
+    n = { ...n, held: n.go!.hold };
   } else n = takeOver(s, e, d.pivot);
   return { ...n, c: cam.turnAbout(n.c, d.pivot, -dx * k, -dy * k) };
 }
 export function pan(s: ViewState, e: Env, dx: number, dy: number): ViewState {
   if (e.gameOn || !s.drag) return s;
   const n = takeOver(s, e);
-  return { ...n, c: cam.pan(n.c, dx, dy, s.drag.depth, e.h) };
+  return { ...n, held: null, c: cam.pan(n.c, dx, dy, s.drag.depth, e.h) };
 }
 /** The wheel: the camera goes forward or back toward the cursor, by the same rule as in flight. */
 export function zoom(s: ViewState, e: Env, factor: number, x: number, y: number): ViewState {
@@ -240,7 +252,7 @@ export function zoom(s: ViewState, e: Env, factor: number, x: number, y: number)
 export function gesture(s: ViewState, e: Env, dx: number, dy: number, factor: number, x: number, y: number): ViewState {
   if (e.gameOn) return s;
   let n = takeOver(s, e);
-  if (dx !== 0 || dy !== 0) n = { ...n, c: cam.pan(n.c, dx, dy, grabDepth(n, e), e.h) };
+  if (dx !== 0 || dy !== 0) n = { ...n, held: null, c: cam.pan(n.c, dx, dy, grabDepth(n, e), e.h) };
   if (factor !== 1) n = zoom(n, e, factor, x, y);
   return n;
 }

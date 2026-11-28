@@ -285,6 +285,8 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
   el.addEventListener("contextmenu", menu);
   addEventListener("keydown", keydown);
   addEventListener("keyup", keyup);
+  const blur = () => (space = spaceUsed = false); // (a key let go while the window is away is never heard: the space bar would stay a pan modifier)
+  addEventListener("blur", blur);
   return () => {
     el.removeEventListener("pointerdown", down);
     el.removeEventListener("pointermove", move);
@@ -294,6 +296,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     el.removeEventListener("wheel", wheel);
     el.removeEventListener("contextmenu", menu);
     removeEventListener("keydown", keydown);
+    removeEventListener("blur", blur);
     removeEventListener("keyup", keyup);
   };
 }

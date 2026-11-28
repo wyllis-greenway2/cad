@@ -9,7 +9,7 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import type { Mark } from "./bodyselect.ts";
 import { forward, fovOf, rightOf, upOf, type Cam } from "./camera.ts";
 import { createCutDraw, type CutDrawing } from "./cutdraw.ts";
-import { SEE_THROUGH, SOLID, surfaceOf, type Look } from "./looks.ts";
+import { SOLID, surfaceOf, type Look } from "./looks.ts";
 import type { OrbDrawing } from "./orbcontrol.ts";
 import { drawOrb } from "./orbdraw.ts";
 import type { Scene as Model } from "./scene.ts";
@@ -473,7 +473,6 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
     ghost.renderOrder = 5;
     scene.add(ghost);
   };
-  void SEE_THROUGH;
   return {
     rebuild: rebuildAll,
     /** The bodies the engine made (replaced as a whole). */

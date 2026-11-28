@@ -74,11 +74,11 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     free: Free;
     /** the numbers typed for the figure, as measures to hold */ measures: TypedMeasure[];
   };
-  let memo: { tool: Tool | null; p: SketchParams; x: number; y: number; res: PlaceResult } | null = null; // (the same place is asked for by the preview, the chip and a click)
+  let memo: { tool: Tool | null; p: SketchParams; x: number; y: number; mm: number; res: PlaceResult } | null = null; // (the same place is asked for by the preview, the chip and a click)
   const placed = (c: { p: SketchParams; q: P2; tol: number; mm: number }, s: Sol): PlaceResult => {
-    if (memo && memo.tool === tool && memo.p === c.p && memo.x === c.q[0] && memo.y === c.q[1]) return memo.res;
+    if (memo && memo.tool === tool && memo.p === c.p && memo.x === c.q[0] && memo.y === c.q[1] && memo.mm === c.mm) return memo.res;
     const res = placeOf(c, s);
-    memo = { tool, p: c.p, x: c.q[0], y: c.q[1], res };
+    memo = { tool, p: c.p, x: c.q[0], y: c.q[1], mm: c.mm, res };
     return res;
   };
   const placeOf = (c: { p: SketchParams; q: P2; tol: number; mm: number }, s: Sol): PlaceResult => {
@@ -358,7 +358,9 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       defs.clear();
       for (const [k, v] of Object.entries(snap)) defs.set(k, tidy(v));
       sel.clear();
+      tool = null;
       st.flash = {};
+      st.recent = st.hover = st.shown = null;
     },
     /** What to draw: every sketch on every plane (what is selected in teal), what the tool would make, the part a trim would take, and the place the pointer is at. */
     lines(pointer: { x: number; y: number } | null): DrawLine[] {

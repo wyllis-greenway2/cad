@@ -1052,16 +1052,16 @@ describe("sketching in a real page", { concurrency: 5 }, () => {
       await page.waitForTimeout(900);
       await click(10, 10);
       await move(30, 10.2);
-      let c = await chip();
+      const c = await chip();
       assert.ok(
         c && c.length === 1 && c[0]!.padlock === "open" && Math.abs(Number(c[0]!.text) - 20) < 0.5,
         `the length as measured, an open lock: ${JSON.stringify(c)}`,
       );
       await page.keyboard.type("25");
       await page.waitForTimeout(150);
-      c = await chip();
+      const typed = await chip();
       assert.ok(
-        c && c[0]!.text === "25" && c[0]!.padlock === "closed",
+        typed && typed[0]!.text === "25" && typed[0]!.padlock === "closed",
         "typed digits go straight into the number, its lock closes",
       );
       await move(30, 20);
@@ -1086,10 +1086,10 @@ describe("sketching in a real page", { concurrency: 5 }, () => {
       await page.keyboard.press("Tab");
       await page.keyboard.type("10");
       await page.waitForTimeout(150);
-      c = await chip();
+      const sized = await chip();
       assert.ok(
-        c && c.length === 2 && c[0]!.text === "30" && c[1]!.text === "10" && c.every((f) => f.padlock === "closed"),
-        `a width, Tab, a height: ${JSON.stringify(c)}`,
+        sized && sized.length === 2 && sized[0]!.text === "30" && sized[1]!.text === "10" && sized.every((f) => f.padlock === "closed"),
+        `a width, Tab, a height: ${JSON.stringify(sized)}`,
       );
       await page.keyboard.press("Enter");
       await page.waitForTimeout(300);
@@ -1118,8 +1118,8 @@ describe("sketching in a real page", { concurrency: 5 }, () => {
       await page.keyboard.press("Escape");
       await page.waitForTimeout(250);
       assert.equal((await def()).lines.length, before, "Esc gives the figure up: nothing was made");
-      c = await chip();
-      assert.ok(!c || c.every((f) => f.text !== "77"), "and the number typed is gone");
+      const after = await chip();
+      assert.ok(!after || after.every((f) => f.text !== "77"), "and the number typed is gone");
       assert.deepEqual(errors, []);
     } finally {
       await close();

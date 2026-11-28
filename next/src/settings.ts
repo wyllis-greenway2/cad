@@ -89,7 +89,6 @@ export const settings = {
     snapPx: 10,
     crossPx: 7,
     widthPx: 2,
-    circleSegments: 64,
     ballPx: 4.5 /* (a picked point's ball: its radius) */,
     arrowGapPx: 5 /* (every arrow's tip stops this far short of what it points at, `in_1672`) */,
     arrowHeadPx: 8 /* (the length of an arrow's open tip) */,

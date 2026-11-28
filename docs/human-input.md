@@ -6764,3 +6764,14 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1683 — 2026-11-28 — approval
 > yes do 1, 2 and 3
+
+## in_1684 — 2026-11-28 — directive
+> We're on the branch cleanup. Every commit goes there, and I also push the same commits to claude/inspiring-pascal-l342k7, the branch this session was assigned.
+>
+> The old prototype is the app in the app/ folder. It is kept as the reference while the rebuild in next/ replaces it section by section. It is also parked at the git branch prototype-v1, according to dec_rebuild_by_requirements. I only checked that app/ exists. I did not check that the prototype-v1 branch is still there. We are trying to build a new cleaned up version of the old prototype by learning things from the prototype but making the new app parts holistically from scratch to be clean simple and well integrated code. The old prototype was too bloated and sloppy, so we are trying to build the real deal now.
+
+## in_1685 — 2026-11-28 — question
+> okay so how does the new build look so far? I believe we got the world view and the sketching nailed down and tests written against it? And we have a sketching and modeling engine built but not yet tested, with requirements not yet written down or tests against them to prevent engine regressions? is that accurate?
+
+## in_1686 — 2026-11-28 — directive
+> okay lets review the world view, and the sketching system. Test for leanness cleanness and if we can make them better or fix bugs etc before proceeding. The worldview btw already has a bug I found where it seems to zoom in a little every time you switch from orthographic to 3d view by clicking and rotating the screen with the mouse button

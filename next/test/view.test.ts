@@ -185,6 +185,28 @@ test("[C9] the wheel works far from the origin, never reaches 5,000 mm, and does
   assert.ok(len(view.zoom(inside, E(oneScene()), 0.7, W / 2, H / 2).c.eye.map((v, i) => v - inside.c.eye[i]!) as unknown as V3) > 1, "even at the middle of a thing a notch moves it");
 });
 
+test("[C11] a sketch plane facing straight up or down is seen as the Z button sees it, Y up", () => {
+  const m = demoScene();
+  for (const down of [-1, 1]) {
+    const s = settle(view.lookAlong(startState(m), E(m), [0, 0, down] as V3), m);
+    near(Math.cos(s.c.yaw), Math.cos(cam.straightDirection(2, 1).yaw), 1e-9, `looking ${down}`);
+    near(Math.sin(s.c.yaw), Math.sin(cam.straightDirection(2, 1).yaw), 1e-9, `looking ${down}`);
+  }
+});
+test("[C12 C13] leaving a straight view by a drag and coming back to it again and again does not change its zoom", () => {
+  const m = demoScene();
+  let s = straightFrom(m, 2),
+    t = 10000;
+  const size0 = s.c.ortho!;
+  for (let i = 0; i < 4; i++) {
+    s = view.startDrag(s, E(m, { now: t }), W / 2, H / 2);
+    for (let k = 0; k < 10; k++) s = view.orbit(s, E(m, { now: (t += 16) }), 12, 3);
+    s = settle(view.endDrag(s), m, {}, t);
+    s = settle(view.lookAt(s, E(m, { now: (t += 5000) }), 2), m, {}, t);
+    t += 5000;
+    near(s.c.ortho! / size0, 1, 0.002, `round trip ${i + 1}`);
+  }
+});
 test("[C13] a straight view holds on for 60 px, then leaves about the pivot, which keeps its place on the screen", () => {
   const m = demoScene();
   let s = straightFrom(m, 2);
