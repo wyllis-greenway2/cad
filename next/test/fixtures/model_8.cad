@@ -1,0 +1,16 @@
+{"format":"cad-document","version":1,
+"parameters":{},
+"labels":{},
+"names":{},
+"drawings":{"face:\"e1\".\"end\"()":{"arcs":[],"circles":[{"c":"P1","id":"K1","r":7.340190733216678}],"constraints":[],"lines":[],"points":[{"id":"P1","x":-0.13,"y":0.06}]},"world:2":{"arcs":[],"circles":[{"c":"P1","id":"K1","r":14.273657555090779}],"constraints":[],"lines":[],"points":[{"id":"P1","x":15.51,"y":26.55}]}},
+"faces":{"face:\"e1\".\"end\"()":{"frame":{"normal":[0,0,1],"origin":[15.510000000000002,26.55,18.28],"u":[1,0,0]},"source":{"body":"e1","face":{"of":[],"pieces":[],"role":"end","step":"e1"}}}},
+"steps":[
+{"id":"s1","inputs":[],"kind":"sketch","params":{"arcs":[],"circles":[{"c":"P1","id":"K1","r":14.273657555090779}],"constraints":[],"frame":{"normal":[0,0,1],"origin":[0,0,0],"xDir":[1,0,0]},"lines":[],"pick":[[19.025276087513575,32.72630091358093]],"points":[{"id":"P1","x":15.51,"y":26.55}]}},
+{"id":"e1","inputs":["s1"],"kind":"extrude","params":{"d":18.28}},
+{"id":"s2","inputs":["e1"],"kind":"sketch","params":{"arcs":[],"circles":[{"c":"P1","id":"K1","r":7.340190733216678}],"constraints":[],"face":{"of":[],"pieces":[],"role":"end","step":"e1"},"lines":[],"pick":[[3.5666329234488963,3.5911019345803616]],"points":[{"id":"P1","x":-0.13,"y":0.06}]}},
+{"id":"e2","inputs":["s2"],"kind":"extrude","params":{"d":-25.37}},
+{"id":"c1","inputs":["e1","e2"],"kind":"combine","params":{"mode":"cut"}},
+{"id":"r1","inputs":["c1"],"kind":"round","params":{"edges":[{"a":{"of":[],"pieces":[],"role":"end","step":"e1"},"b":{"of":[{"of":["K1"],"pieces":[],"role":"circle","step":"s2"},0],"pieces":[],"role":"side","step":"e2"}}],"mode":"fillet","size":0.42}},
+{"id":"t1","inputs":["r1"],"kind":"turn","params":{"axis":[-0.9481133392075702,0.30019533408601357,-0.10470844001157416],"deg":40.396087,"pivot":[15.509999752044678,26.550000190734863,9.140000343322754]}},
+{"id":"m1","inputs":["t1"],"kind":"move","params":{"by":[0,8.648447,0]}}
+]}

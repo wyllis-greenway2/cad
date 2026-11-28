@@ -6939,3 +6939,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1739 — 2026-11-28 — directive
 > When the mover orb is in free move mode, it should have an icon over the orb that looks like the pan arrow icon of four arrows. Also the pulsing blue orb position doesn't work like in the old prototype and it should. The old prototype placed it on clicked surfaces and edges properly. Also it seems like you can select edges directly through the face of a body even if the edge is on the other side? Also the fillet on this cylinder deleted itself when I made the box in this file? our old prototype had lots of problems like this, maybe we should see if there is anything we can learn from the old prototype about how to make the selection interface and or engine less buggy?
+
+## in_1740 — 2026-11-28 — directive
+> yes start with the fixtures and invariants
