@@ -4,6 +4,7 @@ import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import type { Mark } from "./bodyselect.ts";
+import { equal } from "./equal.ts";
 import { surfaceOf } from "./looks.ts";
 import { settings } from "./settings.ts";
 import type { BodyMesh } from "./studio.ts";
@@ -26,11 +27,10 @@ export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMe
   // the tint of closed sketches
   const fillGroup = new THREE.Group();
   scene.add(fillGroup);
-  let fillKey = "";
+  let lastFills: unknown = null;
   const setFills = (fills: Overlays["fills"]) => {
-    const key = JSON.stringify(fills ?? []);
-    if (key === fillKey) return;
-    fillKey = key;
+    if (equal(fills ?? [], lastFills)) return;
+    lastFills = fills ?? [];
     fillGroup.traverse((o) => {
       (o as THREE.Mesh).geometry?.dispose();
     });
@@ -63,13 +63,14 @@ export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMe
   }; // the marks: faces and edges of the bodies, in the Marked look (teal); made again when they change
   const markGroup = new THREE.Group();
   scene.add(markGroup);
-  let markKey = "";
+  let lastMarks: unknown = null,
+    lastSolids: readonly BodyMesh[] | null = null; // (the bodies are replaced as a whole, so the list itself says if they changed)
   const markLines: LineMaterial[] = [];
   const setMarks = (marks: Mark[] | undefined, w: number, h: number) => {
-    const key = JSON.stringify([marks ?? [], solids().length, solids()[0]?.positions.length ?? 0]);
     for (const m of markLines) m.resolution.set(w, h);
-    if (key === markKey) return;
-    markKey = key;
+    if (equal(marks ?? [], lastMarks) && solids() === lastSolids) return;
+    lastMarks = marks ?? [];
+    lastSolids = solids();
     markGroup.traverse((o) => {
       (o as THREE.Mesh).geometry?.dispose();
     });
@@ -120,15 +121,10 @@ export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMe
     }
   }; // the ghost of a pull: made again only when what it is made of changes
   let ghost: THREE.Group | null = null,
-    ghostKey = "";
+    lastGhost: unknown = undefined;
   const setGhost = (g: Overlays["ghost"]) => {
-    const key = !g
-      ? ""
-      : "faceMove" in g
-        ? `face:${g.faceMove.positions.length}:${g.faceMove.positions[0]}:${g.faceMove.n}:${g.faceMove.d}`
-        : JSON.stringify([g.frame, g.loops, g.d]);
-    if (key === ghostKey) return;
-    ghostKey = key;
+    if (equal(g ?? null, lastGhost)) return;
+    lastGhost = g ?? null;
     if (ghost) {
       scene.remove(ghost);
       ghost.traverse((o) => {

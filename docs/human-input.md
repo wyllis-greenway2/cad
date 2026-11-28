@@ -6799,3 +6799,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1694 — 2026-11-28 — directive
 > do the unused exports and Go.hold
+
+## in_1695 — 2026-11-28 — directive
+> do the fillOpacity JSON serializing fix
