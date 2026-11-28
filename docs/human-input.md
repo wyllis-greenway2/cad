@@ -6904,3 +6904,12 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1728 — 2026-11-28 — directive
 > okay maybe we should put the arrow just near the click so that a second click can have the double click effects. can we have it so right click and drag is drag select? not rotate camera? Also can we have it so that a right click or left click but no drag does apply and cancel tool, if click and drag it should rotate the camera as per usual instead. Also can we make it so selected bodies are the blue color?
+
+## in_1729 — 2026-11-28 — question
+> why did that take so long?
+
+## in_1730 — 2026-11-28 — question
+> I thought we had a rule to only test what needed to be tested?
+
+## in_1731 — 2026-11-28 — directive
+> Add that rule to the top of CLAUDE.md

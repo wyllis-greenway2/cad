@@ -4,6 +4,13 @@ A parametric solid modeler: real CAD (exact geometry, exchange with other CAD pr
 `docs/origin/CAD_Blueprint.original.md` (written by the human owner, kept untouched).
 Current decisions live in `docs/decisions/`. This file is the short version of how we work.
 
+## Testing: test what you touched, and no more (read this first; the detail is rule 12)
+- After a change: `npm run typecheck`, `python3 tools/affected_tests.py --root next --run`, and the **one** page check that covers it. Not a batch of page checks, and not the whole set again after a small fix.
+- Before the handoff, **once**: `check_docs`, `check_spec`, `npm run checks`.
+- A wide run (`checks:all`, many page checks) only before a merge or a milestone, or after changing what everything shares (`main.ts`, the camera's wiring, the engine); when a change touches something shared, say so and ask before running the wide set.
+- Never start a second browser run while one is going (they share a port and the second fails).
+- A check that fails on something you did not touch is pinned in `docs/roadmap.md`, not fixed on the spot (`in_1614`).
+
 ## Session start (every session, in order)
 1. Read this file.
 2. Read the **last entry** of `docs/handoff.md`, then `docs/roadmap.md`.
