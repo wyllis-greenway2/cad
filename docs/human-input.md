@@ -6817,3 +6817,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1700 — 2026-11-28 — directive
 > do the two remaining unused S parameters
+
+## in_1701 — 2026-11-28 — question
+> so are we sure that everything we deleted and cleaned up was good and not part of planned future parts that hadn't been built yet?

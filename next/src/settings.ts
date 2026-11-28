@@ -93,6 +93,7 @@ export const settings = {
     arrowGapPx: 5 /* (every arrow's tip stops this far short of what it points at, `in_1672`) */,
     arrowHeadPx: 8 /* (the length of an arrow's open tip) */,
     dimOffsetPx: 24 /* (a number's dimension line stands this far off what it measures, where it stands off) */,
+    circleSegments: 64 /* (a circle or an arc is drawn and measured as this many straight pieces) */,
     alignOverhangPx: 20 /* (an alignment's line runs this far past the two parts) */,
     bubbleArrowTailPx: 16 /* (the arrow from a bubble to its spot starts this far out of the bubble) */,
     bubbleArrowLeastPx: 24 /* (and is not drawn when the spot is nearer than this) */,

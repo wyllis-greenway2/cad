@@ -193,7 +193,11 @@ export function createCore(host: SketchHost, on?: (label: string, merge?: string
     if (held.length) say("Held back by the constraints shown in red", 600);
   };
   const polyline = (s: ReturnType<typeof segsOf>[number]): Pt[] =>
-    s.kind === "line" ? [s.a, s.b] : Array.from({ length: 65 }, (_, k) => pointOnSeg(s, (k / 64) * s.sweep));
+    s.kind === "line"
+      ? [s.a, s.b]
+      : Array.from({ length: settings.sketch.circleSegments + 1 }, (_, k) =>
+          pointOnSeg(s, (k / settings.sketch.circleSegments) * s.sweep),
+        );
 
   return {
     host,

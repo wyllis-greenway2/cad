@@ -4,6 +4,7 @@
 import type { Pt } from "../engine/region.ts";
 import type { SketchParams } from "../engine/sketch.ts";
 import { addArc, addCircle, addLine, addRect, arcWay, posOf, type Ref, type Sol } from "./drawing.ts";
+import { settings } from "../settings.ts";
 import type { StrokeKind } from "./style.ts";
 import { emptyTyped } from "./typing.ts";
 
@@ -90,13 +91,14 @@ export function toolPreview(t: Tool, s: Sol, at: Pt): PreviewLine[] {
       );
     }
   } else if (A && t.kind === "circle") {
-    const rad = Math.hypot(at[0] - A[0], at[1] - A[1]);
+    const rad = Math.hypot(at[0] - A[0], at[1] - A[1]),
+      n = settings.sketch.circleSegments;
     out.push({
       kind: "preview",
-      pts: Array.from(
-        { length: 65 },
-        (_, k) => [A[0] + rad * Math.cos((k / 64) * 2 * Math.PI), A[1] + rad * Math.sin((k / 64) * 2 * Math.PI)] as Pt,
-      ),
+      pts: Array.from({ length: n + 1 }, (_, k) => {
+        const t = (k / n) * 2 * Math.PI;
+        return [A[0] + rad * Math.cos(t), A[1] + rad * Math.sin(t)] as Pt;
+      }),
     });
   }
   return out;
