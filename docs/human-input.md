@@ -6790,3 +6790,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1691 — 2026-11-28 — directive
 > what are do the long click() and marks() functions next ?
+
+## in_1692 — 2026-11-28 — directive
+> do the remaining pixel constants and dimLine

@@ -78,6 +78,8 @@ function offersOfUncached(S: System, selection: string[], reach?: number): Offer
   return [...own, ...near];
 }
 /** the reach is in pixels, so zoomed far out it would cover the whole drawing: it is never more than a tenth of the size of what is selected (a circle's radius, a line's length), for every relation alike, so zooming out does not make more things "near" (`in_1633`) */
+/** mm to the pixel, from the offers' reach in mm (the reach is `settings.helpers.reachPx` pixels; 0: none known) */
+const mmPxOf = (reach?: number): number => (reach ?? 0) / settings.helpers.reachPx;
 function capReach(S: System, selection: string[], reach?: number): number | undefined {
   if (!reach) return reach;
   const size = Math.max(
@@ -166,12 +168,18 @@ export function marksFor(
   // what is selected shows what it is made of too (a line, its ends; going down, never up: `scopeOf`)
   const scope = scopeOf(S, selection);
   for (const f of bubblesOn(S, selection, ctx.flash ?? {}, scope)) {
-    // a number stands on its own dimension line (drawn when it is pointed at), 24 px off what it measures where it stands off
-    const mmPx = (ctx.reach ?? 0) / settings.helpers.reachPx,
-      dim = f.kind === "dimension" && f.relation ? dimLine(S, f.relation, f.parts, (ctx.reach ?? 0) * 2) : null,
+    // a number stands on its own dimension line (drawn when it is pointed at), off what it measures where it stands off
+    const mmPx = mmPxOf(ctx.reach),
+      dim =
+        f.kind === "dimension" && f.relation
+          ? dimLine(S, f.relation, f.parts, settings.sketch.dimOffsetPx * mmPx)
+          : null,
       mid: [number, number] | null = dim ? [(dim.a[0] + dim.b[0]) / 2, (dim.a[1] + dim.b[1]) / 2] : null,
       cn = f.relation && mmPx > 0 ? cornerOf(S, f.relation, f.parts, mmPx) : null,
-      al = f.relation && mmPx > 0 && f.kind !== "dimension" ? alignLine(S, f.relation, f.parts, 20 * mmPx) : null;
+      al =
+        f.relation && mmPx > 0 && f.kind !== "dimension"
+          ? alignLine(S, f.relation, f.parts, settings.sketch.alignOverhangPx * mmPx)
+          : null;
     out.push({
       ...f,
       ...(dim && mid ? { dim, at: mid, onSpot: true } : {}),
@@ -218,9 +226,9 @@ export function marksFor(
     for (const c of [...direct, ...rankNear(S, pool, scopeOf(S, sel))]) {
       // a square or an angle's offer stands in its corner
       const rel = c.nc?.kind ?? c.item.id.slice(4),
-        mmPx = ctx.reach ? ctx.reach / settings.helpers.reachPx : 0,
+        mmPx = mmPxOf(ctx.reach),
         cn = mmPx > 0 ? cornerOf(S, rel, c.parts, mmPx) : null,
-        al = mmPx > 0 && !c.moves.length ? alignLine(S, rel, c.parts, 20 * mmPx) : null; // (an offer that would move something draws its arrows instead)
+        al = mmPx > 0 && !c.moves.length ? alignLine(S, rel, c.parts, settings.sketch.alignOverhangPx * mmPx) : null; // (an offer that would move something draws its arrows instead)
       out.push({
         id: c.item.id,
         kind: "constraint",

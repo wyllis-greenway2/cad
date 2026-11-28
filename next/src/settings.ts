@@ -92,6 +92,10 @@ export const settings = {
     ballPx: 4.5 /* (a picked point's ball: its radius) */,
     arrowGapPx: 5 /* (every arrow's tip stops this far short of what it points at, `in_1672`) */,
     arrowHeadPx: 8 /* (the length of an arrow's open tip) */,
+    dimOffsetPx: 24 /* (a number's dimension line stands this far off what it measures, where it stands off) */,
+    alignOverhangPx: 20 /* (an alignment's line runs this far past the two parts) */,
+    bubbleArrowTailPx: 16 /* (the arrow from a bubble to its spot starts this far out of the bubble) */,
+    bubbleArrowLeastPx: 24 /* (and is not drawn when the spot is nearer than this) */,
   },
   // the helpers of drawing (`dec_helpers_one_rule`): how near a relation must be to hold to be offered or helped, `reachPx` for one that says a point (and for every offer, `dec_offer_rank`), `linePx` for one that says a line (px), how far past its ends a guide runs and the steps it is traced in (px), the guide's dash (the old app's: this much of the view's distance; the gap is this much of the dash)
   helpers: { reachPx: 12, linePx: 6, overPx: 12, stepPx: 6, dash: 0.012, dashGap: 0.7 },

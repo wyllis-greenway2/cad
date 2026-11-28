@@ -213,7 +213,14 @@ export function createMarks(
     if (!hm.onSpot && st.hoverPx) {
       const r = host.ray(st.hoverPx.x, st.hoverPx.y),
         q = onPlane(c.f, r.o, r.d);
-      if (q) shapes.push({ t: "arrow", a: to2(c.f, q), b: hm.at, tail: 16, least: 24 });
+      if (q)
+        shapes.push({
+          t: "arrow",
+          a: to2(c.f, q),
+          b: hm.at,
+          tail: settings.sketch.bubbleArrowTailPx,
+          least: settings.sketch.bubbleArrowLeastPx,
+        });
     }
     if (hm.dim) {
       shapes.push({ t: "arrow", a: hm.dim.a, b: hm.dim.b, both: true, plain: true });
