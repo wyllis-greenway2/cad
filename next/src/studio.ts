@@ -62,6 +62,7 @@ export function meshBuffers(id: string, m: MeshSnap): BodyMesh {
   const segs: number[] = [],
     edgeParts: { body: string | null; from: number; to: number }[] = [];
   for (const g of m.edges) {
+    if (g.seam) continue; // (the seam of a cylinder is not a line the body has, to look at)
     const from = segs.length / 6;
     for (let i = g.start; i + 1 < g.start + g.count; i++)
       segs.push(

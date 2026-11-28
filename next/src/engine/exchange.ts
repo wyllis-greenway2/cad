@@ -24,6 +24,7 @@ export interface MeshSnap {
     key: string | null;
     /** the edge as data: the two faces beside it (a step takes it to name the edge) */ ref: EdgeRef | null;
     /** the body it is in (null: none named) */ body: string | null;
+    /** the seam of a round face (the same face on both sides): not an edge a person sees, and not drawn */ seam: boolean;
     start: number;
     count: number;
   }[];
@@ -67,6 +68,7 @@ export function meshOf(
             key: e?.ref ? edgeKey(e.ref) : null,
             ref: e?.ref ?? null,
             body: e?.faces[0] ? (owner.get(idKey(e.faces[0].id)) ?? null) : null,
+            seam: e?.faces.length === 1,
             start: g.start,
             count: g.count,
           };

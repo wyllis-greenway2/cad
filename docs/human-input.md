@@ -6895,3 +6895,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1725 — 2026-11-28 — directive
 > do item 3 4 and 6
+
+## in_1726 — 2026-11-28 — directive
+> yes do the side by side comparison

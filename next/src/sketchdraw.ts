@@ -48,6 +48,13 @@ export function strokeOf(l: DrawLine, w: number, h: number): THREE.Object3D {
       transparent: st.soft,
       opacity: l.pale ? 0.4 : st.soft ? 0.8 : 1,
       depthTest: !!l.hidden,
+      ...(l.hidden
+        ? {
+            polygonOffset: true,
+            polygonOffsetFactor: l.kind === "done" ? -2 : -4,
+            polygonOffsetUnits: l.kind === "done" ? -2 : -4,
+          }
+        : {}), // (a line on a surface wins over the surface and over a thinner line under it, as the old app's did)
       ...(dashed
         ? { dashed: true, dashSize: l.dash ?? 5, gapSize: (l.dash ?? 5) * settings.helpers.dashGap, dashScale: 1 }
         : {}),
@@ -56,7 +63,7 @@ export function strokeOf(l: DrawLine, w: number, h: number): THREE.Object3D {
   m.resolution.set(w, h);
   const line = l.pairs ? new LineSegments2(g as LineSegmentsGeometry, m) : new Line2(g as LineGeometry, m);
   if (dashed) line.computeLineDistances();
-  line.renderOrder = 11;
+  line.renderOrder = l.kind === "done" ? 11 : 12;
   return line;
 }
 
