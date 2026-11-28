@@ -6752,3 +6752,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1679 — 2026-11-28 — question
 > okay so I think the sketching is mostly good should we now capture the properties verbally and write down and then write tests against them to prevent against regressions?
+
+## in_1680 — 2026-11-28 — approval
+> yes replace them and draft all the themes in one go
