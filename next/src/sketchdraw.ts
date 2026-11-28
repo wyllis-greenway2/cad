@@ -46,13 +46,13 @@ export function drawLines(group: THREE.Group, lines: DrawLine[], w: number, h: n
         transparent: st.soft,
         opacity: st.soft ? 0.8 : 1,
         depthTest: false,
-        ...(st.dashed
+        ...(st.dashed && !l.head
           ? { dashed: true, dashSize: l.dash ?? 5, gapSize: (l.dash ?? 5) * settings.helpers.dashGap, dashScale: 1 }
           : {}),
       });
     m.resolution.set(w, h);
     const line = new Line2(g, m);
-    if (st.dashed) line.computeLineDistances();
+    if (st.dashed && !l.head) line.computeLineDistances();
     line.renderOrder = 11;
     group.add(line);
   }

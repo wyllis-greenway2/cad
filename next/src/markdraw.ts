@@ -7,6 +7,10 @@ import { settings } from "./settings.ts";
 
 export interface MarkHandlers extends InfoHandlers {
   /** a mark is pointed at, or none any more (`id` null) */ hover?(id: string | null, over?: string): void;
+  /** where the pointed-at bubble stands on the page (its middle, px), each picture: the sketch draws the arrow from it to its spot (`in_1671`) */ hoverAt?(
+    x: number,
+    y: number,
+  ): void;
   /** an offered constraint was clicked: select the parts it is offered for, and apply it */ offer(
     id: string,
     over: string[],
@@ -56,18 +60,6 @@ export function createMarkDraw(host: HTMLElement) {
   layer.addEventListener("pointerout", (e) => {
     if (!keyAt((e as PointerEvent).relatedTarget)) setHover(null);
   });
-  // the arrow from a pointed-at bubble to the exact spot it is about
-  const NS = "http://www.w3.org/2000/svg",
-    leader = document.createElementNS(NS, "svg"),
-    shaft = document.createElementNS(NS, "path"),
-    head = document.createElementNS(NS, "path");
-  leader.style.cssText = "position:fixed;left:0;top:0;width:100vw;height:100vh;pointer-events:none;overflow:visible";
-  shaft.setAttribute("fill", "none");
-  shaft.setAttribute("stroke-width", "1.2");
-  shaft.setAttribute("stroke-dasharray", "4 3");
-  leader.append(shaft, head);
-  leader.style.display = "none";
-  layer.append(leader);
   const boxes = new Map<string, HTMLElement>(),
     chipOf = new Map<string, HTMLElement>(),
     anchored = new Map<string, { x: number; y: number }>(),
@@ -226,24 +218,7 @@ export function createMarkDraw(host: HTMLElement) {
       }
       for (const [k, e] of boxes) if (!seen.has(k)) e.style.display = "none";
       const sp = spot as { cx: number; cy: number; sx: number; sy: number; offer: boolean } | null;
-      const dx = sp ? sp.sx - sp.cx : 0,
-        dy = sp ? sp.sy - sp.cy : 0,
-        dist = Math.hypot(dx, dy);
-      if (sp && dist > 24) {
-        const ux = dx / dist,
-          uy = dy / dist,
-          x0 = sp.cx + ux * 16,
-          y0 = sp.cy + uy * 16,
-          colour = sp.offer ? "#f2c14e" : "#8a9097";
-        shaft.setAttribute("d", `M${x0} ${y0} L${sp.sx - ux * 6} ${sp.sy - uy * 6}`);
-        shaft.setAttribute("stroke", colour);
-        head.setAttribute(
-          "d",
-          `M${sp.sx} ${sp.sy} L${sp.sx - ux * 9 - uy * 4} ${sp.sy - uy * 9 + ux * 4} L${sp.sx - ux * 9 + uy * 4} ${sp.sy - uy * 9 - ux * 4}Z`,
-        );
-        head.setAttribute("fill", colour);
-        leader.style.display = "block";
-      } else leader.style.display = "none";
+      if (sp) on?.hoverAt?.(sp.cx, sp.cy); // (the arrow from it to its spot is drawn with the sketch's lines)
     },
     startEdit: chips.startEdit,
     editing: chips.editing,

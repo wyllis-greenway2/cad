@@ -58,19 +58,16 @@ export type StrokeKind =
   | "tie"
   | "guide"
   | "centre"
-  | "dim"
+  | "arrow"
+  | "arrowOffer"
+  | "arrowPale"
   | "dimExt"
-  | "dimHead"
   | "dimArc"
   | "align"
   | "alignOffer"
-  | "moveMain"
-  | "moveMainHead"
   | "lit"
   | "litOffer"
-  | "litOfferSel"
-  | "move"
-  | "moveHead";
+  | "litOfferSel";
 export const STROKE: Record<
   StrokeKind,
   {
@@ -82,9 +79,10 @@ export const STROKE: Record<
 > = {
   note: { tone: "note", weight: 0.75, soft: false }, // the thin grey line of a number (an angle's arc)
   tieBall: { tone: "ties", weight: 1, soft: false }, // a point a helper is about: an orange ball
-  dim: { tone: "note", weight: 0.75, soft: false, dashed: true }, // the line a measured number is drawn on, while it is pointed at (`in_1650`)
-  dimExt: { tone: "note", weight: 0.5, soft: true }, // the thin lines from what it measures to it
-  dimHead: { tone: "note", weight: 0.75, soft: false }, // an arrow tip at each end
+  arrow: { tone: "note", weight: 0.75, soft: false, dashed: true }, // the one arrow (`in_1671`): a dashed line with an open tip that stops short of what it points at; neutral for a dimension and for a bubble's leader
+  arrowOffer: { tone: "ties", weight: 1.3, soft: false, dashed: true }, // the same for what an offer is about: yellow, a little heavier
+  arrowPale: { tone: "ties", weight: 0.75, soft: true, dashed: true }, // yellow and pale: what moves only because the named parts do
+  dimExt: { tone: "note", weight: 0.5, soft: true }, // the thin lines from what a number measures to its dimension line
   align: { tone: "note", weight: 0.75, soft: false, dashed: true }, // what an applied alignment ties together, while it is pointed at (`in_1668`)
   alignOffer: { tone: "ties", weight: 0.75, soft: false, dashed: true }, // the same for an offer: yellow
   dimArc: { tone: "note", weight: 0.75, soft: false }, // an angle's arc, or a right angle's square, in its corner (`in_1667`)
@@ -100,8 +98,4 @@ export const STROKE: Record<
   cut: { tone: "refused", weight: 1.4, soft: false },
   tie: { tone: "ties", weight: 1.4, soft: false },
   guide: { tone: "ties", weight: 0.75, soft: false, dashed: true }, // the dashed alignment lines: amber, as what they tie to (`in_1641`)
-  moveMain: { tone: "ties", weight: 1.3, soft: false, dashed: true }, // the arrow of what an offer is about: the parts it names (`in_1667`)
-  moveMainHead: { tone: "ties", weight: 1.3, soft: false },
-  move: { tone: "ties", weight: 0.75, soft: true, dashed: true }, // what an offered constraint would move, and to where: the same dashed amber line as a guide, with an arrow (`in_1631`, `in_1641`)
-  moveHead: { tone: "ties", weight: 0.75, soft: true }, // the paler arrows: what moves only because the named parts do // the head of that arrow
 };

@@ -33,6 +33,7 @@ export interface DrawLine {
   pts: V3[];
   /** a ball's radius, in mm */ r?: number;
   /** a dashed line's dash, in mm (the gap is 0.7 of it) */ dash?: number;
+  /** the open tip of an arrow: drawn solid even where its kind is dashed */ head?: boolean;
   kind:
     | "done"
     | "selected"
@@ -44,20 +45,17 @@ export interface DrawLine {
     | "guide"
     | "ball"
     | "centre"
-    | "dim"
+    | "arrow"
+    | "arrowOffer"
+    | "arrowPale"
     | "dimExt"
-    | "dimHead"
     | "dimArc"
     | "align"
     | "alignOffer"
-    | "moveMain"
-    | "moveMainHead"
     | "lit"
     | "litOffer"
     | "litOfferSel"
-    | "note"
-    | "move"
-    | "moveHead";
+    | "note";
 }
 
 export function createCore(host: SketchHost, on?: (label: string, merge?: string) => void) {
@@ -74,6 +72,9 @@ export function createCore(host: SketchHost, on?: (label: string, merge?: string
     /** what the offers showing now would move, from where to where (set with the marks, drawn with the lines) */
     /** the mark being pointed at (its id and what it is offered for), and the parts it is about with whether it is an offer: both from the marks, drawn with the lines */
     hover: null as { id: string; over: string } | null,
+    /** where the pointed-at bubble stands on the page (px), and the arrow from it to its spot, in the plane (`in_1671`) */
+    hoverPx: null as { x: number; y: number } | null,
+    leader: null as { key: string; from: [number, number]; to: [number, number] } | null,
     lit: null as {
       key: string;
       parts: string[];

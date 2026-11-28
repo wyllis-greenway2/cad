@@ -21,7 +21,7 @@ import { marksFor, type Mark } from "./interaction/marks.ts";
 import type { MarkHandlers, PlacedMark } from "./markdraw.ts";
 import type { Frame } from "./planes.ts";
 import { settings } from "./settings.ts";
-import { to3 } from "./sketch.ts";
+import { onPlane, to2, to3 } from "./sketch.ts";
 import type { Core } from "./sketchcore.ts";
 
 /** what keeps still to hold these parts where they are: a point itself, a line its ends, a circle its centre and its size (and an arc's ends) */
@@ -64,6 +64,9 @@ export function createMarks(
     /** a mark is pointed at (null: none): its parts and what it would move are drawn */
     hover(id, over) {
       st.hover = id === null ? null : { id, over: over ?? "" };
+    },
+    hoverAt(x, y) {
+      st.hoverPx = { x, y };
     },
     /** an offered constraint, from a mark: the parts it is offered for are selected, and it is applied */
     offer(id, over) {
@@ -196,6 +199,7 @@ export function createMarks(
       const c = current();
       st.moves = null;
       st.lit = null;
+      st.leader = null;
       if (!c) {
         ownId = null;
         return [];
@@ -270,6 +274,12 @@ export function createMarks(
       ownId = list.find((m) => m.kind === "dimension" && [...m.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
       // only the mark that is pointed at draws anything: the parts it is about lit, and (an offer) what applying it would move
       const hm = st.hover && list.find((m) => m.id === st.hover!.id && (m.over?.join(",") ?? "") === st.hover!.over);
+      // the arrow from the pointed-at bubble to its spot (not a number or an angle: they stand on their own line or corner), in the plane
+      if (hm && !hm.onSpot && st.hoverPx) {
+        const r = host.ray(st.hoverPx.x, st.hoverPx.y),
+          q = onPlane(c.f, r.o, r.d);
+        if (q) st.leader = { key: c.key, from: to2(c.f, q), to: hm.at };
+      }
       st.lit = hm
         ? {
             key: c.key,

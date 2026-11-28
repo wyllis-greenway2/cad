@@ -168,6 +168,37 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     return null;
   };
   const D = createDrag(K, () => tool !== null);
+  /** the one arrow (`in_1671`): a dashed line and an open tip, in the plane's axes. `tip`, `tail`: pixels the arrow stops short of its place at each end (so the tip is not clipped by a point and the direction reads); `both`: a tip at each end (a dimension); `least`: no arrow when the two places are nearer than this many pixels */
+  const arrow = (
+    f: Frame,
+    a: P2,
+    b: P2,
+    kind: "arrow" | "arrowOffer" | "arrowPale",
+    o: { tip?: number; tail?: number; both?: boolean; least?: number } = {},
+  ): DrawLine[] => {
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]),
+      mm = mmPerPx(f, b);
+    if (len < 1e-9 || len < (o.least ?? 0) * mm) return [];
+    const ux = (b[0] - a[0]) / len,
+      uy = (b[1] - a[1]) / len,
+      tip = Math.min((o.tip ?? 0) * mm, len * 0.3),
+      tail = Math.min((o.tail ?? 0) * mm, len * 0.3),
+      from: P2 = [a[0] + ux * tail, a[1] + uy * tail],
+      to: P2 = [b[0] - ux * tip, b[1] - uy * tip];
+    const head = (at: P2, dx: number, dy: number): DrawLine => {
+      const h = mm * 8,
+        w = (sg: number): P2 => [
+          at[0] - h * (dx * Math.cos(0.45) - sg * dy * Math.sin(0.45)),
+          at[1] - h * (dy * Math.cos(0.45) + sg * dx * Math.sin(0.45)),
+        ];
+      return { kind, pts: [to3(f, w(1)), to3(f, at), to3(f, w(-1))], head: true };
+    };
+    return [
+      { kind, pts: [to3(f, from), to3(f, to)], dash: dashAt(f, a) },
+      head(to, ux, uy),
+      ...(o.both ? [head(from, -ux, -uy)] : []),
+    ];
+  };
   const M = createMarks(K, { dragged: D.dragged, fieldMarks });
 
   const api = {
@@ -324,24 +355,21 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
           const at = shownPts.has(id) ? null : s.points[id];
           if (at) out.push({ kind: "centre", pts: [to3(f, at)], r: mmPerPx(f, at) * settings.sketch.ballPx * 0.55 });
         }
-        // a pointed-at number is drawn on its dimension line: thin, dashed, an arrow tip at each end, the thin lines from what it measures (`in_1650`)
+        // a pointed-at number is drawn on its dimension line: the one arrow, a tip at each end, and the thin lines from what it measures (`in_1650`, `in_1671`)
         if (st.lit?.dim && st.lit.key === k) {
-          const dm = st.lit.dim,
-            head = (tip: [number, number], from: [number, number]) => {
-              const len = Math.hypot(tip[0] - from[0], tip[1] - from[1]) || 1,
-                ux = (tip[0] - from[0]) / len,
-                uy = (tip[1] - from[1]) / len,
-                h = mmPerPx(f, tip) * 8,
-                w = (sg: number): [number, number] => [
-                  tip[0] - h * (ux * Math.cos(0.45) - sg * uy * Math.sin(0.45)),
-                  tip[1] - h * (uy * Math.cos(0.45) + sg * ux * Math.sin(0.45)),
-                ];
-              return { kind: "dimHead" as const, pts: [to3(f, w(1)), to3(f, tip), to3(f, w(-1))] };
-            };
-          out.push({ kind: "dim", pts: [to3(f, dm.a), to3(f, dm.b)], dash: dashAt(f, dm.a) });
+          const dm = st.lit.dim;
+          out.push(...arrow(f, dm.a, dm.b, "arrow", { both: true }));
           for (const [a, b] of dm.ext) out.push({ kind: "dimExt", pts: [to3(f, a), to3(f, b)] });
-          out.push(head(dm.a, dm.b), head(dm.b, dm.a));
         }
+        // the arrow from a pointed-at bubble to the spot it is about, its tip short of the spot
+        if (st.leader && st.leader.key === k)
+          out.push(
+            ...arrow(f, st.leader.from, st.leader.to, st.lit?.offer ? "arrowOffer" : "arrow", {
+              tail: 16,
+              tip: 6,
+              least: 24,
+            }),
+          );
         // a pointed-at alignment (level, upright, parallel) is drawn as a dashed line through what it ties together; an offer that would move something draws its arrows instead (`in_1668`)
         if (st.lit?.align && st.lit.key === k)
           out.push({
@@ -391,25 +419,9 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       }
       const mv = st.moves && all.get(st.moves.key) ? { f: all.get(st.moves.key)!, list: st.moves.list } : null;
       if (mv)
-        for (const { from: a, to: b, main } of mv.list) {
-          // a dashed arrow from where a part is to where the offered constraint would put it: strong for the parts it names, pale for what moves only because they do (`in_1631`, `in_1667`)
-          const len = Math.hypot(b[0] - a[0], b[1] - a[1]),
-            head = mmPerPx(mv.f, b) * 8,
-            ux = (b[0] - a[0]) / len,
-            uy = (b[1] - a[1]) / len,
-            wing = (sgn: number): [number, number] => {
-              const t = 0.45; // (about 25 degrees)
-              return [
-                b[0] - head * (ux * Math.cos(t) - sgn * uy * Math.sin(t)),
-                b[1] - head * (uy * Math.cos(t) + sgn * ux * Math.sin(t)),
-              ];
-            };
-          out.push({ kind: main ? "moveMain" : "move", pts: [to3(mv.f, a), to3(mv.f, b)], dash: dashAt(mv.f, a) });
-          out.push({
-            kind: main ? "moveMainHead" : "moveHead",
-            pts: [to3(mv.f, wing(1)), to3(mv.f, b), to3(mv.f, wing(-1))],
-          });
-        }
+        // a dashed arrow from where a part is to where the offered constraint would put it, its tip short of the place: strong for the parts it names, pale for what moves only because they do (`in_1631`, `in_1667`, `in_1671`)
+        for (const { from: a, to: b, main } of mv.list)
+          out.push(...arrow(mv.f, a, b, main ? "arrowOffer" : "arrowPale", { tip: 5 }));
       out.push(...D.hintLines(all));
       const c = pointer && tool ? here(pointer.x, pointer.y) : null;
       if (c && tool) {

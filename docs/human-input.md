@@ -6725,3 +6725,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1670 — 2026-11-28 — directive
 > yes split them in the menu too, and also the constraints area of the menu has no icon at all, it should have a lock icon.
+
+## in_1671 — 2026-11-28 — directive
+> why are there so many different arrow types? can we just have one? lets keep the one that reuses the same dashed line style as everything else, it seems like the icon one is special and would need to be standardized. Also can we make the arrow tip stop short of destination? it helps make movement direction more clear and also prevents the arrow tip from getting clipped off by verticies etc

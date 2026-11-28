@@ -20,7 +20,8 @@ try {
     window.__sketch.restore(s);
   }`);
   await page.waitForTimeout(400);
-  const dimLines = () => ev<any[]>(`() => window.__sketch.lines(null).filter((l) => /^dim/.test(l.kind))`);
+  const dimLines = () =>
+    ev<any[]>(`() => window.__sketch.lines(null).filter((l) => (/^arrow/.test(l.kind) || l.kind === "dimExt"))`);
   const bubble = (re: string) =>
     page.evaluate((re) => {
       const e = [...document.querySelectorAll("[data-key]")].find((x) =>
@@ -40,10 +41,10 @@ try {
   await page.waitForTimeout(250);
   const d1 = await dimLines();
   ok(
-    d1.some((l) => l.kind === "dim") && d1.filter((l) => l.kind === "dimHead").length === 2,
+    d1.filter((l) => l.kind === "arrow" && !l.head).length === 1 && d1.filter((l) => l.head).length === 2,
     `pointing at it draws a dashed radial line with an arrow tip at each end: ${d1.map((l) => l.kind).join()}`,
   );
-  const dl = d1.find((l) => l.kind === "dim");
+  const dl = d1.find((l) => l.kind === "arrow" && !l.head);
   const len = dl ? Math.hypot(dl.pts[1][0] - dl.pts[0][0], dl.pts[1][1] - dl.pts[0][1]) : 0;
   ok(Math.abs(len - 7) < 0.05 * 7 || Math.abs(len - 7) < 0.6, `the line is one radius long (7 mm): ${len.toFixed(2)}`);
   writeFileSync(`${dir}/dims-circle.png`, await page.screenshot());
@@ -60,9 +61,9 @@ try {
     await page.waitForTimeout(250);
     const d2 = await dimLines();
     ok(
-      d2.filter((l) => l.kind === "dim").length === 1 &&
+      d2.filter((l) => l.kind === "arrow" && !l.head).length === 1 &&
         d2.filter((l) => l.kind === "dimExt").length === 2 &&
-        d2.filter((l) => l.kind === "dimHead").length === 2,
+        d2.filter((l) => l.head).length === 2,
       `pointing at it draws a dashed line beside the line, two thin lines to it, two arrow tips: ${d2.map((l) => l.kind).join()}`,
     );
     writeFileSync(`${dir}/dims-line.png`, await page.screenshot());
@@ -131,6 +132,19 @@ try {
     );
     const [p0, p1] = a1[0].pts;
     ok(Math.abs(p0[1] - p1[1]) < 1e-6, "and the line is level");
+    // the arrow from the bubble to its spot is the one arrow: a dashed line with an open tip that stops short of the spot (`in_1671`)
+    const lead = await ev<any[]>(`() => window.__sketch.lines(null).filter((l) => /^arrow/.test(l.kind))`),
+      mk = (await ev<any[]>(`() => window.__sketch.marks(performance.now()).map((m) => m.mark)`)).find(
+        (m) => m.id === "near:horizontal:P1,P3",
+      ),
+      shaft = lead.find((l) => !l.head),
+      tipEnd = shaft?.pts[1];
+    ok(
+      lead.length === 2 && !!shaft && lead.some((l) => l.head) && !!mk,
+      `pointing at it also draws one arrow from the bubble: ${lead.map((l) => l.kind + (l.head ? "/head" : "")).join()}`,
+    );
+    const gap = tipEnd ? Math.hypot(tipEnd[0] - mk.at[0], tipEnd[1] - mk.at[1]) : 0;
+    ok(gap > 0.3 && gap < 1.5, `its tip stops short of the spot (${gap.toFixed(2)} mm, about 6 px)`);
     writeFileSync(`${dir}/dims-align.png`, await page.screenshot());
     await page.mouse.move(5, 5, { steps: 5 });
     await page.waitForTimeout(200);
