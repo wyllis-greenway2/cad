@@ -6921,3 +6921,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1733 — 2026-11-28 — directive
 > can we make it so that a body doesn't normally freeflow move when selected and dragged, instead the orb center has modes, so the first click should go into free move mode, then into pulsing blue orb mode which allows you to move the mover itself, then goes back to normal. In normal just pulling the arrows moves the body.When the body is selected, selecting other things still doesn't select them. For example selecting an edge of a body.
+
+## in_1734 — 2026-11-28 — directive
+> now sketching is really hard to start on click and drag circle or other sketch part, I think because it cancels because it considers it a drag? I think we need to interperet clicking and dragging as always just sketching when a sketch tool is selected, then left click is just sketching and any amount of click and drag is always sketch interpereted and it doesn't try to figure out if it should rotate the camera or not. Lets put the right click back to doing camera rotation on click and drag again as well, then lets move the drag select to start when both mouse buttons are pressed down and dragged.

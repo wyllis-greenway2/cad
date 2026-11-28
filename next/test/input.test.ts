@@ -5,7 +5,7 @@ import { actionOf, classifyWheel, wheelKind } from "../src/input.ts";
 test("[C2 C5] which button and key does what", () => {
   const no = { shift: false, alt: false };
   assert.equal(actionOf(0, no, false), "click");
-  assert.equal(actionOf(2, no, false), "box"); // (a right drag picks with a box, `in_1728`; a left drag or Alt turns the view)
+  assert.equal(actionOf(2, no, false), "orbit"); // (a right drag turns the view again, `in_1734`; both buttons down draw a box)
   assert.equal(actionOf(0, { shift: false, alt: true }, false), "orbit");
   assert.equal(actionOf(1, no, false), "pan");
   assert.equal(actionOf(2, { shift: true, alt: false }, false), "pan");

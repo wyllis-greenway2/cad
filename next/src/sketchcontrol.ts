@@ -296,6 +296,8 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     active: () => tool !== null,
     /** how many places of the figure under way are down (null: no drawing tool is on) */
     drawStep: (): number | null => (tool ? tool.pts.length : null),
+    /** which tool is on (null: none) */
+    toolKind: (): string | null => tool?.kind ?? null,
     /** the kinds of the parts selected in the sketch of the plane that is on */
     selectedKinds: (): string[] => {
       const c = current();

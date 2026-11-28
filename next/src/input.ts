@@ -35,7 +35,11 @@ export interface Intents {
   carryStart(x: number, y: number): void;
   carryMove(x: number, y: number): void;
   carryEnd(x: number, y: number): void;
-  /** A right drag: a box from where it began; moved; let go (the page picks what it holds). */
+  /** A sketch tool is on: a left press, whatever follows it (a click or any drag), is the sketch's and never turns the view (`in_1734`). */
+  sketching(): boolean;
+  sketchPress(x: number, y: number): void;
+  sketchRelease(x: number, y: number, moved: boolean, count: number): void;
+  /** Both buttons down and dragged: a box from where the first press began; moved; let go (the page picks what it holds). */
   boxStart(x: number, y: number): void;
   boxMove(x: number, y: number): void;
   boxEnd(x: number, y: number): void;
@@ -43,10 +47,10 @@ export interface Intents {
   space(): void;
 }
 
-type Action = "orbit" | "pan" | "click" | "box" | "carry";
+type Action = "orbit" | "pan" | "click" | "box" | "carry" | "sketch";
 export const actionOf = (button: number, m: { shift: boolean; alt: boolean }, space: boolean): Action => {
   if (button === 1) return "pan";
-  if (button === 2) return m.shift ? "pan" : "box"; // (a right drag draws a box to pick what it holds, `in_1728`; the view is turned by a left drag, or Alt)
+  if (button === 2) return m.shift ? "pan" : "orbit"; // (a right drag turns the view; both buttons down and dragged draw a box, `in_1734`)
   if (space || (m.alt && m.shift)) return "pan";
   if (m.alt) return "orbit";
   return "click"; // a plain left press: a click if it does not move, else the view turns
@@ -126,10 +130,20 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
       }
       return;
     }
+    if (drag) {
+      // (a second button pressed while one is held: both are down, a box)
+      if ((e.buttons & 3) === 3) chord();
+      return;
+    }
     // (a press that goes on from a click just made is the second of a double click, whatever stands under it, an arrow too: it is not a handle's)
     const again = repeats(e.timeStamp - last.t, p.x - last.x, p.y - last.y);
     if (e.button === 0 && !space && !e.altKey && !again && out.grab(p.x, p.y, e.shiftKey)) {
       grabbing = { x: p.x, y: p.y };
+      return;
+    }
+    if (e.button === 0 && !space && !e.altKey && out.sketching()) {
+      drag = { x0: p.x, y0: p.y, ...p, moved: false, action: "sketch", button: 0, shift: e.shiftKey };
+      out.sketchPress(p.x, p.y);
       return;
     }
     if (space) spaceUsed = true;
@@ -143,6 +157,14 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
       button: e.button,
       shift: e.shiftKey,
     };
+  };
+  /** both buttons are down: a box from where the first press began (a camera drag that had begun is let go); it ends when a button is let go */
+  const chord = () => {
+    if (!drag || drag.action === "box" || drag.action === "sketch") return;
+    if (drag.moved && drag.action !== "carry") out.dragEnd();
+    drag.action = "box";
+    drag.moved = true;
+    out.boxStart(drag.x0, drag.y0);
   };
   const move = (e: PointerEvent) => {
     if (locked()) {
@@ -187,6 +209,11 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     }
     out.hover(p.x, p.y); // (also while dragging: the disc under the pointer follows it as the view turns)
     if (!drag) return;
+    if (drag.action === "sketch") {
+      if (!drag.moved && dragged(p.x - drag.x0, p.y - drag.y0)) drag.moved = true; // (the sketch's: the view is never turned by it)
+      return;
+    }
+    if ((e.buttons & 3) === 3) chord();
     if (!drag.moved && !dragged(p.x - drag.x0, p.y - drag.y0)) return;
     if (!drag.moved) {
       drag.moved = true;
@@ -232,6 +259,10 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     const d = drag;
     drag = null;
     if (!d) return;
+    if (d.action === "sketch") {
+      if (e.type === "pointerup") out.sketchRelease(p.x, p.y, d.moved, count(p.x, p.y, e.timeStamp));
+      return;
+    }
     if (d.moved) {
       if (d.action === "box") out.boxEnd(p.x, p.y);
       else if (d.action === "carry") out.carryEnd(p.x, p.y);
@@ -240,7 +271,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     }
     if ((d.action === "click" || d.action === "carry") && e.type === "pointerup")
       out.click(p.x, p.y, count(p.x, p.y, e.timeStamp));
-    else if (d.button === 2 && !d.shift && e.type === "pointerup") out.menu(p.x, p.y); // (a right click that did not move: the menu; a right drag draws a box)
+    else if (d.button === 2 && !d.shift && e.type === "pointerup") out.menu(p.x, p.y); // (a right click that did not move: the menu; a right drag turns the view)
   };
   let stream: { kind: WheelKind; t: number } | null = null,
     scrolling: ReturnType<typeof setTimeout> | null = null;

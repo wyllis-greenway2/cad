@@ -118,15 +118,20 @@ try {
   );
   await page.mouse.click(1000, 600);
   await wait(400);
-  // a right drag draws the same box with nothing armed (it does not turn the view)
+  // both buttons down and dragged draw the same box with nothing armed (it does not turn the view)
   const cam0 = await ev<string>(`() => JSON.stringify(window.__cad.cam)`);
   await page.mouse.move(Math.min(...xs) - 12, Math.min(...ys) - 12);
+  await page.mouse.down();
   await page.mouse.down({ button: "right" });
   await page.mouse.move(Math.max(...xs) + 12, Math.max(...ys) + 12, { steps: 6 });
   await page.mouse.up({ button: "right" });
+  await page.mouse.up();
   await wait(500);
   s = await state();
-  ok(s.b.sel?.edges.length === 4, `a right drag round the top face takes its four edges: ${s.b.sel?.edges.length}`);
+  ok(
+    s.b.sel?.edges.length === 4,
+    `both buttons dragged round the top face take its four edges: ${s.b.sel?.edges.length}`,
+  );
   ok((await ev<string>(`() => JSON.stringify(window.__cad.cam)`)) === cam0, "and the view did not turn");
   await page.mouse.click(1000, 600);
   await wait(400);

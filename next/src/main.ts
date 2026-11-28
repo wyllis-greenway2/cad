@@ -60,6 +60,7 @@ const game = createGame();
 
 let s = view.initial(model);
 let pointer: view.Pointer | null = null;
+let pressPlaced = false; // (a sketch tool's press put the first place of its figure down: its release has nothing more to do unless it was dragged)
 let typedFirst: string | null = null; // (the first digit of a number, to go to it once it is shown)
 /** what the camera looks at: the stand-in things and a box for each body the engine made, made again only when the engine's bodies change (`scene.ts`) */
 let looked: { standIns: readonly unknown[]; bodies: readonly unknown[]; scene: Scene } | null = null;
@@ -649,6 +650,17 @@ attach(
     carryStart: (x, y) => void orbc.grabFree(x, y),
     carryMove: (x, y) => orbc.grabMove(x, y),
     carryEnd: () => orbc.grabEnd(),
+    // a sketch tool is on: a left press is the sketch's, a click or any drag, and never turns the view (`in_1734`): the first place is put down at the press, the next at the release (a drag draws a circle or a rectangle from the press to the release)
+    sketching: () => !game.on && sk.active() && !menu.isOpen() && !more.isOpen(),
+    sketchPress: (x, y) => {
+      pressPlaced = false;
+      if (sk.drawStep() === 0 && sk.toolKind() !== "trim")
+        pressPlaced = beginOnFace(x, y) || sk.click(x, y, 1, shiftHeld || tools.additive());
+    },
+    sketchRelease: (x, y, moved, count) => {
+      if (pressPlaced && !moved) return; // (a click that began the figure at its press has done its work)
+      sk.click(x, y, count, shiftHeld || tools.additive());
+    },
     boxStart: (x, y) => box.start(x, y),
     boxMove: (x, y) => box.move(x, y),
     boxEnd: (x, y) => box.end(x, y),
