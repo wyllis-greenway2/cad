@@ -6728,3 +6728,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1671 — 2026-11-28 — directive
 > why are there so many different arrow types? can we just have one? lets keep the one that reuses the same dashed line style as everything else, it seems like the icon one is special and would need to be standardized. Also can we make the arrow tip stop short of destination? it helps make movement direction more clear and also prevents the arrow tip from getting clipped off by verticies etc
+
+## in_1672 — 2026-11-28 — directive
+> yes lets just standardize, I want everything to reuse the same stuff as much as possible, lets have the same arrow style always and the tip always stops short

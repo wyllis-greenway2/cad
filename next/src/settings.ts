@@ -91,6 +91,8 @@ export const settings = {
     widthPx: 2,
     circleSegments: 64,
     ballPx: 4.5 /* (a picked point's ball: its radius) */,
+    arrowGapPx: 5 /* (every arrow's tip stops this far short of what it points at, `in_1672`) */,
+    arrowHeadPx: 8 /* (the length of an arrow's open tip) */,
   },
   // the helpers of drawing (`dec_helpers_one_rule`): how near the pointer must be to a relation that says a point and one that says a line (px), how far past its ends a guide runs and the steps it is traced in (px), the guide's dash (the old app's: this much of the view's distance; the gap is this much of the dash)
   helpers: { pointPx: 12, linePx: 6, offerPx: 12, overPx: 12, stepPx: 6, dash: 0.012, dashGap: 0.7 },

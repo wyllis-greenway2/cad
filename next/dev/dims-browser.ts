@@ -46,7 +46,18 @@ try {
   );
   const dl = d1.find((l) => l.kind === "arrow" && !l.head);
   const len = dl ? Math.hypot(dl.pts[1][0] - dl.pts[0][0], dl.pts[1][1] - dl.pts[0][1]) : 0;
-  ok(Math.abs(len - 7) < 0.05 * 7 || Math.abs(len - 7) < 0.6, `the line is one radius long (7 mm): ${len.toFixed(2)}`);
+  ok(
+    len > 5.5 && len < 6.5,
+    `the line is one radius long (7 mm) less the gap each tip stops short by (5 px at each end): ${len.toFixed(2)}`,
+  );
+  const tips = d1.filter((l) => l.head).map((l) => l.pts[1]);
+  ok(
+    tips.length === 2 &&
+      tips.every(
+        (t) => Math.min(Math.hypot(t[0] - 15, t[1] - 20), Math.abs(Math.hypot(t[0] - 15, t[1] - 20) - 7)) > 0.3,
+      ),
+    "both tips stop short of what they point at: the centre and the edge of the circle",
+  );
   writeFileSync(`${dir}/dims-circle.png`, await page.screenshot());
   await page.mouse.move(b1!.x + 300, b1!.y + 250, { steps: 6 });
   await page.waitForTimeout(250);

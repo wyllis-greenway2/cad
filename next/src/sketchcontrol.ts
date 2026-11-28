@@ -168,25 +168,26 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     return null;
   };
   const D = createDrag(K, () => tool !== null);
-  /** the one arrow (`in_1671`): a dashed line and an open tip, in the plane's axes. `tip`, `tail`: pixels the arrow stops short of its place at each end (so the tip is not clipped by a point and the direction reads); `both`: a tip at each end (a dimension); `least`: no arrow when the two places are nearer than this many pixels */
+  /** the one arrow (`in_1671`, `in_1672`): a dashed line and an open tip, in the plane's axes, and **every tip stops `settings.sketch.arrowGapPx` short of what it points at** (so the direction reads and a point cannot clip it). `both`: a tip at each end (a dimension; each stops short of its end); `tail`: pixels the arrow starts away from where it is said to start (a bubble's arrow starts out of the bubble); `least`: no arrow when the two places are nearer than this many pixels */
   const arrow = (
     f: Frame,
     a: P2,
     b: P2,
     kind: "arrow" | "arrowOffer" | "arrowPale",
-    o: { tip?: number; tail?: number; both?: boolean; least?: number } = {},
+    o: { tail?: number; both?: boolean; least?: number } = {},
   ): DrawLine[] => {
     const len = Math.hypot(b[0] - a[0], b[1] - a[1]),
       mm = mmPerPx(f, b);
     if (len < 1e-9 || len < (o.least ?? 0) * mm) return [];
-    const ux = (b[0] - a[0]) / len,
+    const gap = settings.sketch.arrowGapPx,
+      ux = (b[0] - a[0]) / len,
       uy = (b[1] - a[1]) / len,
-      tip = Math.min((o.tip ?? 0) * mm, len * 0.3),
-      tail = Math.min((o.tail ?? 0) * mm, len * 0.3),
+      tip = Math.min(gap * mm, len * 0.3),
+      tail = Math.min((o.tail ?? (o.both ? gap : 0)) * mm, len * 0.3),
       from: P2 = [a[0] + ux * tail, a[1] + uy * tail],
       to: P2 = [b[0] - ux * tip, b[1] - uy * tip];
     const head = (at: P2, dx: number, dy: number): DrawLine => {
-      const h = mm * 8,
+      const h = mm * settings.sketch.arrowHeadPx,
         w = (sg: number): P2 => [
           at[0] - h * (dx * Math.cos(0.45) - sg * dy * Math.sin(0.45)),
           at[1] - h * (dy * Math.cos(0.45) + sg * dx * Math.sin(0.45)),
@@ -366,7 +367,6 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
           out.push(
             ...arrow(f, st.leader.from, st.leader.to, st.lit?.offer ? "arrowOffer" : "arrow", {
               tail: 16,
-              tip: 6,
               least: 24,
             }),
           );
@@ -421,7 +421,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       if (mv)
         // a dashed arrow from where a part is to where the offered constraint would put it, its tip short of the place: strong for the parts it names, pale for what moves only because they do (`in_1631`, `in_1667`, `in_1671`)
         for (const { from: a, to: b, main } of mv.list)
-          out.push(...arrow(mv.f, a, b, main ? "arrowOffer" : "arrowPale", { tip: 5 }));
+          out.push(...arrow(mv.f, a, b, main ? "arrowOffer" : "arrowPale"));
       out.push(...D.hintLines(all));
       const c = pointer && tool ? here(pointer.x, pointer.y) : null;
       if (c && tool) {
