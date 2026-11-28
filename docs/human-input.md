@@ -6778,3 +6778,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1687 — 2026-11-28 — directive
 > do the sketching leak, the zero-size figure, and the world.ts split
+
+## in_1688 — 2026-11-28 — question
+> what are the next problems to fix and why are they problems?
