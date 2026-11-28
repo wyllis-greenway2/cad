@@ -127,7 +127,7 @@ export class EngineHost {
       }
       if (reply.type === "error") {
         events.push(`this recipe was refused: ${reply.message}; this is the last good picture`);
-        return { snapshot: this.lastGood ?? { steps: [], computes: 0, ms: 0, rssMb: 0 }, events, fresh: false };
+        return { snapshot: this.lastGood ?? { steps: [], current: null, computes: 0, ms: 0, rssMb: 0 }, events, fresh: false };
       }
       // it did not answer: which step was it in?
       const step = this.running,
@@ -144,7 +144,7 @@ export class EngineHost {
       events.push(`step ${step} held back: ${why}; the kernel restarted and the recipe is sent again`);
     }
     events.push("this recipe could not be made: this is the last good picture");
-    return { snapshot: this.lastGood ?? { steps: [], computes: 0, ms: 0, rssMb: 0 }, events, fresh: false };
+    return { snapshot: this.lastGood ?? { steps: [], current: null, computes: 0, ms: 0, rssMb: 0 }, events, fresh: false };
   }
 
   private ask1(w: Transport, req: Request): Promise<Reply | { type: "gone"; why: string } | { type: "timeout" }> {

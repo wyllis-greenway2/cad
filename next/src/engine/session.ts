@@ -104,6 +104,7 @@ export class Session {
       }
     return {
       steps,
+      current: e?.current() ?? null,
       computes,
       ms,
       rssMb:

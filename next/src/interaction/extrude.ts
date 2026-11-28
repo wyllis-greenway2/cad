@@ -155,6 +155,8 @@ export function roundSteps(
 }
 export function extrudeSteps(
   recipe: readonly Step[],
+  /** the step that made the model as it is now (the engine says: `Engine.current`); null: there is no body */
+  current: string | null,
   def: SketchParams,
   f: Frame,
   pick: Pt,
@@ -179,9 +181,8 @@ export function extrudeSteps(
         : { id: sid, kind: "sketch", params: { ...def, frame: frameParams(f), pick: [pick] } as never, inputs: [] },
       { id: eid, kind: "extrude", params: { d }, inputs: [sid] },
     ];
-  // the body the model is now: the LAST step that makes a body, whatever it is (a round, a push, a move, a combine), never an earlier one (a new body joined to the extrude step before a round left the round out, `in_1739`)
-  const lastBody = [...recipe].reverse().find((s) => !s.kind.startsWith("sketch"));
-  if (lastBody)
-    steps.push({ id: have("c"), kind: "combine", params: { mode: d < 0 ? "cut" : "add" }, inputs: [lastBody.id, eid] });
+  // a new body is joined to the model AS IT IS NOW, whatever step made that (a round, a push, a move, a combine): never an earlier body, which would leave the later steps out (`in_1739`)
+  if (current)
+    steps.push({ id: have("c"), kind: "combine", params: { mode: d < 0 ? "cut" : "add" }, inputs: [current, eid] });
   return steps;
 }

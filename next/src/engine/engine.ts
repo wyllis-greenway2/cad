@@ -155,6 +155,14 @@ export class Engine {
   ids(): readonly string[] {
     return this.order;
   }
+  /** The step that made the model as it is now: the last step of the recipe (in the order it was made) whose result is a body and that is not orphaned. A new step that joins the model takes this one, never an earlier body (`in_1739`, `in_1741`: the page used to guess it from the kinds of the steps). Null: there is no body. */
+  current(): string | null {
+    for (const id of [...this.steps.keys()].reverse()) {
+      const s = this.slots.get(id);
+      if (s && s.held.v instanceof Body && s.status.kind !== "orphaned") return id;
+    }
+    return null;
+  }
 
   /**
    * Would doing this step before the one it works on help? Built on the side; nothing of this engine changes (E15: a rescue is offered, never done unasked).

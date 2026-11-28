@@ -13,7 +13,7 @@ let p = emptySketch();
 const k = keep(addRect(p, s0, refOf(p, s0, [0, 0], 0.5), refOf(p, s0, [40, 25], 0.5))!);
 if (!k.ok) throw new Error(k.why);
 p = k.params;
-const steps = extrudeSteps([], p, worldFrame(2), [20, 12], 10);
+const steps = extrudeSteps([], null, p, worldFrame(2), [20, 12], 10);
 const model = {
   steps,
   drawings: { "world:2": p },

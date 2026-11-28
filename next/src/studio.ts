@@ -55,6 +55,8 @@ export interface StudioState {
   busy: boolean;
   /** what the last answer said was wrong with a step, in words ("" when all is well) */ problem: string;
   snapshot: readonly StepSnap[];
+  /** the step that made the model as it is now, from the engine (null: no body) */
+  current: string | null;
 }
 
 /** an engine mesh as buffers: each edge's points are joined by short lines */
@@ -94,7 +96,7 @@ export function meshBuffers(id: string, m: MeshSnap): BodyMesh {
 
 export function createStudio(spawn: Spawn = webWorker()) {
   const host = new EngineHost(spawn, { timeoutMs: 30000, memoryMb: 1500 });
-  let state: StudioState = { steps: [], meshes: [], busy: false, problem: "", snapshot: [] },
+  let state: StudioState = { steps: [], meshes: [], busy: false, problem: "", snapshot: [], current: null },
     loaded = false,
     version = 0,
     pending = 0,
@@ -112,19 +114,19 @@ export function createStudio(spawn: Spawn = webWorker()) {
     if (mine !== version) return; // (a newer recipe is on its way)
     const snap = out.snapshot.steps,
       bad = snap.filter((s) => s.status.kind !== "ok"),
-      last = [...snap].reverse().find((s) => s.output === "body" && s.status.kind !== "orphaned");
+      current = out.snapshot.current; // (the engine says which step is the model now; the page does not guess)
     const problem = out.fresh
       ? bad.length
         ? bad.map((s) => `${s.id}: ${(s.status as { why?: string }).why ?? s.status.kind}`).join("; ")
         : out.events.join("; ")
       : out.events.join("; ");
     let meshes: BodyMesh[] = [];
-    if (last) {
-      const r = await host.ask({ what: "mesh", step: last.id });
-      if (r.ok) meshes = [meshBuffers(last.id, r.data as MeshSnap)];
+    if (current) {
+      const r = await host.ask({ what: "mesh", step: current });
+      if (r.ok) meshes = [meshBuffers(current, r.data as MeshSnap)];
       else if (!problem) set({ problem: r.why });
     }
-    if (mine === version) set({ meshes, problem, snapshot: snap });
+    if (mine === version) set({ meshes, problem, snapshot: snap, current });
   }
   return {
     state: (): StudioState => state,

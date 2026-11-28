@@ -31,7 +31,7 @@ check(
 );
 check("a click inside the circle picks the circle alone", !!inner && inner.loops.length === 1);
 const f = worldFrame(2),
-  steps = extrudeSteps([], p, f, [5, 5], 10);
+  steps = extrudeSteps([], null, p, f, [5, 5], 10);
 check("the first extrude is a sketch and an extrude", steps.map((s) => s.kind).join() === "sketch,extrude");
 const e = new Engine(steps as any);
 e.build();
@@ -41,7 +41,7 @@ check(
   e.result("e1").status.kind === "ok" && Math.abs(K.volume(v.solid) - (1000 - Math.PI * 36) * 10) < 1e-3,
   `${K.volume(v.solid)}`,
 );
-const more = extrudeSteps(steps as any, p, f, [20, 12], 5),
+const more = extrudeSteps(steps as any, "e1", p, f, [20, 12], 5),
   all = [...steps, ...more];
 check(
   "a second pull adds a combine step (add)",
@@ -55,7 +55,7 @@ check(
     Math.abs(K.volume((e2.result("c1").value as Body).solid) - ((1000 - Math.PI * 36) * 10 + Math.PI * 36 * 5)) < 1e-3,
 );
 const top = { ...f, origin: [0, 0, 10] as [number, number, number] },
-  cut = extrudeSteps(steps as any, p, top, [5, 5], -4),
+  cut = extrudeSteps(steps as any, "e1", p, top, [5, 5], -4),
   e3 = new Engine([...steps, ...cut] as any);
 e3.build();
 check(
@@ -89,7 +89,7 @@ import { addArc, addLine, arcWay } from "../src/interaction/drawing.ts";
     !!half && half.loops.length === 1 && Math.abs(half.area - (Math.PI * 100) / 2) < 0.05,
     `${half?.area}`,
   );
-  const st = extrudeSteps([], q, f, [0, 3], 4),
+  const st = extrudeSteps([], null, q, f, [0, 3], 4),
     en = new Engine(st as any);
   en.build();
   check(
@@ -153,7 +153,7 @@ import { addArc, addLine, arcWay } from "../src/interaction/drawing.ts";
     { id: "e1", kind: "extrude", params: { d: 10 }, inputs: ["s1"] },
     { id: "r1", kind: "round", params: { edges: [], size: 1, mode: "fillet" }, inputs: ["e1"] },
   ];
-  const more2 = extrudeSteps(recipe as any, p, f, [20, 12], 5);
+  const more2 = extrudeSteps(recipe as any, "r1", p, f, [20, 12], 5);
   check(
     "a new body is joined to the last body step, the round, not the extrude before it",
     more2.at(-1)?.kind === "combine" && more2.at(-1)?.inputs[0] === "r1",

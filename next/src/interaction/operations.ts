@@ -34,6 +34,8 @@ export function extrudeOp(
     source: Source | null;
     snap?: Operation["snap"];
     /** where the arrow stands (near where the figure was clicked); none: in its middle */ at?: V3;
+    /** the step that made the model as it is now, when the extrude is made (the engine's `current`) */
+    current(): string | null;
   },
   d = 0,
 ): Operation {
@@ -72,7 +74,10 @@ export function extrudeOp(
         ? { kind: "nothing" }
         : {
             kind: "steps",
-            steps: [...recipe, ...extrudeSteps(recipe, a.def, a.frame, a.region.pick, value, a.source ?? undefined)],
+            steps: [
+              ...recipe,
+              ...extrudeSteps(recipe, a.current(), a.def, a.frame, a.region.pick, value, a.source ?? undefined),
+            ],
           },
     debug: { key: a.key, pick: a.region.pick, loops: a.region.loops.length },
   });

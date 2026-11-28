@@ -42,6 +42,8 @@ export interface StepSnap {
 }
 export interface Snapshot {
   steps: StepSnap[];
+  /** the step that made the model as it is now (`Engine.current`): what a new body is joined to; null: no body */
+  current: string | null;
   computes: number;
   ms: number;
   rssMb: number;

@@ -45,7 +45,7 @@ const sol = { points: Object.fromEntries(p.points.map((x) => [x.id, [x.x, x.y] a
 const dim = constrain(p, sol, ["L1"], "dimension");
 if (!dim.ok) throw new Error(dim.why);
 p = dim.params;
-const steps = extrudeSteps([], p, worldFrame(2), [20, 12], 10);
+const steps = extrudeSteps([], null, p, worldFrame(2), [20, 12], 10);
 const e = new Engine(steps as any);
 e.build();
 const vol = (en: Engine, id: string) => K.volume((en.result(id).value as Body).solid);

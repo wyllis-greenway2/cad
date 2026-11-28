@@ -55,7 +55,7 @@ test("[F2] no step takes a body that a newer step has replaced (model_9.cad, mad
   }
 });
 
-test("[F3] a body added to a model is joined to the model as it is now: the combine takes the last step that makes a body first", () => {
+test("[F3] a body added to a model is joined to the model as it is now: the engine says which step that is, and the combine takes it first", () => {
   const def = {
     points: [{ id: "P1", x: 0, y: 0 }],
     circles: [{ id: "K1", c: "P1", r: 3 }],
@@ -69,12 +69,20 @@ test("[F3] a body added to a model is joined to the model as it is now: the comb
     u: [1, 0, 0] as [number, number, number],
   };
   for (const f of fixtures) {
-    const last = [...f.steps].reverse().find(makesBody)!,
-      added = extrudeSteps(f.steps, def as never, frame as never, [0, 0], 5),
+    const e = build(f.steps),
+      current = e.current(),
+      lastMaking = [...f.steps].reverse().find(makesBody)!.id;
+    assert.equal(current, lastMaking, `${f.name}: the engine's current body is the last step that makes a body`);
+    const added = extrudeSteps(f.steps, current, def as never, frame as never, [0, 0], 5),
       join = added.find((s) => s.kind === "combine");
     assert.ok(join, `${f.name}: a combine is added`);
-    assert.equal(join!.inputs[0], last.id, `${f.name}: joined to ${last.id}`);
+    assert.equal(join!.inputs[0], current, `${f.name}: joined to ${current}`);
   }
+  assert.equal(build([]).current(), null, "no body: no current, and no combine");
+  assert.equal(
+    extrudeSteps([], null, def as never, frame as never, [0, 0], 5).some((s) => s.kind === "combine"),
+    false,
+  );
 });
 
 test("[F4] a move or a turn keeps the volume of the body, at every such step of every file", () => {

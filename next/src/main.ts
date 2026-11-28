@@ -214,7 +214,7 @@ const extrudeOfRegion = (r: Omit<NonNullable<ReturnType<typeof sk.regionAt>>, "c
       const f = flushPull({ p: base, n: r.frame.normal }, scenePlanes(), d, reach);
       return f && { d: f.d, tie: f.to.face };
     };
-  return extrudeOp({ ...r, source: liveSource(r.key), snap, at: base });
+  return extrudeOp({ ...r, source: liveSource(r.key), snap, at: base, current: () => studio.state().current });
 };
 const ext = createOperations({
   view: () => {
@@ -295,7 +295,8 @@ const tieMarks = (): Mark[] => {
 };
 /** the flat faces of the scene, as planes: what a pull can be flush with (`engine/flush.ts`) */
 const scenePlanes = (): PlaneRef[] => {
-  const last = [...studio.state().snapshot].reverse().find((x) => x.output === "body");
+  const now = studio.state(),
+    last = now.snapshot.find((x) => x.id === now.current);
   return last ? planesOf(last.faces) : [];
 };
 const bodyOps = createBodyOps({
