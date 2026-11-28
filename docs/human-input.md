@@ -6844,3 +6844,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1709 — 2026-11-28 — question
 > so why do you want to add the bodies to the camera scene again?
+
+## in_1710 — 2026-11-28 — directive
+> okay go ahead and add the bodies to the camera scene, I thought they already were

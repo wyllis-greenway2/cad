@@ -18,10 +18,13 @@ try {
     });
     await page.mouse.click(b.x, b.y);
   };
-  const dist = () => ev<number>(`() => Math.hypot(...window.__cad.cam.eye)`);
+  // how far the eye is from the point the straight view was entered about, and where that point is (the Z button alternates the side it looks from, so the distance from the origin is no measure)
+  const dist = () => ev<number>(`() => Math.hypot(...window.__cad.cam.eye.map((v, i) => v - window.__cad.held[i]))`);
+  const heldAt = () => ev<number[]>(`() => window.__cad.held.map((v) => Math.round(v * 10) / 10)`);
   await zButton(); // a straight view
   await page.waitForTimeout(900);
-  const seen: number[] = [];
+  const seen: number[] = [],
+    helds: string[] = [];
   for (let i = 0; i < 5; i++) {
     await page.mouse.move(200, 400);
     await page.mouse.down();
@@ -29,13 +32,15 @@ try {
     await page.mouse.up();
     await page.waitForTimeout(1000); // fully out: the 3D view it entered
     seen.push(await dist());
+    helds.push((await heldAt()).join());
     await zButton(); // back to the straight view
     await page.waitForTimeout(900);
   }
   const spread = Math.max(...seen) / Math.min(...seen);
+  ok(new Set(helds).size === 1, `the same point is held each time: ${[...new Set(helds)].join(" | ")}`);
   ok(
-    spread < 1.03,
-    `the 3D view entered is the same each time: eye distances ${seen.map((x) => x.toFixed(0)).join(", ")} (spread ${spread.toFixed(3)})`,
+    spread < 1.01,
+    `the 3D view entered is the same each time: eye distances from the point held ${seen.map((x) => x.toFixed(0)).join(", ")} (spread ${spread.toFixed(3)})`,
   );
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   await close();

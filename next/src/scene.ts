@@ -1,4 +1,4 @@
-// What there is to look at: a box for each body (its extent), which the view measures by, turns about and can lose. The ready-made scenes are for tests and the dev page (`dev.ts`).
+// What there is to look at: a box for each body (its extent), which the view measures by, turns about and can lose: a box for each body the engine made (`bodyThings`) and, on the dev page, stand-in boxes (`dev.ts`; the ready-made scenes are for tests).
 import type { V3 } from "./vec.ts";
 
 export interface Thing {
@@ -10,6 +10,26 @@ export interface Scene {
   things: Thing[];
 }
 
+/** What the camera looks at: the stand-in things and a box for each body the engine made. */
+export const lookedAt = (standIns: Scene, bodies: readonly Thing[]): Scene => ({ things: [...standIns.things, ...bodies] });
+const boxes = new WeakMap<object, Thing>();
+/** The box of each body the engine made (the extent of its points): the camera measures by it, turns about it, and can lose it. Made once for each body. */
+export function bodyThings(meshes: readonly { id: string; positions: ArrayLike<number> }[]): Thing[] {
+  return meshes.flatMap((m) => {
+    let t = boxes.get(m);
+    if (!t && m.positions.length >= 3) {
+      const lo: V3 = [Infinity, Infinity, Infinity],
+        hi: V3 = [-Infinity, -Infinity, -Infinity];
+      for (let i = 0; i + 2 < m.positions.length; i += 3)
+        for (let k = 0; k < 3; k++) {
+          lo[k] = Math.min(lo[k]!, m.positions[i + k]!);
+          hi[k] = Math.max(hi[k]!, m.positions[i + k]!);
+        }
+      boxes.set(m, (t = { id: m.id, lo, hi }));
+    }
+    return t ? [t] : [];
+  });
+}
 export const emptyScene = (): Scene => ({ things: [] });
 export const oneScene = (): Scene => ({ things: [{ id: "a", lo: [-20, -20, 0], hi: [20, 20, 30] }] });
 export const demoScene = (): Scene => ({

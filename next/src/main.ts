@@ -43,6 +43,7 @@ import { createToolControl } from "./toolcontrol.ts";
 import { createUi } from "./ui.ts";
 import { add, dot, scale, sub, unit } from "./vec.ts";
 import * as view from "./view.ts";
+import { bodyThings, lookedAt, type Scene } from "./scene.ts";
 import { createWorld } from "./world.ts";
 
 const params = new URLSearchParams(location.search);
@@ -55,8 +56,16 @@ const game = createGame();
 
 let s = view.initial(model);
 let pointer: view.Pointer | null = null;
+/** what the camera looks at: the stand-in things and a box for each body the engine made, made again only when the engine's bodies change (`scene.ts`) */
+let looked: { standIns: readonly unknown[]; bodies: readonly unknown[]; scene: Scene } | null = null;
+const cameraScene = (): Scene => {
+  const bodies = studio.state().meshes;
+  if (!looked || looked.standIns !== model.things || looked.bodies !== bodies)
+    looked = { standIns: model.things, bodies, scene: lookedAt(model, bodyThings(bodies)) };
+  return looked.scene;
+};
 const env = (now = performance.now()): view.Env => ({
-  model,
+  model: cameraScene(),
   w: canvas.clientWidth || innerWidth,
   h: canvas.clientHeight || innerHeight,
   now,
@@ -96,7 +105,7 @@ function lookAt(axis: Axis) {
 function addSketchPlane() {
   if (game.on) endGame();
   const e = env();
-  placed = facingCamera(s.c, focusOf(model, s.c, e.w, e.h));
+  placed = facingCamera(s.c, focusOf(cameraScene(), s.c, e.w, e.h));
   placedKey = null;
   orbc.forget("sketch");
   s = view.lookAlong(s, e, scale(placed.normal, -1)); // (a sketch is drawn looking straight at its plane, orthographic)
