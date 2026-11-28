@@ -83,7 +83,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
   } | null = null;
   const touches = new Map<number, { x: number; y: number }>();
   let tap: { x: number; y: number; moved: boolean } | null = null;
-  let grabbing = false; // (a handle of the mover orb has the pointer)
+  let grabbing: { x: number; y: number } | null = null; // (a handle of the mover orb has the pointer, taken here)
   let touchKind: "orbit" | "pan" | null = null;
   let last = { t: 0, x: 0, y: 0, n: 0 };
   const count = (x: number, y: number, t: number) => {
@@ -119,8 +119,12 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
       }
       return;
     }
-    if (e.button === 0 && !space && !e.altKey && out.grab(p.x, p.y, e.shiftKey)) {
-      grabbing = true;
+    // (a press that goes on from a click just made is the second of a double click, whatever stands under it, an arrow too: it is not a handle's)
+    const again =
+      e.timeStamp - last.t < settings.input.multiClickMs &&
+      Math.hypot(p.x - last.x, p.y - last.y) < settings.input.multiClickPx;
+    if (e.button === 0 && !space && !e.altKey && !again && out.grab(p.x, p.y, e.shiftKey)) {
+      grabbing = { x: p.x, y: p.y };
       return;
     }
     if (space) spaceUsed = true;
@@ -203,7 +207,9 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
       return;
     }
     if (grabbing) {
-      grabbing = false;
+      // (a press on a handle that went nowhere counts as a click for the counting: its second press is a double click's)
+      if (Math.hypot(p.x - grabbing.x, p.y - grabbing.y) < settings.input.multiClickPx) count(p.x, p.y, e.timeStamp);
+      grabbing = null;
       out.grabEnd();
       return;
     }

@@ -45,6 +45,7 @@ export function createOperations(host: OperationHost) {
     applyNext = false, // (the number now being typed was begun by digits with the operation showing: Enter sets it and makes the operation, as the old app's did)
     auto = false, // (it came by itself, from a pick: `autohandles.ts`)
     touched = false, // (and the person has dragged it, typed a number or chosen a kind)
+    selected = false, // (the arrow was pressed)
     numberAsked = false; // (digits were typed: the number is to be shown to take them)
   /** the arrow, as in the old app: centred on the place it is anchored at, along the way it is pulled, with a head at each end; long enough to reach the pull when that is longer than it is */
   const handle = (o: Operation, cam: Cam): Handle => {
@@ -65,7 +66,7 @@ export function createOperations(host: OperationHost) {
     op = null;
     grab = null;
     tie = null;
-    auto = touched = numberAsked = false;
+    auto = touched = numberAsked = selected = false;
   };
   function apply(): boolean {
     if (!op) return false;
@@ -101,7 +102,7 @@ export function createOperations(host: OperationHost) {
       grab = null;
       op = o;
       auto = byItself;
-      touched = numberAsked = false;
+      touched = numberAsked = selected = false;
       if (o.tilt && !byItself) host.tilt(o.tilt.frame, o.tilt.centre, o.tilt.size); // (the view is not moved for an arrow that came by itself from a pick: it is as a face's, which does not move it)
     },
     /** The Extrude tool is chosen: the next click inside a closed part of the drawing picks it. */
@@ -128,6 +129,7 @@ export function createOperations(host: OperationHost) {
       const { cam, w, h } = host.view();
       if (!hitHandle([handle(op, cam)], cam, w, h, x, y)) return false;
       grab = { x0: x, y0: y, d0: op.pulled };
+      selected = true; // (a press selects the arrow, as the old app's: it stays teal and shows its number)
       return true;
     },
     grabMove(x: number, y: number): void {
@@ -176,7 +178,7 @@ export function createOperations(host: OperationHost) {
         over = pointer && !grab ? hitHandle([hd], cam, w, h, pointer.x, pointer.y) : null;
       return {
         handles: [hd],
-        hot: over || grab ? [ID] : [],
+        hot: over || grab || selected || touched ? [ID] : [],
         unit: unitOf(cam, op.arrow.base),
         orient: false,
         hover: !!over,
@@ -219,7 +221,7 @@ export function createOperations(host: OperationHost) {
       };
       return {
         info: {
-          facts: !auto || touched || numberAsked ? [f] : [],
+          facts: !auto || touched || numberAsked || selected ? [f] : [],
           suggestions: op.options
             .filter((o) => !o.on && o.enabled)
             .map((o) => ({

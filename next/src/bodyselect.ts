@@ -13,6 +13,7 @@ export interface Mark {
   body: string;
   faces: { start: number; count: number }[];
   edges: { start: number; count: number }[];
+  /** corners, drawn as balls */ corners: V3[];
   strength: "pick" | "hover" | "tie";
 }
 export interface BodySelectHost {
@@ -49,28 +50,26 @@ export function createBodySelect(host: BodySelectHost) {
       if (!hit) return store.clear();
       if (count === 2) {
         // two clicks take the whole body, from whatever part of it (as the old app's): its orb shows, `autohandles.ts`; a third goes back to the part
-        store.setBody({ body: hit.body, faces: [], edges: [], at: hit.point });
+        store.setBody({ body: hit.body, faces: [], edges: [], vertices: [], at: hit.point });
         return true;
       }
-      if (hit.kind === "face") {
-        // Shift adds a face to the faces picked of the same body, or takes it out if it is one of them (the old app's rule, `MD-35`)
-        const more = shift && cur && cur.body === hit.body && cur.faces.length && !cur.edges.length,
-          faces = more
-            ? cur!.faces.some((f) => same(f, hit.face))
-              ? cur!.faces.filter((f) => !same(f, hit.face))
-              : [...cur!.faces, hit.face]
-            : [hit.face];
-        store.setBody({ body: hit.body, faces, edges: [], at: hit.point });
-        pickedAt = performance.now();
-      } else if (shift && cur && cur.body === hit.body && cur.edges.length)
-        store.setBody({
-          ...cur,
-          edges: cur.edges.some((e) => same(e, hit.edge))
-            ? cur.edges.filter((e) => !same(e, hit.edge))
-            : [...cur.edges, hit.edge],
-          at: hit.point,
-        });
-      else store.setBody({ body: hit.body, faces: [], edges: [hit.edge], at: hit.point });
+      // what is picked on the body, as lists; Shift adds a part of the same kind on the same body, or takes it out if it is one of them (the old app's rule, `MD-35`)
+      const part = hit.kind === "face" ? "faces" : hit.kind === "edge" ? "edges" : "vertices",
+        one = hit.kind === "face" ? hit.face : hit.kind === "edge" ? hit.edge : hit.vertex,
+        sameKind =
+          !!cur &&
+          cur.body === hit.body &&
+          cur[part].length > 0 &&
+          (["faces", "edges", "vertices"] as const).every((k) => k === part || !cur[k].length),
+        have = sameKind ? (cur![part] as { key?: string; id?: string }[]) : [],
+        list =
+          shift && sameKind
+            ? have.some((x) => same(x, one))
+              ? have.filter((x) => !same(x, one))
+              : [...have, one]
+            : [one];
+      store.setBody({ body: hit.body, faces: [], edges: [], vertices: [], ...{ [part]: list }, at: hit.point });
+      if (hit.kind === "face") pickedAt = performance.now();
       return true;
     },
     hover(x: number, y: number): void {
@@ -103,6 +102,7 @@ export function createBodySelect(host: BodySelectHost) {
           body: pick.body,
           faces: pick.faces.map((f) => ({ start: f.start, count: f.count })),
           edges: [...pick.edges, ...around].map((e) => ({ start: e.start, count: e.count })),
+          corners: pick.vertices.map((v) => v.at),
           strength: "pick",
         });
       }
@@ -111,13 +111,15 @@ export function createBodySelect(host: BodySelectHost) {
         !(
           pick &&
           ((over.kind === "face" && pick.faces.some((f) => same(f, over!.kind === "face" ? over!.face : f))) ||
-            (over.kind === "edge" && pick.edges.some((e) => same(e, over!.kind === "edge" ? over!.edge : e))))
+            (over.kind === "edge" && pick.edges.some((e) => same(e, over!.kind === "edge" ? over!.edge : e))) ||
+            (over.kind === "vertex" && pick.vertices.some((v) => same(v, over!.kind === "vertex" ? over!.vertex : v))))
         )
       )
         out.push({
           body: over.body,
           faces: over.kind === "face" ? [{ start: over.face.start, count: over.face.count }] : [],
           edges: over.kind === "edge" ? [{ start: over.edge.start, count: over.edge.count }] : [],
+          corners: over.kind === "vertex" ? [over.vertex.at] : [],
           strength: "hover",
         });
       return out;
@@ -153,7 +155,12 @@ export function createBodySelect(host: BodySelectHost) {
     debug: () => {
       const k = sel();
       return {
-        sel: k && { body: k.body, faces: k.faces.map((f) => f.id), edges: k.edges.map((e) => e.key) },
+        sel: k && {
+          body: k.body,
+          faces: k.faces.map((f) => f.id),
+          edges: k.edges.map((e) => e.key),
+          vertices: k.vertices.map((v) => v.key),
+        },
         over: over?.kind ?? null,
       };
     },

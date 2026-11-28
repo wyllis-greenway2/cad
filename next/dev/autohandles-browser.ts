@@ -1,6 +1,7 @@
 // A dev check in the real page (not a test, `in_1444`): what a pick shows by itself, as the old app did (`dec_body_look_and_feel`, `src/autohandles.ts`): a face its pull arrow, edges their round arrow, a whole body (a double click) the mover orb.
 //   node --experimental-strip-types dev/autohandles-browser.ts [screenshot-dir]
-import { S, ok, finish, evalIn } from "./page-lib.ts";
+import { S, dir, ok, finish, evalIn } from "./page-lib.ts";
+import { writeFileSync } from "node:fs";
 try {
   const { page, errors, close } = await S.open("");
   const ev = evalIn(page);
@@ -59,6 +60,48 @@ try {
   s = await state();
   ok(s.b.sel === null && s.pull === null, "a second Esc puts the pick away");
 
+  // a corner is picked as a ball (corners come before edges and faces), Shift adds another, and no arrow or orb comes of it
+  await page.mouse.click(1000, 600);
+  await wait(400);
+  const [c1x, c1y] = await p3([20, -10, 20]);
+  await page.mouse.click(c1x, c1y);
+  await wait(700);
+  s = await state();
+  ok(
+    s.b.sel?.vertices.length === 1 &&
+      s.b.sel.faces.length === 0 &&
+      s.b.sel.edges.length === 0 &&
+      s.pull === null &&
+      s.mv === null,
+    `a click on a corner picks the corner: ${JSON.stringify(s.b.sel)}`,
+  );
+  const [c2x, c2y] = await p3([20, 10, 20]);
+  await page.keyboard.down("Shift");
+  await page.mouse.click(c2x, c2y);
+  await page.keyboard.up("Shift");
+  await wait(500);
+  s = await state();
+  ok(s.b.sel?.vertices.length === 2, `Shift adds a second corner: ${s.b.sel?.vertices.length}`);
+  writeFileSync(`${dir}/corners.png`, await page.screenshot());
+  await page.mouse.click(1000, 600);
+  await wait(400);
+  // two quick clicks on the arrow's own place take the whole body as anywhere else does: the second press is a click's, not the arrow's
+  await page.mouse.click(1000, 600);
+  await wait(400);
+  await page.mouse.click(gx, gy);
+  await wait(800);
+  const base = (await state()).pull.arrow.base as number[];
+  const [bx, by] = await p3(base);
+  await page.mouse.click(bx, by);
+  await page.mouse.click(bx, by);
+  await wait(800);
+  s = await state();
+  ok(
+    s.b.sel?.faces.length === 0 && s.b.sel?.edges.length === 0 && s.pull === null && s.mv !== null,
+    "two quick clicks on the arrow's own place take the whole body",
+  );
+  await page.mouse.click(1000, 600);
+  await wait(500);
   // a double click takes the whole body: the mover orb, at once
   await page.mouse.click(gx, gy);
   await wait(400);

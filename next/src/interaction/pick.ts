@@ -3,7 +3,7 @@
 import { project, type Cam } from "../camera.ts";
 import { idKey } from "../engine/id.ts";
 import { rayOf } from "../orb.ts";
-import type { BodyMesh, EdgeInfo, FaceInfo } from "../studio.ts";
+import type { BodyMesh, EdgeInfo, FaceInfo, VertexInfo } from "../studio.ts";
 import type { V3 } from "../vec.ts";
 
 /** The edges that bound some faces of a body (those with a name: two faces beside them): a face stands for its edges (`dec_selection_tools`, `in_257`), so a round or chamfer of a face is of every one of them. */
@@ -13,7 +13,8 @@ export function edgesAround(m: Pick<BodyMesh, "edgeInfo">, faces: readonly Pick<
 }
 export type Hit =
   | { kind: "face"; body: string; face: FaceInfo; point: V3; normal: V3; depth: number }
-  | { kind: "edge"; body: string; edge: EdgeInfo; point: V3; depth: number };
+  | { kind: "edge"; body: string; edge: EdgeInfo; point: V3; depth: number }
+  | { kind: "vertex"; body: string; vertex: VertexInfo; point: V3; depth: number };
 
 /** the first triangle of the mesh the ray meets: how far along it, and the face it belongs to (Möller–Trumbore) */
 function rayMesh(m: BodyMesh, o: V3, d: V3): { t: number; face: FaceInfo; normal: V3 } | null {
@@ -70,7 +71,7 @@ export function pickRay(cam: Cam, w: number, h: number, x: number, y: number): {
   const r = rayOf(cam, w, h, x, y);
   return cam.ortho === null ? r : { o: [r.o[0] - r.d[0] * 1e6, r.o[1] - r.d[1] * 1e6, r.o[2] - r.d[2] * 1e6], d: r.d };
 }
-/** what the pointer is at: an edge within `tolPx` that is not hidden behind the face the pointer is over, else that face, else nothing */
+/** what the pointer is at, in the old app's order (corners, then edges, then faces): a corner or an edge within `tolPx` that is not hidden behind the face the pointer is over, else that face, else nothing */
 export function pickAt(
   meshes: readonly BodyMesh[],
   cam: Cam,
@@ -100,6 +101,18 @@ export function pickAt(
       };
     }
   }
+  let vertex: Hit | null = null,
+    vd = tolPx;
+  for (const m of meshes)
+    for (const v of m.vertexInfo) {
+      const s = project(cam, v.at, w, h);
+      if (cam.ortho === null && s.depth <= 1e-6) continue;
+      const g = Math.hypot(s.x - x, s.y - y);
+      if (g >= vd || (face && s.depth > face.depth * 1.004 + 0.05)) continue; // (a corner behind the face the pointer is over is not under it)
+      vd = g;
+      vertex = { kind: "vertex", body: m.id, vertex: v, point: v.at, depth: s.depth };
+    }
+  if (vertex) return vertex;
   let edge: Hit | null = null,
     bd = tolPx;
   for (const m of meshes)

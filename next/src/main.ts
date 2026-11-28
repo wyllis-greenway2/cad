@@ -269,7 +269,7 @@ const tieMarks = (): Mark[] => {
   if (!id) return [];
   for (const m of studio.state().meshes) {
     const f = m.faces.find((x) => x.id === id);
-    if (f) return [{ body: m.id, faces: [{ start: f.start, count: f.count }], edges: [], strength: "tie" }];
+    if (f) return [{ body: m.id, faces: [{ start: f.start, count: f.count }], edges: [], corners: [], strength: "tie" }];
   }
   return [];
 };

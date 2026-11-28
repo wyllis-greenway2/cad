@@ -49,7 +49,13 @@ export function createAutoHandles(host: AutoHost) {
       if (pick.kind === "region") void host.operation("region:extrude", pick).then(still);
       else if (pick.faces.length >= 1 && !pick.edges.length) void host.operation("body:pull", pick).then(still);
       else if (pick.edges.length && !pick.faces.length) void host.operation("body:round", pick).then(still);
-      else if (!pick.faces.length && !pick.edges.length && host.mover.bodies() <= 1 && !host.mover.on())
+      else if (
+        !pick.faces.length &&
+        !pick.edges.length &&
+        !pick.vertices.length &&
+        host.mover.bodies() <= 1 &&
+        !host.mover.on()
+      )
         moving = host.mover.start(pick.body);
     },
     /** A right click: a draft that was touched is made (true); with none, the ring may open (false). */

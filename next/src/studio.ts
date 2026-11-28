@@ -4,7 +4,7 @@ import type { MeshSnap } from "./engine/exchange.ts";
 import { webWorker } from "./engine/host-web.ts";
 import type { Spawn } from "./engine/host.ts";
 import { EngineHost } from "./engine/host.ts";
-import type { EdgeRef, Id } from "./engine/id.ts";
+import type { EdgeRef, Id, VertexRef } from "./engine/id.ts";
 import type { Ask, StepSnap } from "./engine/protocol.ts";
 import type { Step } from "./engine/steps.ts";
 
@@ -20,6 +20,12 @@ export interface EdgeInfo {
   /** where its polyline is in `lines` (points) */ start: number;
   count: number;
 }
+/** a corner of a body that has a name (three faces or more meet there), for picking and marking */
+export interface VertexInfo {
+  key: string;
+  ref: VertexRef;
+  at: [number, number, number];
+}
 export interface BodyMesh {
   /** the step that made it */ id: string;
   positions: Float32Array;
@@ -28,6 +34,7 @@ export interface BodyMesh {
   /** pairs of points: the edges as short lines */ edges: Float32Array;
   /** the faces and edges, by name, for picking and marking (only edges that have a name: two faces beside them) */ faces: FaceInfo[];
   edgeInfo: EdgeInfo[];
+  vertexInfo: VertexInfo[];
   /** the points of every edge's polyline, x y z each */ lines: Float32Array;
 }
 export interface StudioState {
@@ -62,6 +69,7 @@ export function meshBuffers(id: string, m: MeshSnap): BodyMesh {
     edgeInfo: m.edges.flatMap((e) =>
       e.key && e.ref ? [{ key: e.key, ref: e.ref, start: e.start, count: e.count }] : [],
     ),
+    vertexInfo: m.vertices,
   };
 }
 

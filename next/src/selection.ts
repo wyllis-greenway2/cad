@@ -1,12 +1,13 @@
 // What is selected on the page: ONE value (`in_1588`), either parts of a sketch (by plane, the ids the sketch uses) or what is picked on a body (a face, or edges, by the names the steps use, or the whole body), or nothing. The sketch controller and the body picker
 // read and write it; selecting one kind puts the other away because there is only one value, so nothing has to clear the other. Pure but for the value it keeps.
-import type { EdgeInfo, FaceInfo } from "./studio.ts";
+import type { EdgeInfo, FaceInfo, VertexInfo } from "./studio.ts";
 import type { V3 } from "./vec.ts";
 
 export interface BodyPick {
   body: string;
   faces: FaceInfo[];
   edges: EdgeInfo[];
+  /** corners picked (a body's, with a name) */ vertices: VertexInfo[];
   /** where it was picked (the bar stands beside it) */ at: V3;
 }
 /** A closed part of a drawing picked (`dec_body_look_and_feel`): the plane's key and a place inside it, which finds it again whatever else is drawn; where it was clicked, for the spread of its colour. */
@@ -15,7 +16,8 @@ export interface RegionPick {
   at: [number, number];
   click: V3;
 }
-export type Picked = { kind: "sketch"; key: string; ids: string[] } | ({ kind: "body" } & BodyPick) | ({ kind: "region" } & RegionPick);
+export type Picked =
+  { kind: "sketch"; key: string; ids: string[] } | ({ kind: "body" } & BodyPick) | ({ kind: "region" } & RegionPick);
 
 export function createSelection() {
   let cur: Picked | null = null;
@@ -36,7 +38,7 @@ export function createSelection() {
       cur = pick ? { kind: "region", ...pick } : null;
     },
     setBody(pick: BodyPick | null): void {
-      cur = pick ? { kind: "body", ...pick } : null; // (no faces and no edges: the whole body)
+      cur = pick ? { kind: "body", ...pick } : null; // (no faces, edges or corners: the whole body)
     },
     /** put the selection away; whether there was one */
     clear(): boolean {

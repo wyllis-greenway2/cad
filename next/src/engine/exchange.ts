@@ -1,6 +1,6 @@
 // Exchange and the derived mesh (E21, E70, E71; `dec_export_stl`, `dec_export_formats`, `dec_import`): the exact body is the model; the mesh is made from it for the screen, for picking by face id and for STL, and is
 // never kept as the truth. STEP leaves and enters as the exact body (the kernel writes and reads it). All the answers are plain data (numbers, strings, bytes), so they cross the worker.
-import { type EdgeRef, type Id, edgeKey, idKey, mint } from "./id.ts";
+import { type EdgeRef, type Id, type VertexRef, edgeKey, idKey, mint, vertexKey } from "./id.ts";
 import * as K from "./kernel.ts";
 import { Body, type Claim, fromClaims } from "./lineage.ts";
 import { viewOf } from "./scope.ts";
@@ -26,6 +26,8 @@ export interface MeshSnap {
     start: number;
     count: number;
   }[];
+  /** the corners with a name (three faces or more meet there): the place, and the vertex as data (a step takes it to name the corner); `key` is its name */
+  vertices: { key: string; ref: VertexRef; at: [number, number, number] }[];
   /** the triangle count, for the person who wants to know what the mesh cost */ triangles: number;
 }
 /** the bodies of a scene that the names pick (by name or an alias); none named: all of them */
@@ -68,6 +70,11 @@ export function meshOf(
         faces,
         lines: m.lines,
         edges,
+        vertices: b
+          .vertices()
+          .flatMap((v) =>
+            v.ref ? [{ key: vertexKey(v.ref), ref: v.ref, at: [...v.p] as [number, number, number] }] : [],
+          ),
         triangles: m.indices.length / 3,
       };
     });

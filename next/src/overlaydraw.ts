@@ -3,7 +3,7 @@ import * as THREE from "three";
 import type { Line2 } from "three/examples/jsm/lines/Line2.js";
 import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import type { Mark } from "./bodyselect.ts";
-import { forwardDepth, type Cam } from "./camera.ts";
+import { forwardDepth, viewHeight, type Cam } from "./camera.ts";
 import { equal } from "./equal.ts";
 import { SEE_THROUGH, surfaceOf } from "./looks.ts";
 import { makeOrbs, orbMaterial, selectedRgb, setOrbs } from "./orbfill.ts";
@@ -117,7 +117,8 @@ export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMe
   scene.add(markGroup);
   let lastMarks: unknown = null,
     lastSolids: readonly BodyMesh[] | null = null; // (the bodies are replaced as a whole, so the list itself says if they changed)
-  const markLines: LineMaterial[] = [];
+  const markLines: LineMaterial[] = [],
+    markDots: { dot: THREE.Object3D; at: V3; k: number }[] = []; // (a corner marked is the sketch's ball, a few pixels across wherever it is)
   const setMarks = (marks: Mark[] | undefined, w: number, h: number) => {
     for (const m of markLines) m.resolution.set(w, h);
     if (equal(marks ?? [], lastMarks) && solids() === lastSolids) return;
@@ -128,6 +129,7 @@ export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMe
     });
     markGroup.clear();
     markLines.length = 0;
+    markDots.length = 0;
     const teal = new THREE.Color(settings.looks.marks.pick.color);
     for (const mk of marks ?? []) {
       const b = solids().find((x) => x.id === mk.body);
@@ -168,6 +170,11 @@ export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMe
           m.userData.points = ps;
         }
         markGroup.add(m);
+      }
+      for (const p of mk.corners) {
+        const dot = strokeOf({ kind: "dot", pts: [p] }, w, h);
+        markGroup.add(dot);
+        markDots.push({ dot, at: p, k: mk.strength === "pick" ? 1.3 : 1 });
       }
       for (const e of mk.edges) {
         // a body's edge marked is a line of a drawing marked: bold teal picked, thin teal pointed at, bold amber tied (`dec_body_look_and_feel`)
@@ -276,6 +283,10 @@ export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMe
       setGhost(d.ghost);
       for (const m of ghostLines) m.resolution.set(w, h);
       setMarks(d.marks, w, h);
+      for (const m of markDots)
+        m.dot.scale.setScalar(
+          (2 * m.k * settings.sketch.ballPx * viewHeight(d.cam, Math.max(forwardDepth(d.cam, m.at), 1e-3))) / h,
+        );
       setFills(d.fills);
       setRegions(d.regions, w, h);
       // the orb of a face: the disc follows the pointer; a pick's teal spreads from the click over `fillMs`, then the face keeps its tint
