@@ -3,6 +3,7 @@
 // applies it). It only draws `interaction/infobar.ts`'s descriptions and says what was pressed. Words are tooltips. (A sketch's own constraints and numbers are marks on the sketch now, `markdraw.ts`; this bar serves an operation's number and what is picked on a body.)
 import { TONE, createChips, keepEvents, type InfoHandlers } from "./chipdraw.ts";
 import type { Info } from "./interaction/infobar.ts";
+import { equal } from "./equal.ts";
 import { settings } from "./settings.ts";
 export type { InfoHandlers } from "./chipdraw.ts";
 
@@ -12,12 +13,12 @@ export function createInfoBar(host: HTMLElement) {
   el.style.cssText = `position:fixed;left:0;top:0;display:none;z-index:8;align-items:center;gap:6px;padding:4px;border-radius:18px;background:rgba(255,255,255,.92);border:1px solid #1ab8b3;box-shadow:0 1px 6px rgba(0,0,0,.12);font:12px ${settings.ui.font};color:${settings.ui.text};user-select:none;-webkit-user-select:none`;
   keepEvents(el);
   host.appendChild(el);
-  let sig = "",
+  let sig: unknown = null, // (what is drawn now; null: nothing, or it must be drawn again)
     on: InfoHandlers | null = null;
   const chips = createChips(
     () => on,
     () => {
-      sig = "";
+      sig = null;
     },
   );
   return {
@@ -33,17 +34,16 @@ export function createInfoBar(host: HTMLElement) {
       if (!info || !at || (!info.facts.length && !info.suggestions.length)) {
         if (!chips.editing()) {
           el.style.display = "none";
-          if (sig) {
+          if (sig !== null) {
             el.replaceChildren();
             chips.forget();
-            sig = "";
+            sig = null;
           }
         }
         return null;
       }
-      const s = JSON.stringify(info);
-      if (s !== sig && !chips.editing()) {
-        sig = s;
+      if (!equal(info, sig) && !chips.editing()) {
+        sig = info;
         chips.forget();
         const kids: HTMLElement[] = info.facts.map((f) =>
           f.kind === "dimension"

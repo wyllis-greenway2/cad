@@ -1,5 +1,6 @@
 // The step list on the page (`in_1567`, `q_lean_ui`): a small panel at the top left, shown when the "..." menu's History item is on (`in_1600`) and there is a step. Each step of the recipe: its icon
 // and name, a mark when the engine flagged it (with its words), and its numbers as pills to type over (the same pill as the bubbles'). It draws `interaction/steplist.ts`'s rows and says what was typed; it decides nothing.
+import { equal } from "./equal.ts";
 import { iconSvg } from "./icons.ts";
 import type { Row } from "./interaction/steplist.ts";
 import { settings } from "./settings.ts";
@@ -18,7 +19,7 @@ export function createStepList(host: HTMLElement, h: StepListHandlers) {
   el.addEventListener("pointerdown", (e) => e.stopPropagation());
   el.addEventListener("contextmenu", (e) => e.preventDefault());
   host.appendChild(el);
-  let sig = "",
+  let sig: unknown = null, // (what is drawn now; null: nothing, or it must be drawn again)
     editing = false;
   function pill(row: Row, n: Row["numbers"][number]): HTMLElement {
     const d = document.createElement("div"),
@@ -46,7 +47,7 @@ export function createStepList(host: HTMLElement, h: StepListHandlers) {
         editing = false;
         const v = Number(input.value.trim());
         if (commit && input.value.trim() !== "" && isFinite(v) && v !== n.value) h.edit(row.id, n.key, v);
-        sig = "";
+        sig = null;
       };
       input.addEventListener("keydown", (e) => {
         e.stopPropagation();
@@ -65,9 +66,8 @@ export function createStepList(host: HTMLElement, h: StepListHandlers) {
         return;
       }
       el.style.display = "flex";
-      const s = JSON.stringify(st);
-      if (s === sig || editing) return;
-      sig = s;
+      if (equal(st, sig) || editing) return;
+      sig = st;
       const rows = st.rows.map((r) => {
         const box = document.createElement("div");
         box.dataset.step = r.id;

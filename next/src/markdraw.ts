@@ -1,6 +1,7 @@
 // The marks on the sketch (`dec_marks_on_things`): each mark of `interaction/marks.ts` drawn standing on its part, with the one lock on its corner (`chipdraw.ts`): closed and green (applied), open and yellow (offered, a click applies it), closed and red (it held a
 // change back: it flashes). A constraint is a round chip, a number a pill; the chips that stand at one spot are side by side in one pill (`in_1620`). A press and a drag on a mark moves it out of the way (forgotten once it is gone); a pill that would cover another is moved
 // along until it does not. It only draws and says what was pressed.
+import { equal } from "./equal.ts";
 import { STATE, createChips, keepEvents, type InfoHandlers } from "./chipdraw.ts";
 import type { Mark } from "./interaction/marks.ts";
 import { settings } from "./settings.ts";
@@ -36,7 +37,7 @@ export function createMarkDraw(host: HTMLElement) {
   layer.append(style);
   host.appendChild(layer);
   let on: MarkHandlers | null = null,
-    sig = "";
+    sig: unknown = null; // (what is drawn now; null: nothing, or it must be drawn again)
   // what is pointed at is caught once on the layer, not on each mark: the marks are rebuilt, and a mark replaced under the pointer could miss its 'leave' (`in_1657`)
   let hoverKey: string | null = null,
     last = { x: -1, y: -1 };
@@ -66,7 +67,7 @@ export function createMarkDraw(host: HTMLElement) {
   const chips = createChips(
     () => on,
     () => {
-      sig = "";
+      sig = null;
     },
   );
   const chipFor = (m: Mark): HTMLElement => {
@@ -160,8 +161,8 @@ export function createMarkDraw(host: HTMLElement) {
     /** Each picture: the marks to show, placed on the page (none: nothing), and what their buttons do. */
     show(list: PlacedMark[], h: MarkHandlers | null): void {
       if (h) on = h;
-      const s = JSON.stringify(list.map((p) => ({ ...p.mark, alpha: 0, at: 0 })));
-      if (s !== sig && !chips.editing()) {
+      const s = list.map((p) => ({ ...p.mark, alpha: 0, at: 0 })); // (what makes a bubble another: not how faint it is or where its spot is)
+      if (!equal(s, sig) && !chips.editing()) {
         sig = s;
         chips.forget();
         for (const e of boxes.values()) e.remove();
