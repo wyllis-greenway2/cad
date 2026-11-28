@@ -34,4 +34,20 @@ s.setBody(null);
 check("and a null pick is nothing", s.get() === null);
 s.setBody({ body: "B1", faces: [face], edges: [], at: [0, 0, 0] });
 check("clear says there was something, then nothing", s.clear() === true && s.get() === null && s.clear() === false);
+s.setRegion({ key: "xy", at: [3, 4], click: [3, 4, 0] });
+check(
+  "a closed figure picked is a region pick",
+  s.region()?.key === "xy" && s.get()?.kind === "region" && s.body() === null,
+);
+s.setSketch("xy", ["P2"]);
+check(
+  "selecting a part of the drawing puts the figure away: one selection",
+  s.region() === null && s.sketch("xy").join() === "P2",
+);
+s.setRegion({ key: "xy", at: [3, 4], click: [3, 4, 0] });
+s.setBody({ body: "B1", faces: [face], edges: [], at: [0, 0, 0] });
+check("and picking on a body does too", s.region() === null && s.body()?.body === "B1");
+s.setRegion({ key: "xy", at: [3, 4], click: [3, 4, 0] });
+s.setRegion(null);
+check("a null region pick is nothing", s.get() === null);
 process.exit(failureCount() ? 1 : 0);

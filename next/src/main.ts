@@ -44,6 +44,7 @@ import { createUi } from "./ui.ts";
 import { add, dot, scale, sub, unit } from "./vec.ts";
 import * as view from "./view.ts";
 import { bodyThings, lookedAt, withMoved, type Scene } from "./scene.ts";
+import type { BodyPick, RegionPick } from "./selection.ts";
 import { createWorld } from "./world.ts";
 
 const params = new URLSearchParams(location.search);
@@ -183,6 +184,15 @@ studio.subscribe(() => {
     bodies.reset();
   }
 });
+/** the extrude of a closed figure of a drawing: what the Extrude tool opens when the figure is clicked, and what a figure picked opens by itself (`autohandles.ts`) */
+const extrudeOfRegion = (r: NonNullable<ReturnType<typeof sk.regionAt>>) => {
+  const base = to3(r.frame, r.region.centre),
+    snap = (d: number, reach: number) => {
+      const f = flushPull({ p: base, n: r.frame.normal }, scenePlanes(), d, reach);
+      return f && { d: f.d, tie: f.to.face };
+    };
+  return extrudeOp({ ...r, source: liveSource(r.key), snap });
+};
 const ext = createOperations({
   view: () => {
     const e = env();
@@ -190,18 +200,13 @@ const ext = createOperations({
   },
   pick: (x, y) => {
     const r = sk.regionAt(x, y);
-    if (!r) return null;
-    const base = to3(r.frame, r.region.centre),
-      snap = (d: number, reach: number) => {
-        const f = flushPull({ p: base, n: r.frame.normal }, scenePlanes(), d, reach);
-        return f && { d: f.d, tie: f.to.face };
-      };
-    return extrudeOp({ ...r, source: liveSource(r.key), snap });
+    return r ? extrudeOfRegion(r) : null;
   },
   recipe: () => studio.state().steps,
   change: (steps) => {
     studio.change(steps);
     record("Extrude");
+    selection.clear(); // (the figure was picked to be made: it is a body now)
   },
   ask: (a) => studio.ask(a),
   say: (t) => say(t),
@@ -278,9 +283,17 @@ const bmove = createBodyMove({
 });
 /** what a pick shows by itself: a face its pull arrow, edges their round arrow, a whole body the mover orb (`autohandles.ts`) */
 const auto = createAutoHandles({
-  pick: () => bodies.selection(),
+  pick: () => {
+    const p = selection.get();
+    return p && p.kind !== "sketch" ? p : null;
+  },
   busy: () => sk.active() || tools.armed() !== null || ext.active() || bmove.on(),
-  operation: (action, pick) => bodyOps.operationFor(action, pick),
+  operation: (action, pick) => {
+    if (action !== "region:extrude") return bodyOps.operationFor(action, pick as BodyPick);
+    const p = pick as RegionPick,
+      r = sk.regionIn(p.key, p.at);
+    return Promise.resolve(r ? extrudeOfRegion(r) : null);
+  },
   show: (op) => ext.open(op, true),
   drop: () => ext.drop(),
   draft: {
@@ -530,11 +543,16 @@ attach(
     },
     hover: (x, y) => {
       pointer = { x, y };
-      if (!game.on && !sk.active() && !ext.active()) bodies.hover(x, y);
+      if (!game.on && !sk.active() && !ext.active()) {
+        // a closed figure of a drawing under the pointer comes before a body behind it; parts of the drawing before either
+        if (sk.hoverRegion(x, y)) bodies.leave();
+        else bodies.hover(x, y);
+      }
     },
     leave: () => {
       pointer = null;
       bodies.leave();
+      sk.leaveRegion();
     },
     click: (x, y, count) => {
       pointer = { x, y };
@@ -663,6 +681,8 @@ function frame(now: number) {
     d = view.drawing(s, e, pointer),
     orb = orbc.drawing(game.on ? null : pointer);
   canvas.style.cursor = orb?.hover ? "grab" : "";
+  const regions = sk.litRegions(),
+    bodyOrbs = bodies.orbs();
   world.render({
     ...d,
     ...(placed
@@ -675,7 +695,10 @@ function frame(now: number) {
     ghost: ext.ghost(),
     moved: bmove.preview(),
     marks: [...bodies.marks(), ...tieMarks()],
-    faceOrb: game.on ? undefined : bodies.orbs(),
+    regions: regions.lit,
+    faceOrb: game.on
+      ? undefined
+      : { hover: regions.orb.hover ?? bodyOrbs.hover, spread: regions.orb.spread ?? bodyOrbs.spread },
     fills: sk.fills(),
     lines: sk.lines(game.on ? null : pointer),
     ...(wireframe || sk.active()
@@ -716,6 +739,7 @@ Object.assign(window, {
   __studio: studio,
   __startExtrude: () => tools.arm("extrude"),
   __bodies: bodies,
+  __selection: selection,
   __more: chooseMore,
   __record: record,
   __undo: undo,

@@ -14,6 +14,8 @@ import { vec } from "./threeutil.ts";
 import type { V3 } from "./vec.ts";
 
 export interface Overlays {
+  /** The closed parts of a drawing picked or pointed at: each its plane and its outline and holes in the plane's axes */
+  regions?: { role: "pick" | "hover"; frame: { origin: V3; u: V3; v: V3 }; loops: [number, number][][] }[];
   /** What is picked or pointed at on the bodies: laid over them in the Marked look (teal). */
   marks?: Mark[];
   /** where the orb is on a face: the disc under the pointer, and the click a picked face's teal spreads from (and when, ms) */
@@ -29,6 +31,50 @@ export interface Overlays {
 
 export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMesh[]) {
   const orbs = makeOrbs();
+  // the closed parts of a drawing picked or pointed at: lit as a face of a body is (the orb), the picked one's outline bold (the sketch's own stroke): made again when they change
+  const regionGroup = new THREE.Group();
+  scene.add(regionGroup);
+  let lastRegions: unknown = null;
+  const regionLines: LineMaterial[] = [];
+  const setRegions = (regions: Overlays["regions"], w: number, h: number) => {
+    for (const m of regionLines) m.resolution.set(w, h);
+    if (equal(regions ?? [], lastRegions)) return;
+    lastRegions = regions ?? [];
+    regionGroup.traverse((o) => {
+      (o as THREE.Mesh).geometry?.dispose();
+    });
+    regionGroup.clear();
+    regionLines.length = 0;
+    for (const r of regions ?? []) {
+      const at = (p: readonly number[]): V3 => [
+          r.frame.origin[0] + r.frame.u[0] * p[0]! + r.frame.v[0] * p[1]!,
+          r.frame.origin[1] + r.frame.u[1] * p[0]! + r.frame.v[1] * p[1]!,
+          r.frame.origin[2] + r.frame.u[2] * p[0]! + r.frame.v[2] * p[1]!,
+        ],
+        shape = new THREE.Shape(r.loops[0]!.map((p) => new THREE.Vector2(p[0], p[1])));
+      for (const hole of r.loops.slice(1))
+        shape.holes.push(new THREE.Path(hole.map((p) => new THREE.Vector2(p[0], p[1]))));
+      const g = new THREE.ShapeGeometry(shape),
+        P = g.getAttribute("position");
+      for (let i = 0; i < P.count; i++) {
+        const w3 = at([P.getX(i), P.getY(i)]);
+        P.setXYZ(i, w3[0], w3[1], w3[2]); // (in the world's own places, as a body's faces are: the orb is worked out from them)
+      }
+      const m = new THREE.Mesh(
+        g,
+        orbMaterial(settings.orb.color, selectedRgb(), r.role === "pick" ? orbs.select : orbs.hover),
+      );
+      m.renderOrder = 3;
+      m.userData.points = r.role === "pick" ? Array.from(P.array) : undefined; // (the farthest a spread from a click has to go)
+      regionGroup.add(m);
+      if (r.role === "pick")
+        for (const loop of r.loops) {
+          const line = strokeOf({ kind: "selected", pts: loop.map(at) }, w, h);
+          regionGroup.add(line);
+          regionLines.push((line as Line2).material as LineMaterial);
+        }
+    }
+  };
   // the tint of closed sketches
   const fillGroup = new THREE.Group();
   scene.add(fillGroup);
@@ -207,6 +253,7 @@ export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMe
       setGhost(d.ghost);
       setMarks(d.marks, w, h);
       setFills(d.fills);
+      setRegions(d.regions, w, h);
       // the orb of a face: the disc follows the pointer; a pick's teal spreads from the click over `fillMs`, then the face keeps its tint
       const hover = d.faceOrb?.hover
           ? {
@@ -218,7 +265,7 @@ export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMe
       let spread: { point: V3; k: number; reach: number } | null = null;
       if (d.faceOrb?.spread && k < 1) {
         let reach = 0;
-        for (const m of markGroup.children) {
+        for (const m of [...markGroup.children, ...regionGroup.children]) {
           const ps = m.userData.points as number[] | undefined;
           for (let i = 0; ps && i < ps.length; i += 3)
             reach = Math.max(

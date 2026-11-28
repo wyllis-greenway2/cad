@@ -6862,3 +6862,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1715 — 2026-11-28 — question
 > okay so next lets handle enclosed sketches so that they can be selected and extruded. How did the old prototype handle that? Should we do the same or do something leaner? Like for example did the old prototype have special visuals for enclosed faces selections? If so maybe we should just reuse wire-frame rendering on faces to simplify and reuse?
+
+## in_1716 — 2026-11-28 — directive
+> no I dont like arming the extrude tool, I want it so that you can just select a face and it offers the extrude or face pull arrows just like the old prototype. You should also be able to do it my arming the extrude tool from the menu

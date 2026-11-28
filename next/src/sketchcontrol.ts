@@ -22,6 +22,7 @@ import { vOf } from "./planes.ts";
 import { settings } from "./settings.ts";
 import { to3, type P2, type ToolKind } from "./sketch.ts";
 import { createCore, type DrawLine, type Shape, type SketchHost } from "./sketchcore.ts";
+import { createRegionSelect } from "./regionselect.ts";
 import { createDrag } from "./sketchdrag.ts";
 import { createMarks } from "./sketchmarks.ts";
 import type { V3 } from "./vec.ts";
@@ -220,11 +221,13 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     return [{ kind: "dimArc", pts: z.pts.map((q) => to3(f, q)) }];
   };
   const M = createMarks(K, { dragged: D.dragged, fieldMarks });
+  const R = createRegionSelect(K);
   type Here = NonNullable<ReturnType<typeof here>>;
   /** a click with no tool: the part under it is picked; on none, the sketch's own selection is put away (only that: a click that hits no part goes on to the bodies). Returns whether it was used. */
   const selectClick = (c: Here, shift: boolean): boolean => {
     const h = hitAt(c.p, solOf(c.p), c.q, c.tol);
     if (!h) {
+      if (R.pick(c)) return true; // (no part of the drawing here: the closed figure it is inside, if any, is picked)
       const had = selected(c.key).length > 0;
       if (had) sel.clear();
       return had;
@@ -463,6 +466,13 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       }
       return out;
     },
+    /** The closed figures picked and pointed at, to be drawn lit, and where the orb stands (`regionselect.ts`). */
+    litRegions: R.lit,
+    /** The pointer is at (x, y): is a closed figure under it (and no part of the drawing nearer)? */
+    hoverRegion: R.hover,
+    leaveRegion: R.leave,
+    /** The figure a place of a plane is inside, with its drawing and plane (what an extrude is made from). */
+    regionIn: R.at,
     /** The region of the drawing on the plane that is on under the pointer, with the sketch and the plane it is of (what an extrude is made from); null: none. */
     regionAt(x: number, y: number): { key: string; frame: Frame; def: SketchParams; region: Region } | null {
       const c = here(x, y);

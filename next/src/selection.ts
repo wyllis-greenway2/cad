@@ -9,7 +9,13 @@ export interface BodyPick {
   edges: EdgeInfo[];
   /** where it was picked (the bar stands beside it) */ at: V3;
 }
-export type Picked = { kind: "sketch"; key: string; ids: string[] } | ({ kind: "body" } & BodyPick);
+/** A closed part of a drawing picked (`dec_body_look_and_feel`): the plane's key and a place inside it, which finds it again whatever else is drawn; where it was clicked, for the spread of its colour. */
+export interface RegionPick {
+  key: string;
+  at: [number, number];
+  click: V3;
+}
+export type Picked = { kind: "sketch"; key: string; ids: string[] } | ({ kind: "body" } & BodyPick) | ({ kind: "region" } & RegionPick);
 
 export function createSelection() {
   let cur: Picked | null = null;
@@ -24,6 +30,11 @@ export function createSelection() {
     },
     /** what is picked on a body (null: nothing) */
     body: (): BodyPick | null => (cur?.kind === "body" ? cur : null),
+    /** what is picked in a drawing as a closed part (null: nothing) */
+    region: (): RegionPick | null => (cur?.kind === "region" ? cur : null),
+    setRegion(pick: RegionPick | null): void {
+      cur = pick ? { kind: "region", ...pick } : null;
+    },
     setBody(pick: BodyPick | null): void {
       cur = pick ? { kind: "body", ...pick } : null; // (no faces and no edges: the whole body)
     },
