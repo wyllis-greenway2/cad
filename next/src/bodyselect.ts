@@ -4,7 +4,7 @@ import { project, type Cam } from "./camera.ts";
 import type { InfoHandlers } from "./infobardraw.ts";
 import { barForBody } from "./interaction/bodybar.ts";
 import type { Info } from "./interaction/infobar.ts";
-import { edgesAround, pickAt, type Hit } from "./interaction/pick.ts";
+import { edgesAround, pickAll, pickAt, type Hit } from "./interaction/pick.ts";
 import type { BodyPick, Selection as Store } from "./selection.ts";
 import type { BodyMesh } from "./studio.ts";
 import type { V3 } from "./vec.ts";
@@ -23,11 +23,16 @@ export interface BodySelectHost {
   press(id: string, sel: BodyPick): void;
   /** the page's one selection (`selection.ts`) */
   selection: Store;
+  /** the view is to turn square to a face (a third click on it): it looks along this way, into the body */
+  square(normal: V3): void;
+  /** a sentence for the person, through the page's one notice ("2 of 4 here") */
+  say(text: string): void;
 }
 export type Selection = BodyPick;
 
 export function createBodySelect(host: BodySelectHost) {
   let over: Hit | null = null,
+    cycle: { x: number; y: number; i: number } | null = null, // (where the last click was and which of what was under it it took: a click again on the same place takes the next, `MD-3`)
     pickedAt = 0; // (when a face was picked, ms: its teal spreads from the click over the time after)
   const store = host.selection,
     sel = (): BodyPick | null => store.body();
@@ -37,6 +42,28 @@ export function createBodySelect(host: BodySelectHost) {
     selection: (): Selection | null => sel(),
     /** a face or an edge of a body is under the pointer */
     under: (): boolean => over !== null,
+    /** every face, edge or corner of the body picked (or of the one body there is): the Select section's All (`MD-40`); says why when there is none */
+    selectAll(part: "faces" | "edges" | "vertices"): void {
+      const m = host.meshes().find((x) => x.id === sel()?.body) ?? host.meshes()[0];
+      if (!m) return host.say("There is no body to select from");
+      const list = part === "faces" ? m.faces : part === "edges" ? m.edgeInfo : m.vertexInfo;
+      if (!list.length) return host.say(`The body has no ${part === "vertices" ? "corners" : part} to select`);
+      const lo = [Infinity, Infinity, Infinity],
+        hi = [-Infinity, -Infinity, -Infinity];
+      for (let i = 0; i < m.positions.length; i++) {
+        lo[i % 3] = Math.min(lo[i % 3]!, m.positions[i]!);
+        hi[i % 3] = Math.max(hi[i % 3]!, m.positions[i]!);
+      }
+      store.setBody({
+        body: m.id,
+        faces: [],
+        edges: [],
+        vertices: [],
+        ...{ [part]: [...list] },
+        at: [0, 1, 2].map((k) => (lo[k]! + hi[k]!) / 2) as V3,
+      });
+      host.say(`${list.length} ${part === "vertices" ? "corners" : part} selected`);
+    },
     /** the body under the pointer (null: none) */
     bodyAt(x: number, y: number): string | null {
       const { cam, w, h } = host.view();
@@ -45,9 +72,28 @@ export function createBodySelect(host: BodySelectHost) {
     /** A click: a body is picked (a face, or an edge; Shift adds edges; a double click the whole body), a click on nothing puts the pick away. Returns whether the click was used. */
     click(x: number, y: number, shift: boolean, count = 1): boolean {
       const { cam, w, h } = host.view(),
-        hit = pickAt(host.meshes(), cam, w, h, x, y),
+        all = pickAll(host.meshes(), cam, w, h, x, y),
         cur = sel();
-      if (!hit) return store.clear();
+      if (!all.length) {
+        cycle = null;
+        return store.clear();
+      }
+      // a click again on the same place (a double click is not one) goes to the next of what is under the pointer
+      if (count === 1) {
+        const again = cycle && Math.hypot(x - cycle.x, y - cycle.y) < 4 && all.length > 1;
+        cycle = { x, y, i: again ? (cycle!.i + 1) % all.length : 0 };
+        if (all.length > 1) host.say(`${cycle.i + 1} of ${all.length} here`);
+      }
+      const hit = all[Math.min(cycle?.i ?? 0, all.length - 1)]!;
+      if (count >= 3) {
+        // three clicks take that face alone and turn the view square to it (as the old app's)
+        const f = all.find((x) => x.kind === "face");
+        if (!f || f.kind !== "face") return false;
+        store.setBody({ body: f.body, faces: [f.face], edges: [], vertices: [], at: f.point });
+        pickedAt = performance.now();
+        host.square(f.normal);
+        return true;
+      }
       if (count === 2) {
         // two clicks take the whole body, from whatever part of it (as the old app's): its orb shows, `autohandles.ts`; a third goes back to the part
         store.setBody({ body: hit.body, faces: [], edges: [], vertices: [], at: hit.point });

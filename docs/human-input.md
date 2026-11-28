@@ -6889,3 +6889,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 > 
 > * The old arrow turns teal when selected; the new one stays dark.
 > * verticies should be selectable. There are tons of stuff, go search for things we can do to make the new app look and feel like the old one
+
+## in_1724 — 2026-11-28 — directive
+> lets do all except 7 and 8

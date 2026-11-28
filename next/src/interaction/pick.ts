@@ -1,8 +1,9 @@
 // Picking on a body (`in_1568`): what the pointer is at on the bodies the engine made: an edge when the pointer is within a few pixels of one that can be seen, else the face it is over. Pure: the meshes, the camera and the pointer in; the face or edge (by the
 // ids the steps use) and the place out. A face is found by the pointer's ray through the triangles; an edge by its distance on the screen to the edge's polyline, and only if it is not behind the face the ray meets first.
-import { project, type Cam } from "../camera.ts";
+import { forward, project, type Cam } from "../camera.ts";
 import { idKey } from "../engine/id.ts";
 import { rayOf } from "../orb.ts";
+import { faceCentre } from "./anchors.ts";
 import type { BodyMesh, EdgeInfo, FaceInfo, VertexInfo } from "../studio.ts";
 import type { V3 } from "../vec.ts";
 
@@ -71,8 +72,8 @@ export function pickRay(cam: Cam, w: number, h: number, x: number, y: number): {
   const r = rayOf(cam, w, h, x, y);
   return cam.ortho === null ? r : { o: [r.o[0] - r.d[0] * 1e6, r.o[1] - r.d[1] * 1e6, r.o[2] - r.d[2] * 1e6], d: r.d };
 }
-/** what the pointer is at, in the old app's order (corners, then edges, then faces): a corner or an edge within `tolPx` that is not hidden behind the face the pointer is over, else that face, else nothing */
-export function pickAt(
+/** everything under the pointer, in the old app's order (corners, then edges, then the face in front; each nearest first): a corner or an edge within `tolPx` that is not hidden behind the face the pointer is over, and that face. A repeated click goes down this list (`MD-3`). */
+export function pickAll(
   meshes: readonly BodyMesh[],
   cam: Cam,
   w: number,
@@ -80,7 +81,7 @@ export function pickAt(
   x: number,
   y: number,
   tolPx = 7,
-): Hit | null {
+): Hit[] {
   const r = pickRay(cam, w, h, x, y),
     o = r.o,
     d = r.d;
@@ -101,20 +102,17 @@ export function pickAt(
       };
     }
   }
-  let vertex: Hit | null = null,
-    vd = tolPx;
+  const hidden = (depth: number) => !!face && depth > face.depth * 1.004 + 0.05; // (behind the face the pointer is over)
+  const vertices: { hit: Hit; g: number }[] = [];
   for (const m of meshes)
     for (const v of m.vertexInfo) {
       const s = project(cam, v.at, w, h);
       if (cam.ortho === null && s.depth <= 1e-6) continue;
       const g = Math.hypot(s.x - x, s.y - y);
-      if (g >= vd || (face && s.depth > face.depth * 1.004 + 0.05)) continue; // (a corner behind the face the pointer is over is not under it)
-      vd = g;
-      vertex = { kind: "vertex", body: m.id, vertex: v, point: v.at, depth: s.depth };
+      if (g >= tolPx || hidden(s.depth)) continue;
+      vertices.push({ g, hit: { kind: "vertex", body: m.id, vertex: v, point: v.at, depth: s.depth } });
     }
-  if (vertex) return vertex;
-  let edge: Hit | null = null,
-    bd = tolPx;
+  const edges: { hit: Hit; g: number }[] = [];
   for (const m of meshes)
     for (const e of m.edgeInfo) {
       const pts = Array.from({ length: e.count }, (_, i) => {
@@ -122,29 +120,106 @@ export function pickAt(
         const q: V3 = [m.lines[k]!, m.lines[k + 1]!, m.lines[k + 2]!];
         return { q, s: project(cam, q, w, h) };
       });
+      let best: { hit: Hit; g: number } | null = null;
       for (let i = 0; i + 1 < pts.length; i++) {
         const A = pts[i]!,
           B = pts[i + 1]!;
         if (cam.ortho === null && (A.s.depth <= 1e-6 || B.s.depth <= 1e-6)) continue;
         const g = toSeg(x, y, A.s.x, A.s.y, B.s.x, B.s.y);
-        if (g.d >= bd) continue;
+        if (g.d >= (best?.g ?? tolPx)) continue;
         const depth =
           cam.ortho !== null
             ? A.s.depth + (B.s.depth - A.s.depth) * g.u
             : 1 / (1 / A.s.depth + (1 / B.s.depth - 1 / A.s.depth) * g.u); // (on the screen, 1 / depth is what runs evenly along a line)
-        if (face && depth > face.depth * 1.004 + 0.05) continue; // (behind the face the pointer is over)
-        bd = g.d;
-        edge = {
-          kind: "edge",
-          body: m.id,
-          edge: e,
-          point: ((): V3 => {
-            const t = cam.ortho !== null ? g.u : (depth - A.s.depth) / (B.s.depth - A.s.depth || 1);
-            return [A.q[0] + (B.q[0] - A.q[0]) * t, A.q[1] + (B.q[1] - A.q[1]) * t, A.q[2] + (B.q[2] - A.q[2]) * t];
-          })(),
-          depth,
+        if (hidden(depth)) continue;
+        const t = cam.ortho !== null ? g.u : (depth - A.s.depth) / (B.s.depth - A.s.depth || 1);
+        best = {
+          g: g.d,
+          hit: {
+            kind: "edge",
+            body: m.id,
+            edge: e,
+            point: [A.q[0] + (B.q[0] - A.q[0]) * t, A.q[1] + (B.q[1] - A.q[1]) * t, A.q[2] + (B.q[2] - A.q[2]) * t],
+            depth,
+          },
         };
       }
+      if (best) edges.push(best);
     }
-  return edge ?? face;
+  const byNear = (a: { g: number }, b: { g: number }) => a.g - b.g;
+  return [...vertices.sort(byNear).map((v) => v.hit), ...edges.sort(byNear).map((e) => e.hit), ...(face ? [face] : [])];
+}
+/** what the pointer is at: the first of everything under it */
+export const pickAt = (
+  meshes: readonly BodyMesh[],
+  cam: Cam,
+  w: number,
+  h: number,
+  x: number,
+  y: number,
+  tolPx = 7,
+): Hit | null => pickAll(meshes, cam, w, h, x, y, tolPx)[0] ?? null;
+
+/** whether nothing of the bodies stands between the eye and a place (a place on a body's own surface is seen) */
+export function visibleFrom(meshes: readonly BodyMesh[], cam: Cam, p: V3): boolean {
+  const eye: V3 =
+      cam.ortho === null
+        ? cam.eye
+        : (() => {
+            const f = forward(cam);
+            return [p[0] - f[0] * 1e6, p[1] - f[1] * 1e6, p[2] - f[2] * 1e6];
+          })(),
+    v: V3 = [p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]],
+    dist = Math.hypot(...v),
+    d: V3 = [v[0] / dist, v[1] / dist, v[2] / dist];
+  return !meshes.some((m) => {
+    const f = rayMesh(m, eye, d);
+    return !!f && f.t < dist - 0.02 - 1e-4 * dist;
+  });
+}
+
+/** the place half way along a polyline (by its points: the middle one, or between the two ends of a straight one) */
+const middle = (ps: V3[]): V3 =>
+  ps.length % 2
+    ? ps[(ps.length - 1) / 2]!
+    : ([0, 1, 2].map((k) => (ps[ps.length / 2 - 1]![k]! + ps[ps.length / 2]![k]!) / 2) as V3);
+/** What a box drawn on the screen takes of the bodies, as the old app's did (edges first, hidden ones skipped): the edges that lie wholly in it and are seen; none: the corners in it that are seen; none: the faces whose middle is in it and seen. One body: the first that has any. */
+export function boxPick(
+  meshes: readonly BodyMesh[],
+  cam: Cam,
+  w: number,
+  h: number,
+  box: { x0: number; y0: number; x1: number; y1: number },
+): { body: string; faces: FaceInfo[]; edges: EdgeInfo[]; vertices: VertexInfo[]; at: V3 } | null {
+  const lo = { x: Math.min(box.x0, box.x1), y: Math.min(box.y0, box.y1) },
+    hi = { x: Math.max(box.x0, box.x1), y: Math.max(box.y0, box.y1) },
+    inside = (p: V3) => {
+      const s = project(cam, p, w, h);
+      return (cam.ortho !== null || s.depth > 1e-6) && s.x >= lo.x && s.x <= hi.x && s.y >= lo.y && s.y <= hi.y;
+    };
+  for (const m of meshes) {
+    const pt = (i: number): V3 => [m.lines[3 * i]!, m.lines[3 * i + 1]!, m.lines[3 * i + 2]!];
+    const edges = m.edgeInfo.filter((e) => {
+      const ps = Array.from({ length: e.count }, (_, i) => pt(e.start + i));
+      return ps.every(inside) && visibleFrom(meshes, cam, middle(ps));
+    });
+    const mid = (ps: V3[]): V3 => [0, 1, 2].map((k) => ps.reduce((a, p) => a + p[k]!, 0) / ps.length) as V3;
+    if (edges.length)
+      return {
+        body: m.id,
+        faces: [],
+        edges,
+        vertices: [],
+        at: mid(edges.map((e) => middle(Array.from({ length: e.count }, (_, i) => pt(e.start + i))))),
+      };
+    const vertices = m.vertexInfo.filter((v) => inside(v.at) && visibleFrom(meshes, cam, v.at));
+    if (vertices.length) return { body: m.id, faces: [], edges: [], vertices, at: mid(vertices.map((v) => v.at)) };
+    const faces = m.faces.filter((f) => {
+      const c = faceCentre(m, f);
+      return inside(c) && visibleFrom(meshes, cam, c);
+    });
+    if (faces.length)
+      return { body: m.id, faces, edges: [], vertices: [], at: mid(faces.map((f) => faceCentre(m, f))) };
+  }
+  return null;
 }

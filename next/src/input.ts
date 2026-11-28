@@ -28,7 +28,7 @@ export interface Intents {
   /** A press at (x, y) with the left button: does it take hold of something that is the page's own (a handle of the mover orb)? `shift` was held. If so the press, its moves and its release are the handle's, and not the view's. */
   grab(x: number, y: number, shift: boolean): boolean;
   grabMove(x: number, y: number): void;
-  grabEnd(): void;
+  grabEnd(x: number, y: number): void;
   /** The space bar was tapped (let go without having been used to pan): game mode on or off. */
   space(): void;
 }
@@ -210,7 +210,7 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
       // (a press on a handle that went nowhere counts as a click for the counting: its second press is a double click's)
       if (Math.hypot(p.x - grabbing.x, p.y - grabbing.y) < settings.input.multiClickPx) count(p.x, p.y, e.timeStamp);
       grabbing = null;
-      out.grabEnd();
+      out.grabEnd(p.x, p.y);
       return;
     }
     const d = drag;

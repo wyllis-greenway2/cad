@@ -2,6 +2,7 @@
 const svg = (inner: string): string =>
   `<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 const ICONS: Record<string, string> = {
+  selectBox: svg('<rect x="2.5" y="3.5" width="11" height="9" rx="1" stroke-dasharray="2.2 1.8"/>'),
   eye: svg('<path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/>'),
   wireframe: svg(
     '<path d="M2.5 5.5l5.5-3 5.5 3v6l-5.5 3-5.5-3z"/><path d="M2.5 5.5L8 8.5l5.5-3M8 8.5v6" stroke-dasharray="1.6 1.4"/>',

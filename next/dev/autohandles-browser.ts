@@ -60,6 +60,20 @@ try {
   s = await state();
   ok(s.b.sel === null && s.pull === null, "a second Esc puts the pick away");
 
+  // with an arrow showing and nothing typed, Arrow Up and Down change the value by a tenth
+  await page.mouse.click(gx, gy);
+  await wait(700);
+  for (let i = 0; i < 3; i++) await page.keyboard.press("ArrowUp");
+  await wait(200);
+  s = await state();
+  ok(Math.abs(s.pull?.d - 0.3) < 1e-9, `Arrow Up three times makes 0.3: ${s.pull?.d}`);
+  await page.keyboard.press("ArrowDown");
+  await wait(200);
+  ok(Math.abs((await state()).pull?.d - 0.2) < 1e-9, "and Arrow Down takes a tenth off");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await page.mouse.click(1000, 600);
+  await wait(400);
   // a corner is picked as a ball (corners come before edges and faces), Shift adds another, and no arrow or orb comes of it
   await page.mouse.click(1000, 600);
   await wait(400);
@@ -85,6 +99,56 @@ try {
   writeFileSync(`${dir}/corners.png`, await page.screenshot());
   await page.mouse.click(1000, 600);
   await wait(400);
+  // a box drawn round the top face takes the four edges that lie in it and are seen (edges first); the Select section's All faces takes every face
+  await ev(`() => { window.__box.arm(); return 1; }`);
+  const tops = await Promise.all(
+    [
+      [-20, -10, 20],
+      [20, -10, 20],
+      [20, 10, 20],
+      [-20, 10, 20],
+    ].map((q) => p3(q)),
+  );
+  const xs = tops.map((t) => t[0]),
+    ys = tops.map((t) => t[1]);
+  await page.mouse.move(Math.min(...xs) - 12, Math.min(...ys) - 12);
+  await page.mouse.down();
+  await page.mouse.move(Math.max(...xs) + 12, Math.max(...ys) + 12, { steps: 6 });
+  await page.mouse.up();
+  await wait(500);
+  s = await state();
+  ok(
+    s.b.sel?.edges.length === 4 && s.b.sel.faces.length === 0,
+    `a box round the top face takes its four edges: ${s.b.sel?.edges.length}`,
+  );
+  await page.mouse.click(1000, 600);
+  await wait(400);
+  await ev(`() => { window.__bodies.selectAll("faces"); return 1; }`);
+  await wait(600);
+  s = await state();
+  ok(
+    s.b.sel?.faces.length === 6 && s.pull?.mode === "push",
+    `All faces takes the six faces and their pull opens together: ${s.b.sel?.faces.length}`,
+  );
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await page.mouse.click(1000, 600);
+  await wait(400);
+  // a click again on the same place goes down what is under it: the edge, then the face behind it ("2 of 2 here", `MD-3`)
+  const [e1x, e1y] = await p3([0, -10, 20]);
+  await page.mouse.click(e1x, e1y);
+  await wait(700);
+  s = await state();
+  ok(s.b.sel?.edges.length === 1 && s.b.sel.faces.length === 0, "a click on an edge picks the edge");
+  await page.mouse.click(e1x, e1y);
+  await wait(700);
+  s = await state();
+  ok(
+    s.b.sel?.faces.length === 1 && s.b.sel.edges.length === 0,
+    `a click again on the same place takes the face under it: ${JSON.stringify(s.b.sel)}`,
+  );
+  await page.mouse.click(1000, 600);
+  await wait(500);
   // two quick clicks on the arrow's own place take the whole body as anywhere else does: the second press is a click's, not the arrow's
   await page.mouse.click(1000, 600);
   await wait(400);
@@ -185,6 +249,19 @@ try {
   await wait(900);
   s = await state();
   ok(s.steps === before2 + 2, `a number pulls both together: one step each (${before2}, then ${s.steps})`);
+  // three quick clicks take that face alone and turn the view square to it (the old app's), looking straight down at a top face
+  await page.mouse.click(1000, 600);
+  await wait(500);
+  const [t3x, t3y] = await p3([5, 3, 20]);
+  for (let i = 0; i < 3; i++) await page.mouse.click(t3x, t3y);
+  await wait(1800);
+  const cam = await ev<any>(`() => window.__cad.cam`);
+  s = await state();
+  ok(s.b.sel?.faces.length === 1, "three clicks pick the face alone");
+  ok(
+    cam.ortho !== null && Math.abs(Math.abs(cam.pitch) - Math.PI / 2) < 0.05,
+    `and the view is square to it: ${JSON.stringify({ ortho: cam.ortho, pitch: cam.pitch })}`,
+  );
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   void fx;
   void fy;

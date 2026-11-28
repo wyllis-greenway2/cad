@@ -168,6 +168,12 @@ export function createOperations(host: OperationHost) {
     key(code: string): boolean {
       if (!op) return false;
       if (code === "Enter" || code === "NumpadEnter") return apply();
+      if (code === "ArrowUp" || code === "ArrowDown") {
+        // while nothing is typed, the arrows change the live value by a tenth of a mm (the old app's, `MD-30`)
+        op = op.withValue(Math.round((op.value + (code === "ArrowUp" ? 0.1 : -0.1)) * 10) / 10) ?? op;
+        touched = true;
+        return true;
+      }
       return false;
     },
     /** The arrow, as the mover's drawing takes it (null: none). */

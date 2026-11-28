@@ -9,6 +9,7 @@ import { TYPED } from "./interaction/typing.ts";
 import { createBodyOps } from "./bodyops.ts";
 import type { Mark } from "./bodyselect.ts";
 import { createBodySelect } from "./bodyselect.ts";
+import { createBoxSelect } from "./boxselect.ts";
 import { pickAt, pickRay } from "./interaction/pick.ts";
 import { forward, project, type Axis } from "./camera.ts";
 import * as dev from "./dev.ts";
@@ -240,6 +241,10 @@ const bodies = createBodySelect({
     return { cam: s.c, w: e.w, h: e.h };
   },
   meshes: () => studio.state().meshes,
+  say: (t) => notify(t, { kind: "info", ttl: 1500 }),
+  square: (n) => {
+    s = view.lookAlong(s, env(), scale(n, -1));
+  },
   press: (id) =>
     tools.arm(
       (
@@ -269,7 +274,8 @@ const tieMarks = (): Mark[] => {
   if (!id) return [];
   for (const m of studio.state().meshes) {
     const f = m.faces.find((x) => x.id === id);
-    if (f) return [{ body: m.id, faces: [{ start: f.start, count: f.count }], edges: [], corners: [], strength: "tie" }];
+    if (f)
+      return [{ body: m.id, faces: [{ start: f.start, count: f.count }], edges: [], corners: [], strength: "tie" }];
   }
   return [];
 };
@@ -498,8 +504,19 @@ const tools = createToolControl({
 });
 /** how every body is drawn: solid, or as a wireframe (the See-through look, `dec_body_look_and_feel`); the View section of the circle menu turns it */
 let wireframe = false;
+const box = createBoxSelect(document.body, {
+  view: () => {
+    const e = env();
+    return { cam: s.c, w: e.w, h: e.h };
+  },
+  meshes: () => studio.state().meshes,
+  selection,
+  say: (t) => notify(t, { kind: "info", ttl: 2500 }),
+});
 const menu = createMenu(document.body, (id) => {
   if (id.startsWith("tool:")) tools.arm(id.slice(5));
+  else if (id === "select:box") box.arm();
+  else if (id.startsWith("select:")) bodies.selectAll(id.slice(7) as "faces" | "edges" | "vertices");
   else if (id === "view:wireframe") {
     wireframe = !wireframe;
     notify(wireframe ? "Wireframe view" : "Solid view", { ttl: 1500 });
@@ -513,6 +530,17 @@ const menuItems = (): MenuItem[] => [
     icon: g.icon,
     children: TOOLS.filter((t) => t.group === g.id).map((t) => ({ id: `tool:${t.id}`, label: t.label, icon: t.icon })),
   })),
+  {
+    id: "group:select",
+    label: "Select",
+    icon: "selectBox",
+    children: [
+      { id: "select:box", label: "Box select", icon: "selectBox" },
+      { id: "select:faces", label: "All faces", icon: "pushpull" },
+      { id: "select:edges", label: "All edges", icon: "line" },
+      { id: "select:vertices", label: "All corners", icon: "coincident" },
+    ],
+  },
   {
     id: "group:view",
     label: "View",
@@ -572,6 +600,11 @@ attach(
       if (ext.click(x, y)) return;
       if (sk.click(x, y, count, shiftHeld || tools.additive())) return;
       if (!sk.active() && bodies.click(x, y, shiftHeld || tools.additive(), count)) return; // (a tool is on: a click is a point of its figure)
+      if (count === 2 && !sk.active()) {
+        // two clicks on a flat sketch or the world's plane turn the view square to it (as the old app's)
+        s = view.lookAlong(s, env(), scale(planeNow().frame.normal, -1));
+        return;
+      }
       const next = view.click(s, env(), x, y); // (a pane of a world plane: it is the sketch plane now)
       if (next !== s) {
         placed = null;
@@ -581,6 +614,7 @@ attach(
     },
     grab: (x, y, shift) => {
       if (game.on) return false;
+      if (box.grab(x, y)) return true;
       if (ext.grab(x, y)) return true;
       if (ext.active()) return false;
       // a press on a body that is picked whole takes it (the orb shows): it goes where the pointer goes, as the old app's grab
@@ -592,11 +626,13 @@ attach(
       );
     },
     grabMove: (x, y) => {
+      box.move(x, y);
       ext.grabMove(x, y);
       orbc.grabMove(x, y);
       sk.grabMove(x, y);
     },
-    grabEnd: () => {
+    grabEnd: (x, y) => {
+      box.end(x, y);
       ext.grabEnd();
       orbc.grabEnd();
       sk.grabEnd();
@@ -629,6 +665,7 @@ addEventListener("keydown", (e) => {
     return;
   }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (infobar.editing() && (e.code === "ArrowUp" || e.code === "ArrowDown")) return; // (the arrows are the number box's while one is being typed)
   if (ext.key(e.code)) {
     e.preventDefault();
     return;
@@ -659,8 +696,9 @@ addEventListener("keydown", (e) => {
       more.close();
       return;
     }
-    if (tools.cancel() || auto.cancel()) return;
+    // Esc lets go one step at a time, the nearest first (the old app's `MD-85`): the ring, a box being drawn or waited for, what is armed or open, game mode, the selection
     if (menu.isOpen()) menu.close();
+    else if (box.cancel() || tools.cancel() || auto.cancel()) return;
     else if (game.on) endGame();
     else if (!selection.clear()) orbc.release();
   }
@@ -772,6 +810,7 @@ Object.assign(window, {
   __startExtrude: () => tools.arm("extrude"),
   __bodies: bodies,
   __selection: selection,
+  __box: box,
   __more: chooseMore,
   __record: record,
   __undo: undo,
