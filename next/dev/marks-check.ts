@@ -1,7 +1,7 @@
 // A dev check (not a test, `in_1444`) of the marks of a sketch and the one rule for which show (`interaction/marks.ts`, `dec_marks_on_things`): node --experimental-strip-types dev/marks-check.ts
 import { addCircle, addLine, addRect, emptySketch, keep, refOf, viewSystem } from "../src/interaction/drawing.ts";
 import { alphaAt, marksFor } from "../src/interaction/marks.ts";
-import { scopeOf, whereOf } from "../src/interaction/bubbles.ts";
+import { iconOf, scopeOf, whereOf } from "../src/interaction/bubbles.ts";
 import type { System } from "../src/engine/solver.ts";
 import { settings } from "../src/settings.ts";
 import { check, failureCount } from "./lib.ts";
@@ -401,6 +401,17 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
       Math.abs(Math.abs(len.dim.a[1]) - 2) < 1e-9 &&
       Math.abs(len.at[0] - 25) < 1e-9,
     JSON.stringify(len?.dim),
+  );
+}
+{
+  // level and upright between two points have their own dashed icon; a line itself level or upright keeps the solid one (`in_1669`)
+  check(
+    "the icon of level between two points is dashed, of a line itself solid",
+    iconOf("horizontal", ["P1", "P2"]) === "horizontalPoints" &&
+      iconOf("vertical", ["P1", "P2"]) === "verticalPoints" &&
+      iconOf("horizontal", ["L1"]) === "horizontal" &&
+      iconOf("vertical", ["L1"]) === "vertical" &&
+      iconOf("tangent", ["L1", "K1"]) === "tangent",
   );
 }
 process.exit(failureCount() ? 1 : 0);

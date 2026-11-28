@@ -52,7 +52,9 @@ const ICON: Partial<Record<Relation, string>> = {
   angle: "angle",
   fixed: "lock",
 };
-export const iconOf = (r: Relation): string => ICON[r] ?? r;
+/** the icon of a relation; level and upright between two points (two parts) are dashed, a line itself level or upright (one part) is solid (`in_1669`) */
+export const iconOf = (r: Relation, parts?: readonly string[]): string =>
+  (r === "horizontal" || r === "vertical") && parts?.length === 2 ? `${r}Points` : (ICON[r] ?? r);
 
 /** a number as a person reads it: no more than three decimals, no trailing zeros */
 export const numberText = (v: number): string => String(Math.round(v * 1000) / 1000);
@@ -198,7 +200,7 @@ export function bubblesOn(
       id: c.id,
       kind: dim ? "dimension" : "constraint",
       relation: c.kind,
-      icon: iconOf(c.kind),
+      icon: iconOf(c.kind, c.parts),
       at: anchorOf(S, c),
       tone,
       parts: c.parts,

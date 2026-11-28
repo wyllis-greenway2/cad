@@ -6719,3 +6719,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1668 — 2026-11-28 — directive
 > can we when you hover on a bubble it usually shows you what it will do with movement arrows, but when it wont actually move, it is just settinga n alignment constraint, can we have it still show the dashed line to indicate what is being aligned to what?
+
+## in_1669 — 2026-11-28 — directive
+> can we make the icon for the alignment constraint be a dashed line instead of solid? the icons look exactly the same as the virtical and horizontal icons

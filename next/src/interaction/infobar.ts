@@ -26,7 +26,12 @@ export function barFor(S: System, selection: string[]): Bar {
   return offersFor(S, selection)
     .offers.filter((o) => offerable(o.state) && !o.dimensional)
     .sort((a, b) => ORDER[a.state]! - ORDER[b.state]!)
-    .map((o) => ({ id: `rel:${o.kind}`, icon: iconOf(o.kind as Relation), label: o.label, tone: o.state as BarTone }));
+    .map((o) => ({
+      id: `rel:${o.kind}`,
+      icon: iconOf(o.kind as Relation, o.parts),
+      label: o.label,
+      tone: o.state as BarTone,
+    }));
 }
 
 /** a fact: a constraint that touches the subject, or a number (live with an open padlock, locked with a closed one) */
@@ -74,7 +79,7 @@ export function nearFor(
         other,
         item: {
           id: `near:${r.cand.relation}:${parts.join(",")}${r.cand.variant?.internal ? ":in" : ""}`,
-          icon: iconOf(r.cand.relation),
+          icon: iconOf(r.cand.relation, r.cand.parts),
           label: !other
             ? RELATIONS[r.cand.relation].label
             : r.cand.relation === "on"

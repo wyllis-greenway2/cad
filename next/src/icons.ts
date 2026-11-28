@@ -11,6 +11,8 @@ const ICONS: Record<string, string> = {
   sketch: svg('<path d="M2.5 13.5l.8-3L11 2.8a1.4 1.4 0 012 2L5.5 12.7z"/><path d="M9.8 4l2.2 2.2"/>'),
   horizontal: svg('<path d="M2 8h12"/>'),
   vertical: svg('<path d="M8 2v12"/>'),
+  horizontalPoints: svg('<path d="M2 8h12" stroke-dasharray="2.6 2.2" stroke-linecap="butt"/>'), // (two points level: a dashed line; a line itself level is solid, `in_1669`)
+  verticalPoints: svg('<path d="M8 2v12" stroke-dasharray="2.6 2.2" stroke-linecap="butt"/>'),
   perpendicular: svg('<path d="M3 13V3"/><path d="M3 13h10"/><path d="M3 9h4v4"/>'),
   parallel: svg('<path d="M5 14L8.5 2"/><path d="M10 14L13.5 2"/>'),
   coincident: svg('<circle cx="8" cy="8" r="4.6"/><circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none"/>'),
