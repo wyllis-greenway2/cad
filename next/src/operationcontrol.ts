@@ -19,6 +19,8 @@ export interface OperationHost {
   pick(x: number, y: number): Operation | null;
   /** the recipe now, and a new recipe to be made */
   recipe(): readonly Step[];
+  /** the last change is still being made (a new step now would be made on a picture that is not of it) */
+  busy(): boolean;
   change(steps: Step[]): void;
   /** a question for the worker, and a sentence for the person */
   ask(a: Ask): Promise<{ ok: true; data: unknown } | { ok: false; why: string }>;
@@ -70,6 +72,10 @@ export function createOperations(host: OperationHost) {
   };
   function apply(): boolean {
     if (!op) return false;
+    if (host.busy()) {
+      host.say("Still making the last change: a moment"); // (a step made on a picture that is not yet of the steps before it would take the wrong body)
+      return false;
+    }
     const plan = op.plan(host.recipe());
     close();
     if (plan.kind === "steps") host.change(plan.steps);

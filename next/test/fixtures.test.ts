@@ -37,20 +37,35 @@ const replaced = (steps: readonly Step[]): [string, string, string][] => {
   return out;
 };
 
-test("[F1] every file the human sent opens and builds: no step of it fails", () => {
-  assert.ok(fixtures.length >= 2, "the fixtures are there");
+/** steps the engine itself flags in a file, as it says (model_10: a push of a face that the round before it left nothing to push, twice) */
+const flaggedIn: Record<string, string[]> = { "model_10.cad": ["p1", "p2"] };
+test("[F1] every file the human sent opens and builds: no step of it fails but the ones the engine flags and says why (and a flagged step passes its input through)", () => {
+  assert.ok(fixtures.length >= 3, "the fixtures are there");
   for (const f of fixtures) {
     const e = build(f.steps),
       bad = e.ids().filter((i) => e.result(i).status.kind !== "ok");
-    assert.deepEqual(bad, [], `${f.name}: steps that failed`);
+    assert.deepEqual(bad, flaggedIn[f.name] ?? [], `${f.name}: steps that failed`);
+    for (const id of bad)
+      assert.equal(e.result(id).status.kind, "flagged", `${f.name}: ${id} is flagged, not orphaned`);
   }
 });
 
-test("[F2] no step takes a body that a newer step has replaced (model_9.cad, made before the fix, has exactly one: its combine c1)", () => {
+test("[F2] no step takes a body that a newer step has replaced (model_9.cad, made before the fix, has exactly one: its combine c1; model_10.cad four: its moves m2 to m5, each made on t1 while the picture was still of an earlier move)", () => {
   for (const f of fixtures) {
     const r = replaced(f.steps);
     if (f.name === "model_9.cad")
       assert.deepEqual(r, [["c1", "e1", "r1"]], "the check finds the combine that left out the round");
+    else if (f.name === "model_10.cad")
+      assert.deepEqual(
+        r,
+        [
+          ["m2", "t1", "m1"],
+          ["m3", "t1", "m1"],
+          ["m4", "t1", "m1"],
+          ["m5", "t1", "m1"],
+        ],
+        "the check finds the moves made on a stale picture",
+      );
     else assert.deepEqual(r, [], `${f.name}: ${JSON.stringify(r)}`);
   }
 });

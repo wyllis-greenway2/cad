@@ -6951,3 +6951,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1743 — 2026-11-28 — directive
 > yes bring dragging a part into the list
+
+## in_1744 — 2026-11-28 — directive
+> no we dont need to do that now, what else should we do?
+
+## in_1745 — 2026-11-28 — question
+> I cant seem to move this part?

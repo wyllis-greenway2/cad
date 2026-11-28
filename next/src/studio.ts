@@ -98,6 +98,7 @@ export function createStudio(spawn: Spawn = webWorker()) {
   const host = new EngineHost(spawn, { timeoutMs: 30000, memoryMb: 1500 });
   let state: StudioState = { steps: [], meshes: [], busy: false, problem: "", snapshot: [], current: null },
     loaded = false,
+    good: Step[] = [], // (the recipe of the last answer that was made: what the picture is of)
     version = 0,
     pending = 0,
     queue: Promise<void> = Promise.resolve();
@@ -112,6 +113,12 @@ export function createStudio(spawn: Spawn = webWorker()) {
     const out = await (loaded ? host.apply(steps) : host.load(steps));
     loaded = true;
     if (mine !== version) return; // (a newer recipe is on its way)
+    if (!out.fresh) {
+      // the recipe could not be made: the picture stays the last good one, and the recipe goes back to the one it is of, so that no step is kept that cannot be made and no next step is made on a picture that is not of the steps (`in_1745`)
+      if (mine === version) set({ steps: good, problem: out.events.join("; ") || "that could not be made" });
+      return;
+    }
+    good = steps;
     const snap = out.snapshot.steps,
       bad = snap.filter((s) => s.status.kind !== "ok"),
       current = out.snapshot.current; // (the engine says which step is the model now; the page does not guess)

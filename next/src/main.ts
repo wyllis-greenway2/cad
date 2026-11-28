@@ -227,6 +227,7 @@ const ext = createOperations({
     return r ? extrudeOfRegion(r, r.click) : null;
   },
   recipe: () => studio.state().steps,
+  busy: () => studio.state().busy,
   change: (steps) => {
     studio.change(steps);
     record("Extrude");
@@ -312,6 +313,7 @@ const bodyOps = createBodyOps({
 const bmove = createBodyMove({
   meshes: () => studio.state().meshes,
   recipe: () => studio.state().steps,
+  busy: () => studio.state().busy,
   change: (steps) => {
     studio.change(steps);
     record("Move");
@@ -332,6 +334,7 @@ const auto = createAutoHandles({
       r = sk.regionIn(p.key, p.at);
     return Promise.resolve(r ? extrudeOfRegion(r, p.click) : null);
   },
+  ready: () => !studio.state().busy,
   show: (op) => ext.open(op, true),
   drop: () => ext.drop(),
   draft: {

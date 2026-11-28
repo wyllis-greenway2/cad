@@ -9,6 +9,8 @@ import type { V3 } from "./vec.ts";
 export interface BodyMoveHost {
   meshes(): readonly BodyMesh[];
   recipe(): readonly Step[];
+  /** the last change is still being made */
+  busy(): boolean;
   change(steps: Step[]): void;
   say(text: string): void;
   /** the orb's memory of a draft that is over */
@@ -31,6 +33,10 @@ export function createBodyMove(host: BodyMoveHost) {
       cur ? { body: cur.body, owners: cur.owners, all: cur.all, matrix: matrixOf(cur.base, cur.now) } : null,
     /** begin on bodies of a mesh (the step that made it; `owners`: which of its bodies, by name; none: all): the orb stands in the middle of their box */
     start(body: string, owners: readonly string[] = []): boolean {
+      if (host.busy()) {
+        host.say("Still making the last change: a moment"); // (a move begun on a picture that is not yet of the steps before it would take the wrong body)
+        return false;
+      }
       const m = host.meshes().find((x) => x.id === body);
       if (!m || !m.positions.length) {
         host.say("That body is not there");

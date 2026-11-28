@@ -17,6 +17,8 @@ export interface AutoHost {
   show(op: Operation): void;
   /** an arrow that came by itself and was not touched is put away */
   drop(): void;
+  /** the last change has been made (a step now is made on a picture that is of it) */
+  ready(): boolean;
   /** an arrow that came by itself has been touched (dragged, a number typed, a kind chosen): it is a draft now; made if it is valid, given up */
   draft: { on(): boolean; apply(): void; cancel(): void };
   mover: {
@@ -29,12 +31,20 @@ export interface AutoHost {
 }
 export function createAutoHandles(host: AutoHost) {
   let last: unknown = null, // (the pick last looked at: each click makes a new one, so a click on the same face again is a pick again)
-    moving = false; // (the orb was started by a pick of a whole body, so it is ours to put away)
+    moving = false, // (the orb was started by a pick of a whole body, so it is ours to put away)
+    waiting: unknown = null; // (a pick of a whole body whose orb waits for the last change to be made: it comes when it has been)
   return {
     /** Each picture: when there is a new pick, the last arrow or orb goes and the new pick's comes. */
     update(): void {
       const pick = host.pick();
-      if (pick === last) return;
+      if (pick === last) {
+        if (waiting !== null && waiting === pick && host.ready() && pick?.kind === "body") {
+          waiting = null;
+          moving = host.mover.start(pick.body, pick.whole);
+        }
+        return;
+      }
+      waiting = null;
       last = pick;
       host.drop();
       if (moving) {
@@ -54,8 +64,10 @@ export function createAutoHandles(host: AutoHost) {
         !pick.vertices.length &&
         pick.whole.length &&
         !host.mover.on()
-      )
-        moving = host.mover.start(pick.body, pick.whole);
+      ) {
+        if (host.ready()) moving = host.mover.start(pick.body, pick.whole);
+        else waiting = pick;
+      }
     },
     /** A right click: a draft that was touched is made (true); with none, the ring may open (false). */
     finish(): boolean {
