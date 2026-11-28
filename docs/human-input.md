@@ -6808,3 +6808,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1697 — 2026-11-28 — directive
 > do the two unused locals in engine/sketch.ts
+
+## in_1698 — 2026-11-28 — directive
+> do the other three unused locals too

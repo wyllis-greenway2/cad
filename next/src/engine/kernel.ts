@@ -808,8 +808,6 @@ export function ringRegion(a: Solid, wall: FaceH, around: readonly FaceH[], d: n
       a1 = Math.max(...corners) + 5 + Math.abs(d),
       R1 = Math.min(cy.r, r2),
       R2 = Math.max(cy.r, r2);
-    const base = dot3(cy.point, cy.dir),
-      at = (x: number): V3 => add3(cy.point, cy.dir, x - base);
     const tube = (r: number, x0: number, x1: number) => cylinderSolid(cy, r, x0, x1);
     let tool = t(new oc.BRepAlgoAPI_Cut(tube(R2, a0, a1), tube(R1, a0 - 1, a1 + 1), progress())).Shape();
     for (const g of around) {

@@ -143,8 +143,7 @@ export function regions(segs: readonly Seg[], opts: { pick?: readonly Pt[] } = {
     ),
     eps = 1e-9 * ext;
   const pointAt = pointOnSeg;
-  const last = (s: Seg) => (s.kind === "line" ? 1 : s.sweep),
-    closed = (s: Seg) => s.kind === "arc" && s.sweep >= TAU - 1e-12;
+  const closed = (s: Seg) => s.kind === "arc" && s.sweep >= TAU - 1e-12;
   const dist2 = (p: Pt, q: Pt) => hyp(p[0] - q[0], p[1] - q[1]);
   const along = (s: Seg, q: Pt): number | null => alongSeg(s, q, eps);
   // the candidate places where something is cut: every crossing of two segments, every end

@@ -172,8 +172,7 @@ export function trimAt(p: SketchParams, id: string, at: Pt, read: Read = solveDe
     add(q.points!, { id: pid, x: c.at[0], y: c.at[1] });
     for (const o of segs) {
       if (o === target || alongSeg(o, c.at, eps) === null) continue;
-      const isLine = (p.lines ?? []).some((l) => l.id === o.name),
-        cid = fresh(`${pid}_on_${o.name}`);
+      const cid = fresh(`${pid}_on_${o.name}`);
       newConstraints.push({ id: cid, kind: "on", parts: [pid, o.name] });
       made.push(cid);
     }
