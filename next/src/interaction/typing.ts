@@ -6,6 +6,20 @@ import type { TypedMeasure } from "../engine/typed.ts";
 import type { DrawKind } from "./tools.ts";
 
 /** a number of a figure: what it is called, what it measures, and how it is shown (`scale`: a circle's radius is shown as a diameter); `signed`: a distance across or up has a side, which the pointer gives unless the number is typed with a minus */
+/** the keys that type a number (and what each types) */
+export const TYPED: Record<string, string> = {
+  ...Object.fromEntries(
+    [...Array(10).keys()].flatMap((d) => [
+      [`Digit${d}`, String(d)],
+      [`Numpad${d}`, String(d)],
+    ]),
+  ),
+  Period: ".",
+  NumpadDecimal: ".",
+  Minus: "-",
+  NumpadSubtract: "-",
+};
+
 export interface FieldSpec {
   label: string;
   kind: Relation;

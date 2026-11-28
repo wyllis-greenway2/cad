@@ -54,21 +54,15 @@ try {
   ok(s.pull?.mode === "extrude", "a click inside the figure again brings its arrow back");
 
   await shot("r2b-again");
-  // a number typed makes it a draft; Enter makes the body
-  const typed = await page.evaluate(() => {
-    const e = [...document.querySelectorAll<HTMLElement>("[data-fact='d'] span")].find((x) =>
-      /^-?[\d.]+$/.test(x.textContent ?? ""),
-    )!;
-    const r = e.getBoundingClientRect();
-    return [r.x + r.width / 2, r.y + r.height / 2];
-  });
-  await page.mouse.click(typed[0]!, typed[1]!);
-  await page.keyboard.press("Control+a");
+  // digits typed with the arrow showing begin its number, as the old app's did; one Enter sets it and makes the body
   await page.keyboard.type("12");
-  await page.keyboard.press("Enter");
   await page.waitForTimeout(200);
-  ok((await state()).pull?.d === 12, "a number typed over is the distance, and it is a draft now");
-  await page.keyboard.press("Enter"); // (the first Enter sets the number, the second makes the body)
+  s = await state();
+  ok(
+    await page.evaluate(() => !!document.activeElement && document.activeElement.tagName === "INPUT"),
+    "digits typed with the arrow showing go to its number",
+  );
+  await page.keyboard.press("Enter");
   await page.waitForTimeout(1500);
   s = await state();
   ok(s.steps.includes("extrude"), `Enter makes the body: ${s.steps.join(",")}`);

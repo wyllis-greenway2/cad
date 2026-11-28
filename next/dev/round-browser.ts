@@ -31,6 +31,22 @@ try {
     await page.keyboard.type(v);
     await page.keyboard.press("Enter");
   };
+  // a face picked, then Round from the ring: the face stands for its edges, all four are rounded together (the old app's rule, `in_257`)
+  {
+    const [tx, ty] = await p3([30, 6, 10]);
+    await page.mouse.click(tx, ty);
+    await page.waitForTimeout(700);
+    await ev(`() => window.__tool("round")`);
+    await page.waitForTimeout(700);
+    const f = await ev<any>(`() => window.__ext.debug()`);
+    ok(
+      f.pull?.mode === "round" && f.pull.edges === 4,
+      `a face picked and Round chosen rounds all its edges: ${JSON.stringify(f.pull && { mode: f.pull.mode, edges: f.pull.edges })}`,
+    );
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(300);
+  }
   const [ex, ey] = await p3([20, 25, 10]);
   await page.mouse.click(ex, ey);
   await page.waitForTimeout(600); // (a picked edge shows its round arrow by itself, as the old app's did)

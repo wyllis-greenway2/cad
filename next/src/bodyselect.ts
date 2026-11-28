@@ -1,11 +1,10 @@
 // What is picked on the bodies (`in_1568`): a face, or edges (Shift adds), by the names the steps use. A click on a body picks; a click on nothing puts the pick away; the pointer over a body marks what a click would pick (fainter). The marks go to the
 // world as the Marked look (teal over the body); the helper bar (`bodybar.ts`) stands beside the pick, up and to the right, and its buttons are the operations (the host does them).
 import { project, type Cam } from "./camera.ts";
-import { idKey } from "./engine/id.ts";
 import type { InfoHandlers } from "./infobardraw.ts";
 import { barForBody } from "./interaction/bodybar.ts";
 import type { Info } from "./interaction/infobar.ts";
-import { pickAt, type Hit } from "./interaction/pick.ts";
+import { edgesAround, pickAt, type Hit } from "./interaction/pick.ts";
 import type { BodyPick, Selection as Store } from "./selection.ts";
 import type { BodyMesh } from "./studio.ts";
 import type { V3 } from "./vec.ts";
@@ -35,6 +34,11 @@ export function createBodySelect(host: BodySelectHost) {
     (a.key ?? a.id) === (b.key ?? b.id);
   return {
     selection: (): Selection | null => sel(),
+    /** the body under the pointer (null: none) */
+    bodyAt(x: number, y: number): string | null {
+      const { cam, w, h } = host.view();
+      return pickAt(host.meshes(), cam, w, h, x, y)?.body ?? null;
+    },
     /** A click: a body is picked (a face, or an edge; Shift adds edges; a double click the whole body), a click on nothing puts the pick away. Returns whether the click was used. */
     click(x: number, y: number, shift: boolean, count = 1): boolean {
       const { cam, w, h } = host.view(),
@@ -47,7 +51,14 @@ export function createBodySelect(host: BodySelectHost) {
         return true;
       }
       if (hit.kind === "face") {
-        store.setBody({ body: hit.body, faces: [hit.face], edges: [], at: hit.point });
+        // Shift adds a face to the faces picked of the same body, or takes it out if it is one of them (the old app's rule, `MD-35`)
+        const more = shift && cur && cur.body === hit.body && cur.faces.length && !cur.edges.length,
+          faces = more
+            ? cur!.faces.some((f) => same(f, hit.face))
+              ? cur!.faces.filter((f) => !same(f, hit.face))
+              : [...cur!.faces, hit.face]
+            : [hit.face];
+        store.setBody({ body: hit.body, faces, edges: [], at: hit.point });
         pickedAt = performance.now();
       } else if (shift && cur && cur.body === hit.body && cur.edges.length)
         store.setBody({
@@ -84,9 +95,8 @@ export function createBodySelect(host: BodySelectHost) {
       const pick = sel();
       if (pick) {
         // a face picked has its own edges marked too (the old app drew them bold teal round the lit face)
-        const sides = new Set(pick.faces.map((f) => idKey(f.ref))),
-          mesh = host.meshes().find((m) => m.id === pick.body),
-          around = (mesh?.edgeInfo ?? []).filter((e) => sides.has(idKey(e.ref.a)) || sides.has(idKey(e.ref.b)));
+        const mesh = host.meshes().find((m) => m.id === pick.body),
+          around = mesh ? edgesAround(mesh, pick.faces) : [];
         out.push({
           body: pick.body,
           faces: pick.faces.map((f) => ({ start: f.start, count: f.count })),

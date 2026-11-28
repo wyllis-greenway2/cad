@@ -42,6 +42,7 @@ export function createOperations(host: OperationHost) {
     armed = false,
     op: Operation | null = null,
     grab: { x0: number; y0: number; d0: number } | null = null,
+    applyNext = false, // (the number now being typed was begun by digits with the operation showing: Enter sets it and makes the operation, as the old app's did)
     auto = false, // (it came by itself, from a pick: `autohandles.ts`)
     touched = false; // (and the person has dragged it, typed a number or chosen a kind)
   /** the arrow, as in the old app: centred on the place it is anchored at, along the way it is pulled, with a head at each end; long enough to reach the pull when that is longer than it is */
@@ -148,6 +149,14 @@ export function createOperations(host: OperationHost) {
     tie: (): string | null => tie,
     apply,
     cancel,
+    /** digits typed with an operation showing have begun its number: Enter will make the operation as well as set the number */
+    typedBegun(): void {
+      applyNext = true;
+    },
+    /** the number is not being typed (it was let go): no operation is waiting on Enter */
+    typedDone(): void {
+      applyNext = false;
+    },
     /** Enter applies; returns whether it was used. */
     key(code: string): boolean {
       if (!op) return false;
@@ -233,6 +242,10 @@ export function createOperations(host: OperationHost) {
             if (op && isFinite(v)) {
               op = op.withValue(v) ?? op;
               touched = true;
+              if (applyNext) {
+                applyNext = false;
+                if (Math.abs(op.value) > 1e-9) apply();
+              }
             }
           },
         },

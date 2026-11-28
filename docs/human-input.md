@@ -6871,3 +6871,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1718 — 2026-11-28 — question
 > okay aside from preview of operation, which I dont think I want to copy from the old prototype because I want a dedicated speed system to handle that, then what can we do to make body manipulation look and feel and function just like in the old prototype in a lean and simple way?
+
+## in_1719 — 2026-11-28 — directive
+> just do 1 for now

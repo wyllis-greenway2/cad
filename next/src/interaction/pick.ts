@@ -1,10 +1,16 @@
 // Picking on a body (`in_1568`): what the pointer is at on the bodies the engine made: an edge when the pointer is within a few pixels of one that can be seen, else the face it is over. Pure: the meshes, the camera and the pointer in; the face or edge (by the
 // ids the steps use) and the place out. A face is found by the pointer's ray through the triangles; an edge by its distance on the screen to the edge's polyline, and only if it is not behind the face the ray meets first.
 import { project, type Cam } from "../camera.ts";
+import { idKey } from "../engine/id.ts";
 import { rayOf } from "../orb.ts";
 import type { BodyMesh, EdgeInfo, FaceInfo } from "../studio.ts";
 import type { V3 } from "../vec.ts";
 
+/** The edges that bound some faces of a body (those with a name: two faces beside them): a face stands for its edges (`dec_selection_tools`, `in_257`), so a round or chamfer of a face is of every one of them. */
+export function edgesAround(m: Pick<BodyMesh, "edgeInfo">, faces: readonly Pick<FaceInfo, "ref">[]): EdgeInfo[] {
+  const sides = new Set(faces.map((f) => idKey(f.ref)));
+  return m.edgeInfo.filter((e) => sides.has(idKey(e.ref.a)) || sides.has(idKey(e.ref.b)));
+}
 export type Hit =
   | { kind: "face"; body: string; face: FaceInfo; point: V3; normal: V3; depth: number }
   | { kind: "edge"; body: string; edge: EdgeInfo; point: V3; depth: number };

@@ -3,6 +3,7 @@ import type { Selection } from "./bodyselect.ts";
 import { flushPull, type PlaneRef } from "./engine/flush.ts";
 import { idKey } from "./engine/id.ts";
 import { edgeAnchor, faceCentre } from "./interaction/anchors.ts";
+import { edgesAround } from "./interaction/pick.ts";
 import type { Operation } from "./interaction/operation.ts";
 import { pushOp, roundOp, type PullInfo } from "./interaction/operations.ts";
 import type { createStudio } from "./studio.ts";
@@ -14,6 +15,16 @@ export interface BodyOpsHost {
   studio: Pick<ReturnType<typeof createStudio>, "state" | "ask">;
   faceFacts(body: string, id: string): { ne: readonly number[]; ce: readonly number[] } | null;
 }
+/** the triangles of a face (x y z each) */
+function facePositions(
+  mesh: { positions: ArrayLike<number>; indices: ArrayLike<number> },
+  f: { start: number; count: number },
+) {
+  const out = new Float32Array(f.count * 3);
+  for (let k = 0; k < f.count; k++)
+    for (let c = 0; c < 3; c++) out[3 * k + c] = mesh.positions[3 * mesh.indices[f.start + k]! + c]!;
+  return out;
+}
 export function createBodyOps(host: BodyOpsHost) {
   const { studio, faceFacts, planes } = host;
   return {
@@ -21,7 +32,9 @@ export function createBodyOps(host: BodyOpsHost) {
     async operationFor(id: string, sel: Selection): Promise<Operation | null> {
       const mesh = studio.state().meshes.find((x) => x.id === sel.body),
         f = sel.faces[0];
-      if ((id === "body:round" || id === "body:chamfer") && sel.edges.length && mesh) {
+      // the edges picked, or the edges of the faces picked (a face stands for its edges)
+      const edges = sel.edges.length ? sel.edges : mesh ? edgesAround(mesh, sel.faces) : [];
+      if ((id === "body:round" || id === "body:chamfer") && edges.length && mesh) {
         // the number is the size: about a tenth of the shortest edge, to type over
         const len = (e: { start: number; count: number }) => {
           let L = 0;
@@ -35,10 +48,10 @@ export function createBodyOps(host: BodyOpsHost) {
           }
           return L;
         };
-        const short = Math.min(...sel.edges.map(len)),
+        const short = Math.min(...edges.map(len)),
           size = Math.max(0.1, Math.round(Math.min(short / 10, 2) * 10) / 10);
         // the arrow stands on the first edge (a quarter of the way along a straight one, in the middle of a curve) and points out of the body, between its two faces (pulled out: round; pushed in: chamfer)
-        const e0 = sel.edges[0]!,
+        const e0 = edges[0]!,
           at = edgeAnchor(mesh.lines, e0);
         const ns = [e0.ref.a, e0.ref.b].map((r) => {
           const fi = mesh.faces.find((x) => idKey(x.ref) === idKey(r));
@@ -49,7 +62,7 @@ export function createBodyOps(host: BodyOpsHost) {
         return roundOp(
           {
             body: sel.body,
-            edges: sel.edges.map((e) => e.ref),
+            edges: edges.map((e) => e.ref),
             kind: id === "body:chamfer" ? "chamfer" : "fillet",
             at: normal ? at : sel.at,
             normal,
@@ -60,12 +73,7 @@ export function createBodyOps(host: BodyOpsHost) {
       if (id === "body:pull" && mesh && f) {
         const ff = faceFacts(sel.body, f.id);
         if (!ff) return null;
-        const positions = new Float32Array(f.count * 3);
-        for (let k = 0; k < f.count; k++)
-          positions.set(
-            mesh.positions.subarray(3 * mesh.indices[f.start + k]!, 3 * mesh.indices[f.start + k]! + 3),
-            3 * k,
-          );
+        const positions = facePositions(mesh, f);
         const r = await studio.ask({ what: "pullModes", step: sel.body, face: f.ref }); // the kinds of pull this face has, from the worker
         const kinds = r.ok ? (r.data as PullInfo[]) : [{ mode: "push" as const, ok: true, why: "", suggested: true }];
         const at = faceCentre(mesh, f), // (the arrow stands in the middle of the face)
@@ -74,7 +82,21 @@ export function createBodyOps(host: BodyOpsHost) {
             const r = flushPull({ p: at, n: normal }, planes(), d, reach);
             return r && { d: r.d, tie: r.to.face };
           };
-        return pushOp({ ref: f.ref, body: sel.body, at, normal, positions, kinds, snap });
+        // more faces picked: they go with it, each along its own normal
+        const more = sel.faces.slice(1).flatMap((g) => {
+          const gf = faceFacts(sel.body, g.id);
+          return gf ? [{ ref: g.ref, normal: gf.ne as unknown as V3, positions: facePositions(mesh, g) }] : [];
+        });
+        return pushOp({
+          ref: f.ref,
+          body: sel.body,
+          at,
+          normal,
+          positions,
+          kinds,
+          snap,
+          ...(more.length ? { more } : {}),
+        });
       }
       return null;
     },

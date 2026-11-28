@@ -47,7 +47,7 @@ export function createAutoHandles(host: AutoHost) {
         if (op && host.pick() === pick && !host.busy()) host.show(op);
       };
       if (pick.kind === "region") void host.operation("region:extrude", pick).then(still);
-      else if (pick.faces.length === 1 && !pick.edges.length) void host.operation("body:pull", pick).then(still);
+      else if (pick.faces.length >= 1 && !pick.edges.length) void host.operation("body:pull", pick).then(still);
       else if (pick.edges.length && !pick.faces.length) void host.operation("body:round", pick).then(still);
       else if (!pick.faces.length && !pick.edges.length && host.mover.bodies() <= 1 && !host.mover.on())
         moving = host.mover.start(pick.body);

@@ -220,10 +220,10 @@ export function faceStatus(spec: ToolSpec, picked: { faces: number; edges: numbe
   if (!picked || (!picked.faces && !picked.edges)) return "partial";
   if (need === "body") return "met"; // (anything picked on a body picks the body)
   return need === "face"
-    ? picked.faces === 1 && !picked.edges
+    ? picked.faces >= 1 && !picked.edges // (several faces are pulled together)
       ? "met"
       : "bad"
-    : picked.edges > 0 && !picked.faces
-      ? "met"
+    : picked.edges > 0 !== picked.faces > 0
+      ? "met" // (edges, or faces, which stand for their edges)
       : "bad";
 }

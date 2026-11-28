@@ -98,6 +98,50 @@ try {
     s.mv === null && s.steps > before,
     `taken 8 mm along X and let go, it is made as a step (${before} steps, then ${s.steps})`,
   );
+  // a press on the body picked whole, and a drag: it goes where the pointer goes, and is made as one step on release
+  const [hx, hy] = await p3([24, -6, 20]); // (the body is 8 mm along X now: away from where its arrow stands)
+  await page.mouse.click(hx, hy);
+  await wait(400);
+  await page.mouse.click(hx, hy, { clickCount: 2 });
+  await wait();
+  const o0 = (await state()).mv.now.origin;
+  const steps0 = (await state()).steps;
+  await page.mouse.move(hx, hy);
+  await page.mouse.down();
+  await page.mouse.move(hx + 60, hy + 10, { steps: 6 });
+  s = await state();
+  ok(
+    s.mv && Math.hypot(...s.mv.now.origin.map((v: number, i: number) => v - o0[i])) > 5,
+    `a press on the body and a drag takes it along: ${JSON.stringify(s.mv?.now.origin)}`,
+  );
+  await page.mouse.up();
+  await wait(400);
+  await page.mouse.click(1000, 600);
+  await wait(900);
+  s = await state();
+  ok(s.mv === null && s.steps === steps0 + 1, `and it is one step when it is let go (${steps0}, then ${s.steps})`);
+  await page.keyboard.press("Escape");
+  // Shift adds a face: two faces pulled together by one number, one step each, with no Move kind
+  await page.mouse.click(1000, 600);
+  await wait();
+  const [sx, sy] = await p3([20, 0, 10]);
+  await page.mouse.click(gx, gy);
+  await wait();
+  await page.keyboard.down("Shift");
+  await page.mouse.click(sx, sy);
+  await page.keyboard.up("Shift");
+  await wait();
+  s = await state();
+  ok(
+    s.b.sel?.faces.length === 2 && s.pull?.mode === "push",
+    `Shift adds a second face and the pull stays: ${s.b.sel?.faces.length} faces`,
+  );
+  const before2 = s.steps;
+  await page.keyboard.type("3");
+  await page.keyboard.press("Enter");
+  await wait(900);
+  s = await state();
+  ok(s.steps === before2 + 2, `a number pulls both together: one step each (${before2}, then ${s.steps})`);
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   void fx;
   void fy;

@@ -69,6 +69,13 @@ export function extrudeOp(
   return op(d);
 }
 
+/** the triangles of faces, each moved `d` along its own normal */
+function movedFaces(faces: { normal: V3; positions: Float32Array }[], d: number): Float32Array {
+  const out = new Float32Array(faces.reduce((n, f) => n + f.positions.length, 0));
+  let o = 0;
+  for (const f of faces) for (let i = 0; i < f.positions.length; i++) out[o++] = f.positions[i]! + f.normal[i % 3]! * d;
+  return out;
+}
 /** a face of a body, pulled: the kinds the engine says it has, as chips; the first that applies is chosen (Move when a step made the face) */
 export function pushOp(
   a: {
@@ -79,12 +86,17 @@ export function pushOp(
     /** the face's triangles (x y z each), to show it moved */ positions: Float32Array;
     kinds: readonly PullInfo[];
     snap?: Operation["snap"];
+    /** more faces picked with it: all are pushed or pulled by the same distance, each along its own normal (only the plain push) */
+    more?: { ref: Id; normal: V3; positions: Float32Array }[];
   },
   kind?: PullKind,
   d = 0,
 ): Operation {
-  const chosen: PullKind = kind ?? (a.kinds.find((k) => k.suggested) ?? { mode: "push" as PullKind }).mode;
-  const options: OpOption[] = a.kinds
+  const several = !!a.more?.length;
+  const chosen: PullKind = several
+    ? "push"
+    : (kind ?? (a.kinds.find((k) => k.suggested) ?? { mode: "push" as PullKind }).mode);
+  const options: OpOption[] = (several ? [] : a.kinds)
     .filter((k) => k.mode !== "offset" || k.ok)
     .map((k) => ({
       id: k.mode,
@@ -102,7 +114,10 @@ export function pushOp(
     at: a.at,
     arrow: { base: a.at, normal: a.normal },
     ...(a.snap ? { snap: a.snap } : {}),
-    ghost: { faceMove: { positions: a.positions, n: a.normal, d: value } },
+    // (several faces: each moved by its own normal, so the positions are moved here and the ghost itself stays put)
+    ghost: several
+      ? { faceMove: { positions: movedFaces([a, ...a.more!], value), n: [0, 0, 0], d: value } }
+      : { faceMove: { positions: a.positions, n: a.normal, d: value } },
     tilt: null,
     pulled: value,
     withPull: (d) => op(d),
@@ -127,12 +142,18 @@ export function pushOp(
         kind: "steps",
         steps: [
           ...recipe,
-          ...pushSteps(
-            recipe,
-            a.ref,
-            a.body,
-            value,
-            chosen === "push" ? "push" : chosen === "move" ? "moveFace" : "offsetFace",
+          ...(several ? [{ ref: a.ref }, ...a.more!] : [{ ref: a.ref }]).reduce<Step[]>(
+            (made, f) => [
+              ...made,
+              ...pushSteps(
+                [...recipe, ...made],
+                f.ref,
+                made.length ? made[made.length - 1]!.id : a.body, // (each pushes the body the one before made)
+                value,
+                chosen === "push" ? "push" : chosen === "move" ? "moveFace" : "offsetFace",
+              ),
+            ],
+            [],
           ),
         ],
       };

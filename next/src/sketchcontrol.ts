@@ -15,7 +15,7 @@ import { helpShown } from "./interaction/helpshow.ts";
 import { type Mark } from "./interaction/marks.ts";
 import { cancelFigure, newTool, toolClick, toolPreview, type Tool } from "./interaction/tools.ts";
 import { kindsOfSelection } from "./interaction/toolspec.ts";
-import { FIELDS, chipFields, freeOf, madeNames, typeKey, typedMeasures } from "./interaction/typing.ts";
+import { FIELDS, TYPED, chipFields, freeOf, madeNames, typeKey, typedMeasures } from "./interaction/typing.ts";
 import type { PlacedMark } from "./markdraw.ts";
 import type { Frame } from "./planes.ts";
 import { vOf } from "./planes.ts";
@@ -28,20 +28,6 @@ import { createMarks } from "./sketchmarks.ts";
 import type { V3 } from "./vec.ts";
 
 export type { DrawLine, SketchHost } from "./sketchcore.ts";
-
-/** the keys that type a number (and what each types) */
-const TYPED: Record<string, string> = {
-  ...Object.fromEntries(
-    [...Array(10).keys()].flatMap((d) => [
-      [`Digit${d}`, String(d)],
-      [`Numpad${d}`, String(d)],
-    ]),
-  ),
-  Period: ".",
-  NumpadDecimal: ".",
-  Minus: "-",
-  NumpadSubtract: "-",
-};
 
 export function createSketch(host: SketchHost, on?: (label: string, merge?: string) => void) {
   const K = createCore(host, on);

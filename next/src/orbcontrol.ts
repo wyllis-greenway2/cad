@@ -43,6 +43,8 @@ export function createOrbControl(host: OrbHost) {
     id: string;
     copied: boolean;
     moved: boolean;
+    /** taken by the thing itself, not by a handle (a press on a body that is picked): the ball that goes nowhere does not orient */
+    free?: boolean;
     x0: number;
     y0: number;
   } | null = null;
@@ -94,6 +96,28 @@ export function createOrbControl(host: OrbHost) {
         };
       return true;
     },
+    /** A press on the thing itself (not a handle): it is taken as the ball is, freely across the view */
+    grabFree(x: number, y: number): boolean {
+      const o = orb(),
+        t = host.target();
+      if (!o || !t) return false;
+      const { cam, w, h } = host.view(),
+        ball = handlesOf(o, cam).find((hd) => hd.kind === "ball"),
+        g = ball && startGrab(o, ball, cam, w, h, x, y, forward(cam));
+      if (!g) return false;
+      grabbed = {
+        g,
+        base: t.frame,
+        pose: clonePose(poseOf(t.id)),
+        id: t.id,
+        copied: false,
+        moved: false,
+        free: true,
+        x0: x,
+        y0: y,
+      };
+      return true;
+    },
     grabMove(x: number, y: number): void {
       if (!grabbed) return;
       const { cam, w, h } = host.view(),
@@ -118,7 +142,7 @@ export function createOrbControl(host: OrbHost) {
     grabEnd(): void {
       const g = grabbed;
       grabbed = null;
-      if (!g || g.g.handle.kind !== "ball" || g.moved) return;
+      if (!g || g.g.handle.kind !== "ball" || g.moved || g.free) return;
       if (orient) stopOrient(true);
       else {
         orient = true;

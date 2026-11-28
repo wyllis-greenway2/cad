@@ -5,6 +5,7 @@
 import { createBadge } from "./badgedraw.ts";
 import { createBodyMove } from "./bodymovecontrol.ts";
 import { createAutoHandles } from "./autohandles.ts";
+import { TYPED } from "./interaction/typing.ts";
 import { createBodyOps } from "./bodyops.ts";
 import type { Mark } from "./bodyselect.ts";
 import { createBodySelect } from "./bodyselect.ts";
@@ -574,7 +575,13 @@ attach(
       if (game.on) return false;
       if (ext.grab(x, y)) return true;
       if (ext.active()) return false;
-      return orbc.grab(x, y, shift) || sk.grab(x, y, shift || tools.additive());
+      // a press on a body that is picked whole takes it (the orb shows): it goes where the pointer goes, as the old app's grab
+      const body = bmove.target() ? selection.body()?.body : null;
+      return (
+        orbc.grab(x, y, shift) ||
+        (!!body && bodies.bodyAt(x, y) === body && orbc.grabFree(x, y)) ||
+        sk.grab(x, y, shift || tools.additive())
+      );
     },
     grabMove: (x, y) => {
       ext.grabMove(x, y);
@@ -615,6 +622,13 @@ addEventListener("keydown", (e) => {
   }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (ext.key(e.code)) {
+    e.preventDefault();
+    return;
+  }
+  // digits with an arrow showing begin its number (`MD-32`): the key typed is the first of it, Enter sets it and makes the operation
+  const digit = TYPED[e.code];
+  if (digit !== undefined && ext.pulling() && !infobar.editing() && infobar.startEdit("d", digit)) {
+    ext.typedBegun();
     e.preventDefault();
     return;
   }
@@ -671,6 +685,7 @@ function syncNotices(now: number) {
 let last = performance.now();
 function frame(now: number) {
   auto.update();
+  if (!infobar.editing()) ext.typedDone();
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   s = view.advance(s, env(now), dt);

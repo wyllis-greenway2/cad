@@ -98,12 +98,12 @@ check(
 const pull = toolOf("pull")!,
   round = toolOf("round")!;
 check(
-  "push and pull needs exactly one face; round needs edges, not a face; nothing is the start",
+  "push and pull needs faces (several go together), not edges; round takes edges or faces, which stand for their edges; nothing is the start",
   faceStatus(pull, { faces: 1, edges: 0 }) === "met" &&
-    faceStatus(pull, { faces: 2, edges: 0 }) === "bad" &&
+    faceStatus(pull, { faces: 2, edges: 0 }) === "met" &&
     faceStatus(pull, { faces: 0, edges: 2 }) === "bad" &&
     faceStatus(round, { faces: 0, edges: 3 }) === "met" &&
-    faceStatus(round, { faces: 1, edges: 0 }) === "bad" &&
+    faceStatus(round, { faces: 1, edges: 0 }) === "met" &&
     faceStatus(round, null) === "partial" &&
     faceStatus(pull, { faces: 0, edges: 0 }) === "partial",
 );
