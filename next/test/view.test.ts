@@ -283,29 +283,31 @@ test("[C11] a sketch plane facing straight up or down is seen as the Z button se
     near(Math.sin(s.c.yaw), Math.sin(cam.straightDirection(2, 1).yaw), 1e-9, `looking ${down}`);
   }
 });
-test("[C3 C13] with nothing in the model, going out of a straight view by a drag and back by a button, again and again, lands in the same 3D view every time", () => {
-  const m = emptyScene();
-  let t = 0,
-    s = straightFrom(m, 2);
-  const wait = (ms: number) => {
-    for (let i = 0; i < ms / 16; i++) s = view.advance(s, E(m, { now: (t += 16) }), 0.016);
-  };
-  const reaches: number[] = [];
-  for (let i = 0; i < 5; i++) {
-    s = view.startDrag(s, E(m, { now: t }), W / 2, H / 2);
-    for (let k = 0; k < 16; k++) {
-      s = view.orbit(s, E(m, { now: (t += 16) }), 5, 1);
-      s = view.advance(s, E(m, { now: t }), 0.016);
+for (const [name, make] of [
+  ["nothing in the model", emptyScene],
+  ["one box", oneScene],
+  ["three boxes", demoScene],
+] as const)
+  test(`[C12 C13] with ${name}, going out of a straight view by a drag and back by a button, again and again, changes nothing: the same point held, the same size`, () => {
+    const m = make();
+    let t = 0,
+      s = straightFrom(m, 2);
+    const first = { at: s.held!, size: s.c.ortho! };
+    for (let i = 0; i < 5; i++) {
+      s = view.startDrag(s, E(m, { now: t }), W / 2, H / 2);
+      for (let k = 0; k < 16; k++) {
+        s = view.orbit(s, E(m, { now: (t += 16) }), 5, 1);
+        s = view.advance(s, E(m, { now: t }), 0.016);
+      }
+      s = view.endDrag(s);
+      for (let k = 0; k < 150 / 16; k++) s = view.advance(s, E(m, { now: (t += 16) }), 0.016); // (the button is pressed while the perspective is still coming in)
+      assert.ok(s.c.ortho === null, "it is out");
+      s = settle(view.lookAt(s, E(m, { now: (t += 16) }), 2), m, {}, t);
+      t += 5000;
+      for (let a = 0; a < 3; a++) near(s.held![a]!, first.at[a]!, 0.05, `the point held, cycle ${i + 1}`);
+      near(s.c.ortho! / first.size, 1, 0.005, `the size of the straight view, cycle ${i + 1}`);
     }
-    s = view.endDrag(s);
-    wait(150); // (the button is pressed while the perspective is still coming in)
-    reaches.push(cam.reachOf(s.c));
-    s = settle(view.lookAt(s, E(m, { now: (t += 16) }), 2), m, {}, t);
-    t += 5000;
-  }
-  for (const r of reaches)
-    near(r / reaches[0]!, 1, 0.005, `the 3D view entered: ${reaches.map((x) => x.toFixed(1)).join(", ")}`);
-});
+  });
 
 test("[C12 C13] leaving a straight view by a drag and coming back to it again and again does not change its zoom", () => {
   const m = demoScene();

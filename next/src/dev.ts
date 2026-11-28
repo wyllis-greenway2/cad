@@ -46,6 +46,9 @@ export function install(h: DevHooks): void {
     get go() {
       return h.state().go;
     },
+    get held() {
+      return h.state().held;
+    },
     get gizmo() {
       return h.gizmoScale();
     },

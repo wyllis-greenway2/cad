@@ -1,7 +1,7 @@
 // What the camera needs to know about the scene: how big a step is, which point it looks at, and whether anything is in view. Pure.
 // Two measures of distance only: `scaleAmong` (the scale of what the eye is among: steps, the depth range, how far ahead to look when nothing
 // is) and `gridLevel` (how far the plane is).
-import { forward, onAxis, project, reachOf, type Cam } from "./camera.ts";
+import { forward, project, reachOf, type Cam } from "./camera.ts";
 import { centreOf, hitThings, type Scene, type Thing } from "./scene.ts";
 import { settings } from "./settings.ts";
 import { add, len, scale, sub, type V3 } from "./vec.ts";
@@ -34,9 +34,7 @@ export function focusOf(sc: Scene, c: Cam, w: number, h: number): V3 {
     sum += weight;
     acc = add(acc, scale(p, weight));
   }
-  if (sum > 0) return scale(acc, 1 / sum);
-  // nothing in view: in perspective, the point straight ahead at the scale of what the eye is among; in a straight view, where the eye stands along the view means nothing (each return to a straight view puts it on another plane), so the point of the view's axis at the origin's depth: the same however the eye got there
-  return c.ortho !== null ? onAxis(c, [0, 0, 0]) : add(c.eye, scale(forward(c), scaleAmong(sc, c)));
+  return sum > 0 ? scale(acc, 1 / sum) : add(c.eye, scale(forward(c), scaleAmong(sc, c)));
 }
 /** The box of the screen a thing's own box covers: the corners in front of the eye (an orthographic view has no behind: the eye is only where the view is held), and how many there are. */
 function screenBox(c: Cam, w: number, h: number, t: Thing) {

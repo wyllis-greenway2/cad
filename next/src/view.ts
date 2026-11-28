@@ -21,7 +21,7 @@ export interface ViewState {
   worldHidden: boolean;
   free: number; // 0: the axes and panes are the world's size (they zoom with the world); 1: scale free, the same size on the screen. 0 until the first thing exists, then eases over to 1
   seen: string | null; // the last thing that was in view, for Reset camera
-  held: V3 | null; // the point a straight view was left holding (the drag's pivot): held again on the way back, so a round trip leaves the zoom as it was; given up when the hands zoom or slide
+  held: V3 | null; // the point a straight view was entered about, then left about (the drag's pivot) and entered about again: a round trip holds the one point, so it leaves the zoom as it was whatever the scene; given up when the hands zoom or slide
   drag: Drag | null;
 }
 /** What is known now. `gameOn`: the pointer is held at the middle of the view, so the world's pointer is there. */
@@ -108,7 +108,7 @@ function lensGo(
   ms: number,
   dir?: { yaw: number; pitch: number },
 ): ViewState & { go: LensGo } {
-  const h = cam.forwardDepth(s.c, hold) > settings.view.minSurfaceMm ? hold : focusOnAxis(s, e);
+  const h = inFront(s.c, hold) ? hold : focusOnAxis(s, e);
   const c = cam.leaveOrtho(s.c, h);
   return { ...s, c, held: null, go: { t0: e.now, ms, from: c, lens, hold: h, ...(dir ? { dir } : {}) } };
 }
@@ -130,10 +130,16 @@ function takeOver(s: ViewState, e: Env, pivot?: V3): ViewState {
   return s.c.lens < 1 ? lensGo(s, e, pivot ?? focus(s, e), 1, ms) : { ...s, go: null };
 }
 /** The point a straight view was left holding, at the middle of the screen at its depth, while it is still in view and in front of the eye. */
+/** A point is in front of the eye. In a straight view there is no behind: the eye only stands where the view is held (on the plane of the point it was entered about), so any point is. */
+const inFront = (c: Cam, p: V3): boolean => c.ortho !== null || cam.forwardDepth(c, p) > settings.view.minSurfaceMm;
 function heldOnAxis(s: ViewState, e: Env): V3 | null {
   if (!s.held) return null;
   const q = cam.project(s.c, s.held, e.w, e.h);
-  return q.depth > settings.view.minSurfaceMm && q.x >= 0 && q.x <= e.w && q.y >= 0 && q.y <= e.h
+  return (s.c.ortho !== null || q.depth > settings.view.minSurfaceMm) &&
+    q.x >= 0 &&
+    q.x <= e.w &&
+    q.y >= 0 &&
+    q.y <= e.h
     ? cam.onAxis(s.c, s.held)
     : null;
 }
@@ -205,7 +211,7 @@ export const toggleWorld = (s: ViewState): ViewState => ({ ...s, worldHidden: !s
 export function startDrag(s: ViewState, e: Env, x: number, y: number): ViewState {
   const r = rayAt(s, e, x, y),
     hit = hitThings(e.model, r.o, r.d),
-    pivot = focus(s, e);
+    pivot = (s.c.ortho !== null ? heldOnAxis(s, e) : null) ?? focus(s, e); // (a straight view is left about the point it was entered about, while that is in view)
   const depth = Math.max(
     settings.view.minSurfaceMm,
     hit ? hit.t * dot(r.d, cam.forward(s.c)) : cam.forwardDepth(s.c, pivot),
@@ -268,19 +274,23 @@ export function click(s: ViewState, e: Env, x: number, y: number): ViewState {
 // ---- time ----
 /** Time passes: the change of view playing out goes on, the axes' scale eases over, and what is in view is noted. */
 export function advance(s: ViewState, e: Env, dt: number): ViewState {
-  let { c, go } = s;
+  let { c, go, held } = s;
   if (go) {
     const k = Math.min(1, (e.now - go.t0) / go.ms);
     c = cam.stepGo(go, ease(k), c);
     if (k >= 1) {
-      c = "eyeTo" in go || go.lens === 1 ? { ...c, lens: 1 } : cam.enterOrtho({ ...c, lens: go.lens }, go.hold);
+      if ("eyeTo" in go || go.lens === 1) c = { ...c, lens: 1 };
+      else {
+        c = cam.enterOrtho({ ...c, lens: go.lens }, go.hold);
+        held = go.hold; // (the point the straight view was entered about: it is the one to leave it about, so going out and in again changes nothing)
+      }
       go = null;
     }
   }
   const want = e.model.things.length ? 1 : 0;
   let free = s.free + (want - s.free) * Math.min(1, dt * settings.world.gizmoEaseRate);
   if (Math.abs(want - free) < 0.002) free = want;
-  return { ...s, c, go, free, seen: lastSeen(e.model, c, e.w, e.h) ?? s.seen };
+  return { ...s, c, go, held, free, seen: lastSeen(e.model, c, e.w, e.h) ?? s.seen };
 }
 
 // ---- what to show ----
