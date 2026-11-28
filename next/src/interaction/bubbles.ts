@@ -362,6 +362,40 @@ export function dimLine(S: System, kind: string, parts: readonly string[], off: 
   return null;
 }
 
+/** an angle's mark stands in its corner (`in_1650`, `in_1667`): the arc of an angle (the number on it), or the small square of a right angle; `from`, `sweep`: where the arc starts and how far round it goes (radians); `r`: its radius (mm); `square`: a right angle drawn as a small square */
+export interface Corner {
+  centre: [number, number];
+  from: number;
+  sweep: number;
+  r: number;
+  square: boolean;
+}
+/** where an angle or a square stands: at the corner of the two lines, in the middle of the angle; `mmPx`: how long a pixel is in mm (the sizes are in pixels) */
+export function cornerOf(
+  S: System,
+  kind: string,
+  parts: readonly string[],
+  mmPx: number,
+): { corner: Corner; at: [number, number] } | null {
+  if ((kind !== "angle" && kind !== "perpendicular") || parts.length !== 2) return null;
+  const m = angleMark(S, parts);
+  if (!m) return null;
+  const square = kind === "perpendicular",
+    r = square ? 12 * mmPx : Math.min(34 * mmPx, m.reach * 0.8),
+    mid = m.from + m.sweep / 2,
+    rr = square ? r * 3.2 : r + 26 * mmPx; // (the bubble stands just beyond its square or arc, so that can be seen)
+  return {
+    corner: {
+      centre: m.centre,
+      from: m.from,
+      sweep: square ? Math.sign(m.sweep || 1) * (Math.PI / 2) : m.sweep,
+      r,
+      square,
+    },
+    at: [m.centre[0] + rr * Math.cos(mid), m.centre[1] + rr * Math.sin(mid)],
+  };
+}
+
 /** The angle between two lines as the old app draws it and shows it: the angle inside the corner, between the two rays that run from where the lines cross toward the longer part of each (a thin arc at the corner, the number on it). `from`, `sweep`: where the arc starts and how far round it goes (radians, the shorter way); `offset`: 180 when the rays are not both the lines' own directions (a corner where one line ends and the next begins), which turns what is shown into the directed angle the solver reads. None for lines that never cross. */
 export function angleMark(
   S: System,

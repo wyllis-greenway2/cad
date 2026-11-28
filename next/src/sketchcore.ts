@@ -6,7 +6,7 @@ import { forwardDepth, viewHeight, type Cam } from "./camera.ts";
 import { segsOf, solveDefinition } from "./engine/definition.ts";
 import { pointOnSeg, type Pt } from "./engine/region.ts";
 import type { SketchParams } from "./engine/sketch.ts";
-import type { DimLine, Flash } from "./interaction/bubbles.ts";
+import type { Corner, DimLine, Flash } from "./interaction/bubbles.ts";
 import { emptySketch, tidy, viewSystem, type Sol } from "./interaction/drawing.ts";
 import type { Recent } from "./interaction/marks.ts";
 import type { NoticeOptions } from "./interaction/notices.ts";
@@ -47,6 +47,9 @@ export interface DrawLine {
     | "dim"
     | "dimExt"
     | "dimHead"
+    | "dimArc"
+    | "moveMain"
+    | "moveMainHead"
     | "lit"
     | "litOffer"
     | "litOfferSel"
@@ -69,8 +72,8 @@ export function createCore(host: SketchHost, on?: (label: string, merge?: string
     /** what the offers showing now would move, from where to where (set with the marks, drawn with the lines) */
     /** the mark being pointed at (its id and what it is offered for), and the parts it is about with whether it is an offer: both from the marks, drawn with the lines */
     hover: null as { id: string; over: string } | null,
-    lit: null as { key: string; parts: string[]; offer: boolean; dim: DimLine | null } | null,
-    moves: null as { key: string; list: { from: [number, number]; to: [number, number] }[] } | null,
+    lit: null as { key: string; parts: string[]; offer: boolean; dim: DimLine | null; corner: Corner | null } | null,
+    moves: null as { key: string; list: { from: [number, number]; to: [number, number]; main: boolean }[] } | null,
   };
   const say = (text: string, ms = 4000) => host.notify(text, { ttl: ms });
   const systems = new WeakMap<SketchParams, ReturnType<typeof viewSystem>>(),

@@ -67,6 +67,45 @@ try {
     );
     writeFileSync(`${dir}/dims-line.png`, await page.screenshot());
   }
+  // angles stand in their corner (`in_1667`): a right angle a small square, another angle an arc with the degrees on it
+  await ev(`() => {
+    const s = structuredClone(window.__sketch.snapshot()), k = Object.keys(s)[0];
+    s[k] = { arcs: [], circles: [], constraints: [{ id: "q1", kind: "perpendicular", parts: ["L1", "L2"] }, { id: "a1", kind: "angle", parts: ["L1", "L3"], value: 40 }],
+      lines: [{ a: "P1", b: "P2", id: "L1" }, { a: "P1", b: "P3", id: "L2" }, { a: "P1", b: "P4", id: "L3" }],
+      points: [{ id: "P1", x: 20, y: 12 }, { id: "P2", x: 40, y: 12 }, { id: "P3", x: 20, y: 32 }, { id: "P4", x: 36, y: 24.9 }] };
+    window.__sketch.restore(s);
+  }`);
+  await page.waitForTimeout(400);
+  await click(30, 12); // line L1
+  await page.waitForTimeout(500);
+  const corner = () => ev<any[]>(`() => window.__sketch.lines(null).filter((l) => l.kind === "dimArc")`);
+  ok((await corner()).length === 0, "at rest no corner mark is drawn");
+  const marks = await ev<any[]>(`() => window.__sketch.marks(performance.now()).map((m) => m.mark)`);
+  const sq = marks.find((m) => m.relation === "perpendicular"),
+    ang = marks.find((m) => m.relation === "angle");
+  ok(
+    !!sq?.corner?.square && !!ang?.corner && !ang.corner.square,
+    `the right angle is a square and the other angle an arc: ${JSON.stringify([sq?.corner?.square, ang?.corner?.square])}`,
+  );
+  ok(
+    Math.hypot(sq.at[0] - 20, sq.at[1] - 12) < 5 && Math.hypot(ang.at[0] - 20, ang.at[1] - 12) < 12,
+    `both bubbles stand at the corner (20, 12): ${JSON.stringify([sq.at, ang.at])}`,
+  );
+  const bsq = await bubble("^q1");
+  if (bsq) {
+    await page.mouse.move(bsq.x, bsq.y);
+    await page.waitForTimeout(250);
+    ok((await corner()).length === 1, "pointing at the right angle draws its square in the corner");
+    writeFileSync(`${dir}/dims-square.png`, await page.screenshot());
+  }
+  await page.mouse.move(5, 5, { steps: 5 });
+  const ba = await bubble("^a1");
+  if (ba) {
+    await page.mouse.move(ba.x, ba.y);
+    await page.waitForTimeout(250);
+    ok((await corner()).length === 1, "pointing at the angle draws its arc in the corner");
+    writeFileSync(`${dir}/dims-angle.png`, await page.screenshot());
+  }
   ok(errors.length === 0, `no errors in the page ${errors.join("; ")}`);
   await close();
 } finally {

@@ -8,7 +8,7 @@ import { regions } from "./engine/region.ts";
 import type { SketchParams } from "./engine/sketch.ts";
 import { trimAt } from "./engine/trim.ts";
 import { measureAt, placeTyped, type TypedMeasure } from "./engine/typed.ts";
-import { angleMark, bubblesOn, scopeOf } from "./interaction/bubbles.ts";
+import { scopeOf } from "./interaction/bubbles.ts";
 import { hitAt, keep, nextId, posOf, refOf, removeParts, tidy, type Ref, type Sol } from "./interaction/drawing.ts";
 import { loopPoints, regionAt, type Region } from "./interaction/extrude.ts";
 import { helpShown } from "./interaction/helpshow.ts";
@@ -84,29 +84,6 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       : { ref: r, help: h.holds.length ? h : null, free, measures: [] };
   };
   /** an angle as the old app draws it: a thin arc at the corner of the two lines (about 34 px across, not past the shorter line), and where its number stands on it */
-  const angleMarkAt = (
-    f: Frame,
-    S: ReturnType<typeof sysOf>,
-    parts: readonly string[],
-  ): { arc: P2[]; at: P2 } | null => {
-    const m = angleMark(S, parts);
-    if (!m) return null;
-    const mm = mmPerPx(f, m.centre),
-      r = Math.min(34 * mm, m.reach * 0.8),
-      n = Math.max(6, Math.ceil(Math.abs(m.sweep) / 0.1)),
-      mid = m.from + m.sweep / 2;
-    return {
-      arc: Array.from(
-        { length: n + 1 },
-        (_, i) =>
-          [
-            m.centre[0] + r * Math.cos(m.from + (m.sweep * i) / n),
-            m.centre[1] + r * Math.sin(m.from + (m.sweep * i) / n),
-          ] as P2,
-      ),
-      at: [m.centre[0] + (r + 16 * mm) * Math.cos(mid), m.centre[1] + (r + 16 * mm) * Math.sin(mid)],
-    };
-  };
   /** a figure made with a click: kept if the engine accepts it */
   const commit = (key: string, next: SketchParams | null, label: string) => {
     if (!next) return;
@@ -337,13 +314,6 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
           seg = segsOf(p, s.points, s.radii);
         for (const q of seg)
           out.push({ kind: chosen.has(q.name) ? "selected" : "done", pts: polyline(q).map((z) => to3(f, z)) });
-        if (chosen.size) {
-          const S = sysOf(p);
-          for (const b of bubblesOn(S, [...chosen])) {
-            const m = b.relation === "angle" ? angleMarkAt(f, S, b.parts) : null;
-            if (m) out.push({ kind: "note", pts: m.arc.map((z) => to3(f, z)) });
-          }
-        }
         const shownPts = chosen.size ? new Set(scopeOf(sysOf(p), [...chosen])) : chosen; // (what is selected shows what it is made of: a circle its centre, a line its ends, an arc its centre and ends)
         for (const x of p.points) {
           const at = shownPts.has(x.id) ? s.points[x.id] : null;
@@ -372,6 +342,25 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
           for (const [a, b] of dm.ext) out.push({ kind: "dimExt", pts: [to3(f, a), to3(f, b)] });
           out.push(head(dm.a, dm.b), head(dm.b, dm.a));
         }
+        // a pointed-at angle is drawn in its corner: its arc, or a small square for a right angle (`in_1667`)
+        if (st.lit?.corner && st.lit.key === k) {
+          const cn = st.lit.corner,
+            at = (t: number): P2 => [cn.centre[0] + cn.r * Math.cos(t), cn.centre[1] + cn.r * Math.sin(t)];
+          if (cn.square) {
+            const p0 = at(cn.from),
+              p1 = at(cn.from + cn.sweep);
+            out.push({
+              kind: "dimArc",
+              pts: [p0, [p0[0] + p1[0] - cn.centre[0], p0[1] + p1[1] - cn.centre[1]] as P2, p1].map((z) => to3(f, z)),
+            });
+          } else {
+            const n = Math.max(6, Math.ceil(Math.abs(cn.sweep) / 0.1));
+            out.push({
+              kind: "dimArc",
+              pts: Array.from({ length: n + 1 }, (_, i) => at(cn.from + (cn.sweep * i) / n)).map((z) => to3(f, z)),
+            });
+          }
+        }
         // the parts the pointed-at mark is about, lit in its colour (blue for an applied constraint, yellow for an offer); a named point also lights the lines that end at it; only colour changes, never the weight (`in_1657`, `in_1661`)
         if (st.lit && st.lit.key === k) {
           const names = new Set(st.lit.parts);
@@ -395,8 +384,8 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       }
       const mv = st.moves && all.get(st.moves.key) ? { f: all.get(st.moves.key)!, list: st.moves.list } : null;
       if (mv)
-        for (const { from: a, to: b } of mv.list) {
-          // a dashed arrow from where a part is to where the offered constraint would put it; the offer stands at its middle (`in_1631`)
+        for (const { from: a, to: b, main } of mv.list) {
+          // a dashed arrow from where a part is to where the offered constraint would put it: strong for the parts it names, pale for what moves only because they do (`in_1631`, `in_1667`)
           const len = Math.hypot(b[0] - a[0], b[1] - a[1]),
             head = mmPerPx(mv.f, b) * 8,
             ux = (b[0] - a[0]) / len,
@@ -408,8 +397,11 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
                 b[1] - head * (uy * Math.cos(t) + sgn * ux * Math.sin(t)),
               ];
             };
-          out.push({ kind: "move", pts: [to3(mv.f, a), to3(mv.f, b)], dash: dashAt(mv.f, a) });
-          out.push({ kind: "moveHead", pts: [to3(mv.f, wing(1)), to3(mv.f, b), to3(mv.f, wing(-1))] });
+          out.push({ kind: main ? "moveMain" : "move", pts: [to3(mv.f, a), to3(mv.f, b)], dash: dashAt(mv.f, a) });
+          out.push({
+            kind: main ? "moveMainHead" : "moveHead",
+            pts: [to3(mv.f, wing(1)), to3(mv.f, b), to3(mv.f, wing(-1))],
+          });
         }
       out.push(...D.hintLines(all));
       const c = pointer && tool ? here(pointer.x, pointer.y) : null;

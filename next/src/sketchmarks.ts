@@ -270,8 +270,21 @@ export function createMarks(
       ownId = list.find((m) => m.kind === "dimension" && [...m.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
       // only the mark that is pointed at draws anything: the parts it is about lit, and (an offer) what applying it would move
       const hm = st.hover && list.find((m) => m.id === st.hover!.id && (m.over?.join(",") ?? "") === st.hover!.over);
-      st.lit = hm ? { key: c.key, parts: hm.parts, offer: hm.state === "offer", dim: hm.dim ?? null } : null;
-      if (hm?.state === "offer" && hm.moves?.length) st.moves = { key: c.key, list: hm.moves };
+      st.lit = hm
+        ? { key: c.key, parts: hm.parts, offer: hm.state === "offer", dim: hm.dim ?? null, corner: hm.corner ?? null }
+        : null;
+      if (hm?.state === "offer" && hm.moves?.length) {
+        // the arrows of the parts the offer names are the main ones; what moves only because they do is paler (`in_1667`); when none is named, the longest is the main
+        const named = new Set(scopeOf(S, hm.parts)),
+          len = (m: { from: [number, number]; to: [number, number] }) =>
+            Math.hypot(m.to[0] - m.from[0], m.to[1] - m.from[1]),
+          some = hm.moves.some((m) => m.of && named.has(m.of)),
+          top = hm.moves.reduce((a, m) => (len(m) > len(a) ? m : a), hm.moves[0]!);
+        st.moves = {
+          key: c.key,
+          list: hm.moves.map((m) => ({ from: m.from, to: m.to, main: some ? !!m.of && named.has(m.of) : m === top })),
+        };
+      }
       return list.map(at3);
     },
     /** Each picture: a refusal's red goes after its time. */

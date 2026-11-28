@@ -41,8 +41,7 @@ try {
     !!offer?.moves?.length,
     `a vertex and a circle picked: "on the circle" is offered with arrows: ${JSON.stringify(offer?.moves)}`,
   );
-  const drawnArrows = () =>
-      ev<any[]>(`() => window.__sketch.lines(null).filter((l) => l.kind === "move" || l.kind === "moveHead")`),
+  const drawnArrows = () => ev<any[]>(`() => window.__sketch.lines(null).filter((l) => /^move/.test(l.kind))`),
     lit = () =>
       ev<any[]>(`() => window.__sketch.lines(null).filter((l) => /^lit/.test(l.kind) || l.kind === "tieBall")`);
   ok((await drawnArrows()).length === 0, "at rest nothing of the offer is drawn: no arrows");
@@ -59,6 +58,11 @@ try {
   ok(
     (await drawnArrows()).length >= 2,
     `pointing at the bubble draws what applying would move: ${(await drawnArrows()).length} lines`,
+  );
+  ok(
+    (await drawnArrows()).some((l) => l.kind === "moveMain") &&
+      (await drawnArrows()).some((l) => l.kind === "moveMainHead"),
+    "the arrow of the parts it names is the main one",
   );
   ok((await lit()).length >= 2, `and lights the parts it is about: ${(await lit()).length} drawn`);
   writeFileSync(`${dir}/moves-hover.png`, await page.screenshot());

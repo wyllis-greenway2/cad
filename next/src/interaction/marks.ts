@@ -4,7 +4,17 @@
 import type { Arrow } from "../engine/probe.ts";
 import type { System } from "../engine/solver.ts";
 import { settings } from "../settings.ts";
-import { anchorOf, bubblesOn, dimLine, scopeOf, selectionAnchor, type DimLine, type Flash } from "./bubbles.ts";
+import {
+  anchorOf,
+  bubblesOn,
+  cornerOf,
+  dimLine,
+  scopeOf,
+  selectionAnchor,
+  type Corner,
+  type DimLine,
+  type Flash,
+} from "./bubbles.ts";
 import type { Fact } from "./infobar.ts";
 import { barFor, nearConstraint, nearFor, type BarItem } from "./infobar.ts";
 
@@ -15,6 +25,7 @@ export interface Mark extends Fact {
   moves?: Arrow[];
   /** a measured number: the dimension line it is drawn on when it is pointed at, and the bubble stands on its middle (`in_1650`) */
   dim?: DimLine;
+  /** an angle or a square: it stands in its corner, drawn there when pointed at */ corner?: Corner;
   onSpot?: boolean;
   state: MarkState;
   alpha: number;
@@ -163,12 +174,15 @@ export function marksFor(
   const scope = scopeOf(S, selection);
   for (const f of bubblesOn(S, selection, ctx.flash ?? {}, scope)) {
     // a number stands on its own dimension line (drawn when it is pointed at), 24 px off what it measures where it stands off
-    const dim =
+    const mmPx = (ctx.reach?.pointMm ?? 0) / settings.helpers.offerPx,
+      dim =
         f.kind === "dimension" && f.relation ? dimLine(S, f.relation, f.parts, (ctx.reach?.pointMm ?? 0) * 2) : null,
-      mid: [number, number] | null = dim ? [(dim.a[0] + dim.b[0]) / 2, (dim.a[1] + dim.b[1]) / 2] : null;
+      mid: [number, number] | null = dim ? [(dim.a[0] + dim.b[0]) / 2, (dim.a[1] + dim.b[1]) / 2] : null,
+      cn = f.relation && mmPx > 0 ? cornerOf(S, f.relation, f.parts, mmPx) : null;
     out.push({
       ...f,
       ...(dim && mid ? { dim, at: mid, onSpot: true } : {}),
+      ...(cn ? { corner: cn.corner, at: cn.at, onSpot: true } : {}),
       state: f.tone === "refused" ? "refused" : f.locked === false ? "offer" : "locked",
       alpha: f.tone === "applied" ? (ctx.fade?.(f.id) ?? 1) : 1,
     });
@@ -208,13 +222,17 @@ export function marksFor(
         continue;
       (nc ? pool : direct).push({ item, standing, nc, parts: nc ? nc.parts : sel, moves });
     }
-    for (const c of [...direct, ...rankNear(S, pool, scopeOf(S, sel))])
+    for (const c of [...direct, ...rankNear(S, pool, scopeOf(S, sel))]) {
+      // a square or an angle's offer stands in its corner
+      const rel = c.nc?.kind ?? c.item.id.slice(4),
+        cn = ctx.reach ? cornerOf(S, rel, c.parts, ctx.reach.pointMm / settings.helpers.offerPx) : null;
       out.push({
         id: c.item.id,
         kind: "constraint",
-        relation: (c.nc?.kind ?? c.item.id.slice(4)) as Fact["relation"],
+        relation: rel as Fact["relation"],
         icon: c.item.icon,
-        at: c.standing, // (the bubble stands round its spot; what it would move is drawn when it is pointed at, `in_1655`)
+        at: cn ? cn.at : c.standing, // (the bubble stands round its spot, in its corner for a square; what it would move is drawn when it is pointed at, `in_1655`)
+        ...(cn ? { corner: cn.corner, onSpot: true } : {}),
         tone: "offer",
         title: c.item.label,
         parts: c.parts,
@@ -223,6 +241,7 @@ export function marksFor(
         over: sel,
         ...(c.moves.length ? { moves: c.moves } : {}),
       });
+    }
   }
   return out;
 }

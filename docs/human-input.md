@@ -6713,3 +6713,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1666 — 2026-11-28 — question
 > so what else is different in the app from what we specced? it seems like the radius of circles are not showing the thin radial arrow with the dimension on that line,
+
+## in_1667 — 2026-11-28 — directive
+> do 2 and 4 please

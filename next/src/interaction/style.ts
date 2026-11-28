@@ -61,6 +61,9 @@ export type StrokeKind =
   | "dim"
   | "dimExt"
   | "dimHead"
+  | "dimArc"
+  | "moveMain"
+  | "moveMainHead"
   | "lit"
   | "litOffer"
   | "litOfferSel"
@@ -80,6 +83,7 @@ export const STROKE: Record<
   dim: { tone: "note", weight: 0.75, soft: false, dashed: true }, // the line a measured number is drawn on, while it is pointed at (`in_1650`)
   dimExt: { tone: "note", weight: 0.5, soft: true }, // the thin lines from what it measures to it
   dimHead: { tone: "note", weight: 0.75, soft: false }, // an arrow tip at each end
+  dimArc: { tone: "note", weight: 0.75, soft: false }, // an angle's arc, or a right angle's square, in its corner (`in_1667`)
   lit: { tone: "figure", weight: 0.75, soft: false }, // the parts an applied constraint is about, while its bubble is pointed at: blue (`in_1661`)
   litOffer: { tone: "ties", weight: 0.75, soft: false }, // the same for an offer: yellow
   litOfferSel: { tone: "ties", weight: 1.3, soft: false }, // (a part that is selected keeps the selected weight)
@@ -92,6 +96,8 @@ export const STROKE: Record<
   cut: { tone: "refused", weight: 1.4, soft: false },
   tie: { tone: "ties", weight: 1.4, soft: false },
   guide: { tone: "ties", weight: 0.75, soft: false, dashed: true }, // the dashed alignment lines: amber, as what they tie to (`in_1641`)
-  move: { tone: "ties", weight: 0.75, soft: false, dashed: true }, // what an offered constraint would move, and to where: the same dashed amber line as a guide, with an arrow (`in_1631`, `in_1641`)
-  moveHead: { tone: "ties", weight: 0.75, soft: false }, // the head of that arrow
+  moveMain: { tone: "ties", weight: 1.3, soft: false, dashed: true }, // the arrow of what an offer is about: the parts it names (`in_1667`)
+  moveMainHead: { tone: "ties", weight: 1.3, soft: false },
+  move: { tone: "ties", weight: 0.75, soft: true, dashed: true }, // what an offered constraint would move, and to where: the same dashed amber line as a guide, with an arrow (`in_1631`, `in_1641`)
+  moveHead: { tone: "ties", weight: 0.75, soft: true }, // the paler arrows: what moves only because the named parts do // the head of that arrow
 };
