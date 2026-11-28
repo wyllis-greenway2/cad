@@ -6832,3 +6832,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1705 — 2026-11-28 — directive
 > what do you mean the engines mesh? I thought we decided to not have mesh bodies because it needs to be real cad? 2 yes lets make the face pull arrows show up on face selection and the body mover orb show up on body selection just like the old app.
+
+## in_1706 — 2026-11-28 — directive
+> okay it still zooms in more and more and more every time you switch out of ortho mode. Try going ortho, then rotating just enough to go out, then clicking the world view button that re orthos, then going out several times, the ortho position always goes to the non zoomed out spot, but the entrence back into 3d goes further and further zoomed in
