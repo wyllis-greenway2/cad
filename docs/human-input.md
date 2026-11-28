@@ -6835,3 +6835,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1706 — 2026-11-28 — directive
 > okay it still zooms in more and more and more every time you switch out of ortho mode. Try going ortho, then rotating just enough to go out, then clicking the world view button that re orthos, then going out several times, the ortho position always goes to the non zoomed out spot, but the entrence back into 3d goes further and further zoomed in
+
+## in_1707 — 2026-11-28 — question
+> I thought bodies were already part of the camera scene in order to choose the camera axis point at the nearst body or set of bodies?
