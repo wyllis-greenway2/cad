@@ -6737,3 +6737,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1674 — 2026-11-28 — directive
 > okay now some really annoying bugs can happen when you try to drag bubbles around, this one somehow got into a state where every-time the cursor hovers it jumps out of the way and I can never input a dimension. Also sometimes it seems to get into a state where it immediately starts dragging just on hover. Also can we make it so that when a constraint is hovered and being worked on, then other constraints fade away.
+
+## in_1675 — 2026-11-28 — approval
+> yes start with simplifying 3 and 1

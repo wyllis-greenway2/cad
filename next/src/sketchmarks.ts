@@ -5,7 +5,7 @@ import { displacements, type Arrow } from "./engine/probe.ts";
 import type { System } from "./engine/solver.ts";
 import type { Relation } from "./engine/solver.ts";
 import type { SketchParams } from "./engine/sketch.ts";
-import { MEASURE_ID, scopeOf } from "./interaction/bubbles.ts";
+import { MEASURE_ID, cornerPts, scopeOf } from "./interaction/bubbles.ts";
 import {
   constrain,
   keep,
@@ -22,7 +22,7 @@ import type { MarkHandlers, PlacedMark } from "./markdraw.ts";
 import type { Frame } from "./planes.ts";
 import { settings } from "./settings.ts";
 import { onPlane, to2, to3 } from "./sketch.ts";
-import type { Core } from "./sketchcore.ts";
+import type { Core, Shape } from "./sketchcore.ts";
 
 /** what keeps still to hold these parts where they are: a point itself, a line its ends, a circle its centre and its size (and an arc's ends) */
 function heldIds(S: System, parts: readonly string[]): string[] {
@@ -197,9 +197,7 @@ export function createMarks(
     /** The marks standing on the parts (`dec_marks_on_things`): what is selected shows its constraints (locked) and what is true of it and near (offered); the parts just made show their offers for a while and fade; a refusal shows what held it back, always; placed on the page. */
     marks(now: number): PlacedMark[] {
       const c = current();
-      st.moves = null;
-      st.lit = null;
-      st.leader = null;
+      st.shown = null;
       if (!c) {
         ownId = null;
         return [];
@@ -274,33 +272,32 @@ export function createMarks(
       ownId = list.find((m) => m.kind === "dimension" && [...m.parts].sort().join() === chosen)?.id ?? null; // (the number a digit goes to)
       // only the mark that is pointed at draws anything: the parts it is about lit, and (an offer) what applying it would move
       const hm = st.hover && list.find((m) => m.id === st.hover!.id && (m.over?.join(",") ?? "") === st.hover!.over);
-      // the arrow from the pointed-at bubble to its spot (not a number or an angle: they stand on their own line or corner), in the plane
-      if (hm && !hm.onSpot && st.hoverPx) {
-        const r = host.ray(st.hoverPx.x, st.hoverPx.y),
-          q = onPlane(c.f, r.o, r.d);
-        if (q) st.leader = { key: c.key, from: to2(c.f, q), to: hm.at };
-      }
-      st.lit = hm
-        ? {
-            key: c.key,
-            parts: hm.parts,
-            offer: hm.state === "offer",
-            dim: hm.dim ?? null,
-            corner: hm.corner ?? null,
-            align: hm.align ?? null,
+      // what the pointed-at mark draws, all as shapes in the plane (`in_1675`): the arrow from its bubble to its spot (not a number or an angle: they stand on their own line or corner), a number's dimension line and the thin lines to it, an alignment's line, an angle's corner, and (an offer) the arrows of what applying it would move: strong for the parts it names, pale for what moves only because they do (`in_1667`); when none is named, the longest is the main
+      if (hm) {
+        const shapes: Shape[] = [];
+        if (!hm.onSpot && st.hoverPx) {
+          const r = host.ray(st.hoverPx.x, st.hoverPx.y),
+            q = onPlane(c.f, r.o, r.d);
+          if (q) shapes.push({ t: "arrow", a: to2(c.f, q), b: hm.at, tail: 16, least: 24 });
+        }
+        if (hm.dim) {
+          shapes.push({ t: "arrow", a: hm.dim.a, b: hm.dim.b, both: true, plain: true });
+          for (const [a, b] of hm.dim.ext) shapes.push({ t: "thin", a, b });
+        }
+        if (hm.align) shapes.push({ t: "line", a: hm.align.a, b: hm.align.b });
+        if (hm.corner) shapes.push({ t: "curve", pts: cornerPts(hm.corner) });
+        if (hm.state === "offer" && hm.moves?.length) {
+          const named = new Set(scopeOf(S, hm.parts)),
+            len = (m: { from: [number, number]; to: [number, number] }) =>
+              Math.hypot(m.to[0] - m.from[0], m.to[1] - m.from[1]),
+            some = hm.moves.some((m) => m.of && named.has(m.of)),
+            top = hm.moves.reduce((a, m) => (len(m) > len(a) ? m : a), hm.moves[0]!);
+          for (const m of hm.moves) {
+            const main = some ? !!m.of && named.has(m.of) : m === top;
+            shapes.push({ t: "arrow", a: m.from, b: m.to, ...(main ? {} : { pale: true }) });
           }
-        : null;
-      if (hm?.state === "offer" && hm.moves?.length) {
-        // the arrows of the parts the offer names are the main ones; what moves only because they do is paler (`in_1667`); when none is named, the longest is the main
-        const named = new Set(scopeOf(S, hm.parts)),
-          len = (m: { from: [number, number]; to: [number, number] }) =>
-            Math.hypot(m.to[0] - m.from[0], m.to[1] - m.from[1]),
-          some = hm.moves.some((m) => m.of && named.has(m.of)),
-          top = hm.moves.reduce((a, m) => (len(m) > len(a) ? m : a), hm.moves[0]!);
-        st.moves = {
-          key: c.key,
-          list: hm.moves.map((m) => ({ from: m.from, to: m.to, main: some ? !!m.of && named.has(m.of) : m === top })),
-        };
+        }
+        st.shown = { key: c.key, parts: hm.parts, offer: hm.state === "offer", shapes };
       }
       return list.map(at3);
     },

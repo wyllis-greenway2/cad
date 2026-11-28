@@ -6,7 +6,8 @@ import { forwardDepth, viewHeight, type Cam } from "./camera.ts";
 import { segsOf, solveDefinition } from "./engine/definition.ts";
 import { pointOnSeg, type Pt } from "./engine/region.ts";
 import type { SketchParams } from "./engine/sketch.ts";
-import type { Corner, DimLine, Flash } from "./interaction/bubbles.ts";
+import type { Tone } from "./interaction/style.ts";
+import type { Flash } from "./interaction/bubbles.ts";
 import { emptySketch, tidy, viewSystem, type Sol } from "./interaction/drawing.ts";
 import type { Recent } from "./interaction/marks.ts";
 import type { NoticeOptions } from "./interaction/notices.ts";
@@ -29,9 +30,26 @@ export interface SketchHost {
   /** the page's one selection (`selection.ts`): what is selected in a sketch is kept there, so selecting on a body puts it away */
   selection: Selection;
 }
+/** one thing a pointed-at mark draws, in the plane: an arrow (a dashed line and a tip that stops short), a plain dashed line, a thin line, or a curve (`in_1675`) */
+/** `plain`: neutral even for an offer's parts (a measure is a number, not a suggestion) */
+export type Shape =
+  | {
+      t: "arrow";
+      a: [number, number];
+      b: [number, number];
+      both?: boolean;
+      plain?: boolean;
+      tail?: number;
+      least?: number;
+      pale?: boolean;
+    }
+  | { t: "line"; a: [number, number]; b: [number, number] }
+  | { t: "thin"; a: [number, number]; b: [number, number] }
+  | { t: "curve"; pts: [number, number][] };
 export interface DrawLine {
   pts: V3[];
-  /** a ball's radius, in mm */ r?: number;
+  /** a dot's radius, in mm */ r?: number;
+  /** a dot's colour (a dot is one kind, `in_1675`) */ tone?: Tone;
   /** a dashed line's dash, in mm (the gap is 0.7 of it) */ dash?: number;
   /** the open tip of an arrow: drawn solid even where its kind is dashed */ head?: boolean;
   /** drawn faint (what moves only because the named parts do) */ pale?: boolean;
@@ -42,11 +60,9 @@ export interface DrawLine {
     | "cursor"
     | "cut"
     | "tie"
-    | "tieBall"
     | "dash"
     | "dashOffer"
-    | "ball"
-    | "centre"
+    | "dot"
     | "dimExt"
     | "dimArc"
     | "lit"
@@ -66,21 +82,12 @@ export function createCore(host: SketchHost, on?: (label: string, merge?: string
     flashUntil: 0,
     recent: null as (Recent & { key: string }) | null,
     activeSince: new Map<string, number>(),
-    /** what the offers showing now would move, from where to where (set with the marks, drawn with the lines) */
-    /** the mark being pointed at (its id and what it is offered for), and the parts it is about with whether it is an offer: both from the marks, drawn with the lines */
+    /** the mark being pointed at (its id and what it is offered for): from the marks */
     hover: null as { id: string; over: string } | null,
-    /** where the pointed-at bubble stands on the page (px), and the arrow from it to its spot, in the plane (`in_1671`) */
+    /** where the pointed-at bubble stands on the page (px) (`in_1671`) */
     hoverPx: null as { x: number; y: number } | null,
-    leader: null as { key: string; from: [number, number]; to: [number, number] } | null,
-    lit: null as {
-      key: string;
-      parts: string[];
-      offer: boolean;
-      dim: DimLine | null;
-      corner: Corner | null;
-      align: { a: [number, number]; b: [number, number] } | null;
-    } | null,
-    moves: null as { key: string; list: { from: [number, number]; to: [number, number]; main: boolean }[] } | null,
+    /** what the pointed-at mark shows on the sketch, as one list of shapes in the plane, with the parts it is about (`in_1675`): set with the marks, drawn with the lines */
+    shown: null as { key: string; parts: string[]; offer: boolean; shapes: Shape[] } | null,
   };
   const say = (text: string, ms = 4000) => host.notify(text, { ttl: ms });
   const systems = new WeakMap<SketchParams, ReturnType<typeof viewSystem>>(),

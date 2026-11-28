@@ -405,6 +405,17 @@ export interface Corner {
   r: number;
   square: boolean;
 }
+/** a corner as points in the plane: the arc, or the three points of the small square (`in_1675`) */
+export function cornerPts(cn: Corner): [number, number][] {
+  const at = (t: number): [number, number] => [cn.centre[0] + cn.r * Math.cos(t), cn.centre[1] + cn.r * Math.sin(t)];
+  if (cn.square) {
+    const p0 = at(cn.from),
+      p1 = at(cn.from + cn.sweep);
+    return [p0, [p0[0] + p1[0] - cn.centre[0], p0[1] + p1[1] - cn.centre[1]], p1];
+  }
+  const n = Math.max(6, Math.ceil(Math.abs(cn.sweep) / 0.1));
+  return Array.from({ length: n + 1 }, (_, i) => at(cn.from + (cn.sweep * i) / n));
+}
 /** where an angle or a square stands: at the corner of the two lines, in the middle of the angle; `mmPx`: how long a pixel is in mm (the sizes are in pixels) */
 export function cornerOf(
   S: System,

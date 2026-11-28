@@ -1,10 +1,12 @@
 // How a helper is shown, and how it becomes a constraint to offer (`dec_helpers_one_rule`,. Pure: what `engine/helpers.ts` found in, lines and constraints out.
 //   Sources are lit orange: a point as a ball, a line, circle or arc drawn over. Guides are dashed. Nothing else is drawn for a helper.
 import type { Helped, Pt } from "../engine/helpers.ts";
+import type { Tone } from "./style.ts";
 
 export interface Shown {
-  kind: "dashOffer" | "tie" | "tieBall";
+  kind: "dashOffer" | "tie" | "dot";
   pts: Pt[];
+  /** a dot's colour */ tone?: Tone;
 }
 /** the lines of a placed helper: the guides of everything that holds, and every source lit (once) */
 export function helpShown(h: Helped, shape: (part: string) => Pt[] | null, at: (point: string) => Pt | null): Shown[] {
@@ -18,7 +20,7 @@ export function helpShown(h: Helped, shape: (part: string) => Pt[] | null, at: (
       lit.add(s);
       const p = at(s);
       if (p) {
-        out.push({ kind: "tieBall", pts: [p] });
+        out.push({ kind: "dot", tone: "ties", pts: [p] });
         continue;
       }
       const line = shape(s);

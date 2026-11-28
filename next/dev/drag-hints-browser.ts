@@ -46,7 +46,7 @@ try {
     ty = 22 + len * Math.sin(ang);
   const r0 = await drag([end.x, end.y], [tx, ty + 0.25]);
   const hint = await ev<any[]>(
-    `() => window.__sketch.lines({ x: ${r0.c}, y: ${r0.e} }).filter((l) => l.kind === "tie" || l.kind === "tieBall")`,
+    `() => window.__sketch.lines({ x: ${r0.c}, y: ${r0.e} }).filter((l) => l.kind === "tie" || (l.kind === "dot" && l.tone === "ties"))`,
   );
   ok(
     hint.length >= 1,
@@ -83,7 +83,7 @@ try {
     JSON.stringify(await ev<any>(`() => window.__sketch.debug().tool`)),
   );
   const hint2 = await ev<any[]>(
-    `() => window.__sketch.lines({ x: ${r1.c}, y: ${r1.e} }).filter((l) => l.kind === "tie" || l.kind === "tieBall")`,
+    `() => window.__sketch.lines({ x: ${r1.c}, y: ${r1.e} }).filter((l) => l.kind === "tie" || (l.kind === "dot" && l.tone === "ties"))`,
   );
   ok(hint2.length >= 1, `dragging a circle's edge near a line lights it while held: ${hint2.length} tie`);
   writeFileSync(`${dir}/drag-hints-2.png`, await page.screenshot());
@@ -114,7 +114,7 @@ try {
   };
   const ties = (r: { c: number; e: number }) =>
     ev2<any[]>(
-      `() => window.__sketch.lines({ x: ${r.c}, y: ${r.e} }).filter((l) => l.kind === "tie" || l.kind === "tieBall")`,
+      `() => window.__sketch.lines({ x: ${r.c}, y: ${r.e} }).filter((l) => l.kind === "tie" || (l.kind === "dot" && l.tone === "ties"))`,
     );
   await ev2(`() => window.__tool("circle")`);
   await B.page.waitForTimeout(900);
@@ -338,7 +338,7 @@ try {
   await D.page.mouse.move(bx, by, { steps: 6 });
   await D.page.waitForTimeout(500);
   const tied = await ev4<any[]>(
-    `() => window.__sketch.lines({ x: ${bx}, y: ${by} }).filter((l) => l.kind === "tie" || l.kind === "tieBall")`,
+    `() => window.__sketch.lines({ x: ${bx}, y: ${by} }).filter((l) => l.kind === "tie" || (l.kind === "dot" && l.tone === "ties"))`,
   );
   ok(tied.length >= 1, "dragging the corner of two lines near both tangents lights the circle while held");
   await D.page.mouse.up();

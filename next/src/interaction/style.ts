@@ -42,8 +42,7 @@ export const WEIGHT = {
 /** How each line of a drawing is drawn, by what it is doing: the tone (colour) and the weight, in one place (`in_1576`). The drawing code says `selected`; the screen turns it into a colour and a width. */
 export type StrokeKind =
   | "note"
-  | "ball"
-  | "tieBall"
+  | "dot"
   | "done"
   | "selected"
   | "preview"
@@ -52,7 +51,6 @@ export type StrokeKind =
   | "tie"
   | "dash"
   | "dashOffer"
-  | "centre"
   | "dimExt"
   | "dimArc"
   | "lit"
@@ -68,14 +66,12 @@ export const STROKE: Record<
   }
 > = {
   note: { tone: "note", weight: 0.75, soft: false }, // the thin grey line of a number (an angle's arc)
-  tieBall: { tone: "ties", weight: 1, soft: false }, // a point a helper is about: an orange ball
   dimExt: { tone: "note", weight: 0.5, soft: true }, // the thin lines from what a number measures to its dimension line
   dimArc: { tone: "note", weight: 0.75, soft: false }, // an angle's arc, or a right angle's square, in its corner (`in_1667`)
   lit: { tone: "figure", weight: 0.75, soft: false }, // the parts an applied constraint is about, while its bubble is pointed at: blue (`in_1661`)
   litOffer: { tone: "ties", weight: 0.75, soft: false }, // the same for an offer: yellow
   litOfferSel: { tone: "ties", weight: 1.3, soft: false }, // (a part that is selected keeps the selected weight)
-  centre: { tone: "axis", weight: 1, soft: false }, // a circle's or an arc's centre, always shown: a small charcoal dot (`in_1646`)
-  ball: { tone: "figure", weight: 1, soft: false }, // a picked point: a teal ball, not a line (its size is WEIGHT.vertexBall of the view's height)
+  dot: { tone: "figure", weight: 1, soft: false }, // a point: the one dot, its colour (`DrawLine.tone`) and size set by what it is for (`in_1675`)
   done: { tone: "axis", weight: 0.75, soft: false }, // thin charcoal
   selected: { tone: "figure", weight: 1.3, soft: false },
   preview: { tone: "candidate", weight: 0.75, soft: true },

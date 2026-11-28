@@ -20,8 +20,9 @@ import type { PlacedMark } from "./markdraw.ts";
 import type { Frame } from "./planes.ts";
 import { vOf } from "./planes.ts";
 import { settings } from "./settings.ts";
+import type { Tone } from "./interaction/style.ts";
 import { to3, type P2, type ToolKind } from "./sketch.ts";
-import { createCore, type DrawLine, type SketchHost } from "./sketchcore.ts";
+import { createCore, type DrawLine, type Shape, type SketchHost } from "./sketchcore.ts";
 import { createDrag } from "./sketchdrag.ts";
 import { createMarks } from "./sketchmarks.ts";
 import { add, scale, type V3 } from "./vec.ts";
@@ -200,6 +201,21 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
       ...(o.both ? [head(from, -ux, -uy)] : []),
     ];
   };
+  /** a point as a dot: one kind, its colour by tone and its size a share of the ball's (`in_1675`) */
+  const dot = (f: Frame, at: P2, tone: Tone, size = 1): DrawLine => ({
+    kind: "dot",
+    tone,
+    pts: [to3(f, at)],
+    r: mmPerPx(f, at) * settings.sketch.ballPx * size,
+  });
+  /** one shape of a pointed-at mark as lines: yellow when it is an offer's, else neutral (`in_1675`) */
+  const shape = (f: Frame, z: Shape, offer: boolean): DrawLine[] => {
+    const kind = offer && !(z.t === "arrow" && z.plain) ? "dashOffer" : "dash";
+    if (z.t === "arrow") return arrow(f, z.a, z.b, kind, z);
+    if (z.t === "line") return [{ kind, pts: [to3(f, z.a), to3(f, z.b)], dash: dashAt(f, z.a) }];
+    if (z.t === "thin") return [{ kind: "dimExt", pts: [to3(f, z.a), to3(f, z.b)] }];
+    return [{ kind: "dimArc", pts: z.pts.map((q) => to3(f, q)) }];
+  };
   const M = createMarks(K, { dragged: D.dragged, fieldMarks });
 
   const api = {
@@ -349,79 +365,31 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
         const shownPts = chosen.size ? new Set(scopeOf(sysOf(p), [...chosen])) : chosen; // (what is selected shows what it is made of: a circle its centre, a line its ends, an arc its centre and ends)
         for (const x of p.points) {
           const at = shownPts.has(x.id) ? s.points[x.id] : null;
-          if (at) out.push({ kind: "ball", pts: [to3(f, at)], r: mmPerPx(f, at) * settings.sketch.ballPx });
+          if (at) out.push(dot(f, at, "figure"));
         } // (the old app marks no point until it is picked, then a teal ball)
         // a circle's and an arc's centre is always there to see, a small dot; picked, it is the teal ball above (`in_1646`)
         for (const id of new Set([...(p.circles ?? []).map((k) => k.c), ...(p.arcs ?? []).map((a) => a.c)])) {
           const at = shownPts.has(id) ? null : s.points[id];
-          if (at) out.push({ kind: "centre", pts: [to3(f, at)], r: mmPerPx(f, at) * settings.sketch.ballPx * 0.55 });
+          if (at) out.push(dot(f, at, "axis", 0.55));
         }
-        // a pointed-at number is drawn on its dimension line: the one arrow, a tip at each end, and the thin lines from what it measures (`in_1650`, `in_1671`)
-        if (st.lit?.dim && st.lit.key === k) {
-          const dm = st.lit.dim;
-          out.push(...arrow(f, dm.a, dm.b, "dash", { both: true }));
-          for (const [a, b] of dm.ext) out.push({ kind: "dimExt", pts: [to3(f, a), to3(f, b)] });
-        }
-        // the arrow from a pointed-at bubble to the spot it is about, its tip short of the spot
-        if (st.leader && st.leader.key === k)
-          out.push(
-            ...arrow(f, st.leader.from, st.leader.to, st.lit?.offer ? "dashOffer" : "dash", {
-              tail: 16,
-              least: 24,
-            }),
-          );
-        // a pointed-at alignment (level, upright, parallel) is drawn as a dashed line through what it ties together; an offer that would move something draws its arrows instead (`in_1668`)
-        if (st.lit?.align && st.lit.key === k)
-          out.push({
-            kind: st.lit.offer ? "dashOffer" : "dash",
-            pts: [to3(f, st.lit.align.a), to3(f, st.lit.align.b)],
-            dash: dashAt(f, st.lit.align.a),
-          });
-        // a pointed-at angle is drawn in its corner: its arc, or a small square for a right angle (`in_1667`)
-        if (st.lit?.corner && st.lit.key === k) {
-          const cn = st.lit.corner,
-            at = (t: number): P2 => [cn.centre[0] + cn.r * Math.cos(t), cn.centre[1] + cn.r * Math.sin(t)];
-          if (cn.square) {
-            const p0 = at(cn.from),
-              p1 = at(cn.from + cn.sweep);
-            out.push({
-              kind: "dimArc",
-              pts: [p0, [p0[0] + p1[0] - cn.centre[0], p0[1] + p1[1] - cn.centre[1]] as P2, p1].map((z) => to3(f, z)),
-            });
-          } else {
-            const n = Math.max(6, Math.ceil(Math.abs(cn.sweep) / 0.1));
-            out.push({
-              kind: "dimArc",
-              pts: Array.from({ length: n + 1 }, (_, i) => at(cn.from + (cn.sweep * i) / n)).map((z) => to3(f, z)),
-            });
-          }
-        }
-        // the parts the pointed-at mark is about, lit in its colour (blue for an applied constraint, yellow for an offer); a named point also lights the lines that end at it; only colour changes, never the weight (`in_1657`, `in_1661`)
-        if (st.lit && st.lit.key === k) {
-          const names = new Set(st.lit.parts);
+        // what the pointed-at mark shows: its parts lit in its colour (blue for an applied constraint, yellow for an offer; a named point also lights the lines that end at it; only colour changes, never the weight, `in_1657`, `in_1661`), a dot on each named point, and its shapes, all by the one routine (`in_1675`)
+        if (st.shown && st.shown.key === k) {
+          const sh = st.shown,
+            names = new Set(sh.parts);
           for (const l of p.lines ?? []) if (names.has(l.a) || names.has(l.b)) names.add(l.id);
           for (const q of seg)
             if (names.has(q.name))
               out.push({
-                kind: st.lit.offer ? (chosen.has(q.name) ? "litOfferSel" : "litOffer") : "lit",
+                kind: sh.offer ? (chosen.has(q.name) ? "litOfferSel" : "litOffer") : "lit",
                 pts: polyline(q).map((z) => to3(f, z)),
               });
-          for (const id of st.lit.parts) {
+          for (const id of sh.parts) {
             const at = s.points[id];
-            if (at)
-              out.push({
-                kind: st.lit.offer ? "tieBall" : "ball",
-                pts: [to3(f, at)],
-                r: mmPerPx(f, at) * settings.sketch.ballPx,
-              });
+            if (at) out.push(dot(f, at, sh.offer ? "ties" : "figure"));
           }
+          for (const z of sh.shapes) out.push(...shape(f, z, sh.offer));
         }
       }
-      const mv = st.moves && all.get(st.moves.key) ? { f: all.get(st.moves.key)!, list: st.moves.list } : null;
-      if (mv)
-        // a dashed arrow from where a part is to where the offered constraint would put it, its tip short of the place: strong for the parts it names, pale for what moves only because they do (`in_1631`, `in_1667`, `in_1671`)
-        for (const { from: a, to: b, main } of mv.list)
-          out.push(...arrow(mv.f, a, b, "dashOffer", main ? {} : { pale: true }));
       out.push(...D.hintLines(all));
       const c = pointer && tool ? here(pointer.x, pointer.y) : null;
       if (c && tool) {
@@ -448,7 +416,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
               kind: l.kind,
               pts: l.pts.map((z) => to3(c.f, z)),
               ...(l.kind === "dashOffer" ? { dash: dashAt(c.f, at) } : {}),
-              ...(l.kind === "tieBall" ? { r: mmPerPx(c.f, l.pts[0]!) * settings.sketch.ballPx } : {}),
+              ...(l.kind === "dot" ? { tone: l.tone, r: mmPerPx(c.f, l.pts[0]!) * settings.sketch.ballPx } : {}),
             });
           const arm = mmPerPx(c.f, at) * settings.sketch.crossPx,
             w = to3(c.f, at);

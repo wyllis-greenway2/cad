@@ -43,7 +43,9 @@ try {
   );
   const drawnArrows = () => ev<any[]>(`() => window.__sketch.lines(null).filter((l) => /^dash/.test(l.kind))`),
     lit = () =>
-      ev<any[]>(`() => window.__sketch.lines(null).filter((l) => /^lit/.test(l.kind) || l.kind === "tieBall")`);
+      ev<any[]>(
+        `() => window.__sketch.lines(null).filter((l) => /^lit/.test(l.kind) || (l.kind === "dot" && l.tone === "ties"))`,
+      );
   ok((await drawnArrows()).length === 0, "at rest nothing of the offer is drawn: no arrows");
   // point at its bubble, with a real mouse: the arrows and the parts it is about appear
   const chip = await page.evaluate(() => {
