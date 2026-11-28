@@ -167,7 +167,7 @@ export function solvedPositions(
 export { segsOf } from "./definition.ts";
 /** make the sketch of a definition: the solve, the lines with ids from their names, the anchors; `step` is the id of the step that makes it */
 export function makeSketch(p: SketchParams, body: Body | null, step: { id: string }, drag?: SolveOptions): Sketch {
-  const { fr, F, world, reference, arcEnds, r } = solveParts(p, body, step, drag);
+  const { F, world, reference, arcEnds, r } = solveParts(p, body, step, drag);
   const sol = r.solution.points,
     normal = F.normal as V3,
     drawn: Line[] = [],
@@ -200,7 +200,6 @@ export function makeSketch(p: SketchParams, body: Body | null, step: { id: strin
     if (Math.hypot(s0[0] - e0[0], s0[1] - e0[1]) < 1e-9 * Math.max(1, R))
       throw new Refusal(`the arc ${a.id} starts and ends at the same place`, [a.id]);
     const sweep = a.cw ? norm(ta - tb) : norm(tb - ta),
-      t0 = a.cw ? tb : ta,
       midT = a.cw ? ta - sweep / 2 : ta + sweep / 2;
     drawnEnds.set(a.id, { a: s0, b: e0 });
     order.set(a.id, order.size);
