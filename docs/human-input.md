@@ -6924,3 +6924,9 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1734 — 2026-11-28 — directive
 > now sketching is really hard to start on click and drag circle or other sketch part, I think because it cancels because it considers it a drag? I think we need to interperet clicking and dragging as always just sketching when a sketch tool is selected, then left click is just sketching and any amount of click and drag is always sketch interpereted and it doesn't try to figure out if it should rotate the camera or not. Lets put the right click back to doing camera rotation on click and drag again as well, then lets move the drag select to start when both mouse buttons are pressed down and dragged.
+
+## in_1735 — 2026-11-28 — directive
+> Now let's fix the arrow angle on edges
+
+## in_1736 — 2026-11-28 — directive
+> it shows up on circle edges

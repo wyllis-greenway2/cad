@@ -71,11 +71,12 @@ export function createBodyOps(host: BodyOpsHost) {
           near = aside ?? click,
           e0 = near?.edge ?? edges[0]!,
           at = near?.at ?? edgeAnchor(mesh.lines, e0);
+        // out of the body between the edge's two faces, AT the place the arrow stands: the normals the mesh has there (a round face's, such as a cylinder wall's, turns along the edge, so its one normal from the engine would point the same way all round a rim)
         const ns = [e0.ref.a, e0.ref.b].map((r) => {
           const fi = mesh.faces.find((x) => idKey(x.ref) === idKey(r));
-          return fi && faceFacts(sel.body, fi.id)?.ne;
+          return fi ? normalAt(mesh, fi, at) : null;
         });
-        const sum = ns[0] && ns[1] ? add(ns[0] as unknown as V3, ns[1] as unknown as V3) : null,
+        const sum = ns[0] && ns[1] ? add(ns[0], ns[1]) : null,
           normal = sum && Math.hypot(...sum) > 1e-6 ? unit(sum) : null;
         return roundOp(
           {
