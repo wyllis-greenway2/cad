@@ -106,6 +106,36 @@ try {
     ok((await corner()).length === 1, "pointing at the angle draws its arc in the corner");
     writeFileSync(`${dir}/dims-angle.png`, await page.screenshot());
   }
+  // an alignment that would move nothing still shows what is tied to what, as a dashed line (`in_1668`)
+  await ev(`() => {
+    const s = structuredClone(window.__sketch.snapshot()), k = Object.keys(s)[0];
+    s[k] = { arcs: [], circles: [], constraints: [],
+      lines: [{ a: "P1", b: "P2", id: "L1" }, { a: "P3", b: "P4", id: "L2" }],
+      points: [{ id: "P1", x: 10, y: 20 }, { id: "P2", x: 20, y: 28 }, { id: "P3", x: 36, y: 20 }, { id: "P4", x: 44, y: 32 }] };
+    window.__sketch.restore(s);
+  }`);
+  await page.waitForTimeout(400);
+  await click(15, 24); // line L1
+  await page.waitForTimeout(500);
+  const aligns = () => ev<any[]>(`() => window.__sketch.lines(null).filter((l) => /^align/.test(l.kind))`);
+  ok((await aligns()).length === 0, "at rest no alignment line is drawn");
+  const bal = await bubble("^near:horizontal:P1,P3");
+  ok(!!bal, "P1 and P3 are level, so their alignment is offered");
+  if (bal) {
+    await page.mouse.move(bal.x, bal.y);
+    await page.waitForTimeout(250);
+    const a1 = await aligns();
+    ok(
+      a1.length === 1 && a1[0].kind === "alignOffer",
+      `pointing at it draws a yellow dashed line through both points: ${a1.map((l) => l.kind).join()}`,
+    );
+    const [p0, p1] = a1[0].pts;
+    ok(Math.abs(p0[1] - p1[1]) < 1e-6, "and the line is level");
+    writeFileSync(`${dir}/dims-align.png`, await page.screenshot());
+    await page.mouse.move(5, 5, { steps: 5 });
+    await page.waitForTimeout(200);
+    ok((await aligns()).length === 0, "moving away takes it away");
+  }
   ok(errors.length === 0, `no errors in the page ${errors.join("; ")}`);
   await close();
 } finally {

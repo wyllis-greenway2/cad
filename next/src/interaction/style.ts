@@ -62,6 +62,8 @@ export type StrokeKind =
   | "dimExt"
   | "dimHead"
   | "dimArc"
+  | "align"
+  | "alignOffer"
   | "moveMain"
   | "moveMainHead"
   | "lit"
@@ -83,6 +85,8 @@ export const STROKE: Record<
   dim: { tone: "note", weight: 0.75, soft: false, dashed: true }, // the line a measured number is drawn on, while it is pointed at (`in_1650`)
   dimExt: { tone: "note", weight: 0.5, soft: true }, // the thin lines from what it measures to it
   dimHead: { tone: "note", weight: 0.75, soft: false }, // an arrow tip at each end
+  align: { tone: "note", weight: 0.75, soft: false, dashed: true }, // what an applied alignment ties together, while it is pointed at (`in_1668`)
+  alignOffer: { tone: "ties", weight: 0.75, soft: false, dashed: true }, // the same for an offer: yellow
   dimArc: { tone: "note", weight: 0.75, soft: false }, // an angle's arc, or a right angle's square, in its corner (`in_1667`)
   lit: { tone: "figure", weight: 0.75, soft: false }, // the parts an applied constraint is about, while its bubble is pointed at: blue (`in_1661`)
   litOffer: { tone: "ties", weight: 0.75, soft: false }, // the same for an offer: yellow

@@ -271,7 +271,14 @@ export function createMarks(
       // only the mark that is pointed at draws anything: the parts it is about lit, and (an offer) what applying it would move
       const hm = st.hover && list.find((m) => m.id === st.hover!.id && (m.over?.join(",") ?? "") === st.hover!.over);
       st.lit = hm
-        ? { key: c.key, parts: hm.parts, offer: hm.state === "offer", dim: hm.dim ?? null, corner: hm.corner ?? null }
+        ? {
+            key: c.key,
+            parts: hm.parts,
+            offer: hm.state === "offer",
+            dim: hm.dim ?? null,
+            corner: hm.corner ?? null,
+            align: hm.align ?? null,
+          }
         : null;
       if (hm?.state === "offer" && hm.moves?.length) {
         // the arrows of the parts the offer names are the main ones; what moves only because they do is paler (`in_1667`); when none is named, the longest is the main

@@ -48,6 +48,8 @@ export interface DrawLine {
     | "dimExt"
     | "dimHead"
     | "dimArc"
+    | "align"
+    | "alignOffer"
     | "moveMain"
     | "moveMainHead"
     | "lit"
@@ -72,7 +74,14 @@ export function createCore(host: SketchHost, on?: (label: string, merge?: string
     /** what the offers showing now would move, from where to where (set with the marks, drawn with the lines) */
     /** the mark being pointed at (its id and what it is offered for), and the parts it is about with whether it is an offer: both from the marks, drawn with the lines */
     hover: null as { id: string; over: string } | null,
-    lit: null as { key: string; parts: string[]; offer: boolean; dim: DimLine | null; corner: Corner | null } | null,
+    lit: null as {
+      key: string;
+      parts: string[];
+      offer: boolean;
+      dim: DimLine | null;
+      corner: Corner | null;
+      align: { a: [number, number]; b: [number, number] } | null;
+    } | null,
     moves: null as { key: string; list: { from: [number, number]; to: [number, number]; main: boolean }[] } | null,
   };
   const say = (text: string, ms = 4000) => host.notify(text, { ttl: ms });

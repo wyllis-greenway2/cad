@@ -342,6 +342,13 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
           for (const [a, b] of dm.ext) out.push({ kind: "dimExt", pts: [to3(f, a), to3(f, b)] });
           out.push(head(dm.a, dm.b), head(dm.b, dm.a));
         }
+        // a pointed-at alignment (level, upright, parallel) is drawn as a dashed line through what it ties together; an offer that would move something draws its arrows instead (`in_1668`)
+        if (st.lit?.align && st.lit.key === k)
+          out.push({
+            kind: st.lit.offer ? "alignOffer" : "align",
+            pts: [to3(f, st.lit.align.a), to3(f, st.lit.align.b)],
+            dash: dashAt(f, st.lit.align.a),
+          });
         // a pointed-at angle is drawn in its corner: its arc, or a small square for a right angle (`in_1667`)
         if (st.lit?.corner && st.lit.key === k) {
           const cn = st.lit.corner,

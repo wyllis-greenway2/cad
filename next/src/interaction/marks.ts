@@ -7,6 +7,7 @@ import { settings } from "../settings.ts";
 import {
   anchorOf,
   bubblesOn,
+  alignLine,
   cornerOf,
   dimLine,
   scopeOf,
@@ -25,6 +26,8 @@ export interface Mark extends Fact {
   moves?: Arrow[];
   /** a measured number: the dimension line it is drawn on when it is pointed at, and the bubble stands on its middle (`in_1650`) */
   dim?: DimLine;
+  /** what an alignment (level, upright, parallel) ties together: a dashed line through the two, drawn when it is pointed at (`in_1668`) */
+  align?: { a: [number, number]; b: [number, number] };
   /** an angle or a square: it stands in its corner, drawn there when pointed at */ corner?: Corner;
   onSpot?: boolean;
   state: MarkState;
@@ -178,11 +181,13 @@ export function marksFor(
       dim =
         f.kind === "dimension" && f.relation ? dimLine(S, f.relation, f.parts, (ctx.reach?.pointMm ?? 0) * 2) : null,
       mid: [number, number] | null = dim ? [(dim.a[0] + dim.b[0]) / 2, (dim.a[1] + dim.b[1]) / 2] : null,
-      cn = f.relation && mmPx > 0 ? cornerOf(S, f.relation, f.parts, mmPx) : null;
+      cn = f.relation && mmPx > 0 ? cornerOf(S, f.relation, f.parts, mmPx) : null,
+      al = f.relation && mmPx > 0 && f.kind !== "dimension" ? alignLine(S, f.relation, f.parts, 20 * mmPx) : null;
     out.push({
       ...f,
       ...(dim && mid ? { dim, at: mid, onSpot: true } : {}),
       ...(cn ? { corner: cn.corner, at: cn.at, onSpot: true } : {}),
+      ...(al ? { align: al } : {}),
       state: f.tone === "refused" ? "refused" : f.locked === false ? "offer" : "locked",
       alpha: f.tone === "applied" ? (ctx.fade?.(f.id) ?? 1) : 1,
     });
@@ -225,7 +230,9 @@ export function marksFor(
     for (const c of [...direct, ...rankNear(S, pool, scopeOf(S, sel))]) {
       // a square or an angle's offer stands in its corner
       const rel = c.nc?.kind ?? c.item.id.slice(4),
-        cn = ctx.reach ? cornerOf(S, rel, c.parts, ctx.reach.pointMm / settings.helpers.offerPx) : null;
+        mmPx = ctx.reach ? ctx.reach.pointMm / settings.helpers.offerPx : 0,
+        cn = mmPx > 0 ? cornerOf(S, rel, c.parts, mmPx) : null,
+        al = mmPx > 0 && !c.moves.length ? alignLine(S, rel, c.parts, 20 * mmPx) : null; // (an offer that would move something draws its arrows instead)
       out.push({
         id: c.item.id,
         kind: "constraint",
@@ -233,6 +240,7 @@ export function marksFor(
         icon: c.item.icon,
         at: cn ? cn.at : c.standing, // (the bubble stands round its spot, in its corner for a square; what it would move is drawn when it is pointed at, `in_1655`)
         ...(cn ? { corner: cn.corner, onSpot: true } : {}),
+        ...(al ? { align: al } : {}),
         tone: "offer",
         title: c.item.label,
         parts: c.parts,

@@ -362,6 +362,39 @@ export function dimLine(S: System, kind: string, parts: readonly string[], off: 
   return null;
 }
 
+/** what an alignment ties together, as a dashed line (`in_1668`): level or upright between two points a line through both, a little beyond each; parallel between two lines a line between their middles; none for the rest (`ext`: how far past the points it goes, mm) */
+export function alignLine(
+  S: System,
+  kind: string,
+  parts: readonly string[],
+  ext: number,
+): { a: [number, number]; b: [number, number] } | null {
+  const pt = (id: string): [number, number] | null => {
+    const q = S.points.find((x) => x.id === id);
+    return q ? [q.x, q.y] : null;
+  };
+  if ((kind === "horizontal" || kind === "vertical") && parts.length === 2) {
+    const p = pt(parts[0]!),
+      q = pt(parts[1]!);
+    if (!p || !q) return null;
+    const d = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    if (d < 1e-9) return null;
+    const u: [number, number] = [(q[0] - p[0]) / d, (q[1] - p[1]) / d];
+    return { a: [p[0] - u[0] * ext, p[1] - u[1] * ext], b: [q[0] + u[0] * ext, q[1] + u[1] * ext] };
+  }
+  if (kind === "parallel" && parts.length === 2) {
+    const mid = (id: string): [number, number] | null => {
+      const l = S.lines.find((x) => x.id === id),
+        a = l && pt(l.a),
+        b = l && pt(l.b);
+      return a && b ? [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] : null;
+    };
+    const m = mid(parts[0]!),
+      n = mid(parts[1]!);
+    return m && n ? { a: m, b: n } : null;
+  }
+  return null;
+}
 /** an angle's mark stands in its corner (`in_1650`, `in_1667`): the arc of an angle (the number on it), or the small square of a right angle; `from`, `sweep`: where the arc starts and how far round it goes (radians); `r`: its radius (mm); `square`: a right angle drawn as a small square */
 export interface Corner {
   centre: [number, number];
