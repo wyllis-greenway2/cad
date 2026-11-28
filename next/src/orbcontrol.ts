@@ -14,6 +14,7 @@ import {
   type Orb,
 } from "./orb.ts";
 import type { Frame } from "./planes.ts";
+import type { V3 } from "./vec.ts";
 import { dragged } from "./interaction/gesture.ts";
 
 export interface OrbHost {
@@ -172,6 +173,14 @@ export function createOrbControl(host: OrbHost) {
     },
     /** whether the ball has been pressed once and not again (free move: bodies picked whole are carried by a drag) */
     freeMove: (): boolean => free && !orient,
+    /** In orient mode a click on a surface, an edge or a corner puts the orb there (the old app's: the mover is placed on what is clicked): returns whether it was placed */
+    place(p: V3): boolean {
+      const t = host.target();
+      if (!orient || !t) return false;
+      const q = poseOf(t.id);
+      poses.set(t.id, { ...q, offset: [p[0] - t.frame.origin[0], p[1] - t.frame.origin[1], p[2] - t.frame.origin[2]] });
+      return true;
+    },
     keep: () => stopOrient(true),
     /** Esc in orient mode: the orb goes back as it was. */
     cancel(): boolean {

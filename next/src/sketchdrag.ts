@@ -45,7 +45,7 @@ export function createDrag(K: Core, armed: () => boolean) {
     grab(x: number, y: number, shift: boolean): boolean {
       if (armed()) return false;
       const c = here(x, y);
-      if (!c) return false;
+      if (!c || c.behind) return false; // (a part behind a body's surface is not there to be taken)
       const s = solOf(c.p),
         h = hitAt(c.p, s, c.q, c.tol);
       if (!h) return false;

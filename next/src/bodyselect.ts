@@ -72,6 +72,11 @@ export function createBodySelect(host: BodySelectHost) {
         hit = pickAll(host.meshes(), cam, w, h, x, y).find((k) => k.kind === "face");
       return hit && hit.kind === "face" ? { body: hit.body, face: hit.face, point: hit.point } : null;
     },
+    /** the place of a body under the pointer: a corner, else the place of an edge, else of a face (null: none) */
+    pointAt(x: number, y: number): V3 | null {
+      const { cam, w, h } = host.view();
+      return pickAt(host.meshes(), cam, w, h, x, y)?.point ?? null;
+    },
     /** how far (px) a corner or an edge of a body is from the pointer (Infinity: none within reach) */
     featureNear(x: number, y: number): number {
       const { cam, w, h } = host.view(),
@@ -249,6 +254,7 @@ export function createBodySelect(host: BodySelectHost) {
           vertices: k.vertices.map((v) => v.key),
         },
         over: over?.kind ?? null,
+        overAt: over && over.kind !== "face" ? over.point : null,
       };
     },
   };

@@ -273,6 +273,7 @@ const bodies = createBodySelect({
 });
 // ---- the helper bar: the page has one, and it says what the sketch's selection or the body's pick offers (`in_1576`) ----
 const badge = createBadge(document.body); // (the tool that is armed, following the pointer)
+const freeBadge = createBadge(document.body); // (the orb's ball in free move: the pan arrows, over it)
 const markdraw = createMarkDraw(document.body); // (the constraints and numbers standing on the parts of a sketch: `dec_marks_on_things`)
 const infobar = createInfoBar(document.body); // (the one bar: what is so of the subject, and what could be added)
 /** the engine's facts about a face of the body: where it faces (out of the body) */
@@ -628,6 +629,11 @@ attach(
         menu.close();
         return;
       }
+      // the orb being moved itself (orient, pulsing blue): a click on a surface, an edge or a corner puts it there
+      if (orbc.orienting()) {
+        const at = bodies.pointAt(x, y);
+        if (at && orbc.place(at)) return;
+      }
       // a click that did not move, with an operation open and taken (an arrow dragged, a number typed, a kind chosen) or opened by a tool, makes it if it is valid and puts it away if not, as a right click does (the old app's tap away from the handles, `MD-27`); a drag turns the view
       if ((ext.draft() || (ext.pulling() && tools.armed())) && (auto.finish() || tools.finish())) return;
       if (ext.click(x, y)) return;
@@ -823,6 +829,11 @@ function frame(now: number) {
   });
   badge.show(tools.armed()?.icon ?? null, game.on ? null : pointer);
   {
+    const ball = orb?.free ? orb.handles.find((hd) => hd.kind === "ball")?.points[0] : null,
+      q = ball ? project(s.c, ball, e.w, e.h) : null;
+    freeBadge.show(q ? "move4" : null, q ? { x: q.x - 27, y: q.y - 62 } : null); // (the badge stands 14 px right of and below the place it is given: it ends up centred over the ball)
+  }
+  {
     const sub = game.on ? null : (ext.subject() ?? bodies.subject(sk.active() || ext.active())),
       e = env();
     infobar.show(sub?.info ?? null, sub?.at ?? null, sub?.on ?? null, e.w, e.h);
@@ -854,6 +865,7 @@ Object.assign(window, {
   __bodies: bodies,
   __selection: selection,
   __box: box,
+  __visible: (p: V3) => visibleFrom(studio.state().meshes, s.c, p),
   __more: chooseMore,
   __record: record,
   __undo: undo,

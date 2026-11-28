@@ -146,4 +146,18 @@ import { addArc, addLine, arcWay } from "../src/interaction/drawing.ts";
     JSON.stringify(c2),
   );
 }
+// a body made after a round joins the model AS IT IS NOW: the combine takes the last step that makes a body (the round), not the extrude before it
+{
+  const recipe = [
+    { id: "s1", kind: "sketch", params: {}, inputs: [] },
+    { id: "e1", kind: "extrude", params: { d: 10 }, inputs: ["s1"] },
+    { id: "r1", kind: "round", params: { edges: [], size: 1, mode: "fillet" }, inputs: ["e1"] },
+  ];
+  const more2 = extrudeSteps(recipe as any, p, f, [20, 12], 5);
+  check(
+    "a new body is joined to the last body step, the round, not the extrude before it",
+    more2.at(-1)?.kind === "combine" && more2.at(-1)?.inputs[0] === "r1",
+    JSON.stringify(more2.at(-1)?.inputs),
+  );
+}
 process.exit(failureCount() ? 1 : 0);

@@ -54,8 +54,9 @@ export function createRegionSelect(K: Core) {
       over = null;
       // the planes with a drawing under the pointer, the nearest first: a part of a drawing comes before a figure; a figure behind a body's surface is not there
       for (const c of hereAll(x, y)) {
+        if (c.behind) continue; // (behind a body's surface: not there)
         if (hitAt(c.p, solOf(c.p), c.q, c.tol)) return false;
-        if (c.behind || !regionOf(c.p, c.q)) continue;
+        if (!regionOf(c.p, c.q)) continue;
         over = { key: c.key, at: c.q, click: to3(c.f, c.q) };
         return true;
       }

@@ -179,7 +179,8 @@ export function extrudeSteps(
         : { id: sid, kind: "sketch", params: { ...def, frame: frameParams(f), pick: [pick] } as never, inputs: [] },
       { id: eid, kind: "extrude", params: { d }, inputs: [sid] },
     ];
-  const lastBody = [...recipe].reverse().find((s) => s.kind === "extrude" || s.kind === "combine");
+  // the body the model is now: the LAST step that makes a body, whatever it is (a round, a push, a move, a combine), never an earlier one (a new body joined to the extrude step before a round left the round out, `in_1739`)
+  const lastBody = [...recipe].reverse().find((s) => !s.kind.startsWith("sketch"));
   if (lastBody)
     steps.push({ id: have("c"), kind: "combine", params: { mode: d < 0 ? "cut" : "add" }, inputs: [lastBody.id, eid] });
   return steps;

@@ -215,6 +215,7 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
   const selectAny = (x: number, y: number, shift: boolean): boolean => {
     const planes = hereAll(x, y);
     for (const c of planes) {
+      if (c.behind) continue; // (a part of a drawing behind a body's surface is not there to be picked, as a figure is not, `in_1739`)
       const h = hitAt(c.p, solOf(c.p), c.q, c.tol);
       if (h) {
         pick(c.key, h.id, shift);
