@@ -6865,3 +6865,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1716 — 2026-11-28 — directive
 > no I dont like arming the extrude tool, I want it so that you can just select a face and it offers the extrude or face pull arrows just like the old prototype. You should also be able to do it my arming the extrude tool from the menu
+
+## in_1717 — 2026-11-28 — directive
+> okay it doesn't feel like the old prototype. Why does it zoom the camera to the sketch when it is selected to extrude? Also why are edges visible through. Also selecting sketches and faces should basically be the same except that faces of bodies gives the multiple extrude type options. Also why doesn't the arrow show up in the center of the face like in the old prototype?

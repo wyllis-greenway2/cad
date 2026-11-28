@@ -378,7 +378,11 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
           chosen = new Set(selected(k)),
           seg = segsOf(p, s.points, s.radii);
         for (const q of seg)
-          out.push({ kind: chosen.has(q.name) ? "selected" : "done", pts: polyline(q).map((z) => to3(f, z)) });
+          out.push({
+            kind: chosen.has(q.name) ? "selected" : "done",
+            pts: polyline(q).map((z) => to3(f, z)),
+            hidden: true,
+          }); // (hidden by a body in front of it, as a body's own edges are: a drawing a body was made from does not show through it)
         const shownPts = chosen.size ? new Set(scopeOf(sysOf(p), [...chosen])) : chosen; // (what is selected shows what it is made of: a circle its centre, a line its ends, an arc its centre and ends)
         for (const x of p.points) {
           const at = shownPts.has(x.id) ? s.points[x.id] : null;

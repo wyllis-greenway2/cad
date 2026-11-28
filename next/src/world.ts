@@ -41,7 +41,7 @@ export function createWorld(canvas: HTMLCanvasElement, model: Model) {
 
   const bodies = createBodies(scene, renderer, model),
     gizmo = createGizmo(scene),
-    overlays = createOverlays(scene, bodies.solids);
+    overlays = createOverlays(scene, bodies.solids, bodies.solid);
 
   // the mover orb, drawn into this group, which is emptied every picture
   const dyn = new THREE.Group();

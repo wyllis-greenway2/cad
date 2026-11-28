@@ -3,7 +3,7 @@ import { initKernel } from "../src/engine/kernel.ts";
 import * as K from "../src/engine/kernel.ts";
 import { Engine } from "../src/engine/engine.ts";
 import { Body } from "../src/engine/lineage.ts";
-import { regionAt, extrudeSteps } from "../src/interaction/extrude.ts";
+import { regionAt, regionCentre, extrudeSteps } from "../src/interaction/extrude.ts";
 import { addCircle, addRect, emptySketch, keep, refOf } from "../src/interaction/drawing.ts";
 import { worldFrame } from "../src/planes.ts";
 import { check, failureCount } from "./lib.ts";
@@ -103,6 +103,47 @@ import { addArc, addLine, arcWay } from "../src/interaction/drawing.ts";
   check(
     "the short way round: a place below the start goes clockwise, above counter-clockwise",
     cwArc.cw && !ccwArc.cw && Math.abs(cwArc.sweep - Math.PI / 2) < 1e-9 && Math.abs(ccwArc.sweep - Math.PI / 2) < 1e-9,
+  );
+}
+{
+  // the arrow stands in the middle of the figure, not where it was clicked (`in_1717`)
+  const box = (x0: number, y0: number, x1: number, y1: number): [number, number][] => [
+    [x0, y0],
+    [x1, y0],
+    [x1, y1],
+    [x0, y1],
+    [x0, y0],
+  ];
+  const c0 = regionCentre([box(0, 0, 40, 20)]);
+  check(
+    "a rectangle's middle is its middle",
+    Math.abs(c0[0] - 20) < 1e-9 && Math.abs(c0[1] - 10) < 1e-9,
+    JSON.stringify(c0),
+  );
+  const c1 = regionCentre([box(0, 0, 40, 20), box(10, 5, 20, 15)]);
+  const inRing = (p: [number, number]) =>
+    p[0] > 0 && p[0] < 40 && p[1] > 0 && p[1] < 20 && !(p[0] > 10 && p[0] < 20 && p[1] > 5 && p[1] < 15);
+  check(
+    "a rectangle with a hole: the centre of area is not in the hole (it is on the ring, in the widest stretch)",
+    inRing(c1),
+    JSON.stringify(c1),
+  );
+  const cShape: [number, number][] = [
+    [0, 0],
+    [30, 0],
+    [30, 10],
+    [10, 10],
+    [10, 20],
+    [30, 20],
+    [30, 30],
+    [0, 30],
+    [0, 0],
+  ];
+  const c2 = regionCentre([cShape]);
+  check(
+    "a C: the middle is in the C, not in the mouth of it",
+    c2[0] > 0 && c2[0] < 30 && !(c2[0] > 10 && c2[1] > 10 && c2[1] < 20),
+    JSON.stringify(c2),
   );
 }
 process.exit(failureCount() ? 1 : 0);

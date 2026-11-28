@@ -46,6 +46,7 @@ export function extrudeOp(
       frame: { origin: f.origin, u: f.u, v: vOf(f), n: f.normal },
       loops: a.region.loops as [number, number][][],
       d: value,
+      adds: value > 0 || !a.source, // (pulled out, or from a drawing with no body: a body is made; pushed into a body: a cut)
     },
     tilt: {
       frame: f,

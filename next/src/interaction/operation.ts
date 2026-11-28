@@ -14,7 +14,12 @@ export interface OpOption {
 }
 /** what the pull would make, shown before the engine has made it: a prism of an outline in a plane's axes, or a face moved along its normal */
 export type Ghost =
-  | { frame: { origin: V3; u: V3; v: V3; n: V3 }; loops: [number, number][][]; d: number }
+  | {
+      frame: { origin: V3; u: V3; v: V3; n: V3 };
+      loops: [number, number][][];
+      d: number;
+      /** the prism adds a body (drawn as the body it will be) rather than cuts one away (drawn see-through) */ adds?: boolean;
+    }
   | { faceMove: { positions: Float32Array; n: V3; d: number } };
 /** what applying does: the recipe it makes; or a question for the worker first, whose answer makes it (or says why it cannot); or nothing */
 export type Plan =

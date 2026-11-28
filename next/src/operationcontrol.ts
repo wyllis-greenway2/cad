@@ -100,7 +100,7 @@ export function createOperations(host: OperationHost) {
       op = o;
       auto = byItself;
       touched = false;
-      if (o.tilt) host.tilt(o.tilt.frame, o.tilt.centre, o.tilt.size);
+      if (o.tilt && !byItself) host.tilt(o.tilt.frame, o.tilt.centre, o.tilt.size); // (the view is not moved for an arrow that came by itself from a pick: it is as a face's, which does not move it)
     },
     /** The Extrude tool is chosen: the next click inside a closed part of the drawing picks it. */
     start() {

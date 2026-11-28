@@ -11,7 +11,7 @@ import { vOf } from "../planes.ts";
 export interface Region {
   /** the point inside it that the sketch keeps to find it again */ pick: Pt;
   /** the outline first, then the holes: closed polylines in the plane (arcs as short lines) */ loops: Pt[][];
-  /** a place for the arrow: inside the region */ centre: Pt;
+  /** the middle of the region, for the arrow: its centre of area, or, when that is not inside it (a ring, an L), the middle of the widest stretch of it across that height */ centre: Pt;
   area: number;
 }
 const TAU = 2 * Math.PI;
@@ -44,6 +44,61 @@ export function loopPoints(l: Loop): Pt[] {
   out.push(out[0]!);
   return out;
 }
+/** whether a place is inside the outline and not inside a hole (even and odd crossings of all the loops) */
+const insideLoops = (loops: readonly (readonly Pt[])[], p: Pt): boolean => {
+  let inside = false;
+  for (const l of loops)
+    for (let i = 0, j = l.length - 1; i < l.length; j = i++) {
+      const a = l[i]!,
+        b = l[j]!;
+      if (a[1] > p[1] !== b[1] > p[1] && p[0] < ((b[0] - a[0]) * (p[1] - a[1])) / (b[1] - a[1]) + a[0])
+        inside = !inside;
+    }
+  return inside;
+};
+/** The middle of a region: its centre of area (the outline's, less the holes'); when that is not inside it (a ring, an L), the middle of the widest stretch of the region across that height. */
+export function regionCentre(loops: readonly (readonly Pt[])[]): Pt {
+  let area = 0,
+    cx = 0,
+    cy = 0;
+  loops.forEach((l, k) => {
+    let a = 0,
+      x = 0,
+      y = 0;
+    for (let i = 0, j = l.length - 1; i < l.length; j = i++) {
+      const f = l[j]![0] * l[i]![1] - l[i]![0] * l[j]![1];
+      a += f;
+      x += (l[j]![0] + l[i]![0]) * f;
+      y += (l[j]![1] + l[i]![1]) * f;
+    }
+    const sign = k === 0 ? 1 : -1, // (the holes take away)
+      w = (Math.abs(a) / 2) * sign;
+    if (a !== 0) {
+      area += w;
+      cx += (x / (3 * a)) * w;
+      cy += (y / (3 * a)) * w;
+    }
+  });
+  if (!(area > 0)) return loops[0]![0]!;
+  const c: Pt = [cx / area, cy / area];
+  if (insideLoops(loops, c)) return c;
+  const xs: number[] = [];
+  for (const l of loops)
+    for (let i = 0, j = l.length - 1; i < l.length; j = i++) {
+      const a = l[i]!,
+        b = l[j]!;
+      if (a[1] > c[1] !== b[1] > c[1]) xs.push(((b[0] - a[0]) * (c[1] - a[1])) / (b[1] - a[1]) + a[0]);
+    }
+  xs.sort((p, q) => p - q);
+  let best: Pt = c,
+    widest = -1;
+  for (let i = 0; i + 1 < xs.length; i += 2)
+    if (xs[i + 1]! - xs[i]! > widest) {
+      widest = xs[i + 1]! - xs[i]!;
+      best = [(xs[i]! + xs[i + 1]!) / 2, c[1]];
+    }
+  return best;
+}
 /** the region a place in the plane is inside (null: none, or the drawing does not solve) */
 export function regionAt(def: SketchParams, q: Pt): Region | null {
   try {
@@ -53,10 +108,11 @@ export function regionAt(def: SketchParams, q: Pt): Region | null {
     const prof = found.profiles[0];
     if (!prof) return null;
     const face = found.faces.find((f) => f.filled && Math.abs(f.area) > 0) ?? null;
+    const loops = [loopPoints(prof.outer), ...prof.holes.map(loopPoints)];
     return {
       pick: q,
-      loops: [loopPoints(prof.outer), ...prof.holes.map(loopPoints)],
-      centre: q,
+      loops,
+      centre: regionCentre(loops),
       area: face?.area ?? 0,
     };
   } catch {

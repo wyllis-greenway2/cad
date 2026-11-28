@@ -115,6 +115,8 @@ export function createBodies(scene: THREE.Scene, renderer: THREE.WebGLRenderer, 
   rebuildAll();
   return {
     rebuild: rebuildAll,
+    /** a new surface in the Solid look (the same as a body's own: a drawing that shows a body to be made uses it) */
+    solid: (): THREE.Material => bodyMaterial(envMap),
     /** The bodies the engine made, as the last list given. */
     solids: () => solids,
     /** The bodies the engine made (replaced as a whole). */

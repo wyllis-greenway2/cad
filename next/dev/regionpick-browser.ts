@@ -28,15 +28,17 @@ try {
 
   // a click inside it, with no tool: it is picked and its extrude arrow shows by itself, in its middle
   const [cx, cy] = await px(30, 5);
+  const cam0 = await ev<any>(`() => JSON.stringify(window.__cad.cam)`);
   await page.mouse.click(cx, cy);
   await page.waitForTimeout(900);
   let s = await state();
   ok(s.pull?.mode === "extrude", `a click inside the figure opens its extrude by itself: ${s.pull?.mode}`);
   ok(
-    Math.abs(s.pull.arrow.base[0] - 30) < 0.5 && Math.abs(s.pull.arrow.base[1] - 5) < 0.5,
-    `the arrow stands inside the figure: ${JSON.stringify(s.pull.arrow.base)}`,
+    Math.abs(s.pull.arrow.base[0] - 20) < 0.5 && Math.abs(s.pull.arrow.base[1] - 12.5) < 0.5,
+    `the arrow stands in the middle of the figure, not where it was clicked: ${JSON.stringify(s.pull.arrow.base)}`,
   );
   await shot("r2-picked");
+  ok((await ev<any>(`() => JSON.stringify(window.__cad.cam)`)) === cam0, "and the camera did not move");
 
   // an untouched arrow goes on the next click, which does its own work: a click on nothing
   await page.mouse.click(1000, 600);

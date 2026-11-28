@@ -24,12 +24,12 @@ export interface Overlays {
   fills?: { frame: { origin: V3; u: V3; v: V3 }; loops: [number, number][][] }[];
   /** What a pull would make, shown before the engine has made it: an outline (and holes) pulled `d` along the plane's normal, or a face moved along its normal. */
   ghost?:
-    | { frame: { origin: V3; u: V3; v: V3; n: V3 }; loops: [number, number][][]; d: number }
+    | { frame: { origin: V3; u: V3; v: V3; n: V3 }; loops: [number, number][][]; d: number; adds?: boolean }
     | { faceMove: { positions: Float32Array; n: V3; d: number } }
     | null;
 }
 
-export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMesh[]) {
+export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMesh[], solidLook: () => THREE.Material) {
   const orbs = makeOrbs();
   // the closed parts of a drawing picked or pointed at: lit as a face of a body is (the orb), the picked one's outline bold (the sketch's own stroke): made again when they change
   const regionGroup = new THREE.Group();
@@ -179,6 +179,7 @@ export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMe
       }
     }
   }; // the ghost of a pull: made again only when what it is made of changes
+  const ghostLines: LineMaterial[] = []; // (the outline of a body to be made: its resolution is set each picture)
   let ghost: THREE.Group | null = null,
     lastGhost: unknown = undefined;
   const setGhost = (g: Overlays["ghost"]) => {
@@ -225,18 +226,33 @@ export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMe
     for (const h of g.loops.slice(1)) shape.holes.push(new THREE.Path(h.map((p) => new THREE.Vector2(p[0], p[1]))));
     const geo = new THREE.ExtrudeGeometry(shape, { depth: Math.abs(g.d), bevelEnabled: false, curveSegments: 1 }),
       sf = surfaceOf({ base: "seeThrough", mark: "pick" });
-    const mat = new THREE.MeshBasicMaterial({
-      color: sf.color,
-      transparent: true,
-      opacity: Math.max(sf.opacity, 0.25),
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    });
-    const mesh = new THREE.Mesh(geo, mat),
+    ghostLines.length = 0;
+    let mesh: THREE.Mesh, edges: THREE.Object3D;
+    if (g.adds) {
+      // a body to be made is drawn as the body it will be: solid, lit, with the edges that can be seen (the sketch's thin line, hidden by what is in front)
+      const pairs = new THREE.EdgesGeometry(geo, 30).getAttribute("position").array,
+        pts: V3[] = [];
+      for (let i = 0; i + 2 < pairs.length; i += 3) pts.push([pairs[i]!, pairs[i + 1]!, pairs[i + 2]!]);
+      mesh = new THREE.Mesh(geo, solidLook());
+      edges = strokeOf({ kind: "done", pairs: true, hidden: true, pts }, 1, 1);
+      ghostLines.push((edges as Line2).material as LineMaterial);
+    } else {
+      // a cut is drawn see-through, marked: what is taken away is seen inside the body
+      mesh = new THREE.Mesh(
+        geo,
+        new THREE.MeshBasicMaterial({
+          color: sf.color,
+          transparent: true,
+          opacity: Math.max(sf.opacity, 0.25),
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        }),
+      );
       edges = new THREE.LineSegments(
         new THREE.EdgesGeometry(geo, 30),
         new THREE.LineBasicMaterial({ color: sf.color, transparent: true, opacity: 0.9 }),
       );
+    }
     ghost = new THREE.Group();
     ghost.add(mesh, edges);
     const f = g.frame;
@@ -251,6 +267,7 @@ export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMe
   return {
     update(d: Overlays & { cam: Cam }, w: number, h: number) {
       setGhost(d.ghost);
+      for (const m of ghostLines) m.resolution.set(w, h);
       setMarks(d.marks, w, h);
       setFills(d.fills);
       setRegions(d.regions, w, h);
