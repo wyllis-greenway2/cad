@@ -5,7 +5,8 @@ import { forwardDepth, project, viewHeight, type Cam } from "./camera.ts";
 import type { Ask } from "./engine/protocol.ts";
 import type { Step } from "./engine/steps.ts";
 import type { InfoHandlers } from "./infobardraw.ts";
-import type { Fact, Info } from "./interaction/infobar.ts";
+import type { Bubble } from "./interaction/bubbles.ts";
+import type { Info } from "./interaction/infobar.ts";
 import type { Operation } from "./interaction/operation.ts";
 import { hitHandle, pullDelta, unitOf, type Handle } from "./orb.ts";
 import type { OrbDrawing } from "./orbcontrol.ts";
@@ -171,7 +172,7 @@ export function createOperations(host: OperationHost) {
       const { cam, w, h } = host.view(),
         tip = op.arrow ? handle(op, cam).points[1]! : op.at,
         q = project(cam, tip, w, h);
-      const f: Fact = {
+      const f: Bubble = {
         id: "d",
         kind: "dimension",
         relation: "length",
@@ -192,8 +193,8 @@ export function createOperations(host: OperationHost) {
             .map((o) => ({
               id: `opt:${o.id}`,
               icon: OPTION_ICON[o.id] ?? "pushpull",
-              label: o.label,
-              tone: "free" as const,
+              title: o.label,
+              tone: "offer" as const,
             })),
         },
         at: [Math.max(60, Math.min(w - 60, q.x)), Math.max(70, Math.min(h - 50, q.y))],

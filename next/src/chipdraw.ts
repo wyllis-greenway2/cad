@@ -1,7 +1,8 @@
 // The chips (`dec_three_surfaces`, `dec_marks_on_things`): how one constraint, one number and one offered constraint look and what a click on each says, shared by the info bar and the marks on the sketch. A chip is a round button with an icon (a constraint, or an
 // offer) or a pill with a number and its padlock. The border says the state (grey at rest, green locked or holds, yellow offered, red refused). It draws nothing of its own accord: whoever places it keeps it, and it says what was pressed through `on`.
 import { iconSvg } from "./icons.ts";
-import type { BarItem, Fact } from "./interaction/infobar.ts";
+import type { Bubble } from "./interaction/bubbles.ts";
+import type { BarItem } from "./interaction/infobar.ts";
 
 export interface InfoHandlers {
   suggest(id: string): void;
@@ -16,8 +17,7 @@ export interface InfoHandlers {
 export type Border = string;
 /** an applied constraint is neutral charcoal; only an offer is yellow, and what is selected is blue (`in_1661`); red is a refusal (`inv_constraint_uniformity`) */
 export const APPLIED = "#6b7178";
-export const EDGE = { free: "#d6d7db", holds: APPLIED } as const,
-  TONE = { rest: "#d6d7db", refused: "#e46a6a", applied: APPLIED, offer: "#f2c14e" } as const;
+export const TONE = { rest: "#d6d7db", refused: "#e46a6a", applied: APPLIED, offer: "#f2c14e" } as const;
 /** the colour of a mark's state: locked green, offered yellow, refused red */
 export const STATE = { locked: APPLIED, offer: "#f2c14e", refused: "#e46a6a" } as const;
 
@@ -37,9 +37,9 @@ export function cornerLock(open: boolean, colour: string, onClick?: () => void):
 
 export function createChips(handlers: () => InfoHandlers | null, retake: () => void) {
   let editing = false;
-  const numbers = new Map<string, { fact: Fact; span: HTMLElement }>();
+  const numbers = new Map<string, { fact: Bubble; span: HTMLElement }>();
   /** what a number typed over a fact is, as the solver's value (a diameter typed is half of it; an angle typed inside the corner is the directed angle the solver reads, kept within a half turn either way) */
-  const valueOf = (f: Fact, typed: number): number => {
+  const valueOf = (f: Bubble, typed: number): number => {
     if (!f.input) return typed;
     const v = f.input.mul * typed + f.input.add;
     if (f.unit !== "deg") return v;
@@ -47,7 +47,7 @@ export function createChips(handlers: () => InfoHandlers | null, retake: () => v
     if (r > 180) r -= 360;
     return r;
   };
-  function edit(f: Fact, span: HTMLElement, initial?: string): void {
+  function edit(f: Bubble, span: HTMLElement, initial?: string): void {
     const input = document.createElement("input"),
       start = initial ?? f.text ?? "";
     input.value = start;
@@ -72,19 +72,48 @@ export function createChips(handlers: () => InfoHandlers | null, retake: () => v
     input.addEventListener("blur", () => done(false));
     input.addEventListener("pointerdown", (e) => e.stopPropagation());
   }
-  /** a constraint: a round button (a click takes it away); `border`: its state's colour */
-  const relation = (f: Fact, border: Border = TONE[f.tone]): HTMLElement => {
-    const d = document.createElement("div");
-    d.dataset.fact = f.id;
-    d.title = `${f.title} (click to take it away)`;
-    d.innerHTML = iconSvg(f.icon);
-    d.style.cssText = `position:relative;box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#fff;border:1.5px solid ${border};cursor:pointer`;
-    d.append(cornerLock(false, border));
-    d.addEventListener("click", () => handlers()?.fact(f.id));
+  /** the one round button (`in_1676`): a constraint (a click takes it away), an offered one (a click applies it) or a body's option; `attr`: the data attribute that names it; `lock`: the corner lock, closed or open (none: no lock); `hover`: it lights when pointed at */
+  const round = (o: {
+    id: string;
+    icon: string;
+    title: string;
+    border: Border;
+    attr: "fact" | "bar";
+    lock?: "open" | "closed";
+    hover?: boolean;
+    onClick: () => void;
+  }): HTMLElement => {
+    const d = document.createElement("div"),
+      svg = iconSvg(o.icon);
+    d.dataset[o.attr] = o.id;
+    d.title = o.title;
+    d.innerHTML = svg || `<span style="font-weight:600">${o.title.slice(0, 2)}</span>`;
+    d.style.cssText = `position:relative;box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#fff;border:1.5px solid ${o.border};cursor:pointer`;
+    if (o.lock) d.append(cornerLock(o.lock === "open", o.border));
+    if (o.hover) {
+      d.addEventListener("pointerenter", () => {
+        d.style.background = "#fff8e1";
+      });
+      d.addEventListener("pointerleave", () => {
+        d.style.background = "#fff";
+      });
+    }
+    d.addEventListener("click", o.onClick);
     return d;
   };
+  /** a constraint, as the bar shows it: a round button, a click takes it away */
+  const relation = (f: Bubble, border: Border = TONE[f.tone]): HTMLElement =>
+    round({
+      id: f.id,
+      icon: f.icon,
+      title: `${f.title} (click to take it away)`,
+      border,
+      attr: "fact",
+      lock: "closed",
+      onClick: () => handlers()?.fact(f.id),
+    });
   /** a number: a pill with its value and its padlock */
-  const number = (f: Fact, border: Border = TONE[f.tone]): HTMLElement => {
+  const number = (f: Bubble, border: Border = TONE[f.tone]): HTMLElement => {
     const d = document.createElement("div");
     d.dataset.fact = f.id;
     d.title = f.title;
@@ -123,29 +152,23 @@ export function createChips(handlers: () => InfoHandlers | null, retake: () => v
     }
     return d;
   };
-  /** an offered constraint: a round button (a click applies it) */
+  /** an offered constraint or option: a round button, a click applies it */
   const suggestion = (
     b: BarItem,
-    border: Border = EDGE[b.tone],
+    border: Border = TONE[b.tone],
     onClick: () => void = () => handlers()?.suggest(b.id),
     lockOpen = false,
-  ): HTMLElement => {
-    const d = document.createElement("div"),
-      svg = iconSvg(b.icon);
-    d.title = b.label;
-    d.dataset.bar = b.id;
-    d.innerHTML = svg || `<span style="font-weight:600">${b.label.slice(0, 2)}</span>`;
-    d.style.cssText = `position:relative;box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#fff;border:1.5px solid ${border};cursor:pointer`;
-    if (lockOpen) d.append(cornerLock(true, border));
-    d.addEventListener("pointerenter", () => {
-      d.style.background = "#fff8e1";
+  ): HTMLElement =>
+    round({
+      id: b.id,
+      icon: b.icon,
+      title: b.title,
+      border,
+      attr: "bar",
+      ...(lockOpen ? { lock: "open" as const } : {}),
+      hover: true,
+      onClick,
     });
-    d.addEventListener("pointerleave", () => {
-      d.style.background = "#fff";
-    });
-    d.addEventListener("click", onClick);
-    return d;
-  };
   return {
     relation,
     number,

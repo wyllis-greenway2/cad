@@ -80,7 +80,7 @@ export function createMarkDraw(host: HTMLElement) {
     const chip =
       m.state === "offer"
         ? chips.suggestion(
-            { id: m.id, icon: m.icon, label: m.title, tone: "free" },
+            { id: m.id, icon: m.icon, title: m.title, tone: "offer" },
             colour,
             () => on?.offer(m.id, m.over ?? []),
             true,

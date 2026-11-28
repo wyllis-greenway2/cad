@@ -6740,3 +6740,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1675 — 2026-11-28 — approval
 > yes start with simplifying 3 and 1
+
+## in_1676 — 2026-11-28 — directive
+> do the bubble types and chip builders next

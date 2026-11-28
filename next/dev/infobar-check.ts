@@ -29,7 +29,7 @@ const diag = barFor(viewSystem(kd.params, kd.sol), ["L5"]),
 void sd;
 check(
   "a free slanted line: level and upright are offered as new, with nothing else",
-  diag.some((b) => b.id === "rel:horizontal" && b.tone === "free") &&
+  diag.some((b) => b.id === "rel:horizontal" && b.tone === "offer") &&
     diag.some((b) => b.id === "rel:vertical") &&
     diag.every((b) => b.id.startsWith("rel:")),
   dg,
@@ -46,12 +46,12 @@ check(
 );
 check("two points: no distance on the bar (it is on the bubble)", !pts.some((b) => /istance/.test(b.id)), ids(pts));
 check(
-  "everything on the bar is new or true as drawn: the tones are free or holds, never refused",
-  [...one, ...two, ...pts].every((b) => b.tone === "free" || b.tone === "holds"),
+  "everything on the bar is new or true as drawn: the tones are offer or applied, never refused",
+  [...one, ...two, ...pts].every((b) => b.tone === "offer" || b.tone === "applied"),
 );
 check(
   "every button has an icon key and words",
-  [...one, ...two, ...pts].every((b) => b.icon && b.label),
+  [...one, ...two, ...pts].every((b) => b.icon && b.title),
 );
 // near suggestions and the whole info (`dec_three_surfaces`): relations with one other part that hold now and would be new; facts on the left, suggestions on the right
 import { addCircle } from "../src/interaction/drawing.ts";
@@ -97,7 +97,7 @@ import { marksFor } from "../src/interaction/marks.ts";
   check(
     "what is offered for a selection is new or true as drawn (never refused or already said)",
     [...barFor(sys, ["L1"]), ...barFor(sys, ["L1", "K1"]), ...nearFor(sys, ["L1"])].every(
-      (b) => b.tone === "free" || b.tone === "holds",
+      (b) => b.tone === "offer" || b.tone === "applied",
     ),
   );
 }

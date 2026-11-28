@@ -10,21 +10,21 @@ export function barForBody(p: Picked): BarItem[] {
   if (!p.faces && !p.edges) return [];
   return p.faces
     ? [
-        { id: "body:sketch", icon: "sketch", label: "Sketch on this face", tone: "free" },
-        { id: "body:pull", icon: "pushpull", label: "Push / pull this face", tone: "free" },
+        { id: "body:sketch", icon: "sketch", title: "Sketch on this face", tone: "offer" },
+        { id: "body:pull", icon: "pushpull", title: "Push / pull this face", tone: "offer" },
       ]
     : [
         {
           id: "body:round",
           icon: "round",
-          label: p.edges > 1 ? `Round these ${p.edges} edges` : "Round this edge",
-          tone: "free",
+          title: p.edges > 1 ? `Round these ${p.edges} edges` : "Round this edge",
+          tone: "offer",
         },
         {
           id: "body:chamfer",
           icon: "chamfer",
-          label: p.edges > 1 ? `Chamfer these ${p.edges} edges` : "Chamfer this edge",
-          tone: "free",
+          title: p.edges > 1 ? `Chamfer these ${p.edges} edges` : "Chamfer this edge",
+          tone: "offer",
         },
       ];
 }

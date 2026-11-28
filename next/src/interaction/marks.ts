@@ -12,16 +12,16 @@ import {
   dimLine,
   scopeOf,
   selectionAnchor,
+  type Bubble,
   type Corner,
   type DimLine,
   type Flash,
 } from "./bubbles.ts";
-import type { Fact } from "./infobar.ts";
 import { barFor, nearConstraint, nearFor, type BarItem } from "./infobar.ts";
 
 export type MarkState = "locked" | "offer" | "refused";
 /** a mark is a fact (what a bubble says) with its state, how much of it is left while it fades, and (an offer) the parts it is offered for: a click on it selects them and applies it */
-export interface Mark extends Fact {
+export interface Mark extends Bubble {
   /** an offer that would move something: each point that would go, from where it is to where it would be (the sketch's axes); the mark then stands in the middle of the longest */
   moves?: Arrow[];
   /** a measured number: the dimension line it is drawn on when it is pointed at, and the bubble stands on its middle (`in_1650`) */
@@ -66,7 +66,7 @@ function offersOfUncached(S: System, selection: string[], reach?: { pointMm: num
     pb = line && S.points.find((p) => p.id === line.b),
     nearer = pa && pb ? (Math.abs(pb.y - pa.y) <= Math.abs(pb.x - pa.x) ? "rel:horizontal" : "rel:vertical") : null;
   const own = barFor(S, selection)
-    .filter((b) => b.id !== "rel:fixed" && (selection.length >= 2 || b.tone === "holds" || b.id === nearer))
+    .filter((b) => b.id !== "rel:fixed" && (selection.length >= 2 || b.tone === "applied" || b.id === nearer))
     .map((item) => ({ item, at: where }));
   const near = nearFor(S, selection, 12, reach).flatMap((item) => {
     const nc = nearConstraint(item.id);
@@ -236,13 +236,13 @@ export function marksFor(
       out.push({
         id: c.item.id,
         kind: "constraint",
-        relation: rel as Fact["relation"],
+        relation: rel as Bubble["relation"],
         icon: c.item.icon,
         at: cn ? cn.at : c.standing, // (the bubble stands round its spot, in its corner for a square; what it would move is drawn when it is pointed at, `in_1655`)
         ...(cn ? { corner: cn.corner, onSpot: true } : {}),
         ...(al ? { align: al } : {}),
         tone: "offer",
-        title: c.item.label,
+        title: c.item.title,
         parts: c.parts,
         state: "offer",
         alpha: fresh ? alphaAt(fresh.until, ctx.now) : 1,

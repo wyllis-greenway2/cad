@@ -7,21 +7,13 @@ import { RANGEABLE, RELATIONS } from "../engine/solver.ts";
 import { iconOf, type Bubble } from "./bubbles.ts";
 import { offersFor } from "./suggest.ts";
 
-/** `free`: would be added; `holds`: already true as drawn (adding it makes it a rule) */
-export type BarTone = "free" | "holds";
-export interface BarItem {
-  id: string;
-  icon: string;
-  label: string;
-  tone: BarTone;
-}
-/** the buttons of the bar, in order (none: no bar) */
-export type Bar = BarItem[];
+/** what the bar or a mark offers: a bubble's id, icon, words and tone (`offer`: would be added; `applied`: already true as drawn, adding it makes it a rule) (`in_1676`) */
+export type BarItem = Pick<Bubble, "id" | "icon" | "title" | "tone">;
 
 /** what is true already first, then the rest */
 const ORDER: Record<string, number> = { holds: 0, free: 1 };
 /** The relations offered for a selection: those that fit exactly what is selected, and that the solver would add as something new (`offerable`: not already said, not refused; a number is on its bubble, not here). */
-export function barFor(S: System, selection: string[]): Bar {
+export function barFor(S: System, selection: string[]): BarItem[] {
   if (!selection.length) return [];
   return offersFor(S, selection)
     .offers.filter((o) => offerable(o.state) && !o.dimensional)
@@ -29,16 +21,14 @@ export function barFor(S: System, selection: string[]): Bar {
     .map((o) => ({
       id: `rel:${o.kind}`,
       icon: iconOf(o.kind as Relation, o.parts),
-      label: o.label,
-      tone: o.state as BarTone,
+      title: o.label,
+      tone: o.state === "holds" ? "applied" : "offer",
     }));
 }
 
-/** a fact: a constraint that touches the subject, or a number (live with an open padlock, locked with a closed one) */
-export type Fact = Bubble;
 /** what the info bar says of its subject */
 export interface Info {
-  facts: Fact[];
+  /** a constraint that touches the subject, or a number (live with an open padlock, locked with a closed one) */ facts: Bubble[];
   suggestions: BarItem[];
 }
 export const NEAR_MAX = 2; // (the old app offered up to two "near" suggestions)
@@ -80,12 +70,12 @@ export function nearFor(
         item: {
           id: `near:${r.cand.relation}:${parts.join(",")}${r.cand.variant?.internal ? ":in" : ""}`,
           icon: iconOf(r.cand.relation, r.cand.parts),
-          label: !other
+          title: !other
             ? RELATIONS[r.cand.relation].label
             : r.cand.relation === "on"
               ? `on line ${other}`
               : `${RELATIONS[r.cand.relation].label} with ${other}`,
-          tone: (r.moved < 1e-7 ? "holds" : "free") as BarTone,
+          tone: (r.moved < 1e-7 ? "applied" : "offer") as BarItem["tone"],
         },
       };
     });
