@@ -220,6 +220,88 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     return [{ kind: "dimArc", pts: z.pts.map((q) => to3(f, q)) }];
   };
   const M = createMarks(K, { dragged: D.dragged, fieldMarks });
+  type Here = NonNullable<ReturnType<typeof here>>;
+  /** a click with no tool: the part under it is picked; on none, the sketch's own selection is put away (only that: a click that hits no part goes on to the bodies). Returns whether it was used. */
+  const selectClick = (c: Here, shift: boolean): boolean => {
+    const h = hitAt(c.p, solOf(c.p), c.q, c.tol);
+    if (!h) {
+      const had = selected(c.key).length > 0;
+      if (had) sel.clear();
+      return had;
+    }
+    pick(c.key, h.id, shift);
+    return true;
+  };
+  /** a click with the trim tool */
+  const trimClick = (c: Here): void => {
+    const t = trimHere(c);
+    if (!t) say("Click a line, an arc or a circle to trim it");
+    else if (t.err !== undefined) fail(t.err, []);
+    else {
+      set(c.key, t.out.params, "Trim");
+      st.flash = {};
+      say(
+        t.out.dropped.length
+          ? `Trimmed. Let go: ${t.out.dropped.map((d) => `${d.kind} (${d.why})`).join("; ")}`
+          : "Trimmed",
+      );
+    }
+  };
+  /** the numbers typed for a figure, locked as dimensions of what was made (`names` says which made part each `~` stands for) */
+  const lockTyped = (made: SketchParams, sol: Sol, pl: PlaceResult, at: P2, start: P2 | null): SketchParams => {
+    const names = madeNames(made, sol, at, start);
+    let withLocks = made;
+    for (const m of pl.measures) {
+      const parts = m.parts.map((x) => (x.startsWith("~") ? names[x as keyof typeof names] : x));
+      if (parts.every((x) => x))
+        withLocks = {
+          ...withLocks,
+          constraints: [
+            ...(withLocks.constraints ?? []),
+            {
+              id: nextId(withLocks, "c"),
+              kind: m.kind,
+              parts: parts as string[],
+              value: Math.round(m.value * 1e6) / 1e6,
+            },
+          ],
+        };
+    }
+    const k = keep(withLocks);
+    if (k.ok) return k.params;
+    say(`The numbers typed could not be locked: ${k.why}`);
+    return made;
+  };
+  /** a click with a drawing tool: the next place of the figure, and the figure itself when it is complete (with the numbers typed for it, one change) */
+  const drawClick = (c: Here): void => {
+    const t = tool!,
+      s = solOf(c.p),
+      pl = placed(c, s),
+      done = toolClick(t, c.p, s, pl.ref);
+    if (done.made && !done.made.params) {
+      say("Nothing to make there: the figure would have no size"); // (the figure stays as it was, its first click kept)
+      return;
+    }
+    const start = t.pts[0] ? posOf(s, t.pts[0]) : null;
+    tool = done.tool;
+    if (!done.made?.params) return;
+    const k = keep(done.made.params);
+    if (!k.ok) return fail(k.why, k.victims);
+    set(
+      c.key,
+      pl.measures.length ? lockTyped(k.params, k.sol, pl, posOf(s, pl.ref), start) : k.params,
+      done.made.label,
+    );
+    // what was just made is offered what is true of it for a while (its marks), selected or not (a rectangle's four sides too)
+    const ids = (p: SketchParams) => [...(p.lines ?? []), ...(p.circles ?? []), ...(p.arcs ?? [])].map((x) => x.id),
+      had = new Set(ids(c.p));
+    st.recent = {
+      key: c.key,
+      ids: ids(defs.get(c.key)!).filter((id) => !had.has(id)),
+      until: performance.now() + settings.marks.stayMs,
+    };
+    sel.clear();
+  };
 
   const api = {
     active: () => tool !== null,
@@ -245,89 +327,14 @@ export function createSketch(host: SketchHost, on?: (label: string, merge?: stri
     /** A click. With a tool on it is the tool's (a double click ends a line's chain); with none, it selects (Shift adds). Returns whether it was used. */
     click(x: number, y: number, count: number, shift = false): boolean {
       const c = here(x, y);
-      if (!tool) {
-        if (!c) return false;
-        const h = hitAt(c.p, solOf(c.p), c.q, c.tol);
-        if (!h) {
-          const had = selected(c.key).length > 0;
-          if (had) sel.clear();
-          return had;
-        } // (only a sketch selection is the sketch's to put away: a click that hits no part goes on to the bodies)
-        pick(c.key, h.id, shift);
-        return true;
-      }
+      if (!tool) return c ? selectClick(c, shift) : false;
       if (count >= 2 && tool.kind === "line") {
         tool = cancelFigure(tool);
         return true;
       }
       if (!c) return true;
-      if (tool.kind === "trim") {
-        const t = trimHere(c);
-        if (!t) say("Click a line, an arc or a circle to trim it");
-        else if (t.err !== undefined) fail(t.err, []);
-        else {
-          set(c.key, t.out.params, "Trim");
-          st.flash = {};
-          say(
-            t.out.dropped.length
-              ? `Trimmed. Let go: ${t.out.dropped.map((d) => `${d.kind} (${d.why})`).join("; ")}`
-              : "Trimmed",
-          );
-        }
-        return true;
-      }
-      const s = solOf(c.p),
-        pl = placed(c, s),
-        done = toolClick(tool, c.p, s, pl.ref),
-        start = tool.pts[0] ? posOf(s, tool.pts[0]) : null;
-      if (done.made && !done.made.params) {
-        say("Nothing to make there: the figure would have no size"); // (the figure stays as it was, its first click kept)
-        return true;
-      }
-      tool = done.tool;
-      if (done.made?.params) {
-        // the figure, with the numbers typed for it locked as dimensions, is one change
-        const before = c.p,
-          made = done.made,
-          k = keep(made.params!),
-          at = posOf(s, pl.ref);
-        if (!k.ok) fail(k.why, k.victims);
-        else {
-          let final = k.params;
-          if (pl.measures.length) {
-            const names = madeNames(final, k.sol, at, start);
-            let withLocks = final;
-            for (const m of pl.measures) {
-              const parts = m.parts.map((x) => (x.startsWith("~") ? names[x as keyof typeof names] : x));
-              if (parts.every((x) => x))
-                withLocks = {
-                  ...withLocks,
-                  constraints: [
-                    ...(withLocks.constraints ?? []),
-                    {
-                      id: nextId(withLocks, "c"),
-                      kind: m.kind,
-                      parts: parts as string[],
-                      value: Math.round(m.value * 1e6) / 1e6,
-                    },
-                  ],
-                };
-            }
-            const k2 = keep(withLocks);
-            if (k2.ok) final = k2.params;
-            else say(`The numbers typed could not be locked: ${k2.why}`);
-          }
-          set(c.key, final, made.label);
-          // what was just made is offered what is true of it for a while (its marks), selected or not (a rectangle's four sides too)
-          const p2 = defs.get(c.key)!,
-            had = new Set(
-              [...(before.lines ?? []), ...(before.circles ?? []), ...(before.arcs ?? [])].map((x) => x.id),
-            ),
-            made1 = [...(p2.lines ?? []), ...(p2.circles ?? []), ...(p2.arcs ?? [])].filter((x) => !had.has(x.id));
-          st.recent = { key: c.key, ids: made1.map((x) => x.id), until: performance.now() + settings.marks.stayMs };
-          sel.clear();
-        }
-      }
+      if (tool.kind === "trim") trimClick(c);
+      else drawClick(c);
       return true;
     },
     /** Keys of the sketch: Delete takes the selected parts away (no other key is bound for now, `in_1574`). Returns whether the key was used. */

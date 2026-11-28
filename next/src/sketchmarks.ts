@@ -177,6 +177,64 @@ export function createMarks(
     return out;
   };
 
+  type Cur = NonNullable<ReturnType<typeof current>>;
+  /** where a mark stands on the page: on its spot in the plane, or, when its arrow is shorter than the mark and would be hidden under it, to the side of the arrow's middle, clear of it */
+  const placeMark = (c: Cur, cam: ReturnType<typeof host.view>, m: Mark): PlacedMark => {
+    const q = project(cam.cam, to3(c.f, m.at), cam.w, cam.h),
+      main = (m.moves ?? []).reduce<{ from: [number, number]; to: [number, number] } | null>(
+        (a, v) =>
+          !a ||
+          Math.hypot(v.to[0] - v.from[0], v.to[1] - v.from[1]) > Math.hypot(a.to[0] - a.from[0], a.to[1] - a.from[1])
+            ? v
+            : a,
+        null,
+      );
+    if (main) {
+      const a = project(cam.cam, to3(c.f, main.from), cam.w, cam.h),
+        b = project(cam.cam, to3(c.f, main.to), cam.w, cam.h),
+        len = Math.hypot(b.x - a.x, b.y - a.y),
+        clear = settings.marks.arrowClearPx;
+      if (len < clear) {
+        const nx = len > 1e-6 ? -(b.y - a.y) / len : 0,
+          ny = len > 1e-6 ? (b.x - a.x) / len : -1,
+          side = ny > 0 ? -1 : 1; // (the side that is up on the screen)
+        return {
+          mark: m,
+          x: q.x + side * nx * settings.marks.arrowSidePx,
+          y: q.y + side * ny * settings.marks.arrowSidePx,
+        };
+      }
+    }
+    return { mark: m, x: q.x, y: q.y };
+  };
+  /** what the pointed-at mark draws, all as shapes in the plane (`in_1675`): the arrow from its bubble to its spot (not a number or an angle: they stand on their own line or corner), a number's dimension line and the thin lines to it, an alignment's line, an angle's corner, and (an offer) the arrows of what applying it would move: strong for the parts it names, pale for what moves only because they do (`in_1667`); when none is named, the longest is the main */
+  const hoverShapes = (c: Cur, S: System, hm: Mark): Shape[] => {
+    const shapes: Shape[] = [];
+    if (!hm.onSpot && st.hoverPx) {
+      const r = host.ray(st.hoverPx.x, st.hoverPx.y),
+        q = onPlane(c.f, r.o, r.d);
+      if (q) shapes.push({ t: "arrow", a: to2(c.f, q), b: hm.at, tail: 16, least: 24 });
+    }
+    if (hm.dim) {
+      shapes.push({ t: "arrow", a: hm.dim.a, b: hm.dim.b, both: true, plain: true });
+      for (const [a, b] of hm.dim.ext) shapes.push({ t: "thin", a, b });
+    }
+    if (hm.align) shapes.push({ t: "line", a: hm.align.a, b: hm.align.b });
+    if (hm.corner) shapes.push({ t: "curve", pts: cornerPts(hm.corner) });
+    if (hm.state === "offer" && hm.moves?.length) {
+      const named = new Set(scopeOf(S, hm.parts)),
+        len = (m: { from: [number, number]; to: [number, number] }) =>
+          Math.hypot(m.to[0] - m.from[0], m.to[1] - m.from[1]),
+        some = hm.moves.some((m) => m.of && named.has(m.of)),
+        top = hm.moves.reduce((a, m) => (len(m) > len(a) ? m : a), hm.moves[0]!);
+      for (const m of hm.moves) {
+        const main = some ? !!m.of && named.has(m.of) : m === top;
+        shapes.push({ t: "arrow", a: m.from, b: m.to, ...(main ? {} : { pale: true }) });
+      }
+    }
+    return shapes;
+  };
+
   return {
     handlers,
     /** a press by its id (`rel:<relation>`): a relation is put on the selection */
@@ -192,32 +250,7 @@ export function createMarks(
         return [];
       }
       const cam = host.view(),
-        at3 = (m: Mark): PlacedMark => {
-          const q = project(cam.cam, to3(c.f, m.at), cam.w, cam.h),
-            // an arrow shorter than the mark would be hidden under it: the mark then stands to the side of its middle, clear of the arrow
-            main = (m.moves ?? []).reduce<{ from: [number, number]; to: [number, number] } | null>(
-              (a, v) =>
-                !a ||
-                Math.hypot(v.to[0] - v.from[0], v.to[1] - v.from[1]) >
-                  Math.hypot(a.to[0] - a.from[0], a.to[1] - a.from[1])
-                  ? v
-                  : a,
-              null,
-            );
-          if (main) {
-            const a = project(cam.cam, to3(c.f, main.from), cam.w, cam.h),
-              b = project(cam.cam, to3(c.f, main.to), cam.w, cam.h),
-              len = Math.hypot(b.x - a.x, b.y - a.y),
-              clear = 34;
-            if (len < clear) {
-              const nx = len > 1e-6 ? -(b.y - a.y) / len : 0,
-                ny = len > 1e-6 ? (b.x - a.x) / len : -1,
-                side = ny > 0 ? -1 : 1; // (the side that is up on the screen)
-              return { mark: m, x: q.x + side * nx * 26, y: q.y + side * ny * 26 };
-            }
-          }
-          return { mark: m, x: q.x, y: q.y };
-        };
+        at3 = (m: Mark): PlacedMark => placeMark(c, cam, m);
       const under = ctx.fieldMarks(c, at3); // (a figure under way: its numbers stand on it)
       if (under) {
         ownId = null;
@@ -262,32 +295,7 @@ export function createMarks(
       // only the mark that is pointed at draws anything: the parts it is about lit, and (an offer) what applying it would move
       const hm = st.hover && list.find((m) => m.id === st.hover!.id && (m.over?.join(",") ?? "") === st.hover!.over);
       // what the pointed-at mark draws, all as shapes in the plane (`in_1675`): the arrow from its bubble to its spot (not a number or an angle: they stand on their own line or corner), a number's dimension line and the thin lines to it, an alignment's line, an angle's corner, and (an offer) the arrows of what applying it would move: strong for the parts it names, pale for what moves only because they do (`in_1667`); when none is named, the longest is the main
-      if (hm) {
-        const shapes: Shape[] = [];
-        if (!hm.onSpot && st.hoverPx) {
-          const r = host.ray(st.hoverPx.x, st.hoverPx.y),
-            q = onPlane(c.f, r.o, r.d);
-          if (q) shapes.push({ t: "arrow", a: to2(c.f, q), b: hm.at, tail: 16, least: 24 });
-        }
-        if (hm.dim) {
-          shapes.push({ t: "arrow", a: hm.dim.a, b: hm.dim.b, both: true, plain: true });
-          for (const [a, b] of hm.dim.ext) shapes.push({ t: "thin", a, b });
-        }
-        if (hm.align) shapes.push({ t: "line", a: hm.align.a, b: hm.align.b });
-        if (hm.corner) shapes.push({ t: "curve", pts: cornerPts(hm.corner) });
-        if (hm.state === "offer" && hm.moves?.length) {
-          const named = new Set(scopeOf(S, hm.parts)),
-            len = (m: { from: [number, number]; to: [number, number] }) =>
-              Math.hypot(m.to[0] - m.from[0], m.to[1] - m.from[1]),
-            some = hm.moves.some((m) => m.of && named.has(m.of)),
-            top = hm.moves.reduce((a, m) => (len(m) > len(a) ? m : a), hm.moves[0]!);
-          for (const m of hm.moves) {
-            const main = some ? !!m.of && named.has(m.of) : m === top;
-            shapes.push({ t: "arrow", a: m.from, b: m.to, ...(main ? {} : { pale: true }) });
-          }
-        }
-        st.shown = { key: c.key, parts: hm.parts, offer: hm.state === "offer", shapes };
-      }
+      if (hm) st.shown = { key: c.key, parts: hm.parts, offer: hm.state === "offer", shapes: hoverShapes(c, S, hm) };
       return list.map(at3);
     },
     /** Each picture: a refusal's red goes after its time. */

@@ -6787,3 +6787,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1690 — 2026-11-28 — directive
 > do the untrue comments, dead branches, and duplicated helpers
+
+## in_1691 — 2026-11-28 — directive
+> what are do the long click() and marks() functions next ?

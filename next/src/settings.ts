@@ -99,7 +99,7 @@ export const settings = {
   planes: { snapAxisRad: 0.14, ringButtonPx: 36 }, // (a sketch plane made facing the camera snaps to a world axis within this)
   // the mover orb (`app/src/shared/settings.ts` gizmo): its size as a share of the view distance, how near the pointer must be to take a handle, and how its lines look
   // the marks of a sketch (`dec_marks_on_things`): how long a constraint offered for a part just made or moved stays when nothing is selected, how long it fades (ms), how long a constraint doing work in a drag takes to fade in (ms), how far a press on a mark must move before it is a drag (px), how near on the page marks stand to be one pill, and the gap between a mark and the part it stands on (it stands on it: its lower edge touches the part, so the part can still be pressed)
-  marks: { stayMs: 4000, fadeMs: 700, fadeInMs: 180, dragPx: 4 },
+  marks: { stayMs: 4000, fadeMs: 700, fadeInMs: 180, dragPx: 4, arrowClearPx: 34, arrowSidePx: 26 }, // (a bubble stands clear of an arrow shorter than `arrowClearPx`, `arrowSidePx` to the side of its middle)
   // a pull arrow is dragged by the pointer's movement along the arrow as it looks on the screen; an arrow pointing nearly at the camera looks short, so a movement is counted as no more than this share of the screen's mm to the pixel (else a small movement is a huge pull)
   pull: { minGain: 0.5 },
   mover: {
